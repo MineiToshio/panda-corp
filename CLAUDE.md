@@ -24,6 +24,10 @@ Este repo es **la fábrica**: el know-how de la empresa. Aquí NUNCA vive códig
 
 Las fases de producto (`/pandacorp:spec`, `:design`, `:blueprint`, `:work-orders`, `:implement`, `:release`, `:new-version`) se ejecutan **dentro de la carpeta del proyecto**, nunca aquí.
 
+## Mantenimiento del plugin
+
+El plugin está instalado desde el marketplace local de este repo (`claude plugin install pandacorp@panda-corp`, scope usuario, versión = SHA del commit). **Tras editar cualquier cosa en `plugin/`**: commitear y correr `claude plugin update pandacorp@panda-corp` (los cambios aplican al reiniciar sesión). Validar con `claude plugin validate plugin/`.
+
 ## Reglas de esta carpeta
 
 1. Idioma: documentos en español; código, commits y nombres de archivos técnicos en inglés.
