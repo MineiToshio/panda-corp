@@ -1,0 +1,14 @@
+{
+  "name": "panda-corp",
+  "owner": { "name": "Pandacorp" },
+  "metadata": {
+    "description": "Marketplace interno de Pandacorp"
+  },
+  "plugins": [
+    {
+      "name": "pandacorp",
+      "source": "./plugin",
+      "description": "Fábrica de software 100% IA: discovery, spec, diseño, blueprint, work orders, implementación y release"
+    }
+  ]
+}

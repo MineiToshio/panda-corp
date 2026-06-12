@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+.venv/
+__pycache__/
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# Build outputs
+.next/
+dist/
+build/
+*.egg-info/
+
+# Test & tooling caches
+coverage/
+.pytest_cache/
+.ruff_cache/
+playwright-report/
+test-results/
+
+# OS / editor
+.DS_Store

@@ -1,0 +1,64 @@
+# Registro de decisiones de Pandacorp
+# Decisiones recurrentes con default pre-aprobado. Si una decisión no está aquí:
+# escalar a Sergio UNA vez y agregar la regla nueva con su respuesta.
+
+decisiones:
+  - id: DR-001
+    patron: "agregar dependencia npm/pip a un proyecto"
+    default: "auto-aprobar si: sin CVEs conocidos, mantenida en los últimos 12 meses, licencia permisiva (MIT/Apache/BSD), y existe en el registry oficial (cuidado con paquetes alucinados)"
+    requiere_humano: false
+
+  - id: DR-002
+    patron: "elección de stack para un proyecto nuevo"
+    default: "elegir entre los golden paths A/B/C/D según el blueprint; combinables. Salirse de los golden paths → escalar"
+    requiere_humano: false
+
+  - id: DR-003
+    patron: "deploy a staging / entorno de pruebas"
+    default: "auto-aprobar si CI verde"
+    requiere_humano: false
+
+  - id: DR-004
+    patron: "deploy a PRODUCCIÓN"
+    default: "BLOQUEAR — requiere aprobación explícita de Sergio"
+    requiere_humano: true
+
+  - id: DR-005
+    patron: "gastar dinero (compras, planes pagos, dominios, APIs de pago)"
+    default: "BLOQUEAR — requiere aprobación explícita de Sergio con monto"
+    requiere_humano: true
+
+  - id: DR-006
+    patron: "migración de esquema de BD"
+    default: "auto-aprobar en dev/staging si tiene bloque down y pasa en BD de prueba; en producción → escalar"
+    requiere_humano: false
+
+  - id: DR-007
+    patron: "borrar datos, repos, ramas remotas o recursos cloud"
+    default: "BLOQUEAR — requiere aprobación explícita de Sergio"
+    requiere_humano: true
+
+  - id: DR-008
+    patron: "comunicaciones externas (emails a usuarios, webhooks públicos, publicar en stores/marketplaces)"
+    default: "BLOQUEAR — requiere aprobación explícita de Sergio"
+    requiere_humano: true
+
+  - id: DR-009
+    patron: "idioma de artefactos"
+    default: "documentos en español; código, commits e identificadores en inglés"
+    requiere_humano: false
+
+  - id: DR-010
+    patron: "crear repositorio GitHub para un proyecto"
+    default: "auto-aprobar como repo PRIVADO en la cuenta de Sergio; público → escalar"
+    requiere_humano: false
+
+  - id: DR-011
+    patron: "descartar una idea de la base (score < 30 tras documentar)"
+    default: "auto-aprobar mover a estado 'descartada' dejando el racional en la ficha; nunca borrar el archivo"
+    requiere_humano: false
+
+  - id: DR-012
+    patron: "scope de una versión (qué FRDs entran en v1)"
+    default: "el corte mínimo que valida la hipótesis de valor; FRDs 'nice to have' van al backlog de la siguiente versión"
+    requiere_humano: false

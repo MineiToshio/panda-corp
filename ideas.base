@@ -1,0 +1,34 @@
+filters:
+  and:
+    - 'estado != null'
+    - 'file.inFolder("fabrica/ideas")'
+    - 'file.name != "_plantilla-ficha"'
+
+properties:
+  estado:
+    displayName: "Estado"
+  tipo:
+    displayName: "Tipo"
+  score:
+    displayName: "Score"
+  dificultad:
+    displayName: "Dificultad"
+
+views:
+  - type: kanban
+    name: "Pipeline de ideas"
+    groupBy:
+      property: estado
+      direction: ASC
+    order:
+      - score
+      - file.name
+    limit: 500
+
+  - type: table
+    name: "Todas las ideas"
+    order:
+      - score
+      - estado
+      - file.name
+    limit: 500

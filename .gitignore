@@ -1,0 +1,12 @@
+# Obsidian workspace noise
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/plugins/*/data.json
+.obsidian/cache
+.trash/
+
+# State caches
+.pandacorp-cache/
+
+# OS
+.DS_Store
