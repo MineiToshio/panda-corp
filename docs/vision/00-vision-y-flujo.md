@@ -41,7 +41,9 @@ Regla de oro: **cada dato vive en un solo lugar; el otro lado guarda solo un pun
 
 **Alcance del discovery ✅ DECIDIDO**: explora todos los perfiles (micro-SaaS global, mercado hispano, pago único/extensiones…); el scoring decide. Sin restricción inicial.
 
-## La base de ideas ✅ DECIDIDO: markdown + Obsidian
+## La base de ideas ✅ DECIDIDO: markdown (visor = el cockpit)
+
+> Aclaración (2026-06-13): la base de ideas son **archivos markdown** (fuente de verdad, en git, leídos/escritos por los agentes). El **visor e interacción es el cockpit**, no Obsidian. Obsidian se descartó por redundante (era solo un visor provisional). Mover una tarjeta para cambiar el estado se hace en el cockpit (escribe el frontmatter del .md directamente, sin llamar a Claude).
 
 - Cada idea/dolor es una ficha `.md` en `fabrica/ideas/` con frontmatter:
   ```yaml
@@ -54,7 +56,7 @@ Regla de oro: **cada dato vive en un solo lugar; el otro lado guarda solo un pun
   evidencia: [links]
   ---
   ```
-- **Vista kanban**: panda-corp se abre como vault de Obsidian; las Bases de Obsidian (o el plugin Kanban) dan la vista tipo Trello sobre el frontmatter. Mover una tarjeta = cambiar `estado:` en el archivo.
+- **Vista kanban**: el cockpit muestra las fichas como tablero tipo Trello agrupado por `estado`; mover una tarjeta reescribe `estado:` en el .md. (Obsidian queda como opción personal de Sergio si algún día la quiere, pero no es parte del sistema.)
 - **Trigger**: un job (diario al inicio; luego watcher/routine) detecta cambios de `estado:` y dispara la fase correspondiente — ej. `seleccionada` → arranca scaffold + fase de producto.
 - Dinámica de selección: Sergio consulta ("¿cuáles me recomiendas?"), la fábrica responde con ranking justificado, **Sergio decide** (Gate humano #1).
 
@@ -87,10 +89,12 @@ Cada fase produce artefactos versionados en `docs/` del proyecto. Las pruebas se
 - **Mockups navegables antes de codear** (HTML estático o Claude Design — por investigar), para que el gate de Sergio sea solo mirar y opinar.
 - **Verificación automatizada**: screenshots por viewport (Playwright), checks de accesibilidad y responsive en el testing.
 
-## Interfaz gráfica ✅ DECIDIDO: después, como producto interno
+## Interfaz gráfica ✅ DECIDIDO: el "Pandacorp Cockpit" (primer proyecto)
 
-- Día 1: markdown + skills + Obsidian como vista.
-- La GUI web (dashboard del portfolio, conectada a GitHub, con acciones tipo "crear repo") se construye más adelante **pasando por el propio pipeline** — primer producto interno de la fábrica y validación del sistema completo.
+- Dashboard web **local y solo-lectura** (`/Users/Shared/Proyectos/pandacorp-cockpit/`, ver su `PLAN.md`). NUNCA llama a Claude: lee los archivos del repo.
+- Paneles: (1) kanban de ideas (mover tarjeta reescribe `estado:`), (2) portfolio, (3) "siguiente comando a copiar" según estado/fase, (4) Mission Control (Agent Teams en vivo, leyendo `~/.claude/dashboard-events.ndjson`).
+- Sergio ejecuta los comandos pegándolos en la app de Claude Code → todo sale de su suscripción Max (no del pool headless).
+- Se construye con `/loop` (sesión interactiva = suscripción). Reemplaza a Obsidian como visor. Propuesta detallada: [docs/propuestas/05-interfaz-cockpit.md](../propuestas/05-interfaz-cockpit.md).
 
 ## Preguntas aún abiertas (secundarias)
 
@@ -103,7 +107,7 @@ Cada fase produce artefactos versionados en `docs/` del proyecto. Las pruebas se
 ## Decisiones técnicas resueltas por investigación (2026-06-12)
 
 - **Mockups ✅**: HTML autocontenidos generados por Claude Code (3 direcciones en paralelo) sobre sistema de diseño shadcn/ui + `design-tokens.json` (tweakcn); screenshots Playwright + chequeo de accesibilidad axe-core antes del gate visual. Claude Design queda como herramienta manual opcional (no tiene API). Ver [investigación 05](../investigacion/05-mockups-y-fase-diseno.md).
-- **Kanban Obsidian ✅**: plugin **Bases Kanban** (ewerx) sobre Bases nativas — arrastrar tarjeta escribe `estado:` en el frontmatter del .md. Detección: escaneo periódico con caché (+ git diff como evolución). Ver [investigación 06](../investigacion/06-kanban-obsidian.md).
+- **Kanban ✅ (en el cockpit, NO Obsidian)**: el tablero vive en el cockpit; arrastrar/mover una tarjeta reescribe `estado:` en el .md directamente. Obsidian descartado por redundante. La investigación 06 (Obsidian) queda como referencia histórica.
 - **Plugin ✅**: `panda-corp/plugin/` + symlink a `~/.claude/skills/pandacorp` — auto-carga en cualquier carpeta, ediciones en vivo, skills namespaced (`/pandacorp:*`), plantillas accesibles vía `${CLAUDE_PLUGIN_ROOT}/templates/`. Ver [investigación 07](../investigacion/07-estructura-plugin-pandacorp.md).
 
 ## Equipos de agentes y Mission Control ✅ DECIDIDO (a validar en uso)
