@@ -12,7 +12,7 @@ Ranking y recomendación sobre la base de ideas.
 2. **Revalida scores si están viejos** (creada hace >60 días o evidencia débil): pasa rápida del `researcher` para confirmar que el dolor sigue vigente.
 3. Construye el ranking considerando además del score: balance del portfolio (mezclar monetizables con personales; no 3 scrapers a la vez), esfuerzo disponible (proyectos ya en pipeline — revisa `fabrica/portfolio.md`), y quick wins (alto valor / baja dificultad primero).
 4. Presenta a Sergio: top 3-5 con — por cada una — qué es (1 línea), por qué ahora, score y dificultad, y qué validaría la v1. Más una línea de "cuáles NO y por qué".
-5. **La decisión es de Sergio** (gate humano #1). Cuando elija: actualiza `estado: seleccionada` en las fichas elegidas y dile que el siguiente paso es `/pandacorp:scaffold <idea>` (o que mueva la tarjeta en Obsidian — el efecto es el mismo).
+5. Marca `estado: recomendada` en tus elecciones (top picks); las demás quedan en `documentada`. **La selección final es de Sergio** (gate humano #1) y se expresa ejecutando `/pandacorp:scaffold <idea>` sobre la que quiera (eso la mueve a `en-pipeline`). Las que no quiera, las descarta desde el cockpit (→ `descartada`). El tablero del cockpit es solo-lectura: refleja estos estados, no se mueve a mano.
 
 ## Reglas
 - Máximo 5 recomendadas; elegir es lo que cuesta, no listar.

@@ -8,7 +8,7 @@ Crea el proyecto para la idea indicada en `$ARGUMENTS` (nombre de ficha o slug).
 
 ## Pasos
 
-1. **Valida**: lee la ficha en `/Users/Shared/Proyectos/panda-corp/fabrica/ideas/<idea>.md`. Debe existir y estar en `estado: seleccionada` (si no lo está, confirma con Sergio antes de seguir).
+1. **Valida**: lee la ficha en `/Users/Shared/Proyectos/panda-corp/fabrica/ideas/<idea>.md`. Debe existir y estar en `estado: recomendada` (o `documentada`). Ejecutar este skill ES la selección de Sergio. Si la ficha está en `descartada` o `en-pipeline`, detente y confirma.
 2. **Crea la carpeta** `/Users/Shared/Proyectos/<slug-en-ingles>/` (hermana de panda-corp, NUNCA dentro). Inicializa git con branch `main`.
 3. **Copia el overlay Pandacorp** desde las plantillas del plugin:
    ```bash

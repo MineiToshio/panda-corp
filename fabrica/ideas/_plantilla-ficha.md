@@ -29,5 +29,6 @@ Links a posts de Reddit/foros/redes donde la gente expresa este dolor, o context
 Lo que el scoring consideró: tamaño de mercado, competencia, dificultad, ventaja.
 
 ---
-> Estados: descubierta → documentada → recomendada → seleccionada → en-pipeline → lanzada | descartada
+> Estados: descubierta → documentada → recomendada → en-pipeline → lanzada | descartada
+> Cada transición la escribe un skill (new-idea→documentada, recommend→recomendada, scaffold→en-pipeline, release→lanzada). `descartada` se marca desde el cockpit (decisión humana). El tablero del cockpit es solo-lectura.
 > Al pasar a `en-pipeline`, llenar el campo `proyecto:` con la ruta de la carpeta creada.
