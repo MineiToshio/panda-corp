@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pandacorp — cockpit (prototipo)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css">
+<style>
+:root{--bg:#faf9f5;--primary:#fff;--secondary:#f1efe8;--text:#26261f;--text2:#5f5e5a;--text3:#888780;
+--info-bg:#E6F1FB;--info:#0C447C;--ok-bg:#EAF3DE;--ok:#27500A;--warn-bg:#FAEEDA;--warn:#633806;--danger-bg:#FCEBEB;--danger:#791F1F;
+--bd:rgba(0,0,0,.12);--bd2:rgba(0,0,0,.26);--rmd:8px;--rlg:12px;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.6;font-size:15px}
+#pcapp{max-width:1080px;margin:0 auto;padding:24px 20px 60px}
+button{font-family:inherit;background:transparent;border:.5px solid var(--bd2);color:var(--text);border-radius:var(--rmd);padding:7px 12px;cursor:pointer;font-size:13px}
+button:hover{background:var(--secondary)}
+.tab{padding:7px 13px;border-radius:var(--rmd);font-size:13px;cursor:pointer;border:.5px solid transparent;color:var(--text2)}
+.tab.on{background:var(--info-bg);color:var(--info);font-weight:500}
+.stab{padding:6px 11px;border-radius:var(--rmd);font-size:13px;cursor:pointer;color:var(--text2);border:.5px solid transparent}
+.stab.on{background:var(--secondary);color:var(--text);font-weight:500}
+.col{min-width:158px;flex:0 0 auto;background:var(--secondary);border-radius:var(--rmd);padding:8px}
+.card{background:var(--primary);border:.5px solid var(--bd);border-radius:var(--rmd);padding:9px;margin-bottom:8px;cursor:pointer}
+.card:hover{border-color:var(--bd2)}
+.chip{font-size:11px;padding:2px 8px;border-radius:var(--rmd)}
+.panel{background:var(--primary);border:.5px solid var(--bd);border-radius:var(--rlg);padding:16px 18px}
+.cmd{display:flex;align-items:center;gap:10px;background:var(--secondary);border-radius:var(--rmd);padding:9px 11px;margin-top:6px}
+.cmd .t{font-family:var(--mono);font-size:13px;flex:1}
+table{width:100%;border-collapse:collapse;font-size:14px}
+a.lnk{color:var(--info);cursor:pointer;text-decoration:none;font-size:12px}
+h1,h2,h3{font-weight:500;line-height:1.3}
+.doc h1{font-size:20px;margin:0 0 6px}.doc h2{font-size:16px;margin:18px 0 4px}.doc h3{font-size:14px;margin:14px 0 4px}
+.doc code{font-family:var(--mono);background:var(--secondary);padding:1px 5px;border-radius:4px;font-size:13px}
+.doc ul{margin:6px 0;padding-left:20px}.doc li{margin:3px 0}
+.navitem{padding:7px 10px;border-radius:var(--rmd);cursor:pointer;font-size:13px;color:var(--text2);display:flex;align-items:center;gap:7px}
+.navitem.on{background:var(--info-bg);color:var(--info)}
+.navitem:hover{background:var(--secondary)}
+.cfgcard{background:var(--primary);border:.5px solid var(--bd);border-radius:var(--rmd);padding:11px 13px;margin-bottom:8px;cursor:pointer;display:flex;gap:11px;align-items:flex-start}
+.cfgcard:hover{border-color:var(--bd2)}
+.rail{padding:9px 11px;border-radius:var(--rmd);cursor:pointer;margin-bottom:6px;border:.5px solid transparent}
+.rail:hover{background:var(--secondary)}
+.rail.on{background:var(--info-bg);border-color:var(--bd)}
+</style>
+</head>
+<body>
+<div id="pcapp"></div>
+<script>
+(function(){
+var PIPE=["descubierta","documentada","diseno","arquitectura","en-construccion","lanzada"];
+var LBL={descubierta:"Descubierta",documentada:"Documentada",diseno:"Diseño",arquitectura:"Arquitectura","en-construccion":"En construcción",lanzada:"Lanzada",descartada:"Descartada"};
+var WLBL={todo:"To do",progress:"En progreso",review:"Review / Testing",done:"Hecho"},WORDER=["todo","progress","review","done"];
+var TYPE={monetizable:["var(--ok-bg)","var(--ok)"],personal:["var(--info-bg)","var(--info)"],ambas:["var(--warn-bg)","var(--warn)"]};
+
+var SEED={view:"ideas",openSlug:null,openDoc:0,intake:false,projectSlug:null,projectTab:"resumen",configSection:"skills",configItem:null,docsPage:0,woItem:null,ideas:[
+ {slug:"pandacorp-cockpit",titulo:"Pandacorp",estado:"en-construccion",fase:"implementacion",version:"v1",running:true,progreso:"Implementando el Panel Portfolio",score:90,tipo:"personal",
+  resumen:"Panel local de la fábrica para ver ideas y proyectos, leer la documentación y saber qué comando ejecutar. No llama a Claude: solo lee archivos.",
+  clave:["Solo-lectura — respeta tu suscripción Max","Tablero, Portfolio, Configuración, Documentación","Mission Control por proyecto"],
+  decisiones:[{t:"¿Mostrar costos de infraestructura en el Portfolio o dejarlo fuera del MVP?",e:"pendiente"}],
+  docs:[{n:"prd.md",c:"# PRD\n\n## Scope v1\nTablero + Portfolio + workspace por proyecto + Configuración + Documentación."},{n:"blueprint.md",c:"# Blueprint\n\nNext.js, solo-lectura. Lee fabrica/ideas, portfolio y estado.yaml. Sin BD."},{n:"progreso.md",c:"# Bitácora\n\n- Capa de lectura lista y testeada\n- Panel Ideas + detalle listos\n- En curso: Panel Portfolio (vista de dos paneles)\n- Desviación: el kanban de ideas pasó a solo-lectura (los skills mueven las tarjetas)"}],
+  log:["Capa de lectura implementada y testeada","Panel Ideas y detalle terminados","Decisión: el tablero de ideas es solo-lectura (los skills mueven las tarjetas)","En curso: Panel Portfolio"],
+  wo:[{t:"Capa de lectura (ideas/portfolio)",e:"done",frd:"FRD-01",d:"Leer y parsear las fichas de ideas, el portfolio y el estado.yaml de cada proyecto."},{t:"Panel Ideas + detalle",e:"done",frd:"FRD-02",d:"Kanban de ideas y vista de detalle con navegador de documentos."},{t:"Panel Portfolio",e:"progress",frd:"FRD-03",d:"Lista vertical de proyectos a la izquierda + detalle a la derecha."},{t:"Workspace por proyecto + work orders",e:"progress",frd:"FRD-03",d:"Sub-pestañas del proyecto y kanban de work orders."},{t:"Mission Control",e:"todo",frd:"FRD-04",d:"Vista en vivo de los agentes por proyecto."},{t:"Configuración",e:"todo",frd:"FRD-05",d:"Ver skills, agentes, reglas y estándares."},{t:"Documentación",e:"todo",frd:"FRD-06",d:"Manual navegable de la fábrica."},{t:"README + pulido",e:"todo",frd:"FRD-06",d:"Cómo correrlo y pulir estados vacío/carga/error."}]},
+ {slug:"budget-buddy",titulo:"Control de gastos compartidos",estado:"en-construccion",fase:"work-orders",version:"v1",running:false,progreso:"Pausado en «Registrar gasto»",score:68,tipo:"monetizable",
+  resumen:"App para dividir y rastrear gastos entre roommates o viajes. En arranque de ingeniería.",
+  clave:["Monetización: plan premium para grupos"],decisiones:[],
+  docs:[{n:"prd.md",c:"# PRD — MVP\n\n## FRDs\n- Crear grupo\n- Registrar gasto\n- Liquidar deudas"}],
+  log:["Esquema de datos creado","CRUD de grupos en review","Decisión: las deudas se calculan en el servidor"],
+  wo:[{t:"Esquema de datos + seeds",e:"done",frd:"FRD-01",d:"Tablas de grupos, gastos y miembros."},{t:"CRUD de grupos",e:"review",frd:"FRD-01",d:"Crear, editar y listar grupos."},{t:"Registrar gasto",e:"progress",frd:"FRD-02",d:"Formulario para añadir un gasto al grupo."},{t:"Cálculo de deudas",e:"todo",frd:"FRD-03",d:"Quién debe a quién, minimizando transferencias."},{t:"Pantalla de liquidación",e:"todo",frd:"FRD-03",d:"UI para saldar las deudas del grupo."}]},
+ {slug:"recipe-keeper",titulo:"Recetario personal",estado:"arquitectura",version:"v1",running:false,score:60,tipo:"personal",
+  resumen:"Guardar y organizar recetas con buscador. Definiendo blueprint y work orders.",
+  clave:["Diseño aprobado, armando la arquitectura"],
+  decisiones:[{t:"Aprobar el stack propuesto: Next.js + Prisma + Postgres (últimas versiones)",e:"pendiente"}],
+  docs:[{n:"prd.md",c:"# PRD — MVP\n\n## FRDs\n- Crear receta\n- Buscar por ingrediente\n- Etiquetas"},{n:"blueprint.md",c:"# Blueprint\n\nStack web por defecto. Tabla recetas + tags. Buscador full-text."}]},
+ {slug:"funko-tracker",titulo:"Tracker de Funkos One Piece",estado:"documentada",score:72,tipo:"ambas",
+  resumen:"Cataloga y monitorea Funkos de One Piece en tiempo real, avisando apenas se anuncia uno nuevo.",
+  clave:["Dolor personal validado","Scraping + web","Monetización: alertas premium / afiliados"],decisiones:[],
+  docs:[{n:"prd.md",c:"# PRD — MVP\n\n## FRDs\n- Catálogo navegable\n- Alertas de lanzamientos\n- Marcar mi colección"},{n:"investigacion-producto.md",c:"# Investigación\n\nFuentes: funko.com + 2 tiendas. Sin competencia con avisos en tiempo real."}]},
+ {slug:"restaurant-table-ordering",titulo:"Pedidos desde la mesa",estado:"documentada",score:58,tipo:"monetizable",
+  resumen:"El comensal elige restaurante, mesa y pide desde el celular. Requiere venta B2B.",
+  clave:["Monetización B2B","Riesgo: competencia y esfuerzo comercial"],decisiones:[],
+  docs:[{n:"idea-origen.md",c:"# Pedidos desde la mesa\n\nPedir depende del mozo."}]},
+ {slug:"flight-price-alerts",titulo:"Alertas de precio de vuelos",estado:"descubierta",score:0,tipo:"monetizable",
+  resumen:"Avisa cuando baja el precio de una ruta. Recién capturada, pendiente de documentar.",
+  clave:["Sin score aún"],decisiones:[],
+  docs:[{n:"idea-origen.md",c:"# Alertas de precio de vuelos\n\nEnterarme cuando baje el precio de una ruta."}]},
+ {slug:"quick-notes",titulo:"Quick Notes",estado:"lanzada",fase:"operacion",version:"v1.2",running:false,score:80,tipo:"personal",
+  resumen:"Notas rápidas con atajos de teclado. Ya en producción.",
+  clave:["Lanzada","Iterar con /pandacorp:iterate"],decisiones:[],
+  docs:[{n:"idea-origen.md",c:"# Quick Notes\n\nNotas instantáneas sin fricción."}],
+  log:["v1 lanzada en producción","v1.2: atajos de teclado añadidos"],
+  wo:[{t:"Notas CRUD",e:"done",frd:"FRD-01",d:"Crear, editar y borrar notas."},{t:"Atajos de teclado",e:"done",frd:"FRD-02",d:"Shortcuts para acciones rápidas."},{t:"Sincronización",e:"done",frd:"FRD-03",d:"Sincronización entre dispositivos."}]}
+]};
+
+var INTAKE=[
+ ["new-idea","Captura una idea TUYA","La describes y la fábrica crea su ficha en «Descubierta» (con investigación ligera y score)."],
+ ["discover","Busca oportunidades en internet","Rastrea Reddit, foros y reviews buscando dolores monetizables y los agrega a «Descubierta»."],
+ ["recommend","Recomienda cuáles avanzar","Analiza tus ideas y te dice, con ranking, cuáles construir primero. No mueve nada: te aconseja."]
+];
+
+var CONFIG={
+ skills:[
+  ["new-idea","Captura una idea en la base","Lo corres en la fábrica. Describe tu idea → crea la ficha en «Descubierta» con score."],
+  ["discover","Busca dolores monetizables en internet","Lanza investigadores en paralelo; documenta oportunidades con evidencia."],
+  ["recommend","Rankea y recomienda ideas","Te aconseja cuáles avanzar; no cambia estados."],
+  ["spec","Handoff: crea el proyecto + documenta el MVP","Se corre en la fábrica con el nombre de la idea. Crea la carpeta/repo y escribe investigación + PRD + FRDs."],
+  ["design","Mockups y sistema de diseño","En el proyecto. 3 direcciones navegables + design tokens; iteras en la conversación."],
+  ["blueprint","Blueprint + work orders","Propone el stack (lo apruebas), define arquitectura y genera los work orders."],
+  ["implement","Construcción con Agent Teams","Arranca/reanuda la construcción. Modos: equilibrado / potente / profundo."],
+  ["release","Auditoría + deploy","Auditoría de seguridad + checklist; producción requiere tu aprobación."],
+  ["iterate","Agregar funcionalidad o cambio","En cualquier momento (en construcción o lanzado). Crea FRD/work orders mínimos."],
+  ["new-version","Hito grande con mini-PRD (opcional)","Para agrupar un lote grande de cambios en un v2 formal."],
+  ["sync-portfolio","Sincroniza el portfolio","Refresca el estado de cada proyecto leyendo su estado.yaml."]
+ ],
+ agents:[
+  ["researcher","Investigación de mercado y técnica","sonnet · busca evidencia real, evalúa viabilidad y competencia."],
+  ["product-manager","PRD y FRDs","opus · convierte ideas en specs con criterios de aceptación verificables."],
+  ["designer","UX/UI, mockups, design tokens","opus · compensa la debilidad de diseño con referencias y sistema de diseño."],
+  ["architect","Blueprint, stack, ADRs","opus · propone el stack (lo apruebas) y diseña lo mínimo que cumple."],
+  ["backend-dev","Backend con TDD","sonnet · datos, lógica, API; publica el contrato para el frontend."],
+  ["frontend-dev","Frontend con design tokens","sonnet · UI con tokens; espera el contrato del backend."],
+  ["test-writer","Tests de aceptación y e2e","sonnet · tests desde los criterios EARS (RED antes de implementar)."],
+  ["reviewer","Revisión multi-lente","opus · corre los tests él mismo; no confía en el auto-reporte."],
+  ["security-auditor","Auditoría de seguridad","sonnet · secretos, dependencias, OWASP; bloquea release si hay crítico."]
+ ],
+ rules:[
+  ["DR-001","Agregar dependencia","Auto-aprobar si: sin CVEs, mantenida en 12 meses, licencia permisiva."],
+  ["DR-002","Elección de stack","El architect propone (últimas versiones); Sergio aprueba en el blueprint."],
+  ["DR-004","Deploy a producción","BLOQUEA — requiere aprobación explícita de Sergio."],
+  ["DR-005","Gastar dinero","BLOQUEA — requiere aprobación con monto."],
+  ["DR-007","Borrar datos / repos","BLOQUEA — requiere aprobación."],
+  ["DR-013","Implementación con Agent Teams","Composición según stack; agentes se comunican y se pasan el trabajo."],
+  ["DR-014","Tamaño de equipo y modelos","Diseñar para Max 5x: ≤3 agentes, líder opus, obreros sonnet/haiku."]
+ ],
+ estandares:[
+  ["convenciones","Idioma, naming, tipado, commits","Código en inglés, docs en español; tipado estricto; sin any; conventional commits; constantes centralizadas."],
+  ["estructura","Carpetas y capas","src/app, components/core+modules, data layer aislado en queries/, código por feature, tests colocados."],
+  ["patrones","Server Components, UI optimista, a11y","Server Components por defecto; Server Actions primero; UI optimista; HTML semántico; tema claro/oscuro; design tokens."],
+  ["calidad","Gates y testing","Tests + type-check + lint antes de terminar (verify.sh). Testing por riesgo; e2e solo en flujos críticos."],
+  ["stack","Stack recomendado (sugerencia)","Next.js + React + Prisma + Better Auth + next-intl + Tailwind + Vitest/Playwright. Se elige y aprueba en el blueprint, últimas versiones."]
+ ]
+};
+
+var DOCS=[
+ ["Qué es Pandacorp","# Qué es Pandacorp\n\nUna fábrica de software hecha 100% con IA. Tú aportas ideas o problemas; la fábrica investiga, documenta, diseña, arquitecta y construye aplicaciones, con intervención humana mínima.\n\n## Dos objetivos\n- Apps que generen ingresos (muchas pequeñas suman).\n- Apps que te faciliten la vida (no importa si monetizan).\n\n## Esta interfaz\nPandacorp (esta app) es **solo-lectura**: muestra el estado y te dice qué comando ejecutar. Nunca llama a Claude — todo el trabajo lo haces pegando los comandos en Claude Code, así que sale de tu suscripción."],
+ ["El flujo","# El flujo\n\nCada idea recorre estas etapas, y las tarjetas se mueven solas al ejecutar el comando de cada una:\n\n## Etapas\n- **Descubierta** — idea capturada. `/pandacorp:new-idea` o `:discover`.\n- **Documentada** — MVP definido (PRD + FRDs). `/pandacorp:spec`.\n- **Diseño** — mockups aprobados. `/pandacorp:design`.\n- **Arquitectura** — blueprint + work orders. `/pandacorp:blueprint`.\n- **En construcción** — ingeniería con Agent Teams. `/pandacorp:implement`.\n- **Lanzada** — en producción. `/pandacorp:release`.\n\n## El handoff\nLa idea vive en la fábrica hasta `spec`; ahí nace su propia carpeta/repo y desde entonces todo vive en el proyecto."],
+ ["Etapas en detalle","# Etapas en detalle\n\n## Descubierta\nUna ficha .md con el problema, a quién le duele y un score.\n\n## Documentada\nInvestigación de mercado + PRD (visión, usuarios, monetización) + FRDs con criterios de aceptación verificables.\n\n## Diseño\nReferencias visuales, design tokens y 3 mockups navegables; tú eliges. Verificación de accesibilidad automática.\n\n## Arquitectura\nEl architect propone el stack (lo apruebas) y genera el blueprint + los work orders.\n\n## En construcción\nUn equipo de agentes (backend, frontend, testing) construye con TDD, se comunican entre sí. Lo sigues en Mission Control. Reanudable.\n\n## Lanzada\nDeploy a producción (con tu aprobación) e iteración continua."],
+ ["Los comandos","# Los comandos\n\n## En la fábrica\n- `/pandacorp:new-idea` — captura una idea tuya.\n- `/pandacorp:discover` — busca oportunidades en internet.\n- `/pandacorp:recommend` — recomienda cuáles avanzar.\n- `/pandacorp:spec <idea>` — handoff: crea el proyecto + documenta el MVP.\n- `/pandacorp:sync-portfolio` — sincroniza el portfolio.\n\n## En el proyecto\n- `/pandacorp:design` — mockups y diseño.\n- `/pandacorp:blueprint` — blueprint + work orders.\n- `/pandacorp:implement [potente|profundo]` — construye / reanuda.\n- `/pandacorp:release` — auditoría + deploy.\n- `/pandacorp:iterate` — agrega funcionalidad o cambio.\n- `/pandacorp:new-version` — hito grande (opcional)."],
+ ["Modos de implementación","# Modos de implementación\n\n`/pandacorp:implement` acepta un modo:\n\n- **equilibrado** (default) — pensado para Max 5x: equipo ≤3, líder opus, obreros sonnet/haiku.\n- **potente** — para Max 20x: más agentes en paralelo, avanza más rápido.\n- **profundo** — máxima calidad: mejores modelos + revisión adversarial extra. Para proyectos especiales o cuando algo no sale bien.\n\nSiempre es **reanudable**: si se corta, vuelves a correr `implement` y continúa desde el work order pendiente."],
+ ["Estándares","# Estándares\n\nLas **convenciones** (estructura, naming, calidad, patrones) son fijas e iguales en todo proyecto. El **stack** es una sugerencia: el architect lo propone en el blueprint (últimas versiones) y tú lo apruebas.\n\nVer la pestaña **Configuración → Estándares** para el detalle de cada documento."],
+ ["Cómo operar y handoff","# Cómo operar\n\n1. Abre Pandacorp y mira el tablero.\n2. Para avanzar algo, copia el comando del «siguiente paso» y pégalo en Claude Code.\n3. Vuelve y refresca: la tarjeta se movió sola.\n\n## Puntos de decisión\nCuando un agente necesita que decidas algo, lo deja marcado en el proyecto (pestaña Resumen) para que lo veas y respondas.\n\n## Pasar el proyecto a otra persona\nEsta documentación + la pestaña Configuración le dan todo el contexto: el flujo, los comandos y los estándares."]
+];
+
+var ST=load();
+function load(){try{var s=sessionStorage.getItem("pc5");if(s)return JSON.parse(s);}catch(e){}return JSON.parse(JSON.stringify(SEED));}
+function save(){try{sessionStorage.setItem("pc5",JSON.stringify(ST));}catch(e){}}
+var root=document.getElementById("pcapp");
+function get(slug){return ST.ideas.filter(function(x){return x.slug===slug;})[0];}
+
+function nextStep(i){var es=i.estado;
+ if(es==="descubierta")return["/pandacorp:spec "+i.slug,"la fábrica (panda-corp)"];
+ if(es==="documentada")return["/pandacorp:design","la carpeta del proyecto"];
+ if(es==="diseno")return["/pandacorp:blueprint","la carpeta del proyecto"];
+ if(es==="arquitectura")return["/pandacorp:implement","la carpeta del proyecto"];
+ if(es==="en-construccion")return["/pandacorp:release","la carpeta del proyecto"];
+ if(es==="lanzada")return[null,"itera cuando quieras agregar algo"];
+ return[null,"—"];}
+function chip(t){var c=TYPE[t]||TYPE.personal;return '<span class="chip" style="background:'+c[0]+';color:'+c[1]+'">'+t+'</span>';}
+function chip2(es){var c=es==="lanzada"?["var(--ok-bg)","var(--ok)"]:["var(--info-bg)","var(--info)"];return '<span class="chip" style="background:'+c[0]+';color:'+c[1]+'">'+LBL[es]+'</span>';}
+function esc(s){return (s||"").replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
+function md(t){var o="",ul=false;(t||"").split("\n").forEach(function(l){
+ if(/^### /.test(l)){if(ul){o+="</ul>";ul=false;}o+="<h3>"+esc(l.slice(4))+"</h3>";}
+ else if(/^## /.test(l)){if(ul){o+="</ul>";ul=false;}o+="<h2>"+esc(l.slice(3))+"</h2>";}
+ else if(/^# /.test(l)){if(ul){o+="</ul>";ul=false;}o+="<h1>"+esc(l.slice(2))+"</h1>";}
+ else if(/^- /.test(l)){if(!ul){o+="<ul>";ul=true;}o+="<li>"+esc(l.slice(2))+"</li>";}
+ else if(l.trim()===""){if(ul){o+="</ul>";ul=false;}}
+ else{if(ul){o+="</ul>";ul=false;}o+="<p style='margin:6px 0'>"+esc(l)+"</p>";}});if(ul)o+="</ul>";return o;}
+function cmdRow(cmd,when){return '<div class="cmd"><i class="ti ti-terminal-2" style="font-size:15px;color:var(--text2)"></i><span class="t">'+esc(cmd)+'</span><span style="font-size:11px;color:var(--text3);max-width:230px;text-align:right">'+when+'</span><button data-act="copy" data-cmd="'+esc(cmd)+'"><i class="ti ti-copy" style="font-size:13px"></i></button></div>';}
+
+function topbar(){return '<div style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border:.5px solid var(--bd);border-radius:var(--rlg);background:var(--primary);margin-bottom:14px">'
+ +'<span style="display:flex;align-items:center;gap:9px;font-weight:500;font-size:16px"><i class="ti ti-layout-dashboard" style="font-size:19px;color:var(--text2)"></i> Pandacorp</span>'
+ +'<div style="display:flex;gap:4px;flex-wrap:wrap">'+tab("ideas","Tablero")+tab("portfolio","Portfolio")+tab("config","Configuración")+tab("docs","Documentación")+'</div></div>';}
+function tab(id,label){return '<span class="tab '+(ST.view===id?"on":"")+'" data-act="tab" data-tab="'+id+'">'+label+'</span>';}
+
+function intakePanel(){
+ if(!ST.intake)return '<button data-act="intake" style="margin-bottom:12px"><i class="ti ti-plus" style="font-size:14px"></i> Capturar ideas / oportunidades</button>';
+ var rows=INTAKE.map(function(s){return '<div style="padding:10px 0;border-top:.5px solid var(--bd)"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><div><div style="font-weight:500;font-size:13px">'+s[1]+'</div><div style="font-size:12px;color:var(--text2);margin-top:2px">'+s[2]+'</div></div></div>'+cmdRow("/pandacorp:"+s[0],"pégalo en la fábrica")+'</div>';}).join("");
+ return '<div class="panel" style="margin-bottom:12px"><div style="display:flex;align-items:center;justify-content:space-between"><span style="font-weight:500;font-size:14px">Capturar ideas y oportunidades</span><button data-act="intake-close" style="padding:4px 10px">Cerrar</button></div><p style="font-size:12px;color:var(--text3);margin:6px 0 0">Tres formas de llenar la columna «Descubierta». Copia el comando y pégalo en Claude Code (en la fábrica).</p>'+rows+'</div>';
+}
+
+function boardView(){
+ var cols=PIPE.map(function(es){var items=ST.ideas.filter(function(i){return i.estado===es;});
+  var cards=items.map(function(i){return '<div class="card" data-act="open" data-slug="'+i.slug+'"><div style="font-size:13px;font-weight:500;margin-bottom:7px">'+i.titulo+(i.running?' <i class="ti ti-player-play" style="font-size:12px;color:var(--ok)" title="construyendo"></i>':'')+'</div><div style="display:flex;align-items:center;justify-content:space-between">'+chip(i.tipo)+'<span style="font-size:11px;color:var(--text3)">'+(i.score?("Score "+i.score):"sin score")+'</span></div></div>';}).join("")||'<div style="font-size:11px;color:var(--text3);padding:4px 2px">—</div>';
+  return '<div class="col"><div style="font-size:11px;font-weight:500;color:var(--text2);margin-bottom:8px">'+LBL[es]+' <span style="color:var(--text3)">'+items.length+'</span></div>'+cards+'</div>';}).join("");
+ var disc=ST.ideas.filter(function(i){return i.estado==="descartada";});
+ var dc=disc.length?'<div class="col" style="opacity:.6"><div style="font-size:11px;font-weight:500;color:var(--text2);margin-bottom:8px">Descartada '+disc.length+'</div>'+disc.map(function(i){return '<div class="card" data-act="open" data-slug="'+i.slug+'"><div style="font-size:13px;text-decoration:line-through;color:var(--text2)">'+i.titulo+'</div></div>';}).join("")+'</div>':"";
+ return intakePanel()
+ +'<p style="font-size:12px;color:var(--text3);margin:0 0 10px"><i class="ti ti-info-circle" style="font-size:13px;vertical-align:-2px"></i> Las tarjetas se mueven solas al ejecutar el comando del siguiente paso. Aquí solo lees y decides.</p>'
+ +'<div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px">'+cols+dc+'</div>'
+ +'<p style="font-size:12px;color:var(--text3);margin:12px 2px 0"><b style="font-weight:500">Tipo:</b> monetizable / personal / ambas. <b style="font-weight:500">Score</b> 0-100. <i class="ti ti-player-play" style="font-size:12px;color:var(--ok)"></i> = construyéndose ahora.</p>';
+}
+
+function commandsBox(i){
+ var es=i.estado,rows="";
+ if(es==="en-construccion"){
+  rows=cmdRow("/pandacorp:implement","continuar / reanudar la construcción")
+   +cmdRow("/pandacorp:release","cuando todos los work orders estén hechos")
+   +cmdRow("/pandacorp:iterate","agregar un FRD, ajuste o fix");
+  rows+='<p style="font-size:11px;color:var(--text3);margin:8px 0 0">Modos: <code style="font-family:var(--mono)">implement potente</code> (más rápido) · <code style="font-family:var(--mono)">implement profundo</code> (máxima calidad).</p>';
+ }else if(es==="lanzada"){
+  rows=cmdRow("/pandacorp:iterate","agregar funcionalidad o cambio")+cmdRow("/pandacorp:new-version","hito grande (opcional)");
+ }else{var nc=nextStep(i);if(nc[0])rows=cmdRow(nc[0],"siguiente paso · "+nc[1]);}
+ return '<div class="panel" style="margin-top:14px"><p style="font-size:13px;font-weight:500;margin:0 0 2px;color:var(--text2)">Comandos a la mano</p>'+rows+'</div>';
+}
+function decisionesBox(i){
+ var d=i.decisiones||[];
+ if(!d.length)return '<div class="panel" style="margin-top:14px"><p style="font-size:13px;font-weight:500;margin:0;color:var(--text2)">Puntos de decisión</p><p style="font-size:12px;color:var(--text3);margin:6px 0 0">Sin puntos pendientes. Aquí aparecen las cosas que la IA necesita que decidas.</p></div>';
+ var rows=d.map(function(x){return '<div style="display:flex;gap:9px;align-items:flex-start;background:var(--warn-bg);border-radius:var(--rmd);padding:10px 12px;margin-top:8px"><i class="ti ti-alert-triangle" style="font-size:16px;color:var(--warn)"></i><div><div style="font-size:13px;color:var(--warn)">'+esc(x.t)+'</div><div style="font-size:11px;color:var(--warn);opacity:.8;margin-top:2px">pendiente de tu decisión</div></div></div>';}).join("");
+ return '<div class="panel" style="margin-top:14px"><p style="font-size:13px;font-weight:500;margin:0;color:var(--text2)">Puntos de decisión <span class="chip" style="background:var(--warn-bg);color:var(--warn)">'+d.length+'</span></p>'+rows+'</div>';
+}
+
+function detailView(){
+ var i=get(ST.openSlug);if(!i)return boardView();
+ var nc=nextStep(i);var di=Math.min(ST.openDoc,i.docs.length);
+ var content=di===0?('<div class="doc"><h2>Resumen</h2><p>'+esc(i.resumen)+'</p><h3>Puntos clave</h3><ul>'+i.clave.map(function(k){return "<li>"+esc(k)+"</li>";}).join("")+'</ul></div>'):('<div class="doc">'+md(i.docs[di-1].c)+'</div>');
+ var nav='<div class="navitem '+(di===0?"on":"")+'" data-act="doc" data-slug="'+i.slug+'" data-doc="0"><i class="ti ti-list"></i> Resumen</div>'+i.docs.map(function(d,ix){return '<div class="navitem '+(di===ix+1?"on":"")+'" data-act="doc" data-slug="'+i.slug+'" data-doc="'+(ix+1)+'"><i class="ti ti-file-text"></i> '+d.n+'</div>';}).join("");
+ var canDiscard=i.estado!=="descartada"&&i.estado!=="lanzada";
+ var extra=(i.estado==="en-construccion"||i.estado==="lanzada")?commandsBox(i)+decisionesBox(i):'<div class="panel" style="margin-top:14px"><p style="font-size:13px;font-weight:500;margin:0;color:var(--text2)">Siguiente paso'+(nc[0]?' · abrir Claude Code en '+nc[1]:'')+'</p>'+(nc[0]?cmdRow(nc[0],""):'<p style="font-size:12px;color:var(--text3);margin-top:6px;font-style:italic">'+nc[1]+'</p>')+'</div>';
+ return '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><button data-act="back"><i class="ti ti-arrow-left" style="font-size:14px"></i> Volver al tablero</button>'+(canDiscard?'<button data-act="discard" data-slug="'+i.slug+'" style="border-color:var(--danger);color:var(--danger)"><i class="ti ti-trash" style="font-size:14px"></i> Descartar idea</button>':'')+'</div>'
+  +'<div class="panel" style="margin-bottom:14px"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px"><span style="font-size:20px;font-weight:500">'+i.titulo+'</span><span style="display:flex;gap:8px;align-items:center">'+chip(i.tipo)+'<span style="font-size:12px;color:var(--text2)">Score '+(i.score||"—")+'/100</span></span></div><div style="font-size:12px;color:var(--text3);margin-top:4px">etapa: '+LBL[i.estado]+'</div></div>'
+  +'<div style="display:grid;grid-template-columns:210px 1fr;gap:14px;align-items:start"><div class="panel" style="padding:10px"><div style="font-size:11px;color:var(--text3);margin:2px 4px 8px">DOCUMENTACIÓN</div>'+nav+'</div><div class="panel">'+content+'</div></div>'+extra;
+}
+
+// Portfolio = rail vertical de proyectos + detalle a la derecha
+function portfolioView(){
+ var projs=ST.ideas.filter(function(i){return i.estado==="en-construccion"||i.estado==="lanzada"||i.estado==="arquitectura";});
+ if(projs.length&&!ST.projectSlug)ST.projectSlug=projs[0].slug;
+ var rail=projs.map(function(i){var ic=i.running?'<i class="ti ti-player-play" style="font-size:14px;color:var(--ok)" title="construyendo"></i>':'<i class="ti ti-player-pause" style="font-size:14px;color:var(--text3)" title="parado"></i>';
+  return '<div class="rail '+(ST.projectSlug===i.slug?"on":"")+'" data-act="railproj" data-slug="'+i.slug+'"><div style="display:flex;align-items:center;gap:8px">'+ic+'<span style="font-size:13px;font-weight:500">'+i.titulo+'</span></div><div style="font-size:11px;color:var(--text3);margin-top:3px;margin-left:22px">'+LBL[i.estado]+'</div></div>';}).join("")||'<div style="font-size:12px;color:var(--text3)">Sin proyectos aún.</div>';
+ var right=ST.projectSlug?projectPane(get(ST.projectSlug)):'<div class="panel" style="color:var(--text3);font-size:13px">Elige un proyecto a la izquierda.</div>';
+ return '<div style="display:grid;grid-template-columns:240px 1fr;gap:14px;align-items:start"><div><div style="font-size:11px;color:var(--text3);margin:0 4px 8px">PROYECTOS</div>'+rail+'</div><div>'+right+'</div></div>';
+}
+function projectPane(i){
+ if(!i)return "";var t=ST.projectTab;
+ var subtabs=[["resumen","Resumen"],["workorders","Work orders"],["mission","Mission Control"],["comandos","Comandos"],["docs","Documentos"]].map(function(s){return '<span class="stab '+(t===s[0]?"on":"")+'" data-act="ptab" data-pt="'+s[0]+'">'+s[1]+'</span>';}).join("");
+ var body=t==="docs"?projDocs(i):t==="workorders"?projWO(i):t==="mission"?missionBody(i):t==="comandos"?projComandos(i):projResumen(i);
+ return '<div class="panel" style="margin-bottom:12px;padding:12px 16px"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px"><span style="font-size:18px;font-weight:500">'+i.titulo+(i.running?' <i class="ti ti-player-play" style="font-size:14px;color:var(--ok)"></i>':'')+'</span><span style="display:flex;gap:8px;align-items:center">'+chip2(i.estado)+'<span style="font-size:12px;color:var(--text2)">'+(i.version||"")+'</span></span></div>'+(i.progreso?'<div style="font-size:12px;color:var(--text3);margin-top:4px">'+esc(i.progreso)+'</div>':'')+'</div>'
+  +'<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">'+subtabs+'</div>'+body;
+}
+function projResumen(i){return '<div class="panel"><div class="doc"><h2>Resumen</h2><p>'+esc(i.resumen)+'</p><h3>Puntos clave</h3><ul>'+i.clave.map(function(k){return "<li>"+esc(k)+"</li>";}).join("")+'</ul></div></div>'+decisionesBox(i)+logBox(i);}
+function projComandos(i){return commandsBox(i);}
+function logBox(i){var l=i.log||[];
+ var rows=l.length?l.map(function(x){return '<div style="display:flex;gap:9px;align-items:flex-start;padding:7px 0;border-top:.5px solid var(--bd)"><i class="ti ti-point-filled" style="font-size:13px;color:var(--text3);margin-top:3px"></i><div style="font-size:13px;color:var(--text2)">'+esc(x)+'</div></div>';}).join(""):'<p style="font-size:12px;color:var(--text3);margin:6px 0 0">Aún sin actividad registrada.</p>';
+ return '<div class="panel" style="margin-top:14px"><p style="font-size:13px;font-weight:500;margin:0;color:var(--text2)">Actividad <span style="font-weight:400;color:var(--text3);font-size:12px">· alto nivel, lo que la IA va haciendo y decidiendo</span></p>'+rows+'</div>';}
+function projDocs(i){var di=Math.min(ST.openDoc,i.docs.length);if(di<1)di=1;
+ var nav=i.docs.map(function(d,ix){return '<div class="navitem '+(di===ix+1?"on":"")+'" data-act="doc" data-slug="'+i.slug+'" data-doc="'+(ix+1)+'"><i class="ti ti-file-text"></i> '+d.n+'</div>';}).join("");
+ return '<div style="display:grid;grid-template-columns:200px 1fr;gap:14px;align-items:start"><div class="panel" style="padding:10px">'+nav+'</div><div class="panel doc">'+md(i.docs[di-1].c)+'</div></div>';}
+function frdChip(f){return f?'<span class="chip" style="background:var(--info-bg);color:var(--info);font-size:10px">'+f+'</span>':'';}
+function projWO(i){var wos=i.wo||[];if(!wos.length)return '<div class="panel" style="color:var(--text3);font-size:13px">Los work orders se generan en /pandacorp:blueprint.</div>';
+ if(ST.woItem!==null&&wos[ST.woItem]){var w=wos[ST.woItem];
+  return '<div style="margin-bottom:12px"><button data-act="woback"><i class="ti ti-arrow-left" style="font-size:14px"></i> Work orders</button></div>'
+   +'<div class="panel"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px"><span style="font-size:16px;font-weight:500">'+esc(w.t)+'</span><span style="display:flex;gap:8px;align-items:center">'+frdChip(w.frd)+'<span class="chip" style="background:var(--secondary);color:var(--text2)">'+WLBL[w.e]+'</span></span></div><p style="font-size:13px;color:var(--text2);margin:10px 0 0">'+esc(w.d||"Sin descripción.")+'</p></div>';}
+ var cols=WORDER.map(function(st){var items=wos.map(function(w,ix){return {w:w,ix:ix};}).filter(function(o){return o.w.e===st;});
+  var cards=items.map(function(o){return '<div class="card" data-act="wo" data-ix="'+o.ix+'"><div style="font-size:12px;margin-bottom:6px">'+esc(o.w.t)+'</div>'+frdChip(o.w.frd)+'</div>';}).join("")||'<div style="font-size:11px;color:var(--text3);padding:4px 2px">—</div>';
+  return '<div class="col"><div style="font-size:11px;font-weight:500;color:var(--text2);margin-bottom:8px">'+WLBL[st]+' <span style="color:var(--text3)">'+items.length+'</span></div>'+cards+'</div>';}).join("");
+ return '<p style="font-size:12px;color:var(--text3);margin:0 0 10px">Estado en vivo de cada work order (lo escriben los agentes). Clic en uno para ver su resumen y de qué FRD es. Solo-lectura.</p><div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:6px">'+cols+'</div>';}
+
+function configView(){
+ if(ST.configItem!==null)return configDetail();
+ var sec=ST.configSection;
+ var tabs=[["skills","Skills"],["agents","Agentes"],["rules","Reglas de decisión"],["estandares","Estándares"]].map(function(t){return '<span class="stab '+(sec===t[0]?"on":"")+'" data-act="cfgsec" data-sec="'+t[0]+'">'+t[1]+'</span>';}).join("");
+ var icon={skills:"ti-terminal-2",agents:"ti-robot",rules:"ti-gavel",estandares:"ti-book-2"}[sec];
+ var items=CONFIG[sec].map(function(r,ix){var name=sec==="skills"?("/pandacorp:"+r[0]):r[0];
+  return '<div class="cfgcard" data-act="cfgitem" data-ix="'+ix+'"><i class="ti '+icon+'" style="font-size:18px;color:var(--text2);margin-top:1px"></i><div style="flex:1"><div style="font-family:var(--mono);font-size:13px;font-weight:500">'+name+'</div><div style="font-size:12px;color:var(--text2);margin-top:2px">'+r[1]+'</div></div><i class="ti ti-chevron-right" style="font-size:15px;color:var(--text3)"></i></div>';}).join("");
+ return '<p style="font-size:12px;color:var(--text3);margin:0 0 10px">Lo que hay configurado en la fábrica. Solo-lectura — para editar, se hace en los archivos / Claude Code. Clic en cualquiera para ver el detalle.</p>'
+  +'<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">'+tabs+'</div>'+items;
+}
+function configDetail(){
+ var r=CONFIG[ST.configSection][ST.configItem];var name=ST.configSection==="skills"?("/pandacorp:"+r[0]):r[0];
+ return '<div style="margin-bottom:12px"><button data-act="cfgback"><i class="ti ti-arrow-left" style="font-size:14px"></i> Volver</button></div>'
+  +'<div class="panel"><div style="font-family:var(--mono);font-size:16px;font-weight:500">'+name+'</div><p style="font-size:13px;color:var(--text2);margin:6px 0 0">'+r[1]+'</p><div style="border-top:.5px solid var(--bd);margin:12px 0"></div><p style="font-size:13px;color:var(--text);margin:0">'+esc(r[2])+'</p></div>';
+}
+
+function docsView(){var p=Math.min(ST.docsPage,DOCS.length-1);
+ var nav=DOCS.map(function(d,ix){return '<div class="navitem '+(p===ix?"on":"")+'" data-act="docpage" data-p="'+ix+'"><i class="ti ti-book"></i> '+d[0]+'</div>';}).join("");
+ return '<div style="display:grid;grid-template-columns:220px 1fr;gap:14px;align-items:start"><div class="panel" style="padding:10px"><div style="font-size:11px;color:var(--text3);margin:2px 4px 8px">GUÍA</div>'+nav+'</div><div class="panel doc">'+md(DOCS[p][1])+'</div></div>';}
+
+var AG={investigador:{n:"Investigador",x:175,y:14},backend:{n:"Backend",x:40,y:118},frontend:{n:"Frontend",x:310,y:118},testing:{n:"Testing",x:175,y:222}};
+var STAT={idle:["en cola","#e9e7df","#5f5e5a"],work:["trabajando","#E6F1FB","#0C447C"],done:["terminado","#EAF3DE","#27500A"],wait:["esperando","#FAEEDA","#633806"]};
+var agState={investigador:"idle",backend:"idle",frontend:"idle",testing:"idle"},feed=[],simTimer=null;
+function node(k){var a=AG[k],s=STAT[agState[k]];return '<g><rect x="'+a.x+'" y="'+a.y+'" width="130" height="46" rx="8" fill="'+s[1]+'" stroke="'+s[2]+'" stroke-width="0.5"/><text x="'+(a.x+12)+'" y="'+(a.y+20)+'" font-size="13" font-weight="500" fill="'+s[2]+'">'+a.n+'</text><text x="'+(a.x+12)+'" y="'+(a.y+36)+'" font-size="11" fill="'+s[2]+'">'+s[0]+'</text></g>';}
+function missionBody(i){
+ var svg='<svg viewBox="0 0 460 285" width="100%" style="max-width:460px;display:block;margin:0 auto"><defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#888780"/></marker><marker id="arb" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#A32D2D"/></marker><marker id="arc" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0C447C"/></marker></defs>'
+  +'<line x1="172" y1="135" x2="312" y2="135" stroke="#888780" stroke-width="1" marker-end="url(#ar)"/><line x1="312" y1="148" x2="172" y2="148" stroke="#888780" stroke-width="1" marker-end="url(#ar)"/><line x1="120" y1="164" x2="190" y2="220" stroke="#888780" stroke-width="1" marker-end="url(#ar)"/><line x1="350" y1="164" x2="270" y2="220" stroke="#888780" stroke-width="1" marker-end="url(#ar)"/><path d="M210,222 C150,180 70,210 95,166" fill="none" stroke="#A32D2D" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arb)"/><line x1="108" y1="116" x2="158" y2="62" stroke="#0C447C" stroke-width="1" stroke-dasharray="3 3" marker-end="url(#arc)"/><line x1="352" y1="116" x2="262" y2="62" stroke="#0C447C" stroke-width="1" stroke-dasharray="3 3" marker-end="url(#arc)"/><text x="86" y="96" font-size="9" fill="#0C447C">consulta</text><text x="300" y="96" font-size="9" fill="#0C447C">consulta</text><text x="232" y="128" font-size="9" fill="#888780">contrato</text><text x="232" y="162" font-size="9" fill="#888780">ajustes</text><text x="120" y="206" font-size="9" fill="#A32D2D">bug</text>'
+  +node("investigador")+node("backend")+node("frontend")+node("testing")+'</svg>';
+ return '<div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:10px"><button data-act="sim"><i class="ti ti-player-play" style="font-size:13px"></i> Simular</button><button data-act="resetsim"><i class="ti ti-refresh" style="font-size:13px"></i> Reiniciar</button></div>'
+  +'<div class="panel" style="margin-bottom:12px">'+svg+'<p style="font-size:11px;color:var(--text3);text-align:center;margin:8px 0 0">El backend y el frontend llaman al Investigador cuando lo necesitan (a demanda). Se comunican en ambos sentidos; testing devuelve los bugs para corregir.</p></div>'
+  +'<p style="font-size:13px;font-weight:500;margin:0 0 6px;color:var(--text2)">Mensajes entre agentes</p><div class="panel" style="background:var(--secondary);border:none;min-height:64px;font-size:12px">'+(feed.length?feed.join(""):'<span style="color:var(--text3)">Sin actividad. Dale a «Simular».</span>')+'</div>';}
+function msg(f,to,tx,col){feed.push('<p style="margin:0 0 7px"><span style="color:'+col+';font-weight:500">'+f+'</span> <i class="ti ti-arrow-right" style="font-size:11px"></i> <span style="font-weight:500">'+to+'</span><br><span style="color:var(--text2)">'+tx+'</span></p>');}
+function simulate(){resetsim();var steps=[
+ function(){agState.backend="work";},
+ function(){agState.investigador="work";msg("backend","Investigador","¿qué API de precios uso?","#0C447C");},
+ function(){agState.investigador="done";msg("Investigador","backend","API X: gratis, sin login","#27500A");},
+ function(){agState.frontend="wait";msg("backend","frontend","contrato en docs/api.md","#0C447C");},
+ function(){agState.backend="done";agState.frontend="work";},
+ function(){agState.backend="work";msg("frontend","backend","falta el campo «precio»","#0C447C");},
+ function(){agState.backend="done";msg("backend","frontend","campo agregado","#0C447C");agState.testing="wait";},
+ function(){agState.frontend="done";agState.testing="work";msg("frontend","testing","pantalla lista","#633806");},
+ function(){agState.frontend="work";msg("testing","frontend","bug: estado de error no se muestra","#A32D2D");},
+ function(){agState.frontend="done";agState.testing="work";},
+ function(){agState.testing="done";msg("testing","equipo","todo verde · WO cerrado","#5f5e5a");}
+];var i=0;(function tick(){if(i>=steps.length)return;steps[i++]();render();simTimer=setTimeout(tick,1000);})();}
+function resetsim(){if(simTimer)clearTimeout(simTimer);agState={investigador:"idle",backend:"idle",frontend:"idle",testing:"idle"};feed=[];}
+
+function render(){var body;
+ if(ST.view==="ideas")body=ST.openSlug?detailView():boardView();
+ else if(ST.view==="portfolio")body=portfolioView();
+ else if(ST.view==="config")body=configView();
+ else body=docsView();
+ root.innerHTML=topbar()+body;}
+function copy(t){var d=function(){toast(t);};try{navigator.clipboard.writeText(t).then(d,function(){fb(t,d);});}catch(e){fb(t,d);}}
+function fb(t,d){var a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();try{document.execCommand("copy");d();}catch(e){}document.body.removeChild(a);}
+function toast(t){var d=document.createElement("div");d.textContent="¡Copiado!  "+t;d.style.cssText="margin-top:12px;font-size:12px;color:var(--ok)";root.appendChild(d);setTimeout(function(){if(d.parentNode)d.parentNode.removeChild(d);},1700);}
+
+root.addEventListener("click",function(ev){var el=ev.target.closest("[data-act]");if(!el)return;var a=el.dataset.act;
+ if(a==="tab"){ST.view=el.dataset.tab;ST.openSlug=null;ST.configItem=null;save();render();}
+ else if(a==="open"){ST.openSlug=el.dataset.slug;ST.openDoc=0;save();render();}
+ else if(a==="back"){ST.openSlug=null;save();render();}
+ else if(a==="railproj"){ST.projectSlug=el.dataset.slug;ST.projectTab="resumen";ST.woItem=null;save();render();}
+ else if(a==="ptab"){ST.projectTab=el.dataset.pt;ST.woItem=null;if(el.dataset.pt==="docs")ST.openDoc=1;save();render();}
+ else if(a==="wo"){ST.woItem=parseInt(el.dataset.ix,10);save();render();}
+ else if(a==="woback"){ST.woItem=null;save();render();}
+ else if(a==="doc"){ST.openDoc=parseInt(el.dataset.doc,10);save();render();}
+ else if(a==="cfgsec"){ST.configSection=el.dataset.sec;ST.configItem=null;save();render();}
+ else if(a==="cfgitem"){ST.configItem=parseInt(el.dataset.ix,10);save();render();}
+ else if(a==="cfgback"){ST.configItem=null;save();render();}
+ else if(a==="docpage"){ST.docsPage=parseInt(el.dataset.p,10);save();render();}
+ else if(a==="copy"){copy(el.dataset.cmd);}
+ else if(a==="intake"){ST.intake=true;save();render();}
+ else if(a==="intake-close"){ST.intake=false;save();render();}
+ else if(a==="discard"){var x=get(el.dataset.slug);if(x){x.estado="descartada";ST.openSlug=null;save();render();}}
+ else if(a==="sim"){simulate();}
+ else if(a==="resetsim"){resetsim();render();}
+});
+render();
+})();
+</script>
+</body>
+</html>

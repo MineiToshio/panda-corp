@@ -24,6 +24,7 @@ Si la conversación se corta o te quedas sin tokens, **vuelve a correr `/pandaco
 2. **Composición según stack** (DR-013):
    - Stack A (web): equipo de **backend-dev + frontend-dev + test-writer**, con el reviewer al cerrar.
    - Stack B/C/D (API/scraper): equipo de **backend-dev + test-writer** (sin frontend).
+   - **Sin investigador fijo en el equipo**: backend-dev y frontend-dev llaman al `researcher` a demanda cuando les falta algo. La investigación de fondo ya se hizo en spec (producto) y blueprint (técnico).
 3. **Tamaño y modelos** (DR-014, diseñar para Max 5x): máximo 3 agentes simultáneos; líder (esta sesión) en opus, obreros en sonnet/haiku. Si Sergio está construyendo la propia fábrica, puede usar equipos mayores.
 
 ## Loop por work order
@@ -50,7 +51,7 @@ Mientras se construye, mantener SIEMPRE actualizado (el cockpit lo lee en vivo):
 
 ## Puntos de decisión (escalado a Sergio, visible en el cockpit)
 
-Cuando aparezca algo que requiere una decisión de Sergio (ambigüedad real, trade-off de producto, algo del registro de decisiones que pide humano, o un bloqueo): **NO adivines**. Anótalo en `docs/decisiones.md` como entrada `pendiente` (qué pasa, opciones, recomendación) y, si bloquea ese frente, sigue con otros work orders. El cockpit resalta estas entradas para que Sergio las vea y responda.
+Cuando aparezca algo que no estaba resuelto: **primero investiga** (delega al `researcher`) y, si con eso puedes tomar la decisión coherente tú mismo, hazlo y documéntalo en `docs/progreso.md`. **Solo escala a Sergio las decisiones genuinamente humanas**: scope de producto, algo irreversible, gastar dinero, o lo que el registro de decisiones marca como humano. En ese caso NO adivines: anótalo en `docs/decisiones.md` como `pendiente` (qué pasa, opciones investigadas, tu recomendación) y, si bloquea ese frente, sigue con otros work orders. El cockpit resalta estas entradas para que Sergio las vea y responda.
 
 ## Al terminar todos
 

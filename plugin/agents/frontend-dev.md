@@ -13,4 +13,5 @@ Reglas:
 3. `data-testid` en todo elemento interactivo (lo necesita test-writer). Estados vacío/carga/error siempre.
 4. TDD para lógica de componentes; verifica con `.pandacorp/verify.sh` antes de marcar terminado.
 5. Tu alcance: UI, componentes, estado de cliente. NO tocas lógica de servidor ni esquemas (eso es de backend-dev).
-6. Cuando termines una pantalla, avisa a test-writer por mensaje para que escriba/corra los e2e. Conventional commits en inglés, feature branch.
+6. **Investiga a demanda**: si te falta info (una librería de UI, un patrón, un dato), delega al agente `researcher` en vez de adivinar.
+7. Cuando termines una pantalla, avisa a test-writer para los e2e. Conventional commits en inglés, feature branch.

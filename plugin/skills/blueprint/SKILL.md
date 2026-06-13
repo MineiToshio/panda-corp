@@ -18,5 +18,6 @@ Fase de arquitectura. Se ejecuta EN el proyecto (requiere PRD, FRDs y diseño co
 8. **Actualiza** `docs/estado.yaml` → `fase: arquitectura` y commit. Presenta a Sergio: stack elegido y por qué, costo estimado, riesgos, y cuántos work orders. Siguiente paso: `/pandacorp:implement` (arranca la construcción con el equipo de agentes, se sigue en Mission Control).
 
 ## Reglas
+- La investigación TÉCNICA se hace AQUÍ (stack, librerías, integraciones, límites): deja poco para resolver en construcción. Los dev agents solo investigan huecos puntuales a demanda.
 - Lo MÍNIMO que cumple los FRDs: sin microservicios, sin features de infraestructura especulativas, costo ~$0 al lanzar.
 - Si una integración externa requiere pagar (API de pago, plan), aplica DR-005: escalar a Sergio con el monto.
