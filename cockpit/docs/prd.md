@@ -1,4 +1,4 @@
-# PRD — Pandacorp (cockpit de la fábrica)
+# PRD — Pandacorp (el panel de la fábrica)
 
 ## Visión
 Una sola pantalla para operar la fábrica: ver el estado de todas las ideas y proyectos, leer su documentación, y saber qué comando ejecutar a continuación. Es la interfaz de la propia fábrica Pandacorp.
@@ -10,7 +10,7 @@ Operar la fábrica solo desde la terminal es incómodo: no hay vista del estado 
 Sergio (operador único). Débil en UX — la herramienta debe guiarlo, no solo mostrar datos.
 
 ## Hipótesis de valor
-Una vista de solo-lectura que muestre estado + documentación + el siguiente comando reduce la fricción de operar la fábrica, **sin gastar la suscripción** (el cockpit nunca llama a Claude).
+Una vista de solo-lectura que muestre estado + documentación + el siguiente comando reduce la fricción de operar la fábrica, **sin gastar la suscripción** (Pandacorp nunca llama a Claude).
 
 ## Principios y restricciones
 - **Solo-lectura**: nunca llama a Claude ni ejecuta nada. Única escritura permitida: marcar una idea como `descartada`.

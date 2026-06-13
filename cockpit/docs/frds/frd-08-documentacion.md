@@ -1,6 +1,6 @@
 # FRD-08 — Documentación
 
-Manual navegable de la fábrica dentro del cockpit, para entender el sistema (incluido el handoff a otra persona).
+Manual navegable de la fábrica dentro de Pandacorp, para entender el sistema (incluido el handoff a otra persona).
 
 ## Criterios de aceptación (EARS)
 - LA Documentación DEBERÁ ofrecer un menú lateral con páginas y un área de lectura que renderiza cada página.

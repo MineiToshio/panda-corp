@@ -8,7 +8,7 @@ Kanban de solo-lectura de la base de ideas, con captura de ideas, detalle navega
 - CUANDO Sergio abre "Capturar ideas", EL sistema DEBERÁ mostrar los comandos `/pandacorp:new-idea`, `:discover` y `:recommend`, cada uno con una descripción y un botón de copiar.
 - CUANDO Sergio hace clic en una tarjeta, EL sistema DEBERÁ mostrar la ficha: resumen, puntos clave, navegador de los documentos de la idea, y el comando del siguiente paso (con botón de copiar).
 - MIENTRAS una idea esté en `en-construccion`, EL sistema DEBERÁ mostrar un indicador de que se está construyendo.
-- CUANDO Sergio pulsa "Descartar idea", EL sistema DEBERÁ reescribir `estado: descartada` en el frontmatter del `.md`, preservando el resto del archivo (única escritura del cockpit).
+- CUANDO Sergio pulsa "Descartar idea", EL sistema DEBERÁ reescribir `estado: descartada` en el frontmatter del `.md`, preservando el resto del archivo (única escritura de Pandacorp).
 
 ## Casos límite
 - Idea sin documentos → mostrar solo el resumen.

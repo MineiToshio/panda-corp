@@ -1,4 +1,4 @@
-# Idea origen — Pandacorp (cockpit)
+# Idea origen — Pandacorp (el panel de la fábrica)
 
 Surgió en la conversación de diseño de la fábrica (2026-06-13). Sergio quería una **interfaz gráfica**, no operar todo por terminal, pero con una condición dura: **usar solo su suscripción Claude Max** (no el pool headless de `claude -p`).
 

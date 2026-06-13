@@ -1,4 +1,4 @@
-# Plan de implementación — Pandacorp Cockpit (dashboard local, solo-lectura)
+# Plan de implementación — Pandacorp (dashboard local, solo-lectura)
 
 > Plan autocontenido para ejecutar con `/loop`. El dashboard es el primer proyecto de la fábrica Pandacorp: una herramienta LOCAL para que Sergio **vea** el estado de ideas y proyectos, **lea** los documentos, y **sepa qué comando ejecutar a continuación** — copiándolo con un botón y pegándolo en la app de Claude Code.
 >
@@ -11,9 +11,9 @@
 Una app web local en `http://127.0.0.1:3000` con tres paneles sobre datos reales de la fábrica, y `.pandacorp/verify.sh` en verde. Criterios de aceptación globales:
 
 - [ ] `bash .pandacorp/verify.sh` pasa (biome + tsc --noEmit + vitest run), sin errores ni warnings nuevos.
-- [ ] Panel **Ideas**: kanban de las fichas de `fabrica/ideas/*.md` agrupadas por `estado`; cada tarjeta muestra título, score y tipo. **El tablero es de solo-lectura: las tarjetas NO se mueven a mano** — su columna refleja el `estado:` que escriben los skills al ejecutarse (new-idea→documentada, recommend→recomendada, scaffold→en-pipeline, release→lanzada). El cockpit reemplaza a Obsidian como visor.
+- [ ] Panel **Ideas**: kanban de las fichas de `fabrica/ideas/*.md` agrupadas por `estado`; cada tarjeta muestra título, score y tipo. **El tablero es de solo-lectura: las tarjetas NO se mueven a mano** — su columna refleja el `estado:` que escriben los skills al ejecutarse (new-idea→documentada, recommend→recomendada, scaffold→en-pipeline, release→lanzada). Pandacorp reemplaza a Obsidian como visor.
 - [ ] **Vista de detalle a página completa** (clic en una tarjeta): cabecera (título, tipo, score, estado), **resumen con puntos clave**, **navegador de los documentos** del proyecto (idea-origen.md, investigación, PRD, blueprint…) renderizados, y el comando del siguiente paso con botón Copiar.
-- [ ] **Botón Descartar** en el detalle: única escritura manual del cockpit — reescribe `estado: descartada` en el .md (es una decisión humana, no un paso de construcción). Test de que no corrompe el YAML ni el cuerpo.
+- [ ] **Botón Descartar** en el detalle: única escritura manual de Pandacorp — reescribe `estado: descartada` en el .md (es una decisión humana, no un paso de construcción). Test de que no corrompe el YAML ni el cuerpo.
 - [ ] Panel **Portfolio**: tabla de proyectos leída de `fabrica/portfolio.md` + el `docs/estado.yaml` de cada proyecto (fase, versión, resumen, fecha).
 - [ ] **Siguiente paso + copiar**: cada idea y cada proyecto muestra el comando sugerido según su `estado`/`fase`, con botón "Copiar" y la indicación de en qué carpeta abrir la sesión de Claude Code.
 - [ ] La app **no hace ninguna llamada a Claude** (no `claude -p`, no Agent SDK, no API key). Solo lee/escribe archivos locales.
@@ -50,7 +50,7 @@ Mapea estado/fase → comando sugerido + carpeta donde abrir Claude Code:
 | `en-construcción` | `/pandacorp:release` | la carpeta del proyecto |
 | `lanzada` | `/pandacorp:iterate` (agregar funcionalidad/cambio) | la carpeta del proyecto |
 
-Etapas adicionales: `descartada` (decisión humana desde el cockpit) y, para cambios en cualquier momento, el botón **Iterar** (`/pandacorp:iterate`). `recommend` es una acción de consejo a demanda, no una etapa.
+Etapas adicionales: `descartada` (decisión humana desde Pandacorp) y, para cambios en cualquier momento, el botón **Iterar** (`/pandacorp:iterate`). `recommend` es una acción de consejo a demanda, no una etapa.
 
 La UI muestra, junto al comando, la ruta de la carpeta (con su propio botón de copiar) para que Sergio sepa exactamente dónde pegarlo.
 
@@ -95,7 +95,7 @@ La UI muestra, junto al comando, la ruta de la carpeta (con su propio botón de 
 
 ### Fase 6 — Mission Control (vista en vivo de agentes, solo-lectura)
 > Parte del alcance inicial (se construye tras las fases 0-5, en la misma corrida del loop). Visualiza los Agent Teams mientras trabajan, sin llamar a Claude.
-- [ ] El emisor de eventos YA viene en el plugin de la fábrica (`scripts/emit-event.sh` + hooks `TaskCreated/TaskCompleted/TeammateIdle/SubagentStop` → `~/.claude/dashboard-events.ndjson`). El cockpit solo CONSUME ese archivo, no lo crea.
+- [ ] El emisor de eventos YA viene en el plugin de la fábrica (`scripts/emit-event.sh` + hooks `TaskCreated/TaskCompleted/TeammateIdle/SubagentStop` → `~/.claude/dashboard-events.ndjson`). Pandacorp solo CONSUME ese archivo, no lo crea.
 - [ ] `lib/agents.ts`: lee `~/.claude/dashboard-events.ndjson` (eventos) y `~/.claude/tasks/<team>/` (estado de tareas); tolera ausencia de ambos (caso "no hay equipo activo"). Test.
 - [ ] Panel **Mission Control**: lista de agentes activos con su estado y tarea actual, feed de mensajes/eventos entre ellos, y grafo simple de dependencias de tareas. Auto-refresh (tail) cada ~2 s.
 - [ ] Solo observación: NO intenta enviar mensajes ni pausar agentes (eso se hace en la terminal). Dejar nota en la UI: "para redirigir un agente, usa la app de Claude Code".
@@ -115,4 +115,4 @@ La UI muestra, junto al comando, la ruta de la carpeta (con su propio botón de 
 
 ## Notas
 - Si una decisión no está cubierta aquí, aplicar el registro de decisiones de la fábrica (`../panda-corp/fabrica/decisiones/registro.yaml`); si tampoco, parar y preguntar a Sergio.
-- El `estado.yaml` de proyectos puede no existir aún (por ahora solo está la fábrica + este cockpit): manejar el caso vacío con gracia.
+- El `estado.yaml` de proyectos puede no existir aún (por ahora solo está la fábrica + este panel): manejar el caso vacío con gracia.

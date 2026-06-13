@@ -1,5 +1,5 @@
-# Estado del proyecto pandacorp-cockpit — leído por la fábrica y por el propio cockpit
-proyecto: "pandacorp-cockpit"
+# Estado del proyecto Pandacorp (el panel de la fábrica) — leído por la fábrica y por el propio panel
+proyecto: "Pandacorp"
 fase: arquitectura   # producto y diseño (prototipo) hechos; pendiente blueprint + construcción
 version: v1
 running: false

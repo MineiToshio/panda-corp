@@ -71,5 +71,5 @@ decisiones:
 
   - id: DR-014
     patron: "tamaño de equipo y modelos por agente (control de consumo)"
-    default: "DISEÑAR PARA Max 5x en proyectos: equipo de ≤3 agentes simultáneos, líder en opus, obreros (implementación/testing/investigación) en sonnet o haiku. La construcción de la propia fábrica (panda-corp y su cockpit) puede usar equipos mayores mientras el plan lo permita (Max 20x)"
+    default: "DISEÑAR PARA Max 5x en proyectos: equipo de ≤3 agentes simultáneos, líder en opus, obreros (implementación/testing/investigación) en sonnet o haiku. La construcción de la propia fábrica (panda-corp y su panel Pandacorp) puede usar equipos mayores mientras el plan lo permita (Max 20x)"
     requiere_humano: false

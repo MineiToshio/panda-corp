@@ -30,5 +30,5 @@ Lo que el scoring consideró: tamaño de mercado, competencia, dificultad, venta
 
 ---
 > Estados: descubierta → documentada → recomendada → en-pipeline → lanzada | descartada
-> Cada transición la escribe un skill (new-idea→documentada, recommend→recomendada, scaffold→en-pipeline, release→lanzada). `descartada` se marca desde el cockpit (decisión humana). El tablero del cockpit es solo-lectura.
+> Cada transición la escribe un skill (new-idea→documentada, recommend→recomendada, scaffold→en-pipeline, release→lanzada). `descartada` se marca desde Pandacorp (decisión humana). El tablero es solo-lectura.
 > Al pasar a `en-pipeline`, llenar el campo `proyecto:` con la ruta de la carpeta creada.
