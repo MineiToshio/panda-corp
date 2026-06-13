@@ -1,5 +1,5 @@
 ---
-description: Crea la carpeta/repo de un proyecto Pandacorp desde una idea seleccionada — el "handoff" de la fábrica al proyecto. Usar cuando una idea pasa a estado seleccionada o Sergio pida crear/scaffoldear un proyecto.
+description: Crea la carpeta/repo de un proyecto Pandacorp desde una idea (paso mecánico del handoff). En el flujo normal lo invoca /pandacorp:spec; usar por separado solo para crear el proyecto sin documentar todavía.
 ---
 
 # /pandacorp:scaffold

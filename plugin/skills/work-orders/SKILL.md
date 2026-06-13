@@ -1,5 +1,5 @@
 ---
-description: Genera las órdenes de trabajo (work orders) de un proyecto Pandacorp desde los FRDs y el blueprint - tareas implementables, verificables y ordenadas por dependencias. Usar dentro del proyecto después de /pandacorp:blueprint.
+description: Genera o regenera las órdenes de trabajo (work orders) de un proyecto Pandacorp desde los FRDs y el blueprint. En el flujo normal los work orders los crea /pandacorp:blueprint junto con el blueprint; usar este skill por separado solo para regenerarlos o ajustarlos.
 ---
 
 # /pandacorp:work-orders

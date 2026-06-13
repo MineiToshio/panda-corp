@@ -1,5 +1,5 @@
 ---
-description: Inicia una nueva versión (v2, v3…) de un proyecto Pandacorp ya lanzado - re-entra al pipeline en fase de producto para ampliar scope o iterar. Usar dentro del proyecto cuando Sergio quiera agregar funcionalidades o mejorar una app existente.
+description: Agrupa un lote grande de cambios en un hito formal (v2, v3…) de un proyecto lanzado, con su propio mini-PRD. OPCIONAL — para el día a día (agregar una funcionalidad o un ajuste) usar /pandacorp:iterate. Usar new-version solo para rediseños o paquetes grandes que justifican un PRD nuevo.
 ---
 
 # /pandacorp:new-version

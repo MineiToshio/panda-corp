@@ -1,24 +1,26 @@
 ---
-description: Fase de producto de un proyecto Pandacorp - investigación profunda + PRD + FRDs con criterios de aceptación. Usar dentro de la carpeta de un proyecto, después del scaffold. Es la fase 2 del pipeline.
+description: Handoff + fase de producto de Pandacorp. Crea el proyecto de una idea (carpeta/repo) y genera investigación + PRD + FRDs del MVP. Se ejecuta DESDE la fábrica con el nombre de la idea. Es el paso descubierta → documentada.
 ---
 
 # /pandacorp:spec
 
-Fase de producto. Se ejecuta EN la carpeta del proyecto (verifica que exista `docs/idea-origen.md`; si no, estás en el lugar equivocado — dile a Sergio).
+Toma la idea indicada en `$ARGUMENTS`, **crea su proyecto** (handoff) y documenta el MVP. Se ejecuta DESDE la fábrica (panda-corp) porque aún no existe la carpeta del proyecto — por eso lleva el nombre de la idea.
 
-## Pasos
+## Paso 0 — Handoff (crear el proyecto)
 
-1. **Investigación profunda** (agentes `researcher` en paralelo):
-   - Competidores/alternativas: qué hacen bien, qué les reclaman los usuarios (reviews)
-   - Usuarios objetivo: cómo resuelven el problema hoy, vocabulario que usan
-   - Funcionalidades: qué es table-stakes, qué sería diferenciador
-   - Viabilidad: APIs/fuentes de datos necesarias, costos, términos de uso
-   Consolida en `docs/investigacion-producto.md` (con fuentes).
-2. **PRD** (delega al agente `product-manager`): `docs/prd.md` — visión, problema, usuarios, hipótesis de valor, monetización, métricas de éxito, scope v1 mínimo + backlog futuro.
-3. **FRDs** (mismo agente): `docs/frds/frd-NN-<nombre>.md`, uno por funcionalidad de v1, con criterios de aceptación EARS testeables y casos límite.
-4. **Auto-revisión cruzada**: ¿cada FRD trazable al PRD? ¿v1 realmente mínima (DR-012)? ¿algún criterio no verificable por máquina? Corrige antes de presentar.
-5. **Actualiza** `docs/estado.yaml` → `fase: diseno` y presenta a Sergio el resumen: hipótesis de valor, lista de FRDs de v1 (1 línea c/u) y qué quedó fuera. Siguiente paso: `/pandacorp:design`.
+1. Lee la ficha `fabrica/ideas/<idea>.md`. Debe existir y NO estar `descartada` ni ya `en-pipeline`.
+2. Ejecuta el scaffold del proyecto (mismos pasos del skill `scaffold`): crea `/Users/Shared/Proyectos/<slug>/` (hermana de panda-corp, nunca dentro), copia el overlay desde `${CLAUDE_PLUGIN_ROOT}/templates/shared/`, procesa los `.tpl`, crea la estructura `docs/` (frds, diseno/mockups, adr, work-orders, reviews), copia la ficha a `docs/idea-origen.md`, inicializa git, crea repo privado con `gh` si está disponible (DR-010), y escribe los enlaces bidireccionales (ficha → `estado: documentada` + `proyecto:` con la ruta; fila en `fabrica/portfolio.md`).
+
+> A partir de aquí trabajas DENTRO de la carpeta del proyecto. Los demás skills (`design`, `blueprint`, `implement`, `release`) se corren ahí y NO necesitan el nombre.
+
+## Paso 1 — Producto (en el proyecto)
+
+3. **Investigación profunda** (agentes `researcher` en paralelo): competidores y sus quejas, usuarios, funcionalidades table-stakes vs diferenciadoras, viabilidad (APIs/datos, costos, términos). Consolida en `docs/investigacion-producto.md` con fuentes.
+4. **PRD** (agente `product-manager`): `docs/prd.md` — visión, problema, usuarios, hipótesis de valor, monetización, métricas, scope v1 mínimo + backlog.
+5. **FRDs** (mismo agente): `docs/frds/frd-NN-<nombre>.md`, uno por funcionalidad de v1, criterios de aceptación EARS testeables.
+6. Auto-revisión: cada FRD trazable al PRD; v1 realmente mínima (DR-012); criterios verificables por máquina.
+7. `docs/estado.yaml` → `fase: diseno`. Resumen a Sergio: hipótesis de valor, FRDs de v1, qué quedó fuera. Siguiente paso: abrir Claude Code en la carpeta del proyecto y correr `/pandacorp:design`.
 
 ## Reglas
-- Si la investigación contradice la idea original (dolor inexistente, competencia imbatible), DILO y recomienda matar o pivotar — no escribas un PRD de compromiso.
-- Documentos en español, identificadores en inglés.
+- Si la investigación contradice la idea (dolor inexistente, competencia imbatible), DILO y recomienda matar/pivotar antes de escribir el PRD.
+- Documentos en español; identificadores en inglés.

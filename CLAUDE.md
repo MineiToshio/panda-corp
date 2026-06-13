@@ -19,10 +19,19 @@ Este repo es **la fábrica**: el know-how de la empresa. Aquí NUNCA vive códig
 | Capturar una idea de Sergio | `/pandacorp:new-idea` |
 | Buscar dolores monetizables en internet | `/pandacorp:discover` |
 | Pedir ranking/recomendación de ideas | `/pandacorp:recommend` |
-| Crear el proyecto de una idea seleccionada | `/pandacorp:scaffold` |
+| Crear el proyecto y documentar el MVP de una idea (handoff) | `/pandacorp:spec <idea>` |
 | Sincronizar portfolio y detectar tarjetas movidas | `/pandacorp:sync-portfolio` |
 
-Las fases de producto (`/pandacorp:spec`, `:design`, `:blueprint`, `:work-orders`, `:implement`, `:release`, `:new-version`) se ejecutan **dentro de la carpeta del proyecto**, nunca aquí.
+`/pandacorp:spec <idea>` es el **handoff**: se corre DESDE la fábrica con el nombre de la idea, crea la carpeta/repo del proyecto y documenta el MVP (investigación + PRD + FRDs).
+
+Las demás fases se ejecutan **dentro de la carpeta del proyecto**, sin nombre:
+- `/pandacorp:design` — mockups y sistema de diseño (iterar en la conversación).
+- `/pandacorp:blueprint` — crea blueprint **+ work orders**.
+- `/pandacorp:implement` — arranca la construcción con el equipo de agentes (Agent Teams), se sigue en Mission Control.
+- `/pandacorp:release` — auditoría + deploy (gate humano para producción).
+- `/pandacorp:iterate` — agregar funcionalidades o cambios en cualquier momento (en construcción o lanzado).
+
+Opcionales/internos: `:new-version` (hito grande con mini-PRD), `:scaffold` y `:work-orders` (pasos que normalmente invocan `spec`/`blueprint`).
 
 ## Mantenimiento del plugin
 

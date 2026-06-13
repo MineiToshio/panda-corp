@@ -1,10 +1,10 @@
 ---
-description: Ejecuta los work orders de un proyecto Pandacorp con un equipo de agentes (Agent Teams) que se comunican y se pasan el trabajo, con TDD y revisión. Usar dentro del proyecto después de /pandacorp:work-orders, o para retomar la implementación.
+description: Arranca y ejecuta la construcción de un proyecto Pandacorp con un equipo de agentes (Agent Teams) que se comunican y se pasan el trabajo, con TDD y revisión. Corre todos los work orders hasta terminar, y se sigue en vivo desde Mission Control. Usar dentro del proyecto después de /pandacorp:blueprint. Es el paso arquitectura → en construcción.
 ---
 
 # /pandacorp:implement
 
-Loop de implementación con Agent Teams. Se ejecuta EN el proyecto. `$ARGUMENTS` opcional: work orders específicos; sin argumentos, continúa desde el primer `pendiente`.
+**Este es el comando que arranca la construcción.** Dispara el equipo de agentes, reparte los work orders y avanza hasta terminar; lo sigues en vivo en Mission Control. Se ejecuta EN el proyecto. `$ARGUMENTS` opcional: work orders específicos; sin argumentos, construye todos desde el primer `pendiente`. Al arrancar, marca `docs/estado.yaml → fase: implementacion` (la idea pasa a «en construcción» en el tablero).
 
 ## Preparación del equipo (una vez por sesión)
 

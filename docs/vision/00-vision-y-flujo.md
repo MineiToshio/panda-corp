@@ -63,22 +63,23 @@ Regla de oro: **cada dato vive en un solo lugar; el otro lado guarda solo un pun
 ## El pipeline
 
 ```
-   EN PANDA-CORP (fábrica)
-0. DISCOVERY / INTAKE   → ficha de idea en la base
-1. SELECCIÓN            → Sergio elige (mueve la tarjeta)            ← GATE HUMANO
-   ──────────── scaffold: nace la carpeta/repo del proyecto ────────────
+   EN PANDA-CORP (fábrica)         — etapa de la idea: DESCUBIERTA
+0. DISCOVERY / INTAKE   → ficha de idea en la base (/discover, /new-idea)
+1. SELECCIÓN            → Sergio decide ejecutar el handoff             ← GATE HUMANO
+   ─── /pandacorp:spec <idea>  (HANDOFF: nace la carpeta/repo + documenta) ───
    EN EL PROYECTO (con los agentes de la fábrica)
-2. PRODUCTO             → investigación mercado/competidores
-                          → PRD (visión, usuarios, monetización)
-                          → FRDs (funcionalidades + criterios de aceptación)
-3. DISEÑO UX/UI         → investigación visual + mockups navegables
-                          → revisión visual de Sergio                 ← GATE LIGERO
-4. ARQUITECTURA         → Blueprint: stack (golden path), modelo de datos, ADRs
-5. WORK ORDERS          → órdenes de trabajo implementables y verificables
-6. IMPLEMENTACIÓN       → por work order, TDD, testing al cerrar cada FRD/hito
-7. RELEASE v1           → deploy a producción                         ← GATE HUMANO
-8. ITERACIÓN            → /nueva-version re-entra en fase 2; operación continua
+2. PRODUCTO  → investigación + PRD + FRDs del MVP        → etapa DOCUMENTADA
+3. DISEÑO    → investigación visual + mockups navegables → etapa DISEÑO
+              → revisión visual de Sergio (iterando en la conversación) ← GATE LIGERO
+4. ARQUITECTURA → /blueprint: stack, modelo de datos, ADRs + work orders → etapa ARQUITECTURA
+5. CONSTRUCCIÓN → /implement: Agent Teams construyen todo, en vivo en   → etapa EN CONSTRUCCIÓN
+                  Mission Control, TDD, testing por FRD/hito
+6. RELEASE v1   → /release: auditoría + deploy a producción            ← GATE HUMANO  → etapa LANZADA
+7. ITERACIÓN    → /iterate: agregar funcionalidad/cambio en cualquier momento
+                  (en construcción o lanzado). /new-version solo para hitos grandes.
 ```
+
+Notas: las etapas del tablero del cockpit son DESCUBIERTA → DOCUMENTADA → DISEÑO → ARQUITECTURA → EN CONSTRUCCIÓN → LANZADA (+ DESCARTADA). Cada transición la escribe el skill correspondiente. El handoff (idea en la fábrica → proyecto en su propia carpeta) ocurre en `/pandacorp:spec`; por eso ese skill lleva el nombre de la idea y los demás no (corren dentro del proyecto). "Recomendada" se eliminó; `recommend` es una acción de consejo a demanda.
 
 Cada fase produce artefactos versionados en `docs/` del proyecto. Las pruebas se hacen al cerrar cada FRD/hito, no al final.
 
