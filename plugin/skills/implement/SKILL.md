@@ -4,7 +4,19 @@ description: Arranca y ejecuta la construcción de un proyecto Pandacorp con un 
 
 # /pandacorp:implement
 
-**Este es el comando que arranca la construcción.** Dispara el equipo de agentes, reparte los work orders y avanza hasta terminar; lo sigues en vivo en Mission Control. Se ejecuta EN el proyecto. `$ARGUMENTS` opcional: work orders específicos; sin argumentos, construye todos desde el primer `pendiente`. Al arrancar, marca `docs/estado.yaml → fase: implementacion` (la idea pasa a «en construcción» en el tablero).
+**Este es el comando que arranca (y reanuda) la construcción.** Dispara el equipo de agentes, reparte los work orders y avanza hasta terminar; lo sigues en vivo en Mission Control. Se ejecuta EN el proyecto. Al arrancar, marca `docs/estado.yaml → fase: implementacion`, `running: true` (la idea pasa a «en construcción»); al detenerse/terminar, `running: false`.
+
+`$ARGUMENTS` opcional: un **modo** (`potente` | `profundo`) y/o work orders específicos. Sin argumentos: modo equilibrado, construye desde el primer work order pendiente.
+
+## Modos de ejecución (control de consumo/calidad)
+
+- **equilibrado** (default): pensado para Max 5x. Equipo ≤3 agentes; líder en opus, obreros en sonnet/haiku.
+- **potente** (`/pandacorp:implement potente`): para Max 20x. Más agentes en paralelo (hasta 5) → avanza más rápido. Úsalo cuando quieras terminar antes y tu plan lo permita.
+- **profundo** (`/pandacorp:implement profundo`): máxima calidad. Todos los agentes en el mejor modelo (opus), revisión adversarial extra y verificación más estricta. Más lento y más caro — para un proyecto al que le tienes cariño especial o cuando algo no está saliendo bien.
+
+## Reanudable (no empezar de cero)
+
+Si la conversación se corta o te quedas sin tokens, **vuelve a correr `/pandacorp:implement`**: lee el estado de `docs/work-orders/` y `docs/estado.yaml` y continúa desde el primer pendiente. Cada work order se comitea al cerrarse → el avance no se pierde.
 
 ## Preparación del equipo (una vez por sesión)
 
@@ -27,6 +39,18 @@ description: Arranca y ejecuta la construcción de un proyecto Pandacorp con un 
 5. **Hito**: al completar los work orders de un FRD, corre la suite e2e de ese FRD. Repite hasta agotar work orders.
 
 > El cockpit (Mission Control) muestra en vivo este equipo: los eventos los emiten los hooks de la fábrica a `~/.claude/dashboard-events.ndjson`. No requiere acción del agente.
+
+## Documentación en tiempo real (clave para reanudar y para el cockpit)
+
+Mientras se construye, mantener SIEMPRE actualizado (el cockpit lo lee en vivo):
+- **`docs/work-orders/`**: estado de cada work order (`todo` → `progress` → `review` → `done`) con evidencia al cerrar. Es la vista de solo-lectura del cockpit.
+- **`docs/estado.yaml`**: `progreso:` (una línea de qué se está haciendo ahora), `running`, work orders hechos/total.
+- **`docs/progreso.md`**: bitácora append-only (qué se hizo, decisiones tomadas, problemas). Permite retomar sin contexto previo.
+- **Desviaciones**: si algo NO funciona como se planeó, documéntalo en el work order y en `docs/progreso.md` ("esto hay que mejorar / cambiamos X porque Y"). No lo escondas.
+
+## Puntos de decisión (escalado a Sergio, visible en el cockpit)
+
+Cuando aparezca algo que requiere una decisión de Sergio (ambigüedad real, trade-off de producto, algo del registro de decisiones que pide humano, o un bloqueo): **NO adivines**. Anótalo en `docs/decisiones.md` como entrada `pendiente` (qué pasa, opciones, recomendación) y, si bloquea ese frente, sigue con otros work orders. El cockpit resalta estas entradas para que Sergio las vea y responda.
 
 ## Al terminar todos
 
