@@ -4,6 +4,8 @@
 >
 > **Principio rector:** el dashboard NUNCA llama a Claude. Solo lee archivos del repo y genera texto de comandos para copiar. Toda ejecución la hace Sergio pegando el comando en la app de Claude Code → usa su suscripción Claude Max. Sergio es débil en UX → la UI debe ser mínima y limpia.
 
+> **Documentación de producto (fuente de verdad):** `docs/prd.md` + `docs/frds/` (FRD-01 a FRD-08). El prototipo navegable (`prototype/index.html`) es el diseño aprobado. Este PLAN es la **secuencia de construcción**; ante cualquier duda de alcance, mandan los FRDs. Pendiente: blueprint formal (stack/arquitectura) a partir de los FRDs.
+
 ## Objetivo (qué es "terminado")
 
 Una app web local en `http://127.0.0.1:3000` con tres paneles sobre datos reales de la fábrica, y `.pandacorp/verify.sh` en verde. Criterios de aceptación globales:

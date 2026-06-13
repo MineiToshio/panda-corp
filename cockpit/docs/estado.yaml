@@ -1,0 +1,14 @@
+# Estado del proyecto pandacorp-cockpit — leído por la fábrica y por el propio cockpit
+proyecto: "pandacorp-cockpit"
+fase: arquitectura   # producto y diseño (prototipo) hechos; pendiente blueprint + construcción
+version: v1
+running: false
+repo: ""
+actualizado: "2026-06-13"
+progreso: "PRD y FRDs documentados; prototipo navegable como diseño aprobado; pendiente blueprint/construcción."
+work_orders_total: 0
+work_orders_done: 0
+decisiones_pendientes: 0
+pendientes:
+  - "Finalizar blueprint (stack y arquitectura) a partir de los FRDs y el prototipo"
+  - "Generar work orders y construir (con /loop o /pandacorp:implement)"

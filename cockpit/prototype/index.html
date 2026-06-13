@@ -18,8 +18,8 @@ button:hover{background:var(--secondary)}
 .tab.on{background:var(--info-bg);color:var(--info);font-weight:500}
 .stab{padding:6px 11px;border-radius:var(--rmd);font-size:13px;cursor:pointer;color:var(--text2);border:.5px solid transparent}
 .stab.on{background:var(--secondary);color:var(--text);font-weight:500}
-.col{min-width:158px;flex:0 0 auto;background:var(--secondary);border-radius:var(--rmd);padding:8px}
-.card{background:var(--primary);border:.5px solid var(--bd);border-radius:var(--rmd);padding:9px;margin-bottom:8px;cursor:pointer}
+.col{flex:1 1 0;min-width:120px;background:var(--secondary);border-radius:var(--rmd);padding:8px}
+.card{background:var(--primary);border:.5px solid var(--bd);border-radius:var(--rmd);padding:9px;margin-bottom:8px;cursor:pointer;overflow-wrap:anywhere}
 .card:hover{border-color:var(--bd2)}
 .chip{font-size:11px;padding:2px 8px;border-radius:var(--rmd)}
 .panel{background:var(--primary);border:.5px solid var(--bd);border-radius:var(--rlg);padding:16px 18px}
@@ -164,6 +164,8 @@ function nextStep(i){var es=i.estado;
  return[null,"—"];}
 function chip(t){var c=TYPE[t]||TYPE.personal;return '<span class="chip" style="background:'+c[0]+';color:'+c[1]+'">'+t+'</span>';}
 function chip2(es){var c=es==="lanzada"?["var(--ok-bg)","var(--ok)"]:["var(--info-bg)","var(--info)"];return '<span class="chip" style="background:'+c[0]+';color:'+c[1]+'">'+LBL[es]+'</span>';}
+var AVCOL={researcher:"#1D9E75","product-manager":"#534AB7",designer:"#D4537E",architect:"#185FA5","backend-dev":"#0F6E56","frontend-dev":"#378ADD","test-writer":"#BA7517",reviewer:"#993C1D","security-auditor":"#A32D2D"};
+function avatar(n){var col=AVCOL[n]||"#534AB7";var ini=n.split("-").map(function(p){return p[0];}).join("").slice(0,2).toUpperCase();return '<div style="width:36px;height:36px;border-radius:6px;background:'+col+';display:flex;align-items:center;justify-content:center;color:#fff;font-family:var(--mono);font-size:13px;font-weight:500;flex:0 0 auto;image-rendering:pixelated">'+ini+'</div>';}
 function esc(s){return (s||"").replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
 function md(t){var o="",ul=false;(t||"").split("\n").forEach(function(l){
  if(/^### /.test(l)){if(ul){o+="</ul>";ul=false;}o+="<h3>"+esc(l.slice(4))+"</h3>";}
@@ -239,13 +241,15 @@ function portfolioView(){
 }
 function projectPane(i){
  if(!i)return "";var t=ST.projectTab;
- var subtabs=[["resumen","Resumen"],["workorders","Work orders"],["mission","Mission Control"],["comandos","Comandos"],["docs","Documentos"]].map(function(s){return '<span class="stab '+(t===s[0]?"on":"")+'" data-act="ptab" data-pt="'+s[0]+'">'+s[1]+'</span>';}).join("");
+ var subtabs=[["resumen","Resumen"],["workorders","Work orders"],["mission","Mission Control"],["docs","Documentos"],["comandos","Comandos"]].map(function(s){return '<span class="stab '+(t===s[0]?"on":"")+'" data-act="ptab" data-pt="'+s[0]+'">'+s[1]+'</span>';}).join("");
  var body=t==="docs"?projDocs(i):t==="workorders"?projWO(i):t==="mission"?missionBody(i):t==="comandos"?projComandos(i):projResumen(i);
- return '<div class="panel" style="margin-bottom:12px;padding:12px 16px"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px"><span style="font-size:18px;font-weight:500">'+i.titulo+(i.running?' <i class="ti ti-player-play" style="font-size:14px;color:var(--ok)"></i>':'')+'</span><span style="display:flex;gap:8px;align-items:center">'+chip2(i.estado)+'<span style="font-size:12px;color:var(--text2)">'+(i.version||"")+'</span></span></div>'+(i.progreso?'<div style="font-size:12px;color:var(--text3);margin-top:4px">'+esc(i.progreso)+'</div>':'')+'</div>'
+ return '<div class="panel" style="margin-bottom:12px;padding:12px 16px"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px"><span style="font-size:18px;font-weight:500">'+i.titulo+(i.running?' <i class="ti ti-player-play" style="font-size:14px;color:var(--ok)"></i>':'')+'</span><span style="display:flex;gap:8px;align-items:center">'+chip2(i.estado)+'<span style="font-size:12px;color:var(--text2)">'+(i.version||"")+'</span></span></div>'+(i.progreso?'<div style="font-size:12px;color:var(--text3);margin-top:4px">'+esc(i.progreso)+'</div>':'')+progressBar(i)+'</div>'
   +'<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">'+subtabs+'</div>'+body;
 }
 function projResumen(i){return '<div class="panel"><div class="doc"><h2>Resumen</h2><p>'+esc(i.resumen)+'</p><h3>Puntos clave</h3><ul>'+i.clave.map(function(k){return "<li>"+esc(k)+"</li>";}).join("")+'</ul></div></div>'+decisionesBox(i)+logBox(i);}
 function projComandos(i){return commandsBox(i);}
+function woProgress(i){var w=i.wo||[];var tot=w.length,done=w.filter(function(x){return x.e==="done";}).length;return {done:done,tot:tot,pct:tot?Math.round(done/tot*100):0};}
+function progressBar(i){var p=woProgress(i);if(!p.tot)return "";return '<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:4px"><span>Progreso de implementación</span><span>'+p.done+' / '+p.tot+' work orders · '+p.pct+'%</span></div><div style="height:8px;background:var(--secondary);border-radius:99px;overflow:hidden"><div style="height:100%;width:'+p.pct+'%;background:var(--ok)"></div></div></div>';}
 function logBox(i){var l=i.log||[];
  var rows=l.length?l.map(function(x){return '<div style="display:flex;gap:9px;align-items:flex-start;padding:7px 0;border-top:.5px solid var(--bd)"><i class="ti ti-point-filled" style="font-size:13px;color:var(--text3);margin-top:3px"></i><div style="font-size:13px;color:var(--text2)">'+esc(x)+'</div></div>';}).join(""):'<p style="font-size:12px;color:var(--text3);margin:6px 0 0">Aún sin actividad registrada.</p>';
  return '<div class="panel" style="margin-top:14px"><p style="font-size:13px;font-weight:500;margin:0;color:var(--text2)">Actividad <span style="font-weight:400;color:var(--text3);font-size:12px">· alto nivel, lo que la IA va haciendo y decidiendo</span></p>'+rows+'</div>';}
@@ -253,10 +257,14 @@ function projDocs(i){var di=Math.min(ST.openDoc,i.docs.length);if(di<1)di=1;
  var nav=i.docs.map(function(d,ix){return '<div class="navitem '+(di===ix+1?"on":"")+'" data-act="doc" data-slug="'+i.slug+'" data-doc="'+(ix+1)+'"><i class="ti ti-file-text"></i> '+d.n+'</div>';}).join("");
  return '<div style="display:grid;grid-template-columns:200px 1fr;gap:14px;align-items:start"><div class="panel" style="padding:10px">'+nav+'</div><div class="panel doc">'+md(i.docs[di-1].c)+'</div></div>';}
 function frdChip(f){return f?'<span class="chip" style="background:var(--info-bg);color:var(--info);font-size:10px">'+f+'</span>':'';}
+function woFullDoc(w){return "# "+w.t+"\n\n**FRD:** "+(w.frd||"—")+" · **Estado:** "+WLBL[w.e]+"\n\n## Descripción\n"+(w.d||"—")+"\n\n## Criterios de aceptación\n- (criterios EARS del FRD, copiados aquí para que el agente no tenga que ir a buscarlos)\n\n## Alcance\n- Qué archivos/módulos toca y qué NO incluye.\n\n## Definición de terminado\n- Tests de los criterios en verde\n- Type-check + lint limpios\n- Revisión del agente reviewer aprobada\n\n## Evidencia\n- (comando de test ejecutado y su resultado, al cerrar)";}
 function projWO(i){var wos=i.wo||[];if(!wos.length)return '<div class="panel" style="color:var(--text3);font-size:13px">Los work orders se generan en /pandacorp:blueprint.</div>';
- if(ST.woItem!==null&&wos[ST.woItem]){var w=wos[ST.woItem];
+ if(ST.woItem!==null&&wos[ST.woItem]){var w=wos[ST.woItem];var wt=ST.woTab||"resumen";
+  var sub=[["resumen","Resumen"],["doc","Documento completo"]].map(function(s){return '<span class="stab '+(wt===s[0]?"on":"")+'" data-act="wotab" data-wt="'+s[0]+'">'+s[1]+'</span>';}).join("");
+  var content=wt==="doc"?('<div class="doc">'+md(woFullDoc(w))+'</div>'):('<p style="font-size:13px;color:var(--text2);margin:0">'+esc(w.d||"Sin descripción.")+'</p>');
   return '<div style="margin-bottom:12px"><button data-act="woback"><i class="ti ti-arrow-left" style="font-size:14px"></i> Work orders</button></div>'
-   +'<div class="panel"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px"><span style="font-size:16px;font-weight:500">'+esc(w.t)+'</span><span style="display:flex;gap:8px;align-items:center">'+frdChip(w.frd)+'<span class="chip" style="background:var(--secondary);color:var(--text2)">'+WLBL[w.e]+'</span></span></div><p style="font-size:13px;color:var(--text2);margin:10px 0 0">'+esc(w.d||"Sin descripción.")+'</p></div>';}
+   +'<div class="panel" style="margin-bottom:12px"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px"><span style="font-size:16px;font-weight:500">'+esc(w.t)+'</span><span style="display:flex;gap:8px;align-items:center">'+frdChip(w.frd)+'<span class="chip" style="background:var(--secondary);color:var(--text2)">'+WLBL[w.e]+'</span></span></div></div>'
+   +'<div style="display:flex;gap:6px;margin-bottom:12px">'+sub+'</div><div class="panel">'+content+'</div>';}
  var cols=WORDER.map(function(st){var items=wos.map(function(w,ix){return {w:w,ix:ix};}).filter(function(o){return o.w.e===st;});
   var cards=items.map(function(o){return '<div class="card" data-act="wo" data-ix="'+o.ix+'"><div style="font-size:12px;margin-bottom:6px">'+esc(o.w.t)+'</div>'+frdChip(o.w.frd)+'</div>';}).join("")||'<div style="font-size:11px;color:var(--text3);padding:4px 2px">—</div>';
   return '<div class="col"><div style="font-size:11px;font-weight:500;color:var(--text2);margin-bottom:8px">'+WLBL[st]+' <span style="color:var(--text3)">'+items.length+'</span></div>'+cards+'</div>';}).join("");
@@ -268,14 +276,16 @@ function configView(){
  var tabs=[["skills","Skills"],["agents","Agentes"],["rules","Reglas de decisión"],["estandares","Estándares"]].map(function(t){return '<span class="stab '+(sec===t[0]?"on":"")+'" data-act="cfgsec" data-sec="'+t[0]+'">'+t[1]+'</span>';}).join("");
  var icon={skills:"ti-terminal-2",agents:"ti-robot",rules:"ti-gavel",estandares:"ti-book-2"}[sec];
  var items=CONFIG[sec].map(function(r,ix){var name=sec==="skills"?("/pandacorp:"+r[0]):r[0];
-  return '<div class="cfgcard" data-act="cfgitem" data-ix="'+ix+'"><i class="ti '+icon+'" style="font-size:18px;color:var(--text2);margin-top:1px"></i><div style="flex:1"><div style="font-family:var(--mono);font-size:13px;font-weight:500">'+name+'</div><div style="font-size:12px;color:var(--text2);margin-top:2px">'+r[1]+'</div></div><i class="ti ti-chevron-right" style="font-size:15px;color:var(--text3)"></i></div>';}).join("");
+  var lead=sec==="agents"?avatar(r[0]):'<i class="ti '+icon+'" style="font-size:18px;color:var(--text2);margin-top:1px"></i>';
+  return '<div class="cfgcard" data-act="cfgitem" data-ix="'+ix+'">'+lead+'<div style="flex:1"><div style="font-family:var(--mono);font-size:13px;font-weight:500">'+name+'</div><div style="font-size:12px;color:var(--text2);margin-top:2px">'+r[1]+'</div></div><i class="ti ti-chevron-right" style="font-size:15px;color:var(--text3)"></i></div>';}).join("");
  return '<p style="font-size:12px;color:var(--text3);margin:0 0 10px">Lo que hay configurado en la fábrica. Solo-lectura — para editar, se hace en los archivos / Claude Code. Clic en cualquiera para ver el detalle.</p>'
   +'<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">'+tabs+'</div>'+items;
 }
 function configDetail(){
  var r=CONFIG[ST.configSection][ST.configItem];var name=ST.configSection==="skills"?("/pandacorp:"+r[0]):r[0];
+ var head=ST.configSection==="agents"?'<div style="display:flex;align-items:center;gap:10px">'+avatar(r[0])+'<span style="font-family:var(--mono);font-size:16px;font-weight:500">'+name+'</span></div>':'<div style="font-family:var(--mono);font-size:16px;font-weight:500">'+name+'</div>';
  return '<div style="margin-bottom:12px"><button data-act="cfgback"><i class="ti ti-arrow-left" style="font-size:14px"></i> Volver</button></div>'
-  +'<div class="panel"><div style="font-family:var(--mono);font-size:16px;font-weight:500">'+name+'</div><p style="font-size:13px;color:var(--text2);margin:6px 0 0">'+r[1]+'</p><div style="border-top:.5px solid var(--bd);margin:12px 0"></div><p style="font-size:13px;color:var(--text);margin:0">'+esc(r[2])+'</p></div>';
+  +'<div class="panel">'+head+'<p style="font-size:13px;color:var(--text2);margin:6px 0 0">'+r[1]+'</p><div style="border-top:.5px solid var(--bd);margin:12px 0"></div><p style="font-size:13px;color:var(--text);margin:0">'+esc(r[2])+'</p></div>';
 }
 
 function docsView(){var p=Math.min(ST.docsPage,DOCS.length-1);
@@ -325,8 +335,9 @@ root.addEventListener("click",function(ev){var el=ev.target.closest("[data-act]"
  else if(a==="back"){ST.openSlug=null;save();render();}
  else if(a==="railproj"){ST.projectSlug=el.dataset.slug;ST.projectTab="resumen";ST.woItem=null;save();render();}
  else if(a==="ptab"){ST.projectTab=el.dataset.pt;ST.woItem=null;if(el.dataset.pt==="docs")ST.openDoc=1;save();render();}
- else if(a==="wo"){ST.woItem=parseInt(el.dataset.ix,10);save();render();}
+ else if(a==="wo"){ST.woItem=parseInt(el.dataset.ix,10);ST.woTab="resumen";save();render();}
  else if(a==="woback"){ST.woItem=null;save();render();}
+ else if(a==="wotab"){ST.woTab=el.dataset.wt;save();render();}
  else if(a==="doc"){ST.openDoc=parseInt(el.dataset.doc,10);save();render();}
  else if(a==="cfgsec"){ST.configSection=el.dataset.sec;ST.configItem=null;save();render();}
  else if(a==="cfgitem"){ST.configItem=parseInt(el.dataset.ix,10);save();render();}
