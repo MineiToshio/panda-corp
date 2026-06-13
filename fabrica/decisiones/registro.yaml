@@ -62,3 +62,13 @@ decisiones:
     patron: "scope de una versión (qué FRDs entran en v1)"
     default: "el corte mínimo que valida la hipótesis de valor; FRDs 'nice to have' van al backlog de la siguiente versión"
     requiere_humano: false
+
+  - id: DR-013
+    patron: "implementación de un proyecto (cómo se reparte el trabajo entre agentes)"
+    default: "usar Agent Teams (agentes que se comunican y se pasan el trabajo). Composición según stack: web (A) → backend-dev + frontend-dev + test-writer; API/scraper (B/C/D) → backend-dev + test-writer; siempre con dependencias (frontend arranca cuando backend termina; testing cuando frontend/backend terminan) y el reviewer al cerrar cada work order"
+    requiere_humano: false
+
+  - id: DR-014
+    patron: "tamaño de equipo y modelos por agente (control de consumo)"
+    default: "DISEÑAR PARA Max 5x en proyectos: equipo de ≤3 agentes simultáneos, líder en opus, obreros (implementación/testing/investigación) en sonnet o haiku. La construcción de la propia fábrica (panda-corp y su cockpit) puede usar equipos mayores mientras el plan lo permita (Max 20x)"
+    requiere_humano: false

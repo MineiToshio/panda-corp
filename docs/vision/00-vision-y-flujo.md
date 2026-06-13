@@ -106,6 +106,13 @@ Cada fase produce artefactos versionados en `docs/` del proyecto. Las pruebas se
 - **Kanban Obsidian ✅**: plugin **Bases Kanban** (ewerx) sobre Bases nativas — arrastrar tarjeta escribe `estado:` en el frontmatter del .md. Detección: escaneo periódico con caché (+ git diff como evolución). Ver [investigación 06](../investigacion/06-kanban-obsidian.md).
 - **Plugin ✅**: `panda-corp/plugin/` + symlink a `~/.claude/skills/pandacorp` — auto-carga en cualquier carpeta, ediciones en vivo, skills namespaced (`/pandacorp:*`), plantillas accesibles vía `${CLAUDE_PLUGIN_ROOT}/templates/`. Ver [investigación 07](../investigacion/07-estructura-plugin-pandacorp.md).
 
+## Equipos de agentes y Mission Control ✅ DECIDIDO (a validar en uso)
+
+- **Implementación con Agent Teams**: la fase de implementación usa un equipo de agentes que se comunican entre sí (peer-to-peer) y se pasan el trabajo, en vez de agentes sueltos secuenciales: investigador → backend → frontend → testing, con dependencias (frontend arranca cuando backend termina; testing cuando frontend termina) y mensajes directos. Corre dentro de la sesión interactiva → usa la suscripción Max (no el pool headless).
+- **Mission Control en el cockpit**: un panel de solo-lectura que muestra en vivo qué agente está activo, su tarea, los mensajes entre ellos y el grafo de dependencias. Se alimenta de eventos que los hooks (`TaskCreated/TaskCompleted/TeammateIdle/SubagentStop/PostToolUse`) escriben en un archivo local; el dashboard solo lee → cero llamadas a Claude. Observa, no controla (para redirigir/pausar, se salta a la terminal). Referencia/atajo existente: `claude-view`.
+- **Caveat token burn**: 3-5 agentes en paralelo consumen ~4-5x la cuota. Recomendado Max 20x para uso consistente; mitigar con agentes obreros en sonnet/haiku y líder en opus. Tamaño de equipo recomendado: 3-5.
+- **Caveat experimental**: Agent Teams es experimental (sin resume de sesión, el estado de tareas puede rezagarse). Escribir el contexto crítico entre agentes a archivos, no solo a mensajes.
+
 ## Próxima etapa propuesta
 
 **Construcción fase 1**: estructura del plugin + constitución + CLAUDE.md de la fábrica + base de ideas con `ideas.base` + primeros skills (`/descubrir`, `/nueva-idea`, `/recomendar`). Luego **piloto** con una idea real de Sergio.

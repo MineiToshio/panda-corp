@@ -24,14 +24,15 @@ Construir un portfolio de aplicaciones con IA al 100%: (1) apps que generen ingr
 11. **Git disciplinado.** Conventional Commits con scope, en inglés. Feature branches; nunca push directo a main; nunca force push. CI verde para mergear.
 12. **Seguridad.** Secretos jamás en código ni en contexto de agentes (inyección por entorno). Dependencias con lockfile, sin CVEs conocidos, mantenidas en los últimos 12 meses. Nunca auth casero: Better Auth / Supabase Auth.
 13. **Trazabilidad.** Decisiones arquitectónicas → ADR en `docs/adr/` del proyecto (incluye qué agente/modelo decidió y el trade-off aceptado).
+14. **Implementación multi-agente.** La fase de implementación usa Agent Teams: agentes especializados (backend, frontend, testing) que se comunican entre sí y se pasan el trabajo con dependencias, no agentes sueltos secuenciales. Diseñar para Max 5x en proyectos (ver DR-013, DR-014): equipos de ≤3 agentes, líder en opus, obreros en sonnet/haiku. La construcción de la propia fábrica puede usar equipos mayores mientras el plan lo permita. Agent Teams es experimental: escribir el contexto crítico entre agentes a archivos, no solo a mensajes.
 
 ## Principios de producto
 
-14. **Idioma**: documentos en español; código, commits, identificadores y nombres técnicos en inglés.
-15. **UX/UI reforzado.** Sergio es débil en diseño: cada proyecto investiga referencias visuales, usa shadcn/ui + design tokens, genera 3 direcciones de diseño y verifica accesibilidad (axe-core) automáticamente antes del gate humano.
-16. **Releases pequeños.** v1 = el corte mínimo que valida la hipótesis de valor. Iterar con `/pandacorp:new-version`.
-17. **Testing por hito.** Cada FRD/work order cerrado se prueba al cerrarse, no al final. E2E solo en flujos críticos con `data-testid`.
+15. **Idioma**: documentos en español; código, commits, identificadores y nombres técnicos en inglés.
+16. **UX/UI reforzado.** Sergio es débil en diseño: cada proyecto investiga referencias visuales, usa shadcn/ui + design tokens, genera 3 direcciones de diseño y verifica accesibilidad (axe-core) automáticamente antes del gate humano.
+17. **Releases pequeños.** v1 = el corte mínimo que valida la hipótesis de valor. Iterar con `/pandacorp:new-version`.
+18. **Testing por hito.** Cada FRD/work order cerrado se prueba al cerrarse, no al final. E2E solo en flujos críticos con `data-testid`.
 
 ## Separación fábrica/proyecto
 
-18. La fábrica define el CÓMO (proceso, estándares, plantillas) y mantiene punteros (portfolio). Todo artefacto de producto vive en el repo del proyecto. El proyecto nunca necesita leer la fábrica para trabajar (el know-how llega vía plugin).
+19. La fábrica define el CÓMO (proceso, estándares, plantillas) y mantiene punteros (portfolio). Todo artefacto de producto vive en el repo del proyecto. El proyecto nunca necesita leer la fábrica para trabajar (el know-how llega vía plugin).
