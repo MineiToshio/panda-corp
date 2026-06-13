@@ -296,32 +296,35 @@ function docsView(){var p=Math.min(ST.docsPage,DOCS.length-1);
  var nav=DOCS.map(function(d,ix){return '<div class="navitem '+(p===ix?"on":"")+'" data-act="docpage" data-p="'+ix+'"><i class="ti ti-book"></i> '+d[0]+'</div>';}).join("");
  return '<div style="display:grid;grid-template-columns:220px 1fr;gap:14px;align-items:start"><div class="panel" style="padding:10px"><div style="font-size:11px;color:var(--text3);margin:2px 4px 8px">GUÍA</div>'+nav+'</div><div class="panel doc">'+md(DOCS[p][1])+'</div></div>';}
 
-var AG={investigador:{n:"Investigador",x:175,y:14},backend:{n:"Backend",x:40,y:118},frontend:{n:"Frontend",x:310,y:118},testing:{n:"Testing",x:175,y:222}};
-var STAT={idle:["en cola","#e9e7df","#5f5e5a"],work:["trabajando","#E6F1FB","#0C447C"],done:["terminado","#EAF3DE","#27500A"],wait:["esperando","#FAEEDA","#633806"]};
-var agState={investigador:"idle",backend:"idle",frontend:"idle",testing:"idle"},feed=[],simTimer=null;
-function node(k){var a=AG[k],s=STAT[agState[k]];return '<g><rect x="'+a.x+'" y="'+a.y+'" width="130" height="46" rx="8" fill="'+s[1]+'" stroke="'+s[2]+'" stroke-width="0.5"/><text x="'+(a.x+12)+'" y="'+(a.y+20)+'" font-size="13" font-weight="500" fill="'+s[2]+'">'+a.n+'</text><text x="'+(a.x+12)+'" y="'+(a.y+36)+'" font-size="11" fill="'+s[2]+'">'+s[0]+'</text></g>';}
+var RHOME={researcher:[61,46],testing:[335,46],backend:[61,210],frontend:[335,210]};
+var rpgTimer=null;
 function missionBody(i){
- var svg='<svg viewBox="0 0 460 285" width="100%" style="max-width:460px;display:block;margin:0 auto"><defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#888780"/></marker><marker id="arb" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#A32D2D"/></marker><marker id="arc" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0C447C"/></marker></defs>'
-  +'<line x1="172" y1="135" x2="312" y2="135" stroke="#888780" stroke-width="1" marker-end="url(#ar)"/><line x1="312" y1="148" x2="172" y2="148" stroke="#888780" stroke-width="1" marker-end="url(#ar)"/><line x1="120" y1="164" x2="190" y2="220" stroke="#888780" stroke-width="1" marker-end="url(#ar)"/><line x1="350" y1="164" x2="270" y2="220" stroke="#888780" stroke-width="1" marker-end="url(#ar)"/><path d="M210,222 C150,180 70,210 95,166" fill="none" stroke="#A32D2D" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arb)"/><line x1="108" y1="116" x2="158" y2="62" stroke="#0C447C" stroke-width="1" stroke-dasharray="3 3" marker-end="url(#arc)"/><line x1="352" y1="116" x2="262" y2="62" stroke="#0C447C" stroke-width="1" stroke-dasharray="3 3" marker-end="url(#arc)"/><text x="86" y="96" font-size="9" fill="#0C447C">consulta</text><text x="300" y="96" font-size="9" fill="#0C447C">consulta</text><text x="232" y="128" font-size="9" fill="#888780">contrato</text><text x="232" y="162" font-size="9" fill="#888780">ajustes</text><text x="120" y="206" font-size="9" fill="#A32D2D">bug</text>'
-  +node("investigador")+node("backend")+node("frontend")+node("testing")+'</svg>';
- return '<div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:10px"><button data-act="sim"><i class="ti ti-player-play" style="font-size:13px"></i> Simular</button><button data-act="resetsim"><i class="ti ti-refresh" style="font-size:13px"></i> Reiniciar</button></div>'
-  +'<div class="panel" style="margin-bottom:12px">'+svg+'<p style="font-size:11px;color:var(--text3);text-align:center;margin:8px 0 0">El backend y el frontend llaman al Investigador cuando lo necesitan (a demanda). Se comunican en ambos sentidos; testing devuelve los bugs para corregir.</p></div>'
-  +'<p style="font-size:13px;font-weight:500;margin:0 0 6px;color:var(--text2)">Mensajes entre agentes</p><div class="panel" style="background:var(--secondary);border:none;min-height:64px;font-size:12px">'+(feed.length?feed.join(""):'<span style="color:var(--text3)">Sin actividad. Dale a «Simular».</span>')+'</div>';}
-function msg(f,to,tx,col){feed.push('<p style="margin:0 0 7px"><span style="color:'+col+';font-weight:500">'+f+'</span> <i class="ti ti-arrow-right" style="font-size:11px"></i> <span style="font-weight:500">'+to+'</span><br><span style="color:var(--text2)">'+tx+'</span></p>');}
-function simulate(){resetsim();var steps=[
- function(){agState.backend="work";},
- function(){agState.investigador="work";msg("backend","Investigador","¿qué API de precios uso?","#0C447C");},
- function(){agState.investigador="done";msg("Investigador","backend","API X: gratis, sin login","#27500A");},
- function(){agState.frontend="wait";msg("backend","frontend","contrato en docs/api.md","#0C447C");},
- function(){agState.backend="done";agState.frontend="work";},
- function(){agState.backend="work";msg("frontend","backend","falta el campo «precio»","#0C447C");},
- function(){agState.backend="done";msg("backend","frontend","campo agregado","#0C447C");agState.testing="wait";},
- function(){agState.frontend="done";agState.testing="work";msg("frontend","testing","pantalla lista","#633806");},
- function(){agState.frontend="work";msg("testing","frontend","bug: estado de error no se muestra","#A32D2D");},
- function(){agState.frontend="done";agState.testing="work";},
- function(){agState.testing="done";msg("testing","equipo","todo verde · WO cerrado","#5f5e5a");}
-];var i=0;(function tick(){if(i>=steps.length)return;steps[i++]();render();simTimer=setTimeout(tick,1000);})();}
-function resetsim(){if(simTimer)clearTimeout(simTimer);agState={investigador:"idle",backend:"idle",frontend:"idle",testing:"idle"};feed=[];}
+ var zones=[["Investigación","ti-books","#E1F5EE","#0F6E56",8,8],["Testing","ti-flask","#FAEEDA","#633806",282,8],["Backend","ti-server","#E1F5EE","#0F6E56",8,172],["Frontend","ti-browser","#E6F1FB","#0C447C",282,172]].map(function(z){return '<div style="position:absolute;left:'+z[4]+'px;top:'+z[5]+'px;width:150px;height:120px;background:'+z[2]+';border:.5px solid var(--bd);border-radius:8px"><div style="font-size:11px;font-weight:500;color:'+z[3]+';padding:6px 8px"><i class="ti '+z[1]+'"></i> '+z[0]+'</div></div>';}).join("");
+ var sprites=[["researcher","researcher"],["testing","test-writer"],["backend","backend-dev"],["frontend","frontend-dev"]].map(function(s){var h=RHOME[s[0]];return '<img id="sprite-'+s[0]+'" src="assets/agents/'+s[1]+'.png" alt="'+s[0]+'" style="position:absolute;left:'+h[0]+'px;top:'+h[1]+'px;width:44px;height:44px;border-radius:6px;image-rendering:pixelated;transition:left .7s ease,top .7s ease;z-index:2;box-shadow:0 1px 3px rgba(0,0,0,.25)">';}).join("");
+ return '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px"><span style="font-size:12px;color:var(--text2)">El party trabaja en el gremio: los personajes se mueven de zona para comunicarse.</span><span style="display:flex;gap:6px"><button data-act="rpgsim"><i class="ti ti-player-play" style="font-size:13px"></i> Simular</button><button data-act="rpgreset"><i class="ti ti-refresh" style="font-size:13px"></i> Reiniciar</button></span></div>'
+  +'<div class="panel" style="padding:10px;margin-bottom:12px"><div id="rpg-scene" style="position:relative;width:440px;max-width:100%;height:300px;margin:0 auto;background:var(--secondary);border-radius:10px">'+zones+sprites+'<div id="rpg-bubble" style="position:absolute;display:none;max-width:150px;background:var(--primary);border:.5px solid var(--bd2);border-radius:8px;padding:5px 8px;font-size:11px;line-height:1.3;z-index:3"></div></div></div>'
+  +'<p style="font-size:13px;font-weight:500;margin:0 0 6px;color:var(--text2)">Bitácora del equipo</p><div class="panel" id="rpg-feed" style="background:var(--secondary);border:none;min-height:54px;font-size:12px"><span style="color:var(--text3)">Dale a «Simular» para ver al equipo trabajar.</span></div>';}
+function rsp(k){return document.getElementById("sprite-"+k);}
+function rmove(k,x,y){var e=rsp(k);if(e){e.style.left=x+"px";e.style.top=y+"px";}}
+function rhome(k){var h=RHOME[k];if(h)rmove(k,h[0],h[1]);}
+function rbubble(k,t){var b=document.getElementById("rpg-bubble"),e=rsp(k);if(b&&e){b.textContent=t;b.style.display="block";b.style.left=(parseInt(e.style.left)-48)+"px";b.style.top=(parseInt(e.style.top)-30)+"px";}}
+function rfeed(t,c){var f=document.getElementById("rpg-feed");if(!f)return;if(f.getAttribute("data-on")!=="1"){f.innerHTML="";f.setAttribute("data-on","1");}f.innerHTML+='<div style="margin:0 0 5px;color:'+(c||"var(--text2)")+'">'+t+'</div>';}
+function rpgReset(){if(rpgTimer)clearTimeout(rpgTimer);["researcher","testing","backend","frontend"].forEach(rhome);var b=document.getElementById("rpg-bubble");if(b)b.style.display="none";var f=document.getElementById("rpg-feed");if(f){f.setAttribute("data-on","0");f.innerHTML='<span style="color:var(--text3)">Dale a «Simular» para ver al equipo trabajar.</span>';}}
+function rpgAchv(name){var f=document.getElementById("rpg-feed");if(!f||!f.parentNode)return;var d=document.createElement("div");d.innerHTML='<i class="ti ti-trophy" style="font-size:15px"></i> ¡Logro desbloqueado! '+name;d.style.cssText="margin-top:10px;background:var(--warn-bg);color:var(--warn);border-radius:8px;padding:10px 12px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px";f.parentNode.appendChild(d);setTimeout(function(){if(d.parentNode)d.parentNode.removeChild(d);},4500);}
+function rpgSim(){rpgReset();var steps=[
+ function(){rfeed("El backend se pone a trabajar…","var(--info)");},
+ function(){rmove("backend",104,54);rbubble("backend","¿qué API de precios uso?");rfeed("backend → investigador: ¿qué API de precios uso?","var(--info)");},
+ function(){rbubble("researcher","API X: gratis, sin login");rfeed("investigador → backend: API X, gratis y sin login","var(--ok)");},
+ function(){rhome("backend");},
+ function(){rmove("backend",286,212);rbubble("backend","contrato en docs/api.md");rfeed("backend → frontend: contrato en docs/api.md","var(--info)");},
+ function(){rhome("backend");},
+ function(){rmove("frontend",108,212);rbubble("frontend","falta el campo «precio»");rfeed("frontend → backend: falta el campo «precio»","var(--info)");},
+ function(){rbubble("backend","campo agregado");rfeed("backend → frontend: campo agregado","var(--info)");rhome("frontend");},
+ function(){rmove("frontend",286,54);rbubble("frontend","pantalla lista");rfeed("frontend → testing: pantalla lista","var(--warn)");},
+ function(){rhome("frontend");rmove("testing",286,214);rbubble("testing","bug: el estado de error no se ve");rfeed("testing → frontend: bug, el estado de error no se muestra","var(--danger)");},
+ function(){rhome("testing");rbubble("frontend","corrigiendo…");rfeed("frontend corrige el bug","var(--text2)");},
+ function(){var b=document.getElementById("rpg-bubble");if(b)b.style.display="none";rfeed("testing: todo verde, work order cerrado","var(--ok)");rpgAchv("Work order completado");}
+];var i=0;(function tick(){if(!document.getElementById("rpg-scene"))return;if(i>=steps.length)return;steps[i++]();rpgTimer=setTimeout(tick,1300);})();}
 
 function render(){var body;
  if(ST.view==="ideas")body=ST.openSlug?detailView():boardView();
@@ -351,8 +354,8 @@ root.addEventListener("click",function(ev){var el=ev.target.closest("[data-act]"
  else if(a==="intake"){ST.intake=true;save();render();}
  else if(a==="intake-close"){ST.intake=false;save();render();}
  else if(a==="discard"){var x=get(el.dataset.slug);if(x){x.estado="descartada";ST.openSlug=null;save();render();}}
- else if(a==="sim"){simulate();}
- else if(a==="resetsim"){resetsim();render();}
+ else if(a==="rpgsim"){rpgSim();}
+ else if(a==="rpgreset"){rpgReset();}
 });
 render();
 })();
