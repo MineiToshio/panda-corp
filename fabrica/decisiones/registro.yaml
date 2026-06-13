@@ -9,9 +9,10 @@ decisiones:
     requiere_humano: false
 
   - id: DR-002
-    patron: "elección de stack para un proyecto nuevo"
-    default: "elegir entre los golden paths A/B/C/D según el blueprint; combinables. Salirse de los golden paths → escalar"
-    requiere_humano: false
+    patron: "elección de stack/tecnologías para un proyecto nuevo"
+    default: "el architect propone el stack en el blueprint partiendo del recomendado (fabrica/estandares/stack.md, en últimas versiones estables) y puede sugerir mejores alternativas con trade-offs; Sergio aprueba la elección (gate ligero) y queda como ADR. Las convenciones duraderas (fabrica/estandares) NO se negocian"
+    requiere_humano: true
+    nota: "aprobación ligera dentro del blueprint, no un gate aparte"
 
   - id: DR-003
     patron: "deploy a staging / entorno de pruebas"

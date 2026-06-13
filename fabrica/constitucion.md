@@ -18,8 +18,8 @@ Construir un portfolio de aplicaciones con IA al 100%: (1) apps que generen ingr
 
 ## Principios técnicos
 
-8. **Golden paths obligatorios.** Stack A (Next.js full-stack), B (Hono API), C (FastAPI), D (Python scraping/datos). Detalle en `docs/investigacion/04-stacks-recomendados.md`. Salirse requiere ADR y escalado la primera vez.
-9. **Tipado estricto siempre.** TypeScript strict / mypy --strict. Lint con Biome (TS) / Ruff (Python). Cero errores, cero warnings nuevos.
+8. **Estándares y stack.** Las **convenciones duraderas** (estructura, calidad, patrones, testing) son obligatorias e iguales en todo proyecto: ver `fabrica/estandares/`. El **stack es una sugerencia por defecto** (`fabrica/estandares/stack.md`, siempre en últimas versiones estables): el `architect` lo propone en el blueprint, puede sugerir mejores tecnologías si encajan, y **Sergio lo aprueba** ahí (gate humano ligero, registrado como ADR).
+9. **Tipado estricto y calidad.** Tipado estricto en el lenguaje elegido (TS strict / mypy --strict), linter+formatter del stack, cero errores/warnings nuevos. Detalle en `fabrica/estandares/calidad.md`.
 10. **Scaffold determinista.** Los proyectos nacen de plantillas/scaffolders oficiales + overlay Pandacorp, nunca improvisados.
 11. **Git disciplinado.** Conventional Commits con scope, en inglés. Feature branches; nunca push directo a main; nunca force push. CI verde para mergear.
 12. **Seguridad.** Secretos jamás en código ni en contexto de agentes (inyección por entorno). Dependencias con lockfile, sin CVEs conocidos, mantenidas en los últimos 12 meses. Nunca auth casero: Better Auth / Supabase Auth.

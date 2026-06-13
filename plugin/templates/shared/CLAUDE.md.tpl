@@ -25,6 +25,8 @@ Proyecto de la fábrica **Pandacorp**. Todo el ciclo de vida se gestiona con los
 
 ## Reglas del proyecto
 
+> **Estándares de código: ver `AGENTS.md`** (convenciones duraderas de la fábrica). El stack concreto está en `docs/blueprint.md`.
+
 1. Idioma: docs en español; código, commits e identificadores en inglés.
 2. Conventional Commits con scope, en feature branches. Nunca push directo a main, nunca force push.
 3. TDD: tests de criterios de aceptación ANTES de implementar. Nada se declara terminado con tests rojos — `.pandacorp/verify.sh` debe pasar.
@@ -34,4 +36,4 @@ Proyecto de la fábrica **Pandacorp**. Todo el ciclo de vida se gestiona con los
 
 ## Fase actual
 
-Ver `docs/estado.yaml`. Pipeline: producto → diseño → arquitectura → work-orders → implementación → release → operación.
+Ver `docs/estado.yaml`. Pipeline: producto → diseño → arquitectura → construcción → release → operación.

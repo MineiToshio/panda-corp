@@ -5,6 +5,7 @@ Este repo es **la fábrica**: el know-how de la empresa. Aquí NUNCA vive códig
 ## Qué hay aquí
 
 - `fabrica/constitucion.md` — principios y estándares innegociables. **Léela antes de cualquier trabajo de fábrica.**
+- `fabrica/estandares/` — estándares de ingeniería que se inyectan en cada proyecto (convenciones, estructura, patrones, calidad, stack recomendado). El stack es sugerencia; se elige y aprueba en el blueprint.
 - `fabrica/ideas/` — base de ideas (una ficha .md por idea, frontmatter con `estado`)
 - `fabrica/portfolio.md` — índice de proyectos creados y su estado (punteros, no contenido)
 - `fabrica/decisiones/registro.yaml` — registro de decisiones con defaults pre-aprobados
