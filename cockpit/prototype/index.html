@@ -150,6 +150,30 @@ var DOCS=[
  ["Cómo operar y handoff","# Cómo operar\n\n1. Abre Pandacorp y mira el tablero.\n2. Para avanzar algo, copia el comando del «siguiente paso» y pégalo en Claude Code.\n3. Vuelve y refresca: la tarjeta se movió sola.\n\n## Puntos de decisión\nCuando un agente necesita que decidas algo, lo deja marcado en el proyecto (pestaña Resumen) para que lo veas y respondas.\n\n## Pasar el proyecto a otra persona\nEsta documentación + la pestaña Configuración le dan todo el contexto: el flujo, los comandos y los estándares."]
 ];
 
+var OPLEVEL={nivel:6,titulo:"Maestro del gremio",xp:1240,next:1500};
+var ACH=[
+ ["Primera chispa","Capturaste tu primera idea","ti-bulb",true,"Pipeline"],
+ ["Nace un proyecto","Creaste tu primer proyecto","ti-folder-plus",true,"Pipeline"],
+ ["Primer objetivo","Cerraste tu primer work order","ti-circle-check",true,"Pipeline"],
+ ["Diseño aprobado","Aprobaste tu primer diseño","ti-palette",true,"Pipeline"],
+ ["¡Al aire!","Lanzaste tu primera app","ti-rocket",true,"Pipeline"],
+ ["Trabajo de party","Un FRD completo construido por el equipo","ti-users-group",false,"Equipo"],
+ ["Sin rechazos","Un proyecto sin rechazos de review","ti-shield-check",false,"Equipo"],
+ ["Maestro del gremio","Lanza 5 apps","ti-trophy",false,"Maestría"],
+ ["Racha de gremio","5 semanas seguidas con releases","ti-flame",false,"Maestría"]
+];
+var AGMETA={researcher:[5,"Explorador"],"product-manager":[6,"Estratega"],designer:[5,"Artesano"],architect:[7,"Maestro de obras"],"backend-dev":[7,"Ingeniero senior"],"frontend-dev":[6,"Artífice"],"test-writer":[5,"Alquimista"],reviewer:[6,"Centinela"],"security-auditor":[6,"Guardián"]};
+function logrosView(){
+ var un=ACH.filter(function(a){return a[3];}).length;
+ var body=["Pipeline","Equipo","Maestría"].map(function(c){
+  var items=ACH.filter(function(a){return a[4]===c;}).map(function(a){return a[3]
+   ? '<div style="display:flex;gap:11px;align-items:center;background:var(--primary);border:.5px solid var(--bd);border-radius:var(--rmd);padding:11px 13px"><div style="width:38px;height:38px;border-radius:8px;background:var(--warn-bg);color:var(--warn);display:flex;align-items:center;justify-content:center"><i class="ti '+a[2]+'" style="font-size:20px"></i></div><div><div style="font-weight:500;font-size:13px">'+a[0]+'</div><div style="font-size:12px;color:var(--text2)">'+a[1]+'</div></div></div>'
+   : '<div style="display:flex;gap:11px;align-items:center;background:var(--secondary);border:.5px dashed var(--bd2);border-radius:var(--rmd);padding:11px 13px;opacity:.7"><div style="width:38px;height:38px;border-radius:8px;background:var(--bd);color:var(--text3);display:flex;align-items:center;justify-content:center"><i class="ti ti-lock" style="font-size:18px"></i></div><div><div style="font-weight:500;font-size:13px;color:var(--text2)">'+a[0]+'</div><div style="font-size:12px;color:var(--text3)">'+a[1]+'</div></div></div>';
+  }).join("");
+  return '<div style="font-size:12px;font-weight:500;color:var(--text2);margin:0 0 6px">'+c+'</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px;margin-bottom:16px">'+items+'</div>';
+ }).join("");
+ return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><i class="ti ti-trophy" style="font-size:22px;color:var(--warn)"></i><span style="font-size:18px;font-weight:500">Salón de logros</span><span class="chip" style="background:var(--warn-bg);color:var(--warn)">'+un+' / '+ACH.length+'</span></div><p style="font-size:12px;color:var(--text3);margin:0 0 14px">Se desbloquean en hitos reales de la fábrica. Los bloqueados muestran qué hacer para conseguirlos.</p>'+body;
+}
 var ST=load();
 function load(){try{var s=sessionStorage.getItem("pc5");if(s)return JSON.parse(s);}catch(e){}return JSON.parse(JSON.stringify(SEED));}
 function save(){try{sessionStorage.setItem("pc5",JSON.stringify(ST));}catch(e){}}
@@ -182,9 +206,10 @@ function md(t){var o="",ul=false;(t||"").split("\n").forEach(function(l){
  else{if(ul){o+="</ul>";ul=false;}o+="<p style='margin:6px 0'>"+esc(l)+"</p>";}});if(ul)o+="</ul>";return o;}
 function cmdRow(cmd,when){return '<div class="cmd"><i class="ti ti-terminal-2" style="font-size:15px;color:var(--text2)"></i><span class="t">'+esc(cmd)+'</span><span style="font-size:11px;color:var(--text3);max-width:230px;text-align:right">'+when+'</span><button data-act="copy" data-cmd="'+esc(cmd)+'"><i class="ti ti-copy" style="font-size:13px"></i></button></div>';}
 
-function topbar(){return '<div style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border:.5px solid var(--bd);border-radius:var(--rlg);background:var(--primary);margin-bottom:14px">'
- +'<span style="display:flex;align-items:center;gap:9px;font-weight:500;font-size:16px"><i class="ti ti-layout-dashboard" style="font-size:19px;color:var(--text2)"></i> Pandacorp</span>'
- +'<div style="display:flex;gap:4px;flex-wrap:wrap">'+tab("ideas","Tablero")+tab("portfolio","Portfolio")+tab("config","Configuración")+tab("docs","Documentación")+'</div></div>';}
+function topbar(){var lp=Math.round(OPLEVEL.xp/OPLEVEL.next*100);return '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:13px 16px;border:.5px solid var(--bd);border-radius:var(--rlg);background:var(--primary);margin-bottom:14px">'
+ +'<span style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span style="display:flex;align-items:center;gap:9px;font-weight:500;font-size:16px"><i class="ti ti-layout-dashboard" style="font-size:19px;color:var(--text2)"></i> Pandacorp</span>'
+ +'<span style="display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--text2)"><span style="background:var(--warn-bg);color:var(--warn);font-weight:500;border-radius:6px;padding:2px 7px;font-size:11px">Nv '+OPLEVEL.nivel+'</span><span>'+OPLEVEL.titulo+'</span><span title="'+OPLEVEL.xp+' / '+OPLEVEL.next+' XP" style="width:72px;height:7px;background:var(--secondary);border-radius:99px;overflow:hidden;display:inline-block"><span style="display:block;height:100%;width:'+lp+'%;background:var(--warn)"></span></span></span></span>'
+ +'<div style="display:flex;gap:4px;flex-wrap:wrap">'+tab("ideas","Tablero")+tab("portfolio","Portfolio")+tab("logros","Logros")+tab("config","Configuración")+tab("docs","Documentación")+'</div></div>';}
 function tab(id,label){return '<span class="tab '+(ST.view===id?"on":"")+'" data-act="tab" data-tab="'+id+'">'+label+'</span>';}
 
 function intakePanel(){
@@ -255,7 +280,7 @@ function projectPane(i){
 function projResumen(i){return '<div class="panel"><div class="doc"><h2>Resumen</h2><p>'+esc(i.resumen)+'</p><h3>Puntos clave</h3><ul>'+i.clave.map(function(k){return "<li>"+esc(k)+"</li>";}).join("")+'</ul></div></div>'+decisionesBox(i)+logBox(i);}
 function projComandos(i){return commandsBox(i);}
 function woProgress(i){var w=i.wo||[];var tot=w.length,done=w.filter(function(x){return x.e==="done";}).length;return {done:done,tot:tot,pct:tot?Math.round(done/tot*100):0};}
-function progressBar(i){var p=woProgress(i);if(!p.tot)return "";return '<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:4px"><span>Progreso de implementación</span><span>'+p.done+' / '+p.tot+' work orders · '+p.pct+'%</span></div><div style="height:8px;background:var(--secondary);border-radius:99px;overflow:hidden"><div style="height:100%;width:'+p.pct+'%;background:var(--ok)"></div></div></div>';}
+function progressBar(i){var p=woProgress(i);if(!p.tot)return "";var col=p.pct>=100?"var(--ok)":"var(--info)";return '<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:4px"><span><i class="ti ti-sword" style="font-size:12px;vertical-align:-1px"></i> Objetivos de la misión</span><span>'+p.done+' / '+p.tot+' · '+p.pct+'%</span></div><div style="height:10px;background:var(--secondary);border-radius:99px;overflow:hidden;border:.5px solid var(--bd)"><div style="height:100%;width:'+p.pct+'%;background:'+col+';transition:width .6s"></div></div></div>';}
 function logBox(i){var l=i.log||[];
  var rows=l.length?l.map(function(x){return '<div style="display:flex;gap:9px;align-items:flex-start;padding:7px 0;border-top:.5px solid var(--bd)"><i class="ti ti-point-filled" style="font-size:13px;color:var(--text3);margin-top:3px"></i><div style="font-size:13px;color:var(--text2)">'+esc(x)+'</div></div>';}).join(""):'<p style="font-size:12px;color:var(--text3);margin:6px 0 0">Aún sin actividad registrada.</p>';
  return '<div class="panel" style="margin-top:14px"><p style="font-size:13px;font-weight:500;margin:0;color:var(--text2)">Actividad <span style="font-weight:400;color:var(--text3);font-size:12px">· alto nivel, lo que la IA va haciendo y decidiendo</span></p>'+rows+'</div>';}
@@ -283,13 +308,14 @@ function configView(){
  var icon={skills:"ti-terminal-2",agents:"ti-robot",rules:"ti-gavel",estandares:"ti-book-2"}[sec];
  var items=CONFIG[sec].map(function(r,ix){var name=sec==="skills"?("/pandacorp:"+r[0]):r[0];
   var lead=sec==="agents"?avatar(r[0]):'<i class="ti '+icon+'" style="font-size:18px;color:var(--text2);margin-top:1px"></i>';
-  return '<div class="cfgcard" data-act="cfgitem" data-ix="'+ix+'">'+lead+'<div style="flex:1"><div style="font-family:var(--mono);font-size:13px;font-weight:500">'+name+'</div><div style="font-size:12px;color:var(--text2);margin-top:2px">'+r[1]+'</div></div><i class="ti ti-chevron-right" style="font-size:15px;color:var(--text3)"></i></div>';}).join("");
+  var meta=(sec==="agents"&&AGMETA[r[0]])?'<div style="font-size:11px;color:var(--warn);margin-top:3px"><i class="ti ti-star" style="font-size:11px;vertical-align:-1px"></i> Nv '+AGMETA[r[0]][0]+' · '+AGMETA[r[0]][1]+'</div>':'';
+  return '<div class="cfgcard" data-act="cfgitem" data-ix="'+ix+'">'+lead+'<div style="flex:1"><div style="font-family:var(--mono);font-size:13px;font-weight:500">'+name+'</div><div style="font-size:12px;color:var(--text2);margin-top:2px">'+r[1]+'</div>'+meta+'</div><i class="ti ti-chevron-right" style="font-size:15px;color:var(--text3)"></i></div>';}).join("");
  return '<p style="font-size:12px;color:var(--text3);margin:0 0 10px">Lo que hay configurado en la fábrica. Solo-lectura — para editar, se hace en los archivos / Claude Code. Clic en cualquiera para ver el detalle.</p>'
   +'<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">'+tabs+'</div>'+items;
 }
 function configDetail(){
  var r=CONFIG[ST.configSection][ST.configItem];var name=ST.configSection==="skills"?("/pandacorp:"+r[0]):r[0];
- var head=ST.configSection==="agents"?'<div style="display:flex;align-items:center;gap:10px">'+avatar(r[0])+'<span style="font-family:var(--mono);font-size:16px;font-weight:500">'+name+'</span></div>':'<div style="font-family:var(--mono);font-size:16px;font-weight:500">'+name+'</div>';
+ var head=ST.configSection==="agents"?'<div style="display:flex;align-items:center;gap:10px">'+avatar(r[0])+'<div><div style="font-family:var(--mono);font-size:16px;font-weight:500">'+name+'</div>'+(AGMETA[r[0]]?'<div style="font-size:12px;color:var(--warn)"><i class="ti ti-star" style="font-size:12px;vertical-align:-1px"></i> Nv '+AGMETA[r[0]][0]+' · '+AGMETA[r[0]][1]+'</div>':'')+'</div></div>':'<div style="font-family:var(--mono);font-size:16px;font-weight:500">'+name+'</div>';
  return '<div style="margin-bottom:12px"><button data-act="cfgback"><i class="ti ti-arrow-left" style="font-size:14px"></i> Volver</button></div>'
   +'<div class="panel">'+head+'<p style="font-size:13px;color:var(--text2);margin:6px 0 0">'+r[1]+'</p><div style="border-top:.5px solid var(--bd);margin:12px 0"></div><p style="font-size:13px;color:var(--text);margin:0">'+esc(r[2])+'</p></div>';
 }
@@ -298,11 +324,14 @@ function docsView(){var p=Math.min(ST.docsPage,DOCS.length-1);
  var nav=DOCS.map(function(d,ix){return '<div class="navitem '+(p===ix?"on":"")+'" data-act="docpage" data-p="'+ix+'"><i class="ti ti-book"></i> '+d[0]+'</div>';}).join("");
  return '<div style="display:grid;grid-template-columns:220px 1fr;gap:14px;align-items:start"><div class="panel" style="padding:10px"><div style="font-size:11px;color:var(--text3);margin:2px 4px 8px">GUÍA</div>'+nav+'</div><div class="panel doc">'+md(DOCS[p][1])+'</div></div>';}
 
-var RHOME={researcher:[61,46],testing:[335,46],backend:[61,210],frontend:[335,210]};
+var ZP={researcher:[8,8],testing:[282,8],backend:[8,172],frontend:[282,172]};
+function spotAt(z,side){var p=ZP[z]||[8,8];var x=side==="l"?p[0]+12:side==="r"?p[0]+78:p[0]+46;return [x,p[1]+40];}
+function randAt(z){var p=ZP[z]||[8,8];return [p[0]+8+Math.round(Math.random()*66),p[1]+28+Math.round(Math.random()*22)];}
+var RHOME={researcher:spotAt("researcher","c"),testing:spotAt("testing","c"),backend:spotAt("backend","c"),frontend:spotAt("frontend","c")};
 var rpgTimer=null,rpgRunning=false;
 function missionBody(i){
  var zones=[["Investigación","ti-books","investigacion",8,8],["Testing","ti-flask","testing",282,8],["Backend","ti-server","backend",8,172],["Frontend","ti-browser","frontend",282,172]].map(function(z){return '<div style="position:absolute;left:'+z[3]+'px;top:'+z[4]+'px;width:150px;height:120px;border:.5px solid var(--bd2);border-radius:8px;background:url('+(IMG[z[2]]||"")+') center/cover;overflow:hidden;image-rendering:pixelated"><span style="display:inline-flex;align-items:center;gap:4px;margin:6px;font-size:11px;font-weight:500;color:#fff;background:rgba(0,0,0,.55);padding:2px 7px;border-radius:6px"><i class="ti '+z[1]+'"></i> '+z[0]+'</span></div>';}).join("");
- var sprites=[["researcher","researcher",0],["testing","test-writer",.5],["backend","backend-dev",.9],["frontend","frontend-dev",.3]].map(function(s){var h=RHOME[s[0]];return '<img id="sprite-'+s[0]+'" src="'+(IMG[s[1]]||"")+'" alt="'+s[0]+'" style="position:absolute;left:'+h[0]+'px;top:'+h[1]+'px;width:46px;height:46px;image-rendering:pixelated;transition:left .7s ease,top .7s ease;z-index:2;animation:pcbob 1.7s ease-in-out infinite;animation-delay:'+s[2]+'s">';}).join("");
+ var sprites=[["researcher","researcher",0],["testing","test-writer",.5],["backend","backend-dev",.9],["frontend","frontend-dev",.3]].map(function(s){var h=RHOME[s[0]];return '<img id="sprite-'+s[0]+'" src="'+(IMG[s[1]]||"")+'" alt="'+s[0]+'" style="position:absolute;left:'+h[0]+'px;top:'+h[1]+'px;width:58px;height:58px;image-rendering:pixelated;transition:left .7s ease,top .7s ease;z-index:2;animation:pcbob 1.7s ease-in-out infinite;animation-delay:'+s[2]+'s">';}).join("");
  return '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px"><span style="font-size:12px;color:var(--text2)">El party trabaja en el gremio: los personajes se mueven de zona para comunicarse.</span><span style="display:flex;gap:6px"><button data-act="rpgsim"><i class="ti ti-player-play" style="font-size:13px"></i> Simular</button><button data-act="rpgreset"><i class="ti ti-refresh" style="font-size:13px"></i> Reiniciar</button></span></div>'
   +'<div class="panel" style="padding:10px;margin-bottom:12px"><div id="rpg-scene" style="position:relative;width:440px;max-width:100%;height:300px;margin:0 auto;background:var(--secondary);border-radius:10px">'+zones+sprites+'<div id="rpg-bubble" style="position:absolute;display:none;max-width:150px;background:var(--primary);border:.5px solid var(--bd2);border-radius:8px;padding:5px 8px;font-size:11px;line-height:1.3;z-index:3"></div></div></div>'
   +'<p style="font-size:13px;font-weight:500;margin:0 0 6px;color:var(--text2)">Bitácora del equipo</p><div class="panel" id="rpg-feed" style="background:var(--secondary);border:none;min-height:54px;font-size:12px"><span style="color:var(--text3)">Dale a «Simular» para ver al equipo trabajar.</span></div>';}
@@ -315,22 +344,23 @@ function rpgReset(){if(rpgTimer)clearTimeout(rpgTimer);rpgRunning=false;["resear
 function rpgAchv(name){var f=document.getElementById("rpg-feed");if(!f||!f.parentNode)return;var d=document.createElement("div");d.innerHTML='<i class="ti ti-trophy" style="font-size:15px"></i> ¡Logro desbloqueado! '+name;d.style.cssText="margin-top:10px;background:var(--warn-bg);color:var(--warn);border-radius:8px;padding:10px 12px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px";f.parentNode.appendChild(d);setTimeout(function(){if(d.parentNode)d.parentNode.removeChild(d);},4500);}
 function rpgSim(){rpgReset();rpgRunning=true;var steps=[
  function(){rfeed("El backend se pone a trabajar…","var(--info)");},
- function(){rmove("backend",104,54);rbubble("backend","¿qué API de precios uso?");rfeed("backend → investigador: ¿qué API de precios uso?","var(--info)");},
+ function(){var l=spotAt("researcher","l"),r=spotAt("researcher","r");rmove("researcher",l[0],l[1]);rmove("backend",r[0],r[1]);rbubble("backend","¿qué API de precios uso?");rfeed("backend → investigador: ¿qué API de precios uso?","var(--info)");},
  function(){rbubble("researcher","API X: gratis, sin login");rfeed("investigador → backend: API X, gratis y sin login","var(--ok)");},
+ function(){rhome("backend");rhome("researcher");},
+ function(){var l=spotAt("frontend","l"),r=spotAt("frontend","r");rmove("frontend",l[0],l[1]);rmove("backend",r[0],r[1]);rbubble("backend","contrato en docs/api.md");rfeed("backend → frontend: contrato en docs/api.md","var(--info)");},
  function(){rhome("backend");},
- function(){rmove("backend",286,212);rbubble("backend","contrato en docs/api.md");rfeed("backend → frontend: contrato en docs/api.md","var(--info)");},
- function(){rhome("backend");},
- function(){rmove("frontend",108,212);rbubble("frontend","falta el campo «precio»");rfeed("frontend → backend: falta el campo «precio»","var(--info)");},
- function(){rbubble("backend","campo agregado");rfeed("backend → frontend: campo agregado","var(--info)");rhome("frontend");},
- function(){rmove("frontend",286,54);rbubble("frontend","pantalla lista");rfeed("frontend → testing: pantalla lista","var(--warn)");},
- function(){rhome("frontend");rmove("testing",286,214);rbubble("testing","bug: el estado de error no se ve");rfeed("testing → frontend: bug, el estado de error no se muestra","var(--danger)");},
- function(){rhome("testing");rbubble("frontend","corrigiendo…");rfeed("frontend corrige el bug","var(--text2)");},
+ function(){var l=spotAt("backend","l"),r=spotAt("backend","r");rmove("backend",l[0],l[1]);rmove("frontend",r[0],r[1]);rbubble("frontend","falta el campo «precio»");rfeed("frontend → backend: falta el campo «precio»","var(--info)");},
+ function(){rbubble("backend","campo agregado");rfeed("backend → frontend: campo agregado","var(--info)");rhome("frontend");rhome("backend");},
+ function(){var l=spotAt("testing","l"),r=spotAt("testing","r");rmove("testing",l[0],l[1]);rmove("frontend",r[0],r[1]);rbubble("frontend","pantalla lista");rfeed("frontend → testing: pantalla lista","var(--warn)");},
+ function(){rbubble("testing","bug: el estado de error no se ve");rfeed("testing → frontend: bug, el estado de error no se muestra","var(--danger)");},
+ function(){rhome("testing");rhome("frontend");rbubble("frontend","corrigiendo…");rfeed("frontend corrige el bug","var(--text2)");},
  function(){var b=document.getElementById("rpg-bubble");if(b)b.style.display="none";rfeed("testing: todo verde, work order cerrado","var(--ok)");rpgAchv("Work order completado");}
 ];var i=0;(function tick(){if(!document.getElementById("rpg-scene")){rpgRunning=false;return;}if(i>=steps.length){rpgRunning=false;return;}steps[i++]();rpgTimer=setTimeout(tick,1300);})();}
 
 function render(){var body;
  if(ST.view==="ideas")body=ST.openSlug?detailView():boardView();
  else if(ST.view==="portfolio")body=portfolioView();
+ else if(ST.view==="logros")body=logrosView();
  else if(ST.view==="config")body=configView();
  else body=docsView();
  root.innerHTML=topbar()+body;}
@@ -359,7 +389,7 @@ root.addEventListener("click",function(ev){var el=ev.target.closest("[data-act]"
  else if(a==="rpgsim"){rpgSim();}
  else if(a==="rpgreset"){rpgReset();}
 });
-setInterval(function(){if(rpgRunning||!document.getElementById("rpg-scene"))return;["researcher","testing","backend","frontend"].forEach(function(k){var h=RHOME[k];rmove(k,h[0]+Math.round(Math.random()*14-7),h[1]+Math.round(Math.random()*10-5));});},2200);
+setInterval(function(){if(rpgRunning||!document.getElementById("rpg-scene"))return;["researcher","testing","backend","frontend"].forEach(function(k){var p=randAt(k);rmove(k,p[0],p[1]);});},1800);
 render();
 })();
 </script>
