@@ -6,10 +6,11 @@ description: Arranca y ejecuta la construcción de un proyecto Pandacorp con un 
 
 **Este es el comando que arranca (y reanuda) la construcción.** Dispara el equipo de agentes, reparte los work orders y avanza hasta terminar; lo sigues en vivo en Mission Control. Se ejecuta EN el proyecto. Al arrancar, marca `docs/estado.yaml → fase: implementacion`, `running: true` (la idea pasa a «en construcción»); al detenerse/terminar, `running: false`.
 
-`$ARGUMENTS` opcional: un **modo** (`potente` | `profundo`) y/o work orders específicos. Sin argumentos: modo equilibrado, construye desde el primer work order pendiente.
+`$ARGUMENTS` opcional: un **modo** (`pro` | `potente` | `profundo`) y/o work orders específicos. Sin argumentos: modo equilibrado, construye desde el primer work order pendiente.
 
 ## Modos de ejecución (control de consumo/calidad)
 
+- **pro** (`/pandacorp:implement pro`): para plan Pro / mínimo consumo. Un solo obrero a la vez (sin paralelismo), modelos económicos (sonnet/haiku). El más lento pero el más barato.
 - **equilibrado** (default): pensado para Max 5x. Equipo ≤3 agentes; líder en opus, obreros en sonnet/haiku.
 - **potente** (`/pandacorp:implement potente`): para Max 20x. Más agentes en paralelo (hasta 5) → avanza más rápido. Úsalo cuando quieras terminar antes y tu plan lo permita.
 - **profundo** (`/pandacorp:implement profundo`): máxima calidad. Todos los agentes en el mejor modelo (opus), revisión adversarial extra y verificación más estricta. Más lento y más caro — para un proyecto al que le tienes cariño especial o cuando algo no está saliendo bien.

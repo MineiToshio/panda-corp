@@ -11,14 +11,14 @@
 --bd:rgba(0,0,0,.12);--bd2:rgba(0,0,0,.26);--rmd:8px;--rlg:12px;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.6;font-size:15px}
-#pcapp{max-width:1080px;margin:0 auto;padding:24px 20px 60px}
+#pcapp{max-width:1240px;margin:0 auto;padding:24px 20px 60px}
 button{font-family:inherit;background:transparent;border:.5px solid var(--bd2);color:var(--text);border-radius:var(--rmd);padding:7px 12px;cursor:pointer;font-size:13px}
 button:hover{background:var(--secondary)}
 .tab{padding:7px 13px;border-radius:var(--rmd);font-size:13px;cursor:pointer;border:.5px solid transparent;color:var(--text2)}
 .tab.on{background:var(--info-bg);color:var(--info);font-weight:500}
 .stab{padding:6px 11px;border-radius:var(--rmd);font-size:13px;cursor:pointer;color:var(--text2);border:.5px solid transparent}
 .stab.on{background:var(--secondary);color:var(--text);font-weight:500}
-.col{flex:1 1 0;min-width:120px;background:var(--secondary);border-radius:var(--rmd);padding:8px}
+.col{flex:0 0 auto;width:222px;background:var(--secondary);border-radius:var(--rmd);padding:10px}
 .card{background:var(--primary);border:.5px solid var(--bd);border-radius:var(--rmd);padding:9px;margin-bottom:8px;cursor:pointer;overflow-wrap:anywhere}
 .card:hover{border-color:var(--bd2)}
 .chip{font-size:11px;padding:2px 8px;border-radius:var(--rmd)}
@@ -52,7 +52,7 @@ var LBL={descubierta:"Descubierta",documentada:"Documentada",diseno:"Diseño",ar
 var WLBL={todo:"To do",progress:"En progreso",review:"Review / Testing",done:"Hecho"},WORDER=["todo","progress","review","done"];
 var TYPE={monetizable:["var(--ok-bg)","var(--ok)"],personal:["var(--info-bg)","var(--info)"],ambas:["var(--warn-bg)","var(--warn)"]};
 
-var SEED={view:"ideas",openSlug:null,openDoc:0,intake:false,projectSlug:null,projectTab:"resumen",configSection:"skills",configItem:null,docsPage:0,woItem:null,ideas:[
+var SEED={view:"ideas",openSlug:null,openDoc:0,intake:false,projectSlug:null,projectTab:"resumen",configSection:"skills",configItem:null,docsPage:0,woItem:null,modes:{},ideas:[
  {slug:"pandacorp-cockpit",titulo:"Pandacorp",estado:"en-construccion",fase:"implementacion",version:"v1",running:true,progreso:"Implementando el Panel Portfolio",score:90,tipo:"personal",
   resumen:"Panel local de la fábrica para ver ideas y proyectos, leer la documentación y saber qué comando ejecutar. No llama a Claude: solo lee archivos.",
   clave:["Solo-lectura — respeta tu suscripción Max","Tablero, Portfolio, Configuración, Documentación","Mission Control por proyecto"],
@@ -201,7 +201,7 @@ function oneCard(a){
  if(a.hidden&&!a.on)return '<div style="display:flex;gap:11px;align-items:center;background:var(--secondary);border:.5px dashed var(--bd2);border-radius:var(--rmd);padding:11px 13px;opacity:.7"><div style="width:36px;height:36px;border-radius:8px;background:var(--bd);color:var(--text3);display:flex;align-items:center;justify-content:center"><i class="ti ti-question-mark" style="font-size:18px"></i></div><div><div style="font-weight:500;font-size:13px;color:var(--text2)">Logro secreto</div><div style="font-size:12px;color:var(--text3);font-style:italic">'+a.hint+'</div></div></div>';
  if(a.on)return '<div style="display:flex;gap:11px;align-items:center;background:var(--primary);border:.5px solid var(--bd);border-radius:var(--rmd);padding:11px 13px"><div style="width:36px;height:36px;border-radius:8px;background:var(--warn-bg);color:var(--warn);display:flex;align-items:center;justify-content:center"><i class="ti '+a.ic+'" style="font-size:19px"></i></div><div><div style="font-weight:500;font-size:13px">'+a.n+'</div><div style="font-size:12px;color:var(--text2)">'+a.d+'</div><div style="font-size:11px;color:var(--text3);margin-top:2px"><i class="ti ti-calendar" style="font-size:11px;vertical-align:-1px"></i> '+a.date+(a.proj&&a.proj!=="—"?' · '+a.proj:'')+'</div></div></div>';
  return '<div style="display:flex;gap:11px;align-items:center;background:var(--secondary);border:.5px dashed var(--bd2);border-radius:var(--rmd);padding:11px 13px;opacity:.75"><div style="width:36px;height:36px;border-radius:8px;background:var(--bd);color:var(--text3);display:flex;align-items:center;justify-content:center"><i class="ti '+a.ic+'" style="font-size:18px"></i></div><div><div style="font-weight:500;font-size:13px;color:var(--text2)">'+a.n+'</div><div style="font-size:12px;color:var(--text3)">'+a.d+'</div></div></div>';}
-var AGMETA={researcher:[5,"Explorador"],"product-manager":[6,"Estratega"],designer:[5,"Artesano"],architect:[7,"Maestro de obras"],"backend-dev":[7,"Ingeniero senior"],"frontend-dev":[6,"Artífice"],"test-writer":[5,"Alquimista"],reviewer:[6,"Centinela"],"security-auditor":[6,"Guardián"]};
+var AGMETA={researcher:[5,"Explorador",120,200],"product-manager":[6,"Estratega",80,250],designer:[5,"Artesano",170,200],architect:[7,"Maestro de obras",300,500],"backend-dev":[7,"Ingeniero senior",420,500],"frontend-dev":[6,"Artífice",190,250],"test-writer":[5,"Alquimista",60,200],reviewer:[6,"Centinela",150,250],"security-auditor":[6,"Guardián",110,250]};
 function logrosView(){
  var unT=0;CHAINS.forEach(function(ch){unT+=chainState(ch).ci+1;});
  var unO=ONETIME.filter(function(a){return a.on;}).length;
@@ -320,7 +320,19 @@ function projectPane(i){
   +'<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">'+subtabs+'</div>'+body;
 }
 function projResumen(i){return '<div class="panel"><div class="doc"><h2>Resumen</h2><p>'+esc(i.resumen)+'</p><h3>Puntos clave</h3><ul>'+i.clave.map(function(k){return "<li>"+esc(k)+"</li>";}).join("")+'</ul></div></div>'+decisionesBox(i)+logBox(i);}
-function projComandos(i){return commandsBox(i);}
+var BUILDMODES=[
+ ["pro","Pro / económico","1 agente a la vez, modelos económicos (sonnet/haiku). Más lento, mínimo consumo. Para plan Pro.","/pandacorp:implement pro"],
+ ["equilibrado","Equilibrado","Equipo de ≤3 agentes; líder opus, obreros sonnet/haiku. Por defecto, pensado para Max 5x.","/pandacorp:implement"],
+ ["potente","Potente","Hasta 5 agentes en paralelo → avanza más rápido. Para Max 20x.","/pandacorp:implement potente"],
+ ["profundo","Profundo","Mejores modelos en todos + revisión adversarial extra. Para un proyecto especial.","/pandacorp:implement profundo"]
+];
+function buildModePanel(i){
+ var cur=(ST.modes&&ST.modes[i.slug])||"equilibrado";
+ var m=BUILDMODES.filter(function(x){return x[0]===cur;})[0]||BUILDMODES[1];
+ var opts=BUILDMODES.map(function(x){return '<span class="stab '+(x[0]===cur?"on":"")+'" data-act="bmode" data-slug="'+i.slug+'" data-m="'+x[0]+'">'+x[1]+'</span>';}).join("");
+ return '<div class="panel" style="margin-bottom:14px"><p style="font-size:13px;font-weight:500;margin:0 0 4px;color:var(--text2)"><i class="ti ti-adjustments" style="font-size:14px;vertical-align:-2px"></i> Modo de construcción</p><p style="font-size:12px;color:var(--text3);margin:0 0 8px">Con cuánta potencia construir ESTE proyecto. Por defecto Equilibrado (Max 5x). Cambia el modo y copia el comando que toca.</p><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">'+opts+'</div><p style="font-size:12px;color:var(--text2);margin:0 0 6px">'+m[2]+'</p>'+cmdRow(m[3],"pégalo en la carpeta del proyecto")+'</div>';
+}
+function projComandos(i){return buildModePanel(i)+commandsBox(i);}
 function woProgress(i){var w=i.wo||[];var tot=w.length,done=w.filter(function(x){return x.e==="done";}).length;return {done:done,tot:tot,pct:tot?Math.round(done/tot*100):0};}
 function progressBar(i){var p=woProgress(i);if(!p.tot)return "";var col=p.pct>=100?"var(--ok)":"var(--info)";return '<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:4px"><span><i class="ti ti-sword" style="font-size:12px;vertical-align:-1px"></i> Objetivos de la misión</span><span>'+p.done+' / '+p.tot+' · '+p.pct+'%</span></div><div style="height:10px;background:var(--secondary);border-radius:99px;overflow:hidden;border:.5px solid var(--bd)"><div style="height:100%;width:'+p.pct+'%;background:'+col+';transition:width .6s"></div></div></div>';}
 function logBox(i){var l=i.log||[];
@@ -359,23 +371,23 @@ function configDetail(){
  var r=CONFIG[ST.configSection][ST.configItem];var name=ST.configSection==="skills"?("/pandacorp:"+r[0]):r[0];
  var head=ST.configSection==="agents"?'<div style="display:flex;align-items:center;gap:10px">'+avatar(r[0])+'<div><div style="font-family:var(--mono);font-size:16px;font-weight:500">'+name+'</div>'+(AGMETA[r[0]]?'<div style="font-size:12px;color:var(--warn)"><i class="ti ti-star" style="font-size:12px;vertical-align:-1px"></i> Nv '+AGMETA[r[0]][0]+' · '+AGMETA[r[0]][1]+'</div>':'')+'</div></div>':'<div style="font-family:var(--mono);font-size:16px;font-weight:500">'+name+'</div>';
  return '<div style="margin-bottom:12px"><button data-act="cfgback"><i class="ti ti-arrow-left" style="font-size:14px"></i> Volver</button></div>'
-  +'<div class="panel">'+head+'<p style="font-size:13px;color:var(--text2);margin:6px 0 0">'+r[1]+'</p><div style="border-top:.5px solid var(--bd);margin:12px 0"></div><p style="font-size:13px;color:var(--text);margin:0">'+esc(r[2])+'</p></div>';
+  +'<div class="panel">'+head+'<p style="font-size:13px;color:var(--text2);margin:6px 0 0">'+r[1]+'</p><div style="border-top:.5px solid var(--bd);margin:12px 0"></div><p style="font-size:13px;color:var(--text);margin:0">'+esc(r[2])+'</p>'+((ST.configSection==="agents"&&AGMETA[r[0]])?'<div style="border-top:.5px solid var(--bd);margin:12px 0 10px"></div><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:4px"><span>XP al siguiente nivel</span><span>'+AGMETA[r[0]][2]+' / '+AGMETA[r[0]][3]+'</span></div><div style="height:9px;background:var(--secondary);border-radius:99px;overflow:hidden;border:.5px solid var(--bd)"><div style="height:100%;width:'+Math.round(AGMETA[r[0]][2]/AGMETA[r[0]][3]*100)+'%;background:var(--warn)"></div></div><p style="font-size:12px;color:var(--text2);margin:9px 0 0"><i class="ti ti-info-circle" style="font-size:12px;vertical-align:-1px"></i> Sube de nivel completando work orders: cada uno que cierra suma XP. Al subir gana un título superior (Aprendiz → Ingeniero → Senior → Arquitecto).</p>':'')+'</div>';
 }
 
 function docsView(){var p=Math.min(ST.docsPage,DOCS.length-1);
  var nav=DOCS.map(function(d,ix){return '<div class="navitem '+(p===ix?"on":"")+'" data-act="docpage" data-p="'+ix+'"><i class="ti ti-book"></i> '+d[0]+'</div>';}).join("");
  return '<div style="display:grid;grid-template-columns:220px 1fr;gap:14px;align-items:start"><div class="panel" style="padding:10px"><div style="font-size:11px;color:var(--text3);margin:2px 4px 8px">GUÍA</div>'+nav+'</div><div class="panel doc">'+md(DOCS[p][1])+'</div></div>';}
 
-var ZP={researcher:[8,8],testing:[282,8],backend:[8,172],frontend:[282,172]};
-function spotAt(z,side){var p=ZP[z]||[8,8];var x=side==="l"?p[0]+12:side==="r"?p[0]+78:p[0]+46;return [x,p[1]+40];}
-function randAt(z){var p=ZP[z]||[8,8];return [p[0]+8+Math.round(Math.random()*66),p[1]+28+Math.round(Math.random()*22)];}
+var ZP={researcher:[10,10],testing:[340,10],backend:[10,240],frontend:[340,240]};
+function spotAt(z,side){var p=ZP[z]||[10,10];var x=side==="l"?p[0]+50:side==="r"?p[0]+165:p[0]+108;return [x,p[1]+72];}
+function randAt(z){var p=ZP[z]||[10,10];return [p[0]+18+Math.round(Math.random()*180),p[1]+44+Math.round(Math.random()*60)];}
 var RHOME={researcher:spotAt("researcher","c"),testing:spotAt("testing","c"),backend:spotAt("backend","c"),frontend:spotAt("frontend","c")};
 var rpgTimer=null,rpgRunning=false;
 function missionBody(i){
- var zones=[["Investigación","ti-books","investigacion",8,8],["Testing","ti-flask","testing",282,8],["Backend","ti-server","backend",8,172],["Frontend","ti-browser","frontend",282,172]].map(function(z){return '<div style="position:absolute;left:'+z[3]+'px;top:'+z[4]+'px;width:150px;height:120px;border:.5px solid var(--bd2);border-radius:8px;background:url('+(IMG[z[2]]||"")+') center/cover;overflow:hidden;image-rendering:pixelated"><span style="display:inline-flex;align-items:center;gap:4px;margin:6px;font-size:11px;font-weight:500;color:#fff;background:rgba(0,0,0,.55);padding:2px 7px;border-radius:6px"><i class="ti '+z[1]+'"></i> '+z[0]+'</span></div>';}).join("");
- var sprites=[["researcher","researcher",0],["testing","test-writer",.5],["backend","backend-dev",.9],["frontend","frontend-dev",.3]].map(function(s){var h=RHOME[s[0]];return '<img id="sprite-'+s[0]+'" src="'+(IMG[s[1]]||"")+'" alt="'+s[0]+'" style="position:absolute;left:'+h[0]+'px;top:'+h[1]+'px;width:58px;height:58px;image-rendering:pixelated;transition:left .7s ease,top .7s ease;z-index:2;animation:pcbob 1.7s ease-in-out infinite;animation-delay:'+s[2]+'s">';}).join("");
+ var zones=[["Investigación","ti-books","investigacion",10,10],["Testing","ti-flask","testing",340,10],["Backend","ti-server","backend",10,240],["Frontend","ti-browser","frontend",340,240]].map(function(z){return '<div style="position:absolute;left:'+z[3]+'px;top:'+z[4]+'px;width:290px;height:190px;border:.5px solid var(--bd2);border-radius:8px;background:url('+(IMG[z[2]]||"")+') center/cover;overflow:hidden;image-rendering:pixelated"><span style="display:inline-flex;align-items:center;gap:4px;margin:6px;font-size:11px;font-weight:500;color:#fff;background:rgba(0,0,0,.55);padding:2px 7px;border-radius:6px"><i class="ti '+z[1]+'"></i> '+z[0]+'</span></div>';}).join("");
+ var sprites=[["researcher","researcher",0],["testing","test-writer",.5],["backend","backend-dev",.9],["frontend","frontend-dev",.3]].map(function(s){var h=RHOME[s[0]];return '<img id="sprite-'+s[0]+'" src="'+(IMG[s[1]]||"")+'" alt="'+s[0]+'" style="position:absolute;left:'+h[0]+'px;top:'+h[1]+'px;width:72px;height:72px;image-rendering:pixelated;transition:left .7s ease,top .7s ease;z-index:2;animation:pcbob 1.7s ease-in-out infinite;animation-delay:'+s[2]+'s">';}).join("");
  return '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px"><span style="font-size:12px;color:var(--text2)">El party trabaja en el gremio: los personajes se mueven de zona para comunicarse.</span><span style="display:flex;gap:6px"><button data-act="rpgsim"><i class="ti ti-player-play" style="font-size:13px"></i> Simular</button><button data-act="rpgreset"><i class="ti ti-refresh" style="font-size:13px"></i> Reiniciar</button></span></div>'
-  +'<div class="panel" style="padding:10px;margin-bottom:12px"><div id="rpg-scene" style="position:relative;width:440px;max-width:100%;height:300px;margin:0 auto;background:var(--secondary);border-radius:10px">'+zones+sprites+'<div id="rpg-bubble" style="position:absolute;display:none;max-width:150px;background:var(--primary);border:.5px solid var(--bd2);border-radius:8px;padding:5px 8px;font-size:11px;line-height:1.3;z-index:3"></div></div></div>'
+  +'<div class="panel" style="padding:10px;margin-bottom:12px"><div id="rpg-scene" style="position:relative;width:640px;max-width:100%;height:440px;margin:0 auto;background:var(--secondary);border-radius:10px">'+zones+sprites+'<div id="rpg-bubble" style="position:absolute;display:none;max-width:150px;background:var(--primary);border:.5px solid var(--bd2);border-radius:8px;padding:5px 8px;font-size:11px;line-height:1.3;z-index:3"></div></div></div>'
   +'<p style="font-size:13px;font-weight:500;margin:0 0 6px;color:var(--text2)">Bitácora del equipo</p><div class="panel" id="rpg-feed" style="background:var(--secondary);border:none;min-height:54px;font-size:12px"><span style="color:var(--text3)">Dale a «Simular» para ver al equipo trabajar.</span></div>';}
 function rsp(k){return document.getElementById("sprite-"+k);}
 function rmove(k,x,y){var e=rsp(k);if(e){e.style.left=x+"px";e.style.top=y+"px";}}
@@ -419,6 +431,7 @@ root.addEventListener("click",function(ev){var el=ev.target.closest("[data-act]"
  else if(a==="wo"){ST.woItem=parseInt(el.dataset.ix,10);ST.woTab="resumen";save();render();}
  else if(a==="woback"){ST.woItem=null;save();render();}
  else if(a==="wotab"){ST.woTab=el.dataset.wt;save();render();}
+ else if(a==="bmode"){if(!ST.modes)ST.modes={};ST.modes[el.dataset.slug]=el.dataset.m;save();render();}
  else if(a==="doc"){ST.openDoc=parseInt(el.dataset.doc,10);save();render();}
  else if(a==="cfgsec"){ST.configSection=el.dataset.sec;ST.configItem=null;save();render();}
  else if(a==="cfgitem"){ST.configItem=parseInt(el.dataset.ix,10);save();render();}
