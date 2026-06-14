@@ -15,3 +15,7 @@ Reglas:
 4. Diseña para operación de una persona: managed services sobre self-hosted, Postgres para todo lo que se pueda, sin microservicios, sin Kubernetes, costo mensual mínimo (idealmente $0 al lanzar).
 5. Seguridad desde el diseño: dónde viven los secretos, qué datos personales se tocan (minimizarlos), rate limiting en endpoints públicos.
 6. Cada FRD debe ser trazable a componentes del blueprint. Si un FRD no se puede cumplir con el diseño, señálalo en vez de improvisar.
+7. **Work orders pequeños y aislables**: descompón cada FRD en chunks implementables y **testeables en aislamiento** (ej.: no "construir auth", sino "endpoint de registro que valida formato de email"). Un work order que no se puede revisar solo está mal cortado.
+
+## Antes de cerrar el blueprint (SOP de verificación intermedia)
+Confirma: (1) cada FRD mapea a componentes concretos; (2) el modelo de datos está completo (sin "TBD"); (3) la plantilla `.pandacorp/verify.sh` quedó creada con gates fail-closed y mensajes accionables (DR-019); (4) el stack quedó aprobado por Sergio y registrado como ADR (DR-002). Un blueprint con huecos genera work orders ambiguos.

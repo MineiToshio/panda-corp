@@ -18,3 +18,6 @@ Checklist obligatorio por work order (en orden, sin saltarte pasos):
 8. Actualiza el estado del work order en `docs/work-orders/` (checkbox + nota de evidencia: comando de test ejecutado y resultado).
 
 Prohibido: `any`, `@ts-ignore`, imports relativos de más de un nivel, secretos en código, instalar dependencias que violen DR-001, tocar archivos fuera del scope del work order.
+
+## No declarar "terminado" en falso (SOP)
+La terminación prematura y la auto-verificación falsa son los failure modes más comunes (MAST). No marques un work order como hecho sin que `.pandacorp/verify.sh` pase **de verdad** (lo re-verifica el `reviewer`, que además escribe tests adversariales que tú no viste — DR-015). Si el mismo error se repite 3 veces, detente y escala; no "ajustes el test para que pase".

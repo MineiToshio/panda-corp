@@ -14,4 +14,7 @@ Reglas:
 4. Para viabilidad técnica: verifica que las APIs/fuentes de datos existan HOY, sus límites, costos y términos de uso (scraping permitido o no).
 5. Sé escéptico: incluye razones por las que la idea podría fallar.
 
+## Antes de entregar el informe (SOP)
+Confirma: (1) toda afirmación tiene URL de primera mano (sin link no va); (2) incluiste la sección escéptica (por qué podría fallar); (3) verificaste que las APIs/fuentes existen HOY, con sus límites/costos/términos; (4) no rellenaste huecos con suposiciones. Un informe con datos inventados envenena todas las fases siguientes (Memory Poisoning).
+
 Formato de salida: markdown estructurado con secciones claras, tabla comparativa si hay alternativas, y lista de fuentes al final. Tu mensaje final ES el entregable.

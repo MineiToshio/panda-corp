@@ -19,6 +19,17 @@ description: Arranca y ejecuta la construcción de un proyecto Pandacorp con un 
 
 Si la conversación se corta o te quedas sin tokens, **vuelve a correr `/pandacorp:implement`**: lee el estado de `docs/work-orders/` y `docs/estado.yaml` y continúa desde el primer pendiente. Cada work order se comitea al cerrarse → el avance no se pierde.
 
+## Operación desatendida (correr y largarse) — ver `docs/propuestas/07-construccion-desatendida.md`
+
+El objetivo: Sergio corre `implement` y se va por horas, **sin babysitting**, y puede **probar lo avanzado cuando vuelva** sin adivinar si está "testeable". El principio: **el punto seguro no es un estado del agente, es un commit de git** — cada work order cerrado en verde es un snapshot inmutable.
+
+- **Auto mode (permisos), no babysitting**: Sergio activa el *auto mode* de Claude Code (Shift+Tab → "Auto mode", o `defaultMode: "auto"` en SU `~/.claude/settings.json` — el repo no puede auto-concedérselo). Con eso el agente deja de preguntar "¿continúo?" y solo se detiene en rojo irrecuperable o en un gate humano. **Auto mode (permisos) ≠ modo de construcción (equipo/modelos).** NUNCA `--dangerously-skip-permissions`.
+- **Freeze-on-red**: si un work order no pasa el gate tras los reintentos (máx. 3), NO commitees lo roto: deja `HEAD` en el último verde (`last_green_sha`), marca el work order `BLOQUEADO` en `docs/estado.yaml`, **emite una notificación a Sergio** (hook Notification / PushNotification), y **sigue con otros work orders que no dependan del roto**. No pares todo el lote por un frente.
+- **Circuit breakers** (obligatorios para no quemar plata desatendido): tope de iteraciones, detección de no-progreso (mismo error / diff vacío / mismo test fallando N veces) y tope de presupuesto por corrida. El backstop nativo de auto mode (pausa tras bloqueos del clasificador) NO sustituye esto.
+- **Probar un snapshot SIN parar al agente (git worktrees)**: Sergio prueba el último verde en OTRA carpeta — `git worktree add ../<proyecto>-review <last_green_sha>` — mientras el agente sigue en la suya. Mantiene UNA sola carpeta de review y la refresca al último verde. El cockpit le da el comando listo. El agente trabaja idealmente en su propio worktree aislado.
+- **`/loop`**: SÍ como *self-paced* / `/goal` ("corre hasta vaciar la cola y para solo"). NO a intervalo fijo (los scheduled tasks expiran y meten delays). Para trabajo continuo: este loop de Agent Teams + background tasks + Monitor.
+- **BD en dev con Docker** (`fabrica/estandares/infra.md`): cada proyecto y cada worktree levanta su BD en Docker, con puerto propio, para que la prueba de Sergio y la del agente no se pisen.
+
 ## Preparación del equipo (una vez por sesión)
 
 1. **Habilitar Agent Teams**: requiere `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1"` en el `settings.json` del proyecto (la plantilla del scaffold ya lo trae). Si no está, avisar a Sergio para activarlo.
@@ -36,9 +47,13 @@ Si la conversación se corta o te quedas sin tokens, **vuelve a correr `/pandaco
    - `frontend-dev`: arranca cuando el contrato está listo; implementa UI con design tokens; avisa a test-writer al terminar una pantalla.
    - `test-writer`: escribe/corre tests de aceptación (RED antes de implementar; e2e de los flujos al cerrar).
    - Cada agente escribe el contexto crítico a archivos, no solo a mensajes (Agent Teams es experimental, no hay resume).
-3. **Review** (agente `reviewer`): verifica evidencia él mismo (corre tests/lint/typecheck) y revisa con sus 3 lentes. RECHAZADO → vuelve al agente responsable con los hallazgos (máx. 2 ciclos; al tercero, escala a Sergio).
-4. **Cierra**: merge del feature branch, work order → `terminado` con evidencia, `docs/estado.yaml` actualizado.
-5. **Hito**: al completar los work orders de un FRD, corre la suite e2e de ese FRD. Repite hasta agotar work orders.
+3. **Review** (agente `reviewer`, modelo distinto al generador): verifica evidencia él mismo (corre tests/lint/typecheck) y **escribe tests adversariales que el implementer no vio** (DR-015), anclados en EARS y en bugs de `docs/progreso.md`. Revisa con sus 3 lentes. En **modo profundo**, las 3 lentes (correctitud / seguridad / calidad) corren como **subagentes concurrentes** (terminan en el tiempo del más lento, no la suma) y se exige **mutation testing** en hitos de FRD (DR-016). RECHAZADO → vuelve al agente responsable con los hallazgos (máx. 2 ciclos; al tercero, escala a Sergio).
+4. **Cierra (punto seguro)**: SOLO si `.pandacorp/verify.sh` pasa, commitea/mergea el work order; work order → `terminado` con evidencia; el script del gate escribe en `docs/estado.yaml` el `last_green_sha` (commit) y `safe_to_test: true`. **Nunca commitees a medio work order.**
+5. **Revisa las bandejas** (en este punto seguro, nunca a media obra — así es como Sergio te habla sin parar la construcción):
+   - `docs/bugs/` → bugs nuevos: primero un **test de regresión** que lo reproduce, luego el fix; prioriza los `crítico`.
+   - `docs/estado.yaml` `replanteo_pendiente: true` → `iterate` pidió pausar por un cambio fuerte: **detente limpio aquí** y avisa a Sergio.
+   - `docs/decisiones.md` → pendientes que Sergio ya respondió con `/decide`: aplícalas y desbloquea ese frente.
+6. **Hito de FRD**: al completar los work orders de un FRD, corre la suite e2e de ese FRD y **mata los dev servers de prueba con `TaskStop`** (evita procesos zombie). Repite hasta agotar work orders.
 
 > El cockpit (Mission Control) muestra en vivo este equipo: los eventos los emiten los hooks de la fábrica a `~/.claude/dashboard-events.ndjson`. No requiere acción del agente.
 
@@ -52,7 +67,7 @@ Mientras se construye, mantener SIEMPRE actualizado (el cockpit lo lee en vivo):
 
 ## Puntos de decisión (escalado a Sergio, visible en el cockpit)
 
-Cuando aparezca algo que no estaba resuelto: **primero investiga** (delega al `researcher`) y, si con eso puedes tomar la decisión coherente tú mismo, hazlo y documéntalo en `docs/progreso.md`. **Solo escala a Sergio las decisiones genuinamente humanas**: scope de producto, algo irreversible, gastar dinero, o lo que el registro de decisiones marca como humano. En ese caso NO adivines: anótalo en `docs/decisiones.md` como `pendiente` (qué pasa, opciones investigadas, tu recomendación) y, si bloquea ese frente, sigue con otros work orders. El cockpit resalta estas entradas para que Sergio las vea y responda.
+Cuando aparezca algo que no estaba resuelto: **primero investiga** (delega al `researcher`) y, si con eso puedes tomar la decisión coherente tú mismo, hazlo y documéntalo en `docs/progreso.md`. **Solo escala a Sergio las decisiones genuinamente humanas**: scope de producto, algo irreversible, gastar dinero, o lo que el registro de decisiones marca como humano. En ese caso NO adivines: anótalo en `docs/decisiones.md` como `pendiente` (qué pasa, opciones investigadas, **tu recomendación**) y, si bloquea ese frente, sigue con otros work orders. El cockpit resalta estas entradas (un chip con el número de pendientes por proyecto). Sergio responde con **`/pandacorp:decide`**, que registra su respuesta en `docs/decisiones.md` y desbloquea el frente.
 
 ## Al terminar todos
 
@@ -60,7 +75,9 @@ Cuando aparezca algo que no estaba resuelto: **primero investiga** (delega al `r
 - Resumen a Sergio: qué se construyó, evidencia, y siguiente paso `/pandacorp:release`.
 
 ## Reglas
-- Nunca avanzar con tests rojos. Errores idénticos repetidos 3 veces = detenerse y escalar.
+- Nunca avanzar con tests rojos. Errores idénticos repetidos 3 veces = **freeze-on-red** (no commitear lo roto, dejar HEAD en `last_green_sha`, marcar el WO `BLOQUEADO`, notificar a Sergio, seguir con WOs independientes).
 - Límites de cuota: si se topan rate limits, reducir el equipo (menos agentes en paralelo) y/o bajar modelos de obreros. No es un error del código.
 - Si un work order revela que el blueprint/FRD estaba mal, documenta el conflicto, ajusta el documento fuente (ADR si es arquitectónico) y recién continúa.
 - Para proyectos triviales o sin separación clara (un solo módulo), está bien usar un único agente `implementer` en vez de equipo.
+- **Procesos largos en background**: dev servers, watchers y builds se corren como background tasks para no bloquear el loop. Los checkpoints de Claude Code son red de seguridad de sesión, pero NO reemplazan el commit por work order ni rastrean cambios hechos por Bash — commitea cada work order al cerrarlo.
+- **No confiar en la honestidad del obrero** (constitución §22): la propensión a "hacer trampa" depende del modelo; por eso el `reviewer` re-verifica todo y el entorno es fail-closed. Nunca relajar la verificación porque "el agente dijo que pasó".

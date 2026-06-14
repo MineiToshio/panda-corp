@@ -19,8 +19,32 @@ pnpm create t3-app@latest . --noGit   # ya hay git del scaffold Pandacorp
    ```
 3. **Testing**: `pnpm add -D vitest @testing-library/react @testing-library/jest-dom jsdom @playwright/test`
 4. **shadcn/ui**: `pnpm dlx shadcn@latest init` — usar el preset/tokens de `docs/diseno/design-tokens.json`.
-5. **BD**: Postgres en Supabase (prod) / Neon o local (dev). Connection string solo en `.env`.
+5. **BD**: **dev → Postgres en Docker** (ver abajo); **staging/prod → managed** (Neon/Supabase). Connection string solo en `.env` (DR-021).
 6. **Estructura**: features en carpetas (`src/features/<feature>/`), shared en `src/lib/`, componentes un archivo + test colocado.
+
+## Base de datos en dev (Docker) + worktrees (DR-021/022/023)
+
+`docker-compose.yml` con Postgres (y Redis si aplica); el puerto sale del `.env` (convención de puertos de `fabrica/estandares/infra.md`). El agente lo levanta con `docker compose up -d` antes de los tests.
+
+```yaml
+# docker-compose.yml (dev)
+services:
+  db:
+    image: postgres:17
+    ports: ["${DB_PORT:-5432}:5432"]
+    environment: { POSTGRES_PASSWORD: dev, POSTGRES_DB: ${PROJECT_DB:-app} }
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+volumes: { pgdata: {} }
+```
+
+**`.worktreeinclude`** en la raíz (copia config no versionada a cada worktree nuevo, para probar un snapshot sin reconfigurar):
+
+```
+.env
+.env.local
+```
+
+Probar el último verde sin parar al agente: `git worktree add ../<proyecto>-review <last_green_sha>` → en esa carpeta, `pnpm install` (rápido con el store de pnpm), ajusta `DB_PORT` en su `.env`, `docker compose -p <proyecto>-review up -d`, y corre el dev server. Una sola carpeta de review, refrescada al último verde.
 
 ## `.pandacorp/verify.sh`
 

@@ -14,5 +14,6 @@ Estándares de ingeniería que la fábrica inyecta en cada proyecto (vía el `AG
 - [patrones.md](patrones.md) — Server Components/Actions, UI optimista, HTML semántico, a11y, tema, design tokens
 - [calidad.md](calidad.md) — gates de calidad, estrategia de testing, CI
 - [stack.md](stack.md) — stack recomendado por defecto (sugerencia, se elige en el blueprint)
+- [infra.md](infra.md) — operación local: Docker en dev, convención de puertos, worktrees, estado para el cockpit, gates como reglas duras
 
 Las convenciones de estructura/patrones están escritas para el stack web por defecto (TypeScript/Next.js). Para otros stacks (p. ej. Python/scraping) se aplica el **espíritu** (capas separadas, data layer aislado, tests colocados, tipado estricto), adaptado al lenguaje.

@@ -15,3 +15,6 @@ Reglas:
 5. Escribe el contexto importante a archivos (`docs/api.md`, ADRs), no solo a mensajes — los mensajes se pierden si el equipo se reinicia.
 6. **Investiga a demanda**: si necesitas algo que no está en el blueprint/FRDs (qué API o librería usar, un dato, una duda técnica), delega al agente `researcher` en vez de adivinar. La investigación de fondo ya se hizo en spec/blueprint; esto cubre huecos.
 7. Conventional commits en inglés, feature branch.
+
+## Antes de pasar el trabajo (SOP de verificación intermedia)
+No avises a frontend ni marques nada listo sin confirmar tú mismo: (1) tests RED→GREEN y `.pandacorp/verify.sh` en verde; (2) `docs/api.md` completo y tipado (sin endpoints "por definir"); (3) toda entrada validada y sin secretos en código; (4) no tocaste UI ni archivos fuera del work order. Pasar trabajo a medias propaga errores aguas abajo (failure mode MAST).

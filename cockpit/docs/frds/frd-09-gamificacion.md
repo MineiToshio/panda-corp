@@ -10,6 +10,11 @@ La capa de juego que envuelve el trabajo real, de forma **honesta** y sin fatiga
 - EL sistema NO DEBERÁ incluir: **leaderboards**, **vidas/muerte**, **rachas diarias con reset**, ni **urgencia falsa/timers**. Las rachas DEBERÁN ser **semanales** (con "freeze").
 - LA gamificación DEBERÁ complementar buena UX, no compensar mala UX (los datos claros van primero).
 
+## Principios validados por investigación (2026, ver `docs/propuestas/06-plan-de-mejoras-2026.md`)
+- DEBERÁ vivir en el **"White Hat" del Octalysis** (Significado Épico, Logro/Progreso, Empoderamiento + Feedback): el mayor activo intrínseco es **ver a los agentes trabajar en vivo**; el XP es capa secundaria de confirmación, no el gancho principal.
+- EL XP por actividad (no por resultado) está **prohibido** para no disparar el *overjustification effect* (la recompensa extrínseca puede destruir la motivación intrínseca). Todo logro mapea a un resultado **verificable** (work order/fase/release cerrados, tests verdes).
+- TODA mecánica nueva DEBERÁ pasar el **test ético** antes de añadirse: ¿el usuario controla su participación? ¿construye o socava la motivación intrínseca? ¿la recompensa es significativa o un loop adictivo? ¿es honesta sobre su efecto psicológico? Patrones prohibidos: streak anxiety, recompensas variables tipo tragaperras, urgencia falsa, leaderboards, barra "clavada al 80%".
+
 ## Componentes (ver también)
 - Nivel/XP del gremio (esta FRD) · Niveles de agentes ([FRD-07](frd-07-configuracion.md)) · Salón de logros y stats ([FRD-10](frd-10-salon-de-logros.md)) · Mission Control RPG ([FRD-06](frd-06-mission-control.md)).
 

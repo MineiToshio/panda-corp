@@ -8,7 +8,8 @@ Página de logros que también son **stats que crecen**, con fecha y proyecto en
 - CADA tier desbloqueado DEBERÁ guardar y mostrar **fecha** y **proyecto** donde ocurrió.
 - DEBERÁ mostrar una sección **"Casi ahí"** con las cadenas más cercanas a su siguiente tier (efecto Zeigarnik).
 - DEBERÁ mostrar **logros únicos** (una sola vez) agrupados por categoría (**Descubrimiento, Velocidad, Calidad, Consistencia, Maestría**), con fecha + proyecto cuando estén desbloqueados, y la condición cuando estén bloqueados.
-- DEBERÁ incluir **logros secretos** mostrados como silueta + **pista críptica** hasta desbloquearse.
+- DEBERÁ incluir **logros secretos** mostrados como silueta + **pista críptica** hasta desbloquearse; AL desbloquearse, DEBERÁ **revelar su criterio** (qué lo activó), nunca quedar como mecánica oscura tipo loot-box.
+- LAS cadenas y barras de progreso DEBERÁN aplicar **endowed progress honesto**: arrancar mostrando el avance **ya logrado** (no en cero) — acelera la finalización (efecto Zeigarnik) y es honesto porque corresponde a trabajo real. Sin notificaciones ni recordatorios machacones.
 - LOS nombres DEBERÁN ser divertidos y escalar en grandiosidad por tier (p. ej. Productos lanzados: El primer ladrillo → Maestro de obras → El arquitecto → El magnate digital → El oráculo de la fábrica).
 
 ## Detalle

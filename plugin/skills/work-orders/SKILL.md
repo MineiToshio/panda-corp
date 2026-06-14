@@ -14,7 +14,7 @@ Descomposición en work orders. Se ejecuta EN el proyecto (requiere FRDs y bluep
    - Alcance exacto: qué archivos/módulos toca; qué NO incluye
    - Dependencias (wo previos) y definición de terminado: tests de los criterios verdes + typecheck + lint + review aprobada
    - Estado: `pendiente | en-progreso | en-review | terminado` (checkbox + evidencia)
-3. **Tamaño correcto**: cada work order completable en una sesión de agente (ni "construir el backend" ni "renombrar una variable"). Típico: 5-15 work orders para una v1.
+3. **Tamaño correcto**: cada work order completable en una sesión de agente y **testeable en aislamiento** (ni "construir el backend" ni "renombrar una variable"). Regla práctica (Spec Kit): si no puedes escribir el test de aceptación del work order en una frase, está mal cortado — pártelo. El `reviewer` rechaza work orders demasiado grandes para revisar solos. Típico: 5-15 work orders para una v1.
 4. **Orden de ejecución**: lista maestra en `docs/work-orders/README.md` con el orden y qué se puede paralelizar (sin archivos compartidos entre paralelos).
 5. **Actualiza** `docs/estado.yaml` → `fase: implementacion` y commit. Resumen a Sergio: cuántos work orders, orden, estimación gruesa. Siguiente paso: `/pandacorp:implement`.
 

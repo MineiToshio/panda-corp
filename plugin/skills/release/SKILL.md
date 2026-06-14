@@ -8,7 +8,7 @@ Release de versión. Se ejecuta EN el proyecto (requiere `fase: release` en `doc
 
 ## Pasos
 
-1. **Auditoría de seguridad** (agente `security-auditor`): hallazgos críticos/altos bloquean el release — se arreglan (via work orders rápidos + review) antes de seguir.
+1. **Auditoría de seguridad** (agente `security-auditor`): OWASP web esencial + **OWASP Top 10 for Agentic Applications** (ASI01–ASI10, DR-017) si el producto tiene agentes/LLMs con herramientas. Hallazgos críticos/altos bloquean el release — se arreglan (vía work orders rápidos + review) antes de seguir.
 2. **Checklist pre-release** (todo verificado por comandos, no por memoria):
    - Suite completa + e2e verdes; lint y typecheck limpios
    - Variables de entorno documentadas en `.env.example`; secretos SOLO en el entorno de deploy
@@ -18,7 +18,7 @@ Release de versión. Se ejecuta EN el proyecto (requiere `fase: release` en `doc
 3. **Deploy a STAGING** (DR-003: auto-aprobado con CI verde) según la estrategia del blueprint. Smoke test sobre staging: los flujos críticos e2e contra la URL real.
 4. **GATE HUMANO — PRODUCCIÓN (DR-004)**: presenta a Sergio el resumen (URL de staging para que pruebe, resultado de auditoría, costos al activar producción si los hay — DR-005). **Espera su aprobación explícita. Sin excepciones.**
 5. **Deploy a producción** tras aprobación + verificación post-deploy (smoke test en prod).
-6. **Cierra**: tag de versión (semver), changelog desde conventional commits, `docs/estado.yaml` → `fase: operacion`, ficha de la idea en la fábrica → `estado: lanzada`, fila del portfolio actualizada.
+6. **Cierra** (documentación viva, DR-018): tag de versión (semver), **changelog auto-generado desde Conventional Commits**, ADRs al día (proponer uno si el release incluyó un cambio arquitectónico no registrado), README/docs de usuario actualizados, `docs/estado.yaml` → `fase: operacion`, ficha de la idea en la fábrica → `estado: lanzada`, fila del portfolio actualizada.
 7. Reporta: URL de producción, versión, y recordatorio de que las mejoras siguen con `/pandacorp:new-version`.
 
 ## Reglas

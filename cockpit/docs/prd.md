@@ -27,7 +27,7 @@ Una vista de solo-lectura que muestre estado + documentación + el siguiente com
 6. Que otra persona pueda entender todo el sistema (documentación interna).
 
 ## Scope v1
-Cinco pestañas — **Tablero, Portfolio, Logros, Configuración, Documentación** — + el **workspace por proyecto** + **Mission Control RPG** + **gamificación** (logros/stats/XP/niveles) + **modos de construcción**, según los FRDs (`docs/frds/`). El prototipo navegable (`cockpit/prototype/index.html`) es el diseño aprobado.
+Cinco pestañas — **Tablero, Portfolio, Logros, Configuración, Documentación** — + el **workspace por proyecto** + **Mission Control RPG** + **gamificación** (logros/stats/XP/niveles) + **modos de construcción** + **snapshot probable y canales de feedback** ([FRD-14](frds/frd-14-snapshot-y-feedback.md): panel de "último punto probable / construyendo ahora" con comando de worktree, chips de decisiones/bugs por proyecto), según los FRDs (`docs/frds/`, FRD-01 a FRD-14). El prototipo navegable (`cockpit/prototype/index.html`) es el diseño aprobado. Transversal a todas las pestañas: **observabilidad y data-viz** ([FRD-12](frds/frd-12-observabilidad-dataviz.md): KPIs, frescura del dato, toggle RPG↔timeline, DAG) y el **sistema visual y de accesibilidad** ([FRD-13](frds/frd-13-sistema-visual-accesibilidad.md): tokens OKLCH, acento racionado, `tabular-nums`, motion sobrio, `prefers-reduced-motion`, estado por icono+color).
 
 ## No-objetivos (v1)
 - No ejecuta comandos ni agentes (Sergio los pega en Claude Code).

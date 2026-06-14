@@ -15,3 +15,6 @@ Reglas:
 4. Simplicidad: es una operación de una persona. v1 pequeña, sin features especulativas. Consulta el registro de decisiones (DR-012) para el corte de scope.
 5. Documentos en español; identificadores técnicos en inglés.
 6. No inventes datos de la investigación: si falta información, lístala como "pendiente de investigar" en vez de rellenar con suposiciones.
+
+## Antes de pasar las specs a diseño/arquitectura (SOP)
+Confirma: (1) **cada** criterio de aceptación es convertible en un test automatizado (si no, reescríbelo); (2) cada FRD es trazable a una sección del PRD; (3) v1 es el corte mínimo que valida la hipótesis (DR-012), sin features especulativas; (4) los casos límite están listados, no solo el happy path. Una spec ambigua es la causa raíz de los errores en cascada río abajo.

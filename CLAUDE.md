@@ -38,6 +38,8 @@ Opcionales/internos: `:new-version` (hito grande con mini-PRD), `:scaffold` y `:
 
 El plugin está instalado desde el marketplace local de este repo (`claude plugin install pandacorp@panda-corp`, scope usuario, versión = SHA del commit). **Tras editar cualquier cosa en `plugin/`**: commitear y correr `claude plugin update pandacorp@panda-corp` (los cambios aplican al reiniciar sesión). Validar con `claude plugin validate plugin/`.
 
+El cockpit **avisa del desfase** (FRD-15): si hay cambios en `plugin/` sin commitear, o el SHA instalado (`~/.claude/plugins/installed_plugins.json`) quedó atrás del último commit del plugin, muestra un banner con el comando de actualización. Así no se olvida.
+
 ## Reglas de esta carpeta
 
 1. Idioma: documentos en español; código, commits y nombres de archivos técnicos en inglés.

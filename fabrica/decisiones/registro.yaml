@@ -73,3 +73,49 @@ decisiones:
     patron: "tamaño de equipo y modelos por agente (control de consumo)"
     default: "DISEÑAR PARA Max 5x en proyectos: equipo de ≤3 agentes simultáneos, líder en opus, obreros (implementación/testing/investigación) en sonnet o haiku. La construcción de la propia fábrica (panda-corp y su panel Pandacorp) puede usar equipos mayores mientras el plan lo permita (Max 20x)"
     requiere_humano: false
+
+  - id: DR-015
+    patron: "propiedad de los tests de verificación (quién escribe qué)"
+    default: "el test-writer/implementer escribe los tests del happy path y los criterios EARS; el reviewer (modelo distinto al generador, opus) escribe ADEMÁS tests adversariales y de casos límite que el implementer NO vio. Anclar los casos en criterios EARS y en bugs reales de docs/progreso.md, nunca en lo que el modelo imagina"
+    requiere_humano: false
+    nota: "rompe el sesgo compartido test-writer↔implementer (ver docs/propuestas/06)"
+
+  - id: DR-016
+    patron: "mutation testing / property-based testing (cuándo correrlos)"
+    default: "NO en cada gate Stop (caro). Correr mutation testing (Stryker en TS / mutmut en Python) y property-based (fast-check / hypothesis) al CERRAR cada hito de FRD y en CI hacia main. Umbral de mutation score sugerido ≥60% en lógica de negocio nueva; por debajo, el reviewer exige tests adicionales"
+    requiere_humano: false
+
+  - id: DR-017
+    patron: "checklist de seguridad agéntica en release"
+    default: "el security-auditor evalúa el OWASP Top 10 for Agentic Applications (ASI01–ASI10) además del OWASP web esencial. Tool Misuse, Identity/Privilege Abuse, Memory Poisoning y Cascading Failures = bloqueantes si hay exposición real"
+    requiere_humano: false
+
+  - id: DR-018
+    patron: "documentación viva (changelog, ADRs, docs de usuario)"
+    default: "auto-generar el changelog desde Conventional Commits en release; proponer un ADR automáticamente cuando un work order toca arquitectura; mantener README/docs como parte del work order (no tarea aparte). Sin esfuerzo humano salvo aprobar un ADR no obvio"
+    requiere_humano: false
+
+  - id: DR-019
+    patron: "endurecimiento del entorno de verificación (anti-trampa)"
+    default: "verify.sh corre en entorno limpio, parsea fail-closed (ambigüedad = fallo), no expone al agente generador los nombres exactos de los tests a pasar ni los fixtures, y emite mensajes accionables (qué regla falló y por qué). Aplica a la plantilla de verify.sh que crea el blueprint"
+    requiere_humano: false
+
+  - id: DR-020
+    patron: "operación de la construcción (cómo corre implement desatendido)"
+    default: "implement corre en auto mode (permisos; lo activa Sergio a nivel usuario, el repo no se lo concede) con freeze-on-red (tras 3 reintentos no commitea lo roto, deja HEAD en el último verde, marca el WO BLOQUEADO, notifica y sigue con WOs independientes) y circuit breakers (tope de iteraciones, no-progreso, presupuesto). El operador habla por archivos (docs/bugs, docs/decisiones.md, replanteo_pendiente), que el agente revisa solo en puntos seguros"
+    requiere_humano: false
+
+  - id: DR-021
+    patron: "base de datos y servicios en desarrollo"
+    default: "en DEV, cada proyecto y cada worktree levanta su BD/servicios con Docker Compose, puerto propio; en STAGING/PRODUCCIÓN, managed DB del golden path (Neon/Supabase), nunca Docker. Ver fabrica/estandares/infra.md"
+    requiere_humano: false
+
+  - id: DR-022
+    patron: "asignación de puertos (varios proyectos/worktrees en paralelo)"
+    default: "cada proyecto recibe un rango base al crearse; cada worktree suma un offset (agente +0, review +1); app/BD/servicios leen el puerto del .env del worktree; en Docker, nombre de proyecto Compose distinto por worktree"
+    requiere_humano: false
+
+  - id: DR-023
+    patron: "probar lo avanzado sin parar la construcción"
+    default: "Sergio prueba el último commit verde (last_green_sha) en un git worktree aparte (una sola carpeta de review, refrescada al último verde), nunca el working tree del agente. El script del gate escribe last_green_sha + safe_to_test en docs/estado.yaml. Checkpoints nativos NO sirven como snapshot (ignoran lo hecho por Bash)"
+    requiere_humano: false
