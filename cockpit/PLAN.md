@@ -4,7 +4,7 @@
 >
 > **Principio rector:** el dashboard NUNCA llama a Claude. Solo lee archivos del repo y genera texto de comandos para copiar. Toda ejecución la hace Sergio pegando el comando en la app de Claude Code → usa su suscripción Claude Max. Sergio es débil en UX → la UI debe ser mínima y limpia.
 
-> **Documentación de producto (fuente de verdad):** `docs/prd.md` + `docs/frds/` (FRD-01 a FRD-08). El prototipo navegable (`prototype/index.html`) es el diseño aprobado. Este PLAN es la **secuencia de construcción**; ante cualquier duda de alcance, mandan los FRDs. Pendiente: blueprint formal (stack/arquitectura) a partir de los FRDs.
+> **Documentación de producto (fuente de verdad):** `docs/prd.md` + `docs/frds/` (FRD-01 a FRD-11: lectura, tablero, portfolio, workspace, work orders, Mission Control RPG, configuración, documentación, gamificación, salón de logros, modos de construcción) + `docs/logros.md`. El prototipo navegable (`prototype/index.html`) es el diseño aprobado. Este PLAN es la **secuencia de construcción**; ante cualquier duda de alcance, mandan los FRDs. Pendiente: blueprint formal (stack/arquitectura) a partir de los FRDs.
 
 ## Objetivo (qué es "terminado")
 
