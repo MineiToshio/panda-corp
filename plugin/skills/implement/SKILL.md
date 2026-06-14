@@ -68,8 +68,9 @@ El script lee la cola, arma las **olas por dependencias** (paralelo dentro de la
 1. **Selecciona** el siguiente work order según `docs/work-orders/README.md` (respeta dependencias) y márcalo `en-progreso`.
 2. **build — reparte con dependencias** (orquestadas en el script, no por mensajes peer):
    - `backend-dev`: implementa datos/lógica/API con TDD; publica el contrato en `docs/api.md`.
-   - `frontend-dev`: arranca en su etapa cuando el contrato está listo; implementa UI con design tokens.
+   - `frontend-dev`: arranca en su etapa cuando el contrato está listo; implementa UI con design tokens y **consume los strings del `copywriter`** desde los recursos i18n (`docs/diseno/voz-y-tono.md` + claves) — cero texto hardcodeado ni "Error 500" improvisado.
    - `test-writer`: escribe/corre tests de aceptación (RED antes de implementar; e2e de los flujos al cerrar).
+   - **Telemetría**: cuando un work order toca un flujo del plan de eventos (`docs/analitica/eventos.md`), se instrumenta ahí mismo (el `analytics` definió qué/dónde; sin PII, DR-025). No se deja para después.
    - Cada agente escribe el contexto crítico a archivos (los archivos son la fuente de verdad compartida entre etapas).
 3. **review** (agente `reviewer`, modelo distinto al generador): verifica evidencia él mismo (corre tests/lint/typecheck) y **escribe tests adversariales que el implementer no vio** (DR-015), anclados en EARS y en bugs de `docs/progreso.md`. Revisa con sus 3 lentes. En **modo profundo**, las 3 lentes (correctitud / seguridad / calidad) corren como **subagentes concurrentes** (terminan en el tiempo del más lento, no la suma) y se exige **mutation testing** en hitos de FRD (DR-016). RECHAZADO → vuelve al agente responsable con los hallazgos (máx. 2 ciclos; al tercero, escala a Sergio).
 4. **verify — cierra (punto seguro)**: SOLO si `.pandacorp/verify.sh` pasa, commitea/mergea el work order; work order → `terminado` con evidencia; el script del gate escribe en `docs/estado.yaml` el `last_green_sha` (commit) y `safe_to_test: true`. **Nunca commitees a medio work order.**
