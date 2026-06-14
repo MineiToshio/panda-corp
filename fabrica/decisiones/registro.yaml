@@ -66,12 +66,12 @@ decisiones:
 
   - id: DR-013
     patron: "implementación de un proyecto (cómo se reparte el trabajo entre agentes)"
-    default: "usar Agent Teams (agentes que se comunican y se pasan el trabajo). Composición según stack: web (A) → backend-dev + frontend-dev + test-writer; API/scraper (B/C/D) → backend-dev + test-writer; siempre con dependencias (frontend arranca cuando backend termina; testing cuando frontend/backend terminan) y el reviewer al cerrar cada work order"
+    default: "usar un workflow dinámico (Dynamic Workflows) que orquesta a los subagentes; el loop de work orders vive en el script (reanudable, determinista), NO en Agent Teams. Composición según stack: web (A) → backend-dev + frontend-dev + test-writer; API/scraper (B/C/D) → backend-dev + test-writer; dependencias y paralelismo explícitos en el pipeline (frontend arranca cuando el contrato del backend existe; testing cuando frontend/backend terminan) y el reviewer al cerrar cada work order. Agent Teams solo para revisión adversarial puntual, no como columna vertebral"
     requiere_humano: false
 
   - id: DR-014
-    patron: "tamaño de equipo y modelos por agente (control de consumo)"
-    default: "DISEÑAR PARA Max 5x en proyectos: equipo de ≤3 agentes simultáneos, líder en opus, obreros (implementación/testing/investigación) en sonnet o haiku. La construcción de la propia fábrica (panda-corp y su panel Pandacorp) puede usar equipos mayores mientras el plan lo permita (Max 20x)"
+    patron: "concurrencia y modelos por subagente (control de consumo)"
+    default: "DISEÑAR PARA Max 5x en proyectos: hasta 3 agent() simultáneos en el workflow, juicio (review/arquitectura) en opus, obreros (implementación/testing/investigación) en sonnet o haiku. La construcción de la propia fábrica (panda-corp y su panel Pandacorp) puede subir la concurrencia mientras el plan lo permita (Max 20x)"
     requiere_humano: false
 
   - id: DR-015
@@ -102,7 +102,7 @@ decisiones:
 
   - id: DR-020
     patron: "operación de la construcción (cómo corre implement desatendido)"
-    default: "implement corre en auto mode (permisos; lo activa Sergio a nivel usuario, el repo no se lo concede) con freeze-on-red (tras 3 reintentos no commitea lo roto, deja HEAD en el último verde, marca el WO BLOQUEADO, notifica y sigue con WOs independientes) y circuit breakers (tope de iteraciones, no-progreso, presupuesto). El operador habla por archivos (docs/bugs, docs/decisiones.md, replanteo_pendiente), que el agente revisa solo en puntos seguros"
+    default: "implement lanza un workflow dinámico en background y corre en auto mode (permisos; lo activa Sergio a nivel usuario, el repo no se lo concede). Freeze-on-red: una etapa que falla lanza (throw) → el pipeline salta ese WO (no commitea lo roto, deja HEAD en el último verde, lo marca BLOQUEADO, notifica) y sigue con los WOs independientes. Circuit breakers (tope de iteraciones, no-progreso, presupuesto del workflow). El workflow se detiene solo al vaciar la cola; para correr en continuo se envuelve en /loop self-paced. El operador habla por archivos (docs/bugs, docs/decisiones.md, replanteo_pendiente), que el workflow revisa solo en puntos seguros"
     requiere_humano: false
 
   - id: DR-021
@@ -159,3 +159,8 @@ decisiones:
     default: "desviarse = ADR per-proyecto (no DR nueva). sync-portfolio/recommend observan ADRs de desviación recurrentes entre proyectos y proponen promover el patrón a fabrica/estandares/ cuando se repite. Promover a estándar = decisión de Sergio"
     requiere_humano: false
     nota: "la promoción de un patrón recurrente a estándar global la aprueba Sergio"
+
+  - id: DR-031
+    patron: "fuente de eventos de Mission Control (cómo se alimenta el cockpit durante la construcción)"
+    default: "el cockpit es solo-lectura y desacoplado: lee ~/.claude/dashboard-events.ndjson. Con Dynamic Workflows, los eventos los emiten los subagentes del workflow (emit-event.sh al empezar/terminar su etapa) y el hook SubagentStop — NO los hooks de Agent Teams (TeammateIdle/TaskCreated/TaskCompleted, que no disparan en workflows). La emisión es fire-and-forget (append a archivo): no bloquea el workflow ni compite por tokens, así que tener el grafiquito RPG no cuesta rendimiento. Mapeo: agent() corriendo → working; transición de etapa → walking/handoff; etapa reviewer → review; etapa que lanza → blocked; commit del WO → safe point"
+    requiere_humano: false

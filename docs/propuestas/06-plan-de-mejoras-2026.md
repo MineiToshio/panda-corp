@@ -47,7 +47,7 @@ verificación independiente del agente**, no confiar en que el agente "no haga t
 |---|---|---|
 | 3.1 | **Loop de 4 pasos** "gather context → take action → **verify work** → repeat" para que el agente "catch mistakes before they compound". El **feedback más fuerte es basado en reglas** ("which rules failed and why"); el linting es el ejemplo; **LLM-as-judge "generally not robust"**. [10][11] | Valida exactamente `verify.sh` (tsc/mypy + lint). **Mejora:** que los mensajes de error de `verify.sh` digan **qué regla falló y por qué** (feedback accionable), no solo "FAILED". Y que el `reviewer` **re-corra** tests/lint/typecheck (ya lo hace) en vez de solo opinar. |
 | 3.2 | **Subagentes para 2 cosas**: paralelización (terminan en el tiempo del más lento, no la suma) y manejo de contexto (conversación fresca aislada; solo el mensaje final vuelve al líder). Ej.: style-checker + security-scanner + test-coverage en paralelo. [12][10] | En modos **potente/profundo**, correr los 3 lentes del review **en paralelo** como subagentes. El `researcher` "a demanda" es correcto (explora sin contaminar el contexto del líder). **Caveat:** concurrencia capada (~16) y puede topar rate limits en planes bajos. |
-| 3.3 | **Checkpoints automáticos** (estado antes de cada cambio, `/rewind`) + **background tasks** + hooks permiten delegar tareas amplias. **Caveat documentado:** los checkpoints **NO rastrean cambios de Bash** (rm/mv) ni reemplazan Git. [13][14] | Usar **background tasks** para dev servers/procesos largos sin bloquear. Los checkpoints son red de seguridad de sesión, **pero mantener commit por work order** (ya es regla). Confirma "escribir contexto crítico a archivos" porque Agent Teams no tiene resume. |
+| 3.3 | **Checkpoints automáticos** (estado antes de cada cambio, `/rewind`) + **background tasks** + hooks permiten delegar tareas amplias. **Caveat documentado:** los checkpoints **NO rastrean cambios de Bash** (rm/mv) ni reemplazan Git. [13][14] | Usar **background tasks** para dev servers/procesos largos sin bloquear. Los checkpoints son red de seguridad de sesión, **pero mantener commit por work order** (ya es regla). El motor de `implement` es un **workflow dinámico reanudable** (estado en el código del script + archivos + commits), así que el resume ya no es problema del motor; aun así, **escribir contexto crítico a archivos** sigue siendo buena práctica como fuente de verdad compartida entre etapas/subagentes. |
 
 ---
 
@@ -117,7 +117,7 @@ verificación independiente del agente**, no confiar en que el agente "no haga t
 
 ## Limitaciones y sensibilidad temporal
 - Los dos hallazgos más operativos sobre "trampas de agentes" (2.3 endurecimiento de entorno, 2.5 reward hacking) vienen de **un preprint de 2026 de un solo autor, no peer-reviewed** — direccionalmente fuertes pero sin réplica. 2.2 (SAGA) y 2.5 tuvieron voto 2-1.
-- Agent Teams y checkpoints son **recientes/experimentales** y evolucionan rápido (Agent Teams sin resume; checkpoints no rastrean Bash ni reemplazan Git).
+- El motor de construcción es **Dynamic Workflows** (primitiva nativa, reanudable de raíz: estado en el script + archivos + commits). Agent Teams y checkpoints son **recientes/experimentales** y evolucionan rápido (Agent Teams queda solo para revisión adversarial puntual; checkpoints no rastrean Bash ni reemplazan Git).
 - La evidencia fuerte es mayormente de **fuentes primarias** (papers, docs/blog de Anthropic, OWASP), robusta pero sesgada hacia "lo que los frameworks afirman diseñar" más que outcomes medidos en producción.
 
 ## Referencias

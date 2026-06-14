@@ -14,7 +14,7 @@ Crea el proyecto para la idea indicada en `$ARGUMENTS` (nombre de ficha o slug).
    ```bash
    cp -r "${CLAUDE_PLUGIN_ROOT}/templates/shared/." "<destino>/"
    ```
-   Procesa los `.tpl`: reemplaza `{{PROJECT_NAME}}` (slug), `{{IDEA_FILE}}` (ruta de la ficha), `{{DATE}}` (hoy) y renombra quitando `.tpl`.
+   Procesa los `.tpl`: reemplaza `{{PROJECT_NAME}}` (slug), `{{IDEA_FILE}}` (ruta de la ficha), `{{DATE}}` (hoy) y renombra quitando `.tpl`. El overlay ya incluye `.claude/workflows/pandacorp-build.js` (el motor de construcción que lanza `implement`) y `.claude/settings.json`.
 4. **Estructura de docs**: crea `docs/` con subcarpetas vacías `frds/`, `diseno/mockups/`, `adr/`, `work-orders/`, `reviews/`. Copia la ficha de la idea a `docs/idea-origen.md` (copia congelada de referencia).
 5. **NO instales el stack todavía** — eso lo decide el blueprint en fase de arquitectura. El proyecto nace solo con docs + overlay. (La guía de cada stack está en `${CLAUDE_PLUGIN_ROOT}/templates/stack-*/STACK.md` para cuando llegue el momento.)
 6. **Enlaces bidireccionales**:

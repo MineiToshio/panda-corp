@@ -57,13 +57,13 @@ panda-corp/  (la fábrica)
 - **Mínimo esfuerzo de construcción** (días, no semanas): es configuración sobre infraestructura ya probada por Anthropic.
 - Resistente a cambios de modelo: checklists explícitos + hooks deterministas (los mecanismos siguen funcionando con cualquier modelo que corra Claude Code).
 - Todo es markdown versionado: auditable, editable, sin código de orquestación que mantener.
-- Escalable gradualmente: se le pueden añadir workflows dinámicos (`ultracode`) para auditorías masivas y Agent Teams para revisión adversarial cuando haga falta.
+- Escalable gradualmente: los **workflows dinámicos** (script JS que orquesta subagentes en background) son el **motor de construcción** de `/pandacorp:implement` —el loop de work orders, reanudable y determinista— y además sirven para auditorías y migraciones masivas; Agent Teams queda solo para revisión adversarial puntual cuando haga falta.
 
 ## Desventajas / riesgos
 
 - Atado al ecosistema Claude Code (mitigación: los artefactos —specs, planes, AGENTS.md— son markdown portable que cualquier agente puede consumir).
 - La autonomía "mientras duermes" depende de routines cloud (mín. 1 h de intervalo) o de dejar sesiones locales corriendo.
-- Agent Teams aún es experimental; usarlo solo para revisión, no como columna vertebral.
+- El motor de construcción es Dynamic Workflows (nativo, reanudable). Agent Teams aún es experimental; usarlo solo para revisión adversarial puntual, nunca como columna vertebral.
 
 ## Esfuerzo estimado de arranque
 

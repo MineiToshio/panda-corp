@@ -28,7 +28,7 @@ Este repo es **la fábrica**: el know-how de la empresa. Aquí NUNCA vive códig
 Las demás fases se ejecutan **dentro de la carpeta del proyecto**, sin nombre:
 - `/pandacorp:design` — mockups y sistema de diseño (iterar en la conversación).
 - `/pandacorp:blueprint` — crea blueprint **+ work orders**.
-- `/pandacorp:implement` — arranca la construcción con el equipo de agentes (Agent Teams), se sigue en Mission Control.
+- `/pandacorp:implement` — arranca la construcción con un workflow dinámico (Dynamic Workflows) que orquesta a los subagentes, se sigue en Mission Control.
 - `/pandacorp:release` — auditoría + deploy (gate humano para producción).
 - `/pandacorp:iterate` — agregar funcionalidades o cambios en cualquier momento (en construcción o lanzado).
 

@@ -12,7 +12,8 @@
 | **Hooks** | `settings.json → hooks` | Gates de calidad deterministas (lint, tests, bloqueo de acciones peligrosas) |
 | **Headless / Agent SDK** | `claude -p`, SDK Python/TS | Pipelines programáticos, CI/CD |
 | **Worktrees** | `claude --worktree`, `isolation: worktree` | Desarrollo paralelo sin conflictos |
-| **Agent Teams** (experimental) | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` | Debate multi-agente, revisión con lentes competitivas |
+| **Agent Teams** (experimental) | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` | Revisión adversarial puntual (debate multi-agente, lentes competitivas) — **no es el motor de construcción** |
+| **Dynamic Workflows** | tool `Workflow` / script JS que orquesta subagentes en background (reanudable) | **Motor de `/pandacorp:implement`**: pipeline de work orders (loop en el código del script, estado en variables + archivos + commits, determinista) |
 | **Routines (cloud)** | `/schedule`, triggers GitHub/API | Cron persistente: grooming nocturno, revisión de PRs, verificación post-deploy |
 | **MCP** | `.mcp.json` | GitHub, Notion, búsqueda web, bases de datos |
 | **Plugins** | `.claude-plugin/plugin.json` | Empaquetar agentes+skills+hooks de la fábrica e instalarlos en cualquier proyecto |
@@ -31,7 +32,7 @@ Claude sube por el árbol de directorios cargando cada CLAUDE.md que encuentra. 
 - `PreToolUse` — único que bloquea antes de ejecutar (exit 2 = bloquear). Para: prohibir `rm -rf`, `git push --force`, push directo a main.
 - `Stop` — bloquea que Claude "termine" si los tests no pasan o el checklist no se cumple.
 - `PostToolUse` — autoformatear tras editar.
-- `TaskCompleted` (teams) — verificar definition-of-done antes de marcar tareas.
+- `TaskCompleted` (teams) — verificar definition-of-done antes de marcar tareas. **Nota:** es un hook de Agent Teams y **NO dispara en workflows dinámicos**; en el modelo de la fábrica la verificación va por el gate `Stop`/`verify.sh` y el reviewer, no por este hook.
 - Tipos: `command`, `http`, `mcp_tool`, `prompt`, `agent`.
 
 ### Headless / pipelines

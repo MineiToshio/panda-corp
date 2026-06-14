@@ -1,6 +1,6 @@
 # Mission Control — Mapa RPG de agentes
 
-Documenta el sistema de visualización del equipo de agentes en el cockpit
+Documenta el sistema de visualización de los subagentes de construcción en el cockpit
 (`cockpit/prototype/index.html`, función `missionBody` y el motor `mc*`). El
 objetivo es responder de un vistazo **qué agente trabaja y cuál está parado**,
 manteniendo la estética RPG: los agentes son personajes pixel-art que caminan
@@ -14,7 +14,7 @@ clase CSS del sprite (`.mcag.s-<estado>`) y en un emote opcional sobre la cabeza
 | Estado | Clase | Qué se ve | Significa |
 |---|---|---|---|
 | Trabajando | `s-work` | En su escritorio, **halo** pulsante del color del rol + **barra de avance** llenándose. Alterna emote « … » (pensando) y sin emote (tecleando). | Está produciendo ahora |
-| Caminando | `s-walk` | Cruza el mapa hacia otra estación cargando un **paquete** (`.pkt`, el contrato/artefacto). Rebote (bob) más rápido. | Handoff real entre agentes |
+| Caminando | `s-walk` | Cruza el mapa hacia otra estación cargando un **paquete** (`.pkt`, el contrato/artefacto). Rebote (bob) más rápido. | Handoff: transición de etapa del pipeline (p.ej. contrato listo → frontend) |
 | En espera | `s-idle` | Sprite **apagado** (opacidad 0.45 + leve gris) + emote « z ». | Idle, esperando a otro |
 | Bloqueado | `s-blocked` | Quieto + emote **« ! »** rojo rebotando (marcador de quest RPG) + halo rojo. | Necesita una decisión de Sergio |
 | Revisando | `s-review` | Quieto + emote **« ? »** ámbar + halo ámbar. | El reviewer espera/evalúa una entrega |
@@ -34,8 +34,14 @@ mapa RPG` y controlados por el motor.
   llena de 0→100% durante el turno de trabajo. Solo en `work`.
 - **Emotes** (`.mcag .emote`): burbuja sobre la cabeza. `…` pensando (azul),
   `?` por revisar (ámbar), `!` bloqueado (rojo), `z` en espera (gris).
-- **Tinte de piso** (`.mcrug`): alfombra del color del rol bajo cada estación.
-  Se **ilumina** (`.hot`, opacidad 0.13→0.30) cuando su dueño trabaja ahí.
+- **Puesto de trabajo** (`.mcstation`): cada agente tiene un **puesto fijo** con
+  **fondo pixel-art** (la imagen de zona en `IMG[ZONEBG[rol]]`), borde del color
+  del rol y un **rótulo fijo** (ícono + nombre). El rótulo vive en el puesto, no
+  en el agente, así que el área **sigue identificada cuando el agente se va** a
+  un handoff. El fondo se **atenúa** (`.dim`: gris + opacidad) cuando el dueño
+  NO está trabajando ahí, y se ve **vívido + halo** (`.hot`) cuando trabaja —
+  esto es lo que más comunica "quién trabaja" de lejos. Los roles sin imagen de
+  zona aún (`reviewer`, `security-auditor`) usan un tinte de color de respaldo.
 - **Partículas** (`.mcpt`): estallido de puntos del color del rol cuando se
   entrega un handoff. Puramente cosmético.
 
@@ -44,18 +50,27 @@ Contadores en vivo (`#mc-cnt`): pills `N trabajando / N caminando / N en espera
 
 ## 3. Mapa y modos
 
-- **Estaciones**: cada rol tiene un escritorio fijo (`MCHOME`) alrededor de una
-  **Mesa de reunión** central (`MCHUB`). Los handoffs pasan por el centro:
-  el iniciador camina `home → centro → escritorio destino`, entrega, y vuelve
-  `escritorio destino → centro → home`.
-- **Modo de construcción → tamaño del party** (`MCROSTER`, leído de
-  `ST.modes[slug]`):
-  - `pro` (económico): 3 agentes — PM, Backend, Frontend.
-  - `equilibrado` (default): 5 — PM, Arquitecto, Backend, Frontend, Testing.
-  - `potente`: 9 — todo el roster.
+- **Layout en anillo, centro vacío** (`mcRing`): los puestos se reparten
+  uniformemente en una elipse alrededor de un centro vacío. Los handoffs
+  **enrutan por el centro** (`MCCENTER`): el iniciador camina `puesto → centro →
+  junto al destino` (`mcApproach`), entrega, y vuelve `→ centro → su puesto`.
+  Como todo cruza solo el centro vacío, **ningún camino pasa por encima del área
+  de trabajo de otro agente**. No hay mesa central visible — el centro es solo
+  un punto de ruteo.
+- **El roster son los subagentes REALES de `implement`** (ver el skill
+  `plugin/skills/implement/SKILL.md`), no todos los agentes de la fábrica. PM,
+  diseñador y arquitecto son de fases anteriores (spec / diseño / blueprint) y
+  **no construyen**, por eso no aparecen en el mapa de construcción.
+- **Modo de construcción → esfuerzo del equipo** (`MCROSTER`, leído de
+  `ST.modes[slug]`; los 4 modos coinciden con el skill):
+  - `pro` (económico): backend-dev, test-writer, reviewer (3).
+  - `equilibrado` (default): backend-dev, frontend-dev, test-writer, reviewer (4).
+  - `potente`: + researcher (5) — el investigador entra a demanda.
+  - `profundo`: + security-auditor (6) — máxima calidad / revisión extra.
 
-  > Nota: hoy el cockpit tiene 3 modos de build (`BUILDMODES`). Si más adelante
-  > se define un 4.º modo "profundo", basta con añadir su roster a `MCROSTER`.
+  El **selector de esfuerzo** vive en la propia pestaña Mission Control (fila
+  `data-act="bmode"`); cambia `ST.modes[slug]` (es **por proyecto**) y re-monta
+  el mapa con el nuevo party.
 
 ## 4. Cola de animación desacoplada (clave)
 
@@ -79,7 +94,13 @@ legibilidad.
 
 El motor (`MC`, `mcBoot`, `mcLoop`, `mcSetState`, `mcStartHandoff`) hoy corre con
 un *director* que genera eventos plausibles. Para conectarlo a la construcción
-real, reemplazar ese director por el consumo de eventos reales mapeando:
+real, reemplazar ese director por el consumo de los eventos que la construcción
+ya emite a `~/.claude/dashboard-events.ndjson`: con **Dynamic Workflows** los
+emiten los subagentes del workflow (`emit-event.sh` al empezar/terminar su
+etapa) y el hook `SubagentStop` — **no** los hooks de Agent Teams
+(`TeammateIdle`/`TaskCreated`/`TaskCompleted`, que no disparan en workflows). La
+emisión es fire-and-forget (append a archivo): no bloquea el workflow, así que el
+mapa RPG no cuesta rendimiento. El mapeo evento → animación:
 
 | Evento real del agente | Acción visual |
 |---|---|
@@ -103,7 +124,25 @@ real, reemplazar ese director por el consumo de eventos reales mapeando:
 
 ## 6. Imágenes
 
-El sistema funciona con los **sprites pixel-art existentes** (`IMG[<rol>]`, los
-9 roles) — no requiere imágenes nuevas. Mejoras visuales opcionales y sus
-prompts de generación están al final de este documento, en el README del
-cockpit / en el chat de diseño.
+Los **sprites de agente** (`IMG[<rol>]`, los 9 roles) ya existen. Los **fondos
+de puesto** (`IMG[ZONEBG[rol]]`) existen para 4 roles del equipo de
+construcción:
+
+- `researcher` → `investigacion` ✓
+- `test-writer` → `testing` ✓
+- `backend-dev` → `backend` ✓
+- `frontend-dev` → `frontend` ✓
+
+**Faltan** los fondos de zona de `reviewer` y `security-auditor` (hoy usan un
+tinte de respaldo). Al generarlos, añadir la imagen a `IMG` y la entrada al mapa
+`ZONEBG`. Prompts de generación: ver el chat de diseño / abajo.
+
+Estilo a respetar para que peguen con los 4 existentes: **pixel-art top-down
+16-bit (estilo SNES JRPG)**, una sala/estación de trabajo vista desde arriba,
+paleta cálida, ~290×190 px, sin personajes, sin texto.
+
+- **reviewer**: una sala de control de calidad / auditoría — escritorio con
+  varias pantallas mostrando checks verdes y rojos, lupa, pila de reportes,
+  tablero con tests. Acento verde.
+- **security-auditor**: una sala de seguridad — terminal con candados y escudos,
+  rack de servidores al fondo, panel con alertas, tonos rojos/oscuros.

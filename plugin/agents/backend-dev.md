@@ -1,6 +1,6 @@
 ---
 name: backend-dev
-description: Desarrollador backend de Pandacorp para Agent Teams. Implementa modelo de datos, lógica de negocio, APIs y servicios con TDD. Publica el contrato de API para que el frontend lo consuma.
+description: Desarrollador backend de Pandacorp para la construcción (subagente del workflow dinámico de implement). Implementa modelo de datos, lógica de negocio, APIs y servicios con TDD. Publica el contrato de API para que el frontend lo consuma.
 tools: Read, Write, Edit, Grep, Glob, Bash
 model: sonnet
 ---

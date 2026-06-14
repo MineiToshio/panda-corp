@@ -46,7 +46,7 @@ Mapea estado/fase → comando sugerido + carpeta donde abrir Claude Code:
 | `descubierta` | `/pandacorp:spec <slug>` (handoff: crea el proyecto + documenta MVP) | la fábrica (panda-corp) |
 | `documentada` | `/pandacorp:design` | la carpeta del proyecto |
 | `diseño` | `/pandacorp:blueprint` (crea blueprint + work orders) | la carpeta del proyecto |
-| `arquitectura` | `/pandacorp:implement` (arranca construcción, Agent Teams + Mission Control) | la carpeta del proyecto |
+| `arquitectura` | `/pandacorp:implement` (arranca construcción, workflow dinámico + Mission Control) | la carpeta del proyecto |
 | `en-construcción` | `/pandacorp:release` | la carpeta del proyecto |
 | `lanzada` | `/pandacorp:iterate` (agregar funcionalidad/cambio) | la carpeta del proyecto |
 
@@ -94,8 +94,8 @@ La UI muestra, junto al comando, la ruta de la carpeta (con su propio botón de 
 - [ ] Pasada final: `.pandacorp/verify.sh` verde; arrancar `pnpm dev` y verificar los tres paneles con datos reales.
 
 ### Fase 6 — Mission Control (vista en vivo de agentes, solo-lectura)
-> Parte del alcance inicial (se construye tras las fases 0-5, en la misma corrida del loop). Visualiza los Agent Teams mientras trabajan, sin llamar a Claude.
-- [ ] El emisor de eventos YA viene en el plugin de la fábrica (`scripts/emit-event.sh` + hooks `TaskCreated/TaskCompleted/TeammateIdle/SubagentStop` → `~/.claude/dashboard-events.ndjson`). Pandacorp solo CONSUME ese archivo, no lo crea.
+> Parte del alcance inicial (se construye tras las fases 0-5, en la misma corrida del loop). Visualiza los subagentes del workflow mientras trabajan, sin llamar a Claude.
+- [ ] El emisor de eventos YA viene en el plugin de la fábrica (`scripts/emit-event.sh`, lo emiten los subagentes del workflow, + el hook `SubagentStop` → `~/.claude/dashboard-events.ndjson`). Pandacorp solo CONSUME ese archivo, no lo crea.
 - [ ] `lib/agents.ts`: lee `~/.claude/dashboard-events.ndjson` (eventos) y `~/.claude/tasks/<team>/` (estado de tareas); tolera ausencia de ambos (caso "no hay equipo activo"). Test.
 - [ ] Panel **Mission Control**: lista de agentes activos con su estado y tarea actual, feed de mensajes/eventos entre ellos, y grafo simple de dependencias de tareas. Auto-refresh (tail) cada ~2 s.
 - [ ] Solo observación: NO intenta enviar mensajes ni pausar agentes (eso se hace en la terminal). Dejar nota en la UI: "para redirigir un agente, usa la app de Claude Code".

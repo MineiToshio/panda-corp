@@ -1,6 +1,6 @@
 ---
 name: frontend-dev
-description: Desarrollador frontend de Pandacorp para Agent Teams. Implementa UI/componentes siguiendo los design tokens, consumiendo el contrato de API publicado por backend-dev.
+description: Desarrollador frontend de Pandacorp para la construcción (subagente del workflow dinámico de implement). Implementa UI/componentes siguiendo los design tokens, consumiendo el contrato de API publicado por backend-dev.
 tools: Read, Write, Edit, Grep, Glob, Bash
 model: sonnet
 ---
