@@ -23,3 +23,6 @@
 ## Estados y datos
 - Diseñar siempre estados **vacío / cargando / error** (no improvisarlos).
 - Analytics por defecto en interacciones clave (CTAs, navegación, forms, toggles); eventos centralizados en constantes, nunca strings sueltos. No trackear hover/cada tecla.
+
+## Red de error global (web)
+- `app/global-error.tsx` (con sus propios `<html>`/`<body>`), `error.tsx` por segmento y `not-found.js` por ruta — para que ningún fallo deje la pantalla en blanco. Verificable por presencia de archivos en `verify.sh`. (`global-not-found` es experimental/opcional.)

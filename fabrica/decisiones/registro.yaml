@@ -31,7 +31,7 @@ decisiones:
 
   - id: DR-006
     patron: "migración de esquema de BD"
-    default: "auto-aprobar en dev/staging si tiene bloque down y pasa en BD de prueba; en producción → escalar"
+    default: "auto-aprobar migraciones ADITIVAS (expand) en dev/staging si tienen bloque down y pasan en BD de prueba. Cambios DESTRUCTIVOS (DROP de columna/tabla, rename) = patrón expand/contract forward-compatible; el DROP final requiere snapshot verificado + gate humano (DR-007) y timebox de troubleshooting con rollback. En producción → escalar"
     requiere_humano: false
 
   - id: DR-007
@@ -119,3 +119,43 @@ decisiones:
     patron: "probar lo avanzado sin parar la construcción"
     default: "Sergio prueba el último commit verde (last_green_sha) en un git worktree aparte (una sola carpeta de review, refrescada al último verde), nunca el working tree del agente. El script del gate escribe last_green_sha + safe_to_test en docs/estado.yaml. Checkpoints nativos NO sirven como snapshot (ignoran lo hecho por Bash)"
     requiere_humano: false
+
+  # Las DR-024..030 son gobernanza: apuntan a un estándar de fabrica/estandares/ (los valores viven allí, no aquí).
+  - id: DR-024
+    patron: "performance en proyecto web"
+    default: "aplicar budget Core Web Vitals (LCP≤2.5s / INP≤200ms / CLS≤0.1 al p75, ver performance.md); gate Lighthouse-CI como proxy, block-on-main; p75 real en campo vía PostHog. Desvío de umbral = ADR"
+    requiere_humano: false
+
+  - id: DR-025
+    patron: "privacidad / manejo de datos personales (PII)"
+    default: "minimizar PII, no loguearla, retención con plazo, export/delete en el modelo (ver privacidad.md). Recolectar PII NUEVA o compartir datos con terceros = escalar a Sergio (alinea con DR-008)"
+    requiere_humano: true
+    nota: "humano solo para PII nueva / compartir con terceros; lo demás es default determinista"
+
+  - id: DR-026
+    patron: "observabilidad mínima de un proyecto"
+    default: "todo proyecto integra error-tracking (Sentry, del stack) + logs estructurados JSON con service.name desde el día 1, sin preguntar (ver observabilidad.md)"
+    requiere_humano: false
+
+  - id: DR-027
+    patron: "security headers / CSP (web)"
+    default: "setear el set OWASP barato como default literal en next.config (ver seguridad-web.md); CSP con nonce en report-only en v1. Verificado por header-scan en CI. El submit a hstspreload.org = humano (es duradero)"
+    requiere_humano: false
+    nota: "auto salvo el preload submit, que escala a Sergio"
+
+  - id: DR-028
+    patron: "contrato de error de una API"
+    default: "RFC 9457 (application/problem+json) + validación en el borde (Zod/pydantic) por default (ver api-design.md)"
+    requiere_humano: false
+
+  - id: DR-029
+    patron: "feature flags"
+    default: "flags sensibles se evalúan server-side (el cliente recibe solo el resultado); expiración OBLIGATORIA al crear el flag + archivar (no borrar). Auto-aprobable: kill-switch y rollout gradual (1/5/25/50/100). ESCALA si el flag haría bypass de un gate existente (migración prod DR-006, dinero DR-005)"
+    requiere_humano: false
+    nota: "escalado condicional: humano solo si el flag bypassa otro gate"
+
+  - id: DR-030
+    patron: "desviación del golden path en un proyecto"
+    default: "desviarse = ADR per-proyecto (no DR nueva). sync-portfolio/recommend observan ADRs de desviación recurrentes entre proyectos y proponen promover el patrón a fabrica/estandares/ cuando se repite. Promover a estándar = decisión de Sergio"
+    requiere_humano: false
+    nota: "la promoción de un patrón recurrente a estándar global la aprueba Sergio"

@@ -32,6 +32,10 @@ Estos comandos viven en `.pandacorp/verify.sh` del proyecto y los exige el hook 
 ## TDD por work order
 - Tests de los criterios de aceptación primero (RED) → implementación mínima (GREEN) → refactor. Máx. 3 intentos de reparación por subtarea, luego escalar.
 
+## Accesibilidad y performance (gates de CI, web)
+- **a11y-gate**: el linter del stack DEBE tener reglas de accesibilidad (Biome `lint/a11y` por defecto, o `eslint-plugin-jsx-a11y` si el blueprint elige ESLint) **+ axe-core sobre las páginas REALES construidas** (no solo los mockups del diseño). Cubre ~30-40% de WCAG 2.2 AA → gate automático **+ check del `reviewer`** (foco, target-size 2.5.8 y contraste no los detecta el linter). No prometer determinismo total.
+- **performance-gate**: ver [performance.md](performance.md) (Lighthouse-CI como proxy de laboratorio, block-on-main).
+
 ## CI
 - GitHub Actions en cada PR: type-check + lint + tests (en paralelo). E2E en PRs hacia main. Ramas protegidas; merge solo con CI verde.
 - Hacia main (no en cada PR, por costo): **mutation testing** + **auditoría OWASP agentic** (DR-017) + generación de **changelog y ADRs** (DR-018, documentación viva). Los gates de CI son independientes del agente: el modelo nunca marca sus propios checks.

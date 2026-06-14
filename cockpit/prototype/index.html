@@ -101,48 +101,79 @@ var INTAKE=[
 
 var CONFIG={
  skills:[
-  ["new-idea","Captura una idea en la base","Lo corres en la fábrica. Describe tu idea → crea la ficha en «Descubierta» con score."],
-  ["discover","Busca dolores monetizables en internet","Lanza investigadores en paralelo; documenta oportunidades con evidencia."],
-  ["recommend","Rankea y recomienda ideas","Te aconseja cuáles avanzar; no cambia estados."],
-  ["spec","Handoff: crea el proyecto + documenta el MVP","Se corre en la fábrica con el nombre de la idea. Crea la carpeta/repo y escribe investigación + PRD + FRDs."],
-  ["design","Mockups y sistema de diseño","En el proyecto. 3 direcciones navegables + design tokens; iteras en la conversación."],
-  ["blueprint","Blueprint + work orders","Propone el stack (lo apruebas), define arquitectura y genera los work orders."],
-  ["implement","Construcción con Agent Teams","Arranca/reanuda la construcción. Modos: equilibrado / potente / profundo."],
-  ["release","Auditoría + deploy","Auditoría de seguridad + checklist; producción requiere tu aprobación."],
-  ["iterate","Agregar funcionalidad o cambio","En cualquier momento (en construcción o lanzado). Crea FRD/work orders mínimos."],
-  ["decide","Responder un punto de decisión","En el proyecto. Te muestra las decisiones pendientes con su recomendación, registra tu respuesta y desbloquea el trabajo."],
-  ["bug","Reportar un bug encontrado","En el proyecto. Le describes el bug y lo deja en la bandeja; la construcción lo recoge y lo arregla con un test de regresión."],
-  ["new-version","Hito grande con mini-PRD (opcional)","Para agrupar un lote grande de cambios en un v2 formal."],
-  ["sync-portfolio","Sincroniza el portfolio","Refresca el estado de cada proyecto leyendo su estado.yaml."]
+  {id:"new-idea",corre:"Fábrica",desc:"Captura una idea tuya en la base",produce:"ficha de idea (Descubierta) con score",flow:["researcher: investiga ligero + score","crea fabrica/ideas/<slug>.md"]},
+  {id:"discover",corre:"Fábrica",desc:"Busca dolores monetizables en internet",produce:"3-5 fichas con evidencia",flow:["3-4 researcher en paralelo","filtra + dedup","crea fichas"]},
+  {id:"recommend",corre:"Fábrica",desc:"Rankea y recomienda qué ideas avanzar",produce:"ranking justificado (no cambia estados)",flow:["researcher: revalida scores","rankea por score / balance"]},
+  {id:"spec",corre:"Fábrica → Proyecto",desc:"Handoff: crea el proyecto + documenta el MVP",produce:"carpeta/repo + investigación + PRD + FRDs",flow:["scaffold del proyecto","3-4 researcher: investigación","product-manager: PRD","product-manager: FRDs (EARS)"]},
+  {id:"design",corre:"Proyecto",desc:"Diseño UX/UI: 3 mockups + design tokens",produce:"design-tokens.json + mockups + gate visual",flow:["designer: referencias","3× designer: 3 direcciones","axe-core + screenshots","gate de Sergio"]},
+  {id:"blueprint",corre:"Proyecto",desc:"Blueprint técnico + work orders",produce:"blueprint.md + ADRs + work orders + verify.sh",flow:["architect: propone stack (gate)","architect: arquitectura + modelo de datos","genera work orders"]},
+  {id:"implement",corre:"Proyecto",desc:"Construye con Agent Teams (desatendido)",produce:"código + tests; work orders cerrados",flow:["backend-dev: API + contrato","frontend-dev: UI","test-writer: tests","reviewer: revisa + adversarial","commit por WO"]},
+  {id:"release",corre:"Proyecto",desc:"Auditoría de seguridad + deploy",produce:"producción (gate humano) + changelog",flow:["security-auditor: OWASP","checklist + staging","gate Sergio → producción"]},
+  {id:"iterate",corre:"Proyecto",desc:"Agregar funcionalidad o cambio",produce:"FRD/work orders nuevos en la cola",flow:["PM: triage de impacto","¿módulo? researcher → PM → architect","encola en implement"]},
+  {id:"decide",corre:"Proyecto",desc:"Responder un punto de decisión",produce:"decisión registrada; frente desbloqueado",flow:["lee docs/decisiones.md","registra tu respuesta","desbloquea"]},
+  {id:"bug",corre:"Proyecto",desc:"Reportar un bug encontrado",produce:"entrada en la bandeja docs/bugs/",flow:["captura la descripción","escribe docs/bugs/<slug>.md"]},
+  {id:"codify",corre:"Fábrica",desc:"Agregar un estándar o regla de decisión nuevos",produce:"estándar o DR nuevos en la fábrica",flow:["clasifica (estándar / regla)","researcher: aterriza valores","escribe en estandares/ o registro.yaml"]},
+  {id:"new-version",corre:"Proyecto",desc:"Hito grande (v2) con mini-PRD",produce:"mini-PRD + FRDs del hito",flow:["product-manager: mini-PRD","FRDs + work orders"]},
+  {id:"scaffold",corre:"Fábrica → Proyecto",desc:"Crea la carpeta/repo (paso mecánico)",produce:"proyecto vacío con overlay",flow:["crea carpeta + git","copia plantillas","enlaza portfolio ↔ proyecto"]},
+  {id:"work-orders",corre:"Proyecto",desc:"Genera/regenera las work orders",produce:"docs/work-orders/",flow:["lee FRDs + blueprint","descompone en chunks testeables"]},
+  {id:"sync-portfolio",corre:"Fábrica",desc:"Sincroniza el portfolio",produce:"portfolio.md actualizado",flow:["lee estado.yaml de cada proyecto","actualiza portfolio.md"]}
  ],
  agents:[
-  ["researcher","Investigación de mercado y técnica","sonnet · busca evidencia real, evalúa viabilidad y competencia."],
-  ["product-manager","PRD y FRDs","opus · convierte ideas en specs con criterios de aceptación verificables."],
-  ["designer","UX/UI, mockups, design tokens","opus · compensa la debilidad de diseño con referencias y sistema de diseño."],
-  ["architect","Blueprint, stack, ADRs","opus · propone el stack (lo apruebas) y diseña lo mínimo que cumple."],
-  ["backend-dev","Backend con TDD","sonnet · datos, lógica, API; publica el contrato para el frontend."],
-  ["frontend-dev","Frontend con design tokens","sonnet · UI con tokens; espera el contrato del backend."],
-  ["test-writer","Tests de aceptación y e2e","sonnet · tests desde los criterios EARS (RED antes de implementar)."],
-  ["reviewer","Revisión multi-lente","opus · corre los tests él mismo; no confía en el auto-reporte."],
-  ["security-auditor","Auditoría de seguridad","sonnet · secretos, dependencias, OWASP; bloquea release si hay crítico."]
+  {id:"researcher",model:"sonnet",desc:"Investigación de mercado y técnica",produce:"informe con evidencia (URLs)"},
+  {id:"product-manager",model:"opus",desc:"PRD y FRDs con criterios EARS",produce:"PRD + FRDs verificables"},
+  {id:"designer",model:"opus",desc:"UX/UI, mockups, design tokens",produce:"design system + 3 mockups"},
+  {id:"architect",model:"opus",desc:"Blueprint, stack, ADRs",produce:"blueprint + work orders"},
+  {id:"backend-dev",model:"sonnet",desc:"Backend con TDD",produce:"API + contrato (docs/api.md)"},
+  {id:"frontend-dev",model:"sonnet",desc:"Frontend con design tokens",produce:"UI con tokens"},
+  {id:"test-writer",model:"sonnet",desc:"Tests de aceptación y e2e",produce:"tests anclados en EARS"},
+  {id:"reviewer",model:"opus",desc:"Revisión multi-lente + tests adversariales",produce:"veredicto (aprobado/rechazado)"},
+  {id:"security-auditor",model:"sonnet",desc:"Auditoría de seguridad (OWASP web + agentic)",produce:"reporte de auditoría"}
  ],
  rules:[
-  ["DR-001","Agregar dependencia","Auto-aprobar si: sin CVEs, mantenida en 12 meses, licencia permisiva."],
-  ["DR-002","Elección de stack","El architect propone (últimas versiones); Sergio aprueba en el blueprint."],
-  ["DR-004","Deploy a producción","BLOQUEA — requiere aprobación explícita de Sergio."],
-  ["DR-005","Gastar dinero","BLOQUEA — requiere aprobación con monto."],
-  ["DR-007","Borrar datos / repos","BLOQUEA — requiere aprobación."],
-  ["DR-013","Implementación con Agent Teams","Composición según stack; agentes se comunican y se pasan el trabajo."],
-  ["DR-014","Tamaño de equipo y modelos","Diseñar para Max 5x: ≤3 agentes, líder opus, obreros sonnet/haiku."],
-  ["DR-020","Construcción desatendida","Auto mode + freeze-on-red + circuit breakers; el operador habla por archivos (bug / iterate / decide)."],
-  ["DR-023","Probar sin parar","Pruebas el último commit verde en un git worktree aparte; el gate publica last_green_sha + safe_to_test."]
+  {id:"DR-001",t:"Agregar dependencia",def:"Auto-aprobar si: sin CVEs, mantenida en 12 meses, licencia permisiva, existe en el registry.",h:false},
+  {id:"DR-002",t:"Elección de stack",def:"El architect propone (últimas versiones); Sergio aprueba en el blueprint. Las convenciones no se negocian.",h:true},
+  {id:"DR-003",t:"Deploy a staging",def:"Auto-aprobar si CI verde.",h:false},
+  {id:"DR-004",t:"Deploy a producción",def:"BLOQUEA — requiere aprobación explícita de Sergio.",h:true},
+  {id:"DR-005",t:"Gastar dinero",def:"BLOQUEA — requiere aprobación con monto.",h:true},
+  {id:"DR-006",t:"Migración de BD",def:"Aditivas: auto. Destructivas: expand/contract + snapshot + gate humano. En prod → escalar.",h:false},
+  {id:"DR-007",t:"Borrar datos / repos",def:"BLOQUEA — requiere aprobación.",h:true},
+  {id:"DR-008",t:"Comunicaciones externas",def:"BLOQUEA — emails a usuarios, webhooks públicos, publicar en stores.",h:true},
+  {id:"DR-009",t:"Idioma de artefactos",def:"Docs en español; código, commits e identificadores en inglés.",h:false},
+  {id:"DR-010",t:"Crear repo GitHub",def:"Auto como repo PRIVADO; público → escalar.",h:false},
+  {id:"DR-011",t:"Descartar idea (score<30)",def:"Auto: mover a descartada con el racional; nunca borrar el archivo.",h:false},
+  {id:"DR-012",t:"Scope de v1",def:"El corte mínimo que valida la hipótesis; lo demás al backlog.",h:false},
+  {id:"DR-013",t:"Implementación con Agent Teams",def:"Composición según stack; agentes se comunican y se pasan el trabajo.",h:false},
+  {id:"DR-014",t:"Tamaño de equipo y modelos",def:"Diseñar para Max 5x: ≤3 agentes, líder opus, obreros sonnet/haiku.",h:false},
+  {id:"DR-015",t:"Tests adversariales",def:"El reviewer (otro modelo) escribe tests que el implementer no vio.",h:false},
+  {id:"DR-016",t:"Mutation / property testing",def:"En hitos de FRD y CI; mutation score ≥60% en lógica nueva.",h:false},
+  {id:"DR-017",t:"Seguridad agéntica",def:"OWASP Top 10 for Agentic Apps en release (Tool Misuse, Memory Poisoning…).",h:false},
+  {id:"DR-018",t:"Documentación viva",def:"Changelog desde commits + ADRs propuestos automáticamente.",h:false},
+  {id:"DR-019",t:"Gate fail-closed",def:"verify.sh en entorno limpio, ambigüedad = fallo, mensajes accionables.",h:false},
+  {id:"DR-020",t:"Construcción desatendida",def:"Auto mode + freeze-on-red + circuit breakers; el operador habla por archivos.",h:false},
+  {id:"DR-021",t:"BD en dev",def:"Docker en dev (por proyecto/worktree); managed en staging/prod.",h:false},
+  {id:"DR-022",t:"Asignación de puertos",def:"Rango base por proyecto + offset por worktree; lee del .env.",h:false},
+  {id:"DR-023",t:"Probar sin parar",def:"El último commit verde en un git worktree aparte; el gate publica last_green_sha.",h:false},
+  {id:"DR-024",t:"Performance (web)",def:"Budget CWV (LCP≤2.5s/INP≤200ms/CLS≤0.1 p75); Lighthouse-CI proxy block-on-main.",h:false},
+  {id:"DR-025",t:"Privacidad / PII",def:"Minimizar, no loguear, export/delete. Recolectar PII nueva o compartir → escalar.",h:true},
+  {id:"DR-026",t:"Observabilidad mínima",def:"Sentry + logs JSON estructurados (service.name) desde el día 1.",h:false},
+  {id:"DR-027",t:"Security headers (web)",def:"Set OWASP literal en next.config; CSP report-only en v1; preload submit = humano.",h:false},
+  {id:"DR-028",t:"Contrato de error de API",def:"RFC 9457 (problem+json) + validación en el borde (Zod/pydantic).",h:false},
+  {id:"DR-029",t:"Feature flags",def:"Evaluación server-side; expiración obligatoria. Bypass de otro gate → escalar.",h:false},
+  {id:"DR-030",t:"Desviación del golden path",def:"ADR per-proyecto; promover un patrón recurrente a estándar = decisión de Sergio.",h:false}
  ],
  estandares:[
-  ["convenciones","Idioma, naming, tipado, commits","Código en inglés, docs en español; tipado estricto; sin any; conventional commits; constantes centralizadas."],
-  ["estructura","Carpetas y capas","src/app, components/core+modules, data layer aislado en queries/, código por feature, tests colocados."],
-  ["patrones","Server Components, UI optimista, a11y","Server Components por defecto; Server Actions primero; UI optimista; HTML semántico; tema claro/oscuro; design tokens."],
-  ["calidad","Gates y testing","Tests + type-check + lint antes de terminar (verify.sh). Testing por riesgo; e2e solo en flujos críticos."],
-  ["stack","Stack recomendado (sugerencia)","Next.js + React + Prisma + Better Auth + next-intl + Tailwind + Vitest/Playwright. Se elige y aprueba en el blueprint, últimas versiones."]
+  {id:"convenciones",nombre:"Convenciones de código",dom:"Programación",sev:"MUST",enf:"lint + CI",porque:"Un código uniforme es legible y mantenible por cualquier agente.",resumen:["Código en inglés, docs en español","Tipado estricto, sin any","Validar input en fronteras (Zod)","Conventional Commits; sin push a main"]},
+  {id:"estructura",nombre:"Estructura de proyecto",dom:"Arquitectura",sev:"MUST",enf:"checklist",porque:"Capas claras evitan acoplamiento y facilitan el testing.",resumen:["Data layer aislado en queries/","Código por feature","Reuso antes de crear","Tests colocados"]},
+  {id:"patrones",nombre:"Patrones de implementación",dom:"Arquitectura / Diseño",sev:"MUST / SHOULD",enf:"lint + CI",porque:"Patrones probados = menos bugs y mejor UX por defecto.",resumen:["Server Components por defecto; Server Actions primero","UI optimista","HTML semántico + a11y (axe)","Tema claro/oscuro; solo design tokens","Red de error global (global-error / error / not-found)"]},
+  {id:"calidad",nombre:"Calidad y testing",dom:"Calidad",sev:"MUST",enf:"CI gate",porque:"La calidad sin revisión humana se sostiene con gates deterministas.",resumen:["TDD por work order","Verificación adversarial (reviewer)","Mutation ≥60% en hitos","a11y-gate + performance-gate en CI"]},
+  {id:"stack",nombre:"Stack recomendado",dom:"Tecnología",sev:"SHOULD",enf:"—",porque:"Stacks tipados y populares minimizan errores del LLM.",resumen:["Next.js + React + TS + Tailwind","Prisma + Postgres + Better Auth","Vitest + Playwright","Se elige y aprueba en el blueprint"]},
+  {id:"infra",nombre:"Infraestructura local",dom:"Operación",sev:"MUST",enf:"checklist",porque:"Cada proyecto/worktree aislado para no pisarse.",resumen:["Docker en dev (BD por proyecto/worktree)","Convención de puertos","Worktrees para probar snapshots","Gates humanos = reglas deny duras"]},
+  {id:"performance",nombre:"Performance (web)",dom:"Calidad",sev:"MUST",enf:"CI gate",porque:"CWV son el contrato de experiencia percibida y afectan SEO.",resumen:["CWV p75: LCP≤2.5s, INP≤200ms, CLS≤0.1","Lighthouse-CI proxy (block-on-main)","Campo p75 vía PostHog","Next Image/Font para CLS"]},
+  {id:"observabilidad",nombre:"Observabilidad",dom:"Operación",sev:"MUST",enf:"checklist",porque:"Sin observabilidad no se opera un portfolio.",resumen:["Logs JSON estructurados (service.name)","Error-tracking (Sentry) día 1","OTel como capa portable, escalonado","Datos a Sentry/PostHog, no pipeline aparte"]},
+  {id:"privacidad",nombre:"Datos y privacidad",dom:"Datos / Privacidad",sev:"MUST",enf:"checklist + humano",porque:"Recolectar datos sin minimización es un riesgo legal real.",resumen:["Privacy by design (GDPR Art. 25)","Minimización + RLS por defecto","export/delete en el modelo","No loguear PII; PII nueva escala"]},
+  {id:"seguridad-web",nombre:"Seguridad web (headers/CSP)",dom:"Seguridad",sev:"MUST",enf:"CI gate",porque:"Headers baratos cortan clases enteras de ataques.",resumen:["HSTS, nosniff, Referrer-Policy, X-Frame-Options","Permissions-Policy; quitar X-Powered-By","CSP nonce report-only en v1","Verificado por header-scan en CI"]},
+  {id:"api-design",nombre:"Diseño de APIs",dom:"Programación",sev:"MUST",enf:"lint + CI",porque:"Un contrato de error estándar hace que los clientes lo manejen uniforme.",resumen:["Errores RFC 9457 (problem+json)","errors[] {detail, pointer}","Validación en el borde (Zod/pydantic)","REST: /v1, paginación, códigos HTTP"]},
+  {id:"seo-i18n",nombre:"SEO e i18n (web)",dom:"Producto / Docs",sev:"SHOULD",enf:"checklist",porque:"Sin metadata/sitemap, un producto web es invisible para buscadores.",resumen:["Metadata API por página","sitemap.ts + robots.ts","i18n con next-intl (si el PRD lo pide)","hreflang/canonical por locale"]}
  ]
 };
 
@@ -382,23 +413,54 @@ function projWO(i){var wos=i.wo||[];if(!wos.length)return '<div class="panel" st
   return '<div class="col"><div style="font-size:11px;font-weight:500;color:'+(isF?'var(--danger)':'var(--text2)')+';margin-bottom:8px">'+WLBL[st]+' <span style="color:var(--text3)">'+items.length+'</span></div>'+cards+'</div>';}).join("");
  return '<p style="font-size:12px;color:var(--text3);margin:0 0 10px">Estado en vivo de cada work order (lo escriben los agentes). Clic en uno para ver su resumen y de qué FRD es. Solo-lectura.</p><div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:6px">'+cols+'</div>';}
 
+function cfgGrid(cards){return '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:8px">'+cards.join("")+'</div>';}
+function sevBadge(sev){var c=sev.indexOf("MUST")===0?["var(--danger-bg)","var(--danger)"]:sev.indexOf("SHOULD")===0?["var(--warn-bg)","var(--warn)"]:["var(--secondary)","var(--text2)"];return '<span class="chip" style="background:'+c[0]+';color:'+c[1]+';font-size:10px">'+sev+'</span>';}
+function enfBadge(enf){return '<span class="chip" style="background:var(--secondary);color:var(--text2);font-size:10px"><i class="ti ti-checkup-list" style="font-size:10px;vertical-align:-1px"></i> '+enf+'</span>';}
+function flowStep(s){var col=null;for(var k in AVCOL){if(s.indexOf(k)>=0){col=AVCOL[k];break;}}return '<span style="font-size:11px;padding:3px 9px;border-radius:99px;background:'+(col||"var(--secondary)")+';color:'+(col?"#fff":"var(--text2)")+';white-space:nowrap">'+esc(s)+'</span>';}
+function flowStrip(steps){if(!steps||!steps.length)return "";return '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+steps.map(function(s,i){return (i?'<i class="ti ti-arrow-right" style="font-size:13px;color:var(--text3)"></i>':"")+flowStep(s);}).join("")+'</div>';}
 function configView(){
  if(ST.configItem!==null)return configDetail();
  var sec=ST.configSection;
- var tabs=[["skills","Skills"],["agents","Agentes"],["rules","Reglas de decisión"],["estandares","Estándares"]].map(function(t){return '<span class="stab '+(sec===t[0]?"on":"")+'" data-act="cfgsec" data-sec="'+t[0]+'">'+t[1]+'</span>';}).join("");
- var icon={skills:"ti-terminal-2",agents:"ti-robot",rules:"ti-gavel",estandares:"ti-book-2"}[sec];
- var items=CONFIG[sec].map(function(r,ix){var name=sec==="skills"?("/pandacorp:"+r[0]):r[0];
-  var lead=sec==="agents"?avatar(r[0]):'<i class="ti '+icon+'" style="font-size:18px;color:var(--text2);margin-top:1px"></i>';
-  var meta=(sec==="agents"&&AGMETA[r[0]])?'<div style="font-size:11px;color:var(--warn);margin-top:3px"><i class="ti ti-star" style="font-size:11px;vertical-align:-1px"></i> Nv '+AGMETA[r[0]][0]+' · '+AGMETA[r[0]][1]+'</div>':'';
-  return '<div class="cfgcard" data-act="cfgitem" data-ix="'+ix+'">'+lead+'<div style="flex:1"><div style="font-family:var(--mono);font-size:13px;font-weight:500">'+name+'</div><div style="font-size:12px;color:var(--text2);margin-top:2px">'+r[1]+'</div>'+meta+'</div><i class="ti ti-chevron-right" style="font-size:15px;color:var(--text3)"></i></div>';}).join("");
- return '<p style="font-size:12px;color:var(--text3);margin:0 0 10px">Lo que hay configurado en la fábrica. Solo-lectura — para editar, se hace en los archivos / Claude Code. Clic en cualquiera para ver el detalle.</p>'
-  +'<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">'+tabs+'</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:8px">'+items+'</div>';
+ var subt=[["skills","Skills"],["agents","Agentes"],["rules","Reglas de decisión"],["estandares","Estándares"]].map(function(t){return '<span class="stab '+(sec===t[0]?"on":"")+'" data-act="cfgsec" data-sec="'+t[0]+'">'+t[1]+'</span>';}).join("");
+ var body;
+ if(sec==="skills"){
+  body=cfgGrid(CONFIG.skills.map(function(s,ix){return '<div class="cfgcard" data-act="cfgitem" data-ix="'+ix+'"><i class="ti ti-terminal-2" style="font-size:18px;color:var(--text2);margin-top:1px"></i><div style="flex:1"><div style="font-family:var(--mono);font-size:13px;font-weight:500">/pandacorp:'+s.id+'</div><div style="font-size:12px;color:var(--text2);margin-top:2px">'+s.desc+'</div><div style="font-size:11px;color:var(--text3);margin-top:3px"><i class="ti ti-map-pin" style="font-size:11px;vertical-align:-1px"></i> '+s.corre+'</div></div><i class="ti ti-chevron-right" style="font-size:15px;color:var(--text3)"></i></div>';}));
+ }else if(sec==="agents"){
+  body=cfgGrid(CONFIG.agents.map(function(a,ix){var meta=AGMETA[a.id]?'<div style="font-size:11px;color:var(--warn);margin-top:3px"><i class="ti ti-star" style="font-size:11px;vertical-align:-1px"></i> Nv '+AGMETA[a.id][0]+' · '+AGMETA[a.id][1]+'</div>':'';return '<div class="cfgcard" data-act="cfgitem" data-ix="'+ix+'">'+avatar(a.id)+'<div style="flex:1"><div style="font-family:var(--mono);font-size:13px;font-weight:500">'+a.id+' <span class="chip" style="background:var(--secondary);color:var(--text2);font-size:10px">'+a.model+'</span></div><div style="font-size:12px;color:var(--text2);margin-top:2px">'+a.desc+'</div>'+meta+'</div><i class="ti ti-chevron-right" style="font-size:15px;color:var(--text3)"></i></div>';}));
+ }else if(sec==="rules"){
+  var expl='<div class="panel" style="margin-bottom:12px;background:var(--info-bg)"><div style="font-size:13px;color:var(--info)"><i class="ti ti-info-circle" style="font-size:15px;vertical-align:-2px"></i> <b style="font-weight:500">¿Qué es una regla de decisión?</b> Un default pre-aprobado para que la IA NO te pregunte cada vez lo mismo. <span style="color:var(--ok)">●</span> auto-aprueba (la IA decide sola) · <span style="color:var(--danger)">●</span> te pregunta a ti. Cada escalada nueva se convierte en una regla.</div></div>';
+  var btn='<button data-act="copy" data-cmd="/pandacorp:codify" style="margin-bottom:12px"><i class="ti ti-plus" style="font-size:14px;vertical-align:-2px"></i> Nueva regla de decisión</button>';
+  body=expl+btn+cfgGrid(CONFIG.rules.map(function(r,ix){return '<div class="cfgcard" data-act="cfgitem" data-ix="'+ix+'"><span style="width:8px;height:8px;border-radius:50%;background:'+(r.h?"var(--danger)":"var(--ok)")+';margin-top:6px;flex:0 0 auto"></span><div style="flex:1"><div style="font-size:13px;font-weight:500"><span style="font-family:var(--mono);color:var(--text3);font-size:11px">'+r.id+'</span> '+r.t+'</div><div style="font-size:11px;color:'+(r.h?"var(--danger)":"var(--ok)")+';margin-top:2px">'+(r.h?"te pregunta":"auto-aprueba")+'</div></div><i class="ti ti-chevron-right" style="font-size:15px;color:var(--text3)"></i></div>';}));
+ }else{
+  var btn2='<button data-act="copy" data-cmd="/pandacorp:codify" style="margin-bottom:12px"><i class="ti ti-plus" style="font-size:14px;vertical-align:-2px"></i> Nuevo estándar</button>';
+  var doms=[];CONFIG.estandares.forEach(function(s){if(doms.indexOf(s.dom)<0)doms.push(s.dom);});
+  body=btn2+doms.map(function(d){var items=CONFIG.estandares.map(function(s,ix){return {s:s,ix:ix};}).filter(function(o){return o.s.dom===d;});return '<div style="font-size:12px;font-weight:500;color:var(--text2);margin:10px 2px 6px"><i class="ti ti-folder" style="font-size:13px;vertical-align:-2px"></i> '+d+'</div>'+cfgGrid(items.map(function(o){var s=o.s;return '<div class="cfgcard" data-act="cfgitem" data-ix="'+o.ix+'"><i class="ti ti-book-2" style="font-size:18px;color:var(--text2);margin-top:1px"></i><div style="flex:1"><div style="font-size:13px;font-weight:500">'+s.nombre+'</div><div style="display:flex;gap:5px;margin-top:4px;flex-wrap:wrap">'+sevBadge(s.sev)+enfBadge(s.enf)+'</div></div><i class="ti ti-chevron-right" style="font-size:15px;color:var(--text3)"></i></div>';}));}).join("");
+ }
+ return '<p style="font-size:12px;color:var(--text3);margin:0 0 10px">El manual de la fábrica. Solo-lectura — los archivos se editan en Claude Code. Clic en cualquiera para ver su detalle.</p><div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">'+subt+'</div>'+body;
 }
 function configDetail(){
- var r=CONFIG[ST.configSection][ST.configItem];var name=ST.configSection==="skills"?("/pandacorp:"+r[0]):r[0];
- var head=ST.configSection==="agents"?'<div style="display:flex;align-items:center;gap:10px">'+avatar(r[0])+'<div><div style="font-family:var(--mono);font-size:16px;font-weight:500">'+name+'</div>'+(AGMETA[r[0]]?'<div style="font-size:12px;color:var(--warn)"><i class="ti ti-star" style="font-size:12px;vertical-align:-1px"></i> Nv '+AGMETA[r[0]][0]+' · '+AGMETA[r[0]][1]+'</div>':'')+'</div></div>':'<div style="font-family:var(--mono);font-size:16px;font-weight:500">'+name+'</div>';
- return '<div style="margin-bottom:12px"><button data-act="cfgback"><i class="ti ti-arrow-left" style="font-size:14px"></i> Volver</button></div>'
-  +'<div class="panel">'+head+'<p style="font-size:13px;color:var(--text2);margin:6px 0 0">'+r[1]+'</p><div style="border-top:.5px solid var(--bd);margin:12px 0"></div><p style="font-size:13px;color:var(--text);margin:0">'+esc(r[2])+'</p>'+((ST.configSection==="agents"&&AGMETA[r[0]])?'<div style="border-top:.5px solid var(--bd);margin:12px 0 10px"></div><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:4px"><span>XP al siguiente nivel</span><span>'+AGMETA[r[0]][2]+' / '+AGMETA[r[0]][3]+'</span></div><div style="height:9px;background:var(--secondary);border-radius:99px;overflow:hidden;border:.5px solid var(--bd)"><div style="height:100%;width:'+Math.round(AGMETA[r[0]][2]/AGMETA[r[0]][3]*100)+'%;background:var(--accent)"></div></div><p style="font-size:12px;color:var(--text2);margin:9px 0 0"><i class="ti ti-info-circle" style="font-size:12px;vertical-align:-1px"></i> Sube de nivel completando work orders: cada uno que cierra suma XP. Al subir gana un título superior (Aprendiz → Ingeniero → Senior → Arquitecto).</p>':'')+'</div>';
+ var sec=ST.configSection,r=CONFIG[sec][ST.configItem];
+ var back='<div style="margin-bottom:12px"><button data-act="cfgback"><i class="ti ti-arrow-left" style="font-size:14px"></i> Volver</button></div>';
+ if(sec==="skills"){
+  return back+'<div class="panel"><div style="font-family:var(--mono);font-size:16px;font-weight:500">/pandacorp:'+r.id+'</div><p style="font-size:13px;color:var(--text);margin:6px 0 0">'+r.desc+'.</p><div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--text2)"><span><i class="ti ti-map-pin" style="font-size:12px;vertical-align:-1px"></i> Corre en: <b style="font-weight:500">'+r.corre+'</b></span><span><i class="ti ti-package-export" style="font-size:12px;vertical-align:-1px"></i> Produce: <b style="font-weight:500">'+esc(r.produce)+'</b></span></div><div style="border-top:.5px solid var(--bd);margin:12px 0"></div><div style="font-size:12px;font-weight:500;color:var(--text2);margin-bottom:8px"><i class="ti ti-route" style="font-size:14px;vertical-align:-2px"></i> Flujo a alto nivel · qué agentes usa</div>'+flowStrip(r.flow)+'</div>';
+ }
+ if(sec==="agents"){
+  var m=AGMETA[r.id];
+  return back+'<div class="panel"><div style="display:flex;align-items:center;gap:10px">'+avatar(r.id)+'<div><div style="font-family:var(--mono);font-size:16px;font-weight:500">'+r.id+' <span class="chip" style="background:var(--secondary);color:var(--text2);font-size:11px">'+r.model+'</span></div>'+(m?'<div style="font-size:12px;color:var(--warn)"><i class="ti ti-star" style="font-size:12px;vertical-align:-1px"></i> Nv '+m[0]+' · '+m[1]+'</div>':"")+'</div></div><p style="font-size:13px;color:var(--text2);margin:8px 0 0">'+r.desc+'.</p><div style="font-size:12px;color:var(--text2);margin-top:6px"><i class="ti ti-package-export" style="font-size:12px;vertical-align:-1px"></i> Produce: <b style="font-weight:500">'+esc(r.produce)+'</b></div>'+(m?'<div style="border-top:.5px solid var(--bd);margin:12px 0 10px"></div><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:4px"><span>XP al siguiente nivel</span><span>'+m[2]+' / '+m[3]+'</span></div><div style="height:9px;background:var(--secondary);border-radius:99px;overflow:hidden;border:.5px solid var(--bd)"><div style="height:100%;width:'+Math.round(m[2]/m[3]*100)+'%;background:var(--accent)"></div></div>':"")+'</div>';
+ }
+ if(sec==="rules"){
+  return back+'<div class="panel"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-family:var(--mono);font-size:13px;color:var(--text3)">'+r.id+'</span><span style="font-size:16px;font-weight:500">'+r.t+'</span><span class="chip" style="margin-left:auto;background:'+(r.h?"var(--danger-bg)":"var(--ok-bg)")+';color:'+(r.h?"var(--danger)":"var(--ok)")+'">'+(r.h?"te pregunta":"auto-aprueba")+'</span></div><div style="border-top:.5px solid var(--bd);margin:12px 0"></div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">DEFAULT PRE-APROBADO</div><p style="font-size:13px;color:var(--text);margin:0">'+esc(r.def)+'</p></div>';
+ }
+ var st=ST.stdTab||"resumen";
+ var tabs='<div style="display:flex;gap:6px;margin-bottom:12px">'+[["resumen","Resumen"],["detalle","Detalle"]].map(function(t){return '<span class="stab '+(st===t[0]?"on":"")+'" data-act="stdtab" data-st="'+t[0]+'">'+t[1]+'</span>';}).join("")+'</div>';
+ var content;
+ if(st==="detalle"){
+  var md2='# '+r.nombre+'\n\n> El documento completo vive en `fabrica/estandares/'+r.id+'.md` (aquí, un resumen).\n\n## Regla\n'+r.resumen.map(function(b){return "- "+b;}).join("\n")+'\n\n## Cómo se verifica\n- '+r.enf+'\n\n## Por qué\n- '+r.porque;
+  content='<div class="panel doc">'+md(md2)+'</div>';
+ }else{
+  content='<div class="panel"><div style="font-size:12px;color:var(--text2);margin-bottom:8px">'+r.porque+'</div><ul style="margin:0;padding-left:18px;font-size:13px;color:var(--text)">'+r.resumen.map(function(b){return '<li style="margin:4px 0">'+esc(b)+'</li>';}).join("")+'</ul></div>';
+ }
+ return back+'<div class="panel" style="margin-bottom:12px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><i class="ti ti-book-2" style="font-size:18px;color:var(--text2)"></i><span style="font-size:16px;font-weight:500">'+r.nombre+'</span></div><div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap"><span class="chip" style="background:var(--info-bg);color:var(--info);font-size:10px">'+r.dom+'</span>'+sevBadge(r.sev)+enfBadge(r.enf)+'</div></div>'+tabs+content;
 }
 
 function docsView(){var p=Math.min(ST.docsPage,DOCS.length-1);
@@ -478,8 +540,9 @@ root.addEventListener("click",function(ev){var el=ev.target.closest("[data-act]"
  else if(a==="bmode"){if(!ST.modes)ST.modes={};ST.modes[el.dataset.slug]=el.dataset.m;save();render();}
  else if(a==="doc"){ST.openDoc=parseInt(el.dataset.doc,10);save();render();}
  else if(a==="cfgsec"){ST.configSection=el.dataset.sec;ST.configItem=null;save();render();}
- else if(a==="cfgitem"){ST.configItem=parseInt(el.dataset.ix,10);save();render();}
+ else if(a==="cfgitem"){ST.configItem=parseInt(el.dataset.ix,10);ST.stdTab="resumen";save();render();}
  else if(a==="cfgback"){ST.configItem=null;save();render();}
+ else if(a==="stdtab"){ST.stdTab=el.dataset.st;save();render();}
  else if(a==="docpage"){ST.docsPage=parseInt(el.dataset.p,10);save();render();}
  else if(a==="copy"){copy(el.dataset.cmd);}
  else if(a==="intake"){ST.intake=true;save();render();}
