@@ -35,6 +35,8 @@ Las demás fases se ejecutan **dentro de la carpeta del proyecto**, sin nombre:
 
 Opcionales/internos: `:new-version` (hito grande con mini-PRD), `:scaffold` y `:work-orders` (pasos que normalmente invocan `spec`/`blueprint`).
 
+**Iterar sin avanzar (DR-032).** Ninguna fase manual (`explore`, `new-idea`, `spec`, `design`, `blueprint`) auto-avanza de columna: produce su output, marca `avance_pendiente: true` y espera tu "ok, avanza". **Re-correr la misma fase = seguir puliendo** (refina, no regenera ni repite lo descartado). La esencia del ida-y-vuelta se persiste en `docs/iteracion.md` del proyecto (en ideas sin proyecto: `fabrica/ideas/_borradores/<slug>.md`), para retomar aunque pierdas la conversación. No aplica a `implement` (autónomo, ya reanudable) ni cambia el gate de producción.
+
 ## Mantenimiento del plugin
 
 El plugin está instalado desde el marketplace local de este repo (`claude plugin install pandacorp@panda-corp`, scope usuario, versión = SHA del commit). **Tras editar cualquier cosa en `plugin/`**: commitear y correr `claude plugin update pandacorp@panda-corp` (los cambios aplican al reiniciar sesión). Validar con `claude plugin validate plugin/`.

@@ -164,3 +164,9 @@ decisiones:
     patron: "fuente de eventos de Mission Control (cómo se alimenta el cockpit durante la construcción)"
     default: "el cockpit es solo-lectura y desacoplado: lee ~/.claude/dashboard-events.ndjson. Con Dynamic Workflows, los eventos los emiten los subagentes del workflow (emit-event.sh al empezar/terminar su etapa) y el hook SubagentStop — NO los hooks de Agent Teams (TeammateIdle/TaskCreated/TaskCompleted, que no disparan en workflows). La emisión es fire-and-forget (append a archivo): no bloquea el workflow ni compite por tokens, así que tener el grafiquito RPG no cuesta rendimiento. Mapeo: agent() corriendo → working; transición de etapa → walking/handoff; etapa reviewer → review; etapa que lanza → blocked; commit del WO → safe point"
     requiere_humano: false
+
+  - id: DR-032
+    patron: "iterar en una fase temprana (descubierta/documentada/diseño/arquitectura) sin avanzar de columna, y cómo se avanza entre fases"
+    default: "las fases manuales NO auto-cierran: cada skill (explore/new-idea/spec/design/blueprint) produce su output, marca avance_pendiente: true en docs/estado.yaml y NO escribe la transición de fase hasta el 'ok, avanza' explícito de Sergio. Re-correr la MISMA fase = iterar en sitio (refina lo que hay, NO regenera desde cero ni repite lo ya rechazado). La esencia del ida-y-vuelta (qué se probó, qué se rechazó y por qué, qué queda abierto) se persiste en docs/iteracion.md (en ideas, sin proyecto: fabrica/ideas/_borradores/<slug>.md) para poder retomar aunque se pierda la conversación. Extiende el principio 2 (artefactos antes que chat)."
+    requiere_humano: true
+    nota: "gate ligero y por-fase en las etapas manuales; NO aplica a implement (autónomo, ya reanudable) ni cambia el gate de release a producción (DR-004). El journal reduce intervención futura (principio 7): retomar no exige re-explicar."

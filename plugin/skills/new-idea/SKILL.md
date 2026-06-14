@@ -8,13 +8,13 @@ Cristaliza una idea como ficha en la base de ideas. La idea puede venir de `$ARG
 
 ## Pasos
 
-1. **Sintetiza desde la conversación completa.** No te quedes solo con `$ARGUMENTS` ni con el último mensaje: recorre **toda** la conversación hacia atrás y reconstruye la idea con lo que se dijo, se rebatió y se concluyó. Reglas según lo que encuentres:
+1. **Sintetiza desde la conversación completa.** No te quedes solo con `$ARGUMENTS` ni con el último mensaje: recorre **toda** la conversación hacia atrás y reconstruye la idea con lo que se dijo, se rebatió y se concluyó. Si la idea viene de `/pandacorp:explore`, lee también su borrador `fabrica/ideas/_borradores/<slug>.md` si existe (concentra el hilo de la exploración). Reglas según lo que encuentres:
    - Si la conversación exploró **varias** ideas candidatas, lístalas en una línea cada una y confirma con Sergio cuál(es) capturar (puedes crear una ficha por cada una).
    - Si solo hay una descripción corta y poco contexto, haz máximo 2-3 preguntas para lo esencial que falte (¿qué duele exactamente? ¿es para él o para vender? ¿qué imagina como solución?). Si ya alcanza, no preguntes.
 2. **Ubica la fábrica**: la base de ideas está en `/Users/Shared/Proyectos/panda-corp/fabrica/ideas/`. Lee `_plantilla-ficha.md` para el formato exacto.
 3. **Investigación ligera** (delega al agente `researcher`, una pasada rápida): ¿existen soluciones? ¿hay evidencia del dolor en otros? ¿viabilidad técnica obvia? Si la conversación de descubierta ya trajo evidencia, reúsala en vez de repetir la búsqueda. No es la investigación profunda — eso viene en fase de producto.
 4. **Score (0-100)**: dolor real y frecuente (30%), facilidad de implementación con golden paths (25%), potencial de monetización o valor personal (25%), ventaja/diferenciación (20%). Documenta el racional en "Notas de evaluación".
-5. **Crea la ficha** `fabrica/ideas/<slug-en-ingles>.md` con frontmatter completo, `estado: documentada`, `creada:` con fecha de hoy.
+5. **Crea la ficha** `fabrica/ideas/<slug-en-ingles>.md` con frontmatter completo, `estado: documentada`, `creada:` con fecha de hoy. Si existía un borrador de exploración (`fabrica/ideas/_borradores/<slug>.md`), **bórralo** — la ficha ya lo reemplaza.
 6. Reporta a Sergio: resumen de la ficha, score y si la recomiendas o no (con porqué corto).
 
 ## Reglas
