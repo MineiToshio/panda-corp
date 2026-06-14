@@ -130,29 +130,26 @@ mapa RPG no cuesta rendimiento. El mapeo evento → animación:
 
 ## 6. Imágenes
 
-Los **sprites de agente** (`IMG[<rol>]`) existen para los roles originales. Los
-**3 agentes nuevos** (`copywriter`, `analytics`, `devops`) **no tienen sprite
-propio todavía**; solo `analytics` aparece en el mapa de construcción y cae al
-sprite genérico del `implementer` (`mcSprite()` lo resuelve), distinguido por su
-halo teal. Los **fondos de puesto** (`IMG[ZONEBG[rol]]`) existen para 4 roles
-del equipo de construcción:
+Los **sprites de agente** (`IMG[<rol>]`, 96×96 RGBA) existen para los 13 agentes,
+incluidos los 3 nuevos (`copywriter`, `analytics`, `devops`) — se cortaron de
+`assets/agents/grid-v2.png` y se embebieron como base64. Los **fondos de puesto**
+(`IMG[ZONEBG[rol]]`, 320×320 RGBA, de `assets/zones/`) existen para:
 
 - `researcher` → `investigacion` ✓
 - `test-writer` → `testing` ✓
 - `backend-dev` → `backend` ✓
 - `frontend-dev` → `frontend` ✓
+- `reviewer` → `revision` ✓ (sala de control de calidad — cortada de `zones-grid-v2.png`)
+- `analytics` → `analitica` ✓ (observatorio / cámara de datos)
 
-**Faltan** los fondos de zona de `reviewer`, `security-auditor` y `analytics`
-(hoy usan un tinte de respaldo), y un **sprite propio para `analytics`** (hoy
-reusa el del implementer). Al generarlos, añadir la imagen a `IMG` y la entrada
-al mapa `ZONEBG`/sprite. Prompts de generación: ver el chat de diseño / abajo.
+**Pendiente menor:** la sala de `security-auditor` (`seguridad`) está cortada en
+`assets/zones/seguridad.png` pero **no embebida** todavía, porque `security-auditor`
+no está en el roster del build (`MCROSTER`); se embebe y se mapea en `ZONEBG` solo
+si algún día entra al mapa de construcción. `copywriter` y `devops` no necesitan
+sala (no aparecen en el mapa de construcción).
 
-Estilo a respetar para que peguen con los 4 existentes: **pixel-art top-down
-16-bit (estilo SNES JRPG)**, una sala/estación de trabajo vista desde arriba,
-paleta cálida, ~290×190 px, sin personajes, sin texto.
-
-- **reviewer**: una sala de control de calidad / auditoría — escritorio con
-  varias pantallas mostrando checks verdes y rojos, lupa, pila de reportes,
-  tablero con tests. Acento verde.
-- **security-auditor**: una sala de seguridad — terminal con candados y escudos,
-  rack de servidores al fondo, panel con alertas, tonos rojos/oscuros.
+Estilo a respetar para que peguen: **pixel-art top-down 16-bit (estilo SNES JRPG)**,
+una sala vista desde arriba, alfombra central con brújula, props en las paredes,
+paleta cálida, 320×320 px, sin personajes, sin texto. Pipeline para regenerar:
+generar la hoja (sprites 1024×1024 transparente 2×2 · zonas 1254×1254 opaca 2×2),
+cortar por cuadrante con PIL, reescalar (96 / 320), base64 → `IMG`, mapear `ZONEBG`.
