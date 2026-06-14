@@ -17,7 +17,8 @@ Este repo es **la fábrica**: el know-how de la empresa. Aquí NUNCA vive códig
 
 | Acción | Skill |
 |---|---|
-| Capturar una idea de Sergio | `/pandacorp:new-idea` |
+| Explorar/aclarar una idea difusa en conversación (descubierta) | `/pandacorp:explore [tema]` |
+| Capturar/cristalizar una idea de Sergio (one-shot o desde lo conversado) | `/pandacorp:new-idea` |
 | Buscar dolores monetizables en internet | `/pandacorp:discover` |
 | Pedir ranking/recomendación de ideas | `/pandacorp:recommend` |
 | Crear el proyecto y documentar el MVP de una idea (handoff) | `/pandacorp:spec <idea>` |
