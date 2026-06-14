@@ -151,28 +151,70 @@ var DOCS=[
 ];
 
 var OPLEVEL={nivel:6,titulo:"Maestro del gremio",xp:1240,next:1500};
-var ACH=[
- ["Primera chispa","Capturaste tu primera idea","ti-bulb",true,"Pipeline"],
- ["Nace un proyecto","Creaste tu primer proyecto","ti-folder-plus",true,"Pipeline"],
- ["Primer objetivo","Cerraste tu primer work order","ti-circle-check",true,"Pipeline"],
- ["Diseño aprobado","Aprobaste tu primer diseño","ti-palette",true,"Pipeline"],
- ["¡Al aire!","Lanzaste tu primera app","ti-rocket",true,"Pipeline"],
- ["Trabajo de party","Un FRD completo construido por el equipo","ti-users-group",false,"Equipo"],
- ["Sin rechazos","Un proyecto sin rechazos de review","ti-shield-check",false,"Equipo"],
- ["Maestro del gremio","Lanza 5 apps","ti-trophy",false,"Maestría"],
- ["Racha de gremio","5 semanas seguidas con releases","ti-flame",false,"Maestría"]
+var TIERN=["Bronce","Plata","Oro","Platino","Leyenda"],TIERC=["#9c6b3f","#6b7177","#b8860b","#2a8f9e","#7a3fb0"];
+var STATS={lanzados:3,ideas:14,workorders:62,fases:28,iteraciones:4,impecables:1,descartadas:6,prds:7,adrs:11,agentes:9,racha:9,velocidad:5};
+var STATCARDS=[["lanzados","Productos lanzados","ti-rocket"],["ideas","Ideas capturadas","ti-bulb"],["workorders","Work orders","ti-checkbox"],["fases","Fases completadas","ti-stairs-up"],["iteraciones","Iteraciones","ti-refresh"],["impecables","Lanzamientos impecables","ti-diamond"],["descartadas","Ideas descartadas","ti-trash"],["prds","PRDs escritos","ti-file-text"],["adrs","ADRs registrados","ti-notebook"],["agentes","Agentes coordinados","ti-users-group"],["racha","Racha récord (sem)","ti-flame"],["velocidad","Récord idea→launch (días)","ti-bolt"]];
+var CHAINS=[
+ {s:"lanzados",n:"Productos lanzados",ic:"ti-rocket",t:[[1,"El primer ladrillo","2026-05-02","quick-notes"],[5,"Maestro de obras"],[10,"El arquitecto"],[25,"El magnate digital"],[50,"El oráculo de la fábrica"]]},
+ {s:"ideas",n:"Ideas capturadas",ic:"ti-bulb",t:[[5,"Mente inquieta","2026-04-18","—"],[20,"Máquina de ideas"],[50,"El ideólogo"],[100,"La tormenta de ideas"]]},
+ {s:"workorders",n:"Work orders completados",ic:"ti-checkbox",t:[[10,"Capataz novato","2026-04-29","quick-notes"],[50,"Jefe de fábrica","2026-06-05","Pandacorp"],[200,"El fordismo digital"],[500,"Maestro de ensamblaje"],[1000,"La gran máquina"]]},
+ {s:"fases",n:"Fases completadas",ic:"ti-stairs-up",t:[[5,"Pipeline novato","2026-04-22","quick-notes"],[25,"Flujo continuo","2026-06-01","Pandacorp"],[75,"El proceso es el producto"],[200,"Maestro del pipeline"]]},
+ {s:"iteraciones",n:"Iteraciones desplegadas",ic:"ti-refresh",t:[[1,"El primer parche","2026-05-20","quick-notes"],[10,"Amigo del usuario"],[25,"El hacedor incansable"],[50,"El producto vivo"]]},
+ {s:"impecables",n:"Lanzamientos impecables",ic:"ti-diamond",t:[[1,"Primera vez sin reparos","2026-05-02","quick-notes"],[3,"Artesano"],[7,"Orfebre del software"],[15,"Manos de cirujano"]]},
+ {s:"descartadas",n:"Ideas descartadas",ic:"ti-trash",t:[[5,"El editor","2026-05-30","—"],[20,"Cirujano de ideas"],[50,"El filtro implacable"],[100,"El asesino de darlings"]]},
+ {s:"prds",n:"PRDs escritos",ic:"ti-file-text",t:[[3,"Escribidor de requisitos","2026-04-22","quick-notes"],[10,"El visionario documentado"],[25,"El PM fantasma"],[50,"La biblia del producto"]]},
+ {s:"adrs",n:"ADRs registrados",ic:"ti-notebook",t:[[3,"El que toma notas","2026-04-25","quick-notes"],[15,"Memoria institucional"],[40,"El libro de la fábrica"],[100,"El gran grimorio"]]},
+ {s:"agentes",n:"Agentes coordinados",ic:"ti-users-group",t:[[3,"Equipo mínimo","2026-04-29","quick-notes"],[6,"El líder de raid","2026-06-03","Pandacorp"],[10,"Comandante de fábrica"],[15,"El maestro titiritero"]]},
+ {s:"racha",n:"Racha récord (semanas)",ic:"ti-flame",t:[[2,"Semanas seguidas","2026-04-30","—"],[8,"El constructor constante","2026-06-08","—"],[26,"Medio año sin parar"],[52,"El año del fundador"]]},
+ {s:"velocidad",n:"Récord idea→launch",ic:"ti-bolt",lower:true,t:[[30,"Sprint decente","2026-05-02","quick-notes"],[14,"El cohete","2026-05-20","quick-notes"],[7,"La semana perfecta","2026-06-09","Pandacorp"],[3,"Modo dios activado"]]}
 ];
+var ONETIME=[
+ {n:"El día del lanzamiento",d:"Tu primer producto en producción.",ic:"ti-rocket",on:true,date:"2026-05-02",proj:"quick-notes",cat:"Descubrimiento"},
+ {n:"El primer spec",d:"Documentaste tu primer MVP.",ic:"ti-file-description",on:true,date:"2026-04-22",proj:"quick-notes",cat:"Descubrimiento"},
+ {n:"El debut del diseñador",d:"Tus primeros mockups aprobados.",ic:"ti-palette",on:true,date:"2026-04-24",proj:"quick-notes",cat:"Descubrimiento"},
+ {n:"El blueprintero",d:"Tu primera arquitectura técnica.",ic:"ti-ruler-2",on:true,date:"2026-04-26",proj:"quick-notes",cat:"Descubrimiento"},
+ {n:"Iteración cero",d:"Mejoraste un producto ya lanzado.",ic:"ti-git-branch",on:true,date:"2026-05-20",proj:"quick-notes",cat:"Descubrimiento"},
+ {n:"El gran tour",d:"Recorriste las 6 fases del pipeline de punta a punta.",ic:"ti-map-2",on:true,date:"2026-05-02",proj:"quick-notes",cat:"Maestría"},
+ {n:"Primer intento",d:"Un producto pasó todas las fases sin un solo rechazo en revisión.",ic:"ti-shield-check",on:true,date:"2026-05-02",proj:"quick-notes",cat:"Calidad"},
+ {n:"48 horas de locura",d:"De idea a producto lanzado en menos de 48 horas.",ic:"ti-clock-bolt",on:false,cat:"Velocidad"},
+ {n:"Ship it Friday",d:"Lanzaste algo a producción un viernes por la tarde.",ic:"ti-calendar",on:false,cat:"Velocidad"},
+ {n:"La maratón",d:"Una sesión de implementación con 20+ work orders seguidos.",ic:"ti-run",on:false,cat:"Velocidad"},
+ {n:"El perfeccionista práctico",d:"3 productos seguidos sin rechazos en diseño.",ic:"ti-award",on:false,cat:"Calidad"},
+ {n:"La trilogía",d:"3 productos vivos en producción al mismo tiempo.",ic:"ti-stack-2",on:false,cat:"Maestría"},
+ {n:"Coleccionista de estados",d:"Un producto que pasó por todos los estados del tablero.",ic:"ti-checklist",on:false,cat:"Maestría"},
+ {n:"El fundador madrugador",d:"Cerraste un work order antes de las 8am.",ic:"ti-sunrise",on:false,cat:"Consistencia"},
+ {n:"El último en apagar",d:"Cerraste un work order después de medianoche.",ic:"ti-moon",on:false,cat:"Consistencia"},
+ {n:"???",d:"",ic:"ti-question-mark",on:false,cat:"Secreto",hidden:true,hint:"Ocurre cuando ves el vacío al otro lado."},
+ {n:"???",d:"",ic:"ti-question-mark",on:false,cat:"Secreto",hidden:true,hint:"El código revisó al código."},
+ {n:"???",d:"",ic:"ti-question-mark",on:false,cat:"Secreto",hidden:true,hint:"Va más rápido de lo esperado."}
+];
+function chainState(ch){var v=STATS[ch.s],lo=ch.lower,ci=-1;for(var t=0;t<ch.t.length;t++){var th=ch.t[t][0];if(lo?v<=th:v>=th)ci=t;}var nx=ch.t[ci+1]||null,pct;if(!nx)pct=100;else if(lo){var pv=ci>=0?ch.t[ci][0]:v;pct=Math.max(0,Math.min(100,Math.round((pv-v)/(pv-nx[0])*100)));}else{var pv2=ci>=0?ch.t[ci][0]:0;pct=Math.max(0,Math.min(100,Math.round((v-pv2)/(nx[0]-pv2)*100)));}return {ci:ci,v:v,next:nx,pct:pct};}
+function statCard(c){return '<div style="background:var(--secondary);border-radius:var(--rmd);padding:11px 13px"><div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2)"><i class="ti '+c[2]+'" style="font-size:14px"></i> '+c[1]+'</div><div style="font-size:22px;font-weight:500;margin-top:3px">'+STATS[c[0]]+'</div></div>';}
+function chainCard(ch){var s=chainState(ch),cur=s.ci>=0?ch.t[s.ci]:null,tc=s.ci>=0?TIERC[Math.min(s.ci,4)]:"var(--text3)";
+ var badge=s.ci>=0?'<span style="font-size:10px;font-weight:500;color:#fff;background:'+tc+';border-radius:5px;padding:2px 6px">'+TIERN[Math.min(s.ci,4)]+'</span>':'<span style="font-size:10px;color:var(--text3)">bloqueado</span>';
+ var title=cur?cur[1]:ch.t[0][1];
+ var stamp=cur&&cur[2]?'<div style="font-size:11px;color:var(--text3);margin-top:4px"><i class="ti ti-calendar" style="font-size:11px;vertical-align:-1px"></i> '+cur[2]+(cur[3]&&cur[3]!=="—"?' · '+cur[3]:'')+'</div>':'';
+ var nl=s.next?'<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin:8px 0 3px"><span>Siguiente: '+s.next[1]+'</span><span>'+(ch.lower?('récord '+s.v+'d → ≤'+s.next[0]+'d'):(s.v+' / '+s.next[0]))+'</span></div><div style="height:8px;background:var(--secondary);border-radius:99px;overflow:hidden;border:.5px solid var(--bd)"><div style="height:100%;width:'+s.pct+'%;background:'+tc+'"></div></div>':'<div style="font-size:11px;color:var(--ok);margin-top:8px"><i class="ti ti-check" style="font-size:12px;vertical-align:-1px"></i> Cadena completada</div>';
+ var pips=ch.t.map(function(tt,ix){return '<span style="width:8px;height:8px;border-radius:99px;display:inline-block;background:'+(ix<=s.ci?TIERC[Math.min(ix,4)]:"var(--bd)")+'"></span>';}).join("");
+ return '<div class="panel" style="padding:13px"><div style="display:flex;align-items:center;gap:10px"><div style="width:40px;height:40px;border-radius:8px;background:'+(s.ci>=0?"var(--warn-bg)":"var(--secondary)")+';color:'+(s.ci>=0?tc:"var(--text3)")+';display:flex;align-items:center;justify-content:center"><i class="ti '+ch.ic+'" style="font-size:21px"></i></div><div style="flex:1"><div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span style="font-weight:500;font-size:13px">'+title+'</span>'+badge+'</div><div style="font-size:11px;color:var(--text2)">'+ch.n+'</div></div><div style="display:flex;gap:3px;align-items:center">'+pips+'</div></div>'+stamp+nl+'</div>';}
+function oneCard(a){
+ if(a.hidden&&!a.on)return '<div style="display:flex;gap:11px;align-items:center;background:var(--secondary);border:.5px dashed var(--bd2);border-radius:var(--rmd);padding:11px 13px;opacity:.7"><div style="width:36px;height:36px;border-radius:8px;background:var(--bd);color:var(--text3);display:flex;align-items:center;justify-content:center"><i class="ti ti-question-mark" style="font-size:18px"></i></div><div><div style="font-weight:500;font-size:13px;color:var(--text2)">Logro secreto</div><div style="font-size:12px;color:var(--text3);font-style:italic">'+a.hint+'</div></div></div>';
+ if(a.on)return '<div style="display:flex;gap:11px;align-items:center;background:var(--primary);border:.5px solid var(--bd);border-radius:var(--rmd);padding:11px 13px"><div style="width:36px;height:36px;border-radius:8px;background:var(--warn-bg);color:var(--warn);display:flex;align-items:center;justify-content:center"><i class="ti '+a.ic+'" style="font-size:19px"></i></div><div><div style="font-weight:500;font-size:13px">'+a.n+'</div><div style="font-size:12px;color:var(--text2)">'+a.d+'</div><div style="font-size:11px;color:var(--text3);margin-top:2px"><i class="ti ti-calendar" style="font-size:11px;vertical-align:-1px"></i> '+a.date+(a.proj&&a.proj!=="—"?' · '+a.proj:'')+'</div></div></div>';
+ return '<div style="display:flex;gap:11px;align-items:center;background:var(--secondary);border:.5px dashed var(--bd2);border-radius:var(--rmd);padding:11px 13px;opacity:.75"><div style="width:36px;height:36px;border-radius:8px;background:var(--bd);color:var(--text3);display:flex;align-items:center;justify-content:center"><i class="ti '+a.ic+'" style="font-size:18px"></i></div><div><div style="font-weight:500;font-size:13px;color:var(--text2)">'+a.n+'</div><div style="font-size:12px;color:var(--text3)">'+a.d+'</div></div></div>';}
 var AGMETA={researcher:[5,"Explorador"],"product-manager":[6,"Estratega"],designer:[5,"Artesano"],architect:[7,"Maestro de obras"],"backend-dev":[7,"Ingeniero senior"],"frontend-dev":[6,"Artífice"],"test-writer":[5,"Alquimista"],reviewer:[6,"Centinela"],"security-auditor":[6,"Guardián"]};
 function logrosView(){
- var un=ACH.filter(function(a){return a[3];}).length;
- var body=["Pipeline","Equipo","Maestría"].map(function(c){
-  var items=ACH.filter(function(a){return a[4]===c;}).map(function(a){return a[3]
-   ? '<div style="display:flex;gap:11px;align-items:center;background:var(--primary);border:.5px solid var(--bd);border-radius:var(--rmd);padding:11px 13px"><div style="width:38px;height:38px;border-radius:8px;background:var(--warn-bg);color:var(--warn);display:flex;align-items:center;justify-content:center"><i class="ti '+a[2]+'" style="font-size:20px"></i></div><div><div style="font-weight:500;font-size:13px">'+a[0]+'</div><div style="font-size:12px;color:var(--text2)">'+a[1]+'</div></div></div>'
-   : '<div style="display:flex;gap:11px;align-items:center;background:var(--secondary);border:.5px dashed var(--bd2);border-radius:var(--rmd);padding:11px 13px;opacity:.7"><div style="width:38px;height:38px;border-radius:8px;background:var(--bd);color:var(--text3);display:flex;align-items:center;justify-content:center"><i class="ti ti-lock" style="font-size:18px"></i></div><div><div style="font-weight:500;font-size:13px;color:var(--text2)">'+a[0]+'</div><div style="font-size:12px;color:var(--text3)">'+a[1]+'</div></div></div>';
-  }).join("");
-  return '<div style="font-size:12px;font-weight:500;color:var(--text2);margin:0 0 6px">'+c+'</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px;margin-bottom:16px">'+items+'</div>';
- }).join("");
- return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><i class="ti ti-trophy" style="font-size:22px;color:var(--warn)"></i><span style="font-size:18px;font-weight:500">Salón de logros</span><span class="chip" style="background:var(--warn-bg);color:var(--warn)">'+un+' / '+ACH.length+'</span></div><p style="font-size:12px;color:var(--text3);margin:0 0 14px">Se desbloquean en hitos reales de la fábrica. Los bloqueados muestran qué hacer para conseguirlos.</p>'+body;
+ var unT=0;CHAINS.forEach(function(ch){unT+=chainState(ch).ci+1;});
+ var unO=ONETIME.filter(function(a){return a.on;}).length;
+ var almost=CHAINS.map(function(ch){return {ch:ch,s:chainState(ch)};}).filter(function(x){return x.s.next;}).sort(function(a,b){return b.s.pct-a.s.pct;}).slice(0,3);
+ var almostHtml=almost.map(function(x){return '<div style="background:var(--secondary);border-radius:var(--rmd);padding:10px 12px"><div style="display:flex;justify-content:space-between;font-size:12px"><span style="font-weight:500">'+x.s.next[1]+'</span><span style="color:var(--text3)">'+x.s.pct+'%</span></div><div style="font-size:11px;color:var(--text2);margin:2px 0 6px">'+x.ch.n+'</div><div style="height:7px;background:var(--bd);border-radius:99px;overflow:hidden"><div style="height:100%;width:'+x.s.pct+'%;background:var(--warn)"></div></div></div>';}).join("");
+ var stats='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:18px">'+STATCARDS.map(statCard).join("")+'</div>';
+ var chains='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:8px;margin-bottom:18px">'+CHAINS.map(chainCard).join("")+'</div>';
+ var ones=["Descubrimiento","Velocidad","Calidad","Consistencia","Maestría","Secreto"].map(function(c){var items=ONETIME.filter(function(a){return a.cat===c;});if(!items.length)return"";return '<div style="font-size:12px;font-weight:500;color:var(--text2);margin:0 0 6px">'+c+'</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px;margin-bottom:14px">'+items.map(oneCard).join("")+'</div>';}).join("");
+ return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><i class="ti ti-trophy" style="font-size:22px;color:var(--warn)"></i><span style="font-size:18px;font-weight:500">Salón de logros</span><span class="chip" style="background:var(--warn-bg);color:var(--warn)">'+(unT+unO)+' logros</span></div><p style="font-size:12px;color:var(--text3);margin:0 0 16px">Tus stats crecen con cada acción; las cadenas suben de tier; cada logro guarda su fecha y el proyecto donde ocurrió.</p>'
+  +'<div style="font-size:13px;font-weight:500;margin:0 0 8px"><i class="ti ti-chart-bar" style="font-size:15px;vertical-align:-2px"></i> Estadísticas de la fábrica</div>'+stats
+  +(almostHtml?'<div style="font-size:13px;font-weight:500;margin:0 0 8px"><i class="ti ti-target-arrow" style="font-size:15px;vertical-align:-2px"></i> Casi ahí</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-bottom:18px">'+almostHtml+'</div>':'')
+  +'<div style="font-size:13px;font-weight:500;margin:0 0 8px"><i class="ti ti-stairs-up" style="font-size:15px;vertical-align:-2px"></i> Cadenas de logros</div>'+chains
+  +'<div style="font-size:13px;font-weight:500;margin:0 0 8px"><i class="ti ti-medal" style="font-size:15px;vertical-align:-2px"></i> Logros únicos</div>'+ones;
 }
 var ST=load();
 function load(){try{var s=sessionStorage.getItem("pc5");if(s)return JSON.parse(s);}catch(e){}return JSON.parse(JSON.stringify(SEED));}
