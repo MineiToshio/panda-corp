@@ -41,7 +41,9 @@ mapa RPG` y controlados por el motor.
   un handoff. El fondo se **atenúa** (`.dim`: gris + opacidad) cuando el dueño
   NO está trabajando ahí, y se ve **vívido + halo** (`.hot`) cuando trabaja —
   esto es lo que más comunica "quién trabaja" de lejos. Los roles sin imagen de
-  zona aún (`reviewer`, `security-auditor`) usan un tinte de color de respaldo.
+  zona aún (`reviewer`, `security-auditor`, `analytics`) usan un tinte de color
+  de respaldo. Igual, los agentes sin sprite propio (`analytics`) caen al sprite
+  genérico del `implementer` vía `mcSprite()`, distinguidos por su halo de color.
 - **Partículas** (`.mcpt`): estallido de puntos del color del rol cuando se
   entrega un handoff. Puramente cosmético.
 
@@ -59,14 +61,18 @@ Contadores en vivo (`#mc-cnt`): pills `N trabajando / N caminando / N en espera
   un punto de ruteo.
 - **El roster son los subagentes REALES de `implement`** (ver el skill
   `plugin/skills/implement/SKILL.md`), no todos los agentes de la fábrica. PM,
-  diseñador y arquitecto son de fases anteriores (spec / diseño / blueprint) y
-  **no construyen**, por eso no aparecen en el mapa de construcción.
+  diseñador, arquitecto, **copywriter** y **devops** son de fases anteriores o
+  de release (spec / diseño / blueprint / release) y **no construyen**, por eso
+  no aparecen en el mapa de construcción. El único agente "de soporte" que sí
+  entra al build es **analytics** (instrumenta la telemetría sobre la marcha).
 - **Modo de construcción → esfuerzo del equipo** (`MCROSTER`, leído de
   `ST.modes[slug]`; los 4 modos coinciden con el skill):
-  - `pro` (económico): backend-dev, test-writer, reviewer (3).
+  - `pro` (económico): implementer (full-stack) + reviewer (2) — sin paralelismo,
+    dividir no aporta; un solo obrero hace todo y el reviewer revisa al cerrar.
   - `equilibrado` (default): backend-dev, frontend-dev, test-writer, reviewer (4).
-  - `potente`: + researcher (5) — el investigador entra a demanda.
-  - `profundo`: + security-auditor (6) — máxima calidad / revisión extra.
+  - `potente`: + researcher + analytics (6) — investigación y telemetría entran a demanda.
+  - `profundo`: + researcher + analytics (6) — máxima calidad; la Revisión corre
+    en 3 lentes concurrentes (el reviewer se agranda y los demás esperan).
 
   El **selector de esfuerzo** vive en la propia pestaña Mission Control (fila
   `data-act="bmode"`); cambia `ST.modes[slug]` (es **por proyecto**) y re-monta
@@ -124,18 +130,22 @@ mapa RPG no cuesta rendimiento. El mapeo evento → animación:
 
 ## 6. Imágenes
 
-Los **sprites de agente** (`IMG[<rol>]`, los 9 roles) ya existen. Los **fondos
-de puesto** (`IMG[ZONEBG[rol]]`) existen para 4 roles del equipo de
-construcción:
+Los **sprites de agente** (`IMG[<rol>]`) existen para los roles originales. Los
+**3 agentes nuevos** (`copywriter`, `analytics`, `devops`) **no tienen sprite
+propio todavía**; solo `analytics` aparece en el mapa de construcción y cae al
+sprite genérico del `implementer` (`mcSprite()` lo resuelve), distinguido por su
+halo teal. Los **fondos de puesto** (`IMG[ZONEBG[rol]]`) existen para 4 roles
+del equipo de construcción:
 
 - `researcher` → `investigacion` ✓
 - `test-writer` → `testing` ✓
 - `backend-dev` → `backend` ✓
 - `frontend-dev` → `frontend` ✓
 
-**Faltan** los fondos de zona de `reviewer` y `security-auditor` (hoy usan un
-tinte de respaldo). Al generarlos, añadir la imagen a `IMG` y la entrada al mapa
-`ZONEBG`. Prompts de generación: ver el chat de diseño / abajo.
+**Faltan** los fondos de zona de `reviewer`, `security-auditor` y `analytics`
+(hoy usan un tinte de respaldo), y un **sprite propio para `analytics`** (hoy
+reusa el del implementer). Al generarlos, añadir la imagen a `IMG` y la entrada
+al mapa `ZONEBG`/sprite. Prompts de generación: ver el chat de diseño / abajo.
 
 Estilo a respetar para que peguen con los 4 existentes: **pixel-art top-down
 16-bit (estilo SNES JRPG)**, una sala/estación de trabajo vista desde arriba,
