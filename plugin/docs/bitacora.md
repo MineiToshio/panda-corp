@@ -4,6 +4,11 @@ Decisiones sobre el plugin: skills, agentes, hooks, plantillas y flujo de la fá
 
 > Recordatorio: tras editar `plugin/`, commitear y correr `claude plugin update pandacorp@panda-corp` (ver `CLAUDE.md`).
 
+## 2026-06-15 — Rename `codify` → `teach` (+ teach crea skills delegando a skill-creator) · v2.0.0
+**Qué:** Se renombró el comando `/pandacorp:codify` a `/pandacorp:teach` (el nombre "codify" se leía como "escribir código", lo opuesto a lo que hace: registrar know-how durable). `teach` ahora cubre un tercer artefacto además de estándar y regla de decisión: **crear/mejorar un skill**, delegando autoría y evaluación al `skill-creator` nativo (componer, no reinventar); teach solo agrega el gate del dueño, la colocación en el plugin, la política de seguridad/vendorizado de skills externos y el ritual de activación. Renombrar un skill = **MAJOR** (DR-034).
+**Por qué:** El nombre confundía; y crear skills es know-how durable (dominio de `teach`), no producto (dominio de `implement`) — reusando `skill-creator` en vez de clonarlo.
+**Impacto:** `plugin/skills/codify/` → `plugin/skills/teach/SKILL.md`, `plugin/.claude-plugin/plugin.json` (2.0.0), `fabrica/estandares/README.md`, `mission-control/docs/frds/frd-07-configuracion.md`, `mission-control/prototype/index.html`, `docs/propuestas/08-catalogo-estandares-reglas.md`. Activación: commit + `claude plugin update pandacorp@panda-corp` + reiniciar.
+
 ## 2026-06-15 — Renombre app/panel reflejado en los skills (cockpit→Mission Control, panel→Party) · v1.2.3
 **Qué:** Tras el renombre de la app (ver [fabrica/bitacora.md](../../fabrica/bitacora.md) y [mission-control/docs/bitacora.md](../../mission-control/docs/bitacora.md)), se actualizó el vocabulario en los skills y artefactos del plugin: `implement`, `decide`, `recommend`, `codify`, `bug`, `blueprint` (prosa y descripciones: "el cockpit" → "Mission Control"; "se sigue en Mission Control" donde antes decía el panel), `plugin/scripts/emit-event.sh` y `plugin/templates/shared/docs/estado.yaml.tpl` (comentarios). Sin cambio de comportamiento → bump **PATCH 1.2.2 → 1.2.3**.
 **Por qué:** Los skills mencionan dónde "se sigue la construcción"; deben usar el nombre correcto (Mission Control = la app; Party = el panel RPG por proyecto).

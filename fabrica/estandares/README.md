@@ -35,4 +35,4 @@ Cada archivo separa, sin mezclar: **Regla** (taxativa, lo que se inyecta al agen
 1. **Convenciones duraderas — OBLIGATORIAS** e iguales en todo proyecto (estructura, naming, calidad, patrones, testing, seguridad, privacidad…).
 2. **Stack tecnológico — SUGERENCIA** por defecto ([stack.md](stack.md), últimas versiones estables): el `architect` lo propone en el blueprint, puede sugerir mejores, y **el dueño aprueba** (gate ligero, ADR).
 
-Las convenciones de estructura/patrones están escritas para el stack web por defecto (TypeScript/Next.js). Para otros stacks (Python/scraping) se aplica el **espíritu** (capas separadas, data layer aislado, tests colocados, tipado estricto), adaptado al lenguaje. Agregar un estándar o una regla nueva: `/pandacorp:codify`.
+Las convenciones de estructura/patrones están escritas para el stack web por defecto (TypeScript/Next.js). Para otros stacks (Python/scraping) se aplica el **espíritu** (capas separadas, data layer aislado, tests colocados, tipado estricto), adaptado al lenguaje. Agregar un estándar, una regla o un skill nuevo: `/pandacorp:teach`.
