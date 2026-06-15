@@ -211,3 +211,9 @@ decisiones:
     default: "discover and recommend read factory/profile.md and work in TWO streams, ~50/50: (A) general opportunities of high return/ease, independent of the topic; (B) aligned with the profile (interests, objectives, ASSETS/levers such as audience/community/network/niche), even if the monetary return is lower, because they are useful to them or open doors. RETURN != only money: it also counts opportunity (reach/network/positioning), learning, and personal value, weighted according to the profile's monetization_appetite. OPEN SCOPE: not only monetizable apps — web/mobile app, rework, Claude Code tooling/project, prompt or prompt system, automation, etc. The card records project_type, profile_alignment, and return_type; the new-idea scoring weights return (monetary/opportunity/personal) and fit with the profile"
     requiere_humano: false
     nota: "do not penalize an aligned idea for low monetary ROI if it leverages an asset or opens doors, nor a general idea for not being 'on topic'. See factory/ideas/decision-log.md (2026-06-15)"
+
+  - id: DR-040
+    patron: "git workflow: branching and pushing to main"
+    default: "the solo operator commits and pushes to main DIRECTLY — no mandatory feature branch or PR (human review adds no value with a single operator; the quality gate is the reviewer in /pandacorp:implement + .pandacorp/verify.sh). A throwaway branch is OPTIONAL, only for big/risky changes the owner may want to abort wholesale. STILL BLOCKED by block-dangerous.sh (anti-catastrophe, not workflow): force-push, deleting the main branch, git reset --hard, rm -rf of roots, gh repo delete. Applies to the factory and to every scaffolded project"
+    requiere_humano: false
+    nota: "replaces the previous 'feature branches; never push to main' rule (constitution §11). Removed the direct-push-to-main block from plugin/scripts/block-dangerous.sh"

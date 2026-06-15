@@ -20,4 +20,4 @@ Continuous iteration mechanism. Runs IN the project. `$ARGUMENTS` (or the conver
 - **Three channels to talk to a build in progress** (all three communicate via files; `implement` checks them at each safe point): `/pandacorp:bug` (something broken → `docs/bugs/` inbox), `/pandacorp:iterate` (change or module → this skill triages), `/pandacorp:decide` (answer something the AI asked). If what the owner asks for is actually a bug or an answer, redirect them.
 - It does NOT require creating a formal "version": versions (v2, v3…) are automatic tags that `release` puts from the conventional commits. To group a large batch into a formal milestone with its own mini-PRD, use `/pandacorp:new-version`.
 - Keep the scope bounded to what was requested (DR-012). Don't take the chance to rewrite more than needed.
-- Conventional commits in English, feature branch.
+- Conventional commits in English with scope; direct to main is fine, never force-push.

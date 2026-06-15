@@ -17,7 +17,7 @@ User request → this AGENTS.md → the project documents in `docs/` → languag
 
 **Constants**: no magic strings/numbers; centralize in `lib/constants.ts`. Validate inputs at the boundaries with Zod (or equivalent).
 
-**Commits**: Conventional Commits with scope, in English. Feature branches; never push directly to main or force-push.
+**Commits**: Conventional Commits with scope, in English. Direct push to `main` is fine (solo operator; quality gate = the `implement` reviewer + `.pandacorp/verify.sh`). Never force-push; use a throwaway branch only for big/risky changes.
 
 **Quality — before calling something done** (verified by `.pandacorp/verify.sh`): green tests + type-check + lint/format with no errors. TDD per work order (RED → GREEN → refactor). E2E only on critical flows with `data-testid`.
 

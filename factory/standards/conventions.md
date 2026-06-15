@@ -46,3 +46,4 @@
 ## Comments and commits
 - Comments explain **why/what**, not references to tickets/issues/epics in the code.
 - **Conventional Commits** with scope, in English: `feat(orders): add table selection`, `fix(api): handle null response`.
+- **Direct push to `main` is allowed** (solo operator): no mandatory feature-branch/PR — the quality gate is the `implement` reviewer + `.pandacorp/verify.sh`, not human review. **Never force-push**; use a throwaway branch only for big/risky changes you may want to abort wholesale.

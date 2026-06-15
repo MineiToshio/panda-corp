@@ -2,6 +2,11 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-06-15 — Solo-operator git workflow: direct push to main allowed (no mandatory PR)
+**What:** Dropped the "feature branches; never push to main" rule. The solo operator commits and pushes to `main` directly; mandatory PRs/branches are gone (there is no second human to review). The quality gate is the `reviewer` in `/pandacorp:implement` + `.pandacorp/verify.sh`. A throwaway branch stays as an OPTIONAL tool for big/risky changes. Removed the direct-push-to-main block from `block-dangerous.sh`; kept the anti-catastrophe guards (force-push, delete main branch, `reset --hard`, `rm -rf`, `gh repo delete`).
+**Why:** With a single operator, human PR review adds no value — it's pure friction. The agentic review during the build is the real gate.
+**Impact:** `plugin/scripts/block-dangerous.sh`, `factory/constitution.md` (§11), `factory/standards/conventions.md`, `factory/decisions/registry.yaml` (DR-040), the project templates `CLAUDE.md.tpl`/`AGENTS.md.tpl`, the build agents (`implementer`, `backend-dev`, `frontend-dev`), the `iterate` skill, `mission-control/PLAN.md`. Applies to the factory and every scaffolded project.
+
 ## 2026-06-15 — Interaction language: the agent always talks to the owner in Spanish
 **What:** Made explicit a second language axis. The ARTIFACT language follows git state (committed = English / gitignored = Spanish, DR-009). The INTERACTION language is separate: everything the agent says to the owner — in chat and inside any skill (questions, explanations, progress, recommendations, summaries) — is ALWAYS in Spanish, regardless of the artifact's language.
 **Why:** The owner operates Pandacorp in Spanish; the "committed = English" rule must not be misread as "answer the owner in English." The agent writes English into committed files but addresses the owner in Spanish.

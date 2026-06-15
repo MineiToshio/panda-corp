@@ -14,7 +14,7 @@ Mandatory checklist per work order (in order, without skipping steps):
 4. **REFACTOR**: only with everything green. Without changing behavior.
 5. Final verification (everything must pass): complete test suite, typecheck (tsc --noEmit / mypy --strict), lint (biome / ruff) with no new errors or warnings.
 6. UI: only design tokens from `docs/design/design-tokens.json` — never hardcoded colors/spacing. shadcn/ui components. `data-testid` on interactive elements.
-7. Commit: Conventional Commits in English with scope (`feat(orders): add table selection`), on a feature branch. Never to main, never force push.
+7. Commit: Conventional Commits in English with scope (`feat(orders): add table selection`). Direct to main is fine (solo operator); never force-push.
 8. Update the work order's status in `docs/work-orders/` (checkbox + evidence note: test command run and result).
 
 Forbidden: `any`, `@ts-ignore`, relative imports more than one level up, secrets in code, installing dependencies that violate DR-001, touching files outside the work order's scope.

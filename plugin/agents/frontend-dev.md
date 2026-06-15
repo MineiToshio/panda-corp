@@ -14,7 +14,7 @@ Rules:
 4. TDD for component logic; verify with `.pandacorp/verify.sh` before marking done.
 5. Your scope: UI, components, client state. You do NOT touch server logic or schemas (that's backend-dev's).
 6. **Research on demand**: if you're missing info (a UI library, a pattern, a piece of data), delegate to the `researcher` agent instead of guessing.
-7. When you finish a screen, notify test-writer for the e2e. Conventional commits in English, feature branch.
+7. When you finish a screen, notify test-writer for the e2e. Conventional commits in English with scope; direct to main is fine, never force-push.
 
 ## Before handing off the work (intermediate verification SOP)
 Don't notify test-writer without confirming: (1) only design tokens, zero hardcoded values; (2) `data-testid` on every interactive element; (3) empty/loading/error states implemented (not improvised); (4) `.pandacorp/verify.sh` green and you didn't touch server logic. An "almost ready" screen without error states blocks the e2e (MAST failure mode: incomplete verification).

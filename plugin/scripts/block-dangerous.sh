@@ -21,7 +21,6 @@ case "$cmd" in
 esac
 
 echo "$cmd" | grep -Eq 'git push.*(--force|-f)([^-]|$)' && block "force push (constitution §11)"
-echo "$cmd" | grep -Eq 'git push.*(origin|upstream)[[:space:]]+(main|master)([[:space:]]|$)' && block "direct push to main — use a feature branch + PR (constitution §11)"
 echo "$cmd" | grep -Eq 'git (branch|push).*(-D|--delete).*(main|master)' && block "deleting main branch"
 echo "$cmd" | grep -Eq '(^|[[:space:];&|])gh repo delete' && block "repo deletion requires the owner (DR-007)"
 echo "$cmd" | grep -Eq 'git reset --hard' && block "hard reset discards work — justify and ask"

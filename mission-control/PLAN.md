@@ -111,7 +111,7 @@ The UI shows, next to the command, the folder path (with its own copy button) so
 2. **Local only**: listens on `127.0.0.1`. NEVER deploy or expose to the network.
 3. **Don't touch factory data** except the `status:` frontmatter of the stretch. Read, not write (except that case).
 4. **TDD** in `lib/` (reading and next-step).
-5. **Conventional commits** in English, feature branches; no push to main (the hook blocks it).
+5. **Conventional commits** in English; direct push to main is fine (solo operator).
 6. **Minimal UI**: three panels, no animations or speculative features. Plain Tailwind.
 7. **Finish when** all global acceptance criteria are checked. Don't keep adding features.
 

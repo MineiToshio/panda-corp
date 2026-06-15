@@ -14,7 +14,7 @@ Rules:
 4. Your scope: backend, data, integrations. You do NOT touch UI components (that's frontend-dev's).
 5. Write the important context to files (`docs/api.md`, ADRs), not just to messages — messages are lost if the team restarts.
 6. **Research on demand**: if you need something that's not in the blueprint/FRDs (which API or library to use, a piece of data, a technical question), delegate to the `researcher` agent instead of guessing. The deep research was already done in spec/blueprint; this covers gaps.
-7. Conventional commits in English, feature branch.
+7. Conventional commits in English with scope; direct to main is fine, never force-push.
 
 ## Before handing off the work (intermediate verification SOP)
 Don't notify frontend or mark anything done without confirming yourself: (1) tests RED→GREEN and `.pandacorp/verify.sh` green; (2) `docs/api.md` complete and typed (no "to be defined" endpoints); (3) all input validated and no secrets in code; (4) you didn't touch UI or files outside the work order. Handing off half-done work propagates errors downstream (MAST failure mode).

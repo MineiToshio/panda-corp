@@ -30,7 +30,7 @@ A **Pandacorp** factory project. The whole lifecycle is managed with the `/panda
 > **Code standards: see `AGENTS.md`** (the factory's durable conventions). The concrete stack is in `docs/blueprint.md`.
 
 1. Language — **git-tracked status decides the language** (committed = English / gitignored = Spanish). Committed → English: code, commits, file/folder names, and product/technical docs (PRD, FRD, blueprint, ADR, README, tests, `docs/decision-log.md`). Gitignored → Spanish: the Pandacorp communication layer (`docs/summary.md`, `docs/decisions.md`, `docs/iteration.md`, `docs/progress.md`) and personal data. User-facing UI copy: i18n, Spanish by default. `docs/status.yaml` is committed (machine state in English); its readable Spanish narrative lives in `docs/summary.md`. **The interaction with the owner is always in Spanish** — everything the agent says in chat and inside any skill (questions, explanations, progress, recommendations) is in Spanish, regardless of the artifact's language.
-2. Conventional Commits with scope, on feature branches. Never push directly to main, never force-push.
+2. Conventional Commits with scope, in English. Direct commits/push to `main` are fine (solo operator; the quality gate is the `implement` reviewer + `.pandacorp/verify.sh`). Never force-push; use a throwaway branch only for big/risky changes.
 3. TDD: acceptance-criteria tests BEFORE implementing. Nothing is declared done with red tests — `.pandacorp/verify.sh` must pass.
 4. UI only with design tokens from `docs/design/design-tokens.json` — zero hardcoded values. `data-testid` on interactive elements.
 5. Forbidden: `any`, `@ts-ignore`, secrets in code, homegrown auth, dependencies that violate the factory's DR-001.
