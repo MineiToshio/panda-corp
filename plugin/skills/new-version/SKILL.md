@@ -1,24 +1,24 @@
 ---
-description: Agrupa un lote grande de cambios en un hito formal (v2, v3…) de un proyecto lanzado, con su propio mini-PRD. OPCIONAL — para el día a día (agregar una funcionalidad o un ajuste) usar /pandacorp:iterate. Usar new-version solo para rediseños o paquetes grandes que justifican un PRD nuevo.
+description: Groups a large batch of changes into a formal milestone (v2, v3…) of a shipped project, with its own mini-PRD. OPTIONAL — for the day-to-day (adding a feature or an adjustment) use /pandacorp:iterate. Use new-version only for redesigns or large packages that justify a new PRD.
 ---
 
 # /pandacorp:new-version
 
-Nueva iteración de un proyecto existente. Se ejecuta EN el proyecto. `$ARGUMENTS`: qué quiere lograr el dueño con esta versión (o pregúntale).
+New iteration of an existing project. Runs IN the project. `$ARGUMENTS`: what the owner wants to achieve with this version (or ask them).
 
-## Pasos
+## Steps
 
-1. **Contexto**: lee `docs/estado.yaml`, `docs/prd.md` (backlog de futuras versiones), feedback/operación acumulada y los FRDs existentes.
-2. **Define la versión**: con el agente `product-manager`, convierte el objetivo en scope concreto — qué FRDs nuevos, qué FRDs existentes cambian, qué se deja fuera (DR-012). Incrementa `version:` en `docs/estado.yaml`.
-3. **Re-entra al pipeline, solo lo que cambia**:
-   - FRDs nuevos/modificados → `docs/frds/` (numeración continúa)
-   - ¿Pantallas nuevas o cambios visuales? → mini fase de diseño (mockup de lo nuevo, mismos tokens congelados; gate visual solo si cambia el lenguaje visual)
-   - ¿Impacto arquitectónico? → actualizar blueprint + ADR; si no, saltar
-   - Work orders nuevos → `docs/work-orders/` (numeración continúa)
-4. **Implementación**: mismo loop de `/pandacorp:implement`. Regresión completa: los tests de versiones anteriores deben seguir verdes.
-5. **Release**: `/pandacorp:release` (mismos gates).
-6. Sincroniza el portfolio de la fábrica al cerrar (o corre `/pandacorp:sync-portfolio` desde panda-corp).
+1. **Context**: read `docs/status.yaml`, `docs/prd.md` (backlog of future versions), accumulated feedback/operation and the existing FRDs.
+2. **Define the version**: with the `product-manager` agent, turn the goal into concrete scope — which new FRDs, which existing FRDs change, what is left out (DR-012). Increment `version:` in `docs/status.yaml`.
+3. **Re-enter the pipeline, only what changes**:
+   - New/modified FRDs → `docs/frds/` (numbering continues)
+   - New screens or visual changes? → mini design phase (mockup of the new stuff, same frozen tokens; visual gate only if the visual language changes)
+   - Architectural impact? → update blueprint + ADR; if not, skip
+   - New work orders → `docs/work-orders/` (numbering continues)
+4. **Implementation**: same `/pandacorp:implement` loop. Full regression: the tests of previous versions must stay green.
+5. **Release**: `/pandacorp:release` (same gates).
+6. Sync the factory portfolio at close (or run `/pandacorp:sync-portfolio` from panda-corp).
 
-## Reglas
-- La numeración de FRDs/work orders nunca se reinicia — la historia del proyecto es continua.
-- No tocar los contratos congelados (design tokens, esquemas públicos) sin ADR que lo justifique.
+## Rules
+- FRD/work-order numbering is never reset — the project's history is continuous.
+- Don't touch the frozen contracts (design tokens, public schemas) without an ADR that justifies it.

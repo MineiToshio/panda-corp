@@ -1,30 +1,30 @@
 # AGENTS.md — {{PROJECT_NAME}}
 
-Estándares para cualquier agente de IA que trabaje en este proyecto. Es la fuente de verdad de convenciones, alineada con los estándares de la fábrica Pandacorp. (Claude Code también lee `CLAUDE.md`, que apunta aquí.)
+Standards for any AI agent working on this project. It is the source of truth for conventions, aligned with the Pandacorp factory standards. (Claude Code also reads `CLAUDE.md`, which points here.)
 
-## Orden de prioridad
-Pedido del usuario → este AGENTS.md → documentos del proyecto en `docs/` → defaults del lenguaje.
+## Priority order
+User request → this AGENTS.md → the project documents in `docs/` → language defaults.
 
-## Convenciones duraderas (obligatorias)
+## Durable conventions (mandatory)
 
-**Idioma**: código en inglés (variables, funciones, tipos, comentarios, commits). Documentos en español. Contenido visible al usuario vía i18n (nunca hardcodeado).
+**Language** — git-tracked status decides the language: committed → English (code: variables, functions, types, comments, commits; and product/technical docs); gitignored → Spanish (the owner-facing communication layer + personal data). User-facing content via i18n, Spanish by default (never hardcoded). **The interaction with the owner is always in Spanish** — everything the agent says in chat and inside any skill (questions, explanations, progress, recommendations) is in Spanish, regardless of the artifact's language.
 
-**Tipado**: estricto siempre (TS `strict` / `mypy --strict`). Prohibido `any` y `@ts-ignore`. Preferir `unknown`.
+**Typing**: strict always (TS `strict` / `mypy --strict`). `any` and `@ts-ignore` forbidden. Prefer `unknown`.
 
-**Estructura**: data layer aislado (todo acceso a BD en `queries/` o capa equivalente, nunca desde componentes). Código por feature (`_components/`, `_actions/`, `_schemas/`). Reuso antes de crear (revisar `components/core` → `modules` → local). Tests colocados; e2e en `e2e/`.
+**Structure**: isolated data layer (all DB access in `queries/` or an equivalent layer, never from components). Feature-first code (`_components/`, `_actions/`, `_schemas/`). Reuse before creating (check `components/core` → `modules` → local). Colocated tests; e2e in `e2e/`.
 
-**Patrones** (stack web): Server Components por defecto, `"use client"` solo si hace falta; Server Actions primero; UI optimista (actualizar y revertir si falla); HTML semántico + a11y (axe-core); tema claro/oscuro con variables semánticas; estilos solo con design tokens (`docs/diseno/design-tokens.json`), nunca colores hardcodeados.
+**Patterns** (web stack): Server Components by default, `"use client"` only when needed; Server Actions first; optimistic UI (update and revert on failure); semantic HTML + a11y (axe-core); light/dark theme with semantic variables; styles only with design tokens (`docs/design/design-tokens.json`), never hardcoded colors.
 
-**Constantes**: sin magic strings/números; centralizar en `lib/constants.ts`. Validar inputs en fronteras con Zod (o equivalente).
+**Constants**: no magic strings/numbers; centralize in `lib/constants.ts`. Validate inputs at the boundaries with Zod (or equivalent).
 
-**Commits**: Conventional Commits con scope, en inglés. Feature branches; nunca push directo a main ni force push.
+**Commits**: Conventional Commits with scope, in English. Direct push to `main` is fine (solo operator; quality gate = the `implement` reviewer + `.pandacorp/verify.sh`). Never force-push; use a throwaway branch only for big/risky changes.
 
-**Calidad — antes de dar algo por terminado** (lo verifica `.pandacorp/verify.sh`): tests verdes + type-check + lint/format sin errores. TDD por work order (RED → GREEN → refactor). E2E solo en flujos críticos con `data-testid`.
+**Quality — before calling something done** (verified by `.pandacorp/verify.sh`): green tests + type-check + lint/format with no errors. TDD per work order (RED → GREEN → refactor). E2E only on critical flows with `data-testid`.
 
-**Documentación (dos capas)**: todo cambio relevante actualiza su **doc canónico** —comportamiento → el FRD correspondiente (`docs/frds/`); técnico → `docs/blueprint.md` + un ADR; diseño → `DESIGN.md`/tokens; alcance → `docs/prd.md`— **y** añade una entrada en `docs/bitacora.md` (fecha, qué, por qué, enlace al doc). El doc canónico es la verdad actual; la bitácora, la historia. Un cambio de comportamiento no está terminado sin su FRD actualizado y su entrada de bitácora. Estándar: `documentacion.md` de la fábrica.
+**Documentation (two layers)**: every relevant change updates its **canonical doc** —behavior → the corresponding FRD (`docs/frds/`); technical → `docs/blueprint.md` + an ADR; design → `DESIGN.md`/tokens; scope → `docs/prd.md`— **and** adds an entry to `docs/decision-log.md` (date, what, why, link to the doc). The canonical doc is the current truth; the decision log is the history. A behavior change is not done without its updated FRD and its log entry. Standard: the factory's `documentation.md`.
 
-## Stack de este proyecto
-Definido en `docs/blueprint.md` (elegido y aprobado en la fase de arquitectura). Ver ahí versiones y servicios concretos.
+## This project's stack
+Defined in `docs/blueprint.md` (chosen and approved in the architecture phase). See concrete versions and services there.
 
-## Detalle
-Estándares completos de la fábrica: convenciones, estructura, patrones, calidad y stack recomendado. Si algo no está aquí, seguir el espíritu de estos principios y, si es una decisión recurrente, consultar el registro de decisiones de la fábrica.
+## Detail
+The factory's full standards: conventions, structure, patterns, quality and recommended stack. If something isn't here, follow the spirit of these principles and, if it's a recurring decision, consult the factory's decision registry.

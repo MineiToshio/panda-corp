@@ -1,41 +1,42 @@
 # {{PROJECT_NAME}}
 
-Proyecto de la fábrica **Pandacorp**. Todo el ciclo de vida se gestiona con los skills `/pandacorp:*`.
+A **Pandacorp** factory project. The whole lifecycle is managed with the `/pandacorp:*` skills.
 
-## Origen — Pandacorp
+## Origin — Pandacorp
 
-- Fábrica: `{{FACTORY_PATH}}` (know-how, base de ideas, portfolio)
-- Ficha de idea original: `{{IDEA_FILE}}` (copia congelada en `docs/idea-origen.md`)
-- Estándares y proceso: vienen del **plugin pandacorp** — NO buscarlos en la fábrica
-- TODA la documentación de este producto vive AQUÍ en `docs/` — nunca en la fábrica
-- Estado del proyecto: `docs/estado.yaml` (la fábrica lo lee para su portfolio; mantenerlo al día)
+- Factory: `{{FACTORY_PATH}}` (know-how, idea base, portfolio)
+- Original idea card: `{{IDEA_FILE}}` (frozen copy in `docs/idea-origin.md`)
+- Standards and process: they come from the **pandacorp plugin** — do NOT look for them in the factory
+- ALL of this product's documentation lives HERE in `docs/` — never in the factory
+- Project status: `docs/status.yaml` (the factory reads it for its portfolio; keep it current)
 
-## Mapa de documentación
+## Documentation map
 
-| Qué | Dónde |
+| What | Where |
 |---|---|
-| Investigación de producto | `docs/investigacion-producto.md` |
+| Product research | `docs/product-research.md` |
 | PRD | `docs/prd.md` |
-| FRDs (funcionalidades + criterios EARS) | `docs/frds/` |
-| Diseño (referencias, tokens, mockups, decisiones) | `docs/diseno/` + `DESIGN.md` |
-| Blueprint técnico | `docs/blueprint.md` |
+| FRDs (features + EARS criteria) | `docs/frds/` |
+| Design (references, tokens, mockups, decisions) | `docs/design/` + `DESIGN.md` |
+| Technical blueprint | `docs/blueprint.md` |
 | ADRs | `docs/adr/` |
 | Work orders | `docs/work-orders/` |
-| Reviews y auditorías | `docs/reviews/` |
-| **Bitácora** (decisiones + porqué, historia) | `docs/bitacora.md` |
+| Reviews and audits | `docs/reviews/` |
+| **Decision log** (decisions + why, history) | `docs/decision-log.md` |
+| **Owner-facing narrative** (Spanish, gitignored) | `docs/summary.md`, `docs/decisions.md`, `docs/iteration.md` |
 
-## Reglas del proyecto
+## Project rules
 
-> **Estándares de código: ver `AGENTS.md`** (convenciones duraderas de la fábrica). El stack concreto está en `docs/blueprint.md`.
+> **Code standards: see `AGENTS.md`** (the factory's durable conventions). The concrete stack is in `docs/blueprint.md`.
 
-1. Idioma: docs en español; código, commits e identificadores en inglés.
-2. Conventional Commits con scope, en feature branches. Nunca push directo a main, nunca force push.
-3. TDD: tests de criterios de aceptación ANTES de implementar. Nada se declara terminado con tests rojos — `.pandacorp/verify.sh` debe pasar.
-4. UI solo con design tokens de `docs/diseno/design-tokens.json` — cero valores hardcodeados. `data-testid` en elementos interactivos.
-5. Prohibido: `any`, `@ts-ignore`, secretos en código, auth casero, dependencias que violen DR-001 de la fábrica.
-6. Decisiones no cubiertas por los documentos: consultar el registro de la fábrica (`fabrica/decisiones/registro.yaml`); si no está, escalar al dueño.
-7. Documentar todo (dos capas): cada cambio relevante actualiza su **doc canónico** (comportamiento → el FRD; técnico → blueprint + ADR; diseño → DESIGN/tokens; alcance → PRD) **y** añade una entrada en `docs/bitacora.md` con el porqué, enlazando el doc. Ver `AGENTS.md`.
+1. Language — **git-tracked status decides the language** (committed = English / gitignored = Spanish). Committed → English: code, commits, file/folder names, and product/technical docs (PRD, FRD, blueprint, ADR, README, tests, `docs/decision-log.md`). Gitignored → Spanish: the Pandacorp communication layer (`docs/summary.md`, `docs/decisions.md`, `docs/iteration.md`, `docs/progress.md`) and personal data. User-facing UI copy: i18n, Spanish by default. `docs/status.yaml` is committed (machine state in English); its readable Spanish narrative lives in `docs/summary.md`. **The interaction with the owner is always in Spanish** — everything the agent says in chat and inside any skill (questions, explanations, progress, recommendations) is in Spanish, regardless of the artifact's language.
+2. Conventional Commits with scope, in English. Direct commits/push to `main` are fine (solo operator; the quality gate is the `implement` reviewer + `.pandacorp/verify.sh`). Never force-push; use a throwaway branch only for big/risky changes.
+3. TDD: acceptance-criteria tests BEFORE implementing. Nothing is declared done with red tests — `.pandacorp/verify.sh` must pass.
+4. UI only with design tokens from `docs/design/design-tokens.json` — zero hardcoded values. `data-testid` on interactive elements.
+5. Forbidden: `any`, `@ts-ignore`, secrets in code, homegrown auth, dependencies that violate the factory's DR-001.
+6. Decisions not covered by the documents: consult the factory registry (`factory/decisions/registry.yaml`); if it's not there, escalate to the owner.
+7. Document everything (two layers): every relevant change updates its **canonical doc** (behavior → the FRD; technical → blueprint + ADR; design → DESIGN/tokens; scope → PRD) **and** adds an entry to `docs/decision-log.md` with the why, linking the doc. See `AGENTS.md`.
 
-## Fase actual
+## Current phase
 
-Ver `docs/estado.yaml`. Pipeline: producto → diseño → arquitectura → construcción → release → operación.
+See `docs/status.yaml`. Pipeline: product → design → architecture → build → release → operation.

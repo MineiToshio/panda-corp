@@ -1,30 +1,30 @@
-# Stack A — Web app full-stack (Next.js) · sugerencia por defecto
+# Stack A — Full-stack web app (Next.js) · default suggestion
 
-Guía de instalación para `/pandacorp:blueprint`, caso web full-stack. Es el **punto de partida recomendado** (`fabrica/estandares/stack.md`), NO una imposición: el `architect` puede proponer alternativas mejores y el dueño aprueba en el blueprint. **Usar siempre últimas versiones estables** (los comandos `@latest` ya lo hacen). Stack recomendado: Next.js + React + TypeScript + Tailwind + **Prisma** + **Better Auth** + **next-intl** + **PostHog** + **Sentry** + Vitest + Playwright + **ESLint/Prettier** + **npm**, estructura `src/` con data layer en `queries/`.
+Installation guide for `/pandacorp:blueprint`, full-stack web case. It's the **recommended starting point** (`factory/standards/stack.md`), NOT a mandate: the `architect` can propose better alternatives and the owner approves in the blueprint. **Always use the latest stable versions** (the `@latest` commands already do this). Recommended stack: Next.js + React + TypeScript + Tailwind + **Prisma** + **Better Auth** + **next-intl** + **PostHog** + **Sentry** + Vitest + Playwright + **ESLint/Prettier** + **npm**, `src/` structure with the data layer in `queries/`.
 
-## Instalación
+## Installation
 
 ```bash
-# Scaffolder oficial (elegir según blueprint: tRPC u opciones por defecto)
-pnpm create t3-app@latest . --noGit   # ya hay git del scaffold Pandacorp
-# Opciones: TypeScript, Tailwind, Drizzle, App Router; auth según blueprint (Better Auth post-install o NextAuth)
+# Official scaffolder (choose based on the blueprint: tRPC or default options)
+pnpm create t3-app@latest . --noGit   # the Pandacorp scaffold already has git
+# Options: TypeScript, Tailwind, Drizzle, App Router; auth per the blueprint (Better Auth post-install or NextAuth)
 ```
 
-## Configuración estándar Pandacorp (después del scaffolder)
+## Standard Pandacorp configuration (after the scaffolder)
 
-1. **tsconfig**: agregar `"noUncheckedIndexedAccess": true` (strict ya viene).
-2. **Biome** (reemplaza ESLint+Prettier si el blueprint no exige plugins ESLint específicos):
+1. **tsconfig**: add `"noUncheckedIndexedAccess": true` (strict already comes).
+2. **Biome** (replaces ESLint+Prettier if the blueprint doesn't require specific ESLint plugins):
    ```bash
    pnpm add -D -E @biomejs/biome && pnpm biome init
    ```
 3. **Testing**: `pnpm add -D vitest @testing-library/react @testing-library/jest-dom jsdom @playwright/test`
-4. **shadcn/ui**: `pnpm dlx shadcn@latest init` — usar el preset/tokens de `docs/diseno/design-tokens.json`.
-5. **BD**: **dev → Postgres en Docker** (ver abajo); **staging/prod → managed** (Neon/Supabase). Connection string solo en `.env` (DR-021).
-6. **Estructura**: features en carpetas (`src/features/<feature>/`), shared en `src/lib/`, componentes un archivo + test colocado.
+4. **shadcn/ui**: `pnpm dlx shadcn@latest init` — use the preset/tokens from `docs/design/design-tokens.json`.
+5. **DB**: **dev → Postgres in Docker** (see below); **staging/prod → managed** (Neon/Supabase). Connection string only in `.env` (DR-021).
+6. **Structure**: features in folders (`src/features/<feature>/`), shared in `src/lib/`, components one file + colocated test.
 
-## Base de datos en dev (Docker) + worktrees (DR-021/022/023)
+## Database in dev (Docker) + worktrees (DR-021/022/023)
 
-`docker-compose.yml` con Postgres (y Redis si aplica); el puerto sale del `.env` (convención de puertos de `fabrica/estandares/infra.md`). El agente lo levanta con `docker compose up -d` antes de los tests.
+`docker-compose.yml` with Postgres (and Redis if applicable); the port comes from the `.env` (port convention in `factory/standards/infra.md`). The agent brings it up with `docker compose up -d` before the tests.
 
 ```yaml
 # docker-compose.yml (dev)
@@ -37,14 +37,14 @@ services:
 volumes: { pgdata: {} }
 ```
 
-**`.worktreeinclude`** en la raíz (copia config no versionada a cada worktree nuevo, para probar un snapshot sin reconfigurar):
+**`.worktreeinclude`** at the root (copies unversioned config to each new worktree, to test a snapshot without reconfiguring):
 
 ```
 .env
 .env.local
 ```
 
-Probar el último verde sin parar al agente: `git worktree add ../<proyecto>-review <last_green_sha>` → en esa carpeta, `pnpm install` (rápido con el store de pnpm), ajusta `DB_PORT` en su `.env`, `docker compose -p <proyecto>-review up -d`, y corre el dev server. Una sola carpeta de review, refrescada al último verde.
+Test the last green without stopping the agent: `git worktree add ../<project>-review <last_green_sha>` → in that folder, `pnpm install` (fast with the pnpm store), adjust `DB_PORT` in its `.env`, `docker compose -p <project>-review up -d`, and run the dev server. A single review folder, refreshed to the last green.
 
 ## `.pandacorp/verify.sh`
 
@@ -58,8 +58,8 @@ pnpm vitest run --reporter=dot
 
 ## CI (`.github/workflows/ci.yml`)
 
-Jobs en paralelo sobre PR: `lint` (biome check), `typecheck` (tsc --noEmit), `test` (vitest run). E2E (`playwright test`) en PRs hacia main. Cache de pnpm.
+Parallel jobs on PR: `lint` (biome check), `typecheck` (tsc --noEmit), `test` (vitest run). E2E (`playwright test`) on PRs to main. pnpm cache.
 
 ## Deploy
 
-Vercel (hobby para empezar). Variables de entorno vía dashboard de Vercel, nunca en el repo.
+Vercel (hobby to start). Environment variables via the Vercel dashboard, never in the repo.

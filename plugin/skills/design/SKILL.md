@@ -1,22 +1,22 @@
 ---
-description: Fase de diseño UX/UI de un proyecto Pandacorp - investigación visual, sistema de diseño, 3 mockups HTML navegables con verificación de accesibilidad, y gate visual del dueño. Usar dentro del proyecto después de /pandacorp:spec.
+description: UX/UI design phase of a Pandacorp project - visual research, design system, 3 navigable HTML mockups with accessibility verification, and the owner's visual gate. Use inside the project after /pandacorp:spec.
 ---
 
 # /pandacorp:design
 
-Fase de diseño. Se ejecuta EN el proyecto (requiere `docs/prd.md` y `docs/frds/` — si faltan, corre antes `/pandacorp:spec`).
+Design phase. Runs IN the project (requires `docs/prd.md` and `docs/frds/` — if they are missing, run `/pandacorp:spec` first).
 
-## Pasos
+## Steps
 
-1. **Investigación visual** (agente `designer`): referencias de 3-5 apps del dominio bien diseñadas → `docs/diseno/referencias.md`.
-2. **Sistema de diseño**: el `designer` define `docs/diseno/design-tokens.json` (paleta, tipografía, espaciado, radios — base shadcn/ui; tweakcn.com como referencia de formato) y `DESIGN.md` en la raíz (tokens + componentes permitidos + prohibiciones).
-3. **Voz y microcopy** (agente `copywriter`, en paralelo con el sistema de diseño): define `docs/diseno/voz-y-tono.md` y escribe el microcopy real de las pantallas clave de los FRDs (labels, botones, estados vacío/carga/error, onboarding) con claves i18n. El `designer` consume estos textos en los mockups en vez de inventarlos — así el texto deja de ser relleno improvisado y mantiene una voz consistente.
-4. **3 direcciones de diseño en paralelo** (3 agentes `designer`, uno por dirección, genuinamente distintas): `docs/diseno/mockups/direction-{1,2,3}.html` — autocontenidos, navegables, mobile-first, cubriendo las pantallas clave de los FRDs con el microcopy real del `copywriter` (nunca lorem ipsum).
-5. **Verificación automática antes del gate**: screenshots 375px/1280px (Playwright) → `docs/diseno/mockups/screenshots/`; accesibilidad (axe-core) → `a11y-report.md`. Violaciones serias se corrigen ANTES de presentar.
-6. **GATE VISUAL (el dueño)**: preséntale las 3 direcciones (abre los HTML o muéstrale los screenshots) y espera su elección o feedback. **Iterar en sitio (DR-032)**: lee primero `docs/iteracion.md` (fase `diseno`); por cada ronda de cambios refina los mockups y **apenda** una entrada (qué se probó, qué rechazó y por qué, qué queda abierto). Elegir una dirección **no** obliga a avanzar: El dueño puede seguir puliéndola las rondas que quiera. Re-correr `design` retoma desde el journal — no regenera de cero ni repite lo descartado.
-7. **Congela el contrato**: dirección elegida → `design-tokens.json` final, `docs/diseno/decisiones-de-diseno.md` con el racional, borra ambigüedad de DESIGN.md. El `copywriter` deja los strings finales con sus claves i18n para que la implementación no los reescriba.
-8. **Gate de avance (DR-032)**: mientras el dueño no dé su "ok, avanza", deja `avance_pendiente: true` en `docs/estado.yaml` y **no** escribas la transición. Solo cuando apruebe: `docs/estado.yaml` → `fase: arquitectura` + `avance_pendiente: false`, y cierra el hilo `diseno` en `docs/iteracion.md`. Siguiente paso: `/pandacorp:blueprint`.
+1. **Visual research** (`designer` agent): references from 3-5 well-designed apps in the domain → `docs/design/references.md`.
+2. **Design system**: the `designer` defines `docs/design/design-tokens.json` (palette, typography, spacing, radii — shadcn/ui base; tweakcn.com as a format reference) and `DESIGN.md` at the root (tokens + allowed components + prohibitions).
+3. **Voice and microcopy** (`copywriter` agent, in parallel with the design system): defines `docs/design/voice-and-tone.md` and writes the real microcopy for the key screens of the FRDs (labels, buttons, empty/loading/error states, onboarding) with i18n keys. The `designer` consumes these texts in the mockups instead of inventing them — so the text stops being improvised filler and keeps a consistent voice.
+4. **3 design directions in parallel** (3 `designer` agents, one per direction, genuinely distinct): `docs/design/mockups/direction-{1,2,3}.html` — self-contained, navigable, mobile-first, covering the key screens of the FRDs with the `copywriter`'s real microcopy (never lorem ipsum).
+5. **Automatic verification before the gate**: screenshots at 375px/1280px (Playwright) → `docs/design/mockups/screenshots/`; accessibility (axe-core) → `a11y-report.md`. Serious violations are fixed BEFORE presenting.
+6. **VISUAL GATE (the owner)**: present the 3 directions (open the HTML or show them the screenshots) and wait for their choice or feedback. **Iterate in place (DR-032)**: first read `docs/iteration.md` (phase `design`); for each round of changes refine the mockups and **append** an entry (what was tried, what was rejected and why, what's still open). Choosing a direction does **not** force advancing: the owner can keep polishing it for as many rounds as they want. Re-running `design` resumes from the journal — it doesn't regenerate from scratch or repeat what was discarded.
+7. **Freeze the contract**: chosen direction → final `design-tokens.json`, `docs/design/design-decisions.md` with the rationale, remove ambiguity from DESIGN.md. The `copywriter` leaves the final strings with their i18n keys so the implementation doesn't rewrite them.
+8. **Advance gate (DR-032)**: as long as the owner hasn't given their "ok, advance", leave `advance_pending: true` in `docs/status.yaml` and do **not** write the transition. Only when they approve: `docs/status.yaml` → `phase: architecture` + `advance_pending: false`, and close the `design` thread in `docs/iteration.md`. Next step: `/pandacorp:blueprint`.
 
-## Reglas
-- La implementación posterior SOLO puede usar los tokens congelados — este contrato es el mecanismo que compensa la debilidad del dueño en diseño.
-- Estados vacíos, de carga y de error se diseñan aquí, no se improvisan al codear.
+## Rules
+- The later implementation can ONLY use the frozen tokens — this contract is the mechanism that compensates for the owner's weakness in design.
+- Empty, loading and error states are designed here, not improvised while coding.

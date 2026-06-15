@@ -1,0 +1,47 @@
+# Pandacorp Constitution
+
+Non-negotiable principles of the factory. Every agent, skill, and project complies with them. Changing them requires an explicit decision by the owner.
+
+## Mission
+
+Build a portfolio of **technology solutions** with 100% AI —web/mobile apps, tools, Claude Code tooling, prompt systems, automations—: (1) those that generate **return**, whether monetary or in **opportunity** (reach, network, positioning, learning), and (2) those that make the owner's life easier, monetizable or not.
+
+## Process principles
+
+1. **Spec before code.** Nothing is implemented without a PRD/FRD with verifiable acceptance criteria (EARS format where applicable). The spec is the source of truth.
+2. **Artifacts before chat.** Each phase produces versioned documents in the project's repo. Decisions live in files, not in conversations.
+3. **Deterministic and adversarial verification.** The model proposes; scripts/CI/hooks verify. An agent never declares "done" by self-report: green tests, clean lint, criteria met. The gates are **fail-closed** (any ambiguity or unparsed output = failure, never "passes by default") and run in a clean environment. The verification of a piece of work is done by **another agent** (the `reviewer`, ideally of a different model than the one that generated the code), which **re-runs** the evidence and writes **adversarial tests the implementer did not see** — because the errors of a single model cluster together and its tests inherit its blind spots (evidence: see `docs/proposals/06-improvement-plan-2026.md`).
+4. **TDD per work order.** Acceptance tests first (RED), minimal implementation (GREEN), refactor afterward. Maximum 3 repair attempts per subtask; then escalate. The tests are **anchored in human sources** —the EARS criteria of the FRDs and the real bugs recorded in `docs/progress.md`—, not in what the model imagines. At each FRD milestone, **mutation testing** is run (and property-based where applicable) to catch decorative tests. Each work order is a **small chunk, testable in isolation**; the `reviewer` rejects work orders that are too large.
+5. **Design before implementation.** Navigable mockups approved by the owner before writing any product code. The implementation only uses design tokens, never hardcoded values.
+6. **Minimal and explicit human decisions.** Only: idea selection, design choice, release to production, spending money, external communications, data deletion, access changes. Everything else: the decision registry (`factory/decisions/registry.yaml`). Decision not covered → escalate ONCE → codify the answer as a rule. These gates are applied as **hard `deny` rules** in `.claude/settings.json` + deterministic hooks, **never** as limits stated in the conversation (context compaction can lose them); "auto mode" is not a safeguard.
+7. **Every human intervention must reduce future ones.**
+
+## Technical principles
+
+8. **Standards and stack.** The **durable conventions** (structure, quality, patterns, testing) are mandatory and identical in every project: see `factory/standards/`. The **stack is a default suggestion** (`factory/standards/stack.md`, always in the latest stable versions): the `architect` proposes it in the blueprint, may suggest better technologies if they fit, and **the owner approves it** there (lightweight human gate, recorded as an ADR).
+9. **Strict typing and quality.** Strict typing in the chosen language (TS strict / mypy --strict), the stack's linter+formatter, zero new errors/warnings. Detail in `factory/standards/quality.md`.
+10. **Deterministic scaffold.** Projects are born from official templates/scaffolders + the Pandacorp overlay, never improvised.
+11. **Disciplined Git.** Conventional Commits with scope, in English. The solo operator commits and pushes to `main` directly — mandatory PRs add no value with a single human; the quality gate is the `reviewer` in `/pandacorp:implement` + `.pandacorp/verify.sh`, not human PR review. A throwaway branch is optional, only for big/risky changes you may want to abort. Never force-push; keep CI green.
+12. **Security.** Secrets never in code nor in agents' context (injected via environment). Dependencies with a lockfile, without known CVEs, maintained within the last 12 months. Never homemade auth: Better Auth / Supabase Auth. The agentic audit follows the **OWASP Top 10 for Agentic Applications** (ASI01–ASI10, Dec 2025): when agents have access to Bash, memory across work orders, and delegation, first-class risks are **Tool Misuse**, **Identity & Privilege Abuse**, **Memory Poisoning** (poisoning `docs/progress.md` or the shared context), and **Cascading Failures**.
+13. **Traceability.** Architectural decisions → ADR in the project's `docs/adr/` (includes which agent/model decided and the accepted trade-off).
+14. **Implementation with Dynamic Workflows.** The implementation phase runs as a **dynamic workflow** (native Claude Code script) that orchestrates specialized subagents (backend, frontend, testing) with dependencies and parallelism explicit in the code — not loose sequential agents nor peers messaging each other. The work-order loop lives in the script → it is **resumable** and deterministic. Design for Max 5x on projects (see DR-013, DR-014): up to 3 subagents in parallel, judgment on opus, workers on sonnet/haiku. The construction of the factory itself can raise the concurrency while the plan allows it. The critical context between stages is written to files (shared source of truth). Agent Teams is reserved only for occasional adversarial review, never as the backbone.
+
+## Product principles
+
+15. **Language**: git state decides the artifact language — committed = English (code, commits, file/folder names, product/technical docs); gitignored = Spanish (the owner's communication layer + personal data). The agent always talks to the owner in Spanish. Product UI via i18n; the launch locale comes from the spec's market research (DR-041). See `factory/standards/conventions.md` (Language) and DR-009.
+16. **Reinforced UX/UI.** The owner is weak at design: each project researches visual references, uses shadcn/ui + design tokens, generates 3 design directions, and verifies accessibility (axe-core) automatically before the human gate.
+17. **Small releases.** v1 = the minimal slice that validates the value hypothesis. Iterate with `/pandacorp:new-version`.
+18. **Testing per milestone.** Each closed FRD/work order is tested when it closes, not at the end. E2E only on critical flows with `data-testid`.
+
+## Factory/project separation
+
+19. The factory defines the HOW (process, standards, templates) and maintains pointers (portfolio). Every product artifact lives in the project's repo. The project never needs to read the factory to work (the know-how arrives via the plugin).
+
+## Reinforced principles (2026)
+
+> Derived from the research in `docs/proposals/06-improvement-plan-2026.md`.
+
+20. **Living documentation.** Documentation is generated and maintained on its own: changelog from Conventional Commits, ADRs proposed automatically when an architectural change is detected, README/user docs updated as part of the work order, not as a separate task. Docs out of sync with the code = a defect.
+21. **Failure traceability.** Each hook and each gate exists to prevent a **known failure mode** (MAST taxonomy: system design, inter-agent misalignment, task verification/termination). The `Stop`/`verify.sh` gate prevents *premature termination* and *incomplete/incorrect verification*. Each agent carries an **intermediate-verification SOP** (what it confirms before handing off the work), not just the orchestrator skill.
+22. **Do not trust the model's honesty.** A model's propensity to "cheat" depends on its training; a worker is never assumed to be honest. That is why all evidence is **re-verified** independently and the evaluation environment is **hardened** (fail-closed, fixtures not exposed, test names not revealed to the generator).
+23. **Unattended construction over safe points.** `implement` runs for hours without babysitting (auto mode + freeze-on-red + circuit breakers). The **safe point is a git commit**, not an agent state: each work order closes green and is committed, and the operator tests that snapshot in a separate **git worktree** without stopping the construction. The operator talks to an in-progress construction through **files** (the `docs/bugs/` trays, `docs/decisions.md`, and the `rethink_pending` signal), which the agent reviews at each safe point — never mid-build. Detail: `factory/standards/infra.md` and `docs/proposals/07-unattended-build.md`.

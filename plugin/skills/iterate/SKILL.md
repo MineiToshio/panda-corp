@@ -1,23 +1,23 @@
 ---
-description: Agrega una funcionalidad o un cambio a un proyecto Pandacorp en cualquier momento (en construcción o lanzado). Describe el cambio y el PM decide el alcance mínimo (un work order, un FRD nuevo, o un mini paso de diseño) y lo mete a la cola de construcción. Es el mecanismo de iteración del día a día.
+description: Adds a feature or a change to a Pandacorp project at any time (building or shipped). You describe the change and the PM decides the minimum scope (one work order, a new FRD, or a mini design step) and puts it into the build queue. It is the day-to-day iteration mechanism.
 ---
 
 # /pandacorp:iterate
 
-Mecanismo de iteración continua. Se ejecuta EN el proyecto. `$ARGUMENTS` (o la conversación): qué quieres agregar/cambiar (un FRD nuevo, un ajuste como "ordenar la lista", un fix).
+Continuous iteration mechanism. Runs IN the project. `$ARGUMENTS` (or the conversation): what you want to add/change (a new FRD, an adjustment like "sort the list", a fix).
 
-## Pasos
+## Steps
 
-1. **Entiende el cambio** y su contexto (lee PRD, FRDs y estado actual). Si es ambiguo, pregunta lo mínimo.
-2. **Triage de impacto (el PM/architect decide el tamaño Y si hay que parar la construcción).** Lo que pide el dueño es de alto nivel; tu trabajo es decidir qué documentación cambiar/crear y avisarle en qué caso cae:
-   - **Ajuste chico / fix** → un work order nuevo, sin tocar documentación de producto. **No hace falta parar**: se encola y `implement` lo toma en su próxima vuelta.
-   - **Funcionalidad / módulo nuevo** → mini-pipeline acotado: **delega investigación al `researcher`** (investiga a fondo si es un módulo nuevo), el `product-manager` escribe el **FRD nuevo** (`docs/frds/frd-NN-…`, numeración continúa), el `architect` ajusta el **blueprint** (+ ADR), y se generan los **work orders**. Si trae UI nueva, un mini paso de diseño (`/pandacorp:design` acotado, mismos design tokens).
-   - **Cambio fundamental** (arquitectura, motor de BD, modelo de datos — impacta lo ya construido) → **muéstrale al dueño el radio de impacto ANTES de tocar nada**: qué FRDs/work orders se afectan, qué hay que rehacer/migrar, costo aproximado. Si confirma: **ADR que reemplaza al anterior** + ajuste del blueprint + re-planificación de work orders, y **pide pausar la construcción** marcando `replanteo_pendiente: true` en `docs/estado.yaml` (el `implement` en curso se detiene solo en su próximo punto seguro — no hay que matar la conversación a mano).
-3. **Encola y construye**: agrega los work orders al backlog (`docs/work-orders/`) y entra al loop de `/pandacorp:implement` (que limpia `replanteo_pendiente` al reanudar con el plan nuevo). Si el proyecto estaba `lanzada`, vuelve a `en-construccion` mientras se trabaja; al terminar, `/pandacorp:release` (que sube la versión automáticamente).
-4. Regresión: los tests existentes deben seguir verdes. **Todo fix registra el bug en `docs/progreso.md` y añade un test de regresión** anclado en él (alimenta el banco de tests adversariales del reviewer — DR-015). Actualiza `docs/estado.yaml`.
+1. **Understand the change** and its context (read PRD, FRDs and current state). If it is ambiguous, ask the minimum.
+2. **Impact triage (the PM/architect decides the size AND whether the build must be stopped).** What the owner asks for is high-level; your job is to decide what documentation to change/create and tell them which case it falls into:
+   - **Small adjustment / fix** → a new work order, without touching product documentation. **No need to stop**: it is queued and `implement` takes it on its next pass.
+   - **New feature / module** → bounded mini-pipeline: **delegate research to the `researcher`** (research in depth if it's a new module), the `product-manager` writes the **new FRD** (`docs/frds/frd-NN-…`, numbering continues), the `architect` adjusts the **blueprint** (+ ADR), and the **work orders** are generated. If it brings new UI, a mini design step (`/pandacorp:design` bounded, same design tokens).
+   - **Fundamental change** (architecture, DB engine, data model — impacts what's already built) → **show the owner the impact radius BEFORE touching anything**: which FRDs/work orders are affected, what has to be redone/migrated, approximate cost. If they confirm: **ADR that replaces the previous one** + blueprint adjustment + work-order re-planning, and **ask to pause the build** by marking `rethink_pending: true` in `docs/status.yaml` (the running `implement` stops on its own at its next safe point — no need to kill the conversation by hand).
+3. **Queue and build**: add the work orders to the backlog (`docs/work-orders/`) and enter the `/pandacorp:implement` loop (which clears `rethink_pending` when resuming with the new plan). If the project was `shipped`, it goes back to `building` while work is in progress; when done, `/pandacorp:release` (which bumps the version automatically).
+4. Regression: the existing tests must stay green. **Every fix records the bug in `docs/progress.md` and adds a regression test** anchored in it (it feeds the reviewer's adversarial test bank — DR-015). Update `docs/status.yaml`.
 
-## Reglas
-- **Tres canales para hablarle a una construcción en curso** (los tres se comunican por archivos; `implement` los revisa en cada punto seguro): `/pandacorp:bug` (algo roto → bandeja `docs/bugs/`), `/pandacorp:iterate` (cambio o módulo → este skill triagea), `/pandacorp:decide` (responder algo que la IA preguntó). Si lo que pide el dueño es en realidad un bug o una respuesta, redirígelo.
-- NO requiere crear una "versión" formal: las versiones (v2, v3…) son etiquetas automáticas que pone `release` desde los conventional commits. Para agrupar un lote grande en un hito formal con su propio mini-PRD, usar `/pandacorp:new-version`.
-- Mantén el scope acotado a lo pedido (DR-012). No aproveches para reescribir de más.
-- Conventional commits en inglés, feature branch.
+## Rules
+- **Three channels to talk to a build in progress** (all three communicate via files; `implement` checks them at each safe point): `/pandacorp:bug` (something broken → `docs/bugs/` inbox), `/pandacorp:iterate` (change or module → this skill triages), `/pandacorp:decide` (answer something the AI asked). If what the owner asks for is actually a bug or an answer, redirect them.
+- It does NOT require creating a formal "version": versions (v2, v3…) are automatic tags that `release` puts from the conventional commits. To group a large batch into a formal milestone with its own mini-PRD, use `/pandacorp:new-version`.
+- Keep the scope bounded to what was requested (DR-012). Don't take the chance to rewrite more than needed.
+- Conventional commits in English with scope; direct to main is fine, never force-push.

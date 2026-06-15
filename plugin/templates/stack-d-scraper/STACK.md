@@ -1,25 +1,25 @@
-# Stack D — Recolección de datos / scraping / notificaciones (Python)
+# Stack D — Data collection / scraping / notifications (Python)
 
-Guía de instalación para `/pandacorp:blueprint`. Caso de uso: scrapers, trackers en tiempo real, monitores con alertas (ej: catálogo de Funkos).
+Installation guide for `/pandacorp:blueprint`. Use case: scrapers, real-time trackers, monitors with alerts (e.g.: Funko catalog).
 
-## Instalación
+## Installation
 
 ```bash
 uv init --python 3.12 .
 uv add fastapi uvicorn pydantic sqlalchemy alembic psycopg[binary]
 uv add httpx parsel arq redis apscheduler
-uv add playwright   # SOLO si hay páginas con render JS — httpx+parsel es 10-50x más rápido
+uv add playwright   # ONLY if there are pages with JS rendering — httpx+parsel is 10-50x faster
 uv add --dev pytest pytest-asyncio mypy ruff
-uv run playwright install chromium   # si aplica
+uv run playwright install chromium   # if applicable
 ```
 
-## Configuración estándar Pandacorp
+## Standard Pandacorp configuration
 
-1. Misma base que Stack C (ruff + mypy strict + estructura 3 capas).
-2. **Arquitectura**: FastAPI (API de jobs/consulta) + workers ARQ (cola en Redis) + ARQ cron o APScheduler (programación). Resultados en Postgres (JSONB para datos semiestructurados).
-3. **Scraping responsable** (constitución + auditoría): revisar robots.txt y términos del sitio ANTES de scrapear (documentar en blueprint); rate limiting propio por dominio; user-agent identificable; backoff exponencial; jamás eludir mecanismos anti-bot de forma agresiva.
-4. **Resiliencia**: jobs idempotentes; dead-letter para fallos repetidos; tracking de tasa de éxito por fuente (alertar si cae <95%); los selectores rotos son LO NORMAL — tests de contrato contra HTML fixture + alerta cuando el parseo falla en producción.
-5. **Notificaciones**: email vía Resend / Telegram bot según blueprint. Dedup de alertas (no notificar lo mismo dos veces).
+1. Same base as Stack C (ruff + mypy strict + 3-layer structure).
+2. **Architecture**: FastAPI (jobs/query API) + ARQ workers (queue in Redis) + ARQ cron or APScheduler (scheduling). Results in Postgres (JSONB for semi-structured data).
+3. **Responsible scraping** (constitution + audit): review robots.txt and the site's terms BEFORE scraping (document in the blueprint); own rate limiting per domain; identifiable user-agent; exponential backoff; never aggressively bypass anti-bot mechanisms.
+4. **Resilience**: idempotent jobs; dead-letter for repeated failures; success-rate tracking per source (alert if it drops below 95%); broken selectors are THE NORM — contract tests against an HTML fixture + an alert when parsing fails in production.
+5. **Notifications**: email via Resend / Telegram bot per the blueprint. Alert dedup (don't notify the same thing twice).
 
 ## `.pandacorp/verify.sh`
 
@@ -34,4 +34,4 @@ uv run pytest -q
 
 ## CI / Deploy
 
-GitHub Actions: ruff + mypy + pytest en PR. Deploy: Docker (API + worker como servicios separados) en Railway/Fly.io + Redis (Upstash) + Postgres (Neon/Supabase).
+GitHub Actions: ruff + mypy + pytest on PR. Deploy: Docker (API + worker as separate services) on Railway/Fly.io + Redis (Upstash) + Postgres (Neon/Supabase).

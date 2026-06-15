@@ -1,0 +1,225 @@
+# Pandacorp decision registry
+# Recurring decisions with a pre-approved default. If a decision is not here:
+# escalate to the owner ONCE and add the new rule with their answer.
+
+decisiones:
+  - id: DR-001
+    patron: "add an npm/pip dependency to a project"
+    default: "auto-approve if: no known CVEs, maintained within the last 12 months, permissive license (MIT/Apache/BSD), and it exists in the official registry (beware of hallucinated packages)"
+    requiere_humano: false
+
+  - id: DR-002
+    patron: "stack/technology choice for a new project"
+    default: "the architect proposes the stack in the blueprint starting from the recommended one (factory/standards/stack.md, in the latest stable versions) and may suggest better alternatives with trade-offs; the owner approves the choice (lightweight gate) and it is recorded as an ADR. The durable conventions (factory/standards) are NOT negotiable"
+    requiere_humano: true
+    nota: "lightweight approval within the blueprint, not a separate gate"
+
+  - id: DR-003
+    patron: "deploy to staging / test environment"
+    default: "auto-approve if CI is green"
+    requiere_humano: false
+
+  - id: DR-004
+    patron: "deploy to PRODUCTION"
+    default: "BLOCK — requires explicit approval from the owner"
+    requiere_humano: true
+
+  - id: DR-005
+    patron: "spend money (purchases, paid plans, domains, paid APIs)"
+    default: "BLOCK — requires explicit approval from the owner with the amount"
+    requiere_humano: true
+
+  - id: DR-006
+    patron: "DB schema migration"
+    default: "auto-approve ADDITIVE (expand) migrations in dev/staging if they have a down block and pass on a test DB. DESTRUCTIVE changes (DROP of a column/table, rename) = forward-compatible expand/contract pattern; the final DROP requires a verified snapshot + human gate (DR-007) and a troubleshooting timebox with rollback. In production → escalate"
+    requiere_humano: false
+
+  - id: DR-007
+    patron: "delete data, repos, remote branches, or cloud resources"
+    default: "BLOCK — requires explicit approval from the owner"
+    requiere_humano: true
+
+  - id: DR-008
+    patron: "external communications (emails to users, public webhooks, publishing on stores/marketplaces)"
+    default: "BLOCK — requires explicit approval from the owner"
+    requiere_humano: true
+
+  - id: DR-009
+    patron: "language of artifacts (what goes in English and what in Spanish)"
+    default: "the state in git decides the language. COMMITTED → English: code, commits, file and folder names, and product/technical documents (PRD, FRD, blueprint, ADR, README, tests, the project's docs/decision-log.md). GITIGNORED → Spanish: the communication with Pandacorp (project summary, docs/decisions.md, logs, activity, Mission Control feed, docs/iteration.md) and the owner's personal data. docs/status.yaml is committed with ONLY machine state in English (keys/enums/counters/SHAs); its human-readable prose goes to the gitignored Spanish layer. UI visible to the user via i18n, Spanish by default (conventions.md). Result: whoever clones sees everything in English; the owner operates Pandacorp in Spanish. INTERACTION with the owner (chat and any skill output addressed to the owner — questions, explanations, progress, recommendations, summaries) is ALWAYS in Spanish, regardless of the artifact language: artifact language (git-state-driven) and interaction language (always Spanish) are two separate axes. Detail in factory/standards/conventions.md (Language)"
+    requiere_humano: false
+    nota: "replaces the previous rule ('documents in Spanish'). Pending migration: translate the existing docs + rename files/folders + propagate to templates (see factory/decision-log.md 2026-06-15)"
+
+  - id: DR-010
+    patron: "create a GitHub repository for a project"
+    default: "auto-approve as a PRIVATE repo in the owner's account; public → escalate"
+    requiere_humano: false
+
+  - id: DR-011
+    patron: "discard an idea from the base (score < 30 after documenting)"
+    default: "auto-approve moving to the 'discarded' status leaving the rationale in the card; never delete the file"
+    requiere_humano: false
+
+  - id: DR-012
+    patron: "scope of a version (which FRDs go into v1)"
+    default: "the minimal slice that validates the value hypothesis; 'nice to have' FRDs go to the backlog of the next version"
+    requiere_humano: false
+
+  - id: DR-013
+    patron: "implementation of a project (how the work is divided among agents)"
+    default: "use a dynamic workflow (Dynamic Workflows) that orchestrates the subagents; the work-order loop lives in the script (resumable, deterministic), NOT in Agent Teams. Composition according to the stack: web (A) → backend-dev + frontend-dev + test-writer; API/scraper (B/C/D) → backend-dev + test-writer; dependencies and parallelism explicit in the pipeline (frontend starts when the backend contract exists; testing when frontend/backend finish) and the reviewer at the close of each work order. Agent Teams only for occasional adversarial review, not as the backbone"
+    requiere_humano: false
+
+  - id: DR-014
+    patron: "concurrency and models per subagent (consumption control)"
+    default: "DESIGN FOR Max 5x on projects: up to 3 simultaneous agent() in the workflow, judgment (review/architecture) on opus, workers (implementation/testing/research) on sonnet or haiku. The construction of the factory itself (panda-corp and its Pandacorp panel) can raise the concurrency while the plan allows it (Max 20x)"
+    requiere_humano: false
+
+  - id: DR-015
+    patron: "ownership of the verification tests (who writes what)"
+    default: "the test-writer/implementer writes the happy-path tests and the EARS criteria; the reviewer (a different model from the generator, opus) ADDITIONALLY writes adversarial and edge-case tests that the implementer did NOT see. Anchor the cases in EARS criteria and in real bugs from docs/progress.md, never in what the model imagines"
+    requiere_humano: false
+    nota: "breaks the shared bias between test-writer and implementer (see docs/proposals/06)"
+
+  - id: DR-016
+    patron: "mutation testing / property-based testing (when to run them)"
+    default: "NOT at every Stop gate (expensive). Run mutation testing (Stryker in TS / mutmut in Python) and property-based (fast-check / hypothesis) at the CLOSE of each FRD milestone and in CI toward main. Suggested mutation-score threshold ≥60% on new business logic; below that, the reviewer demands additional tests"
+    requiere_humano: false
+
+  - id: DR-017
+    patron: "agentic security checklist at release"
+    default: "the security-auditor evaluates the OWASP Top 10 for Agentic Applications (ASI01–ASI10) in addition to the essential web OWASP. Tool Misuse, Identity/Privilege Abuse, Memory Poisoning, and Cascading Failures = blocking if there is real exposure"
+    requiere_humano: false
+
+  - id: DR-018
+    patron: "living documentation (changelog, ADRs, user docs)"
+    default: "auto-generate the changelog from Conventional Commits at release; propose an ADR automatically when a work order touches architecture; maintain README/docs as part of the work order (not a separate task). No human effort except approving a non-obvious ADR"
+    requiere_humano: false
+
+  - id: DR-019
+    patron: "hardening of the verification environment (anti-cheat)"
+    default: "verify.sh runs in a clean environment, parses fail-closed (ambiguity = failure), does not expose to the generator agent the exact names of the tests to pass nor the fixtures, and emits actionable messages (which rule failed and why). Applies to the verify.sh template that the blueprint creates"
+    requiere_humano: false
+
+  - id: DR-020
+    patron: "operation of the construction (how implement runs unattended)"
+    default: "implement launches a dynamic workflow in the background and runs in auto mode (permissions; the owner enables it at the user level, the repo does not grant it). Freeze-on-red: a stage that fails throws → the pipeline skips that WO (does not commit what is broken, leaves HEAD at the last green, marks it BLOCKED, notifies) and continues with the independent WOs. Circuit breakers (cap on iterations, no-progress, workflow budget). The workflow stops by itself when the queue is empty; to run continuously it is wrapped in /loop self-paced. The operator talks through files (docs/bugs, docs/decisions.md, rethink_pending), which the workflow reviews only at safe points"
+    requiere_humano: false
+
+  - id: DR-021
+    patron: "database and services in development"
+    default: "in DEV, each project and each worktree brings up its DB/services with Docker Compose, its own port; in STAGING/PRODUCTION, the golden path's managed DB (Neon/Supabase), never Docker. See factory/standards/infra.md"
+    requiere_humano: false
+
+  - id: DR-022
+    patron: "port assignment (several projects/worktrees in parallel)"
+    default: "each project receives a base range when created; each worktree adds an offset (agent +0, review +1); app/DB/services read the port from the worktree's .env; in Docker, a different Compose project name per worktree"
+    requiere_humano: false
+
+  - id: DR-023
+    patron: "test the progress without stopping the construction"
+    default: "the owner tests the last green commit (last_green_sha) in a separate git worktree (a single review folder, refreshed to the latest green), never the agent's working tree. The gate script writes last_green_sha + safe_to_test in docs/status.yaml. Native checkpoints do NOT work as a snapshot (they ignore what was done by Bash)"
+    requiere_humano: false
+
+  # DR-024..030 are governance: they point to a standard in factory/standards/ (the values live there, not here).
+  - id: DR-024
+    patron: "performance in a web project"
+    default: "apply the Core Web Vitals budget (LCP≤2.5s / INP≤200ms / CLS≤0.1 at p75, see performance.md); Lighthouse-CI gate as a proxy, block-on-main; real p75 in the field via PostHog. Threshold deviation = ADR"
+    requiere_humano: false
+
+  - id: DR-025
+    patron: "privacy / handling of personal data (PII)"
+    default: "minimize PII, do not log it, retention with a time limit, export/delete in the model (see privacy.md). Collecting NEW PII or sharing data with third parties = escalate to the owner (aligns with DR-008)"
+    requiere_humano: true
+    nota: "human only for new PII / sharing with third parties; everything else is a deterministic default"
+
+  - id: DR-026
+    patron: "minimum observability of a project"
+    default: "every project integrates error-tracking (Sentry, from the stack) + structured JSON logs with service.name from day 1, without asking (see observability.md)"
+    requiere_humano: false
+
+  - id: DR-027
+    patron: "security headers / CSP (web)"
+    default: "set the cheap OWASP set as a literal default in next.config (see web-security.md); CSP with nonce in report-only in v1. Verified by header-scan in CI. The submit to hstspreload.org = human (it is durable)"
+    requiere_humano: false
+    nota: "auto except the preload submit, which escalates to the owner"
+
+  - id: DR-028
+    patron: "error contract of an API"
+    default: "RFC 9457 (application/problem+json) + validation at the edge (Zod/pydantic) by default (see api-design.md)"
+    requiere_humano: false
+
+  - id: DR-029
+    patron: "feature flags"
+    default: "sensitive flags are evaluated server-side (the client receives only the result); expiration MANDATORY when creating the flag + archive (do not delete). Auto-approvable: kill-switch and gradual rollout (1/5/25/50/100). ESCALATE if the flag would bypass an existing gate (prod migration DR-006, money DR-005)"
+    requiere_humano: false
+    nota: "conditional escalation: human only if the flag bypasses another gate"
+
+  - id: DR-030
+    patron: "deviation from the golden path in a project"
+    default: "deviating = per-project ADR (not a new DR). sync-portfolio/recommend observe recurring deviation ADRs across projects and propose promoting the pattern to factory/standards/ when it repeats. Promoting to a standard = the owner's decision"
+    requiere_humano: false
+    nota: "the promotion of a recurring pattern to a global standard is approved by the owner"
+
+  - id: DR-031
+    patron: "source of Party events (how Mission Control is fed during the construction)"
+    default: "Mission Control is read-only and decoupled: it reads ~/.claude/dashboard-events.ndjson. With Dynamic Workflows, the events are emitted by the workflow's subagents (emit-event.sh when starting/finishing their stage) and the SubagentStop hook — NOT the Agent Teams hooks (TeammateIdle/TaskCreated/TaskCompleted, which do not fire in workflows). The emission is fire-and-forget (append to a file): it does not block the workflow nor compete for tokens, so having the little RPG graphic costs no performance. Mapping: agent() running → working; stage transition → walking/handoff; reviewer stage → review; stage that throws → blocked; WO commit → safe point"
+    requiere_humano: false
+
+  - id: DR-032
+    patron: "iterate in an early phase (discovered/documented/design/architecture) without advancing a column, and how to advance between phases"
+    default: "the manual phases do NOT auto-close: each skill (explore/new-idea/spec/design/blueprint) produces its output, marks advance_pending: true in docs/status.yaml, and does NOT write the phase transition until the owner's explicit 'ok, advance'. Re-running the SAME phase = iterate in place (refines what exists, does NOT regenerate from scratch nor repeat what was already rejected). The essence of the back-and-forth (what was tried, what was rejected and why, what remains open) is persisted in docs/iteration.md (in ideas, without a project: factory/ideas/_drafts/<slug>.md) so it can be resumed even if the conversation is lost. Extends principle 2 (artifacts before chat)."
+    requiere_humano: true
+    nota: "lightweight, per-phase gate at the manual stages; does NOT apply to implement (autonomous, already resumable) nor change the release-to-production gate (DR-004). The journal reduces future intervention (principle 7): resuming does not require re-explaining."
+
+  - id: DR-033
+    patron: "the owner's personal data in the factory repo (profile, portfolio, idea cards) and portability"
+    default: "they are NEVER committed to the public repo: they live on disk gitignored (factory/profile.md, factory/portfolio.md, factory/ideas/*.md except _idea-template.md and decision-log.md). Only the mold is versioned: *.example.md seeds and templates. Personalizing the factory = /pandacorp:onboarding, which generates factory/profile.md (the factory reads it for name/GitHub/project path/objectives). The paths in skills/scripts are resolved relative to the factory root (cwd / repo root), never absolute."
+    requiere_humano: false
+    nota: "opens the factory as a template cloneable by anyone; see factory/decision-log.md (2026-06-14)."
+
+  - id: DR-034
+    patron: "versioning of the pandacorp plugin when something changes in plugin/"
+    default: "the plugin carries a semver `version` in plugin/.claude-plugin/plugin.json (source of truth) and IT IS BUMPED on every change to plugin/: PATCH (x.y.Z) fix/adjustment/doc without changing behavior; MINOR (x.Y.0) new compatible capability (new skill/agent/option); MAJOR (X.0.0) breaking change (renaming/removing a skill, changing a flow in an incompatible way). The bump is part of the 'after editing plugin/' flow: bump version → commit → claude plugin update. Note the why in plugin/docs/decision-log.md."
+    requiere_humano: false
+    nota: "the local installation tracks the SHA to detect drift (FRD-15); the version is the semantic label of the release."
+
+  - id: DR-035
+    patron: "a version includes payments/charging users (Polar checkout, subscription, ads, donations) and is deployed on Vercel"
+    default: "do NOT block the work (it is not a gate). WARN the owner at 3 moments —when defining the PRD (when it is decided that there are payments), in the blueprint (hosting plan), and at the release (before the deploy)— that Vercel Hobby prohibits commercial use and its suspension is of the WHOLE ACCOUNT without guaranteed notice; if the version charges money it requires Vercel Pro (USD 20/month per seat, covers the whole team + USD 20 of credit). The owner decides to continue or stop. Structure: a single Pro team for all shipped apps; the day an app turns on payments it goes to the Pro team. Trigger a push (DR-038). See factory/standards/external-services.md §6"
+    requiere_humano: false
+    nota: "it is a WARNING, not an obstacle. The decision 'does v1 include payments? yes/no' is defined explicitly in the PRD (product-manager)."
+
+  - id: DR-036
+    patron: "choice of external service by category (storage, email, payments, analytics) and the multi-app account model"
+    default: "use the standard proven service per category (storage=Cloudflare R2, transactional email=Resend, marketing/waitlist email=Kit, errors=Sentry, analytics=PostHog, payments=Polar; DB=Neon, deploy=Vercel, auth=Better Auth already in stack.md) and the 'ONE shared account/org + 1 primitive per app' model (Neon project / R2 bucket / Resend domain / PostHog org / Polar product). FORBIDDEN to create puppet accounts with +aliases to dodge free-tier caps (violates ToS). Deviating from a service = per-project ADR (DR-030). The values and the why live in factory/standards/external-services.md"
+    requiere_humano: false
+
+  - id: DR-037
+    patron: "credentials/secrets of external services and how the resources are provisioned"
+    default: "provision via API/CLI (headless) where it exists; browser (Claude-in-Chrome) only as a fallback, verifying the active account before acting. Secrets in two planes: runtime in the project's .env (gitignored, .env.example without values) and machine store in SOPS+age (encrypted file OUTSIDE every repo, age key in the macOS Keychain) for provider tokens and per-app credentials. LastPass = only the owner's personal one, separate from the machine store. Tokens with least privilege. See factory/standards/external-services.md §3-4 and web-security.md"
+    requiere_humano: false
+
+  - id: DR-038
+    patron: "the agent reaches a point that requires a decision or action by the owner (any human gate)"
+    default: "trigger a push notification to the owner (arrives on the phone if Remote Control / the Claude app is connected) with a one-line actionable message, IN ADDITION to leaving the pending item by file (docs/status.yaml, docs/decisions.md). Applies to EVERY gate: production (DR-004), spending money (DR-005), deleting (DR-007), external communications (DR-008), Vercel/payments warning (DR-035), :decide pending items, and signup/2FA/payment during provisioning (DR-037). Mission Control is the desktop view; the push is the 'I'm out' view."
+    requiere_humano: false
+    nota: "it does not replace the by-file channel (principle 2): it complements it so the owner can leave it running and know when to come back."
+
+  - id: DR-039
+    patron: "idea recommendation model (discover/recommend) according to the owner's profile"
+    default: "discover and recommend read factory/profile.md and work in TWO streams, ~50/50: (A) general opportunities of high return/ease, independent of the topic; (B) aligned with the profile (interests, objectives, ASSETS/levers such as audience/community/network/niche), even if the monetary return is lower, because they are useful to them or open doors. RETURN != only money: it also counts opportunity (reach/network/positioning), learning, and personal value, weighted according to the profile's monetization_appetite. OPEN SCOPE: not only monetizable apps — web/mobile app, rework, Claude Code tooling/project, prompt or prompt system, automation, etc. The card records project_type, profile_alignment, and return_type; the new-idea scoring weights return (monetary/opportunity/personal) and fit with the profile"
+    requiere_humano: false
+    nota: "do not penalize an aligned idea for low monetary ROI if it leverages an asset or opens doors, nor a general idea for not being 'on topic'. See factory/ideas/decision-log.md (2026-06-15)"
+
+  - id: DR-040
+    patron: "git workflow: branching and pushing to main"
+    default: "the solo operator commits and pushes to main DIRECTLY — no mandatory feature branch or PR (human review adds no value with a single operator; the quality gate is the reviewer in /pandacorp:implement + .pandacorp/verify.sh). A throwaway branch is OPTIONAL, only for big/risky changes the owner may want to abort wholesale. STILL BLOCKED by block-dangerous.sh (anti-catastrophe, not workflow): force-push, deleting the main branch, git reset --hard, rm -rf of roots, gh repo delete. Applies to the factory and to every scaffolded project"
+    requiere_humano: false
+    nota: "replaces the previous 'feature branches; never push to main' rule (constitution §11). Removed the direct-push-to-main block from plugin/scripts/block-dangerous.sh"
+
+  - id: DR-041
+    patron: "launch market and language for a product (which market(s)/language(s), mono vs multi-language)"
+    default: "NO fixed default — decided per product. During /pandacorp:spec the researcher analyzes the launch market & language (where to launch first, single vs multi-language, which languages), weighing the app, market size/competition, customer-acquisition ease, ROI and the owner's country/language (from factory/profile.md); it recommends and the product-manager records the decision in the PRD, which the owner approves (scope gate, like DR-012). The product is ALWAYS i18n-ready so adding languages later is cheap; the chosen launch locale sets the UI default (NOT automatically Spanish). Mission Control and other owner-facing tools are always Spanish, independent of this."
+    requiere_humano: true
+    nota: "the owner's country is captured by /pandacorp:onboarding into factory/profile.md (country field). The choice is part of the PRD scope the owner approves. Distinct from the repo's artifact language (DR-009) and the interaction language (always Spanish)."

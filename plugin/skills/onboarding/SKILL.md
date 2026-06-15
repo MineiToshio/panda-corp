@@ -1,57 +1,69 @@
 ---
-description: Configura la fábrica Pandacorp para un dueño nuevo (primer arranque tras clonar el repo). Te entrevista —nombre, objetivos, cuenta de GitHub, dónde nacen los proyectos, cómo trabajás— y guarda tu perfil en fabrica/perfil.md (personal, gitignored), que toda la fábrica lee para personalizarse. Usar al clonar el repo, o cuando el dueño dice "configurar", "onboarding", "hacer mía la fábrica", o "empezar de cero".
+description: Configures the Pandacorp factory for a new owner (first run after cloning the repo). It interviews you in depth —name, goals, interests, hobbies, tastes, assets/levers, monetization appetite, project types, how you work— and saves your profile in factory/profile.md (personal, gitignored). That profile feeds /discover and /recommend to propose ideas well aligned with you. Use when cloning the repo, or when the owner says "configure", "onboarding", "make the factory mine", or "update my profile".
 ---
 
 # /pandacorp:onboarding
 
-El **primer paso** al clonar Pandacorp. Convierte una fábrica genérica en *tu* fábrica:
-te entrevista y guarda tu perfil en `fabrica/perfil.md`, que el resto de skills y agentes
-leen para personalizar la operación (cómo llamarte, a qué cuenta de GitHub crear repos, dónde
-nacen los proyectos, y con qué objetivos filtrar ideas).
+The **first step** when cloning Pandacorp. It turns a generic factory into *your* factory:
+it interviews you and saves your profile in `factory/profile.md`, which the rest of the skills and agents
+read to personalize themselves — and most especially so that **`/discover` and `/recommend`
+propose ideas well aligned with you** (not generic).
 
-Se ejecuta EN la raíz de la fábrica. Es **idempotente**: re-correrlo actualiza el perfil
-(lee lo que ya hay y solo pregunta lo que falte o lo que quieras cambiar).
+Runs IN the factory root. It is **idempotent**: re-running it updates the profile
+(it reads what's already there and only asks for what's missing or what you want to change).
 
-## Pasos
+## Steps
 
-1. **Saludo y contexto** (breve). Explica en 2-3 líneas qué es la fábrica: una línea de
-   montaje de software 100% IA donde el dueño dirige con gates y los agentes construyen. Si ya
-   existe `fabrica/perfil.md`, dilo y ofrecé actualizarlo en vez de empezar de cero.
+1. **Greeting and context** (brief). Explain in 2-3 lines what the factory is: a software
+   assembly line that is 100% AI where the owner directs with gates and the agents build. Say
+   why you're interviewing: to recommend ideas aligned with them, not generic ones. If
+   `factory/profile.md` already exists, offer to update it instead of starting from scratch.
 
-2. **Entrevista** (conversacional, en tandas cortas — no un formulario de 10 preguntas de
-   golpe). Cubrí:
-   - **Nombre**: cómo querés que la fábrica te llame.
-   - **Objetivos**: ¿qué querés construir? Apps que generen ingresos, herramientas para tu
-     propia vida, o ambas. Empujá hacia lo concreto — esto define el "lente" con que `/explore`
-     y `/recommend` filtran ideas.
-   - **Cómo trabajás**: fortalezas y debilidades (p. ej. "débil en diseño"). Sirve para que los
-     agentes compensen.
-   - **GitHub**: usuario/organización donde crear los repos de proyectos (DR-010 los crea
-     privados por defecto). Si no usa GitHub, dejarlo vacío.
-   - **Ruta de proyectos**: carpeta donde nacen los proyectos. Por defecto, la carpeta **hermana**
-     de la fábrica (vacío = ese default). Confirmá o pedí una ruta.
-   - **Idioma**: idioma de documentos y conversación (default español).
+2. **Interview** (conversational, in short batches — not a form all at once). Cover, and
+   **ask follow-ups to nail down the concrete** (vague answers give vague recommendations):
+   - **Name**: how you want the factory to call you.
+   - **Who you are / what you do**: what you do for a living, context.
+   - **Interests and hobbies**: topics that interest you, what you do in your free time. These are
+     the "lens" through which the factory will filter ideas.
+   - **Tastes and dislikes**: what draws you to build and what you would avoid or bores you.
+   - **Goals**: the real mix — income, tools for your life, opening doors,
+     learning, positioning yourself. Don't assume it's all about money.
+   - **Assets and levers**: do you have an audience/community, a network of contacts, access to
+     a niche, particular skills or data? This changes what's worth it: an idea with modest
+     monetary return can be worth a lot if it leverages a lever of yours or opens doors for you.
+   - **Monetization appetite**: high / medium / low / open. Are you after money, or also (or
+     above all) value and opportunity?
+   - **Project types**: what interests you? The factory is open to **any tech
+     solution**: web app, mobile app, rework, Claude Code project/tooling, prompt or
+     prompt system, automation, etc.
+   - **GitHub**: user/organization where the repos are created (DR-010 creates them private by
+     default). If they don't use GitHub, leave it empty.
+   - **Projects path**: folder where projects are born. By default, the sibling of the
+     factory (empty = that default).
+   - **Language**: documents and conversation (default Spanish).
+   - **Country**: where you're based — conditions which markets/languages are easiest and highest-ROI to launch a product in (used by `spec`'s launch research, DR-041).
+   - **How you work**: strengths and weaknesses (e.g. "weak in design").
 
-3. **Escribe el perfil**: copia `fabrica/perfil.example.md` → `fabrica/perfil.md` (si no existe)
-   y rellénalo: completa el frontmatter (`nombre`, `github`, `ruta_proyectos`, `nivel_tecnico`,
-   `idioma`, `objetivos`) y las secciones en prosa con lo conversado. **Nunca inventes datos**:
-   lo que no haya dicho, déjalo vacío. `fabrica/perfil.md` es personal (gitignored) — no se sube.
+3. **Write the profile**: copy `factory/profile.example.md` → `factory/profile.md` (if it
+   doesn't exist) and fill it in: complete the frontmatter (`name`, `github`, `country`, `projects_path`,
+   `technical_level`, `language`, `goals`, `interests`, `hobbies`, `likes`, `dislikes`,
+   `assets`, `monetization_appetite`, `project_types`) and the prose sections with what was
+   discussed. **Never invent data**: whatever they haven't said, leave empty and say so.
+   `factory/profile.md` is personal (gitignored) — it is not uploaded.
 
-4. **Bootstrap del portfolio**: si no existe `fabrica/portfolio.md`, créalo copiando
-   `fabrica/portfolio.example.md`. (Ya trae la fila del cockpit, la interfaz de la fábrica.)
+4. **Portfolio bootstrap**: if `factory/portfolio.md` doesn't exist, create it by copying
+   `factory/portfolio.example.md`.
 
-5. **Verifica el plugin** (opcional, si `claude` está disponible): recordá que el plugin se
-   instala desde el marketplace local con `claude plugin install pandacorp@panda-corp`. Si ya
-   está instalado, no hagas nada.
+5. **Close with the next steps**, personalized to the profile:
+   - For the factory to go look for ideas aligned with you: `/pandacorp:discover`.
+   - To capture an idea of your own: `/pandacorp:new-idea` (or `/pandacorp:explore` if it's fuzzy).
+   - To ask for a ranking: `/pandacorp:recommend`.
+   - The full flow is in `CLAUDE.md`.
 
-6. **Cierra con los siguientes pasos**, personalizados al perfil:
-   - Para arrancar el cockpit (interfaz visual): ver `cockpit/PLAN.md`.
-   - Para capturar una idea: `/pandacorp:new-idea` (o `/pandacorp:explore` si todavía es difusa).
-   - Para buscar oportunidades en internet: `/pandacorp:discover`.
-   - El flujo completo está en `CLAUDE.md` (tabla de operación).
-
-## Reglas
-- **No subir datos personales**: `fabrica/perfil.md` y `fabrica/portfolio.md` son gitignored.
-  Si notás que `fabrica/perfil.md` quedó trackeado, avisá (algo está mal en `.gitignore`).
-- **No inventes el perfil**: ante la duda, preguntá; lo que no se dijo queda vacío.
-- Es el único skill pensado para correrse al clonar; el resto asume que ya hay un perfil.
+## Rules
+- **Don't upload personal data**: `factory/profile.md` and `factory/portfolio.md` are gitignored.
+  If you notice that `factory/profile.md` ended up tracked, warn (something is wrong in `.gitignore`).
+- **Don't invent the profile**: when in doubt, ask; whatever wasn't said stays empty.
+- **Nail down the vague**: a concrete profile (interests, assets, appetite) is what makes
+  `/discover` and `/recommend` hit the mark. It's worth asking follow-ups.
+- It is the only skill meant to be run when cloning; the rest assume there is already a profile.

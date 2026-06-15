@@ -1,23 +1,23 @@
 ---
-description: Genera o regenera las órdenes de trabajo (work orders) de un proyecto Pandacorp desde los FRDs y el blueprint. En el flujo normal los work orders los crea /pandacorp:blueprint junto con el blueprint; usar este skill por separado solo para regenerarlos o ajustarlos.
+description: Generates or regenerates a Pandacorp project's work orders from the FRDs and the blueprint. In the normal flow the work orders are created by /pandacorp:blueprint together with the blueprint; use this skill separately only to regenerate or adjust them.
 ---
 
 # /pandacorp:work-orders
 
-Descomposición en work orders. Se ejecuta EN el proyecto (requiere FRDs y blueprint).
+Decomposition into work orders. Runs IN the project (requires FRDs and blueprint).
 
-## Pasos
+## Steps
 
-1. Lee todos los FRDs de v1 y el blueprint. Construye el grafo de dependencias (¿qué necesita el modelo de datos? ¿qué necesita auth? ¿qué es independiente?).
-2. **Genera** `docs/work-orders/wo-NN-<nombre>.md`, cada uno con:
-   - FRD(s) que implementa y criterios de aceptación copiados (el implementador no debe ir a buscarlos)
-   - Alcance exacto: qué archivos/módulos toca; qué NO incluye
-   - Dependencias (wo previos) y definición de terminado: tests de los criterios verdes + typecheck + lint + review aprobada
-   - Estado: `pendiente | en-progreso | en-review | terminado` (checkbox + evidencia)
-3. **Tamaño correcto**: cada work order completable en una sesión de agente y **testeable en aislamiento** (ni "construir el backend" ni "renombrar una variable"). Regla práctica (Spec Kit): si no puedes escribir el test de aceptación del work order en una frase, está mal cortado — pártelo. El `reviewer` rechaza work orders demasiado grandes para revisar solos. Típico: 5-15 work orders para una v1.
-4. **Orden de ejecución**: lista maestra en `docs/work-orders/README.md` con el orden y qué se puede paralelizar (sin archivos compartidos entre paralelos).
-5. **Actualiza** `docs/estado.yaml` → `fase: implementacion` y commit. Resumen al dueño: cuántos work orders, orden, estimación gruesa. Siguiente paso: `/pandacorp:implement`.
+1. Read all the v1 FRDs and the blueprint. Build the dependency graph (what does the data model need? what does auth need? what is independent?).
+2. **Generate** `docs/work-orders/wo-NN-<name>.md`, each one with:
+   - FRD(s) it implements and acceptance criteria copied in (the implementer should not have to go look for them)
+   - Exact scope: which files/modules it touches; what it does NOT include
+   - Dependencies (prior wos) and definition of done: tests of the criteria green + typecheck + lint + review approved
+   - Status: `pending | in-progress | in-review | done` (checkbox + evidence)
+3. **Right size**: each work order completable in one agent session and **testable in isolation** (neither "build the backend" nor "rename a variable"). Practical rule (Spec Kit): if you can't write the work order's acceptance test in one sentence, it's badly cut — split it. The `reviewer` rejects work orders too large to review on their own. Typical: 5-15 work orders for a v1.
+4. **Execution order**: master list in `docs/work-orders/README.md` with the order and what can be parallelized (no shared files between parallel ones).
+5. **Update** `docs/status.yaml` → `phase: implementation` and commit. Summary to the owner: how many work orders, order, rough estimate. Next step: `/pandacorp:implement`.
 
-## Reglas
-- El primer work order siempre es la base: esquema de datos + seeds + smoke test del entorno.
-- Cada criterio de aceptación de cada FRD debe estar cubierto por exactamente un work order (sin huecos ni duplicados).
+## Rules
+- The first work order is always the base: data schema + seeds + environment smoke test.
+- Each acceptance criterion of each FRD must be covered by exactly one work order (no gaps or duplicates).
