@@ -4,7 +4,7 @@ Documenta el sistema de visualización de los subagentes de construcción en Mis
 (`mission-control/prototype/index.html`, función `missionBody` y el motor `mc*`). El
 objetivo es responder de un vistazo **qué agente trabaja y cuál está parado**,
 manteniendo la estética RPG: los agentes son personajes pixel-art que caminan
-por un gremio entre estaciones de trabajo.
+por la sala del gremio entre estaciones de trabajo.
 
 ## 1. Modelo de estados
 
