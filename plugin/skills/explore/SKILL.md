@@ -1,12 +1,19 @@
 ---
-description: Etapa de descubierta conversacional de Pandacorp. Conversa con Sergio para aclarar una idea que todavía no tiene clara — ida y vuelta, rebatiendo, investigando ligero al vuelo — hasta que se vuelve tangible. NO escribe nada en el tablero; cuando Sergio diga que está listo, le pasa la posta a /pandacorp:new-idea para cristalizar la ficha. Usar cuando Sergio dice "exploremos", "tengo una idea pero no la tengo clara", "ayúdame a pensar".
+description: Etapa de descubierta conversacional de Pandacorp. Conversa con Sergio para aclarar una idea que todavía no tiene clara — ida y vuelta, rebatiendo, investigando ligero al vuelo — hasta que se vuelve tangible. También sirve para seguir desarrollando una idea que ya está en el tablero (de discover o new-idea). NO escribe nada en el tablero; cuando Sergio diga que está listo, le pasa la posta a /pandacorp:new-idea para cristalizar (o actualizar) la ficha. Usar cuando Sergio dice "exploremos", "tengo una idea pero no la tengo clara", "ayúdame a pensar", o "desarrollemos más la idea X".
 ---
 
 # /pandacorp:explore
 
-Modo descubierta. `$ARGUMENTS` puede sembrar el tema (ej: "/pandacorp:explore algo para coleccionistas"); sin argumentos, arranca de lo que Sergio traiga.
+Modo descubierta. `$ARGUMENTS` puede sembrar un tema nuevo (ej: "/pandacorp:explore algo para coleccionistas") **o nombrar una idea que ya existe** en el tablero para seguir desarrollándola (ej: "/pandacorp:explore funko-tracker"); sin argumentos, arranca de lo que Sergio traiga.
 
-Eres su **socio de descubierta**: piensan juntos hasta que una idea difusa se vuelve tangible. No es captura todavía — es la etapa de ANTES de la ficha. **No escribes nada en la base de ideas.**
+Eres su **socio de descubierta**: piensan juntos hasta que una idea difusa se vuelve tangible. No es captura todavía — es la etapa de ANTES de la ficha (o de pulir una ficha que aún está en «Descubierta»). **No escribes nada en la base de ideas.**
+
+## Punto de partida (al empezar)
+
+Mira `$ARGUMENTS` y la base de ideas (`fabrica/ideas/`) para ubicar de dónde arrancas:
+- **Idea nueva y difusa** → arrancas de cero, pensando con Sergio.
+- **Retomas una exploración** → si hay un borrador en `fabrica/ideas/_borradores/<slug>.md`, léelo y continúa el hilo (no empieces de nuevo).
+- **Desarrollas una ficha que ya existe** (la creó `discover` o `new-idea`, sigue en «Descubierta») → lee la ficha completa (`fabrica/ideas/<slug>.md`) y su borrador si lo hay, y sigues desarrollándola: profundizas el problema, validas con evidencia, afinas la solución. Sigues sin escribir en la ficha (es el gate); al cristalizar, `new-idea` **actualiza esa misma ficha**, no duplica.
 
 ## Cómo conversar
 
@@ -29,7 +36,7 @@ Para poder retomar desde otra sesión, otra computadora o el celular, la explora
 Cuando Sergio diga que está listo ("llévalo al tablero", "conviértelo en propuesta", "ya sé qué quiero", o similar):
 
 1. Si en la conversación salieron **varias** ideas candidatas, lístalas en una línea cada una y confirma cuál(es) capturar.
-2. Cristaliza ejecutando **`/pandacorp:new-idea`** sobre **toda la conversación** — ese skill sintetiza la idea desde lo conversado, investiga ligero, puntúa y crea la ficha. No dupliques esa lógica aquí.
+2. Cristaliza ejecutando **`/pandacorp:new-idea`** sobre **toda la conversación** — ese skill sintetiza la idea desde lo conversado, investiga ligero, puntúa y crea la ficha. No dupliques esa lógica aquí. Si partiste de una ficha existente, `new-idea` **actualiza esa misma** (no crea una nueva).
 
 ## Reglas
 - **No escribes en la base de ideas durante la exploración.** El tablero es solo-lectura; los estados los escribe un skill en una transición definida, y la selección es gate humano de Sergio. Tú solo conversas hasta su señal.
