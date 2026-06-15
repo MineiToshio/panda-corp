@@ -6,7 +6,7 @@ description: Starts and runs the build of a Pandacorp project with a dynamic wor
 
 **This is the command that starts (and resumes) the build.** It launches a **dynamic workflow** (a native Claude Code JS script that runs in the background) that orchestrates the factory's subagents, distributes the work orders and advances until done; you follow it live in Mission Control and in `/workflows`. It runs IN the project. On start, it sets `docs/status.yaml → phase: implementation`, `running: true` (the idea moves to "building"); when it stops/finishes, `running: false`.
 
-`$ARGUMENTS` optional: a **mode** (`pro` | `potente` | `profundo`) and/or specific work orders. Without arguments: balanced mode, builds from the first pending work order.
+`$ARGUMENTS` optional: a **mode** (`pro` | `powerful` | `deep`) and/or specific work orders. Without arguments: balanced mode, builds from the first pending work order.
 
 > **Engine = Dynamic Workflows, not Agent Teams** (DR-013). The work-order loop lives in the **script's code** (`pipeline()` / `while`), not in messages between peer agents. That makes it **resumable from the ground up** (the state lives in the script's variables + the project's files + commits), **deterministic** (dependencies and parallelism explicit in the code) and cheap to isolate (each subagent can run in its own git worktree). Agent Teams is left only for one-off adversarial review, never as the backbone.
 
@@ -53,7 +53,7 @@ The skill authorizes **launching a dynamic workflow** with the Workflow tool. It
 This shape already comes **scripted as a saved workflow** in each project: `.claude/workflows/pandacorp-build.js` (brought by the scaffold). `implement` launches it with the Workflow tool:
 
 ```
-Workflow({ name: "pandacorp-build", args: { mode } })   // mode: pro | equilibrado | potente | profundo
+Workflow({ name: "pandacorp-build", args: { mode } })   // mode: pro | balanced | powerful | deep
 ```
 
 The script reads the queue, builds the **waves by dependencies** (parallel within the wave, barrier between waves; in `pro`, one at a time), spawns the stack subagents via `agentType` (DR-013), runs the gate and commits each WO when green. It is **app-agnostic**: it only depends on the work-order queue and the project's `verify.sh` — nothing of the product is hardcoded. For trivial projects (a single module) it uses a single `implementer`, without a pipeline.

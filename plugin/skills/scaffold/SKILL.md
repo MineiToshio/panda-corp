@@ -9,7 +9,7 @@ Creates the project for the idea indicated in `$ARGUMENTS` (card name or slug).
 ## Steps
 
 1. **Validate**: read the card in `factory/ideas/<idea>.md` (at the factory root). It must exist and be in `status: recommended` (or `documented`). Running this skill IS the owner's selection. If the card is in `discarded` or `in-pipeline`, stop and confirm.
-2. **Create the folder** `<slug-in-english>/` as a **sibling of the factory root** (NEVER inside). By default the parent directory of the factory; if `factory/profile.md` defines `ruta_proyectos`, use it. Initialize git with branch `main`.
+2. **Create the folder** `<slug-in-english>/` as a **sibling of the factory root** (NEVER inside). By default the parent directory of the factory; if `factory/profile.md` defines `projects_path`, use it. Initialize git with branch `main`.
 3. **Copy the Pandacorp overlay** from the plugin's templates:
    ```bash
    cp -r "${CLAUDE_PLUGIN_ROOT}/templates/shared/." "<destination>/"

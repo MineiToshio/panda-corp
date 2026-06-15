@@ -44,9 +44,9 @@ Runs IN the factory root. It is **idempotent**: re-running it updates the profil
    - **How you work**: strengths and weaknesses (e.g. "weak in design").
 
 3. **Write the profile**: copy `factory/profile.example.md` → `factory/profile.md` (if it
-   doesn't exist) and fill it in: complete the frontmatter (`nombre`, `github`, `ruta_proyectos`,
-   `nivel_tecnico`, `idioma`, `objetivos`, `intereses`, `hobbies`, `gustos`, `disgustos`,
-   `activos`, `apetito_monetizacion`, `tipos_proyecto`) and the prose sections with what was
+   doesn't exist) and fill it in: complete the frontmatter (`name`, `github`, `projects_path`,
+   `technical_level`, `language`, `goals`, `interests`, `hobbies`, `likes`, `dislikes`,
+   `assets`, `monetization_appetite`, `project_types`) and the prose sections with what was
    discussed. **Never invent data**: whatever they haven't said, leave empty and say so.
    `factory/profile.md` is personal (gitignored) — it is not uploaded.
 

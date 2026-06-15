@@ -1,17 +1,17 @@
 ---
-nombre: ""                 # how you want the factory to call you
+name: ""                 # how you want the factory to call you
 github: ""                 # GitHub username (to create project repos, DR-010)
-ruta_proyectos: ""         # folder where projects are born (empty = sibling folder of the factory)
-nivel_tecnico: ""          # e.g.: "strong in backend, weak in design"
-idioma: "es"               # language of documents and conversation
-objetivos: []              # what you want to achieve with the factory (list of lines)
-intereses: []              # topics/domains that interest you (e.g.: collecting, personal finance, gaming)
+projects_path: ""         # folder where projects are born (empty = sibling folder of the factory)
+technical_level: ""          # e.g.: "strong in backend, weak in design"
+language: "es"               # language of documents and conversation
+goals: []              # what you want to achieve with the factory (list of lines)
+interests: []              # topics/domains that interest you (e.g.: collecting, personal finance, gaming)
 hobbies: []                # what you do in your free time
-gustos: []                 # what you're drawn to build / enjoy
-disgustos: []              # what to avoid / doesn't interest you / bores you
-activos: []                # your levers: audience/social, community, network of contacts, skills, data, access to a niche
-apetito_monetizacion: ""   # high | medium | low | open  (are you after money, or also value/opportunity?)
-tipos_proyecto: []         # web-app | mobile-app | rework | claude-code | prompt-system | automation | other
+likes: []                 # what you're drawn to build / enjoy
+dislikes: []              # what to avoid / doesn't interest you / bores you
+assets: []                # your levers: audience/social, community, network of contacts, skills, data, access to a niche
+monetization_appetite: ""   # high | medium | low | open  (are you after money, or also value/opportunity?)
+project_types: []         # web-app | mobile-app | rework | claude-code | prompt-system | automation | other
 ---
 
 # Owner profile

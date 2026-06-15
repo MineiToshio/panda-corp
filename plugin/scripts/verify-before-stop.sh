@@ -19,7 +19,7 @@ out=$(bash "$verify" 2>&1)
 if [ $? -ne 0 ]; then
   echo "Pandacorp verify gate FAILED — no puedes terminar con el proyecto roto." >&2
   echo "Regla que fallo: .pandacorp/verify.sh (tests + typecheck + lint deben pasar)." >&2
-  echo "Arregla la causa raiz; NO ajustes el test para que pase ni declares 'terminado'." >&2
+  echo "Fix the root cause; do NOT tweak the test to pass or declare it 'done'." >&2
   echo "--- salida de verify.sh (ultimas 30 lineas) ---" >&2
   echo "$out" | tail -30 >&2
   exit 2
