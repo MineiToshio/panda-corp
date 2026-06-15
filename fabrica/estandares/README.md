@@ -17,7 +17,7 @@ Estándares de ingeniería que la fábrica inyecta en cada proyecto (vía el `AG
 | **Tecnología / Stack** | [stack.md](stack.md) (golden paths A/B/C/D) |
 | **Calidad / Testing** | [calidad.md](calidad.md) · [performance.md](performance.md) |
 | **Seguridad** | [seguridad-web.md](seguridad-web.md) (+ constitución §12, DR-017, agente `security-auditor`) |
-| **Operación / Observabilidad** | [infra.md](infra.md) (dev local) · [observabilidad.md](observabilidad.md) (producción) |
+| **Operación / Observabilidad** | [infra.md](infra.md) (dev local) · [observabilidad.md](observabilidad.md) (producción) · [servicios-externos.md](servicios-externos.md) (cuentas, secretos, pagos, aprovisionamiento — DR-035..038) |
 | **Datos / Privacidad** | [privacidad.md](privacidad.md) |
 | **Producto / Documentación** | [documentacion.md](documentacion.md) (doc canónico + bitácora) · [seo-i18n.md](seo-i18n.md) (+ docs viva: constitución §20, DR-018) |
 

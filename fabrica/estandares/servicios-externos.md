@@ -59,7 +59,7 @@ Dos planos separados:
 
 ## 7. Notificación al dueño en gates (DR-038)
 
-- En **CUALQUIER** punto que requiera decisión/acción del dueño (gates DR-004/005/007/008/035, pendientes del skill `decide`, o signup/2FA/pago durante el aprovisionamiento), el agente dispara una **notificación push**. Llega al **celular** si Remote Control / la app de Claude está conectada a la sesión. Mensaje de una línea, accionable: *"PandaTrack: meter tarjeta en Polar para continuar"*.
+- En **CUALQUIER** punto que requiera decisión/acción del dueño (gates DR-004/005/007/008/035, pendientes del skill `decide`, o signup/2FA/pago durante el aprovisionamiento), el agente dispara una **notificación push**. Llega al **celular** si Remote Control / la app de Claude está conectada a la sesión (ya configurados en la máquina del dueño). Mensaje de una línea, accionable: *"PandaTrack: meter tarjeta en Polar para continuar"*.
 - El **cockpit** (Mission Control) es la vista "en el escritorio" (log de pendientes en `docs/estado.yaml`); el **push** es la vista "estoy fuera". No se conecta el cockpit al celular — el push nativo lo cubre.
 
 ## 8. Playbook — alta y baja de un proyecto
@@ -85,6 +85,38 @@ Convención de nombre en todos los servicios: **`pandacorp-<slug>`**. Todo por A
 6. Borrar las entradas del store de secretos.
 
 > Borrar recursos cloud = **DR-007** (gate humano + push DR-038).
+
+## 9. Setup operativo del store SOPS+age
+
+**Una sola vez** (máquina del dueño):
+1. `brew install sops age`.
+2. Generar la llave: `age-keygen -o ~/.config/pandacorp/age/keys.txt` → produce una clave **pública** (cifra) y una **privada** (descifra). `chmod 600` al archivo.
+3. Decirle a SOPS dónde está la llave: `export SOPS_AGE_KEY_FILE=~/.config/pandacorp/age/keys.txt` (en el shell/launchd del dueño), o guardar la privada en el **Keychain de macOS** y exportarla a `SOPS_AGE_KEY` al abrir sesión.
+4. Crear `~/.config/pandacorp/.sops.yaml` con `creation_rules` que cifren con la clave pública age todos los `*.sops.yaml` del store.
+5. Layout (FUERA de todo repo): `~/.config/pandacorp/secrets/providers.sops.yaml` (tokens de API de proveedores) + `~/.config/pandacorp/secrets/apps/<slug>.sops.yaml` (credenciales por app).
+
+**Uso por el agente** (no interactivo, con la sesión del Mac abierta):
+- Leer: `sops -d <archivo>.sops.yaml`. Inyectar a un proceso: `sops exec-env <archivo>.sops.yaml '<comando>'`. Editar: `sops <archivo>.sops.yaml` (abre en claro, re-cifra al guardar).
+
+**Qué guarda:**
+- `providers.sops.yaml`: tokens de API (privilegio mínimo) de Neon, Cloudflare, Vercel, Resend, Polar, Sentry, PostHog + credenciales OAuth base. Es lo que permite el aprovisionamiento headless (§3).
+- `apps/<slug>.sops.yaml`: espejo del `.env` del app (`DATABASE_URL`, `ASSETS_STORAGE_*`, `RESEND_API_KEY`, `POLAR_*`…).
+- Fallback: logins de dashboards de proveedores sin API.
+
+**Seguridad y respaldo:**
+- Tokens con scope por proyecto; rotar si se filtran; nunca al repo (ni siquiera el archivo cifrado, por convención).
+- **Respaldo de la llave privada age = crítico**: si se pierde, el store es irrecuperable. Respaldarla por separado (única excepción aceptable: una entrada en el LastPass personal del dueño, o copia offline). La pública puede ir en claro.
+
+## 10. Fundamentos (hechos verificados que respaldan estas decisiones)
+
+Verificado a **2026-06**; los free tiers cambian — re-verificar antes de tratarlos como números duros.
+
+- **Neon** Free: hasta **100 proyectos/cuenta**, cada proyecto = DB aislada. Por eso es el estándar multi-app (vs **Supabase** Free = 2 proyectos activos/org, que forzaría multicuenta).
+- **Cloudflare R2**: 10 GB gratis + **egress gratis**; API tokens con **scope a un bucket**.
+- **Vercel**: Pro = **USD 20/seat** (no por proyecto), proyectos ilimitados + USD 20 de crédito; Hobby = **no comercial**, y la suspensión es de **cuenta COMPLETA sin aviso garantizado**.
+- **PostHog**: Free = **1M eventos/mes + 1 proyecto por organización**; el billing es **por organización** → varias orgs (un login) = varios free tiers. Por eso "1 org por app" en vez de pagar por proyectos extra.
+- **Multicuenta con `+alias`** para esquivar topes de free tier = **viola los ToS** (Vercel, Supabase) → prohibido (≠ usar orgs/proyectos que el proveedor sí ofrece como función legítima).
+- **Pagos desde Perú**: Stripe directo no opera en Perú (requeriría LLC en EE.UU.) → **Merchant of Record**. **Polar** soporta payout a Perú (Stripe Connect Express), fees ~4% + USD 0.40; respaldo Lemon Squeezy.
 
 ---
 

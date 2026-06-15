@@ -5,7 +5,7 @@ Este repo es **la fábrica**: el know-how de la empresa. Aquí NUNCA vive códig
 ## Qué hay aquí
 
 - `fabrica/constitucion.md` — principios y estándares innegociables. **Léela antes de cualquier trabajo de fábrica.**
-- `fabrica/estandares/` — estándares de ingeniería que se inyectan en cada proyecto (convenciones, estructura, patrones, calidad, stack recomendado). El stack es sugerencia; se elige y aprueba en el blueprint.
+- `fabrica/estandares/` — estándares de ingeniería que se inyectan en cada proyecto (convenciones, estructura, patrones, calidad, stack recomendado, servicios externos/cuentas/secretos). El stack es sugerencia; se elige y aprueba en el blueprint. Servicios por defecto, modelo de cuentas, secretos (SOPS+age) y pagos (Polar) viven en `servicios-externos.md`.
 - `fabrica/ideas/` — base de ideas (una ficha .md por idea, frontmatter con `estado`). **Tus fichas son personales (gitignored)**; se versiona la plantilla `_plantilla-ficha.md`.
 - `fabrica/perfil.md` — perfil del dueño (nombre, objetivos, GitHub, ruta de proyectos). **Personal (gitignored)**; lo genera `/pandacorp:onboarding` desde `perfil.example.md`. La fábrica lo lee para personalizarse.
 - `fabrica/portfolio.md` — índice de proyectos creados y su estado (punteros, no contenido). **Personal (gitignored)**; seed en `portfolio.example.md`.
