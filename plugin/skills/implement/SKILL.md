@@ -29,17 +29,17 @@ Cada work order se commitea al cerrarse → el avance no se pierde. (Ya no aplic
 
 ## Operación desatendida (correr y largarse) — ver `docs/propuestas/07-construccion-desatendida.md`
 
-El objetivo: Sergio corre `implement` y se va por horas, **sin babysitting**, y puede **probar lo avanzado cuando vuelva** sin adivinar si está "testeable". El workflow corre en background y se detiene solo cuando la cola se vacía — eso ya es "corre y lárgate", nativo. El principio: **el punto seguro no es un estado del agente, es un commit de git** — cada work order cerrado en verde es un snapshot inmutable.
+El objetivo: El dueño corre `implement` y se va por horas, **sin babysitting**, y puede **probar lo avanzado cuando vuelva** sin adivinar si está "testeable". El workflow corre en background y se detiene solo cuando la cola se vacía — eso ya es "corre y lárgate", nativo. El principio: **el punto seguro no es un estado del agente, es un commit de git** — cada work order cerrado en verde es un snapshot inmutable.
 
-- **Auto mode (permisos), no babysitting**: Sergio activa el *auto mode* de Claude Code (Shift+Tab → "Auto mode", o `defaultMode: "auto"` en SU `~/.claude/settings.json` — el repo no puede auto-concedérselo). Con eso los subagentes dejan de preguntar "¿continúo?" y solo se detienen en rojo irrecuperable o en un gate humano. **Auto mode (permisos) ≠ modo de construcción (concurrencia/modelos).** NUNCA `--dangerously-skip-permissions`.
-- **Freeze-on-red (sale natural del pipeline)**: una etapa que no pasa el gate **lanza (throw)** → ese work order cae a `null` y el `pipeline()` **sigue con los work orders independientes**, sin frenar el lote por un frente roto. Para el WO roto: NO commitees lo roto, deja `HEAD` en el último verde (`last_green_sha`), márcalo `BLOQUEADO` en `docs/estado.yaml` y **emite una notificación a Sergio** (hook Notification / PushNotification).
+- **Auto mode (permisos), no babysitting**: El dueño activa el *auto mode* de Claude Code (Shift+Tab → "Auto mode", o `defaultMode: "auto"` en SU `~/.claude/settings.json` — el repo no puede auto-concedérselo). Con eso los subagentes dejan de preguntar "¿continúo?" y solo se detienen en rojo irrecuperable o en un gate humano. **Auto mode (permisos) ≠ modo de construcción (concurrencia/modelos).** NUNCA `--dangerously-skip-permissions`.
+- **Freeze-on-red (sale natural del pipeline)**: una etapa que no pasa el gate **lanza (throw)** → ese work order cae a `null` y el `pipeline()` **sigue con los work orders independientes**, sin frenar el lote por un frente roto. Para el WO roto: NO commitees lo roto, deja `HEAD` en el último verde (`last_green_sha`), márcalo `BLOQUEADO` en `docs/estado.yaml` y **emite una notificación al dueño** (hook Notification / PushNotification).
 - **Circuit breakers** (obligatorios para no quemar plata desatendido): tope de iteraciones, detección de no-progreso (mismo error / diff vacío / mismo test fallando N veces) y tope de presupuesto por corrida (el `budget` del workflow). Van en la condición del loop del script. El backstop nativo de auto mode (pausa tras bloqueos del clasificador) NO sustituye esto.
 - **`/loop` vs `/goal` — cuál y cuándo** (no son alternativas a `implement`; son el *motor de cadencia* que `implement` invoca según el caso):
   - **Build normal**: ninguno de los dos. El workflow ES el loop; corre hasta vaciar la cola y para solo.
   - **Fábrica continua / desatendida**: envuelve `implement` en **`/loop`** *self-paced* para re-lanzar el workflow cada tanto, recoger las bandejas (`docs/bugs/`, `docs/decisiones.md`) y seguir. NO a intervalo fijo de cron (los scheduled tasks expiran y meten delays).
   - **`/goal`**: herramienta de borde — para una sesión supervisora que no debe parar hasta una condición concreta. Raro con workflows, porque el workflow ya trae su propia condición de fin.
-- **Probar un snapshot SIN parar la construcción (git worktrees)**: Sergio prueba el último verde en OTRA carpeta — `git worktree add ../<proyecto>-review <last_green_sha>` — mientras el workflow sigue. Mantiene UNA sola carpeta de review y la refresca al último verde. El cockpit le da el comando listo. Cada subagente trabaja idealmente en su propio worktree aislado (`isolation: 'worktree'`).
-- **BD en dev con Docker** (`fabrica/estandares/infra.md`): cada proyecto y cada worktree levanta su BD en Docker, con puerto propio, para que la prueba de Sergio y la del agente no se pisen.
+- **Probar un snapshot SIN parar la construcción (git worktrees)**: El dueño prueba el último verde en OTRA carpeta — `git worktree add ../<proyecto>-review <last_green_sha>` — mientras el workflow sigue. Mantiene UNA sola carpeta de review y la refresca al último verde. El cockpit le da el comando listo. Cada subagente trabaja idealmente en su propio worktree aislado (`isolation: 'worktree'`).
+- **BD en dev con Docker** (`fabrica/estandares/infra.md`): cada proyecto y cada worktree levanta su BD en Docker, con puerto propio, para que la prueba del dueño y la del agente no se pisen.
 
 ## Cómo corre (forma del workflow)
 
@@ -61,7 +61,7 @@ El script lee la cola, arma las **olas por dependencias** (paralelo dentro de la
 ## Composición y modelos
 
 - **Composición según stack** (DR-013): web (A) → `backend-dev` + `frontend-dev` + `test-writer`, con el `reviewer` al cerrar. API/scraper (B/C/D) → `backend-dev` + `test-writer` (sin frontend). **Sin investigador fijo**: los obreros llaman al `researcher` a demanda; la investigación de fondo ya se hizo en spec y blueprint.
-- **Concurrencia y modelos** (DR-014, diseñar para Max 5x): hasta 3 `agent()` simultáneos; juicio en opus, obreros en sonnet/haiku. Si Sergio construye la propia fábrica, puede subir concurrencia (Max 20x).
+- **Concurrencia y modelos** (DR-014, diseñar para Max 5x): hasta 3 `agent()` simultáneos; juicio en opus, obreros en sonnet/haiku. Si el dueño construye la propia fábrica, puede subir concurrencia (Max 20x).
 
 ## Loop por work order (cada item del pipeline)
 
@@ -72,12 +72,12 @@ El script lee la cola, arma las **olas por dependencias** (paralelo dentro de la
    - `test-writer`: escribe/corre tests de aceptación (RED antes de implementar; e2e de los flujos al cerrar).
    - **Telemetría**: cuando un work order toca un flujo del plan de eventos (`docs/analitica/eventos.md`), se instrumenta ahí mismo (el `analytics` definió qué/dónde; sin PII, DR-025). No se deja para después.
    - Cada agente escribe el contexto crítico a archivos (los archivos son la fuente de verdad compartida entre etapas).
-3. **review** (agente `reviewer`, modelo distinto al generador): verifica evidencia él mismo (corre tests/lint/typecheck) y **escribe tests adversariales que el implementer no vio** (DR-015), anclados en EARS y en bugs de `docs/progreso.md`. Revisa con sus 3 lentes. En **modo profundo**, las 3 lentes (correctitud / seguridad / calidad) corren como **subagentes concurrentes** (terminan en el tiempo del más lento, no la suma) y se exige **mutation testing** en hitos de FRD (DR-016). RECHAZADO → vuelve al agente responsable con los hallazgos (máx. 2 ciclos; al tercero, escala a Sergio).
+3. **review** (agente `reviewer`, modelo distinto al generador): verifica evidencia él mismo (corre tests/lint/typecheck) y **escribe tests adversariales que el implementer no vio** (DR-015), anclados en EARS y en bugs de `docs/progreso.md`. Revisa con sus 3 lentes. En **modo profundo**, las 3 lentes (correctitud / seguridad / calidad) corren como **subagentes concurrentes** (terminan en el tiempo del más lento, no la suma) y se exige **mutation testing** en hitos de FRD (DR-016). RECHAZADO → vuelve al agente responsable con los hallazgos (máx. 2 ciclos; al tercero, escala al dueño).
 4. **verify — cierra (punto seguro)**: SOLO si `.pandacorp/verify.sh` pasa, commitea/mergea el work order; work order → `terminado` con evidencia; el script del gate escribe en `docs/estado.yaml` el `last_green_sha` (commit) y `safe_to_test: true`. **Nunca commitees a medio work order.**
-5. **Revisa las bandejas** (en este punto seguro, nunca a media obra — así es como Sergio te habla sin parar la construcción):
+5. **Revisa las bandejas** (en este punto seguro, nunca a media obra — así es como el dueño te habla sin parar la construcción):
    - `docs/bugs/` → bugs nuevos: primero un **test de regresión** que lo reproduce, luego el fix; prioriza los `crítico`.
-   - `docs/estado.yaml` `replanteo_pendiente: true` → `iterate` pidió pausar por un cambio fuerte: **detente limpio aquí** y avisa a Sergio.
-   - `docs/decisiones.md` → pendientes que Sergio ya respondió con `/decide`: aplícalas y desbloquea ese frente.
+   - `docs/estado.yaml` `replanteo_pendiente: true` → `iterate` pidió pausar por un cambio fuerte: **detente limpio aquí** y avisa al dueño.
+   - `docs/decisiones.md` → pendientes que el dueño ya respondió con `/decide`: aplícalas y desbloquea ese frente.
 6. **Hito de FRD**: al completar los work orders de un FRD, corre la suite e2e de ese FRD y **mata los dev servers de prueba con `TaskStop`** (evita procesos zombie). Repite hasta agotar work orders.
 
 > El cockpit (Mission Control) muestra en vivo este workflow: los eventos los emiten los subagentes (`emit-event.sh`) y el hook `SubagentStop` de la fábrica a `~/.claude/dashboard-events.ndjson`. No requiere acción del agente. Mientras tanto, `/workflows` da la vista nativa en vivo.
@@ -90,17 +90,17 @@ Mientras se construye, mantener SIEMPRE actualizado (el cockpit lo lee en vivo):
 - **`docs/progreso.md`**: bitácora append-only (qué se hizo, decisiones tomadas, problemas). Permite retomar sin contexto previo.
 - **Desviaciones**: si algo NO funciona como se planeó, documéntalo en el work order y en `docs/progreso.md` ("esto hay que mejorar / cambiamos X porque Y"). No lo escondas.
 
-## Puntos de decisión (escalado a Sergio, visible en el cockpit)
+## Puntos de decisión (escalado al dueño, visible en el cockpit)
 
-Cuando aparezca algo que no estaba resuelto: **primero investiga** (delega al `researcher`) y, si con eso puedes tomar la decisión coherente tú mismo, hazlo y documéntalo en `docs/progreso.md`. **Solo escala a Sergio las decisiones genuinamente humanas**: scope de producto, algo irreversible, gastar dinero, o lo que el registro de decisiones marca como humano. En ese caso NO adivines: anótalo en `docs/decisiones.md` como `pendiente` (qué pasa, opciones investigadas, **tu recomendación**) y, si bloquea ese frente, sigue con otros work orders. El cockpit resalta estas entradas (un chip con el número de pendientes por proyecto). Sergio responde con **`/pandacorp:decide`**, que registra su respuesta en `docs/decisiones.md` y desbloquea el frente.
+Cuando aparezca algo que no estaba resuelto: **primero investiga** (delega al `researcher`) y, si con eso puedes tomar la decisión coherente tú mismo, hazlo y documéntalo en `docs/progreso.md`. **Solo escala al dueño las decisiones genuinamente humanas**: scope de producto, algo irreversible, gastar dinero, o lo que el registro de decisiones marca como humano. En ese caso NO adivines: anótalo en `docs/decisiones.md` como `pendiente` (qué pasa, opciones investigadas, **tu recomendación**) y, si bloquea ese frente, sigue con otros work orders. El cockpit resalta estas entradas (un chip con el número de pendientes por proyecto). El dueño responde con **`/pandacorp:decide`**, que registra su respuesta en `docs/decisiones.md` y desbloquea el frente.
 
 ## Al terminar todos
 
 - Suite completa + e2e en verde, `docs/estado.yaml` → `fase: release`.
-- Resumen a Sergio: qué se construyó, evidencia, y siguiente paso `/pandacorp:release`.
+- Resumen al dueño: qué se construyó, evidencia, y siguiente paso `/pandacorp:release`.
 
 ## Reglas
-- Nunca avanzar con tests rojos. Errores idénticos repetidos 3 veces = **freeze-on-red** (no commitear lo roto, dejar HEAD en `last_green_sha`, marcar el WO `BLOQUEADO`, notificar a Sergio, seguir con WOs independientes — el `pipeline()` lo hace solo cuando una etapa lanza).
+- Nunca avanzar con tests rojos. Errores idénticos repetidos 3 veces = **freeze-on-red** (no commitear lo roto, dejar HEAD en `last_green_sha`, marcar el WO `BLOQUEADO`, notificar al dueño, seguir con WOs independientes — el `pipeline()` lo hace solo cuando una etapa lanza).
 - Límites de cuota: si se topan rate limits, baja la concurrencia del workflow (menos `agent()` en paralelo) y/o baja los modelos de los obreros. No es un error del código.
 - Si un work order revela que el blueprint/FRD estaba mal, documenta el conflicto, ajusta el documento fuente (ADR si es arquitectónico) y recién continúa.
 - Para proyectos triviales o sin separación clara (un solo módulo), está bien usar un único agente `implementer` en vez del pipeline completo.

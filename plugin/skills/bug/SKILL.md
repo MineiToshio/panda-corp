@@ -17,10 +17,10 @@ El canal para **reportar un bug** sin parar la construcción ni armar nada en el
    - en qué FRD/pantalla cae, si se sabe
    - `estado: pendiente`
 3. **Incrementa** `bugs_pendientes` en `docs/estado.yaml` (el cockpit lo muestra como chip por proyecto).
-4. **Confirma** a Sergio: "anotado en la bandeja; `/implement` lo tomará en su próximo punto seguro". Si NO hay construcción corriendo y quiere arreglarlo ya, dile que corra `/pandacorp:implement` (que vacía la bandeja).
+4. **Confirma** al dueño: "anotado en la bandeja; `/implement` lo tomará en su próximo punto seguro". Si NO hay construcción corriendo y quiere arreglarlo ya, dile que corra `/pandacorp:implement` (que vacía la bandeja).
 
 ## Reglas
 
 - **No arregla** el bug ni toca código. Solo documenta. (Quien arregla es el loop de `implement`, que crea el test de regresión primero — DR-015.)
 - Un bug en la bandeja nunca se borra a mano: al cerrarse, `implement` lo marca `resuelto` con el commit del fix.
-- Si lo que describe Sergio NO es un bug sino un cambio/funcionalidad ("quiero que además haga X"), redirígelo a `/pandacorp:iterate`. Si es responder algo que la IA preguntó, a `/pandacorp:decide`.
+- Si lo que describe el dueño NO es un bug sino un cambio/funcionalidad ("quiero que además haga X"), redirígelo a `/pandacorp:iterate`. Si es responder algo que la IA preguntó, a `/pandacorp:decide`.

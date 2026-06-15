@@ -13,7 +13,7 @@
 
 ## Cómo se verifica
 - Gate-checklist en `/pandacorp:release`: ¿qué PII se recolecta? ¿es lo mínimo? ¿hay export/delete? ¿logs sin PII?
-- **Recolectar PII nueva o compartir datos con terceros = escalar a Sergio** (DR-025, alinea con DR-008).
+- **Recolectar PII nueva o compartir datos con terceros = escalar al dueño** (DR-025, alinea con DR-008).
 
 ## Por qué
 Recolectar datos personales sin minimización ni derechos del titular es un riesgo legal real. Privacy-by-default convierte el cumplimiento en algo estructural (en el esquema), no en un parche posterior.

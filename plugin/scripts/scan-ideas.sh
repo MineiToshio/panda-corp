@@ -1,9 +1,10 @@
 #!/bin/bash
 # Pandacorp ideas scanner: detects estado changes in fabrica/ideas/*.md frontmatter
 # by comparing against a cached snapshot. Prints changes; updates the snapshot.
-# Usage: scan-ideas.sh /path/to/panda-corp
+# Usage: scan-ideas.sh [/path/to/factory]
+# Defaults to the factory root = the repo this is run from (the cwd is the factory).
 
-FACTORY="${1:-/Users/Shared/Proyectos/panda-corp}"
+FACTORY="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 IDEAS_DIR="$FACTORY/fabrica/ideas"
 CACHE_DIR="$FACTORY/.pandacorp-cache"
 SNAPSHOT="$CACHE_DIR/ideas-snapshot.txt"
@@ -15,7 +16,7 @@ current=$(mktemp)
 for f in "$IDEAS_DIR"/*.md; do
   [ -e "$f" ] || continue
   base=$(basename "$f")
-  [ "$base" = "_plantilla-ficha.md" ] && continue
+  case "$base" in _*|bitacora.md) continue;; esac
   estado=$(awk '/^---$/{n++; next} n==1 && /^estado:/{sub(/^estado:[[:space:]]*/,""); print; exit}' "$f")
   echo "$base|$estado"
 done | sort > "$current"

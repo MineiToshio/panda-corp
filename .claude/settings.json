@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/bitacora-reminder.sh\"",
+            "timeout": 10,
+            "statusMessage": "Bitácora · recordatorio"
+          }
+        ]
+      }
+    ]
+  }
+}

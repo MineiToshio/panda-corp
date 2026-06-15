@@ -1,8 +1,8 @@
 # Plan de implementación — Pandacorp (dashboard local, solo-lectura)
 
-> Plan autocontenido para ejecutar con `/loop`. El dashboard es el primer proyecto de la fábrica Pandacorp: una herramienta LOCAL para que Sergio **vea** el estado de ideas y proyectos, **lea** los documentos, y **sepa qué comando ejecutar a continuación** — copiándolo con un botón y pegándolo en la app de Claude Code.
+> Plan autocontenido para ejecutar con `/loop`. El dashboard es el primer proyecto de la fábrica Pandacorp: una herramienta LOCAL para que el dueño **vea** el estado de ideas y proyectos, **lea** los documentos, y **sepa qué comando ejecutar a continuación** — copiándolo con un botón y pegándolo en la app de Claude Code.
 >
-> **Principio rector:** el dashboard NUNCA llama a Claude. Solo lee archivos del repo y genera texto de comandos para copiar. Toda ejecución la hace Sergio pegando el comando en la app de Claude Code → usa su suscripción Claude Max. Sergio es débil en UX → la UI debe ser mínima y limpia.
+> **Principio rector:** el dashboard NUNCA llama a Claude. Solo lee archivos del repo y genera texto de comandos para copiar. Toda ejecución la hace el dueño pegando el comando en la app de Claude Code → usa su suscripción Claude Max. El dueño es débil en UX → la UI debe ser mínima y limpia.
 
 > **Documentación de producto (fuente de verdad):** `docs/prd.md` + `docs/frds/` (FRD-01 a FRD-13: lectura, tablero, portfolio, workspace, work orders, Mission Control RPG, configuración, documentación, gamificación, salón de logros, modos de construcción, **observabilidad/data-viz**, **sistema visual y accesibilidad**) + `docs/logros.md`. El prototipo navegable (`prototype/index.html`) es el diseño aprobado. Este PLAN es la **secuencia de construcción**; ante cualquier duda de alcance, mandan los FRDs. **Refuerzos de UX (investigación 2026, `../docs/propuestas/06-plan-de-mejoras-2026.md`):** color persistente por agente reusado en sprites+feed+kanban, fallo como estado de primera clase, `tabular-nums`, acento racionado, tema OKLCH de pocos tokens, motion <300ms con `prefers-reduced-motion`, feed follow-tail+pin+cap, Live Pulse, toggle RPG↔timeline, KPIs ≤5 (FRD-12/FRD-13). Pendiente: blueprint formal (stack/arquitectura) a partir de los FRDs.
 
@@ -31,7 +31,9 @@ Una app web local en `http://127.0.0.1:3000` con tres paneles sobre datos reales
 ## Configuración de rutas (constantes en `lib/config.ts`)
 
 ```
-FACTORY_ROOT = "/Users/Shared/Proyectos/panda-corp"
+FACTORY_ROOT = raíz del repo de la fábrica (el repo que contiene cockpit/);
+               resolver con `git rev-parse --show-toplevel` o `path.resolve(process.cwd(), "..")`,
+               override opcional con la env var PANDACORP_FACTORY_ROOT
 IDEAS_DIR    = FACTORY_ROOT + "/fabrica/ideas"      (ignorar _plantilla-ficha.md)
 PORTFOLIO    = FACTORY_ROOT + "/fabrica/portfolio.md"
 PROJECTS     = filas del portfolio → cada ruta → docs/estado.yaml
@@ -52,7 +54,7 @@ Mapea estado/fase → comando sugerido + carpeta donde abrir Claude Code:
 
 Etapas adicionales: `descartada` (decisión humana desde Pandacorp) y, para cambios en cualquier momento, el botón **Iterar** (`/pandacorp:iterate`). `recommend` es una acción de consejo a demanda, no una etapa.
 
-La UI muestra, junto al comando, la ruta de la carpeta (con su propio botón de copiar) para que Sergio sepa exactamente dónde pegarlo.
+La UI muestra, junto al comando, la ruta de la carpeta (con su propio botón de copiar) para que el dueño sepa exactamente dónde pegarlo.
 
 ## Fases y tareas (el loop avanza la primera pendiente en cada iteración)
 
@@ -105,7 +107,7 @@ La UI muestra, junto al comando, la ruta de la carpeta (con su propio botón de 
 
 ## Restricciones (guardrails para el loop)
 
-1. **El dashboard NUNCA llama a Claude**: nada de `claude -p`, Agent SDK, ni API key. Solo lee/escribe archivos locales. Toda ejecución la hace Sergio pegando comandos en la app de Claude Code (su suscripción Max).
+1. **El dashboard NUNCA llama a Claude**: nada de `claude -p`, Agent SDK, ni API key. Solo lee/escribe archivos locales. Toda ejecución la hace el dueño pegando comandos en la app de Claude Code (su suscripción Max).
 2. **Local only**: escucha en `127.0.0.1`. NUNCA deployar ni exponer a la red.
 3. **No tocar datos de la fábrica** salvo el frontmatter `estado:` del stretch. Lectura, no escritura (excepto ese caso).
 4. **TDD** en `lib/` (lectura y next-step).
@@ -114,5 +116,5 @@ La UI muestra, junto al comando, la ruta de la carpeta (con su propio botón de 
 7. **Terminar cuando** todos los criterios de aceptación globales estén marcados. No seguir agregando features.
 
 ## Notas
-- Si una decisión no está cubierta aquí, aplicar el registro de decisiones de la fábrica (`../panda-corp/fabrica/decisiones/registro.yaml`); si tampoco, parar y preguntar a Sergio.
+- Si una decisión no está cubierta aquí, aplicar el registro de decisiones de la fábrica (`../panda-corp/fabrica/decisiones/registro.yaml`); si tampoco, parar y preguntar al dueño.
 - El `estado.yaml` de proyectos puede no existir aún (por ahora solo está la fábrica + este panel): manejar el caso vacío con gracia.

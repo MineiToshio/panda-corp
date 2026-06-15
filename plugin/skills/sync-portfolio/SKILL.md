@@ -10,18 +10,18 @@ Sincronización fábrica ↔ proyectos. Se ejecuta EN panda-corp.
 
 1. Corre el escáner de estados:
    ```bash
-   bash "${CLAUDE_PLUGIN_ROOT}/scripts/scan-ideas.sh" /Users/Shared/Proyectos/panda-corp
+   bash "${CLAUDE_PLUGIN_ROOT}/scripts/scan-ideas.sh"
    ```
    Compara el `estado:` actual de cada ficha contra el snapshot anterior (`.pandacorp-cache/ideas-snapshot.txt`) y lista los cambios.
 2. Por cada cambio detectado, actúa según el estado NUEVO:
-   - `seleccionada` → avisa a Sergio que está lista para `/pandacorp:scaffold <idea>` (o ejecútalo si Sergio pidió modo automático)
+   - `seleccionada` → avisa al dueño que está lista para `/pandacorp:scaffold <idea>` (o ejecútalo si el dueño pidió modo automático)
    - `descartada` → verifica que la ficha tenga el racional anotado (DR-011)
    - otros cambios → solo regístralos en el reporte
 
 ## Parte 2 — Refrescar el portfolio (proyectos → fábrica)
 
 3. Por cada fila de `fabrica/portfolio.md`: lee el `docs/estado.yaml` del proyecto siguiendo su ruta y actualiza fase/resumen/fecha de sync.
-4. **Ruta rota** (carpeta movida o borrada): NO borres la fila — márcala `⚠️ ruta no encontrada` y pregunta a Sergio.
+4. **Ruta rota** (carpeta movida o borrada): NO borres la fila — márcala `⚠️ ruta no encontrada` y pregunta al dueño.
 5. Consistencia: si un proyecto está `lanzada` pero su ficha de idea no, corrige la ficha (y viceversa, reporta la discrepancia).
 
 ## Parte 3 — Reporte

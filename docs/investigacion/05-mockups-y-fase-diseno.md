@@ -10,7 +10,7 @@
 - Herramienta de diseño visual en claude.ai: prompts → prototipos HTML/CSS/JS interactivos. Incluida con Pro/Max sin costo extra (cuota separada del chat y de Claude Code).
 - Tiene **handoff directo a Claude Code**: exporta bundle con `design.html`, screenshots, `design-notes.md` y spec de componentes con design tokens.
 - **Limitación clave: no tiene API ni MCP** — es solo navegador, no se puede automatizar desde el pipeline. Investigación preview, consume mucha cuota.
-- Rol en la fábrica: herramienta manual opcional cuando Sergio quiera explorar visualmente; el bundle exportado entra al pipeline como artefacto.
+- Rol en la fábrica: herramienta manual opcional cuando el dueño quiera explorar visualmente; el bundle exportado entra al pipeline como artefacto.
 - [Anuncio](https://www.anthropic.com/news/claude-design-anthropic-labs) · [Mecánica del handoff](https://claudefa.st/blog/guide/mechanics/claude-design-handoff)
 
 ### Mockups HTML generados por Claude Code (el camino automatizable)
@@ -18,13 +18,13 @@ Patrón comunitario consolidado:
 1. `DESIGN.md` + `design-tokens.json` como contrato del proyecto (tokens de color/tipografía/espaciado, inventario de componentes, prohibiciones).
 2. El agente genera **3 direcciones de diseño en paralelo** como `.html` autocontenidos y navegables (CSS/JS inline, responsive).
 3. Playwright saca screenshots por viewport (375px/1280px) y axe-core corre chequeo de accesibilidad → `a11y-report.md`.
-4. **Gate humano**: Sergio abre los 3 HTML en el navegador y elige (o pide iterar). Una palabra de respuesta.
+4. **Gate humano**: El dueño abre los 3 HTML en el navegador y elige (o pide iterar). Una palabra de respuesta.
 5. Se congela el contrato: `design-tokens.json` final + `decisiones-de-diseno.md`. La implementación solo puede usar tokens, nunca valores hardcodeados.
 
 ### Guardrails de diseño (compensan la debilidad UX/UI)
 - **shadcn/ui CLI v4 + shadcn/skills** (marzo 2026): skill oficial para agentes que reduce alucinaciones; **Presets** empaquetan tema completo en un string (`npx shadcn init --preset CODE`).
 - **tweakcn**: editor visual de temas shadcn → exporta variables Tailwind + JSON versionable = nuestro `design-tokens.json`. [tweakcn](https://tweakcn.com/)
-- **Agente revisor de diseño**: Playwright MCP (render + screenshots multi-viewport) + `@axe-core/playwright` (WCAG 2.2) como gate automático ANTES de que Sergio mire.
+- **Agente revisor de diseño**: Playwright MCP (render + screenshots multi-viewport) + `@axe-core/playwright` (WCAG 2.2) como gate automático ANTES de que el dueño mire.
 
 ### Herramientas externas evaluadas
 | Herramienta | ¿API? | Veredicto |

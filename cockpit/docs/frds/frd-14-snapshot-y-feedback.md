@@ -12,7 +12,7 @@ Lo que el cockpit muestra para operar una construcción desatendida: cuál es el
 - LA documentación del cockpit DEBERÁ explicar los **tres canales de feedback** a una construcción en curso: `/pandacorp:bug`, `/pandacorp:iterate`, `/pandacorp:decide` (todos por archivos, recogidos en el próximo punto seguro).
 
 ## No-objetivos
-- El cockpit NO ejecuta `git worktree` ni levanta el dev server: muestra el comando para que Sergio lo corra (solo-lectura). En el futuro podría haber un botón que lo arme, pero sigue siendo acción del operador.
+- El cockpit NO ejecuta `git worktree` ni levanta el dev server: muestra el comando para que el dueño lo corra (solo-lectura). En el futuro podría haber un botón que lo arme, pero sigue siendo acción del operador.
 
 ## Relación
 Complementa Mission Control ([FRD-06](frd-06-mission-control.md)) y los work orders ([FRD-05](frd-05-work-orders.md)). El estado lo escribe el script del gate del proyecto, no el agente (ver `fabrica/estandares/infra.md`).

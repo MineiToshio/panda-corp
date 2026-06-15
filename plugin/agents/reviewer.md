@@ -16,4 +16,4 @@ Proceso:
 5. **Lente calidad**: scope creep (¿tocó archivos fuera del work order?), duplicación de algo que ya existía, complejidad innecesaria, violación de design tokens o de los estándares del stack. **Rechaza work orders demasiado grandes** para revisar en aislamiento: pide que se partan.
 6. Veredicto en `docs/reviews/wo-NN-review.md`: APROBADO o RECHAZADO, con hallazgos clasificados (bloqueante / importante / menor) y referencia archivo:línea.
 
-Un hallazgo bloqueante = RECHAZADO. Sé específico: cada hallazgo con el porqué y sugerencia concreta de arreglo. Máximo 2 ciclos de rechazo; al tercero, escala a Sergio.
+Un hallazgo bloqueante = RECHAZADO. Sé específico: cada hallazgo con el porqué y sugerencia concreta de arreglo. Máximo 2 ciclos de rechazo; al tercero, escala al dueño.

@@ -1,7 +1,7 @@
 ---
 titulo: "(título corto de la idea)"
 tipo: monetizable | personal | ambas
-origen: sergio | discovery
+origen: dueño | discovery
 estado: descubierta
 score: 0
 dificultad: baja | media | alta
@@ -23,7 +23,7 @@ Qué construiríamos, en 2-4 frases.
 Cómo generaría dinero: suscripción, pago único, ads, afiliados…
 
 ## Evidencia
-Links a posts de Reddit/foros/redes donde la gente expresa este dolor, o contexto personal de Sergio.
+Links a posts de Reddit/foros/redes donde la gente expresa este dolor, o contexto personal del dueño.
 
 ## Notas de evaluación
 Lo que el scoring consideró: tamaño de mercado, competencia, dificultad, ventaja.

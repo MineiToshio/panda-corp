@@ -1,5 +1,5 @@
 ---
-description: Busca en internet (Reddit, foros, redes, reviews) dolores reales de personas que sean fáciles de implementar y monetizables, y los documenta como fichas en la base de ideas de Pandacorp. Usar cuando Sergio pida "busca oportunidades", "descubre ideas" o similar.
+description: Busca en internet (Reddit, foros, redes, reviews) dolores reales de personas que sean fáciles de implementar y monetizables, y los documenta como fichas en la base de ideas de Pandacorp. Usar cuando el dueño pida "busca oportunidades", "descubre ideas" o similar.
 ---
 
 # /pandacorp:discover

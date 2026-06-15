@@ -2,7 +2,7 @@
 
 ## Conclusión
 
-**Sí funciona exactamente como Sergio lo imaginó**: plugin **Bases Kanban** (ewerx) sobre las Bases nativas de Obsidian. Arrastrar una tarjeta entre columnas **escribe el nuevo `estado:` en el frontmatter del archivo .md** en disco. La detección del cambio se hace por escaneo periódico + git diff.
+**Sí funciona exactamente como el dueño lo imaginó**: plugin **Bases Kanban** (ewerx) sobre las Bases nativas de Obsidian. Arrastrar una tarjeta entre columnas **escribe el nuevo `estado:` en el frontmatter del archivo .md** en disco. La detección del cambio se hace por escaneo periódico + git diff.
 
 ## Hallazgos clave
 

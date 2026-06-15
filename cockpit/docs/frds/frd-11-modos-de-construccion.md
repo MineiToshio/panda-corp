@@ -8,7 +8,7 @@ Permite elegir con cuánta potencia se construye cada proyecto, y muestra el com
   - **Equilibrado** (default) — equipo de ≤3 agentes; líder opus, obreros sonnet/haiku. Pensado para Max 5x.
   - **Potente** — hasta 5 agentes en paralelo, avanza más rápido. Para Max 20x.
   - **Profundo** — mejores modelos en todos + revisión adversarial extra. Para un proyecto especial.
-- CUANDO Sergio elige un modo, DEBERÁ mostrarse el **comando exacto a copiar** (`/pandacorp:implement [modo]`) con su descripción (agentes, modelos, plan recomendado).
+- CUANDO el dueño elige un modo, DEBERÁ mostrarse el **comando exacto a copiar** (`/pandacorp:implement [modo]`) con su descripción (agentes, modelos, plan recomendado).
 - EL modo elegido DEBERÁ **recordarse por proyecto**.
 - EL skill `/pandacorp:implement` DEBERÁ aceptar esos modos como argumento (`pro` | `potente` | `profundo`; sin argumento = equilibrado).
 

@@ -16,7 +16,7 @@ Se setean en `next.config` `headers()` o middleware:
 
 ## Cómo se verifica
 - **Test de header-scan en CI** (convierte el "headers de seguridad" decorativo en algo fail-closed): asevera que cada header está presente con su valor.
-- El **submit a hstspreload.org es duradero y difícil de revertir → lo aprueba Sergio**, no el agente.
+- El **submit a hstspreload.org es duradero y difícil de revertir → lo aprueba el dueño**, no el agente.
 
 ## Por qué
 Estos headers son baratos y cortan clases enteras de ataques (clickjacking, sniffing, fuga de referrer). Por eso son default literal, no decisión por proyecto.

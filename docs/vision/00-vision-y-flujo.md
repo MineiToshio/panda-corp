@@ -1,15 +1,15 @@
 # Pandacorp — Visión y flujo de trabajo (v0.2)
 
-> Ideas de Sergio ordenadas y validadas con sus respuestas del 2026-06-12.
+> Ideas del dueño ordenadas y validadas con sus respuestas del 2026-06-12.
 
 ## Propósito (doble)
 
 1. **Generar ingresos**: descubrir e implementar aplicaciones monetizables. No se busca solo "el gran hit": un portfolio de apps pequeñas que generen poquito cada una suma un ingreso regular.
-2. **Facilitar la vida de Sergio**: aplicaciones que resuelven problemas propios. La monetización es irrelevante; el valor es personal.
+2. **Facilitar la vida del dueño**: aplicaciones que resuelven problemas propios. La monetización es irrelevante; el valor es personal.
 
 ## Contexto operativo
 
-- **Operación de una sola persona**: Sergio dirige, la IA hace todo. Proceso inspirado en el flujo 89.ia (PRD, FRD, blueprint, work orders) pero simplificado — sin la ceremonia de un equipo.
+- **Operación de una sola persona**: El dueño dirige, la IA hace todo. Proceso inspirado en el flujo 89.ia (PRD, FRD, blueprint, work orders) pero simplificado — sin la ceremonia de un equipo.
 - **Debilidad declarada en UX/UI**: la fábrica la compensa con esfuerzo dedicado en diseño (ver Refuerzo UX/UI).
 - **Claude es el orquestador principal** de todo el sistema.
 
@@ -36,7 +36,7 @@ Regla de oro: **cada dato vive en un solo lugar; el otro lado guarda solo un pun
 
 | Fuente | Cómo entra | Quién define |
 |---|---|---|
-| **1. Ideas propias** | Sergio llega con el problema/funcionalidad y una guía | Sergio dirige; la fábrica formaliza |
+| **1. Ideas propias** | El dueño llega con el problema/funcionalidad y una guía | El dueño dirige; la fábrica formaliza |
 | **2. Discovery automático** | Skill a demanda hoy (`/descubrir`); luego cron/routine periódico | La fábrica busca en internet, Reddit, foros, redes: dolores reales, fáciles de implementar y monetizables, y los documenta |
 
 **Alcance del discovery ✅ DECIDIDO**: explora todos los perfiles (micro-SaaS global, mercado hispano, pago único/extensiones…); el scoring decide. Sin restricción inicial.
@@ -50,27 +50,27 @@ Regla de oro: **cada dato vive en un solo lugar; el otro lado guarda solo un pun
   ---
   titulo: Tracker de Funkos One Piece
   tipo: personal | monetizable | ambas
-  origen: sergio | discovery
+  origen: dueño | discovery
   estado: descubierta | documentada | recomendada | seleccionada | en-pipeline | lanzada | descartada
   score: 0-100
   evidencia: [links]
   ---
   ```
-- **Vista kanban**: Pandacorp muestra las fichas como tablero tipo Trello agrupado por `estado`; mover una tarjeta reescribe `estado:` en el .md. (Obsidian queda como opción personal de Sergio si algún día la quiere, pero no es parte del sistema.)
+- **Vista kanban**: Pandacorp muestra las fichas como tablero tipo Trello agrupado por `estado`; mover una tarjeta reescribe `estado:` en el .md. (Obsidian queda como opción personal del dueño si algún día la quiere, pero no es parte del sistema.)
 - **Trigger**: un job (diario al inicio; luego watcher/routine) detecta cambios de `estado:` y dispara la fase correspondiente — ej. `seleccionada` → arranca scaffold + fase de producto.
-- Dinámica de selección: Sergio consulta ("¿cuáles me recomiendas?"), la fábrica responde con ranking justificado, **Sergio decide** (Gate humano #1).
+- Dinámica de selección: El dueño consulta ("¿cuáles me recomiendas?"), la fábrica responde con ranking justificado, **el dueño decide** (Gate humano #1).
 
 ## El pipeline
 
 ```
    EN PANDA-CORP (fábrica)         — etapa de la idea: DESCUBIERTA
 0. DISCOVERY / INTAKE   → ficha de idea en la base (/discover, /new-idea)
-1. SELECCIÓN            → Sergio decide ejecutar el handoff             ← GATE HUMANO
+1. SELECCIÓN            → El dueño decide ejecutar el handoff             ← GATE HUMANO
    ─── /pandacorp:spec <idea>  (HANDOFF: nace la carpeta/repo + documenta) ───
    EN EL PROYECTO (con los agentes de la fábrica)
 2. PRODUCTO  → investigación + PRD + FRDs del MVP        → etapa DOCUMENTADA
 3. DISEÑO    → investigación visual + mockups navegables → etapa DISEÑO
-              → revisión visual de Sergio (iterando en la conversación) ← GATE LIGERO
+              → revisión visual del dueño (iterando en la conversación) ← GATE LIGERO
 4. ARQUITECTURA → /blueprint: stack, modelo de datos, ADRs + work orders → etapa ARQUITECTURA
 5. CONSTRUCCIÓN → /implement: un workflow dinámico construye todo, en vivo en → etapa EN CONSTRUCCIÓN
                   Mission Control, TDD, testing por FRD/hito
@@ -87,14 +87,14 @@ Cada fase produce artefactos versionados en `docs/` del proyecto. Las pruebas se
 
 - **Agente diseñador dedicado** + investigación visual por proyecto: referencias de apps similares bien diseñadas, patrones probados, heurísticas de usabilidad.
 - **Sistema de diseño estándar** (shadcn/ui + tokens) como base — no inventar desde cero.
-- **Mockups navegables antes de codear** (HTML estático o Claude Design — por investigar), para que el gate de Sergio sea solo mirar y opinar.
+- **Mockups navegables antes de codear** (HTML estático o Claude Design — por investigar), para que el gate del dueño sea solo mirar y opinar.
 - **Verificación automatizada**: screenshots por viewport (Playwright), checks de accesibilidad y responsive en el testing.
 
 ## Interfaz gráfica ✅ DECIDIDO: Pandacorp (el panel de la fábrica, primer proyecto)
 
-- Dashboard web **local y solo-lectura** (`/Users/Shared/Proyectos/panda-corp/cockpit/`, ver su `PLAN.md`). NUNCA llama a Claude: lee los archivos del repo.
+- Dashboard web **local y solo-lectura** (`cockpit/`, en la raíz de la fábrica, ver su `PLAN.md`). NUNCA llama a Claude: lee los archivos del repo.
 - Paneles: (1) kanban de ideas (mover tarjeta reescribe `estado:`), (2) portfolio, (3) "siguiente comando a copiar" según estado/fase, (4) Mission Control (subagentes del workflow en vivo, leyendo `~/.claude/dashboard-events.ndjson`).
-- Sergio ejecuta los comandos pegándolos en la app de Claude Code → todo sale de su suscripción Max (no del pool headless).
+- El dueño ejecuta los comandos pegándolos en la app de Claude Code → todo sale de su suscripción Max (no del pool headless).
 - Se construye con `/loop` (sesión interactiva = suscripción). Reemplaza a Obsidian como visor. Propuesta detallada: [docs/propuestas/05-interfaz-cockpit.md](../propuestas/05-interfaz-cockpit.md).
 
 ## Preguntas aún abiertas (secundarias)
@@ -120,4 +120,4 @@ Cada fase produce artefactos versionados en `docs/` del proyecto. Las pruebas se
 
 ## Próxima etapa propuesta
 
-**Construcción fase 1**: estructura del plugin + constitución + CLAUDE.md de la fábrica + base de ideas con `ideas.base` + primeros skills (`/descubrir`, `/nueva-idea`, `/recomendar`). Luego **piloto** con una idea real de Sergio.
+**Construcción fase 1**: estructura del plugin + constitución + CLAUDE.md de la fábrica + base de ideas con `ideas.base` + primeros skills (`/descubrir`, `/nueva-idea`, `/recomendar`). Luego **piloto** con una idea real del dueño.

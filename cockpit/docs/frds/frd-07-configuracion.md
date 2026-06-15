@@ -5,7 +5,7 @@ Vista de solo-lectura de lo que hay configurado en la fábrica, con identidad y 
 ## Criterios de aceptación (EARS)
 - LA Configuración DEBERÁ ofrecer secciones: **Skills · Agentes · Reglas de decisión · Estándares**.
 - CADA sección DEBERÁ listar sus elementos con nombre y una **descripción** real de qué hace cada uno.
-- CUANDO Sergio hace clic en un elemento, DEBERÁ mostrar su **detalle** (lectura del contenido / explicación).
+- CUANDO el dueño hace clic en un elemento, DEBERÁ mostrar su **detalle** (lectura del contenido / explicación).
 - EL detalle de un **skill** DEBERÁ mostrar para qué sirve, dónde corre (fábrica/proyecto), qué produce, y un **mini-flujo a alto nivel** (chips con los agentes que usa, coloreados por agente, con flechas) — el "gráfico de cómo funciona el skill".
 - LA sección **Reglas de decisión** DEBERÁ explicar qué ES una regla de decisión, mostrar TODAS las DR con un indicador **auto-aprueba (●) / te pregunta (●)**, su detalle (default pre-aprobado), y un botón **"Nueva regla de decisión"** que copia `/pandacorp:codify`.
 - LA sección **Estándares** DEBERÁ estar **categorizada por dominio** (Programación, Arquitectura, Diseño, Tecnología, Calidad, Seguridad, Operación, Datos/Privacidad, Producto/Docs), con badges de **severidad** (MUST/SHOULD/MAY) y **enforcement** (lint/CI/checklist/gate humano); cada estándar con dos vistas **Resumen** (puntos clave reales) y **Detalle** (markdown), y un botón **"Nuevo estándar"** que copia `/pandacorp:codify`.

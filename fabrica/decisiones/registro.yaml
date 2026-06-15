@@ -1,6 +1,6 @@
 # Registro de decisiones de Pandacorp
 # Decisiones recurrentes con default pre-aprobado. Si una decisión no está aquí:
-# escalar a Sergio UNA vez y agregar la regla nueva con su respuesta.
+# escalar al dueño UNA vez y agregar la regla nueva con su respuesta.
 
 decisiones:
   - id: DR-001
@@ -10,7 +10,7 @@ decisiones:
 
   - id: DR-002
     patron: "elección de stack/tecnologías para un proyecto nuevo"
-    default: "el architect propone el stack en el blueprint partiendo del recomendado (fabrica/estandares/stack.md, en últimas versiones estables) y puede sugerir mejores alternativas con trade-offs; Sergio aprueba la elección (gate ligero) y queda como ADR. Las convenciones duraderas (fabrica/estandares) NO se negocian"
+    default: "el architect propone el stack en el blueprint partiendo del recomendado (fabrica/estandares/stack.md, en últimas versiones estables) y puede sugerir mejores alternativas con trade-offs; el dueño aprueba la elección (gate ligero) y queda como ADR. Las convenciones duraderas (fabrica/estandares) NO se negocian"
     requiere_humano: true
     nota: "aprobación ligera dentro del blueprint, no un gate aparte"
 
@@ -21,12 +21,12 @@ decisiones:
 
   - id: DR-004
     patron: "deploy a PRODUCCIÓN"
-    default: "BLOQUEAR — requiere aprobación explícita de Sergio"
+    default: "BLOQUEAR — requiere aprobación explícita del dueño"
     requiere_humano: true
 
   - id: DR-005
     patron: "gastar dinero (compras, planes pagos, dominios, APIs de pago)"
-    default: "BLOQUEAR — requiere aprobación explícita de Sergio con monto"
+    default: "BLOQUEAR — requiere aprobación explícita del dueño con monto"
     requiere_humano: true
 
   - id: DR-006
@@ -36,12 +36,12 @@ decisiones:
 
   - id: DR-007
     patron: "borrar datos, repos, ramas remotas o recursos cloud"
-    default: "BLOQUEAR — requiere aprobación explícita de Sergio"
+    default: "BLOQUEAR — requiere aprobación explícita del dueño"
     requiere_humano: true
 
   - id: DR-008
     patron: "comunicaciones externas (emails a usuarios, webhooks públicos, publicar en stores/marketplaces)"
-    default: "BLOQUEAR — requiere aprobación explícita de Sergio"
+    default: "BLOQUEAR — requiere aprobación explícita del dueño"
     requiere_humano: true
 
   - id: DR-009
@@ -51,7 +51,7 @@ decisiones:
 
   - id: DR-010
     patron: "crear repositorio GitHub para un proyecto"
-    default: "auto-aprobar como repo PRIVADO en la cuenta de Sergio; público → escalar"
+    default: "auto-aprobar como repo PRIVADO en la cuenta del dueño; público → escalar"
     requiere_humano: false
 
   - id: DR-011
@@ -102,7 +102,7 @@ decisiones:
 
   - id: DR-020
     patron: "operación de la construcción (cómo corre implement desatendido)"
-    default: "implement lanza un workflow dinámico en background y corre en auto mode (permisos; lo activa Sergio a nivel usuario, el repo no se lo concede). Freeze-on-red: una etapa que falla lanza (throw) → el pipeline salta ese WO (no commitea lo roto, deja HEAD en el último verde, lo marca BLOQUEADO, notifica) y sigue con los WOs independientes. Circuit breakers (tope de iteraciones, no-progreso, presupuesto del workflow). El workflow se detiene solo al vaciar la cola; para correr en continuo se envuelve en /loop self-paced. El operador habla por archivos (docs/bugs, docs/decisiones.md, replanteo_pendiente), que el workflow revisa solo en puntos seguros"
+    default: "implement lanza un workflow dinámico en background y corre en auto mode (permisos; lo activa el dueño a nivel usuario, el repo no se lo concede). Freeze-on-red: una etapa que falla lanza (throw) → el pipeline salta ese WO (no commitea lo roto, deja HEAD en el último verde, lo marca BLOQUEADO, notifica) y sigue con los WOs independientes. Circuit breakers (tope de iteraciones, no-progreso, presupuesto del workflow). El workflow se detiene solo al vaciar la cola; para correr en continuo se envuelve en /loop self-paced. El operador habla por archivos (docs/bugs, docs/decisiones.md, replanteo_pendiente), que el workflow revisa solo en puntos seguros"
     requiere_humano: false
 
   - id: DR-021
@@ -117,7 +117,7 @@ decisiones:
 
   - id: DR-023
     patron: "probar lo avanzado sin parar la construcción"
-    default: "Sergio prueba el último commit verde (last_green_sha) en un git worktree aparte (una sola carpeta de review, refrescada al último verde), nunca el working tree del agente. El script del gate escribe last_green_sha + safe_to_test en docs/estado.yaml. Checkpoints nativos NO sirven como snapshot (ignoran lo hecho por Bash)"
+    default: "el dueño prueba el último commit verde (last_green_sha) en un git worktree aparte (una sola carpeta de review, refrescada al último verde), nunca el working tree del agente. El script del gate escribe last_green_sha + safe_to_test en docs/estado.yaml. Checkpoints nativos NO sirven como snapshot (ignoran lo hecho por Bash)"
     requiere_humano: false
 
   # Las DR-024..030 son gobernanza: apuntan a un estándar de fabrica/estandares/ (los valores viven allí, no aquí).
@@ -128,7 +128,7 @@ decisiones:
 
   - id: DR-025
     patron: "privacidad / manejo de datos personales (PII)"
-    default: "minimizar PII, no loguearla, retención con plazo, export/delete en el modelo (ver privacidad.md). Recolectar PII NUEVA o compartir datos con terceros = escalar a Sergio (alinea con DR-008)"
+    default: "minimizar PII, no loguearla, retención con plazo, export/delete en el modelo (ver privacidad.md). Recolectar PII NUEVA o compartir datos con terceros = escalar al dueño (alinea con DR-008)"
     requiere_humano: true
     nota: "humano solo para PII nueva / compartir con terceros; lo demás es default determinista"
 
@@ -141,7 +141,7 @@ decisiones:
     patron: "security headers / CSP (web)"
     default: "setear el set OWASP barato como default literal en next.config (ver seguridad-web.md); CSP con nonce en report-only en v1. Verificado por header-scan en CI. El submit a hstspreload.org = humano (es duradero)"
     requiere_humano: false
-    nota: "auto salvo el preload submit, que escala a Sergio"
+    nota: "auto salvo el preload submit, que escala al dueño"
 
   - id: DR-028
     patron: "contrato de error de una API"
@@ -156,9 +156,9 @@ decisiones:
 
   - id: DR-030
     patron: "desviación del golden path en un proyecto"
-    default: "desviarse = ADR per-proyecto (no DR nueva). sync-portfolio/recommend observan ADRs de desviación recurrentes entre proyectos y proponen promover el patrón a fabrica/estandares/ cuando se repite. Promover a estándar = decisión de Sergio"
+    default: "desviarse = ADR per-proyecto (no DR nueva). sync-portfolio/recommend observan ADRs de desviación recurrentes entre proyectos y proponen promover el patrón a fabrica/estandares/ cuando se repite. Promover a estándar = decisión del dueño"
     requiere_humano: false
-    nota: "la promoción de un patrón recurrente a estándar global la aprueba Sergio"
+    nota: "la promoción de un patrón recurrente a estándar global la aprueba el dueño"
 
   - id: DR-031
     patron: "fuente de eventos de Mission Control (cómo se alimenta el cockpit durante la construcción)"
@@ -167,6 +167,18 @@ decisiones:
 
   - id: DR-032
     patron: "iterar en una fase temprana (descubierta/documentada/diseño/arquitectura) sin avanzar de columna, y cómo se avanza entre fases"
-    default: "las fases manuales NO auto-cierran: cada skill (explore/new-idea/spec/design/blueprint) produce su output, marca avance_pendiente: true en docs/estado.yaml y NO escribe la transición de fase hasta el 'ok, avanza' explícito de Sergio. Re-correr la MISMA fase = iterar en sitio (refina lo que hay, NO regenera desde cero ni repite lo ya rechazado). La esencia del ida-y-vuelta (qué se probó, qué se rechazó y por qué, qué queda abierto) se persiste en docs/iteracion.md (en ideas, sin proyecto: fabrica/ideas/_borradores/<slug>.md) para poder retomar aunque se pierda la conversación. Extiende el principio 2 (artefactos antes que chat)."
+    default: "las fases manuales NO auto-cierran: cada skill (explore/new-idea/spec/design/blueprint) produce su output, marca avance_pendiente: true en docs/estado.yaml y NO escribe la transición de fase hasta el 'ok, avanza' explícito del dueño. Re-correr la MISMA fase = iterar en sitio (refina lo que hay, NO regenera desde cero ni repite lo ya rechazado). La esencia del ida-y-vuelta (qué se probó, qué se rechazó y por qué, qué queda abierto) se persiste en docs/iteracion.md (en ideas, sin proyecto: fabrica/ideas/_borradores/<slug>.md) para poder retomar aunque se pierda la conversación. Extiende el principio 2 (artefactos antes que chat)."
     requiere_humano: true
     nota: "gate ligero y por-fase en las etapas manuales; NO aplica a implement (autónomo, ya reanudable) ni cambia el gate de release a producción (DR-004). El journal reduce intervención futura (principio 7): retomar no exige re-explicar."
+
+  - id: DR-033
+    patron: "datos personales del dueño en el repo de la fábrica (perfil, portfolio, fichas de ideas) y portabilidad"
+    default: "NUNCA se commitean al repo público: viven en disco gitignored (fabrica/perfil.md, fabrica/portfolio.md, fabrica/ideas/*.md salvo _plantilla-ficha.md y bitacora.md). Se versiona solo el molde: seeds *.example.md y plantillas. Personalizar la fábrica = /pandacorp:onboarding, que genera fabrica/perfil.md (la fábrica lo lee para nombre/GitHub/ruta de proyectos/objetivos). Las rutas en skills/scripts se resuelven relativas a la raíz de la fábrica (cwd / repo root), nunca absolutas."
+    requiere_humano: false
+    nota: "abre la fábrica como plantilla clonable por cualquiera; ver fabrica/bitacora.md (2026-06-14)."
+
+  - id: DR-034
+    patron: "versionado del plugin pandacorp al cambiar algo en plugin/"
+    default: "el plugin lleva `version` semver en plugin/.claude-plugin/plugin.json (fuente de verdad) y SE SUBE en cada cambio de plugin/: PATCH (x.y.Z) fix/ajuste/doc sin cambiar comportamiento; MINOR (x.Y.0) capacidad nueva compatible (skill/agente/opción nueva); MAJOR (X.0.0) breaking change (renombrar/eliminar un skill, cambiar un flujo de forma incompatible). El bump es parte del flujo 'tras editar plugin/': subir versión → commit → claude plugin update. Anotar el porqué en plugin/docs/bitacora.md."
+    requiere_humano: false
+    nota: "la instalación local rastrea el SHA para detectar desfase (FRD-15); la version es la etiqueta semántica del release."

@@ -15,10 +15,10 @@ Caza el despiste más común: editar el plugin de la fábrica y olvidar commitea
 - SI el **SHA instalado ≠ último commit que tocó `plugin/`** (commiteado pero no reinstalado), DEBERÁ mostrar el aviso: "El plugin instalado está atrasado".
 - EL aviso DEBERÁ mostrar el **comando para copiar** `claude plugin update pandacorp@panda-corp` y recordar la secuencia (commitea si hace falta → corre el comando → reinicia la sesión de Claude Code).
 - EL aviso DEBERÁ **desaparecer solo** cuando el plugin vuelva a estar sincronizado (sin cambios sin commitear y SHA instalado == último commit del plugin).
-- EL aviso NO DEBERÁ ejecutar nada (solo-lectura): muestra el comando, Sergio lo corre.
+- EL aviso NO DEBERÁ ejecutar nada (solo-lectura): muestra el comando, el dueño lo corre.
 
 ## No-objetivos
-- No corre `git` ni `plugin update` por Sergio. No instala nada.
+- No corre `git` ni `plugin update` por el dueño. No instala nada.
 
 ## Nota de implementación
 En la app real (Next.js), un endpoint server-side hace los reads de archivo/git y devuelve el estado; el prototipo lo simula con un flag (`PLUGIN_SYNC`). Ver la regla de mantenimiento del plugin en el `CLAUDE.md` de la fábrica.

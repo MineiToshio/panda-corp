@@ -6,7 +6,7 @@ Convenciones de cómo corre un proyecto en **desarrollo** (la fábrica las inyec
 
 - **Dev**: cada proyecto levanta su BD y servicios (Postgres, Redis si aplica) con **Docker Compose**, definido en el repo (`docker-compose.yml`). Reproducible, aislado, y el agente lo levanta de forma determinista. Único requisito de máquina: Docker Desktop instalado.
 - **Staging / producción**: NO Docker — managed DB del golden path (Neon / Supabase). Docker es solo para local.
-- Cada **worktree** usa su propia instancia/DB (o un nombre de proyecto Compose distinto, `docker compose -p <worktree>`) para que la prueba de Sergio y la del agente no se pisen.
+- Cada **worktree** usa su propia instancia/DB (o un nombre de proyecto Compose distinto, `docker compose -p <worktree>`) para que la prueba del dueño y la del agente no se pisen.
 
 ## Convención de puertos (varios proyectos / worktrees a la vez)
 
@@ -18,7 +18,7 @@ Para que nada se cruce cuando corren varias cosas en paralelo:
 
 ## Worktrees (probar un snapshot sin parar al agente)
 
-- El agente construye en su worktree; Sergio prueba el **último commit verde** (`last_green_sha`) en otra carpeta:
+- El agente construye en su worktree; el dueño prueba el **último commit verde** (`last_green_sha`) en otra carpeta:
   `git worktree add ../<proyecto>-review <last_green_sha>`.
 - Un worktree nace **sin** `.env` ni `node_modules`. La plantilla del stack incluye un **`.worktreeinclude`** (sintaxis `.gitignore`) que copia `.env`/`.env.local` a cada worktree nuevo, más un paso post-create que instala deps. Con **pnpm** (almacén compartido) el install en un worktree nuevo es casi inmediato.
 - Mantener **UNA** carpeta de review y refrescarla al último verde (no acumular worktrees). El sweep automático de Claude Code no borra worktrees creados a mano.

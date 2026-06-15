@@ -7,7 +7,7 @@ Una sola pantalla para operar la fábrica Pandacorp **como si fuera un RPG**: ve
 Operar la fábrica solo desde la terminal es árido: no hay vista del estado general, hay que abrir archivos a mano, no es obvio qué skill toca, y nada sostiene la motivación del operador solo en el día a día.
 
 ## Usuario
-Sergio (operador único, hispanohablante). Débil en UX → la herramienta debe **guiar y deleitar**, no solo mostrar datos.
+El dueño (operador único, hispanohablante). Débil en UX → la herramienta debe **guiar y deleitar**, no solo mostrar datos.
 
 ## Hipótesis de valor
 Una vista de solo-lectura que muestre estado + documentación + el siguiente comando, envuelta en una capa RPG **honesta** (XP, niveles y logros que reflejan trabajo real), reduce la fricción y hace placentero operar la fábrica a diario — **sin gastar la suscripción** (nunca llama a Claude) y **sin caer en gamificación tóxica**.
@@ -30,7 +30,7 @@ Una vista de solo-lectura que muestre estado + documentación + el siguiente com
 Cinco pestañas — **Tablero, Portfolio, Logros, Configuración, Documentación** — + el **workspace por proyecto** + **Mission Control RPG** + **gamificación** (logros/stats/XP/niveles) + **modos de construcción** + **snapshot probable y canales de feedback** ([FRD-14](frds/frd-14-snapshot-y-feedback.md): panel de "último punto probable / construyendo ahora" con comando de worktree, chips de decisiones/bugs por proyecto), según los FRDs (`docs/frds/`, FRD-01 a FRD-14). El prototipo navegable (`cockpit/prototype/index.html`) es el diseño aprobado. Transversal a todas las pestañas: **observabilidad y data-viz** ([FRD-12](frds/frd-12-observabilidad-dataviz.md): KPIs, frescura del dato, toggle RPG↔timeline, DAG) y el **sistema visual y de accesibilidad** ([FRD-13](frds/frd-13-sistema-visual-accesibilidad.md): tokens OKLCH, acento racionado, `tabular-nums`, motion sobrio, `prefers-reduced-motion`, estado por icono+color).
 
 ## No-objetivos (v1)
-- No ejecuta comandos ni agentes (Sergio los pega en Claude Code).
+- No ejecuta comandos ni agentes (el dueño los pega en Claude Code).
 - No es multiusuario ni se despliega a internet. Sin leaderboards.
 - No edita la documentación de los proyectos.
 

@@ -47,5 +47,5 @@ En vez de estrenar la fábrica con el Funko tracker, la estrenamos construyendo 
 ### Detalle técnico a recordar
 El dashboard dispararía Claude vía `claude -p` / Agent SDK, que desde 2026-06-15 consume un pool de créditos separado de la suscripción. Mitigación: configurar `ANTHROPIC_API_KEY` en el entorno del subproceso para facturar a tarifa API en vez de agotar el pool fijo.
 
-## Decisión para Sergio
+## Decisión para el dueño
 ¿El **dashboard web local** se vuelve el primer proyecto de la fábrica (desplazando al Funko tracker como piloto), mientras montamos Obsidian hoy como lectura inmediata?

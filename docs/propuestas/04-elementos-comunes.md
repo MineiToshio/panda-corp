@@ -73,7 +73,7 @@ El `arquitecto` elige entre estos 4 (combinables: el caso Funkos = D para recole
 ## 6. Separación fábrica / proyectos
 
 ```
-/Users/Shared/Proyectos/
+<carpeta-de-proyectos>/
 ├── panda-corp/                  ← LA FÁBRICA (este repo): know-how, nunca código de producto
 │   ├── CLAUDE.md                ← constitución de la empresa
 │   ├── .claude/ (agents, skills, hooks, rules)

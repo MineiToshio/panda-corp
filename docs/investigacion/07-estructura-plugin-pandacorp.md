@@ -54,7 +54,7 @@ panda-corp/
 
 ### Setup (una vez)
 ```bash
-ln -s /Users/Shared/Proyectos/panda-corp/plugin ~/.claude/skills/pandacorp
+ln -s "$(pwd)/plugin" ~/.claude/skills/pandacorp   # correr desde la raíz de la fábrica
 claude plugin list   # debe mostrar pandacorp@skills-dir
 ```
 

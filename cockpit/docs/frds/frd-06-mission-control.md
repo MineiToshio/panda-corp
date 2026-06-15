@@ -11,7 +11,7 @@ Vista tipo RPG de los subagentes del workflow construyendo un proyecto: zonas pi
 - LA vista DEBERÁ mostrar una **bitácora** de los eventos del workflow (acciones de los subagentes y handoffs entre etapas).
 - CUANDO se cierra un work order, DEBERÁ dispararse un **logro** ("¡Logro desbloqueado!").
 - LA vista DEBERÁ alimentarse de los eventos del workflow que escriben los subagentes (`emit-event.sh`) y el hook `SubagentStop` de la fábrica (`~/.claude/dashboard-events.ndjson`) y del estado de tareas (`~/.claude/tasks/`), **sin llamar a Claude**. En el prototipo se **simula** con un botón.
-- LA vista es de **observación**: para redirigir/pausar un agente, Sergio usa la app de Claude Code.
+- LA vista es de **observación**: para redirigir/pausar un agente, el dueño usa la app de Claude Code.
 - SI no hay equipo activo, DEBERÁ mostrar un estado vacío con gracia.
 
 ## Refuerzos de UX (investigación 2026, ver `docs/propuestas/06-plan-de-mejoras-2026.md`)

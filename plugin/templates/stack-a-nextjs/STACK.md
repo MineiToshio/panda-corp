@@ -1,6 +1,6 @@
 # Stack A — Web app full-stack (Next.js) · sugerencia por defecto
 
-Guía de instalación para `/pandacorp:blueprint`, caso web full-stack. Es el **punto de partida recomendado** (`fabrica/estandares/stack.md`), NO una imposición: el `architect` puede proponer alternativas mejores y Sergio aprueba en el blueprint. **Usar siempre últimas versiones estables** (los comandos `@latest` ya lo hacen). Alineado a los estándares de PandaTrack: Next.js + React + TypeScript + Tailwind + **Prisma** + **Better Auth** + **next-intl** + **PostHog** + **Sentry** + Vitest + Playwright + **ESLint/Prettier** + **npm**, estructura `src/` con data layer en `queries/`.
+Guía de instalación para `/pandacorp:blueprint`, caso web full-stack. Es el **punto de partida recomendado** (`fabrica/estandares/stack.md`), NO una imposición: el `architect` puede proponer alternativas mejores y el dueño aprueba en el blueprint. **Usar siempre últimas versiones estables** (los comandos `@latest` ya lo hacen). Stack recomendado: Next.js + React + TypeScript + Tailwind + **Prisma** + **Better Auth** + **next-intl** + **PostHog** + **Sentry** + Vitest + Playwright + **ESLint/Prettier** + **npm**, estructura `src/` con data layer en `queries/`.
 
 ## Instalación
 

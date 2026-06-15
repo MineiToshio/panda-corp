@@ -8,6 +8,17 @@
 # State caches
 .pandacorp-cache/
 
+# Datos del dueño (personales — NO se publican). Los seeds versionados son
+# fabrica/perfil.example.md y fabrica/portfolio.example.md; /pandacorp:onboarding
+# genera las versiones reales abajo. Las fichas de ideas también son personales.
+fabrica/perfil.md
+fabrica/portfolio.md
+fabrica/ideas/*.md
+!fabrica/ideas/_plantilla-ficha.md
+!fabrica/ideas/bitacora.md
+fabrica/ideas/_borradores/*.md
+!fabrica/ideas/_borradores/README.md
+
 # OS
 .DS_Store
 

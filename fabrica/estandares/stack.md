@@ -1,6 +1,6 @@
 # Stack recomendado (sugerencia por defecto)
 
-> ⚠️ Esto es una **sugerencia**, no una imposición. El agente `architect` propone el stack en el **blueprint**, evalúa si hay tecnologías mejores para ESE proyecto, y **Sergio lo aprueba** ahí (gate humano ligero, registrado como ADR). **Siempre se usan las últimas versiones estables** de lo que se elija.
+> ⚠️ Esto es una **sugerencia**, no una imposición. El agente `architect` propone el stack en el **blueprint**, evalúa si hay tecnologías mejores para ESE proyecto, y **el dueño lo aprueba** ahí (gate humano ligero, registrado como ADR). **Siempre se usan las últimas versiones estables** de lo que se elija.
 
 ## Punto de partida según tipo de proyecto
 
@@ -25,6 +25,6 @@
 ## Reglas al elegir
 1. Por defecto, lo de arriba en **últimas versiones estables**.
 2. El `architect` **puede y debe proponer algo mejor** si encaja (mejor librería, lenguaje o servicio) — con trade-offs claros.
-3. La decisión la **aprueba Sergio** en el blueprint y queda como ADR.
+3. La decisión la **aprueba el dueño** en el blueprint y queda como ADR.
 4. No mezclar tecnologías que rompan las convenciones duraderas (tipado estricto, data layer aislado, testing).
 5. Nunca auth casero: usar una solución probada.

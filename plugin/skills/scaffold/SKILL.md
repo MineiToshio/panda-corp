@@ -8,14 +8,14 @@ Crea el proyecto para la idea indicada en `$ARGUMENTS` (nombre de ficha o slug).
 
 ## Pasos
 
-1. **Valida**: lee la ficha en `/Users/Shared/Proyectos/panda-corp/fabrica/ideas/<idea>.md`. Debe existir y estar en `estado: recomendada` (o `documentada`). Ejecutar este skill ES la selección de Sergio. Si la ficha está en `descartada` o `en-pipeline`, detente y confirma.
-2. **Crea la carpeta** `/Users/Shared/Proyectos/<slug-en-ingles>/` (hermana de panda-corp, NUNCA dentro). Inicializa git con branch `main`.
+1. **Valida**: lee la ficha en `fabrica/ideas/<idea>.md` (en la raíz de la fábrica). Debe existir y estar en `estado: recomendada` (o `documentada`). Ejecutar este skill ES la selección del dueño. Si la ficha está en `descartada` o `en-pipeline`, detente y confirma.
+2. **Crea la carpeta** `<slug-en-ingles>/` como **hermana de la raíz de la fábrica** (NUNCA dentro). Por defecto el directorio padre de la fábrica; si `fabrica/perfil.md` define `ruta_proyectos`, úsala. Inicializa git con branch `main`.
 3. **Copia el overlay Pandacorp** desde las plantillas del plugin:
    ```bash
    cp -r "${CLAUDE_PLUGIN_ROOT}/templates/shared/." "<destino>/"
    ```
-   Procesa los `.tpl`: reemplaza `{{PROJECT_NAME}}` (slug), `{{IDEA_FILE}}` (ruta de la ficha), `{{DATE}}` (hoy) y renombra quitando `.tpl`. El overlay ya incluye `.claude/workflows/pandacorp-build.js` (el motor de construcción que lanza `implement`) y `.claude/settings.json`.
-4. **Estructura de docs**: crea `docs/` con subcarpetas vacías `frds/`, `diseno/mockups/`, `adr/`, `work-orders/`, `reviews/`. Copia la ficha de la idea a `docs/idea-origen.md` (copia congelada de referencia). El overlay ya siembra `docs/estado.yaml` y `docs/iteracion.md` (bitácora de iteración en sitio, DR-032).
+   Procesa los `.tpl`: reemplaza `{{PROJECT_NAME}}` (slug), `{{IDEA_FILE}}` (ruta de la ficha), `{{FACTORY_PATH}}` (ruta absoluta de la raíz de la fábrica), `{{DATE}}` (hoy) y renombra quitando `.tpl`. El overlay ya incluye `.claude/workflows/pandacorp-build.js` (el motor de construcción que lanza `implement`) y `.claude/settings.json`.
+4. **Estructura de docs**: crea `docs/` con subcarpetas vacías `frds/`, `diseno/mockups/`, `adr/`, `work-orders/`, `reviews/`. Copia la ficha de la idea a `docs/idea-origen.md` (copia congelada de referencia). El overlay ya siembra `docs/estado.yaml`, `docs/iteracion.md` (iteración en sitio, DR-032) y `docs/bitacora.md` (historia de decisiones — estándar de dos capas, `documentacion.md`).
 5. **NO instales el stack todavía** — eso lo decide el blueprint en fase de arquitectura. El proyecto nace solo con docs + overlay. (La guía de cada stack está en `${CLAUDE_PLUGIN_ROOT}/templates/stack-*/STACK.md` para cuando llegue el momento.)
 6. **Enlaces bidireccionales**:
    - Ficha de la idea: `estado: en-pipeline`, campo `proyecto:` con la ruta.

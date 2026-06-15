@@ -157,7 +157,7 @@ async function runWO(wo) {
     return v
   } catch (e) {
     log(`✗ ${wo.id} BLOQUEADO (${String((e && e.message) || e).slice(0, 100)}) — freeze-on-red`)
-    await agent(`Freeze-on-red del work order ${wo.id}: NO commitees nada roto. Deja HEAD en last_green_sha, marca el work order ${wo.id} como BLOQUEADO en docs/estado.yaml con el motivo, y emite una notificación a Sergio (hook PushNotification / Notification). No toques otros work orders.`,
+    await agent(`Freeze-on-red del work order ${wo.id}: NO commitees nada roto. Deja HEAD en last_green_sha, marca el work order ${wo.id} como BLOQUEADO en docs/estado.yaml con el motivo, y emite una notificación al dueño (hook PushNotification / Notification). No toques otros work orders.`,
       { label: `freeze:${wo.id}`, phase: 'Verify', model: P.worker, agentType: 'pandacorp:implementer' })
     return { green: false }
   }

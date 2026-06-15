@@ -16,7 +16,7 @@ clase CSS del sprite (`.mcag.s-<estado>`) y en un emote opcional sobre la cabeza
 | Trabajando | `s-work` | En su escritorio, **halo** pulsante del color del rol + **barra de avance** llenándose. Alterna emote « … » (pensando) y sin emote (tecleando). | Está produciendo ahora |
 | Caminando | `s-walk` | Cruza el mapa hacia otra estación cargando un **paquete** (`.pkt`, el contrato/artefacto). Rebote (bob) más rápido. | Handoff: transición de etapa del pipeline (p.ej. contrato listo → frontend) |
 | En espera | `s-idle` | Sprite **apagado** (opacidad 0.45 + leve gris) + emote « z ». | Idle, esperando a otro |
-| Bloqueado | `s-blocked` | Quieto + emote **« ! »** rojo rebotando (marcador de quest RPG) + halo rojo. | Necesita una decisión de Sergio |
+| Bloqueado | `s-blocked` | Quieto + emote **« ! »** rojo rebotando (marcador de quest RPG) + halo rojo. | Necesita una decisión del dueño |
 | Revisando | `s-review` | Quieto + emote **« ? »** ámbar + halo ámbar. | El reviewer espera/evalúa una entrega |
 
 Convención de color universal (coincide con el resto de herramientas del

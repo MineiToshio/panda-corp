@@ -4,7 +4,7 @@ description: Agrupa un lote grande de cambios en un hito formal (v2, v3…) de u
 
 # /pandacorp:new-version
 
-Nueva iteración de un proyecto existente. Se ejecuta EN el proyecto. `$ARGUMENTS`: qué quiere lograr Sergio con esta versión (o pregúntale).
+Nueva iteración de un proyecto existente. Se ejecuta EN el proyecto. `$ARGUMENTS`: qué quiere lograr el dueño con esta versión (o pregúntale).
 
 ## Pasos
 

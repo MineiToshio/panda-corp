@@ -21,6 +21,8 @@ Pedido del usuario → este AGENTS.md → documentos del proyecto en `docs/` →
 
 **Calidad — antes de dar algo por terminado** (lo verifica `.pandacorp/verify.sh`): tests verdes + type-check + lint/format sin errores. TDD por work order (RED → GREEN → refactor). E2E solo en flujos críticos con `data-testid`.
 
+**Documentación (dos capas)**: todo cambio relevante actualiza su **doc canónico** —comportamiento → el FRD correspondiente (`docs/frds/`); técnico → `docs/blueprint.md` + un ADR; diseño → `DESIGN.md`/tokens; alcance → `docs/prd.md`— **y** añade una entrada en `docs/bitacora.md` (fecha, qué, por qué, enlace al doc). El doc canónico es la verdad actual; la bitácora, la historia. Un cambio de comportamiento no está terminado sin su FRD actualizado y su entrada de bitácora. Estándar: `documentacion.md` de la fábrica.
+
 ## Stack de este proyecto
 Definido en `docs/blueprint.md` (elegido y aprobado en la fase de arquitectura). Ver ahí versiones y servicios concretos.
 

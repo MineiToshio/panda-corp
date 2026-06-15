@@ -14,7 +14,7 @@ Reglas:
 3. **Instrumenta sin contaminar la lógica**: la telemetría va en una capa fina (un wrapper/helper de tracking), no esparcida dentro de la lógica de negocio. PostHog es el default de la fábrica (`fabrica/estandares/observabilidad.md`); respeta su SDK y el patrón del stack. Cero llamadas de tracking duplicadas o en bucles.
 4. **Privacidad primero** (`fabrica/estandares/privacidad.md`, DR-025): **nunca** mandes PII en properties de eventos (ni email, ni nombre, ni tokens) — usa IDs estables/anónimos. Respeta consentimiento donde aplique. Si un evento necesitaría PII para ser útil, es una señal de mal diseño: replantéalo o escala (DR-025).
 5. **Verifica que disparan**: no marques "listo" sin evidencia de que los eventos llegan. Corre la app, ejecuta el flujo y comprueba el evento (consola de PostHog / debug del SDK / un test). Un evento que "debería" dispararse y no lo hace es peor que no tenerlo: da métricas falsas.
-6. **Embudos y dashboards mínimos**: define el embudo del flujo crítico (el que mide la hipótesis) y déjalo documentado para que Sergio lo arme en PostHog. No sobre-construyas dashboards: el del flujo de valor y poco más.
+6. **Embudos y dashboards mínimos**: define el embudo del flujo crítico (el que mide la hipótesis) y déjalo documentado para que el dueño lo arme en PostHog. No sobre-construyas dashboards: el del flujo de valor y poco más.
 7. **Investiga a demanda**: si dudas qué métrica importa para ESTE producto o cómo se mide una conversión del dominio, delega al `researcher` en vez de inventar una métrica de vanidad.
 
 ## Antes de pasar el trabajo (SOP de verificación intermedia)
