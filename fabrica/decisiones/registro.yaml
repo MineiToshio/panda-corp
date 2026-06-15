@@ -45,9 +45,10 @@ decisiones:
     requiere_humano: true
 
   - id: DR-009
-    patron: "idioma de artefactos"
-    default: "documentos en español; código, commits e identificadores en inglés"
+    patron: "idioma de artefactos (qué va en inglés y qué en español)"
+    default: "el estado en git decide el idioma. COMMITTEADO → inglés: código, commits, nombres de archivo y carpeta, y documentos de producto/técnicos (PRD, FRD, blueprint, ADR, README, tests, docs/bitacora.md del proyecto). GITIGNORED → español: la comunicación con Pandacorp (resumen del proyecto, docs/decisiones.md, logs, actividad, feed de Mission Control, docs/iteracion.md) y los datos personales del dueño. docs/estado.yaml se committea con SOLO estado de máquina en inglés (claves/enums/contadores/SHAs); su prosa legible va a la capa española gitignored. UI visible al usuario por i18n, español por defecto (convenciones.md). Resultado: quien clona ve todo en inglés; el dueño opera Pandacorp en español. Detalle en fabrica/estandares/convenciones.md (Idioma)"
     requiere_humano: false
+    nota: "reemplaza la regla anterior ('documentos en español'). Migración pendiente: traducir los docs existentes + renombrar archivos/carpetas + propagar a templates (ver fabrica/bitacora.md 2026-06-15)"
 
   - id: DR-010
     patron: "crear repositorio GitHub para un proyecto"

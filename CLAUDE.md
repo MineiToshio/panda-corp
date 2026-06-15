@@ -90,7 +90,7 @@ El doc canónico responde *"¿qué es verdad ahora?"*; la bitácora, *"¿cómo l
 
 ## Reglas de esta carpeta
 
-1. Idioma: documentos en español; código, commits y nombres de archivos técnicos en inglés.
+1. Idioma — **el estado en git decide el idioma** (regla *committed = inglés / gitignored = español*). Todo lo **committeado** va en inglés: código, commits, **nombres de archivo y carpeta**, y los documentos de producto/técnicos (PRD, FRD, blueprint, ADR, README, tests, y la `docs/bitacora.md` del proyecto). Todo lo **gitignored** va en español: la comunicación con Pandacorp (resumen del proyecto, `docs/decisiones.md`, logs, actividad, feed de Mission Control, `docs/iteracion.md`) y los datos personales del dueño. `docs/estado.yaml` se committea con solo estado de máquina en inglés (claves/enums/contadores/SHAs); su prosa legible vive en la capa española gitignored. Así, quien clona el repo lo ve todo en inglés y el dueño opera Pandacorp en español. Detalle en `fabrica/estandares/convenciones.md` (Idioma) y `DR-009`.
 2. Toda decisión recurrente se resuelve consultando `fabrica/decisiones/registro.yaml`. Si no está cubierta: escalar al dueño UNA vez y codificar su respuesta como regla nueva en el registro.
 3. Gates humanos (el dueño): selección de ideas (ejecutar `/pandacorp:scaffold` sobre la elegida; descartar el resto desde Mission Control), elección de diseño, release a producción, gastar dinero, comunicaciones externas, borrar datos. El tablero de ideas es solo-lectura: los estados los escriben los skills.
 4. Los agentes nunca marcan sus propios checks: la verificación es de scripts/CI.
