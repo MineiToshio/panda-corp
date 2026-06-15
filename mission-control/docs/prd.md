@@ -7,7 +7,7 @@ A single screen to operate the Pandacorp factory **as if it were an RPG**: see t
 Operating the factory from the terminal alone is dry: there is no view of the overall state, you have to open files by hand, it's not obvious which skill is next, and nothing sustains the motivation of the solo operator day to day.
 
 ## User
-The owner (sole operator, Spanish-speaking). Weak at UX → the tool must **guide and delight**, not just show data.
+The owner (sole operator, Spanish-speaking). Weak at UX → the tool must **guide and delight**, not just show data. **The entire UI is in Spanish** — copy, labels and `aria-label`s; the underlying code and identifiers are English.
 
 ## Value hypothesis
 A read-only view that shows state + documentation + the next command, wrapped in an **honest** RPG layer (XP, levels and achievements that reflect real work), reduces friction and makes operating the factory daily pleasant — **without burning the subscription** (it never calls Claude) and **without falling into toxic gamification**.

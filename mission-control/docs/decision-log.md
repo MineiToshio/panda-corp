@@ -4,6 +4,11 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [docs/status.yaml](status.yaml); the PRD in [docs/prd.md](prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-06-15 — Mission Control's UI is in Spanish (made explicit)
+**What:** Stated explicitly, in the PRD and the factory's Language convention, that Mission Control's entire user-facing UI (copy, labels, `aria-label`s) is in **Spanish** — it's the owner's tool, operated in Spanish. The underlying code/identifiers stay English; only the UI copy is Spanish. This is the committed exception to "committed = English".
+**Why:** The owner asked to state it clearly, beyond the existing note in the design brief.
+**Impact:** `mission-control/docs/prd.md` (User), `factory/standards/conventions.md` (Language). Already reflected in `design/brief.md` and the prototype.
+
 ## 2026-06-15 — Prototype + status.yaml aligned to the English language policy
 **What:** Migrated the prototype's machine identifiers to English while keeping the Spanish UI: pipeline enums (`PIPE`/`LBL` keys → discovered/documented/design/architecture/building/shipped, labels stay Spanish), idea `status`/`return_type` mock data and filters, the build-mode tokens (balanced/powerful/deep) with Spanish display labels, and the zone keys (research/review/analytics/security) to match the renamed assets. `docs/status.yaml` now holds machine state only (English); the Spanish narrative moved to the gitignored `docs/summary.md`. All docs (PRD, FRDs, PLAN, PARTY, design briefs) translated to English; the prototype UI copy stays Spanish.
 **Why:** Part of the repo-wide language migration (see `factory/decision-log.md`, same date).
