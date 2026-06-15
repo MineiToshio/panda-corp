@@ -1,17 +1,16 @@
-# Estado del proyecto {{PROJECT_NAME}} — leído por la fábrica Pandacorp y por Mission Control (en vivo)
+# Machine-readable project status for {{PROJECT_NAME}} — read by the Pandacorp factory and Mission Control (live).
+# Human-readable Spanish narrative (summary, pending items) lives in docs/summary.md (gitignored, owner-facing).
 project: "{{PROJECT_NAME}}"
 phase: product   # product | design | architecture | implementation | release | operation
 version: v1
-running: false    # true mientras /pandacorp:implement está construyendo activamente
-repo: ""          # URL del repo GitHub cuando exista
+running: false    # true while /pandacorp:implement is actively building
+repo: ""          # GitHub repo URL once it exists
 updated_at: "{{DATE}}"
-progress: "Proyecto recién creado por scaffold; fase de producto pendiente."
 work_orders_total: 0
 work_orders_done: 0
-pending_decisions: 0   # nº de entradas pendientes en docs/decisions.md (Mission Control las resalta)
-pending_bugs: 0         # nº de bugs en la bandeja docs/bugs/ por procesar
-rethink_pending: false # true si /iterate pidió pausar la construcción por un cambio fuerte
-advance_pending: false    # true cuando la fase actual produjo output y espera tu "ok, avanza" (mientras, re-correr la fase = iterar en sitio, DR-032)
-last_green_sha: ""         # commit del último work order cerrado en verde (lo escribe el gate, no el agente)
-safe_to_test: false        # true solo cuando HEAD == last_green_sha (nada sin commitear) → "punto probable"
-pending: []
+pending_decisions: 0   # number of open entries in docs/decisions.md (Mission Control highlights them)
+pending_bugs: 0        # number of bugs in the docs/bugs/ inbox awaiting processing
+rethink_pending: false # true if /iterate asked to pause the build for a major change
+advance_pending: false # true when the current phase produced output and awaits your "ok, advance" (meanwhile, re-running the phase = iterate in place, DR-032)
+last_green_sha: ""     # commit of the last work order closed green (written by the gate, not the agent)
+safe_to_test: false    # true only when HEAD == last_green_sha (nothing uncommitted) → "testable point"
