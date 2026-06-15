@@ -16,7 +16,7 @@ Toma la idea indicada en `$ARGUMENTS`, **crea su proyecto** (handoff) y document
 ## Paso 1 — Producto (en el proyecto)
 
 3. **Investigación profunda** (agentes `researcher` en paralelo): competidores y sus quejas, usuarios, funcionalidades table-stakes vs diferenciadoras, viabilidad (APIs/datos, costos, términos). Consolida en `docs/investigacion-producto.md` con fuentes. Esta es la investigación de PRODUCTO (a nivel de FRD): cuanto más completa, menos decisiones quedan para resolver en construcción.
-4. **PRD** (agente `product-manager`): `docs/prd.md` — visión, problema, usuarios, hipótesis de valor, monetización, métricas, scope v1 mínimo + backlog.
+4. **PRD** (agente `product-manager`): `docs/prd.md` — visión, problema, usuarios, hipótesis de valor, monetización (incluida la decisión explícita **¿v1 con pagos? sí/no**, DR-035), métricas, scope v1 mínimo + backlog.
 5. **FRDs** (mismo agente): `docs/frds/frd-NN-<nombre>.md`, uno por funcionalidad de v1, criterios de aceptación EARS testeables.
 6. Auto-revisión: cada FRD trazable al PRD; v1 realmente mínima (DR-012); criterios verificables por máquina.
 7. **Iterar / reanudar (DR-032)**: si ya había PRD/FRDs, esto es una **iteración** — lee `docs/iteracion.md` (fase `producto`) y los docs existentes, refina con el feedback del dueño (**no** regeneres desde cero ni repitas lo ya descartado) y **apenda** una entrada por ronda (qué se probó, qué rechazó y por qué, qué queda abierto). Presenta al dueño: hipótesis de valor, FRDs de v1, qué quedó fuera.

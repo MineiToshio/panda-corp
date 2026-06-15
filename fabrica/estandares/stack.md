@@ -12,9 +12,14 @@
 - **next-intl** (i18n, español por defecto)
 - **Zod** (validación)
 - **PostHog** (analytics) + **Sentry** (errores)
+- **Cloudflare R2** (storage de archivos/fotos, SDK S3) — bucket por app
+- **Resend** (email transaccional) + **Kit/ConvertKit** (email marketing / waitlist)
+- **Polar** (pagos, Merchant of Record — funciona desde Perú/global) cuando la versión cobra
 - **Vitest** (unit/integración) + **Playwright** (e2e)
 - **ESLint + Prettier** (con `prettier-plugin-tailwindcss`)
 - Gestor: **npm**. Deploy: Vercel (web) / contenedor en Railway o Fly.io (servicios)
+
+> Modelo de cuentas, secretos (SOPS+age) y aprovisionamiento de estos servicios externos: `servicios-externos.md`. El stack de servicios validado en producción es el de PandaTrack.
 
 ### API / servicio backend
 - TypeScript + Hono, o Python + FastAPI (según el caso); validación Zod/Pydantic; data layer aislado.
