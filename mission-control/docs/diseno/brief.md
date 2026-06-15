@@ -1,17 +1,17 @@
-# Brief de diseño — Sistema de diseño del cockpit de Pandacorp
+# Brief de diseño — Sistema de diseño de Mission Control de Pandacorp
 
 Eres el **diseñador UX/UI de Pandacorp** (Claude Design). Tu trabajo es entregar el
-**sistema de diseño completo** del cockpit y 3 direcciones de mockups navegables,
+**sistema de diseño completo** de Mission Control y 3 direcciones de mockups navegables,
 con **light mode y dark mode** de primera clase, estética **RPG con gamificación
 honesta**, y rigor de accesibilidad. El dueño es débil en diseño: tu trabajo es que
 no tenga que serlo. **Investiga antes de diseñar.**
 
-Corre este trabajo **dentro de `cockpit/`** (ahí están `docs/prd.md` y `docs/frds/`,
+Corre este trabajo **dentro de `mission-control/`** (ahí están `docs/prd.md` y `docs/frds/`,
 así que la precondición de `/pandacorp:design` ya está cumplida).
 
 ## ⚠️ Reglas que mandan sobre todo lo demás
 
-1. **El prototipo `cockpit/prototype/index.html` es referencia SOLO de funcionalidad,
+1. **El prototipo `mission-control/prototype/index.html` es referencia SOLO de funcionalidad,
    contenido, pantallas y estados — NO de diseño visual.** NO tomes de ahí colores,
    tipografía, formas, layout ni "look". El resultado **puede y debe verse como una
    aplicación distinta**: otra paleta, otras formas, otra personalidad. La paleta es
@@ -19,10 +19,10 @@ así que la precondición de `/pandacorp:design` ya está cumplida).
    FRD-13 sobre "mantener la paleta cálida tipo Anthropic": ya no es un requisito —
    solo una opción más).
 
-2. **Los sprites de personajes y los fondos de zona del Mission Control son insumos
+2. **Los sprites de personajes y los fondos de zona del Party son insumos
    FIJOS: se reusan tal cual, NO se inventan nuevos.** Están en
-   `cockpit/prototype/assets/agents/*.png` (los 10 roles) y
-   `cockpit/prototype/assets/zones/*.png` (zonas existentes). Son pixel-art 16-bit
+   `mission-control/prototype/assets/agents/*.png` (los 10 roles) y
+   `mission-control/prototype/assets/zones/*.png` (zonas existentes). Son pixel-art 16-bit
    (SNES JRPG), de paleta **cálida**, y ya están perfectos. **No generes personajes ni
    fondos nuevos.**
 
@@ -38,14 +38,14 @@ así que la precondición de `/pandacorp:design` ya está cumplida).
 
 ## 1. Qué es la aplicación
 
-El **cockpit de Pandacorp**: una app web **local** (`127.0.0.1`, sin auth, sin
+El **Mission Control de Pandacorp**: una app web **local** (`127.0.0.1`, sin auth, sin
 deploy) y **100% solo-lectura** para operar una "fábrica de software 100% IA".
 Sirve para **ver** el estado de todas las ideas y proyectos, **leer** su
 documentación, **saber qué comando ejecutar** a continuación (con botón Copiar), y
 **seguir en vivo al "party" de agentes** construyendo — todo envuelto en una capa
 de gamificación RPG **honesta**.
 
-Regla de oro del producto: **el cockpit NUNCA llama a Claude**. Solo lee archivos
+Regla de oro del producto: **Mission Control NUNCA llama a Claude**. Solo lee archivos
 del repo y muestra texto de comandos para copiar. Esto importa para el diseño: no
 hay spinners de "IA pensando" ni chat; es un **tablero de observación + lanzadera de
 comandos**, no un asistente.
@@ -54,7 +54,7 @@ comandos**, no un asistente.
 lectura), Portfolio (tabla de proyectos), **Logros** (salón de stats/logros),
 Configuración (modos de construcción, niveles de agentes), Documentación. Más:
 **workspace por proyecto** (detalle a página completa con navegador de documentos +
-siguiente comando) y **Mission Control RPG** (mapa en vivo de agentes).
+siguiente comando) y **Party RPG** (mapa en vivo de agentes).
 
 ## 2. Perfil del usuario (es el dueño, el único operador)
 
@@ -148,7 +148,7 @@ Son criterios de aceptación, **independientes de la paleta que elijas**:
 - **Motion sobrio y honesto:** solo `transform` y `opacity`, **<300ms**, 2–3 tokens de
   easing. **Frequency test**: lo cotidiano (tabs, hover) sobrio; lo expresivo reservado
   a eventos raros y satisfactorios (logro, subir de nivel, work order completada).
-- **`prefers-reduced-motion`** desactiva TODA la animación de Mission Control.
+- **`prefers-reduced-motion`** desactiva TODA la animación de Party.
 - **Accesibilidad:** contraste **≥4.5:1**, `aria-label` en **español**,
   `aria-live="polite"` para anunciar eventos sin robar foco, foco visible que respeta
   el `border-radius`, navegación de listas con teclado, touch targets ≥44px.
@@ -167,10 +167,10 @@ error** diseñados explícitamente:
    clave, navegador de documentos renderizados, bloque "Siguiente paso" (comando +
    carpeta con botón Copiar), botón Descartar.
 3. **Portfolio** — tabla de proyectos (fase, versión, resumen, última actualización).
-4. **Mission Control RPG** — el mapa vivo de agentes usando **los sprites y fondos de
+4. **Party RPG** — el mapa vivo de agentes usando **los sprites y fondos de
    zona existentes** (estados trabajando/caminando/idle/bloqueado/revisando con halo,
    barra de avance, emotes, partículas), + toggle a vista timeline/DAG + selector de
-   modo de construcción. Ver `cockpit/MISSION-CONTROL.md` para el modelo de estados.
+   modo de construcción. Ver `mission-control/PARTY.md` para el modelo de estados.
    Nota: faltan los fondos de zona de `reviewer` y `security-auditor` (hoy usan un
    tinte de respaldo); **úsalo igual, NO inventes arte nuevo** — si algún día se
    generan, deberán imitar exactamente el estilo pixel existente.
@@ -190,7 +190,7 @@ error** diseñados explícitamente:
 Investiga colores, formas y demás **con libertad de paleta acotada a la coherencia con
 los sprites cálidos** (regla ⚠️3):
 
-- **Paletas y personalidades visuales** para un cockpit RPG que **armonicen con
+- **Paletas y personalidades visuales** para un Mission Control RPG que **armonicen con
   pixel-art 16-bit cálido (JRPG)**: explora variantes (cálida clásica, tierra apagada,
   cálida con acento más saturado…) y propón candidatas con su racional, descartando las
   que harían ver los sprites fuera de lugar.
@@ -205,7 +205,7 @@ los sprites cálidos** (regla ⚠️3):
   del acento, estables en ambos temas y para daltonismo.
 - **Iconografía y formas** coherentes con el sabor RPG pero legibles a tamaño pequeño.
 
-Documenta 3–5 referencias con links y por qué cada patrón aplica al cockpit.
+Documenta 3–5 referencias con links y por qué cada patrón aplica a Mission Control.
 
 ## 9. Entregables (contrato de la fase `/pandacorp:design`)
 
@@ -226,17 +226,17 @@ Documenta 3–5 referencias con links y por qué cada patrón aplica al cockpit.
 
 ## 10. Archivos del repo que DEBES leer / usar
 
-- `cockpit/prototype/assets/agents/*.png` y `cockpit/prototype/assets/zones/*.png` —
+- `mission-control/prototype/assets/agents/*.png` y `mission-control/prototype/assets/zones/*.png` —
   **los assets fijos a reusar** (sprites de los 10 roles + fondos de zona).
-- `cockpit/prototype/index.html` — referencia **solo de funcionalidad/contenido/
+- `mission-control/prototype/index.html` — referencia **solo de funcionalidad/contenido/
   pantallas/estados** (NO de diseño visual, ver regla ⚠️1).
-- `cockpit/MISSION-CONTROL.md` — modelo de estados e indicadores del mapa RPG.
-- `cockpit/docs/prd.md` y `cockpit/docs/frds/` (todos; en especial **FRD-06** Mission
+- `mission-control/PARTY.md` — modelo de estados e indicadores del mapa RPG.
+- `mission-control/docs/prd.md` y `mission-control/docs/frds/` (todos; en especial **FRD-06** Mission
   Control, **FRD-09** gamificación, **FRD-10** salón de logros, **FRD-12**
   observabilidad/data-viz, **FRD-13** sistema visual y accesibilidad — recordando que
   su línea de "paleta cálida Anthropic" queda relajada por decisión del dueño, pero la
   coherencia con los sprites cálidos sí manda).
-- `cockpit/docs/logros.md` — lista de stats, tiers y logros (textos reales).
+- `mission-control/docs/logros.md` — lista de stats, tiers y logros (textos reales).
 - `docs/propuestas/06-plan-de-mejoras-2026.md` — **Dimensión 5** (UI/UX y gamificación
   honesta): origen de casi todas las restricciones de §6.
 - `fabrica/estandares/convenciones.md`, `fabrica/estandares/calidad.md`,

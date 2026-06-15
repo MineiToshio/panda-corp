@@ -1,6 +1,6 @@
 # FRD-12 — Observabilidad y visualización de datos
 
-La capa "honesta" de Pandacorp: leer de un vistazo el estado de la fábrica y entender *dónde se atascó algo*, complementando el show RPG de Mission Control. Derivado de la investigación 2026 (ver [docs/propuestas/06](../../../docs/propuestas/06-plan-de-mejoras-2026.md)). Solo-lectura, sin llamar a Claude.
+La capa "honesta" de Pandacorp: leer de un vistazo el estado de la fábrica y entender *dónde se atascó algo*, complementando el show RPG de Party. Derivado de la investigación 2026 (ver [docs/propuestas/06](../../../docs/propuestas/06-plan-de-mejoras-2026.md)). Solo-lectura, sin llamar a Claude.
 
 ## Criterios de aceptación (EARS)
 
@@ -14,7 +14,7 @@ La capa "honesta" de Pandacorp: leer de un vistazo el estado de la fábrica y en
 
 ## Esquema de eventos (vendor-neutral)
 
-El productor (hooks de la fábrica → `dashboard-events.ndjson`) y el consumidor (cockpit) comparten un esquema **portable** (estilo OpenTelemetry: estandarizar la *forma* de la telemetría para no atarse a un visor). Mínimo por evento: `event`, `at` (timestamp ISO), `agent`/`session`, `tool`, `status` (ok | fail), `work_order`/`task` id. Esto permite renderizarlo como RPG, como timeline o exportarlo sin reescribir el emisor.
+El productor (hooks de la fábrica → `dashboard-events.ndjson`) y el consumidor (Mission Control) comparten un esquema **portable** (estilo OpenTelemetry: estandarizar la *forma* de la telemetría para no atarse a un visor). Mínimo por evento: `event`, `at` (timestamp ISO), `agent`/`session`, `tool`, `status` (ok | fail), `work_order`/`task` id. Esto permite renderizarlo como RPG, como timeline o exportarlo sin reescribir el emisor.
 
 ## No-objetivos (v1)
 - No es un APM completo ni guarda histórico largo: lee la **cola** del archivo de eventos (tope 100–200), no toda la historia.

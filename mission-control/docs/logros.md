@@ -1,6 +1,6 @@
 # Logros y stats de Pandacorp
 
-Diseño del Salón de logros. Cada logro guarda **fecha** y **proyecto** donde ocurrió. Implementado (seed) en el prototipo; al construir el cockpit real, las stats se calculan leyendo la fábrica y los proyectos.
+Diseño del Salón de logros. Cada logro guarda **fecha** y **proyecto** donde ocurrió. Implementado (seed) en el prototipo; al construir Mission Control real, las stats se calculan leyendo la fábrica y los proyectos.
 
 ## Stats (contadores que crecen — "character sheet")
 Productos lanzados · Ideas capturadas · Work orders completados · Fases completadas · Iteraciones desplegadas · Lanzamientos impecables (cero rechazos) · Ideas descartadas · PRDs escritos · ADRs registrados · Agentes coordinados · Racha récord (semanas) · Récord idea→launch (días).

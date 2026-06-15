@@ -1,6 +1,6 @@
 # FRD-15 — Aviso de plugin desincronizado
 
-Caza el despiste más común: editar el plugin de la fábrica y olvidar commitear / correr `claude plugin update`. El cockpit detecta el desfase entre el plugin **instalado** y el **código fuente** del repo, y avisa. Solo-lectura (lee archivos + git local; no llama a Claude).
+Caza el despiste más común: editar el plugin de la fábrica y olvidar commitear / correr `claude plugin update`. Mission Control detecta el desfase entre el plugin **instalado** y el **código fuente** del repo, y avisa. Solo-lectura (lee archivos + git local; no llama a Claude).
 
 ## Cómo se detecta (todo local)
 
@@ -11,7 +11,7 @@ Caza el despiste más común: editar el plugin de la fábrica y olvidar commitea
 
 ## Criterios de aceptación (EARS)
 
-- SI hay **cambios sin commitear** bajo `plugin/`, el cockpit DEBERÁ mostrar un **aviso persistente** arriba: "Plugin desincronizado — hay cambios sin commitear".
+- SI hay **cambios sin commitear** bajo `plugin/`, Mission Control DEBERÁ mostrar un **aviso persistente** arriba: "Plugin desincronizado — hay cambios sin commitear".
 - SI el **SHA instalado ≠ último commit que tocó `plugin/`** (commiteado pero no reinstalado), DEBERÁ mostrar el aviso: "El plugin instalado está atrasado".
 - EL aviso DEBERÁ mostrar el **comando para copiar** `claude plugin update pandacorp@panda-corp` y recordar la secuencia (commitea si hace falta → corre el comando → reinicia la sesión de Claude Code).
 - EL aviso DEBERÁ **desaparecer solo** cuando el plugin vuelva a estar sincronizado (sin cambios sin commitear y SHA instalado == último commit del plugin).

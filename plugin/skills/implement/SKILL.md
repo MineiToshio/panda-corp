@@ -38,17 +38,17 @@ El objetivo: El dueño corre `implement` y se va por horas, **sin babysitting**,
   - **Build normal**: ninguno de los dos. El workflow ES el loop; corre hasta vaciar la cola y para solo.
   - **Fábrica continua / desatendida**: envuelve `implement` en **`/loop`** *self-paced* para re-lanzar el workflow cada tanto, recoger las bandejas (`docs/bugs/`, `docs/decisiones.md`) y seguir. NO a intervalo fijo de cron (los scheduled tasks expiran y meten delays).
   - **`/goal`**: herramienta de borde — para una sesión supervisora que no debe parar hasta una condición concreta. Raro con workflows, porque el workflow ya trae su propia condición de fin.
-- **Probar un snapshot SIN parar la construcción (git worktrees)**: El dueño prueba el último verde en OTRA carpeta — `git worktree add ../<proyecto>-review <last_green_sha>` — mientras el workflow sigue. Mantiene UNA sola carpeta de review y la refresca al último verde. El cockpit le da el comando listo. Cada subagente trabaja idealmente en su propio worktree aislado (`isolation: 'worktree'`).
+- **Probar un snapshot SIN parar la construcción (git worktrees)**: El dueño prueba el último verde en OTRA carpeta — `git worktree add ../<proyecto>-review <last_green_sha>` — mientras el workflow sigue. Mantiene UNA sola carpeta de review y la refresca al último verde. Mission Control le da el comando listo. Cada subagente trabaja idealmente en su propio worktree aislado (`isolation: 'worktree'`).
 - **BD en dev con Docker** (`fabrica/estandares/infra.md`): cada proyecto y cada worktree levanta su BD en Docker, con puerto propio, para que la prueba del dueño y la del agente no se pisen.
 
 ## Cómo corre (forma del workflow)
 
 El skill autoriza **lanzar un workflow dinámico** con el tool Workflow. Su forma:
 
-- **Estado en archivos**: lee `docs/work-orders/` (cola + dependencias) y `docs/estado.yaml`; escribe avance ahí mismo (el cockpit lo lee en vivo).
+- **Estado en archivos**: lee `docs/work-orders/` (cola + dependencias) y `docs/estado.yaml`; escribe avance ahí mismo (Mission Control lo lee en vivo).
 - **`pipeline(workOrders, build, review, verify)`** — cada work order recorre las 3 etapas sin barrera entre items (un WO puede estar en *review* mientras otro está en *build*). Concurrencia y modelos por modo (DR-014); cada `agent()` puede correr en su worktree (`isolation: 'worktree'`).
 - Una etapa que falla **lanza** → freeze-on-red gratis (ese WO se salta, los independientes siguen).
-- Cada subagente **emite su evento** a Mission Control (`emit-event.sh`) y **escribe el contexto crítico a archivos**, no solo lo retorna.
+- Cada subagente **emite su evento** a Party (`emit-event.sh`) y **escribe el contexto crítico a archivos**, no solo lo retorna.
 
 Esta forma ya viene **scripteada como workflow guardado** en cada proyecto: `.claude/workflows/pandacorp-build.js` (lo trae el scaffold). `implement` lo lanza con el tool Workflow:
 
@@ -80,19 +80,19 @@ El script lee la cola, arma las **olas por dependencias** (paralelo dentro de la
    - `docs/decisiones.md` → pendientes que el dueño ya respondió con `/decide`: aplícalas y desbloquea ese frente.
 6. **Hito de FRD**: al completar los work orders de un FRD, corre la suite e2e de ese FRD y **mata los dev servers de prueba con `TaskStop`** (evita procesos zombie). Repite hasta agotar work orders.
 
-> El cockpit (Mission Control) muestra en vivo este workflow: los eventos los emiten los subagentes (`emit-event.sh`) y el hook `SubagentStop` de la fábrica a `~/.claude/dashboard-events.ndjson`. No requiere acción del agente. Mientras tanto, `/workflows` da la vista nativa en vivo.
+> **Mission Control** muestra en vivo este workflow en la pestaña **Party**: los eventos los emiten los subagentes (`emit-event.sh`) y el hook `SubagentStop` de la fábrica a `~/.claude/dashboard-events.ndjson`. No requiere acción del agente. Mientras tanto, `/workflows` da la vista nativa en vivo.
 
-## Documentación en tiempo real (clave para reanudar y para el cockpit)
+## Documentación en tiempo real (clave para reanudar y para Mission Control)
 
-Mientras se construye, mantener SIEMPRE actualizado (el cockpit lo lee en vivo):
-- **`docs/work-orders/`**: estado de cada work order (`todo` → `progress` → `review` → `done`) con evidencia al cerrar. Es la vista de solo-lectura del cockpit.
+Mientras se construye, mantener SIEMPRE actualizado (Mission Control lo lee en vivo):
+- **`docs/work-orders/`**: estado de cada work order (`todo` → `progress` → `review` → `done`) con evidencia al cerrar. Es la vista de solo-lectura de Mission Control.
 - **`docs/estado.yaml`**: `progreso:` (una línea de qué se está haciendo ahora), `running`, work orders hechos/total.
 - **`docs/progreso.md`**: bitácora append-only (qué se hizo, decisiones tomadas, problemas). Permite retomar sin contexto previo.
 - **Desviaciones**: si algo NO funciona como se planeó, documéntalo en el work order y en `docs/progreso.md` ("esto hay que mejorar / cambiamos X porque Y"). No lo escondas.
 
-## Puntos de decisión (escalado al dueño, visible en el cockpit)
+## Puntos de decisión (escalado al dueño, visible en Mission Control)
 
-Cuando aparezca algo que no estaba resuelto: **primero investiga** (delega al `researcher`) y, si con eso puedes tomar la decisión coherente tú mismo, hazlo y documéntalo en `docs/progreso.md`. **Solo escala al dueño las decisiones genuinamente humanas**: scope de producto, algo irreversible, gastar dinero, o lo que el registro de decisiones marca como humano. En ese caso NO adivines: anótalo en `docs/decisiones.md` como `pendiente` (qué pasa, opciones investigadas, **tu recomendación**) y, si bloquea ese frente, sigue con otros work orders. El cockpit resalta estas entradas (un chip con el número de pendientes por proyecto). El dueño responde con **`/pandacorp:decide`**, que registra su respuesta en `docs/decisiones.md` y desbloquea el frente.
+Cuando aparezca algo que no estaba resuelto: **primero investiga** (delega al `researcher`) y, si con eso puedes tomar la decisión coherente tú mismo, hazlo y documéntalo en `docs/progreso.md`. **Solo escala al dueño las decisiones genuinamente humanas**: scope de producto, algo irreversible, gastar dinero, o lo que el registro de decisiones marca como humano. En ese caso NO adivines: anótalo en `docs/decisiones.md` como `pendiente` (qué pasa, opciones investigadas, **tu recomendación**) y, si bloquea ese frente, sigue con otros work orders. Mission Control resalta estas entradas (un chip con el número de pendientes por proyecto). El dueño responde con **`/pandacorp:decide`**, que registra su respuesta en `docs/decisiones.md` y desbloquea el frente.
 
 ## Al terminar todos
 

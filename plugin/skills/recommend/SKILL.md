@@ -19,7 +19,7 @@ Lee `fabrica/perfil.md`: intereses, objetivos, **activos/palancas** (audiencia, 
    - **Mejores apuestas (valor general)** — las más prometedoras por retorno/facilidad, independientemente del tema.
    - **Alineadas a vos** — las que encajan con tus intereses o **aprovechan tus activos / te abren puertas**, aunque su retorno monetario sea menor; explicá *por qué* encajan.
    Por cada una: qué es (1 línea), tipo de proyecto, por qué ahora, score, tipo de retorno y dificultad, y qué validaría la v1. Cierra con "cuáles NO y por qué".
-5. Marca `estado: recomendada` en tus elecciones (top picks de ambos bloques); las demás quedan en `documentada`. **La selección final es del dueño** (gate humano #1) y se expresa ejecutando `/pandacorp:scaffold <idea>` sobre la que quiera (eso la mueve a `en-pipeline`). Las que no quiera, las descarta desde el cockpit (→ `descartada`). El tablero del cockpit es solo-lectura: refleja estos estados, no se mueve a mano.
+5. Marca `estado: recomendada` en tus elecciones (top picks de ambos bloques); las demás quedan en `documentada`. **La selección final es del dueño** (gate humano #1) y se expresa ejecutando `/pandacorp:scaffold <idea>` sobre la que quiera (eso la mueve a `en-pipeline`). Las que no quiera, las descarta desde Mission Control (→ `descartada`). El tablero de Mission Control es solo-lectura: refleja estos estados, no se mueve a mano.
 
 ## Reglas
 - Máximo ~5 recomendadas en total; elegir es lo que cuesta, no listar.

@@ -58,12 +58,12 @@ y documenta el MVP. Las fases siguientes se corren **dentro de la carpeta del pr
 
 El flujo completo y las reglas están en [CLAUDE.md](CLAUDE.md).
 
-## El cockpit
+## Mission Control
 
-`cockpit/` es la **interfaz visual** de la fábrica: un dashboard web **local y de solo-lectura** que
-muestra el tablero de ideas, el portfolio, el siguiente comando a copiar y Mission Control (los
+`mission-control/` es la **interfaz visual** de la fábrica: un dashboard web **local y de solo-lectura** que
+muestra el tablero de ideas, el portfolio, el siguiente comando a copiar y Party (los
 agentes del workflow en vivo). **Nunca llama a Claude** — solo lee los archivos del repo. Ver
-[cockpit/PLAN.md](cockpit/PLAN.md).
+[mission-control/PLAN.md](mission-control/PLAN.md).
 
 ## Estructura del repo
 
@@ -77,7 +77,7 @@ panda-corp/
 │   ├── perfil.example.md          seed de tu perfil  → /onboarding crea perfil.md
 │   └── portfolio.example.md       seed del portfolio → /onboarding crea portfolio.md
 ├── plugin/                        el plugin pandacorp (skills, agentes, hooks, plantillas)
-├── cockpit/                       la interfaz visual (Next.js, solo-lectura)
+├── mission-control/                       la interfaz visual (Next.js, solo-lectura)
 ├── docs/                          visión, investigación y propuestas (el porqué del diseño)
 ├── BITACORA.md                    índice de bitácoras de decisiones
 └── CLAUDE.md                      constitución operativa de la fábrica

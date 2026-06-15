@@ -1,7 +1,7 @@
-# Mission Control — Mapa RPG de agentes
+# Party — Mapa RPG de agentes
 
-Documenta el sistema de visualización de los subagentes de construcción en el cockpit
-(`cockpit/prototype/index.html`, función `missionBody` y el motor `mc*`). El
+Documenta el sistema de visualización de los subagentes de construcción en Mission Control
+(`mission-control/prototype/index.html`, función `missionBody` y el motor `mc*`). El
 objetivo es responder de un vistazo **qué agente trabaja y cuál está parado**,
 manteniendo la estética RPG: los agentes son personajes pixel-art que caminan
 por un gremio entre estaciones de trabajo.
@@ -14,7 +14,7 @@ clase CSS del sprite (`.mcag.s-<estado>`) y en un emote opcional sobre la cabeza
 | Estado | Clase | Qué se ve | Significa |
 |---|---|---|---|
 | Trabajando | `s-work` | En su escritorio, **halo** pulsante del color del rol + **barra de avance** llenándose. Alterna emote « … » (pensando) y sin emote (tecleando). | Está produciendo ahora |
-| Caminando | `s-walk` | Cruza el mapa hacia otra estación cargando un **paquete** (`.pkt`, el contrato/artefacto). Rebote (bob) más rápido. | Handoff: transición de etapa del pipeline (p.ej. contrato listo → frontend) |
+| Caminando | `s-walk` | Cruza el mapa cargando un **paquete** (`.pkt`) y mostrando una **burbuja de diálogo** (`.say`) con el mensaje que entrega. Rebote (bob) más rápido. | Handoff: transición de etapa del pipeline (p.ej. contrato listo → frontend) |
 | En espera | `s-idle` | Sprite **apagado** (opacidad 0.45 + leve gris) + emote « z ». | Idle, esperando a otro |
 | Bloqueado | `s-blocked` | Quieto + emote **« ! »** rojo rebotando (marcador de quest RPG) + halo rojo. | Necesita una decisión del dueño |
 | Revisando | `s-review` | Quieto + emote **« ? »** ámbar + halo ámbar. | El reviewer espera/evalúa una entrega |
@@ -25,7 +25,7 @@ idle**, **rojo = requiere atención humana**.
 
 ## 2. Vocabulario de indicadores
 
-Cinco indicadores, combinables. Definidos en el bloque CSS `Mission Control —
+Seis indicadores, combinables. Definidos en el bloque CSS `Party —
 mapa RPG` y controlados por el motor.
 
 - **Halo** (`.mcag .halo`): elipse pulsante bajo los pies. Solo en `work`,
@@ -34,16 +34,22 @@ mapa RPG` y controlados por el motor.
   llena de 0→100% durante el turno de trabajo. Solo en `work`.
 - **Emotes** (`.mcag .emote`): burbuja sobre la cabeza. `…` pensando (azul),
   `?` por revisar (ámbar), `!` bloqueado (rojo), `z` en espera (gris).
+- **Burbuja de diálogo** (`.mcag .say`, vía `mcSay()`): durante un handoff el
+  agente muestra sobre la cabeza el mensaje que entrega (p. ej. «contrato en
+  docs/api.md»), además de la línea en la bitácora. Sustituye temporalmente al
+  emote mientras camina.
 - **Puesto de trabajo** (`.mcstation`): cada agente tiene un **puesto fijo** con
   **fondo pixel-art** (la imagen de zona en `IMG[ZONEBG[rol]]`), borde del color
   del rol y un **rótulo fijo** (ícono + nombre). El rótulo vive en el puesto, no
   en el agente, así que el área **sigue identificada cuando el agente se va** a
   un handoff. El fondo se **atenúa** (`.dim`: gris + opacidad) cuando el dueño
   NO está trabajando ahí, y se ve **vívido + halo** (`.hot`) cuando trabaja —
-  esto es lo que más comunica "quién trabaja" de lejos. Los roles sin imagen de
-  zona aún (`reviewer`, `security-auditor`, `analytics`) usan un tinte de color
-  de respaldo. Igual, los agentes sin sprite propio (`analytics`) caen al sprite
-  genérico del `implementer` vía `mcSprite()`, distinguidos por su halo de color.
+  esto es lo que más comunica "quién trabaja" de lejos. De los roles del build,
+  el único sin sala pixel-art es `implementer` (usa un tinte de respaldo vía
+  `color-mix`); el resto ya tiene su zona, incluidos `reviewer` (sala de QA) y
+  `analytics` (observatorio de datos). Todos tienen además su propio sprite —
+  `mcSprite()` solo caería al sprite del `implementer` si algún rol llegara sin
+  imagen.
 - **Partículas** (`.mcpt`): estallido de puntos del color del rol cuando se
   entrega un handoff. Puramente cosmético.
 
@@ -52,13 +58,17 @@ Contadores en vivo (`#mc-cnt`): pills `N trabajando / N caminando / N en espera
 
 ## 3. Mapa y modos
 
-- **Layout en anillo, centro vacío** (`mcRing`): los puestos se reparten
-  uniformemente en una elipse alrededor de un centro vacío. Los handoffs
-  **enrutan por el centro** (`MCCENTER`): el iniciador camina `puesto → centro →
-  junto al destino` (`mcApproach`), entrega, y vuelve `→ centro → su puesto`.
-  Como todo cruza solo el centro vacío, **ningún camino pasa por encima del área
-  de trabajo de otro agente**. No hay mesa central visible — el centro es solo
-  un punto de ruteo.
+- **Layout por modo, centro vacío** (`mcPositions`): cada modo coloca los puestos
+  en una forma fija y ordenada según cuántos sean — **2 en columna** (económico),
+  **4 en las esquinas / cuadrado** (equilibrado), **3 arriba + 2 abajo** (potente)
+  y **3 + 3** (profundo, más separados en 6 para que el puesto agrandado de la
+  Revisión no se solape). `mcRing` (elipse uniforme) queda solo como **respaldo**
+  para tamaños no previstos. El centro siempre queda vacío y los handoffs
+  **enrutan por él** (`MCCENTER`): el iniciador camina `puesto → centro → junto al
+  destino` (`mcApproach`), entrega, y vuelve `→ centro → su puesto`. Como todo
+  cruza solo el centro vacío, **ningún camino pasa por encima del área de trabajo
+  de otro agente**. No hay mesa central visible — el centro es solo un punto de
+  ruteo.
 - **El roster son los subagentes REALES de `implement`** (ver el skill
   `plugin/skills/implement/SKILL.md`), no todos los agentes de la fábrica. PM,
   diseñador, arquitecto, **copywriter** y **devops** son de fases anteriores o
@@ -74,7 +84,7 @@ Contadores en vivo (`#mc-cnt`): pills `N trabajando / N caminando / N en espera
   - `profundo`: + researcher + analytics (6) — máxima calidad; la Revisión corre
     en 3 lentes concurrentes (el reviewer se agranda y los demás esperan).
 
-  El **selector de esfuerzo** vive en la propia pestaña Mission Control (fila
+  El **selector de esfuerzo** vive en la propia pestaña Party (fila
   `data-act="bmode"`); cambia `ST.modes[slug]` (es **por proyecto**) y re-monta
   el mapa con el nuevo party.
 
@@ -90,7 +100,7 @@ instrucciones de movimiento y las consume a su propio ritmo:
   su escritorio. La información puede verse desfasada unos segundos; es
   intencional y aceptable.
 
-Esto significa que cuando esto se conecte a datos reales, el cockpit **no**
+Esto significa que cuando esto se conecte a datos reales, Mission Control **no**
 necesita eventos en tiempo real perfectos: basta con un *stream* de eventos
 (`started_task`, `handoff(from,to)`, `blocked`, `completed`, `needs_input`) que
 el motor traduce a animaciones. La fidelidad temporal es secundaria a la
@@ -116,7 +126,7 @@ mapa RPG no cuesta rendimiento. El mapeo evento → animación:
 | choca con punto de decisión | `mcSetState(agent,'blocked')` |
 | reviewer recibe entrega | `mcSetState(reviewer,'review')` |
 
-## 5. Ciclo de vida en el cockpit
+## 5. Ciclo de vida en Mission Control
 
 - `render()` llama a `mcBoot()` al final. `mcBoot` busca `#rpg-scene`; si existe,
   reconstruye `MC.agents` desde el DOM y arranca un `requestAnimationFrame`.

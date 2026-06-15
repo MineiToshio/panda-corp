@@ -51,7 +51,7 @@ El plugin está instalado desde el marketplace local de este repo (`claude plugi
 
 Anota el porqué del cambio en `plugin/docs/bitacora.md`. La instalación local sigue rastreando el SHA del commit para detectar desfase (ver abajo); la `version` es la etiqueta semántica del release.
 
-El cockpit **avisa del desfase** (FRD-15): si hay cambios en `plugin/` sin commitear, o el SHA instalado (`~/.claude/plugins/installed_plugins.json`) quedó atrás del último commit del plugin, muestra un banner con el comando de actualización. Así no se olvida.
+Mission Control **avisa del desfase** (FRD-15): si hay cambios en `plugin/` sin commitear, o el SHA instalado (`~/.claude/plugins/installed_plugins.json`) quedó atrás del último commit del plugin, muestra un banner con el comando de actualización. Así no se olvida.
 
 ## Bitácora — documentar todo
 
@@ -79,7 +79,7 @@ El doc canónico responde *"¿qué es verdad ahora?"*; la bitácora, *"¿cómo l
 
 | Área | Archivo |
 |---|---|
-| Cockpit (app Next.js / Mission Control) | `cockpit/docs/bitacora.md` |
+| Mission Control (app Next.js) | `mission-control/docs/bitacora.md` |
 | Plugin pandacorp | `plugin/docs/bitacora.md` |
 | Ideas (base y su proceso) | `fabrica/ideas/bitacora.md` |
 | Fábrica (constitución, estándares, operación) | `fabrica/bitacora.md` |
@@ -92,7 +92,7 @@ El doc canónico responde *"¿qué es verdad ahora?"*; la bitácora, *"¿cómo l
 
 1. Idioma: documentos en español; código, commits y nombres de archivos técnicos en inglés.
 2. Toda decisión recurrente se resuelve consultando `fabrica/decisiones/registro.yaml`. Si no está cubierta: escalar al dueño UNA vez y codificar su respuesta como regla nueva en el registro.
-3. Gates humanos (el dueño): selección de ideas (ejecutar `/pandacorp:scaffold` sobre la elegida; descartar el resto desde el cockpit), elección de diseño, release a producción, gastar dinero, comunicaciones externas, borrar datos. El tablero de ideas es solo-lectura: los estados los escriben los skills.
+3. Gates humanos (el dueño): selección de ideas (ejecutar `/pandacorp:scaffold` sobre la elegida; descartar el resto desde Mission Control), elección de diseño, release a producción, gastar dinero, comunicaciones externas, borrar datos. El tablero de ideas es solo-lectura: los estados los escriben los skills.
 4. Los agentes nunca marcan sus propios checks: la verificación es de scripts/CI.
 5. El estado de cada idea vive SOLO en el frontmatter de su ficha. El estado detallado de cada proyecto vive SOLO en su `docs/estado.yaml`. El portfolio solo guarda punteros y resúmenes.
 6. Documentar todo: cada decisión relevante se anota en la bitácora del área (ver sección **Bitácora**) antes de cerrar el turno. La bitácora es historia; `registro.yaml` es política.

@@ -4,10 +4,15 @@ Decisiones sobre el plugin: skills, agentes, hooks, plantillas y flujo de la fá
 
 > Recordatorio: tras editar `plugin/`, commitear y correr `claude plugin update pandacorp@panda-corp` (ver `CLAUDE.md`).
 
+## 2026-06-15 — Renombre app/panel reflejado en los skills (cockpit→Mission Control, panel→Party) · v1.2.3
+**Qué:** Tras el renombre de la app (ver [fabrica/bitacora.md](../../fabrica/bitacora.md) y [mission-control/docs/bitacora.md](../../mission-control/docs/bitacora.md)), se actualizó el vocabulario en los skills y artefactos del plugin: `implement`, `decide`, `recommend`, `codify`, `bug`, `blueprint` (prosa y descripciones: "el cockpit" → "Mission Control"; "se sigue en Mission Control" donde antes decía el panel), `plugin/scripts/emit-event.sh` y `plugin/templates/shared/docs/estado.yaml.tpl` (comentarios). Sin cambio de comportamiento → bump **PATCH 1.2.2 → 1.2.3**.
+**Por qué:** Los skills mencionan dónde "se sigue la construcción"; deben usar el nombre correcto (Mission Control = la app; Party = el panel RPG por proyecto).
+**Impacto:** `plugin/.claude-plugin/plugin.json` (1.2.3), `plugin/skills/{implement,decide,recommend,codify,bug,blueprint}/SKILL.md`, `plugin/scripts/emit-event.sh`, `plugin/templates/shared/docs/estado.yaml.tpl`. Activación: commit + `claude plugin update pandacorp@panda-corp` + reiniciar.
+
 ## 2026-06-15 — Onboarding profundo + discover/recommend según el perfil (dos corrientes)
 **Qué:** El onboarding ahora captura intereses, hobbies, gustos/rechazos, objetivos, ACTIVOS/palancas (audiencia, red, nicho), apetito de monetización y tipos de proyecto. `discover` y `recommend` leen ese perfil y recomiendan en dos corrientes (~50/50: generales de alto retorno + alineadas al perfil aunque el ROI monetario sea menor), con retorno entendido como monetario U oportunidad, y alcance abierto a cualquier solución tecnológica. Detalle del modelo en [fabrica/ideas/bitacora.md](../../fabrica/ideas/bitacora.md) y DR-039.
 **Por qué:** Que la fábrica recomiende cosas bien alineadas al dueño (sus gustos y activos), no genéricas, y que no se limite a apps monetizables.
-**Impacto:** `plugin/skills/{onboarding,discover,recommend,new-idea}/SKILL.md`, `fabrica/perfil.example.md`, `fabrica/ideas/_plantilla-ficha.md`, `fabrica/decisiones/registro.yaml` (DR-039), `cockpit/prototype/index.html`.
+**Impacto:** `plugin/skills/{onboarding,discover,recommend,new-idea}/SKILL.md`, `fabrica/perfil.example.md`, `fabrica/ideas/_plantilla-ficha.md`, `fabrica/decisiones/registro.yaml` (DR-039), `mission-control/prototype/index.html`.
 
 ## 2026-06-15 — Servicios externos, cuentas/secretos, pagos (Polar) y avisos de Vercel
 **Qué:** Nuevo estándar `fabrica/estandares/servicios-externos.md` (stack de servicios probado, modelo de cuentas "1 org compartida + 1 primitivo por app", aprovisionamiento API-first, secretos en SOPS+age, pagos con Polar/MoR, notificación al dueño en gates). DR-035..038. Skills/agentes: el PRD declara explícitamente "¿v1 con pagos?", el blueprint/release avisan (warning, no bloqueo) cuando una versión que cobra usa Vercel (Hobby = no comercial, ban de cuenta completa → Pro), y cualquier gate dispara push al dueño.

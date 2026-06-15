@@ -4,7 +4,7 @@ description: Reporta un bug encontrado al probar un proyecto Pandacorp. Le descr
 
 # /pandacorp:bug
 
-El canal para **reportar un bug** sin parar la construcción ni armar nada en el cockpit. Lo corres en la carpeta del proyecto, le dices el bug en lenguaje normal, y el skill lo deja anotado en la **bandeja** `docs/bugs/`. El `/pandacorp:implement` que está corriendo lo recoge en su próximo punto seguro (fin de work order) y lo arregla con un test de regresión.
+El canal para **reportar un bug** sin parar la construcción ni armar nada en Mission Control. Lo corres en la carpeta del proyecto, le dices el bug en lenguaje normal, y el skill lo deja anotado en la **bandeja** `docs/bugs/`. El `/pandacorp:implement` que está corriendo lo recoge en su próximo punto seguro (fin de work order) y lo arregla con un test de regresión.
 
 `$ARGUMENTS` (o la conversación): la descripción del bug (ej.: `/pandacorp:bug "el botón de guardar no hace nada al darle enter"`).
 
@@ -16,7 +16,7 @@ El canal para **reportar un bug** sin parar la construcción ni armar nada en el
    - **pasos para reproducir**, **resultado esperado**, **resultado actual**
    - en qué FRD/pantalla cae, si se sabe
    - `estado: pendiente`
-3. **Incrementa** `bugs_pendientes` en `docs/estado.yaml` (el cockpit lo muestra como chip por proyecto).
+3. **Incrementa** `bugs_pendientes` en `docs/estado.yaml` (Mission Control lo muestra como chip por proyecto).
 4. **Confirma** al dueño: "anotado en la bandeja; `/implement` lo tomará en su próximo punto seguro". Si NO hay construcción corriendo y quiere arreglarlo ya, dile que corra `/pandacorp:implement` (que vacía la bandeja).
 
 ## Reglas

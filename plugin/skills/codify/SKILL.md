@@ -4,7 +4,7 @@ description: Codifica un estándar de ingeniería nuevo o una regla de decisión
 
 # /pandacorp:codify
 
-Agrega o ajusta el **know-how durable** de la fábrica: un **estándar** (`fabrica/estandares/`) o una **regla de decisión** (`fabrica/decisiones/registro.yaml`). Es lo que disparan los botones "Nuevo estándar" / "Nueva regla de decisión" del cockpit. Se ejecuta EN la fábrica.
+Agrega o ajusta el **know-how durable** de la fábrica: un **estándar** (`fabrica/estandares/`) o una **regla de decisión** (`fabrica/decisiones/registro.yaml`). Es lo que disparan los botones "Nuevo estándar" / "Nueva regla de decisión" de Mission Control. Se ejecuta EN la fábrica.
 
 `$ARGUMENTS` (o la conversación): qué quieres codificar, en lenguaje normal (ej.: `/pandacorp:codify "todo formulario debe tener protección anti-spam"`).
 
@@ -19,7 +19,7 @@ Agrega o ajusta el **know-how durable** de la fábrica: un **estándar** (`fabri
    - Actualiza `fabrica/estandares/README.md` (índice + categoría).
 4. **Si es REGLA DE DECISIÓN:**
    - Agrega `DR-NNN` al `registro.yaml` con `patron`, `default` (el comportamiento pre-aprobado), `requiere_humano` (true/false) y `nota` si hace falta. Si los valores viven en un estándar, **apunta a él** (no los dupliques).
-5. **Confirma al dueño** qué se creó/cambió y dónde. Recuerda el paso de activación: **commit + `claude plugin update pandacorp@panda-corp` + reiniciar** (si tocaste el plugin) — el cockpit avisa del desfase (FRD-15).
+5. **Confirma al dueño** qué se creó/cambió y dónde. Recuerda el paso de activación: **commit + `claude plugin update pandacorp@panda-corp` + reiniciar** (si tocaste el plugin) — Mission Control avisa del desfase (FRD-15).
 
 ## Reglas
 

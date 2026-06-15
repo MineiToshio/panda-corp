@@ -14,7 +14,7 @@ Para que nada se cruce cuando corren varias cosas en paralelo:
 - Cada **proyecto** recibe un **rango base** al crearse (lo registra la fábrica; ej. proyecto A → 4000s, B → 4100s…).
 - Cada **worktree** suma un offset dentro del rango (la del agente `+0`, la de review `+1`).
 - App, BD y servicios leen su puerto del `.env` de ese worktree. En Docker, mapear puertos vía `.env` y usar nombre de proyecto Compose distinto por worktree.
-- El cockpit muestra el puerto ("prueba en `localhost:XXXX`").
+- Mission Control muestra el puerto ("prueba en `localhost:XXXX`").
 
 ## Worktrees (probar un snapshot sin parar al agente)
 
@@ -23,7 +23,7 @@ Para que nada se cruce cuando corren varias cosas en paralelo:
 - Un worktree nace **sin** `.env` ni `node_modules`. La plantilla del stack incluye un **`.worktreeinclude`** (sintaxis `.gitignore`) que copia `.env`/`.env.local` a cada worktree nuevo, más un paso post-create que instala deps. Con **pnpm** (almacén compartido) el install en un worktree nuevo es casi inmediato.
 - Mantener **UNA** carpeta de review y refrescarla al último verde (no acumular worktrees). El sweep automático de Claude Code no borra worktrees creados a mano.
 
-## Estado publicado para el cockpit (`docs/estado.yaml`)
+## Estado publicado para Mission Control (`docs/estado.yaml`)
 
 El script del gate (no el agente) escribe en cada cierre de work order verde:
 - `last_green_sha`: commit del último work order cerrado en verde.

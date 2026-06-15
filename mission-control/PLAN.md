@@ -4,7 +4,7 @@
 >
 > **Principio rector:** el dashboard NUNCA llama a Claude. Solo lee archivos del repo y genera texto de comandos para copiar. Toda ejecución la hace el dueño pegando el comando en la app de Claude Code → usa su suscripción Claude Max. El dueño es débil en UX → la UI debe ser mínima y limpia.
 
-> **Documentación de producto (fuente de verdad):** `docs/prd.md` + `docs/frds/` (FRD-01 a FRD-13: lectura, tablero, portfolio, workspace, work orders, Mission Control RPG, configuración, documentación, gamificación, salón de logros, modos de construcción, **observabilidad/data-viz**, **sistema visual y accesibilidad**) + `docs/logros.md`. El prototipo navegable (`prototype/index.html`) es el diseño aprobado. Este PLAN es la **secuencia de construcción**; ante cualquier duda de alcance, mandan los FRDs. **Refuerzos de UX (investigación 2026, `../docs/propuestas/06-plan-de-mejoras-2026.md`):** color persistente por agente reusado en sprites+feed+kanban, fallo como estado de primera clase, `tabular-nums`, acento racionado, tema OKLCH de pocos tokens, motion <300ms con `prefers-reduced-motion`, feed follow-tail+pin+cap, Live Pulse, toggle RPG↔timeline, KPIs ≤5 (FRD-12/FRD-13). Pendiente: blueprint formal (stack/arquitectura) a partir de los FRDs.
+> **Documentación de producto (fuente de verdad):** `docs/prd.md` + `docs/frds/` (FRD-01 a FRD-13: lectura, tablero, portfolio, workspace, work orders, Party RPG, configuración, documentación, gamificación, salón de logros, modos de construcción, **observabilidad/data-viz**, **sistema visual y accesibilidad**) + `docs/logros.md`. El prototipo navegable (`prototype/index.html`) es el diseño aprobado. Este PLAN es la **secuencia de construcción**; ante cualquier duda de alcance, mandan los FRDs. **Refuerzos de UX (investigación 2026, `../docs/propuestas/06-plan-de-mejoras-2026.md`):** color persistente por agente reusado en sprites+feed+kanban, fallo como estado de primera clase, `tabular-nums`, acento racionado, tema OKLCH de pocos tokens, motion <300ms con `prefers-reduced-motion`, feed follow-tail+pin+cap, Live Pulse, toggle RPG↔timeline, KPIs ≤5 (FRD-12/FRD-13). Pendiente: blueprint formal (stack/arquitectura) a partir de los FRDs.
 
 ## Objetivo (qué es "terminado")
 
@@ -31,7 +31,7 @@ Una app web local en `http://127.0.0.1:3000` con tres paneles sobre datos reales
 ## Configuración de rutas (constantes en `lib/config.ts`)
 
 ```
-FACTORY_ROOT = raíz del repo de la fábrica (el repo que contiene cockpit/);
+FACTORY_ROOT = raíz del repo de la fábrica (el repo que contiene mission-control/);
                resolver con `git rev-parse --show-toplevel` o `path.resolve(process.cwd(), "..")`,
                override opcional con la env var PANDACORP_FACTORY_ROOT
 IDEAS_DIR    = FACTORY_ROOT + "/fabrica/ideas"      (ignorar _plantilla-ficha.md)
@@ -48,7 +48,7 @@ Mapea estado/fase → comando sugerido + carpeta donde abrir Claude Code:
 | `descubierta` | `/pandacorp:spec <slug>` (handoff: crea el proyecto + documenta MVP) | la fábrica (panda-corp) |
 | `documentada` | `/pandacorp:design` | la carpeta del proyecto |
 | `diseño` | `/pandacorp:blueprint` (crea blueprint + work orders) | la carpeta del proyecto |
-| `arquitectura` | `/pandacorp:implement` (arranca construcción, workflow dinámico + Mission Control) | la carpeta del proyecto |
+| `arquitectura` | `/pandacorp:implement` (arranca construcción, workflow dinámico + Party) | la carpeta del proyecto |
 | `en-construcción` | `/pandacorp:release` | la carpeta del proyecto |
 | `lanzada` | `/pandacorp:iterate` (agregar funcionalidad/cambio) | la carpeta del proyecto |
 
@@ -95,11 +95,11 @@ La UI muestra, junto al comando, la ruta de la carpeta (con su propio botón de 
 - [ ] README: requisitos, `pnpm dev`, que escucha en 127.0.0.1, y el flujo de uso (ver → copiar comando → pegar en la app de Claude Code).
 - [ ] Pasada final: `.pandacorp/verify.sh` verde; arrancar `pnpm dev` y verificar los tres paneles con datos reales.
 
-### Fase 6 — Mission Control (vista en vivo de agentes, solo-lectura)
+### Fase 6 — Party (vista en vivo de agentes, solo-lectura)
 > Parte del alcance inicial (se construye tras las fases 0-5, en la misma corrida del loop). Visualiza los subagentes del workflow mientras trabajan, sin llamar a Claude.
 - [ ] El emisor de eventos YA viene en el plugin de la fábrica (`scripts/emit-event.sh`, lo emiten los subagentes del workflow, + el hook `SubagentStop` → `~/.claude/dashboard-events.ndjson`). Pandacorp solo CONSUME ese archivo, no lo crea.
 - [ ] `lib/agents.ts`: lee `~/.claude/dashboard-events.ndjson` (eventos) y `~/.claude/tasks/<team>/` (estado de tareas); tolera ausencia de ambos (caso "no hay equipo activo"). Test.
-- [ ] Panel **Mission Control**: lista de agentes activos con su estado y tarea actual, feed de mensajes/eventos entre ellos, y grafo simple de dependencias de tareas. Auto-refresh (tail) cada ~2 s.
+- [ ] Panel **Party**: lista de agentes activos con su estado y tarea actual, feed de mensajes/eventos entre ellos, y grafo simple de dependencias de tareas. Auto-refresh (tail) cada ~2 s.
 - [ ] Solo observación: NO intenta enviar mensajes ni pausar agentes (eso se hace en la terminal). Dejar nota en la UI: "para redirigir un agente, usa la app de Claude Code".
 
 ### Stretch (solo si lo anterior está verde)

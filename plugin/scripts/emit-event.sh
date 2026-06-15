@@ -1,8 +1,8 @@
 #!/bin/bash
-# Pandacorp event emitter for Mission Control.
+# Pandacorp event emitter for Party.
 # Reads a hook's JSON payload from stdin and appends it as one NDJSON line to
 # ~/.claude/dashboard-events.ndjson, stamped with the hook event name and time.
-# The cockpit dashboard tails this file (read-only). This script never calls Claude.
+# Mission Control dashboard tails this file (read-only). This script never calls Claude.
 
 EVENT_NAME="${1:-unknown}"
 LOG="$HOME/.claude/dashboard-events.ndjson"

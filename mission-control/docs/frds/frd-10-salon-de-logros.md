@@ -1,6 +1,6 @@
 # FRD-10 — Salón de logros
 
-Página de logros que también son **stats que crecen**, con fecha y proyecto en cada uno. (Hoy con datos de ejemplo en el prototipo; al construir el cockpit real, las stats se calculan leyendo la fábrica y los proyectos.)
+Página de logros que también son **stats que crecen**, con fecha y proyecto en cada uno. (Hoy con datos de ejemplo en el prototipo; al construir Mission Control real, las stats se calculan leyendo la fábrica y los proyectos.)
 
 ## Criterios de aceptación (EARS)
 - DEBERÁ mostrar un **panel de estadísticas** (contadores que solo crecen): productos lanzados, ideas capturadas, work orders, fases completadas, iteraciones, lanzamientos impecables, ideas descartadas, PRDs, ADRs, agentes coordinados, racha récord, récord idea→launch.
@@ -13,7 +13,7 @@ Página de logros que también son **stats que crecen**, con fecha y proyecto en
 - LOS nombres DEBERÁN ser divertidos y escalar en grandiosidad por tier (p. ej. Productos lanzados: El primer ladrillo → Maestro de obras → El arquitecto → El magnate digital → El oráculo de la fábrica).
 
 ## Detalle
-Lista completa de stats, umbrales, nombres por tier y logros únicos en [cockpit/docs/logros.md](../logros.md).
+Lista completa de stats, umbrales, nombres por tier y logros únicos en [mission-control/docs/logros.md](../logros.md).
 
 ## Futuro
 Meta-logros (Sellos con título displayable), badge "Nuevo" 7 días tras desbloquear, rareza estimada (Común→Legendario).

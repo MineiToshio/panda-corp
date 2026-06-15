@@ -1,4 +1,4 @@
-# Propuesta — Interfaz / cockpit de Pandacorp
+# Propuesta — Interfaz / Mission Control de Pandacorp
 
 > Generado 2026-06-13. Investigación en `docs/investigacion/` (panorama de interfaces sobre Claude Code). El operador quiere ver estado, leer documentos y disparar acciones sin depender de la terminal pura.
 
@@ -24,7 +24,7 @@ Los skills son buenos para **ejecutar**, pero no para **ver, leer y organizar**.
 
 3. **Dashboard web local**: abres `localhost:3000`. Tres paneles — kanban de ideas, tabla de portfolio (lee el `estado.yaml` de cada proyecto), y una consola. Clicas "avanzar a spec" en una idea y se abre un panel que **transmite en vivo** lo que hace Claude mientras corre el skill; al terminar, la tarjeta se refresca sola. Es la única opción que entiende tu modelo de datos propio Y dispara con feedback en vivo. La fábrica se lo construye a sí misma (un work order + `/pandacorp:implement`).
 
-4. **GUIs de terceros**: instalas y listo, pero todas miran la capa de sesiones de Claude Code (`~/.claude/`), no tu base de ideas ni tu portfolio. Sirven como monitor de sesiones, no como cockpit de la fábrica.
+4. **GUIs de terceros**: instalas y listo, pero todas miran la capa de sesiones de Claude Code (`~/.claude/`), no tu base de ideas ni tu portfolio. Sirven como monitor de sesiones, no como Mission Control de la fábrica.
 
 5. **GitHub Projects**: subes el repo a GitHub, las ideas son issues con labels por estado, mueves una tarjeta en el tablero web/móvil y un GitHub Action dispara el skill y abre un PR. Bueno para móvil y durabilidad, pero crea **dos fuentes de verdad** (issues vs. frontmatter) y corre en la nube, no en tu máquina.
 
@@ -32,17 +32,17 @@ Los skills son buenos para **ejecutar**, pero no para **ver, leer y organizar**.
 
 **Enfoque en dos capas, por fases:**
 
-### Ahora (hoy, cero código): Obsidian como cockpit de lectura
+### Ahora (hoy, cero código): Obsidian como Mission Control de lectura
 Resuelve el 80% de tu molestia inmediata — ver el kanban, leer las fichas y documentos renderizados, arrastrar tarjetas — sin construir nada. Es tu "segunda pantalla" siempre abierta. Setup: instalar plugin Bases Kanban + abrir el vault.
 
 ### El dashboard web local ES el primer producto piloto de la fábrica
-En vez de estrenar la fábrica con el Funko tracker, la estrenamos construyendo **tu propio cockpit**. Razones:
+En vez de estrenar la fábrica con el Funko tracker, la estrenamos construyendo **tu propio Mission Control**. Razones:
 1. Te da exactamente lo que pediste: ver + leer + **disparar con output en vivo**, consciente de tu modelo de datos (ideas, portfolio, estado de proyectos).
 2. **Dogfooding**: validamos el pipeline completo (spec → diseño → blueprint → work orders → implement) construyendo algo que usarás todos los días. Si el proceso falla, lo descubres con una herramienta interna, no con un producto comercial.
 3. Queda 100% bajo tu control y sin depender de internet.
 4. Es un proyecto acotado y de baja exigencia de UX (tres paneles, sin diseño elaborado) — buen primer caso.
 
-**Lo que descarto por ahora**: GitHub Projects (segunda fuente de verdad), GUIs de terceros (ciegas a tu modelo de datos), y la app de escritorio como cockpit (no muestra tus datos, aunque ayuda a no ver terminal pura — úsala libremente en paralelo).
+**Lo que descarto por ahora**: GitHub Projects (segunda fuente de verdad), GUIs de terceros (ciegas a tu modelo de datos), y la app de escritorio como Mission Control (no muestra tus datos, aunque ayuda a no ver terminal pura — úsala libremente en paralelo).
 
 ### Detalle técnico a recordar
 El dashboard dispararía Claude vía `claude -p` / Agent SDK, que desde 2026-06-15 consume un pool de créditos separado de la suscripción. Mitigación: configurar `ANTHROPIC_API_KEY` en el entorno del subproceso para facturar a tarifa API en vez de agotar el pool fijo.

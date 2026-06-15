@@ -1,10 +1,10 @@
 ---
-description: Resuelve los puntos de decisión pendientes de un proyecto Pandacorp. Cuando un agente choca con algo que solo el dueño puede decidir (alcance de producto, gastar dinero, algo irreversible), lo deja como pendiente en docs/decisiones.md y el cockpit lo resalta; este skill es como el dueño da su respuesta. Se ejecuta DENTRO del proyecto.
+description: Resuelve los puntos de decisión pendientes de un proyecto Pandacorp. Cuando un agente choca con algo que solo el dueño puede decidir (alcance de producto, gastar dinero, algo irreversible), lo deja como pendiente en docs/decisiones.md y Mission Control lo resalta; este skill es como el dueño da su respuesta. Se ejecuta DENTRO del proyecto.
 ---
 
 # /pandacorp:decide
 
-El mecanismo para que **el dueño responda los puntos de decisión** que la IA dejó pendientes. Se ejecuta EN la carpeta del proyecto. Es la contraparte de los puntos de decisión que aparecen en el cockpit: el cockpit los **muestra** (solo-lectura); este skill los **resuelve**.
+El mecanismo para que **el dueño responda los puntos de decisión** que la IA dejó pendientes. Se ejecuta EN la carpeta del proyecto. Es la contraparte de los puntos de decisión que aparecen en Mission Control: Mission Control los **muestra** (solo-lectura); este skill los **resuelve**.
 
 `$ARGUMENTS` opcional: tu respuesta directa (ej.: `/pandacorp:decide "sí, mostrar los costos"`). Sin argumentos: te muestra las pendientes una por una y te pregunta.
 
@@ -26,4 +26,4 @@ El mecanismo para que **el dueño responda los puntos de decisión** que la IA d
 
 ## Cómo se ve para el dueño
 
-En el cockpit, cada proyecto muestra un **chip con el número de decisiones pendientes**. Al entrar al proyecto (pestaña Resumen) ve la pregunta + la recomendación + el comando `/pandacorp:decide` listo para copiar. Pega el comando en Claude Code (en la carpeta del proyecto), responde, y el cockpit refleja que ya no hay pendiente.
+En Mission Control, cada proyecto muestra un **chip con el número de decisiones pendientes**. Al entrar al proyecto (pestaña Resumen) ve la pregunta + la recomendación + el comando `/pandacorp:decide` listo para copiar. Pega el comando en Claude Code (en la carpeta del proyecto), responde, y Mission Control refleja que ya no hay pendiente.

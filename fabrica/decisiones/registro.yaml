@@ -161,8 +161,8 @@ decisiones:
     nota: "la promoción de un patrón recurrente a estándar global la aprueba el dueño"
 
   - id: DR-031
-    patron: "fuente de eventos de Mission Control (cómo se alimenta el cockpit durante la construcción)"
-    default: "el cockpit es solo-lectura y desacoplado: lee ~/.claude/dashboard-events.ndjson. Con Dynamic Workflows, los eventos los emiten los subagentes del workflow (emit-event.sh al empezar/terminar su etapa) y el hook SubagentStop — NO los hooks de Agent Teams (TeammateIdle/TaskCreated/TaskCompleted, que no disparan en workflows). La emisión es fire-and-forget (append a archivo): no bloquea el workflow ni compite por tokens, así que tener el grafiquito RPG no cuesta rendimiento. Mapeo: agent() corriendo → working; transición de etapa → walking/handoff; etapa reviewer → review; etapa que lanza → blocked; commit del WO → safe point"
+    patron: "fuente de eventos de Party (cómo se alimenta Mission Control durante la construcción)"
+    default: "Mission Control es solo-lectura y desacoplado: lee ~/.claude/dashboard-events.ndjson. Con Dynamic Workflows, los eventos los emiten los subagentes del workflow (emit-event.sh al empezar/terminar su etapa) y el hook SubagentStop — NO los hooks de Agent Teams (TeammateIdle/TaskCreated/TaskCompleted, que no disparan en workflows). La emisión es fire-and-forget (append a archivo): no bloquea el workflow ni compite por tokens, así que tener el grafiquito RPG no cuesta rendimiento. Mapeo: agent() corriendo → working; transición de etapa → walking/handoff; etapa reviewer → review; etapa que lanza → blocked; commit del WO → safe point"
     requiere_humano: false
 
   - id: DR-032
@@ -201,7 +201,7 @@ decisiones:
 
   - id: DR-038
     patron: "el agente llega a un punto que requiere decisión o acción del dueño (cualquier gate humano)"
-    default: "disparar una notificación push al dueño (llega al celular si Remote Control / la app de Claude está conectada) con mensaje de una línea accionable, ADEMÁS de dejar el pendiente por archivo (docs/estado.yaml, docs/decisiones.md). Aplica a TODO gate: producción (DR-004), gastar dinero (DR-005), borrar (DR-007), comunicaciones externas (DR-008), warning Vercel/pagos (DR-035), pendientes de :decide, y signup/2FA/pago durante el aprovisionamiento (DR-037). El cockpit es la vista de escritorio; el push es la vista 'estoy fuera'."
+    default: "disparar una notificación push al dueño (llega al celular si Remote Control / la app de Claude está conectada) con mensaje de una línea accionable, ADEMÁS de dejar el pendiente por archivo (docs/estado.yaml, docs/decisiones.md). Aplica a TODO gate: producción (DR-004), gastar dinero (DR-005), borrar (DR-007), comunicaciones externas (DR-008), warning Vercel/pagos (DR-035), pendientes de :decide, y signup/2FA/pago durante el aprovisionamiento (DR-037). Mission Control es la vista de escritorio; el push es la vista 'estoy fuera'."
     requiere_humano: false
     nota: "no reemplaza el canal por-archivo (principio 2): lo complementa para que el dueño pueda dejarlo corriendo y saber cuándo volver."
 

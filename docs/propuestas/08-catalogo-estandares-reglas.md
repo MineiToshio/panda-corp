@@ -23,7 +23,7 @@
 ## Reglas de decisión NUEVAS (`registro.yaml`)
 - **DR-024** performance · **DR-025** privacidad/PII (escala si PII nueva) · **DR-026** observabilidad mínima · **DR-027** security headers · **DR-028** contrato de error API · **DR-029** feature flags · **DR-030** desviación del golden path (ADR per-proyecto; promover = humano). **DR-006 ampliada** (migraciones expand/contract). Las DR apuntan al estándar; los valores viven allí.
 
-## UI del catálogo (cockpit Configuración)
+## UI del catálogo (Mission Control Configuración)
 Evolución de FRD-07, **2 niveles máximo** (progressive disclosure): Resumen (grid filtrable con badges dominio/severidad/enforcement) → Detalle (regla con valores literales + cómo se verifica + por qué). Skills con mini-flujo de agentes; reglas con indicador auto/humano + explicación; estándares categorizados con Resumen/Detalle. Botones "Nuevo estándar"/"Nueva regla" → `/pandacorp:codify`. Futuro: scorecard de cumplimiento por proyecto (requiere que `verify.sh` emita pass/fail por estándar a `estado.yaml`).
 
 ## Caveats

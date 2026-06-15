@@ -28,11 +28,11 @@ const PROFILES = {
 const P = PROFILES[MODE] || PROFILES.equilibrado
 log(`Modo ${MODE} · ola ≤${P.wave} · obreros ${P.worker} · juicio ${P.judge}`)
 
-// Cada subagente deja constancia para Mission Control: un append fire-and-forget
+// Cada subagente deja constancia para Party: un append fire-and-forget
 // a ~/.claude/dashboard-events.ndjson (no bloquea, no llama a Claude). El estado
 // "done" lo emite el hook SubagentStop de la fábrica cuando el subagente termina.
 const EMIT = (role, wo) =>
-  `Antes de empezar, registra tu actividad para Mission Control (un append, fire-and-forget):\n` +
+  `Antes de empezar, registra tu actividad para Party (un append, fire-and-forget):\n` +
   `  printf '{"event":"AgentWorking","at":"%s","data":{"role":"${role}","wo":"${wo}"}}\\n' "$(date -u +%FT%TZ)" >> ~/.claude/dashboard-events.ndjson\n`
 
 // ── Esquemas ────────────────────────────────────────────────────────────────

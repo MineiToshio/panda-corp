@@ -60,7 +60,7 @@ Dos planos separados:
 ## 7. Notificación al dueño en gates (DR-038)
 
 - En **CUALQUIER** punto que requiera decisión/acción del dueño (gates DR-004/005/007/008/035, pendientes del skill `decide`, o signup/2FA/pago durante el aprovisionamiento), el agente dispara una **notificación push**. Llega al **celular** si Remote Control / la app de Claude está conectada a la sesión (ya configurados en la máquina del dueño). Mensaje de una línea, accionable: *"PandaTrack: meter tarjeta en Polar para continuar"*.
-- El **cockpit** (Mission Control) es la vista "en el escritorio" (log de pendientes en `docs/estado.yaml`); el **push** es la vista "estoy fuera". No se conecta el cockpit al celular — el push nativo lo cubre.
+- **Mission Control** es la vista "en el escritorio" (log de pendientes en `docs/estado.yaml`); el **push** es la vista "estoy fuera". No se conecta Mission Control al celular — el push nativo lo cubre.
 
 ## 8. Playbook — alta y baja de un proyecto
 

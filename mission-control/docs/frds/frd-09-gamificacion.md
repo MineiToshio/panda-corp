@@ -16,7 +16,7 @@ La capa de juego que envuelve el trabajo real, de forma **honesta** y sin fatiga
 - TODA mecánica nueva DEBERÁ pasar el **test ético** antes de añadirse: ¿el usuario controla su participación? ¿construye o socava la motivación intrínseca? ¿la recompensa es significativa o un loop adictivo? ¿es honesta sobre su efecto psicológico? Patrones prohibidos: streak anxiety, recompensas variables tipo tragaperras, urgencia falsa, leaderboards, barra "clavada al 80%".
 
 ## Componentes (ver también)
-- Nivel/XP del gremio (esta FRD) · Niveles de agentes ([FRD-07](frd-07-configuracion.md)) · Salón de logros y stats ([FRD-10](frd-10-salon-de-logros.md)) · Mission Control RPG ([FRD-06](frd-06-mission-control.md)).
+- Nivel/XP del gremio (esta FRD) · Niveles de agentes ([FRD-07](frd-07-configuracion.md)) · Salón de logros y stats ([FRD-10](frd-10-salon-de-logros.md)) · Party RPG ([FRD-06](frd-06-party.md)).
 
 ## Futuro
 Momento full-screen al subir de nivel; transiciones de fase como "cutscene"; meta-logros (Sellos con título displayable); multiplicador de XP por racha semanal.

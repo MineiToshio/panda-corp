@@ -73,7 +73,7 @@ Regla de oro: **cada dato vive en un solo lugar; el otro lado guarda solo un pun
               → revisión visual del dueño (iterando en la conversación) ← GATE LIGERO
 4. ARQUITECTURA → /blueprint: stack, modelo de datos, ADRs + work orders → etapa ARQUITECTURA
 5. CONSTRUCCIÓN → /implement: un workflow dinámico construye todo, en vivo en → etapa EN CONSTRUCCIÓN
-                  Mission Control, TDD, testing por FRD/hito
+                  Party, TDD, testing por FRD/hito
 6. RELEASE v1   → /release: auditoría + deploy a producción            ← GATE HUMANO  → etapa LANZADA
 7. ITERACIÓN    → /iterate: agregar funcionalidad/cambio en cualquier momento
                   (en construcción o lanzado). /new-version solo para hitos grandes.
@@ -92,10 +92,10 @@ Cada fase produce artefactos versionados en `docs/` del proyecto. Las pruebas se
 
 ## Interfaz gráfica ✅ DECIDIDO: Pandacorp (el panel de la fábrica, primer proyecto)
 
-- Dashboard web **local y solo-lectura** (`cockpit/`, en la raíz de la fábrica, ver su `PLAN.md`). NUNCA llama a Claude: lee los archivos del repo.
-- Paneles: (1) kanban de ideas (mover tarjeta reescribe `estado:`), (2) portfolio, (3) "siguiente comando a copiar" según estado/fase, (4) Mission Control (subagentes del workflow en vivo, leyendo `~/.claude/dashboard-events.ndjson`).
+- Dashboard web **local y solo-lectura** (`mission-control/`, en la raíz de la fábrica, ver su `PLAN.md`). NUNCA llama a Claude: lee los archivos del repo.
+- Paneles: (1) kanban de ideas (mover tarjeta reescribe `estado:`), (2) portfolio, (3) "siguiente comando a copiar" según estado/fase, (4) Party (subagentes del workflow en vivo, leyendo `~/.claude/dashboard-events.ndjson`).
 - El dueño ejecuta los comandos pegándolos en la app de Claude Code → todo sale de su suscripción Max (no del pool headless).
-- Se construye con `/loop` (sesión interactiva = suscripción). Reemplaza a Obsidian como visor. Propuesta detallada: [docs/propuestas/05-interfaz-cockpit.md](../propuestas/05-interfaz-cockpit.md).
+- Se construye con `/loop` (sesión interactiva = suscripción). Reemplaza a Obsidian como visor. Propuesta detallada: [docs/propuestas/05-interfaz-mission-control.md](../propuestas/05-interfaz-mission-control.md).
 
 ## Preguntas aún abiertas (secundarias)
 
@@ -111,10 +111,10 @@ Cada fase produce artefactos versionados en `docs/` del proyecto. Las pruebas se
 - **Kanban ✅ (en Pandacorp, NO Obsidian)**: el tablero vive en Pandacorp; arrastrar/mover una tarjeta reescribe `estado:` en el .md directamente. Obsidian descartado por redundante. La investigación 06 (Obsidian) queda como referencia histórica.
 - **Plugin ✅**: `panda-corp/plugin/` + symlink a `~/.claude/skills/pandacorp` — auto-carga en cualquier carpeta, ediciones en vivo, skills namespaced (`/pandacorp:*`), plantillas accesibles vía `${CLAUDE_PLUGIN_ROOT}/templates/`. Ver [investigación 07](../investigacion/07-estructura-plugin-pandacorp.md).
 
-## Equipos de agentes y Mission Control ✅ DECIDIDO (a validar en uso)
+## Equipos de agentes y Party ✅ DECIDIDO (a validar en uso)
 
 - **Implementación con Dynamic Workflows**: la fase de implementación usa un **workflow dinámico** (primitiva nativa de Claude Code: un script JS que orquesta subagentes en background), en vez de agentes sueltos secuenciales o un equipo que se mensajea peer-to-peer. El loop de work orders vive en el código del script (pipeline/while), que spawnea los subagentes (backend-dev, frontend-dev, test-writer, reviewer) con las dependencias y el paralelismo **explícitos en el script** (frontend arranca cuando el contrato del backend existe; testing cuando frontend termina). Corre dentro de la sesión interactiva → usa la suscripción Max (no el pool headless).
-- **Mission Control en Pandacorp**: un panel de solo-lectura que muestra en vivo qué agente está activo, su tarea, las transiciones de etapa del pipeline y el grafo de dependencias. Se alimenta de eventos que emiten los **subagentes del workflow** (`emit-event.sh`) y el hook `SubagentStop` en un archivo local; el dashboard solo lee → cero llamadas a Claude. Observa, no controla (para redirigir/pausar, se salta a la terminal). Referencia/atajo existente: `claude-view`.
+- **Party en Pandacorp**: un panel de solo-lectura que muestra en vivo qué agente está activo, su tarea, las transiciones de etapa del pipeline y el grafo de dependencias. Se alimenta de eventos que emiten los **subagentes del workflow** (`emit-event.sh`) y el hook `SubagentStop` en un archivo local; el dashboard solo lee → cero llamadas a Claude. Observa, no controla (para redirigir/pausar, se salta a la terminal). Referencia/atajo existente: `claude-view`.
 - **Caveat token burn**: 3-5 agentes en paralelo consumen ~4-5x la cuota. Recomendado Max 20x para uso consistente; mitigar con agentes obreros en sonnet/haiku y líder en opus. Tamaño de equipo recomendado: 3-5.
 - **Reanudabilidad**: el motor es un workflow dinámico **reanudable de raíz** (el estado vive en variables del script + archivos del proyecto + commits, no en mensajes entre agentes), así que un corte no pierde el avance. Agent Teams queda **solo para revisión adversarial puntual**, nunca como columna vertebral. Aun así, escribir el contexto crítico a archivos, no solo a mensajes.
 

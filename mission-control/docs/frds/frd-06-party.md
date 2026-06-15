@@ -1,4 +1,4 @@
-# FRD-06 — Mission Control (mapa RPG en vivo)
+# FRD-06 — Party (mapa RPG en vivo)
 
 Vista tipo RPG de los subagentes del workflow construyendo un proyecto: zonas pixel-art y personajes que se mueven entre etapas.
 

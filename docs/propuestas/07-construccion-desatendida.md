@@ -34,7 +34,7 @@ El worktree de review comparte el historial pero tiene working dir y rama propio
 - **Colisión de puertos/DB**: puerto por worktree vía `.env`. Cuidado con atajos tipo `UNSAFE_AUTH_BYPASS` (no shippear a release).
 - **El dev server de review lo levantas tú, no el agente**: los background shells del agente se matan ~5s tras el resultado final y no se restauran en `--resume` (y dejan zombies si no se llama `TaskStop`).
 
-### d) Qué muestra el cockpit (dos cosas hoy confundidas)
+### d) Qué muestra Mission Control (dos cosas hoy confundidas)
 - **Badge `main = testeable`**: verde SOLO con `safe_to_test: true`. Muestra `last_green_sha` corto + "FRD-3 cerrado, e2e verde" + el comando `git worktree add …` para copiar. = "último punto probable".
 - **Indicador "construyendo ahora"**: el WO en progreso, el agente activo, y un contador de antigüedad: si `last_green_sha` está muy atrás de HEAD → alerta (el snapshot probable está quedando viejo).
 - **Botón "Probar snapshot estable"**: arma el worktree sobre `last_green_sha`.
@@ -43,7 +43,7 @@ El worktree de review comparte el historial pero tiene working dir y rama propio
 - **`plugin/skills/implement/SKILL.md`**: documentar arranque en auto mode; explicitar commit-solo-en-borde-de-WO-en-verde; añadir provisioning de worktree (.env + deps); convertir "3 errores = parar" en **freeze-on-red** (no commitear lo roto, dejar HEAD en `last_green_sha`, marcar WO `BLOCKED`, **PushNotification al dueño**, seguir con WOs independientes); `TaskStop` de dev servers al cerrar cada FRD.
 - **`/loop` — SÍ y NO:** el **workflow ES el loop** (corre hasta vaciar la cola y para solo); `/loop` *self-paced* solo para mantenerlo corriendo en continuo/desatendido. NO a intervalo fijo (los scheduled tasks expiran a 7 días, son session-scoped, no hacen catch-up, y meten delays de 1min–1h). Para trabajo continuo: el workflow self-paced + Monitor.
 - **git:** trunk-based — cada WO commitea/mergea al **cerrar el WO**, no al cerrar el proyecto (prohibir `feature/proyecto-completo` de horas). Tag semver opcional por hito de FRD. Para features que cruzan varios WOs: **feature toggles en source-control (YAML, no DB)** con fecha de expiración, para que cada WO intermedio deje `main` desplegable.
-- **cockpit:** los 3 elementos de (d), leyendo `last_green_sha`/`safe_to_test` de `estado.yaml`.
+- **Mission Control:** los 3 elementos de (d), leyendo `last_green_sha`/`safe_to_test` de `estado.yaml`.
 - **hooks:** `Notification` (idle) + notificación rica al cerrar FRD ("FRD-3 verde, SHA abc testeable").
 
 ## Alternativas

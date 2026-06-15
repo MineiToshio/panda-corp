@@ -3,7 +3,7 @@
 > Generado 2026-06-13 a partir de dos investigaciones web profundas con verificación adversarial
 > (orquestación/calidad/SDK/docs + UI/UX/gamificación). 5 dimensiones, ~50 fuentes,
 > claims verificados por voto 3-0 salvo donde se indica. Cada hallazgo se conecta con qué
-> cambiar en Pandacorp (pipeline, hooks, agentes o cockpit).
+> cambiar en Pandacorp (pipeline, hooks, agentes o Mission Control).
 
 ## Tesis central
 
@@ -60,7 +60,7 @@ verificación independiente del agente**, no confiar en que el agente "no haga t
 
 ---
 
-## Dimensión 5 — UI/UX del cockpit y gamificación honesta
+## Dimensión 5 — UI/UX de Mission Control y gamificación honesta
 
 > Hilo conductor: **el ojo debe enlazar sprite ↔ evento ↔ tarjeta sin leer texto**, el **fallo debe ser tan
 > visible como el logro**, y la **restricción** (pocos colores, pocas métricas, pocas variables de tema) es la
@@ -99,17 +99,17 @@ verificación independiente del agente**, no confiar en que el agente "no haga t
 ### P0 — Alto impacto, evidencia fuerte, bajo esfuerzo
 1. **Romper el sesgo compartido test-writer↔implementer**: el `reviewer` (opus) escribe tests adversariales que el implementer no vio; anclar edge cases en EARS + bugs de `progreso.md`. *(2.1, 2.2)*
 2. **`verify.sh` como gate anti-trampa**: añadir mutation testing (Stryker para TS / mutmut para Python), correr en entorno limpio, parsing fail-closed, no exponer nombres de tests. *(2.1, 2.3)*
-3. **Cockpit — quick wins de craft**: color persistente por agente + fallo como estado de primera clase + `tabular-nums` + un acento racionado. *(A1, A3, C2)*
+3. **Mission Control — quick wins de craft**: color persistente por agente + fallo como estado de primera clase + `tabular-nums` + un acento racionado. *(A1, A3, C2)*
 
 ### P1 — Alto impacto, esfuerzo medio
 4. **OWASP Top 10 Agentic (dic-2025)** como checklist en `security-auditor` + `release`. *(2.4)*
 5. **SOPs de verificación intermedia por agente** (en `agents/*.md`) usando MAST; documentar en la constitución qué failure mode previene cada hook. *(1.2, 1.3)*
 6. **Mensajes de `verify.sh` accionables** ("qué regla falló y por qué"). *(3.1)*
-7. **Cockpit — sistema visual**: tema 3 tokens OKLCH + 3 elevaciones; `prefers-reduced-motion` + estados con icono/forma + aria en español; motion <300ms con frequency test; feed follow-tail+pin+cap. *(C1, C3, C4, C5, A4)*
+7. **Mission Control — sistema visual**: tema 3 tokens OKLCH + 3 elevaciones; `prefers-reduced-motion` + estados con icono/forma + aria en español; motion <300ms con frequency test; feed follow-tail+pin+cap. *(C1, C3, C4, C5, A4)*
 
 ### P2 — Estructural / experimental
 8. **Paralelismo desatendido**: subagentes concurrentes para los 3 lentes del review + background tasks en modos potente/profundo; commit por work order siempre. *(3.2, 3.3)*
-9. **Cockpit — observabilidad**: Live Pulse Chart + toggle RPG↔timeline + header ≤5 KPIs + indicador Live/Stale + DAG con path-focus (Dagre). *(B1–B4)*
+9. **Mission Control — observabilidad**: Live Pulse Chart + toggle RPG↔timeline + header ≤5 KPIs + indicador Live/Stale + DAG con path-focus (Dagre). *(B1–B4)*
 10. **Eval harness propio** (estilo SWE-bench sobre los propios proyectos) para medir regresiones de calidad del pipeline entre versiones. *(open question)*
 11. **Documentación viva**: auto-changelog desde conventional commits + ADRs propuestos por CI. *(4.2)*
 

@@ -13,4 +13,4 @@ Permite elegir con cuánta potencia se construye cada proyecto, y muestra el com
 - EL skill `/pandacorp:implement` DEBERÁ aceptar esos modos como argumento (`pro` | `potente` | `profundo`; sin argumento = equilibrado).
 
 ## Futuro
-El modo definirá la **composición del equipo** (cuántos agentes y de qué rol; p. ej. varios frontend), y **Mission Control** ([FRD-06](frd-06-mission-control.md)) mostrará el equipo real que esté corriendo.
+El modo definirá la **composición del equipo** (cuántos agentes y de qué rol; p. ej. varios frontend), y **Party** ([FRD-06](frd-06-party.md)) mostrará el equipo real que esté corriendo.

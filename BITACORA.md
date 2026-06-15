@@ -4,7 +4,7 @@ Todo lo que decidimos y **por qué**, para no perder el rastro. Organizado por �
 
 | Área | Bitácora | Qué cubre |
 |---|---|---|
-| 🛰️ Cockpit (app Next.js / Mission Control) | [cockpit/docs/bitacora.md](cockpit/docs/bitacora.md) | Features, diseño y decisiones del producto cockpit |
+| 🛰️ Mission Control (app Next.js) | [mission-control/docs/bitacora.md](mission-control/docs/bitacora.md) | Features, diseño y decisiones del producto Mission Control |
 | 🔌 Plugin pandacorp | [plugin/docs/bitacora.md](plugin/docs/bitacora.md) | Skills, agentes, hooks y flujo de la fábrica |
 | 💡 Ideas | [fabrica/ideas/bitacora.md](fabrica/ideas/bitacora.md) | Decisiones sobre la base de ideas y su proceso (no el contenido de cada idea) |
 | 🏭 Fábrica | [fabrica/bitacora.md](fabrica/bitacora.md) | Constitución, estándares y decisiones de operación |
