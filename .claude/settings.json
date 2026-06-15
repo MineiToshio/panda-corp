@@ -7,7 +7,7 @@
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/decision-log-reminder.sh\"",
             "timeout": 10,
-            "statusMessage": "Bitácora · recordatorio"
+            "statusMessage": "Decision log · reminder"
           }
         ]
       }

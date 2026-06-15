@@ -25,15 +25,15 @@
 ```yaml
 filters:
   and:
-    - 'estado != null'
+    - 'status != null'
 properties:
-  estado: {displayName: "Estado"}
-  tipo: {displayName: "Tipo"}
+  status: {displayName: "Estado"}
+  project_type: {displayName: "Tipo"}
   score: {displayName: "Score"}
 views:
   - type: kanban            # registered by the bases-kanban plugin
     name: "Pipeline Ideas"
-    groupBy: {property: estado, direction: ASC}
+    groupBy: {property: status, direction: ASC}
     order: [score, file.name]
 ```
 
@@ -41,7 +41,7 @@ views:
 
 Three layers, from simple to sophisticated:
 1. **Periodic scan with cache** (recommended to start): a script compares the current `status:` against the previous snapshot; runs via cron/launchd or as part of the `/actualizar-portfolio` skill. Zero dependencies.
-2. **git diff**: the obsidian-git plugin auto-commits every N min; a post-commit hook greps `^[+-]estado:` and triggers the agent. Free audit trail.
+2. **git diff**: the obsidian-git plugin auto-commits every N min; a post-commit hook greps `^[+-]status:` and triggers the agent. Free audit trail.
 3. **fswatch (macOS)** for real time: filter out temporary `.!*` files (Obsidian writes atomically: temp + rename) and exclude `.obsidian/`.
 
 Pitfalls: ignore `.obsidian/workspace.json` and `plugins/*/data.json` in git (noise); filter out `.!*` file events.

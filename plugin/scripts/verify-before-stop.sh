@@ -17,10 +17,10 @@ grep -qs "Pandacorp" "$cwd/CLAUDE.md" 2>/dev/null || exit 0
 
 out=$(bash "$verify" 2>&1)
 if [ $? -ne 0 ]; then
-  echo "Pandacorp verify gate FAILED — no puedes terminar con el proyecto roto." >&2
-  echo "Regla que fallo: .pandacorp/verify.sh (tests + typecheck + lint deben pasar)." >&2
+  echo "Pandacorp verify gate FAILED — you can't finish with a broken project." >&2
+  echo "Rule that failed: .pandacorp/verify.sh (tests + typecheck + lint must pass)." >&2
   echo "Fix the root cause; do NOT tweak the test to pass or declare it 'done'." >&2
-  echo "--- salida de verify.sh (ultimas 30 lineas) ---" >&2
+  echo "--- verify.sh output (last 30 lines) ---" >&2
   echo "$out" | tail -30 >&2
   exit 2
 fi

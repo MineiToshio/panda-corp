@@ -8,7 +8,7 @@ HERE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prototype")
 os.chdir(HERE)
 
 avatars = ["researcher","product-manager","designer","architect","backend-dev","frontend-dev","test-writer","reviewer","security-auditor"]
-zones = ["research","testing","backend","frontend"]
+zones = ["research","testing","backend","frontend","analytics","review"]
 
 def enc(path, size):
     im = Image.open(path).convert("RGBA")

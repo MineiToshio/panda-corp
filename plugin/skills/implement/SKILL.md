@@ -16,8 +16,8 @@ The modes control the **concurrency and the models of the workflow** (how many `
 
 - **pro** (`/pandacorp:implement pro`): for the Pro plan / minimum consumption. A single worker at a time (concurrency 1), economical models (sonnet/haiku). The slowest but the cheapest. **By default a single `implementer` agent (full-stack) instead of a split team**: without parallelism, splitting into backend-dev/frontend-dev adds no speed and adds coordination overhead (handoffs, publishing the contract). The `reviewer` still reviews at close. Only split if the project has a very marked back/front separation.
 - **balanced** (default): designed for Max 5x. Up to 3 `agent()` in parallel; judgment (review/architecture) on opus, the workers on sonnet/haiku.
-- **potente** (`/pandacorp:implement potente`): for Max 20x. More concurrency (up to 5) → advances faster. Use it when you want to finish sooner and your plan allows it.
-- **profundo** (`/pandacorp:implement profundo`): maximum quality. The best model (opus) at all stages, extra adversarial review (the 3 lenses as concurrent subagents) and stricter verification. Slower and more expensive — for a project you have special affection for or when something isn't going well.
+- **powerful** (`/pandacorp:implement powerful`): for Max 20x. More concurrency (up to 5) → advances faster. Use it when you want to finish sooner and your plan allows it.
+- **deep** (`/pandacorp:implement deep`): maximum quality. The best model (opus) at all stages, extra adversarial review (the 3 lenses as concurrent subagents) and stricter verification. Slower and more expensive — for a project you have special affection for or when something isn't going well.
 
 ## Resumable (don't start from scratch)
 

@@ -4,6 +4,11 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [docs/status.yaml](status.yaml); the PRD in [docs/prd.md](prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-06-15 — Prototype + status.yaml aligned to the English language policy
+**What:** Migrated the prototype's machine identifiers to English while keeping the Spanish UI: pipeline enums (`PIPE`/`LBL` keys → discovered/documented/design/architecture/building/shipped, labels stay Spanish), idea `status`/`return_type` mock data and filters, the build-mode tokens (balanced/powerful/deep) with Spanish display labels, and the zone keys (research/review/analytics/security) to match the renamed assets. `docs/status.yaml` now holds machine state only (English); the Spanish narrative moved to the gitignored `docs/summary.md`. All docs (PRD, FRDs, PLAN, PARTY, design briefs) translated to English; the prototype UI copy stays Spanish.
+**Why:** Part of the repo-wide language migration (see `factory/decision-log.md`, same date).
+**Impact:** `mission-control/prototype/index.html`, `mission-control/docs/**`, `embed-images.py`/`crop-avatars.py`. Verified in preview: board renders with Spanish column labels, no console errors, no raw enums.
+
 ## 2026-06-15 — Configuration reflects external-services + DR-032..039
 **What:** The prototype (Configuration → Standards and Rules) was synced with the factory: the **external-services** standard card (Operation domain) was added to the "Craft Codex", and the decision registry — which cut off at DR-031 — now includes **DR-032..039** (iterate without advancing, personal data, plugin versioning, Vercel/payments, external services + accounts, secrets/provisioning, push at gates, recommendations based on the profile). The stack summary now names the services (R2, Resend, Kit, Sentry, PostHog, Polar).
 **Why:** Configuration is the source of context for understanding the factory; it had to reflect the new standard and decisions, not fall out of date.

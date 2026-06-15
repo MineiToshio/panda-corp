@@ -4,6 +4,11 @@ Decisions about the **idea base and its process** (scoring, discarding, discover
 
 > Note: the content and status of **each idea** lives in its own card (`factory/ideas/<slug>.md`, frontmatter). This file holds decisions about **how we manage ideas**, not the ideas themselves.
 
+## 2026-06-15 — Card frontmatter migrated to English keys/enums (UI labels stay Spanish)
+**What:** As part of the repo-wide language policy, the idea-card frontmatter keys and enum values moved to English: keys `title/project_type/origin/status/difficulty/profile_alignment/return_type/likely_stack/evidence/created/project`; the `status` enum `discovered → documented → recommended → in-pipeline → shipped | discarded`. The board's consumers were synced (`ideas.base` groups by `status`, `scan-ideas.sh` parses `status:`, the Mission Control prototype maps the English keys to Spanish display labels). Personal cards (gitignored) keep their Spanish prose body; only their frontmatter keys/enums were migrated.
+**Why:** Machine-read identifiers must be English (committed = English); the owner still sees Spanish labels in the board.
+**Impact:** `factory/ideas/_idea-template.md`, `ideas.base`, `plugin/scripts/scan-ideas.sh`, the prototype. See `factory/decision-log.md` (same date).
+
 ## 2026-06-15 — Card schema: category (project_type) + return, dropping the binary tag
 **What:** The card replaces the `tipo` tag (monetizable/personal/both) with two orthogonal axes: `project_type` (web/mobile/desktop/ai/claude-code/prompt-system/automation/cli/rework/other) and `return_type` (monetary/opportunity/personal/mixed), plus `profile_alignment`. `new-idea` always classifies both.
 **Why:** The binary tag didn't distinguish WHAT kind of solution it is, nor did it capture that the return can be an opportunity and not just money. It aligns the card with the recommendation model (DR-039) and with the board tags (Mission Control FRD-02).

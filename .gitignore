@@ -8,9 +8,9 @@
 # State caches
 .pandacorp-cache/
 
-# Datos del dueño (personales — NO se publican). Los seeds versionados son
-# factory/profile.example.md y factory/portfolio.example.md; /pandacorp:onboarding
-# genera las versiones reales abajo. Las fichas de ideas también son personales.
+# Owner's personal data (NOT published). The versioned seeds are
+# factory/profile.example.md and factory/portfolio.example.md; /pandacorp:onboarding
+# generates the real versions below. The idea cards are personal too.
 factory/profile.md
 factory/portfolio.md
 factory/ideas/*.md
