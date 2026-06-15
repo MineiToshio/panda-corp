@@ -1,5 +1,5 @@
 #!/bin/bash
-# Pandacorp ideas scanner: detects estado changes in factory/ideas/*.md frontmatter
+# Pandacorp ideas scanner: detects status changes in factory/ideas/*.md frontmatter
 # by comparing against a cached snapshot. Prints changes; updates the snapshot.
 # Usage: scan-ideas.sh [/path/to/factory]
 # Defaults to the factory root = the repo this is run from (the cwd is the factory).
@@ -17,7 +17,7 @@ for f in "$IDEAS_DIR"/*.md; do
   [ -e "$f" ] || continue
   base=$(basename "$f")
   case "$base" in _*|decision-log.md) continue;; esac
-  estado=$(awk '/^---$/{n++; next} n==1 && /^estado:/{sub(/^estado:[[:space:]]*/,""); print; exit}' "$f")
+  estado=$(awk '/^---$/{n++; next} n==1 && /^status:/{sub(/^status:[[:space:]]*/,""); print; exit}' "$f")
   echo "$base|$estado"
 done | sort > "$current"
 

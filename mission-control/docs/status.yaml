@@ -1,14 +1,14 @@
 # Estado del proyecto Pandacorp (el panel de la fábrica) — leído por la fábrica y por el propio panel
-proyecto: "Pandacorp"
-fase: arquitectura   # producto y diseño (prototipo) hechos; pendiente blueprint + construcción
+project: "Pandacorp"
+phase: architecture   # producto y diseño (prototipo) hechos; pendiente blueprint + construcción
 version: v1
 running: false
 repo: ""
-actualizado: "2026-06-13"
-progreso: "PRD + 14 FRDs (incl. gamificación, Party RPG, logros, modos de construcción, observabilidad/data-viz, sistema visual/a11y, snapshot probable + canales de feedback); prototipo navegable como diseño aprobado, con el modelo de construcción desatendida reflejado; pendiente blueprint/construcción."
+updated_at: "2026-06-13"
+progress: "PRD + 14 FRDs (incl. gamificación, Party RPG, logros, modos de construcción, observabilidad/data-viz, sistema visual/a11y, snapshot probable + canales de feedback); prototipo navegable como diseño aprobado, con el modelo de construcción desatendida reflejado; pendiente blueprint/construcción."
 work_orders_total: 0
 work_orders_done: 0
-decisiones_pendientes: 0
-pendientes:
+pending_decisions: 0
+pending:
   - "Finalizar blueprint (stack y arquitectura) a partir de los FRDs y el prototipo"
   - "Generar work orders y construir (con /loop o /pandacorp:implement)"

@@ -1,16 +1,16 @@
 ---
-titulo: "(título corto de la idea)"
-tipo_proyecto: web | mobile | desktop | ia | claude-code | prompt-system | automatizacion | cli | rework | otro
-origen: dueño | discovery
-estado: descubierta
+title: "(short idea title)"
+project_type: web | mobile | desktop | ai | claude-code | prompt-system | automation | cli | rework | other
+origin: owner | discovery
+status: discovered
 score: 0
-dificultad: baja | media | alta
-alineacion_perfil: baja | media | alta
-retorno: monetario | oportunidad | personal | mixto
-stack-probable: [A, D]
-evidencia: []
-creada: AAAA-MM-DD
-proyecto: ""
+difficulty: low | medium | high
+profile_alignment: low | medium | high
+return_type: monetary | opportunity | personal | mixed
+likely_stack: [A, D]
+evidence: []
+created: YYYY-MM-DD
+project: ""
 ---
 
 # (Título)
@@ -34,6 +34,6 @@ Lo que el scoring consideró: necesidad/dolor, facilidad, retorno (monetario/opo
 encaje con el perfil (alineación + ventaja).
 
 ---
-> Estados: descubierta → documentada → recomendada → en-pipeline → lanzada | descartada
-> Cada transición la escribe un skill (new-idea→documentada, recommend→recomendada, scaffold→en-pipeline, release→lanzada). `descartada` se marca desde Pandacorp (decisión humana). El tablero es solo-lectura.
-> Al pasar a `en-pipeline`, llenar el campo `proyecto:` con la ruta de la carpeta creada.
+> Estados: discovered → documented → recommended → in-pipeline → shipped | discarded
+> Cada transición la escribe un skill (new-idea→documented, recommend→recommended, scaffold→in-pipeline, release→shipped). `discarded` se marca desde Pandacorp (decisión humana). El tablero es solo-lectura.
+> Al pasar a `in-pipeline`, llenar el campo `project:` con la ruta de la carpeta creada.

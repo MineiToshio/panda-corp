@@ -197,7 +197,7 @@ while (pending.size > 0) {
 // ── Cierre ────────────────────────────────────────────────────────────────────
 phase('Verify')
 if (built.length > 0 && blocked.size === 0) {
-  await agent(`Todos los work orders cerraron en verde. Corre la suite completa + e2e de los flujos críticos y mata los dev servers de prueba con TaskStop. Si todo queda verde, marca docs/status.yaml fase: release y running: false. Resume qué se construyó y la evidencia.`,
+  await agent(`Todos los work orders cerraron en verde. Corre la suite completa + e2e de los flujos críticos y mata los dev servers de prueba con TaskStop. Si todo queda verde, marca docs/status.yaml phase: release y running: false. Resume qué se construyó y la evidencia.`,
     { label: 'cierre', phase: 'Verify', model: P.judge, agentType: 'pandacorp:reviewer' })
 } else if (blocked.size > 0) {
   log(`Construcción detenida con ${blocked.size} bloqueado(s): ${[...blocked].join(', ')}. Revisa docs/decisions.md / docs/bugs/ y re-lanza implement.`)
