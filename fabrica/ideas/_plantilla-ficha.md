@@ -1,7 +1,6 @@
 ---
 titulo: "(título corto de la idea)"
-tipo: monetizable | personal | ambas
-tipo_proyecto: app-web | app-mobile | rework | claude-code | prompt-system | automatizacion | otro
+tipo_proyecto: web | mobile | desktop | ia | claude-code | prompt-system | automatizacion | cli | rework | otro
 origen: dueño | discovery
 estado: descubierta
 score: 0

@@ -19,5 +19,6 @@ Cristaliza una idea como ficha en la base de ideas. La idea puede venir de `$ARG
 
 ## Reglas
 - Una ficha por idea; si ya existe una similar (lee los frontmatter), actualízala en vez de duplicar.
-- Tipo `personal` también se documenta con rigor — el score pondera valor personal en vez de monetización.
+- Clasifica siempre la ficha con `tipo_proyecto` (qué tipo de solución: web, mobile, desktop, ia, claude-code, prompt-system, automatizacion, cli, rework…) y `retorno` (monetario, oportunidad, personal o mixto).
+- Retorno `personal` o de `oportunidad` también se documenta con rigor — el score pondera valor y oportunidad, no solo monetización.
 - Para explorar y aclarar una idea difusa ANTES de capturarla, ese es el trabajo de `/pandacorp:explore`; este skill es el paso de cristalizar.

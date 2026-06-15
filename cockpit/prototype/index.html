@@ -169,40 +169,41 @@ var IMG={"implementer":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCA
 var PIPE=["descubierta","documentada","diseno","arquitectura","en-construccion","lanzada"];
 var LBL={descubierta:"Descubierta",documentada:"Documentada",diseno:"Diseño",arquitectura:"Arquitectura","en-construccion":"En construcción",lanzada:"Lanzada",descartada:"Descartada"};
 var WLBL={todo:"To do",progress:"En progreso",review:"Review / Testing",done:"Hecho",fail:"Falló"},WORDER=["todo","progress","review","done"];
-var TYPE={monetizable:["var(--ok-bg)","var(--ok)"],personal:["var(--info-bg)","var(--info)"],ambas:["var(--warn-bg)","var(--warn)"]};
+var RET={monetario:["var(--ok-bg)","var(--ok)","monetario"],oportunidad:["var(--warn-bg)","var(--warn)","oportunidad"],personal:["var(--info-bg)","var(--info)","personal"],mixto:["var(--accent-bg)","var(--accent-text)","mixto"]};
+var CAT={web:["web","ti-world"],mobile:["mobile","ti-device-mobile"],desktop:["desktop","ti-device-desktop"],ia:["IA","ti-sparkles"],"claude-code":["Claude Code","ti-terminal-2"],"prompt-system":["prompts","ti-message-code"],automatizacion:["automatización","ti-robot"],cli:["CLI","ti-terminal"],rework:["rework","ti-refresh"],otro:["otro","ti-box"]};
 
-var SEED={view:"ideas",openSlug:null,openDoc:0,intake:false,projectSlug:null,projectTab:"resumen",configSection:"skills",configItem:null,docsPage:0,woItem:null,modes:{},ideas:[
- {slug:"pandacorp-cockpit",titulo:"Pandacorp",estado:"en-construccion",fase:"implementacion",version:"v1",running:true,progreso:"Implementando el Panel Portfolio",green:{sha:"a1b2c3d",frd:"FRD-02 · Panel Ideas + detalle"},score:90,tipo:"personal",
+var SEED={view:"ideas",perfilOk:true,openSlug:null,openDoc:0,intake:false,projectSlug:null,projectTab:"resumen",configSection:"skills",configItem:null,docsPage:0,woItem:null,modes:{},ideas:[
+ {slug:"pandacorp-cockpit",titulo:"Pandacorp",estado:"en-construccion",fase:"implementacion",version:"v1",running:true,progreso:"Implementando el Panel Portfolio",green:{sha:"a1b2c3d",frd:"FRD-02 · Panel Ideas + detalle"},score:90,cat:"web",retorno:"personal",
   resumen:"Panel local de la fábrica para ver ideas y proyectos, leer la documentación y saber qué comando ejecutar. No llama a Claude: solo lee archivos.",
   clave:["Solo-lectura — respeta tu suscripción Max","Tablero, Portfolio, Configuración, Documentación","Mission Control por proyecto"],
   decisiones:[{t:"¿Mostrar costos de infraestructura en el Portfolio o dejarlo fuera del MVP?",e:"pendiente",rec:"Dejarlo fuera del MVP — añade complejidad y los proyectos aún no tienen costos reales que mostrar."}],
   docs:[{n:"prd.md",c:"# PRD\n\n## Scope v1\nTablero + Portfolio + workspace por proyecto + Configuración + Documentación."},{n:"blueprint.md",c:"# Blueprint\n\nNext.js, solo-lectura. Lee fabrica/ideas, portfolio y estado.yaml. Sin BD."},{n:"progreso.md",c:"# Bitácora\n\n- Capa de lectura lista y testeada\n- Panel Ideas + detalle listos\n- En curso: Panel Portfolio (vista de dos paneles)\n- Desviación: el kanban de ideas pasó a solo-lectura (los skills mueven las tarjetas)"}],
   log:["Capa de lectura implementada y testeada","Panel Ideas y detalle terminados","Decisión: el tablero de ideas es solo-lectura (los skills mueven las tarjetas)","En curso: Panel Portfolio"],
   wo:[{t:"Capa de lectura (ideas/portfolio)",e:"done",frd:"FRD-01",d:"Leer y parsear las fichas de ideas, el portfolio y el estado.yaml de cada proyecto."},{t:"Panel Ideas + detalle",e:"done",frd:"FRD-02",d:"Kanban de ideas y vista de detalle con navegador de documentos."},{t:"Panel Portfolio",e:"progress",frd:"FRD-03",d:"Lista vertical de proyectos a la izquierda + detalle a la derecha."},{t:"Workspace por proyecto + work orders",e:"progress",frd:"FRD-03",d:"Sub-pestañas del proyecto y kanban de work orders."},{t:"Mission Control",e:"todo",frd:"FRD-04",d:"Vista en vivo de los agentes por proyecto."},{t:"Configuración",e:"todo",frd:"FRD-05",d:"Ver skills, agentes, reglas y estándares."},{t:"Documentación",e:"todo",frd:"FRD-06",d:"Manual navegable de la fábrica."},{t:"README + pulido",e:"todo",frd:"FRD-06",d:"Cómo correrlo y pulir estados vacío/carga/error."}]},
- {slug:"budget-buddy",titulo:"Control de gastos compartidos",estado:"en-construccion",fase:"work-orders",version:"v1",running:true,progreso:"Construyendo «Registrar gasto»",green:{sha:"9f4e2b1",frd:"FRD-01 · Esquema de datos + seeds"},bugs:2,score:68,tipo:"monetizable",
+ {slug:"budget-buddy",titulo:"Control de gastos compartidos",estado:"en-construccion",fase:"work-orders",version:"v1",running:true,progreso:"Construyendo «Registrar gasto»",green:{sha:"9f4e2b1",frd:"FRD-01 · Esquema de datos + seeds"},bugs:2,score:68,cat:"mobile",retorno:"monetario",
   resumen:"App para dividir y rastrear gastos entre roommates o viajes. En arranque de ingeniería.",
   clave:["Monetización: plan premium para grupos"],decisiones:[],
   docs:[{n:"prd.md",c:"# PRD — MVP\n\n## FRDs\n- Crear grupo\n- Registrar gasto\n- Liquidar deudas"}],
   log:["Esquema de datos creado","CRUD de grupos en review","Decisión: las deudas se calculan en el servidor"],
   wo:[{t:"Esquema de datos + seeds",e:"done",frd:"FRD-01",d:"Tablas de grupos, gastos y miembros."},{t:"CRUD de grupos",e:"fail",frd:"FRD-01",d:"Crear, editar y listar grupos. El reviewer rechazó: 2 tests adversariales fallan."},{t:"Registrar gasto",e:"progress",frd:"FRD-02",d:"Formulario para añadir un gasto al grupo."},{t:"Cálculo de deudas",e:"todo",frd:"FRD-03",d:"Quién debe a quién, minimizando transferencias."},{t:"Pantalla de liquidación",e:"todo",frd:"FRD-03",d:"UI para saldar las deudas del grupo."}]},
- {slug:"recipe-keeper",titulo:"Recetario personal",estado:"arquitectura",version:"v1",running:false,score:60,tipo:"personal",
+ {slug:"recipe-keeper",titulo:"Recetario personal",estado:"arquitectura",version:"v1",running:false,score:60,cat:"web",retorno:"personal",
   resumen:"Guardar y organizar recetas con buscador. Definiendo blueprint y work orders.",
   clave:["Diseño aprobado, armando la arquitectura"],
   decisiones:[{t:"Aprobar el stack propuesto: Next.js + Prisma + Postgres (últimas versiones)",e:"pendiente",rec:"Aprobar — es el golden path por defecto y encaja con un recetario con buscador."}],
   docs:[{n:"prd.md",c:"# PRD — MVP\n\n## FRDs\n- Crear receta\n- Buscar por ingrediente\n- Etiquetas"},{n:"blueprint.md",c:"# Blueprint\n\nStack web por defecto. Tabla recetas + tags. Buscador full-text."}]},
- {slug:"funko-tracker",titulo:"Tracker de Funkos One Piece",estado:"documentada",score:72,tipo:"ambas",
+ {slug:"funko-tracker",titulo:"Tracker de Funkos One Piece",estado:"documentada",score:72,cat:"web",retorno:"mixto",
   resumen:"Cataloga y monitorea Funkos de One Piece en tiempo real, avisando apenas se anuncia uno nuevo.",
   clave:["Dolor personal validado","Scraping + web","Monetización: alertas premium / afiliados"],decisiones:[],
   docs:[{n:"prd.md",c:"# PRD — MVP\n\n## FRDs\n- Catálogo navegable\n- Alertas de lanzamientos\n- Marcar mi colección"},{n:"investigacion-producto.md",c:"# Investigación\n\nFuentes: funko.com + 2 tiendas. Sin competencia con avisos en tiempo real."}]},
- {slug:"restaurant-table-ordering",titulo:"Pedidos desde la mesa",estado:"documentada",score:58,tipo:"monetizable",
+ {slug:"restaurant-table-ordering",titulo:"Pedidos desde la mesa",estado:"documentada",score:58,cat:"web",retorno:"monetario",
   resumen:"El comensal elige restaurante, mesa y pide desde el celular. Requiere venta B2B.",
   clave:["Monetización B2B","Riesgo: competencia y esfuerzo comercial"],decisiones:[],
   docs:[{n:"idea-origen.md",c:"# Pedidos desde la mesa\n\nPedir depende del mozo."}]},
- {slug:"flight-price-alerts",titulo:"Alertas de precio de vuelos",estado:"descubierta",score:0,tipo:"monetizable",
+ {slug:"flight-price-alerts",titulo:"Alertas de precio de vuelos",estado:"descubierta",score:0,cat:"automatizacion",retorno:"monetario",
   resumen:"Avisa cuando baja el precio de una ruta. Recién capturada, pendiente de documentar.",
   clave:["Sin score aún"],decisiones:[],
   docs:[{n:"idea-origen.md",c:"# Alertas de precio de vuelos\n\nEnterarme cuando baje el precio de una ruta."}]},
- {slug:"quick-notes",titulo:"Quick Notes",estado:"lanzada",fase:"operacion",version:"v1.2",running:false,score:80,tipo:"personal",
+ {slug:"quick-notes",titulo:"Quick Notes",estado:"lanzada",fase:"operacion",version:"v1.2",running:false,score:80,cat:"desktop",retorno:"personal",
   resumen:"Notas rápidas con atajos de teclado. Ya en producción.",
   clave:["Lanzada","Iterar con /pandacorp:iterate"],decisiones:[],
   docs:[{n:"idea-origen.md",c:"# Quick Notes\n\nNotas instantáneas sin fricción."}],
@@ -213,7 +214,7 @@ var SEED={view:"ideas",openSlug:null,openDoc:0,intake:false,projectSlug:null,pro
 var INTAKE=[
  ["explore","Explora una idea difusa contigo","Conversan ida y vuelta —te rebate, investiga ligero, te ayuda a aclarar— hasta que la idea es tangible; ahí la pasa a new-idea para crear la ficha. No escribe nada hasta que tú digas."],
  ["new-idea","Captura una idea TUYA","La describes y la fábrica crea su ficha en «Descubierta» (con investigación ligera y score)."],
- ["discover","Busca oportunidades en internet","Rastrea Reddit, foros y reviews buscando dolores monetizables y los agrega a «Descubierta»."],
+ ["discover","Busca oportunidades en internet","Lee tu perfil y rastrea Reddit, foros y reviews en dos corrientes (generales + alineadas a ti); agrega las mejores a «Descubierta». No solo dolores monetizables: cualquier solución con buen retorno (dinero u oportunidad)."],
  ["recommend","Recomienda cuáles avanzar","Analiza tus ideas y te dice, con ranking, cuáles construir primero. No mueve nada: te aconseja."]
 ];
 
@@ -513,7 +514,8 @@ function iterateStep(i){var es=i.estado;
  if(es==="diseno")return["/pandacorp:design","ajusta mockups, tokens o microcopy","la carpeta del proyecto"];
  if(es==="arquitectura")return["/pandacorp:blueprint","ajusta stack, modelo de datos o work orders","la carpeta del proyecto"];
  return[null,"",""];}
-function chip(t){var c=TYPE[t]||TYPE.personal;return '<span class="chip" style="background:'+c[0]+';color:'+c[1]+'">'+t+'</span>';}
+function chipRet(r){var c=RET[r]||RET.personal;return '<span class="chip" style="background:'+c[0]+';color:'+c[1]+'">'+c[2]+'</span>';}
+function chipCat(k){var d=CAT[k]||CAT.otro;return '<span class="chip" style="background:var(--secondary);color:var(--text2)"><i class="ti '+d[1]+'" style="font-size:11px;vertical-align:-1px;margin-right:3px"></i>'+d[0]+'</span>';}
 function chip2(es){var c=es==="lanzada"?["var(--ok-bg)","var(--ok)"]:["var(--info-bg)","var(--info)"];return '<span class="chip" style="background:'+c[0]+';color:'+c[1]+'">'+LBL[es]+'</span>';}
 var AVCOL={researcher:"var(--cat-8)","product-manager":"var(--cat-2)",designer:"var(--cat-3)",architect:"var(--cat-4)","backend-dev":"var(--cat-5)","frontend-dev":"var(--cat-6)","test-writer":"var(--cat-7)",reviewer:"var(--cat-9)","security-auditor":"var(--cat-7)",implementer:"var(--cat-1)",copywriter:"var(--cat-2)",analytics:"var(--cat-1)",devops:"var(--cat-6)"};
 function avatar(n){var col=AVCOL[n]||"var(--cat-2)";var ini=n.split("-").map(function(p){return p[0];}).join("").slice(0,2).toUpperCase();
@@ -550,17 +552,17 @@ function intakePanel(){
 
 function boardView(){
  var q=(ST.q||"").toLowerCase(),ft=ST.fType||"";
- function m(i){return (!q||(i.titulo+" "+(i.resumen||"")).toLowerCase().indexOf(q)>=0)&&(!ft||i.tipo===ft);}
- var filt='<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap"><div style="position:relative;flex:1;min-width:170px"><i class="ti ti-search" style="position:absolute;left:10px;top:9px;font-size:15px;color:var(--text3)"></i><input id="pc-q" value="'+esc(ST.q||"")+'" oninput="PCq(this.value)" placeholder="Buscar ideas…" style="width:100%;padding:8px 11px 8px 32px;border:1px solid var(--bd2);border-radius:8px;font-size:13px;font-family:inherit;background:var(--canvas);color:var(--text);box-shadow:inset 0 1px 2px rgba(0,0,0,.22)"></div><select onchange="PCt(this.value)" style="padding:8px 10px;border:1px solid var(--bd2);border-radius:8px;font-size:13px;font-family:inherit;background:var(--canvas);color:var(--text);box-shadow:inset 0 1px 2px rgba(0,0,0,.22)">'+["","monetizable","personal","ambas"].map(function(t){return '<option value="'+t+'"'+(ft===t?" selected":"")+'>'+(t===""?"Todos los tipos":t)+'</option>';}).join("")+'</select>'+((ST.q||ft)?'<button data-act="clearf">Limpiar</button>':'')+'</div>';
+ function m(i){return (!q||(i.titulo+" "+(i.resumen||"")).toLowerCase().indexOf(q)>=0)&&(!ft||i.cat===ft);}
+ var filt='<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap"><div style="position:relative;flex:1;min-width:170px"><i class="ti ti-search" style="position:absolute;left:10px;top:9px;font-size:15px;color:var(--text3)"></i><input id="pc-q" value="'+esc(ST.q||"")+'" oninput="PCq(this.value)" placeholder="Buscar ideas…" style="width:100%;padding:8px 11px 8px 32px;border:1px solid var(--bd2);border-radius:8px;font-size:13px;font-family:inherit;background:var(--canvas);color:var(--text);box-shadow:inset 0 1px 2px rgba(0,0,0,.22)"></div><select onchange="PCt(this.value)" style="padding:8px 10px;border:1px solid var(--bd2);border-radius:8px;font-size:13px;font-family:inherit;background:var(--canvas);color:var(--text);box-shadow:inset 0 1px 2px rgba(0,0,0,.22)">'+["","web","mobile","desktop","ia","claude-code","prompt-system","automatizacion","cli","rework","otro"].map(function(t){return '<option value="'+t+'"'+(ft===t?" selected":"")+'>'+(t===""?"Todas las categor\u00edas":(CAT[t]?CAT[t][0]:t))+'</option>';}).join("")+'</select>'+((ST.q||ft)?'<button data-act="clearf">Limpiar</button>':'')+'</div>';
  var cols=PIPE.map(function(es){var items=ST.ideas.filter(function(i){return i.estado===es&&m(i);});
-  var cards=items.map(function(i){return '<div class="card" data-act="open" data-slug="'+i.slug+'"><div style="font-size:13px;font-weight:500;margin-bottom:7px">'+i.titulo+(i.running?' <i class="ti ti-player-play" style="font-size:12px;color:var(--ok)" title="construyendo"></i>':'')+'</div><div style="display:flex;align-items:center;justify-content:space-between">'+chip(i.tipo)+'<span style="font-size:11px;color:var(--text3)">'+(i.score?('Score <b class="px" style="color:var(--accent-text);font-weight:500">'+i.score+'</b>'):"sin score")+'</span></div></div>';}).join("")||'<div style="font-size:11px;color:var(--text3);padding:4px 2px">—</div>';
+  var cards=items.map(function(i){return '<div class="card" data-act="open" data-slug="'+i.slug+'"><div style="font-size:13px;font-weight:500;margin-bottom:7px">'+i.titulo+(i.running?' <i class="ti ti-player-play" style="font-size:12px;color:var(--ok)" title="construyendo"></i>':'')+'</div><div style="display:flex;align-items:center;justify-content:space-between;gap:6px"><span style="display:flex;gap:5px;flex-wrap:wrap">'+chipCat(i.cat)+chipRet(i.retorno)+'</span><span style="font-size:11px;color:var(--text3);white-space:nowrap">'+(i.score?('Score <b class="px" style="color:var(--accent-text);font-weight:500">'+i.score+'</b>'):"sin score")+'</span></div></div>';}).join("")||'<div style="font-size:11px;color:var(--text3);padding:4px 2px">—</div>';
   return '<div class="col"><div class="px" style="font-size:11px;color:var(--text2);margin-bottom:9px;letter-spacing:.04em">'+LBL[es].toUpperCase()+' <span style="color:var(--accent-text)">'+items.length+'</span></div>'+cards+'</div>';}).join("");
  var disc=ST.ideas.filter(function(i){return i.estado==="descartada"&&m(i);});
  var dc=disc.length?'<div class="col" style="opacity:.6"><div class="px" style="font-size:11px;color:var(--text2);margin-bottom:9px;letter-spacing:.04em">DESCARTADA '+disc.length+'</div>'+disc.map(function(i){return '<div class="card" data-act="open" data-slug="'+i.slug+'"><div style="font-size:13px;text-decoration:line-through;color:var(--text2)">'+i.titulo+'</div></div>';}).join("")+'</div>':"";
  return intakePanel()+filt
  +'<p style="font-size:12px;color:var(--text3);margin:0 0 10px"><i class="ti ti-info-circle" style="font-size:13px;vertical-align:-2px"></i> Las tarjetas avanzan cuando apruebas el resultado de cada etapa; si no te gusta, re-corres el mismo comando y sigues iterando. Aquí solo lees y decides.</p>'
  +'<div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px">'+cols+dc+'</div>'
- +'<p style="font-size:12px;color:var(--text3);margin:12px 2px 0"><b style="font-weight:500">Tipo:</b> monetizable / personal / ambas. <b style="font-weight:500">Score</b> 0-100. <i class="ti ti-player-play" style="font-size:12px;color:var(--ok)"></i> = construyéndose ahora.</p>';
+ +'<p style="font-size:12px;color:var(--text3);margin:12px 2px 0"><b style="font-weight:500">Categoría:</b> web / mobile / desktop / IA / claude-code / prompts / automatización / CLI / rework. <b style="font-weight:500">Retorno:</b> monetario / oportunidad / personal / mixto. <b style="font-weight:500">Score</b> 0-100. <i class="ti ti-player-play" style="font-size:12px;color:var(--ok)"></i> = construyéndose ahora.</p>';
 }
 
 function commandsBox(i){
@@ -594,7 +596,7 @@ function detailView(){
  var canDiscard=i.estado!=="descartada"&&i.estado!=="lanzada";
  var extra=(i.estado==="en-construccion"||i.estado==="lanzada")?commandsBox(i)+decisionesBox(i):(function(){var it=iterateStep(i);return '<div class="panel" style="margin-top:14px"><p style="font-size:13px;font-weight:500;margin:0;color:var(--text2)">Siguiente paso · avanzar'+(nc[0]?' <span style="font-weight:400;color:var(--text3)">(en '+nc[1]+')</span>':'')+'</p>'+(nc[0]?cmdRow(nc[0],""):'<p style="font-size:12px;color:var(--text3);margin-top:6px;font-style:italic">'+nc[1]+'</p>')+(it[0]?'<p style="font-size:13px;font-weight:500;margin:14px 0 0;color:var(--text2)">O sigue iterando aquí <span style="font-weight:400;color:var(--text3)">· no avanza · en '+it[2]+'</span></p><p style="font-size:11px;color:var(--text3);margin:3px 0 4px">'+it[1]+'</p>'+cmdRow(it[0],""):'')+'</div>';})();
  return '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><button data-act="back"><i class="ti ti-arrow-left" style="font-size:14px"></i> Volver al tablero</button>'+(canDiscard?'<button data-act="discard" data-slug="'+i.slug+'" style="border-color:var(--danger);color:var(--danger)"><i class="ti ti-trash" style="font-size:14px"></i> Descartar idea</button>':'')+'</div>'
-  +'<div class="panel" style="margin-bottom:14px"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px"><span style="font-size:20px;font-weight:500">'+i.titulo+'</span><span style="display:flex;gap:8px;align-items:center">'+chip(i.tipo)+'<span style="font-size:12px;color:var(--text2)">Score '+(i.score||"—")+'/100</span></span></div><div style="font-size:12px;color:var(--text3);margin-top:4px">etapa: '+LBL[i.estado]+'</div></div>'
+  +'<div class="panel" style="margin-bottom:14px"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px"><span style="font-size:20px;font-weight:500">'+i.titulo+'</span><span style="display:flex;gap:8px;align-items:center">'+chipCat(i.cat)+chipRet(i.retorno)+'<span style="font-size:12px;color:var(--text2);margin-left:6px">Score '+(i.score||"—")+'/100</span></span></div><div style="font-size:12px;color:var(--text3);margin-top:4px">etapa: '+LBL[i.estado]+'</div></div>'
   +'<div style="display:grid;grid-template-columns:210px 1fr;gap:14px;align-items:start"><div class="panel" style="padding:10px"><div style="font-size:11px;color:var(--text3);margin:2px 4px 8px">DOCUMENTACIÓN</div>'+nav+'</div><div class="panel">'+content+'</div></div>'+extra;
 }
 
@@ -871,7 +873,8 @@ function render(){var body;
  else if(ST.view==="logros")body=logrosView();
  else if(ST.view==="config")body=configView();
  else body=docsView();
- root.innerHTML=pluginBanner()+topbar()+body;mcBoot();}
+ root.innerHTML=pluginBanner()+onboardingGate()+topbar()+body;mcBoot();}
+function onboardingGate(){if(ST.perfilOk!==false)return "";return '<div class="panel" style="border:1px solid var(--warn);background:var(--warn-bg);padding:13px 15px;margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap"><i class="ti ti-user-cog" style="font-size:22px;color:var(--warn)"></i><div style="flex:1;min-width:200px"><div style="font-weight:600;font-size:14px">Configura tu fábrica primero</div><div style="font-size:12px;color:var(--text2);margin-top:2px">No se encontró <code>fabrica/perfil.md</code>. Corre el onboarding para personalizar la fábrica (intereses, objetivos, activos) antes de empezar.</div></div><div class="cmd" style="margin:0"><span class="t">/pandacorp:onboarding</span><button data-act="copy" data-cmd="/pandacorp:onboarding"><i class="ti ti-copy"></i></button></div></div>';}
 function copy(t){var d=function(){toast(t);};try{navigator.clipboard.writeText(t).then(d,function(){fb(t,d);});}catch(e){fb(t,d);}}
 function fb(t,d){var a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();try{document.execCommand("copy");d();}catch(e){}document.body.removeChild(a);}
 function toast(t){var d=document.createElement("div");d.textContent="¡Copiado!  "+t;d.style.cssText="margin-top:12px;font-size:12px;color:var(--ok)";root.appendChild(d);setTimeout(function(){if(d.parentNode)d.parentNode.removeChild(d);},1700);}
