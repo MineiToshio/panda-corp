@@ -1,12 +1,12 @@
 ---
-description: Enseña a la fábrica Pandacorp know-how durable — un estándar de ingeniería, una regla de decisión, o un skill nuevo del plugin (la autoría y evaluación del skill se delegan al skill nativo skill-creator). Usar cuando el dueño quiere agregar/ajustar una convención, un default pre-aprobado, o una capacidad nueva que se inyectará en los proyectos. Se ejecuta EN la fábrica (panda-corp).
+description: Incorpora a la fábrica Pandacorp know-how durable — un estándar de ingeniería, una regla de decisión, o un skill nuevo del plugin (la autoría y evaluación del skill se delegan al skill nativo skill-creator). Usar cuando el dueño quiere agregar/ajustar una convención, un default pre-aprobado, o una capacidad nueva que se inyectará en los proyectos. Se ejecuta EN la fábrica (panda-corp).
 ---
 
-# /pandacorp:teach
+# /pandacorp:learn
 
-Enseña a la fábrica algo **durable**: un **estándar** (`fabrica/estandares/`), una **regla de decisión** (`fabrica/decisiones/registro.yaml`), o un **skill** nuevo del plugin. Es lo que disparan los botones «Nuevo estándar» / «Nueva regla de decisión» / «Nuevo skill» de Mission Control. Se ejecuta EN la fábrica. (Antes se llamaba `codify`.)
+Le enseña a la fábrica algo **durable** (la fábrica lo aprende): un **estándar** (`fabrica/estandares/`), una **regla de decisión** (`fabrica/decisiones/registro.yaml`), o un **skill** nuevo del plugin. Es lo que disparan los botones «Nuevo estándar» / «Nueva regla de decisión» / «Nuevo skill» de Mission Control. Se ejecuta EN la fábrica. (Antes se llamaba `codify`.)
 
-`$ARGUMENTS` (o la conversación): qué quieres enseñarle a la fábrica, en lenguaje normal (ej.: `/pandacorp:teach "todo formulario debe tener protección anti-spam"`).
+`$ARGUMENTS` (o la conversación): qué quieres que la fábrica aprenda, en lenguaje normal (ej.: `/pandacorp:learn "todo formulario debe tener protección anti-spam"`).
 
 ## Pasos
 
@@ -31,6 +31,6 @@ Enseña a la fábrica algo **durable**: un **estándar** (`fabrica/estandares/`)
 
 - **No inventes valores**: si no sabes el umbral/valor correcto, investígalo o pregúntalo. Un estándar sin verificador concreto es prosa, no un contrato.
 - **Reusa antes de crear**: si encaja en un archivo existente (`calidad.md`, `patrones.md`…), amplíalo en vez de crear uno nuevo. Para skills: un skill con variantes internas (`references/`) antes que muchos casi-duplicados — el *sprawl* satura el presupuesto de descripciones y provoca colisiones de triggering.
-- **No reinventes lo nativo**: para skills, `skill-creator` hace la autoría y la evaluación; `teach` solo agrega el gate del dueño, la colocación en el plugin, la política de seguridad y el ritual de activación.
+- **No reinventes lo nativo**: para skills, `skill-creator` hace la autoría y la evaluación; `learn` solo agrega el gate del dueño, la colocación en el plugin, la política de seguridad y el ritual de activación.
 - Nuevos `MUST` que puedan romper proyectos en vuelo (CSP estricta, a11y-gate): introdúcelos primero como `SHOULD`/aviso y promuévelos cuando maduren.
-- Las decisiones de PRODUCTO (qué construir) no van aquí — eso es `iterate`/`spec`. `teach` es solo para el CÓMO (estándares), la gobernanza (reglas de decisión) y las capacidades (skills).
+- Las decisiones de PRODUCTO (qué construir) no van aquí — eso es `iterate`/`spec`. `learn` es solo para el CÓMO (estándares), la gobernanza (reglas de decisión) y las capacidades (skills).

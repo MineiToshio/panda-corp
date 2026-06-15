@@ -1,6 +1,6 @@
 {
   "name": "pandacorp",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "Fábrica de software 100% IA: discovery de ideas, PRD/FRDs, diseño UX/UI, blueprint, work orders, implementación y release.",
   "author": { "name": "Pandacorp" },
   "license": "proprietary",

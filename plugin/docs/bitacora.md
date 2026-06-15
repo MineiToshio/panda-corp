@@ -4,6 +4,11 @@ Decisiones sobre el plugin: skills, agentes, hooks, plantillas y flujo de la fá
 
 > Recordatorio: tras editar `plugin/`, commitear y correr `claude plugin update pandacorp@panda-corp` (ver `CLAUDE.md`).
 
+## 2026-06-15 — Skill `teach` renombrado a `learn` (refinamiento de nombre) · v3.0.0
+**Qué:** El dueño prefirió `learn` sobre `teach` para el comando (la fábrica *aprende* el know-how). Se renombró `/pandacorp:teach` → `/pandacorp:learn` (mismo skill, misma función). Renombrar un skill = **MAJOR** (DR-034). Es un refinamiento de nombre el mismo día que el v2.0.0 (codify→teach), que nunca se llegó a usar (sin reinicio entre medio).
+**Por qué:** `learn` comunica mejor que la fábrica incorpora/aprende el know-how durable.
+**Impacto:** `plugin/skills/teach/` → `plugin/skills/learn/SKILL.md`, `plugin/.claude-plugin/plugin.json` (3.0.0), `fabrica/estandares/README.md`, `mission-control/docs/frds/frd-07-configuracion.md`, `mission-control/prototype/index.html`, `docs/propuestas/08-catalogo-estandares-reglas.md`. Activación: commit + `claude plugin update pandacorp@panda-corp` + reiniciar.
+
 ## 2026-06-15 — Rename `codify` → `teach` (+ teach crea skills delegando a skill-creator) · v2.0.0
 **Qué:** Se renombró el comando `/pandacorp:codify` a `/pandacorp:teach` (el nombre "codify" se leía como "escribir código", lo opuesto a lo que hace: registrar know-how durable). `teach` ahora cubre un tercer artefacto además de estándar y regla de decisión: **crear/mejorar un skill**, delegando autoría y evaluación al `skill-creator` nativo (componer, no reinventar); teach solo agrega el gate del dueño, la colocación en el plugin, la política de seguridad/vendorizado de skills externos y el ritual de activación. Renombrar un skill = **MAJOR** (DR-034).
 **Por qué:** El nombre confundía; y crear skills es know-how durable (dominio de `teach`), no producto (dominio de `implement`) — reusando `skill-creator` en vez de clonarlo.
