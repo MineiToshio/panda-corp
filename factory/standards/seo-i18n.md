@@ -7,7 +7,7 @@
 - Content rendered in an indexable way (Server Components by default helps).
 
 ## Rule — i18n (if the PRD requires it)
-- Subpath routing (`/es/`, `/fr/`) with `app/[lang]/…` + message catalog with **next-intl** (Spanish by default, see `conventions.md`).
+- Subpath routing (`/es/`, `/fr/`) with `app/[lang]/…` + message catalog with **next-intl**. The default/launch locale comes from the spec's launch-language research (DR-041), not automatically Spanish; see `conventions.md`.
 - No hardcoded visible text: everything via i18n.
 
 ## Rule — multi-language SEO (if there is i18n)

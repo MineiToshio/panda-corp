@@ -15,7 +15,7 @@ Takes the idea indicated in `$ARGUMENTS`, **creates its project** (handoff) and 
 
 ## Step 1 — Product (in the project)
 
-3. **Deep research** (`researcher` agents in parallel): competitors and their complaints, users, table-stakes vs differentiating features, feasibility (APIs/data, costs, terms). Consolidate in `docs/product-research.md` with sources. This is the PRODUCT research (at FRD level): the more complete it is, the fewer decisions are left to resolve during the build.
+3. **Deep research** (`researcher` agents in parallel): competitors and their complaints, users, table-stakes vs differentiating features, feasibility (APIs/data, costs, terms). Consolidate in `docs/product-research.md` with sources. This is the PRODUCT research (at FRD level): the more complete it is, the fewer decisions are left to resolve during the build. **Also research the launch market & language** (DR-041): which market/country to launch in first and in which language(s) — single vs multi from the MVP — weighing market size/competition, customer-acquisition ease, ROI and the owner's `country`/`language` (from `factory/profile.md`). No fixed default: put all variables on the table and **recommend**; the owner approves the choice in the PRD.
 4. **PRD** (`product-manager` agent): `docs/prd.md` — vision, problem, users, value hypothesis, monetization (including the explicit decision **v1 with payments? yes/no**, DR-035), metrics, minimum v1 scope + backlog.
 5. **FRDs** (same agent): `docs/frds/frd-NN-<name>.md`, one per v1 feature, testable EARS acceptance criteria.
 6. Self-review: each FRD traceable to the PRD; v1 truly minimal (DR-012); criteria machine-verifiable.
@@ -24,4 +24,4 @@ Takes the idea indicated in `$ARGUMENTS`, **creates its project** (handoff) and 
 
 ## Rules
 - If the research contradicts the idea (nonexistent pain, unbeatable competition), SAY SO and recommend killing/pivoting before writing the PRD.
-- Documents in Spanish; identifiers in English.
+- Product/technical docs in English (committed); the conversation with the owner is in Spanish.

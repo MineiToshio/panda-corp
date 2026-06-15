@@ -1,6 +1,7 @@
 ---
 name: ""                 # how you want the factory to call you
 github: ""                 # GitHub username (to create project repos, DR-010)
+country: ""                # the country you're based in (feeds the launch market/language research, DR-041)
 projects_path: ""         # folder where projects are born (empty = sibling folder of the factory)
 technical_level: ""          # e.g.: "strong in backend, weak in design"
 language: "es"               # language of documents and conversation

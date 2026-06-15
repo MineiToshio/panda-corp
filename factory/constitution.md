@@ -28,7 +28,7 @@ Build a portfolio of **technology solutions** with 100% AI —web/mobile apps, t
 
 ## Product principles
 
-15. **Language**: documents in Spanish; code, commits, identifiers, and technical names in English.
+15. **Language**: git state decides the artifact language — committed = English (code, commits, file/folder names, product/technical docs); gitignored = Spanish (the owner's communication layer + personal data). The agent always talks to the owner in Spanish. Product UI via i18n; the launch locale comes from the spec's market research (DR-041). See `factory/standards/conventions.md` (Language) and DR-009.
 16. **Reinforced UX/UI.** The owner is weak at design: each project researches visual references, uses shadcn/ui + design tokens, generates 3 design directions, and verifies accessibility (axe-core) automatically before the human gate.
 17. **Small releases.** v1 = the minimal slice that validates the value hypothesis. Iterate with `/pandacorp:new-version`.
 18. **Testing per milestone.** Each closed FRD/work order is tested when it closes, not at the end. E2E only on critical flows with `data-testid`.

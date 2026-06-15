@@ -2,6 +2,11 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-06-15 — Launch market & language is researched per product (not assumed Spanish)
+**What:** Added a launch-market-&-language research dimension. During `/pandacorp:spec`, the `researcher` analyzes where to launch (which market/country first) and in which language(s) — single vs multi from the MVP — weighing market size/competition, customer-acquisition ease, ROI and the owner's country/language; the `product-manager` records the decision in the PRD (owner-approved). Products are always i18n-ready; the chosen launch locale sets the UI default (no longer "Spanish by default"). Mission Control and owner-facing tools stay Spanish regardless. `/pandacorp:onboarding` now captures the owner's `country`.
+**Why:** The launch language is a market decision per product, not a fixed assumption. The owner's country matters for acquisition ease, but a bigger/higher-ROI market may justify another language or multi-language. No fixed default — case by case.
+**Impact:** `plugin/skills/onboarding/SKILL.md` + `factory/profile.example.md` (`country`), `plugin/skills/spec/SKILL.md`, `plugin/agents/researcher.md`, `plugin/agents/product-manager.md`, `factory/standards/conventions.md` (Language/UI), `factory/standards/seo-i18n.md`, `factory/decisions/registry.yaml` (DR-041). Also fixed a stale "documents in Spanish" rule still present in constitution §15, product-manager and spec (a language-migration residual).
+
 ## 2026-06-15 — Solo-operator git workflow: direct push to main allowed (no mandatory PR)
 **What:** Dropped the "feature branches; never push to main" rule. The solo operator commits and pushes to `main` directly; mandatory PRs/branches are gone (there is no second human to review). The quality gate is the `reviewer` in `/pandacorp:implement` + `.pandacorp/verify.sh`. A throwaway branch stays as an OPTIONAL tool for big/risky changes. Removed the direct-push-to-main block from `block-dangerous.sh`; kept the anti-catastrophe guards (force-push, delete main branch, `reset --hard`, `rm -rf`, `gh repo delete`).
 **Why:** With a single operator, human PR review adds no value — it's pure friction. The agentic review during the build is the real gate.

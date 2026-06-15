@@ -41,10 +41,11 @@ Runs IN the factory root. It is **idempotent**: re-running it updates the profil
    - **Projects path**: folder where projects are born. By default, the sibling of the
      factory (empty = that default).
    - **Language**: documents and conversation (default Spanish).
+   - **Country**: where you're based — conditions which markets/languages are easiest and highest-ROI to launch a product in (used by `spec`'s launch research, DR-041).
    - **How you work**: strengths and weaknesses (e.g. "weak in design").
 
 3. **Write the profile**: copy `factory/profile.example.md` → `factory/profile.md` (if it
-   doesn't exist) and fill it in: complete the frontmatter (`name`, `github`, `projects_path`,
+   doesn't exist) and fill it in: complete the frontmatter (`name`, `github`, `country`, `projects_path`,
    `technical_level`, `language`, `goals`, `interests`, `hobbies`, `likes`, `dislikes`,
    `assets`, `monetization_appetite`, `project_types`) and the prose sections with what was
    discussed. **Never invent data**: whatever they haven't said, leave empty and say so.

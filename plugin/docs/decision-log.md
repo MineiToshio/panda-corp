@@ -4,6 +4,11 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-06-15 — Launch-language research + direct-push-to-main workflow · v4.0.0
+**What:** `onboarding` now captures the owner's `country`; `researcher`/`spec`/`product-manager` gained a launch-market-&-language research dimension (DR-041 — recommend per product, no fixed default, recorded in the PRD); the build agents (`implementer`/`backend-dev`/`frontend-dev`), `iterate` and `block-dangerous.sh` were updated for the direct-push-to-main workflow (DR-040).
+**Why:** See `factory/decision-log.md` (same date) for the full rationale.
+**Impact:** `plugin/skills/{onboarding,spec,iterate}`, `plugin/agents/{researcher,product-manager,implementer,backend-dev,frontend-dev}`, `plugin/scripts/block-dangerous.sh`, `plugin/templates/shared/{CLAUDE.md.tpl,AGENTS.md.tpl}`. Folded into the same 4.0.0 release (branch not yet shipped) — no extra version bump.
+
 ## 2026-06-15 — Language policy migration: committed = English / gitignored = Spanish · v4.0.0
 **What:** Executed the language policy (DR-009) across the whole repo. Plugin impact: all skill/agent docs and `STACK.md` translated to English; templates updated — `CLAUDE.md.tpl`/`AGENTS.md.tpl` now state the new rule and use English doc paths/enums, `status.yaml.tpl` is machine-state-only (English) with the Spanish narrative moved to a gitignored `docs/summary.md`, `decision-log.md.tpl` is English, `iteration.md.tpl` stays Spanish (it seeds a gitignored Spanish comms file). `pandacorp-build.js` translated to English and its build-mode tokens migrated `equilibrado|potente|profundo → balanced|powerful|deep` (display labels stay Spanish; synced in `implement` SKILL, FRD-11, the prototype). Idea/profile/status frontmatter keys and enums migrated to English. Bumped MAJOR to **4.0.0** (DR-034) — breaking for existing projects (enum/path/key changes).
 **Why:** Anyone cloning the public repo sees everything in English (industry standard) while the owner keeps operating Pandacorp in Spanish (UI + the gitignored communication layer).
