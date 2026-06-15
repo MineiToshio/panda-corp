@@ -2,6 +2,11 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-06-15 — Interaction language: the agent always talks to the owner in Spanish
+**What:** Made explicit a second language axis. The ARTIFACT language follows git state (committed = English / gitignored = Spanish, DR-009). The INTERACTION language is separate: everything the agent says to the owner — in chat and inside any skill (questions, explanations, progress, recommendations, summaries) — is ALWAYS in Spanish, regardless of the artifact's language.
+**Why:** The owner operates Pandacorp in Spanish; the "committed = English" rule must not be misread as "answer the owner in English." The agent writes English into committed files but addresses the owner in Spanish.
+**Impact:** `CLAUDE.md` (rule #1), `factory/standards/conventions.md` (Language), `factory/decisions/registry.yaml` (DR-009), and the project templates `CLAUDE.md.tpl` / `AGENTS.md.tpl` (propagates to every project).
+
 ## 2026-06-15 — Language migration executed (whole repo → English; Spanish only in the comms layer/UI)
 **What:** Executed the policy below on a dedicated branch (`refactor/i18n-english`, one commit per phase, tag `refactor-i18n-baseline`). Renamed Spanish folders/files to English with `git mv` (`fabrica`→`factory`, `estandares`→`standards`, `decisiones`→`decisions`, `docs/investigacion`→`docs/research`, `docs/propuestas`→`docs/proposals`, `mission-control/docs/diseno`→`design`, `constitucion`→`constitution`, `bitacora`→`decision-log`, `registro`→`registry`, `estado`→`status`, FRD/doc slugs, zone assets); updated ~306 cross-references; migrated machine enums/keys to English (idea status, project phase, frontmatter and status.yaml keys, owner-profile schema, build-mode tokens); translated ~95 committed docs to English via a subagent fan-out + verifier; split the status.yaml prose into a gitignored `summary.md`; bumped the plugin to 4.0.0.
 **Why:** Implement the language policy (entry below) so the public repo reads as English while the owner keeps operating in Spanish.

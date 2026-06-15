@@ -7,7 +7,7 @@ User request → this AGENTS.md → the project documents in `docs/` → languag
 
 ## Durable conventions (mandatory)
 
-**Language** — git-tracked status decides the language: committed → English (code: variables, functions, types, comments, commits; and product/technical docs); gitignored → Spanish (the owner-facing communication layer + personal data). User-facing content via i18n, Spanish by default (never hardcoded).
+**Language** — git-tracked status decides the language: committed → English (code: variables, functions, types, comments, commits; and product/technical docs); gitignored → Spanish (the owner-facing communication layer + personal data). User-facing content via i18n, Spanish by default (never hardcoded). **The interaction with the owner is always in Spanish** — everything the agent says in chat and inside any skill (questions, explanations, progress, recommendations) is in Spanish, regardless of the artifact's language.
 
 **Typing**: strict always (TS `strict` / `mypy --strict`). `any` and `@ts-ignore` forbidden. Prefer `unknown`.
 
