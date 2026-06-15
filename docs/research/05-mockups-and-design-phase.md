@@ -37,7 +37,7 @@ Patrón comunitario consolidado:
 ## Artefactos estándar de la fase de diseño
 
 ```
-docs/diseno/
+docs/design/
 ├── mockups/direction-{1,2,3}.html      # navegables, autocontenidos
 ├── mockups/screenshots/*.png           # por viewport
 ├── mockups/a11y-report.md              # axe-core

@@ -21,16 +21,16 @@ La fábrica **se encarga de todo** (investigar, diseñar, arquitectar, programar
 - En `panda-corp/` solo viven: el know-how, la **base de ideas**, y el **portfolio** (índice del estado de cada producto). Aquí ocurren las fases 0-1 (discovery y selección).
 - Al seleccionarse una idea, `/pandacorp:scaffold` crea la carpeta/repo del proyecto, y **todas las fases siguientes (2-9) se ejecutan dentro del proyecto**, en sesiones que corren ahí con los agentes de la fábrica.
 - **Iteraciones / ampliar scope (v2, v3…)**: se corre `/pandacorp:nueva-version` dentro del proyecto → re-entra al pipeline en fase 2 (producto) y genera nuevos FRDs y work orders en el mismo repo. Siempre se continúa en el proyecto; la fábrica solo refleja el estado en el portfolio.
-- **Sincronización**: cada proyecto declara su estado en `docs/estado.yaml`; el portfolio de la fábrica se actualiza por skill a demanda o job diario.
+- **Sincronización**: cada proyecto declara su estado en `docs/status.yaml`; el portfolio de la fábrica se actualiza por skill a demanda o job diario.
 
 ### Referencias cruzadas fábrica ↔ proyecto ✅ DECIDIDO
 
 Regla de oro: **cada dato vive en un solo lugar; el otro lado guarda solo un puntero**. El scaffold crea ambos enlaces automáticamente en el handoff:
 
-- **Fábrica → proyecto** (`fabrica/portfolio.md`): entrada por proyecto con `ruta` local, `repo`, `idea-origen` y `estado` resumido. La ficha de idea se "congela" al handoff (`estado: en-pipeline` + link al proyecto); deja de documentarse ahí.
+- **Fábrica → proyecto** (`factory/portfolio.md`): entrada por proyecto con `ruta` local, `repo`, `idea-origin` y `estado` resumido. La ficha de idea se "congela" al handoff (`estado: en-pipeline` + link al proyecto); deja de documentarse ahí.
 - **Proyecto → fábrica** (sección fija "Origen — Pandacorp" en el `CLAUDE.md` del proyecto): ruta de la fábrica, link a la ficha de idea original, y la aclaración explícita de que estándares/proceso vienen del plugin y que TODA la documentación del producto (PRD, FRDs, diseño, blueprint, work orders) vive en el `docs/` del proyecto, nunca en la fábrica.
 - **Independencia**: el proyecto nunca *necesita* leer la fábrica para trabajar (estándares vía plugin, artefactos en su `docs/`). El puntero es informativo, no una dependencia.
-- **Sincronización pull**: la fábrica lee el `docs/estado.yaml` de cada proyecto siguiendo los punteros del portfolio (skill `/actualizar-portfolio` o job diario). Ruta rota (carpeta movida) → el job lo detecta y pregunta, nunca queda silenciosamente desactualizado.
+- **Sincronización pull**: la fábrica lee el `docs/status.yaml` de cada proyecto siguiendo los punteros del portfolio (skill `/actualizar-portfolio` o job diario). Ruta rota (carpeta movida) → el job lo detecta y pregunta, nunca queda silenciosamente desactualizado.
 
 ## Las dos fuentes de ideas
 
@@ -45,7 +45,7 @@ Regla de oro: **cada dato vive en un solo lugar; el otro lado guarda solo un pun
 
 > Aclaración (2026-06-13): la base de ideas son **archivos markdown** (fuente de verdad, en git, leídos/escritos por los agentes). El **visor e interacción es Pandacorp**, no Obsidian. Obsidian se descartó por redundante (era solo un visor provisional). Mover una tarjeta para cambiar el estado se hace en Pandacorp (escribe el frontmatter del .md directamente, sin llamar a Claude).
 
-- Cada idea/dolor es una ficha `.md` en `fabrica/ideas/` con frontmatter:
+- Cada idea/dolor es una ficha `.md` en `factory/ideas/` con frontmatter:
   ```yaml
   ---
   titulo: Tracker de Funkos One Piece
@@ -95,7 +95,7 @@ Cada fase produce artefactos versionados en `docs/` del proyecto. Las pruebas se
 - Dashboard web **local y solo-lectura** (`mission-control/`, en la raíz de la fábrica, ver su `PLAN.md`). NUNCA llama a Claude: lee los archivos del repo.
 - Paneles: (1) kanban de ideas (mover tarjeta reescribe `estado:`), (2) portfolio, (3) "siguiente comando a copiar" según estado/fase, (4) Party (subagentes del workflow en vivo, leyendo `~/.claude/dashboard-events.ndjson`).
 - El dueño ejecuta los comandos pegándolos en la app de Claude Code → todo sale de su suscripción Max (no del pool headless).
-- Se construye con `/loop` (sesión interactiva = suscripción). Reemplaza a Obsidian como visor. Propuesta detallada: [docs/propuestas/05-interfaz-mission-control.md](../propuestas/05-interfaz-mission-control.md).
+- Se construye con `/loop` (sesión interactiva = suscripción). Reemplaza a Obsidian como visor. Propuesta detallada: [docs/proposals/05-mission-control-interface.md](../propuestas/05-mission-control-interface.md).
 
 ## Preguntas aún abiertas (secundarias)
 
@@ -107,9 +107,9 @@ Cada fase produce artefactos versionados en `docs/` del proyecto. Las pruebas se
 
 ## Decisiones técnicas resueltas por investigación (2026-06-12)
 
-- **Mockups ✅**: HTML autocontenidos generados por Claude Code (3 direcciones en paralelo) sobre sistema de diseño shadcn/ui + `design-tokens.json` (tweakcn); screenshots Playwright + chequeo de accesibilidad axe-core antes del gate visual. Claude Design queda como herramienta manual opcional (no tiene API). Ver [investigación 05](../investigacion/05-mockups-y-fase-diseno.md).
+- **Mockups ✅**: HTML autocontenidos generados por Claude Code (3 direcciones en paralelo) sobre sistema de diseño shadcn/ui + `design-tokens.json` (tweakcn); screenshots Playwright + chequeo de accesibilidad axe-core antes del gate visual. Claude Design queda como herramienta manual opcional (no tiene API). Ver [investigación 05](../investigacion/05-mockups-and-design-phase.md).
 - **Kanban ✅ (en Pandacorp, NO Obsidian)**: el tablero vive en Pandacorp; arrastrar/mover una tarjeta reescribe `estado:` en el .md directamente. Obsidian descartado por redundante. La investigación 06 (Obsidian) queda como referencia histórica.
-- **Plugin ✅**: `panda-corp/plugin/` + symlink a `~/.claude/skills/pandacorp` — auto-carga en cualquier carpeta, ediciones en vivo, skills namespaced (`/pandacorp:*`), plantillas accesibles vía `${CLAUDE_PLUGIN_ROOT}/templates/`. Ver [investigación 07](../investigacion/07-estructura-plugin-pandacorp.md).
+- **Plugin ✅**: `panda-corp/plugin/` + symlink a `~/.claude/skills/pandacorp` — auto-carga en cualquier carpeta, ediciones en vivo, skills namespaced (`/pandacorp:*`), plantillas accesibles vía `${CLAUDE_PLUGIN_ROOT}/templates/`. Ver [investigación 07](../investigacion/07-pandacorp-plugin-structure.md).
 
 ## Equipos de agentes y Party ✅ DECIDIDO (a validar en uso)
 

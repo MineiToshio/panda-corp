@@ -8,13 +8,13 @@ Ranking y recomendación sobre la base de ideas.
 
 ## Paso 0 — Lee el perfil
 
-Lee `fabrica/perfil.md`: intereses, objetivos, **activos/palancas** (audiencia, comunidad, red, nicho, skills), apetito de monetización y tipos de proyecto preferidos. El ranking se justifica contra esto. Si no existe el perfil, recomendá correr `/pandacorp:onboarding` y rankea solo por valor general mientras tanto.
+Lee `factory/profile.md`: intereses, objetivos, **activos/palancas** (audiencia, comunidad, red, nicho, skills), apetito de monetización y tipos de proyecto preferidos. El ranking se justifica contra esto. Si no existe el perfil, recomendá correr `/pandacorp:onboarding` y rankea solo por valor general mientras tanto.
 
 ## Pasos
 
-1. Lee todas las fichas de `fabrica/ideas/` (en la raíz de la fábrica; frontmatter + notas de evaluación). Ignora `_plantilla-ficha.md` y estados `descartada`/`lanzada`/`en-pipeline`.
+1. Lee todas las fichas de `factory/ideas/` (en la raíz de la fábrica; frontmatter + notas de evaluación). Ignora `_idea-template.md` y estados `descartada`/`lanzada`/`en-pipeline`.
 2. **Revalida scores si están viejos** (creada hace >60 días o evidencia débil): pasa rápida del `researcher` para confirmar que la oportunidad sigue vigente.
-3. Construye el ranking considerando, además del score: **alineación con el perfil**, **tipo de retorno** (monetario, de oportunidad —alcance/red/posicionamiento— o personal; pondéralo según el apetito del dueño), balance del portfolio (mezclar; no 3 scrapers a la vez), esfuerzo disponible (proyectos ya en pipeline — revisa `fabrica/portfolio.md`) y quick wins (alto valor / baja dificultad primero).
+3. Construye el ranking considerando, además del score: **alineación con el perfil**, **tipo de retorno** (monetario, de oportunidad —alcance/red/posicionamiento— o personal; pondéralo según el apetito del dueño), balance del portfolio (mezclar; no 3 scrapers a la vez), esfuerzo disponible (proyectos ya en pipeline — revisa `factory/portfolio.md`) y quick wins (alto valor / baja dificultad primero).
 4. **Presenta en dos bloques** para que el dueño vea ambas lógicas:
    - **Mejores apuestas (valor general)** — las más prometedoras por retorno/facilidad, independientemente del tema.
    - **Alineadas a vos** — las que encajan con tus intereses o **aprovechan tus activos / te abren puertas**, aunque su retorno monetario sea menor; explicá *por qué* encajan.

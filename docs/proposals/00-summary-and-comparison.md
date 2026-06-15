@@ -1,6 +1,6 @@
 # Pandacorp — Propuestas para la fábrica de software 100% IA
 
-> Generado 2026-06-12 a partir de 4 investigaciones (ver [docs/investigacion/](../investigacion/)).
+> Generado 2026-06-12 a partir de 4 investigaciones (ver [docs/research/](../investigacion/)).
 
 ## El objetivo
 
@@ -25,9 +25,9 @@ Un sistema donde tú aportas **ideas o problemas** ("app para pedir desde la mes
 | Mantenimiento | Bajo (markdown versionado) | Alto (código propio + SDK que evoluciona) | Delegado, pero personalizar = fork |
 | Multi-proyecto | Plugin a nivel usuario + scaffold | API GitHub + plantillas | No resuelto (habría que añadirlo) |
 | Riesgo principal | Atado a Claude Code | Sobre-ingeniería prematura; costo API | Pelea contra el grano del framework |
-| Detalle | [Propuesta A](01-propuesta-a-fabrica-nativa.md) | [Propuesta B](02-propuesta-b-pipeline-programatico.md) | [Propuesta C](03-propuesta-c-frameworks-existentes.md) |
+| Detalle | [Propuesta A](01-proposal-a-native-factory.md) | [Propuesta B](02-proposal-b-programmatic-pipeline.md) | [Propuesta C](03-proposal-c-existing-frameworks.md) |
 
-Los cuatro elementos compartidos (pipeline de 10 fases, modelo de decisión humana, roles de agentes, safeguards y golden paths) están en [Elementos comunes](04-elementos-comunes.md) — aplican a cualquier propuesta.
+Los cuatro elementos compartidos (pipeline de 10 fases, modelo de decisión humana, roles de agentes, safeguards y golden paths) están en [Elementos comunes](04-common-elements.md) — aplican a cualquier propuesta.
 
 ## Recomendación
 

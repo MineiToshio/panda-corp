@@ -1,11 +1,11 @@
 ---
-description: Configura la fábrica Pandacorp para un dueño nuevo (primer arranque tras clonar el repo). Te entrevista a fondo —nombre, objetivos, intereses, hobbies, gustos, activos/palancas, apetito de monetización, tipos de proyecto, cómo trabajás— y guarda tu perfil en fabrica/perfil.md (personal, gitignored). Ese perfil alimenta a /discover y /recommend para proponerte ideas bien alineadas a vos. Usar al clonar el repo, o cuando el dueño dice "configurar", "onboarding", "hacer mía la fábrica", o "actualizar mi perfil".
+description: Configura la fábrica Pandacorp para un dueño nuevo (primer arranque tras clonar el repo). Te entrevista a fondo —nombre, objetivos, intereses, hobbies, gustos, activos/palancas, apetito de monetización, tipos de proyecto, cómo trabajás— y guarda tu perfil en factory/profile.md (personal, gitignored). Ese perfil alimenta a /discover y /recommend para proponerte ideas bien alineadas a vos. Usar al clonar el repo, o cuando el dueño dice "configurar", "onboarding", "hacer mía la fábrica", o "actualizar mi perfil".
 ---
 
 # /pandacorp:onboarding
 
 El **primer paso** al clonar Pandacorp. Convierte una fábrica genérica en *tu* fábrica:
-te entrevista y guarda tu perfil en `fabrica/perfil.md`, que el resto de skills y agentes
+te entrevista y guarda tu perfil en `factory/profile.md`, que el resto de skills y agentes
 leen para personalizarse — y muy especialmente para que **`/discover` y `/recommend` te
 propongan ideas bien alineadas a vos** (no genéricas).
 
@@ -17,7 +17,7 @@ Se ejecuta EN la raíz de la fábrica. Es **idempotente**: re-correrlo actualiza
 1. **Saludo y contexto** (breve). Explica en 2-3 líneas qué es la fábrica: una línea de
    montaje de software 100% IA donde el dueño dirige con gates y los agentes construyen. Di
    por qué entrevistás: para recomendarle ideas alineadas a él, no genéricas. Si ya existe
-   `fabrica/perfil.md`, ofrecé actualizarlo en vez de empezar de cero.
+   `factory/profile.md`, ofrecé actualizarlo en vez de empezar de cero.
 
 2. **Entrevista** (conversacional, en tandas cortas — no un formulario de golpe). Cubrí, y
    **repregunta para aterrizar lo concreto** (las respuestas vagas dan recomendaciones vagas):
@@ -43,15 +43,15 @@ Se ejecuta EN la raíz de la fábrica. Es **idempotente**: re-correrlo actualiza
    - **Idioma**: documentos y conversación (default español).
    - **Cómo trabajás**: fortalezas y debilidades (p. ej. "débil en diseño").
 
-3. **Escribe el perfil**: copia `fabrica/perfil.example.md` → `fabrica/perfil.md` (si no
+3. **Escribe el perfil**: copia `factory/profile.example.md` → `factory/profile.md` (si no
    existe) y rellénalo: completa el frontmatter (`nombre`, `github`, `ruta_proyectos`,
    `nivel_tecnico`, `idioma`, `objetivos`, `intereses`, `hobbies`, `gustos`, `disgustos`,
    `activos`, `apetito_monetizacion`, `tipos_proyecto`) y las secciones en prosa con lo
    conversado. **Nunca inventes datos**: lo que no haya dicho, déjalo vacío y decilo.
-   `fabrica/perfil.md` es personal (gitignored) — no se sube.
+   `factory/profile.md` es personal (gitignored) — no se sube.
 
-4. **Bootstrap del portfolio**: si no existe `fabrica/portfolio.md`, créalo copiando
-   `fabrica/portfolio.example.md`.
+4. **Bootstrap del portfolio**: si no existe `factory/portfolio.md`, créalo copiando
+   `factory/portfolio.example.md`.
 
 5. **Cierra con los siguientes pasos**, personalizados al perfil:
    - Para que la fábrica salga a buscar ideas alineadas a vos: `/pandacorp:discover`.
@@ -60,8 +60,8 @@ Se ejecuta EN la raíz de la fábrica. Es **idempotente**: re-correrlo actualiza
    - El flujo completo está en `CLAUDE.md`.
 
 ## Reglas
-- **No subir datos personales**: `fabrica/perfil.md` y `fabrica/portfolio.md` son gitignored.
-  Si notás que `fabrica/perfil.md` quedó trackeado, avisá (algo está mal en `.gitignore`).
+- **No subir datos personales**: `factory/profile.md` y `factory/portfolio.md` son gitignored.
+  Si notás que `factory/profile.md` quedó trackeado, avisá (algo está mal en `.gitignore`).
 - **No inventes el perfil**: ante la duda, preguntá; lo que no se dijo queda vacío.
 - **Aterrizá lo vago**: un perfil concreto (intereses, activos, apetito) es lo que hace que
   `/discover` y `/recommend` acierten. Vale la pena repreguntar.

@@ -16,7 +16,7 @@ El canal para **reportar un bug** sin parar la construcción ni armar nada en Mi
    - **pasos para reproducir**, **resultado esperado**, **resultado actual**
    - en qué FRD/pantalla cae, si se sabe
    - `estado: pendiente`
-3. **Incrementa** `bugs_pendientes` en `docs/estado.yaml` (Mission Control lo muestra como chip por proyecto).
+3. **Incrementa** `bugs_pendientes` en `docs/status.yaml` (Mission Control lo muestra como chip por proyecto).
 4. **Confirma** al dueño: "anotado en la bandeja; `/implement` lo tomará en su próximo punto seguro". Si NO hay construcción corriendo y quiere arreglarlo ya, dile que corra `/pandacorp:implement` (que vacía la bandeja).
 
 ## Reglas

@@ -26,4 +26,4 @@ docs/                         # documentación del proyecto (ver pipeline Pandac
 - **Reuso antes de crear**: revisar en orden `components/core` → `components/modules` → `_components` del padre → la misma ruta. Solo crear si no existe.
 - **Tests colocados**: junto al código (`*.test.ts`) o en `_tests/` dentro del folder del componente/feature. E2E en `e2e/`.
 - Para backends sin frontend (API, scraping): capas Routes → Services → Repositories; data layer aislado igual.
-- **Documentación viva**: todo proyecto lleva `docs/bitacora.md` (historia de decisiones, con el porqué) además de PRD/FRDs/blueprint. Cada cambio relevante actualiza su doc canónico **y** la bitácora — regla de dos capas en [documentacion.md](documentacion.md).
+- **Documentación viva**: todo proyecto lleva `docs/decision-log.md` (historia de decisiones, con el porqué) además de PRD/FRDs/blueprint. Cada cambio relevante actualiza su doc canónico **y** la bitácora — regla de dos capas en [documentation.md](documentation.md).

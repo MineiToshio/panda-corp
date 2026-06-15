@@ -19,7 +19,7 @@ El agente avanza WO tras WO mientras el gate esté verde y **solo se detiene cua
 
 ### b) Marcar/publicar cada hito estable
 - **El gate de cierre del WO corre LITERALMENTE el mismo `verify.sh` que CI** (no una versión "rápida" que pueda divergir; si no, el badge "verde" miente). El hook `Stop` ya corre `.pandacorp/verify.sh`; falta que GitHub Actions invoque ese mismo script.
-- **Cada commit de cierre escribe en `docs/estado.yaml`**: `last_green_sha` y `safe_to_test: true/false`. `safe_to_test=true` SOLO cuando `HEAD == último WO cerrado en verde` (no si hay trabajo sin commitear). **Lo escribe el script del gate, no el agente.**
+- **Cada commit de cierre escribe en `docs/status.yaml`**: `last_green_sha` y `safe_to_test: true/false`. `safe_to_test=true` SOLO cuando `HEAD == último WO cerrado en verde` (no si hay trabajo sin commitear). **Lo escribe el script del gate, no el agente.**
 
 ### c) El humano prueba un snapshot SIN tocar al agente — git worktrees
 El agente sigue en su carpeta/rama; tú haces checkout del último verde en OTRA carpeta:
@@ -43,7 +43,7 @@ El worktree de review comparte el historial pero tiene working dir y rama propio
 - **`plugin/skills/implement/SKILL.md`**: documentar arranque en auto mode; explicitar commit-solo-en-borde-de-WO-en-verde; añadir provisioning de worktree (.env + deps); convertir "3 errores = parar" en **freeze-on-red** (no commitear lo roto, dejar HEAD en `last_green_sha`, marcar WO `BLOCKED`, **PushNotification al dueño**, seguir con WOs independientes); `TaskStop` de dev servers al cerrar cada FRD.
 - **`/loop` — SÍ y NO:** el **workflow ES el loop** (corre hasta vaciar la cola y para solo); `/loop` *self-paced* solo para mantenerlo corriendo en continuo/desatendido. NO a intervalo fijo (los scheduled tasks expiran a 7 días, son session-scoped, no hacen catch-up, y meten delays de 1min–1h). Para trabajo continuo: el workflow self-paced + Monitor.
 - **git:** trunk-based — cada WO commitea/mergea al **cerrar el WO**, no al cerrar el proyecto (prohibir `feature/proyecto-completo` de horas). Tag semver opcional por hito de FRD. Para features que cruzan varios WOs: **feature toggles en source-control (YAML, no DB)** con fecha de expiración, para que cada WO intermedio deje `main` desplegable.
-- **Mission Control:** los 3 elementos de (d), leyendo `last_green_sha`/`safe_to_test` de `estado.yaml`.
+- **Mission Control:** los 3 elementos de (d), leyendo `last_green_sha`/`safe_to_test` de `status.yaml`.
 - **hooks:** `Notification` (idle) + notificación rica al cerrar FRD ("FRD-3 verde, SHA abc testeable").
 
 ## Alternativas

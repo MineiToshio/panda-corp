@@ -18,7 +18,7 @@
 ## Tema y estilos
 - **Light y dark siempre**: usar variables semánticas de color, nunca colores hardcodeados (`bg-background text-foreground`, no `bg-white text-black`).
 - Tailwind con helper `cn()` (clsx + tailwind-merge). Clases ordenadas (prettier-plugin-tailwindcss o equivalente).
-- Los valores visuales salen de los **design tokens** definidos en la fase de diseño (`docs/diseno/design-tokens.json`).
+- Los valores visuales salen de los **design tokens** definidos en la fase de diseño (`docs/design/design-tokens.json`).
 
 ## Estados y datos
 - Diseñar siempre estados **vacío / cargando / error** (no improvisarlos).

@@ -13,7 +13,7 @@ Estos comandos viven en `.pandacorp/verify.sh` del proyecto y los exige el hook 
 
 ## Verificación adversarial e independiente (DR-015)
 - El **generador y el verificador no pueden ser el mismo modelo**: los errores de un LLM se agrupan y sus tests heredan sus puntos ciegos. El `reviewer` (opus, idealmente de familia distinta al generador) **re-ejecuta** toda la evidencia y escribe **tests adversariales y de casos límite que el implementer no vio**.
-- Los tests se anclan en **fuentes humanas** —criterios EARS de los FRDs y bugs reales de `docs/progreso.md`—, no en la imaginación del modelo.
+- Los tests se anclan en **fuentes humanas** —criterios EARS de los FRDs y bugs reales de `docs/progress.md`—, no en la imaginación del modelo.
 
 ## Mutation y property-based testing (DR-016)
 - **Mutation testing** (Stryker en TS / mutmut en Python) detecta tests decorativos: si mutar el código no rompe ningún test, el test no prueba nada. Correr **al cerrar cada hito de FRD** y en CI hacia main (no en cada gate Stop — es caro). Mutation score objetivo ≥60% en lógica de negocio nueva.

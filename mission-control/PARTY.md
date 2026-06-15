@@ -153,7 +153,7 @@ incluidos los 3 nuevos (`copywriter`, `analytics`, `devops`) — se cortaron de
 - `analytics` → `analitica` ✓ (observatorio / cámara de datos)
 
 **Pendiente menor:** la sala de `security-auditor` (`seguridad`) está cortada en
-`assets/zones/seguridad.png` pero **no embebida** todavía, porque `security-auditor`
+`assets/zones/security.png` pero **no embebida** todavía, porque `security-auditor`
 no está en el roster del build (`MCROSTER`); se embebe y se mapea en `ZONEBG` solo
 si algún día entra al mapa de construcción. `copywriter` y `devops` no necesitan
 sala (no aparecen en el mapa de construcción).

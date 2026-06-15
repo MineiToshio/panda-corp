@@ -1,6 +1,6 @@
 # FRD-13 — Sistema visual y accesibilidad
 
-Mission Control debe sentirse **de ingeniería, no decorativo**, sin que el dueño (débil en diseño) tenga que afinar nada. La palanca es la **restricción tokenizada**: pocos colores, pocas variables de tema, motion sobrio. Derivado de la investigación 2026 (ver [docs/propuestas/06](../../../docs/propuestas/06-plan-de-mejoras-2026.md), referencias Linear/Vercel Geist/Rauno). Mantiene la paleta cálida tipo Anthropic ya aprobada en el prototipo.
+Mission Control debe sentirse **de ingeniería, no decorativo**, sin que el dueño (débil en diseño) tenga que afinar nada. La palanca es la **restricción tokenizada**: pocos colores, pocas variables de tema, motion sobrio. Derivado de la investigación 2026 (ver [docs/proposals/06](../../../docs/proposals/06-improvement-plan-2026.md), referencias Linear/Vercel Geist/Rauno). Mantiene la paleta cálida tipo Anthropic ya aprobada en el prototipo.
 
 ## Criterios de aceptación (EARS)
 

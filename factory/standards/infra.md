@@ -1,6 +1,6 @@
 # Infraestructura y operación local
 
-Convenciones de cómo corre un proyecto en **desarrollo** (la fábrica las inyecta en cada proyecto). Detalle del modelo de construcción desatendida en [docs/propuestas/07-construccion-desatendida.md](../../docs/propuestas/07-construccion-desatendida.md).
+Convenciones de cómo corre un proyecto en **desarrollo** (la fábrica las inyecta en cada proyecto). Detalle del modelo de construcción desatendida en [docs/proposals/07-unattended-build.md](../../docs/proposals/07-unattended-build.md).
 
 ## Base de datos y servicios en dev → Docker
 
@@ -23,12 +23,12 @@ Para que nada se cruce cuando corren varias cosas en paralelo:
 - Un worktree nace **sin** `.env` ni `node_modules`. La plantilla del stack incluye un **`.worktreeinclude`** (sintaxis `.gitignore`) que copia `.env`/`.env.local` a cada worktree nuevo, más un paso post-create que instala deps. Con **pnpm** (almacén compartido) el install en un worktree nuevo es casi inmediato.
 - Mantener **UNA** carpeta de review y refrescarla al último verde (no acumular worktrees). El sweep automático de Claude Code no borra worktrees creados a mano.
 
-## Estado publicado para Mission Control (`docs/estado.yaml`)
+## Estado publicado para Mission Control (`docs/status.yaml`)
 
 El script del gate (no el agente) escribe en cada cierre de work order verde:
 - `last_green_sha`: commit del último work order cerrado en verde.
 - `safe_to_test: true/false`: `true` solo cuando `HEAD == last_green_sha` (no hay trabajo sin commitear).
-Más: `bugs_pendientes` (bandeja `docs/bugs/`), `decisiones_pendientes` (docs/decisiones.md), `replanteo_pendiente` (iterate pidió pausar).
+Más: `bugs_pendientes` (bandeja `docs/bugs/`), `decisiones_pendientes` (docs/decisions.md), `replanteo_pendiente` (iterate pidió pausar).
 
 ## Gates humanos como reglas duras
 

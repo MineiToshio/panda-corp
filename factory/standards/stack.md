@@ -19,7 +19,7 @@
 - **ESLint + Prettier** (con `prettier-plugin-tailwindcss`)
 - Gestor: **npm**. Deploy: Vercel (web) / contenedor en Railway o Fly.io (servicios)
 
-> Modelo de cuentas, secretos (SOPS+age) y aprovisionamiento de estos servicios externos: `servicios-externos.md`. El stack de servicios validado en producción es el de PandaTrack.
+> Modelo de cuentas, secretos (SOPS+age) y aprovisionamiento de estos servicios externos: `external-services.md`. El stack de servicios validado en producción es el de PandaTrack.
 
 ### API / servicio backend
 - TypeScript + Hono, o Python + FastAPI (según el caso); validación Zod/Pydantic; data layer aislado.

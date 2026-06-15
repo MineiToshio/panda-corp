@@ -209,20 +209,20 @@ Documenta 3–5 referencias con links y por qué cada patrón aplica a Mission C
 
 ## 9. Entregables (contrato de la fase `/pandacorp:design`)
 
-1. `docs/diseno/referencias.md` — la investigación de §8.
-2. `docs/diseno/design-tokens.json` — tokens en **OKLCH**, con **light + dark** (+
+1. `docs/design/referencias.md` — la investigación de §8.
+2. `docs/design/design-tokens.json` — tokens en **OKLCH**, con **light + dark** (+
    alto-contraste), paleta de agentes, escala de elevación/espaciado/radio, tokens de
    motion. Base shadcn/ui; tweakcn.com como referencia de formato.
 3. `DESIGN.md` (raíz del proyecto) — tokens + componentes permitidos + prohibiciones.
-4. `docs/diseno/mockups/direction-{1,2,3}.html` — autocontenidos (CSS/JS inline, solo
+4. `docs/design/mockups/direction-{1,2,3}.html` — autocontenidos (CSS/JS inline, solo
    CDN de Tailwind), **navegables**, mobile-first, responsive, con toggle light/dark.
    3 direcciones **genuinamente distintas**, todas reusando los sprites/fondos fijos y
    viéndose fluidas junto a ellos.
 5. **Verificación antes del gate:** screenshots a 375px y 1280px (Playwright) en
-   `docs/diseno/mockups/screenshots/` + axe-core → `a11y-report.md`. **Corrige las
+   `docs/design/mockups/screenshots/` + axe-core → `a11y-report.md`. **Corrige las
    violaciones serias (contraste, foco, aria) ANTES de presentar.**
 6. Al elegirse una dirección: congela `design-tokens.json` final +
-   `docs/diseno/decisiones-de-diseno.md` con el racional.
+   `docs/design/decisiones-de-diseno.md` con el racional.
 
 ## 10. Archivos del repo que DEBES leer / usar
 
@@ -236,11 +236,11 @@ Documenta 3–5 referencias con links y por qué cada patrón aplica a Mission C
   observabilidad/data-viz, **FRD-13** sistema visual y accesibilidad — recordando que
   su línea de "paleta cálida Anthropic" queda relajada por decisión del dueño, pero la
   coherencia con los sprites cálidos sí manda).
-- `mission-control/docs/logros.md` — lista de stats, tiers y logros (textos reales).
-- `docs/propuestas/06-plan-de-mejoras-2026.md` — **Dimensión 5** (UI/UX y gamificación
+- `mission-control/docs/achievements.md` — lista de stats, tiers y logros (textos reales).
+- `docs/proposals/06-improvement-plan-2026.md` — **Dimensión 5** (UI/UX y gamificación
   honesta): origen de casi todas las restricciones de §6.
-- `fabrica/estandares/convenciones.md`, `fabrica/estandares/calidad.md`,
-  `fabrica/constitucion.md`.
+- `factory/standards/conventions.md`, `factory/standards/quality.md`,
+  `factory/constitution.md`.
 
 ## 11. Gate humano (el dueño)
 

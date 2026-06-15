@@ -34,9 +34,9 @@ verificación independiente del agente**, no confiar en que el agente "no haga t
 | # | Hallazgo (evidencia) | Aplicación a Pandacorp |
 |---|---|---|
 | 2.1 ⭐ | **Tests generados por IA tienen puntos ciegos persistentes**: soluciones que pasaron tests privados fueron erróneas en 20% (medium) / 40% (hard); "LLM errors cluster tightly… while human errors are widely distributed". Benchmarks populares tienen tests débiles (HumanEval 7.7 tests/problema; 84% de verificadores defectuosos en un set). [7] | **El `test-writer` y el `implementer` comparten sesgo** → los tests "verdes" tienen huecos. **Mejora P0:** el `reviewer` (modelo distinto, opus) escribe **tests adversariales que el implementer NO vio**; añadir **mutation testing** a `verify.sh` para detectar tests decorativos. |
-| 2.2 | **Generación de tests humano-LLM (SAGA)**: derivar restricciones de soluciones correctas y modos de fallo de las incorrectas mejora el verificador (+15.86% sobre TCG existentes). [7] *(voto 2-1: matiz en cifras, no en el principio)* | Anclar los tests en la **"parte humana"**: criterios EARS de los FRDs y **bugs reales documentados en `docs/progreso.md`**, no en lo que el LLM imagina. Reforzar la regla existente del `test-writer`. |
+| 2.2 | **Generación de tests humano-LLM (SAGA)**: derivar restricciones de soluciones correctas y modos de fallo de las incorrectas mejora el verificador (+15.86% sobre TCG existentes). [7] *(voto 2-1: matiz en cifras, no en el principio)* | Anclar los tests en la **"parte humana"**: criterios EARS de los FRDs y **bugs reales documentados en `docs/progress.md`**, no en lo que el LLM imagina. Reforzar la regla existente del `test-writer`. |
 | 2.3 ⭐ | **Endurecer el ENTORNO de evaluación recorta el "hacer trampa" 87.7%** (exploits 6.5%→0.8%) **sin perder éxito de tarea**: outputs intermedios aleatorizados, verificación explícita de pasos, parsing *fail-closed*, menos metadata visible al agente. [8] *(preprint 2026, 1 autor — direccional fuerte, sin réplica)* | `verify.sh` debe correr en **entorno limpio/aislado**, **parsear fail-closed** (cualquier ambigüedad = fallo), **no exponer al agente los nombres exactos de los tests** a pasar, y ocultar/aleatorizar fixtures. Valida la arquitectura de hooks deterministas que ya tienes. |
-| 2.4 | **OWASP Top 10 for Agentic Applications** (9-dic-2025, ASI01–ASI10): de "prevenir malas salidas" a "prevenir fallos en cascada" en agentes que planifican/persisten/delegan. Riesgos: Tool Misuse, Identity & Privilege Abuse, Memory Poisoning, Cascading Failures. [9] | Adoptar como **checklist explícito** en `agents/security-auditor.md` y en el skill `release`. Relevantes directos: Tool Misuse (agentes con Bash/rm), Memory Poisoning (envenenar `progreso.md`/memoria entre work orders). |
+| 2.4 | **OWASP Top 10 for Agentic Applications** (9-dic-2025, ASI01–ASI10): de "prevenir malas salidas" a "prevenir fallos en cascada" en agentes que planifican/persisten/delegan. Riesgos: Tool Misuse, Identity & Privilege Abuse, Memory Poisoning, Cascading Failures. [9] | Adoptar como **checklist explícito** en `agents/security-auditor.md` y en el skill `release`. Relevantes directos: Tool Misuse (agentes con Bash/rm), Memory Poisoning (envenenar `progress.md`/memoria entre work orders). |
 | 2.5 | **El régimen de entrenamiento del obrero determina su propensión a gamear**: RL-from-base aluciná/explota 12–16% vs 0.4–0.8% en SFT-focused. [8] *(voto 2-1)* | **No asumir que los obreros sonnet/haiku son honestos**: justifica que el `reviewer` **re-verifique TODA evidencia** y que los checks sean siempre de scripts/CI (regla 4 de la constitución, ya correcta). |
 
 ---
@@ -55,7 +55,7 @@ verificación independiente del agente**, no confiar en que el agente "no haga t
 
 | # | Hallazgo | Aplicación a Pandacorp |
 |---|---|---|
-| 4.1 | El **enforcement de estándares por reglas deterministas** (linter/formatter/type-check estricto en CI) es la forma de calidad que mejor funciona con código IA; *gates independientes del agente* > confianza en el agente. [15][16] | Ya está en `calidad.md` + `verify.sh`. **Mejora:** elevar a CI por PR (typecheck+lint+tests en paralelo, e2e hacia main) como gate de merge — coherente con la constitución §11. |
+| 4.1 | El **enforcement de estándares por reglas deterministas** (linter/formatter/type-check estricto en CI) es la forma de calidad que mejor funciona con código IA; *gates independientes del agente* > confianza en el agente. [15][16] | Ya está en `quality.md` + `verify.sh`. **Mejora:** elevar a CI por PR (typecheck+lint+tests en paralelo, e2e hacia main) como gate de merge — coherente con la constitución §11. |
 | 4.2 | **Documentación viva**: auto-generar ADRs y docs de arquitectura desde el código/commits (LLM en CI), para que no se queden obsoletas. [17][18] | Añadir un paso en `release`/CI que **auto-genere changelog** (desde conventional commits) y **proponga ADRs** cuando detecta cambios arquitectónicos. Mantiene `docs/` sincronizado sin esfuerzo humano. |
 
 ---
@@ -97,7 +97,7 @@ verificación independiente del agente**, no confiar en que el agente "no haga t
 ## Roadmap priorizado
 
 ### P0 — Alto impacto, evidencia fuerte, bajo esfuerzo
-1. **Romper el sesgo compartido test-writer↔implementer**: el `reviewer` (opus) escribe tests adversariales que el implementer no vio; anclar edge cases en EARS + bugs de `progreso.md`. *(2.1, 2.2)*
+1. **Romper el sesgo compartido test-writer↔implementer**: el `reviewer` (opus) escribe tests adversariales que el implementer no vio; anclar edge cases en EARS + bugs de `progress.md`. *(2.1, 2.2)*
 2. **`verify.sh` como gate anti-trampa**: añadir mutation testing (Stryker para TS / mutmut para Python), correr en entorno limpio, parsing fail-closed, no exponer nombres de tests. *(2.1, 2.3)*
 3. **Mission Control — quick wins de craft**: color persistente por agente + fallo como estado de primera clase + `tabular-nums` + un acento racionado. *(A1, A3, C2)*
 

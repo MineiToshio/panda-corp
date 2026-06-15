@@ -4,10 +4,10 @@ Todo lo que decidimos y **por qué**, para no perder el rastro. Organizado por �
 
 | Área | Bitácora | Qué cubre |
 |---|---|---|
-| 🛰️ Mission Control (app Next.js) | [mission-control/docs/bitacora.md](mission-control/docs/bitacora.md) | Features, diseño y decisiones del producto Mission Control |
-| 🔌 Plugin pandacorp | [plugin/docs/bitacora.md](plugin/docs/bitacora.md) | Skills, agentes, hooks y flujo de la fábrica |
-| 💡 Ideas | [fabrica/ideas/bitacora.md](fabrica/ideas/bitacora.md) | Decisiones sobre la base de ideas y su proceso (no el contenido de cada idea) |
-| 🏭 Fábrica | [fabrica/bitacora.md](fabrica/bitacora.md) | Constitución, estándares y decisiones de operación |
+| 🛰️ Mission Control (app Next.js) | [mission-control/docs/decision-log.md](mission-control/docs/decision-log.md) | Features, diseño y decisiones del producto Mission Control |
+| 🔌 Plugin pandacorp | [plugin/docs/decision-log.md](plugin/docs/decision-log.md) | Skills, agentes, hooks y flujo de la fábrica |
+| 💡 Ideas | [factory/ideas/decision-log.md](factory/ideas/decision-log.md) | Decisiones sobre la base de ideas y su proceso (no el contenido de cada idea) |
+| 🏭 Fábrica | [factory/decision-log.md](factory/decision-log.md) | Constitución, estándares y decisiones de operación |
 
 ## Cómo se usa
 
@@ -18,7 +18,7 @@ Documentar un cambio son **dos capas**, siempre:
 
 El doc canónico dice *qué es verdad hoy*; la bitácora, *qué cambió y por qué*. Hacen falta los dos.
 
-**No confundir tres cosas:** doc canónico = **verdad actual**; bitácora = **historia**; [fabrica/decisiones/registro.yaml](fabrica/decisiones/registro.yaml) = **política** (reglas con default).
+**No confundir tres cosas:** doc canónico = **verdad actual**; bitácora = **historia**; [factory/decisions/registry.yaml](factory/decisions/registry.yaml) = **política** (reglas con default).
 
 ### Formato de cada entrada
 

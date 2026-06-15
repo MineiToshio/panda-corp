@@ -10,7 +10,7 @@ decisiones:
 
   - id: DR-002
     patron: "elección de stack/tecnologías para un proyecto nuevo"
-    default: "el architect propone el stack en el blueprint partiendo del recomendado (fabrica/estandares/stack.md, en últimas versiones estables) y puede sugerir mejores alternativas con trade-offs; el dueño aprueba la elección (gate ligero) y queda como ADR. Las convenciones duraderas (fabrica/estandares) NO se negocian"
+    default: "el architect propone el stack en el blueprint partiendo del recomendado (factory/standards/stack.md, en últimas versiones estables) y puede sugerir mejores alternativas con trade-offs; el dueño aprueba la elección (gate ligero) y queda como ADR. Las convenciones duraderas (factory/standards) NO se negocian"
     requiere_humano: true
     nota: "aprobación ligera dentro del blueprint, no un gate aparte"
 
@@ -46,9 +46,9 @@ decisiones:
 
   - id: DR-009
     patron: "idioma de artefactos (qué va en inglés y qué en español)"
-    default: "el estado en git decide el idioma. COMMITTEADO → inglés: código, commits, nombres de archivo y carpeta, y documentos de producto/técnicos (PRD, FRD, blueprint, ADR, README, tests, docs/bitacora.md del proyecto). GITIGNORED → español: la comunicación con Pandacorp (resumen del proyecto, docs/decisiones.md, logs, actividad, feed de Mission Control, docs/iteracion.md) y los datos personales del dueño. docs/estado.yaml se committea con SOLO estado de máquina en inglés (claves/enums/contadores/SHAs); su prosa legible va a la capa española gitignored. UI visible al usuario por i18n, español por defecto (convenciones.md). Resultado: quien clona ve todo en inglés; el dueño opera Pandacorp en español. Detalle en fabrica/estandares/convenciones.md (Idioma)"
+    default: "el estado en git decide el idioma. COMMITTEADO → inglés: código, commits, nombres de archivo y carpeta, y documentos de producto/técnicos (PRD, FRD, blueprint, ADR, README, tests, docs/decision-log.md del proyecto). GITIGNORED → español: la comunicación con Pandacorp (resumen del proyecto, docs/decisions.md, logs, actividad, feed de Mission Control, docs/iteration.md) y los datos personales del dueño. docs/status.yaml se committea con SOLO estado de máquina en inglés (claves/enums/contadores/SHAs); su prosa legible va a la capa española gitignored. UI visible al usuario por i18n, español por defecto (conventions.md). Resultado: quien clona ve todo en inglés; el dueño opera Pandacorp en español. Detalle en factory/standards/conventions.md (Idioma)"
     requiere_humano: false
-    nota: "reemplaza la regla anterior ('documentos en español'). Migración pendiente: traducir los docs existentes + renombrar archivos/carpetas + propagar a templates (ver fabrica/bitacora.md 2026-06-15)"
+    nota: "reemplaza la regla anterior ('documentos en español'). Migración pendiente: traducir los docs existentes + renombrar archivos/carpetas + propagar a templates (ver factory/decision-log.md 2026-06-15)"
 
   - id: DR-010
     patron: "crear repositorio GitHub para un proyecto"
@@ -77,9 +77,9 @@ decisiones:
 
   - id: DR-015
     patron: "propiedad de los tests de verificación (quién escribe qué)"
-    default: "el test-writer/implementer escribe los tests del happy path y los criterios EARS; el reviewer (modelo distinto al generador, opus) escribe ADEMÁS tests adversariales y de casos límite que el implementer NO vio. Anclar los casos en criterios EARS y en bugs reales de docs/progreso.md, nunca en lo que el modelo imagina"
+    default: "el test-writer/implementer escribe los tests del happy path y los criterios EARS; el reviewer (modelo distinto al generador, opus) escribe ADEMÁS tests adversariales y de casos límite que el implementer NO vio. Anclar los casos en criterios EARS y en bugs reales de docs/progress.md, nunca en lo que el modelo imagina"
     requiere_humano: false
-    nota: "rompe el sesgo compartido test-writer↔implementer (ver docs/propuestas/06)"
+    nota: "rompe el sesgo compartido test-writer↔implementer (ver docs/proposals/06)"
 
   - id: DR-016
     patron: "mutation testing / property-based testing (cuándo correrlos)"
@@ -103,12 +103,12 @@ decisiones:
 
   - id: DR-020
     patron: "operación de la construcción (cómo corre implement desatendido)"
-    default: "implement lanza un workflow dinámico en background y corre en auto mode (permisos; lo activa el dueño a nivel usuario, el repo no se lo concede). Freeze-on-red: una etapa que falla lanza (throw) → el pipeline salta ese WO (no commitea lo roto, deja HEAD en el último verde, lo marca BLOQUEADO, notifica) y sigue con los WOs independientes. Circuit breakers (tope de iteraciones, no-progreso, presupuesto del workflow). El workflow se detiene solo al vaciar la cola; para correr en continuo se envuelve en /loop self-paced. El operador habla por archivos (docs/bugs, docs/decisiones.md, replanteo_pendiente), que el workflow revisa solo en puntos seguros"
+    default: "implement lanza un workflow dinámico en background y corre en auto mode (permisos; lo activa el dueño a nivel usuario, el repo no se lo concede). Freeze-on-red: una etapa que falla lanza (throw) → el pipeline salta ese WO (no commitea lo roto, deja HEAD en el último verde, lo marca BLOQUEADO, notifica) y sigue con los WOs independientes. Circuit breakers (tope de iteraciones, no-progreso, presupuesto del workflow). El workflow se detiene solo al vaciar la cola; para correr en continuo se envuelve en /loop self-paced. El operador habla por archivos (docs/bugs, docs/decisions.md, replanteo_pendiente), que el workflow revisa solo en puntos seguros"
     requiere_humano: false
 
   - id: DR-021
     patron: "base de datos y servicios en desarrollo"
-    default: "en DEV, cada proyecto y cada worktree levanta su BD/servicios con Docker Compose, puerto propio; en STAGING/PRODUCCIÓN, managed DB del golden path (Neon/Supabase), nunca Docker. Ver fabrica/estandares/infra.md"
+    default: "en DEV, cada proyecto y cada worktree levanta su BD/servicios con Docker Compose, puerto propio; en STAGING/PRODUCCIÓN, managed DB del golden path (Neon/Supabase), nunca Docker. Ver factory/standards/infra.md"
     requiere_humano: false
 
   - id: DR-022
@@ -118,10 +118,10 @@ decisiones:
 
   - id: DR-023
     patron: "probar lo avanzado sin parar la construcción"
-    default: "el dueño prueba el último commit verde (last_green_sha) en un git worktree aparte (una sola carpeta de review, refrescada al último verde), nunca el working tree del agente. El script del gate escribe last_green_sha + safe_to_test en docs/estado.yaml. Checkpoints nativos NO sirven como snapshot (ignoran lo hecho por Bash)"
+    default: "el dueño prueba el último commit verde (last_green_sha) en un git worktree aparte (una sola carpeta de review, refrescada al último verde), nunca el working tree del agente. El script del gate escribe last_green_sha + safe_to_test en docs/status.yaml. Checkpoints nativos NO sirven como snapshot (ignoran lo hecho por Bash)"
     requiere_humano: false
 
-  # Las DR-024..030 son gobernanza: apuntan a un estándar de fabrica/estandares/ (los valores viven allí, no aquí).
+  # Las DR-024..030 son gobernanza: apuntan a un estándar de factory/standards/ (los valores viven allí, no aquí).
   - id: DR-024
     patron: "performance en proyecto web"
     default: "aplicar budget Core Web Vitals (LCP≤2.5s / INP≤200ms / CLS≤0.1 al p75, ver performance.md); gate Lighthouse-CI como proxy, block-on-main; p75 real en campo vía PostHog. Desvío de umbral = ADR"
@@ -129,18 +129,18 @@ decisiones:
 
   - id: DR-025
     patron: "privacidad / manejo de datos personales (PII)"
-    default: "minimizar PII, no loguearla, retención con plazo, export/delete en el modelo (ver privacidad.md). Recolectar PII NUEVA o compartir datos con terceros = escalar al dueño (alinea con DR-008)"
+    default: "minimizar PII, no loguearla, retención con plazo, export/delete en el modelo (ver privacy.md). Recolectar PII NUEVA o compartir datos con terceros = escalar al dueño (alinea con DR-008)"
     requiere_humano: true
     nota: "humano solo para PII nueva / compartir con terceros; lo demás es default determinista"
 
   - id: DR-026
     patron: "observabilidad mínima de un proyecto"
-    default: "todo proyecto integra error-tracking (Sentry, del stack) + logs estructurados JSON con service.name desde el día 1, sin preguntar (ver observabilidad.md)"
+    default: "todo proyecto integra error-tracking (Sentry, del stack) + logs estructurados JSON con service.name desde el día 1, sin preguntar (ver observability.md)"
     requiere_humano: false
 
   - id: DR-027
     patron: "security headers / CSP (web)"
-    default: "setear el set OWASP barato como default literal en next.config (ver seguridad-web.md); CSP con nonce en report-only en v1. Verificado por header-scan en CI. El submit a hstspreload.org = humano (es duradero)"
+    default: "setear el set OWASP barato como default literal en next.config (ver web-security.md); CSP con nonce en report-only en v1. Verificado por header-scan en CI. El submit a hstspreload.org = humano (es duradero)"
     requiere_humano: false
     nota: "auto salvo el preload submit, que escala al dueño"
 
@@ -157,7 +157,7 @@ decisiones:
 
   - id: DR-030
     patron: "desviación del golden path en un proyecto"
-    default: "desviarse = ADR per-proyecto (no DR nueva). sync-portfolio/recommend observan ADRs de desviación recurrentes entre proyectos y proponen promover el patrón a fabrica/estandares/ cuando se repite. Promover a estándar = decisión del dueño"
+    default: "desviarse = ADR per-proyecto (no DR nueva). sync-portfolio/recommend observan ADRs de desviación recurrentes entre proyectos y proponen promover el patrón a factory/standards/ cuando se repite. Promover a estándar = decisión del dueño"
     requiere_humano: false
     nota: "la promoción de un patrón recurrente a estándar global la aprueba el dueño"
 
@@ -168,46 +168,46 @@ decisiones:
 
   - id: DR-032
     patron: "iterar en una fase temprana (descubierta/documentada/diseño/arquitectura) sin avanzar de columna, y cómo se avanza entre fases"
-    default: "las fases manuales NO auto-cierran: cada skill (explore/new-idea/spec/design/blueprint) produce su output, marca avance_pendiente: true en docs/estado.yaml y NO escribe la transición de fase hasta el 'ok, avanza' explícito del dueño. Re-correr la MISMA fase = iterar en sitio (refina lo que hay, NO regenera desde cero ni repite lo ya rechazado). La esencia del ida-y-vuelta (qué se probó, qué se rechazó y por qué, qué queda abierto) se persiste en docs/iteracion.md (en ideas, sin proyecto: fabrica/ideas/_borradores/<slug>.md) para poder retomar aunque se pierda la conversación. Extiende el principio 2 (artefactos antes que chat)."
+    default: "las fases manuales NO auto-cierran: cada skill (explore/new-idea/spec/design/blueprint) produce su output, marca avance_pendiente: true en docs/status.yaml y NO escribe la transición de fase hasta el 'ok, avanza' explícito del dueño. Re-correr la MISMA fase = iterar en sitio (refina lo que hay, NO regenera desde cero ni repite lo ya rechazado). La esencia del ida-y-vuelta (qué se probó, qué se rechazó y por qué, qué queda abierto) se persiste en docs/iteration.md (en ideas, sin proyecto: factory/ideas/_drafts/<slug>.md) para poder retomar aunque se pierda la conversación. Extiende el principio 2 (artefactos antes que chat)."
     requiere_humano: true
     nota: "gate ligero y por-fase en las etapas manuales; NO aplica a implement (autónomo, ya reanudable) ni cambia el gate de release a producción (DR-004). El journal reduce intervención futura (principio 7): retomar no exige re-explicar."
 
   - id: DR-033
     patron: "datos personales del dueño en el repo de la fábrica (perfil, portfolio, fichas de ideas) y portabilidad"
-    default: "NUNCA se commitean al repo público: viven en disco gitignored (fabrica/perfil.md, fabrica/portfolio.md, fabrica/ideas/*.md salvo _plantilla-ficha.md y bitacora.md). Se versiona solo el molde: seeds *.example.md y plantillas. Personalizar la fábrica = /pandacorp:onboarding, que genera fabrica/perfil.md (la fábrica lo lee para nombre/GitHub/ruta de proyectos/objetivos). Las rutas en skills/scripts se resuelven relativas a la raíz de la fábrica (cwd / repo root), nunca absolutas."
+    default: "NUNCA se commitean al repo público: viven en disco gitignored (factory/profile.md, factory/portfolio.md, factory/ideas/*.md salvo _idea-template.md y decision-log.md). Se versiona solo el molde: seeds *.example.md y plantillas. Personalizar la fábrica = /pandacorp:onboarding, que genera factory/profile.md (la fábrica lo lee para nombre/GitHub/ruta de proyectos/objetivos). Las rutas en skills/scripts se resuelven relativas a la raíz de la fábrica (cwd / repo root), nunca absolutas."
     requiere_humano: false
-    nota: "abre la fábrica como plantilla clonable por cualquiera; ver fabrica/bitacora.md (2026-06-14)."
+    nota: "abre la fábrica como plantilla clonable por cualquiera; ver factory/decision-log.md (2026-06-14)."
 
   - id: DR-034
     patron: "versionado del plugin pandacorp al cambiar algo en plugin/"
-    default: "el plugin lleva `version` semver en plugin/.claude-plugin/plugin.json (fuente de verdad) y SE SUBE en cada cambio de plugin/: PATCH (x.y.Z) fix/ajuste/doc sin cambiar comportamiento; MINOR (x.Y.0) capacidad nueva compatible (skill/agente/opción nueva); MAJOR (X.0.0) breaking change (renombrar/eliminar un skill, cambiar un flujo de forma incompatible). El bump es parte del flujo 'tras editar plugin/': subir versión → commit → claude plugin update. Anotar el porqué en plugin/docs/bitacora.md."
+    default: "el plugin lleva `version` semver en plugin/.claude-plugin/plugin.json (fuente de verdad) y SE SUBE en cada cambio de plugin/: PATCH (x.y.Z) fix/ajuste/doc sin cambiar comportamiento; MINOR (x.Y.0) capacidad nueva compatible (skill/agente/opción nueva); MAJOR (X.0.0) breaking change (renombrar/eliminar un skill, cambiar un flujo de forma incompatible). El bump es parte del flujo 'tras editar plugin/': subir versión → commit → claude plugin update. Anotar el porqué en plugin/docs/decision-log.md."
     requiere_humano: false
     nota: "la instalación local rastrea el SHA para detectar desfase (FRD-15); la version es la etiqueta semántica del release."
 
   - id: DR-035
     patron: "una versión incluye pagos/cobro a usuarios (checkout Polar, suscripción, anuncios, donaciones) y se despliega en Vercel"
-    default: "NO bloquear el trabajo (no es un gate). ADVERTIR al dueño en 3 momentos —al definir el PRD (cuando se decide que hay pagos), en el blueprint (plan de hosting) y en el release (antes del deploy)— que Vercel Hobby prohíbe uso comercial y su suspensión es de CUENTA COMPLETA sin aviso garantizado; si la versión cobra dinero requiere Vercel Pro (USD 20/mes por seat, cubre todo el team + USD 20 de crédito). El dueño decide continuar o detener. Estructura: un solo team Pro para todas las apps lanzadas; el día que una app enciende pagos va al team Pro. Disparar push (DR-038). Ver fabrica/estandares/servicios-externos.md §6"
+    default: "NO bloquear el trabajo (no es un gate). ADVERTIR al dueño en 3 momentos —al definir el PRD (cuando se decide que hay pagos), en el blueprint (plan de hosting) y en el release (antes del deploy)— que Vercel Hobby prohíbe uso comercial y su suspensión es de CUENTA COMPLETA sin aviso garantizado; si la versión cobra dinero requiere Vercel Pro (USD 20/mes por seat, cubre todo el team + USD 20 de crédito). El dueño decide continuar o detener. Estructura: un solo team Pro para todas las apps lanzadas; el día que una app enciende pagos va al team Pro. Disparar push (DR-038). Ver factory/standards/external-services.md §6"
     requiere_humano: false
     nota: "es un AVISO, no un impedimento. La decisión '¿v1 incluye pagos? sí/no' se define explícitamente en el PRD (product-manager)."
 
   - id: DR-036
     patron: "elección de servicio externo por categoría (storage, email, pagos, analítica) y modelo de cuenta multi-app"
-    default: "usar el servicio estándar probado por categoría (storage=Cloudflare R2, email transaccional=Resend, email marketing/waitlist=Kit, errores=Sentry, analítica=PostHog, pagos=Polar; DB=Neon, deploy=Vercel, auth=Better Auth ya en stack.md) y el modelo 'UNA cuenta/org compartida + 1 primitivo por app' (proyecto Neon / bucket R2 / dominio Resend / org PostHog / producto Polar). PROHIBIDO crear cuentas-títere con +alias para esquivar topes de free tier (viola ToS). Desviarse de un servicio = ADR per-proyecto (DR-030). Los valores y el porqué viven en fabrica/estandares/servicios-externos.md"
+    default: "usar el servicio estándar probado por categoría (storage=Cloudflare R2, email transaccional=Resend, email marketing/waitlist=Kit, errores=Sentry, analítica=PostHog, pagos=Polar; DB=Neon, deploy=Vercel, auth=Better Auth ya en stack.md) y el modelo 'UNA cuenta/org compartida + 1 primitivo por app' (proyecto Neon / bucket R2 / dominio Resend / org PostHog / producto Polar). PROHIBIDO crear cuentas-títere con +alias para esquivar topes de free tier (viola ToS). Desviarse de un servicio = ADR per-proyecto (DR-030). Los valores y el porqué viven en factory/standards/external-services.md"
     requiere_humano: false
 
   - id: DR-037
     patron: "credenciales/secretos de servicios externos y cómo se aprovisionan los recursos"
-    default: "aprovisionar por API/CLI (headless) donde exista; navegador (Claude-in-Chrome) solo como fallback, verificando la cuenta activa antes de actuar. Secretos en dos planos: runtime en el .env del proyecto (gitignored, .env.example sin valores) y store de máquina en SOPS+age (archivo cifrado FUERA de todo repo, llave age en el Keychain de macOS) para tokens de proveedor y credenciales por app. LastPass = solo personal del dueño, separado del store de máquina. Tokens con privilegio mínimo. Ver fabrica/estandares/servicios-externos.md §3-4 y seguridad-web.md"
+    default: "aprovisionar por API/CLI (headless) donde exista; navegador (Claude-in-Chrome) solo como fallback, verificando la cuenta activa antes de actuar. Secretos en dos planos: runtime en el .env del proyecto (gitignored, .env.example sin valores) y store de máquina en SOPS+age (archivo cifrado FUERA de todo repo, llave age en el Keychain de macOS) para tokens de proveedor y credenciales por app. LastPass = solo personal del dueño, separado del store de máquina. Tokens con privilegio mínimo. Ver factory/standards/external-services.md §3-4 y web-security.md"
     requiere_humano: false
 
   - id: DR-038
     patron: "el agente llega a un punto que requiere decisión o acción del dueño (cualquier gate humano)"
-    default: "disparar una notificación push al dueño (llega al celular si Remote Control / la app de Claude está conectada) con mensaje de una línea accionable, ADEMÁS de dejar el pendiente por archivo (docs/estado.yaml, docs/decisiones.md). Aplica a TODO gate: producción (DR-004), gastar dinero (DR-005), borrar (DR-007), comunicaciones externas (DR-008), warning Vercel/pagos (DR-035), pendientes de :decide, y signup/2FA/pago durante el aprovisionamiento (DR-037). Mission Control es la vista de escritorio; el push es la vista 'estoy fuera'."
+    default: "disparar una notificación push al dueño (llega al celular si Remote Control / la app de Claude está conectada) con mensaje de una línea accionable, ADEMÁS de dejar el pendiente por archivo (docs/status.yaml, docs/decisions.md). Aplica a TODO gate: producción (DR-004), gastar dinero (DR-005), borrar (DR-007), comunicaciones externas (DR-008), warning Vercel/pagos (DR-035), pendientes de :decide, y signup/2FA/pago durante el aprovisionamiento (DR-037). Mission Control es la vista de escritorio; el push es la vista 'estoy fuera'."
     requiere_humano: false
     nota: "no reemplaza el canal por-archivo (principio 2): lo complementa para que el dueño pueda dejarlo corriendo y saber cuándo volver."
 
   - id: DR-039
     patron: "modelo de recomendación de ideas (discover/recommend) según el perfil del dueño"
-    default: "discover y recommend leen fabrica/perfil.md y trabajan en DOS corrientes, ~50/50: (A) oportunidades generales de alto retorno/facilidad, independientes del tema; (B) alineadas al perfil (intereses, objetivos, ACTIVOS/palancas como audiencia/comunidad/red/nicho), aunque el retorno monetario sea menor, porque le son útiles o le abren puertas. RETORNO != solo dinero: cuenta también oportunidad (alcance/red/posicionamiento), aprendizaje y valor personal, ponderado según apetito_monetizacion del perfil. ALCANCE ABIERTO: no solo apps monetizables — app web/mobile, rework, tooling/proyecto de Claude Code, prompt o sistema de prompts, automatización, etc. La ficha registra tipo_proyecto, alineacion_perfil y retorno; el scoring de new-idea pondera retorno (monetario/oportunidad/personal) y encaje con el perfil"
+    default: "discover y recommend leen factory/profile.md y trabajan en DOS corrientes, ~50/50: (A) oportunidades generales de alto retorno/facilidad, independientes del tema; (B) alineadas al perfil (intereses, objetivos, ACTIVOS/palancas como audiencia/comunidad/red/nicho), aunque el retorno monetario sea menor, porque le son útiles o le abren puertas. RETORNO != solo dinero: cuenta también oportunidad (alcance/red/posicionamiento), aprendizaje y valor personal, ponderado según apetito_monetizacion del perfil. ALCANCE ABIERTO: no solo apps monetizables — app web/mobile, rework, tooling/proyecto de Claude Code, prompt o sistema de prompts, automatización, etc. La ficha registra tipo_proyecto, alineacion_perfil y retorno; el scoring de new-idea pondera retorno (monetario/oportunidad/personal) y encaje con el perfil"
     requiere_humano: false
-    nota: "no castigar una idea alineada por bajo ROI monetario si apalanca un activo o abre puertas, ni una idea general por no ser 'del tema'. Ver fabrica/ideas/bitacora.md (2026-06-15)"
+    nota: "no castigar una idea alineada por bajo ROI monetario si apalanca un activo o abre puertas, ni una idea general por no ser 'del tema'. Ver factory/ideas/decision-log.md (2026-06-15)"

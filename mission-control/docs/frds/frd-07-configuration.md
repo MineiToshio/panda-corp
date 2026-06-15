@@ -11,7 +11,7 @@ Vista de solo-lectura de lo que hay configurado en la fábrica, con identidad y 
 - LA sección **Estándares** DEBERÁ estar **categorizada por dominio** (Programación, Arquitectura, Diseño, Tecnología, Calidad, Seguridad, Operación, Datos/Privacidad, Producto/Docs), con badges de **severidad** (MUST/SHOULD/MAY) y **enforcement** (lint/CI/checklist/gate humano); cada estándar con dos vistas **Resumen** (puntos clave reales) y **Detalle** (markdown), y un botón **"Nuevo estándar"** que copia `/pandacorp:learn`.
 - LA sección **Agentes** DEBERÁ mostrar, por agente: un **avatar pixel-art** (estilo Final Fantasy), su **nivel** y su **título** (Aprendiz → Ingeniero → Senior → Arquitecto).
 - CUANDO se abre el detalle de un agente, DEBERÁ mostrar una **barra de XP al siguiente nivel** y la explicación de que **sube de nivel completando work orders** (cada work order cerrado suma XP).
-- EL contenido se lee del plugin de la fábrica (`plugin/skills`, `plugin/agents`, `fabrica/decisiones/registro.yaml`, `fabrica/estandares/`); es de **solo-lectura** — para editar se hace en los archivos / Claude Code.
+- EL contenido se lee del plugin de la fábrica (`plugin/skills`, `plugin/agents`, `factory/decisions/registry.yaml`, `factory/standards/`); es de **solo-lectura** — para editar se hace en los archivos / Claude Code.
 
 ## Nota
-El nivel/XP de los agentes es una representación honesta de trabajo real (work orders completados), parte de la capa de gamificación ([FRD-09](frd-09-gamificacion.md)).
+El nivel/XP de los agentes es una representación honesta de trabajo real (work orders completados), parte de la capa de gamificación ([FRD-09](frd-09-gamification.md)).

@@ -49,7 +49,7 @@ panda-corp/
     ├── scripts/                        # helpers referenciados vía ${CLAUDE_PLUGIN_ROOT}
     └── templates/
         ├── stack-a-nextjs/  stack-b-hono/  stack-c-fastapi/  stack-d-scraper/
-        └── shared/ (CLAUDE.md.tpl con sección "Origen — Pandacorp", AGENTS.md.tpl, estado.yaml.tpl)
+        └── shared/ (CLAUDE.md.tpl con sección "Origen — Pandacorp", AGENTS.md.tpl, status.yaml.tpl)
 ```
 
 ### Setup (una vez)

@@ -14,7 +14,7 @@ Vista tipo RPG de los subagentes del workflow construyendo un proyecto: zonas pi
 - LA vista es de **observación**: para redirigir/pausar un agente, el dueño usa la app de Claude Code.
 - SI no hay equipo activo, DEBERÁ mostrar un estado vacío con gracia.
 
-## Refuerzos de UX (investigación 2026, ver `docs/propuestas/06-plan-de-mejoras-2026.md`)
+## Refuerzos de UX (investigación 2026, ver `docs/proposals/06-improvement-plan-2026.md`)
 - CADA agente DEBERÁ tener un **color fijo** reusado en TODA la UI (su sprite, el feed de eventos y sus tarjetas), para que el ojo enlace sprite ↔ evento ↔ tarjeta sin leer texto. Si hay varios proyectos en construcción, color-proyecto (borde izquierdo) + color-agente (segundo borde).
 - LOS eventos DEBERÁN usar un **vocabulario icónico fijo y acotado** (~12 tipos: leer, escribir, editar, test ✓/✗, mensaje, arranque, fin); herramienta = icono extra.
 - EL **fallo DEBERÁ ser un estado de primera clase**, tan visible como el logro: agente en estado "caído" + color de peligro + icono de error, distinto de "completado". Nunca escondido en un log.
@@ -23,4 +23,4 @@ Vista tipo RPG de los subagentes del workflow construyendo un proyecto: zonas pi
 - DEBERÁ ofrecer un **toggle RPG ↔ timeline/árbol** honesto sobre los mismos datos (work orders → tareas → acciones), y un indicador **En vivo / Sin señal** con el timestamp del último evento.
 
 ## Futuro
-El equipo mostrado escalará según el **modo de construcción** ([FRD-11](frd-11-modos-de-construccion.md)): más o menos agentes, e incluso varios del mismo rol, posicionados dentro de sus zonas. DAG de work orders con *path-focus* (iluminar la cadena de dependencias) y "saltar al primer error" ([FRD-12](frd-12-observabilidad-dataviz.md)).
+El equipo mostrado escalará según el **modo de construcción** ([FRD-11](frd-11-build-modes.md)): más o menos agentes, e incluso varios del mismo rol, posicionados dentro de sus zonas. DAG de work orders con *path-focus* (iluminar la cadena de dependencias) y "saltar al primer error" ([FRD-12](frd-12-observability-dataviz.md)).

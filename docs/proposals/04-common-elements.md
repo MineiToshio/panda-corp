@@ -21,7 +21,7 @@ La entrada puede ser una **funcionalidad** ("app para pedir desde la mesa de un 
 10. OPERACIÓN                    → routines: monitoreo, mejoras, backlog grooming
 ```
 
-Cada fase produce un **artefacto versionado en el repo del proyecto** (no chat): `docs/idea.md`, `docs/investigacion.md`, `docs/spec.md`, `docs/plan.md`, `docs/adr/*.md`. La fase siguiente no arranca si el artefacto anterior no pasa su gate (validación automática por checklist/schema; humano solo en H1 y H2).
+Cada fase produce un **artefacto versionado en el repo del proyecto** (no chat): `docs/idea.md`, `docs/research.md`, `docs/spec.md`, `docs/plan.md`, `docs/adr/*.md`. La fase siguiente no arranca si el artefacto anterior no pasa su gate (validación automática por checklist/schema; humano solo en H1 y H2).
 
 ## 2. Decisiones humanas (mínimas, explícitas)
 
@@ -30,7 +30,7 @@ Solo dos gates humanos síncronos en el flujo normal:
 - **H1 — Go/No-Go de la idea**: aprobar alcance y presupuesto. (Es decisión de producto: la IA no conoce tus prioridades.)
 - **H2 — Deploy a producción / acciones externas**: producción, enviar comunicaciones a terceros, gastar dinero, borrar datos, cambiar accesos.
 
-Todo lo demás se gobierna con el **registro de decisiones** (`fabrica/decisiones/registro.yaml`): tipos de decisión recurrentes con defaults pre-aprobados (ej: "agregar dependencia sin CVEs y mantenida → auto-aprobar"). Decisión fuera del registro → se escala una vez al humano y la respuesta se codifica como regla nueva, de modo que **cada intervención humana reduce las futuras**. Timeout vencido → escalar, nunca auto-aprobar.
+Todo lo demás se gobierna con el **registro de decisiones** (`factory/decisions/registry.yaml`): tipos de decisión recurrentes con defaults pre-aprobados (ej: "agregar dependencia sin CVEs y mantenida → auto-aprobar"). Decisión fuera del registro → se escala una vez al humano y la respuesta se codifica como regla nueva, de modo que **cada intervención humana reduce las futuras**. Timeout vencido → escalar, nunca auto-aprobar.
 
 ## 3. Roles de agentes y modelos asignados
 
@@ -61,7 +61,7 @@ Regla de oro: las tareas de **juicio** (arquitectura, revisión, specs) usan el 
 
 ## 5. Stacks estándar (golden paths)
 
-Definidos en detalle en [investigación 04](../investigacion/04-stacks-recomendados.md):
+Definidos en detalle en [investigación 04](../investigacion/04-recommended-stacks.md):
 
 - **Stack A** · Web full-stack: Next.js + Drizzle + Postgres + Tailwind/shadcn + Better Auth → Vercel
 - **Stack B** · API TypeScript: Hono + Drizzle + Zod → Railway/Fly
@@ -77,9 +77,9 @@ El `arquitecto` elige entre estos 4 (combinables: el caso Funkos = D para recole
 ├── panda-corp/                  ← LA FÁBRICA (este repo): know-how, nunca código de producto
 │   ├── CLAUDE.md                ← constitución de la empresa
 │   ├── .claude/ (agents, skills, hooks, rules)
-│   ├── fabrica/
-│   │   ├── constitucion.md      ← principios y estándares innegociables
-│   │   ├── decisiones/registro.yaml
+│   ├── factory/
+│   │   ├── constitution.md      ← principios y estándares innegociables
+│   │   ├── decisiones/registry.yaml
 │   │   ├── plantillas/          ← scaffolds por golden path + AGENTS.md template
 │   │   └── portfolio.md         ← índice de productos y su estado en el pipeline
 │   └── docs/ (investigacion, propuestas, adr)

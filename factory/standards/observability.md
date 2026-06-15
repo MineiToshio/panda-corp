@@ -6,7 +6,7 @@
 - **Baseline obligatorio (todo proyecto), barato:**
   - **Logs estructurados JSON** (Pino o equivalente) con `service.name` = nombre del proyecto en el portfolio, nivel y timestamp; `trace_id`/`span_id` cuando haya request context.
   - **Error-tracking** integrado (Sentry, del stack) desde el día 1 (DR-026).
-  - **Nunca loguear PII ni secretos** (ver `privacidad.md`).
+  - **Nunca loguear PII ni secretos** (ver `privacy.md`).
 - **Escalonado (cuando el proyecto lo necesita):** instrumentación portable con **OpenTelemetry** (vendor-neutral): auto-instrumentación de librerías, atributos de resource del entorno, `instrumentation.ts` (hook nativo de Next) en el golden path web.
 
 ## Cómo se verifica

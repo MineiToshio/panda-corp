@@ -8,8 +8,8 @@ No construir ni configurar casi nada propio: adoptar **GitHub Spec Kit** como me
 
 ```
 panda-corp/
-├── fabrica/
-│   ├── constitucion.md              # se inyecta vía /constitution de Spec Kit
+├── factory/
+│   ├── constitution.md              # se inyecta vía /constitution de Spec Kit
 │   ├── golden-paths.md              # los 4 stacks estándar
 │   └── portfolio.md
 └── docs/

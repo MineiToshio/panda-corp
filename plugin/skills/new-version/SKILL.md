@@ -8,8 +8,8 @@ Nueva iteración de un proyecto existente. Se ejecuta EN el proyecto. `$ARGUMENT
 
 ## Pasos
 
-1. **Contexto**: lee `docs/estado.yaml`, `docs/prd.md` (backlog de futuras versiones), feedback/operación acumulada y los FRDs existentes.
-2. **Define la versión**: con el agente `product-manager`, convierte el objetivo en scope concreto — qué FRDs nuevos, qué FRDs existentes cambian, qué se deja fuera (DR-012). Incrementa `version:` en `docs/estado.yaml`.
+1. **Contexto**: lee `docs/status.yaml`, `docs/prd.md` (backlog de futuras versiones), feedback/operación acumulada y los FRDs existentes.
+2. **Define la versión**: con el agente `product-manager`, convierte el objetivo en scope concreto — qué FRDs nuevos, qué FRDs existentes cambian, qué se deja fuera (DR-012). Incrementa `version:` en `docs/status.yaml`.
 3. **Re-entra al pipeline, solo lo que cambia**:
    - FRDs nuevos/modificados → `docs/frds/` (numeración continúa)
    - ¿Pantallas nuevas o cambios visuales? → mini fase de diseño (mockup de lo nuevo, mismos tokens congelados; gate visual solo si cambia el lenguaje visual)

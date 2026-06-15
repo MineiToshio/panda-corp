@@ -78,7 +78,7 @@ phase('Plan')
 const plan = await agent(
   `Eres el planificador del build de Pandacorp. Lee el estado del proyecto SIN modificar nada:
   - docs/work-orders/README.md y docs/work-orders/*.md → la cola, su orden y dependencias.
-  - docs/estado.yaml → qué ya está en verde (no lo re-construyas).
+  - docs/status.yaml → qué ya está en verde (no lo re-construyas).
   - docs/blueprint.md → el stack elegido.
   Devuelve los work orders PENDIENTES en orden de dependencias, cada uno con sus deps (ids de work orders que deben estar en verde antes).${ONLY ? ' Limita a estos ids: ' + ONLY.join(', ') + '.' : ''}
   hasFrontend=true solo si el stack es web (A). trivial=true si es un solo módulo sin separación back/front.`,
@@ -99,7 +99,7 @@ const built = []
 async function build(wo) {
   // Trivial o modo pro: un solo implementer full-stack (dividir no aporta velocidad).
   if (plan.trivial || !P.split) {
-    await agent(`${EMIT('implementer', wo.id)}Implementa COMPLETO el work order ${wo.id} con TDD (RED→GREEN→refactor), anclado en los criterios EARS del FRD ${wo.frd || ''} y en bugs de docs/progreso.md: ${wo.summary}. Escribe el contexto crítico a archivos.`,
+    await agent(`${EMIT('implementer', wo.id)}Implementa COMPLETO el work order ${wo.id} con TDD (RED→GREEN→refactor), anclado en los criterios EARS del FRD ${wo.frd || ''} y en bugs de docs/progress.md: ${wo.summary}. Escribe el contexto crítico a archivos.`,
       { label: `build:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:implementer', schema: STAGE_SCHEMA })
     return
   }
@@ -130,7 +130,7 @@ async function review(wo) {
 }
 
 async function verifyWO(wo) {
-  return await agent(`Punto seguro del work order ${wo.id}: corre .pandacorp/verify.sh en limpio. Si pasa (verde), commitea el work order (Conventional Commits con scope), marca el WO 'terminado' con evidencia en docs/work-orders/, y escribe en docs/estado.yaml el last_green_sha (sha del commit) y safe_to_test: true. Si NO pasa, devuelve green=false con el motivo y NO commitees nada. Nunca commitees a medio work order.`,
+  return await agent(`Punto seguro del work order ${wo.id}: corre .pandacorp/verify.sh en limpio. Si pasa (verde), commitea el work order (Conventional Commits con scope), marca el WO 'terminado' con evidencia en docs/work-orders/, y escribe en docs/status.yaml el last_green_sha (sha del commit) y safe_to_test: true. Si NO pasa, devuelve green=false con el motivo y NO commitees nada. Nunca commitees a medio work order.`,
     { label: `verify:${wo.id}`, phase: 'Verify', model: P.worker, agentType: 'pandacorp:implementer', schema: VERIFY_SCHEMA })
 }
 
@@ -157,7 +157,7 @@ async function runWO(wo) {
     return v
   } catch (e) {
     log(`✗ ${wo.id} BLOQUEADO (${String((e && e.message) || e).slice(0, 100)}) — freeze-on-red`)
-    await agent(`Freeze-on-red del work order ${wo.id}: NO commitees nada roto. Deja HEAD en last_green_sha, marca el work order ${wo.id} como BLOQUEADO en docs/estado.yaml con el motivo, y emite una notificación al dueño (hook PushNotification / Notification). No toques otros work orders.`,
+    await agent(`Freeze-on-red del work order ${wo.id}: NO commitees nada roto. Deja HEAD en last_green_sha, marca el work order ${wo.id} como BLOQUEADO en docs/status.yaml con el motivo, y emite una notificación al dueño (hook PushNotification / Notification). No toques otros work orders.`,
       { label: `freeze:${wo.id}`, phase: 'Verify', model: P.worker, agentType: 'pandacorp:implementer' })
     return { green: false }
   }
@@ -197,10 +197,10 @@ while (pending.size > 0) {
 // ── Cierre ────────────────────────────────────────────────────────────────────
 phase('Verify')
 if (built.length > 0 && blocked.size === 0) {
-  await agent(`Todos los work orders cerraron en verde. Corre la suite completa + e2e de los flujos críticos y mata los dev servers de prueba con TaskStop. Si todo queda verde, marca docs/estado.yaml fase: release y running: false. Resume qué se construyó y la evidencia.`,
+  await agent(`Todos los work orders cerraron en verde. Corre la suite completa + e2e de los flujos críticos y mata los dev servers de prueba con TaskStop. Si todo queda verde, marca docs/status.yaml fase: release y running: false. Resume qué se construyó y la evidencia.`,
     { label: 'cierre', phase: 'Verify', model: P.judge, agentType: 'pandacorp:reviewer' })
 } else if (blocked.size > 0) {
-  log(`Construcción detenida con ${blocked.size} bloqueado(s): ${[...blocked].join(', ')}. Revisa docs/decisiones.md / docs/bugs/ y re-lanza implement.`)
+  log(`Construcción detenida con ${blocked.size} bloqueado(s): ${[...blocked].join(', ')}. Revisa docs/decisions.md / docs/bugs/ y re-lanza implement.`)
 }
 
 return { mode: MODE, total: plan.workOrders.length, built, blocked: [...blocked] }

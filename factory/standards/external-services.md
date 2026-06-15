@@ -37,7 +37,7 @@ Es el default probado. El `architect` puede desviarse con ADR per-proyecto (DR-0
 
 Dos planos separados:
 
-- **Runtime** → el `.env` de cada proyecto (gitignored). `.env.example` documenta las variables sin valores (constitución §12, `seguridad-web.md`).
+- **Runtime** → el `.env` de cada proyecto (gitignored). `.env.example` documenta las variables sin valores (constitución §12, `web-security.md`).
 - **Store de máquina** (lo que el agente lee sin el dueño presente) → **SOPS + age**: archivo cifrado **fuera de todo repo** (ej. `~/.config/pandacorp/secrets/`), con la llave privada `age` en el **Keychain de macOS**. SOPS cifra solo los *valores* (la estructura queda legible). Guarda: tokens de API de proveedores (para aprovisionar), credenciales generadas por app, y —como fallback— logins de dashboards sin API.
 - **LastPass = solo lo personal del dueño**, separado del store de máquina. Patrón recomendado: gestor humano interactivo ≠ store de máquina no interactivo. Alternativas válidas al store: Infisical (open-source, con auditoría), Bitwarden Secrets Manager, 1Password Service Accounts.
 - **Honestidad de modelo de amenaza:** el cifrado en reposo protege contra filtración (git/backup/disco robado), **NO contra compromiso local** — porque la llave debe estar al alcance del agente. Es el trade inherente a la autonomía. Mitigaciones: tokens con **privilegio mínimo** (scope por proyecto, no admin de cuenta), store separado de lo personal, y los gates destructivos (DR-004/005/007/008) siguen exigiendo al dueño aunque el agente opere desatendido.
@@ -60,7 +60,7 @@ Dos planos separados:
 ## 7. Notificación al dueño en gates (DR-038)
 
 - En **CUALQUIER** punto que requiera decisión/acción del dueño (gates DR-004/005/007/008/035, pendientes del skill `decide`, o signup/2FA/pago durante el aprovisionamiento), el agente dispara una **notificación push**. Llega al **celular** si Remote Control / la app de Claude está conectada a la sesión (ya configurados en la máquina del dueño). Mensaje de una línea, accionable: *"PandaTrack: meter tarjeta en Polar para continuar"*.
-- **Mission Control** es la vista "en el escritorio" (log de pendientes en `docs/estado.yaml`); el **push** es la vista "estoy fuera". No se conecta Mission Control al celular — el push nativo lo cubre.
+- **Mission Control** es la vista "en el escritorio" (log de pendientes en `docs/status.yaml`); el **push** es la vista "estoy fuera". No se conecta Mission Control al celular — el push nativo lo cubre.
 
 ## 8. Playbook — alta y baja de un proyecto
 
@@ -120,4 +120,4 @@ Verificado a **2026-06**; los free tiers cambian — re-verificar antes de trata
 
 ---
 
-Cross-refs: `stack.md` (qué servicios), `infra.md` (dev local/Docker/puertos), `seguridad-web.md` (secretos), `privacidad.md` (PII/GDPR), `observabilidad.md` (Sentry/logs). Decisiones: DR-035 (Vercel/pagos), DR-036 (servicios estándar + modelo de cuenta), DR-037 (secretos + aprovisionamiento), DR-038 (notificación en gates).
+Cross-refs: `stack.md` (qué servicios), `infra.md` (dev local/Docker/puertos), `web-security.md` (secretos), `privacy.md` (PII/GDPR), `observability.md` (Sentry/logs). Decisiones: DR-035 (Vercel/pagos), DR-036 (servicios estándar + modelo de cuenta), DR-037 (secretos + aprovisionamiento), DR-038 (notificación en gates).

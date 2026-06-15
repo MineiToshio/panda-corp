@@ -17,8 +17,8 @@ tipos_proyecto: []         # app-web | app-mobile | rework | claude-code | promp
 # Perfil del dueño
 
 > **Plantilla.** Este es el *seed* versionado. `/pandacorp:onboarding` lo copia a
-> `fabrica/perfil.md` (que es **personal y gitignored**) y lo rellena entrevistándote.
-> La fábrica lee `fabrica/perfil.md` para personalizar la operación —cómo llamarte, a qué
+> `factory/profile.md` (que es **personal y gitignored**) y lo rellena entrevistándote.
+> La fábrica lee `factory/profile.md` para personalizar la operación —cómo llamarte, a qué
 > cuenta de GitHub crear repos, dónde nacen los proyectos— y, sobre todo, para que
 > **`discover` y `recommend` te propongan ideas bien alineadas a vos**.
 >

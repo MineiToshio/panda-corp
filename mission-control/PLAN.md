@@ -4,17 +4,17 @@
 >
 > **Principio rector:** el dashboard NUNCA llama a Claude. Solo lee archivos del repo y genera texto de comandos para copiar. Toda ejecución la hace el dueño pegando el comando en la app de Claude Code → usa su suscripción Claude Max. El dueño es débil en UX → la UI debe ser mínima y limpia.
 
-> **Documentación de producto (fuente de verdad):** `docs/prd.md` + `docs/frds/` (FRD-01 a FRD-13: lectura, tablero, portfolio, workspace, work orders, Party RPG, configuración, documentación, gamificación, salón de logros, modos de construcción, **observabilidad/data-viz**, **sistema visual y accesibilidad**) + `docs/logros.md`. El prototipo navegable (`prototype/index.html`) es el diseño aprobado. Este PLAN es la **secuencia de construcción**; ante cualquier duda de alcance, mandan los FRDs. **Refuerzos de UX (investigación 2026, `../docs/propuestas/06-plan-de-mejoras-2026.md`):** color persistente por agente reusado en sprites+feed+kanban, fallo como estado de primera clase, `tabular-nums`, acento racionado, tema OKLCH de pocos tokens, motion <300ms con `prefers-reduced-motion`, feed follow-tail+pin+cap, Live Pulse, toggle RPG↔timeline, KPIs ≤5 (FRD-12/FRD-13). Pendiente: blueprint formal (stack/arquitectura) a partir de los FRDs.
+> **Documentación de producto (fuente de verdad):** `docs/prd.md` + `docs/frds/` (FRD-01 a FRD-13: lectura, tablero, portfolio, workspace, work orders, Party RPG, configuración, documentación, gamificación, salón de logros, modos de construcción, **observabilidad/data-viz**, **sistema visual y accesibilidad**) + `docs/achievements.md`. El prototipo navegable (`prototype/index.html`) es el diseño aprobado. Este PLAN es la **secuencia de construcción**; ante cualquier duda de alcance, mandan los FRDs. **Refuerzos de UX (investigación 2026, `../docs/proposals/06-improvement-plan-2026.md`):** color persistente por agente reusado en sprites+feed+kanban, fallo como estado de primera clase, `tabular-nums`, acento racionado, tema OKLCH de pocos tokens, motion <300ms con `prefers-reduced-motion`, feed follow-tail+pin+cap, Live Pulse, toggle RPG↔timeline, KPIs ≤5 (FRD-12/FRD-13). Pendiente: blueprint formal (stack/arquitectura) a partir de los FRDs.
 
 ## Objetivo (qué es "terminado")
 
 Una app web local en `http://127.0.0.1:3000` con tres paneles sobre datos reales de la fábrica, y `.pandacorp/verify.sh` en verde. Criterios de aceptación globales:
 
 - [ ] `bash .pandacorp/verify.sh` pasa (biome + tsc --noEmit + vitest run), sin errores ni warnings nuevos.
-- [ ] Panel **Ideas**: kanban de las fichas de `fabrica/ideas/*.md` agrupadas por `estado`; cada tarjeta muestra título, score y tipo. **El tablero es de solo-lectura: las tarjetas NO se mueven a mano** — su columna refleja el `estado:` que escriben los skills al ejecutarse (new-idea→documentada, recommend→recomendada, scaffold→en-pipeline, release→lanzada). Pandacorp reemplaza a Obsidian como visor.
-- [ ] **Vista de detalle a página completa** (clic en una tarjeta): cabecera (título, tipo, score, estado), **resumen con puntos clave**, **navegador de los documentos** del proyecto (idea-origen.md, investigación, PRD, blueprint…) renderizados, y el comando del siguiente paso con botón Copiar.
+- [ ] Panel **Ideas**: kanban de las fichas de `factory/ideas/*.md` agrupadas por `estado`; cada tarjeta muestra título, score y tipo. **El tablero es de solo-lectura: las tarjetas NO se mueven a mano** — su columna refleja el `estado:` que escriben los skills al ejecutarse (new-idea→documentada, recommend→recomendada, scaffold→en-pipeline, release→lanzada). Pandacorp reemplaza a Obsidian como visor.
+- [ ] **Vista de detalle a página completa** (clic en una tarjeta): cabecera (título, tipo, score, estado), **resumen con puntos clave**, **navegador de los documentos** del proyecto (idea-origin.md, investigación, PRD, blueprint…) renderizados, y el comando del siguiente paso con botón Copiar.
 - [ ] **Botón Descartar** en el detalle: única escritura manual de Pandacorp — reescribe `estado: descartada` en el .md (es una decisión humana, no un paso de construcción). Test de que no corrompe el YAML ni el cuerpo.
-- [ ] Panel **Portfolio**: tabla de proyectos leída de `fabrica/portfolio.md` + el `docs/estado.yaml` de cada proyecto (fase, versión, resumen, fecha).
+- [ ] Panel **Portfolio**: tabla de proyectos leída de `factory/portfolio.md` + el `docs/status.yaml` de cada proyecto (fase, versión, resumen, fecha).
 - [ ] **Siguiente paso + copiar**: cada idea y cada proyecto muestra el comando sugerido según su `estado`/`fase`, con botón "Copiar" y la indicación de en qué carpeta abrir la sesión de Claude Code.
 - [ ] La app **no hace ninguna llamada a Claude** (no `claude -p`, no Agent SDK, no API key). Solo lee/escribe archivos locales.
 - [ ] Se refresca sola (re-lee los archivos cada pocos segundos) para reflejar cambios tras ejecutar un comando.
@@ -25,7 +25,7 @@ Una app web local en `http://127.0.0.1:3000` con tres paneles sobre datos reales
 - Next.js 16 (App Router, Server Components leen el filesystem) + TypeScript `strict` + `noUncheckedIndexedAccess`
 - Tailwind CSS + componentes propios mínimos (sin sistema de diseño elaborado)
 - Biome (lint+format), Vitest (tests)
-- Libs: `gray-matter` (frontmatter de ideas), `yaml` (estado.yaml), `react-markdown` (render de fichas)
+- Libs: `gray-matter` (frontmatter de ideas), `yaml` (status.yaml), `react-markdown` (render de fichas)
 - Sin base de datos (el repo de la fábrica ES la base de datos), sin auth, **sin SDK ni subprocesos de Claude**
 
 ## Configuración de rutas (constantes en `lib/config.ts`)
@@ -34,9 +34,9 @@ Una app web local en `http://127.0.0.1:3000` con tres paneles sobre datos reales
 FACTORY_ROOT = raíz del repo de la fábrica (el repo que contiene mission-control/);
                resolver con `git rev-parse --show-toplevel` o `path.resolve(process.cwd(), "..")`,
                override opcional con la env var PANDACORP_FACTORY_ROOT
-IDEAS_DIR    = FACTORY_ROOT + "/fabrica/ideas"      (ignorar _plantilla-ficha.md)
-PORTFOLIO    = FACTORY_ROOT + "/fabrica/portfolio.md"
-PROJECTS     = filas del portfolio → cada ruta → docs/estado.yaml
+IDEAS_DIR    = FACTORY_ROOT + "/factory/ideas"      (ignorar _idea-template.md)
+PORTFOLIO    = FACTORY_ROOT + "/factory/portfolio.md"
+PROJECTS     = filas del portfolio → cada ruta → docs/status.yaml
 ```
 
 ## Lógica de "siguiente comando" (en `lib/next-step.ts`, con tests)
@@ -73,12 +73,12 @@ La UI muestra, junto al comando, la ruta de la carpeta (con su propio botón de 
 
 ### Fase 1 — Capa de lectura (con tests primero)
 - [ ] `lib/ideas.ts`: lee y parsea las fichas (título, estado, score, tipo, slug, cuerpo). Test con fixtures.
-- [ ] `lib/portfolio.ts`: parsea la tabla del portfolio y lee el `estado.yaml` de cada proyecto; tolera rutas rotas (marca el proyecto, no rompe). Test.
+- [ ] `lib/portfolio.ts`: parsea la tabla del portfolio y lee el `status.yaml` de cada proyecto; tolera rutas rotas (marca el proyecto, no rompe). Test.
 - [ ] `lib/next-step.ts`: la tabla de arriba como función pura. Test de cada caso.
 
 ### Fase 2 — Panel Ideas (tablero solo-lectura) + detalle a página completa
 - [ ] Kanban por `estado` (columnas en orden del pipeline + columna `descartada` al final, atenuada). Tarjeta = título + chip de tipo + score. SIN flechas ni drag: solo-lectura.
-- [ ] Clic en tarjeta → **vista a página completa** (no drawer): cabecera + resumen con puntos clave + navegador de documentos (Resumen | idea-origen.md | investigación | PRD | …) que renderiza el .md elegido + bloque "Siguiente paso" (comando + carpeta con botón Copiar) + botón "Descartar idea" + "Volver al tablero".
+- [ ] Clic en tarjeta → **vista a página completa** (no drawer): cabecera + resumen con puntos clave + navegador de documentos (Resumen | idea-origin.md | investigación | PRD | …) que renderiza el .md elegido + bloque "Siguiente paso" (comando + carpeta con botón Copiar) + botón "Descartar idea" + "Volver al tablero".
 - [ ] Leyenda breve: qué significan los tipos (monetizable/personal/ambas) y el score.
 - [ ] Estados vacío / cargando / error.
 - Nota: el prototipo navegable de referencia está en `prototype/index.html`.
@@ -116,5 +116,5 @@ La UI muestra, junto al comando, la ruta de la carpeta (con su propio botón de 
 7. **Terminar cuando** todos los criterios de aceptación globales estén marcados. No seguir agregando features.
 
 ## Notas
-- Si una decisión no está cubierta aquí, aplicar el registro de decisiones de la fábrica (`../panda-corp/fabrica/decisiones/registro.yaml`); si tampoco, parar y preguntar al dueño.
-- El `estado.yaml` de proyectos puede no existir aún (por ahora solo está la fábrica + este panel): manejar el caso vacío con gracia.
+- Si una decisión no está cubierta aquí, aplicar el registro de decisiones de la fábrica (`../panda-corp/factory/decisions/registry.yaml`); si tampoco, parar y preguntar al dueño.
+- El `status.yaml` de proyectos puede no existir aún (por ahora solo está la fábrica + este panel): manejar el caso vacío con gracia.

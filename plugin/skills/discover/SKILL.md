@@ -12,7 +12,7 @@ Discovery de oportunidades. `$ARGUMENTS` puede acotar el nicho (ej: "/pandacorp:
 
 ## Paso 0 — Lee el perfil
 
-Lee `fabrica/perfil.md` (lo genera `/pandacorp:onboarding`). Extrae intereses, hobbies, gustos/rechazos, objetivos, **activos/palancas** (audiencia, comunidad, red, nicho, skills, datos), apetito de monetización y tipos de proyecto preferidos. Si no existe el perfil, dilo y sugerí correr onboarding; podés continuar solo con la corriente general (abajo) hasta que haya perfil.
+Lee `factory/profile.md` (lo genera `/pandacorp:onboarding`). Extrae intereses, hobbies, gustos/rechazos, objetivos, **activos/palancas** (audiencia, comunidad, red, nicho, skills, datos), apetito de monetización y tipos de proyecto preferidos. Si no existe el perfil, dilo y sugerí correr onboarding; podés continuar solo con la corriente general (abajo) hasta que haya perfil.
 
 ## Pasos
 
@@ -32,9 +32,9 @@ Lee `fabrica/perfil.md` (lo genera `/pandacorp:onboarding`). Extrae intereses, h
 
 2. **Filtra** con criterios Pandacorp: implementable por una persona en semanas (no meses) con los golden paths o como tooling/prompt/automatización; sin requisitos regulatorios pesados (salud, finanzas reguladas); y con **retorno claro** — monetario **o** de oportunidad/valor para el dueño.
 
-3. **Deduplica contra la base existente**: lee los frontmatter de `fabrica/ideas/*.md`; si la oportunidad ya está, agrega la evidencia nueva a esa ficha en vez de duplicar.
+3. **Deduplica contra la base existente**: lee los frontmatter de `factory/ideas/*.md`; si la oportunidad ya está, agrega la evidencia nueva a esa ficha en vez de duplicar.
 
-4. **Documenta las mejores** (apunta a ~3-5 por corriente) como fichas (`fabrica/ideas/<slug>.md`, formato de `_plantilla-ficha.md`, `origen: discovery`, `estado: documentada`) con score y racional. Completa `tipo_proyecto`, `alineacion_perfil` y `retorno`. Los descartados interesantes: lístalos en el resumen sin crear ficha.
+4. **Documenta las mejores** (apunta a ~3-5 por corriente) como fichas (`factory/ideas/<slug>.md`, formato de `_idea-template.md`, `origen: discovery`, `estado: documentada`) con score y racional. Completa `tipo_proyecto`, `alineacion_perfil` y `retorno`. Los descartados interesantes: lístalos en el resumen sin crear ficha.
 
 5. **Reporta** en dos bloques —**Generales** y **Alineadas a vos**— cada uno con tabla (título, tipo de proyecto, score, tipo de retorno, dificultad) y tu recomendación. En las alineadas, explicá *por qué* encajan (qué interés/activo aprovechan).
 

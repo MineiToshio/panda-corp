@@ -11,15 +11,15 @@ Estándares de ingeniería que la fábrica inyecta en cada proyecto (vía el `AG
 
 | Dominio | Estándares |
 |---|---|
-| **Programación / Convenciones** | [convenciones.md](convenciones.md) · [api-design.md](api-design.md) |
-| **Arquitectura / Estructura** | [estructura.md](estructura.md) · [patrones.md](patrones.md) |
-| **Diseño / Design system** | [patrones.md](patrones.md) (tokens, tema, a11y); el design system se genera por proyecto en `/pandacorp:design` |
+| **Programación / Convenciones** | [conventions.md](conventions.md) · [api-design.md](api-design.md) |
+| **Arquitectura / Estructura** | [structure.md](structure.md) · [patterns.md](patterns.md) |
+| **Diseño / Design system** | [patterns.md](patterns.md) (tokens, tema, a11y); el design system se genera por proyecto en `/pandacorp:design` |
 | **Tecnología / Stack** | [stack.md](stack.md) (golden paths A/B/C/D) |
-| **Calidad / Testing** | [calidad.md](calidad.md) · [performance.md](performance.md) |
-| **Seguridad** | [seguridad-web.md](seguridad-web.md) (+ constitución §12, DR-017, agente `security-auditor`) |
-| **Operación / Observabilidad** | [infra.md](infra.md) (dev local) · [observabilidad.md](observabilidad.md) (producción) · [servicios-externos.md](servicios-externos.md) (cuentas, secretos, pagos, aprovisionamiento — DR-035..038) |
-| **Datos / Privacidad** | [privacidad.md](privacidad.md) |
-| **Producto / Documentación** | [documentacion.md](documentacion.md) (doc canónico + bitácora) · [seo-i18n.md](seo-i18n.md) (+ docs viva: constitución §20, DR-018) |
+| **Calidad / Testing** | [quality.md](quality.md) · [performance.md](performance.md) |
+| **Seguridad** | [web-security.md](web-security.md) (+ constitución §12, DR-017, agente `security-auditor`) |
+| **Operación / Observabilidad** | [infra.md](infra.md) (dev local) · [observability.md](observability.md) (producción) · [external-services.md](external-services.md) (cuentas, secretos, pagos, aprovisionamiento — DR-035..038) |
+| **Datos / Privacidad** | [privacy.md](privacy.md) |
+| **Producto / Documentación** | [documentation.md](documentation.md) (doc canónico + bitácora) · [seo-i18n.md](seo-i18n.md) (+ docs viva: constitución §20, DR-018) |
 
 ## Dos ejes transversales (por regla, no por archivo)
 

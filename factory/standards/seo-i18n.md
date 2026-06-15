@@ -7,7 +7,7 @@
 - Contenido renderizado de forma indexable (Server Components por defecto ayuda).
 
 ## Regla — i18n (si el PRD lo requiere)
-- Routing por subpath (`/es/`, `/fr/`) con `app/[lang]/…` + catálogo de mensajes con **next-intl** (español por defecto, ver `convenciones.md`).
+- Routing por subpath (`/es/`, `/fr/`) con `app/[lang]/…` + catálogo de mensajes con **next-intl** (español por defecto, ver `conventions.md`).
 - Nada de texto visible hardcodeado: todo vía i18n.
 
 ## Regla — SEO multi-idioma (si hay i18n)

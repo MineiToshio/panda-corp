@@ -4,15 +4,15 @@ Este repo es **la fábrica**: el know-how de la empresa. Aquí NUNCA vive códig
 
 ## Qué hay aquí
 
-- `fabrica/constitucion.md` — principios y estándares innegociables. **Léela antes de cualquier trabajo de fábrica.**
-- `fabrica/estandares/` — estándares de ingeniería que se inyectan en cada proyecto (convenciones, estructura, patrones, calidad, stack recomendado, servicios externos/cuentas/secretos). El stack es sugerencia; se elige y aprueba en el blueprint. Servicios por defecto, modelo de cuentas, secretos (SOPS+age) y pagos (Polar) viven en `servicios-externos.md`.
-- `fabrica/ideas/` — base de ideas (una ficha .md por idea, frontmatter con `estado`). **Tus fichas son personales (gitignored)**; se versiona la plantilla `_plantilla-ficha.md`.
-- `fabrica/perfil.md` — perfil del dueño (nombre, objetivos, GitHub, ruta de proyectos). **Personal (gitignored)**; lo genera `/pandacorp:onboarding` desde `perfil.example.md`. La fábrica lo lee para personalizarse.
-- `fabrica/portfolio.md` — índice de proyectos creados y su estado (punteros, no contenido). **Personal (gitignored)**; seed en `portfolio.example.md`.
-- `fabrica/decisiones/registro.yaml` — registro de decisiones con defaults pre-aprobados
+- `factory/constitution.md` — principios y estándares innegociables. **Léela antes de cualquier trabajo de fábrica.**
+- `factory/standards/` — estándares de ingeniería que se inyectan en cada proyecto (convenciones, estructura, patrones, calidad, stack recomendado, servicios externos/cuentas/secretos). El stack es sugerencia; se elige y aprueba en el blueprint. Servicios por defecto, modelo de cuentas, secretos (SOPS+age) y pagos (Polar) viven en `external-services.md`.
+- `factory/ideas/` — base de ideas (una ficha .md por idea, frontmatter con `estado`). **Tus fichas son personales (gitignored)**; se versiona la plantilla `_idea-template.md`.
+- `factory/profile.md` — perfil del dueño (nombre, objetivos, GitHub, ruta de proyectos). **Personal (gitignored)**; lo genera `/pandacorp:onboarding` desde `profile.example.md`. La fábrica lo lee para personalizarse.
+- `factory/portfolio.md` — índice de proyectos creados y su estado (punteros, no contenido). **Personal (gitignored)**; seed en `portfolio.example.md`.
+- `factory/decisions/registry.yaml` — registro de decisiones con defaults pre-aprobados
 - `plugin/` — el plugin `pandacorp` (skills, agentes, hooks, plantillas). Instalado vía marketplace local (ver *Mantenimiento del plugin*).
 - `docs/` — visión, investigación y propuestas
-- `BITACORA.md` — índice de bitácoras de decisiones (una por área). Ver sección **Bitácora**.
+- `DECISION-LOG.md` — índice de bitácoras de decisiones (una por área). Ver sección **Bitácora**.
 - `ideas.base` — vista kanban de Obsidian sobre la base de ideas
 
 ## Cómo se opera la fábrica
@@ -38,7 +38,7 @@ Las demás fases se ejecutan **dentro de la carpeta del proyecto**, sin nombre:
 
 Opcionales/internos: `:new-version` (hito grande con mini-PRD), `:scaffold` y `:work-orders` (pasos que normalmente invocan `spec`/`blueprint`).
 
-**Iterar sin avanzar (DR-032).** Ninguna fase manual (`explore`, `new-idea`, `spec`, `design`, `blueprint`) auto-avanza de columna: produce su output, marca `avance_pendiente: true` y espera tu "ok, avanza". **Re-correr la misma fase = seguir puliendo** (refina, no regenera ni repite lo descartado). La esencia del ida-y-vuelta se persiste en `docs/iteracion.md` del proyecto (en ideas sin proyecto: `fabrica/ideas/_borradores/<slug>.md`), para retomar aunque pierdas la conversación. No aplica a `implement` (autónomo, ya reanudable) ni cambia el gate de producción.
+**Iterar sin avanzar (DR-032).** Ninguna fase manual (`explore`, `new-idea`, `spec`, `design`, `blueprint`) auto-avanza de columna: produce su output, marca `avance_pendiente: true` y espera tu "ok, avanza". **Re-correr la misma fase = seguir puliendo** (refina, no regenera ni repite lo descartado). La esencia del ida-y-vuelta se persiste en `docs/iteration.md` del proyecto (en ideas sin proyecto: `factory/ideas/_drafts/<slug>.md`), para retomar aunque pierdas la conversación. No aplica a `implement` (autónomo, ya reanudable) ni cambia el gate de producción.
 
 ## Mantenimiento del plugin
 
@@ -49,7 +49,7 @@ El plugin está instalado desde el marketplace local de este repo (`claude plugi
 - **MINOR** (`x.Y.0`) — capacidad nueva compatible (skill o agente nuevo, opción nueva).
 - **MAJOR** (`X.0.0`) — breaking change (renombrar/eliminar un skill, cambiar un flujo de forma incompatible con proyectos existentes).
 
-Anota el porqué del cambio en `plugin/docs/bitacora.md`. La instalación local sigue rastreando el SHA del commit para detectar desfase (ver abajo); la `version` es la etiqueta semántica del release.
+Anota el porqué del cambio en `plugin/docs/decision-log.md`. La instalación local sigue rastreando el SHA del commit para detectar desfase (ver abajo); la `version` es la etiqueta semántica del release.
 
 Mission Control **avisa del desfase** (FRD-15): si hay cambios en `plugin/` sin commitear, o el SHA instalado (`~/.claude/plugins/installed_plugins.json`) quedó atrás del último commit del plugin, muestra un banner con el comando de actualización. Así no se olvida.
 
@@ -71,32 +71,32 @@ El doc canónico responde *"¿qué es verdad ahora?"*; la bitácora, *"¿cómo l
 | Arquitectura, stack, modelo de datos, decisión técnica | el **blueprint** + un **ADR** |
 | Diseño visual, tokens, componentes | **DESIGN.md** / design tokens |
 | Skill/agente/hook del plugin | el **archivo en `plugin/`** |
-| Una idea (contenido/estado) | su **ficha** `fabrica/ideas/<slug>.md` |
-| Convención/estándar de ingeniería | `fabrica/estandares/` |
-| Regla recurrente con default | `fabrica/decisiones/registro.yaml` |
+| Una idea (contenido/estado) | su **ficha** `factory/ideas/<slug>.md` |
+| Convención/estándar de ingeniería | `factory/standards/` |
+| Regla recurrente con default | `factory/decisions/registry.yaml` |
 
-**Bitácora — una por área (la historia, con el porqué):** índice en `BITACORA.md` (raíz).
+**Bitácora — una por área (la historia, con el porqué):** índice en `DECISION-LOG.md` (raíz).
 
 | Área | Archivo |
 |---|---|
-| Mission Control (app Next.js) | `mission-control/docs/bitacora.md` |
-| Plugin pandacorp | `plugin/docs/bitacora.md` |
-| Ideas (base y su proceso) | `fabrica/ideas/bitacora.md` |
-| Fábrica (constitución, estándares, operación) | `fabrica/bitacora.md` |
+| Mission Control (app Next.js) | `mission-control/docs/decision-log.md` |
+| Plugin pandacorp | `plugin/docs/decision-log.md` |
+| Ideas (base y su proceso) | `factory/ideas/decision-log.md` |
+| Fábrica (constitución, estándares, operación) | `factory/decision-log.md` |
 
-**Regla:** ante cualquier decisión o cambio relevante, actualiza el **doc canónico** *y* anota la entrada en la **bitácora del área** **antes de cerrar el turno**; enlázalos (en la entrada, campo *Impacto* → qué doc se actualizó). Lo más reciente arriba. No anotar cambios triviales ya evidentes en el commit. El `estado.yaml` de cada proyecto lo escriben los skills/CI, no a mano.
+**Regla:** ante cualquier decisión o cambio relevante, actualiza el **doc canónico** *y* anota la entrada en la **bitácora del área** **antes de cerrar el turno**; enlázalos (en la entrada, campo *Impacto* → qué doc se actualizó). Lo más reciente arriba. No anotar cambios triviales ya evidentes en el commit. El `status.yaml` de cada proyecto lo escriben los skills/CI, no a mano.
 
-**Tres cosas distintas, no las mezcles:** el **doc canónico** (FRD/PRD/blueprint/DESIGN/ficha) es la **verdad actual**; la **bitácora** es **historia**; `fabrica/decisiones/registro.yaml` es **política** (reglas con default). Una decisión que crea una regla va al registro *y* a la bitácora; un cambio de la app va a su FRD *y* a la bitácora. Para los **proyectos de producto** esta disciplina se inyecta como estándar propagable (`fabrica/estandares/documentacion.md`): cada proyecto nace con su `docs/bitacora.md` y la regla en su `CLAUDE.md`/`AGENTS.md`.
+**Tres cosas distintas, no las mezcles:** el **doc canónico** (FRD/PRD/blueprint/DESIGN/ficha) es la **verdad actual**; la **bitácora** es **historia**; `factory/decisions/registry.yaml` es **política** (reglas con default). Una decisión que crea una regla va al registro *y* a la bitácora; un cambio de la app va a su FRD *y* a la bitácora. Para los **proyectos de producto** esta disciplina se inyecta como estándar propagable (`factory/standards/documentation.md`): cada proyecto nace con su `docs/decision-log.md` y la regla en su `CLAUDE.md`/`AGENTS.md`.
 
 ## Reglas de esta carpeta
 
-1. Idioma — **el estado en git decide el idioma** (regla *committed = inglés / gitignored = español*). Todo lo **committeado** va en inglés: código, commits, **nombres de archivo y carpeta**, y los documentos de producto/técnicos (PRD, FRD, blueprint, ADR, README, tests, y la `docs/bitacora.md` del proyecto). Todo lo **gitignored** va en español: la comunicación con Pandacorp (resumen del proyecto, `docs/decisiones.md`, logs, actividad, feed de Mission Control, `docs/iteracion.md`) y los datos personales del dueño. `docs/estado.yaml` se committea con solo estado de máquina en inglés (claves/enums/contadores/SHAs); su prosa legible vive en la capa española gitignored. Así, quien clona el repo lo ve todo en inglés y el dueño opera Pandacorp en español. Detalle en `fabrica/estandares/convenciones.md` (Idioma) y `DR-009`.
-2. Toda decisión recurrente se resuelve consultando `fabrica/decisiones/registro.yaml`. Si no está cubierta: escalar al dueño UNA vez y codificar su respuesta como regla nueva en el registro.
+1. Idioma — **el estado en git decide el idioma** (regla *committed = inglés / gitignored = español*). Todo lo **committeado** va en inglés: código, commits, **nombres de archivo y carpeta**, y los documentos de producto/técnicos (PRD, FRD, blueprint, ADR, README, tests, y la `docs/decision-log.md` del proyecto). Todo lo **gitignored** va en español: la comunicación con Pandacorp (resumen del proyecto, `docs/decisions.md`, logs, actividad, feed de Mission Control, `docs/iteration.md`) y los datos personales del dueño. `docs/status.yaml` se committea con solo estado de máquina en inglés (claves/enums/contadores/SHAs); su prosa legible vive en la capa española gitignored. Así, quien clona el repo lo ve todo en inglés y el dueño opera Pandacorp en español. Detalle en `factory/standards/conventions.md` (Idioma) y `DR-009`.
+2. Toda decisión recurrente se resuelve consultando `factory/decisions/registry.yaml`. Si no está cubierta: escalar al dueño UNA vez y codificar su respuesta como regla nueva en el registro.
 3. Gates humanos (el dueño): selección de ideas (ejecutar `/pandacorp:scaffold` sobre la elegida; descartar el resto desde Mission Control), elección de diseño, release a producción, gastar dinero, comunicaciones externas, borrar datos. El tablero de ideas es solo-lectura: los estados los escriben los skills.
 4. Los agentes nunca marcan sus propios checks: la verificación es de scripts/CI.
-5. El estado de cada idea vive SOLO en el frontmatter de su ficha. El estado detallado de cada proyecto vive SOLO en su `docs/estado.yaml`. El portfolio solo guarda punteros y resúmenes.
-6. Documentar todo: cada decisión relevante se anota en la bitácora del área (ver sección **Bitácora**) antes de cerrar el turno. La bitácora es historia; `registro.yaml` es política.
+5. El estado de cada idea vive SOLO en el frontmatter de su ficha. El estado detallado de cada proyecto vive SOLO en su `docs/status.yaml`. El portfolio solo guarda punteros y resúmenes.
+6. Documentar todo: cada decisión relevante se anota en la bitácora del área (ver sección **Bitácora**) antes de cerrar el turno. La bitácora es historia; `registry.yaml` es política.
 7. **Marco vs datos del dueño (DR-033).** Distingue siempre tres planos y NUNCA mezcles datos personales con el marco versionado:
-   - **El marco** — versionado y compartido, igual para cualquiera que clone el repo: `plugin/`, `fabrica/constitucion.md`, `fabrica/estandares/`, `fabrica/decisiones/registro.yaml`, la app **Mission Control**, plantillas y los seeds `*.example.md`.
-   - **Los datos del dueño** — personales y **gitignored**, NUNCA al repo público: `fabrica/perfil.md` (el perfil que genera `/pandacorp:onboarding`; de ahí la fábrica saca nombre, objetivos, intereses, activos, cuenta de GitHub y ruta de proyectos — es la **única fuente** de configuración del usuario), `fabrica/portfolio.md` y `fabrica/ideas/*.md`. Secretos/credenciales tampoco van al repo (DR-037).
+   - **El marco** — versionado y compartido, igual para cualquiera que clone el repo: `plugin/`, `factory/constitution.md`, `factory/standards/`, `factory/decisions/registry.yaml`, la app **Mission Control**, plantillas y los seeds `*.example.md`.
+   - **Los datos del dueño** — personales y **gitignored**, NUNCA al repo público: `factory/profile.md` (el perfil que genera `/pandacorp:onboarding`; de ahí la fábrica saca nombre, objetivos, intereses, activos, cuenta de GitHub y ruta de proyectos — es la **única fuente** de configuración del usuario), `factory/portfolio.md` y `factory/ideas/*.md`. Secretos/credenciales tampoco van al repo (DR-037).
    - **Los proyectos de producto** — en carpetas/repos **hermanos**, fuera de la fábrica, con su propia documentación en su `docs/`.

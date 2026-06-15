@@ -2,7 +2,7 @@
 
 Historia de decisiones y cambios del proyecto, con el **porqué**. Lo más reciente arriba.
 
-> **Dos capas (estándar de la fábrica).** Todo cambio relevante actualiza su **doc canónico** (FRD/PRD/blueprint/DESIGN — ver `CLAUDE.md`, *Mapa de documentación*) **y** añade aquí una entrada que lo enlace. La bitácora es la HISTORIA (qué/por qué); el doc canónico es la VERDAD actual. No confundir con `docs/iteracion.md` (memoria de fase, transitoria).
+> **Dos capas (estándar de la fábrica).** Todo cambio relevante actualiza su **doc canónico** (FRD/PRD/blueprint/DESIGN — ver `CLAUDE.md`, *Mapa de documentación*) **y** añade aquí una entrada que lo enlace. La bitácora es la HISTORIA (qué/por qué); el doc canónico es la VERDAD actual. No confundir con `docs/iteration.md` (memoria de fase, transitoria).
 
 <!-- Formato de cada entrada (la más reciente arriba):
 

@@ -9,7 +9,7 @@
 
 ## Regla — REST
 - Recursos bien nombrados, versionado `/v1`, paginación, **códigos HTTP estándar**.
-- **Validación en el borde antes de la lógica** (Zod / pydantic), que genera estos cuerpos de error de forma consistente. (Reusa la convención de validación en fronteras de `convenciones.md`, definiéndole su salida.)
+- **Validación en el borde antes de la lógica** (Zod / pydantic), que genera estos cuerpos de error de forma consistente. (Reusa la convención de validación en fronteras de `conventions.md`, definiéndole su salida.)
 
 ## Cómo se verifica
 - `verify.sh` / lint asevera el content-type `application/problem+json` y la presencia de los miembros requeridos en las respuestas de error.

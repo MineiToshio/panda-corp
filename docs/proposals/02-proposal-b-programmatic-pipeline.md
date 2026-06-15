@@ -15,7 +15,7 @@ panda-corp/
 │   ├── stages/*.ts                   # cada etapa: prompt + json-schema + validador + retry acotado
 │   ├── policies/                     # registro de decisiones como código (auto-defaults, escalado)
 │   └── audit/                        # log inmutable de cada decisión de agente
-├── fabrica/ (constitucion, plantillas, portfolio)   # igual que en A
+├── factory/ (constitucion, plantillas, portfolio)   # igual que en A
 └── .github/workflows/               # CI de la propia fábrica
 
 proyecto-x/  (repo GitHub propio, creado por el orquestador)

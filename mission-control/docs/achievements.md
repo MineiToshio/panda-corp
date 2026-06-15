@@ -36,4 +36,4 @@ Nombres por tier (escalan en grandiosidad), ej. Productos lanzados: El primer la
 ## UX
 Character sheet de stats + sección "Casi ahí" (top 3 cadenas por % al siguiente tier, efecto Zeigarnik) + cadenas con barra al siguiente tier y pips de tier + únicos por categoría. Futuro: meta-logros (Sellos con título), "Nuevo" 7 días tras desbloquear, rareza estimada.
 
-Investigación: [docs/investigacion/08-gamificacion.md](../../docs/investigacion/08-gamificacion.md) y fuentes ahí.
+Investigación: [docs/research/08-gamification.md](../../docs/research/08-gamification.md) y fuentes ahí.

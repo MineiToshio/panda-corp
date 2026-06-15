@@ -1,6 +1,6 @@
 # FRD-12 — Observabilidad y visualización de datos
 
-La capa "honesta" de Pandacorp: leer de un vistazo el estado de la fábrica y entender *dónde se atascó algo*, complementando el show RPG de Party. Derivado de la investigación 2026 (ver [docs/propuestas/06](../../../docs/propuestas/06-plan-de-mejoras-2026.md)). Solo-lectura, sin llamar a Claude.
+La capa "honesta" de Pandacorp: leer de un vistazo el estado de la fábrica y entender *dónde se atascó algo*, complementando el show RPG de Party. Derivado de la investigación 2026 (ver [docs/proposals/06](../../../docs/proposals/06-improvement-plan-2026.md)). Solo-lectura, sin llamar a Claude.
 
 ## Criterios de aceptación (EARS)
 

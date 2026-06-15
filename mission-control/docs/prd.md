@@ -16,7 +16,7 @@ Una vista de solo-lectura que muestre estado + documentación + el siguiente com
 - **Solo-lectura**: nunca llama a Claude ni ejecuta nada. Única escritura: marcar una idea como `descartada`.
 - **Lee archivos**: base de ideas y portfolio en la fábrica; documentación y estado de cada proyecto en su carpeta.
 - **Local**: escucha en `127.0.0.1`. Sin auth, sin deploy.
-- **Gamificación honesta**: representa trabajo real (XP por resultado, no por volumen ni por abrir la app). Nada de leaderboards, vidas/muerte, rachas diarias ni urgencia falsa (ver [FRD-09](frds/frd-09-gamificacion.md)).
+- **Gamificación honesta**: representa trabajo real (XP por resultado, no por volumen ni por abrir la app). Nada de leaderboards, vidas/muerte, rachas diarias ni urgencia falsa (ver [FRD-09](frds/frd-09-gamification.md)).
 
 ## Qué queremos lograr (objetivos de producto)
 1. Ver de un vistazo el estado de toda la fábrica (ideas, proyectos, agentes).
@@ -27,7 +27,7 @@ Una vista de solo-lectura que muestre estado + documentación + el siguiente com
 6. Que otra persona pueda entender todo el sistema (documentación interna).
 
 ## Scope v1
-Cinco pestañas — **Tablero, Portfolio, Logros, Configuración, Documentación** — + el **workspace por proyecto** + **Party RPG** + **gamificación** (logros/stats/XP/niveles) + **modos de construcción** + **snapshot probable y canales de feedback** ([FRD-14](frds/frd-14-snapshot-y-feedback.md): panel de "último punto probable / construyendo ahora" con comando de worktree, chips de decisiones/bugs por proyecto), según los FRDs (`docs/frds/`, FRD-01 a FRD-14). El prototipo navegable (`mission-control/prototype/index.html`) es el diseño aprobado. Transversal a todas las pestañas: **observabilidad y data-viz** ([FRD-12](frds/frd-12-observabilidad-dataviz.md): KPIs, frescura del dato, toggle RPG↔timeline, DAG) y el **sistema visual y de accesibilidad** ([FRD-13](frds/frd-13-sistema-visual-accesibilidad.md): tokens OKLCH, acento racionado, `tabular-nums`, motion sobrio, `prefers-reduced-motion`, estado por icono+color).
+Cinco pestañas — **Tablero, Portfolio, Logros, Configuración, Documentación** — + el **workspace por proyecto** + **Party RPG** + **gamificación** (logros/stats/XP/niveles) + **modos de construcción** + **snapshot probable y canales de feedback** ([FRD-14](frds/frd-14-snapshot-and-feedback.md): panel de "último punto probable / construyendo ahora" con comando de worktree, chips de decisiones/bugs por proyecto), según los FRDs (`docs/frds/`, FRD-01 a FRD-14). El prototipo navegable (`mission-control/prototype/index.html`) es el diseño aprobado. Transversal a todas las pestañas: **observabilidad y data-viz** ([FRD-12](frds/frd-12-observability-dataviz.md): KPIs, frescura del dato, toggle RPG↔timeline, DAG) y el **sistema visual y de accesibilidad** ([FRD-13](frds/frd-13-visual-system-accessibility.md): tokens OKLCH, acento racionado, `tabular-nums`, motion sobrio, `prefers-reduced-motion`, estado por icono+color).
 
 ## No-objetivos (v1)
 - No ejecuta comandos ni agentes (el dueño los pega en Claude Code).

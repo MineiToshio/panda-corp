@@ -36,7 +36,7 @@ claude plugin install pandacorp@panda-corp
 ```
 
 `/pandacorp:onboarding` es **el primer paso**: te entrevista (nombre, objetivos, cuenta de GitHub,
-dónde nacen tus proyectos, cómo trabajas) y guarda tu perfil en `fabrica/perfil.md` — un archivo
+dónde nacen tus proyectos, cómo trabajas) y guarda tu perfil en `factory/profile.md` — un archivo
 **personal y gitignored** que el resto de la fábrica lee para personalizarse. Convierte una fábrica
 genérica en *tu* fábrica.
 
@@ -69,17 +69,17 @@ agentes del workflow en vivo). **Nunca llama a Claude** — solo lee los archivo
 
 ```
 panda-corp/
-├── fabrica/
-│   ├── constitucion.md            principios innegociables
-│   ├── estandares/                ingeniería que se inyecta en cada proyecto
-│   ├── decisiones/registro.yaml   reglas recurrentes con default pre-aprobado
+├── factory/
+│   ├── constitution.md            principios innegociables
+│   ├── standards/                ingeniería que se inyecta en cada proyecto
+│   ├── decisions/registry.yaml   reglas recurrentes con default pre-aprobado
 │   ├── ideas/                     base de ideas (tus fichas son personales/gitignored)
-│   ├── perfil.example.md          seed de tu perfil  → /onboarding crea perfil.md
+│   ├── profile.example.md          seed de tu perfil  → /onboarding crea profile.md
 │   └── portfolio.example.md       seed del portfolio → /onboarding crea portfolio.md
 ├── plugin/                        el plugin pandacorp (skills, agentes, hooks, plantillas)
 ├── mission-control/                       la interfaz visual (Next.js, solo-lectura)
 ├── docs/                          visión, investigación y propuestas (el porqué del diseño)
-├── BITACORA.md                    índice de bitácoras de decisiones
+├── DECISION-LOG.md                    índice de bitácoras de decisiones
 └── CLAUDE.md                      constitución operativa de la fábrica
 ```
 
@@ -87,9 +87,9 @@ panda-corp/
 
 Lo que es **tuyo** vive en tu disco pero **no se sube** (ver [.gitignore](.gitignore)):
 
-- `fabrica/perfil.md` — tu perfil (lo genera `/pandacorp:onboarding`).
-- `fabrica/portfolio.md` — tu índice de proyectos.
-- `fabrica/ideas/*.md` — tus fichas de ideas (se conserva la plantilla `_plantilla-ficha.md`).
+- `factory/profile.md` — tu perfil (lo genera `/pandacorp:onboarding`).
+- `factory/portfolio.md` — tu índice de proyectos.
+- `factory/ideas/*.md` — tus fichas de ideas (se conserva la plantilla `_idea-template.md`).
 - Los proyectos de producto viven en **carpetas/repos separados**, fuera de esta.
 
 Los seeds `*.example.md` versionados son las plantillas a partir de las cuales el onboarding
@@ -98,8 +98,8 @@ genera tus archivos reales.
 ## Filosofía de decisiones
 
 Tres cosas distintas, no se mezclan: el **doc canónico** (FRD/PRD/blueprint/ficha) es la *verdad
-actual*; la **bitácora** (`BITACORA.md` y las de cada área) es la *historia* (qué cambió y por qué);
-`fabrica/decisiones/registro.yaml` es la *política* (reglas recurrentes con default pre-aprobado).
+actual*; la **bitácora** (`DECISION-LOG.md` y las de cada área) es la *historia* (qué cambió y por qué);
+`factory/decisions/registry.yaml` es la *política* (reglas recurrentes con default pre-aprobado).
 
 ## Licencia
 

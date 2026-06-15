@@ -1,5 +1,5 @@
 ---
-description: Sincroniza el portfolio de Pandacorp - detecta tarjetas movidas en el kanban de ideas (cambios de estado en frontmatter) y refresca el estado de cada proyecto leyendo su estado.yaml. Usar en panda-corp, a demanda o como job periódico.
+description: Sincroniza el portfolio de Pandacorp - detecta tarjetas movidas en el kanban de ideas (cambios de estado en frontmatter) y refresca el estado de cada proyecto leyendo su status.yaml. Usar en panda-corp, a demanda o como job periódico.
 ---
 
 # /pandacorp:sync-portfolio
@@ -20,7 +20,7 @@ Sincronización fábrica ↔ proyectos. Se ejecuta EN panda-corp.
 
 ## Parte 2 — Refrescar el portfolio (proyectos → fábrica)
 
-3. Por cada fila de `fabrica/portfolio.md`: lee el `docs/estado.yaml` del proyecto siguiendo su ruta y actualiza fase/resumen/fecha de sync.
+3. Por cada fila de `factory/portfolio.md`: lee el `docs/status.yaml` del proyecto siguiendo su ruta y actualiza fase/resumen/fecha de sync.
 4. **Ruta rota** (carpeta movida o borrada): NO borres la fila — márcala `⚠️ ruta no encontrada` y pregunta al dueño.
 5. Consistencia: si un proyecto está `lanzada` pero su ficha de idea no, corrige la ficha (y viceversa, reporta la discrepancia).
 

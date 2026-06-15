@@ -26,8 +26,8 @@ panda-corp/  (la fábrica)
 │   ├── revisar/SKILL.md              # /pandacorp:revisar (panel multi-lente)
 │   └── release/SKILL.md              # /pandacorp:release (gate H2)
 ├── hooks/hooks.json                  # bloqueos + verify-before-stop
-├── fabrica/
-│   ├── constitucion.md  decisiones/registro.yaml
+├── factory/
+│   ├── constitution.md  decisiones/registry.yaml
 │   ├── plantillas/ (stack-a/ stack-b/ stack-c/ stack-d/ AGENTS.md.tpl CLAUDE.md.tpl)
 │   └── portfolio.md
 └── docs/ (investigacion/ propuestas/ adr/)

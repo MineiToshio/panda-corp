@@ -1,6 +1,6 @@
 # Propuesta — Interfaz / Mission Control de Pandacorp
 
-> Generado 2026-06-13. Investigación en `docs/investigacion/` (panorama de interfaces sobre Claude Code). El operador quiere ver estado, leer documentos y disparar acciones sin depender de la terminal pura.
+> Generado 2026-06-13. Investigación en `docs/research/` (panorama de interfaces sobre Claude Code). El operador quiere ver estado, leer documentos y disparar acciones sin depender de la terminal pura.
 
 ## El problema en una frase
 
@@ -22,7 +22,7 @@ Los skills son buenos para **ejecutar**, pero no para **ver, leer y organizar**.
 
 2. **Obsidian**: abres la carpeta como vault. Un tablero kanban vivo agrupa tus ideas por `estado` (arrastras tarjetas → cambia el archivo). Clicas una ficha y la lees formateada. Un par de botones en la nota disparan skills cortos (`/pandacorp:recommend`, `:sync-portfolio`). Límite: no ves el output en vivo y solo lee de una carpeta (los proyectos van por symlink).
 
-3. **Dashboard web local**: abres `localhost:3000`. Tres paneles — kanban de ideas, tabla de portfolio (lee el `estado.yaml` de cada proyecto), y una consola. Clicas "avanzar a spec" en una idea y se abre un panel que **transmite en vivo** lo que hace Claude mientras corre el skill; al terminar, la tarjeta se refresca sola. Es la única opción que entiende tu modelo de datos propio Y dispara con feedback en vivo. La fábrica se lo construye a sí misma (un work order + `/pandacorp:implement`).
+3. **Dashboard web local**: abres `localhost:3000`. Tres paneles — kanban de ideas, tabla de portfolio (lee el `status.yaml` de cada proyecto), y una consola. Clicas "avanzar a spec" en una idea y se abre un panel que **transmite en vivo** lo que hace Claude mientras corre el skill; al terminar, la tarjeta se refresca sola. Es la única opción que entiende tu modelo de datos propio Y dispara con feedback en vivo. La fábrica se lo construye a sí misma (un work order + `/pandacorp:implement`).
 
 4. **GUIs de terceros**: instalas y listo, pero todas miran la capa de sesiones de Claude Code (`~/.claude/`), no tu base de ideas ni tu portfolio. Sirven como monitor de sesiones, no como Mission Control de la fábrica.
 
