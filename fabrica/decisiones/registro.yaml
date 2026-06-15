@@ -182,3 +182,31 @@ decisiones:
     default: "el plugin lleva `version` semver en plugin/.claude-plugin/plugin.json (fuente de verdad) y SE SUBE en cada cambio de plugin/: PATCH (x.y.Z) fix/ajuste/doc sin cambiar comportamiento; MINOR (x.Y.0) capacidad nueva compatible (skill/agente/opción nueva); MAJOR (X.0.0) breaking change (renombrar/eliminar un skill, cambiar un flujo de forma incompatible). El bump es parte del flujo 'tras editar plugin/': subir versión → commit → claude plugin update. Anotar el porqué en plugin/docs/bitacora.md."
     requiere_humano: false
     nota: "la instalación local rastrea el SHA para detectar desfase (FRD-15); la version es la etiqueta semántica del release."
+
+  - id: DR-035
+    patron: "una versión incluye pagos/cobro a usuarios (checkout Polar, suscripción, anuncios, donaciones) y se despliega en Vercel"
+    default: "NO bloquear el trabajo (no es un gate). ADVERTIR al dueño en 3 momentos —al definir el PRD (cuando se decide que hay pagos), en el blueprint (plan de hosting) y en el release (antes del deploy)— que Vercel Hobby prohíbe uso comercial y su suspensión es de CUENTA COMPLETA sin aviso garantizado; si la versión cobra dinero requiere Vercel Pro (USD 20/mes por seat, cubre todo el team + USD 20 de crédito). El dueño decide continuar o detener. Estructura: un solo team Pro para todas las apps lanzadas; el día que una app enciende pagos va al team Pro. Disparar push (DR-038). Ver fabrica/estandares/servicios-externos.md §6"
+    requiere_humano: false
+    nota: "es un AVISO, no un impedimento. La decisión '¿v1 incluye pagos? sí/no' se define explícitamente en el PRD (product-manager)."
+
+  - id: DR-036
+    patron: "elección de servicio externo por categoría (storage, email, pagos, analítica) y modelo de cuenta multi-app"
+    default: "usar el servicio estándar probado por categoría (storage=Cloudflare R2, email transaccional=Resend, email marketing/waitlist=Kit, errores=Sentry, analítica=PostHog, pagos=Polar; DB=Neon, deploy=Vercel, auth=Better Auth ya en stack.md) y el modelo 'UNA cuenta/org compartida + 1 primitivo por app' (proyecto Neon / bucket R2 / dominio Resend / org PostHog / producto Polar). PROHIBIDO crear cuentas-títere con +alias para esquivar topes de free tier (viola ToS). Desviarse de un servicio = ADR per-proyecto (DR-030). Los valores y el porqué viven en fabrica/estandares/servicios-externos.md"
+    requiere_humano: false
+
+  - id: DR-037
+    patron: "credenciales/secretos de servicios externos y cómo se aprovisionan los recursos"
+    default: "aprovisionar por API/CLI (headless) donde exista; navegador (Claude-in-Chrome) solo como fallback, verificando la cuenta activa antes de actuar. Secretos en dos planos: runtime en el .env del proyecto (gitignored, .env.example sin valores) y store de máquina en SOPS+age (archivo cifrado FUERA de todo repo, llave age en el Keychain de macOS) para tokens de proveedor y credenciales por app. LastPass = solo personal del dueño, separado del store de máquina. Tokens con privilegio mínimo. Ver fabrica/estandares/servicios-externos.md §3-4 y seguridad-web.md"
+    requiere_humano: false
+
+  - id: DR-038
+    patron: "el agente llega a un punto que requiere decisión o acción del dueño (cualquier gate humano)"
+    default: "disparar una notificación push al dueño (llega al celular si Remote Control / la app de Claude está conectada) con mensaje de una línea accionable, ADEMÁS de dejar el pendiente por archivo (docs/estado.yaml, docs/decisiones.md). Aplica a TODO gate: producción (DR-004), gastar dinero (DR-005), borrar (DR-007), comunicaciones externas (DR-008), warning Vercel/pagos (DR-035), pendientes de :decide, y signup/2FA/pago durante el aprovisionamiento (DR-037). El cockpit es la vista de escritorio; el push es la vista 'estoy fuera'."
+    requiere_humano: false
+    nota: "no reemplaza el canal por-archivo (principio 2): lo complementa para que el dueño pueda dejarlo corriendo y saber cuándo volver."
+
+  - id: DR-039
+    patron: "modelo de recomendación de ideas (discover/recommend) según el perfil del dueño"
+    default: "discover y recommend leen fabrica/perfil.md y trabajan en DOS corrientes, ~50/50: (A) oportunidades generales de alto retorno/facilidad, independientes del tema; (B) alineadas al perfil (intereses, objetivos, ACTIVOS/palancas como audiencia/comunidad/red/nicho), aunque el retorno monetario sea menor, porque le son útiles o le abren puertas. RETORNO != solo dinero: cuenta también oportunidad (alcance/red/posicionamiento), aprendizaje y valor personal, ponderado según apetito_monetizacion del perfil. ALCANCE ABIERTO: no solo apps monetizables — app web/mobile, rework, tooling/proyecto de Claude Code, prompt o sistema de prompts, automatización, etc. La ficha registra tipo_proyecto, alineacion_perfil y retorno; el scoring de new-idea pondera retorno (monetario/oportunidad/personal) y encaje con el perfil"
+    requiere_humano: false
+    nota: "no castigar una idea alineada por bajo ROI monetario si apalanca un activo o abre puertas, ni una idea general por no ser 'del tema'. Ver fabrica/ideas/bitacora.md (2026-06-15)"

@@ -4,7 +4,7 @@ Principios innegociables de la fábrica. Todo agente, skill y proyecto los cumpl
 
 ## Misión
 
-Construir un portfolio de aplicaciones con IA al 100%: (1) apps que generen ingresos —muchas pequeñas suman— y (2) apps que faciliten la vida del dueño, monetizables o no.
+Construir un portfolio de **soluciones tecnológicas** con IA al 100% —apps web/móviles, herramientas, tooling de Claude Code, sistemas de prompts, automatizaciones—: (1) las que generen **retorno**, sea monetario o de **oportunidad** (alcance, red, posicionamiento, aprendizaje), y (2) las que faciliten la vida del dueño, monetizables o no.
 
 ## Principios de proceso
 
