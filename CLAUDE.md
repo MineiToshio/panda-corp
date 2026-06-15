@@ -33,7 +33,8 @@ The other phases are run **inside the project folder**, without a name:
 - `/pandacorp:design` — mockups and design system (iterate in the conversation).
 - `/pandacorp:blueprint` — creates the blueprint **+ work orders**.
 - `/pandacorp:implement` — kicks off construction with a dynamic workflow (Dynamic Workflows) that orchestrates the subagents, followed in Mission Control.
-- `/pandacorp:release` — audit + deploy (human gate for production).
+- `/pandacorp:release` — audit + deploy + return-aware launch plan (human gate for production).
+- `/pandacorp:review-launch` — after launch, reads real metrics vs the value hypothesis and recommends kill / hold / double-down (DR-043); runs on demand or as a `/loop` job.
 - `/pandacorp:iterate` — add features or changes at any time (building or shipped).
 
 Optional/internal: `:new-version` (large milestone with a mini-PRD), `:scaffold` and `:work-orders` (steps normally invoked by `spec`/`blueprint`).
@@ -94,7 +95,7 @@ The canonical doc answers *"what is true now?"*; the decision log, *"how did we 
 2. Every recurring decision is resolved by consulting `factory/decisions/registry.yaml`. If it's not covered: escalate to the owner ONCE and codify their answer as a new rule in the registry.
 3. Human gates (the owner): idea selection (run `/pandacorp:scaffold` on the chosen one; discard the rest from Mission Control), design choice, release to production, spending money, external communications, deleting data. The idea board is read-only: the states are written by the skills.
 4. Agents never check off their own checks: verification is done by scripts/CI.
-5. Each idea's state lives ONLY in its card's frontmatter. Each project's detailed state lives ONLY in its `docs/status.yaml`. The portfolio only keeps pointers and summaries.
+5. **One source of truth per state, with an explicit bridge.** A card's `status` lives ONLY in its frontmatter and covers the **pre-project lifecycle + terminal**: `discovered → recommended → in-pipeline → shipped | discarded`. Once `in-pipeline`, the card **freezes as a pointer** and does NOT duplicate the project's phase; each project's detailed state lives ONLY in its `docs/status.yaml` (`phase`). The board derives a card's **column** from both axes (pre-project → from the card status; `in-pipeline` → from the project `phase`: product→Documentada, design→Diseño, architecture→Arquitectura, implementation/release→building, operation→shipped; see Mission Control FRD-01/FRD-02). It never expects `design`/`architecture`/`building` to be a card status. The portfolio only keeps pointers and summaries.
 6. Document everything: every relevant decision is recorded in the area's decision log (see the **Decision log** section) before closing the turn. The decision log is history; `registry.yaml` is policy.
 7. **Framework vs owner's data (DR-033).** Always distinguish three planes and NEVER mix personal data with the versioned framework:
    - **The framework** — versioned and shared, the same for anyone who clones the repo: `plugin/`, `factory/constitution.md`, `factory/standards/`, `factory/decisions/registry.yaml`, the **Mission Control** app, templates and the `*.example.md` seeds.

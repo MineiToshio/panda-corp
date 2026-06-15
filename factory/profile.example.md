@@ -12,7 +12,7 @@ likes: []                 # what you're drawn to build / enjoy
 dislikes: []              # what to avoid / doesn't interest you / bores you
 assets: []                # your levers: audience/social, community, network of contacts, skills, data, access to a niche
 monetization_appetite: ""   # high | medium | low | open  (are you after money, or also value/opportunity?)
-project_types: []         # web-app | mobile-app | rework | claude-code | prompt-system | automation | other
+project_types: []         # web | mobile | desktop | ai | claude-code | prompt-system | automation | cli | rework | other  (same vocabulary as the idea card's project_type)
 ---
 
 # Owner profile

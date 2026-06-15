@@ -8,7 +8,7 @@ Build a portfolio of **technology solutions** with 100% AI —web/mobile apps, t
 
 ## Process principles
 
-1. **Spec before code.** Nothing is implemented without a PRD/FRD with verifiable acceptance criteria (EARS format where applicable). The spec is the source of truth.
+1. **Spec before code.** Nothing is implemented without a PRD/FRD with verifiable acceptance criteria **in EARS format — every criterion** (if one doesn't fit EARS, that's a sign it's underspecified; rewrite it, don't waive it). The spec is the source of truth.
 2. **Artifacts before chat.** Each phase produces versioned documents in the project's repo. Decisions live in files, not in conversations.
 3. **Deterministic and adversarial verification.** The model proposes; scripts/CI/hooks verify. An agent never declares "done" by self-report: green tests, clean lint, criteria met. The gates are **fail-closed** (any ambiguity or unparsed output = failure, never "passes by default") and run in a clean environment. The verification of a piece of work is done by **another agent** (the `reviewer`, ideally of a different model than the one that generated the code), which **re-runs** the evidence and writes **adversarial tests the implementer did not see** — because the errors of a single model cluster together and its tests inherit its blind spots (evidence: see `docs/proposals/06-improvement-plan-2026.md`).
 4. **TDD per work order.** Acceptance tests first (RED), minimal implementation (GREEN), refactor afterward. Maximum 3 repair attempts per subtask; then escalate. The tests are **anchored in human sources** —the EARS criteria of the FRDs and the real bugs recorded in `docs/progress.md`—, not in what the model imagines. At each FRD milestone, **mutation testing** is run (and property-based where applicable) to catch decorative tests. Each work order is a **small chunk, testable in isolation**; the `reviewer` rejects work orders that are too large.
@@ -29,7 +29,7 @@ Build a portfolio of **technology solutions** with 100% AI —web/mobile apps, t
 ## Product principles
 
 15. **Language**: git state decides the artifact language — committed = English (code, commits, file/folder names, product/technical docs); gitignored = Spanish (the owner's communication layer + personal data). The agent always talks to the owner in Spanish. Product UI via i18n; the launch locale comes from the spec's market research (DR-041). See `factory/standards/conventions.md` (Language) and DR-009.
-16. **Reinforced UX/UI.** The owner is weak at design: each project researches visual references, uses shadcn/ui + design tokens, generates 3 design directions, and verifies accessibility (axe-core) automatically before the human gate.
+16. **Reinforced UX/UI.** The owner is weak at design: each project researches visual references and builds a **bespoke visual identity per domain** (a corporate tool, a school app and a restaurant app must look different) on top of shadcn/ui as the accessible component base + design tokens, generates 3 domain-appropriate design directions, and verifies accessibility (axe-core) automatically before the human gate. Mission Control's RPG style is the factory's own tool, never a template for product apps.
 17. **Small releases.** v1 = the minimal slice that validates the value hypothesis. Iterate with `/pandacorp:new-version`.
 18. **Testing per milestone.** Each closed FRD/work order is tested when it closes, not at the end. E2E only on critical flows with `data-testid`.
 

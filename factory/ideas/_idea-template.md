@@ -34,6 +34,6 @@ What the scoring considered: need/pain, ease, return (monetary/opportunity/perso
 fit with the profile (alignment + advantage).
 
 ---
-> Statuses: discovered → documented → recommended → in-pipeline → shipped | discarded
-> Each transition is written by a skill (new-idea→documented, recommend→recommended, scaffold→in-pipeline, release→shipped). `discarded` is marked from Pandacorp (human decision). The board is read-only.
-> When moving to `in-pipeline`, fill the `project:` field with the path of the created folder.
+> Statuses (card lifecycle): discovered → recommended → in-pipeline → shipped | discarded.
+> Transitions, each written by one skill: new-idea/discover → discovered; recommend → recommended; scaffold/spec (handoff) → in-pipeline; release → shipped. `discarded` is marked from Mission Control (human decision). The board is read-only.
+> Once `in-pipeline`, fill `project:` with the created folder path and the card **freezes as a pointer** — it STOPS tracking the phase. The project's `docs/status.yaml` (`phase`) is the single source of truth for how far along the project is; the board derives the middle columns (documented/design/architecture/building) from that phase, NOT from the card status (see Mission Control FRD-02). There is no `documented` card status — the "Documentada" column = a project in phase `product`.
