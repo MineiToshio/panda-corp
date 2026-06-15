@@ -4,7 +4,7 @@ Catches the most common slip: editing the factory plugin and forgetting to commi
 
 ## How it's detected (all local)
 
-- **Installed version**: read `~/.claude/plugins/installed_plugins.json` → the `version` of `pandacorp@panda-corp` (a commit SHA, user scope). The same thing `claude plugin list` shows.
+- **Installed SHA**: read `~/.claude/plugins/installed_plugins.json` → the `gitCommitSha` of `pandacorp@panda-corp` (user scope). NOTE: the `version` field is the semver label (e.g. `4.0.0`), NOT a commit — the drift check compares `gitCommitSha`, never `version`. (`claude plugin list` shows the version.)
 - **Source code state** in the factory repo:
   - last commit that touched the plugin: `git log -1 --format=%H -- plugin/`
   - are there uncommitted changes?: `git status --porcelain -- plugin/`

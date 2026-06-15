@@ -4,6 +4,12 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [docs/status.yaml](status.yaml); the PRD in [docs/prd.md](prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-06-15 — Board column derivation (phase bridge), portfolio business columns, drift-banner fix
+**What:** FRD-02 now **derives** a card's column from two axes (card status pre-project; the project's `phase` for `in-pipeline` cards) instead of grouping by `status` alone — fixing the design/architecture/building columns that no card status ever produced (mapping: product→Documentada, design→Diseño, architecture→Arquitectura, implementation/release→building, operation→shipped; missing project → falls back to Documentada). FRD-01 reads the project phase as the column source for in-pipeline cards and also reads `pending_bugs`/`last_green_sha`/`safe_to_test`. FRD-03 shows each shipped project's business snapshot (users/return/verdict from `/pandacorp:review-launch`, DR-043). FRD-15's drift banner now compares `gitCommitSha` (not the semver `version`, which never matched). Mission Control's own `status.yaml` got the 5 missing template fields.
+**Why:** The re-audit found the board couldn't place mid-pipeline cards from the frontmatter alone (the card freezes at `in-pipeline`), and the drift banner read the wrong field so it couldn't warn when the installed plugin fell behind.
+**Context:** The prototype (mock data) still groups by a `status` that crams the column value in; the real Next.js app implements the FRD-02 derivation — not worth rewriting the 2.4 MB mock now.
+**Impact:** `mission-control/docs/frds/{frd-01,frd-02,frd-03,frd-15}.md`, `mission-control/docs/status.yaml`. Factory-side state model: `factory/decision-log.md` and `factory/ideas/decision-log.md` (same date).
+
 ## 2026-06-15 — Mission Control's UI is in Spanish (made explicit)
 **What:** Stated explicitly, in the PRD and the factory's Language convention, that Mission Control's entire user-facing UI (copy, labels, `aria-label`s) is in **Spanish** — it's the owner's tool, operated in Spanish. The underlying code/identifiers stay English; only the UI copy is Spanish. This is the committed exception to "committed = English".
 **Why:** The owner asked to state it clearly, beyond the existing note in the design brief.
