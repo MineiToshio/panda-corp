@@ -1,39 +1,39 @@
-# Logros y stats de Pandacorp
+# Pandacorp achievements and stats
 
-Diseño del Salón de logros. Cada logro guarda **fecha** y **proyecto** donde ocurrió. Implementado (seed) en el prototipo; al construir Mission Control real, las stats se calculan leyendo la fábrica y los proyectos.
+Design of the Achievements Hall. Each achievement stores the **date** and **project** where it happened. Implemented (seed) in the prototype; when the real Mission Control is built, the stats are computed by reading the factory and the projects.
 
-## Stats (contadores que crecen — "character sheet")
-Productos lanzados · Ideas capturadas · Work orders completados · Fases completadas · Iteraciones desplegadas · Lanzamientos impecables (cero rechazos) · Ideas descartadas · PRDs escritos · ADRs registrados · Agentes coordinados · Racha récord (semanas) · Récord idea→launch (días).
+## Stats (counters that grow — "character sheet")
+Products shipped · Ideas captured · Work orders completed · Phases completed · Iterations deployed · Flawless launches (zero rejections) · Ideas discarded · PRDs written · ADRs recorded · Agents coordinated · Record streak (weeks) · Record idea→launch (days).
 
-## Cadenas acumulativas (suben de tier: Bronce → Plata → Oro → Platino → Leyenda)
-Cada una rastrea una stat; al cruzar el umbral se desbloquea el tier (con fecha + proyecto). Umbrales:
+## Cumulative chains (tier up: Bronze → Silver → Gold → Platinum → Legend)
+Each one tracks a stat; crossing the threshold unlocks the tier (with date + project). Thresholds:
 
-| Cadena | Stat | T1 | T2 | T3 | T4 | T5 |
+| Chain | Stat | T1 | T2 | T3 | T4 | T5 |
 |---|---|---|---|---|---|---|
-| Productos lanzados | lanzados | 1 | 5 | 10 | 25 | 50 |
-| Ideas capturadas | ideas | 5 | 20 | 50 | 100 | — |
+| Products shipped | shipped | 1 | 5 | 10 | 25 | 50 |
+| Ideas captured | ideas | 5 | 20 | 50 | 100 | — |
 | Work orders | workorders | 10 | 50 | 200 | 500 | 1000 |
-| Fases completadas | fases | 5 | 25 | 75 | 200 | — |
-| Iteraciones | iteraciones | 1 | 10 | 25 | 50 | — |
-| Lanzamientos impecables | impecables | 1 | 3 | 7 | 15 | — |
-| Ideas descartadas | descartadas | 5 | 20 | 50 | 100 | — |
-| PRDs escritos | prds | 3 | 10 | 25 | 50 | — |
-| ADRs registrados | adrs | 3 | 15 | 40 | 100 | — |
-| Agentes coordinados | agentes | 3 | 6 | 10 | 15 | — |
-| Racha récord (sem) | racha | 2 | 8 | 26 | 52 | — |
-| Récord idea→launch (días, menor=mejor) | velocidad | ≤30 | ≤14 | ≤7 | ≤3 | — |
+| Phases completed | phases | 5 | 25 | 75 | 200 | — |
+| Iterations | iterations | 1 | 10 | 25 | 50 | — |
+| Flawless launches | flawless | 1 | 3 | 7 | 15 | — |
+| Ideas discarded | discarded | 5 | 20 | 50 | 100 | — |
+| PRDs written | prds | 3 | 10 | 25 | 50 | — |
+| ADRs recorded | adrs | 3 | 15 | 40 | 100 | — |
+| Agents coordinated | agents | 3 | 6 | 10 | 15 | — |
+| Record streak (wks) | streak | 2 | 8 | 26 | 52 | — |
+| Record idea→launch (days, lower=better) | speed | ≤30 | ≤14 | ≤7 | ≤3 | — |
 
-Nombres por tier (escalan en grandiosidad), ej. Productos lanzados: El primer ladrillo → Maestro de obras → El arquitecto → El magnate digital → El oráculo de la fábrica. (Lista completa de nombres en el código del prototipo.)
+Tier names (scaling in grandeur), e.g. Products shipped: The first brick → Master builder → The architect → The digital magnate → The factory oracle. (Full list of names in the prototype code.)
 
-## Logros únicos (una sola vez, con fecha + proyecto)
-- **Descubrimiento**: El día del lanzamiento · El primer spec · El debut del diseñador · El blueprintero · Iteración cero · El gran tour (las 6 fases).
-- **Velocidad**: 48 horas de locura · Ship it Friday · La maratón (20+ WO seguidos).
-- **Calidad**: Primer intento (cero rechazos en todas las fases) · El perfeccionista práctico (3 seguidos sin rechazo en diseño).
-- **Consistencia**: El fundador madrugador (WO antes de 8am) · El último en apagar (WO tras medianoche).
-- **Maestría**: La trilogía (3 productos vivos a la vez) · Coleccionista de estados (un producto por todos los estados).
-- **Secretos** (ocultos con pista críptica hasta desbloquear): "ves el vacío al otro lado" (base de ideas sin nada activo) · "el código revisó al código" (un agente auto-corrige a otro) · "va más rápido de lo esperado" (pipeline completo en un día).
+## Unique achievements (one-time only, with date + project)
+- **Discovery**: Launch day · The first spec · The designer's debut · The blueprinter · Iteration zero · The grand tour (all 6 phases).
+- **Speed**: 48 hours of madness · Ship it Friday · The marathon (20+ WO in a row).
+- **Quality**: First attempt (zero rejections across all phases) · The practical perfectionist (3 in a row with no rejection in design).
+- **Consistency**: The early-bird founder (WO before 8am) · The last to turn off the lights (WO after midnight).
+- **Mastery**: The trilogy (3 live products at once) · State collector (one product through all states).
+- **Secrets** (hidden with a cryptic hint until unlocked): "you see the void on the other side" (idea base with nothing active) · "the code reviewed the code" (one agent auto-corrects another) · "it goes faster than expected" (full pipeline in one day).
 
 ## UX
-Character sheet de stats + sección "Casi ahí" (top 3 cadenas por % al siguiente tier, efecto Zeigarnik) + cadenas con barra al siguiente tier y pips de tier + únicos por categoría. Futuro: meta-logros (Sellos con título), "Nuevo" 7 días tras desbloquear, rareza estimada.
+Stats character sheet + an "Almost there" section (top 3 chains by % to the next tier, Zeigarnik effect) + chains with a bar to the next tier and tier pips + uniques by category. Future: meta-achievements (titled Seals), "New" for 7 days after unlocking, estimated rarity.
 
-Investigación: [docs/research/08-gamification.md](../../docs/research/08-gamification.md) y fuentes ahí.
+Research: [docs/research/08-gamification.md](../../docs/research/08-gamification.md) and sources therein.

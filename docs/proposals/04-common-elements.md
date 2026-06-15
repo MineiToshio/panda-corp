@@ -1,94 +1,94 @@
-# Elementos comunes a todas las propuestas
+# Elements common to all proposals
 
-Estos elementos aplican sin importar qué propuesta (A, B o C) se elija. Son el "sistema operativo" de Pandacorp.
+These elements apply regardless of which proposal (A, B, or C) is chosen. They are Pandacorp's "operating system".
 
-## 1. El pipeline: de idea a producto
+## 1. The pipeline: from idea to product
 
-La entrada puede ser una **funcionalidad** ("app para pedir desde la mesa de un restaurante") o un **problema** ("no sé qué Funkos de One Piece existen ni cuándo se anuncian"). El pipeline las normaliza igual:
+The input can be a **feature** ("app to order from a restaurant table") or a **problem** ("I don't know which One Piece Funkos exist or when they're announced"). The pipeline normalizes them the same way:
 
 ```
-1. INTAKE        /nueva-idea     → ficha de idea (problema, usuarios, hipótesis de valor)
-2. INVESTIGACIÓN /investigar     → informe: mercado, competidores, fuentes de datos,
-                                   APIs disponibles, viabilidad técnica y legal, con citas
-3. GO/NO-GO      automático      → scoring con rúbrica; humano SOLO si el score es
-                                   ambiguo o implica gastar dinero          ← GATE H1
-4. SPEC          /spec           → PRD con criterios de aceptación EARS
-5. ARQUITECTURA  /plan           → elección de golden path, ADRs, descomposición en tareas
-6. SCAFFOLD      /scaffold       → crear el repo del proyecto desde plantilla determinista
-7. IMPLEMENTACIÓN                → TDD (tests primero), agentes coder + reviewer en paralelo
-8. VERIFICACIÓN                  → tests, e2e, SAST, revisión adversarial multi-lente
-9. RELEASE                       → deploy a staging automático; producción     ← GATE H2
-10. OPERACIÓN                    → routines: monitoreo, mejoras, backlog grooming
+1. INTAKE        /nueva-idea     → idea card (problem, users, value hypothesis)
+2. RESEARCH      /investigar     → report: market, competitors, data sources,
+                                   available APIs, technical and legal feasibility, with citations
+3. GO/NO-GO      automatic       → scoring with a rubric; human ONLY if the score is
+                                   ambiguous or involves spending money              ← GATE H1
+4. SPEC          /spec           → PRD with EARS acceptance criteria
+5. ARCHITECTURE  /plan           → golden path selection, ADRs, breakdown into tasks
+6. SCAFFOLD      /scaffold       → create the project repo from a deterministic template
+7. IMPLEMENTATION                → TDD (tests first), coder + reviewer agents in parallel
+8. VERIFICATION                  → tests, e2e, SAST, adversarial multi-lens review
+9. RELEASE                       → automatic deploy to staging; production         ← GATE H2
+10. OPERATION                    → routines: monitoring, improvements, backlog grooming
 ```
 
-Cada fase produce un **artefacto versionado en el repo del proyecto** (no chat): `docs/idea.md`, `docs/research.md`, `docs/spec.md`, `docs/plan.md`, `docs/adr/*.md`. La fase siguiente no arranca si el artefacto anterior no pasa su gate (validación automática por checklist/schema; humano solo en H1 y H2).
+Each phase produces a **versioned artifact in the project repo** (not chat): `docs/idea.md`, `docs/research.md`, `docs/spec.md`, `docs/plan.md`, `docs/adr/*.md`. The next phase does not start if the previous artifact does not pass its gate (automatic validation via checklist/schema; human only at H1 and H2).
 
-## 2. Decisiones humanas (mínimas, explícitas)
+## 2. Human decisions (minimal, explicit)
 
-Solo dos gates humanos síncronos en el flujo normal:
+Only two synchronous human gates in the normal flow:
 
-- **H1 — Go/No-Go de la idea**: aprobar alcance y presupuesto. (Es decisión de producto: la IA no conoce tus prioridades.)
-- **H2 — Deploy a producción / acciones externas**: producción, enviar comunicaciones a terceros, gastar dinero, borrar datos, cambiar accesos.
+- **H1 — Go/No-Go of the idea**: approve scope and budget. (It's a product decision: the AI doesn't know your priorities.)
+- **H2 — Deploy to production / external actions**: production, sending communications to third parties, spending money, deleting data, changing access.
 
-Todo lo demás se gobierna con el **registro de decisiones** (`factory/decisions/registry.yaml`): tipos de decisión recurrentes con defaults pre-aprobados (ej: "agregar dependencia sin CVEs y mantenida → auto-aprobar"). Decisión fuera del registro → se escala una vez al humano y la respuesta se codifica como regla nueva, de modo que **cada intervención humana reduce las futuras**. Timeout vencido → escalar, nunca auto-aprobar.
+Everything else is governed by the **decision registry** (`factory/decisions/registry.yaml`): recurring decision types with pre-approved defaults (e.g.: "add a maintained dependency with no CVEs → auto-approve"). A decision outside the registry → escalates once to the human and the answer is codified as a new rule, so that **every human intervention reduces future ones**. Expired timeout → escalate, never auto-approve.
 
-## 3. Roles de agentes y modelos asignados
+## 3. Agent roles and assigned models
 
-| Agente | Rol | Modelo | Esfuerzo |
+| Agent | Role | Model | Effort |
 |---|---|---|---|
-| `coordinador` | Orquesta el pipeline, delega, nunca implementa | opus/fable | high |
-| `investigador` | Búsqueda web, mercado, fuentes de datos, APIs | sonnet | medium |
-| `product-manager` | Ficha de idea, PRD con criterios EARS | opus | high |
-| `arquitecto` | Plan técnico, elección de stack, ADRs | opus/fable | high |
-| `implementador` | Código con TDD; checklist de done explícito | sonnet | medium |
-| `test-writer` | Tests desde criterios de aceptación (fase RED) | sonnet | medium |
-| `revisor` | Revisión multi-lente (bugs/seguridad/perf) | opus (familia ≠ generador si es posible) | high |
-| `auditor-seguridad` | SAST, secretos, dependencias, OWASP agentic | sonnet | medium |
-| `documentador` | README, changelogs, docs de usuario | haiku/sonnet | low |
-| `explorador` | Búsquedas read-only en codebases | haiku | low |
+| `coordinador` | Orchestrates the pipeline, delegates, never implements | opus/fable | high |
+| `investigador` | Web search, market, data sources, APIs | sonnet | medium |
+| `product-manager` | Idea card, PRD with EARS criteria | opus | high |
+| `arquitecto` | Technical plan, stack selection, ADRs | opus/fable | high |
+| `implementador` | Code with TDD; explicit done checklist | sonnet | medium |
+| `test-writer` | Tests from acceptance criteria (RED phase) | sonnet | medium |
+| `revisor` | Multi-lens review (bugs/security/perf) | opus (family ≠ generator if possible) | high |
+| `auditor-seguridad` | SAST, secrets, dependencies, agentic OWASP | sonnet | medium |
+| `documentador` | README, changelogs, user docs | haiku/sonnet | low |
+| `explorador` | Read-only searches in codebases | haiku | low |
 
-Regla de oro: las tareas de **juicio** (arquitectura, revisión, specs) usan el modelo más capaz; las tareas **mecánicas y verificables** (formato, docs, búsqueda) usan el más barato. Los prompts de cada agente incluyen checklist explícito de terminado para que funcionen igual con modelos más débiles.
+Golden rule: **judgment** tasks (architecture, review, specs) use the most capable model; **mechanical and verifiable** tasks (formatting, docs, search) use the cheapest. Each agent's prompts include an explicit done checklist so they work the same with weaker models.
 
-## 4. Safeguards (no negociables)
+## 4. Safeguards (non-negotiable)
 
-- **Hooks**: `PreToolUse` bloquea `rm -rf`, force-push, push a main, lectura de `.env`; `Stop` impide declarar "terminado" sin tests verdes y lint limpio; `PostToolUse` autoformatea.
-- **Permisos**: deny-list en `settings.json`; sandbox activado; autonomía total solo dentro de contenedor.
-- **Git**: ramas protegidas, agentes solo en feature branches, CI verde obligatorio para merge, conventional commits con commitlint.
-- **Verificación determinista**: el CI ejecuta el checklist, no el modelo. El modelo nunca marca sus propios checkboxes. Reintentos acotados (máx. 3 por subtarea) con escalado.
-- **Trazabilidad**: ADRs + AgDRs (qué agente, qué modelo, qué trade-off) en `docs/adr/`; log de auditoría por proyecto.
-- **Secretos**: jamás en el contexto del agente; inyección por entorno; Gitleaks en pre-commit y CI.
-- **Dependencias**: lockfiles, sin instalar de registries no aprobados, escaneo de CVEs y typosquatting (los LLMs alucinan paquetes).
+- **Hooks**: `PreToolUse` blocks `rm -rf`, force-push, push to main, reading `.env`; `Stop` prevents declaring "done" without green tests and clean lint; `PostToolUse` auto-formats.
+- **Permissions**: deny-list in `settings.json`; sandbox enabled; full autonomy only inside a container.
+- **Git**: protected branches, agents only on feature branches, green CI mandatory for merge, conventional commits with commitlint.
+- **Deterministic verification**: CI runs the checklist, not the model. The model never checks its own checkboxes. Bounded retries (max. 3 per subtask) with escalation.
+- **Traceability**: ADRs + AgDRs (which agent, which model, which trade-off) in `docs/adr/`; per-project audit log.
+- **Secrets**: never in the agent's context; injection via environment; Gitleaks in pre-commit and CI.
+- **Dependencies**: lockfiles, no installing from unapproved registries, scanning for CVEs and typosquatting (LLMs hallucinate packages).
 
-## 5. Stacks estándar (golden paths)
+## 5. Standard stacks (golden paths)
 
-Definidos en detalle en [investigación 04](../investigacion/04-recommended-stacks.md):
+Defined in detail in [research 04](../research/04-recommended-stacks.md):
 
-- **Stack A** · Web full-stack: Next.js + Drizzle + Postgres + Tailwind/shadcn + Better Auth → Vercel
-- **Stack B** · API TypeScript: Hono + Drizzle + Zod → Railway/Fly
-- **Stack C** · API Python: FastAPI + Pydantic + SQLAlchemy → Railway/Fly
-- **Stack D** · Scraping/datos/notificaciones: Python + Playwright + ARQ/Redis + Postgres → Docker
+- **Stack A** · Full-stack web: Next.js + Drizzle + Postgres + Tailwind/shadcn + Better Auth → Vercel
+- **Stack B** · TypeScript API: Hono + Drizzle + Zod → Railway/Fly
+- **Stack C** · Python API: FastAPI + Pydantic + SQLAlchemy → Railway/Fly
+- **Stack D** · Scraping/data/notifications: Python + Playwright + ARQ/Redis + Postgres → Docker
 
-El `arquitecto` elige entre estos 4 (combinables: el caso Funkos = D para recolectar + A para mostrar). Salirse del golden path requiere un ADR con justificación y es decisión escalable a humano la primera vez.
+The `arquitecto` chooses among these 4 (combinable: the Funko case = D to collect + A to display). Going off the golden path requires an ADR with justification and is a decision escalable to a human the first time.
 
-## 6. Separación fábrica / proyectos
+## 6. Factory / projects separation
 
 ```
-<carpeta-de-proyectos>/
-├── panda-corp/                  ← LA FÁBRICA (este repo): know-how, nunca código de producto
-│   ├── CLAUDE.md                ← constitución de la empresa
+<projects-folder>/
+├── panda-corp/                  ← THE FACTORY (this repo): know-how, never product code
+│   ├── CLAUDE.md                ← the company's constitution
 │   ├── .claude/ (agents, skills, hooks, rules)
 │   ├── factory/
-│   │   ├── constitution.md      ← principios y estándares innegociables
+│   │   ├── constitution.md      ← non-negotiable principles and standards
 │   │   ├── decisiones/registry.yaml
-│   │   ├── plantillas/          ← scaffolds por golden path + AGENTS.md template
-│   │   └── portfolio.md         ← índice de productos y su estado en el pipeline
+│   │   ├── plantillas/          ← scaffolds per golden path + AGENTS.md template
+│   │   └── portfolio.md         ← index of products and their status in the pipeline
 │   └── docs/ (investigacion, propuestas, adr)
 │
-├── funko-tracker/               ← PROYECTO (repo git propio)
-│   ├── CLAUDE.md                ← generado por /scaffold desde plantillas de la fábrica
+├── funko-tracker/               ← PROJECT (its own git repo)
+│   ├── CLAUDE.md                ← generated by /scaffold from the factory's templates
 │   ├── docs/ (idea, investigacion, spec, plan, adr/)
 │   └── src/ …
-└── mesa-facil/                  ← otro proyecto
+└── mesa-facil/                  ← another project
 ```
 
-La fábrica es la fuente de verdad del **cómo** (proceso, estándares, plantillas) y mantiene el índice del **qué** (portfolio). Cada proyecto es autónomo y lleva su propia documentación de producto. El traspaso de know-how fábrica→proyecto varía según la propuesta elegida (plugin, scaffold con copia, o subcarpetas).
+The factory is the source of truth for the **how** (process, standards, templates) and maintains the index of the **what** (portfolio). Each project is autonomous and carries its own product documentation. The handover of know-how factory→project varies depending on the chosen proposal (plugin, scaffold with copy, or subfolders).

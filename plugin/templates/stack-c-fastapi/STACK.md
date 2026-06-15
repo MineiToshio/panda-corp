@@ -1,8 +1,8 @@
-# Stack C — API/servicio backend (Python + FastAPI)
+# Stack C — Backend API/service (Python + FastAPI)
 
-Guía de instalación para `/pandacorp:blueprint`. Caso de uso: APIs Python, servicios ML-adyacentes, pipelines de datos.
+Installation guide for `/pandacorp:blueprint`. Use case: Python APIs, ML-adjacent services, data pipelines.
 
-## Instalación
+## Installation
 
 ```bash
 uv init --python 3.12 .
@@ -10,7 +10,7 @@ uv add fastapi uvicorn pydantic sqlalchemy alembic psycopg[binary]
 uv add --dev pytest pytest-asyncio httpx mypy ruff
 ```
 
-## Configuración estándar Pandacorp (`pyproject.toml`)
+## Standard Pandacorp configuration (`pyproject.toml`)
 
 ```toml
 [tool.ruff]
@@ -23,10 +23,10 @@ strict = true
 python_version = "3.12"
 ```
 
-1. **Validación**: todo input/output con modelos Pydantic v2. Sin dicts crudos en contratos.
-2. **Estructura 3 capas**: `app/routers/` → `app/services/` → `app/repositories/`. Modelos en `app/models/`, schemas en `app/schemas/`.
-3. **BD**: SQLAlchemy 2.x + Alembic (migraciones siempre con downgrade). Postgres.
-4. **Tests**: httpx.AsyncClient contra la app en proceso; fixtures con BD de prueba aislada.
+1. **Validation**: all input/output with Pydantic v2 models. No raw dicts in contracts.
+2. **3-layer structure**: `app/routers/` → `app/services/` → `app/repositories/`. Models in `app/models/`, schemas in `app/schemas/`.
+3. **DB**: SQLAlchemy 2.x + Alembic (migrations always with downgrade). Postgres.
+4. **Tests**: httpx.AsyncClient against the in-process app; fixtures with an isolated test DB.
 
 ## `.pandacorp/verify.sh`
 
@@ -41,4 +41,4 @@ uv run pytest -q
 
 ## CI / Deploy
 
-GitHub Actions: ruff + mypy + pytest en PR. Deploy: Docker en Railway o Fly.io.
+GitHub Actions: ruff + mypy + pytest on PR. Deploy: Docker on Railway or Fly.io.

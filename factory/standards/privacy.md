@@ -1,21 +1,21 @@
-# Datos y privacidad
+# Data and privacy
 
-> Dominio: Datos/Privacidad · Severidad: **MUST** cuando se manejan datos personales. Enforcement: checklist en release + gate humano. Ver DR-025.
+> Domain: Data/Privacy · Severity: **MUST** when personal data is handled. Enforcement: release checklist + human gate. See DR-025.
 
-## Regla
+## Rule
 - **Privacy by design & by default (GDPR Art. 25):**
-  - **Minimización**: solo las columnas necesarias para el propósito (se decide en el modelo de datos del blueprint).
-  - **Visibilidad restringida por defecto**: RLS de Supabase (o equivalente) materializa la accesibilidad mínima.
-  - Pseudonimización donde sea viable.
-- **Derechos del titular** (Cap. III, no Art. 25): el modelo debe permitir **export** (acceso/portabilidad, Arts. 15/20) y **delete** (supresión, Art. 17) de los datos de una persona.
-- **Nunca loguear PII ni secretos.** Retención con plazo definido por defecto.
-- **Cifrado at-rest e in-transit (Art. 32):** lo da el managed DB del golden path (Neon/Supabase); el trabajo real está en export/delete y minimización.
+  - **Minimization**: only the columns necessary for the purpose (decided in the blueprint's data model).
+  - **Restricted visibility by default**: Supabase RLS (or equivalent) materializes minimal accessibility.
+  - Pseudonymization where viable.
+- **Data subject rights** (Chap. III, not Art. 25): the model must allow **export** (access/portability, Arts. 15/20) and **delete** (erasure, Art. 17) of a person's data.
+- **Never log PII or secrets.** Retention with a defined period by default.
+- **Encryption at-rest and in-transit (Art. 32):** provided by the golden path's managed DB (Neon/Supabase); the real work is in export/delete and minimization.
 
-## Cómo se verifica
-- Gate-checklist en `/pandacorp:release`: ¿qué PII se recolecta? ¿es lo mínimo? ¿hay export/delete? ¿logs sin PII?
-- **Recolectar PII nueva o compartir datos con terceros = escalar al dueño** (DR-025, alinea con DR-008).
+## How it is verified
+- Gate-checklist in `/pandacorp:release`: what PII is collected? Is it the minimum? Is there export/delete? Logs without PII?
+- **Collecting new PII or sharing data with third parties = escalate to the owner** (DR-025, aligns with DR-008).
 
-## Por qué
-Recolectar datos personales sin minimización ni derechos del titular es un riesgo legal real. Privacy-by-default convierte el cumplimiento en algo estructural (en el esquema), no en un parche posterior.
+## Why
+Collecting personal data without minimization or data subject rights is a real legal risk. Privacy-by-default makes compliance structural (in the schema), not a later patch.
 
-Fuentes: gdpr-info.eu/art-25-gdpr · gdprchecklist.io
+Sources: gdpr-info.eu/art-25-gdpr · gdprchecklist.io

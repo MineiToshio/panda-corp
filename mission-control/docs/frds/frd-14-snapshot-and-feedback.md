@@ -1,18 +1,18 @@
-# FRD-14 — Snapshot probable y canales de feedback
+# FRD-14 — Probable snapshot and feedback channels
 
-Lo que Mission Control muestra para operar una construcción desatendida: cuál es el último punto **probable** (testeable), qué se está construyendo ahora, y los canales para meterle feedback sin parar. Derivado de [docs/proposals/07-unattended-build.md](../../../docs/proposals/07-unattended-build.md). Solo-lectura.
+What Mission Control shows to operate an unattended build: which is the last **probable** (testable) point, what is being built right now, and the channels to feed it feedback without stopping. Derived from [docs/proposals/07-unattended-build.md](../../../docs/proposals/07-unattended-build.md). Read-only.
 
-## Criterios de aceptación (EARS)
+## Acceptance criteria (EARS)
 
-- POR cada proyecto en construcción, Mission Control DEBERÁ mostrar un **panel de snapshot** con: el **último punto probable** (FRD cerrado en verde + `last_green_sha`), un badge "verde", y el **comando `git worktree add ../<proyecto>-review <sha>`** listo para copiar. Lee `last_green_sha` y `safe_to_test` de `docs/status.yaml`.
-- EL panel DEBERÁ distinguir **"construyendo ahora"** (el work order en curso, "no probar esto todavía") del **"último punto probable"** — son dos cosas distintas.
-- SI `last_green_sha` está muy atrás de HEAD (muchos commits/horas), DEBERÁ alertar que el snapshot probable está quedando viejo.
-- CADA proyecto en el rail del portfolio DEBERÁ mostrar **chips** con el número de **decisiones pendientes** (ámbar) y **bugs en bandeja** (rojo), leídos de `decisiones_pendientes` y `bugs_pendientes`.
-- SI un proyecto tiene `replanteo_pendiente: true`, DEBERÁ indicarlo (la construcción se va a pausar para un cambio fuerte).
-- LA documentación de Mission Control DEBERÁ explicar los **tres canales de feedback** a una construcción en curso: `/pandacorp:bug`, `/pandacorp:iterate`, `/pandacorp:decide` (todos por archivos, recogidos en el próximo punto seguro).
+- FOR each project being built, Mission Control SHALL show a **snapshot panel** with: the **last probable point** (FRD closed green + `last_green_sha`), a "green" badge, and the **`git worktree add ../<project>-review <sha>` command** ready to copy. It reads `last_green_sha` and `safe_to_test` from `docs/status.yaml`.
+- The panel SHALL distinguish **"building now"** (the work order in progress, "don't test this yet") from the **"last probable point"** — they are two different things.
+- IF `last_green_sha` is far behind HEAD (many commits/hours), it SHALL warn that the probable snapshot is getting stale.
+- EACH project in the portfolio rail SHALL show **chips** with the number of **pending decisions** (amber) and **bugs in the inbox** (red), read from `pending_decisions` and `pending_bugs`.
+- IF a project has `rethink_pending: true`, it SHALL indicate it (the build is going to pause for a major change).
+- Mission Control's documentation SHALL explain the **three feedback channels** to an in-progress build: `/pandacorp:bug`, `/pandacorp:iterate`, `/pandacorp:decide` (all via files, picked up at the next safe point).
 
-## No-objetivos
-- Mission Control NO ejecuta `git worktree` ni levanta el dev server: muestra el comando para que el dueño lo corra (solo-lectura). En el futuro podría haber un botón que lo arme, pero sigue siendo acción del operador.
+## Non-goals
+- Mission Control does NOT run `git worktree` nor start the dev server: it shows the command for the owner to run (read-only). In the future there could be a button that assembles it, but it remains the operator's action.
 
-## Relación
-Complementa Party ([FRD-06](frd-06-party.md)) y los work orders ([FRD-05](frd-05-work-orders.md)). El estado lo escribe el script del gate del proyecto, no el agente (ver `factory/standards/infra.md`).
+## Relationship
+It complements Party ([FRD-06](frd-06-party.md)) and the work orders ([FRD-05](frd-05-work-orders.md)). The state is written by the project's gate script, not the agent (see `factory/standards/infra.md`).

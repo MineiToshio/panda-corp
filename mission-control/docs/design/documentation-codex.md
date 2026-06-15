@@ -1,41 +1,41 @@
-# Códice del gremio — IA de la documentación de Mission Control
+# Guild Codex — the IA of Mission Control's documentation
 
-**Decisión de diseño · 2026-06-15.** Fusión de las pestañas *Documentación* + *Configuración* en una sola: **Manual** (hero "Códice del gremio"). Basada en investigación (deep-research) con verificación adversarial.
+**Design decision · 2026-06-15.** Merge of the *Documentation* + *Configuration* tabs into one: **Manual** (hero "Guild Codex"). Based on research (deep-research) with adversarial verification.
 
-## Por qué
+## Why
 
-1. **"Configuración" no configura nada.** Mission Control es solo-lectura por diseño; sus catálogos (Comandos, Agentes, Reglas, Estándares) no son ajustes, son **referencia de cómo funciona y qué se puede hacer** — misma naturaleza que Documentación. La etiqueta prometía algo falso.
-2. **Tener dos pestañas para "leer sobre el sistema"** + un sidebar plano que mezclaba narrativa y catálogos = confuso. Un developer entraba y no entendía qué es, para qué sirve, ni cómo usarlo.
+1. **"Configuration" configures nothing.** Mission Control is read-only by design; its catalogs (Commands, Agents, Rules, Standards) are not settings, they are **reference for how it works and what can be done** — the same nature as Documentation. The label promised something false.
+2. **Having two tabs to "read about the system"** + a flat sidebar that mixed narrative and catalogs = confusing. A developer would come in and not understand what it is, what it's for, or how to use it.
 
-## El marco: Diátaxis (estándar de la industria)
+## The framework: Diátaxis (industry standard)
 
-Toda buena doc (Next.js, Stripe, Django…) separa **4 tipos, una página = un trabajo**. Mezclar tipos es el anti-patrón #1 ([diataxis.fr](https://diataxis.fr/), [NN/g – Progressive Disclosure](https://www.nngroup.com/articles/progressive-disclosure/), verificado 3-0).
+All good docs (Next.js, Stripe, Django…) separate **4 types, one page = one job**. Mixing types is anti-pattern #1 ([diataxis.fr](https://diataxis.fr/), [NN/g – Progressive Disclosure](https://www.nngroup.com/articles/progressive-disclosure/), verified 3-0).
 
-| Tipo Diátaxis | Grupo en el Manual | Contenido |
+| Diátaxis type | Group in the Manual | Content |
 |---|---|---|
-| Tutorial | **Empezar aquí** | Landing de valor (default) + "Tu primera misión" (tour guiado) |
-| How-to | **Guías** | 7 tareas, una meta cada una (capturar, handoff, modo, feedback, probar, traspaso, plugin) |
-| Reference | **Referencia** | Los catálogos de la ex-Configuración: Comandos, Agentes, Reglas, Estándares (con fichas) |
-| Explanation | **Conceptos** | El porqué y la profundidad técnica (modelo, pipeline, construcción, estado, hooks, Mission Control, stacks, plugin) |
+| Tutorial | **Start here** | Value landing (default) + "Your first mission" (guided tour) |
+| How-to | **Guides** | 7 tasks, one goal each (capture, handoff, mode, feedback, test, transfer, plugin) |
+| Reference | **Reference** | The catalogs of the former Configuration: Commands, Agents, Rules, Standards (with cards) |
+| Explanation | **Concepts** | The why and the technical depth (model, pipeline, build, state, hooks, Mission Control, stacks, plugin) |
 
-Orden del nav: **Empezar aquí → Guías → Referencia → Conceptos** (aprender haciendo primero; el porqué al final).
+Nav order: **Start here → Guides → Reference → Concepts** (learn by doing first; the why at the end).
 
-## Principios aplicados (con respaldo)
+## Principles applied (with backing)
 
-- **Acción antes que explicación**: el default es la landing de valor; la 2ª página ya pone a correr algo (no abre con "cómo funciona"). El error de ingeniero es lo contrario.
-- **Progressive disclosure, NO separar por audiencia.** El research **refutó** (0-3) partir por rol (producto vs dev); en su lugar, cada página arranca simple y revela profundidad técnica abajo/enlazada. Sirve al PM y al dev en la misma página.
-- **Diagramas que acompañan la prosa, nunca la reemplazan** (verificado 3-0). Se conservan pipeline/equipo/arquitectura con texto al lado.
-- **DRY**: el dato vive en UN lugar. "El equipo" (narrativa) se fundió en *Agentes* (Referencia); "Estándares y reglas" en sus catálogos.
-- **Landing de problema/valor, no lista de features.**
+- **Action before explanation**: the default is the value landing; the 2nd page already gets something running (it doesn't open with "how it works"). The engineer's mistake is the opposite.
+- **Progressive disclosure, NOT splitting by audience.** The research **refuted** (0-3) splitting by role (product vs dev); instead, each page starts simple and reveals technical depth below/linked. It serves the PM and the dev on the same page.
+- **Diagrams that accompany the prose, never replace it** (verified 3-0). The pipeline/team/architecture diagrams are kept with text alongside.
+- **DRY**: the data lives in ONE place. "The team" (narrative) was merged into *Agents* (Reference); "Standards and rules" into their catalogs.
+- **Problem/value landing, not a feature list.**
 
-## Adaptación clave (caso solo-lectura)
+## Key adaptation (read-only case)
 
-Los ejemplos top (Stripe/Firebase) son productos interactivos. Pandacorp es **solo-lectura** — no "integras", *operas pegando comandos en Claude Code*. Por eso "Tu primera misión" es un **tour guiado/observación** (pegas 2-3 comandos reales) cuya *primera victoria* es **ver al party trabajando en Mission Control**, no una "primera API call".
+The top examples (Stripe/Firebase) are interactive products. Pandacorp is **read-only** — you don't "integrate", you *operate by pasting commands into Claude Code*. That's why "Your first mission" is a **guided tour/observation** (you paste 2-3 real commands) whose *first victory* is **seeing the party work in Mission Control**, not a "first API call".
 
-## Implementación (prototipo)
+## Implementation (prototype)
 
-`mission-control/prototype/index.html`: `MANUALNAV` (4 grupos) → `manualView()` / `manualContent()`; las páginas de contenido nuevas (`manualLanding`, `manualQuickstart`, `manualGuide`); la Referencia reusa `refSection()` (extraído de `configView`) + las fichas existentes (`configDetail`); los Conceptos reusan `docPage()`. Top-nav: 5 → 4 tabs. Cross-links (`gotoagent`/`gotoskill`) re-ruteados a `manual`.
+`mission-control/prototype/index.html`: `MANUALNAV` (4 groups) → `manualView()` / `manualContent()`; the new content pages (`manualLanding`, `manualQuickstart`, `manualGuide`); the Reference reuses `refSection()` (extracted from `configView`) + the existing cards (`configDetail`); the Concepts reuse `docPage()`. Top-nav: 5 → 4 tabs. Cross-links (`gotoagent`/`gotoskill`) re-routed to `manual`.
 
-**Pendiente / futuro**: si algún día hay ajustes reales (ej. toggle claro/oscuro), eso es un **icono ⚙️ en el topbar**, no una pestaña — "ajustar la app" ≠ "leer cómo funciona". Las guías escritas aquí deberían migrar al FRD-08 cuando se formalice.
+**Pending / future**: if there are ever real settings (e.g. a light/dark toggle), that is a **⚙️ icon in the topbar**, not a tab — "adjust the app" ≠ "read how it works". The guides written here should migrate to FRD-08 when it is formalized.
 
-**Fuentes núcleo**: [Diátaxis](https://diataxis.fr/) · [NN/g Progressive Disclosure](https://www.nngroup.com/articles/progressive-disclosure/) · [GitBook docs structure](https://gitbook.com/docs/guides/docs-best-practices/documentation-structure-tips). Caveat: la parte de landing/onboarding se apoya en fuentes de práctica (sin datos A/B).
+**Core sources**: [Diátaxis](https://diataxis.fr/) · [NN/g Progressive Disclosure](https://www.nngroup.com/articles/progressive-disclosure/) · [GitBook docs structure](https://gitbook.com/docs/guides/docs-best-practices/documentation-structure-tips). Caveat: the landing/onboarding part relies on practice sources (no A/B data).

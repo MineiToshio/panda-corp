@@ -1,24 +1,24 @@
-# Seguridad web (headers / CSP)
+# Web security (headers / CSP)
 
-> Dominio: Seguridad · Severidad: **MUST** (web). Enforcement: CI gate (header-scan) + gate humano para el preload. Consolida lo que estaba disperso (constitución §12, DR-017, `security-auditor`). Ver DR-027.
+> Domain: Security · Severity: **MUST** (web). Enforcement: CI gate (header-scan) + human gate for the preload. Consolidates what was scattered (constitution §12, DR-017, `security-auditor`). See DR-027.
 
-## Regla — headers (valores literales pre-aprobados)
-Se setean en `next.config` `headers()` o middleware:
+## Rule — headers (literal pre-approved values)
+Set in `next.config` `headers()` or middleware:
 - `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`
 - `X-Content-Type-Options: nosniff`
 - `Referrer-Policy: strict-origin-when-cross-origin`
-- `X-Frame-Options: DENY` (o CSP `frame-ancestors 'none'`)
+- `X-Frame-Options: DENY` (or CSP `frame-ancestors 'none'`)
 - `Permissions-Policy: geolocation=(), camera=(), microphone=()`
-- **Eliminar** `X-Powered-By` y banners de `Server`.
+- **Remove** `X-Powered-By` and `Server` banners.
 
-## Regla — CSP
-- **CSP con nonce/hash, sin `unsafe-inline`** es el objetivo, pero **en v1 va en `report-only`** (no bloqueante): el nonce por request rompe con PostHog/Sentry/Stripe (todos en el stack). Se endurece cuando el proyecto madura.
+## Rule — CSP
+- **CSP with nonce/hash, without `unsafe-inline`** is the goal, but **in v1 it goes in `report-only`** (non-blocking): the per-request nonce breaks with PostHog/Sentry/Stripe (all in the stack). It is hardened as the project matures.
 
-## Cómo se verifica
-- **Test de header-scan en CI** (convierte el "headers de seguridad" decorativo en algo fail-closed): asevera que cada header está presente con su valor.
-- El **submit a hstspreload.org es duradero y difícil de revertir → lo aprueba el dueño**, no el agente.
+## How it is verified
+- **Header-scan test in CI** (turns the decorative "security headers" into something fail-closed): asserts that each header is present with its value.
+- The **submit to hstspreload.org is durable and hard to revert → the owner approves it**, not the agent.
 
-## Por qué
-Estos headers son baratos y cortan clases enteras de ataques (clickjacking, sniffing, fuga de referrer). Por eso son default literal, no decisión por proyecto.
+## Why
+These headers are cheap and cut off whole classes of attacks (clickjacking, sniffing, referrer leakage). That is why they are a literal default, not a per-project decision.
 
-Fuentes: owasp HTTP_Headers_Cheat_Sheet · owasp Content_Security_Policy_Cheat_Sheet · nextjs production-checklist
+Sources: owasp HTTP_Headers_Cheat_Sheet · owasp Content_Security_Policy_Cheat_Sheet · nextjs production-checklist

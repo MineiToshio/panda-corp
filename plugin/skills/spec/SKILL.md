@@ -1,27 +1,27 @@
 ---
-description: Handoff + fase de producto de Pandacorp. Crea el proyecto de una idea (carpeta/repo) y genera investigación + PRD + FRDs del MVP. Se ejecuta DESDE la fábrica con el nombre de la idea. Es el paso descubierta → documentada.
+description: Pandacorp's handoff + product phase. Creates an idea's project (folder/repo) and generates research + PRD + FRDs for the MVP. Runs FROM the factory with the idea's name. It is the discovery → documented step.
 ---
 
 # /pandacorp:spec
 
-Toma la idea indicada en `$ARGUMENTS`, **crea su proyecto** (handoff) y documenta el MVP. Se ejecuta DESDE la fábrica (panda-corp) porque aún no existe la carpeta del proyecto — por eso lleva el nombre de la idea.
+Takes the idea indicated in `$ARGUMENTS`, **creates its project** (handoff) and documents the MVP. Runs FROM the factory (panda-corp) because the project folder doesn't exist yet — that's why it takes the idea's name.
 
-## Paso 0 — Handoff (crear el proyecto)
+## Step 0 — Handoff (create the project)
 
-1. Lee la ficha `factory/ideas/<idea>.md`. Debe existir y NO estar `descartada`. **Si el proyecto YA existe** (la ficha tiene `proyecto:` con ruta): el handoff ya se hizo — **salta todo el Paso 0** (no re-scaffoldees) y ve directo al Paso 1 a **iterar** los documentos de producto.
-2. Ejecuta el scaffold del proyecto (mismos pasos del skill `scaffold`): crea `<slug>/` **hermana de la raíz de la fábrica** (nunca dentro; usa `ruta_proyectos` de `factory/profile.md` si está definida, por defecto el directorio padre de la fábrica), copia el overlay desde `${CLAUDE_PLUGIN_ROOT}/templates/shared/`, procesa los `.tpl`, crea la estructura `docs/` (frds, diseno/mockups, adr, work-orders, reviews, iteration.md), copia la ficha a `docs/idea-origin.md`, inicializa git, crea repo privado con `gh` si está disponible (DR-010), y escribe los enlaces bidireccionales (ficha → `estado: documentada` + `proyecto:` con la ruta; fila en `factory/portfolio.md`).
+1. Read the card `factory/ideas/<idea>.md`. It must exist and NOT be `discarded`. **If the project ALREADY exists** (the card has `project:` with a path): the handoff was already done — **skip all of Step 0** (don't re-scaffold) and go straight to Step 1 to **iterate** the product documents.
+2. Run the project scaffold (same steps as the `scaffold` skill): create `<slug>/` as a **sibling of the factory root** (never inside; use `ruta_proyectos` from `factory/profile.md` if it is defined, by default the parent directory of the factory), copy the overlay from `${CLAUDE_PLUGIN_ROOT}/templates/shared/`, process the `.tpl` files, create the `docs/` structure (frds, design/mockups, adr, work-orders, reviews, iteration.md), copy the card to `docs/idea-origin.md`, initialize git, create a private repo with `gh` if available (DR-010), and write the bidirectional links (card → `status: documented` + `project:` with the path; row in `factory/portfolio.md`).
 
-> A partir de aquí trabajas DENTRO de la carpeta del proyecto. Los demás skills (`design`, `blueprint`, `implement`, `release`) se corren ahí y NO necesitan el nombre.
+> From here on you work INSIDE the project folder. The other skills (`design`, `blueprint`, `implement`, `release`) run there and do NOT need the name.
 
-## Paso 1 — Producto (en el proyecto)
+## Step 1 — Product (in the project)
 
-3. **Investigación profunda** (agentes `researcher` en paralelo): competidores y sus quejas, usuarios, funcionalidades table-stakes vs diferenciadoras, viabilidad (APIs/datos, costos, términos). Consolida en `docs/product-research.md` con fuentes. Esta es la investigación de PRODUCTO (a nivel de FRD): cuanto más completa, menos decisiones quedan para resolver en construcción.
-4. **PRD** (agente `product-manager`): `docs/prd.md` — visión, problema, usuarios, hipótesis de valor, monetización (incluida la decisión explícita **¿v1 con pagos? sí/no**, DR-035), métricas, scope v1 mínimo + backlog.
-5. **FRDs** (mismo agente): `docs/frds/frd-NN-<nombre>.md`, uno por funcionalidad de v1, criterios de aceptación EARS testeables.
-6. Auto-revisión: cada FRD trazable al PRD; v1 realmente mínima (DR-012); criterios verificables por máquina.
-7. **Iterar / reanudar (DR-032)**: si ya había PRD/FRDs, esto es una **iteración** — lee `docs/iteration.md` (fase `producto`) y los docs existentes, refina con el feedback del dueño (**no** regeneres desde cero ni repitas lo ya descartado) y **apenda** una entrada por ronda (qué se probó, qué rechazó y por qué, qué queda abierto). Presenta al dueño: hipótesis de valor, FRDs de v1, qué quedó fuera.
-8. **Gate de avance (DR-032)**: deja `avance_pendiente: true` en `docs/status.yaml` y **espera el "ok, avanza"** del dueño — re-correr `spec` mientras tanto = seguir puliendo. **NO escribas `fase: diseno` antes.** Solo cuando apruebe: `docs/status.yaml` → `fase: diseno` + `avance_pendiente: false`, y cierra el hilo `producto` en `docs/iteration.md`. Siguiente paso: abrir Claude Code en la carpeta del proyecto y correr `/pandacorp:design`.
+3. **Deep research** (`researcher` agents in parallel): competitors and their complaints, users, table-stakes vs differentiating features, feasibility (APIs/data, costs, terms). Consolidate in `docs/product-research.md` with sources. This is the PRODUCT research (at FRD level): the more complete it is, the fewer decisions are left to resolve during the build.
+4. **PRD** (`product-manager` agent): `docs/prd.md` — vision, problem, users, value hypothesis, monetization (including the explicit decision **v1 with payments? yes/no**, DR-035), metrics, minimum v1 scope + backlog.
+5. **FRDs** (same agent): `docs/frds/frd-NN-<name>.md`, one per v1 feature, testable EARS acceptance criteria.
+6. Self-review: each FRD traceable to the PRD; v1 truly minimal (DR-012); criteria machine-verifiable.
+7. **Iterate / resume (DR-032)**: if a PRD/FRDs already existed, this is an **iteration** — read `docs/iteration.md` (phase `product`) and the existing docs, refine with the owner's feedback (do **not** regenerate from scratch or repeat what was already discarded) and **append** an entry per round (what was tried, what was rejected and why, what's still open). Present to the owner: value hypothesis, v1 FRDs, what was left out.
+8. **Advance gate (DR-032)**: leave `advance_pending: true` in `docs/status.yaml` and **wait for the owner's "ok, advance"** — re-running `spec` in the meantime = keep polishing. **DO NOT write `phase: design` before.** Only when they approve: `docs/status.yaml` → `phase: design` + `advance_pending: false`, and close the `product` thread in `docs/iteration.md`. Next step: open Claude Code in the project folder and run `/pandacorp:design`.
 
-## Reglas
-- Si la investigación contradice la idea (dolor inexistente, competencia imbatible), DILO y recomienda matar/pivotar antes de escribir el PRD.
-- Documentos en español; identificadores en inglés.
+## Rules
+- If the research contradicts the idea (nonexistent pain, unbeatable competition), SAY SO and recommend killing/pivoting before writing the PRD.
+- Documents in Spanish; identifiers in English.

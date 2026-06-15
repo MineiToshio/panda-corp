@@ -1,36 +1,36 @@
 ---
-description: Incorpora a la fábrica Pandacorp know-how durable — un estándar de ingeniería, una regla de decisión, o un skill nuevo del plugin (la autoría y evaluación del skill se delegan al skill nativo skill-creator). Usar cuando el dueño quiere agregar/ajustar una convención, un default pre-aprobado, o una capacidad nueva que se inyectará en los proyectos. Se ejecuta EN la fábrica (panda-corp).
+description: Incorporates durable know-how into the Pandacorp factory — an engineering standard, a decision rule, or a new plugin skill (the skill's authoring and evaluation are delegated to the native skill-creator skill). Use when the owner wants to add/adjust a convention, a pre-approved default, or a new capability that will be injected into projects. Runs IN the factory (panda-corp).
 ---
 
 # /pandacorp:learn
 
-Le enseña a la fábrica algo **durable** (la fábrica lo aprende): un **estándar** (`factory/standards/`), una **regla de decisión** (`factory/decisions/registry.yaml`), o un **skill** nuevo del plugin. Es lo que disparan los botones «Nuevo estándar» / «Nueva regla de decisión» / «Nuevo skill» de Mission Control. Se ejecuta EN la fábrica. (Antes se llamaba `codify`.)
+It teaches the factory something **durable** (the factory learns it): a **standard** (`factory/standards/`), a **decision rule** (`factory/decisions/registry.yaml`), or a new plugin **skill**. It is what the "New standard" / "New decision rule" / "New skill" buttons in Mission Control trigger. Runs IN the factory. (It used to be called `codify`.)
 
-`$ARGUMENTS` (o la conversación): qué quieres que la fábrica aprenda, en lenguaje normal (ej.: `/pandacorp:learn "todo formulario debe tener protección anti-spam"`).
+`$ARGUMENTS` (or the conversation): what you want the factory to learn, in plain language (e.g.: `/pandacorp:learn "every form must have anti-spam protection"`).
 
-## Pasos
+## Steps
 
-1. **Clasifica** lo que pide el dueño: ¿es un **estándar** (regla de cómo se construye, se inyecta en los proyectos), una **regla de decisión** (default pre-aprobado para que la IA no pregunte cada vez), o un **skill** (una capacidad/comando nuevo)? Si es ambiguo, pregunta.
-2. **Investiga lo mínimo** (delega al `researcher` si hace falta): valores concretos, mejores prácticas, cómo se verifica. Lo que el dueño dice es de alto nivel; aterrízalo.
-3. **Si es ESTÁNDAR:**
-   - Decide el **dominio** (Programación, Arquitectura, Diseño, Tecnología, Calidad, Seguridad, Operación, Datos/Privacidad, Producto/Docs) y si va en un archivo existente o uno nuevo (`factory/standards/<slug>.md`).
-   - Escríbelo en la forma **"estándar ejecutable"**: **Regla** (taxativa) · **Cómo se verifica** (check binario, enchufable a `verify.sh`/CI) · **Por qué** (rationale). Marca **severidad** (MUST/SHOULD/MAY) y **enforcement** (lint/CI/checklist/gate humano).
-   - Si introduce algo verificable, di cómo entra al gate (lint rule, test, paso de CI).
-   - Actualiza `factory/standards/README.md` (índice + categoría).
-4. **Si es REGLA DE DECISIÓN:**
-   - Agrega `DR-NNN` al `registry.yaml` con `patron`, `default` (el comportamiento pre-aprobado), `requiere_humano` (true/false) y `nota` si hace falta. Si los valores viven en un estándar, **apunta a él** (no los dupliques).
-5. **Si es SKILL (crear o mejorar) — NO reinventes: delega a `skill-creator` (nativo):**
-   - **Justifica primero.** Un skill se crea desde un **gap medido y recurrente** (desviaciones en `docs/progress.md`, hallazgos del `reviewer`, llamadas repetidas al `researcher`, desviaciones de golden path), no por corazonada. Sin gap recurrente, casi nunca es un skill — reconsidéralo como estándar, o como nada.
-   - **Autoría + evaluación con `skill-creator`.** Que el skill nativo cree/edite el `SKILL.md` y corra su eval (baseline-vs-skill con aserciones + optimización de la descripción para triggering, con holdout). **Acepta solo si** el benchmark (delta vs baseline) y la precisión de triggering mejoran. Para mejorar uno existente: preserva su nombre/directorio, snapshot del viejo, baseline-vs-nuevo.
-   - **Colócalo en el plugin**, namespaced: `plugin/skills/<slug>/`, comando `pandacorp:<slug>`. Descripción **tight** (caso de uso primero, ≤1.536 chars; incluye qué hace Y cuándo dispararse). `disable-model-invocation: true` si tiene efectos secundarios. Vigila el presupuesto de descripciones con `/doctor`.
-   - **Si en vez de crear vas a ADOPTAR un skill externo:** nunca auto-instalar. Audítalo (lente del `security-auditor`: `allowed-tools`, `!`shell``, MCP, variables de entorno), **vendoriza una copia pineada** dentro del plugin, y trátalo como dependencia (DR-001). Primera parte (`anthropic-skills`) = confianza alta; comunidad = referencia + vendorizado, nunca instalación directa.
-   - **Es un gate del dueño**: crear o adoptar un skill lo apruebas tú.
-6. **Confirma al dueño** qué se creó/cambió y dónde. Recuerda el paso de activación: **commit + `claude plugin update pandacorp@panda-corp` + reiniciar** (si tocaste el plugin) — Mission Control avisa del desfase (FRD-15).
+1. **Classify** what the owner is asking for: is it a **standard** (a rule for how things are built, injected into projects), a **decision rule** (a pre-approved default so the AI doesn't ask every time), or a **skill** (a new capability/command)? If it's ambiguous, ask.
+2. **Research the minimum** (delegate to the `researcher` if needed): concrete values, best practices, how it is verified. What the owner says is high-level; make it concrete.
+3. **If it is a STANDARD:**
+   - Decide the **domain** (Programming, Architecture, Design, Technology, Quality, Security, Operations, Data/Privacy, Product/Docs) and whether it goes in an existing file or a new one (`factory/standards/<slug>.md`).
+   - Write it in the **"executable standard"** form: **Rule** (categorical) · **How it is verified** (binary check, pluggable into `verify.sh`/CI) · **Why** (rationale). Mark the **severity** (MUST/SHOULD/MAY) and **enforcement** (lint/CI/checklist/human gate).
+   - If it introduces something verifiable, say how it enters the gate (lint rule, test, CI step).
+   - Update `factory/standards/README.md` (index + category).
+4. **If it is a DECISION RULE:**
+   - Add `DR-NNN` to `registry.yaml` with `pattern`, `default` (the pre-approved behavior), `requires_human` (true/false) and `note` if needed. If the values live in a standard, **point to it** (don't duplicate them).
+5. **If it is a SKILL (create or improve) — DON'T reinvent: delegate to `skill-creator` (native):**
+   - **Justify first.** A skill is created from a **measured and recurring gap** (deviations in `docs/progress.md`, the `reviewer`'s findings, repeated calls to the `researcher`, golden-path deviations), not from a hunch. Without a recurring gap, it is almost never a skill — reconsider it as a standard, or as nothing.
+   - **Authoring + evaluation with `skill-creator`.** Have the native skill create/edit the `SKILL.md` and run its eval (baseline-vs-skill with assertions + optimization of the description for triggering, with holdout). **Accept only if** the benchmark (delta vs baseline) and the triggering precision improve. To improve an existing one: preserve its name/directory, snapshot the old one, baseline-vs-new.
+   - **Place it in the plugin**, namespaced: `plugin/skills/<slug>/`, command `pandacorp:<slug>`. **Tight** description (use case first, ≤1,536 chars; include what it does AND when to trigger). `disable-model-invocation: true` if it has side effects. Watch the description budget with `/doctor`.
+   - **If instead of creating you are going to ADOPT an external skill:** never auto-install. Audit it (the `security-auditor`'s lens: `allowed-tools`, `!`shell``, MCP, environment variables), **vendor a pinned copy** inside the plugin, and treat it as a dependency (DR-001). First-party (`anthropic-skills`) = high trust; community = reference + vendored, never direct installation.
+   - **It is an owner gate**: creating or adopting a skill is something you approve.
+6. **Confirm to the owner** what was created/changed and where. Remember the activation step: **commit + `claude plugin update pandacorp@panda-corp` + restart** (if you touched the plugin) — Mission Control warns of the drift (FRD-15).
 
-## Reglas
+## Rules
 
-- **No inventes valores**: si no sabes el umbral/valor correcto, investígalo o pregúntalo. Un estándar sin verificador concreto es prosa, no un contrato.
-- **Reusa antes de crear**: si encaja en un archivo existente (`quality.md`, `patterns.md`…), amplíalo en vez de crear uno nuevo. Para skills: un skill con variantes internas (`references/`) antes que muchos casi-duplicados — el *sprawl* satura el presupuesto de descripciones y provoca colisiones de triggering.
-- **No reinventes lo nativo**: para skills, `skill-creator` hace la autoría y la evaluación; `learn` solo agrega el gate del dueño, la colocación en el plugin, la política de seguridad y el ritual de activación.
-- Nuevos `MUST` que puedan romper proyectos en vuelo (CSP estricta, a11y-gate): introdúcelos primero como `SHOULD`/aviso y promuévelos cuando maduren.
-- Las decisiones de PRODUCTO (qué construir) no van aquí — eso es `iterate`/`spec`. `learn` es solo para el CÓMO (estándares), la gobernanza (reglas de decisión) y las capacidades (skills).
+- **Don't invent values**: if you don't know the correct threshold/value, research it or ask. A standard without a concrete verifier is prose, not a contract.
+- **Reuse before creating**: if it fits in an existing file (`quality.md`, `patterns.md`…), expand it instead of creating a new one. For skills: a skill with internal variants (`references/`) rather than many near-duplicates — *sprawl* saturates the description budget and causes triggering collisions.
+- **Don't reinvent the native stuff**: for skills, `skill-creator` does the authoring and the evaluation; `learn` only adds the owner gate, the placement in the plugin, the security policy and the activation ritual.
+- New `MUST`s that could break in-flight projects (strict CSP, a11y-gate): introduce them first as `SHOULD`/warning and promote them when they mature.
+- PRODUCT decisions (what to build) don't go here — that's `iterate`/`spec`. `learn` is only for the HOW (standards), the governance (decision rules) and the capabilities (skills).

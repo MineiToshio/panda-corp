@@ -13,27 +13,27 @@ created: YYYY-MM-DD
 project: ""
 ---
 
-# (Título)
+# (Title)
 
-## Problema
-¿Qué duele y a quién? Una o dos frases concretas.
+## Problem
+What hurts and for whom? One or two concrete sentences.
 
-## Solución propuesta
-Qué construiríamos, en 2-4 frases.
+## Proposed solution
+What we would build, in 2-4 sentences.
 
-## Retorno (monetario u oportunidad)
-Qué gana el dueño. Puede ser **monetario** (suscripción, pago único, ads, afiliados…) y/o de
-**oportunidad** (alcance, contactos, posicionamiento, aprendizaje) y/o **valor personal**.
-Si aprovecha un activo del dueño (audiencia, comunidad, red, nicho), dilo.
+## Return (monetary or opportunity)
+What the owner gains. It can be **monetary** (subscription, one-time payment, ads, affiliates…) and/or
+**opportunity** (reach, contacts, positioning, learning) and/or **personal value**.
+If it leverages an asset of the owner (audience, community, network, niche), say so.
 
-## Evidencia
-Links a posts de Reddit/foros/redes donde la gente expresa este dolor o demanda, o contexto personal del dueño.
+## Evidence
+Links to Reddit/forum/social posts where people express this pain or demand, or the owner's personal context.
 
-## Notas de evaluación
-Lo que el scoring consideró: necesidad/dolor, facilidad, retorno (monetario/oportunidad/personal),
-encaje con el perfil (alineación + ventaja).
+## Evaluation notes
+What the scoring considered: need/pain, ease, return (monetary/opportunity/personal),
+fit with the profile (alignment + advantage).
 
 ---
-> Estados: discovered → documented → recommended → in-pipeline → shipped | discarded
-> Cada transición la escribe un skill (new-idea→documented, recommend→recommended, scaffold→in-pipeline, release→shipped). `discarded` se marca desde Pandacorp (decisión humana). El tablero es solo-lectura.
-> Al pasar a `in-pipeline`, llenar el campo `project:` con la ruta de la carpeta creada.
+> Statuses: discovered → documented → recommended → in-pipeline → shipped | discarded
+> Each transition is written by a skill (new-idea→documented, recommend→recommended, scaffold→in-pipeline, release→shipped). `discarded` is marked from Pandacorp (human decision). The board is read-only.
+> When moving to `in-pipeline`, fill the `project:` field with the path of the created folder.

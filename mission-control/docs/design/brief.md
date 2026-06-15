@@ -1,249 +1,249 @@
-# Brief de diseño — Sistema de diseño de Mission Control de Pandacorp
+# Design brief — Pandacorp Mission Control design system
 
-Eres el **diseñador UX/UI de Pandacorp** (Claude Design). Tu trabajo es entregar el
-**sistema de diseño completo** de Mission Control y 3 direcciones de mockups navegables,
-con **light mode y dark mode** de primera clase, estética **RPG con gamificación
-honesta**, y rigor de accesibilidad. El dueño es débil en diseño: tu trabajo es que
-no tenga que serlo. **Investiga antes de diseñar.**
+You are the **Pandacorp UX/UI designer** (Claude Design). Your job is to deliver the
+**complete design system** of Mission Control and 3 navigable mockup directions,
+with first-class **light mode and dark mode**, an **RPG aesthetic with honest
+gamification**, and accessibility rigor. The owner is weak at design: your job is to make sure
+they don't have to be. **Research before designing.**
 
-Corre este trabajo **dentro de `mission-control/`** (ahí están `docs/prd.md` y `docs/frds/`,
-así que la precondición de `/pandacorp:design` ya está cumplida).
+Run this work **inside `mission-control/`** (that's where `docs/prd.md` and `docs/frds/` are,
+so the `/pandacorp:design` precondition is already met).
 
-## ⚠️ Reglas que mandan sobre todo lo demás
+## ⚠️ Rules that override everything else
 
-1. **El prototipo `mission-control/prototype/index.html` es referencia SOLO de funcionalidad,
-   contenido, pantallas y estados — NO de diseño visual.** NO tomes de ahí colores,
-   tipografía, formas, layout ni "look". El resultado **puede y debe verse como una
-   aplicación distinta**: otra paleta, otras formas, otra personalidad. La paleta es
-   **libre y la decides tú a partir de la investigación** (esto **relaja** la nota de
-   FRD-13 sobre "mantener la paleta cálida tipo Anthropic": ya no es un requisito —
-   solo una opción más).
+1. **The `mission-control/prototype/index.html` prototype is a reference ONLY for functionality,
+   content, screens and states — NOT for visual design.** Do NOT take colors,
+   typography, shapes, layout or "look" from there. The result **can and should look like a
+   different application**: another palette, other shapes, another personality. The palette is
+   **free and you decide it from the research** (this **relaxes** the FRD-13
+   note about "keeping the warm Anthropic-style palette": it is no longer a requirement —
+   just one more option).
 
-2. **Los sprites de personajes y los fondos de zona del Party son insumos
-   FIJOS: se reusan tal cual, NO se inventan nuevos.** Están en
-   `mission-control/prototype/assets/agents/*.png` (los 10 roles) y
-   `mission-control/prototype/assets/zones/*.png` (zonas existentes). Son pixel-art 16-bit
-   (SNES JRPG), de paleta **cálida**, y ya están perfectos. **No generes personajes ni
-   fondos nuevos.**
+2. **The Party's character sprites and zone backgrounds are FIXED
+   inputs: they are reused as-is, NOT reinvented.** They are in
+   `mission-control/prototype/assets/agents/*.png` (the 10 roles) and
+   `mission-control/prototype/assets/zones/*.png` (existing zones). They are 16-bit pixel-art
+   (SNES JRPG), with a **warm** palette, and are already perfect. **Do not generate new characters or
+   backgrounds.**
 
-3. **Coherencia con los sprites = requisito duro sobre las 3 direcciones.** Todo debe
-   verse **bien y fluido junto a los sprites pixel-art cálidos**: nada que los haga ver
-   pegados, disonantes o de otra app. La libertad de paleta de la regla 1 está
-   **acotada por esta regla 3** — puedes explorar familias de color distintas, pero
-   todas deben **armonizar con el pixel-art cálido JRPG**. Si una paleta hace que los
-   sprites se vean fuera de lugar, está descartada. Resolver esta convivencia (chrome,
-   fondos, halos, bordes que enmarcan los sprites) es el corazón del encargo.
+3. **Coherence with the sprites = a hard requirement on all 3 directions.** Everything must
+   look **good and fluid alongside the warm pixel-art sprites**: nothing that makes them look
+   pasted on, dissonant or from another app. The palette freedom of rule 1 is
+   **bounded by this rule 3** — you can explore different color families, but
+   all of them must **harmonize with the warm JRPG pixel-art**. If a palette makes the
+   sprites look out of place, it's discarded. Resolving this coexistence (chrome,
+   backgrounds, halos, borders that frame the sprites) is the heart of the assignment.
 
 ---
 
-## 1. Qué es la aplicación
+## 1. What the application is
 
-El **Mission Control de Pandacorp**: una app web **local** (`127.0.0.1`, sin auth, sin
-deploy) y **100% solo-lectura** para operar una "fábrica de software 100% IA".
-Sirve para **ver** el estado de todas las ideas y proyectos, **leer** su
-documentación, **saber qué comando ejecutar** a continuación (con botón Copiar), y
-**seguir en vivo al "party" de agentes** construyendo — todo envuelto en una capa
-de gamificación RPG **honesta**.
+The **Pandacorp Mission Control**: a **local** web app (`127.0.0.1`, no auth, no
+deploy) and **100% read-only** to operate a "100% AI software factory".
+It serves to **see** the state of all ideas and projects, **read** their
+documentation, **know which command to run** next (with a Copy button), and
+**follow live the "party" of agents** building — all wrapped in a layer
+of **honest** RPG gamification.
 
-Regla de oro del producto: **Mission Control NUNCA llama a Claude**. Solo lee archivos
-del repo y muestra texto de comandos para copiar. Esto importa para el diseño: no
-hay spinners de "IA pensando" ni chat; es un **tablero de observación + lanzadera de
-comandos**, no un asistente.
+The product's golden rule: **Mission Control NEVER calls Claude**. It only reads files
+from the repo and shows command text to copy. This matters for the design: there are no
+"AI thinking" spinners or chat; it is an **observation board + command
+launcher**, not an assistant.
 
-**Pestañas v1 (cubrir todas en los mockups):** Tablero (kanban de ideas, solo-
-lectura), Portfolio (tabla de proyectos), **Logros** (salón de stats/logros),
-Configuración (modos de construcción, niveles de agentes), Documentación. Más:
-**workspace por proyecto** (detalle a página completa con navegador de documentos +
-siguiente comando) y **Party RPG** (mapa en vivo de agentes).
+**v1 tabs (cover all of them in the mockups):** Board (idea kanban, read-
+only), Portfolio (project table), **Achievements** (stats/achievements hall),
+Configuration (build modes, agent levels), Documentation. Plus:
+**per-project workspace** (full-page detail with a document navigator +
+next command) and **Party RPG** (live agent map).
 
-## 2. Perfil del usuario (es el dueño, el único operador)
+## 2. User profile (it's the owner, the only operator)
 
-- **Operador único, hispanohablante.** Toda la UI y los `aria-label` en **español**.
-- **Débil en UX/diseño** → la herramienta debe **guiar y deleitar**, no solo mostrar
-  datos. No puede depender de que el usuario "tenga buen ojo": la restricción y los
-  defaults hacen el trabajo.
-- **Solo, sin equipo, uso diario.** La motivación importa: operar la fábrica solo
-  desde la terminal es árido. La capa RPG existe para **sostener el hábito sin
-  fatiga**, no para manipular.
-- **Le gusta el mundo RPG / gamer.** Quiere genuinamente sentir que dirige un gremio
-  y un party de personajes. Eso es un requisito, no un adorno — pero **la legibilidad
-  de los datos va primero** (la gamificación complementa buena UX, nunca la compensa).
-- **Sesiones potencialmente largas** mirando agentes trabajar → motion sobrio y
-  `prefers-reduced-motion` son obligatorios para no cansar la vista.
+- **Single operator, Spanish-speaking.** The whole UI and the `aria-label`s in **Spanish**.
+- **Weak at UX/design** → the tool must **guide and delight**, not just show
+  data. It can't depend on the user "having a good eye": the restraint and the
+  defaults do the work.
+- **Alone, no team, daily use.** Motivation matters: operating the factory alone
+  from the terminal is dry. The RPG layer exists to **sustain the habit without
+  fatigue**, not to manipulate.
+- **They like the RPG / gamer world.** They genuinely want to feel they lead a guild
+  and a party of characters. That is a requirement, not an ornament — but **the legibility
+  of the data comes first** (the gamification complements good UX, never compensates for it).
+- **Potentially long sessions** watching agents work → restrained motion and
+  `prefers-reduced-motion` are mandatory so as not to tire the eyes.
 
-## 3. Dirección creativa: RPG + gamificación honesta
+## 3. Creative direction: RPG + honest gamification
 
-- **Estética:** "gremio / campaña RPG" con alma de videojuego. La paleta, las formas y
-  la personalidad visual son tuyas (decididas por investigación, §8), **pero todas las
-  direcciones deben verse fluidas y coherentes con el pixel-art 16-bit cálido fijo**
-  (regla ⚠️3). Piensa "panel de ingeniería con alma de RPG", no "videojuego que
-  estorba": el sabor RPG se logra con tipografía, iconografía, microformas, jerarquía
-  y el mapa pixel — **no** llenando todo de color.
-- **Gamificación HONESTA (no tóxica) — restricciones duras:**
-  - XP/niveles/logros representan **trabajo real verificable** (work order / fase /
-    release cerrados, tests verdes), nunca por volumen ni por abrir la app.
-  - La celebración **escala**: toast pequeño (work order) → animación media (fase) →
-    celebración (release) → momento de **subir de nivel**. Nunca celebración plana en
-    cada acción.
-  - **PROHIBIDO:** leaderboards, vidas/muerte, rachas diarias con reset, urgencia
-    falsa/timers, barra "clavada al 80%", recompensas variables tipo tragaperras,
-    notificaciones machaconas. Las rachas (si hay) son **semanales con freeze**.
-  - **Endowed progress honesto:** las barras arrancan mostrando el avance **ya
-    logrado** (no en cero), porque corresponde a trabajo real.
-  - El mayor activo intrínseco es **ver a los agentes trabajar en vivo**; el XP es
-    capa secundaria de confirmación, no el gancho. Invierte el craft en la legibilidad
-    del estado.
+- **Aesthetic:** "guild / RPG campaign" with the soul of a video game. The palette, shapes and
+  visual personality are yours (decided by research, §8), **but all
+  directions must look fluid and coherent with the fixed warm 16-bit pixel-art**
+  (rule ⚠️3). Think "engineering panel with the soul of an RPG", not "video game that
+  gets in the way": the RPG flavor is achieved with typography, iconography, micro-shapes, hierarchy
+  and the pixel map — **not** by filling everything with color.
+- **HONEST (non-toxic) gamification — hard constraints:**
+  - XP/levels/achievements represent **verifiable real work** (work order / phase /
+    release closed, green tests), never by volume nor by opening the app.
+  - The celebration **scales**: small toast (work order) → medium animation (phase) →
+    celebration (release) → **level-up** moment. Never a flat celebration on
+    every action.
+  - **FORBIDDEN:** leaderboards, lives/death, daily streaks with reset, false
+    urgency/timers, a bar "stuck at 80%", slot-machine-style variable rewards,
+    nagging notifications. The streaks (if any) are **weekly with a freeze**.
+  - **Honest endowed progress:** the bars start by showing the progress **already
+    achieved** (not at zero), because it corresponds to real work.
+  - The greatest intrinsic asset is **seeing the agents work live**; XP is a
+    secondary confirmation layer, not the hook. Invest the craft in the legibility
+    of the state.
 
-## 4. Light mode y dark mode (ambos de primera clase)
+## 4. Light mode and dark mode (both first-class)
 
-- Entrega **ambos temas**, derivados de los **mismos tokens** (no dos hojas de estilo
-  divergentes). Toggle de tema visible y persistente; respeta `prefers-color-scheme`
-  como default.
-- En **ambos** temas: mantener **un único acento racionado**, los **colores por
-  agente** (§6) y el contraste **≥4.5:1**, y asegurar que **el pixel-art cálido se vea
-  bien y fluido sobre ambos fondos** (cuida halos/bordes/sombras que enmarcan los
-  sprites; los sprites no cambian, así que el chrome se adapta a ellos).
-- Diseña además un **modo alto-contraste** que salga "gratis" del esquema de tokens.
-- El dark mode es donde la atmósfera RPG puede respirar más; el light mode es el
-  "taller de día", limpio y legible. Ambos con la misma personalidad, no dos diseños.
+- Deliver **both themes**, derived from the **same tokens** (not two divergent style
+  sheets). A visible and persistent theme toggle; it respects `prefers-color-scheme`
+  as the default.
+- In **both** themes: keep **a single rationed accent**, the **per-agent
+  colors** (§6) and the **≥4.5:1** contrast, and ensure that **the warm pixel-art looks
+  good and fluid over both backgrounds** (take care of the halos/borders/shadows that frame the
+  sprites; the sprites don't change, so the chrome adapts to them).
+- Also design a **high-contrast mode** that comes "for free" from the token scheme.
+- Dark mode is where the RPG atmosphere can breathe more; light mode is the
+  "daytime workshop", clean and legible. Both with the same personality, not two designs.
 
-## 5. Las 3 direcciones (exploración visual fresca, NO evolución del prototipo)
+## 5. The 3 directions (fresh visual exploration, NOT an evolution of the prototype)
 
-Genera **3 direcciones genuinamente distintas** — distintas de verdad: otra paleta,
-otras formas, otra densidad, otra personalidad (no la misma con otro color). Todas
-deben cumplir: RPG + gamificación honesta + light/dark + las restricciones de §6 +
-**verse fluidas y coherentes con el pixel-art cálido fijo** (regla ⚠️3). Ejes de
-variación posibles (decídelos tú): grado de "marco RPG" (sobrio tipo dashboard ↔
-inmersivo tipo campaña); familia de paleta — **siempre dentro de lo que armoniza con
-los sprites cálidos** (cálida clásica / tierra-apagada / cálida con un acento más
-saturado…); formas (esquinas suaves modernas ↔ bordes pixel/duros); y qué es
-protagonista (el kanban ↔ el mapa vivo). El prototipo **no** es una de las direcciones
-ni un punto de partida visual.
+Generate **3 genuinely distinct directions** — truly distinct: another palette,
+other shapes, another density, another personality (not the same one in another color). All
+must comply: RPG + honest gamification + light/dark + the §6 constraints +
+**looking fluid and coherent with the fixed warm pixel-art** (rule ⚠️3). Possible axes of
+variation (you decide them): degree of "RPG framing" (restrained dashboard-like ↔
+immersive campaign-like); palette family — **always within what harmonizes with
+the warm sprites** (classic warm / muted-earth / warm with a more saturated
+accent…); shapes (modern soft corners ↔ pixel/hard borders); and what is
+the protagonist (the kanban ↔ the live map). The prototype is **not** one of the directions
+nor a visual starting point.
 
-## 6. Restricciones duras del sistema (FRD-13 + investigación 2026)
+## 6. Hard system constraints (FRD-13 + 2026 research)
 
-Son criterios de aceptación, **independientes de la paleta que elijas**:
+These are acceptance criteria, **independent of the palette you choose**:
 
-- **Tema desde pocos tokens en OKLCH** (base / acento / contraste + superficies por
-  elevación), estilo "Linear pasó de 98 variables a 3". Tocar el acento NO debe
-  descuadrar el contraste del texto.
-- **Un único acento racionado** ("puntuación, no pintura"): acento solo en lo
-  importante (tab activa, agente trabajando, barra de XP, acción primaria). El resto,
-  neutros. Una sola acción primaria por pantalla.
-- **`font-variant-numeric: tabular-nums` en TODO número** (XP, niveles, conteos por
-  columna, stats, timestamps).
-- **3 niveles de elevación** (canvas → panel → tarjeta/popup) con escala tokenizada:
-  radio base ~8px (0.5rem), espaciado en múltiplos de 0.25rem, base 16px, hairline 1px.
-- **Color persistente por agente, reusado en TODA la UI** (sprite + feed + kanban +
-  DAG). Define la paleta de los ~10 roles (researcher, backend-dev, frontend-dev,
+- **Theme from few tokens in OKLCH** (base / accent / contrast + surfaces by
+  elevation), in the style of "Linear went from 98 variables to 3". Touching the accent must NOT
+  throw off the text contrast.
+- **A single rationed accent** ("punctuation, not paint"): accent only on what
+  matters (active tab, working agent, XP bar, primary action). The rest,
+  neutrals. A single primary action per screen.
+- **`font-variant-numeric: tabular-nums` on EVERY number** (XP, levels, per-column counts,
+  stats, timestamps).
+- **3 elevation levels** (canvas → panel → card/popup) with a tokenized scale:
+  base radius ~8px (0.5rem), spacing in multiples of 0.25rem, base 16px, hairline 1px.
+- **Persistent per-agent color, reused across the ENTIRE UI** (sprite + feed + kanban +
+  DAG). Define the palette of the ~10 roles (researcher, backend-dev, frontend-dev,
   test-writer, reviewer, security-auditor, architect, product-manager, designer, +
-  gremio) para light y dark, con AA. **Cada color de agente debe armonizar con el tono
-  dominante de su sprite fijo**, para que el sprite y su código de color coincidan.
-- **El fallo es un estado de primera clase**, tan visible como el logro (sprite caído
-  + borde rojo + ❌, claramente distinto de "completado").
-- **Ningún estado depende solo del color**: cada estado (trabajando / inactivo /
-  fallido / completado / bloqueado / revisando) se empareja con **icono o forma +
-  etiqueta**. Define un **vocabulario icónico fijo y acotado (~12 eventos)**:
-  leer/escribir/editar/test ✅❌/arranque/fin, combinando evento + herramienta.
-- **Motion sobrio y honesto:** solo `transform` y `opacity`, **<300ms**, 2–3 tokens de
-  easing. **Frequency test**: lo cotidiano (tabs, hover) sobrio; lo expresivo reservado
-  a eventos raros y satisfactorios (logro, subir de nivel, work order completada).
-- **`prefers-reduced-motion`** desactiva TODA la animación de Party.
-- **Accesibilidad:** contraste **≥4.5:1**, `aria-label` en **español**,
-  `aria-live="polite"` para anunciar eventos sin robar foco, foco visible que respeta
-  el `border-radius`, navegación de listas con teclado, touch targets ≥44px.
-- **Header con ≤5 KPIs** + indicador **Live/Stale** con timestamp del último evento.
-- **Toggle "RPG ↔ timeline/árbol"**: misma data, dos vistas. DAG con path-focus +
+  guild) for light and dark, with AA. **Each agent color must harmonize with the dominant tone
+  of its fixed sprite**, so that the sprite and its color code match.
+- **Failure is a first-class state**, as visible as the achievement (downed sprite
+  + red border + ❌, clearly distinct from "completed").
+- **No state depends on color alone**: each state (working / idle /
+  failed / completed / blocked / reviewing) is paired with an **icon or shape +
+  label**. Define a **fixed, bounded iconic vocabulary (~12 events)**:
+  read/write/edit/test ✅❌/start/end, combining event + tool.
+- **Restrained and honest motion:** only `transform` and `opacity`, **<300ms**, 2–3 easing
+  tokens. **Frequency test**: the everyday (tabs, hover) is restrained; the expressive reserved
+  for rare and satisfying events (achievement, level-up, completed work order).
+- **`prefers-reduced-motion`** disables ALL Party animation.
+- **Accessibility:** contrast **≥4.5:1**, `aria-label` in **Spanish**,
+  `aria-live="polite"` to announce events without stealing focus, visible focus that respects
+  the `border-radius`, keyboard list navigation, touch targets ≥44px.
+- **Header with ≤5 KPIs** + a **Live/Stale** indicator with the timestamp of the last event.
+- **"RPG ↔ timeline/tree" toggle**: same data, two views. DAG with path-focus +
   go-to-failure.
 
-## 7. Pantallas / estados a cubrir en los mockups
+## 7. Screens / states to cover in the mockups
 
-Con **textos reales** (nada de lorem ipsum) y los estados **vacío / cargando /
-error** diseñados explícitamente:
+With **real text** (no lorem ipsum) and the **empty / loading /
+error** states explicitly designed:
 
-1. **Tablero** — kanban de ideas por estado (solo-lectura, sin drag): título + chip
-   de tipo + score.
-2. **Workspace de proyecto** — detalle a página completa: cabecera, resumen con puntos
-   clave, navegador de documentos renderizados, bloque "Siguiente paso" (comando +
-   carpeta con botón Copiar), botón Descartar.
-3. **Portfolio** — tabla de proyectos (fase, versión, resumen, última actualización).
-4. **Party RPG** — el mapa vivo de agentes usando **los sprites y fondos de
-   zona existentes** (estados trabajando/caminando/idle/bloqueado/revisando con halo,
-   barra de avance, emotes, partículas), + toggle a vista timeline/DAG + selector de
-   modo de construcción. Ver `mission-control/PARTY.md` para el modelo de estados.
-   Nota: faltan los fondos de zona de `reviewer` y `security-auditor` (hoy usan un
-   tinte de respaldo); **úsalo igual, NO inventes arte nuevo** — si algún día se
-   generan, deberán imitar exactamente el estilo pixel existente.
-5. **Salón de Logros** — stats que solo crecen, cadenas con tiers Bronce→Plata→Oro→
-   Platino→Leyenda con barra al siguiente tier, sección "Casi ahí", logros únicos por
-   categoría, logros secretos (silueta + pista; al desbloquear revelan su criterio).
-6. **Configuración** — modos de construcción (pro/equilibrado/potente/profundo),
-   niveles de agentes.
-7. **Documentación** — visor de los documentos internos.
-8. **Barra superior del gremio** — nivel y XP del operador con título y barra al
-   siguiente nivel.
-9. **Momentos de celebración** — toast de work order, celebración de release, y el
-   **momento de subir de nivel** (con su versión `reduced-motion`).
+1. **Board** — idea kanban by status (read-only, no drag): title + type
+   chip + score.
+2. **Project workspace** — full-page detail: header, summary with key
+   points, navigator of rendered documents, "Next step" block (command +
+   folder with a Copy button), Discard button.
+3. **Portfolio** — project table (phase, version, summary, last updated).
+4. **Party RPG** — the live agent map using **the existing sprites and zone
+   backgrounds** (working/walking/idle/blocked/reviewing states with a halo,
+   progress bar, emotes, particles), + a toggle to timeline/DAG view + a build
+   mode selector. See `mission-control/PARTY.md` for the state model.
+   Note: the zone backgrounds for `reviewer` and `security-auditor` are missing (today they use a
+   fallback tint); **use it anyway, do NOT invent new art** — if they are ever
+   generated, they must imitate the existing pixel style exactly.
+5. **Achievements Hall** — stats that only grow, chains with Bronze→Silver→Gold→
+   Platinum→Legend tiers with a bar to the next tier, an "Almost there" section, unique achievements by
+   category, secret achievements (silhouette + hint; on unlocking they reveal their criterion).
+6. **Configuration** — build modes (pro/balanced/powerful/deep),
+   agent levels.
+7. **Documentation** — a viewer of the internal documents.
+8. **Guild top bar** — the operator's level and XP with a title and a bar to the
+   next level.
+9. **Celebration moments** — work order toast, release celebration, and the
+   **level-up moment** (with its `reduced-motion` version).
 
-## 8. Qué investigar (entrégalo en `referencias.md`)
+## 8. What to research (deliver it in `references.md`)
 
-Investiga colores, formas y demás **con libertad de paleta acotada a la coherencia con
-los sprites cálidos** (regla ⚠️3):
+Research colors, shapes and the rest **with palette freedom bounded by coherence with
+the warm sprites** (rule ⚠️3):
 
-- **Paletas y personalidades visuales** para un Mission Control RPG que **armonicen con
-  pixel-art 16-bit cálido (JRPG)**: explora variantes (cálida clásica, tierra apagada,
-  cálida con acento más saturado…) y propón candidatas con su racional, descartando las
-  que harían ver los sprites fuera de lugar.
-- **Cómo enmarcar pixel-art 16-bit en una UI moderna sin que choque** (problema
-  central): bordes, halos, fondos, escalado nítido (`image-rendering: pixelated`), cómo
-  el chrome moderno convive con sprites JRPG y se ve fluido.
-- **Dashboards de ingeniería "restraint as a feature":** Linear (rediseño a ~3
-  tokens), Vercel **Geist**, **Rauno** (interfaces.rauno.me), observabilidad multi-
-  agente. De ahí salen acento racionado, elevación y motion.
-- **Accesibilidad de la paleta elegida** en light y dark: mantener AA, derivar el par
-  light/dark de los mismos tokens OKLCH, y distinguir ~10 colores de agente entre sí y
-  del acento, estables en ambos temas y para daltonismo.
-- **Iconografía y formas** coherentes con el sabor RPG pero legibles a tamaño pequeño.
+- **Palettes and visual personalities** for an RPG Mission Control that **harmonize with
+  warm 16-bit pixel-art (JRPG)**: explore variants (classic warm, muted earth,
+  warm with a more saturated accent…) and propose candidates with their rationale, discarding the
+  ones that would make the sprites look out of place.
+- **How to frame 16-bit pixel-art in a modern UI without clashing** (the central
+  problem): borders, halos, backgrounds, crisp scaling (`image-rendering: pixelated`), how
+  the modern chrome coexists with JRPG sprites and looks fluid.
+- **"Restraint as a feature" engineering dashboards:** Linear (redesign to ~3
+  tokens), Vercel **Geist**, **Rauno** (interfaces.rauno.me), multi-agent
+  observability. From there come the rationed accent, elevation and motion.
+- **Accessibility of the chosen palette** in light and dark: keep AA, derive the
+  light/dark pair from the same OKLCH tokens, and distinguish ~10 agent colors from each other and
+  from the accent, stable in both themes and for color blindness.
+- **Iconography and shapes** coherent with the RPG flavor but legible at a small size.
 
-Documenta 3–5 referencias con links y por qué cada patrón aplica a Mission Control.
+Document 3–5 references with links and why each pattern applies to Mission Control.
 
-## 9. Entregables (contrato de la fase `/pandacorp:design`)
+## 9. Deliverables (the `/pandacorp:design` phase contract)
 
-1. `docs/design/referencias.md` — la investigación de §8.
-2. `docs/design/design-tokens.json` — tokens en **OKLCH**, con **light + dark** (+
-   alto-contraste), paleta de agentes, escala de elevación/espaciado/radio, tokens de
-   motion. Base shadcn/ui; tweakcn.com como referencia de formato.
-3. `DESIGN.md` (raíz del proyecto) — tokens + componentes permitidos + prohibiciones.
-4. `docs/design/mockups/direction-{1,2,3}.html` — autocontenidos (CSS/JS inline, solo
-   CDN de Tailwind), **navegables**, mobile-first, responsive, con toggle light/dark.
-   3 direcciones **genuinamente distintas**, todas reusando los sprites/fondos fijos y
-   viéndose fluidas junto a ellos.
-5. **Verificación antes del gate:** screenshots a 375px y 1280px (Playwright) en
-   `docs/design/mockups/screenshots/` + axe-core → `a11y-report.md`. **Corrige las
-   violaciones serias (contraste, foco, aria) ANTES de presentar.**
-6. Al elegirse una dirección: congela `design-tokens.json` final +
-   `docs/design/decisiones-de-diseno.md` con el racional.
+1. `docs/design/references.md` — the §8 research.
+2. `docs/design/design-tokens.json` — tokens in **OKLCH**, with **light + dark** (+
+   high-contrast), agent palette, elevation/spacing/radius scale, motion tokens. shadcn/ui
+   base; tweakcn.com as a format reference.
+3. `DESIGN.md` (project root) — tokens + allowed components + prohibitions.
+4. `docs/design/mockups/direction-{1,2,3}.html` — self-contained (inline CSS/JS, only
+   the Tailwind CDN), **navigable**, mobile-first, responsive, with a light/dark toggle.
+   3 **genuinely distinct** directions, all reusing the fixed sprites/backgrounds and
+   looking fluid alongside them.
+5. **Verification before the gate:** screenshots at 375px and 1280px (Playwright) in
+   `docs/design/mockups/screenshots/` + axe-core → `a11y-report.md`. **Fix the serious
+   violations (contrast, focus, aria) BEFORE presenting.**
+6. Once a direction is chosen: freeze the final `design-tokens.json` +
+   `docs/design/design-decisions.md` with the rationale.
 
-## 10. Archivos del repo que DEBES leer / usar
+## 10. Repo files you MUST read / use
 
-- `mission-control/prototype/assets/agents/*.png` y `mission-control/prototype/assets/zones/*.png` —
-  **los assets fijos a reusar** (sprites de los 10 roles + fondos de zona).
-- `mission-control/prototype/index.html` — referencia **solo de funcionalidad/contenido/
-  pantallas/estados** (NO de diseño visual, ver regla ⚠️1).
-- `mission-control/PARTY.md` — modelo de estados e indicadores del mapa RPG.
-- `mission-control/docs/prd.md` y `mission-control/docs/frds/` (todos; en especial **FRD-06** Mission
-  Control, **FRD-09** gamificación, **FRD-10** salón de logros, **FRD-12**
-  observabilidad/data-viz, **FRD-13** sistema visual y accesibilidad — recordando que
-  su línea de "paleta cálida Anthropic" queda relajada por decisión del dueño, pero la
-  coherencia con los sprites cálidos sí manda).
-- `mission-control/docs/achievements.md` — lista de stats, tiers y logros (textos reales).
-- `docs/proposals/06-improvement-plan-2026.md` — **Dimensión 5** (UI/UX y gamificación
-  honesta): origen de casi todas las restricciones de §6.
+- `mission-control/prototype/assets/agents/*.png` and `mission-control/prototype/assets/zones/*.png` —
+  **the fixed assets to reuse** (the 10 role sprites + zone backgrounds).
+- `mission-control/prototype/index.html` — a reference **only for functionality/content/
+  screens/states** (NOT for visual design, see rule ⚠️1).
+- `mission-control/PARTY.md` — the state and indicator model of the RPG map.
+- `mission-control/docs/prd.md` and `mission-control/docs/frds/` (all of them; especially **FRD-06** Mission
+  Control, **FRD-09** gamification, **FRD-10** achievements hall, **FRD-12**
+  observability/data-viz, **FRD-13** visual system and accessibility — remembering that
+  its "warm Anthropic palette" line is relaxed by the owner's decision, but
+  coherence with the warm sprites does rule).
+- `mission-control/docs/achievements.md` — list of stats, tiers and achievements (real text).
+- `docs/proposals/06-improvement-plan-2026.md` — **Dimension 5** (UI/UX and honest
+  gamification): the origin of almost all the §6 constraints.
 - `factory/standards/conventions.md`, `factory/standards/quality.md`,
   `factory/constitution.md`.
 
-## 11. Gate humano (el dueño)
+## 11. Human gate (the owner)
 
-Al final, presenta las 3 direcciones (abre los HTML o muestra los screenshots, en
-light y dark) y **espera la elección o feedback del dueño**. Itera si pide cambios.
-No congeles el contrato hasta que él elija.
+At the end, present the 3 directions (open the HTMLs or show the screenshots, in
+light and dark) and **wait for the owner's choice or feedback**. Iterate if they ask for changes.
+Don't freeze the contract until they choose.

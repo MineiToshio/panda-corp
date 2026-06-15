@@ -1,35 +1,35 @@
-# Infraestructura y operación local
+# Infrastructure and local operation
 
-Convenciones de cómo corre un proyecto en **desarrollo** (la fábrica las inyecta en cada proyecto). Detalle del modelo de construcción desatendida en [docs/proposals/07-unattended-build.md](../../docs/proposals/07-unattended-build.md).
+Conventions for how a project runs in **development** (the factory injects them into every project). Detail of the unattended-build model in [docs/proposals/07-unattended-build.md](../../docs/proposals/07-unattended-build.md).
 
-## Base de datos y servicios en dev → Docker
+## Database and services in dev → Docker
 
-- **Dev**: cada proyecto levanta su BD y servicios (Postgres, Redis si aplica) con **Docker Compose**, definido en el repo (`docker-compose.yml`). Reproducible, aislado, y el agente lo levanta de forma determinista. Único requisito de máquina: Docker Desktop instalado.
-- **Staging / producción**: NO Docker — managed DB del golden path (Neon / Supabase). Docker es solo para local.
-- Cada **worktree** usa su propia instancia/DB (o un nombre de proyecto Compose distinto, `docker compose -p <worktree>`) para que la prueba del dueño y la del agente no se pisen.
+- **Dev**: each project brings up its DB and services (Postgres, Redis if applicable) with **Docker Compose**, defined in the repo (`docker-compose.yml`). Reproducible, isolated, and the agent brings it up deterministically. Sole machine requirement: Docker Desktop installed.
+- **Staging / production**: NO Docker — managed DB of the golden path (Neon / Supabase). Docker is for local only.
+- Each **worktree** uses its own instance/DB (or a different Compose project name, `docker compose -p <worktree>`) so that the owner's test and the agent's don't step on each other.
 
-## Convención de puertos (varios proyectos / worktrees a la vez)
+## Port convention (several projects / worktrees at once)
 
-Para que nada se cruce cuando corren varias cosas en paralelo:
-- Cada **proyecto** recibe un **rango base** al crearse (lo registra la fábrica; ej. proyecto A → 4000s, B → 4100s…).
-- Cada **worktree** suma un offset dentro del rango (la del agente `+0`, la de review `+1`).
-- App, BD y servicios leen su puerto del `.env` de ese worktree. En Docker, mapear puertos vía `.env` y usar nombre de proyecto Compose distinto por worktree.
-- Mission Control muestra el puerto ("prueba en `localhost:XXXX`").
+So nothing collides when several things run in parallel:
+- Each **project** gets a **base range** when created (the factory records it; e.g. project A → 4000s, B → 4100s…).
+- Each **worktree** adds an offset within the range (the agent's `+0`, the review one `+1`).
+- App, DB and services read their port from that worktree's `.env`. In Docker, map ports via `.env` and use a different Compose project name per worktree.
+- Mission Control shows the port ("test at `localhost:XXXX`").
 
-## Worktrees (probar un snapshot sin parar al agente)
+## Worktrees (testing a snapshot without stopping the agent)
 
-- El agente construye en su worktree; el dueño prueba el **último commit verde** (`last_green_sha`) en otra carpeta:
-  `git worktree add ../<proyecto>-review <last_green_sha>`.
-- Un worktree nace **sin** `.env` ni `node_modules`. La plantilla del stack incluye un **`.worktreeinclude`** (sintaxis `.gitignore`) que copia `.env`/`.env.local` a cada worktree nuevo, más un paso post-create que instala deps. Con **pnpm** (almacén compartido) el install en un worktree nuevo es casi inmediato.
-- Mantener **UNA** carpeta de review y refrescarla al último verde (no acumular worktrees). El sweep automático de Claude Code no borra worktrees creados a mano.
+- The agent builds in its worktree; the owner tests the **latest green commit** (`last_green_sha`) in another folder:
+  `git worktree add ../<project>-review <last_green_sha>`.
+- A worktree is born **without** `.env` or `node_modules`. The stack template includes a **`.worktreeinclude`** (`.gitignore` syntax) that copies `.env`/`.env.local` to each new worktree, plus a post-create step that installs deps. With **pnpm** (shared store) the install in a new worktree is almost instant.
+- Keep **ONE** review folder and refresh it to the latest green (don't accumulate worktrees). Claude Code's automatic sweep does not delete manually created worktrees.
 
-## Estado publicado para Mission Control (`docs/status.yaml`)
+## State published for Mission Control (`docs/status.yaml`)
 
-El script del gate (no el agente) escribe en cada cierre de work order verde:
-- `last_green_sha`: commit del último work order cerrado en verde.
-- `safe_to_test: true/false`: `true` solo cuando `HEAD == last_green_sha` (no hay trabajo sin commitear).
-Más: `bugs_pendientes` (bandeja `docs/bugs/`), `decisiones_pendientes` (docs/decisions.md), `replanteo_pendiente` (iterate pidió pausar).
+The gate script (not the agent) writes at every green work-order close:
+- `last_green_sha`: commit of the last work order closed green.
+- `safe_to_test: true/false`: `true` only when `HEAD == last_green_sha` (no uncommitted work).
+Plus: `pending_bugs` (the `docs/bugs/` tray), `pending_decisions` (docs/decisions.md), `rethink_pending` (iterate asked to pause).
 
-## Gates humanos como reglas duras
+## Human gates as hard rules
 
-Los gates de la constitución (producción, gastar dinero, borrar datos, comunicaciones externas, cambios de acceso) se aplican como **reglas `deny` en `.claude/settings.json`** + el hook `block-dangerous.sh`, NO como límites dichos en la conversación (la compactación de contexto puede perderlos). El "auto mode" de Claude Code NO es blindaje de seguridad — las deny rules ganan siempre.
+The constitution's gates (production, spending money, deleting data, external communications, access changes) are applied as **`deny` rules in `.claude/settings.json`** + the `block-dangerous.sh` hook, NOT as limits stated in the conversation (context compaction can lose them). Claude Code's "auto mode" is NOT a security shield — deny rules always win.

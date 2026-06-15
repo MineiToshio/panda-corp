@@ -1,17 +1,17 @@
-# Propuesta A — Fábrica nativa Claude Code con plugin distribuible ⭐ Recomendada
+# Proposal A — Native Claude Code factory with a distributable plugin ⭐ Recommended
 
-## Idea central
+## Core idea
 
-Pandacorp se construye **enteramente con los mecanismos nativos de Claude Code**: el pipeline son skills, los roles son subagentes, los safeguards son hooks y permisos, y el know-how se empaqueta como un **plugin** (`pandacorp-factory`) que se instala a nivel de usuario y queda disponible en cualquier repo de proyecto, aunque viva en una carpeta separada.
+Pandacorp is built **entirely with Claude Code's native mechanisms**: the pipeline is skills, the roles are subagents, the safeguards are hooks and permissions, and the know-how is packaged as a **plugin** (`pandacorp-factory`) that installs at the user level and stays available in any project repo, even if it lives in a separate folder.
 
-No se escribe ningún orquestador propio: se configura, no se programa.
+No custom orchestrator is written: you configure, you don't program.
 
-## Arquitectura
+## Architecture
 
 ```
-panda-corp/  (la fábrica)
-├── CLAUDE.md                          # constitución: misión, proceso, estándares
-├── .claude-plugin/plugin.json        # empaqueta todo como plugin "pandacorp"
+panda-corp/  (the factory)
+├── CLAUDE.md                          # constitution: mission, process, standards
+├── .claude-plugin/plugin.json        # packages everything as the "pandacorp" plugin
 ├── agents/
 │   ├── coordinador.md  investigador.md  product-manager.md  arquitecto.md
 │   ├── implementador.md  test-writer.md  revisor.md  auditor-seguridad.md
@@ -20,12 +20,12 @@ panda-corp/  (la fábrica)
 │   ├── nueva-idea/SKILL.md           # /pandacorp:nueva-idea
 │   ├── investigar/SKILL.md           # /pandacorp:investigar
 │   ├── spec/SKILL.md                 # /pandacorp:spec  (PRD + EARS)
-│   ├── plan/SKILL.md                 # /pandacorp:plan  (stack + ADRs + tareas)
-│   ├── scaffold/SKILL.md             # /pandacorp:scaffold (crea repo de proyecto)
-│   ├── implementar/SKILL.md          # /pandacorp:implementar (loop TDD)
-│   ├── revisar/SKILL.md              # /pandacorp:revisar (panel multi-lente)
-│   └── release/SKILL.md              # /pandacorp:release (gate H2)
-├── hooks/hooks.json                  # bloqueos + verify-before-stop
+│   ├── plan/SKILL.md                 # /pandacorp:plan  (stack + ADRs + tasks)
+│   ├── scaffold/SKILL.md             # /pandacorp:scaffold (creates the project repo)
+│   ├── implementar/SKILL.md          # /pandacorp:implementar (TDD loop)
+│   ├── revisar/SKILL.md              # /pandacorp:revisar (multi-lens panel)
+│   └── release/SKILL.md              # /pandacorp:release (H2 gate)
+├── hooks/hooks.json                  # blocks + verify-before-stop
 ├── factory/
 │   ├── constitution.md  decisiones/registry.yaml
 │   ├── plantillas/ (stack-a/ stack-b/ stack-c/ stack-d/ AGENTS.md.tpl CLAUDE.md.tpl)
@@ -33,43 +33,43 @@ panda-corp/  (la fábrica)
 └── docs/ (investigacion/ propuestas/ adr/)
 ```
 
-**Flujo de trabajo del operador (tú):**
+**Operator workflow (you):**
 
-1. En `panda-corp/`: `/pandacorp:nueva-idea "tracker de Funkos de One Piece"` → ficha + investigación + scoring → te muestra el Go/No-Go (gate H1, respondes una vez).
-2. `/pandacorp:scaffold funko-tracker` → crea `../funko-tracker/` desde la plantilla del stack elegido, con su CLAUDE.md, AGENTS.md, specs y plan copiados, repo git inicializado, CI configurado.
-3. En `funko-tracker/`: `/pandacorp:implementar` → el coordinador descompone el plan en tareas, delega a implementador/test-writer en worktrees paralelos, el revisor audita cada PR, los hooks impiden terminar sin verde.
-4. **Routines** programadas: revisión nocturna de progreso, grooming del backlog, verificación de specs vs código, monitoreo del portfolio.
+1. In `panda-corp/`: `/pandacorp:nueva-idea "One Piece Funko tracker"` → idea card + research + scoring → it shows you the Go/No-Go (H1 gate, you answer once).
+2. `/pandacorp:scaffold funko-tracker` → creates `../funko-tracker/` from the chosen stack's template, with its CLAUDE.md, AGENTS.md, specs and plan copied, git repo initialized, CI configured.
+3. In `funko-tracker/`: `/pandacorp:implementar` → the coordinator breaks the plan down into tasks, delegates to implementer/test-writer in parallel worktrees, the reviewer audits each PR, the hooks prevent finishing without green.
+4. Scheduled **routines**: nightly progress review, backlog grooming, spec-vs-code verification, portfolio monitoring.
 
-## Cómo viaja el know-how a proyectos separados
+## How the know-how travels to separate projects
 
-- El plugin instalado a nivel usuario (`~/.claude`) hace que agentes, skills y hooks de la fábrica estén disponibles en cualquier carpeta — esto resuelve "no quiero los proyectos dentro de panda-corp" sin perder la herencia de reglas.
-- `/scaffold` además copia al proyecto un CLAUDE.md y AGENTS.md generados desde plantillas (estándares del stack, patrones prohibidos, checklist de done), de modo que el proyecto funciona incluso sin el plugin (p. ej., en CI o en la nube).
-- Las actualizaciones de estándares se hacen una vez en la fábrica; los proyectos las reciben al actualizar el plugin (versionado semántico del plugin).
+- The plugin installed at the user level (`~/.claude`) makes the factory's agents, skills, and hooks available in any folder — this solves "I don't want the projects inside panda-corp" without losing the inheritance of rules.
+- `/scaffold` additionally copies a CLAUDE.md and AGENTS.md to the project, generated from templates (stack standards, forbidden patterns, done checklist), so that the project works even without the plugin (e.g., in CI or in the cloud).
+- Standards updates are made once in the factory; the projects receive them when the plugin is updated (semantic versioning of the plugin).
 
-## Autonomía y safeguards
+## Autonomy and safeguards
 
-- Sesiones interactivas: modo `acceptEdits` + deny-list + sandbox.
-- Sesiones largas autónomas: worktrees aislados + hooks `Stop` que exigen tests/lint verdes + tareas acotadas (5-6 por agente).
-- Gates humanos solo H1 (go/no-go) y H2 (producción/dinero/externo) — implementados como skills que se detienen y preguntan, más branch protection en GitHub como respaldo duro.
+- Interactive sessions: `acceptEdits` mode + deny-list + sandbox.
+- Long autonomous sessions: isolated worktrees + `Stop` hooks that require green tests/lint + bounded tasks (5-6 per agent).
+- Human gates only H1 (go/no-go) and H2 (production/money/external) — implemented as skills that stop and ask, plus branch protection on GitHub as a hard backstop.
 
-## Ventajas
+## Advantages
 
-- **Mínimo esfuerzo de construcción** (días, no semanas): es configuración sobre infraestructura ya probada por Anthropic.
-- Resistente a cambios de modelo: checklists explícitos + hooks deterministas (los mecanismos siguen funcionando con cualquier modelo que corra Claude Code).
-- Todo es markdown versionado: auditable, editable, sin código de orquestación que mantener.
-- Escalable gradualmente: los **workflows dinámicos** (script JS que orquesta subagentes en background) son el **motor de construcción** de `/pandacorp:implement` —el loop de work orders, reanudable y determinista— y además sirven para auditorías y migraciones masivas; Agent Teams queda solo para revisión adversarial puntual cuando haga falta.
+- **Minimal build effort** (days, not weeks): it is configuration over infrastructure already proven by Anthropic.
+- Resilient to model changes: explicit checklists + deterministic hooks (the mechanisms keep working with any model that runs Claude Code).
+- Everything is versioned markdown: auditable, editable, with no orchestration code to maintain.
+- Gradually scalable: **dynamic workflows** (a JS script that orchestrates subagents in the background) are the **build engine** of `/pandacorp:implement` — the work order loop, resumable and deterministic — and additionally serve for audits and mass migrations; Agent Teams is reserved only for occasional adversarial review when needed.
 
-## Desventajas / riesgos
+## Disadvantages / risks
 
-- Atado al ecosistema Claude Code (mitigación: los artefactos —specs, planes, AGENTS.md— son markdown portable que cualquier agente puede consumir).
-- La autonomía "mientras duermes" depende de routines cloud (mín. 1 h de intervalo) o de dejar sesiones locales corriendo.
-- El motor de construcción es Dynamic Workflows (nativo, reanudable). Agent Teams aún es experimental; usarlo solo para revisión adversarial puntual, nunca como columna vertebral.
+- Tied to the Claude Code ecosystem (mitigation: the artifacts — specs, plans, AGENTS.md — are portable markdown that any agent can consume).
+- The "while you sleep" autonomy depends on cloud routines (min. 1 h interval) or on leaving local sessions running.
+- The build engine is Dynamic Workflows (native, resumable). Agent Teams is still experimental; use it only for occasional adversarial review, never as the backbone.
 
-## Esfuerzo estimado de arranque
+## Estimated startup effort
 
-| Fase | Trabajo | Tiempo aprox. |
+| Phase | Work | Approx. time |
 |---|---|---|
-| 1 | CLAUDE.md + constitución + registro de decisiones | 1 sesión |
-| 2 | 9 agentes + 8 skills del pipeline | 2-3 sesiones |
-| 3 | Hooks + permisos + plantillas de los 4 stacks | 2 sesiones |
-| 4 | Piloto con el caso Funko tracker, ajustes | 1-2 semanas calendario |
+| 1 | CLAUDE.md + constitution + decision registry | 1 session |
+| 2 | 9 agents + 8 pipeline skills | 2-3 sessions |
+| 3 | Hooks + permissions + templates for the 4 stacks | 2 sessions |
+| 4 | Pilot with the Funko tracker case, adjustments | 1-2 calendar weeks |

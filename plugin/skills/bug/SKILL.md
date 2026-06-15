@@ -1,26 +1,26 @@
 ---
-description: Reporta un bug encontrado al probar un proyecto Pandacorp. Le describes el bug en lenguaje normal y el skill lo documenta en la bandeja docs/bugs/ del proyecto; la construcción en curso (/pandacorp:implement) lo recoge en su próximo punto seguro. No arregla nada — solo documenta. Se ejecuta DENTRO del proyecto.
+description: Reports a bug found while testing a Pandacorp project. You describe the bug in plain language and the skill documents it in the project's docs/bugs/ inbox; the build in progress (/pandacorp:implement) picks it up at its next safe point. It fixes nothing — it only documents. Runs INSIDE the project.
 ---
 
 # /pandacorp:bug
 
-El canal para **reportar un bug** sin parar la construcción ni armar nada en Mission Control. Lo corres en la carpeta del proyecto, le dices el bug en lenguaje normal, y el skill lo deja anotado en la **bandeja** `docs/bugs/`. El `/pandacorp:implement` que está corriendo lo recoge en su próximo punto seguro (fin de work order) y lo arregla con un test de regresión.
+The channel to **report a bug** without stopping the build or setting anything up in Mission Control. You run it in the project folder, tell it the bug in plain language, and the skill leaves it noted in the **inbox** `docs/bugs/`. The `/pandacorp:implement` that is running picks it up at its next safe point (end of work order) and fixes it with a regression test.
 
-`$ARGUMENTS` (o la conversación): la descripción del bug (ej.: `/pandacorp:bug "el botón de guardar no hace nada al darle enter"`).
+`$ARGUMENTS` (or the conversation): the description of the bug (e.g.: `/pandacorp:bug "the save button does nothing when you press enter"`).
 
-## Pasos
+## Steps
 
-1. **Captura** la descripción. Si falta algo clave para reproducirlo, pregunta lo MÍNIMO (pasos, qué esperabas vs. qué pasó, en qué pantalla/flujo). No investigues a fondo ni intentes arreglarlo — esto es solo documentar.
-2. **Escribe** `docs/bugs/<slug>.md` (slug corto en inglés derivado del título), con:
-   - `título`, `fecha`, `severidad` estimada (`crítico` bloquea un flujo / `normal` / `menor`)
-   - **pasos para reproducir**, **resultado esperado**, **resultado actual**
-   - en qué FRD/pantalla cae, si se sabe
-   - `estado: pendiente`
-3. **Incrementa** `bugs_pendientes` en `docs/status.yaml` (Mission Control lo muestra como chip por proyecto).
-4. **Confirma** al dueño: "anotado en la bandeja; `/implement` lo tomará en su próximo punto seguro". Si NO hay construcción corriendo y quiere arreglarlo ya, dile que corra `/pandacorp:implement` (que vacía la bandeja).
+1. **Capture** the description. If something key for reproducing it is missing, ask the MINIMUM (steps, what you expected vs. what happened, on which screen/flow). Don't investigate in depth or try to fix it — this is just documenting.
+2. **Write** `docs/bugs/<slug>.md` (short slug in English derived from the title), with:
+   - `title`, `date`, estimated `severity` (`critical` blocks a flow / `normal` / `minor`)
+   - **steps to reproduce**, **expected result**, **actual result**
+   - which FRD/screen it falls in, if known
+   - `status: pending`
+3. **Increment** `pending_bugs` in `docs/status.yaml` (Mission Control shows it as a per-project chip).
+4. **Confirm** to the owner: "noted in the inbox; `/implement` will take it at its next safe point." If there is NO build running and they want to fix it now, tell them to run `/pandacorp:implement` (which empties the inbox).
 
-## Reglas
+## Rules
 
-- **No arregla** el bug ni toca código. Solo documenta. (Quien arregla es el loop de `implement`, que crea el test de regresión primero — DR-015.)
-- Un bug en la bandeja nunca se borra a mano: al cerrarse, `implement` lo marca `resuelto` con el commit del fix.
-- Si lo que describe el dueño NO es un bug sino un cambio/funcionalidad ("quiero que además haga X"), redirígelo a `/pandacorp:iterate`. Si es responder algo que la IA preguntó, a `/pandacorp:decide`.
+- It **does not fix** the bug or touch code. It only documents. (The one who fixes is the `implement` loop, which creates the regression test first — DR-015.)
+- A bug in the inbox is never deleted by hand: when it is closed, `implement` marks it `resolved` with the commit of the fix.
+- If what the owner describes is NOT a bug but a change/feature ("I also want it to do X"), redirect them to `/pandacorp:iterate`. If it is answering something the AI asked, to `/pandacorp:decide`.

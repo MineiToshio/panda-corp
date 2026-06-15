@@ -1,7 +1,7 @@
-# Borradores de exploración
+# Exploration drafts
 
-Scratchpads durables de `/pandacorp:explore`. **No son fichas** y **no aparecen en el tablero** (viven en este subdirectorio, fuera de `factory/ideas/*.md`, y no llevan `estado:`).
+Durable scratchpads from `/pandacorp:explore`. **They are not cards** and **do not appear on the board** (they live in this subdirectory, outside of `factory/ideas/*.md`, and carry no `status:`).
 
-Cada archivo `<slug>.md` guarda la esencia de una exploración en curso —ideas en juego, ángulos descartados con su porqué, hilos abiertos— para poder **retomar la conversación aunque se pierda** (otra sesión, otra compu, el celular).
+Each `<slug>.md` file holds the essence of an exploration in progress —ideas in play, angles discarded with their rationale, open threads— so the conversation can be **resumed even if it's lost** (another session, another computer, the phone).
 
-Cuando el dueño dice "llévalo al tablero", `/pandacorp:new-idea` cristaliza la ficha real en `factory/ideas/` y **borra** el borrador (la ficha ya lo reemplaza). Así el gate de selección queda intacto: explorar no escribe en el tablero; solo la cristalización lo hace.
+When the owner says "take it to the board", `/pandacorp:new-idea` crystallizes the real card in `factory/ideas/` and **deletes** the draft (the card now replaces it). This keeps the selection gate intact: exploring doesn't write to the board; only crystallization does.

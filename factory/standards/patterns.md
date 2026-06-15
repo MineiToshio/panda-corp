@@ -1,28 +1,28 @@
-# Patrones de implementación
+# Implementation patterns
 
-(Para el stack web por defecto; adaptar el espíritu a otros stacks.)
+(For the default web stack; adapt the spirit to other stacks.)
 
 ## Server / Client (Next.js App Router)
-- **Server Components por defecto.** `"use client"` solo cuando hace falta: estado/efectos, APIs de navegador, event handlers.
-- Mantener las fronteras de cliente **mínimas pero coherentes** (a nivel feature, no fragmentar en mil componentes cliente).
-- **Server Actions primero** para mutaciones disparadas desde la UI. Crear `app/api/**/route.ts` solo si: lo consume un cliente externo/webhook, necesitas comportamiento HTTP específico, streaming/descarga, o es machine-to-machine.
+- **Server Components by default.** `"use client"` only when needed: state/effects, browser APIs, event handlers.
+- Keep client boundaries **minimal but coherent** (at the feature level, don't fragment into a thousand client components).
+- **Server Actions first** for mutations triggered from the UI. Create `app/api/**/route.ts` only if: an external client/webhook consumes it, you need specific HTTP behavior, streaming/download, or it is machine-to-machine.
 
-## UI optimista (patrón por defecto)
-- Actualiza el cliente de inmediato; revierte si el servidor falla.
-- Cierra modales/sheets de forma síncrona al enviar (no esperes la respuesta del servidor). El padre maneja el rollback + toast de error.
+## Optimistic UI (default pattern)
+- Update the client immediately; revert if the server fails.
+- Close modals/sheets synchronously on submit (don't wait for the server response). The parent handles the rollback + error toast.
 
-## HTML semántico y accesibilidad
-- `<button>` para acciones, `<a>` para navegación, `<nav>/<main>/<section>/<header>` según corresponda. Nada de `<div onClick>`.
-- Touch targets ≥44px, contraste WCAG AA, estados de foco visibles. Verificar con axe-core.
+## Semantic HTML and accessibility
+- `<button>` for actions, `<a>` for navigation, `<nav>/<main>/<section>/<header>` as appropriate. No `<div onClick>`.
+- Touch targets ≥44px, WCAG AA contrast, visible focus states. Verify with axe-core.
 
-## Tema y estilos
-- **Light y dark siempre**: usar variables semánticas de color, nunca colores hardcodeados (`bg-background text-foreground`, no `bg-white text-black`).
-- Tailwind con helper `cn()` (clsx + tailwind-merge). Clases ordenadas (prettier-plugin-tailwindcss o equivalente).
-- Los valores visuales salen de los **design tokens** definidos en la fase de diseño (`docs/design/design-tokens.json`).
+## Theme and styles
+- **Light and dark always**: use semantic color variables, never hardcoded colors (`bg-background text-foreground`, not `bg-white text-black`).
+- Tailwind with the `cn()` helper (clsx + tailwind-merge). Ordered classes (prettier-plugin-tailwindcss or equivalent).
+- Visual values come from the **design tokens** defined in the design phase (`docs/design/design-tokens.json`).
 
-## Estados y datos
-- Diseñar siempre estados **vacío / cargando / error** (no improvisarlos).
-- Analytics por defecto en interacciones clave (CTAs, navegación, forms, toggles); eventos centralizados en constantes, nunca strings sueltos. No trackear hover/cada tecla.
+## States and data
+- Always design **empty / loading / error** states (don't improvise them).
+- Analytics by default on key interactions (CTAs, navigation, forms, toggles); events centralized in constants, never loose strings. Don't track hover/every keystroke.
 
-## Red de error global (web)
-- `app/global-error.tsx` (con sus propios `<html>`/`<body>`), `error.tsx` por segmento y `not-found.js` por ruta — para que ningún fallo deje la pantalla en blanco. Verificable por presencia de archivos en `verify.sh`. (`global-not-found` es experimental/opcional.)
+## Global error net (web)
+- `app/global-error.tsx` (with its own `<html>`/`<body>`), `error.tsx` per segment and `not-found.js` per route — so that no failure leaves the screen blank. Verifiable by file presence in `verify.sh`. (`global-not-found` is experimental/optional.)

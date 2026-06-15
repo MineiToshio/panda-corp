@@ -1,61 +1,61 @@
-# Propuesta B — Pipeline programático con Agent SDK + CI/CD
+# Proposal B — Programmatic pipeline with Agent SDK + CI/CD
 
-## Idea central
+## Core idea
 
-La fábrica es **software**: un orquestador propio (TypeScript o Python sobre el Claude Agent SDK) que ejecuta el pipeline idea→producto como código determinista, con cada etapa corriendo `claude` en headless con salidas estructuradas (JSON Schema validado), y GitHub Actions como columna vertebral de ejecución y gates.
+The factory is **software**: a custom orchestrator (TypeScript or Python on top of the Claude Agent SDK) that executes the idea→product pipeline as deterministic code, with each stage running `claude` headless with structured outputs (validated JSON Schema), and GitHub Actions as the backbone for execution and gates.
 
-El modelo propone; **el orquestador (código) decide y ejecuta**. Es la materialización más estricta del principio "el LLM nunca controla la progresión del workflow".
+The model proposes; **the orchestrator (code) decides and executes**. It is the strictest embodiment of the principle "the LLM never controls workflow progression".
 
-## Arquitectura
+## Architecture
 
 ```
 panda-corp/
-├── orchestrator/                     # el corazón: código TS sobre @anthropic-ai/claude-agent-sdk
-│   ├── pipeline.ts                   # máquina de estados: intake→research→spec→plan→build→review→release
-│   ├── stages/*.ts                   # cada etapa: prompt + json-schema + validador + retry acotado
-│   ├── policies/                     # registro de decisiones como código (auto-defaults, escalado)
-│   └── audit/                        # log inmutable de cada decisión de agente
-├── factory/ (constitucion, plantillas, portfolio)   # igual que en A
-└── .github/workflows/               # CI de la propia fábrica
+├── orchestrator/                     # the heart: TS code on @anthropic-ai/claude-agent-sdk
+│   ├── pipeline.ts                   # state machine: intake→research→spec→plan→build→review→release
+│   ├── stages/*.ts                   # each stage: prompt + json-schema + validator + bounded retry
+│   ├── policies/                     # decision registry as code (auto-defaults, escalation)
+│   └── audit/                        # immutable log of every agent decision
+├── factory/ (constitucion, plantillas, portfolio)   # same as in A
+└── .github/workflows/               # CI for the factory itself
 
-proyecto-x/  (repo GitHub propio, creado por el orquestador)
-├── .github/workflows/quality.yml    # los 5 gates: lint+tipos / cobertura+mutation / SAST+secretos / review / e2e
+proyecto-x/  (its own GitHub repo, created by the orchestrator)
+├── .github/workflows/quality.yml    # the 5 gates: lint+types / coverage+mutation / SAST+secrets / review / e2e
 ├── docs/ (idea, investigacion, spec, plan, adr)
 └── src/
 ```
 
-**Flujo:**
+**Flow:**
 
-1. `pnpm factory new "tracker de Funkos"` (o un issue de GitHub con label `idea`) dispara el pipeline.
-2. Cada etapa corre `query()` del SDK con schema de salida; si la validación falla, reintenta con el error inyectado (máx. 3) y luego escala.
-3. Go/No-Go: el orquestador calcula el scoring; si supera umbral y no implica gasto, sigue solo; si no, abre un issue de aprobación y espera (gate H1 asíncrono).
-4. El orquestador crea el repo del proyecto vía API de GitHub desde la plantilla del stack, configura branch protection y secrets.
-5. Implementación: jobs de GitHub Actions (o runners propios en Docker con `bypassPermissions` + sandbox) ejecutan sesiones headless por tarea; cada tarea = 1 PR; el CI es el gate, no el agente.
-6. Release a producción: environment de GitHub con required reviewer = tú (gate H2 nativo de GitHub).
+1. `pnpm factory new "Funko tracker"` (or a GitHub issue with the `idea` label) triggers the pipeline.
+2. Each stage runs the SDK's `query()` with an output schema; if validation fails, it retries with the error injected (max. 3) and then escalates.
+3. Go/No-Go: the orchestrator computes the scoring; if it passes the threshold and involves no spending, it continues on its own; if not, it opens an approval issue and waits (asynchronous H1 gate).
+4. The orchestrator creates the project repo via the GitHub API from the stack template, configures branch protection and secrets.
+5. Implementation: GitHub Actions jobs (or custom runners in Docker with `bypassPermissions` + sandbox) run headless sessions per task; each task = 1 PR; CI is the gate, not the agent.
+6. Production release: GitHub environment with required reviewer = you (GitHub's native H2 gate).
 
-## Ventajas
+## Advantages
 
-- **Máximo determinismo y auditabilidad**: cada transición de fase es código testeable; el audit trail es completo por construcción.
-- **Verdadera operación desatendida**: corre en CI/cloud sin tu máquina; los triggers son issues, webhooks, crons.
-- Model-agnostic real: cambiar de modelo es cambiar un parámetro; los schemas y validadores no cambian.
-- Los gates humanos usan mecanismos nativos de GitHub (environments, required reviewers) — imposibles de saltar por el agente.
+- **Maximum determinism and auditability**: every phase transition is testable code; the audit trail is complete by construction.
+- **True unattended operation**: it runs in CI/cloud without your machine; the triggers are issues, webhooks, crons.
+- Truly model-agnostic: changing the model means changing a parameter; the schemas and validators don't change.
+- The human gates use GitHub's native mechanisms (environments, required reviewers) — impossible for the agent to skip.
 
-## Desventajas / riesgos
+## Disadvantages / risks
 
-- **Esfuerzo inicial alto**: estás construyendo un producto (el orquestador) antes de construir productos. Semanas, no días.
-- Mantenimiento: el orquestador es código tuyo que envejece; el SDK evoluciona rápido.
-- Costo: headless/SDK se factura como API (pool separado de la suscripción desde 2026-06-15) — el desarrollo iterativo del orquestador mismo consume crédito.
-- Riesgo de sobre-ingeniería para un portfolio que aún no existe: optimiza un pipeline que todavía no has visto fallar.
+- **High initial effort**: you're building a product (the orchestrator) before building products. Weeks, not days.
+- Maintenance: the orchestrator is your own code that ages; the SDK evolves quickly.
+- Cost: headless/SDK is billed as API (a separate pool from the subscription since 2026-06-15) — iteratively developing the orchestrator itself consumes credit.
+- Risk of over-engineering for a portfolio that doesn't yet exist: it optimizes a pipeline you haven't yet seen fail.
 
-## Cuándo elegirla
+## When to choose it
 
-Cuando el volumen lo justifique: muchos productos en paralelo, necesidad de operación 24/7 sin intervención, o cuando la Propuesta A se quede corta en determinismo. **Camino natural: empezar con A y migrar a B las etapas que se vuelvan repetitivas y estables** (la A genera los prompts, checklists y plantillas que B luego congela en código).
+When the volume justifies it: many products in parallel, a need for 24/7 operation without intervention, or when Proposal A falls short on determinism. **Natural path: start with A and migrate to B the stages that become repetitive and stable** (A generates the prompts, checklists, and templates that B then freezes into code).
 
-## Esfuerzo estimado de arranque
+## Estimated startup effort
 
-| Fase | Trabajo | Tiempo aprox. |
+| Phase | Work | Approx. time |
 |---|---|---|
-| 1 | Máquina de estados + 3 etapas (intake/research/spec) con schemas | 1-2 semanas |
-| 2 | Creación de repos + plantillas + CI de 5 gates | 1 semana |
-| 3 | Loop de implementación con runners sandboxed | 1-2 semanas |
-| 4 | Piloto + endurecimiento | 2+ semanas |
+| 1 | State machine + 3 stages (intake/research/spec) with schemas | 1-2 weeks |
+| 2 | Repo creation + templates + 5-gate CI | 1 week |
+| 3 | Implementation loop with sandboxed runners | 1-2 weeks |
+| 4 | Pilot + hardening | 2+ weeks |

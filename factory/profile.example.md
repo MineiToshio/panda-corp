@@ -1,57 +1,57 @@
 ---
-nombre: ""                 # cómo querés que la fábrica te llame
-github: ""                 # usuario de GitHub (para crear repos de proyectos, DR-010)
-ruta_proyectos: ""         # carpeta donde nacen los proyectos (vacío = carpeta hermana de la fábrica)
-nivel_tecnico: ""          # ej: "fuerte en backend, flojo en diseño"
-idioma: "es"               # idioma de documentos y conversación
-objetivos: []              # qué querés lograr con la fábrica (lista de líneas)
-intereses: []              # temas/dominios que te interesan (ej: coleccionismo, finanzas personales, gaming)
-hobbies: []                # qué hacés en tu tiempo libre
-gustos: []                 # qué te atrae construir / disfrutás
-disgustos: []              # qué evitar / no te interesa / te aburre
-activos: []                # tus palancas: audiencia/redes, comunidad, red de contactos, skills, datos, acceso a un nicho
-apetito_monetizacion: ""   # alto | medio | bajo | abierto  (¿buscás plata, o también valor/oportunidad?)
-tipos_proyecto: []         # app-web | app-mobile | rework | claude-code | prompt-system | automatizacion | otro
+nombre: ""                 # how you want the factory to call you
+github: ""                 # GitHub username (to create project repos, DR-010)
+ruta_proyectos: ""         # folder where projects are born (empty = sibling folder of the factory)
+nivel_tecnico: ""          # e.g.: "strong in backend, weak in design"
+idioma: "es"               # language of documents and conversation
+objetivos: []              # what you want to achieve with the factory (list of lines)
+intereses: []              # topics/domains that interest you (e.g.: collecting, personal finance, gaming)
+hobbies: []                # what you do in your free time
+gustos: []                 # what you're drawn to build / enjoy
+disgustos: []              # what to avoid / doesn't interest you / bores you
+activos: []                # your levers: audience/social, community, network of contacts, skills, data, access to a niche
+apetito_monetizacion: ""   # high | medium | low | open  (are you after money, or also value/opportunity?)
+tipos_proyecto: []         # web-app | mobile-app | rework | claude-code | prompt-system | automation | other
 ---
 
-# Perfil del dueño
+# Owner profile
 
-> **Plantilla.** Este es el *seed* versionado. `/pandacorp:onboarding` lo copia a
-> `factory/profile.md` (que es **personal y gitignored**) y lo rellena entrevistándote.
-> La fábrica lee `factory/profile.md` para personalizar la operación —cómo llamarte, a qué
-> cuenta de GitHub crear repos, dónde nacen los proyectos— y, sobre todo, para que
-> **`discover` y `recommend` te propongan ideas bien alineadas a vos**.
+> **Template.** This is the versioned *seed*. `/pandacorp:onboarding` copies it to
+> `factory/profile.md` (which is **personal and gitignored**) and fills it in by interviewing you.
+> The factory reads `factory/profile.md` to personalize the operation —how to call you, which
+> GitHub account to create repos in, where projects are born— and, above all, so that
+> **`discover` and `recommend` propose ideas well aligned to you**.
 >
-> No edites este archivo de ejemplo con tus datos — corré `/pandacorp:onboarding`.
+> Don't edit this example file with your data — run `/pandacorp:onboarding`.
 
-## Quién soy
+## Who I am
 
-_(Una o dos líneas: quién sos, a qué te dedicás, desde dónde venís.)_
+_(One or two lines: who you are, what you do, where you come from.)_
 
-## Intereses, hobbies y gustos
+## Interests, hobbies and tastes
 
-_(Qué temas te interesan, qué hacés en tu tiempo libre, qué te atrae construir y qué
-evitarías. Cuanto más concreto, mejores recomendaciones — esto es el "lente" con que la
-fábrica filtra ideas.)_
+_(What topics interest you, what you do in your free time, what you're drawn to build and what
+you'd avoid. The more concrete, the better the recommendations — this is the "lens" through which the
+factory filters ideas.)_
 
-## Objetivos
+## Goals
 
-_(Qué querés lograr con la fábrica: ingresos, herramientas para tu propia vida, abrir
-puertas/oportunidades, aprender, posicionarte… Sé honesto con la mezcla.)_
+_(What you want to achieve with the factory: income, tools for your own life, opening
+doors/opportunities, learning, positioning yourself… Be honest about the mix.)_
 
-## Activos y palancas
+## Assets and levers
 
-_(Qué tenés que cambia el cálculo de "qué vale la pena": una audiencia o comunidad, una red
-de contactos, un nicho al que tenés acceso, skills específicas, datos. Una idea con retorno
-monetario modesto puede valer mucho si aprovecha una palanca tuya o te abre puertas.)_
+_(What you have that changes the "is it worth it" calculation: an audience or community, a network
+of contacts, a niche you have access to, specific skills, data. An idea with modest monetary
+return can be worth a lot if it leverages a lever of yours or opens doors for you.)_
 
-## Qué cuenta como "buen retorno" para mí
+## What counts as "good return" for me
 
-_(El retorno NO es solo dinero. Puede ser oportunidad —alcance, contactos, posicionamiento—,
-aprendizaje, o valor personal. Indicá cuánto pesa cada cosa para vos.)_
+_(Return is NOT just money. It can be opportunity —reach, contacts, positioning—,
+learning, or personal value. Indicate how much each one weighs for you.)_
 
-## Cómo trabajo
+## How I work
 
-_(Fortalezas y debilidades —p. ej. "soy débil en diseño, confío en el agente designer"— y
-qué tipos de proyecto te interesan: apps web/móviles, herramientas, sistemas de prompts,
-automatizaciones, reworks… La fábrica está abierta a cualquier solución tecnológica.)_
+_(Strengths and weaknesses —e.g. "I'm weak in design, I trust the designer agent"— and
+which project types interest you: web/mobile apps, tools, prompt systems,
+automations, reworks… The factory is open to any technological solution.)_

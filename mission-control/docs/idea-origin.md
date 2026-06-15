@@ -1,7 +1,7 @@
-# Idea origen — Pandacorp (el panel de la fábrica)
+# Idea origin — Pandacorp (the factory dashboard)
 
-Surgió en la conversación de diseño de la fábrica (2026-06-13). El dueño quería una **interfaz gráfica**, no operar todo por terminal, pero con una condición dura: **usar solo su suscripción Claude Max** (no el pool headless de `claude -p`).
+It emerged in the factory's design conversation (2026-06-13). The owner wanted a **graphical interface**, not to operate everything from the terminal, but with one hard condition: **use only their Claude Max subscription** (not the headless `claude -p` pool).
 
-La solución: un dashboard web **local y de solo-lectura** que **nunca llama a Claude** — solo lee archivos y le dice al dueño qué comando copiar y pegar en Claude Code. Es la **interfaz de la propia fábrica**, por eso vive dentro de `panda-corp/mission-control/` (excepción a "aquí no vive código de producto": no es un producto-cliente).
+The solution: a **local, read-only** web dashboard that **never calls Claude** — it only reads files and tells the owner which command to copy and paste into Claude Code. It is the **factory's own interface**, which is why it lives inside `panda-corp/mission-control/` (an exception to "no product code lives here": it is not a client product).
 
-Es el primer proyecto de la fábrica y sirve de dogfooding del pipeline. El prototipo navegable (`mission-control/prototype/index.html`) hizo de fase de diseño; este PRD + FRDs formalizan el producto.
+It is the factory's first project and serves as dogfooding of the pipeline. The navigable prototype (`mission-control/prototype/index.html`) acted as the design phase; this PRD + FRDs formalize the product.

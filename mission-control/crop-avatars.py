@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Recorta una grilla 3x3 de avatares en 9 PNG, uno por agente.
-Uso: python3 crop-avatars.py <ruta-grid.png> [carpeta-salida]
-Orden de lectura (filas, izq→der) = orden de los agentes en Configuración."""
+"""Crop a 3x3 grid of avatars into 9 PNGs, one per agent.
+Usage: python3 crop-avatars.py <grid-path.png> [output-folder]
+Reading order (rows, left→right) = the order of the agents in Configuration."""
 import sys, os
 from PIL import Image
 
 ORDER = [
-    "researcher", "product-manager", "designer",      # fila 1
-    "architect", "backend-dev", "frontend-dev",       # fila 2
-    "test-writer", "reviewer", "security-auditor",    # fila 3
+    "researcher", "product-manager", "designer",      # row 1
+    "architect", "backend-dev", "frontend-dev",       # row 2
+    "test-writer", "reviewer", "security-auditor",    # row 3
 ]
 
 src = sys.argv[1] if len(sys.argv) > 1 else "assets/agents/grid.png"
@@ -22,4 +22,4 @@ for i, name in enumerate(ORDER):
     r, c = divmod(i, 3)
     cell = img.crop((c * cw, r * ch, (c + 1) * cw, (r + 1) * ch))
     cell.save(os.path.join(out, name + ".png"))
-print(f"OK — grilla {W}x{H}, celdas {cw}x{ch}, 9 avatares en {out}")
+print(f"OK — grid {W}x{H}, cells {cw}x{ch}, 9 avatars in {out}")

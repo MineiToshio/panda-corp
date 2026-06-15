@@ -1,19 +1,19 @@
-# Bitácora — Ideas
+# Decision Log — Ideas
 
-Decisiones sobre la **base de ideas y su proceso** (scoring, descarte, flujo de descubierta). Lo más reciente arriba. Ver índice y formato en [DECISION-LOG.md](../../DECISION-LOG.md).
+Decisions about the **idea base and its process** (scoring, discarding, discovery flow). Most recent on top. See the index and format in [DECISION-LOG.md](../../DECISION-LOG.md).
 
-> Ojo: el contenido y estado de **cada idea** vive en su propia ficha (`factory/ideas/<slug>.md`, frontmatter). Aquí van decisiones sobre **cómo gestionamos las ideas**, no las ideas en sí.
+> Note: the content and status of **each idea** lives in its own card (`factory/ideas/<slug>.md`, frontmatter). This file holds decisions about **how we manage ideas**, not the ideas themselves.
 
-## 2026-06-15 — Esquema de ficha: categoría (tipo_proyecto) + retorno, sin el tag binario
-**Qué:** La ficha reemplaza el tag `tipo` (monetizable/personal/ambas) por dos ejes ortogonales: `tipo_proyecto` (web/mobile/desktop/ia/claude-code/prompt-system/automatizacion/cli/rework/otro) y `retorno` (monetario/oportunidad/personal/mixto), más `alineacion_perfil`. `new-idea` clasifica siempre ambos.
-**Por qué:** El tag binario no distinguía QUÉ tipo de solución es ni capturaba que el retorno puede ser de oportunidad y no solo dinero. Alinea la ficha con el modelo de recomendación (DR-039) y con los tags del tablero (Mission Control FRD-02).
-**Impacto:** `factory/ideas/_idea-template.md`, `plugin/skills/new-idea/SKILL.md`. Reflejado en `mission-control/` (FRD-02) y DR-039.
+## 2026-06-15 — Card schema: category (project_type) + return, dropping the binary tag
+**What:** The card replaces the `tipo` tag (monetizable/personal/both) with two orthogonal axes: `project_type` (web/mobile/desktop/ai/claude-code/prompt-system/automation/cli/rework/other) and `return_type` (monetary/opportunity/personal/mixed), plus `profile_alignment`. `new-idea` always classifies both.
+**Why:** The binary tag didn't distinguish WHAT kind of solution it is, nor did it capture that the return can be an opportunity and not just money. It aligns the card with the recommendation model (DR-039) and with the board tags (Mission Control FRD-02).
+**Impact:** `factory/ideas/_idea-template.md`, `plugin/skills/new-idea/SKILL.md`. Reflected in `mission-control/` (FRD-02) and DR-039.
 
-## 2026-06-15 — Recomendaciones según el perfil del dueño (dos corrientes + doble valor)
-**Qué:** `discover` y `recommend` ahora leen `factory/profile.md` y proponen ideas en dos corrientes (~50/50): oportunidades generales de alto retorno, y oportunidades alineadas al perfil (intereses/activos) aunque su retorno monetario sea menor. El "retorno" deja de ser solo dinero: incluye oportunidad (alcance/red/posicionamiento), aprendizaje y valor personal. El alcance se abre a cualquier solución tecnológica (app web/mobile, rework, tooling/proyecto de Claude Code, prompt o sistema de prompts, automatización). La ficha suma `tipo_proyecto`, `alineacion_perfil` y `retorno`; el scoring de `new-idea` pondera retorno y encaje.
-**Por qué:** El dueño quiere recomendaciones bien alineadas a él —sus intereses, objetivos y activos (p. ej. una audiencia que abre puertas)— sin perder las grandes oportunidades generales. No todo tiene que ser una app ni monetizar fuerte: importa un problema real con buen retorno (monetario o de oportunidad).
-**Impacto:** `plugin/skills/{discover,recommend,new-idea,onboarding}/SKILL.md`, `factory/profile.example.md`, `factory/ideas/_idea-template.md`, `factory/constitution.md` (misión), `factory/decisions/registry.yaml` (DR-039), `mission-control/prototype/index.html`.
+## 2026-06-15 — Recommendations based on the owner's profile (two streams + dual value)
+**What:** `discover` and `recommend` now read `factory/profile.md` and propose ideas in two streams (~50/50): general high-return opportunities, and opportunities aligned to the profile (interests/assets) even if their monetary return is lower. "Return" is no longer just money: it includes opportunity (reach/network/positioning), learning and personal value. The scope is opened up to any technological solution (web/mobile app, rework, tooling/Claude Code project, prompt or prompt system, automation). The card adds `project_type`, `profile_alignment` and `return_type`; `new-idea`'s scoring weighs return and fit.
+**Why:** The owner wants recommendations well aligned to him —his interests, goals and assets (e.g. an audience that opens doors)— without losing the big general opportunities. Not everything has to be an app or monetize heavily: what matters is a real problem with good return (monetary or opportunity).
+**Impact:** `plugin/skills/{discover,recommend,new-idea,onboarding}/SKILL.md`, `factory/profile.example.md`, `factory/ideas/_idea-template.md`, `factory/constitution.md` (mission), `factory/decisions/registry.yaml` (DR-039), `mission-control/prototype/index.html`.
 
-## 2026-06-14 — Bitácora de ideas creada
-**Qué:** Arranca la bitácora de decisiones sobre la base de ideas.
-**Por qué:** Parte de la disciplina "documentar todo" de la fábrica — ver [factory/decision-log.md](../decision-log.md).
+## 2026-06-14 — Ideas decision log created
+**What:** The decision log about the idea base starts.
+**Why:** Part of the factory's "document everything" discipline — see [factory/decision-log.md](../decision-log.md).

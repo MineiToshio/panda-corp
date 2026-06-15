@@ -1,20 +1,20 @@
-# FRD-13 — Sistema visual y accesibilidad
+# FRD-13 — Visual system and accessibility
 
-Mission Control debe sentirse **de ingeniería, no decorativo**, sin que el dueño (débil en diseño) tenga que afinar nada. La palanca es la **restricción tokenizada**: pocos colores, pocas variables de tema, motion sobrio. Derivado de la investigación 2026 (ver [docs/proposals/06](../../../docs/proposals/06-improvement-plan-2026.md), referencias Linear/Vercel Geist/Rauno). Mantiene la paleta cálida tipo Anthropic ya aprobada en el prototipo.
+Mission Control must feel **engineered, not decorative**, without the owner (weak at design) having to tune anything. The lever is **tokenized restraint**: few colors, few theme variables, restrained motion. Derived from the 2026 research (see [docs/proposals/06](../../../docs/proposals/06-improvement-plan-2026.md), Linear/Vercel Geist/Rauno references). It keeps the warm Anthropic-style palette already approved in the prototype.
 
-## Criterios de aceptación (EARS)
+## Acceptance criteria (EARS)
 
-- EL tema DEBERÁ derivarse de **pocos tokens en espacio perceptual** (OKLCH/LCH: base, acento, contraste) en vez de decenas de hex sueltos, de modo que tocar el acento no descuadre el contraste del texto y se pueda habilitar un **modo alto-contraste** sin rediseñar.
-- LA UI DEBERÁ usar **un único acento racionado** (puntuación, no pintura): acento solo en lo importante (tab activa, agente trabajando, barra de XP); el resto, neutros cálidos.
-- TODO número (XP, niveles, conteos por columna, stats, timestamps) DEBERÁ usar **`font-variant-numeric: tabular-nums`**.
-- LA elevación DEBERÁ tener **3 niveles** (canvas → panel → tarjeta/popup) con una escala de sombra/espaciado tokenizada (radio 8px, base 16px, hairline 1px, espaciado en múltiplos de 0.25rem).
-- LA animación DEBERÁ usar **solo `transform` y `opacity`**, duración **<300ms**, y aplicar el *frequency test*: lo que se ve decenas de veces al día (tabs, hover) es sobrio; lo expresivo se reserva para eventos raros y satisfactorios (logro, subir de nivel, work order completada). 2–3 tokens de easing, no curvas por componente.
-- LA UI DEBERÁ honrar **`prefers-reduced-motion`**: deshabilita toda animación de Party (sesiones largas → evitar fatiga).
-- NINGÚN estado DEBERÁ depender solo del color: cada estado (trabajando / inactivo / fallido / completado) se empareja con **icono o forma + etiqueta** (crítico con paleta cálida, donde rojos/naranjas/ámbar están próximos).
-- LA accesibilidad DEBERÁ cumplir: `aria-label` en español en iconos, `aria-live="polite"` para anunciar eventos sin robar foco, anillo de foco visible que respeta el `border-radius`, navegación de listas con teclado, **contraste ≥4.5:1** (riesgo real con cálidos claros).
+- The theme SHALL be derived from **few tokens in perceptual space** (OKLCH/LCH: base, accent, contrast) instead of dozens of loose hex values, so that touching the accent doesn't throw off the text contrast and a **high-contrast mode** can be enabled without a redesign.
+- The UI SHALL use **a single rationed accent** (punctuation, not paint): accent only on what matters (active tab, working agent, XP bar); the rest, warm neutrals.
+- EVERY number (XP, levels, per-column counts, stats, timestamps) SHALL use **`font-variant-numeric: tabular-nums`**.
+- Elevation SHALL have **3 levels** (canvas → panel → card/popup) with a tokenized shadow/spacing scale (radius 8px, base 16px, hairline 1px, spacing in multiples of 0.25rem).
+- Animation SHALL use **only `transform` and `opacity`**, duration **<300ms**, and apply the *frequency test*: what is seen dozens of times a day (tabs, hover) is restrained; the expressive is reserved for rare and satisfying events (achievement, level-up, completed work order). 2–3 easing tokens, not per-component curves.
+- The UI SHALL honor **`prefers-reduced-motion`**: it disables all Party animation (long sessions → avoid fatigue).
+- NO state SHALL depend on color alone: each state (working / idle / failed / completed) is paired with an **icon or shape + label** (critical with a warm palette, where reds/oranges/amber are close together).
+- The accessibility SHALL comply: `aria-label` in Spanish on icons, `aria-live="polite"` to announce events without stealing focus, a visible focus ring that respects the `border-radius`, keyboard list navigation, **contrast ≥4.5:1** (a real risk with light warms).
 
-## No-objetivos (v1)
-- No es un design system publicable: es el sistema interno de Mission Control. Reusa shadcn/Tailwind como vocabulario.
+## Non-goals (v1)
+- It is not a publishable design system: it is Mission Control's internal system. It reuses shadcn/Tailwind as vocabulary.
 
-## Relación
-Aplica transversalmente a todas las pestañas (FRD-02 a FRD-06, FRD-10) y al prototipo `prototype/index.html`, que ya incorpora `tabular-nums`, `prefers-reduced-motion` y foco visible como base.
+## Relationship
+It applies cross-cuttingly to all tabs (FRD-02 through FRD-06, FRD-10) and to the `prototype/index.html` prototype, which already incorporates `tabular-nums`, `prefers-reduced-motion` and visible focus as a base.

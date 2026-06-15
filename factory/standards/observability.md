@@ -1,19 +1,19 @@
-# Observabilidad (operación / producción)
+# Observability (operation / production)
 
-> Dominio: Operación · Severidad: **MUST** el baseline; el resto escalonado. Enforcement: checklist + CI. Complementa `infra.md` (que cubre solo dev local).
+> Domain: Operation · Severity: **MUST** for the baseline; the rest staged. Enforcement: checklist + CI. Complements `infra.md` (which covers only local dev).
 
-## Regla
-- **Baseline obligatorio (todo proyecto), barato:**
-  - **Logs estructurados JSON** (Pino o equivalente) con `service.name` = nombre del proyecto en el portfolio, nivel y timestamp; `trace_id`/`span_id` cuando haya request context.
-  - **Error-tracking** integrado (Sentry, del stack) desde el día 1 (DR-026).
-  - **Nunca loguear PII ni secretos** (ver `privacy.md`).
-- **Escalonado (cuando el proyecto lo necesita):** instrumentación portable con **OpenTelemetry** (vendor-neutral): auto-instrumentación de librerías, atributos de resource del entorno, `instrumentation.ts` (hook nativo de Next) en el golden path web.
+## Rule
+- **Mandatory baseline (every project), cheap:**
+  - **Structured JSON logs** (Pino or equivalent) with `service.name` = the project's name in the portfolio, level and timestamp; `trace_id`/`span_id` when there is request context.
+  - **Error-tracking** integrated (Sentry, from the stack) from day 1 (DR-026).
+  - **Never log PII or secrets** (see `privacy.md`).
+- **Staged (when the project needs it):** portable instrumentation with **OpenTelemetry** (vendor-neutral): library auto-instrumentation, environment resource attributes, `instrumentation.ts` (Next's native hook) in the web golden path.
 
-## Cómo se verifica
-- Checklist en `/pandacorp:release`: ¿logs estructurados? ¿Sentry conectado? ¿`service.name` correcto?
-- Los datos van a **Sentry** (errores/trazas) y **PostHog** (analytics), ya presentes — OTel es la capa de instrumentación, **no un pipeline paralelo**.
+## How it is verified
+- Checklist in `/pandacorp:release`: structured logs? Sentry connected? `service.name` correct?
+- The data goes to **Sentry** (errors/traces) and **PostHog** (analytics), already present — OTel is the instrumentation layer, **not a parallel pipeline**.
 
-## Por qué
-Sin observabilidad no se opera un portfolio: un fallo en producción debe ser visible y atribuible. Traces/Metrics OTel son estables; **Logs vía OTel son experimentales** (adoptar con cautela). No imponer traces+metrics+logs desde el MVP (choca con DR-012 corte mínimo).
+## Why
+Without observability you can't operate a portfolio: a production failure must be visible and attributable. OTel Traces/Metrics are stable; **Logs via OTel are experimental** (adopt with caution). Don't impose traces+metrics+logs from the MVP (it clashes with DR-012 minimal cut).
 
-Fuentes: opentelemetry.io/docs/languages/js
+Sources: opentelemetry.io/docs/languages/js

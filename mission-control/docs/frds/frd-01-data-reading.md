@@ -1,18 +1,18 @@
-# FRD-01 — Capa de lectura de datos
+# FRD-01 — Data reading layer
 
-Pandacorp lee de disco la información de la fábrica y de cada proyecto, sin escribir (salvo la excepción de descartar, FRD-02) y sin llamar a Claude.
+Pandacorp reads the factory's and each project's information from disk, without writing (except the discard exception, FRD-02) and without calling Claude.
 
-## Criterios de aceptación (EARS)
-- CUANDO Pandacorp carga y NO encuentra `factory/profile.md` (la fábrica aún no está personalizada), EL sistema DEBERÁ mostrar —ANTES que cualquier otra vista— un **gate de onboarding** que explique que falta configurar la fábrica y presente el comando `/pandacorp:onboarding` con botón de copiar; el resto de la app queda en segundo plano hasta que el perfil exista.
-- CUANDO existe `factory/profile.md`, EL sistema DEBERÁ leerlo (nombre, objetivos, intereses, activos, tipos de proyecto) para personalizar saludos y vistas.
-- CUANDO Pandacorp carga, EL sistema DEBERÁ leer todas las fichas de `factory/ideas/*.md` (ignorando `_idea-template.md` y `decision-log.md`) con su frontmatter (título, estado, `tipo_proyecto`, `retorno`, score).
-- EL sistema DEBERÁ leer `panda-corp/factory/portfolio.md` para obtener la lista de proyectos y sus rutas.
-- CUANDO un proyecto tiene `docs/status.yaml`, EL sistema DEBERÁ leer fase, version, running, progreso, conteo de work orders y `decisiones_pendientes`.
-- EL sistema DEBERÁ leer, por proyecto, los documentos de `docs/` (PRD, FRDs, blueprint, work orders, `progress.md`, `decisions.md`).
-- SI la ruta de un proyecto no existe, ENTONCES EL sistema DEBERÁ marcarla como no encontrada y NO romper el resto de la vista.
-- EL sistema NUNCA DEBERÁ llamar a Claude ni a ninguna API de IA, ni escribir archivos (excepto el caso de FRD-02).
+## Acceptance criteria (EARS)
+- WHEN Pandacorp loads and does NOT find `factory/profile.md` (the factory is not yet personalized), the system SHALL show — BEFORE any other view — an **onboarding gate** that explains the factory still needs to be configured and presents the `/pandacorp:onboarding` command with a copy button; the rest of the app stays in the background until the profile exists.
+- WHEN `factory/profile.md` exists, the system SHALL read it (name, goals, interests, assets, project types) to personalize greetings and views.
+- WHEN Pandacorp loads, the system SHALL read all the cards in `factory/ideas/*.md` (ignoring `_idea-template.md` and `decision-log.md`) with their frontmatter (title, status, `project_type`, `return_type`, score).
+- The system SHALL read `panda-corp/factory/portfolio.md` to obtain the list of projects and their paths.
+- WHEN a project has `docs/status.yaml`, the system SHALL read phase, version, running, progress, work order count and `pending_decisions`.
+- The system SHALL read, per project, the documents in `docs/` (PRD, FRDs, blueprint, work orders, `progress.md`, `decisions.md`).
+- IF a project's path does not exist, THEN the system SHALL mark it as not found and SHALL NOT break the rest of the view.
+- The system SHALL NEVER call Claude or any AI API, nor write files (except the FRD-02 case).
 
-## Casos límite
-- `factory/profile.md` ausente → gate de onboarding (no se asume un perfil vacío ni se inventa).
-- Carpeta de ideas vacía → estados vacíos con gracia.
-- `status.yaml` ausente o malformado → mostrar el proyecto con datos parciales, sin romper.
+## Edge cases
+- `factory/profile.md` absent → onboarding gate (an empty profile is not assumed nor invented).
+- Empty ideas folder → empty states handled gracefully.
+- `status.yaml` absent or malformed → show the project with partial data, without breaking.

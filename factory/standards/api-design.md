@@ -1,20 +1,20 @@
-# Diseño de APIs
+# API design
 
-> Dominio: Programación · Severidad: **MUST** en proyectos tipo API/servicio (stacks B/C/D; también route handlers del stack A). Enforcement: lint/CI. Ver DR-028.
+> Domain: Programming · Severity: **MUST** in API/service-type projects (stacks B/C/D; also route handlers of stack A). Enforcement: lint/CI. See DR-028.
 
-## Regla — contrato de error (RFC 9457)
-- Los errores HTTP devuelven **`application/problem+json`** (RFC 9457, que obsoleta a 7807) con los 5 miembros: `type` (default `about:blank`), `title` (estable salvo i18n), `status`, `detail`, `instance`.
-- Errores de validación con una **extensión propia** `errors[]` de `{detail, pointer}` (RFC 9457 permite extensiones; esto NO es normativo). `pointer` = JSON Pointer (RFC 6901).
-- Helper compartido `problem()` en el golden path (Next Route Handlers + APIs Python).
+## Rule — error contract (RFC 9457)
+- HTTP errors return **`application/problem+json`** (RFC 9457, which obsoletes 7807) with the 5 members: `type` (default `about:blank`), `title` (stable except for i18n), `status`, `detail`, `instance`.
+- Validation errors with a **custom extension** `errors[]` of `{detail, pointer}` (RFC 9457 allows extensions; this is NOT normative). `pointer` = JSON Pointer (RFC 6901).
+- Shared `problem()` helper in the golden path (Next Route Handlers + Python APIs).
 
-## Regla — REST
-- Recursos bien nombrados, versionado `/v1`, paginación, **códigos HTTP estándar**.
-- **Validación en el borde antes de la lógica** (Zod / pydantic), que genera estos cuerpos de error de forma consistente. (Reusa la convención de validación en fronteras de `conventions.md`, definiéndole su salida.)
+## Rule — REST
+- Well-named resources, `/v1` versioning, pagination, **standard HTTP codes**.
+- **Validation at the boundary before the logic** (Zod / pydantic), which generates these error bodies consistently. (Reuses the boundary-validation convention from `conventions.md`, defining its output.)
 
-## Cómo se verifica
-- `verify.sh` / lint asevera el content-type `application/problem+json` y la presencia de los miembros requeridos en las respuestas de error.
+## How it is verified
+- `verify.sh` / lint asserts the `application/problem+json` content type and the presence of the required members in error responses.
 
-## Por qué
-Un contrato de error estándar y máquina-legible hace que los clientes (y otros agentes) manejen errores de forma uniforme, en vez de strings ad-hoc por endpoint.
+## Why
+A standard, machine-readable error contract makes clients (and other agents) handle errors uniformly, instead of ad-hoc strings per endpoint.
 
-Fuentes: rfc-editor.org/rfc/rfc9457
+Sources: rfc-editor.org/rfc/rfc9457

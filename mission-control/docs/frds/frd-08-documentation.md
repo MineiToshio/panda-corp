@@ -1,8 +1,8 @@
-# FRD-08 — Documentación
+# FRD-08 — Documentation
 
-Manual navegable de la fábrica dentro de Pandacorp, para entender el sistema (incluido el handoff a otra persona).
+Navigable factory manual inside Pandacorp, to understand the system (including the handoff to another person).
 
-## Criterios de aceptación (EARS)
-- LA Documentación DEBERÁ ofrecer un menú lateral con páginas y un área de lectura que renderiza cada página.
-- LAS páginas DEBERÁN cubrir, como mínimo: qué es Pandacorp, el flujo, las etapas en detalle, los comandos, los modos de implementación, los estándares, y cómo operar / hacer el handoff a otra persona.
-- EL contenido DEBERÁ ser suficiente para que alguien sin contexto previo entienda cómo funciona la fábrica y cómo operarla.
+## Acceptance criteria (EARS)
+- The Documentation SHALL offer a side menu with pages and a reading area that renders each page.
+- The pages SHALL cover, at minimum: what Pandacorp is, the flow, the stages in detail, the commands, the implementation modes, the standards, and how to operate / hand off to another person.
+- The content SHALL be sufficient for someone with no prior context to understand how the factory works and how to operate it.

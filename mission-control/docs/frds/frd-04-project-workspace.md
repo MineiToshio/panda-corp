@@ -1,12 +1,12 @@
-# FRD-04 — Workspace de proyecto
+# FRD-04 — Project workspace
 
-Al abrir un proyecto desde el portfolio, su espacio de trabajo con pestañas, cabecera de progreso y comandos.
+On opening a project from the portfolio, its workspace with tabs, a progress header and commands.
 
-## Criterios de aceptación (EARS)
-- EL workspace DEBERÁ ofrecer pestañas, en este orden: **Resumen · Work orders · Party · Documentos · Comandos** (Comandos al final, porque es contextual y repetitivo).
-- LA cabecera DEBERÁ mostrar título, etapa, versión, la línea de `progreso` y una barra de **"Objetivos de la misión"** (% de work orders completados), visible en todas las pestañas.
-- LA pestaña **Resumen** DEBERÁ mostrar: resumen, puntos clave, **puntos de decisión** (resaltados, con conteo) y un **log de actividad** de alto nivel (qué se hizo y qué decisiones se tomaron), leídos de `docs/decisions.md` y `docs/progress.md`.
-- CUANDO hay decisiones pendientes, DEBERÁ resaltarlas.
-- LA pestaña **Comandos** DEBERÁ mostrar los comandos relevantes a la etapa (continuar `implement`, `release`, `iterate`, con cuándo usar cada uno) y el **selector de modo de construcción** ([FRD-11](frd-11-build-modes.md)).
-- LA pestaña **Documentos** DEBERÁ permitir navegar y leer los documentos del proyecto renderizados.
-- LA pestaña **Party** es la del [FRD-06](frd-06-party.md); **Work orders** la del [FRD-05](frd-05-work-orders.md).
+## Acceptance criteria (EARS)
+- The workspace SHALL offer tabs, in this order: **Summary · Work orders · Party · Documents · Commands** (Commands last, because it is contextual and repetitive).
+- The header SHALL show title, stage, version, the `progress` line and a **"Mission Objectives"** bar (% of work orders completed), visible on all tabs.
+- The **Summary** tab SHALL show: summary, key points, **decision points** (highlighted, with a count) and a high-level **activity log** (what was done and what decisions were made), read from `docs/decisions.md` and `docs/progress.md`.
+- WHEN there are pending decisions, it SHALL highlight them.
+- The **Commands** tab SHALL show the commands relevant to the stage (continue `implement`, `release`, `iterate`, with when to use each) and the **build mode selector** ([FRD-11](frd-11-build-modes.md)).
+- The **Documents** tab SHALL allow navigating and reading the project's documents rendered.
+- The **Party** tab is the one in [FRD-06](frd-06-party.md); **Work orders** the one in [FRD-05](frd-05-work-orders.md).

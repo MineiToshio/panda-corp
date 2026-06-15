@@ -1,31 +1,31 @@
 ---
-description: Crea la carpeta/repo de un proyecto Pandacorp desde una idea (paso mecánico del handoff). En el flujo normal lo invoca /pandacorp:spec; usar por separado solo para crear el proyecto sin documentar todavía.
+description: Creates the folder/repo of a Pandacorp project from an idea (mechanical step of the handoff). In the normal flow it is invoked by /pandacorp:spec; use it separately only to create the project without documenting yet.
 ---
 
 # /pandacorp:scaffold
 
-Crea el proyecto para la idea indicada en `$ARGUMENTS` (nombre de ficha o slug).
+Creates the project for the idea indicated in `$ARGUMENTS` (card name or slug).
 
-## Pasos
+## Steps
 
-1. **Valida**: lee la ficha en `factory/ideas/<idea>.md` (en la raíz de la fábrica). Debe existir y estar en `estado: recomendada` (o `documentada`). Ejecutar este skill ES la selección del dueño. Si la ficha está en `descartada` o `en-pipeline`, detente y confirma.
-2. **Crea la carpeta** `<slug-en-ingles>/` como **hermana de la raíz de la fábrica** (NUNCA dentro). Por defecto el directorio padre de la fábrica; si `factory/profile.md` define `ruta_proyectos`, úsala. Inicializa git con branch `main`.
-3. **Copia el overlay Pandacorp** desde las plantillas del plugin:
+1. **Validate**: read the card in `factory/ideas/<idea>.md` (at the factory root). It must exist and be in `status: recommended` (or `documented`). Running this skill IS the owner's selection. If the card is in `discarded` or `in-pipeline`, stop and confirm.
+2. **Create the folder** `<slug-in-english>/` as a **sibling of the factory root** (NEVER inside). By default the parent directory of the factory; if `factory/profile.md` defines `ruta_proyectos`, use it. Initialize git with branch `main`.
+3. **Copy the Pandacorp overlay** from the plugin's templates:
    ```bash
-   cp -r "${CLAUDE_PLUGIN_ROOT}/templates/shared/." "<destino>/"
+   cp -r "${CLAUDE_PLUGIN_ROOT}/templates/shared/." "<destination>/"
    ```
-   Procesa los `.tpl`: reemplaza `{{PROJECT_NAME}}` (slug), `{{IDEA_FILE}}` (ruta de la ficha), `{{FACTORY_PATH}}` (ruta absoluta de la raíz de la fábrica), `{{DATE}}` (hoy) y renombra quitando `.tpl`. El overlay ya incluye `.claude/workflows/pandacorp-build.js` (el motor de construcción que lanza `implement`) y `.claude/settings.json`.
-4. **Estructura de docs**: crea `docs/` con subcarpetas vacías `frds/`, `diseno/mockups/`, `adr/`, `work-orders/`, `reviews/`. Copia la ficha de la idea a `docs/idea-origin.md` (copia congelada de referencia). El overlay ya siembra `docs/status.yaml`, `docs/iteration.md` (iteración en sitio, DR-032) y `docs/decision-log.md` (historia de decisiones — estándar de dos capas, `documentation.md`).
-5. **NO instales el stack todavía** — eso lo decide el blueprint en fase de arquitectura. El proyecto nace solo con docs + overlay. (La guía de cada stack está en `${CLAUDE_PLUGIN_ROOT}/templates/stack-*/STACK.md` para cuando llegue el momento.)
-6. **Enlaces bidireccionales**:
-   - Ficha de la idea: `estado: en-pipeline`, campo `proyecto:` con la ruta.
-   - `factory/portfolio.md`: agrega la fila (proyecto, ruta, repo pendiente, idea origen, fase `producto`, fecha).
-   - El CLAUDE.md del proyecto ya trae la sección "Origen — Pandacorp" (viene de la plantilla).
-7. **Repo GitHub** (DR-010: privado auto-aprobado): si `gh` está autenticado, crea el repo privado y haz push inicial; si no, déjalo anotado como pendiente en `docs/status.yaml`.
-8. **Commit inicial** en el proyecto: `chore: scaffold project from pandacorp factory`.
-9. Reporta: ruta creada, qué quedó configurado y el siguiente paso — abrir una sesión en el proyecto y correr `/pandacorp:spec`.
+   Process the `.tpl` files: replace `{{PROJECT_NAME}}` (slug), `{{IDEA_FILE}}` (card path), `{{FACTORY_PATH}}` (absolute path of the factory root), `{{DATE}}` (today) and rename removing `.tpl`. The overlay already includes `.claude/workflows/pandacorp-build.js` (the build engine that `implement` launches) and `.claude/settings.json`.
+4. **Docs structure**: create `docs/` with empty subfolders `frds/`, `design/mockups/`, `adr/`, `work-orders/`, `reviews/`. Copy the idea's card to `docs/idea-origin.md` (a frozen reference copy). The overlay already seeds `docs/status.yaml`, `docs/iteration.md` (iterate in place, DR-032) and `docs/decision-log.md` (decision history — two-layer standard, `documentation.md`).
+5. **DON'T install the stack yet** — that is decided by the blueprint in the architecture phase. The project is born with only docs + overlay. (Each stack's guide is in `${CLAUDE_PLUGIN_ROOT}/templates/stack-*/STACK.md` for when the time comes.)
+6. **Bidirectional links**:
+   - Idea's card: `status: in-pipeline`, `project:` field with the path.
+   - `factory/portfolio.md`: add the row (project, path, repo pending, source idea, `product` phase, date).
+   - The project's CLAUDE.md already comes with the "Origin — Pandacorp" section (it comes from the template).
+7. **GitHub repo** (DR-010: private auto-approved): if `gh` is authenticated, create the private repo and do the initial push; if not, leave it noted as pending in `docs/status.yaml`.
+8. **Initial commit** in the project: `chore: scaffold project from pandacorp factory`.
+9. Report: created path, what was configured and the next step — open a session in the project and run `/pandacorp:spec`.
 
-## Reglas
-- Slug del proyecto en inglés, kebab-case.
-- Nunca crear el proyecto dentro de panda-corp.
-- Si la carpeta destino ya existe, detente y pregunta — nunca sobreescribas.
+## Rules
+- Project slug in English, kebab-case.
+- Never create the project inside panda-corp.
+- If the destination folder already exists, stop and ask — never overwrite.

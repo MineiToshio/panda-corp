@@ -1,41 +1,41 @@
-# Calidad y testing
+# Quality and testing
 
-## Gates (verificados por scripts/CI, nunca por auto-reporte del agente)
-Orden de validación antes de dar algo por terminado:
-1. **Tests** (unit + integración) en verde.
-2. **Type-check** estricto sin errores (`tsc --noEmit` / `mypy --strict`).
-3. **Lint + formato** sin errores ni warnings nuevos (linter/formatter del stack).
-4. **Build** limpio cuando aplique.
+## Gates (verified by scripts/CI, never by the agent's self-report)
+Validation order before considering something done:
+1. **Tests** (unit + integration) green.
+2. **Type-check** strict with no errors (`tsc --noEmit` / `mypy --strict`).
+3. **Lint + format** with no errors or new warnings (the stack's linter/formatter).
+4. **Build** clean where applicable.
 
-Estos comandos viven en `.pandacorp/verify.sh` del proyecto y los exige el hook `Stop` de la fábrica: un agente no puede declarar "terminado" si `verify.sh` falla.
+These commands live in the project's `.pandacorp/verify.sh` and the factory's `Stop` hook requires them: an agent cannot declare "done" if `verify.sh` fails.
 
-**Endurecimiento del gate (DR-019):** `verify.sh` es **fail-closed** (cualquier salida ambigua o sin parsear = fallo, jamás "pasa por defecto"), corre en entorno limpio, **no expone al agente generador los nombres exactos de los tests** que debe pasar ni los fixtures, y emite **mensajes accionables** (qué regla falló y por qué — el feedback basado en reglas es el más efectivo para que un agente se auto-corrija; el "LLM-as-judge" no es confiable).
+**Gate hardening (DR-019):** `verify.sh` is **fail-closed** (any ambiguous or unparseable output = failure, never "passes by default"), runs in a clean environment, **does not expose to the generating agent the exact names of the tests** it must pass nor the fixtures, and emits **actionable messages** (which rule failed and why — rule-based feedback is the most effective for an agent to self-correct; "LLM-as-judge" is not reliable).
 
-## Verificación adversarial e independiente (DR-015)
-- El **generador y el verificador no pueden ser el mismo modelo**: los errores de un LLM se agrupan y sus tests heredan sus puntos ciegos. El `reviewer` (opus, idealmente de familia distinta al generador) **re-ejecuta** toda la evidencia y escribe **tests adversariales y de casos límite que el implementer no vio**.
-- Los tests se anclan en **fuentes humanas** —criterios EARS de los FRDs y bugs reales de `docs/progress.md`—, no en la imaginación del modelo.
+## Adversarial and independent verification (DR-015)
+- The **generator and verifier cannot be the same model**: an LLM's errors cluster and its tests inherit its blind spots. The `reviewer` (opus, ideally from a different family than the generator) **re-runs** all the evidence and writes **adversarial and edge-case tests that the implementer didn't see**.
+- The tests are anchored in **human sources** —EARS criteria of the FRDs and real bugs from `docs/progress.md`—, not in the model's imagination.
 
-## Mutation y property-based testing (DR-016)
-- **Mutation testing** (Stryker en TS / mutmut en Python) detecta tests decorativos: si mutar el código no rompe ningún test, el test no prueba nada. Correr **al cerrar cada hito de FRD** y en CI hacia main (no en cada gate Stop — es caro). Mutation score objetivo ≥60% en lógica de negocio nueva.
-- **Property-based** (fast-check / hypothesis) para lógica con invariantes (parsers, cálculos, serialización): genera cientos de casos que un humano no enumera.
+## Mutation and property-based testing (DR-016)
+- **Mutation testing** (Stryker in TS / mutmut in Python) detects decorative tests: if mutating the code doesn't break any test, the test proves nothing. Run **at the close of each FRD milestone** and in CI toward main (not at every Stop gate — it is expensive). Target mutation score ≥60% on new business logic.
+- **Property-based** (fast-check / hypothesis) for logic with invariants (parsers, calculations, serialization): generates hundreds of cases a human wouldn't enumerate.
 
-## Estrategia de testing (por riesgo, no por % ciego)
-- **Unit**: lógica de negocio, cálculos, validación, parsers.
-- **Integración**: Server Actions + data layer + reglas juntas; integraciones con terceros.
-- **E2E** (Playwright o equivalente): solo los flujos críticos del MVP (auth, flujo core, pagos), con selectores `data-testid` (nunca clases CSS).
-- **No** testear markup trivial ni aserciones exactas de copy (usar roles ARIA).
-- Cobertura de **ramas** sobre lógica de negocio (objetivo ≥80% en código nuevo).
+## Testing strategy (by risk, not by blind %)
+- **Unit**: business logic, calculations, validation, parsers.
+- **Integration**: Server Actions + data layer + rules together; third-party integrations.
+- **E2E** (Playwright or equivalent): only the MVP's critical flows (auth, core flow, payments), with `data-testid` selectors (never CSS classes).
+- **Do not** test trivial markup or exact copy assertions (use ARIA roles).
+- **Branch** coverage over business logic (target ≥80% on new code).
 
-## Higiene de E2E
-- Los tests que crean datos los limpian en su teardown (claves deterministas). Nunca dejar datos de prueba en una BD compartida.
+## E2E hygiene
+- Tests that create data clean it up in their teardown (deterministic keys). Never leave test data in a shared DB.
 
-## TDD por work order
-- Tests de los criterios de aceptación primero (RED) → implementación mínima (GREEN) → refactor. Máx. 3 intentos de reparación por subtarea, luego escalar.
+## TDD per work order
+- Tests of the acceptance criteria first (RED) → minimal implementation (GREEN) → refactor. Max 3 repair attempts per subtask, then escalate.
 
-## Accesibilidad y performance (gates de CI, web)
-- **a11y-gate**: el linter del stack DEBE tener reglas de accesibilidad (Biome `lint/a11y` por defecto, o `eslint-plugin-jsx-a11y` si el blueprint elige ESLint) **+ axe-core sobre las páginas REALES construidas** (no solo los mockups del diseño). Cubre ~30-40% de WCAG 2.2 AA → gate automático **+ check del `reviewer`** (foco, target-size 2.5.8 y contraste no los detecta el linter). No prometer determinismo total.
-- **performance-gate**: ver [performance.md](performance.md) (Lighthouse-CI como proxy de laboratorio, block-on-main).
+## Accessibility and performance (CI gates, web)
+- **a11y-gate**: the stack's linter MUST have accessibility rules (Biome `lint/a11y` by default, or `eslint-plugin-jsx-a11y` if the blueprint chooses ESLint) **+ axe-core over the REAL built pages** (not just the design mockups). Covers ~30-40% of WCAG 2.2 AA → automatic gate **+ `reviewer` check** (focus, target-size 2.5.8 and contrast are not detected by the linter). Don't promise full determinism.
+- **performance-gate**: see [performance.md](performance.md) (Lighthouse-CI as a lab proxy, block-on-main).
 
 ## CI
-- GitHub Actions en cada PR: type-check + lint + tests (en paralelo). E2E en PRs hacia main. Ramas protegidas; merge solo con CI verde.
-- Hacia main (no en cada PR, por costo): **mutation testing** + **auditoría OWASP agentic** (DR-017) + generación de **changelog y ADRs** (DR-018, documentación viva). Los gates de CI son independientes del agente: el modelo nunca marca sus propios checks.
+- GitHub Actions on every PR: type-check + lint + tests (in parallel). E2E on PRs toward main. Protected branches; merge only with CI green.
+- Toward main (not on every PR, for cost): **mutation testing** + **agentic OWASP audit** (DR-017) + generation of **changelog and ADRs** (DR-018, living documentation). The CI gates are independent of the agent: the model never marks its own checks.

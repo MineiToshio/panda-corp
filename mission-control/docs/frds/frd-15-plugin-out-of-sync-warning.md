@@ -1,24 +1,24 @@
-# FRD-15 — Aviso de plugin desincronizado
+# FRD-15 — Plugin out-of-sync warning
 
-Caza el despiste más común: editar el plugin de la fábrica y olvidar commitear / correr `claude plugin update`. Mission Control detecta el desfase entre el plugin **instalado** y el **código fuente** del repo, y avisa. Solo-lectura (lee archivos + git local; no llama a Claude).
+Catches the most common slip: editing the factory plugin and forgetting to commit / run `claude plugin update`. Mission Control detects the gap between the **installed** plugin and the repo's **source code**, and warns. Read-only (reads files + local git; does not call Claude).
 
-## Cómo se detecta (todo local)
+## How it's detected (all local)
 
-- **Versión instalada**: leer `~/.claude/plugins/installed_plugins.json` → la `version` de `pandacorp@panda-corp` (un SHA de commit, scope usuario). Lo mismo que muestra `claude plugin list`.
-- **Estado del código fuente** en el repo de la fábrica:
-  - último commit que tocó el plugin: `git log -1 --format=%H -- plugin/`
-  - ¿hay cambios sin commitear?: `git status --porcelain -- plugin/`
+- **Installed version**: read `~/.claude/plugins/installed_plugins.json` → the `version` of `pandacorp@panda-corp` (a commit SHA, user scope). The same thing `claude plugin list` shows.
+- **Source code state** in the factory repo:
+  - last commit that touched the plugin: `git log -1 --format=%H -- plugin/`
+  - are there uncommitted changes?: `git status --porcelain -- plugin/`
 
-## Criterios de aceptación (EARS)
+## Acceptance criteria (EARS)
 
-- SI hay **cambios sin commitear** bajo `plugin/`, Mission Control DEBERÁ mostrar un **aviso persistente** arriba: "Plugin desincronizado — hay cambios sin commitear".
-- SI el **SHA instalado ≠ último commit que tocó `plugin/`** (commiteado pero no reinstalado), DEBERÁ mostrar el aviso: "El plugin instalado está atrasado".
-- EL aviso DEBERÁ mostrar el **comando para copiar** `claude plugin update pandacorp@panda-corp` y recordar la secuencia (commitea si hace falta → corre el comando → reinicia la sesión de Claude Code).
-- EL aviso DEBERÁ **desaparecer solo** cuando el plugin vuelva a estar sincronizado (sin cambios sin commitear y SHA instalado == último commit del plugin).
-- EL aviso NO DEBERÁ ejecutar nada (solo-lectura): muestra el comando, el dueño lo corre.
+- IF there are **uncommitted changes** under `plugin/`, Mission Control SHALL show a **persistent warning** at the top: "Plugin out of sync — there are uncommitted changes".
+- IF the **installed SHA ≠ last commit that touched `plugin/`** (committed but not reinstalled), it SHALL show the warning: "The installed plugin is behind".
+- The warning SHALL show the **command to copy** `claude plugin update pandacorp@panda-corp` and recall the sequence (commit if needed → run the command → restart the Claude Code session).
+- The warning SHALL **disappear on its own** when the plugin is back in sync (no uncommitted changes and installed SHA == the plugin's last commit).
+- The warning SHALL NOT execute anything (read-only): it shows the command, the owner runs it.
 
-## No-objetivos
-- No corre `git` ni `plugin update` por el dueño. No instala nada.
+## Non-goals
+- It does not run `git` or `plugin update` for the owner. It does not install anything.
 
-## Nota de implementación
-En la app real (Next.js), un endpoint server-side hace los reads de archivo/git y devuelve el estado; el prototipo lo simula con un flag (`PLUGIN_SYNC`). Ver la regla de mantenimiento del plugin en el `CLAUDE.md` de la fábrica.
+## Implementation note
+In the real app (Next.js), a server-side endpoint does the file/git reads and returns the state; the prototype simulates it with a flag (`PLUGIN_SYNC`). See the plugin maintenance rule in the factory's `CLAUDE.md`.

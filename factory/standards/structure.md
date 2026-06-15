@@ -1,29 +1,29 @@
-# Estructura de proyecto
+# Project structure
 
-Estructura de referencia para el stack web por defecto (Next.js App Router). Otros stacks aplican el espíritu: capas separadas, data layer aislado, código por dominio, tests colocados.
+Reference structure for the default web stack (Next.js App Router). Other stacks apply the spirit: separated layers, isolated data layer, code by domain, colocated tests.
 
 ```
 src/
-├── app/                      # rutas (App Router). [locale]/ si hay i18n
-│   ├── (grupo)/              # route groups: (landing), (app)…
-│   └── .../_components/      # componentes específicos de esa ruta (prefijo _ = no es ruta)
+├── app/                      # routes (App Router). [locale]/ if there is i18n
+│   ├── (group)/              # route groups: (landing), (app)…
+│   └── .../_components/      # components specific to that route (_ prefix = not a route)
 ├── components/
-│   ├── core/                 # primitivos reutilizables (Button, Input, Modal…)
-│   └── modules/              # componentes compuestos reutilizables
-├── queries/                  # ÚNICO lugar con acceso a la BD (Prisma/ORM). Nunca desde componentes
-├── lib/                      # utilidades agrupadas por dominio: auth/, analytics/, integrations/…
-├── hooks/                    # hooks de app
-├── types/                    # tipos de app
-├── contexts/                 # React Context (p. ej. ThemeContext)
-└── i18n/                     # routing, request y locales/<locale>/*.json
-e2e/                          # tests end-to-end (Playwright)
-docs/                         # documentación del proyecto (ver pipeline Pandacorp)
+│   ├── core/                 # reusable primitives (Button, Input, Modal…)
+│   └── modules/              # reusable composed components
+├── queries/                  # THE ONLY place with DB access (Prisma/ORM). Never from components
+├── lib/                      # utilities grouped by domain: auth/, analytics/, integrations/…
+├── hooks/                    # app hooks
+├── types/                    # app types
+├── contexts/                 # React Context (e.g. ThemeContext)
+└── i18n/                     # routing, request and locales/<locale>/*.json
+e2e/                          # end-to-end tests (Playwright)
+docs/                         # project documentation (see Pandacorp pipeline)
 ```
 
-## Reglas de estructura
-- **Data layer aislado**: todo acceso a BD vive en `queries/` (o capa equivalente). Los componentes/acciones llaman a `queries/`, nunca al ORM directo.
-- **Código por feature**: lo específico de una ruta va en sus `_components/`, `_actions/`, `_schemas/`, `_hooks/`. Regla de promoción: si lo usa una sola ruta, se queda local; si lo usan varias, sube a `components/`, `lib/`, etc.
-- **Reuso antes de crear**: revisar en orden `components/core` → `components/modules` → `_components` del padre → la misma ruta. Solo crear si no existe.
-- **Tests colocados**: junto al código (`*.test.ts`) o en `_tests/` dentro del folder del componente/feature. E2E en `e2e/`.
-- Para backends sin frontend (API, scraping): capas Routes → Services → Repositories; data layer aislado igual.
-- **Documentación viva**: todo proyecto lleva `docs/decision-log.md` (historia de decisiones, con el porqué) además de PRD/FRDs/blueprint. Cada cambio relevante actualiza su doc canónico **y** la bitácora — regla de dos capas en [documentation.md](documentation.md).
+## Structure rules
+- **Isolated data layer**: all DB access lives in `queries/` (or an equivalent layer). Components/actions call `queries/`, never the ORM directly.
+- **Code by feature**: what is specific to a route goes in its `_components/`, `_actions/`, `_schemas/`, `_hooks/`. Promotion rule: if only one route uses it, it stays local; if several use it, it moves up to `components/`, `lib/`, etc.
+- **Reuse before creating**: check in order `components/core` → `components/modules` → the parent's `_components` → the route itself. Only create if it doesn't exist.
+- **Colocated tests**: next to the code (`*.test.ts`) or in `_tests/` inside the component/feature folder. E2E in `e2e/`.
+- For frontend-less backends (API, scraping): layers Routes → Services → Repositories; isolated data layer the same.
+- **Living documentation**: every project carries `docs/decision-log.md` (history of decisions, with the why) in addition to the PRD/FRDs/blueprint. Each relevant change updates its canonical doc **and** the decision log — two-layer rule in [documentation.md](documentation.md).

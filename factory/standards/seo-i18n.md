@@ -1,22 +1,22 @@
-# SEO e internacionalización (web)
+# SEO and internationalization (web)
 
-> Dominio: Producto/Documentación · Severidad: **SHOULD** (SEO en web; i18n solo si el PRD lo pide). Enforcement: checklist.
+> Domain: Product/Documentation · Severity: **SHOULD** (SEO on web; i18n only if the PRD requires it). Enforcement: checklist.
 
-## Regla — SEO / metadata
-- **Metadata API de Next** por página: `title` y `description` propios; Open Graph images; `sitemap.ts`; `robots.ts`.
-- Contenido renderizado de forma indexable (Server Components por defecto ayuda).
+## Rule — SEO / metadata
+- **Next's Metadata API** per page: own `title` and `description`; Open Graph images; `sitemap.ts`; `robots.ts`.
+- Content rendered in an indexable way (Server Components by default helps).
 
-## Regla — i18n (si el PRD lo requiere)
-- Routing por subpath (`/es/`, `/fr/`) con `app/[lang]/…` + catálogo de mensajes con **next-intl** (español por defecto, ver `conventions.md`).
-- Nada de texto visible hardcodeado: todo vía i18n.
+## Rule — i18n (if the PRD requires it)
+- Subpath routing (`/es/`, `/fr/`) with `app/[lang]/…` + message catalog with **next-intl** (Spanish by default, see `conventions.md`).
+- No hardcoded visible text: everything via i18n.
 
-## Regla — SEO multi-idioma (si hay i18n)
-- `hreflang` y `canonical` por locale vía `alternates.languages`/`canonical` de la Metadata API; metadata localizada.
+## Rule — multi-language SEO (if there is i18n)
+- `hreflang` and `canonical` per locale via the Metadata API's `alternates.languages`/`canonical`; localized metadata.
 
-## Cómo se verifica
-- Checklist en `/pandacorp:release`: ¿metadata por página? ¿sitemap/robots? ¿i18n sin strings sueltos (si aplica)?
+## How it is verified
+- Checklist in `/pandacorp:release`: metadata per page? sitemap/robots? i18n without loose strings (if applicable)?
 
-## Por qué
-Sin metadata/sitemap, un producto web es invisible para buscadores. i18n bien hecho desde el routing evita reescrituras caras después.
+## Why
+Without metadata/sitemap, a web product is invisible to search engines. i18n done right from the routing avoids expensive rewrites later.
 
-Fuentes: nextjs production-checklist · nextjs guides/internationalization · Metadata API (`alternates`)
+Sources: nextjs production-checklist · nextjs guides/internationalization · Metadata API (`alternates`)

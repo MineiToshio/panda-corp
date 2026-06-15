@@ -1,48 +1,48 @@
-# Pandacorp — Propuestas para la fábrica de software 100% IA
+# Pandacorp — Proposals for the 100% AI software factory
 
-> Generado 2026-06-12 a partir de 4 investigaciones (ver [docs/research/](../investigacion/)).
+> Generated 2026-06-12 from 4 research efforts (see [docs/research/](../research/)).
 
-## El objetivo
+## The objective
 
-Un sistema donde tú aportas **ideas o problemas** ("app para pedir desde la mesa", "tracker de Funkos de One Piece") y la fábrica los investiga, los convierte en especificaciones, decide la arquitectura, crea un proyecto separado y lo implementa con calidad verificada — con intervención humana mínima y explícita.
+A system where you contribute **ideas or problems** ("app to order from the table", "One Piece Funko tracker") and the factory researches them, turns them into specifications, decides the architecture, creates a separate project, and implements it with verified quality — with minimal and explicit human intervention.
 
-## Lo que dice la evidencia (síntesis de la investigación)
+## What the evidence says (research synthesis)
 
-1. **Spec-driven es el consenso**: los sistemas que funcionan verifican artefactos (PRD, plan, tareas), no conversaciones. La spec es la fuente de verdad; el código se genera y valida contra ella.
-2. **El harness importa tanto como el modelo**: el mismo modelo varía ±15 puntos según la orquestación. Invertir en proceso rinde independiente del modelo — exactamente tu requisito de "que funcione bien con cualquier modelo".
-3. **Los prompts son sugerencias; los hooks/CI son contratos**: la calidad sin revisión humana se sostiene con gates deterministas (lint, tipos, tests, mutation, SAST) que el modelo no puede auto-aprobar. Los agentes fabrican resultados de tests un 17-22% de las veces — nunca confiar en auto-reporte.
-4. **Solo 5 decisiones requieren humano siempre**: producción, dinero, borrado de datos, comunicaciones externas, accesos. El resto se codifica en un registro de decisiones con defaults; cada escalada humana se convierte en regla nueva.
-5. **Stacks tipados y populares**: el 94% de los errores de compilación de LLMs son de tipos. TypeScript/Next.js y Python/FastAPI con scaffolds deterministas son los golden paths correctos.
+1. **Spec-driven is the consensus**: the systems that work verify artifacts (PRD, plan, tasks), not conversations. The spec is the source of truth; code is generated and validated against it.
+2. **The harness matters as much as the model**: the same model varies ±15 points depending on the orchestration. Investing in process pays off independently of the model — exactly your requirement of "working well with any model".
+3. **Prompts are suggestions; hooks/CI are contracts**: quality without human review is sustained by deterministic gates (lint, types, tests, mutation, SAST) that the model cannot self-approve. Agents fabricate test results 17-22% of the time — never trust self-reporting.
+4. **Only 5 decisions always require a human**: production, money, data deletion, external communications, access. The rest is codified in a decision registry with defaults; each human escalation becomes a new rule.
+5. **Typed, popular stacks**: 94% of LLM compilation errors are type errors. TypeScript/Next.js and Python/FastAPI with deterministic scaffolds are the right golden paths.
 
-## Las tres propuestas
+## The three proposals
 
-| | A — Fábrica nativa Claude Code ⭐ | B — Pipeline programático (SDK) | C — Frameworks existentes |
+| | A — Native Claude Code factory ⭐ | B — Programmatic pipeline (SDK) | C — Existing frameworks |
 |---|---|---|---|
-| Esencia | Skills + subagentes + hooks + plugin distribuible | Orquestador propio en código + CI/CD como gate | Spec Kit + roles BMAD con capa fina propia |
-| Esfuerzo de arranque | Días | Semanas | Horas |
-| Grado de autonomía | Alto (routines, worktrees, hooks) | Máximo (24/7 en cloud, desatendido) | Medio (diseñados con humano en cada fase) |
-| Determinismo | Medio-alto (hooks deterministas, flujo guiado por skills) | Máximo (máquina de estados en código) | Bajo-medio |
-| Mantenimiento | Bajo (markdown versionado) | Alto (código propio + SDK que evoluciona) | Delegado, pero personalizar = fork |
-| Multi-proyecto | Plugin a nivel usuario + scaffold | API GitHub + plantillas | No resuelto (habría que añadirlo) |
-| Riesgo principal | Atado a Claude Code | Sobre-ingeniería prematura; costo API | Pelea contra el grano del framework |
-| Detalle | [Propuesta A](01-proposal-a-native-factory.md) | [Propuesta B](02-proposal-b-programmatic-pipeline.md) | [Propuesta C](03-proposal-c-existing-frameworks.md) |
+| Essence | Skills + subagents + hooks + distributable plugin | Custom orchestrator in code + CI/CD as the gate | Spec Kit + BMAD roles with a thin custom layer |
+| Startup effort | Days | Weeks | Hours |
+| Degree of autonomy | High (routines, worktrees, hooks) | Maximum (24/7 in the cloud, unattended) | Medium (designed with a human at every phase) |
+| Determinism | Medium-high (deterministic hooks, skill-guided flow) | Maximum (state machine in code) | Low-medium |
+| Maintenance | Low (versioned markdown) | High (custom code + an evolving SDK) | Delegated, but customizing = fork |
+| Multi-project | User-level plugin + scaffold | GitHub API + templates | Not solved (would have to be added) |
+| Main risk | Tied to Claude Code | Premature over-engineering; API cost | Fighting against the grain of the framework |
+| Detail | [Proposal A](01-proposal-a-native-factory.md) | [Proposal B](02-proposal-b-programmatic-pipeline.md) | [Proposal C](03-proposal-c-existing-frameworks.md) |
 
-Los cuatro elementos compartidos (pipeline de 10 fases, modelo de decisión humana, roles de agentes, safeguards y golden paths) están en [Elementos comunes](04-common-elements.md) — aplican a cualquier propuesta.
+The four shared elements (10-phase pipeline, human decision model, agent roles, safeguards, and golden paths) are in [Common elements](04-common-elements.md) — they apply to any proposal.
 
-## Recomendación
+## Recommendation
 
-**Empezar con la Propuesta A**, robando las mejores plantillas de C (prompts de roles BMAD, formatos de spec de Spec Kit), y **evolucionar hacia B por etapas**: cuando una fase del pipeline se vuelva repetitiva y estable en A (p. ej. el scaffold o la verificación), congelarla como código/CI al estilo B. Razones:
+**Start with Proposal A**, stealing the best templates from C (BMAD role prompts, Spec Kit spec formats), and **evolve toward B in stages**: when a pipeline phase becomes repetitive and stable in A (e.g., the scaffold or the verification), freeze it as code/CI in the style of B. Reasons:
 
-1. Tu requisito dominante es **velocidad para validar el sistema con casos reales** (Funkos, restaurantes) — A entrega un pipeline funcional en días.
-2. A genera, como subproducto, todo lo que B necesitaría después (prompts depurados, checklists, plantillas, registro de decisiones). B primero sería apostar semanas a un diseño sin feedback.
-3. Los safeguards críticos (hooks, branch protection, CI de 5 gates) son idénticos en A y B — no se pierde seguridad por empezar simple.
+1. Your dominant requirement is **speed to validate the system with real cases** (Funkos, restaurants) — A delivers a working pipeline in days.
+2. A produces, as a byproduct, everything B would need afterward (refined prompts, checklists, templates, decision registry). B first would mean betting weeks on a design without feedback.
+3. The critical safeguards (hooks, branch protection, 5-gate CI) are identical in A and B — no security is lost by starting simple.
 
-## Qué decidir ahora (gate H1 de este propio proyecto 🙂)
+## What to decide now (this project's own H1 gate 🙂)
 
-1. **¿Propuesta A como punto de partida?** (o prefieres B o C)
-2. **¿Los dos gates humanos propuestos te bastan?** (H1 go/no-go de ideas, H2 producción/dinero/externo)
-3. **¿Apruebas los 4 golden paths** y la infraestructura por defecto (Vercel/Railway/Supabase/GitHub)?
-4. **¿Idioma de los artefactos?** (propongo: documentos de producto en español, código y commits en inglés)
-5. **¿Primer piloto?** (propongo el Funko tracker: ejercita investigación de fuentes en tiempo real, scraping, notificaciones y web — cubre los stacks D + A)
+1. **Proposal A as the starting point?** (or do you prefer B or C)
+2. **Are the two proposed human gates enough?** (H1 go/no-go of ideas, H2 production/money/external)
+3. **Do you approve the 4 golden paths** and the default infrastructure (Vercel/Railway/Supabase/GitHub)?
+4. **Language of the artifacts?** (I propose: product documents in Spanish, code and commits in English)
+5. **First pilot?** (I propose the Funko tracker: it exercises real-time source research, scraping, notifications, and web — it covers stacks D + A)
 
-Con esas respuestas, el siguiente paso es construir la fase 1 de la Propuesta A: constitución, CLAUDE.md de la fábrica, registro de decisiones y los primeros agentes/skills.
+With those answers, the next step is to build phase 1 of Proposal A: constitution, the factory's CLAUDE.md, decision registry, and the first agents/skills.

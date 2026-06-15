@@ -1,27 +1,27 @@
 ---
-description: Analiza la base de ideas de Pandacorp y recomienda al dueño cuáles avanzar, con ranking justificado y alineado a su perfil (intereses, activos, objetivos) y al doble valor (retorno monetario o de oportunidad). Usar cuando el dueño pregunte "¿cuáles me recomiendas?", "¿qué construimos?", o quiera revisar el estado de sus ideas.
+description: Analyzes the Pandacorp ideas base and recommends to the owner which ones to advance, with a justified ranking aligned to their profile (interests, assets, goals) and to the dual value (monetary or opportunity return). Use when the owner asks "which ones do you recommend?", "what do we build?", or wants to review the state of their ideas.
 ---
 
 # /pandacorp:recommend
 
-Ranking y recomendación sobre la base de ideas.
+Ranking and recommendation over the ideas base.
 
-## Paso 0 — Lee el perfil
+## Step 0 — Read the profile
 
-Lee `factory/profile.md`: intereses, objetivos, **activos/palancas** (audiencia, comunidad, red, nicho, skills), apetito de monetización y tipos de proyecto preferidos. El ranking se justifica contra esto. Si no existe el perfil, recomendá correr `/pandacorp:onboarding` y rankea solo por valor general mientras tanto.
+Read `factory/profile.md`: interests, goals, **assets/levers** (audience, community, network, niche, skills), monetization appetite and preferred project types. The ranking is justified against this. If the profile doesn't exist, recommend running `/pandacorp:onboarding` and rank only by general value in the meantime.
 
-## Pasos
+## Steps
 
-1. Lee todas las fichas de `factory/ideas/` (en la raíz de la fábrica; frontmatter + notas de evaluación). Ignora `_idea-template.md` y estados `descartada`/`lanzada`/`en-pipeline`.
-2. **Revalida scores si están viejos** (creada hace >60 días o evidencia débil): pasa rápida del `researcher` para confirmar que la oportunidad sigue vigente.
-3. Construye el ranking considerando, además del score: **alineación con el perfil**, **tipo de retorno** (monetario, de oportunidad —alcance/red/posicionamiento— o personal; pondéralo según el apetito del dueño), balance del portfolio (mezclar; no 3 scrapers a la vez), esfuerzo disponible (proyectos ya en pipeline — revisa `factory/portfolio.md`) y quick wins (alto valor / baja dificultad primero).
-4. **Presenta en dos bloques** para que el dueño vea ambas lógicas:
-   - **Mejores apuestas (valor general)** — las más prometedoras por retorno/facilidad, independientemente del tema.
-   - **Alineadas a vos** — las que encajan con tus intereses o **aprovechan tus activos / te abren puertas**, aunque su retorno monetario sea menor; explicá *por qué* encajan.
-   Por cada una: qué es (1 línea), tipo de proyecto, por qué ahora, score, tipo de retorno y dificultad, y qué validaría la v1. Cierra con "cuáles NO y por qué".
-5. Marca `estado: recomendada` en tus elecciones (top picks de ambos bloques); las demás quedan en `documentada`. **La selección final es del dueño** (gate humano #1) y se expresa ejecutando `/pandacorp:scaffold <idea>` sobre la que quiera (eso la mueve a `en-pipeline`). Las que no quiera, las descarta desde Mission Control (→ `descartada`). El tablero de Mission Control es solo-lectura: refleja estos estados, no se mueve a mano.
+1. Read all the cards in `factory/ideas/` (at the factory root; frontmatter + evaluation notes). Ignore `_idea-template.md` and the `discarded`/`shipped`/`in-pipeline` statuses.
+2. **Re-validate scores if they are old** (created >60 days ago or weak evidence): a quick pass by the `researcher` to confirm the opportunity is still current.
+3. Build the ranking considering, besides the score: **alignment with the profile**, **return type** (monetary, of opportunity —reach/network/positioning— or personal; weigh it by the owner's appetite), portfolio balance (mix; not 3 scrapers at once), available effort (projects already in pipeline — check `factory/portfolio.md`) and quick wins (high value / low difficulty first).
+4. **Present in two blocks** so the owner sees both logics:
+   - **Best bets (general value)** — the most promising by return/ease, regardless of topic.
+   - **Aligned with you** — the ones that fit your interests or **leverage your assets / open doors for you**, even if their monetary return is smaller; explain *why* they fit.
+   For each one: what it is (1 line), project type, why now, score, return type and difficulty, and what v1 would validate. Close with "which ones NOT and why".
+5. Mark `status: recommended` on your choices (top picks from both blocks); the rest stay in `documented`. **The final selection is the owner's** (human gate #1) and is expressed by running `/pandacorp:scaffold <idea>` on whichever they want (that moves it to `in-pipeline`). The ones they don't want, they discard from Mission Control (→ `discarded`). The Mission Control board is read-only: it reflects these statuses, it is not moved by hand.
 
-## Reglas
-- Máximo ~5 recomendadas en total; elegir es lo que cuesta, no listar.
-- Sé directo en la recomendación #1: "yo empezaría por X porque Y".
-- No castigues una idea alineada por bajo retorno monetario si abre puertas o apalanca un activo; ni una idea general por no ser "del tema" del dueño. Ambas lógicas conviven.
+## Rules
+- At most ~5 recommended in total; choosing is what's hard, not listing.
+- Be direct in recommendation #1: "I would start with X because Y".
+- Don't penalize an aligned idea for low monetary return if it opens doors or leverages an asset; nor a general idea for not being "on the owner's topic". Both logics coexist.

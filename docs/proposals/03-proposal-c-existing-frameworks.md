@@ -1,51 +1,51 @@
-# Propuesta C — Adoptar frameworks existentes (Spec Kit + BMAD híbrido)
+# Proposal C — Adopt existing frameworks (Spec Kit + BMAD hybrid)
 
-## Idea central
+## Core idea
 
-No construir ni configurar casi nada propio: adoptar **GitHub Spec Kit** como metodología de fases (Specify → Plan → Tasks → Implement) y tomar de **BMAD-METHOD** los roles de agentes ya escritos y probados por la comunidad (PM, Analista, Arquitecto, Scrum Master, Dev, QA). Pandacorp se limita a una capa fina de personalización: constitución, golden paths y registro de decisiones.
+Build or configure almost nothing of your own: adopt **GitHub Spec Kit** as the phase methodology (Specify → Plan → Tasks → Implement) and take from **BMAD-METHOD** the agent roles already written and tested by the community (PM, Analyst, Architect, Scrum Master, Dev, QA). Pandacorp is limited to a thin customization layer: constitution, golden paths, and decision registry.
 
-## Arquitectura
+## Architecture
 
 ```
 panda-corp/
 ├── factory/
-│   ├── constitution.md              # se inyecta vía /constitution de Spec Kit
-│   ├── golden-paths.md              # los 4 stacks estándar
+│   ├── constitution.md              # injected via Spec Kit's /constitution
+│   ├── golden-paths.md              # the 4 standard stacks
 │   └── portfolio.md
 └── docs/
 
 proyecto-x/
-├── .specify/                        # estructura de Spec Kit (specs, plans, tasks)
-├── memory/constitution.md           # copiada de la fábrica
+├── .specify/                        # Spec Kit structure (specs, plans, tasks)
+├── memory/constitution.md           # copied from the factory
 └── src/
 ```
 
-**Flujo:** `specify init proyecto-x` → `/constitution` (carga estándares Pandacorp) → `/specify` (spec desde la idea) → `/plan` (stack y arquitectura) → `/tasks` → `/implement`, todo dentro de Claude Code, que es uno de los 30+ agentes soportados por Spec Kit. Los roles BMAD se usan en la fase de planificación (Analista→PM→Arquitecto generan PRD y arquitectura).
+**Flow:** `specify init proyecto-x` → `/constitution` (loads Pandacorp standards) → `/specify` (spec from the idea) → `/plan` (stack and architecture) → `/tasks` → `/implement`, all within Claude Code, which is one of the 30+ agents supported by Spec Kit. The BMAD roles are used in the planning phase (Analyst→PM→Architect generate PRD and architecture).
 
-## Ventajas
+## Advantages
 
-- **Arranque casi inmediato**: instalas y empiezas el mismo día; miles de usuarios ya depuraron estos flujos.
-- Mantenimiento delegado: GitHub y la comunidad BMAD evolucionan las plantillas por ti.
-- Documentación y tutoriales abundantes; menos decisiones de diseño propias que tomar.
-- Agnóstico de herramienta: Spec Kit funciona con Copilot, Gemini CLI, etc., además de Claude Code.
+- **Almost immediate startup**: you install and start the same day; thousands of users have already debugged these flows.
+- Delegated maintenance: GitHub and the BMAD community evolve the templates for you.
+- Abundant documentation and tutorials; fewer of your own design decisions to make.
+- Tool-agnostic: Spec Kit works with Copilot, Gemini CLI, etc., in addition to Claude Code.
 
-## Desventajas / riesgos
+## Disadvantages / risks
 
-- **No están diseñados para tu objetivo central (autonomía)**: ambos asumen un humano revisando en cada frontera de fase. Reducir esos checkpoints exige pelear contra el grano del framework.
-- Crítica documentada (Martin Fowler): Spec Kit genera markdown excesivo (8 archivos por feature mediana) y los agentes "frecuentemente ignoran las instrucciones" de los checklists; Kiro/BMAD tienden a sobre-ingeniería (un fix de 1 línea → 4 user stories).
-- BMAD está pensado para equipos enterprise, no para un operador solo: 9 personas agénticas son demasiada ceremonia para un side-project.
-- Sin pipeline de portfolio: estos frameworks gestionan **un** proyecto; la orquestación multi-proyecto (intake de ideas, scoring, routines) tendrías que añadirla igual.
-- Dependencia de roadmaps ajenos; personalizar a fondo = fork = pierdes las actualizaciones.
+- **They are not designed for your central objective (autonomy)**: both assume a human reviewing at every phase boundary. Reducing those checkpoints requires fighting against the grain of the framework.
+- Documented criticism (Martin Fowler): Spec Kit generates excessive markdown (8 files per medium feature) and the agents "frequently ignore the instructions" of the checklists; Kiro/BMAD tend toward over-engineering (a 1-line fix → 4 user stories).
+- BMAD is designed for enterprise teams, not for a solo operator: 9 agentic personas are too much ceremony for a side-project.
+- No portfolio pipeline: these frameworks manage **one** project; the multi-project orchestration (idea intake, scoring, routines) you'd have to add anyway.
+- Dependence on others' roadmaps; customizing deeply = fork = you lose the updates.
 
-## Cuándo elegirla
+## When to choose it
 
-Si quieres validar la metodología spec-driven con esfuerzo cero antes de invertir en infraestructura propia, o como **fuente de inspiración**: la recomendación práctica es saquear sus plantillas (los prompts de roles de BMAD y las plantillas de spec/plan de Spec Kit son excelentes material de partida) e incorporarlas a la Propuesta A, en lugar de adoptarlos como sistema.
+If you want to validate the spec-driven methodology with zero effort before investing in your own infrastructure, or as a **source of inspiration**: the practical recommendation is to plunder their templates (BMAD's role prompts and Spec Kit's spec/plan templates are excellent starting material) and incorporate them into Proposal A, rather than adopting them as a system.
 
-## Esfuerzo estimado de arranque
+## Estimated startup effort
 
-| Fase | Trabajo | Tiempo aprox. |
+| Phase | Work | Approx. time |
 |---|---|---|
-| 1 | Instalar Spec Kit, escribir constitución | 1 sesión |
-| 2 | Adaptar plantillas BMAD de roles | 1-2 sesiones |
-| 3 | Piloto con un proyecto | días |
-| 4 | (Inevitable) añadir capa propia de portfolio y autonomía | abierto |
+| 1 | Install Spec Kit, write the constitution | 1 session |
+| 2 | Adapt BMAD role templates | 1-2 sessions |
+| 3 | Pilot with a project | days |
+| 4 | (Inevitable) add a custom portfolio and autonomy layer | open-ended |

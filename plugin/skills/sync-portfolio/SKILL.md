@@ -1,32 +1,32 @@
 ---
-description: Sincroniza el portfolio de Pandacorp - detecta tarjetas movidas en el kanban de ideas (cambios de estado en frontmatter) y refresca el estado de cada proyecto leyendo su status.yaml. Usar en panda-corp, a demanda o como job periódico.
+description: Syncs the Pandacorp portfolio - detects cards moved on the ideas kanban (status changes in frontmatter) and refreshes each project's state by reading its status.yaml. Use in panda-corp, on demand or as a periodic job.
 ---
 
 # /pandacorp:sync-portfolio
 
-Sincronización fábrica ↔ proyectos. Se ejecuta EN panda-corp.
+Factory ↔ projects synchronization. Runs IN panda-corp.
 
-## Parte 1 — Detectar tarjetas movidas (kanban → acciones)
+## Part 1 — Detect moved cards (kanban → actions)
 
-1. Corre el escáner de estados:
+1. Run the status scanner:
    ```bash
    bash "${CLAUDE_PLUGIN_ROOT}/scripts/scan-ideas.sh"
    ```
-   Compara el `estado:` actual de cada ficha contra el snapshot anterior (`.pandacorp-cache/ideas-snapshot.txt`) y lista los cambios.
-2. Por cada cambio detectado, actúa según el estado NUEVO:
-   - `seleccionada` → avisa al dueño que está lista para `/pandacorp:scaffold <idea>` (o ejecútalo si el dueño pidió modo automático)
-   - `descartada` → verifica que la ficha tenga el racional anotado (DR-011)
-   - otros cambios → solo regístralos en el reporte
+   It compares each card's current `status:` against the previous snapshot (`.pandacorp-cache/ideas-snapshot.txt`) and lists the changes.
+2. For each detected change, act according to the NEW status:
+   - `recommended` → tell the owner it is ready for `/pandacorp:scaffold <idea>` (or run it if the owner asked for automatic mode)
+   - `discarded` → verify that the card has the rationale noted (DR-011)
+   - other changes → just record them in the report
 
-## Parte 2 — Refrescar el portfolio (proyectos → fábrica)
+## Part 2 — Refresh the portfolio (projects → factory)
 
-3. Por cada fila de `factory/portfolio.md`: lee el `docs/status.yaml` del proyecto siguiendo su ruta y actualiza fase/resumen/fecha de sync.
-4. **Ruta rota** (carpeta movida o borrada): NO borres la fila — márcala `⚠️ ruta no encontrada` y pregunta al dueño.
-5. Consistencia: si un proyecto está `lanzada` pero su ficha de idea no, corrige la ficha (y viceversa, reporta la discrepancia).
+3. For each row of `factory/portfolio.md`: read the project's `docs/status.yaml` following its path and update phase/summary/sync date.
+4. **Broken path** (folder moved or deleted): do NOT delete the row — mark it `⚠️ path not found` and ask the owner.
+5. Consistency: if a project is `shipped` but its idea card is not, fix the card (and vice versa, report the discrepancy).
 
-## Parte 3 — Reporte
+## Part 3 — Report
 
-6. Resumen corto: tarjetas movidas y acción tomada, estado de cada proyecto activo, discrepancias encontradas.
+6. Short summary: cards moved and action taken, state of each active project, discrepancies found.
 
-## Reglas
-- Este skill está diseñado para correr sin interacción (job diario futuro): cuando no haya humano presente, solo reporta y registra — no ejecuta scaffolds automáticos salvo instrucción previa explícita.
+## Rules
+- This skill is designed to run without interaction (a future daily job): when no human is present, it only reports and records — it does not run automatic scaffolds unless there is explicit prior instruction.

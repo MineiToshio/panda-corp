@@ -1,51 +1,51 @@
-# Propuesta — Interfaz / Mission Control de Pandacorp
+# Proposal — Pandacorp's Interface / Mission Control
 
-> Generado 2026-06-13. Investigación en `docs/research/` (panorama de interfaces sobre Claude Code). El operador quiere ver estado, leer documentos y disparar acciones sin depender de la terminal pura.
+> Generated 2026-06-13. Research in `docs/research/` (landscape of interfaces on top of Claude Code). The operator wants to see status, read documents, and trigger actions without depending on the bare terminal.
 
-## El problema en una frase
+## The problem in one sentence
 
-Los skills son buenos para **ejecutar**, pero no para **ver, leer y organizar**. Falta la capa visual. "Interfaz" son en realidad dos capacidades separables: (1) ver/leer/organizar y (2) disparar acciones desde botones.
+Skills are good for **executing**, but not for **seeing, reading, and organizing**. The visual layer is missing. "Interface" is actually two separable capabilities: (1) see/read/organize and (2) trigger actions from buttons.
 
-## Las 5 alternativas
+## The 5 alternatives
 
-| # | Alternativa | Ver estado | Leer docs | Disparar pipeline | Esfuerzo | ¿Internet? |
+| # | Alternative | See status | Read docs | Trigger pipeline | Effort | Internet? |
 |---|---|---|---|---|---|---|
-| 1 | **App de escritorio de Claude Code** (rediseñada abr-2026) | Parcial (sesiones) | Sí (panel preview) | Solo por chat | Nulo | Sí |
-| 2 | **Obsidian** + Bases + Shell Commands | Sí (kanban) | Sí (markdown render) | Botones "best-effort" | Bajo (horas) | No |
-| 3 | **Dashboard web local propio** (lo construye la fábrica) | Sí (completo) | Sí | Sí + streaming en vivo | Medio (1-2 días) | No (opcional API key) |
-| 4 | **GUIs de terceros** (Nimbalyst, Opcode, claude-code-cli-ui…) | Solo nivel sesión | No | Solo sesión | Nulo | Parcial |
-| 5 | **GitHub Projects + Actions** (kanban en la nube) | Sí (issues) | Markdown crudo | Sí (al mover tarjeta) | Medio | Sí |
+| 1 | **Claude Code desktop app** (redesigned Apr 2026) | Partial (sessions) | Yes (preview pane) | Chat only | None | Yes |
+| 2 | **Obsidian** + Bases + Shell Commands | Yes (kanban) | Yes (markdown render) | "Best-effort" buttons | Low (hours) | No |
+| 3 | **Custom local web dashboard** (built by the factory) | Yes (complete) | Yes | Yes + live streaming | Medium (1-2 days) | No (optional API key) |
+| 4 | **Third-party GUIs** (Nimbalyst, Opcode, claude-code-cli-ui…) | Session level only | No | Session only | None | Partial |
+| 5 | **GitHub Projects + Actions** (kanban in the cloud) | Yes (issues) | Raw markdown | Yes (on moving a card) | Medium | Yes |
 
-### Modo de uso, a alto nivel
+### How they're used, at a high level
 
-1. **App de escritorio**: abres la app, ves una barra lateral con tus sesiones por proyecto, panel que renderiza HTML/PDF/markdown, visor de diffs. Quita la sensación de "terminal negra", pero los skills siguen escribiéndose en el chat — no hay botones. Ya la tienes con tu plan.
+1. **Desktop app**: you open the app, you see a sidebar with your sessions per project, a pane that renders HTML/PDF/markdown, a diff viewer. It removes the "black terminal" feeling, but the skills are still written in the chat — there are no buttons. You already have it with your plan.
 
-2. **Obsidian**: abres la carpeta como vault. Un tablero kanban vivo agrupa tus ideas por `estado` (arrastras tarjetas → cambia el archivo). Clicas una ficha y la lees formateada. Un par de botones en la nota disparan skills cortos (`/pandacorp:recommend`, `:sync-portfolio`). Límite: no ves el output en vivo y solo lee de una carpeta (los proyectos van por symlink).
+2. **Obsidian**: you open the folder as a vault. A live kanban board groups your ideas by `status` (you drag cards → the file changes). You click a card and read it formatted. A couple of buttons on the note trigger short skills (`/pandacorp:recommend`, `:sync-portfolio`). Limit: you don't see the output live and it only reads from one folder (the projects go in via symlink).
 
-3. **Dashboard web local**: abres `localhost:3000`. Tres paneles — kanban de ideas, tabla de portfolio (lee el `status.yaml` de cada proyecto), y una consola. Clicas "avanzar a spec" en una idea y se abre un panel que **transmite en vivo** lo que hace Claude mientras corre el skill; al terminar, la tarjeta se refresca sola. Es la única opción que entiende tu modelo de datos propio Y dispara con feedback en vivo. La fábrica se lo construye a sí misma (un work order + `/pandacorp:implement`).
+3. **Local web dashboard**: you open `localhost:3000`. Three panes — kanban of ideas, portfolio table (reads each project's `status.yaml`), and a console. You click "advance to spec" on an idea and a pane opens that **streams live** what Claude is doing while it runs the skill; when it finishes, the card refreshes itself. It is the only option that understands your own data model AND triggers with live feedback. The factory builds it for itself (one work order + `/pandacorp:implement`).
 
-4. **GUIs de terceros**: instalas y listo, pero todas miran la capa de sesiones de Claude Code (`~/.claude/`), no tu base de ideas ni tu portfolio. Sirven como monitor de sesiones, no como Mission Control de la fábrica.
+4. **Third-party GUIs**: you install and you're done, but they all look at Claude Code's session layer (`~/.claude/`), not your idea base or your portfolio. They serve as a session monitor, not as the factory's Mission Control.
 
-5. **GitHub Projects**: subes el repo a GitHub, las ideas son issues con labels por estado, mueves una tarjeta en el tablero web/móvil y un GitHub Action dispara el skill y abre un PR. Bueno para móvil y durabilidad, pero crea **dos fuentes de verdad** (issues vs. frontmatter) y corre en la nube, no en tu máquina.
+5. **GitHub Projects**: you push the repo to GitHub, the ideas are issues with status labels, you move a card on the web/mobile board and a GitHub Action triggers the skill and opens a PR. Good for mobile and durability, but it creates **two sources of truth** (issues vs. frontmatter) and runs in the cloud, not on your machine.
 
-## Recomendación
+## Recommendation
 
-**Enfoque en dos capas, por fases:**
+**Two-layer approach, in phases:**
 
-### Ahora (hoy, cero código): Obsidian como Mission Control de lectura
-Resuelve el 80% de tu molestia inmediata — ver el kanban, leer las fichas y documentos renderizados, arrastrar tarjetas — sin construir nada. Es tu "segunda pantalla" siempre abierta. Setup: instalar plugin Bases Kanban + abrir el vault.
+### Now (today, zero code): Obsidian as a read-only Mission Control
+It solves 80% of your immediate annoyance — seeing the kanban, reading the cards and rendered documents, dragging cards — without building anything. It's your always-open "second screen". Setup: install the Bases Kanban plugin + open the vault.
 
-### El dashboard web local ES el primer producto piloto de la fábrica
-En vez de estrenar la fábrica con el Funko tracker, la estrenamos construyendo **tu propio Mission Control**. Razones:
-1. Te da exactamente lo que pediste: ver + leer + **disparar con output en vivo**, consciente de tu modelo de datos (ideas, portfolio, estado de proyectos).
-2. **Dogfooding**: validamos el pipeline completo (spec → diseño → blueprint → work orders → implement) construyendo algo que usarás todos los días. Si el proceso falla, lo descubres con una herramienta interna, no con un producto comercial.
-3. Queda 100% bajo tu control y sin depender de internet.
-4. Es un proyecto acotado y de baja exigencia de UX (tres paneles, sin diseño elaborado) — buen primer caso.
+### The local web dashboard IS the factory's first pilot product
+Instead of debuting the factory with the Funko tracker, we debut it by building **your own Mission Control**. Reasons:
+1. It gives you exactly what you asked for: see + read + **trigger with live output**, aware of your data model (ideas, portfolio, project status).
+2. **Dogfooding**: we validate the complete pipeline (spec → design → blueprint → work orders → implement) by building something you'll use every day. If the process fails, you discover it with an internal tool, not with a commercial product.
+3. It stays 100% under your control and without depending on the internet.
+4. It's a bounded project with low UX demands (three panes, no elaborate design) — a good first case.
 
-**Lo que descarto por ahora**: GitHub Projects (segunda fuente de verdad), GUIs de terceros (ciegas a tu modelo de datos), y la app de escritorio como Mission Control (no muestra tus datos, aunque ayuda a no ver terminal pura — úsala libremente en paralelo).
+**What I'm ruling out for now**: GitHub Projects (a second source of truth), third-party GUIs (blind to your data model), and the desktop app as Mission Control (it doesn't show your data, although it helps avoid seeing the bare terminal — use it freely in parallel).
 
-### Detalle técnico a recordar
-El dashboard dispararía Claude vía `claude -p` / Agent SDK, que desde 2026-06-15 consume un pool de créditos separado de la suscripción. Mitigación: configurar `ANTHROPIC_API_KEY` en el entorno del subproceso para facturar a tarifa API en vez de agotar el pool fijo.
+### Technical detail to remember
+The dashboard would trigger Claude via `claude -p` / Agent SDK, which since 2026-06-15 consumes a credit pool separate from the subscription. Mitigation: configure `ANTHROPIC_API_KEY` in the subprocess environment to bill at the API rate instead of depleting the fixed pool.
 
-## Decisión para el dueño
-¿El **dashboard web local** se vuelve el primer proyecto de la fábrica (desplazando al Funko tracker como piloto), mientras montamos Obsidian hoy como lectura inmediata?
+## Decision for the owner
+Does the **local web dashboard** become the factory's first project (displacing the Funko tracker as the pilot), while we set up Obsidian today for immediate reading?

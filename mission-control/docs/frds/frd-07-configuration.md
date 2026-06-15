@@ -1,17 +1,17 @@
-# FRD-07 — Configuración
+# FRD-07 — Configuration
 
-Vista de solo-lectura de lo que hay configurado en la fábrica, con identidad y progresión de los agentes.
+Read-only view of what is configured in the factory, with the agents' identity and progression.
 
-## Criterios de aceptación (EARS)
-- LA Configuración DEBERÁ ofrecer secciones: **Skills · Agentes · Reglas de decisión · Estándares**.
-- CADA sección DEBERÁ listar sus elementos con nombre y una **descripción** real de qué hace cada uno.
-- CUANDO el dueño hace clic en un elemento, DEBERÁ mostrar su **detalle** (lectura del contenido / explicación).
-- EL detalle de un **skill** DEBERÁ mostrar para qué sirve, dónde corre (fábrica/proyecto), qué produce, y un **mini-flujo a alto nivel** (chips con los agentes que usa, coloreados por agente, con flechas) — el "gráfico de cómo funciona el skill".
-- LA sección **Reglas de decisión** DEBERÁ explicar qué ES una regla de decisión, mostrar TODAS las DR con un indicador **auto-aprueba (●) / te pregunta (●)**, su detalle (default pre-aprobado), y un botón **"Nueva regla de decisión"** que copia `/pandacorp:learn`.
-- LA sección **Estándares** DEBERÁ estar **categorizada por dominio** (Programación, Arquitectura, Diseño, Tecnología, Calidad, Seguridad, Operación, Datos/Privacidad, Producto/Docs), con badges de **severidad** (MUST/SHOULD/MAY) y **enforcement** (lint/CI/checklist/gate humano); cada estándar con dos vistas **Resumen** (puntos clave reales) y **Detalle** (markdown), y un botón **"Nuevo estándar"** que copia `/pandacorp:learn`.
-- LA sección **Agentes** DEBERÁ mostrar, por agente: un **avatar pixel-art** (estilo Final Fantasy), su **nivel** y su **título** (Aprendiz → Ingeniero → Senior → Arquitecto).
-- CUANDO se abre el detalle de un agente, DEBERÁ mostrar una **barra de XP al siguiente nivel** y la explicación de que **sube de nivel completando work orders** (cada work order cerrado suma XP).
-- EL contenido se lee del plugin de la fábrica (`plugin/skills`, `plugin/agents`, `factory/decisions/registry.yaml`, `factory/standards/`); es de **solo-lectura** — para editar se hace en los archivos / Claude Code.
+## Acceptance criteria (EARS)
+- Configuration SHALL offer sections: **Skills · Agents · Decision rules · Standards**.
+- EACH section SHALL list its items with a name and a real **description** of what each one does.
+- WHEN the owner clicks an item, it SHALL show its **detail** (reading the content / explanation).
+- The detail of a **skill** SHALL show what it is for, where it runs (factory/project), what it produces, and a high-level **mini-flow** (chips with the agents it uses, colored per agent, with arrows) — the "graph of how the skill works".
+- The **Decision rules** section SHALL explain what a decision rule IS, show ALL the DRs with an **auto-approves (●) / asks you (●)** indicator, their detail (pre-approved default), and a **"New decision rule"** button that copies `/pandacorp:learn`.
+- The **Standards** section SHALL be **categorized by domain** (Programming, Architecture, Design, Technology, Quality, Security, Operation, Data/Privacy, Product/Docs), with **severity** badges (MUST/SHOULD/MAY) and **enforcement** (lint/CI/checklist/human gate); each standard with two views, **Summary** (real key points) and **Detail** (markdown), and a **"New standard"** button that copies `/pandacorp:learn`.
+- The **Agents** section SHALL show, per agent: a **pixel-art avatar** (Final Fantasy style), its **level** and its **title** (Apprentice → Engineer → Senior → Architect).
+- WHEN an agent's detail is opened, it SHALL show an **XP bar to the next level** and the explanation that it **levels up by completing work orders** (each closed work order adds XP).
+- The content is read from the factory plugin (`plugin/skills`, `plugin/agents`, `factory/decisions/registry.yaml`, `factory/standards/`); it is **read-only** — to edit, you do it in the files / Claude Code.
 
-## Nota
-El nivel/XP de los agentes es una representación honesta de trabajo real (work orders completados), parte de la capa de gamificación ([FRD-09](frd-09-gamification.md)).
+## Note
+The agents' level/XP is an honest representation of real work (work orders completed), part of the gamification layer ([FRD-09](frd-09-gamification.md)).

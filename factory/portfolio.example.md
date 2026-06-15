@@ -1,14 +1,14 @@
-# Portfolio Pandacorp
+# Pandacorp Portfolio
 
-Índice de proyectos creados por la fábrica. Solo punteros y resúmenes — el detalle vive en cada proyecto.
-Actualizado por `/pandacorp:sync-portfolio` (lee el `docs/status.yaml` de cada proyecto).
+Index of projects created by the factory. Pointers and summaries only — the detail lives in each project.
+Updated by `/pandacorp:sync-portfolio` (reads each project's `docs/status.yaml`).
 
-| Proyecto | Ruta | Repo | Idea origen | Fase | Última sync |
+| Project | Path | Repo | Origin idea | Phase | Last sync |
 |---|---|---|---|---|---|
-| Pandacorp (Mission Control) | `mission-control/` (dentro de la fábrica — es su interfaz) | — | conversación de diseño | arquitectura | — |
+| Pandacorp (Mission Control) | `mission-control/` (inside the factory — it's its interface) | — | design conversation | architecture | — |
 
-> **Plantilla.** Este es el *seed* versionado. `/pandacorp:onboarding` lo copia a
-> `factory/portfolio.md` (que es **personal y gitignored**). Mission Control ya viene incluido
-> porque es la interfaz de la propia fábrica; vive dentro de `mission-control/` y no como repo hermano.
-> Los proyectos de producto que crees con `/pandacorp:spec` sí viven en carpetas/repos separados
-> y aparecerán aquí como filas nuevas.
+> **Template.** This is the versioned *seed*. `/pandacorp:onboarding` copies it to
+> `factory/portfolio.md` (which is **personal and gitignored**). Mission Control comes included
+> because it's the interface of the factory itself; it lives inside `mission-control/` and not as a sibling repo.
+> The product projects you create with `/pandacorp:spec` do live in separate folders/repos
+> and will appear here as new rows.

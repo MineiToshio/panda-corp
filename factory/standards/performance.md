@@ -1,17 +1,17 @@
 # Performance (web)
 
-> Dominio: Calidad · Severidad: **MUST** (solo proyectos web con UI; inaplicable a API/CLI/scraper). Enforcement: CI gate.
+> Domain: Quality · Severity: **MUST** (web projects with UI only; inapplicable to API/CLI/scraper). Enforcement: CI gate.
 
-## Regla
-- **Core Web Vitals al p75** (campo): LCP ≤ 2.5 s · INP ≤ 200 ms · CLS ≤ 0.1. (Pobre: >4 s / >500 ms / >0.25.)
-- **Presupuesto de JS** definido en el blueprint; sin regresiones de bundle sin justificar.
-- Imágenes con el `<Image>` de Next y fuentes con `next/font` (evita CLS). Lazy-load de lo no-crítico.
+## Rule
+- **Core Web Vitals at p75** (field): LCP ≤ 2.5 s · INP ≤ 200 ms · CLS ≤ 0.1. (Poor: >4 s / >500 ms / >0.25.)
+- **JS budget** defined in the blueprint; no bundle regressions without justification.
+- Images with Next's `<Image>` and fonts with `next/font` (avoids CLS). Lazy-load the non-critical.
 
-## Cómo se verifica
-- **CI = proxy de laboratorio** (no el p75 real, imposible en CI): Lighthouse CI (perf score + budget) + `@next/bundle-analyzer`; TBT como proxy de INP. Gate **warn-on-PR / block-on-main** (como mutation testing, DR-016 — la varianza de laboratorio no debe bloquear cada PR).
-- **El p75 real se mide en campo** con `useReportWebVitals` → PostHog (ya en el stack).
+## How it is verified
+- **CI = lab proxy** (not the real p75, impossible in CI): Lighthouse CI (perf score + budget) + `@next/bundle-analyzer`; TBT as a proxy for INP. Gate **warn-on-PR / block-on-main** (like mutation testing, DR-016 — lab variance must not block every PR).
+- **The real p75 is measured in the field** with `useReportWebVitals` → PostHog (already in the stack).
 
-## Por qué
-CWV son el contrato de experiencia percibida y afectan SEO. Medir en campo, no solo en laboratorio, porque el p75 depende de dispositivos/redes reales. Ver DR-024.
+## Why
+CWV are the contract of perceived experience and affect SEO. Measure in the field, not only in the lab, because the p75 depends on real devices/networks. See DR-024.
 
-Fuentes: web.dev/articles/vitals · web.dev/articles/defining-core-web-vitals-thresholds · nextjs.org/docs/app/guides/production-checklist
+Sources: web.dev/articles/vitals · web.dev/articles/defining-core-web-vitals-thresholds · nextjs.org/docs/app/guides/production-checklist

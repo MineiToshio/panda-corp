@@ -1,26 +1,26 @@
-# Investigación: Kanban en Obsidian sobre frontmatter (2026-06)
+# Research: Kanban in Obsidian over frontmatter (2026-06)
 
-## Conclusión
+## Conclusion
 
-**Sí funciona exactamente como el dueño lo imaginó**: plugin **Bases Kanban** (ewerx) sobre las Bases nativas de Obsidian. Arrastrar una tarjeta entre columnas **escribe el nuevo `estado:` en el frontmatter del archivo .md** en disco. La detección del cambio se hace por escaneo periódico + git diff.
+**Yes, it works exactly as the owner imagined**: the **Bases Kanban** plugin (ewerx) on top of Obsidian's native Bases. Dragging a card between columns **writes the new `status:` into the .md file's frontmatter** on disk. Change detection is done via periodic scanning + git diff.
 
-## Hallazgos clave
+## Key findings
 
-### Obsidian Bases (nativo, v1.9+)
-- Vistas de base de datos sobre frontmatter, configuradas en archivos `.base` (YAML). Vistas nativas: tabla, cards, lista — **sin kanban nativo con drag**.
-- La API de Bases (estable desde Obsidian 1.10.6) permitió plugins comunitarios que añaden la vista kanban **con write-back de frontmatter al arrastrar**:
+### Obsidian Bases (native, v1.9+)
+- Database views over frontmatter, configured in `.base` files (YAML). Native views: table, cards, list — **no native kanban with drag**.
+- The Bases API (stable since Obsidian 1.10.6) enabled community plugins that add the kanban view **with frontmatter write-back on drag**:
 
-| Plugin | ¿Escribe frontmatter al arrastrar? | Nota |
+| Plugin | Writes frontmatter on drag? | Note |
 |---|---|---|
-| **Bases Kanban** (ewerx) ← elegido | ✅ | El más descargado; mapea Bases→kanban directo |
-| Base Board (mderazon) | ✅ | Más opciones (WIP limits, edición inline); maneja mejor columnas vacías |
-| Kanban Bases View (xiwcx) | ✅ | Swimlanes por segunda propiedad |
-| Plugin Kanban clásico (mgmeyers) | ❌ (solo con plugin compañero "Status Updater" y tarjetas-wikilink) | El board es un archivo aparte; no se autogenera de una carpeta — descartado |
-| Dataview/Datacore | ❌ (solo lectura / edición en tabla) | descartado para kanban |
+| **Bases Kanban** (ewerx) ← chosen | ✅ | The most downloaded; maps Bases→kanban directly |
+| Base Board (mderazon) | ✅ | More options (WIP limits, inline editing); handles empty columns better |
+| Kanban Bases View (xiwcx) | ✅ | Swimlanes by a second property |
+| Classic Kanban plugin (mgmeyers) | ❌ (only with the companion "Status Updater" plugin and wikilink cards) | The board is a separate file; it isn't auto-generated from a folder — discarded |
+| Dataview/Datacore | ❌ (read-only / table editing) | discarded for kanban |
 
-- Caveat: en el plugin ewerx las columnas vacías desaparecen si ningún archivo tiene ese estado (alternativa: Base Board). Drag en móvil limitado.
+- Caveat: in the ewerx plugin, empty columns disappear if no file has that status (alternative: Base Board). Drag on mobile is limited.
 
-### Configuración (`ideas.base` en la raíz del vault panda-corp)
+### Configuration (`ideas.base` at the root of the panda-corp vault)
 
 ```yaml
 filters:
@@ -31,22 +31,22 @@ properties:
   tipo: {displayName: "Tipo"}
   score: {displayName: "Score"}
 views:
-  - type: kanban            # registrado por el plugin bases-kanban
+  - type: kanban            # registered by the bases-kanban plugin
     name: "Pipeline Ideas"
     groupBy: {property: estado, direction: ASC}
     order: [score, file.name]
 ```
 
-### Detección de cambios (lado fábrica)
+### Change detection (factory side)
 
-Tres capas, de simple a sofisticada:
-1. **Escaneo periódico con caché** (recomendado para empezar): script compara `estado:` actual vs snapshot anterior; corre por cron/launchd o como parte del skill `/actualizar-portfolio`. Cero dependencias.
-2. **git diff**: plugin obsidian-git auto-comitea cada N min; hook post-commit grep-ea `^[+-]estado:` y dispara al agente. Audit trail gratis.
-3. **fswatch (macOS)** para tiempo real: filtrar archivos temporales `.!*` (Obsidian escribe atómico: temp + rename) y excluir `.obsidian/`.
+Three layers, from simple to sophisticated:
+1. **Periodic scan with cache** (recommended to start): a script compares the current `status:` against the previous snapshot; runs via cron/launchd or as part of the `/actualizar-portfolio` skill. Zero dependencies.
+2. **git diff**: the obsidian-git plugin auto-commits every N min; a post-commit hook greps `^[+-]estado:` and triggers the agent. Free audit trail.
+3. **fswatch (macOS)** for real time: filter out temporary `.!*` files (Obsidian writes atomically: temp + rename) and exclude `.obsidian/`.
 
-Pitfalls: ignorar en git `.obsidian/workspace.json` y `plugins/*/data.json` (ruido); filtrar eventos de archivos `.!*`.
+Pitfalls: ignore `.obsidian/workspace.json` and `plugins/*/data.json` in git (noise); filter out `.!*` file events.
 
-### Escritura programática (agente → vault)
-- **obsidian-local-rest-api** (coddingtonbear) + **obsidian-mcp-server** (cyanheads): MCP con herramienta `obsidian_manage_frontmatter` para que los agentes lean/escriban estados sin tocar archivos a mano. Opcional — los agentes también pueden editar el frontmatter directamente con Edit, que es más simple y suficiente al inicio.
+### Programmatic writing (agent → vault)
+- **obsidian-local-rest-api** (coddingtonbear) + **obsidian-mcp-server** (cyanheads): an MCP with an `obsidian_manage_frontmatter` tool so agents can read/write statuses without touching files by hand. Optional — agents can also edit the frontmatter directly with Edit, which is simpler and sufficient at first.
 
-Fuentes: [Bases syntax](https://obsidian.md/help/bases/syntax) · [ewerx/obsidian-bases-kanban](https://github.com/ewerx/obsidian-bases-kanban) · [mderazon/obsidian-base-board](https://github.com/mderazon/obsidian-base-board) · [obsidian-git](https://github.com/Vinzent03/obsidian-git) · [local-rest-api](https://github.com/coddingtonbear/obsidian-local-rest-api) · [obsidian-mcp-server](https://github.com/cyanheads/obsidian-mcp-server) · [Guía Bases 2026](https://got.md/obsidian-bases/)
+Sources: [Bases syntax](https://obsidian.md/help/bases/syntax) · [ewerx/obsidian-bases-kanban](https://github.com/ewerx/obsidian-bases-kanban) · [mderazon/obsidian-base-board](https://github.com/mderazon/obsidian-base-board) · [obsidian-git](https://github.com/Vinzent03/obsidian-git) · [local-rest-api](https://github.com/coddingtonbear/obsidian-local-rest-api) · [obsidian-mcp-server](https://github.com/cyanheads/obsidian-mcp-server) · [Bases guide 2026](https://got.md/obsidian-bases/)

@@ -1,124 +1,124 @@
-# Plan de mejoras de la fábrica — 2026
+# Factory improvement plan — 2026
 
-> Generado 2026-06-13 a partir de dos investigaciones web profundas con verificación adversarial
-> (orquestación/calidad/SDK/docs + UI/UX/gamificación). 5 dimensiones, ~50 fuentes,
-> claims verificados por voto 3-0 salvo donde se indica. Cada hallazgo se conecta con qué
-> cambiar en Pandacorp (pipeline, hooks, agentes o Mission Control).
+> Generated 2026-06-13 from two deep web research efforts with adversarial verification
+> (orchestration/quality/SDK/docs + UI/UX/gamification). 5 dimensions, ~50 sources,
+> claims verified by a 3-0 vote except where noted. Each finding is connected to what to
+> change in Pandacorp (pipeline, hooks, agents, or Mission Control).
 
-## Tesis central
+## Central thesis
 
-La calidad y la velocidad de una fábrica de software autónoma **no salen de "mejores prompts"**, sino de
-**hacer determinista todo lo verificable y adversarial todo lo opinable**. Pandacorp ya está bien posicionada
-(hooks deterministas, reviewer que re-verifica, gate `Stop`/`verify.sh`, equipos con contexto aislado, memoria
-en archivos). Las mejoras son **incrementales y de alto ROI**, no un rediseño.
+The quality and speed of an autonomous software factory **do not come from "better prompts"**, but from
+**making everything verifiable deterministic and everything debatable adversarial**. Pandacorp is already well positioned
+(deterministic hooks, a reviewer that re-verifies, the `Stop`/`verify.sh` gate, teams with isolated context, memory
+in files). The improvements are **incremental and high-ROI**, not a redesign.
 
-El hallazgo más accionable y mejor evidenciado: **un verificador construido solo con tests generados por IA
-falla sistemáticamente** (20–40% de soluciones "verdes" en realidad erróneas) porque los errores de los LLM
-se agrupan (sesgo sistemático compartido) mientras los humanos fallan de forma diversa. Hay que **reforzar la
-verificación independiente del agente**, no confiar en que el agente "no haga trampa".
+The most actionable and best-evidenced finding: **a verifier built only with AI-generated tests
+systematically fails** (20–40% of "green" solutions are actually wrong) because LLM errors
+cluster (a shared systematic bias) while humans fail in diverse ways. We must **reinforce
+agent-independent verification**, not trust that the agent "won't cheat".
 
 ---
 
-## Dimensión 1 — Orquestación de agentes y pipeline
+## Dimension 1 — Agent orchestration and pipeline
 
-| # | Hallazgo (evidencia) | Aplicación a Pandacorp |
+| # | Finding (evidence) | Application to Pandacorp |
 |---|---|---|
-| 1.1 | **Spec-driven development**: la spec como "fuente de verdad ejecutable" descompuesta en *chunks pequeños testeables en aislamiento* reduce errores en cascada. Spec Kit lo estructura en Specify/Plan/Tasks/Implement; las tasks son "small reviewable chunks… you can implement and test in isolation". [1][2] | El pipeline `spec→design→blueprint→work-orders→implement` **ya es SDD**; los criterios EARS son la spec ejecutable. **Mejora:** que el `reviewer` **rechace work orders demasiado grandes** y exija que cada WO sea testeable en aislamiento (regla nueva en `blueprint`/`work-orders`). |
-| 1.2 | **Línea de ensamblaje con SOPs codificados** (PM→Architect→Engineer→Reviewer): que cada rol *verifique resultados intermedios* mitiga las "alucinaciones en cascada" del encadenamiento ingenuo de LLMs. MetaGPT (ICLR 2024 Oral). [3][4] | Ya existen los 10 roles. **Mejora:** mover los checklists de verificación intermedia **a cada `agents/*.md`** (un SOP de "antes de pasar el trabajo, verifico X/Y/Z"), no concentrarlos solo en el skill `implement`. |
-| 1.3 | **Taxonomía MAST de fallos multi-agente**: 14 modos de fallo en 3 categorías (diseño de sistema, desalineación inter-agente, **verificación/terminación de tarea**), derivados de 1600+ trazas reales en 7 frameworks (NeurIPS 2025, κ=0.88). [5][6] | Usar MAST como **checklist de diseño** de los hooks y de `implement`. La categoría *task verification* (terminación prematura, verificación incompleta/incorrecta) es exactamente lo que `Stop`/`verify.sh` debe prevenir. **Documentar en la constitución qué failure mode previene cada hook.** |
+| 1.1 | **Spec-driven development**: the spec as an "executable source of truth" decomposed into *small chunks testable in isolation* reduces cascading errors. Spec Kit structures it as Specify/Plan/Tasks/Implement; the tasks are "small reviewable chunks… you can implement and test in isolation". [1][2] | The `spec→design→blueprint→work-orders→implement` pipeline **is already SDD**; the EARS criteria are the executable spec. **Improvement:** have the `reviewer` **reject work orders that are too large** and require each WO to be testable in isolation (a new rule in `blueprint`/`work-orders`). |
+| 1.2 | **Assembly line with codified SOPs** (PM→Architect→Engineer→Reviewer): having each role *verify intermediate results* mitigates the "cascading hallucinations" of naive LLM chaining. MetaGPT (ICLR 2024 Oral). [3][4] | The 10 roles already exist. **Improvement:** move the intermediate verification checklists **to each `agents/*.md`** (an SOP of "before handing off the work, I verify X/Y/Z"), instead of concentrating them only in the `implement` skill. |
+| 1.3 | **MAST taxonomy of multi-agent failures**: 14 failure modes in 3 categories (system design, inter-agent misalignment, **task verification/termination**), derived from 1600+ real traces across 7 frameworks (NeurIPS 2025, κ=0.88). [5][6] | Use MAST as a **design checklist** for the hooks and for `implement`. The *task verification* category (premature termination, incomplete/incorrect verification) is exactly what `Stop`/`verify.sh` must prevent. **Document in the constitution which failure mode each hook prevents.** |
 
 ---
 
-## Dimensión 2 — Calidad y verificación automática sin revisión humana
+## Dimension 2 — Automatic quality and verification without human review
 
-| # | Hallazgo (evidencia) | Aplicación a Pandacorp |
+| # | Finding (evidence) | Application to Pandacorp |
 |---|---|---|
-| 2.1 ⭐ | **Tests generados por IA tienen puntos ciegos persistentes**: soluciones que pasaron tests privados fueron erróneas en 20% (medium) / 40% (hard); "LLM errors cluster tightly… while human errors are widely distributed". Benchmarks populares tienen tests débiles (HumanEval 7.7 tests/problema; 84% de verificadores defectuosos en un set). [7] | **El `test-writer` y el `implementer` comparten sesgo** → los tests "verdes" tienen huecos. **Mejora P0:** el `reviewer` (modelo distinto, opus) escribe **tests adversariales que el implementer NO vio**; añadir **mutation testing** a `verify.sh` para detectar tests decorativos. |
-| 2.2 | **Generación de tests humano-LLM (SAGA)**: derivar restricciones de soluciones correctas y modos de fallo de las incorrectas mejora el verificador (+15.86% sobre TCG existentes). [7] *(voto 2-1: matiz en cifras, no en el principio)* | Anclar los tests en la **"parte humana"**: criterios EARS de los FRDs y **bugs reales documentados en `docs/progress.md`**, no en lo que el LLM imagina. Reforzar la regla existente del `test-writer`. |
-| 2.3 ⭐ | **Endurecer el ENTORNO de evaluación recorta el "hacer trampa" 87.7%** (exploits 6.5%→0.8%) **sin perder éxito de tarea**: outputs intermedios aleatorizados, verificación explícita de pasos, parsing *fail-closed*, menos metadata visible al agente. [8] *(preprint 2026, 1 autor — direccional fuerte, sin réplica)* | `verify.sh` debe correr en **entorno limpio/aislado**, **parsear fail-closed** (cualquier ambigüedad = fallo), **no exponer al agente los nombres exactos de los tests** a pasar, y ocultar/aleatorizar fixtures. Valida la arquitectura de hooks deterministas que ya tienes. |
-| 2.4 | **OWASP Top 10 for Agentic Applications** (9-dic-2025, ASI01–ASI10): de "prevenir malas salidas" a "prevenir fallos en cascada" en agentes que planifican/persisten/delegan. Riesgos: Tool Misuse, Identity & Privilege Abuse, Memory Poisoning, Cascading Failures. [9] | Adoptar como **checklist explícito** en `agents/security-auditor.md` y en el skill `release`. Relevantes directos: Tool Misuse (agentes con Bash/rm), Memory Poisoning (envenenar `progress.md`/memoria entre work orders). |
-| 2.5 | **El régimen de entrenamiento del obrero determina su propensión a gamear**: RL-from-base aluciná/explota 12–16% vs 0.4–0.8% en SFT-focused. [8] *(voto 2-1)* | **No asumir que los obreros sonnet/haiku son honestos**: justifica que el `reviewer` **re-verifique TODA evidencia** y que los checks sean siempre de scripts/CI (regla 4 de la constitución, ya correcta). |
+| 2.1 ⭐ | **AI-generated tests have persistent blind spots**: solutions that passed private tests were wrong in 20% (medium) / 40% (hard); "LLM errors cluster tightly… while human errors are widely distributed". Popular benchmarks have weak tests (HumanEval 7.7 tests/problem; 84% of verifiers defective in one set). [7] | **The `test-writer` and the `implementer` share a bias** → the "green" tests have gaps. **P0 improvement:** the `reviewer` (a different model, opus) writes **adversarial tests the implementer did NOT see**; add **mutation testing** to `verify.sh` to detect decorative tests. |
+| 2.2 | **Human-LLM test generation (SAGA)**: deriving constraints from correct solutions and failure modes from incorrect ones improves the verifier (+15.86% over existing TCG). [7] *(2-1 vote: nuance in the figures, not in the principle)* | Anchor the tests in the **"human part"**: EARS criteria from the FRDs and **real bugs documented in `docs/progress.md`**, not in what the LLM imagines. Reinforce the `test-writer`'s existing rule. |
+| 2.3 ⭐ | **Hardening the evaluation ENVIRONMENT cuts "cheating" by 87.7%** (exploits 6.5%→0.8%) **without losing task success**: randomized intermediate outputs, explicit step verification, *fail-closed* parsing, less metadata visible to the agent. [8] *(2026 preprint, 1 author — strongly directional, no replication)* | `verify.sh` should run in a **clean/isolated environment**, **parse fail-closed** (any ambiguity = failure), **not expose to the agent the exact names of the tests** to pass, and hide/randomize fixtures. It validates the deterministic hook architecture you already have. |
+| 2.4 | **OWASP Top 10 for Agentic Applications** (Dec 9, 2025, ASI01–ASI10): from "preventing bad outputs" to "preventing cascading failures" in agents that plan/persist/delegate. Risks: Tool Misuse, Identity & Privilege Abuse, Memory Poisoning, Cascading Failures. [9] | Adopt it as an **explicit checklist** in `agents/security-auditor.md` and in the `release` skill. Directly relevant: Tool Misuse (agents with Bash/rm), Memory Poisoning (poisoning `progress.md`/memory between work orders). |
+| 2.5 | **The worker's training regime determines its propensity to game**: RL-from-base hallucinates/exploits 12–16% vs 0.4–0.8% in SFT-focused. [8] *(2-1 vote)* | **Don't assume the sonnet/haiku workers are honest**: it justifies having the `reviewer` **re-verify ALL evidence** and that the checks are always from scripts/CI (rule 4 of the constitution, already correct). |
 
 ---
 
-## Dimensión 3 — Capacidades avanzadas de Claude Code / Agent SDK
+## Dimension 3 — Advanced Claude Code / Agent SDK capabilities
 
-| # | Hallazgo (evidencia) | Aplicación a Pandacorp |
+| # | Finding (evidence) | Application to Pandacorp |
 |---|---|---|
-| 3.1 | **Loop de 4 pasos** "gather context → take action → **verify work** → repeat" para que el agente "catch mistakes before they compound". El **feedback más fuerte es basado en reglas** ("which rules failed and why"); el linting es el ejemplo; **LLM-as-judge "generally not robust"**. [10][11] | Valida exactamente `verify.sh` (tsc/mypy + lint). **Mejora:** que los mensajes de error de `verify.sh` digan **qué regla falló y por qué** (feedback accionable), no solo "FAILED". Y que el `reviewer` **re-corra** tests/lint/typecheck (ya lo hace) en vez de solo opinar. |
-| 3.2 | **Subagentes para 2 cosas**: paralelización (terminan en el tiempo del más lento, no la suma) y manejo de contexto (conversación fresca aislada; solo el mensaje final vuelve al líder). Ej.: style-checker + security-scanner + test-coverage en paralelo. [12][10] | En modos **potente/profundo**, correr los 3 lentes del review **en paralelo** como subagentes. El `researcher` "a demanda" es correcto (explora sin contaminar el contexto del líder). **Caveat:** concurrencia capada (~16) y puede topar rate limits en planes bajos. |
-| 3.3 | **Checkpoints automáticos** (estado antes de cada cambio, `/rewind`) + **background tasks** + hooks permiten delegar tareas amplias. **Caveat documentado:** los checkpoints **NO rastrean cambios de Bash** (rm/mv) ni reemplazan Git. [13][14] | Usar **background tasks** para dev servers/procesos largos sin bloquear. Los checkpoints son red de seguridad de sesión, **pero mantener commit por work order** (ya es regla). El motor de `implement` es un **workflow dinámico reanudable** (estado en el código del script + archivos + commits), así que el resume ya no es problema del motor; aun así, **escribir contexto crítico a archivos** sigue siendo buena práctica como fuente de verdad compartida entre etapas/subagentes. |
+| 3.1 | **4-step loop** "gather context → take action → **verify work** → repeat" so the agent can "catch mistakes before they compound". The **strongest feedback is rule-based** ("which rules failed and why"); linting is the example; **LLM-as-judge "generally not robust"**. [10][11] | It validates exactly `verify.sh` (tsc/mypy + lint). **Improvement:** have `verify.sh`'s error messages say **which rule failed and why** (actionable feedback), not just "FAILED". And have the `reviewer` **re-run** tests/lint/typecheck (it already does) instead of just opining. |
+| 3.2 | **Subagents for 2 things**: parallelization (they finish in the time of the slowest, not the sum) and context management (a fresh isolated conversation; only the final message returns to the leader). E.g.: style-checker + security-scanner + test-coverage in parallel. [12][10] | In **powerful/deep** modes, run the 3 review lenses **in parallel** as subagents. The "on-demand" `researcher` is correct (it explores without polluting the leader's context). **Caveat:** concurrency is capped (~16) and may hit rate limits on lower plans. |
+| 3.3 | **Automatic checkpoints** (state before each change, `/rewind`) + **background tasks** + hooks allow delegating broad tasks. **Documented caveat:** checkpoints do **NOT** track Bash changes (rm/mv) nor replace Git. [13][14] | Use **background tasks** for dev servers/long processes without blocking. Checkpoints are a session safety net, **but keep one commit per work order** (already a rule). The `implement` engine is a **resumable dynamic workflow** (state in the script's code + files + commits), so resuming is no longer the engine's problem; even so, **writing critical context to files** remains good practice as a shared source of truth between stages/subagents. |
 
 ---
 
-## Dimensión 4 — Documentación viva y enforcement de estándares
+## Dimension 4 — Living documentation and standards enforcement
 
-| # | Hallazgo | Aplicación a Pandacorp |
+| # | Finding | Application to Pandacorp |
 |---|---|---|
-| 4.1 | El **enforcement de estándares por reglas deterministas** (linter/formatter/type-check estricto en CI) es la forma de calidad que mejor funciona con código IA; *gates independientes del agente* > confianza en el agente. [15][16] | Ya está en `quality.md` + `verify.sh`. **Mejora:** elevar a CI por PR (typecheck+lint+tests en paralelo, e2e hacia main) como gate de merge — coherente con la constitución §11. |
-| 4.2 | **Documentación viva**: auto-generar ADRs y docs de arquitectura desde el código/commits (LLM en CI), para que no se queden obsoletas. [17][18] | Añadir un paso en `release`/CI que **auto-genere changelog** (desde conventional commits) y **proponga ADRs** cuando detecta cambios arquitectónicos. Mantiene `docs/` sincronizado sin esfuerzo humano. |
+| 4.1 | **Standards enforcement via deterministic rules** (strict linter/formatter/type-check in CI) is the form of quality that works best with AI code; *agent-independent gates* > trust in the agent. [15][16] | Already in `quality.md` + `verify.sh`. **Improvement:** elevate to per-PR CI (typecheck+lint+tests in parallel, e2e toward main) as a merge gate — consistent with constitution §11. |
+| 4.2 | **Living documentation**: auto-generate ADRs and architecture docs from the code/commits (LLM in CI), so they don't become obsolete. [17][18] | Add a step in `release`/CI that **auto-generates a changelog** (from conventional commits) and **proposes ADRs** when it detects architectural changes. Keeps `docs/` in sync without human effort. |
 
 ---
 
-## Dimensión 5 — UI/UX de Mission Control y gamificación honesta
+## Dimension 5 — Mission Control UI/UX and honest gamification
 
-> Hilo conductor: **el ojo debe enlazar sprite ↔ evento ↔ tarjeta sin leer texto**, el **fallo debe ser tan
-> visible como el logro**, y la **restricción** (pocos colores, pocas métricas, pocas variables de tema) es la
-> herramienta que protege a un operador débil en diseño.
+> Through-line: **the eye must link sprite ↔ event ↔ card without reading text**, **failure must be as
+> visible as achievement**, and **restraint** (few colors, few metrics, few theme variables) is the
+> tool that protects an operator who is weak at design.
 
-### (A) Observabilidad de agentes en vivo
-- **A1. Color persistente por agente, reusado en TODA la UI** (sprite + feed + kanban). Doble borde si hay varios proyectos: color-proyecto (izq) + color-agente (2º). [19]
-- **A2. Vocabulario icónico fijo y acotado (~12 eventos)** (leer/escribir/editar/test ✅❌/arranque/fin); combinar evento+herramienta. Reduce carga de lectura. [19]
-- **A3. Fallo como estado de primera clase** (sprite caído + borde rojo + ❌, distinto de "completado"). Sostiene la honestidad del XP. [19]
-- **A4. Feed con follow-tail + botón "fijar" + cap de 100–200 eventos** para no degradar el render en builds largos. [19]
+### (A) Live agent observability
+- **A1. Persistent color per agent, reused across the ENTIRE UI** (sprite + feed + kanban). Double border if there are several projects: project-color (left) + agent-color (2nd). [19]
+- **A2. Fixed and bounded iconic vocabulary (~12 events)** (read/write/edit/test ✅❌/start/end); combine event+tool. Reduces reading load. [19]
+- **A3. Failure as a first-class state** (fallen sprite + red border + ❌, distinct from "completed"). It sustains the honesty of the XP. [19]
+- **A4. Feed with follow-tail + a "pin" button + a cap of 100–200 events** so as not to degrade the render in long builds. [19]
 
-### (B) Visualización de pipeline/DAG y data-viz
-- **B1. Misma data, dos vistas: toggle RPG ↔ timeline/árbol** honesto (work-orders→tareas→acciones). Una para "disfrutar el show", otra para "entender qué pasó". [20]
-- **B2. DAG con path-focus + follow-mode + go-to-failure**: iluminar solo la cadena de dependencias del nodo, centrar la cámara en el paso activo, atajo a "primer error". [21]
-- **B3. Render barato: Dagre (~39KB), evitar ELK.js (~1.4MB)** salvo ruteo ortogonal. Esquema de grafo explícito (nodo=WO, arista=dependencia). [22][23]
-- **B4. Live Pulse Chart** (barras por minuto, color por agente) = señal honesta de "fábrica viva o estancada". Header con **≤5 KPIs** + indicador **Live/Stale** con timestamp del último evento. Esquema de eventos **vendor-neutral (OpenTelemetry)** para no atarse. [19][24][25]
+### (B) Pipeline/DAG visualization and data-viz
+- **B1. Same data, two views: RPG ↔ honest timeline/tree toggle** (work-orders→tasks→actions). One to "enjoy the show", another to "understand what happened". [20]
+- **B2. DAG with path-focus + follow-mode + go-to-failure**: light up only the node's dependency chain, center the camera on the active step, shortcut to "first error". [21]
+- **B3. Cheap render: Dagre (~39KB), avoid ELK.js (~1.4MB)** except for orthogonal routing. Explicit graph schema (node=WO, edge=dependency). [22][23]
+- **B4. Live Pulse Chart** (bars per minute, color per agent) = an honest signal of "factory alive or stalled". Header with **≤5 KPIs** + a **Live/Stale** indicator with the timestamp of the last event. **Vendor-neutral (OpenTelemetry)** event schema to avoid lock-in. [19][24][25]
 
-### (C) Craft visual "limpio e impactante"
-- **C1. Tema desde ~3 tokens OKLCH** (base/acento/contraste) + superficies por elevación. Linear pasó de 98 variables a 3; habilita modo alto-contraste sin rediseñar. [26]
-- **C2. Acento como "puntuación", no pintura** (un solo acento racionado) + **`tabular-nums` en TODO número** (XP, conteos, stats, timestamps): credibilidad de ingeniería casi gratis. Geist/Vercel: "restraint as a feature". [27][26][28]
-- **C3. Escala de elevación/espaciado tokenizada (shadcn)**: 3 niveles (canvas→panel→tarjeta/popup), radio 0.5rem, base 16px, hairline 1px, espaciado en múltiplos de 0.25rem. [28][26]
-- **C4. Motion sobrio y honesto**: solo `transform`/`opacity`, **<300ms**, *frequency test* (lo cotidiano sobrio; reserva lo expresivo para logro/nivel/WO-completada). 2–3 tokens de easing. [29][30]
-- **C5. Accesibilidad obligatoria**: `prefers-reduced-motion` envuelve toda animación; **estado por icono/forma además del color** (crítico con paleta cálida); `aria-label` en español, `aria-live="polite"`, foco visible, contraste ≥4.5:1. [29][30][31]
+### (C) "Clean and impactful" visual craft
+- **C1. Theme from ~3 OKLCH tokens** (base/accent/contrast) + surfaces by elevation. Linear went from 98 variables to 3; it enables a high-contrast mode without redesigning. [26]
+- **C2. Accent as "punctuation", not paint** (a single rationed accent) + **`tabular-nums` on EVERY number** (XP, counts, stats, timestamps): engineering credibility almost for free. Geist/Vercel: "restraint as a feature". [27][26][28]
+- **C3. Tokenized elevation/spacing scale (shadcn)**: 3 levels (canvas→panel→card/popup), 0.5rem radius, 16px base, 1px hairline, spacing in multiples of 0.25rem. [28][26]
+- **C4. Sober and honest motion**: only `transform`/`opacity`, **<300ms**, *frequency test* (the everyday sober; reserve the expressive for achievement/level-up/WO-completed). 2–3 easing tokens. [29][30]
+- **C5. Mandatory accessibility**: `prefers-reduced-motion` wraps all animation; **state via icon/shape in addition to color** (critical with a warm palette); `aria-label` in Spanish, `aria-live="polite"`, visible focus, contrast ≥4.5:1. [29][30][31]
 
-### (D) Gamificación honesta no-tóxica
-> Pandacorp ya tomó las decisiones correctas (XP por resultado, sin rachas/leaderboards). Estos hallazgos las **validan** y dan checklist para no recaer.
-- **D1. Vivir en el "White Hat" del Octalysis** (Significado Épico, Logro/Progreso, Empoderamiento+Feedback): el mayor activo intrínseco es **ver a los agentes trabajar en vivo** → invertir en legibilidad del estado, dejar el XP como capa secundaria. [32][33]
-- **D2. XP por resultado verificable, nunca por actividad** (evita el *overjustification effect*): cada logro mapea a algo verificable por CI — coherente con "los agentes nunca marcan sus propios checks". [33][34]
-- **D3. Zeigarnik + endowed progress honestos**: mostrar WO en curso con barra parcial; arrancar cadenas con progreso ya hecho (estudio Nunes & Drèze: 34% vs 19% de canje) — honesto porque corresponde a trabajo real. **Sin notificaciones machaconas.** [34][35]
-- **D4. Test ético como criterio de aceptación de cada mecánica nueva** (5 preguntas de UX Magazine). **Los logros "secretos" deben revelar su criterio al desbloquearse** (no loot-box). Patrones a NO replicar: streak anxiety, recompensas variables, urgencia falsa, leaderboards, barra "clavada al 80%". [36][34]
-
----
-
-## Roadmap priorizado
-
-### P0 — Alto impacto, evidencia fuerte, bajo esfuerzo
-1. **Romper el sesgo compartido test-writer↔implementer**: el `reviewer` (opus) escribe tests adversariales que el implementer no vio; anclar edge cases en EARS + bugs de `progress.md`. *(2.1, 2.2)*
-2. **`verify.sh` como gate anti-trampa**: añadir mutation testing (Stryker para TS / mutmut para Python), correr en entorno limpio, parsing fail-closed, no exponer nombres de tests. *(2.1, 2.3)*
-3. **Mission Control — quick wins de craft**: color persistente por agente + fallo como estado de primera clase + `tabular-nums` + un acento racionado. *(A1, A3, C2)*
-
-### P1 — Alto impacto, esfuerzo medio
-4. **OWASP Top 10 Agentic (dic-2025)** como checklist en `security-auditor` + `release`. *(2.4)*
-5. **SOPs de verificación intermedia por agente** (en `agents/*.md`) usando MAST; documentar en la constitución qué failure mode previene cada hook. *(1.2, 1.3)*
-6. **Mensajes de `verify.sh` accionables** ("qué regla falló y por qué"). *(3.1)*
-7. **Mission Control — sistema visual**: tema 3 tokens OKLCH + 3 elevaciones; `prefers-reduced-motion` + estados con icono/forma + aria en español; motion <300ms con frequency test; feed follow-tail+pin+cap. *(C1, C3, C4, C5, A4)*
-
-### P2 — Estructural / experimental
-8. **Paralelismo desatendido**: subagentes concurrentes para los 3 lentes del review + background tasks en modos potente/profundo; commit por work order siempre. *(3.2, 3.3)*
-9. **Mission Control — observabilidad**: Live Pulse Chart + toggle RPG↔timeline + header ≤5 KPIs + indicador Live/Stale + DAG con path-focus (Dagre). *(B1–B4)*
-10. **Eval harness propio** (estilo SWE-bench sobre los propios proyectos) para medir regresiones de calidad del pipeline entre versiones. *(open question)*
-11. **Documentación viva**: auto-changelog desde conventional commits + ADRs propuestos por CI. *(4.2)*
+### (D) Honest, non-toxic gamification
+> Pandacorp already made the right decisions (XP by result, no streaks/leaderboards). These findings **validate** them and provide a checklist not to relapse.
+- **D1. Live in the "White Hat" of Octalysis** (Epic Meaning, Achievement/Progress, Empowerment+Feedback): the greatest intrinsic asset is **seeing the agents work live** → invest in state legibility, leave XP as a secondary layer. [32][33]
+- **D2. XP by verifiable result, never by activity** (avoids the *overjustification effect*): each achievement maps to something verifiable by CI — consistent with "agents never check their own checks". [33][34]
+- **D3. Honest Zeigarnik + endowed progress**: show in-progress WOs with a partial bar; start chains with progress already made (Nunes & Drèze study: 34% vs 19% redemption) — honest because it corresponds to real work. **No nagging notifications.** [34][35]
+- **D4. Ethical test as an acceptance criterion for every new mechanic** (5 UX Magazine questions). **"Secret" achievements must reveal their criterion upon unlocking** (no loot-box). Patterns NOT to replicate: streak anxiety, variable rewards, false urgency, leaderboards, a bar "stuck at 80%". [36][34]
 
 ---
 
-## Limitaciones y sensibilidad temporal
-- Los dos hallazgos más operativos sobre "trampas de agentes" (2.3 endurecimiento de entorno, 2.5 reward hacking) vienen de **un preprint de 2026 de un solo autor, no peer-reviewed** — direccionalmente fuertes pero sin réplica. 2.2 (SAGA) y 2.5 tuvieron voto 2-1.
-- El motor de construcción es **Dynamic Workflows** (primitiva nativa, reanudable de raíz: estado en el script + archivos + commits). Agent Teams y checkpoints son **recientes/experimentales** y evolucionan rápido (Agent Teams queda solo para revisión adversarial puntual; checkpoints no rastrean Bash ni reemplazan Git).
-- La evidencia fuerte es mayormente de **fuentes primarias** (papers, docs/blog de Anthropic, OWASP), robusta pero sesgada hacia "lo que los frameworks afirman diseñar" más que outcomes medidos en producción.
+## Prioritized roadmap
 
-## Referencias
-[1] github.blog — Spec-driven development toolkit · [2] github.com/github/spec-kit · [3] arXiv 2308.00352 (MetaGPT) · [4] openreview VtmBAGCN7o · [5] github MAST · [6] arXiv 2503.13657 · [7] arXiv 2507.06920 · [8] arXiv 2605.02964 · [9] genai.owasp.org (Top 10 Agentic, 2025-12-09) · [10] anthropic.com/engineering/building-agents-with-the-claude-agent-sdk · [11] claude.com/blog/building-agents-with-the-claude-agent-sdk · [12] code.claude.com/docs/agent-sdk/subagents · [13] anthropic.com/news/enabling-claude-code-to-work-more-autonomously · [14] code.claude.com/docs/checkpointing · [15] blog.codacy.com/why-coding-agents-need-independent-quality-gates · [16] blog.reccehq.com/before-you-let-agents-touch-your-codebase-build-these-gates · [17] medium @iraj.hedayati (ADRs automáticos) · [18] kinde.com (living architecture docs) · [19] github.com/disler/claude-code-hooks-multi-agent-observability · [20] docs.agentops.ai/v2/concepts/core-concepts · [21] buildkite.com/resources/blog/visualize-your-ci-cd-pipeline-on-a-canvas · [22] reactflow.dev/learn/layouting · [23] cambridge-intelligence.com/blog/react-graph-visualization-library · [24] docs.langchain.com/langsmith/dashboards · [25] opentelemetry.io/blog/2025/ai-agent-observability · [26] linear.app/now/how-we-redesigned-the-linear-ui · [27] designsystems.one/design-systems/vercel-geist · [28] interfaces.rauno.me · [29] github vercel-labs/open-agents web-animation-design · [30] animations.dev · [31] smashingmagazine.com/2025/09/ux-strategies-real-time-dashboards · [32] yukaichou.com white-hat-black-hat-octalysis · [33] yukaichou.com left-brain-right-brain-core-drives · [34] uxmag.com gamification-or-manipulation · [35] learningloop.io endowed-progress-effect · [36] learningloop.io zeigarnik-effect
+### P0 — High impact, strong evidence, low effort
+1. **Break the shared test-writer↔implementer bias**: the `reviewer` (opus) writes adversarial tests the implementer did not see; anchor edge cases in EARS + bugs from `progress.md`. *(2.1, 2.2)*
+2. **`verify.sh` as an anti-cheat gate**: add mutation testing (Stryker for TS / mutmut for Python), run in a clean environment, fail-closed parsing, don't expose test names. *(2.1, 2.3)*
+3. **Mission Control — craft quick wins**: persistent color per agent + failure as a first-class state + `tabular-nums` + a single rationed accent. *(A1, A3, C2)*
+
+### P1 — High impact, medium effort
+4. **OWASP Top 10 Agentic (Dec 2025)** as a checklist in `security-auditor` + `release`. *(2.4)*
+5. **Per-agent intermediate verification SOPs** (in `agents/*.md`) using MAST; document in the constitution which failure mode each hook prevents. *(1.2, 1.3)*
+6. **Actionable `verify.sh` messages** ("which rule failed and why"). *(3.1)*
+7. **Mission Control — visual system**: 3-token OKLCH theme + 3 elevations; `prefers-reduced-motion` + states with icon/shape + aria in Spanish; motion <300ms with frequency test; feed follow-tail+pin+cap. *(C1, C3, C4, C5, A4)*
+
+### P2 — Structural / experimental
+8. **Unattended parallelism**: concurrent subagents for the 3 review lenses + background tasks in powerful/deep modes; one commit per work order always. *(3.2, 3.3)*
+9. **Mission Control — observability**: Live Pulse Chart + RPG↔timeline toggle + header ≤5 KPIs + Live/Stale indicator + DAG with path-focus (Dagre). *(B1–B4)*
+10. **Custom eval harness** (SWE-bench style over our own projects) to measure quality regressions of the pipeline between versions. *(open question)*
+11. **Living documentation**: auto-changelog from conventional commits + ADRs proposed by CI. *(4.2)*
+
+---
+
+## Limitations and time sensitivity
+- The two most operational findings about "agent cheating" (2.3 environment hardening, 2.5 reward hacking) come from **a 2026 preprint by a single author, not peer-reviewed** — directionally strong but without replication. 2.2 (SAGA) and 2.5 had a 2-1 vote.
+- The build engine is **Dynamic Workflows** (a native primitive, resumable at its root: state in the script + files + commits). Agent Teams and checkpoints are **recent/experimental** and evolve quickly (Agent Teams is reserved only for occasional adversarial review; checkpoints don't track Bash nor replace Git).
+- The strong evidence is mostly from **primary sources** (papers, Anthropic docs/blog, OWASP), robust but biased toward "what the frameworks claim to design" rather than outcomes measured in production.
+
+## References
+[1] github.blog — Spec-driven development toolkit · [2] github.com/github/spec-kit · [3] arXiv 2308.00352 (MetaGPT) · [4] openreview VtmBAGCN7o · [5] github MAST · [6] arXiv 2503.13657 · [7] arXiv 2507.06920 · [8] arXiv 2605.02964 · [9] genai.owasp.org (Top 10 Agentic, 2025-12-09) · [10] anthropic.com/engineering/building-agents-with-the-claude-agent-sdk · [11] claude.com/blog/building-agents-with-the-claude-agent-sdk · [12] code.claude.com/docs/agent-sdk/subagents · [13] anthropic.com/news/enabling-claude-code-to-work-more-autonomously · [14] code.claude.com/docs/checkpointing · [15] blog.codacy.com/why-coding-agents-need-independent-quality-gates · [16] blog.reccehq.com/before-you-let-agents-touch-your-codebase-build-these-gates · [17] medium @iraj.hedayati (automatic ADRs) · [18] kinde.com (living architecture docs) · [19] github.com/disler/claude-code-hooks-multi-agent-observability · [20] docs.agentops.ai/v2/concepts/core-concepts · [21] buildkite.com/resources/blog/visualize-your-ci-cd-pipeline-on-a-canvas · [22] reactflow.dev/learn/layouting · [23] cambridge-intelligence.com/blog/react-graph-visualization-library · [24] docs.langchain.com/langsmith/dashboards · [25] opentelemetry.io/blog/2025/ai-agent-observability · [26] linear.app/now/how-we-redesigned-the-linear-ui · [27] designsystems.one/design-systems/vercel-geist · [28] interfaces.rauno.me · [29] github vercel-labs/open-agents web-animation-design · [30] animations.dev · [31] smashingmagazine.com/2025/09/ux-strategies-real-time-dashboards · [32] yukaichou.com white-hat-black-hat-octalysis · [33] yukaichou.com left-brain-right-brain-core-drives · [34] uxmag.com gamification-or-manipulation · [35] learningloop.io endowed-progress-effect · [36] learningloop.io zeigarnik-effect

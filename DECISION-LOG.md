@@ -1,31 +1,31 @@
-# Bitácora de Pandacorp
+# Pandacorp decision log
 
-Todo lo que decidimos y **por qué**, para no perder el rastro. Organizado por área; lo más reciente arriba en cada una.
+Everything we decide and **why**, so we don't lose the trail. Organized by area; most recent on top in each one.
 
-| Área | Bitácora | Qué cubre |
+| Area | Decision log | What it covers |
 |---|---|---|
-| 🛰️ Mission Control (app Next.js) | [mission-control/docs/decision-log.md](mission-control/docs/decision-log.md) | Features, diseño y decisiones del producto Mission Control |
-| 🔌 Plugin pandacorp | [plugin/docs/decision-log.md](plugin/docs/decision-log.md) | Skills, agentes, hooks y flujo de la fábrica |
-| 💡 Ideas | [factory/ideas/decision-log.md](factory/ideas/decision-log.md) | Decisiones sobre la base de ideas y su proceso (no el contenido de cada idea) |
-| 🏭 Fábrica | [factory/decision-log.md](factory/decision-log.md) | Constitución, estándares y decisiones de operación |
+| 🛰️ Mission Control (Next.js app) | [mission-control/docs/decision-log.md](mission-control/docs/decision-log.md) | Features, design and decisions of the Mission Control product |
+| 🔌 Pandacorp plugin | [plugin/docs/decision-log.md](plugin/docs/decision-log.md) | Skills, agents, hooks and the factory flow |
+| 💡 Ideas | [factory/ideas/decision-log.md](factory/ideas/decision-log.md) | Decisions about the idea base and its process (not the content of each idea) |
+| 🏭 Factory | [factory/decision-log.md](factory/decision-log.md) | Constitution, standards and operational decisions |
 
-## Cómo se usa
+## How it's used
 
-Documentar un cambio son **dos capas**, siempre:
+Documenting a change is **two layers**, always:
 
-1. **Doc canónico** (la verdad actual) — el documento *dueño* del hecho se actualiza: comportamiento de la app → el **FRD**; técnico → el **blueprint/ADR**; plugin → el **archivo del skill**; idea → su **ficha**. Mapa completo en [CLAUDE.md](CLAUDE.md), sección *Bitácora*.
-2. **Bitácora** (la historia) — esta entrada: fechada, con *qué* y *por qué*, enlazando el doc que se tocó. Lo más reciente arriba.
+1. **Canonical doc** (the current truth) — the document that *owns* the fact is updated: app behavior → the **FRD**; technical → the **blueprint/ADR**; plugin → the **skill file**; idea → its **card**. Full map in [CLAUDE.md](CLAUDE.md), the *Decision log* section.
+2. **Decision log** (the history) — this entry: dated, with *what* and *why*, linking the doc that was touched. Most recent on top.
 
-El doc canónico dice *qué es verdad hoy*; la bitácora, *qué cambió y por qué*. Hacen falta los dos.
+The canonical doc says *what is true today*; the decision log, *what changed and why*. You need both.
 
-**No confundir tres cosas:** doc canónico = **verdad actual**; bitácora = **historia**; [factory/decisions/registry.yaml](factory/decisions/registry.yaml) = **política** (reglas con default).
+**Don't confuse three things:** canonical doc = **current truth**; decision log = **history**; [factory/decisions/registry.yaml](factory/decisions/registry.yaml) = **policy** (rules with a default).
 
-### Formato de cada entrada
+### Format of each entry
 
 ```markdown
-## AAAA-MM-DD — Título corto de la decisión
-**Qué:** lo que decidimos/hicimos.
-**Por qué:** la razón.
-**Contexto:** alternativas que sopesamos, qué descartamos (opcional).
-**Impacto:** archivos/áreas tocadas (opcional).
+## YYYY-MM-DD — Short decision title
+**What:** what we decided/did.
+**Why:** the reason.
+**Context:** alternatives we weighed, what we discarded (optional).
+**Impact:** files/areas touched (optional).
 ```

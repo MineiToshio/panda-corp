@@ -1,35 +1,35 @@
-# Stack recomendado (sugerencia por defecto)
+# Recommended stack (default suggestion)
 
-> ⚠️ Esto es una **sugerencia**, no una imposición. El agente `architect` propone el stack en el **blueprint**, evalúa si hay tecnologías mejores para ESE proyecto, y **el dueño lo aprueba** ahí (gate humano ligero, registrado como ADR). **Siempre se usan las últimas versiones estables** de lo que se elija.
+> ⚠️ This is a **suggestion**, not an imposition. The `architect` agent proposes the stack in the **blueprint**, evaluates whether there are better technologies for THAT project, and **the owner approves it** there (lightweight human gate, recorded as an ADR). **The latest stable versions** of whatever is chosen are always used.
 
-## Punto de partida según tipo de proyecto
+## Starting point by project type
 
-### Web full-stack (default)
+### Full-stack web (default)
 - **Next.js** (App Router) + **React** + **TypeScript** (strict)
-- **Tailwind CSS** + componentes propios (`core`/`modules`); `cn()` (clsx + tailwind-merge)
-- **Prisma** + **PostgreSQL** (Neon/Supabase); data layer en `queries/`
+- **Tailwind CSS** + custom components (`core`/`modules`); `cn()` (clsx + tailwind-merge)
+- **Prisma** + **PostgreSQL** (Neon/Supabase); data layer in `queries/`
 - **Better Auth** (email + OAuth)
-- **next-intl** (i18n, español por defecto)
-- **Zod** (validación)
-- **PostHog** (analytics) + **Sentry** (errores)
-- **Cloudflare R2** (storage de archivos/fotos, SDK S3) — bucket por app
-- **Resend** (email transaccional) + **Kit/ConvertKit** (email marketing / waitlist)
-- **Polar** (pagos, Merchant of Record — funciona desde Perú/global) cuando la versión cobra
-- **Vitest** (unit/integración) + **Playwright** (e2e)
-- **ESLint + Prettier** (con `prettier-plugin-tailwindcss`)
-- Gestor: **npm**. Deploy: Vercel (web) / contenedor en Railway o Fly.io (servicios)
+- **next-intl** (i18n, Spanish by default)
+- **Zod** (validation)
+- **PostHog** (analytics) + **Sentry** (errors)
+- **Cloudflare R2** (file/photo storage, S3 SDK) — bucket per app
+- **Resend** (transactional email) + **Kit/ConvertKit** (marketing email / waitlist)
+- **Polar** (payments, Merchant of Record — works from Peru/global) when the version charges
+- **Vitest** (unit/integration) + **Playwright** (e2e)
+- **ESLint + Prettier** (with `prettier-plugin-tailwindcss`)
+- Package manager: **npm**. Deploy: Vercel (web) / container on Railway or Fly.io (services)
 
-> Modelo de cuentas, secretos (SOPS+age) y aprovisionamiento de estos servicios externos: `external-services.md`. El stack de servicios validado en producción es el de PandaTrack.
+> Account model, secrets (SOPS+age) and provisioning of these external services: `external-services.md`. The service stack validated in production is PandaTrack's.
 
-### API / servicio backend
-- TypeScript + Hono, o Python + FastAPI (según el caso); validación Zod/Pydantic; data layer aislado.
+### API / backend service
+- TypeScript + Hono, or Python + FastAPI (depending on the case); Zod/Pydantic validation; isolated data layer.
 
-### Recolección de datos / scraping / notificaciones
-- Python + FastAPI + Playwright/httpx + ARQ/Redis + PostgreSQL; scraping responsable (robots.txt, rate limiting, user-agent identificable).
+### Data collection / scraping / notifications
+- Python + FastAPI + Playwright/httpx + ARQ/Redis + PostgreSQL; responsible scraping (robots.txt, rate limiting, identifiable user-agent).
 
-## Reglas al elegir
-1. Por defecto, lo de arriba en **últimas versiones estables**.
-2. El `architect` **puede y debe proponer algo mejor** si encaja (mejor librería, lenguaje o servicio) — con trade-offs claros.
-3. La decisión la **aprueba el dueño** en el blueprint y queda como ADR.
-4. No mezclar tecnologías que rompan las convenciones duraderas (tipado estricto, data layer aislado, testing).
-5. Nunca auth casero: usar una solución probada.
+## Rules when choosing
+1. By default, the above in **latest stable versions**.
+2. The `architect` **can and should propose something better** if it fits (a better library, language or service) — with clear trade-offs.
+3. The decision is **approved by the owner** in the blueprint and recorded as an ADR.
+4. Don't mix technologies that break the durable conventions (strict typing, isolated data layer, testing).
+5. Never homemade auth: use a proven solution.

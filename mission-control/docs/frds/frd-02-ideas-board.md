@@ -1,16 +1,16 @@
-# FRD-02 — Tablero de ideas
+# FRD-02 — Ideas board
 
-Kanban de solo-lectura de la base de ideas, con captura de ideas, detalle navegable y descarte.
+Read-only kanban of the idea base, with idea capture, a navigable detail and discard.
 
-## Criterios de aceptación (EARS)
-- EL tablero DEBERÁ agrupar las ideas en columnas por `estado`: descubierta → documentada → diseño → arquitectura → en-construcción → lanzada, más una columna `descartada`.
-- EL tablero NO DEBERÁ permitir mover tarjetas a mano (drag ni flechas): las transiciones las escriben los skills. Las columnas DEBERÁN tener el mismo ancho, ser **amplias** (no chiquitas) y con **scroll horizontal** cuando no quepan; el texto DEBERÁ ajustarse en varias líneas si no cabe.
-- CUANDO el dueño abre "Capturar ideas", EL sistema DEBERÁ mostrar los comandos `/pandacorp:new-idea`, `:discover` y `:recommend`, cada uno con una descripción y un botón de copiar.
-- CUANDO el dueño hace clic en una tarjeta, EL sistema DEBERÁ mostrar la ficha: resumen, puntos clave, navegador de los documentos de la idea, y el comando del siguiente paso (con botón de copiar).
-- CADA tarjeta DEBERÁ mostrar dos etiquetas además del score: **categoría** (`tipo_proyecto`: web, mobile, desktop, ia, claude-code, prompt-system, automatización, cli, rework…) y **retorno** (`retorno`: monetario, oportunidad, personal o mixto). EL tablero DEBERÁ permitir **filtrar por categoría**.
-- MIENTRAS una idea esté en `en-construccion`, EL sistema DEBERÁ mostrar un indicador de que se está construyendo.
-- CUANDO el dueño pulsa "Descartar idea", EL sistema DEBERÁ reescribir `estado: descartada` en el frontmatter del `.md`, preservando el resto del archivo (única escritura de Pandacorp).
+## Acceptance criteria (EARS)
+- The board SHALL group ideas into columns by `status`: discovered → documented → design → architecture → building → shipped, plus a `discarded` column.
+- The board SHALL NOT allow moving cards by hand (drag or arrows): the transitions are written by the skills. The columns SHALL have the same width, be **wide** (not tiny) and have **horizontal scroll** when they don't fit; the text SHALL wrap onto several lines if it doesn't fit.
+- WHEN the owner opens "Capture ideas", the system SHALL show the `/pandacorp:new-idea`, `:discover` and `:recommend` commands, each with a description and a copy button.
+- WHEN the owner clicks a card, the system SHALL show the card: summary, key points, a navigator of the idea's documents, and the next-step command (with a copy button).
+- EACH card SHALL show two labels besides the score: **category** (`project_type`: web, mobile, desktop, ai, claude-code, prompt-system, automation, cli, rework…) and **return** (`return_type`: monetary, opportunity, personal or mixed). The board SHALL allow **filtering by category**.
+- WHILE an idea is `building`, the system SHALL show an indicator that it is being built.
+- WHEN the owner presses "Discard idea", the system SHALL rewrite `status: discarded` in the `.md` frontmatter, preserving the rest of the file (Pandacorp's only write).
 
-## Casos límite
-- Idea sin documentos → mostrar solo el resumen.
-- Categoría (web/mobile/desktop/IA/…), retorno (monetario/oportunidad/personal/mixto) y score se muestran con una leyenda que los explica.
+## Edge cases
+- Idea with no documents → show only the summary.
+- Category (web/mobile/desktop/AI/…), return (monetary/opportunity/personal/mixed) and score are shown with a legend explaining them.

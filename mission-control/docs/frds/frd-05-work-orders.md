@@ -1,13 +1,13 @@
-# FRD-05 — Work orders (vista en vivo)
+# FRD-05 — Work orders (live view)
 
-Kanban de solo-lectura del estado de los work orders, con su FRD y la lectura del documento completo.
+Read-only kanban of the work orders' state, with their FRD and reading the full document.
 
-## Criterios de aceptación (EARS)
-- EL kanban DEBERÁ mostrar columnas **To do · En progreso · Review/Testing · Hecho**, todas del **mismo ancho** y **amplias** (no chiquitas), con **scroll horizontal** cuando no quepan; el texto DEBERÁ ajustarse en varias líneas si no cabe.
-- CADA tarjeta de work order DEBERÁ indicar de qué **FRD** es.
-- CUANDO el dueño hace clic en un work order, DEBERÁ mostrar un **Resumen** y una pestaña **Documento completo** que renderiza todo el work order (criterios de aceptación, alcance, definición de terminado, evidencia).
-- DEBERÁ mostrar el progreso del proyecto (work orders hechos / total y %).
-- EL kanban DEBERÁ reflejar el estado en vivo (lo escriben los agentes en `docs/work-orders/`); el dueño NO lo edita.
+## Acceptance criteria (EARS)
+- The kanban SHALL show columns **To do · In progress · Review/Testing · Done**, all the **same width** and **wide** (not tiny), with **horizontal scroll** when they don't fit; the text SHALL wrap onto several lines if it doesn't fit.
+- EACH work order card SHALL indicate which **FRD** it belongs to.
+- WHEN the owner clicks a work order, it SHALL show a **Summary** and a **Full document** tab that renders the entire work order (acceptance criteria, scope, definition of done, evidence).
+- It SHALL show the project's progress (work orders done / total and %).
+- The kanban SHALL reflect the live state (written by the agents in `docs/work-orders/`); the owner does NOT edit it.
 
-## Casos límite
-- Proyecto sin work orders todavía → mensaje indicando que se generan en `/pandacorp:blueprint`.
+## Edge cases
+- Project with no work orders yet → message indicating they are generated in `/pandacorp:blueprint`.

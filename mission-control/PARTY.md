@@ -1,165 +1,166 @@
-# Party — Mapa RPG de agentes
+# Party — Agent RPG map
 
-Documenta el sistema de visualización de los subagentes de construcción en Mission Control
-(`mission-control/prototype/index.html`, función `missionBody` y el motor `mc*`). El
-objetivo es responder de un vistazo **qué agente trabaja y cuál está parado**,
-manteniendo la estética RPG: los agentes son personajes pixel-art que caminan
-por la sala del gremio entre estaciones de trabajo.
+Documents the visualization system for the build subagents in Mission Control
+(`mission-control/prototype/index.html`, the `missionBody` function and the `mc*` engine). The
+goal is to answer at a glance **which agent is working and which is stalled**,
+keeping the RPG aesthetic: the agents are pixel-art characters that walk
+through the guild's room between workstations.
 
-## 1. Modelo de estados
+## 1. State model
 
-Cada agente está siempre en uno de estos estados. El estado se refleja en la
-clase CSS del sprite (`.mcag.s-<estado>`) y en un emote opcional sobre la cabeza.
+Each agent is always in one of these states. The state is reflected in the
+sprite's CSS class (`.mcag.s-<state>`) and in an optional emote above the head.
 
-| Estado | Clase | Qué se ve | Significa |
+| State | Class | What you see | Means |
 |---|---|---|---|
-| Trabajando | `s-work` | En su escritorio, **halo** pulsante del color del rol + **barra de avance** llenándose. Alterna emote « … » (pensando) y sin emote (tecleando). | Está produciendo ahora |
-| Caminando | `s-walk` | Cruza el mapa cargando un **paquete** (`.pkt`) y mostrando una **burbuja de diálogo** (`.say`) con el mensaje que entrega. Rebote (bob) más rápido. | Handoff: transición de etapa del pipeline (p.ej. contrato listo → frontend) |
-| En espera | `s-idle` | Sprite **apagado** (opacidad 0.45 + leve gris) + emote « z ». | Idle, esperando a otro |
-| Bloqueado | `s-blocked` | Quieto + emote **« ! »** rojo rebotando (marcador de quest RPG) + halo rojo. | Necesita una decisión del dueño |
-| Revisando | `s-review` | Quieto + emote **« ? »** ámbar + halo ámbar. | El reviewer espera/evalúa una entrega |
+| Working | `s-work` | At its desk, pulsing **halo** in the role's color + a **progress bar** filling up. Alternates the « … » emote (thinking) and no emote (typing). | Producing right now |
+| Walking | `s-walk` | Crosses the map carrying a **package** (`.pkt`) and showing a **speech bubble** (`.say`) with the message it delivers. Faster bounce (bob). | Handoff: pipeline stage transition (e.g. contract ready → frontend) |
+| Waiting | `s-idle` | **Dimmed** sprite (opacity 0.45 + slight gray) + « z » emote. | Idle, waiting on someone else |
+| Blocked | `s-blocked` | Still + bouncing red **« ! »** emote (RPG quest marker) + red halo. | Needs a decision from the owner |
+| Reviewing | `s-review` | Still + amber **« ? »** emote + amber halo. | The reviewer is waiting on/evaluating a deliverable |
 
-Convención de color universal (coincide con el resto de herramientas del
-mercado): **ámbar = trabajando**, **azul = en tránsito**, **gris/apagado =
-idle**, **rojo = requiere atención humana**.
+Universal color convention (matches the rest of the tools in the
+market): **amber = working**, **blue = in transit**, **gray/dimmed =
+idle**, **red = needs human attention**.
 
-## 2. Vocabulario de indicadores
+## 2. Indicator vocabulary
 
-Seis indicadores, combinables. Definidos en el bloque CSS `Party —
-mapa RPG` y controlados por el motor.
+Six indicators, combinable. Defined in the CSS block `Party —
+RPG map` and controlled by the engine.
 
-- **Halo** (`.mcag .halo`): elipse pulsante bajo los pies. Solo en `work`,
-  `review`, `blocked`. Es el indicador que más comunica "ocupado" de lejos.
-- **Barra de avance** (`.mcag .prog`): barra flotante sobre la cabeza que se
-  llena de 0→100% durante el turno de trabajo. Solo en `work`.
-- **Emotes** (`.mcag .emote`): burbuja sobre la cabeza. `…` pensando (azul),
-  `?` por revisar (ámbar), `!` bloqueado (rojo), `z` en espera (gris).
-- **Burbuja de diálogo** (`.mcag .say`, vía `mcSay()`): durante un handoff el
-  agente muestra sobre la cabeza el mensaje que entrega (p. ej. «contrato en
-  docs/api.md»), además de la línea en la bitácora. Sustituye temporalmente al
-  emote mientras camina.
-- **Puesto de trabajo** (`.mcstation`): cada agente tiene un **puesto fijo** con
-  **fondo pixel-art** (la imagen de zona en `IMG[ZONEBG[rol]]`), borde del color
-  del rol y un **rótulo fijo** (ícono + nombre). El rótulo vive en el puesto, no
-  en el agente, así que el área **sigue identificada cuando el agente se va** a
-  un handoff. El fondo se **atenúa** (`.dim`: gris + opacidad) cuando el dueño
-  NO está trabajando ahí, y se ve **vívido + halo** (`.hot`) cuando trabaja —
-  esto es lo que más comunica "quién trabaja" de lejos. De los roles del build,
-  el único sin sala pixel-art es `implementer` (usa un tinte de respaldo vía
-  `color-mix`); el resto ya tiene su zona, incluidos `reviewer` (sala de QA) y
-  `analytics` (observatorio de datos). Todos tienen además su propio sprite —
-  `mcSprite()` solo caería al sprite del `implementer` si algún rol llegara sin
-  imagen.
-- **Partículas** (`.mcpt`): estallido de puntos del color del rol cuando se
-  entrega un handoff. Puramente cosmético.
+- **Halo** (`.mcag .halo`): pulsing ellipse under the feet. Only on `work`,
+  `review`, `blocked`. It's the indicator that communicates "busy" best from afar.
+- **Progress bar** (`.mcag .prog`): floating bar above the head that
+  fills from 0→100% during the work turn. Only on `work`.
+- **Emotes** (`.mcag .emote`): bubble above the head. `…` thinking (blue),
+  `?` pending review (amber), `!` blocked (red), `z` waiting (gray).
+- **Speech bubble** (`.mcag .say`, via `mcSay()`): during a handoff the
+  agent shows above its head the message it delivers (e.g. «contract in
+  docs/api.md»), in addition to the line in the log. It temporarily replaces the
+  emote while walking.
+- **Workstation** (`.mcstation`): each agent has a **fixed station** with a
+  **pixel-art background** (the zone image in `IMG[ZONEBG[role]]`), a border in the
+  role's color and a **fixed label** (icon + name). The label lives in the station, not
+  in the agent, so the area **stays identified when the agent leaves** for
+  a handoff. The background **dims** (`.dim`: gray + opacity) when the owner
+  is NOT working there, and shows **vivid + halo** (`.hot`) when working —
+  this is what communicates "who's working" best from afar. Of the build roles,
+  the only one without a pixel-art room is `implementer` (uses a fallback tint via
+  `color-mix`); the rest already have their zone, including `reviewer` (QA room) and
+  `analytics` (data observatory). They all additionally have their own sprite —
+  `mcSprite()` would only fall back to the `implementer` sprite if some role arrived without
+  an image.
+- **Particles** (`.mcpt`): a burst of dots in the role's color when a
+  handoff is delivered. Purely cosmetic.
 
-Contadores en vivo (`#mc-cnt`): pills `N trabajando / N caminando / N en espera
-/ N bloqueado`, recalculados cada ~260 ms desde el estado real de los sprites.
+Live counters (`#mc-cnt`): pills `N working / N walking / N waiting
+/ N blocked`, recomputed every ~260 ms from the sprites' real state.
 
-## 3. Mapa y modos
+## 3. Map and modes
 
-- **Layout por modo, centro vacío** (`mcPositions`): cada modo coloca los puestos
-  en una forma fija y ordenada según cuántos sean — **2 en columna** (económico),
-  **4 en las esquinas / cuadrado** (equilibrado), **3 arriba + 2 abajo** (potente)
-  y **3 + 3** (profundo, más separados en 6 para que el puesto agrandado de la
-  Revisión no se solape). `mcRing` (elipse uniforme) queda solo como **respaldo**
-  para tamaños no previstos. El centro siempre queda vacío y los handoffs
-  **enrutan por él** (`MCCENTER`): el iniciador camina `puesto → centro → junto al
-  destino` (`mcApproach`), entrega, y vuelve `→ centro → su puesto`. Como todo
-  cruza solo el centro vacío, **ningún camino pasa por encima del área de trabajo
-  de otro agente**. No hay mesa central visible — el centro es solo un punto de
-  ruteo.
-- **El roster son los subagentes REALES de `implement`** (ver el skill
-  `plugin/skills/implement/SKILL.md`), no todos los agentes de la fábrica. PM,
-  diseñador, arquitecto, **copywriter** y **devops** son de fases anteriores o
-  de release (spec / diseño / blueprint / release) y **no construyen**, por eso
-  no aparecen en el mapa de construcción. El único agente "de soporte" que sí
-  entra al build es **analytics** (instrumenta la telemetría sobre la marcha).
-- **Modo de construcción → esfuerzo del equipo** (`MCROSTER`, leído de
-  `ST.modes[slug]`; los 4 modos coinciden con el skill):
-  - `pro` (económico): implementer (full-stack) + reviewer (2) — sin paralelismo,
-    dividir no aporta; un solo obrero hace todo y el reviewer revisa al cerrar.
-  - `equilibrado` (default): backend-dev, frontend-dev, test-writer, reviewer (4).
-  - `potente`: + researcher + analytics (6) — investigación y telemetría entran a demanda.
-  - `profundo`: + researcher + analytics (6) — máxima calidad; la Revisión corre
-    en 3 lentes concurrentes (el reviewer se agranda y los demás esperan).
+- **Layout per mode, empty center** (`mcPositions`): each mode places the stations
+  in a fixed, orderly shape according to how many there are — **2 in a column** (economical),
+  **4 in the corners / square** (balanced), **3 on top + 2 on the bottom** (powerful)
+  and **3 + 3** (deep, spaced wider into 6 so the enlarged Review station
+  doesn't overlap). `mcRing` (uniform ellipse) remains only as a **fallback**
+  for unforeseen sizes. The center always stays empty and the handoffs
+  **route through it** (`MCCENTER`): the initiator walks `station → center → next to the
+  destination` (`mcApproach`), delivers, and returns `→ center → its station`. Since everything
+  crosses only the empty center, **no path passes over another agent's
+  work area**. There is no visible central table — the center is just a routing
+  point.
 
-  El **selector de esfuerzo** vive en la propia pestaña Party (fila
-  `data-act="bmode"`); cambia `ST.modes[slug]` (es **por proyecto**) y re-monta
-  el mapa con el nuevo party.
+- **The roster is the REAL subagents of `implement`** (see the skill
+  `plugin/skills/implement/SKILL.md`), not all the factory's agents. PM,
+  designer, architect, **copywriter** and **devops** belong to earlier phases or
+  to release (spec / design / blueprint / release) and **do not build**, which is why
+  they don't appear on the build map. The only "support" agent that does
+  enter the build is **analytics** (it instruments telemetry on the fly).
+- **Build mode → team effort** (`MCROSTER`, read from
+  `ST.modes[slug]`; the 4 modes match the skill):
+  - `pro` (economical): implementer (full-stack) + reviewer (2) — no parallelism,
+    splitting doesn't help; a single worker does everything and the reviewer reviews at the close.
+  - `balanced` (default): backend-dev, frontend-dev, test-writer, reviewer (4).
+  - `powerful`: + researcher + analytics (6) — research and telemetry come in on demand.
+  - `deep`: + researcher + analytics (6) — maximum quality; Review runs
+    in 3 concurrent lenses (the reviewer is enlarged and the rest wait).
 
-## 4. Cola de animación desacoplada (clave)
+  The **effort selector** lives in the Party tab itself (the
+  `data-act="bmode"` row); it changes `ST.modes[slug]` (it is **per project**) and re-mounts
+  the map with the new party.
 
-El estado **visual** está desacoplado del estado **real**. El motor encola
-instrucciones de movimiento y las consume a su propio ritmo:
+## 4. Decoupled animation queue (key)
 
-- Cuando un agente inicia un handoff, el registro (`mcFeed`) escribe
-  **`✓ listo` de inmediato** (estado real), pero el muñeco todavía tarda ~2.5 s
-  en caminar y entregar. La caminata es **cosmética**.
-- Si la tarea real termina antes, el muñeco igual completa el viaje y vuelve a
-  su escritorio. La información puede verse desfasada unos segundos; es
-  intencional y aceptable.
+The **visual** state is decoupled from the **real** state. The engine queues
+movement instructions and consumes them at its own pace:
 
-Esto significa que cuando esto se conecte a datos reales, Mission Control **no**
-necesita eventos en tiempo real perfectos: basta con un *stream* de eventos
-(`started_task`, `handoff(from,to)`, `blocked`, `completed`, `needs_input`) que
-el motor traduce a animaciones. La fidelidad temporal es secundaria a la
-legibilidad.
+- When an agent starts a handoff, the log (`mcFeed`) writes
+  **`✓ done` immediately** (real state), but the character still takes ~2.5 s
+  to walk and deliver. The walk is **cosmetic**.
+- If the real task finishes earlier, the character still completes the trip and returns to
+  its desk. The information may appear out of sync by a few seconds; this is
+  intentional and acceptable.
 
-### Contrato de integración (prototipo → datos reales)
+This means that when this is connected to real data, Mission Control does **not**
+need perfectly real-time events: a *stream* of events
+(`started_task`, `handoff(from,to)`, `blocked`, `completed`, `needs_input`) is enough for
+the engine to translate into animations. Temporal fidelity is secondary to
+legibility.
 
-El motor (`MC`, `mcBoot`, `mcLoop`, `mcSetState`, `mcStartHandoff`) hoy corre con
-un *director* que genera eventos plausibles. Para conectarlo a la construcción
-real, reemplazar ese director por el consumo de los eventos que la construcción
-ya emite a `~/.claude/dashboard-events.ndjson`: con **Dynamic Workflows** los
-emiten los subagentes del workflow (`emit-event.sh` al empezar/terminar su
-etapa) y el hook `SubagentStop` — **no** los hooks de Agent Teams
-(`TeammateIdle`/`TaskCreated`/`TaskCompleted`, que no disparan en workflows). La
-emisión es fire-and-forget (append a archivo): no bloquea el workflow, así que el
-mapa RPG no cuesta rendimiento. El mapeo evento → animación:
+### Integration contract (prototype → real data)
 
-| Evento real del agente | Acción visual |
+The engine (`MC`, `mcBoot`, `mcLoop`, `mcSetState`, `mcStartHandoff`) currently runs with
+a *director* that generates plausible events. To connect it to the real
+build, replace that director with the consumption of the events that the build
+already emits to `~/.claude/dashboard-events.ndjson`: with **Dynamic Workflows** they are
+emitted by the workflow subagents (`emit-event.sh` when they start/finish their
+stage) and the `SubagentStop` hook — **not** the Agent Teams hooks
+(`TeammateIdle`/`TaskCreated`/`TaskCompleted`, which don't fire in workflows). The
+emission is fire-and-forget (append to file): it doesn't block the workflow, so the
+RPG map costs no performance. The event → animation mapping:
+
+| Real agent event | Visual action |
 |---|---|
-| empieza work order | `mcSetState(agent,'work')` |
-| publica contrato / pasa trabajo a X | `mcStartHandoff(agent)` con `target=X` |
-| termina, sin nada pendiente | `mcSetState(agent,'idle')` |
-| choca con punto de decisión | `mcSetState(agent,'blocked')` |
-| reviewer recibe entrega | `mcSetState(reviewer,'review')` |
+| starts a work order | `mcSetState(agent,'work')` |
+| publishes contract / hands work to X | `mcStartHandoff(agent)` with `target=X` |
+| finishes, with nothing pending | `mcSetState(agent,'idle')` |
+| hits a decision point | `mcSetState(agent,'blocked')` |
+| reviewer receives a deliverable | `mcSetState(reviewer,'review')` |
 
-## 5. Ciclo de vida en Mission Control
+## 5. Lifecycle in Mission Control
 
-- `render()` llama a `mcBoot()` al final. `mcBoot` busca `#rpg-scene`; si existe,
-  reconstruye `MC.agents` desde el DOM y arranca un `requestAnimationFrame`.
-- Cada `render()` incrementa `MC.runId`; el loop viejo se detiene solo
-  (`if(myId!==MC.runId)return`). Así no se acumulan loops al re-renderizar.
-- **Pausar/Reiniciar** (`rpgpause`/`rpgreset`) actúan sin re-render para no
-  reiniciar la escena.
-- Si la pestaña no está visible, el navegador pausa `requestAnimationFrame`
-  (la animación se congela hasta volver). Es comportamiento normal del
-  navegador, no un bug.
+- `render()` calls `mcBoot()` at the end. `mcBoot` looks for `#rpg-scene`; if it exists,
+  it rebuilds `MC.agents` from the DOM and starts a `requestAnimationFrame`.
+- Each `render()` increments `MC.runId`; the old loop stops on its own
+  (`if(myId!==MC.runId)return`). This way loops don't pile up on re-render.
+- **Pause/Reset** (`rpgpause`/`rpgreset`) act without re-render so as not to
+  restart the scene.
+- If the tab isn't visible, the browser pauses `requestAnimationFrame`
+  (the animation freezes until you come back). This is normal browser
+  behavior, not a bug.
 
-## 6. Imágenes
+## 6. Images
 
-Los **sprites de agente** (`IMG[<rol>]`, 96×96 RGBA) existen para los 13 agentes,
-incluidos los 3 nuevos (`copywriter`, `analytics`, `devops`) — se cortaron de
-`assets/agents/grid-v2.png` y se embebieron como base64. Los **fondos de puesto**
-(`IMG[ZONEBG[rol]]`, 320×320 RGBA, de `assets/zones/`) existen para:
+The **agent sprites** (`IMG[<role>]`, 96×96 RGBA) exist for all 13 agents,
+including the 3 new ones (`copywriter`, `analytics`, `devops`) — they were cut from
+`assets/agents/grid-v2.png` and embedded as base64. The **station backgrounds**
+(`IMG[ZONEBG[role]]`, 320×320 RGBA, from `assets/zones/`) exist for:
 
-- `researcher` → `investigacion` ✓
+- `researcher` → `research` ✓
 - `test-writer` → `testing` ✓
 - `backend-dev` → `backend` ✓
 - `frontend-dev` → `frontend` ✓
-- `reviewer` → `revision` ✓ (sala de control de calidad — cortada de `zones-grid-v2.png`)
-- `analytics` → `analitica` ✓ (observatorio / cámara de datos)
+- `reviewer` → `review` ✓ (quality control room — cut from `zones-grid-v2.png`)
+- `analytics` → `analytics` ✓ (observatory / data chamber)
 
-**Pendiente menor:** la sala de `security-auditor` (`seguridad`) está cortada en
-`assets/zones/security.png` pero **no embebida** todavía, porque `security-auditor`
-no está en el roster del build (`MCROSTER`); se embebe y se mapea en `ZONEBG` solo
-si algún día entra al mapa de construcción. `copywriter` y `devops` no necesitan
-sala (no aparecen en el mapa de construcción).
+**Minor pending item:** the `security-auditor` room (`security`) is cut in
+`assets/zones/security.png` but **not embedded** yet, because `security-auditor`
+is not in the build roster (`MCROSTER`); it is embedded and mapped in `ZONEBG` only
+if it ever enters the build map. `copywriter` and `devops` don't need a
+room (they don't appear on the build map).
 
-Estilo a respetar para que peguen: **pixel-art top-down 16-bit (estilo SNES JRPG)**,
-una sala vista desde arriba, alfombra central con brújula, props en las paredes,
-paleta cálida, 320×320 px, sin personajes, sin texto. Pipeline para regenerar:
-generar la hoja (sprites 1024×1024 transparente 2×2 · zonas 1254×1254 opaca 2×2),
-cortar por cuadrante con PIL, reescalar (96 / 320), base64 → `IMG`, mapear `ZONEBG`.
+Style to respect so they fit together: **top-down 16-bit pixel-art (SNES JRPG style)**,
+a room seen from above, central rug with a compass, props on the walls,
+warm palette, 320×320 px, no characters, no text. Pipeline to regenerate:
+generate the sheet (sprites 1024×1024 transparent 2×2 · zones 1254×1254 opaque 2×2),
+cut by quadrant with PIL, rescale (96 / 320), base64 → `IMG`, map `ZONEBG`.

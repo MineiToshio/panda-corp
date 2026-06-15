@@ -1,10 +1,10 @@
-# FRD-03 — Portfolio y navegación de proyectos
+# FRD-03 — Portfolio and project navigation
 
-Vista de los proyectos activos con navegación vertical e indicador de actividad.
+View of the active projects with vertical navigation and an activity indicator.
 
-## Criterios de aceptación (EARS)
-- EL portfolio DEBERÁ listar, en un panel vertical a la izquierda, los proyectos en `arquitectura`, `en-construccion` y `lanzada`.
-- CADA proyecto en la lista DEBERÁ mostrar su título, su etapa y un indicador: "construyendo" si `running`, "parado" si no.
-- CUANDO el dueño selecciona un proyecto en la lista, EL sistema DEBERÁ mostrar su workspace (FRD-04) en el panel de la derecha.
-- CUANDO no hay ningún proyecto seleccionado, EL sistema DEBERÁ seleccionar el primero por defecto.
-- SI no hay proyectos activos, ENTONCES EL sistema DEBERÁ mostrar un estado vacío con gracia.
+## Acceptance criteria (EARS)
+- The portfolio SHALL list, in a vertical panel on the left, the projects in `architecture`, `building` and `shipped`.
+- EACH project in the list SHALL show its title, its stage and an indicator: "building" if `running`, "stopped" if not.
+- WHEN the owner selects a project in the list, the system SHALL show its workspace (FRD-04) in the right-hand panel.
+- WHEN no project is selected, the system SHALL select the first one by default.
+- IF there are no active projects, THEN the system SHALL show an empty state gracefully.

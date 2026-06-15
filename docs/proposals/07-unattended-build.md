@@ -1,64 +1,64 @@
-# Construcción desatendida + probar snapshots estables (sin babysitting)
+# Unattended build + testing stable snapshots (without babysitting)
 
-> Generado 2026-06-14 a partir de una investigación web con verificación (30/32 hallazgos sobreviven).
-> Resuelve la tensión: correr `/pandacorp:implement` por horas sin estar encima + poder revisar/probar
-> lo avanzado cuando vuelves, sin adivinar si el estado es "testeable".
+> Generated 2026-06-14 from a verified web research effort (30/32 findings survive).
+> It resolves the tension: running `/pandacorp:implement` for hours without being on top of it + being able to review/test
+> the progress when you come back, without guessing whether the state is "testable".
 
-## El principio que lo resuelve
+## The principle that resolves it
 
-**El punto seguro no es un estado del agente: es un commit de git.** En vez de *pausar al agente para inspeccionar*, tratas **cada work order cerrado en verde como un snapshot inmutable**. Invariante (Fowler, *Release-Ready Mainline*): "the head of mainline can always be put directly into production". El agente nunca deja trabajo a medias en el punto estable: o el WO cierra verde y commitea, o se queda sucio en SU carpeta sin tocar el commit que tú pruebas. Como el historial de git es compartido, ese commit verde es visible al instante desde otra carpeta **sin parar, sin push, sin preguntar**. "Correr desatendido" y "probar un snapshot estable" dejan de competir: son la misma disciplina de *commit-en-verde* vista desde dos directorios.
+**The safe point is not an agent state: it is a git commit.** Instead of *pausing the agent to inspect*, you treat **every work order closed green as an immutable snapshot**. Invariant (Fowler, *Release-Ready Mainline*): "the head of mainline can always be put directly into production". The agent never leaves work half-done at the stable point: either the WO closes green and commits, or it stays dirty in ITS folder without touching the commit you test. Since the git history is shared, that green commit is visible instantly from another folder **without stopping, without pushing, without asking**. "Running unattended" and "testing a stable snapshot" stop competing: they are the same *commit-when-green* discipline seen from two directories.
 
-## El patrón, paso a paso
+## The pattern, step by step
 
-### a) Correr desatendido — "small batches + freeze-on-red"
-El agente avanza WO tras WO mientras el gate esté verde y **solo se detiene cuando un gate se pone rojo y no puede auto-arreglarlo en N intentos** (o un gate humano de la constitución). Autonomía ≠ "nunca preguntar"; es "preguntar solo en rojo irrecuperable".
-1. **Quitar el "¿continúo?"** → **auto mode** (Shift+Tab → "Auto mode", o `defaultMode: "auto"` en `~/.claude/settings.json`). Un clasificador revisa cada acción antes de ejecutarla y solo bloquea lo que escala más allá de lo pedido / apunta a infra desconocida / viene de contenido hostil. Requiere Claude Code v2.1.83+ y Opus 4.6+. **El repo no puede auto-concedérselo** (ignorado desde v2.1.142) — alineado con los gates humanos. NO usar `--dangerously-skip-permissions`. [anthropic.com/engineering/claude-code-auto-mode]
-2. **Procesos largos sin bloquear** → `run_in_background: true` en Bash (dev server / e2e watch) + el tool **Monitor** para tail-ear logs/CI sin pausar la conversación. [code.claude.com/docs/en/tools-reference]
-3. **Driver orientado a meta**, no a intervalo: el **workflow ES el loop** ("construye hasta que la cola esté vacía y todos los FRD tengan e2e verde", y para solo). `/loop` *self-paced* solo si además se quiere correr en continuo/desatendido; `/goal` como herramienta de borde. Nunca a intervalo fijo de cron.
-4. **Circuit breakers obligatorios** (sin esto, una corrida desatendida quema plata): tope de iteraciones, detección de no-progreso (mismo error / diff vacío / mismo test fallando N veces), tope de presupuesto. El backstop de auto mode (pausa tras 3 bloqueos seguidos) **no sustituye** esto: cuenta bloqueos del clasificador de seguridad, no tests rojos ni dólares.
+### a) Run unattended — "small batches + freeze-on-red"
+The agent advances WO after WO as long as the gate is green and **only stops when a gate goes red and it can't auto-fix it in N attempts** (or a human gate from the constitution). Autonomy ≠ "never ask"; it's "ask only on an unrecoverable red".
+1. **Remove the "shall I continue?"** → **auto mode** (Shift+Tab → "Auto mode", or `defaultMode: "auto"` in `~/.claude/settings.json`). A classifier reviews each action before executing it and only blocks what escalates beyond what was asked / targets unknown infra / comes from hostile content. Requires Claude Code v2.1.83+ and Opus 4.6+. **The repo cannot grant it to itself** (ignored since v2.1.142) — aligned with the human gates. Do NOT use `--dangerously-skip-permissions`. [anthropic.com/engineering/claude-code-auto-mode]
+2. **Long processes without blocking** → `run_in_background: true` in Bash (dev server / e2e watch) + the **Monitor** tool to tail logs/CI without pausing the conversation. [code.claude.com/docs/en/tools-reference]
+3. **A goal-oriented driver**, not an interval-oriented one: the **workflow IS the loop** ("build until the queue is empty and every FRD has green e2e", and it stops on its own). `/loop` *self-paced* only if you also want to run it continuously/unattended; `/goal` as an edge tool. Never at a fixed cron interval.
+4. **Mandatory circuit breakers** (without these, an unattended run burns money): an iteration cap, no-progress detection (same error / empty diff / same test failing N times), a budget cap. The auto mode backstop (pause after 3 blocks in a row) **does not replace** this: it counts blocks by the safety classifier, not red tests or dollars.
 
-### b) Marcar/publicar cada hito estable
-- **El gate de cierre del WO corre LITERALMENTE el mismo `verify.sh` que CI** (no una versión "rápida" que pueda divergir; si no, el badge "verde" miente). El hook `Stop` ya corre `.pandacorp/verify.sh`; falta que GitHub Actions invoque ese mismo script.
-- **Cada commit de cierre escribe en `docs/status.yaml`**: `last_green_sha` y `safe_to_test: true/false`. `safe_to_test=true` SOLO cuando `HEAD == último WO cerrado en verde` (no si hay trabajo sin commitear). **Lo escribe el script del gate, no el agente.**
+### b) Mark/publish each stable milestone
+- **The WO close gate runs LITERALLY the same `verify.sh` as CI** (not a "fast" version that could diverge; otherwise the "green" badge lies). The `Stop` hook already runs `.pandacorp/verify.sh`; what's missing is for GitHub Actions to invoke that same script.
+- **Each close commit writes to `docs/status.yaml`**: `last_green_sha` and `safe_to_test: true/false`. `safe_to_test=true` ONLY when `HEAD == the last WO closed green` (not if there's uncommitted work). **The gate script writes it, not the agent.**
 
-### c) El humano prueba un snapshot SIN tocar al agente — git worktrees
-El agente sigue en su carpeta/rama; tú haces checkout del último verde en OTRA carpeta:
+### c) The human tests a snapshot WITHOUT touching the agent — git worktrees
+The agent stays in its folder/branch; you check out the last green in ANOTHER folder:
 ```bash
 git worktree add ../<proyecto>-review <last_green_sha>
-cd ../<proyecto>-review && <comando-dev del golden path>   # en otro puerto
-# al terminar:
+cd ../<proyecto>-review && <golden-path dev command>   # on another port
+# when done:
 git worktree remove ../<proyecto>-review
 ```
-El worktree de review comparte el historial pero tiene working dir y rama propios: queda **inmune** mientras el agente commitea, solo ve commits cerrados, **nunca** el medio-WO sucio. Los worktrees creados a mano no los borra el sweep de Claude Code (sobreviven horas) y permiten **cerrar la laptop sin matar el run**. Gotchas a resolver en la plantilla:
-- **Config/deps no se heredan**: un worktree es un checkout fresco sin `.env`/`node_modules`. Usar `.worktreeinclude` (sintaxis `.gitignore`) para copiar `.env` + un paso post-create que instale deps.
-- **Colisión de puertos/DB**: puerto por worktree vía `.env`. Cuidado con atajos tipo `UNSAFE_AUTH_BYPASS` (no shippear a release).
-- **El dev server de review lo levantas tú, no el agente**: los background shells del agente se matan ~5s tras el resultado final y no se restauran en `--resume` (y dejan zombies si no se llama `TaskStop`).
+The review worktree shares the history but has its own working dir and branch: it stays **immune** while the agent commits, it only sees closed commits, **never** the dirty mid-WO state. Worktrees created by hand are not deleted by Claude Code's sweep (they survive for hours) and let you **close the laptop without killing the run**. Gotchas to solve in the template:
+- **Config/deps are not inherited**: a worktree is a fresh checkout without `.env`/`node_modules`. Use `.worktreeinclude` (`.gitignore` syntax) to copy `.env` + a post-create step that installs deps.
+- **Port/DB collision**: a port per worktree via `.env`. Watch out for shortcuts like `UNSAFE_AUTH_BYPASS` (don't ship to release).
+- **You bring up the review dev server, not the agent**: the agent's background shells are killed ~5s after the final result and are not restored on `--resume` (and they leave zombies if `TaskStop` is not called).
 
-### d) Qué muestra Mission Control (dos cosas hoy confundidas)
-- **Badge `main = testeable`**: verde SOLO con `safe_to_test: true`. Muestra `last_green_sha` corto + "FRD-3 cerrado, e2e verde" + el comando `git worktree add …` para copiar. = "último punto probable".
-- **Indicador "construyendo ahora"**: el WO en progreso, el agente activo, y un contador de antigüedad: si `last_green_sha` está muy atrás de HEAD → alerta (el snapshot probable está quedando viejo).
-- **Botón "Probar snapshot estable"**: arma el worktree sobre `last_green_sha`.
+### d) What Mission Control shows (two things conflated today)
+- **`main = testable` badge**: green ONLY with `safe_to_test: true`. Shows a short `last_green_sha` + "FRD-3 closed, e2e green" + the `git worktree add …` command to copy. = "last testable point".
+- **"building now" indicator**: the WO in progress, the active agent, and an age counter: if `last_green_sha` is far behind HEAD → alert (the testable snapshot is getting old).
+- **"Test stable snapshot" button**: sets up the worktree on `last_green_sha`.
 
-## Qué cambiar en Pandacorp (concreto)
-- **`plugin/skills/implement/SKILL.md`**: documentar arranque en auto mode; explicitar commit-solo-en-borde-de-WO-en-verde; añadir provisioning de worktree (.env + deps); convertir "3 errores = parar" en **freeze-on-red** (no commitear lo roto, dejar HEAD en `last_green_sha`, marcar WO `BLOCKED`, **PushNotification al dueño**, seguir con WOs independientes); `TaskStop` de dev servers al cerrar cada FRD.
-- **`/loop` — SÍ y NO:** el **workflow ES el loop** (corre hasta vaciar la cola y para solo); `/loop` *self-paced* solo para mantenerlo corriendo en continuo/desatendido. NO a intervalo fijo (los scheduled tasks expiran a 7 días, son session-scoped, no hacen catch-up, y meten delays de 1min–1h). Para trabajo continuo: el workflow self-paced + Monitor.
-- **git:** trunk-based — cada WO commitea/mergea al **cerrar el WO**, no al cerrar el proyecto (prohibir `feature/proyecto-completo` de horas). Tag semver opcional por hito de FRD. Para features que cruzan varios WOs: **feature toggles en source-control (YAML, no DB)** con fecha de expiración, para que cada WO intermedio deje `main` desplegable.
-- **Mission Control:** los 3 elementos de (d), leyendo `last_green_sha`/`safe_to_test` de `status.yaml`.
-- **hooks:** `Notification` (idle) + notificación rica al cerrar FRD ("FRD-3 verde, SHA abc testeable").
+## What to change in Pandacorp (concrete)
+- **`plugin/skills/implement/SKILL.md`**: document startup in auto mode; make explicit commit-only-at-the-edge-of-a-green-WO; add worktree provisioning (.env + deps); turn "3 errors = stop" into **freeze-on-red** (don't commit what's broken, leave HEAD at `last_green_sha`, mark the WO `BLOCKED`, **PushNotification to the owner**, continue with independent WOs); `TaskStop` of dev servers when closing each FRD.
+- **`/loop` — YES and NO:** the **workflow IS the loop** (it runs until the queue is empty and stops on its own); `/loop` *self-paced* only to keep it running continuously/unattended. NOT at a fixed interval (scheduled tasks expire after 7 days, are session-scoped, don't catch up, and introduce delays of 1min–1h). For continuous work: the self-paced workflow + Monitor.
+- **git:** trunk-based — each WO commits/merges **when the WO closes**, not when the project closes (forbid hours-long `feature/proyecto-completo`). Optional semver tag per FRD milestone. For features that span several WOs: **feature toggles in source-control (YAML, not DB)** with an expiration date, so each intermediate WO leaves `main` deployable.
+- **Mission Control:** the 3 elements of (d), reading `last_green_sha`/`safe_to_test` from `status.yaml`.
+- **hooks:** `Notification` (idle) + a rich notification when closing an FRD ("FRD-3 green, SHA abc testable").
 
-## Alternativas
-| Opción | Veredicto |
+## Alternatives
+| Option | Verdict |
 |---|---|
-| **A. Pausa con timeout que auto-continúa** (el agente se detiene en cada hito, espera X min, si no respondes sigue) | **No.** Queda idle quemando tiempo/tokens, te ata a tu reloj, y el "punto estable" sigue siendo un estado de sesión que no sobrevive a un corte. |
-| **B. No pausar nunca + testear snapshot vía worktree** (freeze-on-red, commit-en-verde, pruebas `last_green_sha` cuando quieras) | **Recomendado.** Avanza a máxima velocidad; el punto estable es un commit inmutable que sobrevive a cortes y a cerrar la laptop; pruebas async sin tocar al agente. |
-| **C. Auto-revert del WO roto** (revertir el WO ofensor y seguir, en vez de freeze del lote) | Variante válida de B para WOs **independientes**. Por defecto preferir freeze + notificar. |
+| **A. Pause with a timeout that auto-continues** (the agent stops at each milestone, waits X min, continues if you don't respond) | **No.** It sits idle burning time/tokens, ties you to your clock, and the "stable point" is still a session state that doesn't survive an outage. |
+| **B. Never pause + test the snapshot via worktree** (freeze-on-red, commit-when-green, you test `last_green_sha` whenever you want) | **Recommended.** It advances at maximum speed; the stable point is an immutable commit that survives outages and closing the laptop; you test async without touching the agent. |
+| **C. Auto-revert of the broken WO** (revert the offending WO and continue, instead of freezing the batch) | A valid variant of B for **independent** WOs. By default prefer freeze + notify. |
 
 ## Caveats
-- **Auto mode no es blindaje de seguridad** (~17% falsos negativos). Los gates humanos (prod, dinero, borrar datos, comms externas) deben ser **reglas `deny` duras en `.claude/settings.json`**, no límites conversacionales (la compactación de contexto puede perderlos). Las deny rules ganan siempre.
-- **"Verde en CI" ≠ "corre end-to-end en tu máquina"** si migraciones/servicios/env no están en el gate. El worktree de review necesita su `.env`, deps y a veces migraciones.
-- **Checkpoints nativos NO sirven como snapshot**: solo rastrean Write/Edit, ignoran lo hecho por Bash (incluido git), y son session-scoped. El snapshot real es git.
-- **Billing**: desde 2026-06-15, `claude -p` / Agent SDK en planes de suscripción consume un crédito separado del límite interactivo (relevante para loops largos).
-- Algunas cifras citadas en fuentes son heurísticas de un autor, no leyes — no codificarlas como reglas duras.
+- **Auto mode is not a security shield** (~17% false negatives). The human gates (prod, money, deleting data, external comms) must be **hard `deny` rules in `.claude/settings.json`**, not conversational limits (context compaction can lose them). Deny rules always win.
+- **"Green in CI" ≠ "runs end-to-end on your machine"** if migrations/services/env are not in the gate. The review worktree needs its `.env`, deps, and sometimes migrations.
+- **Native checkpoints do NOT work as a snapshot**: they only track Write/Edit, ignore what Bash does (including git), and are session-scoped. The real snapshot is git.
+- **Billing**: since 2026-06-15, `claude -p` / Agent SDK on subscription plans consumes a credit separate from the interactive limit (relevant for long loops).
+- Some figures cited in sources are one author's heuristics, not laws — don't codify them as hard rules.
 
-## Fuentes principales
+## Main sources
 martinfowler.com/articles/branching-patterns · trunkbaseddevelopment.com · dora.dev/capabilities/trunk-based-development · martinfowler.com/articles/feature-toggles · anthropic.com/engineering/claude-code-auto-mode · code.claude.com/docs/en/{permission-modes,worktrees,tools-reference,hooks-guide,headless,scheduled-tasks,agent-sdk/file-checkpointing} · git-scm.com/docs/git-worktree · github.com/anthropics/claude-code/issues/16198

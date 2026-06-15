@@ -1,35 +1,35 @@
-# Catálogo de estándares y reglas de decisión
+# Catalog of standards and decision rules
 
-> Generado 2026-06-14 a partir de una investigación web con verificación (32/40 hallazgos sobreviven).
-> Principio rector: **un estándar no es texto, es un contrato verificable** — regla taxativa + verificador binario + rationale.
+> Generated 2026-06-14 from a verified web research effort (32/40 findings survive).
+> Guiding principle: **a standard is not text, it's a verifiable contract** — a categorical rule + a binary verifier + a rationale.
 
-## Categorización (8 dominios + 2 ejes transversales)
+## Categorization (8 domains + 2 cross-cutting axes)
 
-8 dominios como faceta primaria: **Programación · Arquitectura · Diseño · Tecnología · Calidad · Seguridad · Operación/Observabilidad · Datos/Privacidad** (+ Producto/Docs). Más dos ejes por-regla:
-- **Severidad (RFC 2119)**: `MUST` (fallo duro) / `SHOULD` (flexible con ADR) / `MAY`. El agente solo escala si va a romper un MUST.
-- **Enforcement**: `lint` · `CI gate` · `checklist` · `gate humano / deny rule`.
-- **Forma de un estándar ("estándar ejecutable")**: Regla / Cómo se verifica / Por qué (separados, no mezclados).
+8 domains as the primary facet: **Programming · Architecture · Design · Technology · Quality · Security · Operation/Observability · Data/Privacy** (+ Product/Docs). Plus two per-rule axes:
+- **Severity (RFC 2119)**: `MUST` (hard failure) / `SHOULD` (flexible with an ADR) / `MAY`. The agent only escalates if it's going to break a MUST.
+- **Enforcement**: `lint` · `CI gate` · `checklist` · `human gate / deny rule`.
+- **Form of a standard ("executable standard")**: Rule / How it's verified / Why (separate, not mixed).
 
-## Estándares NUEVOS creados (`factory/standards/`)
-- **`performance.md`** (Calidad, MUST web): CWV p75 (LCP≤2.5s/INP≤200ms/CLS≤0.1); Lighthouse-CI proxy block-on-main; campo vía PostHog.
-- **`web-security.md`** (Seguridad, MUST): headers OWASP con valores literales (HSTS/nosniff/Referrer/X-Frame/Permissions); CSP report-only en v1; header-scan en CI; preload submit = humano.
-- **`observability.md`** (Operación): logs JSON (service.name) + Sentry día 1; OTel como capa portable escalonada.
-- **`privacy.md`** (Datos, MUST): privacy by design (GDPR Art.25), minimización + RLS, export/delete (Arts.15/17/20), no loguear PII.
-- **`api-design.md`** (Programación, MUST API): errores RFC 9457 (problem+json) + validación en el borde.
-- **`seo-i18n.md`** (Producto, SHOULD web): Metadata API, sitemap/robots, next-intl, hreflang.
-- **Ampliaciones:** `quality.md` (a11y-gate + performance-gate en CI), `patterns.md` (red de error global).
-- `README.md`: categorización, ejes y forma canónica. **No se recodificó** lo ya cubierto (seguridad agéntica, docs viva, validación de input).
+## NEW standards created (`factory/standards/`)
+- **`performance.md`** (Quality, MUST web): CWV p75 (LCP≤2.5s/INP≤200ms/CLS≤0.1); Lighthouse-CI proxy block-on-main; field via PostHog.
+- **`web-security.md`** (Security, MUST): OWASP headers with literal values (HSTS/nosniff/Referrer/X-Frame/Permissions); CSP report-only in v1; header-scan in CI; preload submit = human.
+- **`observability.md`** (Operation): JSON logs (service.name) + Sentry day 1; OTel as a tiered portable layer.
+- **`privacy.md`** (Data, MUST): privacy by design (GDPR Art.25), minimization + RLS, export/delete (Arts.15/17/20), don't log PII.
+- **`api-design.md`** (Programming, MUST API): RFC 9457 errors (problem+json) + validation at the edge.
+- **`seo-i18n.md`** (Product, SHOULD web): Metadata API, sitemap/robots, next-intl, hreflang.
+- **Extensions:** `quality.md` (a11y-gate + performance-gate in CI), `patterns.md` (global error boundary).
+- `README.md`: categorization, axes, and canonical form. **What was already covered was not re-codified** (agentic security, living docs, input validation).
 
-## Reglas de decisión NUEVAS (`registry.yaml`)
-- **DR-024** performance · **DR-025** privacidad/PII (escala si PII nueva) · **DR-026** observabilidad mínima · **DR-027** security headers · **DR-028** contrato de error API · **DR-029** feature flags · **DR-030** desviación del golden path (ADR per-proyecto; promover = humano). **DR-006 ampliada** (migraciones expand/contract). Las DR apuntan al estándar; los valores viven allí.
+## NEW decision rules (`registry.yaml`)
+- **DR-024** performance · **DR-025** privacy/PII (escalate if new PII) · **DR-026** minimal observability · **DR-027** security headers · **DR-028** API error contract · **DR-029** feature flags · **DR-030** golden path deviation (per-project ADR; promoting = human). **DR-006 extended** (expand/contract migrations). The DRs point to the standard; the values live there.
 
-## UI del catálogo (Mission Control Configuración)
-Evolución de FRD-07, **2 niveles máximo** (progressive disclosure): Resumen (grid filtrable con badges dominio/severidad/enforcement) → Detalle (regla con valores literales + cómo se verifica + por qué). Skills con mini-flujo de agentes; reglas con indicador auto/humano + explicación; estándares categorizados con Resumen/Detalle. Botones "Nuevo estándar"/"Nueva regla"/"Nuevo skill" → `/pandacorp:learn`. Futuro: scorecard de cumplimiento por proyecto (requiere que `verify.sh` emita pass/fail por estándar a `status.yaml`).
+## Catalog UI (Mission Control Configuration)
+An evolution of FRD-07, **2 levels maximum** (progressive disclosure): Summary (filterable grid with domain/severity/enforcement badges) → Detail (rule with literal values + how it's verified + why). Skills with a mini agent-flow; rules with an auto/human indicator + explanation; standards categorized with Summary/Detail. "New standard"/"New rule"/"New skill" buttons → `/pandacorp:learn`. Future: per-project compliance scorecard (requires `verify.sh` to emit pass/fail per standard to `status.yaml`).
 
 ## Caveats
-- a11y, CSP estricta y PII **no son 100% verificables por script** → "gate automático + check del reviewer", no determinismo total.
-- Nuevos MUST que rompan proyectos en vuelo (CSP, a11y-gate): introducir como SHOULD/aviso y promover al madurar.
-- Citas correctas: RFC 9457 (no 7807); GDPR export/delete son Cap. III (no Art. 25).
+- a11y, strict CSP, and PII **are not 100% script-verifiable** → "automatic gate + reviewer check", not total determinism.
+- New MUSTs that would break in-flight projects (CSP, a11y-gate): introduce as SHOULD/warning and promote when mature.
+- Correct citations: RFC 9457 (not 7807); GDPR export/delete are Chapter III (not Art. 25).
 
-## Fuentes
+## Sources
 roadie.io · opslevel.com · martinfowler.com/reduce-friction-ai/encoding-team-standards · web.dev/vitals · owasp HTTP_Headers/CSP cheatsheets · rfc-editor.org/rfc/rfc9457 · opentelemetry.io · gdpr-info.eu/art-25 · diataxis.fr · nngroup.com/progressive-disclosure · backstage.spotify.com/soundcheck · nextjs production-checklist

@@ -1,36 +1,36 @@
-# Documentación viva — doc canónico + bitácora
+# Living documentation — canonical doc + decision log
 
-Cómo se documenta un proyecto Pandacorp para que la documentación **nunca mienta** y **nunca se pierda el porqué**. Aplica a TODO proyecto, en toda fase (en construcción y lanzado).
+How a Pandacorp project is documented so that the documentation **never lies** and **the why is never lost**. Applies to EVERY project, in every phase (building and shipped).
 
-## Regla
+## Rule
 
-Todo cambio relevante —comportamiento de la app, alcance, arquitectura, diseño— se documenta en **dos capas, siempre**:
+Every relevant change —app behavior, scope, architecture, design— is documented in **two layers, always**:
 
-1. **Doc canónico (la verdad actual) — `MUST`.** Se actualiza el documento *dueño* del hecho para que describa la realidad de ahora, como si siempre hubiera sido así:
+1. **Canonical doc (the current truth) — `MUST`.** The document that *owns* the fact is updated so that it describes the reality of now, as if it had always been that way:
 
-   | Cambio | Doc dueño |
+   | Change | Owner doc |
    |---|---|
-   | Comportamiento/feature de la app (qué hace, criterios EARS) | el **FRD** correspondiente en `docs/frds/`; feature nueva → FRD nuevo |
-   | Alcance/objetivo de producto, métricas de éxito | el **PRD** (`docs/prd.md`) |
-   | Arquitectura, stack, modelo de datos, decisión técnica | el **blueprint** (`docs/blueprint.md`) + un **ADR** en `docs/adr/` |
-   | Diseño visual, tokens, componentes | **`DESIGN.md`** / `docs/design/design-tokens.json` |
-   | Estado de avance (qué está hecho) | `docs/status.yaml` — lo escriben skills/CI, **no a mano** |
+   | App behavior/feature (what it does, EARS criteria) | the corresponding **FRD** in `docs/frds/`; new feature → new FRD |
+   | Product scope/objective, success metrics | the **PRD** (`docs/prd.md`) |
+   | Architecture, stack, data model, technical decision | the **blueprint** (`docs/blueprint.md`) + an **ADR** in `docs/adr/` |
+   | Visual design, tokens, components | **`DESIGN.md`** / `docs/design/design-tokens.json` |
+   | Progress state (what is done) | `docs/status.yaml` — written by skills/CI, **not by hand** |
 
-2. **Bitácora (la historia) — `MUST`.** Se añade una entrada en `docs/decision-log.md`: fecha, *qué*, *por qué*, y un enlace al doc canónico que se tocó (campo *Impacto*). Lo más reciente arriba.
+2. **Decision log (the history) — `MUST`.** An entry is added to `docs/decision-log.md`: date, *what*, *why*, and a link to the canonical doc that was touched (*Impact* field). Most recent on top.
 
-El doc canónico responde *"¿qué es verdad ahora?"*; la bitácora, *"¿cómo llegamos aquí y por qué?"*. Solo el doc pierde el porqué; solo la bitácora deja el doc desactualizado. Por eso van **los dos**.
+The canonical doc answers *"what is true now?"*; the decision log, *"how did we get here and why?"*. The doc alone loses the why; the decision log alone leaves the doc outdated. That is why **both** go together.
 
-**No anotar** cambios triviales ya evidentes en el commit (renombrar variable, formato). **Sí anotar** toda decisión o cambio de comportamiento, alcance, técnico o de diseño.
+**Do not log** trivial changes already evident in the commit (renaming a variable, formatting). **Do log** every decision or change of behavior, scope, technical, or design.
 
-### Bitácora vs. otros docs (no confundir)
-- **`docs/decision-log.md`** = historia durable de decisiones/cambios de TODO el ciclo (incluido post-lanzamiento). El porqué detrás del estado actual.
-- **`docs/iteration.md`** = memoria de trabajo de la iteración de una FASE manual —qué se probó, qué rechazó el dueño— para retomar a mitad de fase (DR-032). Transitoria; se cierra al avanzar de fase. Una decisión que sale de la iteración y queda firme se registra en la bitácora.
-- **`factory/decisions/registry.yaml`** (en la fábrica) = política (reglas recurrentes con default). No es historia.
+### Decision log vs. other docs (don't confuse them)
+- **`docs/decision-log.md`** = durable history of decisions/changes across the WHOLE cycle (including post-launch). The why behind the current state.
+- **`docs/iteration.md`** = working memory of the iteration of a manual PHASE —what was tried, what the owner rejected— to resume mid-phase (DR-032). Transient; it closes when advancing a phase. A decision that comes out of the iteration and becomes firm is recorded in the decision log.
+- **`factory/decisions/registry.yaml`** (in the factory) = policy (recurring rules with a default). It is not history.
 
-## Cómo se verifica
-- **Checklist (review) — `MUST`:** el `reviewer` rechaza un work order/PR que cambia comportamiento sin actualizar el FRD correspondiente **ni** añadir entrada en `docs/decision-log.md`.
-- **Gate de fase:** al cerrar una fase manual o un `iterate`, el skill confirma que el doc canónico y la bitácora quedaron al día.
-- **Automatizable (futuro):** check que falle si un FRD se modificó sin una entrada de bitácora de la misma fecha.
+## How it is verified
+- **Checklist (review) — `MUST`:** the `reviewer` rejects a work order/PR that changes behavior without updating the corresponding FRD **nor** adding an entry in `docs/decision-log.md`.
+- **Phase gate:** when closing a manual phase or an `iterate`, the skill confirms that the canonical doc and the decision log are up to date.
+- **Automatable (future):** a check that fails if an FRD was modified without a decision-log entry of the same date.
 
-## Por qué
-Sin esto, el porqué de las decisiones se diluye en commits y conversaciones perdidas, y los FRD/blueprint envejecen hasta mentir. La doble capa mantiene **la verdad** (doc canónico) y **la memoria** (bitácora) separadas y ambas al día — barato de escribir, carísimo de reconstruir si falta.
+## Why
+Without this, the why behind decisions dilutes into commits and lost conversations, and the FRDs/blueprint age until they lie. The double layer keeps **the truth** (canonical doc) and **the memory** (decision log) separate and both up to date — cheap to write, very expensive to reconstruct if missing.

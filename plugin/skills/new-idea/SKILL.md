@@ -1,24 +1,24 @@
 ---
-description: Captura una idea o problema del dueño en la base de ideas de Pandacorp. Usar cuando el dueño describe una app que quiere, un problema que tiene, dice "tengo una idea", o pide convertir lo conversado en una propuesta para el tablero. Sintetiza la idea desde toda la conversación, la investiga ligero y le asigna score. Es también el cristalizador de /pandacorp:explore.
+description: Captures an owner's idea or problem into the Pandacorp ideas base. Use when the owner describes an app they want, a problem they have, says "I have an idea", or asks to turn what was discussed into a proposal for the board. It synthesizes the idea from the whole conversation, researches lightly and assigns it a score. It is also the crystallizer of /pandacorp:explore.
 ---
 
 # /pandacorp:new-idea
 
-Cristaliza una idea como ficha en la base de ideas. La idea puede venir de `$ARGUMENTS`, de una descripción puntual, o de **toda una conversación de descubierta** (ej. tras `/pandacorp:explore`).
+Crystallizes an idea as a card in the ideas base. The idea can come from `$ARGUMENTS`, from a specific description, or from **a whole discovery conversation** (e.g. after `/pandacorp:explore`).
 
-## Pasos
+## Steps
 
-1. **Sintetiza desde la conversación completa.** No te quedes solo con `$ARGUMENTS` ni con el último mensaje: recorre **toda** la conversación hacia atrás y reconstruye la idea con lo que se dijo, se rebatió y se concluyó. Si la idea viene de `/pandacorp:explore`, lee también su borrador `factory/ideas/_drafts/<slug>.md` si existe (concentra el hilo de la exploración). Reglas según lo que encuentres:
-   - Si la conversación exploró **varias** ideas candidatas, lístalas en una línea cada una y confirma con el dueño cuál(es) capturar (puedes crear una ficha por cada una).
-   - Si solo hay una descripción corta y poco contexto, haz máximo 2-3 preguntas para lo esencial que falte (¿qué duele exactamente? ¿es para él o para vender? ¿qué imagina como solución?). Si ya alcanza, no preguntes.
-2. **Ubica la fábrica**: la base de ideas está en `factory/ideas/`, en la raíz de la fábrica (el repo donde se corre este skill). Lee `_idea-template.md` para el formato exacto.
-3. **Investigación ligera** (delega al agente `researcher`, una pasada rápida): ¿existen soluciones? ¿hay evidencia del dolor en otros? ¿viabilidad técnica obvia? Si la conversación de descubierta ya trajo evidencia, reúsala en vez de repetir la búsqueda. No es la investigación profunda — eso viene en fase de producto.
-4. **Score (0-100)** (lee `factory/profile.md` para ponderar retorno y encaje): necesidad/dolor real y frecuente (30%), facilidad de implementación con golden paths o como tooling/prompt/automatización (25%), **retorno o valor para el dueño** —monetario, de oportunidad (alcance/red/posicionamiento/aprendizaje) o personal, ponderado según el apetito del perfil— (25%), **encaje y ventaja** —alineación con el perfil + diferenciación— (20%). Documenta el racional en "Notas de evaluación".
-5. **Crea la ficha** `factory/ideas/<slug-en-ingles>.md` con frontmatter completo (incluye `tipo_proyecto`, `alineacion_perfil` y `retorno`), `estado: documentada`, `creada:` con fecha de hoy. Si existía un borrador de exploración (`factory/ideas/_drafts/<slug>.md`), **bórralo** — la ficha ya lo reemplaza.
-6. Reporta al dueño: resumen de la ficha, score y si la recomiendas o no (con porqué corto).
+1. **Synthesize from the whole conversation.** Don't stop at just `$ARGUMENTS` or the last message: go back through **the whole** conversation and reconstruct the idea with what was said, pushed back on and concluded. If the idea comes from `/pandacorp:explore`, also read its draft `factory/ideas/_drafts/<slug>.md` if it exists (it concentrates the exploration thread). Rules depending on what you find:
+   - If the conversation explored **several** candidate ideas, list each one on a line and confirm with the owner which one(s) to capture (you can create one card per idea).
+   - If there is only a short description and little context, ask at most 2-3 questions for the essentials that are missing (what exactly hurts? is it for them or to sell? what do they imagine as the solution?). If it's already enough, don't ask.
+2. **Locate the factory**: the ideas base is in `factory/ideas/`, at the factory root (the repo where this skill runs). Read `_idea-template.md` for the exact format.
+3. **Light research** (delegate to the `researcher` agent, a quick pass): do solutions exist? is there evidence of the pain in others? obvious technical feasibility? If the discovery conversation already brought evidence, reuse it instead of repeating the search. This is not the deep research — that comes in the product phase.
+4. **Score (0-100)** (read `factory/profile.md` to weigh return and fit): real and frequent need/pain (30%), ease of implementation with golden paths or as tooling/prompt/automation (25%), **return or value to the owner** —monetary, of opportunity (reach/network/positioning/learning) or personal, weighted by the profile's appetite— (25%), **fit and advantage** —alignment with the profile + differentiation— (20%). Document the rationale in "Evaluation notes".
+5. **Create the card** `factory/ideas/<slug-in-english>.md` with complete frontmatter (includes `project_type`, `profile_alignment` and `return_type`), `status: documented`, `created:` with today's date. If an exploration draft existed (`factory/ideas/_drafts/<slug>.md`), **delete it** — the card now replaces it.
+6. Report to the owner: card summary, score and whether you recommend it or not (with a short rationale).
 
-## Reglas
-- Una ficha por idea; si ya existe una similar (lee los frontmatter), actualízala en vez de duplicar.
-- Clasifica siempre la ficha con `tipo_proyecto` (qué tipo de solución: web, mobile, desktop, ia, claude-code, prompt-system, automatizacion, cli, rework…) y `retorno` (monetario, oportunidad, personal o mixto).
-- Retorno `personal` o de `oportunidad` también se documenta con rigor — el score pondera valor y oportunidad, no solo monetización.
-- Para explorar y aclarar una idea difusa ANTES de capturarla, ese es el trabajo de `/pandacorp:explore`; este skill es el paso de cristalizar.
+## Rules
+- One card per idea; if a similar one already exists (read the frontmatter), update it instead of duplicating.
+- Always classify the card with `project_type` (what type of solution: web, mobile, desktop, ai, claude-code, prompt-system, automation, cli, rework…) and `return_type` (monetary, opportunity, personal or mixed).
+- A `personal` or `opportunity` return is also documented with rigor — the score weighs value and opportunity, not just monetization.
+- To explore and clarify a fuzzy idea BEFORE capturing it, that's the job of `/pandacorp:explore`; this skill is the crystallization step.

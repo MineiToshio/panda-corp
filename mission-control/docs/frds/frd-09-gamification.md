@@ -1,31 +1,31 @@
-# FRD-09 — Gamificación (tema RPG)
+# FRD-09 — Gamification (RPG theme)
 
-La capa de juego que envuelve el trabajo real, de forma **honesta** y sin fatiga. Principio rector: representar trabajo real con ropa más interesante; la fábrica **es** una campaña y los agentes **son** un party.
+The game layer that wraps the real work, in an **honest** and fatigue-free way. Guiding principle: represent real work in more interesting clothes; the factory **is** a campaign and the agents **are** a party.
 
-## Vocabulario: Gremio (guild) vs Party — no confundir
+## Vocabulary: Guild (gremio) vs Party — don't confuse them
 
-Dos capas RPG **distintas y deliberadas**; cada término nombra una sola cosa:
+Two **distinct and deliberate** RPG layers; each term names a single thing:
 
-- **Gremio (guild)** — la capa **meta**: el operador (el dueño) + la fábrica entera. Nivel/XP del gremio en la barra superior ("Maestro del gremio"), Salón del gremio (trofeos y stats), Códice/Manual del gremio, Comandos del gremio, Atributos del gremio. Es **persistente y transversal** a toda la app.
-- **Party** — el **grupo de agentes construyendo un proyecto concreto** (el panel RPG en vivo, [FRD-06](frd-06-party.md)). Hay **una party por proyecto** en construcción.
+- **Guild (gremio)** — the **meta** layer: the operator (the owner) + the entire factory. Guild level/XP in the top bar ("Guild Master"), Guild Hall (trophies and stats), Guild Codex/Manual, Guild Commands, Guild Attributes. It is **persistent and cross-cutting** across the whole app.
+- **Party** — the **group of agents building a concrete project** (the live RPG panel, [FRD-06](frd-06-party.md)). There is **one party per project** being built.
 
-Analogía: perteneces a un **gremio** (la organización) y sales en **party** (el grupo activo de cada misión); un gremio tiene muchas parties. **Regla:** no usar "gremio" para nombrar el panel de agentes, ni "party" para la capa del operador.
+Analogy: you belong to a **guild** (the organization) and you go out in a **party** (the active group for each mission); a guild has many parties. **Rule:** don't use "guild" to name the agent panel, nor "party" for the operator layer.
 
-## Criterios de aceptación (EARS)
-- LA barra superior DEBERÁ mostrar el **nivel y XP del gremio** (operador), con título y barra al siguiente nivel.
-- EL vocabulario y los acentos visuales DEBERÁN tener sabor RPG con **mesura** (misiones, objetivos, party, gremio; toques pixel), **sin sacrificar la legibilidad** de los datos.
-- LA gamificación DEBERÁ representar **trabajo real**: el XP se gana por **resultado** (work order/fase/release cerrados), **no** por volumen de tareas triviales ni por abrir la app.
-- LA celebración DEBERÁ **escalar**: toast pequeño (work order) → animación media (fase) → celebración (release) → momento de **subir de nivel**. Nunca celebración plana en cada acción.
-- EL sistema NO DEBERÁ incluir: **leaderboards**, **vidas/muerte**, **rachas diarias con reset**, ni **urgencia falsa/timers**. Las rachas DEBERÁN ser **semanales** (con "freeze").
-- LA gamificación DEBERÁ complementar buena UX, no compensar mala UX (los datos claros van primero).
+## Acceptance criteria (EARS)
+- The top bar SHALL show the **guild's level and XP** (operator), with a title and a bar to the next level.
+- The vocabulary and visual accents SHALL have RPG flavor with **restraint** (missions, objectives, party, guild; pixel touches), **without sacrificing the legibility** of the data.
+- The gamification SHALL represent **real work**: XP is earned by **result** (work order/phase/release closed), **not** by volume of trivial tasks nor by opening the app.
+- The celebration SHALL **scale**: small toast (work order) → medium animation (phase) → celebration (release) → **level-up** moment. Never a flat celebration on every action.
+- The system SHALL NOT include: **leaderboards**, **lives/death**, **daily streaks with reset**, nor **false urgency/timers**. Streaks SHALL be **weekly** (with a "freeze").
+- The gamification SHALL complement good UX, not compensate for bad UX (clear data comes first).
 
-## Principios validados por investigación (2026, ver `docs/proposals/06-improvement-plan-2026.md`)
-- DEBERÁ vivir en el **"White Hat" del Octalysis** (Significado Épico, Logro/Progreso, Empoderamiento + Feedback): el mayor activo intrínseco es **ver a los agentes trabajar en vivo**; el XP es capa secundaria de confirmación, no el gancho principal.
-- EL XP por actividad (no por resultado) está **prohibido** para no disparar el *overjustification effect* (la recompensa extrínseca puede destruir la motivación intrínseca). Todo logro mapea a un resultado **verificable** (work order/fase/release cerrados, tests verdes).
-- TODA mecánica nueva DEBERÁ pasar el **test ético** antes de añadirse: ¿el usuario controla su participación? ¿construye o socava la motivación intrínseca? ¿la recompensa es significativa o un loop adictivo? ¿es honesta sobre su efecto psicológico? Patrones prohibidos: streak anxiety, recompensas variables tipo tragaperras, urgencia falsa, leaderboards, barra "clavada al 80%".
+## Principles validated by research (2026, see `docs/proposals/06-improvement-plan-2026.md`)
+- It SHALL live in the **"White Hat" of Octalysis** (Epic Meaning, Accomplishment/Progress, Empowerment + Feedback): the greatest intrinsic asset is **seeing the agents work live**; XP is a secondary confirmation layer, not the main hook.
+- XP for activity (not for result) is **forbidden** so as not to trigger the *overjustification effect* (the extrinsic reward can destroy intrinsic motivation). Every achievement maps to a **verifiable** result (work order/phase/release closed, green tests).
+- EVERY new mechanic SHALL pass the **ethical test** before being added: does the user control their participation? does it build or undermine intrinsic motivation? is the reward meaningful or an addictive loop? is it honest about its psychological effect? Forbidden patterns: streak anxiety, slot-machine-style variable rewards, false urgency, leaderboards, a bar "stuck at 80%".
 
-## Componentes (ver también)
-- Nivel/XP del gremio (esta FRD) · Niveles de agentes ([FRD-07](frd-07-configuration.md)) · Salón de logros y stats ([FRD-10](frd-10-achievements-hall.md)) · Party RPG ([FRD-06](frd-06-party.md)).
+## Components (see also)
+- Guild level/XP (this FRD) · Agent levels ([FRD-07](frd-07-configuration.md)) · Achievements Hall and stats ([FRD-10](frd-10-achievements-hall.md)) · Party RPG ([FRD-06](frd-06-party.md)).
 
-## Futuro
-Momento full-screen al subir de nivel; transiciones de fase como "cutscene"; meta-logros (Sellos con título displayable); multiplicador de XP por racha semanal.
+## Future
+Full-screen level-up moment; phase transitions as a "cutscene"; meta-achievements (titled, displayable Seals); XP multiplier for weekly streak.

@@ -1,67 +1,67 @@
-# Plan de implementación — Pandacorp (dashboard local, solo-lectura)
+# Implementation plan — Pandacorp (local, read-only dashboard)
 
-> Plan autocontenido para ejecutar con `/loop`. El dashboard es el primer proyecto de la fábrica Pandacorp: una herramienta LOCAL para que el dueño **vea** el estado de ideas y proyectos, **lea** los documentos, y **sepa qué comando ejecutar a continuación** — copiándolo con un botón y pegándolo en la app de Claude Code.
+> Self-contained plan to execute with `/loop`. The dashboard is the Pandacorp factory's first project: a LOCAL tool for the owner to **see** the state of ideas and projects, **read** the documents, and **know which command to run next** — copying it with a button and pasting it into the Claude Code app.
 >
-> **Principio rector:** el dashboard NUNCA llama a Claude. Solo lee archivos del repo y genera texto de comandos para copiar. Toda ejecución la hace el dueño pegando el comando en la app de Claude Code → usa su suscripción Claude Max. El dueño es débil en UX → la UI debe ser mínima y limpia.
+> **Guiding principle:** the dashboard NEVER calls Claude. It only reads files from the repo and generates command text to copy. All execution is done by the owner pasting the command into the Claude Code app → uses their Claude Max subscription. The owner is weak at UX → the UI must be minimal and clean.
 
-> **Documentación de producto (fuente de verdad):** `docs/prd.md` + `docs/frds/` (FRD-01 a FRD-13: lectura, tablero, portfolio, workspace, work orders, Party RPG, configuración, documentación, gamificación, salón de logros, modos de construcción, **observabilidad/data-viz**, **sistema visual y accesibilidad**) + `docs/achievements.md`. El prototipo navegable (`prototype/index.html`) es el diseño aprobado. Este PLAN es la **secuencia de construcción**; ante cualquier duda de alcance, mandan los FRDs. **Refuerzos de UX (investigación 2026, `../docs/proposals/06-improvement-plan-2026.md`):** color persistente por agente reusado en sprites+feed+kanban, fallo como estado de primera clase, `tabular-nums`, acento racionado, tema OKLCH de pocos tokens, motion <300ms con `prefers-reduced-motion`, feed follow-tail+pin+cap, Live Pulse, toggle RPG↔timeline, KPIs ≤5 (FRD-12/FRD-13). Pendiente: blueprint formal (stack/arquitectura) a partir de los FRDs.
+> **Product documentation (source of truth):** `docs/prd.md` + `docs/frds/` (FRD-01 through FRD-13: reading, board, portfolio, workspace, work orders, Party RPG, configuration, documentation, gamification, achievements hall, build modes, **observability/data-viz**, **visual system and accessibility**) + `docs/achievements.md`. The navigable prototype (`prototype/index.html`) is the approved design. This PLAN is the **build sequence**; for any scope question, the FRDs rule. **UX reinforcements (2026 research, `../docs/proposals/06-improvement-plan-2026.md`):** persistent per-agent color reused across sprites+feed+kanban, failure as a first-class state, `tabular-nums`, rationed accent, few-token OKLCH theme, motion <300ms with `prefers-reduced-motion`, feed follow-tail+pin+cap, Live Pulse, RPG↔timeline toggle, KPIs ≤5 (FRD-12/FRD-13). Pending: formal blueprint (stack/architecture) derived from the FRDs.
 
-## Objetivo (qué es "terminado")
+## Goal (what "done" means)
 
-Una app web local en `http://127.0.0.1:3000` con tres paneles sobre datos reales de la fábrica, y `.pandacorp/verify.sh` en verde. Criterios de aceptación globales:
+A local web app at `http://127.0.0.1:3000` with three panels over real factory data, and `.pandacorp/verify.sh` green. Global acceptance criteria:
 
-- [ ] `bash .pandacorp/verify.sh` pasa (biome + tsc --noEmit + vitest run), sin errores ni warnings nuevos.
-- [ ] Panel **Ideas**: kanban de las fichas de `factory/ideas/*.md` agrupadas por `estado`; cada tarjeta muestra título, score y tipo. **El tablero es de solo-lectura: las tarjetas NO se mueven a mano** — su columna refleja el `estado:` que escriben los skills al ejecutarse (new-idea→documentada, recommend→recomendada, scaffold→en-pipeline, release→lanzada). Pandacorp reemplaza a Obsidian como visor.
-- [ ] **Vista de detalle a página completa** (clic en una tarjeta): cabecera (título, tipo, score, estado), **resumen con puntos clave**, **navegador de los documentos** del proyecto (idea-origin.md, investigación, PRD, blueprint…) renderizados, y el comando del siguiente paso con botón Copiar.
-- [ ] **Botón Descartar** en el detalle: única escritura manual de Pandacorp — reescribe `estado: descartada` en el .md (es una decisión humana, no un paso de construcción). Test de que no corrompe el YAML ni el cuerpo.
-- [ ] Panel **Portfolio**: tabla de proyectos leída de `factory/portfolio.md` + el `docs/status.yaml` de cada proyecto (fase, versión, resumen, fecha).
-- [ ] **Siguiente paso + copiar**: cada idea y cada proyecto muestra el comando sugerido según su `estado`/`fase`, con botón "Copiar" y la indicación de en qué carpeta abrir la sesión de Claude Code.
-- [ ] La app **no hace ninguna llamada a Claude** (no `claude -p`, no Agent SDK, no API key). Solo lee/escribe archivos locales.
-- [ ] Se refresca sola (re-lee los archivos cada pocos segundos) para reflejar cambios tras ejecutar un comando.
-- [ ] README con cómo correrlo. La app escucha SOLO en `127.0.0.1`. Sin auth, sin deploy.
+- [ ] `bash .pandacorp/verify.sh` passes (biome + tsc --noEmit + vitest run), with no new errors or warnings.
+- [ ] **Ideas** panel: kanban of the cards from `factory/ideas/*.md` grouped by `status`; each card shows title, score and type. **The board is read-only: cards are NOT moved by hand** — their column reflects the `status:` that the skills write when they run (new-idea→documented, recommend→recommended, scaffold→in-pipeline, release→shipped). Pandacorp replaces Obsidian as the viewer.
+- [ ] **Full-page detail view** (click on a card): header (title, type, score, status), **summary with key points**, **navigator of the project's documents** (idea-origin.md, research, PRD, blueprint…) rendered, and the next-step command with a Copy button.
+- [ ] **Discard button** in the detail: Pandacorp's only manual write — rewrites `status: discarded` in the .md (it is a human decision, not a build step). Test that it does not corrupt the YAML or the body.
+- [ ] **Portfolio** panel: table of projects read from `factory/portfolio.md` + each project's `docs/status.yaml` (phase, version, summary, date).
+- [ ] **Next step + copy**: each idea and each project shows the suggested command based on its `status`/`phase`, with a "Copy" button and an indication of which folder to open the Claude Code session in.
+- [ ] The app makes **no calls to Claude** (no `claude -p`, no Agent SDK, no API key). It only reads/writes local files.
+- [ ] It refreshes itself (re-reads the files every few seconds) to reflect changes after running a command.
+- [ ] README with how to run it. The app listens ONLY on `127.0.0.1`. No auth, no deploy.
 
-## Stack (golden path A, recortado)
+## Stack (golden path A, trimmed)
 
-- Next.js 16 (App Router, Server Components leen el filesystem) + TypeScript `strict` + `noUncheckedIndexedAccess`
-- Tailwind CSS + componentes propios mínimos (sin sistema de diseño elaborado)
+- Next.js 16 (App Router, Server Components read the filesystem) + TypeScript `strict` + `noUncheckedIndexedAccess`
+- Tailwind CSS + minimal custom components (no elaborate design system)
 - Biome (lint+format), Vitest (tests)
-- Libs: `gray-matter` (frontmatter de ideas), `yaml` (status.yaml), `react-markdown` (render de fichas)
-- Sin base de datos (el repo de la fábrica ES la base de datos), sin auth, **sin SDK ni subprocesos de Claude**
+- Libs: `gray-matter` (idea frontmatter), `yaml` (status.yaml), `react-markdown` (rendering cards)
+- No database (the factory repo IS the database), no auth, **no Claude SDK or subprocesses**
 
-## Configuración de rutas (constantes en `lib/config.ts`)
+## Path configuration (constants in `lib/config.ts`)
 
 ```
-FACTORY_ROOT = raíz del repo de la fábrica (el repo que contiene mission-control/);
-               resolver con `git rev-parse --show-toplevel` o `path.resolve(process.cwd(), "..")`,
-               override opcional con la env var PANDACORP_FACTORY_ROOT
-IDEAS_DIR    = FACTORY_ROOT + "/factory/ideas"      (ignorar _idea-template.md)
+FACTORY_ROOT = root of the factory repo (the repo that contains mission-control/);
+               resolve with `git rev-parse --show-toplevel` or `path.resolve(process.cwd(), "..")`,
+               optional override via the env var PANDACORP_FACTORY_ROOT
+IDEAS_DIR    = FACTORY_ROOT + "/factory/ideas"      (ignore _idea-template.md)
 PORTFOLIO    = FACTORY_ROOT + "/factory/portfolio.md"
-PROJECTS     = filas del portfolio → cada ruta → docs/status.yaml
+PROJECTS     = portfolio rows → each path → docs/status.yaml
 ```
 
-## Lógica de "siguiente comando" (en `lib/next-step.ts`, con tests)
+## "Next command" logic (in `lib/next-step.ts`, with tests)
 
-Mapea estado/fase → comando sugerido + carpeta donde abrir Claude Code:
+Maps status/phase → suggested command + folder to open Claude Code in:
 
-| Etapa | Comando a copiar | Abrir Claude Code en |
+| Stage | Command to copy | Open Claude Code in |
 |---|---|---|
-| `descubierta` | `/pandacorp:spec <slug>` (handoff: crea el proyecto + documenta MVP) | la fábrica (panda-corp) |
-| `documentada` | `/pandacorp:design` | la carpeta del proyecto |
-| `diseño` | `/pandacorp:blueprint` (crea blueprint + work orders) | la carpeta del proyecto |
-| `arquitectura` | `/pandacorp:implement` (arranca construcción, workflow dinámico + Party) | la carpeta del proyecto |
-| `en-construcción` | `/pandacorp:release` | la carpeta del proyecto |
-| `lanzada` | `/pandacorp:iterate` (agregar funcionalidad/cambio) | la carpeta del proyecto |
+| `discovered` | `/pandacorp:spec <slug>` (handoff: creates the project + documents the MVP) | the factory (panda-corp) |
+| `documented` | `/pandacorp:design` | the project folder |
+| `design` | `/pandacorp:blueprint` (creates blueprint + work orders) | the project folder |
+| `architecture` | `/pandacorp:implement` (starts the build, dynamic workflow + Party) | the project folder |
+| `building` | `/pandacorp:release` | the project folder |
+| `shipped` | `/pandacorp:iterate` (add a feature/change) | the project folder |
 
-Etapas adicionales: `descartada` (decisión humana desde Pandacorp) y, para cambios en cualquier momento, el botón **Iterar** (`/pandacorp:iterate`). `recommend` es una acción de consejo a demanda, no una etapa.
+Additional stages: `discarded` (human decision from Pandacorp) and, for changes at any time, the **Iterate** button (`/pandacorp:iterate`). `recommend` is an on-demand advice action, not a stage.
 
-La UI muestra, junto al comando, la ruta de la carpeta (con su propio botón de copiar) para que el dueño sepa exactamente dónde pegarlo.
+The UI shows, next to the command, the folder path (with its own copy button) so the owner knows exactly where to paste it.
 
-## Fases y tareas (el loop avanza la primera pendiente en cada iteración)
+## Phases and tasks (the loop advances the first pending one each iteration)
 
-### Fase 0 — Scaffold
-- [ ] `pnpm create next-app@latest .` (App Router, TS, Tailwind; ESLint NO — usaremos Biome).
-- [ ] Instalar Biome, Vitest, gray-matter, yaml, react-markdown. tsconfig strict + noUncheckedIndexedAccess; `biome.json`.
-- [ ] Crear `.pandacorp/verify.sh` (chmod +x):
+### Phase 0 — Scaffold
+- [ ] `pnpm create next-app@latest .` (App Router, TS, Tailwind; ESLint NO — we'll use Biome).
+- [ ] Install Biome, Vitest, gray-matter, yaml, react-markdown. tsconfig strict + noUncheckedIndexedAccess; `biome.json`.
+- [ ] Create `.pandacorp/verify.sh` (chmod +x):
   ```bash
   #!/bin/bash
   set -e
@@ -69,52 +69,52 @@ La UI muestra, junto al comando, la ruta de la carpeta (con su propio botón de 
   pnpm tsc --noEmit
   pnpm vitest run --reporter=dot
   ```
-- [ ] `CLAUDE.md` mínimo que incluya la palabra "Pandacorp" (activa los hooks de la fábrica) y describa el proyecto. `git init -b main`, commit inicial.
+- [ ] Minimal `CLAUDE.md` that includes the word "Pandacorp" (activates the factory hooks) and describes the project. `git init -b main`, initial commit.
 
-### Fase 1 — Capa de lectura (con tests primero)
-- [ ] `lib/ideas.ts`: lee y parsea las fichas (título, estado, score, tipo, slug, cuerpo). Test con fixtures.
-- [ ] `lib/portfolio.ts`: parsea la tabla del portfolio y lee el `status.yaml` de cada proyecto; tolera rutas rotas (marca el proyecto, no rompe). Test.
-- [ ] `lib/next-step.ts`: la tabla de arriba como función pura. Test de cada caso.
+### Phase 1 — Reading layer (tests first)
+- [ ] `lib/ideas.ts`: reads and parses the cards (title, status, score, type, slug, body). Test with fixtures.
+- [ ] `lib/portfolio.ts`: parses the portfolio table and reads each project's `status.yaml`; tolerates broken paths (flags the project, doesn't break). Test.
+- [ ] `lib/next-step.ts`: the table above as a pure function. Test for each case.
 
-### Fase 2 — Panel Ideas (tablero solo-lectura) + detalle a página completa
-- [ ] Kanban por `estado` (columnas en orden del pipeline + columna `descartada` al final, atenuada). Tarjeta = título + chip de tipo + score. SIN flechas ni drag: solo-lectura.
-- [ ] Clic en tarjeta → **vista a página completa** (no drawer): cabecera + resumen con puntos clave + navegador de documentos (Resumen | idea-origin.md | investigación | PRD | …) que renderiza el .md elegido + bloque "Siguiente paso" (comando + carpeta con botón Copiar) + botón "Descartar idea" + "Volver al tablero".
-- [ ] Leyenda breve: qué significan los tipos (monetizable/personal/ambas) y el score.
-- [ ] Estados vacío / cargando / error.
-- Nota: el prototipo navegable de referencia está en `prototype/index.html`.
+### Phase 2 — Ideas panel (read-only board) + full-page detail
+- [ ] Kanban by `status` (columns in pipeline order + a `discarded` column at the end, dimmed). Card = title + type chip + score. NO arrows or drag: read-only.
+- [ ] Click on a card → **full-page view** (not a drawer): header + summary with key points + document navigator (Summary | idea-origin.md | research | PRD | …) that renders the chosen .md + a "Next step" block (command + folder with Copy button) + a "Discard idea" button + "Back to board".
+- [ ] Short legend: what the types mean (monetizable/personal/both) and the score.
+- [ ] Empty / loading / error states.
+- Note: the reference navigable prototype is in `prototype/index.html`.
 
-### Fase 3 — Panel Portfolio
-- [ ] Tabla: proyecto, fase, versión, resumen, última actualización; fila marcada si la ruta no existe.
-- [ ] Por fila, bloque "Siguiente paso" (comando + carpeta, con botones Copiar).
+### Phase 3 — Portfolio panel
+- [ ] Table: project, phase, version, summary, last updated; row flagged if the path doesn't exist.
+- [ ] Per row, a "Next step" block (command + folder, with Copy buttons).
 
-### Fase 4 — Componente Copiar + auto-refresh
-- [ ] Componente `CopyButton` reutilizable (usa la clipboard API; feedback "¡Copiado!").
-- [ ] Auto-refresh: la página re-lee los datos cada ~5 s (o botón "Actualizar") para reflejar cambios tras ejecutar comandos.
+### Phase 4 — Copy component + auto-refresh
+- [ ] Reusable `CopyButton` component (uses the clipboard API; "Copied!" feedback).
+- [ ] Auto-refresh: the page re-reads the data every ~5 s (or a "Refresh" button) to reflect changes after running commands.
 
-### Fase 5 — Pulido y cierre
-- [ ] README: requisitos, `pnpm dev`, que escucha en 127.0.0.1, y el flujo de uso (ver → copiar comando → pegar en la app de Claude Code).
-- [ ] Pasada final: `.pandacorp/verify.sh` verde; arrancar `pnpm dev` y verificar los tres paneles con datos reales.
+### Phase 5 — Polish and close
+- [ ] README: requirements, `pnpm dev`, that it listens on 127.0.0.1, and the usage flow (see → copy command → paste into the Claude Code app).
+- [ ] Final pass: `.pandacorp/verify.sh` green; start `pnpm dev` and verify the three panels with real data.
 
-### Fase 6 — Party (vista en vivo de agentes, solo-lectura)
-> Parte del alcance inicial (se construye tras las fases 0-5, en la misma corrida del loop). Visualiza los subagentes del workflow mientras trabajan, sin llamar a Claude.
-- [ ] El emisor de eventos YA viene en el plugin de la fábrica (`scripts/emit-event.sh`, lo emiten los subagentes del workflow, + el hook `SubagentStop` → `~/.claude/dashboard-events.ndjson`). Pandacorp solo CONSUME ese archivo, no lo crea.
-- [ ] `lib/agents.ts`: lee `~/.claude/dashboard-events.ndjson` (eventos) y `~/.claude/tasks/<team>/` (estado de tareas); tolera ausencia de ambos (caso "no hay equipo activo"). Test.
-- [ ] Panel **Party**: lista de agentes activos con su estado y tarea actual, feed de mensajes/eventos entre ellos, y grafo simple de dependencias de tareas. Auto-refresh (tail) cada ~2 s.
-- [ ] Solo observación: NO intenta enviar mensajes ni pausar agentes (eso se hace en la terminal). Dejar nota en la UI: "para redirigir un agente, usa la app de Claude Code".
+### Phase 6 — Party (live agent view, read-only)
+> Part of the initial scope (built after phases 0-5, in the same loop run). Visualizes the workflow subagents while they work, without calling Claude.
+- [ ] The event emitter ALREADY comes in the factory plugin (`scripts/emit-event.sh`, emitted by the workflow subagents, + the `SubagentStop` hook → `~/.claude/dashboard-events.ndjson`). Pandacorp only CONSUMES that file, it does not create it.
+- [ ] `lib/agents.ts`: reads `~/.claude/dashboard-events.ndjson` (events) and `~/.claude/tasks/<team>/` (task state); tolerates the absence of both (the "no active team" case). Test.
+- [ ] **Party** panel: list of active agents with their state and current task, feed of messages/events between them, and a simple task-dependency graph. Auto-refresh (tail) every ~2 s.
+- [ ] Observation only: it does NOT try to send messages or pause agents (that is done in the terminal). Leave a note in the UI: "to redirect an agent, use the Claude Code app".
 
-### Stretch (solo si lo anterior está verde)
-- [ ] Búsqueda/filtro de ideas por texto, tipo o score.
+### Stretch (only if the above is green)
+- [ ] Search/filter ideas by text, type or score.
 
-## Restricciones (guardrails para el loop)
+## Constraints (guardrails for the loop)
 
-1. **El dashboard NUNCA llama a Claude**: nada de `claude -p`, Agent SDK, ni API key. Solo lee/escribe archivos locales. Toda ejecución la hace el dueño pegando comandos en la app de Claude Code (su suscripción Max).
-2. **Local only**: escucha en `127.0.0.1`. NUNCA deployar ni exponer a la red.
-3. **No tocar datos de la fábrica** salvo el frontmatter `estado:` del stretch. Lectura, no escritura (excepto ese caso).
-4. **TDD** en `lib/` (lectura y next-step).
-5. **Conventional commits** en inglés, feature branches; no push a main (el hook lo bloquea).
-6. **UI mínima**: tres paneles, sin animaciones ni features especulativas. Tailwind plano.
-7. **Terminar cuando** todos los criterios de aceptación globales estén marcados. No seguir agregando features.
+1. **The dashboard NEVER calls Claude**: no `claude -p`, Agent SDK, or API key. It only reads/writes local files. All execution is done by the owner pasting commands into the Claude Code app (their Max subscription).
+2. **Local only**: listens on `127.0.0.1`. NEVER deploy or expose to the network.
+3. **Don't touch factory data** except the `status:` frontmatter of the stretch. Read, not write (except that case).
+4. **TDD** in `lib/` (reading and next-step).
+5. **Conventional commits** in English, feature branches; no push to main (the hook blocks it).
+6. **Minimal UI**: three panels, no animations or speculative features. Plain Tailwind.
+7. **Finish when** all global acceptance criteria are checked. Don't keep adding features.
 
-## Notas
-- Si una decisión no está cubierta aquí, aplicar el registro de decisiones de la fábrica (`../panda-corp/factory/decisions/registry.yaml`); si tampoco, parar y preguntar al dueño.
-- El `status.yaml` de proyectos puede no existir aún (por ahora solo está la fábrica + este panel): manejar el caso vacío con gracia.
+## Notes
+- If a decision isn't covered here, apply the factory's decision registry (`../panda-corp/factory/decisions/registry.yaml`); if not there either, stop and ask the owner.
+- The projects' `status.yaml` may not exist yet (for now there's only the factory + this panel): handle the empty case gracefully.

@@ -1,38 +1,38 @@
-# Estándares de Pandacorp
+# Pandacorp standards
 
-Estándares de ingeniería que la fábrica inyecta en cada proyecto (vía el `AGENTS.md`/`CLAUDE.md` del scaffold y los agentes del plugin).
+Engineering standards that the factory injects into every project (via the scaffold's `AGENTS.md`/`CLAUDE.md` and the plugin's agents).
 
-## Dos niveles (importante)
+## Two levels (important)
 
-1. **Convenciones duraderas — OBLIGATORIAS e iguales en todos los proyectos**: estructura, naming, calidad, patrones, testing. Viven aquí y no se negocian por proyecto.
-2. **Stack tecnológico — SUGERENCIA por defecto**: hay un stack recomendado ([stack.md](stack.md)), siempre en **últimas versiones estables**. NO es obligatorio: el agente `architect` lo **propone en el blueprint**, puede sugerir tecnologías mejores si encajan en el proyecto, y **el dueño lo aprueba** ahí (gate humano ligero, registrado como ADR).
+1. **Durable conventions — MANDATORY and identical across all projects**: structure, naming, quality, patterns, testing. They live here and are not negotiated per project.
+2. **Technology stack — DEFAULT SUGGESTION**: there is a recommended stack ([stack.md](stack.md)), always on the **latest stable versions**. It is NOT mandatory: the `architect` agent **proposes it in the blueprint**, may suggest better technologies if they fit the project, and **the owner approves it** there (lightweight human gate, recorded as an ADR).
 
-## Categorías (8 dominios) + índice
+## Categories (8 domains) + index
 
-| Dominio | Estándares |
+| Domain | Standards |
 |---|---|
-| **Programación / Convenciones** | [conventions.md](conventions.md) · [api-design.md](api-design.md) |
-| **Arquitectura / Estructura** | [structure.md](structure.md) · [patterns.md](patterns.md) |
-| **Diseño / Design system** | [patterns.md](patterns.md) (tokens, tema, a11y); el design system se genera por proyecto en `/pandacorp:design` |
-| **Tecnología / Stack** | [stack.md](stack.md) (golden paths A/B/C/D) |
-| **Calidad / Testing** | [quality.md](quality.md) · [performance.md](performance.md) |
-| **Seguridad** | [web-security.md](web-security.md) (+ constitución §12, DR-017, agente `security-auditor`) |
-| **Operación / Observabilidad** | [infra.md](infra.md) (dev local) · [observability.md](observability.md) (producción) · [external-services.md](external-services.md) (cuentas, secretos, pagos, aprovisionamiento — DR-035..038) |
-| **Datos / Privacidad** | [privacy.md](privacy.md) |
-| **Producto / Documentación** | [documentation.md](documentation.md) (doc canónico + bitácora) · [seo-i18n.md](seo-i18n.md) (+ docs viva: constitución §20, DR-018) |
+| **Programming / Conventions** | [conventions.md](conventions.md) · [api-design.md](api-design.md) |
+| **Architecture / Structure** | [structure.md](structure.md) · [patterns.md](patterns.md) |
+| **Design / Design system** | [patterns.md](patterns.md) (tokens, theme, a11y); the design system is generated per project in `/pandacorp:design` |
+| **Technology / Stack** | [stack.md](stack.md) (golden paths A/B/C/D) |
+| **Quality / Testing** | [quality.md](quality.md) · [performance.md](performance.md) |
+| **Security** | [web-security.md](web-security.md) (+ constitution §12, DR-017, `security-auditor` agent) |
+| **Operation / Observability** | [infra.md](infra.md) (local dev) · [observability.md](observability.md) (production) · [external-services.md](external-services.md) (accounts, secrets, payments, provisioning — DR-035..038) |
+| **Data / Privacy** | [privacy.md](privacy.md) |
+| **Product / Documentation** | [documentation.md](documentation.md) (canonical doc + decision log) · [seo-i18n.md](seo-i18n.md) (+ living docs: constitution §20, DR-018) |
 
-## Dos ejes transversales (por regla, no por archivo)
+## Two cross-cutting axes (by rule, not by file)
 
-- **Severidad (RFC 2119)**: cada regla es `MUST` (obligatoria — violarla es fallo duro), `SHOULD` (recomendada — flexibilizable registrando un ADR) o `MAY` (opcional). El agente **solo escala al dueño si va a romper un `MUST`**; un `SHOULD` lo decide con un ADR. El stack entero es `SHOULD` (golden path).
-- **Enforcement (cómo se verifica)**: `lint` · `CI gate` · `checklist` · `gate humano / deny rule`. Hace visible qué valida un script (verde/rojo automático) vs. qué es decisión del dueño (regla 4: el modelo nunca marca sus propios checks).
+- **Severity (RFC 2119)**: each rule is `MUST` (mandatory — violating it is a hard failure), `SHOULD` (recommended — relaxable by recording an ADR) or `MAY` (optional). The agent **only escalates to the owner if it is going to break a `MUST`**; a `SHOULD` it decides with an ADR. The entire stack is `SHOULD` (golden path).
+- **Enforcement (how it is verified)**: `lint` · `CI gate` · `checklist` · `human gate / deny rule`. Makes visible what a script validates (automatic green/red) vs. what is the owner's decision (rule 4: the model never marks its own checks).
 
-## Forma de un estándar ("estándar ejecutable")
+## Shape of a standard ("executable standard")
 
-Cada archivo separa, sin mezclar: **Regla** (taxativa, lo que se inyecta al agente) · **Cómo se verifica** (check binario enchufable a `verify.sh`/CI) · **Por qué** (rationale/trade-offs, para humanos y ADRs). El objetivo es que cada regla tenga un verificador, no solo prosa.
+Each file separates, without mixing: **Rule** (taxative, what gets injected into the agent) · **How it is verified** (binary check pluggable into `verify.sh`/CI) · **Why** (rationale/trade-offs, for humans and ADRs). The goal is that every rule has a verifier, not just prose.
 
-## Dos niveles de obligatoriedad
+## Two levels of obligation
 
-1. **Convenciones duraderas — OBLIGATORIAS** e iguales en todo proyecto (estructura, naming, calidad, patrones, testing, seguridad, privacidad…).
-2. **Stack tecnológico — SUGERENCIA** por defecto ([stack.md](stack.md), últimas versiones estables): el `architect` lo propone en el blueprint, puede sugerir mejores, y **el dueño aprueba** (gate ligero, ADR).
+1. **Durable conventions — MANDATORY** and identical in every project (structure, naming, quality, patterns, testing, security, privacy…).
+2. **Technology stack — SUGGESTION** by default ([stack.md](stack.md), latest stable versions): the `architect` proposes it in the blueprint, may suggest better ones, and **the owner approves** (lightweight gate, ADR).
 
-Las convenciones de estructura/patrones están escritas para el stack web por defecto (TypeScript/Next.js). Para otros stacks (Python/scraping) se aplica el **espíritu** (capas separadas, data layer aislado, tests colocados, tipado estricto), adaptado al lenguaje. Agregar un estándar, una regla o un skill nuevo: `/pandacorp:learn`.
+The structure/patterns conventions are written for the default web stack (TypeScript/Next.js). For other stacks (Python/scraping) the **spirit** applies (separated layers, isolated data layer, colocated tests, strict typing), adapted to the language. To add a new standard, rule or skill: `/pandacorp:learn`.

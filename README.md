@@ -1,107 +1,107 @@
-# Pandacorp — Fábrica de software 100% IA
+# Pandacorp — 100% AI software factory
 
-Pandacorp es una **fábrica de software operada por IA**: una línea de montaje donde *tú* (el dueño)
-diriges con unos pocos gates humanos y agentes especializados de Claude hacen el resto —
-descubrir ideas, escribir el PRD/FRDs, diseñar la UI, definir la arquitectura, construir con TDD,
-revisar y desplegar. El proceso, los estándares y los agentes viven aquí; **el código de producto
-nunca** — cada producto nace en su propio repo, hermano de este.
+Pandacorp is an **AI-operated software factory**: an assembly line where *you* (the owner)
+steer with a few human gates and specialized Claude agents do the rest —
+discovering ideas, writing the PRD/FRDs, designing the UI, defining the architecture, building with TDD,
+reviewing and deploying. The process, the standards and the agents live here; **product code
+never does** — each product is born in its own repo, a sibling of this one.
 
-Este repo **es la fábrica** (el know-how). Lo operas con el plugin `pandacorp` para Claude Code:
-una colección de skills (`/pandacorp:*`), agentes, hooks y plantillas.
+This repo **is the factory** (the know-how). You operate it with the `pandacorp` plugin for Claude Code:
+a collection of skills (`/pandacorp:*`), agents, hooks and templates.
 
-> **Hecho para clonarse.** Cualquiera puede descargar este repo y usarlo como su propia fábrica.
-> Tus datos personales (perfil, ideas, portfolio) **no** se versionan: quedan en tu disco, ignorados
-> por git. Lo que se comparte es el molde.
+> **Built to be cloned.** Anyone can download this repo and use it as their own factory.
+> Your personal data (profile, ideas, portfolio) is **not** versioned: it stays on your disk, ignored
+> by git. What is shared is the mold.
 
-## Requisitos
+## Requirements
 
-- [Claude Code](https://www.claude.com/product/claude-code) (CLI, app de escritorio, web o extensión IDE).
-- `git`. Opcional pero recomendado: `gh` (GitHub CLI) para crear los repos de tus proyectos.
-- Opcional: [Obsidian](https://obsidian.md/) para ver la base de ideas como kanban (`ideas.base`).
+- [Claude Code](https://www.claude.com/product/claude-code) (CLI, desktop app, web or IDE extension).
+- `git`. Optional but recommended: `gh` (GitHub CLI) to create the repos for your projects.
+- Optional: [Obsidian](https://obsidian.md/) to view the idea base as a kanban (`ideas.base`).
 
-## Arranque rápido
+## Quick start
 
 ```bash
-git clone <este-repo> panda-corp
+git clone <this-repo> panda-corp
 cd panda-corp
 
-# 1) Registra este repo como marketplace local (lo llama "panda-corp")
+# 1) Register this repo as a local marketplace (named "panda-corp")
 claude plugin marketplace add .
 
-# 2) Instala el plugin desde ese marketplace (scope usuario)
+# 2) Install the plugin from that marketplace (user scope)
 claude plugin install pandacorp@panda-corp
 
-# 3) Abre Claude Code en esta carpeta y corre el onboarding
+# 3) Open Claude Code in this folder and run onboarding
 #   /pandacorp:onboarding
 ```
 
-`/pandacorp:onboarding` es **el primer paso**: te entrevista (nombre, objetivos, cuenta de GitHub,
-dónde nacen tus proyectos, cómo trabajas) y guarda tu perfil en `factory/profile.md` — un archivo
-**personal y gitignored** que el resto de la fábrica lee para personalizarse. Convierte una fábrica
-genérica en *tu* fábrica.
+`/pandacorp:onboarding` is **the first step**: it interviews you (name, goals, GitHub account,
+where your projects are born, how you work) and saves your profile in `factory/profile.md` — a
+**personal, gitignored** file that the rest of the factory reads to personalize itself. It turns a
+generic factory into *your* factory.
 
-## Cómo se opera
+## How it's operated
 
-| Acción | Skill |
+| Action | Skill |
 |---|---|
-| **Configurar la fábrica (primer arranque)** | `/pandacorp:onboarding` |
-| Explorar/aclarar una idea difusa conversando | `/pandacorp:explore [tema]` |
-| Capturar/cristalizar una idea | `/pandacorp:new-idea` |
-| Buscar dolores monetizables en internet | `/pandacorp:discover` |
-| Pedir ranking/recomendación de ideas | `/pandacorp:recommend` |
-| Crear el proyecto y documentar el MVP (handoff) | `/pandacorp:spec <idea>` |
+| **Configure the factory (first boot)** | `/pandacorp:onboarding` |
+| Explore/clarify a fuzzy idea in conversation | `/pandacorp:explore [topic]` |
+| Capture/crystallize an idea | `/pandacorp:new-idea` |
+| Search the internet for monetizable pains | `/pandacorp:discover` |
+| Ask for an idea ranking/recommendation | `/pandacorp:recommend` |
+| Create the project and document the MVP (handoff) | `/pandacorp:spec <idea>` |
 
-`/pandacorp:spec <idea>` es el **handoff**: crea la carpeta/repo del proyecto (hermano de la fábrica)
-y documenta el MVP. Las fases siguientes se corren **dentro de la carpeta del proyecto**:
-`/pandacorp:design` → `/pandacorp:blueprint` → `/pandacorp:implement` → `/pandacorp:release`, y
-`/pandacorp:iterate` para cambios en cualquier momento.
+`/pandacorp:spec <idea>` is the **handoff**: it creates the project folder/repo (a sibling of the factory)
+and documents the MVP. The following phases are run **inside the project folder**:
+`/pandacorp:design` → `/pandacorp:blueprint` → `/pandacorp:implement` → `/pandacorp:release`, and
+`/pandacorp:iterate` for changes at any time.
 
-El flujo completo y las reglas están en [CLAUDE.md](CLAUDE.md).
+The full flow and the rules are in [CLAUDE.md](CLAUDE.md).
 
 ## Mission Control
 
-`mission-control/` es la **interfaz visual** de la fábrica: un dashboard web **local y de solo-lectura** que
-muestra el tablero de ideas, el portfolio, el siguiente comando a copiar y Party (los
-agentes del workflow en vivo). **Nunca llama a Claude** — solo lee los archivos del repo. Ver
+`mission-control/` is the factory's **visual interface**: a **local, read-only** web dashboard that
+shows the idea board, the portfolio, the next command to copy, and Party (the
+live workflow agents). It **never calls Claude** — it only reads the repo's files. See
 [mission-control/PLAN.md](mission-control/PLAN.md).
 
-## Estructura del repo
+## Repo structure
 
 ```
 panda-corp/
 ├── factory/
-│   ├── constitution.md            principios innegociables
-│   ├── standards/                ingeniería que se inyecta en cada proyecto
-│   ├── decisions/registry.yaml   reglas recurrentes con default pre-aprobado
-│   ├── ideas/                     base de ideas (tus fichas son personales/gitignored)
-│   ├── profile.example.md          seed de tu perfil  → /onboarding crea profile.md
-│   └── portfolio.example.md       seed del portfolio → /onboarding crea portfolio.md
-├── plugin/                        el plugin pandacorp (skills, agentes, hooks, plantillas)
-├── mission-control/                       la interfaz visual (Next.js, solo-lectura)
-├── docs/                          visión, investigación y propuestas (el porqué del diseño)
-├── DECISION-LOG.md                    índice de bitácoras de decisiones
-└── CLAUDE.md                      constitución operativa de la fábrica
+│   ├── constitution.md            non-negotiable principles
+│   ├── standards/                engineering injected into every project
+│   ├── decisions/registry.yaml   recurring rules with pre-approved defaults
+│   ├── ideas/                     idea base (your cards are personal/gitignored)
+│   ├── profile.example.md          seed for your profile → /onboarding creates profile.md
+│   └── portfolio.example.md       seed for the portfolio → /onboarding creates portfolio.md
+├── plugin/                        the pandacorp plugin (skills, agents, hooks, templates)
+├── mission-control/                       the visual interface (Next.js, read-only)
+├── docs/                          vision, research and proposals (the design rationale)
+├── DECISION-LOG.md                    index of decision logs
+└── CLAUDE.md                      the factory's operating constitution
 ```
 
-## Hacerla tuya / privacidad
+## Making it yours / privacy
 
-Lo que es **tuyo** vive en tu disco pero **no se sube** (ver [.gitignore](.gitignore)):
+What is **yours** lives on your disk but is **not uploaded** (see [.gitignore](.gitignore)):
 
-- `factory/profile.md` — tu perfil (lo genera `/pandacorp:onboarding`).
-- `factory/portfolio.md` — tu índice de proyectos.
-- `factory/ideas/*.md` — tus fichas de ideas (se conserva la plantilla `_idea-template.md`).
-- Los proyectos de producto viven en **carpetas/repos separados**, fuera de esta.
+- `factory/profile.md` — your profile (generated by `/pandacorp:onboarding`).
+- `factory/portfolio.md` — your project index.
+- `factory/ideas/*.md` — your idea cards (the `_idea-template.md` template is kept).
+- Product projects live in **separate folders/repos**, outside this one.
 
-Los seeds `*.example.md` versionados son las plantillas a partir de las cuales el onboarding
-genera tus archivos reales.
+The versioned `*.example.md` seeds are the templates from which onboarding
+generates your real files.
 
-## Filosofía de decisiones
+## Decision philosophy
 
-Tres cosas distintas, no se mezclan: el **doc canónico** (FRD/PRD/blueprint/ficha) es la *verdad
-actual*; la **bitácora** (`DECISION-LOG.md` y las de cada área) es la *historia* (qué cambió y por qué);
-`factory/decisions/registry.yaml` es la *política* (reglas recurrentes con default pre-aprobado).
+Three distinct things, never mixed: the **canonical doc** (FRD/PRD/blueprint/idea card) is the *current
+truth*; the **decision log** (`DECISION-LOG.md` and the per-area ones) is the *history* (what changed and why);
+`factory/decisions/registry.yaml` is the *policy* (recurring rules with a pre-approved default).
 
-## Licencia
+## License
 
-Sin licencia por ahora — todos los derechos reservados. Se podrá definir una licencia abierta más
-adelante.
+No license for now — all rights reserved. An open license may be defined
+later.
