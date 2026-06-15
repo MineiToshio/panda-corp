@@ -1,7 +1,7 @@
 {
   "name": "pandacorp",
-  "version": "4.0.0",
-  "description": "100% AI software factory: idea discovery, PRD/FRDs, UX/UI design, blueprint, work orders, implementation and release.",
+  "version": "5.0.0",
+  "description": "100% AI software factory: idea discovery, PRD/FRDs, UX/UI design, blueprint, work orders, implementation, release and post-launch review.",
   "author": { "name": "Pandacorp" },
   "license": "proprietary",
   "keywords": ["factory", "discovery", "spec", "design", "scaffold"]

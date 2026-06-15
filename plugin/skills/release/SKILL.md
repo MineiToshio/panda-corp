@@ -10,7 +10,7 @@ Version release. Runs IN the project (requires `phase: release` in `docs/status.
 
 1. **Security audit** (`security-auditor` agent): essential web OWASP + **OWASP Top 10 for Agentic Applications** (ASI01–ASI10, DR-017) if the product has agents/LLMs with tools. Critical/high findings block the release — they are fixed (via fast work orders + review) before continuing.
 2. **Landing copy + telemetry** (in parallel with the audit):
-   - `copywriter`: writes the copy for the MVP's landing (headline, value proposition, benefits, CTA, FAQ) with readable `title`/meta description oriented to search intent (collaborates with `factory/standards/seo-i18n.md`). No claim without backing.
+   - `copywriter`: writes the copy for the MVP's landing (headline, value proposition, benefits, CTA, FAQ) with readable `title`/meta description oriented to search intent (collaborates with `factory/standards/seo-i18n.md`). No claim without backing. **Distribution/launch plan (DR-042, return-aware):** for monetary/mixed/opportunity, also produce `docs/launch-plan.md` — the primary acquisition channel + 3-5 draft posts/threads for the owner to publish (reusing the communities discovery found), to be sent under the external-comms gate (DR-008). Deployed ≠ launched: an app with no users earns nothing. For personal ideas, skip — the owner is the user.
    - `analytics`: verifies that the events in `docs/analytics/events.md` actually fire in the critical flow (not "they should" — evidence) and leaves the funnel of the value hypothesis documented.
 3. **Pre-release checklist** (everything verified by commands, not by memory):
    - Full suite + e2e green; lint and typecheck clean

@@ -19,7 +19,7 @@ Read `factory/profile.md`: interests, goals, **assets/levers** (audience, commun
    - **Best bets (general value)** — the most promising by return/ease, regardless of topic.
    - **Aligned with you** — the ones that fit your interests or **leverage your assets / open doors for you**, even if their monetary return is smaller; explain *why* they fit.
    For each one: what it is (1 line), project type, why now, score, return type and difficulty, and what v1 would validate. Close with "which ones NOT and why".
-5. Mark `status: recommended` on your choices (top picks from both blocks); the rest stay in `documented`. **The final selection is the owner's** (human gate #1) and is expressed by running `/pandacorp:scaffold <idea>` on whichever they want (that moves it to `in-pipeline`). The ones they don't want, they discard from Mission Control (→ `discarded`). The Mission Control board is read-only: it reflects these statuses, it is not moved by hand.
+5. Mark `status: recommended` on your choices (top picks from both blocks); the rest stay in `discovered`. **The final selection is the owner's** (human gate #1) and is expressed by running `/pandacorp:scaffold <idea>` on whichever they want (that moves it to `in-pipeline`). The ones they don't want, they discard from Mission Control (→ `discarded`). The Mission Control board is read-only: it reflects these statuses, it is not moved by hand.
 
 ## Rules
 - At most ~5 recommended in total; choosing is what's hard, not listing.

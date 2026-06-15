@@ -4,7 +4,7 @@ description: Starts and runs the build of a Pandacorp project with a dynamic wor
 
 # /pandacorp:implement
 
-**This is the command that starts (and resumes) the build.** It launches a **dynamic workflow** (a native Claude Code JS script that runs in the background) that orchestrates the factory's subagents, distributes the work orders and advances until done; you follow it live in Mission Control and in `/workflows`. It runs IN the project. On start, it sets `docs/status.yaml → phase: implementation`, `running: true` (the idea moves to "building"); when it stops/finishes, `running: false`.
+**This is the command that starts (and resumes) the build.** It launches a **dynamic workflow** (a native Claude Code JS script that runs in the background) that orchestrates the factory's subagents, distributes the work orders and advances until done; you follow it live in Mission Control and in `/workflows`. It runs IN the project. On start, it sets `docs/status.yaml → phase: implementation`, `running: true` (the board shows the idea under "building", derived from the project phase — the card status stays `in-pipeline`); when it stops/finishes, `running: false`.
 
 `$ARGUMENTS` optional: a **mode** (`pro` | `powerful` | `deep`) and/or specific work orders. Without arguments: balanced mode, builds from the first pending work order.
 

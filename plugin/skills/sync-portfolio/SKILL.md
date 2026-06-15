@@ -20,7 +20,7 @@ Factory ↔ projects synchronization. Runs IN panda-corp.
 
 ## Part 2 — Refresh the portfolio (projects → factory)
 
-3. For each row of `factory/portfolio.md`: read the project's `docs/status.yaml` following its path and update phase/summary/sync date.
+3. For each row of `factory/portfolio.md`: read the project's `docs/status.yaml` following its path and update phase/summary/sync date. Do NOT compute business metrics here — the **Users/Return/Verdict** columns are written by `/pandacorp:review-launch` (DR-043); `sync` only refreshes phase/summary/sync date and leaves the business columns intact.
 4. **Broken path** (folder moved or deleted): do NOT delete the row — mark it `⚠️ path not found` and ask the owner.
 5. Consistency: if a project is `shipped` but its idea card is not, fix the card (and vice versa, report the discrepancy).
 

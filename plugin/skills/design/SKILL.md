@@ -9,7 +9,7 @@ Design phase. Runs IN the project (requires `docs/prd.md` and `docs/frds/` — i
 ## Steps
 
 1. **Visual research** (`designer` agent): references from 3-5 well-designed apps in the domain → `docs/design/references.md`.
-2. **Design system**: the `designer` defines `docs/design/design-tokens.json` (palette, typography, spacing, radii — shadcn/ui base; tweakcn.com as a format reference) and `DESIGN.md` at the root (tokens + allowed components + prohibitions).
+2. **Design system (bespoke per domain)**: the `designer` defines `docs/design/design-tokens.json` (palette, typography, spacing, radii) and `DESIGN.md` at the root (tokens + allowed components + prohibitions). shadcn/ui is the **accessible component base, not the look**: the palette/typography/mood are tailored to THIS app's domain and audience (tweakcn.com only as a token-format reference). Each app has its own identity; never reuse Mission Control's RPG style (that's the factory's internal tool, not a product template).
 3. **Voice and microcopy** (`copywriter` agent, in parallel with the design system): defines `docs/design/voice-and-tone.md` and writes the real microcopy for the key screens of the FRDs (labels, buttons, empty/loading/error states, onboarding) with i18n keys. The `designer` consumes these texts in the mockups instead of inventing them — so the text stops being improvised filler and keeps a consistent voice.
 4. **3 design directions in parallel** (3 `designer` agents, one per direction, genuinely distinct): `docs/design/mockups/direction-{1,2,3}.html` — self-contained, navigable, mobile-first, covering the key screens of the FRDs with the `copywriter`'s real microcopy (never lorem ipsum).
 5. **Automatic verification before the gate**: screenshots at 375px/1280px (Playwright) → `docs/design/mockups/screenshots/`; accessibility (axe-core) → `a11y-report.md`. Serious violations are fixed BEFORE presenting.
@@ -20,3 +20,5 @@ Design phase. Runs IN the project (requires `docs/prd.md` and `docs/frds/` — i
 ## Rules
 - The later implementation can ONLY use the frozen tokens — this contract is the mechanism that compensates for the owner's weakness in design.
 - Empty, loading and error states are designed here, not improvised while coding.
+- **Bespoke per domain, never a house style.** Each app's look & feel is designed from scratch for its sector and audience; shadcn/ui is only the accessible component base. Mission Control's RPG/"guild" style is the factory's internal tool and is never applied to product apps.
+- **Feasibility before freezing (order fix).** The `designer` emits `docs/design/technical-assumptions.md` (costly/risky interactions the design assumes) for the `architect` to read in `/pandacorp:blueprint`; a high-risk assumption triggers a feasibility spike before the design contract is frozen, so the owner never approves a design the architecture can't support cheaply.
