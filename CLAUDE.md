@@ -96,3 +96,7 @@ El doc canónico responde *"¿qué es verdad ahora?"*; la bitácora, *"¿cómo l
 4. Los agentes nunca marcan sus propios checks: la verificación es de scripts/CI.
 5. El estado de cada idea vive SOLO en el frontmatter de su ficha. El estado detallado de cada proyecto vive SOLO en su `docs/estado.yaml`. El portfolio solo guarda punteros y resúmenes.
 6. Documentar todo: cada decisión relevante se anota en la bitácora del área (ver sección **Bitácora**) antes de cerrar el turno. La bitácora es historia; `registro.yaml` es política.
+7. **Marco vs datos del dueño (DR-033).** Distingue siempre tres planos y NUNCA mezcles datos personales con el marco versionado:
+   - **El marco** — versionado y compartido, igual para cualquiera que clone el repo: `plugin/`, `fabrica/constitucion.md`, `fabrica/estandares/`, `fabrica/decisiones/registro.yaml`, la app **Mission Control**, plantillas y los seeds `*.example.md`.
+   - **Los datos del dueño** — personales y **gitignored**, NUNCA al repo público: `fabrica/perfil.md` (el perfil que genera `/pandacorp:onboarding`; de ahí la fábrica saca nombre, objetivos, intereses, activos, cuenta de GitHub y ruta de proyectos — es la **única fuente** de configuración del usuario), `fabrica/portfolio.md` y `fabrica/ideas/*.md`. Secretos/credenciales tampoco van al repo (DR-037).
+   - **Los proyectos de producto** — en carpetas/repos **hermanos**, fuera de la fábrica, con su propia documentación en su `docs/`.
