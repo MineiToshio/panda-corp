@@ -1,22 +1,20 @@
 filters:
   and:
-    - 'status != null'
-    - 'file.inFolder("factory/ideas")'
-    - 'file.name != "_idea-template"'
-
+    - status != null
+    - file.inFolder("factory/ideas")
+    - file.name != "_idea-template"
 properties:
   status:
-    displayName: "Estado"
+    displayName: Estado
   project_type:
-    displayName: "Tipo"
+    displayName: Tipo
   score:
-    displayName: "Score"
+    displayName: Score
   difficulty:
-    displayName: "Dificultad"
-
+    displayName: Dificultad
 views:
   - type: kanban
-    name: "Pipeline de ideas"
+    name: Pipeline de ideas
     groupBy:
       property: status
       direction: ASC
@@ -24,9 +22,8 @@ views:
       - score
       - file.name
     limit: 500
-
   - type: table
-    name: "Todas las ideas"
+    name: Todas las ideas
     order:
       - score
       - status
