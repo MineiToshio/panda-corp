@@ -32,3 +32,14 @@
   guard helper to keep it isolatable.)
 - No write; no Claude call.
 - `.pandacorp/verify.sh` green.
+
+## Status
+
+- [x] **DONE** — 2026-06-16
+
+**Evidence:**
+- `bash .pandacorp/verify.sh` → `✅ all gates green (biome + tsc + vitest)` — 310 tests passed (13 test files), 0 type errors, 0 lint errors.
+- `components/OnboardingGate.test.tsx` — 15 tests, all GREEN (TDD RED→GREEN).
+- Implementation: `components/OnboardingGate.tsx` (Server Component, zero hardcoded colors, CSS custom properties, Spanish copy, data-testid on all significant elements, CopyButton reused).
+- `app/layout.tsx` updated: calls `readProfile()` at load time; if `{ present: false }` → `<OnboardingGate />`; else → children.
+- Commit: 461d04c.
