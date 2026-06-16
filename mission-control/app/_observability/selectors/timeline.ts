@@ -82,10 +82,13 @@ export type TimelineRow = {
 /**
  * Mutable accumulator for aggregating events into a single timeline node.
  *
- * For WO nodes, `hasTerminal`, `anyFail`, `maxTerminalMs`, and `maxTerminalAt`
- * are NOT accumulated from raw events — they are derived from child task
- * statuses after materialization (see `deriveWoRow`). Only `minMs`/`minAt`
- * are populated from raw events for WO nodes (to compute `start`).
+ * For WO nodes:
+ *   - `minMs`/`minAt` are updated for ALL events (both task-level and direct-action),
+ *     so the WO start reflects the earliest event across all children.
+ *   - `hasTerminal`, `anyFail`, `maxTerminalMs`, `maxTerminalAt`, and `hasDirectActions`
+ *     are accumulated ONLY from direct-action events (workOrder set, no task field).
+ *     `deriveWoRow` merges these with child task row stats to derive the WO verdict
+ *     (B1 fix, 2026-06-16).
  *
  * For task and action nodes, all fields are populated from raw events.
  */
@@ -106,6 +109,12 @@ type NodeAcc = {
   anyFail: boolean;
   /** Whether any terminal (ok/fail) event has been seen. */
   hasTerminal: boolean;
+  /**
+   * For WO accumulators only: true when at least one direct-action event
+   * (workOrder set, task absent) has been processed. Used by deriveWoRow to
+   * determine whether to merge woAcc terminal stats into the WO verdict (B1 fix).
+   */
+  hasDirectActions: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -205,19 +214,25 @@ function materialize(acc: NodeAcc): TimelineRow {
 
 /**
  * Derive a WO-level TimelineRow from:
- *   - `woAcc` — carries `id`, `label`, `minMs`/`minAt` (WO start) from raw events.
+ *   - `woAcc` — carries `id`, `label`, `minMs`/`minAt` (WO start) from raw events,
+ *               AND terminal stats for direct-action children (no task field).
  *   - `childTaskRows` — materialized child task rows used to derive WO status.
  *
- * WO status semantics (propagation from child tasks):
- *   - Any running child task → WO is "running" (end=null, duration=null).
+ * WO status semantics (propagation from ALL children — tasks AND direct actions):
+ *   - Any running child (task or direct-action) → WO is "running".
  *   - No running children, any "fail" child → WO is "fail".
- *   - All children "ok" → WO is "ok".
+ *   - All children closed with "ok" → WO is "ok".
  *
- * WO end is the max terminal timestamp across all child task ends (when all
- * children are closed). If any child is running, WO end is null.
+ * WO end is the max terminal timestamp across BOTH child task ends AND direct-action
+ * terminal events accumulated in woAcc. If any child is running, WO end is null.
  *
  * For WOs with no task children (only direct action children or no events at
  * all after filtering), fall back to accumulator-based computation.
+ *
+ * B1 fix (2026-06-16): the previous implementation ignored woAcc terminal stats
+ * whenever childTaskRows.length > 0. A WO with a closed task + a later running
+ * direct action was incorrectly reported as finished. Fix: merge woAcc direct-action
+ * stats with task stats for the final WO verdict.
  */
 function deriveWoRow(woAcc: NodeAcc, childTaskRows: TimelineRow[]): TimelineRow {
   if (childTaskRows.length === 0) {
@@ -226,12 +241,13 @@ function deriveWoRow(woAcc: NodeAcc, childTaskRows: TimelineRow[]): TimelineRow 
     return materialize(woAcc);
   }
 
-  // Derive WO status from child task statuses.
+  // Derive WO status by merging task child stats with woAcc's direct-action stats.
   let anyRunning = false;
   let anyFail = false;
   let maxEndMs = -Infinity;
   let maxEndAt = "";
 
+  // --- task children ---
   for (const taskRow of childTaskRows) {
     if (taskRow.status === "running") {
       anyRunning = true;
@@ -244,6 +260,26 @@ function deriveWoRow(woAcc: NodeAcc, childTaskRows: TimelineRow[]): TimelineRow 
       if (Number.isFinite(endMs) && endMs > maxEndMs) {
         maxEndMs = endMs;
         maxEndAt = taskRow.end;
+      }
+    }
+  }
+
+  // --- direct-action children (accumulated in woAcc, B1 fix) ---
+  // woAcc.hasDirectActions is true only when at least one direct-action event
+  // (workOrder set, no task) was seen. Without this guard we would incorrectly
+  // interpret a WO that only has task children as having an open direct action.
+  if (woAcc.hasDirectActions) {
+    if (!woAcc.hasTerminal) {
+      // At least one direct-action event has no terminal status → running.
+      anyRunning = true;
+    } else {
+      // woAcc has terminal direct-action events — merge their stats.
+      if (woAcc.anyFail) {
+        anyFail = true;
+      }
+      if (Number.isFinite(woAcc.maxTerminalMs) && woAcc.maxTerminalMs > maxEndMs) {
+        maxEndMs = woAcc.maxTerminalMs;
+        maxEndAt = woAcc.maxTerminalAt;
       }
     }
   }
@@ -308,6 +344,7 @@ function makeAcc(
     maxTerminalAt: "",
     anyFail: false,
     hasTerminal: false,
+    hasDirectActions: false,
   };
 }
 
@@ -375,8 +412,9 @@ export function toTimeline(events: Event[]): TimelineRow[] {
       woAccMap.set(woKey, makeAcc(woId, "wo", woKey, null));
     }
     const woAcc = woAccMap.get(woKey) as NodeAcc;
-    // Always accumulate minMs into WO for the `start` field.
-    // WO status/end/duration are derived from child tasks after materialization.
+    // Always update minMs/minAt so the WO start reflects the earliest event across
+    // ALL children (task and direct-action alike). WO status/end/duration are derived
+    // in deriveWoRow by merging child task rows with woAcc direct-action stats.
     if (atMs < woAcc.minMs) {
       woAcc.minMs = atMs;
       woAcc.minAt = atStr;
@@ -384,7 +422,9 @@ export function toTimeline(events: Event[]): TimelineRow[] {
 
     if (!hasTask) {
       // Event has a workOrder but no task — attach directly as an action child of the WO.
-      // Also accumulate into woAcc for WO-level terminal stats (no task children).
+      // Accumulate into woAcc for WO-level terminal stats (B1 fix: also used when task
+      // children exist, so deriveWoRow can merge direct-action stats with task stats).
+      woAcc.hasDirectActions = true;
       accumulateEvent(woAcc, atMs, atStr, status);
 
       actionCounter++;

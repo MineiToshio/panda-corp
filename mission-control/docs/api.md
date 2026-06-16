@@ -2320,16 +2320,20 @@ are in-progress markers and never close a node.
 | `end` | Latest `Date.parse(at)` among terminal (`ok`/`fail`) events in the subtree; `null` if none |
 | `duration` | `Date.parse(end) - Date.parse(start)` in ms; `null` when end is null; always `>= 0`; never NaN |
 
-### WO status propagation
+### WO status propagation (B1 fix — 2026-06-16)
 
-WO status is derived from materialized child task statuses (not from raw events directly):
+WO status is derived from **all children** — both materialized child task rows **and** direct-action
+children (events with `workOrder` set but no `task`). A WO with a closed task plus a later running
+direct-action is `"running"`, not `"ok"`. (Pre-fix the task-only branch incorrectly reported the WO
+as finished; see regression anchor B1 below.)
 
-| Child task statuses | WO status | WO end |
+| Children state | WO status | WO end |
 |---|---|---|
-| Any task is "running" | `"running"` | `null` |
-| No running tasks, any "fail" | `"fail"` | max terminal timestamp across closed tasks |
-| All tasks "ok" | `"ok"` | max terminal timestamp across all tasks |
-| No task children (direct action children only) | Derived from direct action events | — |
+| Any child (task or direct-action) is "running" | `"running"` | `null` |
+| No running children, any child "fail" (task or direct-action) | `"fail"` | max terminal ts across all closed children |
+| All children "ok" (tasks and direct-actions) | `"ok"` | max terminal ts across all children |
+| No task children, direct-action children only | Derived from direct-action terminal stats | — |
+| No task children, no direct-action children | `"running"` (no terminal events) | `null` |
 
 ### Tolerance rules
 
@@ -2343,6 +2347,9 @@ WO status is derived from materialized child task statuses (not from raw events 
 | No `workOrder`, no `task` | Orphan action row, `parentId=null` |
 | Empty-string `workOrder` or `task` | Treated as absent |
 | Mixed in-progress + closed tasks | WO is "running" (any running child wins) |
+| WO has closed task(s) + open direct-action child | WO is "running" (direct-action open child wins, B1 fix) |
+| WO has task child(ren) + failing direct-action child | WO is "fail" (merged verdict from both) |
+| WO has task child(ren) + all-ok direct-action child(ren) | WO end = max of task ends and direct-action terminal ts |
 
 ### Invariants
 
@@ -2359,6 +2366,8 @@ WO status is derived from materialized child task statuses (not from raw events 
 
 | Anchor | Risk | Guard |
 |---|---|---|
+| **B1 (2026-06-16 — BLOCKING, fixed)** | `deriveWoRow` ignored direct-action terminal stats when `childTaskRows.length > 0`. WO with closed task + later running direct-action reported as "finished". | Added `woAcc.hasDirectActions` flag set for each direct-action event; `deriveWoRow` merges woAcc stats with task stats when `hasDirectActions === true`. Covered by `timeline.acceptance.test.ts` (B1 regression suite) + `timeline.adversarial.test.ts` (chronological invariant). |
+| **M1 (2026-06-16 — minor)** | `Math.max(0, delta)` negative-duration clamp was untested; mutant survived all 95 original tests. | `timeline.acceptance.test.ts` (M1 regression suite) pins `duration >= 0` under out-of-order terminal scenarios. |
 | **B1' (WO-13-001)** | `Date.parse("bad") === NaN` — duration arithmetic yields NaN | `Number.isFinite(atMs)` before accumulation; `Number.isFinite(delta)` before returning duration |
 | **I2 (WO-13-001)** | `toTimeline([])` must return `[]` not throw | Sentinel Infinity/-Infinity in accumulators; empty input → empty output |
 | **I3 (WO-13-001)** | `status === "fail"` must be exact string | `ev.status === "ok" || ev.status === "fail"` only; any other value → non-terminal |
@@ -2367,7 +2376,9 @@ WO status is derived from materialized child task statuses (not from raw events 
 
 ### Test coverage
 
-`app/_observability/selectors/timeline.test.ts` — 95 tests across 12 groups (vitest, pure):
+Three test files (vitest, pure — no I/O, no mocks): **147 tests total**.
+
+**`app/_observability/selectors/timeline.test.ts`** — 95 tests across 12 groups:
 
 | Group | Coverage |
 |---|---|
@@ -2385,3 +2396,31 @@ WO status is derived from materialized child task statuses (not from raw events 
 | WO status propagation | 3 tests: all-ok/"fail"/any-running → correct WO status |
 | Never throws (exhaustive) | 8 edge cases including 200-event stress |
 | Idempotency | 1 test: two calls with same input → deeply equal |
+
+**`app/_observability/selectors/timeline.acceptance.test.ts`** — 37 tests (B1 + M1 regressions from DR-015 review):
+
+| Group | Coverage |
+|---|---|
+| B1 regression: WO closed task + open direct-action → "running" | 6 tests: status/end/duration/start/direct-child/parentIds |
+| B1 regression: WO open task + closed direct-action → "running" | 1 test |
+| B1 regression: WO closed task + failing direct-action → "fail" | 3 tests: status/end/duration |
+| B1 regression: WO only direct-action children (existing path pinned) | 2 tests |
+| M1 regression: duration >= 0 clamp | 3 tests: out-of-order terminal, WO-level, single-event=0 |
+| AC-12-007.1: WO duration covers direct-action timespan | 3 tests: end extended, duration extended, early start |
+| AC-12-003.1: direct-action parentId under WO with task siblings | 2 tests |
+| AC-12-003.1: WO "ok" requires ALL children ok | 2 tests |
+| AC-12-003.1: idempotency under B1 scenario | 1 test |
+| AC-12-003.1: never throws under B1 scenario (parametric) | 3 × 4 = 12 cases |
+| AC-12-003.1: task-row status independent of direct-action siblings | 2 tests |
+
+**`app/_observability/selectors/timeline.adversarial.test.ts`** — 15 tests (DR-015 reviewer edge cases):
+
+| Group | Coverage |
+|---|---|
+| A. Mixed children: closed task + open direct action (B1 scenario) | 2 tests: start/chronological invariant |
+| B. Same task label across two WOs (key isolation) | 2 tests |
+| C. ISO offset: non-UTC compared numerically | 2 tests |
+| D. fail + ok coexist → "fail" propagation | 2 tests |
+| E. Out-of-order arrival | 2 tests |
+| F. Abusive field types (I3/B1' abuse) | 3 tests |
+| G. Direct-action parentId + no dangling links | 2 tests |
