@@ -18,7 +18,119 @@
 > **complete for WO-13-001** (IF-13-tokens, IF-13-agent-colors, IF-13-state-vocab) +
 > **complete for WO-02-002** (CMP-02-copy-button) +
 > **complete for WO-02-001** (IF-02-deriveColumn, `lib/board.ts`) +
-> **complete for WO-02-003** (IF-02-nextStep, `lib/next-step.ts`).
+> **complete for WO-02-003** (IF-02-nextStep, `lib/next-step.ts`) +
+> **complete for WO-02-004** (IF-02-discardIdea, `lib/discard.ts`).
+
+---
+
+## WO-02-004: `discardIdea` — the single write in the codebase
+
+**Module:** `lib/discard.ts`
+**Traces:** CMP-02-discard, IF-02-discardIdea; REQ-02-007; AC-02-007.1
+**Dependencies:** WO-01-000 (fixtures), `lib/config.ts` (shipped), `gray-matter@^4`
+
+### IF-02-discardIdea
+
+```ts
+// lib/discard.ts
+
+export type DiscardResult = { ok: true } | { ok: false; reason: "not-found" | "parse-error" };
+
+/**
+ * Rewrite `status: discarded` in the frontmatter of the idea card identified by `slug`,
+ * preserving the body and ALL other frontmatter fields verbatim.
+ *
+ * This is the ONLY `fs.write` in the entire Mission Control codebase (architecture §1/§7).
+ * It touches exactly one field of one file. Invoked only through the Server Action
+ * `app/board/actions.ts` (human-triggered, REQ-02-007).
+ *
+ * @param slug      - The idea slug (filename without `.md`). Empty string and path-traversal
+ *                    slugs return { ok: false, reason: "not-found" }.
+ * @param ideasDir  - Optional explicit directory path (used by tests). Defaults to
+ *                    `config.IDEAS_DIR` (derived from `PANDACORP_FACTORY_ROOT` at call-time).
+ * @returns { ok: true } on success (including idempotent re-discard of already-discarded card).
+ *          { ok: false, reason: "not-found" } when the file is absent or slug escapes the dir.
+ *          { ok: false, reason: "parse-error" } when the file cannot be parsed; untouched.
+ */
+export function discardIdea(slug: string, ideasDir?: string): DiscardResult;
+```
+
+### Behaviour contract
+
+| Case | Result | File written? |
+|---|---|---|
+| Slug exists, file parseable, status not yet discarded | `{ ok: true }`, status set to `"discarded"` | Yes — exactly the target file |
+| Slug exists, file parseable, status already `"discarded"` | `{ ok: true }` (idempotent) | Yes — same result written again |
+| Slug is empty string `""` | `{ ok: false, reason: "not-found" }` | No |
+| Slug does not match any `.md` file | `{ ok: false, reason: "not-found" }` | No |
+| Slug contains path-traversal (`../../`) | `{ ok: false, reason: "not-found" }` | No — path escape blocked |
+| Path resolves to a directory (not a file) | `{ ok: false, reason: "not-found" }` | No |
+| File exists but frontmatter is malformed (gray-matter throws) | `{ ok: false, reason: "parse-error" }` | No — file left byte-for-byte untouched |
+
+### Field preservation guarantees
+
+After a successful `discardIdea` call, reading the card with `gray-matter` yields:
+
+| Field | Guarantee |
+|---|---|
+| `status` | `"discarded"` |
+| `title` | Identical to pre-call value |
+| `project_type`, `return_type` | Identical to pre-call value |
+| `score` (numeric, including `0`) | Identical — never `NaN`, never dropped |
+| Object-valued fields (e.g. `meta`) | Deep-equal to pre-call value (regression I2) |
+| Array-valued fields (e.g. `tags`) | Deep-equal to pre-call value (regression I3) |
+| Body text (`.content`) | Byte-for-byte identical |
+| Key set (no added/removed keys) | Exactly the same keys as before |
+
+### Security invariants
+
+- **Path confinement:** `path.resolve(ideasDir)` is used to normalize both the ideas dir and the
+  target file path. Any slug that resolves outside `ideasDir` is rejected as `"not-found"` before
+  any filesystem access. This prevents directory-traversal attacks (e.g. `../../etc/passwd`).
+- **No write on error:** If `statSync`, `readFileSync`, or `gray-matter` parsing fails, the function
+  returns immediately without calling `writeFileSync`. The file is never partially written.
+- **Single target:** `writeFileSync` is called at most once per invocation, on the exact
+  `<ideasDir>/<slug>.md` path. No sibling files are touched.
+
+### Gray-matter cache bypass
+
+`gray-matter@4` maintains an internal content cache. When the same raw file content is parsed
+twice in the same process (common in test suites), the second call returns a cached partial result
+instead of throwing on malformed YAML. `discardIdea` passes `{ excerpt: false }` to bypass this
+cache, ensuring every call re-evaluates the content from scratch and malformed files always return
+`"parse-error"` regardless of prior calls.
+
+### Trailing-newline preservation
+
+`gray-matter.stringify` always appends a trailing `\n` to the body in its output. If the original
+body (`parsed.content`) did not end with `\n`, `discardIdea` strips the extra trailing `\n` from
+the serialized output before writing, so that re-parsing the written file produces a `content`
+property byte-for-byte identical to the original.
+
+### Write isolation invariant (architecture §1/§7)
+
+- `discardIdea` is the **sole** `fs.writeFileSync` call in the entire Mission Control codebase.
+- Every other module (`lib/ideas.ts`, `lib/board.ts`, `lib/next-step.ts`, all readers) is
+  read-only. This is enforced by architecture §7 and verified by the write-isolation test group
+  in `lib/discard.test.ts` (mtime snapshot before/after the call).
+
+### Consumption
+
+- **`app/board/actions.ts`** (CMP-02-discard-action, WO-02-009): the Server Action that is the
+  only caller of `discardIdea`. Receives the slug from the `DiscardButton` client component.
+  Never called during render.
+- **`components/DiscardButton.tsx`** (CMP-02-discard-action): client component that triggers the
+  Server Action on user click. Implements optimistic UI (update + revert on failure).
+
+### Test coverage
+
+`lib/discard.test.ts` — 30 tests across 5 groups (vitest, no mocks, temp-dir isolated):
+- Happy path: discovered/recommended/in-pipeline/shipped cards → `{ ok: true }`, all fields preserved
+- Idempotency: already-discarded card → `{ ok: true }`, double-discard → same result
+- Not-found errors: missing slug, empty slug, path-traversal → `{ ok: false, reason: "not-found" }`
+- Parse errors: malformed frontmatter → `{ ok: false, reason: "parse-error" }`, file untouched
+- Write isolation: only the target file mtime changes; sibling files unchanged
+- Edge cases: score `0`, arrays, objects, YAML-like body, empty body, absent score field
 
 ---
 
