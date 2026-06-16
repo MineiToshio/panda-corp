@@ -602,6 +602,106 @@ for blank/empty inputs before the `existsSync` call.
 
 ---
 
+## WO-01-006: `readProjectDocs` — feature-centric docs tree discovery
+
+**Module:** `lib/docs.ts`
+**Traces:** CMP-01-docs, IF-01-readProjectDocs; REQ-01-007; AC-01-007.1
+**Dependencies:** WO-01-000 (fixtures), WO-01-001 (pathExists)
+
+### IF-01-readProjectDocs
+
+```ts
+// lib/docs.ts
+
+export type FrdModule = {
+  /** Directory name under docs/frds/ (e.g. "frd-01-data-reading") — no path separators. */
+  slug: string;
+  hasFdd: boolean;       // fdd.md present in the FRD directory
+  hasBlueprint: boolean; // blueprint.md present in the FRD directory
+  hasMocks: boolean;     // mocks/ subdirectory present
+  hasWorkOrders: boolean; // work-orders/ subdirectory present
+};
+
+export type ProjectDocsIndex = {
+  prd?: string;          // absolute path to docs/product/prd.md (when exists)
+  architecture?: string; // absolute path to docs/product/architecture.md (when exists)
+  frds: FrdModule[];     // one entry per docs/frds/frd-NN-<slug>/ directory; always a genuine Array
+  hasAdr: boolean;       // docs/adr/ directory exists
+  hasAnalytics: boolean; // docs/analytics/ directory exists
+  hasDecisionLog: boolean; // docs/decision-log.md file exists
+  comms: {
+    progress?: string;   // absolute path to .pandacorp/comms/progress.md (when exists)
+    decisions?: string;  // absolute path to .pandacorp/inbox/decisions.md (when exists)
+    bugs: string[];      // absolute paths of .md files in .pandacorp/inbox/bugs/; always an Array
+  };
+};
+
+/**
+ * Discover the feature-centric docs tree for a project.
+ * Discovery only — does NOT read file contents.
+ * @param projectPath - Absolute path to the project root.
+ * @returns ProjectDocsIndex. Never throws.
+ */
+export function readProjectDocs(projectPath: string): ProjectDocsIndex;
+```
+
+### Behaviour
+
+| Layer | Probed path | Result field |
+|---|---|---|
+| Product PRD | `docs/product/prd.md` | `prd` (absolute path or undefined) |
+| Product architecture | `docs/product/architecture.md` | `architecture` (absolute path or undefined) |
+| FRD modules | `docs/frds/frd-NN-*/` (dirs matching `/^frd-\d/`) | `frds` (one FrdModule each) |
+| ADR | `docs/adr/` | `hasAdr: boolean` |
+| Analytics | `docs/analytics/` | `hasAnalytics: boolean` |
+| Decision log | `docs/decision-log.md` | `hasDecisionLog: boolean` |
+| Comms progress | `.pandacorp/comms/progress.md` | `comms.progress` (path or undefined) |
+| Comms decisions | `.pandacorp/inbox/decisions.md` | `comms.decisions` (path or undefined) |
+| Bugs | `.pandacorp/inbox/bugs/*.md` | `comms.bugs` (array of absolute paths) |
+
+### FRD module detection
+
+Each subdirectory of `docs/frds/` whose name matches `/^frd-\d/` is enumerated.
+Non-matching names (`shared/`, `README/`, etc.) are silently ignored.
+An empty FRD directory produces an `FrdModule` with all flags `false` (no vacuous-truth — regression I2).
+
+### Tolerance rules (blueprint §3 fail-soft)
+
+| Condition | Result |
+|---|---|
+| `projectPath` blank / empty | Empty index, no throw |
+| `projectPath` does not exist | Empty index, no throw (REQ-01-010) |
+| `docs/product/` absent | `prd` and `architecture` are `undefined` |
+| `docs/frds/` absent | `frds: []` |
+| FRD dir exists but is empty | FrdModule with all flags `false` (regression I2) |
+| `docs/adr/`, `docs/analytics/` absent | `false` |
+| `docs/decision-log.md` absent | `hasDecisionLog: false` |
+| `.pandacorp/` absent | `comms: { bugs: [] }` |
+| `bugs/` present but no `.md` files | `comms.bugs: []` (regression B1': no NaN arithmetic) |
+| Non-`.md` files in `bugs/` | Filtered out |
+
+### Regression anchors
+
+- **B1' (2026-06-16):** counts derived from `Array.length` only — never from arithmetic that could yield NaN.
+- **I2 (2026-06-16):** empty FRD dirs produce all-false flags (no vacuous-truth).
+- **I3 (2026-06-16):** `frds` and `comms.bugs` are genuine JS Arrays; `slug` is a plain string.
+
+### Invariants (REQ-01-011)
+
+- Read-only: `fs.existsSync` / `fs.readdirSync` / `fs.statSync` only — no writes, no Claude.
+- Never throws: all fs errors caught; absent layers yield empty/false/undefined.
+- Fully serializable: all fields are `string | string[] | boolean | undefined`.
+- Idempotent and synchronous (safe for Next.js Server Components).
+
+### Test coverage
+
+`lib/docs.test.ts` — 65 tests across 9 groups (vitest, no mocks, fixture-based + temp dirs):
+product-layer paths, FRD modules enumeration (happy path + pattern filtering + empty dir),
+global docs booleans, `.pandacorp/` comms layer, fail-soft bare/empty project, non-existent path,
+regression B1'/I2/I3 anchors, shape invariants, idempotency.
+
+---
+
 ## WO-01-007: `readEvents` — event stream reader (capped tail + state diffs)
 
 **Module:** `lib/events.ts`
