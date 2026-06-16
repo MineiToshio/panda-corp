@@ -20,10 +20,10 @@ const ONLY = (args && args.workOrders) || null
 // run per wave, `split` whether it splits into backend/frontend/test or a single
 // implementer runs, and `deepReview` runs the reviewer's 3 lenses in parallel.
 const PROFILES = {
-  pro:      { wave: 1, worker: 'sonnet', judge: 'sonnet', split: false, deepReview: false },
-  balanced: { wave: 3, worker: 'sonnet', judge: 'opus',   split: true,  deepReview: false },
-  powerful: { wave: 5, worker: 'sonnet', judge: 'opus',   split: true,  deepReview: false },
-  deep:     { wave: 5, worker: 'opus',   judge: 'opus',   split: true,  deepReview: true  },
+  pro:      { wave: 2, worker: 'sonnet', judge: 'sonnet', split: false, deepReview: false },
+  balanced: { wave: 4, worker: 'sonnet', judge: 'opus',   split: true,  deepReview: false },
+  powerful: { wave: 8, worker: 'sonnet', judge: 'opus',   split: false, deepReview: false },
+  deep:     { wave: 6, worker: 'opus',   judge: 'opus',   split: true,  deepReview: true  },
 }
 const P = PROFILES[MODE] || PROFILES.balanced
 log(`Mode ${MODE} · wave ≤${P.wave} · workers ${P.worker} · judge ${P.judge}`)
@@ -90,7 +90,7 @@ const baseline = await agent(
     2. Fix the PRODUCTION code so the behaviour the test pins is correct. NEVER delete, skip, weaken or rewrite a test to go green — the tests encode the contract. The only exception: a test that is itself provably wrong (contradicts its FRD's EARS criteria); then fix the test and explain in failure.
     3. Re-run \`.pandacorp/verify.sh\` until it passes end-to-end (biome + tsc + full suite).
     4. Commit (Conventional Commits, scope mission-control) and return { green: true, sha }.
-  If after a genuine effort the baseline cannot be made green, return { green: false, failure } describing exactly what remains, so the owner can intervene. Do not loop forever.`,
+  If after a genuine effort the baseline cannot be made green, NOTIFY THE OWNER (run via Bash, fire-and-forget: osascript -e 'display notification "Baseline roto y no se pudo reparar — necesita tu intervención" with title "Pandacorp build" sound name "Basso"' || true) and return { green: false, failure } describing exactly what remains. Do not loop forever.`,
   { label: 'baseline', phase: 'Baseline', model: P.judge, agentType: 'pandacorp:implementer', schema: VERIFY_SCHEMA },
 )
 if (!baseline || baseline.green !== true) {
@@ -157,7 +157,7 @@ async function review(wo) {
 }
 
 async function verifyWO(wo) {
-  return await agent(`Safe point for work order ${wo.id}: run .pandacorp/verify.sh clean. If it passes (green), commit the work order (Conventional Commits with scope), mark the WO 'done' with evidence in its feature module docs/frds/${wo.frd || '<frd>'}/work-orders/, and write last_green_sha (the commit sha) and safe_to_test: true in .pandacorp/status.yaml. If it does NOT pass, return green=false with the reason and DO NOT commit anything. Never commit mid-work-order.`,
+  return await agent(`Safe point for work order ${wo.id} — FAST SELECTIVE verify (NOT the whole suite, for speed): run \`pnpm biome check .\`, \`pnpm tsc --noEmit\`, and \`pnpm vitest run\` LIMITED to the test files this work order touched (pass their paths/patterns to vitest — the WO's own *.test.ts and the modules it directly changed — not the full suite). If all pass (green), commit the work order (Conventional Commits, scope mission-control), mark the WO 'done' with evidence in docs/frds/${wo.frd || '<frd>'}/work-orders/, and write last_green_sha (the commit sha) + safe_to_test:true in .pandacorp/status.yaml. If it does NOT pass, return green=false with the reason and DO NOT commit anything. Never commit mid-work-order. The FULL suite runs once per wave (not per WO), so keep this step scoped and fast.`,
     { label: `verify:${wo.id}`, phase: 'Verify', model: P.worker, agentType: 'pandacorp:implementer', schema: VERIFY_SCHEMA })
 }
 
@@ -184,7 +184,7 @@ async function runWO(wo) {
     return v
   } catch (e) {
     log(`✗ ${wo.id} BLOCKED (${String((e && e.message) || e).slice(0, 100)}) — freeze-on-red`)
-    await agent(`Freeze-on-red for work order ${wo.id}: do NOT commit anything broken. Leave HEAD at last_green_sha, mark work order ${wo.id} as BLOCKED in .pandacorp/status.yaml with the reason, and emit a notification to the owner (PushNotification / Notification hook). Do not touch other work orders.`,
+    await agent(`Freeze-on-red for work order ${wo.id}: do NOT commit anything broken. Leave HEAD at last_green_sha, mark work order ${wo.id} as BLOCKED in .pandacorp/status.yaml with the reason. Then NOTIFY THE OWNER with a macOS desktop notification (run via Bash, fire-and-forget): osascript -e 'display notification "WO ${wo.id} bloqueado — necesita tu atención" with title "Pandacorp build" sound name "Basso"' || true. Do not touch other work orders.`,
       { label: `freeze:${wo.id}`, phase: 'Verify', model: P.worker, agentType: 'pandacorp:implementer' })
     return { green: false }
   }
@@ -219,15 +219,33 @@ while (pending.size > 0) {
     if (results[i] && results[i].green) { done.add(wave[i].id); built.push(wave[i].id) }
     else blocked.add(wave[i].id)
   }
+
+  // Wave barrier — the FULL suite once per wave (per-WO verify was selective for
+  // speed). Catches cross-WO regressions cheaply: O(waves), not O(WOs). If red,
+  // repair before the next wave; if unrepairable, notify the owner and stop.
+  if (built.length > 0) {
+    const waveGreen = await agent(`Run the FULL gate \`bash .pandacorp/verify.sh\`. If GREEN, return { green: true }. If RED, a work order from this wave regressed something elsewhere in the suite: fix the PRODUCTION code (never weaken or skip tests) until \`.pandacorp/verify.sh\` passes end-to-end, commit (Conventional Commits, scope mission-control), and return { green: true, sha }. If you genuinely cannot, NOTIFY THE OWNER (Bash, fire-and-forget: osascript -e 'display notification "Build detenido: la suite quedó roja y no se pudo reparar" with title "Pandacorp build" sound name "Basso"' || true) and return { green: false, failure }.`,
+      { label: 'wave-verify', phase: 'Verify', model: P.judge, agentType: 'pandacorp:implementer', schema: VERIFY_SCHEMA })
+    if (!waveGreen || waveGreen.green !== true) {
+      log(`Wave full-suite verify red${waveGreen?.failure ? ': ' + waveGreen.failure : ''} — stopping for the owner.`)
+      break
+    }
+  }
 }
 
-// ── Close-out ─────────────────────────────────────────────────────────────────
+// ── Close-out + ALWAYS notify the owner how this run ended ───────────────────
 phase('Verify')
-if (built.length > 0 && blocked.size === 0) {
-  await agent(`All work orders closed green. Run the full suite + e2e of the critical flows and kill the test dev servers with TaskStop. If everything stays green, set .pandacorp/status.yaml phase: release and running: false. Summarize what was built and the evidence.`,
+const allDone = built.length > 0 && blocked.size === 0 && pending.size === 0
+if (allDone) {
+  await agent(`All work orders closed green. Run the full suite + e2e of the critical flows and kill the test dev servers with TaskStop. If everything stays green, set .pandacorp/status.yaml phase: release and running: false. Summarize what was built. Then NOTIFY THE OWNER (Bash, fire-and-forget): osascript -e 'display notification "Build COMPLETO: todos los work orders en verde" with title "Pandacorp build" sound name "Glass"' || true.`,
     { label: 'close-out', phase: 'Verify', model: P.judge, agentType: 'pandacorp:reviewer' })
-} else if (blocked.size > 0) {
-  log(`Build stopped with ${blocked.size} blocked: ${[...blocked].join(', ')}. Check .pandacorp/inbox/decisions.md / .pandacorp/inbox/bugs/ and re-run implement.`)
+} else {
+  // The run ended without finishing (blocked, circular deps, wave stop or budget).
+  // ALWAYS tell the owner so they never have to wonder if something is still running.
+  const blkList = [...blocked].slice(0, 8).join(', ') || 'ninguno'
+  await agent(`The build run ended WITHOUT finishing. Built this run: ${built.length}. Blocked: ${blocked.size} (${blkList}). Still pending: ${pending.size}. Write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what is blocked and why, what needs the owner's decision). Then NOTIFY THE OWNER with a macOS desktop notification (Bash, fire-and-forget): osascript -e 'display notification "Tramo terminado: ${built.length} hechos · ${blocked.size} bloqueados · ${pending.size} pendientes — revisá" with title "Pandacorp build" sound name "Basso"' || true.`,
+    { label: 'notify-end', phase: 'Verify', model: P.worker, agentType: 'pandacorp:implementer' })
+  log(`Run ended: ${built.length} built, ${blocked.size} blocked, ${pending.size} pending.`)
 }
 
 return { mode: MODE, total: plan.workOrders.length, built, blocked: [...blocked] }
