@@ -243,7 +243,7 @@ describe("frd-02 AC-02-003/004: edge cases on the value prop", () => {
 
   it("frd-02: very long value — copies the full string to the clipboard", async () => {
     const { writeText } = mockClipboard();
-    const longCmd = "/pandacorp:spec " + "a".repeat(512);
+    const longCmd = `/pandacorp:spec ${"a".repeat(512)}`;
     render(<CopyButton value={longCmd} />);
     fireEvent.click(screen.getByTestId("copy-button"));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(longCmd));

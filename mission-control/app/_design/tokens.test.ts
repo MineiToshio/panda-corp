@@ -97,7 +97,7 @@ describe("frd-13 AC-13-001.1: validateTokenSchema — oklch keys", () => {
   it("frd-13: WHEN oklch.base is missing THEN validation fails with an actionable message", () => {
     const bad = structuredClone(VALID_TOKENS);
     // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-    delete (bad.oklch as Record<string, unknown>)["base"];
+    delete (bad.oklch as Record<string, unknown>).base;
     const result = validateTokenSchema(bad);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => /oklch\.base/.test(e))).toBe(true);
@@ -105,7 +105,7 @@ describe("frd-13 AC-13-001.1: validateTokenSchema — oklch keys", () => {
 
   it("frd-13: WHEN oklch.accent is missing THEN validation fails with an actionable message", () => {
     const bad = structuredClone(VALID_TOKENS);
-    delete (bad.oklch as Record<string, unknown>)["accent"];
+    delete (bad.oklch as Record<string, unknown>).accent;
     const result = validateTokenSchema(bad);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => /oklch\.accent/.test(e))).toBe(true);
@@ -113,7 +113,7 @@ describe("frd-13 AC-13-001.1: validateTokenSchema — oklch keys", () => {
 
   it("frd-13: WHEN oklch.contrast is missing THEN validation fails with an actionable message", () => {
     const bad = structuredClone(VALID_TOKENS);
-    delete (bad.oklch as Record<string, unknown>)["contrast"];
+    delete (bad.oklch as Record<string, unknown>).contrast;
     const result = validateTokenSchema(bad);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => /oklch\.contrast/.test(e))).toBe(true);
@@ -121,7 +121,7 @@ describe("frd-13 AC-13-001.1: validateTokenSchema — oklch keys", () => {
 
   it("frd-13: WHEN themes.light is missing THEN validation fails mentioning the missing theme", () => {
     const bad = structuredClone(VALID_TOKENS);
-    delete (bad.themes as Record<string, unknown>)["light"];
+    delete (bad.themes as Record<string, unknown>).light;
     const result = validateTokenSchema(bad);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => /themes\.light/.test(e))).toBe(true);
@@ -129,7 +129,7 @@ describe("frd-13 AC-13-001.1: validateTokenSchema — oklch keys", () => {
 
   it("frd-13: WHEN themes.dark is missing THEN validation fails mentioning the missing theme", () => {
     const bad = structuredClone(VALID_TOKENS);
-    delete (bad.themes as Record<string, unknown>)["dark"];
+    delete (bad.themes as Record<string, unknown>).dark;
     const result = validateTokenSchema(bad);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => /themes\.dark/.test(e))).toBe(true);
@@ -137,7 +137,7 @@ describe("frd-13 AC-13-001.1: validateTokenSchema — oklch keys", () => {
 
   it("frd-13: WHEN themes.highContrast is missing THEN validation fails — high-contrast mode must not require a redesign", () => {
     const bad = structuredClone(VALID_TOKENS);
-    delete (bad.themes as Record<string, unknown>)["highContrast"];
+    delete (bad.themes as Record<string, unknown>).highContrast;
     const result = validateTokenSchema(bad);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => /themes\.highContrast/.test(e))).toBe(true);
@@ -170,7 +170,7 @@ describe("frd-13 AC-13-004.1: validateTokenSchema — elevation and spacing scal
 
   it("frd-13: WHEN radius token is absent THEN validation fails", () => {
     const bad = structuredClone(VALID_TOKENS);
-    delete (bad as Record<string, unknown>)["radius"];
+    delete (bad as Record<string, unknown>).radius;
     const result = validateTokenSchema(bad);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => /radius/.test(e))).toBe(true);
@@ -178,7 +178,7 @@ describe("frd-13 AC-13-004.1: validateTokenSchema — elevation and spacing scal
 
   it("frd-13: WHEN hairline token is absent THEN validation fails", () => {
     const bad = structuredClone(VALID_TOKENS);
-    delete (bad as Record<string, unknown>)["hairline"];
+    delete (bad as Record<string, unknown>).hairline;
     const result = validateTokenSchema(bad);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => /hairline/.test(e))).toBe(true);
@@ -186,7 +186,7 @@ describe("frd-13 AC-13-004.1: validateTokenSchema — elevation and spacing scal
 
   it("frd-13: WHEN spacing token is absent THEN validation fails", () => {
     const bad = structuredClone(VALID_TOKENS);
-    delete (bad as Record<string, unknown>)["spacing"];
+    delete (bad as Record<string, unknown>).spacing;
     const result = validateTokenSchema(bad);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => /spacing/.test(e))).toBe(true);
@@ -261,7 +261,7 @@ describe("frd-13 AC-13-001.1: validateTokenSchema — agent palette completeness
   it("frd-13: WHEN an agent role is missing from tokens.agents THEN validation fails naming the missing role", () => {
     const bad = structuredClone(VALID_TOKENS);
     // Remove one role to trigger failure
-    delete (bad.agents as Record<string, unknown>)["researcher"];
+    delete (bad.agents as Record<string, unknown>).researcher;
     const result = validateTokenSchema(bad);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => /researcher/.test(e))).toBe(true);
@@ -353,25 +353,25 @@ describe("frd-13 AC-13-007.1 / IF-13-state-vocab: STATE_BADGE covers all 6 state
   });
 
   it("frd-13: WHEN state is 'working' THEN STATE_BADGE has a non-empty icon and a Spanish label", () => {
-    const badge = STATE_BADGE["working"];
+    const badge = STATE_BADGE.working;
     expect(badge.icon.length).toBeGreaterThan(0);
     expect(badge.label.length).toBeGreaterThan(0);
   });
 
   it("frd-13: WHEN state is 'idle' THEN STATE_BADGE has a non-empty icon and a Spanish label", () => {
-    const badge = STATE_BADGE["idle"];
+    const badge = STATE_BADGE.idle;
     expect(badge.icon.length).toBeGreaterThan(0);
     expect(badge.label.length).toBeGreaterThan(0);
   });
 
   it("frd-13: WHEN state is 'failed' THEN STATE_BADGE has a non-empty icon and a Spanish label", () => {
-    const badge = STATE_BADGE["failed"];
+    const badge = STATE_BADGE.failed;
     expect(badge.icon.length).toBeGreaterThan(0);
     expect(badge.label.length).toBeGreaterThan(0);
   });
 
   it("frd-13: WHEN state is 'completed' THEN STATE_BADGE has a non-empty icon and a Spanish label", () => {
-    const badge = STATE_BADGE["completed"];
+    const badge = STATE_BADGE.completed;
     expect(badge.icon.length).toBeGreaterThan(0);
     expect(badge.label.length).toBeGreaterThan(0);
   });
@@ -379,14 +379,14 @@ describe("frd-13 AC-13-007.1 / IF-13-state-vocab: STATE_BADGE covers all 6 state
   it("frd-13: WHEN state is 'blocked' THEN STATE_BADGE has a non-empty icon and a Spanish label", () => {
     // Regression: FRD-13 body lists only 4 states; blueprint IF-13-state-vocab adds 'blocked'
     // and 'reviewing'. Both must be in the vocab or FRD-06/Party will have to hard-code them.
-    const badge = STATE_BADGE["blocked"];
+    const badge = STATE_BADGE.blocked;
     expect(badge.icon.length).toBeGreaterThan(0);
     expect(badge.label.length).toBeGreaterThan(0);
   });
 
   it("frd-13: WHEN state is 'reviewing' THEN STATE_BADGE has a non-empty icon and a Spanish label", () => {
     // Regression: same reasoning as 'blocked' above.
-    const badge = STATE_BADGE["reviewing"];
+    const badge = STATE_BADGE.reviewing;
     expect(badge.icon.length).toBeGreaterThan(0);
     expect(badge.label.length).toBeGreaterThan(0);
   });
@@ -463,5 +463,173 @@ describe("frd-13: validateTokenSchema structural invariants", () => {
   it("frd-13: a valid schema always returns an empty errors array (no silent partial failures)", () => {
     const result = validateTokenSchema(VALID_TOKENS);
     expect(result.errors).toHaveLength(0);
+  });
+
+  it("frd-13: WHEN two required keys are missing simultaneously THEN validation accumulates both errors (no short-circuit)", () => {
+    // Mutation target: a validator that returns early on first failure would miss subsequent
+    // errors and make diagnosis harder for the token author.
+    const bad = structuredClone(VALID_TOKENS);
+    delete (bad as Record<string, unknown>).radius;
+    delete (bad as Record<string, unknown>).hairline;
+    const result = validateTokenSchema(bad);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => /radius/.test(e))).toBe(true);
+    expect(result.errors.some((e) => /hairline/.test(e))).toBe(true);
+    expect(result.errors.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Edge-case inputs to validateTokenSchema (non-object, empty, malformed)
+// ---------------------------------------------------------------------------
+
+describe("frd-13: validateTokenSchema — degenerate inputs", () => {
+  it("frd-13: WHEN called with null THEN validation fails with a clear error (not a runtime throw)", () => {
+    const result = validateTokenSchema(null);
+    expect(result.valid).toBe(false);
+    expect(result.errors.length).toBeGreaterThan(0);
+  });
+
+  it("frd-13: WHEN called with an array THEN validation fails (arrays are not valid token objects)", () => {
+    const result = validateTokenSchema([]);
+    expect(result.valid).toBe(false);
+    expect(result.errors.length).toBeGreaterThan(0);
+  });
+
+  it("frd-13: WHEN called with a primitive string THEN validation fails without throwing", () => {
+    const result = validateTokenSchema("not-an-object");
+    expect(result.valid).toBe(false);
+    expect(result.errors.length).toBeGreaterThan(0);
+  });
+
+  it("frd-13: WHEN called with an empty object THEN validation fails listing all missing required keys", () => {
+    // An empty object has no oklch, themes, agents, elevation, radius, spacing, hairline, motion.
+    // The validator must enumerate them all, not just stop at the first.
+    const result = validateTokenSchema({});
+    expect(result.valid).toBe(false);
+    // All 8 required top-level keys must be reported.
+    const requiredKeys = [
+      "oklch",
+      "themes",
+      "agents",
+      "elevation",
+      "radius",
+      "spacing",
+      "hairline",
+      "motion",
+    ];
+    for (const key of requiredKeys) {
+      expect(
+        result.errors.some((e) => new RegExp(key).test(e)),
+        `Expected an error mentioning "${key}" when the whole object is empty`,
+      ).toBe(true);
+    }
+  });
+
+  it("frd-13: WHEN agents is an empty object THEN validation fails listing ALL missing canonical roles", () => {
+    // The single-role removal test (above) only exercises the removal of one role; this exercises
+    // the case where the entire agents map is present but empty — catching a validator that
+    // only checks for key existence, not for completeness of the role set.
+    const bad = structuredClone(VALID_TOKENS);
+    (bad as Record<string, unknown>).agents = {};
+    const result = validateTokenSchema(bad);
+    expect(result.valid).toBe(false);
+    for (const role of AGENT_ROLES) {
+      expect(
+        result.errors.some((e) => new RegExp(role).test(e)),
+        `Expected an error for missing role "${role}"`,
+      ).toBe(true);
+    }
+  });
+
+  it("frd-13: WHEN motion.easing is an empty object THEN validation fails (0 < minimum of 2)", () => {
+    // The "1 easing" test above covers count < 2 from the upper side; zero is a distinct
+    // degenerate case (an agent might accidentally clear the easing map).
+    const bad = structuredClone(VALID_TOKENS);
+    bad.motion.easing = {};
+    const result = validateTokenSchema(bad);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => /easing/.test(e))).toBe(true);
+  });
+
+  it("frd-13: WHEN a motion.duration value is a non-number THEN validation does not silently accept it", () => {
+    // The validator checks `typeof value === 'number' && value >= 300`. A non-number slips
+    // through without a 300ms check. The token JSON schema should reject non-numeric durations.
+    const bad = structuredClone(VALID_TOKENS);
+    (bad.motion.duration as Record<string, unknown>).fast = "150ms"; // string, not number
+    const result = validateTokenSchema(bad);
+    // A non-numeric duration is an invalid shape — the validator must flag it.
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => /duration/.test(e))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// IF-13-agent-colors: AGENT_COLOR token-key naming convention
+// (downstream contract: globals.css maps --color-agent-<role> via @theme)
+// ---------------------------------------------------------------------------
+
+describe("frd-13 IF-13-agent-colors: AGENT_COLOR naming convention", () => {
+  it("frd-13: each AGENT_COLOR value follows the '--color-agent-<role>' CSS custom property convention", () => {
+    // The convention is the downstream contract: globals.css and FRD-06/FRD-12 resolve
+    // `var(--color-agent-<role>)` through Tailwind v4 @theme. A value that breaks this
+    // pattern (e.g. a bare hex, a class name, or an old var name) would silently produce
+    // invisible agents in the UI.
+    const cssVarPattern = /^--[a-z][a-z0-9-]*$/;
+    for (const role of AGENT_ROLES) {
+      const tokenKey = AGENT_COLOR[role];
+      expect(
+        cssVarPattern.test(tokenKey),
+        `AGENT_COLOR["${role}"] value "${tokenKey}" must be a valid CSS custom property name (--color-agent-*)`,
+      ).toBe(true);
+    }
+  });
+
+  it("frd-13: each AGENT_COLOR value contains the role slug as a substring (traceability to the token palette)", () => {
+    // Ensures e.g. AGENT_COLOR['researcher'] → '--color-agent-researcher', not a generic
+    // '--color-primary' that loses the per-agent identity required by FRD-06 sprites/DAG.
+    for (const role of AGENT_ROLES) {
+      const tokenKey = AGENT_COLOR[role];
+      expect(
+        tokenKey.includes(role),
+        `AGENT_COLOR["${role}"] value "${tokenKey}" must contain the role slug "${role}"`,
+      ).toBe(true);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// IF-13-state-vocab: STATE_BADGE icon format
+// (downstream contract: StateBadge resolves icon via lucide-react dynamic import)
+// ---------------------------------------------------------------------------
+
+describe("frd-13 IF-13-state-vocab: STATE_BADGE icon identifier format", () => {
+  it("frd-13: each STATE_BADGE icon is a kebab-case string (valid Lucide icon identifier)", () => {
+    // lucide-react resolves icons by kebab-case name (e.g. 'loader-circle').
+    // An icon containing spaces, uppercase letters, or special chars would fail at render time
+    // with no TypeScript error — only caught here.
+    const kebabPattern = /^[a-z][a-z0-9-]*$/;
+    for (const state of AGENT_STATES) {
+      const { icon } = STATE_BADGE[state];
+      expect(
+        kebabPattern.test(icon),
+        `STATE_BADGE["${state}"].icon "${icon}" must be a kebab-case Lucide identifier`,
+      ).toBe(true);
+    }
+  });
+
+  it("frd-13: each STATE_BADGE label contains only printable characters (no control chars or lone emoji)", () => {
+    // Guards against copy-paste accidents that introduce zero-width spaces or control
+    // characters into the Spanish label, which would silently display wrong in aria-label.
+    // eslint-disable-next-line no-control-regex
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional control-character test
+    const controlCharPattern = /[\x00-\x1F\x7F]/;
+    for (const state of AGENT_STATES) {
+      const { label } = STATE_BADGE[state];
+      expect(
+        controlCharPattern.test(label),
+        `STATE_BADGE["${state}"].label "${label}" must not contain control characters`,
+      ).toBe(false);
+    }
   });
 });

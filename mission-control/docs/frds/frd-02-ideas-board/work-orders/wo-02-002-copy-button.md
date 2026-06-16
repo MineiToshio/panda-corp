@@ -24,7 +24,15 @@ export function CopyButton(props: { value: string; label?: string }): JSX.Elemen
 
 ## Definition of done
 
-- `components/CopyButton.test.tsx` (RED first, jsdom): clicking calls the clipboard with `value`
+- [x] `components/CopyButton.test.tsx` (RED first, jsdom): clicking calls the clipboard with `value`
   and surfaces the confirmation; the testid + aria-label exist. Mock `navigator.clipboard`.
-- No write to disk; no Claude call.
-- `.pandacorp/verify.sh` green.
+- [x] No write to disk; no Claude call.
+- [x] `.pandacorp/verify.sh` green.
+
+## Evidence
+
+`bash .pandacorp/verify.sh` — 2026-06-16:
+- biome: 20 files checked, 0 errors (2 infos — schema version mismatch, info only)
+- tsc --noEmit: 0 errors
+- vitest: 6 test files, 149 tests, all passed
+- Full output: `✅ verify.sh: all gates green (biome + tsc + vitest).`
