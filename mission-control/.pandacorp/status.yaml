@@ -9,7 +9,7 @@ running: false
 repo: ""
 updated_at: "2026-06-16"
 work_orders_total: 114
-work_orders_done: 0
+work_orders_done: 1
 pending_decisions: 0
 pending_bugs: 0
 rethink_pending: false

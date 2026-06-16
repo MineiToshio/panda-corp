@@ -63,3 +63,13 @@ A helper `tests/fixtures/index.ts` exposing absolute paths to each tree (e.g.
 - A `tests/fixtures/index.test.ts` proves AC-01-000.2 and that all fixture root paths exist.
 - `.pandacorp/verify.sh` green (biome + tsc + vitest).
 - No production code touched; fixtures only.
+
+## Status
+
+- [x] **DONE** — 2026-06-16
+
+**Evidence:**
+- `bash .pandacorp/verify.sh` → `✅ all gates green (biome + tsc + vitest)` — 149 tests passed (6 test files), 0 type errors, 0 lint errors.
+- Test command: `pnpm vitest run --reporter=dot` (run inside `mission-control/`)
+- Fixture tree committed at `7d089c7` (feat(mission-control): WO-01-000 test fixtures + PANDACORP_FACTORY_ROOT harness).
+- `tests/fixtures/index.test.ts` verifies AC-01-000.2 (withFactoryRoot env swap) and AC-01-000.1/.3 (all fixture paths exist, all tolerance cases present).
