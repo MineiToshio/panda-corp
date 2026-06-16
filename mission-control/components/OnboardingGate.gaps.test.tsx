@@ -227,7 +227,7 @@ describe("frd-01 AC-01-001.1: OnboardingGate — zero hardcoded color values in 
     // Match standalone hex literals or rgb()/hsl() function calls (not wrapped in color-mix).
     // We deliberately exclude oklch from the regex because the implementation uses
     // color-mix(in oklch, ...) which is composing from currentColor, not a raw literal.
-    return /(?:#[0-9a-fA-F]{3,8}|(?<![a-z\-])rgb\(|hsl\()/.test(style);
+    return /(?:#[0-9a-fA-F]{3,8}|(?<![a-z-])rgb\(|hsl\()/.test(style);
   }
 
   it("frd-01: onboarding-gate root has no hardcoded color in its inline style", () => {
