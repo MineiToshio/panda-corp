@@ -37,6 +37,8 @@ Write `lib/docs.test.ts` first against a **fixture project tree** (point a temp 
 4. Empty/absent `docs/` → `[]`, never throws (AC-04-006.3).
 
 ## Definition of done
-- [ ] `lib/docs.test.ts` written first and green for all cases above.
-- [ ] No `any`, no `@ts-ignore`; pure read-only (no `fs.write*`).
+- [x] `lib/docs.test.ts` written first and green for all cases above.
+  - Evidence: `npx vitest run lib/docs.wo04001.test.ts lib/docs.wo04001.reviewer.test.ts` → 75 passed, 0 failed (2026-06-16).
+- [x] No `any`, no `@ts-ignore`; pure read-only (no `fs.write*`).
 - [ ] `bash .pandacorp/verify.sh` passes (biome + tsc + vitest).
+  - **BLOCKED** (2026-06-16): verify.sh fails globally due to WO-17-001 (lib/memory.adversarial.test.ts: 2/5 FAIL in parseProjects). WO-04-001 own tests are fully green; the blocker is in a different work order's scope. Freeze-on-red applied per SOP. Unblocking condition: resolve WO-17-001 parseProjects failures.
