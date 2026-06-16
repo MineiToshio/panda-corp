@@ -256,6 +256,22 @@ describe("frd-13 AC-13-005.1: validateTokenSchema — motion constraints", () =>
     expect(result.errors.some((e) => /duration|350/.test(e))).toBe(true);
   });
 
+  it("frd-13: WHEN a motion duration is NaN THEN validation fails (NaN bypasses the <300 comparison — B1', DR-015)", () => {
+    const bad = structuredClone(VALID_TOKENS);
+    bad.motion.duration.base = Number.NaN;
+    const result = validateTokenSchema(bad);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => /duration|finite|nan/i.test(e))).toBe(true);
+  });
+
+  it("frd-13: WHEN a motion duration is Infinity THEN validation fails (regression guard so the finite check stays — DR-015)", () => {
+    const bad = structuredClone(VALID_TOKENS);
+    bad.motion.duration.base = Number.POSITIVE_INFINITY;
+    const result = validateTokenSchema(bad);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => /duration|finite|infinity/i.test(e))).toBe(true);
+  });
+
   it("frd-13: WHEN there is only 1 easing token THEN validation fails (minimum is 2)", () => {
     const bad = structuredClone(VALID_TOKENS);
     bad.motion.easing = { standard: "cubic-bezier(0.4, 0, 0.2, 1)" };

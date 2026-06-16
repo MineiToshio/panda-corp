@@ -62,10 +62,10 @@ type PortfolioEntry = {
 // ---------------------------------------------------------------------------
 
 describe("frd-01: readPortfolio — AC-01-004.1 happy path (factory-full)", () => {
-  it("frd-01: WHEN Pandacorp loads THEN readPortfolio returns exactly 3 project entries", async () => {
+  it("frd-01: WHEN Pandacorp loads THEN readPortfolio returns exactly 7 project entries", async () => {
     await withFactoryRoot(FIXTURE_FULL, () => {
       const entries = readPortfolio() as PortfolioEntry[];
-      expect(entries).toHaveLength(3);
+      expect(entries).toHaveLength(7);
     });
   });
 
@@ -509,7 +509,7 @@ describe("frd-01: readPortfolio — explicit portfolioPath argument", () => {
   it("frd-01: WHEN readPortfolio is called with an explicit path THEN it reads from that path, not the default", () => {
     const explicitPath = path.join(FIXTURE_FULL, "factory", "portfolio.md");
     const result = readPortfolio(explicitPath) as PortfolioEntry[];
-    expect(result).toHaveLength(3);
+    expect(result).toHaveLength(7);
   });
 
   it("frd-01: WHEN readPortfolio is called with an explicit path THEN the entry names match the fixture", () => {
@@ -529,10 +529,10 @@ describe("frd-01: readPortfolio — explicit portfolioPath argument", () => {
 // ---------------------------------------------------------------------------
 
 describe("frd-01: readPortfolio — env-based default path (config.PORTFOLIO)", () => {
-  it("frd-01: WHEN PANDACORP_FACTORY_ROOT points to FIXTURE_FULL THEN readPortfolio() (no arg) returns 3 entries", async () => {
+  it("frd-01: WHEN PANDACORP_FACTORY_ROOT points to FIXTURE_FULL THEN readPortfolio() (no arg) returns 7 entries", async () => {
     await withFactoryRoot(FIXTURE_FULL, () => {
       const result = readPortfolio() as PortfolioEntry[];
-      expect(result).toHaveLength(3);
+      expect(result).toHaveLength(7);
     });
   });
 
