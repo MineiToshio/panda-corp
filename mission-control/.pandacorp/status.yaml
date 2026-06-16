@@ -9,12 +9,12 @@ running: false
 repo: ""
 updated_at: "2026-06-16"
 work_orders_total: 114
-work_orders_done: 6
+work_orders_done: 10
 pending_decisions: 0
 pending_bugs: 1
 rethink_pending: false
 advance_pending: false
-last_green_sha: "3972c24"
+last_green_sha: "pending"
 safe_to_test: true
 blocked_work_orders:
   - id: WO-13-001
