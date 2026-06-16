@@ -20,7 +20,126 @@
 > **complete for WO-02-001** (IF-02-deriveColumn, `lib/board.ts`) +
 > **complete for WO-02-003** (IF-02-nextStep, `lib/next-step.ts`) +
 > **complete for WO-02-004** (IF-02-discardIdea, `lib/discard.ts`) +
-> **complete for WO-03-001** (IF-03-activeProjects, `lib/portfolio.ts` → `activeProjects()`).
+> **complete for WO-03-001** (IF-03-activeProjects, `lib/portfolio.ts` → `activeProjects()`) +
+> **complete for WO-12-001** (IF-12-topn `topN`, IF-12-freshness `freshness`, `app/_observability/selectors/`) +
+> **complete for WO-11-001** (IF-11-modes `BUILD_MODES`/`DEFAULT_BUILD_MODE`, IF-11-mode-store `getRememberedMode`/`rememberMode`).
+
+---
+
+## WO-11-001: `BUILD_MODES` catalog + per-project mode persistence
+
+**Modules:** `lib/constants.ts` (catalog) + `lib/build-mode-store.ts` (client-local store)
+**Traces:** IF-11-modes, IF-11-mode-store; REQ-11-001, REQ-11-003; AC-11-001.1..003.2
+**Dependencies:** none (static catalog; localStorage only)
+
+### IF-11-modes — `lib/constants.ts`
+
+```ts
+// lib/constants.ts
+
+/** Union of all valid build-mode identifiers. */
+export type BuildMode = "pro" | "balanced" | "powerful" | "deep";
+
+/** Full descriptor for a single build mode. */
+export interface BuildModeInfo {
+  /** Stable identifier; never changes between releases. */
+  id: BuildMode;
+  /** i18n key for the mode label shown in the selector. */
+  label: string;
+  /** i18n key for the mode description (agents, models, recommended plan). */
+  description: string;
+  /**
+   * The exact command the owner copies into Claude.
+   * Balanced: "/pandacorp:implement" (no argument).
+   * Others:   "/pandacorp:implement <id>".
+   */
+  command: string;
+}
+
+/**
+ * Ordered catalog of build modes (AC-11-001.1 — Pro, Balanced, Powerful, Deep).
+ * Frozen at runtime (Object.freeze). readonly at the TypeScript level.
+ */
+export const BUILD_MODES: readonly BuildModeInfo[];
+
+/** Default mode when no choice has been persisted (AC-11-001.3). Value: "balanced". */
+export const DEFAULT_BUILD_MODE: BuildMode;
+```
+
+### Catalog entries (AC-11-001.1, AC-11-002.1)
+
+| Index | `id` | `label` (i18n key) | `command` |
+|---|---|---|---|
+| 0 | `"pro"` | `"buildModes.pro.label"` | `"/pandacorp:implement pro"` |
+| 1 | `"balanced"` | `"buildModes.balanced.label"` | `"/pandacorp:implement"` (no arg) |
+| 2 | `"powerful"` | `"buildModes.powerful.label"` | `"/pandacorp:implement powerful"` |
+| 3 | `"deep"` | `"buildModes.deep.label"` | `"/pandacorp:implement deep"` |
+
+### IF-11-mode-store — `lib/build-mode-store.ts`
+
+```ts
+// lib/build-mode-store.ts  ("use client")
+
+/**
+ * Retrieve the remembered build mode for a project.
+ * Returns DEFAULT_BUILD_MODE when unset, invalid, or on any localStorage error.
+ * Never throws (FREEZE-ON-RED regression anchor).
+ *
+ * @param slug - The project slug. Empty string → DEFAULT_BUILD_MODE.
+ */
+export function getRememberedMode(slug: string): BuildMode;
+
+/**
+ * Persist the build mode choice for a project.
+ * Writes only to localStorage under key "mc:build-mode:<slug>".
+ * Never touches status.yaml or any file on disk (architecture §7, REQ-01-011).
+ * Silent on localStorage errors (quota, private-browsing, etc.).
+ *
+ * @param slug - The project slug.
+ * @param mode - A valid BuildMode literal.
+ */
+export function rememberMode(slug: string, mode: BuildMode): void;
+```
+
+### localStorage keying scheme
+
+Key format: `mc:build-mode:<slug>`. One key per project slug. Values are plain `BuildMode` strings stored as-is (no JSON serialization).
+
+### Fallback / validation rules (getRememberedMode)
+
+| Stored value | Result |
+|---|---|
+| Key absent (`null`) | `DEFAULT_BUILD_MODE` |
+| Empty string | `DEFAULT_BUILD_MODE` (regression I2) |
+| JSON array (`[…]`) | `DEFAULT_BUILD_MODE` (regression I3) |
+| JSON object (`{…}`) | `DEFAULT_BUILD_MODE` (regression I3) |
+| Valid `BuildMode` string | The stored mode |
+| Any other string | `DEFAULT_BUILD_MODE` (regression B1') |
+| localStorage throws | `DEFAULT_BUILD_MODE` (FREEZE-ON-RED) |
+
+### Architecture invariants
+
+- **Read-only**: `rememberMode` writes ONLY to `localStorage`. No `fs.writeFileSync`, no `status.yaml` touch (architecture §7, REQ-01-011).
+- **No magic strings**: `BUILD_MODES` in `lib/constants.ts` is the single source of truth for commands and mode ids.
+- **`BUILD_MODES` is frozen**: `Object.freeze()` at runtime; `readonly` at the TypeScript type level. Any `.push()` throws.
+- **Client-only**: `lib/build-mode-store.ts` carries `"use client"` — it is never imported server-side.
+- **Never throws**: both functions are unconditionally throw-safe.
+
+### Consumption (downstream WO)
+
+- **`CMP-11-mode-selector`** (WO-11-002): renders the four-mode selector; calls `getRememberedMode(slug)` for the initial state and `rememberMode(slug, mode)` on selection change.
+- The `command` field from `BUILD_MODES` is passed to `<CopyButton>` (WO-02-002).
+
+### Test coverage
+
+`lib/build-modes.test.ts` — 41 tests across 4 groups (vitest, jsdom — localStorage available):
+
+| Group | Coverage |
+|---|---|
+| BUILD_MODES catalog | 4 entries in order, label/description/command non-empty, command format per AC-11-002.1, frozen/immutable, no duplicate ids or commands |
+| DEFAULT_BUILD_MODE | Is `"balanced"`, exists in BUILD_MODES, is a valid BuildMode literal |
+| getRememberedMode / rememberMode | Default when empty; round-trip all 4 modes; per-slug isolation; overwrite; regression B1'/I2/I3/FREEZE-ON-RED; property tests; edge slugs (empty, 200-char, hyphens) |
+| Type-safety / structural | No `"balanced"` in balanced command; all commands start with `/pandacorp:implement`; all keys present on every entry |
 
 ---
 
