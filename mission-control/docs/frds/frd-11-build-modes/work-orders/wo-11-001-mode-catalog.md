@@ -34,7 +34,10 @@
 4. Corrupt stored value → falls back to default, no throw.
 
 ## Definition of done
-- [ ] Tests written first and green.
-- [ ] Catalog in `lib/constants.ts` (no magic strings); types strict (`BuildMode` union).
-- [ ] No `status.yaml` / factory write; persistence is `localStorage` only.
-- [ ] `bash .pandacorp/verify.sh` passes.
+- [x] Tests written first and green.
+- [x] Catalog in `lib/constants.ts` (no magic strings); types strict (`BuildMode` union).
+- [x] No `status.yaml` / factory write; persistence is `localStorage` only.
+- [x] `bash .pandacorp/verify.sh` passes.
+
+## Evidence
+`bash .pandacorp/verify.sh` — 2026-06-16 — all gates green: biome (9 warnings, 0 errors), tsc --noEmit (exit 0), vitest 1449 passed / 2 expected-fail / 5 skipped (52 files). Implementation committed at `3e5b02d` (feat), deep-freeze fix at `ad43d7e` (fix). Reviewer-approved (cycle 2) in `docs/reviews/wo-11-001-review.md`. Safe-point commit: see `.pandacorp/status.yaml` → `last_green_sha`.
