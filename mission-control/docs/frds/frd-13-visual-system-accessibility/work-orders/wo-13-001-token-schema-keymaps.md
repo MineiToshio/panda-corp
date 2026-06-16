@@ -20,3 +20,18 @@
 ## TDD / Definition of done
 - Tests: a valid tokens fixture passes; a missing theme / a motion duration ≥300ms / <2 or >3 easings / a missing agent / not-3 elevations → validation fails with an actionable message. `AGENT_COLOR` covers all ~10 roles; `STATE_BADGE` covers all 6 states with non-empty icon+label.
 - Pure. Gate green.
+
+## Status — BLOCKED (2026-06-16)
+
+**[ ] BLOCKED — freeze-on-red (2nd reviewer rejection)**
+
+Evidence: `vitest run app/_design/tokens.test.ts` — 4 adversarial tests FAIL, 57 pass.
+
+Reviewer file: `mission-control/docs/reviews/wo-13-001-review.md`
+
+Fixes required before this work order can be re-submitted:
+- **B1'** (blocking): add `Number.isFinite` guard in `motion.duration` loop — `typeof value !== "number" || !Number.isFinite(value)` → push error instead of falling through to the `>= 300` comparison. NaN currently bypasses the gate.
+- **I2**: require `motion.duration` to be a non-array plain object with at least one entry — empty `{}` and array `[]` both validate as vacuously valid today.
+- **I3**: add `typeof easingRaw === "object" && !Array.isArray(easingRaw)` guard before the count check — array of 2 currently passes the 2–3 rule.
+
+HEAD frozen at `last_green_sha=0c980d7`. No new commits until all 5 adversarial tests (and full suite) are green.

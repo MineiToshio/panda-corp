@@ -11,8 +11,14 @@ updated_at: "2026-06-16"
 work_orders_total: 114
 work_orders_done: 1
 pending_decisions: 0
-pending_bugs: 0
+pending_bugs: 1
 rethink_pending: false
 advance_pending: false
 last_green_sha: "0c980d7"
-safe_to_test: true
+safe_to_test: false
+blocked_work_orders:
+  - id: WO-13-001
+    status: BLOCKED
+    reason: "Reviewer (2nd rejection) found 4 adversarial tests failing: B1' NaN duration fail-open, I2 empty/array duration map fail-open, I3 array easing fail-open. HEAD frozen at last_green_sha=0c980d7. Fixes required: Number.isFinite guard on duration, non-array non-empty check on motion.duration, typeof+!isArray guard on motion.easing."
+    review_file: "mission-control/docs/reviews/wo-13-001-review.md"
+    blocked_at: "2026-06-16"
