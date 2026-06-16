@@ -253,29 +253,47 @@ export function validateTokenSchema(tokens: unknown): TokenValidationResult {
   } else {
     const motion = motionRaw as Record<string, unknown>;
 
-    // duration: all values must be < 300
+    // duration: must be a non-empty plain object; all values must be finite numbers < 300
     const durationRaw = pick(motion, "duration");
     if (durationRaw === undefined || durationRaw === null) {
       errors.push("motion.duration: required key is missing");
+    } else if (typeof durationRaw !== "object" || Array.isArray(durationRaw)) {
+      // Arrays have integer keys but are not valid token maps (adversarial guard B1).
+      errors.push("motion.duration: must be a plain object (token map), not an array or primitive");
     } else {
       const duration = durationRaw as Record<string, unknown>;
-      for (const [key, value] of Object.entries(duration)) {
-        if (typeof value !== "number") {
-          errors.push(
-            `motion.duration.${key}: must be a number (ms), got ${typeof value} — non-numeric durations are invalid`,
-          );
-        } else if (value >= 300) {
-          errors.push(
-            `motion.duration.${key}: duration ${value}ms violates the <300ms constraint (AC-13-005.1)`,
-          );
+      const durationEntries = Object.entries(duration);
+      if (durationEntries.length === 0) {
+        // An empty map vacuously satisfies "all <300ms" — require at least one token.
+        errors.push(
+          "motion.duration: must declare at least one duration token (empty map is invalid, AC-13-005.1)",
+        );
+      } else {
+        for (const [key, value] of durationEntries) {
+          if (!Number.isFinite(value)) {
+            // NaN and ±Infinity bypass `>= 300` — require a finite number (adversarial B1').
+            errors.push(
+              `motion.duration.${key}: must be a finite number (ms), got ${String(value)} — NaN/Infinity are invalid`,
+            );
+          } else if ((value as number) >= 300) {
+            errors.push(
+              `motion.duration.${key}: duration ${String(value)}ms violates the <300ms constraint (AC-13-005.1)`,
+            );
+          }
         }
       }
     }
 
-    // easing: 2–3 entries
+    // easing: must be a non-empty plain object with 2–3 entries (not an array)
     const easingRaw = pick(motion, "easing");
     if (easingRaw === undefined || easingRaw === null) {
       errors.push("motion.easing: required key is missing");
+    } else if (typeof easingRaw !== "object" || Array.isArray(easingRaw)) {
+      // Arrays have integer keys — Object.keys(["a","b"]).length === 2 would pass the count
+      // check falsely; easing tokens are referenced by name, not position (adversarial guard).
+      errors.push(
+        "motion.easing: must be a plain object (named token map), not an array or primitive",
+      );
     } else {
       const easingCount = Object.keys(easingRaw as object).length;
       if (easingCount < 2 || easingCount > 3) {

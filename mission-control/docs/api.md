@@ -8,6 +8,8 @@
 >
 > Status: **complete for WO-01-000** (test fixtures + harness) +
 > **complete for WO-01-001** (IF-01-pathExists, `lib/fs-utils.ts`) +
+> **complete for WO-01-002** (IF-01-readProfile, `lib/profile.ts`) +
+> **complete for WO-01-003** (IF-01-readIdeas, `lib/ideas.ts`) +
 > **complete for WO-13-001** (IF-13-tokens, IF-13-agent-colors, IF-13-state-vocab) +
 > **complete for WO-02-002** (CMP-02-copy-button).
 
@@ -234,6 +236,83 @@ export function readProjectDocs(projectPath: string): ProjectDocsIndex;
 export function pathExists(p: string): boolean;
 // Never throws; unreachable path returns false.
 ```
+
+---
+
+## WO-01-003: `readIdeas` — idea cards reader
+
+**Module:** `lib/ideas.ts`
+**Traces:** IF-01-readIdeas; REQ-01-003; AC-01-003.1
+**Dependencies:** WO-01-000 (fixtures), WO-01-001 (pathExists pattern), `gray-matter@^4`
+
+### IF-01-readIdeas
+
+```ts
+// lib/ideas.ts
+
+export type IdeaStatus =
+  | "discovered"
+  | "recommended"
+  | "in-pipeline"
+  | "shipped"
+  | "discarded";
+
+export type IdeaCard = {
+  slug: string;           // filename without .md; derived from filesystem name
+  title: string;          // frontmatter `title:` field
+  status: IdeaStatus;     // frontmatter `status:` field; validated against union
+  projectType?: string;   // frontmatter `project_type:` → camelCase mapped
+  returnType?: "monetary" | "opportunity" | "personal" | "mixed";  // `return_type:` → camelCase
+  score?: number;         // frontmatter `score:` — undefined when absent, never 0-coerced
+  project?: string;       // frontmatter `project:` pointer (populated when in-pipeline)
+  body: string;           // markdown body after frontmatter delimiters (gray-matter `.content`)
+};
+
+/**
+ * Read and parse all idea cards from the ideas directory.
+ *
+ * @param ideasDir - Optional path override. Defaults to `IDEAS_DIR` from `lib/config.ts`
+ *   (resolved from `PANDACORP_FACTORY_ROOT` env or one level up from cwd).
+ * @returns Typed array of `IdeaCard`, sorted by slug for idempotency. Never throws.
+ */
+export function readIdeas(ideasDir?: string): IdeaCard[];
+```
+
+**Key behaviour:**
+- Reads every `*.md` file in `ideasDir` (or the default `IDEAS_DIR`).
+- Skips filenames listed in `NON_IDEA_FILES` (`["_idea-template.md", "decision-log.md"]`).
+- Only processes `.md` files — non-`.md` files are ignored.
+- Frontmatter is parsed with `gray-matter`; snake_case keys are mapped to camelCase
+  (`project_type` → `projectType`, `return_type` → `returnType`).
+- `slug` = filename without the `.md` extension.
+- `body` = `gray-matter` `.content` property (the markdown body after the `---` delimiters,
+  **not** the raw YAML frontmatter).
+- Cards are sorted by slug before returning (idempotency — `readdir` order is not guaranteed).
+
+**Tolerance rules (blueprint §3):**
+
+| Condition | Result |
+|---|---|
+| `ideasDir` does not exist | Returns `[]` (no throw) |
+| `ideasDir` is unreadable (`readdirSync` throws) | Returns `[]` (no throw) |
+| File is in `NON_IDEA_FILES` | Silently skipped |
+| File does not end in `.md` | Silently skipped |
+| `gray-matter` throws on malformed frontmatter | Card skipped (no batch abort) |
+| Card frontmatter missing `title` or invalid `status` | Card skipped |
+| `score` absent from frontmatter | `card.score === undefined` (never `0`) |
+| `return_type` not in the valid union | `card.returnType === undefined` |
+| Folder exists but is empty | Returns `[]` |
+
+**Regression anchor (B1, 2026-06-16):** `idea-malformed.md` causes `gray-matter` to throw on
+broken YAML (`"unterminated quoted string"`). The reader catches errors **per card** (not per
+batch) so the remaining valid cards are always returned.
+
+**Invariants:**
+- Read-only: zero writes, no Claude calls (`fs.readFileSync` + `gray-matter` only).
+- Synchronous: safe for Next.js Server Components without `await`.
+- `status` is always validated against the `IdeaStatus` union before inclusion.
+- `returnType` is always validated against its union before inclusion.
+- `score` is always a `number` or `undefined` — never `null`, never `0` for absent values.
 
 ---
 
