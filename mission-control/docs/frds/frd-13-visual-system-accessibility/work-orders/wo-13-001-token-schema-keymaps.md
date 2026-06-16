@@ -21,17 +21,20 @@
 - Tests: a valid tokens fixture passes; a missing theme / a motion duration ≥300ms / <2 or >3 easings / a missing agent / not-3 elevations → validation fails with an actionable message. `AGENT_COLOR` covers all ~10 roles; `STATE_BADGE` covers all 6 states with non-empty icon+label.
 - Pure. Gate green.
 
-## Status — BLOCKED (2026-06-16)
+## Status — DONE (2026-06-16)
 
-**[ ] BLOCKED — freeze-on-red (2nd reviewer rejection)**
+**[x] DONE — all gates green (3rd cycle, fixes applied)**
 
-Evidence: `vitest run app/_design/tokens.test.ts` — 4 adversarial tests FAIL, 57 pass.
+Commit: `fe21195` — fix(mission-control): close WO-13-001 motion fail-open guards (B1'/I2/I3)
 
-Reviewer file: `mission-control/docs/reviews/wo-13-001-review.md`
+Gate results:
+- `vitest run app/_design/tokens.test.ts` — 68 passed (0 failed)
+- `vitest run` (full suite) — 1105 passed
+- `tsc --noEmit` — clean (exit 0)
+- `biome check .` — exit 0
+- `.pandacorp/verify.sh` — green (exit 0)
 
-Fixes required before this work order can be re-submitted:
-- **B1'** (blocking): add `Number.isFinite` guard in `motion.duration` loop — `typeof value !== "number" || !Number.isFinite(value)` → push error instead of falling through to the `>= 300` comparison. NaN currently bypasses the gate.
-- **I2**: require `motion.duration` to be a non-array plain object with at least one entry — empty `{}` and array `[]` both validate as vacuously valid today.
-- **I3**: add `typeof easingRaw === "object" && !Array.isArray(easingRaw)` guard before the count check — array of 2 currently passes the 2–3 rule.
-
-HEAD frozen at `last_green_sha=0c980d7`. No new commits until all 5 adversarial tests (and full suite) are green.
+Fixes applied:
+- **B1'**: `Number.isFinite(value)` guard added in `motion.duration` loop — NaN/±Infinity no longer bypass the <300ms gate.
+- **I2**: `motion.duration` must be a non-array plain object with ≥1 entry — empty `{}` and array `[]` both rejected.
+- **I3**: `typeof easingRaw !== "object" || Array.isArray(easingRaw)` guard added before the 2–3 count check — positional arrays rejected.
