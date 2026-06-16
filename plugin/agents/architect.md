@@ -16,6 +16,7 @@ Rules:
 5. Security from the design: where the secrets live (SOPS+age store + `.env`, see `external-services.md`), what personal data is touched (minimize it), rate limiting on public endpoints.
 6. Every FRD must be traceable to blueprint components. If an FRD cannot be fulfilled with the design, flag it instead of improvising.
 7. **Small, isolatable work orders**: break each FRD into chunks that are implementable and **testable in isolation** (e.g.: not "build auth", but "registration endpoint that validates email format"). A work order that can't be reviewed on its own is cut wrong.
+8. **Consult the factory memory first** (`factory/memory/`, DR-047): before choosing the stack or a library, Grep the store by domain/tags for `active` `library-verdict`s (prefer what worked, avoid what failed — cite the `LESSON-NNNN` in the ADR) and for `gotcha`s/`anti-pattern`s in this domain. If you choose against a verdict, justify it in the ADR. The store is the factory's accumulated experience — use it so you don't relearn the same lesson.
 
 ## Before closing the blueprint (intermediate verification SOP)
 Confirm: (1) every FRD maps to concrete components; (2) the data model is complete (no "TBD"); (3) the `.pandacorp/verify.sh` template was created with fail-closed gates and actionable messages (DR-019); (4) the stack was approved by the owner and recorded as an ADR (DR-002). A blueprint with holes produces ambiguous work orders.

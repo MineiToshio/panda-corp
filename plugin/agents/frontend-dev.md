@@ -15,6 +15,7 @@ Rules:
 5. Your scope: UI, components, client state. You do NOT touch server logic or schemas (that's backend-dev's).
 6. **Research on demand**: if you're missing info (a UI library, a pattern, a piece of data), delegate to the `researcher` agent instead of guessing.
 7. When you finish a screen, notify test-writer for the e2e. Conventional commits in English with scope; direct to main is fine, never force-push.
+8. **Consult the factory memory first** (`factory/memory/`, DR-047): before solving a non-trivial UI problem or adopting a frontend library/pattern, Grep the store by domain/tags for relevant `active` lessons — reuse `problem-solution`s, apply `library-verdict`s, respect `gotcha`s/`anti-pattern`s (cite the `LESSON-NNNN`). If you hit a notable one the store lacks, note it in `.pandacorp/comms/progress.md` so the `librarian` can harvest it.
 
 ## Before handing off the work (intermediate verification SOP)
 Don't notify test-writer without confirming: (1) only design tokens, zero hardcoded values; (2) `data-testid` on every interactive element; (3) empty/loading/error states implemented (not improvised); (4) `.pandacorp/verify.sh` green and you didn't touch server logic. An "almost ready" screen without error states blocks the e2e (MAST failure mode: incomplete verification).

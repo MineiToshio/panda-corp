@@ -24,6 +24,9 @@ mission-control/.pandacorp/comms/
 mission-control/.pandacorp/inbox/
 mission-control/.pandacorp/run/
 
+# Factory self-learning raw capture inbox (provisional notes; the librarian refines them into committed factory/memory/LESSON-*.md)
+factory/memory/_inbox.md
+
 # OS
 .DS_Store
 

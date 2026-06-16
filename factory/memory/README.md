@@ -41,6 +41,7 @@ domain: <area>            # e.g. auth, payments, nextjs, data-modeling, factory-
 tags: [<kw>, <kw>]        # for retrieval
 context: <one line>       # what this lesson is about — used to match it at retrieval time
 source: <project + capture point or doc reference>
+provenance: owner-stated | ci-verified | agent-inferred   # trust source (owner > CI > agent); gates promotion
 created: YYYY-MM-DD
 status: candidate | active | deprecated
 confidence: low | medium | high
@@ -48,6 +49,10 @@ times_applied: 0          # incremented when an agent retrieves+uses it (drives 
 links: [LESSON-XXXX, DR-XXX, standards/<file>.md]
 ---
 ```
+
+## Capture → refine (the hybrid flow)
+
+Lessons are **captured always-on**: in any skill or plain conversation, a one-line candidate is jotted to a raw inbox (`.pandacorp/run/lessons.md` per project, `factory/memory/_inbox.md` in the factory — both gitignored, provisional). The `librarian` then **refines** the inbox (plus project traces) into the clean `LESSON-*.md` here, with **A.U.D.N. dedup** (each candidate resolves to ADD / UPDATE / MERGE / NO-OP, so capturing a lot does NOT bloat the store) and **provenance** (owner-stated > ci-verified > agent-inferred). Refining runs at skill boundaries, on a scheduled sweep, and on demand (`/pandacorp:memory`).
 
 ## Lifecycle (the tiers of DR-047)
 

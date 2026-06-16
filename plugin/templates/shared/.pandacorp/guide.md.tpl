@@ -53,6 +53,7 @@ Auto-invoking covers **entering** the skill only. The skill's internal human-gat
 | Machine state (phase, version, overlay_version) | `.pandacorp/status.yaml` |
 | **Owner-facing narrative** (Spanish, gitignored) | `.pandacorp/comms/` (`summary.md`, `iteration.md`, `progress.md`) |
 | **Owner↔skills inbox** (Spanish, gitignored) | `.pandacorp/inbox/` (`bugs/`, `decisions.md`) |
+| **Self-learning capture** (provisional lesson notes, gitignored) | `.pandacorp/run/lessons.md` |
 
 ## Project rules
 
@@ -65,6 +66,7 @@ Auto-invoking covers **entering** the skill only. The skill's internal human-gat
 5. Forbidden: `any`, `@ts-ignore`, secrets in code, homegrown auth, dependencies that violate the factory's DR-001.
 6. Decisions not covered by the documents: consult the factory registry (`factory/decisions/registry.yaml`); if it's not there, escalate to the owner.
 7. Document everything (two layers): every relevant change updates its **canonical doc** (behavior → the FRD; technical → blueprint + ADR; design → DESIGN/tokens; scope → PRD) **and** adds an entry to `docs/decision-log.md` with the why, linking the doc. See `AGENTS.md`.
+8. **Capture lessons as you work (self-learning).** When you hit something durable and reusable — a fix worth remembering, a library that worked or failed, a gotcha, a recurring pattern — in any skill or in conversation, jot a one-line candidate to `.pandacorp/run/lessons.md` (gitignored scratch; tag `(owner-stated)` if the owner said it, else `(agent-inferred)`). Don't polish it inline. The factory's `librarian` later refines these into reusable lessons that make future projects faster. Capture freely; nothing is promoted without the owner.
 
 ## Current phase
 

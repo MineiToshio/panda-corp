@@ -8,6 +8,8 @@ It teaches the factory something **durable** (the factory learns it): a **standa
 
 `$ARGUMENTS` (or the conversation): what you want the factory to learn, in plain language (e.g.: `/pandacorp:learn "every form must have anti-spam protection"`).
 
+**Two entry points:** (a) the owner teaches something fresh; or (b) you **promote a lesson from `factory/memory/`** that `/pandacorp:memory` + the `librarian` surfaced. `learn` is the **apply / promote stage** of the self-learning loop (DR-047): harvesting and proposing live in `/pandacorp:memory`; here you turn a durable, corroborated lesson into a standard / decision rule / skill — under the eval-gate (it ships with its verifier) **and** the owner gate. Promotion is HIGH-RISK (DR-047): always the owner's call.
+
 ## Steps
 
 1. **Classify** what the owner is asking for: is it a **standard** (a rule for how things are built, injected into projects), a **decision rule** (a pre-approved default so the AI doesn't ask every time), or a **skill** (a new capability/command)? If it's ambiguous, ask.
@@ -35,3 +37,4 @@ It teaches the factory something **durable** (the factory learns it): a **standa
 - **Skill naming is fixed and uniform:** every skill is `plugin/skills/<kebab-slug>/SKILL.md` (slug in English, NO `pandacorp:` prefix) and is invoked as `/pandacorp:<slug>` — the namespace adds the prefix, so never hardcode it in the directory or a `name:` field. A new skill must match all the others (e.g. `review-launch` → `/pandacorp:review-launch`).
 - New `MUST`s that could break in-flight projects (strict CSP, a11y-gate): introduce them first as `SHOULD`/warning and promote them when they mature.
 - PRODUCT decisions (what to build) don't go here — that's `iterate`/`spec`. `learn` is only for the HOW (standards), the governance (decision rules) and the capabilities (skills).
+- **Self-learning loop (DR-047):** promoting a `factory/memory/` lesson into a standard/DR/skill is the loop's apply stage and is HIGH-RISK → always the owner gate + the eval-gate (a new standard ships with its verifier; a new skill passes `skill-creator`'s benchmark). After promoting, **back-link**: add the new standard/DR/skill to the source lesson's `links:` and set the lesson `status: active` (promoted), so the lineage is traceable. Never delete the lesson.

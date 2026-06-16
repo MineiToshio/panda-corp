@@ -21,7 +21,10 @@ Factory ↔ projects synchronization. Runs IN panda-corp.
 ## Part 2 — Refresh the portfolio (projects → factory)
 
 3. For each row of `factory/portfolio.md`: read the project's `.pandacorp/status.yaml` following its path and update phase/summary/sync date. Do NOT compute business metrics here — the **Users/Return/Verdict** columns are written by `/pandacorp:review-launch` (DR-043); `sync` only refreshes phase/summary/sync date and leaves the business columns intact.
-4. **Broken path** (folder moved or deleted): do NOT delete the row — mark it `⚠️ path not found` and ask the owner.
+4. **Broken path** (folder moved or deleted): do NOT delete the row. Mark it `⚠️ path not found` and show the owner the exact recovery step:
+   - If the portfolio row has a `repo:` URL → print: *"Re-clone with `git clone <repo> <path>` and then re-run `/pandacorp:sync-portfolio`."*
+   - If there is **no `repo:`** → warn: *"The folder was deleted and there is no registered remote. Check a local backup or recreate the project with `/pandacorp:spec`."*
+   Do NOT attempt to clone or write anything automatically.
 5. Consistency: if a project is `shipped` but its idea card is not, fix the card (and vice versa, report the discrepancy).
 
 ## Part 3 — Report

@@ -5,6 +5,7 @@ domain: <area>
 tags: [<keyword>, <keyword>]
 context: <one line describing what this lesson is about — used to match it at retrieval time>
 source: <project + capture point, or doc reference>
+provenance: agent-inferred     # owner-stated | ci-verified | agent-inferred (trust source)
 created: YYYY-MM-DD
 status: candidate             # candidate | active | deprecated
 confidence: medium            # low | medium | high
