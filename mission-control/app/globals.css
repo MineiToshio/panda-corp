@@ -1,16 +1,174 @@
 @import "tailwindcss";
 
 /*
- * Mission Control base styles.
- * The full OKLCH token system (FRD-13) lands with the design phase
- * (docs/design/design-tokens.json). This is the minimal foundation only.
+ * WO-13-002 — CMP-13-globals: globals.css wiring
+ *
+ * Wires the frozen design-tokens.json into Tailwind v4 @theme CSS custom
+ * properties. Implements: OKLCH base/accent/contrast, per-agent colors,
+ * three theme modes (light/dark/high-contrast), 3 elevation levels,
+ * spacing/radius/hairline scale, motion tokens, reduced-motion override,
+ * visible focus ring.
+ *
+ * Traces: REQ-13-001, REQ-13-002, REQ-13-004, REQ-13-005, REQ-13-006,
+ *         REQ-13-008; AC-13-001.1, AC-13-002.1, AC-13-004.1, AC-13-005.1,
+ *         AC-13-006.1, AC-13-008.1
+ *
+ * Source-of-truth hierarchy: FRD-13 > design-tokens.json > blueprint > WO.
+ * Values below reflect the FROZEN_TOKENS fixture (docs/design/design-tokens.json).
+ * When the design phase commits the canonical file, these values are updated
+ * to match — the structure is the permanent contract.
  */
 
+/* ---------------------------------------------------------------------------
+ * Tailwind v4 @theme — maps design-tokens to CSS custom properties.
+ * All consumers reference var(--*) — zero hardcoded colours anywhere else.
+ * --------------------------------------------------------------------------- */
+
+@theme {
+  /* --- OKLCH base tokens (REQ-13-001 / AC-13-001.1: perceptual space) --- */
+  --color-base: oklch(0.15 0.02 230);
+  --color-accent: oklch(0.75 0.18 60);
+  --color-contrast: oklch(0.97 0.01 230);
+
+  /* --- Surface / text (default: dark mode, matches base palette) --- */
+  --color-surface: oklch(0.1 0.015 230);
+  --color-text: oklch(0.95 0.01 230);
+
+  /* --- Per-agent colors (IF-13-agent-colors / AC-13-002.1: rationed accent)
+   *    Each role gets one canonical OKLCH colour; consumed by FRD-06 and FRD-12.
+   *    CSS keys must match AGENT_COLOR values in app/_design/tokens.ts. --- */
+  --color-agent-researcher: oklch(0.65 0.18 45);
+  --color-agent-backend-dev: oklch(0.55 0.2 260);
+  --color-agent-frontend-dev: oklch(0.65 0.22 200);
+  --color-agent-test-writer: oklch(0.7 0.2 130);
+  --color-agent-reviewer: oklch(0.65 0.2 300);
+  --color-agent-security-auditor: oklch(0.6 0.18 20);
+  --color-agent-architect: oklch(0.6 0.2 240);
+  --color-agent-product-manager: oklch(0.7 0.18 85);
+  --color-agent-designer: oklch(0.7 0.22 330);
+  --color-agent-guild: oklch(0.75 0.16 60);
+
+  /* --- Elevation / shadow tokens (AC-13-004.1: 3 levels canvas→panel→card) --- */
+  --shadow-0: none;
+  --shadow-1: 0 1px 4px oklch(0 0 0 / 0.15);
+  --shadow-2: 0 4px 16px oklch(0 0 0 / 0.25);
+
+  /* --- Spacing / radius / hairline scale (AC-13-004.1: multiples of 0.25rem) --- */
+  --radius: 0.5rem;
+  --spacing: 1rem;
+  --hairline: 1px;
+
+  /* --- Motion tokens (AC-13-005.1: <300ms, named curves, no per-component) --- */
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --duration-expressive: 280ms;
+  --easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --easing-decelerate: cubic-bezier(0, 0, 0.2, 1);
+
+  /* --- Focus ring token (AC-13-008.1: tokenized, not hardcoded) --- */
+  --focus-ring: 2px solid var(--color-accent);
+
+  /* --- Backdrop / overlay helpers (consumed by IntakeModal / WO-02-006) --- */
+  --color-backdrop: oklch(0 0 0 / 0.6);
+}
+
+/* ---------------------------------------------------------------------------
+ * Base reset — :root
+ * Sets color-scheme so native chrome (scrollbars, inputs) follows the theme.
+ * --------------------------------------------------------------------------- */
+
 :root {
+  /* AC-13-001.1: enables native light/dark affordances */
   color-scheme: light dark;
 }
 
+/* ---------------------------------------------------------------------------
+ * Global typography
+ * AC-13-003.1 (REQ-13-003): EVERY number uses tabular-nums so figures are
+ * fixed-width across frames (XP counters, timestamps, column counts).
+ * --------------------------------------------------------------------------- */
+
 html {
-  /* FRD-13: every number uses tabular figures. */
   font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------------------
+ * Theme mode overrides
+ * Blueprint §2: switching [data-theme] changes resolved surface/text vars.
+ * AC-13-001.1: light / dark / high-contrast without a redesign.
+ * --------------------------------------------------------------------------- */
+
+/* Light theme */
+[data-theme="light"] {
+  color-scheme: light;
+  --color-surface: oklch(0.97 0.005 230);
+  --color-text: oklch(0.12 0.02 230);
+}
+
+/* Dark theme (explicit override — defaults in @theme are already dark) */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --color-surface: oklch(0.1 0.015 230);
+  --color-text: oklch(0.95 0.01 230);
+}
+
+/* System preference — dark */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --color-surface: oklch(0.1 0.015 230);
+    --color-text: oklch(0.95 0.01 230);
+  }
+}
+
+/* System preference — light */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --color-surface: oklch(0.97 0.005 230);
+    --color-text: oklch(0.12 0.02 230);
+  }
+}
+
+/* High-contrast mode (AC-13-001.1: no redesign required — only var overrides) */
+[data-theme="high-contrast"] {
+  color-scheme: light;
+  --color-surface: oklch(0 0 0);
+  --color-text: oklch(1 0 0);
+  --color-accent: oklch(1 0 0);
+  --color-base: oklch(0 0 0);
+  --color-contrast: oklch(1 0 0);
+}
+
+/* ---------------------------------------------------------------------------
+ * Focus ring (AC-13-008.1)
+ * :focus-visible (not :focus) — only for keyboard navigation.
+ * border-radius follows the element's own --radius via CSS outline (modern).
+ * --------------------------------------------------------------------------- */
+
+:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+/* ---------------------------------------------------------------------------
+ * Reduced-motion override (AC-13-006.1)
+ * "The UI SHALL honor prefers-reduced-motion: it disables ALL Party animation."
+ * Blueprint §2: zero animation durations/transitions globally.
+ * Defense-in-depth: also zeroes --duration-* vars so JS RAF consumers
+ * (the Party engine, WO-06-011) read 0ms and skip their loops.
+ * --------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0ms !important;
+    scroll-behavior: auto !important;
+    /* Zero the CSS custom properties so JS consumers (Party RAF, WAAPI) also read 0 */
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
+    --duration-expressive: 0ms;
+  }
 }

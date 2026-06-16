@@ -22,3 +22,19 @@
 
 ## TDD / Definition of done
 - CSS is not unit-tested directly; verification is via the design-phase a11y report (axe-core) + consuming component tests. DoD: the theme vars exist for light/dark/high-contrast; switching the theme attribute changes the resolved vars; the reduced-motion media query is present; biome/tsc clean (no JS). Build succeeds.
+
+## Status — DONE (2026-06-16)
+
+**[x] DONE — all gates green**
+
+Gate results:
+- `vitest run app/globals.css.test.ts` — 52 passed (0 failed)
+- `vitest run` (full suite) — 2600 passed
+- `tsc --noEmit` — clean (exit 0)
+- `biome check .` — exit 0 (added `css.parser.tailwindDirectives: true` + `noImportantStyles: "off"` to `biome.json`)
+- `.pandacorp/verify.sh` — green (exit 0)
+
+Implementation notes:
+- `app/globals.css`: full `@theme` block with 29 CSS custom properties (3 OKLCH + 2 surface/text + 10 agent + 3 elevation + 3 spacing + 3 duration + 2 easing + 1 focus-ring + 1 backdrop); light/dark/high-contrast theme mode selectors; `:focus-visible` with `outline-offset`; `@media (prefers-reduced-motion: reduce)` with `*` wildcard zeroing `animation-duration`, `transition-duration`, and all `--duration-*` CSS vars (defense-in-depth for Party RAF, WO-06-011).
+- `biome.json`: `css.parser.tailwindDirectives: true` to parse `@theme`; `linter.rules.complexity.noImportantStyles: "off"` because `!important` is required in reduced-motion blocks.
+- Contract published in `docs/api.md` (WO-13-002 section).

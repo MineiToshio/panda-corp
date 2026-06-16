@@ -35,7 +35,141 @@
 > **complete for WO-05-001** (IF-05-work-orders `listWorkOrders`/`aggregateProgress`, `lib/work-orders.ts`) +
 > **complete for WO-02-006** (CMP-02-intake-modal, `components/IntakeModal.tsx`) +
 > **complete for WO-13-005** (CMP-13-state-badge `StateBadge`, `components/StateBadge.tsx`) +
-> **complete for WO-02-007** (CMP-02-card-detail `CardDetail`, `components/CardDetail.tsx`).
+> **complete for WO-02-007** (CMP-02-card-detail `CardDetail`, `components/CardDetail.tsx`) +
+> **complete for WO-13-002** (CMP-13-globals `app/globals.css` — theme vars, elevation, motion, reduced-motion, focus ring).
+
+---
+
+## WO-13-002: `app/globals.css` — token wiring (CMP-13-globals, IF-13-theme-vars)
+
+**File:** `app/globals.css`
+**Kind:** CSS (Tailwind v4 `@theme`, global styles)
+**Traces:** CMP-13-globals, IF-13-theme-vars; REQ-13-001, REQ-13-002, REQ-13-004, REQ-13-005, REQ-13-006, REQ-13-008
+**Depends on:** WO-13-001 (`app/_design/tokens.ts` — AGENT_COLOR keys match `--color-agent-<role>` vars here)
+**Consumed by:** Every styled component across FRD-02..06, FRD-10, FRD-12; FRD-06 Party engine (reduced-motion check); FRD-12 DAG node colours
+
+### Purpose
+
+Maps the frozen `docs/design/design-tokens.json` into Tailwind v4 `@theme` CSS custom properties. This is the **single place** where raw token values appear; every other file uses `var(--*)` references. No hardcoded colours, no RGB/HSL/hex in theme blocks.
+
+### Custom property inventory (`@theme`)
+
+| CSS variable | Category | Value |
+|---|---|---|
+| `--color-base` | OKLCH base | `oklch(0.15 0.02 230)` |
+| `--color-accent` | OKLCH accent (single rationed, AC-13-002.1) | `oklch(0.75 0.18 60)` |
+| `--color-contrast` | OKLCH contrast | `oklch(0.97 0.01 230)` |
+| `--color-surface` | Theme surface (overridden per mode) | dark default |
+| `--color-text` | Theme text (overridden per mode) | dark default |
+| `--color-agent-researcher` | Per-agent colour (IF-13-agent-colors) | `oklch(0.65 0.18 45)` |
+| `--color-agent-backend-dev` | Per-agent colour | `oklch(0.55 0.2 260)` |
+| `--color-agent-frontend-dev` | Per-agent colour | `oklch(0.65 0.22 200)` |
+| `--color-agent-test-writer` | Per-agent colour | `oklch(0.7 0.2 130)` |
+| `--color-agent-reviewer` | Per-agent colour | `oklch(0.65 0.2 300)` |
+| `--color-agent-security-auditor` | Per-agent colour | `oklch(0.6 0.18 20)` |
+| `--color-agent-architect` | Per-agent colour | `oklch(0.6 0.2 240)` |
+| `--color-agent-product-manager` | Per-agent colour | `oklch(0.7 0.18 85)` |
+| `--color-agent-designer` | Per-agent colour | `oklch(0.7 0.22 330)` |
+| `--color-agent-guild` | Per-agent colour | `oklch(0.75 0.16 60)` |
+| `--shadow-0` | Elevation level 0 — canvas (AC-13-004.1) | `none` |
+| `--shadow-1` | Elevation level 1 — panel | `0 1px 4px oklch(0 0 0 / 0.15)` |
+| `--shadow-2` | Elevation level 2 — card/popup | `0 4px 16px oklch(0 0 0 / 0.25)` |
+| `--radius` | Base radius (8px = 0.5rem, AC-13-004.1) | `0.5rem` |
+| `--spacing` | Base spacing (16px = 1rem, AC-13-004.1) | `1rem` |
+| `--hairline` | Hairline border (AC-13-004.1) | `1px` |
+| `--duration-fast` | Motion duration fast (AC-13-005.1: <300ms) | `150ms` |
+| `--duration-base` | Motion duration base | `200ms` |
+| `--duration-expressive` | Motion duration expressive | `280ms` |
+| `--easing-standard` | Named easing 1/2 (AC-13-005.1: 2-3 tokens) | `cubic-bezier(0.4, 0, 0.2, 1)` |
+| `--easing-decelerate` | Named easing 2/2 | `cubic-bezier(0, 0, 0.2, 1)` |
+| `--focus-ring` | Tokenised focus ring (AC-13-008.1) | `2px solid var(--color-accent)` |
+| `--color-backdrop` | Overlay backdrop helper | `oklch(0 0 0 / 0.6)` |
+
+### Theme mode switching (AC-13-001.1)
+
+| Selector | Mode | Surface | Text |
+|---|---|---|---|
+| `[data-theme="light"]` | Light | `oklch(0.97 0.005 230)` | `oklch(0.12 0.02 230)` |
+| `[data-theme="dark"]` | Dark | `oklch(0.1 0.015 230)` | `oklch(0.95 0.01 230)` |
+| `@media (prefers-color-scheme: dark)` on `:root:not([data-theme])` | System dark default | same as dark | same as dark |
+| `@media (prefers-color-scheme: light)` on `:root:not([data-theme])` | System light default | same as light | same as light |
+| `[data-theme="high-contrast"]` | High-contrast (no redesign, AC-13-001.1) | `oklch(0 0 0)` | `oklch(1 0 0)` |
+
+Switching `[data-theme]` on the root element changes all resolved `--color-surface` / `--color-text` vars — zero other stylesheets needed.
+
+### Focus ring (AC-13-008.1)
+
+```css
+:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+```
+
+- `:focus-visible` (not `:focus`) — ring only for keyboard navigation, invisible on mouse click.
+- `outline` follows `border-radius` natively in modern browsers; `var(--radius)` is set for explicit scope.
+- Zero hardcoded colour — references `var(--color-accent)` indirectly via `--focus-ring`.
+
+### Reduced-motion (AC-13-006.1)
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0ms !important;
+    scroll-behavior: auto !important;
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
+    --duration-expressive: 0ms;
+  }
+}
+```
+
+- Global `*` wildcard — no component can escape the constraint (no opt-out).
+- `!important` required to override any component-level animation declarations (canonical industry pattern for reduced-motion resets; `noImportantStyles` biome rule disabled for this file).
+- `--duration-*` CSS vars are also zeroed: the Party engine (WO-06-011) reads them via `getComputedStyle` to decide whether to run its RAF loop. Setting the properties alone would not stop a JS animator that reads the var.
+
+### Animation constraints (AC-13-005.1)
+
+- Only `transform` and `opacity` are permitted in component animations — enforced by review, not by CSS.
+- All durations are `<300ms`: fast=150, base=200, expressive=280.
+- Exactly 2 easing tokens: `--easing-standard` (enter/exit), `--easing-decelerate` (settling). No per-component curves.
+
+### Contracts for downstream consumers
+
+| Contract | Rule |
+|---|---|
+| Colour | Always `var(--color-*)` — never hardcoded hex, rgb(), or hsl() in any component file |
+| Agent colour | Always `var(--color-agent-<role>)` — never duplicate the OKLCH value; key from `AGENT_COLOR` in `tokens.ts` |
+| Elevation | Use `--shadow-0`, `--shadow-1`, `--shadow-2` and `--radius` — do not redefine |
+| Motion | Duration via `--duration-*`; easing via `--easing-*`; animate only `transform`/`opacity` |
+| Focus | Do not override `:focus-visible` outline in components unless adding `border-radius` refinement |
+| Reduced-motion | Do not add `prefers-reduced-motion` blocks in components — the global reset covers all |
+
+### Biome config note
+
+`biome.json` has been updated with:
+- `css.parser.tailwindDirectives: true` — enables `@theme`, `@import "tailwindcss"` and other Tailwind v4 CSS directives in the Biome parser.
+- `linter.rules.complexity.noImportantStyles: "off"` — `!important` is required in the `prefers-reduced-motion` block to guarantee the override wins regardless of component specificity.
+
+### Test coverage
+
+`app/globals.css.test.ts` — 52 tests across 9 groups (vitest, Node environment — CSS source parsing, no jsdom layout):
+
+| Group | ACs covered |
+|---|---|
+| Precondition — file exists, non-empty, imports tailwindcss | File present, non-empty, `@import "tailwindcss"` present |
+| AC-13-001.1 — `@theme` block: OKLCH vars | `--color-base`, `--color-accent`, `--color-contrast`; `oklch()` in theme; all 10 agent colour vars |
+| AC-13-001.1 — theme modes | Light selector + surface/text vars; dark selector + override; high-contrast selector; `color-scheme: light dark` on `:root` |
+| AC-13-004.1 — elevation 3 levels + scale | `--shadow-0/1/2`; `--radius: 0.5rem`; `--spacing`; `--hairline: 1px`; 0.25rem multiples present |
+| AC-13-005.1 — motion tokens | `--duration-fast/base/expressive`; all durations `<300ms`; `>=2` easing vars; `2-3` easing vars; `cubic-bezier()` values |
+| AC-13-006.1 — reduced-motion override | `prefers-reduced-motion: reduce` present; `animation-duration: 0ms !important`; `transition-duration: 0ms !important`; `*` wildcard in block; `--duration-*` vars zeroed |
+| AC-13-008.1 — focus ring | `--focus-ring` declared; `:focus-visible` selector; outline references `var(--focus-ring)` or `var(--color-accent)`; `outline-offset`; `border-radius/--radius` present |
+| REQ-13-003 — tabular-nums | `html { font-variant-numeric: tabular-nums }` present and in html block |
+| Structural invariants | Balanced braces; no hex colours; no `rgb()`/`hsl()` in `@theme`; no NaN/Infinity in duration vars; no array-valued tokens; `>=15` CSS custom properties in `@theme` |
+| Round-trip completeness | Every `FROZEN_TOKENS.agents` role in `@theme`; every `motion.duration` key has a CSS var; every `motion.easing` key has a CSS var; exactly 3 elevation CSS vars |
 
 ---
 
