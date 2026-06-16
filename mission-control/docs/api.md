@@ -189,3 +189,75 @@ const STATE_BADGE: Record<AgentState, { icon: string; label: string }>
 `docs/design/design-tokens.json` does not yet exist (blueprint §7 open dependency).
 `validateTokenSchema` can be called today against any JSON that matches the `TokenSchema` shape.
 Once the design phase freezes the token values, WO-13-002 will wire them into `globals.css`.
+
+---
+
+## WO-02-002: CopyButton — shared clipboard affordance
+
+**Module:** `components/CopyButton.tsx`
+**Traces:** CMP-02-copy-button; REQ-02-003, REQ-02-004; AC-02-003.x / AC-02-004.x
+**Reused by:** FRD-01 (onboarding gate), FRD-02 (intake modal + card detail), FRD-03 (recovery/next-step commands)
+
+### Signature
+
+```tsx
+"use client";
+
+export interface CopyButtonProps {
+  /** The text value to copy to the clipboard when the button is clicked. */
+  value: string;
+  /** Optional visible label rendered inside the button alongside the copy indicator. */
+  label?: string;
+}
+
+export function CopyButton(props: CopyButtonProps): React.JSX.Element;
+```
+
+### Behaviour contract
+
+| Property | Rule |
+|---|---|
+| **Mechanism** | `navigator.clipboard.writeText(value)` on click |
+| **Success feedback** | Shows the Spanish text "copiado" transiently after a successful write |
+| **Revert timeout** | Reverts to the initial state after ≤ 2 000 ms (`REVERT_DELAY_MS = 2_000`) |
+| **Error path** | If `writeText` rejects, no "copiado" text is shown; component does not crash |
+| **In-flight guard** | A second click while the first write is in flight is ignored (pendingRef guard) |
+| **Multiple instances** | Each instance is independently stateful; clicking one does not affect others |
+| **testid** | `data-testid="copy-button"` on the `<button>` element |
+| **Accessibility** | `aria-label` in Spanish: `"Copiar al portapapeles"` at rest; `"Copiado al portapapeles"` while showing confirmation |
+| **Element** | Renders a `<button type="button">` (not a `<div>` or `<span>`) |
+| **Styling** | Neutral inline-style base; design-token integration is deferred to the design-system WO; consumers must not rely on exact CSS details |
+| **Writes** | None — no disk write, no Claude call; read-only constraint respected |
+
+### Usage examples
+
+```tsx
+// Minimal — command to copy, no label
+<CopyButton value="/pandacorp:explore" />
+
+// With a visible label (shown alongside the copy indicator)
+<CopyButton value="/pandacorp:spec mi-idea" label="Crear proyecto" />
+
+// Multiple instances on the same surface (FRD-01 onboarding gate)
+<CopyButton value="/pandacorp:onboarding" label="Configurar fábrica" />
+<CopyButton value="cd ~/Proyectos/mi-proyecto" label="Ir al proyecto" />
+```
+
+### Test coverage
+
+`components/CopyButton.test.tsx` (jsdom, vitest) — 20 tests across 7 groups:
+rendering + a11y, happy-path clipboard copy, transient "copiado" confirmation,
+sequential / rapid-click idempotency, error path (rejected clipboard), edge-case values,
+and reuse contract (multiple instances side-by-side).
+
+### Implementation notes
+
+- The `setTimeout` callback uses `react-dom`'s `flushSync` to flush the
+  `setCopied(false)` state update synchronously when the timer fires. This is
+  necessary because vitest fake timers execute callbacks synchronously (outside
+  React's `act`), so without `flushSync` the DOM would still show "copiado"
+  after `vi.advanceTimersByTime`.
+- `vitest.setup.ts` polyfills `vi.runAllMicrotasksAsync` (not present in
+  vitest 4.1.9) and declares it via `declare module "vitest"` augmentation.
+  The polyfill wraps three `await Promise.resolve()` turns inside `act` to
+  flush React's pending state after an async click handler resolves.
