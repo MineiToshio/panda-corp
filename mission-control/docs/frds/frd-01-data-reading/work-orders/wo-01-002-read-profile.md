@@ -38,3 +38,14 @@ export function readProfile(profilePath?: string): ProfileResult;  // defaults t
 - Fail-soft per blueprint §3; no write; no throw on malformed frontmatter (falls back to
   `{ present: true, profile: { body } }`).
 - `.pandacorp/verify.sh` green.
+
+## Status
+
+- [x] **DONE** — 2026-06-16
+
+**Evidence:**
+- `bash .pandacorp/verify.sh` → `✅ all gates green (biome + tsc + vitest)` — 236 tests passed (9 test files), 0 type errors, 0 lint errors.
+- `lib/profile.test.ts` — 23 tests, all GREEN.
+- Implementation: `lib/profile.ts` (gray-matter, fail-soft, snake_case→camelCase, call-time path resolution).
+- Key implementation note: `PANDACORP_FACTORY_ROOT` is read at call-time via `resolveFactoryRoot()`, not at module import time — required for `withFactoryRoot` test isolation to work.
+- `docs/api.md` updated with WO-01-002 section.

@@ -154,8 +154,10 @@ type Profile = {
   body: string;           // markdown body
 };
 type ProfileResult = { present: false } | { present: true; profile: Profile };
-export function readProfile(): ProfileResult;
+export function readProfile(profilePath?: string): ProfileResult;
 // Tolerance: absent file → { present: false }; malformed frontmatter → present with partial fields.
+// `projects_path` (snake_case in YAML) is mapped to `projectsPath` (camelCase) in the return type.
+// Resolves path at call-time so PANDACORP_FACTORY_ROOT env changes are respected in tests.
 
 // lib/ideas.ts
 type IdeaStatus = "discovered" | "recommended" | "in-pipeline" | "shipped" | "discarded";
@@ -236,6 +238,59 @@ export function readProjectDocs(projectPath: string): ProjectDocsIndex;
 export function pathExists(p: string): boolean;
 // Never throws; unreachable path returns false.
 ```
+
+---
+
+## WO-01-002: `readProfile` — owner profile reader
+
+**Module:** `lib/profile.ts`
+**Traces:** CMP-01-profile, IF-01-readProfile; REQ-01-001 (absence signal), REQ-01-002 (parse + personalize)
+
+### Contract
+
+```ts
+export type Profile = {
+  name?: string;
+  goals?: string;
+  interests?: string[];
+  assets?: string[];
+  projectsPath?: string;  // mapped from `projects_path` in YAML frontmatter
+  body: string;           // raw markdown body (always present, "" if empty file)
+};
+
+export type ProfileResult =
+  | { present: false }
+  | { present: true; profile: Profile };
+
+export function readProfile(profilePath?: string): ProfileResult;
+```
+
+### Behaviour
+
+| Case | Result |
+|---|---|
+| `factory/profile.md` absent | `{ present: false }` — drives the onboarding gate (AC-01-001.1) |
+| File present, valid frontmatter | `{ present: true; profile }` with all parsed fields (AC-01-002.1) |
+| Malformed frontmatter (gray-matter throws) | `{ present: true; profile: { body } }` — fail-soft (blueprint §3) |
+| Empty file (0 bytes) | `{ present: true; profile: { body: "" } }` — optional fields are `undefined` |
+| Missing optional field | `undefined` — never `null`, never fabricated |
+
+### Key mapping
+
+`projects_path` (snake_case in YAML) → `projectsPath` (camelCase in `Profile`).
+All other fields (`name`, `goals`, `interests`, `assets`) are direct.
+
+### Path resolution
+
+When called with no argument, resolves `factory/profile.md` relative to `resolveFactoryRoot()` at
+**call-time** (not at module import time). This ensures `PANDACORP_FACTORY_ROOT` env overrides set
+by `withFactoryRoot` in tests are respected.
+
+### Invariants (REQ-01-011)
+
+- Read-only: only calls `fs.readFileSync` — no writes, no network, no Claude calls.
+- Never throws — errors from fs or gray-matter are caught and mapped to the tolerant shapes above.
+- Result is fully serializable (no class instances, no `Date`, no functions).
 
 ---
 
