@@ -10,6 +10,7 @@
 > **complete for WO-01-001** (IF-01-pathExists, `lib/fs-utils.ts`) +
 > **complete for WO-01-002** (IF-01-readProfile, `lib/profile.ts`) +
 > **complete for WO-01-003** (IF-01-readIdeas, `lib/ideas.ts`) +
+> **complete for WO-01-004** (IF-01-readPortfolio, `lib/portfolio.ts`) +
 > **complete for WO-13-001** (IF-13-tokens, IF-13-agent-colors, IF-13-state-vocab) +
 > **complete for WO-02-002** (CMP-02-copy-button).
 
@@ -186,8 +187,10 @@ type PortfolioEntry = {
   verdict?: string;
   lastSync?: string;
 };
-export function readPortfolio(): PortfolioEntry[];
-// Tolerance: absent/empty file → []; rows with missing cells degrade to undefined fields.
+export function readPortfolio(arg?: string): PortfolioEntry[];
+// `arg` may be omitted (default config.PORTFOLIO), a file path, or raw markdown content.
+// Tolerance: absent/empty file → []; no table → []; rows with missing cells degrade to undefined fields.
+// Placeholder cells ("—", "-", "") → undefined. Column order is name-based, not position-based.
 
 // lib/status.ts
 type Phase = "product" | "design" | "architecture" | "implementation" | "release" | "operation";
@@ -368,6 +371,98 @@ batch) so the remaining valid cards are always returned.
 - `status` is always validated against the `IdeaStatus` union before inclusion.
 - `returnType` is always validated against its union before inclusion.
 - `score` is always a `number` or `undefined` — never `null`, never `0` for absent values.
+
+---
+
+## WO-01-004: `readPortfolio` — portfolio markdown table reader
+
+**Module:** `lib/portfolio.ts`
+**Traces:** CMP-01-portfolio, IF-01-readPortfolio; REQ-01-004; AC-01-004.1
+**Dependencies:** WO-01-000 (fixtures)
+
+### IF-01-readPortfolio
+
+```ts
+// lib/portfolio.ts
+
+export type PortfolioEntry = {
+  name: string;
+  /** Raw path cell; existence is NOT validated here (REQ-01-010: that is pathExists()'s job). */
+  path: string;
+  /** Repo URL. Placeholder cells ("—", "-", "") normalized to `undefined`. */
+  repo?: string;
+  originIdea?: string;
+  /** Advisory phase cell; `status.yaml` is the authoritative source for phase. */
+  phase?: string;
+  /** Raw string (e.g. "12" or "340") — never coerced to a number. */
+  users?: string;
+  returnMetric?: string;
+  verdict?: string;
+  lastSync?: string;
+};
+
+/**
+ * Read and parse the portfolio markdown table.
+ *
+ * @param arg - Optional. Three accepted forms:
+ *   - **omitted** — reads from `config.PORTFOLIO` (path derived from `PANDACORP_FACTORY_ROOT`
+ *     at call-time so `withFactoryRoot` env swaps in tests are respected).
+ *   - **file path** — any string that does not contain `\n`; the file is read from disk.
+ *   - **raw markdown content** — any string containing `\n`; parsed in-memory without I/O.
+ * @returns `PortfolioEntry[]`. Never throws. Empty on absent/empty file or no table found.
+ */
+export function readPortfolio(arg?: string): PortfolioEntry[];
+```
+
+### Behaviour contract
+
+| Case | Result |
+|---|---|
+| `factory/portfolio.md` absent | `[]` (fail-soft, blueprint §3) |
+| File empty or no GFM table | `[]` |
+| Valid table, full row | All fields populated |
+| Placeholder cell (`"—"`, `"-"`, `""`) | Field is `undefined` |
+| Row with fewer cells than header | Populated fields kept; missing fields `undefined`; never throws |
+| Broken/nonexistent project path | Path string returned verbatim; no fs stat performed (REQ-01-010) |
+| Inline raw content passed | Parsed without any I/O (used in inline fixture tests) |
+| Multiple disjoint tables | Data rows from all tables are returned |
+
+### Column mapping
+
+Headers are matched by name (case-insensitive, trimmed), not by position. The mapping is:
+
+| Header text | `PortfolioEntry` key |
+|---|---|
+| `Name` | `name` (required) |
+| `Path` | `path` (required) |
+| `Repo` | `repo` |
+| `Origin idea` | `originIdea` |
+| `Phase` | `phase` |
+| `Users` | `users` |
+| `Return metric` | `returnMetric` |
+| `Verdict` | `verdict` |
+| `Last sync` | `lastSync` |
+
+Unknown header cells are silently ignored. Column reordering is fully supported.
+
+### Placeholder normalization
+
+Any cell whose trimmed value is `"—"` (em dash), `"-"` (hyphen), or `""` (empty) is mapped to
+`undefined` for all optional fields. The two required fields (`name`, `path`) use the same check;
+rows where either is a placeholder are dropped.
+
+### Path resolution
+
+When called with no argument, resolves `factory/portfolio.md` relative to `resolveFactoryRoot()` at
+**call-time** (not at module import time). This ensures `PANDACORP_FACTORY_ROOT` env overrides set
+by `withFactoryRoot` in tests are respected.
+
+### Invariants (REQ-01-011)
+
+- Read-only: only calls `fs.readFileSync` — no writes, no network, no Claude calls.
+- Never throws — errors from fs are caught; malformed rows degrade, never abort the batch.
+- Result is fully serializable (all fields are `string | undefined`).
+- Idempotent: repeated calls return entries with the same names in the same order.
 
 ---
 
