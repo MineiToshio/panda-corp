@@ -16,3 +16,13 @@
 ## TDD / Definition of done
 - Tests: events grouped into the right minute buckets; per-agent counts sum to the total; an empty/old window yields empty/zero buckets (drives the "stalled" pulse); deterministic given a fixed `now`.
 - Pure. Gate green.
+
+## Status
+
+- [x] **DONE** — 2026-06-16
+- Implementation: `app/_observability/selectors/rate.ts` — `eventsPerMinute` pure selector with `Bucket` type
+- Test command: `pnpm vitest run app/_observability/selectors/rate.test.ts` — 1856 passed (full suite), 0 failures
+- Full verify: `bash .pandacorp/verify.sh` — all gates green (biome + tsc + vitest)
+- Reviewer adversarial suite: `rate.adversarial.test.ts` + `rate.review.test.ts` — green
+- Fix applied: prototype-pollution guard (`Object.create(null)` for `byAgent`) — B1a/B1b regression anchors passing
+- Commit: `0809823` (fix: prototype-pollution guard) + `f06974c` (feat: EventsRateChart UI)
