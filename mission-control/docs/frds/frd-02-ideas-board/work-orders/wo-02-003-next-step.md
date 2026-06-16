@@ -31,13 +31,21 @@ export function nextStep(input: {
 
 ## Definition of done
 
-- `lib/next-step.test.ts` (RED first): one assertion per lifecycle position above, asserting the
+- [x] `lib/next-step.test.ts` (RED first): one assertion per lifecycle position above, asserting the
   command string and the `openPath` where applicable.
-- Pure; no fs; no write.
-- `.pandacorp/verify.sh` green.
+- [x] Pure; no fs; no write.
+- [x] `.pandacorp/verify.sh` green.
 
 ## Note for the report
 
 The exact command per phase needs a confirmation pass against the canonical pipeline table
 (CLAUDE.md / registry). Enumerated here from the operation table; if a transition command differs,
 the test is the single place to adjust.
+
+## Evidence
+
+- Implementation: `lib/next-step.ts` — pure `nextStep()` function, IF-02-nextStep contract.
+- Tests: `lib/next-step.test.ts` (49 tests, all lifecycle positions + DR-032 + edge cases) and
+  `lib/next-step.adversarial.test.ts` (reviewer-written adversarial tests).
+- verify.sh run: `bash mission-control/.pandacorp/verify.sh` — 37 test files, 1057 tests passed,
+  biome (info only, no errors), tsc clean. Command: `pnpm vitest run --reporter=dot`.
