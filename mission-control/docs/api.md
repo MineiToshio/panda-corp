@@ -7,6 +7,7 @@
 > **internal module and component contract** that downstream features consume.
 >
 > Status: **complete for WO-01-000** (test fixtures + harness) +
+> **complete for WO-01-001** (IF-01-pathExists, `lib/fs-utils.ts`) +
 > **complete for WO-13-001** (IF-13-tokens, IF-13-agent-colors, IF-13-state-vocab) +
 > **complete for WO-02-002** (CMP-02-copy-button).
 
@@ -235,6 +236,49 @@ export function pathExists(p: string): boolean;
 ```
 
 ---
+
+## WO-01-001: `pathExists` — read-only filesystem existence probe
+
+**Module:** `lib/fs-utils.ts`
+**Traces:** IF-01-pathExists; REQ-01-010; AC-01-010.1
+**Dependencies:** WO-01-000 (fixtures)
+
+### IF-01-pathExists
+
+```ts
+// lib/fs-utils.ts
+export function pathExists(p: string): boolean;
+```
+
+**Purpose:** Synchronous existence probe. Returns `true` when `p` names a reachable file or
+directory; `false` for any absent path and for any error (empty string, whitespace-only string,
+null bytes in path, permission denied, etc.). Never throws — the "never throws" invariant is
+unconditional.
+
+**Callers:** `readStatus`, `readProjectDocs`, and the FRD-03 not-found badge. Each caller passes a
+project path (from the portfolio table); if `pathExists` returns `false`, the project is marked
+not-found and the rest of the view continues rendering (AC-01-010.1).
+
+**Tolerance rules:**
+
+| Input | Return value |
+|---|---|
+| Existing file or directory | `true` (strict `boolean`) |
+| Absent path | `false` (strict `boolean`) |
+| Empty string `""` | `false` — never throws |
+| Whitespace-only string | `false` — never throws |
+| Path containing null bytes | `false` — never throws |
+| `fs.existsSync` throws (EPERM, EACCES, etc.) | `false` — error swallowed |
+
+**Invariants:**
+- Return type is always a strict `boolean` (`true` or `false`) — never `null`, `undefined`, or a
+  truthy/falsy non-boolean (regression guard for the B1' `typeof NaN === "number"` pattern).
+- Read-only: zero writes, no directory creation, no Claude calls.
+- Synchronous: safe for Next.js Server Components without `await`.
+- Idempotent: repeated calls on the same path always return the same result.
+
+**Implementation:** `fs.existsSync(p)` wrapped in a try/catch, with an early return of `false`
+for blank/empty inputs before the `existsSync` call.
 
 ---
 
