@@ -1662,6 +1662,127 @@ Kills: inverted-guard mutant, always-gate mutant, always-children mutant.
 
 ---
 
+## WO-12-002: `deriveKpis` — ≤5 critical KPI selector (incl. failed work orders)
+
+**Module:** `app/_observability/selectors/kpis.ts`
+**Traces:** IF-12-kpis; REQ-12-001, REQ-12-007; AC-12-001.1, AC-12-007.1
+**Dependencies:** WO-01-007 (`Event` type from `lib/events.ts`), WO-03-001 (`ProjectListItem` from `lib/portfolio.ts`)
+
+### IF-12-kpis
+
+```ts
+// app/_observability/selectors/kpis.ts
+
+export type Kpi = {
+  /** Machine identifier — one of the 5 canonical keys (see below). */
+  key: string;
+  /** Human-readable label in Spanish (UI-facing). */
+  label: string;
+  /** Derived numeric count. Always a finite non-negative integer. */
+  value: number;
+  /**
+   * Optional human-readable context string.
+   * Present (and non-empty) for "failed-work-orders" when failedCount > 0;
+   * contains the comma-separated list of unique work-order IDs from fail events,
+   * or a fallback count phrase when no workOrder field is present.
+   * Undefined (or omitted) when there are no failures.
+   */
+  detail?: string;
+};
+
+/**
+ * Derive exactly 5 critical KPIs from the capped event tail and the active-projects list.
+ *
+ * Pure: no I/O, no env reads, no Claude calls, no side effects. Never throws.
+ *
+ * @param events   - Already-parsed, capped Event[] from lib/events (no re-reading the file
+ *                   — blueprint §3, REQ-12-007: no extra instrumentation).
+ * @param projects - Projects list; only the `stage` field is consumed.
+ *                   Compatible with ProjectListItem[] from lib/portfolio.ts activeProjects().
+ * @returns An array of exactly 5 Kpi objects in specification order.
+ */
+export function deriveKpis(events: Event[], projects: { stage?: string }[]): Kpi[];
+```
+
+### Canonical KPIs (always returned, always in this order)
+
+| Index | `key` | `label` | Derivation |
+|---|---|---|---|
+| 0 | `active-projects` | `Proyectos activos` | Count of projects whose `stage` is in `{architecture, implementation, release, operation}` |
+| 1 | `agents-working` | `Agentes trabajando` | Count of distinct `agent` string values from `AgentWorking` events |
+| 2 | `xp-today` | `XP del día` | Count of `XpAwarded` events in the tail |
+| 3 | `builds-queued` | `Builds en cola` | Count of `BuildQueued` events in the tail |
+| 4 | `failed-work-orders` | `Work orders fallidos` | Count of events with `status === "fail"` (exact string equality) |
+
+### Detail field contract for `failed-work-orders`
+
+| Condition | `detail` value |
+|---|---|
+| `failedCount === 0` | `undefined` (field omitted) |
+| `failedCount > 0` and at least one fail event has a `workOrder` field | Comma-separated list of unique work-order IDs in insertion order (e.g. `"WO-01-001, WO-02-001"`) |
+| `failedCount > 0` and no fail event has a `workOrder` field | Fallback string: `"N evento(s) con error"` where N is `failedCount` |
+
+### Active phases for `active-projects`
+
+`architecture`, `implementation`, `release`, `operation`.
+
+Note: this is a **scalar count** (not a ranking), so it is NOT capped at 5 (REQ-12-004 applies
+to rankings/groupings, not to this aggregated scalar). A factory with 10 active projects yields
+`value: 10`, not `value: 5`.
+
+### Honest metrics (AC-12-007.1)
+
+All 5 KPI values are derived **exclusively** from the `events` and `projects` inputs. No extra
+instrumentation, no filesystem reads, no environment probes. The same event list always produces
+the same result (pure function).
+
+### Invariants
+
+| Invariant | Value |
+|---|---|
+| Output length | Always exactly 5 |
+| All `value` fields | Finite non-negative integers (never NaN, never Infinity, never negative) |
+| All required fields | `key`, `label`, `value` present on every Kpi |
+| Canonical keys | Each of the 5 canonical keys appears exactly once |
+| `active-projects` bound | `value` ≤ `projects.length` |
+| `failed-work-orders` bound | `value` ≤ `events.length` |
+| `agents-working` bound | `value` ≤ distinct `agent` count in events |
+| Mutation isolation | Returned array is a fresh value; calling again does not mutate previous result |
+| Pure | No I/O, no `process.env`, no Claude calls |
+| Never throws | For any combination of empty, sparse, or large inputs |
+
+### Regression anchors
+
+| Anchor | Description | Guard |
+|---|---|---|
+| **B1' (2026-06-16)** | `typeof NaN === "number"` — counts must use `Number.isFinite` | All counts use `+= 1` or `Set.size` (always finite integers); `safeCount()` guard rejects any non-finite value at the last mile |
+| **I2 (2026-06-16)** | Empty inputs must return zeroed values, not `undefined` | `events = []` → all counts are 0; `projects = []` → `active-projects = 0` |
+| **I3 (2026-06-16)** | `status === "fail"` is exact string equality | Only the literal string `"fail"` increments `failedCount`; `undefined`, `"ok"`, or array values are excluded |
+| **FREEZE-ON-RED** | Events missing optional fields must not throw | Every field access guards with `typeof ev.field === "string"` before use |
+| **WO-01-005 I3** | `agent` must be a string before counting | `typeof ev.agent === "string"` guard before `activeAgents.add(ev.agent)` |
+
+### Consumption (downstream features)
+
+- **`CMP-12-kpi-header`** (WO-12-005): Server Component that calls `deriveKpis(events, projects)` server-side and renders the 5 KPI tiles in the global header (AC-12-001.1).
+- **FRD-06 Party** / **FRD-18 dashboard**: may consume `deriveKpis` to surface the same KPIs in the Party panel and the dashboard overview.
+
+### Test coverage
+
+`app/_observability/selectors/kpis.test.ts` — 56 tests across 6 groups (vitest, pure — no fs, no mocks):
+
+| Group | Coverage |
+|---|---|
+| AC-12-001.1 output shape | Length always 5; all canonical keys present exactly once; all fields typed correctly |
+| AC-12-001.1 `active-projects` KPI | Active phases counted; non-active phases excluded; `exists: false` does not block count; scalar count not capped at 5 |
+| AC-12-001.1 `agents-working` KPI | Distinct agents from `AgentWorking` events; same agent deduped; no-agent events excluded; non-AgentWorking events excluded |
+| AC-12-001.1 `failed-work-orders` KPI | `fail` events counted; `ok` / `undefined` excluded (regression I3); `detail` populated with WO IDs; `detail` undefined on 0 failures |
+| AC-12-007.1 honest metrics | Deterministic / pure; derived solely from event list; handles 200-event cap synchronously; env-independence confirmed |
+| Error paths / regression anchors | B1' (no NaN values), I2 (empty → all-zero), FREEZE-ON-RED (sparse events no throw), mutation isolation |
+| Property-based invariant table | 12 parametric cases covering all KPIs, output length, value bounds, and mix of active/non-active stages |
+| Specific behavior assertions | Concrete value assertions (not just truthy); key uniqueness; label non-empty |
+
+---
+
 ## WO-12-001: `topN` + `freshness` — observability selectors
 
 **Module:** `app/_observability/selectors/topn.ts` + `app/_observability/selectors/freshness.ts`
