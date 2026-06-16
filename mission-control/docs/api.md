@@ -26,7 +26,133 @@
 > **complete for WO-11-001** (IF-11-modes `BUILD_MODES`/`DEFAULT_BUILD_MODE`, IF-11-mode-store `getRememberedMode`/`rememberMode`) +
 > **complete for WO-12-003** (IF-12-rate `eventsPerMinute`, `app/_observability/selectors/rate.ts`) +
 > **complete for WO-15-001** (IF-15-sync `readInstalledSha`/`readPluginHeadSha`/`readPluginDirty`, `lib/plugin-sync.ts`) +
-> **complete for WO-12-004** (IF-12-timeline `toTimeline`, `app/_observability/selectors/timeline.ts`).
+> **complete for WO-12-004** (IF-12-timeline `toTimeline`, `app/_observability/selectors/timeline.ts`) +
+> **complete for WO-16-001** (IF-16-scan `resolveProjectsPath`/`listProjectFolders`, `lib/orphans.ts`).
+
+---
+
+## WO-16-001: `lib/orphans.ts` — projects path resolution + bounded folder listing
+
+**Module:** `lib/orphans.ts`
+**Traces:** IF-16-scan; REQ-16-005 (read-only invariant), REQ-16-006 (bounded scan); AC-16-001.1..6
+**Dependencies:** `lib/profile.ts` (WO-01-002, shipped — `readProfile`, `Profile.projectsPath`)
+**Consumed by:** WO-16-002 (`classifyCandidate`, `getOrphans`), WO-16-003 (route handler `app/api/orphans/`)
+
+### IF-16-scan — `lib/orphans.ts`
+
+```ts
+// lib/orphans.ts
+
+/**
+ * Resolve the owner's projects folder from the factory root.
+ *
+ * Algorithm (FRD-16 / architecture §4.2):
+ *   1. Read factory/profile.md from factoryRoot.
+ *   2. If profile.projectsPath is a non-empty, non-whitespace string → return it verbatim.
+ *   3. Otherwise → return path.dirname(factoryRoot) (the parent directory).
+ *
+ * Never throws (fail-soft). All fs/parse errors fall back to step 3.
+ *
+ * @param factoryRoot - Absolute path to the factory repo root (the folder that
+ *   contains mission-control/). The profile is read from
+ *   <factoryRoot>/factory/profile.md.
+ * @returns Absolute path string. Never empty. Never throws.
+ */
+export function resolveProjectsPath(factoryRoot: string): string;
+
+/**
+ * List immediate git-repo children of projectsPath, with exclusions applied.
+ *
+ * A child is included when ALL of the following hold:
+ *   1. It is a directory (not a regular file).
+ *   2. It contains a .git entry (directory or file — git worktrees use a .git file).
+ *   3. Its absolute path is NOT the factory root (factoryRoot).
+ *   4. Its name is NOT "mission-control" (the built-in dashboard, blueprint §5).
+ *
+ * The scan is bounded to depth 1 of projectsPath (REQ-16-006).
+ * No recursive walk; no git subprocess; no writes (REQ-16-005).
+ *
+ * @param projectsPath - Absolute path to the projects folder to scan.
+ *   Empty or whitespace-only → returns [] without throwing.
+ * @param factoryRoot  - Optional absolute path to the factory repo root. When provided,
+ *   any child whose absolute path equals factoryRoot is excluded (AC-16-001.5).
+ *   When omitted, only the "mission-control" name exclusion applies.
+ * @returns Array of absolute paths to immediate git-repo children. Never throws.
+ */
+export function listProjectFolders(projectsPath: string, factoryRoot?: string): string[];
+```
+
+### Defensive contract — `resolveProjectsPath`
+
+| Input condition | Result |
+|---|---|
+| `profile.md` has a valid string `projects_path` | Returns the path verbatim (AC-16-001.1) |
+| `profile.md` absent (fresh factory) | Returns `path.dirname(factoryRoot)` (AC-16-001.2) |
+| `profile.md` has no `projects_path` field | Returns `path.dirname(factoryRoot)` |
+| `projects_path` is empty string `""` | Returns `path.dirname(factoryRoot)` |
+| `projects_path` is whitespace-only `"   "` | Returns `path.dirname(factoryRoot)` (regression WO-13-001) |
+| `projects_path` is a number in YAML (`42`) | Returns `path.dirname(factoryRoot)` (regression B1': numeric value does not pass string guard — `readProfile` already types `projectsPath` as `string | undefined`) |
+| `profile.md` has malformed YAML frontmatter | Returns `path.dirname(factoryRoot)` (fail-soft, no throw) |
+| `factoryRoot` does not exist | Returns `path.dirname(factoryRoot)` (no throw) |
+| `projects_path` has a trailing slash | Returns it verbatim — owner controls their path (AC-16-001.1) |
+
+### Defensive contract — `listProjectFolders`
+
+| Input condition | Result |
+|---|---|
+| `projectsPath` does not exist | `[]` (no throw; AC-16-001.6) |
+| `projectsPath` is empty string | `[]` (no throw) |
+| `projectsPath` is whitespace-only | `[]` (no throw; regression WO-13-001) |
+| `projectsPath` points to a regular file | `[]` (no throw; regression I3) |
+| `projectsPath` has no children | `[]` (regression I2: empty collection) |
+| All children lack `.git` | `[]` |
+| Child has a `.git` directory (normal clone) | Included (AC-16-001.4) |
+| Child has a `.git` file (git worktree) | Included (AC-16-001.4) |
+| Child is a regular file (not a directory) | Excluded (regression I3: file-vs-dir guard) |
+| Child is a plain directory with no `.git` | Excluded |
+| Child is the factory root | Excluded (AC-16-001.5) |
+| Child is named `"mission-control"` | Excluded regardless of `.git` (AC-16-001.5, blueprint §5) |
+| Folder two levels deep has `.git` (nested) | NOT returned — bounded scan only (AC-16-001.3, REQ-16-006) |
+| `projectsPath` is modified after the call | Directory listing unchanged (REQ-16-005, no writes) |
+| `.git` directory is modified after the call | `.git` dir contents unchanged (existence check only, no git subprocess) |
+| Result paths | Always absolute, deduplicated, pointing to existing directories |
+
+### Architecture invariants
+
+- **Read-only:** zero writes. `fs.readdirSync`, `fs.statSync`, and `fs.accessSync` are the only fs calls. No `git` subprocess, no `execFileSync`, no `fs.writeFileSync`.
+- **Bounded scan (REQ-16-006):** exactly one `fs.readdirSync` on `projectsPath`; no recursion; depth fixed at 1.
+- **Existence check only (blueprint §5 note):** `.git` presence detected via `fs.accessSync` — no `git` command is spawned, keeping the scan fast and side-effect-free.
+- **Exclusions are constant (blueprint §5):** the factory root (runtime path) and `"mission-control"` (constant string) are the only exclusions. They are enforced per-child, not as a post-filter, so no allocation waste on large projects folders.
+- **Never throws:** all three observable error paths (unreadable `projectsPath`, unreadable child, missing `.git`) are caught and degraded to skip/empty.
+- **Deterministic:** given the same filesystem state, always returns the same output (`readdirSync` order may vary by OS; the downstream `getOrphans` sorts if needed).
+
+### Regression anchors
+
+| Anchor | Risk | Guard |
+|---|---|---|
+| **B1' (2026-06-16)** | `typeof NaN === "number"` passes type guards; numeric `projects_path` in YAML silently becomes a number. | `readProfile` already guards this: `projectsPath` is only set when `typeof data.projects_path === "string"`. `resolveProjectsPath` adds a redundant `typeof === "string"` check for belt-and-suspenders. |
+| **I2 (2026-06-16)** | Empty folder / empty-collection vacuous truth. | `readdirSync` on an empty dir returns `[]`; the `for…of` loop yields nothing; result is `[]` without any guard needed. |
+| **I3 (2026-06-16)** | A top-level entry that is a *file* (not a dir) must be excluded even if somehow named `.git`. | Explicit `childStat.isDirectory()` guard before the `.git` check. |
+| **WO-13-001 (2026-06-16)** | Whitespace-only string passes `!== ""` guards. | `.trim() !== ""` in both functions. |
+
+### Consumption (downstream WOs)
+
+- **WO-16-002** (`classifyCandidate`, `getOrphans`, `lib/orphans.ts` additions): calls `resolveProjectsPath(resolveFactoryRoot())` to get the projects folder, then `listProjectFolders(projectsPath, resolveFactoryRoot())` to get the bounded candidate set. `classifyCandidate` cross-references `lib/portfolio.ts` (registered paths) and `.pandacorp/status.yaml` presence.
+- **WO-16-003** (`app/api/orphans/route.ts`): calls `getOrphans()` and returns the result as JSON. Node runtime, `force-dynamic`.
+- **WO-16-004** (`components/orphans-banner.tsx`): polls the route handler; renders dismissible banners per candidate.
+
+### Test coverage
+
+`lib/orphans.test.ts` — 33 tests across 6 groups (vitest, Node environment — real temp dirs; no mocks; no git subprocess):
+
+| Group | ACs covered |
+|---|---|
+| AC-16-001.1 — `resolveProjectsPath` returns `projects_path` when set | Valid path verbatim, no normalization, trailing slash preserved |
+| AC-16-001.2 — fallback to `path.dirname(factoryRoot)` | Absent profile, missing field, empty string, whitespace-only (WO-13-001), malformed YAML, numeric value (B1'), non-existent factoryRoot |
+| AC-16-001.3 (REQ-16-006) — bounded scan (immediate children only) | Nested `.git` not returned, empty dir → `[]` (I2), all-plain → `[]`, 5 repos returned |
+| AC-16-001.4 — `.git` as directory or file | Normal clone, worktree, plain folder, top-level regular file (I3), mixed children |
+| AC-16-001.5 — factory root and `mission-control/` excluded | Factory root excluded, `mission-control/` excluded, only `mission-control/` → `[]`, factory in a different dir → all repos returned |
+| AC-16-001.6 (REQ-16-005) — unreadable path → `[]` (no throw); read-only | Non-existent path, empty string, whitespace-only, file not directory; dir unchanged before/after, `.git` unchanged, no mkdir side-effect, no duplicates in result |
 
 ---
 
