@@ -243,13 +243,42 @@ export function IntakeModal({ open, onClose }: IntakeModalProps): React.JSX.Elem
     }
   }, [open]);
 
-  // Escape key dismisses the modal (AC-02-003.2 — a11y).
+  // Escape key dismisses the modal + focus trap (AC-02-003.2 — a11y).
+  // aria-modal="true" contracts that focus never leaves the dialog; the trap
+  // enforces this by intercepting Tab/Shift+Tab and wrapping focus.
   useEffect(() => {
     if (!open) return;
 
     function handleKeyDown(event: KeyboardEvent): void {
       if (event.key === "Escape") {
         onClose();
+        return;
+      }
+
+      // Focus trap — keep Tab/Shift+Tab inside the dialog panel.
+      if (event.key === "Tab" && panelRef.current) {
+        const FOCUSABLE =
+          'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+        const focusable = Array.from(panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE));
+        if (focusable.length === 0) return;
+
+        const first = focusable.at(0);
+        const last = focusable.at(-1);
+        if (!first || !last) return;
+
+        if (event.shiftKey) {
+          // Shift+Tab: if on first, wrap to last
+          if (document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+          }
+        } else {
+          // Tab: if on last (or the panel container itself), wrap to first
+          if (document.activeElement === last || document.activeElement === panelRef.current) {
+            event.preventDefault();
+            first.focus();
+          }
+        }
       }
     }
 

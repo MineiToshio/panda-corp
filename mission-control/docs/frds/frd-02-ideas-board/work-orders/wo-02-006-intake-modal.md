@@ -22,9 +22,17 @@
 
 ## Definition of done
 
-- `components/IntakeModal.test.tsx` (RED first, jsdom):
-  - renders the 4 commands with their copy buttons.
-  - clicking the backdrop closes; clicking ✕ closes; `Escape` closes.
-  - the board (passed as the page context) is not unmounted (overlay, not replacement).
-- No write; no Claude call.
-- `.pandacorp/verify.sh` green.
+- [x] `components/IntakeModal.test.tsx` (RED first, jsdom):
+  - [x] renders the 4 commands with their copy buttons.
+  - [x] clicking the backdrop closes; clicking ✕ closes; `Escape` closes.
+  - [x] the board (passed as the page context) is not unmounted (overlay, not replacement).
+- [x] No write; no Claude call.
+- [x] `.pandacorp/verify.sh` green.
+
+## Evidence
+
+- `pnpm vitest run components/IntakeModal.test.tsx components/IntakeModal.adversarial.test.tsx` → **71 passed** (60 acceptance + 11 adversarial)
+- `pnpm tsc --noEmit` → clean
+- `pnpm biome check .` → clean (147 files)
+- Adversarial finding fixed: real focus trap implemented (`Tab` wraps inside dialog per `aria-modal="true"` contract)
+- Commit: see `feat(mission-control): WO-02-006 safe-point — focus trap + adversarial tests`
