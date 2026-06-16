@@ -114,7 +114,7 @@ describe("frd-01: AC-01-002.1 — profile.md present → parse and return all fi
       if (!result.present) throw new Error("Expected present: true");
       expect(Array.isArray(result.profile.interests)).toBe(true);
       expect(result.profile.interests?.length).toBeGreaterThan(0);
-      for (const item of result.profile.interests!) {
+      for (const item of result.profile.interests ?? []) {
         expect(typeof item).toBe("string");
       }
     });
@@ -126,7 +126,7 @@ describe("frd-01: AC-01-002.1 — profile.md present → parse and return all fi
       if (!result.present) throw new Error("Expected present: true");
       expect(Array.isArray(result.profile.assets)).toBe(true);
       expect(result.profile.assets?.length).toBeGreaterThan(0);
-      for (const item of result.profile.assets!) {
+      for (const item of result.profile.assets ?? []) {
         expect(typeof item).toBe("string");
       }
     });

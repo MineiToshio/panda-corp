@@ -11,6 +11,8 @@
 > **complete for WO-01-002** (IF-01-readProfile, `lib/profile.ts`) +
 > **complete for WO-01-003** (IF-01-readIdeas, `lib/ideas.ts`) +
 > **complete for WO-01-004** (IF-01-readPortfolio, `lib/portfolio.ts`) +
+> **complete for WO-01-005** (IF-01-readStatus, `lib/status.ts`) +
+> **complete for WO-01-007** (IF-01-readEvents, `lib/events.ts`) +
 > **complete for WO-13-001** (IF-13-tokens, IF-13-agent-colors, IF-13-state-vocab) +
 > **complete for WO-02-002** (CMP-02-copy-button).
 
@@ -220,8 +222,9 @@ type EventsSnapshot = {
   lastEventAt: string | null;
   byProject: Record<string, { lastEventAt: string }>;
 };
-export function readEvents(opts?: { cap?: number }): EventsSnapshot;
+export function readEvents(opts?: { path?: string; cap?: number }): EventsSnapshot;
 // Default cap: 200. Tolerance: absent file → empty snapshot; malformed JSON line skipped.
+// `path` defaults to ~/.claude/dashboard-events.ndjson. `work_order` mapped to workOrder.
 
 // lib/docs.ts
 type FrdModule = {
@@ -508,6 +511,105 @@ not-found and the rest of the view continues rendering (AC-01-010.1).
 
 **Implementation:** `fs.existsSync(p)` wrapped in a try/catch, with an early return of `false`
 for blank/empty inputs before the `existsSync` call.
+
+---
+
+## WO-01-007: `readEvents` — event stream reader (capped tail + state diffs)
+
+**Module:** `lib/events.ts`
+**Traces:** CMP-01-events, IF-01-readEvents; REQ-01-008; AC-01-008.1
+**Dependencies:** WO-01-000 (fixtures)
+
+### IF-01-readEvents
+
+```ts
+// lib/events.ts
+
+export type Event = {
+  event: string;      // required
+  at: string;         // required; ISO 8601 timestamp
+  agent?: string;
+  session?: string;
+  tool?: string;
+  status?: "ok" | "fail";
+  workOrder?: string; // mapped from `work_order` (snake_case) in the raw NDJSON
+  task?: string;
+  project?: string;   // absent = legacy/global (bucketed under __global__)
+};
+
+export type EventsSnapshot = {
+  events: Event[];                                    // capped tail (default 200)
+  lastEventAt: string | null;                         // max `at` across retained events
+  byProject: Record<string, { lastEventAt: string }>; // per-project last-seen timestamp
+};
+
+/**
+ * Read the event stream and compute the dashboard digest.
+ *
+ * @param opts.path - Path to the NDJSON file.
+ *                    Defaults to `~/.claude/dashboard-events.ndjson`.
+ * @param opts.cap  - Maximum number of events to retain (tail semantics). Default 200.
+ *                    NaN / Infinity fall back to 200; negative numbers clamp to 0.
+ * @returns A fully-typed, serializable `EventsSnapshot`. Never throws.
+ */
+export function readEvents(opts?: { path?: string; cap?: number }): EventsSnapshot;
+```
+
+### Behaviour
+
+| Condition | Result |
+|---|---|
+| File absent / unreadable | `{ events: [], lastEventAt: null, byProject: {} }` — no throw |
+| Empty NDJSON (0 bytes) | Same empty snapshot |
+| Malformed JSON line | Line skipped; valid lines around it are kept |
+| Valid JSON but not a plain object (string, number, null, array) | Line skipped |
+| Object missing `event` or `at` (string) | Line skipped |
+| `cap` = 200 (default) | Last 200 valid events retained |
+| `cap` set below line count | Last `cap` events (tail semantics) |
+| `cap` = NaN or Infinity | Falls back to 200 (regression anchor B1' — `typeof NaN === "number"`) |
+| `cap` = negative | Clamped to 0 — returns empty events array; no throw |
+| Event has no `project` field | Bucketed under `__global__` in `byProject`; never dropped |
+| Multiple events for same project | `byProject[key].lastEventAt` = max `at` for that project |
+
+### Key mapping
+
+`work_order` (snake_case in raw NDJSON) is mapped to `workOrder` (camelCase) in the `Event` type.
+This is the only field-name mapping; all other fields (`event`, `at`, `agent`, `session`, `tool`,
+`status`, `task`, `project`) are passed through unchanged.
+
+### Default path
+
+When `opts.path` is omitted, `readEvents` reads from `~/.claude/dashboard-events.ndjson`
+(the same path as `EVENTS_NDJSON` in `lib/config.ts`). The path is resolved at call-time using
+`process.env.HOME` / `process.env.USERPROFILE` / `os.homedir()`, in that order.
+
+### `byProject` contract
+
+- Key = value of `event.project` field for events that have it.
+- Key = `"__global__"` for events that carry no `project` field (legacy/global).
+- Value = `{ lastEventAt: string }` — the ISO 8601 string of the latest `at` for that key.
+- An empty snapshot has `byProject = {}` (no `__global__` key unless events were retained).
+
+### `lastEventAt` contract
+
+- `null` when no valid events are retained (empty file, all-malformed, missing file, cap = 0).
+- ISO 8601 string of the maximum `at` across all retained events when events exist.
+- ISO 8601 strings compare correctly with `>` (lexicographic order = chronological order).
+
+### Invariants (REQ-01-011)
+
+- Read-only: only calls `fs.readFileSync` — no writes, no network, no Claude calls.
+- Never throws — all `fs` and `JSON.parse` errors are caught per-line or at the file level.
+- Fully serializable: no `Date` objects, no class instances, no functions in the return type.
+- Idempotent: repeated calls on the same file return equal snapshots.
+- Synchronous: safe to call from Next.js Server Components without `await`.
+
+### Test coverage
+
+`lib/events.test.ts` — 50 tests across 9 groups (vitest, no mocks, fixture-based):
+happy-path parsing, `lastEventAt` computation, `byProject` grouping + `__global__` bucket,
+`work_order`→`workOrder` mapping, tail cap (default 200 + custom), missing/empty file,
+malformed-line skip, read-only invariant, idempotency, NaN-cap regression.
 
 ---
 
