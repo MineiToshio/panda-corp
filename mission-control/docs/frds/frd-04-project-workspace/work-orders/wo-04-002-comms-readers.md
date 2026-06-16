@@ -30,6 +30,12 @@
 4. Absent `decisions.md` → `[]`, no throw.
 
 ## Definition of done
-- [ ] Tests written first and green for all cases.
-- [ ] No `any`/`@ts-ignore`; read-only.
+- [x] Tests written first and green for all cases.
+  - Evidence: `npx vitest run lib/docs.wo04002.test.ts` → 74 passed, 0 failed (2026-06-16).
+- [x] No `any`/`@ts-ignore`; read-only.
 - [ ] `bash .pandacorp/verify.sh` passes.
+  - **BLOCKED** (2026-06-16): verify.sh fails globally due to pre-existing biome format errors in
+    `lib/next-step.wo04003.test.ts`, `lib/work-orders.test.ts`, `lib/work-orders.ts` (WO-04-003,
+    WO-05-001 RED-phase stubs); and 2/5 FAIL in `lib/memory.adversarial.test.ts` (WO-17-001).
+    WO-04-002 own files (`lib/docs.ts`, `lib/docs.wo04002.test.ts`) are biome-clean and tsc-clean.
+    Unblocking condition: resolve WO-04-003 / WO-05-001 / WO-17-001 format/test failures.

@@ -29,6 +29,7 @@
 > **complete for WO-12-004** (IF-12-timeline `toTimeline`, `app/_observability/selectors/timeline.ts`) +
 > **complete for WO-16-001** (IF-16-scan `resolveProjectsPath`/`listProjectFolders`, `lib/orphans.ts`) +
 > **complete for WO-04-001** (IF-04-docs `listProjectDocs`/`readDoc`, `lib/docs.ts` additions) +
+> **complete for WO-04-002** (IF-04-docs `readActivityLog`/`readDecisions`, `lib/docs.ts` comms readers) +
 > **complete for WO-17-001** (IF-17-memory `readLessons`/`candidateLessons`/`promotionQueue`/`prunable`, `lib/memory.ts`).
 
 ---
@@ -279,6 +280,304 @@ Stable across calls for the same file (used as React key in `CMP-04-tab-document
 | Read-only invariant (listProjectDocs) | Directory tree snapshot identical before/after two calls |
 | Round-trip | All surfaced nodes readable via readDoc; 5-node temp project all readable |
 | Serializability | JSON.stringify + parse → equal to original |
+
+---
+
+## WO-04-002: `lib/docs.ts` — activity log + decisions readers (IF-04-docs comms)
+
+**Module:** `lib/docs.ts` (additions to the existing WO-01-006 / WO-04-001 module)
+**Traces:** IF-04-docs; REQ-04-003, REQ-04-004; AC-04-003.2 (activity log), AC-04-003.3 (decision points)
+**Dependencies:** `lib/fs-utils.ts` (`pathExists`, WO-01-001, shipped)
+**Consumed by:** WO-04-005 (`CMP-04-tab-summary`, Summary tab UI)
+
+### IF-04-docs — `lib/docs.ts` (WO-04-002 new exports)
+
+```ts
+// lib/docs.ts — new exports added by WO-04-002
+// (readProjectDocs, listProjectDocs, readDoc from WO-01-006/WO-04-001 are unchanged)
+
+/**
+ * The parsed activity log from `.pandacorp/comms/progress.md`.
+ *
+ * `entries` is a genuine JS Array of non-empty strings, each representing a
+ * bullet line from the file (the leading "- " prefix is stripped).
+ * Absent or empty file → `{ entries: [] }`. Never throws.
+ */
+export interface ActivityLog {
+  /** Each bullet-line item from progress.md, trimmed, leading "- " stripped. */
+  entries: string[];
+}
+
+/**
+ * A single decision block parsed from `.pandacorp/inbox/decisions.md`.
+ *
+ * `title`          — the text after "OPEN:" or "CLOSED:" in the H2 heading (trimmed).
+ * `recommendation` — text after a `- **Recommendation:**` line in the block, or
+ *                    `undefined` when no such line is present.
+ * `resolved`       — `true` for CLOSED/RESOLVED blocks; `false` for OPEN blocks.
+ */
+export interface DecisionPoint {
+  title: string;
+  recommendation?: string;
+  resolved: boolean;
+}
+
+/**
+ * Parse `.pandacorp/comms/progress.md` into an ActivityLog.
+ *
+ * Collects all lines that start with "- " (markdown bullet), strips the prefix,
+ * and returns them as `entries`. Non-bullet lines (headings, blank lines) are ignored.
+ *
+ * Fail-soft tolerance (architecture §3):
+ *   - Absent file → `{ entries: [] }` (no throw; AC-04-003.2 empty state).
+ *   - Non-existent projectPath → `{ entries: [] }` (no throw).
+ *   - Empty or whitespace-only file → `{ entries: [] }`.
+ *   - entries.length is always a genuine finite integer (regression B1').
+ *   - entries is always a genuine JS Array (regression I3).
+ *   - Never writes to disk.
+ *
+ * @param projectPath - Absolute path to the project root.
+ * @returns ActivityLog with entries as a genuine JS Array. Never throws.
+ */
+export function readActivityLog(projectPath: string): ActivityLog;
+
+/**
+ * Parse `.pandacorp/inbox/decisions.md` into an array of DecisionPoint objects.
+ *
+ * Recognises `## OPEN: <title>` and `## CLOSED: <title>` (or `## RESOLVED: <title>`)
+ * H2 headings as decision block delimiters. Within each block, an optional
+ * `- **Recommendation:** <text>` line populates `recommendation`.
+ *
+ * Fail-soft tolerance (architecture §3):
+ *   - Absent file → `[]` (no throw; AC-04-003.3 empty state).
+ *   - Non-existent projectPath → `[]` (no throw).
+ *   - Empty or whitespace-only file → `[]`.
+ *   - result.length is always a genuine finite integer (regression B1').
+ *   - Result is always a genuine JS Array (regression I3).
+ *   - Never writes to disk.
+ *
+ * @param projectPath - Absolute path to the project root.
+ * @returns DecisionPoint[] — genuine JS Array. Never throws.
+ */
+export function readDecisions(projectPath: string): DecisionPoint[];
+```
+
+### Parsing rules
+
+**`readActivityLog`**
+
+| Line pattern | Behavior |
+|---|---|
+| Starts with `"- "` (after trimStart) | Stripped text (minus leading `"- "`) added to `entries` if non-blank |
+| Heading (`#`, `##`, …) | Ignored — headings are not entries |
+| Blank / whitespace-only line | Ignored — regression I2: no phantom entries |
+| Any other line | Ignored |
+
+**`readDecisions`**
+
+| Line pattern | Behavior |
+|---|---|
+| `## OPEN: <text>` | Opens a new block: `resolved=false`, `title=<text>` |
+| `## CLOSED: <text>` or `## RESOLVED: <text>` | Opens a new block: `resolved=true`, `title=<text>` |
+| `- **Recommendation:** <text>` (inside a block) | Sets `recommendation` for the current block |
+| Any other line | Ignored |
+| End of file | Flushes the last block |
+
+### Resolved semantics
+
+`resolved = true` when the heading keyword is `CLOSED` or `RESOLVED` (case-insensitive).
+`resolved = false` when the keyword is `OPEN` (case-insensitive).
+The pending count is derived by callers as `result.filter(dp => !dp.resolved).length` (REQ-04-004). The `pending_decisions` field in `.pandacorp/status.yaml` is cross-checked against this count by FRD-01 (out of scope here).
+
+### Defensive contract
+
+| Input condition | readActivityLog result | readDecisions result |
+|---|---|---|
+| Valid project with populated files | `{ entries: [... ] }` non-empty | `DecisionPoint[]` non-empty |
+| File absent | `{ entries: [] }` | `[]` |
+| File empty | `{ entries: [] }` | `[]` |
+| File has only headings / whitespace | `{ entries: [] }` (regression I2) | `[]` |
+| Non-existent projectPath | `{ entries: [] }` | `[]` |
+| Empty string projectPath | `{ entries: [] }` | `[]` |
+| All OPEN blocks | all `resolved=false` | pending count = total |
+| All CLOSED blocks | n/a | pending count = 0 |
+| Mixed OPEN + CLOSED | n/a | pending = filter(!resolved).length |
+| Neither throws | Never throws | Never throws |
+
+### Architecture invariants
+
+- **Read-only:** uses `pathExists`, `fs.readFileSync` only — no writes, no Claude calls (REQ-01-011).
+- **Fail-soft:** every error path returns the empty value, never throws.
+- **Genuine JS Array:** both return values satisfy `Array.isArray()` (regression I3).
+- **Finite counts:** `.entries.length` and `.length` are always finite integers, never NaN (regression B1').
+- **Serializability:** `ActivityLog` and `DecisionPoint[]` are plain serializable values — safe for Next.js Server→Client prop passing.
+- **Idempotent:** calling either function twice on the same filesystem state returns equal values.
+- **No cross-contamination:** `readActivityLog` never touches `decisions.md`; `readDecisions` never touches `progress.md`.
+
+### Regression anchors
+
+| Anchor | Risk | Guard |
+|---|---|---|
+| **B1' (2026-06-16)** | NaN from length arithmetic | Array built with `push`; length always a genuine integer |
+| **I2 (2026-06-16)** | Blank entries / phantom decision blocks | Blank bullet text skipped; blocks only created on heading match |
+| **I3 (2026-06-16)** | Array-like objects fool `Array.isArray` | Both return values initialised as `[]` literals and grown with `push` |
+| **WO-01-001 (2026-06-16)** | ENOENT crash on absent path | `pathExists` wraps `existsSync` in try/catch; checked before any `readFileSync` |
+
+### Consumption (downstream WOs)
+
+- **WO-04-005** (`CMP-04-tab-summary`): calls `readActivityLog(projectPath)` to render the activity-log section; calls `readDecisions(projectPath)` to render decision blocks with highlight + count badge (AC-04-003.2, AC-04-003.3).
+
+### Test coverage
+
+`lib/docs.wo04002.test.ts` — 74 tests across 13 groups (vitest, Node environment, no mocks):
+
+| Group | ACs covered |
+|---|---|
+| readActivityLog happy path (progress.md exists) | No throw; `entries` key; Array.isArray; non-empty; non-empty strings; WO-01-000/001 fixture lines; finite length; no null/undefined entries |
+| readActivityLog absent file → graceful empty state | No throw on missing dir; `{ entries: [] }` on missing file; entries=[] when dir exists but no file; no throw on non-existent path; no throw on empty string |
+| readActivityLog content parsing edge cases | Empty file → `[]`; headings-only → no blank entries; single bullet; 3 bullets; Spanish verbatim; whitespace-only regression I2 |
+| readActivityLog read-only invariant | mtime of progress.md unchanged; no dir/file created on ghost path |
+| readActivityLog idempotency | Two calls return same entries; two calls on ghost path return empty |
+| readDecisions happy path (decisions.md exists) | No throw; Array.isArray; non-empty; 2 OPEN blocks→length 2; non-empty titles; specific fixture titles (Playwright, event cap); resolved=false for OPEN; pending count=2; boolean resolved; finite length; title is string not array |
+| readDecisions resolved vs. pending semantics | CLOSED→resolved=true; OPEN→resolved=false; 1 OPEN+1 CLOSED split; all CLOSED→pending=0 |
+| readDecisions optional recommendation | No recommendation→undefined not empty string; recommendation present→non-empty string; recommendation not array (I3) |
+| readDecisions absent file → graceful empty state | No throw; `[]` on missing file; `[]` when dir exists but no file; no throw on non-existent path; `[]` on non-existent; no throw on empty string; `[]` on empty string |
+| readDecisions content edge cases | Empty file→`[]`; only heading no blocks→`[]`; 3 OPEN blocks→3 entries resolved=false; Spanish titles verbatim; whitespace-only→`[]` no throw (I2) |
+| readDecisions DecisionPoint shape invariants | title+resolved present; recommendation undefined or string never null; JSON round-trip; genuine Array (I3) |
+| readDecisions read-only invariant | mtime unchanged; no dir/file created on ghost path |
+| readDecisions idempotency | Same count on two calls; same titles sorted; ghost path→`[]` twice |
+| readActivityLog × readDecisions orthogonality | Both run together no throw + non-trivial; both empty on no .pandacorp; readActivityLog doesn't touch decisions.md mtime; readDecisions doesn't touch progress.md mtime |
+| Regression B1' | Finite lengths for both readers; 0 not NaN when absent |
+
+---
+
+## WO-04-003: `workspaceCommands` — phase → Commands-tab row map (IF-04-next-step)
+
+**Module:** `lib/next-step.ts` (extends the WO-02-003 base)
+**Traces:** IF-04-next-step; REQ-04-005; AC-04-005.1
+**Dependencies:** WO-02-003 (`PHASE_COMMANDS` — FRD-02 base map, `lib/next-step.ts`), WO-01-005 (`Phase` from `lib/status.ts`)
+**Consumed by:** WO-04-007 (`CMP-04-tab-commands`, Commands tab UI)
+**Read-only:** pure function; no fs, no writes, no network, no side effects.
+
+### IF-04-next-step — `lib/next-step.ts` (new exports)
+
+```ts
+// lib/next-step.ts — new exports added by WO-04-003
+// (nextStep, NextStep, NextStepInput from WO-02-003 are unchanged)
+
+/**
+ * A single row in the Commands tab: the command string and a Spanish description
+ * of when to use it.
+ *
+ * Returned by workspaceCommands and consumed by CMP-04-tab-commands (WO-04-007).
+ * Both fields are non-empty strings; `when` is always distinct from `command`.
+ */
+export interface CommandRow {
+  /** The /pandacorp:* command string the owner should copy and run. */
+  command: string;
+  /** Spanish description of when to use this command (UI-facing). */
+  when: string;
+}
+
+/**
+ * Map a project phase to the stage-relevant command rows shown in the Commands
+ * tab (REQ-04-005, AC-04-005.1).
+ *
+ * Pure: no I/O, no writes, no network, no side effects. Never throws.
+ * Deterministic: same phase → same output, always.
+ *
+ * @param phase - The project phase from `.pandacorp/status.yaml`.
+ *   Runtime callers may pass `undefined` (regression B1', I3) — handled safely.
+ * @returns A non-empty `CommandRow[]` with at least one row. Never empty.
+ *   Never returns `null` or `undefined`.
+ */
+export function workspaceCommands(phase: Phase): CommandRow[];
+```
+
+### Phase → CommandRow[] mapping table (canonical)
+
+| `phase` | Result rows (in order) | Row count |
+|---|---|---|
+| `"implementation"` | `/pandacorp:implement`, `/pandacorp:release`, `/pandacorp:iterate` | 3 |
+| `"release"` | `/pandacorp:implement`, `/pandacorp:release`, `/pandacorp:iterate` | 3 |
+| `"operation"` | `/pandacorp:iterate`, `/pandacorp:new-version` | 2 |
+| `"product"` | delegates to FRD-02: `/pandacorp:design` | 1 |
+| `"design"` | delegates to FRD-02: `/pandacorp:blueprint` | 1 |
+| `"architecture"` | delegates to FRD-02: `/pandacorp:implement` | 1 |
+| `undefined` / unknown | safe fallback: `/pandacorp:spec <idea>` | 1 |
+
+Notes on the mapping:
+- `implementation` and `release` share the same 3-row set (both are mid-build phases where the owner can resume, launch, or iterate).
+- `iterate` is always the **last** row in building phases and the **first** row in operation (shipped project's primary action).
+- The early-phase delegation (product/design/architecture) reuses `PHASE_COMMANDS` from the FRD-02 base — no duplication of the mapping.
+- The unknown/undefined fallback returns `/pandacorp:spec <idea>` — a safe pre-pipeline command that is never a building-phase command (never misleading for an unrecognised phase).
+
+### Building-phase rows detail
+
+| Row index | `command` | `when` (Spanish) |
+|---|---|---|
+| 0 | `/pandacorp:implement` | `"Continúa o reanuda la construcción del proyecto"` |
+| 1 | `/pandacorp:release` | `"Cuando todos los work orders estén listos para lanzar"` |
+| 2 | `/pandacorp:iterate` | `"Agrega un FRD, ajusta o corrige algo en el proyecto"` |
+
+### Operation-phase rows detail
+
+| Row index | `command` | `when` (Spanish) |
+|---|---|---|
+| 0 | `/pandacorp:iterate` | `"Itera sobre el proyecto: agrega, ajusta o corrige"` |
+| 1 | `/pandacorp:new-version` | `"Comienza un nuevo hito o versión mayor del proyecto"` |
+
+### Defensive contract
+
+| Input condition | Result |
+|---|---|
+| `phase === "implementation"` | 3-row array: implement → release → iterate |
+| `phase === "release"` | 3-row array identical to `"implementation"` |
+| `phase === "operation"` | 2-row array: iterate → new-version |
+| `phase === "product"` | 1-row array: `/pandacorp:design` (FRD-02 delegation) |
+| `phase === "design"` | 1-row array: `/pandacorp:blueprint` (FRD-02 delegation) |
+| `phase === "architecture"` | 1-row array: `/pandacorp:implement` (FRD-02 delegation) |
+| `phase === undefined` (B1' regression) | 1-row array: fallback `/pandacorp:spec <idea>` — does not throw |
+| `phase` is an unrecognised string (I3 regression) | 1-row array: fallback `/pandacorp:spec <idea>` — no building command |
+| Any valid phase called twice | Identical output (deterministic) |
+| Called in any order across all phases | No shared state mutated (idempotent) |
+
+### Architecture invariants
+
+- **Pure:** no `import fs`, no writes, no network, no global state mutation. No side effects of any kind.
+- **Never throws:** all branches — including undefined/unknown phase — produce a valid `CommandRow[]`.
+- **Never empty:** every code path returns at least one row (`length >= 1`). An empty array is a contract violation (regression B2/WO-12-004 detection).
+- **Deterministic:** given the same phase, always returns rows with the same `command` and `when` strings.
+- **FRD-02 delegation — no duplication:** early phases delegate to the existing `PHASE_COMMANDS` record from the FRD-02 base — the phase→command mapping lives in one place.
+- **`when` !== `command`:** the description field is always distinct from the command string (not a copy of it).
+- **Genuinely typed:** no `any`, no `@ts-ignore`. Strict TypeScript. `CommandRow[]` is a genuine `Array` (`Array.isArray()` is true — regression I3).
+- **No cross-contamination:** operation phase never includes implement/release; early phases never include building-phase commands.
+
+### Regression anchors
+
+| Anchor | Risk | Guard |
+|---|---|---|
+| **B1' (2026-06-16)** | NaN phase rejected upstream by `readStatus`; arrives as `undefined` | `undefined` falls through all phase equality checks; hits the catch-all fallback branch; returns 1-row fallback array — never throws |
+| **I3 (2026-06-16)** | Array-shaped phase rejected upstream; arrives as `undefined` | Same fallback path |
+| **B2 / WO-12-004 (2026-06-16)** | A function returning `[]` is undetectable by `toBeTruthy` | Every code path pushes at least 1 row; the fallback branch is the innermost safety net |
+
+### Consumption (downstream WOs)
+
+- **WO-04-007** (`CMP-04-tab-commands`): calls `workspaceCommands(phase)` server-side to render the command row list. Each row's `command` passes to `<CopyButton>` (WO-02-002); each `when` renders as the row description. The Commands tab also slots `CMP-11-mode-selector` (FRD-11) for the build-mode picker — that is a separate concern owned by FRD-11.
+
+### Test coverage
+
+`lib/next-step.wo04003.test.ts` — 69 tests across 7 groups (vitest, pure — no fs, no mocks):
+
+| Group | ACs / invariants covered |
+|---|---|
+| implementation phase (AC-04-005.1) | Does not throw; 3 rows; row[0]=implement; row[1]=release; row[2]=iterate; all rows non-empty; genuine Array (I3); `when` fields non-empty and describe correct scenario |
+| release phase (AC-04-005.1) | Does not throw; 3 rows; same row commands as implementation; parity assertion (mutation hardening) |
+| operation phase (AC-04-005.1) | Does not throw; 2 rows; row[0]=iterate; row[1]=new-version; all rows non-empty; no pre-build or building commands appear |
+| early-phase delegation to FRD-02 | Does not throw (product/design/architecture); 1 row each; non-empty row; no building-phase commands for product/design; specific delegation: product→design, design→blueprint, architecture→implement |
+| Pure function invariants | Deterministic (same phase → same commands); all valid phases non-null/non-undefined/genuine Array; at least 1 row for every phase (regression B2); idempotent across repeated calls; `when !== command` for all building/operation phases |
+| Complete mapping table (mutation hardening) | One assertion per (phase, row-index, field) cell; count guards; order guards |
+| Regression B1' + I3 (undefined / unknown phase) | Does not throw; Array result; at least 1 row; each row valid; deterministic; unrecognised string → no building commands returned |
 
 ---
 
