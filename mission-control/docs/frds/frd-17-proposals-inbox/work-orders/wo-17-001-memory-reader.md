@@ -28,6 +28,16 @@ Parse `factory/memory/LESSON-*.md` into typed `Lesson` objects (frontmatter + bo
 `lib/memory.test.ts` with a fixture `factory/memory/` tree (active lesson, candidate lesson,
 multi-project lesson, malformed file, template files).
 
+## Status
+
+**BLOCKED** — Reviewer cycle-2 REJECTED (DR-015 cap=2 exhausted, 2026-06-16).
+
+Blocking bug: `parseProjects` still over-counts on two ambiguous-source cases, falsely
+flipping `evalGate` to `"corroborated"` for a single-project candidate (AC-17-001.5 violated).
+Failing tests: `lib/memory.adversarial.test.ts` cases 4 and 5 (unclosed parenthetical,
+trailing free text). See `docs/reviews/wo-17-001-review.md` for full analysis and fix suggestion.
+Escalation required from owner before any further implementation attempt.
+
 ## Definition of done
 - ACs RED → GREEN; defensive parsing; no `any`. `.pandacorp/verify.sh` green.
 
