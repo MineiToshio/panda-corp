@@ -20,10 +20,16 @@
 
 ## Definition of done
 
-- `components/CardDetail.test.tsx` (RED first, jsdom):
-  - renders summary + key points from the body.
-  - an `in-pipeline` card with a docs index → renders the navigator entries.
-  - a card with no docs → summary only, no navigator, no crash.
-  - the next-step command + copy button render with the value from `nextStep`.
-- Read-only; no write.
-- `.pandacorp/verify.sh` green.
+- [x] `components/CardDetail.test.tsx` (RED first, jsdom):
+  - [x] renders summary + key points from the body.
+  - [x] an `in-pipeline` card with a docs index → renders the navigator entries.
+  - [x] a card with no docs → summary only, no navigator, no crash.
+  - [x] the next-step command + copy button render with the value from `nextStep`.
+- [x] Read-only; no write.
+- [x] `.pandacorp/verify.sh` green.
+
+## Evidence
+
+- Committed: `6a7ddca feat(mission-control): WO-02-007 CardDetail — card detail + docs navigator (CMP-02-card-detail)`
+- Selective verify (2026-06-16): `pnpm biome check .` → 0 errors; `pnpm tsc --noEmit` → 0 errors; `pnpm vitest run components/CardDetail` → 2 test files, 67 tests, all passed.
+- Status: DONE
