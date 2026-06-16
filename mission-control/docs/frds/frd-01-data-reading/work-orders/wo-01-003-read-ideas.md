@@ -31,10 +31,16 @@ export function readIdeas(ideasDir?: string): IdeaCard[];  // defaults to config
 
 ## Definition of done
 
-- `lib/ideas.test.ts` (RED first):
+- [x] `lib/ideas.test.ts` (RED first):
   - `factory-full` → returns the 5 valid cards; `_idea-template.md` and `decision-log.md` excluded;
     `idea-malformed.md` excluded without throwing.
   - Each returned card exposes `title`, `status`, `projectType`, `returnType`, `score`, `body`.
   - `factory-fresh` (empty ideas dir) → `[]`.
-- No write; fail-soft per blueprint §3.
-- `.pandacorp/verify.sh` green.
+- [x] No write; fail-soft per blueprint §3.
+- [x] `.pandacorp/verify.sh` green.
+
+## Status: DONE
+
+**Evidence:** `bash .pandacorp/verify.sh` — 340 tests passed (15 test files), biome+tsc clean (2026-06-16).
+Implementer commits: `7e79bf0` (readIdeas lib), `8a122dd` (IdeaCard UI). Reviewer verdict: APPROVED (`docs/reviews/wo-01-003-review.md`).
+Adversarial suite (14 tests): `lib/ideas.adversarial.test.ts` — all green. Mutation check passed (4/4 mutants caught).
