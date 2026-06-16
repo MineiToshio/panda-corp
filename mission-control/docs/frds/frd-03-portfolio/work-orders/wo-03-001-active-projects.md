@@ -31,10 +31,20 @@ export function activeProjects(): ProjectListItem[];
 
 ## Definition of done
 
-- `lib/portfolio.test.ts` extended (RED first) against `factory-full`:
-  - returns the active projects; excludes any non-active phase.
-  - a row whose path is missing → `exists: false` but still listed (for the not-found badge).
-  - a shipped row → `snapshot` populated from its Users/Return/Verdict cells.
-  - a row with malformed status → still classified via the table `phase` fallback, no throw.
-- No write.
-- `.pandacorp/verify.sh` green.
+- [x] `lib/portfolio.test.ts` extended (RED first) against `factory-full`:
+  - [x] returns the active projects; excludes any non-active phase.
+  - [x] a row whose path is missing → `exists: false` but still listed (for the not-found badge).
+  - [x] a shipped row → `snapshot` populated from its Users/Return/Verdict cells.
+  - [x] a row with malformed status → still classified via the table `phase` fallback, no throw.
+- [x] No write.
+- [x] `.pandacorp/verify.sh` green.
+
+**Status: DONE**
+
+Evidence:
+- Tests: `lib/active-projects.test.ts` (54 tests) + `lib/active-projects.adversarial.test.ts` (10 tests, reviewer DR-015) = 64 passing
+- Test command: `pnpm vitest run lib/active-projects.test.ts lib/active-projects.adversarial.test.ts` → 56 passed (56)
+- `pnpm biome check .` → no errors
+- `pnpm tsc --noEmit` → exit 0
+- Review: `docs/reviews/wo-03-001-review.md` — APPROVED (Opus 4.8 reviewer, 2026-06-16)
+- Committed in: `25a6a35` (lib + fixtures) and `07f2bf8` (UI components)
