@@ -1,0 +1,16 @@
+project: "proj-product"
+phase: product
+version: v1
+overlay_version: "7.1.0"
+created_with: "6.0.0"
+running: false
+repo: "https://github.com/ada/proj-product"
+updated_at: "2026-06-01"
+work_orders_total: 0
+work_orders_done: 0
+pending_decisions: 0
+pending_bugs: 0
+rethink_pending: false
+advance_pending: false
+last_green_sha: ""
+safe_to_test: false

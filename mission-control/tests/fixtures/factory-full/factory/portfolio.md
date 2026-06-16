@@ -9,3 +9,7 @@ Index of Pandacorp projects.
 | proj-a | projects/proj-a | https://github.com/ada/proj-a | Mission Control factory dashboard | implementation | — | personal | active | 2026-06-15 |
 | proj-missing-repo | projects/proj-missing-repo | — | Subscription analytics dashboard | product | 12 | $240 MRR | building | 2026-05-01 |
 | proj-broken-path | /nonexistent/path/does/not/exist | https://github.com/ada/broken | CLI scaffolding tool | shipped | 340 | OSS stars | shipped | 2026-04-10 |
+| proj-architecture | projects/proj-architecture | https://github.com/ada/proj-architecture | Architecture phase project | architecture | — | — | — | 2026-06-14 |
+| proj-release | projects/proj-release | https://github.com/ada/proj-release | Release phase project | release | — | — | — | 2026-06-13 |
+| proj-operation | projects/proj-operation | https://github.com/ada/proj-operation | Shipped SaaS tool | operation | 500 | $1 200 MRR | double-down | 2026-06-10 |
+| proj-product | projects/proj-product | https://github.com/ada/proj-product | Early idea project | product | — | — | — | 2026-06-01 |

@@ -19,7 +19,158 @@
 > **complete for WO-02-002** (CMP-02-copy-button) +
 > **complete for WO-02-001** (IF-02-deriveColumn, `lib/board.ts`) +
 > **complete for WO-02-003** (IF-02-nextStep, `lib/next-step.ts`) +
-> **complete for WO-02-004** (IF-02-discardIdea, `lib/discard.ts`).
+> **complete for WO-02-004** (IF-02-discardIdea, `lib/discard.ts`) +
+> **complete for WO-03-001** (IF-03-activeProjects, `lib/portfolio.ts` → `activeProjects()`).
+
+---
+
+## WO-03-001: `activeProjects` — portfolio compose helper
+
+**Module:** `lib/portfolio.ts` — exported function `activeProjects()`
+**Traces:** CMP-03-active-projects, IF-03-activeProjects; REQ-03-001..003, REQ-03-006; AC-03-001.1..003.1, AC-03-006.x
+**Dependencies:** WO-01-004 (`readPortfolio`), WO-01-005 (`readStatus`, `StatusResult`, `Phase`), WO-01-001 (`pathExists`)
+
+### IF-03-activeProjects
+
+```ts
+// lib/portfolio.ts
+
+export type ProjectListItem = {
+  name: string;
+  /** Raw path cell from the portfolio row (verbatim; may be relative or nonexistent). */
+  path: string;
+  repo?: string;
+  /** Full StatusResult from readStatus(resolvedPath). */
+  status: StatusResult;
+  /** True when the resolved path exists on disk. False for not-found rows (badge-ready). */
+  exists: boolean;
+  /**
+   * Phase for display: authoritative from status.yaml; fallback to portfolio advisory cell
+   * (with "shipped" → "operation", "building" → "implementation" mapping).
+   * Undefined only when neither source can supply a valid phase.
+   */
+  stage?: Phase;
+  /**
+   * Strict boolean from status.status.running.
+   * Undefined when status absent or running field missing/malformed.
+   * Never NaN or null-coerced (regression B1').
+   */
+  running?: boolean;
+  /**
+   * Populated ONLY for operation (shipped) phase from the portfolio row's Users /
+   * Return metric / Verdict columns. Undefined for non-operation entries, or when
+   * all snapshot cells are placeholders.
+   */
+  snapshot?: {
+    users?: string;
+    returnMetric?: string;
+    verdict?: string;
+  };
+};
+
+/**
+ * Compose helper: read the portfolio, enrich each entry with its status and
+ * existence flag, return only active-phase entries.
+ *
+ * Active set: architecture | implementation | release | operation.
+ *
+ * @param content - Optional raw portfolio markdown content (inline fixture tests).
+ *   When omitted, reads from config.PORTFOLIO (at call-time, env-aware).
+ * @returns ProjectListItem[] filtered to active phases. Never throws.
+ */
+export function activeProjects(content?: string): ProjectListItem[];
+```
+
+### Phase resolution algorithm
+
+1. **Authoritative:** read `status.yaml` via `readStatus(resolvedPath)`. If `statusResult.present && statusResult.status.phase` is a valid `Phase` literal → use it.
+2. **Advisory fallback:** if status is absent, malformed, or phase is undefined → read the portfolio table's `phase` cell, normalize via the map below.
+3. **Advisory → Phase map:**
+
+| Portfolio cell | Resolved Phase |
+|---|---|
+| `architecture` | `architecture` |
+| `implementation` | `implementation` |
+| `building` | `implementation` |
+| `release` | `release` |
+| `operation` | `operation` |
+| `shipped` | `operation` |
+| anything else | — (row excluded) |
+
+4. **Active filter:** keep only entries whose resolved phase is in `{ architecture, implementation, release, operation }`.
+
+### Path resolution
+
+- **Absolute paths** (start with `/`) → used verbatim for `readStatus` and `pathExists`.
+- **Relative paths** → resolved against `resolveFactoryRoot()` at call-time (env-aware, respects `PANDACORP_FACTORY_ROOT` in tests).
+- The raw `path` string from the portfolio row is **always preserved verbatim** in the `ProjectListItem.path` field (REQ-01-010 through-compose).
+
+### Snapshot population rule (AC-03-003.1)
+
+`snapshot` is set only when `stage === "operation"`. The object is populated from the portfolio row's `users`, `returnMetric`, and `verdict` fields (already normalized by `readPortfolio` — placeholders are `undefined`). If all three are `undefined`, `snapshot` is `undefined` (omit silently, not an empty object).
+
+### Field invariants
+
+| Field | Invariant |
+|---|---|
+| `name` | Non-empty string; always present |
+| `path` | Non-empty string; verbatim raw cell; always present |
+| `status` | Full `StatusResult` object; never null; always present |
+| `exists` | Strict `boolean`; never null/undefined |
+| `stage` | Valid `Phase` literal or `undefined`; never an array (regression I3) |
+| `running` | Strict `boolean` or `undefined`; never NaN/null/number (regression B1') |
+| `snapshot` | Only on `operation` entries; `undefined` otherwise |
+
+### Tolerance rules (blueprint §3)
+
+| Condition | Result |
+|---|---|
+| No portfolio file / empty | `[]` (via readPortfolio fail-soft) |
+| Status absent | Phase from advisory cell fallback; `running: undefined` |
+| Status malformed (present: true, malformed: true) | Same advisory fallback; `running: undefined` |
+| Path not found on disk | `exists: false`; row still listed when phase is active (badge-ready) |
+| All snapshot cells are placeholders | `snapshot: undefined` |
+| Non-active advisory phase | Row excluded; no throw |
+| Never throws | For any combination of absent/malformed inputs |
+
+### Invariants (REQ-01-011)
+
+- **Read-only:** no writes, no Claude calls; only `readPortfolio`, `readStatus`, `pathExists`.
+- **Never throws:** all error cases yield empty/partial/undefined, never a thrown exception.
+- **Fully serializable:** all fields are `string | boolean | undefined | StatusResult | snapshot`; no class instances, no `Date`, no functions.
+- **Idempotent:** repeated calls on the same inputs return entries with the same names in the same order.
+- **Synchronous:** safe for Next.js Server Components without `await`.
+
+### Consumption (downstream features)
+
+- **`app/portfolio/page.tsx` + `components/ProjectRail.tsx`** (WO-03-002): calls `activeProjects()` server-side, passes `ProjectListItem[]` to the rail for rendering.
+- **`components/ProjectRow.tsx`** (WO-03-002): receives one `ProjectListItem`; reads `exists`, `stage`, `running` for the building/stopped indicator and ⚠️ badge.
+- **`components/BusinessSnapshot.tsx`** (WO-03-003): receives `item.snapshot` for shipped-project chips.
+- **`components/RecoveryHint.tsx`** (WO-03-005): receives `item.repo` and `item.path` for the copyable recovery command.
+
+### Regression anchors
+
+| Anchor | Description | Guard |
+|---|---|---|
+| **B1' (2026-06-16)** | `typeof NaN === "number"` can bypass type guards. `readStatus` rejects NaN upstream; `activeProjects` uses strict equality (`=== true` / `=== false`) for `running`. | `running` is always `boolean | undefined`, never a number. |
+| **I2 (2026-06-16)** | Empty/vacuous-truth from malformed status must not invent defaults. | Phase from malformed status is `undefined`; fallback to advisory cell, never fabricated. |
+| **I3 (2026-06-16)** | Array-typed phase values from YAML bypass `typeof`. | `readStatus` rejects them upstream; `stage` in `ProjectListItem` is always a `Phase` literal or `undefined`. |
+
+### Test coverage
+
+`lib/active-projects.test.ts` — 46 tests across 9 groups (vitest, no mocks, fixture-based):
+
+| Group | Coverage |
+|---|---|
+| AC-03-001.1 active phase inclusion | Includes architecture/implementation/release/operation; excludes product/design |
+| AC-03-006.x missing path | `exists: false` when path not found; row still listed; repo preserved |
+| AC-03-002.1 stage and running | Correct stage per phase; `running` strict boolean; all-items invariant |
+| AC-03-003.1 snapshot | Populated for operation only; absent/placeholder → undefined |
+| Malformed status fallback | No throw on malformed YAML; excluded when advisory phase is non-active; included when advisory phase is shipped |
+| Read-only + fail-soft | Empty portfolio → `[]`; nonexistent factory root → `[]`; never throws |
+| ProjectListItem field invariants | name/path non-empty strings; status object; exists boolean on every item |
+| Idempotency | Two calls → same names in same order |
+| Inline content overload | Parses raw markdown content; filters non-active phases |
 
 ---
 

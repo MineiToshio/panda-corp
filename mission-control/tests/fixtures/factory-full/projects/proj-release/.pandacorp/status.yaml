@@ -1,0 +1,16 @@
+project: "proj-release"
+phase: release
+version: v1
+overlay_version: "7.1.0"
+created_with: "6.0.0"
+running: true
+repo: "https://github.com/ada/proj-release"
+updated_at: "2026-06-15"
+work_orders_total: 20
+work_orders_done: 18
+pending_decisions: 1
+pending_bugs: 0
+rethink_pending: false
+advance_pending: false
+last_green_sha: "bbb0002"
+safe_to_test: true

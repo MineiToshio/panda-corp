@@ -1,0 +1,16 @@
+project: "proj-operation"
+phase: operation
+version: v1
+overlay_version: "7.1.0"
+created_with: "6.0.0"
+running: false
+repo: "https://github.com/ada/proj-operation"
+updated_at: "2026-06-10"
+work_orders_total: 30
+work_orders_done: 30
+pending_decisions: 0
+pending_bugs: 0
+rethink_pending: false
+advance_pending: false
+last_green_sha: "ccc0003"
+safe_to_test: true

@@ -1,15 +1,19 @@
 import fs from "node:fs";
 import path from "node:path";
 import { resolveFactoryRoot } from "./config";
+import { pathExists } from "./fs-utils";
+import { type Phase, readStatus, type StatusResult } from "./status";
 
 /**
  * Data-reading module for the portfolio table (FRD-01, CMP-01-portfolio).
+ * Compose layer for FRD-03: activeProjects() (CMP-03-active-projects, IF-03-activeProjects).
  *
  * Platform golden rule (architecture §1): read-only, never call Claude.
  * All I/O is `fs.readFileSync` only — no writes, no egress.
  *
  * Traceability:
  *   IF-01-readPortfolio → REQ-01-004 → AC-01-004.1
+ *   IF-03-activeProjects → REQ-03-001 → AC-03-001.1
  *   REQ-01-010: project path is returned verbatim; pathExists() marks not-found downstream.
  */
 
@@ -231,4 +235,168 @@ function readPortfolioFromPath(filePath: string): PortfolioEntry[] {
     return [];
   }
   return parsePortfolioTable(content);
+}
+
+// ---------------------------------------------------------------------------
+// FRD-03: activeProjects() compose helper (IF-03-activeProjects, CMP-03-active-projects)
+// ---------------------------------------------------------------------------
+
+/**
+ * Enriched portfolio row for the portfolio rail (FRD-03).
+ *
+ * Traceability: IF-03-activeProjects → REQ-03-001..003, REQ-03-006
+ */
+export type ProjectListItem = {
+  name: string;
+  /** Raw path cell from the portfolio row (verbatim; may be relative or nonexistent). */
+  path: string;
+  repo?: string;
+  /** Raw StatusResult from readStatus(resolvedPath). */
+  status: StatusResult;
+  /** True when the resolved path exists on disk. False for not-found rows (badge-ready). */
+  exists: boolean;
+  /**
+   * Phase used for rail display: authoritative from status.yaml when present and valid,
+   * falls back to the portfolio row's phase cell (with "shipped" → "operation" mapping).
+   * Undefined only when neither source can supply a valid phase.
+   */
+  stage?: Phase;
+  /**
+   * Strict boolean from status.status.running. Undefined when status is absent or running
+   * field is missing/malformed. Never NaN or null-coerced (regression anchor B1').
+   */
+  running?: boolean;
+  /**
+   * Business snapshot populated ONLY for operation (shipped) phase, from the portfolio row's
+   * Users / Return metric / Verdict columns. Undefined for non-operation entries or when all
+   * snapshot cells are placeholders.
+   */
+  snapshot?: {
+    users?: string;
+    returnMetric?: string;
+    verdict?: string;
+  };
+};
+
+/**
+ * The set of portfolio phase advisory cell values that map to active phases.
+ * "shipped" is the human-readable alias for "operation" in the portfolio table.
+ */
+const ADVISORY_TO_PHASE: Record<string, Phase> = {
+  architecture: "architecture",
+  implementation: "implementation",
+  building: "implementation",
+  release: "release",
+  operation: "operation",
+  shipped: "operation",
+};
+
+/** Active phases — entries with these phases appear in the portfolio rail (REQ-03-001). */
+const ACTIVE_PHASES: ReadonlySet<Phase> = new Set<Phase>([
+  "architecture",
+  "implementation",
+  "release",
+  "operation",
+]);
+
+/**
+ * Resolve a portfolio path to an absolute path.
+ *
+ * - Already-absolute paths (start with `/`) are returned verbatim.
+ * - Relative paths are resolved against the factory root (at call-time so
+ *   PANDACORP_FACTORY_ROOT env overrides in tests are respected).
+ */
+function resolveProjectPath(rawPath: string): string {
+  if (path.isAbsolute(rawPath)) {
+    return rawPath;
+  }
+  return path.join(resolveFactoryRoot(), rawPath);
+}
+
+/**
+ * Compose helper: read the portfolio, enrich each entry with its status and
+ * existence flag, and return only the active-phase entries.
+ *
+ * Active set: `architecture` | `implementation` | `release` | `operation`.
+ * Phase is determined from `status.yaml` (authoritative); absent/malformed status
+ * falls back to the portfolio table's `phase` cell (advisory).
+ *
+ * Overload:
+ * - **Omitted** — reads from `config.PORTFOLIO` (same as readPortfolio()).
+ * - **Raw markdown content** (string with `\n`) — parses the content in-memory;
+ *   existence probes use the raw path from the portfolio row (for inline fixture tests).
+ *
+ * Tolerance rules (blueprint §3):
+ * - Missing portfolio → []
+ * - Missing status.yaml → phase from portfolio advisory cell; exists from pathExists.
+ * - Malformed status → same fallback.
+ * - Path not found → exists: false; row still listed when phase is active (badge-ready).
+ * - Never throws.
+ *
+ * @param content - Optional raw portfolio markdown content (for inline tests).
+ * @returns Array of ProjectListItem (active phases only). Never throws.
+ *
+ * Traceability: IF-03-activeProjects → REQ-03-001..003, REQ-03-006; AC-03-001.1
+ */
+export function activeProjects(content?: string): ProjectListItem[] {
+  const entries = readPortfolio(content);
+  const result: ProjectListItem[] = [];
+
+  for (const entry of entries) {
+    const resolvedPath = resolveProjectPath(entry.path);
+    const statusResult = readStatus(resolvedPath);
+    const exists = pathExists(resolvedPath);
+
+    // --- Determine phase (authoritative → advisory fallback) ---
+    // Authoritative: status.yaml phase (validated Phase literal).
+    let stage: Phase | undefined;
+    if (statusResult.present && statusResult.status.phase !== undefined) {
+      stage = statusResult.status.phase;
+    }
+
+    // Fallback: portfolio advisory phase cell (mapped to Phase literal).
+    if (stage === undefined && entry.phase !== undefined) {
+      const mapped = ADVISORY_TO_PHASE[entry.phase.toLowerCase().trim()];
+      if (mapped !== undefined) {
+        stage = mapped;
+      }
+    }
+
+    // --- Filter: only active phases ---
+    if (stage === undefined || !ACTIVE_PHASES.has(stage)) {
+      continue;
+    }
+
+    // --- running: strict boolean from status, undefined otherwise (regression B1') ---
+    let running: boolean | undefined;
+    if (
+      statusResult.present &&
+      statusResult.status.running !== undefined &&
+      (statusResult.status.running === true || statusResult.status.running === false)
+    ) {
+      running = statusResult.status.running;
+    }
+
+    // --- snapshot: only for operation phase, from portfolio row columns ---
+    let snapshot: ProjectListItem["snapshot"];
+    if (stage === "operation") {
+      const { users, returnMetric, verdict } = entry;
+      if (users !== undefined || returnMetric !== undefined || verdict !== undefined) {
+        snapshot = { users, returnMetric, verdict };
+      }
+    }
+
+    result.push({
+      name: entry.name,
+      path: entry.path,
+      repo: entry.repo,
+      status: statusResult,
+      exists,
+      stage,
+      running,
+      snapshot,
+    });
+  }
+
+  return result;
 }
