@@ -6,8 +6,8 @@ input=$(cat)
 cwd=$(echo "$input" | jq -r '.cwd // "."')
 cmd=$(echo "$input" | jq -r '.tool_input.command // ""')
 
-# Scope: only act in Pandacorp folders (factory or scaffolded projects)
-if ! grep -qs "Pandacorp" "$cwd/CLAUDE.md" 2>/dev/null; then
+# Scope: act in Pandacorp folders — a project (.pandacorp/status.yaml, incl. adopted ones) OR the factory (Pandacorp in CLAUDE.md)
+if [ ! -f "$cwd/.pandacorp/status.yaml" ] && ! grep -qs "Pandacorp" "$cwd/CLAUDE.md" 2>/dev/null; then
   exit 0
 fi
 

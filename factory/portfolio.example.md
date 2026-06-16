@@ -1,7 +1,7 @@
 # Pandacorp Portfolio
 
 Index of projects created by the factory. Pointers and summaries only — the detail lives in each project.
-Updated by `/pandacorp:sync-portfolio` (reads each project's `docs/status.yaml`).
+Updated by `/pandacorp:sync-portfolio` (reads each project's `.pandacorp/status.yaml`).
 
 | Project | Path | Repo | Origin idea | Phase | Users | Return | Verdict | Last sync |
 |---|---|---|---|---|---|---|---|---|

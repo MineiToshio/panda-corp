@@ -2,7 +2,12 @@
 
 Product, design and technical decisions for Mission Control (the Next.js app). Most recent on top. See the index and format in [DECISION-LOG.md](../../DECISION-LOG.md).
 
-> The live project state is in [docs/status.yaml](status.yaml); the PRD in [docs/prd.md](prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
+> The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/prd.md](prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
+
+## 2026-06-15 — Read the new .pandacorp/ project layer; MC dogfoods it (DR-048)
+**What:** Project state moved from `docs/status.yaml` to `.pandacorp/status.yaml` (DR-048), so the data-reading FRDs were updated: FRD-01/02/04/14/16 now read `.pandacorp/status.yaml` and the `.pandacorp/inbox/` (bugs, decisions) + `.pandacorp/comms/` layers. Mission Control **dogfoods** the new structure: its own `docs/{status.yaml,idea-origin.md,summary.md}` moved to `mission-control/.pandacorp/`.
+**Why:** Consistency with the factory's new project structure (see `factory/decision-log.md`, same date, DR-048). MC reads every project's state; that path changed.
+**Impact:** `mission-control/docs/frds/{frd-01,frd-02,frd-04,frd-14,frd-16}.md` (paths), `mission-control/.pandacorp/{status.yaml,idea-origin.md,comms/summary.md}` (moved), root `.gitignore` (MC comms paths). The HTML prototype's mock paths are cosmetic; reconcile when the Next.js app reads real files.
 
 ## 2026-06-15 — Manual (FRD-08) reflects the factory: derived Reference + reconciled prototype (DR-046)
 **What:** FRD-08 now requires the Manual's **Reference** catalogs (commands, agents, decision rules, standards) to be **derived from the canonical source** at build/read time — the plugin skill+agent frontmatter under `plugin/skills/` & `plugin/agents/`, `factory/decisions/registry.yaml`, `factory/standards/` — not a hand-maintained copy, plus a criterion that the Manual stays in sync (Reference auto-derived; Guides/Concepts by the documentation discipline). Reconciled the HTML prototype's catalogs against today's factory: added skills `review-launch` + `adopt`, agent `implementer`, rules DR-040..DR-046, and the `documentation` standard — closing a drift of 2 skills / 1 agent / 6 rules / 1 standard. Catalog now: 20 skills (7 fábrica + 13 proyecto), 13 agents, 46 rules (last DR-046), 14 standards.

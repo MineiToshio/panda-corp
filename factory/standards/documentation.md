@@ -14,7 +14,7 @@ Every relevant change —app behavior, scope, architecture, design— is documen
    | Product scope/objective, success metrics | the **PRD** (`docs/prd.md`) |
    | Architecture, stack, data model, technical decision | the **blueprint** (`docs/blueprint.md`) + an **ADR** in `docs/adr/` |
    | Visual design, tokens, components | **`DESIGN.md`** / `docs/design/design-tokens.json` |
-   | Progress state (what is done) | `docs/status.yaml` — written by skills/CI, **not by hand** |
+   | Progress state (what is done) | `.pandacorp/status.yaml` — written by skills/CI, **not by hand** |
 
 2. **Decision log (the history) — `MUST`.** An entry is added to `docs/decision-log.md`: date, *what*, *why*, and a link to the canonical doc that was touched (*Impact* field). Most recent on top.
 
@@ -24,7 +24,7 @@ The canonical doc answers *"what is true now?"*; the decision log, *"how did we 
 
 ### Decision log vs. other docs (don't confuse them)
 - **`docs/decision-log.md`** = durable history of decisions/changes across the WHOLE cycle (including post-launch). The why behind the current state.
-- **`docs/iteration.md`** = working memory of the iteration of a manual PHASE —what was tried, what the owner rejected— to resume mid-phase (DR-032). Transient; it closes when advancing a phase. A decision that comes out of the iteration and becomes firm is recorded in the decision log.
+- **`.pandacorp/comms/iteration.md`** = working memory of the iteration of a manual PHASE —what was tried, what the owner rejected— to resume mid-phase (DR-032). Transient; it closes when advancing a phase. A decision that comes out of the iteration and becomes firm is recorded in the decision log.
 - **`factory/decisions/registry.yaml`** (in the factory) = policy (recurring rules with a default). It is not history.
 
 ## How it is verified

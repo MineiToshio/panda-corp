@@ -1,0 +1,19 @@
+---
+id: LESSON-NNNN
+type: problem-solution        # problem-solution | library-verdict | pattern | gotcha | anti-pattern
+domain: <area>
+tags: [<keyword>, <keyword>]
+context: <one line describing what this lesson is about — used to match it at retrieval time>
+source: <project + capture point, or doc reference>
+created: YYYY-MM-DD
+status: candidate             # candidate | active | deprecated
+confidence: medium            # low | medium | high
+times_applied: 0
+links: []
+---
+
+**Situation:** what happened / what was needed (1-2 lines, concrete, anchored to real evidence).
+
+**Lesson:** the durable takeaway — the solution, the verdict, the pattern, or the trap to avoid.
+
+**Apply next time:** the actionable rule for a future build ("when X, do Y / avoid Z").

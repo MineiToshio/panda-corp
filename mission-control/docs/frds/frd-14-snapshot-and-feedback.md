@@ -4,7 +4,7 @@ What Mission Control shows to operate an unattended build: which is the last **p
 
 ## Acceptance criteria (EARS)
 
-- FOR each project being built, Mission Control SHALL show a **snapshot panel** with: the **last probable point** (FRD closed green + `last_green_sha`), a "green" badge, and the **`git worktree add ../<project>-review <sha>` command** ready to copy. It reads `last_green_sha` and `safe_to_test` from `docs/status.yaml`.
+- FOR each project being built, Mission Control SHALL show a **snapshot panel** with: the **last probable point** (FRD closed green + `last_green_sha`), a "green" badge, and the **`git worktree add ../<project>-review <sha>` command** ready to copy. It reads `last_green_sha` and `safe_to_test` from `.pandacorp/status.yaml`.
 - The panel SHALL distinguish **"building now"** (the work order in progress, "don't test this yet") from the **"last probable point"** — they are two different things.
 - IF `last_green_sha` is far behind HEAD (many commits/hours), it SHALL warn that the probable snapshot is getting stale.
 - EACH project in the portfolio rail SHALL show **chips** with the number of **pending decisions** (amber) and **bugs in the inbox** (red), read from `pending_decisions` and `pending_bugs`.

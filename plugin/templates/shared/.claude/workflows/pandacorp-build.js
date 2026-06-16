@@ -78,7 +78,7 @@ phase('Plan')
 const plan = await agent(
   `You are the Pandacorp build planner. Read the project state WITHOUT modifying anything:
   - docs/work-orders/README.md and docs/work-orders/*.md → the queue, its order and dependencies.
-  - docs/status.yaml → what is already green (do not rebuild it).
+  - .pandacorp/status.yaml → what is already green (do not rebuild it).
   - docs/blueprint.md → the chosen stack.
   Return the PENDING work orders in dependency order, each with its deps (ids of work orders that must be green first).${ONLY ? ' Limit to these ids: ' + ONLY.join(', ') + '.' : ''}
   hasFrontend=true only if the stack is web (A). trivial=true if it is a single module with no back/front split.`,
@@ -99,7 +99,7 @@ const built = []
 async function build(wo) {
   // Trivial or pro mode: a single full-stack implementer (splitting adds no speed).
   if (plan.trivial || !P.split) {
-    await agent(`${EMIT('implementer', wo.id)}Fully implement work order ${wo.id} with TDD (RED→GREEN→refactor), anchored in the EARS criteria of FRD ${wo.frd || ''} and in bugs from docs/progress.md: ${wo.summary}. Write the critical context to files.`,
+    await agent(`${EMIT('implementer', wo.id)}Fully implement work order ${wo.id} with TDD (RED→GREEN→refactor), anchored in the EARS criteria of FRD ${wo.frd || ''} and in bugs from .pandacorp/comms/progress.md: ${wo.summary}. Write the critical context to files.`,
       { label: `build:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:implementer', schema: STAGE_SCHEMA })
     return
   }
@@ -130,7 +130,7 @@ async function review(wo) {
 }
 
 async function verifyWO(wo) {
-  return await agent(`Safe point for work order ${wo.id}: run .pandacorp/verify.sh clean. If it passes (green), commit the work order (Conventional Commits with scope), mark the WO 'done' with evidence in docs/work-orders/, and write last_green_sha (the commit sha) and safe_to_test: true in docs/status.yaml. If it does NOT pass, return green=false with the reason and DO NOT commit anything. Never commit mid-work-order.`,
+  return await agent(`Safe point for work order ${wo.id}: run .pandacorp/verify.sh clean. If it passes (green), commit the work order (Conventional Commits with scope), mark the WO 'done' with evidence in docs/work-orders/, and write last_green_sha (the commit sha) and safe_to_test: true in .pandacorp/status.yaml. If it does NOT pass, return green=false with the reason and DO NOT commit anything. Never commit mid-work-order.`,
     { label: `verify:${wo.id}`, phase: 'Verify', model: P.worker, agentType: 'pandacorp:implementer', schema: VERIFY_SCHEMA })
 }
 
@@ -157,7 +157,7 @@ async function runWO(wo) {
     return v
   } catch (e) {
     log(`✗ ${wo.id} BLOCKED (${String((e && e.message) || e).slice(0, 100)}) — freeze-on-red`)
-    await agent(`Freeze-on-red for work order ${wo.id}: do NOT commit anything broken. Leave HEAD at last_green_sha, mark work order ${wo.id} as BLOCKED in docs/status.yaml with the reason, and emit a notification to the owner (PushNotification / Notification hook). Do not touch other work orders.`,
+    await agent(`Freeze-on-red for work order ${wo.id}: do NOT commit anything broken. Leave HEAD at last_green_sha, mark work order ${wo.id} as BLOCKED in .pandacorp/status.yaml with the reason, and emit a notification to the owner (PushNotification / Notification hook). Do not touch other work orders.`,
       { label: `freeze:${wo.id}`, phase: 'Verify', model: P.worker, agentType: 'pandacorp:implementer' })
     return { green: false }
   }
@@ -197,10 +197,10 @@ while (pending.size > 0) {
 // ── Close-out ─────────────────────────────────────────────────────────────────
 phase('Verify')
 if (built.length > 0 && blocked.size === 0) {
-  await agent(`All work orders closed green. Run the full suite + e2e of the critical flows and kill the test dev servers with TaskStop. If everything stays green, set docs/status.yaml phase: release and running: false. Summarize what was built and the evidence.`,
+  await agent(`All work orders closed green. Run the full suite + e2e of the critical flows and kill the test dev servers with TaskStop. If everything stays green, set .pandacorp/status.yaml phase: release and running: false. Summarize what was built and the evidence.`,
     { label: 'close-out', phase: 'Verify', model: P.judge, agentType: 'pandacorp:reviewer' })
 } else if (blocked.size > 0) {
-  log(`Build stopped with ${blocked.size} blocked: ${[...blocked].join(', ')}. Check docs/decisions.md / docs/bugs/ and re-run implement.`)
+  log(`Build stopped with ${blocked.size} blocked: ${[...blocked].join(', ')}. Check .pandacorp/inbox/decisions.md / .pandacorp/inbox/bugs/ and re-run implement.`)
 }
 
 return { mode: MODE, total: plan.workOrders.length, built, blocked: [...blocked] }

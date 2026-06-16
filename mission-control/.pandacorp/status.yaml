@@ -1,8 +1,10 @@
 # Machine-readable status for Pandacorp (the factory dashboard) — read by the factory and the dashboard itself.
-# Human-readable Spanish narrative lives in docs/summary.md (gitignored).
+# Human-readable Spanish narrative lives in .pandacorp/comms/summary.md (gitignored).
 project: "Pandacorp"
 phase: architecture
 version: v1
+overlay_version: "6.0.0"
+created_with: "6.0.0"
 running: false
 repo: ""
 updated_at: "2026-06-13"

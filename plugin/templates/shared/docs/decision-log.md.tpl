@@ -2,7 +2,7 @@
 
 History of the project's decisions and changes, with the **why**. Most recent on top.
 
-> **Two layers (factory standard).** Every relevant change updates its **canonical doc** (FRD/PRD/blueprint/DESIGN — see `CLAUDE.md`, *Documentation map*) **and** adds an entry here that links to it. The decision log is the HISTORY (what/why); the canonical doc is the current TRUTH. Not to be confused with `docs/iteration.md` (transient, phase-scoped memory).
+> **Two layers (factory standard).** Every relevant change updates its **canonical doc** (FRD/PRD/blueprint/DESIGN — see `CLAUDE.md`, *Documentation map*) **and** adds an entry here that links to it. The decision log is the HISTORY (what/why); the canonical doc is the current TRUTH. Not to be confused with `.pandacorp/comms/iteration.md` (transient, phase-scoped memory).
 
 <!-- Format of each entry (most recent on top):
 

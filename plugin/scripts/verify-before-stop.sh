@@ -10,10 +10,9 @@ cwd=$(echo "$input" | jq -r '.cwd // "."')
 stop_active=$(echo "$input" | jq -r '.stop_hook_active // false')
 [ "$stop_active" = "true" ] && exit 0
 
-# Scope: only Pandacorp projects with a verify script
+# Scope: only Pandacorp projects with a verify script — its presence in .pandacorp/ IS the marker
 verify="$cwd/.pandacorp/verify.sh"
 [ -f "$verify" ] || exit 0
-grep -qs "Pandacorp" "$cwd/CLAUDE.md" 2>/dev/null || exit 0
 
 out=$(bash "$verify" 2>&1)
 if [ $? -ne 0 ]; then

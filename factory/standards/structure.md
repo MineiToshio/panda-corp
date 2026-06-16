@@ -17,7 +17,8 @@ src/
 ├── contexts/                 # React Context (e.g. ThemeContext)
 └── i18n/                     # routing, request and locales/<locale>/*.json
 e2e/                          # end-to-end tests (Playwright)
-docs/                         # project documentation (see Pandacorp pipeline)
+docs/                         # product documentation (PRD, FRDs, blueprint, ADRs, design…)
+.pandacorp/                   # Pandacorp factory-integration layer (state, guide, comms, inbox) — see .pandacorp/README.md
 ```
 
 ## Structure rules

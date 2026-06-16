@@ -13,7 +13,7 @@ These commands live in the project's `.pandacorp/verify.sh` and the factory's `S
 
 ## Adversarial and independent verification (DR-015)
 - The **generator and verifier cannot be the same model**: an LLM's errors cluster and its tests inherit its blind spots. The `reviewer` (opus, ideally from a different family than the generator) **re-runs** all the evidence and writes **adversarial and edge-case tests that the implementer didn't see**.
-- The tests are anchored in **human sources** —EARS criteria of the FRDs and real bugs from `docs/progress.md`—, not in the model's imagination.
+- The tests are anchored in **human sources** —EARS criteria of the FRDs and real bugs from `.pandacorp/comms/progress.md`—, not in the model's imagination.
 
 ## Mutation and property-based testing (DR-016)
 - **Mutation testing** (Stryker in TS / mutmut in Python) detects decorative tests: if mutating the code doesn't break any test, the test proves nothing. Run **at the close of each FRD milestone** and in CI toward main (not at every Stop gate — it is expensive). Target mutation score ≥60% on new business logic.

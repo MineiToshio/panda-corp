@@ -60,7 +60,7 @@ Two separate planes:
 ## 7. Owner notification on gates (DR-038)
 
 - At **ANY** point that requires a decision/action from the owner (gates DR-004/005/007/008/035, pending items of the `decide` skill, or signup/2FA/payment during provisioning), the agent fires a **push notification**. It reaches the **phone** if Remote Control / the Claude app is connected to the session (already configured on the owner's machine). A one-line, actionable message: *"PandaTrack: enter card in Polar to continue"*.
-- **Mission Control** is the "at the desk" view (log of pending items in `docs/status.yaml`); the **push** is the "I'm away" view. Mission Control is not connected to the phone — the native push covers it.
+- **Mission Control** is the "at the desk" view (log of pending items in `.pandacorp/status.yaml`); the **push** is the "I'm away" view. Mission Control is not connected to the phone — the native push covers it.
 
 ## 8. Playbook — bringing a project up and down
 

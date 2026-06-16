@@ -7,7 +7,7 @@ Catches the inverse of a registered project: a real project sitting in the proje
 - **Projects folder**: `projects_path` from `factory/profile.md`; if empty, the parent directory of the factory root.
 - **On-disk candidates**: immediate subfolders of the projects folder that are git repos (`.git` present). Exclude the factory itself and `mission-control/` (internal).
 - **Registered set**: the paths listed in `factory/portfolio.md`.
-- **Pandacorp marker**: a folder is already a factory project if it has `docs/status.yaml` AND `Origin — Pandacorp` in its `CLAUDE.md`.
+- **Pandacorp marker**: a folder is already a factory project if it has `.pandacorp/status.yaml` (the canonical marker — `Origin — Pandacorp` now lives in `.pandacorp/guide.md`, not `CLAUDE.md`).
 - **Orphan** = an on-disk git repo in the projects folder that is **not in the portfolio** and has **no Pandacorp marker**.
 
 ## Acceptance criteria (EARS)

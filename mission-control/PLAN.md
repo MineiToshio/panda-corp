@@ -14,7 +14,7 @@ A local web app at `http://127.0.0.1:3000` with three panels over real factory d
 - [ ] **Ideas** panel: kanban of the cards from `factory/ideas/*.md` grouped by `status`; each card shows title, score and type. **The board is read-only: cards are NOT moved by hand** — their column reflects the `status:` that the skills write when they run (new-idea→documented, recommend→recommended, scaffold→in-pipeline, release→shipped). Pandacorp replaces Obsidian as the viewer.
 - [ ] **Full-page detail view** (click on a card): header (title, type, score, status), **summary with key points**, **navigator of the project's documents** (idea-origin.md, research, PRD, blueprint…) rendered, and the next-step command with a Copy button.
 - [ ] **Discard button** in the detail: Pandacorp's only manual write — rewrites `status: discarded` in the .md (it is a human decision, not a build step). Test that it does not corrupt the YAML or the body.
-- [ ] **Portfolio** panel: table of projects read from `factory/portfolio.md` + each project's `docs/status.yaml` (phase, version, summary, date).
+- [ ] **Portfolio** panel: table of projects read from `factory/portfolio.md` + each project's `.pandacorp/status.yaml` (phase, version, summary, date).
 - [ ] **Next step + copy**: each idea and each project shows the suggested command based on its `status`/`phase`, with a "Copy" button and an indication of which folder to open the Claude Code session in.
 - [ ] The app makes **no calls to Claude** (no `claude -p`, no Agent SDK, no API key). It only reads/writes local files.
 - [ ] It refreshes itself (re-reads the files every few seconds) to reflect changes after running a command.
@@ -36,7 +36,7 @@ FACTORY_ROOT = root of the factory repo (the repo that contains mission-control/
                optional override via the env var PANDACORP_FACTORY_ROOT
 IDEAS_DIR    = FACTORY_ROOT + "/factory/ideas"      (ignore _idea-template.md)
 PORTFOLIO    = FACTORY_ROOT + "/factory/portfolio.md"
-PROJECTS     = portfolio rows → each path → docs/status.yaml
+PROJECTS     = portfolio rows → each path → .pandacorp/status.yaml
 ```
 
 ## "Next command" logic (in `lib/next-step.ts`, with tests)

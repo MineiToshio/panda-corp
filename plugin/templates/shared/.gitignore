@@ -21,13 +21,11 @@ coverage/
 playwright-report/
 test-results/
 
-# Pandacorp communication layer (Spanish, owner-facing, regenerable — not part of the product).
-# status.yaml stays committed (machine state, English); the Spanish narrative lives here, gitignored.
-docs/summary.md
-docs/progress.md
-docs/decisions.md
-docs/iteration.md
-docs/activity.md
+# Pandacorp integration layer — gitignored parts (regenerable, owner-facing, runtime).
+# The rest of .pandacorp/ (guide.md, status.yaml, idea-origin.md, verify.sh, README.md) stays committed.
+.pandacorp/comms/
+.pandacorp/inbox/
+.pandacorp/run/
 
 # OS / editor
 .DS_Store

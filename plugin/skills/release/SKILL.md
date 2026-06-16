@@ -4,9 +4,9 @@ description: Prepares and executes the release of a Pandacorp project - security
 
 # /pandacorp:release
 
-Version release. Runs IN the project (requires `phase: release` in `docs/status.yaml`).
+Version release. Runs IN the project (requires `phase: release` in `.pandacorp/status.yaml`).
 
-> **Preflight (DR-045) — is this a Pandacorp project?** This skill mutates the project, so first confirm the Pandacorp marker: `docs/status.yaml` exists **and** `CLAUDE.md` contains `Origin — Pandacorp`. If it's missing, STOP and tell the owner (in Spanish) that this folder isn't a factory project yet — `/pandacorp:adopt` brings an existing project in, `/pandacorp:spec` creates a new one. Don't proceed or invent docs over a missing structure.
+> **Preflight (DR-045) — is this a Pandacorp project?** This skill mutates the project, so first confirm the Pandacorp marker: `.pandacorp/status.yaml` exists. If it's missing, STOP and tell the owner (in Spanish) that this folder isn't a factory project yet — `/pandacorp:adopt` brings an existing project in, `/pandacorp:spec` creates a new one. Then, if `overlay_version` in `.pandacorp/status.yaml` is behind the plugin's `OVERLAY_VERSION`, run `/pandacorp:upgrade` first (silent for compatible bumps, DR-048) so this skill runs against the current structure. Don't proceed or invent docs over a missing structure.
 
 ## Steps
 
@@ -23,9 +23,9 @@ Version release. Runs IN the project (requires `phase: release` in `docs/status.
 4. **Deploy to STAGING** (`devops` agent; DR-003: auto-approved with green CI) according to the blueprint's strategy. Smoke test over staging: the critical flows e2e against the real URL.
 5. **HUMAN GATE — PRODUCTION (DR-004)**: present the owner with the summary (staging URL so they can test, audit result, production-activation costs if any — DR-005, **including the Vercel Pro warning if the version charges money — DR-035**). Trigger a push to the owner (DR-038). **Wait for their explicit approval. No exceptions.**
 6. **Deploy to production** (`devops` agent) after approval + post-deploy verification (smoke test in prod) + rollback plan ready.
-7. **Close** (living documentation, DR-018): version tag (semver), **changelog auto-generated from Conventional Commits**, ADRs up to date (propose one if the release included an unrecorded architectural change), README/user docs updated, `docs/status.yaml` → `phase: operation`, the idea's card in the factory → `status: shipped`, portfolio row updated.
+7. **Close** (living documentation, DR-018): version tag (semver), **changelog auto-generated from Conventional Commits**, ADRs up to date (propose one if the release included an unrecorded architectural change), README/user docs updated, `.pandacorp/status.yaml` → `phase: operation`, the idea's card in the factory → `status: shipped`, portfolio row updated.
 8. Report: production URL, version, and a reminder that improvements continue with `/pandacorp:new-version`.
 
 ## Rules
 - No "deploy and audit later": the audit comes first.
-- If the owner doesn't approve, document their reasons in `docs/status.yaml` and generate the adjustment work orders.
+- If the owner doesn't approve, document their reasons in `.pandacorp/status.yaml` and generate the adjustment work orders.

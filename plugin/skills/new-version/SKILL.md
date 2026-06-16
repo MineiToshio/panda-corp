@@ -6,12 +6,12 @@ description: Groups a large batch of changes into a formal milestone (v2, v3…)
 
 New iteration of an existing project. Runs IN the project. `$ARGUMENTS`: what the owner wants to achieve with this version (or ask them).
 
-> **Preflight (DR-045) — is this a Pandacorp project?** This skill mutates the project, so first confirm the Pandacorp marker: `docs/status.yaml` exists **and** `CLAUDE.md` contains `Origin — Pandacorp`. If it's missing, STOP and tell the owner (in Spanish) that this folder isn't a factory project yet — `/pandacorp:adopt` brings an existing project in, `/pandacorp:spec` creates a new one. Don't proceed or invent docs over a missing structure.
+> **Preflight (DR-045) — is this a Pandacorp project?** This skill mutates the project, so first confirm the Pandacorp marker: `.pandacorp/status.yaml` exists. If it's missing, STOP and tell the owner (in Spanish) that this folder isn't a factory project yet — `/pandacorp:adopt` brings an existing project in, `/pandacorp:spec` creates a new one. Then, if `overlay_version` in `.pandacorp/status.yaml` is behind the plugin's `OVERLAY_VERSION`, run `/pandacorp:upgrade` first (silent for compatible bumps, DR-048) so this skill runs against the current structure. Don't proceed or invent docs over a missing structure.
 
 ## Steps
 
-1. **Context**: read `docs/status.yaml`, `docs/prd.md` (backlog of future versions), accumulated feedback/operation and the existing FRDs.
-2. **Define the version**: with the `product-manager` agent, turn the goal into concrete scope — which new FRDs, which existing FRDs change, what is left out (DR-012). Increment `version:` in `docs/status.yaml`.
+1. **Context**: read `.pandacorp/status.yaml`, `docs/prd.md` (backlog of future versions), accumulated feedback/operation and the existing FRDs.
+2. **Define the version**: with the `product-manager` agent, turn the goal into concrete scope — which new FRDs, which existing FRDs change, what is left out (DR-012). Increment `version:` in `.pandacorp/status.yaml`.
 3. **Re-enter the pipeline, only what changes**:
    - New/modified FRDs → `docs/frds/` (numbering continues)
    - New screens or visual changes? → mini design phase (mockup of the new stuff, same frozen tokens; visual gate only if the visual language changes)

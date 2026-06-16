@@ -23,12 +23,12 @@ So nothing collides when several things run in parallel:
 - A worktree is born **without** `.env` or `node_modules`. The stack template includes a **`.worktreeinclude`** (`.gitignore` syntax) that copies `.env`/`.env.local` to each new worktree, plus a post-create step that installs deps. With **pnpm** (shared store) the install in a new worktree is almost instant.
 - Keep **ONE** review folder and refresh it to the latest green (don't accumulate worktrees). Claude Code's automatic sweep does not delete manually created worktrees.
 
-## State published for Mission Control (`docs/status.yaml`)
+## State published for Mission Control (`.pandacorp/status.yaml`)
 
 The gate script (not the agent) writes at every green work-order close:
 - `last_green_sha`: commit of the last work order closed green.
 - `safe_to_test: true/false`: `true` only when `HEAD == last_green_sha` (no uncommitted work).
-Plus: `pending_bugs` (the `docs/bugs/` tray), `pending_decisions` (docs/decisions.md), `rethink_pending` (iterate asked to pause).
+Plus: `pending_bugs` (the `.pandacorp/inbox/bugs/` tray), `pending_decisions` (.pandacorp/inbox/decisions.md), `rethink_pending` (iterate asked to pause).
 
 ## Human gates as hard rules
 

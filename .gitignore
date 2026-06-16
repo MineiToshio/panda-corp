@@ -19,9 +19,10 @@ factory/ideas/*.md
 factory/ideas/_drafts/*.md
 !factory/ideas/_drafts/README.md
 
-# Mission Control communication layer (Spanish, owner-facing, regenerable). status.yaml stays committed.
-mission-control/docs/summary.md
-mission-control/docs/activity.md
+# Mission Control integration layer — gitignored parts (Spanish comms, inbox, runtime). .pandacorp/status.yaml stays committed.
+mission-control/.pandacorp/comms/
+mission-control/.pandacorp/inbox/
+mission-control/.pandacorp/run/
 
 # OS
 .DS_Store

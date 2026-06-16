@@ -14,14 +14,14 @@ Creates the project for the idea indicated in `$ARGUMENTS` (card name or slug).
    ```bash
    cp -r "${CLAUDE_PLUGIN_ROOT}/templates/shared/." "<destination>/"
    ```
-   Process the `.tpl` files: replace `{{PROJECT_NAME}}` (slug), `{{IDEA_FILE}}` (card path), `{{FACTORY_PATH}}` (absolute path of the factory root), `{{DATE}}` (today) and rename removing `.tpl`. The overlay already includes `.claude/workflows/pandacorp-build.js` (the build engine that `implement` launches) and `.claude/settings.json`.
-4. **Docs structure**: create `docs/` with empty subfolders `frds/`, `design/mockups/`, `adr/`, `work-orders/`, `reviews/`. Copy the idea's card to `docs/idea-origin.md` (a frozen reference copy). The overlay already seeds `docs/status.yaml`, `docs/iteration.md` (iterate in place, DR-032) and `docs/decision-log.md` (decision history — two-layer standard, `documentation.md`).
+   Process the `.tpl` files: replace `{{PROJECT_NAME}}` (slug), `{{IDEA_FILE}}` (card path), `{{FACTORY_PATH}}` (absolute path of the factory root), `{{DATE}}` (today), `{{OVERLAY_VERSION}}` (read from `${CLAUDE_PLUGIN_ROOT}/templates/OVERLAY_VERSION`) and rename removing `.tpl`. The overlay already includes `.claude/workflows/pandacorp-build.js` (the build engine that `implement` launches), `.claude/settings.json`, and the `.pandacorp/` integration layer (`guide.md`, `status.yaml`, `README.md`, `comms/`). `CLAUDE.md` is thin: it imports `@AGENTS.md` and `@.pandacorp/guide.md`.
+4. **Project structure**: create `docs/` with empty subfolders `frds/`, `design/mockups/`, `adr/`, `work-orders/`, `reviews/` (product docs), plus `.pandacorp/inbox/bugs/` and `.pandacorp/run/` (the gitignored owner↔skills + runtime layer). Copy the idea's card to `.pandacorp/idea-origin.md` (a frozen reference copy). The overlay already seeds `.pandacorp/{status.yaml,guide.md,README.md}`, `.pandacorp/comms/iteration.md` (iterate in place, DR-032) and `docs/decision-log.md` (decision history — two-layer standard, `documentation.md`).
 5. **DON'T install the stack yet** — that is decided by the blueprint in the architecture phase. The project is born with only docs + overlay. (Each stack's guide is in `${CLAUDE_PLUGIN_ROOT}/templates/stack-*/STACK.md` for when the time comes.)
 6. **Bidirectional links**:
    - Idea's card: `status: in-pipeline`, `project:` field with the path.
    - `factory/portfolio.md`: add the row (project, path, repo pending, source idea, `product` phase, date).
-   - The project's CLAUDE.md already comes with the "Origin — Pandacorp" section (it comes from the template).
-7. **GitHub repo** (DR-010: private auto-approved): if `gh` is authenticated, create the private repo and do the initial push; if not, leave it noted as pending in `docs/status.yaml`.
+   - The project's `CLAUDE.md` imports `.pandacorp/guide.md` (which carries the "Origin — Pandacorp" section) — both come from the template.
+7. **GitHub repo** (DR-010: private auto-approved): if `gh` is authenticated, create the private repo and do the initial push; if not, leave it noted as pending in `.pandacorp/status.yaml`.
 8. **Initial commit** in the project: `chore: scaffold project from pandacorp factory`.
 9. Report: created path, what was configured and the next step — open a session in the project and run `/pandacorp:spec`.
 
