@@ -14,6 +14,7 @@
 > **complete for WO-01-005** (IF-01-readStatus, `lib/status.ts`) +
 > **complete for WO-01-006** (IF-01-readProjectDocs, `lib/docs.ts`) +
 > **complete for WO-01-007** (IF-01-readEvents, `lib/events.ts`) +
+> **complete for WO-01-008** (CMP-01-onboarding-gate, `components/OnboardingGate.tsx`) +
 > **complete for WO-13-001** (IF-13-tokens, IF-13-agent-colors, IF-13-state-vocab) +
 > **complete for WO-02-002** (CMP-02-copy-button) +
 > **complete for WO-02-001** (IF-02-deriveColumn, `lib/board.ts`).
@@ -1052,3 +1053,105 @@ and reuse contract (multiple instances side-by-side).
   vitest 4.1.9) and declares it via `declare module "vitest"` augmentation.
   The polyfill wraps three `await Promise.resolve()` turns inside `act` to
   flush React's pending state after an async click handler resolves.
+
+---
+
+## WO-01-008: OnboardingGate — full-screen configuration gate
+
+**Module:** `components/OnboardingGate.tsx`
+**Traces:** CMP-01-onboarding-gate; REQ-01-001; AC-01-001.1
+**Dependencies:** WO-01-002 (`readProfile`, `ProfileResult`), WO-02-002 (`CopyButton`)
+
+### Purpose
+
+Shown as the **entire view** when `readProfile()` returns `{ present: false }` — i.e. when
+`factory/profile.md` is absent. Nothing else renders behind it. Once the profile exists, the gate
+disappears on page reload.
+
+### Signature
+
+```tsx
+// components/OnboardingGate.tsx
+// Server Component — no hooks, no browser APIs.
+
+export function OnboardingGate(): React.JSX.Element;
+```
+
+### Layout guard
+
+The gate is activated by a guard in `app/layout.tsx` (Server Component) that calls `readProfile()`
+at render time:
+
+```tsx
+// app/layout.tsx (sketch — not a standalone export)
+const result = readProfile();
+if (!result.present) {
+  return <OnboardingGate />;
+}
+return <>{children}</>;
+```
+
+The guard decision is a pure boolean function of `ProfileResult`:
+
+```ts
+function shouldRenderGate(result: ProfileResult): boolean {
+  return !result.present;
+}
+```
+
+| `ProfileResult` | Guard decision | View rendered |
+|---|---|---|
+| `{ present: false }` | `true` | `<OnboardingGate />` only |
+| `{ present: true, profile: { body: "" } }` | `false` | `children` only |
+| `{ present: true, profile: { ... } }` | `false` | `children` only |
+
+### Component contract
+
+| Property | Value |
+|---|---|
+| **testid (root)** | `data-testid="onboarding-gate"` on the `<main>` element |
+| **testid (heading)** | `data-testid="onboarding-gate-heading"` on the `<h1>` |
+| **testid (description)** | `data-testid="onboarding-gate-description"` on the explanatory `<p>` |
+| **testid (command)** | `data-testid="onboarding-gate-command"` on the `<code>` element |
+| **testid (copy button)** | `data-testid="copy-button"` (inherited from `CopyButton`) |
+| **Command text** | `/pandacorp:onboarding` (exact string, no trailing space) |
+| **Description must reference** | `factory/profile.md` (the file that is missing) |
+| **Hint text** | References reloading / returning after the profile is created |
+| **Language** | Spanish copy throughout (DR-009) |
+| **aria-label** | Spanish, on the `<main>` landmark (not "onboarding", not "setup") |
+| **Heading level** | `<h1>` or `<h2>` — never a `<div>` |
+| **Landmark** | `<main>` or `role="region"` |
+| **Colors** | Zero hardcoded hex/rgb/hsl literals — CSS custom properties only |
+| **Server Component** | Safe — no `useState`, no `useEffect`, no browser APIs |
+| **Writes** | None — no disk write, no Claude call |
+
+### CSS custom properties used (design-token-ready)
+
+| Property | Purpose |
+|---|---|
+| `--color-surface` | Page background |
+| `--color-surface-panel` | Card/panel background |
+| `--color-text` | Primary text |
+| `--color-text-muted` | Secondary/hint text |
+| `--color-border` | Card border |
+| `--color-accent` | Command code highlight |
+| `--color-surface-code` | Code block background |
+| `--spacing` | Base spacing unit (0.25rem default) |
+| `--radius` | Border radius |
+| `--shadow-panel` | Card elevation shadow |
+
+All properties fall back to semantic system values (`Canvas`, `currentColor`, etc.) so the gate
+renders correctly before the design-system WO freezes the actual token values.
+
+### Test coverage
+
+`components/OnboardingGate.test.tsx` (jsdom, vitest) — 15 tests across 5 groups:
+rendering, copy affordance, accessibility, content contracts, layout guard helper.
+
+`components/OnboardingGate.gaps.test.tsx` (jsdom, vitest) — supplemental gap coverage:
+- GAP-1: children not rendered behind the gate
+- GAP-2: description references `factory/profile.md` specifically
+- GAP-3: aria-label on the gate landmark in Spanish (DR-009)
+- GAP-4: hint text about reloading after configuration
+- GAP-5: zero hardcoded color values in inline styles
+- GAP-6: guard typed against the real `ProfileResult` discriminated union from `lib/profile.ts`
