@@ -38,7 +38,135 @@
 > **complete for WO-02-007** (CMP-02-card-detail `CardDetail`, `components/CardDetail.tsx`) +
 > **complete for WO-13-002** (CMP-13-globals `app/globals.css` — theme vars, elevation, motion, reduced-motion, focus ring) +
 > **complete for WO-02-008** (CMP-02-category-filter `CategoryFilter`, CMP-02-legend `BoardLegend`, CMP-02-card building indicator status guard) +
-> **complete for WO-13-004** (CMP-13-theme-toggle `ThemeToggle`, `components/ThemeToggle.tsx` — light/dark/high-contrast cycle, localStorage persistence, prefers-color-scheme default).
+> **complete for WO-13-004** (CMP-13-theme-toggle `ThemeToggle`, `components/ThemeToggle.tsx` — light/dark/high-contrast cycle, localStorage persistence, prefers-color-scheme default) +
+> **complete for WO-13-003** (CMP-13-a11y-primitives: `TABULAR_NUMS_CLASS`, `FOCUS_RING_CLASS`, `LiveRegion`, `useKeyboardNav` — `components/a11y/`).
+
+---
+
+## WO-13-003: `components/a11y/` — a11y primitives (CMP-13-a11y-primitives)
+
+**Files:** `components/a11y/constants.ts` · `components/a11y/LiveRegion.tsx` · `components/a11y/useKeyboardNav.ts` · `components/a11y/index.ts` (barrel)
+**Kind:** shared primitives — constants (pure), React component (`LiveRegion`), React hook (`useKeyboardNav`)
+**Traces:** CMP-13-a11y-primitives; REQ-13-003, REQ-13-008; AC-13-003.1, AC-13-008.1
+**Depends on:** WO-13-002 (`app/globals.css` — `--focus-ring` var, `:focus-visible` rule, `tabular-nums` on `html`)
+**Consumed by:** feed/toast/freshness badge (`LiveRegion`); board/feed/portfolio lists (`useKeyboardNav`); every numeric container (`TABULAR_NUMS_CLASS`); every focusable element needing an explicit ring class (`FOCUS_RING_CLASS`)
+
+### Constants — `components/a11y/constants.ts`
+
+```ts
+/** Tailwind built-in utility — font-variant-numeric: tabular-nums. AC-13-003.1. */
+export const TABULAR_NUMS_CLASS = "tabular-nums" as const;
+
+/** Focus ring class — maps to :focus-visible outline in globals.css. AC-13-008.1. */
+export const FOCUS_RING_CLASS = "focus-ring" as const;
+```
+
+| Constant | Value | CSS effect | AC |
+|---|---|---|---|
+| `TABULAR_NUMS_CLASS` | `"tabular-nums"` | `font-variant-numeric: tabular-nums` (Tailwind built-in) | AC-13-003.1 |
+| `FOCUS_RING_CLASS` | `"focus-ring"` | `:focus-visible { outline: var(--focus-ring); }` from `globals.css` (WO-13-002) | AC-13-008.1 |
+
+Rules: both non-empty strings, never `undefined`; `TABULAR_NUMS_CLASS !== FOCUS_RING_CLASS`; no inline styles — class-driven only (FRD-13 §3).
+
+---
+
+### `LiveRegion` — `components/a11y/LiveRegion.tsx`
+
+```ts
+export interface LiveRegionProps {
+  children?: ReactNode; // null | undefined | "" are valid (silence)
+}
+
+export function LiveRegion({ children }: LiveRegionProps): React.JSX.Element;
+```
+
+**Rendered DOM:**
+
+```html
+<div role="status" aria-live="polite" aria-atomic="true" data-testid="live-region">
+  {children}
+</div>
+```
+
+| Attribute | Value | Requirement |
+|---|---|---|
+| `role` | `"status"` | Semantic live region |
+| `aria-live` | `"polite"` | Announce at next natural pause; never `"assertive"` (AC-13-008.1) |
+| `aria-atomic` | `"true"` | Full region re-read on any change (no partial announces) |
+| `data-testid` | `"live-region"` | Always present |
+| inline `style` | no hex colours | FRD-13 §3 |
+
+Update semantics: children changes propagate on every render (no referential bail-out). Multiple instances are independent — no shared state (regression WO-04-003). `"use client"` directive; no browser API at load time so safe for SSR.
+
+---
+
+### `useKeyboardNav` — `components/a11y/useKeyboardNav.ts`
+
+```ts
+export interface KeyboardNavOptions {
+  count: number;          // total items; 0 = empty list
+  initialIndex?: number;  // default 0; out-of-bounds clamped
+  wrap?: boolean;         // default false
+}
+
+export interface KeyboardNavResult {
+  selectedIndex: number;  // -1 when count === 0
+  listProps: {
+    role: "listbox";
+    tabIndex: number;
+    "aria-activedescendant": string | undefined;
+    onKeyDown: (e: KeyboardEvent) => void;
+  };
+  getItemProps: (index: number) => {
+    id: string;           // "nav-item-<instanceId>-<index>"
+    "aria-selected": boolean;
+  };
+}
+
+export function useKeyboardNav(options: KeyboardNavOptions): KeyboardNavResult;
+```
+
+**Keys:** `ArrowDown` (+1 / wrap), `ArrowUp` (−1 / wrap), `Home` (→0), `End` (→last). All others: no-op.
+
+**ARIA:** `role="listbox"` + `tabIndex=0` on container (Tab-reachable); `aria-activedescendant` points to active item id; `aria-selected="true"` on active item. Stable item ids scoped per `useId()` instance — prototype-key-safe.
+
+**Edge cases:** `count=0` → `selectedIndex=-1`, no throw; out-of-bounds `initialIndex` clamped; `count=1` + `wrap=true` → no cycle; 1100 events on 1000-item list → clamped, never NaN.
+
+**Performance:** dual-track design (ref + state). Event handler updates `data-selected` and `aria-activedescendant` imperatively on the container element (bypasses reconciler) AND calls `setState` for ARIA-item consistency. `getItemProps` and `listProps` are memoized.
+
+---
+
+### Barrel — `components/a11y/index.ts`
+
+```ts
+export { TABULAR_NUMS_CLASS, FOCUS_RING_CLASS } from "./constants";
+export { LiveRegion } from "./LiveRegion";
+export type { LiveRegionProps } from "./LiveRegion";
+export { useKeyboardNav } from "./useKeyboardNav";
+export type { KeyboardNavOptions, KeyboardNavResult } from "./useKeyboardNav";
+```
+
+Always import from `@/components/a11y` — never from leaf files directly.
+
+### Test coverage
+
+`components/a11y/a11y-primitives.test.tsx` — 69 tests across 13 groups:
+
+| Group | ACs covered |
+|---|---|
+| 1. LiveRegion `aria-live="polite"` | role, aria-live, not assertive, children in DOM, null/undefined/empty ok, data-testid, aria-atomic |
+| 2. LiveRegion message updates | replaced on rerender; cleared; same-string clear+reset; multiple independent instances |
+| 3. LiveRegion rich children | JSX, text readable, array of nodes |
+| 4. LiveRegion no hardcoded colors | no inline hex |
+| 5. `useKeyboardNav` arrow-key nav | initial 0; ArrowDown ×1 ×2; ArrowUp; clamp no-wrap; clamp last; wrap→0; wrap→last; Home; End; unrelated keys no-op |
+| 6. `useKeyboardNav` data-active | item-0 active; item-1 after ArrowDown; empty list; single item |
+| 7. `useKeyboardNav` ARIA wiring | role=listbox or UL; tabIndex≥0; aria-activedescendant OR aria-selected=true |
+| 8. `TABULAR_NUMS_CLASS` | non-empty string; class applied; no inline font-variant-numeric; matches /tabular/i |
+| 9. Parametric numeric categories | XP, level, column-count, stat, timestamp each carry the class; two adjacent independent |
+| 10. `FOCUS_RING_CLASS` | non-empty; applied; distinct from TABULAR_NUMS_CLASS; /focus\|ring/i; no inline outline |
+| 11. Edge-cases stress | 1100 ArrowDown on 1000 items in bounds; count=0 →−1 not NaN; count=1 wrap no cycle; out-of-bounds clamped |
+| 12. Prototype-pollution guard | prototype keys as children: no throw, literal text in DOM |
+| 13. Barrel exports | TABULAR_NUMS_CLASS/FOCUS_RING_CLASS strings; LiveRegion function; useKeyboardNav function |
 
 ---
 
