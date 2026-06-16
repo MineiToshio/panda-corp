@@ -36,6 +36,5 @@ export function discardIdea(slug: string, ideasDir?: string): DiscardResult;  //
 
 ## Status
 
-- [ ] BLOCKED — freeze-on-red applied 2026-06-16. HEAD frozen at `last_green_sha=99103c2` (WO-02-003).
-  No new commits allowed until this block is lifted. Pending adversarial review verdict.
-  See `.pandacorp/status.yaml` `blocked_work_orders` entry for WO-02-004.
+- [x] DONE — 2026-06-16. Block lifted. 46 tests GREEN (vitest). verify.sh green (biome + tsc + vitest).
+  `lib/discard.ts` + `lib/discard.test.ts` shipped. Contract published in `docs/api.md`.

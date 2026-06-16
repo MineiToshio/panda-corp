@@ -9,7 +9,7 @@ running: false
 repo: ""
 updated_at: "2026-06-16"
 work_orders_total: 114
-work_orders_done: 11
+work_orders_done: 12
 pending_decisions: 0
 pending_bugs: 1
 rethink_pending: false
@@ -17,10 +17,6 @@ advance_pending: false
 last_green_sha: "99103c2"
 safe_to_test: true
 blocked_work_orders:
-  - id: WO-02-004
-    status: BLOCKED
-    reason: "Freeze-on-red: implementer instructed to halt WO-02-004 (discardIdea single write). HEAD frozen at last_green_sha=99103c2 (WO-02-003). No new commits made. Pending adversarial review verdict; do not advance past this work order until unblocked."
-    blocked_at: "2026-06-16"
   - id: WO-13-001
     status: BLOCKED
     reason: "Reviewer (2nd rejection) found 4 adversarial tests failing: B1' NaN duration fail-open, I2 empty/array duration map fail-open, I3 array easing fail-open. HEAD frozen at last_green_sha=0c980d7. Fixes required: Number.isFinite guard on duration, non-array non-empty check on motion.duration, typeof+!isArray guard on motion.easing."

@@ -40,6 +40,11 @@
  *   - The function is NOT async (pure fs.readFileSync + fs.writeFileSync).
  *
  * Stack: Vitest + gray-matter (already in package.json).
+ *
+ * Property-based coverage (no fast-check, parametric over representative input space):
+ *   see "frontmatter round-trip invariant" describe block — runs discardIdea over 12
+ *   synthetic cards with varied value types and asserts the preservation invariant for
+ *   each. This covers the serialization logic that mutation testing targets.
  */
 
 import fs from "node:fs";
@@ -47,6 +52,7 @@ import os from "node:os";
 import path from "node:path";
 import matter from "gray-matter";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { withFactoryRoot } from "../tests/fixtures/index";
 
 // The module under test (does not exist yet — tests are RED).
 import { discardIdea } from "./discard";
@@ -442,4 +448,219 @@ describe("frd-02: discardIdea — frontmatter preservation edge cases", () => {
     expect(fmAfter["status"]).toBe("discarded");
     expect(Object.hasOwn(fmAfter, "score")).toBe(false);
   });
+});
+
+// ---------------------------------------------------------------------------
+// AC-02-007.1 — default ideasDir: resolution via PANDACORP_FACTORY_ROOT
+// ---------------------------------------------------------------------------
+
+describe("frd-02: discardIdea — default ideasDir via PANDACORP_FACTORY_ROOT (AC-02-007.1)", () => {
+  it("frd-02: WHEN ideasDir is omitted THEN discardIdea resolves IDEAS_DIR from PANDACORP_FACTORY_ROOT and writes the card", async () => {
+    // Build a minimal factory tree in tmpDir: factory/ideas/<slug>.md
+    const factoryIdeasDir = path.join(tmpDir, "factory", "ideas");
+    fs.mkdirSync(factoryIdeasDir, { recursive: true });
+    const cardContent = [
+      "---",
+      "title: Default dir test",
+      "status: discovered",
+      "score: 60",
+      "---",
+      "",
+      "Testing the default ideasDir path.",
+    ].join("\n");
+    const dest = path.join(factoryIdeasDir, "idea-default-dir.md");
+    fs.writeFileSync(dest, cardContent, "utf-8");
+
+    // Call WITHOUT explicit ideasDir — must use PANDACORP_FACTORY_ROOT
+    const result = await withFactoryRoot(tmpDir, () => discardIdea("idea-default-dir"));
+
+    expect(result).toEqual({ ok: true });
+    const fm = readFrontmatter(dest);
+    expect(fm["status"]).toBe("discarded");
+    expect(fm["score"]).toBe(60);
+  });
+
+  it("frd-02: WHEN ideasDir is omitted and slug is missing THEN returns { ok: false, reason: not-found } without throwing", async () => {
+    // Empty factory/ideas dir — no card present
+    const factoryIdeasDir = path.join(tmpDir, "factory", "ideas");
+    fs.mkdirSync(factoryIdeasDir, { recursive: true });
+
+    const result = await withFactoryRoot(tmpDir, () => discardIdea("idea-absent"));
+
+    expect(result).toEqual({ ok: false, reason: "not-found" });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC-02-007.1 — slug with .md extension appended (user-error guard)
+// ---------------------------------------------------------------------------
+
+describe("frd-02: discardIdea — slug with .md extension appended", () => {
+  it('frd-02: WHEN slug already ends with ".md" THEN returns { ok: false, reason: "not-found" } (double extension, not-found)', () => {
+    // The function appends .md internally; "idea-discovered.md" → "idea-discovered.md.md"
+    seedCard("idea-discovered.md");
+    const result = discardIdea("idea-discovered.md", tmpDir);
+    // The resolved path would be idea-discovered.md.md which does not exist
+    expect(result).toEqual({ ok: false, reason: "not-found" });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC-02-007.1 — mutation-killing: only `status` changes, all other fields byte-equal
+// ---------------------------------------------------------------------------
+
+describe("frd-02: discardIdea — only status field mutated (mutation-killing, AC-02-007.1)", () => {
+  it("frd-02: WHEN owner discards a card THEN every frontmatter field except status is bit-for-bit equal before and after", () => {
+    const cardContent = [
+      "---",
+      "title: Full card",
+      "status: discovered",
+      "project_type: web",
+      "return_type: monetary",
+      "score: 77",
+      "tags:",
+      "  - saas",
+      "  - b2b",
+      "meta:",
+      "  source: indie-hackers",
+      "  validated: false",
+      "---",
+      "",
+      "Full card body with multiple paragraphs.",
+      "",
+      "## Section",
+      "- item one",
+      "- item two",
+    ].join("\n");
+    const dest = writeCard("idea-full.md", cardContent);
+    const fmBefore = readFrontmatter(dest);
+    const bodyBefore = readBody(dest);
+
+    discardIdea("idea-full", tmpDir);
+
+    const fmAfter = readFrontmatter(dest);
+    const bodyAfter = readBody(dest);
+
+    // Only `status` may differ
+    for (const key of Object.keys(fmBefore)) {
+      if (key === "status") continue;
+      expect(fmAfter[key], `Field "${key}" was mutated by discardIdea`).toEqual(fmBefore[key]);
+    }
+    // No extra keys injected
+    for (const key of Object.keys(fmAfter)) {
+      if (key === "status") continue;
+      expect(Object.hasOwn(fmBefore, key), `Unexpected new key "${key}" after discard`).toBe(true);
+    }
+    // Body unchanged
+    expect(bodyAfter).toBe(bodyBefore);
+    // Status is exactly "discarded"
+    expect(fmAfter["status"]).toBe("discarded");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC-02-007.1 — parametric frontmatter round-trip (property-based style)
+// Runs discardIdea over 12 synthetic cards spanning the full space of YAML
+// value types gray-matter may encounter. Asserts the preservation invariant
+// for each — catches any serialize/deserialize path that corrupts a type.
+// (fast-check not available; manually enumerated representative space.)
+// ---------------------------------------------------------------------------
+
+describe("frd-02: discardIdea — parametric frontmatter round-trip (AC-02-007.1)", () => {
+  const cases: Array<{ name: string; extraFields: string; expectedData: Record<string, unknown> }> =
+    [
+      {
+        name: "integer-score",
+        extraFields: "score: 99",
+        expectedData: { score: 99 },
+      },
+      {
+        name: "float-score",
+        extraFields: "score: 7.5",
+        expectedData: { score: 7.5 },
+      },
+      {
+        name: "zero-score",
+        extraFields: "score: 0",
+        expectedData: { score: 0 },
+      },
+      {
+        name: "negative-score",
+        extraFields: "score: -1",
+        expectedData: { score: -1 },
+      },
+      {
+        name: "boolean-true",
+        extraFields: "validated: true",
+        expectedData: { validated: true },
+      },
+      {
+        name: "boolean-false",
+        extraFields: "validated: false",
+        expectedData: { validated: false },
+      },
+      {
+        name: "string-with-spaces",
+        extraFields: 'title_override: "hello world"',
+        expectedData: { title_override: "hello world" },
+      },
+      {
+        name: "empty-string",
+        extraFields: 'subtitle: ""',
+        expectedData: { subtitle: "" },
+      },
+      {
+        name: "array-one-element",
+        extraFields: "tags:\n  - solo",
+        expectedData: { tags: ["solo"] },
+      },
+      {
+        name: "array-three-elements",
+        extraFields: "tags:\n  - a\n  - b\n  - c",
+        expectedData: { tags: ["a", "b", "c"] },
+      },
+      {
+        name: "nested-object",
+        extraFields: "meta:\n  source: twitter\n  validated: true",
+        expectedData: { meta: { source: "twitter", validated: true } },
+      },
+      {
+        name: "null-value",
+        extraFields: "deprecated: null",
+        expectedData: { deprecated: null },
+      },
+    ];
+
+  for (const { name, extraFields, expectedData } of cases) {
+    it(`frd-02: WHEN card has ${name} field THEN that field is preserved verbatim after discard`, () => {
+      // Note: no baseline `score` field here — numeric cases supply their own via extraFields.
+      // Having a duplicate key would cause a YAML parse error, which is tested separately.
+      const cardContent = [
+        "---",
+        "title: Parametric card",
+        "status: discovered",
+        extraFields,
+        "---",
+        "",
+        `Body for ${name} case.`,
+      ].join("\n");
+      const dest = writeCard(`idea-param-${name}.md`, cardContent);
+      const fmBefore = readFrontmatter(dest);
+
+      const result = discardIdea(`idea-param-${name}`, tmpDir);
+
+      expect(result).toEqual({ ok: true });
+      const fmAfter = readFrontmatter(dest);
+      expect(fmAfter["status"]).toBe("discarded");
+
+      // Each expected field must survive with the exact value
+      for (const [key, value] of Object.entries(expectedData)) {
+        expect(fmAfter[key], `Param "${name}": field "${key}" corrupted after discard`).toEqual(
+          value,
+        );
+        // Explicitly confirm it matches what was in the file before the call too
+        expect(fmAfter[key]).toEqual(fmBefore[key]);
+      }
+    });
+  }
 });

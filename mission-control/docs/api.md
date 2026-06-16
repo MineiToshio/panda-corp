@@ -275,13 +275,15 @@ property byte-for-byte identical to the original.
 
 ### Test coverage
 
-`lib/discard.test.ts` — 30 tests across 5 groups (vitest, no mocks, temp-dir isolated):
+`lib/discard.test.ts` — 46 tests across 8 groups (vitest, no mocks, temp-dir isolated):
 - Happy path: discovered/recommended/in-pipeline/shipped cards → `{ ok: true }`, all fields preserved
 - Idempotency: already-discarded card → `{ ok: true }`, double-discard → same result
 - Not-found errors: missing slug, empty slug, path-traversal → `{ ok: false, reason: "not-found" }`
 - Parse errors: malformed frontmatter → `{ ok: false, reason: "parse-error" }`, file untouched
-- Write isolation: only the target file mtime changes; sibling files unchanged
-- Edge cases: score `0`, arrays, objects, YAML-like body, empty body, absent score field
+- Write isolation: only the target file mtime changes; sibling files unchanged; file count unchanged
+- Frontmatter edge cases: score `0`, arrays (I3), objects (I2), YAML-like body, empty body, absent score field, slug with `.md` extension
+- Mutation-killing: only `status` field changes; all other fields and body byte-equal before/after
+- Parametric round-trip: 12 synthetic cards spanning integer, float, zero, negative, boolean, string, empty string, 1-element array, 3-element array, nested object, null — all preserved verbatim
 
 ---
 
