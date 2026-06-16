@@ -122,12 +122,16 @@ const FALLBACK_ROW: CommandRow = {
 export function workspaceCommands(phase: Phase): CommandRow[] {
   // --- Building phases: implement + release + iterate ---
   if (phase === "implementation" || phase === "release") {
-    return [...BUILDING_ROWS];
+    // Deep-copy each row object so callers cannot mutate shared module constants
+    // (adversarial: `[...BUILDING_ROWS]` copies the array but row objects would
+    // still alias BUILDING_ROWS[n] by reference — pure-function contract broken).
+    return BUILDING_ROWS.map((r) => ({ ...r }));
   }
 
   // --- Operation phase: iterate + new-version ---
   if (phase === "operation") {
-    return [...OPERATION_ROWS];
+    // Same deep-copy requirement as building rows above.
+    return OPERATION_ROWS.map((r) => ({ ...r }));
   }
 
   // --- Early phases: delegate to FRD-02 base map (single next-step command) ---
