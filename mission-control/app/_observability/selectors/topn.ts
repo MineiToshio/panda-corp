@@ -22,8 +22,8 @@
  * Traceability: AC-12-004.1 → REQ-12-004 → IF-12-topn → WO-12-001.
  */
 
-/** The default cap enforcing the top-5 invariant (REQ-12-004). */
-const DEFAULT_TOPN = 5;
+/** The default cap enforcing the top-5 invariant (REQ-12-004, AC-12-004.1). */
+export const DEFAULT_TOPN = 5;
 
 /**
  * Return the first `n` items of `items`, enforcing the top-5 cap by default.
