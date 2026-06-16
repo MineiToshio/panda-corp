@@ -6,8 +6,235 @@
 > local, read-only Next.js app that reads files from the factory filesystem. The "API" here is the
 > **internal module and component contract** that downstream features consume.
 >
-> Status: **complete for WO-13-001** (IF-13-tokens, IF-13-agent-colors, IF-13-state-vocab) +
+> Status: **complete for WO-01-000** (test fixtures + harness) +
+> **complete for WO-13-001** (IF-13-tokens, IF-13-agent-colors, IF-13-state-vocab) +
 > **complete for WO-02-002** (CMP-02-copy-button).
+
+---
+
+## WO-01-000: Test fixtures + `PANDACORP_FACTORY_ROOT` harness
+
+**Module:** `tests/fixtures/index.ts` (+ static fixture tree under `tests/fixtures/`)
+**Traces:** AC-01-000.1, AC-01-000.2, AC-01-000.3; enables REQ-01-001..011
+
+### Purpose
+
+Provides a deterministic filesystem fixture tree and an environment-isolation helper so every
+`lib/` reader can be unit-tested in isolation. No reader WO is testable without this foundation.
+
+### Invariants (all readers, inherited by every downstream WO)
+
+- **Read-only.** Every `lib/` function only reads files (`fs.read*`). No writes.
+- **Never calls Claude.** No AI SDK, no HTTP egress.
+- **Fail-soft.** Missing or malformed inputs yield a typed partial/empty result, never a throw.
+- **Serializable.** All return types cross the Next.js Server→Client boundary cleanly
+  (no class instances, no functions, no `Date` objects — use ISO 8601 strings for timestamps).
+
+### Test harness exports
+
+```ts
+// tests/fixtures/index.ts
+
+/** Absolute path to the fixtures directory. */
+export const FIXTURES_DIR: string;
+
+/**
+ * Personalized factory fixture: profile.md present, all five idea statuses including
+ * tolerance cases (malformed card, NON_IDEA_FILES), portfolio with three rows
+ * (full, missing-repo, broken-path), proj-a with complete status + full docs tree +
+ * .pandacorp/ comms, proj-b with malformed YAML.
+ */
+export const FIXTURE_FULL: string;
+
+/**
+ * Fresh factory fixture: NO profile.md, empty ideas folder.
+ * Use for onboarding-gate trigger and empty-ideas edge case.
+ */
+export const FIXTURE_FRESH: string;
+
+/** Absolute path to the events fixture directory. */
+export const FIXTURE_EVENTS_DIR: string;
+
+/** NDJSON with 10 valid events (with + without `project` field) + 1 malformed line. */
+export const FIXTURE_EVENTS_NDJSON: string;
+
+/** Empty NDJSON file (0 bytes). */
+export const FIXTURE_EVENTS_EMPTY_NDJSON: string;
+
+/**
+ * Sets `PANDACORP_FACTORY_ROOT` to `fixturePath`, runs `fn`, then restores
+ * the prior value (or deletes the var if it was not previously set).
+ * The callback may be async; the returned Promise resolves to its return value.
+ * Env is restored even when the callback throws.
+ * Nestable: inner scope overrides, outer scope restores.
+ */
+export function withFactoryRoot<T>(
+  fixturePath: string,
+  fn: () => T | Promise<T>,
+): Promise<T>;
+```
+
+### Usage pattern (for every lib/ reader test)
+
+```ts
+import { FIXTURE_FULL, withFactoryRoot } from "@/tests/fixtures/index";
+import { readProfile } from "@/lib/profile";
+
+it("reads profile from fixture", async () => {
+  await withFactoryRoot(FIXTURE_FULL, async () => {
+    const result = readProfile();
+    expect(result.present).toBe(true);
+  });
+});
+```
+
+### Fixture tree — `factory-full/`
+
+```
+tests/fixtures/
+  factory-full/                         # AC-01-000.1: personalized factory
+    factory/profile.md                  # has name/goals/interests/assets/projects_path + body
+    factory/ideas/
+      idea-discovered.md                # status: discovered
+      idea-recommended.md               # status: recommended
+      idea-in-pipeline.md               # status: in-pipeline, project pointer to proj-a
+      idea-shipped.md                   # status: shipped
+      idea-discarded.md                 # status: discarded
+      idea-malformed.md                 # broken frontmatter — must be skipped, not fatal
+      _idea-template.md                 # NON_IDEA_FILES — must be ignored by readIdeas
+      decision-log.md                   # NON_IDEA_FILES — must be ignored by readIdeas
+    factory/portfolio.md                # 3 rows: full | missing-repo (—) | broken-path
+    projects/proj-a/
+      .pandacorp/status.yaml            # complete — all REQ-01-005 fields, valid YAML
+      .pandacorp/comms/progress.md
+      .pandacorp/inbox/decisions.md
+      .pandacorp/inbox/bugs/bug-1.md
+      docs/product/prd.md
+      docs/product/architecture.md
+      docs/frds/frd-01-x/
+        frd.md
+        blueprint.md
+        mocks/                          # hasMocks: true
+        work-orders/                    # hasWorkOrders: true
+      docs/adr/ADR-0001-stack.md
+      docs/decision-log.md
+    projects/proj-b/
+      .pandacorp/status.yaml            # MALFORMED YAML — tolerance case for readStatus
+  factory-fresh/                        # AC-01-000.3: no profile.md, empty ideas
+    factory/ideas/                      # empty directory
+  events/
+    dashboard-events.ndjson             # 10 valid events + 1 malformed line
+    dashboard-events-empty.ndjson       # 0 bytes
+```
+
+### Reader type contracts (FRD-01 blueprint §2)
+
+All types below are serializable (no class instances, no `Date`, no functions).
+
+```ts
+// lib/config.ts — already shipped; re-exported for reference
+export function resolveFactoryRoot(env?: string, cwd?: string): string;
+export const FACTORY_ROOT: string;
+export const IDEAS_DIR: string;
+export const PROFILE: string;
+export const PORTFOLIO: string;
+export const NON_IDEA_FILES: readonly string[];  // ["_idea-template.md", "decision-log.md"]
+export function projectStatusPath(projectPath: string): string;
+
+// lib/profile.ts
+type Profile = {
+  name?: string;
+  goals?: string;
+  interests?: string[];
+  assets?: string[];
+  projectsPath?: string;  // bounds FRD-16 orphan scan
+  body: string;           // markdown body
+};
+type ProfileResult = { present: false } | { present: true; profile: Profile };
+export function readProfile(): ProfileResult;
+// Tolerance: absent file → { present: false }; malformed frontmatter → present with partial fields.
+
+// lib/ideas.ts
+type IdeaStatus = "discovered" | "recommended" | "in-pipeline" | "shipped" | "discarded";
+type IdeaCard = {
+  slug: string;           // filename without .md
+  title: string;
+  status: IdeaStatus;
+  projectType?: string;
+  returnType?: "monetary" | "opportunity" | "personal" | "mixed";
+  score?: number;
+  project?: string;       // pointer when in-pipeline
+  body: string;
+};
+export function readIdeas(): IdeaCard[];
+// Tolerance: NON_IDEA_FILES skipped; malformed frontmatter card skipped (not fatal); empty folder → [].
+
+// lib/portfolio.ts
+type PortfolioEntry = {
+  name: string;
+  path: string;           // raw path cell; callers use pathExists to check
+  repo?: string;          // "—"/empty normalized to undefined
+  originIdea?: string;
+  phase?: string;         // advisory; status.yaml is authoritative
+  users?: string;
+  returnMetric?: string;
+  verdict?: string;
+  lastSync?: string;
+};
+export function readPortfolio(): PortfolioEntry[];
+// Tolerance: absent/empty file → []; rows with missing cells degrade to undefined fields.
+
+// lib/status.ts
+type Phase = "product" | "design" | "architecture" | "implementation" | "release" | "operation";
+type ProjectStatus = {
+  project: string; phase: Phase; version: string; running: boolean;
+  progress?: number; workOrdersTotal: number; workOrdersDone: number;
+  pendingDecisions: number; pendingBugs: number; rethinkPending: boolean;
+  advancePending: boolean; lastGreenSha: string; safeToTest: boolean;
+  overlayVersion?: string; createdWith?: string; updatedAt?: string; repo?: string;
+};
+type StatusResult =
+  | { present: false; malformed: false; status: null }
+  | { present: true; malformed: boolean; status: Partial<ProjectStatus> };
+export function readStatus(projectPath: string): StatusResult;
+// Tolerance: absent → { present: false }; malformed YAML → { present: true, malformed: true, status: {} }.
+// YAML snake_case → camelCase: work_orders_total → workOrdersTotal, etc.
+
+// lib/events.ts
+type Event = {
+  event: string; at: string;  // at = ISO 8601
+  agent?: string; session?: string; tool?: string;
+  status?: "ok" | "fail"; workOrder?: string; task?: string;
+  project?: string;  // absent = legacy/global
+};
+type EventsSnapshot = {
+  events: Event[];
+  lastEventAt: string | null;
+  byProject: Record<string, { lastEventAt: string }>;
+};
+export function readEvents(opts?: { cap?: number }): EventsSnapshot;
+// Default cap: 200. Tolerance: absent file → empty snapshot; malformed JSON line skipped.
+
+// lib/docs.ts
+type FrdModule = {
+  slug: string; hasFdd: boolean; hasBlueprint: boolean;
+  hasMocks: boolean; hasWorkOrders: boolean;
+};
+type ProjectDocsIndex = {
+  prd?: string; architecture?: string;
+  frds: FrdModule[];
+  hasAdr: boolean; hasAnalytics: boolean; hasDecisionLog: boolean;
+  comms: { progress?: string; decisions?: string; bugs: string[] };
+};
+export function readProjectDocs(projectPath: string): ProjectDocsIndex;
+// Tolerance: absent files/folders → field absent or []; never throws.
+
+// lib/fs-utils.ts
+export function pathExists(p: string): boolean;
+// Never throws; unreachable path returns false.
+```
+
+---
 
 ---
 

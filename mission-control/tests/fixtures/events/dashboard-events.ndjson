@@ -1,0 +1,11 @@
+{"event":"AgentWorking","at":"2026-06-15T10:00:00Z","agent":"implementer","session":"sess-001","project":"proj-a","data":{"role":"implementer","wo":"WO-01-000"}}
+{"event":"ToolCall","at":"2026-06-15T10:01:30Z","agent":"implementer","session":"sess-001","tool":"Write","status":"ok","project":"proj-a"}
+{"event":"AgentWorking","at":"2026-06-15T10:02:00Z","agent":"test-writer","session":"sess-001","project":"proj-a","data":{"role":"test-writer","wo":"WO-01-001"}}
+{"event":"ToolCall","at":"2026-06-15T10:03:15Z","agent":"test-writer","session":"sess-001","tool":"Read","status":"ok","project":"proj-a"}
+{"event":"AgentWorking","at":"2026-06-15T10:05:00Z","agent":"reviewer","session":"sess-001","project":"proj-a","data":{"role":"reviewer"}}
+{"event":"ToolCall","at":"2026-06-15T10:05:45Z","agent":"reviewer","session":"sess-001","tool":"Bash","status":"fail","project":"proj-a"}
+{"event":"AgentWorking","at":"2026-06-15T11:00:00Z","agent":"implementer","session":"sess-002","data":{"role":"implementer","wo":"WO-02-001"}}
+{"event":"ToolCall","at":"2026-06-15T11:01:00Z","agent":"implementer","session":"sess-002","tool":"Write","status":"ok"}
+{"event":"TaskComplete","at":"2026-06-15T12:00:00Z","agent":"implementer","session":"sess-001","project":"proj-a","data":{"wo":"WO-01-000","outcome":"green"}}
+THIS IS NOT VALID JSON - malformed line that must be skipped gracefully
+{"event":"AgentWorking","at":"2026-06-16T08:30:00Z","agent":"test-writer","session":"sess-003","project":"proj-a","data":{"role":"test-writer","wo":"WO-01-000"}}
