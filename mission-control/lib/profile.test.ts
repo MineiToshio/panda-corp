@@ -29,7 +29,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { FIXTURE_FRESH, FIXTURE_FULL, withFactoryRoot } from "@/tests/fixtures/index";
 import { readProfile } from "./profile";
 
@@ -95,7 +95,7 @@ describe("frd-01: AC-01-002.1 — profile.md present → parse and return all fi
       const result = readProfile();
       if (!result.present) throw new Error("Expected present: true");
       expect(typeof result.profile.name).toBe("string");
-      expect(result.profile.name!.trim().length).toBeGreaterThan(0);
+      expect(result.profile.name?.trim().length).toBeGreaterThan(0);
     });
   });
 
@@ -104,7 +104,7 @@ describe("frd-01: AC-01-002.1 — profile.md present → parse and return all fi
       const result = readProfile();
       if (!result.present) throw new Error("Expected present: true");
       expect(typeof result.profile.goals).toBe("string");
-      expect(result.profile.goals!.trim().length).toBeGreaterThan(0);
+      expect(result.profile.goals?.trim().length).toBeGreaterThan(0);
     });
   });
 
@@ -113,7 +113,7 @@ describe("frd-01: AC-01-002.1 — profile.md present → parse and return all fi
       const result = readProfile();
       if (!result.present) throw new Error("Expected present: true");
       expect(Array.isArray(result.profile.interests)).toBe(true);
-      expect(result.profile.interests!.length).toBeGreaterThan(0);
+      expect(result.profile.interests?.length).toBeGreaterThan(0);
       for (const item of result.profile.interests!) {
         expect(typeof item).toBe("string");
       }
@@ -125,7 +125,7 @@ describe("frd-01: AC-01-002.1 — profile.md present → parse and return all fi
       const result = readProfile();
       if (!result.present) throw new Error("Expected present: true");
       expect(Array.isArray(result.profile.assets)).toBe(true);
-      expect(result.profile.assets!.length).toBeGreaterThan(0);
+      expect(result.profile.assets?.length).toBeGreaterThan(0);
       for (const item of result.profile.assets!) {
         expect(typeof item).toBe("string");
       }
@@ -138,7 +138,7 @@ describe("frd-01: AC-01-002.1 — profile.md present → parse and return all fi
       if (!result.present) throw new Error("Expected present: true");
       // The fixture has `projects_path: "/Users/ada/projects"` — must appear as projectsPath.
       expect(typeof result.profile.projectsPath).toBe("string");
-      expect(result.profile.projectsPath!.trim().length).toBeGreaterThan(0);
+      expect(result.profile.projectsPath?.trim().length).toBeGreaterThan(0);
       // Regression: snake_case key must NOT leak through — only projectsPath is valid.
     });
   });
