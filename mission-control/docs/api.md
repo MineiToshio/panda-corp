@@ -22,6 +22,7 @@
 > **complete for WO-02-004** (IF-02-discardIdea, `lib/discard.ts`) +
 > **complete for WO-03-001** (IF-03-activeProjects, `lib/portfolio.ts` → `activeProjects()`) +
 > **complete for WO-12-001** (IF-12-topn `topN`, IF-12-freshness `freshness`, `app/_observability/selectors/`) +
+> **complete for WO-12-002** (IF-12-kpis `deriveKpis`, `app/_observability/selectors/kpis.ts`) +
 > **complete for WO-11-001** (IF-11-modes `BUILD_MODES`/`DEFAULT_BUILD_MODE`, IF-11-mode-store `getRememberedMode`/`rememberMode`).
 
 ---
@@ -1658,3 +1659,172 @@ Invokes the real `RootLayout` from `app/layout.tsx` against a temp `PANDACORP_FA
 - `<html lang="es">` invariant (DR-009).
 - Read-only invariant: absent profile is not created on layout render (REQ-01-011).
 Kills: inverted-guard mutant, always-gate mutant, always-children mutant.
+
+---
+
+## WO-12-001: `topN` + `freshness` — observability selectors
+
+**Module:** `app/_observability/selectors/topn.ts` + `app/_observability/selectors/freshness.ts`
+**Traces:** IF-12-topn -> REQ-12-004 -> AC-12-004.1; IF-12-freshness -> REQ-12-002 -> AC-12-002.1
+**Dependencies:** `lib/events.ts` (`Event` type - no I/O; selectors are pure over the already-parsed tail)
+
+These are the first two pure selectors of FRD-12's honest data layer. They are consumed by every
+downstream ranking/grouping (topN) and by the Live/No-signal badge (freshness). No HTTP, no I/O,
+no Claude calls - they operate over the `Event[]` slice already produced by `readEvents`.
+
+---
+
+### IF-12-topn - `topN` bounded-ranking helper
+
+**File:** `app/_observability/selectors/topn.ts`
+
+#### Signature
+
+```ts
+/** The default cap enforcing the top-5 invariant (REQ-12-004, AC-12-004.1). */
+export const DEFAULT_TOPN = 5;
+
+/**
+ * Return the first `n` items of `items`, enforcing the top-5 cap by default.
+ * Does NOT sort - the caller pre-ranks the input. topN only caps.
+ *
+ * @param items - Pre-ranked list. Any element type T.
+ * @param n     - Maximum items. Defaults to 5.
+ *   undefined -> 5 | NaN -> 5 (B1') | +Infinity -> all | negative -> 0 | 0 -> []
+ * @returns Independent shallow slice. Never throws.
+ */
+export function topN<T>(items: T[], n?: number): T[];
+```
+
+#### Behaviour contract
+
+| Input | Result |
+|---|---|
+| `n` omitted | First 5 items (DEFAULT_TOPN) |
+| `n = 3` | First 3 items |
+| `n = 0` | `[]` (boundary) |
+| `n > items.length` | All items (no padding) |
+| `n = NaN` | Falls back to DEFAULT_TOPN = 5 (B1' anchor) |
+| `n = +Infinity` | All items (no throw) |
+| `n < 0` | `[]` (clamp) |
+| `items = []` | `[]` for any `n` |
+
+#### Key invariants
+
+- **Order preservation:** `topN(items, n)[k] === items[k]` for all `k < min(n, items.length)`
+- **Idempotency:** `topN(topN(items, n), n)` equals `topN(items, n)`
+- **Independence:** mutating result does not mutate source; vice-versa
+- **Generic:** works for `T = number | string | object | T[]` - no `typeof` guards on items
+- **Pure, never throws** for any input combination
+
+#### Regression anchors
+
+| Anchor | Guard |
+|---|---|
+| **B1' (WO-13-001):** `slice(0, NaN) === []` silently hides all items | `Number.isNaN(n)` before any arithmetic; NaN -> DEFAULT_TOPN |
+| **I3 (WO-13-001):** arrays-as-T must not confuse generic slice | Generic `T` - no `typeof` on items themselves |
+| **FREEZE-ON-RED:** must never throw | No throw in any code path; edge cases produce `[]` |
+
+#### Test coverage
+
+`app/_observability/selectors/topn.test.ts` - 117 tests across 9 groups (vitest, pure):
+default cap (5 cases), explicit n override (7), empty input (4), output independence (3),
+generic T (4), order preservation parametric (25 = 5 lengths x 5 caps),
+idempotency parametric (6), length invariant (4), NaN/non-finite regression (4),
+never-throws matrix (6).
+
+---
+
+### IF-12-freshness - `freshness` live/stale selector
+
+**File:** `app/_observability/selectors/freshness.ts`
+
+#### Signature
+
+```ts
+import type { Event } from "../../../lib/events";
+
+/**
+ * Window within which an event is "live" (not "Sin senial").
+ * Named constant, NOT a magic number (blueprint section 3). Tests import it.
+ * Value: 5 minutes = 300 000 ms.
+ */
+export const FRESHNESS_THRESHOLD_MS = 300_000;
+
+/**
+ * Compute data freshness from the capped event tail.
+ *
+ * @param events - Already-parsed Event[] from lib/events (no I/O).
+ *                 Events with unparseable `at` are silently skipped (B1' anchor).
+ * @param now    - Reference instant (injected - no internal Date.now()).
+ * @returns { lastAt: string | null; live: boolean }
+ *   lastAt: max valid `at` ISO string, or null when none exist.
+ *   live: true when gap < FRESHNESS_THRESHOLD_MS; false otherwise ("Sin senial").
+ */
+export function freshness(events: Event[], now: Date): { lastAt: string | null; live: boolean };
+```
+
+#### Behaviour contract (EARS)
+
+| Condition | `lastAt` | `live` |
+|---|---|---|
+| `events = []` | `null` | `false` - "Sin senial" |
+| One event with valid `at` | that event's `at` | gap to `now` < threshold |
+| Multiple events (any order) | maximum valid `at` | gap to `now` < threshold |
+| All events have invalid `at` | `null` | `false` |
+| Mix valid + invalid `at` | maximum valid `at` | gap to `now` < threshold |
+| Gap < `FRESHNESS_THRESHOLD_MS` | - | `true` (live) |
+| Gap = `FRESHNESS_THRESHOLD_MS` | - | `false` (boundary: stale) |
+| Gap > `FRESHNESS_THRESHOLD_MS` | - | `false` (stale) |
+
+#### `live` boundary rule
+
+```
+gap  = now.getTime() - Date.parse(lastAt)
+live = gap < FRESHNESS_THRESHOLD_MS    // strictly less-than; at == -> false
+```
+
+#### `FRESHNESS_THRESHOLD_MS` contract
+
+| Property | Value |
+|---|---|
+| Exported named constant | `export const FRESHNESS_THRESHOLD_MS` |
+| Type | `number`, finite, positive |
+| Minimum | >= 30 000 (30 s) |
+| Current | 300 000 (5 min) |
+
+Tests import this constant and assert against it - never embed the raw integer - so
+changing the threshold propagates automatically without test rewrites.
+
+#### Key invariants
+
+- **Order-independent:** `lastAt` is the max `at` regardless of array position
+- **Skip-not-corrupt:** invalid `at` silently skipped; `lastAt` is never NaN
+- **Return shape:** always `{ lastAt: string | null, live: boolean }` - exact two keys
+- **`live` strict boolean:** `typeof live === "boolean"` - never truthy/falsy
+- **Pure + idempotent:** no `Date.now()`, no side-effects; same inputs -> same output
+- **Never throws** for any input combination
+
+#### Regression anchors
+
+| Anchor | Guard |
+|---|---|
+| **B1' (WO-13-001):** `Date.parse("bad") === NaN`; `NaN <= threshold` is `false`, silently treating a valid recent event as stale | `Number.isFinite(Date.parse(ev.at))` before including any event; `lastAt` only set from passing events |
+| **I2 (WO-13-001):** `freshness([])` must return `{ lastAt: null, live: false }`, not throw | `lastAt` initialised to `null`; early return on `null` after the loop |
+| **FREEZE-ON-RED:** per-item errors must not abort the batch | Each event processed independently; bad `at` -> `continue`, not `throw` |
+
+#### Downstream consumption
+
+| Consumer | Usage |
+|---|---|
+| **`CMP-12-freshness` / `FreshnessBadge`** (WO-12-005) | Calls `freshness(events, new Date())` server-side; renders `lastAt` as the timestamp label and `live` as the Live/No-signal indicator. Consumed by FRD-06 Party panel. |
+| **`CMP-12-kpi-header` / `KpiHeader`** (WO-12-002+) | Passes `live` to the header status indicator. |
+
+#### Test coverage
+
+`app/_observability/selectors/freshness.test.ts` - 117 tests across 10 groups (vitest, pure):
+empty -> Sin senial (4), lastAt is max `at` (6), live=true within threshold (4),
+live=false beyond threshold (5), boundary sweep parametric (8 points),
+`FRESHNESS_THRESHOLD_MS` as named constant (3), return shape invariant (4 scenarios),
+B1' regression invalid `at` (4), max-at across permutations (6), idempotency (1),
+never-throws matrix (4).
