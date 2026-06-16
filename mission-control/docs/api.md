@@ -12,9 +12,97 @@
 > **complete for WO-01-003** (IF-01-readIdeas, `lib/ideas.ts`) +
 > **complete for WO-01-004** (IF-01-readPortfolio, `lib/portfolio.ts`) +
 > **complete for WO-01-005** (IF-01-readStatus, `lib/status.ts`) +
+> **complete for WO-01-006** (IF-01-readProjectDocs, `lib/docs.ts`) +
 > **complete for WO-01-007** (IF-01-readEvents, `lib/events.ts`) +
 > **complete for WO-13-001** (IF-13-tokens, IF-13-agent-colors, IF-13-state-vocab) +
-> **complete for WO-02-002** (CMP-02-copy-button).
+> **complete for WO-02-002** (CMP-02-copy-button) +
+> **complete for WO-02-001** (IF-02-deriveColumn, `lib/board.ts`).
+
+---
+
+## WO-02-001: `deriveColumn` — two-axis kanban column derivation
+
+**Module:** `lib/board.ts`
+**Traces:** CMP-02-board-derive, IF-02-deriveColumn; REQ-02-001; AC-02-001.1..6
+**Dependencies:** WO-01-003 (`IdeaCard` from `lib/ideas.ts`), WO-01-005 (`StatusResult` from `lib/status.ts`)
+
+### IF-02-deriveColumn
+
+```ts
+// lib/board.ts
+
+export type BoardColumn =
+  | "discovered"
+  | "documented"
+  | "design"
+  | "architecture"
+  | "building"
+  | "shipped"
+  | "discarded";
+
+/**
+ * Derive the kanban column for an idea card from two axes:
+ *   1. The card's `status` field (IdeaCard from lib/ideas.ts).
+ *   2. The linked project's `phase` field (StatusResult from lib/status.ts).
+ *
+ * Pure function: no fs, no writes, no network, no side effects. Never throws.
+ *
+ * @param card          - The parsed idea card from readIdeas.
+ * @param projectStatus - The parsed project status from readStatus, or null when
+ *                        no project path was resolved.
+ * @returns The BoardColumn the card belongs in. Never throws (AC-02-001.6).
+ */
+export function deriveColumn(card: IdeaCard, projectStatus: StatusResult | null): BoardColumn;
+```
+
+### Mapping table (blueprint §2, REQ-02-001)
+
+| Card `status` | Project `phase` | Column |
+|---|---|---|
+| `discovered` | — | `discovered` |
+| `recommended` | — | `discovered` (+ "recommended" badge on the card) |
+| `in-pipeline` | `product` | `documented` |
+| `in-pipeline` | `design` | `design` |
+| `in-pipeline` | `architecture` | `architecture` |
+| `in-pipeline` | `implementation` | `building` |
+| `in-pipeline` | `release` | `building` |
+| `in-pipeline` | `operation` | `shipped` |
+| `in-pipeline` | missing / absent / malformed / undefined | `documented` (fallback, AC-02-001.6) |
+| `shipped` | — | `shipped` |
+| `discarded` | — | `discarded` |
+
+### Invariants
+
+- **Pure:** no I/O, no writes, no network, no Claude calls, no side effects.
+- **Never throws** (AC-02-001.6 "without breaking"): all fallback paths are safe.
+- **No invalid card statuses produce wrong columns** (AC-02-001.5): `design`, `architecture`,
+  `building` can never be card statuses (they come from project phase only). If an invalid
+  status reaches the function at runtime, it returns `"discovered"` and does not throw.
+- **Deterministic:** same inputs always produce the same output.
+- **Input objects are never mutated.**
+- **Regression B1' (2026-06-16):** `readStatus` rejects NaN/invalid phase upstream; `deriveColumn`
+  receives `phase: undefined` in that case and falls back to `documented`.
+- **Regression I3 (2026-06-16):** `readStatus` rejects array-typed phase values; same fallback applies.
+
+### Fallback conditions for `in-pipeline` cards (AC-02-001.6)
+
+All three cases below produce `"documented"` and never throw:
+
+| Condition | Fallback |
+|---|---|
+| `projectStatus` is `null` | `documented` — no project path was resolved |
+| `projectStatus.present === false` | `documented` — `status.yaml` absent or project missing |
+| `projectStatus.status.phase === undefined` | `documented` — malformed YAML, missing key, or upstream rejection (B1', I3) |
+
+### Re-exports
+
+`lib/board.ts` re-exports `IdeaCard` (from `lib/ideas.ts`) and `StatusResult` (from `lib/status.ts`)
+so downstream consumers can import all board-related types from a single module.
+
+### Consumption (downstream features)
+
+- **`app/board/page.tsx`** (CMP-02-board-view, WO-02-005): calls `deriveColumn(card, readStatus(card.project))` for each idea card to place it in the correct column.
+- **`components/IdeaCard.tsx`** (CMP-02-card): receives `BoardColumn` from the page; adds "recommended" badge when `card.status === "recommended"` and `column === "discovered"`.
 
 ---
 
@@ -227,11 +315,11 @@ export function readEvents(opts?: { path?: string; cap?: number }): EventsSnapsh
 // `path` defaults to ~/.claude/dashboard-events.ndjson. `work_order` mapped to workOrder.
 
 // lib/docs.ts
-type FrdModule = {
+export type FrdModule = {
   slug: string; hasFdd: boolean; hasBlueprint: boolean;
   hasMocks: boolean; hasWorkOrders: boolean;
 };
-type ProjectDocsIndex = {
+export type ProjectDocsIndex = {
   prd?: string; architecture?: string;
   frds: FrdModule[];
   hasAdr: boolean; hasAnalytics: boolean; hasDecisionLog: boolean;
