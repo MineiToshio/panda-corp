@@ -37,7 +37,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { FIXTURE_FULL } from "@/tests/fixtures/index";
 import { readProjectDocs } from "./docs";
 
@@ -90,7 +90,7 @@ describe("frd-01: readProjectDocs — AC-01-007.1 product layer (proj-a)", () =>
   it("frd-01: AC-01-007.1 — WHEN prd.md exists THEN prd is a non-empty string path", () => {
     const index = readProjectDocs(PROJ_A_PATH) as ProjectDocsIndex;
     expect(typeof index.prd).toBe("string");
-    expect(index.prd!.length).toBeGreaterThan(0);
+    expect(index.prd?.length).toBeGreaterThan(0);
   });
 
   it("frd-01: AC-01-007.1 — WHEN prd.md exists THEN prd path ends with 'prd.md'", () => {
@@ -100,13 +100,13 @@ describe("frd-01: readProjectDocs — AC-01-007.1 product layer (proj-a)", () =>
 
   it("frd-01: AC-01-007.1 — WHEN prd.md exists THEN prd path is an absolute path", () => {
     const index = readProjectDocs(PROJ_A_PATH) as ProjectDocsIndex;
-    expect(path.isAbsolute(index.prd!)).toBe(true);
+    expect(path.isAbsolute(index.prd ?? "")).toBe(true);
   });
 
   it("frd-01: AC-01-007.1 — WHEN architecture.md exists THEN architecture is a non-empty string path", () => {
     const index = readProjectDocs(PROJ_A_PATH) as ProjectDocsIndex;
     expect(typeof index.architecture).toBe("string");
-    expect(index.architecture!.length).toBeGreaterThan(0);
+    expect(index.architecture?.length).toBeGreaterThan(0);
   });
 
   it("frd-01: AC-01-007.1 — WHEN architecture.md exists THEN architecture path ends with 'architecture.md'", () => {
@@ -116,7 +116,7 @@ describe("frd-01: readProjectDocs — AC-01-007.1 product layer (proj-a)", () =>
 
   it("frd-01: AC-01-007.1 — WHEN architecture.md exists THEN architecture path is absolute", () => {
     const index = readProjectDocs(PROJ_A_PATH) as ProjectDocsIndex;
-    expect(path.isAbsolute(index.architecture!)).toBe(true);
+    expect(path.isAbsolute(index.architecture ?? "")).toBe(true);
   });
 
   it("frd-01: AC-01-007.1 — WHEN prd.md is absent THEN prd is undefined (not null or empty string)", () => {
@@ -351,7 +351,7 @@ describe("frd-01: readProjectDocs — AC-01-007.1 .pandacorp/ comms layer (proj-
   it("frd-01: AC-01-007.1 — WHEN .pandacorp/comms/progress.md exists THEN comms.progress is a non-empty string", () => {
     const index = readProjectDocs(PROJ_A_PATH) as ProjectDocsIndex;
     expect(typeof index.comms.progress).toBe("string");
-    expect(index.comms.progress!.length).toBeGreaterThan(0);
+    expect(index.comms.progress?.length).toBeGreaterThan(0);
   });
 
   it("frd-01: AC-01-007.1 — WHEN .pandacorp/comms/progress.md exists THEN comms.progress path ends with 'progress.md'", () => {
@@ -362,7 +362,7 @@ describe("frd-01: readProjectDocs — AC-01-007.1 .pandacorp/ comms layer (proj-
   it("frd-01: AC-01-007.1 — WHEN .pandacorp/inbox/decisions.md exists THEN comms.decisions is a non-empty string", () => {
     const index = readProjectDocs(PROJ_A_PATH) as ProjectDocsIndex;
     expect(typeof index.comms.decisions).toBe("string");
-    expect(index.comms.decisions!.length).toBeGreaterThan(0);
+    expect(index.comms.decisions?.length).toBeGreaterThan(0);
   });
 
   it("frd-01: AC-01-007.1 — WHEN .pandacorp/inbox/decisions.md exists THEN comms.decisions path ends with 'decisions.md'", () => {
