@@ -1,6 +1,23 @@
 # WO-11-001 review — BUILD_MODES catalog + per-project persistence
 
-**Verdict: REJECTED** (1 blocking finding) · Reviewer: Opus (different model family from the implementer, DR-015) · 2026-06-16 · Cycle 1 of 2.
+**Verdict (cycle 2): APPROVED** · Reviewer: Opus (different model from the implementer, DR-015) · 2026-06-16 · Cycle 2 of 2.
+
+B1 (the sole blocker from cycle 1) is fixed in commit `ad43d7e` (deep-freeze). Re-verified from clean: outer array frozen, **every** entry frozen, `BUILD_MODES[n].id = "x"` throws in strict mode (no silent no-op). B2 (i18n keys) remains an open IMPORTANT item but, per cycle 1 and the WO spec itself, does not block WO-11-001 — it must be resolved by the owner **before WO-11-002**.
+
+## Cycle-2 evidence re-run from clean (not trusting the self-report)
+- `pnpm vitest run lib/build-modes.test.ts lib/build-modes.adversarial.test.ts` → 61/61 GREEN.
+- `pnpm tsc --noEmit` → exit 0 (clean).
+- `pnpm biome check .` → exit 0 (9 warnings / 25 infos, **no errors**); WO-11 files specifically clean.
+- Full `pnpm vitest run` → exit 0: 1449 passed, 2 expected-fail, 5 skipped (52 files). The WO-12 `KpiHeader` global breakage noted in cycle 1 is resolved; the suite is globally green again.
+- Reviewer freeze-probe (throwaway): `Object.isFrozen(BUILD_MODES)` true, every entry `Object.isFrozen` true, mutation throws. **B1 genuinely closed.**
+- No fs/process/write calls in either production file (`grep`): localStorage-only, throw-safe (both read AND write paths), per-project keyed. Read-only invariant intact.
+- Docs in order: `docs/api.md` updated ("deep-frozen") + `docs/decision-log.md` entry linking it.
+
+---
+
+## Cycle 1 (REJECTED) — retained for history
+
+**Verdict: REJECTED** (1 blocking finding) · 2026-06-16 · Cycle 1 of 2.
 
 ## Evidence re-run from clean (not trusting the self-report)
 - `pnpm vitest run lib/build-modes.test.ts` → 41/41 GREEN.

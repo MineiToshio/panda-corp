@@ -272,6 +272,7 @@ describe("frd-04: workspaceCommands — AC-04-005.1 early-phase delegation to FR
       const rows: CommandRow[] = workspaceCommands(phase);
       const row = rows[0];
       expect(row).toBeDefined();
+      // biome-ignore lint/style/noNonNullAssertion: guarded by expect(row).toBeDefined() above
       assertCommandRow(row!);
     });
 

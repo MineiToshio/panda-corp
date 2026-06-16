@@ -759,6 +759,164 @@ describe("frd-12 rate: specific behavior assertions", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Regression B1 — prototype-pollution via agent key (WO-12-003 review, 2026-06-16)
+//
+// Real defect found by the reviewer (wo-12-003-review.md): when `ev.agent` is a
+// key that exists on Object.prototype ("__proto__", "constructor", "toString",
+// "valueOf", "hasOwnProperty"), reading `byAgent[ev.agent] ?? 0` traverses the
+// prototype chain and returns the INHERITED function, so `current + 1` produces
+// a garbage string instead of a number. Writing to `byAgent["__proto__"]` is
+// silently dropped, losing the count while `total` still increments.
+//
+// Both cases violate the documented invariant: "byAgent counts sum to total".
+// Downstream consumers (FRD-06 ActivityPulse stall signal, FRD-18 rate chart)
+// receive NaN/string contamination or silent undercount.
+//
+// Fix required: build byAgent with Object.create(null) so there is no prototype
+// chain to traverse and "__proto__" becomes a normal own property.
+//
+// These tests are RED against the current implementation and turn GREEN only
+// after the null-prototype fix is applied to rate.ts.
+//
+// Source: wo-12-003-review.md §Findings B1; AC-12-007.1; progress.md 2026-06-16.
+// ---------------------------------------------------------------------------
+
+describe("frd-12 rate: regression B1 — prototype-pollution agent keys corrupt byAgent", () => {
+  // B1a — __proto__ key: the write is silently dropped by plain-object byAgent.
+  // The count is lost → byAgent sums to 0 while total is 1. Violation of invariant.
+  it("frd-12 regression B1a: WHEN agent='__proto__' THEN total=1 AND byAgent sums equal total (count not silently lost)", () => {
+    const events = [makeEvent({ at: "2026-06-16T12:29:00Z", agent: "__proto__" })];
+    const buckets = eventsPerMinute(events, 5, NOW);
+    const bucket = buckets.find((b) => b.minute === minuteKeyAgo(1));
+    expect(bucket?.total).toBe(1);
+    // byAgent["__proto__"] must be 1, not undefined/lost
+    const byAgentSum = Object.values(bucket?.byAgent ?? {}).reduce((s, n) => s + n, 0);
+    expect(byAgentSum).toBe(bucket?.total);
+  });
+
+  it("frd-12 regression B1a: WHEN agent='__proto__' THEN byAgent count is the number 2 (not undefined, not NaN)", () => {
+    const events = [
+      makeEvent({ at: "2026-06-16T12:29:10Z", agent: "__proto__" }),
+      makeEvent({ at: "2026-06-16T12:29:20Z", agent: "__proto__" }),
+    ];
+    const buckets = eventsPerMinute(events, 5, NOW);
+    const bucket = buckets.find((b) => b.minute === minuteKeyAgo(1));
+    expect(bucket?.total).toBe(2);
+    // Read the count via getOwnPropertyDescriptor so we never traverse the prototype chain.
+    // If byAgent is built with Object.create(null), the own property exists with value=2.
+    const desc = Object.getOwnPropertyDescriptor(bucket?.byAgent, "__proto__");
+    expect(typeof desc?.value).toBe("number");
+    expect(Number.isFinite(desc?.value as number)).toBe(true);
+    expect(desc?.value).toBe(2);
+  });
+
+  it("frd-12 regression B1a: WHEN agent='__proto__' THEN global Object.prototype is not polluted", () => {
+    eventsPerMinute([makeEvent({ at: "2026-06-16T12:29:00Z", agent: "__proto__" })], 5, NOW);
+    // Object.prototype must not have gained any new property from the selector call
+    const protoKeys = Object.getOwnPropertyNames(Object.prototype);
+    expect(protoKeys).not.toContain("total");
+    expect(protoKeys).not.toContain("minute");
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
+  // B1b — constructor key: byAgent["constructor"] ?? 0 reads the inherited function,
+  // so `current + 1` becomes "function Object() { [native code] }1" (a string).
+  // The sum of byAgent values is then a corrupted string, not a number equal to total.
+  it("frd-12 regression B1b: WHEN agent='constructor' THEN byAgent count is a finite number (not a function-coerced string)", () => {
+    const events = [
+      makeEvent({ at: "2026-06-16T12:29:00Z", agent: "constructor" }),
+      makeEvent({ at: "2026-06-16T12:29:30Z", agent: "constructor" }),
+    ];
+    const buckets = eventsPerMinute(events, 5, NOW);
+    const bucket = buckets.find((b) => b.minute === minuteKeyAgo(1));
+    expect(bucket?.total).toBe(2);
+    // Read via getOwnPropertyDescriptor so we never traverse the prototype chain.
+    const desc = Object.getOwnPropertyDescriptor(bucket?.byAgent, "constructor");
+    expect(typeof desc?.value).toBe("number");
+    expect(Number.isFinite(desc?.value as number)).toBe(true);
+    expect(desc?.value).toBe(2);
+  });
+
+  it("frd-12 regression B1b: WHEN agent='toString' THEN byAgent sums to total (no string corruption)", () => {
+    const events = [
+      makeEvent({ at: "2026-06-16T12:29:10Z", agent: "toString" }),
+      makeEvent({ at: "2026-06-16T12:29:20Z", agent: "toString" }),
+      makeEvent({ at: "2026-06-16T12:29:30Z", agent: "implementer" }),
+    ];
+    const buckets = eventsPerMinute(events, 5, NOW);
+    const bucket = buckets.find((b) => b.minute === minuteKeyAgo(1));
+    expect(bucket?.total).toBe(3);
+    // All byAgent values must be numbers
+    const entries = Object.values(bucket?.byAgent ?? {});
+    for (const v of entries) {
+      expect(typeof v).toBe("number");
+      expect(Number.isFinite(v)).toBe(true);
+    }
+    const byAgentSum = entries.reduce((s, n) => s + n, 0);
+    expect(byAgentSum).toBe(3);
+  });
+
+  it("frd-12 regression B1b: WHEN agent='valueOf' THEN count is not lost (byAgent sums equal total)", () => {
+    const events = [makeEvent({ at: "2026-06-16T12:29:00Z", agent: "valueOf" })];
+    const buckets = eventsPerMinute(events, 5, NOW);
+    const bucket = buckets.find((b) => b.minute === minuteKeyAgo(1));
+    expect(bucket?.total).toBe(1);
+    const byAgentSum = Object.values(bucket?.byAgent ?? {}).reduce((s, n) => s + n, 0);
+    expect(byAgentSum).toBe(1);
+  });
+
+  it("frd-12 regression B1b: WHEN agent='hasOwnProperty' THEN count is a finite number, not a function", () => {
+    const events = [makeEvent({ at: "2026-06-16T12:29:00Z", agent: "hasOwnProperty" })];
+    const buckets = eventsPerMinute(events, 5, NOW);
+    const bucket = buckets.find((b) => b.minute === minuteKeyAgo(1));
+    expect(bucket?.total).toBe(1);
+    const desc = Object.getOwnPropertyDescriptor(bucket?.byAgent, "hasOwnProperty");
+    expect(typeof desc?.value).toBe("number");
+    expect(desc?.value).toBe(1);
+  });
+
+  // B1 combined — multiple dangerous keys in the same bucket: all counts must be
+  // numeric, none corrupted, and their sum must equal total.
+  it("frd-12 regression B1 combined: WHEN multiple prototype-collision agent keys appear in one bucket THEN ALL byAgent values are numbers summing to total", () => {
+    const events = [
+      makeEvent({ at: "2026-06-16T12:29:00Z", agent: "__proto__" }),
+      makeEvent({ at: "2026-06-16T12:29:10Z", agent: "constructor" }),
+      makeEvent({ at: "2026-06-16T12:29:20Z", agent: "toString" }),
+      makeEvent({ at: "2026-06-16T12:29:30Z", agent: "valueOf" }),
+      makeEvent({ at: "2026-06-16T12:29:40Z", agent: "implementer" }), // safe key
+    ];
+    const buckets = eventsPerMinute(events, 5, NOW);
+    const bucket = buckets.find((b) => b.minute === minuteKeyAgo(1));
+    expect(bucket?.total).toBe(5);
+    const values = Object.values(bucket?.byAgent ?? {});
+    for (const v of values) {
+      expect(typeof v).toBe("number");
+      expect(Number.isFinite(v)).toBe(true);
+      expect(v).toBeGreaterThanOrEqual(1);
+    }
+    const byAgentSum = values.reduce((s, n) => s + n, 0);
+    expect(byAgentSum).toBe(5);
+  });
+
+  // Consumer-safety invariant: FRD-06 / FRD-18 receive valid numbers, not strings.
+  // A corrupted byAgent with a string value breaks the reduce in those consumers
+  // and causes ActivityPulse to emit a wrong stall signal.
+  it("frd-12 regression B1 consumer safety: WHEN dangerous agent keys are present THEN no byAgent value is a string (FRD-06/FRD-18 consumer safety)", () => {
+    const dangerousAgents = ["__proto__", "constructor", "toString", "hasOwnProperty"];
+    const events = dangerousAgents.map((agent, i) =>
+      makeEvent({ at: `2026-06-16T12:29:${String(i * 10).padStart(2, "0")}Z`, agent }),
+    );
+    const buckets = eventsPerMinute(events, 5, NOW);
+    for (const b of buckets) {
+      for (const v of Object.values(b.byAgent)) {
+        expect(typeof v).not.toBe("string");
+        expect(typeof v).toBe("number");
+      }
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // FRD-06 / FRD-18 consumer contract — single source of rate metric
 // ---------------------------------------------------------------------------
 

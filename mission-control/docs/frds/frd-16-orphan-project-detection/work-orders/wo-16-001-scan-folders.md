@@ -32,3 +32,12 @@ mission-control siblings). Point readers at it via `PANDACORP_FACTORY_ROOT` / a 
 
 ## Dependencies
 - FRD-01 `lib/config.ts`, `lib/profile.ts` — shipped.
+
+## Status
+
+- [ ] ~~DONE~~ **BLOCKED** — freeze-on-red protocol violation.
+
+Implementation committed at `dd3be3b` while global `verify.sh` was RED (WO-12-004 active freeze, `last_green_sha=d13d887`).
+WO-16-001's own 49 tests pass and the work was reviewed APPROVED (see `docs/reviews/wo-16-001-review.md`),
+but the commit violated the freeze set by the WO-12-004 block. No downstream work (WO-16-002) may proceed
+until WO-12-004 is resolved and `verify.sh` returns green. No new commits were made as part of this freeze action.

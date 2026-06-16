@@ -14,47 +14,5 @@ pending_decisions: 0
 pending_bugs: 0
 rethink_pending: false
 advance_pending: false
-last_green_sha: "d13d887"
+last_green_sha: ""
 safe_to_test: false
-blocked_work_orders:
-  - id: "WO-12-004"
-    reason: >
-      Reviewer cycle-2 REJECTED (DR-015 cap=2 exhausted). B2 blocking bug in
-      deriveWoRow no-task branch (timeline.ts:238-242): a no-task WO with one
-      closed + one open direct action is reported finished instead of running.
-      Violates AC-12-003.1 and AC-12-007.1. Failing tests:
-      timeline.review2.test.ts (2/12 FAIL). Fix requires hasOpenDirectAction
-      flag on woAcc and symmetric running-detection in the no-task branch.
-      No fix has been committed; HEAD stays at last_green_sha=d13d887.
-      Escalation required from owner — this is the 3rd miss (DR-015 cap
-      allows 2 rejection cycles; cycle 3 goes to owner).
-  - id: "WO-04-001"
-    reason: >
-      Freeze-on-red (DR-015 / implementer SOP). WO-04-001 own tests (63 in
-      docs.wo04001.test.ts + 12 in docs.wo04001.reviewer.test.ts) are ALL
-      GREEN and lib/docs.ts implementation is complete. However, verify.sh
-      fails globally: lib/memory.adversarial.test.ts has 2 FAIL cases in
-      the parseProjects suite (WO-17-001 scope), blocking verify.sh from
-      passing. Per SOP, WO-04-001 cannot be declared done while the global
-      suite is red, even though its own tests pass. No new commits added.
-      HEAD stays at last_green_sha=d13d887 as the verified-green baseline.
-      Unblocking condition: resolve WO-17-001 parseProjects failures so
-      verify.sh passes end-to-end, then re-verify WO-04-001.
-  - id: "WO-17-001"
-    reason: >
-      Reviewer cycle-2 REJECTED (DR-015 cap=2 exhausted). Blocking bug in
-      parseProjects (lib/memory.ts:115-154): two ambiguous-source cases still
-      over-count, flipping evalGate to "corroborated" for a single-project
-      candidate. (1) Unclosed parenthetical "proj-alpha (note, with comma,
-      proj-beta" — the /\([^)]*\)/ regex requires a closing paren so the tail
-      is never stripped; inner commas leak as phantom projects. (2) Free text
-      trailing a closed paren "proj-alpha (a, b) extra, words here" — "words"
-      becomes a phantom 2nd project. Both violate AC-17-001.5 ("when the format
-      is ambiguous, yields a conservative count, does NOT over-count").
-      Failing tests: lib/memory.adversarial.test.ts (2/5 FAIL — the two new
-      cycle-2 cases). Commits 9b4f529 and 898ea18 are on main but broken.
-      last_green_sha=d13d887 is still the verified-green baseline.
-      Fix: (a) also strip unclosed-paren tails with /\([^)]*$/ before split,
-      AND (b) only accept segment leading tokens that match a strict slug
-      pattern (kebab-case /^[a-z0-9]+(?:-[a-z0-9]+)+$/) to reject bare words.
-      Escalation required from owner — DR-015 cap exhausted (2/2 cycles).

@@ -547,8 +547,8 @@ describe("frd-12 kpis: property-based invariants — parametric table", () => {
       events: [makeEvent({ status: "fail" })],
       projects: [],
       check: (kpis) => {
-        const kpi = kpis.find((k) => k.key === "failed-work-orders")!;
-        expect(kpi.value).toBe(1);
+        const kpi = kpis.find((k) => k.key === "failed-work-orders");
+        expect(kpi?.value).toBe(1);
       },
     },
     {
@@ -560,8 +560,8 @@ describe("frd-12 kpis: property-based invariants — parametric table", () => {
       ],
       projects: [],
       check: (kpis) => {
-        const kpi = kpis.find((k) => k.key === "failed-work-orders")!;
-        expect(kpi.value).toBe(0);
+        const kpi = kpis.find((k) => k.key === "failed-work-orders");
+        expect(kpi?.value).toBe(0);
       },
     },
     {
@@ -571,8 +571,8 @@ describe("frd-12 kpis: property-based invariants — parametric table", () => {
       ),
       projects: [],
       check: (kpis) => {
-        const kpi = kpis.find((k) => k.key === "agents-working")!;
-        expect(kpi.value).toBe(5);
+        const kpi = kpis.find((k) => k.key === "agents-working");
+        expect(kpi?.value).toBe(5);
       },
     },
     {
@@ -580,8 +580,8 @@ describe("frd-12 kpis: property-based invariants — parametric table", () => {
       events: [],
       projects: [makeProject({ stage: "implementation" })],
       check: (kpis) => {
-        const kpi = kpis.find((k) => k.key === "active-projects")!;
-        expect(kpi.value).toBe(1);
+        const kpi = kpis.find((k) => k.key === "active-projects");
+        expect(kpi?.value).toBe(1);
       },
     },
     {
@@ -594,8 +594,8 @@ describe("frd-12 kpis: property-based invariants — parametric table", () => {
         makeProject({ name: "d", stage: "operation" }),
       ],
       check: (kpis) => {
-        const kpi = kpis.find((k) => k.key === "active-projects")!;
-        expect(kpi.value).toBe(2); // implementation + operation
+        const kpi = kpis.find((k) => k.key === "active-projects");
+        expect(kpi?.value).toBe(2); // implementation + operation
       },
     },
     {
@@ -626,9 +626,9 @@ describe("frd-12 kpis: property-based invariants — parametric table", () => {
       ],
       projects: [],
       check: (kpis) => {
-        const kpi = kpis.find((k) => k.key === "builds-queued")!;
-        expect(kpi.value).toBeGreaterThanOrEqual(0);
-        expect(Number.isInteger(kpi.value)).toBe(true);
+        const kpi = kpis.find((k) => k.key === "builds-queued");
+        expect(kpi?.value).toBeGreaterThanOrEqual(0);
+        expect(Number.isInteger(kpi?.value)).toBe(true);
       },
     },
     {
@@ -636,9 +636,9 @@ describe("frd-12 kpis: property-based invariants — parametric table", () => {
       events: [makeEvent({ event: "XpAwarded", status: "ok" })],
       projects: [],
       check: (kpis) => {
-        const kpi = kpis.find((k) => k.key === "xp-today")!;
-        expect(kpi.value).toBeGreaterThanOrEqual(0);
-        expect(Number.isInteger(kpi.value)).toBe(true);
+        const kpi = kpis.find((k) => k.key === "xp-today");
+        expect(kpi?.value).toBeGreaterThanOrEqual(0);
+        expect(Number.isInteger(kpi?.value)).toBe(true);
       },
     },
     {
@@ -648,9 +648,9 @@ describe("frd-12 kpis: property-based invariants — parametric table", () => {
       ),
       projects: [],
       check: (kpis) => {
-        const kpi = kpis.find((k) => k.key === "agents-working")!;
-        expect(kpi.value).toBeLessThanOrEqual(3);
-        expect(kpi.value).toBeGreaterThanOrEqual(0);
+        const kpi = kpis.find((k) => k.key === "agents-working");
+        expect(kpi?.value).toBeLessThanOrEqual(3);
+        expect(kpi?.value).toBeGreaterThanOrEqual(0);
       },
     },
     {
@@ -658,8 +658,8 @@ describe("frd-12 kpis: property-based invariants — parametric table", () => {
       events: Array.from({ length: 7 }, () => makeEvent({ status: "fail" })),
       projects: [],
       check: (kpis) => {
-        const kpi = kpis.find((k) => k.key === "failed-work-orders")!;
-        expect(kpi.value).toBeLessThanOrEqual(7);
+        const kpi = kpis.find((k) => k.key === "failed-work-orders");
+        expect(kpi?.value).toBeLessThanOrEqual(7);
       },
     },
     {

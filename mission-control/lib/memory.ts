@@ -117,10 +117,16 @@ function parseProjects(source: string): string[] {
     return [];
   }
 
-  // Step 1: strip all parenthetical content — the parens and everything inside.
-  // This removes the context annotations that may contain commas.
-  // Use a global replace so all parentheticals in the string are removed.
-  const stripped = source.replace(/\([^)]*\)/g, "");
+  // Step 1: strip closed parenthetical content — the parens and everything
+  // inside. This removes context annotations that may contain commas.
+  let stripped = source.replace(/\([^)]*\)/g, "");
+
+  // Step 1b: an UNCLOSED parenthetical is ambiguous — a stray "(" with no closing
+  // ")" means the rest is a (truncated) annotation, not project entries. Drop
+  // from the stray "(" onward so its inner commas can't spawn phantom projects
+  // (conservative fallback, AC-17-001.5).
+  const strayOpen = stripped.indexOf("(");
+  if (strayOpen >= 0) stripped = stripped.slice(0, strayOpen);
 
   // Step 2: split on ", " to separate project entries.
   const segments = stripped.split(", ");
@@ -137,16 +143,19 @@ function parseProjects(source: string): string[] {
 
     const token = match[1];
 
-    // Reject tokens that look like file paths.
-    if (looksLikePath(token)) continue;
+    // A well-formed entry is JUST the slug (a stripped annotation leaves only
+    // spaces). If free-text prose trails the slug, the source is malformed:
+    // capture this leading project, then STOP — everything after is prose, not
+    // more projects (conservative, AC-17-001.5).
+    const hasTrailingProse = trimmed !== token;
 
-    // Reject tokens that don't look like a project slug.
-    // A project slug is expected to be alphanumeric+hyphens (no dots, no slashes).
-    // Being conservative: if the token contains characters that suggest it is
-    // not a plain slug (e.g. parens without a preceding name), skip it.
-    if (!/^[a-zA-Z0-9]/.test(token)) continue;
+    // Accept only plausible project slugs: reject path-like tokens (a pure doc
+    // reference has zero projects) and tokens not starting alphanumeric.
+    if (!looksLikePath(token) && /^[a-zA-Z0-9]/.test(token)) {
+      projectNames.push(token);
+    }
 
-    projectNames.push(token);
+    if (hasTrailingProse) break;
   }
 
   // Deduplicate (AC-17-001.5 distinct count).

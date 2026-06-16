@@ -43,9 +43,12 @@ export interface WorkOrderProgress {
 //   **Status:** done
 //   Status: **DONE**
 //   Status: IN_PROGRESS
-// Case-insensitive; value captured in group 1.
+// Case-insensitive; value captured in group 1. Anchored to line start (optionally
+// a heading "##" or bold) so prose like "...the Status: blocked situation..." or
+// "status: IdeaStatus" mid-line cannot shadow the canonical marker (WO-05-001 adv).
 // ---------------------------------------------------------------------------
-const STATUS_RE = /(?:\*{1,2}Status:?\*{0,2}|\*{0,2}Status\*{0,2}:)\s*\*{0,2}([^\s*\n]+)\*{0,2}/i;
+const STATUS_LINE_RE =
+  /^\s{0,3}(?:#{1,6}\s*)?(?:\*{1,2}Status:?\*{0,2}|\*{0,2}Status\*{0,2}:)\s*\*{0,2}([^\s*\n]+)/i;
 
 // Canonical value map — producer writes these; we normalise to WorkOrderState.
 const STATE_MAP: Record<string, WorkOrderState> = {
@@ -104,11 +107,24 @@ function parseWorkOrderFile(absPath: string, frdSlug: string, projectPath: strin
     }
   }
 
-  // State from the on-disk marker (case-insensitive).
+  // State from the on-disk marker. Prefer the canonical "## Status:" heading over
+  // any other line-start marker, and ignore "Status:" embedded mid-prose, so an
+  // earlier narrative mention can't shadow the real marker (WO-05-001 adversarial).
   let state: WorkOrderState = "todo";
-  const stateMatch = STATUS_RE.exec(content);
-  if (stateMatch?.[1]) {
-    state = normaliseState(stateMatch[1]);
+  let headingState: string | undefined;
+  let plainState: string | undefined;
+  for (const line of lines) {
+    const m = STATUS_LINE_RE.exec(line);
+    if (!m?.[1]) continue;
+    if (/^\s{0,3}#{1,6}/.test(line)) {
+      if (headingState === undefined) headingState = m[1];
+    } else if (plainState === undefined) {
+      plainState = m[1];
+    }
+  }
+  const stateRaw = headingState ?? plainState;
+  if (stateRaw) {
+    state = normaliseState(stateRaw);
   }
 
   // Summary: text under a "## Summary" section, first non-empty paragraph.
