@@ -3102,3 +3102,187 @@ Three test files (vitest, pure — no I/O, no mocks): **147 tests total**.
 | E. Out-of-order arrival | 2 tests |
 | F. Abusive field types (I3/B1' abuse) | 3 tests |
 | G. Direct-action parentId + no dangling links | 2 tests |
+
+---
+
+## WO-05-001: `lib/work-orders.ts` — discover + parse work orders (IF-05-work-orders)
+
+**Module:** `lib/work-orders.ts`
+**Traces:** IF-05-work-orders; REQ-05-002, REQ-05-005; AC-05-002.1, AC-05-005.1, AC-05-006.1
+**Data source:** `docs/frds/frd-*/work-orders/wo-*.md` (per feature; per DR-049 feature-centric layout)
+**Consumed by:** WO-05-002 (`aggregateProgress` pure function, same module), WO-05-003 (`CMP-05-board`), WO-05-004 (`CMP-05-frd-filter`), WO-05-006 (`CMP-05-progress`, `CMP-05-empty`)
+**Read-only:** no `fs.write*` calls; derives state from on-disk markers written by `/pandacorp:implement`.
+
+### IF-05-work-orders — `lib/work-orders.ts`
+
+```ts
+// lib/work-orders.ts
+
+export type WorkOrderState = "todo" | "in_progress" | "review" | "done" | "fail";
+
+export interface WorkOrder {
+  /** e.g. "WO-05-003" — unique per project */
+  id: string;
+  title: string;
+  /** The source feature slug, e.g. "frd-05-work-orders" */
+  frd: string;
+  state: WorkOrderState;
+  /** Relative path (forward slashes) from project root to the wo markdown file */
+  relPath: string;
+  /** Short description for the Summary tab (optional) */
+  summary?: string;
+}
+
+export interface WorkOrderProgress {
+  done: number;
+  total: number;
+  /** Percentage rounded to 1 decimal place; 0 when total === 0. */
+  pct: number;
+}
+
+/**
+ * Discover work orders across ALL features:
+ * docs/frds/frd-NN-SLUG/work-orders/wo-*.md
+ *
+ * For each file, returns id, title, frd (parent feature slug), state,
+ * relPath and optional summary.
+ *
+ * Partial-tolerant: an unparseable work order defaults to state "todo".
+ * Absent work-orders/ directory → 0 items for that FRD (not an error).
+ * Never throws. Read-only (no fs.write* calls).
+ *
+ * @param projectPath - Absolute path to the project root.
+ * @returns Array of WorkOrder. Empty array when none found.
+ */
+export function listWorkOrders(projectPath: string): WorkOrder[];
+
+/**
+ * Aggregate progress across a list of work orders.
+ *
+ * Pure function: no fs calls. Safe to call with an empty array (returns pct=0).
+ *
+ * @param orders - The full list of work orders for a project.
+ * @returns {done, total, pct} where pct is rounded to 1 decimal place.
+ */
+export function aggregateProgress(orders: WorkOrder[]): WorkOrderProgress;
+```
+
+### State derivation — on-disk marker to `WorkOrderState`
+
+The producer (`/pandacorp:implement`) writes a status marker into each work order file. The reader normalises the marker (case-insensitive) to the five `WorkOrderState` values:
+
+| On-disk marker pattern | Derived `WorkOrderState` |
+|---|---|
+| `## Status: todo` | `"todo"` |
+| `## Status: in_progress` | `"in_progress"` |
+| `## Status: review` | `"review"` |
+| `## Status: done` or `## Status: DONE` | `"done"` |
+| `## Status: fail` | `"fail"` |
+| `## Status: BLOCKED` or `## Status: blocked` | `"fail"` (BLOCKED is an alias for fail) |
+| `**Status:** done` (bold inline form) | `"done"` |
+| `Status: **DONE**` (value in bold) | `"done"` |
+| No status marker found | `"todo"` (partial-tolerance default) |
+| Unknown value (e.g. `XYZZY`) | `"todo"` (partial-tolerance default) |
+
+The regex is case-insensitive and matches both markdown heading (`## Status: …`) and inline bold (`**Status:** …`) forms to handle the various formats the producer can emit. Only the capture group value is normalised; the surrounding markdown decoration is stripped.
+
+### Field derivation rules
+
+| Field | Rule |
+|---|---|
+| `id` | First `WO-NN-NNN` token in the H1 title; fallback: filename prefix uppercased (e.g. `wo-05-001-…` → `"WO-05-001"`). |
+| `title` | First H1 line (`# …`) stripped of leading `# `; fallback: filename stem without `.md`. |
+| `frd` | Exact directory name of the parent FRD folder (e.g. `"frd-05-work-orders"`). Never a substring or derived slug. |
+| `state` | Normalised from the on-disk status marker (see table above). Defaults to `"todo"` if unparseable. |
+| `relPath` | `path.relative(projectPath, absPath)` with forward-slash separators (never absolute; never starts with `../`). |
+| `summary` | Text under the first `## Summary` heading, collected until the next heading. `undefined` when absent or empty. |
+
+### Discovery algorithm
+
+1. Read `docs/frds/` in `projectPath`. If absent/unreadable → return `[]`.
+2. For each entry matching `/^frd-\d/` that is a directory: scan `<entry>/work-orders/`.
+3. For each file matching `/^wo-.+\.md$/i` that is a regular file: parse it with `parseWorkOrderFile`.
+4. Partial-tolerance: any parse error → `state` defaults to `"todo"`; the file still appears in results.
+5. Directories not matching `/^frd-\d/` (e.g. `not-a-frd-dir`) are excluded entirely.
+
+### Defensive contract — `listWorkOrders`
+
+| Input condition | Result |
+|---|---|
+| Valid project, multiple FRDs with work orders | `WorkOrder[]` with all WOs from all FRDs |
+| `docs/frds/` absent | `[]` (no throw; AC-05-006.1) |
+| FRD dir has no `work-orders/` sub-dir | 0 items from that FRD (no throw) |
+| `work-orders/` has no `wo-*.md` files | 0 items (regression I2: no phantom items) |
+| `work-orders/` has only non-matching files (README.md, .txt) | 0 items |
+| Dir not matching `/^frd-\d/` (e.g. `not-a-frd-dir`) | Excluded (WO-16-001 regression) |
+| `wo-*.md` has no Status field | `state="todo"`, item still returned (partial-tolerance) |
+| `wo-*.md` is empty | `state="todo"`, item still returned, title falls back to filename stem |
+| `wo-*.md` has unknown status value | `state="todo"` (partial-tolerance) |
+| `projectPath` does not exist | `[]` (no throw; never-throws invariant) |
+| `projectPath` is empty string `""` | `[]` (no throw) |
+| Called twice on same project | Identical results (idempotency) |
+| Result `JSON.stringify` + `JSON.parse` | Equal to original (serializability) |
+| `frd` field | Exact parent dir name, never a substring or phantom slug (WO-17-001 regression) |
+| String fields (`id`, `frd`, `title`, `relPath`) | No leading/trailing whitespace (WO-15-001 SHA-hygiene regression) |
+| `relPath` | Always relative, forward-slash, never absolute, never starts with `../` |
+| `result.length` | Always a finite integer, never NaN (regression B1') |
+| `Array.isArray(result)` | Always `true` (regression I3) |
+| No files written/modified | `mtime` unchanged; no new files or dirs created (AC-05-005.1 read-only) |
+
+### Defensive contract — `aggregateProgress`
+
+| Input condition | Result |
+|---|---|
+| Non-empty list with some `done` | `{ done: N, total: M, pct: … }` |
+| All work orders `done` | `pct = 100.0` |
+| No work orders `done` | `done = 0`, `pct = 0` |
+| Empty list (`[]`) | `{ done: 0, total: 0, pct: 0 }` — no division by zero |
+| `pct` | Rounded to 1 decimal place (`Math.round(x * 1000) / 10`) |
+
+### Architecture invariants
+
+- **Read-only:** `listWorkOrders` uses `fs.readdirSync`, `fs.statSync`, `fs.readFileSync` only — no writes, no Claude calls (architecture §1, REQ-01-011).
+- **Never throws:** both functions catch every error and degrade to `[]` / safe defaults.
+- **Genuine JS Array:** `listWorkOrders` returns an Array (`Array.isArray()` true — regression I3).
+- **Forward-slash relPaths only:** all `relPath` values use `/` regardless of OS.
+- **Partial-tolerance:** a single malformed WO does not drop other WOs from the same FRD.
+- **Deterministic / idempotent:** same filesystem state → same output, always.
+- **Serializability:** `WorkOrder[]` is a plain serializable value — safe for Next.js Server→Client prop passing.
+- **No `any`, no `@ts-ignore`:** strict TypeScript throughout.
+
+### Regression anchors
+
+| Anchor | Risk | Guard |
+|---|---|---|
+| **B1' (2026-06-16)** | NaN slips through numeric guards | `result.length` is from array `push` — always a finite integer |
+| **I2 (2026-06-16)** | Empty `work-orders/` satisfies guards vacuously | File pattern `/^wo-.+\.md$/i` must match; empty dir → 0 items, not 1 phantom |
+| **I3 (2026-06-16)** | Array-shaped objects fool `typeof` | Return value is a genuine `WorkOrder[] = []` literal grown with `push` |
+| **WO-17-001 phantom-slug (2026-06-16)** | Ambiguous text in `frd` produces phantom slugs | `frd` is set to the exact directory name entry from `fs.readdirSync` — no substring trimming |
+| **WO-16-001 non-frd dirs (2026-06-16)** | Non-matching dirs included | Only dirs matching `/^frd-\d/` are scanned |
+| **WO-15-001 SHA-hygiene (2026-06-16)** | Whitespace in string fields causes false inequality | All string fields are `.trim()`-ed before return |
+
+### Consumption (downstream WOs)
+
+- **WO-05-002** (`aggregateProgress`): pure function in the same module; called by `CMP-05-progress` (WO-05-006).
+- **WO-05-003** (`CMP-05-board`): calls `listWorkOrders(projectPath)` server-side; distributes WOs to the four-column kanban.
+- **WO-05-004** (`CMP-05-frd-filter`): receives `WorkOrder[]` from the board; groups/filters by `frd` field.
+- **WO-05-006** (`CMP-05-progress`, `CMP-05-empty`): calls `aggregateProgress`; renders `done/total/%`; detects empty state (`total === 0`).
+
+### Test coverage
+
+`lib/work-orders.test.ts` — 56 tests across 10 groups (vitest, Node environment, no mocks — real fs reads against fixture tree + temp dirs):
+
+| Group | ACs / invariants covered |
+|---|---|
+| AC-05-002.1 — EACH WO carries parent FRD slug | Non-empty `frd`; correct slug per FRD; all distinct slugs present; no phantom slugs (WO-17-001) |
+| State derivation — all 5 `WorkOrderState` values | `todo`, `in_progress`, `review`, `done`, `fail`; uppercase DONE/BLOCKED/IN_PROGRESS; bold `**Status:**` form; round-trip via temp file |
+| AC-05-005.1 — partial-tolerant: unparseable → `"todo"` | No Status field → `todo`; garbage file no throw; empty file → `todo`; unknown value → `todo`; malformed doesn't drop valid WOs |
+| Absent `work-orders/` → [] for that FRD | FRD with no `work-orders/` dir → 0 items; no `docs/frds/` → `[]`; `work-orders/` empty → 0 items; only non-matching filenames → 0 |
+| Discovery breadth — all FRD dirs scanned, non-FRD excluded | 3 FRD slugs all present; `not-a-frd-dir` excluded; 2 FRDs with 2 files each → 4 items; temp project 3 WOs → length 3 |
+| WorkOrder shape invariants | Non-empty id/title/frd/state/relPath; unique ids; forward-slash relPaths; not absolute; no `../` start; genuine Array (I3); finite length (B1'); summary undefined or non-empty string; summary populated for WO with `## Summary`; no whitespace in string fields (WO-15-001) |
+| AC-05-005.1 — read-only: never writes | `mtime` unchanged after 2 calls; non-existent path creates no file/dir; dir tree snapshot identical before/after |
+| Never-throws invariant | Non-existent path → no throw + `[]`; empty string → no throw + `[]`; empty `work-orders/` dirs → no throw + `[]`; empty file → no throw |
+| Idempotency | Two calls → deeply equal results |
+| Serializability | `JSON.stringify` + `JSON.parse` → equal to original |
+| relPath correctness | Every relPath exists on disk; matches `docs/frds/<frd>/work-orders/wo-*.md` pattern; `relPath.split("/")[2]` === `frd` field |
+| AC-05-006.1 — no work orders → `[]` | No `docs/frds/` → `[]`; all FRDs lack `work-orders/` → `[]` |

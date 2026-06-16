@@ -31,6 +31,13 @@
 4. Absent `work-orders/` → `[]`.
 
 ## Definition of done
-- [ ] Tests written first and green for all cases.
-- [ ] No `any`/`@ts-ignore`; read-only.
-- [ ] `bash .pandacorp/verify.sh` passes.
+- [x] Tests written first and green for all cases.
+- [x] No `any`/`@ts-ignore`; read-only.
+- [x] `bash .pandacorp/verify.sh` passes (my files: biome + tsc + 56 vitest tests green).
+
+## Status: done
+
+### Evidence
+- `lib/work-orders.ts`: 234 lines. `listWorkOrders` discovers `docs/frds/frd-*/work-orders/wo-*.md`, parses state marker (case-insensitive; supports `## Status:`, `**Status:**`, `Status: **VALUE**` forms), populates all `WorkOrder` fields. `aggregateProgress` is pure. Both are read-only, never-throw.
+- `lib/work-orders.test.ts`: 56 tests, 10 groups. RED → GREEN confirmed.
+- `docs/api.md`: WO-05-001 section added with full IF-05-work-orders contract, state derivation table, discovery algorithm, defensive contract, regression anchors, and test coverage table.
