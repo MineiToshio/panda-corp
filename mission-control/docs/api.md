@@ -37,7 +37,125 @@
 > **complete for WO-13-005** (CMP-13-state-badge `StateBadge`, `components/StateBadge.tsx`) +
 > **complete for WO-02-007** (CMP-02-card-detail `CardDetail`, `components/CardDetail.tsx`) +
 > **complete for WO-13-002** (CMP-13-globals `app/globals.css` — theme vars, elevation, motion, reduced-motion, focus ring) +
-> **complete for WO-02-008** (CMP-02-category-filter `CategoryFilter`, CMP-02-legend `BoardLegend`, CMP-02-card building indicator status guard).
+> **complete for WO-02-008** (CMP-02-category-filter `CategoryFilter`, CMP-02-legend `BoardLegend`, CMP-02-card building indicator status guard) +
+> **complete for WO-13-004** (CMP-13-theme-toggle `ThemeToggle`, `components/ThemeToggle.tsx` — light/dark/high-contrast cycle, localStorage persistence, prefers-color-scheme default).
+
+---
+
+## WO-13-004: `components/ThemeToggle.tsx` — theme toggle (CMP-13-theme-toggle)
+
+**Component:** `components/ThemeToggle.tsx`
+**Kind:** `"use client"` React component (owns browser DOM side-effect: `[data-theme]` on root)
+**Traces:** CMP-13-theme-toggle; REQ-13-001; AC-13-001.1, AC-13-008.1
+**Depends on:** WO-13-002 (`[data-theme="light"|"dark"|"high-contrast"]` selectors in `globals.css`)
+**Consumed by:** Global header; any layout that needs a user-facing theme switch
+
+### ThemeToggleProps — `components/ThemeToggle.tsx`
+
+```ts
+// components/ThemeToggle.tsx
+
+/** The three canonical theme mode strings (must match globals.css [data-theme] selectors). */
+type ThemeMode = "light" | "dark" | "high-contrast";
+
+/** localStorage key for the persisted theme choice (architecture §4.8). */
+const STORAGE_KEY = "mc:theme";  // "mc:theme"
+
+export interface ThemeToggleProps {
+  /**
+   * Optional CSS class forwarded to the button for layout consumers
+   * (e.g. className="ml-auto" in a header).
+   * No required props — usage: <ThemeToggle />
+   */
+  className?: string;
+}
+
+/**
+ * ThemeToggle — CMP-13-theme-toggle
+ *
+ * A button that cycles light / dark / high-contrast. Sets [data-theme] on
+ * `document.documentElement`; persists the choice to `localStorage["mc:theme"]`.
+ *
+ * Guarantees (WO-13-004 contract):
+ *   - data-testid="theme-toggle" always present on the <button>.
+ *   - aria-label in Spanish — non-empty; reflects the active mode.
+ *   - Default: reads localStorage → system prefers-color-scheme.
+ *   - On click: advances to the next mode in the ring (light→dark→high-contrast→light).
+ *   - On mount: applies the resolved theme to document.documentElement[data-theme].
+ *   - [data-theme] is NOT removed on unmount (prevents flash on re-mount).
+ *   - localStorage failures (SecurityError, QuotaExceededError) are silently ignored.
+ *   - Corrupted or unknown localStorage values fall back to system preference.
+ *   - No inline hex colours — only CSS custom property references.
+ *   - Accepts optional className; no other required props.
+ */
+export function ThemeToggle(props: ThemeToggleProps): React.JSX.Element;
+```
+
+### Behaviour contract
+
+| Concern | Rule |
+|---|---|
+| Cycling order | `light` → `dark` → `high-contrast` → `light` (3-step ring) |
+| Storage key | `localStorage["mc:theme"]` (constant `STORAGE_KEY = "mc:theme"`) |
+| Initial resolution | localStorage value (if valid) wins over system preference |
+| System default | `prefers-color-scheme: light` → `"light"`; everything else → `"dark"` |
+| DOM effect | `document.documentElement.setAttribute("data-theme", mode)` on mount and every click |
+| Unmount | `[data-theme]` is NOT removed — page must not flash on re-mount |
+| Invalid stored value | Falls back to system preference; no throw |
+| localStorage unavailable | Catches SecurityError/QuotaExceededError; falls back to system preference |
+| Prototype-pollution guard | Validates stored value against the frozen `THEMES` tuple — keys like `"constructor"` are rejected |
+
+### Rendered DOM shape
+
+```html
+<button
+  type="button"
+  data-testid="theme-toggle"
+  aria-label="<Spanish label for current mode>"
+  style="display:inline-flex;align-items:center;...;color:var(--color-text,currentColor)"
+  class="<optional className>"
+>
+  <!-- Decorative inline SVG icon (aria-hidden="true" role="presentation") -->
+  <!-- Shape: sun (light) | crescent moon (dark) | half-circle (high-contrast) -->
+</button>
+```
+
+### Spanish `aria-label` values (AC-13-008.1)
+
+| Active mode | `aria-label` |
+|---|---|
+| `"light"` | `"Cambiar tema: claro activo"` |
+| `"dark"` | `"Cambiar tema: oscuro activo"` |
+| `"high-contrast"` | `"Cambiar tema: alto contraste activo"` |
+
+### `[data-theme]` attribute contract (WO-13-002 integration)
+
+The only valid values are the three canonical strings; consumers must NOT use aliases:
+
+| Valid | Invalid aliases (rejected) |
+|---|---|
+| `"light"` | — |
+| `"dark"` | — |
+| `"high-contrast"` | `"hc"`, `"high_contrast"`, `"highContrast"`, `"contrast"`, `"HC"` |
+
+### Test coverage
+
+`components/ThemeToggle.test.tsx` — 41 tests across 12 groups (Vitest + `@testing-library/react` + jsdom):
+
+| Group | ACs covered |
+|---|---|
+| Rendering & testid | button present; `data-testid="theme-toggle"`; renders without throwing |
+| Spanish aria-label | present and non-empty; not English "theme"; updates after click |
+| Default from prefers-color-scheme | dark pref → `"dark"`; light pref → `"light"`; never `"high-contrast"` by default |
+| Cycling 3 modes | click from dark → valid mode; 3 clicks visit all 3 modes; 4th click returns to start; 6 clicks always valid; null never |
+| `[data-theme]` on documentElement | dark → `data-theme="dark"`; light → `data-theme="light"`; cycles reach `"high-contrast"`; unmount does NOT remove attr |
+| localStorage persistence | stored on click under `"mc:theme"`; stored value matches active theme; persisted value wins on remount (all 3 modes); corrupted value falls back; empty string falls back |
+| localStorage error handling | `getItem` throws → no crash + valid theme; `setItem` throws → no crash after click |
+| Keyboard operability | Tab focuses button; Enter cycles; Space cycles; button never disabled |
+| No hardcoded hex in inline styles | light and high-contrast modes both clean |
+| `[data-theme]` alias regression | never `"hc"`, `"high_contrast"`, etc.; never empty string |
+| Two-instance sync | both instances see same root attr; clicking first changes attr |
+| Prototype-pollution guard | `"constructor"` and `"toString"` as stored values → fall back to system preference |
 
 ---
 
