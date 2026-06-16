@@ -40,10 +40,17 @@ export function readStatus(projectPath: string): StatusResult;  // uses config.p
 
 ## Definition of done
 
-- `lib/status.test.ts` (RED first):
-  - `proj-a` → `present: true, malformed: false`, with `phase`, `version`, `running`,
+- [x] `lib/status.test.ts` (RED first):
+  - [x] `proj-a` → `present: true, malformed: false`, with `phase`, `version`, `running`,
     `workOrdersTotal/Done`, `pendingDecisions`, `pendingBugs`, `lastGreenSha`, `safeToTest` mapped.
-  - `proj-b` (malformed yaml) → `present: true, malformed: true, status: {}` (no throw).
-  - non-existent project path → `present: false`.
-- No write; fail-soft per blueprint §3.
-- `.pandacorp/verify.sh` green.
+  - [x] `proj-b` (malformed yaml) → `present: true, malformed: true, status: {}` (no throw).
+  - [x] non-existent project path → `present: false`.
+- [x] No write; fail-soft per blueprint §3.
+- [x] `.pandacorp/verify.sh` green.
+
+## Status: DONE
+
+**Evidence:** `bash .pandacorp/verify.sh` — 669 tests passed, biome+tsc clean (2026-06-16).
+`lib/status.test.ts`: 109 tests covering AC-01-005.1, AC-01-006.1, REQ-01-010, REQ-01-011,
+regressions B1'/I2/I3, snake→camel sweep, idempotency, discriminated-union invariants.
+`lib/status.adversarial.test.ts` also green (pre-existing adversarial suite).
