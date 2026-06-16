@@ -8,6 +8,7 @@ source: <project + capture point, or doc reference>
 provenance: agent-inferred     # owner-stated | ci-verified | agent-inferred (trust source)
 created: YYYY-MM-DD
 status: candidate             # candidate | active | deprecated
+promotion: none               # none | proposed | approved | rejected (rule-promotion track)
 confidence: medium            # low | medium | high
 times_applied: 0
 links: []

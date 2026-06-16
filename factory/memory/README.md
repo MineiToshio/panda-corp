@@ -44,6 +44,7 @@ source: <project + capture point or doc reference>
 provenance: owner-stated | ci-verified | agent-inferred   # trust source (owner > CI > agent); gates promotion
 created: YYYY-MM-DD
 status: candidate | active | deprecated
+promotion: none | proposed | approved | rejected   # rule-promotion track; `proposed` = pending your approval (review anytime via /pandacorp:memory status)
 confidence: low | medium | high
 times_applied: 0          # incremented when an agent retrieves+uses it (drives pruning)
 links: [LESSON-XXXX, DR-XXX, standards/<file>.md]
@@ -66,8 +67,12 @@ Lessons are **captured always-on**: in any skill or plain conversation, a one-li
 3. **Retrieve.** Agents query this store by `domain`/`tags` before `design`/`blueprint`/`implement`
    and pull the relevant lessons into context. Retrieval is the whole point — a lesson nobody recalls
    is a graveyard, not a memory.
-4. **Promote.** A durable `active` lesson is promoted to a standard/DR/skill via `learn` (with the
-   existing verifier/benchmark eval-gate). High-risk promotions always pass the owner.
+4. **Promote.** When `review` judges a lesson rule-worthy it sets **`promotion: proposed`** (durable —
+   it sits in the lesson file, reviewable anytime via `/pandacorp:memory status` or the Mission Control
+   proposals page, FRD-17; you are never forced to decide in the moment). On your approval, `learn`
+   promotes it to a standard/DR/skill (verifier/benchmark eval-gate) and sets `promotion: approved` +
+   back-links; if you reject, `promotion: rejected` (it stays a useful lesson, just not a rule).
+   High-risk promotions always pass the owner.
 5. **Prune → `deprecated`.** The prune job (Phase 4) proposes deprecating lessons never retrieved in
    N months or contradicted by newer evidence. **Never delete** — deprecate (DR-011/DR-007). A
    `library-verdict` that failed once but is fixed later is *reconciled*, not erased.

@@ -8,6 +8,7 @@ source: docs/proposals/09-self-learning-factory.md (deep-research 2026-06-15; Ex
 provenance: agent-inferred
 created: 2026-06-15
 status: active
+promotion: none
 confidence: high
 times_applied: 0
 links: [DR-047, DR-017]

@@ -18,7 +18,8 @@ TYPES  = %w[problem-solution library-verdict pattern gotcha anti-pattern]
 STATUS = %w[candidate active deprecated]
 CONF   = %w[low medium high]
 PROV   = %w[owner-stated ci-verified agent-inferred]
-REQ    = %w[id type domain tags context source provenance created status confidence times_applied links]
+PROMO  = %w[none proposed approved rejected]
+REQ    = %w[id type domain tags context source provenance created status promotion confidence times_applied links]
 errors = []
 counts = Hash.new(0)
 files  = Dir.glob(File.join(dir, 'LESSON-*.md')).sort
@@ -37,6 +38,7 @@ files.each do |f|
   errors << "#{base}: invalid status '#{fm['status']}'"         unless STATUS.include?(fm['status'])
   errors << "#{base}: invalid confidence '#{fm['confidence']}'" unless CONF.include?(fm['confidence'])
   errors << "#{base}: invalid provenance '#{fm['provenance']}'" unless PROV.include?(fm['provenance'])
+  errors << "#{base}: invalid promotion '#{fm['promotion']}'" unless PROMO.include?(fm['promotion'])
   errors << "#{base}: id must match LESSON-NNNN"                unless fm['id'].to_s =~ /\ALESSON-\d+\z/
   errors << "#{base}: empty context (retrieval anchor)"         if fm['context'].to_s.strip.empty?
   errors << "#{base}: empty source (evidence anchor, LESSON-0001)" if fm['source'].to_s.strip.empty?

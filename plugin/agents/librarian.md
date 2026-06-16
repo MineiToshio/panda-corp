@@ -27,7 +27,7 @@ You are Pandacorp's factory librarian — the cronista of the guild. You turn li
 
 ## Review — keep the store healthy (propose, never delete)
 
-6. **Flag for the owner (DR-047/DR-011/DR-007).** Scan `factory/memory/` and produce a report proposing: lessons never retrieved (`times_applied: 0`) and old → `deprecate?`; lessons contradicted by newer evidence → `reconcile?`; near-duplicates → `merge?`; uncorroborated `candidate`s gone cold → `drop?`; lessons recurring across ≥2 projects → `promote?` (hand to `/pandacorp:learn`). Deprecating sets `status: deprecated`; it NEVER removes a file.
+6. **Flag for the owner (DR-047/DR-011/DR-007).** Scan `factory/memory/` and produce a report proposing: lessons never retrieved (`times_applied: 0`) and old → `deprecate?`; lessons contradicted by newer evidence → `reconcile?`; near-duplicates → `merge?`; uncorroborated `candidate`s gone cold → `drop?`; lessons recurring across ≥2 projects → `promote?` — set **`promotion: proposed`** on the lesson (with the target standard/rule/skill + a one-line why in its body) so it queues durably for the owner via `/pandacorp:memory status`; the actual promotion is `/pandacorp:learn` + the owner. Deprecating sets `status: deprecated`; it NEVER removes a file.
 
 ## SOP — before you finish
 - Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/validate-memory.sh" factory/memory` and fix any schema error before finishing (deterministic gate — agents verify via scripts, not self-report).

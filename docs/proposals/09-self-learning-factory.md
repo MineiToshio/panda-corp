@@ -143,6 +143,17 @@ explicit ask: a durable record of which dependency worked or failed and why.
 
 ---
 
+## Implementation status (shipped 2026-06-15)
+
+Built and verified incrementally (plugin v6.1.0 → v6.3.0; `claude plugin validate` + a deterministic `validate-memory.sh` gate):
+- **Phase 0** — `factory/memory/` substrate + DR-047 + this proposal.
+- **Phases 1–4** — the `librarian` agent + `/pandacorp:memory` (harvest/review/status); retrieval wired into the build agents; `learn` as the promote stage; prune via `review`.
+- **Capture (Tier 1), general & always-on** — a rule in `.pandacorp/guide.md` + the factory `CLAUDE.md` jots one-line candidates to a raw inbox; refined later with **A.U.D.N. dedup** + **provenance** (owner > CI > agent). Cadence = scheduled sweep + the Mission Control memory-health reminder (not tied to any single skill).
+- **Promotion gate** — a durable **`promotion`** field (`proposed/approved/rejected`): `review` queues it, `/memory status` lists the queue, `learn` decides; the owner reviews the full list and decides whenever.
+- **Phase 5** — Mission Control **FRD-17** (proposals inbox + memory-health panel + promotions queue) is specified.
+
+Pending (deferred, consistent with DR-048): activating the scheduled `/loop` sweep once projects generate lessons, and reconciling the HTML prototype's Manual catalogs (the Reference auto-derives from source; the prototype hand-mirror is updated when the Next.js app is built).
+
 ## References
 [1] A-MEM: Agentic Memory for LLM Agents — https://arxiv.org/abs/2502.12110
 [2] Letta — Memory Blocks — https://www.letta.com/blog/memory-blocks
