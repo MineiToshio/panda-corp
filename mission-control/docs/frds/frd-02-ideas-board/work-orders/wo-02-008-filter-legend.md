@@ -29,3 +29,11 @@
   text, not color alone).
 - Read-only; no write.
 - `.pandacorp/verify.sh` green.
+
+## Status
+
+- [x] Done — 2026-06-16
+  - `pnpm vitest run components/CategoryFilter.test.tsx components/BoardLegend.test.tsx components/IdeaCard.wo02008.test.tsx components/IdeaCard.test.tsx components/CategoryFilter.adversarial.test.tsx components/BoardLegend.adversarial.test.tsx components/IdeaCard.wo02008.adversarial.test.tsx` → 7 files, 108 tests, all passed
+  - `pnpm biome check .` → no errors (169 files checked)
+  - `pnpm tsc --noEmit` → no errors
+  - Committed: feat(mission-control): WO-02-008 GREEN — CategoryFilter + BoardLegend + IdeaCard status guard
