@@ -33,3 +33,9 @@ export function discardIdea(slug: string, ideasDir?: string): DiscardResult;  //
   - missing slug → `{ ok: false, reason: "not-found" }`, nothing written.
 - The test asserts no OTHER file under the tree was modified (write isolation).
 - `.pandacorp/verify.sh` green.
+
+## Status
+
+- [ ] BLOCKED — freeze-on-red applied 2026-06-16. HEAD frozen at `last_green_sha=99103c2` (WO-02-003).
+  No new commits allowed until this block is lifted. Pending adversarial review verdict.
+  See `.pandacorp/status.yaml` `blocked_work_orders` entry for WO-02-004.
