@@ -462,11 +462,16 @@ function makeDocNode(relPath: string, label: string, group: string): DocNode {
 }
 
 /**
- * Synchronous file-only probe (not a directory). Fail-soft: any error → false.
+ * Synchronous file-only probe (not a directory, not a symlink). Fail-soft: any error → false.
+ *
+ * Security invariant: uses `lstatSync` (not `statSync`) so symlinks are never
+ * treated as regular files. A symlink pointing out-of-tree would pass `statSync`
+ * but fail here, preventing `readDoc` from leaking out-of-tree content via a
+ * surfaced symlink (adversarial test: docs.wo04001.reviewer.test.ts symlink group).
  */
 function statIsFile(p: string): boolean {
   try {
-    return fs.statSync(p).isFile();
+    return fs.lstatSync(p).isFile();
   } catch {
     return false;
   }

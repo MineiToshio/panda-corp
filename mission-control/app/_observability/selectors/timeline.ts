@@ -115,6 +115,13 @@ type NodeAcc = {
    * determine whether to merge woAcc terminal stats into the WO verdict (B1 fix).
    */
   hasDirectActions: boolean;
+  /**
+   * For WO accumulators only: the latest timestamp (ms) among ALL direct-action events.
+   * Used in the no-task-children branch: if this exceeds maxTerminalMs, the latest direct
+   * action has no terminal status (still open), keeping the WO running (B2 fix, 2026-06-16).
+   * Initialized to -Infinity (no events seen yet).
+   */
+  maxDirectActionMs: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -238,6 +245,36 @@ function deriveWoRow(woAcc: NodeAcc, childTaskRows: TimelineRow[]): TimelineRow 
   if (childTaskRows.length === 0) {
     // No task children — WO status is determined from direct action events
     // already accumulated into woAcc (actions without a task field).
+    //
+    // B2 fix (2026-06-16): `materialize(woAcc)` uses `hasTerminal` (true if ANY
+    // direct action has a terminal status). When multiple direct actions exist and
+    // the LATEST one has no terminal status, the WO must stay "running".
+    //
+    // Semantic: a direct-action-only WO is "running" when its latest event (by timestamp)
+    // has no terminal status — i.e., maxDirectActionMs > maxTerminalMs (the latest event
+    // came after the last terminal event).
+    //
+    // This correctly handles:
+    //   - B2 case: A(ok)@10:00, B(open)@10:05 → maxDA=10:05 > maxTerminal=10:00 → running ✓
+    //   - B1 regression: Action1(open)@10:00, Action2(ok)@10:02 → maxDA=10:02 = maxTerminal=10:02 → ok ✓
+    //   - Single terminal: Action(ok)@10:00 → maxDA=maxTerminal=10:00 → ok ✓
+    //   - No terminals: Action(open)@10:00 → hasTerminal=false → materialize returns running ✓
+    const hasOpenLatestDirectAction =
+      woAcc.hasDirectActions &&
+      Number.isFinite(woAcc.maxDirectActionMs) &&
+      woAcc.maxDirectActionMs > woAcc.maxTerminalMs;
+    if (hasOpenLatestDirectAction) {
+      return {
+        id: woAcc.id,
+        kind: "wo",
+        label: woAcc.label,
+        start: woAcc.minAt,
+        end: null,
+        duration: null,
+        parentId: null,
+        status: "running",
+      };
+    }
     return materialize(woAcc);
   }
 
@@ -345,6 +382,7 @@ function makeAcc(
     anyFail: false,
     hasTerminal: false,
     hasDirectActions: false,
+    maxDirectActionMs: -Infinity,
   };
 }
 
@@ -425,6 +463,10 @@ export function toTimeline(events: Event[]): TimelineRow[] {
       // Accumulate into woAcc for WO-level terminal stats (B1 fix: also used when task
       // children exist, so deriveWoRow can merge direct-action stats with task stats).
       woAcc.hasDirectActions = true;
+      // Track the latest direct-action timestamp for B2 detection (see deriveWoRow).
+      if (atMs > woAcc.maxDirectActionMs) {
+        woAcc.maxDirectActionMs = atMs;
+      }
       accumulateEvent(woAcc, atMs, atStr, status);
 
       actionCounter++;

@@ -74,7 +74,7 @@ describe("frd-04: TabDocuments — AC-04-006.1 document tree nav", () => {
     render(
       <TabDocuments
         nodes={FIXTURE_NODES}
-        selectedId={FIXTURE_NODES[0]?.id}
+        selectedId={FIXTURE_NODES[0]?.id ?? null}
         content={SAMPLE_CONTENT}
       />,
     );
@@ -85,7 +85,7 @@ describe("frd-04: TabDocuments — AC-04-006.1 document tree nav", () => {
     render(
       <TabDocuments
         nodes={FIXTURE_NODES}
-        selectedId={FIXTURE_NODES[0]?.id}
+        selectedId={FIXTURE_NODES[0]?.id ?? null}
         content={SAMPLE_CONTENT}
       />,
     );
@@ -96,7 +96,7 @@ describe("frd-04: TabDocuments — AC-04-006.1 document tree nav", () => {
     render(
       <TabDocuments
         nodes={FIXTURE_NODES}
-        selectedId={FIXTURE_NODES[0]?.id}
+        selectedId={FIXTURE_NODES[0]?.id ?? null}
         content={SAMPLE_CONTENT}
       />,
     );
@@ -107,7 +107,7 @@ describe("frd-04: TabDocuments — AC-04-006.1 document tree nav", () => {
     render(
       <TabDocuments
         nodes={FIXTURE_NODES}
-        selectedId={FIXTURE_NODES[0]?.id}
+        selectedId={FIXTURE_NODES[0]?.id ?? null}
         content={SAMPLE_CONTENT}
       />,
     );
@@ -118,7 +118,7 @@ describe("frd-04: TabDocuments — AC-04-006.1 document tree nav", () => {
     render(
       <TabDocuments
         nodes={FIXTURE_NODES}
-        selectedId={FIXTURE_NODES[0]?.id}
+        selectedId={FIXTURE_NODES[0]?.id ?? null}
         content={SAMPLE_CONTENT}
       />,
     );
@@ -130,7 +130,7 @@ describe("frd-04: TabDocuments — AC-04-006.1 document tree nav", () => {
     render(
       <TabDocuments
         nodes={FIXTURE_NODES}
-        selectedId={FIXTURE_NODES[0]?.id}
+        selectedId={FIXTURE_NODES[0]?.id ?? null}
         content={SAMPLE_CONTENT}
       />,
     );
@@ -150,7 +150,7 @@ describe("frd-04: TabDocuments — AC-04-006.2 document body", () => {
     render(
       <TabDocuments
         nodes={FIXTURE_NODES}
-        selectedId={FIXTURE_NODES[0]?.id}
+        selectedId={FIXTURE_NODES[0]?.id ?? null}
         content={SAMPLE_CONTENT}
       />,
     );
@@ -161,7 +161,7 @@ describe("frd-04: TabDocuments — AC-04-006.2 document body", () => {
     render(
       <TabDocuments
         nodes={FIXTURE_NODES}
-        selectedId={FIXTURE_NODES[0]?.id}
+        selectedId={FIXTURE_NODES[0]?.id ?? null}
         content="# Rendered Heading\n\nSome body text."
       />,
     );
@@ -176,7 +176,7 @@ describe("frd-04: TabDocuments — AC-04-006.2 document body", () => {
     render(
       <TabDocuments
         nodes={FIXTURE_NODES}
-        selectedId={FIXTURE_NODES[0]?.id}
+        selectedId={FIXTURE_NODES[0]?.id ?? null}
         content={SAMPLE_CONTENT}
       />,
     );
@@ -217,17 +217,35 @@ describe("frd-04: TabDocuments — AC-04-006.3 empty state", () => {
 
 describe("frd-04: TabDocuments — loading state (content null, nodes present)", () => {
   it("frd-04: WHEN nodes exist but content is null THEN renders 'documents-loading'", () => {
-    render(<TabDocuments nodes={FIXTURE_NODES} selectedId={FIXTURE_NODES[0]?.id} content={null} />);
+    render(
+      <TabDocuments
+        nodes={FIXTURE_NODES}
+        selectedId={FIXTURE_NODES[0]?.id ?? null}
+        content={null}
+      />,
+    );
     expect(screen.getByTestId("documents-loading")).toBeDefined();
   });
 
   it("frd-04: WHEN content is null THEN does NOT render the body", () => {
-    render(<TabDocuments nodes={FIXTURE_NODES} selectedId={FIXTURE_NODES[0]?.id} content={null} />);
+    render(
+      <TabDocuments
+        nodes={FIXTURE_NODES}
+        selectedId={FIXTURE_NODES[0]?.id ?? null}
+        content={null}
+      />,
+    );
     expect(screen.queryByTestId("documents-body")).toBeNull();
   });
 
   it("frd-04: WHEN content is null THEN still renders the nav (nodes are there)", () => {
-    render(<TabDocuments nodes={FIXTURE_NODES} selectedId={FIXTURE_NODES[0]?.id} content={null} />);
+    render(
+      <TabDocuments
+        nodes={FIXTURE_NODES}
+        selectedId={FIXTURE_NODES[0]?.id ?? null}
+        content={null}
+      />,
+    );
     expect(screen.getByTestId("documents-nav")).toBeDefined();
   });
 });

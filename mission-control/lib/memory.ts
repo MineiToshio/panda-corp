@@ -99,16 +99,31 @@ function looksLikePath(token: string): boolean {
  *
  * Conservative rule (blueprint §6): when the format is ambiguous, fall back to
  * `awaiting-2nd` (i.e. return fewer entries rather than more).
+ *
+ * Strategy:
+ *   1. Strip all parenthetical content `(...)` — those are context annotations
+ *      (e.g. "WO-01-001 review", "deep-research 2026-06-15; ExpeL, arXiv:...")
+ *      and their commas must NOT be treated as project separators.
+ *   2. Split the cleaned string on ", " to get project entries.
+ *   3. For each entry, take the leading alphanumeric slug token.
+ *   4. Reject path-like tokens (containing "/" or ending in ".md").
+ *
+ * This prevents the adversarial case where a comma inside a parenthetical
+ * note (e.g. "proj-alpha (note, with comma)") is split and the word after
+ * the inner comma ("with") is counted as a phantom project.
  */
 function parseProjects(source: string): string[] {
   if (!source || source.trim() === "") {
     return [];
   }
 
-  // Split on ", " to separate project entries (each entry = "project-name (context)").
-  // Only split on ", " (comma immediately followed by space) to avoid
-  // over-splitting paths that contain commas in a parenthetical.
-  const segments = source.split(", ");
+  // Step 1: strip all parenthetical content — the parens and everything inside.
+  // This removes the context annotations that may contain commas.
+  // Use a global replace so all parentheticals in the string are removed.
+  const stripped = source.replace(/\([^)]*\)/g, "");
+
+  // Step 2: split on ", " to separate project entries.
+  const segments = stripped.split(", ");
 
   const projectNames: string[] = [];
 
