@@ -32,7 +32,79 @@
 > **complete for WO-04-002** (IF-04-docs `readActivityLog`/`readDecisions`, `lib/docs.ts` comms readers) +
 > **complete for WO-04-003** (IF-04-next-step `workspaceCommands`/`CommandRow`, `lib/next-step.ts` extension) +
 > **complete for WO-17-001** (IF-17-memory `readLessons`/`candidateLessons`/`promotionQueue`/`prunable`, `lib/memory.ts`) +
-> **complete for WO-05-001** (IF-05-work-orders `listWorkOrders`/`aggregateProgress`, `lib/work-orders.ts`).
+> **complete for WO-05-001** (IF-05-work-orders `listWorkOrders`/`aggregateProgress`, `lib/work-orders.ts`) +
+> **complete for WO-02-006** (CMP-02-intake-modal, `components/IntakeModal.tsx`).
+
+---
+
+## WO-02-006: `components/IntakeModal.tsx` — intake command overlay (CMP-02-intake-modal)
+
+**Component:** `components/IntakeModal.tsx`
+**Kind:** `"use client"` React component
+**Traces:** CMP-02-intake-modal; REQ-02-003; AC-02-003.1, AC-02-003.2, AC-02-003.3
+**Depends on:** WO-02-002 (`CopyButton`)
+**Consumed by:** `app/board/page.tsx` (board page renders this alongside the board; the board stays mounted)
+**Read-only:** no writes, no Claude calls.
+
+### Props
+
+```ts
+export interface IntakeModalProps {
+  /** Whether the modal is currently open and visible. */
+  open: boolean;
+  /** Callback invoked when the user requests to close the modal (backdrop click, ✕, Escape). */
+  onClose: () => void;
+}
+```
+
+### Behaviour contract
+
+| Condition | Guarantee |
+|---|---|
+| `open=true` | Modal root is present in DOM with `data-testid="intake-modal"`, `role="dialog"`, `aria-modal="true"` |
+| `open=false` | Modal root is NOT in the DOM (returns `null`) |
+| Backdrop click (`data-testid="intake-backdrop"`) | `onClose()` called exactly once |
+| ✕ button click (`data-testid="intake-close"`) | `onClose()` called exactly once; does not double-fire via backdrop |
+| Escape key (`keydown` on `document`) | `onClose()` called when `open=true`; no-op when `open=false` |
+| Board siblings | Never unmounted — modal is an overlay (`position:fixed`), not a replacement |
+| Focus | Panel receives focus on open (`tabIndex={-1}` + `useEffect`); ✕ button is Tab-reachable |
+
+### Rendered structure (testid map)
+
+```
+[position:fixed overlay]
+  data-testid="intake-backdrop"   ← clickable backdrop (position:absolute, aria-hidden)
+  role="dialog" aria-modal="true" data-testid="intake-modal"   ← panel (stopPropagation on click)
+    data-testid="intake-close"                                  ← ✕ <button>
+    <ul>
+      data-testid="intake-command-explore"
+        data-testid="intake-command-explore-icon"
+        data-testid="intake-command-explore-title"
+        data-testid="intake-command-explore-description"
+        data-testid="copy-button"  (value="/pandacorp:explore")
+      data-testid="intake-command-new-idea"
+        …
+      data-testid="intake-command-discover"
+        …
+      data-testid="intake-command-recommend"
+        …
+```
+
+### Static command table
+
+| `data-testid` slug | Command copied | Title (ES) | Description (ES) |
+|---|---|---|---|
+| `explore` | `/pandacorp:explore` | Explorar una idea | Abre una conversación guiada para clarificar y expandir una idea difusa antes de capturarla. |
+| `new-idea` | `/pandacorp:new-idea` | Capturar idea | Cristaliza y guarda una idea en la base de ideas. |
+| `discover` | `/pandacorp:discover` | Descubrir oportunidades | Busca en internet dolores monetizables y los sugiere como nuevas ideas. |
+| `recommend` | `/pandacorp:recommend` | Recomendar idea | Analiza la base de ideas y recomienda la mejor candidata según el perfil del propietario. |
+
+### Design rules
+
+- All visual values via CSS custom properties (`--color-backdrop`, `--color-surface-panel`, `--color-border`, `--color-text`, `--color-text-muted`, `--color-accent`, `--radius`, `--radius-lg`, `--spacing`, `--shadow-overlay`, `--font-mono`). Zero hardcoded colours.
+- Minimum touch target 44×44 px on the ✕ button (FRD-13).
+- Spanish user-facing copy; Spanish `aria-label` on ✕ button.
+- `backdrop-filter: blur(4px)` on the backdrop element (AC-02-003.1 "dark backdrop + blur").
 
 ---
 
