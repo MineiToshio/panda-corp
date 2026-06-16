@@ -55,7 +55,10 @@
 
   /* --- Spacing / radius / hairline scale (AC-13-004.1: multiples of 0.25rem) --- */
   --radius: 0.5rem;
-  --spacing: 1rem;
+  /* --space-base: 16px elevation/layout base (AC-13-004.1).
+   * NOT named --spacing: Tailwind v4 reserves --spacing as its spacing-scale multiplier
+   * (default 0.25rem); overriding it would inflate all spacing utilities by 4x. */
+  --space-base: 1rem;
   --hairline: 1px;
 
   /* --- Motion tokens (AC-13-005.1: <300ms, named curves, no per-component) --- */

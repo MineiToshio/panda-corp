@@ -75,7 +75,7 @@ Maps the frozen `docs/design/design-tokens.json` into Tailwind v4 `@theme` CSS c
 | `--shadow-1` | Elevation level 1 — panel | `0 1px 4px oklch(0 0 0 / 0.15)` |
 | `--shadow-2` | Elevation level 2 — card/popup | `0 4px 16px oklch(0 0 0 / 0.25)` |
 | `--radius` | Base radius (8px = 0.5rem, AC-13-004.1) | `0.5rem` |
-| `--spacing` | Base spacing (16px = 1rem, AC-13-004.1) | `1rem` |
+| `--space-base` | Base spacing 16px = 1rem (AC-13-004.1). Named `--space-base` (not `--spacing`) to avoid colliding with Tailwind v4's reserved spacing-scale multiplier; overriding `--spacing` in `@theme` would 4x-inflate every `p-*`/`m-*`/`gap-*` utility. | `1rem` |
 | `--hairline` | Hairline border (AC-13-004.1) | `1px` |
 | `--duration-fast` | Motion duration fast (AC-13-005.1: <300ms) | `150ms` |
 | `--duration-base` | Motion duration base | `200ms` |
@@ -163,7 +163,7 @@ Switching `[data-theme]` on the root element changes all resolved `--color-surfa
 | Precondition — file exists, non-empty, imports tailwindcss | File present, non-empty, `@import "tailwindcss"` present |
 | AC-13-001.1 — `@theme` block: OKLCH vars | `--color-base`, `--color-accent`, `--color-contrast`; `oklch()` in theme; all 10 agent colour vars |
 | AC-13-001.1 — theme modes | Light selector + surface/text vars; dark selector + override; high-contrast selector; `color-scheme: light dark` on `:root` |
-| AC-13-004.1 — elevation 3 levels + scale | `--shadow-0/1/2`; `--radius: 0.5rem`; `--spacing`; `--hairline: 1px`; 0.25rem multiples present |
+| AC-13-004.1 — elevation 3 levels + scale | `--shadow-0/1/2`; `--radius: 0.5rem`; `--space-base` (renamed from `--spacing` — Tailwind v4 collision fix); `--hairline: 1px`; 0.25rem multiples present |
 | AC-13-005.1 — motion tokens | `--duration-fast/base/expressive`; all durations `<300ms`; `>=2` easing vars; `2-3` easing vars; `cubic-bezier()` values |
 | AC-13-006.1 — reduced-motion override | `prefers-reduced-motion: reduce` present; `animation-duration: 0ms !important`; `transition-duration: 0ms !important`; `*` wildcard in block; `--duration-*` vars zeroed |
 | AC-13-008.1 — focus ring | `--focus-ring` declared; `:focus-visible` selector; outline references `var(--focus-ring)` or `var(--color-accent)`; `outline-offset`; `border-radius/--radius` present |
