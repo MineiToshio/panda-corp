@@ -281,17 +281,17 @@ describe("frd-01: readStatus — AC-01-005.1 happy path (proj-a complete status.
     const result = readStatus(PROJ_A_PATH) as StatusResult;
     if (!result.present) throw new Error("Expected present: true");
     const raw = result.status as Record<string, unknown>;
-    expect(raw["work_orders_total"]).toBeUndefined();
-    expect(raw["work_orders_done"]).toBeUndefined();
-    expect(raw["pending_decisions"]).toBeUndefined();
-    expect(raw["pending_bugs"]).toBeUndefined();
-    expect(raw["last_green_sha"]).toBeUndefined();
-    expect(raw["safe_to_test"]).toBeUndefined();
-    expect(raw["rethink_pending"]).toBeUndefined();
-    expect(raw["advance_pending"]).toBeUndefined();
-    expect(raw["overlay_version"]).toBeUndefined();
-    expect(raw["created_with"]).toBeUndefined();
-    expect(raw["updated_at"]).toBeUndefined();
+    expect(raw.work_orders_total).toBeUndefined();
+    expect(raw.work_orders_done).toBeUndefined();
+    expect(raw.pending_decisions).toBeUndefined();
+    expect(raw.pending_bugs).toBeUndefined();
+    expect(raw.last_green_sha).toBeUndefined();
+    expect(raw.safe_to_test).toBeUndefined();
+    expect(raw.rethink_pending).toBeUndefined();
+    expect(raw.advance_pending).toBeUndefined();
+    expect(raw.overlay_version).toBeUndefined();
+    expect(raw.created_with).toBeUndefined();
+    expect(raw.updated_at).toBeUndefined();
   });
 });
 
