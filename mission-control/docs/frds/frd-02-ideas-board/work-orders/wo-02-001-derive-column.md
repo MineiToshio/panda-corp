@@ -35,3 +35,11 @@ Pure function (no fs). The mapping table is the blueprint §2.
     `{ malformed: true }` → all fall back to `documented` (AC-02-001.6).
 - Pure; no write; no throw.
 - `.pandacorp/verify.sh` green.
+
+## Status
+
+- [x] **DONE** — 2026-06-16
+  - `lib/board.ts` implements `deriveColumn` (pure function, no fs, no throw).
+  - `lib/board.test.ts` covers all mapping table rows (55 test cases incl. fallback, regression B1', I3, mutation anchors).
+  - Committed: `c43d56c feat(mission-control): WO-02-001 — deriveColumn two-axis logic (lib/board.ts)`.
+  - `bash .pandacorp/verify.sh` result: ✅ all gates green (biome + tsc + vitest — 855 tests, 29 files, HEAD `28a3eef`).
