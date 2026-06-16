@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+.venv/
+__pycache__/
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# Build outputs
+.next/
+dist/
+build/
+*.egg-info/
+
+# Test & tooling caches
+coverage/
+.pytest_cache/
+.ruff_cache/
+playwright-report/
+test-results/
+
+# Pandacorp integration layer — gitignored parts (regenerable, owner-facing, runtime).
+# The rest of .pandacorp/ (guide.md, status.yaml, idea-origin.md, verify.sh, README.md) stays committed.
+.pandacorp/comms/
+.pandacorp/inbox/
+.pandacorp/run/
+
+# OS / editor
+.DS_Store

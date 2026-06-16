@@ -1,0 +1,79 @@
+# Mission Control — Pandacorp project guide
+
+> Maintained by the Pandacorp factory — `/pandacorp:upgrade` regenerates this file. Don't hand-edit it; put your own notes in `CLAUDE.md` (below its line). This file is imported by `CLAUDE.md`.
+
+A **Pandacorp** factory project. The whole lifecycle is managed with the `/pandacorp:*` skills.
+
+## Origin — Pandacorp
+
+- Factory: `/Users/Shared/Proyectos/panda-corp` (know-how, idea base, portfolio) — this project lives INSIDE it, at `mission-control/`, because it is the factory's own interface
+- Original idea card: `.pandacorp/idea-origin.md` (born from a factory design conversation, 2026-06-13 — there is no card in `factory/ideas/`)
+- Standards and process: they come from the **pandacorp plugin** — do NOT look for them in the factory
+- The product's documentation lives in `docs/`; the factory-integration layer (state, machinery, owner comms) lives in `.pandacorp/`
+- Project status: `.pandacorp/status.yaml` (the factory reads it for its portfolio; keep it current)
+
+## How changes are made — work through the skills
+
+Changes to this project go through the `/pandacorp:*` skills, not ad-hoc free-chat edits. A skill keeps the process honest: two-layer documentation (canonical doc + `docs/decision-log.md`), `.pandacorp/status.yaml`, FRDs/work-orders, TDD and review. A free-chat edit skips all of that and the docs/state drift out of sync.
+
+**Pragmatic frontier — what needs a skill and what doesn't:**
+
+| Do directly (no skill) | Go through a skill |
+|---|---|
+| Read, explain, debug, answer questions | Change app **behavior** (a feature, a fix that alters what the app does) |
+| Micro non-product edits: a typo in a comment, local config, a throwaway experiment | Touch a **canonical doc**: PRD, FRD, blueprint, ADR, `DESIGN.md`/tokens |
+| | Change **state**: `.pandacorp/status.yaml`, work-orders |
+
+**The agent routes automatically.** When the owner asks for a change, classify it and **invoke the right skill, telling them which one** — do not ask permission to enter the skill:
+
+| What the owner asks | Skill |
+|---|---|
+| "add this feature" / "change this behavior" | `/pandacorp:iterate` |
+| "I found this bug while testing" | `/pandacorp:bug` |
+| "I decide X" (on a pending point) | `/pandacorp:decide` |
+| big package / redesign | `/pandacorp:new-version` |
+
+Auto-invoking covers **entering** the skill only. The skill's internal human-gates stay intact: deploying to production, spending money, deleting data or external communications still stop and ask for the owner's OK.
+
+**Working without the plugin (forks & clones).** The `/pandacorp:*` skills and hooks live in the owner's Claude install (the pandacorp plugin), NOT in this repo. If you cloned or forked only this project and don't have the plugin, the skills simply aren't there — and that's fine: **this repo is fully workable on its own.** Follow `AGENTS.md` by hand — TDD, and when you change behavior update the matching FRD in `docs/frds/` and add an entry to `docs/decision-log.md`. The skills are the *assisted* path, never a lock on contributing.
+
+## Documentation map
+
+Docs are **feature-centric** (DR-049): a thin **product layer** under `docs/product/`, plus one **self-contained module per feature** under `docs/frds/frd-NN-<slug>/`. Two architecture layers — platform (`docs/product/architecture.md`, one per project) vs feature (`frds/frd-NN-<slug>/blueprint.md`, per-FRD); never fuse them. Folders appear **on demand** (progressive disclosure) — a new feature is just a new `frds/frd-NN-<slug>/` folder. IDs form the traceability spine: `REQ-NN-MMM` → `AC-NN-MMM.K` → `CMP-NN-<slug>`/`IF-NN-<slug>` → `WO-NN-MMM`, with source-of-truth hierarchy `FRD > FDD > design-tokens > blueprint > work order`.
+
+| What | Where |
+|---|---|
+| PRD (vision, metrics, living feature landscape) | `docs/product/prd.md` (multi-PRD → `docs/product/prds/`) |
+| Product research | `docs/product/research.md` |
+| **Platform architecture** (stack, data model, deploy, cross-cutting) | `docs/product/architecture.md` |
+| FRD module (per feature) | `docs/frds/frd-NN-<slug>/` |
+| · User contract (REQ + EARS acceptance criteria) | `…/frd-NN-<slug>/frd.md` |
+| · Feature design (UI features only) | `…/frd-NN-<slug>/fdd.md` + `…/mocks/` |
+| · **Feature blueprint** (implementation design) | `…/frd-NN-<slug>/blueprint.md` (large → `…/blueprints/`) |
+| · Feature work orders | `…/frd-NN-<slug>/work-orders/` (`README.md` + `wo-NN-MMM-<slug>.md`) |
+| Design system / PDD (references, tokens) + frozen contract | `docs/design/` + `DESIGN.md` |
+| ADRs (platform-level, cross-feature) | `docs/adr/` |
+| Analytics / event plan (global) | `docs/analytics/events.md` |
+| Review / audit evidence (global, on demand) | `docs/reviews/` |
+| **Decision log** (decisions + why, history) | `docs/decision-log.md` |
+| Machine state (phase, version, overlay_version) | `.pandacorp/status.yaml` |
+| **Owner-facing narrative** (Spanish, gitignored) | `.pandacorp/comms/` (`summary.md`, `iteration.md`, `progress.md`) |
+| **Owner↔skills inbox** (Spanish, gitignored) | `.pandacorp/inbox/` (`bugs/`, `decisions.md`) |
+| **Self-learning capture** (provisional lesson notes, gitignored) | `.pandacorp/run/lessons.md` |
+
+## Project rules
+
+> **Code standards: see `AGENTS.md`** (the factory's durable conventions). The platform stack is in `docs/product/architecture.md`; each feature's implementation design in its `docs/frds/frd-NN-<slug>/blueprint.md`.
+
+1. Language — **git-tracked status decides the language** (committed = English / gitignored = Spanish). Committed → English: code, commits, file/folder names, and product/technical docs (PRD, FRD, blueprint, ADR, README, tests, `docs/decision-log.md`). Gitignored → Spanish: the Pandacorp communication layer (`.pandacorp/comms/`, `.pandacorp/inbox/`) and personal data. User-facing UI copy: i18n, Spanish by default. `.pandacorp/status.yaml` is committed (machine state in English); its readable Spanish narrative lives in `.pandacorp/comms/summary.md`. **The interaction with the owner is always in Spanish** — everything the agent says in chat and inside any skill (questions, explanations, progress, recommendations) is in Spanish, regardless of the artifact's language.
+2. Conventional Commits with scope, in English. Direct commits/push to `main` are fine (solo operator; the quality gate is the `implement` reviewer + `.pandacorp/verify.sh`). Never force-push; use a throwaway branch only for big/risky changes.
+3. TDD: acceptance-criteria tests BEFORE implementing. Nothing is declared done with red tests — `.pandacorp/verify.sh` must pass.
+4. UI only with design tokens from `docs/design/design-tokens.json` — zero hardcoded values. `data-testid` on interactive elements.
+5. Forbidden: `any`, `@ts-ignore`, secrets in code, homegrown auth, dependencies that violate the factory's DR-001.
+6. Decisions not covered by the documents: consult the factory registry (`factory/decisions/registry.yaml`); if it's not there, escalate to the owner.
+7. Document everything (two layers): every relevant change updates its **canonical doc** (behavior → the feature's `frd.md`; technical → the feature's `blueprint.md`, platform-wide → `docs/product/architecture.md` + an ADR; design → DESIGN/tokens; scope → `docs/product/prd.md`) **and** adds an entry to `docs/decision-log.md` with the why, linking the doc. See `AGENTS.md`.
+8. **Capture lessons as you work (self-learning).** When you hit something durable and reusable — a fix worth remembering, a library that worked or failed, a gotcha, a recurring pattern — in any skill or in conversation, jot a one-line candidate to `.pandacorp/run/lessons.md` (gitignored scratch; tag `(owner-stated)` if the owner said it, else `(agent-inferred)`). Don't polish it inline. The factory's `librarian` later refines these into reusable lessons that make future projects faster. Capture freely; nothing is promoted without the owner.
+
+## Current phase
+
+See `.pandacorp/status.yaml`. Pipeline: product → design → architecture → build → release → operation.
