@@ -37,10 +37,20 @@ export function readProjectDocs(projectPath: string): ProjectDocsIndex;
 
 ## Definition of done
 
-- `lib/docs.test.ts` (RED first) against `proj-a`:
-  - `prd` and `architecture` paths present.
-  - `frds` contains `frd-01-x` with `hasBlueprint: true`, `hasWorkOrders: true`.
-  - `hasAdr`, `hasDecisionLog` true; `comms.progress`, `comms.decisions` present; `comms.bugs` has 1.
-  - A project with only a bare `docs/` → mostly empty index, no throw.
-- No write; fail-soft per blueprint §3.
-- `.pandacorp/verify.sh` green.
+- [x] `lib/docs.test.ts` (RED first) against `proj-a`:
+  - [x] `prd` and `architecture` paths present.
+  - [x] `frds` contains `frd-01-x` with `hasBlueprint: true`, `hasWorkOrders: true`.
+  - [x] `hasAdr`, `hasDecisionLog` true; `comms.progress`, `comms.decisions` present; `comms.bugs` has 1.
+  - [x] A project with only a bare `docs/` → mostly empty index, no throw.
+- [x] No write; fail-soft per blueprint §3.
+- [x] `.pandacorp/verify.sh` green.
+
+## Evidence
+
+Status: **DONE**
+
+Verify run: `bash .pandacorp/verify.sh` — 2026-06-16
+Result: ✅ all gates green (biome + tsc + vitest) — 874 tests passed across 31 test files.
+Implementation: `lib/docs.ts` — `readProjectDocs` function with `FrdModule` + `ProjectDocsIndex` types.
+Test file: `lib/docs.test.ts` — 54 tests covering AC-01-007.1, REQ-01-010, REQ-01-011, blueprint §3, regressions B1'/I2/I3.
+Commit: `cb1f801` (feat — implement), `28a3eef` (fix — test cleanup).
