@@ -15,5 +15,16 @@ pending_bugs: 0
 rethink_pending: false
 advance_pending: false
 last_green_sha: "d13d887"
-safe_to_test: true
-blocked_work_orders: []
+safe_to_test: false
+blocked_work_orders:
+  - id: "WO-12-004"
+    reason: >
+      Reviewer cycle-2 REJECTED (DR-015 cap=2 exhausted). B2 blocking bug in
+      deriveWoRow no-task branch (timeline.ts:238-242): a no-task WO with one
+      closed + one open direct action is reported finished instead of running.
+      Violates AC-12-003.1 and AC-12-007.1. Failing tests:
+      timeline.review2.test.ts (2/12 FAIL). Fix requires hasOpenDirectAction
+      flag on woAcc and symmetric running-detection in the no-task branch.
+      No fix has been committed; HEAD stays at last_green_sha=d13d887.
+      Escalation required from owner — this is the 3rd miss (DR-015 cap
+      allows 2 rejection cycles; cycle 3 goes to owner).

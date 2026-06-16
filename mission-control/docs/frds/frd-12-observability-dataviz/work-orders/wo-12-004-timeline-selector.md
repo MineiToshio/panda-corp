@@ -17,3 +17,18 @@
 ## TDD / Definition of done
 - Tests: a fixture stream yields the correct WO→task→action nesting with `parentId`; durations computed from paired start/end; an unfinished item has an open duration; orphan/malformed events don't break the fold.
 - Pure. Gate green.
+
+## Status: BLOCKED
+
+**Blocked at:** 2026-06-16 — Freeze-on-red (DR-015 cap exhausted)
+
+**Reviewer verdict:** REJECTED cycle 2 (final allowed cycle). B2 blocking bug in `deriveWoRow` no-task branch (`timeline.ts:238-242`):
+
+- A no-task WO with one closed (`ok`) + one open (never-closes) direct action is reported as `status:"ok"`, `end` set, `duration:0` — must be `status:"running"`, `end:null`, `duration:null`.
+- Failing tests: `timeline.review2.test.ts` — 10/12 PASS, 2 FAIL (B2 assertions).
+- Root cause: `hasTerminal` on `woAcc` is set by the first closed direct action; the no-task branch collapses all direct-action state into `woAcc`, losing per-action open/closed granularity.
+- Required fix: add `hasOpenDirectAction` flag to `NodeAcc`; set it when a direct-action event has no terminal status; in `deriveWoRow` no-task branch treat WO as `running` when `hasOpenDirectAction === true`.
+
+**HEAD:** stays at `654bfe8` (no broken fix committed). `last_green_sha=d13d887` unchanged.
+
+**Escalation required from owner.** Test command run: `vitest run timeline.review2.test.ts` → 10/12 PASS, 2 FAIL.
