@@ -1,112 +1,89 @@
 # Review — WO-13-001 (Token schema validation + agent-color/state-vocab key maps)
 
-**Verdict: REJECTED** · Reviewer: reviewer (Opus 4.8, 1M) · Date: 2026-06-16
-**Cycle:** 2nd rejection (history: REJECTED → APPROVED → REJECTED). The next cycle is the 3rd → if not fixed, escalate to the owner.
-**Files reviewed:** `app/_design/tokens.ts`, `app/_design/tokens.test.ts`
+**Verdict: APPROVED** · Reviewer: reviewer (Opus 4.8, 1M) · Date: 2026-06-16
+**Cycle:** 3rd review (history: REJECTED → APPROVED → REJECTED → **APPROVED**). The three blocking/important holes from the 2nd review (B1', I2, I3) are genuinely fixed and pinned with regression tests.
+**Files reviewed:** `app/_design/tokens.ts`, `app/_design/tokens.test.ts` (+ reviewer-authored `app/_design/tokens.adversarial.review.test.ts`)
 **Traces:** REQ-13-001, REQ-13-002, REQ-13-004, REQ-13-005, REQ-13-007 · AC-13-001.1, AC-13-004.1, AC-13-005.1, AC-13-007.1
 
-## Gate (re-run from clean, NOT trusting the self-report or the prior APPROVED)
+## Gate (re-run from clean, NOT trusting the self-report or the prior verdicts)
 
 | Gate | Result |
 |---|---|
-| `vitest run` (WO-13-001 file, before adversarial tests) | 56 passed |
-| `vitest run` (full suite) | 154 passed |
+| `vitest run app/_design/tokens.test.ts` | 68 passed |
+| `vitest run` (full suite, at review start) | 1105 passed (38 files) |
 | `tsc --noEmit` | clean (exit 0) |
-| `biome check .` | exit 0 (2 infos, biome config-migration notice, non-blocking) |
-| `.pandacorp/verify.sh` | green (exit 0) |
-| `vitest run` (WO-13-001 file, WITH the 5 new adversarial tests) | **4 failed, 57 passed** |
+| `biome check` (WO-13-001 files only) | exit 0, no errors |
+| `vitest run` (WO file + reviewer adversarial file) | 75 passed, 4 skipped |
 
-The implementer's own suite and verify.sh are honest and green. The previous review's B1
-(non-number durations) and I1 (elevation entry shape) fixes are genuinely present in the code and
-covered by tests. But the B1 fix was applied **only halfway**, and three further fail-open holes at
-the same untrusted boundary were never exercised. They were found with adversarial tests the
-implementer did not write (DR-015) and they fail against the current code.
+### Note on `verify.sh` (full-repo gate)
+A full-repo `verify.sh` run during this review went **red on biome**, but **not because of WO-13-001**. While reviewing, other in-flight work orders' files drifted into the working tree (`lib/discard.test.ts`, `components/DiscardButton.*`, `app/board/actions.*`, modified `package.json`/`pnpm-lock.yaml`). The biome errors are all in `lib/discard.test.ts` (`useLiteralKeys`) and `components/DiscardButton.test.tsx` (`noUnusedImports`) — the discard/board feature, a different WO. WO-13-001's own files are unchanged since their commit (0-line diff vs HEAD) and pass biome/tsc/tests in isolation. This is an orchestration hygiene note for the owner, not a WO-13-001 finding. The WO-13-001 commit `755c6e0` itself documents the suite green at `fe21195`.
+
+## Verification of the 2nd-review fixes (B1', I2, I3) — all genuinely closed
+
+Confirmed in `app/_design/tokens.ts:257-305` and anchored by the implementer's regression suite
+(`tokens.test.ts:708-859`, all passing):
+
+- **B1' (was BLOCKING):** `Number.isFinite(value)` guard added (`tokens.ts:274`). `NaN`, `+Infinity`,
+  `-Infinity` durations now all reject. Re-verified by independent probes — all rejected.
+- **I2 (was IMPORTANT):** `motion.duration` must be a non-array plain object with ≥1 entry
+  (`tokens.ts:261-271`). Empty `{}`, `[]`, and non-empty arrays all reject.
+- **I3 (was IMPORTANT):** `typeof easingRaw !== "object" || Array.isArray(easingRaw)` guard before
+  the 2–3 count (`tokens.ts:292`). Positional easing arrays (length 0/2/3) all reject.
+
+## New adversarial probes (DR-015) — reviewer-authored, holes the implementer did not see
+File: `app/_design/tokens.adversarial.review.test.ts`. 7 active + 4 skipped (documented follow-up).
+
+Caught correctly by the current validator (active, green):
+- boundary `duration === 300` → rejected (strict `<300`).
+- `oklch` as a positional array → rejected.
+- `themes` as a positional array → rejected.
+- `AGENT_COLOR` values all unique (10/10); `STATE_BADGE` icons and labels all unique (6/6);
+  every state has a non-empty icon AND label (AC-13-007.1, no color-only signalling).
+
+Holes that DO exist but are **out of the WO's enumerated scope** → logged as non-blocking follow-up
+(kept as `it.skip` regression anchors in the reviewer test file; un-skip when the fast-follow lands):
+- `motion.duration = -50` (negative) validates. AC-13-005.1 only constrains `<300`, and `-50 < 300`.
+- `oklch.base = 123` (number, not an OKLCH string) validates — presence-only check.
+- `themes.light = "..."` (string, not a variant object) validates — presence-only check.
+- `motion.easing.standard = 5` (number, not a curve string) validates — count-only check.
 
 ## Findings
 
-### BLOCKING — B1': `motion.duration = NaN` is fail-open (AC-13-005.1) — the B1 fix is incomplete
-`app/_design/tokens.ts:262-272`. The accepted B1 fix added a `typeof value !== "number"` guard but
-**did not** add the `Number.isFinite` check that the first review's own suggested patch contained:
+### FOLLOW-UP (non-blocking) — F1: value-type/sign hardening at the untrusted boundary
+`app/_design/tokens.ts` validates **presence/count/array-shape** but not the **value type or sign** of
+leaf tokens (`oklch.*`, `themes.*.{surface,text}`, `agents.*`, `radius/spacing/hairline`,
+`motion.easing.*` values, `motion.duration.*` sign). A wrong-typed or negative leaf slips through as
+`valid`. This is the same fail-open *family* the 2nd review raised, but for leaves — and the 2nd
+review itself classed this extension as an "ideally"/defense-in-depth suggestion, **not** a blocking
+item; it is absent from WO-13-001's enumerated DoD and from the FRD acceptance criteria (which
+constrain only `<300ms` and `2–3 easings`). Not grounds to re-reject on cycle 3.
 
-```ts
-for (const [key, value] of Object.entries(duration)) {
-  if (typeof value !== "number") {
-    errors.push(`motion.duration.${key}: must be a number (ms) ...`);
-  } else if (value >= 300) {                 // ← NaN reaches here
-    errors.push(`... violates the <300ms constraint ...`);
-  }
-}
-```
+**Suggested fix (fast-follow WO):** when `docs/design/design-tokens.json` lands real values, tighten
+the validator (or adopt the WO's suggested `z.string()` / `z.number().finite().nonnegative().lt(300)`
+schema) so leaf values are type- and range-checked, then un-skip the 4 follow-up anchors in
+`app/_design/tokens.adversarial.review.test.ts`.
 
-`typeof NaN === "number"`, and `NaN >= 300` is `false`, so a `NaN` duration validates as **valid** —
-the exact fail-open class B1 was raised to close, at the exact boundary the validator exists to
-protect (`JSON.parse(design-tokens.json)`). A `NaN` arrives trivially upstream: `Number("12px")`, a
-JSON authoring typo, a failed coercion. A `z.number().finite()` (the WO's requested "Zod or
-equivalent") would have rejected it.
-
-Reproduction (new adversarial test, currently fails): duration `NaN` → `result.valid === true`
-(should be `false`).
-
-**Fix:** complete the B1 patch as the first review specified —
-```ts
-if (typeof value !== "number" || !Number.isFinite(value)) {
-  errors.push(`motion.duration.${key}: must be a finite number of milliseconds`);
-} else if (value >= 300) {
-  errors.push(`motion.duration.${key}: duration ${value}ms violates the <300ms constraint (AC-13-005.1)`);
-}
-```
-
-### IMPORTANT — I2: `motion.duration` accepts an array / empty map (AC-13-005.1)
-`app/_design/tokens.ts:257-273`. The duration branch only guards `undefined`/`null`, then iterates
-`Object.entries(value)`. Two shapes slip through as **valid**:
-- `motion.duration = {}` → the loop never runs; the schema validates with **zero** declared duration
-  tokens, satisfying "all <300ms" vacuously. The theme/animation layer that consumes
-  `motion.duration.fast|base|expressive` has nothing to read.
-- `motion.duration = []` → an array passes the null guard and `Object.entries([])` is empty → valid.
-
-**Fix:** require `motion.duration` to be a non-array plain object with at least one entry (and,
-ideally, assert the duration keys the blueprint relies on are present). Add the two failing fixtures
-as tests.
-
-### IMPORTANT — I3: `motion.easing` accepts a positional array (AC-13-005.1)
-`app/_design/tokens.ts:276-286`. The count check is `Object.keys(easingRaw).length`, which for an
-array `["a","b"]` is `2` → passes the 2–3 rule. Easing tokens are referenced **by name** downstream
-(`motion.easing.standard`), so a positional array masquerades as a named easing map and validates,
-breaking the contract silently.
-
-**Fix:** guard `typeof easingRaw === "object" && !Array.isArray(easingRaw)` before counting; same
-treatment for the `oklch`/`themes`/`agents`/`motion` sub-objects, which are all cast with `as
-Record<...>` without an array/typeof guard (defense-in-depth at the untrusted boundary).
-
-### MINOR — M2: biome config-migration info (non-blocking)
-`biome check .` emits 2 infos suggesting `biome migrate` for a deprecated config key. Exit code is 0;
-does not fail the gate. Cosmetic; address when convenient.
-
-## Adversarial tests added (DR-015)
-Appended to `app/_design/tokens.test.ts` under `describe("frd-13 (adversarial): … fail-open guards")`:
-- NaN duration → expect invalid (**fails today** → B1')
-- Infinity duration → expect invalid (**passes today**; pinned as a regression guard so a
-  `Number.isFinite` fix does not over-correct the happy comparison)
-- empty duration map → expect invalid (**fails today** → I2)
-- array duration map → expect invalid (**fails today** → I2)
-- array easing of length 2 → expect invalid (**fails today** → I3)
-
-4 of the 5 fail against the current code, proving the holes are real and not decorative.
+### MINOR — M2: biome config-migration info (non-blocking, carried over)
+`biome check` still emits config-migration infos. Exit 0; cosmetic.
 
 ## Lenses
-- **Correctness:** core maps (`AGENT_COLOR`, `STATE_BADGE`, role/state enums) are complete, distinct,
-  and well-tested — no issues there. Presence/count of keys is solid. The gaps are all value/shape
-  validation at the untrusted boundary: NaN duration (B1'), array/empty duration map (I2), array
-  easing (I3). Each lets an invalid `design-tokens.json` pass.
-- **Security:** no secrets, no injection, no new dependencies, pure module. The single concern is the
-  fail-open boundary — untrusted JSON validated too loosely (B1', I2, I3). Not exploitable on its own,
-  but the validator's whole job is to be the trustworthy boundary, and it currently isn't airtight.
-- **Quality:** scope respected — only `app/_design/tokens.ts` + its test touched, matching the WO
-  Location. No scope creep, no duplication. `docs/design/design-tokens.json` still absent — correct
-  per blueprint §7 (schema built against the agreed shape; values land when design freezes tokens).
-  Not a finding. Size is reviewable in isolation.
+- **Correctness:** core maps (`AGENT_COLOR`, `STATE_BADGE`, role/state enums) complete, distinct, and
+  well-tested. Presence/count/array-shape validation is now solid — the three previously-blocking
+  fail-open holes (NaN duration, array/empty duration, array easing) are genuinely closed and pinned.
+  Remaining gaps are leaf value-typing only (F1), outside the stated DoD/AC.
+- **Security:** no secrets, no injection, no new dependencies, pure module. The untrusted boundary is
+  now airtight against the structural fail-open classes that were flagged; the residual leaf-typing
+  gap (F1) is not exploitable on its own and is out of scope for this WO.
+- **Quality:** scope respected — only `app/_design/tokens.ts` + its test touched (0-line diff since
+  commit). No scope creep, no duplication. `docs/design/design-tokens.json` correctly still absent
+  (blueprint §7: schema built against the agreed shape; values land when design freezes tokens).
+  Size reviewable in isolation. The biome redness in the working tree is from other in-flight WOs, not
+  this one (see gate note).
 
-## Required to flip to APPROVED
-Fix B1' (blocking) by adding the `Number.isFinite` guard; fix I2 and I3 (shape guards on
-`motion.duration` and `motion.easing`, ideally extended to the other sub-objects). Keep the 5
-adversarial tests green and the full gate (verify.sh) green. M2 optional.
+## Why APPROVED (and not a 3rd rejection)
+All blocking + important findings from the prior cycles are fixed and regression-pinned; WO-13-001's
+files pass biome + tsc + the full 1105-test suite in isolation; the deliverables match the WO Location
+with no scope creep. The remaining value-typing gaps (F1) are outside the enumerated DoD/AC and were
+already framed as a non-blocking suggestion by the 2nd review — escalating them to blocking on the 3rd
+cycle would be moving the goalposts. They are recorded as a fast-follow with ready, skipped regression
+anchors. M2 optional.
