@@ -3,7 +3,7 @@
 project: "Pandacorp"
 phase: architecture
 version: v1
-overlay_version: "7.1.0"
+overlay_version: "7.2.0"
 created_with: "6.0.0"
 running: false
 repo: ""

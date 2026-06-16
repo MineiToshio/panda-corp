@@ -73,6 +73,32 @@ const VERIFY_SCHEMA = {
   },
 }
 
+// ── Baseline self-heal (deadlock breaker) ────────────────────────────────────
+// verify.sh is GLOBAL, so a single test left red by a PRIOR run — an adversarial
+// test the reviewer added after a WO closed/was-blocked, broken code from a WO
+// that exhausted its review cycles, a regression — freezes the WHOLE build: every
+// new WO fails its own verify gate on someone else's broken test, the ready-queue
+// drains, and the run stalls silently (looks like "empty queue"). So before
+// planning, if the baseline is already red, repair it instead of trusting the
+// 'done' markers blindly. This is what a human otherwise has to do by hand.
+phase('Baseline')
+const baseline = await agent(
+  `You are the Pandacorp baseline-repair engineer. Run \`bash .pandacorp/verify.sh\` from the project root.
+  - If it is GREEN (exit 0): change nothing and return { green: true }.
+  - If it is RED: the suite is red on a point that is NOT a fresh work order — an adversarial/regression test left failing by a previous run, broken code from a WO that exhausted its review cycles, or a stale committed bug. Get the baseline green before the build can proceed:
+    1. Identify EVERY failing test and the production module it exercises.
+    2. Fix the PRODUCTION code so the behaviour the test pins is correct. NEVER delete, skip, weaken or rewrite a test to go green — the tests encode the contract. The only exception: a test that is itself provably wrong (contradicts its FRD's EARS criteria); then fix the test and explain in failure.
+    3. Re-run \`.pandacorp/verify.sh\` until it passes end-to-end (biome + tsc + full suite).
+    4. Commit (Conventional Commits, scope mission-control) and return { green: true, sha }.
+  If after a genuine effort the baseline cannot be made green, return { green: false, failure } describing exactly what remains, so the owner can intervene. Do not loop forever.`,
+  { label: 'baseline', phase: 'Baseline', model: P.judge, agentType: 'pandacorp:implementer', schema: VERIFY_SCHEMA },
+)
+if (!baseline || baseline.green !== true) {
+  log(`Baseline red and auto-repair failed${baseline?.failure ? ': ' + baseline.failure : ''} — stopping for the owner.`)
+  return { mode: MODE, built: [], blocked: ['baseline'], note: 'baseline red (needs manual fix)' }
+}
+log('Baseline green — planning the queue.')
+
 // ── Plan: read the queue and the stack (state lives in the project files) ─────
 phase('Plan')
 const plan = await agent(
