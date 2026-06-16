@@ -168,6 +168,48 @@ describe("frd-13 AC-13-004.1: validateTokenSchema — elevation and spacing scal
     expect(result.errors.some((e) => /elevation/.test(e))).toBe(true);
   });
 
+  // I1 fix coverage: per-entry validation of shadow + spacing (AC-13-004.1)
+  it("frd-13: WHEN elevation has 3 empty objects THEN validation fails — empty objects are not a tokenised scale", () => {
+    // Regression guard: the pre-fix validator only checked count, not entry shape.
+    // [{}, {}, {}] would have silently passed even though no shadow/spacing was provided.
+    const bad = structuredClone(VALID_TOKENS);
+    (bad as Record<string, unknown>).elevation = [{}, {}, {}];
+    const result = validateTokenSchema(bad);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => /elevation\[/.test(e))).toBe(true);
+  });
+
+  it("frd-13: WHEN elevation[1] is missing shadow THEN validation fails naming the index and field", () => {
+    const bad = structuredClone(VALID_TOKENS);
+    delete (bad.elevation[1] as unknown as Record<string, unknown>).shadow;
+    const result = validateTokenSchema(bad);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => /elevation\[1\]\.shadow/.test(e))).toBe(true);
+  });
+
+  it("frd-13: WHEN elevation[0] has an empty-string shadow THEN validation fails", () => {
+    const bad = structuredClone(VALID_TOKENS);
+    (bad.elevation[0] as unknown as Record<string, unknown>).shadow = "";
+    const result = validateTokenSchema(bad);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => /elevation\[0\]\.shadow/.test(e))).toBe(true);
+  });
+
+  it("frd-13: WHEN elevation[2] is missing spacing THEN validation fails naming the index and field", () => {
+    const bad = structuredClone(VALID_TOKENS);
+    delete (bad.elevation[2] as unknown as Record<string, unknown>).spacing;
+    const result = validateTokenSchema(bad);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => /elevation\[2\]\.spacing/.test(e))).toBe(true);
+  });
+
+  it("frd-13: WHEN elevation entries are all well-formed THEN entry-level validation passes", () => {
+    // Guard against the fix accidentally breaking the happy path.
+    const result = validateTokenSchema(VALID_TOKENS);
+    expect(result.valid).toBe(true);
+    expect(result.errors.filter((e) => /elevation\[/.test(e))).toHaveLength(0);
+  });
+
   it("frd-13: WHEN radius token is absent THEN validation fails", () => {
     const bad = structuredClone(VALID_TOKENS);
     delete (bad as Record<string, unknown>).radius;

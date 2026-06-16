@@ -218,6 +218,23 @@ export function validateTokenSchema(tokens: unknown): TokenValidationResult {
       errors.push(
         `elevation: must have exactly 3 levels (canvas → panel → card/popup), found ${elevationRaw.length}`,
       );
+    } else {
+      // I1 fix: validate each entry has non-empty shadow and spacing (AC-13-004.1)
+      for (let i = 0; i < elevationRaw.length; i++) {
+        const level = elevationRaw[i] as Record<string, unknown>;
+        if (!level || typeof level !== "object" || Array.isArray(level)) {
+          errors.push(`elevation[${i}]: must be a plain object with shadow and spacing fields`);
+          continue;
+        }
+        if (typeof level.shadow !== "string" || (level.shadow as string).trim() === "") {
+          errors.push(
+            `elevation[${i}].shadow: must be a non-empty CSS box-shadow value (AC-13-004.1)`,
+          );
+        }
+        if (typeof level.spacing !== "string" || (level.spacing as string).trim() === "") {
+          errors.push(`elevation[${i}].spacing: must be a non-empty spacing value (AC-13-004.1)`);
+        }
+      }
     }
   }
 
