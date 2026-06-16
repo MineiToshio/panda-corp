@@ -143,7 +143,9 @@ export function IdeaCard({
   isRunning,
 }: IdeaCardProps): React.JSX.Element {
   const isRecommended = status === "recommended";
-  const showBuildingIndicator = isRunning === true;
+  // AC-02-008.2: building indicator ONLY for in-pipeline cards (status guard).
+  // A stale isRunning=true on discovered/shipped/discarded cards must not show the badge.
+  const showBuildingIndicator = status === "in-pipeline" && isRunning === true;
 
   return (
     <article data-testid="idea-card" aria-label={`Idea: ${title}`} style={CARD_STYLE}>

@@ -36,7 +36,159 @@
 > **complete for WO-02-006** (CMP-02-intake-modal, `components/IntakeModal.tsx`) +
 > **complete for WO-13-005** (CMP-13-state-badge `StateBadge`, `components/StateBadge.tsx`) +
 > **complete for WO-02-007** (CMP-02-card-detail `CardDetail`, `components/CardDetail.tsx`) +
-> **complete for WO-13-002** (CMP-13-globals `app/globals.css` — theme vars, elevation, motion, reduced-motion, focus ring).
+> **complete for WO-13-002** (CMP-13-globals `app/globals.css` — theme vars, elevation, motion, reduced-motion, focus ring) +
+> **complete for WO-02-008** (CMP-02-category-filter `CategoryFilter`, CMP-02-legend `BoardLegend`, CMP-02-card building indicator status guard).
+
+---
+
+## WO-02-008: Category filter + board legend + building indicator guard
+
+**Components:** `components/CategoryFilter.tsx`, `components/BoardLegend.tsx`, `components/IdeaCard.tsx` (patch)
+**Traces:** CMP-02-category-filter, CMP-02-legend, CMP-02-card; AC-02-006.1, AC-02-008.2, AC-02-008.3
+**Depends on:** WO-02-005 (board view + card), WO-02-003 (IdeaCard base)
+**Consumed by:** `app/board/IdeaBoardView.tsx` (board filter bar + legend panel)
+**Read-only:** no writes, no fs calls, no Claude calls.
+
+---
+
+### `components/CategoryFilter.tsx` — CMP-02-category-filter
+
+**Kind:** `"use client"` React component (interactive chip group)
+**Traces:** CMP-02-category-filter; AC-02-006.1; REQ-02-006
+
+#### Props
+
+```ts
+export interface CategoryFilterProps {
+  /** List of project_type values to show as filter chips. Deduplicated internally. */
+  categories: string[];
+  /** Currently active filter, or null when "Todas" (all) is selected. */
+  selected: string | null;
+  /** Callback: called with the category string on chip click, or null for "Todas". */
+  onSelect: (category: string | null) => void;
+}
+```
+
+#### Rendered structure (`data-testid`)
+
+| `data-testid` | Element | When present |
+|---|---|---|
+| `category-filter` | `<fieldset>` root | Always |
+| `category-filter-all` | `<button>` | Always — "Todas" reset chip |
+| `category-filter-option` | `<button>` | One per deduplicated category |
+
+#### Behaviour contract
+
+| Condition | Guarantee |
+|---|---|
+| `selected=null` | `category-filter-all` has `aria-pressed="true"`; all option chips have `aria-pressed="false"` |
+| `selected="web"` | The "web" chip has `aria-pressed="true"`; "Todas" and others have `aria-pressed="false"` |
+| `selected` value not in `categories` | Falls back: all option chips `aria-pressed="false"` (stale value guard) |
+| Chip click | `onSelect(category)` called exactly once |
+| "Todas" click | `onSelect(null)` called exactly once |
+| Initial render | `onSelect` NOT called |
+| Duplicate categories in input | Deduplicated — each category chip appears exactly once |
+| Empty categories `[]` | Renders with only the "Todas" chip; no crash |
+| All chips | `<button>` element — keyboard accessible, `aria-pressed` set |
+
+#### Accessibility contract
+
+- Root is `<fieldset>` with a visually-hidden `<legend>` ("Filtrar por categoría") — semantic group landmark; no `role="group"` needed.
+- `aria-pressed` on every chip (boolean, not string `"true"`/`"false"` — React serializes to the correct attribute value).
+- Zero hardcoded colors — all visual values via CSS custom properties.
+
+---
+
+### `components/BoardLegend.tsx` — CMP-02-legend
+
+**Kind:** Server Component safe (no `"use client"`, no hooks, no browser APIs)
+**Traces:** CMP-02-legend; AC-02-008.3; REQ-02-008
+
+#### Props
+
+None. All data is statically defined in the module (i18n constants).
+
+```ts
+export function BoardLegend(): React.JSX.Element;
+```
+
+#### Rendered structure (`data-testid`)
+
+| `data-testid` | Element | Notes |
+|---|---|---|
+| `board-legend` | `<section>` | Root — semantic landmark; `aria-label="Leyenda del tablero"` |
+| `board-legend-category-section` | `<div>` | Contains all category entries |
+| `board-legend-return-section` | `<div>` | Contains all return-type entries |
+| `board-legend-score-section` | `<div>` | Score explanation text |
+| `board-legend-category-entry` | `<div>` | One per known `project_type` (9 entries) |
+| `board-legend-return-entry` | `<div>` | One per `return_type` (4 entries: monetary, opportunity, personal, mixed) |
+
+#### Static data (canonical)
+
+**Known categories** (`project_type`, 9 entries):
+
+| `key` | Spanish description |
+|---|---|
+| `web` | Aplicación o sitio web. |
+| `mobile` | Aplicación móvil (iOS/Android). |
+| `desktop` | Aplicación de escritorio nativa. |
+| `ai` | Producto centrado en inteligencia artificial. |
+| `claude-code` | Skill o agente para Claude Code. |
+| `prompt-system` | Sistema de prompts estructurados. |
+| `automation` | Automatización de flujos o procesos. |
+| `cli` | Herramienta de línea de comandos. |
+| `rework` | Mejora o rediseño de un proyecto existente. |
+
+**Known return types** (`return_type`, 4 entries):
+
+| `key` | Spanish description |
+|---|---|
+| `monetary` | Genera ingresos directos (ventas, SaaS…). |
+| `opportunity` | Abre puertas a oportunidades futuras. |
+| `personal` | Valor personal: aprendizaje o satisfacción. |
+| `mixed` | Combina retorno monetario, de oportunidad y/o personal. |
+
+**Score section:** prose explaining that score is 0–100, reflects relative attractiveness per owner profile, is orientative — not a substitute for the owner's judgment.
+
+#### Accessibility contract
+
+- Root `<section>` with `aria-label="Leyenda del tablero"` — native landmark, no `role` needed.
+- Each entry has both a key label and a description — no color-only information.
+- Zero hardcoded colors — all visual values via CSS custom properties.
+
+---
+
+### `components/IdeaCard.tsx` patch — building indicator status guard (AC-02-008.2)
+
+**File:** `components/IdeaCard.tsx` (line ~148)
+**Change:** `showBuildingIndicator` is now gated on `status === "in-pipeline"`.
+
+#### Before (bug)
+
+```ts
+const showBuildingIndicator = isRunning === true;
+```
+
+#### After (fix)
+
+```ts
+// AC-02-008.2: building indicator ONLY for in-pipeline cards (status guard).
+// A stale isRunning=true on discovered/shipped/discarded cards must not show the badge.
+const showBuildingIndicator = status === "in-pipeline" && isRunning === true;
+```
+
+#### Status guard contract
+
+| `status` | `isRunning` | Building indicator shown |
+|---|---|---|
+| `"in-pipeline"` | `true` | Yes |
+| `"in-pipeline"` | `false` / `undefined` | No |
+| `"discovered"` | `true` | No (stale flag — guarded) |
+| `"recommended"` | `true` | No (stale flag — guarded) |
+| `"shipped"` | `true` | No (stale flag — guarded) |
+| `"discarded"` | `true` | No (stale flag — guarded) |
+
+The indicator still has `role="status"`, `aria-label="En construcción"`, and visible text "En construcción" — no color-only signalling (AC-02-008.2 / architecture §7 a11y).
 
 ---
 
