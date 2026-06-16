@@ -225,7 +225,15 @@ their owning FRD's work orders.
 | `lib/standards.ts` | Read `factory/standards/` (domain/severity/enforcement). | FRD-07 |
 | `lib/memory.ts` | Read `factory/memory/` lessons + promotion state. | FRD-17 |
 | `lib/reference.ts` | Derive skills/agents Reference from `plugin/` frontmatter. | FRD-07, FRD-08 |
+| `lib/fs-utils.ts` | `pathExists` + small read-only fs probes (shared). | FRD-01, FRD-03 |
+| `lib/snapshot.ts` | Pure derivations: `buildSnapshot`, `isSnapshotStale`. | FRD-14 |
+| `lib/manual.ts` | Index of the hand-authored Manual content (Diátaxis). | FRD-08 |
+| `lib/gamification.ts` | Pure XP / level / celebration engine over events+status. | FRD-09 |
+| `lib/achievements.ts` | Pure stats / chains / uniques / secrets derivation. | FRD-10 |
+| `lib/self-suggest.ts` | Compose local self-suggestions (bottlenecks, nudges). | FRD-17 |
 | `lib/discard.ts` (write) | The single write: rewrite `status: discarded`, preserve body. | FRD-02 |
+
+> Modules below `lib/reference.ts` were added during the work-order phase (the per-FRD blueprints surfaced them); they are pure derivations/composition over the readers above and add no new fs access.
 
 The single mutation (`lib/discard.ts`) is the only module allowed to write, and it writes exactly
 one frontmatter field of one idea card; everything else is read-only.
