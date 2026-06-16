@@ -28,7 +28,87 @@
 > **complete for WO-15-001** (IF-15-sync `readInstalledSha`/`readPluginHeadSha`/`readPluginDirty`, `lib/plugin-sync.ts`) +
 > **complete for WO-12-004** (IF-12-timeline `toTimeline`, `app/_observability/selectors/timeline.ts`) +
 > **complete for WO-16-001** (IF-16-scan `resolveProjectsPath`/`listProjectFolders`, `lib/orphans.ts`) +
-> **complete for WO-04-001** (IF-04-docs `listProjectDocs`/`readDoc`, `lib/docs.ts` additions).
+> **complete for WO-04-001** (IF-04-docs `listProjectDocs`/`readDoc`, `lib/docs.ts` additions) +
+> **complete for WO-17-001** (IF-17-memory `readLessons`/`candidateLessons`/`promotionQueue`/`prunable`, `lib/memory.ts`).
+
+---
+
+## WO-17-001: `lib/memory.ts` — lesson reader (IF-17-memory)
+
+**Module:** `lib/memory.ts`
+**Traces:** IF-17-memory; REQ-17-002, REQ-17-007; AC-17-001.1..5
+**Data source:** `factory/memory/LESSON-*.md` (skip `_lesson-template.md`, `README.md`, `_inbox.md`)
+**Consumed by:** WO-17-002 (memory views), WO-17-003 (self-suggest), WO-17-004 (proposals page), WO-17-005 (memory health), WO-17-006 (promotions queue)
+**Read-only:** never writes to disk (FRD-17 non-goal, architecture §1).
+
+### IF-17-memory — `lib/memory.ts`
+
+```ts
+// lib/memory.ts
+
+export type PromotionState = "none" | "proposed" | "approved" | "rejected";
+export type LessonStatus = "candidate" | "active" | "deprecated";
+export type EvalGate = "corroborated" | "awaiting-2nd";
+
+export type Lesson = {
+  id: string;            // e.g. "LESSON-0001"
+  type: string;          // "problem-solution" | "library-verdict" | "pattern" | "gotcha" | "anti-pattern"
+  domain: string;        // e.g. "factory-engineering", "frontend"
+  status: LessonStatus;
+  promotion: PromotionState;
+  source: string;        // project + capture point / doc ref; always string (coerced if YAML array)
+  links: string[];       // e.g. ["DR-047"]; defaults to [] if absent or malformed
+  projects: string[];    // distinct project names parsed from `source` (for corroboration check)
+  body: string;          // Markdown body (Situation / Lesson / Apply next time)
+  evalGate: EvalGate;    // "corroborated" if status==="active" OR projects.length >= 2; else "awaiting-2nd"
+};
+
+/**
+ * Read all factory/memory/LESSON-*.md files into typed Lesson objects.
+ *
+ * Skip rules: _lesson-template.md, README.md, _inbox.md, files not starting with LESSON-.
+ * Tolerance: malformed frontmatter → file skipped, never throws; adjacent files unaffected.
+ * Missing directory → []. Empty file → skipped.
+ * Optional-field defaults: links → [], promotion → "none".
+ * gray-matter called with { excerpt: false } to prevent content-hash cache pollution.
+ * Projects parsing: conservative — splits source on ", "; rejects path-like tokens;
+ *   deduplicates; ambiguous → at most 1 project (never fabricates corroboration).
+ * Never writes to disk (read-only invariant, FRD-17).
+ */
+export function readLessons(): Lesson[];
+
+/** All lessons with status === "candidate" (REQ-17-002 candidate stream). */
+export function candidateLessons(): Lesson[];
+
+/** All lessons with promotion === "proposed" (REQ-17-006 durable promotions queue). */
+export function promotionQueue(): Lesson[];
+
+/** All lessons with status === "deprecated" (REQ-17-002 prune stream). */
+export function prunable(): Lesson[];
+```
+
+### Derivation rules
+
+| Field | Rule |
+|---|---|
+| `projects` | Split `source` on `", "` (comma-space). For each segment take the leading alphanumeric slug (up to first space or `(`). Reject tokens containing `/` or ending in `.md`. Deduplicate. Result is `[]` for doc-ref sources or ambiguous inputs. |
+| `evalGate` | `"corroborated"` if `status === "active"` OR `projects.length >= 2`; `"awaiting-2nd"` otherwise. |
+| `promotion` | Frontmatter value if it is one of `"none" | "proposed" | "approved" | "rejected"`; defaults to `"none"` otherwise (including absent). |
+| `links` | Frontmatter string array; `[]` if absent or not an array; non-string items filtered out. |
+
+### Edge-case behavior
+
+| Scenario | Behavior |
+|---|---|
+| `factory/memory/` does not exist | Returns `[]`, no throw |
+| Empty file | Skipped |
+| Malformed YAML frontmatter | File skipped, no throw; neighbor files unaffected (no cache pollution) |
+| `source` parsed as YAML array | Joined with `", "`, exposed as `string` |
+| `promotion` unknown value | Defaults to `"none"` |
+| `status` missing or unknown | File skipped (required field) |
+| `id`, `type`, or `domain` missing | File skipped (required fields) |
+| `links` is not an array | `[]` |
+| LESSON id matches prototype key (`"constructor"`, `"toString"`) | Returned as plain object in flat array; no prototype pollution |
 
 ---
 
