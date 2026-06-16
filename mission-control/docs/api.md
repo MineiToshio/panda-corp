@@ -39,6 +39,145 @@
 
 ---
 
+## WO-13-005: `components/StateBadge.tsx` — state badge (CMP-13-state-badge)
+
+**Component:** `components/StateBadge.tsx`
+**Kind:** Server-safe React component (no `"use client"` — no hooks, no browser APIs)
+**Traces:** CMP-13-state-badge; REQ-13-007, REQ-13-008; AC-13-007.1, AC-13-008.1
+**Depends on:** WO-13-001 (`STATE_BADGE`, `AGENT_STATES`, `AgentState` from `app/_design/tokens.ts`)
+**Consumed by:** Party sprites/feed (FRD-06), DAG nodes (FRD-12), board/portfolio chips (FRD-02/FRD-03)
+
+### IF-13-state-badge — `components/StateBadge.tsx`
+
+```ts
+// components/StateBadge.tsx
+
+export interface StateBadgeProps {
+  /**
+   * The canonical agent state to render.
+   * Unknown or empty values render a safe fallback ("Desconocido") — never crashes.
+   * Type: AgentState = "working" | "idle" | "failed" | "completed" | "blocked" | "reviewing"
+   */
+  state: AgentState;
+  /**
+   * Optional size variant. Defaults to "md".
+   * "sm" → 14×14px icon; "md" → 16×16px icon.
+   */
+  size?: "sm" | "md";
+}
+
+/**
+ * StateBadge — renders an agent state as icon + shape + Spanish label.
+ * NEVER color-only (AC-13-007.1, FRD-13).
+ *
+ * Guarantees:
+ *   - data-testid="state-badge" always present.
+ *   - data-icon = Lucide identifier string from STATE_BADGE[state].icon.
+ *   - data-state = the state string (enables non-color CSS targeting by consumers).
+ *   - aria-label = Spanish label string (AC-13-008.1; never empty).
+ *   - Visible <span> label in the DOM — text signal, not color-only.
+ *   - No hardcoded hex colors in style attributes (FRD-13 §3).
+ *   - Unknown/empty state → safe fallback, never throws.
+ *   - role="img" on the container so aria-label is semantically valid.
+ */
+export function StateBadge(props: StateBadgeProps): React.JSX.Element;
+```
+
+### Rendered DOM shape
+
+```html
+<span
+  role="img"
+  data-testid="state-badge"
+  data-icon="<lucide-identifier>"
+  data-state="<state>"
+  aria-label="<Spanish label>"
+  style="display:inline-flex;align-items:center;gap:0.25rem;color:var(--color-state-text,currentColor)"
+>
+  <svg aria-hidden="true" role="presentation"><!-- shape primitive --></svg>
+  <span><Spanish label></span>
+</span>
+```
+
+### State → icon + label mapping (canonical source: `STATE_BADGE` in `app/_design/tokens.ts`)
+
+| `state` | `data-icon` (Lucide id) | `aria-label` / visible label |
+|---|---|---|
+| `"working"` | `"loader-circle"` | `"Trabajando"` |
+| `"idle"` | `"circle-dashed"` | `"En espera"` |
+| `"failed"` | `"circle-x"` | `"Fallido"` |
+| `"completed"` | `"circle-check"` | `"Completado"` |
+| `"blocked"` | `"ban"` | `"Bloqueado"` |
+| `"reviewing"` | `"eye"` | `"En revisión"` |
+| unknown / empty | `"help-circle"` | `"Desconocido"` |
+
+All 6 canonical icons are geometrically distinct — no two states share the same shape.
+`"failed"` (circle-x) and `"completed"` (circle-check) are explicitly distinguishable by icon
+and label (critical with the warm palette where red/orange/amber sit close together — AC-13-007.1
+regression anchor from FRD-13).
+
+### Icon rendering strategy
+
+`lucide-react` is not installed. Icons are rendered as minimal inline SVGs whose geometry matches
+the corresponding Lucide shape (visually equivalent, zero external dependency). The `data-icon`
+attribute carries the canonical Lucide identifier string so downstream consumers and tests can
+verify the shape signal without parsing SVG path content.
+
+Each `<svg>` is decorative (`aria-hidden="true" role="presentation"`). The accessible name is
+provided exclusively by `aria-label` on the outer `role="img"` container.
+
+### Accessibility contract (AC-13-008.1)
+
+| Attribute | Value | Requirement |
+|---|---|---|
+| `role="img"` on container | Always | Makes `aria-label` valid on `<span>` (biome a11y rule) |
+| `aria-label` on container | Spanish label string (non-empty) | AC-13-008.1 |
+| `aria-hidden="true"` on inner SVG | Always | Prevents duplicate announcement by AT |
+| `role="presentation"` on inner SVG | Always | Suppresses SVG semantics from AT |
+| Visible `<span>` label | Spanish label text | Text signal; color is reinforcement only |
+
+### Defensive contract
+
+| Input condition | Result |
+|---|---|
+| Valid canonical state (any of 6) | Correct icon + Spanish label rendered |
+| Unknown string (e.g. `"unknown-state"`) | Fallback: `data-icon="help-circle"`, label `"Desconocido"` — no throw |
+| Empty string `""` | Same fallback — no throw |
+| `size="sm"` | 14×14px icon; label unchanged |
+| `size="md"` or omitted | 16×16px icon (default); label unchanged |
+| No hardcoded hex in inline `style` | Verified by test group 8 (`/#[0-9a-fA-F]{3,8}/` check) |
+
+### Architecture invariants
+
+- **No color-only signalling:** every state has a geometrically distinct icon AND a Spanish label. `var(--color-state-text)` is reinforcement only, not the primary signal.
+- **No hardcoded colors:** inline `style` uses only CSS custom property references (FRD-13 §3, AGENTS.md rule 4).
+- **No external icon dependency:** inline SVG geometry; `lucide-react` not required. `data-icon` preserves the Lucide identifier for future swap-in.
+- **Server-safe:** no `"use client"`, no hooks, no browser APIs. Safe for Next.js Server Components.
+- **Never throws:** all code paths — including unknown/empty state — return a valid `JSX.Element`.
+- **Unique icons per state:** all 6 `STATE_BADGE[state].icon` values are geometrically distinct (enforced by test group 13).
+
+### Test coverage
+
+`components/StateBadge.test.tsx` — 64 tests across 13 groups (vitest + @testing-library/react, jsdom):
+
+| Group | ACs covered |
+|---|---|
+| 1. Every state has a visible label (AC-13-007.1) | Label text present in DOM for all 6 states |
+| 2. Every state exposes `data-icon` | Lucide identifier on `data-icon` for all 6 states |
+| 3. `data-testid` presence | `"state-badge"` testid always present |
+| 4. Spanish `aria-label` (AC-13-008.1) | `aria-label` = Spanish label for all 6; never empty |
+| 5. failed vs completed distinguishable | Label diff, icon diff, rendered text, `data-icon` diff, `data-state` |
+| 6. `data-state` on every canonical state | `data-state` = state string for all 6 |
+| 7. Unknown state → safe fallback | No throw; testid present; `aria-label` non-empty; empty string safe |
+| 8. No hardcoded hex colors | Regex check on inline `style` for working + failed |
+| 9. Optional `size` prop | sm / md / omitted all render without throw |
+| 10. `STATE_BADGE` vocabulary completeness | 6 entries, all non-empty icon + label (regression WO-13-001) |
+| 11. working vs idle distinguishable | Label diff, icon diff, rendered labels |
+| 12. blocked vs reviewing distinguishable | Label diff, icon diff |
+| 13. All 6 icons unique (AC-13-007.1) | `Set(icons).size === 6`; `Set(labels).size === 6` |
+
+---
+
 ## WO-02-007: `components/CardDetail.tsx` — idea card detail + docs navigator (CMP-02-card-detail)
 
 **Component:** `components/CardDetail.tsx`

@@ -18,3 +18,20 @@
 ## TDD / Definition of done
 - Component tests: every state renders its icon + label (assert label text present, not color-only); failed and completed are distinguishable by icon+label; Spanish `aria-label` present; unknown state → safe fallback (never crash).
 - Gate green.
+
+## Status — DONE (2026-06-16)
+
+**[x] DONE — all gates green**
+
+Gate results:
+- `vitest run components/StateBadge.test.tsx` — 64 passed (0 failed)
+- `vitest run` (full suite) — no new failures introduced
+- `tsc --noEmit` — clean (exit 0)
+- `biome check components/StateBadge.tsx components/StateBadge.test.tsx` — exit 0
+
+Implementation notes:
+- `lucide-react` is not installed; icons rendered as minimal inline SVGs matching Lucide geometry. `data-icon` preserves the Lucide identifier string for future swap-in.
+- `aria-hidden="true" role="presentation"` stated explicitly on each `<svg>` (biome `noSvgWithoutTitle` requires explicit attrs, does not peer through spread).
+- `role="img"` on the outer `<span>` container makes `aria-label` semantically valid (biome `useAriaPropsSupportedByRole`).
+- No `"use client"` — component is server-safe.
+- API contract published in `docs/api.md` (WO-13-005 section).
