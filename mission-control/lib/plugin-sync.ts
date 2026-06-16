@@ -100,7 +100,9 @@ function extractSha(entry: Record<string, unknown>): string | null {
   if (typeof sha !== "string" || sha.trim() === "") {
     return null;
   }
-  return sha;
+  // Trim surrounding whitespace so equality comparisons with pluginHeadSha never
+  // produce false-drift alarms (SHA hygiene, AC-15-001.3 invariant / WO-15-002 verdict).
+  return sha.trim();
 }
 
 /**

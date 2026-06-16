@@ -313,6 +313,43 @@ describe("frd-15: AC-15-001.2 — readInstalledSha returns null on missing/malfo
 });
 
 // ---------------------------------------------------------------------------
+// SHA hygiene — returned value must be safe for direct equality comparison.
+// Regression anchor: adversarial reviewer (DR-015) found that readInstalledSha
+// does NOT trim whitespace from JSON-sourced gitCommitSha, which causes a
+// false `installedSha !== pluginHeadSha` drift signal (WO-15-002 verdict).
+// The primary suite must anchor this so mutation testing kills it here.
+// ---------------------------------------------------------------------------
+
+describe("frd-15: SHA hygiene — readInstalledSha returns a whitespace-free, compare-safe value", () => {
+  it("frd-15: WHEN gitCommitSha has surrounding whitespace in JSON THEN returns the trimmed SHA (no false-drift via !=)", () => {
+    const claudeHome = makeClaudeHome({
+      scope: "user",
+      version: "7.1.0",
+      gitCommitSha: `  ${REAL_SHA_40}\n`,
+    });
+    tmpDirs.push(claudeHome);
+
+    const result = readInstalledSha(claudeHome);
+    // Must be non-null and equal to the clean SHA; a value like "  <sha>\n" would make
+    // installedSha !== pluginHeadSha fire even when they are the same commit (false alarm).
+    expect(result).not.toBeNull();
+    expect(result).toBe(REAL_SHA_40);
+    expect(result).not.toMatch(/\s/);
+  });
+
+  it("frd-15: WHEN gitCommitSha is only whitespace THEN returns null (whitespace-only is not a valid SHA)", () => {
+    const claudeHome = makeClaudeHome({
+      scope: "user",
+      version: "7.1.0",
+      gitCommitSha: "   \n",
+    });
+    tmpDirs.push(claudeHome);
+
+    expect(readInstalledSha(claudeHome)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // AC-15-001.3 — `version` field is NEVER returned; only `gitCommitSha` is read
 // ---------------------------------------------------------------------------
 

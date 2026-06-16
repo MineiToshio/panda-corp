@@ -25,7 +25,8 @@
 > **complete for WO-12-002** (IF-12-kpis `deriveKpis`, `app/_observability/selectors/kpis.ts`) +
 > **complete for WO-11-001** (IF-11-modes `BUILD_MODES`/`DEFAULT_BUILD_MODE`, IF-11-mode-store `getRememberedMode`/`rememberMode`) +
 > **complete for WO-12-003** (IF-12-rate `eventsPerMinute`, `app/_observability/selectors/rate.ts`) +
-> **complete for WO-15-001** (IF-15-sync `readInstalledSha`/`readPluginHeadSha`/`readPluginDirty`, `lib/plugin-sync.ts`).
+> **complete for WO-15-001** (IF-15-sync `readInstalledSha`/`readPluginHeadSha`/`readPluginDirty`, `lib/plugin-sync.ts`) +
+> **complete for WO-12-004** (IF-12-timeline `toTimeline`, `app/_observability/selectors/timeline.ts`).
 
 ---
 
@@ -99,7 +100,7 @@ export function readPluginDirty(factoryRoot: string): boolean;
 }
 ```
 
-`readInstalledSha` locates `plugins["pandacorp@panda-corp"][0].gitCommitSha` and returns it only when it is a non-empty string. The `version` field (`"7.1.0"`) is never read or returned.
+`readInstalledSha` locates `plugins["pandacorp@panda-corp"][0].gitCommitSha`, trims surrounding whitespace, and returns it only when the trimmed value is a non-empty string. The `version` field (`"7.1.0"`) is never read or returned. Trimming is required so equality comparisons in WO-15-002 never produce false-drift alarms when the JSON value has accidental whitespace (SHA hygiene invariant).
 
 ### Defensive contract — `readInstalledSha`
 
@@ -114,6 +115,8 @@ export function readPluginDirty(factoryRoot: string): boolean;
 | `gitCommitSha` is empty string | `null` |
 | `gitCommitSha` is a number (e.g. `0`) | `null` (regression B1': numeric type does not pass string guard) |
 | Entry is not an array but a plain object | `null` or SHA (no throw; regression I3: array-shaped guard) |
+| `gitCommitSha` has surrounding whitespace | Trimmed SHA returned (SHA hygiene: prevents false-drift in WO-15-002 equality check) |
+| `gitCommitSha` is only whitespace | `null` (whitespace-only is not a valid SHA) |
 | `claudeHome` does not exist on disk | `null` |
 
 ### Defensive contract — `readPluginHeadSha`
@@ -163,12 +166,13 @@ export function readPluginDirty(factoryRoot: string): boolean;
 
 ### Test coverage
 
-`lib/plugin-sync.test.ts` — 30 tests across 6 groups (vitest, Node environment, no mocks — real temp git repos and temp dirs):
+`lib/plugin-sync.test.ts` — 32 tests across 7 groups (vitest, Node environment, no mocks — real temp git repos and temp dirs):
 
 | Group | ACs covered |
 |---|---|
 | AC-15-001.1 — valid fixture returns `gitCommitSha` | 40-char SHA, first-element pick, abbreviated SHA |
 | AC-15-001.2 — null on missing/malformed/absent | Missing file, malformed JSON, no key, nonexistent claudeHome, empty array (I2), absent field, empty string, numeric SHA (B1'), object entry (I3) |
+| SHA hygiene — whitespace-free compare-safe value | Whitespace-padded SHA → trimmed (no false-drift); whitespace-only → null |
 | AC-15-001.3 — never returns semver version | SHA returned when both present; null returned when only version present |
 | AC-15-001.4 — `readPluginHeadSha` from real temp git repo | 40-char SHA, deterministic, non-repo → null, nonexistent → null, no-plugin-commit → null, second commit updates SHA |
 | AC-15-001.5 — `readPluginDirty` uncommitted changes | Modified file → true, untracked → true, clean → false, non-repo → false, nonexistent → false, outside plugin → false, staged → true |
