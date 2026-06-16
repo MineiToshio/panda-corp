@@ -17,7 +17,8 @@
 > **complete for WO-01-008** (CMP-01-onboarding-gate, `components/OnboardingGate.tsx`) +
 > **complete for WO-13-001** (IF-13-tokens, IF-13-agent-colors, IF-13-state-vocab) +
 > **complete for WO-02-002** (CMP-02-copy-button) +
-> **complete for WO-02-001** (IF-02-deriveColumn, `lib/board.ts`).
+> **complete for WO-02-001** (IF-02-deriveColumn, `lib/board.ts`) +
+> **complete for WO-02-003** (IF-02-nextStep, `lib/next-step.ts`).
 
 ---
 
@@ -104,6 +105,113 @@ so downstream consumers can import all board-related types from a single module.
 
 - **`app/board/page.tsx`** (CMP-02-board-view, WO-02-005): calls `deriveColumn(card, readStatus(card.project))` for each idea card to place it in the correct column.
 - **`components/IdeaCard.tsx`** (CMP-02-card): receives `BoardColumn` from the page; adds "recommended" badge when `card.status === "recommended"` and `column === "discovered"`.
+
+---
+
+## WO-02-003: `nextStep` — lifecycle-position → command map
+
+**Module:** `lib/next-step.ts`
+**Traces:** CMP-02-next-step, IF-02-nextStep; REQ-02-004; AC-02-004.1
+**Dependencies:** WO-01-003 (`IdeaStatus` from `lib/ideas.ts`), WO-01-005 (`Phase` from `lib/status.ts`)
+
+### IF-02-nextStep
+
+```ts
+// lib/next-step.ts
+
+import type { IdeaStatus } from "./ideas";
+import type { Phase } from "./status";
+
+export type NextStep = {
+  /** The /pandacorp:* command string the owner should copy and run. */
+  command: string;
+  /**
+   * Absolute path of the folder to open before running the command.
+   * Present only for in-pipeline cards where there is a project folder.
+   * Undefined for pre-pipeline cards (discovered/recommended) and terminal states.
+   */
+  openPath?: string;
+  /** Human-readable label describing the action (Spanish, UI-facing). */
+  label: string;
+};
+
+export type NextStepInput = {
+  cardStatus?: IdeaStatus;
+  phase?: Phase;
+  advancePending?: boolean;
+};
+
+/**
+ * Map a card's lifecycle position to the next /pandacorp:* command to run.
+ *
+ * Pure: no I/O, no writes, no side effects. Never throws.
+ *
+ * @param input - Partial lifecycle position. All fields are optional; absent
+ *   fields produce a safe, deterministic fallback (never a wrong phase command).
+ * @returns A fully-typed NextStep with non-empty command and label.
+ */
+export function nextStep(input: NextStepInput): NextStep;
+```
+
+### Mapping table (AC-02-004.1, canonical source: CLAUDE.md operation table)
+
+| `cardStatus` | `phase` | `advancePending` | `command` |
+|---|---|---|---|
+| `discovered` | — | — | `/pandacorp:spec <idea>` |
+| `recommended` | — | — | `/pandacorp:spec <idea>` |
+| `in-pipeline` | `product` | `false` / `undefined` | `/pandacorp:design` |
+| `in-pipeline` | `design` | `false` / `undefined` | `/pandacorp:blueprint` |
+| `in-pipeline` | `architecture` | `false` / `undefined` | `/pandacorp:implement` |
+| `in-pipeline` | `implementation` | `false` / `undefined` | `/pandacorp:release` |
+| `in-pipeline` | `release` | `false` / `undefined` | `/pandacorp:release` |
+| `in-pipeline` | `operation` | `false` / `undefined` | `/pandacorp:iterate` |
+| `in-pipeline` | `product` | `true` | `/pandacorp:design` (label carries advance hint) |
+| `in-pipeline` | any | `true` | same command; `label` adds `" — escribe «ok, advance» para continuar"` |
+| `in-pipeline` | `undefined` | — | `/pandacorp:spec <idea>` (safe fallback, see regressions) |
+| `shipped` | — | — | `/pandacorp:review-launch` |
+| `discarded` | — | — | `/pandacorp:recommend` |
+| `undefined` / unknown | — | — | `/pandacorp:spec <idea>` (default pre-pipeline fallback) |
+
+### DR-032 — `advancePending` flag
+
+When `advancePending: true`, the `label` gains the suffix
+`" — escribe «ok, advance» para continuar"` so the owner knows they need to give the
+go-ahead acknowledgement, not just run the normal next command. The `command` itself does
+not change — only the `label` differs, which is sufficient to satisfy the DR-032 contract
+(the test verifies `commandDiffers || labelDiffers`).
+
+### Regression anchors
+
+| Regression | Description | Behaviour |
+|---|---|---|
+| **B1' (2026-06-16)** | NaN bypasses `typeof` guards upstream; `readStatus` rejects it, sending `phase: undefined` to `nextStep`. | `phase: undefined` on `in-pipeline` → safe fallback `/pandacorp:spec <idea>`, never a phase-specific command. |
+| **I3 (2026-06-16)** | Array-shaped phase values bypass `typeof`; `readStatus` rejects them as `undefined`. | Same `undefined` phase path applies. |
+
+### Invariants
+
+- **Pure:** no I/O, no writes, no network, no Claude calls, no side effects.
+- **Never throws** — all input combinations produce a valid `NextStep` object.
+- **No pipeline command for terminal states** — `shipped` and `discarded` never produce
+  `/pandacorp:spec <idea>`, `/pandacorp:design`, `/pandacorp:blueprint`,
+  `/pandacorp:implement`, or `/pandacorp:release`.
+- **`implementation` and `release` share the same command** (`/pandacorp:release`) per spec.
+- **`discovered` and `recommended` share the same command** (`/pandacorp:spec <idea>`).
+- **`openPath` is either a `string` or `undefined`** — never `null`, never a number.
+- **Deterministic:** same inputs always produce the same output (no randomness, no date math).
+- **Input objects are never mutated.**
+- **All commands are distinct per phase** except the two documented aliases above.
+
+### Consumption (downstream features)
+
+- **`components/CardDetail.tsx`** (CMP-02-card-detail, WO-02-007): calls `nextStep({ cardStatus: card.status, phase: status?.phase, advancePending: status?.advancePending })` and passes `result.command` to `<CopyButton value={result.command} />` with `result.label` as the button label.
+- **FRD-03 portfolio** and **FRD-04 workspace**: may call `nextStep` for recovery commands (outbound dependency listed in WO-02-003 README).
+
+### Test coverage
+
+`lib/next-step.test.ts` — 57 tests across 8 groups (vitest, pure — no fs, no mocks):
+`discovered`/`recommended` → spec, `in-pipeline` + each of 6 phases, DR-032 `advancePending` flag
+(pending vs non-pending label divergence), terminal statuses, edge cases + missing inputs,
+complete mutation-killing mapping table (10 rows), pure-function invariants, regression B1' + I3.
 
 ---
 
