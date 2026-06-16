@@ -313,6 +313,7 @@ contract. Returns actionable errors — each string names the failing path and t
 | All 10 canonical agent roles in `agents` | `agents.<role>: canonical agent role "<role>" is missing` |
 | `elevation` is array of exactly 3 items | `elevation: must have exactly 3 levels, found N` |
 | `radius`, `spacing`, `hairline` present | `<key>: required spacing-scale token is missing` |
+| All `motion.duration.*` values are numbers (ms) | `motion.duration.<key>: must be a number (ms), got <type>` |
 | All `motion.duration.*` values < 300ms | `motion.duration.<key>: duration Nms violates the <300ms constraint` |
 | `motion.easing` has 2–3 entries | `motion.easing: must have 2–3 easing tokens, found N` |
 

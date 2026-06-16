@@ -243,7 +243,11 @@ export function validateTokenSchema(tokens: unknown): TokenValidationResult {
     } else {
       const duration = durationRaw as Record<string, unknown>;
       for (const [key, value] of Object.entries(duration)) {
-        if (typeof value === "number" && value >= 300) {
+        if (typeof value !== "number") {
+          errors.push(
+            `motion.duration.${key}: must be a number (ms), got ${typeof value} — non-numeric durations are invalid`,
+          );
+        } else if (value >= 300) {
           errors.push(
             `motion.duration.${key}: duration ${value}ms violates the <300ms constraint (AC-13-005.1)`,
           );
