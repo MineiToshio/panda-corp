@@ -30,9 +30,15 @@ export function readPortfolio(portfolioPath?: string): PortfolioEntry[];  // def
 
 ## Definition of done
 
-- `lib/portfolio.test.ts` (RED first):
+- [x] `lib/portfolio.test.ts` (RED first):
   - `factory-full` portfolio → full row parsed with `path` + `repo`; the missing-repo row →
     `repo: undefined`; the broken-path row still yields a `path` string.
   - Missing file → `[]`.
-- No write; fail-soft per blueprint §3.
-- `.pandacorp/verify.sh` green.
+- [x] No write; fail-soft per blueprint §3.
+- [x] `.pandacorp/verify.sh` green.
+
+## Status: DONE
+
+**Evidence:** `bash .pandacorp/verify.sh` — 669 tests passed (24 test files), biome+tsc clean (2026-06-16).
+Implementer commits: `dd6604e` (readPortfolio lib), `1a7bff2` (PortfolioTable UI).
+Safe-point sha: `476738a` (HEAD at time of safe-point verification).
