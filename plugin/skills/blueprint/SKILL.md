@@ -6,6 +6,8 @@ description: Architecture phase of a Pandacorp project - technical blueprint + w
 
 Architecture phase. Runs IN the project (requires PRD, FRDs and frozen design). Produces **two artifacts**: the technical blueprint and the work orders ready to build.
 
+> **Preflight (DR-045) — is this a Pandacorp project?** This skill mutates the project, so first confirm the Pandacorp marker: `.pandacorp/status.yaml` exists. If it's missing, STOP and tell the owner (in Spanish) that this folder isn't a factory project yet — `/pandacorp:adopt` brings an existing project in, `/pandacorp:spec` creates a new one. Then, if `overlay_version` in `.pandacorp/status.yaml` is behind the plugin's `OVERLAY_VERSION`, run `/pandacorp:upgrade` first (silent for compatible bumps, DR-048) so this skill runs against the current structure. Don't proceed or invent docs over a missing structure.
+
 ## Steps
 
 1. **Stack proposal + approval** (`architect` agent): starts from the recommended stack (`factory/standards/stack.md`, **latest stable versions**), evaluates whether there are better technologies for THIS project and proposes them with trade-offs. **Presents the proposal to the owner and waits for approval** (light gate, DR-002) before locking it in. The choice is recorded as an ADR. Durable conventions (`factory/standards/`) are not up for debate.

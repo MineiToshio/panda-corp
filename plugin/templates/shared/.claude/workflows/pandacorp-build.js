@@ -33,7 +33,7 @@ log(`Mode ${MODE} · wave ≤${P.wave} · workers ${P.worker} · judge ${P.judge
 // state is emitted by the factory's SubagentStop hook when the subagent finishes.
 const EMIT = (role, wo) =>
   `Before you start, record your activity for Party (one append, fire-and-forget):\n` +
-  `  printf '{"event":"AgentWorking","at":"%s","data":{"role":"${role}","wo":"${wo}"}}\\n' "$(date -u +%FT%TZ)" >> ~/.claude/dashboard-events.ndjson\n`
+  `  printf '{"event":"AgentWorking","at":"%s","project":"%s","data":{"role":"${role}","wo":"${wo}"}}\\n' "$(date -u +%FT%TZ)" "$(basename "$PWD")" >> ~/.claude/dashboard-events.ndjson\n`
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
 const PLAN_SCHEMA = {
