@@ -14,6 +14,6 @@ pending_decisions: 0
 pending_bugs: 1
 rethink_pending: false
 advance_pending: false
-last_green_sha: "fe21195"
+last_green_sha: "fee9e62"
 safe_to_test: true
 blocked_work_orders: []
