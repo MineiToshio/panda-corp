@@ -128,7 +128,7 @@ describe("frd-02: discardIdea — happy path (AC-02-007.1)", () => {
     const dest = seedCard("idea-discovered.md");
     discardIdea("idea-discovered", tmpDir);
     const fm = readFrontmatter(dest);
-    expect(fm["status"]).toBe("discarded");
+    expect(fm.status).toBe("discarded");
   });
 
   it("frd-02: WHEN owner discards an idea THEN the body text is preserved verbatim", () => {
@@ -143,7 +143,7 @@ describe("frd-02: discardIdea — happy path (AC-02-007.1)", () => {
     const fmBefore = readFrontmatter(dest);
     discardIdea("idea-discovered", tmpDir);
     const fmAfter = readFrontmatter(dest);
-    expect(fmAfter["title"]).toBe(fmBefore["title"]);
+    expect(fmAfter.title).toBe(fmBefore.title);
   });
 
   it("frd-02: WHEN owner discards an idea THEN project_type frontmatter field is preserved verbatim", () => {
@@ -151,7 +151,7 @@ describe("frd-02: discardIdea — happy path (AC-02-007.1)", () => {
     const fmBefore = readFrontmatter(dest);
     discardIdea("idea-discovered", tmpDir);
     const fmAfter = readFrontmatter(dest);
-    expect(fmAfter["project_type"]).toBe(fmBefore["project_type"]);
+    expect(fmAfter.project_type).toBe(fmBefore.project_type);
   });
 
   it("frd-02: WHEN owner discards an idea THEN return_type frontmatter field is preserved verbatim", () => {
@@ -159,7 +159,7 @@ describe("frd-02: discardIdea — happy path (AC-02-007.1)", () => {
     const fmBefore = readFrontmatter(dest);
     discardIdea("idea-discovered", tmpDir);
     const fmAfter = readFrontmatter(dest);
-    expect(fmAfter["return_type"]).toBe(fmBefore["return_type"]);
+    expect(fmAfter.return_type).toBe(fmBefore.return_type);
   });
 
   it("frd-02: WHEN owner discards an idea THEN score frontmatter field is preserved verbatim (regression B1': no NaN corruption)", () => {
@@ -168,8 +168,8 @@ describe("frd-02: discardIdea — happy path (AC-02-007.1)", () => {
     discardIdea("idea-discovered", tmpDir);
     const fmAfter = readFrontmatter(dest);
     // Score must be the exact numeric value — not NaN, not undefined, not coerced
-    expect(fmAfter["score"]).toBe(fmBefore["score"]);
-    expect(Number.isFinite(fmAfter["score"] as number)).toBe(true);
+    expect(fmAfter.score).toBe(fmBefore.score);
+    expect(Number.isFinite(fmAfter.score as number)).toBe(true);
   });
 
   it("frd-02: WHEN owner discards an idea THEN no new frontmatter fields are added", () => {
@@ -185,21 +185,21 @@ describe("frd-02: discardIdea — happy path (AC-02-007.1)", () => {
     const dest = seedCard("idea-recommended.md");
     const result = discardIdea("idea-recommended", tmpDir);
     expect(result).toEqual({ ok: true });
-    expect(readFrontmatter(dest)["status"]).toBe("discarded");
+    expect(readFrontmatter(dest).status).toBe("discarded");
   });
 
   it('frd-02: WHEN owner discards an in-pipeline card THEN returns { ok: true } and status becomes "discarded"', () => {
     const dest = seedCard("idea-in-pipeline.md");
     const result = discardIdea("idea-in-pipeline", tmpDir);
     expect(result).toEqual({ ok: true });
-    expect(readFrontmatter(dest)["status"]).toBe("discarded");
+    expect(readFrontmatter(dest).status).toBe("discarded");
   });
 
   it('frd-02: WHEN owner discards a shipped card THEN returns { ok: true } and status becomes "discarded"', () => {
     const dest = seedCard("idea-shipped.md");
     const result = discardIdea("idea-shipped", tmpDir);
     expect(result).toEqual({ ok: true });
-    expect(readFrontmatter(dest)["status"]).toBe("discarded");
+    expect(readFrontmatter(dest).status).toBe("discarded");
   });
 });
 
@@ -217,7 +217,7 @@ describe("frd-02: discardIdea — idempotency (AC-02-007.1)", () => {
   it('frd-02: WHEN owner discards an already-discarded card THEN status remains "discarded"', () => {
     const dest = seedCard("idea-discarded.md");
     discardIdea("idea-discarded", tmpDir);
-    expect(readFrontmatter(dest)["status"]).toBe("discarded");
+    expect(readFrontmatter(dest).status).toBe("discarded");
   });
 
   it("frd-02: WHEN owner discards a card twice THEN second call also returns { ok: true }", () => {
@@ -231,7 +231,7 @@ describe("frd-02: discardIdea — idempotency (AC-02-007.1)", () => {
     const dest = seedCard("idea-discovered.md");
     discardIdea("idea-discovered", tmpDir);
     discardIdea("idea-discovered", tmpDir);
-    expect(readFrontmatter(dest)["status"]).toBe("discarded");
+    expect(readFrontmatter(dest).status).toBe("discarded");
   });
 });
 
@@ -357,7 +357,7 @@ describe("frd-02: discardIdea — frontmatter preservation edge cases", () => {
     discardIdea("idea-array", tmpDir);
 
     const fmAfter = readFrontmatter(dest);
-    expect(fmAfter["tags"]).toEqual(fmBefore["tags"]);
+    expect(fmAfter.tags).toEqual(fmBefore.tags);
   });
 
   it("frd-02: WHEN a card has an object-valued frontmatter field THEN it is preserved verbatim after discard (regression I2)", () => {
@@ -380,7 +380,7 @@ describe("frd-02: discardIdea — frontmatter preservation edge cases", () => {
     discardIdea("idea-object", tmpDir);
 
     const fmAfter = readFrontmatter(dest);
-    expect(fmAfter["meta"]).toEqual(fmBefore["meta"]);
+    expect(fmAfter.meta).toEqual(fmBefore.meta);
   });
 
   it("frd-02: WHEN a card has a numeric score of 0 THEN score is preserved as 0 after discard (not dropped as falsy)", () => {
@@ -395,7 +395,7 @@ describe("frd-02: discardIdea — frontmatter preservation edge cases", () => {
     ].join("\n");
     const dest = writeCard("idea-zero.md", cardContent);
     discardIdea("idea-zero", tmpDir);
-    expect(readFrontmatter(dest)["score"]).toBe(0);
+    expect(readFrontmatter(dest).score).toBe(0);
   });
 
   it("frd-02: WHEN a card body contains YAML-like text THEN the body is preserved exactly after discard", () => {
@@ -445,7 +445,7 @@ describe("frd-02: discardIdea — frontmatter preservation edge cases", () => {
     const dest = writeCard("idea-no-score.md", cardContent);
     discardIdea("idea-no-score", tmpDir);
     const fmAfter = readFrontmatter(dest);
-    expect(fmAfter["status"]).toBe("discarded");
+    expect(fmAfter.status).toBe("discarded");
     expect(Object.hasOwn(fmAfter, "score")).toBe(false);
   });
 });
@@ -476,8 +476,8 @@ describe("frd-02: discardIdea — default ideasDir via PANDACORP_FACTORY_ROOT (A
 
     expect(result).toEqual({ ok: true });
     const fm = readFrontmatter(dest);
-    expect(fm["status"]).toBe("discarded");
-    expect(fm["score"]).toBe(60);
+    expect(fm.status).toBe("discarded");
+    expect(fm.score).toBe(60);
   });
 
   it("frd-02: WHEN ideasDir is omitted and slug is missing THEN returns { ok: false, reason: not-found } without throwing", async () => {
@@ -554,7 +554,7 @@ describe("frd-02: discardIdea — only status field mutated (mutation-killing, A
     // Body unchanged
     expect(bodyAfter).toBe(bodyBefore);
     // Status is exactly "discarded"
-    expect(fmAfter["status"]).toBe("discarded");
+    expect(fmAfter.status).toBe("discarded");
   });
 });
 
@@ -651,7 +651,7 @@ describe("frd-02: discardIdea — parametric frontmatter round-trip (AC-02-007.1
 
       expect(result).toEqual({ ok: true });
       const fmAfter = readFrontmatter(dest);
-      expect(fmAfter["status"]).toBe("discarded");
+      expect(fmAfter.status).toBe("discarded");
 
       // Each expected field must survive with the exact value
       for (const [key, value] of Object.entries(expectedData)) {
