@@ -24,6 +24,7 @@
 > **complete for WO-12-001** (IF-12-topn `topN`, IF-12-freshness `freshness`, `app/_observability/selectors/`) +
 > **complete for WO-12-002** (IF-12-kpis `deriveKpis`, `app/_observability/selectors/kpis.ts`) +
 > **complete for WO-11-001** (IF-11-modes `BUILD_MODES`/`DEFAULT_BUILD_MODE`, IF-11-mode-store `getRememberedMode`/`rememberMode`) +
+> **complete for WO-12-003** (IF-12-rate `eventsPerMinute`, `app/_observability/selectors/rate.ts`) +
 > **complete for WO-15-001** (IF-15-sync `readInstalledSha`/`readPluginHeadSha`/`readPluginDirty`, `lib/plugin-sync.ts`).
 
 ---
@@ -2097,3 +2098,131 @@ live=false beyond threshold (5), boundary sweep parametric (8 points),
 `FRESHNESS_THRESHOLD_MS` as named constant (3), return shape invariant (4 scenarios),
 B1' regression invalid `at` (4), max-at across permutations (6), idempotency (1),
 never-throws matrix (4).
+
+---
+
+## WO-12-003: `eventsPerMinute` — per-minute rate selector (per-agent)
+
+**Module:** `app/_observability/selectors/rate.ts`
+**Traces:** IF-12-rate → REQ-12-007 → AC-12-007.1
+**Dependencies:** `lib/events.ts` (`Event` type — no I/O; operates on the already-parsed capped tail)
+
+Single source of the events-per-minute rate metric. Consumed by FRD-06 `ActivityPulse`
+(WO-06-009) and FRD-18 dashboard. No duplication — all rate derivations go through this one
+function (REQ-12-007 "no extra instrumentation").
+
+### IF-12-rate — `eventsPerMinute`
+
+```ts
+// app/_observability/selectors/rate.ts
+
+import type { Event } from "../../../lib/events";
+
+/**
+ * A per-minute bucket of event counts.
+ *
+ * `minute`  — ISO minute key "YYYY-MM-DDTHH:MM" (UTC, no seconds).
+ * `total`   — total count of all events in this minute.
+ * `byAgent` — per-agent count; only string-valued `agent` fields are tracked.
+ *             An event with no `agent` (or a non-string `agent`) increments
+ *             `total` but is NOT reflected in `byAgent`.
+ */
+export type Bucket = {
+  minute: string;
+  total: number;
+  byAgent: Record<string, number>;
+};
+
+/**
+ * Derive per-minute event counts from the capped event tail.
+ *
+ * @param events - The already-parsed, capped `Event[]` from `lib/events`.
+ *                 No re-reading, no I/O (blueprint §3, REQ-12-007).
+ * @param window - Number of minutes to cover (e.g. 30). Must be a positive
+ *                 integer. NaN/±Infinity → [] without throwing (B1' anchor).
+ *                 Negative → [] (clamped). 0 → [].
+ * @param now    - Reference instant. Injected for determinism in tests.
+ *                 Defaults to `new Date()` at call-time.
+ * @returns      `Bucket[]` with exactly `window` entries (oldest first),
+ *               or `[]` when `window` is 0 or invalid. Never throws.
+ */
+export function eventsPerMinute(events: Event[], window: number, now?: Date): Bucket[];
+```
+
+### Window semantics
+
+The window covers the `window` most-recently **completed** full UTC minutes before `now`.
+
+Example: `now = 2026-06-16T12:30:45Z`, `window = 5`
+→ Buckets: `[12:25, 12:26, 12:27, 12:28, 12:29]` (oldest first, newest = `12:29`).
+
+The minute currently in progress (`12:30`) is excluded — only complete minutes are bucketed.
+Each bucket key `"YYYY-MM-DDTHH:MM"` covers the half-open interval `[MM:00, MM+1:00)`.
+Events at exact minute boundaries (e.g. `12:28:00Z`) belong to bucket `"12:28"`.
+
+### Bucket invariants
+
+| Field | Invariant |
+|---|---|
+| `minute` | ISO minute key `"YYYY-MM-DDTHH:MM"`, always UTC, always 16 chars |
+| `total` | Non-negative finite integer; never NaN (B1') |
+| `byAgent` | Plain object; keys are non-empty strings; values are positive integers (≥1) |
+| `sum(byAgent values)` | ≤ `total` for every bucket; equals `total` when all events have an `agent` |
+
+### Behaviour contract
+
+| Input | Result |
+|---|---|
+| `window = 0` | `[]` |
+| `window = NaN` | `[]` (B1' anchor — no throw) |
+| `window = +Infinity` | `[]` (treated as invalid) |
+| `window = -5` | `[]` (clamped) |
+| `window = 5`, `events = []` | 5 zeroed buckets (`total=0`, `byAgent={}`) |
+| Event `at` outside the window | Silently excluded from all buckets |
+| Event with invalid `at` string | Silently skipped (FREEZE-ON-RED anchor) |
+| Event with no `agent` field | Counted in `total`, absent from `byAgent` |
+| Event with non-string `agent` (e.g. array) | Same as no agent (I3 anchor) |
+| Same events, same `now` | Identical result (deterministic / pure) |
+
+### Stalled-pulse signal
+
+When no events fall within the window, all buckets have `total = 0` and `byAgent = {}`.
+FRD-06 `ActivityPulse` reads this as the "stalled" signal.
+
+### Regression anchors
+
+| Anchor | Risk | Guard |
+|---|---|---|
+| **B1' (WO-13-001)** | `typeof NaN === "number"` — `window=NaN` silently produces wrong bucket count | `Number.isFinite(window)` check before any bucket construction |
+| **I2 (WO-13-001)** | Empty event array with `window > 0` should produce zeroed buckets, not throw | All `window` buckets pre-allocated with `total=0, byAgent={}`; empty array → zeroed, not `undefined` |
+| **I3 (WO-13-001)** | Non-string `agent` (e.g. an array `["implementer"]`) coerces to `"implementer,"` as an object key | `typeof ev.agent === "string"` guard before touching `byAgent` |
+| **FREEZE-ON-RED (WO-02-004)** | Events missing `at` or with invalid `at` must not abort the batch | `Number.isFinite(Date.parse(ev.at))` guard; invalid → `continue`, not `throw` |
+| **WO-12-001 ordering** | Lexicographic ISO string comparison is unsafe for non-UTC offsets | `Math.floor(Date.parse(at) / 60_000)` used for bucket assignment — numeric, not lexicographic |
+
+### Consumer contract (FRD-06 + FRD-18)
+
+Mutation isolation: each call returns fresh `Bucket` objects (deep-copied `byAgent`). Mutations
+by one consumer (e.g. ActivityPulse) do not corrupt a second consumer (e.g. FRD-18 dashboard).
+
+### Architecture invariants
+
+- **Pure:** no I/O, no `process.env` reads, no `Date.now()`, no side effects.
+- **Never throws** for any combination of inputs.
+- **Deterministic:** identical `events` + `now` → identical `Bucket[]`.
+- **Fully serializable:** `Bucket` fields are `string | number | Record<string, number>` — no class instances, no `Date`, no functions.
+- **Idempotent:** calling twice with the same arguments returns deeply equal results.
+
+### Test coverage
+
+`app/_observability/selectors/rate.test.ts` — 69 tests across 7 groups (vitest, pure — no fixtures, no I/O):
+
+| Group | Coverage |
+|---|---|
+| AC-12-007.1 output structure | 11 tests: exact bucket count per window, format, uniqueness, ascending order, finite totals |
+| AC-12-007.1 event bucketing | 9 tests: single/multi minute placement, window exclusion, boundary, sum invariant, stalled-pulse |
+| AC-12-007.1 per-agent breakdown | 8 tests: single/multi agent, no-agent total-only, empty byAgent, sum ≤ total, cross-minute isolation, 5-agent + 10-agent cases |
+| Determinism / pure function | 5 tests: idempotency, `now`-shift, 200-event volume, env-independence, mutation isolation |
+| Error paths / regression anchors | 8 tests: I2 (empty→zeroed), B1' (NaN window), I3 (non-string agent), FREEZE-ON-RED (sparse events, invalid `at`), WO-12-001 ordering |
+| Property-based invariants (parametric) | 11 tests: sum ≤ length, sum(byAgent) ≤ total, exact bucket count × 5 windows, unique keys, non-negative integers, byAgent counts ≥ 1, ascending order, never-throws × 4 edge windows |
+| Specific behavior assertions | 7 tests: multi-agent/minute concrete map, window=1 with/without events, 10-agent byAgent size, newest bucket ≤ now, status=fail still counted, cross-window exclusion |
+| FRD-06/FRD-18 consumer contract | 3 tests: all-zero stalled signal, two-consumer identical result, mutation isolation |
