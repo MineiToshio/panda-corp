@@ -18,3 +18,11 @@
 ## TDD / Definition of done
 - Tests: `topN` truncates to 5 and preserves order; n override works; empty → []. `freshness`: newest event wins; empty events → `{lastAt:null, live:false}`; an event older than the threshold → `live:false`; within → `live:true`.
 - Pure. Gate green.
+
+## Status
+
+- [x] **Done** — `bash .pandacorp/verify.sh` passed: biome (no errors) + tsc --noEmit (clean) + vitest (1429 passed, 5 skipped).
+- Implementation: `app/_observability/selectors/topn.ts`, `app/_observability/selectors/freshness.ts`
+- Tests: `topn.test.ts`, `topn.adversarial.test.ts`, `freshness.test.ts`, `freshness.adversarial.test.ts`
+- Commits: `c339c08` (selectors), `88a55b2` (export fix + tests)
+- Safe-point SHA (post-commit): see `last_green_sha` in `.pandacorp/status.yaml`
