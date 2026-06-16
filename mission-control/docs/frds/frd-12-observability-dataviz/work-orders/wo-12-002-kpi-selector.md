@@ -17,3 +17,12 @@
 ## TDD / Definition of done
 - Tests with fixtures: returns at most 5 KPIs; failed-work-orders counts `fail` events/closed-failed WOs; agents-working counts distinct agents with a recent `work`/`start`; empty inputs → zeroed KPIs (never throws).
 - Pure. Gate green.
+
+## Status
+
+- [x] **Done** — `bash .pandacorp/verify.sh` passed: biome (exit 0, 9 warnings / 0 errors) + tsc --noEmit (clean) + vitest (1449 passed, 2 expected fail, 5 skipped).
+- Implementation: `app/_observability/selectors/kpis.ts`
+- Tests: `app/_observability/selectors/kpis.test.ts`, `app/_observability/selectors/kpis.adversarial.test.ts`
+- UI component: `app/_observability/KpiHeader.tsx` + `KpiHeader.test.tsx`
+- Commits: `88a55b2` (selector), `4d1a75f` (KpiHeader UI)
+- Safe-point SHA (post-commit): see `last_green_sha` in `.pandacorp/status.yaml`
