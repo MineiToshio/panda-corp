@@ -596,7 +596,7 @@ export function readDecisions(projectPath: string): DecisionPoint[] {
   let currentRecommendation: string | undefined;
 
   const flush = (): void => {
-    if (currentTitle !== null && currentStatus !== null) {
+    if (currentTitle !== null && currentTitle.trim().length > 0 && currentStatus !== null) {
       const resolved = currentStatus.toUpperCase() !== "OPEN";
       const dp: DecisionPoint = { title: currentTitle, resolved };
       if (currentRecommendation !== undefined) {
