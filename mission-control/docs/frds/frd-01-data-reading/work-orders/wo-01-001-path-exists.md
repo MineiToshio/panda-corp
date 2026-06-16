@@ -20,7 +20,13 @@ Synchronous (Server Component friendly), backed by `fs.existsSync` wrapped to sw
 
 ## Definition of done
 
-- `lib/fs-utils.test.ts` (RED first): returns `true` for a known fixture path, `false` for a
+- [x] `lib/fs-utils.test.ts` (RED first): returns `true` for a known fixture path, `false` for a
   non-existent path, `false` (no throw) for an invalid/permission-error path.
-- Never writes, never throws.
-- `.pandacorp/verify.sh` green.
+- [x] Never writes, never throws.
+- [x] `.pandacorp/verify.sh` green.
+
+## Status: DONE
+
+**Evidence:** `bash .pandacorp/verify.sh` — 249 tests passed, biome+tsc clean (2026-06-16).
+Implementer commit: `fa49710`. Reviewer verdict: APPROVED (`docs/reviews/wo-01-001-review.md`).
+Adversarial suite (13 tests): `lib/fs-utils.adversarial.test.ts` — all green.
