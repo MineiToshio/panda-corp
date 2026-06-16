@@ -62,16 +62,20 @@ export function discardIdea(slug: string, ideasDir?: string): DiscardResult {
     return { ok: false, reason: "not-found" };
   }
 
-  // Guard: file must exist as a regular file (not a directory, not missing).
+  // Guard: file must exist as a regular file (not a directory, not a symlink, not missing).
+  // Use lstatSync (not statSync) so we check the entry itself, never the symlink target.
+  // A symlink that points outside the ideas dir would pass the path-traversal check above
+  // (because the link itself is inside the dir) but following it on write would violate
+  // write-isolation — we reject symlinks unconditionally.
   let stat: fs.Stats;
   try {
-    stat = fs.statSync(filePath);
+    stat = fs.lstatSync(filePath);
   } catch {
     return { ok: false, reason: "not-found" };
   }
 
   if (!stat.isFile()) {
-    // Directory or other non-regular entry → not-found (not parseable as a card anyway).
+    // Directory, symlink, or other non-regular entry → not-found (write-isolation invariant).
     return { ok: false, reason: "not-found" };
   }
 
