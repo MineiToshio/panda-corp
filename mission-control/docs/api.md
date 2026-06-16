@@ -27,7 +27,178 @@
 > **complete for WO-12-003** (IF-12-rate `eventsPerMinute`, `app/_observability/selectors/rate.ts`) +
 > **complete for WO-15-001** (IF-15-sync `readInstalledSha`/`readPluginHeadSha`/`readPluginDirty`, `lib/plugin-sync.ts`) +
 > **complete for WO-12-004** (IF-12-timeline `toTimeline`, `app/_observability/selectors/timeline.ts`) +
-> **complete for WO-16-001** (IF-16-scan `resolveProjectsPath`/`listProjectFolders`, `lib/orphans.ts`).
+> **complete for WO-16-001** (IF-16-scan `resolveProjectsPath`/`listProjectFolders`, `lib/orphans.ts`) +
+> **complete for WO-04-001** (IF-04-docs `listProjectDocs`/`readDoc`, `lib/docs.ts` additions).
+
+---
+
+## WO-04-001: `lib/docs.ts` — feature-centric document tree + raw read (IF-04-docs)
+
+**Module:** `lib/docs.ts` (additions to the existing WO-01-006 module)
+**Traces:** IF-04-docs; REQ-04-006; AC-04-006.1 (document tree), AC-04-006.2 (raw markdown read), AC-04-006.3 (graceful empty state)
+**Dependencies:** `lib/fs-utils.ts` (`pathExists`, WO-01-001, shipped)
+**Consumed by:** WO-04-006 (`CMP-04-tab-documents`, Documents tab UI), FRD-05 (`lib/work-orders.ts`), FRD-08 (`lib/manual.ts`)
+
+### IF-04-docs — `lib/docs.ts` (new exports)
+
+```ts
+// lib/docs.ts — new exports added by WO-04-001
+// (readProjectDocs from WO-01-006 is unchanged)
+
+/**
+ * A single document node in the feature-centric tree.
+ *
+ * Groups (architecture §4.5):
+ *   "Product"              — docs/product/prd.md, docs/product/architecture.md
+ *   "Feature: frd-NN-slug" — docs/frds/frd-NN-<slug>/{frd.md, fdd.md?, blueprint.md?}
+ *   "Global"               — docs/adr/*.md, docs/decision-log.md
+ */
+export interface DocNode {
+  /** Stable key, unique per project. Equals relPath without file extension. */
+  id: string;
+  /** Display name (filename), e.g. "prd.md". */
+  label: string;
+  /** "Product" | "Feature: frd-NN-<slug>" | "Global" */
+  group: string;
+  /** Path relative to the project root; forward-slash separator (never absolute). */
+  relPath: string;
+}
+
+/**
+ * Discover the feature-centric document tree for a project.
+ *
+ * Returns a flat DocNode[] covering Product + Feature + Global layers (architecture §4.5).
+ * Order: Product (prd, architecture), then Feature entries (each FRD: frd, fdd?, blueprint?),
+ * then Global (adr/*.md, decision-log.md).
+ *
+ * Fail-soft: absent/unreadable layers → []. Empty or non-existent projectPath → [].
+ * Read-only: only existence probes + directory listing (no file content reads here).
+ * Never throws.
+ *
+ * @param projectPath - Absolute path to the project root.
+ * @returns Genuine JS Array of DocNode; empty when no surfaced docs exist (AC-04-006.3).
+ */
+export function listProjectDocs(projectPath: string): DocNode[];
+
+/**
+ * Return the raw markdown content of a surfaced document.
+ *
+ * Security contract: relPath is validated against the set returned by listProjectDocs.
+ * Any path NOT in that set (traversal attempts, absolute paths, .pandacorp/ comms,
+ * work-orders/, non-surfaced files) → null. No arbitrary file reads.
+ *
+ * @param projectPath - Absolute path to the project root.
+ * @param relPath     - Relative path as in DocNode.relPath (forward slashes).
+ * @returns Raw markdown string, or null when:
+ *   - relPath not in discovered set (security rejection)
+ *   - projectPath does not exist (AC-04-006.3)
+ *   - File cannot be read (fs error)
+ *   - Either argument is empty/blank
+ *   Never throws.
+ */
+export function readDoc(projectPath: string, relPath: string): string | null;
+```
+
+### Document tree groups (architecture §4.5)
+
+| Group | Files surfaced | DocNode.relPath pattern |
+|---|---|---|
+| `"Product"` | `docs/product/prd.md` | `docs/product/prd.md` |
+| `"Product"` | `docs/product/architecture.md` | `docs/product/architecture.md` |
+| `"Feature: frd-NN-<slug>"` | `docs/frds/<slug>/frd.md` | `docs/frds/<slug>/frd.md` |
+| `"Feature: frd-NN-<slug>"` | `docs/frds/<slug>/fdd.md` (optional) | `docs/frds/<slug>/fdd.md` |
+| `"Feature: frd-NN-<slug>"` | `docs/frds/<slug>/blueprint.md` (optional) | `docs/frds/<slug>/blueprint.md` |
+| `"Global"` | `docs/adr/*.md` (each file) | `docs/adr/<filename>.md` |
+| `"Global"` | `docs/decision-log.md` | `docs/decision-log.md` |
+
+**Not surfaced** (outside the allowed set): `.pandacorp/` files, `docs/frds/<slug>/work-orders/`, `docs/frds/<slug>/mocks/`, `docs/analytics/`, `docs/product/research.md`, any other path.
+
+### DocNode.id derivation
+
+`id = relPath.replace(/\.[^/.]+$/, "")` — relPath stripped of its file extension. Examples:
+- `docs/product/prd.md` → `"docs/product/prd"`
+- `docs/frds/frd-04-project-workspace/blueprint.md` → `"docs/frds/frd-04-project-workspace/blueprint"`
+- `docs/adr/ADR-0001-stack.md` → `"docs/adr/ADR-0001-stack"`
+
+Stable across calls for the same file (used as React key in `CMP-04-tab-documents`).
+
+### Security contract — `readDoc`
+
+| Input condition | Result |
+|---|---|
+| `relPath` in discovered set, file readable | Raw markdown content string |
+| `relPath` is a `.pandacorp/` path (not surfaced) | `null` — rejected by set membership check |
+| `relPath` uses `../` traversal | `null` — not in discovered set; never reaches fs |
+| `relPath` is an absolute path (starts with `/`) | `null` — not in discovered set |
+| `relPath` is a work-orders `.md` path | `null` — work-orders are FRD-05 scope, not surfaced |
+| `relPath` is a directory (e.g. `docs/frds/frd-01-x`) | `null` — directories not in discovered set |
+| `relPath` is empty string `""` | `null` — input guard |
+| `projectPath` does not exist | `null` — `listProjectDocs` returns `[]`; set is empty |
+| Both arguments empty | `null` — does not throw |
+
+### Defensive contract — `listProjectDocs`
+
+| Input condition | Result |
+|---|---|
+| Valid project with prd.md + 1 FRD + ADR + decision-log | DocNode[] with correct groups |
+| Project root does not exist | `[]` (no throw; AC-04-006.3) |
+| Project root is empty | `[]` |
+| `docs/product/` absent | No Product nodes (no throw) |
+| `docs/frds/` absent | No Feature nodes (no throw) |
+| `docs/frds/` is a regular file (not dir) | No Feature nodes (no throw; no ENOTDIR crash) |
+| FRD dir has only `frd.md` (no blueprint, no fdd) | Only `frd.md` node surfaced (regression I2: no vacuous blueprint node) |
+| FRD dir name does NOT match `/^frd-\d/` | Excluded (not treated as a feature group) |
+| `docs/adr/` exists but contains no `.md` files | No Global/adr nodes (regression B1': no NaN count) |
+| Empty string passed as projectPath | `[]` (no throw) |
+| Called twice on same project | Same DocNode[] with identical ids (stable id invariant) |
+| Result JSON.stringified and parsed | Equal to original (serializability; no class instances) |
+
+### Architecture invariants
+
+- **Read-only:** `listProjectDocs` uses `pathExists`, `fs.statSync`, `fs.readdirSync` only. `readDoc` additionally calls `fs.readFileSync` — on validated paths only. No writes.
+- **No arbitrary traversal (security):** `readDoc` calls `listProjectDocs` to obtain the allowed set, then does a `Set.has()` check before any `fs.readFileSync`. A relPath not in the set never reaches the filesystem.
+- **Never throws:** both functions catch all errors and degrade to `[]`/`null`.
+- **Genuine JS Array:** `listProjectDocs` returns an Array (not array-like) — `Array.isArray()` is true (regression I3).
+- **Forward-slash relPaths only:** all `relPath` values use `/` separators regardless of OS. No backslashes.
+- **Deterministic / idempotent:** given the same filesystem state, always returns the same nodes in the same order, with the same ids.
+- **Serializability:** `DocNode[]` is a plain serializable value (no class instances, no functions, no Date). Safe for Next.js Server→Client prop passing.
+
+### Regression anchors
+
+| Anchor | Risk | Guard |
+|---|---|---|
+| **B1' (2026-06-16)** | NaN from arithmetic on directory scan results | `listProjectDocs` uses array `push` — result length is always a genuine integer, never NaN. |
+| **I2 (2026-06-16)** | Vacuous-truthy nodes for absent optional files | Only files that pass `pathExists(filePath) && statIsFile(filePath)` are surfaced. An FRD dir with only `frd.md` does not produce a `blueprint.md` node. |
+| **I3 (2026-06-16)** | Array-shaped objects fool `Array.isArray` | Result built with `push` into a `DocNode[] = []` literal — always a genuine Array. |
+| **WO-01-001 (2026-06-16)** | `existsSync` throws on malformed paths (null bytes) | `pathExists` wraps `existsSync` in try/catch; `listProjectDocs` uses `pathExists` exclusively. |
+
+### Consumption (downstream WOs)
+
+- **WO-04-006** (`CMP-04-tab-documents`): calls `listProjectDocs(projectPath)` server-side to render the nav tree. Calls `readDoc(projectPath, selectedRelPath)` for the active document body, passed to `react-markdown`.
+- **FRD-05** (`lib/work-orders.ts`): may use `listProjectDocs` to enumerate FRD slugs (the FRD discovery pattern is the same; WO-05-001 may extend or re-use this).
+- **FRD-08** (`lib/manual.ts`): may use `listProjectDocs` for the Manual's document index.
+
+### Test coverage
+
+`lib/docs.wo04001.test.ts` — 63 tests across 14 groups (vitest, Node environment, no mocks — real fixture tree + temp dirs):
+
+| Group | ACs covered |
+|---|---|
+| AC-04-006.1 — Product group (proj-a) | prd.md node, architecture.md node, relPath prefix, id non-empty, absent file → no node |
+| AC-04-006.1 — Feature group (proj-a has frd-01-x) | frd.md node, blueprint.md node, relPath prefix, no fdd.md when absent, fdd.md when present, non-frd dirs excluded, multiple FRDs each with own group |
+| AC-04-006.1 — Global group (proj-a) | adr/*.md nodes, decision-log.md node, relPath values, absent dirs → no nodes |
+| AC-04-006.1 — DocNode shape invariants | Non-empty id/label/group/relPath; unique ids; forward-slash relPaths; no absolute relPaths; no `../` starts; group in allowed set; genuine JS Array (I3) |
+| AC-04-006.1 — Stable IDs (idempotency) | Calling twice → same id per relPath |
+| AC-04-006.3 — Graceful empty state | Non-existent root → `[]` no throw; empty root → `[]`; empty docs/ → `[]`; empty string → `[]` no throw |
+| Regression B1' | Empty frds/ → length 0 finite; empty adr/ → length finite |
+| Regression I2 | FRD dir with only frd.md → no blueprint.md node; no fdd.md node; empty adr/ → no vacuous nodes |
+| AC-04-006.2 — readDoc happy path | prd.md content matches file; frd.md/blueprint.md/ADR/decision-log content returned non-null; first node readable (default selection) |
+| Security / no-traversal | .pandacorp/ path → null; `../` path → null; absolute path → null; empty relPath → null; invented path → null no throw; directory relPath → null; status.yaml → null; work-orders .md → null; empty projectPath → null no throw |
+| REQ-01-010 — non-existent projectPath | Does not throw; returns null |
+| Read-only invariant (readDoc) | mtime unchanged after read; no file/dir created on ghost path |
+| Read-only invariant (listProjectDocs) | Directory tree snapshot identical before/after two calls |
+| Round-trip | All surfaced nodes readable via readDoc; 5-node temp project all readable |
+| Serializability | JSON.stringify + parse → equal to original |
 
 ---
 
