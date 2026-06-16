@@ -14,7 +14,7 @@ pending_decisions: 0
 pending_bugs: 1
 rethink_pending: false
 advance_pending: false
-last_green_sha: "382774e"
+last_green_sha: "3972c24"
 safe_to_test: true
 blocked_work_orders:
   - id: WO-13-001
