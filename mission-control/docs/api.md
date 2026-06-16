@@ -2198,6 +2198,8 @@ FRD-06 `ActivityPulse` reads this as the "stalled" signal.
 | Anchor | Risk | Guard |
 |---|---|---|
 | **B1' (WO-13-001)** | `typeof NaN === "number"` — `window=NaN` silently produces wrong bucket count | `Number.isFinite(window)` check before any bucket construction |
+| **B1a (WO-12-003)** | `__proto__` as a plain-object key is silently swallowed; write is dropped, count is lost | `byAgent` uses `Object.create(null)` — null-prototype — so `__proto__` is an own enumerable property |
+| **B1b (WO-12-003)** | `byAgent["constructor"] ?? 0` reads the inherited `Object` constructor (truthy function), so `Function + 1` produces a corrupted string `"function Object()…1"` instead of a number | `Object.hasOwn(byAgent, key)` used to read existing counts; `Object.create(null)` eliminates all inherited members; copy via `Object.assign(Object.create(null), src)` preserves null prototype |
 | **I2 (WO-13-001)** | Empty event array with `window > 0` should produce zeroed buckets, not throw | All `window` buckets pre-allocated with `total=0, byAgent={}`; empty array → zeroed, not `undefined` |
 | **I3 (WO-13-001)** | Non-string `agent` (e.g. an array `["implementer"]`) coerces to `"implementer,"` as an object key | `typeof ev.agent === "string"` guard before touching `byAgent` |
 | **FREEZE-ON-RED (WO-02-004)** | Events missing `at` or with invalid `at` must not abort the batch | `Number.isFinite(Date.parse(ev.at))` guard; invalid → `continue`, not `throw` |
@@ -2218,7 +2220,7 @@ by one consumer (e.g. ActivityPulse) do not corrupt a second consumer (e.g. FRD-
 
 ### Test coverage
 
-`app/_observability/selectors/rate.test.ts` — 69 tests across 7 groups (vitest, pure — no fixtures, no I/O):
+`app/_observability/selectors/rate.test.ts` — 78 tests across 8 groups (vitest, pure — no fixtures, no I/O):
 
 | Group | Coverage |
 |---|---|
@@ -2227,6 +2229,7 @@ by one consumer (e.g. ActivityPulse) do not corrupt a second consumer (e.g. FRD-
 | AC-12-007.1 per-agent breakdown | 8 tests: single/multi agent, no-agent total-only, empty byAgent, sum ≤ total, cross-minute isolation, 5-agent + 10-agent cases |
 | Determinism / pure function | 5 tests: idempotency, `now`-shift, 200-event volume, env-independence, mutation isolation |
 | Error paths / regression anchors | 8 tests: I2 (empty→zeroed), B1' (NaN window), I3 (non-string agent), FREEZE-ON-RED (sparse events, invalid `at`), WO-12-001 ordering |
+| Prototype-pollution regression (B1a/B1b) | 9 tests: `__proto__` count not lost + no prototype pollution; `constructor`/`toString`/`valueOf`/`hasOwnProperty` counts are finite numbers not strings; combined dangerous-keys sum; consumer-safety guard |
 | Property-based invariants (parametric) | 11 tests: sum ≤ length, sum(byAgent) ≤ total, exact bucket count × 5 windows, unique keys, non-negative integers, byAgent counts ≥ 1, ascending order, never-throws × 4 edge windows |
 | Specific behavior assertions | 7 tests: multi-agent/minute concrete map, window=1 with/without events, 10-agent byAgent size, newest bucket ≤ now, status=fail still counted, cross-window exclusion |
 | FRD-06/FRD-18 consumer contract | 3 tests: all-zero stalled signal, two-consumer identical result, mutation isolation |

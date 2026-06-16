@@ -92,9 +92,18 @@ export function eventsPerMinute(events: Event[], window: number, now?: Date): Bu
   }
 
   // Pre-allocate the bucket map for O(1) lookup during event classification.
+  // byAgent uses Object.create(null) — a null-prototype object — so that agent keys
+  // like "__proto__", "constructor", "toString", "valueOf", "hasOwnProperty" are stored
+  // as own enumerable properties instead of colliding with inherited Object.prototype
+  // members. Without this, `byAgent["constructor"] ?? 0` reads the inherited Function,
+  // causing `Function + 1 = "function Object() { [native code] }1"` (string corruption).
   const bucketMap = new Map<string, Bucket>();
   for (const key of minuteKeys) {
-    bucketMap.set(key, { minute: key, total: 0, byAgent: {} });
+    bucketMap.set(key, {
+      minute: key,
+      total: 0,
+      byAgent: Object.create(null) as Record<string, number>,
+    });
   }
 
   // --- Classify events into buckets ---
@@ -121,7 +130,15 @@ export function eventsPerMinute(events: Event[], window: number, now?: Date): Bu
     // I3 regression: only track string-valued agent fields.
     // Arrays, numbers, booleans, etc. must not appear as byAgent keys.
     if (typeof ev.agent === "string" && ev.agent.length > 0) {
-      const current = bucket.byAgent[ev.agent] ?? 0;
+      // Use Object.hasOwn to read the existing count so that agent keys that
+      // collide with Object.prototype members ("constructor", "toString",
+      // "valueOf", "hasOwnProperty") are read as own properties only, not the
+      // inherited function. Without this, `bucket.byAgent["constructor"] ?? 0`
+      // evaluates to the built-in constructor Function (truthy), so `Function + 1`
+      // produces the string "function Object() { [native code] }1" — a B1b violation.
+      const current = Object.hasOwn(bucket.byAgent, ev.agent)
+        ? (bucket.byAgent[ev.agent] as number)
+        : 0;
       bucket.byAgent[ev.agent] = current + 1;
     }
   }
@@ -133,10 +150,14 @@ export function eventsPerMinute(events: Event[], window: number, now?: Date): Bu
     // Non-null assertion is safe: every key was inserted into the map above.
     // biome-ignore lint/style/noNonNullAssertion: key is always present — it was just inserted
     const src = bucketMap.get(key)!;
+    // Use Object.assign into a null-prototype object so that dangerous agent keys
+    // ("__proto__", "constructor", etc.) survive the copy as own enumerable
+    // properties and do not corrupt Object.prototype. Spread `{ ...src.byAgent }`
+    // copies into a plain `{}`, which would reintroduce the prototype collision.
     return {
       minute: src.minute,
       total: src.total,
-      byAgent: { ...src.byAgent }, // shallow copy is sufficient: values are numbers
+      byAgent: Object.assign(Object.create(null) as Record<string, number>, src.byAgent),
     };
   });
 }
