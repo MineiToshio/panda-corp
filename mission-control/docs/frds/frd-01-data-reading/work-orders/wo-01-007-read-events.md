@@ -44,3 +44,7 @@ export function readEvents(opts?: { path?: string; cap?: number }): EventsSnapsh
   - `dashboard-events-empty.ndjson` and a missing path → empty snapshot.
 - No write; fail-soft per blueprint §3.
 - `.pandacorp/verify.sh` green.
+
+## Status
+
+- [x] **DONE** — `pnpm vitest run --reporter=dot` → 686 tests passed (25 test files); `biome check` clean; `tsc --noEmit` clean. `bash .pandacorp/verify.sh` green. Committed at `6b9496e` (implementation) + `476738a` (Party UI). Safe-point SHA recorded in `.pandacorp/status.yaml`.
