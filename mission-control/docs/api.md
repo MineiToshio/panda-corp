@@ -2230,3 +2230,155 @@ by one consumer (e.g. ActivityPulse) do not corrupt a second consumer (e.g. FRD-
 | Property-based invariants (parametric) | 11 tests: sum ≤ length, sum(byAgent) ≤ total, exact bucket count × 5 windows, unique keys, non-negative integers, byAgent counts ≥ 1, ascending order, never-throws × 4 edge windows |
 | Specific behavior assertions | 7 tests: multi-agent/minute concrete map, window=1 with/without events, 10-agent byAgent size, newest bucket ≤ now, status=fail still counted, cross-window exclusion |
 | FRD-06/FRD-18 consumer contract | 3 tests: all-zero stalled signal, two-consumer identical result, mutation isolation |
+
+---
+
+## WO-12-004: `toTimeline` — WO → task → action tree selector
+
+**Module:** `app/_observability/selectors/timeline.ts`
+**Traces:** IF-12-timeline → REQ-12-003, REQ-12-007 → AC-12-003.1, AC-12-007.1
+**Dependencies:** `lib/events.ts` (`Event` type — no I/O; operates on the already-parsed capped tail)
+
+Pure selector that folds the event tail into a flat, parent-linked tree: work order → task → action.
+The tree is consumed by `CMP-12-timeline` (TimelineView RSC) and the RPG↔timeline toggle
+(`CMP-12-toggle`). No HTTP, no I/O, no Claude calls.
+
+### IF-12-timeline — `toTimeline`
+
+```ts
+// app/_observability/selectors/timeline.ts
+
+import type { Event } from "../../../lib/events";
+
+/**
+ * A single row in the flattened timeline tree.
+ *
+ * - Level 0 (kind="wo"):     one row per distinct workOrder id; parentId=null.
+ * - Level 1 (kind="task"):   one row per distinct (workOrder, task) pair; parentId=wo.id.
+ * - Level 2 (kind="action"): one row per individual event; parentId=task.id or wo.id.
+ * - Orphan (no workOrder):   top-level action rows; parentId=null.
+ */
+export type TimelineRow = {
+  /** Stable unique id within a single toTimeline call output. */
+  id: string;
+  /** Tree level: "wo" | "task" | "action". */
+  kind: "wo" | "task" | "action";
+  /** workOrder id (wo), task id (task), or event name (action). */
+  label: string;
+  /** ISO 8601 string of the earliest event timestamp within this node's subtree. */
+  start: string;
+  /**
+   * ISO 8601 string of the latest terminal (ok/fail) event within the subtree.
+   * null when the node has no terminal events (in-progress / "running").
+   */
+  end: string | null;
+  /**
+   * Date.parse(end) - Date.parse(start) in milliseconds.
+   * null when end is null. Always a finite non-negative number or null (never NaN).
+   */
+  duration: number | null;
+  /** Parent row id; null for WO rows and orphan actions. */
+  parentId: string | null;
+  /** "running" when end is null; "fail" when any terminal child is "fail"; "ok" when all ok. */
+  status: "ok" | "fail" | "running";
+};
+
+/**
+ * Fold the capped event tail into a flat list of TimelineRow objects.
+ *
+ * @param events - The already-parsed, capped `Event[]` from `lib/events`.
+ * @returns Flat TimelineRow[] navigable by parentId. Never throws. Never returns null.
+ */
+export function toTimeline(events: Event[]): TimelineRow[];
+```
+
+### Tree structure
+
+The output is a **flat array** (not a recursive tree). Callers navigate it via `parentId`:
+
+```
+WO row (kind="wo", parentId=null)
+  Task row (kind="task", parentId=wo.id)
+    Action row (kind="action", parentId=task.id)  <- one per event
+  Task row ...
+Action row (kind="action", parentId=wo.id)        <- events with workOrder but no task
+Orphan row (kind="action", parentId=null)          <- events with no workOrder
+```
+
+### Duration semantics (AC-12-007.1)
+
+A node is **closed** (end non-null) only when its subtree contains at least one event with
+`status === "ok"` or `status === "fail"`. Events with no `status` field (absent or undefined)
+are in-progress markers and never close a node.
+
+| Field | Rule |
+|---|---|
+| `start` | Earliest `Date.parse(at)` across all events in the subtree (chronological min) |
+| `end` | Latest `Date.parse(at)` among terminal (`ok`/`fail`) events in the subtree; `null` if none |
+| `duration` | `Date.parse(end) - Date.parse(start)` in ms; `null` when end is null; always `>= 0`; never NaN |
+
+### WO status propagation
+
+WO status is derived from materialized child task statuses (not from raw events directly):
+
+| Child task statuses | WO status | WO end |
+|---|---|---|
+| Any task is "running" | `"running"` | `null` |
+| No running tasks, any "fail" | `"fail"` | max terminal timestamp across closed tasks |
+| All tasks "ok" | `"ok"` | max terminal timestamp across all tasks |
+| No task children (direct action children only) | Derived from direct action events | — |
+
+### Tolerance rules
+
+| Condition | Behaviour |
+|---|---|
+| `events = []` | Returns `[]` — never throws (I2) |
+| Malformed event (missing `event` or `at`) | Silently skipped (FREEZE-ON-RED) |
+| null/undefined in events array | Silently skipped |
+| Unparseable `at` string | Skipped — `Number.isFinite(Date.parse(at))` guard (B1') |
+| `workOrder` present, `task` absent | Action attached directly to WO row |
+| No `workOrder`, no `task` | Orphan action row, `parentId=null` |
+| Empty-string `workOrder` or `task` | Treated as absent |
+| Mixed in-progress + closed tasks | WO is "running" (any running child wins) |
+
+### Invariants
+
+- **Pure:** no I/O, no `process.env`, no `Date.now()`, no side effects.
+- **Never throws** for any combination of inputs.
+- **Unique ids** within one call; **valid parentId** resolves to an existing id in the same output.
+- **Chronological:** `Date.parse(end) >= Date.parse(start)` when end is non-null.
+- **`duration === null` iff `end === null`** (strict biconditional).
+- **`status === "running"` iff `end === null`** (strict biconditional).
+- **Fully serializable:** all fields are `string | number | null`.
+- **Idempotent:** same inputs → deeply equal output.
+
+### Regression anchors
+
+| Anchor | Risk | Guard |
+|---|---|---|
+| **B1' (WO-13-001)** | `Date.parse("bad") === NaN` — duration arithmetic yields NaN | `Number.isFinite(atMs)` before accumulation; `Number.isFinite(delta)` before returning duration |
+| **I2 (WO-13-001)** | `toTimeline([])` must return `[]` not throw | Sentinel Infinity/-Infinity in accumulators; empty input → empty output |
+| **I3 (WO-13-001)** | `status === "fail"` must be exact string | `ev.status === "ok" || ev.status === "fail"` only; any other value → non-terminal |
+| **FREEZE-ON-RED (WO-02-004)** | Per-event errors must not abort the fold | null/undefined guard per item; malformed events `continue` |
+| **ISO offset lesson** | Non-UTC offsets compare wrong lexicographically | All min/max use `Date.parse()` numerics; raw strings kept for display only |
+
+### Test coverage
+
+`app/_observability/selectors/timeline.test.ts` — 95 tests across 12 groups (vitest, pure):
+
+| Group | Coverage |
+|---|---|
+| Empty input | 3 tests: `[]` → `[]`, no throw, returns array |
+| WO→task→action nesting | 6 tests: rows created, parentId links, one-row-per-distinct-node |
+| Multi-WO fixture | 5 tests: 2 WOs, child task counts, cross-WO parentId isolation |
+| Durations from timestamps | 6 tests: 5-min span, 2-min task, single-event=0, WO span, fail terminal, out-of-order |
+| In-progress (open) durations | 6 tests: non-terminal events → end=null, duration=null, status="running" |
+| Orphan events | 6 tests: no-workOrder orphans, workOrder-only actions attach to WO |
+| FREEZE-ON-RED: malformed skipped | 5 tests: missing `at`/`event`, null entries, all-malformed → `[]` |
+| B1' regression: no NaN duration | 3 tests: valid ts → finite; bad `at` → no NaN; same ts → 0 |
+| I3 regression: exact status literals | 4 tests: union membership; end=null ↔ "running" biconditional |
+| Row shape invariants (parametric) | 8 tests x 4 fixtures: all fields correct types |
+| Structural invariants | 4 tests: parentId resolves, unique ids, start<=end, duration>=0 |
+| WO status propagation | 3 tests: all-ok/"fail"/any-running → correct WO status |
+| Never throws (exhaustive) | 8 edge cases including 200-event stress |
+| Idempotency | 1 test: two calls with same input → deeply equal |

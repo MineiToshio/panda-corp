@@ -504,6 +504,7 @@ describe("frd-12: toTimeline — AC-12-003.1 in-progress items have null end and
         workOrder: "WO-X",
         task: "task-running",
         event: "AgentWorking",
+        status: undefined,
       }),
     ];
     const rows = toTimeline(events);
@@ -533,6 +534,7 @@ describe("frd-12: toTimeline — AC-12-003.1 in-progress items have null end and
         workOrder: "WO-MIX",
         task: "task-open",
         event: "AgentWorking",
+        status: undefined,
       }),
     ];
     const rows = toTimeline(events);
@@ -559,6 +561,7 @@ describe("frd-12: toTimeline — AC-12-003.1 in-progress items have null end and
         workOrder: "WO-PART",
         task: "task-open",
         event: "AgentWorking",
+        status: undefined,
       }),
     ];
     const rows = toTimeline(events);
@@ -1126,6 +1129,7 @@ describe("frd-12: toTimeline — WO status propagation from children", () => {
         workOrder: "WO-RUNNING",
         task: "t-open",
         event: "B",
+        status: undefined,
       }),
     ];
     const rows = toTimeline(events);
