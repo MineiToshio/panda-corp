@@ -10,9 +10,11 @@ __pycache__/
 
 # Build outputs
 .next/
+next-env.d.ts
 dist/
 build/
 *.egg-info/
+*.tsbuildinfo
 
 # Test & tooling caches
 coverage/

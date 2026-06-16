@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+/*
+ * Mission Control base styles.
+ * The full OKLCH token system (FRD-13) lands with the design phase
+ * (docs/design/design-tokens.json). This is the minimal foundation only.
+ */
+
+:root {
+  color-scheme: light dark;
+}
+
+html {
+  /* FRD-13: every number uses tabular figures. */
+  font-variant-numeric: tabular-nums;
+}
