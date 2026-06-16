@@ -23,4 +23,4 @@ RPG-style view of the workflow subagents building a project: pixel-art zones and
 - It SHALL offer an honest **RPG ↔ timeline/tree toggle** over the same data (work orders → tasks → actions), and a **Live / No signal** indicator with the timestamp of the last event.
 
 ## Future
-The displayed team will scale according to the **build mode** ([FRD-11](frd-11-build-modes.md)): more or fewer agents, even several of the same role, positioned within their zones. Work order DAG with *path-focus* (highlight the dependency chain) and "jump to the first error" ([FRD-12](frd-12-observability-dataviz.md)).
+The displayed team will scale according to the **build mode** ([FRD-11](../frd-11-build-modes/frd.md)): more or fewer agents, even several of the same role, positioned within their zones. Work order DAG with *path-focus* (highlight the dependency chain) and "jump to the first error" ([FRD-12](../frd-12-observability-dataviz/frd.md)).

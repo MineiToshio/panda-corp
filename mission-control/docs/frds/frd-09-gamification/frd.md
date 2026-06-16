@@ -7,7 +7,7 @@ The game layer that wraps the real work, in an **honest** and fatigue-free way. 
 Two **distinct and deliberate** RPG layers; each term names a single thing:
 
 - **Guild (gremio)** — the **meta** layer: the operator (the owner) + the entire factory. Guild level/XP in the top bar ("Guild Master"), Guild Hall (trophies and stats), Guild Codex/Manual, Guild Commands, Guild Attributes. It is **persistent and cross-cutting** across the whole app.
-- **Party** — the **group of agents building a concrete project** (the live RPG panel, [FRD-06](frd-06-party.md)). There is **one party per project** being built.
+- **Party** — the **group of agents building a concrete project** (the live RPG panel, [FRD-06](../frd-06-party/frd.md)). There is **one party per project** being built.
 
 Analogy: you belong to a **guild** (the organization) and you go out in a **party** (the active group for each mission); a guild has many parties. **Rule:** don't use "guild" to name the agent panel, nor "party" for the operator layer.
 
@@ -25,7 +25,7 @@ Analogy: you belong to a **guild** (the organization) and you go out in a **part
 - EVERY new mechanic SHALL pass the **ethical test** before being added: does the user control their participation? does it build or undermine intrinsic motivation? is the reward meaningful or an addictive loop? is it honest about its psychological effect? Forbidden patterns: streak anxiety, slot-machine-style variable rewards, false urgency, leaderboards, a bar "stuck at 80%".
 
 ## Components (see also)
-- Guild level/XP (this FRD) · Agent levels ([FRD-07](frd-07-configuration.md)) · Achievements Hall and stats ([FRD-10](frd-10-achievements-hall.md)) · Party RPG ([FRD-06](frd-06-party.md)).
+- Guild level/XP (this FRD) · Agent levels ([FRD-07](../frd-07-configuration/frd.md)) · Achievements Hall and stats ([FRD-10](../frd-10-achievements-hall/frd.md)) · Party RPG ([FRD-06](../frd-06-party/frd.md)).
 
 ## Future
 Full-screen level-up moment; phase transitions as a "cutscene"; meta-achievements (titled, displayable Seals); XP multiplier for weekly streak.

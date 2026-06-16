@@ -39,16 +39,22 @@ Auto-invoking covers **entering** the skill only. The skill's internal human-gat
 
 ## Documentation map
 
+Docs are **feature-centric** (DR-049): a thin **product layer** under `docs/product/`, plus one **self-contained module per feature** under `docs/frds/frd-NN-<slug>/`. Two architecture layers — platform (`docs/product/architecture.md`, one per project) vs feature (`frds/frd-NN-<slug>/blueprint.md`, per-FRD); never fuse them. Folders appear **on demand** (progressive disclosure) — a new feature is just a new `frds/frd-NN-<slug>/` folder. IDs form the traceability spine: `REQ-NN-MMM` → `AC-NN-MMM.K` → `CMP-NN-<slug>`/`IF-NN-<slug>` → `WO-NN-MMM`, with source-of-truth hierarchy `FRD > FDD > design-tokens > blueprint > work order`.
+
 | What | Where |
 |---|---|
-| Product research | `docs/product-research.md` |
-| PRD | `docs/prd.md` |
-| FRDs (features + EARS criteria) | `docs/frds/` |
-| Design (references, tokens, mockups, decisions) | `docs/design/` + `DESIGN.md` |
-| Technical blueprint | `docs/blueprint.md` |
-| ADRs | `docs/adr/` |
-| Work orders | `docs/work-orders/` |
-| Reviews and audits | `docs/reviews/` |
+| PRD (vision, metrics, living feature landscape) | `docs/product/prd.md` (multi-PRD → `docs/product/prds/`) |
+| Product research | `docs/product/research.md` |
+| **Platform architecture** (stack, data model, deploy, cross-cutting) | `docs/product/architecture.md` |
+| FRD module (per feature) | `docs/frds/frd-NN-<slug>/` |
+| · User contract (REQ + EARS acceptance criteria) | `…/frd-NN-<slug>/frd.md` |
+| · Feature design (UI features only) | `…/frd-NN-<slug>/fdd.md` + `…/mocks/` |
+| · **Feature blueprint** (implementation design) | `…/frd-NN-<slug>/blueprint.md` (large → `…/blueprints/`) |
+| · Feature work orders | `…/frd-NN-<slug>/work-orders/` (`README.md` + `wo-NN-MMM-<slug>.md`) |
+| Design system / PDD (references, tokens) + frozen contract | `docs/design/` + `DESIGN.md` |
+| ADRs (platform-level, cross-feature) | `docs/adr/` |
+| Analytics / event plan (global) | `docs/analytics/events.md` |
+| Review / audit evidence (global, on demand) | `docs/reviews/` |
 | **Decision log** (decisions + why, history) | `docs/decision-log.md` |
 | Machine state (phase, version, overlay_version) | `.pandacorp/status.yaml` |
 | **Owner-facing narrative** (Spanish, gitignored) | `.pandacorp/comms/` (`summary.md`, `iteration.md`, `progress.md`) |
@@ -57,7 +63,7 @@ Auto-invoking covers **entering** the skill only. The skill's internal human-gat
 
 ## Project rules
 
-> **Code standards: see `AGENTS.md`** (the factory's durable conventions). The concrete stack is in `docs/blueprint.md`.
+> **Code standards: see `AGENTS.md`** (the factory's durable conventions). The platform stack is in `docs/product/architecture.md`; each feature's implementation design in its `docs/frds/frd-NN-<slug>/blueprint.md`.
 
 1. Language — **git-tracked status decides the language** (committed = English / gitignored = Spanish). Committed → English: code, commits, file/folder names, and product/technical docs (PRD, FRD, blueprint, ADR, README, tests, `docs/decision-log.md`). Gitignored → Spanish: the Pandacorp communication layer (`.pandacorp/comms/`, `.pandacorp/inbox/`) and personal data. User-facing UI copy: i18n, Spanish by default. `.pandacorp/status.yaml` is committed (machine state in English); its readable Spanish narrative lives in `.pandacorp/comms/summary.md`. **The interaction with the owner is always in Spanish** — everything the agent says in chat and inside any skill (questions, explanations, progress, recommendations) is in Spanish, regardless of the artifact's language.
 2. Conventional Commits with scope, in English. Direct commits/push to `main` are fine (solo operator; the quality gate is the `implement` reviewer + `.pandacorp/verify.sh`). Never force-push; use a throwaway branch only for big/risky changes.
@@ -65,7 +71,7 @@ Auto-invoking covers **entering** the skill only. The skill's internal human-gat
 4. UI only with design tokens from `docs/design/design-tokens.json` — zero hardcoded values. `data-testid` on interactive elements.
 5. Forbidden: `any`, `@ts-ignore`, secrets in code, homegrown auth, dependencies that violate the factory's DR-001.
 6. Decisions not covered by the documents: consult the factory registry (`factory/decisions/registry.yaml`); if it's not there, escalate to the owner.
-7. Document everything (two layers): every relevant change updates its **canonical doc** (behavior → the FRD; technical → blueprint + ADR; design → DESIGN/tokens; scope → PRD) **and** adds an entry to `docs/decision-log.md` with the why, linking the doc. See `AGENTS.md`.
+7. Document everything (two layers): every relevant change updates its **canonical doc** (behavior → the feature's `frd.md`; technical → the feature's `blueprint.md`, platform-wide → `docs/product/architecture.md` + an ADR; design → DESIGN/tokens; scope → `docs/product/prd.md`) **and** adds an entry to `docs/decision-log.md` with the why, linking the doc. See `AGENTS.md`.
 8. **Capture lessons as you work (self-learning).** When you hit something durable and reusable — a fix worth remembering, a library that worked or failed, a gotcha, a recurring pattern — in any skill or in conversation, jot a one-line candidate to `.pandacorp/run/lessons.md` (gitignored scratch; tag `(owner-stated)` if the owner said it, else `(agent-inferred)`). Don't polish it inline. The factory's `librarian` later refines these into reusable lessons that make future projects faster. Capture freely; nothing is promoted without the owner.
 
 ## Current phase

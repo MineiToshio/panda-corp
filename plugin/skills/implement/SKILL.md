@@ -24,7 +24,7 @@ The modes control the **concurrency and the models of the workflow** (how many `
 ## Resumable (don't start from scratch)
 
 Resuming is native: the workflow's state lives in the code and in the project's files.
-- **Re-launch `/pandacorp:implement`**: it re-reads `docs/work-orders/` and `.pandacorp/status.yaml` and continues from the first pending one.
+- **Re-launch `/pandacorp:implement`**: it re-walks every FRD's `docs/frds/*/work-orders/` and `.pandacorp/status.yaml` and continues from the first pending one.
 - Or **resume the run with `resumeFromRunId`**: the work orders already closed return their cached result and only the new stuff runs.
 
 Each work order is committed when it closes → progress is not lost. (The old caveat that "Agent Teams has no resume" no longer applies.)
@@ -47,7 +47,7 @@ The goal: the owner runs `implement` and leaves for hours, **without babysitting
 
 The skill authorizes **launching a dynamic workflow** with the Workflow tool. Its shape:
 
-- **State in files**: it reads `docs/work-orders/` (queue + dependencies) and `.pandacorp/status.yaml`; it writes progress right there (Mission Control reads it live).
+- **State in files**: it walks every FRD's `docs/frds/*/work-orders/` (the per-feature queues + each WO's `Dependencies`, which may cross FRDs) and `.pandacorp/status.yaml`; it writes progress right there (Mission Control reads it live).
 - **`pipeline(workOrders, build, review, verify)`** — each work order walks through the 3 stages with no barrier between items (a WO can be in *review* while another is in *build*). Concurrency and models per mode (DR-014); each `agent()` can run in its worktree (`isolation: 'worktree'`).
 - A stage that fails **throws** → freeze-on-red for free (that WO is skipped, the independent ones continue).
 - Each subagent **emits its event** to Party (`emit-event.sh`) and **writes the critical context to files**, not only returns it.
@@ -58,7 +58,7 @@ This shape already comes **scripted as a saved workflow** in each project: `.cla
 Workflow({ name: "pandacorp-build", args: { mode } })   // mode: pro | balanced | powerful | deep
 ```
 
-The script reads the queue, builds the **waves by dependencies** (parallel within the wave, barrier between waves; in `pro`, one at a time), spawns the stack subagents via `agentType` (DR-013), runs the gate and commits each WO when green. It is **app-agnostic**: it only depends on the work-order queue and the project's `verify.sh` — nothing of the product is hardcoded. For trivial projects (a single module) it uses a single `implementer`, without a pipeline.
+The script walks every FRD's `work-orders/` to collect the global queue, builds the **waves by dependencies** — intra-feature order from each feature's `work-orders/README.md`, cross-feature order from each WO's `Dependencies` (which may reference WOs in other FRDs), resolved by a topological sort over all WOs (parallel within the wave, barrier between waves; in `pro`, one at a time) — spawns the stack subagents via `agentType` (DR-013), runs the gate and commits each WO when green. It is **app-agnostic**: it only depends on the work-order queue and the project's `verify.sh` — nothing of the product is hardcoded. For trivial projects (a single module) it uses a single `implementer`, without a pipeline.
 
 ## Composition and models
 
@@ -67,7 +67,7 @@ The script reads the queue, builds the **waves by dependencies** (parallel withi
 
 ## Per-work-order loop (each pipeline item)
 
-1. **Select** the next work order per `docs/work-orders/README.md` (respect dependencies) and mark it `in-progress`.
+1. **Select** the next work order from the global queue — intra-feature order from each FRD's `docs/frds/<frd>/work-orders/README.md`, cross-feature order from each WO's `Dependencies` (topological sort over all FRDs' WOs) — and mark it `in-progress`.
 2. **build — distribute with dependencies** (orchestrated in the script, not by peer messages):
    - `backend-dev`: implements data/logic/API with TDD; publishes the contract in `docs/api.md`.
    - `frontend-dev`: starts its stage when the contract is ready; implements UI with design tokens and **consumes the `copywriter`'s strings** from the i18n resources (`docs/design/voice-and-tone.md` + keys) — zero hardcoded text or improvised "Error 500".
@@ -87,7 +87,7 @@ The script reads the queue, builds the **waves by dependencies** (parallel withi
 ## Real-time documentation (key for resuming and for Mission Control)
 
 While building, ALWAYS keep updated (Mission Control reads it live):
-- **`docs/work-orders/`**: status of each work order (`todo` → `progress` → `review` → `done`) with evidence at close. It is Mission Control's read-only view.
+- **`docs/frds/*/work-orders/`**: status of each work order (`todo` → `progress` → `review` → `done`) with evidence at close, under its FRD module. It is Mission Control's read-only view.
 - **`.pandacorp/status.yaml`**: `progress:` (one line of what is being done right now), `running`, work orders done/total.
 - **`.pandacorp/comms/progress.md`**: append-only log (what was done, decisions taken, problems). Allows resuming with no prior context.
 - **Deviations**: if something does NOT work as planned, document it in the work order and in `.pandacorp/comms/progress.md` ("this needs improvement / we changed X because Y"). Don't hide it.

@@ -20,7 +20,7 @@ Version release. Runs IN the project (requires `phase: release` in `.pandacorp/s
    - DB migrations tested (up and down) in a clean environment
    - README with what it is, how to run locally and how to deploy
    - Errors monitored (Sentry or the blueprint's equivalent) and health check active
-4. **Deploy to STAGING** (`devops` agent; DR-003: auto-approved with green CI) according to the blueprint's strategy. Smoke test over staging: the critical flows e2e against the real URL.
+4. **Deploy to STAGING** (`devops` agent; DR-003: auto-approved with green CI) according to the deploy strategy in `docs/product/architecture.md` (platform). Smoke test over staging: the critical flows e2e against the real URL.
 5. **HUMAN GATE — PRODUCTION (DR-004)**: present the owner with the summary (staging URL so they can test, audit result, production-activation costs if any — DR-005, **including the Vercel Pro warning if the version charges money — DR-035**). Trigger a push to the owner (DR-038). **Wait for their explicit approval. No exceptions.**
 6. **Deploy to production** (`devops` agent) after approval + post-deploy verification (smoke test in prod) + rollback plan ready.
 7. **Close** (living documentation, DR-018): version tag (semver), **changelog auto-generated from Conventional Commits**, ADRs up to date (propose one if the release included an unrecorded architectural change), README/user docs updated, `.pandacorp/status.yaml` → `phase: operation`, the idea's card in the factory → `status: shipped`, portfolio row updated.

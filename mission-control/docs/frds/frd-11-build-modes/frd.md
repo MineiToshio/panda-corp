@@ -13,4 +13,4 @@ Lets you choose how much power each project is built with, and shows the command
 - The `/pandacorp:implement` skill SHALL accept those modes as an argument (`pro` | `powerful` | `deep`; no argument = balanced).
 
 ## Future
-The mode will define the **team composition** (how many agents and of what role; e.g. several frontend), and **Party** ([FRD-06](frd-06-party.md)) will show the real team that is running.
+The mode will define the **team composition** (how many agents and of what role; e.g. several frontend), and **Party** ([FRD-06](../frd-06-party/frd.md)) will show the real team that is running.

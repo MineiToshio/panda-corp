@@ -10,7 +10,7 @@ The back half of the economic arc (DR-043). The factory can ship and instrument;
 
 ## Steps
 
-1. **Read the targets.** From `docs/prd.md`: the value hypothesis, the **activation milestone**, the success metrics and the **kill-signals with their numeric thresholds** (DR-043). From `.pandacorp/idea-origin.md`: the `return_type` — it decides which metric matters.
+1. **Read the targets.** From `docs/product/prd.md`: the value hypothesis, the **activation milestone**, the success metrics and the **kill-signals with their numeric thresholds** (DR-043). From `.pandacorp/idea-origin.md`: the `return_type` — it decides which metric matters.
 2. **Read the real metrics** (PostHog, the events defined in `docs/analytics/events.md`) for the window — acquisition, **activation rate** (share who reached the milestone), retention, and the return metric per `return_type`:
    - **monetary / mixed** → active users, revenue/MRR, and the **unit-economics check**: is revenue covering the per-active-user variable cost + the fixed Vercel Pro seat (the break-even from the PRD/blueprint)?
    - **opportunity** → the opportunity metric (reach/contacts/positioning gained).

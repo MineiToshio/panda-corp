@@ -72,7 +72,7 @@ The canonical doc answers *"what is true now?"*; the decision log, *"how did we 
 | Change | Owning doc |
 |---|---|
 | App behavior/feature (what it does, acceptance criteria) | the corresponding **FRD** (`docs/frds/`); new feature → new FRD |
-| Product scope/goal, metrics | the **PRD** (`docs/prd.md`) |
+| Product scope/goal, metrics | the **PRD** (`docs/product/prd.md`) |
 | Architecture, stack, data model, technical decision | the **blueprint** + an **ADR** |
 | Visual design, tokens, components | **DESIGN.md** / design tokens |
 | Plugin skill/agent/hook | the **file in `plugin/`** |
@@ -93,7 +93,7 @@ The canonical doc answers *"what is true now?"*; the decision log, *"how did we 
 
 **Three distinct things, don't mix them:** the **canonical doc** (FRD/PRD/blueprint/DESIGN/card) is the **current truth**; the **decision log** is **history**; `factory/decisions/registry.yaml` is **policy** (rules with a default). A decision that creates a rule goes to the registry *and* to the decision log; an app change goes to its FRD *and* to the decision log. For **product projects** this discipline is injected as a propagable standard (`factory/standards/documentation.md`): every project is born with its `docs/decision-log.md` and the rule in its `CLAUDE.md`/`AGENTS.md`.
 
-**Mission Control's Manual reflects the factory (DR-046).** Beyond the owning doc above, every change to the factory's **operable surface** — a new/renamed skill, agent, flow, gate, decision rule or standard — must also surface in **Mission Control's Manual** (the "Códice del gremio", [FRD-08](mission-control/docs/frds/frd-08-documentation.md)), the navigable face of this know-how. Two mechanisms keep it honest: the **Reference** catalogs (commands/agents/decision-rules/standards) are **derived** from the canonical source (plugin skill+agent frontmatter, `factory/decisions/registry.yaml`, `factory/standards/`) so a new or renamed item appears automatically — never hand-copied; the hand-authored **Guides/Concepts** (the how-to and the why) are kept in sync by this same discipline — a change to how the factory is operated updates the affected Manual page in the same change. Don't let the Manual drift from the factory. (Today it's the HTML prototype, reconciled by hand; the Next.js app derives the Reference at build time.)
+**Mission Control's Manual reflects the factory (DR-046).** Beyond the owning doc above, every change to the factory's **operable surface** — a new/renamed skill, agent, flow, gate, decision rule or standard — must also surface in **Mission Control's Manual** (the "Códice del gremio", [FRD-08](mission-control/docs/frds/frd-08-documentation/frd.md)), the navigable face of this know-how. Two mechanisms keep it honest: the **Reference** catalogs (commands/agents/decision-rules/standards) are **derived** from the canonical source (plugin skill+agent frontmatter, `factory/decisions/registry.yaml`, `factory/standards/`) so a new or renamed item appears automatically — never hand-copied; the hand-authored **Guides/Concepts** (the how-to and the why) are kept in sync by this same discipline — a change to how the factory is operated updates the affected Manual page in the same change. Don't let the Manual drift from the factory. (Today it's the HTML prototype, reconciled by hand; the Next.js app derives the Reference at build time.)
 
 ## Rules for this folder
 

@@ -14,4 +14,4 @@ Read-only view of what is configured in the factory, with the agents' identity a
 - The content is read from the factory plugin (`plugin/skills`, `plugin/agents`, `factory/decisions/registry.yaml`, `factory/standards/`); it is **read-only** — to edit, you do it in the files / Claude Code.
 
 ## Note
-The agents' level/XP is an honest representation of real work (work orders completed), part of the gamification layer ([FRD-09](frd-09-gamification.md)).
+The agents' level/XP is an honest representation of real work (work orders completed), part of the gamification layer ([FRD-09](../frd-09-gamification/frd.md)).

@@ -1,6 +1,6 @@
 # FRD-14 — Probable snapshot and feedback channels
 
-What Mission Control shows to operate an unattended build: which is the last **probable** (testable) point, what is being built right now, and the channels to feed it feedback without stopping. Derived from [docs/proposals/07-unattended-build.md](../../../docs/proposals/07-unattended-build.md). Read-only.
+What Mission Control shows to operate an unattended build: which is the last **probable** (testable) point, what is being built right now, and the channels to feed it feedback without stopping. Derived from [docs/proposals/07-unattended-build.md](../../../../docs/proposals/07-unattended-build.md). Read-only.
 
 ## Acceptance criteria (EARS)
 
@@ -15,4 +15,4 @@ What Mission Control shows to operate an unattended build: which is the last **p
 - Mission Control does NOT run `git worktree` nor start the dev server: it shows the command for the owner to run (read-only). In the future there could be a button that assembles it, but it remains the operator's action.
 
 ## Relationship
-It complements Party ([FRD-06](frd-06-party.md)) and the work orders ([FRD-05](frd-05-work-orders.md)). The state is written by the project's gate script, not the agent (see `factory/standards/infra.md`).
+It complements Party ([FRD-06](../frd-06-party/frd.md)) and the work orders ([FRD-05](../frd-05-work-orders/frd.md)). The state is written by the project's gate script, not the agent (see `factory/standards/infra.md`).

@@ -6,7 +6,7 @@ with first-class **light mode and dark mode**, an **RPG aesthetic with honest
 gamification**, and accessibility rigor. The owner is weak at design: your job is to make sure
 they don't have to be. **Research before designing.**
 
-Run this work **inside `mission-control/`** (that's where `docs/prd.md` and `docs/frds/` are,
+Run this work **inside `mission-control/`** (that's where `docs/product/prd.md` and `docs/frds/` are,
 so the `/pandacorp:design` precondition is already met).
 
 ## ⚠️ Rules that override everything else
@@ -231,7 +231,7 @@ Document 3–5 references with links and why each pattern applies to Mission Con
 - `mission-control/prototype/index.html` — a reference **only for functionality/content/
   screens/states** (NOT for visual design, see rule ⚠️1).
 - `mission-control/PARTY.md` — the state and indicator model of the RPG map.
-- `mission-control/docs/prd.md` and `mission-control/docs/frds/` (all of them; especially **FRD-06** Mission
+- `mission-control/docs/product/prd.md` and `mission-control/docs/frds/` (all of them; especially **FRD-06** Mission
   Control, **FRD-09** gamification, **FRD-10** achievements hall, **FRD-12**
   observability/data-viz, **FRD-13** visual system and accessibility — remembering that
   its "warm Anthropic palette" line is relaxed by the owner's decision, but

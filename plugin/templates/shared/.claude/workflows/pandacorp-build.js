@@ -51,8 +51,8 @@ const PLAN_SCHEMA = {
         properties: {
           id: { type: 'string' },
           summary: { type: 'string' },
-          deps: { type: 'array', items: { type: 'string' }, description: 'ids that must be green first' },
-          frd: { type: 'string' },
+          deps: { type: 'array', items: { type: 'string' }, description: 'ids that must be green first (may live in another FRD)' },
+          frd: { type: 'string', description: 'the FRD folder this WO lives under, e.g. frd-03-<slug>' },
         },
       },
     },
@@ -77,10 +77,11 @@ const VERIFY_SCHEMA = {
 phase('Plan')
 const plan = await agent(
   `You are the Pandacorp build planner. Read the project state WITHOUT modifying anything:
-  - docs/work-orders/README.md and docs/work-orders/*.md → the queue, its order and dependencies.
+  - WALK every FRD module: docs/frds/*/work-orders/README.md (each feature's WO list + intra-feature order + parallelism) and docs/frds/*/work-orders/wo-*.md → the global queue and dependencies. Work orders are PER-FEATURE (under their FRD), not in a single global docs/work-orders/.
+  - Each work order's "Dependencies" may reference WOs in OTHER FRDs. Resolve the global execution order by a topological sort over all WOs' dependencies (cross-feature), with the intra-feature order from each feature's work-orders/README.md.
   - .pandacorp/status.yaml → what is already green (do not rebuild it).
-  - docs/blueprint.md → the chosen stack.
-  Return the PENDING work orders in dependency order, each with its deps (ids of work orders that must be green first).${ONLY ? ' Limit to these ids: ' + ONLY.join(', ') + '.' : ''}
+  - docs/product/architecture.md → the platform stack; each feature's docs/frds/<frd>/blueprint.md for feature-specific build design.
+  Return the PENDING work orders in global dependency order, each with its deps (ids of work orders that must be green first, possibly in another FRD) and its frd (the FRD folder, e.g. frd-03-<slug>).${ONLY ? ' Limit to these ids: ' + ONLY.join(', ') + '.' : ''}
   hasFrontend=true only if the stack is web (A). trivial=true if it is a single module with no back/front split.`,
   { label: 'plan', phase: 'Plan', schema: PLAN_SCHEMA, model: P.judge, agentType: 'pandacorp:architect' }
 )
@@ -130,7 +131,7 @@ async function review(wo) {
 }
 
 async function verifyWO(wo) {
-  return await agent(`Safe point for work order ${wo.id}: run .pandacorp/verify.sh clean. If it passes (green), commit the work order (Conventional Commits with scope), mark the WO 'done' with evidence in docs/work-orders/, and write last_green_sha (the commit sha) and safe_to_test: true in .pandacorp/status.yaml. If it does NOT pass, return green=false with the reason and DO NOT commit anything. Never commit mid-work-order.`,
+  return await agent(`Safe point for work order ${wo.id}: run .pandacorp/verify.sh clean. If it passes (green), commit the work order (Conventional Commits with scope), mark the WO 'done' with evidence in its feature module docs/frds/${wo.frd || '<frd>'}/work-orders/, and write last_green_sha (the commit sha) and safe_to_test: true in .pandacorp/status.yaml. If it does NOT pass, return green=false with the reason and DO NOT commit anything. Never commit mid-work-order.`,
     { label: `verify:${wo.id}`, phase: 'Verify', model: P.worker, agentType: 'pandacorp:implementer', schema: VERIFY_SCHEMA })
 }
 

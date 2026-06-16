@@ -10,17 +10,24 @@ Every relevant change —app behavior, scope, architecture, design— is documen
 
    | Change | Owner doc |
    |---|---|
-   | App behavior/feature (what it does, EARS criteria) | the corresponding **FRD** in `docs/frds/`; new feature → new FRD |
-   | Product scope/objective, success metrics | the **PRD** (`docs/prd.md`) |
-   | Architecture, stack, data model, technical decision | the **blueprint** (`docs/blueprint.md`) + an **ADR** in `docs/adr/` |
-   | Visual design, tokens, components | **`DESIGN.md`** / `docs/design/design-tokens.json` |
+   | App behavior/feature (what it does, EARS criteria) | the corresponding **FRD** `docs/frds/frd-NN-<slug>/frd.md`; new feature → new FRD module |
+   | Product scope/objective, success metrics | the **PRD** (`docs/product/prd.md`) |
+   | Platform architecture, stack, data model, cross-cutting | **`docs/product/architecture.md`** + an **ADR** in `docs/adr/` |
+   | Feature implementation design (how THIS feature is built) | that feature's **`docs/frds/frd-NN-<slug>/blueprint.md`** (large → `blueprints/` folder) |
+   | Visual design — global tokens, components, voice | **`DESIGN.md`** (root) / `docs/design/design-tokens.json` (the product design system = the PDD) |
+   | Feature UI design (screens, interaction of a UI feature) | that feature's **`docs/frds/frd-NN-<slug>/fdd.md`** |
    | Progress state (what is done) | `.pandacorp/status.yaml` — written by skills/CI, **not by hand** |
+
+   Structure (feature-centric, the FRD as a self-contained module) and the stable-ID convention (`REQ-NN-MMM → AC-NN-MMM.K → CMP/IF-NN-<slug> → WO-NN-MMM`) are defined in [structure.md](structure.md) (DR-049).
 
 2. **Decision log (the history) — `MUST`.** An entry is added to `docs/decision-log.md`: date, *what*, *why*, and a link to the canonical doc that was touched (*Impact* field). Most recent on top.
 
 The canonical doc answers *"what is true now?"*; the decision log, *"how did we get here and why?"*. The doc alone loses the why; the decision log alone leaves the doc outdated. That is why **both** go together.
 
 **Do not log** trivial changes already evident in the commit (renaming a variable, formatting). **Do log** every decision or change of behavior, scope, technical, or design.
+
+### Source-of-truth hierarchy (which doc wins on conflict)
+When two docs disagree, the higher one wins and the lower one is corrected: **`FRD > FDD > design-tokens > blueprint > work order`**. Discoveries during build propagate **upstream** in that order — a behavior change updates the FRD, a visual/copy change the FDD, an architecture change the blueprint, a scope/paths change the WO — never only the lower doc. Every `blueprint.md` and work order restates this hierarchy in its header so the implementer never has to guess.
 
 ### Decision log vs. other docs (don't confuse them)
 - **`docs/decision-log.md`** = durable history of decisions/changes across the WHOLE cycle (including post-launch). The why behind the current state.

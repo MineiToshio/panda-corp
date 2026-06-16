@@ -13,7 +13,7 @@ A page of achievements that are also **stats that grow**, with a date and projec
 - The names SHALL be fun and scale in grandeur by tier (e.g. Products shipped: The first brick → Master builder → The architect → The digital magnate → The factory oracle).
 
 ## Detail
-Full list of stats, thresholds, tier names and unique achievements in [mission-control/docs/achievements.md](../achievements.md).
+Full list of stats, thresholds, tier names and unique achievements in [mission-control/docs/achievements.md](../../achievements.md).
 
 ## Future
 Meta-achievements (titled, displayable Seals), a "New" badge for 7 days after unlocking, estimated rarity (Common→Legendary).

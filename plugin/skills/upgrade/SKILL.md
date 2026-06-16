@@ -8,7 +8,7 @@ Brings this project's Pandacorp overlay up to the factory's current version. The
 
 ## How it decides
 
-- **Project version**: `overlay_version` in `.pandacorp/status.yaml`. A pre-6.0.0 project has no `.pandacorp/` and no `overlay_version` → treat it as the oldest (it needs the structural migration).
+- **Project version**: `overlay_version` in `.pandacorp/status.yaml`. A pre-6.0.0 project has no `.pandacorp/` and no `overlay_version` → treat it as the oldest (it needs the overlay-relocation migration). A pre-DR-049 project (overlay ≥ 6.0.0 but with the old **by-type** `docs/` layout — flat `docs/frds/frd-NN.md`, global `docs/blueprint.md`, global `docs/work-orders/`, `docs/prd.md` at the root of `docs/`) additionally needs the **feature-centric docs migration** (step 2b).
 - **Target version**: `${CLAUDE_PLUGIN_ROOT}/templates/OVERLAY_VERSION`.
 - **In sync** (`overlay_version` == target) → say so and do nothing (idempotent).
 - **Behind** → upgrade. **Compatible** bumps (same MAJOR) apply **silently** (DR-048) and you only see the commit; a **MAJOR** jump (breaking — a moved/renamed field or path) is **announced first** with the diff, never applied blind.
@@ -17,13 +17,21 @@ Brings this project's Pandacorp overlay up to the factory's current version. The
 
 1. **Detect the gap.** Read the project's `overlay_version` (absent = pre-6.0.0 layout) and the plugin's `OVERLAY_VERSION`. If in sync, stop ("already on overlay X").
 
-2. **Structural migration (pre-6.0.0 → 6.0.0+).** If the project still has the OLD layout, move the integration layer into `.pandacorp/` (use `git mv` where tracked to preserve history):
+2. **Overlay-relocation migration (pre-6.0.0 → 6.0.0+).** If the project still has the OLD layout, move the integration layer into `.pandacorp/` (use `git mv` where tracked to preserve history):
    - `docs/status.yaml` → `.pandacorp/status.yaml`
    - `docs/iteration.md` → `.pandacorp/comms/iteration.md`; `docs/summary.md` → `.pandacorp/comms/summary.md`; `docs/progress.md` → `.pandacorp/comms/progress.md`; `docs/activity.md` → `.pandacorp/comms/activity.md`
    - `docs/decisions.md` → `.pandacorp/inbox/decisions.md`; `docs/bugs/` → `.pandacorp/inbox/bugs/`
    - `docs/idea-origin.md` → `.pandacorp/idea-origin.md`
-   - **STAY in `docs/` (product)**: `decision-log.md`, `prd.md`, `frds/`, `blueprint.md`, `adr/`, `work-orders/`, `design/`, `reviews/`, `product-research.md`.
+   - **STAY in `docs/` (product)**: `decision-log.md`, `prd.md`, `frds/`, `blueprint.md`, `adr/`, `work-orders/`, `design/`, `reviews/`, `product-research.md` (the feature-centric migration in step 2b then reshapes these).
    - Update the project's `.gitignore`: add `.pandacorp/comms/`, `.pandacorp/inbox/`, `.pandacorp/run/`; drop the old `docs/{summary,progress,decisions,iteration,activity}.md` ignores.
+
+2b. **Feature-centric docs migration (pre-DR-049 by-type → feature-centric).** If the project still has the old by-type `docs/` shape, reshape it into the feature-centric layout (DR-049 — see `factory/standards/structure.md`). Use `git mv` where tracked; preserve the stable IDs (`REQ-NN-MMM`, `AC-NN-MMM.K`, `WO-NN-MMM`) — numbers never change, only their location:
+   - **Product layer**: `docs/prd.md` → `docs/product/prd.md`; `docs/product-research.md` → `docs/product/research.md`. Add a living **feature-landscape** table to `prd.md` if absent (one row per FRD module).
+   - **FRD modules**: each flat `docs/frds/frd-NN-<slug>.md` → its own module folder `docs/frds/frd-NN-<slug>/frd.md`. Per-feature design (if the project had a separate per-feature FDD) → `frd-NN-<slug>/fdd.md`; feature mocks → `frd-NN-<slug>/mocks/`. The global design system (`docs/design/`) stays GLOBAL — never split it per feature.
+   - **Blueprint split**: the global `docs/blueprint.md` is split — the **platform** parts (stack, data model, deploy, cross-cutting, service boundaries) → `docs/product/architecture.md`; each **per-feature** implementation section → that feature's `docs/frds/frd-NN-<slug>/blueprint.md` (referencing `product/architecture.md`). When the per-feature split isn't cleanly separable, keep the bulk in `architecture.md` and add thin per-feature `blueprint.md` files that point to it; don't fabricate detail.
+   - **Work orders**: distribute the global `docs/work-orders/wo-NN-MMM-*.md` into their FRD's folder by their `NN` prefix → `docs/frds/frd-NN-<slug>/work-orders/`, each with a per-FRD `work-orders/README.md` (intra-feature order + parallelism). Cross-feature order continues to come from each WO's `Dependencies`.
+   - **Unchanged**: `docs/design/` (the global PDD), `docs/adr/`, `docs/analytics/events.md`, `docs/decision-log.md`, `docs/reviews/` — these stay where they are.
+   - Fix internal cross-links broken by the moves (PRD↔FRD, WO→FRD/blueprint references) so they still resolve.
 
 3. **Regenerate the managed layer (non-destructive).**
    - **`.pandacorp/guide.md` and `.pandacorp/README.md`**: regenerate ENTIRELY from the current template (fully managed — no merge), substituting the template vars from `.pandacorp/status.yaml` + factory paths.
@@ -32,14 +40,14 @@ Brings this project's Pandacorp overlay up to the factory's current version. The
    - **`AGENTS.md`**: reconcile the durable-conventions block (write-gate, paths) with the template; keep project-specific additions.
    - **`status.yaml`**: set `overlay_version` to the target. For `created_with` (immutable — the version the project was BORN on): keep it if present; for a project migrated from a pre-6.0.0 layout, set it to `pre-6.0.0` (it was not born on the current overlay).
 
-4. **Bump + record.** Set `overlay_version` to the target in `.pandacorp/status.yaml`. Add a `docs/decision-log.md` entry: "Pandacorp overlay upgraded `<old>` → `<new>`".
+4. **Bump + record.** Set `overlay_version` to the target in `.pandacorp/status.yaml`. Add a `docs/decision-log.md` entry: "Pandacorp overlay upgraded `<old>` → `<new>`"; if step 2b ran, note the feature-centric docs migration (DR-049) and that it was a pure relocation (IDs preserved, no behavior changed).
 
-5. **Commit on its own**: `chore: upgrade pandacorp overlay <old> → <new>` (moved files + machinery + managed layer). Do NOT mix product changes into this commit.
+5. **Commit on its own**: `chore: upgrade pandacorp overlay <old> → <new>` (moved files + machinery + managed layer + any DR-049 docs relocation from step 2b). Do NOT mix product *behavior* changes into this commit — the docs migration is a structural move, not a content rewrite.
 
 6. **Report** (in Spanish): what moved, what was regenerated, and the new version. If a MAJOR jump required a manual decision, surface it explicitly.
 
 ## Rules
 - **Compatible (same MAJOR) = silent** (DR-048): apply and commit without interrupting; the owner sees it via the commit. **MAJOR = announce** the breaking parts + diff before applying.
 - **Never clobber the owner's content**: managed files (`guide.md`, `README.md`, machinery) regenerate whole; `CLAUDE.md`/`AGENTS.md` merge by managed-section, the owner's notes stay.
-- Touch only the overlay/integration layer — never product code or product docs (`docs/`).
+- Touch only the overlay/integration layer — never product **code**, and never rewrite the **content** of product docs. The one exception is the DR-049 **feature-centric docs migration** (step 2b): a one-time structural *relocation* of `docs/` files (moves + link fixes, IDs preserved), never a content rewrite. A MAJOR overlay jump that carries this migration is announced first like any breaking change.
 - Idempotent: re-running when already in sync is a no-op.
