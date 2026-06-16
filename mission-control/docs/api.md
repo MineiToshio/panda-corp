@@ -122,7 +122,7 @@ Key format: `mc:build-mode:<slug>`. One key per project slug. Values are plain `
 
 - **Read-only**: `rememberMode` writes ONLY to `localStorage`. No `fs.writeFileSync`, no `status.yaml` touch (architecture §7, REQ-01-011).
 - **No magic strings**: `BUILD_MODES` in `lib/constants.ts` is the single source of truth for commands and mode ids.
-- **`BUILD_MODES` is frozen**: `Object.freeze()` at runtime; `readonly` at the TypeScript type level. Any `.push()` throws.
+- **`BUILD_MODES` is deep-frozen**: `Object.freeze()` on both the outer array and every entry object at runtime; `readonly` at the TypeScript type level. Any `.push()` throws; any `BUILD_MODES[n].id = "…"` throws in strict mode (ESM files are always strict).
 - **Client-only**: `lib/build-mode-store.ts` carries `"use client"` — it is never imported server-side.
 - **Never throws**: both functions are unconditionally throw-safe.
 

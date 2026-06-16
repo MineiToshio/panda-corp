@@ -30,34 +30,40 @@ export interface BuildModeInfo {
 
 /**
  * Ordered catalog of build modes (AC-11-001.1 — Pro, Balanced, Powerful, Deep).
- * Frozen to enforce the readonly invariant at runtime.
+ * Deep-frozen: Object.freeze on both the outer array and every entry object so that
+ * BUILD_MODES[n].id = "…" throws in strict mode (ESM files are strict by default).
+ * This ensures the catalog remains the single source of truth with no mutable singletons.
  */
-export const BUILD_MODES: readonly BuildModeInfo[] = Object.freeze([
-  {
-    id: "pro",
-    label: "buildModes.pro.label",
-    description: "buildModes.pro.description",
-    command: "/pandacorp:implement pro",
-  },
-  {
-    id: "balanced",
-    label: "buildModes.balanced.label",
-    description: "buildModes.balanced.description",
-    command: "/pandacorp:implement",
-  },
-  {
-    id: "powerful",
-    label: "buildModes.powerful.label",
-    description: "buildModes.powerful.description",
-    command: "/pandacorp:implement powerful",
-  },
-  {
-    id: "deep",
-    label: "buildModes.deep.label",
-    description: "buildModes.deep.description",
-    command: "/pandacorp:implement deep",
-  },
-] as const satisfies BuildModeInfo[]);
+export const BUILD_MODES: readonly BuildModeInfo[] = Object.freeze(
+  (
+    [
+      {
+        id: "pro",
+        label: "buildModes.pro.label",
+        description: "buildModes.pro.description",
+        command: "/pandacorp:implement pro",
+      },
+      {
+        id: "balanced",
+        label: "buildModes.balanced.label",
+        description: "buildModes.balanced.description",
+        command: "/pandacorp:implement",
+      },
+      {
+        id: "powerful",
+        label: "buildModes.powerful.label",
+        description: "buildModes.powerful.description",
+        command: "/pandacorp:implement powerful",
+      },
+      {
+        id: "deep",
+        label: "buildModes.deep.label",
+        description: "buildModes.deep.description",
+        command: "/pandacorp:implement deep",
+      },
+    ] as const satisfies BuildModeInfo[]
+  ).map((m) => Object.freeze(m)),
+);
 
 /** Default mode when no choice has been persisted (AC-11-001.3). */
 export const DEFAULT_BUILD_MODE: BuildMode = "balanced";
