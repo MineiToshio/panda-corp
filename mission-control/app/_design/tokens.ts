@@ -43,6 +43,7 @@ export interface ElevationLevel {
 }
 
 export interface MotionTokens {
+  [key: string]: unknown;
   duration: Record<string, number>;
   easing: Record<string, string>;
 }

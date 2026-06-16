@@ -691,3 +691,170 @@ describe("frd-13 IF-13-state-vocab: STATE_BADGE icon identifier format", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Regression guards for the three fail-open holes found in the 2nd review
+// (DR-015 adversarial findings — B1', I2, I3 from wo-13-001-review.md)
+//
+// These tests are the permanent RED-phase anchors for the three bugs:
+//   B1' — NaN duration bypasses the <300ms comparison (typeof NaN === "number")
+//   I2  — empty {} and array [] for motion.duration validate vacuously
+//   I3  — positional array for motion.easing passes the 2–3 count check via Object.keys
+//
+// Each test was written to fail against the pre-fix code (the code frozen at
+// last_green_sha=0c980d7) and pass only after the correct guard is in place.
+// ---------------------------------------------------------------------------
+
+describe("frd-13 (adversarial — B1'/I2/I3): motion fail-open guards", () => {
+  // --- B1': Number.isFinite guard on motion.duration values ---
+
+  it("frd-13: WHEN motion.duration.fast is NaN THEN validation fails — NaN must not bypass the <300ms gate (B1', AC-13-005.1)", () => {
+    // Regression anchor: `typeof NaN === "number"` is true and `NaN >= 300` is false,
+    // so without an explicit `Number.isFinite` check the validator silently accepts NaN.
+    // This is the exact fail-open class the B1' fix must close.
+    const bad = structuredClone(VALID_TOKENS);
+    (bad.motion.duration as Record<string, unknown>).fast = Number.NaN;
+    const result = validateTokenSchema(bad);
+    expect(result.valid).toBe(false);
+    // The error must mention the specific key AND indicate the non-finite issue.
+    expect(
+      result.errors.some((e) => /duration/.test(e) && /fast/.test(e)),
+      "Expected an error naming motion.duration.fast as the invalid entry",
+    ).toBe(true);
+  });
+
+  it("frd-13: WHEN motion.duration.expressive is Infinity THEN validation fails — Infinity is not a valid duration (B1', AC-13-005.1)", () => {
+    // Regression anchor: +Infinity passes `typeof value === "number"` and `Infinity >= 300`
+    // is true so it would be caught by the >= 300 check — BUT only if the guard checks
+    // the correct inequality. Pinned here so a Number.isFinite fix doesn't accidentally
+    // regress the Infinity path (the two cases are distinct: NaN slips through, Infinity
+    // hits the >= 300 branch; both must be rejected).
+    const bad = structuredClone(VALID_TOKENS);
+    (bad.motion.duration as Record<string, unknown>).expressive = Number.POSITIVE_INFINITY;
+    const result = validateTokenSchema(bad);
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some((e) => /duration/.test(e) && /expressive/.test(e)),
+      "Expected an error naming motion.duration.expressive as the invalid entry",
+    ).toBe(true);
+  });
+
+  it("frd-13: WHEN motion.duration is -Infinity THEN validation fails — negative infinity is not a finite duration (B1', AC-13-005.1)", () => {
+    // Third non-finite variant: -Infinity satisfies `typeof value === "number"` and
+    // `-Infinity >= 300` is false — same fail-open class as NaN.
+    const bad = structuredClone(VALID_TOKENS);
+    (bad.motion.duration as Record<string, unknown>).base = Number.NEGATIVE_INFINITY;
+    const result = validateTokenSchema(bad);
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some((e) => /duration/.test(e) && /base/.test(e)),
+      "Expected an error naming motion.duration.base as the invalid entry",
+    ).toBe(true);
+  });
+
+  // --- I2: motion.duration must be a non-array plain object with at least one entry ---
+
+  it("frd-13: WHEN motion.duration is an empty object {} THEN validation fails — vacuous truth must not satisfy AC-13-005.1 (I2)", () => {
+    // Regression anchor: Object.entries({}) is [], so the for-loop never runs and the
+    // "all <300ms" constraint is satisfied trivially. The theme/animation layer downstream
+    // reads motion.duration.fast|base|expressive — an empty map leaves it with nothing.
+    const bad = structuredClone(VALID_TOKENS);
+    (bad.motion as Record<string, unknown>).duration = {};
+    const result = validateTokenSchema(bad);
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some((e) => /motion\.duration/.test(e)),
+      "Expected an error on motion.duration when the map is empty",
+    ).toBe(true);
+  });
+
+  it("frd-13: WHEN motion.duration is an array [] THEN validation fails — arrays are not valid token maps (I2, AC-13-005.1)", () => {
+    // Regression anchor: an array passes `typeof value === 'object'` and
+    // `Object.entries([])` is empty — same vacuous-truth path as {}.
+    // Easing tokens are referenced by name, not by position; an array masquerades as a
+    // plain object and breaks the downstream contract.
+    const bad = structuredClone(VALID_TOKENS);
+    (bad.motion as Record<string, unknown>).duration = [];
+    const result = validateTokenSchema(bad);
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some((e) => /motion\.duration/.test(e)),
+      "Expected an error on motion.duration when the value is an array",
+    ).toBe(true);
+  });
+
+  it("frd-13: WHEN motion.duration is a non-empty array THEN validation fails — positional arrays are not named token maps (I2)", () => {
+    // Regression anchor: [150, 200, 280] has Object.entries returning ["0":150, "1":200, ...]
+    // so numeric keys pass the typeof-number check and all values satisfy <300ms — fully
+    // valid appearance, but the downstream CSS consumer reads `motion.duration.fast`, not
+    // `motion.duration["0"]`.
+    const bad = structuredClone(VALID_TOKENS);
+    (bad.motion as Record<string, unknown>).duration = [150, 200, 280];
+    const result = validateTokenSchema(bad);
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some((e) => /motion\.duration/.test(e)),
+      "Expected an error on motion.duration when the value is a non-empty array",
+    ).toBe(true);
+  });
+
+  // --- I3: motion.easing must be a plain object, not a positional array ---
+
+  it("frd-13: WHEN motion.easing is an array of length 2 THEN validation fails — Object.keys(array) passes the 2–3 count check falsely (I3, AC-13-005.1)", () => {
+    // Regression anchor: Object.keys(["a","b"]).length === 2, which passes the "2–3 easings"
+    // rule even though the array elements are positional ("0", "1"), not named tokens.
+    // Downstream code reads `motion.easing.standard` — an array silently breaks it.
+    const bad = structuredClone(VALID_TOKENS);
+    (bad.motion as Record<string, unknown>).easing = [
+      "cubic-bezier(0.4, 0, 0.2, 1)",
+      "cubic-bezier(0, 0, 0.2, 1)",
+    ];
+    const result = validateTokenSchema(bad);
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some((e) => /motion\.easing/.test(e)),
+      "Expected an error on motion.easing when the value is a positional array of length 2",
+    ).toBe(true);
+  });
+
+  it("frd-13: WHEN motion.easing is an array of length 3 THEN validation fails — the 2–3 count alone must not be sufficient (I3, AC-13-005.1)", () => {
+    // Same class as the length-2 case; length-3 also exactly satisfies the count rule.
+    // Tests that the array guard fires before (and independently of) the count check.
+    const bad = structuredClone(VALID_TOKENS);
+    (bad.motion as Record<string, unknown>).easing = [
+      "cubic-bezier(0.4, 0, 0.2, 1)",
+      "cubic-bezier(0, 0, 0.2, 1)",
+      "cubic-bezier(0.34, 1.56, 0.64, 1)",
+    ];
+    const result = validateTokenSchema(bad);
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some((e) => /motion\.easing/.test(e)),
+      "Expected an error on motion.easing when the value is a positional array of length 3",
+    ).toBe(true);
+  });
+
+  it("frd-13: WHEN motion.easing is an empty array THEN validation fails — empty arrays are not valid easing maps (I3)", () => {
+    // Degenerate case: [] has Object.keys length 0, which would fail the count check
+    // (0 < 2) — but only if the typeof-plus-array check fires first. Tests that the
+    // array guard does not depend on the count path being reached.
+    const bad = structuredClone(VALID_TOKENS);
+    (bad.motion as Record<string, unknown>).easing = [];
+    const result = validateTokenSchema(bad);
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some((e) => /motion\.easing/.test(e)),
+      "Expected an error on motion.easing when the value is an empty array",
+    ).toBe(true);
+  });
+
+  // --- Regression: the three fixes must not break the happy path ---
+
+  it("frd-13: WHEN motion.duration and motion.easing are both valid plain objects THEN validation passes (guards do not over-reject)", () => {
+    // Pin the happy path so that a fix to the guards does not accidentally flip the
+    // validator into always-invalid for the correct input.
+    const result = validateTokenSchema(VALID_TOKENS);
+    expect(result.valid).toBe(true);
+    expect(result.errors.filter((e) => /motion/.test(e))).toHaveLength(0);
+  });
+});

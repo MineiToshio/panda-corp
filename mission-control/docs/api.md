@@ -1208,8 +1208,9 @@ interface ElevationLevel {
 }
 
 interface MotionTokens {
-  duration: Record<string, number>;  // ms values, all < 300
-  easing: Record<string, string>;    // 2–3 entries, CSS cubic-bezier strings
+  [key: string]: unknown;
+  duration: Record<string, number>;  // ms values, all < 300; must be a non-array plain object with ≥1 entry
+  easing: Record<string, string>;    // named token map (not an array); 2–3 entries, CSS cubic-bezier strings
 }
 
 interface TokenSchema {
@@ -1248,8 +1249,10 @@ contract. Returns actionable errors — each string names the failing path and t
 | All 10 canonical agent roles in `agents` | `agents.<role>: canonical agent role "<role>" is missing` |
 | `elevation` is array of exactly 3 items | `elevation: must have exactly 3 levels, found N` |
 | `radius`, `spacing`, `hairline` present | `<key>: required spacing-scale token is missing` |
-| All `motion.duration.*` values are numbers (ms) | `motion.duration.<key>: must be a number (ms), got <type>` |
+| `motion.duration` is a non-array plain object with ≥1 entry | `motion.duration: must be a plain object (token map), not an array or primitive` / `motion.duration: must declare at least one duration token` |
+| All `motion.duration.*` values are **finite** numbers (ms) — NaN/±Infinity rejected | `motion.duration.<key>: must be a finite number (ms), got NaN/Infinity` |
 | All `motion.duration.*` values < 300ms | `motion.duration.<key>: duration Nms violates the <300ms constraint` |
+| `motion.easing` is a non-array plain object | `motion.easing: must be a plain object (named token map), not an array or primitive` |
 | `motion.easing` has 2–3 entries | `motion.easing: must have 2–3 easing tokens, found N` |
 
 **Return:** `{ valid: true, errors: [] }` on success; `{ valid: false, errors: string[] }` on failure.
