@@ -6,6 +6,8 @@
 
 > **Product documentation (source of truth):** `docs/product/prd.md` + `docs/frds/` (per-FRD modules `frd-NN-<slug>/frd.md`; FRD-01 through FRD-13: reading, board, portfolio, workspace, work orders, Party RPG, configuration, documentation, gamification, achievements hall, build modes, **observability/data-viz**, **visual system and accessibility**) + `docs/achievements.md`. The navigable prototype (`prototype/index.html`) is the approved design. This PLAN is the **build sequence**; for any scope question, the FRDs rule. **UX reinforcements (2026 research, `../docs/proposals/06-improvement-plan-2026.md`):** persistent per-agent color reused across sprites+feed+kanban, failure as a first-class state, `tabular-nums`, rationed accent, few-token OKLCH theme, motion <300ms with `prefers-reduced-motion`, feed follow-tail+pin+cap, Live Pulse, RPG↔timeline toggle, KPIs ≤5 (FRD-12/FRD-13). Pending: formal blueprint (stack/architecture) derived from the FRDs.
 
+> **Status note (2026-06-16).** This PLAN predates the current factory machinery and is now a **historical input**, not the source of truth — the FRDs (`docs/frds/`) and the upcoming `docs/product/architecture.md` + per-FRD `blueprint.md` (from `/pandacorp:blueprint`) rule for any scope or sequencing question. Two specifics it gets wrong because Mission Control lives **inside** the factory repo: (1) there is **no `git init`** and no own repo — MC shares the factory's `.git`, so build commits land in the factory repo with the `mission-control` scope; (2) the "next command" table below (and the `new-idea→documented…` note in the Ideas criterion) uses the **old idea-status model**, whereas the unified model is `discovered → recommended → in-pipeline → shipped|discarded` with the middle columns derived from `.pandacorp/status.yaml.phase`. The `.pandacorp/` overlay and build machinery already exist (materialized 2026-06-16). Scope v1 = the PRD's (FRD-01 through FRD-18), not the "three panels" framing below.
+
 ## Goal (what "done" means)
 
 A local web app at `http://127.0.0.1:3000` with three panels over real factory data, and `.pandacorp/verify.sh` green. Global acceptance criteria:
@@ -69,7 +71,7 @@ The UI shows, next to the command, the folder path (with its own copy button) so
   pnpm tsc --noEmit
   pnpm vitest run --reporter=dot
   ```
-- [ ] Minimal `CLAUDE.md` that includes the word "Pandacorp" (activates the factory hooks) and describes the project. `git init -b main`, initial commit.
+- [ ] `CLAUDE.md` already exists (materialized by the overlay; includes "Pandacorp" → activates the factory hooks). **No `git init`** — MC shares the factory's `.git`; the initial commit lands in the factory repo with the `mission-control` scope.
 
 ### Phase 1 — Reading layer (tests first)
 - [ ] `lib/ideas.ts`: reads and parses the cards (title, status, score, type, slug, body). Test with fixtures.
