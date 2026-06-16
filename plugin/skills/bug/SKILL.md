@@ -6,6 +6,8 @@ description: Reports a bug found while testing a Pandacorp project. You describe
 
 The channel to **report a bug** without stopping the build or setting anything up in Mission Control. You run it in the project folder, tell it the bug in plain language, and the skill leaves it noted in the **inbox** `docs/bugs/`. The `/pandacorp:implement` that is running picks it up at its next safe point (end of work order) and fixes it with a regression test.
 
+> **Preflight (DR-045) — is this a Pandacorp project?** This skill writes to the project's `docs/`, so first confirm the Pandacorp marker: `docs/status.yaml` exists **and** `CLAUDE.md` contains `Origin — Pandacorp`. If it's missing, STOP and tell the owner (in Spanish) that this folder isn't a factory project yet — `/pandacorp:adopt` brings an existing project in, `/pandacorp:spec` creates a new one. Don't proceed or invent docs over a missing structure.
+
 `$ARGUMENTS` (or the conversation): the description of the bug (e.g.: `/pandacorp:bug "the save button does nothing when you press enter"`).
 
 ## Steps

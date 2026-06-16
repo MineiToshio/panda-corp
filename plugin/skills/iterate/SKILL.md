@@ -6,6 +6,8 @@ description: Adds a feature or a change to a Pandacorp project at any time (buil
 
 Continuous iteration mechanism. Runs IN the project. `$ARGUMENTS` (or the conversation): what you want to add/change (a new FRD, an adjustment like "sort the list", a fix).
 
+> **Preflight (DR-045) — is this a Pandacorp project?** This skill mutates the project, so first confirm the Pandacorp marker: `docs/status.yaml` exists **and** `CLAUDE.md` contains `Origin — Pandacorp`. If it's missing, STOP and tell the owner (in Spanish) that this folder isn't a factory project yet — `/pandacorp:adopt` brings an existing project in, `/pandacorp:spec` creates a new one. Don't proceed or invent docs over a missing structure.
+
 ## Steps
 
 1. **Understand the change** and its context (read PRD, FRDs and current state). If it is ambiguous, ask the minimum.

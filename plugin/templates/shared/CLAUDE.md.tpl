@@ -10,6 +10,31 @@ A **Pandacorp** factory project. The whole lifecycle is managed with the `/panda
 - ALL of this product's documentation lives HERE in `docs/` — never in the factory
 - Project status: `docs/status.yaml` (the factory reads it for its portfolio; keep it current)
 
+## How changes are made — work through the skills
+
+Changes to this project go through the `/pandacorp:*` skills, not ad-hoc free-chat edits. A skill keeps the process honest: two-layer documentation (canonical doc + `docs/decision-log.md`), `docs/status.yaml`, FRDs/work-orders, TDD and review. A free-chat edit skips all of that and the docs/state drift out of sync.
+
+**Pragmatic frontier — what needs a skill and what doesn't:**
+
+| Do directly (no skill) | Go through a skill |
+|---|---|
+| Read, explain, debug, answer questions | Change app **behavior** (a feature, a fix that alters what the app does) |
+| Micro non-product edits: a typo in a comment, local config, a throwaway experiment | Touch a **canonical doc**: PRD, FRD, blueprint, ADR, `DESIGN.md`/tokens |
+| | Change **state**: `docs/status.yaml`, work-orders |
+
+**The agent routes automatically.** When the owner asks for a change, classify it and **invoke the right skill, telling them which one** — do not ask permission to enter the skill:
+
+| What the owner asks | Skill |
+|---|---|
+| "add this feature" / "change this behavior" | `/pandacorp:iterate` |
+| "I found this bug while testing" | `/pandacorp:bug` |
+| "I decide X" (on a pending point) | `/pandacorp:decide` |
+| big package / redesign | `/pandacorp:new-version` |
+
+Auto-invoking covers **entering** the skill only. The skill's internal human-gates stay intact: deploying to production, spending money, deleting data or external communications still stop and ask for the owner's OK.
+
+**Working without the plugin (forks & clones).** The `/pandacorp:*` skills and hooks live in the owner's Claude install (the pandacorp plugin), NOT in this repo. If you cloned or forked only this project and don't have the plugin, the skills simply aren't there — and that's fine: **this repo is fully workable on its own.** Follow `AGENTS.md` by hand — TDD, and when you change behavior update the matching FRD in `docs/frds/` and add an entry to `docs/decision-log.md`. The skills are the *assisted* path, never a lock on contributing.
+
 ## Documentation map
 
 | What | Where |

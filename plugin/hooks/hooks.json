@@ -11,6 +11,17 @@
             "statusMessage": "Pandacorp safety gate"
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/warn-adhoc-write.sh\"",
+            "timeout": 10,
+            "statusMessage": "Pandacorp write-gate"
+          }
+        ]
       }
     ],
     "Stop": [

@@ -23,6 +23,8 @@ User request → this AGENTS.md → the project documents in `docs/` → languag
 
 **Documentation (two layers)**: every relevant change updates its **canonical doc** —behavior → the corresponding FRD (`docs/frds/`); technical → `docs/blueprint.md` + an ADR; design → `DESIGN.md`/tokens; scope → `docs/prd.md`— **and** adds an entry to `docs/decision-log.md` (date, what, why, link to the doc). The canonical doc is the current truth; the decision log is the history. A behavior change is not done without its updated FRD and its log entry. Standard: the factory's `documentation.md`.
 
+**Changes through skills (write-gate)**: WITH the pandacorp plugin, changes that touch app behavior, a canonical doc (PRD/FRD/blueprint/ADR/DESIGN) or state (`docs/status.yaml`, work-orders) flow through the `/pandacorp:*` skills — the *assisted* path that keeps the two layers, status, work-orders, TDD and review honest. Exempt (do directly): reading/debugging and micro non-product edits (a typo, local config, a throwaway experiment). When the owner asks for a change, classify it and auto-invoke the right skill, announcing it (behavior → `iterate`; bug found testing → `bug`; a decision → `decide`; big package → `new-version`); auto-invoking enters the skill only — its internal human-gates (production, money, delete, external comms) still ask. WITHOUT the plugin (a fork/clone of just this repo) the skills aren't available — apply the same discipline by hand: when you change behavior, update the matching FRD + `docs/decision-log.md`. Detail in the project `CLAUDE.md`.
+
 ## This project's stack
 Defined in `docs/blueprint.md` (chosen and approved in the architecture phase). See concrete versions and services there.
 

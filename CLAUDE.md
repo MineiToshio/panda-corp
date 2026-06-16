@@ -25,6 +25,7 @@ This repo is **the factory**: the company's know-how. Product code NEVER lives h
 | Search the internet for monetizable pains | `/pandacorp:discover` |
 | Ask for an idea ranking/recommendation | `/pandacorp:recommend` |
 | Create the project and document an idea's MVP (handoff) | `/pandacorp:spec <idea>` |
+| Adopt an EXISTING external project (brownfield) — run inside it | `/pandacorp:adopt` |
 | Sync the portfolio and detect moved cards | `/pandacorp:sync-portfolio` |
 
 `/pandacorp:spec <idea>` is the **handoff**: it is run FROM the factory with the idea's name, creates the project folder/repo and documents the MVP (research + PRD + FRDs).
@@ -44,6 +45,8 @@ Optional/internal: `:new-version` (large milestone with a mini-PRD), `:scaffold`
 ## Plugin maintenance
 
 The plugin is installed from this repo's local marketplace (`claude plugin install pandacorp@panda-corp`, user scope). **After editing anything in `plugin/`**: (1) **bump the version** in `plugin/.claude-plugin/plugin.json` per semver (see below); (2) commit; (3) run `claude plugin update pandacorp@panda-corp` (the changes apply on session restart). Validate with `claude plugin validate plugin/`.
+
+**Skill naming convention.** Every skill lives at `plugin/skills/<kebab-slug>/SKILL.md` (slug in English, kebab-case, **NO `pandacorp:` prefix**) and is invoked as `/pandacorp:<slug>` — the namespace prefix is automatic. The `SKILL.md` body H1 is `# /pandacorp:<slug>`. Never hardcode the prefix in the directory name or in a `name:` frontmatter field; every skill is reached uniformly as `/pandacorp:<slug>` (e.g. `plugin/skills/review-launch/` → `/pandacorp:review-launch`). The rule is also enforced in the `learn` skill (skill-authoring).
 
 **Plugin versioning (semver, DR-034).** The plugin carries a `version` in `plugin/.claude-plugin/plugin.json` (source of truth) and **is bumped on every change** to `plugin/`:
 - **PATCH** (`x.y.Z`) — fix, adjustment or doc that doesn't change the behavior of skills/agents.

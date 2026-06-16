@@ -6,6 +6,8 @@ description: Prepares and executes the release of a Pandacorp project - security
 
 Version release. Runs IN the project (requires `phase: release` in `docs/status.yaml`).
 
+> **Preflight (DR-045) — is this a Pandacorp project?** This skill mutates the project, so first confirm the Pandacorp marker: `docs/status.yaml` exists **and** `CLAUDE.md` contains `Origin — Pandacorp`. If it's missing, STOP and tell the owner (in Spanish) that this folder isn't a factory project yet — `/pandacorp:adopt` brings an existing project in, `/pandacorp:spec` creates a new one. Don't proceed or invent docs over a missing structure.
+
 ## Steps
 
 1. **Security audit** (`security-auditor` agent): essential web OWASP + **OWASP Top 10 for Agentic Applications** (ASI01–ASI10, DR-017) if the product has agents/LLMs with tools. Critical/high findings block the release — they are fixed (via fast work orders + review) before continuing.

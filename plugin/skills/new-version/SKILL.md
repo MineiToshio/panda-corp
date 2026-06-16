@@ -6,6 +6,8 @@ description: Groups a large batch of changes into a formal milestone (v2, v3…)
 
 New iteration of an existing project. Runs IN the project. `$ARGUMENTS`: what the owner wants to achieve with this version (or ask them).
 
+> **Preflight (DR-045) — is this a Pandacorp project?** This skill mutates the project, so first confirm the Pandacorp marker: `docs/status.yaml` exists **and** `CLAUDE.md` contains `Origin — Pandacorp`. If it's missing, STOP and tell the owner (in Spanish) that this folder isn't a factory project yet — `/pandacorp:adopt` brings an existing project in, `/pandacorp:spec` creates a new one. Don't proceed or invent docs over a missing structure.
+
 ## Steps
 
 1. **Context**: read `docs/status.yaml`, `docs/prd.md` (backlog of future versions), accumulated feedback/operation and the existing FRDs.
