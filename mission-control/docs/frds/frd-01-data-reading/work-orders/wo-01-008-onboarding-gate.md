@@ -35,11 +35,13 @@
 
 ## Status
 
-- [x] **DONE** — 2026-06-16
+- [x] **DONE** — 2026-06-16 (fixes applied 2026-06-16, commit 94e7867)
 
 **Evidence:**
-- `bash .pandacorp/verify.sh` → `✅ all gates green (biome + tsc + vitest)` — 310 tests passed (13 test files), 0 type errors, 0 lint errors.
+- `bash .pandacorp/verify.sh` → `✅ all gates green (biome + tsc + vitest)` — 891 tests passed (32 test files), 0 type errors, 0 lint errors.
 - `components/OnboardingGate.test.tsx` — 15 tests, all GREEN (TDD RED→GREEN).
+- `components/OnboardingGate.gaps.test.tsx` — supplemental gap coverage (GAP-1 through GAP-6), biome lint fixed (B-1: `\-` → `-`).
+- `app/layout.guard.test.tsx` — 8 mutation-killing tests invoking the real `RootLayout` against a temp `PANDACORP_FACTORY_ROOT` (B-2: kills inverted-guard, always-gate, always-children mutants; asserts read-only invariant).
 - Implementation: `components/OnboardingGate.tsx` (Server Component, zero hardcoded colors, CSS custom properties, Spanish copy, data-testid on all significant elements, CopyButton reused).
 - `app/layout.tsx` updated: calls `readProfile()` at load time; if `{ present: false }` → `<OnboardingGate />`; else → children.
-- Commit: 461d04c.
+- Commits: 461d04c (impl), 1320fd0 (tests + api.md), 94e7867 (reviewer fixes B-1 + B-2).

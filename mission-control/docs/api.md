@@ -1155,3 +1155,11 @@ rendering, copy affordance, accessibility, content contracts, layout guard helpe
 - GAP-4: hint text about reloading after configuration
 - GAP-5: zero hardcoded color values in inline styles
 - GAP-6: guard typed against the real `ProfileResult` discriminated union from `lib/profile.ts`
+
+`app/layout.guard.test.tsx` (jsdom, vitest) — 8 mutation-killing tests:
+Invokes the real `RootLayout` from `app/layout.tsx` against a temp `PANDACORP_FACTORY_ROOT`.
+- Profile absent → `<OnboardingGate />` rendered, children absent.
+- Profile present (valid, empty, malformed) → children rendered, gate absent.
+- `<html lang="es">` invariant (DR-009).
+- Read-only invariant: absent profile is not created on layout render (REQ-01-011).
+Kills: inverted-guard mutant, always-gate mutant, always-children mutant.
