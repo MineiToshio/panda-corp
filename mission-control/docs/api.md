@@ -33,7 +33,78 @@
 > **complete for WO-04-003** (IF-04-next-step `workspaceCommands`/`CommandRow`, `lib/next-step.ts` extension) +
 > **complete for WO-17-001** (IF-17-memory `readLessons`/`candidateLessons`/`promotionQueue`/`prunable`, `lib/memory.ts`) +
 > **complete for WO-05-001** (IF-05-work-orders `listWorkOrders`/`aggregateProgress`, `lib/work-orders.ts`) +
-> **complete for WO-02-006** (CMP-02-intake-modal, `components/IntakeModal.tsx`).
+> **complete for WO-02-006** (CMP-02-intake-modal, `components/IntakeModal.tsx`) +
+> **complete for WO-13-005** (CMP-13-state-badge `StateBadge`, `components/StateBadge.tsx`) +
+> **complete for WO-02-007** (CMP-02-card-detail `CardDetail`, `components/CardDetail.tsx`).
+
+---
+
+## WO-02-007: `components/CardDetail.tsx` — idea card detail + docs navigator (CMP-02-card-detail)
+
+**Component:** `components/CardDetail.tsx`
+**Kind:** `"use client"` React component
+**Traces:** CMP-02-card-detail; REQ-02-004, REQ-02-008; AC-02-004.1, AC-02-008.1
+**Depends on:** WO-02-002 (`CopyButton`), WO-02-003 (`nextStep`), WO-01-006 (`readProjectDocs` / `ProjectDocsIndex`)
+**Consumed by:** `app/board/page.tsx` (rendered when the owner clicks a card)
+**Read-only:** no writes, no fs calls, no Claude calls. All data arrives as props.
+
+### Props
+
+```ts
+import type { IdeaStatus } from "@/lib/ideas";
+import type { Phase } from "@/lib/status";
+import type { ProjectDocsIndex } from "@/lib/docs";
+
+export interface CardDetailProps {
+  /** Filename without .md — uniquely identifies the card. */
+  slug: string;
+  /** Frontmatter `title` field. */
+  title: string;
+  /** Frontmatter `status` field — validated IdeaStatus union. */
+  status: IdeaStatus;
+  /** Markdown body (summary + key points). Rendered via react-markdown. */
+  body: string;
+  /** Project phase from linked project's status.yaml (in-pipeline only). */
+  phase?: Phase;
+  /** DR-032: true when a skill finished a phase and is awaiting "ok, advance". */
+  advancePending?: boolean;
+  /** Result of readProjectDocs(card.project). Null/undefined when no project or docs. */
+  docsIndex?: ProjectDocsIndex | null;
+}
+```
+
+### Rendered structure (`data-testid`)
+
+| `data-testid` | Element | When present |
+|---|---|---|
+| `card-detail` | `<section>` root | Always |
+| `card-detail-summary` | `<div>` | Always — markdown body via react-markdown |
+| `card-detail-docs-nav` | `<nav>` | Only when `docsIndex` has at least one navigable entry |
+| `card-detail-docs-nav-item` | `<li>` | One per navigable entry (prd, architecture, frds[], adr, analytics, decision-log, comms.progress, comms.decisions, comms.bugs[]) |
+| `card-detail-next-step` | `<section>` | Always — shows `nextStep()` result + `CopyButton` |
+| `copy-button` | `<button>` | Always — from `CopyButton` component (WO-02-002) |
+
+### Behaviour
+
+- Calls `nextStep({ cardStatus: status, phase, advancePending })` on every render (pure, no side effects).
+- Markdown body headings (`h1`–`h6`) are remapped to `<p><strong>` inside the summary to avoid heading-role conflicts with the component's own `<h2>` title.
+- The docs navigator is shown **only** when `docsIndex` is non-null and `buildNavEntries(docsIndex)` returns at least one entry (AC-02-008.1 edge: null or empty index → no navigator, no crash).
+- No hardcoded color values — all styles use CSS custom properties (`--color-*`, `--spacing`, `--radius`, `--hairline`).
+- `aria-label` in Spanish on root (`"Detalle de idea: <title>"`), `<nav>` (`"Documentos del proyecto"`), and next-step section (`"Siguiente comando"`).
+
+### `buildNavEntries(docsIndex)` — nav entry ordering
+
+```
+1. prd (if docsIndex.prd)
+2. architecture (if docsIndex.architecture)
+3. one entry per docsIndex.frds[] (slug as label)
+4. adr (if docsIndex.hasAdr)
+5. analytics (if docsIndex.hasAnalytics)
+6. decision-log (if docsIndex.hasDecisionLog)
+7. progress (if docsIndex.comms.progress)
+8. decisions (if docsIndex.comms.decisions)
+9. one entry per docsIndex.comms.bugs[] (filename as label)
+```
 
 ---
 
