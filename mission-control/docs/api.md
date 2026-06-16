@@ -30,7 +30,9 @@
 > **complete for WO-16-001** (IF-16-scan `resolveProjectsPath`/`listProjectFolders`, `lib/orphans.ts`) +
 > **complete for WO-04-001** (IF-04-docs `listProjectDocs`/`readDoc`, `lib/docs.ts` additions) +
 > **complete for WO-04-002** (IF-04-docs `readActivityLog`/`readDecisions`, `lib/docs.ts` comms readers) +
-> **complete for WO-17-001** (IF-17-memory `readLessons`/`candidateLessons`/`promotionQueue`/`prunable`, `lib/memory.ts`).
+> **complete for WO-04-003** (IF-04-next-step `workspaceCommands`/`CommandRow`, `lib/next-step.ts` extension) +
+> **complete for WO-17-001** (IF-17-memory `readLessons`/`candidateLessons`/`promotionQueue`/`prunable`, `lib/memory.ts`) +
+> **complete for WO-05-001** (IF-05-work-orders `listWorkOrders`/`aggregateProgress`, `lib/work-orders.ts`).
 
 ---
 

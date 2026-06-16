@@ -36,6 +36,116 @@ import type { IdeaStatus } from "./ideas";
 import type { Phase } from "./status";
 
 // ---------------------------------------------------------------------------
+// WO-04-003 — CommandRow type and workspaceCommands (IF-04-next-step)
+// ---------------------------------------------------------------------------
+
+/**
+ * A single row in the Commands tab: the command to copy and a description of
+ * when to use it. (IF-04-next-step, REQ-04-005, AC-04-005.1)
+ */
+export interface CommandRow {
+  /** The /pandacorp:* command string the owner should copy and run. */
+  command: string;
+  /** Human-readable description of when to use this command (Spanish, UI-facing). */
+  when: string;
+}
+
+// ---------------------------------------------------------------------------
+// Building-phase command rows (implementation / release)
+// ---------------------------------------------------------------------------
+
+const BUILDING_ROWS: readonly CommandRow[] = [
+  {
+    command: "/pandacorp:implement",
+    when: "Continúa o reanuda la construcción del proyecto",
+  },
+  {
+    command: "/pandacorp:release",
+    when: "Cuando todos los work orders estén listos para lanzar",
+  },
+  {
+    command: "/pandacorp:iterate",
+    when: "Agrega un FRD, ajusta o corrige algo en el proyecto",
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Operation-phase command rows
+// ---------------------------------------------------------------------------
+
+const OPERATION_ROWS: readonly CommandRow[] = [
+  {
+    command: "/pandacorp:iterate",
+    when: "Itera sobre el proyecto: agrega, ajusta o corrige",
+  },
+  {
+    command: "/pandacorp:new-version",
+    when: "Comienza un nuevo hito o versión mayor del proyecto",
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Early-phase delegation map (FRD-02 base, single next-step command per phase)
+// ---------------------------------------------------------------------------
+
+/** Labels describing when to use each early-phase command (Spanish). */
+const EARLY_PHASE_WHEN: Readonly<Record<Phase, string>> = {
+  product: "Ejecuta el diseño del producto",
+  design: "Crea el blueprint de arquitectura",
+  architecture: "Inicia la implementación del proyecto",
+  // Building / operation phases are NOT in this delegation path.
+  // These entries are present only to satisfy the Record<Phase, …> constraint;
+  // workspaceCommands handles implementation / release / operation directly.
+  implementation: "Continúa o reanuda la construcción",
+  release: "Completa el lanzamiento",
+  operation: "Itera o revisa el lanzamiento",
+};
+
+// Fallback row for unknown / undefined phases (regression B1', I3).
+const FALLBACK_ROW: CommandRow = {
+  command: "/pandacorp:spec <idea>",
+  when: "Crea la spec del proyecto antes de comenzar",
+};
+
+/**
+ * Map a project phase to the stage-relevant command rows shown in the
+ * Commands tab (REQ-04-005, AC-04-005.1, IF-04-next-step).
+ *
+ * Pure: no I/O, no writes, no network, no side effects. Never throws.
+ * Same input → same output every time (deterministic).
+ *
+ * @param phase - The project phase from `.pandacorp/status.yaml`. Runtime
+ *   callers may pass undefined (B1', I3 regressions) — handled safely.
+ * @returns A non-empty CommandRow[] with at least one row. Never returns
+ *   an empty array.
+ */
+export function workspaceCommands(phase: Phase): CommandRow[] {
+  // --- Building phases: implement + release + iterate ---
+  if (phase === "implementation" || phase === "release") {
+    return [...BUILDING_ROWS];
+  }
+
+  // --- Operation phase: iterate + new-version ---
+  if (phase === "operation") {
+    return [...OPERATION_ROWS];
+  }
+
+  // --- Early phases: delegate to FRD-02 base map (single next-step command) ---
+  // This covers: product, design, architecture.
+  if (phase === "product" || phase === "design" || phase === "architecture") {
+    // Delegate to FRD-02 PHASE_COMMANDS for the command string.
+    const command = PHASE_COMMANDS[phase];
+    const when = EARLY_PHASE_WHEN[phase];
+    return [{ command, when }];
+  }
+
+  // --- Unknown / undefined phase (regression B1', I3) ---
+  // Never throw; return a safe, non-misleading fallback. Never return a
+  // building-phase command for an unrecognised phase (would be misleading).
+  return [{ ...FALLBACK_ROW }];
+}
+
+// ---------------------------------------------------------------------------
 // Types (exported — consumed by FRD-02 card detail, FRD-03/04)
 // ---------------------------------------------------------------------------
 
