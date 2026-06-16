@@ -114,7 +114,18 @@ export function useKeyboardNav({
 
   // Dual-track state: ref for immediate imperative access; state for React renders.
   const indexRef = useRef<number>(safeInitial);
-  const [selectedIndex, setSelectedIndex] = useState<number>(safeInitial);
+  const [rawIndex, setRawIndex] = useState<number>(safeInitial);
+
+  // Render-time clamp: if count shrinks and rawIndex now points past the end,
+  // clamp to the new last valid index. This fixes the runtime desync (I1 / B1-F2):
+  // the ref is seeded once; without this clamp, selectedIndex can exceed count-1
+  // after a dynamic list shrinks (stale ref), causing aria-activedescendant to
+  // reference a nonexistent item and leaving no item aria-selected.
+  const selectedIndex = count === 0 ? -1 : Math.min(rawIndex, count - 1);
+
+  // Keep the ref in sync with the clamped value so the next keyDown handler
+  // starts from the correct position (not from the stale out-of-bounds rawIndex).
+  indexRef.current = selectedIndex;
 
   // Stable id prefix — strip React's ":" characters so the id is a valid HTML id.
   const idPrefix = useMemo(() => `nav-item-${instanceId.replace(/:/g, "")}`, [instanceId]);
@@ -172,7 +183,7 @@ export function useKeyboardNav({
 
       // 3. Schedule a React re-render for full ARIA consistency (aria-selected on items,
       //    aria-activedescendant on the container).
-      setSelectedIndex(next);
+      setRawIndex(next);
     },
     [count, wrap, idPrefix],
   );

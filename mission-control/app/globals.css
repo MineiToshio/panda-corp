@@ -153,6 +153,16 @@ html {
   border-radius: var(--radius);
 }
 
+/* Opt-in focus-ring utility class (AC-13-008.1 / WO-13-003 CMP-13-a11y-primitives).
+ * For elements that need the ring outside :focus-visible context (e.g. programmatic
+ * focus, custom components). Mirrors the :focus-visible rule so the class produces
+ * an identical, border-radius-respecting ring. FOCUS_RING_CLASS = "focus-ring". */
+.focus-ring {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
 /* ---------------------------------------------------------------------------
  * Reduced-motion override (AC-13-006.1)
  * "The UI SHALL honor prefers-reduced-motion: it disables ALL Party animation."

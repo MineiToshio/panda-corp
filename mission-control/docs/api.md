@@ -64,9 +64,9 @@ export const FOCUS_RING_CLASS = "focus-ring" as const;
 | Constant | Value | CSS effect | AC |
 |---|---|---|---|
 | `TABULAR_NUMS_CLASS` | `"tabular-nums"` | `font-variant-numeric: tabular-nums` (Tailwind built-in) | AC-13-003.1 |
-| `FOCUS_RING_CLASS` | `"focus-ring"` | `:focus-visible { outline: var(--focus-ring); }` from `globals.css` (WO-13-002) | AC-13-008.1 |
+| `FOCUS_RING_CLASS` | `"focus-ring"` | `.focus-ring { outline: var(--focus-ring); outline-offset: 2px; border-radius: var(--radius); }` — explicit opt-in class in `globals.css` (WO-13-002 + WO-13-003 fix-B1); mirrors the global `:focus-visible` rule so elements with `className={FOCUS_RING_CLASS}` get an identical border-radius-respecting ring. | AC-13-008.1 |
 
-Rules: both non-empty strings, never `undefined`; `TABULAR_NUMS_CLASS !== FOCUS_RING_CLASS`; no inline styles — class-driven only (FRD-13 §3).
+Rules: both non-empty strings, never `undefined`; `TABULAR_NUMS_CLASS !== FOCUS_RING_CLASS`; no inline styles — class-driven only (FRD-13 §3). `FOCUS_RING_CLASS` maps to a real CSS rule (review B1 closed).
 
 ---
 
@@ -130,9 +130,9 @@ export function useKeyboardNav(options: KeyboardNavOptions): KeyboardNavResult;
 
 **ARIA:** `role="listbox"` + `tabIndex=0` on container (Tab-reachable); `aria-activedescendant` points to active item id; `aria-selected="true"` on active item. Stable item ids scoped per `useId()` instance — prototype-key-safe.
 
-**Edge cases:** `count=0` → `selectedIndex=-1`, no throw; out-of-bounds `initialIndex` clamped; `count=1` + `wrap=true` → no cycle; 1100 events on 1000-item list → clamped, never NaN.
+**Edge cases:** `count=0` → `selectedIndex=-1`, no throw; out-of-bounds `initialIndex` clamped; `count=1` + `wrap=true` → no cycle; 1100 events on 1000-item list → clamped, never NaN. **Runtime count shrink** (review I1 closed): if `count` decreases between renders and the stored index now exceeds `count-1`, `selectedIndex` is clamped to `count-1` on the same render — `aria-activedescendant` never references a nonexistent item id.
 
-**Performance:** dual-track design (ref + state). Event handler updates `data-selected` and `aria-activedescendant` imperatively on the container element (bypasses reconciler) AND calls `setState` for ARIA-item consistency. `getItemProps` and `listProps` are memoized.
+**Performance:** dual-track design (ref + state). Internal `rawIndex` state is clamped to `count-1` at render time to produce the exported `selectedIndex`; the ref is kept in sync with the clamped value so the next keyDown handler starts from the correct position. Event handler updates `data-selected` and `aria-activedescendant` imperatively on the container element (bypasses reconciler for the hot path) AND calls `setRawIndex` for ARIA-item consistency on the next React render. `getItemProps` and `listProps` are memoized.
 
 ---
 
