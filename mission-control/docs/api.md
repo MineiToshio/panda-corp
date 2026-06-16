@@ -23,7 +23,155 @@
 > **complete for WO-03-001** (IF-03-activeProjects, `lib/portfolio.ts` → `activeProjects()`) +
 > **complete for WO-12-001** (IF-12-topn `topN`, IF-12-freshness `freshness`, `app/_observability/selectors/`) +
 > **complete for WO-12-002** (IF-12-kpis `deriveKpis`, `app/_observability/selectors/kpis.ts`) +
-> **complete for WO-11-001** (IF-11-modes `BUILD_MODES`/`DEFAULT_BUILD_MODE`, IF-11-mode-store `getRememberedMode`/`rememberMode`).
+> **complete for WO-11-001** (IF-11-modes `BUILD_MODES`/`DEFAULT_BUILD_MODE`, IF-11-mode-store `getRememberedMode`/`rememberMode`) +
+> **complete for WO-15-001** (IF-15-sync `readInstalledSha`/`readPluginHeadSha`/`readPluginDirty`, `lib/plugin-sync.ts`).
+
+---
+
+## WO-15-001: `lib/plugin-sync.ts` — installed SHA, plugin HEAD SHA, dirty readers
+
+**Module:** `lib/plugin-sync.ts`
+**Traces:** IF-15-sync; REQ-15-001 (uncommitted changes), REQ-15-002 (installed SHA behind), REQ-15-005 (read-only invariant); AC-15-001.1..5
+**Dependencies:** `lib/config.ts` (FRD-01, shipped — `PANDACORP_FACTORY_ROOT`, `resolveFactoryRoot`)
+**Consumed by:** WO-15-002 (`getPluginSyncState` verdict), WO-15-003 (route handler)
+
+### IF-15-sync — `lib/plugin-sync.ts`
+
+```ts
+// lib/plugin-sync.ts
+
+/**
+ * Parse <claudeHome>/plugins/installed_plugins.json and return the gitCommitSha
+ * of the pandacorp@panda-corp entry.
+ *
+ * Critical invariant (architecture §4.7): reads ONLY gitCommitSha, NEVER the
+ * semver `version` field. The version can match while the SHA is behind.
+ *
+ * @param claudeHome - Absolute path to the user's ~/.claude directory.
+ * @returns The gitCommitSha string, or null on any failure (AC-15-001.2).
+ *          Never throws.
+ */
+export function readInstalledSha(claudeHome: string): string | null;
+
+/**
+ * Return the 40-char hex SHA of the most recent git commit touching plugin/
+ * in the factory repo, via `git log -1 --format=%H -- plugin/`.
+ *
+ * Uses execFileSync arg-array form (no shell) — read-only git verb (REQ-15-005).
+ *
+ * @param factoryRoot - Absolute path to the factory git repo root.
+ * @returns 40-char hex SHA, or null when: not a git repo, git unavailable,
+ *          plugin/ was never touched, or any other error. Never throws (AC-15-001.4).
+ */
+export function readPluginHeadSha(factoryRoot: string): string | null;
+
+/**
+ * Return true when `git status --porcelain -- plugin/` has any output (staged,
+ * unstaged, or untracked files under plugin/).
+ *
+ * Uses execFileSync arg-array form (no shell) — read-only git verb (REQ-15-005).
+ *
+ * @param factoryRoot - Absolute path to the factory git repo root.
+ * @returns true if plugin/ has uncommitted changes; false when clean, when not
+ *          a git repo, or on any error. Never throws (AC-15-001.5).
+ */
+export function readPluginDirty(factoryRoot: string): boolean;
+```
+
+### Installed-plugins JSON shape (inspected 2026-06-16, Claude install version 2)
+
+```json
+{
+  "version": 2,
+  "plugins": {
+    "pandacorp@panda-corp": [
+      {
+        "scope": "user",
+        "installPath": "...",
+        "version": "7.1.0",
+        "installedAt": "...",
+        "lastUpdated": "...",
+        "gitCommitSha": "a95037f84c041bf3e24a0f8a9c907fab97de1554"
+      }
+    ]
+  }
+}
+```
+
+`readInstalledSha` locates `plugins["pandacorp@panda-corp"][0].gitCommitSha` and returns it only when it is a non-empty string. The `version` field (`"7.1.0"`) is never read or returned.
+
+### Defensive contract — `readInstalledSha`
+
+| Input condition | Result |
+|---|---|
+| Valid file, `pandacorp@panda-corp` entry with `gitCommitSha` | Returns the SHA string |
+| File absent | `null` |
+| Malformed JSON | `null` |
+| No `pandacorp@panda-corp` key | `null` |
+| Entry array is empty | `null` (regression I2: empty-collection vacuous truth) |
+| `gitCommitSha` field absent | `null` |
+| `gitCommitSha` is empty string | `null` |
+| `gitCommitSha` is a number (e.g. `0`) | `null` (regression B1': numeric type does not pass string guard) |
+| Entry is not an array but a plain object | `null` or SHA (no throw; regression I3: array-shaped guard) |
+| `claudeHome` does not exist on disk | `null` |
+
+### Defensive contract — `readPluginHeadSha`
+
+| Input condition | Result |
+|---|---|
+| Valid git repo, plugin/ has commits | 40-char hex SHA string |
+| Valid git repo, plugin/ never touched | `null` (git log returns empty output) |
+| Not a git repo | `null` |
+| `factoryRoot` does not exist | `null` |
+| git not available | `null` |
+
+### Defensive contract — `readPluginDirty`
+
+| Input condition | Result |
+|---|---|
+| plugin/ has modified tracked files | `true` |
+| plugin/ has staged changes | `true` |
+| plugin/ has untracked new files | `true` |
+| plugin/ is fully clean | `false` |
+| Changes only outside plugin/ | `false` (scoped to `-- plugin/`) |
+| Not a git repo | `false` (not throw — unknown does NOT raise alarm, REQ-15-005) |
+| `factoryRoot` does not exist | `false` |
+
+### Architecture invariants
+
+- **Read-only:** zero writes. `execFileSync` is called with read-only git verbs only (`git log -1`, `git status --porcelain`). No `git checkout`, `git add`, `git commit`, or any write verb.
+- **No shell injection:** both `execFileSync` calls use the arg-array form — the binary and arguments are passed as a `string[]`, never concatenated into a shell string.
+- **Never throws:** all three functions catch every error and degrade to `null`/`false`.
+- **No semver comparison:** the invariant "compare `gitCommitSha`, never `version`" is enforced by the code — `version` is not read from the entry object.
+- **No `simple-git` dependency:** two `execFileSync` calls are sufficient; adding a dependency for two read-only commands would violate the trimmed stack (architecture §2).
+- **Deterministic:** given the same inputs (same file, same git state), always returns the same output.
+
+### Regression anchors (from `lib/plugin-sync.test.ts` header)
+
+| Anchor | Risk | Guard |
+|---|---|---|
+| **B1' (2026-06-16)** | `gitCommitSha: 0` — numeric value passes `typeof !== "undefined"` but not `typeof !== "string"` | `extractSha` checks `typeof sha !== "string"` before returning |
+| **I2 (2026-06-16)** | `"pandacorp@panda-corp": []` — empty array, `[0]` access returns `undefined` | Explicit `entry.length === 0` guard before array access |
+| **I3 (2026-06-16)** | Entry is a plain object rather than an array | `!Array.isArray(entry)` branch handles it; returns SHA or `null`, never throws |
+
+### Consumption (downstream work orders)
+
+- **WO-15-002** (`getPluginSyncState`): calls all three readers, composes the `PluginSyncState` verdict (`drift`, `reason`, `detail`). Passes `homeDir()` as `claudeHome` and `resolveFactoryRoot()` as `factoryRoot`.
+- **WO-15-003** (`app/api/plugin-sync/route.ts`): calls `getPluginSyncState()` and returns the verdict as JSON. Node runtime, `force-dynamic`.
+- **WO-15-004** (`components/plugin-sync-banner.tsx`): polls the route handler, renders only when `drift === true`.
+
+### Test coverage
+
+`lib/plugin-sync.test.ts` — 30 tests across 6 groups (vitest, Node environment, no mocks — real temp git repos and temp dirs):
+
+| Group | ACs covered |
+|---|---|
+| AC-15-001.1 — valid fixture returns `gitCommitSha` | 40-char SHA, first-element pick, abbreviated SHA |
+| AC-15-001.2 — null on missing/malformed/absent | Missing file, malformed JSON, no key, nonexistent claudeHome, empty array (I2), absent field, empty string, numeric SHA (B1'), object entry (I3) |
+| AC-15-001.3 — never returns semver version | SHA returned when both present; null returned when only version present |
+| AC-15-001.4 — `readPluginHeadSha` from real temp git repo | 40-char SHA, deterministic, non-repo → null, nonexistent → null, no-plugin-commit → null, second commit updates SHA |
+| AC-15-001.5 — `readPluginDirty` uncommitted changes | Modified file → true, untracked → true, clean → false, non-repo → false, nonexistent → false, outside plugin → false, staged → true |
+| REQ-15-005 — read-only invariant | claudeHome not modified, git working tree not modified by `readPluginHeadSha`, git working tree not modified by `readPluginDirty` |
 
 ---
 
