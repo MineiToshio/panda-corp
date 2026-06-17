@@ -5,9 +5,9 @@ slug: registry
 title: 'WO-07-003 — `lib/registry.ts`: read decision rules'
 status: DRAFT
 parent: FRD-07
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-17'
 ---
 # WO-07-003 — `lib/registry.ts`: read decision rules
 
@@ -38,4 +38,42 @@ Implement `readDecisionRules()` in `lib/registry.ts`: parse `factory/decisions/r
 ## Definition of done
 - `pnpm vitest run lib/registry.test.ts` green; tsc + biome clean; no `any`/`@ts-ignore`.
 - `.pandacorp/verify.sh` passes.
+
+## Status Note
+
+**Built:** `lib/registry.ts` — `readDecisionRules()` pure reader for
+`factory/decisions/registry.yaml`. Parses `decisiones[]` into typed `DecisionRule[]`.
+No hand-copied list (DR-046). Read-only — zero writes.
+
+**Interface/contract exposed (`IF-07-registry`):**
+```ts
+// lib/registry.ts
+export type DecisionRule = {
+  id: string;
+  patron: string;
+  default: string;
+  requiereHumano: boolean;
+  nota?: string;
+};
+
+export function readDecisionRules(): DecisionRule[];
+// Never throws. Missing/unparseable YAML → [].
+// Reads from resolveFactoryRoot() (PANDACORP_FACTORY_ROOT override for tests).
+```
+
+**Integration seams:**
+- Reads `factory/decisions/registry.yaml` via `resolveFactoryRoot()` from `lib/config.ts` (FRD-01).
+- Uses `yaml` package (`parse`) already in the dependency graph (architecture §2).
+- Consumed next by: `CMP-07-rules-list` / `CMP-07-rule-detail` (WO-07-008) and `lib/reference.ts` (FRD-08 Manual).
+- The `requiereHumano` boolean directly drives the auto-approves (●) / asks-you (●) indicator in the UI.
+
+**Test file:** `lib/registry.test.ts` — 33 tests covering all five ACs:
+- AC-07-003.1: field mapping (id/patron/default/nota) for all four fixture entries.
+- AC-07-003.2: `requiereHumano` true/false/absent→false, never throws.
+- AC-07-003.3: extra unknown YAML keys tolerated; not exposed on returned shape.
+- AC-07-003.4: missing file → `[]`, unparseable YAML → `[]`, empty file → `[]`,
+  missing `decisiones` key → `[]`, non-existent factory root → `[]`.
+- AC-07-003.5: fixture-testing via `PANDACORP_FACTORY_ROOT` env override confirmed.
+- Shape invariants: every returned rule has correct TypeScript types.
+- Malformed entries (missing id/patron/default) skipped; valid entries still returned.
 </content>
