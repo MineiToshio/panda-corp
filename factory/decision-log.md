@@ -2,6 +2,11 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-06-17 — Source of truth for build state: the work order; the FRD is a derived rollup
+**What:** Codified in `build-orchestration.md` §1 + `registry.yaml` DR-050: the **work order** `implementation_status` is the atomic source of truth; an FRD's/blueprint's `implementation_status` is a **DERIVED rollup** of its work orders (`VERIFIED` iff all; else the worst non-`VERIFIED`: `BLOCKED` > `PLANNED` > `IN_PROGRESS` > `IN_REVIEW`), never an independent state. **On any FRD↔WO discrepancy, the work orders win** — the FRD field is a cache, trustworthy on its own only at `VERIFIED`. "Done" = `VERIFIED`, measured on work orders. The engine keeps the cache honest (re-derives on plan + after each gate); exact readers (Mission Control) derive from the WOs and prefer a breakdown ("7/11 verified") over a single rolled-up word.
+**Why:** A stale `frd.md` (FRD-06 said `PLANNED` while its 11 WOs were `IN_REVIEW`) made even the agent misreport whether a feature was done. Needed one unambiguous rule for "what determines done", since docs and WOs can drift (a crash mid-build, an interrupted run, a manual edit).
+**Impact:** `factory/standards/build-orchestration.md` (§1), `factory/decisions/registry.yaml` (DR-050). The engine that enforces it: plugin v8.10.0 (`plugin/docs/decision-log.md`).
+
 ## 2026-06-17 — The overnight brake is maxAgents (counted in the engine), not maxSpend
 **What:** `build-orchestration.md` §6: the real run-stopping budget ceiling is now **`maxAgents`** (a hard cap on the subagents the engine spawns), not `maxSpend` (`budget.spent()`). `budget.spent()` under-counts the heavy subagent work and isn't enforced if the supervisor dies — an MC run hit ~6M tokens against a 2M `maxSpend` after an app restart orphaned it. `maxAgents` is counted inside the engine, so it brakes reliably and survives a dead supervisor; `maxSpend` is demoted to a secondary ceiling.
 **Why:** Owner flagged that `maxSpend` could never reliably fire — the orchestrator/verifier writes little, and the engine wasn't capping the real work the subagents do. A spawn-count proxy maps directly to spend AND to the engine's own control flow, so it's both honest and enforceable.

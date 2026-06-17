@@ -24,9 +24,22 @@ only `status`.
 
 **Rules:** the engine builds only `PLANNED`/`IN_PROGRESS` and never rebuilds `VERIFIED`. Never
 hand-set `VERIFIED` without the FRD gate passing. Changing this field **is** the instruction to the
-build — `iterate`/`new-version` reopen a work order by setting it back to `PLANNED`. An FRD's/blueprint's
-`implementation_status` **rolls up** from its work orders (the worst non-`VERIFIED` state; `VERIFIED`
-only when all are). `.pandacorp/status.yaml` replicates the per-status counts for Mission Control.
+build — `iterate`/`new-version` reopen a work order by setting it back to `PLANNED`.
+
+**Source of truth — the work order, always (DR-050).** The **work order** is the atomic source of
+truth: its `implementation_status` is canonical. An FRD's (and blueprint's) `implementation_status`
+is a **DERIVED rollup** of its work orders, never an independent state — `VERIFIED` iff **all** are
+`VERIFIED`; else `BLOCKED` if any is `BLOCKED`; else `PLANNED` if any is `PLANNED`; else `IN_PROGRESS`
+if any is; else `IN_REVIEW`. **On any discrepancy between an FRD and its work orders, the work orders
+win** — the FRD field is a *cache* of the rollup, trustworthy on its own only when it reads `VERIFIED`
+(only the gate writes that). "**Done**" means `VERIFIED`: a work order is done when `VERIFIED`, an FRD
+when **all** its work orders are, the project when all FRDs are — never read "done" off an FRD field
+that hasn't been re-derived. The engine keeps the cache honest: it **re-derives and persists** every
+FRD/blueprint rollup when it **plans** (correcting drift left by an interrupted run, a crash mid-build
+or a manual edit) and again **after each gate**, so the document never lies about progress. Readers
+that need exactness (e.g. Mission Control's board) **derive from the work orders**, not from a possibly
+stale FRD field — and prefer showing the breakdown (e.g. "7/11 verified") over a single rolled-up word.
+`.pandacorp/status.yaml` replicates the per-status counts for Mission Control.
 
 ## 2. Coarse work orders
 
