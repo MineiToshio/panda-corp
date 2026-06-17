@@ -5,7 +5,7 @@ slug: workspace-shell
 title: 'WO-04-004 — Workspace shell: header + Mission Objectives bar + tab bar'
 status: DRAFT
 parent: FRD-04
-implementation_status: PLANNED
+implementation_status: IN_PROGRESS
 source_requirements: []
 last_updated: '2026-06-16'
 ---
