@@ -676,3 +676,220 @@ describe("frd-05: AC-05-006.1 — project with no work orders → [] (empty data
     expect(list(dir)).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// DR-050 — frontmatter `implementation_status` support
+//
+// New behaviour (added in the frontmatter-reader work):
+//   1. If the WO file has frontmatter `implementation_status` → that is the
+//      source of truth. DR-050 values: PLANNED | IN_PROGRESS | IN_REVIEW |
+//      VERIFIED | BLOCKED.  Mapping:
+//        PLANNED    → "todo"
+//        IN_PROGRESS → "in_progress"
+//        IN_REVIEW   → "review"
+//        VERIFIED    → "done"
+//        BLOCKED     → "fail"
+//   2. If no frontmatter `implementation_status` → fall back to the legacy
+//      ## Status: body marker (retrocompat).
+//   3. Frontmatter wins when BOTH are present (precedence rule).
+//   4. WO with no frontmatter AND no body Status → "todo" (existing default).
+//
+// Fixtures live in tests/fixtures/wo-05-001/docs/frds/frd-06-frontmatter/.
+// ---------------------------------------------------------------------------
+
+describe("frd-05: DR-050 frontmatter implementation_status — new values map correctly", () => {
+  it("frd-05: WHEN frontmatter implementation_status is 'PLANNED' THEN state='todo'", () => {
+    const orders = list(FIXTURE_DIR);
+    const wo = orders.find((o) => o.relPath.includes("wo-06-001-fm-planned"));
+    expect(wo).toBeDefined();
+    expect(wo?.state).toBe("todo");
+  });
+
+  it("frd-05: WHEN frontmatter implementation_status is 'IN_PROGRESS' THEN state='in_progress'", () => {
+    const orders = list(FIXTURE_DIR);
+    const wo = orders.find((o) => o.relPath.includes("wo-06-002-fm-in-progress"));
+    expect(wo).toBeDefined();
+    expect(wo?.state).toBe("in_progress");
+  });
+
+  it("frd-05: WHEN frontmatter implementation_status is 'IN_REVIEW' THEN state='review'", () => {
+    const orders = list(FIXTURE_DIR);
+    const wo = orders.find((o) => o.relPath.includes("wo-06-003-fm-in-review"));
+    expect(wo).toBeDefined();
+    expect(wo?.state).toBe("review");
+  });
+
+  it("frd-05: WHEN frontmatter implementation_status is 'VERIFIED' THEN state='done'", () => {
+    const orders = list(FIXTURE_DIR);
+    const wo = orders.find((o) => o.relPath.includes("wo-06-004-fm-verified"));
+    expect(wo).toBeDefined();
+    expect(wo?.state).toBe("done");
+  });
+
+  it("frd-05: WHEN frontmatter implementation_status is 'BLOCKED' THEN state='fail'", () => {
+    const orders = list(FIXTURE_DIR);
+    const wo = orders.find((o) => o.relPath.includes("wo-06-005-fm-blocked"));
+    expect(wo).toBeDefined();
+    expect(wo?.state).toBe("fail");
+  });
+
+  it("frd-05: WHEN frontmatter implementation_status is present via temp file (round-trip)", () => {
+    const dir = makeTempProject((root) => {
+      const woDir = path.join(root, "docs", "frds", "frd-01-test", "work-orders");
+      fs.mkdirSync(woDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(woDir, "wo-01-001-example.md"),
+        "---\nid: WO-01-001\nimplementation_status: VERIFIED\n---\n# WO-01-001\n",
+      );
+    });
+    const orders = list(dir);
+    expect(orders).toHaveLength(1);
+    expect(orders[0]?.state).toBe("done");
+  });
+
+  it("frd-05: WHEN frontmatter implementation_status is unknown value THEN state defaults to 'todo'", () => {
+    const dir = makeTempProject((root) => {
+      const woDir = path.join(root, "docs", "frds", "frd-01-test", "work-orders");
+      fs.mkdirSync(woDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(woDir, "wo-01-001-unknown.md"),
+        "---\nimplementation_status: XYZZY_UNKNOWN\n---\n# WO-01-001\n",
+      );
+    });
+    const orders = list(dir);
+    expect(orders).toHaveLength(1);
+    expect(orders[0]?.state).toBe("todo");
+  });
+});
+
+describe("frd-05: DR-050 frontmatter precedence over legacy body Status", () => {
+  it("frd-05: WHEN both frontmatter implementation_status AND body ## Status exist THEN frontmatter wins", () => {
+    const orders = list(FIXTURE_DIR);
+    const wo = orders.find((o) => o.relPath.includes("wo-06-006-fm-precedence"));
+    expect(wo).toBeDefined();
+    // Frontmatter: VERIFIED → "done". Body says "todo". Frontmatter must win.
+    expect(wo?.state).toBe("done");
+  });
+
+  it("frd-05: WHEN frontmatter says BLOCKED and body says done THEN frontmatter (BLOCKED→fail) wins", () => {
+    const dir = makeTempProject((root) => {
+      const woDir = path.join(root, "docs", "frds", "frd-01-test", "work-orders");
+      fs.mkdirSync(woDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(woDir, "wo-01-001-prec.md"),
+        "---\nimplementation_status: BLOCKED\n---\n# WO-01-001\n\n## Status: done\n",
+      );
+    });
+    const orders = list(dir);
+    expect(orders).toHaveLength(1);
+    expect(orders[0]?.state).toBe("fail");
+  });
+
+  it("frd-05: WHEN frontmatter says IN_PROGRESS and body says done THEN frontmatter wins", () => {
+    const dir = makeTempProject((root) => {
+      const woDir = path.join(root, "docs", "frds", "frd-01-test", "work-orders");
+      fs.mkdirSync(woDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(woDir, "wo-01-001-prec2.md"),
+        "---\nimplementation_status: IN_PROGRESS\n---\n# WO-01-001\n\n## Status: done\n",
+      );
+    });
+    const orders = list(dir);
+    expect(orders).toHaveLength(1);
+    expect(orders[0]?.state).toBe("in_progress");
+  });
+});
+
+describe("frd-05: DR-050 legacy retrocompat — no frontmatter falls back to ## Status body", () => {
+  it("frd-05: WHEN no frontmatter AND body has '## Status: review' THEN state='review' (legacy retrocompat)", () => {
+    const orders = list(FIXTURE_DIR);
+    const wo = orders.find((o) => o.relPath.includes("wo-06-007-legacy-no-fm"));
+    expect(wo).toBeDefined();
+    expect(wo?.state).toBe("review");
+  });
+
+  it("frd-05: WHEN frontmatter exists but has NO implementation_status key THEN falls back to body Status", () => {
+    const dir = makeTempProject((root) => {
+      const woDir = path.join(root, "docs", "frds", "frd-01-test", "work-orders");
+      fs.mkdirSync(woDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(woDir, "wo-01-001-no-impl-status.md"),
+        "---\nid: WO-01-001\ntitle: Example\n---\n# WO-01-001\n\n## Status: review\n",
+      );
+    });
+    const orders = list(dir);
+    expect(orders).toHaveLength(1);
+    expect(orders[0]?.state).toBe("review");
+  });
+
+  it("frd-05: WHEN frontmatter has implementation_status: null THEN falls back to body Status", () => {
+    const dir = makeTempProject((root) => {
+      const woDir = path.join(root, "docs", "frds", "frd-01-test", "work-orders");
+      fs.mkdirSync(woDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(woDir, "wo-01-001-null-impl.md"),
+        "---\nimplementation_status: null\n---\n# WO-01-001\n\n## Status: done\n",
+      );
+    });
+    const orders = list(dir);
+    expect(orders).toHaveLength(1);
+    expect(orders[0]?.state).toBe("done");
+  });
+
+  it("frd-05: WHEN no frontmatter AND no body Status THEN state defaults to 'todo' (unchanged)", () => {
+    const dir = makeTempProject((root) => {
+      const woDir = path.join(root, "docs", "frds", "frd-01-test", "work-orders");
+      fs.mkdirSync(woDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(woDir, "wo-01-001-none.md"),
+        "# WO-01-001\n\nNo status anywhere.\n",
+      );
+    });
+    const orders = list(dir);
+    expect(orders).toHaveLength(1);
+    expect(orders[0]?.state).toBe("todo");
+  });
+});
+
+describe("frd-05: DR-050 frontmatter robustness — malformed YAML is tolerated", () => {
+  it("frd-05: WHEN frontmatter YAML is malformed THEN falls back to body Status (no throw)", () => {
+    const dir = makeTempProject((root) => {
+      const woDir = path.join(root, "docs", "frds", "frd-01-test", "work-orders");
+      fs.mkdirSync(woDir, { recursive: true });
+      // Malformed YAML: unmatched colon, no closing ---
+      fs.writeFileSync(
+        path.join(woDir, "wo-01-001-bad-yaml.md"),
+        "---\n: this is not valid yaml\n---\n# WO-01-001\n\n## Status: review\n",
+      );
+    });
+    expect(() => list(dir)).not.toThrow();
+  });
+
+  it("frd-05: WHEN frontmatter block is completely empty THEN falls back to body Status", () => {
+    const dir = makeTempProject((root) => {
+      const woDir = path.join(root, "docs", "frds", "frd-01-test", "work-orders");
+      fs.mkdirSync(woDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(woDir, "wo-01-001-empty-fm.md"),
+        "---\n---\n# WO-01-001\n\n## Status: done\n",
+      );
+    });
+    const orders = list(dir);
+    expect(orders).toHaveLength(1);
+    expect(orders[0]?.state).toBe("done");
+  });
+
+  it("frd-05: WHEN file has only frontmatter and no body THEN state comes from frontmatter, no throw", () => {
+    const dir = makeTempProject((root) => {
+      const woDir = path.join(root, "docs", "frds", "frd-01-test", "work-orders");
+      fs.mkdirSync(woDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(woDir, "wo-01-001-fm-only.md"),
+        "---\nimplementation_status: VERIFIED\n---\n",
+      );
+    });
+    const orders = list(dir);
+    expect(orders).toHaveLength(1);
+    expect(orders[0]?.state).toBe("done");
+  });
+});

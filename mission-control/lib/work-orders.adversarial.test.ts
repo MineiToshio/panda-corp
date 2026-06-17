@@ -257,3 +257,110 @@ describe("WO-05-001 adversarial: abuse inputs are tolerated, never throw", () =>
     expect(orders[0]?.id).toBe(orders[0]?.id.trim());
   });
 });
+
+// ---------------------------------------------------------------------------
+// F. DR-050 frontmatter adversarial edge cases
+//
+// These probe the gray-matter integration at the limits: deeply-nested YAML,
+// mixed-case values, numeric frontmatter value that is NOT a string, a WO
+// where frontmatter has implementation_status but the body also contains a
+// misleading prose "Status:" mention, and the cache-bypass invariant.
+// ---------------------------------------------------------------------------
+describe("WO-05-001 adversarial: DR-050 frontmatter edge cases", () => {
+  it("frontmatter implementation_status with surrounding whitespace in YAML is still parsed (VERIFIED → done)", () => {
+    // gray-matter trims YAML string values.
+    const dir = makeTempProject((root) => {
+      writeWo(
+        root,
+        "frd-11-x",
+        "wo-11-001-ws",
+        "---\nimplementation_status: '  VERIFIED  '\n---\n# WO-11-001\n",
+      );
+    });
+    const orders = listWorkOrders(dir);
+    expect(orders[0]?.state).toBe("done");
+  });
+
+  it("frontmatter implementation_status lowercase ('verified') is accepted (case-insensitive)", () => {
+    const dir = makeTempProject((root) => {
+      writeWo(
+        root,
+        "frd-11-x",
+        "wo-11-002-lower",
+        "---\nimplementation_status: verified\n---\n# WO-11-002\n",
+      );
+    });
+    const orders = listWorkOrders(dir);
+    expect(orders[0]?.state).toBe("done");
+  });
+
+  it("frontmatter implementation_status as a YAML integer (not a string) → falls back to body Status", () => {
+    // YAML: `implementation_status: 1` parses to number 1, not a string → fall back.
+    const dir = makeTempProject((root) => {
+      writeWo(
+        root,
+        "frd-11-x",
+        "wo-11-003-int",
+        "---\nimplementation_status: 1\n---\n# WO-11-003\n\n## Status: review\n",
+      );
+    });
+    const orders = listWorkOrders(dir);
+    // frontmatter value is a number → null → fall back to body → "review"
+    expect(orders[0]?.state).toBe("review");
+  });
+
+  it("frontmatter present with VERIFIED but body has prose 'Status: blocked' → frontmatter still wins", () => {
+    // Ensures that the prose-suppression logic for body scanning doesn't interact
+    // badly with the frontmatter path.
+    const dir = makeTempProject((root) => {
+      writeWo(
+        root,
+        "frd-11-x",
+        "wo-11-004-prose-body",
+        [
+          "---",
+          "implementation_status: VERIFIED",
+          "---",
+          "# WO-11-004",
+          "",
+          "## Notes",
+          "Earlier the Status: blocked situation was discussed.",
+          "",
+          "## Status: todo",
+        ].join("\n"),
+      );
+    });
+    const orders = listWorkOrders(dir);
+    expect(orders[0]?.state).toBe("done");
+  });
+
+  it("calling listWorkOrders twice on the same frontmatter file returns identical results (cache-bypass, gray-matter gotcha)", () => {
+    // Regression: gray-matter@4 LRU cache — bypassed by passing { excerpt: false }.
+    const dir = makeTempProject((root) => {
+      writeWo(
+        root,
+        "frd-11-x",
+        "wo-11-005-cache",
+        "---\nimplementation_status: IN_REVIEW\n---\n# WO-11-005\n",
+      );
+    });
+    const first = listWorkOrders(dir);
+    const second = listWorkOrders(dir);
+    expect(first[0]?.state).toBe("review");
+    expect(second[0]?.state).toBe("review");
+    expect(second).toEqual(first);
+  });
+
+  it("frontmatter with only non-status fields does not shadow the body Status", () => {
+    const dir = makeTempProject((root) => {
+      writeWo(
+        root,
+        "frd-11-x",
+        "wo-11-006-other-fm",
+        "---\ntitle: My WO\nid: WO-11-006\n---\n# WO-11-006\n\n## Status: done\n",
+      );
+    });
+    const orders = listWorkOrders(dir);
+    expect(orders[0]?.state).toBe("done");
+  });
+});

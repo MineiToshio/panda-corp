@@ -13,6 +13,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import matter from "gray-matter";
 
 export type WorkOrderState = "todo" | "in_progress" | "review" | "done" | "fail";
 
@@ -51,6 +52,7 @@ const STATUS_LINE_RE =
   /^\s{0,3}(?:#{1,6}\s*)?(?:\*{1,2}Status:?\*{0,2}|\*{0,2}Status\*{0,2}:)\s*\*{0,2}([^\s*\n]+)/i;
 
 // Canonical value map — producer writes these; we normalise to WorkOrderState.
+// Used for the legacy ## Status: body marker.
 const STATE_MAP: Record<string, WorkOrderState> = {
   todo: "todo",
   in_progress: "in_progress",
@@ -64,6 +66,53 @@ const STATE_MAP: Record<string, WorkOrderState> = {
 function normaliseState(raw: string): WorkOrderState {
   const key = raw.trim().toLowerCase();
   return STATE_MAP[key] ?? "todo";
+}
+
+// ---------------------------------------------------------------------------
+// DR-050 frontmatter `implementation_status` support
+//
+// Values: PLANNED | IN_PROGRESS | IN_REVIEW | VERIFIED | BLOCKED
+// Mapping to WorkOrderState:
+//   PLANNED     → "todo"
+//   IN_PROGRESS → "in_progress"
+//   IN_REVIEW   → "review"
+//   VERIFIED    → "done"
+//   BLOCKED     → "fail"
+// ---------------------------------------------------------------------------
+const FRONTMATTER_STATUS_MAP: Record<string, WorkOrderState> = {
+  planned: "todo",
+  in_progress: "in_progress",
+  in_review: "review",
+  verified: "done",
+  blocked: "fail",
+};
+
+/**
+ * Parse YAML frontmatter and extract `implementation_status`.
+ *
+ * Returns the mapped WorkOrderState if `implementation_status` is a recognised
+ * DR-050 value, or `null` if absent / unrecognised (so the caller falls back
+ * to the legacy ## Status: body marker).
+ *
+ * Partial-tolerant: malformed YAML → returns null (never throws).
+ *
+ * gray-matter gotcha (factory/memory/_inbox.md, 2026-06-16): passing
+ * `{ excerpt: false }` bypasses the internal LRU cache so a previously-failed
+ * parse cannot shadow a valid one later in the same process.
+ */
+function parseFrontmatterStatus(content: string): WorkOrderState | null {
+  try {
+    const parsed = matter(content, { excerpt: false });
+    const raw = parsed.data.implementation_status;
+    if (typeof raw !== "string" || raw.trim() === "") {
+      return null;
+    }
+    const key = raw.trim().toLowerCase();
+    return FRONTMATTER_STATUS_MAP[key] ?? null;
+  } catch {
+    // Malformed YAML → fall back to legacy body marker.
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -107,24 +156,36 @@ function parseWorkOrderFile(absPath: string, frdSlug: string, projectPath: strin
     }
   }
 
-  // State from the on-disk marker. Prefer the canonical "## Status:" heading over
-  // any other line-start marker, and ignore "Status:" embedded mid-prose, so an
-  // earlier narrative mention can't shadow the real marker (WO-05-001 adversarial).
+  // State derivation — DR-050 frontmatter takes precedence over the legacy
+  // ## Status: body marker.
+  //
+  // Precedence:
+  //   1. frontmatter `implementation_status` (DR-050, source of truth when present)
+  //   2. ## Status: body marker (legacy retrocompat — projects not yet migrated)
+  //   3. Default: "todo" (partial-tolerant)
   let state: WorkOrderState = "todo";
-  let headingState: string | undefined;
-  let plainState: string | undefined;
-  for (const line of lines) {
-    const m = STATUS_LINE_RE.exec(line);
-    if (!m?.[1]) continue;
-    if (/^\s{0,3}#{1,6}/.test(line)) {
-      if (headingState === undefined) headingState = m[1];
-    } else if (plainState === undefined) {
-      plainState = m[1];
+
+  // 1. Try frontmatter first.
+  const frontmatterState = parseFrontmatterStatus(content);
+  if (frontmatterState !== null) {
+    state = frontmatterState;
+  } else {
+    // 2. Fall back to the legacy body marker.
+    let headingState: string | undefined;
+    let plainState: string | undefined;
+    for (const line of lines) {
+      const m = STATUS_LINE_RE.exec(line);
+      if (!m?.[1]) continue;
+      if (/^\s{0,3}#{1,6}/.test(line)) {
+        if (headingState === undefined) headingState = m[1];
+      } else if (plainState === undefined) {
+        plainState = m[1];
+      }
     }
-  }
-  const stateRaw = headingState ?? plainState;
-  if (stateRaw) {
-    state = normaliseState(stateRaw);
+    const stateRaw = headingState ?? plainState;
+    if (stateRaw) {
+      state = normaliseState(stateRaw);
+    }
   }
 
   // Summary: text under a "## Summary" section, first non-empty paragraph.
