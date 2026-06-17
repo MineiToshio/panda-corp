@@ -5,7 +5,7 @@ slug: sync-readers
 title: 'WO-15-001 — `lib/plugin-sync` readers (installed SHA, plugin HEAD SHA, dirty)'
 status: DRAFT
 parent: FRD-15
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
 last_updated: '2026-06-17'
 ---

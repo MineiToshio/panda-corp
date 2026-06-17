@@ -3,8 +3,8 @@ id: FRD-15
 type: frd
 title: FRD-15 — Plugin out-of-sync warning
 status: ACTIVE
-implementation_status: PLANNED
-last_updated: '2026-06-16'
+implementation_status: VERIFIED
+last_updated: '2026-06-17'
 ---
 # FRD-15 — Plugin out-of-sync warning
 
