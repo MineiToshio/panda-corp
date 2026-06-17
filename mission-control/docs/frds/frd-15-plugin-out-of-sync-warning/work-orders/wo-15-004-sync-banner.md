@@ -5,9 +5,9 @@ slug: sync-banner
 title: WO-15-004 — `PluginSyncBanner` client component (poll + self-clear)
 status: DRAFT
 parent: FRD-15
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-17'
 ---
 # WO-15-004 — `PluginSyncBanner` client component (poll + self-clear)
 
@@ -48,3 +48,45 @@ return each `PluginSyncState`. Assert render/no-render per drift, copy on click,
 ## Dependencies
 - WO-15-003 (the route).
 - FRD-02 `CopyButton` (cross-feature). If unavailable, use a minimal inline copy and note the upgrade.
+
+## Status Note
+
+**Built:** `PluginSyncBanner` (`"use client"`) at `components/plugin-sync-banner.tsx` — polls
+`/api/plugin-sync` every 15 s (plus immediately on mount), renders nothing unless `drift === true`,
+self-clears on the next poll that returns `drift === false` or `reason === "unknown"`.
+
+**Interfaces / contracts exposed:**
+
+```tsx
+// components/plugin-sync-banner.tsx
+export function PluginSyncBanner(): React.JSX.Element | null
+// Props: none. Fully self-contained polling loop (useEffect + setInterval).
+// Renders null when drift===false or state not yet loaded.
+// data-testid: "plugin-sync-banner" (root), "plugin-sync-icon" (warning icon),
+//              "plugin-sync-recall" (3-step recall), "plugin-sync-copy-cmd" (wrapper span
+//              around CopyButton — use within() to reach "copy-button" inside).
+```
+
+**Integration seam (FRD-18 / dashboard):** Mount `<PluginSyncBanner />` at the top of the
+dashboard layout (above the topbar or as the first child of the page root). No props needed.
+The component is fully autonomous and self-clears.
+
+**Key implementation decisions:**
+- `CopyButton` (FRD-02) is reused; a `<span data-testid="plugin-sync-copy-cmd">` wrapper gives
+  tests a stable anchor since `CopyButton` has its own hardcoded `"copy-button"` testid.
+- Styles: zero hardcoded colors — all `var(--color-warn, oklch(...))` with OKLCH fallbacks inside
+  `var()` (not bare), satisfying the "no hardcoded color" token rule.
+- `recallForReason`: when `reason === "uncommitted" | "both"` → prefixes "1) commitea los cambios ·"
+  and renumbers run/restart steps to 2/3. When `reason === "behind"` → steps are 1/2 (no commit step).
+
+**Gotcha — infinite timer loop with `vi.runAllTimersAsync()`:** a `setInterval` polling loop
+re-schedules itself on every tick, causing Vitest's `runAllTimersAsync` to abort with "10 000
+timers" error. Fix: use `vi.advanceTimersByTimeAsync(0)` to flush the initial poll's microtask chain
+(fetch → json → setState), and `vi.advanceTimersByTimeAsync(N)` for subsequent interval advances.
+`vi.runOnlyPendingTimersAsync()` exists but alone does not drain Promise microtasks from async
+functions. (agent-inferred — candidate for factory/memory)
+
+**Test file:** `components/plugin-sync-banner.test.tsx` — 30 tests RED→GREEN covering all 5 ACs:
+render-on-drift (3 reasons), no-render on in-sync/unknown, self-clear on re-poll, copy command
+present and clickable, GET-only, Spanish copy, a11y icon, polling mount/interval/unmount,
+fetch-error resilience.
