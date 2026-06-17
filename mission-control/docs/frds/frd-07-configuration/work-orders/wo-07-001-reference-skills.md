@@ -5,7 +5,7 @@ slug: reference
 title: 'WO-07-001 — `lib/reference.ts`: read skills + agents catalogs'
 status: DRAFT
 parent: FRD-07
-implementation_status: PLANNED
+implementation_status: IN_PROGRESS
 source_requirements: []
 last_updated: '2026-06-16'
 ---
