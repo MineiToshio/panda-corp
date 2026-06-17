@@ -5,7 +5,7 @@ slug: achievement-toast
 title: WO-06-008 — Achievement toast (work-order-close celebration)
 status: DRAFT
 parent: FRD-06
-implementation_status: PLANNED
+implementation_status: IN_PROGRESS
 source_requirements: []
 last_updated: '2026-06-16'
 ---
