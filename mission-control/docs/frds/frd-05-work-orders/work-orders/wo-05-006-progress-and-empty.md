@@ -5,7 +5,7 @@ slug: progress-and-empty
 title: WO-05-006 — Aggregated progress display + empty state
 status: DRAFT
 parent: FRD-05
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-16'
 ---
@@ -36,7 +36,45 @@ Component tests:
 3. Empty state message references `/pandacorp:blueprint` with a copy button.
 
 ## Definition of done
-- [ ] Component tests written first and green.
-- [ ] Server Components; reuse shared `CopyButton`.
-- [ ] `tabular-nums`; tokens only; Spanish copy via i18n.
-- [ ] `bash .pandacorp/verify.sh` passes.
+- [x] Component tests written first and green.
+- [x] Server Components; reuse shared `CopyButton`.
+- [x] `tabular-nums`; tokens only; Spanish copy via i18n.
+- [x] `bash .pandacorp/verify.sh` passes.
+
+## Status Note
+
+**Built:** `CMP-05-progress` (`WorkOrderProgressBar`), `CMP-05-empty` (`WorkOrderEmpty`), and the
+coordinator `TabWorkOrders` that wires both together.
+
+**What was already in place (WO-05-001):** `wo-progress.tsx` and `wo-empty.tsx` already existed
+with their own tests (14 tests covering AC-05-004.1 and AC-05-006.1 at the component level).
+
+**New work this WO:**
+- `tab-work-orders.tsx` — Server Component coordinator (`TabWorkOrders`):
+  - `orders.length === 0` → renders `WorkOrderEmpty` (AC-05-006.1, TDD case 2)
+  - `orders.length > 0` → renders `WorkOrderProgressBar` (from `aggregateProgress`) + `WoFrdFilteredBoard`
+    (TDD cases 1 and 3 satisfied through the coordinator)
+- `tab-work-orders.test.tsx` — 13 tests (RED → GREEN) covering all 3 WO TDD cases:
+  1. `2/7 · 28.6%` progress renders correctly (AC-05-004.1)
+  2. `total === 0` shows empty state, NOT a zeroed bar (AC-05-006.1)
+  3. Empty state references `/pandacorp:blueprint` with a copy button
+- `page.tsx` updated: `work-orders` tab now mounts `TabWorkOrders` instead of bare `WoFrdFilteredBoard`.
+
+**Interfaces/contracts exposed:**
+```ts
+// app/projects/[slug]/_components/tab-work-orders.tsx
+export interface TabWorkOrdersProps { orders: WorkOrder[]; }
+export function TabWorkOrders({ orders }: TabWorkOrdersProps): React.JSX.Element;
+// Renders: <WorkOrderEmpty /> when orders.length === 0
+//          <WorkOrderProgressBar progress={aggregateProgress(orders)} /> + <WoFrdFilteredBoard orders={orders} /> otherwise
+```
+
+**Integration seam:** `page.tsx` mounts `<TabWorkOrders orders={listWorkOrders(projectPath)} />`
+in the `work-orders` tab branch (with WO-05-005 `WorkOrderDetail` routing layered above it).
+
+**Test files:**
+- `app/projects/[slug]/_components/tab-work-orders.test.tsx` — 13 tests (this WO)
+- `app/projects/[slug]/_components/wo-progress.test.tsx` — 9 tests (CMP-05-progress, pre-existing)
+- `app/projects/[slug]/_components/wo-empty.test.tsx` — 5 tests (CMP-05-empty, pre-existing)
+
+**verify.sh:** 136 test files, 3736 tests GREEN + 2 expected fail + 5 skipped; biome clean; tsc clean.
