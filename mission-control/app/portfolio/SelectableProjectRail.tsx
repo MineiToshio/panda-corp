@@ -23,6 +23,7 @@
 
 import Link from "next/link";
 import type { ProjectListItem } from "@/lib/portfolio";
+import { StatusChips } from "./_components/status-chips";
 
 // ---------------------------------------------------------------------------
 // Styles — CSS custom properties only; zero hardcoded hex/rgb/hsl values.
@@ -165,6 +166,18 @@ export function SelectableProjectRail({
         const indicatorAriaLabel =
           item.running === true ? "Construcción activa" : "Proceso detenido";
 
+        // Extract pending fields from status.status (Partial<ProjectStatus>).
+        // Absent / malformed status → undefined → StatusChips renders nothing.
+        const statusFields =
+          item.status.present && item.status.status !== null ? item.status.status : {};
+        const pendingDecisions =
+          typeof statusFields.pendingDecisions === "number"
+            ? statusFields.pendingDecisions
+            : undefined;
+        const pendingBugs =
+          typeof statusFields.pendingBugs === "number" ? statusFields.pendingBugs : undefined;
+        const rethinkPending = statusFields.rethinkPending === true ? true : undefined;
+
         return (
           <Link
             key={item.name}
@@ -206,6 +219,13 @@ export function SelectableProjectRail({
                   </span>
                 )}
               </div>
+
+              {/* Status chips: decisions / bugs / rethink (CMP-14-status-chips, WO-14-003) */}
+              <StatusChips
+                pendingDecisions={pendingDecisions}
+                pendingBugs={pendingBugs}
+                rethinkPending={rethinkPending}
+              />
             </article>
           </Link>
         );
