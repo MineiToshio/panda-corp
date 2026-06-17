@@ -52,11 +52,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-
+import type { Candidate } from "./orphans";
 // ---------------------------------------------------------------------------
-// Module under test — does not exist yet (RED phase).
+// Module under test.
 // ---------------------------------------------------------------------------
-import { listProjectFolders, resolveProjectsPath } from "./orphans";
+import { classifyCandidate, getOrphans, listProjectFolders, resolveProjectsPath } from "./orphans";
 
 // ---------------------------------------------------------------------------
 // Fixture constants
@@ -582,5 +582,409 @@ describe("frd-16: return value shape — listProjectFolders returns absolute pat
     const result = listProjectFolders(projectsDir);
     const unique = new Set(result);
     expect(unique.size).toBe(result.length);
+  });
+});
+
+// ===========================================================================
+// WO-16-002 — classifyCandidate + getOrphans
+// RED phase — tests written BEFORE implementation.
+//
+// Acceptance criteria under test (WO-16-002 / FRD-16 EARS):
+//
+//   AC-16-002.1  git repo, NO marker, NOT in portfolio → kind:"orphan"
+//   AC-16-002.2  git repo, HAS marker, NOT in portfolio → kind:"unlisted"
+//   AC-16-002.3  git repo, HAS marker, IN portfolio → null (not a candidate)
+//   AC-16-002.4  git repo, NO marker, IN portfolio → null (already known; no nag)
+//   AC-16-002.5  Candidate shape: name, path, kind, hasMarker, inPortfolio
+//   AC-16-002.6  Portfolio path comparison tolerates trailing slash / relative-vs-absolute
+//   AC-16-002.7  Broken portfolio rows / missing portfolio → classify against readable
+//                subset; never throws.
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// Fixture helpers for WO-16-002
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a temporary candidate folder (immediate child of a tmp dir) with
+ * optional .git and .pandacorp/status.yaml.
+ *
+ * Returns `{ projectsDir, candidatePath }`.
+ */
+function makeCandidateDir(opts: { name?: string; hasGit?: boolean; hasMarker?: boolean }): {
+  projectsDir: string;
+  candidatePath: string;
+} {
+  const { name = "my-project", hasGit = true, hasMarker = false } = opts;
+  const projectsDir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-classify-"));
+  tmpDirs.push(projectsDir);
+  const candidatePath = path.join(projectsDir, name);
+  fs.mkdirSync(candidatePath, { recursive: true });
+  if (hasGit) {
+    fs.mkdirSync(path.join(candidatePath, ".git"), { recursive: true });
+  }
+  if (hasMarker) {
+    fs.mkdirSync(path.join(candidatePath, ".pandacorp"), { recursive: true });
+    fs.writeFileSync(
+      path.join(candidatePath, ".pandacorp", "status.yaml"),
+      "project: my-project\nphase: implementation\n",
+    );
+  }
+  return { projectsDir, candidatePath };
+}
+
+// ===========================================================================
+// classifyCandidate — truth table (AC-16-002.1 through AC-16-002.4)
+// ===========================================================================
+
+describe("frd-16 WO-16-002: AC-16-002.1 — git repo, NO marker, NOT in portfolio → orphan", () => {
+  it("frd-16: classifyCandidate returns kind:orphan when no marker and not in portfolio", () => {
+    const { candidatePath } = makeCandidateDir({ hasGit: true, hasMarker: false });
+    const result = classifyCandidate(candidatePath, []);
+    expect(result).not.toBeNull();
+    expect(result?.kind).toBe("orphan");
+  });
+
+  it("frd-16: orphan candidate has hasMarker:false and inPortfolio:false", () => {
+    const { candidatePath } = makeCandidateDir({ hasGit: true, hasMarker: false });
+    const result = classifyCandidate(candidatePath, []);
+    expect(result?.hasMarker).toBe(false);
+    expect(result?.inPortfolio).toBe(false);
+  });
+});
+
+describe("frd-16 WO-16-002: AC-16-002.2 — git repo, HAS marker, NOT in portfolio → unlisted", () => {
+  it("frd-16: classifyCandidate returns kind:unlisted when marker present and not in portfolio", () => {
+    const { candidatePath } = makeCandidateDir({ hasGit: true, hasMarker: true });
+    const result = classifyCandidate(candidatePath, []);
+    expect(result).not.toBeNull();
+    expect(result?.kind).toBe("unlisted");
+  });
+
+  it("frd-16: unlisted candidate has hasMarker:true and inPortfolio:false", () => {
+    const { candidatePath } = makeCandidateDir({ hasGit: true, hasMarker: true });
+    const result = classifyCandidate(candidatePath, []);
+    expect(result?.hasMarker).toBe(true);
+    expect(result?.inPortfolio).toBe(false);
+  });
+});
+
+describe("frd-16 WO-16-002: AC-16-002.3 — git repo, HAS marker, IN portfolio → null", () => {
+  it("frd-16: classifyCandidate returns null when marker present and path is in portfolio", () => {
+    const { candidatePath } = makeCandidateDir({ hasGit: true, hasMarker: true });
+    const result = classifyCandidate(candidatePath, [candidatePath]);
+    expect(result).toBeNull();
+  });
+});
+
+describe("frd-16 WO-16-002: AC-16-002.4 — git repo, NO marker, IN portfolio → null (no nag)", () => {
+  it("frd-16: classifyCandidate returns null when no marker but path IS in portfolio (already known)", () => {
+    const { candidatePath } = makeCandidateDir({ hasGit: true, hasMarker: false });
+    const result = classifyCandidate(candidatePath, [candidatePath]);
+    expect(result).toBeNull();
+  });
+});
+
+// ===========================================================================
+// AC-16-002.5 — Candidate shape
+// ===========================================================================
+
+describe("frd-16 WO-16-002: AC-16-002.5 — Candidate carries name, path, kind, hasMarker, inPortfolio", () => {
+  it("frd-16: orphan candidate has all required fields with correct types", () => {
+    const { candidatePath } = makeCandidateDir({
+      name: "cool-project",
+      hasGit: true,
+      hasMarker: false,
+    });
+    const result = classifyCandidate(candidatePath, []);
+    expect(result).not.toBeNull();
+    // name is the folder name
+    expect(result?.name).toBe("cool-project");
+    // path is the absolute path
+    expect(result?.path).toBe(candidatePath);
+    expect(path.isAbsolute(result?.path ?? "")).toBe(true);
+    // kind
+    expect(result?.kind).toBe("orphan");
+    // boolean fields
+    expect(typeof result?.hasMarker).toBe("boolean");
+    expect(typeof result?.inPortfolio).toBe("boolean");
+  });
+
+  it("frd-16: unlisted candidate has all required fields with correct types", () => {
+    const { candidatePath } = makeCandidateDir({
+      name: "factory-project",
+      hasGit: true,
+      hasMarker: true,
+    });
+    const result = classifyCandidate(candidatePath, []);
+    expect(result).not.toBeNull();
+    expect(result?.name).toBe("factory-project");
+    expect(result?.path).toBe(candidatePath);
+    expect(result?.kind).toBe("unlisted");
+    expect(result?.hasMarker).toBe(true);
+    expect(result?.inPortfolio).toBe(false);
+  });
+});
+
+// ===========================================================================
+// AC-16-002.6 — Path normalization: trailing slash / relative vs absolute
+// ===========================================================================
+
+describe("frd-16 WO-16-002: AC-16-002.6 — portfolio path comparison tolerates normalization differences", () => {
+  it("frd-16: recognizes a match when portfolio path has a trailing slash", () => {
+    const { candidatePath } = makeCandidateDir({ hasGit: true, hasMarker: false });
+    // portfolio path has trailing slash — must still be recognized as a match
+    const result = classifyCandidate(candidatePath, [`${candidatePath}/`]);
+    expect(result).toBeNull();
+  });
+
+  it("frd-16: recognizes a match when the candidate path has a trailing slash but portfolio does not", () => {
+    const { candidatePath } = makeCandidateDir({ hasGit: true, hasMarker: false });
+    // candidate path with trailing slash, portfolio without
+    const withSlash = `${candidatePath}/`;
+    const result = classifyCandidate(withSlash, [candidatePath]);
+    expect(result).toBeNull();
+  });
+
+  it("frd-16: recognizes a match when portfolio contains a path with ./ segments (normalize before comparing)", () => {
+    const { candidatePath } = makeCandidateDir({ hasGit: true, hasMarker: false });
+    // portfolio path has redundant ./ segment
+    const noisyPath = path.join(candidatePath, ".", "");
+    const result = classifyCandidate(candidatePath, [noisyPath]);
+    expect(result).toBeNull();
+  });
+
+  it("frd-16: non-matching path is still classified correctly (sanity: normalization does not over-match)", () => {
+    const { candidatePath } = makeCandidateDir({ hasGit: true, hasMarker: false });
+    const unrelatedPath = "/some/totally/different/path";
+    const result = classifyCandidate(candidatePath, [unrelatedPath]);
+    expect(result?.kind).toBe("orphan");
+  });
+});
+
+// ===========================================================================
+// AC-16-002.7 — Defensive: broken portfolio rows / missing portfolio → no throw
+// ===========================================================================
+
+describe("frd-16 WO-16-002: AC-16-002.7 — classifyCandidate never throws on bad registeredPaths input", () => {
+  it("frd-16: empty registeredPaths array → orphan (no throw)", () => {
+    const { candidatePath } = makeCandidateDir({ hasGit: true, hasMarker: false });
+    expect(() => classifyCandidate(candidatePath, [])).not.toThrow();
+    expect(classifyCandidate(candidatePath, [])?.kind).toBe("orphan");
+  });
+
+  it("frd-16: registeredPaths containing empty strings → still classifies correctly (no throw)", () => {
+    const { candidatePath } = makeCandidateDir({ hasGit: true, hasMarker: false });
+    expect(() => classifyCandidate(candidatePath, ["", "  ", ""])).not.toThrow();
+    expect(classifyCandidate(candidatePath, ["", "  ", ""])?.kind).toBe("orphan");
+  });
+
+  it("frd-16: registeredPaths containing undefined-like values (empty strings) and one real match → null", () => {
+    const { candidatePath } = makeCandidateDir({ hasGit: true, hasMarker: false });
+    const result = classifyCandidate(candidatePath, ["", candidatePath, ""]);
+    expect(result).toBeNull();
+  });
+});
+
+// ===========================================================================
+// getOrphans — integration: compose resolveProjectsPath + listProjectFolders + classifyCandidate
+// ===========================================================================
+
+describe("frd-16 WO-16-002: getOrphans — integration (AC-16-002.1 through AC-16-002.7)", () => {
+  /**
+   * Build a full fixture tree:
+   *   <root>/
+   *     factory/
+   *       profile.md   (projects_path → projectsDir)
+   *       portfolio.md (registered paths)
+   *     <projectsDir>/   (a sibling of the factory at the parent level, or the factory parent)
+   *       <children...>
+   *
+   * We'll put projects inside a dedicated temp dir and point profile.md at it.
+   */
+  function makeFixtureTree(opts: {
+    children: Array<{ name: string; hasGit: boolean; hasMarker: boolean }>;
+    registeredNames?: string[];
+  }): { factoryRoot: string; projectsDir: string } {
+    const projectsDir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-getorphans-proj-"));
+    tmpDirs.push(projectsDir);
+
+    const factoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mc-getorphans-factory-"));
+    tmpDirs.push(factoryRoot);
+
+    const factoryDir = path.join(factoryRoot, "factory");
+    fs.mkdirSync(factoryDir, { recursive: true });
+
+    // profile.md pointing at projectsDir
+    fs.writeFileSync(
+      path.join(factoryDir, "profile.md"),
+      `---\nname: "Test User"\nprojects_path: "${projectsDir}"\n---\n`,
+      "utf-8",
+    );
+
+    // Create child folders
+    for (const child of opts.children) {
+      const childPath = path.join(projectsDir, child.name);
+      fs.mkdirSync(childPath, { recursive: true });
+      if (child.hasGit) {
+        fs.mkdirSync(path.join(childPath, ".git"), { recursive: true });
+      }
+      if (child.hasMarker) {
+        fs.mkdirSync(path.join(childPath, ".pandacorp"), { recursive: true });
+        fs.writeFileSync(
+          path.join(childPath, ".pandacorp", "status.yaml"),
+          `project: ${child.name}\nphase: implementation\n`,
+        );
+      }
+    }
+
+    // portfolio.md
+    const registeredNames = opts.registeredNames ?? [];
+    const rows = registeredNames
+      .map((name) => {
+        const p = path.join(projectsDir, name);
+        return `| ${name} | ${p} | — | — | — | — | — | — | — |`;
+      })
+      .join("\n");
+    const portfolioContent =
+      `# Portfolio\n\n| Name | Path | Repo | Origin idea | Phase | Users | Return metric | Verdict | Last sync |\n` +
+      `|---|---|---|---|---|---|---|---|---|\n${rows}\n`;
+    fs.writeFileSync(path.join(factoryDir, "portfolio.md"), portfolioContent, "utf-8");
+
+    return { factoryRoot, projectsDir };
+  }
+
+  it("frd-16: WHEN all projects are orphans (no marker, not in portfolio) THEN getOrphans returns them all", () => {
+    const { factoryRoot, projectsDir } = makeFixtureTree({
+      children: [
+        { name: "orphan-a", hasGit: true, hasMarker: false },
+        { name: "orphan-b", hasGit: true, hasMarker: false },
+      ],
+      registeredNames: [],
+    });
+
+    const result = getOrphans(factoryRoot);
+    expect(result).toHaveLength(2);
+    const kinds = result.map((c) => c.kind);
+    expect(kinds.every((k) => k === "orphan")).toBe(true);
+    const names = result.map((c) => c.name).sort();
+    expect(names).toEqual(["orphan-a", "orphan-b"]);
+    const paths = result.map((c) => c.path);
+    expect(paths).toContain(path.join(projectsDir, "orphan-a"));
+    expect(paths).toContain(path.join(projectsDir, "orphan-b"));
+  });
+
+  it("frd-16: WHEN a project has marker but is not in portfolio THEN getOrphans returns it as unlisted", () => {
+    const { factoryRoot } = makeFixtureTree({
+      children: [{ name: "unlisted-proj", hasGit: true, hasMarker: true }],
+      registeredNames: [],
+    });
+
+    const result = getOrphans(factoryRoot);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.kind).toBe("unlisted");
+    expect(result[0]?.name).toBe("unlisted-proj");
+    expect(result[0]?.hasMarker).toBe(true);
+    expect(result[0]?.inPortfolio).toBe(false);
+  });
+
+  it("frd-16: WHEN a project has marker AND is in portfolio THEN getOrphans does NOT include it", () => {
+    const { factoryRoot } = makeFixtureTree({
+      children: [{ name: "known-proj", hasGit: true, hasMarker: true }],
+      registeredNames: ["known-proj"],
+    });
+
+    const result = getOrphans(factoryRoot);
+    expect(result).toHaveLength(0);
+  });
+
+  it("frd-16: WHEN a project has NO marker but IS in portfolio THEN getOrphans does NOT include it (AC-16-002.4)", () => {
+    const { factoryRoot } = makeFixtureTree({
+      children: [{ name: "listed-no-marker", hasGit: true, hasMarker: false }],
+      registeredNames: ["listed-no-marker"],
+    });
+
+    const result = getOrphans(factoryRoot);
+    expect(result).toHaveLength(0);
+  });
+
+  it("frd-16: WHEN projects have mixed truth-table rows THEN only orphan/unlisted are returned", () => {
+    const { factoryRoot } = makeFixtureTree({
+      children: [
+        { name: "orphan", hasGit: true, hasMarker: false }, // → orphan
+        { name: "unlisted", hasGit: true, hasMarker: true }, // → unlisted
+        { name: "known-marked", hasGit: true, hasMarker: true }, // → null (in portfolio)
+        { name: "listed-no-marker", hasGit: true, hasMarker: false }, // → null (in portfolio)
+        { name: "plain-no-git", hasGit: false, hasMarker: false }, // skipped by listProjectFolders
+      ],
+      registeredNames: ["known-marked", "listed-no-marker"],
+    });
+
+    const result = getOrphans(factoryRoot);
+    expect(result).toHaveLength(2);
+    const names = result.map((c) => c.name).sort();
+    expect(names).toEqual(["orphan", "unlisted"]);
+  });
+
+  it("frd-16: WHEN no projects exist in the projects dir THEN getOrphans returns []", () => {
+    const { factoryRoot } = makeFixtureTree({ children: [], registeredNames: [] });
+    expect(getOrphans(factoryRoot)).toEqual([]);
+  });
+
+  it("frd-16: WHEN portfolio is missing (no portfolio.md) THEN getOrphans treats all as unregistered (no throw, AC-16-002.7)", () => {
+    const projectsDir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-getorphans-noportfolio-"));
+    tmpDirs.push(projectsDir);
+
+    const factoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mc-getorphans-fac-noportfolio-"));
+    tmpDirs.push(factoryRoot);
+
+    const factoryDir = path.join(factoryRoot, "factory");
+    fs.mkdirSync(factoryDir, { recursive: true });
+
+    // profile points to projectsDir; portfolio.md deliberately absent
+    fs.writeFileSync(
+      path.join(factoryDir, "profile.md"),
+      `---\nname: "Test"\nprojects_path: "${projectsDir}"\n---\n`,
+      "utf-8",
+    );
+
+    // Create an orphan
+    const childPath = path.join(projectsDir, "stray-repo");
+    fs.mkdirSync(path.join(childPath, ".git"), { recursive: true });
+
+    let result: Candidate[] = [];
+    expect(() => {
+      result = getOrphans(factoryRoot);
+    }).not.toThrow();
+    expect(result).toHaveLength(1);
+    expect(result[0]?.kind).toBe("orphan");
+  });
+
+  it("frd-16: getOrphans never throws when factoryRoot does not exist (AC-16-002.7)", () => {
+    // Use an empty parent dir so that the os.tmpdir() fallback doesn't surface
+    // real temp repos from other tests. The parent of the ghost factory root
+    // becomes the projects path when the profile is absent — keep that parent
+    // empty and controlled.
+    const emptyParent = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ghost-parent-"));
+    tmpDirs.push(emptyParent);
+    const ghost = path.join(emptyParent, "ghost-factory");
+    // ghost does not exist on disk → resolveProjectsPath falls back to emptyParent
+    expect(() => getOrphans(ghost)).not.toThrow();
+    expect(getOrphans(ghost)).toEqual([]);
+  });
+
+  it("frd-16: WHEN profile has no projects_path THEN getOrphans falls back to parent dir of factoryRoot (AC-16-001.2 integration)", () => {
+    // Build factory root whose parent dir has no git repos → result must be []
+    const factoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mc-getorphans-noprojects-"));
+    tmpDirs.push(factoryRoot);
+
+    const factoryDir = path.join(factoryRoot, "factory");
+    fs.mkdirSync(factoryDir, { recursive: true });
+
+    // Profile without projects_path → falls back to parent of factoryRoot.
+    // Parent is os.tmpdir() — we can't control its content, but the function must not throw.
+    fs.writeFileSync(path.join(factoryDir, "profile.md"), `---\nname: "Test"\n---\n`, "utf-8");
+
+    expect(() => getOrphans(factoryRoot)).not.toThrow();
   });
 });

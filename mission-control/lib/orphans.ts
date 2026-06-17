@@ -18,6 +18,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { readPortfolio } from "./portfolio";
 import { readProfile } from "./profile";
 
 // ---------------------------------------------------------------------------
@@ -170,4 +171,158 @@ export function listProjectFolders(projectsPath: string, factoryRoot?: string): 
   }
 
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// WO-16-002 — classifyCandidate + getOrphans
+// ---------------------------------------------------------------------------
+
+/**
+ * The kind of nudge to show for a candidate:
+ *   "orphan"   → no marker, not in portfolio → suggest /pandacorp:adopt
+ *   "unlisted" → has marker, not in portfolio → suggest /pandacorp:sync-portfolio
+ */
+export type OrphanKind = "orphan" | "unlisted";
+
+/**
+ * A folder that needs a factory nudge (either adopt or sync-portfolio).
+ *
+ * Traceability: AC-16-002.5 (shape contract).
+ */
+export type Candidate = {
+  /** Folder name (basename of `path`). */
+  name: string;
+  /** Absolute path to the folder. */
+  path: string;
+  /** Kind of nudge required. */
+  kind: OrphanKind;
+  /** Whether `.pandacorp/status.yaml` exists inside the folder. */
+  hasMarker: boolean;
+  /** Whether the folder's path appears in the factory portfolio. */
+  inPortfolio: boolean;
+};
+
+/**
+ * Pandacorp marker: presence of `.pandacorp/status.yaml` inside a folder means
+ * it is already a factory project.
+ *
+ * Traceability: FRD-16 "Pandacorp marker" definition.
+ */
+const PANDACORP_MARKER_SUBPATH = path.join(".pandacorp", "status.yaml");
+
+/**
+ * Normalize a filesystem path for comparison: resolve `.`/`..` segments and
+ * strip any trailing separator so that `/a/b/` and `/a/b` compare equal.
+ *
+ * Traceability: AC-16-002.6 (path normalization).
+ */
+function normalizePath(p: string): string {
+  // path.resolve handles `.`/`..`; then strip trailing sep.
+  return path.resolve(p).replace(/[/\\]+$/, "");
+}
+
+/**
+ * Classify a single candidate folder against the known registered paths.
+ *
+ * Truth table (blueprint §3, FRD-16):
+ *
+ * | hasMarker | inPortfolio | result               |
+ * |-----------|-------------|----------------------|
+ * | false     | false       | `kind: "orphan"`     |
+ * | true      | false       | `kind: "unlisted"`   |
+ * | true      | true        | `null` (no nudge)    |
+ * | false     | true        | `null` (already known; do not nag — AC-16-002.4) |
+ *
+ * @param candidatePath    Absolute path to the candidate folder.
+ * @param registeredPaths  Paths from the portfolio (may contain trailing slashes or
+ *                         redundant segments; normalized before comparison — AC-16-002.6).
+ * @returns `Candidate` when a nudge is needed, or `null` when the project is
+ *          already fully known to the factory. Never throws (AC-16-002.7).
+ */
+export function classifyCandidate(
+  candidatePath: string,
+  registeredPaths: string[],
+): Candidate | null {
+  const normalizedCandidate = normalizePath(candidatePath);
+
+  // Build a normalized set of registered paths; skip blank entries (broken rows).
+  const normalizedRegistered = new Set<string>();
+  for (const p of registeredPaths) {
+    if (typeof p === "string" && p.trim() !== "") {
+      normalizedRegistered.add(normalizePath(p));
+    }
+  }
+
+  const inPortfolio = normalizedRegistered.has(normalizedCandidate);
+
+  // Check for the Pandacorp marker (.pandacorp/status.yaml).
+  const markerPath = path.join(candidatePath, PANDACORP_MARKER_SUBPATH);
+  let hasMarker = false;
+  try {
+    fs.accessSync(markerPath);
+    hasMarker = true;
+  } catch {
+    hasMarker = false;
+  }
+
+  // Apply the truth table.
+  if (inPortfolio) {
+    // Both "listed with marker" and "listed without marker" → no nudge (AC-16-002.3, AC-16-002.4).
+    return null;
+  }
+
+  // Not in portfolio: kind depends on whether the marker is present.
+  const kind: OrphanKind = hasMarker ? "unlisted" : "orphan";
+
+  return {
+    name: path.basename(candidatePath),
+    path: candidatePath,
+    kind,
+    hasMarker,
+    inPortfolio,
+  };
+}
+
+/**
+ * Compose `resolveProjectsPath` + `listProjectFolders` + `classifyCandidate`
+ * to return all folders in the projects directory that need a factory nudge.
+ *
+ * Reads the registered portfolio paths from `<factoryRoot>/factory/portfolio.md`
+ * via `lib/portfolio.ts` (FRD-01, already shipped).
+ *
+ * Defensive (AC-16-002.7): if the portfolio is absent or broken, classifies
+ * candidates against an empty/partial registered set. Never throws.
+ *
+ * @param factoryRoot  Absolute path to the factory repo root (contains `factory/`
+ *                     and `mission-control/`). Defaults to `resolveProjectsPath`'s
+ *                     own fallback when omitted.
+ * @returns Array of `Candidate`s that need adopt or sync-portfolio nudges.
+ */
+export function getOrphans(factoryRoot: string): Candidate[] {
+  try {
+    // 1. Resolve the projects folder.
+    const projectsPath = resolveProjectsPath(factoryRoot);
+
+    // 2. Read registered paths from the portfolio (fail-soft: returns [] on any error).
+    const portfolioPath = path.join(factoryRoot, "factory", "portfolio.md");
+    const portfolioEntries = readPortfolio(portfolioPath);
+    const registeredPaths = portfolioEntries.map((e) => e.path);
+
+    // 3. List bounded candidate folders (git repos, exclusions applied).
+    const candidateFolders = listProjectFolders(projectsPath, factoryRoot);
+
+    // 4. Classify each candidate; keep only those that need a nudge.
+    const result: Candidate[] = [];
+    for (const folderPath of candidateFolders) {
+      const candidate = classifyCandidate(folderPath, registeredPaths);
+      if (candidate !== null) {
+        result.push(candidate);
+      }
+    }
+
+    return result;
+  } catch {
+    // Any unexpected top-level error → empty list (never throws — AC-16-002.7).
+    return [];
+  }
 }
