@@ -3,7 +3,7 @@ id: FRD-06
 type: frd
 title: FRD-06 — Party (live RPG map)
 status: ACTIVE
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 last_updated: '2026-06-16'
 ---
 # FRD-06 — Party (live RPG map)
