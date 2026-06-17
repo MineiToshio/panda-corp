@@ -5,7 +5,7 @@ slug: card-detail
 title: WO-02-007 — Card detail + docs navigator + next-step
 status: DRAFT
 parent: FRD-02
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-16'
 ---
@@ -39,8 +39,59 @@ last_updated: '2026-06-16'
 - [x] Read-only; no write.
 - [x] `.pandacorp/verify.sh` green.
 
-## Evidence
+## Status Note
 
-- Committed: `6a7ddca feat(mission-control): WO-02-007 CardDetail — card detail + docs navigator (CMP-02-card-detail)`
-- Selective verify (2026-06-16): `pnpm biome check .` → 0 errors; `pnpm tsc --noEmit` → 0 errors; `pnpm vitest run components/CardDetail` → 2 test files, 67 tests, all passed.
-- Status: DONE
+**Built:** `CardDetail` component (`CMP-02-card-detail`). A `"use client"` React component that
+renders the full idea-card detail panel: markdown body (summary + key points) via `react-markdown`
+with heading remap (h1–h6 → `<p><strong>`) so the component's own `<h2>` title is the sole heading;
+a conditional docs navigator (`buildNavEntries` → flat `NavEntry[]` from `ProjectDocsIndex`); and a
+next-step command row with `CopyButton`. Zero hardcoded color values — all styles use CSS custom
+properties. Read-only; no writes, no network calls, no fs access.
+
+**Interfaces/contracts exposed:**
+
+```tsx
+"use client";
+export interface CardDetailProps {
+  slug: string;
+  title: string;
+  status: IdeaStatus;
+  body: string;
+  phase?: Phase;
+  advancePending?: boolean;
+  docsIndex?: ProjectDocsIndex | null;
+}
+export function CardDetail(props: CardDetailProps): React.JSX.Element;
+```
+
+- `data-testid="card-detail"` on the root `<section>`; `aria-label="Detalle de idea: {title}"`.
+- `data-testid="card-detail-summary"` on the markdown body `<div>`.
+- `data-testid="card-detail-docs-nav"` on the `<nav>` (only rendered when `buildNavEntries` returns
+  at least one entry — AC-02-008.1).
+- `data-testid="card-detail-docs-nav-item"` on each `<li>` in the navigator.
+- `data-testid="card-detail-next-step"` on the next-step `<section>`.
+- `data-testid="copy-button"` from the consumed `CopyButton` (WO-02-002).
+
+**Integration seams:**
+- Consumes `nextStep` from `lib/next-step.ts` (WO-02-003 / IF-02-nextStep).
+- Consumes `CopyButton` from `components/CopyButton.tsx` (WO-02-002).
+- Accepts `docsIndex: ProjectDocsIndex | null` from `lib/docs.ts` `readProjectDocs` (FRD-01).
+- Caller is responsible for resolving `docsIndex` and `phase`; the component is pure display.
+
+**Test files:**
+- `components/CardDetail.test.tsx` — 56 tests (root container, summary section, docs navigator with
+  entries, AC-02-008.1 no-docs edge, next-step row, CopyButton presence, all lifecycle statuses,
+  all pipeline phases, regression B1' undefined-phase, regression I2 empty-docsIndex, read-only
+  invariant, design-token compliance, accessibility, structural DOM order).
+- `components/CardDetail.adversarial.test.tsx` — 11 tests (comms.bugs[] navigator entries,
+  bugs-only docsIndex shows navigator, trailing-slash path edge, comms.decisions entry, ADR entry,
+  analytics entry, XSS via `<script>` in body, `<img onerror>` in body, `javascript:` href,
+  duplicate FRD slugs, slug with special characters).
+
+**Verify (2026-06-17):** `pnpm vitest run components/CardDetail` → 2 test files, 67 tests, all
+passed. Full suite: 105 test files, 3 080 tests passed (2 expected fail, 5 skipped). `pnpm tsc
+--noEmit` → 0 errors. `pnpm biome check .` → 0 errors.
+
+**Commits:**
+- `6a7ddca feat(mission-control): WO-02-007 CardDetail — card detail + docs navigator (CMP-02-card-detail)`
+- `8518b41 docs(mission-control): mark WO-02-007 done — selective verify passed`
