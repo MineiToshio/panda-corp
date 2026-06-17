@@ -14,5 +14,5 @@ pending_decisions: 0
 pending_bugs: 0
 rethink_pending: false
 advance_pending: false
-last_green_sha: "8bb1c25"
+last_green_sha: "4751ee1"
 safe_to_test: true
