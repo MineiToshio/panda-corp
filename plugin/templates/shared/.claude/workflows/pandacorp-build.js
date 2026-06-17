@@ -1,6 +1,6 @@
 export const meta = {
   name: 'pandacorp-build',
-  description: 'Pandacorp build engine v2 (DR-050): builds FRD by FRD using each blueprint\'s Build Plan, with state in the work-order frontmatter (implementation_status), ONE review/test gate per FRD (not per work order), hand-offs, fail-closed gates and one commit per safe point. Resumable by construction — it reads the frontmatter and NEVER rebuilds a VERIFIED work order.',
+  description: 'Pandacorp build engine v2 (DR-050): builds FRD by FRD using each blueprint\'s Build Plan, with state in the work-order frontmatter (implementation_status), ONE review/test gate per FRD (not per work order), hand-offs, a hard per-run FRD cap, dual-channel owner notifications (desktop + phone), fail-closed gates and one commit per safe point. Resumable by construction — it reads the frontmatter and NEVER rebuilds a VERIFIED work order.',
   phases: [
     { title: 'Baseline' },
     { title: 'Plan' },
@@ -12,12 +12,19 @@ export const meta = {
 // ── Input (all optional) ─────────────────────────────────────────────────────
 //   args.mode: 'pro' | 'balanced' | 'powerful' | 'deep'  (default: balanced)
 //   args.frds: specific FRD folders to limit to (default: all with pending work)
+//   args.maxFrds: hard cap on FRDs built per run (default 6) — a token-budget guardrail
 const MODE = (args && args.mode) || 'balanced'
 const ONLY = (args && args.frds) || null
 
-// Concurrency/models per mode (DR-014). `wave` = work orders built in parallel
-// within an FRD. `split` runs test→backend→frontend; otherwise one full-stack
-// implementer builds the coarse slice end-to-end (faster).
+// HARD per-run guardrail (token safety, independent of budget.total): a single run
+// builds at most MAX_FRDS features then STOPS at a safe point, so one unattended run
+// can never build the whole app and burn the week's tokens. The supervisor relaunches
+// the next chunk. The owner can raise/lower it with args.maxFrds.
+const MAX_FRDS = (args && args.maxFrds) || 6
+
+// Concurrency/models per mode (DR-014). `wave` = work orders built in parallel within
+// an FRD. `split` runs test→backend→frontend; otherwise one full-stack implementer
+// builds the coarse slice end-to-end (faster).
 const PROFILES = {
   pro:      { wave: 2, worker: 'sonnet', judge: 'sonnet', split: false },
   balanced: { wave: 4, worker: 'sonnet', judge: 'opus',   split: false },
@@ -25,11 +32,18 @@ const PROFILES = {
   deep:     { wave: 6, worker: 'opus',   judge: 'opus',   split: true  },
 }
 const P = PROFILES[MODE] || PROFILES.balanced
-log(`Mode ${MODE} · wave ≤${P.wave} · workers ${P.worker} · judge ${P.judge}`)
+log(`Mode ${MODE} · wave ≤${P.wave} · maxFrds ${MAX_FRDS} · workers ${P.worker} · judge ${P.judge}`)
 
 const EMIT = (role, wo) =>
   `Before you start, record your activity for Party (one append, fire-and-forget):\n` +
   `  printf '{"event":"AgentWorking","at":"%s","project":"%s","data":{"role":"${role}","wo":"${wo}"}}\\n' "$(date -u +%FT%TZ)" "$(basename "$PWD")" >> ~/.claude/dashboard-events.ndjson\n`
+
+// Owner notification on BOTH channels — macOS desktop (osascript) AND phone (ntfy, if a
+// topic is configured at .pandacorp/run/ntfy-topic). Fire-and-forget; never blocks the build.
+const NOTIFY = (msg, sound) =>
+  ` Notify the owner on BOTH channels (run via Bash, fire-and-forget): ` +
+  `osascript -e 'display notification "${msg}" with title "Pandacorp build" sound name "${sound || 'Basso'}"' 2>/dev/null || true; ` +
+  `T=$(cat .pandacorp/run/ntfy-topic 2>/dev/null); [ -n "$T" ] && curl -fsS -m 5 -H "Title: Pandacorp build" -d "${msg}" "https://ntfy.sh/$T" >/dev/null 2>&1 || true.`
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
 const VERIFY_SCHEMA = {
@@ -76,7 +90,7 @@ const baseline = await agent(
   `You are the Pandacorp baseline-repair engineer. Run \`bash .pandacorp/verify.sh\`.
   - GREEN → return { green: true }, change nothing.
   - RED → fix the PRODUCTION code (never weaken/skip tests) until it passes end-to-end, commit (Conventional Commits with scope), return { green: true }.
-  If you genuinely can't, NOTIFY THE OWNER (Bash: osascript -e 'display notification "Baseline roto y no se pudo reparar — necesita tu intervención" with title "Pandacorp build" sound name "Basso"' || true) and return { green: false, failure }.`,
+  If you genuinely can't, return { green: false, failure } describing what remains.${NOTIFY('Baseline roto y no se pudo reparar — necesita tu intervencion')}`,
   { label: 'baseline', phase: 'Baseline', model: P.judge, agentType: 'pandacorp:implementer', schema: VERIFY_SCHEMA },
 )
 if (!baseline || baseline.green !== true) {
@@ -127,17 +141,19 @@ async function frdGate(frd, woIds) {
   1) Review the WHOLE feature with your 3 lenses (correctness/security/quality) and write adversarial tests the implementers did not see (anchored in EARS + real bugs), exercising the work orders TOGETHER (real integration, not isolated).
   2) Run the FULL gate \`bash .pandacorp/verify.sh\` clean.
   If everything passes: set EVERY one of this FRD's work orders AND its frd.md + blueprint.md frontmatter to **\`implementation_status: VERIFIED\`**, update .pandacorp/status.yaml (per-status counts + last_green_sha + safe_to_test:true), and commit. Return { green: true }.
-  If a specific work order is wrong, return { green: false, reopen: [its ids], failure } (the engine will rebuild only those).
-  If it's broken and you can't fix it, NOTIFY THE OWNER (Bash: osascript -e 'display notification "FRD ${frd} no pasó la revisión — necesita tu atención" with title "Pandacorp build" sound name "Basso"' || true) and return { green: false, failure }.`,
+  If a SPECIFIC work order is wrong, set ONLY those WOs back to \`implementation_status: PLANNED\` (leave the rest IN_REVIEW), do not commit broken code, and return { green: false, reopen: [those ids], failure } — the engine retries them on the next run, not in a loop.
+  If it's broken and you can't fix it, return { green: false, failure }.${NOTIFY('FRD ' + frd + ' no paso la revision — necesita tu atencion')}`,
     { label: `gate:${frd}`, phase: 'Review', model: P.judge, agentType: 'pandacorp:reviewer', schema: FRD_GATE_SCHEMA })
 }
 
 // ── Per-FRD loop ──────────────────────────────────────────────────────────────
 const builtFrds = []
 const blockedFrds = []
+const reopenedFrds = []
 for (const f of plan.frds) {
   if (f.deps && f.deps.some((d) => blockedFrds.includes(d))) { log(`⊘ ${f.frd} skipped (depends on a blocked FRD)`); blockedFrds.push(f.frd); continue }
   if (budget.total && budget.remaining() < 80000) { log('Circuit breaker: low budget, stopping at a safe point'); break }
+  if ((builtFrds.length + blockedFrds.length) >= MAX_FRDS) { log(`Reached maxFrds=${MAX_FRDS} this run — stopping at a safe point (relaunch to continue the rest)`); break }
 
   phase('Build')
   const pending = f.workOrders.filter((w) => w.status !== 'VERIFIED' && w.status !== 'BLOCKED')
@@ -157,7 +173,7 @@ for (const f of plan.frds) {
   if (frdFailed) {
     log(`✗ ${f.frd}: a work order failed its self-test — freeze + notify`)
     blockedFrds.push(f.frd)
-    await agent(`Freeze ${f.frd}: leave HEAD at last_green_sha, do NOT commit anything broken, mark the failed work order(s) \`implementation_status: BLOCKED\` in their frontmatter + .pandacorp/status.yaml with the reason. NOTIFY THE OWNER (Bash: osascript -e 'display notification "FRD ${f.frd} bloqueado — necesita tu atención" with title "Pandacorp build" sound name "Basso"' || true).`,
+    await agent(`Freeze ${f.frd}: leave HEAD at last_green_sha, do NOT commit anything broken, mark the failed work order(s) \`implementation_status: BLOCKED\` in their frontmatter + .pandacorp/status.yaml with the reason.${NOTIFY('FRD ' + f.frd + ' bloqueado — necesita tu atencion')}`,
       { label: `freeze:${f.frd}`, phase: 'Review', model: P.worker, agentType: 'pandacorp:implementer' })
     continue
   }
@@ -165,20 +181,21 @@ for (const f of plan.frds) {
   phase('Review')
   const gate = await frdGate(f.frd, f.workOrders.map((w) => w.id))
   if (gate && gate.green === true) { log(`✓ ${f.frd} VERIFIED`); builtFrds.push(f.frd) }
+  else if (gate && gate.reopen && gate.reopen.length) { log(`↻ ${f.frd}: ${gate.reopen.length} WO reopened (PLANNED) — next run rebuilds only those`); reopenedFrds.push(f.frd) }
   else { log(`✗ ${f.frd} gate failed${gate?.failure ? ': ' + gate.failure : ''} — freeze-on-red`); blockedFrds.push(f.frd) }
 }
 
 // ── Close-out + ALWAYS notify the owner how this run ended ────────────────────
 phase('Review')
-const allDone = builtFrds.length > 0 && blockedFrds.length === 0
+const allDone = builtFrds.length > 0 && blockedFrds.length === 0 && reopenedFrds.length === 0
 if (allDone) {
-  await agent(`All FRDs are VERIFIED. Run the full suite + e2e of the critical flows and kill the test dev servers with TaskStop. If green, set .pandacorp/status.yaml phase: release and running: false. Then NOTIFY THE OWNER (Bash: osascript -e 'display notification "Build COMPLETO: todos los FRDs verificados" with title "Pandacorp build" sound name "Glass"' || true).`,
+  await agent(`All FRDs are VERIFIED. Run the full suite + e2e of the critical flows and kill the test dev servers with TaskStop. If green, set .pandacorp/status.yaml phase: release and running: false.${NOTIFY('Build COMPLETO: todos los FRDs verificados', 'Glass')}`,
     { label: 'close-out', phase: 'Review', model: P.judge, agentType: 'pandacorp:reviewer' })
 } else {
   const blk = blockedFrds.slice(0, 8).join(', ') || 'ninguno'
-  await agent(`The build run ended. Verified this run: ${builtFrds.length} FRD(s). Blocked: ${blockedFrds.length} (${blk}). Write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and why, what needs the owner's decision). Then NOTIFY THE OWNER (Bash: osascript -e 'display notification "Tramo terminado: ${builtFrds.length} FRDs ok · ${blockedFrds.length} bloqueados — revisá" with title "Pandacorp build" sound name "Basso"' || true).`,
+  await agent(`The build run ended. Verified this run: ${builtFrds.length} FRD(s). Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and why, what needs the owner's decision).${NOTIFY('Tramo: ' + builtFrds.length + ' FRDs ok, ' + blockedFrds.length + ' bloqueados, ' + reopenedFrds.length + ' a reintentar — revisa')}`,
     { label: 'notify-end', phase: 'Review', model: P.worker, agentType: 'pandacorp:implementer' })
-  log(`Run ended: ${builtFrds.length} FRDs verified, ${blockedFrds.length} blocked.`)
+  log(`Run ended: ${builtFrds.length} verified, ${reopenedFrds.length} reopened, ${blockedFrds.length} blocked.`)
 }
 
-return { mode: MODE, builtFrds, blockedFrds }
+return { mode: MODE, builtFrds, blockedFrds, reopenedFrds }

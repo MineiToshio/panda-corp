@@ -1,110 +1,66 @@
 ---
-description: Starts and runs the build of a Pandacorp project with a dynamic workflow that orchestrates the factory's subagents (backend-dev, frontend-dev, test-writer, reviewer) with TDD and review. The workflow runs in the background, walks through all the work orders until done and is resumable; it is followed live from Mission Control. Use inside the project after /pandacorp:blueprint. It is the architecture → building step.
+description: Starts and runs the build of a Pandacorp project. Launches a dynamic workflow that builds FEATURE BY FEATURE (FRD), reading state from the work-order frontmatter (implementation_status) and each blueprint's Build Plan, with one review/test gate per FRD. ALWAYS launched together with a live supervisor that watches the build and notifies the owner (phone) on stalls/errors/end. Runs in the background, resumable. Use inside the project after /pandacorp:blueprint.
 ---
 
 # /pandacorp:implement
 
-**This is the command that starts (and resumes) the build.** It launches a **dynamic workflow** (a native Claude Code JS script that runs in the background) that orchestrates the factory's subagents, distributes the work orders and advances until done; you follow it live in Mission Control and in `/workflows`. It runs IN the project. On start, it sets `.pandacorp/status.yaml → phase: implementation`, `running: true` (the board shows the idea under "building", derived from the project phase — the card status stays `in-pipeline`); when it stops/finishes, `running: false`.
+**This is the command that starts (and resumes) the build.** It launches a **dynamic workflow** (`pandacorp-build`, a native Claude Code JS script that runs in the background) that builds **FRD by FRD** (DR-050): for each feature it reads its blueprint's **Build Plan** (the work-order DAG) and each work order's frontmatter **`implementation_status`** (the source of truth), builds the `PLANNED`/`IN_PROGRESS` ones, and runs **one review + integration gate per FRD** → `VERIFIED`. It runs IN the project. On start: `.pandacorp/status.yaml → phase: implementation`, `running: true`; when it stops/finishes, `running: false`.
 
-> **Preflight (DR-045) — is this a Pandacorp project?** This skill mutates the project, so first confirm the Pandacorp marker: `.pandacorp/status.yaml` exists. If it's missing, STOP and tell the owner (in Spanish) that this folder isn't a factory project yet — `/pandacorp:adopt` brings an existing project in, `/pandacorp:spec` creates a new one. Then, if `overlay_version` in `.pandacorp/status.yaml` is behind the plugin's `OVERLAY_VERSION`, run `/pandacorp:upgrade` first (silent for compatible bumps, DR-048) so this skill runs against the current structure. Don't proceed or invent docs over a missing structure.
+> **Preflight (DR-045) — is this a Pandacorp project?** This skill mutates the project, so first confirm the marker `.pandacorp/status.yaml` exists. If it's missing, STOP and tell the owner (in Spanish) that this folder isn't a factory project yet — `/pandacorp:adopt` brings an existing one in, `/pandacorp:spec` creates a new one. Then, if `overlay_version` is behind the plugin's `OVERLAY_VERSION`, run `/pandacorp:upgrade` first (DR-048) so the project's `.claude/workflows/pandacorp-build.js` and structure are current. Don't proceed over a missing/stale structure.
 
-`$ARGUMENTS` optional: a **mode** (`pro` | `powerful` | `deep`) and/or specific work orders. Without arguments: balanced mode, builds from the first pending work order.
+`$ARGUMENTS` optional: a **mode** (`pro` | `powerful` | `deep`; default `balanced`) and/or `maxFrds` (hard cap on features built per run; default 6).
 
-> **Engine = Dynamic Workflows, not Agent Teams** (DR-013). The work-order loop lives in the **script's code** (`pipeline()` / `while`), not in messages between peer agents. That makes it **resumable from the ground up** (the state lives in the script's variables + the project's files + commits), **deterministic** (dependencies and parallelism explicit in the code) and cheap to isolate (each subagent can run in its own git worktree). Agent Teams is left only for one-off adversarial review, never as the backbone.
+> **Engine = Dynamic Workflows, not Agent Teams** (DR-013). The per-FRD loop lives in the **script's code**, not in messages between peer agents. **Resumable by construction**: state lives in the work-order frontmatter + commits, so a re-launch reads `implementation_status` and **never rebuilds a `VERIFIED` work order** (DR-050) — no re-work.
 
 ## Execution modes (consumption/quality control)
 
-The modes control the **concurrency and the models of the workflow** (how many `agent()` run in parallel and with which model at each stage), not the "team size":
+Control the **concurrency and models** of the workflow (DR-014), not "team size":
+- **pro**: minimum consumption. One worker at a time, economical models. A single full-stack `implementer` (no split). The `reviewer` still gates each FRD.
+- **balanced** (default, Max 5x): up to 4 work orders in parallel within a feature; judge (review) on opus, workers on sonnet.
+- **powerful** (Max 20x): up to 8 in parallel — finishes sooner.
+- **deep**: best model everywhere, split team, extra adversarial review. Slowest/most expensive.
 
-- **pro** (`/pandacorp:implement pro`): for the Pro plan / minimum consumption. A single worker at a time (concurrency 1), economical models (sonnet/haiku). The slowest but the cheapest. **By default a single `implementer` agent (full-stack) instead of a split team**: without parallelism, splitting into backend-dev/frontend-dev adds no speed and adds coordination overhead (handoffs, publishing the contract). The `reviewer` still reviews at close. Only split if the project has a very marked back/front separation.
-- **balanced** (default): designed for Max 5x. Up to 3 `agent()` in parallel; judgment (review/architecture) on opus, the workers on sonnet/haiku.
-- **powerful** (`/pandacorp:implement powerful`): for Max 20x. More concurrency (up to 5) → advances faster. Use it when you want to finish sooner and your plan allows it.
-- **deep** (`/pandacorp:implement deep`): maximum quality. The best model (opus) at all stages, extra adversarial review (the 3 lenses as concurrent subagents) and stricter verification. Slower and more expensive — for a project you have special affection for or when something isn't going well.
+`maxFrds` is the **token guardrail**: a single run builds at most that many features then stops at a safe point (so one unattended run never builds the whole app and burns the week's tokens). The supervisor relaunches the next chunk.
 
-## Resumable (don't start from scratch)
+## Unattended operation — the build supervisor (run and walk away SAFELY)
 
-Resuming is native: the workflow's state lives in the code and in the project's files.
-- **Re-launch `/pandacorp:implement`**: it re-walks every FRD's `docs/frds/*/work-orders/` and `.pandacorp/status.yaml` and continues from the first pending one.
-- Or **resume the run with `resumeFromRunId`**: the work orders already closed return their cached result and only the new stuff runs.
+The owner runs `implement` and leaves, even overnight. For that to be SAFE — **no silent stalls, no burning the week's tokens** — launching the build is **never** just firing the workflow. It is **two things, always**:
 
-Each work order is committed when it closes → progress is not lost. (The old caveat that "Agent Teams has no resume" no longer applies.)
+1. **Launch with the guardrail**: `Workflow({ name: "pandacorp-build", args: { mode, maxFrds } })`. The engine's hard per-run `maxFrds` cap + the budget circuit breaker bound each run. Each FRD verified is an immutable commit (the safe point is a commit, never an agent state).
+2. **Mount the supervisor** (this is the part that was missing and let a build run >1h unwatched):
+   - **Live watch (`Monitor`)** — a bash poll (~2 min; **costs no tokens** — only an emitted *event* wakes the agent) over `.pandacorp/status.yaml` (FRD progress), the run's journal mtime + active agents (frozen?), and the agent count (spend proxy). It emits an event on: a FRD verified, **frozen** (no activity ~15 min), a new block, **pace below target**, or run end. Cover the failure signatures, not just success ("silence is not success").
+   - **Health heartbeat** (~15 min) — a cheap "still healthy" check so the owner isn't left guessing.
+   - **Phone notifications** — the engine fires `osascript` (Mac) **and** `ntfy` (phone, if `.pandacorp/run/ntfy-topic` is set) on every alarm; the supervising agent also sends a `PushNotification` (phone, if Remote Control is on). Belt and suspenders, because the owner is asleep.
+   - **React to every event** — a stall → unstick it; a block → fix it; if it can't be fixed, or pace/budget is wrong → **stop the build and notify the phone** with the detail ("frozen at FRD-X, at Z%/h, come fix it").
+   - **Self-learning of avoidable stalls (DR-047)** — when the supervisor unsticks something, **classify it**: uncontrollable (internet, server 500) → nothing to learn, don't capture; **avoidable** (a recurring pattern, an engine bug, a config) → capture the lesson to `factory/memory/_inbox.md` and, if fixable factory-wide, **fix it on the spot** so it never recurs. Every avoidable stall makes the factory better.
+   - **Budget ceiling for the session** — the supervisor tracks cumulative agents/runs (a spend proxy) and **stops + notifies** at the owner's ceiling. It cannot read exact plan usage, so set a conservative ceiling.
+- **Auto mode (permissions), not babysitting**: the owner activates Claude Code's *auto mode* (Shift+Tab, or `defaultMode: "auto"` in THEIR `~/.claude/settings.json`). NEVER `--dangerously-skip-permissions`.
+- **Test a snapshot without stopping the build**: `git worktree add ../<project>-review <last_green_sha>`; each subagent ideally works in its own worktree (`isolation: 'worktree'`).
 
-## Unattended operation (run and walk away) — see `docs/proposals/07-unattended-build.md`
+## How it runs (per-FRD)
 
-The goal: the owner runs `implement` and leaves for hours, **without babysitting**, and can **test what was built when they come back** without guessing whether it's "testable". The workflow runs in the background and stops on its own when the queue empties — that's already "run and walk away", native. The principle: **the safe point is not an agent state, it is a git commit** — each work order closed green is an immutable snapshot.
+The script: **baseline self-heal** (if `verify.sh` is already red, repair it before planning) → **plan** (read every FRD's frontmatter state + Build Plan; return the non-`VERIFIED` FRDs in cross-FRD order) → for each FRD (up to `maxFrds`): build its `PLANNED`/`IN_PROGRESS` work orders in waves per the Build Plan (each: implement → fast self-test on its OWN tests → `IN_REVIEW` + `## Status Note` hand-off) → **FRD gate** (one review + integration test + full `verify.sh` over the whole feature → all `VERIFIED`, or reopen specific WOs to `PLANNED` for the next run, or freeze) → **close-out + notify**. App-agnostic: it depends only on the docs' state and the project's `verify.sh`.
 
-- **Auto mode (permissions), not babysitting**: the owner activates Claude Code's *auto mode* (Shift+Tab → "Auto mode", or `defaultMode: "auto"` in THEIR `~/.claude/settings.json` — the repo cannot grant it on its own). With that the subagents stop asking "do I continue?" and only stop on unrecoverable red or a human gate. **Auto mode (permissions) ≠ build mode (concurrency/models).** NEVER `--dangerously-skip-permissions`.
-- **Freeze-on-red (natural exit from the pipeline)**: a stage that doesn't pass the gate **throws** → that work order falls to `null` and the `pipeline()` **continues with the independent work orders**, without halting the batch over one broken front. For the broken WO: do NOT commit the broken state, leave `HEAD` at the last green (`last_green_sha`), mark it `BLOCKED` in `.pandacorp/status.yaml` and **emit a notification to the owner** (Notification / PushNotification hook).
-- **Circuit breakers** (mandatory so as not to burn money unattended): cap on iterations, no-progress detection (same error / empty diff / same test failing N times) and a budget cap per run (the workflow's `budget`). They go in the loop condition of the script. The native auto-mode backstop (pause after classifier blocks) does NOT replace this.
-- **`/loop` vs `/goal` — which and when** (they are not alternatives to `implement`; they are the *cadence engine* that `implement` invokes depending on the case):
-  - **Normal build**: neither of the two. The workflow IS the loop; it runs until the queue empties and stops on its own.
-  - **Continuous / unattended factory**: wrap `implement` in **`/loop`** *self-paced* to re-launch the workflow every so often, collect the inboxes (`.pandacorp/inbox/bugs/`, `.pandacorp/inbox/decisions.md`) and keep going. NOT at a fixed cron interval (scheduled tasks expire and introduce delays).
-  - **`/goal`**: an edge tool — for a supervisory session that must not stop until a concrete condition. Rare with workflows, because the workflow already brings its own end condition.
-- **Test a snapshot WITHOUT stopping the build (git worktrees)**: the owner tests the last green in ANOTHER folder — `git worktree add ../<project>-review <last_green_sha>` — while the workflow continues. Keep ONE single review folder and refresh it to the last green. Mission Control gives them the ready command. Each subagent ideally works in its own isolated worktree (`isolation: 'worktree'`).
-- **DB in dev with Docker** (`factory/standards/infra.md`): each project and each worktree spins up its DB in Docker, with its own port, so the owner's test and the agent's don't step on each other.
+## Per-FRD loop (what each feature goes through)
 
-## How it runs (workflow shape)
+1. **Build** each work order (coarse — a whole view/capability): set its frontmatter `IN_PROGRESS`, implement with TDD, run its **own** fast self-test (not the whole suite), set `IN_REVIEW`, write its `## Status Note` hand-off (interfaces exposed, integration seams) so the next agent reads that, not all the code.
+2. **FRD gate** (`reviewer`, a different model from the generator): review the WHOLE feature with the 3 lenses + write adversarial tests the implementers didn't see (DR-015), exercising the work orders **together** (integration); run the full `verify.sh`. Green → every WO + the FRD frontmatter → `VERIFIED`, commit. A specific WO wrong → set ONLY those back to `PLANNED` (retry next run, no loop). Unrecoverable → freeze + notify.
+3. **Check the inboxes at the safe point** (how the owner talks to a running build): `.pandacorp/inbox/bugs/` (regression test then fix), `rethink_pending: true` (stop cleanly + notify), `.pandacorp/inbox/decisions.md` (apply answered decisions).
 
-The skill authorizes **launching a dynamic workflow** with the Workflow tool. Its shape:
+## Real-time documentation (Mission Control reads it live)
 
-- **State in files**: it walks every FRD's `docs/frds/*/work-orders/` (the per-feature queues + each WO's `Dependencies`, which may cross FRDs) and `.pandacorp/status.yaml`; it writes progress right there (Mission Control reads it live).
-- **`pipeline(workOrders, build, review, verify)`** — each work order walks through the 3 stages with no barrier between items (a WO can be in *review* while another is in *build*). Concurrency and models per mode (DR-014); each `agent()` can run in its worktree (`isolation: 'worktree'`).
-- A stage that fails **throws** → freeze-on-red for free (that WO is skipped, the independent ones continue).
-- Each subagent **emits its event** to Party (`emit-event.sh`) and **writes the critical context to files**, not only returns it.
+Keep updated: each work order's frontmatter `implementation_status`; `.pandacorp/status.yaml` (`progress`, `running`, per-status counts, `last_green_sha`, `safe_to_test`); `.pandacorp/comms/progress.md` (append-only log — what was done, decisions, problems; allows resuming with no prior context). If something deviates from plan, document it; don't hide it.
 
-This shape already comes **scripted as a saved workflow** in each project: `.claude/workflows/pandacorp-build.js` (brought by the scaffold). `implement` launches it with the Workflow tool:
+## Decision points (escalation, visible in Mission Control)
 
-```
-Workflow({ name: "pandacorp-build", args: { mode } })   // mode: pro | balanced | powerful | deep
-```
-
-The script walks every FRD's `work-orders/` to collect the global queue, builds the **waves by dependencies** — intra-feature order from each feature's `work-orders/README.md`, cross-feature order from each WO's `Dependencies` (which may reference WOs in other FRDs), resolved by a topological sort over all WOs (parallel within the wave, barrier between waves; in `pro`, one at a time) — spawns the stack subagents via `agentType` (DR-013), runs the gate and commits each WO when green. It is **app-agnostic**: it only depends on the work-order queue and the project's `verify.sh` — nothing of the product is hardcoded. For trivial projects (a single module) it uses a single `implementer`, without a pipeline.
-
-## Composition and models
-
-- **Composition by stack** (DR-013): web (A) → `backend-dev` + `frontend-dev` + `test-writer`, with the `reviewer` at close. API/scraper (B/C/D) → `backend-dev` + `test-writer` (no frontend). **No fixed researcher**: the workers call the `researcher` on demand; the background research was already done in spec and blueprint.
-- **Concurrency and models** (DR-014, design for Max 5x): up to 3 simultaneous `agent()`; judgment on opus, workers on sonnet/haiku. If the owner builds the factory itself, they can raise concurrency (Max 20x).
-
-## Per-work-order loop (each pipeline item)
-
-1. **Select** the next work order from the global queue — intra-feature order from each FRD's `docs/frds/<frd>/work-orders/README.md`, cross-feature order from each WO's `Dependencies` (topological sort over all FRDs' WOs) — and mark it `in-progress`.
-2. **build — distribute with dependencies** (orchestrated in the script, not by peer messages):
-   - `backend-dev`: implements data/logic/API with TDD; publishes the contract in `docs/api.md`.
-   - `frontend-dev`: starts its stage when the contract is ready; implements UI with design tokens and **consumes the `copywriter`'s strings** from the i18n resources (`docs/design/voice-and-tone.md` + keys) — zero hardcoded text or improvised "Error 500".
-   - `test-writer`: writes/runs acceptance tests (RED before implementing; e2e of the flows at close).
-   - **Telemetry**: when a work order touches a flow of the event plan (`docs/analytics/events.md`), it is instrumented right there (the `analytics` defined what/where; no PII, DR-025). It is not left for later.
-   - Each agent writes the critical context to files (the files are the shared source of truth between stages).
-3. **review** (`reviewer` agent, a different model from the generator): it verifies evidence itself (runs tests/lint/typecheck) and **writes adversarial tests the implementer didn't see** (DR-015), anchored in EARS and in bugs from `.pandacorp/comms/progress.md`. It reviews with its 3 lenses. In **deep mode**, the 3 lenses (correctness / security / quality) run as **concurrent subagents** (they finish in the time of the slowest, not the sum) and **mutation testing** is required at FRD milestones (DR-016). REJECTED → it goes back to the responsible agent with the findings (max. 2 cycles; on the third, escalate to the owner).
-4. **verify — close (safe point)**: ONLY if `.pandacorp/verify.sh` passes, commit/merge the work order; work order → `done` with evidence; the gate script writes in `.pandacorp/status.yaml` the `last_green_sha` (commit) and `safe_to_test: true`. **Never commit mid work order.**
-5. **Check the inboxes** (at this safe point, never mid-work — this is how the owner talks to you without stopping the build):
-   - `.pandacorp/inbox/bugs/` → new bugs: first a **regression test** that reproduces it, then the fix; prioritize the `critical` ones.
-   - `.pandacorp/status.yaml` `rethink_pending: true` → `iterate` asked to pause for a major change: **stop cleanly here** and notify the owner.
-   - `.pandacorp/inbox/decisions.md` → pending ones the owner already answered with `/decide`: apply them and unblock that front.
-6. **FRD milestone**: when completing a FRD's work orders, run that FRD's e2e suite and **kill the test dev servers with `TaskStop`** (avoids zombie processes). Repeat until work orders are exhausted.
-
-> **Mission Control** shows this workflow live in the **Party** tab: the events are emitted by the subagents (`emit-event.sh`) and the factory's `SubagentStop` hook to `~/.claude/dashboard-events.ndjson`. It requires no action from the agent. Meanwhile, `/workflows` gives the native live view.
-
-## Real-time documentation (key for resuming and for Mission Control)
-
-While building, ALWAYS keep updated (Mission Control reads it live):
-- **`docs/frds/*/work-orders/`**: status of each work order (`todo` → `progress` → `review` → `done`) with evidence at close, under its FRD module. It is Mission Control's read-only view.
-- **`.pandacorp/status.yaml`**: `progress:` (one line of what is being done right now), `running`, work orders done/total.
-- **`.pandacorp/comms/progress.md`**: append-only log (what was done, decisions taken, problems). Allows resuming with no prior context.
-- **Deviations**: if something does NOT work as planned, document it in the work order and in `.pandacorp/comms/progress.md` ("this needs improvement / we changed X because Y"). Don't hide it.
-
-## Decision points (escalation to the owner, visible in Mission Control)
-
-When something appears that wasn't resolved: **first investigate** (delegate to the `researcher`) and, if with that you can take the coherent decision yourself, do so and document it in `.pandacorp/comms/progress.md`. **Only escalate to the owner the genuinely human decisions**: product scope, something irreversible, spending money, or what the decision registry marks as human. In that case do NOT guess: note it in `.pandacorp/inbox/decisions.md` as `pending` (what's happening, options researched, **your recommendation**) and, if it blocks that front, continue with other work orders. Mission Control highlights these entries (a chip with the number of pending ones per project). The owner answers with **`/pandacorp:decide`**, which records their answer in `.pandacorp/inbox/decisions.md` and unblocks the front.
+When something unplanned appears: **first investigate** (delegate to `researcher`); if you can take the coherent decision yourself, do so and document it. **Only escalate genuinely human decisions** (product scope, irreversible, spending money, or what the registry marks human): note it in `.pandacorp/inbox/decisions.md` as `pending` (what's happening, options, **your recommendation**), notify the owner, and continue with independent FRDs. The owner answers with `/pandacorp:decide`.
 
 ## When all are done
-
-- Full suite + e2e green, `.pandacorp/status.yaml` → `phase: release`.
-- Summary to the owner: what was built, evidence, and the next step `/pandacorp:release`.
+Full suite + e2e green, `.pandacorp/status.yaml → phase: release`. Summary to the owner + next step `/pandacorp:release`.
 
 ## Rules
-- Never advance with red tests. Identical errors repeated 3 times = **freeze-on-red** (don't commit the broken state, leave HEAD at `last_green_sha`, mark the WO `BLOCKED`, notify the owner, continue with independent WOs — the `pipeline()` does it on its own when a stage throws).
-- Quota limits: if rate limits are hit, lower the workflow's concurrency (fewer `agent()` in parallel) and/or lower the workers' models. It is not a code error.
-- If a work order reveals that the blueprint/FRD was wrong, document the conflict, adjust the source document (ADR if it's architectural) and only then continue.
-- For trivial projects or those without a clear separation (a single module), it's fine to use a single `implementer` agent instead of the full pipeline.
-- **Long-running background processes**: dev servers, watchers and builds are run as background tasks so as not to block. Claude Code's checkpoints are a session safety net, but do NOT replace the per-work-order commit nor do they track changes made by Bash — commit each work order when you close it.
-- **Don't trust the worker's honesty** (constitution §22): the propensity to "cheat" depends on the model; that's why the `reviewer` re-verifies everything and the environment is fail-closed. Never relax verification because "the agent said it passed".
+- Never advance with red tests. A WO that can't pass = **freeze-on-red** (don't commit broken, leave HEAD at `last_green_sha`, mark `BLOCKED` in frontmatter, notify, continue with independent features).
+- **State is the frontmatter** (`implementation_status`), never body prose or git (DR-050). `VERIFIED` is never rebuilt.
+- Quota limits: lower the mode (fewer parallel agents / cheaper models). Not a code error.
+- If a work order reveals the blueprint/FRD was wrong, document the conflict, fix the source doc (ADR if architectural), then continue.
+- **Don't trust the worker's honesty** (constitution §22): the `reviewer` re-verifies everything; the environment is fail-closed. Never relax verification because "the agent said it passed".
