@@ -45,6 +45,12 @@ export const FIXTURE_EVENTS_EMPTY_NDJSON: string = path.join(
   "dashboard-events-empty.ndjson",
 );
 
+/** Tasks fixture directory with one team subdirectory (active team). */
+export const FIXTURE_TASKS_ACTIVE_DIR: string = path.join(FIXTURES_DIR, "tasks");
+
+/** Nonexistent tasks directory (absent tasks → no active team). */
+export const FIXTURE_TASKS_ABSENT_DIR: string = path.join(FIXTURES_DIR, "tasks-absent");
+
 /**
  * Sets `PANDACORP_FACTORY_ROOT` to `fixturePath`, runs `fn`, then restores
  * the prior value (or deletes the var if it was not set).
