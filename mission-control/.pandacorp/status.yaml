@@ -3,7 +3,7 @@
 project: "Pandacorp"
 phase: implementation
 version: v1
-overlay_version: "8.3.0"
+overlay_version: "8.4.0"
 created_with: "6.0.0"
 running: false
 repo: ""
@@ -14,5 +14,5 @@ pending_decisions: 0
 pending_bugs: 0
 rethink_pending: false
 advance_pending: false
-last_green_sha: "c90fc57"
+last_green_sha: "020755c"
 safe_to_test: true
