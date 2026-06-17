@@ -5,7 +5,7 @@ slug: mode-selector
 title: 'WO-11-002 — `CMP-11-mode-selector`: selector + command + memory'
 status: DRAFT
 parent: FRD-11
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-16'
 ---
@@ -47,3 +47,37 @@ Component tests (jsdom + `localStorage`):
 - [ ] `"use client"`; `role=radiogroup` + keyboard support; reuses shared `CopyButton`.
 - [ ] Tokens only; `data-testid` on each mode + the command row; Spanish copy via i18n.
 - [ ] `bash .pandacorp/verify.sh` passes.
+
+## Status Note
+
+**What it built:** `CMP-11-mode-selector` — the per-project build mode selector for the Commands tab. Implements all AC-11-001.x / AC-11-002.x / AC-11-003.x criteria end-to-end: four-mode radiogroup (Pro/Balanced/Powerful/Deep), per-project localStorage memory, exact copy command, active description alongside command.
+
+**Interfaces / contracts exposed:**
+
+```tsx
+// app/projects/[slug]/_components/mode-selector.tsx
+export interface ModeSelectorProps { slug: string; }
+export function ModeSelector({ slug }: ModeSelectorProps): React.JSX.Element
+```
+
+**Integration seam:** `TabCommands` (`tab-commands.tsx`) now mounts `<ModeSelector slug={slug} />` replacing the `ModeSelectorSlot` placeholder. The root element carries `data-testid="mode-selector-slot"` — the seam AC-04-005.2 tests check.
+
+**A11y choices documented:**
+- `<input type="radio">` (visually hidden) inside `<label>` for native semantics — biome `useSemanticElements` compliant.
+- `<div role="radiogroup">` wraps the fieldset (biome forbids `role="radiogroup"` on `<fieldset>` via `noNoninteractiveElementToInteractiveRole`).
+- `aria-checked` mirrored explicitly on the `<input>` for test-library `getAttribute` queries.
+- `data-testid="mode-option-{id}"` on the `<label>` (container) so `within(option)` finds child elements; `getInputForOption()` helper in tests reaches the nested input for `aria-checked` checks.
+
+**data-testid coverage:**
+- `mode-selector-slot` — root section (integration seam)
+- `mode-option-{id}` — each mode label container (pro/balanced/powerful/deep)
+- `mode-description-{id}` — description span inside each option
+- `mode-check-{id}` — checkmark span (visible when active, visibility:hidden when inactive)
+- `mode-command-row` — command display section
+- `mode-command-text` — the command `<code>` element
+- `mode-command-copy` — wrapper around `CopyButton`
+- `mode-active-description` — active mode description in command row
+
+**Test files:** `app/projects/[slug]/_components/mode-selector.test.tsx` — 34 tests covering all 5 TDD cases + design token invariants + integration seam.
+
+**Gate:** 124 test files / 3526 tests GREEN, tsc clean, biome clean.

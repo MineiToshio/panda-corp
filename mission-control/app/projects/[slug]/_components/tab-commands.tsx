@@ -5,9 +5,8 @@
  *   - Renders stage-relevant command rows from workspaceCommands(phase)
  *     (IF-04-next-step, lib/next-step.ts), each with a CopyButton and a
  *     "when to use" description (AC-04-005.1).
- *   - Mounts the FRD-11 build mode selector (CMP-11-mode-selector) at the top
- *     of the tab (AC-04-005.2). Until FRD-11 WO-11-002 lands, a labelled
- *     placeholder slot is rendered so the tab is shippable in isolation.
+ *   - Mounts the FRD-11 build mode selector (CMP-11-mode-selector, WO-11-002)
+ *     at the top of the tab (AC-04-005.2).
  *
  * Design rules (AGENTS.md / FRD-13):
  *   - ZERO hardcoded colors — CSS custom properties only.
@@ -26,6 +25,7 @@ import { CopyButton } from "@/components/CopyButton";
 import type { CommandRow } from "@/lib/next-step";
 import { workspaceCommands } from "@/lib/next-step";
 import type { Phase } from "@/lib/status";
+import { ModeSelector } from "./mode-selector";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -122,25 +122,6 @@ const COMMAND_DESCRIPTION_STYLE: React.CSSProperties = {
   margin: 0,
 };
 
-const PLACEHOLDER_SLOT_STYLE: React.CSSProperties = {
-  ...SECTION_STYLE,
-  border: "var(--hairline, 1px) dashed var(--color-border, currentColor)",
-  opacity: 0.7,
-};
-
-const PLACEHOLDER_HEADING_STYLE: React.CSSProperties = {
-  ...SECTION_TITLE_STYLE,
-  marginBottom: "calc(var(--spacing, 0.25rem) * 2)",
-};
-
-const PLACEHOLDER_BODY_STYLE: React.CSSProperties = {
-  fontSize: "0.8125rem",
-  color: "var(--color-text-muted, currentColor)",
-  fontStyle: "italic",
-  margin: 0,
-  lineHeight: 1.5,
-};
-
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
@@ -165,43 +146,6 @@ function CommandRowItem({ row }: { row: CommandRow }): React.JSX.Element {
   );
 }
 
-/**
- * FRD-11 mode selector slot (CMP-11-mode-selector placeholder).
- *
- * Until WO-11-002 ships, renders a labelled placeholder that:
- *   - Has data-testid="mode-selector-slot" (required by AC-04-005.2 tests).
- *   - Contains visible text (accessible name).
- *   - Is rendered at the top of the tab.
- *
- * When CMP-11-mode-selector is available, replace this with:
- *   <ModeSelector slug={slug} />
- * No other changes to TabCommands are needed (the slot is the seam).
- *
- * @param slug - The project slug passed through to the real selector when available.
- */
-function ModeSelectorSlot({
-  // slug is intentionally accepted but unused in the placeholder — it is the
-  // integration seam for CMP-11-mode-selector (FRD-11/WO-11-002). Replace
-  // this function body with <ModeSelector slug={slug} /> when FRD-11 lands.
-  slug: _slug,
-}: {
-  slug: string;
-}): React.JSX.Element {
-  return (
-    <section
-      data-testid="mode-selector-slot"
-      aria-label="Selector de modo de construcción (próximamente)"
-      style={PLACEHOLDER_SLOT_STYLE}
-    >
-      <h3 style={PLACEHOLDER_HEADING_STYLE}>Modo de construcción</h3>
-      <p style={PLACEHOLDER_BODY_STYLE}>
-        El selector de modo (Pro / Balanceado / Potente / Profundo) estará disponible en FRD-11. Por
-        ahora usa el modo configurado en tu sesión de Claude.
-      </p>
-    </section>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // TabCommands — main export (CMP-04-tab-commands)
 // ---------------------------------------------------------------------------
@@ -218,8 +162,8 @@ export function TabCommands({ phase, slug }: TabCommandsProps): React.JSX.Elemen
 
   return (
     <main data-testid="tab-commands-body" aria-label="Comandos del proyecto" style={ROOT_STYLE}>
-      {/* AC-04-005.2 — FRD-11 mode selector slot (top of tab) */}
-      <ModeSelectorSlot slug={slug} />
+      {/* AC-04-005.2 — FRD-11 mode selector (CMP-11-mode-selector, WO-11-002) */}
+      <ModeSelector slug={slug} />
 
       {/* AC-04-005.1 — stage-relevant command rows */}
       <section aria-label="Comandos disponibles" style={SECTION_STYLE}>
