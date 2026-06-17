@@ -5,9 +5,9 @@ slug: timeline-view-toggle
 title: WO-12-007 — Timeline view + RPG↔timeline↔DAG toggle
 status: DRAFT
 parent: FRD-12
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-17'
 ---
 # WO-12-007 — Timeline view + RPG↔timeline↔DAG toggle
 

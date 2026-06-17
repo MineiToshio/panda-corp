@@ -7,9 +7,9 @@ title: >-
   follow-mode
 status: DRAFT
 parent: FRD-12
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-17'
 ---
 # WO-12-006 — Work-order DAG (Dagre) with path-focus + jump-to-error + follow-mode
 
