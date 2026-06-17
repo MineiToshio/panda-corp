@@ -106,9 +106,9 @@ describe("IdeaBoardView — board columns", () => {
     expect(screen.getByTestId("board-column-discovered")).toBeInTheDocument();
   });
 
-  it("renders a 'in-pipeline' column", () => {
+  it("renders a 'documented' column (WO-02-005: in-pipeline cards route to documented by default)", () => {
     render(<IdeaBoardView cards={ALL_CARDS} />);
-    expect(screen.getByTestId("board-column-in-pipeline")).toBeInTheDocument();
+    expect(screen.getByTestId("board-column-documented")).toBeInTheDocument();
   });
 
   it("renders a 'shipped' column", () => {
@@ -139,9 +139,9 @@ describe("IdeaBoardView — cards in correct columns", () => {
     expect(col).toHaveTextContent("Idea Recomendada");
   });
 
-  it("in-pipeline card appears in the in-pipeline column", () => {
+  it("in-pipeline card without boardColumn falls back to documented column (WO-02-005 fallback)", () => {
     render(<IdeaBoardView cards={ALL_CARDS} />);
-    const col = screen.getByTestId("board-column-in-pipeline");
+    const col = screen.getByTestId("board-column-documented");
     expect(col).toHaveTextContent("Idea En Progreso");
   });
 

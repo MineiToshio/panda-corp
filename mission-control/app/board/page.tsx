@@ -1,23 +1,27 @@
 /**
  * Board page — Server Component (CMP-02-board-view).
  *
- * Reads all idea cards from the factory filesystem via readIdeas (IF-01-readIdeas,
- * docs/api.md WO-01-003) and renders them in the IdeaBoardView kanban.
+ * WO-02-005: full two-axis board — reads all idea cards, resolves the project
+ * status for each in-pipeline card via readStatus, and derives the board column
+ * for every card via deriveColumn. The resulting `boardColumn` is passed to
+ * IdeaBoardView which routes cards into the 7 canonical columns.
  *
  * Platform golden rule (architecture §1): read-only, never call Claude.
- * All I/O is synchronous fs reads via readIdeas (lib/ideas.ts).
- *
- * The board is rendered server-side so no loading spinner is needed for the
- * initial render. Error states are handled via the tolerance rules of readIdeas
- * (blueprint §3) — a missing ideas folder yields [], never a throw.
+ * All I/O is synchronous fs reads via readIdeas / readStatus (lib/).
  *
  * Traceability:
- *   CMP-02-board-view → REQ-02-001, REQ-02-002, REQ-02-005
+ *   CMP-02-board-view → REQ-02-001, REQ-02-002, REQ-02-005, REQ-02-006
  *   IF-01-readIdeas (docs/api.md WO-01-003)
+ *   IF-01-readStatus (docs/api.md WO-01-005)
+ *   IF-02-deriveColumn (lib/board.ts, WO-02-001)
  */
 
-import type { IdeaCardProps } from "@/components/IdeaCard";
+import path from "node:path";
+import type { BoardCardEntry } from "@/app/board/IdeaBoardView";
+import { deriveColumn } from "@/lib/board";
+import { resolveFactoryRoot } from "@/lib/config";
 import { readIdeas } from "@/lib/ideas";
+import { readStatus } from "@/lib/status";
 import { IdeaBoardView } from "./IdeaBoardView";
 
 // ---------------------------------------------------------------------------
@@ -58,27 +62,54 @@ const SUBTEXT_STYLE: React.CSSProperties = {
 
 /**
  * Board page (Server Component, Next.js App Router).
- * Synchronous — readIdeas is synchronous (fs.readFileSync), safe here.
+ *
+ * Two-axis column derivation (WO-02-005):
+ *   1. readIdeas() — all idea cards.
+ *   2. For each in-pipeline card: readStatus(projectPath) — project phase.
+ *   3. deriveColumn(card, status) → BoardColumn.
+ *   4. Pass boardColumn into each card entry for IdeaBoardView.
+ *
+ * readStatus is fail-soft (never throws), so a missing project yields a
+ * "documented" fallback column without breaking (AC-02-001.6).
  */
 export default function BoardPage(): React.JSX.Element {
-  // Read all idea cards. readIdeas never throws (blueprint §3 tolerance).
+  // 1. Read all idea cards. Never throws (blueprint §3 tolerance).
   const rawCards = readIdeas();
 
-  // Map IdeaCard data → IdeaCardProps.
-  // isRunning is not set here (requires readStatus per card — that's WO-02-001/WO-02-005).
-  // For WO-01-003 scope: pass through the data layer fields as-is.
-  const cards: IdeaCardProps[] = rawCards.map((card) => ({
-    slug: card.slug,
-    title: card.title,
-    status: card.status,
-    projectType: card.projectType,
-    returnType: card.returnType,
-    score: card.score,
-    project: card.project,
-    body: card.body,
-    // isRunning resolved in the full board view (WO-02-005) once readStatus is wired.
-    isRunning: undefined,
-  }));
+  // 2 + 3. Resolve boardColumn for every card via two-axis deriveColumn.
+  const factoryRoot = resolveFactoryRoot();
+
+  const cards: BoardCardEntry[] = rawCards.map((card) => {
+    // For in-pipeline cards: resolve project status to get the phase.
+    let projectStatus = null;
+    if (card.status === "in-pipeline" && card.project) {
+      const projectPath = path.resolve(factoryRoot, "..", card.project);
+      projectStatus = readStatus(projectPath);
+    }
+
+    const boardColumn = deriveColumn(card, projectStatus);
+
+    // isRunning: derived from the project status (running: true in status.yaml).
+    // Only meaningful for in-pipeline cards (AC-02-008.2).
+    const isRunning =
+      card.status === "in-pipeline" &&
+      projectStatus !== null &&
+      projectStatus.present &&
+      projectStatus.status.running === true;
+
+    return {
+      slug: card.slug,
+      title: card.title,
+      status: card.status,
+      projectType: card.projectType,
+      returnType: card.returnType,
+      score: card.score,
+      project: card.project,
+      body: card.body,
+      isRunning,
+      boardColumn,
+    };
+  });
 
   return (
     <main data-testid="board-page" style={PAGE_STYLE} aria-label="Tablero de ideas Pandacorp">

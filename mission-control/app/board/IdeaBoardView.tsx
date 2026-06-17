@@ -1,20 +1,14 @@
 /**
  * IdeaBoardView — Presentational board component (CMP-02-board-view).
  *
- * Receives already-resolved IdeaCardProps (from readIdeas, IF-01-readIdeas)
- * and renders them in kanban columns bucketed by status.
+ * WO-02-005: renders 7 kanban columns from the two-axis column derivation
+ * (deriveColumn: card status + project phase → BoardColumn). Cards carry a
+ * pre-computed `boardColumn` field set by the Server Component (page.tsx)
+ * via readStatus + deriveColumn. If `boardColumn` is absent (legacy callers),
+ * the component falls back to status-based routing for backward compatibility.
  *
- * Routing:
- *   - discovered + recommended  → "discovered" column (recommended shows badge inside IdeaCard)
- *   - in-pipeline               → "in-pipeline" column
- *   - shipped                   → "shipped" column
- *   - discarded                 → "discarded" column
- *
- * Note: the full two-axis column derivation (status + project phase → board column)
- * is CMP-02-board-derive (lib/board.ts, WO-02-001). This component receives
- * pre-bucketed cards from the Server Component (app/board/page.tsx) which
- * handles the phase derivation for in-pipeline cards. Here we bucket by
- * IdeaCardProps.status directly for the base four columns.
+ * Columns (FRD-02, AC-02-002.2):
+ *   discovered → documented → design → architecture → building → shipped → discarded
  *
  * Design rules (FRD-13, AGENTS.md):
  *   - ZERO hardcoded colors — CSS custom properties only.
@@ -23,57 +17,80 @@
  *   - data-testid on every significant element.
  *   - Spanish labels (single operator, Spanish UI).
  *   - Empty / loading / error states all handled explicitly.
+ *   - No drag/move controls (AC-02-002.1).
  *
  * Traceability:
- *   CMP-02-board-view → REQ-02-001, REQ-02-002, REQ-02-005
+ *   CMP-02-board-view → REQ-02-001, REQ-02-002, REQ-02-005, REQ-02-006
  *   IF-01-readIdeas (docs/api.md WO-01-003)
+ *   IF-02-deriveColumn (lib/board.ts, WO-02-001)
  */
 
 import type { IdeaCardProps } from "@/components/IdeaCard";
 import { IdeaCard } from "@/components/IdeaCard";
-import type { IdeaStatus } from "@/lib/ideas";
+import type { BoardColumn } from "@/lib/board";
 
 // ---------------------------------------------------------------------------
-// Column definition
+// Column definitions — the 7 canonical columns (FRD-02, blueprint §2)
 // ---------------------------------------------------------------------------
 
-interface BoardColumn {
-  id: string;
+interface ColumnDef {
+  id: BoardColumn;
   label: string;
-  /** Card statuses that route into this column */
-  statuses: IdeaStatus[];
 }
 
-const COLUMNS: BoardColumn[] = [
-  {
-    id: "discovered",
-    label: "Descubiertas",
-    statuses: ["discovered", "recommended"],
-  },
-  {
-    id: "in-pipeline",
-    label: "En progreso",
-    statuses: ["in-pipeline"],
-  },
-  {
-    id: "shipped",
-    label: "Lanzadas",
-    statuses: ["shipped"],
-  },
-  {
-    id: "discarded",
-    label: "Descartadas",
-    statuses: ["discarded"],
-  },
+const COLUMNS: ColumnDef[] = [
+  { id: "discovered", label: "Descubiertas" },
+  { id: "documented", label: "Documentadas" },
+  { id: "design", label: "Diseño" },
+  { id: "architecture", label: "Arquitectura" },
+  { id: "building", label: "Construyendo" },
+  { id: "shipped", label: "Lanzadas" },
+  { id: "discarded", label: "Descartadas" },
 ];
+
+/**
+ * Legacy fallback: derive a BoardColumn from card status when no explicit
+ * boardColumn is provided (backwards-compat for pre-WO-02-005 callers).
+ * Mirrors the deriveColumn rules for non-in-pipeline statuses only.
+ */
+function fallbackColumn(status: IdeaCardProps["status"]): BoardColumn {
+  switch (status) {
+    case "discovered":
+    case "recommended":
+      return "discovered";
+    case "in-pipeline":
+      // Without a resolved boardColumn we cannot determine the project phase;
+      // fall back to "documented" (the safe default per AC-02-001.6).
+      return "documented";
+    case "shipped":
+      return "shipped";
+    case "discarded":
+      return "discarded";
+    default: {
+      const _exhaustive: never = status;
+      void _exhaustive;
+      return "discovered";
+    }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
 
+/**
+ * A card as returned by the Server Component — IdeaCardProps extended with
+ * the pre-computed `boardColumn` (from readStatus + deriveColumn in page.tsx).
+ * When absent, the component falls back to status-based routing.
+ */
+export interface BoardCardEntry extends IdeaCardProps {
+  /** Pre-computed two-axis column (set by page.tsx via deriveColumn). */
+  boardColumn?: BoardColumn;
+}
+
 export interface IdeaBoardViewProps {
-  /** Cards returned by readIdeas (IF-01-readIdeas, docs/api.md WO-01-003). */
-  cards: IdeaCardProps[];
+  /** Cards with optional pre-computed boardColumn (IF-02-deriveColumn). */
+  cards: BoardCardEntry[];
   /** When true, render the loading skeleton instead of cards. */
   isLoading?: boolean;
   /** When set, render the error state with this message. */
@@ -246,9 +263,16 @@ export function IdeaBoardView({
 
   return (
     <section data-testid="idea-board" style={BOARD_STYLE} aria-label="Tablero de ideas">
-      <div style={SCROLL_CONTAINER_STYLE}>
+      <div data-testid="board-scroll-container" style={SCROLL_CONTAINER_STYLE}>
         {COLUMNS.map((col) => {
-          const colCards = cards.filter((c) => (col.statuses as IdeaStatus[]).includes(c.status));
+          // Two-axis routing: use boardColumn when present; fall back to status-based routing.
+          const colCards = cards.filter((c) => {
+            const resolved: BoardColumn =
+              "boardColumn" in c && c.boardColumn !== undefined
+                ? c.boardColumn
+                : fallbackColumn(c.status);
+            return resolved === col.id;
+          });
 
           return (
             <section
@@ -265,7 +289,7 @@ export function IdeaBoardView({
                 </span>
               </header>
 
-              {/* Cards list */}
+              {/* Cards list — no drag handles, no move controls (AC-02-002.1) */}
               <div style={COLUMN_CARDS_STYLE}>
                 {colCards.length === 0 ? (
                   <div style={EMPTY_COLUMN_STYLE} title="Columna vacía">
