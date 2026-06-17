@@ -1,3 +1,14 @@
+---
+id: WO-16-004
+type: work-order
+slug: orphans-banner
+title: WO-16-004 — `OrphansBanner` client component (dismiss + self-clear)
+status: DRAFT
+parent: FRD-16
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-16-004 — `OrphansBanner` client component (dismiss + self-clear)
 
 > Source-of-truth: [`blueprint.md`](../blueprint.md) (`CMP-16-banner`, `CMP-16-steps`) · [architecture §3, §4.8, §7](../../../product/architecture.md).

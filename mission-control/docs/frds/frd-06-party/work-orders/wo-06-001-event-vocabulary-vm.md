@@ -1,3 +1,14 @@
+---
+id: WO-06-001
+type: work-order
+slug: event-vocabulary-vm
+title: WO-06-001 — Iconic event vocabulary + event view-model mapper
+status: DRAFT
+parent: FRD-06
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-06-001 — Iconic event vocabulary + event view-model mapper
 
 **Components/Interfaces:** `IF-06-icon-map`, `IF-06-event-vm` · **Traces:** REQ-06-012, REQ-06-013, REQ-06-011

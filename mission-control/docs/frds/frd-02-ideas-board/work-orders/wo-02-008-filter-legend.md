@@ -1,3 +1,14 @@
+---
+id: WO-02-008
+type: work-order
+slug: filter-legend
+title: WO-02-008 — Category filter + legend + building indicator
+status: ACTIVE
+parent: FRD-02
+implementation_status: VERIFIED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-02-008 — Category filter + legend + building indicator
 
 **Module:** `components/CategoryFilter.tsx`, `components/BoardLegend.tsx`

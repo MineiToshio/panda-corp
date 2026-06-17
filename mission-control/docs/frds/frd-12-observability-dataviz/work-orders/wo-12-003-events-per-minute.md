@@ -1,3 +1,14 @@
+---
+id: WO-12-003
+type: work-order
+slug: events-per-minute
+title: WO-12-003 — Events-per-minute selector (per-agent)
+status: ACTIVE
+parent: FRD-12
+implementation_status: VERIFIED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-12-003 — Events-per-minute selector (per-agent)
 
 **Components/Interfaces:** `IF-12-rate` · **Traces:** REQ-12-007

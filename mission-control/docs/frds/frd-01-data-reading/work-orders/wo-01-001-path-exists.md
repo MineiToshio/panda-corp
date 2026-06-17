@@ -1,3 +1,14 @@
+---
+id: WO-01-001
+type: work-order
+slug: path-exists
+title: WO-01-001 — `pathExists` read-only probe
+status: ACTIVE
+parent: FRD-01
+implementation_status: VERIFIED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-01-001 — `pathExists` read-only probe
 
 **Module:** `lib/fs-utils.ts` (new tiny module — see report)

@@ -1,3 +1,14 @@
+---
+id: WO-06-008
+type: work-order
+slug: achievement-toast
+title: WO-06-008 — Achievement toast (work-order-close celebration)
+status: DRAFT
+parent: FRD-06
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-06-008 — Achievement toast (work-order-close celebration)
 
 **Components/Interfaces:** `CMP-06-achievement` · **Traces:** REQ-06-007

@@ -1,3 +1,16 @@
+---
+id: WO-17-002
+type: work-order
+slug: memory-views
+title: >-
+  WO-17-002 — `lib/memory` views: candidates / promotionQueue / prunable /
+  memoryHealth
+status: DRAFT
+parent: FRD-17
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-17-002 — `lib/memory` views: candidates / promotionQueue / prunable / memoryHealth
 
 > Source-of-truth: [`blueprint.md`](../blueprint.md) (`IF-17-memory`) · [architecture §4.6, §4.7](../../../product/architecture.md).

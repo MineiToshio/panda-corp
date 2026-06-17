@@ -1,3 +1,14 @@
+---
+id: WO-04-002
+type: work-order
+slug: comms-readers
+title: 'WO-04-002 — `lib/docs.ts`: activity log + decisions readers'
+status: DRAFT
+parent: FRD-04
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-04-002 — `lib/docs.ts`: activity log + decisions readers
 
 **Feature:** FRD-04 · **Implements:** IF-04-docs (`readActivityLog`, `readDecisions`) · **REQ-04-003, REQ-04-004**

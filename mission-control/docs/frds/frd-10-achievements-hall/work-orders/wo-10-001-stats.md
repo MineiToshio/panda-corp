@@ -1,3 +1,14 @@
+---
+id: WO-10-001
+type: work-order
+slug: stats
+title: 'WO-10-001 — `lib/achievements.ts`: stats (only-grow counters)'
+status: DRAFT
+parent: FRD-10
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-10-001 — `lib/achievements.ts`: stats (only-grow counters)
 
 Source-of-truth: `FRD > FDD > design-tokens > blueprint > work order`.

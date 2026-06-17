@@ -1,3 +1,14 @@
+---
+id: WO-09-003
+type: work-order
+slug: avatar
+title: WO-09-003 — `CMP-09-avatar` pixel-art agent avatar
+status: DRAFT
+parent: FRD-09
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-09-003 — `CMP-09-avatar` pixel-art agent avatar
 
 Source-of-truth: `FRD > FDD > design-tokens > blueprint > work order`.

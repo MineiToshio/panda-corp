@@ -1,3 +1,14 @@
+---
+id: WO-09-002
+type: work-order
+slug: agent-xp-engine
+title: 'WO-09-002 — `lib/gamification.ts`: agent XP/level engine'
+status: DRAFT
+parent: FRD-09
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-09-002 — `lib/gamification.ts`: agent XP/level engine
 
 Source-of-truth: `FRD > FDD > design-tokens > blueprint > work order`.

@@ -1,3 +1,14 @@
+---
+id: WO-12-002
+type: work-order
+slug: kpi-selector
+title: 'WO-12-002 — KPI selector (≤5, incl. failed work orders)'
+status: ACTIVE
+parent: FRD-12
+implementation_status: VERIFIED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-12-002 — KPI selector (≤5, incl. failed work orders)
 
 **Components/Interfaces:** `IF-12-kpis` · **Traces:** REQ-12-001, REQ-12-007

@@ -1,3 +1,14 @@
+---
+id: WO-07-003
+type: work-order
+slug: registry
+title: 'WO-07-003 — `lib/registry.ts`: read decision rules'
+status: DRAFT
+parent: FRD-07
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-07-003 — `lib/registry.ts`: read decision rules
 
 Source-of-truth: `FRD > FDD > design-tokens > blueprint > work order`.

@@ -1,3 +1,14 @@
+---
+id: WO-07-002
+type: work-order
+slug: reference-agents
+title: 'WO-07-002 — `lib/reference.ts`: read agents catalog'
+status: DRAFT
+parent: FRD-07
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-07-002 — `lib/reference.ts`: read agents catalog
 
 Source-of-truth: `FRD > FDD > design-tokens > blueprint > work order`.

@@ -1,3 +1,14 @@
+---
+id: WO-01-000
+type: work-order
+slug: test-fixtures
+title: WO-01-000 — Test fixtures + `PANDACORP_FACTORY_ROOT` harness
+status: ACTIVE
+parent: FRD-01
+implementation_status: VERIFIED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-01-000 — Test fixtures + `PANDACORP_FACTORY_ROOT` harness
 
 **Module:** `tests/fixtures/factory/**` (+ a small `tests/fixtures/index.ts` helper)

@@ -1,3 +1,14 @@
+---
+id: WO-05-002
+type: work-order
+slug: aggregate-progress
+title: 'WO-05-002 — `lib/work-orders.ts`: `aggregateProgress`'
+status: DRAFT
+parent: FRD-05
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-05-002 — `lib/work-orders.ts`: `aggregateProgress`
 
 **Feature:** FRD-05 · **Implements:** IF-05-work-orders (`aggregateProgress`, `WorkOrderProgress`) · **REQ-05-004**

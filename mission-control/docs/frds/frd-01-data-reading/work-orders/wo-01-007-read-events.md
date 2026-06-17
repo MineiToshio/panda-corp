@@ -1,3 +1,14 @@
+---
+id: WO-01-007
+type: work-order
+slug: read-events
+title: WO-01-007 — `readEvents` (capped tail + state diffs)
+status: ACTIVE
+parent: FRD-01
+implementation_status: VERIFIED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-01-007 — `readEvents` (capped tail + state diffs)
 
 **Module:** `lib/events.ts`

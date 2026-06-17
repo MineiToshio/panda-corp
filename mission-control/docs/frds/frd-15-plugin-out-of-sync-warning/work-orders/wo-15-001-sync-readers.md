@@ -1,3 +1,14 @@
+---
+id: WO-15-001
+type: work-order
+slug: sync-readers
+title: 'WO-15-001 — `lib/plugin-sync` readers (installed SHA, plugin HEAD SHA, dirty)'
+status: DRAFT
+parent: FRD-15
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-15-001 — `lib/plugin-sync` readers (installed SHA, plugin HEAD SHA, dirty)
 
 > **STATUS: BLOCKED** — WO-15-001 implementation is APPROVED (53/53 tests green, review at `docs/reviews/wo-15-001-review.md`) but `verify.sh` global is RED due to unrelated FRD-12 `rate.ts` prototype-pollution bug (10 failing tests in `rate.test.ts` reviewer adversarial suite) and a Biome import-order error in `timeline.adversarial.test.ts`. No commit will be made until `verify.sh` is green. See `.pandacorp/comms/progress.md` for the full notification and `.pandacorp/status.yaml` for blocked state.

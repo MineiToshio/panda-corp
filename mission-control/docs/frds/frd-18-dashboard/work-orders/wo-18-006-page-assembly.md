@@ -1,3 +1,14 @@
+---
+id: WO-18-006
+type: work-order
+slug: page-assembly
+title: 'WO-18-006 — `app/page.tsx` assembly: banners + 6 sections, default landing'
+status: DRAFT
+parent: FRD-18
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-18-006 — `app/page.tsx` assembly: banners + 6 sections, default landing
 
 > Source-of-truth: [`blueprint.md`](../blueprint.md) (`CMP-18-page`, `CMP-18-banners`) · [architecture §3, §11](../../../product/architecture.md).

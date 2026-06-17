@@ -1,3 +1,14 @@
+---
+id: WO-10-003
+type: work-order
+slug: uniques
+title: 'WO-10-003 — `lib/achievements.ts`: unique achievements'
+status: DRAFT
+parent: FRD-10
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-10-003 — `lib/achievements.ts`: unique achievements
 
 Source-of-truth: `FRD > FDD > design-tokens > blueprint > work order`.

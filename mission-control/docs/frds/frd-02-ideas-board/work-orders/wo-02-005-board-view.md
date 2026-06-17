@@ -1,3 +1,14 @@
+---
+id: WO-02-005
+type: work-order
+slug: board-view
+title: WO-02-005 — Board view + columns + cards
+status: DRAFT
+parent: FRD-02
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-02-005 — Board view + columns + cards
 
 **Module:** `app/board/page.tsx`, `components/IdeaCard.tsx`

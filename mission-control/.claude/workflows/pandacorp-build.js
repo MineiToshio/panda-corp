@@ -1,251 +1,268 @@
 export const meta = {
   name: 'pandacorp-build',
-  description: 'Pandacorp build engine: waves of work orders (build → review → verify) with the factory subagents, fail-closed gates and one commit per safe point. Resumable and app-agnostic — it works over the work-order queue and the project verify.sh, not over anything hardcoded in the product.',
+  description: 'Pandacorp build engine v2 (DR-050): builds FRD by FRD using each blueprint\'s Build Plan, with state in the work-order frontmatter (implementation_status). ONE review/test gate per FRD (not per work order), hand-offs, fail-closed gates, one commit per safe point. Runs to COMPLETION by default; stops ONLY by health or budget — nothing left to build, a budget ceiling, too many blocks in a row, or work that needs the owner. It TRIES TO REPAIR before giving up; an unrecoverable stop BLOCKS with a reason (needs-owner | external | error) instead of dying. Resumable: it reads the frontmatter and NEVER rebuilds a VERIFIED work order.',
   phases: [
+    { title: 'Baseline' },
     { title: 'Plan' },
     { title: 'Build' },
     { title: 'Review' },
-    { title: 'Verify' },
   ],
 }
 
 // ── Input (all optional) ─────────────────────────────────────────────────────
-//   args.mode: 'pro' | 'balanced' | 'powerful' | 'deep'  (default: balanced)
-//   args.workOrders: specific ids to build (default: all pending)
+//   args.mode:    'pro' | 'balanced' | 'powerful' | 'deep'  (default: balanced)
+//   args.frds:    specific FRD folders to limit to           (default: all pending)
+//   args.maxFrds: OPT-IN cap on FRDs built per run — for SUPERVISED TEST runs only.
+//     OMIT it for normal/overnight runs: the build runs to completion and stops by
+//     HEALTH or BUDGET, never by an arbitrary feature count (DR-050, owner decision
+//     2026-06-16). A feature can cost 10x another, so "stop after N" protects neither
+//     tokens nor progress; the real guardrails are the budget ceiling + the health
+//     breakers below.
 const MODE = (args && args.mode) || 'balanced'
-const ONLY = (args && args.workOrders) || null
+const ONLY = (args && args.frds) || null
+const MAX_FRDS = (args && args.maxFrds) || Infinity   // no count cap unless explicitly set (test runs)
+const LOW_BUDGET = (args && args.lowBudget) || 80000  // stop with at least this much output-token margin left
+const MAX_CONSECUTIVE_BLOCKS = (args && args.maxConsecutiveBlocks) || 3   // health breaker: N non-external blocks in a row → stop (something is systemically wrong)
 
-// Concurrency and models per mode (DR-014). The REAL concurrency is capped by the
-// runtime (min(16, cores-2)); `wave` controls how many independent work orders we
-// run per wave, `split` whether it splits into backend/frontend/test or a single
-// implementer runs, and `deepReview` runs the reviewer's 3 lenses in parallel.
+// Concurrency/models per mode (DR-014). `wave` = work orders built in parallel within
+// an FRD. `split` runs test→backend→frontend; otherwise one full-stack implementer
+// builds the coarse slice end-to-end (faster).
 const PROFILES = {
-  pro:      { wave: 2, worker: 'sonnet', judge: 'sonnet', split: false, deepReview: false },
-  balanced: { wave: 4, worker: 'sonnet', judge: 'opus',   split: true,  deepReview: false },
-  powerful: { wave: 8, worker: 'sonnet', judge: 'opus',   split: false, deepReview: false },
-  deep:     { wave: 6, worker: 'opus',   judge: 'opus',   split: true,  deepReview: true  },
+  pro:      { wave: 2, worker: 'sonnet', judge: 'sonnet', split: false },
+  balanced: { wave: 4, worker: 'sonnet', judge: 'opus',   split: false },
+  powerful: { wave: 8, worker: 'sonnet', judge: 'opus',   split: false },
+  deep:     { wave: 6, worker: 'opus',   judge: 'opus',   split: true  },
 }
 const P = PROFILES[MODE] || PROFILES.balanced
-log(`Mode ${MODE} · wave ≤${P.wave} · workers ${P.worker} · judge ${P.judge}`)
+log(`Mode ${MODE} · wave ≤${P.wave} · maxFrds ${MAX_FRDS === Infinity ? 'sin tope (corre hasta terminar)' : MAX_FRDS} · workers ${P.worker} · judge ${P.judge}`)
 
-// Each subagent leaves a trace for Party: a fire-and-forget append to
-// ~/.claude/dashboard-events.ndjson (non-blocking, no Claude call). The "done"
-// state is emitted by the factory's SubagentStop hook when the subagent finishes.
 const EMIT = (role, wo) =>
   `Before you start, record your activity for Party (one append, fire-and-forget):\n` +
   `  printf '{"event":"AgentWorking","at":"%s","project":"%s","data":{"role":"${role}","wo":"${wo}"}}\\n' "$(date -u +%FT%TZ)" "$(basename "$PWD")" >> ~/.claude/dashboard-events.ndjson\n`
 
+// Owner notification — macOS desktop only (osascript). Fire-and-forget; never blocks the
+// build. (Phone push, when Remote Control is on, is sent by the supervising agent via
+// PushNotification — see the implement skill. No third-party push app: owner decision 2026-06-16.)
+const NOTIFY = (msg, sound) =>
+  ` Notify the owner (run via Bash, fire-and-forget): ` +
+  `osascript -e 'display notification "${msg}" with title "Pandacorp build" sound name "${sound || 'Basso'}"' 2>/dev/null || true.`
+
 // ── Schemas ───────────────────────────────────────────────────────────────────
+const VERIFY_SCHEMA = {
+  type: 'object', required: ['green'],
+  properties: { green: { type: 'boolean' }, sha: { type: 'string' }, failure: { type: 'string' } },
+}
 const PLAN_SCHEMA = {
-  type: 'object',
-  required: ['stack', 'hasFrontend', 'workOrders'],
+  type: 'object', required: ['frds'],
   properties: {
     stack: { type: 'string', description: 'A (web) | B/C (API) | D (scraper/data)' },
-    hasFrontend: { type: 'boolean', description: 'true only if the stack is web (A)' },
-    trivial: { type: 'boolean', description: 'a single module, no clear back/front split' },
-    workOrders: {
+    hasFrontend: { type: 'boolean' },
+    frds: {
       type: 'array',
       items: {
-        type: 'object',
-        required: ['id', 'summary', 'deps'],
+        type: 'object', required: ['frd', 'workOrders'],
         properties: {
-          id: { type: 'string' },
-          summary: { type: 'string' },
-          deps: { type: 'array', items: { type: 'string' }, description: 'ids that must be green first (may live in another FRD)' },
-          frd: { type: 'string', description: 'the FRD folder this WO lives under, e.g. frd-03-<slug>' },
+          frd: { type: 'string', description: 'the FRD folder, e.g. frd-03-<slug>' },
+          deps: { type: 'array', items: { type: 'string' }, description: 'FRD folders that must be VERIFIED first' },
+          workOrders: {
+            type: 'array',
+            items: {
+              type: 'object', required: ['id', 'status'],
+              properties: {
+                id: { type: 'string' },
+                status: { type: 'string', description: 'implementation_status from the WO frontmatter' },
+                deps: { type: 'array', items: { type: 'string' }, description: 'intra-FRD WO ids that must be built first' },
+                summary: { type: 'string' },
+              },
+            },
+          },
         },
       },
     },
   },
 }
-const STAGE_SCHEMA = {
-  type: 'object',
-  required: ['ok'],
-  properties: { ok: { type: 'boolean' }, notes: { type: 'string' } },
+// A reason accompanies every block so Mission Control and the owner know what to do.
+const BLOCK_REASON = { type: 'string', enum: ['needs-owner', 'external', 'error'] }
+const FRD_GATE_SCHEMA = {
+  type: 'object', required: ['green'],
+  properties: { green: { type: 'boolean' }, reopen: { type: 'array', items: { type: 'string' } }, blocked_reason: BLOCK_REASON, failure: { type: 'string' } },
 }
-const VERIFY_SCHEMA = {
-  type: 'object',
-  required: ['green'],
-  properties: {
-    green: { type: 'boolean' },
-    sha: { type: 'string', description: 'safe-point commit sha if green' },
-    failure: { type: 'string' },
-  },
+const REPAIR_SCHEMA = {
+  type: 'object', required: ['green'],
+  properties: { green: { type: 'boolean' }, blocked_reason: BLOCK_REASON, failure: { type: 'string' } },
 }
 
-// ── Baseline self-heal (deadlock breaker) ────────────────────────────────────
-// verify.sh is GLOBAL, so a single test left red by a PRIOR run — an adversarial
-// test the reviewer added after a WO closed/was-blocked, broken code from a WO
-// that exhausted its review cycles, a regression — freezes the WHOLE build: every
-// new WO fails its own verify gate on someone else's broken test, the ready-queue
-// drains, and the run stalls silently (looks like "empty queue"). So before
-// planning, if the baseline is already red, repair it instead of trusting the
-// 'done' markers blindly. This is what a human otherwise has to do by hand.
+// ── Baseline self-heal (deadlock breaker) ─────────────────────────────────────
 phase('Baseline')
 const baseline = await agent(
-  `You are the Pandacorp baseline-repair engineer. Run \`bash .pandacorp/verify.sh\` from the project root.
-  - If it is GREEN (exit 0): change nothing and return { green: true }.
-  - If it is RED: the suite is red on a point that is NOT a fresh work order — an adversarial/regression test left failing by a previous run, broken code from a WO that exhausted its review cycles, or a stale committed bug. Get the baseline green before the build can proceed:
-    1. Identify EVERY failing test and the production module it exercises.
-    2. Fix the PRODUCTION code so the behaviour the test pins is correct. NEVER delete, skip, weaken or rewrite a test to go green — the tests encode the contract. The only exception: a test that is itself provably wrong (contradicts its FRD's EARS criteria); then fix the test and explain in failure.
-    3. Re-run \`.pandacorp/verify.sh\` until it passes end-to-end (biome + tsc + full suite).
-    4. Commit (Conventional Commits, scope mission-control) and return { green: true, sha }.
-  If after a genuine effort the baseline cannot be made green, NOTIFY THE OWNER (run via Bash, fire-and-forget: osascript -e 'display notification "Baseline roto y no se pudo reparar — necesita tu intervención" with title "Pandacorp build" sound name "Basso"' || true) and return { green: false, failure } describing exactly what remains. Do not loop forever.`,
+  `You are the Pandacorp baseline-repair engineer. Run \`bash .pandacorp/verify.sh\`.
+  - GREEN → return { green: true }, change nothing.
+  - RED → fix the PRODUCTION code (never weaken/skip tests) until it passes end-to-end, commit (Conventional Commits with scope), return { green: true }.
+  If you genuinely can't, return { green: false, failure } describing what remains.${NOTIFY('Baseline roto y no se pudo reparar — necesita tu intervencion')}`,
   { label: 'baseline', phase: 'Baseline', model: P.judge, agentType: 'pandacorp:implementer', schema: VERIFY_SCHEMA },
 )
 if (!baseline || baseline.green !== true) {
   log(`Baseline red and auto-repair failed${baseline?.failure ? ': ' + baseline.failure : ''} — stopping for the owner.`)
-  return { mode: MODE, built: [], blocked: ['baseline'], note: 'baseline red (needs manual fix)' }
+  return { mode: MODE, builtFrds: [], blockedFrds: ['baseline'], blockedReasons: { baseline: 'error' }, note: 'baseline red (needs manual fix)' }
 }
-log('Baseline green — planning the queue.')
+log('Baseline green — planning by FRD.')
 
-// ── Plan: read the queue and the stack (state lives in the project files) ─────
+// ── Plan: read FRDs, their Build Plans and the frontmatter state (no inferred "done") ──
 phase('Plan')
 const plan = await agent(
-  `You are the Pandacorp build planner. Read the project state WITHOUT modifying anything:
-  - WALK every FRD module: docs/frds/*/work-orders/README.md (each feature's WO list + intra-feature order + parallelism) and docs/frds/*/work-orders/wo-*.md → the global queue and dependencies. Work orders are PER-FEATURE (under their FRD), not in a single global docs/work-orders/.
-  - Each work order's "Dependencies" may reference WOs in OTHER FRDs. Resolve the global execution order by a topological sort over all WOs' dependencies (cross-feature), with the intra-feature order from each feature's work-orders/README.md.
-  - .pandacorp/status.yaml → what is already green (do not rebuild it).
-  - docs/product/architecture.md → the platform stack; each feature's docs/frds/<frd>/blueprint.md for feature-specific build design.
-  Return the PENDING work orders in global dependency order, each with its deps (ids of work orders that must be green first, possibly in another FRD) and its frd (the FRD folder, e.g. frd-03-<slug>).${ONLY ? ' Limit to these ids: ' + ONLY.join(', ') + '.' : ''}
-  hasFrontend=true only if the stack is web (A). trivial=true if it is a single module with no back/front split.`,
-  { label: 'plan', phase: 'Plan', schema: PLAN_SCHEMA, model: P.judge, agentType: 'pandacorp:architect' }
+  `You are the Pandacorp build planner. Read state WITHOUT modifying anything:
+  - WALK every FRD module docs/frds/*/. For each, read frd.md, blueprint.md (especially its **Build Plan**: WO order, intra-FRD deps, parallelism, cross-FRD deps), and every work-orders/wo-*.md.
+  - For each work order, the **frontmatter \`implementation_status\` is the source of truth**: PLANNED/IN_PROGRESS = pending; IN_REVIEW = built, awaiting its FRD gate; VERIFIED = done (NEVER rebuild); BLOCKED = skip.
+  - docs/product/architecture.md → the platform stack.
+  Return the FRDs that still have non-VERIFIED work orders, **in cross-FRD dependency order** (from the Build Plans). For each FRD: its \`frd\` folder, its \`deps\` (FRD folders that must be VERIFIED first), and its \`workOrders\` (each with id, frontmatter \`status\`, intra-FRD \`deps\`, one-line \`summary\`) **in the Build Plan's order**.${ONLY ? ' Limit to these FRD folders: ' + ONLY.join(', ') + '.' : ''}
+  hasFrontend=true only if the stack is web (A).`,
+  { label: 'plan', phase: 'Plan', schema: PLAN_SCHEMA, model: P.judge, agentType: 'pandacorp:architect' },
 )
-
-if (!plan || !plan.workOrders || plan.workOrders.length === 0) {
-  log('Empty queue: no pending work orders.')
-  return { mode: MODE, built: [], blocked: [], note: 'empty queue' }
+if (!plan || !plan.frds || plan.frds.length === 0) {
+  log('Nothing to build: every FRD is VERIFIED.')
+  return { mode: MODE, builtFrds: [], blockedFrds: [], note: 'all verified' }
 }
-log(`${plan.workOrders.length} pending work orders · stack ${plan.stack}${plan.hasFrontend ? ' (web)' : ''}`)
+log(`${plan.frds.length} FRDs with pending work · stack ${plan.stack}${plan.hasFrontend ? ' (web)' : ''}`)
 
-// ── Per-work-order stages ─────────────────────────────────────────────────────
-const done = new Set()      // ids closed green
-const blocked = new Set()   // BLOCKED ids (freeze-on-red or dead dependency)
-const built = []
-
-async function build(wo) {
-  // Trivial or pro mode: a single full-stack implementer (splitting adds no speed).
-  if (plan.trivial || !P.split) {
-    await agent(`${EMIT('implementer', wo.id)}Fully implement work order ${wo.id} with TDD (RED→GREEN→refactor), anchored in the EARS criteria of FRD ${wo.frd || ''} and in bugs from .pandacorp/comms/progress.md: ${wo.summary}. Write the critical context to files.`,
-      { label: `build:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:implementer', schema: STAGE_SCHEMA })
-    return
-  }
-  // Split stack: test RED → backend (+contract) → frontend (if web).
-  await agent(`${EMIT('test-writer', wo.id)}Write the acceptance tests (RED phase) for work order ${wo.id} anchored in the EARS criteria of FRD ${wo.frd || ''}: ${wo.summary}. Do not write production code.`,
-    { label: `test:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:test-writer' })
-  await agent(`${EMIT('backend-dev', wo.id)}Implement the backend of work order ${wo.id} with TDD until the tests are green: ${wo.summary}. Publish the API contract in docs/api.md.`,
-    { label: `be:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:backend-dev' })
-  if (plan.hasFrontend) {
-    await agent(`${EMIT('frontend-dev', wo.id)}Implement the UI of work order ${wo.id} using ONLY design tokens and consuming the contract in docs/api.md: ${wo.summary}.`,
+// ── Build ONE work order: implement → fast self-test → IN_REVIEW + hand-off ──
+async function buildWO(wo, frd) {
+  if (P.split && plan.hasFrontend) {
+    await agent(`${EMIT('test-writer', wo.id)}Write the acceptance tests (RED) for work order ${wo.id} from the EARS criteria of FRD ${frd}: ${wo.summary || ''}. No production code.`,
+      { label: `test:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:test-writer' })
+    await agent(`${EMIT('backend-dev', wo.id)}Implement the backend of ${wo.id} (TDD until green): ${wo.summary || ''}. Publish the API contract in docs/api.md.`,
+      { label: `be:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:backend-dev' })
+    await agent(`${EMIT('frontend-dev', wo.id)}Implement the UI of ${wo.id} using ONLY design tokens and the docs/api.md contract: ${wo.summary || ''}.`,
       { label: `fe:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:frontend-dev' })
+  } else {
+    await agent(`${EMIT('implementer', wo.id)}First set ${wo.id}'s frontmatter \`implementation_status: IN_PROGRESS\`. Then fully implement it with TDD (RED→GREEN→refactor), anchored in the EARS criteria of FRD ${frd} and in bugs from .pandacorp/comms/progress.md: ${wo.summary || ''}. This is a COARSE slice (a whole view/capability) — build it end-to-end.`,
+      { label: `build:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:implementer' })
   }
+  // Fast SELECTIVE self-test (NOT the whole suite) → IN_REVIEW + hand-off.
+  const v = await agent(`Fast self-test for work order ${wo.id}: run \`pnpm biome check .\`, \`pnpm tsc --noEmit\`, and \`pnpm vitest run\` limited to THIS work order's own test files (not the whole suite). If green: commit (Conventional Commits with scope; if git reports an index.lock from a parallel sibling, wait briefly and retry the commit), set the WO's frontmatter **\`implementation_status: IN_REVIEW\`**, and fill its **\`## Status Note\`** hand-off (what it built, interfaces/contracts exposed with signatures, integration seams, which test files cover it). Return green=true. If red, return green=false with the reason and do NOT commit. Never commit mid-work-order.`,
+    { label: `selftest:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:implementer', schema: VERIFY_SCHEMA })
+  return Boolean(v && v.green === true)
 }
 
-async function review(wo) {
-  // The reviewer uses a different model than the generator (DR-015) and re-verifies itself.
-  if (P.deepReview) {
-    const lenses = ['correctness', 'security', 'quality']
-    const verdicts = await parallel(lenses.map((L) => () =>
-      agent(`${EMIT('reviewer', wo.id)}Review work order ${wo.id} through the ${L} lens. Re-run the evidence yourself and write adversarial tests the implementer did not see (anchored in EARS and real bugs). Return ok=false if you find a real defect.`,
-        { label: `rev:${wo.id}:${L}`, phase: 'Review', model: P.judge, agentType: 'pandacorp:reviewer', schema: STAGE_SCHEMA })))
-    if (verdicts.filter(Boolean).some((v) => v && v.ok === false)) throw new Error('REVIEW_REJECT: lens in red')
-    return
+// ── FRD gate: ONE review + integration test over the whole feature ──
+async function frdGate(frd, reviewIds) {
+  return await agent(`${EMIT('reviewer', frd)}FRD review + integration gate for ${frd}. Review the work orders built/changed THIS cycle: ${reviewIds.join(', ')} (all IN_REVIEW). This FRD MAY already have OTHER work orders VERIFIED from a previous run — treat those as a stable foundation: exercise them in integration, but do NOT re-review them and NEVER change their state.
+  1) Review the changed work orders with your 3 lenses (correctness/security/quality) and write adversarial tests the implementers did not see (anchored in EARS + real bugs), exercising them TOGETHER with the rest of the feature (real integration, not isolated).
+  2) Run the FULL gate \`bash .pandacorp/verify.sh\` clean.
+  If everything passes: set the reviewed work orders (${reviewIds.join(', ')}) to **\`implementation_status: VERIFIED\`**; if that leaves EVERY work order of the FRD VERIFIED, also set its frd.md + blueprint.md frontmatter to VERIFIED; update .pandacorp/status.yaml (per-status counts + last_green_sha + safe_to_test:true), and commit. Return { green: true }.
+  If a SPECIFIC reviewed work order is wrong, set ONLY those (from the reviewed set) back to \`implementation_status: PLANNED\` (leave the rest IN_REVIEW; never touch an already-VERIFIED one), do not commit broken code, and return { green: false, reopen: [those ids], failure } — the engine retries them on the next run, not in a loop.
+  If it's broken and you can't pinpoint specific WOs, return { green: false, failure, blocked_reason } (classify: 'needs-owner' if a human must act, 'external' if it's a transient outside failure, else 'error').${NOTIFY('FRD ' + frd + ' no paso la revision — necesita tu atencion')}`,
+    { label: `gate:${frd}`, phase: 'Review', model: P.judge, agentType: 'pandacorp:reviewer', schema: FRD_GATE_SCHEMA })
+}
+
+// ── Repair pass: TRY TO FIX before giving up (owner's rule, DR-050) ────────────
+// The build resolves problems itself and only stops when it genuinely can't — then it
+// BLOCKS with a reason instead of dying. Run by a strong model (it's hard diagnosis).
+async function attemptRepair(frd, context) {
+  return await agent(`${EMIT('implementer', frd)}The build of FRD ${frd} hit a problem: ${context}. You are the repair engineer — TRY TO FIX it before we give up.
+  1) Diagnose the root cause: read the failing output, the work orders, and .pandacorp/comms/progress.md.
+  2) If it is within your reach (code / test / local config): fix the PRODUCTION code (never weaken or skip tests) until \`bash .pandacorp/verify.sh\` is green for this feature; set the affected work orders' frontmatter back to \`implementation_status: IN_REVIEW\`; commit (Conventional Commits with scope); return { green: true }.
+  3) If you CANNOT fix it, classify WHY, set the affected work orders' frontmatter to \`implementation_status: BLOCKED\` + \`blocked_reason: <reason>\`, mirror it in .pandacorp/status.yaml, leave HEAD at last_green_sha (commit nothing broken), and return { green: false, blocked_reason, failure }:
+     - 'needs-owner' → it needs a HUMAN action/decision the agent can't take: a missing env var or secret, an external account/service to set up, a product decision. ALSO append it to .pandacorp/inbox/decisions.md (what's blocked, the options, your recommendation).
+     - 'external' → a transient OUTSIDE failure (no internet, an upstream 5xx) — worth a retry on a later run, not our bug.
+     - 'error' → a technical failure you could not resolve.`,
+    { label: `repair:${frd}`, phase: 'Review', model: P.judge, agentType: 'pandacorp:implementer', schema: REPAIR_SCHEMA })
+}
+
+// ── Per-FRD loop ──────────────────────────────────────────────────────────────
+const builtFrds = []
+const blockedFrds = []
+const reopenedFrds = []
+const blockedReasons = {}
+let consecutiveBlocks = 0   // health breaker: non-external blocks in a row
+let stopReason = null       // 'budget' | 'blocks' | 'maxFrds' (null = ran to completion)
+
+function blockFrd(frd, reason) {
+  reason = reason || 'error'
+  blockedFrds.push(frd)
+  blockedReasons[frd] = reason
+  if (reason !== 'external') consecutiveBlocks++   // external = not our bug; don't trip the breaker
+}
+
+for (const f of plan.frds) {
+  if (f.deps && f.deps.some((d) => blockedFrds.includes(d))) { log(`⊘ ${f.frd} skipped (depends on a blocked FRD)`); blockFrd(f.frd, 'needs-owner'); continue }
+  if (budget.total && budget.remaining() < LOW_BUDGET) { stopReason = 'budget'; log('Circuit breaker: budget ceiling reached — stopping at a safe point'); break }
+  if ((builtFrds.length + blockedFrds.length) >= MAX_FRDS) { stopReason = 'maxFrds'; log(`Reached the test cap maxFrds=${MAX_FRDS} — stopping at a safe point`); break }
+
+  phase('Build')
+  const pending = f.workOrders.filter((w) => w.status !== 'VERIFIED' && w.status !== 'BLOCKED')
+  const reviewIds = pending.map((w) => w.id)   // only these reach the gate; already-VERIFIED WOs are a stable foundation, never re-touched
+  log(`▶ ${f.frd}: ${pending.length} work orders to build`)
+  const doneIds = new Set(f.workOrders.filter((w) => w.status === 'VERIFIED').map((w) => w.id))
+  const queue = new Map(pending.map((w) => [w.id, w]))
+  let frdFailed = false
+  // Build in waves honoring the Build Plan's intra-FRD dependencies.
+  while (queue.size > 0) {
+    const ready = [...queue.values()].filter((w) => (w.deps || []).every((d) => doneIds.has(d) || !queue.has(d)))
+    if (ready.length === 0) { log(`⚠ ${f.frd}: ${queue.size} work orders with unresolved/circular deps`); frdFailed = true; break }
+    const wave = ready.slice(0, P.wave)
+    const results = await parallel(wave.map((w) => () => buildWO(w, f.frd)))
+    for (let i = 0; i < wave.length; i++) { queue.delete(wave[i].id); if (results[i]) doneIds.add(wave[i].id); else frdFailed = true }
+    if (frdFailed) break
   }
-  const v = await agent(`${EMIT('reviewer', wo.id)}Review work order ${wo.id} with your 3 lenses (correctness/security/quality). Re-run tests/lint/typecheck yourself (do not trust the self-report) and write adversarial tests the implementer did not see. Return ok=false with the reason if something does not pass.`,
-    { label: `rev:${wo.id}`, phase: 'Review', model: P.judge, agentType: 'pandacorp:reviewer', schema: STAGE_SCHEMA })
-  if (v && v.ok === false) throw new Error('REVIEW_REJECT: ' + (v.notes || 'reviewer rejected'))
-}
 
-async function verifyWO(wo) {
-  return await agent(`Safe point for work order ${wo.id} — FAST SELECTIVE verify (NOT the whole suite, for speed): run \`pnpm biome check .\`, \`pnpm tsc --noEmit\`, and \`pnpm vitest run\` LIMITED to the test files this work order touched (pass their paths/patterns to vitest — the WO's own *.test.ts and the modules it directly changed — not the full suite). If all pass (green), commit the work order (Conventional Commits, scope mission-control), mark the WO 'done' with evidence in docs/frds/${wo.frd || '<frd>'}/work-orders/, and write last_green_sha (the commit sha) + safe_to_test:true in .pandacorp/status.yaml. If it does NOT pass, return green=false with the reason and DO NOT commit anything. Never commit mid-work-order. The FULL suite runs once per wave (not per WO), so keep this step scoped and fast.`,
-    { label: `verify:${wo.id}`, phase: 'Verify', model: P.worker, agentType: 'pandacorp:implementer', schema: VERIFY_SCHEMA })
-}
-
-// build → review (up to 2 cycles) → verify. Freeze-on-red if verify ends red
-// or if review keeps rejecting after 2 cycles.
-async function runWO(wo) {
-  try {
-    let attempt = 0
-    while (true) {
-      attempt++
-      try {
-        await build(wo)
-        await review(wo)
-        break
-      } catch (e) {
-        const msg = String((e && e.message) || e)
-        if (attempt >= 2 || !msg.startsWith('REVIEW_REJECT')) throw e
-        log(`↻ ${wo.id}: review rejected (attempt ${attempt}/2), retrying`)
-      }
+  // A work order failed its self-test → TRY TO REPAIR before blocking (owner's rule).
+  if (frdFailed) {
+    log(`! ${f.frd}: a work order failed — attempting repair before giving up`)
+    const fix = await attemptRepair(f.frd, 'a work order failed its self-test during the build wave')
+    if (!fix || fix.green !== true) {
+      const reason = (fix && fix.blocked_reason) || 'error'
+      log(`⊘ ${f.frd}: could not repair (${reason}) — BLOCKED, continuing with independent FRDs`)
+      blockFrd(f.frd, reason)
+      if (consecutiveBlocks >= MAX_CONSECUTIVE_BLOCKS) { stopReason = 'blocks'; break }
+      continue
     }
-    const v = await verifyWO(wo)
-    if (!v || !v.green) throw new Error('VERIFY_RED: ' + ((v && v.failure) || 'verify.sh in red'))
-    log(`✓ ${wo.id} green${v.sha ? ' (' + v.sha.slice(0, 8) + ')' : ''}`)
-    return v
-  } catch (e) {
-    log(`✗ ${wo.id} BLOCKED (${String((e && e.message) || e).slice(0, 100)}) — freeze-on-red`)
-    await agent(`Freeze-on-red for work order ${wo.id}: do NOT commit anything broken. Leave HEAD at last_green_sha, mark work order ${wo.id} as BLOCKED in .pandacorp/status.yaml with the reason. Then NOTIFY THE OWNER with a macOS desktop notification (run via Bash, fire-and-forget): osascript -e 'display notification "WO ${wo.id} bloqueado — necesita tu atención" with title "Pandacorp build" sound name "Basso"' || true. Do not touch other work orders.`,
-      { label: `freeze:${wo.id}`, phase: 'Verify', model: P.worker, agentType: 'pandacorp:implementer' })
-    return { green: false }
+    log(`✓ ${f.frd}: repaired — proceeding to the gate`)
   }
+
+  phase('Review')
+  let gate = await frdGate(f.frd, reviewIds)
+  if (gate && gate.green === true) { log(`✓ ${f.frd} VERIFIED`); builtFrds.push(f.frd); consecutiveBlocks = 0; continue }
+  if (gate && gate.reopen && gate.reopen.length) { log(`↻ ${f.frd}: ${gate.reopen.length} WO reopened (PLANNED) — next run rebuilds only those`); reopenedFrds.push(f.frd); continue }  // reopen is deferred work, not progress — leave the health breaker untouched
+
+  // Gate failed with no specific reopen → TRY TO REPAIR, then re-gate ONCE (fail-closed).
+  log(`! ${f.frd} gate failed${gate?.failure ? ': ' + gate.failure : ''} — attempting repair`)
+  const fix = await attemptRepair(f.frd, 'the FRD review/integration gate failed: ' + (gate?.failure || 'unknown'))
+  if (fix && fix.green === true) {
+    gate = await frdGate(f.frd, reviewIds)
+    if (gate && gate.green === true) { log(`✓ ${f.frd} VERIFIED (after repair)`); builtFrds.push(f.frd); consecutiveBlocks = 0; continue }
+  }
+  const reason = (fix && fix.blocked_reason) || (gate && gate.blocked_reason) || 'error'
+  log(`⊘ ${f.frd}: BLOCKED (${reason})`)
+  blockFrd(f.frd, reason)
+  if (consecutiveBlocks >= MAX_CONSECUTIVE_BLOCKS) { stopReason = 'blocks'; break }
 }
 
-// ── Dependency waves ──────────────────────────────────────────────────────────
-// A wave = work orders whose deps are already green. Within a wave they run in
-// parallel (in pro, one at a time). Barrier between waves. If a dep ended up
-// BLOCKED, its dependents are skipped. Circuit breaker on budget.
-const pending = new Map(plan.workOrders.map((w) => [w.id, w]))
-while (pending.size > 0) {
-  const ready = []
-  const dead = []
-  for (const wo of pending.values()) {
-    if (wo.deps.some((d) => blocked.has(d))) dead.push(wo)
-    else if (wo.deps.every((d) => done.has(d) || !pending.has(d))) ready.push(wo)
-  }
-  for (const wo of dead) { blocked.add(wo.id); pending.delete(wo.id); log(`⊘ ${wo.id} skipped (depends on a blocked one)`) }
-  if (ready.length === 0) {
-    if (pending.size > 0) log(`⚠ ${pending.size} work orders unresolved (circular or blocked deps)`)
-    break
-  }
-  if (budget.total && budget.remaining() < 60000) { log('Circuit breaker: low budget, stopping at a safe point'); break }
-
-  const wave = ready.slice(0, P.wave)
-  const results = P.wave === 1
-    ? [await runWO(wave[0])]
-    : await parallel(wave.map((wo) => () => runWO(wo)))
-
-  for (let i = 0; i < wave.length; i++) {
-    pending.delete(wave[i].id)
-    if (results[i] && results[i].green) { done.add(wave[i].id); built.push(wave[i].id) }
-    else blocked.add(wave[i].id)
-  }
-
-  // Wave barrier — the FULL suite once per wave (per-WO verify was selective for
-  // speed). Catches cross-WO regressions cheaply: O(waves), not O(WOs). If red,
-  // repair before the next wave; if unrepairable, notify the owner and stop.
-  if (built.length > 0) {
-    const waveGreen = await agent(`Run the FULL gate \`bash .pandacorp/verify.sh\`. If GREEN, return { green: true }. If RED, a work order from this wave regressed something elsewhere in the suite: fix the PRODUCTION code (never weaken or skip tests) until \`.pandacorp/verify.sh\` passes end-to-end, commit (Conventional Commits, scope mission-control), and return { green: true, sha }. If you genuinely cannot, NOTIFY THE OWNER (Bash, fire-and-forget: osascript -e 'display notification "Build detenido: la suite quedó roja y no se pudo reparar" with title "Pandacorp build" sound name "Basso"' || true) and return { green: false, failure }.`,
-      { label: 'wave-verify', phase: 'Verify', model: P.judge, agentType: 'pandacorp:implementer', schema: VERIFY_SCHEMA })
-    if (!waveGreen || waveGreen.green !== true) {
-      log(`Wave full-suite verify red${waveGreen?.failure ? ': ' + waveGreen.failure : ''} — stopping for the owner.`)
-      break
-    }
-  }
-}
-
-// ── Close-out + ALWAYS notify the owner how this run ended ───────────────────
-phase('Verify')
-const allDone = built.length > 0 && blocked.size === 0 && pending.size === 0
+// ── Close-out + ALWAYS notify the owner how this run ended ────────────────────
+phase('Review')
+const STOP_SCHEMA = { type: 'object', required: ['done'], properties: { done: { type: 'boolean' } } }
+const needsOwner = blockedFrds.filter((x) => blockedReasons[x] === 'needs-owner')
+const allDone = !stopReason && blockedFrds.length === 0 && reopenedFrds.length === 0 && builtFrds.length === plan.frds.length
+let closed
 if (allDone) {
-  await agent(`All work orders closed green. Run the full suite + e2e of the critical flows and kill the test dev servers with TaskStop. If everything stays green, set .pandacorp/status.yaml phase: release and running: false. Summarize what was built. Then NOTIFY THE OWNER (Bash, fire-and-forget): osascript -e 'display notification "Build COMPLETO: todos los work orders en verde" with title "Pandacorp build" sound name "Glass"' || true.`,
-    { label: 'close-out', phase: 'Verify', model: P.judge, agentType: 'pandacorp:reviewer' })
+  closed = await agent(`All FRDs are VERIFIED. Run the full suite + e2e of the critical flows and kill the test dev servers with TaskStop. If green, set .pandacorp/status.yaml phase: release and running: false. Return done:true once status.yaml is written.${NOTIFY('Build COMPLETO: todos los FRDs verificados', 'Glass')}`,
+    { label: 'close-out', phase: 'Review', model: P.judge, agentType: 'pandacorp:reviewer', schema: STOP_SCHEMA })
+  log('Run ended: all FRDs verified.')
 } else {
-  // The run ended without finishing (blocked, circular deps, wave stop or budget).
-  // ALWAYS tell the owner so they never have to wonder if something is still running.
-  const blkList = [...blocked].slice(0, 8).join(', ') || 'ninguno'
-  await agent(`The build run ended WITHOUT finishing. Built this run: ${built.length}. Blocked: ${blocked.size} (${blkList}). Still pending: ${pending.size}. Write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what is blocked and why, what needs the owner's decision). Then NOTIFY THE OWNER with a macOS desktop notification (Bash, fire-and-forget): osascript -e 'display notification "Tramo terminado: ${built.length} hechos · ${blocked.size} bloqueados · ${pending.size} pendientes — revisá" with title "Pandacorp build" sound name "Basso"' || true.`,
-    { label: 'notify-end', phase: 'Verify', model: P.worker, agentType: 'pandacorp:implementer' })
-  log(`Run ended: ${built.length} built, ${blocked.size} blocked, ${pending.size} pending.`)
+  const blk = blockedFrds.map((x) => `${x}(${blockedReasons[x]})`).slice(0, 8).join(', ') || 'ninguno'
+  const why = stopReason === 'budget' ? ' Paro por techo de presupuesto.'
+    : stopReason === 'blocks' ? ' Paro: demasiados FRDs bloqueados seguidos (algo sistemico va mal).'
+    : stopReason === 'maxFrds' ? ' Paro por el tope de prueba (maxFrds).' : ''
+  const ownerMsg = needsOwner.length
+    ? `Termine lo que se podia. ${needsOwner.length} FRD(s) te esperan a ti: ${needsOwner.slice(0, 6).join(', ')}`
+    : `Tramo: ${builtFrds.length} FRDs ok, ${blockedFrds.length} bloqueados, ${reopenedFrds.length} a reintentar`
+  closed = await agent(`The build run ended.${why} Verified this run: ${builtFrds.length}. Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Of those, NEEDS-OWNER (a human must act): ${needsOwner.join(', ') || 'none'}. Write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and the reason, and exactly what needs the owner's action/decision for the needs-owner ones). Set .pandacorp/status.yaml running: false. Return done:true once status.yaml is written.${NOTIFY(ownerMsg)}`,
+    { label: 'notify-end', phase: 'Review', model: P.worker, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
+  log(`Run ended: ${builtFrds.length} verified, ${reopenedFrds.length} reopened, ${blockedFrds.length} blocked${stopReason ? ' · stop=' + stopReason : ''}.`)
+}
+// Fail-safe: never leave Mission Control showing a phantom running build.
+if (!closed || closed.done !== true) {
+  await agent(`Fail-safe close: ensure .pandacorp/status.yaml has running:false written (and phase:release if every FRD is VERIFIED). Confirm done:true.`,
+    { label: 'ensure-stopped', phase: 'Review', model: P.worker, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
 }
 
-return { mode: MODE, total: plan.workOrders.length, built, blocked: [...blocked] }
+return { mode: MODE, builtFrds, blockedFrds, reopenedFrds, blockedReasons, stopReason }

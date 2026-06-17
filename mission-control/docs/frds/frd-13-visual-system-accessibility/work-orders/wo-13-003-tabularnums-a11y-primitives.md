@@ -1,3 +1,16 @@
+---
+id: WO-13-003
+type: work-order
+slug: tabularnums-a11y-primitives
+title: >-
+  WO-13-003 — tabular-nums + a11y primitives (focus ring, aria-live, keyboard
+  nav)
+status: DRAFT
+parent: FRD-13
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-13-003 — tabular-nums + a11y primitives (focus ring, aria-live, keyboard nav)
 
 **Components/Interfaces:** `CMP-13-a11y-primitives` · **Traces:** REQ-13-003, REQ-13-008

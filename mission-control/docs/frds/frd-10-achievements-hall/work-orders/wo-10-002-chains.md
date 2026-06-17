@@ -1,3 +1,14 @@
+---
+id: WO-10-002
+type: work-order
+slug: chains
+title: 'WO-10-002 — `lib/achievements.ts`: chains + honest endowed progress'
+status: DRAFT
+parent: FRD-10
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-10-002 — `lib/achievements.ts`: chains + honest endowed progress
 
 Source-of-truth: `FRD > FDD > design-tokens > blueprint > work order`.

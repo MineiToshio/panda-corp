@@ -1,3 +1,14 @@
+---
+id: WO-16-003
+type: work-order
+slug: orphans-route
+title: WO-16-003 — `app/api/orphans` route handler
+status: DRAFT
+parent: FRD-16
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-16-003 — `app/api/orphans` route handler
 
 > Source-of-truth: [`blueprint.md`](../blueprint.md) (`CMP-16-route`) · [architecture §3, §8](../../../product/architecture.md).

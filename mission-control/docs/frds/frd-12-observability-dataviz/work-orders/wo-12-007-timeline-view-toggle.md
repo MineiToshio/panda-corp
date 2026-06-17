@@ -1,3 +1,14 @@
+---
+id: WO-12-007
+type: work-order
+slug: timeline-view-toggle
+title: WO-12-007 — Timeline view + RPG↔timeline↔DAG toggle
+status: DRAFT
+parent: FRD-12
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-12-007 — Timeline view + RPG↔timeline↔DAG toggle
 
 **Components/Interfaces:** `CMP-12-timeline`, `CMP-12-toggle` · **Traces:** REQ-12-003

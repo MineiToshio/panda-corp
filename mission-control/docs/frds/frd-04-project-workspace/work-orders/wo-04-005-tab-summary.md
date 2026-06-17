@@ -1,3 +1,14 @@
+---
+id: WO-04-005
+type: work-order
+slug: tab-summary
+title: 'WO-04-005 — Summary tab: summary, key points, decisions, activity log'
+status: DRAFT
+parent: FRD-04
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-04-005 — Summary tab: summary, key points, decisions, activity log
 
 **Feature:** FRD-04 · **Implements:** CMP-04-tab-summary, CMP-04-decisions, CMP-04-activity-log · **REQ-04-003, REQ-04-004**

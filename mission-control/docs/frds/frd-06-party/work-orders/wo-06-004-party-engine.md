@@ -1,3 +1,14 @@
+---
+id: WO-06-004
+type: work-order
+slug: party-engine
+title: WO-06-004 — Party engine (RAF loop + animation queue)
+status: DRAFT
+parent: FRD-06
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-06-004 — Party engine (RAF loop + animation queue)
 
 **Components/Interfaces:** `IF-06-engine` · **Traces:** REQ-06-003, REQ-06-004

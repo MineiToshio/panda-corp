@@ -1,3 +1,14 @@
+---
+id: WO-09-005
+type: work-order
+slug: celebration-tiers
+title: 'WO-09-005 — `lib/gamification.ts`: celebration tier classifier'
+status: DRAFT
+parent: FRD-09
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-09-005 — `lib/gamification.ts`: celebration tier classifier
 
 Source-of-truth: `FRD > FDD > design-tokens > blueprint > work order`.

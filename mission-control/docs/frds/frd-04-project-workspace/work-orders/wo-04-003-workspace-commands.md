@@ -1,3 +1,14 @@
+---
+id: WO-04-003
+type: work-order
+slug: workspace-commands
+title: 'WO-04-003 — `lib/next-step.ts`: `workspaceCommands(phase)`'
+status: DRAFT
+parent: FRD-04
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-04-003 — `lib/next-step.ts`: `workspaceCommands(phase)`
 
 **Feature:** FRD-04 · **Implements:** IF-04-next-step (`workspaceCommands`) · **REQ-04-005**

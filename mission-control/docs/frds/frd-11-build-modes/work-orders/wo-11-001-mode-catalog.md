@@ -1,3 +1,14 @@
+---
+id: WO-11-001
+type: work-order
+slug: mode-catalog
+title: WO-11-001 — `BUILD_MODES` catalog + per-project persistence
+status: DRAFT
+parent: FRD-11
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-11-001 — `BUILD_MODES` catalog + per-project persistence
 
 **Feature:** FRD-11 · **Implements:** IF-11-modes, IF-11-mode-store · **REQ-11-001, REQ-11-003**

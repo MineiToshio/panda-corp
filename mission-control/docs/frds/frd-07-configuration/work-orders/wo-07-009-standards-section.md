@@ -1,3 +1,14 @@
+---
+id: WO-07-009
+type: work-order
+slug: standards-section
+title: 'WO-07-009 — Standards section: categorized list + detail'
+status: DRAFT
+parent: FRD-07
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-07-009 — Standards section: categorized list + detail
 
 Source-of-truth: `FRD > FDD > design-tokens > blueprint > work order`.

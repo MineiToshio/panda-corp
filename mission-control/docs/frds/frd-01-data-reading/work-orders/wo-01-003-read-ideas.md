@@ -1,3 +1,14 @@
+---
+id: WO-01-003
+type: work-order
+slug: read-ideas
+title: WO-01-003 — `readIdeas` (cards + frontmatter)
+status: ACTIVE
+parent: FRD-01
+implementation_status: VERIFIED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-01-003 — `readIdeas` (cards + frontmatter)
 
 **Module:** `lib/ideas.ts`

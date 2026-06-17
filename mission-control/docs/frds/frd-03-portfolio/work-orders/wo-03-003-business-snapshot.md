@@ -1,3 +1,14 @@
+---
+id: WO-03-003
+type: work-order
+slug: business-snapshot
+title: WO-03-003 — Business snapshot (shipped projects)
+status: DRAFT
+parent: FRD-03
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-03-003 — Business snapshot (shipped projects)
 
 **Module:** `components/BusinessSnapshot.tsx`

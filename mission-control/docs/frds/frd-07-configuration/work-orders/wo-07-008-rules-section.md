@@ -1,3 +1,14 @@
+---
+id: WO-07-008
+type: work-order
+slug: rules-section
+title: 'WO-07-008 — Decision rules section: list + detail'
+status: DRAFT
+parent: FRD-07
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-07-008 — Decision rules section: list + detail
 
 Source-of-truth: `FRD > FDD > design-tokens > blueprint > work order`.

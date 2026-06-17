@@ -1,3 +1,14 @@
+---
+id: WO-06-006
+type: work-order
+slug: party-scene
+title: 'WO-06-006 — Party scene render (zones, stations, sprites)'
+status: DRAFT
+parent: FRD-06
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-06-006 — Party scene render (zones, stations, sprites)
 
 **Components/Interfaces:** `CMP-06-scene` · **Traces:** REQ-06-001, REQ-06-002, REQ-06-003, REQ-06-004, REQ-06-009

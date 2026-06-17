@@ -1,3 +1,14 @@
+---
+id: WO-05-005
+type: work-order
+slug: wo-detail
+title: 'WO-05-005 — Work order detail: Summary + Full document tabs'
+status: DRAFT
+parent: FRD-05
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-05-005 — Work order detail: Summary + Full document tabs
 
 **Feature:** FRD-05 · **Implements:** CMP-05-detail · **REQ-05-003**

@@ -1,3 +1,14 @@
+---
+id: WO-18-005
+type: work-order
+slug: progreso
+title: WO-18-005 — `Progreso` gamification strip
+status: DRAFT
+parent: FRD-18
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-18-005 — `Progreso` gamification strip
 
 > Source-of-truth: [`blueprint.md`](../blueprint.md) (`CMP-18-progress`) · FRD-09 (honest gamification).

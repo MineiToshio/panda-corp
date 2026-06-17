@@ -1,3 +1,14 @@
+---
+id: WO-06-003
+type: work-order
+slug: event-visual-state-map
+title: WO-06-003 — Event → visual-state map (the decoupling boundary)
+status: DRAFT
+parent: FRD-06
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-06-003 — Event → visual-state map (the decoupling boundary)
 
 **Components/Interfaces:** `IF-06-state-map` · **Traces:** REQ-06-004, REQ-06-005, REQ-06-007, REQ-06-013

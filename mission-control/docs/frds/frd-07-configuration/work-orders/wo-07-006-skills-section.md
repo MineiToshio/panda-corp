@@ -1,3 +1,14 @@
+---
+id: WO-07-006
+type: work-order
+slug: skills-section
+title: 'WO-07-006 — Skills section: list + detail + mini-flow'
+status: DRAFT
+parent: FRD-07
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-07-006 — Skills section: list + detail + mini-flow
 
 Source-of-truth: `FRD > FDD > design-tokens > blueprint > work order`.

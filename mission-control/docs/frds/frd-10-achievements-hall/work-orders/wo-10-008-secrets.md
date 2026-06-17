@@ -1,3 +1,14 @@
+---
+id: WO-10-008
+type: work-order
+slug: secrets
+title: WO-10-008 — Secret achievements
+status: DRAFT
+parent: FRD-10
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-10-008 — Secret achievements
 
 Source-of-truth: `FRD > FDD > design-tokens > blueprint > work order`.

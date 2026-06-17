@@ -1,3 +1,14 @@
+---
+id: WO-07-007
+type: work-order
+slug: agents-section
+title: 'WO-07-007 — Agents section: list + detail + XP bar'
+status: DRAFT
+parent: FRD-07
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-07-007 — Agents section: list + detail + XP bar
 
 Source-of-truth: `FRD > FDD > design-tokens > blueprint > work order`.

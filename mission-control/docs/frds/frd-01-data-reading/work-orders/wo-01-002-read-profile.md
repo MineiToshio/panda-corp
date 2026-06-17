@@ -1,3 +1,14 @@
+---
+id: WO-01-002
+type: work-order
+slug: read-profile
+title: WO-01-002 — `readProfile` (presence + parse)
+status: ACTIVE
+parent: FRD-01
+implementation_status: VERIFIED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-01-002 — `readProfile` (presence + parse)
 
 **Module:** `lib/profile.ts`

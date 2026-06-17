@@ -1,3 +1,14 @@
+---
+id: WO-06-007
+type: work-order
+slug: event-feed
+title: 'WO-06-007 — Event feed (vocabulary, failure-first, auto-scroll + pin, cap)'
+status: DRAFT
+parent: FRD-06
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-06-007 — Event feed (vocabulary, failure-first, auto-scroll + pin, cap)
 
 **Components/Interfaces:** `CMP-06-feed` · **Traces:** REQ-06-006, REQ-06-012, REQ-06-013, REQ-06-014, REQ-06-011

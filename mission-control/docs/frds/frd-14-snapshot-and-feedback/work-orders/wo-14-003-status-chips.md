@@ -1,3 +1,14 @@
+---
+id: WO-14-003
+type: work-order
+slug: status-chips
+title: 'WO-14-003 — `CMP-14-status-chips`: decisions/bugs/rethink chips'
+status: DRAFT
+parent: FRD-14
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-14-003 — `CMP-14-status-chips`: decisions/bugs/rethink chips
 
 **Feature:** FRD-14 · **Implements:** CMP-14-status-chips · **REQ-14-004, REQ-14-005**

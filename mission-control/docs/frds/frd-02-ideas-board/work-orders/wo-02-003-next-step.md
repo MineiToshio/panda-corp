@@ -1,3 +1,14 @@
+---
+id: WO-02-003
+type: work-order
+slug: next-step
+title: WO-02-003 — `nextStep` command map
+status: DRAFT
+parent: FRD-02
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-02-003 — `nextStep` command map
 
 **Module:** `lib/next-step.ts`

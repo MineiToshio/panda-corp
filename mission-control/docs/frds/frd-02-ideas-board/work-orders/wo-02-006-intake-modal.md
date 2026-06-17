@@ -1,3 +1,14 @@
+---
+id: WO-02-006
+type: work-order
+slug: intake-modal
+title: WO-02-006 — Intake modal
+status: DRAFT
+parent: FRD-02
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-02-006 — Intake modal
 
 **Module:** `components/IntakeModal.tsx`

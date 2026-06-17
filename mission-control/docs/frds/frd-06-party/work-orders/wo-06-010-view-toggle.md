@@ -1,3 +1,14 @@
+---
+id: WO-06-010
+type: work-order
+slug: view-toggle
+title: WO-06-010 — RPG ↔ timeline/DAG toggle + Live/No-signal badge
+status: DRAFT
+parent: FRD-06
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-06-010 — RPG ↔ timeline/DAG toggle + Live/No-signal badge
 
 **Components/Interfaces:** `CMP-06-view-toggle` · **Traces:** REQ-06-016

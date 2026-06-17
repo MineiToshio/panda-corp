@@ -1,3 +1,14 @@
+---
+id: WO-05-004
+type: work-order
+slug: frd-filter
+title: WO-05-004 — Group/filter by FRD
+status: DRAFT
+parent: FRD-05
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-05-004 — Group/filter by FRD
 
 **Feature:** FRD-05 · **Implements:** CMP-05-frd-filter · **REQ-05-002**

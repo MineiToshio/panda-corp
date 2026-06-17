@@ -1,3 +1,14 @@
+---
+id: WO-15-002
+type: work-order
+slug: sync-verdict
+title: WO-15-002 — `getPluginSyncState` verdict (drift / reason / detail)
+status: DRAFT
+parent: FRD-15
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-15-002 — `getPluginSyncState` verdict (drift / reason / detail)
 
 > Source-of-truth: [`blueprint.md`](../blueprint.md) (`IF-15-sync`) · [architecture §4.7, §7](../../../product/architecture.md).

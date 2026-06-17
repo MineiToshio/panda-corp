@@ -1,3 +1,14 @@
+---
+id: WO-02-004
+type: work-order
+slug: discard-idea
+title: WO-02-004 — `discardIdea` (the single write)
+status: ACTIVE
+parent: FRD-02
+implementation_status: VERIFIED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-02-004 — `discardIdea` (the single write)
 
 **Module:** `lib/discard.ts`

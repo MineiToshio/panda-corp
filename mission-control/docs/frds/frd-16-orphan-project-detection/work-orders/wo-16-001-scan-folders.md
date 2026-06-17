@@ -1,3 +1,15 @@
+---
+id: WO-16-001
+type: work-order
+slug: scan-folders
+title: 'WO-16-001 — `lib/orphans` scan: projects path + bounded folder listing'
+status: ACTIVE
+parent: FRD-16
+implementation_status: BLOCKED
+blocked_reason: error
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-16-001 — `lib/orphans` scan: projects path + bounded folder listing
 
 > Source-of-truth: [`blueprint.md`](../blueprint.md) (`IF-16-scan`) · [architecture §4.2, §7](../../../product/architecture.md).

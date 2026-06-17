@@ -1,3 +1,14 @@
+---
+id: WO-06-002
+type: work-order
+slug: roster-positions
+title: WO-06-002 — Roster + station positions (pure layout)
+status: DRAFT
+parent: FRD-06
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-06-002 — Roster + station positions (pure layout)
 
 **Components/Interfaces:** `IF-06-roster`, `IF-06-positions`, `IF-06-agent-color` · **Traces:** REQ-06-001, REQ-06-002, REQ-06-005

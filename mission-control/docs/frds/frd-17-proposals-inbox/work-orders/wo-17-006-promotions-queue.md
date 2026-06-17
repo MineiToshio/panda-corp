@@ -1,3 +1,14 @@
+---
+id: WO-17-006
+type: work-order
+slug: promotions-queue
+title: WO-17-006 — Promotions queue
+status: DRAFT
+parent: FRD-17
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-17-006 — Promotions queue
 
 > Source-of-truth: [`blueprint.md`](../blueprint.md) (`CMP-17-promoqueue`) · [architecture §4.6, §7](../../../product/architecture.md).

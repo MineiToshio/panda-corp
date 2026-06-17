@@ -1,3 +1,14 @@
+---
+id: WO-17-007
+type: work-order
+slug: badge-chip-dismiss
+title: WO-17-007 — Guild badge + portfolio-rail chip + dismissal
+status: DRAFT
+parent: FRD-17
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-17-007 — Guild badge + portfolio-rail chip + dismissal
 
 > Source-of-truth: [`blueprint.md`](../blueprint.md) (`CMP-17-badge`, `CMP-17-dismiss`) · [architecture §4.8, §7](../../../product/architecture.md).

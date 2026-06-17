@@ -1,3 +1,14 @@
+---
+id: WO-04-007
+type: work-order
+slug: tab-commands
+title: 'WO-04-007 — Commands tab: stage commands + FRD-11 selector slot'
+status: DRAFT
+parent: FRD-04
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-04-007 — Commands tab: stage commands + FRD-11 selector slot
 
 **Feature:** FRD-04 · **Implements:** CMP-04-tab-commands · **REQ-04-005**

@@ -1,3 +1,14 @@
+---
+id: WO-04-006
+type: work-order
+slug: tab-documents
+title: 'WO-04-006 — Documents tab: nav + rendered markdown'
+status: DRAFT
+parent: FRD-04
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-04-006 — Documents tab: nav + rendered markdown
 
 **Feature:** FRD-04 · **Implements:** CMP-04-tab-documents · **REQ-04-006**

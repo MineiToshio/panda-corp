@@ -1,3 +1,14 @@
+---
+id: WO-05-003
+type: work-order
+slug: kanban-board
+title: 'WO-05-003 — Kanban board: 4 columns + cards + FRD chip'
+status: DRAFT
+parent: FRD-05
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-05-003 — Kanban board: 4 columns + cards + FRD chip
 
 **Feature:** FRD-05 · **Implements:** CMP-05-board, CMP-05-column, CMP-05-card · **REQ-05-001, REQ-05-002, REQ-05-005**

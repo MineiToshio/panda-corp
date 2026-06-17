@@ -1,3 +1,14 @@
+---
+id: WO-17-003
+type: work-order
+slug: self-suggest
+title: WO-17-003 — `lib/self-suggest` derivations (6 kinds)
+status: DRAFT
+parent: FRD-17
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-17-003 — `lib/self-suggest` derivations (6 kinds)
 
 > Source-of-truth: [`blueprint.md`](../blueprint.md) (`IF-17-suggest`, §4) · [architecture §4, §6, §7](../../../product/architecture.md).

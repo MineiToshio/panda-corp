@@ -1,3 +1,14 @@
+---
+id: WO-04-004
+type: work-order
+slug: workspace-shell
+title: 'WO-04-004 — Workspace shell: header + Mission Objectives bar + tab bar'
+status: DRAFT
+parent: FRD-04
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-04-004 — Workspace shell: header + Mission Objectives bar + tab bar
 
 **Feature:** FRD-04 · **Implements:** CMP-04-workspace, CMP-04-header, CMP-04-objectives-bar, CMP-04-tabbar · **REQ-04-001, REQ-04-002**

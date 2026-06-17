@@ -1,3 +1,14 @@
+---
+id: WO-03-005
+type: work-order
+slug: empty-and-recovery
+title: WO-03-005 — Empty state + path-not-found recovery
+status: DRAFT
+parent: FRD-03
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-03-005 — Empty state + path-not-found recovery
 
 **Module:** `components/PortfolioEmpty.tsx`, `components/RecoveryHint.tsx`

@@ -1,3 +1,14 @@
+---
+id: WO-14-004
+type: work-order
+slug: feedback-channels-doc
+title: 'WO-14-004 — Manual: the three feedback channels (doc)'
+status: DRAFT
+parent: FRD-14
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-14-004 — Manual: the three feedback channels (doc)
 
 **Feature:** FRD-14 · **Implements:** REQ-14-006 · (doc deliverable, hosted by the FRD-08 Manual)

@@ -1,3 +1,14 @@
+---
+id: WO-15-004
+type: work-order
+slug: sync-banner
+title: WO-15-004 — `PluginSyncBanner` client component (poll + self-clear)
+status: DRAFT
+parent: FRD-15
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-15-004 — `PluginSyncBanner` client component (poll + self-clear)
 
 > Source-of-truth: [`blueprint.md`](../blueprint.md) (`CMP-15-banner`, `CMP-15-recall`) · [architecture §3, §7](../../../product/architecture.md).

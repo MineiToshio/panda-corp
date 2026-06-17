@@ -1,3 +1,16 @@
+---
+id: WO-14-002
+type: work-order
+slug: snapshot-panel
+title: >-
+  WO-14-002 — `CMP-14-snapshot-panel`: probable point + worktree command +
+  building-now + staleness
+status: DRAFT
+parent: FRD-14
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-14-002 — `CMP-14-snapshot-panel`: probable point + worktree command + building-now + staleness
 
 **Feature:** FRD-14 · **Implements:** CMP-14-snapshot-panel · **REQ-14-001, REQ-14-002, REQ-14-003**

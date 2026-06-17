@@ -1,3 +1,14 @@
+---
+id: WO-18-001
+type: work-order
+slug: digest
+title: WO-18-001 — `IF-18-digest` derivation + `Digest` component (`visto_hasta`)
+status: DRAFT
+parent: FRD-18
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-18-001 — `IF-18-digest` derivation + `Digest` component (`visto_hasta`)
 
 > Source-of-truth: [`blueprint.md`](../blueprint.md) (`IF-18-digest`, `CMP-18-digest`, §4) · [architecture §4.8](../../../product/architecture.md).

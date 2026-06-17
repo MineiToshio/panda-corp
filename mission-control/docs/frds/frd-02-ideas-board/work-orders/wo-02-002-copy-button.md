@@ -1,3 +1,14 @@
+---
+id: WO-02-002
+type: work-order
+slug: copy-button
+title: WO-02-002 — `CopyButton` shared affordance
+status: DRAFT
+parent: FRD-02
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-02-002 — `CopyButton` shared affordance
 
 **Module:** `components/CopyButton.tsx`

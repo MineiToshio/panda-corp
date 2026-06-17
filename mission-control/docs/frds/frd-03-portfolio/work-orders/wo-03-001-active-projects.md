@@ -1,3 +1,14 @@
+---
+id: WO-03-001
+type: work-order
+slug: active-projects
+title: WO-03-001 — `activeProjects` compose helper
+status: DRAFT
+parent: FRD-03
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-03-001 — `activeProjects` compose helper
 
 **Module:** `lib/portfolio.ts` — add `activeProjects()`

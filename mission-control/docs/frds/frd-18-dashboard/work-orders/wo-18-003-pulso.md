@@ -1,3 +1,14 @@
+---
+id: WO-18-003
+type: work-order
+slug: pulso
+title: WO-18-003 — `IF-18-pulse` funnel + conversion + `Pulso` component
+status: DRAFT
+parent: FRD-18
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-18-003 — `IF-18-pulse` funnel + conversion + `Pulso` component
 
 > Source-of-truth: [`blueprint.md`](../blueprint.md) (`IF-18-pulse`, `CMP-18-pulse`) · [architecture §11](../../../product/architecture.md).

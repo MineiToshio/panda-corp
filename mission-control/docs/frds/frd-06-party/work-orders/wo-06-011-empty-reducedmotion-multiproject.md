@@ -1,3 +1,14 @@
+---
+id: WO-06-011
+type: work-order
+slug: empty-reducedmotion-multiproject
+title: WO-06-011 — Empty state + reduced-motion + multi-project borders
+status: DRAFT
+parent: FRD-06
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-06-011 — Empty state + reduced-motion + multi-project borders
 
 **Components/Interfaces:** `CMP-06-empty`, polish across `CMP-06-scene`/`CMP-06-feed` · **Traces:** REQ-06-010, REQ-06-011, REQ-06-003 (a11y)

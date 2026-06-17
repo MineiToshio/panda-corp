@@ -1,3 +1,14 @@
+---
+id: WO-13-005
+type: work-order
+slug: state-badge
+title: 'WO-13-005 — StateBadge (icon+shape+label, never color-only)'
+status: ACTIVE
+parent: FRD-13
+implementation_status: VERIFIED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-13-005 — StateBadge (icon+shape+label, never color-only)
 
 **Components/Interfaces:** `CMP-13-state-badge` · **Traces:** REQ-13-007, REQ-13-008

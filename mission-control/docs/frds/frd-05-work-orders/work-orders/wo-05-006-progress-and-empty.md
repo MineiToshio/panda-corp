@@ -1,3 +1,14 @@
+---
+id: WO-05-006
+type: work-order
+slug: progress-and-empty
+title: WO-05-006 — Aggregated progress display + empty state
+status: DRAFT
+parent: FRD-05
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-05-006 — Aggregated progress display + empty state
 
 **Feature:** FRD-05 · **Implements:** CMP-05-progress, CMP-05-empty · **REQ-05-004, REQ-05-006**

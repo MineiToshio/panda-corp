@@ -1,3 +1,14 @@
+---
+id: WO-16-002
+type: work-order
+slug: classify
+title: WO-16-002 — `lib/orphans` classification + `getOrphans` verdict
+status: DRAFT
+parent: FRD-16
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-16-002 — `lib/orphans` classification + `getOrphans` verdict
 
 > Source-of-truth: [`blueprint.md`](../blueprint.md) (`IF-16-scan`, truth table) · [architecture §4.4](../../../product/architecture.md).

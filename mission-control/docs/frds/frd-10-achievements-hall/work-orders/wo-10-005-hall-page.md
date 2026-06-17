@@ -1,3 +1,14 @@
+---
+id: WO-10-005
+type: work-order
+slug: hall-page
+title: WO-10-005 — Hall page shell + hero + tabs + stats panel
+status: DRAFT
+parent: FRD-10
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-10-005 — Hall page shell + hero + tabs + stats panel
 
 Source-of-truth: `FRD > FDD > design-tokens > blueprint > work order`.

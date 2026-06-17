@@ -1,3 +1,15 @@
+---
+id: WO-12-004
+type: work-order
+slug: timeline-selector
+title: 'WO-12-004 — Timeline selector (WO → task → action, durations)'
+status: ACTIVE
+parent: FRD-12
+implementation_status: BLOCKED
+blocked_reason: error
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-12-004 — Timeline selector (WO → task → action, durations)
 
 **Components/Interfaces:** `IF-12-timeline` · **Traces:** REQ-12-003, REQ-12-007

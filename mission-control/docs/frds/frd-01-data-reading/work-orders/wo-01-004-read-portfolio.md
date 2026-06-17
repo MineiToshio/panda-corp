@@ -1,3 +1,14 @@
+---
+id: WO-01-004
+type: work-order
+slug: read-portfolio
+title: WO-01-004 — `readPortfolio` (markdown table parse)
+status: ACTIVE
+parent: FRD-01
+implementation_status: VERIFIED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-01-004 — `readPortfolio` (markdown table parse)
 
 **Module:** `lib/portfolio.ts`

@@ -1,3 +1,14 @@
+---
+id: WO-04-001
+type: work-order
+slug: docs-reader
+title: 'WO-04-001 — `lib/docs.ts`: project document tree + raw read'
+status: DRAFT
+parent: FRD-04
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-04-001 — `lib/docs.ts`: project document tree + raw read
 
 **Feature:** FRD-04 · **Implements:** IF-04-docs (`listProjectDocs`, `readDoc`) · **REQ-04-006**

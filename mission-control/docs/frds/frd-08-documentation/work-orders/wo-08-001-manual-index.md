@@ -1,3 +1,14 @@
+---
+id: WO-08-001
+type: work-order
+slug: manual-index
+title: 'WO-08-001 — `lib/manual.ts`: index authored Manual content'
+status: DRAFT
+parent: FRD-08
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-08-001 — `lib/manual.ts`: index authored Manual content
 
 Source-of-truth: `FRD > FDD > design-tokens > blueprint > work order`.

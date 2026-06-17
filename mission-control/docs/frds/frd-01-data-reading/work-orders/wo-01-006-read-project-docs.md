@@ -1,3 +1,14 @@
+---
+id: WO-01-006
+type: work-order
+slug: read-project-docs
+title: WO-01-006 — `readProjectDocs` (feature-centric tree discovery)
+status: ACTIVE
+parent: FRD-01
+implementation_status: VERIFIED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-01-006 — `readProjectDocs` (feature-centric tree discovery)
 
 **Module:** `lib/docs.ts`

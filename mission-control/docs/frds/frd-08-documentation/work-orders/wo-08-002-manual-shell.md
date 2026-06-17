@@ -1,3 +1,14 @@
+---
+id: WO-08-002
+type: work-order
+slug: manual-shell
+title: 'WO-08-002 — Manual page shell: side menu (Diátaxis) + reader'
+status: DRAFT
+parent: FRD-08
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-08-002 — Manual page shell: side menu (Diátaxis) + reader
 
 Source-of-truth: `FRD > FDD > design-tokens > blueprint > work order`.

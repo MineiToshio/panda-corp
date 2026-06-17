@@ -1,3 +1,14 @@
+---
+id: WO-03-002
+type: work-order
+slug: project-rail
+title: WO-03-002 — Project rail + rows + indicators
+status: DRAFT
+parent: FRD-03
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-03-002 — Project rail + rows + indicators
 
 **Module:** `app/portfolio/page.tsx`, `components/ProjectRail.tsx`, `components/ProjectRow.tsx`

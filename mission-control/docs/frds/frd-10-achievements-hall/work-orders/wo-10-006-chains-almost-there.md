@@ -1,3 +1,14 @@
+---
+id: WO-10-006
+type: work-order
+slug: chains-almost-there
+title: WO-10-006 — Chains cards + "Almost there"
+status: DRAFT
+parent: FRD-10
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-10-006 — Chains cards + "Almost there"
 
 Source-of-truth: `FRD > FDD > design-tokens > blueprint > work order`.

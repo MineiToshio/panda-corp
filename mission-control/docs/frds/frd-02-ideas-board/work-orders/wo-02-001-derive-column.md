@@ -1,3 +1,14 @@
+---
+id: WO-02-001
+type: work-order
+slug: derive-column
+title: WO-02-001 — `deriveColumn` two-axis logic
+status: ACTIVE
+parent: FRD-02
+implementation_status: VERIFIED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-02-001 — `deriveColumn` two-axis logic
 
 **Module:** `lib/board.ts`

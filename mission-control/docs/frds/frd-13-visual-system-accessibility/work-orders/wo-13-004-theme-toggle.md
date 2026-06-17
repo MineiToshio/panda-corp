@@ -1,3 +1,14 @@
+---
+id: WO-13-004
+type: work-order
+slug: theme-toggle
+title: 'WO-13-004 — ThemeToggle (light/dark/high-contrast, persisted)'
+status: ACTIVE
+parent: FRD-13
+implementation_status: VERIFIED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-13-004 — ThemeToggle (light/dark/high-contrast, persisted)
 
 **Status:** DONE ✓

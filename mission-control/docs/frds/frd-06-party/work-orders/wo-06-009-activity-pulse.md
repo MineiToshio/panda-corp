@@ -1,3 +1,14 @@
+---
+id: WO-06-009
+type: work-order
+slug: activity-pulse
+title: WO-06-009 — Activity pulse (per-agent bars)
+status: DRAFT
+parent: FRD-06
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-06-009 — Activity pulse (per-agent bars)
 
 **Components/Interfaces:** `CMP-06-pulse` · **Traces:** REQ-06-015

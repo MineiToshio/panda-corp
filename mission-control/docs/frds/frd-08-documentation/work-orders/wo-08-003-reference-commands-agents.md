@@ -1,3 +1,14 @@
+---
+id: WO-08-003
+type: work-order
+slug: reference-commands-agents
+title: 'WO-08-003 — Reference: commands + agents (DERIVED, DR-046)'
+status: DRAFT
+parent: FRD-08
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-08-003 — Reference: commands + agents (DERIVED, DR-046)
 
 Source-of-truth: `FRD > FDD > design-tokens > blueprint > work order`.

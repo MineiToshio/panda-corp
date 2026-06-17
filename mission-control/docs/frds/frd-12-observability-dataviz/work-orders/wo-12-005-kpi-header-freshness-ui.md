@@ -1,3 +1,14 @@
+---
+id: WO-12-005
+type: work-order
+slug: kpi-header-freshness-ui
+title: WO-12-005 — KPI header + freshness badge (UI)
+status: DRAFT
+parent: FRD-12
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-12-005 — KPI header + freshness badge (UI)
 
 **Components/Interfaces:** `CMP-12-kpi-header`, `CMP-12-freshness` · **Traces:** REQ-12-001, REQ-12-002, REQ-12-004

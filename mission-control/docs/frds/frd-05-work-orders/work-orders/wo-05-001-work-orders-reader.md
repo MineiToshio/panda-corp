@@ -1,3 +1,14 @@
+---
+id: WO-05-001
+type: work-order
+slug: work-orders-reader
+title: 'WO-05-001 — `lib/work-orders.ts`: discover + parse work orders'
+status: ACTIVE
+parent: FRD-05
+implementation_status: VERIFIED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-05-001 — `lib/work-orders.ts`: discover + parse work orders
 
 **Feature:** FRD-05 · **Implements:** IF-05-work-orders (`listWorkOrders`, `WorkOrder`, `WorkOrderState`) · **REQ-05-002, REQ-05-005**

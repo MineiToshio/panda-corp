@@ -1,3 +1,15 @@
+---
+id: WO-17-001
+type: work-order
+slug: memory-reader
+title: WO-17-001 — `lib/memory` lesson reader
+status: ACTIVE
+parent: FRD-17
+implementation_status: BLOCKED
+blocked_reason: error
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-17-001 — `lib/memory` lesson reader
 
 > Source-of-truth: [`blueprint.md`](../blueprint.md) (`IF-17-memory`) · [architecture §4.6, §6](../../../product/architecture.md).

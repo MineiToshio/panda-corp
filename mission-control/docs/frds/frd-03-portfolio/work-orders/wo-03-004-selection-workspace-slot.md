@@ -1,3 +1,14 @@
+---
+id: WO-03-004
+type: work-order
+slug: selection-workspace-slot
+title: WO-03-004 — Selection + default + workspace slot
+status: DRAFT
+parent: FRD-03
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-03-004 — Selection + default + workspace slot
 
 **Module:** `app/portfolio/page.tsx` (right panel + selection)

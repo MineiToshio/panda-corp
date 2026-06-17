@@ -1,3 +1,14 @@
+---
+id: WO-09-006
+type: work-order
+slug: celebration-surface
+title: WO-09-006 — `CMP-09-celebration` scaling surface
+status: DRAFT
+parent: FRD-09
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-09-006 — `CMP-09-celebration` scaling surface
 
 Source-of-truth: `FRD > FDD > design-tokens > blueprint > work order`.

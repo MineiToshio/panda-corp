@@ -1,3 +1,14 @@
+---
+id: WO-17-004
+type: work-order
+slug: proposals-page
+title: WO-17-004 — `app/proposals` page + 4 streams + proposal card
+status: DRAFT
+parent: FRD-17
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-17-004 — `app/proposals` page + 4 streams + proposal card
 
 > Source-of-truth: [`blueprint.md`](../blueprint.md) (`CMP-17-page`, `CMP-17-stream`, `CMP-17-proposalcard`) · [architecture §7, §11](../../../product/architecture.md).

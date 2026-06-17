@@ -1,3 +1,16 @@
+---
+id: WO-12-006
+type: work-order
+slug: workorder-dag
+title: >-
+  WO-12-006 — Work-order DAG (Dagre) with path-focus + jump-to-error +
+  follow-mode
+status: DRAFT
+parent: FRD-12
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-12-006 — Work-order DAG (Dagre) with path-focus + jump-to-error + follow-mode
 
 **Components/Interfaces:** `CMP-12-dag`, `IF-12-dag` · **Traces:** REQ-12-005, REQ-12-006

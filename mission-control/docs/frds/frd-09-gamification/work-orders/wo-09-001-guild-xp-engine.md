@@ -1,3 +1,14 @@
+---
+id: WO-09-001
+type: work-order
+slug: guild-xp-engine
+title: 'WO-09-001 — `lib/gamification.ts`: guild XP/level engine (honest)'
+status: DRAFT
+parent: FRD-09
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-09-001 — `lib/gamification.ts`: guild XP/level engine (honest)
 
 Source-of-truth: `FRD > FDD > design-tokens > blueprint > work order`.

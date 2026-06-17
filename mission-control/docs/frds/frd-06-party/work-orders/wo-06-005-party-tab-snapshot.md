@@ -1,3 +1,14 @@
+---
+id: WO-06-005
+type: work-order
+slug: party-tab-snapshot
+title: WO-06-005 — Party tab server snapshot (RSC)
+status: DRAFT
+parent: FRD-06
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-06-005 — Party tab server snapshot (RSC)
 
 **Components/Interfaces:** `CMP-06-party-tab` · **Traces:** REQ-06-008, REQ-06-002, REQ-06-005, REQ-06-010

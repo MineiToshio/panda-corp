@@ -1,3 +1,14 @@
+---
+id: WO-11-002
+type: work-order
+slug: mode-selector
+title: 'WO-11-002 — `CMP-11-mode-selector`: selector + command + memory'
+status: DRAFT
+parent: FRD-11
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-11-002 — `CMP-11-mode-selector`: selector + command + memory
 
 **Feature:** FRD-11 · **Implements:** CMP-11-mode-selector · **REQ-11-001, REQ-11-002, REQ-11-003**

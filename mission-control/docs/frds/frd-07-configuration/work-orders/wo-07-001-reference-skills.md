@@ -1,3 +1,14 @@
+---
+id: WO-07-001
+type: work-order
+slug: reference-skills
+title: 'WO-07-001 — `lib/reference.ts`: read skills catalog'
+status: DRAFT
+parent: FRD-07
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-07-001 — `lib/reference.ts`: read skills catalog
 
 Source-of-truth: `FRD > FDD > design-tokens > blueprint > work order`.

@@ -1,3 +1,14 @@
+---
+id: WO-14-001
+type: work-order
+slug: snapshot-helpers
+title: 'WO-14-001 — `lib/snapshot.ts`: `buildSnapshot` + `isSnapshotStale`'
+status: DRAFT
+parent: FRD-14
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-14-001 — `lib/snapshot.ts`: `buildSnapshot` + `isSnapshotStale`
 
 **Feature:** FRD-14 · **Implements:** IF-14-snapshot · **REQ-14-001, REQ-14-002, REQ-14-003**

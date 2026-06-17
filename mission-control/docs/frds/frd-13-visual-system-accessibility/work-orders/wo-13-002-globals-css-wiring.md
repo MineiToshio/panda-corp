@@ -1,3 +1,16 @@
+---
+id: WO-13-002
+type: work-order
+slug: globals-css-wiring
+title: >-
+  WO-13-002 — globals.css wiring (themes, elevation, motion, reduced-motion,
+  focus)
+status: ACTIVE
+parent: FRD-13
+implementation_status: VERIFIED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-13-002 — globals.css wiring (themes, elevation, motion, reduced-motion, focus)
 
 **Components/Interfaces:** `CMP-13-globals`, `IF-13-theme-vars` · **Traces:** REQ-13-001, REQ-13-002, REQ-13-004, REQ-13-005, REQ-13-006

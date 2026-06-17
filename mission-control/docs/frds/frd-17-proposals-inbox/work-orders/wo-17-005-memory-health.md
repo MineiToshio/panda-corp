@@ -1,3 +1,14 @@
+---
+id: WO-17-005
+type: work-order
+slug: memory-health
+title: WO-17-005 — Memory-health panel
+status: DRAFT
+parent: FRD-17
+implementation_status: PLANNED
+source_requirements: []
+last_updated: '2026-06-16'
+---
 # WO-17-005 — Memory-health panel
 
 > Source-of-truth: [`blueprint.md`](../blueprint.md) (`CMP-17-health`) · [architecture §4.6, §4.7](../../../product/architecture.md).
