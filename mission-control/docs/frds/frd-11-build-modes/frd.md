@@ -3,8 +3,8 @@ id: FRD-11
 type: frd
 title: FRD-11 — Per-project build modes
 status: ACTIVE
-implementation_status: PLANNED
-last_updated: '2026-06-16'
+implementation_status: VERIFIED
+last_updated: '2026-06-17'
 ---
 # FRD-11 — Per-project build modes
 

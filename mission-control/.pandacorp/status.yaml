@@ -5,14 +5,14 @@ phase: implementation
 version: v1
 overlay_version: "8.5.0"
 created_with: "6.0.0"
-running: false
+running: true
 repo: ""
 updated_at: "2026-06-17"
 work_orders_total: 109
-work_orders_done: 30
+work_orders_done: 32
 pending_decisions: 0
 pending_bugs: 0
 rethink_pending: false
 advance_pending: false
-last_green_sha: "b87baf3"
+last_green_sha: "ef76f84"
 safe_to_test: true

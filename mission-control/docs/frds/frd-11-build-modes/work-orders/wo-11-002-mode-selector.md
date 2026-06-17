@@ -5,9 +5,9 @@ slug: mode-selector
 title: 'WO-11-002 — `CMP-11-mode-selector`: selector + command + memory'
 status: DRAFT
 parent: FRD-11
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-17'
 ---
 # WO-11-002 — `CMP-11-mode-selector`: selector + command + memory
 
