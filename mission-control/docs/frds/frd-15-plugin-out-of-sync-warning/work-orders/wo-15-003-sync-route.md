@@ -5,9 +5,9 @@ slug: sync-route
 title: WO-15-003 — `app/api/plugin-sync` route handler
 status: DRAFT
 parent: FRD-15
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-17'
 ---
 # WO-15-003 — `app/api/plugin-sync` route handler
 
@@ -39,3 +39,42 @@ Test the route by importing the handler and invoking `GET` with a `PANDACORP_FAC
 
 ## Dependencies
 - WO-15-002.
+
+## Status Note
+
+**What was built:** `GET /api/plugin-sync` route handler (`app/api/plugin-sync/route.ts`) — the Node.js route that exposes `getPluginSyncState()` (IF-15-sync) as a JSON endpoint so the client banner can poll it.
+
+**Interfaces/contracts exposed (`CMP-15-route`):**
+
+```ts
+// app/api/plugin-sync/route.ts
+
+export const runtime = "nodejs";          // child_process needed for git probes
+export const dynamic = "force-dynamic";   // never cached — drift is live state
+
+export function GET(_request: Request): Response;
+// Returns: Response.json(getPluginSyncState(), { status: 200, headers: { "Cache-Control": "no-store" } })
+// Always 200, even when reason === "unknown" (AC-15-003.4).
+// Read-only: only calls getPluginSyncState(), no writes (AC-15-003.2, REQ-15-005).
+```
+
+**Integration seam for WO-15-004 (banner component):**
+```ts
+// Poll GET /api/plugin-sync on mount and on interval.
+// Response body is PluginSyncState — render banner only when body.drift === true.
+// body.reason selects the banner copy; body.detail is the Spanish subtitle one-liner.
+import type { PluginSyncState } from "@/lib/plugin-sync";
+```
+
+**Acceptance criteria coverage:**
+- AC-15-003.1: all 5 `reason` branches return 200 + full `PluginSyncState` JSON (7 shape tests).
+- AC-15-003.2: mock spy confirms `getPluginSyncState` called once per request, no arguments, no writes (3 tests).
+- AC-15-003.3: `Cache-Control: no-store` header verified + `dynamic` export asserted (2 tests).
+- AC-15-003.4: `reason="unknown"` still returns 200, `drift=false` in body, no throw (3 tests).
+- Content-Type `application/json` verified (1 test).
+- `runtime="nodejs"` and `dynamic="force-dynamic"` exports asserted directly (2 tests).
+
+**Test files covering this WO:**
+- `app/api/plugin-sync/route.test.ts` — 17 tests (RED → GREEN), all ACs covered via `vi.mock("@/lib/plugin-sync")`.
+
+**Gate:** 17/17 tests GREEN. verify.sh green: 126 files, 3565 tests pass + 2 expected-fail + 5 skipped, biome clean, tsc clean.
