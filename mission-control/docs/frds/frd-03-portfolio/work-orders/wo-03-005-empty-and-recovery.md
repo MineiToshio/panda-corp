@@ -5,7 +5,7 @@ slug: empty-and-recovery
 title: WO-03-005 — Empty state + path-not-found recovery
 status: DRAFT
 parent: FRD-03
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-16'
 ---
@@ -49,3 +49,38 @@ last_updated: '2026-06-16'
   - `exists: true` → renders nothing (badge cleared).
 - Asserts no write / no clone is attempted (pure render of copyable text).
 - `.pandacorp/verify.sh` green.
+
+## Status Note
+
+**Built:** `PortfolioEmpty` (CMP-03-empty) and `RecoveryHint` (CMP-03-recovery) as standalone
+exported Server-Component-safe components in `components/`.
+
+**Interfaces / contracts exposed:**
+
+```tsx
+// components/PortfolioEmpty.tsx
+export function PortfolioEmpty(): React.JSX.Element
+// data-testid="portfolio-empty", aria-live="polite"
+// Renders "Sin proyectos activos" + CopyButton for "/pandacorp:spec"
+
+// components/RecoveryHint.tsx
+export interface RecoveryHintProps { exists: boolean; path: string; repo?: string; }
+export function RecoveryHint(props: RecoveryHintProps): React.JSX.Element | null
+// exists=true  → null (badge cleared, AC-03-006.6)
+// exists=false, repo present → data-testid="recovery-hint" with "recovery-hint-badge",
+//   "recovery-hint-command" (git clone <repo> <path> && /pandacorp:sync-portfolio),
+//   and a CopyButton (data-testid="copy-button")
+// exists=false, no repo / empty repo → data-testid="recovery-hint" with "recovery-hint-badge"
+//   and "recovery-hint-no-repo" warning mentioning /pandacorp:spec
+```
+
+**Integration seams:**
+- `PortfolioEmpty` consumed by `ProjectRail` / `app/portfolio/page.tsx` when `activeProjects()` returns `[]`.
+- `RecoveryHint` consumed by any project row where `item.exists === false`; replaces the inline `RecoveryHint` sub-component in `ProjectRail.tsx` (which can delegate to this standalone export).
+- Both reuse `CopyButton` (WO-02-002, `components/CopyButton.tsx`).
+- Both are read-only: no write, no clone, no Claude call (AC-03-006.5).
+
+**Test files:**
+- `components/PortfolioEmpty.test.tsx` — 18 tests (rendering, a11y, design-token invariant, read-only invariant)
+- `components/RecoveryHint.test.tsx` — 24 tests (exists=true cleared, repo/no-repo paths, a11y, tokens, read-only)
+- Full suite: 3331 tests pass, verify.sh green (biome + tsc + vitest).
