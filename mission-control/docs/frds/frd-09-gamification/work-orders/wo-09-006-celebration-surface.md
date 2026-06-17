@@ -5,9 +5,9 @@ slug: celebration-surface
 title: WO-09-006 — `CMP-09-celebration` scaling surface
 status: DRAFT
 parent: FRD-09
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-17'
 ---
 # WO-09-006 — `CMP-09-celebration` scaling surface
 
@@ -37,4 +37,32 @@ events. Restrained, honoring `prefers-reduced-motion` and the FRD-13 motion budg
 
 ## Definition of done
 - Component tests green incl. negative ACs + reduced-motion; tsc + biome clean; tokens only. `.pandacorp/verify.sh` passes.
+
+## Status Note
+
+**What it built:** `CMP-09-celebration` — the client-side celebration surface component that renders tier-scaled celebrations driven by `classifyCelebration()`. Implemented in `components/rpg/CelebrationSurface.tsx` (`"use client"`). CSS layout/chrome added to `app/globals.css` (`.celebration-surface`, `.celebration-inner` classes using only design tokens).
+
+**Interfaces/contracts exposed:**
+
+```ts
+// components/rpg/CelebrationSurface.tsx
+export interface CelebrationSurfaceProps {
+  event: Event | null;  // null → no celebration rendered
+}
+export function CelebrationSurface({ event }: CelebrationSurfaceProps): React.JSX.Element | null
+```
+
+**Integration seams:**
+- Consumes `classifyCelebration(event)` from `@/lib/gamification` (WO-09-005, `IF-09-celebration`).
+- Consumes `LiveRegion` from `@/components/a11y/LiveRegion` (WO-13-003) for `aria-live="polite"`.
+- Consumes `Event` type from `@/lib/events`.
+- CSS classes `.celebration-surface` / `.celebration-inner` defined in `app/globals.css` — zero hardcoded colors, all FRD-13 design tokens.
+- To mount: pass the latest `Event | null` from the dashboard event stream; typically placed in the top-level layout or any page that consumes `readEvents()`.
+
+**data-testid contract:**
+- `celebration-surface` — outer wrapper; carries `data-tier` (`toast|phase|release|levelup`) and `data-animated` (`true|false`).
+- `celebration-message` — the Spanish tier message text node.
+- `live-region` — the `aria-live="polite"` region (via `LiveRegion`).
+
+**Test files:** `components/rpg/CelebrationSurface.test.tsx` — 32 tests covering AC-09-006.1..5 including all negative ACs (no celebration for activity events / failure; no timer/countdown; no focus steal; no hardcoded colors). tsc clean, biome clean.
 </content>

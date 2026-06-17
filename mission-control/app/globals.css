@@ -185,3 +185,33 @@ html {
     --duration-expressive: 0ms;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * CMP-09-celebration — scaling celebration surface (WO-09-006)
+ *
+ * Layout/chrome lives here (not in inline style) so the animated wrapper
+ * only carries transform/opacity in its style attribute (AC-09-006.3).
+ * All values use design tokens — zero hardcoded colors (FRD-13).
+ * --------------------------------------------------------------------------- */
+
+.celebration-surface {
+  display: inline-block;
+  position: fixed;
+  bottom: calc(var(--space-base, 1rem) * 2);
+  right: calc(var(--space-base, 1rem) * 2);
+  z-index: 100;
+  pointer-events: none;
+}
+
+.celebration-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--space-base, 1rem) * 0.5);
+  padding: calc(var(--space-base, 1rem) * 0.5) var(--space-base, 1rem);
+  border-radius: var(--radius, 0.5rem);
+  border: var(--hairline, 1px) solid var(--color-accent, currentColor);
+  background: var(--color-surface, Canvas);
+  box-shadow: var(--shadow-2, none);
+  color: var(--color-text, currentColor);
+  font-size: 0.875rem;
+}
