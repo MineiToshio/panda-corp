@@ -5,7 +5,7 @@ slug: avatar
 title: WO-09-003 — `CMP-09-avatar` pixel-art agent avatar
 status: DRAFT
 parent: FRD-09
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
 last_updated: '2026-06-17'
 ---
