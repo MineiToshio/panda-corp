@@ -5,7 +5,7 @@ slug: orphans-banner
 title: WO-16-004 — `OrphansBanner` client component (dismiss + self-clear)
 status: DRAFT
 parent: FRD-16
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-16'
 ---
@@ -47,3 +47,44 @@ assert per-kind copy, dismiss persistence (localStorage), self-clear, copy.
 ## Dependencies
 - WO-16-003 (the route).
 - FRD-02 `CopyButton` (cross-feature; fallback inline copy if not yet available).
+
+## Status Note
+
+**Built:** `OrphansBanner` client component (`"use client"`) with full dismiss + self-clear lifecycle.
+
+**Files delivered:**
+- `components/orphans-banner.tsx` — `CMP-16-banner` + `CMP-16-steps` (per-kind recall)
+- `components/orphans-banner.test.tsx` — 33 tests RED→GREEN covering all 7 ACs
+
+**Interfaces / contracts exposed:**
+```tsx
+export function OrphansBanner(): React.JSX.Element | null
+// No props — self-contained polling + localStorage dismiss state
+```
+- Polls `GET /api/orphans` on mount + every 30 s (`POLL_INTERVAL_MS = 30_000`)
+- `localStorage` key per dismissed path: `"mc:orphan-dismissed:<absolute-path>"` = `"1"`
+- Per-kind command: `orphan` → `/pandacorp:adopt`; `unlisted` → `/pandacorp:sync-portfolio`
+- Reuses `CopyButton` from `components/CopyButton.tsx` (FRD-02)
+
+**Integration seams:**
+- Drop `<OrphansBanner />` into the dashboard health-banner stack (FRD-18 placement); no props needed
+- The component imports `type Candidate` from `@/lib/orphans` for type safety only (no runtime dep on the scanner — all data comes via the API route)
+
+**`data-testid` surface:**
+- `orphans-banner` — root wrapper (role="alert", aria-label in Spanish)
+- `orphan-icon` — warning triangle icon (state not by color alone, FRD-13)
+- `orphan-item-<name>` — one per visible candidate
+- `orphan-path-<name>` — absolute path text
+- `orphan-copy-cmd-<name>` — wrapper around `CopyButton` (inner testid: `copy-button`)
+- `orphan-dismiss-<name>` — dismiss button with aria-label
+
+**Test coverage:** `components/orphans-banner.test.tsx` (33 tests)
+- AC-16-004.1: orphan name/path/adopt recall (5 tests)
+- AC-16-004.2: unlisted sync-portfolio copy (4 tests)
+- AC-16-004.3: copyable path + copy button writes correct command (4 tests)
+- AC-16-004.4: dismiss hides + persists in localStorage + self-clears on poll (6 tests)
+- AC-16-004.5: read-only GET only (2 tests)
+- AC-16-004.6: Spanish copy + aria-labels + icon presence (6 tests)
+- AC-16-004.7: empty list renders nothing (5 tests + error/non-ok cases)
+
+**Gate:** 131 files, 3683 tests GREEN + 2 expected-fail + 5 skipped; tsc clean; biome clean.
