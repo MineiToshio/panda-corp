@@ -154,29 +154,45 @@ interface WoCardProps {
   order: WorkOrder;
 }
 
+// Card link style — wraps the entire card, preserves card visual via display:block
+const CARD_LINK_STYLE: React.CSSProperties = {
+  display: "block",
+  textDecoration: "none",
+  color: "inherit",
+  borderRadius: "var(--radius, 6px)",
+};
+
 function WoCard({ order }: WoCardProps): React.JSX.Element {
   const isFail = order.state === "fail";
   const cardStyle = isFail ? CARD_FAIL_STYLE : CARD_STYLE;
 
   return (
-    <article data-testid="wo-card" aria-label={order.title} style={cardStyle}>
-      <p style={CARD_TITLE_STYLE}>{order.title}</p>
-      <span data-testid="wo-frd-chip" style={FRD_CHIP_STYLE} title={order.frd}>
-        {order.frd}
-      </span>
-      {isFail && (
-        <span
-          data-testid="wo-fail-indicator"
-          aria-label="Bloqueado"
-          role="img"
-          style={FAIL_INDICATOR_STYLE}
-        >
-          {/* icon + label (a11y: not color alone, AC-05-001.2 + FRD-13) */}
-          <span aria-hidden="true">⚠</span>
-          <span>Bloqueado</span>
+    // AC-05-003.1: each card is a link that opens the detail view (?tab=work-orders&wo=<id>)
+    <a
+      data-testid="wo-card-link"
+      href={`?tab=work-orders&wo=${encodeURIComponent(order.id)}`}
+      aria-label={`Ver detalle: ${order.title}`}
+      style={CARD_LINK_STYLE}
+    >
+      <article data-testid="wo-card" aria-label={order.title} style={cardStyle}>
+        <p style={CARD_TITLE_STYLE}>{order.title}</p>
+        <span data-testid="wo-frd-chip" style={FRD_CHIP_STYLE} title={order.frd}>
+          {order.frd}
         </span>
-      )}
-    </article>
+        {isFail && (
+          <span
+            data-testid="wo-fail-indicator"
+            aria-label="Bloqueado"
+            role="img"
+            style={FAIL_INDICATOR_STYLE}
+          >
+            {/* icon + label (a11y: not color alone, AC-05-001.2 + FRD-13) */}
+            <span aria-hidden="true">⚠</span>
+            <span>Bloqueado</span>
+          </span>
+        )}
+      </article>
+    </a>
   );
 }
 

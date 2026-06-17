@@ -5,7 +5,7 @@ slug: wo-detail
 title: 'WO-05-005 — Work order detail: Summary + Full document tabs'
 status: DRAFT
 parent: FRD-05
-implementation_status: PLANNED
+implementation_status: IN_PROGRESS
 source_requirements: []
 last_updated: '2026-06-16'
 ---

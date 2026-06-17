@@ -10,15 +10,17 @@
  *
  * Tab bodies (AC-04-001.1, blueprint §3):
  *   summary   → TabSummary (CMP-04-tab-summary)     WO-04-005
- *   work-orders → WorkOrderBoard (CMP-05-board)     FRD-05 (already shipped)
+ *   work-orders → TabWorkOrders (CMP-05-progress+empty+board) FRD-05 (WO-05-006)
  *   party       → PartyTab (CMP-06-*)               FRD-06 (already shipped)
  *   documents   → TabDocuments (CMP-04-tab-documents) WO-04-006
  *   commands    → TabCommands (CMP-04-tab-commands)     WO-04-007
  *
  * URL-driven selection (AC-04-001.2):
- *   - ?tab=<id>   → that tab active.
- *   - absent/invalid → "summary" (default).
- *   - ?doc=<id>   → document selection within the Documents tab.
+ *   - ?tab=<id>        → that tab active.
+ *   - absent/invalid   → "summary" (default).
+ *   - ?doc=<id>        → document selection within the Documents tab.
+ *   - ?wo=<id>         → work order detail view (WO-05-005, AC-05-003.1).
+ *   - ?wotab=summary|full → active pane inside the detail view (default: summary).
  *
  * Design rules (AGENTS.md / FRD-13):
  *   - ZERO hardcoded colors — CSS custom properties only.
@@ -37,13 +39,14 @@ import { notFound } from "next/navigation";
 import { listProjectDocs, readActivityLog, readDecisions, readDoc } from "@/lib/docs";
 import { activeProjects } from "@/lib/portfolio";
 import { type Phase, readStatus } from "@/lib/status";
-import { listWorkOrders } from "@/lib/work-orders";
+import { listWorkOrders, readWorkOrderDoc } from "@/lib/work-orders";
 import { ObjectivesBar } from "./_components/objectives-bar";
 import { TabCommands } from "./_components/tab-commands";
 import { TabDocuments } from "./_components/tab-documents";
 import { TabSummary } from "./_components/tab-summary";
+import { TabWorkOrders } from "./_components/tab-work-orders";
 import { TabBar, type TabId } from "./_components/tabbar";
-import { WorkOrderBoard } from "./_components/wo-board";
+import { type WoDetailTab, WorkOrderDetail } from "./_components/wo-detail";
 import { WorkspaceHeader } from "./_components/workspace-header";
 import { PartyTab } from "./_party/PartyTab";
 
@@ -138,6 +141,10 @@ export default async function ProjectWorkspacePage({
   // --- URL-driven tab selection ---
   const activeTab = resolveTab(sp.tab);
   const docParam = typeof sp.doc === "string" ? sp.doc : undefined;
+  // WO-05-005: ?wo=<id> opens the work order detail view; ?wotab=<summary|full> picks the pane.
+  const woParam = typeof sp.wo === "string" && sp.wo.length > 0 ? sp.wo : undefined;
+  const woTabParam: WoDetailTab =
+    typeof sp.wotab === "string" && sp.wotab === "full" ? "full" : "summary";
 
   // --- Read tab-specific data (lazy: only what the active tab needs) ---
   let tabBody: React.JSX.Element;
@@ -157,7 +164,18 @@ export default async function ProjectWorkspacePage({
     );
   } else if (activeTab === "work-orders") {
     const orders = listWorkOrders(projectPath);
-    tabBody = <WorkOrderBoard orders={orders} />;
+    // WO-05-005: if ?wo=<id> is present and matches a known order, show the detail view.
+    const selectedOrder =
+      woParam !== undefined ? (orders.find((o) => o.id === woParam) ?? null) : null;
+    if (selectedOrder !== null) {
+      // AC-05-003.2: read raw markdown for the Full document tab via readWorkOrderDoc.
+      const woContent = readWorkOrderDoc(projectPath, selectedOrder.relPath);
+      tabBody = (
+        <WorkOrderDetail order={selectedOrder} content={woContent} activeWoTab={woTabParam} />
+      );
+    } else {
+      tabBody = <TabWorkOrders orders={orders} />;
+    }
   } else if (activeTab === "party") {
     tabBody = <PartyTab />;
   } else if (activeTab === "documents") {

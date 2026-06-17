@@ -1,12 +1,15 @@
 /**
  * WO-05-001 — `lib/work-orders.ts`: discover + parse work orders
+ * WO-05-005 — `readWorkOrderDoc`: raw content reader for the Full document tab
  *
  * Implements IF-05-work-orders (blueprint §2).
  *
  * Traceability:
  *   REQ-05-002   EACH card SHALL indicate which FRD it belongs to.
+ *   REQ-05-003   WHEN the owner clicks a work order, show Summary + Full document tabs.
  *   REQ-05-005   The kanban SHALL reflect live state (read-only).
  *   AC-05-002.1  Each WorkOrder carries frd = the parent feature slug.
+ *   AC-05-003.2  The Full document tab renders the entire work order markdown.
  *   AC-05-005.1  Read-only; state is derived from on-disk markers.
  *   AC-05-006.1  No work orders → [] (consumed by CMP-05-empty for empty state).
  */
@@ -308,4 +311,60 @@ export function aggregateProgress(orders: WorkOrder[]): WorkOrderProgress {
   const done = orders.filter((o) => o.state === "done").length;
   const pct = total === 0 ? 0 : Math.round((done / total) * 1000) / 10;
   return { done, total, pct };
+}
+
+// ---------------------------------------------------------------------------
+// WO-05-005 — readWorkOrderDoc (Full document tab, AC-05-003.2)
+//
+// Reads the raw markdown content of a work order file, given its relPath
+// (as stored in WorkOrder.relPath, relative to projectPath).
+//
+// Security model: relPath must match the pattern for work order files:
+//   docs/frds/frd-NN-<slug>/work-orders/wo-*.md
+// Any path outside this pattern (traversal, absolute, etc.) returns null.
+//
+// Separate from lib/docs.ts readDoc, which only surfaces docs discovered by
+// listProjectDocs (FRD/blueprint/etc.) — work order files are not in that
+// set (architecture §4.5).
+//
+// Read-only: only fs.readFileSync — no writes, no Claude calls.
+// Fail-soft: any fs error or security rejection → null (never throws).
+// ---------------------------------------------------------------------------
+
+/** Pattern a valid work-order relPath must satisfy (prevents traversal). */
+const WO_REL_PATH_PATTERN = /^docs\/frds\/frd-\d[^/]*\/work-orders\/wo-[^/]+\.md$/;
+
+/**
+ * Read the raw markdown of a work order file.
+ *
+ * AC-05-003.2: the Full document tab SHALL render the entire work order markdown.
+ *
+ * @param projectPath - Absolute path to the project root.
+ * @param relPath     - Relative path from the project root (from WorkOrder.relPath).
+ * @returns Raw markdown string, or null when the path is invalid / unreadable.
+ */
+export function readWorkOrderDoc(projectPath: string, relPath: string): string | null {
+  // Guard: blank inputs.
+  if (!projectPath || !relPath || relPath.trim() === "") return null;
+
+  // Security: only accept work-order relPaths matching the canonical pattern.
+  // Rejects absolute paths, traversal (".."), symlinks outside the tree, etc.
+  if (!WO_REL_PATH_PATTERN.test(relPath)) return null;
+
+  // Additional traversal guard: no ".." components allowed anywhere.
+  if (relPath.includes("..")) return null;
+
+  const absPath = path.join(projectPath, relPath);
+
+  // Verify the resolved path starts with projectPath (no escaping via symlinks
+  // or edge cases in path.join on unusual inputs).
+  const resolvedProject = path.resolve(projectPath);
+  const resolvedFile = path.resolve(absPath);
+  if (!resolvedFile.startsWith(resolvedProject + path.sep)) return null;
+
+  try {
+    return fs.readFileSync(absPath, "utf-8");
+  } catch {
+    return null;
+  }
 }
