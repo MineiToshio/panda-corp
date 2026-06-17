@@ -5,7 +5,7 @@ slug: orphans-route
 title: WO-16-003 — `app/api/orphans` route handler
 status: DRAFT
 parent: FRD-16
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
 last_updated: '2026-06-17'
 ---

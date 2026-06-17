@@ -9,10 +9,10 @@ running: true
 repo: ""
 updated_at: "2026-06-17"
 work_orders_total: 109
-work_orders_done: 36
+work_orders_done: 40
 pending_decisions: 0
 pending_bugs: 0
 rethink_pending: false
 advance_pending: false
-last_green_sha: "d745a29"
+last_green_sha: "13b9bbd"
 safe_to_test: true

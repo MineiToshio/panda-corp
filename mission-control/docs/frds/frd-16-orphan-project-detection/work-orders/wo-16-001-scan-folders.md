@@ -5,10 +5,9 @@ slug: scan-folders
 title: 'WO-16-001 — `lib/orphans` scan: projects path + bounded folder listing'
 status: ACTIVE
 parent: FRD-16
-implementation_status: BLOCKED
-blocked_reason: error
+implementation_status: VERIFIED
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-17'
 ---
 # WO-16-001 — `lib/orphans` scan: projects path + bounded folder listing
 
@@ -47,9 +46,11 @@ mission-control siblings). Point readers at it via `PANDACORP_FACTORY_ROOT` / a 
 
 ## Status
 
-- [ ] ~~DONE~~ **BLOCKED** — freeze-on-red protocol violation.
+- [x] **VERIFIED** — freeze resolved; FRD-16 review gate green.
 
-Implementation committed at `dd3be3b` while global `verify.sh` was RED (WO-12-004 active freeze, `last_green_sha=d13d887`).
-WO-16-001's own 49 tests pass and the work was reviewed APPROVED (see `docs/reviews/wo-16-001-review.md`),
-but the commit violated the freeze set by the WO-12-004 block. No downstream work (WO-16-002) may proceed
-until WO-12-004 is resolved and `verify.sh` returns green. No new commits were made as part of this freeze action.
+History: implementation committed at `dd3be3b` while global `verify.sh` was RED (WO-12-004 active freeze,
+`last_green_sha=d13d887`), which earned a temporary freeze-on-red BLOCK. That freeze is now resolved
+(`verify.sh` green at `d745a29` and re-confirmed at this FRD-16 review gate). WO-16-001's own tests pass,
+its prior review was APPROVED (`docs/reviews/wo-16-001-review.md`), and the FRD-16 gate exercises it in
+real integration (route → getOrphans → bounded scan, no mocks) green. Unblocked and VERIFIED as the
+FRD-16 foundation.

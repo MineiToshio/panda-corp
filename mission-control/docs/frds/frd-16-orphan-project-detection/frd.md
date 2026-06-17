@@ -3,8 +3,8 @@ id: FRD-16
 type: frd
 title: FRD-16 — Orphan project detection (adopt?)
 status: ACTIVE
-implementation_status: BLOCKED
-last_updated: '2026-06-16'
+implementation_status: VERIFIED
+last_updated: '2026-06-17'
 ---
 # FRD-16 — Orphan project detection (adopt?)
 
