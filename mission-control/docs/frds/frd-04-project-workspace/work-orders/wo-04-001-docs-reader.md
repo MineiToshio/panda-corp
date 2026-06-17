@@ -5,9 +5,9 @@ slug: docs-reader
 title: 'WO-04-001 — `lib/docs.ts`: doc tree + raw read + comms readers'
 status: DRAFT
 parent: FRD-04
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-17'
 ---
 # WO-04-001 — `lib/docs.ts`: doc tree + raw read + comms readers
 
@@ -64,4 +64,41 @@ Write `lib/docs.test.ts` first against a **fixture project tree** (point a temp 
 - [ ] `lib/docs.test.ts` written first and green for all cases above.
 - [ ] No `any`, no `@ts-ignore`; pure read-only (no `fs.write*`).
 - [ ] `bash .pandacorp/verify.sh` passes (biome + tsc + vitest).
-</content>
+
+## Status Note
+
+**Built:** Full `lib/docs.ts` module — IF-04-docs contract complete (AC-04-006.1/2/3, AC-04-003.2/3, REQ-04-003/004/006).
+
+**Interfaces/contracts exposed (`lib/docs.ts`):**
+```ts
+export interface DocNode { id: string; label: string; group: string; relPath: string; }
+export function listProjectDocs(projectPath: string): DocNode[]
+export function readDoc(projectPath: string, relPath: string): string | null
+export interface ActivityLog { entries: string[]; }
+export function readActivityLog(projectPath: string): ActivityLog
+export interface DecisionPoint { title: string; recommendation?: string; resolved: boolean; }
+export function readDecisions(projectPath: string): DecisionPoint[]
+```
+
+Also exports `readProjectDocs` (IF-01, FRD-01 origin) and `FrdModule`/`ProjectDocsIndex` types — full cohabitation with pre-existing WO-01-006 exports in the same file.
+
+**Key design decisions:**
+- `listProjectDocs` surfaces Product / Feature / Global groups only; `.pandacorp/` comms are NOT doc nodes (security boundary).
+- `readDoc` validates relPath against the live discovered set — no arbitrary fs traversal. Uses `lstatSync` (not `statSync`) so symlinks are rejected before reading (symlink traversal guard — factory memory inbox gotcha noted 2026-06-16).
+- `readActivityLog` collects `- ` bullet lines from `progress.md`, strips prefix, trims, skips blanks (I2); CRLF-safe via trim.
+- `readDecisions` parses `## OPEN:|CLOSED:|RESOLVED:` H2 blocks only (H3 rejected); recommendation scoped per block, no bleed; empty/whitespace-only titles suppressed (I2); case-insensitive status word.
+- All four functions are fail-soft: blank/missing path → empty result, never throws.
+
+**Integration seams:**
+- WO-04-005 (Summary tab) consumes `readActivityLog` + `readDecisions`.
+- WO-04-006 (Documents tab) consumes `listProjectDocs` + `readDoc`.
+- FRD-05 (`lib/work-orders.ts`) may consume `listProjectDocs` for FRD-module enumeration.
+- FRD-08 (Manual) may consume `listProjectDocs` for doc-tree nav.
+
+**Test files covering this WO:**
+- `lib/docs.wo04001.test.ts` — 63 tests: listProjectDocs (Product/Feature/Global groups, DocNode shape, idempotency, I2/I3/B1' regressions, empty state, read-only) + readDoc (happy path, security/no-traversal, round-trip).
+- `lib/docs.wo04001.reviewer.test.ts` — 12 tests: adversarial (symlink traversal, NUL/encoded relPath, backslash variants, ordering stability, name confusions, resolution guard, empty-file returns `""` not null, id uniqueness).
+- `lib/docs.wo04002.test.ts` — 63 tests: readActivityLog + readDecisions (happy paths, absent files, edge cases, B1'/I2/I3, read-only, idempotency, orthogonality).
+- `lib/docs.wo04002.reviewer.test.ts` — 24 tests: adversarial (CRLF line endings, non-dash bullets, empty/whitespace titles, recommendation bleed, heading robustness — H3/glued/lowercase, verbatim fidelity, symlinked comms read-only).
+
+**verify.sh at commit:** GREEN — 3381 tests pass, 118 files, biome clean, tsc clean.
