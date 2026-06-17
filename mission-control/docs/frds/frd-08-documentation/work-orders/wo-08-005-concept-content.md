@@ -5,7 +5,7 @@ slug: concept-content
 title: WO-08-005 — Tutorial/Guides/Concepts content (+ DR-049 structure page)
 status: DRAFT
 parent: FRD-08
-implementation_status: PLANNED
+implementation_status: IN_PROGRESS
 source_requirements: []
 last_updated: '2026-06-16'
 ---
