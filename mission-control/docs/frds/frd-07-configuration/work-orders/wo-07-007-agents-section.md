@@ -5,7 +5,7 @@ slug: agents-section
 title: 'WO-07-007 — Agents section: list + detail + XP bar'
 status: DRAFT
 parent: FRD-07
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-16'
 ---
@@ -38,4 +38,24 @@ that the agent levels up by **completing work orders**.
 
 ## Definition of done
 - Component tests green; tsc + biome clean; tokens only; XP honest (no fake progress). `.pandacorp/verify.sh` passes.
+
+## Status Note
+
+**Built:** `AgentList` (CMP-07-agent-list) and `AgentDetail` (CMP-07-agent-detail), wired into `ConfigurationShell` via the `agentsData?: AgentsData` prop.
+
+**Interfaces/contracts exposed:**
+
+- `AgentsData` (exported from `ConfigurationShell.tsx`): `{ agents: AgentRef[]; levels: Record<string, AgentLevelResult> }` — the Server Component (page.tsx) pre-computes this and passes it as a prop.
+- `AgentListProps`: `{ agents: AgentRef[]; levels: Record<string, AgentLevelResult>; selectedAgentId: string | null; onSelectAgent: (id: string) => void }`.
+- `AgentDetailProps`: `{ agent: AgentRef; level: AgentLevelResult }`.
+
+**Integration seams:**
+- Data flow: `page.tsx` (Server Component) reads `readAgents()` + calls `computeAgentLevel()` per agent, bundles as `AgentsData`, passes to `ConfigurationShell` as `agentsData` prop. Shell is `"use client"` and cannot do fs reads.
+- `pctToNext` from `computeAgentLevel` is a [0,1] fraction; `XpBar` expects [0,100] percentage — `AgentDetail` multiplies: `Math.round(level.pctToNext * 100)`.
+- Zero `agentsData` prop → honest empty state (no crash, no fake XP).
+- `selectedAgentId` state resets when leaving the agents tab (`handleSectionChange`).
+
+**Test coverage:** `app/configuration/agents.test.tsx` — 39 tests covering AC-07-007.1..4: avatar+level+title per card, click→detail+XP bar, zero-data honesty (0% fill), design-token compliance (no hardcoded hex/rgb/hsl), integration with ConfigurationShell.
+
+**Verify:** `pnpm vitest run app/configuration/agents.test.tsx` → 39/39 green. Full suite → 4560/4567 pass. `tsc --noEmit` clean. `biome check` clean on the three files.
 </content>

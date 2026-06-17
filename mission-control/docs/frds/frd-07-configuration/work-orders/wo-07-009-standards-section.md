@@ -5,9 +5,9 @@ slug: standards-section
 title: 'WO-07-009 — Standards section: categorized list + detail'
 status: DRAFT
 parent: FRD-07
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-17'
 ---
 # WO-07-009 — Standards section: categorized list + detail
 
@@ -41,3 +41,41 @@ Technology, Quality, Security, Operation, Data/Privacy, Product/Docs), each stan
 ## Definition of done
 - Component tests green; tsc + biome clean; tokens only; copy-only. `.pandacorp/verify.sh` passes.
 </content>
+
+## Status Note
+
+**Built:** `StandardsSection` (CMP-07-standards-list + CMP-07-standard-detail) — a "use client" React component rendered inside the `/configuration` page's Standards tab.
+
+**What it built:**
+- Domain-grouped list of all factory standards (9 canonical domains + "Other" catch-all), reading `Standard[]` passed from the server.
+- Severity badges (MUST/SHOULD/MAY) with `data-severity` shape attribute + enforcement badges (lint/CI/checklist/human gate) with `data-enforcement` — label+shape, not color alone (AC-07-009.2 / FRD-13).
+- Collapsible per-standard detail: Summary tab (key points from `standard.summary[]`) and Detail tab (full markdown rendered via `react-markdown`) — one open at a time (AC-07-009.3).
+- "Nuevo estándar" button (`data-testid="new-standard-button"`) copies `/pandacorp:learn` to clipboard, does NOT exec (AC-07-009.4 / architecture §1).
+- Graceful fallback for missing metadata (domain `Other`, empty summary, empty list) — never crashes (AC-07-009.5).
+- Wired `StandardsSection` into `ConfigurationShell` for the `standards` tab (replacing the placeholder); `page.tsx` reads `readStandards()` server-side and passes `standards` prop.
+
+**Interfaces/contracts exposed:**
+```tsx
+// app/configuration/StandardsSection.tsx
+export interface StandardsSectionProps {
+  standards: Standard[];  // from readStandards() — passed from server
+}
+export function StandardsSection({ standards }: StandardsSectionProps): React.JSX.Element
+
+// app/configuration/ConfigurationShell.tsx — new prop added
+export interface ConfigurationShellProps {
+  // ...existing skills, agentsData, rules...
+  standards?: Standard[];  // WO-07-009
+}
+```
+
+**Integration seams:**
+- `app/configuration/page.tsx` calls `readStandards()` server-side and passes `standards` to `ConfigurationShell`.
+- `ConfigurationShell` routes `activeSection === (else)` → `<StandardsSection standards={standards} />` in a `data-testid="config-section-standards"` tabpanel.
+- `NewStandardButton` (inline, not shared `CopyButton`) uses `navigator.clipboard.writeText("/pandacorp:learn")` — copy-only.
+- Detail view uses `react-markdown` (already in `package.json`).
+
+**Test files:**
+- `app/configuration/StandardsSection.test.tsx` — 50 tests covering all 5 ACs (RED → GREEN confirmed).
+
+**Gate:** 167 test files, 4560 tests GREEN. tsc clean. biome clean. `verify.sh` PASS.
