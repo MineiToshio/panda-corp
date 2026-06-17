@@ -1,3 +1,11 @@
+---
+id: FRD-09
+type: frd
+title: FRD-09 — Gamification (RPG theme)
+status: ACTIVE
+implementation_status: PLANNED
+last_updated: '2026-06-16'
+---
 # FRD-09 — Gamification (RPG theme)
 
 The game layer that wraps the real work, in an **honest** and fatigue-free way. Guiding principle: represent real work in more interesting clothes; the factory **is** a campaign and the agents **are** a party.

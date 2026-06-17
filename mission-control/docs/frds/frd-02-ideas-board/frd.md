@@ -1,3 +1,11 @@
+---
+id: FRD-02
+type: frd
+title: FRD-02 — Ideas board
+status: ACTIVE
+implementation_status: PLANNED
+last_updated: '2026-06-16'
+---
 # FRD-02 — Ideas board
 
 Read-only kanban of the idea base, with idea capture, a navigable detail and discard.

@@ -1,3 +1,11 @@
+---
+id: FRD-13
+type: frd
+title: FRD-13 — Visual system and accessibility
+status: ACTIVE
+implementation_status: VERIFIED
+last_updated: '2026-06-16'
+---
 # FRD-13 — Visual system and accessibility
 
 Mission Control must feel **engineered, not decorative**, without the owner (weak at design) having to tune anything. The lever is **tokenized restraint**: few colors, few theme variables, restrained motion. Derived from the 2026 research (see [docs/proposals/06](../../../../docs/proposals/06-improvement-plan-2026.md), Linear/Vercel Geist/Rauno references). It keeps the warm Anthropic-style palette already approved in the prototype.

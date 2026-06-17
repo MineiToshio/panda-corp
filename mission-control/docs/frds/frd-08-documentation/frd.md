@@ -1,3 +1,11 @@
+---
+id: FRD-08
+type: frd
+title: FRD-08 — Documentation
+status: ACTIVE
+implementation_status: PLANNED
+last_updated: '2026-06-16'
+---
 # FRD-08 — Documentation
 
 Navigable factory manual inside Pandacorp, to understand the system (including the handoff to another person). It is the **operable surface of the factory's know-how**, organized with the Diátaxis model — tutorial ("Empezar aquí"), how-to ("Guías"), reference ("Referencia"), explanation ("Conceptos").

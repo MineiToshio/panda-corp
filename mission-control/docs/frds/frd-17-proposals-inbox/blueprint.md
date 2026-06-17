@@ -1,3 +1,11 @@
+---
+id: FRD-17-blueprint
+type: blueprint
+parent: FRD-17
+status: ACTIVE
+implementation_status: BLOCKED
+last_updated: '2026-06-16'
+---
 # Feature blueprint — FRD-17 Proposals inbox (self-learning gate + self-suggestion)
 
 > **Source-of-truth hierarchy:** `FRD > FDD > design-tokens > blueprint > work order`.

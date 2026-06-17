@@ -1,3 +1,11 @@
+---
+id: FRD-14
+type: frd
+title: FRD-14 — Probable snapshot and feedback channels
+status: ACTIVE
+implementation_status: PLANNED
+last_updated: '2026-06-16'
+---
 # FRD-14 — Probable snapshot and feedback channels
 
 What Mission Control shows to operate an unattended build: which is the last **probable** (testable) point, what is being built right now, and the channels to feed it feedback without stopping. Derived from [docs/proposals/07-unattended-build.md](../../../../docs/proposals/07-unattended-build.md). Read-only.

@@ -1,3 +1,11 @@
+---
+id: FRD-18-blueprint
+type: blueprint
+parent: FRD-18
+status: ACTIVE
+implementation_status: PLANNED
+last_updated: '2026-06-16'
+---
 # Feature blueprint — FRD-18 Dashboard ("Inicio", the command center)
 
 > **Source-of-truth hierarchy:** `FRD > FDD > design-tokens > blueprint > work order`.

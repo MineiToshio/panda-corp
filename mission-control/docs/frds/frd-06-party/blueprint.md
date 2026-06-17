@@ -1,3 +1,11 @@
+---
+id: FRD-06-blueprint
+type: blueprint
+parent: FRD-06
+status: ACTIVE
+implementation_status: PLANNED
+last_updated: '2026-06-16'
+---
 # FRD-06 — Party (live RPG map) — feature blueprint
 
 > **Source-of-truth hierarchy:** `FRD > FDD > design-tokens > blueprint > work order`.

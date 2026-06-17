@@ -1,3 +1,11 @@
+---
+id: FRD-02-blueprint
+type: blueprint
+parent: FRD-02
+status: ACTIVE
+implementation_status: PLANNED
+last_updated: '2026-06-16'
+---
 # FRD-02 — Ideas board — Feature blueprint
 
 > **Source-of-truth hierarchy:** `FRD > FDD > design-tokens > blueprint > work order`.

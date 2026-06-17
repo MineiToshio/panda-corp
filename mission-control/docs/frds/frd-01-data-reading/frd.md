@@ -1,3 +1,11 @@
+---
+id: FRD-01
+type: frd
+title: FRD-01 — Data reading layer
+status: ACTIVE
+implementation_status: VERIFIED
+last_updated: '2026-06-16'
+---
 # FRD-01 — Data reading layer
 
 Pandacorp reads the factory's and each project's information from disk, without writing (except the discard exception, FRD-02) and without calling Claude.

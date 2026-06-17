@@ -1,3 +1,11 @@
+---
+id: FRD-18
+type: frd
+title: 'FRD-18 — Dashboard ("Inicio", the command center)'
+status: ACTIVE
+implementation_status: PLANNED
+last_updated: '2026-06-16'
+---
 # FRD-18 — Dashboard ("Inicio", the command center)
 
 The landing screen of Mission Control: a read-only **command center** that answers, at a glance, *"what needs me now, what changed while I was away, and what's the next command"* across the whole factory. It is the **default view**; the Board / Portfolio / Achievements / Configuration / Manual tabs stay reachable from the top nav.

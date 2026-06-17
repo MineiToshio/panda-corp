@@ -1,3 +1,11 @@
+---
+id: FRD-15
+type: frd
+title: FRD-15 — Plugin out-of-sync warning
+status: ACTIVE
+implementation_status: PLANNED
+last_updated: '2026-06-16'
+---
 # FRD-15 — Plugin out-of-sync warning
 
 Catches the most common slip: editing the factory plugin and forgetting to commit / run `claude plugin update`. Mission Control detects the gap between the **installed** plugin and the repo's **source code**, and warns. Read-only (reads files + local git; does not call Claude).

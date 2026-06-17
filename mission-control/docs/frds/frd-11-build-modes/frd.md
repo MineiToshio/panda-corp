@@ -1,3 +1,11 @@
+---
+id: FRD-11
+type: frd
+title: FRD-11 — Per-project build modes
+status: ACTIVE
+implementation_status: PLANNED
+last_updated: '2026-06-16'
+---
 # FRD-11 — Per-project build modes
 
 Lets you choose how much power each project is built with, and shows the command to run.

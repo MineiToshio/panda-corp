@@ -1,3 +1,11 @@
+---
+id: FRD-14-blueprint
+type: blueprint
+parent: FRD-14
+status: ACTIVE
+implementation_status: PLANNED
+last_updated: '2026-06-16'
+---
 # FRD-14 — Probable snapshot & feedback channels · feature blueprint
 
 > **Source-of-truth hierarchy:** `FRD > FDD > design-tokens > blueprint > work order`.

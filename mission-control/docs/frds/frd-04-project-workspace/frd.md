@@ -1,3 +1,11 @@
+---
+id: FRD-04
+type: frd
+title: FRD-04 — Project workspace
+status: ACTIVE
+implementation_status: PLANNED
+last_updated: '2026-06-16'
+---
 # FRD-04 — Project workspace
 
 On opening a project from the portfolio, its workspace with tabs, a progress header and commands.

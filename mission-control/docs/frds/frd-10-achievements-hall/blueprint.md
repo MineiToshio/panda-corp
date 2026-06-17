@@ -1,3 +1,11 @@
+---
+id: FRD-10-blueprint
+type: blueprint
+parent: FRD-10
+status: ACTIVE
+implementation_status: PLANNED
+last_updated: '2026-06-16'
+---
 # FRD-10 — Achievements Hall (Guild Hall) · feature blueprint
 
 > **Source-of-truth hierarchy:** `FRD > FDD > design-tokens > blueprint > work order`.

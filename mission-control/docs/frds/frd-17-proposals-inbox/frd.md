@@ -1,3 +1,11 @@
+---
+id: FRD-17
+type: frd
+title: FRD-17 — Proposals inbox (self-learning gate + self-suggestion)
+status: ACTIVE
+implementation_status: BLOCKED
+last_updated: '2026-06-16'
+---
 # FRD-17 — Proposals inbox (self-learning gate + self-suggestion)
 
 The owner-facing surface of the factory's self-learning loop (DR-047) and the place where Mission Control **suggests improvements on its own**. It aggregates, for the owner to approve or dismiss: candidate **lessons** harvested into `factory/memory/`, **promotion** proposals (a recurring lesson → a standard/rule/skill), prune proposals, and **self-suggestions** Mission Control computes locally from the data it already reads (bottlenecks, velocity, unused capability, a project that merits a launch review). Derived from [docs/proposals/09-self-learning-factory.md](../../../../docs/proposals/09-self-learning-factory.md). Read-only: it shows the proposal and the command; it never harvests, promotes, prunes or runs a skill — the owner does, through the skills.

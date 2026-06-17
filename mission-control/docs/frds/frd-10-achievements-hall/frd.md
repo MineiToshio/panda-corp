@@ -1,3 +1,11 @@
+---
+id: FRD-10
+type: frd
+title: FRD-10 — Achievements Hall
+status: ACTIVE
+implementation_status: PLANNED
+last_updated: '2026-06-16'
+---
 # FRD-10 — Achievements Hall
 
 A page of achievements that are also **stats that grow**, with a date and project on each one. (Today with example data in the prototype; when the real Mission Control is built, the stats are computed by reading the factory and the projects.)

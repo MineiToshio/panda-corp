@@ -1,3 +1,11 @@
+---
+id: FRD-06
+type: frd
+title: FRD-06 — Party (live RPG map)
+status: ACTIVE
+implementation_status: PLANNED
+last_updated: '2026-06-16'
+---
 # FRD-06 — Party (live RPG map)
 
 RPG-style view of the workflow subagents building a project: pixel-art zones and characters that move between stages.

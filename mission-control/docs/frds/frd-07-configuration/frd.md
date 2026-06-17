@@ -1,3 +1,11 @@
+---
+id: FRD-07
+type: frd
+title: FRD-07 — Configuration
+status: ACTIVE
+implementation_status: PLANNED
+last_updated: '2026-06-16'
+---
 # FRD-07 — Configuration
 
 Read-only view of what is configured in the factory, with the agents' identity and progression.

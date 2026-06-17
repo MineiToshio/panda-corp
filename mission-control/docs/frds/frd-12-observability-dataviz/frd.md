@@ -1,3 +1,11 @@
+---
+id: FRD-12
+type: frd
+title: FRD-12 — Observability and data visualization
+status: ACTIVE
+implementation_status: BLOCKED
+last_updated: '2026-06-16'
+---
 # FRD-12 — Observability and data visualization
 
 Pandacorp's "honest" layer: read the factory's state at a glance and understand *where something got stuck*, complementing Party's RPG show. Derived from the 2026 research (see [docs/proposals/06](../../../../docs/proposals/06-improvement-plan-2026.md)). Read-only, no calling Claude.

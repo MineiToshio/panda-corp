@@ -1,3 +1,11 @@
+---
+id: FRD-16
+type: frd
+title: FRD-16 — Orphan project detection (adopt?)
+status: ACTIVE
+implementation_status: BLOCKED
+last_updated: '2026-06-16'
+---
 # FRD-16 — Orphan project detection (adopt?)
 
 Catches the inverse of a registered project: a real project sitting in the projects folder that the factory doesn't know about — typically one built **outside** the handoff (brownfield). Mission Control spots these unregistered sibling repos and offers to **adopt** them. Read-only (reads files + local git; does not call Claude). Sibling of FRD-15 (plugin drift): same "detect a gap, show the command, don't act" shape.

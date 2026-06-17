@@ -1,3 +1,11 @@
+---
+id: FRD-03
+type: frd
+title: FRD-03 — Portfolio and project navigation
+status: ACTIVE
+implementation_status: PLANNED
+last_updated: '2026-06-16'
+---
 # FRD-03 — Portfolio and project navigation
 
 View of the active projects with vertical navigation and an activity indicator.

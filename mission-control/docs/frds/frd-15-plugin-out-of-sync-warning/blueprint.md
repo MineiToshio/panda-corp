@@ -1,3 +1,11 @@
+---
+id: FRD-15-blueprint
+type: blueprint
+parent: FRD-15
+status: ACTIVE
+implementation_status: PLANNED
+last_updated: '2026-06-16'
+---
 # Feature blueprint — FRD-15 Plugin out-of-sync warning
 
 > **Source-of-truth hierarchy:** `FRD > FDD > design-tokens > blueprint > work order`.

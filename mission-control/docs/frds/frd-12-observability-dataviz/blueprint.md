@@ -1,3 +1,11 @@
+---
+id: FRD-12-blueprint
+type: blueprint
+parent: FRD-12
+status: ACTIVE
+implementation_status: BLOCKED
+last_updated: '2026-06-16'
+---
 # FRD-12 — Observability and data visualization — feature blueprint
 
 > **Source-of-truth hierarchy:** `FRD > FDD > design-tokens > blueprint > work order`.

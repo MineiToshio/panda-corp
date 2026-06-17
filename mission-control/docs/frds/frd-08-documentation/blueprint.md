@@ -1,3 +1,11 @@
+---
+id: FRD-08-blueprint
+type: blueprint
+parent: FRD-08
+status: ACTIVE
+implementation_status: PLANNED
+last_updated: '2026-06-16'
+---
 # FRD-08 — Documentation (the Manual / "Códice del gremio") · feature blueprint
 
 > **Source-of-truth hierarchy:** `FRD > FDD > design-tokens > blueprint > work order`.

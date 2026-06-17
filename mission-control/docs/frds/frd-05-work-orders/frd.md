@@ -1,3 +1,11 @@
+---
+id: FRD-05
+type: frd
+title: FRD-05 — Work orders (live view)
+status: ACTIVE
+implementation_status: PLANNED
+last_updated: '2026-06-16'
+---
 # FRD-05 — Work orders (live view)
 
 Read-only kanban of the work orders' state, with their FRD and reading the full document.

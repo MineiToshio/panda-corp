@@ -1,3 +1,11 @@
+---
+id: FRD-13-blueprint
+type: blueprint
+parent: FRD-13
+status: ACTIVE
+implementation_status: VERIFIED
+last_updated: '2026-06-16'
+---
 # FRD-13 — Visual system and accessibility — feature blueprint
 
 > **Source-of-truth hierarchy:** `FRD > FDD > design-tokens > blueprint > work order`.
