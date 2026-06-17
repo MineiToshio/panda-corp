@@ -5,7 +5,7 @@ slug: workspace-shell
 title: 'WO-04-004 — Workspace shell: header + Mission Objectives bar + tab bar'
 status: DRAFT
 parent: FRD-04
-implementation_status: IN_PROGRESS
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-16'
 ---
@@ -45,8 +45,50 @@ Component tests (`@testing-library/react` + jsdom), colocated `*.test.tsx`:
 5. Header + objectives bar present on every tab (AC-04-002.3).
 
 ## Definition of done
-- [ ] Component tests written first and green.
-- [ ] `CMP-04-tabbar` is the only `"use client"` piece; the rest are Server Components.
-- [ ] `data-testid` on tabs and the objectives bar; `aria-selected` on the active tab; Spanish copy via i18n.
-- [ ] No hardcoded colors (design tokens only); `tabular-nums` on counts.
-- [ ] `bash .pandacorp/verify.sh` passes.
+- [x] Component tests written first and green.
+- [x] `CMP-04-tabbar` is the only `"use client"` piece; the rest are Server Components.
+- [x] `data-testid` on tabs and the objectives bar; `aria-selected` on the active tab; Spanish copy via i18n.
+- [x] No hardcoded colors (design tokens only); `tabular-nums` on counts.
+- [x] `bash .pandacorp/verify.sh` passes.
+
+## Status Note
+
+**Built:** Workspace shell — header + Mission Objectives bar + tab bar — for `app/projects/[slug]/`.
+
+**Components delivered:**
+
+| File | Component | Kind |
+|---|---|---|
+| `app/projects/[slug]/page.tsx` | `CMP-04-workspace` | Server |
+| `app/projects/[slug]/_components/workspace-header.tsx` | `CMP-04-header` | Server |
+| `app/projects/[slug]/_components/objectives-bar.tsx` | `CMP-04-objectives-bar` | Server |
+| `app/projects/[slug]/_components/tabbar.tsx` | `CMP-04-tabbar` | Client (`"use client"`) |
+
+**Interfaces/contracts exposed:**
+
+```tsx
+// workspace-header.tsx
+export interface WorkspaceHeaderProps { title: string; stage: Phase; version: string; progress?: string; }
+export function WorkspaceHeader(props: WorkspaceHeaderProps): React.JSX.Element
+
+// objectives-bar.tsx
+export interface ObjectivesBarProps { done: number; total: number | undefined; }
+export function ObjectivesBar(props: ObjectivesBarProps): React.JSX.Element | null  // null when total is 0/absent
+
+// tabbar.tsx
+export type TabId = "summary" | "work-orders" | "party" | "documents" | "commands";
+export interface TabBarProps { activeTab: TabId; }
+export function TabBar(props: TabBarProps): React.JSX.Element
+```
+
+**Page routing:** `app/projects/[slug]/page.tsx` resolves the project via `activeProjects()` (slug = project name), reads status with `readStatus()`, derives tab from `?tab=` param (defaults to `"summary"`), renders the appropriate tab body. Tab bodies for WO-04-005/006/007 are wired to the already-shipped components (TabSummary, TabDocuments) and to FRD-05/06 slots (WorkOrderBoard, PartyTab). Commands tab has a named placeholder (`data-testid="tab-commands-placeholder"`).
+
+**Integration seams:**
+- Slug resolution: `activeProjects().find(p => p.name === slug)` — project must exist in portfolio.
+- `progress` field from `status.yaml` is `number` (e.g. 75); rendered as `"75% completado"` string.
+- Tab bodies receive pre-fetched data from lib/ readers passed as props.
+- `WorkspaceSlot` in `app/portfolio/WorkspaceSlot.tsx` still shows a placeholder — it can be wired to link to `/projects/<slug>` as a follow-up (out of scope for this WO).
+
+**Test file:** `app/projects/[slug]/_components/workspace-shell.test.tsx` — 29 tests covering all 5 ACs (AC-04-001.1/2, AC-04-002.1/2/3).
+
+**verify.sh result:** GREEN — 119 test files, 3410 tests, biome clean, tsc clean. Commit: `5ac5809`.
