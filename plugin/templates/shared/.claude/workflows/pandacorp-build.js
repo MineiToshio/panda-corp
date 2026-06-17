@@ -21,8 +21,8 @@ export const meta = {
 const MODE = (args && args.mode) || 'balanced'
 const ONLY = (args && args.frds) || null
 const MAX_FRDS = (args && args.maxFrds) || Infinity   // no count cap unless explicitly set (test runs)
-const LOW_BUDGET = 80000                              // stop with at least this much output-token margin left
-const MAX_CONSECUTIVE_BLOCKS = 3                      // health breaker: N non-external blocks in a row → stop (something is systemically wrong)
+const LOW_BUDGET = (args && args.lowBudget) || 80000  // stop with at least this much output-token margin left
+const MAX_CONSECUTIVE_BLOCKS = (args && args.maxConsecutiveBlocks) || 3   // health breaker: N non-external blocks in a row → stop (something is systemically wrong)
 
 // Concurrency/models per mode (DR-014). `wave` = work orders built in parallel within
 // an FRD. `split` runs test→backend→frontend; otherwise one full-stack implementer
@@ -138,18 +138,18 @@ async function buildWO(wo, frd) {
       { label: `build:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:implementer' })
   }
   // Fast SELECTIVE self-test (NOT the whole suite) → IN_REVIEW + hand-off.
-  const v = await agent(`Fast self-test for work order ${wo.id}: run \`pnpm biome check .\`, \`pnpm tsc --noEmit\`, and \`pnpm vitest run\` limited to THIS work order's own test files (not the whole suite). If green: commit (Conventional Commits with scope), set the WO's frontmatter **\`implementation_status: IN_REVIEW\`**, and fill its **\`## Status Note\`** hand-off (what it built, interfaces/contracts exposed with signatures, integration seams, which test files cover it). Return green=true. If red, return green=false with the reason and do NOT commit. Never commit mid-work-order.`,
+  const v = await agent(`Fast self-test for work order ${wo.id}: run \`pnpm biome check .\`, \`pnpm tsc --noEmit\`, and \`pnpm vitest run\` limited to THIS work order's own test files (not the whole suite). If green: commit (Conventional Commits with scope; if git reports an index.lock from a parallel sibling, wait briefly and retry the commit), set the WO's frontmatter **\`implementation_status: IN_REVIEW\`**, and fill its **\`## Status Note\`** hand-off (what it built, interfaces/contracts exposed with signatures, integration seams, which test files cover it). Return green=true. If red, return green=false with the reason and do NOT commit. Never commit mid-work-order.`,
     { label: `selftest:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:implementer', schema: VERIFY_SCHEMA })
   return Boolean(v && v.green === true)
 }
 
 // ── FRD gate: ONE review + integration test over the whole feature ──
-async function frdGate(frd, woIds) {
-  return await agent(`${EMIT('reviewer', frd)}FRD review + integration gate for ${frd} (work orders ${woIds.join(', ')}, all IN_REVIEW).
-  1) Review the WHOLE feature with your 3 lenses (correctness/security/quality) and write adversarial tests the implementers did not see (anchored in EARS + real bugs), exercising the work orders TOGETHER (real integration, not isolated).
+async function frdGate(frd, reviewIds) {
+  return await agent(`${EMIT('reviewer', frd)}FRD review + integration gate for ${frd}. Review the work orders built/changed THIS cycle: ${reviewIds.join(', ')} (all IN_REVIEW). This FRD MAY already have OTHER work orders VERIFIED from a previous run — treat those as a stable foundation: exercise them in integration, but do NOT re-review them and NEVER change their state.
+  1) Review the changed work orders with your 3 lenses (correctness/security/quality) and write adversarial tests the implementers did not see (anchored in EARS + real bugs), exercising them TOGETHER with the rest of the feature (real integration, not isolated).
   2) Run the FULL gate \`bash .pandacorp/verify.sh\` clean.
-  If everything passes: set EVERY one of this FRD's work orders AND its frd.md + blueprint.md frontmatter to **\`implementation_status: VERIFIED\`**, update .pandacorp/status.yaml (per-status counts + last_green_sha + safe_to_test:true), and commit. Return { green: true }.
-  If a SPECIFIC work order is wrong, set ONLY those WOs back to \`implementation_status: PLANNED\` (leave the rest IN_REVIEW), do not commit broken code, and return { green: false, reopen: [those ids], failure } — the engine retries them on the next run, not in a loop.
+  If everything passes: set the reviewed work orders (${reviewIds.join(', ')}) to **\`implementation_status: VERIFIED\`**; if that leaves EVERY work order of the FRD VERIFIED, also set its frd.md + blueprint.md frontmatter to VERIFIED; update .pandacorp/status.yaml (per-status counts + last_green_sha + safe_to_test:true), and commit. Return { green: true }.
+  If a SPECIFIC reviewed work order is wrong, set ONLY those (from the reviewed set) back to \`implementation_status: PLANNED\` (leave the rest IN_REVIEW; never touch an already-VERIFIED one), do not commit broken code, and return { green: false, reopen: [those ids], failure } — the engine retries them on the next run, not in a loop.
   If it's broken and you can't pinpoint specific WOs, return { green: false, failure, blocked_reason } (classify: 'needs-owner' if a human must act, 'external' if it's a transient outside failure, else 'error').${NOTIFY('FRD ' + frd + ' no paso la revision — necesita tu atencion')}`,
     { label: `gate:${frd}`, phase: 'Review', model: P.judge, agentType: 'pandacorp:reviewer', schema: FRD_GATE_SCHEMA })
 }
@@ -190,6 +190,7 @@ for (const f of plan.frds) {
 
   phase('Build')
   const pending = f.workOrders.filter((w) => w.status !== 'VERIFIED' && w.status !== 'BLOCKED')
+  const reviewIds = pending.map((w) => w.id)   // only these reach the gate; already-VERIFIED WOs are a stable foundation, never re-touched
   log(`▶ ${f.frd}: ${pending.length} work orders to build`)
   const doneIds = new Set(f.workOrders.filter((w) => w.status === 'VERIFIED').map((w) => w.id))
   const queue = new Map(pending.map((w) => [w.id, w]))
@@ -219,15 +220,15 @@ for (const f of plan.frds) {
   }
 
   phase('Review')
-  let gate = await frdGate(f.frd, f.workOrders.map((w) => w.id))
+  let gate = await frdGate(f.frd, reviewIds)
   if (gate && gate.green === true) { log(`✓ ${f.frd} VERIFIED`); builtFrds.push(f.frd); consecutiveBlocks = 0; continue }
-  if (gate && gate.reopen && gate.reopen.length) { log(`↻ ${f.frd}: ${gate.reopen.length} WO reopened (PLANNED) — next run rebuilds only those`); reopenedFrds.push(f.frd); consecutiveBlocks = 0; continue }
+  if (gate && gate.reopen && gate.reopen.length) { log(`↻ ${f.frd}: ${gate.reopen.length} WO reopened (PLANNED) — next run rebuilds only those`); reopenedFrds.push(f.frd); continue }  // reopen is deferred work, not progress — leave the health breaker untouched
 
   // Gate failed with no specific reopen → TRY TO REPAIR, then re-gate ONCE (fail-closed).
   log(`! ${f.frd} gate failed${gate?.failure ? ': ' + gate.failure : ''} — attempting repair`)
   const fix = await attemptRepair(f.frd, 'the FRD review/integration gate failed: ' + (gate?.failure || 'unknown'))
   if (fix && fix.green === true) {
-    gate = await frdGate(f.frd, f.workOrders.map((w) => w.id))
+    gate = await frdGate(f.frd, reviewIds)
     if (gate && gate.green === true) { log(`✓ ${f.frd} VERIFIED (after repair)`); builtFrds.push(f.frd); consecutiveBlocks = 0; continue }
   }
   const reason = (fix && fix.blocked_reason) || (gate && gate.blocked_reason) || 'error'
@@ -238,11 +239,13 @@ for (const f of plan.frds) {
 
 // ── Close-out + ALWAYS notify the owner how this run ended ────────────────────
 phase('Review')
+const STOP_SCHEMA = { type: 'object', required: ['done'], properties: { done: { type: 'boolean' } } }
 const needsOwner = blockedFrds.filter((x) => blockedReasons[x] === 'needs-owner')
-const allDone = builtFrds.length > 0 && blockedFrds.length === 0 && reopenedFrds.length === 0 && !stopReason
+const allDone = !stopReason && blockedFrds.length === 0 && reopenedFrds.length === 0 && builtFrds.length === plan.frds.length
+let closed
 if (allDone) {
-  await agent(`All FRDs are VERIFIED. Run the full suite + e2e of the critical flows and kill the test dev servers with TaskStop. If green, set .pandacorp/status.yaml phase: release and running: false.${NOTIFY('Build COMPLETO: todos los FRDs verificados', 'Glass')}`,
-    { label: 'close-out', phase: 'Review', model: P.judge, agentType: 'pandacorp:reviewer' })
+  closed = await agent(`All FRDs are VERIFIED. Run the full suite + e2e of the critical flows and kill the test dev servers with TaskStop. If green, set .pandacorp/status.yaml phase: release and running: false. Return done:true once status.yaml is written.${NOTIFY('Build COMPLETO: todos los FRDs verificados', 'Glass')}`,
+    { label: 'close-out', phase: 'Review', model: P.judge, agentType: 'pandacorp:reviewer', schema: STOP_SCHEMA })
   log('Run ended: all FRDs verified.')
 } else {
   const blk = blockedFrds.map((x) => `${x}(${blockedReasons[x]})`).slice(0, 8).join(', ') || 'ninguno'
@@ -252,9 +255,14 @@ if (allDone) {
   const ownerMsg = needsOwner.length
     ? `Termine lo que se podia. ${needsOwner.length} FRD(s) te esperan a ti: ${needsOwner.slice(0, 6).join(', ')}`
     : `Tramo: ${builtFrds.length} FRDs ok, ${blockedFrds.length} bloqueados, ${reopenedFrds.length} a reintentar`
-  await agent(`The build run ended.${why} Verified this run: ${builtFrds.length}. Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Of those, NEEDS-OWNER (a human must act): ${needsOwner.join(', ') || 'none'}. Write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and the reason, and exactly what needs the owner's action/decision for the needs-owner ones). Set .pandacorp/status.yaml running: false.${NOTIFY(ownerMsg)}`,
-    { label: 'notify-end', phase: 'Review', model: P.worker, agentType: 'pandacorp:implementer' })
+  closed = await agent(`The build run ended.${why} Verified this run: ${builtFrds.length}. Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Of those, NEEDS-OWNER (a human must act): ${needsOwner.join(', ') || 'none'}. Write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and the reason, and exactly what needs the owner's action/decision for the needs-owner ones). Set .pandacorp/status.yaml running: false. Return done:true once status.yaml is written.${NOTIFY(ownerMsg)}`,
+    { label: 'notify-end', phase: 'Review', model: P.worker, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
   log(`Run ended: ${builtFrds.length} verified, ${reopenedFrds.length} reopened, ${blockedFrds.length} blocked${stopReason ? ' · stop=' + stopReason : ''}.`)
+}
+// Fail-safe: never leave Mission Control showing a phantom running build.
+if (!closed || closed.done !== true) {
+  await agent(`Fail-safe close: ensure .pandacorp/status.yaml has running:false written (and phase:release if every FRD is VERIFIED). Confirm done:true.`,
+    { label: 'ensure-stopped', phase: 'Review', model: P.worker, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
 }
 
 return { mode: MODE, builtFrds, blockedFrds, reopenedFrds, blockedReasons, stopReason }

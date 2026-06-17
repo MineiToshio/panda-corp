@@ -15,7 +15,7 @@ Engineering standards that the factory injects into every project (via the scaff
 | **Architecture / Structure** | [structure.md](structure.md) · [patterns.md](patterns.md) |
 | **Design / Design system** | [patterns.md](patterns.md) (tokens, theme, a11y); the design system is generated per project in `/pandacorp:design` |
 | **Technology / Stack** | [stack.md](stack.md) (golden paths A/B/C/D) |
-| **Quality / Testing** | [quality.md](quality.md) · [performance.md](performance.md) |
+| **Quality / Testing** | [quality.md](quality.md) · [performance.md](performance.md) · [build-orchestration.md](build-orchestration.md) (how a build is planned/run — DR-050) |
 | **Security** | [web-security.md](web-security.md) (+ constitution §12, DR-017, `security-auditor` agent) |
 | **Operation / Observability** | [infra.md](infra.md) (local dev) · [observability.md](observability.md) (production) · [external-services.md](external-services.md) (accounts, secrets, payments, provisioning — DR-035..038) |
 | **Data / Privacy** | [privacy.md](privacy.md) |

@@ -67,7 +67,7 @@ decisiones:
 
   - id: DR-013
     patron: "implementation of a project (how the work is divided among agents)"
-    default: "use a dynamic workflow (Dynamic Workflows) that orchestrates the subagents; the work-order loop lives in the script (resumable, deterministic), NOT in Agent Teams. Composition according to the stack: web (A) → backend-dev + frontend-dev + test-writer; API/scraper (B/C/D) → backend-dev + test-writer; dependencies and parallelism explicit in the pipeline (frontend starts when the backend contract exists; testing when frontend/backend finish) and the reviewer at the close of each work order. Agent Teams only for occasional adversarial review, not as the backbone"
+    default: "use a dynamic workflow (Dynamic Workflows) that orchestrates the subagents; the per-FRD build loop lives in the script (resumable, deterministic), NOT in Agent Teams. Composition according to the stack: web (A) → backend-dev + frontend-dev + test-writer; API/scraper (B/C/D) → backend-dev + test-writer; dependencies and parallelism explicit in the pipeline (frontend starts when the backend contract exists; testing when frontend/backend finish) and the reviewer at the FRD GATE (once per feature, when all its work orders are IN_REVIEW — not per work order; DR-050). Agent Teams only for occasional adversarial review, not as the backbone"
     requiere_humano: false
 
   - id: DR-014

@@ -55,17 +55,17 @@ docs/
 │       ├── mocks/                # CONDITIONAL: HTML prototypes + screenshots for THIS feature
 │       └── work-orders/
 │           ├── README.md         # this feature's WO list + intra-feature order + parallelism
-│           └── wo-NN-MMM-<slug>.md  # copies in its AC; cites REQ/CMP/IF IDs; targets exactly ONE deploy unit
+│           └── wo-NN-MMM-<slug>.md  # a COARSE slice (one view/capability); copies in its AC; cites REQ/CMP/IF IDs; implementation_status in frontmatter
 ├── adr/adr-NNN-<slug>.md         # platform-level technical decisions (cross-feature)
 ├── analytics/events.md           # event/telemetry plan — stays GLOBAL (metrics → events)
-├── reviews/                      # GLOBAL verification evidence — ON DEMAND (reviewer: wo-NN-review.md; security-auditor: security-audit-vN.md)
+├── reviews/                      # GLOBAL verification evidence — ON DEMAND (reviewer: per-FRD gate notes; security-auditor: security-audit-vN.md)
 └── decision-log.md               # history (two-layer rule, see documentation.md)
 ```
 
 ### The model
 - **Two architecture layers — never fuse them.** `product/architecture.md` = platform (stable, ONE per project). `frds/frd-NN/blueprint.md` = how THIS feature is built (per-FRD). A single global `blueprint.md` is an anti-pattern: it becomes a monolith every feature must edit.
 - **PRD ↔ FRD = siblings, loosely coupled.** The PRD keeps a living *feature landscape* table; each FRD names its parent PRD in frontmatter. FRDs are **NOT** nested inside the PRD.
-- **Work orders live under their FRD.** Each WO implements its FRD's acceptance criteria, **targets exactly one deploy unit/repo**, and copies its AC inline (the implementer should not have to go look). Intra-feature order in the per-FRD `work-orders/README.md`; cross-feature order from each WO's `Dependencies` (the build walks every FRD's `work-orders/`).
+- **Work orders live under their FRD.** Each WO implements part of its FRD's acceptance criteria, is a **coarse slice** (one cohesive view/page/capability), and copies its AC inline (the implementer should not have to go look). Order + parallelism live in the per-FRD **Build Plan** in `blueprint.md` (the build engine reads it, DR-050); the `work-orders/README.md` is a human-readable summary of it.
 - **Design = two layers.** `design/` is the product-level design system (the PDD — there is no separate PDD file). `frd-NN/fdd.md` is the feature's design (UI features only). The system is never duplicated per feature.
 
 ### Stable IDs (the traceability spine) — numeric, folder-derived

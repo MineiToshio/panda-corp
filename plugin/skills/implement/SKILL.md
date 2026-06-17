@@ -8,17 +8,17 @@ description: Starts and runs the build of a Pandacorp project. Launches a dynami
 
 > **Preflight (DR-045) — is this a Pandacorp project?** This skill mutates the project, so first confirm the marker `.pandacorp/status.yaml` exists. If it's missing, STOP and tell the owner (in Spanish) that this folder isn't a factory project yet — `/pandacorp:adopt` brings an existing one in, `/pandacorp:spec` creates a new one. Then, if `overlay_version` is behind the plugin's `OVERLAY_VERSION`, run `/pandacorp:upgrade` first (DR-048) so the project's `.claude/workflows/pandacorp-build.js` and structure are current. Don't proceed over a missing/stale structure.
 
-`$ARGUMENTS` optional: a **mode** (`pro` | `powerful` | `deep`; default `balanced`) and/or `maxFrds` (**opt-in** cap on features per run, for **supervised TEST runs only** — omit it for normal/overnight runs: the build runs to **completion** and stops by health/budget, never by an arbitrary count).
+`$ARGUMENTS` optional: a **mode** (`pro` | `balanced` | `powerful` | `deep`; default `balanced`) and/or `maxFrds` (**opt-in** cap on features per run, for **supervised TEST runs only** — omit it for normal/overnight runs: the build runs to **completion** and stops by health/budget, never by an arbitrary count).
 
 > **Engine = Dynamic Workflows, not Agent Teams** (DR-013). The per-FRD loop lives in the **script's code**, not in messages between peer agents. **Resumable by construction**: state lives in the work-order frontmatter + commits, so a re-launch reads `implementation_status` and **never rebuilds a `VERIFIED` work order** (DR-050) — no re-work.
 
 ## Execution modes (consumption/quality control)
 
 Control the **concurrency and models** of the workflow (DR-014), not "team size":
-- **pro**: minimum consumption. One worker at a time, economical models. A single full-stack `implementer` (no split). The `reviewer` still gates each FRD.
+- **pro**: minimum consumption. Up to 2 work orders at a time, economical models. A single full-stack `implementer` (no split). The `reviewer` still gates each FRD.
 - **balanced** (default, Max 5x): up to 4 work orders in parallel within a feature; judge (review) on opus, workers on sonnet.
 - **powerful** (Max 20x): up to 8 in parallel — finishes sooner.
-- **deep**: best model everywhere, split team, extra adversarial review. Slowest/most expensive.
+- **deep**: best model everywhere, split team, extra adversarial review. Slowest/most expensive (it intentionally narrows the wave — opus + split is heavier per slice, so fewer run at once).
 
 **How a run stops (DR-050, owner decision 2026-06-16).** By default the build runs to **completion** — it does NOT stop after N features ("stop after N" protects neither tokens nor progress: one feature can cost 10x another). A run stops only when: (a) **nothing is left** to build, (b) the **budget ceiling** is reached (the real token guardrail — set it via the run's budget directive), (c) **too many features block in a row** (a health breaker: something is systemically wrong), or (d) what remains **needs you** (a human action/decision). `maxFrds` exists ONLY to bound a deliberate, supervised **test** run while the engine is still being proven — never as the overnight guardrail.
 

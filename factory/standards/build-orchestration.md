@@ -59,7 +59,7 @@ The build engine reviews and tests **per FRD**, not per work order:
   the FRD become `VERIFIED`.
 - **Three test layers** at the FRD gate: (1) unit/component (per WO during build); (2) integration +
   adversarial review across the feature; (3) **functional/browser** (start the app and drive the real
-  flows with the preview tools) — designed in, **opt-in per project** (default off; on for critical web
+  flows with the harness `preview_*` tools) — designed in, **opt-in per project** (default off; on for critical web
   flows). This moves review cost from O(work orders) to O(FRDs).
 
 ## 6. How a run stops — health & budget, never a feature count
@@ -93,7 +93,31 @@ A blocked FRD never halts the whole build unless it's a dependency of everything
 breaker trips. Notifications are macOS-desktop (`osascript`) from the engine plus a phone
 `PushNotification` from the supervising agent when Remote Control is on (no third-party push app).
 
-## 7. Templates
+## 7. The build supervisor (unattended runs)
+
+Launching a build is **never** just firing the workflow — it is always paired with a **live supervisor**
+(the agent that runs `implement`), so an unattended/overnight run can't stall silently or run away on
+tokens. The supervisor:
+
+- **Watches live** with `Monitor` — a ~2-min bash poll (costs **no tokens**; only an emitted event wakes
+  it) over `.pandacorp/status.yaml`, the run's journal mtime + active agents (frozen?), and the agent
+  count (a spend proxy). It emits on: an FRD verified, **frozen** (~15 min no activity), a new block,
+  pace below target, or run end. It covers the failure signatures, not just success — "silence is not success".
+- **Heartbeats** ~every 15 min so the owner isn't left guessing.
+- **Reacts**: a stall → unstick it; a block → the engine already attempted a repair; if the run is wedged
+  or over budget → **stop it and notify**. Notifications: the engine fires a macOS desktop notification
+  (`osascript`); the supervisor also sends a phone `PushNotification` (when Remote Control is on). No
+  third-party push app.
+- **Feeds the self-learning loop (DR-047)**: when it unsticks something it classifies it — uncontrollable
+  (internet, upstream 5xx) → nothing to learn; **avoidable** (a recurring pattern, an engine bug, a config)
+  → capture the lesson to `factory/memory/_inbox.md` and, if fixable factory-wide, fix it on the spot.
+- **Holds a session budget ceiling**: it tracks cumulative agents/runs (a spend proxy) and stops + notifies
+  at the owner's ceiling (it can't read exact plan usage, so the ceiling is conservative).
+
+The operable detail lives in the `implement` skill ("Unattended operation — the build supervisor"); this
+section is the canonical statement that the supervisor is **mandatory**, not optional.
+
+## 8. Templates
 
 The standard is embodied in `${CLAUDE_PLUGIN_ROOT}/templates/docs/`: `prd-template.md`,
 `frd-template.md`, `blueprint-template.md` (with the Build Plan), `work-order-template.md` (with the

@@ -15,9 +15,9 @@ Mandatory checklist per work order (in order, without skipping steps):
 5. Final verification (everything must pass): complete test suite, typecheck (tsc --noEmit / mypy --strict), lint (biome / ruff) with no new errors or warnings.
 6. UI: only design tokens from `docs/design/design-tokens.json` — never hardcoded colors/spacing. shadcn/ui components. `data-testid` on interactive elements.
 7. Commit: Conventional Commits in English with scope (`feat(orders): add table selection`). Direct to main is fine (solo operator); never force-push.
-8. Update the work order's status in its feature module `docs/frds/<frd>/work-orders/` (checkbox + evidence note: test command run and result).
+8. Set this work order's frontmatter **`implementation_status: IN_REVIEW`** and fill its **`## Status Note`** hand-off (what it built, interfaces/contracts exposed with signatures, integration seams, which test files cover it). The frontmatter is the build engine's source of truth — never a body checkbox. NEVER set `VERIFIED` yourself: that is the FRD gate's job (the reviewer), once the whole feature passes (DR-050).
 
 Forbidden: `any`, `@ts-ignore`, relative imports more than one level up, secrets in code, installing dependencies that violate DR-001, touching files outside the work order's scope.
 
 ## Don't declare "done" falsely (SOP)
-Premature termination and false self-verification are the most common failure modes (MAST). Don't mark a work order as done without `.pandacorp/verify.sh` passing **for real** (the `reviewer` re-verifies it, and additionally writes adversarial tests you didn't see — DR-015). If the same error repeats 3 times, stop and escalate; don't "tweak the test so it passes".
+Premature termination and false self-verification are the most common failure modes (MAST). Don't move a work order to `IN_REVIEW` without its own fast self-test (its tests + tsc + lint) passing **for real** — and never to `VERIFIED` (that is the FRD gate's reviewer, who re-verifies the whole feature and writes adversarial tests you didn't see — DR-015). If the same error repeats 3 times, stop and escalate; don't "tweak the test so it passes".
