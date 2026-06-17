@@ -5,9 +5,9 @@ slug: discard-action
 title: WO-02-009 — Discard action (Server Action + button)
 status: DRAFT
 parent: FRD-02
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-17'
 ---
 # WO-02-009 — Discard action (Server Action + button)
 
@@ -38,3 +38,25 @@ last_updated: '2026-06-16'
   reverts the optimistic state. `data-testid` present.
 - The only write path is via `lib/discard.ts`; the action adds no other write.
 - `.pandacorp/verify.sh` green.
+
+## Status Note
+
+**Built:** `discardIdeaAction(slug)` Server Action in `app/board/actions.ts` + `DiscardButton` client component in `components/DiscardButton.tsx`.
+
+**Interfaces / contracts exposed:**
+
+- `discardIdeaAction(slug: string): Promise<DiscardResult>` — `"use server"` action that delegates to `discardIdea(slug)` from `lib/discard.ts`; calls `revalidatePath("/board")` only on `{ ok: true }`; never throws, always returns a typed `DiscardResult`.
+- `DiscardButton({ slug: string, discardAction: (slug: string) => Promise<DiscardResult> }): React.JSX.Element` — `"use client"` component with a two-step confirmation flow (idle → confirming → pending → done/idle+error). Optimistic UI: transitions to "done" immediately; reverts to "idle" with an error message on `{ ok: false }`. `data-testid` surface: `discard-button`, `discard-confirm-button`, `discard-cancel-button`, `discard-done`, `discard-error`.
+
+**Integration seams:**
+
+- Production usage: `<DiscardButton slug={idea.slug} discardAction={discardIdeaAction} />` in the card detail or board card (consumer's responsibility to wire the action prop).
+- The action receives its `discardAction` prop — no module mock needed in tests; pass `vi.fn()` directly.
+- `revalidatePath("/board")` is the only Next.js cache side-effect; board re-fetches on discard success.
+
+**Test coverage:**
+
+- `app/board/actions.test.ts` — 11 tests: delegation to `discardIdea`, revalidation on success, no revalidation on failure, no-throw on `{ ok: false }`, write-isolation assertion.
+- `components/DiscardButton.test.tsx` — 17 tests: rendering, `data-testid` presence, Spanish copy, confirmation step (show/cancel/no-action), confirm calls action with slug, success → done state, failure → revert to idle + error message, pending disables confirm button, accessibility (aria-label, tag).
+
+**verify.sh:** green — 3080 passed, 2 expected-fail, 5 skipped. biome clean, tsc clean.
