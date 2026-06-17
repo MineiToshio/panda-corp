@@ -5,9 +5,9 @@ slug: orphans-route
 title: WO-16-003 — `app/api/orphans` route handler
 status: DRAFT
 parent: FRD-16
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-17'
 ---
 # WO-16-003 — `app/api/orphans` route handler
 
@@ -37,3 +37,30 @@ JSON shape, empty-state, and no-write.
 
 ## Dependencies
 - WO-16-002.
+
+## Status Note
+
+**Built:** `app/api/orphans/route.ts` — `GET /api/orphans` route handler (CMP-16-route). Minimal implementation: delegates entirely to `getOrphans(FACTORY_ROOT)` and serializes the result as JSON with `Cache-Control: no-store`. Belt-and-suspenders `try/catch` at the route level ensures AC-16-003.4 even if `getOrphans` ever breaks its own defensive contract.
+
+**Interfaces/contracts exposed:**
+
+```ts
+// app/api/orphans/route.ts
+export const runtime = "nodejs";           // fs.readdirSync + fs.accessSync need Node
+export const dynamic = "force-dynamic";    // live filesystem state, never cached
+
+// GET /api/orphans → 200 application/json, Cache-Control: no-store
+// Body: Candidate[]  (same type as lib/orphans.ts :: Candidate)
+// Always 200 — [] on no candidates (AC-16-003.3) and on degraded scan (AC-16-003.4)
+export function GET(_request: Request): Response;
+```
+
+**Integration seams:**
+- Consumes `getOrphans(factoryRoot: string): Candidate[]` from `lib/orphans.ts` (IF-16-scan, WO-16-002).
+- Reads `FACTORY_ROOT` from `lib/config.ts` (the shared env-override-aware factory root resolver).
+- WO-16-004 (`CMP-16-banner`) polls this endpoint at `GET /api/orphans`; body shape is `Candidate[]` with fields `{ name, path, kind, hasMarker, inPortfolio }`.
+
+**Test files covering this WO:**
+- `app/api/orphans/route.test.ts` — 19 tests RED→GREEN covering AC-16-003.1–4, Content-Type, Cache-Control, and module exports (`runtime`, `dynamic`).
+
+**Gate:** 130 test files, 3650/3650 tests pass (+ 2 expected-fail + 5 skipped), tsc clean, biome clean.
