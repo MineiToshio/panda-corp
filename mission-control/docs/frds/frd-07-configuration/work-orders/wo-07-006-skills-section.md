@@ -5,9 +5,9 @@ slug: skills-section
 title: 'WO-07-006 — Skills section: list + detail + mini-flow'
 status: DRAFT
 parent: FRD-07
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-17'
 ---
 # WO-07-006 — Skills section: list + detail + mini-flow
 
@@ -37,4 +37,26 @@ with name + real description, and a detail view with purpose, where it runs, wha
 
 ## Definition of done
 - Component tests green; tsc + biome clean; tokens only; no `any`. `.pandacorp/verify.sh` passes.
-</content>
+
+## Status Note
+
+Built the full Skills section end-to-end (list → detail → mini-flow) as four components:
+
+**Components shipped:**
+
+- `app/configuration/SkillList.tsx` (`CMP-07-skill-list`) — groups skills by `runsIn` into "En la fábrica" / "En el proyecto" / "Otros"; each card is a `<button>` with `data-testid="skill-card-{slug}"`. Empty state via `data-testid="skill-list-empty"`.
+- `app/configuration/SkillDetail.tsx` (`CMP-07-skill-detail`) — detail panel with `data-testid="skill-detail"`, shows name (`/pandacorp:{slug}`), description, Spanish `runsIn` label, body text, and embeds `FlowDiagram`. Back button (`data-testid="skill-detail-back"`). Read-only, no edit affordance (AC-07-006.5).
+- `app/configuration/FlowDiagram.tsx` (`CMP-07-flow-diagram`) — exports `extractAgents(body): AgentRole[]` (pure, tested). Regex finds `## Agents used` / `## Agentes usados` block, then scans bullets for canonical `AGENT_ROLES` (longest-first to avoid partial matches). Chips: `data-testid="flow-agent-chip-{role}"` + `data-agent-color="--color-agent-{role}"`. Arrows: `data-testid="flow-arrow-{idx}"`. Empty: `data-testid="flow-diagram-empty"` (AC-07-006.4). All chip colors via `var(${AGENT_COLOR[role]}, currentColor)` — zero hardcoded colors (FRD-13).
+- `app/configuration/SkillsSection.tsx` — client coordinator; owns `selectedSkill` state; renders `SkillList` or `SkillDetail` (not both). `data-testid="skills-section"`.
+
+**Integration seams:**
+- `ConfigurationShell.tsx` accepts `skills?: SkillRef[]` prop and passes to `SkillsSection` in the `"skills"` tab panel (`data-testid="config-section-skills"`, `aria-labelledby="config-tab-id-skills"`).
+- `app/configuration/page.tsx` calls `readSkills()` (server side) and passes result as `skills` prop to `ConfigurationShell`.
+
+**Interfaces/contracts:**
+- `SkillListProps`: `{ skills: SkillRef[]; onSelect: (skill: SkillRef) => void }`
+- `SkillDetailProps`: `{ skill: SkillRef; onBack: () => void }`
+- `FlowDiagramProps`: `{ body: string }` — exported `extractAgents(body: string): AgentRole[]`
+- `SkillsSectionProps`: `{ skills: SkillRef[] }`
+
+**Test file:** `app/configuration/skills.test.tsx` — 45 tests covering AC-07-006.1..5 (grouping, click→detail, agent chip colors, degrade empty, read-only). `.pandacorp/verify.sh` green: 4560 passed + 2 xfail + 5 skipped; tsc --noEmit clean; biome check clean.
