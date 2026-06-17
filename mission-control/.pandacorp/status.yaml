@@ -5,7 +5,7 @@ phase: implementation
 version: v1
 overlay_version: "8.4.0"
 created_with: "6.0.0"
-running: true
+running: false
 repo: ""
 updated_at: "2026-06-17"
 work_orders_total: 109
@@ -14,5 +14,5 @@ pending_decisions: 0
 pending_bugs: 0
 rethink_pending: false
 advance_pending: false
-last_green_sha: "252611a"
+last_green_sha: "b87baf3"
 safe_to_test: true
