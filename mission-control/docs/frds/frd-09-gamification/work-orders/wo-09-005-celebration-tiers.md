@@ -5,7 +5,7 @@ slug: celebration-tiers
 title: 'WO-09-005 — `lib/gamification.ts`: celebration tier classifier'
 status: DRAFT
 parent: FRD-09
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-16'
 ---
@@ -35,4 +35,34 @@ celebration tier so celebrations **scale** — toast (work order) → animation 
 ## Definition of done
 - `pnpm vitest run lib/gamification.test.ts` green incl. negative ACs; tsc + biome clean; pure; no `any`.
 - `.pandacorp/verify.sh` passes.
+
+## Status Note
+
+**Built:** `classifyCelebration(event): CelebrationTier` in `lib/gamification.ts` — pure function, no side effects, no `any`, no `@ts-ignore`. Bootstraps `lib/gamification.ts` (the new file flagged in blueprint §7).
+
+**Interface exposed:**
+```ts
+// lib/gamification.ts
+export type CelebrationTier = "toast" | "phase" | "release" | "levelup" | "none";
+export function classifyCelebration(event: Event): CelebrationTier;
+```
+`Event` imported from `lib/events.ts` (FRD-06/12 contract, read-only).
+
+**Decision table (AC-09-005.1):**
+- `achievement` + `task="levelup"|"level-up"` → `"levelup"`
+- `achievement` + `task="release"` or `end`/`handoff` + `task="release"` → `"release"`
+- `achievement`/`end`/`handoff` + `task` starting with `"phase:"` → `"phase"`
+- `achievement`/`test_ok` + `workOrder` present, `status ≠ "fail"` → `"toast"`
+- Any `status="fail"` → `"none"` (AC-09-005.3 ethical gate)
+- Activity events (`read`, `write`, `edit`, `message`, `start`, `review`, `blocked`, `test_fail`, unknown) → `"none"` (AC-09-005.2)
+- Ambiguous (no meaningful context) → `"none"` (AC-09-005.3: never a default celebration)
+
+**Integration seam:** `lib/gamification.ts` is consumed by `CMP-09-celebration` (WO-09-006, not yet built) and any future component that needs to decide the celebration scale. Import path: `"@/lib/gamification"`.
+
+**Tests:** `lib/gamification.test.ts` — 30 tests, 3 suites covering all ACs:
+- Suite 1 (AC-09-005.1): 10 outcome-event fixtures → correct tier
+- Suite 2 (AC-09-005.2): 11 activity/failure fixtures → all `"none"`
+- Suite 3 (AC-09-005.3): 9 ambiguous/unknown/purity fixtures → all `"none"` or deterministic
+
+**Gate:** biome clean, tsc clean, 30/30 vitest pass. Pre-existing biome error in `PartyTab.integration.reviewer.test.tsx` is out of scope (exists on HEAD before this WO).
 </content>
