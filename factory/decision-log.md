@@ -2,6 +2,11 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-06-16 — Build orchestration §2: coarser WOs + no same-file wave-siblings (plugin v8.4.0)
+**What:** Added a rule to `factory/standards/build-orchestration.md` §2: work orders that build in the same wave must not write the same file/module — parallel implementers collide. Merge (preferred) or serialize with a dependency. Found by an impartial reviewer auditing Mission Control (FRD-10: 4 WOs all creating `lib/achievements.ts`). Also pushed the WO-generating guidance coarser ("group generously — when in doubt, merge") in the `work-orders` skill + `architect`, per owner directive for future projects.
+**Why:** Owner wants future projects to generate coarser, better-grouped work orders without the collision problem. Captured as a standard rule + a memory lesson (DR-047), not just an MC patch.
+**Impact:** `factory/standards/build-orchestration.md` (§2). Plugin side (skill/architect + bump 8.4.0): `plugin/docs/decision-log.md` (same date).
+
 ## 2026-06-16 — Coherence audit: canonical factory docs aligned to DR-050 (plugin v8.3.0)
 **What:** An exhaustive pre-overnight audit caught the old per-WO build flow still described in canonical *factory* docs (not just the plugin) and fixed it: `constitution.md` (work order = coarse slice, review per FRD — was "small chunk… reviewer rejects too-large"), `registry.yaml` DR-013 (reviewer at the FRD gate, per-FRD loop — was "reviewer at the close of each work order"), `standards/structure.md` (coarse WOs, order from the Build Plan), `standards/README.md` + `CLAUDE.md` (so a new agent discovers `build-orchestration.md`), and the supervisor is now canonical in `build-orchestration.md` §7. Also fixed the plugin agents (`reviewer`/`implementer`/`architect`) and an engine re-work bug — see the plugin log.
 **Why:** The owner asked to be sure everything is documented "so any future agent understands all of this" before an overnight build. The core standard was already coherent; the drift was in the higher-authority docs (constitution/registry) an agent trusts first.

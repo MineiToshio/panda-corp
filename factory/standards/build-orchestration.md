@@ -35,6 +35,11 @@ action menu"), NOT one atomic component. Enough context for an agent to build th
 small enough to review on its own. Typically a handful per FRD — not dozens of tiny ones. Atomic
 work orders multiply the per-slice overhead and were a primary cause of slow, expensive builds.
 
+**Disjoint artifacts within a wave.** Work orders that build in parallel must NOT write the same
+file/module — parallel implementers collide (a real failure mode, not theoretical: e.g. four WOs all
+creating one `lib/x.ts`). Merge such siblings into one coarse work order (preferred), or serialize them
+with an explicit dependency. This rule by itself nudges granularity coarser, the right way.
+
 ## 3. The Build Plan lives in the blueprint (per FRD)
 
 Each per-FRD `blueprint.md` MUST include a **Build Plan**: the DAG of that FRD's work orders — order,
