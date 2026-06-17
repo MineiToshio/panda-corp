@@ -1,20 +1,20 @@
+"use server";
 /**
  * WO-07-005 — Configuration page (CMP-07-config-page, server wrapper)
+ * WO-07-006 — reads skills and passes them to ConfigurationShell
+ * WO-07-009 — reads standards and passes them to ConfigurationShell
  *
  * Server Component: the /configuration route entry point.
- * Renders the page chrome (title) and mounts ConfigurationShell, which
- * owns the interactive section-tab state ("use client").
+ * Reads filesystem data on the server and passes it down to ConfigurationShell
+ * ("use client" boundary).
  *
  * Architecture §11: app surface `app/configuration`.
  * Architecture §3: Server Components read the filesystem; client components
  * handle interaction. ConfigurationShell is the "use client" boundary.
  *
- * Data reads (WO-07-006 through WO-07-009 add reads here when sections ship):
- *   - lib/reference.ts  (skills + agents)
- *   - lib/registry.ts   (decision rules)
- *   - lib/standards.ts  (standards)
- * For this shell WO (WO-07-005) no data reads are needed — section content
- * is stubbed in ConfigurationShell placeholders.
+ * Data reads:
+ *   - lib/reference.ts  (skills — WO-07-006)
+ *   - lib/standards.ts  (standards — WO-07-009)
  *
  * Design rules (FRD-13 / AGENTS.md):
  *   - ZERO hardcoded colors — CSS custom properties only.
@@ -22,13 +22,14 @@
  *   - Spanish copy.
  *
  * Traceability:
- *   CMP-07-config-page → FRD-07
+ *   CMP-07-config-page -> FRD-07
  *   AC-07-005.1, AC-07-005.2, AC-07-005.3, AC-07-005.4
+ *   AC-07-009.1..5 (standards data flow)
  */
 
 import type { Metadata } from "next";
 import { readSkills } from "@/lib/reference";
-import { readDecisionRules } from "@/lib/registry";
+import { readStandards } from "@/lib/standards";
 import { ConfigurationShell } from "./ConfigurationShell";
 
 // ---------------------------------------------------------------------------
@@ -84,9 +85,9 @@ const BODY_STYLE: React.CSSProperties = {
 export default function ConfigurationPage(): React.JSX.Element {
   // Server-side reads — filesystem access stays on the server (architecture §3).
   // WO-07-006: read skills for the skills tab.
-  // WO-07-008: read decision rules for the rules tab.
   const skills = readSkills();
-  const rules = readDecisionRules();
+  // WO-07-009: read standards for the standards tab.
+  const standards = readStandards();
 
   return (
     <main data-testid="configuration-page" style={PAGE_STYLE}>
@@ -97,7 +98,7 @@ export default function ConfigurationPage(): React.JSX.Element {
 
       {/* Interactive shell — "use client" boundary */}
       <div style={BODY_STYLE}>
-        <ConfigurationShell skills={skills} rules={rules} />
+        <ConfigurationShell skills={skills} standards={standards} />
       </div>
     </main>
   );
