@@ -5,9 +5,9 @@ slug: active-projects
 title: WO-03-001 — `activeProjects` compose helper
 status: DRAFT
 parent: FRD-03
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-17'
 ---
 # WO-03-001 — `activeProjects` compose helper
 
@@ -59,3 +59,36 @@ Evidence:
 - `pnpm tsc --noEmit` → exit 0
 - Review: `docs/reviews/wo-03-001-review.md` — APPROVED (Opus 4.8 reviewer, 2026-06-16)
 - Committed in: `25a6a35` (lib + fixtures) and `07f2bf8` (UI components)
+
+## Status Note
+
+**What was built:** `activeProjects()` compose helper in `lib/portfolio.ts` (CMP-03-active-projects, IF-03-activeProjects). Reads the factory portfolio table via `readPortfolio()`, enriches each entry with `readStatus(resolvedPath)` and `pathExists(resolvedPath)`, and filters to the active phase set (`architecture` | `implementation` | `release` | `operation`). Phase resolution is authoritative-from-status-yaml with advisory-portfolio-cell fallback. Snapshot is gated on the resolved `stage === "operation"` (authoritative, not the portfolio cell). Entries with missing paths are included with `exists: false` (badge-ready). Never throws (fail-soft throughout).
+
+**Interfaces/contracts exposed:**
+
+```ts
+// lib/portfolio.ts
+export type ProjectListItem = {
+  name: string;
+  path: string;          // raw path cell from portfolio row (verbatim)
+  repo?: string;
+  status: StatusResult;  // from readStatus(resolvedPath)
+  exists: boolean;       // from pathExists(resolvedPath)
+  stage?: Phase;         // authoritative phase; advisory fallback if status absent/malformed
+  running?: boolean;     // strict boolean (never NaN/null-coerced — regression B1')
+  snapshot?: { users?: string; returnMetric?: string; verdict?: string }; // operation only
+};
+
+// Overload: accepts optional raw markdown content for inline tests
+export function activeProjects(content?: string): ProjectListItem[];
+```
+
+**Integration seams:**
+- Consumes: `readPortfolio` (WO-01-004), `readStatus` (WO-01-005), `pathExists` (WO-01-001) — all in `lib/`
+- Consumed by: `ProjectRail` component (`components/ProjectRail.tsx`, built in the same WO-03-001 session by frontend-dev, committed `07f2bf8`)
+- Page surface: `app/portfolio/page.tsx` calls `activeProjects()` and passes the array to `ProjectRail`
+
+**Test files:**
+- `lib/active-projects.test.ts` — 46 acceptance tests (RED phase, TDD-verified)
+- `lib/active-projects.adversarial.test.ts` — 10 adversarial tests (DR-015 reviewer, Opus 4.8)
+- Total: 56 tests, all passing. `bash .pandacorp/verify.sh` → 113 files, 3269 tests pass, biome + tsc clean (2026-06-17).
