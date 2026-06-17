@@ -27,6 +27,8 @@
  */
 
 import type { Metadata } from "next";
+import { readSkills } from "@/lib/reference";
+import { readDecisionRules } from "@/lib/registry";
 import { ConfigurationShell } from "./ConfigurationShell";
 
 // ---------------------------------------------------------------------------
@@ -80,6 +82,12 @@ const BODY_STYLE: React.CSSProperties = {
 // ---------------------------------------------------------------------------
 
 export default function ConfigurationPage(): React.JSX.Element {
+  // Server-side reads — filesystem access stays on the server (architecture §3).
+  // WO-07-006: read skills for the skills tab.
+  // WO-07-008: read decision rules for the rules tab.
+  const skills = readSkills();
+  const rules = readDecisionRules();
+
   return (
     <main data-testid="configuration-page" style={PAGE_STYLE}>
       {/* Page chrome — read-only label */}
@@ -89,7 +97,7 @@ export default function ConfigurationPage(): React.JSX.Element {
 
       {/* Interactive shell — "use client" boundary */}
       <div style={BODY_STYLE}>
-        <ConfigurationShell />
+        <ConfigurationShell skills={skills} rules={rules} />
       </div>
     </main>
   );
