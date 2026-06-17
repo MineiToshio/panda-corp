@@ -2,12 +2,13 @@
 /**
  * WO-07-005 — ConfigurationShell (CMP-07-config-page, shell + section mount)
  * WO-07-006 — wires SkillsSection into the skills tab
+ * WO-07-007 — wires AgentList + AgentDetail into the agents tab
  * WO-07-008 — wires DecisionRulesSection into the rules tab
  * WO-07-009 — wires StandardsSection into the standards tab
  *
  * Client Component: owns the active-section state and renders:
  *   1. SectionTabs — the four-tab navigation bar.
- *   2. The active section's panel (skills + rules = real; others = placeholder).
+ *   2. The active section's panel (all four sections now real, no placeholders).
  *
  * State: `activeSection` — defaults to "skills" (AC-07-005.2).
  * Renders one panel at a time; the others are unmounted (not just hidden) so
@@ -20,11 +21,12 @@
  *   - ZERO hardcoded colors — CSS custom properties only (FRD-13 / AC-07-005.3)
  *
  * Traceability:
- *   CMP-07-config-page → FRD-07
+ *   CMP-07-config-page -> FRD-07
  *   AC-07-005.1, AC-07-005.2, AC-07-005.3, AC-07-005.4
- *   CMP-07-skill-list, CMP-07-skill-detail, CMP-07-flow-diagram → AC-07-006.1..5
- *   CMP-07-rules-list, CMP-07-rule-detail → AC-07-008.1..4
- *   CMP-07-standards-list, CMP-07-standard-detail → AC-07-009.1..5
+ *   CMP-07-skill-list, CMP-07-skill-detail, CMP-07-flow-diagram -> AC-07-006.1..5
+ *   CMP-07-agent-list, CMP-07-agent-detail -> AC-07-007.1..3
+ *   CMP-07-rules-list, CMP-07-rule-detail -> AC-07-008.1..4
+ *   CMP-07-standards-list, CMP-07-standard-detail -> AC-07-009.1..5
  */
 
 import type React from "react";
@@ -72,61 +74,14 @@ const PANEL_STYLE: React.CSSProperties = {
   padding: "calc(var(--spacing, 0.25rem) * 6) calc(var(--spacing, 0.25rem) * 8)",
 };
 
-const PLACEHOLDER_STYLE: React.CSSProperties = {
+const AGENTS_PANEL_STYLE: React.CSSProperties = {
+  flex: 1,
+  overflow: "auto",
   display: "flex",
   flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 3)",
+  gap: "calc(var(--spacing, 0.25rem) * 6)",
+  padding: "calc(var(--spacing, 0.25rem) * 6) calc(var(--spacing, 0.25rem) * 8)",
 };
-
-const PLACEHOLDER_TITLE_STYLE: React.CSSProperties = {
-  fontSize: "1.125rem",
-  fontWeight: 600,
-  color: "var(--color-text, currentColor)",
-  margin: 0,
-};
-
-const PLACEHOLDER_DESC_STYLE: React.CSSProperties = {
-  fontSize: "0.875rem",
-  color: "var(--color-text-muted, currentColor)",
-  opacity: 0.7,
-  margin: 0,
-};
-
-// ---------------------------------------------------------------------------
-// Section panel placeholder (WO-07-007 still fills agents)
-// ---------------------------------------------------------------------------
-
-const SECTION_META: Record<"agents" | "standards", { titleEs: string; descEs: string }> = {
-  agents: {
-    titleEs: "Agentes",
-    descEs: "Agentes de la fábrica con su avatar, nivel y título RPG (WO-07-007 los renderiza).",
-  },
-  standards: {
-    titleEs: "Estándares",
-    descEs: "Estándares de ingeniería categorizados por dominio (WO-07-009 los renderiza).",
-  },
-};
-
-interface SectionPanelProps {
-  sectionId: "agents" | "standards";
-}
-
-function SectionPanel({ sectionId }: SectionPanelProps): React.JSX.Element {
-  const meta = SECTION_META[sectionId];
-  return (
-    <div
-      role="tabpanel"
-      data-testid={`config-section-${sectionId}`}
-      aria-labelledby={`config-tab-id-${sectionId}`}
-      style={PANEL_STYLE}
-    >
-      <div style={PLACEHOLDER_STYLE}>
-        <h2 style={PLACEHOLDER_TITLE_STYLE}>{meta.titleEs}</h2>
-        <p style={PLACEHOLDER_DESC_STYLE}>{meta.descEs}</p>
-      </div>
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // ConfigurationShell — main export (CMP-07-config-page)
@@ -142,16 +97,9 @@ export interface ConfigurationShellProps {
   agentsData?: AgentsData;
   /** Decision rules from readDecisionRules() — passed from the Server Component. */
   rules?: DecisionRule[];
+  /** Standards from readStandards() — passed from the Server Component (WO-07-009). */
+  standards?: Standard[];
 }
-
-const AGENTS_PANEL_STYLE: React.CSSProperties = {
-  flex: 1,
-  overflow: "auto",
-  display: "flex",
-  flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 6)",
-  padding: "calc(var(--spacing, 0.25rem) * 6) calc(var(--spacing, 0.25rem) * 8)",
-};
 
 /**
  * ConfigurationShell — client shell for the /configuration route.
@@ -163,11 +111,13 @@ const AGENTS_PANEL_STYLE: React.CSSProperties = {
  * WO-07-006: accepts `skills` prop to pass to SkillsSection.
  * WO-07-007: accepts `agentsData` prop to pass to AgentList / AgentDetail.
  * WO-07-008: accepts `rules` prop to pass to DecisionRulesSection.
+ * WO-07-009: accepts `standards` prop to pass to StandardsSection.
  */
 export function ConfigurationShell({
   skills = [],
   agentsData,
   rules = [],
+  standards = [],
 }: ConfigurationShellProps): React.JSX.Element {
   const [activeSection, setActiveSection] = useState<SectionId>("skills");
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
@@ -235,8 +185,15 @@ export function ConfigurationShell({
           <DecisionRulesSection rules={rules} />
         </div>
       ) : (
-        /* WO-07-009: standards section (via StandardsSection + SectionPanel placeholder) */
-        <SectionPanel sectionId="standards" />
+        /* WO-07-009: real Standards section (CMP-07-standards-list + CMP-07-standard-detail) */
+        <div
+          role="tabpanel"
+          data-testid="config-section-standards"
+          aria-labelledby="config-tab-id-standards"
+          style={PANEL_STYLE}
+        >
+          <StandardsSection standards={standards} />
+        </div>
       )}
     </div>
   );
