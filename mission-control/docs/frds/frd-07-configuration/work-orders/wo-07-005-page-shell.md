@@ -5,7 +5,7 @@ slug: page-shell
 title: WO-07-005 — Configuration page shell + section tabs
 status: DRAFT
 parent: FRD-07
-implementation_status: PLANNED
+implementation_status: IN_PROGRESS
 source_requirements: []
 last_updated: '2026-06-16'
 ---

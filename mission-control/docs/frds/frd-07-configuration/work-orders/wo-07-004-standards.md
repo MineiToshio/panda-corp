@@ -5,9 +5,9 @@ slug: standards
 title: 'WO-07-004 — `lib/standards.ts`: read standards (+ derivation fallback)'
 status: DRAFT
 parent: FRD-07
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-17'
 ---
 # WO-07-004 — `lib/standards.ts`: read standards (+ derivation fallback)
 
@@ -46,4 +46,47 @@ empty. **No fully hand-copied catalog** (DR-046 spirit).
 ## Definition of done
 - `pnpm vitest run lib/standards.test.ts` green; tsc + biome clean; no `any`/`@ts-ignore`.
 - Owner flag recorded in the blueprint §6 and surfaced. `.pandacorp/verify.sh` passes.
+
+## Status Note
+
+**Built:** `lib/standards.ts` — `readStandards()` function implementing `IF-07-standards`.
+
+**Interfaces/contracts exposed:**
+
+```ts
+// lib/standards.ts
+export type StandardSeverity = "MUST" | "SHOULD" | "MAY";
+export type StandardEnforcement = "lint" | "CI" | "checklist" | "human gate" | string;
+export type StandardDomain = "Programming" | "Architecture" | "Design" | "Technology" |
+  "Quality" | "Security" | "Operation" | "Data/Privacy" | "Product/Docs" | "Other" | string;
+
+export interface Standard {
+  id: string;          // filename, e.g. "quality.md"
+  title: string;       // H1 heading
+  body: string;        // full markdown body (frontmatter stripped)
+  domain: StandardDomain;
+  severity: StandardSeverity;
+  enforcement: StandardEnforcement;
+  summary: string[];   // from frontmatter or derived from body
+}
+
+export function readStandards(factoryRoot?: string): Standard[];
+```
+
+**Strategy implemented:**
+- Option A (frontmatter): when `domain/severity/enforcement` present in YAML frontmatter → used verbatim.
+- Option B (derivation map): when no frontmatter → `DERIVATION_MAP` keyed by filename covers all 15 real `factory/standards/*.md` files.
+- Default: unmapped files without frontmatter → `{domain:"Other", severity:"SHOULD", enforcement:"checklist"}` + `console.warn` with filename (never crash).
+- `summary`: from frontmatter array when present; else first contiguous bullet block; else first non-heading lead paragraph.
+
+**Integration seams:**
+- Consumer: `app/configuration/` (CMP-07-standards-list, CMP-07-standard-detail) — import `readStandards` from `@/lib/standards`.
+- Also consumed by FRD-08 Manual (same `IF-07-standards`).
+- `DERIVATION_MAP` uses `enforcement: "lint/CI"` for `api-design.md` — a string, not a union member; `StandardEnforcement` is open (`| string`) to accommodate this.
+
+**Owner flag (blueprint §6, DR-046):** the cleanest fit is adding `domain/severity/enforcement/summary` frontmatter to each `factory/standards/*.md`. That is a factory-repo change outside MC's write scope. Option B (the derivation map) is the active safety net until the owner adds the frontmatter.
+
+**Test file:** `lib/standards.test.ts` — 37 tests covering AC-07-004.1 through AC-07-004.5, edge cases (empty dir, malformed YAML, no heading, non-.md files, dynamic file reflection).
+
+**Gate:** 37/37 tests GREEN; 163/163 total test files GREEN (4385 tests); tsc clean; biome clean; verify.sh PASS.
 </content>
