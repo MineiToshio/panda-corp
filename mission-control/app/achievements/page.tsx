@@ -25,13 +25,14 @@
 import type { AgentRole } from "@/app/_design/tokens";
 import { Avatar } from "@/components/rpg/Avatar";
 import { XpBar } from "@/components/rpg/XpBar";
-import type { ReaderData } from "@/lib/achievements";
+import { computeUniques, type ReaderData } from "@/lib/achievements";
 import { readEvents } from "@/lib/events";
 import { computeGuildLevel, deriveGuildOutcomes } from "@/lib/gamification";
 import { readIdeas } from "@/lib/ideas";
 import { readPortfolio } from "@/lib/portfolio";
 import { readStatus } from "@/lib/status";
 import { StatsPanel } from "./StatsPanel";
+import { UniquesSection } from "./UniquesSection";
 
 // ── Party roster ─────────────────────────────────────────────────────────────
 // The canonical party shown in the Hall hero.
@@ -249,6 +250,29 @@ export default async function HallPage(): Promise<React.JSX.Element> {
           Estadísticas
         </h2>
         <StatsPanel readerData={readerData} />
+      </section>
+
+      {/* ── Unique achievements by category (AC-10-007.1) ─────────────── */}
+      <section
+        style={{
+          maxWidth: "48rem",
+          marginTop: "calc(var(--space-base) * 1.5)",
+        }}
+      >
+        <h2
+          style={{
+            fontSize: "1rem",
+            fontWeight: 600,
+            color: "var(--color-text)",
+            opacity: 0.7,
+            marginBottom: "calc(var(--space-base) * 0.75)",
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
+          Trofeos únicos
+        </h2>
+        <UniquesSection uniques={computeUniques(readerData)} />
       </section>
     </main>
   );
