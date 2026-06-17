@@ -5,7 +5,7 @@ slug: achievements-engine
 title: 'WO-10-001 — `lib/achievements.ts`: achievements engine (stats/chains/uniques/secrets)'
 status: DRAFT
 parent: FRD-10
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
 source_requirements: []
 last_updated: '2026-06-17'
 ---

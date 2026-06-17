@@ -5,7 +5,7 @@ slug: hall-page
 title: WO-10-005 — Hall page shell + hero + tabs + stats panel
 status: DRAFT
 parent: FRD-10
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
 source_requirements: []
 last_updated: '2026-06-17'
 ---
