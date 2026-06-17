@@ -432,7 +432,8 @@ describe("AC-08-002.3 — selecting a page renders it in the reading area", () =
         standards={FIXTURE_STANDARDS}
       />,
     );
-    expect(screen.getByTestId("reference-commands-view")).toBeTruthy();
+    // WO-08-003: delegated to ReferenceCommandsSection (data-testid changed from -view to -section)
+    expect(screen.getByTestId("reference-commands-section")).toBeTruthy();
   });
 
   it("DocReader renders the agents Reference catalog view when agents page is active", () => {
@@ -445,7 +446,8 @@ describe("AC-08-002.3 — selecting a page renders it in the reading area", () =
         standards={FIXTURE_STANDARDS}
       />,
     );
-    expect(screen.getByTestId("reference-agents-view")).toBeTruthy();
+    // WO-08-003: delegated to ReferenceAgentsSection (data-testid changed from -view to -section)
+    expect(screen.getByTestId("reference-agents-section")).toBeTruthy();
   });
 
   it("DocReader renders the rules Reference catalog view when rules page is active", () => {
@@ -502,7 +504,8 @@ describe("AC-08-002.3 — selecting a page renders it in the reading area", () =
         standards={FIXTURE_STANDARDS}
       />,
     );
-    const view = screen.getByTestId("reference-agents-view");
+    // WO-08-003: delegated to ReferenceAgentsSection (testid: -section)
+    const view = screen.getByTestId("reference-agents-section");
     expect(within(view).getByText("Backend Developer")).toBeTruthy();
   });
 
