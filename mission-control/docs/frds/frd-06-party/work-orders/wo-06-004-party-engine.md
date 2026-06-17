@@ -5,7 +5,7 @@ slug: party-engine
 title: WO-06-004 — Party engine (RAF loop + animation queue)
 status: DRAFT
 parent: FRD-06
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-16'
 ---
@@ -30,3 +30,50 @@ last_updated: '2026-06-16'
 ## TDD / Definition of done
 - Tests drive the engine with a fake clock (`tick(t)`): a handoff action moves the agent toward the target and ends both together; idle agents wander but stay within zone bounds; `applyEvents` drains in order at the queue's pace (visual lag is allowed); a second `tick` after completion returns to home/idle.
 - Pure core, no DOM, no real RAF in tests. Gate green.
+
+## Status Note
+
+**Built:** `createPartyEngine(snapshot, opts): PartyEngine` — the pure step-math animation engine (IF-06-engine). No DOM, no real RAF in the core; the RAF binding lives in WO-06-006.
+
+**Files delivered:**
+- `app/projects/[slug]/_party/engine.ts` — factory function + all types
+- `app/projects/[slug]/_party/engine.test.ts` — 32 tests RED→GREEN covering all AC
+
+**Interface/contracts exposed (`IF-06-engine`):**
+
+```ts
+// Snapshot used to boot the engine (provided by the RSC host, CMP-06-party-tab)
+type AgentSnapshot = { id: string; state: AgentState; home: Pos };
+
+// Observable agent state returned by agents() on every tick
+type EngineAgent = { id: string; state: AgentState; px: number; py: number; bob: number };
+
+// Engine options
+type EngineOpts = { seed?: number };
+
+// Factory
+createPartyEngine(snapshot: readonly AgentSnapshot[], opts: EngineOpts): PartyEngine
+
+// PartyEngine interface
+setState(id: string, state: AgentState): void          // immediate, no queue
+startHandoff(id: string, target: string): void          // begins walk animation
+applyEvents(diff: VisualAction[]): void                 // enqueues actions from state-map
+tick(now: number): void                                 // advance physics (call from RAF)
+agents(): EngineAgent[]                                 // snapshot of current state
+```
+
+**Physics (ported from prototype):**
+- Walk path: `home → MCCENTER → approach(target, 85px offset) → [700ms pause] → MCCENTER → home`
+- Walk speed: `0.1 * dt px/ms` (dt clamped to 48ms max)
+- Bob: `sin(now/1000 * sp + phase) * amp` — idle: amp=0.5/sp=3.5, work: amp=1.3/sp=3.5, walk: amp=2.3/sp=7.5
+- Wander: idle/work agents drift within `WANDER_RADIUS=40px` of home, retargeting every 2400ms
+- `downSprite` action maps to `blocked` state (danger visual, PARTY.md §1)
+- `fireAchievement` is cosmetic-only in the engine core (toast handled by WO-06-006 DOM adapter)
+
+**Integration seams:**
+- Import: `import { createPartyEngine } from "@/app/projects/[slug]/_party/engine"`
+- Types: `AgentSnapshot`, `EngineAgent`, `PartyEngine`, `EngineOpts`
+- Consumes: `VisualAction` from `./state-map`, `Pos`/`MCCENTER` from `./layout`
+- WO-06-006 (DOM adapter/RAF loop) calls `engine.tick(performance.now())` in the RAF callback and reads `engine.agents()` to update DOM sprite transforms
+
+**Gate:** 145 test files, 3924 tests GREEN + 2 expected-fail + 5 skipped. tsc clean. biome clean.
