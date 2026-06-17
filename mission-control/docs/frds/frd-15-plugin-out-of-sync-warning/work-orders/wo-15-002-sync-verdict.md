@@ -5,9 +5,9 @@ slug: sync-verdict
 title: WO-15-002 — `getPluginSyncState` verdict (drift / reason / detail)
 status: DRAFT
 parent: FRD-15
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-17'
 ---
 # WO-15-002 — `getPluginSyncState` verdict (drift / reason / detail)
 
@@ -44,3 +44,63 @@ Extend `lib/plugin-sync.test.ts`. Drive the three readers with mocks/fixtures to
 
 ## Dependencies
 - WO-15-001.
+
+## Status Note
+
+**What was built:** `getPluginSyncState(): PluginSyncState` in `lib/plugin-sync.ts` — the verdict composer for FRD-15. Composes `readInstalledSha`, `readPluginHeadSha`, and `readPluginDirty` (all from WO-15-001) into the full drift verdict with all five `reason` values and a Spanish `detail` one-liner.
+
+**Interfaces/contracts exposed (`IF-15-sync`, complete):**
+
+```ts
+// lib/plugin-sync.ts
+
+export type PluginSyncState = {
+  installedSha: string | null;   // gitCommitSha of pandacorp@panda-corp, or null
+  pluginHeadSha: string | null;  // git log -1 --format=%H -- plugin/, or null
+  dirty: boolean;                // git status --porcelain -- plugin/ non-empty
+  drift: boolean;                // true only on positive signal (dirty or SHAs differ)
+  reason: "uncommitted" | "behind" | "both" | "in-sync" | "unknown";
+  detail: string;                // non-empty Spanish one-liner for the banner
+};
+
+export function getPluginSyncState(): PluginSyncState;
+// Reads env: PANDACORP_FACTORY_ROOT (or ../cwd) and HOME/.claude.
+// Never throws. Read-only.
+```
+
+**Reason matrix (full coverage):**
+
+| Condition | `reason` | `drift` |
+|---|---|---|
+| `dirty && SHAs differ` | `"both"` | `true` |
+| `dirty && SHAs equal` | `"uncommitted"` | `true` |
+| `clean && SHAs differ (both known)` | `"behind"` | `true` |
+| `clean && SHAs equal (both known)` | `"in-sync"` | `false` |
+| `any null SHA && not dirty` | `"unknown"` | `false` |
+| `dirty && installedSha null` | `"uncommitted"` | `true` |
+
+**SHA equality rule:** `shaEqual(installed, head)` — prefix-safe: `installed.startsWith(head) || head.startsWith(installed)` covers abbreviated SHAs (AC-15-002.6).
+
+**Detail Spanish one-liners (examples):**
+- `"uncommitted"`: `"instalado 18a9389 · hay cambios sin commitear"`
+- `"behind"`: `"instalado aaaaaaa · el plugin instalado está atrás del HEAD (eb76145)"`
+- `"in-sync"`: `"instalado eb76145 · plugin al día"`
+- `"unknown"`: `"estado desconocido (plugin no instalado o repo no disponible)"`
+
+**Integration seam for WO-15-003 (route handler):**
+```ts
+import { getPluginSyncState } from "@/lib/plugin-sync";
+// GET /api/plugin-sync → JSON.stringify(getPluginSyncState())
+```
+
+**Integration seam for WO-15-004 (banner component):**
+```ts
+import type { PluginSyncState } from "@/lib/plugin-sync";
+// Poll /api/plugin-sync → render banner only when state.drift === true
+// state.reason selects banner copy; state.detail is the subtitle one-liner
+```
+
+**Test files covering this WO:**
+- `lib/plugin-sync.test.ts` — 48 tests total (32 WO-15-001 + 16 WO-15-002): AC-15-002.1 through AC-15-002.7, dirty-wins-over-null-SHA edge case, shape invariants, full reason matrix.
+
+**Gate:** 48/48 tests GREEN (plugin-sync.test.ts). All 69/69 plugin-sync tests GREEN (including WO-15-001 adversarial suites). verify.sh green: 125 files, 3548 tests, tsc clean, biome clean.

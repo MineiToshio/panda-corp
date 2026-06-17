@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 /**
@@ -156,4 +157,155 @@ export function readPluginDirty(factoryRoot: string): boolean {
   } catch {
     return false;
   }
+}
+
+// ---------------------------------------------------------------------------
+// WO-15-002 — PluginSyncState verdict
+// ---------------------------------------------------------------------------
+
+/**
+ * The computed drift verdict for FRD-15's banner.
+ *
+ * Traceability:
+ *   IF-15-sync (blueprint §3) · WO-15-002 AC-15-002.1..7
+ */
+export type PluginSyncState = {
+  /** gitCommitSha of pandacorp@panda-corp, or null if not installed/unreadable. */
+  installedSha: string | null;
+  /** git log -1 --format=%H -- plugin/ (null if git/path unreadable). */
+  pluginHeadSha: string | null;
+  /** git status --porcelain -- plugin/ is non-empty. */
+  dirty: boolean;
+  /** True only on a positive drift signal (dirty or two known SHAs that differ). */
+  drift: boolean;
+  /** The drift reason. "unknown" never raises the alarm (REQ-15-005). */
+  reason: "uncommitted" | "behind" | "both" | "in-sync" | "unknown";
+  /** Human (Spanish) one-liner for the banner, always non-empty. */
+  detail: string;
+};
+
+/**
+ * Resolve the user's home directory from env, falling back to `os.homedir()`.
+ * Separate from lib/config.ts to keep plugin-sync.ts self-contained (no circular dep).
+ */
+function resolveClaudeHome(): string {
+  const home = process.env.HOME ?? process.env.USERPROFILE ?? os.homedir();
+  return path.join(home, ".claude");
+}
+
+/**
+ * Resolve the factory root: use PANDACORP_FACTORY_ROOT env override if set,
+ * otherwise one level up from cwd (matching lib/config.ts resolveFactoryRoot).
+ */
+function resolveFactoryRootLocal(): string {
+  const override = process.env.PANDACORP_FACTORY_ROOT;
+  if (override && override.trim() !== "") {
+    return path.resolve(override);
+  }
+  return path.resolve(process.cwd(), "..");
+}
+
+/**
+ * Check whether one SHA is "equal" to another under the prefix-safe rule
+ * (AC-15-002.6): an abbreviated installed SHA that is a prefix of the full
+ * plugin HEAD SHA counts as equal (no spurious "behind" alarm).
+ *
+ * Both directions are checked: installed is a prefix of head, OR head is a
+ * prefix of installed (handles future format changes gracefully).
+ */
+function shaEqual(installed: string, head: string): boolean {
+  if (installed === head) return true;
+  // Prefix-safe: one starts with the other (shorter is the abbreviation)
+  if (head.startsWith(installed) || installed.startsWith(head)) return true;
+  return false;
+}
+
+/**
+ * Build the Spanish detail one-liner for the banner.
+ * Blueprint §2 example: "instalado 18a9389 · hay cambios sin commitear"
+ */
+function buildDetail(
+  installedSha: string | null,
+  pluginHeadSha: string | null,
+  reason: PluginSyncState["reason"],
+): string {
+  const shortInstalled = installedSha ? installedSha.slice(0, 7) : null;
+  const shortHead = pluginHeadSha ? pluginHeadSha.slice(0, 7) : null;
+
+  switch (reason) {
+    case "uncommitted":
+      return shortInstalled
+        ? `instalado ${shortInstalled} · hay cambios sin commitear`
+        : "hay cambios sin commitear en plugin/";
+    case "behind":
+      return shortInstalled
+        ? `instalado ${shortInstalled} · el plugin instalado está atrás del HEAD${shortHead ? ` (${shortHead})` : ""}`
+        : `el plugin instalado está atrás del HEAD${shortHead ? ` (${shortHead})` : ""}`;
+    case "both":
+      return shortInstalled
+        ? `instalado ${shortInstalled} · atrás del HEAD y hay cambios sin commitear`
+        : "atrás del HEAD y hay cambios sin commitear en plugin/";
+    case "in-sync":
+      return shortInstalled ? `instalado ${shortInstalled} · plugin al día` : "plugin al día";
+    case "unknown":
+      return shortInstalled
+        ? `instalado ${shortInstalled} · estado desconocido (no se puede verificar)`
+        : "estado desconocido (plugin no instalado o repo no disponible)";
+  }
+}
+
+/**
+ * Compose the three primitive readers into the drift verdict.
+ *
+ * Reads paths from the environment:
+ *   - PANDACORP_FACTORY_ROOT (or ../cwd) → git probes
+ *   - HOME / USERPROFILE → ~/.claude/plugins/installed_plugins.json
+ *
+ * Defensive contract (blueprint §3, REQ-15-005):
+ *   - Unknown/unreadable inputs → reason "unknown", drift false (no false alarm).
+ *   - Only a POSITIVE signal (dirty, or two known SHAs that differ) raises drift.
+ *   - A null SHA never produces reason "behind".
+ *
+ * Prefix-safe SHA comparison (AC-15-002.6): abbreviated installed SHA that is
+ * a prefix of the full HEAD SHA counts as equal.
+ *
+ * Never throws. Read-only.
+ */
+export function getPluginSyncState(): PluginSyncState {
+  const factoryRoot = resolveFactoryRootLocal();
+  const claudeHome = resolveClaudeHome();
+
+  const installedSha = readInstalledSha(claudeHome);
+  const pluginHeadSha = readPluginHeadSha(factoryRoot);
+  const dirty = readPluginDirty(factoryRoot);
+
+  // Determine reason using the precedence matrix (AC-15-002.1..5):
+  //   1. dirty && known-SHAs-differ → "both"
+  //   2. dirty (regardless of SHAs)  → "uncommitted"
+  //   3. both SHAs known && differ   → "behind"
+  //   4. both SHAs known && equal    → "in-sync"
+  //   5. any null SHA && not dirty   → "unknown"
+  let reason: PluginSyncState["reason"];
+
+  const bothKnown = installedSha !== null && pluginHeadSha !== null;
+  const shasDiffer = bothKnown && !shaEqual(installedSha as string, pluginHeadSha as string);
+
+  if (dirty && shasDiffer) {
+    reason = "both";
+  } else if (dirty) {
+    reason = "uncommitted";
+  } else if (shasDiffer) {
+    reason = "behind";
+  } else if (bothKnown) {
+    // Both known and equal (prefix-safe)
+    reason = "in-sync";
+  } else {
+    // At least one SHA unknown and not dirty → unknown (no false alarm)
+    reason = "unknown";
+  }
+
+  const drift = reason !== "in-sync" && reason !== "unknown";
+  const detail = buildDetail(installedSha, pluginHeadSha, reason);
+
+  return { installedSha, pluginHeadSha, dirty, drift, reason, detail };
 }

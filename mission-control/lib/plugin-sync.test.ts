@@ -47,9 +47,14 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 // ---------------------------------------------------------------------------
-// Module under test — does not exist yet (RED phase).
+// Module under test.
 // ---------------------------------------------------------------------------
-import { readInstalledSha, readPluginDirty, readPluginHeadSha } from "./plugin-sync";
+import {
+  getPluginSyncState,
+  readInstalledSha,
+  readPluginDirty,
+  readPluginHeadSha,
+} from "./plugin-sync";
 
 // ---------------------------------------------------------------------------
 // Fixture shape mirroring the real ~/.claude/plugins/installed_plugins.json
@@ -586,5 +591,577 @@ describe("frd-15: REQ-15-005 — all readers are read-only: they never write to 
       encoding: "utf-8",
     });
     expect(statusAfter).toBe(statusBefore);
+  });
+});
+
+// =============================================================================
+// WO-15-002 — getPluginSyncState verdict
+//
+// Acceptance criteria under test:
+//   AC-15-002.1  dirty === true AND SHAs equal → drift true, reason "uncommitted"
+//   AC-15-002.2  clean AND installedSha !== pluginHeadSha (both known) → drift true, reason "behind"
+//   AC-15-002.3  dirty AND SHAs differ → reason "both", drift true
+//   AC-15-002.4  clean AND SHAs equal → drift false, reason "in-sync"
+//   AC-15-002.5  installedSha or pluginHeadSha is null AND not dirty → reason "unknown", drift false
+//   AC-15-002.6  SHA comparison is prefix-safe: abbreviated installed SHA that is a prefix
+//               of full plugin HEAD SHA counts as equal (no spurious "behind")
+//   AC-15-002.7  detail is a non-empty Spanish string echoing the short installed SHA and cause
+//
+// Traceability:
+//   REQ-15-001 (uncommitted changes → warning) → AC-15-002.1, AC-15-002.3
+//   REQ-15-002 (installed SHA ≠ HEAD → warning) → AC-15-002.2
+//   REQ-15-004 (warning disappears on sync)      → AC-15-002.4
+//   REQ-15-005 (read-only / honest, no false alarm) → AC-15-002.5
+//
+// Strategy: getPluginSyncState() resolves paths from the environment
+// (PANDACORP_FACTORY_ROOT and HOME). Tests control those env vars by setting
+// them to temp dirs so the function reads controlled fixtures.
+//
+// The function is called with NO arguments — it reads env vars internally.
+// Tests must set/restore process.env.PANDACORP_FACTORY_ROOT and HOME.
+// =============================================================================
+
+// ---------------------------------------------------------------------------
+// Env save/restore helpers (shared across WO-15-002 suites)
+// ---------------------------------------------------------------------------
+
+let savedFactoryRoot: string | undefined;
+let savedHome: string | undefined;
+
+function saveEnv(): void {
+  savedFactoryRoot = process.env.PANDACORP_FACTORY_ROOT;
+  savedHome = process.env.HOME;
+}
+
+function restoreEnv(): void {
+  if (savedFactoryRoot === undefined) {
+    delete process.env.PANDACORP_FACTORY_ROOT;
+  } else {
+    process.env.PANDACORP_FACTORY_ROOT = savedFactoryRoot;
+  }
+  if (savedHome === undefined) {
+    delete process.env.HOME;
+  } else {
+    process.env.HOME = savedHome;
+  }
+}
+
+/** Initialise a minimal git repo and commit a file under plugin/. */
+function initRepoWithPlugin(dir: string): void {
+  execFileSync("git", ["init", "--initial-branch=main"], { cwd: dir });
+  execFileSync("git", ["config", "user.email", "test@test.local"], { cwd: dir });
+  execFileSync("git", ["config", "user.name", "Test"], { cwd: dir });
+  const pluginDir = path.join(dir, "plugin");
+  fs.mkdirSync(pluginDir, { recursive: true });
+  fs.writeFileSync(path.join(pluginDir, "SKILL.md"), "# skill\n");
+  execFileSync("git", ["add", "plugin/"], { cwd: dir });
+  execFileSync("git", ["commit", "-m", "chore: add plugin"], { cwd: dir });
+}
+
+/**
+ * Write installed_plugins.json for a given SHA into a home dir.
+ * Creates `<homeDir>/.claude/plugins/installed_plugins.json`
+ * (matching lib/config.ts which does path.join(HOME, ".claude", "plugins", …)).
+ */
+function writeInstalledSha(homeDir: string, sha: string): void {
+  const pluginsDir = path.join(homeDir, ".claude", "plugins");
+  fs.mkdirSync(pluginsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(pluginsDir, "installed_plugins.json"),
+    JSON.stringify({
+      version: 2,
+      plugins: {
+        "pandacorp@panda-corp": [{ scope: "user", version: "8.0.0", gitCommitSha: sha }],
+      },
+    }),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// AC-15-002.1 — dirty && SHAs equal → drift true, reason "uncommitted"
+// ---------------------------------------------------------------------------
+
+describe("frd-15: AC-15-002.1 — dirty=true, SHAs equal → drift true, reason 'uncommitted'", () => {
+  it("frd-15: WHEN dirty AND installedSha === pluginHeadSha THEN drift=true, reason='uncommitted'", () => {
+    saveEnv();
+
+    const factoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac1-"));
+    tmpDirs.push(factoryRoot);
+    initRepoWithPlugin(factoryRoot);
+
+    const headSha = readPluginHeadSha(factoryRoot);
+    expect(headSha).not.toBeNull();
+
+    const claudeHome = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac1-ch-"));
+    tmpDirs.push(claudeHome);
+    writeInstalledSha(claudeHome, headSha as string);
+
+    // Make plugin/ dirty without changing the committed SHA
+    fs.writeFileSync(path.join(factoryRoot, "plugin", "dirty.md"), "# dirty\n");
+
+    process.env.PANDACORP_FACTORY_ROOT = factoryRoot;
+    process.env.HOME = claudeHome;
+
+    try {
+      const state = getPluginSyncState();
+      expect(state.drift).toBe(true);
+      expect(state.reason).toBe("uncommitted");
+      expect(state.dirty).toBe(true);
+    } finally {
+      restoreEnv();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC-15-002.2 — clean AND installedSha !== pluginHeadSha → drift true, reason "behind"
+// ---------------------------------------------------------------------------
+
+describe("frd-15: AC-15-002.2 — clean tree, SHAs differ → drift true, reason 'behind'", () => {
+  it("frd-15: WHEN clean AND installedSha !== pluginHeadSha THEN drift=true, reason='behind'", () => {
+    saveEnv();
+
+    const factoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac2-"));
+    tmpDirs.push(factoryRoot);
+    initRepoWithPlugin(factoryRoot);
+
+    const oldSha = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const claudeHome = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac2-ch-"));
+    tmpDirs.push(claudeHome);
+    writeInstalledSha(claudeHome, oldSha);
+
+    process.env.PANDACORP_FACTORY_ROOT = factoryRoot;
+    process.env.HOME = claudeHome;
+
+    try {
+      const state = getPluginSyncState();
+      expect(state.drift).toBe(true);
+      expect(state.reason).toBe("behind");
+      expect(state.dirty).toBe(false);
+      expect(state.installedSha).not.toBeNull();
+      expect(state.pluginHeadSha).not.toBeNull();
+    } finally {
+      restoreEnv();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC-15-002.3 — dirty AND SHAs differ → reason "both", drift true
+// ---------------------------------------------------------------------------
+
+describe("frd-15: AC-15-002.3 — dirty=true AND SHAs differ → drift true, reason 'both'", () => {
+  it("frd-15: WHEN dirty AND installedSha !== pluginHeadSha THEN drift=true, reason='both'", () => {
+    saveEnv();
+
+    const factoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac3-"));
+    tmpDirs.push(factoryRoot);
+    initRepoWithPlugin(factoryRoot);
+
+    // Make dirty
+    fs.writeFileSync(path.join(factoryRoot, "plugin", "dirty.md"), "# dirty\n");
+
+    // Different SHA from HEAD
+    const claudeHome = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac3-ch-"));
+    tmpDirs.push(claudeHome);
+    writeInstalledSha(claudeHome, "cccccccccccccccccccccccccccccccccccccccc");
+
+    process.env.PANDACORP_FACTORY_ROOT = factoryRoot;
+    process.env.HOME = claudeHome;
+
+    try {
+      const state = getPluginSyncState();
+      expect(state.drift).toBe(true);
+      expect(state.reason).toBe("both");
+      expect(state.dirty).toBe(true);
+    } finally {
+      restoreEnv();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC-15-002.4 — clean AND SHAs equal → drift false, reason "in-sync"
+// ---------------------------------------------------------------------------
+
+describe("frd-15: AC-15-002.4 — clean tree, SHAs equal → drift false, reason 'in-sync'", () => {
+  it("frd-15: WHEN clean AND installedSha === pluginHeadSha THEN drift=false, reason='in-sync'", () => {
+    saveEnv();
+
+    const factoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac4-"));
+    tmpDirs.push(factoryRoot);
+    initRepoWithPlugin(factoryRoot);
+
+    const headSha = readPluginHeadSha(factoryRoot);
+    expect(headSha).not.toBeNull();
+
+    const claudeHome = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac4-ch-"));
+    tmpDirs.push(claudeHome);
+    writeInstalledSha(claudeHome, headSha as string);
+
+    process.env.PANDACORP_FACTORY_ROOT = factoryRoot;
+    process.env.HOME = claudeHome;
+
+    try {
+      const state = getPluginSyncState();
+      expect(state.drift).toBe(false);
+      expect(state.reason).toBe("in-sync");
+      expect(state.dirty).toBe(false);
+    } finally {
+      restoreEnv();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC-15-002.5 — null SHA(s) AND not dirty → reason "unknown", drift false
+// (no false alarm — REQ-15-005)
+// ---------------------------------------------------------------------------
+
+describe("frd-15: AC-15-002.5 — null SHA(s) AND not dirty → reason 'unknown', drift false", () => {
+  it("frd-15: WHEN installedSha is null (no installed_plugins.json) AND clean THEN reason='unknown', drift=false", () => {
+    saveEnv();
+
+    const factoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac5a-"));
+    tmpDirs.push(factoryRoot);
+    initRepoWithPlugin(factoryRoot);
+
+    // claudeHome has NO installed_plugins.json → installedSha is null
+    const claudeHome = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac5a-ch-"));
+    tmpDirs.push(claudeHome);
+    // Create .claude/plugins/ dir but leave it empty — readInstalledSha will return null
+    fs.mkdirSync(path.join(claudeHome, ".claude", "plugins"), { recursive: true });
+
+    process.env.PANDACORP_FACTORY_ROOT = factoryRoot;
+    process.env.HOME = claudeHome;
+
+    try {
+      const state = getPluginSyncState();
+      expect(state.reason).toBe("unknown");
+      expect(state.drift).toBe(false);
+      expect(state.installedSha).toBeNull();
+    } finally {
+      restoreEnv();
+    }
+  });
+
+  it("frd-15: WHEN pluginHeadSha is null (no plugin/ commits) AND clean THEN reason='unknown', drift=false", () => {
+    saveEnv();
+
+    // Repo with NO plugin/ commits → pluginHeadSha is null
+    const factoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac5b-"));
+    tmpDirs.push(factoryRoot);
+    execFileSync("git", ["init", "--initial-branch=main"], { cwd: factoryRoot });
+    execFileSync("git", ["config", "user.email", "test@test.local"], { cwd: factoryRoot });
+    execFileSync("git", ["config", "user.name", "Test"], { cwd: factoryRoot });
+    fs.writeFileSync(path.join(factoryRoot, "README.md"), "# test\n");
+    execFileSync("git", ["add", "README.md"], { cwd: factoryRoot });
+    execFileSync("git", ["commit", "-m", "chore: init without plugin"], { cwd: factoryRoot });
+
+    const claudeHome = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac5b-ch-"));
+    tmpDirs.push(claudeHome);
+    writeInstalledSha(claudeHome, "dddddddddddddddddddddddddddddddddddddddd");
+
+    process.env.PANDACORP_FACTORY_ROOT = factoryRoot;
+    process.env.HOME = claudeHome;
+
+    try {
+      const state = getPluginSyncState();
+      expect(state.reason).toBe("unknown");
+      expect(state.drift).toBe(false);
+      expect(state.pluginHeadSha).toBeNull();
+    } finally {
+      restoreEnv();
+    }
+  });
+
+  it("frd-15: WHEN both SHAs are null AND clean THEN reason='unknown', drift=false (complete unknown)", () => {
+    saveEnv();
+
+    // Non-git directory → pluginHeadSha null, no plugins file → installedSha null
+    const factoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac5c-"));
+    tmpDirs.push(factoryRoot);
+    const claudeHome = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac5c-ch-"));
+    tmpDirs.push(claudeHome);
+    fs.mkdirSync(path.join(claudeHome, ".claude", "plugins"), { recursive: true });
+
+    process.env.PANDACORP_FACTORY_ROOT = factoryRoot;
+    process.env.HOME = claudeHome;
+
+    try {
+      const state = getPluginSyncState();
+      expect(state.reason).toBe("unknown");
+      expect(state.drift).toBe(false);
+    } finally {
+      restoreEnv();
+    }
+  });
+
+  it("frd-15: WHEN installedSha is null BUT dirty=true THEN drift=true, reason='uncommitted' (dirty wins over null SHA)", () => {
+    saveEnv();
+
+    // Repo with dirty plugin/ but no installed_plugins.json
+    const factoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac5d-"));
+    tmpDirs.push(factoryRoot);
+    initRepoWithPlugin(factoryRoot);
+    fs.writeFileSync(path.join(factoryRoot, "plugin", "dirty.md"), "# dirty\n");
+
+    const claudeHome = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac5d-ch-"));
+    tmpDirs.push(claudeHome);
+    fs.mkdirSync(path.join(claudeHome, ".claude", "plugins"), { recursive: true });
+    // No installed_plugins.json written
+
+    process.env.PANDACORP_FACTORY_ROOT = factoryRoot;
+    process.env.HOME = claudeHome;
+
+    try {
+      const state = getPluginSyncState();
+      expect(state.drift).toBe(true);
+      expect(state.reason).toBe("uncommitted");
+    } finally {
+      restoreEnv();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC-15-002.6 — prefix-safe SHA comparison (abbreviated installed SHA)
+// ---------------------------------------------------------------------------
+
+describe("frd-15: AC-15-002.6 — prefix-safe SHA: abbreviated installed SHA counts as equal", () => {
+  it("frd-15: WHEN installedSha is a 7-char prefix of pluginHeadSha AND clean THEN reason='in-sync', NOT 'behind'", () => {
+    saveEnv();
+
+    const factoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac6a-"));
+    tmpDirs.push(factoryRoot);
+    initRepoWithPlugin(factoryRoot);
+
+    const headSha = readPluginHeadSha(factoryRoot);
+    expect(headSha).not.toBeNull();
+    const shortSha = (headSha as string).slice(0, 7);
+
+    const claudeHome = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac6a-ch-"));
+    tmpDirs.push(claudeHome);
+    writeInstalledSha(claudeHome, shortSha);
+
+    process.env.PANDACORP_FACTORY_ROOT = factoryRoot;
+    process.env.HOME = claudeHome;
+
+    try {
+      const state = getPluginSyncState();
+      expect(state.reason).toBe("in-sync");
+      expect(state.drift).toBe(false);
+    } finally {
+      restoreEnv();
+    }
+  });
+
+  it("frd-15: WHEN installedSha is a 12-char prefix AND clean THEN reason='in-sync' (medium abbreviation)", () => {
+    saveEnv();
+
+    const factoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac6b-"));
+    tmpDirs.push(factoryRoot);
+    initRepoWithPlugin(factoryRoot);
+
+    const headSha = readPluginHeadSha(factoryRoot);
+    expect(headSha).not.toBeNull();
+    const shortSha = (headSha as string).slice(0, 12);
+
+    const claudeHome = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac6b-ch-"));
+    tmpDirs.push(claudeHome);
+    writeInstalledSha(claudeHome, shortSha);
+
+    process.env.PANDACORP_FACTORY_ROOT = factoryRoot;
+    process.env.HOME = claudeHome;
+
+    try {
+      const state = getPluginSyncState();
+      expect(state.reason).toBe("in-sync");
+      expect(state.drift).toBe(false);
+    } finally {
+      restoreEnv();
+    }
+  });
+
+  it("frd-15: WHEN SHAs have no prefix relationship THEN reason='behind' (truly different commits)", () => {
+    saveEnv();
+
+    const factoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac6c-"));
+    tmpDirs.push(factoryRoot);
+    initRepoWithPlugin(factoryRoot);
+
+    const headSha = readPluginHeadSha(factoryRoot);
+    expect(headSha).not.toBeNull();
+
+    // A completely different SHA with no prefix relationship
+    const differentSha = "ffffffffffffffffffffffffffffffffffffffff";
+    expect((headSha as string).startsWith(differentSha)).toBe(false);
+    expect(differentSha.startsWith(headSha as string)).toBe(false);
+
+    const claudeHome = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac6c-ch-"));
+    tmpDirs.push(claudeHome);
+    writeInstalledSha(claudeHome, differentSha);
+
+    process.env.PANDACORP_FACTORY_ROOT = factoryRoot;
+    process.env.HOME = claudeHome;
+
+    try {
+      const state = getPluginSyncState();
+      expect(state.reason).toBe("behind");
+      expect(state.drift).toBe(true);
+    } finally {
+      restoreEnv();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC-15-002.7 — detail is a non-empty Spanish string echoing the short SHA and cause
+// ---------------------------------------------------------------------------
+
+describe("frd-15: AC-15-002.7 — detail is a non-empty Spanish string with short SHA and cause", () => {
+  it("frd-15: WHEN uncommitted THEN detail contains short installed SHA and Spanish cause text", () => {
+    saveEnv();
+
+    const factoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac7a-"));
+    tmpDirs.push(factoryRoot);
+    initRepoWithPlugin(factoryRoot);
+
+    const headSha = readPluginHeadSha(factoryRoot);
+    expect(headSha).not.toBeNull();
+    const shortHead = (headSha as string).slice(0, 7);
+
+    const claudeHome = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac7a-ch-"));
+    tmpDirs.push(claudeHome);
+    writeInstalledSha(claudeHome, headSha as string);
+    fs.writeFileSync(path.join(factoryRoot, "plugin", "dirty.md"), "# dirty\n");
+
+    process.env.PANDACORP_FACTORY_ROOT = factoryRoot;
+    process.env.HOME = claudeHome;
+
+    try {
+      const state = getPluginSyncState();
+      expect(state.reason).toBe("uncommitted");
+      expect(state.detail.length).toBeGreaterThan(0);
+      // Must echo the short installed SHA (first 7 chars)
+      expect(state.detail).toContain(shortHead);
+      // Spanish text — blueprint example: "instalado 18a9389 · hay cambios sin commitear"
+      expect(state.detail).toMatch(/instalado/i);
+    } finally {
+      restoreEnv();
+    }
+  });
+
+  it("frd-15: WHEN behind THEN detail contains short installed SHA and Spanish behind text", () => {
+    saveEnv();
+
+    const factoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac7b-"));
+    tmpDirs.push(factoryRoot);
+    initRepoWithPlugin(factoryRoot);
+
+    const oldSha = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+    const claudeHome = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac7b-ch-"));
+    tmpDirs.push(claudeHome);
+    writeInstalledSha(claudeHome, oldSha);
+
+    process.env.PANDACORP_FACTORY_ROOT = factoryRoot;
+    process.env.HOME = claudeHome;
+
+    try {
+      const state = getPluginSyncState();
+      expect(state.reason).toBe("behind");
+      expect(state.detail.length).toBeGreaterThan(0);
+      // Must echo the short installed SHA (first 7 chars of oldSha = "eeeeeee")
+      expect(state.detail).toContain(oldSha.slice(0, 7));
+      expect(state.detail).toMatch(/instalado/i);
+    } finally {
+      restoreEnv();
+    }
+  });
+
+  it("frd-15: WHEN in-sync THEN detail is a non-empty string", () => {
+    saveEnv();
+
+    const factoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac7c-"));
+    tmpDirs.push(factoryRoot);
+    initRepoWithPlugin(factoryRoot);
+
+    const headSha = readPluginHeadSha(factoryRoot);
+    const claudeHome = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac7c-ch-"));
+    tmpDirs.push(claudeHome);
+    writeInstalledSha(claudeHome, headSha as string);
+
+    process.env.PANDACORP_FACTORY_ROOT = factoryRoot;
+    process.env.HOME = claudeHome;
+
+    try {
+      const state = getPluginSyncState();
+      expect(typeof state.detail).toBe("string");
+      expect(state.detail.length).toBeGreaterThan(0);
+    } finally {
+      restoreEnv();
+    }
+  });
+
+  it("frd-15: WHEN unknown THEN detail is a non-empty string", () => {
+    saveEnv();
+
+    // Non-repo + no installed_plugins.json → unknown
+    const factoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac7d-"));
+    tmpDirs.push(factoryRoot);
+    const claudeHome = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ac7d-ch-"));
+    tmpDirs.push(claudeHome);
+    fs.mkdirSync(path.join(claudeHome, ".claude", "plugins"), { recursive: true });
+
+    process.env.PANDACORP_FACTORY_ROOT = factoryRoot;
+    process.env.HOME = claudeHome;
+
+    try {
+      const state = getPluginSyncState();
+      expect(state.reason).toBe("unknown");
+      expect(state.detail.length).toBeGreaterThan(0);
+    } finally {
+      restoreEnv();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Shape invariants — getPluginSyncState always returns a complete PluginSyncState
+// ---------------------------------------------------------------------------
+
+describe("frd-15: PluginSyncState shape invariants — all fields present on every invocation", () => {
+  it("frd-15: WHEN called with any env THEN result always has all required PluginSyncState fields", () => {
+    saveEnv();
+
+    // Use unknown scenario (non-repo, no plugins file) — guaranteed to complete
+    const factoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mc-shape-"));
+    tmpDirs.push(factoryRoot);
+    const claudeHome = fs.mkdtempSync(path.join(os.tmpdir(), "mc-shape-ch-"));
+    tmpDirs.push(claudeHome);
+    fs.mkdirSync(path.join(claudeHome, ".claude", "plugins"), { recursive: true });
+
+    process.env.PANDACORP_FACTORY_ROOT = factoryRoot;
+    process.env.HOME = claudeHome;
+
+    try {
+      const state = getPluginSyncState();
+      // installedSha: string | null
+      expect(typeof state.installedSha === "string" || state.installedSha === null).toBe(true);
+      // pluginHeadSha: string | null
+      expect(typeof state.pluginHeadSha === "string" || state.pluginHeadSha === null).toBe(true);
+      // dirty: boolean
+      expect(typeof state.dirty).toBe("boolean");
+      // drift: boolean
+      expect(typeof state.drift).toBe("boolean");
+      // reason: one of the five values
+      const validReasons = ["uncommitted", "behind", "both", "in-sync", "unknown"];
+      expect(validReasons).toContain(state.reason);
+      // detail: non-empty string
+      expect(typeof state.detail).toBe("string");
+      expect(state.detail.length).toBeGreaterThan(0);
+    } finally {
+      restoreEnv();
+    }
   });
 });
