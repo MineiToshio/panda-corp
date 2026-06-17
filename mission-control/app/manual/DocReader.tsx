@@ -26,6 +26,10 @@ import ReactMarkdown from "react-markdown";
 import type { AgentRef, SkillRef } from "@/lib/reference";
 import type { DecisionRule } from "@/lib/registry";
 import type { Standard } from "@/lib/standards";
+import { ReferenceAgentsSection } from "./ReferenceAgentsSection";
+import { ReferenceCommandsSection } from "./ReferenceCommandsSection";
+import { ReferenceRulesView } from "./ReferenceRulesView";
+import { ReferenceStandardsView } from "./ReferenceStandardsView";
 import type { ReaderActivePage } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -82,171 +86,9 @@ const PAGE_TITLE_STYLE: React.CSSProperties = {
   color: "var(--color-text, currentColor)",
 };
 
-const SECTION_HEADING_STYLE: React.CSSProperties = {
-  fontSize: "1.25rem",
-  fontWeight: 700,
-  marginBottom: "var(--space-base, 1rem)",
-  color: "var(--color-text, currentColor)",
-  borderBottom:
-    "var(--hairline, 1px) solid color-mix(in oklch, var(--color-text, currentColor) 15%, transparent)",
-  paddingBottom: "calc(var(--space-base, 1rem) * 0.5)",
-};
-
-const LIST_STYLE: React.CSSProperties = {
-  listStyle: "none",
-  padding: 0,
-  margin: 0,
-  display: "flex",
-  flexDirection: "column",
-  gap: "calc(var(--space-base, 1rem) * 0.75)",
-};
-
-const ITEM_STYLE: React.CSSProperties = {
-  padding: "calc(var(--space-base, 1rem) * 0.75) var(--space-base, 1rem)",
-  borderRadius: "var(--radius, 0.5rem)",
-  background: "color-mix(in oklch, var(--color-text, currentColor) 5%, transparent)",
-  border:
-    "var(--hairline, 1px) solid color-mix(in oklch, var(--color-text, currentColor) 10%, transparent)",
-};
-
-const ITEM_NAME_STYLE: React.CSSProperties = {
-  fontWeight: 600,
-  fontSize: "0.9375rem",
-  color: "var(--color-accent, currentColor)",
-  marginBottom: "calc(var(--space-base, 1rem) * 0.25)",
-};
-
-const ITEM_DESC_STYLE: React.CSSProperties = {
-  fontSize: "0.875rem",
-  color: "var(--color-text, currentColor)",
-  opacity: 0.8,
-  margin: 0,
-};
-
-const BADGE_STYLE: React.CSSProperties = {
-  display: "inline-block",
-  fontSize: "0.75rem",
-  fontWeight: 600,
-  padding: "0.125rem 0.375rem",
-  borderRadius: "calc(var(--radius, 0.5rem) * 0.5)",
-  background: "color-mix(in oklch, var(--color-accent, currentColor) 20%, transparent)",
-  color: "var(--color-accent, currentColor)",
-  marginLeft: "0.5rem",
-};
-
 // ---------------------------------------------------------------------------
-// Reference catalog views (CMP-08-reference-* — DR-046: derived, not copied)
+// Reference catalog views — all four delegated to dedicated components (WO-08-003/004)
 // ---------------------------------------------------------------------------
-
-function CommandsView({ skills }: { skills: SkillRef[] }): React.JSX.Element {
-  return (
-    <div data-testid="reference-commands-view">
-      <h2 style={SECTION_HEADING_STYLE}>Comandos (Habilidades)</h2>
-      {skills.length === 0 ? (
-        <p style={ITEM_DESC_STYLE}>No se encontraron habilidades en el plugin.</p>
-      ) : (
-        <ul style={LIST_STYLE} aria-label="Lista de comandos del plugin">
-          {skills.map((skill) => (
-            <li key={skill.slug} style={ITEM_STYLE} data-testid={`reference-command-${skill.slug}`}>
-              <div style={ITEM_NAME_STYLE}>
-                /pandacorp:{skill.slug}
-                {skill.runsIn !== "unknown" && <span style={BADGE_STYLE}>{skill.runsIn}</span>}
-              </div>
-              <p style={ITEM_DESC_STYLE}>{skill.description}</p>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function AgentsView({ agents }: { agents: AgentRef[] }): React.JSX.Element {
-  return (
-    <div data-testid="reference-agents-view">
-      <h2 style={SECTION_HEADING_STYLE}>Agentes (Party)</h2>
-      {agents.length === 0 ? (
-        <p style={ITEM_DESC_STYLE}>No se encontraron agentes en el plugin.</p>
-      ) : (
-        <ul style={LIST_STYLE} aria-label="Lista de agentes del plugin">
-          {agents.map((agent) => (
-            <li key={agent.id} style={ITEM_STYLE} data-testid={`reference-agent-${agent.id}`}>
-              <div style={ITEM_NAME_STYLE}>
-                {agent.name ?? agent.id}
-                {agent.model !== "unknown" && <span style={BADGE_STYLE}>{agent.model}</span>}
-              </div>
-              {agent.description && <p style={ITEM_DESC_STYLE}>{agent.description}</p>}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function RulesView({ rules }: { rules: DecisionRule[] }): React.JSX.Element {
-  return (
-    <div data-testid="reference-rules-view">
-      <h2 style={SECTION_HEADING_STYLE}>Reglas de decisión</h2>
-      {rules.length === 0 ? (
-        <p style={ITEM_DESC_STYLE}>No se encontraron reglas en el registro.</p>
-      ) : (
-        <ul style={LIST_STYLE} aria-label="Lista de reglas de decisión">
-          {rules.map((rule) => (
-            <li key={rule.id} style={ITEM_STYLE} data-testid={`reference-rule-${rule.id}`}>
-              <div style={ITEM_NAME_STYLE}>
-                {rule.id}
-                {rule.requiereHumano && <span style={BADGE_STYLE}>humano</span>}
-              </div>
-              <p style={ITEM_DESC_STYLE}>
-                <strong>Patrón:</strong> {rule.patron}
-              </p>
-              <p style={ITEM_DESC_STYLE}>
-                <strong>Por defecto:</strong> {rule.default}
-              </p>
-              {rule.nota && (
-                <p style={{ ...ITEM_DESC_STYLE, opacity: 0.6, fontStyle: "italic" }}>{rule.nota}</p>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function StandardsView({ standards }: { standards: Standard[] }): React.JSX.Element {
-  return (
-    <div data-testid="reference-standards-view">
-      <h2 style={SECTION_HEADING_STYLE}>Estándares</h2>
-      {standards.length === 0 ? (
-        <p style={ITEM_DESC_STYLE}>No se encontraron estándares.</p>
-      ) : (
-        <ul style={LIST_STYLE} aria-label="Lista de estándares de la fábrica">
-          {standards.map((std) => (
-            <li key={std.id} style={ITEM_STYLE} data-testid={`reference-standard-${std.id}`}>
-              <div style={ITEM_NAME_STYLE}>
-                {std.title}
-                <span style={BADGE_STYLE}>{std.severity}</span>
-                <span
-                  style={{
-                    ...BADGE_STYLE,
-                    background:
-                      "color-mix(in oklch, var(--color-text, currentColor) 10%, transparent)",
-                    color: "var(--color-text, currentColor)",
-                  }}
-                >
-                  {std.domain}
-                </span>
-              </div>
-              {std.summary.length > 0 && <p style={ITEM_DESC_STYLE}>{std.summary[0]}</p>}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Prose wrapper for react-markdown output
@@ -290,10 +132,10 @@ export function DocReader({
       ) : (
         /* Reference catalog view — AC-08-002.3: render derived catalog */
         <article data-testid="doc-reader-reference">
-          {activePage.catalog === "commands" && <CommandsView skills={skills} />}
-          {activePage.catalog === "agents" && <AgentsView agents={agents} />}
-          {activePage.catalog === "rules" && <RulesView rules={rules} />}
-          {activePage.catalog === "standards" && <StandardsView standards={standards} />}
+          {activePage.catalog === "commands" && <ReferenceCommandsSection skills={skills} />}
+          {activePage.catalog === "agents" && <ReferenceAgentsSection agents={agents} />}
+          {activePage.catalog === "rules" && <ReferenceRulesView rules={rules} />}
+          {activePage.catalog === "standards" && <ReferenceStandardsView standards={standards} />}
         </article>
       )}
     </main>
