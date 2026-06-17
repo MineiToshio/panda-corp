@@ -2,6 +2,11 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-06-17 — The overnight brake is maxAgents (counted in the engine), not maxSpend
+**What:** `build-orchestration.md` §6: the real run-stopping budget ceiling is now **`maxAgents`** (a hard cap on the subagents the engine spawns), not `maxSpend` (`budget.spent()`). `budget.spent()` under-counts the heavy subagent work and isn't enforced if the supervisor dies — an MC run hit ~6M tokens against a 2M `maxSpend` after an app restart orphaned it. `maxAgents` is counted inside the engine, so it brakes reliably and survives a dead supervisor; `maxSpend` is demoted to a secondary ceiling.
+**Why:** Owner flagged that `maxSpend` could never reliably fire — the orchestrator/verifier writes little, and the engine wasn't capping the real work the subagents do. A spawn-count proxy maps directly to spend AND to the engine's own control flow, so it's both honest and enforceable.
+**Impact:** `factory/standards/build-orchestration.md` (§6). Engine + skill + history: plugin v8.9.0 (`plugin/docs/decision-log.md`).
+
 ## 2026-06-17 — Build-orchestration §7 documents the supervisor's owner-facing duties (canonical)
 **What:** Brought the canonical standard (`build-orchestration.md` §7, "The build supervisor") in line with the supervisor capabilities added in the plugin (v8.7.1/v8.8.0): the **heartbeat is now a VISIBLE periodic message** to the owner (every ~20–30 min via a `ScheduleWakeup` timer, not a silent check); the supervisor **announces each FRD verified** (name, what it does, route to try it, X/Y done); and it **keeps a review worktree** at `last_green` so the owner browses the latest green version (Desktop-session Preview or on-demand dev server) without touching the build. So a future agent reading the *standard* — not only the skill — understands them.
 **Why:** Owner asked these be documented for any future agent. The skill is the operable detail; the standard is the canonical statement — both must carry the owner-facing duties (visibility + reviewability), since silence and "discover-it's-all-wrong-at-the-end" were the two real pain points this session.

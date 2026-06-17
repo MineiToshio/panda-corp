@@ -15,16 +15,21 @@ export const meta = {
 //   args.maxFrds:  OPT-IN cap on FRDs PROCESSED per run (built + blocked + REOPENED) — for
 //     SUPERVISED TEST runs. A reopen COUNTS toward the cap, so chained reopens can't slip
 //     past it (the 2026-06-16 overnight test caught that exact bug). For overnight runs
-//     prefer args.maxSpend (a real token ceiling) over a feature count.
-//   args.maxSpend: ABSOLUTE output-token ceiling via budget.spent() — the REAL overnight
-//     guardrail; works even WITHOUT a +Nk turn directive. null = off.
+//     prefer args.maxAgents (a reliable spend brake) over a feature count.
+//   args.maxAgents: hard cap on subagents spawned this run — THE reliable overnight guardrail
+//     (each implementer/reviewer ≈ work ≈ tokens), counted INSIDE the engine; survives a dead
+//     supervisor and does NOT depend on budget.spent. null = off.
+//   args.maxSpend: output-token ceiling via budget.spent() — UNRELIABLE alone (under-counts
+//     subagent work; unenforced if the supervisor dies). Secondary ceiling. null = off.
 //     (DR-050, owner decision: run to completion, stop by health/budget, not by feature count.)
 const MODE = (args && args.mode) || 'powerful'
 const ONLY = (args && args.frds) || null
 const MAX_FRDS = (args && args.maxFrds) || Infinity   // counts features PROCESSED (built+blocked+reopened); no cap unless set
 const LOW_BUDGET = (args && args.lowBudget) || 80000  // margin to leave when budget.total IS set (a +Nk turn directive)
-const MAX_SPEND = (args && args.maxSpend) || null      // absolute output-token ceiling via budget.spent() — works WITHOUT a +Nk directive
+const MAX_SPEND = (args && args.maxSpend) || null      // output-token ceiling via budget.spent() — UNRELIABLE alone (under-counts subagent work; unenforced if the supervisor dies). Secondary.
+const MAX_AGENTS = (args && args.maxAgents) || null     // hard cap on subagents spawned this run — the RELIABLE spend brake (each implementer/reviewer ≈ work ≈ tokens), counted INSIDE the engine, independent of budget.spent AND of the supervisor surviving. THE real guardrail.
 const MAX_CONSECUTIVE_BLOCKS = (args && args.maxConsecutiveBlocks) || 3   // health breaker: N non-external blocks in a row → stop (something is systemically wrong)
+let agentSpawned = 0   // running count of subagents spawned (the maxAgents brake)
 
 // Concurrency/models per mode (DR-014). `wave` = work orders built in parallel within
 // an FRD. `split` runs test→backend→frontend; otherwise one full-stack implementer
@@ -128,6 +133,7 @@ log(`${plan.frds.length} FRDs with pending work · stack ${plan.stack}${plan.has
 
 // ── Build ONE work order: implement → fast self-test → IN_REVIEW + hand-off ──
 async function buildWO(wo, frd) {
+  agentSpawned += (P.split && plan.hasFrontend) ? 4 : 2   // build agent(s) + self-test
   if (P.split && plan.hasFrontend) {
     await agent(`${EMIT('test-writer', wo.id)}Write the acceptance tests (RED) for work order ${wo.id} from the EARS criteria of FRD ${frd}: ${wo.summary || ''}. No production code.`,
       { label: `test:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:test-writer' })
@@ -147,6 +153,7 @@ async function buildWO(wo, frd) {
 
 // ── FRD gate: ONE review + integration test over the whole feature ──
 async function frdGate(frd, reviewIds) {
+  agentSpawned++
   return await agent(`${EMIT('reviewer', frd)}FRD review + integration gate for ${frd}. Review the work orders built/changed THIS cycle: ${reviewIds.join(', ')} (all IN_REVIEW). This FRD MAY already have OTHER work orders VERIFIED from a previous run — treat those as a stable foundation: exercise them in integration, but do NOT re-review them and NEVER change their state.
   1) Review the changed work orders with your 3 lenses (correctness/security/quality) and write adversarial tests the implementers did not see (anchored in EARS + real bugs), exercising them TOGETHER with the rest of the feature (real integration, not isolated).
   2) Run the FOCUSED gate \`bash .pandacorp/verify.sh --since <last_green_sha>\` (read last_green_sha from .pandacorp/status.yaml) — biome + tsc run globally, but only the TESTS affected since the last green (fast and scales; the full suite runs once at close-out). It must pass clean.
@@ -160,6 +167,7 @@ async function frdGate(frd, reviewIds) {
 // The build resolves problems itself and only stops when it genuinely can't — then it
 // BLOCKS with a reason instead of dying. Run by a strong model (it's hard diagnosis).
 async function attemptRepair(frd, context) {
+  agentSpawned++
   return await agent(`${EMIT('implementer', frd)}The build of FRD ${frd} hit a problem: ${context}. You are the repair engineer — TRY TO FIX it before we give up.
   1) Diagnose the root cause: read the failing output, the work orders, and .pandacorp/comms/progress.md.
   2) If it is within your reach (code / test / local config): fix the PRODUCTION code (never weaken or skip tests) until \`bash .pandacorp/verify.sh\` is green for this feature; set the affected work orders' frontmatter back to \`implementation_status: IN_REVIEW\`; commit (Conventional Commits with scope); return { green: true }.
@@ -188,6 +196,7 @@ function blockFrd(frd, reason) {
 for (const f of plan.frds) {
   if (f.deps && f.deps.some((d) => blockedFrds.includes(d))) { log(`⊘ ${f.frd} skipped (depends on a blocked FRD)`); blockFrd(f.frd, 'needs-owner'); continue }
   if (budget.total && budget.remaining() < LOW_BUDGET) { stopReason = 'budget'; log('Circuit breaker: budget ceiling reached — stopping at a safe point'); break }
+  if (MAX_AGENTS && agentSpawned >= MAX_AGENTS) { stopReason = 'agents'; log(`Agent ceiling reached (${agentSpawned} ≥ maxAgents ${MAX_AGENTS}) — stopping at a safe point`); break }
   if (MAX_SPEND && budget.spent() >= MAX_SPEND) { stopReason = 'budget'; log(`Spend ceiling reached (${Math.round(budget.spent() / 1000)}k ≥ maxSpend ${Math.round(MAX_SPEND / 1000)}k) — stopping at a safe point`); break }
   if ((builtFrds.length + blockedFrds.length + reopenedFrds.length) >= MAX_FRDS) { stopReason = 'maxFrds'; log(`Reached the test cap maxFrds=${MAX_FRDS} (built+blocked+reopened) — stopping at a safe point`); break }
 
@@ -253,7 +262,8 @@ if (allDone) {
   log('Run ended: all FRDs verified.')
 } else {
   const blk = blockedFrds.map((x) => `${x}(${blockedReasons[x]})`).slice(0, 8).join(', ') || 'ninguno'
-  const why = stopReason === 'budget' ? ' Paro por techo de presupuesto.'
+  const why = stopReason === 'agents' ? ' Paro por techo de agentes (maxAgents).'
+    : stopReason === 'budget' ? ' Paro por techo de presupuesto.'
     : stopReason === 'blocks' ? ' Paro: demasiados FRDs bloqueados seguidos (algo sistemico va mal).'
     : stopReason === 'maxFrds' ? ' Paro por el tope de prueba (maxFrds).' : ''
   const ownerMsg = needsOwner.length

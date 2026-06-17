@@ -76,16 +76,20 @@ features: one feature can cost 10x another, so a count protects neither tokens n
 stops only when:
 
 - **Nothing is left** — every FRD is `VERIFIED` → `phase: release`.
-- **Budget ceiling** — `maxSpend` (an absolute output-token ceiling via `budget.spent()`, works without a
-  `+Nk` directive) or a `+Nk` turn directive is nearly spent → stop at the last safe point (a commit).
-  For overnight runs, `maxSpend` is the real token guardrail.
+- **Budget ceiling** — `maxAgents` (a hard cap on subagents spawned this run) is reached, or a `+Nk` turn
+  directive / `maxSpend` is nearly spent → stop at the last safe point (a commit). For overnight runs,
+  **`maxAgents` is the real guardrail**: counted **inside the engine** (each implementer/reviewer ≈ work ≈
+  tokens), so it brakes reliably even when `budget.spent()` under-counts subagent work, or the supervisor has
+  died and left the run orphaned (both observed 2026-06-17 — a run hit ~6M tokens with `maxSpend` set to 2M,
+  because `budget.spent()` didn't reflect the subagents and the orphaned run had no supervisor enforcing it).
+  `maxSpend` (output tokens via `budget.spent()`) is only a **secondary** ceiling.
 - **Health breaker** — too many features `BLOCKED` in a row (default 3, excluding `external`) → stop;
   something is systemically wrong.
 - **Needs the owner** — what remains is `BLOCKED: needs-owner`.
 
 `maxFrds` bounds a deliberate, **supervised test run** and counts features **processed** (built + blocked +
 **reopened** — a reopen counts, so chained reopens can't slip past the cap; a bug the 2026-06-16 overnight
-test caught). It is never the overnight guardrail; `maxSpend` is.
+test caught). It is never the overnight guardrail; `maxAgents` is.
 
 **Repair before block (the owner's rule).** When a work order or the FRD gate fails, the engine first
 runs a **repair pass** (a strong-model agent diagnoses and tries to fix, re-verifying with
