@@ -33,6 +33,7 @@ import { readEvents } from "@/lib/events";
 import { readTasksState } from "@/lib/tasks";
 import { EventFeed } from "./EventFeed";
 import { toEventVM } from "./event-vm";
+import { PartyEmptyState } from "./PartyEmptyState";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -117,17 +118,10 @@ const NO_SIGNAL_STYLE: React.CSSProperties = {
   opacity: 0.7,
 };
 
-const EMPTY_STYLE: React.CSSProperties = {
+const EMPTY_WRAPPER_STYLE: React.CSSProperties = {
   flex: 1,
   display: "flex",
   flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: "calc(var(--spacing, 0.25rem) * 3)",
-  padding: "calc(var(--spacing, 0.25rem) * 12)",
-  color: "var(--color-text-muted, currentColor)",
-  opacity: 0.6,
-  textAlign: "center",
 };
 
 const FEED_WRAPPER_STYLE: React.CSSProperties = {
@@ -199,27 +193,14 @@ export function PartyTab({
         )}
       </header>
 
-      {/* Body: feed or empty state */}
+      {/* Body: feed or empty state (CMP-06-empty, WO-06-011) */}
       {active ? (
         <div style={FEED_WRAPPER_STYLE}>
           <EventFeed events={eventVMs} cap={cap} />
         </div>
       ) : (
-        <div
-          data-testid="party-tab-empty"
-          style={EMPTY_STYLE}
-          role="status"
-          aria-label="Sin equipo activo"
-        >
-          <span aria-hidden="true" style={{ fontSize: "2rem" }}>
-            ⚔️
-          </span>
-          <p style={{ margin: 0, fontSize: "0.875rem" }}>
-            Sin equipo activo ni eventos registrados
-          </p>
-          <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>
-            Los agentes aparecerán aquí cuando se inicie una construcción
-          </p>
+        <div data-testid="party-tab-empty" style={EMPTY_WRAPPER_STYLE}>
+          <PartyEmptyState />
         </div>
       )}
     </section>

@@ -40,7 +40,7 @@
  *   WO-06-003 (state-map.ts) — AgentState, VisualAction
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { AgentSnapshot, EngineAgent, PartyEngine } from "./engine";
 import { createPartyEngine } from "./engine";
@@ -168,6 +168,19 @@ const SPRITE_HALF = 27;
 
 export function PartyScene({ roster, agents, mode, events }: PartySceneProps): React.JSX.Element {
   // -----------------------------------------------------------------------
+  // Reduced-motion detection (FRD-13, WO-06-011)
+  // Read matchMedia once on mount — disables the RAF loop when true so ALL
+  // Party animation is suppressed for users who have opted out of motion.
+  // Using useState initializer so it runs once synchronously before the
+  // first render (avoids a flash of animated content).
+  // -----------------------------------------------------------------------
+  const [reducedMotion] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    if (typeof window.matchMedia !== "function") return false;
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  });
+
+  // -----------------------------------------------------------------------
   // Refs — sprite DOM elements (keyed by role id)
   // -----------------------------------------------------------------------
   const spriteRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -249,6 +262,15 @@ export function PartyScene({ roster, agents, mode, events }: PartySceneProps): R
       engine.applyEvents(initialEvents);
     }
 
+    // When the user prefers reduced motion, skip the RAF loop entirely.
+    // Sprites remain visible at their initial positions with their state class,
+    // but no continuous animation runs (FRD-13, WO-06-011).
+    if (reducedMotion) {
+      return () => {
+        runIdRef.current += 1;
+      };
+    }
+
     // RAF loop — advances the engine and syncs DOM sprite positions/classes
     function loop(now: number): void {
       if (runIdRef.current !== myId) return; // self-stop on re-mount
@@ -278,7 +300,7 @@ export function PartyScene({ roster, agents, mode, events }: PartySceneProps): R
       runIdRef.current += 1;
       cancelAnimationFrame(rafHandle);
     };
-  }, [rosterKey]);
+  }, [rosterKey, reducedMotion]);
 
   // -----------------------------------------------------------------------
   // Apply new events when the events prop changes (without remounting)
@@ -332,6 +354,7 @@ export function PartyScene({ roster, agents, mode, events }: PartySceneProps): R
     <section
       data-testid="party-scene"
       aria-label="Mapa RPG del equipo de agentes"
+      data-reduced-motion={reducedMotion ? "true" : undefined}
       style={sceneStyle}
     >
       {/* Stations — fixed pixel-art zone backgrounds with labels */}
