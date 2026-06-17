@@ -5,9 +5,9 @@ slug: tab-summary
 title: 'WO-04-005 — Summary tab: summary, key points, decisions, activity log'
 status: DRAFT
 parent: FRD-04
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-17'
 ---
 # WO-04-005 — Summary tab: summary, key points, decisions, activity log
 
@@ -47,3 +47,35 @@ Component tests:
 - [ ] Server Components only (no client state needed here).
 - [ ] Spanish copy via i18n; tokens only; `tabular-nums` on the count badge.
 - [ ] `bash .pandacorp/verify.sh` passes.
+
+## Status Note
+
+**Built:** `TabSummary` (CMP-04-tab-summary), `DecisionsBlock` (CMP-04-decisions), `ActivityLogBlock` (CMP-04-activity-log) — all Server Components, no `"use client"`. The workspace page (`app/projects/[slug]/page.tsx`) mounts `TabSummary` for the `"summary"` tab, calling `readActivityLog(projectPath)` and `readDecisions(projectPath)` and deriving `pendingDecisions` server-side before passing props.
+
+**Interfaces / contracts exposed:**
+
+```tsx
+// app/projects/[slug]/_components/tab-summary.tsx
+export interface TabSummaryProps {
+  summary: string;
+  keyPoints: string[];
+  activityLog: ActivityLog;           // from lib/docs.ts readActivityLog()
+  decisions: DecisionPoint[];         // from lib/docs.ts readDecisions()
+  pendingDecisions: number;           // caller: decisions.filter(dp => !dp.resolved).length
+}
+export function TabSummary(props: TabSummaryProps): React.JSX.Element
+```
+
+Consumed interfaces (WO-04-002, `lib/docs.ts`):
+- `readActivityLog(projectPath): ActivityLog` — `{ entries: string[] }`, empty when `.pandacorp/comms/progress.md` absent.
+- `readDecisions(projectPath): DecisionPoint[]` — `{ title, recommendation?, resolved }[]`, empty when `.pandacorp/inbox/decisions.md` absent.
+
+**Integration seams:**
+- `page.tsx` passes `pendingDecisions` count derived from `decisions.filter(dp => !dp.resolved).length` (not from `status.yaml` `pending_decisions`) — purely from the parsed file.
+- Warning treatment is on `data-pending="true"` attribute; reviewer can assert it without CSS computed values.
+- A11y: state never by color alone — `data-testid="decision-warning-icon"` (⚠ glyph) present on every unresolved decision item; `decisions-count-badge` has `role="status"`; empty states have `role="status"`.
+- `tabular-nums` applied via `fontVariantNumeric: "tabular-nums"` inline style on the count badge.
+
+**Test files:** `app/projects/[slug]/_components/tab-summary.test.tsx` — 25 tests, all GREEN, covering AC-04-003.1, AC-04-003.2, AC-04-003.3, AC-04-004.1 and a11y (FRD-13 icon-not-color-alone).
+
+**Gate:** `bash .pandacorp/verify.sh` → biome clean, tsc clean, 3440 tests pass (120 files, 2 expected-fail, 5 skipped).
