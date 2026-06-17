@@ -5,10 +5,9 @@ slug: timeline-selector
 title: 'WO-12-004 — Timeline selector (WO → task → action, durations)'
 status: ACTIVE
 parent: FRD-12
-implementation_status: BLOCKED
-blocked_reason: error
+implementation_status: VERIFIED
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-17'
 ---
 # WO-12-004 — Timeline selector (WO → task → action, durations)
 
@@ -44,3 +43,7 @@ last_updated: '2026-06-16'
 **HEAD:** stays at `654bfe8` (no broken fix committed). `last_green_sha=d13d887` unchanged.
 
 **Escalation required from owner.** Test command run: `vitest run timeline.review2.test.ts` → 10/12 PASS, 2 FAIL.
+
+## Resolution: VERIFIED (FRD-12 gate, 2026-06-17)
+
+The B2 fix landed in committed code (`deriveWoRow` no-task branch now tracks `maxDirectActionMs` and keeps the WO `running` when `maxDirectActionMs > maxTerminalMs`; `timeline.ts:262-277`). `vitest run timeline.review2.test.ts` → **12/12 PASS**. The earlier BLOCKED frontmatter was stale (HEAD had moved past `654bfe8`). The FRD-gate reviewer mutation-tested the guard (disabling it reds 3 tests) and exercised the running-WO end-to-end through the toggle (`frd12.gate.review.test.tsx`). State corrected to VERIFIED.
