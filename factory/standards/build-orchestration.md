@@ -130,3 +130,40 @@ The standard is embodied in `${CLAUDE_PLUGIN_ROOT}/templates/docs/`: `prd-templa
 `frd-template.md`, `blueprint-template.md` (with the Build Plan), `work-order-template.md` (with the
 Status Note). The product-phase skills (`spec`/`blueprint`/`work-orders`) generate from these; the
 build engine (`implement`) consumes them; `iterate`/`new-version` reopen work orders through them.
+
+## 9. Concurrent-run guard (heartbeat-based lock)
+
+Only ONE build may run on a project at a time. A second `/pandacorp:implement` on the same project
+while one is already active would cause race conditions on the frontmatter (double-pickup of the same
+work order), `status.yaml` corruption, and conflicting git commits.
+
+**The mechanism: TTL lock via supervisor heartbeat.**
+
+`status.yaml` carries three fields written at launch and cleared on close:
+
+```yaml
+running: true
+run_started_at: "2026-06-17T10:00:00Z"   # set once at launch
+supervisor_heartbeat: "2026-06-17T10:08:30Z"  # updated every ~2 min by the supervisor
+```
+
+The **supervisor** (the agent that runs `implement`) writes `supervisor_heartbeat` to `status.yaml`
+on every Monitor tick (~2 min). This is the liveness signal — as long as the supervisor is alive, the
+heartbeat stays fresh.
+
+The **`implement` preflight** checks, after confirming `status.yaml` exists:
+
+| `running` | `supervisor_heartbeat` age | Action |
+|---|---|---|
+| `false` (or absent) | — | proceed normally |
+| `true` | < 10 min | **ABORT**: tell the owner (in Spanish) there is already an active build; include `run_started_at` so they know when it started. Don't launch. |
+| `true` | ≥ 10 min (or field missing) | **Stale lock**: supervisor died (internet cut, crash, etc.). Warn the owner, reset `running: false` + clear `supervisor_heartbeat`, then proceed. |
+
+**Why 10 minutes?** The supervisor heartbeats every ~2 min. Five missed heartbeats (10 min of
+silence) is a conservative signal that it is genuinely dead, not just slow. This avoids false
+positives while still auto-recovering quickly after a crash.
+
+**Zombie recovery is automatic.** The owner never needs to hand-edit `status.yaml` to clear a stale
+lock — the next `implement` detects the stale heartbeat and resets it. If a run was interrupted
+mid-build, the frontmatter state (`implementation_status`) is still valid and the resumable engine
+picks up from where it left off without rebuilding `VERIFIED` work orders.
