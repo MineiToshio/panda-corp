@@ -29,17 +29,30 @@
  */
 
 import { TASKS_DIR } from "@/lib/config";
+import type { BuildMode } from "@/lib/constants";
+import { DEFAULT_BUILD_MODE } from "@/lib/constants";
 import { readEvents } from "@/lib/events";
 import { readTasksState } from "@/lib/tasks";
+import { AchievementToast } from "./AchievementToast";
 import { EventFeed } from "./EventFeed";
 import { toEventVM } from "./event-vm";
+import { agentColor, type Role, rosterFor } from "./layout";
 import { PartyEmptyState } from "./PartyEmptyState";
+import type { AgentInfo } from "./PartyScene";
+import { PartyScene } from "./PartyScene";
+import { type AgentState, eventToVisual } from "./state-map";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
 const DEFAULT_CAP = 200;
+
+/**
+ * Initial visual state for an agent with no prior event in the tail.
+ * Idle = present but not yet acting (PARTY.md §1).
+ */
+const DEFAULT_AGENT_STATE: AgentState = "idle";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -64,6 +77,45 @@ export interface PartyTabProps {
    * Default: 200 (AC-06-014.1).
    */
   cap?: number;
+  /**
+   * Build mode — selects the roster and station layout for the RPG scene
+   * (IF-06-roster / IF-06-positions). Derived from the project's build mode by
+   * the page; defaults to {@link DEFAULT_BUILD_MODE} ("balanced") in isolation.
+   */
+  mode?: BuildMode;
+}
+
+// ---------------------------------------------------------------------------
+// Snapshot derivation (server-side; blueprint §3 PartySnapshot)
+// ---------------------------------------------------------------------------
+
+/**
+ * Derive the initial per-agent visual states from the capped event tail.
+ *
+ * For each role in the roster we replay the tail in order and keep the LAST
+ * `setState` produced by `eventToVisual` for that agent (the most recent visual
+ * intent wins). Agents with no event in the tail default to {@link DEFAULT_AGENT_STATE}.
+ *
+ * Pure: no DOM, no I/O. The mapping event→state lives only in IF-06-state-map.
+ */
+function deriveAgents(
+  roster: readonly Role[],
+  events: readonly { event: string; agent?: string; session?: string; status?: string }[],
+): AgentInfo[] {
+  // Last known state per agent id (only setState actions carry a concrete state).
+  const lastState = new Map<string, AgentState>();
+  for (const ev of events) {
+    const action = eventToVisual(ev as Parameters<typeof eventToVisual>[0]);
+    if (action.kind === "setState") {
+      lastState.set(action.agentId, action.state);
+    }
+  }
+
+  return roster.map((role) => ({
+    id: role,
+    state: lastState.get(role) ?? DEFAULT_AGENT_STATE,
+    color: agentColor(role),
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -124,8 +176,27 @@ const EMPTY_WRAPPER_STYLE: React.CSSProperties = {
   flexDirection: "column",
 };
 
+const BODY_STYLE: React.CSSProperties = {
+  flex: 1,
+  display: "flex",
+  flexDirection: "row",
+  minHeight: 0,
+  overflow: "hidden",
+  gap: "calc(var(--spacing, 0.25rem) * 3)",
+  padding: "calc(var(--spacing, 0.25rem) * 3)",
+};
+
+const SCENE_WRAPPER_STYLE: React.CSSProperties = {
+  flexShrink: 0,
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "center",
+  overflow: "auto",
+};
+
 const FEED_WRAPPER_STYLE: React.CSSProperties = {
   flex: 1,
+  minWidth: 0,
   overflow: "hidden",
   display: "flex",
   flexDirection: "column",
@@ -149,6 +220,7 @@ export function PartyTab({
   eventsPath,
   tasksDir = TASKS_DIR,
   cap = DEFAULT_CAP,
+  mode = DEFAULT_BUILD_MODE,
 }: PartyTabProps): React.JSX.Element {
   // Read the capped tail of the event stream (read-only, never throws).
   const snapshot = readEvents({ path: eventsPath, cap });
@@ -163,6 +235,18 @@ export function PartyTab({
   // Active = tasks directory has at least one team AND there are events to show.
   // WO-06-005 TDD: "absent tasks/ → active=false"
   const active = tasksState.active && eventVMs.length > 0;
+
+  // Server-derived Party snapshot (blueprint §3): roster + initial agent states
+  // for the RPG scene. roster comes from the build mode (IF-06-roster); initial
+  // states are replayed from the event tail (IF-06-state-map). Both are pure.
+  const roster = rosterFor(mode);
+  const agents = deriveAgents(roster, events);
+
+  // Visual actions for the scene's animation queue (prop-driven event dispatch).
+  const visualActions = events.map(eventToVisual);
+
+  // The most recent event view-model — drives the achievement toast (CMP-06-achievement).
+  const latestEvent = eventVMs.length > 0 ? eventVMs[eventVMs.length - 1] : undefined;
 
   return (
     <section data-testid="party-tab" aria-label="Panel del equipo de agentes" style={TAB_STYLE}>
@@ -193,10 +277,27 @@ export function PartyTab({
         )}
       </header>
 
-      {/* Body: feed or empty state (CMP-06-empty, WO-06-011) */}
+      {/* Body: RPG scene + feed, or empty state (CMP-06-empty, WO-06-011) */}
       {active ? (
-        <div style={FEED_WRAPPER_STYLE}>
-          <EventFeed events={eventVMs} cap={cap} />
+        <div style={BODY_STYLE}>
+          {/* CMP-06-scene — the RPG map (zones + sprites). The heart of the feature. */}
+          <div style={SCENE_WRAPPER_STYLE}>
+            <PartyScene
+              roster={roster}
+              agents={agents}
+              active={active}
+              mode={mode}
+              events={visualActions}
+            />
+          </div>
+
+          {/* CMP-06-feed — the capped event log alongside the scene. */}
+          <div style={FEED_WRAPPER_STYLE}>
+            <EventFeed events={eventVMs} cap={cap} />
+          </div>
+
+          {/* CMP-06-achievement — celebratory toast on a work-order-close event. */}
+          <AchievementToast latestEvent={latestEvent} />
         </div>
       ) : (
         <div data-testid="party-tab-empty" style={EMPTY_WRAPPER_STYLE}>
