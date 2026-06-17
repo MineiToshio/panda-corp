@@ -5,7 +5,7 @@ slug: roster-positions
 title: WO-06-002 — Roster + station positions (pure layout)
 status: DRAFT
 parent: FRD-06
-implementation_status: PLANNED
+implementation_status: IN_PROGRESS
 source_requirements: []
 last_updated: '2026-06-16'
 ---
