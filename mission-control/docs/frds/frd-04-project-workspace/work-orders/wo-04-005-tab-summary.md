@@ -23,15 +23,15 @@ last_updated: '2026-06-16'
 ## Scope
 - `CMP-04-tab-summary` (Server): renders summary + key points, then `CMP-04-decisions` and
   `CMP-04-activity-log`.
-- `CMP-04-decisions` (Server): consumes `readDecisions()` (WO-04-002), warning highlight when there
+- `CMP-04-decisions` (Server): consumes `readDecisions()` (WO-04-001), warning highlight when there
   are pending points, count badge; neutral empty state otherwise (mirrors prototype `decisionesBox`).
-- `CMP-04-activity-log` (Server): consumes `readActivityLog()` (WO-04-002), bulleted log; "no
+- `CMP-04-activity-log` (Server): consumes `readActivityLog()` (WO-04-001), bulleted log; "no
   activity yet" empty state (mirrors prototype `logBox`).
 - **Out of scope:** the `/pandacorp:decide` command row reuses the shared `CopyButton` (already in
   components); no new write path.
 
 ## Dependencies
-- **Intra:** WO-04-002 (`readActivityLog`, `readDecisions`), WO-04-004 (shell mounts this tab).
+- **Intra:** WO-04-001 (`readActivityLog`, `readDecisions`), WO-04-004 (shell mounts this tab).
 - **Cross:** FRD-01 `lib/status.ts` (`pending_decisions` for AC-04-004.1).
 
 ## TDD (RED → GREEN → refactor)

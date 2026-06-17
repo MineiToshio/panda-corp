@@ -26,7 +26,7 @@ Render the Reference's **commands** and **agents** catalogs, **derived** from th
 - **AC-08-003.5** — The view SHALL use FRD-13 tokens; inline command names SHALL offer a `CopyButton` (copy only, no exec).
 
 ## Dependencies
-- FRD-07 WO-07-001 (`readSkills`), WO-07-002 (`readAgents`). Cross-feature — REUSE, do not duplicate.
+- FRD-07 WO-07-001 (`readSkills`, `readAgents`). Cross-feature — REUSE, do not duplicate.
 - WO-08-002 (shell). Intra-feature.
 - FRD-02 `CopyButton`, FRD-13 tokens. Cross-feature.
 

@@ -8,8 +8,7 @@ Read [`../blueprint.md`](../blueprint.md) first.
 
 | WO | Title | Layer | Implements |
 |---|---|---|---|
-| [WO-04-001](./wo-04-001-docs-reader.md) | `lib/docs.ts` — project doc tree + raw read | lib (TDD) | IF-04-docs |
-| [WO-04-002](./wo-04-002-comms-readers.md) | `lib/docs.ts` — activity log + decisions readers | lib (TDD) | IF-04-docs |
+| [WO-04-001](./wo-04-001-docs-reader.md) | `lib/docs.ts` — doc tree + raw read + comms readers | lib (TDD) | IF-04-docs |
 | [WO-04-003](./wo-04-003-workspace-commands.md) | `lib/next-step.ts` — `workspaceCommands(phase)` | lib (TDD) | IF-04-next-step |
 | [WO-04-004](./wo-04-004-workspace-shell.md) | Workspace shell: header + Mission Objectives bar + tab bar | app + component | CMP-04-workspace/header/objectives-bar/tabbar |
 | [WO-04-005](./wo-04-005-tab-summary.md) | Summary tab: summary, key points, decisions, activity log | component | CMP-04-tab-summary/decisions/activity-log |
@@ -18,11 +17,12 @@ Read [`../blueprint.md`](../blueprint.md) first.
 
 ## Order & parallelization
 
-- **First (parallel):** WO-04-001, WO-04-002, WO-04-003 are independent pure-`lib` readers — TDD
-  with fixtures, no UI. They can run concurrently.
+- **First (parallel):** WO-04-001 and WO-04-003 are independent pure-`lib` readers — TDD with
+  fixtures, no UI. They can run concurrently. (WO-04-001 owns the whole `lib/docs.ts`: doc tree + raw
+  read + activity-log/decisions comms readers, built together to avoid same-file collisions.)
 - **Then:** WO-04-004 (shell) depends on `lib/status.ts` (FRD-01) and the readers above for the
   objectives bar.
-- **Then (parallel after the shell):** WO-04-005 (needs WO-04-001/002), WO-04-006 (needs WO-04-001),
+- **Then (parallel after the shell):** WO-04-005 (needs WO-04-001), WO-04-006 (needs WO-04-001),
   WO-04-007 (needs WO-04-003; slots FRD-11's selector behind a placeholder until FRD-11 lands).
 - The **Work orders** and **Party** tabs are mounted from FRD-05 / FRD-06 — out of scope here; the
   shell renders a placeholder slot for them until those features land.

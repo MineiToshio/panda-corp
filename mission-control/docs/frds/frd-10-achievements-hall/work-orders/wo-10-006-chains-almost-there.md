@@ -27,7 +27,7 @@ tier via `CMP-09-xp-bar`, next-tier name, unlock date+project) and the **"Almost
 - **AC-10-006.5** — Tier colors SHALL come from FRD-13 tier tokens; state never by color alone (badge label present).
 
 ## Dependencies
-- WO-10-002 (`computeChains`), WO-10-005 (page shell). Intra-feature.
+- WO-10-001 (`computeChains`), WO-10-005 (page shell). Intra-feature.
 - FRD-09 `CMP-09-xp-bar`. FRD-13 tier tokens. Cross-feature.
 
 ## TDD plan

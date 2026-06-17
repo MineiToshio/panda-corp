@@ -26,7 +26,7 @@ that the agent levels up by **completing work orders**.
 - **AC-07-007.4** — Avatar/level/title and the XP bar SHALL use FRD-13 tokens (rationed accent on the bar), with state never by color alone.
 
 ## Dependencies
-- WO-07-002 (`readAgents()`), WO-07-005 (page shell). Intra-feature.
+- WO-07-001 (`readAgents()`), WO-07-005 (page shell). Intra-feature.
 - **FRD-09** `IF-09-agent-xp` (agent XP from work orders) + the pixel-art avatar component
   (FRD-09 WO-09-002/003). Cross-feature — this WO depends on those.
 - FRD-13 tokens. Cross-feature.

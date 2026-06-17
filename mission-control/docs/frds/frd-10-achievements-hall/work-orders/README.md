@@ -18,31 +18,26 @@ comes first; the Hall page/components consume it. **Honesty encoded as negative 
 ## Order & parallelization
 
 ```
-WO-10-001 (lib/achievements: stats)   ─┐
-WO-10-002 (lib/achievements: chains)  ─┤  parallel pure functions (over FRD-01/03/04/06 readers)
-WO-10-003 (lib/achievements: uniques) ─┤
-WO-10-004 (lib/achievements: secrets) ─┘
+WO-10-001 (lib/achievements: stats/chains/uniques/secrets)  ← the whole engine, one module
         │
         ▼
 WO-10-005 (Hall page shell + hero + tabs + stats panel)  ← WO-10-001, FRD-09, FRD-13
         │
-        ├─ WO-10-006 (chains + "Almost there")   ← WO-10-002, WO-10-005
-        ├─ WO-10-007 (unique achievements)        ← WO-10-003, WO-10-005
-        └─ WO-10-008 (secret achievements)        ← WO-10-004, WO-10-005
+        ├─ WO-10-006 (chains + "Almost there")   ← WO-10-001, WO-10-005
+        ├─ WO-10-007 (unique achievements)        ← WO-10-001, WO-10-005
+        └─ WO-10-008 (secret achievements)        ← WO-10-001, WO-10-005
 ```
 
-001–004 are parallel pure-function WOs. 006/007/008 are parallel once the page shell (005) and their
-reader exist.
+WO-10-001 is the single `lib/achievements.ts` engine (the four families share the file and the same
+readers, so they are built together to avoid same-file collisions). 006/007/008 are parallel once the
+page shell (005) and the engine (001) exist.
 
 ## Work orders
 | ID | Title | Deploy unit | Depends on |
 |---|---|---|---|
-| WO-10-001 | `lib/achievements.ts` — stats (only-grow counters) | `lib/achievements.ts` (new) | FRD-01/03/04/06 |
-| WO-10-002 | `lib/achievements.ts` — chains + endowed progress | `lib/achievements.ts` (new) | WO-10-001 |
-| WO-10-003 | `lib/achievements.ts` — unique achievements | `lib/achievements.ts` (new) | FRD-01/04/06 |
-| WO-10-004 | `lib/achievements.ts` — secret achievements | `lib/achievements.ts` (new) | FRD-01/04/06 |
+| WO-10-001 | `lib/achievements.ts` — engine (stats/chains/uniques/secrets) | `lib/achievements.ts` (new) | FRD-01/03/04/06 |
 | WO-10-005 | Hall page shell + hero + tabs + stats panel | `app/achievements/page.tsx` | WO-10-001, FRD-09, FRD-13 |
-| WO-10-006 | Chains cards + "Almost there" | `components/hall/chains*` | WO-10-002, WO-10-005 |
-| WO-10-007 | Unique achievements by category | `components/hall/uniques*` | WO-10-003, WO-10-005 |
-| WO-10-008 | Secret achievements | `components/hall/secrets*` | WO-10-004, WO-10-005 |
+| WO-10-006 | Chains cards + "Almost there" | `components/hall/chains*` | WO-10-001, WO-10-005 |
+| WO-10-007 | Unique achievements by category | `components/hall/uniques*` | WO-10-001, WO-10-005 |
+| WO-10-008 | Secret achievements | `components/hall/secrets*` | WO-10-001, WO-10-005 |
 </content>

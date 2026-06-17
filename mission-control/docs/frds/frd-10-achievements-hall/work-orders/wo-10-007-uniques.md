@@ -25,7 +25,7 @@ Consistency, Mastery), with date+project when unlocked and the condition when lo
 - **AC-10-007.4** — Styling SHALL use FRD-13 tokens only; numbers `tabular-nums`.
 
 ## Dependencies
-- WO-10-003 (`computeUniques`), WO-10-005 (page shell). Intra-feature.
+- WO-10-001 (`computeUniques`), WO-10-005 (page shell). Intra-feature.
 - FRD-13 tokens. Cross-feature.
 
 ## TDD plan

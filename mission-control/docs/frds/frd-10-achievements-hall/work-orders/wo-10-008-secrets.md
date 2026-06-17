@@ -25,7 +25,7 @@ criterion** (what triggered it) plus date+project. Never a permanent, loot-box-s
 - **AC-10-008.4** — Styling SHALL use FRD-13 tokens only; locked/unlocked distinction not by color alone (silhouette/icon/label).
 
 ## Dependencies
-- WO-10-004 (`computeSecrets`), WO-10-005 (page shell). Intra-feature.
+- WO-10-001 (`computeSecrets`), WO-10-005 (page shell). Intra-feature.
 - FRD-13 tokens. Cross-feature.
 
 ## TDD plan
