@@ -6,6 +6,7 @@ title: Replace with a one-line title
 status: DRAFT             # DRAFT | ACTIVE | BLOCKED | SUPERSEDED   (document lifecycle)
 parent: FRD-NN            # the owning FRD
 implementation_status: PLANNED   # PLANNED | IN_PROGRESS | IN_REVIEW | VERIFIED | BLOCKED
+blocked_reason:           # only when BLOCKED: needs-owner | external | error
 source_requirements: []   # REQ-NN-MMM ids this WO delivers (traceability)
 last_updated: YYYY-MM-DD
 ---
@@ -15,8 +16,11 @@ last_updated: YYYY-MM-DD
 > **`implementation_status` is the build engine's source of truth.** It builds only `PLANNED` /
 > `IN_PROGRESS` work orders and NEVER rebuilds a `VERIFIED` one. The flow is
 > `PLANNED → IN_PROGRESS` (being built) `→ IN_REVIEW` (built, own tests green, awaiting the FRD's
-> review/test gate) `→ VERIFIED` (FRD review + suite green, closed). `BLOCKED` is lateral (needs an
-> owner decision). Never hand-set `VERIFIED` without the FRD gate passing.
+> review/test gate) `→ VERIFIED` (FRD review + suite green, closed). `BLOCKED` is lateral: the engine
+> reaches it only **after a repair pass fails**, and it carries a **`blocked_reason`** — `needs-owner`
+> (a human must act: an env var/secret, an external account, a product decision — also logged to
+> `.pandacorp/inbox/decisions.md`), `external` (internet/upstream outage, retried later), or `error`
+> (an unresolved technical fault). Never hand-set `VERIFIED` without the FRD gate passing.
 
 ## Summary
 

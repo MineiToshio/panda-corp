@@ -20,7 +20,7 @@ only `status`.
 | `IN_PROGRESS` | build started | resume it, don't restart |
 | `IN_REVIEW` | built, its own tests green, awaiting the FRD review/test gate | not rebuilt; waiting on its FRD |
 | `VERIFIED` | FRD review + suite green | **never rebuilt** |
-| `BLOCKED` | stuck; needs an owner decision | skipped; surfaced to the owner |
+| `BLOCKED` | stuck after a repair pass failed; carries a `blocked_reason` | skipped; surfaced to the owner with the reason |
 
 **Rules:** the engine builds only `PLANNED`/`IN_PROGRESS` and never rebuilds `VERIFIED`. Never
 hand-set `VERIFIED` without the FRD gate passing. Changing this field **is** the instruction to the
@@ -62,7 +62,38 @@ The build engine reviews and tests **per FRD**, not per work order:
   flows with the preview tools) — designed in, **opt-in per project** (default off; on for critical web
   flows). This moves review cost from O(work orders) to O(FRDs).
 
-## 6. Templates
+## 6. How a run stops — health & budget, never a feature count
+
+The build **runs to completion** by default (owner decision 2026-06-16). It does NOT stop after N
+features: one feature can cost 10x another, so a count protects neither tokens nor progress. A run
+stops only when:
+
+- **Nothing is left** — every FRD is `VERIFIED` → `phase: release`.
+- **Budget ceiling** — the run's token budget is nearly spent → stop at the last safe point (a commit).
+  This is the real token guardrail; set it via the run's budget directive.
+- **Health breaker** — too many features `BLOCKED` in a row (default 3, excluding `external`) → stop;
+  something is systemically wrong.
+- **Needs the owner** — what remains is `BLOCKED: needs-owner`.
+
+`maxFrds` exists ONLY to bound a deliberate, **supervised test run** while the engine is being proven
+— never as the overnight guardrail.
+
+**Repair before block (the owner's rule).** When a work order or the FRD gate fails, the engine first
+runs a **repair pass** (a strong-model agent diagnoses and tries to fix, re-verifying with
+`verify.sh`). Only when the fix is genuinely out of reach does the feature go `BLOCKED`, and the block
+carries a **`blocked_reason`**:
+
+| `blocked_reason` | Meaning | What happens |
+|---|---|---|
+| `needs-owner` | a human must act: env var/secret, external account, product decision | logged to `.pandacorp/inbox/decisions.md`; owner notified; build continues with independent FRDs |
+| `external` | transient outside failure (no internet, upstream 5xx) | retried on a later run; does NOT trip the health breaker |
+| `error` | an unresolved technical fault | surfaced; build continues with independent FRDs |
+
+A blocked FRD never halts the whole build unless it's a dependency of everything left, or the health
+breaker trips. Notifications are macOS-desktop (`osascript`) from the engine plus a phone
+`PushNotification` from the supervising agent when Remote Control is on (no third-party push app).
+
+## 7. Templates
 
 The standard is embodied in `${CLAUDE_PLUGIN_ROOT}/templates/docs/`: `prd-template.md`,
 `frd-template.md`, `blueprint-template.md` (with the Build Plan), `work-order-template.md` (with the

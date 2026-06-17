@@ -1,6 +1,6 @@
 export const meta = {
   name: 'pandacorp-build',
-  description: 'Pandacorp build engine v2 (DR-050): builds FRD by FRD using each blueprint\'s Build Plan, with state in the work-order frontmatter (implementation_status), ONE review/test gate per FRD (not per work order), hand-offs, a hard per-run FRD cap, dual-channel owner notifications (desktop + phone), fail-closed gates and one commit per safe point. Resumable by construction — it reads the frontmatter and NEVER rebuilds a VERIFIED work order.',
+  description: 'Pandacorp build engine v2 (DR-050): builds FRD by FRD using each blueprint\'s Build Plan, with state in the work-order frontmatter (implementation_status). ONE review/test gate per FRD (not per work order), hand-offs, fail-closed gates, one commit per safe point. Runs to COMPLETION by default; stops ONLY by health or budget — nothing left to build, a budget ceiling, too many blocks in a row, or work that needs the owner. It TRIES TO REPAIR before giving up; an unrecoverable stop BLOCKS with a reason (needs-owner | external | error) instead of dying. Resumable: it reads the frontmatter and NEVER rebuilds a VERIFIED work order.',
   phases: [
     { title: 'Baseline' },
     { title: 'Plan' },
@@ -10,17 +10,19 @@ export const meta = {
 }
 
 // ── Input (all optional) ─────────────────────────────────────────────────────
-//   args.mode: 'pro' | 'balanced' | 'powerful' | 'deep'  (default: balanced)
-//   args.frds: specific FRD folders to limit to (default: all with pending work)
-//   args.maxFrds: hard cap on FRDs built per run (default 6) — a token-budget guardrail
+//   args.mode:    'pro' | 'balanced' | 'powerful' | 'deep'  (default: balanced)
+//   args.frds:    specific FRD folders to limit to           (default: all pending)
+//   args.maxFrds: OPT-IN cap on FRDs built per run — for SUPERVISED TEST runs only.
+//     OMIT it for normal/overnight runs: the build runs to completion and stops by
+//     HEALTH or BUDGET, never by an arbitrary feature count (DR-050, owner decision
+//     2026-06-16). A feature can cost 10x another, so "stop after N" protects neither
+//     tokens nor progress; the real guardrails are the budget ceiling + the health
+//     breakers below.
 const MODE = (args && args.mode) || 'balanced'
 const ONLY = (args && args.frds) || null
-
-// HARD per-run guardrail (token safety, independent of budget.total): a single run
-// builds at most MAX_FRDS features then STOPS at a safe point, so one unattended run
-// can never build the whole app and burn the week's tokens. The supervisor relaunches
-// the next chunk. The owner can raise/lower it with args.maxFrds.
-const MAX_FRDS = (args && args.maxFrds) || 6
+const MAX_FRDS = (args && args.maxFrds) || Infinity   // no count cap unless explicitly set (test runs)
+const LOW_BUDGET = 80000                              // stop with at least this much output-token margin left
+const MAX_CONSECUTIVE_BLOCKS = 3                      // health breaker: N non-external blocks in a row → stop (something is systemically wrong)
 
 // Concurrency/models per mode (DR-014). `wave` = work orders built in parallel within
 // an FRD. `split` runs test→backend→frontend; otherwise one full-stack implementer
@@ -32,18 +34,18 @@ const PROFILES = {
   deep:     { wave: 6, worker: 'opus',   judge: 'opus',   split: true  },
 }
 const P = PROFILES[MODE] || PROFILES.balanced
-log(`Mode ${MODE} · wave ≤${P.wave} · maxFrds ${MAX_FRDS} · workers ${P.worker} · judge ${P.judge}`)
+log(`Mode ${MODE} · wave ≤${P.wave} · maxFrds ${MAX_FRDS === Infinity ? 'sin tope (corre hasta terminar)' : MAX_FRDS} · workers ${P.worker} · judge ${P.judge}`)
 
 const EMIT = (role, wo) =>
   `Before you start, record your activity for Party (one append, fire-and-forget):\n` +
   `  printf '{"event":"AgentWorking","at":"%s","project":"%s","data":{"role":"${role}","wo":"${wo}"}}\\n' "$(date -u +%FT%TZ)" "$(basename "$PWD")" >> ~/.claude/dashboard-events.ndjson\n`
 
-// Owner notification on BOTH channels — macOS desktop (osascript) AND phone (ntfy, if a
-// topic is configured at .pandacorp/run/ntfy-topic). Fire-and-forget; never blocks the build.
+// Owner notification — macOS desktop only (osascript). Fire-and-forget; never blocks the
+// build. (Phone push, when Remote Control is on, is sent by the supervising agent via
+// PushNotification — see the implement skill. No third-party push app: owner decision 2026-06-16.)
 const NOTIFY = (msg, sound) =>
-  ` Notify the owner on BOTH channels (run via Bash, fire-and-forget): ` +
-  `osascript -e 'display notification "${msg}" with title "Pandacorp build" sound name "${sound || 'Basso'}"' 2>/dev/null || true; ` +
-  `T=$(cat .pandacorp/run/ntfy-topic 2>/dev/null); [ -n "$T" ] && curl -fsS -m 5 -H "Title: Pandacorp build" -d "${msg}" "https://ntfy.sh/$T" >/dev/null 2>&1 || true.`
+  ` Notify the owner (run via Bash, fire-and-forget): ` +
+  `osascript -e 'display notification "${msg}" with title "Pandacorp build" sound name "${sound || 'Basso'}"' 2>/dev/null || true.`
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
 const VERIFY_SCHEMA = {
@@ -79,9 +81,15 @@ const PLAN_SCHEMA = {
     },
   },
 }
+// A reason accompanies every block so Mission Control and the owner know what to do.
+const BLOCK_REASON = { type: 'string', enum: ['needs-owner', 'external', 'error'] }
 const FRD_GATE_SCHEMA = {
   type: 'object', required: ['green'],
-  properties: { green: { type: 'boolean' }, reopen: { type: 'array', items: { type: 'string' } }, failure: { type: 'string' } },
+  properties: { green: { type: 'boolean' }, reopen: { type: 'array', items: { type: 'string' } }, blocked_reason: BLOCK_REASON, failure: { type: 'string' } },
+}
+const REPAIR_SCHEMA = {
+  type: 'object', required: ['green'],
+  properties: { green: { type: 'boolean' }, blocked_reason: BLOCK_REASON, failure: { type: 'string' } },
 }
 
 // ── Baseline self-heal (deadlock breaker) ─────────────────────────────────────
@@ -95,7 +103,7 @@ const baseline = await agent(
 )
 if (!baseline || baseline.green !== true) {
   log(`Baseline red and auto-repair failed${baseline?.failure ? ': ' + baseline.failure : ''} — stopping for the owner.`)
-  return { mode: MODE, builtFrds: [], blockedFrds: ['baseline'], note: 'baseline red (needs manual fix)' }
+  return { mode: MODE, builtFrds: [], blockedFrds: ['baseline'], blockedReasons: { baseline: 'error' }, note: 'baseline red (needs manual fix)' }
 }
 log('Baseline green — planning by FRD.')
 
@@ -142,18 +150,43 @@ async function frdGate(frd, woIds) {
   2) Run the FULL gate \`bash .pandacorp/verify.sh\` clean.
   If everything passes: set EVERY one of this FRD's work orders AND its frd.md + blueprint.md frontmatter to **\`implementation_status: VERIFIED\`**, update .pandacorp/status.yaml (per-status counts + last_green_sha + safe_to_test:true), and commit. Return { green: true }.
   If a SPECIFIC work order is wrong, set ONLY those WOs back to \`implementation_status: PLANNED\` (leave the rest IN_REVIEW), do not commit broken code, and return { green: false, reopen: [those ids], failure } — the engine retries them on the next run, not in a loop.
-  If it's broken and you can't fix it, return { green: false, failure }.${NOTIFY('FRD ' + frd + ' no paso la revision — necesita tu atencion')}`,
+  If it's broken and you can't pinpoint specific WOs, return { green: false, failure, blocked_reason } (classify: 'needs-owner' if a human must act, 'external' if it's a transient outside failure, else 'error').${NOTIFY('FRD ' + frd + ' no paso la revision — necesita tu atencion')}`,
     { label: `gate:${frd}`, phase: 'Review', model: P.judge, agentType: 'pandacorp:reviewer', schema: FRD_GATE_SCHEMA })
+}
+
+// ── Repair pass: TRY TO FIX before giving up (owner's rule, DR-050) ────────────
+// The build resolves problems itself and only stops when it genuinely can't — then it
+// BLOCKS with a reason instead of dying. Run by a strong model (it's hard diagnosis).
+async function attemptRepair(frd, context) {
+  return await agent(`${EMIT('implementer', frd)}The build of FRD ${frd} hit a problem: ${context}. You are the repair engineer — TRY TO FIX it before we give up.
+  1) Diagnose the root cause: read the failing output, the work orders, and .pandacorp/comms/progress.md.
+  2) If it is within your reach (code / test / local config): fix the PRODUCTION code (never weaken or skip tests) until \`bash .pandacorp/verify.sh\` is green for this feature; set the affected work orders' frontmatter back to \`implementation_status: IN_REVIEW\`; commit (Conventional Commits with scope); return { green: true }.
+  3) If you CANNOT fix it, classify WHY, set the affected work orders' frontmatter to \`implementation_status: BLOCKED\` + \`blocked_reason: <reason>\`, mirror it in .pandacorp/status.yaml, leave HEAD at last_green_sha (commit nothing broken), and return { green: false, blocked_reason, failure }:
+     - 'needs-owner' → it needs a HUMAN action/decision the agent can't take: a missing env var or secret, an external account/service to set up, a product decision. ALSO append it to .pandacorp/inbox/decisions.md (what's blocked, the options, your recommendation).
+     - 'external' → a transient OUTSIDE failure (no internet, an upstream 5xx) — worth a retry on a later run, not our bug.
+     - 'error' → a technical failure you could not resolve.`,
+    { label: `repair:${frd}`, phase: 'Review', model: P.judge, agentType: 'pandacorp:implementer', schema: REPAIR_SCHEMA })
 }
 
 // ── Per-FRD loop ──────────────────────────────────────────────────────────────
 const builtFrds = []
 const blockedFrds = []
 const reopenedFrds = []
+const blockedReasons = {}
+let consecutiveBlocks = 0   // health breaker: non-external blocks in a row
+let stopReason = null       // 'budget' | 'blocks' | 'maxFrds' (null = ran to completion)
+
+function blockFrd(frd, reason) {
+  reason = reason || 'error'
+  blockedFrds.push(frd)
+  blockedReasons[frd] = reason
+  if (reason !== 'external') consecutiveBlocks++   // external = not our bug; don't trip the breaker
+}
+
 for (const f of plan.frds) {
-  if (f.deps && f.deps.some((d) => blockedFrds.includes(d))) { log(`⊘ ${f.frd} skipped (depends on a blocked FRD)`); blockedFrds.push(f.frd); continue }
-  if (budget.total && budget.remaining() < 80000) { log('Circuit breaker: low budget, stopping at a safe point'); break }
-  if ((builtFrds.length + blockedFrds.length) >= MAX_FRDS) { log(`Reached maxFrds=${MAX_FRDS} this run — stopping at a safe point (relaunch to continue the rest)`); break }
+  if (f.deps && f.deps.some((d) => blockedFrds.includes(d))) { log(`⊘ ${f.frd} skipped (depends on a blocked FRD)`); blockFrd(f.frd, 'needs-owner'); continue }
+  if (budget.total && budget.remaining() < LOW_BUDGET) { stopReason = 'budget'; log('Circuit breaker: budget ceiling reached — stopping at a safe point'); break }
+  if ((builtFrds.length + blockedFrds.length) >= MAX_FRDS) { stopReason = 'maxFrds'; log(`Reached the test cap maxFrds=${MAX_FRDS} — stopping at a safe point`); break }
 
   phase('Build')
   const pending = f.workOrders.filter((w) => w.status !== 'VERIFIED' && w.status !== 'BLOCKED')
@@ -170,32 +203,58 @@ for (const f of plan.frds) {
     for (let i = 0; i < wave.length; i++) { queue.delete(wave[i].id); if (results[i]) doneIds.add(wave[i].id); else frdFailed = true }
     if (frdFailed) break
   }
+
+  // A work order failed its self-test → TRY TO REPAIR before blocking (owner's rule).
   if (frdFailed) {
-    log(`✗ ${f.frd}: a work order failed its self-test — freeze + notify`)
-    blockedFrds.push(f.frd)
-    await agent(`Freeze ${f.frd}: leave HEAD at last_green_sha, do NOT commit anything broken, mark the failed work order(s) \`implementation_status: BLOCKED\` in their frontmatter + .pandacorp/status.yaml with the reason.${NOTIFY('FRD ' + f.frd + ' bloqueado — necesita tu atencion')}`,
-      { label: `freeze:${f.frd}`, phase: 'Review', model: P.worker, agentType: 'pandacorp:implementer' })
-    continue
+    log(`! ${f.frd}: a work order failed — attempting repair before giving up`)
+    const fix = await attemptRepair(f.frd, 'a work order failed its self-test during the build wave')
+    if (!fix || fix.green !== true) {
+      const reason = (fix && fix.blocked_reason) || 'error'
+      log(`⊘ ${f.frd}: could not repair (${reason}) — BLOCKED, continuing with independent FRDs`)
+      blockFrd(f.frd, reason)
+      if (consecutiveBlocks >= MAX_CONSECUTIVE_BLOCKS) { stopReason = 'blocks'; break }
+      continue
+    }
+    log(`✓ ${f.frd}: repaired — proceeding to the gate`)
   }
 
   phase('Review')
-  const gate = await frdGate(f.frd, f.workOrders.map((w) => w.id))
-  if (gate && gate.green === true) { log(`✓ ${f.frd} VERIFIED`); builtFrds.push(f.frd) }
-  else if (gate && gate.reopen && gate.reopen.length) { log(`↻ ${f.frd}: ${gate.reopen.length} WO reopened (PLANNED) — next run rebuilds only those`); reopenedFrds.push(f.frd) }
-  else { log(`✗ ${f.frd} gate failed${gate?.failure ? ': ' + gate.failure : ''} — freeze-on-red`); blockedFrds.push(f.frd) }
+  let gate = await frdGate(f.frd, f.workOrders.map((w) => w.id))
+  if (gate && gate.green === true) { log(`✓ ${f.frd} VERIFIED`); builtFrds.push(f.frd); consecutiveBlocks = 0; continue }
+  if (gate && gate.reopen && gate.reopen.length) { log(`↻ ${f.frd}: ${gate.reopen.length} WO reopened (PLANNED) — next run rebuilds only those`); reopenedFrds.push(f.frd); consecutiveBlocks = 0; continue }
+
+  // Gate failed with no specific reopen → TRY TO REPAIR, then re-gate ONCE (fail-closed).
+  log(`! ${f.frd} gate failed${gate?.failure ? ': ' + gate.failure : ''} — attempting repair`)
+  const fix = await attemptRepair(f.frd, 'the FRD review/integration gate failed: ' + (gate?.failure || 'unknown'))
+  if (fix && fix.green === true) {
+    gate = await frdGate(f.frd, f.workOrders.map((w) => w.id))
+    if (gate && gate.green === true) { log(`✓ ${f.frd} VERIFIED (after repair)`); builtFrds.push(f.frd); consecutiveBlocks = 0; continue }
+  }
+  const reason = (fix && fix.blocked_reason) || (gate && gate.blocked_reason) || 'error'
+  log(`⊘ ${f.frd}: BLOCKED (${reason})`)
+  blockFrd(f.frd, reason)
+  if (consecutiveBlocks >= MAX_CONSECUTIVE_BLOCKS) { stopReason = 'blocks'; break }
 }
 
 // ── Close-out + ALWAYS notify the owner how this run ended ────────────────────
 phase('Review')
-const allDone = builtFrds.length > 0 && blockedFrds.length === 0 && reopenedFrds.length === 0
+const needsOwner = blockedFrds.filter((x) => blockedReasons[x] === 'needs-owner')
+const allDone = builtFrds.length > 0 && blockedFrds.length === 0 && reopenedFrds.length === 0 && !stopReason
 if (allDone) {
   await agent(`All FRDs are VERIFIED. Run the full suite + e2e of the critical flows and kill the test dev servers with TaskStop. If green, set .pandacorp/status.yaml phase: release and running: false.${NOTIFY('Build COMPLETO: todos los FRDs verificados', 'Glass')}`,
     { label: 'close-out', phase: 'Review', model: P.judge, agentType: 'pandacorp:reviewer' })
+  log('Run ended: all FRDs verified.')
 } else {
-  const blk = blockedFrds.slice(0, 8).join(', ') || 'ninguno'
-  await agent(`The build run ended. Verified this run: ${builtFrds.length} FRD(s). Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and why, what needs the owner's decision).${NOTIFY('Tramo: ' + builtFrds.length + ' FRDs ok, ' + blockedFrds.length + ' bloqueados, ' + reopenedFrds.length + ' a reintentar — revisa')}`,
+  const blk = blockedFrds.map((x) => `${x}(${blockedReasons[x]})`).slice(0, 8).join(', ') || 'ninguno'
+  const why = stopReason === 'budget' ? ' Paro por techo de presupuesto.'
+    : stopReason === 'blocks' ? ' Paro: demasiados FRDs bloqueados seguidos (algo sistemico va mal).'
+    : stopReason === 'maxFrds' ? ' Paro por el tope de prueba (maxFrds).' : ''
+  const ownerMsg = needsOwner.length
+    ? `Termine lo que se podia. ${needsOwner.length} FRD(s) te esperan a ti: ${needsOwner.slice(0, 6).join(', ')}`
+    : `Tramo: ${builtFrds.length} FRDs ok, ${blockedFrds.length} bloqueados, ${reopenedFrds.length} a reintentar`
+  await agent(`The build run ended.${why} Verified this run: ${builtFrds.length}. Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Of those, NEEDS-OWNER (a human must act): ${needsOwner.join(', ') || 'none'}. Write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and the reason, and exactly what needs the owner's action/decision for the needs-owner ones). Set .pandacorp/status.yaml running: false.${NOTIFY(ownerMsg)}`,
     { label: 'notify-end', phase: 'Review', model: P.worker, agentType: 'pandacorp:implementer' })
-  log(`Run ended: ${builtFrds.length} verified, ${reopenedFrds.length} reopened, ${blockedFrds.length} blocked.`)
+  log(`Run ended: ${builtFrds.length} verified, ${reopenedFrds.length} reopened, ${blockedFrds.length} blocked${stopReason ? ' · stop=' + stopReason : ''}.`)
 }
 
-return { mode: MODE, builtFrds, blockedFrds, reopenedFrds }
+return { mode: MODE, builtFrds, blockedFrds, reopenedFrds, blockedReasons, stopReason }
