@@ -5,9 +5,9 @@ slug: reference-commands-agents
 title: 'WO-08-003 — Reference: commands + agents (DERIVED, DR-046)'
 status: DRAFT
 parent: FRD-08
-implementation_status: IN_PROGRESS
+implementation_status: IN_REVIEW
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-17'
 ---
 # WO-08-003 — Reference: commands + agents (DERIVED, DR-046)
 
@@ -37,4 +37,38 @@ Render the Reference's **commands** and **agents** catalogs, **derived** from th
 
 ## Definition of done
 - Component tests green incl. the DR-046 swap test; tsc + biome clean; no hand-copied catalog. `.pandacorp/verify.sh` passes.
+
+## Status Note
+
+**Built:** `ReferenceCommandsSection` (CMP-08-reference-commands) and `ReferenceAgentsSection` (CMP-08-reference-agents) — two dedicated Client Components that receive their data as props from the Server Component (`page.tsx`) which calls the FRD-07 readers at render time. No hand-maintained catalog array in either component (AC-08-003.4).
+
+**Interfaces / contracts exposed:**
+
+```tsx
+// app/manual/ReferenceCommandsSection.tsx
+export interface ReferenceCommandsSectionProps { skills: SkillRef[]; }
+export function ReferenceCommandsSection({ skills }: ReferenceCommandsSectionProps): React.JSX.Element
+// data-testid="reference-commands-section" — root container
+// data-testid="reference-command-{slug}" — one <li> per skill
+// Shows: /pandacorp:<slug> (text + CopyButton) + runsIn badge + description
+
+// app/manual/ReferenceAgentsSection.tsx
+export interface ReferenceAgentsSectionProps { agents: AgentRef[]; }
+export function ReferenceAgentsSection({ agents }: ReferenceAgentsSectionProps): React.JSX.Element
+// data-testid="reference-agents-section" — root container
+// data-testid="reference-agent-{id}" — one <li> per agent
+// Shows: name (or id fallback) + model badge (when !== "unknown") + description
+// data-model={model} on the badge for targeting
+```
+
+**Integration seams:**
+- `DocReader.tsx` delegates `activePage.catalog === "commands"` → `<ReferenceCommandsSection skills={skills} />` and `catalog === "agents"` → `<ReferenceAgentsSection agents={agents} />`.
+- The `skills` / `agents` props flow from `page.tsx` server-side reads of `readSkills()` / `readAgents()` (IF-07-reference, FRD-07 WO-07-001). No new reader introduced.
+- `CopyButton` (FRD-02) is used inline on each command row — copy only, never executes.
+
+**DR-046 swap tests verified (AC-08-003.3):** renaming a skill slug in the fixture yields the new `/pandacorp:<new-slug>` name with zero Manual file edits; adding/removing entries adds/removes rows proportionally.
+
+**Test files:** `app/manual/ReferenceCommandsSection.test.tsx` (29 tests covering AC-08-003.1/.2/.3/.4/.5 + DR-046 swap tests). WO-08-002 tests (`app/manual/page.test.tsx`) updated to the new `-section` testids.
+
+**Gate:** 172 test files, 4723 tests GREEN. tsc clean. biome clean. verify.sh PASS.
 </content>
