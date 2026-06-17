@@ -5,7 +5,7 @@ slug: guild-xp-engine
 title: 'WO-09-001 — `lib/gamification.ts`: guild XP/level engine (honest)'
 status: DRAFT
 parent: FRD-09
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-16'
 ---
@@ -37,4 +37,57 @@ guild's level, title, XP, next threshold and pct-to-next **only from verifiable 
 ## Definition of done
 - `pnpm vitest run lib/gamification.test.ts` green incl. negative ACs; tsc + biome clean; no `any`.
 - Pure (no I/O in the function). `.pandacorp/verify.sh` passes.
+
+## Status Note
+
+**What was built:** `computeGuildLevel(outcomes: GuildOutcomes): GuildLevel` in `lib/gamification.ts` — the guild XP/level engine. Pure function, no I/O, no mutation, no clock/decay/engagement bonus. XP derived exclusively from verifiable outcomes: work orders closed, phases completed, releases, green test runs, and optional weekly streak (freeze-capped at 52 weeks). All FRD-09 ethical constraints enforced: no XP for activity/app-open, no daily-reset streak, no bar stuck at ~80%, no leaderboard.
+
+**Interfaces/contracts exposed:**
+
+```ts
+// lib/gamification.ts
+
+export type Rank = { readonly title: string; readonly threshold: number };
+export const RANKS: readonly Rank[];  // 6 entries: Aprendiz→Maestro del Gremio
+
+export type GuildOutcomes = {
+  readonly workOrdersDone: number;
+  readonly phasesCompleted: number;
+  readonly releases: number;
+  readonly greenTestRuns: number;
+  readonly weeklyStreak?: number;  // NO dailyStreak — type enforces the weekly-only contract
+};
+
+export type GuildLevel = {
+  readonly level: number;     // 1-based
+  readonly title: string;     // from RANKS ladder
+  readonly xp: number;        // total XP (0 when no outcomes)
+  readonly next: number;      // next rank threshold (= current at max rank)
+  readonly pctToNext: number; // [0, 100]; 0 at zero-state; 100 at max rank
+};
+
+export function computeGuildLevel(outcomes: GuildOutcomes): GuildLevel;
+```
+
+XP weights: WO closed = 10, phase = 50, release = 200, green test = 1, streak week = 5 (cap 52).
+
+**Also added in this WO** (forward-compatibility for pre-existing `gamification.test.ts` which covers WO-09-002):
+
+```ts
+export const AGENT_RANKS: readonly string[];          // ["Apprentice","Engineer","Senior","Architect"]
+export const AGENT_XP_THRESHOLDS: readonly number[]; // [5, 20, 60, 100] strictly ascending
+export type AgentLevelResult = { level, title, xp, next, pctToNext };
+export function computeAgentLevel(agentId: string, events: readonly Event[]): AgentLevelResult;
+```
+
+`computeAgentLevel` is a complete implementation (1 XP per closed WO for the agent, `pctToNext` in [0,1] fraction). The pre-existing `gamification.test.ts` (71 tests for WO-09-002) passes.
+
+**Integration seams:**
+- Consumer of `computeGuildLevel`: `CMP-09-guild-bar` (WO-09-003, top-bar guild XP block). Import: `import { computeGuildLevel, type GuildLevel, type GuildOutcomes, RANKS } from "@/lib/gamification"`.
+- Consumer of `computeAgentLevel`: FRD-07 agent section/detail (WO-09-002 scope).
+- Inputs come from `lib/status.ts` (`workOrdersDone`, `phasesCompleted`) and `lib/events.ts` (`greenTestRuns` via `test_ok` events, `releases` via portfolio `phase: operation`).
+
+**Test files:**
+- `lib/gamification.guild.test.ts` — 34 tests for WO-09-001 (AC-09-001.1–5, all negative ACs)
+- `lib/gamification.test.ts` — 71 tests covering WO-09-002 + 30 tests for WO-09-005 (classifyCelebration), all green
 </content>
