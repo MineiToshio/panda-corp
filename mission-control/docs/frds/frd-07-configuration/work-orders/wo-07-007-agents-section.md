@@ -5,9 +5,9 @@ slug: agents-section
 title: 'WO-07-007 — Agents section: list + detail + XP bar'
 status: DRAFT
 parent: FRD-07
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-17'
 ---
 # WO-07-007 — Agents section: list + detail + XP bar
 
@@ -58,4 +58,25 @@ that the agent levels up by **completing work orders**.
 **Test coverage:** `app/configuration/agents.test.tsx` — 39 tests covering AC-07-007.1..4: avatar+level+title per card, click→detail+XP bar, zero-data honesty (0% fill), design-token compliance (no hardcoded hex/rgb/hsl), integration with ConfigurationShell.
 
 **Verify:** `pnpm vitest run app/configuration/agents.test.tsx` → 39/39 green. Full suite → 4560/4567 pass. `tsc --noEmit` clean. `biome check` clean on the three files.
+
+## Reviewer finding (FRD-07 gate, 2026-06-17, Opus 4.8) — REOPENED → PLANNED
+
+**Blocking integration failure (AC-07-007.1).** The `AgentList`/`AgentDetail` components are
+correct in isolation, but they NEVER reach the owner: the agents wiring was never added to
+`app/configuration/page.tsx`. `git log -p -- app/configuration/page.tsx` shows `readAgents`
+appears **0 times** — the Server Component never calls `readAgents()` / `computeAgentLevel()`
+and never passes the `agentsData` prop to `ConfigurationShell`. At runtime the Agents tab
+renders an empty list (`agentsData?.agents ?? []`), so no avatar/level/title is ever shown.
+
+Proven with a reviewer integration test rendering the REAL `ConfigurationPage` default export
+against the real factory tree (`PANDACORP_FACTORY_ROOT` = repo root): the agents tab contained
+**0** `agent-card` elements (`expected 0 to be greater than 0`). The skills and standards tabs
+were populated; agents was empty. The existing "integration" tests render `<ConfigurationShell />`
+with NO props, so they never exercise the page→shell data flow and missed this.
+
+**Concrete fix for the retry (in `app/configuration/page.tsx`):**
+- `import { readAgents } from "@/lib/reference"` and `import { computeAgentLevel } from "@/lib/gamification"` (+ the events source used by the agents detail).
+- Server-side: `const agents = readAgents();` then build `levels: Record<string, AgentLevelResult>` by calling `computeAgentLevel(agent.id, events)` per agent.
+- Pass `agentsData={{ agents, levels }}` to `<ConfigurationShell />` alongside the existing `skills` / `standards` props.
+- Add an integration assertion that renders the REAL page default export and asserts `agent-card` count > 0 (not just `<ConfigurationShell />` with no props).
 </content>

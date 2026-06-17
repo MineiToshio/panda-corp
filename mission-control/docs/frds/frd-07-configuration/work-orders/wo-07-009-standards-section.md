@@ -5,7 +5,7 @@ slug: standards-section
 title: 'WO-07-009 — Standards section: categorized list + detail'
 status: DRAFT
 parent: FRD-07
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
 source_requirements: []
 last_updated: '2026-06-17'
 ---
@@ -79,3 +79,33 @@ export interface ConfigurationShellProps {
 - `app/configuration/StandardsSection.test.tsx` — 50 tests covering all 5 ACs (RED → GREEN confirmed).
 
 **Gate:** 167 test files, 4560 tests GREEN. tsc clean. biome clean. `verify.sh` PASS.
+
+## Reviewer finding (FRD-07 gate, 2026-06-17, Opus 4.8) — REOPENED → PLANNED
+
+**Blocking regression introduced by this WO's `page.tsx` overwrite.** This WO's commit
+(`be2294f`) rewrote `app/configuration/page.tsx` and, in doing so, **dropped the decision-rules
+wiring** that WO-07-008 had added one commit earlier (`c34998d`): the `import { readDecisionRules }`,
+the `const rules = readDecisionRules();` and the `rules={rules}` prop are all gone from the
+committed page. `ConfigurationShell` still accepts a `rules` prop, but the page no longer passes
+it, so the Decision rules tab renders empty (`rules = []`) — violating AC-07-008.2 (the section
+SHALL list ALL decision rules). The standards section this WO built is itself correct and wired.
+
+Proven with a reviewer integration test rendering the REAL `ConfigurationPage` default export
+against the real factory tree: the rules tab contained **0** `rule-item-*` elements
+(`expected 0 to be greater than 0`), even though `factory/decisions/registry.yaml` has many DRs.
+
+**Secondary (must also be fixed on the retry):** the committed `page.tsx` starts with a
+`"use server";` directive. That directive marks every export in the file as a Server Action and
+is incorrect for a Page module (a page exports `metadata` + a default React component, not async
+Server Actions). A reviewer found an uncommitted, half-finished removal of it in the working tree;
+that partial edit was reverted so the retry starts from a clean committed state. The retry MUST
+produce a `page.tsx` with NO `"use server"` directive.
+
+**Concrete fix for the retry (in `app/configuration/page.tsx`):**
+- Remove the `"use server";` directive (a Server Component, not a Server Action module).
+- Restore `import { readDecisionRules } from "@/lib/registry"`, `const rules = readDecisionRules();`
+  and pass `rules={rules}` to `<ConfigurationShell />` — do not regress the WO-07-008 wiring.
+- Keep `skills` and `standards`, and (coordinated with WO-07-007) `agentsData` — the page must
+  wire ALL FOUR sections, not just the one this WO touched.
+- Add an integration assertion that renders the REAL page default export and asserts the rules
+  tab has `rule-item-*` count > 0.
