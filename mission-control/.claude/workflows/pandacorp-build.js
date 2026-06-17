@@ -12,16 +12,18 @@ export const meta = {
 // ── Input (all optional) ─────────────────────────────────────────────────────
 //   args.mode:    'pro' | 'balanced' | 'powerful' | 'deep'  (default: balanced)
 //   args.frds:    specific FRD folders to limit to           (default: all pending)
-//   args.maxFrds: OPT-IN cap on FRDs built per run — for SUPERVISED TEST runs only.
-//     OMIT it for normal/overnight runs: the build runs to completion and stops by
-//     HEALTH or BUDGET, never by an arbitrary feature count (DR-050, owner decision
-//     2026-06-16). A feature can cost 10x another, so "stop after N" protects neither
-//     tokens nor progress; the real guardrails are the budget ceiling + the health
-//     breakers below.
+//   args.maxFrds:  OPT-IN cap on FRDs PROCESSED per run (built + blocked + REOPENED) — for
+//     SUPERVISED TEST runs. A reopen COUNTS toward the cap, so chained reopens can't slip
+//     past it (the 2026-06-16 overnight test caught that exact bug). For overnight runs
+//     prefer args.maxSpend (a real token ceiling) over a feature count.
+//   args.maxSpend: ABSOLUTE output-token ceiling via budget.spent() — the REAL overnight
+//     guardrail; works even WITHOUT a +Nk turn directive. null = off.
+//     (DR-050, owner decision: run to completion, stop by health/budget, not by feature count.)
 const MODE = (args && args.mode) || 'balanced'
 const ONLY = (args && args.frds) || null
-const MAX_FRDS = (args && args.maxFrds) || Infinity   // no count cap unless explicitly set (test runs)
-const LOW_BUDGET = (args && args.lowBudget) || 80000  // stop with at least this much output-token margin left
+const MAX_FRDS = (args && args.maxFrds) || Infinity   // counts features PROCESSED (built+blocked+reopened); no cap unless set
+const LOW_BUDGET = (args && args.lowBudget) || 80000  // margin to leave when budget.total IS set (a +Nk turn directive)
+const MAX_SPEND = (args && args.maxSpend) || null      // absolute output-token ceiling via budget.spent() — works WITHOUT a +Nk directive
 const MAX_CONSECUTIVE_BLOCKS = (args && args.maxConsecutiveBlocks) || 3   // health breaker: N non-external blocks in a row → stop (something is systemically wrong)
 
 // Concurrency/models per mode (DR-014). `wave` = work orders built in parallel within
@@ -186,14 +188,16 @@ function blockFrd(frd, reason) {
 for (const f of plan.frds) {
   if (f.deps && f.deps.some((d) => blockedFrds.includes(d))) { log(`⊘ ${f.frd} skipped (depends on a blocked FRD)`); blockFrd(f.frd, 'needs-owner'); continue }
   if (budget.total && budget.remaining() < LOW_BUDGET) { stopReason = 'budget'; log('Circuit breaker: budget ceiling reached — stopping at a safe point'); break }
-  if ((builtFrds.length + blockedFrds.length) >= MAX_FRDS) { stopReason = 'maxFrds'; log(`Reached the test cap maxFrds=${MAX_FRDS} — stopping at a safe point`); break }
+  if (MAX_SPEND && budget.spent() >= MAX_SPEND) { stopReason = 'budget'; log(`Spend ceiling reached (${Math.round(budget.spent() / 1000)}k ≥ maxSpend ${Math.round(MAX_SPEND / 1000)}k) — stopping at a safe point`); break }
+  if ((builtFrds.length + blockedFrds.length + reopenedFrds.length) >= MAX_FRDS) { stopReason = 'maxFrds'; log(`Reached the test cap maxFrds=${MAX_FRDS} (built+blocked+reopened) — stopping at a safe point`); break }
 
   phase('Build')
   const pending = f.workOrders.filter((w) => w.status !== 'VERIFIED' && w.status !== 'BLOCKED')
-  const reviewIds = pending.map((w) => w.id)   // only these reach the gate; already-VERIFIED WOs are a stable foundation, never re-touched
-  log(`▶ ${f.frd}: ${pending.length} work orders to build`)
-  const doneIds = new Set(f.workOrders.filter((w) => w.status === 'VERIFIED').map((w) => w.id))
-  const queue = new Map(pending.map((w) => [w.id, w]))
+  const reviewIds = pending.map((w) => w.id)   // all non-VERIFIED/non-BLOCKED reach the gate; already-VERIFIED WOs are a stable foundation, never re-touched
+  const toBuild = pending.filter((w) => w.status !== 'IN_REVIEW')   // IN_REVIEW = already built (self-test green) by a prior interrupted run → straight to the gate, don't rebuild
+  log(`▶ ${f.frd}: ${toBuild.length} to build${pending.length - toBuild.length ? ` · ${pending.length - toBuild.length} already in review` : ''}`)
+  const doneIds = new Set(f.workOrders.filter((w) => w.status === 'VERIFIED' || w.status === 'IN_REVIEW').map((w) => w.id))
+  const queue = new Map(toBuild.map((w) => [w.id, w]))
   let frdFailed = false
   // Build in waves honoring the Build Plan's intra-FRD dependencies.
   while (queue.size > 0) {
