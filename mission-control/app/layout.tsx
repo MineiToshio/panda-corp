@@ -13,7 +13,12 @@
 
 import type { Metadata } from "next";
 import { OnboardingGate } from "@/components/OnboardingGate";
+import { GuildBar } from "@/components/rpg/GuildBar";
+import { readEvents } from "@/lib/events";
+import { deriveGuildOutcomes } from "@/lib/gamification";
+import { readPortfolio } from "@/lib/portfolio";
 import { readProfile } from "@/lib/profile";
+import { readStatus } from "@/lib/status";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -30,9 +35,26 @@ export default function RootLayout({
   // Path resolved at call-time inside readProfile() so PANDACORP_FACTORY_ROOT env is respected.
   const profileResult = readProfile();
 
+  // Derive guild outcomes from real portfolio data (AC-09-004.1).
+  // Read-only: readPortfolio, readStatus, readEvents — no writes, no Claude calls.
+  // Fail-soft: absent portfolio → empty array; missing status → skipped.
+  const portfolioEntries = readPortfolio();
+  const statuses = portfolioEntries.map((entry) => readStatus(entry.path));
+  const eventsSnapshot = readEvents();
+  const guildOutcomes = deriveGuildOutcomes({ statuses, eventsSnapshot });
+
   return (
     <html lang="es">
-      <body>{profileResult.present ? children : <OnboardingGate />}</body>
+      <body>
+        {profileResult.present ? (
+          <>
+            <GuildBar outcomes={guildOutcomes} />
+            {children}
+          </>
+        ) : (
+          <OnboardingGate />
+        )}
+      </body>
     </html>
   );
 }

@@ -25,7 +25,8 @@
  *   - Celebrations SCALE: toast (WO) → phase → release → levelup. Never flat.
  *   - Forbidden patterns: leaderboards, lives, daily-reset streaks, false urgency, bar at ~80%.
  */
-import type { Event } from "./events";
+import type { Event, EventsSnapshot } from "./events";
+import type { StatusResult } from "./status";
 
 // ---------------------------------------------------------------------------
 // IF-09-guild-xp — computeGuildLevel (WO-09-001)
@@ -459,4 +460,101 @@ export function computeAgentLevel(agentId: string, events: readonly Event[]): Ag
   }
 
   return { level, title, xp, next, pctToNext };
+}
+
+// ---------------------------------------------------------------------------
+// deriveGuildOutcomes — aggregate real outcomes from portfolio statuses + events (WO-09-004)
+//
+// Pure derivation layer: takes already-read data and produces GuildOutcomes.
+// No I/O — the caller (Server Component in app/layout.tsx) reads the data;
+// this function only processes what it receives (architecture §6: data layer
+// boundary is lib/, components never touch fs directly).
+// ---------------------------------------------------------------------------
+
+/**
+ * Input for deriveGuildOutcomes: the already-read statuses for every portfolio project
+ * and the events snapshot (for green test runs).
+ */
+export type GuildOutcomesInput = {
+  /** StatusResult for each portfolio project (read via readStatus). */
+  statuses: readonly StatusResult[];
+  /**
+   * Events snapshot from readEvents() (for greenTestRuns count).
+   * May be omitted (treated as zero test runs).
+   */
+  eventsSnapshot?: EventsSnapshot | null;
+  /**
+   * Current weekly streak (weeks with at least one closed WO).
+   * Optional — 0 when not tracked yet.
+   */
+  weeklyStreak?: number;
+};
+
+/**
+ * Derive GuildOutcomes from the portfolio's real data (WO-09-004, AC-09-004.1).
+ *
+ * Honesty contract (blueprint §2):
+ *   - workOrdersDone  = sum of status.workOrdersDone across all projects (present + valid)
+ *   - phasesCompleted = count of projects whose phase is in { design, architecture, implementation,
+ *                       release, operation } (each project that advanced past product = 1 phase)
+ *   - releases        = count of projects in "operation" phase (reached launch)
+ *   - greenTestRuns   = count of "test_ok" events in the snapshot
+ *
+ * All missing/malformed statuses are skipped (never throws, fail-soft).
+ * Never inflates XP — strictly derived from verifiable outcomes.
+ *
+ * Pure function: no I/O, no side-effects, same input → same output.
+ */
+export function deriveGuildOutcomes(input: GuildOutcomesInput): GuildOutcomes {
+  const { statuses, eventsSnapshot, weeklyStreak } = input;
+
+  let workOrdersDone = 0;
+  let phasesCompleted = 0;
+  let releases = 0;
+
+  const COMPLETED_PHASES = new Set([
+    "design",
+    "architecture",
+    "implementation",
+    "release",
+    "operation",
+  ]);
+
+  for (const sr of statuses) {
+    if (!sr.present || sr.status === null) continue;
+    const st = sr.status;
+
+    // workOrdersDone: accumulate per-project WOs closed
+    if (typeof st.workOrdersDone === "number" && Number.isFinite(st.workOrdersDone)) {
+      workOrdersDone += Math.max(0, Math.trunc(st.workOrdersDone));
+    }
+
+    // phasesCompleted: project advanced beyond "product" phase
+    if (typeof st.phase === "string" && COMPLETED_PHASES.has(st.phase)) {
+      phasesCompleted += 1;
+    }
+
+    // releases: project reached operation (launched)
+    if (st.phase === "operation") {
+      releases += 1;
+    }
+  }
+
+  // greenTestRuns: count test_ok events in the snapshot
+  let greenTestRuns = 0;
+  if (eventsSnapshot) {
+    for (const ev of eventsSnapshot.events) {
+      if (ev.event === "test_ok") {
+        greenTestRuns += 1;
+      }
+    }
+  }
+
+  return {
+    workOrdersDone,
+    phasesCompleted,
+    releases,
+    greenTestRuns,
+    weeklyStreak: weeklyStreak ?? 0,
+  };
 }
