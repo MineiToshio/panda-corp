@@ -3,8 +3,8 @@ id: FRD-02
 type: frd
 title: FRD-02 — Ideas board
 status: ACTIVE
-implementation_status: PLANNED
-last_updated: '2026-06-16'
+implementation_status: VERIFIED
+last_updated: '2026-06-17'
 ---
 # FRD-02 — Ideas board
 

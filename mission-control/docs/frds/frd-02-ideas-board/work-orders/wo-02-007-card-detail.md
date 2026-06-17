@@ -5,7 +5,7 @@ slug: card-detail
 title: WO-02-007 — Card detail + docs navigator + next-step
 status: DRAFT
 parent: FRD-02
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
 last_updated: '2026-06-16'
 ---
