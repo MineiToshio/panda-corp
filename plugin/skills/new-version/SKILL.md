@@ -16,7 +16,7 @@ New iteration of an existing project. Runs IN the project. `$ARGUMENTS`: what th
    - New FRD → new `docs/frds/frd-NN-<slug>/frd.md` module (numbering continues); modified FRD → edit its existing module
    - New screens or visual changes? → mini design phase (mockup of the new stuff in the FRD's `mocks/` + its `fdd.md`, same frozen global design system in `docs/design/`; visual gate only if the visual language changes)
    - Architectural impact? → update the feature's `docs/frds/frd-NN-<slug>/blueprint.md` (and `docs/product/architecture.md` only if it's platform-level) + ADR; if not, skip
-   - New work orders → the feature's `docs/frds/frd-NN-<slug>/work-orders/` (per-FRD numbering continues)
+   - New work orders → the feature's `docs/frds/frd-NN-<slug>/work-orders/` (per-FRD numbering continues); a change that **extends an existing work order** → **reopen it** (`implementation_status: VERIFIED → PLANNED` in its frontmatter + widen its scope/`Status Note`) so the engine rebuilds only what changed (DR-050)
 4. **Implementation**: same `/pandacorp:implement` loop. Full regression: the tests of previous versions must stay green.
 5. **Release**: `/pandacorp:release` (same gates).
 6. Sync the factory portfolio at close (or run `/pandacorp:sync-portfolio` from panda-corp).
