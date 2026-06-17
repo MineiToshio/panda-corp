@@ -217,7 +217,7 @@ export function TabCommands({ phase, slug }: TabCommandsProps): React.JSX.Elemen
   const rows = workspaceCommands(phase);
 
   return (
-    <main data-testid="tab-commands" aria-label="Comandos del proyecto" style={ROOT_STYLE}>
+    <main data-testid="tab-commands-body" aria-label="Comandos del proyecto" style={ROOT_STYLE}>
       {/* AC-04-005.2 — FRD-11 mode selector slot (top of tab) */}
       <ModeSelectorSlot slug={slug} />
 

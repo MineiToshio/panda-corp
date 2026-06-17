@@ -13,7 +13,7 @@
  *   work-orders → WorkOrderBoard (CMP-05-board)     FRD-05 (already shipped)
  *   party       → PartyTab (CMP-06-*)               FRD-06 (already shipped)
  *   documents   → TabDocuments (CMP-04-tab-documents) WO-04-006
- *   commands    → placeholder slot (WO-04-007 pending)
+ *   commands    → TabCommands (CMP-04-tab-commands)     WO-04-007
  *
  * URL-driven selection (AC-04-001.2):
  *   - ?tab=<id>   → that tab active.
@@ -36,9 +36,10 @@
 import { notFound } from "next/navigation";
 import { listProjectDocs, readActivityLog, readDecisions, readDoc } from "@/lib/docs";
 import { activeProjects } from "@/lib/portfolio";
-import { readStatus } from "@/lib/status";
+import { type Phase, readStatus } from "@/lib/status";
 import { listWorkOrders } from "@/lib/work-orders";
 import { ObjectivesBar } from "./_components/objectives-bar";
+import { TabCommands } from "./_components/tab-commands";
 import { TabDocuments } from "./_components/tab-documents";
 import { TabSummary } from "./_components/tab-summary";
 import { TabBar, type TabId } from "./_components/tabbar";
@@ -92,31 +93,6 @@ const BODY_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
 };
-
-// ---------------------------------------------------------------------------
-// Commands tab placeholder (WO-04-007 slot)
-// ---------------------------------------------------------------------------
-
-function CommandsTabPlaceholder(): React.JSX.Element {
-  return (
-    <div
-      data-testid="tab-commands-placeholder"
-      style={{
-        flex: 1,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        color: "var(--color-text-muted, currentColor)",
-        opacity: 0.5,
-        fontSize: "0.875rem",
-        padding: "calc(var(--spacing, 0.25rem) * 8)",
-        textAlign: "center",
-      }}
-    >
-      Comandos — disponible en WO-04-007
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Page
@@ -196,8 +172,8 @@ export default async function ProjectWorkspacePage({
         : null;
     tabBody = <TabDocuments nodes={nodes} selectedId={selectedId} content={content} />;
   } else {
-    // commands — WO-04-007 placeholder
-    tabBody = <CommandsTabPlaceholder />;
+    // commands — CMP-04-tab-commands (WO-04-007, AC-04-005.1/.2)
+    tabBody = <TabCommands phase={stage as Phase} slug={slug} />;
   }
 
   return (

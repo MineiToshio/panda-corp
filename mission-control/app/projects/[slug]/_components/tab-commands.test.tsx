@@ -224,7 +224,7 @@ describe("TabCommands — design tokens + a11y invariants", () => {
   it("renders a section with aria-label for the commands area", () => {
     renderCommands("implementation");
     // The commands section should have an accessible label
-    expect(screen.getByTestId("tab-commands")).toBeTruthy();
+    expect(screen.getByTestId("tab-commands-body")).toBeTruthy();
   });
 
   it("command rows have no hardcoded hex/rgb colors in inline styles", () => {
