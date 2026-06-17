@@ -60,8 +60,10 @@ The build engine reviews and tests **per FRD**, not per work order:
 
 - Building a work order runs only **its own fast self-test** (its tests + tsc) → marks it `IN_REVIEW`.
 - When all of an FRD's work orders are `IN_REVIEW`, run **one review + test pass over the whole FRD**,
-  which also exercises the work orders **together** (real integration). On pass → every work order +
-  the FRD become `VERIFIED`.
+  which also exercises the work orders **together** (real integration). The gate's tests are **focused**:
+  `verify.sh --since <last_green>` runs biome + tsc globally but only the vitest tests **affected since the
+  last green** (fast, and scales as the suite grows — it does NOT re-run the whole suite every gate). The
+  **full** suite runs once at **close-out**. On pass → every work order + the FRD become `VERIFIED`.
 - **Three test layers** at the FRD gate: (1) unit/component (per WO during build); (2) integration +
   adversarial review across the feature; (3) **functional/browser** (start the app and drive the real
   flows with the harness `preview_*` tools) — designed in, **opt-in per project** (default off; on for critical web

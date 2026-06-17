@@ -10,7 +10,7 @@ export const meta = {
 }
 
 // ── Input (all optional) ─────────────────────────────────────────────────────
-//   args.mode:    'pro' | 'balanced' | 'powerful' | 'deep'  (default: balanced)
+//   args.mode:    'pro' | 'balanced' | 'powerful' | 'deep'  (default: powerful)
 //   args.frds:    specific FRD folders to limit to           (default: all pending)
 //   args.maxFrds:  OPT-IN cap on FRDs PROCESSED per run (built + blocked + REOPENED) — for
 //     SUPERVISED TEST runs. A reopen COUNTS toward the cap, so chained reopens can't slip
@@ -19,7 +19,7 @@ export const meta = {
 //   args.maxSpend: ABSOLUTE output-token ceiling via budget.spent() — the REAL overnight
 //     guardrail; works even WITHOUT a +Nk turn directive. null = off.
 //     (DR-050, owner decision: run to completion, stop by health/budget, not by feature count.)
-const MODE = (args && args.mode) || 'balanced'
+const MODE = (args && args.mode) || 'powerful'
 const ONLY = (args && args.frds) || null
 const MAX_FRDS = (args && args.maxFrds) || Infinity   // counts features PROCESSED (built+blocked+reopened); no cap unless set
 const LOW_BUDGET = (args && args.lowBudget) || 80000  // margin to leave when budget.total IS set (a +Nk turn directive)
@@ -97,7 +97,7 @@ const REPAIR_SCHEMA = {
 // ── Baseline self-heal (deadlock breaker) ─────────────────────────────────────
 phase('Baseline')
 const baseline = await agent(
-  `You are the Pandacorp baseline-repair engineer. Run \`bash .pandacorp/verify.sh\`.
+  `You are the Pandacorp baseline-repair engineer. FIRST: if \`git rev-parse --short HEAD\` equals \`last_green_sha\` in .pandacorp/status.yaml, the tree is already known-green → return { green: true } immediately and do NOT run verify.sh (skip the cold-start cost). Otherwise run \`bash .pandacorp/verify.sh\`:
   - GREEN → return { green: true }, change nothing.
   - RED → fix the PRODUCTION code (never weaken/skip tests) until it passes end-to-end, commit (Conventional Commits with scope), return { green: true }.
   If you genuinely can't, return { green: false, failure } describing what remains.${NOTIFY('Baseline roto y no se pudo reparar — necesita tu intervencion')}`,
@@ -113,7 +113,7 @@ log('Baseline green — planning by FRD.')
 phase('Plan')
 const plan = await agent(
   `You are the Pandacorp build planner. Read state WITHOUT modifying anything:
-  - WALK every FRD module docs/frds/*/. For each, read frd.md, blueprint.md (especially its **Build Plan**: WO order, intra-FRD deps, parallelism, cross-FRD deps), and every work-orders/wo-*.md.
+  - WALK every FRD module docs/frds/*/. For each, read frd.md and blueprint.md's **Build Plan** (WO order, intra-FRD deps, parallelism, cross-FRD deps) in full, and the **frontmatter ONLY** of every work-orders/wo-*.md (the \`implementation_status\`, \`id\`, deps, title — NOT the full WO body; the implementer reads the body when it builds its own WO, so planning stays fast and cheap).
   - For each work order, the **frontmatter \`implementation_status\` is the source of truth**: PLANNED/IN_PROGRESS = pending; IN_REVIEW = built, awaiting its FRD gate; VERIFIED = done (NEVER rebuild); BLOCKED = skip.
   - docs/product/architecture.md → the platform stack.
   Return the FRDs that still have non-VERIFIED work orders, **in cross-FRD dependency order** (from the Build Plans). For each FRD: its \`frd\` folder, its \`deps\` (FRD folders that must be VERIFIED first), and its \`workOrders\` (each with id, frontmatter \`status\`, intra-FRD \`deps\`, one-line \`summary\`) **in the Build Plan's order**.${ONLY ? ' Limit to these FRD folders: ' + ONLY.join(', ') + '.' : ''}
@@ -149,7 +149,7 @@ async function buildWO(wo, frd) {
 async function frdGate(frd, reviewIds) {
   return await agent(`${EMIT('reviewer', frd)}FRD review + integration gate for ${frd}. Review the work orders built/changed THIS cycle: ${reviewIds.join(', ')} (all IN_REVIEW). This FRD MAY already have OTHER work orders VERIFIED from a previous run — treat those as a stable foundation: exercise them in integration, but do NOT re-review them and NEVER change their state.
   1) Review the changed work orders with your 3 lenses (correctness/security/quality) and write adversarial tests the implementers did not see (anchored in EARS + real bugs), exercising them TOGETHER with the rest of the feature (real integration, not isolated).
-  2) Run the FULL gate \`bash .pandacorp/verify.sh\` clean.
+  2) Run the FOCUSED gate \`bash .pandacorp/verify.sh --since <last_green_sha>\` (read last_green_sha from .pandacorp/status.yaml) — biome + tsc run globally, but only the TESTS affected since the last green (fast and scales; the full suite runs once at close-out). It must pass clean.
   If everything passes: set the reviewed work orders (${reviewIds.join(', ')}) to **\`implementation_status: VERIFIED\`**; if that leaves EVERY work order of the FRD VERIFIED, also set its frd.md + blueprint.md frontmatter to VERIFIED; update .pandacorp/status.yaml (per-status counts + last_green_sha + safe_to_test:true), and commit. Return { green: true }.
   If a SPECIFIC reviewed work order is wrong, set ONLY those (from the reviewed set) back to \`implementation_status: PLANNED\` (leave the rest IN_REVIEW; never touch an already-VERIFIED one), do not commit broken code, and return { green: false, reopen: [those ids], failure } — the engine retries them on the next run, not in a loop.
   If it's broken and you can't pinpoint specific WOs, return { green: false, failure, blocked_reason } (classify: 'needs-owner' if a human must act, 'external' if it's a transient outside failure, else 'error').${NOTIFY('FRD ' + frd + ' no paso la revision — necesita tu atencion')}`,
@@ -259,7 +259,7 @@ if (allDone) {
   const ownerMsg = needsOwner.length
     ? `Termine lo que se podia. ${needsOwner.length} FRD(s) te esperan a ti: ${needsOwner.slice(0, 6).join(', ')}`
     : `Tramo: ${builtFrds.length} FRDs ok, ${blockedFrds.length} bloqueados, ${reopenedFrds.length} a reintentar`
-  closed = await agent(`The build run ended.${why} Verified this run: ${builtFrds.length}. Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Of those, NEEDS-OWNER (a human must act): ${needsOwner.join(', ') || 'none'}. Write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and the reason, and exactly what needs the owner's action/decision for the needs-owner ones). Set .pandacorp/status.yaml running: false. Return done:true once status.yaml is written.${NOTIFY(ownerMsg)}`,
+  closed = await agent(`The build run ended.${why} Verified this run: ${builtFrds.length}. Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Of those, NEEDS-OWNER (a human must act): ${needsOwner.join(', ') || 'none'}. FIRST run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since) to confirm this pass left no global regression — note the result. Then write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and the reason, the full-suite result, and exactly what needs the owner's action/decision for the needs-owner ones). Set .pandacorp/status.yaml running: false. Return done:true once status.yaml is written.${NOTIFY(ownerMsg)}`,
     { label: 'notify-end', phase: 'Review', model: P.worker, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
   log(`Run ended: ${builtFrds.length} verified, ${reopenedFrds.length} reopened, ${blockedFrds.length} blocked${stopReason ? ' · stop=' + stopReason : ''}.`)
 }
