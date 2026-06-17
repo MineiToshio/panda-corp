@@ -52,3 +52,6 @@ last_updated: '2026-06-16'
 - `lib/work-orders.ts`: 234 lines. `listWorkOrders` discovers `docs/frds/frd-*/work-orders/wo-*.md`, parses state marker (case-insensitive; supports `## Status:`, `**Status:**`, `Status: **VALUE**` forms), populates all `WorkOrder` fields. `aggregateProgress` is pure. Both are read-only, never-throw.
 - `lib/work-orders.test.ts`: 56 tests, 10 groups. RED → GREEN confirmed.
 - `docs/api.md`: WO-05-001 section added with full IF-05-work-orders contract, state derivation table, discovery algorithm, defensive contract, regression anchors, and test coverage table.
+
+### Status Note (2026-06-16)
+Extended `lib/work-orders.ts` (WO not re-opened — VERIFIED status preserved) to support DR-050 frontmatter `implementation_status` alongside the original `## Status:` body marker. The original parsing logic is unchanged; the new path reads YAML frontmatter via `gray-matter` with `{ excerpt: false }` cache-bypass (factory memory gotcha). Frontmatter takes precedence when present; otherwise falls back to `## Status:` unchanged. +23 tests added (work-orders.test.ts + adversarial); 7 fixtures added in `frd-06-frontmatter/`. verify.sh green: biome clean, tsc clean, 3080 tests. Commit: fbc9458.
