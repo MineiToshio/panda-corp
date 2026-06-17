@@ -7,7 +7,7 @@ title: >-
   nav)
 status: DRAFT
 parent: FRD-13
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
 last_updated: '2026-06-16'
 ---
@@ -99,3 +99,23 @@ export const FOCUS_RING_CLASS: "focus-ring";
 - `pnpm vitest run` (full suite) — 3035 passed | 2 expected fail | 5 skipped (0 unexpected failures)
 - `pnpm tsc --noEmit` — clean (exit 0)
 - `pnpm biome check .` — Checked 171 files. No fixes applied. (exit 0)
+
+## Review Note — VERIFIED (2026-06-16, reviewer opus, FRD-13 GATE)
+
+**Verdict: APPROVED.** Closes FRD-13 (all 5 WOs VERIFIED).
+
+**Evidence re-run from clean** (`bash .pandacorp/verify.sh`): biome + tsc + vitest all green — **3057 passed | 2 expected-fail | 5 skipped** (no unexpected failures). Implementer's reported gate confirmed; not trusted on its word.
+
+**Correctness/security/quality lenses:** scope is clean — the only file touched in review is the reviewer's own adversarial test (`+306` lines), zero production-code drift (`git diff` on `useKeyboardNav.ts`/`LiveRegion.tsx` empty). Load-bearing claims verified directly: `app/globals.css` actually defines `.focus-ring { outline: var(--focus-ring); outline-offset: 2px; border-radius: var(--radius); }` (lines 160-164) and `html { font-variant-numeric: tabular-nums }` (line 95) — the focus-ring respects `border-radius` per AC-13-008.1. No secrets, no unvalidated inputs (pure client primitives, read-only), no new deps.
+
+**Adversarial tests added (DR-015)** — second round R1–R6 in `components/a11y/a11y-primitives.adversarial.test.tsx`, edges the implementer's RED suite + round-1 did NOT isolate:
+- **R1** empty list never emits a dangling `aria-activedescendant`; `getItemProps(0)` safe; keydown inert. (PASS)
+- **R2** `aria-activedescendant`/`aria-selected` are React-correct after flush, not only via the imperative `e.currentTarget` hot-path hack. (PASS)
+- **R3** key matching is not loosely broadened — unrelated keys inert and do not `preventDefault` (no keyboard trap). **Surfaced a learning, not a bug:** the legacy alias `"Down"` DOES advance because React's synthetic event normalizes `"Down"→"ArrowDown"` (react-dom `normalizeKey`); this is *more* accessible (old AT/IE), so the test was corrected to assert that robustness rather than treat it as a no-op. (PASS)
+- **R4** negative `initialIndex` clamps to a valid item, exactly one selected. (PASS)
+- **R5** `LiveRegion` announces without stealing focus: not tab-reachable, does not move `document.activeElement` on content change, stays `aria-live="polite"` (never `assertive`) across updates. (PASS)
+- **R6** tabular-nums html base present + opt-in class not defeated by inline reset. (PASS)
+
+**Mutation testing (DR-016, FRD milestone):** killed both probes — (a) removing the empty-list `selectedIndex >= 0` activeDescendant guard → R1 fails; (b) `aria-live="polite"→"assertive"` in `LiveRegion.tsx` → R5 + acceptance suites fail. Tests are not decorative.
+
+**aria-label-in-Spanish clause of AC-13-008.1** is delivered by the consuming components (StateBadge / WO-13-005, VERIFIED) and the icon hosts, not by a 13-003 helper — the WO's optional "convention helper" did not materialize as a separate export, which is acceptable: 13-003 owns the primitives (LiveRegion, keyboard nav, tabular-nums, focus ring), not the per-icon labels. No blocking finding.
