@@ -74,14 +74,16 @@ features: one feature can cost 10x another, so a count protects neither tokens n
 stops only when:
 
 - **Nothing is left** — every FRD is `VERIFIED` → `phase: release`.
-- **Budget ceiling** — the run's token budget is nearly spent → stop at the last safe point (a commit).
-  This is the real token guardrail; set it via the run's budget directive.
+- **Budget ceiling** — `maxSpend` (an absolute output-token ceiling via `budget.spent()`, works without a
+  `+Nk` directive) or a `+Nk` turn directive is nearly spent → stop at the last safe point (a commit).
+  For overnight runs, `maxSpend` is the real token guardrail.
 - **Health breaker** — too many features `BLOCKED` in a row (default 3, excluding `external`) → stop;
   something is systemically wrong.
 - **Needs the owner** — what remains is `BLOCKED: needs-owner`.
 
-`maxFrds` exists ONLY to bound a deliberate, **supervised test run** while the engine is being proven
-— never as the overnight guardrail.
+`maxFrds` bounds a deliberate, **supervised test run** and counts features **processed** (built + blocked +
+**reopened** — a reopen counts, so chained reopens can't slip past the cap; a bug the 2026-06-16 overnight
+test caught). It is never the overnight guardrail; `maxSpend` is.
 
 **Repair before block (the owner's rule).** When a work order or the FRD gate fails, the engine first
 runs a **repair pass** (a strong-model agent diagnoses and tries to fix, re-verifying with
