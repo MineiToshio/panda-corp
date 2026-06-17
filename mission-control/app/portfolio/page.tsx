@@ -1,22 +1,58 @@
 /**
- * Portfolio page — Server Component.
+ * Portfolio page — Server Component (CMP-03-workspace-slot).
  *
- * Calls activeProjects() at render time (read-only, never calls Claude),
- * then passes the result to ProjectRail for display.
+ * Reads active projects from activeProjects() and derives the selected project
+ * from the ?project= URL param (URL-driven selection, WO-03-004 design).
+ *
+ * Selection rules (AC-03-004.1, AC-03-005.1):
+ *   - ?project=<name> and that name matches an active project → that project selected.
+ *   - No param (or unmatched param) → first active project selected by default.
+ *   - No active projects → empty state (WorkspaceSlot + SelectableProjectRail empty).
+ *
+ * The right panel renders WorkspaceSlot carrying the selected slug.
+ * Until FRD-04 lands, WorkspaceSlot is a placeholder with data-slug="<name>".
+ * Wiring FRD-04: replace WorkspaceSlot's body with the real workspace component.
+ *
+ * Read-only (architecture §1): activeProjects() never writes, never calls Claude.
  *
  * Traceability:
  *   CMP-03-active-projects, CMP-03-rail, CMP-03-workspace-slot
  *   IF-03-activeProjects (docs/api.md WO-03-001)
- *   REQ-03-001, REQ-03-004, REQ-03-005 (selection via ?project= URL param)
+ *   REQ-03-001, REQ-03-004, REQ-03-005
+ *   AC-03-004.1, AC-03-005.1
+ *   WO-03-004
  */
 
-import { ProjectRail } from "@/components/ProjectRail";
 import { activeProjects } from "@/lib/portfolio";
+import { SelectableProjectRail } from "./SelectableProjectRail";
+import { deriveSelectedSlug } from "./selection";
+import { WorkspaceSlot } from "./WorkspaceSlot";
 
-export default function PortfolioPage(): React.JSX.Element {
+// ---------------------------------------------------------------------------
+// Next.js App Router page props (Next.js 16: searchParams is a Promise).
+// ---------------------------------------------------------------------------
+
+interface PageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+
+export default async function PortfolioPage({
+  searchParams,
+}: PageProps): Promise<React.JSX.Element> {
   // Read-only: activeProjects() never writes, never calls Claude (architecture §7).
-  // Synchronous — safe for Server Components without await.
   const items = activeProjects();
+
+  // Resolve the searchParams promise (Next.js 16 requirement).
+  const params = await searchParams;
+  const rawParam = params.project;
+  const projectParam = typeof rawParam === "string" ? rawParam : undefined;
+
+  // Derive selected slug: ?project=<name> → match → else first item → else undefined.
+  const selectedSlug = deriveSelectedSlug(items, projectParam);
 
   return (
     <main
@@ -28,7 +64,7 @@ export default function PortfolioPage(): React.JSX.Element {
         color: "var(--color-text, currentColor)",
       }}
     >
-      {/* Left rail — project list (CMP-03-rail) */}
+      {/* Left rail — selectable project list (CMP-03-rail, CMP-03-row) */}
       <aside
         data-testid="portfolio-page-rail"
         style={{
@@ -38,25 +74,22 @@ export default function PortfolioPage(): React.JSX.Element {
           flexShrink: 0,
         }}
       >
-        <ProjectRail items={items} />
+        <SelectableProjectRail items={items} selectedSlug={selectedSlug} />
       </aside>
 
-      {/* Right slot — workspace (CMP-03-workspace-slot, FRD-04 scope, placeholder) */}
-      <section
+      {/* Right panel — workspace slot (CMP-03-workspace-slot) */}
+      <div
         data-testid="portfolio-page-workspace"
         style={{
           flex: 1,
-          padding: "calc(var(--space-base, 1rem) * 1.5)",
           display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "var(--color-text, currentColor)",
-          opacity: 0.5,
-          fontSize: "0.875rem",
+          flexDirection: "column",
+          minWidth: 0,
+          minHeight: 0,
         }}
       >
-        {items.length > 0 ? "Selecciona un proyecto para ver su espacio de trabajo." : null}
-      </section>
+        <WorkspaceSlot selectedSlug={selectedSlug} />
+      </div>
     </main>
   );
 }
