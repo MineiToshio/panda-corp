@@ -1,6 +1,6 @@
 /**
- * WO-15-001 — `lib/plugin-sync` readers (installed SHA, plugin HEAD SHA, dirty)
- * RED phase — tests written BEFORE the implementation.
+ * WO-15-001 / WO-15-002 — `lib/plugin-sync` readers + verdict
+ * Tests written BEFORE implementation (RED phase for WO-15-002).
  *
  * Acceptance criteria under test:
  *   AC-15-001.1  GIVEN a fixture installed_plugins.json with pandacorp@panda-corp
