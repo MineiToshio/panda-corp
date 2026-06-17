@@ -5,9 +5,9 @@ slug: reference
 title: 'WO-07-001 — `lib/reference.ts`: read skills + agents catalogs'
 status: DRAFT
 parent: FRD-07
-implementation_status: IN_PROGRESS
+implementation_status: IN_REVIEW
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-17'
 ---
 # WO-07-001 — `lib/reference.ts`: read skills + agents catalogs
 
@@ -63,4 +63,42 @@ the file and the `readPluginDir` helper:
 ## Definition of done
 - `pnpm vitest run lib/reference.test.ts` green; `pnpm tsc --noEmit` clean; `pnpm biome check .` clean.
 - No `any`/`@ts-ignore`. No hardcoded skills/agents list. `.pandacorp/verify.sh` passes.
+
+## Status Note
+
+**Built:** `lib/reference.ts` — complete IF-07-reference implementation with `readSkills()` and `readAgents()`. Fixture tree at `tests/fixtures/plugin-reference/plugin/{skills,agents}/`. Commit: `427be42`.
+
+**Interfaces/contracts exposed:**
+
+```ts
+// lib/reference.ts
+
+export type RunsIn = "factory" | "project" | "unknown";
+
+export type SkillRef = {
+  slug: string;         // dir name, NEVER a name: field (CLAUDE.md rule)
+  description: string;  // frontmatter description (required; missing → skip)
+  runsIn: RunsIn;       // inferred from description+body; ambiguous → "unknown"
+  body: string;         // raw markdown after frontmatter (for detail view)
+};
+
+export type AgentRef = {
+  id: string;               // filename without .md
+  name: string | null;      // frontmatter name; null if absent
+  description: string | null; // frontmatter description; null if absent
+  model: string;            // frontmatter model; "unknown" if absent
+  body: string;             // raw markdown after frontmatter
+};
+
+export function readSkills(): SkillRef[];
+export function readAgents(): AgentRef[];
+```
+
+**Integration seams:**
+- Both readers call `resolveFactoryRoot()` from `lib/config.ts` at call-time, honoring `PANDACORP_FACTORY_ROOT` — ready for Server Component use in `app/configuration/page.tsx` (WO-07-005/006/007).
+- `readSkills()` reads `plugin/skills/<slug>/SKILL.md`; `readAgents()` reads `plugin/agents/<id>.md` — paths match `PLUGIN_SKILLS_DIR` / `PLUGIN_AGENTS_DIR` constants in `lib/config.ts`.
+- Defensive: malformed YAML → `null` from `parsePluginFile()` → `console.warn` + skip; missing `description` in a skill → warn + skip; missing agent fields → typed defaults (`null` / `"unknown"`); absent directory → `[]`.
+- `runsIn` inference uses regex keyword matching on description+body; see `FACTORY_PATTERNS` / `PROJECT_PATTERNS` constants. A future `runs_in:` frontmatter field on SKILL.md would replace the heuristic (flagged in blueprint §6).
+
+**Test files:** `lib/reference.test.ts` — 26 tests covering AC-07-001.1/.2/.3/.4/.5 and AC-07-002.1/.2/.3/.4, plus integration cross-check. Fixture tree: `tests/fixtures/plugin-reference/plugin/skills/{explore,spec,implement,no-description,malformed-yaml}/SKILL.md` and `plugin/agents/{implementer,reviewer,no-model,no-name,malformed}.md`.
 </content>
