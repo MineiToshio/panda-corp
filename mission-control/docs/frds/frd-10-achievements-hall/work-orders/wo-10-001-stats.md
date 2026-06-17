@@ -5,9 +5,9 @@ slug: achievements-engine
 title: 'WO-10-001 — `lib/achievements.ts`: achievements engine (stats/chains/uniques/secrets)'
 status: DRAFT
 parent: FRD-10
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-17'
 ---
 # WO-10-001 — `lib/achievements.ts`: achievements engine (stats/chains/uniques/secrets)
 
@@ -92,4 +92,50 @@ cohesive engine, since they share the file and the same reader inputs:
 ## Definition of done
 - `pnpm vitest run lib/achievements.test.ts` green incl. all negative ACs; tsc + biome clean; pure; no `any`.
 - New module recorded in blueprint §3. `.pandacorp/verify.sh` passes.
+
+## Status Note
+
+**Built:** `lib/achievements.ts` — complete pure engine for all four achievement families (stats, chains, uniques, secrets). No I/O; consumes already-read reader data. All honesty constraints encoded.
+
+**Interfaces / contracts exposed:**
+
+```ts
+// Input aggregate (no direct fs)
+export type ReaderData = {
+  ideas: readonly IdeaCard[];
+  statuses: readonly StatusResult[];
+  eventsSnapshot: EventsSnapshot | null;
+};
+
+// IF-10-stats
+export function computeStats(data: ReaderData): Stat[];
+// Stat: { key, label, value, unlockEvents: TierUnlockEvent[] }
+// 12 keys: shipped | ideas | workorders | phases | iterations | flawless |
+//          discarded | prds | adrs | agents | streak | speed
+
+// IF-10-chains
+export function computeChains(stats: readonly Stat[]): ChainState[];
+// ChainState: { statKey, label, currentTierIndex, currentTierName, nextTier, pctToNext, lowerIsBetter, unlocks }
+export const CHAIN_DEFINITIONS: readonly ChainDefinition[];  // 12 chains, tier names from docs/achievements.md
+
+// IF-10-uniques
+export function computeUniques(data: ReaderData): Unique[];
+// Unique: { name, category, unlocked, date?, project?, condition }
+// UniqueCategory: "Discovery" | "Speed" | "Quality" | "Consistency" | "Mastery"
+export const UNIQUE_DEFINITIONS: readonly UniqueDefinition[];  // 15 unique achievements
+
+// IF-10-secrets
+export function computeSecrets(data: ReaderData): Secret[];
+// Secret: { hint, unlocked, criterion?, date?, project? }
+// criterion is ONLY present when unlocked (AC-10-004.2)
+export const SECRET_DEFINITIONS: readonly SecretDefinition[];  // 3 secrets
+```
+
+**Integration seams:**
+- Consumers (WO-10-005/006/007/008 page/components) import from `@/lib/achievements`.
+- Server Component calls `computeStats(data)` → passes `stats` to `computeChains(stats)`.
+- `computeUniques(data)` and `computeSecrets(data)` are independent (take `ReaderData` directly).
+- `ReaderData` is assembled by the Server Component by calling the existing readers (`readIdeas`, `readStatus` per project, `readEvents`).
+
+**Test coverage:** `lib/achievements.test.ts` — 50 tests covering all ACs including all negative ACs (no fabrication, no inflation, no stuck bar, criterion hidden when locked). Gate: `verify.sh` PASS (173 test files, 4773 tests green, tsc clean, biome clean).
 </content>
