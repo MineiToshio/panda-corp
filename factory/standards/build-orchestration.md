@@ -112,7 +112,10 @@ tokens. The supervisor:
   it) over `.pandacorp/status.yaml`, the run's journal mtime + active agents (frozen?), and the agent
   count (a spend proxy). It emits on: an FRD verified, **frozen** (~15 min no activity), a new block,
   pace below target, or run end. It covers the failure signatures, not just success — "silence is not success".
-- **Heartbeats** ~every 15 min so the owner isn't left guessing.
+- **Heartbeats VISIBLY** — a message to the owner every ~20–30 min even with NO anomaly. The Monitor only
+  wakes on events, so the latido is scheduled separately (a `ScheduleWakeup` timer): WOs done/total, the FRD
+  in progress, rough spend, "all green". Silence reads as "stuck" to the owner — the periodic latido is what
+  tells them it's alive.
 - **Reacts**: a stall → unstick it; a block → the engine already attempted a repair; if the run is wedged
   or over budget → **stop it and notify**. Notifications: the engine fires a macOS desktop notification
   (`osascript`); the supervisor also sends a phone `PushNotification` (when Remote Control is on). No
@@ -122,6 +125,15 @@ tokens. The supervisor:
   → capture the lesson to `factory/memory/_inbox.md` and, if fixable factory-wide, fix it on the spot.
 - **Holds a session budget ceiling**: it tracks cumulative agents/runs (a spend proxy) and stops + notifies
   at the owner's ceiling (it can't read exact plan usage, so the ceiling is conservative).
+- **Announces each FRD (milestone visibility)** — on every FRD verified, sends the owner a visible (+ push)
+  message: the FRD name, one line on what it does, the **route/page to try it**, and X/Y done. The owner
+  should never have to ask "is it done?"; each milestone is reported, paired with the review worktree below.
+- **Keeps a review worktree** — a worktree pinned at `last_green_sha` (`git worktree add ../<project>-review
+  <sha>`, with its OWN `node_modules`; a symlink breaks Next's HMR), updated (`git checkout`) each time an FRD
+  verifies, so the owner can browse the **latest GREEN version** without touching the running build. The owner
+  views it via a Claude Desktop session opened in that worktree (native Preview) or an on-demand dev server —
+  the build session's own Preview tool **cannot** point at an external worktree. No permanent dev server
+  (Next's file watcher is flaky across `git checkout`).
 
 The operable detail lives in the `implement` skill ("Unattended operation — the build supervisor"); this
 section is the canonical statement that the supervisor is **mandatory**, not optional.
