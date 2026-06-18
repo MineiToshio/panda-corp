@@ -5,7 +5,7 @@ slug: tu-turno
 title: WO-18-002 — `IF-18-turn` human-gate queue + `TuTurno` component
 status: DRAFT
 parent: FRD-18
-implementation_status: PLANNED
+implementation_status: IN_PROGRESS
 source_requirements: []
 last_updated: '2026-06-16'
 ---
