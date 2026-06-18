@@ -5,7 +5,7 @@
  * window, with an optional per-agent breakdown.
  *
  * Consumed by:
- *   - FRD-06 ActivityPulse (WO-06-009) — stalled-pulse signal
+ *   - FRD-18 dashboard rate chart — stall signal
  *   - FRD-18 dashboard — rate chart
  *
  * Single source of the rate metric — no duplication (AC-12-007.1, REQ-12-007).

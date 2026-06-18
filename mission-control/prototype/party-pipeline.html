@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Party · La Campaña (pipeline) — mockup fiel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --canvas:#0F1517;--panel:#192123;--card:#222A2D;--card2:#2A3336;
+  --t1:#EDEBE7;--t2:#BAB7B0;--t3:#9E9B94;
+  --bd:#2F373A;--bd2:#4F5A5D;
+  --accent:#33B6D1;--accent-text:#62CFE8;--accent-bg:#003542;
+  --ok:#5EC386;--ok-bg:#163A27;--warn:#EBB25F;--warn-bg:#3A2E18;--danger:#F36356;--info:#5EB6E6;--info-bg:#14303D;
+  --cat1:#60AD64;--cat2:#A278E4;--cat3:#E9609E;--cat4:#3D96EA;--cat5:#2CB3B4;--cat6:#37B2E8;--cat7:#E39849;--cat8:#46B68C;--cat9:#EC5C50;
+  --pixel:'Pixelify Sans',ui-monospace,monospace;--display:'Space Grotesk',system-ui,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:
+  radial-gradient(1100px 480px at 15% -8%, #16201f 0%, transparent 60%),
+  radial-gradient(900px 480px at 100% 108%, #141b22 0%, transparent 55%),
+  var(--canvas);
+  color:var(--t1);font-family:var(--display);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;font-variant-ligatures:none;font-feature-settings:"liga" 0,"clig" 0}
+.wrap{max-width:1000px;margin:0 auto;padding:22px 20px 60px}
+h1{font-family:var(--pixel);font-weight:600;font-size:27px;margin:0;letter-spacing:.02em}
+.sub{color:var(--t3);font-size:13px;margin:3px 0 0;max-width:660px}
+.topbar{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+.live{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--accent-text);font-family:var(--mono);white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 1.6s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+.controls{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.hint{color:var(--t3);font-size:12px}
+.btn{font-family:var(--display);font-weight:500;font-size:13px;background:var(--card);border:1px solid var(--bd2);color:var(--t1);border-radius:8px;padding:7px 12px;cursor:pointer}
+.btn:hover{border-color:var(--accent);color:var(--accent-text)}
+
+/* ---- campaign map ---- */
+.stage{position:relative;width:920px;max-width:100%;height:560px;margin:0 auto;border-radius:14px;overflow:hidden;border:1px solid var(--bd);
+  background:radial-gradient(760px 380px at 50% 46%, #16201d 0%, transparent 72%),#0c1113;image-rendering:pixelated}
+.stage::before{content:"";position:absolute;inset:0;background-image:linear-gradient(#1d2629 .5px,transparent .5px),linear-gradient(90deg,#1d2629 .5px,transparent .5px);background-size:30px 30px;opacity:.5;pointer-events:none}
+
+/* connectors (the doc hand-off across time) */
+.conn{position:absolute;z-index:1}
+.conn .road{position:absolute;inset:0;border-radius:7px;background:repeating-linear-gradient(var(--ang,90deg),#26312f 0 9px,#1c2523 9px 18px);box-shadow:inset 0 0 0 1px #2c3836;opacity:.8}
+.conn.flow .road{background:repeating-linear-gradient(var(--ang,90deg),#2f4a3a 0 9px,#21342a 9px 18px);box-shadow:inset 0 0 0 1px var(--ok);opacity:1}
+.conn .doc{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:var(--mono);font-size:10px;color:var(--t2);background:#0c1113;border:1px solid var(--bd2);border-radius:7px;padding:3px 8px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;z-index:12;box-shadow:0 3px 10px rgba(0,0,0,.6)}
+.conn.flow .doc{color:var(--ok);border-color:var(--ok);box-shadow:0 0 14px -4px var(--ok)}
+.conn.locked .doc{color:var(--t3);opacity:.5}
+.conn.flow .doc .pip{animation:slidein 1.5s ease-in-out infinite}
+@keyframes slidein{0%{transform:translateX(-3px);opacity:.5}50%{transform:translateX(3px);opacity:1}100%{transform:translateX(-3px);opacity:.5}}
+
+/* phase room */
+.room{position:absolute;width:250px;height:208px;border-radius:13px;overflow:hidden;border:1px solid var(--bd2);z-index:2;cursor:pointer;transition:box-shadow .3s,filter .3s,transform .15s}
+.room:hover{transform:translateY(-2px)}
+.room .bg{position:absolute;inset:0;background-size:cover;background-position:center;image-rendering:pixelated}
+.room .scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(12,17,19,.6) 0%,rgba(12,17,19,.1) 30%,rgba(12,17,19,.28) 60%,rgba(12,17,19,.86) 100%)}
+.room.done{filter:saturate(.92)}
+.room.done .bg{filter:brightness(.86)}
+.room.locked .bg{filter:grayscale(.85) brightness(.6)}
+.room.active{box-shadow:0 0 0 2px var(--accent),0 0 40px -8px var(--accent);animation:roompulse 2.2s ease-in-out infinite}
+@keyframes roompulse{0%,100%{box-shadow:0 0 0 2px var(--accent),0 0 36px -10px var(--accent)}50%{box-shadow:0 0 0 2px var(--accent),0 0 52px -6px var(--accent)}}
+.room.sel{outline:2px solid var(--accent-text);outline-offset:2px}
+
+.room .pnum{position:absolute;top:8px;left:9px;font-family:var(--pixel);font-size:13px;color:var(--t1);background:rgba(12,17,19,.82);border:1px solid var(--bd2);border-radius:7px;padding:1px 9px;display:inline-flex;align-items:center;gap:6px;z-index:5}
+.room .pnum .n{color:var(--accent-text)}
+.room .badge{position:absolute;top:8px;right:9px;font-family:var(--mono);font-size:10px;border-radius:20px;padding:1px 8px;z-index:5;border:1px solid}
+.badge.done{color:var(--ok);background:var(--ok-bg);border-color:var(--ok)}
+.badge.active{color:var(--accent-text);background:var(--accent-bg);border-color:var(--accent)}
+.badge.locked{color:var(--t3);background:var(--card);border-color:var(--bd2)}
+
+/* cast sprites — absolutely positioned so the active lead can roam the room */
+.cast{position:absolute;inset:0;z-index:3}
+.sp{position:absolute;left:0;top:0;width:56px;will-change:transform}
+.spi{position:relative;display:flex;flex-direction:column;align-items:center;animation:idlebob 2.6s ease-in-out infinite}
+.room.locked .spi{animation:none}
+.spi.walking{animation:walkbob .42s ease-in-out infinite}
+@keyframes idlebob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@keyframes walkbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+.sp img{width:58px;height:58px;image-rendering:pixelated;display:block;filter:drop-shadow(0 3px 3px rgba(0,0,0,.55))}
+.sp.small img{width:46px;height:46px}
+.room.locked .cast{filter:grayscale(.9) brightness(.7);opacity:.72}
+.sp .cn{font-family:var(--mono);font-size:9px;color:var(--t2);background:rgba(12,17,19,.82);border:1px solid var(--bd);border-radius:5px;padding:0 4px;margin-top:-3px;white-space:nowrap}
+.sp .halo{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);width:44px;height:14px;border-radius:50%;background:var(--accent);opacity:0;filter:blur(2px);z-index:-1}
+.room.active .sp.lead .halo{opacity:.45;animation:halo 1.5s ease-in-out infinite}
+@keyframes halo{0%,100%{opacity:.3;transform:translateX(-50%) scale(.85)}50%{opacity:.55;transform:translateX(-50%) scale(1.15)}}
+.sp .say{position:absolute;bottom:54px;left:50%;transform:translateX(-50%);max-width:120px;width:max-content;background:var(--panel);border:1px solid var(--bd2);border-radius:8px;padding:3px 7px;font-family:var(--mono);font-size:9.5px;line-height:1.25;color:var(--t1);text-align:center;display:none;z-index:9;box-shadow:0 3px 9px rgba(0,0,0,.4)}
+.sp.say-on .say{display:block;animation:sayin .2s ease-out}
+.sp .say::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--panel);margin-top:-1px}
+@keyframes sayin{from{opacity:0;transform:translateX(-50%) translateY(3px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+.lock{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);font-size:30px;z-index:4;opacity:.85}
+
+.room .deliver{position:absolute;left:9px;right:9px;bottom:8px;display:flex;align-items:center;gap:7px;z-index:5}
+.room .deliver .lbl{font-family:var(--mono);font-size:10px;color:var(--t3)}
+.room .deliver .art{font-family:var(--mono);font-size:11px;color:var(--t1);background:rgba(12,17,19,.82);border:1px solid var(--bd2);border-radius:7px;padding:2px 8px;display:inline-flex;align-items:center;gap:5px}
+.room.done .deliver .art{color:var(--ok);border-color:var(--ok)}
+
+/* caravan token */
+.caravan{position:absolute;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:16px;z-index:6;filter:drop-shadow(0 0 8px var(--accent));animation:cbob 1.4s ease-in-out infinite}
+@keyframes cbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+
+/* ---- detail strip ---- */
+.detail{margin-top:14px;background:var(--panel);border:1px solid var(--bd);border-radius:13px;padding:14px 16px}
+.detail h3{font-family:var(--pixel);font-weight:500;font-size:18px;margin:0;display:flex;align-items:center;gap:9px}
+.detail h3 .st{font-family:var(--mono);font-size:11px;color:var(--t3)}
+.detail .meta{font-size:13px;color:var(--t2);margin:5px 0 10px;max-width:760px}
+.detail .io{display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px;margin-bottom:12px}
+.detail .io b{font-family:var(--mono);font-size:11px;color:var(--t3);display:block;margin-bottom:2px;letter-spacing:.04em}
+.detail .io .v{color:var(--t1)}
+.detail .io .v code{font-family:var(--mono);font-size:11.5px;background:var(--card);padding:1px 6px;border-radius:5px}
+.detail .arrow{color:var(--t3);align-self:center;font-family:var(--mono)}
+.teamlbl{font-family:var(--mono);font-size:11px;color:var(--t3);letter-spacing:.04em;margin-bottom:7px}
+.team{display:flex;gap:9px;flex-wrap:wrap}
+.member{display:flex;gap:9px;align-items:flex-start;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:9px 11px;flex:1 1 240px;min-width:230px;max-width:330px}
+.member img{width:46px;height:46px;image-rendering:pixelated;border-radius:8px;border:1px solid var(--bd2);background:var(--panel);flex:0 0 auto}
+.member .mn{font-family:var(--pixel);font-size:14px;color:var(--t1);display:flex;align-items:center;gap:6px}
+.member .mn .lead{font-family:var(--mono);font-size:9px;color:var(--accent-text);background:var(--accent-bg);border:1px solid var(--accent);border-radius:5px;padding:0 5px}
+.member .mr{font-family:var(--mono);font-size:9px;color:var(--t3);margin:1px 0 3px}
+.member .mw{font-size:11.5px;color:var(--t2);line-height:1.4}
+.gotolink{display:inline-flex;align-items:center;gap:6px;margin-top:12px;font-family:var(--display);font-weight:500;font-size:13px;color:var(--accent-text);background:var(--accent-bg);border:1px solid var(--accent);border-radius:8px;padding:6px 12px;text-decoration:none}
+
+/* ---- fidelity note ---- */
+.note{margin-top:14px;background:var(--panel);border:1px solid var(--bd);border-radius:13px;padding:13px 16px}
+.note h4{font-family:var(--pixel);font-weight:500;font-size:14px;margin:0 0 7px;color:var(--accent-text);display:flex;align-items:center;gap:7px}
+.note p{margin:0;font-size:12.5px;color:var(--t2);line-height:1.6}
+.note code{font-family:var(--mono);font-size:11px;background:var(--card);padding:1px 5px;border-radius:4px;color:var(--t1)}
+.foot{margin-top:14px;font-family:var(--mono);font-size:11px;color:var(--t3);border-top:1px solid var(--bd);padding-top:11px}
+.foot a{color:var(--accent-text);text-decoration:none}
+@media(max-width:760px){.detail{grid-template-columns:1fr}}
+/* embed mode (inside Mission Control's board card detail) */
+body.embed{background:transparent}
+body.embed .topbar,body.embed .note,body.embed .foot{display:none}
+body.embed .wrap{padding:4px 2px 8px;max-width:none}
+body.embed .stage{max-width:none}
+.stagefit{width:100%;overflow:hidden}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div>
+      <h1>🗺️ Party · La Campaña</h1>
+      <p class="sub">El <b>pipeline completo</b>: las 6 fases con sus especialistas. Aquí SÍ se ve "todo el equipo" — pero trabaja <b>en secuencia</b> y se comunica <b>por documentos a través del tiempo</b>. La fase activa cobra vida (sus clases recorren la sala y colaboran); las pasadas siguen vivas en calma.</p>
+    </div>
+    <div class="live"><span class="dot"></span> Fase activa: <b id="curname" style="margin-left:2px">Construcción</b></div>
+  </div>
+
+  <div class="controls">
+    <span class="hint">Recorre la campaña:</span>
+    <button class="btn" id="prev">◀ Fase anterior</button>
+    <button class="btn" id="next">Fase siguiente ▶</button>
+    <span style="flex:1"></span>
+    <span class="hint">clic en una sala para ver su ficha</span>
+  </div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="detail" id="detail"></div>
+
+  <div class="note">
+    <h4>⏳ Por qué esto es fiel</h4>
+    <p>La <b>especialización vive por fase</b>, no dentro del build. El <code>researcher</code>, el <code>designer</code>, el <code>architect</code>… no corren mientras se construye: ya hicieron su trabajo y lo dejaron escrito. La "comunicación" entre clases es <b>asíncrona y vía artefacto</b>: cada fase lee el documento de la anterior y escribe el suyo para la siguiente (<code>research.md → PRD/FRDs → mockups+tokens → blueprint+Build Plan → código → deploy</code>). <b>Dentro</b> de una fase sí colaboran (p.ej. diseño↔copy) — por eso se mueven y charlan. La estación <b>Construcción</b> se mira de cerca en <a href="party-proposal.html" style="color:var(--accent-text)">La Fragua (Camino A)</a>.</p>
+  </div>
+
+  <div class="foot" id="foot"></div>
+</div>
+
+<script>
+const SPRITE=r=>'assets/agents/'+(r==='implementer'?'backend-dev':r)+'.png';
+const PHASES=[
+  {key:'research',n:1,name:'Investigación',room:'assets/zones/research.png',col:'--cat8',
+    cast:[{r:'researcher',name:'Investigador',lead:true}],
+    deliver:'research.md',emo:'🔍',reads:'la idea cruda',writes:'research.md',
+    desc:'Busca el dolor real en internet, valida fuentes/APIs y analiza competidores. Solo investiga y reporta.'},
+  {key:'spec',n:2,name:'Producto',room:'assets/zones/review.png',col:'--cat2',
+    cast:[{r:'product-manager',name:'PM',lead:true}],
+    deliver:'PRD + FRDs',emo:'📋',reads:'research.md',writes:'PRD + FRDs (criterios EARS)',
+    desc:'Convierte la investigación en requisitos verificables: visión, métricas y FRDs con criterios de aceptación.'},
+  {key:'design',n:3,name:'Diseño',room:'assets/zones/frontend.png',col:'--cat3',
+    cast:[{r:'designer',name:'Diseño',lead:true},{r:'copywriter',name:'Copy'}],
+    deliver:'mockups + tokens',emo:'🎨',reads:'PRD + FRDs',writes:'mockups, design tokens, microcopy',
+    desc:'Define el sistema de diseño (DESIGN.md + tokens), genera mockups navegables y la voz del producto.'},
+  {key:'architecture',n:4,name:'Arquitectura',room:'assets/zones/architecture.png',col:'--cat4',
+    cast:[{r:'architect',name:'Arquitecto',lead:true}],
+    deliver:'blueprint + Build Plan',emo:'📐',reads:'FRDs + tokens',writes:'blueprint, ADRs, Build Plan, work orders',
+    desc:'Elige el camino dorado, modela los datos, escribe el blueprint y planifica el build (Build Plan + work orders).'},
+  {key:'build',n:5,name:'Construcción',room:'assets/zones/build-hall.png',col:'--cat7',
+    cast:[{r:'implementer',name:'Implementer ×N',lead:true},{r:'reviewer',name:'Juez'},{r:'analytics',name:'Analítica'}],
+    deliver:'el código',emo:'⚒️',reads:'blueprint + Build Plan',writes:'código (WO → IN_REVIEW → VERIFIED)',
+    desc:'La party forja FRD por FRD: N implementers en paralelo (la oleada del modo), 1 juez por FRD en el gate, analítica instrumenta.',
+    link:'party-proposal.html',linktext:'Entrar a La Fragua (Camino A)'},
+  {key:'release',n:6,name:'Release',room:'assets/zones/release.png',col:'--cat9',
+    cast:[{r:'security-auditor',name:'Seguridad',lead:true},{r:'devops',name:'DevOps'}],
+    deliver:'auditoría + deploy',emo:'🚀',reads:'el código',writes:'auditoría, deploy, plan de lanzamiento',
+    desc:'Audita secretos/OWASP, despliega y prepara el lanzamiento. La producción pasa por el gate humano del dueño.'}
+];
+const DIALOG={
+  researcher:['fuente validada ✓','competidor: $9/mes','API gratis, sin login','dolor real confirmado'],
+  'product-manager':['criterio EARS ✓','¿esto entra al MVP?','REQ priorizado','métrica de éxito'],
+  designer:['token aplicado','mockup listo','¿contraste AA?','grid resuelto'],
+  copywriter:['microcopy ✓','voz: cercana','CTA más claro','empty state listo'],
+  architect:['camino dorado','ADR escrito','Build Plan ✓','modelo de datos'],
+  implementer:['WO en review','tests verdes','contrato publicado','self-test ✓'],
+  reviewer:['aprobado','re-corrí los tests','2 notas','integración ok'],
+  analytics:['evento listo','sin PII ✓','embudo ok','activación medida'],
+  'security-auditor':['sin secretos','OWASP ✓','deps al día','auth revisada'],
+  devops:['deploy a staging','rollback listo','CI verde','infra ok']
+};
+// what each role does — so the detail card shows the WHOLE team of a phase
+const ROLE_WHAT={
+  researcher:'Busca el dolor real en internet, valida fuentes/APIs y analiza competidores.',
+  'product-manager':'Traduce la investigación en PRD + FRDs con criterios de aceptación verificables.',
+  designer:'Define el sistema de diseño (DESIGN.md + tokens) y los mockups navegables.',
+  copywriter:'Escribe la voz del producto y el microcopy (botones, vacíos, errores, onboarding).',
+  architect:'Elige el camino dorado, modela los datos y escribe el blueprint + Build Plan.',
+  implementer:'Construye cada work order end-to-end con TDD — uno por WO, N en paralelo.',
+  reviewer:'El gate por FRD: revisa, escribe tests adversarios, integra y verifica.',
+  analytics:'Instrumenta la telemetría (eventos PostHog) sin ensuciar la lógica.',
+  'security-auditor':'Audita secretos, dependencias y OWASP antes de soltar a producción.',
+  devops:'CI/CD, deploy reproducible y plan de rollback. La producción pasa por el gate del dueño.'
+};
+
+// serpentine layout — top row L→R (0,1,2), down, bottom row R→L (3,4,5)
+const POS=[ [18,46],[335,46],[652,46], [652,306],[335,306],[18,306] ];
+// cast home positions (sprite-box left,top within a room) by cast size
+const HOMES={1:[[97,84]],2:[[52,82],[144,82]],3:[[34,80],[97,94],[160,80]]};
+
+let active=4, sel=4, roamId=0, HOST_SLUG='';
+const stage=document.getElementById('stage');
+
+function spHTML(c,i,pos){
+  return '<div class="sp '+(c.lead?'lead':'small')+'" data-ci="'+i+'" data-x="'+pos[0]+'" data-y="'+pos[1]+'" style="transform:translate('+pos[0]+'px,'+pos[1]+'px);z-index:'+Math.round(pos[1])+'">'
+    +'<div class="spi"><span class="halo"></span><span class="say"></span><img src="'+SPRITE(c.r)+'" alt="'+c.name+'"><span class="cn">'+c.name+'</span></div></div>';
+}
+
+function render(){
+  let html='';
+  html+=conn(268,143,67,'90deg',0);
+  html+=conn(585,143,67,'90deg',1);
+  html+=conn(770,254,52,'180deg',2,true);
+  html+=conn(585,403,67,'90deg',3);
+  html+=conn(268,403,67,'90deg',4);
+
+  PHASES.forEach((p,i)=>{
+    const state=i<active?'done':(i===active?'active':'locked');
+    const badge=state==='done'?'<span class="badge done">✓ entregado</span>':state==='active'?'<span class="badge active">● en curso</span>':'<span class="badge locked">🔒 en espera</span>';
+    const homes=HOMES[p.cast.length]||HOMES[1];
+    const cast='<div class="cast">'+p.cast.map((c,j)=>spHTML(c,j,homes[j])).join('')+'</div>';
+    const lock=state==='locked'?'<div class="lock">🔒</div>':'';
+    const deliver='<div class="deliver"><span class="lbl">entrega ▸</span><span class="art">'+p.emo+' '+p.deliver+'</span></div>';
+    // desync idle bob across done rooms
+    html+='<div class="room '+state+(i===sel?' sel':'')+'" data-i="'+i+'" style="left:'+POS[i][0]+'px;top:'+POS[i][1]+'px">'
+      +'<div class="bg" style="background-image:url('+p.room+')"></div><div class="scrim"></div>'
+      +'<span class="pnum"><span class="n">'+p.n+'</span> '+p.name+'</span>'+badge+lock+cast+deliver+'</div>';
+  });
+
+  stage.innerHTML=html;
+  // desync idle bobs
+  stage.querySelectorAll('.room.done .spi').forEach((s,i)=>{s.style.animationDelay=(-(i*0.7)).toFixed(2)+'s';});
+  stage.querySelectorAll('.room').forEach(r=>r.onclick=()=>{sel=+r.dataset.i;render();renderDetail();});
+  document.getElementById('curname').textContent=PHASES[active].name;
+  startRoam();
+}
+
+function conn(x,y,len,ang,srcIdx,vertical){
+  const p=PHASES[srcIdx];
+  const delivered=srcIdx<active;
+  const flowing=srcIdx===active-1;
+  const cls='conn'+(delivered?' done':'')+(flowing?' flow':'')+(srcIdx>=active?' locked':'');
+  const w=vertical?16:len, h=vertical?len:16;
+  return '<div class="'+cls+'" style="left:'+x+'px;top:'+y+'px;width:'+w+'px;height:'+h+'px;--ang:'+ang+'">'
+    +'<div class="road"></div><div class="doc"><span class="pip">'+p.emo+'</span> '+p.deliver+(flowing?' →':(delivered?' ✓':''))+'</div></div>';
+}
+
+// ---- roam engine: the active room's cast wanders + collaborates ----
+function startRoam(){
+  roamId++; const me=roamId;
+  const room=stage.querySelector('.room.active'); if(!room)return;
+  const phase=PHASES[active];
+  const els=[].slice.call(room.querySelectorAll('.sp'));
+  const sps=els.map((el)=>({el,spi:el.querySelector('.spi'),ci:+el.dataset.ci,
+    px:+el.dataset.x,py:+el.dataset.y,home:[+el.dataset.x,+el.dataset.y],
+    tx:+el.dataset.x,ty:+el.dataset.y,state:'pause',t0:performance.now(),dur:600+Math.random()*1400,meet:null}));
+  function pick(s){
+    if(sps.length>1 && Math.random()<0.45){
+      const others=sps.filter(o=>o!==s); const o=others[Math.floor(Math.random()*others.length)];
+      s.tx=Math.max(16,Math.min(178, o.px + (s.px<o.px?-30:30))); s.ty=o.py; s.meet=o;
+    } else { s.tx=16+Math.random()*162; s.ty=74+Math.random()*40; s.meet=null; }
+  }
+  function loop(){
+    if(me!==roamId)return; const now=performance.now();
+    sps.forEach(s=>{
+      if(s.state==='walk'){
+        const dx=s.tx-s.px,dy=s.ty-s.py,d=Math.hypot(dx,dy);
+        if(d<1.3){s.px=s.tx;s.py=s.ty;s.state='pause';s.t0=now;s.dur=900+Math.random()*1500;s.spi.classList.remove('walking');
+          if(s.meet){bubble(s);bubble(s.meet);s.meet=null;}}
+        else{const sp=0.5;s.px+=dx/d*sp;s.py+=dy/d*sp;}
+      } else { if(now-s.t0>s.dur){pick(s);s.state='walk';s.spi.classList.add('walking');} }
+      s.el.style.transform='translate('+s.px+'px,'+s.py+'px)';s.el.style.zIndex=Math.round(s.py)+10;
+    });
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+}
+function bubble(s){
+  const el=s.el, say=el.querySelector('.say'); if(!say)return;
+  const role=PHASES[active].cast[s.ci].r; const lines=DIALOG[role]||['…'];
+  say.textContent=lines[Math.floor(Math.random()*lines.length)];
+  el.classList.add('say-on'); clearTimeout(s._st); s._st=setTimeout(()=>el.classList.remove('say-on'),2000);
+}
+
+function renderDetail(){
+  const p=PHASES[sel];
+  const state=sel<active?'completada':(sel===active?'EN CURSO':'en espera');
+  let h='<h3><span style="color:var('+p.col+')">'+p.n+' · '+p.name+'</span> <span class="st">— '+state+'</span></h3>';
+  h+='<div class="meta">'+p.desc+'</div>';
+  h+='<div class="io"><div><b>LEE (de la fase previa)</b><span class="v">'+p.reads+'</span></div>'
+    +'<span class="arrow">▸</span>'
+    +'<div><b>ESCRIBE (para la siguiente)</b><span class="v">'+p.writes+'</span></div></div>';
+  h+='<div class="teamlbl">EQUIPO DE LA FASE — '+p.cast.length+' '+(p.cast.length>1?'especialistas que colaboran':'especialista')+'</div>';
+  h+='<div class="team">'+p.cast.map(c=>
+    '<div class="member"><img src="'+SPRITE(c.r)+'" alt="">'
+    +'<div><div class="mn">'+c.name+(c.lead?'<span class="lead">★ lead</span>':'')+'</div>'
+    +'<div class="mr">'+c.r+'</div><div class="mw">'+(ROLE_WHAT[c.r]||'')+'</div></div></div>').join('')+'</div>';
+  if(p.link){
+    const emb=document.body.classList.contains('embed');
+    // when embedded in Mission Control, jump the HOST app to Portfolio → Party (no inner reload/scroll);
+    // standalone falls back to opening La Fragua in embed mode.
+    const onc=emb?' onclick="if(window.parent&&window.parent!==window&&window.parent.mcGoParty){window.parent.mcGoParty(\''+HOST_SLUG+'\');return false;}"':'';
+    h+='<a class="gotolink" href="'+p.link+(emb?'?embed=1':'')+'"'+onc+'>⚒️ '+p.linktext+' →</a>';
+  }
+  document.getElementById('detail').innerHTML=h;
+}
+
+document.getElementById('prev').onclick=()=>{if(active>0){active--;sel=active;render();renderDetail();}};
+document.getElementById('next').onclick=()=>{if(active<PHASES.length-1){active++;sel=active;render();renderDetail();}};
+document.getElementById('foot').innerHTML='Fuente: el pipeline de skills <b>/pandacorp:*</b> (research → spec → design → blueprint → implement → release) · paradigma <b>Dynamic Workflows</b> (DR-013) · cada fase deja su documento canónico para la siguiente.';
+
+// --- embed self-sizing: scale the map to width, then push our true height to the host iframe ---
+// (no inner scrollbar — the parent PAGE scrolls; the iframe is always exactly content-tall)
+function fitEmbed(){
+  if(!document.body.classList.contains('embed'))return;
+  const st=document.getElementById('stage');if(!st)return;
+  let fit=st.parentNode&&st.parentNode.classList&&st.parentNode.classList.contains('stagefit')?st.parentNode:null;
+  if(!fit){fit=document.createElement('div');fit.className='stagefit';st.parentNode.insertBefore(fit,st);fit.appendChild(st);st.style.transformOrigin='top left';}
+  const s=Math.min(1,fit.clientWidth/920);
+  st.style.transform='scale('+s+')';
+  fit.style.height=(560*s)+'px';
+}
+function reportHeight(){
+  if(!document.body.classList.contains('embed'))return;
+  const fe=window.frameElement;if(!fe)return;
+  // measure CONTENT (body), not documentElement.scrollHeight — the latter is clamped to the
+  // iframe viewport, so it can grow but never shrink (auto-size trap).
+  const h=Math.ceil(Math.max(document.body.scrollHeight,document.body.offsetHeight));
+  if(h&&Math.abs(parseInt(fe.style.height||0)-h)>1)fe.style.height=h+'px';
+}
+function syncEmbed(){fitEmbed();reportHeight();}
+function initEmbedSizing(){
+  if(!document.body.classList.contains('embed'))return;
+  syncEmbed();
+  if(window.ResizeObserver)new ResizeObserver(reportHeight).observe(document.body);
+  window.addEventListener('resize',syncEmbed);
+  [120,400,900,1600].forEach(ms=>setTimeout(syncEmbed,ms));
+  setInterval(reportHeight,800); // timer-based safety net
+}
+
+const _q=new URLSearchParams(location.search);
+if(_q.has('embed'))document.body.classList.add('embed');
+HOST_SLUG=_q.get('slug')||'';
+if(_q.get('active')!==null){const a=+_q.get('active');if(a>=0&&a<PHASES.length){active=a;sel=a;}}
+render();renderDetail();initEmbedSizing();
+</script>
+</body>
+</html>

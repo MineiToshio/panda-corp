@@ -3,8 +3,8 @@ id: FRD-13
 type: frd
 title: FRD-13 — Visual system and accessibility
 status: ACTIVE
-implementation_status: VERIFIED
-last_updated: '2026-06-16'
+implementation_status: PLANNED
+last_updated: '2026-06-18'
 ---
 # FRD-13 — Visual system and accessibility
 
@@ -19,6 +19,7 @@ Mission Control must feel **engineered, not decorative**, without the owner (wea
 - Animation SHALL use **only `transform` and `opacity`**, duration **<300ms**, and apply the *frequency test*: what is seen dozens of times a day (tabs, hover) is restrained; the expressive is reserved for rare and satisfying events (achievement, level-up, completed work order). 2–3 easing tokens, not per-component curves.
 - The UI SHALL honor **`prefers-reduced-motion`**: it disables all Party animation (long sessions → avoid fatigue).
 - NO state SHALL depend on color alone: each state (working / idle / failed / completed) is paired with an **icon or shape + label** (critical with a warm palette, where reds/oranges/amber are close together).
+- The canonical **agent-role set** (`AGENT_ROLES` / `AGENT_COLOR` in `app/_design/tokens.ts` — the single source for FRD-06 La Fragua + FRD-12) SHALL match the **real engine and pipeline roles** and carry a fixed color token each: the build/review roles `implementer`, `reviewer`, and the deep-split `test-writer` / `backend-dev` / `frontend-dev`; and the per-phase specialists `researcher` / `product-manager` / `designer` / `copywriter` / `architect` / `analytics` / `security-auditor` / `devops`. It SHALL NOT include the fictitious `guild` aggregate (realigned 2026-06-18 with the Party redesign — see `docs/decision-log.md` and `prototype/party-redesign-spec.md` §2).
 - The accessibility SHALL comply: `aria-label` in Spanish on icons, `aria-live="polite"` to announce events without stealing focus, a visible focus ring that respects the `border-radius`, keyboard list navigation, **contrast ≥4.5:1** (a real risk with light warms).
 
 ## Non-goals (v1)

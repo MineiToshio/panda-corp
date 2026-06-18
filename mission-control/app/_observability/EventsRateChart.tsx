@@ -7,7 +7,7 @@
  * This is the UI surface for the `eventsPerMinute` selector (IF-12-rate).
  *
  * Consumed by:
- *   - FRD-06 ActivityPulse (WO-06-009) — alive-vs-stalled pulse
+ *   - FRD-18 dashboard rate chart — alive-vs-stalled pulse
  *   - FRD-18 dashboard — rate chart panel
  *
  * Design rules (FRD-13, AGENTS.md):
@@ -264,7 +264,7 @@ function toTimeLabel(minute: string): string {
 
 /**
  * Detect a stalled state: all buckets have total === 0 (or no buckets).
- * Consumed by the FRD-06 ActivityPulse alive-vs-stalled affordance.
+ * Consumed by the FRD-18 dashboard rate chart.
  */
 function isStalled(buckets: Bucket[]): boolean {
   if (buckets.length === 0) return true;

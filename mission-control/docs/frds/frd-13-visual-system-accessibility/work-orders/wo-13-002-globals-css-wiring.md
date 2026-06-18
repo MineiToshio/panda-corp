@@ -7,13 +7,16 @@ title: >-
   focus)
 status: ACTIVE
 parent: FRD-13
-implementation_status: VERIFIED
+implementation_status: PLANNED
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-18'
 ---
 # WO-13-002 — globals.css wiring (themes, elevation, motion, reduced-motion, focus)
 
 **Components/Interfaces:** `CMP-13-globals`, `IF-13-theme-vars` · **Traces:** REQ-13-001, REQ-13-002, REQ-13-004, REQ-13-005, REQ-13-006
+
+## Realignment (2026-06-18 — Party redesign, reopened → PLANNED)
+Add the `@theme` agent-color tokens for the roles added in WO-13-001 (`--color-agent-implementer`, `--color-agent-copywriter`, `--color-agent-analytics`, `--color-agent-devops`) in both light and dark themes, and remove `--color-agent-guild`. Reuse the existing warm/cat palette; keep contrast ≥4.5:1. Narrow scope — the rest of globals.css stays verified.
 **Deploy unit:** global styles · **Location:** `app/globals.css`
 
 ## Acceptance criteria (verbatim EARS)

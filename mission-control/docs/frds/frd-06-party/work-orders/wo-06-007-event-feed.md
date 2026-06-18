@@ -2,41 +2,54 @@
 id: WO-06-007
 type: work-order
 slug: event-feed
-title: 'WO-06-007 — Event feed (vocabulary, failure-first, auto-scroll + pin, cap)'
+title: 'WO-06-007 — Bitácora (event feed: vocabulary, failure-first, auto-scroll, cap, Live/No-signal)'
 status: DRAFT
 parent: FRD-06
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
 source_requirements: []
-last_updated: '2026-06-17'
+last_updated: '2026-06-18'
 ---
-# WO-06-007 — Event feed (vocabulary, failure-first, auto-scroll + pin, cap)
+# WO-06-007 — Bitácora (event feed)
 
-**Components/Interfaces:** `CMP-06-feed` · **Traces:** REQ-06-006, REQ-06-012, REQ-06-013, REQ-06-014, REQ-06-011
+**Components/Interfaces:** `CMP-06-feed` · **Traces:** REQ-06-011, REQ-06-010
 **Deploy unit:** Party tab (Client Component) · **Location:** `app/projects/[slug]/_party/EventFeed.tsx` (+ `.test.tsx`)
 
+> **REOPENED → PLANNED (2026-06-18, La Fragua redesign).** The feed is largely correct but must:
+> read `roleColorKey` (renamed from `agentColorKey`, WO-06-001); render the new **hand-off / contract /
+> gate** lines; and **host the Live / No-signal badge** (folded in from the descoped WO-06-010) reading
+> `lastEventAt`. Behavior changes → reopened. See the Status Note.
+
 ## Acceptance criteria (verbatim EARS)
-- AC-06-006.1: The view SHALL show a **log** of the workflow events (subagent actions and handoffs between stages).
-- AC-06-012.1: The events SHALL use a fixed, bounded iconic vocabulary; tool = extra icon.
-- AC-06-013.1: Failure SHALL be a first-class state ... distinct from "completed". Never hidden in a log.
-- AC-06-014.1: The feed SHALL **auto-scroll to the new** with a "pin" button when the operator scrolls up, and a **cap of 100–200 events** in memory (discards the oldest).
-- AC-06-011.1: Each agent SHALL have a fixed color reused across the UI; multi-project → project-color + agent-color borders.
+- AC-06-011.1: THE system SHALL show a **bitácora del gremio** — a feed of the real build events (work starting, the `Status Note` hand-off, the deep contract, the gate opening), each row using the fixed bounded iconic vocabulary, the role color, and a `tabular-nums` timestamp, with **failure as a first-class state** (never hidden), auto-scroll to newest + a pin button, and an in-memory cap (≤200, drop oldest).
+- AC-06-010.3: WHILE events from more than one project are present, THE system SHALL distinguish them with a **project-color (left border) + role-color (second border)**.
 
 ## Scope
-- Renders the event list from `EventVM[]` (WO-06-001): icon + tool icon, agent-color marker, Spanish label, `tabular-nums` timestamp.
+- Renders the event list from `EventVM[]` (WO-06-001): icon + tool icon, **role-color** marker, Spanish label, `tabular-nums` timestamp — including the `handoff`/`contract`/`gate` lines.
 - **Failure rows** visually distinct (danger token + ❌ + label) and never filtered.
-- **Auto-scroll** to newest; when the user scrolls up, stop auto-scroll and show a **pin/"jump to latest"** button (`data-testid`); clicking re-pins.
-- **Cap** at 100–200 in the rendered set (drop oldest) — assert it does not grow unbounded.
-- Multi-project: project-color left border + agent-color second border when `projectColorKey` present.
-- `aria-live="polite"` for new rows (announce without stealing focus, FRD-13).
+- **Auto-scroll** to newest; scroll-up shows a **pin/"jump to latest"** button; clicking re-pins.
+- **Cap** at ≤200 in the rendered set (drop oldest).
+- Multi-project: project-color left border + role-color second border when `projectColorKey` present.
+- **Live / No-signal badge** in the feed header (folded in from WO-06-010): reads `lastEventAt`, state by icon + label (never color-only), `tabular-nums` timestamp.
+- `aria-live="polite"` for new rows.
 
 ## Dependencies
-- WO-06-001 (`EventVM`, icon map), FRD-13 tokens (colors, tabular-nums, a11y).
+- WO-06-001 (`EventVM`, icon map — enriched/role-keyed), FRD-13 tokens (colors, tabular-nums, a11y).
 
 ## TDD / Definition of done
 - Component tests: renders rows with the right icons; a failure event renders the danger treatment and is present (not hidden); adding >cap events keeps the list capped (oldest gone); scrolling up reveals the pin button and pauses auto-scroll; clicking it re-enables; a `project`-tagged event shows both borders.
 - Gate green.
 
-## Status Note
+## Status Note (La Fragua redesign — what the retry must build)
+
+**Why reopened:** the shipped feed reads `data-agent-color` (rename to role-color), and predates the
+`handoff`/`contract`/`gate` lines and the Live/No-signal badge (which moved here from the descoped
+WO-06-010). The retry: switch to `roleColorKey`; render the new vocabulary rows; add a `live` +
+`lastEventAt` prop and the Live/No-signal badge in the feed header (icon + label, `tabular-nums`). Keep
+the cap, pin and first-class failure behavior. Extend the tests for the new rows + the badge.
+
+---
+
+### Previous build (obsoleted by the redesign — kept for history)
 
 **Built:** `CMP-06-feed` — `EventFeed` client component at `app/projects/[slug]/_party/EventFeed.tsx`.
 

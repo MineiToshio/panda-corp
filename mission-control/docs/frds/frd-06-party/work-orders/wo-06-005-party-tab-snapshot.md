@@ -2,37 +2,67 @@
 id: WO-06-005
 type: work-order
 slug: party-tab-snapshot
-title: WO-06-005 — Party tab server snapshot (RSC)
+title: WO-06-005 — La Fragua tab + FraguaSnapshot (RSC, read-only)
 status: DRAFT
 parent: FRD-06
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
 source_requirements: []
-last_updated: '2026-06-17'
+last_updated: '2026-06-18'
 ---
-# WO-06-005 — Party tab server snapshot (RSC)
+# WO-06-005 — La Fragua tab + FraguaSnapshot (RSC, read-only)
 
-**Components/Interfaces:** `CMP-06-party-tab` · **Traces:** REQ-06-008, REQ-06-002, REQ-06-005, REQ-06-010
-**Deploy unit:** Party tab (Server Component) · **Location:** `app/projects/[slug]/_party/PartyTab.tsx` (+ `.test.tsx`)
+**Components/Interfaces:** `CMP-06-party-tab`, `IF-06-fragua-snapshot` · **Traces:** REQ-06-002, REQ-06-008, REQ-06-009, REQ-06-010
+**Deploy unit:** Party tab (Server Component) · **Location:** `app/projects/[slug]/_party/PartyTab.tsx`, `app/projects/[slug]/_party/fragua-snapshot.ts` (+ `.test.tsx`/`.test.ts`)
+
+> **REOPENED → PLANNED (2026-06-18, La Fragua redesign).** The old snapshot built a `PartySnapshot`
+> (roster + per-agent initial states from `lib/tasks`). The faithful snapshot is **per-FRD**: current FRD
+> + title, mode (from state), running WOs (≤ wave), queued count, gate, trophies (+ archived), global
+> `{done,total}` counter. The mode selector and pause/reset are **demo-only** and must NOT ship. See the
+> Status Note.
 
 ## Acceptance criteria (verbatim EARS)
-- AC-06-008.1: The view SHALL feed off the workflow events written by the subagents (`emit-event.sh`) and the `SubagentStop` hook (`~/.claude/dashboard-events.ndjson`) and off the task state (`~/.claude/tasks/`), **without calling Claude**.
-- AC-06-010.1: IF there is no active team, it SHALL show an empty state gracefully.
-- AC-06-002.1: EACH workflow subagent SHALL appear as a sprite placed in its zone.
+- AC-06-002.1: THE system SHALL set the scene to the **single FRD currently in build** and SHALL display that FRD's **title**.
+- AC-06-002.2: THE system SHALL display a **global project counter** of work orders done over total (e.g. `52 / 109 WO`).
+- AC-06-008.1: THE system SHALL feed off `AgentWorking` events carrying `{role, wo, frd, phase, activity, mode}` and `SubagentStop`, read from `~/.claude/dashboard-events.ndjson` via `lib/events.ts`, **without calling Claude**.
+- AC-06-008.2: WHEN an event omits the optional enriched fields, THE system SHALL still render gracefully (backward compatibility).
+- AC-06-009.1: IN production, THE system SHALL display the run **mode read from state** as data (no mode selector) and SHALL NOT expose any pause / reset / agent-control affordance.
+- AC-06-010.1: IF there is no FRD currently in build (no active team / no events), THEN THE system SHALL show a graceful empty state.
 
 ## Scope
-- Server Component that, for the project slug: reads the **capped** event tail via `lib/events` (cap 100–200) and task state via `lib/tasks`; reads the build mode via `lib/status`; builds `PartySnapshot` (roster via `IF-06-roster`, initial agent states from the tail, events mapped via `IF-06-event-vm`, `active`, `lastEventAt`).
-- Passes the serializable snapshot to `CMP-06-scene`/`CMP-06-feed` (client). No `fs` reaches the client.
-- `active=false` (no team / no events / `~/.claude/tasks/` absent) → render `CMP-06-empty`.
+- `toFraguaSnapshot(events, opts): FraguaSnapshot` (`IF-06-fragua-snapshot`, pure): from the capped enriched event tail derive the **current `frd` (+ title)**, the **mode** (from the `mode` field; default `powerful`), **running WOs** (≤ wave, the wave cap applied here), **queuedCount**, the **gate** state (open iff all of the FRD's WOs are `IN_REVIEW`), **trophies** (`VERIFIED` WOs, ≤9) + **archivedCount**, and the global `{done,total}` counter. Tolerant of missing optional fields (AC-06-008.2).
+- `PartyTab` (RSC): reads the capped tail via `lib/events` (WO-06-012 enriched), builds the snapshot, maps the feed via `IF-06-event-vm`, and renders `<FraguaScene>` + `<EventFeed>` + `<AchievementToast>`; `active=false` → `<PartyEmptyState>`. No `fs` reaches the client.
+- **Read-only (AC-06-009.1):** NO mode selector, NO pause/reset — render the mode as data. The selector/pause/reset exist only in the prototype.
 
 ## Dependencies
-- FRD-01 `lib/events`, `lib/tasks`, `lib/status`, `lib/config` (cross-feature, hard).
-- WO-06-001 (mapper), WO-06-002 (roster).
+- FRD-01 `lib/events` + WO-06-012 (enriched fields), `lib/config` (cross-feature, hard).
+- WO-06-001 (feed mapper), WO-06-002 (layout/wave), WO-06-006 (scene), WO-06-007 (feed), WO-06-008 (toast).
 
 ## TDD / Definition of done
 - Tests with `PANDACORP_FACTORY_ROOT` fixtures: builds a snapshot from a fixture ndjson tail; respects the cap (drops oldest); absent `tasks/` → `active=false`; malformed lines tolerated (never throws); never imports a Claude/AI client (auditable). `lastEventAt` is the newest `at`.
 - Gate green.
 
-## Status Note
+## Status Note (La Fragua redesign — what the retry must build)
+
+**Why reopened:** the shipped `PartyTab` builds a `PartySnapshot` (roster from a default mode +
+per-agent states from `lib/tasks`) and mounts the old zone scene. The faithful tab builds a **per-FRD
+`FraguaSnapshot`** from the enriched event stream (current FRD+title, mode from state, running WOs ≤ wave,
+queued count, gate, trophies + archived, the global `{done,total}` counter) and mounts `<FraguaScene>`.
+Key changes for the retry:
+
+- Add `toFraguaSnapshot(events, opts)` (new pure module) and TDD it against an enriched-event fixture:
+  current-FRD detection, mode read from the stream (default `powerful`), running-WO cap = wave, queued
+  count, gate open only when all WOs `IN_REVIEW`, trophy/archived split at 9, the global counter,
+  tolerance of events missing `frd`/`phase`/`activity`/`mode` (AC-06-008.2).
+- `PartyTab` mounts `<FraguaScene snapshot=…>` + `<EventFeed>` + `<AchievementToast>`; empty branch →
+  `<PartyEmptyState>`. **Remove** the `lib/tasks` roster path and the `mode` default-roster prop.
+- **Read-only:** assert (a reviewer-style integration test) that NO mode selector and NO pause/reset
+  control reach the DOM (AC-06-009.1) — those are demo-only in the prototype.
+- Keep the existing integration anchor discipline (the WO that mounts the scene asserts the scene
+  actually reaches the DOM — the prior gate caught a tab that rendered only the feed).
+
+---
+
+### Previous build (obsoleted by the redesign — kept for history)
 
 **Built:** `CMP-06-party-tab` — Party tab Server Component with full `lib/tasks` + `lib/events` integration.
 

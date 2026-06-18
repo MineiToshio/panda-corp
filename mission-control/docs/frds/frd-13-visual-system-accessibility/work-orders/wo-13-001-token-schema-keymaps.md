@@ -5,13 +5,20 @@ slug: token-schema-keymaps
 title: WO-13-001 — Token schema validation + agent-color/state-vocab key maps
 status: ACTIVE
 parent: FRD-13
-implementation_status: VERIFIED
+implementation_status: PLANNED
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-18'
 ---
 # WO-13-001 — Token schema validation + agent-color/state-vocab key maps
 
 **Components/Interfaces:** `IF-13-tokens`, `IF-13-agent-colors`, `IF-13-state-vocab` · **Traces:** REQ-13-001, REQ-13-002, REQ-13-004, REQ-13-005, REQ-13-007
+
+## Realignment (2026-06-18 — Party redesign, reopened → PLANNED)
+Align `AGENT_ROLES` + `AGENT_COLOR` to the real engine/pipeline roles (narrow scope — keep everything else verified):
+- **ADD** `implementer` (the real build role — currently missing), `copywriter`, `analytics`, `devops`.
+- **REMOVE** the fictitious `guild` aggregate.
+- Keep: `researcher`, `backend-dev`, `frontend-dev`, `test-writer`, `reviewer`, `security-auditor`, `architect`, `product-manager`, `designer`.
+- Each new role gets an `AGENT_COLOR` entry (`--color-agent-<role>`); the matching `@theme` tokens are added by WO-13-002. Update any exhaustive switch/tests over `AgentRole`. Source: `prototype/party-redesign-spec.md` §2.
 **Deploy unit:** design layer (pure logic + contract) · **Location:** `app/_design/tokens.ts` (+ `.test.ts`), validates `docs/design/design-tokens.json`
 
 ## Acceptance criteria (verbatim EARS)

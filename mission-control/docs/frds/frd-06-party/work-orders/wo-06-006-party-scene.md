@@ -2,38 +2,71 @@
 id: WO-06-006
 type: work-order
 slug: party-scene
-title: 'WO-06-006 — Party scene render (zones, stations, sprites)'
+title: 'WO-06-006 — La Fragua scene (rooms, WO sprites, +N en cola, gate, trophies, tracker)'
 status: DRAFT
 parent: FRD-06
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
 source_requirements: []
-last_updated: '2026-06-17'
+last_updated: '2026-06-18'
 ---
-# WO-06-006 — Party scene render (zones, stations, sprites)
+# WO-06-006 — La Fragua scene (rooms, WO sprites, +N en cola, gate, trophies, tracker)
 
-**Components/Interfaces:** `CMP-06-scene` · **Traces:** REQ-06-001, REQ-06-002, REQ-06-003, REQ-06-004, REQ-06-009
-**Deploy unit:** Party tab (Client Component) · **Location:** `app/projects/[slug]/_party/PartyScene.tsx` (+ `.test.tsx`)
+**Components/Interfaces:** `CMP-06-scene` · **Traces:** REQ-06-001, REQ-06-002, REQ-06-003, REQ-06-004, REQ-06-005, REQ-06-006, REQ-06-009
+**Deploy unit:** Party tab (Client Component) · **Location:** `app/projects/[slug]/_party/FraguaScene.tsx` (+ `.test.tsx`)
+
+> **REOPENED → PLANNED (2026-06-18, La Fragua redesign).** The old scene rendered 4 zones + one sprite
+> per roster role + wandering. The faithful scene renders **three rooms**, **one sprite per running WO**
+> (≤ wave) + a **"+N en cola"** badge, the **reviewer gate** (one per FRD), the **trophy shelf** with
+> **"+N archivados"**, the **parchment**, the **FRD tracker + global counter**, and **hover tooltips**.
+> Visual contract: `../../../prototype/party-proposal.html`. The deep relay is rendered by WO-06-013.
 
 ## Acceptance criteria (verbatim EARS)
-- AC-06-001.1: The view SHALL show 4 pixel-art zones, each with its label.
-- AC-06-002.1: EACH workflow subagent SHALL appear as a sprite placed in its zone.
-- AC-06-003.1: WHILE there is no stage transition, the sprites SHALL have life (breathing + wandering).
-- AC-06-009.1: The view is for **observation**: to redirect/pause an agent, the owner uses the Claude Code app.
+- AC-06-001.1: WHILE a work order is a **running `implementer`**, THE system SHALL render exactly **one sprite** for it in the Sala de Forja.
+- AC-06-001.3: WHILE the FRD has additional work orders not yet building, THE system SHALL render them as a single **"+N en cola"** count, NOT as sprites.
+- AC-06-002.1: THE system SHALL set the scene to the **single FRD currently in build** and SHALL display that FRD's **title**.
+- AC-06-002.3: WHEN a sprite is hovered, THE system SHALL show a tooltip with that work order's **id and title**.
+- AC-06-003.1: THE system SHALL render three rooms in a linear flow — Forja, Tribunal, Bóveda — each with its label, and SHALL NOT render a 3-column kanban.
+- AC-06-004.1: THE system SHALL render exactly **one `reviewer`** figure for the FRD, dimmed, WHILE not all of the FRD's work orders are `IN_REVIEW`.
+- AC-06-004.2: WHEN **all** of the FRD's work orders reach `IN_REVIEW`, THE system SHALL activate the single `reviewer` and SHALL indicate it reviews with **three lenses**.
+- AC-06-005.1: WHEN a work order reaches `VERIFIED`, THE system SHALL place it as a **trophy** on the Bóveda shelf.
+- AC-06-006.1: WHEN a work order closes and writes its `## Status Note`, THE system SHALL render a **parchment** travelling to a **dependent** work order's station.
+- AC-06-009.1: IN production, THE system SHALL NOT expose any pause / reset / agent-control affordance.
 
 ## Scope
-- `"use client"` component that mounts the engine (WO-06-004), binds it to a `requestAnimationFrame` loop, and renders the DOM: zones with labels, stations (fixed label + dim/hot per activity, PARTY.md §2), sprites (reused assets from `prototype/assets/**`, `image-rendering: pixelated`), halos/emotes/progress bars/speech bubbles per state.
-- Re-mount discipline from PARTY.md §5: each render bumps a `runId`; the old loop self-stops; tab-hidden pauses RAF (browser default).
-- Receives `PartySnapshot` + event diffs as props; calls `engine.applyEvents` on prop change.
-- **No control affordances** (observation-only, REQ-06-009).
+- `"use client"` `FraguaScene` that mounts the engine (WO-06-004), binds the RAF loop, and renders: the
+  three rooms (forge/tribunal/vault) with Spanish labels (AC-06-003.1); one sprite per **running WO**
+  (≤ wave) with `implementer` art + halo + progress + WO-id tag + hover tooltip (id+title, AC-06-002.3);
+  the **"+N en cola"** badge (AC-06-001.3); the **reviewer** figure dim/active per the gate (AC-06-004);
+  the **trophy shelf** + "+N archivados" (AC-06-005); the **parchment** element (AC-06-006); the **FRD
+  tracker** (title) + **global counter** (AC-06-002.1).
+- Re-mount discipline (`runId` self-stop); tab-hidden pauses RAF.
+- Receives `FraguaSnapshot` + event diffs as props; calls `engine.applyEvents` on prop change.
+- **No control affordances** (observation-only, AC-06-009.1) — no selector/pause/reset.
+- The deep-relay sub-render is delegated to `<DeepRelay>` (WO-06-013).
 
 ## Dependencies
-- WO-06-004 (engine), WO-06-005 (snapshot/props), FRD-13 design tokens (agent colors, halos, motion <300ms), `prefers-reduced-motion` (full handling in WO-06-011).
+- WO-06-004 (engine), WO-06-005 (snapshot/props), WO-06-002 (layout), WO-06-013 (deep relay), FRD-13 tokens; `prefers-reduced-motion` handling in WO-06-011.
 
 ## TDD / Definition of done
 - Component tests (jsdom + RTL): renders 4 zones with labels; one sprite per roster role placed in its zone; state classes (`s-work/s-walk/s-idle/s-blocked/s-review`) applied from snapshot; no button/control to command agents exists. RAF is mocked.
 - Gate green.
 
-## Status Note
+## Status Note (La Fragua redesign — what the retry must build)
+
+**Why reopened:** the shipped `PartyScene` renders 4 zones (`party-zone-{library|forge|workshop|lab}`)
++ one sprite per roster role with wandering. The faithful scene (renamed `FraguaScene`) renders the
+three rooms, **one sprite per running WO** capped at the wave, the **"+N en cola"** badge, the
+**reviewer gate**, the **trophy shelf** + "+N archivados", the **parchment**, and the **FRD tracker +
+global counter**, per the visual contract. New `data-testid`s: `fragua-scene`, `fragua-room-{forge|
+tribunal|vault}`, `fragua-wo-{id}` (running sprites), `fragua-queue-badge`, `fragua-reviewer`
+(`data-gate-open`), `fragua-trophy-{id}`, `fragua-archived`, `fragua-parchment`, `fragua-frd-tracker`,
+`fragua-project-counter`, sprite hover tooltip. Delete the 4-zone render and the roster prop. Defer the
+deep relay to `<DeepRelay>` (WO-06-013). Rewrite the 27 tests against the new model; RAF mocked; no
+control affordance present (AC-06-009.1).
+
+---
+
+### Previous build (obsoleted by the redesign — kept for history)
 
 **Built:** `PartyScene` (`"use client"`) — the RPG map component (CMP-06-scene). Mounts `createPartyEngine` (WO-06-004), binds it to a `requestAnimationFrame` loop with the PARTY.md §5 re-mount discipline (`runIdRef` self-stop pattern), and renders 4 pixel-art zones with labels + one sprite per roster role with state classes.
 

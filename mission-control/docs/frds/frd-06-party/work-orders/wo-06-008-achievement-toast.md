@@ -7,15 +7,21 @@ status: DRAFT
 parent: FRD-06
 implementation_status: IN_REVIEW
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-18'
 ---
 # WO-06-008 — Achievement toast (work-order-close celebration)
 
-**Components/Interfaces:** `CMP-06-achievement` · **Traces:** REQ-06-007
+**Components/Interfaces:** `CMP-06-achievement` · **Traces:** REQ-06-012
 **Deploy unit:** Party tab (Client Component) · **Location:** `app/projects/[slug]/_party/AchievementToast.tsx` (+ `.test.tsx`)
 
+> **KEPT IN_REVIEW (2026-06-18, La Fragua redesign).** The shipped toast already fires on a WO-close /
+> `achievement` event with the WO id, <300ms motion + reduced-motion variant — exactly AC-06-012.1. The
+> only change is the **REQ remap** (old REQ-06-007 → REQ-06-012). It still detects the close via the
+> `EventVM` (`icon === "achievement"`) and is fed `latestEvent` by `PartyTab` (WO-06-005). No code change
+> required by the redesign; left IN_REVIEW.
+
 ## Acceptance criteria (verbatim EARS)
-- AC-06-007.1: WHEN a work order closes, an **achievement** SHALL fire ("Achievement unlocked!").
+- AC-06-012.1: WHEN a work order closes (reaches `VERIFIED`), THE system SHALL fire an **achievement** toast ("¡Logro desbloqueado!") with the work-order id, using transform/opacity motion under 300 ms, with a reduced-motion variant that renders without animation.
 
 ## Scope
 - On an `achievement` / work-order-close event (from `IF-06-state-map`), show a celebratory toast ("¡Logro desbloqueado!") with the work-order id.

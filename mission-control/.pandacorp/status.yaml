@@ -7,9 +7,9 @@ overlay_version: "8.9.0"
 created_with: "6.0.0"
 running: false
 repo: ""
-updated_at: "2026-06-17"
-work_orders_total: 109
-work_orders_done: 52
+updated_at: "2026-06-18"
+work_orders_total: 112
+work_orders_done: 49
 pending_decisions: 0
 pending_bugs: 0
 rethink_pending: false

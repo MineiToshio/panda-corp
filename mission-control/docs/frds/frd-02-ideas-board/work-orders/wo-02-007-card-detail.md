@@ -2,44 +2,76 @@
 id: WO-02-007
 type: work-order
 slug: card-detail
-title: WO-02-007 — Card detail + docs navigator + next-step
+title: WO-02-007 — Card detail (3-tab restructure) + docs navigator + next-step
 status: DRAFT
 parent: FRD-02
-implementation_status: VERIFIED
-source_requirements: []
-last_updated: '2026-06-16'
+implementation_status: PLANNED
+source_requirements: [REQ-02-004, REQ-02-008, REQ-02-009]
+last_updated: '2026-06-18'
 ---
-# WO-02-007 — Card detail + docs navigator + next-step
+# WO-02-007 — Card detail (3-tab restructure) + docs navigator + next-step
 
 **Module:** `components/CardDetail.tsx`
-**IDs touched:** `CMP-02-card-detail`; REQ-02-004, REQ-02-008 (no-docs edge)
-**Dependencies:** WO-02-002 (`CopyButton`), WO-02-003 (`nextStep`), FRD-01 (`readProjectDocs`)
+**IDs touched:** `CMP-02-card-detail`; REQ-02-004, REQ-02-008 (no-docs edge), REQ-02-009 (3-tab restructure)
+**Dependencies:** WO-02-002 (`CopyButton`), WO-02-003 (`nextStep`), FRD-01 (`readProjectDocs`),
+WO-02-010 (`CampaignPipeline`, the Campaña tab body)
+
+> **Reopened 2026-06-18.** The verified single-pane CardDetail is being **restructured into a
+> three-tab container** (Campaña · Documentos · Comandos), the same tab pattern as the Portfolio
+> project pane (`projectPane()` `stab` row). The previously verified content (docs navigator +
+> next-step) is **preserved**, now living inside the **Documentos** and **Comandos** tabs. The new
+> default tab is **Campaña**, which hosts `<CampaignPipeline>` (built in WO-02-010).
 
 ## EARS criteria (from FRD-02)
 
 - AC-02-004.1 — WHEN the owner clicks a card, the system SHALL show the card: **summary, key points,
-  a navigator of the idea's documents, and the next-step command** (with a copy button).
-- AC-02-008.1 — (Edge) Idea with no documents → show only the summary.
+  a navigator of the idea's documents, and the next-step command** (with a copy button) — now under
+  the **Documentos** and **Comandos** tabs.
+- AC-02-008.1 — (Edge) Idea with no documents → show only the summary (Documentos tab).
+- AC-02-009.1 — WHEN the owner opens a card, THE detail SHALL render **three horizontal tabs**
+  (Campaña · Documentos · Comandos, same `stab` pattern as the project pane) and default to
+  **Campaña**.
+- AC-02-009.2 — WHEN a tab is clicked, only that tab is active; **Documentos** = the existing doc
+  navigator; **Comandos** = the existing next-step / iterate command panel.
+- AC-02-009.3 — WHEN a document entry is clicked, the active tab SHALL switch to **Documentos** and
+  show that document.
+- AC-02-009.4 — THE active tab choice SHALL persist for the open card across detail re-renders.
 
 ## Design
 
-- Renders the card body (summary + key points) via react-markdown. If the idea is `in-pipeline`
-  (has a `project`), use `readProjectDocs(card.project)` to render a **documents navigator** (links
-  to the discovered docs). Idea with no docs → summary only.
-- Next-step row: `nextStep({ cardStatus, phase, advancePending })` → command + `<CopyButton>`.
-- `data-testid="card-detail"`; design tokens only; Spanish copy.
+- `CardDetail` becomes a **tabbed shell**. The tab row reuses the project-pane `stab` selector
+  pattern; tabs: `["campana","Campaña"], ["docs","Documentos"], ["comandos","Comandos"]`; default
+  `campana` (AC-02-009.1). Active tab is client state keyed to the open card and persists across
+  re-renders (AC-02-009.4).
+- **Documentos** tab body = the existing summary + key points (react-markdown) + the docs navigator
+  built from `readProjectDocs(card.project)`; idea with no docs → summary only (REQ-02-004,
+  AC-02-008.1, unchanged behavior).
+- **Comandos** tab body = the existing next-step row `nextStep({ cardStatus, phase, advancePending })`
+  + `<CopyButton>` (+ iterate command), unchanged behavior.
+- **Campaña** tab body (default) = `<CampaignPipeline>` from WO-02-010, wrapped in the labelled
+  container "EL VIAJE DE ESTA IDEA POR LAS 6 FASES".
+- Clicking a doc entry sets the tab to `docs` and selects the doc (AC-02-009.3).
+- `data-testid="card-detail"`; tab buttons carry `data-testid` (e.g. `card-detail-tab-{key}`); design
+  tokens only; Spanish copy.
 
 ## Definition of done
 
-- [x] `components/CardDetail.test.tsx` (RED first, jsdom):
-  - [x] renders summary + key points from the body.
-  - [x] an `in-pipeline` card with a docs index → renders the navigator entries.
-  - [x] a card with no docs → summary only, no navigator, no crash.
-  - [x] the next-step command + copy button render with the value from `nextStep`.
-- [x] Read-only; no write.
-- [x] `.pandacorp/verify.sh` green.
+- [ ] `components/CardDetail.test.tsx` (RED first, jsdom):
+  - [ ] renders the **3 tabs** (Campaña · Documentos · Comandos); default active tab = Campaña.
+  - [ ] clicking a tab activates only that tab and shows its body.
+  - [ ] Documentos tab: renders summary + key points from the body.
+  - [ ] Documentos tab: an `in-pipeline` card with a docs index → renders the navigator entries.
+  - [ ] Documentos tab: a card with no docs → summary only, no navigator, no crash.
+  - [ ] Comandos tab: the next-step command + copy button render with the value from `nextStep`.
+  - [ ] clicking a document entry switches the active tab to Documentos and shows that doc.
+  - [ ] the active tab persists across a detail re-render (AC-02-009.4).
+- [ ] Read-only; no write.
+- [ ] `.pandacorp/verify.sh` green.
 
-## Status Note
+> **Note (2026-06-18):** the prior Status Note below documents the now-superseded single-pane
+> implementation; it is retained for history. The reopened WO supersedes it with the 3-tab shell.
+
+## Status Note (superseded — single-pane, 2026-06-17)
 
 **Built:** `CardDetail` component (`CMP-02-card-detail`). A `"use client"` React component that
 renders the full idea-card detail panel: markdown body (summary + key points) via `react-markdown`

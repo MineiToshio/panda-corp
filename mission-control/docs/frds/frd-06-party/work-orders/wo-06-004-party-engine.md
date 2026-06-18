@@ -2,36 +2,60 @@
 id: WO-06-004
 type: work-order
 slug: party-engine
-title: WO-06-004 — Party engine (RAF loop + animation queue)
+title: WO-06-004 — La Fragua engine (RAF loop, wave cap, rooms, parchment, gate)
 status: DRAFT
 parent: FRD-06
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-18'
 ---
-# WO-06-004 — Party engine (RAF loop + animation queue)
+# WO-06-004 — La Fragua engine (RAF loop, wave cap, rooms, parchment, gate)
 
-**Components/Interfaces:** `IF-06-engine` · **Traces:** REQ-06-003, REQ-06-004
+**Components/Interfaces:** `IF-06-engine` · **Traces:** REQ-06-001, REQ-06-003, REQ-06-006
 **Deploy unit:** Party tab (client engine) · **Location:** `app/projects/[slug]/_party/engine.ts` (+ `.test.ts`)
 
+> **REOPENED → PLANNED (2026-06-18, La Fragua redesign).** The old engine animated wandering zone agents
+> with center-routed stage handoffs. The faithful engine drives **one sprite per running WO** (capped at
+> the wave), moves WOs Forja → Tribunal → Bóveda, routes the **parchment** between dependent WOs and opens
+> the **single per-FRD gate**. The deep-relay sub-step physics live in WO-06-013. See the Status Note.
+
 ## Acceptance criteria (verbatim EARS)
-- AC-06-003.1: WHILE there is no stage transition, the sprites SHALL have life: a continuous "breathing" animation and **wandering** all over their zone (not standing still).
-- AC-06-004.1: WHEN the pipeline does a handoff, the sprite of the incoming stage SHALL move to the next zone and **both SHALL end up together** (the one yielding steps aside), with a speech bubble.
+- AC-06-001.1: WHILE a work order is a **running `implementer`**, THE system SHALL render exactly **one sprite** for it in the Sala de Forja.
+- AC-06-001.2: THE system SHALL cap the number of concurrently-built (sprite-bearing) work orders at the **wave size of the run mode**.
+- AC-06-003.2: WHEN a work order transitions between rooms, THE system SHALL animate the move **inside / between rooms along the connecting path**.
+- AC-06-006.1: WHEN a work order closes and writes its `## Status Note`, THE system SHALL render a **parchment** travelling from that work order to a **dependent** work order's station.
 
 ## Scope
-- `createPartyEngine(snapshot, opts)` exposing `setState(id,state)`, `startHandoff(id,target)`, `applyEvents(diff)`, `tick(now)`, `agents()`. Ports `MC`/`mcBoot`/`mcLoop`/`mcSetState`/`mcStartHandoff`/`mcApproach`/`mcArrive`/`mcSeed` semantics from the prototype into typed TS.
-- The **decoupled queue** (PARTY.md §4): `applyEvents` enqueues `VisualAction`s (from `IF-06-state-map`); `tick(now)` advances positions/phases at the engine's pace. Pure step math (no DOM) in the core; the RAF binding + DOM adapter is thin and lives in WO-06-006.
-- Wandering within the zone (idle drift) + breathing handled as state, computed deterministically given a `now` (so tests are deterministic without RAF).
-- Handoff routes station → center → next-to-target → back (no path over another work area).
+- `createFraguaEngine(snapshot, opts)` exposing `setWo(wo,state)`, `enqueue(wo)`, `startHandoff(fromWo,toWo)`, `verifyWo(wo)`, `openGate()`, `applyEvents(diff)`, `tick(now)`, `wos()` / `gate()` / `trophies()` readers.
+- **Wave cap:** at most `wave` (mode) WOs hold forge slots; the rest stay queued (drive the "+N en cola"); when a slot frees, the next queued WO is promoted. Enforced in the engine so the scene can never over-render (AC-06-001.2).
+- **Room flow:** a WO walks forge-slot → tribunal-slot when it reaches `IN_REVIEW`; tribunal-slot → vault shelf when `VERIFIED` (AC-06-003.2), along the layout paths (WO-06-002).
+- **Parchment:** `startHandoff(fromWo, toWo)` animates the `Status Note` document from the closing WO's station to the dependent WO's station; if `toWo` is absent from the scene, animate to the queue edge.
+- **The decoupled queue:** `applyEvents` enqueues `VisualAction`s (WO-06-003); `tick(now)` advances at the engine's pace (deterministic given `now`; no RAF in tests). Pure step math; the DOM/RAF binding lives in WO-06-006.
+- Remove wandering/zone/center-routing; the deep relay sub-step rendering is WO-06-013.
 
 ## Dependencies
-- WO-06-002 (positions/roster), WO-06-003 (`VisualAction`).
+- WO-06-002 (layout slots/paths), WO-06-003 (`VisualAction`).
 
 ## TDD / Definition of done
 - Tests drive the engine with a fake clock (`tick(t)`): a handoff action moves the agent toward the target and ends both together; idle agents wander but stay within zone bounds; `applyEvents` drains in order at the queue's pace (visual lag is allowed); a second `tick` after completion returns to home/idle.
 - Pure core, no DOM, no real RAF in tests. Gate green.
 
-## Status Note
+## Status Note (La Fragua redesign — what the retry must build)
+
+**Why reopened:** the shipped engine (below) is built around `AgentSnapshot`/`EngineAgent` with
+home positions, `WANDER_RADIUS` idle drift, and a `home → MCCENTER → approach(target) → home` handoff
+walk — the fictitious model. The retry rewrites it around **work orders**: `createFraguaEngine`, a
+`WoSprite` model (`{ wo, state: building|in_review|verified|blocked, px, py, relay? }`), the **wave cap**
+(promote queued WOs into freed forge slots), the **room flow** (forge→tribunal on `IN_REVIEW`,
+tribunal→vault on `VERIFIED`), the **parchment** routing between dependent WOs, and the single
+**`openGate()`** (reviewer activates when all WOs `IN_REVIEW`). Keep the decoupled queue + deterministic
+`tick(now)` (no real RAF in tests). Delete wandering, `MCCENTER`, `AgentState 'walk'`. Rewrite the 32
+tests against the new readers (`wos()`, `gate()`, `trophies()`). The deep relay sub-step physics are
+WO-06-013.
+
+---
+
+### Previous build (obsoleted by the redesign — kept for history)
 
 **Built:** `createPartyEngine(snapshot, opts): PartyEngine` — the pure step-math animation engine (IF-06-engine). No DOM, no real RAF in the core; the RAF binding lives in WO-06-006.
 
