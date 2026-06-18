@@ -97,3 +97,22 @@ export const LAUNCH_REVIEW_DAYS = 30;
  * Must be ≤ 200 (architecture §3 capped tail — AC-17-003.4).
  */
 export const SELF_SUGGEST_EVENT_CAP = 200;
+
+// ---------------------------------------------------------------------------
+// FRD-17 — Memory-health panel thresholds (CMP-17-health, WO-17-005)
+// These control when the nudge appears (AC-17-005.2, REQ-17-005 / REQ-17-008).
+// ---------------------------------------------------------------------------
+
+/**
+ * Minimum raw-notes count that triggers the memory-health staleness nudge.
+ * Below this, no nudge is shown (REQ-17-008: no nagging).
+ * (blueprint §3 CMP-17-health, AC-17-005.2)
+ */
+export const MEMORY_RAW_NOTES_THRESHOLD = 10;
+
+/**
+ * Minimum stale days count that triggers the memory-health staleness nudge.
+ * Below this, no nudge is shown (REQ-17-008: no nagging).
+ * (blueprint §3 CMP-17-health, AC-17-005.2)
+ */
+export const MEMORY_STALE_DAYS_THRESHOLD = 7;
