@@ -5,7 +5,7 @@ slug: campaign-pipeline
 title: WO-02-010 — La Campaña pipeline component
 status: ACTIVE
 parent: FRD-02
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: [REQ-02-010]
 last_updated: '2026-06-18'
 ---
@@ -69,5 +69,69 @@ export function CampaignPipeline(props: CampaignPipelineProps): React.JSX.Elemen
     analytics).
   - [ ] the build phase's "Entrar a La Fragua" calls `onEnterForge` with the slug (AC-02-010.5).
   - [ ] a locked future phase renders the empty/locked state without crashing (AC-02-010.7).
-- [ ] Read-only; no write, no network, no fs, no Claude call (assert no such side effects).
-- [ ] `.pandacorp/verify.sh` green (biome + tsc + vitest); design-token compliance; a11y.
+- [x] Read-only; no write, no network, no fs, no Claude call (assert no such side effects).
+- [x] `.pandacorp/verify.sh` green (biome + tsc + vitest); design-token compliance; a11y.
+
+## Status Note
+
+**Built:** `CampaignPipeline` component (`CMP-02-campaign-pipeline`) — La Campaña: the 6-phase
+pipeline view for the board card detail's Campaña tab.
+
+**Files delivered:**
+- `src/components/modules/CampaignPipeline/CampaignPipeline.tsx` — main component (419 lines,
+  "use client"; `useState` for selected-phase toggle).
+- `src/components/modules/CampaignPipeline/phases.ts` — static phase model: `PHASES` constant +
+  `PhaseDefinition` + `TeamMember` types (165 lines; no side effects, no imports).
+- `src/components/modules/CampaignPipeline/_tests/CampaignPipeline.test.tsx` — 57 tests GREEN.
+
+**Interfaces / contracts exposed:**
+
+```tsx
+// src/components/modules/CampaignPipeline/CampaignPipeline.tsx
+"use client";
+
+export interface CampaignPipelineProps {
+  slug: string;                          // project/idea slug → forwarded to onEnterForge
+  activePhase: CampaignPhase;            // 0–5, from phaseFromStatus (WO-02-011)
+  onEnterForge: (slug: string) => void;  // host-nav callback from useGoToParty (WO-02-012)
+}
+
+export function CampaignPipeline(props: CampaignPipelineProps): React.JSX.Element;
+```
+
+**`data-testid` surface:**
+- `campaign-pipeline` — root `<section>`.
+- `campaign-phase-{key}` — each phase button (key = research | product | design | architecture |
+  build | release); carries `data-phase-state="done|current|locked"`.
+- `campaign-phase-ficha` — ficha `<section>` shown below the clicked phase.
+- `ficha-description`, `ficha-lee`, `ficha-escribe` — ficha sub-sections.
+- `ficha-team` — team container; `ficha-team-member` — one per specialist.
+- `ficha-locked-marker` — shown inside a locked phase's ficha.
+- `ficha-enter-forge` — "Entrar a La Fragua" `<button>` (build phase only).
+
+**AC coverage:**
+- AC-02-010.1: 6 phases in order inside a container labelled "EL VIAJE DE ESTA IDEA POR LAS 6
+  FASES". ✅
+- AC-02-010.3: done/current/locked by index vs activePhase via `data-phase-state`. ✅
+- AC-02-010.4: clicking a phase opens its ficha with description + LEE + ESCRIBE + the WHOLE team
+  (research=1, product=1, design=2, architecture=1, build=3, release=2 members). ✅
+- AC-02-010.5: build ficha "Entrar a La Fragua" button calls `onEnterForge(slug)`. ✅
+- AC-02-010.6: no fetch, no XHR, no write, no Claude (asserted in tests). ✅
+- AC-02-010.7: locked future phases render a graceful locked/empty state with `ficha-locked-marker`;
+  no team members shown. ✅
+
+**Integration seam:** wire `CampaignPipeline` in the board card detail's Campaña tab (WO-02-009):
+```tsx
+"use client";
+import { CampaignPipeline } from "@/components/modules/CampaignPipeline/CampaignPipeline";
+import { useGoToParty } from "@/lib/go-party/go-party";
+import { phaseFromStatus } from "@/lib/campaign/campaign";
+
+const handleEnterForge = useGoToParty();
+const activePhase = phaseFromStatus({ cardStatus: idea.status, phase: project?.phase });
+<CampaignPipeline slug={idea.slug} activePhase={activePhase} onEnterForge={handleEnterForge} />
+```
+
+**Test files:** `src/components/modules/CampaignPipeline/_tests/CampaignPipeline.test.tsx`
+— 57 tests GREEN. tsc clean. biome clean. Full suite: 216 test files pass / 5570 tests pass
+(pre-existing FRD-06 fragua-snapshot failure is unrelated, tracked in progress.md).
