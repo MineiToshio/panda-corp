@@ -21,7 +21,7 @@
  *   IF-04-next-step (lib/next-step.ts, docs/api.md WO-04-003)
  */
 
-import { CopyButton } from "@/components/CopyButton";
+import { CopyButton } from "@/components/core/CopyButton/CopyButton";
 import type { CommandRow } from "@/lib/next-step";
 import { workspaceCommands } from "@/lib/next-step";
 import type { Phase } from "@/lib/status";

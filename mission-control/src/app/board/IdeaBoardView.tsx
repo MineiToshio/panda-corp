@@ -25,8 +25,8 @@
  *   IF-02-deriveColumn (lib/board.ts, WO-02-001)
  */
 
-import type { IdeaCardProps } from "@/components/IdeaCard";
-import { IdeaCard } from "@/components/IdeaCard";
+import type { IdeaCardProps } from "@/components/modules/IdeaCard/IdeaCard";
+import { IdeaCard } from "@/components/modules/IdeaCard/IdeaCard";
 import type { BoardColumn } from "@/lib/board";
 
 // ---------------------------------------------------------------------------

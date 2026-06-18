@@ -15,7 +15,7 @@
  *   - Reuses CMP-02 CopyButton for the /pandacorp:blueprint command.
  */
 
-import { CopyButton } from "@/components/CopyButton";
+import { CopyButton } from "@/components/core/CopyButton/CopyButton";
 
 const BLUEPRINT_CMD = "/pandacorp:blueprint";
 

@@ -19,7 +19,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import type { IdeaCardProps } from "@/components/IdeaCard";
+import type { IdeaCardProps } from "@/components/modules/IdeaCard/IdeaCard";
 import type { BoardColumn } from "@/lib/board";
 import { IdeaBoardView } from "./IdeaBoardView";
 

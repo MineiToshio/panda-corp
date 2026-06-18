@@ -33,7 +33,7 @@
 
 import { useState } from "react";
 
-import { CopyButton } from "@/components/CopyButton";
+import { CopyButton } from "@/components/core/CopyButton/CopyButton";
 import { getRememberedMode, rememberMode } from "@/lib/build-mode-store";
 import { BUILD_MODES, type BuildMode, type BuildModeInfo } from "@/lib/constants";
 

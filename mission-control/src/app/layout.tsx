@@ -12,7 +12,7 @@
  */
 
 import type { Metadata } from "next";
-import { OnboardingGate } from "@/components/OnboardingGate";
+import { OnboardingGate } from "@/app/_components/OnboardingGate/OnboardingGate";
 import { GuildBar } from "@/components/rpg/GuildBar";
 import { readEvents } from "@/lib/events";
 import { deriveGuildOutcomes } from "@/lib/gamification";

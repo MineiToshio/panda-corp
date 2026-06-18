@@ -27,7 +27,7 @@
  */
 
 import { useState } from "react";
-import { CopyButton } from "@/components/CopyButton";
+import { CopyButton } from "@/components/core/CopyButton/CopyButton";
 import type { DecisionRule } from "@/lib/registry";
 
 // ---------------------------------------------------------------------------

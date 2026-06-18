@@ -29,7 +29,7 @@ import os from "node:os";
 import path from "node:path";
 import { isValidElement, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { OnboardingGate } from "@/components/OnboardingGate";
+import { OnboardingGate } from "@/app/_components/OnboardingGate/OnboardingGate";
 import RootLayout from "./layout";
 
 // ---------------------------------------------------------------------------

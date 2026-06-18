@@ -25,8 +25,8 @@
 
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { CardDetail } from "@/components/CardDetail";
-import type { IdeaCardProps } from "@/components/IdeaCard";
+import { CardDetail } from "@/app/board/_components/CardDetail/CardDetail";
+import type { IdeaCardProps } from "@/components/modules/IdeaCard/IdeaCard";
 import { type BoardColumn, deriveColumn } from "@/lib/board";
 import type { IdeaCard as IdeaCardModel } from "@/lib/ideas";
 import { nextStep } from "@/lib/next-step";
