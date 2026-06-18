@@ -5,9 +5,9 @@ slug: proposals-page
 title: WO-17-004 — `app/proposals` page + 4 streams + proposal card
 status: DRAFT
 parent: FRD-17
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-18'
 ---
 # WO-17-004 — `app/proposals` page + 4 streams + proposal card
 
@@ -100,3 +100,45 @@ export default function ProposalsPage(): React.JSX.Element;
 - `src/app/proposals/_tests/proposals-page.test.tsx` (12 integration tests — four streams + empty + eval-gate + display-only + a11y)
 
 **Gate:** 43/43 own tests GREEN. 5413/5413 full suite GREEN. tsc clean. biome clean on scope (7 pre-existing complexity errors in other modules, not introduced by this WO).
+
+## Reviewer finding — REOPENED to PLANNED (FRD gate, 2026-06-18, Opus)
+
+The page passes its own AC-17-004.1..6 (the four streams + cards), but at the **FRD integration
+gate** the feature does not work together: three sibling components built+unit-tested in this cycle
+are **orphaned — composed into no rendered surface**, so their "SHALL show" EARS criteria are unmet
+in the running app. WO-17-004 owns the page, which the blueprint designates as the composition
+point (`CMP-17-health` and `CMP-17-promoqueue` live "inside `CMP-17-page`"). Concretely:
+
+1. **REQ-17-005 — memory-health panel NOT rendered.** `MemoryHealth`
+   (`src/components/modules/MemoryHealth/MemoryHealth.tsx`, WO-17-005) is imported nowhere in
+   `src/app/`. The FRD says MC SHALL *show* a memory-health panel; a unit-tested component that
+   never mounts does not satisfy it.
+2. **REQ-17-006 — durable promotions queue NOT rendered.** `PromotionsQueue`
+   (`src/components/modules/PromotionsQueue/PromotionsQueue.tsx`, WO-17-006) is imported nowhere in
+   `src/app/`. The page renders a generic `promotion` `ProposalStream`, but not the durable queue
+   with target/rationale/high-risk badge that REQ-17-006 specifies.
+3. **REQ-17-008 / AC-17-007.3 — proposals are NOT dismissible.** The dismiss store
+   (`proposalsDismissStore.ts`, WO-17-007) works and is tested, but no card/stream exposes a dismiss
+   affordance and `filterUndismissed` is wired nowhere. The owner cannot dismiss anything in the UI.
+4. **REQ-17-004 — 5 of 6 self-suggestions are dead in production.** `page.tsx:109-117` calls
+   `computeSuggestions` with hardcoded empty inputs (`boardColumnCounts: {}`, `portfolioItems: []`,
+   `events: []`, `capabilities: []`, `decisionRules: []`, `inboxDecisionLines: []`); only
+   `recurring-lesson` (fed by `lessons`) can ever fire. The other five derivations
+   (bottleneck/velocity/unused-capability/policy-friction/launch-review) never run. Wire the real
+   readers (`lib/board`, `lib/portfolio`, `lib/events`, `lib/reference`, `lib/registry`, and the
+   inbox decision lines) — all are shipped.
+
+**Concrete fix (rebuild scope for WO-17-004):** in `src/app/proposals/page.tsx` compose
+`<MemoryHealth health={memoryHealth()} />` (from `@/lib/memory/memory-health`) and
+`<PromotionsQueue lessons={promotionQueue()} />`; wire a client dismiss affordance on the proposal
+cards using `proposalsDismissStore` (`dismissProposal` + `filterUndismissed`); and pass the real
+reader outputs into `computeSuggestions` instead of empty literals. Keep the page a Server Component
+(no `"use server"`); the dismiss interaction is the only client boundary (a small client wrapper).
+
+**RED test the rebuild must turn GREEN (written by the reviewer):**
+`src/app/proposals/_tests/proposals-composition.reviewer.test.tsx` — asserts the page renders
+`memory-health-panel` (REQ-17-005) and `promotions-queue` (REQ-17-006). Currently 2/2 FAIL against
+the orphaned page.
+
+The other reviewed WOs (002, 003, 005, 006, 007) are correct at their unit scope and stay IN_REVIEW;
+only this page (the composition owner) is reopened. Foundation WO-17-001 stays IN_REVIEW.
