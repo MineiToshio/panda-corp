@@ -31,6 +31,7 @@
  *                  REQ-06-005, REQ-06-009, REQ-06-010
  */
 
+import { DeepRelay } from "../DeepRelay/DeepRelay";
 import type { FraguaSnapshot } from "../fragua-snapshot/fragua-snapshot";
 
 // ---------------------------------------------------------------------------
@@ -207,11 +208,22 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
         <div data-testid="fragua-room-forja" style={ROOM_STYLE}>
           <div style={ROOM_LABEL_STYLE}>Sala de Forja</div>
           <div data-testid="fragua-running-list" style={RUNNING_LIST_STYLE}>
-            {running.map(({ wo }) => (
-              <span key={wo} data-testid={`fragua-wo-chip-${wo}`} style={WO_CHIP_STYLE}>
-                {wo}
-              </span>
-            ))}
+            {running.map(({ wo, relay }) =>
+              // Deep mode renders each running WO as a relay (frontend → 3-step;
+              // no-frontend → single implementer); other modes render a chip.
+              mode === "deep" ? (
+                <DeepRelay
+                  key={wo}
+                  wo={wo}
+                  relay={relay ?? { step: "test", contractPublished: false }}
+                  hasFrontend={relay !== undefined}
+                />
+              ) : (
+                <span key={wo} data-testid={`fragua-wo-chip-${wo}`} style={WO_CHIP_STYLE}>
+                  {wo}
+                </span>
+              ),
+            )}
             {running.length === 0 && (
               <span data-testid="fragua-forja-empty" style={QUEUED_STYLE}>
                 Sin órdenes en forja

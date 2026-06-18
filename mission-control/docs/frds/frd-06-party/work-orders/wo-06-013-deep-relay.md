@@ -5,7 +5,7 @@ slug: deep-relay
 title: WO-06-013 — Deep-mode sequential relay (test-writer → backend-dev →📄→ frontend-dev)
 status: DRAFT
 parent: FRD-06
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-18'
 ---
@@ -42,4 +42,55 @@ last_updated: '2026-06-18'
 - Gate green (vitest + tsc + biome).
 
 ## Status Note
-_(To be written by the implementer on build. This WO is newly PLANNED for the La Fragua redesign.)_
+
+**Built (repair pass, 2026-06-18):** `DeepRelay` (`CMP-06-relay`) — the deep-mode sequential
+relay render, plus its host wiring inside `FraguaScene` (`CMP-06-scene`).
+
+**Files delivered:**
+- `app/projects/[slug]/_party/DeepRelay/DeepRelay.tsx` — `"use client"` pure render component
+  (driven by props; no RAF, no engine mount, no I/O). Observation-only (AC-06-009.1): no control
+  affordance. Zero hardcoded colors — role colors via `roleColor(role)` (IF-06-role-color) CSS token
+  vars only.
+- `app/projects/[slug]/_party/DeepRelay/_tests/DeepRelay.test.tsx` — 13 tests RED→GREEN across the
+  four ACs + observation-only + no-hardcoded-color guards.
+- `app/projects/[slug]/_party/FraguaScene/_tests/FraguaScene.deeprelay.test.tsx` — 3 host-integration
+  tests (deep+frontend → relay; deep+no-frontend → single implementer; non-deep → chip).
+- Edited `FraguaScene.tsx` to render `<DeepRelay>` for each running WO when `snapshot.mode === "deep"`
+  (chip otherwise), passing `hasFrontend = relay !== undefined`.
+
+**Interfaces/contracts exposed:**
+```ts
+export interface DeepRelayProps {
+  wo: string;            // work-order id (e.g. "WO-06-013")
+  relay: RelayState;     // { step: "test"|"backend"|"frontend"; contractPublished: boolean }
+  hasFrontend: boolean;  // false → single implementer figure, no relay (AC-06-007.4)
+}
+export function DeepRelay(props: DeepRelayProps): React.JSX.Element
+```
+
+**Acceptance coverage:**
+- AC-06-007.1 — three role sub-steps (`test-writer → backend-dev → frontend-dev`) + 3-segment
+  progress + "Opus" label + active sub-step highlighted (`data-active`).
+- AC-06-007.2 — sequential: exactly one `data-active="true"` at a time; prior steps `data-done="true"`;
+  progress segments fill up to and including the active step (`data-filled`).
+- AC-06-007.3 — contract hand-off (📄, `relay-contract`) between the backend and frontend steps, shown
+  only when `relay.contractPublished` is true (driven by the `ContractPublished` event via the snapshot).
+- AC-06-007.4 — `hasFrontend=false` → single `implementer` figure (`deep-relay-single-{wo}`,
+  `data-role="implementer"`), no relay.
+
+**Integration seams:**
+- `FraguaScene` is the relay host (blueprint: `CMP-06-relay` "used by the scene"). It renders
+  `<DeepRelay>` per running WO iff `mode === "deep"`. The `RelayState` reaches the component via the
+  `FraguaSnapshot.running[].relay` field (engine `advanceRelay`/`publishContract` already populate the
+  engine sprite; the snapshot relay-derivation from live engine state is the remaining seam owned by the
+  full RAF scene, WO-06-006). `hasFrontend` is derived from the presence of `relay` on the running WO.
+- `data-testid`s: `deep-relay-{wo}`, `deep-relay-single-{wo}`, `relay-label`, `relay-step-{role}`
+  (`data-active`/`data-done`/`data-role`), `relay-progress-segment-{step}` (`data-filled`),
+  `relay-contract`.
+
+**Test files covering this WO:**
+- `app/projects/[slug]/_party/DeepRelay/_tests/DeepRelay.test.tsx` (13)
+- `app/projects/[slug]/_party/FraguaScene/_tests/FraguaScene.deeprelay.test.tsx` (3)
+
+**Gate:** `bash .pandacorp/verify.sh` green — 212 test files, 5457 passed + 2 expected-fail + 5 skipped;
+`tsc --noEmit` clean; `biome check` 0 errors (pre-existing complexity warnings only).
