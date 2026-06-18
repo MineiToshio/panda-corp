@@ -73,7 +73,7 @@ export function PartyEmptyState(): React.JSX.Element {
     <div
       data-testid="party-empty-state"
       role="status"
-      aria-label="Sin equipo activo — no hay agentes construyendo"
+      aria-label="Sin FRD en construcción — no hay agentes activos"
       style={CONTAINER_STYLE}
     >
       {/* Icon — visual hint (aria-hidden since label above covers it) */}
@@ -81,18 +81,18 @@ export function PartyEmptyState(): React.JSX.Element {
         ⚔️
       </span>
 
-      {/* Main message */}
-      <p style={HEADING_STYLE}>No hay un equipo activo</p>
+      {/* Main message — La Fragua per-FRD framing (WO-06-011 retry) */}
+      <p style={HEADING_STYLE}>No hay un FRD en construcción</p>
 
       {/* Description */}
       <p style={BODY_STYLE}>
-        Los agentes aparecerán aquí cuando se inicie una construcción con{" "}
+        La Fragua se activará cuando se inicie una construcción con{" "}
         <code>/pandacorp:implement</code>.
       </p>
 
       {/* Guidance hint */}
       <p style={HINT_STYLE}>
-        Para observar la actividad en tiempo real, inicia una construcción desde la fábrica.
+        Los agentes aparecerán aquí FRD a FRD, conforme avance la construcción.
       </p>
     </div>
   );

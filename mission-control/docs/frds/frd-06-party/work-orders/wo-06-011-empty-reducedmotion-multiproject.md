@@ -5,7 +5,7 @@ slug: empty-reducedmotion-multiproject
 title: WO-06-011 — Empty state + reduced-motion + multi-project borders
 status: DRAFT
 parent: FRD-06
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-18'
 ---
@@ -35,12 +35,70 @@ last_updated: '2026-06-18'
 - Tests: `active=false` renders the empty state, not the scene; with `matchMedia(prefers-reduced-motion: reduce)` the RAF loop is not started and no animation classes apply; a 2-project snapshot renders the double border. Empty/reduced-motion never throw.
 - Gate green.
 
-## Status Note (La Fragua redesign — what the retry must build)
+## Status Note (La Fragua retry — IN_REVIEW, 2026-06-18)
 
-**Why reopened:** the shipped pieces are correct in shape but reference `PartyScene` and the
-"no active team" copy. The retry: re-point reduced-motion wiring to `FraguaScene`; update the empty-state
-copy to "No hay un FRD en construcción"; keep the multi-project double-border (now role-keyed). Small
-changes; reopened because they edit the reopened scene/feed.
+**What this build delivered (the retry):**
+
+1. **`PartyEmptyState.tsx`** (CMP-06-empty) — updated copy from the old "no active team" framing to the
+   La Fragua per-FRD framing (AC-06-010.1):
+   - Heading: "No hay un FRD en construcción"
+   - Body: "La Fragua se activará cuando se inicie una construcción con /pandacorp:implement"
+   - Hint: "Los agentes aparecerán aquí FRD a FRD, conforme avance la construcción"
+   - `aria-label`: "Sin FRD en construcción — no hay agentes activos"
+   - All existing constraints preserved: `role="status"`, `data-testid="party-empty-state"`, zero
+     hardcoded colors, never crashes, guidance references `/pandacorp:implement`.
+
+2. **`FraguaScene.tsx`** (CMP-06-scene, reduced-motion wired) — added `prefers-reduced-motion` support
+   to the La Fragua scene (AC-06-010.2). Uses the same pattern as `PartyScene`:
+   - `useState` initializer reads `window.matchMedia("(prefers-reduced-motion: reduce)").matches`
+     once on mount (synchronous, no flash of animated content).
+   - Defensive guard: `typeof window.matchMedia !== "function"` → returns `false`, so jsdom tests
+     without a stub don't throw.
+   - When `reducedMotion=true`: the RAF loop is entirely skipped (early return before
+     `requestAnimationFrame(tick)`) — all FraguaScene animation is suppressed.
+   - The scene stays fully readable: all three rooms (Forja/Tribunal/Bóveda), running WO sprites,
+     trophies, the reviewer gate and the FRD tracker still render at their initial positions.
+   - `data-reduced-motion="true"` attribute on `<section data-testid="fragua-scene">` for CSS
+     targeting and test introspection.
+   - `reducedMotion` added to the `useEffect` dependency array (lint-safe, stable boolean).
+
+3. **Multi-project borders** — already implemented in prior build (`EventFeed.tsx`, WO-06-007).
+   No code change needed; all 9 multiproject tests remain green (AC-06-010.3 satisfied).
+
+**Interfaces/contracts exposed (delta from previous build):**
+
+```tsx
+// PartyEmptyState — zero props, always renders the graceful empty state.
+export function PartyEmptyState(): React.JSX.Element
+// data-testid="party-empty-state", role="status"
+// aria-label="Sin FRD en construcción — no hay agentes activos"
+
+// FraguaScene — now respects prefers-reduced-motion (AC-06-010.2)
+// data-reduced-motion="true" on <section data-testid="fragua-scene"> when reduced
+// RAF loop skipped when window.matchMedia("(prefers-reduced-motion: reduce)").matches
+```
+
+**Integration seams (unchanged):**
+- `PartyTab` renders `<PartyEmptyState />` inside `data-testid="party-tab-empty"` when `active=false`.
+- `FraguaScene` reads `prefers-reduced-motion` via `useState` initializer — no props change needed.
+- `EventFeed` multi-project borders driven by `EventVM.projectColorKey` (unchanged).
+
+**Test files covering this WO:**
+- `src/app/projects/[slug]/_party/PartyEmptyState/_tests/PartyEmptyState.test.tsx` — 10 tests
+  (AC-06-010.1 original suite; all still pass with updated copy)
+- `src/app/projects/[slug]/_party/PartyEmptyState/_tests/PartyEmptyState.fragua.test.tsx` — 4 tests
+  (NEW: La Fragua copy assertions — "No hay un FRD en construcción", aria-label, implement hint)
+- `src/app/projects/[slug]/_party/FraguaScene/_tests/FraguaScene.reducedmotion.test.tsx` — 10 tests
+  (NEW: AC-06-010.2 — RAF skipped, data-reduced-motion attr, scene readable, no-crash, control)
+- `src/app/projects/[slug]/_party/EventFeed/_tests/EventFeed.multiproject.test.tsx` — 9 tests
+  (existing — AC-06-010.3 multi-project double border; all green, no change)
+- `src/app/projects/[slug]/_party/PartyScene/_tests/PartyScene.reducedmotion.test.tsx` — 9 tests
+  (existing — PartyScene (old 4-zone) reduced-motion; kept and green, no change)
+- `src/app/projects/[slug]/_party/PartyTab/_tests/PartyTab.integration.reviewer.test.tsx` — 8 tests
+  (existing reviewer integration; all green, no regression)
+
+**Gate:** 236 test files, 5945 tests GREEN + 2 expected-fail + 5 skipped. `tsc --noEmit` clean.
+`biome check` clean (0 new errors). Full `verify.sh` PASS.
 
 ---
 

@@ -49,7 +49,7 @@
  *   fragua-mode-display       — mode display (read-only, no selector)
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { DeepRelay } from "../DeepRelay/DeepRelay";
 import type { FraguaEngine } from "../engine/engine";
@@ -115,6 +115,20 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
   const { frd, mode, running, queuedCount, gate, trophies, archivedCount, project } = snapshot;
 
   // -------------------------------------------------------------------------
+  // Reduced-motion detection (FRD-13, AC-06-010.2)
+  // Read matchMedia once on mount — disables the RAF loop when true so ALL
+  // FraguaScene animation is suppressed for users who have opted out of motion.
+  // Using useState initializer so it runs once synchronously before the
+  // first render (avoids a flash of animated content).
+  // Guard: typeof check so jsdom tests without a matchMedia stub don't throw.
+  // -------------------------------------------------------------------------
+  const [reducedMotion] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    if (typeof window.matchMedia !== "function") return false;
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  });
+
+  // -------------------------------------------------------------------------
   // Engine lifecycle + RAF loop
   // -------------------------------------------------------------------------
 
@@ -140,6 +154,16 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
 
     engineRef.current = engine;
 
+    // When the user prefers reduced motion, skip the RAF loop entirely.
+    // The scene stays readable (all rooms/sprites/trophies still render)
+    // but no continuous animation runs (FRD-13, AC-06-010.2).
+    if (reducedMotion) {
+      return () => {
+        runIdRef.current++;
+        engineRef.current = null;
+      };
+    }
+
     // RAF loop with self-stop discipline (runIdRef pattern).
     const myRunId = ++runIdRef.current;
 
@@ -159,7 +183,7 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
       runIdRef.current++;
       engineRef.current = null;
     };
-  }, [mode, snapshot.wave, running, trophies, gate.open]);
+  }, [mode, snapshot.wave, running, trophies, gate.open, reducedMotion]);
 
   // -------------------------------------------------------------------------
   // Render
@@ -169,6 +193,7 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
     <section
       data-testid="fragua-scene"
       aria-label="La Fragua — vista de construcción en vivo"
+      data-reduced-motion={reducedMotion ? "true" : undefined}
       style={SCENE_STYLE}
     >
       {/* Header: FRD tracker + global counter + mode display */}
