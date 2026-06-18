@@ -19,7 +19,7 @@
 
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { Avatar, type AvatarSize, SPRITE_MAP } from "./Avatar";
+import { Avatar, type AvatarSize, SPRITE_MAP } from "../Avatar";
 
 // ---------------------------------------------------------------------------
 // AC-09-003.1 — Render pixel-art avatar for a given agent id

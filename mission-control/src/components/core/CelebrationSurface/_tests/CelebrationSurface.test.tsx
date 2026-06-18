@@ -21,7 +21,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Event } from "@/lib/events";
-import { CelebrationSurface } from "./CelebrationSurface";
+import { CelebrationSurface } from "../CelebrationSurface";
 
 // ---------------------------------------------------------------------------
 // Helpers — canonical event fixtures

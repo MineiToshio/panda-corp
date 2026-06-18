@@ -13,7 +13,7 @@
 
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { XpBar } from "./XpBar";
+import { XpBar } from "../XpBar";
 
 // ---------------------------------------------------------------------------
 // AC-09-004.5 — Reusable primitive (accepts standard props)

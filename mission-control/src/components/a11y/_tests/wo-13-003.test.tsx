@@ -58,7 +58,7 @@ import { useKeyboardNav } from "@/components/a11y/useKeyboardNav";
 // ---------------------------------------------------------------------------
 // globals.css source — read once for CSS-rule assertions (B1 regression)
 // ---------------------------------------------------------------------------
-const GLOBALS_CSS_PATH = path.resolve(import.meta.dirname, "../../app/globals.css");
+const GLOBALS_CSS_PATH = path.resolve(import.meta.dirname, "../../../app/globals.css");
 const GLOBALS_CSS = fs.existsSync(GLOBALS_CSS_PATH)
   ? fs.readFileSync(GLOBALS_CSS_PATH, "utf-8")
   : "";

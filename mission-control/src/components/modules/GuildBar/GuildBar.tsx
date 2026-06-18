@@ -24,8 +24,8 @@
  *   CMP-09-guild-bar → blueprint §3 → WO-09-004
  */
 
+import { XpBar } from "@/components/core/XpBar/XpBar";
 import { computeGuildLevel, type GuildOutcomes, RANKS } from "@/lib/gamification";
-import { XpBar } from "./XpBar";
 
 export type GuildBarProps = {
   /** Verifiable outcomes that drive guild XP (from status.yaml + events — read server-side). */

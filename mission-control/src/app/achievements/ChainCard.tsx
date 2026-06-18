@@ -24,7 +24,7 @@
  * Source-of-truth hierarchy: FRD > FDD > design-tokens > blueprint > work order
  */
 
-import { XpBar } from "@/components/rpg/XpBar";
+import { XpBar } from "@/components/core/XpBar/XpBar";
 import { CHAIN_DEFINITIONS, type ChainState, type TierUnlockEvent } from "@/lib/achievements";
 
 // ── Tier label helpers ────────────────────────────────────────────────────────

@@ -21,7 +21,7 @@ import os from "node:os";
 import path from "node:path";
 import { isValidElement, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { GuildBar } from "@/components/rpg/GuildBar";
+import { GuildBar } from "@/components/modules/GuildBar/GuildBar";
 import RootLayout from "./layout";
 
 // ---------------------------------------------------------------------------

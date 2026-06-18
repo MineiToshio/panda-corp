@@ -23,8 +23,8 @@
  */
 
 import type { AgentRole } from "@/app/_design/tokens";
-import { Avatar } from "@/components/rpg/Avatar";
-import { XpBar } from "@/components/rpg/XpBar";
+import { Avatar } from "@/components/core/Avatar/Avatar";
+import { XpBar } from "@/components/core/XpBar/XpBar";
 import { computeUniques, type ReaderData } from "@/lib/achievements";
 import { readEvents } from "@/lib/events";
 import { computeGuildLevel, deriveGuildOutcomes } from "@/lib/gamification";

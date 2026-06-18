@@ -17,7 +17,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { GuildOutcomes } from "@/lib/gamification";
-import { GuildBar } from "./GuildBar";
+import { GuildBar } from "../GuildBar";
 
 // ---------------------------------------------------------------------------
 // AC-09-004.1 — Shows level, title, XP bar to next from computeGuildLevel()

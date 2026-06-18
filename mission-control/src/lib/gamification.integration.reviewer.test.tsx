@@ -16,10 +16,10 @@
 
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Avatar } from "@/components/rpg/Avatar";
-import { CelebrationSurface } from "@/components/rpg/CelebrationSurface";
-import { GuildBar } from "@/components/rpg/GuildBar";
-import { XpBar } from "@/components/rpg/XpBar";
+import { Avatar } from "@/components/core/Avatar/Avatar";
+import { CelebrationSurface } from "@/components/core/CelebrationSurface/CelebrationSurface";
+import { XpBar } from "@/components/core/XpBar/XpBar";
+import { GuildBar } from "@/components/modules/GuildBar/GuildBar";
 import type { Event, EventsSnapshot } from "@/lib/events";
 import {
   classifyCelebration,

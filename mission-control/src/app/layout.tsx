@@ -13,7 +13,7 @@
 
 import type { Metadata } from "next";
 import { OnboardingGate } from "@/app/_components/OnboardingGate/OnboardingGate";
-import { GuildBar } from "@/components/rpg/GuildBar";
+import { GuildBar } from "@/components/modules/GuildBar/GuildBar";
 import { readEvents } from "@/lib/events";
 import { deriveGuildOutcomes } from "@/lib/gamification";
 import { readPortfolio } from "@/lib/portfolio";

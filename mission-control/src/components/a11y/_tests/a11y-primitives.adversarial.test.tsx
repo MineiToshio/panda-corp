@@ -38,7 +38,7 @@ import { useKeyboardNav } from "@/components/a11y/useKeyboardNav";
 afterEach(() => cleanup());
 
 const GLOBALS_CSS = fs.readFileSync(
-  path.resolve(import.meta.dirname, "../../app/globals.css"),
+  path.resolve(import.meta.dirname, "../../../app/globals.css"),
   "utf-8",
 );
 

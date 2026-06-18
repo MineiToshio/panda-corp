@@ -24,7 +24,7 @@
  * Source-of-truth hierarchy: FRD > FDD > design-tokens > blueprint > work order
  */
 
-import { XpBar } from "@/components/rpg/XpBar";
+import { XpBar } from "@/components/core/XpBar/XpBar";
 import type { ChainState } from "@/lib/achievements";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
