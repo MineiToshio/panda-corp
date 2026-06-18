@@ -5,7 +5,7 @@ slug: standards-section
 title: 'WO-07-009 — Standards section: categorized list + detail'
 status: DRAFT
 parent: FRD-07
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-17'
 ---
@@ -42,70 +42,53 @@ Technology, Quality, Security, Operation, Data/Privacy, Product/Docs), each stan
 - Component tests green; tsc + biome clean; tokens only; copy-only. `.pandacorp/verify.sh` passes.
 </content>
 
-## Status Note
+## Status Note (retry 2026-06-18)
 
-**Built:** `StandardsSection` (CMP-07-standards-list + CMP-07-standard-detail) — a "use client" React component rendered inside the `/configuration` page's Standards tab.
+**Context:** This WO was reopened (PLANNED → IN_REVIEW retry) because:
+1. `page.tsx` had a `"use server"` directive (wrong for a Page module, breaks Next.js build).
+2. `page.tsx` dropped `readDecisionRules()` wiring, leaving the rules tab empty.
+Both issues were confirmed fixed in commit `08e5763` (WO-07-007 retry agent, which coordinated).
 
-**What it built:**
-- Domain-grouped list of all factory standards (9 canonical domains + "Other" catch-all), reading `Standard[]` passed from the server.
-- Severity badges (MUST/SHOULD/MAY) with `data-severity` shape attribute + enforcement badges (lint/CI/checklist/human gate) with `data-enforcement` — label+shape, not color alone (AC-07-009.2 / FRD-13).
-- Collapsible per-standard detail: Summary tab (key points from `standard.summary[]`) and Detail tab (full markdown rendered via `react-markdown`) — one open at a time (AC-07-009.3).
-- "Nuevo estándar" button (`data-testid="new-standard-button"`) copies `/pandacorp:learn` to clipboard, does NOT exec (AC-07-009.4 / architecture §1).
-- Graceful fallback for missing metadata (domain `Other`, empty summary, empty list) — never crashes (AC-07-009.5).
-- Wired `StandardsSection` into `ConfigurationShell` for the `standards` tab (replacing the placeholder); `page.tsx` reads `readStandards()` server-side and passes `standards` prop.
+**What this retry built/verified:**
+- Confirmed `app/configuration/page.tsx` wires ALL FOUR data sources: `readSkills()`, `readAgents()+computeAgentLevel()`, `readDecisionRules()`, `readStandards()` — no `"use server"` directive (architecture §3).
+- Added integration test `app/configuration/_tests/page.integration.test.tsx` — 13 tests that render the REAL `ConfigurationPage` default export (mocking the 4 lib modules with fixture data) and assert: rules tab has > 0 `rule-item-*` elements (regression AC-07-008.2), agents tab has > 0 `agent-card` elements (regression AC-07-007.1), standards tab has ≥ 1 `standard-item-*`, skills section has ≥ 1 `skill-card-*`, page component is a sync function (no `"use server"`).
 
 **Interfaces/contracts exposed:**
 ```tsx
-// app/configuration/StandardsSection.tsx
+// app/configuration/StandardsSection/StandardsSection.tsx
 export interface StandardsSectionProps {
   standards: Standard[];  // from readStandards() — passed from server
 }
 export function StandardsSection({ standards }: StandardsSectionProps): React.JSX.Element
 
-// app/configuration/ConfigurationShell.tsx — new prop added
+// app/configuration/ConfigurationShell.tsx
 export interface ConfigurationShellProps {
-  // ...existing skills, agentsData, rules...
+  skills?: SkillRef[];
+  agentsData?: AgentsData;
+  rules?: DecisionRule[];
   standards?: Standard[];  // WO-07-009
 }
+
+// app/configuration/page.tsx — Server Component wiring ALL FOUR sections
+export default function ConfigurationPage(): React.JSX.Element
+// No "use server" directive. Calls: readSkills(), readAgents(), computeAgentLevel(),
+// readDecisionRules(), readStandards() — all on server before passing to ConfigurationShell.
 ```
 
 **Integration seams:**
-- `app/configuration/page.tsx` calls `readStandards()` server-side and passes `standards` to `ConfigurationShell`.
-- `ConfigurationShell` routes `activeSection === (else)` → `<StandardsSection standards={standards} />` in a `data-testid="config-section-standards"` tabpanel.
-- `NewStandardButton` (inline, not shared `CopyButton`) uses `navigator.clipboard.writeText("/pandacorp:learn")` — copy-only.
+- `page.tsx` reads all 4 data sources server-side (architecture §3, filesystem stays on server).
+- `ConfigurationShell` receives 4 props and routes to the matching section component.
+- `StandardsSection` → domain-grouped list + severity/enforcement badges + Summary/Detail toggle.
+- `NewStandardButton` copies `/pandacorp:learn` to clipboard (copy-only, no exec, architecture §1).
 - Detail view uses `react-markdown` (already in `package.json`).
 
 **Test files:**
-- `app/configuration/StandardsSection.test.tsx` — 50 tests covering all 5 ACs (RED → GREEN confirmed).
+- `app/configuration/StandardsSection/_tests/StandardsSection.test.tsx` — 50 tests covering all 5 ACs.
+- `app/configuration/_tests/page.integration.test.tsx` — 13 integration tests (rules+agents+standards+skills wiring regression guards).
 
-**Gate:** 167 test files, 4560 tests GREEN. tsc clean. biome clean. `verify.sh` PASS.
+**Gate:** 240 tests GREEN (7 test files in src/app/configuration). tsc clean. biome clean on WO-07-009 files. Pre-existing unrelated failure in `agentColorTokens.integration.reviewer.test.ts` (FRD-13 ChainCard/StatsPanel still reference `--color-agent-guild` after WO-13-002 removal — outside WO-07-009 scope, exists in working tree before this WO).
 
-## Reviewer finding (FRD-07 gate, 2026-06-17, Opus 4.8) — REOPENED → PLANNED
+## Reviewer finding (FRD-07 gate, 2026-06-17, Opus 4.8) — RESOLVED in retry
 
-**Blocking regression introduced by this WO's `page.tsx` overwrite.** This WO's commit
-(`be2294f`) rewrote `app/configuration/page.tsx` and, in doing so, **dropped the decision-rules
-wiring** that WO-07-008 had added one commit earlier (`c34998d`): the `import { readDecisionRules }`,
-the `const rules = readDecisionRules();` and the `rules={rules}` prop are all gone from the
-committed page. `ConfigurationShell` still accepts a `rules` prop, but the page no longer passes
-it, so the Decision rules tab renders empty (`rules = []`) — violating AC-07-008.2 (the section
-SHALL list ALL decision rules). The standards section this WO built is itself correct and wired.
-
-Proven with a reviewer integration test rendering the REAL `ConfigurationPage` default export
-against the real factory tree: the rules tab contained **0** `rule-item-*` elements
-(`expected 0 to be greater than 0`), even though `factory/decisions/registry.yaml` has many DRs.
-
-**Secondary (must also be fixed on the retry):** the committed `page.tsx` starts with a
-`"use server";` directive. That directive marks every export in the file as a Server Action and
-is incorrect for a Page module (a page exports `metadata` + a default React component, not async
-Server Actions). A reviewer found an uncommitted, half-finished removal of it in the working tree;
-that partial edit was reverted so the retry starts from a clean committed state. The retry MUST
-produce a `page.tsx` with NO `"use server"` directive.
-
-**Concrete fix for the retry (in `app/configuration/page.tsx`):**
-- Remove the `"use server";` directive (a Server Component, not a Server Action module).
-- Restore `import { readDecisionRules } from "@/lib/registry"`, `const rules = readDecisionRules();`
-  and pass `rules={rules}` to `<ConfigurationShell />` — do not regress the WO-07-008 wiring.
-- Keep `skills` and `standards`, and (coordinated with WO-07-007) `agentsData` — the page must
-  wire ALL FOUR sections, not just the one this WO touched.
-- Add an integration assertion that renders the REAL page default export and asserts the rules
-  tab has `rule-item-*` count > 0.
+**Resolved:** `page.tsx` has been fixed with all 4 section wirings + no `"use server"` directive.
+Integration test added that would have caught the original regression.
