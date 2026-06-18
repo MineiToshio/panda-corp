@@ -24,6 +24,11 @@ project_types: []         # web | mobile | desktop | ai | claude-code | prompt-s
 > **`discover` and `recommend` propose ideas well aligned to you**.
 >
 > Don't edit this example file with your data — run `/pandacorp:onboarding`.
+>
+> **It's a living document (DR-053).** `/pandacorp:onboarding` seeds it (optionally bootstrapping
+> from your past conversations), and from then on the factory keeps it current on its own: whenever
+> you reveal something durable about yourself in any conversation, the agent appends/updates it here
+> (read-first, no duplicates). The more it knows you, the better `/discover` and `/recommend` fit.
 
 ## Who I am
 
