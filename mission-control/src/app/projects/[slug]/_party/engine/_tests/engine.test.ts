@@ -322,12 +322,13 @@ describe("frd-06: engine — handoff (AC-06-004.1)", () => {
 // applyEvents — queue consumption at engine's pace
 // ---------------------------------------------------------------------------
 
-describe("frd-06: engine — applyEvents", () => {
-  it("frd-06: WHEN applyEvents receives a setState action THEN agent state updates after next tick", () => {
+describe("frd-06: engine — applyEvents (Wave 2 WO-keyed actions)", () => {
+  it("frd-06: WHEN applyEvents receives a setWo 'building' action THEN agent state becomes 'work'", () => {
     const roster = rosterFor("balanced");
     const engine = createPartyEngine(makeSnapshot(roster), {});
 
-    const actions: VisualAction[] = [{ kind: "setState", agentId: "backend-dev", state: "work" }];
+    // Engine maps WO id → agent id (WO-keyed bridge); wo must match an agent id in the snapshot
+    const actions: VisualAction[] = [{ kind: "setWo", wo: "backend-dev", state: "building" }];
     engine.applyEvents(actions);
     engine.tick(100);
 
@@ -340,7 +341,7 @@ describe("frd-06: engine — applyEvents", () => {
     const engine = createPartyEngine(makeSnapshot(roster), {});
 
     const actions: VisualAction[] = [
-      { kind: "startHandoff", agentId: "backend-dev", targetId: "frontend-dev" },
+      { kind: "startHandoff", fromWo: "backend-dev", toWo: "frontend-dev" },
     ];
     engine.applyEvents(actions);
     engine.tick(100);
@@ -353,7 +354,7 @@ describe("frd-06: engine — applyEvents", () => {
     const roster = rosterFor("balanced");
     const engine = createPartyEngine(makeSnapshot(roster), {});
 
-    const actions: VisualAction[] = [{ kind: "downSprite", agentId: "backend-dev" }];
+    const actions: VisualAction[] = [{ kind: "downSprite", wo: "backend-dev" }];
     engine.applyEvents(actions);
     engine.tick(100);
 
@@ -381,9 +382,7 @@ describe("frd-06: engine — applyEvents", () => {
     const engine = createPartyEngine(makeSnapshot(roster), {});
     const before = engine.agents().map((a) => a.state);
 
-    const actions: VisualAction[] = [
-      { kind: "fireAchievement", agentId: "backend-dev", workOrder: "WO-06-004" },
-    ];
+    const actions: VisualAction[] = [{ kind: "fireAchievement", wo: "WO-06-004" }];
     engine.applyEvents(actions);
     engine.tick(100);
 
@@ -392,13 +391,13 @@ describe("frd-06: engine — applyEvents", () => {
     expect(after).toEqual(before);
   });
 
-  it("frd-06: WHEN applyEvents receives multiple actions THEN all are processed in order", () => {
+  it("frd-06: WHEN applyEvents receives multiple setWo actions THEN all are processed in order", () => {
     const roster = rosterFor("balanced");
     const engine = createPartyEngine(makeSnapshot(roster), {});
 
     const actions: VisualAction[] = [
-      { kind: "setState", agentId: "backend-dev", state: "work" },
-      { kind: "setState", agentId: "frontend-dev", state: "review" },
+      { kind: "setWo", wo: "backend-dev", state: "building" },
+      { kind: "setWo", wo: "frontend-dev", state: "in_review" },
     ];
     engine.applyEvents(actions);
     engine.tick(100);
@@ -419,15 +418,58 @@ describe("frd-06: engine — applyEvents", () => {
     }).not.toThrow();
   });
 
-  it("frd-06: WHEN downSprite has undefined agentId THEN engine does not crash", () => {
+  it("frd-06: WHEN downSprite has undefined wo THEN engine does not crash", () => {
     const roster = rosterFor("balanced");
     const engine = createPartyEngine(makeSnapshot(roster), {});
 
-    const actions: VisualAction[] = [{ kind: "downSprite", agentId: undefined }];
+    const actions: VisualAction[] = [{ kind: "downSprite", wo: undefined }];
     expect(() => {
       engine.applyEvents(actions);
       engine.tick(100);
     }).not.toThrow();
+  });
+
+  it("frd-06: WHEN applyEvents receives openGate action THEN engine does not crash", () => {
+    const roster = rosterFor("balanced");
+    const engine = createPartyEngine(makeSnapshot(roster), {});
+
+    expect(() => {
+      engine.applyEvents([{ kind: "openGate" }]);
+      engine.tick(100);
+    }).not.toThrow();
+  });
+
+  it("frd-06: WHEN applyEvents receives advanceRelay action THEN engine does not crash", () => {
+    const roster = rosterFor("balanced");
+    const engine = createPartyEngine(makeSnapshot(roster), {});
+
+    expect(() => {
+      engine.applyEvents([{ kind: "advanceRelay", wo: "WO-01", step: "test" }]);
+      engine.tick(100);
+    }).not.toThrow();
+  });
+
+  it("frd-06: WHEN applyEvents receives publishContract action THEN engine does not crash", () => {
+    const roster = rosterFor("balanced");
+    const engine = createPartyEngine(makeSnapshot(roster), {});
+
+    expect(() => {
+      engine.applyEvents([{ kind: "publishContract", wo: "WO-01" }]);
+      engine.tick(100);
+    }).not.toThrow();
+  });
+
+  it("frd-06: WHEN applyEvents receives verifyWo action THEN agent state becomes idle", () => {
+    const roster = rosterFor("balanced");
+    const engine = createPartyEngine(makeSnapshot(roster), {});
+
+    // First put agent in 'work' state, then verify it (should go idle)
+    engine.setState("backend-dev", "work");
+    engine.applyEvents([{ kind: "verifyWo", wo: "backend-dev" }]);
+    engine.tick(100);
+
+    const ag = engine.agents().find((a) => a.id === "backend-dev");
+    expect(ag?.state).toBe("idle");
   });
 });
 

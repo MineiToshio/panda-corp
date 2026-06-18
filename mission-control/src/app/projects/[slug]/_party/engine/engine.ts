@@ -49,7 +49,7 @@
 
 import type { Pos } from "../layout";
 import { MCCENTER } from "../layout";
-import type { AgentState, VisualAction } from "../state-map/state-map";
+import type { AgentState, VisualAction, WoState } from "../state-map/state-map";
 
 // ---------------------------------------------------------------------------
 // Constants (ported from prototype)
@@ -380,40 +380,65 @@ export function createPartyEngine(
     }
   }
 
+  /**
+   * Map a WoState to the engine's internal AgentState.
+   * The engine is agent-keyed; this bridges the WO-keyed → agent-keyed gap.
+   */
+  function woStateToAgentState(woState: WoState): AgentState {
+    if (woState === "building") return "work";
+    if (woState === "blocked") return "blocked";
+    if (woState === "in_review") return "review";
+    return "idle"; // verified and unknown → idle
+  }
+
+  function processSetWo(wo: string, woState: WoState, now: number): void {
+    const ag = getAgent(wo);
+    if (ag) applySetState(ag, woStateToAgentState(woState), now);
+  }
+
+  function processStartHandoff(fromWo: string, toWo: string | undefined, now: number): void {
+    const ag = getAgent(fromWo);
+    if (!ag) return;
+    const targetAg = toWo !== undefined ? getAgent(toWo) : undefined;
+    const targetHome: Pos = targetAg ? ([...targetAg.home] as Pos) : ([...MCCENTER] as Pos);
+    beginWalk(ag, targetHome, toWo ?? null);
+    ag.t0 = now;
+  }
+
   function processAction(action: VisualAction, now: number): void {
     switch (action.kind) {
-      case "setState": {
-        const ag = getAgent(action.agentId);
-        if (ag) applySetState(ag, action.state, now);
+      case "setWo":
+        // Map WO state to internal agent state (WO-keyed bridge, full redesign is a later WO).
+        processSetWo(action.wo, action.state, now);
         break;
-      }
 
-      case "startHandoff": {
-        const ag = getAgent(action.agentId);
-        if (!ag) break;
-        // Resolve target home
-        const targetAg = getAgent(action.targetId);
-        const targetHome: Pos = targetAg ? ([...targetAg.home] as Pos) : ([...MCCENTER] as Pos);
-        beginWalk(ag, targetHome, action.targetId);
-        ag.t0 = now;
+      case "startHandoff":
+        // Parchment: fromWo walks toward toWo's station.
+        processStartHandoff(action.fromWo, action.toWo, now);
         break;
-      }
 
-      case "downSprite": {
-        // Failure is first-class (AC-06-013.1): map to 'blocked' (danger visual, PARTY.md §1)
-        if (action.agentId !== undefined) {
-          const ag = getAgent(action.agentId);
+      case "downSprite":
+        // Failure is first-class (AC-06-012.1): map to 'blocked' (danger visual).
+        if (action.wo !== undefined) {
+          const ag = getAgent(action.wo);
           if (ag) applySetState(ag, "blocked", now);
         }
+        break;
+
+      case "verifyWo": {
+        // WO verified: trophy in Bóveda. Map to idle for the sprite.
+        const ag = getAgent(action.wo);
+        if (ag) applySetState(ag, "idle", now);
         break;
       }
 
       case "fireAchievement":
-        // Cosmetic only in the engine core — the DOM adapter in WO-06-006 handles the toast.
-        // No agent state change.
-        break;
-
+      case "openGate":
+      case "advanceRelay":
+      case "publishContract":
+      case "enqueue":
       case "noop":
+        // Cosmetic or scene-layer actions — no internal agent-state change.
         break;
     }
   }
