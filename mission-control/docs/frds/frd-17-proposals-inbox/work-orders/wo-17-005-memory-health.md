@@ -5,7 +5,7 @@ slug: memory-health
 title: WO-17-005 — Memory-health panel
 status: DRAFT
 parent: FRD-17
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
 last_updated: '2026-06-18'
 ---

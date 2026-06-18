@@ -5,7 +5,7 @@ slug: proposals-page
 title: WO-17-004 — `app/proposals` page + 4 streams + proposal card
 status: DRAFT
 parent: FRD-17
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
 last_updated: '2026-06-18'
 ---
