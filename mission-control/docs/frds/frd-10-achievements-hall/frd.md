@@ -3,7 +3,9 @@ id: FRD-10
 type: frd
 title: FRD-10 — Achievements Hall
 status: ACTIVE
-implementation_status: PLANNED
+implementation_status: BLOCKED
+blocked_reason: needs-owner
+blocked_note: 'Congelado: rediseño del modelo de roles de la Party pendiente (ver prototype/party-redesign-brief.md)'
 last_updated: '2026-06-16'
 ---
 # FRD-10 — Achievements Hall

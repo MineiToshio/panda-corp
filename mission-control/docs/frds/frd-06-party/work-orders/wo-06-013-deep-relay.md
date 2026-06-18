@@ -5,7 +5,9 @@ slug: deep-relay
 title: WO-06-013 — Deep-mode sequential relay (test-writer → backend-dev →📄→ frontend-dev)
 status: DRAFT
 parent: FRD-06
-implementation_status: PLANNED
+implementation_status: BLOCKED
+blocked_reason: needs-owner
+blocked_note: 'Congelado: rediseño del modelo de roles de la Party pendiente (ver prototype/party-redesign-brief.md)'
 source_requirements: []
 last_updated: '2026-06-18'
 ---

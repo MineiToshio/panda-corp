@@ -5,7 +5,9 @@ slug: empty-reducedmotion-multiproject
 title: WO-06-011 — Empty state + reduced-motion + multi-project borders
 status: DRAFT
 parent: FRD-06
-implementation_status: PLANNED
+implementation_status: BLOCKED
+blocked_reason: needs-owner
+blocked_note: 'Congelado: rediseño del modelo de roles de la Party pendiente (ver prototype/party-redesign-brief.md)'
 source_requirements: []
 last_updated: '2026-06-18'
 ---
