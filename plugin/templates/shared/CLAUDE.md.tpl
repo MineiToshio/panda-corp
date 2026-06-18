@@ -3,6 +3,7 @@
 A **Pandacorp** factory project. The whole lifecycle is managed with the `/pandacorp:*` skills.
 
 Conventions (durable, tool-agnostic): @AGENTS.md
+**Engineering rules (read before writing or changing code)**: @docs/rules/README.md
 Pandacorp project guide (origin · how changes are made · documentation map): @.pandacorp/guide.md
 
 <!-- ──────────────────────────────────────────────────────────────────

@@ -1,6 +1,14 @@
 # Pandacorp standards
 
-Engineering standards that the factory injects into every project (via the scaffold's `AGENTS.md`/`CLAUDE.md` and the plugin's agents).
+Engineering standards that the factory injects into every project. These files are the **canonical, long-form** standards (rule + how-verified + why + severity); their **project-injectable operative form** is the rule library at `plugin/templates/rules/`, copied as files into each project's `docs/rules/` (see *How standards reach projects* below).
+
+## How standards reach projects (the rule library + propagation — DR-051)
+
+A standard that isn't injected is dead on arrival (Mission Control once violated `core/modules` even though it was written in the embed). So:
+
+- **Rules ship as FILES, selectively.** `plugin/templates/rules/` holds the portable, tech-bucketed rules (each declares `applies_when`). `scaffold` copies the `always` files into the project's `docs/rules/` at birth; `blueprint` adds the tech-gated files matching the **approved** stack; `adopt` injects the set matching a brownfield project's stack. They live in `docs/` (not `.pandacorp/`) so any agent follows them whether or not the project uses Pandacorp. `CLAUDE.md` loads them via `@docs/rules/README.md` (recursive `@import`); `AGENTS.md` points there.
+- **Propagation is deterministic.** The plugin's rule files are the source of truth; `/pandacorp:upgrade` re-copies them verbatim into existing projects, and bumping `templates/OVERLAY_VERSION` on any rule change is the trigger (DR-048 auto-upgrade loop).
+- **The contract (enforced in `/pandacorp:learn`):** adding/changing a project-facing standard MUST, in the same change, (1) update the matching `plugin/templates/rules/` file with the right `applies_when`, (2) wire any hard-enforceable part into the stack's lint/`verify.sh` so violations FAIL the gate, and (3) bump `OVERLAY_VERSION`. Three enforcement layers: **presence** (the file, read by every agent) + **propagation** (upgrade + OVERLAY_VERSION) + **hard gate** (lint/CI). Factory-internal-only standards (build orchestration, factory ops) don't ship → no rule-library change, stated explicitly.
 
 ## Two levels (important)
 

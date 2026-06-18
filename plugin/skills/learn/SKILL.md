@@ -19,6 +19,12 @@ It teaches the factory something **durable** (the factory learns it): a **standa
    - Write it in the **"executable standard"** form: **Rule** (categorical) · **How it is verified** (binary check, pluggable into `verify.sh`/CI) · **Why** (rationale). Mark the **severity** (MUST/SHOULD/MAY) and **enforcement** (lint/CI/checklist/human gate).
    - If it introduces something verifiable, say how it enters the gate (lint rule, test, CI step).
    - Update `factory/standards/README.md` (index + category).
+   - **PROPAGATE to projects (mandatory, DR-051) — a standard that isn't injected is dead on arrival.** If the standard governs how projects are built (most do), reflect it in the **injectable rule library** so it actually reaches every project:
+     - **General (all-stack)** → edit/add the matching file in `${CLAUDE_PLUGIN_ROOT}/templates/rules/` with `applies_when: always`.
+     - **Tech-specific** → the matching `rules/*.md` with the right `applies_when` token (`react`/`nextjs`/`tailwind`/`prisma`/`next-intl`/`posthog`/`sentry`/`web-ui`/`public-web`); if it's a brand-new technology bucket, add a new `rules/<slug>.md` **and** register it in `rules/README.md`'s catalog + the `applies_when` table.
+     - **Hard-enforceable** (lint/typecheck/test) → also wire it into the relevant `templates/stack-*/STACK.md` lint config / `verify.sh` so violations FAIL the gate, not just sit in prose.
+     - **Bump `${CLAUDE_PLUGIN_ROOT}/templates/OVERLAY_VERSION`** (same MAJOR for a compatible rule change) — this is the trigger that makes `/pandacorp:upgrade` carry the change into existing projects on their next skill run. A standard change that skips the rule library + OVERLAY bump never reaches projects (this is exactly the drift that motivated DR-051).
+   - Factory-internal-only standards (build orchestration, the factory's own ops) don't ship to projects → no rule-library change; note that explicitly so it's a decision, not an omission.
 4. **If it is a DECISION RULE:**
    - Add `DR-NNN` to `registry.yaml` with `pattern`, `default` (the pre-approved behavior), `requires_human` (true/false) and `note` if needed. If the values live in a standard, **point to it** (don't duplicate them).
 5. **If it is a SKILL (create or improve) — DON'T reinvent: delegate to `skill-creator` (native):**

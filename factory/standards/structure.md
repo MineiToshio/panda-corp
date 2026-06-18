@@ -1,6 +1,6 @@
 # Project structure
 
-Reference structure for the default web stack (Next.js App Router). Other stacks apply the spirit: separated layers, isolated data layer, code by domain, colocated tests.
+Reference structure for the default web stack (Next.js App Router). Other stacks apply the spirit: separated layers, isolated data layer, code by domain, tests grouped in `_tests/` folders (never loose beside implementation files).
 
 ```
 src/
@@ -15,8 +15,9 @@ src/
 ├── hooks/                    # app hooks
 ├── types/                    # app types
 ├── contexts/                 # React Context (e.g. ThemeContext)
+├── test/                     # SHARED test infra only (render helpers, fixtures, factories, mocks)
 └── i18n/                     # routing, request and locales/<locale>/*.json
-e2e/                          # end-to-end tests (Playwright)
+e2e/                          # end-to-end tests (Playwright), split by domain (auth.spec.ts, dashboard.spec.ts…)
 docs/                         # product documentation — feature-centric (see "Documentation structure" below)
 .pandacorp/                   # Pandacorp factory-integration layer (state, guide, comms, inbox) — see .pandacorp/README.md
 ```
@@ -25,8 +26,27 @@ docs/                         # product documentation — feature-centric (see "
 - **Isolated data layer**: all DB access lives in `queries/` (or an equivalent layer). Components/actions call `queries/`, never the ORM directly.
 - **Code by feature**: what is specific to a route goes in its `_components/`, `_actions/`, `_schemas/`, `_hooks/`. Promotion rule: if only one route uses it, it stays local; if several use it, it moves up to `components/`, `lib/`, etc.
 - **Reuse before creating**: check in order `components/core` → `components/modules` → the parent's `_components` → the route itself. Only create if it doesn't exist.
-- **Colocated tests**: next to the code (`*.test.ts`) or in `_tests/` inside the component/feature folder. E2E in `e2e/`.
 - For frontend-less backends (API, scraping): layers Routes → Services → Repositories; isolated data layer the same.
+
+## Component folder convention (single-file vs multi-file)
+Applies everywhere — `core/`, `modules/` and route-local `_components/`.
+- **Single-file component**: put the file directly in the parent folder (`core/Button.tsx`). **Don't** create a folder that would hold just one file (no `Button/Button.tsx` with no siblings).
+- **Multi-file component**: use a folder named after the component; the main file has the **same name as the folder** (`Button/Button.tsx`, **never** `index.tsx`). Component-scoped siblings live inside it: `types.ts`, `utils.ts`, `*.styles.ts`, `use*.ts`, subcomponents used only here, and **`_tests/`**.
+- A component "becomes multi-file" as soon as it has any scoped sibling — **including a test**. So a component that gets a test is promoted to its own folder with the test under `_tests/`. If a folder ends up with only the one file, flatten it back.
+
+## Test organization (definitive — no loose test siblings)
+- **Unit/component tests live in a `_tests/` folder inside the component/feature folder** — `Button/_tests/Button.test.tsx`. **Never** leave `*.test.ts(x)` files loose at the same level as implementation files (it's visual noise and makes the tree hard to scan).
+- **Shared test infra** (render helpers, fixtures, factories, mocks) → `src/test/`.
+- **E2E** (Playwright) → top-level `e2e/`, split by domain/workflow (`auth.spec.ts`, `dashboard.spec.ts`); don't dump unrelated domains in one spec.
+
+## Page-level folders (siblings of `_components`)
+For a route/segment, page-scoped code lives in siblings under that route: `_components/`, `_utils/`, `_hooks/`, `_actions/`, `_types/`, `_schemas/`. The `_` prefix keeps them out of the URL. **Scope by segment first**: files used only by a child segment go in that child's folders, not the parent — prefer the smallest valid scope.
+
+## `src/lib/` organization
+Group utilities by **purpose**: one file per library/service (`mapbox.ts`, `prisma.ts`) or per classification (`formatting.ts`, `cookies.ts`). When a second file of a clear concern appears, **promote it to a domain subfolder in the same change** (`lib/auth/`, `lib/analytics/`) and move both files — don't leave one at the root and one nested.
+
+## Promotion rule: move code up only when reuse appears
+Used in one place → keep it there. Used by another component on the same page → move to **page level** (`_utils/`, `_hooks/`, …). Used by another page / app-wide → move to **app level** (`lib/`, `hooks/`, `types/`, `components/core|modules/`). Always the **smallest scope that fits current usage** (component → page → app); don't pre-promote on speculation.
 - **Living documentation**: every project carries `docs/decision-log.md` (history of decisions, with the why) in addition to the PRD/FRDs/blueprint. Each relevant change updates its canonical doc **and** the decision log — two-layer rule in [documentation.md](documentation.md).
 
 ## Documentation structure (`docs/`) — feature-centric
