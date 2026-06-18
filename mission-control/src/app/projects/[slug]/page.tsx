@@ -38,9 +38,11 @@
 import { notFound } from "next/navigation";
 import { listProjectDocs, readActivityLog, readDecisions, readDoc } from "@/lib/docs/docs";
 import { activeProjects } from "@/lib/portfolio/portfolio";
+import { buildSnapshot } from "@/lib/snapshot/snapshot";
 import { type Phase, readStatus } from "@/lib/status/status";
 import { listWorkOrders, readWorkOrderDoc } from "@/lib/work-orders/work-orders";
 import { ObjectivesBar } from "./_components/objectives-bar";
+import { SnapshotPanel } from "./_components/snapshot-panel/snapshot-panel";
 import { TabCommands } from "./_components/tab-commands/tab-commands";
 import { TabDocuments } from "./_components/tab-documents/tab-documents";
 import { TabSummary } from "./_components/tab-summary/tab-summary";
@@ -138,6 +140,12 @@ export default async function ProjectWorkspacePage({
   const woDone = status.workOrdersDone ?? 0;
   const woTotal = status.workOrdersTotal;
 
+  // --- Derive snapshot (FRD-14 / WO-14-002) ---
+  // buildSnapshot returns null when last_green_sha is absent (AC-14-001.3).
+  // stale is false by default (pure helper); a git probe would update it — see blueprint §5.
+  // For now the panel relies on the gate-published status.yaml fields only (no git probe route).
+  const snapshot = buildSnapshot(slug, status);
+
   // --- URL-driven tab selection ---
   const activeTab = resolveTab(sp.tab);
   const docParam = typeof sp.doc === "string" ? sp.doc : undefined;
@@ -196,10 +204,12 @@ export default async function ProjectWorkspacePage({
 
   return (
     <main data-testid="workspace-page" data-slug={slug} style={PAGE_STYLE}>
-      {/* Chrome: header + objectives bar + tab bar (AC-04-002.3 — always visible) */}
+      {/* Chrome: header + objectives bar + snapshot panel + tab bar (AC-04-002.3 — always visible) */}
       <div style={CHROME_STYLE}>
         <WorkspaceHeader title={title} stage={stage} version={version} progress={progress} />
         <ObjectivesBar done={woDone} total={woTotal} />
+        {/* FRD-14 snapshot panel — omitted when no last_green_sha (AC-14-001.3) */}
+        <SnapshotPanel slug={slug} snapshot={snapshot} />
         <TabBar activeTab={activeTab} />
       </div>
 

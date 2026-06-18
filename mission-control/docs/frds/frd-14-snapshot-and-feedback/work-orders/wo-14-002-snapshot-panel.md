@@ -7,7 +7,7 @@ title: >-
   building-now + staleness
 status: DRAFT
 parent: FRD-14
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-16'
 ---
@@ -47,7 +47,53 @@ Component tests:
 5. Stale verdict → staleness warning shown; fresh → not shown (AC-14-003.1).
 
 ## Definition of done
-- [ ] Component tests written first and green.
-- [ ] Server Component; reuses shared `CopyButton`; any `git` probe is read-only (`git rev-list`/`git show`).
-- [ ] Tokens only; `tabular-nums`; green/stale shown with icon + text (not color alone); Spanish copy via i18n; `data-testid`.
-- [ ] `bash .pandacorp/verify.sh` passes.
+- [x] Component tests written first and green.
+- [x] Server Component; reuses shared `CopyButton`; any `git` probe is read-only (`git rev-list`/`git show`).
+- [x] Tokens only; `tabular-nums`; green/stale shown with icon + text (not color alone); Spanish copy via i18n; `data-testid`.
+- [x] `bash .pandacorp/verify.sh` passes.
+
+## Status Note
+
+**Built:** `CMP-14-snapshot-panel` — Server Component that renders the FRD-14 snapshot panel inside the FRD-04 workspace, wired into `app/projects/[slug]/page.tsx` in the chrome area (above the tab bar).
+
+**Files delivered:**
+- `src/app/projects/[slug]/_components/snapshot-panel/snapshot-panel.tsx` — `SnapshotPanel` Server Component
+- `src/app/projects/[slug]/_components/snapshot-panel/_tests/snapshot-panel.test.tsx` — 25 tests RED→GREEN covering all 5 ACs
+- `src/app/projects/[slug]/page.tsx` — wired: imports `buildSnapshot` + `SnapshotPanel`, derives snapshot from status, mounts panel in chrome
+
+**Interfaces/contracts exposed:**
+
+```tsx
+// src/app/projects/[slug]/_components/snapshot-panel/snapshot-panel.tsx
+
+export interface SnapshotPanelProps {
+  slug: string;                   // project slug (panel identification)
+  snapshot: SnapshotInfo | null;  // null → panel omitted (AC-14-001.3)
+}
+
+export function SnapshotPanel({ slug, snapshot }: SnapshotPanelProps): React.JSX.Element | null
+```
+
+**data-testid contract:**
+- `snapshot-panel` — root `<section aria-label="Snapshot del proyecto">` (omitted when null)
+- `snapshot-panel-probable-point` — probable point section container
+- `snapshot-panel-label` — "Último punto probable" heading label
+- `snapshot-panel-green-badge` — green badge with `role="status"` + icon + text (not color alone)
+- `snapshot-panel-sha` — SHA value with `className="tabular-nums"` + `fontVariantNumeric`
+- `snapshot-panel-worktree-cmd` — `<code>` with full `git worktree add ...` command
+- `copy-button` — shared `CopyButton` (from `@/components/core/CopyButton/CopyButton`)
+- `snapshot-panel-building-now` — "building now" block (only when `buildingNow !== undefined`)
+- `snapshot-panel-stale-warning` — staleness warning with `role="alert"` (only when `stale === true`)
+- `snapshot-panel-stale-icon` — warning icon inside the stale warning
+
+**Integration seam (page.tsx):**
+```ts
+// Derives snapshot from already-read status — pure, no git probe
+const snapshot = buildSnapshot(slug, status);
+// Mounts in chrome between ObjectivesBar and TabBar
+<SnapshotPanel slug={slug} snapshot={snapshot} />
+```
+
+**Staleness flag:** `stale` is `false` by default from `buildSnapshot` (pure/no-git). Blueprint §5 flag: a git probe route-handler (`git rev-list --count <sha>..HEAD`) would compute `commitsBehind`/`hoursSinceGreen` and call `isSnapshotStale` to update it. This follow-up is documented in the blueprint but not in scope for this WO — the panel is wired and the staleness verdict is observable when set.
+
+**Gate:** 25/25 own tests GREEN. 191 test files, 5197 tests total GREEN. tsc clean (zero errors). biome clean (no new errors; pre-existing `noExcessiveCognitiveComplexity` warning on `page.tsx` is pre-existing, not introduced here). verify.sh PASS.
