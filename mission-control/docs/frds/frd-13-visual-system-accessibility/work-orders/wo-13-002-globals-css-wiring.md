@@ -7,7 +7,7 @@ title: >-
   focus)
 status: ACTIVE
 parent: FRD-13
-implementation_status: IN_PROGRESS
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-18'
 ---
@@ -39,7 +39,35 @@ Add the `@theme` agent-color tokens for the roles added in WO-13-001 (`--color-a
 ## TDD / Definition of done
 - CSS is not unit-tested directly; verification is via the design-phase a11y report (axe-core) + consuming component tests. DoD: the theme vars exist for light/dark/high-contrast; switching the theme attribute changes the resolved vars; the reduced-motion media query is present; biome/tsc clean (no JS). Build succeeds.
 
-## Status — DONE (2026-06-16)
+## Status Note — IN_REVIEW (2026-06-18 realignment, commit 8bd4be2)
+
+**What was built:**
+
+Realigned `app/globals.css` `@theme` agent-color block to match the Party redesign role set from WO-13-001 (`tokens.ts`):
+- **Removed** `--color-agent-guild` (fictitious aggregate, violates FRD-13 `AGENT_ROLES` contract).
+- **Added** `--color-agent-implementer`, `--color-agent-copywriter`, `--color-agent-analytics`, `--color-agent-devops` — all four new real engine/pipeline roles, with warm OKLCH values that reuse the existing L/C ranges (L=0.60–0.70, C=0.18–0.20) to maintain contrast ≥4.5:1.
+
+**Interfaces/contracts exposed:**
+
+- `CMP-13-globals` (`src/app/globals.css`): `@theme` block now declares 32 CSS custom properties (3 OKLCH + 2 surface/text + 13 agent + 3 elevation + 3 spacing + 3 duration + 2 easing + 1 focus-ring + 1 backdrop). The 13 agent keys match `AGENT_COLOR` in `app/_design/tokens/tokens.ts`.
+- `IF-13-theme-vars`: unchanged — light/dark/high-contrast theme mode selectors, `:focus-visible`, `@media (prefers-reduced-motion: reduce)` all verified.
+- `IF-13-agent-colors`: CSS side is now in sync with the TS side (WO-13-001). FRD-06 (`agentColor()`) and FRD-12 DAG can resolve `var(--color-agent-implementer)` etc.
+
+**Integration seams:**
+- `app/_design/tokens/tokens.ts` `AGENT_COLOR` (WO-13-001) → `globals.css` `@theme` CSS vars: all 13 role keys now have a corresponding CSS custom property.
+- Party engine / FRD-06 sprite resolver reads `AGENT_COLOR[role]` → `var(--color-agent-<role>)` → resolved by `@theme`.
+
+**Test files:**
+- `src/app/_tests/globals.css.test.ts` — 54 tests (52 pre-existing + 2 new regression assertions: guild absent, 4 new roles present).
+
+**Gate results (commit 8bd4be2):**
+- `vitest run src/app/_tests/globals.css.test.ts` — 54 passed (0 failed)
+- `vitest run` (full suite) — 4924 passed | 2 expected fail | 5 skipped (0 regressions)
+- `tsc --noEmit` — clean (exit 0)
+- `biome check .` — 36 warnings pre-existing, 0 new errors
+- `.pandacorp/verify.sh` — green (exit 0)
+
+## Status — DONE (2026-06-16, original)
 
 **[x] DONE — all gates green**
 
