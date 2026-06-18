@@ -5,7 +5,7 @@ slug: party-scene
 title: 'WO-06-006 — La Fragua scene (rooms, WO sprites, +N en cola, gate, trophies, tracker)'
 status: DRAFT
 parent: FRD-06
-implementation_status: IN_PROGRESS
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-18'
 ---
@@ -51,18 +51,67 @@ last_updated: '2026-06-18'
 - Component tests (jsdom + RTL): renders 4 zones with labels; one sprite per roster role placed in its zone; state classes (`s-work/s-walk/s-idle/s-blocked/s-review`) applied from snapshot; no button/control to command agents exists. RAF is mocked.
 - Gate green.
 
-## Status Note (La Fragua redesign — what the retry must build)
+## Status Note (WO-06-006 — La Fragua scene — BUILT 2026-06-18)
 
-**Why reopened:** the shipped `PartyScene` renders 4 zones (`party-zone-{library|forge|workshop|lab}`)
-+ one sprite per roster role with wandering. The faithful scene (renamed `FraguaScene`) renders the
-three rooms, **one sprite per running WO** capped at the wave, the **"+N en cola"** badge, the
-**reviewer gate**, the **trophy shelf** + "+N archivados", the **parchment**, and the **FRD tracker +
-global counter**, per the visual contract. New `data-testid`s: `fragua-scene`, `fragua-room-{forge|
-tribunal|vault}`, `fragua-wo-{id}` (running sprites), `fragua-queue-badge`, `fragua-reviewer`
-(`data-gate-open`), `fragua-trophy-{id}`, `fragua-archived`, `fragua-parchment`, `fragua-frd-tracker`,
-`fragua-project-counter`, sprite hover tooltip. Delete the 4-zone render and the roster prop. Defer the
-deep relay to `<DeepRelay>` (WO-06-013). Rewrite the 27 tests against the new model; RAF mocked; no
-control affordance present (AC-06-009.1).
+**What was built:** `FraguaScene` (`"use client"`, CMP-06-scene) — the La Fragua faithful scene
+replacing the 4-zone PartyScene stub from WO-06-005. Full RAF loop with `runIdRef` self-stop
+discipline + page-visibility pause. Styles extracted to `FraguaScene.styles.ts` to keep the main
+component within the 500-line limit (351 + 224 lines).
+
+**Files delivered:**
+- `src/app/projects/[slug]/_party/FraguaScene/FraguaScene.tsx` — 351 lines, full implementation.
+- `src/app/projects/[slug]/_party/FraguaScene/FraguaScene.styles.ts` — 224 lines, style constants.
+- `src/app/projects/[slug]/_party/FraguaScene/_tests/FraguaScene.test.tsx` — 31 tests RED→GREEN.
+- Updated `FraguaScene.deeprelay.test.tsx` — stale testid `fragua-wo-chip-{wo}` → `fragua-wo-{wo}`.
+- Updated `PartyTab.integration.reviewer.test.tsx` — stale testids `fragua-room-forja/boveda` →
+  `fragua-room-forge/vault`.
+
+**Interfaces/contracts exposed:**
+```ts
+export interface FraguaSceneProps {
+  snapshot: FraguaSnapshot;
+}
+export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element
+```
+
+**data-testid surface (WO-06-006 contract):**
+- `fragua-scene` — root `<section>`, aria-label in Spanish
+- `fragua-room-forge` — Sala de Forja room (running WO sprites)
+- `fragua-room-tribunal` — Tribunal del Juez room (reviewer gate)
+- `fragua-room-vault` — Bóveda room (trophy shelf)
+- `fragua-wo-{id}` — one sprite per running WO, `title="{id} — {title}"` (hover tooltip)
+- `fragua-queue-badge` — "+N en cola" badge (only when queuedCount > 0)
+- `fragua-reviewer` — reviewer figure, `data-gate-open={"true"|"false"}`
+- `fragua-reviewer-lens-{correctness|security|quality}` — 3 lenses (only when gate open)
+- `fragua-trophy-{id}` — one per VERIFIED WO on the Bóveda shelf
+- `fragua-archived` — "+N archivados" compact (only when archivedCount > 0)
+- `fragua-parchment` — status-note parchment (always present, hidden when inactive)
+- `fragua-frd-tracker` — FRD id + title block (only when frd !== null)
+- `fragua-project-counter` — global WO done/total counter
+- `fragua-mode-display` / `fragua-mode-value` — mode (read-only, no selector)
+
+**Integration seams:**
+- Consumes `createFraguaEngine` (WO-06-004) — mounted on effect, seeded from snapshot.
+- Delegates deep-mode WOs to `<DeepRelay>` (WO-06-013).
+- Receives `FraguaSnapshot` (WO-06-005) as props from RSC `PartyTab`.
+- RAF mocked in tests (`vi.stubGlobal("requestAnimationFrame", ...)`).
+
+**AC coverage:**
+- AC-06-001.1 ✓ (one sprite per running WO, fragua-wo-{id})
+- AC-06-001.3 ✓ (fragua-queue-badge, no sprites for queued WOs)
+- AC-06-002.1 ✓ (fragua-frd-tracker shows FRD title)
+- AC-06-002.3 ✓ (sprite title attribute = "{id} — {title}")
+- AC-06-003.1 ✓ (three rooms, no 4-zone kanban)
+- AC-06-004.1/2 ✓ (fragua-reviewer data-gate-open, 3 lenses when open)
+- AC-06-005.1/2 ✓ (fragua-trophy-{id}, fragua-archived compact)
+- AC-06-006.1 ✓ (fragua-parchment element present)
+- AC-06-009.1 ✓ (zero buttons/inputs/selectors)
+
+**Test coverage:** `FraguaScene/_tests/FraguaScene.test.tsx` — 31 tests across 10 describe blocks.
+`FraguaScene.deeprelay.test.tsx` — 3 tests for deep-mode relay host (REQ-06-007).
+
+**Gate:** 234 test files, 5931 tests GREEN + 2 expected-fail + 5 skipped. `tsc --noEmit` clean.
+`biome check` clean. `verify.sh` PASS. Commit: `7ee7957`.
 
 ---
 
