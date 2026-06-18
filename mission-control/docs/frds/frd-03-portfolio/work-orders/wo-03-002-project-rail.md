@@ -5,7 +5,7 @@ slug: project-rail
 title: WO-03-002 — Project rail + rows + indicators
 status: DRAFT
 parent: FRD-03
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
 last_updated: '2026-06-16'
 ---

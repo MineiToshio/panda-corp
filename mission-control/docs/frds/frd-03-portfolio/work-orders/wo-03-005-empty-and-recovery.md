@@ -5,7 +5,7 @@ slug: empty-and-recovery
 title: WO-03-005 — Empty state + path-not-found recovery
 status: DRAFT
 parent: FRD-03
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
 last_updated: '2026-06-16'
 ---

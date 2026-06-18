@@ -5,7 +5,7 @@ slug: selection-workspace-slot
 title: WO-03-004 — Selection + default + workspace slot
 status: DRAFT
 parent: FRD-03
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
 last_updated: '2026-06-18'
 ---
@@ -254,3 +254,27 @@ padding. `aria-current="page"` stays on the selected row's link.
 **Gate:** full `.pandacorp/verify.sh` GREEN (221 test files, 5625 pass; biome + tsc clean). Also green
 scoped `--since dbcf75d`. Returned to IN_REVIEW for the FRD-03 gate's re-verification (never VERIFIED
 by the implementer — DR-015/DR-050).
+
+## Reviewer finding — GATE PASS (FRD-03 gate, 2026-06-18, Opus 4.8)
+
+**VERIFIED.** Re-verified the two prior reopens are genuinely fixed and held under integration:
+
+- **AC-03-003.1 / AC-03-006.2/.3/.4** — snapshot + path-not-found badge + recovery reach the LIVE
+  rail (`SelectableProjectRail`) and, confirmed end-to-end, the LIVE `PortfolioPage` Server Component.
+- **Nested interactive content** — the `<Link>` wraps ONLY the row header; `BusinessSnapshot`,
+  `RecoveryHint` (and its `CopyButton`) and `StatusChips` are siblings of the link, never descendants
+  of the `<a>`. The reviewer nesting anchor is GREEN.
+
+**Reviewer-added adversarial test (committed):**
+`src/app/portfolio/_tests/frd-03-page-assembly.reviewer.test.tsx` — 6 tests rendering the REAL async
+`PortfolioPage` (the surface the prior two reopens kept missing): default-first + `?project=` +
+unmatched-fallback selection reaches BOTH rail (`data-selected`) and slot (`data-slug`); snapshot on a
+shipped row; badge+recovery on a missing-path row; no cross-stage snapshot leakage on a building row.
+
+**Mutation check (DR-016):** disabling the rail's `BusinessSnapshot` render → reviewer tests RED;
+disabling the `RecoveryHint` render → reviewer tests RED. The wiring anchors are not decorative.
+
+**Security/quality:** read-only (`fs.readFileSync` only, no writes/no Claude), `?project`
+`encodeURIComponent`-escaped, design tokens only, no `any`/`@ts-ignore`. Gate green.
+
+**Status: VERIFIED.** WO-03-001/002/003/005 also VERIFIED; FRD-03 rollup → VERIFIED (all WOs).

@@ -3,7 +3,7 @@ id: FRD-03
 type: frd
 title: FRD-03 — Portfolio and project navigation
 status: ACTIVE
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 last_updated: '2026-06-18'
 ---
 # FRD-03 — Portfolio and project navigation
