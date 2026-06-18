@@ -5,7 +5,7 @@ slug: selection-workspace-slot
 title: WO-03-004 — Selection + default + workspace slot
 status: DRAFT
 parent: FRD-03
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
 source_requirements: []
 last_updated: '2026-06-18'
 ---
@@ -178,3 +178,45 @@ internal imports: `BusinessSnapshot`, `RecoveryHint` (both already-VERIFIED stan
 
 **Gate:** full `.pandacorp/verify.sh` GREEN (209 test files, 5435 pass). Returned to IN_REVIEW for the
 FRD-03 gate's re-verification (never VERIFIED by the implementer — DR-015/DR-050).
+
+## Reviewer finding — REOPENED again (FRD-03 gate, 2026-06-18, Opus 4.8)
+
+**Blocking integration regression — nested interactive content (invalid HTML + click hijack).**
+The integration repair above correctly wired `BusinessSnapshot` + `RecoveryHint` into the LIVE rail,
+turning the snapshot/badge/recovery anchors green. But it placed `RecoveryHint` — which renders a
+`CopyButton` (`<button>`) for the recovery command — INSIDE the row's navigation `<Link>` (an `<a>`).
+
+`SelectableProjectRail.tsx` wraps each whole `<article>` row in
+`<Link href="?project=<name>">` (line ~184), and `<RecoveryHint>` (line ~244) is rendered inside
+that `<article>`. So on a missing-path row with a repo, the DOM is
+`<a> … <button data-testid="copy-button"> … </a>` — a `<button>` nested inside an `<a>`. This is:
+
+- **Invalid interactive-content nesting** (HTML spec; WCAG 4.1.2). React's `validateDOMNesting`
+  flags `<button>` cannot be a descendant of `<a>`; it is a hydration-class defect.
+- **Broken UX:** clicking "copiar" also fires the anchor's navigation to `?project=<name>` (the
+  click bubbles up to the row link), so the copy affordance the FRD requires (AC-03-006.3,
+  copyable recovery — same shape as FRD-15/16 banners) cannot be used in place.
+
+Why it slipped the prior gate: `RecoveryHint`'s standalone unit tests render it OUTSIDE any link,
+and the page-level tests never asserted nesting validity — the defect only exists in the assembled
+rail. This is exactly the integration class the FRD gate exists to catch.
+
+**Reviewer RED anchor (kept on disk, not committed):**
+`src/app/portfolio/_tests/frd-03-nested-interactive.reviewer.test.tsx` — asserts the `copy-button`
+on the live rail has NO ancestor `<a>`. RED today; must be GREEN after the fix.
+
+**Concrete fix (file:line):** `src/app/portfolio/SelectableProjectRail.tsx`.
+- Stop wrapping the WHOLE row (including `RecoveryHint`/`CopyButton`) in `<Link>`. Options:
+  1. Make only the row's **navigational chrome** (name + stage + indicator header) the link target,
+     and render `RecoveryHint` (and any future interactive content) as a SIBLING of the link inside
+     the `<article>`, not a descendant of it; or
+  2. Drop the `<Link>` wrapper and make the row a non-anchor container, moving selection navigation
+     onto a dedicated link/button in the header (`aria-current` stays on the selected row).
+- Keep `data-testid="selectable-project-row"`, `data-selected`, the snapshot, the badge and the
+  recovery command all present — only the nesting changes. Re-run the FRD gate:
+  `bash .pandacorp/verify.sh --since dbcf75d` must be green, including the reviewer anchors
+  (`frd-03-integration.reviewer.test.tsx`, `frd-03-integration.gate.reviewer.test.tsx`,
+  `frd-03-nested-interactive.reviewer.test.tsx`).
+
+**Status: REOPENED → PLANNED.** WO-03-001/002/003/005 stay IN_REVIEW (their standalone components
+are correct; only WO-03-004's rail composition nests a button inside an anchor).
