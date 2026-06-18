@@ -103,7 +103,19 @@ vi.mock("@/lib/memory/memory", () => ({
   candidateLessons: vi.fn(),
   promotionQueue: vi.fn(),
   prunable: vi.fn(),
-  readLessons: vi.fn(),
+  readLessons: vi.fn(() => []),
+}));
+
+// The page composes the MemoryHealth panel, which calls memoryHealth() (a real
+// filesystem reader). Mock it here so this suite stays a hermetic unit test —
+// these tests assert on the four streams, not on the health panel's data.
+vi.mock("@/lib/memory/memory-health", () => ({
+  memoryHealth: vi.fn(() => ({
+    rawNotes: 0,
+    candidates: 0,
+    lastMemoryRunAt: null,
+    staleDays: null,
+  })),
 }));
 
 vi.mock("@/lib/self-suggest/self-suggest", () => ({

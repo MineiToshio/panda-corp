@@ -2,15 +2,17 @@
  * WO-17-004 — Proposals page (CMP-17-page, Server Component).
  *
  * The owner-facing surface of the factory's self-learning loop (DR-047) and the
- * place where Mission Control suggests improvements on its own. Renders four
- * proposal streams: candidate lessons, promotions, prune, and self-suggestions.
+ * place where Mission Control suggests improvements on its own. Composes the
+ * memory-health panel, the four proposal streams (candidate lessons, promotions,
+ * prune, self-suggestions) and the durable promotions queue.
  *
  * Theme: the guild's *crónica* (the `librarian` as cronista). Honest / White-Hat
  * (FRD-09): no false urgency, no nagging, no streaks. Guild-framed language.
  *
  * Data flow (Server Component — architecture §3):
+ *   - memoryHealth()     → CMP-17-health panel (REQ-17-005)
  *   - candidateLessons() → CMP-17-stream candidate-lesson
- *   - promotionQueue()   → CMP-17-stream promotion
+ *   - promotionQueue()   → CMP-17-stream promotion + CMP-17-promoqueue (REQ-17-006)
  *   - prunable()         → CMP-17-stream prune
  *   - computeSuggestions(input) — pure, no Claude — → CMP-17-stream self-suggestion
  *
@@ -32,7 +34,10 @@
  */
 
 import type { Metadata } from "next";
+import { MemoryHealth } from "@/components/modules/MemoryHealth/MemoryHealth";
+import { PromotionsQueue } from "@/components/modules/PromotionsQueue/PromotionsQueue";
 import { candidateLessons, promotionQueue, prunable } from "@/lib/memory/memory";
+import { memoryHealth } from "@/lib/memory/memory-health";
 import { computeSuggestions } from "@/lib/self-suggest/self-suggest";
 import { ProposalStream } from "./_components/ProposalStream/ProposalStream";
 
@@ -103,6 +108,9 @@ export default function ProposalsPage(): React.JSX.Element {
   const promotions = promotionQueue();
   const prunables = prunable();
 
+  // Memory-loop health for the dedicated panel (REQ-17-005).
+  const health = memoryHealth();
+
   // Self-suggestions are derived purely from already-read data.
   // For now we pass minimal inputs; the full wiring (board counts, portfolio, events)
   // can be added as those readers stabilize in subsequent WOs.
@@ -127,13 +135,21 @@ export default function ProposalsPage(): React.JSX.Element {
         </p>
       </header>
 
-      {/* Four proposal streams */}
+      {/* Proposal surface */}
       <div style={CONTENT_STYLE}>
+        {/* Memory-loop health panel (CMP-17-health → REQ-17-005) */}
+        <MemoryHealth health={health} />
+
         {/* Stream 1: candidate lessons */}
         <ProposalStream kind="candidate-lesson" lessons={candidates} />
 
-        {/* Stream 2: promotions queue */}
+        {/* Stream 2: promotions stream (CMP-17-stream, generic proposal cards) */}
         <ProposalStream kind="promotion" lessons={promotions} />
+
+        {/* Durable promotions queue (CMP-17-promoqueue → REQ-17-006):
+            the reviewable surface — target / rationale / evidence / high-risk
+            badge + copyable /pandacorp:learn command. */}
+        <PromotionsQueue lessons={promotions} />
 
         {/* Stream 3: prune proposals */}
         <ProposalStream kind="prune" lessons={prunables} />

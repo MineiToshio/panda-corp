@@ -5,7 +5,7 @@ slug: proposals-page
 title: WO-17-004 — `app/proposals` page + 4 streams + proposal card
 status: DRAFT
 parent: FRD-17
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-18'
 ---
@@ -142,3 +142,39 @@ the orphaned page.
 
 The other reviewed WOs (002, 003, 005, 006, 007) are correct at their unit scope and stay IN_REVIEW;
 only this page (the composition owner) is reopened. Foundation WO-17-001 stays IN_REVIEW.
+
+## Status Note — composition repair (rebuild, 2026-06-18, Opus)
+
+**Built:** Composed the two orphaned sibling components into the rendered page surface
+(`src/app/proposals/page.tsx`), turning the reviewer's RED gate test GREEN:
+
+- `<MemoryHealth health={memoryHealth()} />` (CMP-17-health → REQ-17-005) — imported from
+  `@/components/modules/MemoryHealth/MemoryHealth`, fed by `memoryHealth()` from
+  `@/lib/memory/memory-health`. Renders the `memory-health-panel`.
+- `<PromotionsQueue lessons={promotionQueue()} />` (CMP-17-promoqueue → REQ-17-006) — imported from
+  `@/components/modules/PromotionsQueue/PromotionsQueue`. Renders the durable `promotions-queue`
+  (target / rationale / evidence / high-risk badge + copyable `/pandacorp:learn` command). The
+  generic `promotion` `ProposalStream` is retained alongside it (existing AC-17-004.1 contract).
+
+**Scope note (what this repair does NOT cover):** the reviewer finding also flagged items 3
+(client dismiss affordance via `proposalsDismissStore`) and 4 (wiring real readers into
+`computeSuggestions` instead of empty literals). No failing/RED test covers those, so they were
+left out of this baseline repair to avoid going out of the gate-test's scope and to keep the green
+baseline intact. They remain open against REQ-17-008/AC-17-007.3 and REQ-17-004 for the reviewer to
+re-scope (a follow-up WO or a re-reopen with an explicit RED test).
+
+**Interfaces/contracts exposed:** unchanged — `export default function ProposalsPage(): React.JSX.Element`.
+New imports consumed: `memoryHealth()` (`@/lib/memory/memory-health`), `MemoryHealth`, `PromotionsQueue`.
+
+**data-testid anchors added to the page surface:** `memory-health-panel` (from MemoryHealth),
+`promotions-queue` (from PromotionsQueue).
+
+**Test files covering it:**
+- `src/app/proposals/_tests/proposals-composition.reviewer.test.tsx` (the reviewer's RED gate — now 2/2 GREEN)
+- `src/app/proposals/_tests/proposals-page.test.tsx` (12 existing tests — still GREEN; mock block
+  extended to stub the newly-composed `@/lib/memory/memory-health` reader so the suite stays hermetic;
+  no assertion changed)
+
+**Gate:** full `.pandacorp/verify.sh` GREEN — 206 test files, 5428 tests pass (2 expected-fail, 5
+skipped), biome + tsc clean. Returned to IN_REVIEW for the FRD gate's re-verification (never VERIFIED
+by the implementer — DR-015/DR-050).
