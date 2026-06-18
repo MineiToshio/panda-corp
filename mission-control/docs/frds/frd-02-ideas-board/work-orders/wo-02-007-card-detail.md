@@ -5,7 +5,7 @@ slug: card-detail
 title: WO-02-007 — Card detail (3-tab restructure) + docs navigator + next-step
 status: DRAFT
 parent: FRD-02
-implementation_status: IN_PROGRESS
+implementation_status: IN_REVIEW
 source_requirements: [REQ-02-004, REQ-02-008, REQ-02-009]
 last_updated: '2026-06-18'
 ---
@@ -127,3 +127,70 @@ passed. Full suite: 105 test files, 3 080 tests passed (2 expected fail, 5 skipp
 **Commits:**
 - `6a7ddca feat(mission-control): WO-02-007 CardDetail — card detail + docs navigator (CMP-02-card-detail)`
 - `8518b41 docs(mission-control): mark WO-02-007 done — selective verify passed`
+
+---
+
+## Status Note (3-tab restructure — 2026-06-18)
+
+**Built:** `CardDetail` restructured into a 3-tab shell (`CMP-02-card-detail`, REQ-02-009).
+- **Campaña tab** (default, AC-02-009.1): mounts `CampaignPipeline` with `activePhase` derived
+  from `phaseFromStatus({ cardStatus, phase })` (WO-02-011 / `lib/campaign/campaign.ts`).
+- **Documentos tab** (AC-02-009.2): preserves the existing summary (react-markdown) + conditional
+  docs navigator (`buildNavEntries` → `NavEntry[]`). Clicking a nav entry calls `setActiveTab("docs")`
+  (AC-02-009.3).
+- **Comandos tab** (AC-02-009.2): preserves the existing next-step command row + `CopyButton`.
+- **Tab state** (`useState<TabKey>`) defaults to `"campana"` and persists across re-renders
+  (AC-02-009.4).
+- **Panel visibility strategy**: inactive panels use the CSS clip technique (`PANEL_HIDDEN_STYLE`:
+  `position: absolute; clip: rect(0,0,0,0); width/height: 1px`) so all panels stay in the
+  accessibility tree — existing `getByTestId` / `getByRole` contracts in `CardDetail.test.tsx`
+  and `CardDetail.adversarial.test.tsx` (67 tests) continue to pass without modification.
+- Style constants and `buildNavEntries` helper extracted to `CardDetail.styles.ts` sibling to
+  keep `CardDetail.tsx` at 313 lines (below the 500-line limit, clean-code.md).
+- Zero hardcoded colors; all via CSS custom properties. Read-only; no writes, no network, no fs.
+
+**Interfaces/contracts exposed (updated):**
+
+```tsx
+"use client";
+export interface CardDetailProps {
+  slug: string;
+  title: string;
+  status: IdeaStatus;
+  body: string;
+  phase?: Phase;
+  advancePending?: boolean;
+  docsIndex?: ProjectDocsIndex | null;
+  onEnterForge?: (slug: string) => void;  // NEW — AC-02-010.5 host-navigation callback
+}
+export function CardDetail(props: CardDetailProps): React.JSX.Element;
+```
+
+**data-testid surface (additions):**
+- `card-detail-tab-campana` / `card-detail-tab-docs` / `card-detail-tab-comandos` — tab buttons
+  (`role="tab"`, `aria-selected="true"|"false"`).
+- `card-detail-panel-campana` / `card-detail-panel-docs` / `card-detail-panel-comandos` — tab
+  panels (`role="tabpanel"`).
+- All pre-existing testids preserved: `card-detail`, `card-detail-summary`, `card-detail-docs-nav`,
+  `card-detail-docs-nav-item`, `card-detail-next-step`, `copy-button`.
+
+**Integration seams:**
+- Consumes `CampaignPipeline` from `@/components/modules/CampaignPipeline/CampaignPipeline`
+  (WO-02-010). Passes `slug`, `activePhase`, `onEnterForge`.
+- Consumes `phaseFromStatus` from `@/lib/campaign/campaign` (WO-02-011).
+- All prior seams preserved: `nextStep` (WO-02-003), `CopyButton` (WO-02-002),
+  `docsIndex: ProjectDocsIndex | null` from `readProjectDocs` (FRD-01).
+
+**Test files:**
+- `_tests/CardDetail.test.tsx` — 56 tests (unchanged; all pass via clip-visibility strategy).
+- `_tests/CardDetail.adversarial.test.tsx` — 11 tests (unchanged; all pass).
+- `_tests/CardDetail.tabs.test.tsx` — 27 new tests (RED→GREEN): AC-02-009.1..4, CampaignPipeline
+  wiring (slug, activePhase derivation for all statuses), doc-entry click → Documentos, tab
+  persistence across re-renders.
+
+**Verify (2026-06-18):** 3 test files, 94 tests GREEN. `tsc --noEmit` → 0 errors. `biome check` →
+0 new errors (35 pre-existing warnings in other files). Full suite: 217 test files, 5 597 tests
+GREEN + 2 expected-fail + 5 skipped (1 pre-existing fail in `fragua-snapshot.reviewer.test.ts`,
+frd-06 scope, untracked file present before this WO — outside my scope).
+
+**Commit:** `f49130a feat(frd-02): WO-02-007 IN_REVIEW — CardDetail 3-tab restructure`
