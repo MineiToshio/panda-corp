@@ -20,7 +20,7 @@
 
 import dagre from "@dagrejs/dagre";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { WorkOrder } from "@/lib/work-orders";
+import type { WorkOrder } from "@/lib/work-orders/work-orders";
 import type { DagEdge, DagNode } from "../dag/dag";
 import { dagChain, firstError, toDag } from "../dag/dag";
 

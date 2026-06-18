@@ -16,7 +16,7 @@
  *   - Server Component (no "use client" — CopyButton inside WorkOrderEmpty hydrates itself).
  */
 
-import { aggregateProgress, type WorkOrder } from "@/lib/work-orders";
+import { aggregateProgress, type WorkOrder } from "@/lib/work-orders/work-orders";
 import { WorkOrderEmpty } from "../wo-empty/wo-empty";
 import { WoFrdFilteredBoard } from "../wo-frd-filtered-board/wo-frd-filtered-board";
 import { WorkOrderProgressBar } from "../wo-progress/wo-progress";

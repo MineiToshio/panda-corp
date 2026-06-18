@@ -20,7 +20,7 @@
 
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Event } from "@/lib/events";
+import type { Event } from "@/lib/events/events";
 import { CelebrationSurface } from "../CelebrationSurface";
 
 // ---------------------------------------------------------------------------

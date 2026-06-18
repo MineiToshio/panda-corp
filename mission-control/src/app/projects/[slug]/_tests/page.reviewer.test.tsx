@@ -20,11 +20,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // --- Mock the lib readers so the page resolves a synthetic project ---------
 
-vi.mock("@/lib/portfolio", () => ({
+vi.mock("@/lib/portfolio/portfolio", () => ({
   activeProjects: () => [{ name: "demo", path: "/tmp/demo", stage: "implementation" }],
 }));
 
-vi.mock("@/lib/status", () => ({
+vi.mock("@/lib/status/status", () => ({
   readStatus: () => ({
     present: true,
     malformed: false,
@@ -39,7 +39,7 @@ vi.mock("@/lib/status", () => ({
   }),
 }));
 
-vi.mock("@/lib/docs", () => ({
+vi.mock("@/lib/docs/docs", () => ({
   listProjectDocs: () => [
     { id: "product/prd", label: "prd.md", group: "Product", relPath: "docs/product/prd.md" },
     {
@@ -54,7 +54,7 @@ vi.mock("@/lib/docs", () => ({
   readDecisions: () => [{ title: "pick a db", resolved: false }],
 }));
 
-vi.mock("@/lib/work-orders", () => ({
+vi.mock("@/lib/work-orders/work-orders", () => ({
   listWorkOrders: () => [],
 }));
 

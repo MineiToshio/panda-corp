@@ -17,7 +17,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import type { DocNode } from "@/lib/docs";
+import type { DocNode } from "@/lib/docs/docs";
 import { TabDocuments } from "../tab-documents";
 
 // ---------------------------------------------------------------------------

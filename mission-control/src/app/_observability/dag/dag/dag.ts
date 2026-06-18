@@ -15,7 +15,7 @@
  * the DAG view augments onto the base type).
  */
 
-import type { WorkOrder, WorkOrderState } from "@/lib/work-orders";
+import type { WorkOrder, WorkOrderState } from "@/lib/work-orders/work-orders";
 
 // ---------------------------------------------------------------------------
 // Public types

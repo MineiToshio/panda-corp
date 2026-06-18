@@ -22,7 +22,7 @@
  */
 
 import type React from "react";
-import type { AgentRef } from "@/lib/reference";
+import type { AgentRef } from "@/lib/reference/reference";
 
 // ---------------------------------------------------------------------------
 // Props

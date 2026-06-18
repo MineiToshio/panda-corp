@@ -51,7 +51,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { OnboardingGate } from "@/app/_components/OnboardingGate/OnboardingGate";
-import type { ProfileResult } from "@/lib/profile";
+import type { ProfileResult } from "@/lib/profile/profile";
 
 // ---------------------------------------------------------------------------
 // GAP-1 — "the rest of the app stays in the background"

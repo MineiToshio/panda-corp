@@ -23,7 +23,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import type { WorkOrder } from "@/lib/work-orders";
+import type { WorkOrder } from "@/lib/work-orders/work-orders";
 import { WorkOrderDag } from "../WorkOrderDag";
 
 afterEach(() => {

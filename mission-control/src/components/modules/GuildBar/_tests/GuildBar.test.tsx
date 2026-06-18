@@ -16,7 +16,7 @@
 
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import type { GuildOutcomes } from "@/lib/gamification";
+import type { GuildOutcomes } from "@/lib/gamification/gamification";
 import { GuildBar } from "../GuildBar";
 
 // ---------------------------------------------------------------------------

@@ -22,7 +22,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // Mock lib/discard before importing the action
 // ---------------------------------------------------------------------------
 
-vi.mock("@/lib/discard", () => ({
+vi.mock("@/lib/discard/discard", () => ({
   discardIdea: vi.fn(),
 }));
 
@@ -31,7 +31,7 @@ vi.mock("next/cache", () => ({
 }));
 
 import { revalidatePath } from "next/cache";
-import { discardIdea } from "@/lib/discard";
+import { discardIdea } from "@/lib/discard/discard";
 // After mocking, import the action and its dependencies.
 import { discardIdeaAction } from "../actions";
 

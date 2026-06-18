@@ -27,8 +27,8 @@
 import type React from "react";
 import { useEffect, useState } from "react";
 import { LiveRegion } from "@/components/a11y/LiveRegion";
-import type { Event } from "@/lib/events";
-import { type CelebrationTier, classifyCelebration } from "@/lib/gamification";
+import type { Event } from "@/lib/events/events";
+import { type CelebrationTier, classifyCelebration } from "@/lib/gamification/gamification";
 
 // ---------------------------------------------------------------------------
 // Spanish copy — one message per tier (AC-09-006.5: Spanish, FRD-13 a11y)

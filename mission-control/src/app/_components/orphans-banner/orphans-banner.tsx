@@ -28,7 +28,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CopyButton } from "@/components/core/CopyButton/CopyButton";
-import type { Candidate } from "@/lib/orphans";
+import type { Candidate } from "@/lib/orphans/orphans";
 
 // ---------------------------------------------------------------------------
 // Constants

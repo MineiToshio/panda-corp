@@ -21,7 +21,7 @@
  */
 
 import type React from "react";
-import type { Standard } from "@/lib/standards";
+import type { Standard } from "@/lib/standards/standards";
 
 // ---------------------------------------------------------------------------
 // Props

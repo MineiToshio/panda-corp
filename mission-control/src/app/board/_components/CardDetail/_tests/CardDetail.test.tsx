@@ -42,20 +42,20 @@
 
 import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ProjectDocsIndex } from "@/lib/docs";
-import type { IdeaStatus } from "@/lib/ideas";
-import type { NextStep } from "@/lib/next-step";
-import type { Phase } from "@/lib/status";
+import type { ProjectDocsIndex } from "@/lib/docs/docs";
+import type { IdeaStatus } from "@/lib/ideas/ideas";
+import type { NextStep } from "@/lib/next-step/next-step";
+import type { Phase } from "@/lib/status/status";
 
 // ---------------------------------------------------------------------------
 // Mock: lib/next-step — nextStep is a pure function tested separately
 // ---------------------------------------------------------------------------
 
-vi.mock("@/lib/next-step", () => ({
+vi.mock("@/lib/next-step/next-step", () => ({
   nextStep: vi.fn(),
 }));
 
-import { nextStep } from "@/lib/next-step";
+import { nextStep } from "@/lib/next-step/next-step";
 
 const mockNextStep = vi.mocked(nextStep);
 

@@ -22,7 +22,7 @@
  */
 
 import { CopyButton } from "@/components/core/CopyButton/CopyButton";
-import type { ProjectListItem } from "@/lib/portfolio";
+import type { ProjectListItem } from "@/lib/portfolio/portfolio";
 
 // ---------------------------------------------------------------------------
 // Props

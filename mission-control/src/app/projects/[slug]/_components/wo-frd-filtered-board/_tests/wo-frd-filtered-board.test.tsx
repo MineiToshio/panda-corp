@@ -20,7 +20,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import type { WorkOrder } from "@/lib/work-orders";
+import type { WorkOrder } from "@/lib/work-orders/work-orders";
 import { WoFrdFilteredBoard } from "../wo-frd-filtered-board";
 
 // ---------------------------------------------------------------------------

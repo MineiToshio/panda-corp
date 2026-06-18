@@ -23,9 +23,9 @@
 
 import type React from "react";
 import ReactMarkdown from "react-markdown";
-import type { AgentRef, SkillRef } from "@/lib/reference";
-import type { DecisionRule } from "@/lib/registry";
-import type { Standard } from "@/lib/standards";
+import type { AgentRef, SkillRef } from "@/lib/reference/reference";
+import type { DecisionRule } from "@/lib/registry/registry";
+import type { Standard } from "@/lib/standards/standards";
 import { ReferenceAgentsSection } from "./ReferenceAgentsSection";
 import { ReferenceCommandsSection } from "./ReferenceCommandsSection/ReferenceCommandsSection";
 import { ReferenceRulesView } from "./ReferenceRulesView";

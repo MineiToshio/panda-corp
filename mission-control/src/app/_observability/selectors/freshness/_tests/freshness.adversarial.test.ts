@@ -17,7 +17,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { Event } from "../../../../../lib/events";
+import type { Event } from "../../../../../lib/events/events";
 import { FRESHNESS_THRESHOLD_MS, freshness } from "../freshness";
 
 function ev(at: string): Event {

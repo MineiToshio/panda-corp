@@ -22,7 +22,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { Event } from "../../../../../lib/events";
+import type { Event } from "../../../../../lib/events/events";
 import { type TimelineRow, toTimeline } from "../timeline";
 
 function woRow(rows: TimelineRow[], label: string): TimelineRow | undefined {

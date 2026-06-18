@@ -25,7 +25,11 @@
  */
 
 import { XpBar } from "@/components/core/XpBar/XpBar";
-import { CHAIN_DEFINITIONS, type ChainState, type TierUnlockEvent } from "@/lib/achievements";
+import {
+  CHAIN_DEFINITIONS,
+  type ChainState,
+  type TierUnlockEvent,
+} from "@/lib/achievements/achievements";
 
 // ── Tier label helpers ────────────────────────────────────────────────────────
 

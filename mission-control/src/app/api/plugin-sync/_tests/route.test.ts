@@ -19,7 +19,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { PluginSyncState } from "@/lib/plugin-sync";
+import type { PluginSyncState } from "@/lib/plugin-sync/plugin-sync";
 
 // ---------------------------------------------------------------------------
 // Fixtures — controlled PluginSyncState values for every reason branch
@@ -75,11 +75,11 @@ const STATE_UNKNOWN: PluginSyncState = {
 // Vitest hoists the mock. We use a factory that returns a vi.fn() stub.
 // ---------------------------------------------------------------------------
 
-vi.mock("@/lib/plugin-sync", () => ({
+vi.mock("@/lib/plugin-sync/plugin-sync", () => ({
   getPluginSyncState: vi.fn(),
 }));
 
-import { getPluginSyncState } from "@/lib/plugin-sync";
+import { getPluginSyncState } from "@/lib/plugin-sync/plugin-sync";
 // Import the handler after the mock is registered so it picks up the mock.
 // The dynamic import is deferred to the describe block to ensure ordering.
 // We use a top-level import here relying on Vitest's hoisting of vi.mock.

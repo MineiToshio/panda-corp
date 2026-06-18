@@ -23,8 +23,8 @@
 
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { Event } from "@/lib/events";
-import type { WorkOrder } from "@/lib/work-orders";
+import type { Event } from "@/lib/events/events";
+import type { WorkOrder } from "@/lib/work-orders/work-orders";
 import { firstError, toDag } from "../dag/dag/dag";
 import { RpgTimelineToggle } from "../RpgTimelineToggle/RpgTimelineToggle";
 import { toTimeline } from "../selectors/timeline/timeline";

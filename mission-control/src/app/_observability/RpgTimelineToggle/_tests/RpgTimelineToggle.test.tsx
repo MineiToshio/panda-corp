@@ -33,7 +33,7 @@
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { WorkOrder } from "@/lib/work-orders";
+import type { WorkOrder } from "@/lib/work-orders/work-orders";
 import type { TimelineRow } from "../../selectors/timeline/timeline";
 import { RpgTimelineToggle } from "../RpgTimelineToggle";
 

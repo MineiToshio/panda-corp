@@ -23,7 +23,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // Fixtures
 // ---------------------------------------------------------------------------
 
-import type { Standard } from "@/lib/standards";
+import type { Standard } from "@/lib/standards/standards";
 
 /** Minimal Standard fixture covering the 9 expected domains */
 const FIXTURE_STANDARDS: Standard[] = [
@@ -102,7 +102,7 @@ const FIXTURE_NO_SUMMARY: Standard[] = [
 // Mock readStandards — prevents real fs reads in jsdom
 // ---------------------------------------------------------------------------
 
-vi.mock("@/lib/standards", () => ({
+vi.mock("@/lib/standards/standards", () => ({
   readStandards: vi.fn(() => FIXTURE_STANDARDS),
 }));
 

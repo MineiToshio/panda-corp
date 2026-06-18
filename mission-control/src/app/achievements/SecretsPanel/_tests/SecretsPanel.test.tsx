@@ -16,7 +16,7 @@
 
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import type { Secret } from "@/lib/achievements";
+import type { Secret } from "@/lib/achievements/achievements";
 import { SecretsPanel } from "../SecretsPanel";
 
 afterEach(() => {
@@ -355,7 +355,7 @@ describe("Edge cases — empty secrets list and robustness", () => {
 
 describe("Integration — SecretsPanel accepts computeSecrets() output", () => {
   it("renders Secret[] returned by computeSecrets without modifications", async () => {
-    const { computeSecrets } = await import("@/lib/achievements");
+    const { computeSecrets } = await import("@/lib/achievements/achievements");
     const secrets = computeSecrets({
       ideas: [],
       statuses: [],
@@ -371,7 +371,7 @@ describe("Integration — SecretsPanel accepts computeSecrets() output", () => {
   });
 
   it("all items are locked when factory is empty (honest empty state)", async () => {
-    const { computeSecrets } = await import("@/lib/achievements");
+    const { computeSecrets } = await import("@/lib/achievements/achievements");
     const secrets = computeSecrets({
       ideas: [],
       statuses: [],

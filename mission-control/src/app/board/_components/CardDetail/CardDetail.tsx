@@ -19,10 +19,10 @@
 
 import Markdown from "react-markdown";
 import { CopyButton } from "@/components/core/CopyButton/CopyButton";
-import type { ProjectDocsIndex } from "@/lib/docs";
-import type { IdeaStatus } from "@/lib/ideas";
-import { nextStep } from "@/lib/next-step";
-import type { Phase } from "@/lib/status";
+import type { ProjectDocsIndex } from "@/lib/docs/docs";
+import type { IdeaStatus } from "@/lib/ideas/ideas";
+import { nextStep } from "@/lib/next-step/next-step";
+import type { Phase } from "@/lib/status/status";
 
 // ---------------------------------------------------------------------------
 // Props

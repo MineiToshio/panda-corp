@@ -25,7 +25,7 @@
 
 import type React from "react";
 
-import type { RunsIn, SkillRef } from "@/lib/reference";
+import type { RunsIn, SkillRef } from "@/lib/reference/reference";
 
 // ---------------------------------------------------------------------------
 // Group definitions (AC-07-006.1 — grouped by runsIn)

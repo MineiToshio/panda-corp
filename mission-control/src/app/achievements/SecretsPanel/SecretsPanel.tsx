@@ -21,7 +21,7 @@
  * Source-of-truth hierarchy: FRD > FDD > design-tokens > blueprint > work order
  */
 
-import type { Secret } from "@/lib/achievements";
+import type { Secret } from "@/lib/achievements/achievements";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

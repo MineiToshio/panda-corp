@@ -22,7 +22,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { DecisionRule } from "@/lib/registry";
+import type { DecisionRule } from "@/lib/registry/registry";
 import { DecisionRulesSection } from "../DecisionRulesSection";
 
 // ---------------------------------------------------------------------------

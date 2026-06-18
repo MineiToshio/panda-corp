@@ -7,7 +7,7 @@
  * Traceability: CMP-08-manual-page, CMP-08-doc-nav, CMP-08-doc-reader (blueprint §5)
  */
 
-import type { ManualPage } from "@/lib/manual";
+import type { ManualPage } from "@/lib/manual/manual";
 
 // Re-export ManualPage as ManualPageRef for use in DocNav/DocReader
 // (avoids direct dep on lib/ in client component props that go through RSC)

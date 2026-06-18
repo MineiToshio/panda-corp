@@ -24,7 +24,7 @@
 
 import type React from "react";
 import { CopyButton } from "@/components/core/CopyButton/CopyButton";
-import type { SkillRef } from "@/lib/reference";
+import type { SkillRef } from "@/lib/reference/reference";
 
 // ---------------------------------------------------------------------------
 // Props

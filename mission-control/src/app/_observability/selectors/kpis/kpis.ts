@@ -32,7 +32,7 @@
  *   AC-12-007.1 → REQ-12-007 → IF-12-kpis → WO-12-002
  */
 
-import type { Event } from "../../../../lib/events";
+import type { Event } from "../../../../lib/events/events";
 
 /**
  * A single KPI displayed in the Mission Control header.

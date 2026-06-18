@@ -30,7 +30,7 @@
  */
 
 import { useState, useTransition } from "react";
-import type { DiscardResult } from "@/lib/discard";
+import type { DiscardResult } from "@/lib/discard/discard";
 
 // ---------------------------------------------------------------------------
 // Props

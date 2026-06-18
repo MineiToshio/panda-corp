@@ -19,7 +19,7 @@
  *   WO-03-002
  */
 
-import type { ProjectListItem } from "@/lib/portfolio";
+import type { ProjectListItem } from "@/lib/portfolio/portfolio";
 
 // ---------------------------------------------------------------------------
 // Styles — CSS custom properties only; zero hardcoded hex/rgb/hsl values.

@@ -17,7 +17,7 @@
  */
 
 import { revalidatePath } from "next/cache";
-import { type DiscardResult, discardIdea } from "@/lib/discard";
+import { type DiscardResult, discardIdea } from "@/lib/discard/discard";
 
 /**
  * Discard an idea by slug.

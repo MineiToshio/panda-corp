@@ -23,7 +23,7 @@
  *   WO-03-004
  */
 
-import { activeProjects } from "@/lib/portfolio";
+import { activeProjects } from "@/lib/portfolio/portfolio";
 import { SelectableProjectRail } from "./SelectableProjectRail";
 import { deriveSelectedSlug } from "./selection";
 import { WorkspaceSlot } from "./WorkspaceSlot";

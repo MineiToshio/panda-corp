@@ -28,7 +28,7 @@
 
 import { useState } from "react";
 import { CopyButton } from "@/components/core/CopyButton/CopyButton";
-import type { DecisionRule } from "@/lib/registry";
+import type { DecisionRule } from "@/lib/registry/registry";
 
 // ---------------------------------------------------------------------------
 // Styles — CSS custom properties only, zero hardcoded colors (FRD-13)

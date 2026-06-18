@@ -25,7 +25,7 @@
  */
 
 import Markdown from "react-markdown";
-import type { DocNode } from "@/lib/docs";
+import type { DocNode } from "@/lib/docs/docs";
 
 // ---------------------------------------------------------------------------
 // Props

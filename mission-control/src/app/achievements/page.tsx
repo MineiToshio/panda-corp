@@ -25,12 +25,12 @@
 import type { AgentRole } from "@/app/_design/tokens/tokens";
 import { Avatar } from "@/components/core/Avatar/Avatar";
 import { XpBar } from "@/components/core/XpBar/XpBar";
-import { computeUniques, type ReaderData } from "@/lib/achievements";
-import { readEvents } from "@/lib/events";
-import { computeGuildLevel, deriveGuildOutcomes } from "@/lib/gamification";
-import { readIdeas } from "@/lib/ideas";
-import { readPortfolio } from "@/lib/portfolio";
-import { readStatus } from "@/lib/status";
+import { computeUniques, type ReaderData } from "@/lib/achievements/achievements";
+import { readEvents } from "@/lib/events/events";
+import { computeGuildLevel, deriveGuildOutcomes } from "@/lib/gamification/gamification";
+import { readIdeas } from "@/lib/ideas/ideas";
+import { readPortfolio } from "@/lib/portfolio/portfolio";
+import { readStatus } from "@/lib/status/status";
 import { StatsPanel } from "./StatsPanel";
 import { UniquesSection } from "./UniquesSection/UniquesSection";
 

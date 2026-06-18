@@ -26,10 +26,10 @@
  */
 
 import type { Metadata } from "next";
-import { readManualPages } from "@/lib/manual";
-import { readAgents, readSkills } from "@/lib/reference";
-import { readDecisionRules } from "@/lib/registry";
-import { readStandards } from "@/lib/standards";
+import { readManualPages } from "@/lib/manual/manual";
+import { readAgents, readSkills } from "@/lib/reference/reference";
+import { readDecisionRules } from "@/lib/registry/registry";
+import { readStandards } from "@/lib/standards/standards";
 import { ManualShell } from "./ManualShell";
 
 // ---------------------------------------------------------------------------

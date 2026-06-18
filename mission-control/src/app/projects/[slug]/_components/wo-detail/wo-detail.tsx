@@ -32,7 +32,7 @@
  */
 
 import Markdown from "react-markdown";
-import type { WorkOrder, WorkOrderState } from "@/lib/work-orders";
+import type { WorkOrder, WorkOrderState } from "@/lib/work-orders/work-orders";
 
 // ---------------------------------------------------------------------------
 // Types

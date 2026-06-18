@@ -23,9 +23,9 @@
  */
 
 import type React from "react";
-import type { AgentRef, SkillRef } from "@/lib/reference";
-import type { DecisionRule } from "@/lib/registry";
-import type { Standard } from "@/lib/standards";
+import type { AgentRef, SkillRef } from "@/lib/reference/reference";
+import type { DecisionRule } from "@/lib/registry/registry";
+import type { Standard } from "@/lib/standards/standards";
 import type { ActivePage, ManualPageRef } from "./types";
 
 // ---------------------------------------------------------------------------

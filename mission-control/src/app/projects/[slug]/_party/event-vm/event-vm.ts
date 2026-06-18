@@ -12,7 +12,7 @@
  */
 
 import { AGENT_COLOR, type AgentRole } from "@/app/_design/tokens/tokens";
-import type { Event as DashboardEvent } from "@/lib/events";
+import type { Event as DashboardEvent } from "@/lib/events/events";
 
 // ---------------------------------------------------------------------------
 // IF-06-icon-map — bounded vocabulary (~12 types)

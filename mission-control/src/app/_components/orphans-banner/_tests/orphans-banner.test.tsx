@@ -24,7 +24,7 @@
 import { act, cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OrphansBanner } from "@/app/_components/orphans-banner/orphans-banner";
-import type { Candidate } from "@/lib/orphans";
+import type { Candidate } from "@/lib/orphans/orphans";
 
 // ---------------------------------------------------------------------------
 // Fixtures — Candidate shapes

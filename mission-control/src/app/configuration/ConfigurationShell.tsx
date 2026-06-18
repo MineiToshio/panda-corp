@@ -31,10 +31,10 @@
 
 import type React from "react";
 import { useState } from "react";
-import type { AgentLevelResult } from "@/lib/gamification";
-import type { AgentRef, SkillRef } from "@/lib/reference";
-import type { DecisionRule } from "@/lib/registry";
-import type { Standard } from "@/lib/standards";
+import type { AgentLevelResult } from "@/lib/gamification/gamification";
+import type { AgentRef, SkillRef } from "@/lib/reference/reference";
+import type { DecisionRule } from "@/lib/registry/registry";
+import type { Standard } from "@/lib/standards/standards";
 import { DecisionRulesSection } from "./_rules/DecisionRulesSection/DecisionRulesSection";
 import { AgentDetail } from "./AgentDetail";
 import { AgentList } from "./AgentList";

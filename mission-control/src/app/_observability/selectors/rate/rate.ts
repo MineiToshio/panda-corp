@@ -22,7 +22,7 @@
  * Traceability: AC-12-007.1 → REQ-12-007 → IF-12-rate → WO-12-003.
  */
 
-import type { Event } from "../../../../lib/events";
+import type { Event } from "../../../../lib/events/events";
 
 /**
  * A per-minute bucket of event counts.

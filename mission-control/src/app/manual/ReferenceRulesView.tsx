@@ -20,7 +20,7 @@
  */
 
 import type React from "react";
-import type { DecisionRule } from "@/lib/registry";
+import type { DecisionRule } from "@/lib/registry/registry";
 
 // ---------------------------------------------------------------------------
 // Props

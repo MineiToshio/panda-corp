@@ -15,7 +15,7 @@
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OrphansBanner } from "@/app/_components/orphans-banner/orphans-banner";
-import type { Candidate } from "@/lib/orphans";
+import type { Candidate } from "@/lib/orphans/orphans";
 
 const POLL_INTERVAL_MS = 30_000;
 

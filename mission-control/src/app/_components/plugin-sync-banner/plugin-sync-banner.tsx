@@ -25,7 +25,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CopyButton } from "@/components/core/CopyButton/CopyButton";
-import type { PluginSyncState } from "@/lib/plugin-sync";
+import type { PluginSyncState } from "@/lib/plugin-sync/plugin-sync";
 
 // ---------------------------------------------------------------------------
 // Constants

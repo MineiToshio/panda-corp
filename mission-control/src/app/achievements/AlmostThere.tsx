@@ -25,7 +25,7 @@
  */
 
 import { XpBar } from "@/components/core/XpBar/XpBar";
-import type { ChainState } from "@/lib/achievements";
+import type { ChainState } from "@/lib/achievements/achievements";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 

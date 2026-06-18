@@ -20,7 +20,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { WorkOrder } from "@/lib/work-orders";
+import type { WorkOrder } from "@/lib/work-orders/work-orders";
 import { WorkOrderBoard } from "../../wo-board/wo-board";
 
 // ---------------------------------------------------------------------------
@@ -87,11 +87,11 @@ describe("frd-05: AC-05-003.1 — board cards have click targets for detail view
 // Tests exercise page.tsx through mock boundaries (same pattern as page.reviewer.test.tsx).
 // ---------------------------------------------------------------------------
 
-vi.mock("@/lib/portfolio", () => ({
+vi.mock("@/lib/portfolio/portfolio", () => ({
   activeProjects: () => [{ name: "demo", path: "/tmp/demo", stage: "implementation" }],
 }));
 
-vi.mock("@/lib/status", () => ({
+vi.mock("@/lib/status/status", () => ({
   readStatus: () => ({
     present: true,
     malformed: false,
@@ -105,7 +105,7 @@ vi.mock("@/lib/status", () => ({
   }),
 }));
 
-vi.mock("@/lib/docs", () => ({
+vi.mock("@/lib/docs/docs", () => ({
   listProjectDocs: () => [],
   readDoc: () => null,
   readActivityLog: () => ({ entries: [] }),
@@ -128,7 +128,7 @@ implementation_status: DONE
 - [x] Component tests written and green.
 `;
 
-vi.mock("@/lib/work-orders", () => ({
+vi.mock("@/lib/work-orders/work-orders", () => ({
   listWorkOrders: () => [WO_A, WO_B],
   readWorkOrderDoc: (_projectPath: string, relPath: string) => {
     if (relPath === WO_A.relPath) return FIXTURE_WO_CONTENT;

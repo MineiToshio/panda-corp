@@ -18,7 +18,7 @@ import {
   type ReaderData,
   type Unique,
   type UniqueCategory,
-} from "@/lib/achievements";
+} from "@/lib/achievements/achievements";
 import { UniquesSection } from "../UniquesSection";
 
 // ─── Fixture helpers ─────────────────────────────────────────────────────────

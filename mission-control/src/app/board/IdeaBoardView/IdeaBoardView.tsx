@@ -27,7 +27,7 @@
 
 import type { IdeaCardProps } from "@/components/modules/IdeaCard/IdeaCard";
 import { IdeaCard } from "@/components/modules/IdeaCard/IdeaCard";
-import type { BoardColumn } from "@/lib/board";
+import type { BoardColumn } from "@/lib/board/board";
 
 // ---------------------------------------------------------------------------
 // Column definitions — the 7 canonical columns (FRD-02, blueprint §2)

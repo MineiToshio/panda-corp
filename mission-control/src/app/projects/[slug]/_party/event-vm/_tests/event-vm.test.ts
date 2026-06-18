@@ -18,7 +18,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import type { Event as DashboardEvent } from "@/lib/events";
+import type { Event as DashboardEvent } from "@/lib/events/events";
 import { EVENT_ICON, type EventType, toEventVM } from "../event-vm";
 
 // ---------------------------------------------------------------------------

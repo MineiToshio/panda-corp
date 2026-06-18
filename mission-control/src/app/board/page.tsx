@@ -18,10 +18,10 @@
 
 import path from "node:path";
 import type { BoardCardEntry } from "@/app/board/IdeaBoardView/IdeaBoardView";
-import { deriveColumn } from "@/lib/board";
-import { resolveFactoryRoot } from "@/lib/config";
-import { readIdeas } from "@/lib/ideas";
-import { readStatus } from "@/lib/status";
+import { deriveColumn } from "@/lib/board/board";
+import { resolveFactoryRoot } from "@/lib/config/config";
+import { readIdeas } from "@/lib/ideas/ideas";
+import { readStatus } from "@/lib/status/status";
 import { IdeaBoardView } from "./IdeaBoardView/IdeaBoardView";
 
 // ---------------------------------------------------------------------------

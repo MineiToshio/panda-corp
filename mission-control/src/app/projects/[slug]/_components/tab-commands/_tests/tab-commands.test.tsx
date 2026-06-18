@@ -26,7 +26,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import type { Phase } from "@/lib/status";
+import type { Phase } from "@/lib/status/status";
 import { TabCommands } from "../tab-commands";
 
 // ---------------------------------------------------------------------------

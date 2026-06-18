@@ -17,7 +17,7 @@
  *   WO-15-003    → FRD-15
  */
 
-import { getPluginSyncState } from "@/lib/plugin-sync";
+import { getPluginSyncState } from "@/lib/plugin-sync/plugin-sync";
 
 /**
  * Use the Node.js runtime so `child_process` (used by `execFileSync` inside

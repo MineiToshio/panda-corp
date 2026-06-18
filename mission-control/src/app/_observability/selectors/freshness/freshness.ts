@@ -25,7 +25,7 @@
  * Traceability: AC-12-002.1 → REQ-12-002 → IF-12-freshness → WO-12-001.
  */
 
-import type { Event } from "../../../../lib/events";
+import type { Event } from "../../../../lib/events/events";
 
 /**
  * The window (in milliseconds) within which an event is considered "live".

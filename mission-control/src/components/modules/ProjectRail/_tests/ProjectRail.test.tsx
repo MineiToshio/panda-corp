@@ -28,8 +28,8 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { ProjectRail } from "@/components/modules/ProjectRail/ProjectRail";
-import type { ProjectListItem } from "@/lib/portfolio";
-import type { StatusResult } from "@/lib/status";
+import type { ProjectListItem } from "@/lib/portfolio/portfolio";
+import type { StatusResult } from "@/lib/status/status";
 
 // ---------------------------------------------------------------------------
 // Fixture helpers — build StatusResult discriminated union members correctly.

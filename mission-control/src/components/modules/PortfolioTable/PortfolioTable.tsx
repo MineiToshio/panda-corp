@@ -25,7 +25,7 @@
  */
 
 import { CopyButton } from "@/components/core/CopyButton/CopyButton";
-import type { PortfolioEntry } from "@/lib/portfolio";
+import type { PortfolioEntry } from "@/lib/portfolio/portfolio";
 
 // ---------------------------------------------------------------------------
 // Props

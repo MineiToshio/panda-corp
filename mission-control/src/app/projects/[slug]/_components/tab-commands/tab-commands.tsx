@@ -22,9 +22,9 @@
  */
 
 import { CopyButton } from "@/components/core/CopyButton/CopyButton";
-import type { CommandRow } from "@/lib/next-step";
-import { workspaceCommands } from "@/lib/next-step";
-import type { Phase } from "@/lib/status";
+import type { CommandRow } from "@/lib/next-step/next-step";
+import { workspaceCommands } from "@/lib/next-step/next-step";
+import type { Phase } from "@/lib/status/status";
 import { ModeSelector } from "../mode-selector/mode-selector";
 
 // ---------------------------------------------------------------------------

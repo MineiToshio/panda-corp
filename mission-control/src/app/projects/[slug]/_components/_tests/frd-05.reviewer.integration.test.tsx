@@ -31,7 +31,7 @@ import path from "node:path";
 import { render, screen, within } from "@testing-library/react";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { aggregateProgress, listWorkOrders, readWorkOrderDoc } from "@/lib/work-orders";
+import { aggregateProgress, listWorkOrders, readWorkOrderDoc } from "@/lib/work-orders/work-orders";
 import { TabWorkOrders } from "../tab-work-orders/tab-work-orders";
 import { WorkOrderBoard } from "../wo-board/wo-board";
 import { WorkOrderDetail } from "../wo-detail/wo-detail";

@@ -21,7 +21,7 @@
 
 import type React from "react";
 
-import type { RunsIn, SkillRef } from "@/lib/reference";
+import type { RunsIn, SkillRef } from "@/lib/reference/reference";
 import { FlowDiagram } from "./FlowDiagram";
 
 // ---------------------------------------------------------------------------

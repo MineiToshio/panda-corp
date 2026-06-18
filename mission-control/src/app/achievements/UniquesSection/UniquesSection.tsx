@@ -24,7 +24,7 @@
  * Source-of-truth: FRD > FDD > design-tokens > blueprint > work order
  */
 
-import type { Unique, UniqueCategory } from "@/lib/achievements";
+import type { Unique, UniqueCategory } from "@/lib/achievements/achievements";
 
 // ─── Category order & Spanish display names ──────────────────────────────────
 

@@ -28,7 +28,7 @@
 import type React from "react";
 import { useState } from "react";
 
-import type { SkillRef } from "@/lib/reference";
+import type { SkillRef } from "@/lib/reference/reference";
 import { SkillDetail } from "./SkillDetail";
 import { SkillList } from "./SkillList";
 

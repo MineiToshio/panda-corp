@@ -27,7 +27,7 @@ import { describe, expect, it, vi } from "vitest";
 // ---------------------------------------------------------------------------
 
 import { DiscardButton } from "@/components/core/DiscardButton/DiscardButton";
-import type { DiscardResult } from "@/lib/discard";
+import type { DiscardResult } from "@/lib/discard/discard";
 
 // Helper: build a mock action that returns a given result
 function makeAction(result: DiscardResult) {

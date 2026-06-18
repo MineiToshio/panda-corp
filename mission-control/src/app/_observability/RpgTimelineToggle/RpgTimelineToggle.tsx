@@ -27,7 +27,7 @@
  */
 
 import { useEffect, useState } from "react";
-import type { WorkOrder } from "@/lib/work-orders";
+import type { WorkOrder } from "@/lib/work-orders/work-orders";
 import { WorkOrderDag } from "../dag/WorkOrderDag/WorkOrderDag";
 import type { TimelineRow } from "../selectors/timeline/timeline";
 import { TimelineView } from "../TimelineView/TimelineView";

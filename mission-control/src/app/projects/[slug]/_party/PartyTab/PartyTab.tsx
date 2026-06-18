@@ -28,11 +28,11 @@
  *   IF-06-state-map (state-map.ts, WO-06-003)
  */
 
-import { TASKS_DIR } from "@/lib/config";
+import { TASKS_DIR } from "@/lib/config/config";
 import type { BuildMode } from "@/lib/constants";
 import { DEFAULT_BUILD_MODE } from "@/lib/constants";
-import { readEvents } from "@/lib/events";
-import { readTasksState } from "@/lib/tasks";
+import { readEvents } from "@/lib/events/events";
+import { readTasksState } from "@/lib/tasks/tasks";
 import { AchievementToast } from "../AchievementToast/AchievementToast";
 import { EventFeed } from "../EventFeed/EventFeed";
 import { toEventVM } from "../event-vm/event-vm";

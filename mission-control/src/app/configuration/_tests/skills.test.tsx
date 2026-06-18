@@ -23,7 +23,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import type { SkillRef } from "@/lib/reference";
+import type { SkillRef } from "@/lib/reference/reference";
 
 import { FlowDiagram } from "../FlowDiagram";
 import { SkillDetail } from "../SkillDetail";

@@ -25,7 +25,7 @@
 import { act, cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PluginSyncBanner } from "@/app/_components/plugin-sync-banner/plugin-sync-banner";
-import type { PluginSyncState } from "@/lib/plugin-sync";
+import type { PluginSyncState } from "@/lib/plugin-sync/plugin-sync";
 
 // ---------------------------------------------------------------------------
 // Fixtures — PluginSyncState shapes

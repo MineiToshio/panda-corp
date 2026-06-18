@@ -20,7 +20,7 @@
  *   AC-04-002.1, AC-04-002.3
  */
 
-import type { Phase } from "@/lib/status";
+import type { Phase } from "@/lib/status/status";
 
 // ---------------------------------------------------------------------------
 // Types

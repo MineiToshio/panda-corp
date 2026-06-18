@@ -135,7 +135,7 @@ describe("FRD-02 integration: discardIdeaAction → real discardIdea single-writ
     fs.writeFileSync(secret, "---\ntitle: secret\nstatus: discovered\n---\nsensitive\n", "utf-8");
     const before = fs.readFileSync(secret, "utf-8");
 
-    const result = await discardIdeaAction("../../secret");
+    const result = await discardIdeaAction("../secret");
     expect(result).toEqual({ ok: false, reason: "not-found" });
     expect(mockRevalidate).not.toHaveBeenCalled();
     expect(fs.readFileSync(secret, "utf-8")).toBe(before); // untouched

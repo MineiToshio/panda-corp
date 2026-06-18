@@ -18,7 +18,7 @@
  *   IF-01-readIdeas (IdeaCard type, docs/api.md WO-01-003)
  */
 
-import type { IdeaStatus } from "@/lib/ideas";
+import type { IdeaStatus } from "@/lib/ideas/ideas";
 
 // ---------------------------------------------------------------------------
 // Props

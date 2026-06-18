@@ -1,4 +1,4 @@
-import { FACTORY_ROOT } from "@/lib/config";
+import { FACTORY_ROOT } from "@/lib/config/config";
 
 /**
  * Foundation placeholder. The real Dashboard ("Inicio", FRD-18) and the tabs

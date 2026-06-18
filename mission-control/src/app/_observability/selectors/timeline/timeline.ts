@@ -39,7 +39,7 @@
  *   AC-12-007.1 → REQ-12-007 → IF-12-timeline → WO-12-004
  */
 
-import type { Event } from "../../../../lib/events";
+import type { Event } from "../../../../lib/events/events";
 
 // ---------------------------------------------------------------------------
 // Exported types

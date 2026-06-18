@@ -19,24 +19,24 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 // The page is a Server Component that reads the fs; we mock the lib readers
 // so the test stays fast and deterministic (fixture-based, per architecture §9).
 
-vi.mock("@/lib/portfolio", () => ({
+vi.mock("@/lib/portfolio/portfolio", () => ({
   readPortfolio: vi.fn().mockReturnValue([]),
 }));
 
-vi.mock("@/lib/status", () => ({
+vi.mock("@/lib/status/status", () => ({
   readStatus: vi.fn().mockReturnValue({ present: false, malformed: false, status: null }),
 }));
 
-vi.mock("@/lib/events", () => ({
+vi.mock("@/lib/events/events", () => ({
   readEvents: vi.fn().mockReturnValue({ events: [], lastEventAt: null, byProject: {} }),
 }));
 
-vi.mock("@/lib/ideas", () => ({
+vi.mock("@/lib/ideas/ideas", () => ({
   readIdeas: vi.fn().mockReturnValue([]),
 }));
 
-vi.mock("@/lib/gamification", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/gamification")>();
+vi.mock("@/lib/gamification/gamification", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/gamification/gamification")>();
   return {
     ...actual,
     deriveGuildOutcomes: vi.fn().mockReturnValue({
@@ -91,7 +91,7 @@ describe("AC-10-005.4 — empty factory renders gracefully", () => {
   });
 
   it("does not crash when eventsSnapshot is null", async () => {
-    const { readEvents } = await import("@/lib/events");
+    const { readEvents } = await import("@/lib/events/events");
     vi.mocked(readEvents).mockReturnValueOnce(null as unknown as ReturnType<typeof readEvents>);
     await expect(renderPage()).resolves.toBeDefined();
   });
@@ -328,8 +328,8 @@ describe("AC-10-005.5 — design tokens, a11y, keyboard navigation", () => {
 
 describe("Integration — stats derived from real reader data", () => {
   it("shows non-zero shipped count when portfolio has an operation-phase project", async () => {
-    const { readPortfolio } = await import("@/lib/portfolio");
-    const { readStatus } = await import("@/lib/status");
+    const { readPortfolio } = await import("@/lib/portfolio/portfolio");
+    const { readStatus } = await import("@/lib/status/status");
 
     vi.mocked(readPortfolio).mockReturnValueOnce([
       { path: "/fake/project", name: "my-proj" },

@@ -27,10 +27,10 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { CardDetail } from "@/app/board/_components/CardDetail/CardDetail";
 import type { IdeaCardProps } from "@/components/modules/IdeaCard/IdeaCard";
-import { type BoardColumn, deriveColumn } from "@/lib/board";
-import type { IdeaCard as IdeaCardModel } from "@/lib/ideas";
-import { nextStep } from "@/lib/next-step";
-import type { Phase, StatusResult } from "@/lib/status";
+import { type BoardColumn, deriveColumn } from "@/lib/board/board";
+import type { IdeaCard as IdeaCardModel } from "@/lib/ideas/ideas";
+import { nextStep } from "@/lib/next-step/next-step";
+import type { Phase, StatusResult } from "@/lib/status/status";
 import { type BoardCardEntry, IdeaBoardView } from "../IdeaBoardView/IdeaBoardView";
 
 // ---------------------------------------------------------------------------

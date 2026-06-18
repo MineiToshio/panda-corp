@@ -13,7 +13,7 @@
  *   - font-variant-numeric: tabular-nums on all numeric values (FRD-13).
  */
 
-import type { WorkOrderProgress } from "@/lib/work-orders";
+import type { WorkOrderProgress } from "@/lib/work-orders/work-orders";
 
 // ---------------------------------------------------------------------------
 // Styles

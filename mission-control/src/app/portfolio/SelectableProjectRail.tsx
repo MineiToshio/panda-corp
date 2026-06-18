@@ -22,7 +22,7 @@
  */
 
 import Link from "next/link";
-import type { ProjectListItem } from "@/lib/portfolio";
+import type { ProjectListItem } from "@/lib/portfolio/portfolio";
 import { StatusChips } from "./_components/status-chips/status-chips";
 
 // ---------------------------------------------------------------------------

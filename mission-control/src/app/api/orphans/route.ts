@@ -16,8 +16,8 @@
  *   WO-16-003    → FRD-16
  */
 
-import { FACTORY_ROOT } from "@/lib/config";
-import { type Candidate, getOrphans } from "@/lib/orphans";
+import { FACTORY_ROOT } from "@/lib/config/config";
+import { type Candidate, getOrphans } from "@/lib/orphans/orphans";
 
 /**
  * Use the Node.js runtime so `fs.readdirSync` / `fs.accessSync` (used by

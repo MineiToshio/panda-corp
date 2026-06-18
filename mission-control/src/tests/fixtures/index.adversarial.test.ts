@@ -16,7 +16,7 @@ import path from "node:path";
 import matter from "gray-matter";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
-import { resolveFactoryRoot } from "@/lib/config";
+import { resolveFactoryRoot } from "@/lib/config/config";
 import { FIXTURE_EVENTS_NDJSON, FIXTURE_FRESH, FIXTURE_FULL, withFactoryRoot } from "./index";
 
 // ---------------------------------------------------------------------------

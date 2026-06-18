@@ -22,7 +22,7 @@
 
 import { useState } from "react";
 
-import type { WorkOrder } from "@/lib/work-orders";
+import type { WorkOrder } from "@/lib/work-orders/work-orders";
 import { WorkOrderBoard } from "../wo-board/wo-board";
 import { WoFrdFilter } from "../wo-frd-filter/wo-frd-filter";
 

@@ -17,7 +17,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import type { WorkOrder } from "@/lib/work-orders";
+import type { WorkOrder } from "@/lib/work-orders/work-orders";
 import { type DagEdge, type DagNode, dagChain, firstError, toDag } from "../dag";
 
 // ---------------------------------------------------------------------------

@@ -15,7 +15,7 @@
  *   WO-03-004
  */
 
-import type { ProjectListItem } from "@/lib/portfolio";
+import type { ProjectListItem } from "@/lib/portfolio/portfolio";
 
 /**
  * Derive the slug (project name) of the currently-selected project.

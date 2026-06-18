@@ -19,7 +19,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Candidate } from "@/lib/orphans";
+import type { Candidate } from "@/lib/orphans/orphans";
 
 // ---------------------------------------------------------------------------
 // Fixtures — controlled Candidate arrays for each scenario
@@ -48,11 +48,11 @@ const CANDIDATE_MULTI: Candidate[] = [CANDIDATE_ORPHAN, CANDIDATE_UNLISTED];
 // Vitest hoists the mock.
 // ---------------------------------------------------------------------------
 
-vi.mock("@/lib/orphans", () => ({
+vi.mock("@/lib/orphans/orphans", () => ({
   getOrphans: vi.fn(),
 }));
 
-import { getOrphans } from "@/lib/orphans";
+import { getOrphans } from "@/lib/orphans/orphans";
 // Import the handler after the mock is registered.
 import { GET } from "../route";
 

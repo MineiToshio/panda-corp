@@ -22,10 +22,10 @@
 
 import type React from "react";
 import { useState } from "react";
-import type { ManualPage } from "@/lib/manual";
-import type { AgentRef, SkillRef } from "@/lib/reference";
-import type { DecisionRule } from "@/lib/registry";
-import type { Standard } from "@/lib/standards";
+import type { ManualPage } from "@/lib/manual/manual";
+import type { AgentRef, SkillRef } from "@/lib/reference/reference";
+import type { DecisionRule } from "@/lib/registry/registry";
+import type { Standard } from "@/lib/standards/standards";
 import { DocNav } from "./DocNav";
 import { DocReader } from "./DocReader";
 import type { ActivePage, ReaderActivePage } from "./types";

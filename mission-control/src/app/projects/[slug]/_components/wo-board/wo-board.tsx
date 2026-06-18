@@ -17,7 +17,7 @@
  *   - fail state signalled by icon + label (not color alone) per FRD-13/a11y.
  */
 
-import type { WorkOrder, WorkOrderState } from "@/lib/work-orders";
+import type { WorkOrder, WorkOrderState } from "@/lib/work-orders/work-orders";
 
 // ---------------------------------------------------------------------------
 // Column definitions (AC-05-001.1 — 4 columns in order)

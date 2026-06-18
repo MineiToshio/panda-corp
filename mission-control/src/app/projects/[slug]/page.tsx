@@ -36,10 +36,10 @@
  */
 
 import { notFound } from "next/navigation";
-import { listProjectDocs, readActivityLog, readDecisions, readDoc } from "@/lib/docs";
-import { activeProjects } from "@/lib/portfolio";
-import { type Phase, readStatus } from "@/lib/status";
-import { listWorkOrders, readWorkOrderDoc } from "@/lib/work-orders";
+import { listProjectDocs, readActivityLog, readDecisions, readDoc } from "@/lib/docs/docs";
+import { activeProjects } from "@/lib/portfolio/portfolio";
+import { type Phase, readStatus } from "@/lib/status/status";
+import { listWorkOrders, readWorkOrderDoc } from "@/lib/work-orders/work-orders";
 import { ObjectivesBar } from "./_components/objectives-bar";
 import { TabCommands } from "./_components/tab-commands/tab-commands";
 import { TabDocuments } from "./_components/tab-documents/tab-documents";

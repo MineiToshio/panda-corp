@@ -27,8 +27,8 @@
  */
 
 import type { Metadata } from "next";
-import { readSkills } from "@/lib/reference";
-import { readStandards } from "@/lib/standards";
+import { readSkills } from "@/lib/reference/reference";
+import { readStandards } from "@/lib/standards/standards";
 import { ConfigurationShell } from "./ConfigurationShell";
 
 // ---------------------------------------------------------------------------

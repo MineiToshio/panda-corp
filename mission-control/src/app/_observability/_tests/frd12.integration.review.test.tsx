@@ -25,7 +25,7 @@
 
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { WorkOrder } from "@/lib/work-orders";
+import type { WorkOrder } from "@/lib/work-orders/work-orders";
 import { dagChain, firstError, toDag } from "../dag/dag/dag";
 import { WorkOrderDag } from "../dag/WorkOrderDag/WorkOrderDag";
 import { FreshnessBadge } from "../FreshnessBadge/FreshnessBadge";

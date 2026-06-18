@@ -27,7 +27,7 @@
 import type React from "react";
 import { useCallback, useState } from "react";
 import Markdown from "react-markdown";
-import type { Standard, StandardDomain } from "@/lib/standards";
+import type { Standard, StandardDomain } from "@/lib/standards/standards";
 
 // ---------------------------------------------------------------------------
 // Domain ordering (AC-07-009.1 — the 9 domains + Other as catch-all)

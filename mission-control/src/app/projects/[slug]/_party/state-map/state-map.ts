@@ -35,7 +35,7 @@
  *     the mapping is over string values from the raw event stream)
  */
 
-import type { Event as DashboardEvent } from "@/lib/events";
+import type { Event as DashboardEvent } from "@/lib/events/events";
 
 // ---------------------------------------------------------------------------
 // AgentState — the visual states a sprite can be in (PARTY.md §1)
