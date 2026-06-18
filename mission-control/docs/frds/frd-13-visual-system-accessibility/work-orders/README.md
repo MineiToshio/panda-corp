@@ -6,6 +6,14 @@ these WOs wire and enforce them. FRD-13 is mostly declarative (tokens + CSS + co
 small interactive pieces (theme toggle, state badge). Land 13-001..003 **early** so every other
 feature's UI WOs build against real tokens.
 
+> **Compliance reorg (2026-06-18) — paths.** After the migration to `docs/rules/`: `ThemeToggle` and
+> `StateBadge` now live at `components/core/<Name>/<Name>.tsx` (tests in `_tests/`); the a11y primitives
+> stay under `components/a11y/` with tests folderized into `components/a11y/_tests/` (e.g.
+> `_tests/wo-13-003.test.tsx`); design tokens moved to `app/_design/tokens/tokens.ts`. **Older WO prose
+> may cite pre-reorg paths (e.g. `components/a11y/wo-13-003.test.tsx`) — the canonical location is the
+> current on-disk path; locate files by name and follow these conventions for new files.** `verify.sh`
+> enforces a structure-guard (no loose tests), `max-lines` (≤500) and a circular-dependency gate.
+
 > Precondition: the design phase must freeze `docs/design/design-tokens.json` + `DESIGN.md` (today
 > only `docs/design/brief.md` exists). The schema validator and the key maps can be built against the
 > agreed *shape* before freeze; the *values* land at freeze. See blueprint §7.

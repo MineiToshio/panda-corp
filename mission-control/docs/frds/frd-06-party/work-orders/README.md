@@ -11,6 +11,16 @@ interactive pieces (scene, feed, relay, toast) get component tests.
 > a sequential relay). Most WOs were **reopened (PLANNED)** to rebuild against the new model; the still-
 > correct infra was re-pointed. Visual contract: `../../../prototype/party-proposal.html`.
 
+> **Compliance reorg (2026-06-18) — paths.** The repo was migrated to the engineering rules
+> (`docs/rules/`): components now live under `components/core/`, `components/modules/`, or a route's
+> `_components/`; every tested module is a folder `Name/Name.tsx` with tests in `_tests/`; `src/lib/` is
+> grouped by domain (`lib/<name>/<name>.ts`); the `_party/` modules are folderized (`PartyScene/PartyScene.tsx`,
+> `engine/engine.ts`, `event-vm/event-vm.ts`, `state-map/state-map.ts`, `PartyTab/PartyTab.tsx`,
+> `EventFeed/EventFeed.tsx`, `PartyEmptyState/PartyEmptyState.tsx`). **Older WO prose may cite pre-reorg
+> paths (e.g. `_party/PartyScene.tsx`, `_party/FraguaScene.tsx`) — the canonical location is the current
+> on-disk path; locate files by name, and create NEW files following these conventions.** `verify.sh` now
+> enforces a structure-guard (no loose tests), `max-lines` (≤500) and a circular-dependency gate (madge).
+
 See `../blueprint.md` for components (`CMP-06-*`), interfaces (`IF-06-*`) and the REQ→CMP map.
 
 ## Work orders

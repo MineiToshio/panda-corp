@@ -4,6 +4,16 @@ The **ideas board**: read-only kanban + intake modal + card detail + the single 
 See the feature blueprint ([`../blueprint.md`](../blueprint.md)) and the platform architecture
 ([`../../../product/architecture.md`](../../../product/architecture.md)).
 
+> **Compliance reorg (2026-06-18) — paths.** After the migration to `docs/rules/`, this feature's
+> components are route-local: `IntakeModal` and `CardDetail` now live at
+> `app/board/_components/<Name>/<Name>.tsx` (tests in `_tests/`); shared primitives moved to
+> `components/core/` (`CopyButton`, `DiscardButton`, `StateBadge`) and `IdeaCard` to
+> `components/modules/IdeaCard/IdeaCard.tsx`; `src/lib/` is grouped by domain (`lib/<name>/<name>.ts`,
+> e.g. `lib/board/board.ts`). **Older WO prose may cite pre-reorg paths (e.g. `components/CardDetail.tsx`) —
+> the canonical location is the current on-disk path; locate files by name and create NEW files
+> (e.g. `CampaignPipeline`, `lib/campaign`) following these conventions.** `verify.sh` enforces a
+> structure-guard (no loose tests), `max-lines` (≤500) and a circular-dependency gate.
+
 ## Work orders
 
 | WO | Title | Artifact | Depends on |
