@@ -5,7 +5,7 @@ slug: skills-section
 title: 'WO-07-006 — Skills section: list + detail + mini-flow'
 status: DRAFT
 parent: FRD-07
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
 last_updated: '2026-06-17'
 ---

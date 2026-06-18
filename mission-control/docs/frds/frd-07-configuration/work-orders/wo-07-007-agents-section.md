@@ -5,7 +5,7 @@ slug: agents-section
 title: 'WO-07-007 — Agents section: list + detail + XP bar'
 status: DRAFT
 parent: FRD-07
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
 last_updated: '2026-06-18'
 ---
