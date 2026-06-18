@@ -5,7 +5,7 @@ slug: party-tab-snapshot
 title: WO-06-005 — La Fragua tab + FraguaSnapshot (RSC, read-only)
 status: DRAFT
 parent: FRD-06
-implementation_status: IN_PROGRESS
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-18'
 ---
@@ -181,3 +181,90 @@ PartyTab unit + snapshot tests stay green (empty-state path unchanged). Commit: 
 
 **Files touched:** `app/projects/[slug]/_party/PartyTab.tsx` (composition only — no new files,
 no test weakened/skipped, no production code of sibling WOs changed).
+
+---
+
+## Status Note (La Fragua redesign — Wave 3 implementation, 2026-06-18)
+
+**Built:** `CMP-06-party-tab` (La Fragua redesign) + `IF-06-fragua-snapshot` + `FraguaScene` stub (WO-06-005 composition layer).
+
+### Interfaces/contracts exposed
+
+```ts
+// app/projects/[slug]/_party/fragua-snapshot/fragua-snapshot.ts — IF-06-fragua-snapshot
+export type WoState = "building" | "in_review" | "verified" | "blocked";
+export type RelayState = { step: "test" | "backend" | "frontend"; contractPublished: boolean };
+export type FraguaSnapshot = {
+  frd: { id: string; title: string } | null;
+  mode: BuildMode;       // 'pro' | 'balanced' | 'powerful' | 'deep'
+  wave: number;          // wave size cap
+  running: { wo: string; title: string; state: WoState; relay?: RelayState }[];
+  queuedCount: number;
+  gate: { open: boolean };
+  trophies: { wo: string }[];
+  archivedCount: number;
+  project: { done: number; total: number };
+  events: EventVM[];
+  active: boolean;
+  lastEventAt: string | null;
+};
+
+export interface ToFraguaSnapshotOpts {
+  lastEventAt: string | null;
+  modeOverride?: BuildMode;          // optional override (from project status.yaml)
+  projectTotals?: { done: number; total: number };  // optional WO total override
+}
+
+// Pure — never throws. Tolerates missing optional fields (AC-06-008.2).
+export function toFraguaSnapshot(
+  events: readonly Event[],
+  opts: ToFraguaSnapshotOpts,
+): FraguaSnapshot;
+
+// app/projects/[slug]/_party/FraguaScene/FraguaScene.tsx — CMP-06-scene (stub)
+export interface FraguaSceneProps { snapshot: FraguaSnapshot; }
+// Renders: data-testid="fragua-scene" (root), "fragua-room-forja", "fragua-room-tribunal",
+//   "fragua-room-boveda", "fragua-frd-tracker", "fragua-frd-id", "fragua-frd-title",
+//   "fragua-global-counter", "fragua-mode-display" (read-only data, not a selector),
+//   "fragua-running-list", "fragua-queued-count", "fragua-gate", "fragua-trophies",
+//   "fragua-archived-count".
+// Observation-only: NO mode selector, NO pause/reset buttons (AC-06-009.1).
+export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element;
+
+// app/projects/[slug]/_party/PartyTab/PartyTab.tsx — CMP-06-party-tab (redesign)
+export interface PartyTabProps {
+  eventsPath?: string;  // NDJSON path; defaults to ~/.claude/dashboard-events.ndjson
+  cap?: number;         // event tail cap; default 200
+}
+// REMOVED: tasksDir (lib/tasks gate replaced by event-based FRD detection)
+// REMOVED: mode prop (mode derived from event stream)
+export function PartyTab(props: PartyTabProps): React.JSX.Element;
+```
+
+### Key design decisions
+
+- **Active flag**: `snapshot.active = currentFrdId !== null`. The `lib/tasks` active-team gate is removed; the event stream is the sole source of truth (enriched `AgentWorking` events with a `frd` field).
+- **Mode**: read from the most recent event with a valid `mode` field; default `'powerful'` (AC-06-009.1).
+- **Wave table**: `{pro:2, balanced:4, powerful:8, deep:6}` — faithful to the engine (blueprint §3).
+- **`FraguaScene`**: client-side stub that renders the three La Fragua rooms with observation-only layout. No animation loop yet (WO-06-006 scope).
+- **Enriched events fixture**: `src/tests/fixtures/events/dashboard-events-enriched.ndjson` — `AgentWorking` events with `{frd, wo, phase, activity, mode, role}` fields (exported as `FIXTURE_EVENTS_ENRICHED_NDJSON`).
+
+### Integration seams
+
+- `PartyTab` calls `readEvents` (lib/events, WO-01-007) → passes to `toFraguaSnapshot` → passes `FraguaSnapshot` to `FraguaScene` + `EventFeed` (WO-06-007) + `AchievementToast` (WO-06-008).
+- `FraguaScene` receives the snapshot as a prop; mounts rooms, running WOs, trophies, gate — no engine calls yet (WO-06-006 will wire the RAF loop).
+- The `modeOverride` opt allows the page to forward a mode from `status.yaml` when that data is available, with zero change to `toFraguaSnapshot`.
+
+### Test files
+
+- `src/app/projects/[slug]/_party/_tests/fragua-snapshot.test.ts` — 31 tests (toFraguaSnapshot: empty state, FRD detection, mode/wave, running cap, trophies/archived, gate, counter, lastEventAt, backward compat, no Claude import).
+- `src/app/projects/[slug]/_party/PartyTab/_tests/PartyTab.fragua.integration.test.tsx` — 14 tests (fragua-scene renders, active from enriched events, read-only: no mode selector/pause/reset, no lib/tasks required, container invariants).
+- `src/app/projects/[slug]/_party/PartyTab/_tests/PartyTab.integration.reviewer.test.tsx` — updated reviewer test: fragua-scene + three rooms + FRD tracker + event feed reach DOM; no mode selector/pause/reset in DOM; empty state when no FRD.
+- `src/app/projects/[slug]/_party/PartyTab/_tests/PartyTab.test.tsx` — updated (14 tests, enriched fixture).
+- `src/app/projects/[slug]/_party/PartyTab/_tests/PartyTab.snapshot.test.tsx` — updated (11 tests, enriched fixture, no lib/tasks).
+
+### Gate
+
+183 test files, 5099 tests GREEN + 2 expected-fail + 5 skipped. tsc clean. biome clean. Commit: `2be06a6`.
+
+Pre-existing failure: `agentColorTokens.integration.reviewer.test.ts` (1 test) — `--color-agent-guild` dangling reference in achievements components; unrelated to WO-06-005, predates this work.
