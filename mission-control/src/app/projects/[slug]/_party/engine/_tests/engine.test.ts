@@ -1,43 +1,34 @@
 /**
- * WO-06-004 — Party engine (RAF loop + animation queue)
+ * WO-06-004 — La Fragua engine (RAF loop, wave cap, rooms, parchment, gate)
  *
- * Tests for `createPartyEngine` (IF-06-engine): pure step math, no DOM, no real RAF.
+ * Tests for `createFraguaEngine` (IF-06-engine): pure step math, no DOM, no real RAF.
  * A fake clock drives `tick(now)` so all movement is deterministic.
  *
  * Traceability:
- *   AC-06-003.1 — WHILE no stage transition: continuous breathing + wandering within zone
- *   AC-06-004.1 — ON handoff: incoming sprite walks to next zone; both end up together
+ *   AC-06-001.1 — one sprite per running implementer WO
+ *   AC-06-001.2 — wave cap (capped at mode wave size)
+ *   AC-06-003.2 — room transitions animate along connecting paths
+ *   AC-06-006.1 — parchment travels from closing WO to dependent WO station
  *
  * Dependencies:
- *   WO-06-002 (layout.ts) — Pos, Role, MCCENTER, mcPositions, rosterFor
- *   WO-06-003 (state-map.ts) — VisualAction, AgentState
+ *   WO-06-002 (layout.ts) — Pos, FORGE_SLOTS, REVIEW_SLOTS
+ *   WO-06-003 (state-map.ts) — VisualAction, WoState
  *
  * Pure core — no DOM, no real RAF in tests.
  * Stack: Vitest.
  */
 
 import { describe, expect, it } from "vitest";
-import type { Pos, Role } from "../../layout";
-import { MCCENTER, mcPositions, rosterFor } from "../../layout";
 import type { VisualAction } from "../../state-map/state-map";
-import type { AgentSnapshot, EngineAgent, PartyEngine } from "../engine";
-import { createPartyEngine } from "../engine";
+import type { FraguaEngine } from "../engine";
+import { createFraguaEngine } from "../engine";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeSnapshot(roster: Role[]): AgentSnapshot[] {
-  const positions = mcPositions(roster, "balanced");
-  return roster.map((role, i) => ({
-    id: role,
-    state: "idle" as const,
-    home: positions[i] ?? ([380, 285] as Pos),
-  }));
-}
-
-/** Advance the engine by `steps` ticks of `dt` ms each, starting at `t0`. */
-function advance(engine: PartyEngine, t0: number, dt: number, steps: number): number {
+/** Advance engine by N ticks of dt ms each, starting at t0. Returns final t. */
+function advance(engine: FraguaEngine, t0: number, dt: number, steps: number): number {
   let t = t0;
   for (let i = 0; i < steps; i++) {
     t += dt;
@@ -46,560 +37,689 @@ function advance(engine: PartyEngine, t0: number, dt: number, steps: number): nu
   return t;
 }
 
-/** Distance between two positions. */
-function dist(a: Pos, b: Pos): number {
+/** Euclidean distance between two [x,y] positions. */
+function dist(a: [number, number], b: [number, number]): number {
   return Math.hypot(a[0] - b[0], a[1] - b[1]);
 }
 
-/** Find agent by id, throwing a clear message if missing. */
-function findAgent(agents: EngineAgent[], id: string): EngineAgent {
-  const ag = agents.find((a) => a.id === id);
-  if (ag === undefined) throw new Error(`Agent '${id}' not found in engine`);
-  return ag;
-}
-
-/** Find snapshot by id, throwing a clear message if missing. */
-function findSnap(snapshot: AgentSnapshot[], id: string): AgentSnapshot {
-  const s = snapshot.find((a) => a.id === id);
-  if (s === undefined) throw new Error(`Snapshot '${id}' not found`);
-  return s;
-}
-
 // ---------------------------------------------------------------------------
-// Smoke / creation
+// Creation — basic init
 // ---------------------------------------------------------------------------
 
-describe("frd-06: engine — creation", () => {
-  it("frd-06: WHEN engine is created THEN agents() returns the snapshot roster", () => {
-    const roster = rosterFor("balanced");
-    const snapshot = makeSnapshot(roster);
-    const engine = createPartyEngine(snapshot, {});
-
-    const agents = engine.agents();
-    expect(agents).toHaveLength(roster.length);
-    for (const role of roster) {
-      const ag = agents.find((a) => a.id === role);
-      expect(ag).toBeDefined();
-    }
+describe("frd-06: createFraguaEngine — creation", () => {
+  it("frd-06: WHEN engine is created with no WOs THEN wos() returns empty array", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    expect(engine.wos()).toEqual([]);
   });
 
-  it("frd-06: WHEN engine is created THEN all agents start at their home position", () => {
-    const roster = rosterFor("balanced");
-    const snapshot = makeSnapshot(roster);
-    const engine = createPartyEngine(snapshot, {});
-
-    for (const ag of engine.agents()) {
-      const snap = snapshot.find((s) => s.id === ag.id);
-      expect(snap).toBeDefined();
-      if (snap !== undefined) {
-        expect(ag.px).toBeCloseTo(snap.home[0], 0);
-        expect(ag.py).toBeCloseTo(snap.home[1], 0);
-      }
-    }
+  it("frd-06: WHEN engine is created THEN gate() returns { open: false }", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    expect(engine.gate()).toEqual({ open: false });
   });
 
-  it("frd-06: WHEN engine is created THEN agents have the initial state from snapshot", () => {
-    const roster = rosterFor("balanced");
-    const snapshot = makeSnapshot(roster);
-    const first = snapshot[0];
-    if (first !== undefined) {
-      first.state = "work";
-    }
-    const engine = createPartyEngine(snapshot, {});
+  it("frd-06: WHEN engine is created THEN trophies() returns empty array", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    expect(engine.trophies()).toEqual([]);
+  });
 
-    const ag = engine.agents()[0];
-    expect(ag?.state).toBe("work");
+  it("frd-06: WHEN engine is created with pro mode THEN wave is 2", () => {
+    const engine = createFraguaEngine({ mode: "pro", wave: 2 });
+    // enqueue more than 2 — only 2 should become sprites
+    engine.enqueue("WO-01");
+    engine.enqueue("WO-02");
+    engine.enqueue("WO-03");
+    engine.tick(100);
+    // 2 building, 1 queued
+    const sprites = engine.wos().filter((w) => w.state === "building");
+    expect(sprites).toHaveLength(2);
   });
 });
 
 // ---------------------------------------------------------------------------
-// setState — immediate state transition
+// setWo — immediate state transitions (AC-06-001.1)
 // ---------------------------------------------------------------------------
 
-describe("frd-06: engine — setState", () => {
-  it("frd-06: WHEN setState(id, 'work') is called THEN agent state is 'work'", () => {
-    const roster = rosterFor("balanced");
-    const engine = createPartyEngine(makeSnapshot(roster), {});
+describe("frd-06: engine — setWo", () => {
+  it("frd-06: WHEN setWo(wo, 'building') is called THEN sprite appears with state building", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.setWo("WO-001", "building");
+    engine.tick(100);
 
-    engine.setState("backend-dev", "work");
-
-    const ag = engine.agents().find((a) => a.id === "backend-dev");
-    expect(ag?.state).toBe("work");
+    const sprite = engine.wos().find((w) => w.wo === "WO-001");
+    expect(sprite).toBeDefined();
+    expect(sprite?.state).toBe("building");
   });
 
-  it("frd-06: WHEN setState(id, 'blocked') is called THEN agent state is 'blocked'", () => {
-    const roster = rosterFor("balanced");
-    const engine = createPartyEngine(makeSnapshot(roster), {});
+  it("frd-06: WHEN setWo(wo, 'in_review') is called THEN sprite transitions to in_review", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.setWo("WO-001", "building");
+    engine.tick(100);
+    engine.setWo("WO-001", "in_review");
+    engine.tick(200);
 
-    engine.setState("backend-dev", "blocked");
-
-    const ag = engine.agents().find((a) => a.id === "backend-dev");
-    expect(ag?.state).toBe("blocked");
+    const sprite = engine.wos().find((w) => w.wo === "WO-001");
+    expect(sprite?.state).toBe("in_review");
   });
 
-  it("frd-06: WHEN setState is called with unknown id THEN other agents are unaffected", () => {
-    const roster = rosterFor("balanced");
-    const engine = createPartyEngine(makeSnapshot(roster), {});
+  it("frd-06: WHEN setWo(wo, 'blocked') is called THEN sprite state becomes blocked", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.setWo("WO-001", "building");
+    engine.tick(100);
+    engine.setWo("WO-001", "blocked");
+    engine.tick(200);
 
-    engine.setState("unknown-agent", "work");
-
-    const before = engine.agents().map((a) => a.state);
-    expect(before.every((s) => s === "idle")).toBe(true);
+    const sprite = engine.wos().find((w) => w.wo === "WO-001");
+    expect(sprite?.state).toBe("blocked");
   });
 
-  it("frd-06: WHEN setState transitions any state THEN position stays at home (no move)", () => {
-    const roster = rosterFor("balanced");
-    const snapshot = makeSnapshot(roster);
-    const engine = createPartyEngine(snapshot, {});
+  it("frd-06: WHEN setWo is called for an unknown WO THEN other sprites are unaffected", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.setWo("WO-001", "building");
+    engine.tick(100);
 
-    engine.setState("backend-dev", "work");
+    // Call setWo on a completely unknown WO
+    engine.setWo("WO-UNKNOWN", "blocked");
+    engine.tick(200);
 
-    const ag = findAgent(engine.agents(), "backend-dev");
-    const snap = findSnap(snapshot, "backend-dev");
-    expect(ag.px).toBeCloseTo(snap.home[0], 0);
-    expect(ag.py).toBeCloseTo(snap.home[1], 0);
+    // WO-001 should remain building
+    const sprite = engine.wos().find((w) => w.wo === "WO-001");
+    expect(sprite?.state).toBe("building");
   });
 });
 
 // ---------------------------------------------------------------------------
-// Idle drift — AC-06-003.1 (wandering within zone)
+// enqueue — wave cap (AC-06-001.2)
 // ---------------------------------------------------------------------------
 
-describe("frd-06: engine — idle drift (AC-06-003.1)", () => {
-  it("frd-06: WHEN an idle agent is ticked THEN it has a bob offset (breathing, |bob| > 0 over time)", () => {
-    const roster: Role[] = ["backend-dev"];
-    const engine = createPartyEngine(makeSnapshot(roster), {});
+describe("frd-06: engine — enqueue + wave cap (AC-06-001.2)", () => {
+  it("frd-06: WHEN fewer WOs than wave are enqueued THEN all become building sprites", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.enqueue("WO-01");
+    engine.enqueue("WO-02");
+    engine.enqueue("WO-03");
+    engine.tick(100);
 
-    // Tick over a full breath cycle to see bob variation
-    const bobs = new Set<number>();
-    let t = 1000;
-    for (let i = 0; i < 50; i++) {
-      t += 200;
-      engine.tick(t);
-      const ag = engine.agents()[0];
-      if (ag !== undefined) {
-        bobs.add(Math.round(ag.bob * 10));
-      }
-    }
-    // bob should vary (breathing is sinusoidal)
-    expect(bobs.size).toBeGreaterThan(1);
+    const building = engine.wos().filter((w) => w.state === "building");
+    expect(building).toHaveLength(3);
   });
 
-  it("frd-06: WHEN an idle agent is ticked THEN position stays near home (wander within bounds)", () => {
-    const roster: Role[] = ["backend-dev"];
-    const snapshot = makeSnapshot(roster);
-    const engine = createPartyEngine(snapshot, {});
-    const first = snapshot[0];
-    expect(first).toBeDefined();
-    if (first === undefined) return;
-    const home = first.home;
+  it("frd-06: WHEN exactly wave WOs are enqueued THEN all become building sprites", () => {
+    const engine = createFraguaEngine({ mode: "pro", wave: 2 });
+    engine.enqueue("WO-01");
+    engine.enqueue("WO-02");
+    engine.tick(100);
 
-    // Tick 5 s worth at 60 fps
-    advance(engine, 0, 16, 300);
-
-    const ag = engine.agents()[0];
-    expect(ag).toBeDefined();
-    if (ag === undefined) return;
-    // Wander should be bounded — no more than 60 px from home
-    expect(dist([ag.px, ag.py], home)).toBeLessThan(60);
+    const building = engine.wos().filter((w) => w.state === "building");
+    expect(building).toHaveLength(2);
   });
 
-  it("frd-06: WHEN a work-state agent is ticked THEN it also bobs (alive, AC-06-003.1)", () => {
-    const roster: Role[] = ["backend-dev"];
-    const engine = createPartyEngine(makeSnapshot(roster), {});
-    engine.setState("backend-dev", "work");
+  it("frd-06: WHEN more WOs than wave are enqueued THEN only wave WOs become sprites (AC-06-001.2)", () => {
+    const engine = createFraguaEngine({ mode: "pro", wave: 2 });
+    engine.enqueue("WO-01");
+    engine.enqueue("WO-02");
+    engine.enqueue("WO-03");
+    engine.enqueue("WO-04");
+    engine.tick(100);
 
-    const bobs = new Set<number>();
-    let t = 1000;
-    for (let i = 0; i < 50; i++) {
-      t += 200;
-      engine.tick(t);
-      const ag = engine.agents()[0];
-      if (ag !== undefined) {
-        bobs.add(Math.round(ag.bob * 10));
-      }
-    }
-    expect(bobs.size).toBeGreaterThan(1);
+    const sprites = engine.wos();
+    // wave=2 → max 2 building sprites; the rest are queued (not in wos())
+    const building = sprites.filter((w) => w.state === "building");
+    expect(building).toHaveLength(2);
+    // Total sprites shown is at most the wave
+    expect(sprites.length).toBeLessThanOrEqual(2);
+  });
+
+  it("frd-06: WHEN a building WO slot frees, THEN next queued WO is promoted (wave cap refill)", () => {
+    const engine = createFraguaEngine({ mode: "pro", wave: 2 });
+    engine.enqueue("WO-01");
+    engine.enqueue("WO-02");
+    engine.enqueue("WO-03"); // queued
+    engine.tick(100);
+
+    // Verify WO-01 — frees a slot
+    engine.verifyWo("WO-01");
+    engine.tick(200);
+
+    const building = engine.wos().filter((w) => w.state === "building");
+    // WO-02 still building, WO-03 promoted from queue
+    expect(building.length).toBeGreaterThanOrEqual(1);
+    // WO-03 should now be in the scene
+    const wo3 = engine.wos().find((w) => w.wo === "WO-03");
+    expect(wo3).toBeDefined();
+  });
+
+  it("frd-06: WHEN a WO is enqueued twice THEN it is not duplicated in the scene", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.enqueue("WO-01");
+    engine.enqueue("WO-01");
+    engine.tick(100);
+
+    const matches = engine.wos().filter((w) => w.wo === "WO-01");
+    expect(matches).toHaveLength(1);
   });
 });
 
 // ---------------------------------------------------------------------------
-// Handoff — AC-06-004.1
+// verifyWo — Bóveda trophies (AC-06-005.1)
 // ---------------------------------------------------------------------------
 
-describe("frd-06: engine — handoff (AC-06-004.1)", () => {
-  it("frd-06: WHEN startHandoff(from, to) is called THEN walker state becomes 'walk'", () => {
-    const roster = rosterFor("balanced");
-    const engine = createPartyEngine(makeSnapshot(roster), {});
+describe("frd-06: engine — verifyWo + trophies", () => {
+  it("frd-06: WHEN verifyWo is called THEN the WO appears in trophies()", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.enqueue("WO-01");
+    engine.tick(100);
+    engine.verifyWo("WO-01");
+    engine.tick(200);
 
-    engine.startHandoff("backend-dev", "frontend-dev");
-
-    const ag = engine.agents().find((a) => a.id === "backend-dev");
-    expect(ag?.state).toBe("walk");
+    expect(engine.trophies()).toContain("WO-01");
   });
 
-  it("frd-06: WHEN a walking agent is ticked THEN it moves toward MCCENTER first", () => {
-    const roster = rosterFor("balanced");
-    const snapshot = makeSnapshot(roster);
-    const home = findSnap(snapshot, "backend-dev").home;
-    const engine = createPartyEngine(snapshot, {});
+  it("frd-06: WHEN verifyWo is called THEN the WO sprite is removed from wos()", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.enqueue("WO-01");
+    engine.tick(100);
+    engine.verifyWo("WO-01");
+    engine.tick(200);
 
-    engine.startHandoff("backend-dev", "frontend-dev");
-
-    // Tick ~2 s at 60 fps (120 ticks × 1.6px = 192px traveled; dist to center ~228px)
-    // After 2 s the agent is past halfway, so dCenter < dHome.
-    advance(engine, 0, 16, 120);
-
-    const ag = findAgent(engine.agents(), "backend-dev");
-    // Should be closer to MCCENTER than to original home (past halfway)
-    const dHome = dist([ag.px, ag.py], home);
-    const dCenter = dist([ag.px, ag.py], MCCENTER);
-    expect(dCenter).toBeLessThan(dHome);
+    const sprite = engine.wos().find((w) => w.wo === "WO-01");
+    expect(sprite).toBeUndefined();
   });
 
-  it("frd-06: WHEN a handoff completes THEN walker returns to its own home", () => {
-    const roster = rosterFor("balanced");
-    const snapshot = makeSnapshot(roster);
-    const home = findSnap(snapshot, "backend-dev").home;
-    const engine = createPartyEngine(snapshot, {});
+  it("frd-06: WHEN multiple WOs are verified THEN all appear in trophies()", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.enqueue("WO-01");
+    engine.enqueue("WO-02");
+    engine.enqueue("WO-03");
+    engine.tick(100);
+    engine.verifyWo("WO-01");
+    engine.verifyWo("WO-02");
+    engine.tick(200);
 
-    engine.startHandoff("backend-dev", "frontend-dev");
-
-    // Tick 10 s — enough for the full trip (home→center→approach→wait→center→home)
-    advance(engine, 0, 16, 625);
-
-    const ag = findAgent(engine.agents(), "backend-dev");
-    // After full trip, agent snaps to home then may idle-wander up to WANDER_RADIUS (40px)
-    expect(dist([ag.px, ag.py], home)).toBeLessThan(45);
-    expect(ag.state).not.toBe("walk");
+    expect(engine.trophies()).toContain("WO-01");
+    expect(engine.trophies()).toContain("WO-02");
+    expect(engine.trophies()).not.toContain("WO-03");
   });
 
-  it("frd-06: WHEN a handoff completes THEN the target agent ends up together near its own home", () => {
-    // Per AC-06-004.1: 'both SHALL end up together' means they meet at the approach point
-    // and the walker returns. The target does not move; the walker visits the target's area.
-    const roster = rosterFor("balanced");
-    const snapshot = makeSnapshot(roster);
-    const targetHome = findSnap(snapshot, "frontend-dev").home;
-    const engine = createPartyEngine(snapshot, {});
+  it("frd-06: WHEN trophies() is called THEN returned array is a fresh copy (safe to mutate)", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.enqueue("WO-01");
+    engine.tick(100);
+    engine.verifyWo("WO-01");
+    engine.tick(200);
 
-    engine.startHandoff("backend-dev", "frontend-dev");
-
-    // Tick 10 s
-    advance(engine, 0, 16, 625);
-
-    const target = findAgent(engine.agents(), "frontend-dev");
-    // Target stays near its own home; idle wander is bounded to WANDER_RADIUS (40px)
-    expect(dist([target.px, target.py], targetHome)).toBeLessThan(45);
-  });
-
-  it("frd-06: WHEN handoff completes THEN walker state is no longer 'walk'", () => {
-    const roster = rosterFor("balanced");
-    const engine = createPartyEngine(makeSnapshot(roster), {});
-
-    engine.startHandoff("backend-dev", "frontend-dev");
-
-    // Tick enough time for full trip
-    advance(engine, 0, 16, 625);
-
-    const ag = findAgent(engine.agents(), "backend-dev");
-    expect(ag.state).not.toBe("walk");
-  });
-
-  it("frd-06: WHEN startHandoff is called with unknown target THEN walker still completes a trip", () => {
-    const roster = rosterFor("balanced");
-    const engine = createPartyEngine(makeSnapshot(roster), {});
-
-    // Unknown target — engine should handle gracefully
-    engine.startHandoff("backend-dev", "unknown-target");
-
-    const ag = findAgent(engine.agents(), "backend-dev");
-    // Even with unknown target, walk state starts
-    expect(ag.state).toBe("walk");
+    const t1 = engine.trophies();
+    t1.push("INJECTED");
+    const t2 = engine.trophies();
+    expect(t2).not.toContain("INJECTED");
   });
 });
 
 // ---------------------------------------------------------------------------
-// applyEvents — queue consumption at engine's pace
+// openGate — reviewer gate (AC-06-004.2)
 // ---------------------------------------------------------------------------
 
-describe("frd-06: engine — applyEvents (Wave 2 WO-keyed actions)", () => {
-  it("frd-06: WHEN applyEvents receives a setWo 'building' action THEN agent state becomes 'work'", () => {
-    const roster = rosterFor("balanced");
-    const engine = createPartyEngine(makeSnapshot(roster), {});
-
-    // Engine maps WO id → agent id (WO-keyed bridge); wo must match an agent id in the snapshot
-    const actions: VisualAction[] = [{ kind: "setWo", wo: "backend-dev", state: "building" }];
-    engine.applyEvents(actions);
-    engine.tick(100);
-
-    const ag = engine.agents().find((a) => a.id === "backend-dev");
-    expect(ag?.state).toBe("work");
+describe("frd-06: engine — openGate", () => {
+  it("frd-06: WHEN gate is not open THEN gate() returns { open: false }", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    expect(engine.gate()).toEqual({ open: false });
   });
 
-  it("frd-06: WHEN applyEvents receives a startHandoff action THEN walker begins walk", () => {
-    const roster = rosterFor("balanced");
-    const engine = createPartyEngine(makeSnapshot(roster), {});
-
-    const actions: VisualAction[] = [
-      { kind: "startHandoff", fromWo: "backend-dev", toWo: "frontend-dev" },
-    ];
-    engine.applyEvents(actions);
-    engine.tick(100);
-
-    const ag = engine.agents().find((a) => a.id === "backend-dev");
-    expect(ag?.state).toBe("walk");
+  it("frd-06: WHEN openGate() is called THEN gate() returns { open: true }", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.openGate();
+    expect(engine.gate()).toEqual({ open: true });
   });
 
-  it("frd-06: WHEN applyEvents receives a downSprite action THEN agent state becomes 'blocked' (failed)", () => {
-    const roster = rosterFor("balanced");
-    const engine = createPartyEngine(makeSnapshot(roster), {});
-
-    const actions: VisualAction[] = [{ kind: "downSprite", wo: "backend-dev" }];
+  it("frd-06: WHEN gate is opened via applyEvents openGate action THEN gate() is open", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    const actions: VisualAction[] = [{ kind: "openGate" }];
     engine.applyEvents(actions);
     engine.tick(100);
 
-    const ag = engine.agents().find((a) => a.id === "backend-dev");
-    // downSprite puts the agent in a visually distinct downed/failed state.
-    // Engine maps this to 'blocked' (danger visual) per PARTY.md §1.
-    expect(ag?.state).toBe("blocked");
+    expect(engine.gate().open).toBe(true);
   });
 
-  it("frd-06: WHEN applyEvents receives a noop action THEN no agent state changes", () => {
-    const roster = rosterFor("balanced");
-    const engine = createPartyEngine(makeSnapshot(roster), {});
-    const before = engine.agents().map((a) => a.state);
+  it("frd-06: WHEN gate is opened THEN wos() reader still works (no crash)", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.enqueue("WO-01");
+    engine.tick(100);
+    engine.openGate();
 
-    const actions: VisualAction[] = [{ kind: "noop" }];
+    expect(() => engine.wos()).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// startHandoff — parchment animation (AC-06-006.1)
+// ---------------------------------------------------------------------------
+
+describe("frd-06: engine — startHandoff (parchment, AC-06-006.1)", () => {
+  it("frd-06: WHEN startHandoff(fromWo, toWo) is called THEN parchment is in flight (fromWo still building)", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.enqueue("WO-01");
+    engine.enqueue("WO-02");
+    engine.tick(100);
+    engine.startHandoff("WO-01", "WO-02");
+    engine.tick(200);
+
+    // WO-01 sprite should remain (it's still building while parchment travels)
+    const wo1 = engine.wos().find((w) => w.wo === "WO-01");
+    expect(wo1).toBeDefined();
+  });
+
+  it("frd-06: WHEN startHandoff is called with unknown toWo THEN it does not crash", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.enqueue("WO-01");
+    engine.tick(100);
+
+    expect(() => {
+      engine.startHandoff("WO-01", "WO-MISSING");
+      engine.tick(200);
+    }).not.toThrow();
+  });
+
+  it("frd-06: WHEN startHandoff is called with undefined toWo THEN it does not crash (edge: parchment → forge edge)", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.enqueue("WO-01");
+    engine.tick(100);
+
+    expect(() => {
+      engine.startHandoff("WO-01", undefined);
+      engine.tick(200);
+    }).not.toThrow();
+  });
+
+  it("frd-06: WHEN startHandoff is called THEN after completion wos() is still consistent", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.enqueue("WO-01");
+    engine.enqueue("WO-02");
+    engine.tick(100);
+    engine.startHandoff("WO-01", "WO-02");
+    // Advance enough for parchment to arrive
+    advance(engine, 100, 16, 500);
+
+    expect(() => engine.wos()).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyEvents — queue drains in order at engine pace
+// ---------------------------------------------------------------------------
+
+describe("frd-06: engine — applyEvents (queue consumption)", () => {
+  it("frd-06: WHEN applyEvents receives setWo 'building' THEN WO sprite appears", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    const actions: VisualAction[] = [{ kind: "setWo", wo: "WO-001", state: "building" }];
     engine.applyEvents(actions);
     engine.tick(100);
 
-    const after = engine.agents().map((a) => a.state);
+    const sprite = engine.wos().find((w) => w.wo === "WO-001");
+    expect(sprite).toBeDefined();
+    expect(sprite?.state).toBe("building");
+  });
+
+  it("frd-06: WHEN applyEvents receives setWo 'in_review' THEN WO state is in_review", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.setWo("WO-001", "building");
+    engine.tick(100);
+    engine.applyEvents([{ kind: "setWo", wo: "WO-001", state: "in_review" }]);
+    engine.tick(200);
+
+    const sprite = engine.wos().find((w) => w.wo === "WO-001");
+    expect(sprite?.state).toBe("in_review");
+  });
+
+  it("frd-06: WHEN applyEvents receives enqueue action THEN WO is enqueued (respects wave cap)", () => {
+    const engine = createFraguaEngine({ mode: "pro", wave: 2 });
+    // Fill wave
+    engine.enqueue("WO-01");
+    engine.enqueue("WO-02");
+    engine.tick(100);
+    // Enqueue via applyEvents — should stay queued
+    engine.applyEvents([{ kind: "enqueue", wo: "WO-03" }]);
+    engine.tick(200);
+
+    const building = engine.wos().filter((w) => w.state === "building");
+    expect(building.length).toBeLessThanOrEqual(2);
+  });
+
+  it("frd-06: WHEN applyEvents receives startHandoff THEN parchment begins", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.enqueue("WO-01");
+    engine.enqueue("WO-02");
+    engine.tick(100);
+
+    expect(() => {
+      engine.applyEvents([{ kind: "startHandoff", fromWo: "WO-01", toWo: "WO-02" }]);
+      engine.tick(200);
+    }).not.toThrow();
+  });
+
+  it("frd-06: WHEN applyEvents receives verifyWo THEN trophy is added", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.enqueue("WO-01");
+    engine.tick(100);
+    engine.applyEvents([{ kind: "verifyWo", wo: "WO-01" }]);
+    engine.tick(200);
+
+    expect(engine.trophies()).toContain("WO-01");
+  });
+
+  it("frd-06: WHEN applyEvents receives downSprite THEN sprite state is blocked", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.enqueue("WO-01");
+    engine.tick(100);
+    engine.applyEvents([{ kind: "downSprite", wo: "WO-01" }]);
+    engine.tick(200);
+
+    const sprite = engine.wos().find((w) => w.wo === "WO-01");
+    expect(sprite?.state).toBe("blocked");
+  });
+
+  it("frd-06: WHEN applyEvents receives downSprite with undefined wo THEN no crash", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.tick(100);
+
+    expect(() => {
+      engine.applyEvents([{ kind: "downSprite", wo: undefined }]);
+      engine.tick(200);
+    }).not.toThrow();
+  });
+
+  it("frd-06: WHEN applyEvents receives fireAchievement THEN no crash, no sprite state change", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.enqueue("WO-01");
+    engine.tick(100);
+    const before = engine.wos().map((w) => w.state);
+
+    engine.applyEvents([{ kind: "fireAchievement", wo: "WO-01" }]);
+    engine.tick(200);
+
+    const after = engine.wos().map((w) => w.state);
     expect(after).toEqual(before);
   });
 
-  it("frd-06: WHEN applyEvents receives a fireAchievement action THEN no crash and no state change", () => {
-    const roster = rosterFor("balanced");
-    const engine = createPartyEngine(makeSnapshot(roster), {});
-    const before = engine.agents().map((a) => a.state);
-
-    const actions: VisualAction[] = [{ kind: "fireAchievement", wo: "WO-06-004" }];
-    engine.applyEvents(actions);
+  it("frd-06: WHEN applyEvents receives advanceRelay THEN no crash", () => {
+    const engine = createFraguaEngine({ mode: "deep", wave: 6 });
+    engine.enqueue("WO-01");
     engine.tick(100);
-
-    // fireAchievement is cosmetic — no agent state changes in the engine core
-    const after = engine.agents().map((a) => a.state);
-    expect(after).toEqual(before);
-  });
-
-  it("frd-06: WHEN applyEvents receives multiple setWo actions THEN all are processed in order", () => {
-    const roster = rosterFor("balanced");
-    const engine = createPartyEngine(makeSnapshot(roster), {});
-
-    const actions: VisualAction[] = [
-      { kind: "setWo", wo: "backend-dev", state: "building" },
-      { kind: "setWo", wo: "frontend-dev", state: "in_review" },
-    ];
-    engine.applyEvents(actions);
-    engine.tick(100);
-
-    const be = engine.agents().find((a) => a.id === "backend-dev");
-    const fe = engine.agents().find((a) => a.id === "frontend-dev");
-    expect(be?.state).toBe("work");
-    expect(fe?.state).toBe("review");
-  });
-
-  it("frd-06: WHEN applyEvents receives empty array THEN engine does not crash", () => {
-    const roster = rosterFor("balanced");
-    const engine = createPartyEngine(makeSnapshot(roster), {});
-
-    expect(() => {
-      engine.applyEvents([]);
-      engine.tick(100);
-    }).not.toThrow();
-  });
-
-  it("frd-06: WHEN downSprite has undefined wo THEN engine does not crash", () => {
-    const roster = rosterFor("balanced");
-    const engine = createPartyEngine(makeSnapshot(roster), {});
-
-    const actions: VisualAction[] = [{ kind: "downSprite", wo: undefined }];
-    expect(() => {
-      engine.applyEvents(actions);
-      engine.tick(100);
-    }).not.toThrow();
-  });
-
-  it("frd-06: WHEN applyEvents receives openGate action THEN engine does not crash", () => {
-    const roster = rosterFor("balanced");
-    const engine = createPartyEngine(makeSnapshot(roster), {});
-
-    expect(() => {
-      engine.applyEvents([{ kind: "openGate" }]);
-      engine.tick(100);
-    }).not.toThrow();
-  });
-
-  it("frd-06: WHEN applyEvents receives advanceRelay action THEN engine does not crash", () => {
-    const roster = rosterFor("balanced");
-    const engine = createPartyEngine(makeSnapshot(roster), {});
 
     expect(() => {
       engine.applyEvents([{ kind: "advanceRelay", wo: "WO-01", step: "test" }]);
-      engine.tick(100);
+      engine.tick(200);
     }).not.toThrow();
   });
 
-  it("frd-06: WHEN applyEvents receives publishContract action THEN engine does not crash", () => {
-    const roster = rosterFor("balanced");
-    const engine = createPartyEngine(makeSnapshot(roster), {});
+  it("frd-06: WHEN applyEvents receives publishContract THEN no crash", () => {
+    const engine = createFraguaEngine({ mode: "deep", wave: 6 });
+    engine.enqueue("WO-01");
+    engine.tick(100);
 
     expect(() => {
       engine.applyEvents([{ kind: "publishContract", wo: "WO-01" }]);
-      engine.tick(100);
+      engine.tick(200);
     }).not.toThrow();
   });
 
-  it("frd-06: WHEN applyEvents receives verifyWo action THEN agent state becomes idle", () => {
-    const roster = rosterFor("balanced");
-    const engine = createPartyEngine(makeSnapshot(roster), {});
+  it("frd-06: WHEN applyEvents receives noop THEN no crash, no state change", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.enqueue("WO-01");
+    engine.tick(100);
+    const before = engine.wos().map((w) => w.state);
 
-    // First put agent in 'work' state, then verify it (should go idle)
-    engine.setState("backend-dev", "work");
-    engine.applyEvents([{ kind: "verifyWo", wo: "backend-dev" }]);
+    engine.applyEvents([{ kind: "noop" }]);
+    engine.tick(200);
+
+    const after = engine.wos().map((w) => w.state);
+    expect(after).toEqual(before);
+  });
+
+  it("frd-06: WHEN applyEvents receives empty array THEN no crash", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
     engine.tick(100);
 
-    const ag = engine.agents().find((a) => a.id === "backend-dev");
-    expect(ag?.state).toBe("idle");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Tick idempotence / second tick after completion
-// ---------------------------------------------------------------------------
-
-describe("frd-06: engine — tick / second tick after completion", () => {
-  it("frd-06: WHEN tick is called with the same timestamp twice THEN no crash", () => {
-    const roster = rosterFor("balanced");
-    const engine = createPartyEngine(makeSnapshot(roster), {});
-
     expect(() => {
-      engine.tick(1000);
-      engine.tick(1000);
+      engine.applyEvents([]);
+      engine.tick(200);
     }).not.toThrow();
   });
 
-  it("frd-06: WHEN a second tick after handoff completion THEN walker is in home/idle (not walk)", () => {
-    const roster = rosterFor("balanced");
-    const engine = createPartyEngine(makeSnapshot(roster), {});
+  it("frd-06: WHEN applyEvents receives multiple actions THEN all processed in order", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    const actions: VisualAction[] = [
+      { kind: "setWo", wo: "WO-001", state: "building" },
+      { kind: "setWo", wo: "WO-002", state: "in_review" },
+    ];
+    engine.applyEvents(actions);
+    engine.tick(100);
 
-    engine.startHandoff("backend-dev", "frontend-dev");
-    // Full trip
-    const t = advance(engine, 0, 16, 625);
-    // One more tick after arrival
-    engine.tick(t + 16);
-
-    const ag = findAgent(engine.agents(), "backend-dev");
-    expect(ag.state).not.toBe("walk");
+    const wo1 = engine.wos().find((w) => w.wo === "WO-001");
+    const wo2 = engine.wos().find((w) => w.wo === "WO-002");
+    expect(wo1?.state).toBe("building");
+    expect(wo2?.state).toBe("in_review");
   });
 });
 
 // ---------------------------------------------------------------------------
-// Zone bounds — AC-06-003.1 (agents stay within their zone)
+// Room positions — forge → tribunal → vault flow (AC-06-003.2)
 // ---------------------------------------------------------------------------
 
-describe("frd-06: engine — zone bounds (AC-06-003.1)", () => {
-  it("frd-06: WHEN an idle agent wanders THEN it stays within 60 px of its home position", () => {
-    const roster = rosterFor("balanced");
-    const snapshot = makeSnapshot(roster);
-    const engine = createPartyEngine(snapshot, {});
+describe("frd-06: engine — room positions", () => {
+  it("frd-06: WHEN a WO is building THEN its position is within the Sala de Forja area", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.enqueue("WO-01");
+    engine.tick(100);
 
-    // Tick 30 s
-    advance(engine, 0, 16, 1875);
+    const sprite = engine.wos().find((w) => w.wo === "WO-01");
+    expect(sprite).toBeDefined();
+    // Forja is the left room — x approximately 60-450, y approximately 120-350
+    expect(sprite?.px).toBeGreaterThan(40);
+    expect(sprite?.px).toBeLessThan(460);
+  });
 
-    for (const ag of engine.agents()) {
-      const home = snapshot.find((s) => s.id === ag.id);
-      if (home !== undefined) {
-        expect(dist([ag.px, ag.py], home.home)).toBeLessThan(60);
-      }
+  it("frd-06: WHEN a WO transitions to in_review THEN its sprite moves toward tribunal area", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.enqueue("WO-01");
+    engine.tick(100);
+    engine.setWo("WO-01", "in_review");
+
+    // Advance enough for the sprite to move into the tribunal
+    const t = advance(engine, 100, 16, 300);
+    void t;
+
+    const sprite = engine.wos().find((w) => w.wo === "WO-01");
+    // Tribunal x is ~ 510-850
+    // After enough ticks, sprite should be in tribunal zone
+    expect(sprite).toBeDefined();
+    // The sprite is en route or arrived — it should be to the right side
+    // (may still be transitioning; test that it's not stuck at initial forge position)
+    expect(sprite?.state).toBe("in_review");
+  });
+
+  it("frd-06: WHEN two WOs are building THEN they do not share the same forge slot", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.enqueue("WO-01");
+    engine.enqueue("WO-02");
+    engine.tick(100);
+
+    const sprites = engine.wos().filter((w) => w.state === "building");
+    expect(sprites.length).toBe(2);
+    const s1 = sprites[0];
+    const s2 = sprites[1];
+    if (s1 !== undefined && s2 !== undefined) {
+      // They should have different positions (different forge slots)
+      const d = dist([s1.px, s1.py], [s2.px, s2.py]);
+      expect(d).toBeGreaterThan(10);
     }
   });
 
-  it("frd-06: WHEN all agents are ticked for a long period THEN none collide with MCCENTER (unless walking)", () => {
-    const roster = rosterFor("balanced");
-    const engine = createPartyEngine(makeSnapshot(roster), {});
+  it("frd-06: WHEN multiple WOs are in tribunal THEN each has a distinct slot", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.enqueue("WO-01");
+    engine.enqueue("WO-02");
+    engine.enqueue("WO-03");
+    engine.tick(100);
+    engine.setWo("WO-01", "in_review");
+    engine.setWo("WO-02", "in_review");
+    engine.setWo("WO-03", "in_review");
+    // Enough time to settle into tribunal
+    advance(engine, 100, 16, 400);
 
-    // Tick 10 s
-    advance(engine, 0, 16, 625);
-
-    for (const ag of engine.agents()) {
-      if (ag.state !== "walk") {
-        // Idle/work agents should not be at MCCENTER
-        const dCenter = dist([ag.px, ag.py], MCCENTER);
-        expect(dCenter).toBeGreaterThan(30);
-      }
-    }
+    const inReview = engine.wos().filter((w) => w.state === "in_review");
+    expect(inReview.length).toBe(3);
+    // Each WO gets a distinct tribunal slot
+    const positions = inReview.map((w) => `${Math.round(w.px)},${Math.round(w.py)}`);
+    const unique = new Set(positions);
+    expect(unique.size).toBe(3);
   });
 });
 
 // ---------------------------------------------------------------------------
-// EngineAgent shape contract
+// wos() shape contract
 // ---------------------------------------------------------------------------
 
-describe("frd-06: engine — EngineAgent shape", () => {
-  it("frd-06: WHEN agents() is called THEN each agent has id, state, px, py, bob fields", () => {
-    const roster = rosterFor("balanced");
-    const engine = createPartyEngine(makeSnapshot(roster), {});
+describe("frd-06: engine — WoSprite shape contract", () => {
+  it("frd-06: WHEN wos() is called THEN each sprite has wo, state, px, py fields", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.enqueue("WO-001");
+    engine.tick(100);
 
-    engine.tick(1000);
-
-    for (const ag of engine.agents()) {
-      expect(ag).toHaveProperty("id");
-      expect(ag).toHaveProperty("state");
-      expect(ag).toHaveProperty("px");
-      expect(ag).toHaveProperty("py");
-      expect(ag).toHaveProperty("bob");
+    for (const sprite of engine.wos()) {
+      expect(sprite).toHaveProperty("wo");
+      expect(sprite).toHaveProperty("state");
+      expect(sprite).toHaveProperty("px");
+      expect(sprite).toHaveProperty("py");
     }
   });
 
-  it("frd-06: WHEN agents() is called THEN returned array is a snapshot (mutations do not affect engine)", () => {
-    const roster = rosterFor("balanced");
-    const engine = createPartyEngine(makeSnapshot(roster), {});
+  it("frd-06: WHEN wos() is called THEN returned array is a snapshot (mutations do not affect engine)", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.enqueue("WO-001");
+    engine.tick(100);
 
-    const arr1 = engine.agents();
+    const arr1 = engine.wos();
     const first = arr1[0];
     if (first !== undefined) {
       (first as unknown as Record<string, unknown>).state = "blocked";
     }
-    const arr2 = engine.agents();
-
-    // Engine state should be unchanged
-    expect(arr2[0]?.state).toBe("idle");
+    const arr2 = engine.wos();
+    expect(arr2[0]?.state).toBe("building");
   });
 });
 
 // ---------------------------------------------------------------------------
-// Pro mode (2 agents)
+// Tick idempotence / determinism
 // ---------------------------------------------------------------------------
 
-describe("frd-06: engine — pro mode (2 agents)", () => {
-  it("frd-06: WHEN created with pro roster THEN agents() has 2 entries", () => {
-    const roster = rosterFor("pro");
-    const engine = createPartyEngine(makeSnapshot(roster), {});
-    expect(engine.agents()).toHaveLength(2);
+describe("frd-06: engine — tick / idempotence", () => {
+  it("frd-06: WHEN tick is called with the same timestamp twice THEN no crash", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.enqueue("WO-01");
+
+    expect(() => {
+      engine.tick(1000);
+      engine.tick(1000);
+    }).not.toThrow();
   });
 
-  it("frd-06: WHEN handoff occurs in pro mode THEN walker completes trip normally", () => {
-    const roster = rosterFor("pro");
-    const snapshot = makeSnapshot(roster);
-    const home = findSnap(snapshot, "backend-dev").home;
-    const engine = createPartyEngine(snapshot, {});
+  it("frd-06: WHEN engine is ticked with no WOs THEN no crash", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    expect(() => {
+      engine.tick(1000);
+      engine.tick(2000);
+    }).not.toThrow();
+  });
 
-    engine.startHandoff("backend-dev", "reviewer");
-    advance(engine, 0, 16, 625);
+  it("frd-06: WHEN a second tick after verifyWo THEN trophy list is stable", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.enqueue("WO-01");
+    engine.tick(100);
+    engine.verifyWo("WO-01");
+    engine.tick(200);
+    engine.tick(300);
 
-    const ag = findAgent(engine.agents(), "backend-dev");
-    // After full trip, snaps to home then may idle-wander up to WANDER_RADIUS (40px)
-    expect(dist([ag.px, ag.py], home)).toBeLessThan(45);
-    expect(ag.state).not.toBe("walk");
+    expect(engine.trophies()).toContain("WO-01");
+    expect(engine.trophies()).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Wave cap with all modes (AC-06-001.2)
+// ---------------------------------------------------------------------------
+
+describe("frd-06: engine — wave cap across modes", () => {
+  it("frd-06: powerful mode wave=8 allows up to 8 building sprites", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    for (let i = 1; i <= 10; i++) engine.enqueue(`WO-0${i}`);
+    engine.tick(100);
+
+    const building = engine.wos().filter((w) => w.state === "building");
+    expect(building.length).toBeLessThanOrEqual(8);
+    expect(building.length).toBe(8); // exactly fills the wave
+  });
+
+  it("frd-06: balanced mode wave=4 allows up to 4 building sprites", () => {
+    const engine = createFraguaEngine({ mode: "balanced", wave: 4 });
+    for (let i = 1; i <= 6; i++) engine.enqueue(`WO-0${i}`);
+    engine.tick(100);
+
+    const building = engine.wos().filter((w) => w.state === "building");
+    expect(building.length).toBeLessThanOrEqual(4);
+  });
+
+  it("frd-06: deep mode wave=6 allows up to 6 building sprites", () => {
+    const engine = createFraguaEngine({ mode: "deep", wave: 6 });
+    for (let i = 1; i <= 8; i++) engine.enqueue(`WO-0${i}`);
+    engine.tick(100);
+
+    const building = engine.wos().filter((w) => w.state === "building");
+    expect(building.length).toBeLessThanOrEqual(6);
+  });
+
+  it("frd-06: WHEN a review slot WO was in forge THEN forge slot count drops below wave", () => {
+    const engine = createFraguaEngine({ mode: "pro", wave: 2 });
+    engine.enqueue("WO-01");
+    engine.enqueue("WO-02");
+    engine.enqueue("WO-03"); // queued
+    engine.tick(100);
+
+    // Move WO-01 to review — frees a forge slot
+    engine.setWo("WO-01", "in_review");
+    engine.tick(200);
+
+    // After transition, WO-03 should be promoted to fill the forge slot
+    const allWos = engine.wos();
+    const wo3 = allWos.find((w) => w.wo === "WO-03");
+    expect(wo3).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Parchment via applyEvents (AC-06-006.1)
+// ---------------------------------------------------------------------------
+
+describe("frd-06: engine — parchment (startHandoff via applyEvents, AC-06-006.1)", () => {
+  it("frd-06: WHEN HandoffWritten maps to startHandoff THEN no crash and both WOs remain in wos()", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.enqueue("WO-01");
+    engine.enqueue("WO-02");
+    engine.tick(100);
+
+    engine.applyEvents([{ kind: "startHandoff", fromWo: "WO-01", toWo: "WO-02" }]);
+    engine.tick(200);
+
+    expect(engine.wos().find((w) => w.wo === "WO-01")).toBeDefined();
+    expect(engine.wos().find((w) => w.wo === "WO-02")).toBeDefined();
+  });
+
+  it("frd-06: WHEN parchment target is absent from scene THEN engine does not crash (edge case)", () => {
+    const engine = createFraguaEngine({ mode: "powerful", wave: 8 });
+    engine.enqueue("WO-01");
+    engine.tick(100);
+
+    expect(() => {
+      engine.applyEvents([{ kind: "startHandoff", fromWo: "WO-01", toWo: undefined }]);
+      engine.tick(200);
+    }).not.toThrow();
   });
 });

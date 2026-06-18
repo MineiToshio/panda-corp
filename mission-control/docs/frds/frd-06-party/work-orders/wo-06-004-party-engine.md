@@ -5,7 +5,7 @@ slug: party-engine
 title: WO-06-004 — La Fragua engine (RAF loop, wave cap, rooms, parchment, gate)
 status: DRAFT
 parent: FRD-06
-implementation_status: PLANNED
+implementation_status: IN_PROGRESS
 source_requirements: []
 last_updated: '2026-06-18'
 ---
