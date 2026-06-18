@@ -5,7 +5,7 @@ slug: card-detail
 title: WO-02-007 — Card detail (3-tab restructure) + docs navigator + next-step
 status: DRAFT
 parent: FRD-02
-implementation_status: PLANNED
+implementation_status: IN_PROGRESS
 source_requirements: [REQ-02-004, REQ-02-008, REQ-02-009]
 last_updated: '2026-06-18'
 ---
