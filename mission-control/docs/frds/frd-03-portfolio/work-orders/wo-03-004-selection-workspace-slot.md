@@ -5,7 +5,7 @@ slug: selection-workspace-slot
 title: WO-03-004 — Selection + default + workspace slot
 status: DRAFT
 parent: FRD-03
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-18'
 ---
@@ -220,3 +220,37 @@ on the live rail has NO ancestor `<a>`. RED today; must be GREEN after the fix.
 
 **Status: REOPENED → PLANNED.** WO-03-001/002/003/005 stay IN_REVIEW (their standalone components
 are correct; only WO-03-004's rail composition nests a button inside an anchor).
+
+## Status Note — nested-interactive repair (2026-06-18, baseline-repair)
+
+**Built:** Un-nested the recovery `CopyButton` from the row's navigation `<Link>` in
+`src/app/portfolio/SelectableProjectRail.tsx`, turning the reviewer's RED anchor
+(`src/app/portfolio/_tests/frd-03-nested-interactive.reviewer.test.tsx`) GREEN — no test weakened.
+
+**Root cause:** the previous composition wrapped the WHOLE `<article>` row (including `RecoveryHint`,
+which renders a `CopyButton` / `<button>`) in `<Link>` (an `<a>`). A `<button>` inside an `<a>` is
+invalid interactive-content nesting (HTML spec / WCAG 4.1.2) and the copy click also fired the row's
+navigation.
+
+**Fix (option 1 from the reviewer note):** the `<article>` is now the ROW CONTAINER (owns the
+block-level chrome, `data-testid="selectable-project-row"`, `data-selected`,
+`aria-label="Proyecto: <name>"`). The `<Link href="?project=<name>">` wraps ONLY the navigational
+header (name + stage chip + running indicator). `StatusChips`, `BusinessSnapshot` and `RecoveryHint`
+are now SIBLINGS of the link inside the `<article>`, so the `CopyButton` is never a descendant of the
+`<a>`. The link gets a small negative margin so its hit-target still spans the row's horizontal
+padding. `aria-current="page"` stays on the selected row's link.
+
+**Interfaces/contracts exposed:** unchanged — `SelectableProjectRail({ items, selectedSlug })`. Same
+`data-testid` surface (`selectable-project-row`, `selectable-row-stage`, `selectable-row-indicator`,
+`business-snapshot*`, `recovery-hint*`, `copy-button`). The only behavioral change is DOM nesting.
+
+**Test files covering it:**
+- `src/app/portfolio/_tests/frd-03-nested-interactive.reviewer.test.tsx` — reviewer RED anchor, now GREEN.
+- `src/app/portfolio/_tests/frd-03-integration.reviewer.test.tsx` — snapshot/badge/recovery still reach
+  the rail (3/3 GREEN, no regression).
+- `src/app/portfolio/_tests/frd-03-integration.gate.reviewer.test.tsx` — edge-case anchors still GREEN.
+- `src/app/portfolio/_tests/wo-03-004.test.tsx` — rail/link/data-selected structure still GREEN.
+
+**Gate:** full `.pandacorp/verify.sh` GREEN (221 test files, 5625 pass; biome + tsc clean). Also green
+scoped `--since dbcf75d`. Returned to IN_REVIEW for the FRD-03 gate's re-verification (never VERIFIED
+by the implementer — DR-015/DR-050).

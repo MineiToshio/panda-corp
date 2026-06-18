@@ -43,6 +43,10 @@ const LINK_STYLE: React.CSSProperties = {
   textDecoration: "none",
   color: "inherit",
   borderRadius: "var(--radius, 0.5rem)",
+  // Negative margin so the link's hit-target spans the row's horizontal padding
+  // while the row container owns the block-level chrome (border, shadow).
+  margin: "calc(var(--space-base, 1rem) * -0.25) calc(var(--space-base, 1rem) * -0.375)",
+  padding: "calc(var(--space-base, 1rem) * 0.25) calc(var(--space-base, 1rem) * 0.375)",
 };
 
 const ROW_STYLE: React.CSSProperties = {
@@ -181,18 +185,23 @@ export function SelectableProjectRail({
         const rethinkPending = statusFields.rethinkPending === true ? true : undefined;
 
         return (
-          <Link
+          // The <article> is the ROW CONTAINER (block-level chrome). The navigation
+          // <Link> wraps ONLY the row's chrome (name + stage + indicator); the
+          // recovery hint — which renders a <button> (CopyButton) — is a SIBLING of
+          // the link, never a descendant, so no <button> is nested inside an <a>
+          // (invalid interactive-content nesting; HTML spec / WCAG 4.1.2). WO-03-004.
+          <article
             key={item.name}
-            href={`?project=${encodeURIComponent(item.name)}`}
-            style={LINK_STYLE}
-            aria-label={`Seleccionar proyecto: ${item.name}`}
-            aria-current={isSelected ? "page" : undefined}
+            data-testid="selectable-project-row"
+            data-selected={String(isSelected)}
+            style={rowStyle}
+            aria-label={`Proyecto: ${item.name}`}
           >
-            <article
-              data-testid="selectable-project-row"
-              data-selected={String(isSelected)}
-              style={rowStyle}
-              aria-label={`Proyecto: ${item.name}`}
+            <Link
+              href={`?project=${encodeURIComponent(item.name)}`}
+              style={LINK_STYLE}
+              aria-label={`Seleccionar proyecto: ${item.name}`}
+              aria-current={isSelected ? "page" : undefined}
             >
               <div style={ROW_HEADER_STYLE}>
                 {/* Project name */}
@@ -221,29 +230,31 @@ export function SelectableProjectRail({
                   </span>
                 )}
               </div>
+            </Link>
 
-              {/* Status chips: decisions / bugs / rethink (CMP-14-status-chips, WO-14-003) */}
-              <StatusChips
-                pendingDecisions={pendingDecisions}
-                pendingBugs={pendingBugs}
-                rethinkPending={rethinkPending}
+            {/* Status chips: decisions / bugs / rethink (CMP-14-status-chips, WO-14-003).
+                Sibling of the link — chips are non-navigational metadata. */}
+            <StatusChips
+              pendingDecisions={pendingDecisions}
+              pendingBugs={pendingBugs}
+              rethinkPending={rethinkPending}
+            />
+
+            {/* Business snapshot for shipped/operation rows (CMP-03-snapshot, AC-03-003.1).
+                Renders nothing when no snapshot fields are present. */}
+            {item.snapshot !== undefined && (
+              <BusinessSnapshot
+                users={item.snapshot.users}
+                returnMetric={item.snapshot.returnMetric}
+                verdict={item.snapshot.verdict}
               />
+            )}
 
-              {/* Business snapshot for shipped/operation rows (CMP-03-snapshot, AC-03-003.1).
-                  Renders nothing when no snapshot fields are present. */}
-              {item.snapshot !== undefined && (
-                <BusinessSnapshot
-                  users={item.snapshot.users}
-                  returnMetric={item.snapshot.returnMetric}
-                  verdict={item.snapshot.verdict}
-                />
-              )}
-
-              {/* Path-not-found recovery (CMP-03-recovery, AC-03-006.2/.3). Renders nothing
-                  when the path exists; otherwise shows the badge + copyable command. */}
-              <RecoveryHint exists={item.exists} path={item.path} repo={item.repo} />
-            </article>
-          </Link>
+            {/* Path-not-found recovery (CMP-03-recovery, AC-03-006.2/.3). Renders nothing
+                when the path exists; otherwise shows the badge + copyable command.
+                Sibling of the link so its CopyButton (<button>) is NOT nested in the <a>. */}
+            <RecoveryHint exists={item.exists} path={item.path} repo={item.repo} />
+          </article>
         );
       })}
     </nav>
