@@ -5,7 +5,7 @@ slug: events-enriched-fields
 title: WO-06-012 — lib/events.ts consumes the enriched event fields (frd/phase/activity/mode + hand-off/contract)
 status: DRAFT
 parent: FRD-06
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-18'
 ---
@@ -43,4 +43,42 @@ last_updated: '2026-06-18'
 - Pure parse, no DOM. `pnpm vitest run` green, `tsc --noEmit` clean, biome clean.
 
 ## Status Note
-_(To be written by the implementer on build. This WO is newly PLANNED for the La Fragua redesign.)_
+
+**Built:** `lib/events.ts` extended with 5 optional enriched fields on the `Event` type, plus 3 exported enum types. A `applyEnrichedFields()` helper was extracted from `parseLine()` to stay within biome's cognitive-complexity budget. `parseLines()`, `deriveLastEventAt()` and `deriveByProject()` were extracted from `readEvents()` for the same reason (refactor also reduces complexity for readability).
+
+**Interfaces / contracts exposed:**
+
+```ts
+// New exported types (src/lib/events/events.ts)
+export type EventPhase = "build" | "review";
+export type EventActivity = "test" | "backend" | "frontend" | "selftest" | "implement";
+export type EventMode = "pro" | "balanced" | "powerful" | "deep";
+
+// Extended Event type — all new fields are optional (backward compatible)
+export type Event = {
+  // ... existing fields unchanged ...
+  frd?: string;          // FRD id (any string)
+  phase?: EventPhase;    // build | review — fenced to valid enum
+  activity?: EventActivity; // test | backend | frontend | selftest | implement — fenced
+  mode?: EventMode;      // pro | balanced | powerful | deep — fenced
+  role?: string;         // open-ended build role identifier
+};
+```
+
+**Backward compatibility:** every enriched field is optional. Legacy events missing them produce `undefined` on those fields (AC-06-008.2). Wrong-typed or out-of-enum values are silently dropped without skipping the event. `HandoffWritten` and `ContractPublished` are parsed as regular events (they carry `event`+`at`+`frd`+optional fields — no schema change needed).
+
+**Integration seams:**
+- `IF-06-fragua-snapshot` (consumer): `toFraguaSnapshot(events, opts)` can now read `ev.frd`, `ev.phase`, `ev.activity`, `ev.mode`, `ev.role` directly from the `Event` objects returned by `readEvents()`.
+- `IF-06-state-map` (consumer): `eventToVisual(event)` can branch on `event.activity` to distinguish relay sub-steps (`test`, `backend`, `frontend`) without additional parsing.
+- `IF-06-event-vm` (consumer): `toEventVM(event)` can read `event.frd` and `event.mode` for feed display.
+
+**Test files:**
+- `src/lib/events/_tests/events.wo06012.test.ts` — 49 RED→GREEN tests covering:
+  - AC-06-008.1: all enriched fields (`frd`, `phase`, `activity`, `mode`, `role`) on `AgentWorking`
+  - AC-06-008.2: legacy events without enriched fields parse unchanged
+  - Wrong-typed / invalid-enum enriched fields dropped without throw
+  - `HandoffWritten` and `ContractPublished` event kinds parsed with `frd` field
+  - `SubagentStop` event kind parsed with enriched fields
+  - Regression: cap/`lastEventAt`/`byProject` behavior untouched
+  - Read-only invariant maintained with enriched events
+- Existing tests: `events.test.ts` (50) + `events.adversarial.test.ts` (17) — all still GREEN (116 total)

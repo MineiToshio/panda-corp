@@ -19,11 +19,55 @@ const DEFAULT_CAP = 200;
 const GLOBAL_BUCKET = "__global__";
 
 /**
+ * Engine phase for the build run (FRD-06, REQ-06-008).
+ * Optional — emitted by the plugin when the engine enriches the event.
+ */
+export type EventPhase = "build" | "review";
+
+/**
+ * Activity sub-step within a work order (FRD-06, REQ-06-008).
+ * Used in deep-mode relay (`test-writer → backend-dev → frontend-dev`)
+ * and the non-split `implement` step.
+ */
+export type EventActivity = "test" | "backend" | "frontend" | "selftest" | "implement";
+
+/**
+ * Build mode read from the engine state (FRD-06, REQ-06-008).
+ * Controls the wave size and whether a deep relay is rendered.
+ */
+export type EventMode = "pro" | "balanced" | "powerful" | "deep";
+
+/** Valid phase values — used for enum-guarded parsing. */
+const VALID_PHASES: ReadonlySet<string> = new Set<EventPhase>(["build", "review"]);
+
+/** Valid activity values — used for enum-guarded parsing. */
+const VALID_ACTIVITIES: ReadonlySet<string> = new Set<EventActivity>([
+  "test",
+  "backend",
+  "frontend",
+  "selftest",
+  "implement",
+]);
+
+/** Valid mode values — used for enum-guarded parsing. */
+const VALID_MODES: ReadonlySet<string> = new Set<EventMode>([
+  "pro",
+  "balanced",
+  "powerful",
+  "deep",
+]);
+
+/**
  * Parsed event from the NDJSON stream (architecture §5).
  *
  * Field-name mapping: the NDJSON producer uses `work_order` (snake_case);
  * this type exposes it as `workOrder` (camelCase), per architecture §5 convention.
  * All other field names are passed through unchanged.
+ *
+ * The enriched optional fields (`frd`, `phase`, `activity`, `mode`, `role`) are
+ * added in WO-06-012 for the La Fragua faithful engine view (FRD-06, REQ-06-008).
+ * They are backward-compatible: absent fields → `undefined`; wrong-typed fields
+ * are dropped silently (AC-06-008.2).
  */
 export type Event = {
   event: string;
@@ -35,6 +79,16 @@ export type Event = {
   workOrder?: string;
   task?: string;
   project?: string;
+  /** FRD id of the event (e.g. `"frd-06-party"`). Optional — WO-06-012. */
+  frd?: string;
+  /** Engine phase: `"build"` (implementer running) or `"review"` (gate). Optional — WO-06-012. */
+  phase?: EventPhase;
+  /** Activity sub-step within a work order. Optional — WO-06-012. */
+  activity?: EventActivity;
+  /** Run mode, controls wave size and relay rendering. Optional — WO-06-012. */
+  mode?: EventMode;
+  /** Build role alias (from `AgentWorking.data.role` or top-level). Optional — WO-06-012. */
+  role?: string;
 };
 
 /**
@@ -97,6 +151,39 @@ function resolveCap(cap: number | undefined): number {
 }
 
 /**
+ * Apply the enriched optional fields (WO-06-012, FRD-06 REQ-06-008, AC-06-008.2)
+ * from a raw parsed object onto an in-progress `Event`.
+ *
+ * Each field is only carried through if it has the correct type and (for enums)
+ * a valid enum member. Wrong types and out-of-range values are silently dropped —
+ * they do NOT skip the event; only the individual field is omitted.
+ *
+ * Extracted to keep `parseLine` within the complexity budget.
+ */
+function applyEnrichedFields(obj: Record<string, unknown>, ev: Event): void {
+  // frd — any string (open identifier).
+  if (typeof obj.frd === "string") ev.frd = obj.frd;
+
+  // phase — restricted to EventPhase union ("build" | "review").
+  if (typeof obj.phase === "string" && VALID_PHASES.has(obj.phase)) {
+    ev.phase = obj.phase as EventPhase;
+  }
+
+  // activity — restricted to EventActivity union.
+  if (typeof obj.activity === "string" && VALID_ACTIVITIES.has(obj.activity)) {
+    ev.activity = obj.activity as EventActivity;
+  }
+
+  // mode — restricted to EventMode union ("pro" | "balanced" | "powerful" | "deep").
+  if (typeof obj.mode === "string" && VALID_MODES.has(obj.mode)) {
+    ev.mode = obj.mode as EventMode;
+  }
+
+  // role — any string (open-ended build role identifier).
+  if (typeof obj.role === "string") ev.role = obj.role;
+}
+
+/**
  * Attempt to parse one NDJSON line into an `Event`.
  *
  * Returns `undefined` (skip silently) for:
@@ -151,7 +238,55 @@ function parseLine(line: string): Event | undefined {
   // Field-name mapping: `work_order` (snake_case) → `workOrder` (camelCase).
   if (typeof obj.work_order === "string") ev.workOrder = obj.work_order;
 
+  // Enriched optional fields (WO-06-012): frd, phase, activity, mode, role.
+  applyEnrichedFields(obj, ev);
+
   return ev;
+}
+
+/**
+ * Parse all valid events from an NDJSON string, returning them in file order.
+ * Malformed lines are silently skipped (per-line catch pattern).
+ */
+function parseLines(raw: string): Event[] {
+  const validEvents: Event[] = [];
+  for (const line of raw.split("\n")) {
+    const ev = parseLine(line);
+    if (ev !== undefined) {
+      validEvents.push(ev);
+    }
+  }
+  return validEvents;
+}
+
+/**
+ * Derive `lastEventAt` — the maximum `at` string across retained events.
+ * ISO 8601 strings compare lexicographically, so string comparison is correct.
+ */
+function deriveLastEventAt(events: readonly Event[]): string | null {
+  let last: string | null = null;
+  for (const ev of events) {
+    if (last === null || ev.at > last) {
+      last = ev.at;
+    }
+  }
+  return last;
+}
+
+/**
+ * Derive `byProject` — per-project latest `at`.
+ * Events without a `project` field are bucketed under `__global__`.
+ */
+function deriveByProject(events: readonly Event[]): Record<string, { lastEventAt: string }> {
+  const byProject: Record<string, { lastEventAt: string }> = {};
+  for (const ev of events) {
+    const key = ev.project ?? GLOBAL_BUCKET;
+    const existing = byProject[key];
+    if (existing === undefined || ev.at > existing.lastEventAt) {
+      byProject[key] = { lastEventAt: ev.at };
+    }
+  }
+  return byProject;
 }
 
 /**
@@ -186,42 +321,17 @@ export function readEvents(opts?: { path?: string; cap?: number }): EventsSnapsh
     return { ...EMPTY_SNAPSHOT, byProject: {} };
   }
 
-  // Split into lines, parse each independently (per-line catch pattern).
-  const lines = raw.split("\n");
-  const validEvents: Event[] = [];
-
-  for (const line of lines) {
-    const ev = parseLine(line);
-    if (ev !== undefined) {
-      validEvents.push(ev);
-    }
-  }
+  const validEvents = parseLines(raw);
 
   // Apply tail cap: take the LAST `cap` events.
   const retained =
     cap >= validEvents.length ? validEvents : validEvents.slice(validEvents.length - cap);
 
-  // Derive `lastEventAt` — the maximum `at` string across retained events.
-  // ISO 8601 strings compare lexicographically, so string comparison is correct.
-  let lastEventAt: string | null = null;
-  for (const ev of retained) {
-    if (lastEventAt === null || ev.at > lastEventAt) {
-      lastEventAt = ev.at;
-    }
-  }
-
-  // Derive `byProject` — per-project latest `at`.
-  const byProject: Record<string, { lastEventAt: string }> = {};
-
-  for (const ev of retained) {
-    const key = ev.project ?? GLOBAL_BUCKET;
-    const existing = byProject[key];
-    if (existing === undefined || ev.at > existing.lastEventAt) {
-      byProject[key] = { lastEventAt: ev.at };
-    }
-  }
-
-  return { events: retained, lastEventAt, byProject };
+  return {
+    events: retained,
+    lastEventAt: deriveLastEventAt(retained),
+    byProject: deriveByProject(retained),
+  };
 }
 
 /**
