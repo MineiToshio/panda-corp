@@ -5,7 +5,7 @@ slug: party-engine
 title: WO-06-004 — La Fragua engine (RAF loop, wave cap, rooms, parchment, gate)
 status: DRAFT
 parent: FRD-06
-implementation_status: IN_PROGRESS
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-18'
 ---
@@ -40,7 +40,62 @@ last_updated: '2026-06-18'
 - Tests drive the engine with a fake clock (`tick(t)`): a handoff action moves the agent toward the target and ends both together; idle agents wander but stay within zone bounds; `applyEvents` drains in order at the queue's pace (visual lag is allowed); a second `tick` after completion returns to home/idle.
 - Pure core, no DOM, no real RAF in tests. Gate green.
 
-## Status Note (La Fragua redesign — what the retry must build)
+## Status Note (Wave 2 — La Fragua faithful engine, 2026-06-18)
+
+**Built:** `createFraguaEngine({mode, wave}): FraguaEngine` — the WO-keyed pure-step-math engine (IF-06-engine). No DOM, no real RAF in the core; the RAF binding lives in WO-06-006.
+
+**Files delivered:**
+- `src/app/projects/[slug]/_party/engine/engine.ts` — `createFraguaEngine` + all new types + legacy re-exports
+- `src/app/projects/[slug]/_party/engine/engine.legacy.ts` — `createPartyEngine` moved here (backward compat for PartyScene WO-06-006 until its redesign)
+- `src/app/projects/[slug]/_party/engine/_tests/engine.test.ts` — 53 tests RED→GREEN covering all AC
+
+**Interface/contracts exposed (`IF-06-engine`):**
+
+```ts
+// Options to boot the engine
+type FraguaEngineOpts = { mode: BuildMode; wave: number };
+
+// Observable WO sprite state returned by wos() on every tick
+type WoSprite = { wo: string; state: WoState; px: number; py: number; relay?: {...} };
+
+// Gate state returned by gate()
+type GateState = { open: boolean };
+
+// Factory
+createFraguaEngine(opts: FraguaEngineOpts): FraguaEngine
+
+// FraguaEngine interface
+setWo(wo, state: WoState): void         // immediate state change; creates sprite if new
+enqueue(wo): void                        // wave-capped enqueue; idempotent
+startHandoff(fromWo, toWo): void         // parchment flight from fromWo → toWo station
+verifyWo(wo): void                       // moves WO to trophies(); frees forge slot → promote
+openGate(): void                         // opens the reviewer gate
+applyEvents(diff: VisualAction[]): void  // enqueues actions (decoupled queue)
+tick(now: number): void                  // advance physics (deterministic, no RAF in tests)
+wos(): WoSprite[]                        // snapshot of forge+tribunal sprites
+gate(): GateState                        // current gate state
+trophies(): string[]                     // VERIFIED WO ids (Bóveda)
+```
+
+**Physics / mechanics built:**
+- Wave cap: `enqueue()` promotes WOs into forge slots (≤wave); when a slot frees (move to tribunal or vault), `promoteQueued()` fills it
+- Room flow: `setWo(wo,'in_review')` moves sprite to tribunal slot (forge→tribunal order: change room first, then promoteQueued for accurate forgeCount); `verifyWo(wo)` removes from active → trophies
+- Slot assignment: `occupiedForgeSlots`/`occupiedTribunalSlots` track used slot indices; `nextFreeSlot` finds the next open one
+- Parchment: `spawnParchment(fromWo, toWo)` records a ParchmentFlight; `tickParchments(now)` advances it toward target (or forge edge if toWo absent)
+- Sprite animation: each sprite moves toward its `targetPx/targetPy` at WALK_SPEED=0.12 px/ms each `tick(now)`
+
+**Integration seams:**
+- Import: `import { createFraguaEngine } from "@/app/projects/[slug]/_party/engine/engine"`
+- New types: `FraguaEngine`, `FraguaEngineOpts`, `WoSprite`, `GateState`
+- Legacy types/factory still re-exported: `createPartyEngine`, `AgentSnapshot`, `EngineAgent`, `PartyEngine`, `EngineOpts`, `AgentState`
+- Consumes: `VisualAction`/`WoState` from `./state-map/state-map`, layout constants from `../layout`
+- WO-06-006 (DOM adapter/RAF loop) will call `engine.tick(performance.now())` and read `engine.wos()` + `engine.gate()` + `engine.trophies()` to render rooms
+
+**Gate:** 53/53 engine tests GREEN. 183/184 test files GREEN (1 pre-existing failure in agentColorTokens.integration.reviewer.test.ts, FRD-13 issue — failing before this WO). tsc clean. biome clean (no new errors; 2 complexity warns on legacy file are rule=warn not error).
+
+---
+
+### Pre-redesign status note (the retry requirement — now implemented)
 
 **Why reopened:** the shipped engine (below) is built around `AgentSnapshot`/`EngineAgent` with
 home positions, `WANDER_RADIUS` idle drift, and a `home → MCCENTER → approach(target) → home` handoff
