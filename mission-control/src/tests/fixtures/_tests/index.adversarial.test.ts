@@ -17,7 +17,7 @@ import matter from "gray-matter";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
 import { resolveFactoryRoot } from "@/lib/config/config";
-import { FIXTURE_EVENTS_NDJSON, FIXTURE_FRESH, FIXTURE_FULL, withFactoryRoot } from "./index";
+import { FIXTURE_EVENTS_NDJSON, FIXTURE_FRESH, FIXTURE_FULL, withFactoryRoot } from "../index";
 
 // ---------------------------------------------------------------------------
 // The tolerance fixtures must be REALLY malformed to the actual parsers.

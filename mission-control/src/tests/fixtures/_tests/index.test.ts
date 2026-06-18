@@ -27,7 +27,7 @@ import {
   FIXTURE_FULL,
   FIXTURES_DIR,
   withFactoryRoot,
-} from "./index";
+} from "../index";
 
 // ---------------------------------------------------------------------------
 // AC-01-000.1 — fixture trees exist on disk
