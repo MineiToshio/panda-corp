@@ -195,7 +195,7 @@ describe("frd-01 AC-01-001.1: OnboardingGate.tsx is a Server Component (no 'use 
    */
 
   // process.cwd() in vitest resolves to the project root (mission-control/).
-  const COMPONENT_PATH = path.resolve(process.cwd(), "components", "OnboardingGate.tsx");
+  const COMPONENT_PATH = path.resolve(process.cwd(), "src", "components", "OnboardingGate.tsx");
 
   it("frd-01 AC-01-001.1: OnboardingGate.tsx does NOT contain the 'use client' directive", () => {
     const source = fs.readFileSync(COMPONENT_PATH, "utf-8");
@@ -251,7 +251,7 @@ describe("frd-01 REQ-01-011: app/layout.tsx metadata source identifies Pandacorp
    */
 
   // process.cwd() in vitest resolves to the project root (mission-control/).
-  const LAYOUT_PATH = path.resolve(process.cwd(), "app", "layout.tsx");
+  const LAYOUT_PATH = path.resolve(process.cwd(), "src", "app", "layout.tsx");
 
   it("frd-01: app/layout.tsx source contains 'Mission Control' in the metadata title", () => {
     const source = fs.readFileSync(LAYOUT_PATH, "utf-8");

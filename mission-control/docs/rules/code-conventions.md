@@ -40,7 +40,7 @@ Exception: framework-reserved filenames (e.g. Next.js `page.tsx`, `route.ts`) fo
 - Validate **all external input** (Server Actions, route handlers, public APIs, AI output) with schemas (Zod or equivalent). Centralize the schemas; don't inline them. Derive the TS type from the schema (`z.infer`).
 
 ## Imports
-- Absolute alias `@/*` → the project's source root (`./src/*` or repo root — see `project-structure`). Avoid relative imports deeper than one level (`../../..`).
+- Absolute alias `@/*` → `./src/*` (the mandatory source root — see `project-structure`). Avoid relative imports deeper than one level (`../../..`).
 - Group imports: external libraries → internal modules → relative. Remove unused imports.
 
 ## Handlers

@@ -20,7 +20,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { readManualPages } from "../../lib/manual";
+import { readManualPages } from "@/lib/manual";
 
 // ---------------------------------------------------------------------------
 // Helpers
