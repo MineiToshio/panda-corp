@@ -1,6 +1,6 @@
 # Project structure
 
-Reference structure for the default web stack (Next.js App Router). Other stacks apply the spirit: separated layers, isolated data layer, code by domain, tests grouped in `_tests/` folders (never loose beside implementation files). **Source root is a per-project choice** — `src/` (shown below) or repo-root (`app/`, `components/`, `lib/` at the root, default for new projects); pick one and be consistent, config files always stay at the repo root.
+Reference structure for the default web stack (Next.js App Router). Other stacks apply the spirit: separated layers, isolated data layer, code by domain, tests grouped in `_tests/` folders (never loose beside implementation files). **All application code lives under `src/` (mandatory whenever the stack supports it)** — config/tooling and non-code assets (`public/`, `content/`, `docs/`) stay at the repo root; the `@/*` alias points at `src/`.
 
 ```
 src/

@@ -9,10 +9,11 @@ source: Pandacorp standard — structure
 
 Organize code by **reusability** and **scope**: app-wide vs feature-specific vs single-use. Put each thing in the **smallest scope that fits its current usage**, and promote it only when reuse actually appears. (File/function **size limits** live in `clean-code.md`.)
 
-## Source root (pick one, be consistent)
-- Choose ONE source-root strategy per project and apply it across the whole repo: **root-level** (`app/`, `components/`, `lib/` at the repo root) **or** `src/` (`src/app/`, `src/components/`, …). Both are valid (Next.js is unopinionated); the `@/*` alias points at whichever you chose.
-- **Config files always stay at the repo root** (`package.json`, `next.config.*`, `tsconfig.json`, `.env*`) regardless.
-- Default for new projects: **root-level** (one less layer). The blueprint records the choice.
+## Source root — `src/` is mandatory
+- **All application code lives under `src/`** (`src/app/`, `src/components/`, `src/lib/`, `src/hooks/`, …) whenever the stack supports it (Next.js, Vite, Node/TS, and the equivalent source layout in other languages — e.g. a Python package dir). The `@/*` alias points at `src/` (`@/* → ./src/*`).
+- **Config and tooling stay at the repo root** (`package.json`, `next.config.*`, `tsconfig.json`, `.env*`, CI). **Non-code assets/data stay at the root too** (`public/`, `content/`, `docs/`) — `src/` is for code, not data.
+- **Why mandatory**: a clean separation between real code and configuration, an uncluttered root, and a predictable place every agent looks first. Not a per-project choice.
+- Only skip `src/` when the technology genuinely doesn't allow it (then apply the spirit: one clear source root, separated from config).
 
 ## Components — two layers
 - **`components/core/`** — essential, simple, **highly reusable primitives** (`Button`, `Input`, `Modal`, `Typography`, icons). If it's not a React component, it doesn't belong here.
