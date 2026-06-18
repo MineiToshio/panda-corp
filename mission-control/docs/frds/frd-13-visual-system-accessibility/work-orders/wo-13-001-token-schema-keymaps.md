@@ -5,7 +5,7 @@ slug: token-schema-keymaps
 title: WO-13-001 — Token schema validation + agent-color/state-vocab key maps
 status: ACTIVE
 parent: FRD-13
-implementation_status: IN_PROGRESS
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-18'
 ---
@@ -39,18 +39,48 @@ Align `AGENT_ROLES` + `AGENT_COLOR` to the real engine/pipeline roles (narrow sc
 - Tests: a valid tokens fixture passes; a missing theme / a motion duration ≥300ms / <2 or >3 easings / a missing agent / not-3 elevations → validation fails with an actionable message. `AGENT_COLOR` covers all ~10 roles; `STATE_BADGE` covers all 6 states with non-empty icon+label.
 - Pure. Gate green.
 
-## Status — DONE (2026-06-16)
+## Status Note — IN_REVIEW (2026-06-18 realignment)
 
-**[x] DONE — all gates green (3rd cycle, fixes applied)**
+**What was built:** Realigned `AGENT_ROLES` (13 roles) and `AGENT_COLOR` map in `tokens.ts` to match the real engine/pipeline roles per `prototype/party-redesign-spec.md §2`. Removed fictitious `guild` aggregate; added `implementer`, `copywriter`, `analytics`, `devops`. Updated `Avatar.tsx` `SPRITE_MAP` (exhaustive `Record<AgentRole, string>`) and its test with the new role set.
+
+**Interfaces/contracts exposed:**
+
+```ts
+// src/app/_design/tokens/tokens.ts
+export const AGENT_ROLES = [
+  "researcher", "backend-dev", "frontend-dev", "test-writer",
+  "reviewer", "security-auditor", "architect", "product-manager",
+  "designer", "implementer", "copywriter", "analytics", "devops"
+] as const;
+export type AgentRole = (typeof AGENT_ROLES)[number]; // 13 roles (was 10 with 'guild')
+
+export const AGENT_COLOR: Record<AgentRole, string>;
+// New entries: implementer→"--color-agent-implementer", copywriter→"--color-agent-copywriter",
+//              analytics→"--color-agent-analytics", devops→"--color-agent-devops"
+// Matching @theme CSS vars to be added by WO-13-002.
+```
+
+**Integration seams:**
+- `IF-13-agent-colors`: `AGENT_COLOR` is now the canonical 13-role map. FRD-06 (`agentColor()` in `layout.ts`), FRD-12 DAG, and FRD-09 `Avatar.tsx` all read from it.
+- `Avatar.tsx` `SPRITE_MAP` updated with placeholder sprites for new roles (reusing existing assets until dedicated art is created).
+- `layout.ts` `Role` type (WO-06-002) has its own local union type and is not affected — it's independent of `AgentRole`.
+- WO-13-002 must add `--color-agent-implementer/copywriter/analytics/devops` @theme vars to `globals.css`.
+
+**Test files:**
+- `src/app/_design/tokens/_tests/tokens.test.ts` — 68 tests (all pass)
+- `src/app/_design/tokens/_tests/tokens.adversarial.review.test.ts` — 7 pass + 4 skipped
+- `src/components/core/Avatar/_tests/Avatar.test.tsx` — 31 tests (all pass)
+
+**Gate results (commit d4f5786):**
+- `vitest run src/app/_design/tokens/_tests/` — 68 + 7 passed (0 failed)
+- `vitest run` (full suite) — 4922 passed | 2 expected-fail | 5 skipped
+- `tsc --noEmit` — clean (exit 0)
+- `biome check .` — exit 0 (36 warnings pre-existing, none new)
+- `.pandacorp/verify.sh` — green
+
+## Previous status — DONE (2026-06-16, 3rd cycle)
 
 Commit: `fe21195` — fix(mission-control): close WO-13-001 motion fail-open guards (B1'/I2/I3)
-
-Gate results:
-- `vitest run app/_design/tokens.test.ts` — 68 passed (0 failed)
-- `vitest run` (full suite) — 1105 passed
-- `tsc --noEmit` — clean (exit 0)
-- `biome check .` — exit 0
-- `.pandacorp/verify.sh` — green (exit 0)
 
 Fixes applied:
 - **B1'**: `Number.isFinite(value)` guard added in `motion.duration` loop — NaN/±Infinity no longer bypass the <300ms gate.
