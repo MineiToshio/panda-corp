@@ -5,9 +5,7 @@ slug: hall-page
 title: WO-10-005 — Hall page shell + hero + tabs + stats panel
 status: DRAFT
 parent: FRD-10
-implementation_status: BLOCKED
-blocked_reason: needs-owner
-blocked_note: 'Congelado: rediseño del modelo de roles de la Party pendiente (ver prototype/party-redesign-brief.md)'
+implementation_status: PLANNED
 source_requirements: []
 last_updated: '2026-06-18'
 ---

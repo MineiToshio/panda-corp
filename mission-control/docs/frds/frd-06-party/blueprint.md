@@ -3,7 +3,7 @@ id: FRD-06-blueprint
 type: blueprint
 parent: FRD-06
 status: ACTIVE
-implementation_status: BLOCKED
+implementation_status: PLANNED
 last_updated: '2026-06-18'
 ---
 # FRD-06 — Party · La Fragua (live build view) — feature blueprint
