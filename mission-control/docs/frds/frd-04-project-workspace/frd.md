@@ -3,8 +3,8 @@ id: FRD-04
 type: frd
 title: FRD-04 — Project workspace
 status: ACTIVE
-implementation_status: PLANNED
-last_updated: '2026-06-16'
+implementation_status: VERIFIED
+last_updated: '2026-06-18'
 ---
 # FRD-04 — Project workspace
 

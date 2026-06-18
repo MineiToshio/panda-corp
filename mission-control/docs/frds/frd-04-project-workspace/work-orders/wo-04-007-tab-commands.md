@@ -5,7 +5,7 @@ slug: tab-commands
 title: 'WO-04-007 — Commands tab: stage commands + FRD-11 selector slot'
 status: DRAFT
 parent: FRD-04
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
 last_updated: '2026-06-17'
 ---

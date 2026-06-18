@@ -5,7 +5,7 @@ slug: docs-reader
 title: 'WO-04-001 — `lib/docs.ts`: doc tree + raw read + comms readers'
 status: DRAFT
 parent: FRD-04
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
 last_updated: '2026-06-17'
 ---

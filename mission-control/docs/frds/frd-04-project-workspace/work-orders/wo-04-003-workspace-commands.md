@@ -5,7 +5,7 @@ slug: workspace-commands
 title: 'WO-04-003 — `lib/next-step.ts`: `workspaceCommands(phase)`'
 status: DRAFT
 parent: FRD-04
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
 last_updated: '2026-06-17'
 ---

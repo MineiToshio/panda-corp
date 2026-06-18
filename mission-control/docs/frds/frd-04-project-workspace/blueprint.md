@@ -3,8 +3,8 @@ id: FRD-04-blueprint
 type: blueprint
 parent: FRD-04
 status: ACTIVE
-implementation_status: PLANNED
-last_updated: '2026-06-16'
+implementation_status: VERIFIED
+last_updated: '2026-06-18'
 ---
 # FRD-04 — Project workspace · feature blueprint
 
