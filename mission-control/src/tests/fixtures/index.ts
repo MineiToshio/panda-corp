@@ -52,6 +52,16 @@ export const FIXTURE_TASKS_ACTIVE_DIR: string = path.join(FIXTURES_DIR, "tasks")
 export const FIXTURE_TASKS_ABSENT_DIR: string = path.join(FIXTURES_DIR, "tasks-absent");
 
 /**
+ * NDJSON with enriched AgentWorking events carrying {frd, wo, phase, activity, mode, role}.
+ * Used for toFraguaSnapshot tests (WO-06-005 La Fragua redesign).
+ * Contains 9 valid events (including 2 achievements/VERIFIED), 1 malformed line.
+ */
+export const FIXTURE_EVENTS_ENRICHED_NDJSON: string = path.join(
+  FIXTURE_EVENTS_DIR,
+  "dashboard-events-enriched.ndjson",
+);
+
+/**
  * Sets `PANDACORP_FACTORY_ROOT` to `fixturePath`, runs `fn`, then restores
  * the prior value (or deletes the var if it was not set).
  *

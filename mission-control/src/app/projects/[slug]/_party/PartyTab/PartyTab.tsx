@@ -1,18 +1,28 @@
 /**
- * WO-06-005 — PartyTab (CMP-06-party-tab)
+ * WO-06-005 (La Fragua redesign) — PartyTab (CMP-06-party-tab)
  *
  * Server Component entry of the Party tab.
- * Reads the capped event tail via lib/events (readEvents) and
- * the task state via lib/tasks (readTasksState). An active team
- * requires BOTH events AND an active tasks directory.
+ * Reads the capped event tail via `lib/events` (readEvents) and derives a
+ * `FraguaSnapshot` via `toFraguaSnapshot` (IF-06-fragua-snapshot).
  *
- * Builds a serializable PartySnapshot and passes it to EventFeed.
- * When no active team exists, renders PartyEmptyState.
+ * The snapshot carries everything the client scene needs:
+ *   - The FRD currently in build (id + title).
+ *   - Mode read from the event stream (default 'powerful').
+ *   - Running WOs (≤ wave, already capped).
+ *   - Queued count, gate state, trophies, archived count.
+ *   - Global project {done, total} counter.
+ *   - EventVM[] for the feed.
+ *
+ * Active flag: `snapshot.active` is true iff a FRD is detected in the event
+ * stream (at least one AgentWorking with a `frd` field). When inactive, renders
+ * `<PartyEmptyState>` (AC-06-010.1).
+ *
+ * Read-only invariant (AC-06-009.1):
+ *   - NO mode selector — mode is displayed as data.
+ *   - NO pause/reset/agent-control affordances.
+ *   - Zero fs reaches the client — only the serialized FraguaSnapshot.
  *
  * Platform golden rule (architecture §1): read-only, never call Claude.
- * All I/O is synchronous fs reads via readEvents + readTasksState.
- * No `fs` ever reaches the client — only the serialized EventVM array
- * crosses the server→client boundary.
  *
  * Design rules (FRD-13, AGENTS.md):
  *   - ZERO hardcoded colors — CSS custom properties only.
@@ -20,39 +30,25 @@
  *   - Spanish aria-labels.
  *
  * Traceability:
- *   CMP-06-party-tab → REQ-06-008, REQ-06-010, REQ-06-002
- *   IF-01-readEvents (lib/events.ts, docs/api.md WO-01-007)
- *   IF-06-tasks (lib/tasks.ts, WO-06-005)
+ *   CMP-06-party-tab → REQ-06-002, REQ-06-008, REQ-06-009, REQ-06-010
+ *   IF-06-fragua-snapshot (fragua-snapshot.ts, WO-06-005)
  *   IF-06-event-vm (event-vm.ts, WO-06-001)
- *   IF-06-roster (layout.ts, WO-06-002)
- *   IF-06-state-map (state-map.ts, WO-06-003)
+ *   IF-01-readEvents (lib/events.ts)
  */
 
-import { TASKS_DIR } from "@/lib/config/config";
-import type { BuildMode } from "@/lib/constants";
-import { DEFAULT_BUILD_MODE } from "@/lib/constants";
 import { readEvents } from "@/lib/events/events";
-import { readTasksState } from "@/lib/tasks/tasks";
 import { AchievementToast } from "../AchievementToast/AchievementToast";
 import { EventFeed } from "../EventFeed/EventFeed";
 import { toEventVM } from "../event-vm/event-vm";
-import { agentColor, type Role, rosterFor } from "../layout";
+import { FraguaScene } from "../FraguaScene/FraguaScene";
+import { toFraguaSnapshot } from "../fragua-snapshot/fragua-snapshot";
 import { PartyEmptyState } from "../PartyEmptyState/PartyEmptyState";
-import type { AgentInfo } from "../PartyScene/PartyScene";
-import { PartyScene } from "../PartyScene/PartyScene";
-import { type AgentState, eventToVisual } from "../state-map/state-map";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
 const DEFAULT_CAP = 200;
-
-/**
- * Initial visual state for an agent with no prior event in the tail.
- * Idle = present but not yet acting (PARTY.md §1).
- */
-const DEFAULT_AGENT_STATE: AgentState = "idle";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -66,56 +62,10 @@ export interface PartyTabProps {
    */
   eventsPath?: string;
   /**
-   * Path to the tasks directory.
-   * Defaults to `~/.claude/tasks` (TASKS_DIR from lib/config).
-   * Override in tests via fixture paths.
-   * Active team requires this directory to contain at least one subdirectory.
-   */
-  tasksDir?: string;
-  /**
    * Maximum number of events to retain (tail semantics).
    * Default: 200 (AC-06-014.1).
    */
   cap?: number;
-  /**
-   * Build mode — selects the roster and station layout for the RPG scene
-   * (IF-06-roster / IF-06-positions). Derived from the project's build mode by
-   * the page; defaults to {@link DEFAULT_BUILD_MODE} ("balanced") in isolation.
-   */
-  mode?: BuildMode;
-}
-
-// ---------------------------------------------------------------------------
-// Snapshot derivation (server-side; blueprint §3 PartySnapshot)
-// ---------------------------------------------------------------------------
-
-/**
- * Derive the initial per-agent visual states from the capped event tail.
- *
- * For each role in the roster we replay the tail in order and keep the LAST
- * `setState` produced by `eventToVisual` for that agent (the most recent visual
- * intent wins). Agents with no event in the tail default to {@link DEFAULT_AGENT_STATE}.
- *
- * Pure: no DOM, no I/O. The mapping event→state lives only in IF-06-state-map.
- */
-function deriveAgents(
-  roster: readonly Role[],
-  events: readonly { event: string; agent?: string; session?: string; status?: string }[],
-): AgentInfo[] {
-  // Last known state per agent id (only setState actions carry a concrete state).
-  const lastState = new Map<string, AgentState>();
-  for (const ev of events) {
-    const action = eventToVisual(ev as Parameters<typeof eventToVisual>[0]);
-    if (action.kind === "setState") {
-      lastState.set(action.agentId, action.state);
-    }
-  }
-
-  return roster.map((role) => ({
-    id: role,
-    state: lastState.get(role) ?? DEFAULT_AGENT_STATE,
-    color: agentColor(role),
-  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -207,52 +157,40 @@ const FEED_WRAPPER_STYLE: React.CSSProperties = {
 // ---------------------------------------------------------------------------
 
 /**
- * Server Component — reads event stream + task state and renders the Party feed.
+ * Server Component — reads event stream and derives the FraguaSnapshot.
  *
- * Active team = tasksDir exists AND contains at least one team subdirectory.
- * When no active team: renders the empty state (AC-06-010.1).
- * When active: renders the EventFeed with the capped event tail.
+ * Active flag comes from the snapshot: `active` is true when the event stream
+ * contains at least one AgentWorking event with an enriched `frd` field.
+ * When inactive: renders the empty state (AC-06-010.1).
+ * When active: renders FraguaScene (the La Fragua rooms/sprites) + EventFeed
+ * + AchievementToast.
  *
- * Because this runs on the server (Next.js RSC), it never passes `fs` to the
- * client — only the serialized EventVM array crosses the boundary.
+ * Read-only (AC-06-009.1): No mode selector, no pause/reset controls.
+ * Mode is displayed as plain data via FraguaScene.
+ *
+ * No `fs` ever reaches the client — only the serialized FraguaSnapshot.
  */
-export function PartyTab({
-  eventsPath,
-  tasksDir = TASKS_DIR,
-  cap = DEFAULT_CAP,
-  mode = DEFAULT_BUILD_MODE,
-}: PartyTabProps): React.JSX.Element {
+export function PartyTab({ eventsPath, cap = DEFAULT_CAP }: PartyTabProps): React.JSX.Element {
   // Read the capped tail of the event stream (read-only, never throws).
-  const snapshot = readEvents({ path: eventsPath, cap });
-  const { events, lastEventAt } = snapshot;
+  const { events, lastEventAt } = readEvents({ path: eventsPath, cap });
 
-  // Read task state: absent tasks/ → no active team (AC-06-010.1)
-  const tasksState = readTasksState(tasksDir);
+  // Derive the FraguaSnapshot from the enriched event tail (IF-06-fragua-snapshot).
+  // Pure function: no DOM, no I/O, no side-effects.
+  const snapshot = toFraguaSnapshot(events, { lastEventAt });
 
   // Map raw events to view-models for the feed.
   const eventVMs = events.map(toEventVM);
 
-  // Active = tasks directory has at least one team AND there are events to show.
-  // WO-06-005 TDD: "absent tasks/ → active=false"
-  const active = tasksState.active && eventVMs.length > 0;
-
-  // Server-derived Party snapshot (blueprint §3): roster + initial agent states
-  // for the RPG scene. roster comes from the build mode (IF-06-roster); initial
-  // states are replayed from the event tail (IF-06-state-map). Both are pure.
-  const roster = rosterFor(mode);
-  const agents = deriveAgents(roster, events);
-
-  // Visual actions for the scene's animation queue (prop-driven event dispatch).
-  const visualActions = events.map(eventToVisual);
-
   // The most recent event view-model — drives the achievement toast (CMP-06-achievement).
   const latestEvent = eventVMs.length > 0 ? eventVMs[eventVMs.length - 1] : undefined;
+
+  const { active } = snapshot;
 
   return (
     <section data-testid="party-tab" aria-label="Panel del equipo de agentes" style={TAB_STYLE}>
       {/* Header: title + Live/No-signal indicator */}
       <header style={HEADER_STYLE}>
-        <h2 style={HEADING_STYLE}>Equipo en acción</h2>
+        <h2 style={HEADING_STYLE}>La Fragua</h2>
         {active && lastEventAt !== null ? (
           <span
             data-testid="party-tab-live-indicator"
@@ -269,7 +207,7 @@ export function PartyTab({
           <span
             data-testid="party-tab-no-signal"
             style={NO_SIGNAL_STYLE}
-            title="Sin señal — no hay equipo activo ni eventos recientes"
+            title="Sin señal — no hay construcción activa"
             role="status"
           >
             Sin señal
@@ -277,18 +215,13 @@ export function PartyTab({
         )}
       </header>
 
-      {/* Body: RPG scene + feed, or empty state (CMP-06-empty, WO-06-011) */}
+      {/* Body: La Fragua scene + feed, or empty state (AC-06-010.1) */}
       {active ? (
         <div style={BODY_STYLE}>
-          {/* CMP-06-scene — the RPG map (zones + sprites). The heart of the feature. */}
+          {/* CMP-06-scene — the La Fragua scene (rooms, sprites, trophies, gate).
+              Observation-only: no mode selector, no pause/reset (AC-06-009.1). */}
           <div style={SCENE_WRAPPER_STYLE}>
-            <PartyScene
-              roster={roster}
-              agents={agents}
-              active={active}
-              mode={mode}
-              events={visualActions}
-            />
+            <FraguaScene snapshot={snapshot} />
           </div>
 
           {/* CMP-06-feed — the capped event log alongside the scene. */}
