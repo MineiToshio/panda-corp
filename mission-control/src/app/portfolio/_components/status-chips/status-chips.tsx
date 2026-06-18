@@ -1,11 +1,12 @@
 /**
- * WO-14-003 — `CMP-14-status-chips`: decisions/bugs/rethink chips
+ * WO-14-003 — `CMP-14-status-chips`: decisions/bugs/rethink/proposals chips
  *
  * Server Component. Given pending counters from `lib/status.ts` (ProjectStatus),
  * renders:
  *   - Amber chip with `pendingDecisions` count when > 0  (AC-14-004.1)
  *   - Red chip with `pendingBugs` count when > 0         (AC-14-004.2)
  *   - "Rethink pending" indicator when `rethinkPending`  (AC-14-005.1)
+ *   - Proposals chip with `pendingProposals` count when > 0 (AC-17-007.2 — third stream)
  *   - Nothing (null) when all are zero / absent / false  (no empty chips)
  *
  * Mirrors the prototype rail `dchip` / `bchip` visual idiom.
@@ -23,6 +24,8 @@
  *   CMP-14-status-chips → REQ-14-004, REQ-14-005
  *   AC-14-004.1, AC-14-004.2, AC-14-005.1
  *   WO-14-003
+ *   CMP-17-badge (rail chip) → REQ-17-001; AC-17-007.2, AC-17-007.4, AC-17-007.5
+ *   WO-17-007
  */
 
 // ---------------------------------------------------------------------------
@@ -45,6 +48,12 @@ export interface StatusChipsProps {
    * Indicator shown only when true. Absent / false → no indicator.
    */
   rethinkPending?: boolean;
+  /**
+   * Number of open proposals for this project (FRD-17 third stream, WO-17-007).
+   * Chip shown only when > 0. Absent / undefined → no chip.
+   * CMP-17-badge: per-project portfolio-rail chip alongside decisions/bugs.
+   */
+  pendingProposals?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -81,6 +90,13 @@ const RED_CHIP_STYLE: React.CSSProperties = {
   color: "var(--color-contrast, Canvas)",
 };
 
+/** Proposals chip: guild accent tone (FRD-17, WO-17-007) */
+const PROPOSALS_CHIP_STYLE: React.CSSProperties = {
+  ...BASE_CHIP_STYLE,
+  background: "var(--color-agent-product-manager, currentColor)",
+  color: "var(--color-contrast, Canvas)",
+};
+
 /** Rethink indicator: muted warning tone */
 const RETHINK_CHIP_STYLE: React.CSSProperties = {
   ...BASE_CHIP_STYLE,
@@ -108,24 +124,27 @@ const ROW_STYLE: React.CSSProperties = {
 // ---------------------------------------------------------------------------
 
 /**
- * StatusChips — Server Component that renders amber/red/rethink chips.
+ * StatusChips — Server Component that renders amber/red/rethink/proposals chips.
  *
  * Returns null when nothing to show (all counts zero or false).
  *
  * Traceability:
  *   CMP-14-status-chips → REQ-14-004, REQ-14-005; AC-14-004.1/.2, AC-14-005.1
+ *   CMP-17-badge (rail chip) → REQ-17-001; AC-17-007.2, AC-17-007.4, AC-17-007.5
  */
 export function StatusChips({
   pendingDecisions,
   pendingBugs,
   rethinkPending,
+  pendingProposals,
 }: StatusChipsProps): React.JSX.Element | null {
   const hasDecisions = typeof pendingDecisions === "number" && pendingDecisions > 0;
   const hasBugs = typeof pendingBugs === "number" && pendingBugs > 0;
   const hasRethink = rethinkPending === true;
+  const hasProposals = typeof pendingProposals === "number" && pendingProposals > 0;
 
   // Nothing to render — return null (no empty wrapper in the DOM)
-  if (!hasDecisions && !hasBugs && !hasRethink) {
+  if (!hasDecisions && !hasBugs && !hasRethink && !hasProposals) {
     return null;
   }
 
@@ -173,6 +192,22 @@ export function StatusChips({
           role="status"
         >
           ⚑ rethink pendiente
+        </span>
+      )}
+
+      {/* Proposals chip — FRD-17 third stream (AC-17-007.2, AC-17-007.4) */}
+      {hasProposals && (
+        <span
+          data-testid="status-chip-proposals"
+          data-variant="proposals"
+          style={PROPOSALS_CHIP_STYLE}
+          title={`Propuestas abiertas: ${pendingProposals}`}
+          role="status"
+        >
+          <span data-testid="status-chip-proposals-count" style={COUNT_STYLE}>
+            {pendingProposals}
+          </span>
+          {" propuestas"}
         </span>
       )}
     </span>

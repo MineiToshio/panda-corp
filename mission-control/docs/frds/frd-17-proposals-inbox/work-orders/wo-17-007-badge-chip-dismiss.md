@@ -5,7 +5,7 @@ slug: badge-chip-dismiss
 title: WO-17-007 — Guild badge + portfolio-rail chip + dismissal
 status: DRAFT
 parent: FRD-17
-implementation_status: PLANNED
+implementation_status: IN_PROGRESS
 source_requirements: []
 last_updated: '2026-06-16'
 ---

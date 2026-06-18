@@ -14,10 +14,12 @@
 import type { Metadata } from "next";
 import { OnboardingGate } from "@/app/_components/OnboardingGate/OnboardingGate";
 import { GuildBar } from "@/components/modules/GuildBar/GuildBar";
+import { ProposalsBadge } from "@/components/modules/ProposalsBadge/ProposalsBadge";
 import { readEvents } from "@/lib/events/events";
 import { deriveGuildOutcomes } from "@/lib/gamification/gamification";
 import { readPortfolio } from "@/lib/portfolio/portfolio";
 import { readProfile } from "@/lib/profile/profile";
+import { countOpenProposals } from "@/lib/proposals/proposals";
 import { readStatus } from "@/lib/status/status";
 import "./globals.css";
 
@@ -43,12 +45,17 @@ export default function RootLayout({
   const eventsSnapshot = readEvents();
   const guildOutcomes = deriveGuildOutcomes({ statuses, eventsSnapshot });
 
+  // Open proposal count for the top-bar guild badge (CMP-17-badge, AC-17-007.1).
+  // Fail-soft: missing factory/memory → { total: 0 } → calm state.
+  const proposalCounts = countOpenProposals();
+
   return (
     <html lang="es">
       <body>
         {profileResult.present ? (
           <>
             <GuildBar outcomes={guildOutcomes} />
+            <ProposalsBadge openCount={proposalCounts.total} />
             {children}
           </>
         ) : (
