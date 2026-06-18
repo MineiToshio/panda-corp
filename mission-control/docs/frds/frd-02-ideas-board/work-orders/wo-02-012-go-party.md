@@ -5,7 +5,7 @@ slug: go-party
 title: WO-02-012 — Host-navigation from Construcción to the Party tab
 status: ACTIVE
 parent: FRD-02
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: [REQ-02-010]
 last_updated: '2026-06-18'
 ---

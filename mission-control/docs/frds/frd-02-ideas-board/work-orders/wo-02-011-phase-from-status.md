@@ -5,7 +5,7 @@ slug: phase-from-status
 title: WO-02-011 — `phaseFromStatus` derivation
 status: ACTIVE
 parent: FRD-02
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: [REQ-02-010]
 last_updated: '2026-06-18'
 ---
