@@ -5,7 +5,7 @@ slug: reference-rules-standards
 title: 'WO-08-004 — Reference: decision rules + standards (DERIVED, DR-046)'
 status: DRAFT
 parent: FRD-08
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
 last_updated: '2026-06-16'
 ---

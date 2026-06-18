@@ -5,7 +5,7 @@ slug: manual-shell
 title: 'WO-08-002 — Manual page shell: side menu (Diátaxis) + reader'
 status: DRAFT
 parent: FRD-08
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
 last_updated: '2026-06-17'
 ---

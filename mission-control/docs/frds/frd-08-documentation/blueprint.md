@@ -3,7 +3,7 @@ id: FRD-08-blueprint
 type: blueprint
 parent: FRD-08
 status: ACTIVE
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 last_updated: '2026-06-16'
 ---
 # FRD-08 — Documentation (the Manual / "Códice del gremio") · feature blueprint
