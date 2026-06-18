@@ -151,36 +151,65 @@ function resolveCap(cap: number | undefined): number {
 }
 
 /**
+ * Resolve the source object for the enriched fields.
+ *
+ * The REAL plugin emitter (`plugin/templates/shared/.claude/workflows/pandacorp-build.js`)
+ * writes the enriched fields NESTED under a `data` object:
+ *
+ *   {"event":"AgentWorking","at":"…","project":"…",
+ *    "data":{"role":"…","wo":"…","frd":"…","phase":"…","activity":"…","mode":"…"}}
+ *
+ * Older/flat lines carry them at the top level. We prefer `data` when it is a
+ * plain object (the real shape), falling back to the top-level object so both
+ * shapes are honoured (backward compatibility — AC-06-008.2).
+ */
+function enrichedSource(obj: Record<string, unknown>): Record<string, unknown> {
+  const data = obj.data;
+  if (typeof data === "object" && data !== null && !Array.isArray(data)) {
+    return data as Record<string, unknown>;
+  }
+  return obj;
+}
+
+/**
  * Apply the enriched optional fields (WO-06-012, FRD-06 REQ-06-008, AC-06-008.2)
  * from a raw parsed object onto an in-progress `Event`.
  *
- * Each field is only carried through if it has the correct type and (for enums)
- * a valid enum member. Wrong types and out-of-range values are silently dropped —
- * they do NOT skip the event; only the individual field is omitted.
+ * Reads the fields from the nested `data` object when present (the real emitter
+ * shape), otherwise from the top level. Each field is only carried through if it
+ * has the correct type and (for enums) a valid enum member. Wrong types and
+ * out-of-range values are silently dropped — they do NOT skip the event; only the
+ * individual field is omitted.
  *
  * Extracted to keep `parseLine` within the complexity budget.
  */
 function applyEnrichedFields(obj: Record<string, unknown>, ev: Event): void {
+  const src = enrichedSource(obj);
+
   // frd — any string (open identifier).
-  if (typeof obj.frd === "string") ev.frd = obj.frd;
+  if (typeof src.frd === "string") ev.frd = src.frd;
 
   // phase — restricted to EventPhase union ("build" | "review").
-  if (typeof obj.phase === "string" && VALID_PHASES.has(obj.phase)) {
-    ev.phase = obj.phase as EventPhase;
+  if (typeof src.phase === "string" && VALID_PHASES.has(src.phase)) {
+    ev.phase = src.phase as EventPhase;
   }
 
   // activity — restricted to EventActivity union.
-  if (typeof obj.activity === "string" && VALID_ACTIVITIES.has(obj.activity)) {
-    ev.activity = obj.activity as EventActivity;
+  if (typeof src.activity === "string" && VALID_ACTIVITIES.has(src.activity)) {
+    ev.activity = src.activity as EventActivity;
   }
 
   // mode — restricted to EventMode union ("pro" | "balanced" | "powerful" | "deep").
-  if (typeof obj.mode === "string" && VALID_MODES.has(obj.mode)) {
-    ev.mode = obj.mode as EventMode;
+  if (typeof src.mode === "string" && VALID_MODES.has(src.mode)) {
+    ev.mode = src.mode as EventMode;
   }
 
   // role — any string (open-ended build role identifier).
-  if (typeof obj.role === "string") ev.role = obj.role;
+  if (typeof src.role === "string") ev.role = src.role;
+
+  // workOrder — the real emitter names it `wo` (nested in `data` or top-level).
+  // Only fill it when not already set by the legacy top-level `work_order` mapping.
+  if (ev.workOrder === undefined && typeof src.wo === "string") ev.workOrder = src.wo;
 }
 
 /**

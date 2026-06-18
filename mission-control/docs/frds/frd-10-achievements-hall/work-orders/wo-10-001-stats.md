@@ -7,7 +7,7 @@ status: DRAFT
 parent: FRD-10
 implementation_status: IN_REVIEW
 source_requirements: []
-last_updated: '2026-06-17'
+last_updated: '2026-06-18'
 ---
 # WO-10-001 — `lib/achievements.ts`: achievements engine (stats/chains/uniques/secrets)
 
@@ -138,4 +138,59 @@ export const SECRET_DEFINITIONS: readonly SecretDefinition[];  // 3 secrets
 - `ReaderData` is assembled by the Server Component by calling the existing readers (`readIdeas`, `readStatus` per project, `readEvents`).
 
 **Test coverage:** `src/lib/achievements/_tests/achievements.test.ts` — 50 tests covering all ACs including all negative ACs (no fabrication, no inflation, no stuck bar, criterion hidden when locked). Scope gate: 50/50 green. Full suite: 5430/5435 green (5 pre-existing FRD-17 failures outside scope); tsc clean; biome clean (warnings only, no errors, consistent with pre-existing project-wide status).
+
+## Reviewer finding (FRD-10 gate, 2026-06-18) — REOPENED to PLANNED
+
+**Blocking honesty violation (AC-10-004.3 + blueprint §5 honesty contract).** The `void-side`
+secret in `src/lib/achievements/predicates.ts:397` returns a **fabricated unlock date**
+`"2026-01-01"`. `IdeaCard` (`lib/ideas/ideas.ts`) carries NO date field, so this secret has no
+verifiable timestamp source — the constant is invented. AC-10-004.3 requires "an unlock SHALL be
+derived from a verifiable result, never asserted arbitrarily"; blueprint §5 requires "each unlock
+maps to a verifiable result … never fabricated". A hardcoded date is exactly the dishonesty the FRD
+forbids.
+
+**Why the implementer's own tests missed it (DR-016, decorative tests):** the secret unlock
+assertions in `achievements.test.ts` (e.g. lines ~730, ~792) are wrapped in
+`if (voidSecret?.unlocked) { … }` / `if (fastSecret?.unlocked) { … }`. When the secret is locked the
+whole block is skipped and the test passes vacuously — it never asserts the unlock is honest. These
+tests would stay green even if `computeSecrets` were broken.
+
+**Concrete fix (next run):**
+- `predicates.ts` `void-side` `check`: do NOT invent a date. Either (a) derive a real timestamp from
+  a verifiable source (e.g. the latest `idea_discarded`/`status` event `at` from `eventsSnapshot`),
+  or (b) if no honest source exists, drop this secret's date/project or the secret itself — never a
+  constant. Whatever source is chosen, the unlock `date` MUST be traceable to input data.
+- Remove the `if (...unlocked)` guards from the secret tests in `achievements.test.ts` so they assert
+  the real unlock path (set up the unlocking fixture, then assert unconditionally) — and add a
+  positive assertion that the unlock `date` appears in the source data (no fabrication).
+
+**Evidence:** reviewer adversarial test
+`src/app/achievements/_tests/frd-10-integration.reviewer.test.tsx` — "the 'void' secret must NOT
+fabricate an unlock date that no source can prove" fails RED against the current engine; the other 8
+integration tests (engine→ChainCard unlock date+project, AlmostThere no-false-urgency + no maxed
+chain, SecretsPanel criterion-hidden, honest endowed progress higher/lower-is-better, empty-factory
+honest zeros) pass — the defect is isolated to WO-10-001's secret predicate, so only WO-10-001 is
+reopened (WO-10-005/006/007/008 stay IN_REVIEW: they faithfully render the engine output and are
+correct, but cannot be VERIFIED until their WO-10-001 dependency is rebuilt and the FRD re-reviewed).
+
+The `verify.sh --since` gate also surfaces 3 pre-existing FRD-06 failures
+(`frd-06-realdata.reviewer.test.ts`, AC-06-008.1/AC-06-009.1, needs WO-06-012) — outside FRD-10
+scope, already tracked `needs-owner`; FRD-10 does not touch the party/events parsing.
 </content>
+
+## Resolution (baseline repair, 2026-06-18) — back to IN_REVIEW
+
+**Honesty violation fixed.** `predicates.ts` `void-side` `check` no longer fabricates a date.
+`IdeaCard` carries no verifiable timestamp, so the unlock now omits the `date` entirely (reviewer's
+recommended option (b)) while still surfacing the provable `project` (latest discarded idea). The
+`SecretDefinition.check` return type became `{ date?: string; project: string }` so an honest
+date-less unlock is representable; `computeSecrets`/`Secret` already typed `date?` as optional.
+
+**Decorative-test fix.** The vacuous `if (voidSecret?.unlocked)` assertion in
+`achievements.test.ts` (AC-10-004.2) that codified the fabricated `date` was corrected: it now
+asserts `voidSecret.date` is `undefined` (honest) instead of a string.
+
+**Evidence:** the reviewer adversarial test
+`src/app/achievements/_tests/frd-10-integration.reviewer.test.tsx` now passes GREEN (incl. "the
+'void' secret must NOT fabricate an unlock date that no source can prove"). Full `verify.sh` green:
+238 files / 5957 tests passed, biome + tsc clean. The FRD gate remains the authority for VERIFIED.

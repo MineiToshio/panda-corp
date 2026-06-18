@@ -4,7 +4,7 @@ type: blueprint
 parent: FRD-10
 status: ACTIVE
 implementation_status: PLANNED
-last_updated: '2026-06-16'
+last_updated: '2026-06-18'
 ---
 # FRD-10 — Achievements Hall (Guild Hall) · feature blueprint
 

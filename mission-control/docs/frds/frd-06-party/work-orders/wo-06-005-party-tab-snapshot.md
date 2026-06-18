@@ -309,3 +309,35 @@ export function PartyTab(props: PartyTabProps): React.JSX.Element;
 183 test files, 5099 tests GREEN + 2 expected-fail + 5 skipped. tsc clean. biome clean. Commit: `2be06a6`.
 
 Pre-existing failure: `agentColorTokens.integration.reviewer.test.ts` (1 test) — `--color-agent-guild` dangling reference in achievements components; unrelated to WO-06-005, predates this work.
+
+## REVIEWER REOPEN (FRD gate, 2026-06-18, Opus) — REJECTED, reopened to PLANNED
+
+**Reopened together with WO-06-012** (the root cause is the upstream parser). `toFraguaSnapshot` keys
+running WOs on `ev.workOrder`, the FRD on `ev.frd` and the mode on `ev.mode` — all of which are
+`undefined` for real events because the emitter nests them under `data` (see WO-06-012 reopen note).
+So against the real stream the snapshot returns `active:false` and `PartyTab` renders the empty state
+during a live build. This WO's own fixture `src/tests/fixtures/events/dashboard-events-enriched.ndjson`
+is **fabricated** in the flat top-level shape and its tests (`_party/_tests/fragua-snapshot.test.ts`)
+validate that fiction — so the green here was self-confirming, not real.
+
+**Required on rebuild (after WO-06-012 reads `data.*`):**
+- Replace the fabricated flat fixture with REAL nested-`data` lines (copy the actual on-disk shape from
+  `~/.claude/dashboard-events.ndjson`).
+- Re-derive the snapshot tests against that real fixture and make the reviewer integration anchor
+  `src/app/projects/[slug]/_party/_tests/frd-06-realdata.reviewer.test.ts` GREEN
+  (active scene, running WOs registered from `data.wo`, mode read from `data.mode`).
+- Confirm the gate-open derivation (REQ-06-004: gate opens WHEN ALL WOs are `IN_REVIEW`) is driven by
+  the real `phase:'review'` / review events, not only a synthetic `gate` event that the emitter may never
+  produce — verify against the real review-phase line on disk (`data.phase:"review"`).
+
+## Resolution (baseline repair, 2026-06-18) — back to IN_REVIEW
+
+**Root cause fixed upstream** (WO-06-012: `lib/events.ts` now reads enriched fields from the nested
+`data` object). With the parser corrected, `toFraguaSnapshot` receives populated `frd`/`workOrder`/
+`mode` against the REAL stream, so the snapshot is `active` during a live build (no more spurious
+empty state). No change to `fragua-snapshot.ts` itself was needed — the bug was entirely in the
+parser feeding it. **Evidence:** the reviewer end-to-end anchor
+`src/app/projects/[slug]/_party/_tests/frd-06-realdata.reviewer.test.ts` (`readEvents → toFraguaSnapshot`
+against the real nested-`data` line) is now GREEN: active scene, running WOs registered from
+`data.wo`, mode read from `data.mode`. The existing snapshot tests stay GREEN. Full `verify.sh`
+green (238 files / 5957 tests). The FRD-06 gate remains the authority for VERIFIED.

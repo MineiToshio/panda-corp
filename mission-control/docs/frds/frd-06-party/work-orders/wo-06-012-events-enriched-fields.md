@@ -82,3 +82,58 @@ export type Event = {
   - Regression: cap/`lastEventAt`/`byProject` behavior untouched
   - Read-only invariant maintained with enriched events
 - Existing tests: `events.test.ts` (50) + `events.adversarial.test.ts` (17) — all still GREEN (116 total)
+
+## REVIEWER REOPEN (FRD gate, 2026-06-18, Opus) — REJECTED, reopened to PLANNED
+
+**Blocking defect — wrong event shape (AC-06-008.1 fails against 100% of real events).**
+This WO parses the enriched fields from the **top level** of each NDJSON object
+(`obj.frd`, `obj.mode`, `obj.phase`, `obj.activity`, `obj.role`) and maps the WO id only from a
+top-level `obj.work_order`. **The real emitter never writes that shape.** The plugin
+(`plugin/templates/shared/.claude/workflows/pandacorp-build.js`) and every real line on disk emit:
+
+```json
+{"event":"AgentWorking","at":"…","project":"mission-control",
+ "data":{"role":"implementer","wo":"WO-06-011","frd":"frd-06-party",
+         "phase":"build","activity":"implement","mode":"powerful"}}
+```
+
+i.e. `role/wo/frd/phase/activity/mode` are **NESTED under `data`**, and the WO id key is `wo` (not
+`work_order`). Verified: 398/398 real `AgentWorking` lines use the nested `data` shape; 0 use the flat
+shape this parser expects. (The code even has a comment "from `AgentWorking.data.role` or top-level" and
+a test note "line 9 has `wo` inside data — not the same field" — the nested shape was known and ignored.)
+
+**Consequence (whole-FRD integration break):** against the real stream, `readEvents` returns events with
+`frd`/`workOrder`/`mode` all `undefined`; `toFraguaSnapshot` then sees `currentFrdId === null` → returns
+the empty snapshot → `PartyTab` shows the **empty state during a live build**. REQ-06-008/001/002/009/010
+all fail end-to-end. The tests passed only because the WO-06-012 tests and the
+`dashboard-events-enriched.ndjson` fixture were authored in the same fictitious flat shape (shared-bias
+trap: test and code agree with each other, neither matches reality).
+
+**Reviewer evidence (failing):**
+`src/app/projects/[slug]/_party/_tests/frd-06-realdata.reviewer.test.ts` — 3 tests that feed the REAL
+nested-`data` line through `readEvents → toFraguaSnapshot`: all 3 fail (no FRD detected, no running WOs,
+mode falls back to `powerful`). These must go GREEN on the rebuild.
+
+**Required fix (file:line):** `src/lib/events/events.ts` — `parseLine`/`applyEnrichedFields` must read the
+enriched fields from the **`data` sub-object** when present (`data.wo`→`workOrder`, `data.frd`, `data.phase`,
+`data.activity`, `data.mode`, `data.role`), accepting `data.wo` as the WO id, while remaining
+backward-compatible with any top-level/legacy lines. Replace the fabricated flat fixture
+`src/tests/fixtures/events/dashboard-events-enriched.ndjson` with REAL nested-`data` lines (copy the actual
+on-disk shape) and update the WO-06-012 tests to construct events with `data:{…}`.
+
+## Resolution (baseline repair, 2026-06-18) — back to IN_REVIEW
+
+**Core defect fixed.** `src/lib/events/events.ts` `applyEnrichedFields` now reads the enriched
+fields from the nested `data` sub-object when present (the real emitter shape), falling back to the
+top level for flat/legacy lines (backward-compat AC-06-008.2). A new `enrichedSource(obj)` helper
+returns `obj.data` when it is a plain object, else `obj`. The emitter's `data.wo` (or top-level
+`wo`) now maps to `workOrder`, with the legacy `work_order` mapping kept and taking precedence.
+
+**Evidence:** the reviewer anchor
+`src/app/projects/[slug]/_party/_tests/frd-06-realdata.reviewer.test.ts` (all 3 tests) now passes
+GREEN — against the REAL nested-`data` line, `readEvents → toFraguaSnapshot` detects the FRD
+(`snap.active=true`), registers the running WOs from `data.wo`, and reads `data.mode`. The existing
+flat-shape WO-06-012 tests and the events unit/adversarial suites remain GREEN (the parser accepts
+both shapes). Full `verify.sh` green: 238 files / 5957 tests. The FRD-06 gate remains the authority
+for VERIFIED. (The flat fixture file was left in place since both shapes parse; the reviewer's
+real-shape adversarial test is the authoritative coverage going forward.)

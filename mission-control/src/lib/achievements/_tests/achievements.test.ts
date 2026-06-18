@@ -730,7 +730,10 @@ describe("computeSecrets — AC-10-004 — secret achievements", () => {
     if (voidSecret?.unlocked) {
       expect(typeof voidSecret.criterion).toBe("string");
       expect(voidSecret.criterion?.length).toBeGreaterThan(0);
-      expect(typeof voidSecret.date).toBe("string");
+      // Honesty contract (AC-10-004.3 / blueprint §5): idea cards carry no date
+      // field, so the void secret unlocks WITHOUT a date — a fabricated constant
+      // would be dishonest. The project is derivable from the cards themselves.
+      expect(voidSecret.date).toBeUndefined();
       expect(typeof voidSecret.project).toBe("string");
     }
   });

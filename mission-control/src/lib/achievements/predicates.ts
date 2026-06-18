@@ -364,9 +364,15 @@ export type SecretDefinition = {
   readonly criterion: string;
   /**
    * Pure predicate returning unlock state from verifiable reader data (AC-10-004.3).
-   * Returns null when locked, or { date, project } when unlocked.
+   * Returns null when locked, or { date?, project } when unlocked.
+   *
+   * `date` is OPTIONAL: it is only present when a VERIFIABLE timestamp exists in
+   * the source (e.g. a triggering event's `at`). When the unlock condition is
+   * provable but no source carries a timestamp (e.g. derived purely from idea
+   * cards, which have no date field), `date` is omitted rather than fabricated —
+   * the honesty contract (AC-10-004.3 / blueprint §5) forbids inventing a date.
    */
-  readonly check: (data: ReaderData) => null | { date: string; project: string };
+  readonly check: (data: ReaderData) => null | { date?: string; project: string };
 };
 
 /**
@@ -389,12 +395,15 @@ export const SECRET_DEFINITIONS: readonly SecretDefinition[] = [
           idea.status === "in-pipeline",
       );
       if (data.ideas.length > 0 && activeIdeas.length === 0) {
-        // Use the latest discarded idea's date as a proxy
+        // Idea cards carry NO date field, so there is no verifiable timestamp to
+        // anchor the unlock to. Honesty contract (AC-10-004.3 / blueprint §5):
+        // omit the date rather than fabricate one. The unlock condition itself is
+        // provable from the cards; the project is the latest discarded idea.
         const discardedSorted = [...data.ideas]
           .filter((i) => i.status === "discarded")
           .sort((a, b) => a.slug.localeCompare(b.slug));
         const last = discardedSorted[discardedSorted.length - 1];
-        return { date: "2026-01-01", project: last?.slug ?? "factory" };
+        return { project: last?.slug ?? "factory" };
       }
       return null;
     },
