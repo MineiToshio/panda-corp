@@ -67,6 +67,63 @@ Realigned `app/globals.css` `@theme` agent-color block to match the Party redesi
 - `biome check .` — 36 warnings pre-existing, 0 new errors
 - `.pandacorp/verify.sh` — green (exit 0)
 
+## REVIEWER VERDICT — REJECTED → PLANNED (2026-06-18, FRD-13 gate, Opus 4.8)
+
+**Blocking finding (integration regression introduced by this WO).** Removing
+`--color-agent-guild` from the `@theme` block left **two dangling consumers** that still
+reference the deleted custom property:
+
+- `src/app/achievements/StatsPanel.tsx:64` — `return "var(--color-tier-5, var(--color-agent-guild))";`
+- `src/app/achievements/ChainCard/ChainCard.tsx:61` — `return "var(--color-tier-5, var(--color-agent-guild))";`
+
+`--color-tier-5` is **not declared anywhere** in the CSS (verified: `grep "color-tier" src/app/globals.css` → empty), so those two components relied entirely on the `--color-agent-guild`
+**fallback**. At last-green `f00b3ca` the token existed (globals.css:49) and the highest tier
+("Leyenda"/"Platino") medals/chains rendered with the guild color. After this WO the
+`var(--color-tier-5, var(--color-agent-guild))` expression resolves to an **undefined custom
+property with no fallback** → the `color` is dropped → tier-5 falls back to inherited text color.
+**Real visual regression on the achievements page (FRD-10).**
+
+Why the WO self-test missed it: it asserted only the FORWARD direction (each AGENT_COLOR key has a
+CSS var; `guild` absent from `@theme`) and `vitest --changed` does not run the FRD-10 consumer tests
+because those source files weren't touched. The reverse contract — *no production code references a
+removed `--color-agent-*` token* — was untested.
+
+**Concrete fix (next run, narrow scope — do NOT touch the VERIFIED FRD-10 consumers' state):**
+pick ONE —
+1. Declare `--color-tier-5` (and ideally `--color-tier-1..4` for consistency) in the `@theme` block
+   so the consumers stop relying on a now-removed agent token as fallback; OR
+2. If tiers should reuse a surviving agent color, repoint the fallback to a still-declared token
+   (e.g. `--color-agent-analytics`) — but the cleaner answer is (1): a tier scale is its own concern,
+   not an agent role.
+
+Either way, after the fix `src/app/_tests/agentColorTokens.integration.reviewer.test.ts` (added by
+the reviewer) must go green — it now FAILS, proving the regression is real, not decorative.
+
+## REPAIR-PASS RESOLUTION → IN_REVIEW (2026-06-18, repair engine, Opus 4.8)
+
+The regression flagged above is **fixed**. Took the reviewer's option 2 (repoint the fallback to a
+still-declared agent token — the cleanest minimal change, and the design contract in
+`wo-10-006-chains-almost-there.md` already mandates "fallback to existing agent tokens until FRD-13
+defines them explicitly"): the two FRD-10 consumers now use
+`var(--color-tier-5, var(--color-agent-product-manager))` instead of the removed
+`var(--color-agent-guild)`. `--color-agent-product-manager` (golden `oklch(0.7 0.18 85)`) is a
+surviving canonical token that reads as the apex "Leyenda" tier and stays visually distinct from the
+tier-1..4 fallbacks (`researcher`/`frontend-dev`/`accent`/`reviewer`).
+
+- `src/app/_tests/agentColorTokens.integration.reviewer.test.ts` — now **2/2 GREEN** (both the
+  no-dangling-reference probe and the bidirectional sync probe).
+- All 131 FRD-10 achievements component tests still pass (behavior preserved — the tier-5 fallback
+  now resolves to a real color again instead of dropping to inherited text).
+- Full `.pandacorp/verify.sh` — **green** (187 files, 5145 pass + 2 expected-fail + 5 skipped; biome,
+  tsc, madge, structure + max-lines guards all clean).
+
+Returns to IN_REVIEW for the FRD-13 reviewer.
+
+**Note on scope:** WO-13-001 (`tokens.ts` realignment + `Avatar.tsx`) is correct — the bidirectional
+`AGENT_ROLES ⟷ @theme` sync probe passes and `tokens.ts` has no `guild` code reference. Only this WO
+(the CSS removal) is reopened. Pre-existing fallback refs to non-canonical names
+(`--color-agent-librarian/orchestrator/unknown`) are out of FRD-13 scope and predate this cycle.
+
 ## Status — DONE (2026-06-16, original)
 
 **[x] DONE — all gates green**

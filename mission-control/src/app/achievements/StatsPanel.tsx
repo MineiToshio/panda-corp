@@ -61,7 +61,7 @@ function getMedalColor(tierIndex: number): string {
     case 3:
       return "var(--color-tier-4, var(--color-agent-reviewer))";
     case 4:
-      return "var(--color-tier-5, var(--color-agent-guild))";
+      return "var(--color-tier-5, var(--color-agent-product-manager))";
     default:
       return "var(--color-text)";
   }

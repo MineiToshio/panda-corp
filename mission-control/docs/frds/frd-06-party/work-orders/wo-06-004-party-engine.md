@@ -9,6 +9,17 @@ implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-18'
 ---
+
+> **UNBLOCKED → IN_REVIEW (2026-06-18, repair pass).** The FRD-06 part of this WO was already
+> *fixed*: `engine.ts` was over the 500-line hard cap (605 lines), the actual build-wave failure.
+> The repair split it into `engine.ts` (414) + `engine/types.ts` (152) + `engine/slots.ts` (65),
+> behavior-preserving (`occupiedForgeSlots`/`occupiedTribunalSlots` merged into one
+> `occupiedSlots(wos, room)` helper). 53/53 engine tests green, tsc clean, biome-clean, no circular
+> deps. The blocker was an **out-of-scope FRD-13 token regression** (two FRD-10 components still
+> referenced the removed `--color-agent-guild` fallback). That regression has now been **resolved**
+> by the repair engine — see WO-13-002 and the FRD-10 component repunt to
+> `var(--color-tier-5, var(--color-agent-product-manager))`. Full `verify.sh` is now green (187 files,
+> 5145 pass) and this WO is committed. Returns to IN_REVIEW for the FRD-06 reviewer.
 # WO-06-004 — La Fragua engine (RAF loop, wave cap, rooms, parchment, gate)
 
 **Components/Interfaces:** `IF-06-engine` · **Traces:** REQ-06-001, REQ-06-003, REQ-06-006

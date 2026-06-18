@@ -42,228 +42,31 @@
  *   WO-06-002 (layout.ts) — Pos, FORGE_SLOTS, DEEP_SLOTS, REVIEW_SLOTS,
  *                            FORGE_OUT, TRIB_IN, TRIB_OUT, VAULT_Y
  *   WO-06-003 (state-map.ts) — VisualAction, WoState
+ *
+ * Module split (clean-code.md size limit):
+ *   ./types — public + internal types
+ *   ./slots — slot-assignment + movement geometry
  */
 
-import type { BuildMode } from "@/lib/constants";
 import type { Pos } from "../layout";
-import { DEEP_SLOTS, FORGE_OUT, FORGE_SLOTS, REVIEW_SLOTS } from "../layout";
-import type { VisualAction, WoState } from "../state-map/state-map";
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-/** Walk speed in px per ms. */
-const WALK_SPEED = 0.12;
-
-/** Maximum time delta clamped per tick (ms). */
-const MAX_DT = 48;
-
-// ---------------------------------------------------------------------------
-// Public types
-// ---------------------------------------------------------------------------
-
-/**
- * Observable state of a work-order sprite at a given tick.
- * Consumers use this to render sprites in the La Fragua scene.
- */
-export type WoSprite = {
-  /** Work-order identifier (e.g. "WO-06-004"). */
-  wo: string;
-  /** Current visual state of the WO. */
-  state: WoState;
-  /** Current x position in the La Fragua canvas (pixels). */
-  px: number;
-  /** Current y position in the La Fragua canvas (pixels). */
-  py: number;
-  /** Active relay state for deep-mode WOs (optional). */
-  relay?: { step: "test" | "backend" | "frontend"; contractPublished: boolean };
-};
-
-/**
- * The gate state returned by gate().
- */
-export type GateState = {
-  /** True when all WOs in the FRD are IN_REVIEW and the reviewer activates. */
-  open: boolean;
-};
-
-/** Options for createFraguaEngine. */
-export type FraguaEngineOpts = {
-  /** Build mode (drives forge slot layout). */
-  mode: BuildMode;
-  /** Wave size: maximum concurrent building sprites. */
-  wave: number;
-};
-
-/** Public interface of the La Fragua engine (IF-06-engine). */
-export type FraguaEngine = {
-  /**
-   * Set a WO sprite's visual state immediately (no queue).
-   * Creates the sprite if it doesn't exist.
-   */
-  setWo(wo: string, state: WoState): void;
-
-  /**
-   * Enqueue a WO for building. If wave slots are available, it is promoted
-   * immediately to the forge. Otherwise it waits in the queue ("+N en cola").
-   * Idempotent: enqueueing an already-tracked WO is a no-op.
-   */
-  enqueue(wo: string): void;
-
-  /**
-   * Begin the parchment animation from fromWo to toWo's station.
-   * If toWo is absent from the scene, parchment animates to the forge edge.
-   * Driven by HandoffWritten (artifact hand-off, NOT live chat) per AC-06-006.1.
-   */
-  startHandoff(fromWo: string, toWo: string | undefined): void;
-
-  /**
-   * Mark a WO as verified: remove it from wos(), add it to trophies(),
-   * and promote the next queued WO into the freed slot.
-   */
-  verifyWo(wo: string): void;
-
-  /**
-   * Open the reviewer gate (Tribunal del Juez).
-   * Called when AgentWorking carries phase:'review' (all WOs IN_REVIEW).
-   */
-  openGate(): void;
-
-  /**
-   * Translate VisualActions into internal instructions and enqueue them.
-   * Processing happens at the engine's pace (temporal lag is intentional).
-   */
-  applyEvents(diff: VisualAction[]): void;
-
-  /**
-   * Advance physics by one step for the given clock time `now` (ms).
-   * Call from your RAF loop: `engine.tick(performance.now())`.
-   * Pure math — no DOM access in the engine core.
-   */
-  tick(now: number): void;
-
-  /**
-   * Return a snapshot of all current WO sprites (forge + tribunal; not vault trophies).
-   * Returns a fresh array on every call — safe to mutate.
-   */
-  wos(): WoSprite[];
-
-  /**
-   * Return the current reviewer gate state.
-   */
-  gate(): GateState;
-
-  /**
-   * Return the list of verified WO ids (Bóveda trophies).
-   * Returns a fresh array — safe to mutate.
-   */
-  trophies(): string[];
-};
-
-// ---------------------------------------------------------------------------
-// Internal types
-// ---------------------------------------------------------------------------
-
-type RoomState = "forge" | "tribunal" | "vault";
-
-type ParchmentFlight = {
-  fromWo: string;
-  toWo: string | undefined;
-  /** Current parchment position. */
-  px: number;
-  py: number;
-  /** Target position (toWo's current position, or forge edge). */
-  targetPx: number;
-  targetPy: number;
-  /** True once parchment has arrived. */
-  done: boolean;
-};
-
-type InternalWo = {
-  wo: string;
-  state: WoState;
-  room: RoomState;
-  /** Current position (animated toward target slot). */
-  px: number;
-  py: number;
-  /** Target position in current room. */
-  targetPx: number;
-  targetPy: number;
-  /** Slot index in current room. */
-  slotIndex: number;
-  /** Last tick timestamp (for dt calculation). */
-  _lastTick: number;
-  /** Relay state (deep mode only). */
-  relay?: { step: "test" | "backend" | "frontend"; contractPublished: boolean };
-};
-
-// ---------------------------------------------------------------------------
-// Slot assignment helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Returns the forge slot positions for the given mode.
- * deep → DEEP_SLOTS, others → FORGE_SLOTS.
- */
-function getForgeSlots(mode: BuildMode): readonly Pos[] {
-  return mode === "deep" ? DEEP_SLOTS : FORGE_SLOTS;
-}
-
-/**
- * Find the next free slot index in a slot array, given already-occupied set.
- * Returns -1 if no slot is available.
- */
-function nextFreeSlot(total: number, occupied: ReadonlySet<number>): number {
-  for (let i = 0; i < total; i++) {
-    if (!occupied.has(i)) return i;
-  }
-  return -1;
-}
-
-/**
- * Collect occupied forge slot indices from all WOs in the forge.
- */
-function occupiedForgeSlots(wos: Map<string, InternalWo>): Set<number> {
-  const occ = new Set<number>();
-  for (const w of wos.values()) {
-    if (w.room === "forge") occ.add(w.slotIndex);
-  }
-  return occ;
-}
-
-/**
- * Collect occupied tribunal slot indices from all WOs in the tribunal.
- */
-function occupiedTribunalSlots(wos: Map<string, InternalWo>): Set<number> {
-  const occ = new Set<number>();
-  for (const w of wos.values()) {
-    if (w.room === "tribunal") occ.add(w.slotIndex);
-  }
-  return occ;
-}
-
-// ---------------------------------------------------------------------------
-// Move helper — step toward a target
-// ---------------------------------------------------------------------------
-
-/**
- * Move (px, py) toward (targetPx, targetPy) by at most `step` pixels.
- * Returns the new position.
- */
-function stepToward(
-  px: number,
-  py: number,
-  targetPx: number,
-  targetPy: number,
-  step: number,
-): [number, number] {
-  const dx = targetPx - px;
-  const dy = targetPy - py;
-  const d = Math.hypot(dx, dy);
-  if (d <= step) return [targetPx, targetPy];
-  return [px + (dx / d) * step, py + (dy / d) * step];
-}
+import { FORGE_OUT, FORGE_SLOTS, REVIEW_SLOTS } from "../layout";
+import type { RelayStep, VisualAction, WoState } from "../state-map/state-map";
+import {
+  getForgeSlots,
+  MAX_DT,
+  nextFreeSlot,
+  occupiedSlots,
+  stepToward,
+  WALK_SPEED,
+} from "./slots";
+import type {
+  FraguaEngine,
+  FraguaEngineOpts,
+  GateState,
+  InternalWo,
+  ParchmentFlight,
+  WoSprite,
+} from "./types";
 
 // ---------------------------------------------------------------------------
 // createFraguaEngine — factory function
@@ -301,9 +104,9 @@ export function createFraguaEngine(opts: FraguaEngineOpts): FraguaEngine {
   /** Pending VisualActions. */
   const actionQueue: VisualAction[] = [];
 
-  // ---------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
   // Forge slot management
-  // ---------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
 
   /** Number of WOs currently in the forge room (holding forge slots). */
   function forgeCount(): number {
@@ -342,7 +145,7 @@ export function createFraguaEngine(opts: FraguaEngineOpts): FraguaEngine {
    */
   function addToForge(wo: string): void {
     const slots = getForgeSlots(mode);
-    const occ = occupiedForgeSlots(active);
+    const occ = occupiedSlots(active, "forge");
     const si = nextFreeSlot(slots.length, occ);
     const slotIndex = si >= 0 ? si : 0;
     const [tx, ty] = forgeSlotPos(slotIndex);
@@ -359,9 +162,9 @@ export function createFraguaEngine(opts: FraguaEngineOpts): FraguaEngine {
     });
   }
 
-  // ---------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
   // Internal action processors
-  // ---------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
 
   /** Enqueue a WO for building, respecting the wave cap. Idempotent by allKnown. */
   function enqueueWo(wo: string): void {
@@ -377,7 +180,7 @@ export function createFraguaEngine(opts: FraguaEngineOpts): FraguaEngine {
 
   /** Move a WO sprite from forge to the tribunal. Frees the forge slot. */
   function moveToTribunal(sprite: InternalWo): void {
-    const occ = occupiedTribunalSlots(active);
+    const occ = occupiedSlots(active, "tribunal");
     const si = nextFreeSlot(REVIEW_SLOTS.length, occ);
     const slotIndex = si >= 0 ? si : 0;
     const slot = REVIEW_SLOTS[slotIndex];
@@ -443,7 +246,7 @@ export function createFraguaEngine(opts: FraguaEngineOpts): FraguaEngine {
   }
 
   /** Handle advanceRelay action — update relay step. */
-  function processAdvanceRelay(wo: string, step: "test" | "backend" | "frontend"): void {
+  function processAdvanceRelay(wo: string, step: RelayStep): void {
     const sprite = active.get(wo);
     if (sprite === undefined) return;
     sprite.relay = { step, contractPublished: sprite.relay?.contractPublished ?? false };
@@ -497,9 +300,9 @@ export function createFraguaEngine(opts: FraguaEngineOpts): FraguaEngine {
     }
   }
 
-  // ---------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
   // Tick physics
-  // ---------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
 
   function tickSprite(sprite: InternalWo, now: number): void {
     const dt = Math.min(MAX_DT, sprite._lastTick > 0 ? now - sprite._lastTick : 16);
@@ -529,9 +332,9 @@ export function createFraguaEngine(opts: FraguaEngineOpts): FraguaEngine {
     }
   }
 
-  // ---------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
   // Public API
-  // ---------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
 
   return {
     setWo(wo: string, state: WoState): void {
@@ -592,6 +395,12 @@ export function createFraguaEngine(opts: FraguaEngineOpts): FraguaEngine {
     },
   };
 }
+
+// ---------------------------------------------------------------------------
+// Public type re-exports (IF-06-engine) — consumers import these from here.
+// ---------------------------------------------------------------------------
+
+export type { FraguaEngine, FraguaEngineOpts, GateState, RelayState, WoSprite } from "./types";
 
 // ---------------------------------------------------------------------------
 // Legacy exports — kept for backward compatibility while WO-06-006/005
