@@ -4,7 +4,7 @@ type: blueprint
 parent: FRD-03
 status: ACTIVE
 implementation_status: IN_REVIEW
-last_updated: '2026-06-16'
+last_updated: '2026-06-18'
 ---
 # FRD-03 — Portfolio & project navigation — Feature blueprint
 
