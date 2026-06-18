@@ -5,7 +5,7 @@ slug: achievements-engine
 title: 'WO-10-001 — `lib/achievements.ts`: achievements engine (stats/chains/uniques/secrets)'
 status: DRAFT
 parent: FRD-10
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-17'
 ---
@@ -137,5 +137,5 @@ export const SECRET_DEFINITIONS: readonly SecretDefinition[];  // 3 secrets
 - `computeUniques(data)` and `computeSecrets(data)` are independent (take `ReaderData` directly).
 - `ReaderData` is assembled by the Server Component by calling the existing readers (`readIdeas`, `readStatus` per project, `readEvents`).
 
-**Test coverage:** `lib/achievements.test.ts` — 50 tests covering all ACs including all negative ACs (no fabrication, no inflation, no stuck bar, criterion hidden when locked). Gate: `verify.sh` PASS (173 test files, 4773 tests green, tsc clean, biome clean).
+**Test coverage:** `src/lib/achievements/_tests/achievements.test.ts` — 50 tests covering all ACs including all negative ACs (no fabrication, no inflation, no stuck bar, criterion hidden when locked). Scope gate: 50/50 green. Full suite: 5430/5435 green (5 pre-existing FRD-17 failures outside scope); tsc clean; biome clean (warnings only, no errors, consistent with pre-existing project-wide status).
 </content>
