@@ -7,9 +7,9 @@ title: >-
   memoryHealth
 status: DRAFT
 parent: FRD-17
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-18'
 ---
 # WO-17-002 — `lib/memory` views: candidates / promotionQueue / prunable / memoryHealth
 
@@ -46,3 +46,34 @@ N lines + a project `lessons.md`; and an empty-memory fixture for the fresh-fact
 
 ## Dependencies
 - WO-17-001; FRD-01 `lib/config.ts`, `lib/portfolio.ts` (to locate per-project `.pandacorp/run/lessons.md`).
+
+## Status Note
+
+**Built (2026-06-18):** Implemented `memoryHealth()` + all derived views (`candidateLessons`, `promotionQueue`, `prunable`) for WO-17-002.
+
+**What was built:**
+- `src/lib/memory/memory-health.ts` — new module with `memoryHealth(): MemoryHealth` and all private helpers. Split from `memory.ts` to respect the 500-line limit. Avoids circular dependency by importing `readLessons` (not `candidateLessons`) from `./memory` and inlining the filter.
+- `candidateLessons()`, `promotionQueue()`, `prunable()` already existed in `src/lib/memory/memory.ts` (from WO-17-001); no changes needed.
+
+**Interfaces/contracts exposed:**
+```ts
+// src/lib/memory/memory-health.ts
+export type MemoryHealth = {
+  rawNotes: number;           // non-empty lines in _inbox.md + per-project run/lessons.md
+  candidates: number;         // lessons with status === "candidate"
+  lastMemoryRunAt: string | null;  // ISO 8601, most recent LESSON-*.md/_inbox.md mtime
+  staleDays: number | null;   // integer days since lastMemoryRunAt
+};
+export function memoryHealth(): MemoryHealth;
+```
+
+**Integration seams:**
+- Consumers import `memoryHealth` from `@/lib/memory/memory-health` (not from `@/lib/memory/memory`).
+- `candidateLessons`, `promotionQueue`, `prunable` are imported from `@/lib/memory/memory`.
+
+**Test files:**
+- `src/lib/memory/_tests/memory-health.test.ts` — 28 tests covering AC-17-002.1 through AC-17-002.6 (real fs fixture trees, no mocks).
+- `src/lib/memory/_tests/memory.test.ts` — 46 pre-existing tests for `readLessons` + view functions.
+- `src/lib/memory/_tests/memory.adversarial.test.ts` — 5 adversarial `parseProjects` tests.
+
+**Verification:** 74/74 tests pass in memory module; 5279/5279 in full suite. tsc --noEmit clean. No circular dependencies (madge). Biome formatting clean on touched files; pre-existing complexity warning in `readLessons()` (complexity=39) is from WO-17-001, not this WO.
