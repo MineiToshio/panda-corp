@@ -67,3 +67,33 @@ export const BUILD_MODES: readonly BuildModeInfo[] = Object.freeze(
 
 /** Default mode when no choice has been persisted (AC-11-001.3). */
 export const DEFAULT_BUILD_MODE: BuildMode = "balanced";
+
+// ---------------------------------------------------------------------------
+// FRD-17 — Self-suggestion thresholds (IF-17-suggest, WO-17-003)
+// All magic numbers are centralized here per AC-17-003.6.
+// ---------------------------------------------------------------------------
+
+/**
+ * Minimum number of ideas in the same board column to trigger a `bottleneck` suggestion.
+ * (blueprint §4, REQ-17-004)
+ */
+export const BOTTLENECK_THRESHOLD = 5;
+
+/**
+ * A phase running longer than `VELOCITY_FACTOR × portfolio_median` triggers a `velocity` alert.
+ * (blueprint §4, REQ-17-004)
+ */
+export const VELOCITY_FACTOR = 2;
+
+/**
+ * A shipped project older than `LAUNCH_REVIEW_DAYS` days triggers a `launch-review` suggestion.
+ * Aligns with DR-043 (post-launch review cadence).
+ * (blueprint §4, REQ-17-004)
+ */
+export const LAUNCH_REVIEW_DAYS = 30;
+
+/**
+ * Maximum number of events examined for velocity / unused-capability derivations.
+ * Must be ≤ 200 (architecture §3 capped tail — AC-17-003.4).
+ */
+export const SELF_SUGGEST_EVENT_CAP = 200;

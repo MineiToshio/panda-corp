@@ -5,7 +5,7 @@ slug: self-suggest
 title: WO-17-003 — `lib/self-suggest` derivations (6 kinds)
 status: DRAFT
 parent: FRD-17
-implementation_status: PLANNED
+implementation_status: IN_PROGRESS
 source_requirements: []
 last_updated: '2026-06-16'
 ---
