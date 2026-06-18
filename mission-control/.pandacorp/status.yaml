@@ -20,7 +20,7 @@ pending_decisions: 0
 pending_bugs: 0
 rethink_pending: false
 advance_pending: false
-last_green_sha: "dbcf75d"
+last_green_sha: "da13c0b"
 safe_to_test: true
 blocked: []
-supervisor_heartbeat: "2026-06-18T22:09:14Z"
+supervisor_heartbeat: "2026-06-18T22:11:14Z"
