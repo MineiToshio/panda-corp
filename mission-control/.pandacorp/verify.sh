@@ -27,6 +27,15 @@ if [ ! -d node_modules ]; then
   fail "node_modules missing. Run \`pnpm install\` first."
 fi
 
+echo "▶ Structure guard (no loose tests outside _tests/)…"
+# project-structure.md / quality-and-testing.md: unit/component tests live in a
+# _tests/ folder beside the implementation — never loose at the same level.
+LOOSE_TESTS="$(find src -type f \( -name '*.test.ts' -o -name '*.test.tsx' -o -name '*.spec.ts' -o -name '*.spec.tsx' \) -not -path '*/_tests/*' 2>/dev/null || true)"
+if [ -n "$LOOSE_TESTS" ]; then
+  echo "$LOOSE_TESTS" | sed 's/^/   /'
+  fail "Loose test file(s) outside a _tests/ folder (see project-structure.md). Move them into the component/feature's _tests/."
+fi
+
 echo "▶ Lint + format (biome)…"
 pnpm biome check . || fail "Biome found lint/format errors. Try \`pnpm biome check --write .\` for autofixable ones."
 
