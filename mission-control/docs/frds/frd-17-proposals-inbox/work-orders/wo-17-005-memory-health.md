@@ -5,9 +5,9 @@ slug: memory-health
 title: WO-17-005 — Memory-health panel
 status: DRAFT
 parent: FRD-17
-implementation_status: IN_PROGRESS
+implementation_status: IN_REVIEW
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-18'
 ---
 # WO-17-005 — Memory-health panel
 
@@ -41,3 +41,48 @@ above-threshold, fresh-factory (null).
 
 ## Dependencies
 - WO-17-002; FRD-02 `CopyButton`.
+
+## Status Note
+
+**What was built:** The `MemoryHealth` UI component (CMP-17-health) for the self-learning-loop health panel. Pure presentation component that receives a pre-computed `MemoryHealth` data prop (from `memoryHealth()` in `lib/memory/memory-health.ts`, WO-17-002) and renders the panel. No filesystem reads; no Claude calls; no writes.
+
+**Files delivered:**
+- `src/components/modules/MemoryHealth/MemoryHealth.tsx` — the `MemoryHealth` Server Component
+- `src/components/modules/MemoryHealth/_tests/memory-health.test.tsx` — 27 TDD tests RED→GREEN
+- `src/lib/constants.ts` — added `MEMORY_RAW_NOTES_THRESHOLD = 10` and `MEMORY_STALE_DAYS_THRESHOLD = 7`
+
+**Interfaces/contracts exposed:**
+```tsx
+// Component
+export interface MemoryHealthProps { health: MemoryHealth; }
+export function MemoryHealth({ health }: MemoryHealthProps): React.JSX.Element
+
+// data-testid surface:
+// "memory-health-panel"       — root <section> landmark
+// "memory-health-raw-notes"   — raw notes count text node
+// "memory-health-candidates"  — candidate lessons count text node
+// "memory-health-last-run"    — last-run section (only when lastMemoryRunAt !== null)
+// "memory-health-last-run-label" — "(aprox.)" label (AC-17-005.4)
+// "memory-health-stale-days"  — stale days text node (staleDays indicator)
+// "memory-health-stale-icon"  — staleness icon (role=img; text+icon, not color alone)
+// "memory-health-nudge"       — nudge block (only above threshold)
+// "memory-health-first-harvest" — first-harvest invite (only when lastMemoryRunAt === null)
+// "copy-button"               — CopyButton inside nudge/invite (FRD-02)
+
+// Constants added to lib/constants.ts:
+export const MEMORY_RAW_NOTES_THRESHOLD = 10;
+export const MEMORY_STALE_DAYS_THRESHOLD = 7;
+```
+
+**Integration seam:** Callers (`app/proposals/page.tsx` or any page rendering the panel) call `memoryHealth()` server-side and pass the result as `<MemoryHealth health={result} />`. The component is a Server Component (no `"use client"`; CopyButton handles client boundary).
+
+**All 5 ACs verified:**
+- AC-17-005.1: raw-notes, candidates, last-run shown — tests `memory-health-raw-notes`, `memory-health-candidates`, `memory-health-last-run`
+- AC-17-005.2: nudge only above threshold (rawNotes ≥ 10 OR staleDays ≥ 7); below → no nudge — 6 tests
+- AC-17-005.3: fresh factory (null) → `memory-health-first-harvest` invite with `/pandacorp:memory harvest` + CopyButton — 5 tests
+- AC-17-005.4: last-run labelled "(aprox.)" via `memory-health-last-run-label` — 2 tests
+- AC-17-005.5: Spanish copy, `<section>` landmark, staleness by text+icon (not color alone) — 5 tests
+
+**Test files:** `src/components/modules/MemoryHealth/_tests/memory-health.test.tsx` (27 tests).
+
+**Gate:** 27/27 tests GREEN. `verify.sh` PASS (203 test files, 5413 tests). `tsc --noEmit` clean. `biome check` clean on new files. Commit `8450fd6`.
