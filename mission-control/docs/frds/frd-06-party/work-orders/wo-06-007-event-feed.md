@@ -5,7 +5,7 @@ slug: event-feed
 title: 'WO-06-007 — Bitácora (event feed: vocabulary, failure-first, auto-scroll, cap, Live/No-signal)'
 status: DRAFT
 parent: FRD-06
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-18'
 ---
@@ -39,13 +39,53 @@ last_updated: '2026-06-18'
 - Component tests: renders rows with the right icons; a failure event renders the danger treatment and is present (not hidden); adding >cap events keeps the list capped (oldest gone); scrolling up reveals the pin button and pauses auto-scroll; clicking it re-enables; a `project`-tagged event shows both borders.
 - Gate green.
 
-## Status Note (La Fragua redesign — what the retry must build)
+## Status Note (Wave 3 / La Fragua redesign — hand-off)
 
-**Why reopened:** the shipped feed reads `data-agent-color` (rename to role-color), and predates the
-`handoff`/`contract`/`gate` lines and the Live/No-signal badge (which moved here from the descoped
-WO-06-010). The retry: switch to `roleColorKey`; render the new vocabulary rows; add a `live` +
-`lastEventAt` prop and the Live/No-signal badge in the feed header (icon + label, `tabular-nums`). Keep
-the cap, pin and first-class failure behavior. Extend the tests for the new rows + the badge.
+**Built:** `CMP-06-feed` — `EventFeed` client component at
+`src/app/projects/[slug]/_party/EventFeed/EventFeed.tsx`.
+
+**What it delivers (Wave 3 additions over the previous build):**
+- `data-agent-color` attribute renamed to `data-role-color` (aligned with `roleColorKey` rename in WO-06-001).
+- Renders `handoff` / `contract` / `gate` vocabulary rows already present in `EventVM` (via `event-vm.ts`, WO-06-001); no filtering — all row types render.
+- Live / No-signal badge in the feed header (folded from descoped WO-06-010): reads optional `live: boolean` + `lastEventAt: string | null` props; icon + label (never color-only, FRD-13); `tabular-nums` timestamp when `lastEventAt` is set; backward-compat — omitting `live` renders without badge.
+- `FeedHeader` sub-component with `role="status"` and Spanish `aria-label` for accessibility.
+- All previous behavior retained: cap (default 200, tail semantics), auto-scroll + pin button, first-class failure rows (`data-failure="true"`), multi-project double-border (`data-role-color` + `data-project-color`), `aria-live="polite"`, zero hardcoded colors.
+
+**Interfaces/contracts exposed:**
+```ts
+export interface EventFeedProps {
+  events: EventVM[];
+  cap?: number;             // default 200 (AC-06-014.1)
+  showPin?: boolean;        // test only: force pin button visible
+  live?: boolean;           // Wave 3: Live/No-signal badge (omit = no badge)
+  lastEventAt?: string | null; // Wave 3: ISO 8601 timestamp shown in badge
+}
+export function EventFeed(props: EventFeedProps): React.JSX.Element
+```
+
+**Integration seams:**
+- Consumes `EventVM` from `src/app/projects/[slug]/_party/event-vm/event-vm.ts` (WO-06-001). Uses `roleColorKey`, `projectColorKey`, `isFailure`, `icon`, `toolIcon`, `label`, `at`, `wo`, `workOrder`.
+- Consumed by `PartyTab` (WO-06-005) which passes `events: EventVM[]` + optional `live`/`lastEventAt` from server snapshot.
+- CSS variables expected: `--color-failure-bg`, `--color-failure-text`, `--color-failure`, `--color-surface`, `--color-surface-panel`, `--color-text`, `--color-text-muted`, `--color-accent`, `--color-accent-text`, `--color-live-bg`, `--color-live`, `--color-no-signal-bg`, `--color-border`, `--radius`, `--spacing`, `--shadow-panel`, `--hairline` (all from FRD-13 design tokens).
+
+**data-testid:**
+- `event-feed` — `<section>` container
+- `event-feed-empty` — empty state `<div>` (no events)
+- `event-feed-list` — `<ol>` list when events present
+- `event-feed-row` — each `<li>` row (attrs: `data-failure`, `data-role-color`, `data-project-color`)
+- `event-feed-pin` — jump-to-latest button (when user has scrolled up)
+- `event-feed-live-badge` — Live badge in header (when `live=true`)
+- `event-feed-no-signal-badge` — No-signal badge in header (when `live=false`)
+- `event-feed-badge-icon` — icon inside badge
+- `event-feed-badge-label` — label text inside badge
+- `event-feed-badge-timestamp` — timestamp inside badge (when `lastEventAt` is set)
+
+**Test files:**
+- `src/app/projects/[slug]/_party/EventFeed/_tests/EventFeed.test.tsx` — 22 tests (core feed + cap + pin + accessibility + data-testid; updated `data-agent-color` → `data-role-color` attribute expectations).
+- `src/app/projects/[slug]/_party/EventFeed/_tests/EventFeed.wave3.test.tsx` — 18 tests covering handoff/contract/gate rows, Live/No-signal badge, `data-role-color` Wave 3 rename.
+- `src/app/projects/[slug]/_party/EventFeed/_tests/EventFeed.multiproject.test.tsx` — 10 tests covering multi-project double-border (updated `data-agent-color` → `data-role-color`).
+
+**Self-test result:** 50 / 50 EventFeed tests GREEN. `tsc --noEmit` clean for EventFeed files. `biome check src/app/projects/[slug]/_party/EventFeed/` clean (0 errors).
 
 ---
 

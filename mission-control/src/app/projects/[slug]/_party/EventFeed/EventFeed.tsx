@@ -2,8 +2,14 @@
 /**
  * WO-06-007 — EventFeed (CMP-06-feed)
  *
+ * Wave 3 (La Fragua redesign retry, 2026-06-18):
+ *   - data-agent-color attribute renamed to data-role-color (aligned with roleColorKey rename in WO-06-001).
+ *   - Renders handoff / contract / gate vocabulary rows (already in EventVM via event-vm.ts).
+ *   - Live / No-signal badge added to the feed header (folded from descoped WO-06-010),
+ *     reading `live` + `lastEventAt` props. Icon + label (NEVER color-only). tabular-nums timestamp.
+ *
  * Client component that renders the capped event log with iconic vocabulary,
- * agent colors, first-class failure rows, auto-scroll + pin.
+ * role colors, first-class failure rows, auto-scroll + pin.
  *
  * Design rules (FRD-13, AGENTS.md):
  *   - ZERO hardcoded colors — all visual values via CSS custom properties.
@@ -13,7 +19,7 @@
  *   - Spanish aria-labels.
  *
  * Traceability:
- *   CMP-06-feed → REQ-06-006, REQ-06-012, REQ-06-013, REQ-06-014, REQ-06-011
+ *   CMP-06-feed → REQ-06-011, REQ-06-010
  *   Depends on: IF-06-event-vm (event-vm.ts), IF-13-tokens (tokens.ts)
  */
 
@@ -43,6 +49,19 @@ export interface EventFeedProps {
    * Not used in production — the pin shows when the user scrolls up.
    */
   showPin?: boolean;
+  /**
+   * Whether the event stream is currently live (within freshness threshold).
+   * When provided, the feed header shows a Live / No-signal badge.
+   * Omit to render without badge (backward-compat).
+   * (Folded from WO-06-010 — AC-06-011.1 wave 3)
+   */
+  live?: boolean;
+  /**
+   * ISO 8601 timestamp of the last known event, or null when no events exist.
+   * Used by the Live / No-signal badge in the feed header.
+   * Only rendered when `live` prop is also provided.
+   */
+  lastEventAt?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -57,6 +76,65 @@ const CONTAINER_STYLE: React.CSSProperties = {
   background: "var(--color-surface, Canvas)",
   color: "var(--color-text, currentColor)",
   fontVariantNumeric: "tabular-nums",
+};
+
+const FEED_HEADER_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  padding: "calc(var(--spacing, 0.25rem) * 2) calc(var(--spacing, 0.25rem) * 2)",
+  borderBottom: "var(--hairline, 1px) solid var(--color-border, currentColor)",
+  gap: "calc(var(--spacing, 0.25rem) * 2)",
+  flexShrink: 0,
+};
+
+const FEED_TITLE_STYLE: React.CSSProperties = {
+  fontSize: "0.75rem",
+  fontWeight: 600,
+  color: "var(--color-text-muted, currentColor)",
+  opacity: 0.8,
+  margin: 0,
+};
+
+const BADGE_BASE_STYLE: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "calc(var(--spacing, 0.25rem) * 1)",
+  padding: "calc(var(--spacing, 0.25rem) * 0.5) calc(var(--spacing, 0.25rem) * 1.5)",
+  borderRadius: "var(--radius, 0.375rem)",
+  fontSize: "0.6875rem",
+  fontWeight: 600,
+  fontVariantNumeric: "tabular-nums",
+  lineHeight: 1.4,
+};
+
+const BADGE_LIVE_STYLE: React.CSSProperties = {
+  ...BADGE_BASE_STYLE,
+  background: "var(--color-live-bg, oklch(0.3 0.08 145 / 0.2))",
+  color: "var(--color-live, oklch(0.65 0.18 145))",
+};
+
+const BADGE_NO_SIGNAL_STYLE: React.CSSProperties = {
+  ...BADGE_BASE_STYLE,
+  background: "var(--color-no-signal-bg, oklch(0.3 0.02 0 / 0.15))",
+  color: "var(--color-text-muted, currentColor)",
+  opacity: 0.7,
+};
+
+const BADGE_ICON_STYLE: React.CSSProperties = {
+  display: "inline-block",
+  fontSize: "0.75rem",
+  lineHeight: 1,
+};
+
+const BADGE_LABEL_STYLE: React.CSSProperties = {
+  color: "currentColor",
+};
+
+const BADGE_TIMESTAMP_STYLE: React.CSSProperties = {
+  fontVariantNumeric: "tabular-nums",
+  opacity: 0.75,
+  marginLeft: "calc(var(--spacing, 0.25rem) * 0.5)",
 };
 
 const FEED_STYLE: React.CSSProperties = {
@@ -99,7 +177,7 @@ function rowStyle(vm: EventVM): React.CSSProperties {
     color: vm.isFailure ? "var(--color-failure-text, var(--color-text, currentColor))" : "inherit",
   };
 
-  // Multi-project: project-color left border + agent-color second (via outline-offset trick)
+  // Multi-project: project-color left border + role-color second (via outline-offset trick)
   if (vm.projectColorKey && vm.roleColorKey) {
     base.outline = `2px solid var(${vm.roleColorKey}, var(--color-accent, currentColor))`;
     base.outlineOffset = "-2px";
@@ -161,6 +239,74 @@ function formatTimestamp(iso: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// FeedHeader sub-component — Live / No-signal badge
+// ---------------------------------------------------------------------------
+
+interface FeedHeaderProps {
+  live: boolean;
+  lastEventAt: string | null;
+}
+
+/**
+ * Feed header badge showing Live / No-signal status.
+ * State conveyed by ICON + LABEL, never by color alone (FRD-13).
+ * tabular-nums timestamp when lastEventAt is present.
+ */
+function FeedHeader({ live, lastEventAt }: FeedHeaderProps): React.JSX.Element {
+  const formattedTs = lastEventAt ? formatTimestamp(lastEventAt) : "";
+
+  if (live) {
+    return (
+      <header style={FEED_HEADER_STYLE}>
+        <span style={FEED_TITLE_STYLE}>Bitácora del gremio</span>
+        <span
+          data-testid="event-feed-live-badge"
+          role="status"
+          aria-label="En vivo — datos actuales"
+          style={BADGE_LIVE_STYLE}
+        >
+          <span data-testid="event-feed-badge-icon" aria-hidden="true" style={BADGE_ICON_STYLE}>
+            ●
+          </span>
+          <span data-testid="event-feed-badge-label" style={BADGE_LABEL_STYLE}>
+            En vivo
+          </span>
+          {formattedTs && (
+            <span data-testid="event-feed-badge-timestamp" style={BADGE_TIMESTAMP_STYLE}>
+              {formattedTs}
+            </span>
+          )}
+        </span>
+      </header>
+    );
+  }
+
+  return (
+    <header style={FEED_HEADER_STYLE}>
+      <span style={FEED_TITLE_STYLE}>Bitácora del gremio</span>
+      <span
+        data-testid="event-feed-no-signal-badge"
+        role="status"
+        aria-label="Sin señal — datos posiblemente desactualizados"
+        style={BADGE_NO_SIGNAL_STYLE}
+      >
+        <span data-testid="event-feed-badge-icon" aria-hidden="true" style={BADGE_ICON_STYLE}>
+          ○
+        </span>
+        <span data-testid="event-feed-badge-label" style={BADGE_LABEL_STYLE}>
+          Sin señal
+        </span>
+        {formattedTs && (
+          <span data-testid="event-feed-badge-timestamp" style={BADGE_TIMESTAMP_STYLE}>
+            {formattedTs}
+          </span>
+        )}
+      </span>
+    </header>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // EventFeed component
 // ---------------------------------------------------------------------------
 
@@ -173,11 +319,15 @@ function formatTimestamp(iso: string): string {
  * - Clicking pin restores auto-scroll.
  * - Failure rows are visually distinct (danger treatment, never hidden).
  * - aria-live="polite" announces new rows to screen readers.
+ * - Optional Live/No-signal badge in the feed header (`live` + `lastEventAt` props).
+ * - Renders handoff / contract / gate vocabulary rows (via EventVM label/icon).
  */
 export function EventFeed({
   events,
   cap = DEFAULT_CAP,
   showPin = false,
+  live,
+  lastEventAt,
 }: EventFeedProps): React.JSX.Element {
   const listRef = useRef<HTMLOListElement>(null);
   const [isPinned, setIsPinned] = useState(false);
@@ -209,12 +359,18 @@ export function EventFeed({
     }
   }
 
+  // Whether the `live` badge should be shown: only when `live` prop is explicitly provided.
+  const showBadge = live !== undefined;
+
   return (
     <section
       data-testid="event-feed"
       aria-label="Registro de eventos del equipo"
       style={CONTAINER_STYLE}
     >
+      {/* Feed header with Live/No-signal badge — shown when live prop is provided */}
+      {showBadge && <FeedHeader live={live as boolean} lastEventAt={lastEventAt ?? null} />}
+
       {visible.length === 0 ? (
         <div data-testid="event-feed-empty" style={EMPTY_STYLE} role="status">
           Sin eventos registrados
@@ -239,7 +395,7 @@ export function EventFeed({
               key={idx}
               data-testid="event-feed-row"
               data-failure={vm.isFailure ? "true" : undefined}
-              data-agent-color={vm.roleColorKey ?? undefined}
+              data-role-color={vm.roleColorKey ?? undefined}
               data-project-color={vm.projectColorKey ?? undefined}
               style={rowStyle(vm)}
             >
@@ -256,7 +412,20 @@ export function EventFeed({
               {/* Event label */}
               <span style={LABEL_STYLE}>
                 {vm.label}
-                {vm.workOrder !== undefined && (
+                {vm.wo !== undefined && (
+                  <span
+                    style={{
+                      marginLeft: "0.25rem",
+                      fontSize: "0.6875rem",
+                      color: "var(--color-text-muted, currentColor)",
+                      opacity: 0.7,
+                    }}
+                  >
+                    {vm.wo}
+                  </span>
+                )}
+                {/* Backward-compat: also check workOrder alias if wo is absent */}
+                {vm.wo === undefined && vm.workOrder !== undefined && (
                   <span
                     style={{
                       marginLeft: "0.25rem",

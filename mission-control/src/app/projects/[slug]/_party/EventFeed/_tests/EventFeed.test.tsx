@@ -120,10 +120,10 @@ describe("frd-06: EventFeed — failure is first-class, never hidden (AC-06-013.
 // ---------------------------------------------------------------------------
 
 describe("frd-06: EventFeed — role color markers (AC-06-011.1)", () => {
-  it("frd-06: WHEN event has roleColorKey THEN row has data-agent-color attribute", () => {
+  it("frd-06: WHEN event has roleColorKey THEN row has data-role-color attribute", () => {
     render(<EventFeed events={[makeVM({ roleColorKey: "--color-agent-frontend-dev" })]} />);
     const row = screen.getByTestId("event-feed-row");
-    expect(row.getAttribute("data-agent-color")).toBe("--color-agent-frontend-dev");
+    expect(row.getAttribute("data-role-color")).toBe("--color-agent-frontend-dev");
   });
 
   it("frd-06: WHEN event has projectColorKey THEN row has data-project-color attribute", () => {
@@ -132,10 +132,10 @@ describe("frd-06: EventFeed — role color markers (AC-06-011.1)", () => {
     expect(row.getAttribute("data-project-color")).toBe("--color-project-proj-a");
   });
 
-  it("frd-06: WHEN event has no roleColorKey THEN data-agent-color is absent", () => {
+  it("frd-06: WHEN event has no roleColorKey THEN data-role-color is absent", () => {
     render(<EventFeed events={[makeVM()]} />);
     const row = screen.getByTestId("event-feed-row");
-    expect(row.getAttribute("data-agent-color")).toBeNull();
+    expect(row.getAttribute("data-role-color")).toBeNull();
   });
 });
 

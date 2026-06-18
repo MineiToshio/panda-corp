@@ -6,7 +6,7 @@
  *
  * Tests:
  *   - WHEN snapshot contains events from 2 projects THEN rows with projectColorKey
- *     carry BOTH data-project-color AND data-agent-color attributes
+ *     carry BOTH data-project-color AND data-role-color attributes
  *   - WHEN a row has projectColorKey AND roleColorKey THEN it renders a double border
  *     (project-color left border + agent-color outline — verifiable via data attributes
  *     since jsdom does not compute CSS)
@@ -97,7 +97,7 @@ describe("frd-06: EventFeed — multi-project double border (AC-06-011.1)", () =
     );
     const row = screen.getByTestId("event-feed-row");
     expect(row.getAttribute("data-project-color")).toBe("--color-project-proj-a");
-    expect(row.getAttribute("data-agent-color")).toBe("--color-agent-backend-dev");
+    expect(row.getAttribute("data-role-color")).toBe("--color-agent-backend-dev");
   });
 
   it("frd-06: WHEN 2-project snapshot THEN rows from proj-a and proj-b each have their own project-color", () => {
@@ -107,11 +107,11 @@ describe("frd-06: EventFeed — multi-project double border (AC-06-011.1)", () =
 
     const projARow = rows[0];
     expect(projARow?.getAttribute("data-project-color")).toBe("--color-project-proj-a");
-    expect(projARow?.getAttribute("data-agent-color")).toBe("--color-agent-backend-dev");
+    expect(projARow?.getAttribute("data-role-color")).toBe("--color-agent-backend-dev");
 
     const projBRow = rows[1];
     expect(projBRow?.getAttribute("data-project-color")).toBe("--color-project-proj-b");
-    expect(projBRow?.getAttribute("data-agent-color")).toBe("--color-agent-frontend-dev");
+    expect(projBRow?.getAttribute("data-role-color")).toBe("--color-agent-frontend-dev");
   });
 
   it("frd-06: WHEN a row has no project THEN data-project-color is absent", () => {
@@ -127,7 +127,7 @@ describe("frd-06: EventFeed — multi-project double border (AC-06-011.1)", () =
     );
     const row = screen.getByTestId("event-feed-row");
     expect(row.getAttribute("data-project-color")).toBeNull();
-    expect(row.getAttribute("data-agent-color")).toBe("--color-agent-test-writer");
+    expect(row.getAttribute("data-role-color")).toBe("--color-agent-test-writer");
   });
 
   it("frd-06: WHEN row from no-project event THEN only agent border applies (no double border)", () => {
@@ -135,7 +135,7 @@ describe("frd-06: EventFeed — multi-project double border (AC-06-011.1)", () =
     const rows = screen.getAllByTestId("event-feed-row");
     const noProjectRow = rows[2]; // third row: no project
     expect(noProjectRow?.getAttribute("data-project-color")).toBeNull();
-    expect(noProjectRow?.getAttribute("data-agent-color")).toBe("--color-agent-test-writer");
+    expect(noProjectRow?.getAttribute("data-role-color")).toBe("--color-agent-test-writer");
   });
 
   it("frd-06: WHEN a row has neither roleColorKey nor projectColorKey THEN neither data attribute is set", () => {
@@ -150,7 +150,7 @@ describe("frd-06: EventFeed — multi-project double border (AC-06-011.1)", () =
     );
     const row = screen.getByTestId("event-feed-row");
     expect(row.getAttribute("data-project-color")).toBeNull();
-    expect(row.getAttribute("data-agent-color")).toBeNull();
+    expect(row.getAttribute("data-role-color")).toBeNull();
   });
 
   it("frd-06: WHEN 2-project snapshot THEN all rows still render (never crash)", () => {
@@ -178,7 +178,7 @@ describe("frd-06: EventFeed — legacy/global events (no project field)", () => 
       />,
     );
     const row = screen.getByTestId("event-feed-row");
-    expect(row.getAttribute("data-agent-color")).toBe("--color-agent-reviewer");
+    expect(row.getAttribute("data-role-color")).toBe("--color-agent-reviewer");
     expect(row.getAttribute("data-project-color")).toBeNull();
   });
 
@@ -203,6 +203,6 @@ describe("frd-06: EventFeed — legacy/global events (no project field)", () => 
     expect(rows[0]?.getAttribute("data-project-color")).toBe("--color-project-proj-a");
     // Second row: no project border
     expect(rows[1]?.getAttribute("data-project-color")).toBeNull();
-    expect(rows[1]?.getAttribute("data-agent-color")).toBe("--color-agent-reviewer");
+    expect(rows[1]?.getAttribute("data-role-color")).toBe("--color-agent-reviewer");
   });
 });
