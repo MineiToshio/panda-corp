@@ -128,7 +128,10 @@ interface FrdContext {
 interface FrdScan {
   runningWos: string[];
   allWoIds: Set<string>;
+  /** Trophies on the CURRENT FRD's Bóveda shelf (per-FRD, AC-06-005.1). */
   trophyWoIds: string[];
+  /** Unique achievement WOs across ALL FRDs (global counter, AC-06-002.2). */
+  globalDoneWoIds: Set<string>;
   gateOpen: boolean;
 }
 
@@ -234,8 +237,14 @@ function processSubagentStop(
 }
 
 /**
- * Process an achievement event: add the WO as a unique trophy (VERIFIED).
- * Also registers the WO in allWoIds when it belongs to the current FRD.
+ * Process an achievement event. Two distinct buckets, kept decoupled:
+ *   - The global project counter (AC-06-002.2) counts every unique achievement
+ *     WO across ALL FRDs → `globalDoneWoIds`.
+ *   - The Bóveda trophy shelf (AC-06-005.1) is per-FRD → `trophyWoIds`. A
+ *     foreign-FRD achievement lingering in the globally-capped event tail must
+ *     NOT leak onto the current FRD's shelf. An achievement with no `frd` field
+ *     is treated as belonging to the current scene (backward-compat with
+ *     legacy/global emitters, AC-06-008.2).
  */
 function processAchievement(
   ev: DashboardEvent,
@@ -245,13 +254,19 @@ function processAchievement(
 ): void {
   if (ev.event !== "achievement" || typeof ev.workOrder !== "string") return;
 
+  // Global counter: every unique achievement WO, regardless of FRD.
+  scan.globalDoneWoIds.add(ev.workOrder);
+
+  // Per-FRD shelf: explicit foreign FRD is excluded; absent frd defaults to the
+  // current scene (legacy/global achievements).
+  const belongsToCurrentFrd = typeof ev.frd !== "string" || ev.frd === ctx.currentFrdId;
+  if (!belongsToCurrentFrd) return;
+
   if (!seenTrophies.has(ev.workOrder)) {
     seenTrophies.add(ev.workOrder);
     scan.trophyWoIds.push(ev.workOrder);
   }
-  if (typeof ev.frd === "string" && ev.frd === ctx.currentFrdId) {
-    scan.allWoIds.add(ev.workOrder);
-  }
+  scan.allWoIds.add(ev.workOrder);
 }
 
 // ---------------------------------------------------------------------------
@@ -267,6 +282,7 @@ function scanFrdData(events: readonly DashboardEvent[], ctx: FrdContext): FrdSca
     runningWos: [],
     allWoIds: new Set<string>(),
     trophyWoIds: [],
+    globalDoneWoIds: new Set<string>(),
     gateOpen: false,
   };
 
@@ -348,11 +364,15 @@ export function toFraguaSnapshot(
     state: "building" as WoState,
   }));
 
+  // The project counter is global/cross-FRD (AC-06-002.2): done counts every
+  // unique achievement WO, decoupled from the per-FRD Bóveda shelf.
+  const globalDone = scan.globalDoneWoIds.size;
   const projectTotals = opts.projectTotals ?? {
-    done: scan.trophyWoIds.length,
-    total: Math.max(scan.allWoIds.size, scan.trophyWoIds.length),
+    done: globalDone,
+    total: Math.max(scan.allWoIds.size, globalDone),
   };
 
+  // The queue is per-FRD: only current-FRD trophies count as already done.
   const queuedCount = Math.max(0, scan.allWoIds.size - running.length - scan.trophyWoIds.length);
 
   return {

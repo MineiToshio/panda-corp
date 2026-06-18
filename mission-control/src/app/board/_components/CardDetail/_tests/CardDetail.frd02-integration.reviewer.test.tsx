@@ -20,7 +20,6 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CardDetail } from "@/app/board/_components/CardDetail/CardDetail";
 import { phaseFromStatus } from "@/lib/campaign/campaign";
-import type { ProjectDocsIndex } from "@/lib/docs/docs";
 import type { IdeaStatus } from "@/lib/ideas/ideas";
 import type { Phase } from "@/lib/status/status";
 
@@ -34,9 +33,9 @@ afterEach(() => {
 
 const PHASE_ORDER = ["research", "product", "design", "architecture", "build", "release"] as const;
 
-function renderDetail(
-  overrides: Partial<React.ComponentProps<typeof CardDetail>> = {},
-): { onEnterForge: ReturnType<typeof vi.fn> } {
+function renderDetail(overrides: Partial<React.ComponentProps<typeof CardDetail>> = {}): {
+  onEnterForge: ReturnType<typeof vi.fn>;
+} {
   const onEnterForge = vi.fn();
   render(
     <CardDetail
@@ -107,16 +106,16 @@ describe("FRD-02 integration — CardDetail drives the REAL CampaignPipeline act
 describe("FRD-02 integration — phase-state invariant through CardDetail (AC-02-010.3/.7)", () => {
   it("shipped → all 5 earlier phases done, release current, none locked-before (no off-by-one across the seam)", () => {
     renderDetail({ status: "shipped" });
-    const states = PHASE_ORDER.map(
-      (key) => screen.getByTestId(`campaign-phase-${key}`).getAttribute("data-phase-state"),
+    const states = PHASE_ORDER.map((key) =>
+      screen.getByTestId(`campaign-phase-${key}`).getAttribute("data-phase-state"),
     );
     expect(states).toEqual(["done", "done", "done", "done", "done", "current"]);
   });
 
   it("discovered → research current, all 5 following phases locked (AC-02-010.7)", () => {
     renderDetail({ status: "discovered" });
-    const states = PHASE_ORDER.map(
-      (key) => screen.getByTestId(`campaign-phase-${key}`).getAttribute("data-phase-state"),
+    const states = PHASE_ORDER.map((key) =>
+      screen.getByTestId(`campaign-phase-${key}`).getAttribute("data-phase-state"),
     );
     expect(states).toEqual(["current", "locked", "locked", "locked", "locked", "locked"]);
   });

@@ -11,6 +11,47 @@ last_updated: '2026-06-18'
 ---
 # WO-06-005 — La Fragua tab + FraguaSnapshot (RSC, read-only)
 
+> **REPAIRED → IN_REVIEW (2026-06-18, repair engineer).** The reviewer's blocking defect is fixed:
+> the Bóveda shelf is now per-FRD and the global `project.done` counter is decoupled from it.
+> `processAchievement` (`fragua-snapshot.ts`) now (1) adds every unique achievement WO to a new
+> `globalDoneWoIds` set that feeds the cross-FRD `project.done` counter (AC-06-002.2), and (2) only
+> pushes to the per-FRD `trophyWoIds` shelf when the achievement's `frd` matches the current FRD
+> (absent `frd` → current scene, backward-compat AC-06-008.2). `project.done` reads
+> `globalDoneWoIds.size`; `trophies`/`archivedCount`/`queuedCount` stay per-FRD. The reviewer RED
+> anchor `_tests/fragua-snapshot.reviewer.test.ts` is now GREEN (foreign-FRD trophies no longer leak)
+> and the existing `_tests/fragua-snapshot.test.ts` still holds (`project.done=2`).
+> `bash .pandacorp/verify.sh` is fully green (219 files, 5618 tests; biome + tsc clean). Awaiting the
+> FRD-06 gate's re-review.
+
+> **REOPENED → PLANNED by the FRD-06 review gate (2026-06-18).** Blocking defect: the Bóveda
+> shelf is NOT per-FRD. See "Reviewer reopen" below.
+
+## Reviewer reopen — Bóveda leaks foreign-FRD trophies (AC-06-005.1 / AC-06-005.2)
+
+**Defect (file:line):** `app/projects/[slug]/_party/fragua-snapshot/fragua-snapshot.ts:240` —
+`processAchievement` pushes EVERY `achievement` event to `scan.trophyWoIds` regardless of `ev.frd`,
+and `trophyWoIds` directly populates the **per-FRD** Bóveda (`displayedTrophies`/`archivedCount`,
+lines 343-344, 365-366). Because the event tail is capped globally (200), a just-finished FRD's
+achievement events linger in the tail while the next FRD builds, so those foreign trophies render on
+the **current FRD's** shelf. AC-06-005.1 ("place it as a trophy on the Bóveda shelf **for the current
+FRD**") and the whole "scene is per-FRD" contract are violated.
+
+**Reproduced by** (red, anchored in EARS):
+`app/projects/[slug]/_party/_tests/fragua-snapshot.reviewer.test.ts` →
+"the Bóveda shelf is per-FRD (AC-06-005.1)" — a foreign-FRD achievement in the tail leaks into
+`snapshot.trophies`.
+
+**Concrete fix (keep the global counter global, make the shelf per-FRD):**
+- In `processAchievement`, only push to `scan.trophyWoIds` when `ev.frd === ctx.currentFrdId`
+  (the Bóveda is per-FRD). Achievements with no `frd` belong to the legacy/global bucket — decide
+  per blueprint, but they must NOT land on a named current-FRD shelf.
+- The **global** `project.done` counter (AC-06-002.2, correctly cross-FRD) must be **decoupled** from
+  the now-per-FRD trophy list — track a separate global done count (all unique achievement WOs) so
+  `project.done` stays global while `trophies`/`archivedCount`/`queuedCount` use only current-FRD
+  trophies. Today all three share `trophyWoIds` (lines 343-344, 352, 356) — split them.
+- Re-run `fragua-snapshot.reviewer.test.ts` (must go green) plus the existing
+  `_tests/fragua-snapshot.test.ts` (project.done=2 etc. must still hold).
+
 **Components/Interfaces:** `CMP-06-party-tab`, `IF-06-fragua-snapshot` · **Traces:** REQ-06-002, REQ-06-008, REQ-06-009, REQ-06-010
 **Deploy unit:** Party tab (Server Component) · **Location:** `app/projects/[slug]/_party/PartyTab.tsx`, `app/projects/[slug]/_party/fragua-snapshot.ts` (+ `.test.tsx`/`.test.ts`)
 
