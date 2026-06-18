@@ -37,7 +37,12 @@
         "noExplicitAny": "error"
       },
       "complexity": {
-        "noImportantStyles": "off"
+        "noImportantStyles": "off",
+        "noExcessiveCognitiveComplexity": "warn"
+      },
+      "style": {
+        "useImportType": "error",
+        "useExportType": "error"
       }
     }
   },
