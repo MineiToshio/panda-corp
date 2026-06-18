@@ -3,7 +3,7 @@ id: FRD-17
 type: frd
 title: FRD-17 — Proposals inbox (self-learning gate + self-suggestion)
 status: ACTIVE
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
 last_updated: '2026-06-18'
 ---
 # FRD-17 — Proposals inbox (self-learning gate + self-suggestion)

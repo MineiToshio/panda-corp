@@ -11,8 +11,8 @@ repo: ""
 updated_at: "2026-06-18"
 work_orders_total: 112
 work_orders_verified: 74
-work_orders_in_review: 23
-work_orders_planned: 15
+work_orders_in_review: 22
+work_orders_planned: 16
 work_orders_in_progress: 0
 work_orders_blocked: 0
 work_orders_done: 74
@@ -21,6 +21,6 @@ pending_bugs: 0
 rethink_pending: false
 advance_pending: false
 last_green_sha: "0567b54"
-safe_to_test: true
+safe_to_test: false
 blocked: []
-supervisor_heartbeat: "2026-06-18T19:36:50Z"
+supervisor_heartbeat: "2026-06-18T19:42:50Z"

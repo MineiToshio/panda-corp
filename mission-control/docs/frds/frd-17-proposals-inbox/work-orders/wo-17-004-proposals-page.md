@@ -5,7 +5,7 @@ slug: proposals-page
 title: WO-17-004 — `app/proposals` page + 4 streams + proposal card
 status: DRAFT
 parent: FRD-17
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
 source_requirements: []
 last_updated: '2026-06-18'
 ---
@@ -178,3 +178,48 @@ New imports consumed: `memoryHealth()` (`@/lib/memory/memory-health`), `MemoryHe
 **Gate:** full `.pandacorp/verify.sh` GREEN — 206 test files, 5428 tests pass (2 expected-fail, 5
 skipped), biome + tsc clean. Returned to IN_REVIEW for the FRD gate's re-verification (never VERIFIED
 by the implementer — DR-015/DR-050).
+
+## Reviewer finding — REOPENED to PLANNED (FRD gate, 2026-06-18, Opus, run 2)
+
+The two items the previous "composition repair" explicitly left OPEN (its own Scope note above,
+items 3 and 4) are still unaddressed in the running page, and they are real FRD EARS violations at
+the integration gate. The page now composes the panels, but the feature still does not *work* as the
+FRD requires. The reviewer wrote the missing RED tests this run:
+`src/app/proposals/_tests/proposals-wiring.reviewer.test.tsx` — 2/2 FAIL against the current page.
+
+1. **REQ-17-008 / AC-17-007.3 — proposals are NOT dismissible in the running app.** The FRD: "Proposals
+   SHALL be honest and **dismissible** … dismissing it is remembered." `proposalsDismissStore`
+   (`src/components/modules/ProposalsDismiss/proposalsDismissStore.ts`, WO-17-007) is unit-tested but
+   wired into NO rendered surface — `dismissProposal`/`filterUndismissed` are imported by no production
+   file under `src/app/`. A "SHALL be dismissible" criterion is unmet by a store that mounts nowhere.
+
+2. **REQ-17-004 — 5 of 6 self-suggestions are DEAD production code.** `page.tsx` calls
+   `computeSuggestions({ boardColumnCounts:{}, portfolioItems:[], events:[], capabilities:[],
+   decisionRules:[], inboxDecisionLines:[], lessons:[...] })` — every source but `lessons` is a
+   hardcoded empty literal, so only `recurring-lesson` can ever fire. `bottleneck`, `velocity`,
+   `unused-capability`, `policy-friction`, `launch-review` never run in the running app, yet the FRD
+   says MC "SHALL compute self-suggestions … from data it already reads: bottlenecks; velocity; unused
+   capability; policy friction; … a shipped project." All six readers are shipped & VERIFIED
+   (`lib/board`, `lib/portfolio`, `lib/events`, `lib/reference`, `lib/registry`, and the inbox decision
+   lines) — this is wiring, not a missing dependency.
+
+**Concrete fix (rebuild scope for WO-17-004), `src/app/proposals/page.tsx`:**
+- Wire the real readers into `computeSuggestions`: derive `boardColumnCounts` from `lib/board` +
+  `lib/status`; `portfolioItems` (with `phaseStartedAt`) from `lib/portfolio` + per-project status;
+  the capped `events` tail from `lib/events`; `capabilities` from `lib/reference`; `decisionRules`
+  from `lib/registry`; `inboxDecisionLines` from the per-project `.pandacorp/inbox/decisions.md`
+  reader. Pass `readLessons()` for `lessons`. Keep it read-only / no-Claude (architecture §7).
+- Expose a client dismiss affordance on each proposal card (a small `"use client"` wrapper that calls
+  `dismissProposal(id)` and filters the list with `filterUndismissed`); keep the page a Server
+  Component (no `"use server"`). The dismiss control must be an accessible `<button>` named
+  "Descartar"/"Ocultar" (a11y, FRD-13; not color-only). White-Hat: no false urgency.
+
+**RED tests the rebuild must turn GREEN (written by the reviewer this run):**
+`src/app/proposals/_tests/proposals-wiring.reviewer.test.tsx`
+- `REQ-17-008 … exposes a dismiss affordance` — currently FAIL (no dismiss button rendered).
+- `REQ-17-004 … feeds computeSuggestions REAL reader data, not hardcoded empty inputs` — currently
+  FAIL (all five non-lesson source fields are empty literals).
+
+The other reviewed WOs (001, 002, 003, 005, 006, 007) are correct at their unit scope — their
+components/stores work; they are simply not yet wired into the page. They stay IN_REVIEW; only the
+composition owner (this WO) is reopened to PLANNED. Foundation WO-17-001 stays IN_REVIEW.
