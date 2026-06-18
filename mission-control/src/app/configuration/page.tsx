@@ -1,4 +1,3 @@
-"use server";
 /**
  * WO-07-005 — Configuration page (CMP-07-config-page, server wrapper)
  * WO-07-006 — reads skills and passes them to ConfigurationShell

@@ -1,4 +1,3 @@
-"use server";
 /**
  * app/manual/page.tsx — WO-08-002 (CMP-08-manual-page, server entry)
  *
