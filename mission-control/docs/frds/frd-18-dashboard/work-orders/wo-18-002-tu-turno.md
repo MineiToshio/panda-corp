@@ -5,9 +5,9 @@ slug: tu-turno
 title: WO-18-002 — `IF-18-turn` human-gate queue + `TuTurno` component
 status: DRAFT
 parent: FRD-18
-implementation_status: IN_PROGRESS
+implementation_status: IN_REVIEW
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-18'
 ---
 # WO-18-002 — `IF-18-turn` human-gate queue + `TuTurno` component
 
@@ -46,3 +46,47 @@ includes a running build + `advance_pending` to assert they are excluded. `tu-tu
 
 ## Dependencies
 - FRD-01 `lib/status`, `lib/ideas`; FRD-02 `lib/board`, `lib/next-step`, `CopyButton`; FRD-17 `lib/memory`.
+
+## Status Note
+**Built:** `IF-18-turn` pure derivation helper + `TuTurno` Server Component. Committed in `8c1654a` (picked up with WO-18-003 parallel commit).
+
+**Interfaces/contracts exposed:**
+
+```ts
+// src/app/(dashboard)/_lib/turn.ts
+export type TurnItemKind =
+  | "pending-decisions" | "review-launch" | "memory-nudge" | "undiscovered-ideas"
+  | "running-build" | "advance-pending" | "failed-wo";  // last 3: never emitted
+
+export type TurnItem = { kind: TurnItemKind; label: string; command: string; href: string };
+
+export type TurnInput = {
+  pendingDecisions: number;
+  inboxDecisionLines: string[];
+  shippedAwaitingReview: Array<{ name: string; path: string }>;
+  memoryNeedsAttention: boolean;
+  undiscoveredIdeas: number;
+};
+
+export function buildTurnQueue(input: TurnInput): TurnItem[];
+// Pure, never throws. Empty input → []. Urgency order: decisions > review > memory > ideas.
+```
+
+```tsx
+// src/components/dashboard/TuTurno/TuTurno.tsx
+export interface TuTurnoProps { items: TurnItem[] }
+export function TuTurno({ items }: TuTurnoProps): React.JSX.Element
+// Server-renderable. Empty items → al-día badge. Non-empty → count badge + item rows.
+// Each row: Link(href) wrapping label + command text; CopyButton(value=command) as sibling.
+// data-testid: tu-turno-heading, tu-turno-al-dia, tu-turno-count, tu-turno-item, tu-turno-item-link
+```
+
+**Integration seams:**
+- Caller (CMP-18-page `app/page.tsx`) reads `lib/status`, `lib/ideas`, `lib/memory/memory-health`, `lib/portfolio` server-side and builds a `TurnInput`, calls `buildTurnQueue`, passes result as `<TuTurno items={queue} />`.
+- `memoryNeedsAttention` = `rawNotes >= MEMORY_RAW_NOTES_THRESHOLD || staleDays >= MEMORY_STALE_DAYS_THRESHOLD` (constants from `lib/constants.ts`).
+- `shippedAwaitingReview` = portfolio projects with `stage === "operation"` (DR-043 review-launch gate).
+- `undiscoveredIdeas` = count of ideas with `status === "discovered"` from `readIdeas()`.
+
+**Test files:**
+- `src/app/(dashboard)/_lib/_tests/turn.test.ts` — 30 pure-function tests (AC-18-002.1–5, exclusions, ordering, purity invariants).
+- `src/components/dashboard/TuTurno/_tests/TuTurno.test.tsx` — 17 component tests (al-día, count badge, CopyButton, Link href, a11y, ordering preserved).

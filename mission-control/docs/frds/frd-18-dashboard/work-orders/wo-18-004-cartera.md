@@ -5,7 +5,7 @@ slug: cartera
 title: WO-18-004 — `IF-18-card` per-project derivation + `Cartera` cards
 status: DRAFT
 parent: FRD-18
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-16'
 ---
@@ -47,3 +47,38 @@ empty-portfolio. `cartera.test.tsx` for the grid + first-action card.
 
 ## Dependencies
 - FRD-01 `lib/status`, `lib/portfolio`; FRD-02 `lib/next-step`; FRD-05 `lib/work-orders`; FRD-06/12 `lib/events`.
+
+## Status Note
+
+**Built:** `IF-18-card` pure derivation + `Cartera` grid component (first-action card on empty portfolio).
+
+**Files delivered:**
+- `src/app/(dashboard)/_lib/card.ts` — `deriveCard(CardInput): CardData` (pure, no I/O, never throws).
+- `src/components/dashboard/Cartera/Cartera.tsx` — `Cartera({ cards })` client component with `ProjectCard` and `FirstActionCard` sub-components.
+- `src/app/(dashboard)/_lib/_tests/card.test.ts` — 30 pure-function tests (AC-18-004.1..5, AC-18-004.7, boundary conditions, invariants).
+- `src/components/dashboard/Cartera/_tests/cartera.test.tsx` — 30 component tests (AC-18-004.1..7, edge cases).
+- `src/lib/constants.ts` — added `FRESHNESS_THRESHOLD_MS` (30 min) and `STALENESS_THRESHOLD_DAYS` (7 days).
+
+**Interfaces / contracts exposed:**
+```ts
+// src/app/(dashboard)/_lib/card.ts
+export type CardInput = { name, phase, version, running, workOrdersDone, workOrdersTotal,
+  phaseStartedAt, lastEventAt, failedWoReason, nowMs }
+export type CardData = { name, phase, version, woProgress, ageInStageDays, nextCommand,
+  isLive, isNoSignal, isStalled, isShipped, blockerReason, lastEventAt }
+export type WoProgress = { done, total, pct }
+export function deriveCard(input: CardInput): CardData  // pure, never throws
+
+// src/components/dashboard/Cartera/Cartera.tsx
+export type { WoProgress, CardData }
+export function Cartera({ cards }: { cards: CardData[] }): React.JSX.Element
+```
+
+**Integration seams:**
+- Caller (e.g. `app/(dashboard)/page.tsx`, WO-18-006) reads `activeProjects()` from `lib/portfolio`, reads events from `lib/events`, reads WOs from `lib/work-orders`, calls `deriveCard()` per project (server-side), passes `cards` array to `<Cartera cards={cards} />`.
+- `Cartera` is `"use client"` only because `CopyButton` requires it; all derivation logic stays server-side in the caller.
+- `data-testid` surface: `cartera-heading`, `cartera-grid`, `cartera-card-{slug}`, `cartera-flag-live`, `cartera-flag-nosignal`, `cartera-flag-stalled`, `cartera-blocker-reason`, `cartera-first-action`, `copy-button` (inherited from CopyButton).
+
+**Side fix:** corrected pre-existing tsc error in `src/components/dashboard/Progreso/_tests/Progreso.test.tsx` (`"Maestría"` → `"Mastery"` to match `UniqueCategory` type from WO-18-005's adjacent implementer).
+
+**Tests:** `src/app/(dashboard)/_lib/_tests/card.test.ts` + `src/components/dashboard/Cartera/_tests/cartera.test.tsx` (60 tests total, all GREEN). `verify.sh` passes: 230 files, 5857 tests, biome clean, tsc clean.

@@ -116,3 +116,23 @@ export const MEMORY_RAW_NOTES_THRESHOLD = 10;
  * (blueprint §3 CMP-17-health, AC-17-005.2)
  */
 export const MEMORY_STALE_DAYS_THRESHOLD = 7;
+
+// ---------------------------------------------------------------------------
+// FRD-18 — Dashboard Cartera thresholds (IF-18-card, WO-18-004)
+// Centralized per AC-18-004.7 (no magic numbers).
+// ---------------------------------------------------------------------------
+
+/**
+ * Freshness threshold for the live/no-signal indicator (AC-18-004.2, REQ-18-016).
+ * A running build whose last event is older than this many milliseconds is considered
+ * "sin señal" (no-signal). Below this = "en vivo" (live).
+ * Default: 30 minutes.
+ */
+export const FRESHNESS_THRESHOLD_MS = 30 * 60 * 1000;
+
+/**
+ * Phase-staleness threshold in days (AC-18-004.3, REQ-18-017).
+ * A project that has been in its current phase for more than this many days is
+ * flagged "estancado" (stalled). Default: 7 days.
+ */
+export const STALENESS_THRESHOLD_DAYS = 7;
