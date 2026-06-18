@@ -3,8 +3,8 @@ id: FRD-18
 type: frd
 title: 'FRD-18 — Dashboard ("Inicio", the command center)'
 status: ACTIVE
-implementation_status: PLANNED
-last_updated: '2026-06-16'
+implementation_status: VERIFIED
+last_updated: '2026-06-18'
 ---
 # FRD-18 — Dashboard ("Inicio", the command center)
 

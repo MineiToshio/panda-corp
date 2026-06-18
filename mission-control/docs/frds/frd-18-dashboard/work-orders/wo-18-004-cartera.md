@@ -5,7 +5,7 @@ slug: cartera
 title: WO-18-004 — `IF-18-card` per-project derivation + `Cartera` cards
 status: DRAFT
 parent: FRD-18
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
 last_updated: '2026-06-16'
 ---

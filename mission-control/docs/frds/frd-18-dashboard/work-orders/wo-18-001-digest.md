@@ -5,7 +5,7 @@ slug: digest
 title: WO-18-001 — `IF-18-digest` derivation + `Digest` component (`visto_hasta`)
 status: DRAFT
 parent: FRD-18
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
 last_updated: '2026-06-18'
 ---

@@ -5,7 +5,7 @@ slug: pulso
 title: WO-18-003 — `IF-18-pulse` funnel + conversion + `Pulso` component
 status: DRAFT
 parent: FRD-18
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: [REQ-18-013, REQ-18-014]
 last_updated: '2026-06-18'
 ---
