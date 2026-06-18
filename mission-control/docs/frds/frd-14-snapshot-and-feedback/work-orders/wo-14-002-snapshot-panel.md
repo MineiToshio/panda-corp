@@ -7,9 +7,9 @@ title: >-
   building-now + staleness
 status: DRAFT
 parent: FRD-14
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-18'
 ---
 # WO-14-002 — `CMP-14-snapshot-panel`: probable point + worktree command + building-now + staleness
 

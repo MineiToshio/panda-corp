@@ -5,9 +5,9 @@ slug: status-chips
 title: 'WO-14-003 — `CMP-14-status-chips`: decisions/bugs/rethink chips'
 status: DRAFT
 parent: FRD-14
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: ['REQ-14-004', 'REQ-14-005']
-last_updated: '2026-06-17'
+last_updated: '2026-06-18'
 ---
 # WO-14-003 — `CMP-14-status-chips`: decisions/bugs/rethink chips
 

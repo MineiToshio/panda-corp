@@ -5,9 +5,9 @@ slug: feedback-channels-doc
 title: 'WO-14-004 — Manual: the three feedback channels (doc)'
 status: DRAFT
 parent: FRD-14
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-18'
 ---
 # WO-14-004 — Manual: the three feedback channels (doc)
 

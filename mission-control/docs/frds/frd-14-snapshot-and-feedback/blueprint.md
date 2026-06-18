@@ -3,8 +3,8 @@ id: FRD-14-blueprint
 type: blueprint
 parent: FRD-14
 status: ACTIVE
-implementation_status: PLANNED
-last_updated: '2026-06-16'
+implementation_status: VERIFIED
+last_updated: '2026-06-18'
 ---
 # FRD-14 — Probable snapshot & feedback channels · feature blueprint
 

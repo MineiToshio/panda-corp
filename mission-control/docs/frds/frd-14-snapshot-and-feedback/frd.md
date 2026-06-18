@@ -3,8 +3,8 @@ id: FRD-14
 type: frd
 title: FRD-14 — Probable snapshot and feedback channels
 status: ACTIVE
-implementation_status: PLANNED
-last_updated: '2026-06-16'
+implementation_status: VERIFIED
+last_updated: '2026-06-18'
 ---
 # FRD-14 — Probable snapshot and feedback channels
 
