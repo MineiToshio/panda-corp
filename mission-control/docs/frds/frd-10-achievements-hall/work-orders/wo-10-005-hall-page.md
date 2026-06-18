@@ -5,7 +5,7 @@ slug: hall-page
 title: WO-10-005 — Hall page shell + hero + tabs + stats panel
 status: DRAFT
 parent: FRD-10
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-18'
 ---
@@ -75,5 +75,5 @@ export function StatsPanel({ readerData }: StatsPanelProps): React.JSX.Element
 
 **Test file:** `app/achievements/page.test.tsx` — 27 tests covering AC-10-005.1 through AC-10-005.5 (including integration test with real reader mocks and negative ACs for empty factory).
 
-**Gate:** 174 test files, 4800 tests GREEN + 2 expected-fail + 5 skipped. tsc clean. biome clean.
+**Gate:** 27/27 tests GREEN (WO-10-005 own scope). Full suite: 236 test files, 5945 tests GREEN + 2 expected-fail + 5 skipped. tsc clean. biome clean (0 errors, pre-existing complexity warnings in stats.ts from WO-10-001 are not errors). Pre-existing failing file `frd-06-realdata.reviewer.test.ts` (FRD-06, 3 failures on AC-06-008.1/AC-06-009.1) is outside WO-10-005 scope and was already tracked as `needs-owner` in progress.md before this WO ran.
 </content>
