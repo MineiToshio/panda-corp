@@ -35,12 +35,12 @@ import type { AgentLevelResult } from "@/lib/gamification";
 import type { AgentRef, SkillRef } from "@/lib/reference";
 import type { DecisionRule } from "@/lib/registry";
 import type { Standard } from "@/lib/standards";
-import { DecisionRulesSection } from "./_rules/DecisionRulesSection";
+import { DecisionRulesSection } from "./_rules/DecisionRulesSection/DecisionRulesSection";
 import { AgentDetail } from "./AgentDetail";
 import { AgentList } from "./AgentList";
 import { type SectionId, SectionTabs } from "./SectionTabs";
 import { SkillsSection } from "./SkillsSection";
-import { StandardsSection } from "./StandardsSection";
+import { StandardsSection } from "./StandardsSection/StandardsSection";
 
 // ---------------------------------------------------------------------------
 // AgentsData — pre-computed by the Server Component (page.tsx)

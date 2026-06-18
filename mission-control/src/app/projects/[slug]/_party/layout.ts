@@ -24,7 +24,7 @@
  *   - AGENT_COLOR (FRD-13) from @/app/_design/tokens
  */
 
-import { AGENT_COLOR } from "@/app/_design/tokens";
+import { AGENT_COLOR } from "@/app/_design/tokens/tokens";
 import type { BuildMode } from "@/lib/constants";
 
 // ---------------------------------------------------------------------------

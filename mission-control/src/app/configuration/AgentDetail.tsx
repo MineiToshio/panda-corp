@@ -29,7 +29,7 @@
  *   CMP-09-xp-bar (XpBar) → components/rpg/XpBar.tsx
  */
 
-import type { AgentRole } from "@/app/_design/tokens";
+import type { AgentRole } from "@/app/_design/tokens/tokens";
 import { Avatar } from "@/components/core/Avatar/Avatar";
 import { XpBar } from "@/components/core/XpBar/XpBar";
 import type { AgentLevelResult } from "@/lib/gamification";

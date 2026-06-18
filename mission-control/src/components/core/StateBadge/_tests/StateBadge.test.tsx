@@ -23,7 +23,7 @@
 
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { AGENT_STATES, type AgentState, STATE_BADGE } from "@/app/_design/tokens";
+import { AGENT_STATES, type AgentState, STATE_BADGE } from "@/app/_design/tokens/tokens";
 // NOTE: StateBadge does not exist yet — these imports will fail until WO-13-005 is GREEN.
 import { StateBadge, type StateBadgeProps } from "@/components/core/StateBadge/StateBadge";
 

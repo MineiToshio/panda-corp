@@ -22,7 +22,7 @@
 // Paths served from /prototype/assets/agents/ (already present in repo).
 // ---------------------------------------------------------------------------
 
-import type { AgentRole } from "@/app/_design/tokens";
+import type { AgentRole } from "@/app/_design/tokens/tokens";
 
 /**
  * SPRITE_MAP: canonical role → sprite asset path (relative to site root).

@@ -23,7 +23,7 @@
 
 import Link from "next/link";
 import type { ProjectListItem } from "@/lib/portfolio";
-import { StatusChips } from "./_components/status-chips";
+import { StatusChips } from "./_components/status-chips/status-chips";
 
 // ---------------------------------------------------------------------------
 // Styles — CSS custom properties only; zero hardcoded hex/rgb/hsl values.

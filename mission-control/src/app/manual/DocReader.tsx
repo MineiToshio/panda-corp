@@ -27,7 +27,7 @@ import type { AgentRef, SkillRef } from "@/lib/reference";
 import type { DecisionRule } from "@/lib/registry";
 import type { Standard } from "@/lib/standards";
 import { ReferenceAgentsSection } from "./ReferenceAgentsSection";
-import { ReferenceCommandsSection } from "./ReferenceCommandsSection";
+import { ReferenceCommandsSection } from "./ReferenceCommandsSection/ReferenceCommandsSection";
 import { ReferenceRulesView } from "./ReferenceRulesView";
 import { ReferenceStandardsView } from "./ReferenceStandardsView";
 import type { ReaderActivePage } from "./types";

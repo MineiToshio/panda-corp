@@ -27,7 +27,7 @@
 
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { AGENT_STATES, type AgentState, STATE_BADGE } from "@/app/_design/tokens";
+import { AGENT_STATES, type AgentState, STATE_BADGE } from "@/app/_design/tokens/tokens";
 import { StateBadge, type StateBadgeProps } from "@/components/core/StateBadge/StateBadge";
 
 function renderBadge(props: StateBadgeProps) {

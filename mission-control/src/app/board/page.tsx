@@ -17,12 +17,12 @@
  */
 
 import path from "node:path";
-import type { BoardCardEntry } from "@/app/board/IdeaBoardView";
+import type { BoardCardEntry } from "@/app/board/IdeaBoardView/IdeaBoardView";
 import { deriveColumn } from "@/lib/board";
 import { resolveFactoryRoot } from "@/lib/config";
 import { readIdeas } from "@/lib/ideas";
 import { readStatus } from "@/lib/status";
-import { IdeaBoardView } from "./IdeaBoardView";
+import { IdeaBoardView } from "./IdeaBoardView/IdeaBoardView";
 
 // ---------------------------------------------------------------------------
 // Page styles — CSS custom properties only, zero hardcoded colors

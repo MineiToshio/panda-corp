@@ -24,8 +24,8 @@
  *     color-only and is readable without assistive technology.
  */
 
-import type { AgentState } from "@/app/_design/tokens";
-import { AGENT_STATES, STATE_BADGE } from "@/app/_design/tokens";
+import type { AgentState } from "@/app/_design/tokens/tokens";
+import { AGENT_STATES, STATE_BADGE } from "@/app/_design/tokens/tokens";
 
 // ---------------------------------------------------------------------------
 // Types

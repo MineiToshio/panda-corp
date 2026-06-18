@@ -17,7 +17,7 @@
  *   CMP-07-agent-list → FRD-07 → AC-07-007.1, AC-07-007.4
  */
 
-import type { AgentRole } from "@/app/_design/tokens";
+import type { AgentRole } from "@/app/_design/tokens/tokens";
 import { Avatar } from "@/components/core/Avatar/Avatar";
 import type { AgentLevelResult } from "@/lib/gamification";
 import type { AgentRef } from "@/lib/reference";

@@ -22,7 +22,7 @@
  * Source-of-truth hierarchy: FRD > FDD > design-tokens > blueprint > work order
  */
 
-import type { AgentRole } from "@/app/_design/tokens";
+import type { AgentRole } from "@/app/_design/tokens/tokens";
 import { Avatar } from "@/components/core/Avatar/Avatar";
 import { XpBar } from "@/components/core/XpBar/XpBar";
 import { computeUniques, type ReaderData } from "@/lib/achievements";
@@ -32,7 +32,7 @@ import { readIdeas } from "@/lib/ideas";
 import { readPortfolio } from "@/lib/portfolio";
 import { readStatus } from "@/lib/status";
 import { StatsPanel } from "./StatsPanel";
-import { UniquesSection } from "./UniquesSection";
+import { UniquesSection } from "./UniquesSection/UniquesSection";
 
 // ── Party roster ─────────────────────────────────────────────────────────────
 // The canonical party shown in the Hall hero.

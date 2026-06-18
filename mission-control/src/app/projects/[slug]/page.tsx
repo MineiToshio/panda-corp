@@ -41,14 +41,14 @@ import { activeProjects } from "@/lib/portfolio";
 import { type Phase, readStatus } from "@/lib/status";
 import { listWorkOrders, readWorkOrderDoc } from "@/lib/work-orders";
 import { ObjectivesBar } from "./_components/objectives-bar";
-import { TabCommands } from "./_components/tab-commands";
-import { TabDocuments } from "./_components/tab-documents";
-import { TabSummary } from "./_components/tab-summary";
-import { TabWorkOrders } from "./_components/tab-work-orders";
+import { TabCommands } from "./_components/tab-commands/tab-commands";
+import { TabDocuments } from "./_components/tab-documents/tab-documents";
+import { TabSummary } from "./_components/tab-summary/tab-summary";
+import { TabWorkOrders } from "./_components/tab-work-orders/tab-work-orders";
 import { TabBar, type TabId } from "./_components/tabbar";
-import { type WoDetailTab, WorkOrderDetail } from "./_components/wo-detail";
+import { type WoDetailTab, WorkOrderDetail } from "./_components/wo-detail/wo-detail";
 import { WorkspaceHeader } from "./_components/workspace-header";
-import { PartyTab } from "./_party/PartyTab";
+import { PartyTab } from "./_party/PartyTab/PartyTab";
 
 // ---------------------------------------------------------------------------
 // Next.js App Router types (Next.js 16: params and searchParams are Promises)

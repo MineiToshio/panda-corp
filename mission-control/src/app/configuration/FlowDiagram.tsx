@@ -25,7 +25,7 @@
 
 import type React from "react";
 
-import { AGENT_COLOR, AGENT_ROLES, type AgentRole } from "@/app/_design/tokens";
+import { AGENT_COLOR, AGENT_ROLES, type AgentRole } from "@/app/_design/tokens/tokens";
 
 // ---------------------------------------------------------------------------
 // Agent extraction from markdown body (AC-07-006.3 / AC-07-006.4)
