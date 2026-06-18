@@ -23,6 +23,8 @@
 
 import Link from "next/link";
 import type { ProjectListItem } from "@/lib/portfolio/portfolio";
+import { BusinessSnapshot } from "./_components/BusinessSnapshot/BusinessSnapshot";
+import { RecoveryHint } from "./_components/RecoveryHint/RecoveryHint";
 import { StatusChips } from "./_components/status-chips/status-chips";
 
 // ---------------------------------------------------------------------------
@@ -226,6 +228,20 @@ export function SelectableProjectRail({
                 pendingBugs={pendingBugs}
                 rethinkPending={rethinkPending}
               />
+
+              {/* Business snapshot for shipped/operation rows (CMP-03-snapshot, AC-03-003.1).
+                  Renders nothing when no snapshot fields are present. */}
+              {item.snapshot !== undefined && (
+                <BusinessSnapshot
+                  users={item.snapshot.users}
+                  returnMetric={item.snapshot.returnMetric}
+                  verdict={item.snapshot.verdict}
+                />
+              )}
+
+              {/* Path-not-found recovery (CMP-03-recovery, AC-03-006.2/.3). Renders nothing
+                  when the path exists; otherwise shows the badge + copyable command. */}
+              <RecoveryHint exists={item.exists} path={item.path} repo={item.repo} />
             </article>
           </Link>
         );

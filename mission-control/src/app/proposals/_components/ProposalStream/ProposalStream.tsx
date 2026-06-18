@@ -20,6 +20,7 @@
 import type { Lesson } from "@/lib/memory/memory";
 import type { Suggestion } from "@/lib/self-suggest/self-suggest";
 import { ProposalCard } from "../ProposalCard/ProposalCard";
+import { STREAM_META } from "./streamMeta";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -54,42 +55,6 @@ export type ProposalStreamProps =
   | PromotionStreamProps
   | PruneStreamProps
   | SelfSuggestionStreamProps;
-
-// ---------------------------------------------------------------------------
-// Stream metadata — Spanish labels and calm empty-state messages
-// ---------------------------------------------------------------------------
-
-type StreamMeta = {
-  label: string;
-  description: string;
-  emptyMessage: string;
-};
-
-const STREAM_META: Record<ProposalStreamProps["kind"], StreamMeta> = {
-  "candidate-lesson": {
-    label: "Lecciones candidatas",
-    description:
-      "Lecciones capturadas que aguardan corroboración o revisión del gremio antes de activarse.",
-    emptyMessage: "El gremio está al día — no hay lecciones candidatas pendientes.",
-  },
-  promotion: {
-    label: "Propuestas de promoción",
-    description:
-      "Lecciones activas en ≥2 proyectos propuestas para convertirse en estándar, regla o habilidad.",
-    emptyMessage: "La crónica está tranquila — no hay lecciones pendientes de promoción.",
-  },
-  prune: {
-    label: "Propuestas de depuración",
-    description: "Lecciones marcadas para reconciliar o archivar por `/pandacorp:memory review`.",
-    emptyMessage: "La biblioteca del gremio está limpia — no hay lecciones para depurar.",
-  },
-  "self-suggestion": {
-    label: "Sugerencias automáticas",
-    description:
-      "Oportunidades detectadas localmente por Mission Control desde los datos que ya lee (sin llamadas a Claude).",
-    emptyMessage: "Todo en orden — el gremio no detectó cuellos de botella ni alertas.",
-  },
-};
 
 // ---------------------------------------------------------------------------
 // Styles

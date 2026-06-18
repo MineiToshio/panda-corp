@@ -38,8 +38,9 @@ import { MemoryHealth } from "@/components/modules/MemoryHealth/MemoryHealth";
 import { PromotionsQueue } from "@/components/modules/PromotionsQueue/PromotionsQueue";
 import { candidateLessons, promotionQueue, prunable } from "@/lib/memory/memory";
 import { memoryHealth } from "@/lib/memory/memory-health";
+import { gatherSuggestionsInput } from "@/lib/self-suggest/gather";
 import { computeSuggestions } from "@/lib/self-suggest/self-suggest";
-import { ProposalStream } from "./_components/ProposalStream/ProposalStream";
+import { DismissableProposalStream } from "./_components/DismissableProposalStream/DismissableProposalStream";
 
 // ---------------------------------------------------------------------------
 // Page metadata
@@ -111,18 +112,12 @@ export default function ProposalsPage(): React.JSX.Element {
   // Memory-loop health for the dedicated panel (REQ-17-005).
   const health = memoryHealth();
 
-  // Self-suggestions are derived purely from already-read data.
-  // For now we pass minimal inputs; the full wiring (board counts, portfolio, events)
-  // can be added as those readers stabilize in subsequent WOs.
-  const suggestions = computeSuggestions({
-    boardColumnCounts: {},
-    portfolioItems: [],
-    events: [],
-    capabilities: [],
-    decisionRules: [],
-    inboxDecisionLines: [],
-    lessons: [...candidates, ...promotions, ...prunables],
-  });
+  // Self-suggestions are derived purely from already-read data. gatherSuggestionsInput()
+  // reads the live sources MC already reads — board columns, the portfolio, the event
+  // tail, the skill/agent catalog, the decision registry and the inbox decision lines —
+  // so all six derivations (not just recurring-lesson) can fire (REQ-17-004). Read-only,
+  // no Claude (architecture §7); each reader is fail-soft.
+  const suggestions = computeSuggestions(gatherSuggestionsInput());
 
   return (
     <main data-testid="proposals-page" style={PAGE_STYLE}>
@@ -140,22 +135,22 @@ export default function ProposalsPage(): React.JSX.Element {
         {/* Memory-loop health panel (CMP-17-health → REQ-17-005) */}
         <MemoryHealth health={health} />
 
-        {/* Stream 1: candidate lessons */}
-        <ProposalStream kind="candidate-lesson" lessons={candidates} />
+        {/* Stream 1: candidate lessons (dismissible — REQ-17-008) */}
+        <DismissableProposalStream kind="candidate-lesson" lessons={candidates} />
 
         {/* Stream 2: promotions stream (CMP-17-stream, generic proposal cards) */}
-        <ProposalStream kind="promotion" lessons={promotions} />
+        <DismissableProposalStream kind="promotion" lessons={promotions} />
 
         {/* Durable promotions queue (CMP-17-promoqueue → REQ-17-006):
             the reviewable surface — target / rationale / evidence / high-risk
             badge + copyable /pandacorp:learn command. */}
         <PromotionsQueue lessons={promotions} />
 
-        {/* Stream 3: prune proposals */}
-        <ProposalStream kind="prune" lessons={prunables} />
+        {/* Stream 3: prune proposals (dismissible — REQ-17-008) */}
+        <DismissableProposalStream kind="prune" lessons={prunables} />
 
-        {/* Stream 4: self-suggestions (computed locally, no Claude) */}
-        <ProposalStream kind="self-suggestion" suggestions={suggestions} />
+        {/* Stream 4: self-suggestions (computed locally, no Claude; dismissible) */}
+        <DismissableProposalStream kind="self-suggestion" suggestions={suggestions} />
       </div>
     </main>
   );

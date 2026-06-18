@@ -5,7 +5,7 @@ slug: proposals-page
 title: WO-17-004 — `app/proposals` page + 4 streams + proposal card
 status: DRAFT
 parent: FRD-17
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-18'
 ---
@@ -223,3 +223,68 @@ FRD requires. The reviewer wrote the missing RED tests this run:
 The other reviewed WOs (001, 002, 003, 005, 006, 007) are correct at their unit scope — their
 components/stores work; they are simply not yet wired into the page. They stay IN_REVIEW; only the
 composition owner (this WO) is reopened to PLANNED. Foundation WO-17-001 stays IN_REVIEW.
+
+## Status Note — wiring repair (run 2 close-out, 2026-06-18, baseline-repair)
+
+**Built:** Closed the two open integration items the reviewer's RED gate
+(`proposals-wiring.reviewer.test.tsx`) guarded, turning it 2/2 GREEN without weakening any test:
+
+1. **REQ-17-004 — all six self-suggestions now fire from real reader data.** Added
+   `src/lib/self-suggest/gather.ts` → `gatherSuggestionsInput(): SuggestionsInput`, the wiring layer
+   between the shipped lib/ readers and the pure `computeSuggestions()`. It reads the live sources MC
+   already reads, each fail-soft (no Claude, architecture §7):
+   - `boardColumnCounts` — `readIdeas()` + `deriveColumn()` (same two-axis derivation as the board page).
+   - `portfolioItems` — `activeProjects()`, `phaseStartedAt` from the status file's `updatedAt` proxy.
+   - `events` — the capped tail from `readEvents()`.
+   - `capabilities` — `readSkills()` (`slug`→id, kind `skill`) + `readAgents()` (id, kind `agent`).
+   - `decisionRules` — `readDecisionRules()`.
+   - `inboxDecisionLines` — each active project's `readDecisions()` titles + recommendations, flattened.
+   - `lessons` — `readLessons()`.
+   `page.tsx` now calls `computeSuggestions(gatherSuggestionsInput())` instead of empty literals.
+
+2. **REQ-17-008 / AC-17-007.3 — proposals are dismissible in the running app.** Added
+   `src/app/proposals/_components/DismissableProposalStream/DismissableProposalStream.tsx` — a small
+   `"use client"` island that mirrors `ProposalStream`'s chrome/empty-state but wraps each card with an
+   accessible `<button type="button">` "✕ Descartar" (aria-label `Descartar propuesta: <id>`). It calls
+   `dismissProposal(id)` and filters with the store's dismissed-id set (localStorage, architecture §4.8 —
+   never a factory write). The page composes it for all four streams; the page stays a Server Component.
+   Extracted the shared `STREAM_META` + id helpers (`lessonProposalId`, `suggestionProposalId`) into
+   `_components/ProposalStream/streamMeta.ts` so the read-only and dismissable surfaces share one copy.
+
+**Interfaces/contracts exposed:**
+
+```ts
+// src/lib/self-suggest/gather.ts
+export function gatherSuggestionsInput(): SuggestionsInput; // fail-soft, read-only, no Claude
+
+// src/app/proposals/_components/DismissableProposalStream/DismissableProposalStream.tsx ("use client")
+export type DismissableProposalStreamProps =
+  | { kind: "candidate-lesson"; lessons: Lesson[] }
+  | { kind: "promotion"; lessons: Lesson[] }
+  | { kind: "prune"; lessons: Lesson[] }
+  | { kind: "self-suggestion"; suggestions: Suggestion[] };
+export function DismissableProposalStream(props: DismissableProposalStreamProps): React.JSX.Element;
+
+// src/app/proposals/_components/ProposalStream/streamMeta.ts
+export const STREAM_META: Record<StreamKind, StreamMeta>;
+export function lessonProposalId(lesson: Lesson): string;
+export function suggestionProposalId(suggestion: Suggestion): string;
+```
+
+**Integration seams:** `gather.ts` consumes lib/ideas, lib/board, lib/status, lib/config, lib/portfolio,
+lib/events, lib/reference, lib/registry, lib/docs (`readDecisions`), lib/memory — all shipped & VERIFIED.
+`DismissableProposalStream` reuses `ProposalCard` (CMP-17-proposalcard) and `proposalsDismissStore`
+(`dismissProposal` / `getDismissedIds`, WO-17-007).
+
+**data-testid anchors added:** `proposal-dismiss-button` (one per visible card). All prior anchors
+(`proposal-stream-{kind}`, `proposal-card`, `proposal-eval-gate-badge`, `proposal-stream-empty`,
+`copy-button`) are preserved by the dismissable wrapper.
+
+**Test files covering it:**
+- `src/app/proposals/_tests/proposals-wiring.reviewer.test.tsx` — the reviewer's RED gate, now 2/2 GREEN.
+- `src/app/proposals/_tests/proposals-page.test.tsx` (12), `proposals-composition.reviewer.test.tsx` (2),
+  `proposals-integration.reviewer.test.tsx` (8) — all still GREEN, no assertion changed.
+
+**Gate:** full `.pandacorp/verify.sh` GREEN — 209 test files, 5435 pass (2 expected-fail, 5 skipped),
+biome + tsc clean. Returned to IN_REVIEW for the FRD gate's re-verification (never VERIFIED by the
+implementer — DR-015/DR-050).

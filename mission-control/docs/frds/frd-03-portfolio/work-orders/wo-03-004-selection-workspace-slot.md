@@ -7,7 +7,7 @@ status: DRAFT
 parent: FRD-03
 implementation_status: IN_REVIEW
 source_requirements: []
-last_updated: '2026-06-17'
+last_updated: '2026-06-18'
 ---
 # WO-03-004 — Selection + default + workspace slot
 
@@ -99,3 +99,82 @@ calls `deriveSelectedSlug`, renders `<SelectableProjectRail>` + `<WorkspaceSlot>
   single item, case-sensitive match)
 
 **verify.sh:** 118 test files, 3381 tests pass, 2 expected-fail, 5 skipped. biome clean. tsc clean.
+
+## Reviewer finding — REOPENED (FRD-03 gate, 2026-06-18, Opus 4.8)
+
+**Blocking integration regression.** WO-03-004 introduced `SelectableProjectRail`
+(`src/app/portfolio/SelectableProjectRail.tsx`, commit `1bd7c6f`) and wired it into
+`src/app/portfolio/page.tsx` as the LIVE rail, **superseding** the original
+`ProjectRail` module. But `SelectableProjectRail` dropped two acceptance criteria the
+original rail carried, and nothing on the live `/portfolio` page renders them:
+
+- **AC-03-003.1 (business snapshot)** — a shipped/operation project's `snapshot`
+  (`users` / `returnMetric` / `verdict`) never reaches the DOM. The standalone
+  `BusinessSnapshot` component (WO-03-003) is built and unit-tested but has **zero
+  importers** in the live page tree.
+- **AC-03-006.2/3/4 (path-not-found badge + recovery)** — a row with `exists === false`
+  only suppresses the running indicator; the `⚠ ruta no encontrada` badge and the
+  copyable `git clone <repo> <path> && /pandacorp:sync-portfolio` recovery command are
+  never rendered. The standalone `RecoveryHint` component (WO-03-005) is built and
+  unit-tested but has **zero importers** in the live page tree (`ProjectRail` and
+  `PortfolioTable`, which DO wire them, are orphaned — no route renders them).
+
+Why the per-WO gates stayed green: every component is tested in isolation, but no test
+exercised the assembled page rail. The 194 FRD-03 unit tests all pass; the integration
+is what's broken.
+
+**Reviewer RED anchor (kept on disk, not committed):**
+`src/app/portfolio/_tests/frd-03-integration.reviewer.test.tsx` — 3 tests that render
+`SelectableProjectRail` (the LIVE rail) with a shipped+snapshot project and a
+missing-path+repo project. All 3 fail today (snapshot absent, badge absent, recovery
+absent). They must pass after the fix.
+
+**Concrete fix (file:line):**
+- `src/app/portfolio/SelectableProjectRail.tsx` (the row body, around lines 195-220):
+  - render `BusinessSnapshot` (import from
+    `./_components/BusinessSnapshot/BusinessSnapshot`) when
+    `item.stage === "operation" && item.snapshot !== undefined`, passing
+    `item.snapshot.users / returnMetric / verdict`.
+  - render `RecoveryHint` (import from `./_components/RecoveryHint/RecoveryHint`) when
+    `item.exists === false`, passing `exists`, `path={item.path}`, `repo={item.repo}`.
+  - the not-found badge must appear on the row (today only the indicator is suppressed).
+- Reuse the existing standalone components (that is exactly why WO-03-003/005 built them
+  as separable). Do NOT re-introduce the orphaned inline copies in
+  `components/modules/ProjectRail` / `PortfolioTable` — prefer deleting those dead
+  parallel implementations (DR clean-code, no-dead-code) or wiring the live page to a
+  single rail, in a separate refactor change.
+
+**Status: REOPENED → PLANNED.** WO-03-001/002/003/005 stay IN_REVIEW (their components
+are correct; only the integration into the live rail is missing).
+
+## Status Note — integration repair (2026-06-18, baseline-repair)
+
+**Built:** Composed the two orphaned standalone components into the LIVE rail
+(`src/app/portfolio/SelectableProjectRail.tsx`), turning the reviewer's RED anchor
+(`src/app/portfolio/_tests/frd-03-integration.reviewer.test.tsx`) 3/3 GREEN — no test weakened:
+
+- **AC-03-003.1 (business snapshot)** — render `<BusinessSnapshot users / returnMetric / verdict />`
+  (imported from `./_components/BusinessSnapshot/BusinessSnapshot`) inside the row's `<article>` when
+  `item.snapshot !== undefined` (`activeProjects` only populates `snapshot` for `stage === "operation"`;
+  `BusinessSnapshot` itself returns null when no field is present).
+- **AC-03-006.2/3/4 (path-not-found badge + recovery)** — render `<RecoveryHint exists path repo />`
+  (imported from `./_components/RecoveryHint/RecoveryHint`) on every row; it renders nothing when
+  `item.exists === true`, and shows the `⚠ ruta no encontrada` badge + copyable
+  `git clone <repo> <path> && /pandacorp:sync-portfolio` recovery (or the no-repo warning) when the path
+  is missing.
+
+Reused the existing standalone components per the reviewer's instruction (no re-introduction of the
+orphaned inline copies in `ProjectRail` / `PortfolioTable`).
+
+**Interfaces/contracts exposed:** unchanged — `SelectableProjectRail({ items, selectedSlug })`. New
+internal imports: `BusinessSnapshot`, `RecoveryHint` (both already-VERIFIED standalone components).
+
+**data-testid anchors now on the rail:** `business-snapshot*` (from BusinessSnapshot) and
+`recovery-hint*` (from RecoveryHint), in addition to the existing `selectable-project-row` chrome.
+
+**Test files covering it:**
+- `src/app/portfolio/_tests/frd-03-integration.reviewer.test.tsx` — reviewer RED anchor, now 3/3 GREEN.
+- `src/app/portfolio/_tests/wo-03-004.test.tsx` — existing rail tests, still GREEN (no regression).
+
+**Gate:** full `.pandacorp/verify.sh` GREEN (209 test files, 5435 pass). Returned to IN_REVIEW for the
+FRD-03 gate's re-verification (never VERIFIED by the implementer — DR-015/DR-050).
