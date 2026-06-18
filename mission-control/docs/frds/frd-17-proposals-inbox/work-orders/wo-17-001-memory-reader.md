@@ -5,10 +5,9 @@ slug: memory-reader
 title: WO-17-001 — `lib/memory` lesson reader
 status: ACTIVE
 parent: FRD-17
-implementation_status: BLOCKED
-blocked_reason: error
+implementation_status: IN_REVIEW
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-18'
 ---
 # WO-17-001 — `lib/memory` lesson reader
 
@@ -42,13 +41,40 @@ multi-project lesson, malformed file, template files).
 
 ## Status
 
-**BLOCKED** — Reviewer cycle-2 REJECTED (DR-015 cap=2 exhausted, 2026-06-16).
+**IN_REVIEW** — reconciled out of stale BLOCKED by the repair engineer (2026-06-18).
 
-Blocking bug: `parseProjects` still over-counts on two ambiguous-source cases, falsely
-flipping `evalGate` to `"corroborated"` for a single-project candidate (AC-17-001.5 violated).
-Failing tests: `lib/memory.adversarial.test.ts` cases 4 and 5 (unclosed parenthetical,
-trailing free text). See `docs/reviews/wo-17-001-review.md` for full analysis and fix suggestion.
-Escalation required from owner before any further implementation attempt.
+The `parseProjects` over-count bug that blocked cycle-2 (DR-015) was fixed in commit `0b4aab1`:
+`parseProjects` now strips closed parentheticals, drops everything from a stray unclosed `(`
+onward, and stops at the first trailing free-text prose after a slug (conservative,
+AC-17-001.5). The frontmatter was never moved out of BLOCKED after that fix — it was stale, not
+a live blocker. Verified now: `src/lib/memory/_tests/memory.adversarial.test.ts` cases 4 and 5
+(unclosed parenthetical, trailing free text) pass; full `lib/memory` suite 74/74 green;
+`.pandacorp/verify.sh` green end-to-end (205 files, 5426 tests, biome + tsc clean).
+
+## Status Note
+
+Built: `src/lib/memory/memory.ts` — the `lib/memory` lesson reader (IF-17-memory), foundation for
+all six reviewed WOs (WO-17-002..007).
+
+Interfaces/contracts exposed:
+```ts
+import { readLessons, type Lesson } from "@/lib/memory/memory";
+// readLessons(): Lesson[] — reads factory/memory/LESSON-*.md via gray-matter; skips templates,
+//   README.md, _inbox.md. Maps frontmatter (id/type/domain/status/promotion/source/links/body).
+//   Never throws: malformed frontmatter → that file is skipped. Reads via resolveFactoryRoot()
+//   (override with PANDACORP_FACTORY_ROOT for fixtures).
+// Lesson.projects: string[]  — distinct projects parsed conservatively (no over-count, AC-17-001.5).
+// Lesson.evalGate: "corroborated" | "awaiting-2nd" — "corroborated" when status==="active" OR
+//   projects.length >= 2; else "awaiting-2nd".
+```
+
+Integration seam: WO-17-002 (`candidateLessons`/`promotionQueue`/`prunable`/`memoryHealth`)
+consumes `readLessons()`; WO-17-003 (`computeSuggestions`) consumes the derived lesson views;
+WO-17-004/006/007 render them. The DR-047 corroboration gate (`evalGate`) is the highest-leverage
+invariant and is exercised end-to-end by the reviewer's adversarial integration test.
+
+Tests covering it: `src/lib/memory/_tests/memory.test.ts`, `src/lib/memory/_tests/memory.adversarial.test.ts`,
+and the cross-WO integration in `src/app/proposals/_tests/proposals-integration.reviewer.test.tsx`.
 
 ## Definition of done
 - ACs RED → GREEN; defensive parsing; no `any`. `.pandacorp/verify.sh` green.
