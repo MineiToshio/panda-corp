@@ -65,6 +65,13 @@ const FROZEN_TOKENS = {
     dark: { surface: "oklch(0.1 0.015 230)", text: "oklch(0.95 0.01 230)" },
     highContrast: { surface: "oklch(0 0 0)", text: "oklch(1 0 0)" },
   },
+  /**
+   * Realigned 2026-06-18 (Party redesign, WO-13-002):
+   * - Removed fictitious 'guild' aggregate.
+   * - Added real engine/pipeline roles: implementer, copywriter, analytics, devops.
+   * Matches AGENT_ROLES in app/_design/tokens/tokens.ts (IF-13-agent-colors).
+   * Each key must have a matching --color-agent-<role> in globals.css @theme.
+   */
   agents: {
     researcher: "oklch(0.65 0.18 45)",
     "backend-dev": "oklch(0.55 0.2 260)",
@@ -75,7 +82,10 @@ const FROZEN_TOKENS = {
     architect: "oklch(0.6 0.2 240)",
     "product-manager": "oklch(0.7 0.18 85)",
     designer: "oklch(0.7 0.22 330)",
-    guild: "oklch(0.75 0.16 60)",
+    implementer: "oklch(0.65 0.2 160)",
+    copywriter: "oklch(0.7 0.18 340)",
+    analytics: "oklch(0.68 0.2 100)",
+    devops: "oklch(0.6 0.18 200)",
   },
   elevation: [
     { shadow: "none", spacing: "0" },
@@ -208,9 +218,10 @@ describe("frd-13 AC-13-001.1: @theme block declares required OKLCH custom proper
     expect(themeBlock).toMatch(/oklch\(/i);
   });
 
-  it("frd-13: WHEN globals.css is wired THEN @theme declares per-agent color vars for all 10 canonical roles (IF-13-agent-colors)", () => {
+  it("frd-13: WHEN globals.css is wired THEN @theme declares per-agent color vars for all 13 canonical roles (IF-13-agent-colors)", () => {
     // Each agent role must have a --color-agent-<role> custom property so FRD-06 and
     // FRD-12 can read var(--color-agent-researcher) etc. without hard-coding.
+    // Realigned 2026-06-18: 13 roles (removed guild, added implementer/copywriter/analytics/devops).
     const agentRoles = Object.keys(FROZEN_TOKENS.agents);
     for (const role of agentRoles) {
       expect(
@@ -702,5 +713,29 @@ describe("frd-13: token-to-CSS property enumeration (round-trip completeness)", 
       matches.length,
       "globals.css must declare exactly 3 shadow/elevation CSS vars (canvas=0, panel=1, card=2)",
     ).toBe(3);
+  });
+
+  it("frd-13: @theme must NOT declare --color-agent-guild (regression: fictitious aggregate removed 2026-06-18)", () => {
+    // 'guild' was removed from AGENT_ROLES in WO-13-001 (Party redesign).
+    // WO-13-002 must mirror the removal in globals.css to keep IF-13-agent-colors in sync.
+    // Presence of --color-agent-guild would mean the CSS is out of sync with tokens.ts.
+    const themeBlock = extractBlock(readCss(), "@theme");
+    expect(
+      themeBlock,
+      "--color-agent-guild must be removed from @theme (fictitious aggregate, Party redesign 2026-06-18)",
+    ).not.toMatch(/--color-agent-guild\s*:/);
+  });
+
+  it("frd-13: @theme declares all 4 new agent roles added by Party redesign (implementer/copywriter/analytics/devops)", () => {
+    // These roles were added in WO-13-001 (AGENT_ROLES realignment). The @theme CSS vars
+    // must be present so AGENT_COLOR references resolve to a real CSS custom property.
+    const themeBlock = extractBlock(readCss(), "@theme");
+    const newRoles = ["implementer", "copywriter", "analytics", "devops"];
+    for (const role of newRoles) {
+      expect(
+        themeBlock,
+        `--color-agent-${role} must be present in @theme (added by Party redesign realignment, WO-13-002)`,
+      ).toMatch(new RegExp(`--color-agent-${role}\\s*:`));
+    }
   });
 });

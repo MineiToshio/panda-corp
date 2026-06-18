@@ -7,7 +7,7 @@ title: >-
   focus)
 status: ACTIVE
 parent: FRD-13
-implementation_status: PLANNED
+implementation_status: IN_PROGRESS
 source_requirements: []
 last_updated: '2026-06-18'
 ---
