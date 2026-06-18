@@ -31,10 +31,10 @@ describe("frd-06 REVIEWER (fragua): Party tab mounts the La Fragua scene", () =>
 
     // The La Fragua scene container must mount.
     expect(screen.queryByTestId("fragua-scene")).not.toBeNull();
-    // The three rooms must be present.
-    expect(screen.queryByTestId("fragua-room-forja")).not.toBeNull();
+    // The three rooms must be present (WO-06-006 naming: forge/tribunal/vault).
+    expect(screen.queryByTestId("fragua-room-forge")).not.toBeNull();
     expect(screen.queryByTestId("fragua-room-tribunal")).not.toBeNull();
-    expect(screen.queryByTestId("fragua-room-boveda")).not.toBeNull();
+    expect(screen.queryByTestId("fragua-room-vault")).not.toBeNull();
   });
 
   it("frd-06: WHEN active THEN the FRD tracker is visible (AC-06-002.1)", () => {

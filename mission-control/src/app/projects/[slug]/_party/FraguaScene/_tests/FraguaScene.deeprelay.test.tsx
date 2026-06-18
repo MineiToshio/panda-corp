@@ -79,7 +79,7 @@ describe("FraguaScene — deep-mode relay host (REQ-06-007)", () => {
       />,
     );
 
-    expect(screen.getByTestId("fragua-wo-chip-WO-06-013")).toBeInTheDocument();
+    expect(screen.getByTestId("fragua-wo-WO-06-013")).toBeInTheDocument();
     expect(screen.queryByTestId("deep-relay-WO-06-013")).not.toBeInTheDocument();
   });
 });
