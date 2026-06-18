@@ -19,11 +19,34 @@
  *   - No color-only state encoding: every state uses icon + label alongside color.
  *   - prefers-reduced-motion: animations disabled via CSS media query.
  *
+ * Internal pieces live in sibling modules:
+ *   - styles.ts  — `*_STYLE` constants + agent color tokens + `agentColor()`.
+ *   - helpers.ts — pure helpers (collectAgents, globalMax, toTimeLabel, isStalled).
+ *   - parts.tsx  — sub-components (AgentDot, MinuteBar, RateSkeleton).
+ *
  * Traceability:
  *   CMP-12-rate-chart → REQ-12-007 → AC-12-007.1 → IF-12-rate → WO-12-003
  */
 
 import type { Bucket } from "../selectors/rate/rate";
+import { collectAgents, globalMax, isStalled, toTimeLabel } from "./helpers";
+import { AgentDot, MinuteBar, RateSkeleton } from "./parts";
+import {
+  agentColor,
+  BARS_ROW_STYLE,
+  CHART_HEADER_STYLE,
+  CHART_SECTION_STYLE,
+  CHART_TITLE_STYLE,
+  CHART_WINDOW_STYLE,
+  EMPTY_STYLE,
+  ERROR_STYLE,
+  LEGEND_ITEM_STYLE,
+  LEGEND_ROW_STYLE,
+  MINUTE_LABEL_ROW_STYLE,
+  MINUTE_LABEL_STYLE,
+  STALLED_BADGE_ACTIVE_STYLE,
+  STALLED_BADGE_STYLE,
+} from "./styles";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -58,382 +81,6 @@ export interface EventsRateChartProps {
    * When absent, agents are derived from buckets in order of first appearance.
    */
   agents?: string[];
-}
-
-// ---------------------------------------------------------------------------
-// Constants — agent color CSS variables (FRD-13 IF-13-agent-colors).
-// Each maps an agent role to its CSS custom property token.
-// Fallback chain: agent var → accent → currentColor.
-// ---------------------------------------------------------------------------
-
-/** Map from agent name to its CSS custom property. Extensible. */
-const AGENT_COLOR_VAR: Record<string, string> = {
-  "frontend-dev": "var(--color-agent-frontend-dev, var(--color-accent, oklch(0.6 0.2 240)))",
-  "backend-dev": "var(--color-agent-backend-dev, var(--color-accent, oklch(0.55 0.18 160)))",
-  "test-writer": "var(--color-agent-test-writer, var(--color-accent, oklch(0.55 0.2 30)))",
-  reviewer: "var(--color-agent-reviewer, var(--color-accent, oklch(0.6 0.18 300)))",
-  researcher: "var(--color-agent-researcher, var(--color-accent, oklch(0.58 0.15 200)))",
-  architect: "var(--color-agent-architect, var(--color-accent, oklch(0.55 0.17 260)))",
-  librarian: "var(--color-agent-librarian, var(--color-accent, oklch(0.58 0.14 100)))",
-  orchestrator: "var(--color-agent-orchestrator, var(--color-accent, oklch(0.6 0.2 340)))",
-  "product-manager": "var(--color-agent-product-manager, var(--color-accent, oklch(0.58 0.16 60)))",
-  designer: "var(--color-agent-designer, var(--color-accent, oklch(0.6 0.18 350)))",
-  "security-auditor":
-    "var(--color-agent-security-auditor, var(--color-accent, oklch(0.55 0.18 0)))",
-};
-
-/** Fallback for unknown agent names — cycles through a limited palette. */
-const FALLBACK_COLORS = [
-  "var(--color-accent, oklch(0.6 0.2 240))",
-  "var(--color-agent-backend-dev, oklch(0.55 0.18 160))",
-  "var(--color-agent-reviewer, oklch(0.6 0.18 300))",
-  "var(--color-agent-librarian, oklch(0.58 0.14 100))",
-  "var(--color-agent-orchestrator, oklch(0.6 0.2 340))",
-];
-
-function agentColor(agent: string, index: number): string {
-  return (
-    AGENT_COLOR_VAR[agent] ??
-    FALLBACK_COLORS[index % FALLBACK_COLORS.length] ??
-    "var(--color-accent, currentColor)"
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Styles — CSS custom properties only; zero hardcoded color values.
-// ---------------------------------------------------------------------------
-
-const CHART_SECTION_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 2)",
-  padding: "calc(var(--spacing, 0.25rem) * 3)",
-  background: "var(--color-surface, transparent)",
-  borderRadius: "var(--radius, 0.375rem)",
-};
-
-const CHART_HEADER_STYLE: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "calc(var(--spacing, 0.25rem) * 2)",
-};
-
-const CHART_TITLE_STYLE: React.CSSProperties = {
-  fontSize: "0.75rem",
-  fontWeight: 600,
-  textTransform: "uppercase",
-  letterSpacing: "0.06em",
-  color: "var(--color-text-muted, currentColor)",
-  opacity: 0.75,
-};
-
-const CHART_WINDOW_STYLE: React.CSSProperties = {
-  fontSize: "0.7rem",
-  color: "var(--color-text-muted, currentColor)",
-  opacity: 0.6,
-  fontVariantNumeric: "tabular-nums",
-};
-
-const BARS_ROW_STYLE: React.CSSProperties = {
-  display: "flex",
-  alignItems: "flex-end",
-  gap: "2px",
-  height: "4rem",
-};
-
-const BAR_GROUP_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  justifyContent: "flex-end",
-  flex: 1,
-  gap: "1px",
-};
-
-const MINUTE_LABEL_ROW_STYLE: React.CSSProperties = {
-  display: "flex",
-  gap: "2px",
-  marginTop: "calc(var(--spacing, 0.25rem) * 0.5)",
-};
-
-const MINUTE_LABEL_STYLE: React.CSSProperties = {
-  flex: 1,
-  fontSize: "0.6rem",
-  textAlign: "center",
-  color: "var(--color-text-muted, currentColor)",
-  opacity: 0.5,
-  overflow: "hidden",
-  whiteSpace: "nowrap",
-  fontVariantNumeric: "tabular-nums",
-};
-
-const LEGEND_ROW_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "calc(var(--spacing, 0.25rem) * 2) calc(var(--spacing, 0.25rem) * 3)",
-  marginTop: "calc(var(--spacing, 0.25rem) * 1)",
-};
-
-const LEGEND_ITEM_STYLE: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "calc(var(--spacing, 0.25rem) * 1)",
-  fontSize: "0.7rem",
-  color: "var(--color-text-muted, currentColor)",
-};
-
-const EMPTY_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: "calc(var(--spacing, 0.25rem) * 2)",
-  padding: "calc(var(--spacing, 0.25rem) * 6) 0",
-  color: "var(--color-text-muted, currentColor)",
-  opacity: 0.6,
-  fontSize: "0.85rem",
-  textAlign: "center",
-};
-
-const STALLED_BADGE_STYLE: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "calc(var(--spacing, 0.25rem) * 1)",
-  fontSize: "0.7rem",
-  padding: "calc(var(--spacing, 0.25rem) * 0.5) calc(var(--spacing, 0.25rem) * 2)",
-  borderRadius: "var(--radius, 0.375rem)",
-  background: "var(--color-chip-bg, color-mix(in oklch, currentColor 8%, transparent))",
-  color: "var(--color-text-muted, currentColor)",
-};
-
-const STALLED_BADGE_ACTIVE_STYLE: React.CSSProperties = {
-  ...STALLED_BADGE_STYLE,
-  color: "var(--color-agent-test-writer, var(--color-accent, currentColor))",
-  background:
-    "var(--color-fail-bg, color-mix(in oklch, var(--color-agent-test-writer, currentColor) 12%, transparent))",
-};
-
-const SKELETON_BARS_STYLE: React.CSSProperties = {
-  ...BARS_ROW_STYLE,
-};
-
-const ERROR_STYLE: React.CSSProperties = {
-  padding: "calc(var(--spacing, 0.25rem) * 4)",
-  color: "var(--color-agent-test-writer, var(--color-accent, currentColor))",
-  fontSize: "0.85rem",
-  display: "flex",
-  alignItems: "center",
-  gap: "calc(var(--spacing, 0.25rem) * 2)",
-};
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Extract the unique set of agents across all buckets, in first-appearance order.
- * Respects the optional `agents` prop for a stable, explicit ordering.
- */
-function collectAgents(buckets: Bucket[], agentsProp?: string[]): string[] {
-  if (agentsProp && agentsProp.length > 0) {
-    return agentsProp;
-  }
-  const seen = new Set<string>();
-  for (const bucket of buckets) {
-    for (const agent of Object.keys(bucket.byAgent)) {
-      seen.add(agent);
-    }
-  }
-  return Array.from(seen);
-}
-
-/** Compute the global max total across all buckets for bar scaling. */
-function globalMax(buckets: Bucket[]): number {
-  let max = 0;
-  for (const b of buckets) {
-    if (b.total > max) max = b.total;
-  }
-  return max;
-}
-
-/** Truncate a minute key "YYYY-MM-DDTHH:MM" to just "HH:MM". */
-function toTimeLabel(minute: string): string {
-  // minute is exactly 16 chars: "2026-06-16T12:29"
-  return minute.length >= 16 ? minute.slice(11) : minute;
-}
-
-/**
- * Detect a stalled state: all buckets have total === 0 (or no buckets).
- * Consumed by the FRD-18 dashboard rate chart.
- */
-function isStalled(buckets: Bucket[]): boolean {
-  if (buckets.length === 0) return true;
-  return buckets.every((b) => b.total === 0);
-}
-
-// ---------------------------------------------------------------------------
-// Sub-components
-// ---------------------------------------------------------------------------
-
-/** Colored dot used in the legend. */
-function AgentDot({ color }: { color: string }): React.JSX.Element {
-  return (
-    <span
-      aria-hidden="true"
-      style={{
-        display: "inline-block",
-        width: "8px",
-        height: "8px",
-        borderRadius: "50%",
-        background: color,
-        flexShrink: 0,
-      }}
-    />
-  );
-}
-
-/** Single stacked bar column for one minute bucket. */
-function MinuteBar({
-  bucket,
-  agentList,
-  maxHeight,
-  maxTotal,
-  agentColorMap,
-}: {
-  bucket: Bucket;
-  agentList: string[];
-  maxHeight: number;
-  maxTotal: number;
-  agentColorMap: Map<string, string>;
-}): React.JSX.Element {
-  const heightPx =
-    maxTotal > 0 ? Math.max(1, Math.round((bucket.total / maxTotal) * maxHeight)) : 0;
-  const stalledBar = bucket.total === 0;
-
-  const totalAriaLabel = `${toTimeLabel(bucket.minute)}: ${bucket.total} evento${bucket.total !== 1 ? "s" : ""}`;
-
-  if (stalledBar) {
-    return (
-      <div
-        data-testid="rate-bar-stalled"
-        role="img"
-        style={{
-          ...BAR_GROUP_STYLE,
-          justifyContent: "flex-end",
-        }}
-        aria-label={totalAriaLabel}
-        title={totalAriaLabel}
-      >
-        <div
-          style={{
-            height: "2px",
-            background: "var(--color-chip-bg, color-mix(in oklch, currentColor 12%, transparent))",
-            borderRadius: "1px",
-            width: "100%",
-          }}
-        />
-      </div>
-    );
-  }
-
-  // Build stacked agent segments within the bar
-  const segments: React.JSX.Element[] = [];
-  for (const agent of agentList) {
-    const count = bucket.byAgent[agent] ?? 0;
-    if (count === 0) continue;
-    const segHeight = Math.max(1, Math.round((count / bucket.total) * heightPx));
-    const color = agentColorMap.get(agent) ?? "var(--color-accent, currentColor)";
-    segments.push(
-      <div
-        key={agent}
-        aria-hidden="true"
-        style={{
-          height: `${segHeight}px`,
-          background: color,
-          width: "100%",
-          // Restrained motion: only transform+opacity, <300ms (FRD-13)
-          transition: "height 200ms var(--ease-out, ease-out)",
-        }}
-      />,
-    );
-  }
-
-  // Events without an agent identity (counted in total but not in byAgent)
-  const agentSum = Object.values(bucket.byAgent).reduce((s, n) => s + n, 0);
-  const orphanCount = bucket.total - agentSum;
-  if (orphanCount > 0) {
-    const orphanHeight = Math.max(1, Math.round((orphanCount / bucket.total) * heightPx));
-    segments.push(
-      <div
-        key="__no-agent"
-        aria-hidden="true"
-        style={{
-          height: `${orphanHeight}px`,
-          background: "var(--color-chip-bg, color-mix(in oklch, currentColor 20%, transparent))",
-          width: "100%",
-          transition: "height 200ms var(--ease-out, ease-out)",
-        }}
-      />,
-    );
-  }
-
-  return (
-    <div
-      data-testid="rate-bar"
-      role="img"
-      style={{
-        ...BAR_GROUP_STYLE,
-        height: `${maxHeight}px`,
-      }}
-      aria-label={totalAriaLabel}
-      title={totalAriaLabel}
-    >
-      {/* Stack from bottom: reverse so the first agent is at the bottom */}
-      {segments.reverse()}
-    </div>
-  );
-}
-
-/** Loading skeleton for the chart. */
-function RateSkeleton({ maxBarHeight }: { maxBarHeight: number }): React.JSX.Element {
-  const placeholders = Array.from({ length: 10 }, (_, i) => `skel-${i}`);
-  return (
-    <div
-      data-testid="rate-chart-loading"
-      role="status"
-      aria-busy="true"
-      aria-label="Cargando gráfico de actividad"
-      style={CHART_SECTION_STYLE}
-    >
-      <div style={CHART_HEADER_STYLE}>
-        <div
-          style={{
-            height: "0.75rem",
-            width: "8rem",
-            borderRadius: "var(--radius, 0.375rem)",
-            background: "var(--color-chip-bg, color-mix(in oklch, currentColor 12%, transparent))",
-          }}
-          aria-hidden="true"
-        />
-      </div>
-      <div style={{ ...SKELETON_BARS_STYLE, height: `${maxBarHeight}px` }}>
-        {placeholders.map((k, i) => (
-          <div
-            key={k}
-            aria-hidden="true"
-            style={{
-              flex: 1,
-              height: `${Math.max(6, Math.round(maxBarHeight * (0.2 + (i % 4) * 0.2)))}px`,
-              background:
-                "var(--color-chip-bg, color-mix(in oklch, currentColor 12%, transparent))",
-              borderRadius: "2px",
-              alignSelf: "flex-end",
-            }}
-          />
-        ))}
-      </div>
-    </div>
-  );
 }
 
 // ---------------------------------------------------------------------------
