@@ -5,7 +5,7 @@ slug: event-vocabulary-vm
 title: WO-06-001 — Iconic event vocabulary + event view-model mapper (enriched + hand-off/contract/gate)
 status: DRAFT
 parent: FRD-06
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-18'
 ---
@@ -38,33 +38,57 @@ last_updated: '2026-06-18'
 - RED→GREEN tests with event fixtures: every `EventType` maps to an icon; a `tool` adds a tool icon; `test_fail`/`status:'fail'` → `isFailure`; an event with `project` → `projectColorKey` set, without → undefined; labels are Spanish.
 - Pure, no I/O, no DOM. `pnpm vitest run` green, `tsc --noEmit` clean, biome clean.
 
-## Status Note (La Fragua redesign — what the retry must build)
+## Status Note (Wave 2 — La Fragua redesign — 2026-06-18)
 
-**Why reopened:** the shipped mapper (below) is agent-keyed (`agentColorKey` from `event.agent`) and lacks
-the engine's real hand-off lines. The retry: rename `agentColorKey → roleColorKey` (from `event.role`),
-add `wo`/`frd` to the `EventVM`, and add the `handoff`/`contract`/`gate` vocabulary + Spanish labels.
-Keep `isFailure` first-class and the multi-project `projectColorKey`. Extend the 25 tests accordingly.
+**Built:** `IF-06-icon-map` (extended) and `IF-06-event-vm` (redesigned) — iconic event vocabulary +
+role-keyed view-model mapper for the Party bitácora.
 
----
-
-### Previous build (obsoleted by the redesign — kept for history)
-
-**Built:** `IF-06-icon-map` and `IF-06-event-vm` — the pure event vocabulary and view-model mapper for the Party panel.
-
-**Files delivered:**
-- `app/projects/[slug]/_party/event-vm.ts` — `EventType` union (12 canonical types), `EVENT_ICON: Record<EventType, string>` (Lucide identifiers), `EventVM` type, `toEventVM(event: DashboardEvent): EventVM` pure mapper. Fallback icon/label for unknown event types. Spanish label map. Tool icon map (TOOL_ICON with FALLBACK_TOOL_ICON). Agent color key derived from `AGENT_COLOR` in `app/_design/tokens.ts`. Project color key (`--color-project-<slug>`) set only when `event.project` is present.
-- `app/projects/[slug]/_party/event-vm.test.ts` — 25 tests covering AC-06-012.1 (vocabulary completeness, icon mapping, toolIcon), AC-06-013.1 (isFailure first-class state), AC-06-011.1 (agentColorKey/projectColorKey), EventVM structure, idempotency.
+**Files delivered / modified:**
+- `src/app/projects/[slug]/_party/event-vm/event-vm.ts` — `EventType` union extended to 14 types
+  (`contract` and `gate` added); `EVENT_ICON: Record<EventType, string>` updated with `file-text` and
+  `gavel` icons; `EventVM` type updated (`roleColorKey` replaces `agentColorKey`, adds `wo` and `frd`
+  fields, keeps `workOrder` as backward-compat alias); `toEventVM` pure mapper refactored (helpers
+  extracted to satisfy cognitive-complexity budget); Spanish labels updated for `handoff`, `contract`,
+  `gate`. Pure, no I/O, no DOM.
+- `src/app/projects/[slug]/_party/event-vm/_tests/event-vm.test.ts` — extended from 25 to 49 tests
+  covering all Wave 2 additions (contract/gate icons, roleColorKey from event.role, wo/frd pass-through,
+  Spanish labels, multi-project AC-06-010.3 combinations, idempotency with enriched fields).
+- `src/app/projects/[slug]/_party/EventFeed/EventFeed.tsx` — `agentColorKey` → `roleColorKey` rename
+  propagated (required for tsc --noEmit to stay clean).
+- `src/app/projects/[slug]/_party/EventFeed/_tests/EventFeed.test.tsx` — same rename.
+- `src/app/projects/[slug]/_party/EventFeed/_tests/EventFeed.multiproject.test.tsx` — same rename.
 
 **Interfaces/contracts exposed:**
-- `EventType` — `"read" | "write" | "edit" | "test_ok" | "test_fail" | "message" | "start" | "end" | "handoff" | "blocked" | "review" | "achievement"`
-- `EVENT_ICON: Record<EventType, string>` — centralized vocabulary, no magic strings anywhere else
-- `EventVM` — `{ icon: string; toolIcon?: string; agentColorKey?: string; projectColorKey?: string; isFailure: boolean; label: string; at: string; workOrder?: string; project?: string }`
-- `toEventVM(event: DashboardEvent): EventVM` — pure, no I/O, no DOM
+```ts
+export type EventType =
+  "read" | "write" | "edit" | "test_ok" | "test_fail" | "message" | "start" | "end" |
+  "handoff" | "contract" | "gate" | "blocked" | "review" | "achievement";
+
+export const EVENT_ICON: Record<EventType, string>  // 14-entry centralized vocabulary
+
+export type EventVM = {
+  icon: string;
+  toolIcon?: string;
+  roleColorKey?: string;    // from event.role (renamed from agentColorKey)
+  projectColorKey?: string; // from event.project (AC-06-010.3)
+  isFailure: boolean;       // status==='fail' || event==='test_fail'
+  label: string;            // Spanish label
+  at: string;
+  wo?: string;              // event.workOrder (new Wave 2)
+  frd?: string;             // event.frd (new Wave 2)
+  workOrder?: string;       // backward-compat alias for wo
+  project?: string;
+};
+
+export function toEventVM(event: DashboardEvent): EventVM  // pure, no I/O, no DOM
+```
 
 **Integration seams:**
 - Consumed by `CMP-06-feed` (`EventFeed.tsx`, WO-06-007) and `CMP-06-party-tab` (`PartyTab.tsx`, WO-06-005).
-- Depends on `lib/events.ts` (`Event` type as `DashboardEvent`) and `app/_design/tokens.ts` (`AGENT_COLOR`, `AgentRole`).
+- Depends on `lib/events.ts` (`Event` type as `DashboardEvent`, already has `frd`/`role` fields from WO-06-012)
+  and `app/_design/tokens.ts` (`AGENT_COLOR`, `AgentRole`, updated with `implementer` in WO-13-001).
+- EventFeed.tsx downstream consumers (`agentColorKey` → `roleColorKey`) updated in the same change to keep tsc clean.
 
-**Test files:** `app/projects/[slug]/_party/event-vm.test.ts` (25 tests, all GREEN).
+**Test files:** 49 tests in `event-vm.test.ts` (all GREEN). EventFeed tests unchanged (31 tests, GREEN).
 
-**Gate at hand-off:** 140 test files, 3821 tests GREEN + 2 expected-fail + 5 skipped. `biome check` and `tsc --noEmit` clean on the WO-06-001 files. Pre-existing errors in `layout.test.ts` (WO-06-002) and `ActivityPulse.tsx` (WO-06-009) are untracked files from other work orders outside this scope.
+**Gate at hand-off:** 181 test files, 5004 tests GREEN + 2 expected-fail + 5 skipped. `biome check` clean on WO-06-001 files (6 infos = fixable `useLiteralKeys` style suggestions only). `tsc --noEmit` clean. 1 pre-existing failure in `agentColorTokens.integration.reviewer.test.ts` (about `--color-agent-guild` in achievements files — pre-exists this WO, out of scope).

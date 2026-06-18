@@ -90,8 +90,8 @@ function rowStyle(vm: EventVM): React.CSSProperties {
       : "var(--color-surface-panel, transparent)",
     borderLeft: vm.projectColorKey
       ? `3px solid var(${vm.projectColorKey}, var(--color-accent, currentColor))`
-      : vm.agentColorKey
-        ? `3px solid var(${vm.agentColorKey}, var(--color-accent, currentColor))`
+      : vm.roleColorKey
+        ? `3px solid var(${vm.roleColorKey}, var(--color-accent, currentColor))`
         : "3px solid transparent",
     boxShadow: vm.isFailure ? "inset 2px 0 0 var(--color-failure, oklch(0.55 0.2 15))" : "none",
     fontSize: "0.8125rem",
@@ -100,8 +100,8 @@ function rowStyle(vm: EventVM): React.CSSProperties {
   };
 
   // Multi-project: project-color left border + agent-color second (via outline-offset trick)
-  if (vm.projectColorKey && vm.agentColorKey) {
-    base.outline = `2px solid var(${vm.agentColorKey}, var(--color-accent, currentColor))`;
+  if (vm.projectColorKey && vm.roleColorKey) {
+    base.outline = `2px solid var(${vm.roleColorKey}, var(--color-accent, currentColor))`;
     base.outlineOffset = "-2px";
   }
 
@@ -239,7 +239,7 @@ export function EventFeed({
               key={idx}
               data-testid="event-feed-row"
               data-failure={vm.isFailure ? "true" : undefined}
-              data-agent-color={vm.agentColorKey ?? undefined}
+              data-agent-color={vm.roleColorKey ?? undefined}
               data-project-color={vm.projectColorKey ?? undefined}
               style={rowStyle(vm)}
             >

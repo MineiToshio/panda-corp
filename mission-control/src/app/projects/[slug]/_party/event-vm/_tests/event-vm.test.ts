@@ -1,12 +1,19 @@
 /**
- * WO-06-001 — Iconic event vocabulary + event view-model mapper — RED phase.
+ * WO-06-001 — Iconic event vocabulary + event view-model mapper (Wave 2 — La Fragua redesign).
  *
  * Tests for the pure `toEventVM` mapper and the `EVENT_ICON` vocabulary constant.
  *
  * Traceability:
- *   AC-06-012.1 — fixed bounded iconic vocabulary (~12 event types)
- *   AC-06-013.1 — failure is a first-class state (isFailure flag, danger treatment)
- *   AC-06-011.1 — each agent has a fixed color; multi-project → projectColorKey set
+ *   AC-06-011.1 — bitácora: bounded vocabulary, role color, tabular-nums timestamp, failure first-class
+ *   AC-06-010.3 — multi-project: project-color border + role-color border
+ *   AC-06-012.1 — fixed bounded iconic vocabulary (~12 event types) [existing tests kept]
+ *   AC-06-013.1 — failure is a first-class state (isFailure flag) [existing tests kept]
+ *
+ * Wave 2 additions (La Fragua redesign):
+ *   - EventType includes `contract` and `gate` (engine lines)
+ *   - roleColorKey derived from event.role (not event.agent)
+ *   - EventVM exposes wo and frd fields
+ *   - Spanish labels for handoff / contract / gate
  *
  * Dependencies:
  *   IF-01-readEvents (lib/events.ts) — the `Event` type consumed as `DashboardEvent`.
@@ -20,6 +27,245 @@ import { describe, expect, it } from "vitest";
 
 import type { Event as DashboardEvent } from "@/lib/events/events";
 import { EVENT_ICON, type EventType, toEventVM } from "../event-vm";
+
+// ---------------------------------------------------------------------------
+// Wave 2 (La Fragua redesign) — new EventType members: contract + gate
+// ---------------------------------------------------------------------------
+
+describe("frd-06 Wave 2: EVENT_ICON — contract and gate in bounded vocabulary", () => {
+  it("frd-06: EVENT_ICON has an entry for 'contract'", () => {
+    expect(EVENT_ICON).toHaveProperty("contract");
+    expect(typeof (EVENT_ICON as Record<string, string>)["contract"]).toBe("string");
+    expect(((EVENT_ICON as Record<string, string>)["contract"] as string).length).toBeGreaterThan(
+      0,
+    );
+  });
+
+  it("frd-06: EVENT_ICON has an entry for 'gate'", () => {
+    expect(EVENT_ICON).toHaveProperty("gate");
+    expect(typeof (EVENT_ICON as Record<string, string>)["gate"]).toBe("string");
+    expect(((EVENT_ICON as Record<string, string>)["gate"] as string).length).toBeGreaterThan(0);
+  });
+});
+
+describe("frd-06 Wave 2: toEventVM — icon mapping for contract and gate", () => {
+  it("frd-06: WHEN event type is 'contract' THEN icon is set from EVENT_ICON.contract", () => {
+    const ev: DashboardEvent = { event: "contract", at: "2026-06-18T10:00:00Z" };
+    const vm = toEventVM(ev);
+    expect(vm.icon).toBe((EVENT_ICON as Record<string, string>)["contract"]);
+  });
+
+  it("frd-06: WHEN event type is 'gate' THEN icon is set from EVENT_ICON.gate", () => {
+    const ev: DashboardEvent = { event: "gate", at: "2026-06-18T10:00:00Z" };
+    const vm = toEventVM(ev);
+    expect(vm.icon).toBe((EVENT_ICON as Record<string, string>)["gate"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Wave 2 — roleColorKey derived from event.role (not event.agent)
+// ---------------------------------------------------------------------------
+
+describe("frd-06 Wave 2: toEventVM — roleColorKey (AC-06-011.1)", () => {
+  it("frd-06: WHEN event has a role field THEN vm.roleColorKey is a non-empty CSS variable string", () => {
+    const ev: DashboardEvent = {
+      event: "start",
+      at: "2026-06-18T10:00:00Z",
+      role: "implementer",
+    };
+    const vm = toEventVM(ev);
+    expect(typeof vm.roleColorKey).toBe("string");
+    expect((vm.roleColorKey as string).startsWith("--color-agent-")).toBe(true);
+  });
+
+  it("frd-06: WHEN event.role is 'implementer' THEN roleColorKey is '--color-agent-implementer'", () => {
+    const ev: DashboardEvent = {
+      event: "start",
+      at: "2026-06-18T10:00:00Z",
+      role: "implementer",
+    };
+    const vm = toEventVM(ev);
+    expect(vm.roleColorKey).toBe("--color-agent-implementer");
+  });
+
+  it("frd-06: WHEN event.role is 'reviewer' THEN roleColorKey is '--color-agent-reviewer'", () => {
+    const ev: DashboardEvent = {
+      event: "gate",
+      at: "2026-06-18T10:00:00Z",
+      role: "reviewer",
+    };
+    const vm = toEventVM(ev);
+    expect(vm.roleColorKey).toBe("--color-agent-reviewer");
+  });
+
+  it("frd-06: WHEN event.role is 'test-writer' THEN roleColorKey is '--color-agent-test-writer'", () => {
+    const ev: DashboardEvent = {
+      event: "test_ok",
+      at: "2026-06-18T10:00:00Z",
+      role: "test-writer",
+    };
+    const vm = toEventVM(ev);
+    expect(vm.roleColorKey).toBe("--color-agent-test-writer");
+  });
+
+  it("frd-06: WHEN event has no role field THEN vm.roleColorKey is undefined", () => {
+    const ev: DashboardEvent = { event: "start", at: "2026-06-18T10:00:00Z" };
+    const vm = toEventVM(ev);
+    expect(vm.roleColorKey).toBeUndefined();
+  });
+
+  it("frd-06: WHEN event.role is an unknown role THEN roleColorKey falls back to a generic CSS var", () => {
+    const ev: DashboardEvent = {
+      event: "start",
+      at: "2026-06-18T10:00:00Z",
+      role: "some-unknown-role",
+    };
+    const vm = toEventVM(ev);
+    expect(typeof vm.roleColorKey).toBe("string");
+    expect((vm.roleColorKey as string).startsWith("--color-agent-")).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Wave 2 — wo and frd fields in EventVM (from lib/events enriched fields)
+// ---------------------------------------------------------------------------
+
+describe("frd-06 Wave 2: toEventVM — wo and frd fields in EventVM", () => {
+  it("frd-06: WHEN event has a frd field THEN vm.frd equals event.frd", () => {
+    const ev: DashboardEvent = {
+      event: "start",
+      at: "2026-06-18T10:00:00Z",
+      frd: "frd-06-party",
+    };
+    const vm = toEventVM(ev);
+    expect(vm.frd).toBe("frd-06-party");
+  });
+
+  it("frd-06: WHEN event has no frd field THEN vm.frd is undefined", () => {
+    const ev: DashboardEvent = { event: "start", at: "2026-06-18T10:00:00Z" };
+    const vm = toEventVM(ev);
+    expect(vm.frd).toBeUndefined();
+  });
+
+  it("frd-06: WHEN event has a workOrder field THEN vm.wo equals event.workOrder", () => {
+    const ev: DashboardEvent = {
+      event: "handoff",
+      at: "2026-06-18T10:00:00Z",
+      workOrder: "WO-06-001",
+    };
+    const vm = toEventVM(ev);
+    expect(vm.wo).toBe("WO-06-001");
+  });
+
+  it("frd-06: WHEN event has no workOrder field THEN vm.wo is undefined", () => {
+    const ev: DashboardEvent = { event: "handoff", at: "2026-06-18T10:00:00Z" };
+    const vm = toEventVM(ev);
+    expect(vm.wo).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Wave 2 — Spanish labels for handoff, contract, gate
+// ---------------------------------------------------------------------------
+
+describe("frd-06 Wave 2: toEventVM — Spanish labels for engine lines", () => {
+  it("frd-06: WHEN event type is 'handoff' THEN label contains 'nota de estado'", () => {
+    const ev: DashboardEvent = { event: "handoff", at: "2026-06-18T10:00:00Z" };
+    const vm = toEventVM(ev);
+    expect(vm.label.toLowerCase()).toContain("nota de estado");
+  });
+
+  it("frd-06: WHEN event type is 'contract' THEN label contains 'contrato'", () => {
+    const ev: DashboardEvent = { event: "contract", at: "2026-06-18T10:00:00Z" };
+    const vm = toEventVM(ev);
+    expect(vm.label.toLowerCase()).toContain("contrato");
+  });
+
+  it("frd-06: WHEN event type is 'gate' THEN label contains 'tribunal'", () => {
+    const ev: DashboardEvent = { event: "gate", at: "2026-06-18T10:00:00Z" };
+    const vm = toEventVM(ev);
+    expect(vm.label.toLowerCase()).toContain("tribunal");
+  });
+
+  it("frd-06: label for handoff is a non-empty Spanish string", () => {
+    const ev: DashboardEvent = { event: "handoff", at: "2026-06-18T10:00:00Z" };
+    const vm = toEventVM(ev);
+    expect(vm.label.length).toBeGreaterThan(0);
+  });
+
+  it("frd-06: label for contract is a non-empty Spanish string", () => {
+    const ev: DashboardEvent = { event: "contract", at: "2026-06-18T10:00:00Z" };
+    const vm = toEventVM(ev);
+    expect(vm.label.length).toBeGreaterThan(0);
+  });
+
+  it("frd-06: label for gate is a non-empty Spanish string", () => {
+    const ev: DashboardEvent = { event: "gate", at: "2026-06-18T10:00:00Z" };
+    const vm = toEventVM(ev);
+    expect(vm.label.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Wave 2 — AC-06-010.3: multi-project color (projectColorKey without role)
+// ---------------------------------------------------------------------------
+
+describe("frd-06 Wave 2: toEventVM — multi-project color (AC-06-010.3)", () => {
+  it("frd-06: WHEN event has both role and project THEN both roleColorKey and projectColorKey are set", () => {
+    const ev: DashboardEvent = {
+      event: "write",
+      at: "2026-06-18T10:00:00Z",
+      role: "implementer",
+      project: "proj-a",
+    };
+    const vm = toEventVM(ev);
+    expect(vm.roleColorKey).toBeDefined();
+    expect(vm.projectColorKey).toBeDefined();
+  });
+
+  it("frd-06: WHEN event has project but no role THEN projectColorKey is set and roleColorKey is undefined", () => {
+    const ev: DashboardEvent = {
+      event: "write",
+      at: "2026-06-18T10:00:00Z",
+      project: "proj-a",
+    };
+    const vm = toEventVM(ev);
+    expect(vm.projectColorKey).toBeDefined();
+    expect(vm.roleColorKey).toBeUndefined();
+  });
+
+  it("frd-06: WHEN event has role but no project THEN roleColorKey is set and projectColorKey is undefined", () => {
+    const ev: DashboardEvent = {
+      event: "start",
+      at: "2026-06-18T10:00:00Z",
+      role: "implementer",
+    };
+    const vm = toEventVM(ev);
+    expect(vm.roleColorKey).toBeDefined();
+    expect(vm.projectColorKey).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Wave 2 — idempotency with enriched fields
+// ---------------------------------------------------------------------------
+
+describe("frd-06 Wave 2: toEventVM — idempotency with enriched fields", () => {
+  it("frd-06: WHEN toEventVM is called twice with enriched event THEN both results are equal", () => {
+    const ev: DashboardEvent = {
+      event: "handoff",
+      at: "2026-06-18T10:00:00Z",
+      role: "implementer",
+      project: "proj-a",
+      frd: "frd-06-party",
+      workOrder: "WO-06-001",
+      status: "ok",
+    };
+    const vm1 = toEventVM(ev);
+    const vm2 = toEventVM(ev);
+    expect(vm1).toEqual(vm2);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // AC-06-012.1 — EVENT_ICON covers the full bounded vocabulary
@@ -165,25 +411,26 @@ describe("frd-06: toEventVM — isFailure first-class state (AC-06-013.1)", () =
 });
 
 // ---------------------------------------------------------------------------
-// AC-06-011.1 — agentColorKey derived from agent; projectColorKey when project present
+// AC-06-011.1 — roleColorKey derived from role; projectColorKey when project present
+// (Wave 2: renamed from agentColorKey; now driven by event.role, not event.agent)
 // ---------------------------------------------------------------------------
 
-describe("frd-06: toEventVM — agent and project color keys (AC-06-011.1)", () => {
-  it("frd-06: WHEN event has an agent field THEN vm.agentColorKey is a non-empty CSS variable string", () => {
+describe("frd-06: toEventVM — role and project color keys (AC-06-011.1)", () => {
+  it("frd-06: WHEN event has a role field THEN vm.roleColorKey is a non-empty CSS variable string", () => {
     const ev: DashboardEvent = {
       event: "start",
       at: "2026-06-15T10:00:00Z",
-      agent: "frontend-dev",
+      role: "frontend-dev",
     };
     const vm = toEventVM(ev);
-    expect(typeof vm.agentColorKey).toBe("string");
-    expect(vm.agentColorKey).toContain("--color-agent-");
+    expect(typeof vm.roleColorKey).toBe("string");
+    expect(vm.roleColorKey).toContain("--color-agent-");
   });
 
-  it("frd-06: WHEN event has no agent field THEN vm.agentColorKey is undefined", () => {
+  it("frd-06: WHEN event has no role field THEN vm.roleColorKey is undefined", () => {
     const ev: DashboardEvent = { event: "start", at: "2026-06-15T10:00:00Z" };
     const vm = toEventVM(ev);
-    expect(vm.agentColorKey).toBeUndefined();
+    expect(vm.roleColorKey).toBeUndefined();
   });
 
   it("frd-06: WHEN event has a project field THEN vm.projectColorKey is set", () => {
@@ -270,7 +517,7 @@ describe("frd-06: toEventVM — idempotency (pure function)", () => {
     const ev: DashboardEvent = {
       event: "handoff",
       at: "2026-06-15T10:00:00Z",
-      agent: "backend-dev",
+      role: "backend-dev",
       project: "proj-a",
       status: "ok",
     };

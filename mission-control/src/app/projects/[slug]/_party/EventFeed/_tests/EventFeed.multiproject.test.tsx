@@ -7,10 +7,10 @@
  * Tests:
  *   - WHEN snapshot contains events from 2 projects THEN rows with projectColorKey
  *     carry BOTH data-project-color AND data-agent-color attributes
- *   - WHEN a row has projectColorKey AND agentColorKey THEN it renders a double border
+ *   - WHEN a row has projectColorKey AND roleColorKey THEN it renders a double border
  *     (project-color left border + agent-color outline — verifiable via data attributes
  *     since jsdom does not compute CSS)
- *   - WHEN a row has only agentColorKey (no project) THEN only the agent border applies
+ *   - WHEN a row has only roleColorKey (no project) THEN only the agent border applies
  *   - WHEN a row has neither THEN no color border
  *   - Empty/reduced-motion never throw (defensive)
  *
@@ -46,19 +46,19 @@ function makeTwoProjectVMs(): EventVM[] {
       label: "Inicio proj-a",
       project: "proj-a",
       projectColorKey: "--color-project-proj-a",
-      agentColorKey: "--color-agent-backend-dev",
+      roleColorKey: "--color-agent-backend-dev",
     }),
     makeVM({
       at: "2026-06-15T10:01:00Z",
       label: "Inicio proj-b",
       project: "proj-b",
       projectColorKey: "--color-project-proj-b",
-      agentColorKey: "--color-agent-frontend-dev",
+      roleColorKey: "--color-agent-frontend-dev",
     }),
     makeVM({
       at: "2026-06-15T10:02:00Z",
       label: "Sin proyecto",
-      agentColorKey: "--color-agent-test-writer",
+      roleColorKey: "--color-agent-test-writer",
       // no project / no projectColorKey
     }),
   ];
@@ -75,7 +75,7 @@ describe("frd-06: EventFeed — multi-project double border (AC-06-011.1)", () =
         events={[
           makeVM({
             projectColorKey: "--color-project-proj-a",
-            agentColorKey: "--color-agent-backend-dev",
+            roleColorKey: "--color-agent-backend-dev",
           }),
         ]}
       />,
@@ -84,13 +84,13 @@ describe("frd-06: EventFeed — multi-project double border (AC-06-011.1)", () =
     expect(row.getAttribute("data-project-color")).toBe("--color-project-proj-a");
   });
 
-  it("frd-06: WHEN a row has both projectColorKey AND agentColorKey THEN BOTH data attributes are present", () => {
+  it("frd-06: WHEN a row has both projectColorKey AND roleColorKey THEN BOTH data attributes are present", () => {
     render(
       <EventFeed
         events={[
           makeVM({
             projectColorKey: "--color-project-proj-a",
-            agentColorKey: "--color-agent-backend-dev",
+            roleColorKey: "--color-agent-backend-dev",
           }),
         ]}
       />,
@@ -119,7 +119,7 @@ describe("frd-06: EventFeed — multi-project double border (AC-06-011.1)", () =
       <EventFeed
         events={[
           makeVM({
-            agentColorKey: "--color-agent-test-writer",
+            roleColorKey: "--color-agent-test-writer",
             // no projectColorKey
           }),
         ]}
@@ -138,12 +138,12 @@ describe("frd-06: EventFeed — multi-project double border (AC-06-011.1)", () =
     expect(noProjectRow?.getAttribute("data-agent-color")).toBe("--color-agent-test-writer");
   });
 
-  it("frd-06: WHEN a row has neither agentColorKey nor projectColorKey THEN neither data attribute is set", () => {
+  it("frd-06: WHEN a row has neither roleColorKey nor projectColorKey THEN neither data attribute is set", () => {
     render(
       <EventFeed
         events={[
           makeVM({
-            // no agentColorKey, no projectColorKey
+            // no roleColorKey, no projectColorKey
           }),
         ]}
       />,
@@ -171,7 +171,7 @@ describe("frd-06: EventFeed — legacy/global events (no project field)", () => 
       <EventFeed
         events={[
           makeVM({
-            agentColorKey: "--color-agent-reviewer",
+            roleColorKey: "--color-agent-reviewer",
             // no project, no projectColorKey — legacy/global event
           }),
         ]}
@@ -187,12 +187,12 @@ describe("frd-06: EventFeed — legacy/global events (no project field)", () => 
       makeVM({
         at: "2026-06-15T10:00:00Z",
         projectColorKey: "--color-project-proj-a",
-        agentColorKey: "--color-agent-backend-dev",
+        roleColorKey: "--color-agent-backend-dev",
         project: "proj-a",
       }),
       makeVM({
         at: "2026-06-15T10:01:00Z",
-        agentColorKey: "--color-agent-reviewer",
+        roleColorKey: "--color-agent-reviewer",
         // no project — legacy
       }),
     ];
