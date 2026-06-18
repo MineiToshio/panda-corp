@@ -12,7 +12,7 @@
  * `timeline.ts`.
  */
 
-import type { TimelineRow } from "./timeline";
+import type { TimelineRow } from "./types";
 
 // ---------------------------------------------------------------------------
 // Internal accumulators

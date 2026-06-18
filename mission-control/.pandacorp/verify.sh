@@ -60,6 +60,12 @@ if [ -n "$OVERSIZED" ]; then
   fail "Source file(s) over 500 lines (clean-code.md). Split into cohesive sibling modules."
 fi
 
+echo "▶ Circular-dependency guard (madge)…"
+# clean-code.md: no circular dependencies; deps point one way. Biome can't detect
+# cycles, so madge owns this check (resolves the @/ alias via tsconfig).
+pnpm exec madge --circular --extensions ts,tsx --ts-config tsconfig.json src \
+  || fail "Circular dependency detected (clean-code.md). Break the cycle (e.g. extract the shared type to its own module)."
+
 echo "▶ Lint + format (biome)…"
 pnpm biome check . || fail "Biome found lint/format errors. Try \`pnpm biome check --write .\` for autofixable ones."
 
