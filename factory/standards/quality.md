@@ -33,7 +33,7 @@ These commands live in the project's `.pandacorp/verify.sh` and the factory's `S
 - Tests of the acceptance criteria first (RED) → minimal implementation (GREEN) → refactor. Max 3 repair attempts per subtask, then escalate.
 
 ## Accessibility and performance (CI gates, web)
-- **a11y-gate**: the stack's linter MUST have accessibility rules (Biome `lint/a11y` by default, or `eslint-plugin-jsx-a11y` if the blueprint chooses ESLint) **+ axe-core over the REAL built pages** (not just the design mockups). Covers ~30-40% of WCAG 2.2 AA → automatic gate **+ `reviewer` check** (focus, target-size 2.5.8 and contrast are not detected by the linter). Don't promise full determinism.
+- **a11y-gate**: **Biome's `a11y` rule group** (enabled by default — Biome is the standard linter) **+ axe-core over the REAL built pages** (not just the design mockups). Covers ~30-40% of WCAG 2.2 AA → automatic gate **+ `reviewer` check** (focus, target-size 2.5.8 and contrast are not detected by the linter). Don't promise full determinism.
 - **performance-gate**: see [performance.md](performance.md) (Lighthouse-CI as a lab proxy, block-on-main).
 
 ## CI

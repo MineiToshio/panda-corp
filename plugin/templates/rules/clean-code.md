@@ -10,13 +10,13 @@ source: Pandacorp standard — quality + conventions
 Optimized for code that is **readable, scalable, and easy for both humans and AI agents to work in**. Small, single-purpose, predictable units that fit in one mental (or context) window.
 
 ## Size limits
-- **File ≤ ~300 lines** (soft warning); never exceed **~500** — split it. A file an agent can load whole is a file it can change safely. (lint: `max-lines`)
-- **Function ≤ ~50 lines** (target); extract beyond. Most functions are 10–40 lines. (lint: `max-lines-per-function`, soft)
+- **File ≤ ~300 lines** (soft warning); never exceed **~500** — split it. A file an agent can load whole is a file it can change safely. (Biome has no file-size rule → `verify.sh` guard / reviewer)
+- **Function ≤ ~50 lines** (target); extract beyond. Most functions are 10–40 lines. (reviewer; backed by the complexity rule below)
 - **Change sets do one thing**: keep a diff small and single-purpose; ship **refactors in a separate change from behavior changes** (never mix a rename/move with a feature).
 
 ## Complexity & nesting
-- **Nesting depth ≤ 4.** Prefer **guard clauses / early returns** over deep `if/else` pyramids. (lint: `max-depth`)
-- **Cyclomatic complexity ≤ ~10** per function (warning); refactor above it. (lint: `complexity`)
+- **Nesting depth ≤ 4.** Prefer **guard clauses / early returns** over deep `if/else` pyramids. (reviewer + the complexity rule)
+- **Cognitive complexity capped** per function (warning); refactor above it. (Biome: `noExcessiveCognitiveComplexity`)
 
 ## Single responsibility & separation of concerns
 - **One reason to change** per module/function/component. If you can't name what it does without "and", split it.
@@ -26,15 +26,15 @@ Optimized for code that is **readable, scalable, and easy for both humans and AI
 - Reuse logic, types and utilities, not just components. But **don't abstract before the third occurrence** (rule of three): tolerate the second copy. **Duplication is cheaper than the wrong abstraction** — don't pre-abstract on speculation.
 
 ## Function signatures
-- **≤ 3 parameters**; beyond that pass a single named **options object**. (lint: `max-params`)
+- **≤ 3 parameters**; beyond that pass a single named **options object**. (Biome: `useMaxParams`)
 - **No boolean-trap parameters** (`doThing(x, true)`): split the function or pass a named option/enum so the call site is self-documenting.
 
 ## Dead code & purity
-- **No commented-out code, no unused exports/files/deps** — delete it; git is the history. (tool: `knip` in CI; `no-unused-vars`)
-- **Default to pure functions and immutable data**; isolate side effects (I/O, network, mutation) at the edges; **never mutate inputs**. Mark intent-immutable data `readonly`. (lint: `no-param-reassign`)
+- **No commented-out code, no unused exports/files/deps** — delete it; git is the history. (tool: `knip` in CI; Biome `noUnusedVariables`/`noUnusedImports`)
+- **Default to pure functions and immutable data**; isolate side effects (I/O, network, mutation) at the edges; **never mutate inputs**. Mark intent-immutable data `readonly`. (Biome: `noParameterAssign`)
 
 ## Module boundaries
-- **No circular dependencies**; dependencies point one way (UI → domain → data, never back). (lint: `import/no-cycle`)
+- **No circular dependencies**; dependencies point one way (UI → domain → data, never back). (Biome: `noImportCycles`)
 - **No barrel files** (`index.ts` re-export hubs) for app code — import from the concrete module path (consistent with the "main file named after its folder, never `index.tsx`" rule in `project-structure`). Library public entry points are the only exception.
 
 ## Made for AI agents (and humans)

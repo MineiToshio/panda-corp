@@ -32,7 +32,7 @@ A change with red tests, type errors or lint errors is **not done**, no exceptio
 
 ## Test discipline
 - **Test observable behavior through the public API**, not implementation details (internal state, private methods, CSS classes). A pure refactor must not require touching the test.
-- **Component tests query by accessible role/name** (`getByRole`); `getByTestId` is a last-resort fallback and `container`/`querySelector` is banned. (E2E may use `data-testid`.) (lint: `eslint-plugin-testing-library`)
+- **Component tests query by accessible role/name** (`getByRole`); `getByTestId` is a last-resort fallback and `container`/`querySelector` is banned. (E2E may use `data-testid`.) (Biome covers generic test hygiene via the `test` domain — `noFocusedTests`/`noSkippedTests`; the Testing-Library-specific query/async rules are the optional ESLint escape hatch, the one case we add a minimal ESLint pass.)
 - **Every test passes in isolation and in any order**; no shared mutable test state; reset mocks between tests (`restoreMocks: true`). CI runs in randomized order so coupling fails loudly.
 - **Mock only true external boundaries** (network, time, third-party SDKs) — don't mock what you own; prefer faking the network (MSW).
 - **Fixtures via builders/factories** (sensible defaults + override only what the test cares about) in `src/test/` — no duplicated literal fixtures.

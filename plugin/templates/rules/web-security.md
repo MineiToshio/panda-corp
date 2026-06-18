@@ -26,7 +26,7 @@ source: Pandacorp standard — web-security
 - **Rate-limit** all auth and unauthenticated public endpoints (login, signup, reset, OTP, token issuance); count failures per-account, with progressive backoff (no lockout-DoS).
 
 ## Injection
-- **Never pass untrusted data to `dangerouslySetInnerHTML`, `eval`, `Function` or `innerHTML`** without a vetted sanitizer (DOMPurify); prefer text rendering. (lint: `react/no-danger`, `no-eval`, `no-implied-eval` → error)
+- **Never pass untrusted data to `dangerouslySetInnerHTML`, `eval`, `Function` or `innerHTML`** without a vetted sanitizer (DOMPurify); prefer text rendering. (Biome: `noDangerouslySetInnerHtml`, `noGlobalEval` → error)
 - **SSRF**: server-side fetches of user-supplied URLs go through a shared `safeFetch` — allow-list hosts, force https, reject credentials/`@`, block private/loopback/link-local + cloud metadata (`169.254.169.254`), re-validate on every redirect hop.
 
 ## Supply chain (a top-2025 attack vector)

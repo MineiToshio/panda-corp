@@ -16,7 +16,7 @@
 - **Resend** (transactional email) + **Kit/ConvertKit** (marketing email / waitlist)
 - **Polar** (payments, Merchant of Record — works from Peru/global) when the version charges
 - **Vitest** (unit/integration) + **Playwright** (e2e)
-- **ESLint + Prettier** (with `prettier-plugin-tailwindcss`)
+- **Biome** — the single standard for **both formatting and linting** (replaces Prettier *and* ESLint); Tailwind class sorting via Biome `useSortedClasses`. **Do not add Prettier or ESLint** except as a documented escape hatch for a rule Biome lacks (Testing-Library-specific lint, full `eslint-plugin-next` parity) — and never re-add Prettier.
 - Package manager: **npm**. Deploy: Vercel (web) / container on Railway or Fly.io (services)
 
 > Account model, secrets (SOPS+age) and provisioning of these external services: `external-services.md`. The service stack validated in production is PandaTrack's.
@@ -33,3 +33,8 @@
 3. The decision is **approved by the owner** in the blueprint and recorded as an ADR.
 4. Don't mix technologies that break the durable conventions (strict typing, isolated data layer, testing).
 5. Never homemade auth: use a proven solution.
+
+## Version policy (DR-052)
+- **New project / new install → always the latest stable version** (`@latest`). We don't pin to old versions out of habit.
+- **An in-flight project stays on the version it was built with** — don't churn/migrate frameworks mid-build just to chase a release; upgrade deliberately, not reflexively.
+- **Older / brownfield project → install only versions COMPATIBLE with the established framework major.** Before adding a dependency, check it supports that project's framework version (e.g. a Next.js 13 project must NOT get a library that requires Next 15+ — pick the latest version still compatible with Next 13). When unsure, resolve the compatible version range, don't assume `@latest`.

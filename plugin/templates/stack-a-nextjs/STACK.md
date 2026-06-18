@@ -1,6 +1,6 @@
 # Stack A — Full-stack web app (Next.js) · default suggestion
 
-Installation guide for `/pandacorp:blueprint`, full-stack web case. It's the **recommended starting point** (`factory/standards/stack.md`), NOT a mandate: the `architect` can propose better alternatives and the owner approves in the blueprint. **Always use the latest stable versions** (the `@latest` commands already do this). Recommended stack: Next.js + React + TypeScript + Tailwind + **Prisma** + **Better Auth** + **next-intl** + **PostHog** + **Sentry** + Vitest + Playwright + **ESLint/Prettier** + **npm**, `src/` structure with the data layer in `queries/`.
+Installation guide for `/pandacorp:blueprint`, full-stack web case. It's the **recommended starting point** (`factory/standards/stack.md`), NOT a mandate: the `architect` can propose better alternatives and the owner approves in the blueprint. **Always use the latest stable versions** for a new project (`@latest`); an older/brownfield project installs only versions **compatible with its framework major** (DR-052). Recommended stack: Next.js + React + TypeScript + Tailwind + **Prisma** + **Better Auth** + **next-intl** + **PostHog** + **Sentry** + Vitest + Playwright + **Biome** (the single format+lint tool — no Prettier, no ESLint) + **npm**, `src/` structure with the data layer in `queries/`.
 
 ## Installation
 
@@ -13,10 +13,11 @@ pnpm create t3-app@latest . --noGit   # the Pandacorp scaffold already has git
 ## Standard Pandacorp configuration (after the scaffolder)
 
 1. **tsconfig**: add `"noUncheckedIndexedAccess": true` (strict already comes).
-2. **Biome** (replaces ESLint+Prettier if the blueprint doesn't require specific ESLint plugins):
+2. **Biome — the single standard for format + lint (no Prettier, no ESLint):**
    ```bash
-   pnpm add -D -E @biomejs/biome && pnpm biome init
+   pnpm add -D @biomejs/biome@latest && pnpm biome init
    ```
+   In `biome.json` enable the recommended rules + the **domains** (`react`, `next`, `test` — Biome auto-detects them from `package.json`) and the **`a11y`** group. Tailwind class ordering = Biome's `useSortedClasses` (replaces `prettier-plugin-tailwindcss`). Biome formats AND lints; do not add Prettier or ESLint. **Escape hatch only if needed**: a minimal ESLint config running *only* `eslint-plugin-testing-library` (and/or `eslint-config-next`) for the few rules Biome lacks — never re-add Prettier.
 3. **Testing**: `pnpm add -D vitest @testing-library/react @testing-library/jest-dom jsdom @playwright/test`
 4. **shadcn/ui**: `pnpm dlx shadcn@latest init` — use the preset/tokens from `docs/design/design-tokens.json`.
 5. **DB**: **dev → Postgres in Docker** (see below); **staging/prod → managed** (Neon/Supabase). Connection string only in `.env` (DR-021).
@@ -48,16 +49,22 @@ Test the last green without stopping the agent: `git worktree add ../<project>-r
 
 ## Hard enforcement (lint rules — make the rule library fail the gate, not just live in prose)
 
-The engineering rules in `docs/rules/` are read by agents (soft enforcement); wire the **mechanically-checkable** ones into the linter so a violation **fails `verify.sh`/CI** (this is what catches a rule an agent ignored). Enable in the lint config (Biome rules, or the ESLint equivalents in parentheses):
+The engineering rules in `docs/rules/` are read by agents (soft enforcement); wire the **mechanically-checkable** ones into **Biome** so a violation **fails `verify.sh`/CI** (this is what catches a rule an agent ignored). Enable these Biome rules:
 
-- **`noArrayIndexKey`** (`react/no-array-index-key`) — bans `index` as a React list `key` (`react.md`).
-- **`useExhaustiveDependencies`** (`react-hooks/exhaustive-deps`) — catches `useEffect`/`useMemo`/`useCallback` dependency bugs (`react.md`).
-- **`noExplicitAny`** + `tsc` strict — `any`/`@ts-ignore` forbidden (`code-conventions.md`).
-- **`noRestrictedImports`** for the project's own barrels (e.g. ban `@/components` as an import source in app code) — enforces "no barrel imports in hot paths" (`web-performance.md`).
-- **`useImportType`** / no-unused-imports — keeps imports clean.
-- **a11y rules** (Biome `a11y/*` or `eslint-plugin-jsx-a11y`) — backs the accessibility rules in `styling-and-ui.md`.
+- **`noArrayIndexKey`** — bans `index` as a React list `key` (`react.md`).
+- **`useExhaustiveDependencies`** + **`useHookAtTopLevel`** — hook dependency/ordering bugs (`react.md`).
+- **`noExplicitAny`** + `tsc` strict — `any`/`@ts-ignore` forbidden (`code-conventions.md`, `typescript.md`).
+- **`noImportCycles`** — no circular dependencies (`clean-code.md`). *(Youngest Biome rule — watch its open edge cases.)*
+- **`noBarrelFile`** + **`noReExportAll`** — no barrel files (`clean-code.md` / `web-performance.md`); **`noRestrictedImports`** to ban specific barrel paths.
+- **`useImportType`** — type-only imports (`typescript.md`); **`noUnusedVariables`** — clean imports.
+- **`noParameterAssign`** — don't mutate inputs (`clean-code.md`); **`useMaxParams`** — ≤3 params; **`noExcessiveCognitiveComplexity`** — complexity cap.
+- **`a11y` group** (enabled by default via the domain) — backs `accessibility.md`.
+- **`noDangerouslySetInnerHtml`** + **`noGlobalEval`** — injection (`web-security.md`).
+- **`noFocusedTests`** + **`noSkippedTests`** (`test` domain) — test hygiene.
 
-`tsc --noEmit` (strict, with `noUncheckedIndexedAccess`) is the typing gate; `vitest`/`playwright` are the behavior gate (`quality-and-testing.md`). A rule that can't be linted stays as a reviewer/agent check.
+`tsc --noEmit` (strict, with `noUncheckedIndexedAccess`) is the typing gate; `vitest`/`playwright` the behavior gate.
+
+**What Biome can't lint → other gates:** file-size limit and `_tests/` placement (`clean-code`/`project-structure`) → the structure guard below + reviewer; **Testing-Library-specific** query/async rules and full `eslint-plugin-next` parity → the optional ESLint escape hatch; deep type-aware rules → reviewer. A rule no tool can check stays a reviewer/agent check.
 
 **Structure guard (file placement isn't lintable — add a check).** The `_tests/` rule (`project-structure.md`) needs a guard in `verify.sh`, since linters don't check file location:
 ```bash
@@ -71,7 +78,7 @@ stray=$(find src -name '*.test.ts' -o -name '*.test.tsx' | grep -v '/_tests/' ||
 ```bash
 #!/bin/bash
 set -e
-pnpm biome check . 2>/dev/null || pnpm lint   # includes the hard-enforcement rules above
+pnpm biome check .          # format + lint in one (the hard-enforcement rules above)
 pnpm tsc --noEmit
 pnpm vitest run --reporter=dot
 ```

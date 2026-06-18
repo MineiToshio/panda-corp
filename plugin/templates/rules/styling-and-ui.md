@@ -8,7 +8,7 @@ source: Pandacorp standard — patterns
 # Styling & UI
 
 ## Tailwind (v4)
-- Combine and conditionally apply classes with the **`cn()`** helper (clsx + tailwind-merge). Class ordering is enforced by `prettier-plugin-tailwindcss` — run `prettier --check` in CI, not just locally.
+- Combine and conditionally apply classes with the **`cn()`** helper (clsx + tailwind-merge). Class ordering is enforced by **Biome's `useSortedClasses`** (run `biome check` in CI) — Biome is the standard format+lint tool; we don't use Prettier.
 - App-wide patterns → `@layer components` in `globals.css`; area-specific patterns → scoped CSS for that area. Don't repeat long class strings.
 
 ## Design tokens (no hardcoded visuals)
