@@ -70,7 +70,12 @@ export interface TokenValidationResult {
 // Agent roles — canonical source of truth (IF-13-agent-colors)
 // ---------------------------------------------------------------------------
 
-/** All ~10 canonical agent roles. Single source for AGENT_COLOR and the token palette. */
+/**
+ * All 13 canonical agent roles. Single source for AGENT_COLOR and the token palette.
+ * Realigned 2026-06-18 (Party redesign): added implementer/copywriter/analytics/devops,
+ * removed the fictitious 'guild' aggregate.
+ * Source: prototype/party-redesign-spec.md §2; docs/frds/frd-13-.../frd.md.
+ */
 export const AGENT_ROLES = [
   "researcher",
   "backend-dev",
@@ -81,7 +86,10 @@ export const AGENT_ROLES = [
   "architect",
   "product-manager",
   "designer",
-  "guild",
+  "implementer",
+  "copywriter",
+  "analytics",
+  "devops",
 ] as const;
 
 export type AgentRole = (typeof AGENT_ROLES)[number];
@@ -101,7 +109,10 @@ export const AGENT_COLOR: Record<AgentRole, string> = {
   architect: "--color-agent-architect",
   "product-manager": "--color-agent-product-manager",
   designer: "--color-agent-designer",
-  guild: "--color-agent-guild",
+  implementer: "--color-agent-implementer",
+  copywriter: "--color-agent-copywriter",
+  analytics: "--color-agent-analytics",
+  devops: "--color-agent-devops",
 };
 
 // ---------------------------------------------------------------------------

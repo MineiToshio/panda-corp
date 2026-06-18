@@ -38,7 +38,12 @@ export const SPRITE_MAP: Record<AgentRole, string> = {
   architect: "/prototype/assets/agents/architect.png",
   "product-manager": "/prototype/assets/agents/product-manager.png",
   designer: "/prototype/assets/agents/designer.png",
-  guild: "/prototype/assets/agents/analytics.png",
+  // Roles added 2026-06-18 (Party redesign — party-redesign-spec.md §2)
+  // Sprites reuse nearest-role art until dedicated assets are created.
+  implementer: "/prototype/assets/agents/backend-dev.png",
+  copywriter: "/prototype/assets/agents/designer.png",
+  analytics: "/prototype/assets/agents/analytics.png",
+  devops: "/prototype/assets/agents/security-auditor.png",
 };
 
 // ---------------------------------------------------------------------------

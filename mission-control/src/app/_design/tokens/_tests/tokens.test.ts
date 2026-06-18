@@ -60,7 +60,10 @@ const VALID_TOKENS: TokenSchema = {
     architect: "oklch(0.6 0.2 240)",
     "product-manager": "oklch(0.7 0.18 85)",
     designer: "oklch(0.7 0.22 330)",
-    guild: "oklch(0.75 0.16 60)",
+    implementer: "oklch(0.68 0.2 160)",
+    copywriter: "oklch(0.72 0.18 70)",
+    analytics: "oklch(0.75 0.16 180)",
+    devops: "oklch(0.6 0.2 220)",
   },
   elevation: [
     { shadow: "none", spacing: "0" },
@@ -336,7 +339,9 @@ describe("frd-13 AC-13-001.1: validateTokenSchema — agent palette completeness
 // ---------------------------------------------------------------------------
 
 describe("frd-13 AC-13-001.1 / IF-13-agent-colors: AGENT_COLOR covers all canonical roles", () => {
-  it("frd-13: AGENT_ROLES must enumerate all ~10 canonical roles (source of truth for AGENT_COLOR and the token palette)", () => {
+  it("frd-13: AGENT_ROLES must enumerate all ~13 canonical roles (source of truth for AGENT_COLOR and the token palette)", () => {
+    // Realignment 2026-06-18 (Party redesign): add implementer/copywriter/analytics/devops,
+    // remove the fictitious 'guild' aggregate. Source: prototype/party-redesign-spec.md §2.
     const expected: AgentRole[] = [
       "researcher",
       "backend-dev",
@@ -347,7 +352,10 @@ describe("frd-13 AC-13-001.1 / IF-13-agent-colors: AGENT_COLOR covers all canoni
       "architect",
       "product-manager",
       "designer",
-      "guild",
+      "implementer",
+      "copywriter",
+      "analytics",
+      "devops",
     ];
     expect(AGENT_ROLES).toEqual(expect.arrayContaining(expected));
     expect(AGENT_ROLES).toHaveLength(expected.length);

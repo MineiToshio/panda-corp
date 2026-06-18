@@ -5,7 +5,7 @@ slug: token-schema-keymaps
 title: WO-13-001 — Token schema validation + agent-color/state-vocab key maps
 status: ACTIVE
 parent: FRD-13
-implementation_status: PLANNED
+implementation_status: IN_PROGRESS
 source_requirements: []
 last_updated: '2026-06-18'
 ---

@@ -60,6 +60,7 @@ describe("CMP-09-avatar — AC-09-003.1: renders avatar for known agent id", () 
   });
 
   it("SPRITE_MAP contains all canonical agent roles", () => {
+    // Realignment 2026-06-18: guild removed, implementer/copywriter/analytics/devops added.
     const canonicalRoles = [
       "researcher",
       "backend-dev",
@@ -70,7 +71,10 @@ describe("CMP-09-avatar — AC-09-003.1: renders avatar for known agent id", () 
       "architect",
       "product-manager",
       "designer",
-      "guild",
+      "implementer",
+      "copywriter",
+      "analytics",
+      "devops",
     ];
     for (const role of canonicalRoles) {
       expect(SPRITE_MAP).toHaveProperty(role);
