@@ -13,6 +13,7 @@ Nothing is "done" until **all** of these are green (enforced by `verify.sh` / CI
 - **Type-check passes** strict, with zero errors.
 - **Lint & format** report no errors.
 - **Build is clean.**
+- **No dead code** (a `knip` pass finds no new unused files/exports/deps) — see `clean-code`.
 
 A change with red tests, type errors or lint errors is **not done**, no exceptions.
 
@@ -28,6 +29,15 @@ A change with red tests, type errors or lint errors is **not done**, no exceptio
 ## Where tests live (see `project-structure`)
 - Unit/component tests go in a **`_tests/`** folder inside the component/feature folder — **never** loose `*.test.ts(x)` beside implementation files.
 - Shared test infra (helpers, fixtures, factories, mocks) → `src/test/`. E2E (Playwright) → top-level `e2e/`, split by domain.
+
+## Test discipline
+- **Test observable behavior through the public API**, not implementation details (internal state, private methods, CSS classes). A pure refactor must not require touching the test.
+- **Component tests query by accessible role/name** (`getByRole`); `getByTestId` is a last-resort fallback and `container`/`querySelector` is banned. (E2E may use `data-testid`.) (lint: `eslint-plugin-testing-library`)
+- **Every test passes in isolation and in any order**; no shared mutable test state; reset mocks between tests (`restoreMocks: true`). CI runs in randomized order so coupling fails loudly.
+- **Mock only true external boundaries** (network, time, third-party SDKs) — don't mock what you own; prefer faking the network (MSW).
+- **Fixtures via builders/factories** (sensible defaults + override only what the test cares about) in `src/test/` — no duplicated literal fixtures.
+- **Snapshots**: only small, stable, human-reviewable output (`toMatchInlineSnapshot`); no whole-component snapshots; never blind `-u`.
+- **No hard waits**: E2E uses Playwright auto-waiting + web-first assertions (`await expect(locator).toBeVisible()`), never `waitForTimeout`; RTL puts only assertions inside `waitFor`.
 
 ## End-to-end hygiene
 - E2E only on **critical flows**; select elements by `data-testid`, not brittle text/CSS.

@@ -19,6 +19,11 @@ source: Pandacorp standard — patterns
 - **Derive, don't sync.** Compute derived values during render; never mirror props/state into `useState` + `useEffect`.
 - Constants that don't depend on props/state live **outside** the component.
 
+## React 19 primitives (use them instead of hand-rolling)
+- **Form action lifecycle → `useActionState`** (pending/error/result) instead of hand-managed `isLoading`/`hasError`/`isSuccess`; pair with `useFormStatus` for nested submit buttons.
+- **Optimistic UI → `useOptimistic`**: it auto-reverts to the real state on settle/error — don't manually mirror-and-rollback with `useState`.
+- **Read a promise/context in render → the `use` hook** (e.g. unwrap a promise passed from a Server Component) rather than `useEffect`+`useState` client fetching.
+
 ## Performance hygiene
-- `useMemo`/`useCallback` only for genuinely expensive work or a stable identity a dependency array needs — **not by default**.
+- `useMemo`/`useCallback` only for genuinely expensive work or a stable identity a dependency array needs — **not by default**. If the React Compiler is enabled, prefer removing manual memoization it already handles.
 - Extract event logic into named handlers (see `code-conventions`).

@@ -7,7 +7,12 @@ source: Pandacorp standard — structure
 
 # Project structure
 
-Organize code by **reusability** and **scope**: app-wide vs feature-specific vs single-use. Put each thing in the **smallest scope that fits its current usage**, and promote it only when reuse actually appears.
+Organize code by **reusability** and **scope**: app-wide vs feature-specific vs single-use. Put each thing in the **smallest scope that fits its current usage**, and promote it only when reuse actually appears. (File/function **size limits** live in `clean-code.md`.)
+
+## Source root (pick one, be consistent)
+- Choose ONE source-root strategy per project and apply it across the whole repo: **root-level** (`app/`, `components/`, `lib/` at the repo root) **or** `src/` (`src/app/`, `src/components/`, …). Both are valid (Next.js is unopinionated); the `@/*` alias points at whichever you chose.
+- **Config files always stay at the repo root** (`package.json`, `next.config.*`, `tsconfig.json`, `.env*`) regardless.
+- Default for new projects: **root-level** (one less layer). The blueprint records the choice.
 
 ## Components — two layers
 - **`components/core/`** — essential, simple, **highly reusable primitives** (`Button`, `Input`, `Modal`, `Typography`, icons). If it's not a React component, it doesn't belong here.
@@ -35,7 +40,7 @@ app/<feature>/
   ├── _components/   ├── _hooks/    ├── _actions/
   ├── _schemas/      ├── _types/    └── _utils/
 ```
-**Scope by segment first**: files used only by a child segment (`stores/new/…`) go in that child's folders, not the parent. Prefer the smallest valid scope. Global, cross-feature code lives in shared roots: `src/lib/`, `src/hooks/`, `src/types/`.
+**Scope by segment first**: files used only by a child segment (`stores/new/…`) go in that child's folders, not the parent. Prefer the smallest valid scope. Global, cross-feature code lives in shared roots: `lib/`, `hooks/`, `types/`. Use **route groups** `(group)/` to organize routes by section or to scope a `layout.tsx`/`loading.tsx` to a subset without affecting the URL.
 
 ## `src/lib/` organization
 Group by **purpose**: one file per library/service (`mapbox.ts`, `prisma.ts`) or per classification (`formatting.ts`, `cookies.ts`, `constants.ts`). When a **second** file of a clear concern appears, promote it to a domain subfolder **in the same change** (`lib/auth/`, `lib/analytics/`) and move both — never leave one at the root and one nested.

@@ -40,7 +40,7 @@ Exception: framework-reserved filenames (e.g. Next.js `page.tsx`, `route.ts`) fo
 - Validate **all external input** (Server Actions, route handlers, public APIs, AI output) with schemas (Zod or equivalent). Centralize the schemas; don't inline them. Derive the TS type from the schema (`z.infer`).
 
 ## Imports
-- Absolute alias `@/*` → `./src/*`. Avoid relative imports deeper than one level (`../../..`).
+- Absolute alias `@/*` → the project's source root (`./src/*` or repo root — see `project-structure`). Avoid relative imports deeper than one level (`../../..`).
 - Group imports: external libraries → internal modules → relative. Remove unused imports.
 
 ## Handlers
@@ -53,3 +53,8 @@ Exception: framework-reserved filenames (e.g. Next.js `page.tsx`, `route.ts`) fo
 ## Comments & commits
 - Comments explain **why**, not what (and only when the code isn't already self-explanatory). Don't reference tickets/issues/epics in code.
 - **Conventional Commits** with scope, in English: `feat(orders): add table selection`, `fix(api): handle null response`.
+- Keep commits/changes **small and single-purpose** (one logical task). Never force-push a shared branch; never commit secrets or build artifacts (`.gitignore` them).
+
+## Dependencies
+- **Pin the package manager** via the `packageManager` field (+ corepack) so local, CI and agents use the same version; declare supported runtime in `engines`. **One package manager / one lockfile per repo.**
+- **Justify every new dependency** before adding it (maintenance health, transitive footprint, license, bundle size); prefer the standard library / platform APIs. Remove a dependency the moment it's no longer imported.

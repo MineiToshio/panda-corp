@@ -11,6 +11,7 @@ Each rule file declares in its frontmatter **`applies_when`** — a single token
 | Token | Ships when… |
 |---|---|
 | `always` | every project, no condition (general best practices) |
+| `typescript` | the project is written in TypeScript |
 | `web-ui` | the project has a web UI |
 | `react` | the stack includes React |
 | `nextjs` | the stack includes Next.js (App Router) |
@@ -27,15 +28,18 @@ The copying skill reads the project's chosen stack (from `docs/product/architect
 
 | File | applies_when | What it covers |
 |---|---|---|
-| `code-conventions.md` | `always` | Language, naming, strict typing, constants, imports, handlers, comments/commits, env vars |
-| `project-structure.md` | `always` | Folder organization (`core/`+`modules/`), feature-first, reuse-before-create, isolated data layer |
-| `quality-and-testing.md` | `always` | Done = green gates (tests/types/lint/build), TDD, risk-based coverage |
+| `code-conventions.md` | `always` | Language, naming, strict typing, constants, imports, handlers, comments/commits, env vars, deps |
+| `clean-code.md` | `always` | File/function size, complexity, SRP/SoC, DRY (rule of three), dead code, purity, module boundaries, AI-legibility |
+| `project-structure.md` | `always` | Source root (`src/` choice), `core/`+`modules/`, single/multi-file folders, `_tests/`, feature-first, promotion |
+| `quality-and-testing.md` | `always` | Green gates, TDD, risk-based coverage, test discipline (getByRole, isolation, no hard waits) |
 | `documentation-and-decisions.md` | `always` | Canonical doc + decision log discipline, two-layer docs |
-| `react.md` | `react` | Composition, prop-drilling limit, list keys, derive-don't-sync, no nested components |
-| `nextjs.md` | `nextjs` | Server Components default, Server Actions + authz, optimistic UI, global error net |
-| `styling-and-ui.md` | `tailwind` | `cn()`, design tokens, semantic HTML + a11y, light/dark, responsive |
-| `web-performance.md` | `web-ui` | Core Web Vitals, no waterfalls, dedup, no barrel imports, dynamic import |
-| `web-security.md` | `public-web` | Security headers, boundary validation, no secrets in code |
+| `typescript.md` | `typescript` | `import type`, `satisfies`, discriminated unions + exhaustive switch, no unsafe `as`, const maps, `readonly` |
+| `react.md` | `react` | Composition, prop-drilling limit, list keys, derive-don't-sync, React 19 primitives |
+| `nextjs.md` | `nextjs` | Server Components, Server Actions + authz, optimistic UI, caching/revalidation, streaming, error net |
+| `styling-and-ui.md` | `tailwind` | `cn()`, `@theme` tokens (no arbitrary values), light/dark, responsive |
+| `accessibility.md` | `web-ui` | Semantic HTML, keyboard/focus, forms, motion, landmarks, WCAG 2.2 |
+| `web-performance.md` | `web-ui` | Core Web Vitals, no waterfalls/dedup, runtime (long tasks, layout thrash, debounce, virtualization) |
+| `web-security.md` | `public-web` | Authz, secrets, headers/CSP, injection (SSRF/XSS), rate-limit, supply-chain |
 | `prisma.md` | `prisma` | Queries in the data layer, naming, DI of the client, transactions |
 | `i18n-next-intl.md` | `next-intl` | Hooks in components, server helpers only outside React |
 | `analytics-and-errors.md` | `posthog` / `sentry` | Centralized PostHog events; Sentry only for unexpected errors, PII-redacted |
