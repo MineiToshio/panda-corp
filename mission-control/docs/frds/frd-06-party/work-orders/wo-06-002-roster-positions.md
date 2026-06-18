@@ -5,7 +5,7 @@ slug: roster-positions
 title: WO-06-002 — La Fragua layout (rooms + forge/tribunal/vault slots)
 status: DRAFT
 parent: FRD-06
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: []
 last_updated: '2026-06-18'
 ---
@@ -64,6 +64,80 @@ per *running work order* (not per role). The retry replaces the layout per the v
 
 Tests to rewrite accordingly: forge-slot count per mode (wave cap); 12 non-overlapping tribunal slots;
 vault compaction at >9; rooms/paths exist; `roleColor` stable per role. Keep pure, no DOM.
+
+---
+
+## Status Note (La Fragua retry — built by this work order)
+
+**Built:** Pure layout module `src/app/projects/[slug]/_party/layout.ts` — the La Fragua faithful model replacing the fictitious 4-zone roster. All prototype coordinates ported verbatim from `prototype/party-proposal.html`.
+
+**Interfaces/contracts exposed:**
+
+```ts
+// IF-06-fragua-layout — forge slots (AC-06-001.2, AC-06-007.1)
+export const FORGE_SLOTS: readonly Pos[]   // 8 stations (pro/balanced/powerful)
+export const DEEP_SLOTS: readonly Pos[]    // 6 wider stations (deep 2×3 relay)
+export function forgeSlots(mode: BuildMode): Pos[]
+// pro/balanced/powerful → 8 FORGE_SLOTS; deep → 6 DEEP_SLOTS
+
+// IF-06-fragua-layout — tribunal slots (AC-06-004.3)
+export const REVIEW_SLOTS: readonly Pos[]  // 12 slots, 4×3 grid
+export const REVIEWER_HOME: Pos            // [626, 108]
+export function reviewSlots(): Pos[]       // fresh 12-slot array
+
+// IF-06-fragua-layout — vault slots (AC-06-005.2)
+export const MAXVAULT = 9
+export const VAULT_Y = 492, VAULT_X0 = 112, VAULT_DX = 80
+export const VAULT_MORE: Pos               // [820, 465] — "+N archivados" anchor
+export function vaultSlots(): VaultLayout  // { slots: Pos[9], moreAnchor, maxVault }
+
+// IF-06-fragua-layout — rooms + paths (AC-06-003.1)
+export const FORGE_ROOM: Room              // Sala de Forja bounding rect
+export const TRIBUNAL_ROOM: Room           // Tribunal del Juez bounding rect
+export const VAULT_ROOM: Room              // Bóveda bounding rect
+export const FORGE_OUT: Pos = [450, 170]  // forge exit → tribunal entry
+export const TRIB_IN: Pos  = [476, 170]  // tribunal entry
+export const TRIB_OUT: Pos = [688, 412]  // tribunal exit → vault drop
+export const SHELF_Y = 420               // lateral shelf y-coord
+
+// IF-06-role-color — build role → CSS token key (delegates to FRD-13)
+export function roleColor(role: string): string
+// implementer→"--color-agent-implementer", reviewer→"--color-agent-reviewer",
+// test-writer, backend-dev, frontend-dev; unknown→"--color-agent-unknown"
+
+// Supporting types
+export type Pos = [number, number]
+export interface Room { x: number; y: number; w: number; h: number }
+export type BuildRole = "implementer"|"reviewer"|"test-writer"|"backend-dev"|"frontend-dev"
+export interface VaultLayout { slots: Pos[]; moreAnchor: Pos; maxVault: number }
+
+// Compatibility stubs (deprecated — for WO-06-004/005/006 pending redesign)
+export type Role = ...  // wider union for pre-existing consumers
+export const MCCENTER: Pos        // [380, 285] — deprecated, used by engine.ts
+export const ZONE_ROLE: ...       // deprecated, used by PartyScene.tsx
+export function rosterFor(mode): Role[]   // deprecated
+export function mcPositions(roster, mode): Pos[]  // deprecated
+export function agentColor(role): string  // delegates to roleColor()
+```
+
+**Integration seams:**
+- `forgeSlots(mode)` → consumed by the La Fragua scene (WO-06-006 redesign) to place running WO sprites.
+- `reviewSlots()` + `REVIEWER_HOME` → consumed by the tribunal renderer (WO-06-006 redesign).
+- `vaultSlots()` → consumed by the Bóveda shelf renderer (WO-06-006 redesign) for trophy compaction.
+- `roleColor(role)` → consumed by sprite coloring, relay steps, feed rows, and trophies.
+- `FORGE_OUT/TRIB_IN/TRIB_OUT/SHELF_Y` → path waypoints for the WO-06-006 animation engine.
+- Compatibility stubs keep `engine.ts` (WO-06-004), `PartyScene.tsx` (WO-06-006), `PartyTab.tsx` (WO-06-005) compiling until their redesign WOs are executed.
+- Delegates to `AGENT_COLOR` from `@/app/_design/tokens/tokens` (FRD-13 — already implemented).
+- Reads `BuildMode` type from `@/lib/constants` (FRD-11 — already implemented).
+
+**Test coverage:** `src/app/projects/[slug]/_party/_tests/layout.test.ts` — 58 tests across 4 suites:
+- `forgeSlots`: 13 tests (slot counts per mode, exact prototype coordinates, uniqueness, freshness)
+- `reviewSlots`: 9 tests (12 slots, 4×3 grid, exact coordinates, REVIEWER_HOME, freshness)
+- `vaultSlots`: 13 tests (MAXVAULT=9, 9 positions, VAULT_Y/X0/DX spacing, VAULT_MORE, freshness)
+- Room constants + paths: 10 tests (Room shape, FORGE_OUT/TRIB_IN/TRIB_OUT/SHELF_Y coordinates, linear flow direction)
+- `roleColor`: 13 tests (5 build roles, CSS var prefix, stability, distinct keys, FRD-13 token values, fallback)
+
+**Gate:** 58/58 layout tests GREEN. 181 test files total (4980 passed + 2 expected-fail + 5 skipped; 1 pre-existing failure in agentColorTokens.integration.reviewer.test.ts unrelated to this WO). tsc clean. biome clean on changed files.
 
 ---
 
