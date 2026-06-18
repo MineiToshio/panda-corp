@@ -5,9 +5,9 @@ slug: self-suggest
 title: WO-17-003 — `lib/self-suggest` derivations (6 kinds)
 status: DRAFT
 parent: FRD-17
-implementation_status: IN_PROGRESS
+implementation_status: IN_REVIEW
 source_requirements: []
-last_updated: '2026-06-16'
+last_updated: '2026-06-18'
 ---
 # WO-17-003 — `lib/self-suggest` derivations (6 kinds)
 
@@ -59,3 +59,50 @@ empty case. Drive the underlying readers with fixtures / mocks.
   FRD-07 `lib/registry`, `lib/reference`; WO-17-001 `lib/memory`.
 - If a reader is unshipped, stub its derivation behind it and light it up on landing (each derivation
   is independently testable).
+
+## Status Note
+
+**Built:** `lib/self-suggest/self-suggest.ts` — `computeSuggestions(SuggestionsInput): Suggestion[]` implementing all six derivations as pure functions with no Claude calls, no fs I/O, no network.
+
+**Interfaces / contracts exposed:**
+
+```ts
+// lib/self-suggest/self-suggest.ts
+export type SuggestionKind =
+  | "bottleneck" | "velocity" | "unused-capability"
+  | "policy-friction" | "recurring-lesson" | "launch-review";
+
+export type Suggestion = {
+  kind: SuggestionKind;
+  title: string;        // Spanish, guild-themed
+  evidence: string;     // data point that triggered this
+  command: string;      // exact /pandacorp:* command
+  target?: string;      // project/lesson/rule id for navigation
+  severity: "info" | "nudge";
+};
+
+export type SuggestionsInput = {
+  boardColumnCounts: Record<string, number>;   // from lib/board
+  portfolioItems: SuggestPortfolioItem[];       // from lib/portfolio (enriched with phaseStartedAt)
+  events: SuggestEvent[];                       // capped tail from lib/events
+  capabilities: CapabilityRef[];                // from lib/reference
+  decisionRules: SuggestDecisionRule[];         // from lib/registry
+  inboxDecisionLines: string[];                 // from lib/docs/activity readDecisions
+  lessons: Lesson[];                            // from lib/memory readLessons()
+};
+
+export function computeSuggestions(input: SuggestionsInput): Suggestion[];
+// Pure. No Claude, no network, no fs. Never throws (AC-17-003.7).
+```
+
+**Constants added to `lib/constants.ts`:**
+- `BOTTLENECK_THRESHOLD = 5` — minimum ideas per column for bottleneck alert
+- `VELOCITY_FACTOR = 2` — multiplier over portfolio median for velocity alert
+- `LAUNCH_REVIEW_DAYS = 30` — days before launch-review suggestion fires (DR-043)
+- `SELF_SUGGEST_EVENT_CAP = 200` — max events examined for velocity/unused-capability (AC-17-003.4)
+
+**Integration seam:** callers (FRD-17 page) must gather inputs from existing readers and pass them to `computeSuggestions`. The function is deliberately stateless — no caching, no side effects.
+
+**Test files:** `src/lib/self-suggest/_tests/self-suggest.test.ts` — 31 tests RED→GREEN covering all 6 kinds (fire + not-fire fixtures per kind) + fresh-factory empty-input case + Suggestion shape invariants.
+
+**Note on verify.sh:** the max-lines gate fails on `src/lib/memory/memory.ts` (537 lines) due to WO-17-002's uncommitted `memoryHealth()` additions (pre-existing, not introduced by WO-17-003). My files (`self-suggest/`, `constants.ts`) are biome-clean, tsc-clean, and all 5279 vitest tests pass (including the 31 new ones).
