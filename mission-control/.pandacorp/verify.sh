@@ -36,6 +36,30 @@ if [ -n "$LOOSE_TESTS" ]; then
   fail "Loose test file(s) outside a _tests/ folder (see project-structure.md). Move them into the component/feature's _tests/."
 fi
 
+echo "▶ Max-lines guard (no source file > 500 lines)…"
+# clean-code.md: a file an agent can load whole is a file it can change safely.
+# Known exemption (logged, not silent): PartyScene.tsx is split by the in-flight
+# FRD-06 Party build — remove this exemption once that lands.
+MAXLINES_EXEMPT="src/app/projects/[slug]/_party/PartyScene/PartyScene.tsx"
+OVERSIZED=""
+while IFS= read -r srcfile; do
+  [ -z "$srcfile" ] && continue
+  lines="$(wc -l < "$srcfile" | tr -d ' ')"
+  if [ "$lines" -gt 500 ]; then
+    if [ "$srcfile" = "$MAXLINES_EXEMPT" ]; then
+      echo "   (exempt) $srcfile — $lines lines — split tracked by FRD-06 Party build"
+    else
+      OVERSIZED="$OVERSIZED   $srcfile ($lines lines)\n"
+    fi
+  fi
+done <<EOF
+$(find src -type f \( -name '*.ts' -o -name '*.tsx' \) -not -name '*.test.ts' -not -name '*.test.tsx' -not -path '*/_tests/*' 2>/dev/null)
+EOF
+if [ -n "$OVERSIZED" ]; then
+  printf "%b" "$OVERSIZED"
+  fail "Source file(s) over 500 lines (clean-code.md). Split into cohesive sibling modules."
+fi
+
 echo "▶ Lint + format (biome)…"
 pnpm biome check . || fail "Biome found lint/format errors. Try \`pnpm biome check --write .\` for autofixable ones."
 
