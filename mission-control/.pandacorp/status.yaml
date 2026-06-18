@@ -6,13 +6,13 @@ version: v1
 overlay_version: "8.15.0"
 created_with: "6.0.0"
 running: true
-run_started_at: "2026-06-18T20:36:50Z"
+run_started_at: "2026-06-18T22:46:49Z"
 repo: ""
-updated_at: "2026-06-18T22:42:00Z"
+updated_at: "2026-06-18T23:10:00Z"
 work_orders_total: 112
 work_orders_verified: 91
-work_orders_in_review: 7
-work_orders_planned: 14
+work_orders_in_review: 18
+work_orders_planned: 3
 work_orders_in_progress: 0
 work_orders_blocked: 0
 work_orders_done: 91
@@ -20,7 +20,7 @@ pending_decisions: 0
 pending_bugs: 0
 rethink_pending: false
 advance_pending: false
-last_green_sha: "6760bf8"
+last_green_sha: "3f3f755"
 safe_to_test: true
 blocked: []
-supervisor_heartbeat: "2026-06-18T22:41:16Z"
+supervisor_heartbeat: "2026-06-18T22:49:08Z"
