@@ -165,6 +165,17 @@ body.embed .topbar,body.embed .legend,body.embed .foot{display:none}
 body.embed .wrap{padding:4px 2px 8px;max-width:none}
 body.embed .stage{max-width:none}
 .stagefit{width:100%;overflow:hidden}
+/* ---- flow strip: the whole build pipeline, always visible, lights up the active beat ---- */
+.flowstrip{display:flex;align-items:stretch;margin:0 0 12px;padding:9px 8px;background:var(--panel);border:1px solid var(--bd);border-radius:12px;overflow-x:auto}
+.flowstrip .fstep{display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;flex:1;padding:5px 4px;border-radius:8px;opacity:.45;transition:opacity .25s,background .25s,border-color .25s;border:1px solid transparent}
+.flowstrip .fstep.on{opacity:1;background:var(--card);border-color:var(--accent)}
+.flowstrip .fstep .fi{font-size:17px;line-height:1}
+.flowstrip .fstep .ft{font-family:var(--pixel);font-size:11px;color:var(--t1);white-space:nowrap;letter-spacing:.02em}
+.flowstrip .fstep.on .ft{color:var(--accent-text)}
+.flowstrip .fstep .fs{font-family:var(--mono);font-size:8.5px;color:var(--t3);white-space:nowrap}
+.flowstrip .farrow{display:flex;align-items:center;color:var(--bd2);font-size:12px;padding:0 1px;flex:0 0 auto}
+body.embed .flowstrip{display:none}
+@media(max-width:760px){.flowstrip .fs{display:none}}
 </style>
 </head>
 <body>
@@ -188,6 +199,8 @@ body.embed .stage{max-width:none}
   </div>
 
   <div class="kpis" id="kpis"></div>
+
+  <div class="flowstrip" id="flowstrip"></div>
 
   <div class="scenetitle" id="scenetitle"></div>
 
@@ -421,9 +434,37 @@ function compactVault(){
   vaultOrder.forEach((v,i)=>{v.px=VAULT_X0+i*VAULT_DX;v.py=VAULT_Y;if(v.el&&(!v.path||!v.path.length))v.el.style.transform='translate('+(v.px-26)+'px,'+(v.py-21)+'px)';});
 }
 
+// the full build pipeline as an always-visible strip; paintFlow lights up the beat(s) happening now
+const FLOW=[
+  {k:'found',i:'⛏️',t:'Fundación',s:'primitivos'},
+  {k:'wave',i:'⚒️',t:'Oleada',s:'disjunta x archivo'},
+  {k:'fid',i:'🖼',t:'Fidelidad',s:'render vs mock ×≤3'},
+  {k:'note',i:'📜',t:'Status Note',s:'interfaces+decisiones'},
+  {k:'trib',i:'⚖️',t:'Tribunal',s:'4 lentes+visual+baseline'},
+  {k:'commit',i:'🔒',t:'Commit',s:'oleada · Opción B'},
+  {k:'vault',i:'🏆',t:'Bóveda',s:'VERIFIED'},
+  {k:'integ',i:'🧩',t:'Integración',s:'cross-feature'}
+];
+function buildFlow(){
+  const el=document.getElementById('flowstrip');if(!el)return;
+  el.innerHTML=FLOW.map((f,i)=>'<div class="fstep" data-k="'+f.k+'"><span class="fi">'+f.i+'</span><span class="ft">'+f.t+'</span><span class="fs">'+f.s+'</span></div>'+(i<FLOW.length-1?'<span class="farrow">→</span>':'')).join('');
+}
+function paintFlow(){
+  const el=document.getElementById('flowstrip');if(!el)return;
+  const foundBuilding=wos.some(w=>w.def.foundation&&w.state==='building');
+  const featBuilding=wos.some(w=>!w.def.foundation&&['building','carry'].includes(w.state));
+  const note=wos.some(w=>w.state==='waitgate');
+  const judging=wos.some(w=>w.state==='judging');
+  const committing=wos.some(w=>w.state==='tovault');
+  const vault=wos.some(w=>w.state==='verified');
+  const frdDone=wos.length>0&&wos.every(w=>w.state==='verified');
+  const st={found:foundBuilding,wave:featBuilding,fid:featBuilding,note:note,trib:judging,commit:committing,vault:vault,integ:frdDone};
+  el.querySelectorAll('.fstep').forEach(s=>s.classList.toggle('on',!!st[s.dataset.k]));
+}
 function loop(me){
   if(me!==runId)return;
   const now=performance.now();
+  paintFlow();
   if(!paused){
     const foundDone=!wos.some(w=>w.def.foundation&&!['carry','waitgate','judging','tovault','verified'].includes(w.state));
     wos.forEach(w=>{if(w.state==='pending'&&(w.def.foundation||foundDone)&&(w.deps.length===0||depsReady(w))&&activeBuilders()<MODES[mode].wave)startBuild(w);});
@@ -584,6 +625,7 @@ function initEmbedSizing(){
 const _q=new URLSearchParams(location.search);
 if(_q.has('embed'))document.body.classList.add('embed');
 if(_q.get('mode')&&MODES[_q.get('mode')]){mode=_q.get('mode');document.querySelectorAll('.mode').forEach(x=>x.classList.toggle('on',x.dataset.m===mode));}
+buildFlow();
 if(_q.has('shot'))seedShot();else reset();
 initEmbedSizing();
 </script>
