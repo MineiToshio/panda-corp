@@ -4,7 +4,9 @@ type: frd
 title: FRD-10 — Achievements Hall
 status: ACTIVE
 implementation_status: VERIFIED
-last_updated: '2026-06-18'
+last_updated: '2026-06-19'
+ui: true
+visual_source: docs/design/prototype/index.html
 ---
 # FRD-10 — Achievements Hall
 

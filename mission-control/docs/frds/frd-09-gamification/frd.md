@@ -4,7 +4,9 @@ type: frd
 title: FRD-09 — Gamification (RPG theme)
 status: ACTIVE
 implementation_status: VERIFIED
-last_updated: '2026-06-16'
+last_updated: '2026-06-19'
+ui: true
+visual_source: docs/design/prototype/index.html
 ---
 # FRD-09 — Gamification (RPG theme)
 

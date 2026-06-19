@@ -5,7 +5,7 @@ title: FRD-13 — Visual system and accessibility
 status: ACTIVE
 implementation_status: VERIFIED
 ui: true
-visual_source: prototype/
+visual_source: docs/design/prototype/index.html
 last_updated: '2026-06-19'
 ---
 # FRD-13 — Visual system and accessibility

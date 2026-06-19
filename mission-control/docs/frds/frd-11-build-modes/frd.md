@@ -4,7 +4,9 @@ type: frd
 title: FRD-11 — Per-project build modes
 status: ACTIVE
 implementation_status: VERIFIED
-last_updated: '2026-06-17'
+last_updated: '2026-06-19'
+ui: true
+visual_source: docs/design/prototype/index.html
 ---
 # FRD-11 — Per-project build modes
 

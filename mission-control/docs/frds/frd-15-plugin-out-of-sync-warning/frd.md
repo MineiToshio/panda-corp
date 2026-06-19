@@ -4,7 +4,9 @@ type: frd
 title: FRD-15 — Plugin out-of-sync warning
 status: ACTIVE
 implementation_status: VERIFIED
-last_updated: '2026-06-17'
+ui: true
+visual_source: docs/design/prototype/index.html
+last_updated: '2026-06-19'
 ---
 # FRD-15 — Plugin out-of-sync warning
 

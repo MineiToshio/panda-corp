@@ -4,7 +4,9 @@ type: frd
 title: FRD-07 — Configuration
 status: ACTIVE
 implementation_status: VERIFIED
-last_updated: '2026-06-18'
+ui: true
+visual_source: docs/design/prototype/index.html
+last_updated: '2026-06-19'
 ---
 # FRD-07 — Configuration
 

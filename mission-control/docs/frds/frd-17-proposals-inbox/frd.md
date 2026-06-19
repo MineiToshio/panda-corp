@@ -4,7 +4,9 @@ type: frd
 title: FRD-17 — Proposals inbox (self-learning gate + self-suggestion)
 status: ACTIVE
 implementation_status: VERIFIED
-last_updated: '2026-06-18'
+ui: true
+visual_source: docs/design/prototype/index.html
+last_updated: '2026-06-19'
 ---
 # FRD-17 — Proposals inbox (self-learning gate + self-suggestion)
 
