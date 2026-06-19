@@ -1,84 +1,51 @@
 #!/usr/bin/env bash
-# Mission Control verification gate (DR-019: fail-closed, actionable).
-# Run from the project root: `bash .pandacorp/verify.sh` (full suite)
-#   or `bash .pandacorp/verify.sh --since <ref>` (biome+tsc global + only the vitest tests affected since <ref>).
-# Every gate must pass; the first failure aborts with a non-zero exit code.
+# Canonical MAXIMUM fail-closed gate (DR-059) for the Next.js stack.
+# Installed VERBATIM into projects by /pandacorp:blueprint; re-synced + conformance-checked
+# (drift => regenerate/fail) by /pandacorp:upgrade. Do NOT hand-edit per project — drift is RED.
+# Every gate is fail-closed: a missing harness (smoke/visual) is RED, never a skip (DR-019/055/056).
 set -euo pipefail
+shopt -s inherit_errexit
 
-cd "$(dirname "$0")/.."
-
-# Focused-gate mode (DR-050 §5): `--since <ref>` runs biome+tsc globally but only the vitest
-# tests affected since <ref> (fast per-FRD gate); the no-arg call runs the full suite (close-out).
+# --- Optional scope: `verify.sh --since <sha>` (the fast per-FRD gate) ----------
+# Runs only the vitest tests CHANGED since <sha>; biome/tsc/knip/madge stay global
+# (fast enough, and they scale). The FULL unscoped suite runs at close-out (no --since).
 SINCE=""
-if [ "${1:-}" = "--since" ] && [ -n "${2:-}" ]; then
-  SINCE="$2"
+if [ "${1:-}" = "--since" ] && [ -n "${2:-}" ]; then SINCE="$2"; fi
+
+# --- Structure guard (file placement isn't lintable; DR-059) -------------------
+# Fail if any unit/component test sits loose outside a _tests/ folder.
+stray=$(find src -name '*.test.ts' -o -name '*.test.tsx' 2>/dev/null | grep -v '/_tests/' || true)
+if [ -n "$stray" ]; then
+  echo "✗ tests must live in a _tests/ folder, not beside source:"; echo "$stray"; exit 1
 fi
 
-fail() {
-  echo ""
-  echo "❌ verify.sh: $1"
-  echo "   Fix the issue above and re-run \`bash .pandacorp/verify.sh\`."
-  exit 1
-}
+# --- Lint + format (every warn is a hard gate; --error-on-warnings) ------------
+pnpm biome check . --error-on-warnings
 
-command -v pnpm >/dev/null 2>&1 || fail "pnpm not found. Install it: \`npm i -g pnpm\` (or \`corepack enable\`)."
+# --- Typing -------------------------------------------------------------------
+pnpm tsc --noEmit
 
-if [ ! -d node_modules ]; then
-  fail "node_modules missing. Run \`pnpm install\` first."
-fi
+# --- Dead code (fail-closed) --------------------------------------------------
+pnpm knip
 
-echo "▶ Structure guard (no loose tests outside _tests/)…"
-# project-structure.md / quality-and-testing.md: unit/component tests live in a
-# _tests/ folder beside the implementation — never loose at the same level.
-LOOSE_TESTS="$(find src -type f \( -name '*.test.ts' -o -name '*.test.tsx' -o -name '*.spec.ts' -o -name '*.spec.tsx' \) -not -path '*/_tests/*' 2>/dev/null || true)"
-if [ -n "$LOOSE_TESTS" ]; then
-  echo "$LOOSE_TESTS" | sed 's/^/   /'
-  fail "Loose test file(s) outside a _tests/ folder (see project-structure.md). Move them into the component/feature's _tests/."
-fi
+# --- Circular dependencies (fail-closed) --------------------------------------
+pnpm madge --circular --extensions ts,tsx src
 
-echo "▶ Max-lines guard (no source file > 500 lines)…"
-# clean-code.md: a file an agent can load whole is a file it can change safely.
-# Known exemption (logged, not silent): PartyScene.tsx is split by the in-flight
-# FRD-06 Party build — remove this exemption once that lands.
-MAXLINES_EXEMPT="src/app/projects/[slug]/_party/PartyScene/PartyScene.tsx"
-OVERSIZED=""
-while IFS= read -r srcfile; do
-  [ -z "$srcfile" ] && continue
-  lines="$(wc -l < "$srcfile" | tr -d ' ')"
-  if [ "$lines" -gt 500 ]; then
-    if [ "$srcfile" = "$MAXLINES_EXEMPT" ]; then
-      echo "   (exempt) $srcfile — $lines lines — split tracked by FRD-06 Party build"
-    else
-      OVERSIZED="$OVERSIZED   $srcfile ($lines lines)\n"
-    fi
-  fi
-done <<EOF
-$(find src -type f \( -name '*.ts' -o -name '*.tsx' \) -not -name '*.test.ts' -not -name '*.test.tsx' -not -path '*/_tests/*' 2>/dev/null)
-EOF
-if [ -n "$OVERSIZED" ]; then
-  printf "%b" "$OVERSIZED"
-  fail "Source file(s) over 500 lines (clean-code.md). Split into cohesive sibling modules."
-fi
+# --- Behavior -----------------------------------------------------------------
+# shellcheck disable=SC2086
+pnpm vitest run --reporter=dot ${SINCE:+--changed "$SINCE"}
 
-echo "▶ Circular-dependency guard (madge)…"
-# clean-code.md: no circular dependencies; deps point one way. Biome can't detect
-# cycles, so madge owns this check (resolves the @/ alias via tsconfig).
-pnpm exec madge --circular --extensions ts,tsx --ts-config tsconfig.json src \
-  || fail "Circular dependency detected (clean-code.md). Break the cycle (e.g. extract the shared type to its own module)."
-
-echo "▶ Lint + format (biome)…"
-pnpm biome check . || fail "Biome found lint/format errors. Try \`pnpm biome check --write .\` for autofixable ones."
-
-echo "▶ Type-check (tsc --noEmit)…"
-pnpm tsc --noEmit || fail "TypeScript reported type errors."
-
-if [ -n "$SINCE" ]; then
-  echo "▶ Tests (vitest --changed $SINCE — only affected since last green)…"
-  pnpm vitest run --changed "$SINCE" --reporter=dot || fail "Tests failed."
+# --- Preview Smoke Gate (DR-055) — FAIL-CLOSED: a missing harness is RED -------
+if grep -q '"test:smoke"' package.json; then
+  pnpm test:smoke
 else
-  echo "▶ Tests (vitest, full suite)…"
-  pnpm vitest run --reporter=dot || fail "Tests failed."
+  echo "✗ Preview Smoke Gate missing: a web project must render its routes in a browser (DR-055). Add e2e/smoke.spec.ts + playwright.config.ts + the test:smoke script."; exit 1
 fi
 
-echo ""
-echo "✅ verify.sh: all gates green (biome + tsc + vitest)."
+# --- Visual-Fidelity Gate Layer A (DR-056) — FAIL-CLOSED ----------------------
+# (Layer B, the VLM mock-judge, is the reviewer's runtime/visual lens, not a script.)
+if grep -q '"test:visual"' package.json; then
+  pnpm test:visual
+else
+  echo "✗ Visual-Fidelity Gate missing: a UI project must diff its routes against blessed baselines (DR-056). Add e2e/visual.spec.ts + the test:visual script."; exit 1
+fi

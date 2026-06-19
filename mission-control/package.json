@@ -2,7 +2,7 @@
   "name": "mission-control",
   "version": "0.1.0",
   "private": true,
-  "description": "Pandacorp Mission Control \u2014 local, read-only factory dashboard (never calls Claude).",
+  "description": "Pandacorp Mission Control — local, read-only factory dashboard (never calls Claude).",
   "type": "module",
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1 --port 3000",
@@ -15,7 +15,9 @@
     "test:watch": "vitest",
     "verify": "bash .pandacorp/verify.sh",
     "lint:eslint": "eslint .",
-    "lint:cycles": "madge --circular --extensions ts,tsx --ts-config tsconfig.json src"
+    "lint:cycles": "madge --circular --extensions ts,tsx --ts-config tsconfig.json src",
+    "test:smoke": "playwright test e2e/smoke.spec.ts",
+    "test:visual": "playwright test e2e/visual.spec.ts"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",
@@ -28,6 +30,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.16",
+    "@playwright/test": "^1.48.0",
     "@tailwindcss/postcss": "^4.1.13",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
@@ -43,6 +46,7 @@
     "eslint": "^9.39.4",
     "eslint-plugin-testing-library": "^7.16.2",
     "jsdom": "^26.1.0",
+    "knip": "^5.30.0",
     "madge": "^8.0.0",
     "tailwindcss": "^4.1.13",
     "typescript": "^5.9.3",

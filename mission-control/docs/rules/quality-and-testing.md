@@ -14,8 +14,9 @@ Nothing is "done" until **all** of these are green (enforced by `verify.sh` / CI
 - **Lint & format** report no errors.
 - **Build is clean.**
 - **No dead code** (a `knip` pass finds no new unused files/exports/deps) — see `clean-code`.
+- **Preview Smoke Gate green (any UI change) — the app actually renders.** A browser smoke (Playwright) loads each affected route and the change is **not done** if a route throws a console error / uncaught exception, returns non-2xx, or renders blank / an error boundary. **Fail-closed: a missing smoke harness is a RED gate, not a skip** — static checks (lint/type/unit) passing while the page is broken is the failure this closes. (DR-055)
 
-A change with red tests, type errors or lint errors is **not done**, no exceptions.
+A change with red tests, type errors, lint errors **or a route that errors/blank-renders in the browser** is **not done**, no exceptions.
 
 ## TDD per unit of work
 - Write the acceptance-criteria tests **before** implementing (RED → GREEN → refactor).
@@ -32,7 +33,7 @@ A change with red tests, type errors or lint errors is **not done**, no exceptio
 
 ## Test discipline
 - **Test observable behavior through the public API**, not implementation details (internal state, private methods, CSS classes). A pure refactor must not require touching the test.
-- **Component tests query by accessible role/name** (`getByRole`); `getByTestId` is a last-resort fallback and `container`/`querySelector` is banned. (E2E may use `data-testid`.) (lint: `eslint-plugin-testing-library`)
+- **Component tests query by accessible role/name** (`getByRole`); `getByTestId` is a last-resort fallback and `container`/`querySelector` is banned. (E2E may use `data-testid`.) (Biome covers generic test hygiene via the `test` domain — `noFocusedTests`/`noSkippedTests`; the Testing-Library-specific query/async rules are the optional ESLint escape hatch, the one case we add a minimal ESLint pass.)
 - **Every test passes in isolation and in any order**; no shared mutable test state; reset mocks between tests (`restoreMocks: true`). CI runs in randomized order so coupling fails loudly.
 - **Mock only true external boundaries** (network, time, third-party SDKs) — don't mock what you own; prefer faking the network (MSW).
 - **Fixtures via builders/factories** (sensible defaults + override only what the test cares about) in `src/test/` — no duplicated literal fixtures.

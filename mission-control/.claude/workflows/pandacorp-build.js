@@ -84,6 +84,8 @@ const PLAN_SCHEMA = {
                 id: { type: 'string' },
                 status: { type: 'string', description: 'implementation_status from the WO frontmatter' },
                 deps: { type: 'array', items: { type: 'string' }, description: 'intra-FRD WO ids that must be built first' },
+                artifacts: { type: 'array', items: { type: 'string' }, description: 'globs of files/dirs this WO writes (from its `artifacts:` frontmatter) — the engine serializes wave-parallel WOs whose artifacts overlap, so they never collide (DR-060)' },
+                foundation: { type: 'boolean', description: 'true if this WO builds the shared design-system primitives / component inventory the other WOs reuse — the engine builds it FIRST, alone, before the rest fan out (DR-057)' },
                 summary: { type: 'string' },
               },
             },
@@ -126,7 +128,7 @@ const plan = await agent(
   - WALK every FRD module docs/frds/*/. For each, read frd.md and blueprint.md's **Build Plan** (WO order, intra-FRD deps, parallelism, cross-FRD deps) in full, and the **frontmatter ONLY** of every work-orders/wo-*.md (the \`implementation_status\`, \`id\`, deps, title — NOT the full WO body; the implementer reads the body when it builds its own WO, so planning stays fast and cheap).
   - For each work order, the **frontmatter \`implementation_status\` is the source of truth**: PLANNED/IN_PROGRESS = pending; IN_REVIEW = built, awaiting its FRD gate; VERIFIED = done (NEVER rebuild); BLOCKED = skip.
   - docs/product/architecture.md → the platform stack.
-  Return the FRDs that still have non-VERIFIED work orders, **in cross-FRD dependency order** (from the Build Plans). For each FRD: its \`frd\` folder, its \`deps\` (FRD folders that must be VERIFIED first), and its \`workOrders\` (each with id, frontmatter \`status\`, intra-FRD \`deps\`, one-line \`summary\`) **in the Build Plan's order**.${ONLY ? ' Limit to these FRD folders: ' + ONLY.join(', ') + '.' : ''}
+  Return the FRDs that still have non-VERIFIED work orders, **in cross-FRD dependency order** (from the Build Plans). For each FRD: its \`frd\` folder, its \`deps\` (FRD folders that must be VERIFIED first), and its \`workOrders\` (each with id, frontmatter \`status\`, intra-FRD \`deps\`, one-line \`summary\`, **its \`artifacts\` = the file/dir globs it writes, COPIED FROM the WO's \`artifacts:\` frontmatter — REQUIRED so the engine keeps parallel WOs disjoint (DR-060); if a WO has none in frontmatter, infer the files it will write from its title/summary**, and **\`foundation: true\` if this WO builds the shared design-system primitives / inventory the other WOs reuse — DR-057, it must build before they fan out**) **in the Build Plan's order**.${ONLY ? ' Limit to these FRD folders: ' + ONLY.join(', ') + '.' : ''}
   hasFrontend=true only if the stack is web (A).`,
   { label: 'plan', phase: 'Plan', schema: PLAN_SCHEMA, model: P.judge, agentType: 'pandacorp:architect' },
 )
@@ -135,6 +137,21 @@ if (!plan || !plan.frds || plan.frds.length === 0) {
   return { mode: MODE, builtFrds: [], blockedFrds: [], note: 'all verified' }
 }
 log(`${plan.frds.length} FRDs with pending work · stack ${plan.stack}${plan.hasFrontend ? ' (web)' : ''}`)
+
+// Design fidelity (DR-054/056): the engine PASSES the design references into the build prompt.
+// It used to pass only a one-line summary, so the implementer NEVER saw the design — the root cause
+// of a build diverging from an approved prototype. For a web build, inject the binding visual refs
+// + the in-loop fidelity check into every UI work order's prompt (the agent reads the files itself).
+const designRef = (frd) => plan.hasFrontend
+  ? ` VISUAL FIDELITY (DR-054/056, web — do NOT skip): OPEN this work order's \`## Visual reference\`, then read \`docs/frds/${frd}/fdd.md\` + its \`mocks/\` (the BINDING screen mock — view the screenshot AND the mock's source) and \`docs/design/design-tokens.json\` + root \`DESIGN.md\`. Your job is to TRANSLATE that one screen's mock into the project's components on the frozen tokens — reproduce its layout, structure, spacing, components and density; do NOT approximate, invent, or restyle. THEN run the IN-LOOP fidelity check BEFORE marking IN_REVIEW: render the route (preview/Playwright), screenshot it, place it next to the mock, fix the divergences — repeat up to 3 cycles. A screen that does not visually match its mock is NOT done (the FRD gate's visual layer will reject it).`
+  : ''
+
+// Reuse & coherence (DR-057): parallel agents reinvent slightly-different versions of the same
+// component when they can't see what already exists (the two-near-identical-banners bug). Inject the
+// component-inventory "check before you create" directive so each agent reuses the shared primitives.
+const reuseRef = (frd) => plan.hasFrontend
+  ? ` REUSE & COHERENCE (DR-057): before creating ANY UI component, READ the component inventory \`docs/design/components.md\` (if it doesn't exist yet you're early in the build — create it and list your component as the first row) and scan \`src/components/core\` + \`src/components/modules\`. REUSE an existing component if one fits; ADAPT/extend it (add a prop/variant) if it is close — do NOT fork a near-duplicate for a small difference; CREATE a new shared component only if none fits, and when you do, APPEND it to \`docs/design/components.md\` so the next agent reuses it. A component that re-implements an existing pattern (a second banner/card/modal) is a defect the gate rejects.`
+  : ''
 
 // Sync DERIVED rollups (DR-050): an FRD/blueprint implementation_status is DERIVED from its work
 // orders (THE source of truth). Correct any drift from a crash mid-build, an interrupted run or a
@@ -149,16 +166,16 @@ async function buildWO(wo, frd) {
   if (P.split && plan.hasFrontend) {
     await agent(`${EMIT('test-writer', wo.id, { frd, activity: 'test' })}Write the acceptance tests (RED) for work order ${wo.id} from the EARS criteria of FRD ${frd}: ${wo.summary || ''}. No production code.`,
       { label: `test:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:test-writer' })
-    await agent(`${EMIT('backend-dev', wo.id, { frd, activity: 'backend' })}Implement the backend of ${wo.id} (TDD until green): ${wo.summary || ''}. Publish the API contract in docs/api.md.`,
+    await agent(`${EMIT('backend-dev', wo.id, { frd, activity: 'backend' })}First read the \`## Status Note\` of the work orders ${wo.id} depends on (their exposed interfaces). Then implement the backend of ${wo.id} (TDD until green): ${wo.summary || ''}. Publish YOUR API contract at docs/api/${wo.id}.md (your own per-WO file — DR-060: never a shared docs/api.md, which races across parallel WOs). Do NOT call git — you never commit; the engine commits the wave with one serialized writer (Option B).`,
       { label: `be:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:backend-dev' })
-    await agent(`${EMIT('frontend-dev', wo.id, { frd, activity: 'frontend' })}Implement the UI of ${wo.id} using ONLY design tokens and the docs/api.md contract: ${wo.summary || ''}.`,
+    await agent(`${EMIT('frontend-dev', wo.id, { frd, activity: 'frontend' })}Implement the UI of ${wo.id} using ONLY design tokens and the provider WO's contract at docs/api/<the-backend-WO-in-your-Dependencies>.md (DR-060: read that specific per-WO file, never a shared docs/api.md): ${wo.summary || ''}.${designRef(frd)}${reuseRef(frd)} Do NOT call git — you never commit; the engine commits the wave (Option B).`,
       { label: `fe:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:frontend-dev' })
   } else {
-    await agent(`${EMIT('implementer', wo.id, { frd, activity: 'implement' })}First set ${wo.id}'s frontmatter \`implementation_status: IN_PROGRESS\`. Then fully implement it with TDD (RED→GREEN→refactor), anchored in the EARS criteria of FRD ${frd} and in bugs from .pandacorp/comms/progress.md: ${wo.summary || ''}. This is a COARSE slice (a whole view/capability) — build it end-to-end.`,
+    await agent(`${EMIT('implementer', wo.id, { frd, activity: 'implement' })}First set ${wo.id}'s frontmatter \`implementation_status: IN_PROGRESS\`. Then fully implement it with TDD (RED→GREEN→refactor), anchored in the EARS criteria of FRD ${frd} and in bugs from .pandacorp/comms/progress.md: ${wo.summary || ''}. This is a COARSE slice (a whole view/capability) — build it end-to-end. First read the \`## Status Note\` of the work orders ${wo.id} depends on (their exposed interfaces) and integrate against those, not a guess.${designRef(frd)}${reuseRef(frd)} Do NOT call git — you never commit; the engine commits the wave with one serialized writer (Option B, DR-060).`,
       { label: `build:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:implementer' })
   }
   // Fast SELECTIVE self-test (NOT the whole suite) → IN_REVIEW + hand-off.
-  const v = await agent(`${EMIT('implementer', wo.id, { frd, activity: 'selftest' })}Fast self-test for work order ${wo.id}: run \`pnpm biome check .\`, \`pnpm tsc --noEmit\`, and \`pnpm vitest run\` limited to THIS work order's own test files (not the whole suite). If green: commit (Conventional Commits with scope; if git reports an index.lock from a parallel sibling, wait briefly and retry the commit), set the WO's frontmatter **\`implementation_status: IN_REVIEW\`**, and fill its **\`## Status Note\`** hand-off (what it built, interfaces/contracts exposed with signatures, integration seams, which test files cover it). Return green=true. If red, return green=false with the reason and do NOT commit. Never commit mid-work-order.`,
+  const v = await agent(`${EMIT('implementer', wo.id, { frd, activity: 'selftest' })}Fast self-test for work order ${wo.id}: run \`pnpm biome check .\`, \`pnpm tsc --noEmit\`, and \`pnpm vitest run\` limited to THIS work order's own test files (not the whole suite). If green: set the WO's frontmatter **\`implementation_status: IN_REVIEW\`** and fill its **\`## Status Note\`** hand-off (what it built; the interfaces/contracts exposed with signatures; the integration seams; **the implicit DECISIONS & ASSUMPTIONS you made — naming, data shapes, formats, units, error/empty conventions — so the consumer inherits them instead of re-deciding incompatibly**; which test files cover it). **Do NOT call git — you NEVER commit (Option B, DR-060): the engine commits the whole wave with a single serialized writer, so there is no index.lock race.** Return green=true. If red, return green=false with the reason. These are file edits to THIS WO's own files only.`,
     { label: `selftest:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:implementer', schema: VERIFY_SCHEMA })
   return Boolean(v && v.green === true)
 }
@@ -205,6 +222,35 @@ function blockFrd(frd, reason) {
   if (reason !== 'external') consecutiveBlocks++   // external = not our bug; don't trip the breaker
 }
 
+// DR-060: keep wave-parallel work orders DISJOINT. Each WO declares `artifacts` (globs it writes); the
+// engine serializes any whose artifacts overlap into different waves, so two agents never race on one
+// file (the generalized banner-collision fix). Undeclared artifacts → fall back to prior behavior
+// (trust the Build Plan) for back-compat with WOs authored before the field existed.
+// Real glob overlap (not a crude prefix match): two globs overlap if one's pattern can match the
+// other's concrete representative path (handles `**`, `*`, and extension globs like `Banner.*`).
+const globToRe = (g) => new RegExp('^' + String(g)
+  .replace(/[.+^${}()|[\]\\]/g, '\\$&')   // escape regex metachars (keep * )
+  .replace(/\*\*/g, ' ').replace(/\*/g, '[^/]*').replace(/ /g, '.*') + '$')
+const globLiteral = (g) => String(g).replace(/\*\*\/?/g, '').replace(/\*/g, '') || '/'  // representative concrete-ish path
+const globsOverlap = (x, y) => {
+  if (x === y) return true
+  return globToRe(x).test(globLiteral(y)) || globToRe(y).test(globLiteral(x))
+}
+const artifactsOverlap = (a, b) => {
+  const A = a.artifacts || [], B = b.artifacts || []
+  if (!A.length || !B.length) return false   // undeclared → can't prove overlap → prior behavior (back-compat)
+  return A.some((x) => B.some((y) => globsOverlap(x, y)))
+}
+const pickDisjointWave = (ready, max) => {
+  const picked = []
+  for (const w of ready) {
+    if (picked.length >= max) break
+    if (picked.some((p) => artifactsOverlap(p, w))) continue   // overlaps a picked WO → defer to a later wave
+    picked.push(w)
+  }
+  return picked
+}
+
 for (const f of plan.frds) {
   if (f.deps && f.deps.some((d) => blockedFrds.includes(d))) { log(`⊘ ${f.frd} skipped (depends on a blocked FRD)`); blockFrd(f.frd, 'needs-owner'); continue }
   if (budget.total && budget.remaining() < LOW_BUDGET) { stopReason = 'budget'; log('Circuit breaker: budget ceiling reached — stopping at a safe point'); break }
@@ -224,9 +270,20 @@ for (const f of plan.frds) {
   while (queue.size > 0) {
     const ready = [...queue.values()].filter((w) => (w.deps || []).every((d) => doneIds.has(d) || !queue.has(d)))
     if (ready.length === 0) { log(`⚠ ${f.frd}: ${queue.size} work orders with unresolved/circular deps`); frdFailed = true; break }
-    const wave = ready.slice(0, P.wave)
+    // DR-057 foundation-first, ENGINE-ENFORCED (not prose): while any foundation WO is still pending,
+    // the wave is foundation-only — the shared primitives/inventory build BEFORE features fan out.
+    const foundationReady = ready.filter((w) => w.foundation)
+    const wave = pickDisjointWave(foundationReady.length ? foundationReady : ready, P.wave)   // DR-060: never co-schedule WOs whose artifacts overlap
     const results = await parallel(wave.map((w) => () => buildWO(w, f.frd)))
     for (let i = 0; i < wave.length; i++) { queue.delete(wave[i].id); if (results[i]) doneIds.add(wave[i].id); else frdFailed = true }
+    // Option B (DR-060): ONE serialized writer commits the wave's GREEN work orders — no per-agent
+    // git, so no index.lock race and no merge. WOs are disjoint, so staging each WO's own files is clean.
+    const greenWave = wave.filter((_, i) => results[i])
+    if (greenWave.length) {
+      agentSpawned++
+      await agent(`You are the SOLE git writer for this build wave (Option B, DR-060): no other agent touches git, so there is no index.lock contention and no merge. The work below already built green with their frontmatter set to IN_REVIEW + their \`## Status Note\` written (file edits, not committed). Commit each GREEN work order in ITS OWN commit (Conventional Commits, scope), staging ONLY that WO's own files: ${greenWave.map((w) => `${w.id} → \`git add ${(w.artifacts && w.artifacts.length ? w.artifacts.join(' ') : 'the files this WO changed (use git status to see THIS wo\'s disjoint files)')}\` then commit`).join('  ·  ')}. Do NOT touch any other uncommitted changes. If \`git status\` shows changes outside these WOs' files, leave them. Return { committed: <count> }.`,
+        { label: `commit:${f.frd}:w`, phase: 'Build', model: P.worker, agentType: 'pandacorp:implementer' })
+    }
     if (frdFailed) break
   }
 
@@ -269,7 +326,7 @@ const needsOwner = blockedFrds.filter((x) => blockedReasons[x] === 'needs-owner'
 const allDone = !stopReason && blockedFrds.length === 0 && reopenedFrds.length === 0 && builtFrds.length === plan.frds.length
 let closed
 if (allDone) {
-  closed = await agent(`All FRDs are VERIFIED. Run the full suite + e2e of the critical flows and kill the test dev servers with TaskStop. If green, set .pandacorp/status.yaml phase: release and running: false. Return done:true once status.yaml is written.${NOTIFY('Build COMPLETO: todos los FRDs verificados', 'Glass')}`,
+  closed = await agent(`All FRDs are VERIFIED — now the CROSS-FEATURE INTEGRATION REVIEW (DR-060): the seam check the per-FRD gates CANNOT do (each only sees its own feature). The dominant failure of parallel builds is at the seams BETWEEN features — every component correct in isolation, broken together. Trace the data flow ACROSS feature boundaries and verify every producer/consumer pair actually AGREES: each consumer's expectations vs its provider's \`docs/api/<wo-id>.md\` contract (field names, data shapes, formats, units, status codes, routes), shared types/enums used consistently across features, and NO two features that shipped duplicate or divergent versions of the same component/util (cross-check \`docs/design/components.md\`). THEN run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since — includes the smoke + visual gates) and kill any test dev servers with TaskStop. If a cross-feature seam is wrong, reopen the offending work order (set it \`implementation_status: PLANNED\`) and return done:false with the finding. If everything integrates AND the full suite is green: set .pandacorp/status.yaml phase: release and running: false. Return done:true once status.yaml is written.${NOTIFY('Build COMPLETO: FRDs verificados + integracion cross-feature OK', 'Glass')}`,
     { label: 'close-out', phase: 'Review', model: P.judge, agentType: 'pandacorp:reviewer', schema: STOP_SCHEMA })
   log('Run ended: all FRDs verified.')
 } else {

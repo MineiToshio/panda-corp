@@ -56,5 +56,6 @@ Exception: framework-reserved filenames (e.g. Next.js `page.tsx`, `route.ts`) fo
 - Keep commits/changes **small and single-purpose** (one logical task). Never force-push a shared branch; never commit secrets or build artifacts (`.gitignore` them).
 
 ## Dependencies
+- **Versions (DR-052)**: install the **latest stable** version for a new project/install (`@latest`). An in-flight project stays on the version it was built with (don't churn mid-build). For an **older/brownfield** project, install only versions **compatible with its framework major** — check support before adding (a Next.js 13 project must not get a library requiring Next 15+; pick the latest version still compatible).
 - **Pin the package manager** via the `packageManager` field (+ corepack) so local, CI and agents use the same version; declare supported runtime in `engines`. **One package manager / one lockfile per repo.**
 - **Justify every new dependency** before adding it (maintenance health, transitive footprint, license, bundle size); prefer the standard library / platform APIs. Remove a dependency the moment it's no longer imported.

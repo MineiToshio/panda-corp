@@ -6,8 +6,8 @@ A **Pandacorp** factory project. The whole lifecycle is managed with the `/panda
 
 ## Origin — Pandacorp
 
-- Factory: `/Users/Shared/Proyectos/panda-corp` (know-how, idea base, portfolio) — this project lives INSIDE it, at `mission-control/`, because it is the factory's own interface
-- Original idea card: `.pandacorp/idea-origin.md` (born from a factory design conversation, 2026-06-13 — there is no card in `factory/ideas/`)
+- Factory: `/Users/Shared/Proyectos/panda-corp` (know-how, idea base, portfolio)
+- Original idea card: `.pandacorp/idea-origin.md` (frozen copy in `.pandacorp/idea-origin.md`)
 - Standards and process: they come from the **pandacorp plugin** — do NOT look for them in the factory
 - The product's documentation lives in `docs/`; the factory-integration layer (state, machinery, owner comms) lives in `.pandacorp/`
 - Project status: `.pandacorp/status.yaml` (the factory reads it for its portfolio; keep it current)
@@ -73,6 +73,7 @@ Docs are **feature-centric** (DR-049): a thin **product layer** under `docs/prod
 6. Decisions not covered by the documents: consult the factory registry (`factory/decisions/registry.yaml`); if it's not there, escalate to the owner.
 7. Document everything (two layers): every relevant change updates its **canonical doc** (behavior → the feature's `frd.md`; technical → the feature's `blueprint.md`, platform-wide → `docs/product/architecture.md` + an ADR; design → DESIGN/tokens; scope → `docs/product/prd.md`) **and** adds an entry to `docs/decision-log.md` with the why, linking the doc. See `AGENTS.md`.
 8. **Capture lessons as you work (self-learning).** When you hit something durable and reusable — a fix worth remembering, a library that worked or failed, a gotcha, a recurring pattern — in any skill or in conversation, jot a one-line candidate to `.pandacorp/run/lessons.md` (gitignored scratch; tag `(owner-stated)` if the owner said it, else `(agent-inferred)`). Don't polish it inline. The factory's `librarian` later refines these into reusable lessons that make future projects faster. Capture freely; nothing is promoted without the owner.
+9. **Keep the owner's profile alive (personalization, DR-053).** When the owner reveals something durable and personal **about themselves** in conversation — an interest, a hobby, a taste or dislike, a goal, an asset/lever, or how they like to work — capture it into the factory's owner profile at **`/Users/Shared/Proyectos/panda-corp/factory/profile.md`** (personal, gitignored, Spanish). Read it first and add only what's genuinely new or update what changed — never duplicate. This is the **owner profile** (who the owner is, so the factory personalizes ideas, recommendations and conversation), a plane distinct from engineering lessons (rule 8, `.pandacorp/run/lessons.md`) and from product decisions (`docs/decision-log.md`); don't put project facts here. Don't ask permission to note a personal fact — just keep the profile current.
 
 ## Current phase
 

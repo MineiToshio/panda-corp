@@ -1,64 +1,47 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.5.0/schema.json",
-  "vcs": {
-    "enabled": true,
-    "clientKind": "git",
-    "useIgnoreFile": true
-  },
-  "files": {
-    "ignoreUnknown": true,
-    "includes": [
-      "**",
-      "!node_modules",
-      "!.next",
-      "!coverage",
-      "!prototype",
-      "!**/*.py",
-      "!.claude",
-      "!.pandacorp"
-    ]
-  },
-  "formatter": {
-    "enabled": true,
-    "indentStyle": "space",
-    "indentWidth": 2,
-    "lineWidth": 100
-  },
-  "css": {
-    "parser": {
-      "tailwindDirectives": true
-    }
-  },
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "files": { "ignoreUnknown": true },
+  "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
+  "javascript": { "formatter": { "quoteStyle": "double", "semicolons": "always" } },
   "linter": {
     "enabled": true,
+    "domains": {
+      "react": "recommended",
+      "next": "recommended",
+      "test": "recommended"
+    },
     "rules": {
-      "preset": "recommended",
+      "recommended": true,
       "suspicious": {
-        "noExplicitAny": "error"
-      },
-      "complexity": {
-        "noImportantStyles": "off",
-        "noExcessiveCognitiveComplexity": "warn"
+        "noExplicitAny": "error",
+        "noArrayIndexKey": "error",
+        "noFocusedTests": "error",
+        "noSkippedTests": "error"
       },
       "style": {
         "useImportType": "error",
-        "useExportType": "error"
+        "noParameterAssign": "error"
+      },
+      "correctness": {
+        "useExhaustiveDependencies": "error",
+        "useHookAtTopLevel": "error"
+      },
+      "complexity": {
+        "noExcessiveCognitiveComplexity": "error",
+        "useMaxParams": "error"
+      },
+      "performance": {
+        "noBarrelFile": "error",
+        "noReExportAll": "error"
+      },
+      "security": {
+        "noDangerouslySetInnerHtml": "error"
+      },
+      "nursery": {
+        "useSortedClasses": "error"
       }
     }
   },
-  "javascript": {
-    "formatter": {
-      "quoteStyle": "double",
-      "semicolons": "always",
-      "trailingCommas": "all"
-    }
-  },
-  "assist": {
-    "enabled": true,
-    "actions": {
-      "source": {
-        "organizeImports": "on"
-      }
-    }
-  }
+  "assist": { "enabled": true, "actions": { "source": { "organizeImports": "on" } } }
 }
