@@ -47,6 +47,9 @@ const API_ENDPOINT = "/api/orphans";
 const CMD_ADOPT = "/pandacorp:adopt";
 const CMD_SYNC = "/pandacorp:sync-portfolio";
 
+/** Above this many candidates, collapse the rest behind a toggle (calm dashboard, FRD-16 collapse criterion). */
+const COLLAPSE_THRESHOLD = 2;
+
 // ---------------------------------------------------------------------------
 // Styles — zero hardcoded colors (CSS custom properties only, FRD-13)
 // ---------------------------------------------------------------------------
@@ -139,6 +142,18 @@ const DISMISS_BTN_STYLE: React.CSSProperties = {
   fontSize: "1rem",
   lineHeight: 1,
   flexShrink: 0,
+};
+
+const TOGGLE_BTN_STYLE: React.CSSProperties = {
+  background: "transparent",
+  border: "none",
+  cursor: "pointer",
+  color: "var(--color-warn, oklch(0.70 0.15 60))",
+  opacity: 0.85,
+  padding: "0.25rem 0",
+  fontSize: "0.75rem",
+  fontWeight: 500,
+  textDecoration: "underline",
 };
 
 // ---------------------------------------------------------------------------
@@ -257,6 +272,8 @@ export function OrphansBanner(): React.JSX.Element | null {
   const [candidates, setCandidates] = useState<Candidate[] | null>(null);
   // In-memory set of locally dismissed paths (mirrors localStorage — avoids re-reads)
   const [dismissed, setDismissed] = useState<ReadonlySet<string>>(() => new Set<string>());
+  // Whether the collapsed overflow of candidates is expanded (calm dashboard, FRD-16 collapse criterion)
+  const [expanded, setExpanded] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const poll = useCallback(async (): Promise<void> => {
@@ -305,6 +322,10 @@ export function OrphansBanner(): React.JSX.Element | null {
     return null;
   }
 
+  // Collapse the overflow so several orphans don't dominate the dashboard (FRD-16 collapse criterion).
+  const shown = expanded ? visible : visible.slice(0, COLLAPSE_THRESHOLD);
+  const hiddenCount = visible.length - shown.length;
+
   return (
     <div
       data-testid="orphans-banner"
@@ -317,9 +338,24 @@ export function OrphansBanner(): React.JSX.Element | null {
         &#9651;{/* ▲ warning triangle, same as PluginSyncBanner */}
       </span>
 
-      {visible.map((candidate) => (
+      {shown.map((candidate) => (
         <OrphanItem key={candidate.path} candidate={candidate} onDismiss={handleDismiss} />
       ))}
+
+      {/* Collapsed overflow toggle — keeps the dashboard calm when many orphans exist */}
+      {(hiddenCount > 0 || expanded) && visible.length > COLLAPSE_THRESHOLD && (
+        <button
+          type="button"
+          data-testid="orphans-toggle"
+          aria-expanded={expanded}
+          style={TOGGLE_BTN_STYLE}
+          onClick={() => setExpanded((prev) => !prev)}
+        >
+          {expanded
+            ? "Ver menos"
+            : `Ver ${hiddenCount} proyecto${hiddenCount === 1 ? "" : "s"} más sin registrar`}
+        </button>
+      )}
     </div>
   );
 }

@@ -24,6 +24,7 @@ Catches the inverse of a registered project: a real project sitting in the proje
 - The banner SHALL show the **path** and the steps to adopt: open a session in the folder and run `/pandacorp:adopt` (shown as copyable text).
 - WHERE a folder has the **Pandacorp marker but is missing from the portfolio** (registered-but-unlisted, e.g. the portfolio row was lost), it SHALL instead suggest running `/pandacorp:sync-portfolio` — NOT adopt (it's already a factory project).
 - The banner SHALL **disappear on its own** once the project is adopted (marker + portfolio row appear) or explicitly dismissed by the owner.
+- WHERE **more than two** candidates are present, the banner SHALL **collapse the overflow** — showing the first two and a toggle ("Ver N proyectos más sin registrar" / "Ver menos") — so several orphans do not dominate the dashboard (the wall-of-banners regression).
 - The detection SHALL be **read-only**: it never runs `adopt`, `git`, or writes the portfolio for the owner.
 - The scan SHALL be **bounded** to the projects folder (immediate children only) — it does not crawl the whole disk.
 

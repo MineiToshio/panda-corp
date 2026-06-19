@@ -539,3 +539,50 @@ describe("AC-16-004.7: empty candidate list → renders nothing", () => {
     expect(screen.queryByTestId("orphans-banner")).not.toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// FRD-16 collapse criterion — >2 candidates collapse behind a toggle
+// (the wall-of-banners regression: several orphans must not dominate the dashboard)
+// ---------------------------------------------------------------------------
+
+const ORPHAN_C: Candidate = {
+  name: "third-project",
+  path: "/Users/dev/projects/third-project",
+  kind: "orphan",
+  hasMarker: false,
+  inPortfolio: false,
+};
+
+describe("FRD-16 collapse: more than two candidates collapse behind a toggle", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  it("shows only the first two items and a toggle when there are three candidates", async () => {
+    mockFetch([ORPHAN_A, ORPHAN_B, ORPHAN_C]);
+    render(<OrphansBanner />);
+    await flushInitialPoll();
+    expect(screen.getByTestId("orphan-item-my-app")).toBeInTheDocument();
+    expect(screen.getByTestId("orphan-item-another-project")).toBeInTheDocument();
+    expect(screen.queryByTestId("orphan-item-third-project")).not.toBeInTheDocument();
+    expect(screen.getByTestId("orphans-toggle")).toHaveTextContent("1");
+  });
+
+  it("expands to show every candidate when the toggle is activated", async () => {
+    mockFetch([ORPHAN_A, ORPHAN_B, ORPHAN_C]);
+    render(<OrphansBanner />);
+    await flushInitialPoll();
+    await act(async () => {
+      screen.getByTestId("orphans-toggle").click();
+    });
+    expect(screen.getByTestId("orphan-item-third-project")).toBeInTheDocument();
+    expect(screen.getByTestId("orphans-toggle")).toHaveTextContent("Ver menos");
+  });
+
+  it("does NOT render a toggle when there are two or fewer candidates", async () => {
+    mockFetch([ORPHAN_A, ORPHAN_B]);
+    render(<OrphansBanner />);
+    await flushInitialPoll();
+    expect(screen.queryByTestId("orphans-toggle")).not.toBeInTheDocument();
+  });
+});

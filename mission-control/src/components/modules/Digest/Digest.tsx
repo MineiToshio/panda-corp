@@ -57,6 +57,24 @@ function writeMarker(ms: number): void {
   }
 }
 
+/**
+ * Pair each digest item with a stable, unique React key.
+ *
+ * Events have no unique id and genuine duplicates exist (several `AgentWorking`
+ * at the same second), so `at-event` alone collides. We disambiguate with a
+ * per-base occurrence counter computed here (not the array index in JSX), which
+ * keeps keys unique without tripping `noArrayIndexKey`.
+ */
+function withUniqueKeys(items: readonly DigestItem[]): { item: DigestItem; key: string }[] {
+  const seen = new Map<string, number>();
+  return items.map((item) => {
+    const base = `${item.event.at}-${item.event.event}`;
+    const n = seen.get(base) ?? 0;
+    seen.set(base, n + 1);
+    return { item, key: n === 0 ? base : `${base}#${n}` };
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
@@ -182,8 +200,8 @@ export function Digest({ events, nowMs: nowMsProp }: DigestProps): React.JSX.Ele
       {/* New events list (AC-18-001.3) */}
       {newEvents.length > 0 && (
         <ul aria-label="Eventos nuevos" className="space-y-1">
-          {newEvents.map((item) => (
-            <DigestItemRow key={`${item.event.at}-${item.event.event}`} item={item} />
+          {withUniqueKeys(newEvents).map(({ item, key }) => (
+            <DigestItemRow key={key} item={item} />
           ))}
         </ul>
       )}
@@ -197,8 +215,8 @@ export function Digest({ events, nowMs: nowMsProp }: DigestProps): React.JSX.Ele
             </p>
           )}
           <ul aria-label="Actividad en las últimas 24 horas" className="space-y-1">
-            {last24h.map((item) => (
-              <DigestItemRow key={`${item.event.at}-${item.event.event}`} item={item} />
+            {withUniqueKeys(last24h).map(({ item, key }) => (
+              <DigestItemRow key={key} item={item} />
             ))}
           </ul>
         </div>
