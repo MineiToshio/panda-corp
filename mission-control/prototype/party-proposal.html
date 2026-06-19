@@ -97,6 +97,10 @@ h1{font-family:var(--pixel);font-weight:600;font-size:27px;margin:0;letter-spaci
 .ag .prog i{display:block;height:100%;width:0;border-radius:3px;background:var(--cat7);transition:width .2s linear}
 .ag .tag{position:absolute;top:45px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:9px;color:var(--t2);background:rgba(12,17,19,.85);border:1px solid var(--bd);border-radius:5px;padding:0 5px;white-space:nowrap;z-index:6;line-height:1.5}
 .ag.vault .tag{top:37px;color:var(--ok)}
+/* in-loop fidelity badge (DR-056): render vs mock, while a UI WO builds */
+.ag .fcheck{position:absolute;top:-24px;left:50%;transform:translateX(-50%);display:none;align-items:center;gap:3px;background:rgba(12,17,19,.9);border:1px solid var(--cat5);border-radius:6px;padding:0 5px;font-family:var(--mono);font-size:9px;color:var(--cat5);white-space:nowrap;z-index:8;line-height:1.6}
+.ag.work:not(.split) .fcheck{display:inline-flex;animation:fpulse 2.1s ease-in-out infinite}
+@keyframes fpulse{0%,100%{opacity:.4;transform:translateX(-50%) scale(.94)}50%{opacity:1;transform:translateX(-50%) scale(1)}}
 /* hover tooltip — the WO title */
 .ag .wotip{position:absolute;bottom:52px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--accent);border-radius:8px;padding:4px 9px;font-family:var(--mono);font-size:10px;color:var(--t1);white-space:nowrap;display:none;z-index:30;box-shadow:0 5px 14px rgba(0,0,0,.55)}
 .ag .wotip b{color:var(--accent-text)}
@@ -314,7 +318,7 @@ function mk(html){const d=document.createElement('div');d.innerHTML=html;return 
 function makeSprite(w){
   const split=MODES[mode].split;
   const el=mk('<div class="ag'+(split?' split':'')+'"><div class="halo" style="background:var(--cat7)"></div><div class="prog"><i></i></div>'+
-    '<div class="scrollicon">📜</div><div class="medal">🏅</div><div class="say"></div>'+
+    '<div class="scrollicon">📜</div><div class="medal">🏅</div><div class="say"></div><div class="fcheck">🖼<span>↔</span>📸</div>'+
     '<div class="wotip"><b>'+w.id+'</b> · '+w.def.name+(split?' · relevo test→backend→frontend':'')+'</div><div class="tag">'+w.id+'</div>'+
     (split?'<div class="prog3"><i><b></b></i><i><b></b></i><i><b></b></i></div>'+
       '<div class="relay">'+
@@ -444,11 +448,11 @@ function loop(me){
         feed('rev','<b style="color:var(--warn)">Juez</b> abre el <b>gate del '+FRDID+'</b> — todos en IN_REVIEW · <b>4 lentes</b> + <span style="color:var(--accent-text)">juez visual (captura vs mock)</span> + baseline','var(--warn)');}
       if(reviewer.state==='idle'){
         const next=wos.find(w=>w.state==='waitgate');
-        if(next){reviewer.state='judging';reviewer.target=next;reviewer.t0=now;reviewer.dur=1500+Math.random()*1100;next.state='judging';reviewer.el.classList.add('review');say(reviewer,'4 lentes · captura vs mock · baseline ✓');}
+        if(next){reviewer.state='judging';reviewer.target=next;reviewer.t0=now;reviewer.dur=1500+Math.random()*1100;next.state='judging';reviewer.el.classList.add('review');say(reviewer,'4 lentes · captura vs mock · baseline ✓');say(next,'📸 vs 🖼 ✓');}
         else if(wos.every(w=>w.state==='verified'))frdComplete();
       } else if(reviewer.state==='judging'){
         if(now-reviewer.t0>reviewer.dur){const t=reviewer.target;reviewer.state='idle';reviewer.el.classList.remove('review');say(reviewer,null);
-          t.state='tovault';t.reviewSlot=-1;toVault(t);
+          t.state='tovault';t.reviewSlot=-1;say(t,null);toVault(t);
           feed('rev','<b style="color:var(--warn)">Juez</b> aprueba <b>'+t.id+'</b> → <span style="color:var(--accent-text)">🔒 el motor commitea la oleada (1 escritor · Opción B)</span> → Bóveda','var(--t2)');}
       }
     }
