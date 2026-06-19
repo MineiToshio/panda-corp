@@ -168,7 +168,7 @@ body.embed .stage{max-width:none}
   <div class="topbar">
     <div>
       <h1>⚒️ Party · La Fragua</h1>
-      <p class="sub">La estación <b>Construcción</b> como un mundo vivo. Se construye <b>un FRD a la vez</b>: cada muñeco es un <b>work order que de verdad está corriendo</b>. Pasa el ratón por un muñeco para ver su título.</p>
+      <p class="sub">La estación <b>Construcción</b> como un mundo vivo. Se construye <b>un FRD a la vez</b>: cada muñeco es un <b>work order que de verdad está corriendo</b>. <b>Fundación primero</b> (los primitivos compartidos) → oleadas <b>disjuntas por archivo</b> que <b>reutilizan el inventario</b> y se <b>autocorrigen contra el mock</b> → el <b>Juez</b> (4 lentes + visual) → el motor <b>commitea la oleada</b>. Pasa el ratón por un muñeco para ver su título.</p>
     </div>
     <div class="live"><span class="dot"></span> Live · AgentWorking + SubagentStop</div>
   </div>
@@ -225,10 +225,15 @@ body.embed .stage{max-width:none}
       <ul>
         <li>La escena es <b>el FRD en curso</b> (pocos WO); el total del proyecto va arriba. Por eso la bóveda no se satura.</li>
         <li>1 muñeco = 1 <code>work order</code> activo; rol real <code>implementer</code> (full-stack), uno por WO. <b>Hover</b> = su título.</li>
-        <li>La <b>oleada</b> en la forja = el <b>modo</b> (pro 2 · equilibrado 4 · potente 8 · profundo 6). El resto es <b>+N en cola</b>.</li>
-        <li>El <b>pergamino</b> = el <code>Status Note</code> real: un WO lo escribe al cerrar y el dependiente lo lee (Build Plan).</li>
-        <li>El <b>Juez</b> (<code>reviewer</code>) es <b>uno por FRD</b>: abre el gate solo con <b>todos</b> los WO en <code>IN_REVIEW</code> (revisa con 3 lentes: correctitud·seguridad·calidad).</li>
-        <li>En <b>Profundo</b> cada WO es un <b>relevo secuencial</b>: <code>test-writer</code> (RED) → <code>backend-dev</code> (publica el contrato <code>docs/api.md</code>) → <code>frontend-dev</code> (lo consume), con modelo <b>Opus</b>. No trabajan a la vez.</li>
+        <li><b>Fundación primero (DR-057):</b> la 1ª oleada forja los <b>primitivos compartidos</b> (Button/Banner/Card); las features <b>los reutilizan</b>, no los reinventan.</li>
+        <li>La <b>oleada</b> = el <b>modo</b> (pro 2 · equilibrado 4 · potente 8 · profundo 6); el resto es <b>+N en cola</b>. Los WO que escriben los <b>mismos archivos</b> se <b>serializan</b> a oleadas distintas (DR-060) — nunca chocan.</li>
+        <li>Antes de crear, el WO <b>consulta el inventario</b> <code>docs/design/components.md</code> → reutiliza/adapta (no duplica).</li>
+        <li><b>Bucle de fidelidad (DR-056):</b> cada WO de UI hace <code>render → compara con el mock → corrige</code> (×≤3) <b>antes</b> de IN_REVIEW.</li>
+        <li>El <b>pergamino</b> = el <code>Status Note</code> real: interfaces <b>+ decisiones/supuestos</b>; el dependiente lo lee (Build Plan).</li>
+        <li>El <b>Juez</b> (<code>reviewer</code>, 1 por FRD) abre el gate con <b>todos</b> en <code>IN_REVIEW</code>: <b>4 lentes</b> (correctitud·seguridad·calidad·<b>runtime/visual</b>) + el <b>juez visual</b> compara captura vs mock y <b>bendice el baseline</b> (DR-055/056).</li>
+        <li><b>Commit Opción B (DR-060):</b> los workers <b>no tocan git</b>; el motor <b>commitea cada oleada con un solo escritor</b> — sin <i>race</i>, sin merge.</li>
+        <li><b>Gran Integración cross-feature (DR-060):</b> al cerrar el proyecto, un revisor traza las <b>costuras entre features</b> — que productor/consumidor de cada contrato concuerden.</li>
+        <li>En <b>Profundo</b> cada WO es un <b>relevo secuencial</b>: <code>test-writer</code> (RED) → <code>backend-dev</code> (publica su contrato <code>docs/api/&lt;wo&gt;.md</code>) → <code>frontend-dev</code> (lo consume), con modelo <b>Opus</b>. No trabajan a la vez.</li>
       </ul>
     </div>
     <div class="lcard">
@@ -273,7 +278,7 @@ const WODEFS=[
   {id:'WO-14-003',name:'StatusChips',deps:['WO-14-002']},
   {id:'WO-14-009',name:'history-view',deps:['WO-14-002']}
 ];
-const SAYS_BUILD=['RED → GREEN','self-test ✓','tipando','verify…','refactor'];
+const SAYS_BUILD=['RED → GREEN','reutilizo del inventario','render → mock → corrijo','self-test ✓','tipando','verify…'];
 // FRD titles (the theme of each feature) + global project state
 const FRD_CYCLE=['FRD-13','FRD-14','FRD-15'];
 const FRD_TITLES={'FRD-13':'Sistema visual & tokens','FRD-14':'Snapshot & canales de feedback','FRD-15':'Aviso de drift del plugin'};
@@ -333,7 +338,8 @@ function reset(){
   reviewer.el.style.transform='translate('+(REVIEWER_HOME[0]-26)+'px,'+(REVIEWER_HOME[1]-26)+'px)';
   reviewer.el.querySelector('img').style.opacity=.45;
   feedReset();renderQuest();renderSceneTitle();
-  feed(null,'<b>'+FRDID+'</b> · oleada de <b>'+MODES[mode].wave+'</b> WO'+(MODES[mode].split?' · cada uno por relevo <b>test→backend→frontend</b> (Opus)':'')+' — la forja arranca','var(--accent-text)');
+  feed(null,'<span style="color:var(--cat5)">⛏️ Fundación primero</span> — los <b>primitivos compartidos</b> (Button/Banner/Card) se forjan antes; las features los <b>reutilizan</b>','var(--t3)');
+  feed(null,'<b>'+FRDID+'</b> · oleada de <b>'+MODES[mode].wave+'</b> WO'+(MODES[mode].split?' · cada uno por relevo <b>test→backend→frontend</b> (Opus)':'')+' — disjuntos por archivo (DR-060) · la forja arranca','var(--accent-text)');
   paused=false;document.getElementById('pause').textContent='⏸ Pausar';
   const me=runId;requestAnimationFrame(()=>loop(me));
 }
@@ -352,7 +358,7 @@ function startBuild(w){
 
 function finishBuild(w){
   w.state='carry';w.el.classList.remove('work');w.el.classList.add('carry');w.prog=1;w.el.querySelector('.prog i').style.width='100%';say(w,null);
-  feed('impl','<b style="color:var(--cat7)">'+w.id+'</b> → IN_REVIEW · <span style="color:var(--warn)">escribe Status Note (contrato)</span>','var(--t2)');
+  feed('impl','<b style="color:var(--cat7)">'+w.id+'</b> → IN_REVIEW · <span style="color:var(--warn)">Status Note: interfaces + decisiones</span> · <span style="color:var(--t3)">no commitea (lo hace la oleada)</span>','var(--t2)');
   wos.filter(x=>x.state==='pending'&&x.deps.includes(w.id)).forEach(dep=>{
     if(dep.deps.every(id=>{const d=wos.find(y=>y.id===id);return d&&['carry','waitgate','judging','tovault','verified'].includes(d.state);}))
       spawnParchment(w.px,w.py,dep);});
@@ -369,7 +375,7 @@ function updateRelay(w){
   const segs=w.el.querySelectorAll('.prog3 i b');
   segs.forEach((b,i)=>{const f=Math.max(0,Math.min(1,(p-i/3)/(1/3)));b.style.width=(f*100)+'%';});
   if(step>=2&&!w._contract){w._contract=true;w.el.querySelector('.rcontract').classList.add('on');
-    feed('impl','<span style="color:var(--accent-text)">📄 contrato</span> (docs/api.md) publicado · <b>'+w.id+'</b> el frontend lo consume','var(--t3)');}
+    feed('impl','<span style="color:var(--accent-text)">📄 contrato</span> (docs/api/'+w.id+'.md, por-WO) publicado · el frontend lo consume','var(--t3)');}
 }
 
 function spawnParchment(x,y,dep){
@@ -425,15 +431,15 @@ function loop(me){
 
     if(reviewReady()){
       if(!_gateAnnounced){_gateAnnounced=true;reviewer.el.querySelector('img').style.opacity=1;document.getElementById('room-tribunal').classList.add('hot');
-        feed('rev','<b style="color:var(--warn)">Juez</b> abre el <b>gate del '+FRDID+'</b> — todos los WO en IN_REVIEW','var(--warn)');}
+        feed('rev','<b style="color:var(--warn)">Juez</b> abre el <b>gate del '+FRDID+'</b> — todos en IN_REVIEW · <b>4 lentes</b> + <span style="color:var(--accent-text)">juez visual (captura vs mock)</span> + baseline','var(--warn)');}
       if(reviewer.state==='idle'){
         const next=wos.find(w=>w.state==='waitgate');
-        if(next){reviewer.state='judging';reviewer.target=next;reviewer.t0=now;reviewer.dur=1500+Math.random()*1100;next.state='judging';reviewer.el.classList.add('review');say(reviewer,'re-corro tests · integro');}
+        if(next){reviewer.state='judging';reviewer.target=next;reviewer.t0=now;reviewer.dur=1500+Math.random()*1100;next.state='judging';reviewer.el.classList.add('review');say(reviewer,'4 lentes · captura vs mock · baseline ✓');}
         else if(wos.every(w=>w.state==='verified'))frdComplete();
       } else if(reviewer.state==='judging'){
         if(now-reviewer.t0>reviewer.dur){const t=reviewer.target;reviewer.state='idle';reviewer.el.classList.remove('review');say(reviewer,null);
           t.state='tovault';t.reviewSlot=-1;toVault(t);
-          feed('rev','<b style="color:var(--warn)">Juez</b> aprueba <b>'+t.id+'</b> → a la Bóveda','var(--t2)');}
+          feed('rev','<b style="color:var(--warn)">Juez</b> aprueba <b>'+t.id+'</b> → <span style="color:var(--accent-text)">🔒 el motor commitea la oleada (1 escritor · Opción B)</span> → Bóveda','var(--t2)');}
       }
     }
     reviewer.el.style.transform='translate('+(reviewer.px-26)+'px,'+(reviewer.py-26+Math.sin(now/600)*(reviewer.state==='judging'?1.3:0.5))+'px)';
@@ -449,6 +455,7 @@ function stepPath(w,now,done){if(!w.el){w.path=[];if(done)done();return;}if(!w.p
 function frdComplete(){
   if(_frdDone)return;_frdDone=true;PROJ_DONE+=wos.length;
   feed(null,'✅ <b style="color:var(--ok)">'+FRDID+' COMPLETO</b> — VERIFIED. Proyecto '+PROJ_DONE+'/'+PROJ_TOTAL+'. Siguiente FRD…','var(--ok)');
+  if(PROJ_DONE>=PROJ_TOTAL)feed(null,'<b style="color:var(--accent-text)">🧩 Gran Integración cross-feature</b> — el revisor traza las <b>costuras entre features</b> (productor/consumidor de cada contrato concuerdan) antes de release','var(--accent-text)');
   setTimeout(()=>{if(!paused)advanceFRD();},2600);
 }
 function advanceFRD(){frdIx=(frdIx+1)%FRD_CYCLE.length;if(frdIx===0){PROJ_DONE=52;}FRDID=FRD_CYCLE[frdIx];

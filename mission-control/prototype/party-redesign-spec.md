@@ -18,6 +18,8 @@ Two faithful views replace the fiction:
 
 **Hard rule:** invent nothing the engine doesn't do. Beauty comes after truth.
 
+> **Actualización v2 (2026-06-19, DR-054…060).** El motor evolucionó; los HTMLs (la fuente de verdad visual) ya reflejan esto y **La Fragua** se adaptó. Cambios que la vista del build debe mostrar: **(a) fundación primero** — la 1ª oleada forja los primitivos compartidos (`components.md`) y las features los reutilizan; **(b) oleadas disjuntas por `artifacts`** — WOs que escriben los mismos archivos se serializan, nunca chocan; **(c) check de inventario** antes de crear (no duplicar); **(d) bucle de fidelidad** — cada WO de UI hace render→compara mock→corrige (≤3) antes de IN_REVIEW; **(e) Tribunal de 4 lentes** (correctitud·seguridad·calidad·**runtime/visual**) con **juez visual** (captura vs mock) + **bendición de baseline**; **(f) Status Note** carga decisiones/supuestos, no solo el resultado; **(g) commit Opción B** — los workers no tocan git, el motor commitea cada oleada con un escritor serializado (sin worktrees, sin merge); **(h) per-WO contract** `docs/api/<wo>.md`; **(i) Gran Integración cross-feature** al cerrar el proyecto (costuras entre features). **La Campaña** cambia poco: solo fichas (Diseño usa Claude Design + produce `components.md`/mocks; Arquitectura planifica fundación+artifacts).
+
 ## 2. The real engine model (what the views must be faithful to)
 
 Source: `mission-control/.claude/workflows/pandacorp-build.js`.
