@@ -5,7 +5,7 @@ slug: empty-reducedmotion-multiproject
 title: WO-06-011 — Empty state + reduced-motion + multi-project borders
 status: DRAFT
 parent: FRD-06
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
 last_updated: '2026-06-18'
 ---

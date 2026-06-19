@@ -5,7 +5,7 @@ slug: party-scene
 title: 'WO-06-006 — La Fragua scene (rooms, WO sprites, +N en cola, gate, trophies, tracker)'
 status: DRAFT
 parent: FRD-06
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
 last_updated: '2026-06-18'
 ---

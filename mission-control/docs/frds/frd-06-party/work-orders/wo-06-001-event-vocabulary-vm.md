@@ -5,7 +5,7 @@ slug: event-vocabulary-vm
 title: WO-06-001 — Iconic event vocabulary + event view-model mapper (enriched + hand-off/contract/gate)
 status: DRAFT
 parent: FRD-06
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
 last_updated: '2026-06-18'
 ---

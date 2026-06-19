@@ -5,7 +5,7 @@ slug: event-visual-state-map
 title: WO-06-003 — Event → visual-action map (La Fragua decoupling boundary)
 status: DRAFT
 parent: FRD-06
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
 last_updated: '2026-06-18'
 ---

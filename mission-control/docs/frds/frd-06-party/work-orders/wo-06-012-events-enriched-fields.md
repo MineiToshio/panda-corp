@@ -5,7 +5,7 @@ slug: events-enriched-fields
 title: WO-06-012 — lib/events.ts consumes the enriched event fields (frd/phase/activity/mode + hand-off/contract)
 status: DRAFT
 parent: FRD-06
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
 last_updated: '2026-06-18'
 ---

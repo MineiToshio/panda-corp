@@ -5,7 +5,7 @@ slug: event-feed
 title: 'WO-06-007 — Bitácora (event feed: vocabulary, failure-first, auto-scroll, cap, Live/No-signal)'
 status: DRAFT
 parent: FRD-06
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
 last_updated: '2026-06-18'
 ---
