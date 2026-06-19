@@ -4,6 +4,17 @@ import { vi } from "vitest";
 import "vitest";
 
 /**
+ * Mock next/font/google (DR-054 font wiring): in jsdom the real loader is a
+ * build-time network fetch and isn't a callable at test time. Any font import
+ * (Pixelify_Sans, Space_Grotesk, …) returns a stub with the CSS-variable shape
+ * the layout consumes.
+ */
+vi.mock("next/font/google", () => {
+  const font = () => ({ variable: "", className: "", style: { fontFamily: "" } });
+  return { Pixelify_Sans: font, Space_Grotesk: font };
+});
+
+/**
  * vi.runAllMicrotasksAsync — polyfill for vitest 4.x.
  *
  * vitest 4.1.9 exposes `vi.runAllTimersAsync` / `vi.runOnlyPendingTimersAsync`

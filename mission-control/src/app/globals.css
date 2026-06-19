@@ -1,45 +1,71 @@
 @import "tailwindcss";
 
 /*
- * WO-13-002 — CMP-13-globals: globals.css wiring
+ * CMP-13-globals: globals.css wiring — RE-ANCHORED on the approved prototype.
  *
- * Wires the frozen design-tokens.json into Tailwind v4 @theme CSS custom
- * properties. Implements: OKLCH base/accent/contrast, per-agent colors,
- * three theme modes (light/dark/high-contrast), 3 elevation levels,
- * spacing/radius/hairline scale, motion tokens, reduced-motion override,
- * visible focus ring.
+ * The Tailwind v4 @theme below MIRRORS docs/design/design-tokens.json, which is
+ * frozen FROM prototype/index.html (DR-054 ADOPT-VISUAL). Mission Control's warm
+ * pixel-RPG / "guild" palette is intentional (it is the factory's own tool).
+ * This SUPERSEDES the earlier cold-blue hue-230 OKLCH palette (the root cause of
+ * the design divergence) — values are now the prototype's real hex, dark default.
  *
- * Traces: REQ-13-001, REQ-13-002, REQ-13-004, REQ-13-005, REQ-13-006,
- *         REQ-13-008; AC-13-001.1, AC-13-002.1, AC-13-004.1, AC-13-005.1,
- *         AC-13-006.1, AC-13-008.1
- *
- * Source-of-truth hierarchy: FRD-13 > design-tokens.json > blueprint > WO.
- * Values below reflect the FROZEN_TOKENS fixture (docs/design/design-tokens.json).
- * When the design phase commits the canonical file, these values are updated
- * to match — the structure is the permanent contract.
+ * Source-of-truth: prototype/index.html > docs/design/design-tokens.json > this file.
+ * No hardcoded colors anywhere else — consumers reference var(--*) / Tailwind utils.
  */
 
-/* ---------------------------------------------------------------------------
- * Tailwind v4 @theme — maps design-tokens to CSS custom properties.
- * All consumers reference var(--*) — zero hardcoded colours anywhere else.
- * --------------------------------------------------------------------------- */
-
 @theme {
-  /* --- OKLCH base tokens (REQ-13-001 / AC-13-001.1: perceptual space) --- */
-  --color-base: oklch(0.15 0.02 230);
-  --color-accent: oklch(0.75 0.18 60);
-  --color-contrast: oklch(0.97 0.01 230);
+  /* === Surfaces (canvas → panel → card → card2) === */
+  --color-base: #0f1517; /* canvas — page background */
+  --color-panel: #192123;
+  --color-card: #222a2d;
+  --color-card2: #2a3336;
+  --color-surface: #192123; /* default elevated surface (panel) */
 
-  /* --- Surface / text (default: dark mode, matches base palette) --- */
-  --color-surface: oklch(0.1 0.015 230);
-  --color-text: oklch(0.95 0.01 230);
+  /* === Text === */
+  --color-text: #edebe7; /* t1 */
+  --color-text2: #bab7b0; /* t2 */
+  --color-text3: #9e9b94; /* t3 */
+  --color-contrast: #edebe7; /* high-emphasis text */
 
-  /* --- Per-agent colors (IF-13-agent-colors / AC-13-002.1: rationed accent)
-   *    Each role gets one canonical OKLCH colour; consumed by FRD-06 and FRD-12.
-   *    CSS keys must match AGENT_COLOR values in app/_design/tokens.ts.
-   *    Realigned 2026-06-18 (Party redesign): removed fictitious 'guild' aggregate;
-   *    added implementer, copywriter, analytics, devops (real engine/pipeline roles).
-   *    All values use OKLCH L/C ranges that maintain contrast ≥4.5:1. --- */
+  /* === Borders === */
+  --color-border: #2f373a; /* bd */
+  --color-border-strong: #4f5a5d; /* bd2 */
+
+  /* === Accent (teal) — rationed punctuation, not paint === */
+  --color-accent: #33b6d1;
+  --color-accent-text: #62cfe8;
+  --color-accent-bg: #003542;
+  --color-on-accent: #071318;
+
+  /* === Status === */
+  --color-ok: #5ec386;
+  --color-ok-bg: #163a27;
+  --color-warn: #ebb25f;
+  --color-warn-bg: #3a2e18;
+  --color-danger: #f36356;
+  --color-danger-bg: #3a1a17;
+  --color-info: #5eb6e6;
+  --color-info-bg: #14303d;
+
+  /* === Category colors (idea categories) === */
+  --color-cat-1: #60ad64;
+  --color-cat-2: #a278e4;
+  --color-cat-3: #e9609e;
+  --color-cat-4: #3d96ea;
+  --color-cat-5: #2cb3b4;
+  --color-cat-6: #37b2e8;
+  --color-cat-7: #e39849;
+  --color-cat-8: #46b68c;
+  --color-cat-9: #ec5c50;
+
+  /* === Tier / rarity (Bronze → Legend) === */
+  --color-tier-1: #989fa8;
+  --color-tier-2: #53be70;
+  --color-tier-3: #339fee;
+  --color-tier-4: #b474f4;
+  --color-tier-5: #f68c36;
+
+  /* === Per-agent / role colors (Party + FRD-12 dataviz; role identity) === */
   --color-agent-researcher: oklch(0.65 0.18 45);
   --color-agent-backend-dev: oklch(0.55 0.2 260);
   --color-agent-frontend-dev: oklch(0.65 0.22 200);
@@ -54,103 +80,170 @@
   --color-agent-analytics: oklch(0.68 0.2 100);
   --color-agent-devops: oklch(0.6 0.18 200);
 
-  /* --- Elevation / shadow tokens (AC-13-004.1: 3 levels canvas→panel→card) --- */
-  --shadow-0: none;
-  --shadow-1: 0 1px 4px oklch(0 0 0 / 0.15);
-  --shadow-2: 0 4px 16px oklch(0 0 0 / 0.25);
+  /* === Backdrop / overlay === */
+  --color-backdrop: rgba(12, 17, 19, 0.66);
 
-  /* --- Spacing / radius / hairline scale (AC-13-004.1: multiples of 0.25rem) --- */
-  --radius: 0.5rem;
-  /* --space-base: 16px elevation/layout base (AC-13-004.1).
-   * NOT named --spacing: Tailwind v4 reserves --spacing as its spacing-scale multiplier
-   * (default 0.25rem); overriding it would inflate all spacing utilities by 4x. */
+  /* === Typography — families wired via next/font CSS variables (app/layout.tsx) === */
+  --font-pixel: var(--font-pixelify), ui-monospace, monospace; /* level/XP/tier numerals */
+  --font-display:
+    var(--font-space-grotesk), system-ui, sans-serif; /* headings, buttons, tabs, nav */
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace; /* code, ids, commands, paths */
+  --font-body: system-ui, -apple-system, "Segoe UI", sans-serif; /* prose */
+
+  /* === Radii (prototype scale) === */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+  --radius: 8px; /* default (existing consumers reference var(--radius)) */
+
+  /* === Elevation (two-layer + pop) === */
+  --shadow-0: none;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 28px rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 18px 50px rgba(0, 0, 0, 0.5);
+
+  /* === Spacing / hairline === */
   --space-base: 1rem;
   --hairline: 1px;
 
-  /* --- Motion tokens (AC-13-005.1: <300ms, named curves, no per-component) --- */
+  /* === Motion (transform/opacity only, <300ms) === */
   --duration-fast: 150ms;
   --duration-base: 200ms;
   --duration-expressive: 280ms;
   --easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
   --easing-decelerate: cubic-bezier(0, 0, 0.2, 1);
 
-  /* --- Focus ring token (AC-13-008.1: tokenized, not hardcoded) --- */
+  /* === Focus ring === */
   --focus-ring: 2px solid var(--color-accent);
-
-  /* --- Backdrop / overlay helpers (consumed by IntakeModal / WO-02-006) --- */
-  --color-backdrop: oklch(0 0 0 / 0.6);
 }
 
 /* ---------------------------------------------------------------------------
- * Base reset — :root
- * Sets color-scheme so native chrome (scrollbars, inputs) follows the theme.
+ * Base reset + page surface
  * --------------------------------------------------------------------------- */
 
 :root {
-  /* AC-13-001.1: enables native light/dark affordances */
-  color-scheme: light dark;
+  color-scheme: dark light; /* dark is the prototype's default */
 }
-
-/* ---------------------------------------------------------------------------
- * Global typography
- * AC-13-003.1 (REQ-13-003): EVERY number uses tabular-nums so figures are
- * fixed-width across frames (XP counters, timestamps, column counts).
- * --------------------------------------------------------------------------- */
 
 html {
   font-variant-numeric: tabular-nums;
 }
 
+body {
+  background: var(--color-base);
+  color: var(--color-text);
+  font-family: var(--font-body);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+}
+
 /* ---------------------------------------------------------------------------
- * Theme mode overrides
- * Blueprint §2: switching [data-theme] changes resolved surface/text vars.
- * AC-13-001.1: light / dark / high-contrast without a redesign.
+ * Theme overrides — the prototype ships dark (default) + light.
+ * Switching [data-theme] re-resolves the surface/text/accent/border/status set.
  * --------------------------------------------------------------------------- */
 
-/* Light theme */
 [data-theme="light"] {
   color-scheme: light;
-  --color-surface: oklch(0.97 0.005 230);
-  --color-text: oklch(0.12 0.02 230);
+  --color-base: #f8f7f3;
+  --color-panel: #fefdfa;
+  --color-card: #ffffff;
+  --color-card2: #f1efea;
+  --color-surface: #fefdfa;
+  --color-text: #25211b;
+  --color-text2: #5c5751;
+  --color-text3: #736e67;
+  --color-contrast: #25211b;
+  --color-border: #e0deda;
+  --color-border-strong: #c1bdb7;
+  --color-accent: #007890;
+  --color-accent-text: #00637b;
+  --color-accent-bg: #d5f5fd;
+  --color-on-accent: #fefcf4;
+  --color-ok: #177c49;
+  --color-ok-bg: #defae6;
+  --color-warn: #a36d24;
+  --color-warn-bg: #ffeecd;
+  --color-danger: #be3029;
+  --color-danger-bg: #ffe8e3;
+  --color-info: #1c719a;
+  --color-info-bg: #dff6ff;
+  --color-cat-1: #3e8343;
+  --color-cat-2: #784db6;
+  --color-cat-3: #bf397a;
+  --color-cat-4: #006bbb;
+  --color-cat-5: #008081;
+  --color-cat-6: #0086be;
+  --color-cat-7: #bb731b;
+  --color-cat-8: #158561;
+  --color-cat-9: #c83b32;
+  --color-tier-1: #757b81;
+  --color-tier-2: #1c8742;
+  --color-tier-3: #006eb8;
+  --color-tier-4: #7c3eb3;
+  --color-tier-5: #c26300;
+  --color-backdrop: rgba(40, 35, 28, 0.4);
+  --shadow-1: 0 1px 2px rgba(40, 35, 28, 0.05), 0 8px 24px rgba(40, 35, 28, 0.07);
+  --shadow-2: 0 16px 48px rgba(40, 35, 28, 0.18);
 }
 
-/* Dark theme (explicit override — defaults in @theme are already dark) */
 [data-theme="dark"] {
-  color-scheme: dark;
-  --color-surface: oklch(0.1 0.015 230);
-  --color-text: oklch(0.95 0.01 230);
+  color-scheme: dark; /* @theme defaults are already the dark prototype values */
 }
 
-/* System preference — dark */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) {
-    --color-surface: oklch(0.1 0.015 230);
-    --color-text: oklch(0.95 0.01 230);
-  }
-}
-
-/* System preference — light */
 @media (prefers-color-scheme: light) {
   :root:not([data-theme]) {
-    --color-surface: oklch(0.97 0.005 230);
-    --color-text: oklch(0.12 0.02 230);
+    color-scheme: light;
+    --color-base: #f8f7f3;
+    --color-panel: #fefdfa;
+    --color-card: #ffffff;
+    --color-card2: #f1efea;
+    --color-surface: #fefdfa;
+    --color-text: #25211b;
+    --color-text2: #5c5751;
+    --color-text3: #736e67;
+    --color-contrast: #25211b;
+    --color-border: #e0deda;
+    --color-border-strong: #c1bdb7;
+    --color-accent: #007890;
+    --color-accent-text: #00637b;
+    --color-accent-bg: #d5f5fd;
+    --color-on-accent: #fefcf4;
+    --color-ok: #177c49;
+    --color-ok-bg: #defae6;
+    --color-warn: #a36d24;
+    --color-warn-bg: #ffeecd;
+    --color-danger: #be3029;
+    --color-danger-bg: #ffe8e3;
+    --color-info: #1c719a;
+    --color-info-bg: #dff6ff;
+    --color-tier-1: #757b81;
+    --color-tier-2: #1c8742;
+    --color-tier-3: #006eb8;
+    --color-tier-4: #7c3eb3;
+    --color-tier-5: #c26300;
   }
 }
 
-/* High-contrast mode (AC-13-001.1: no redesign required — only var overrides) */
+/* High-contrast mode (var overrides only, no redesign) */
 [data-theme="high-contrast"] {
-  color-scheme: light;
-  --color-surface: oklch(0 0 0);
-  --color-text: oklch(1 0 0);
-  --color-accent: oklch(1 0 0);
-  --color-base: oklch(0 0 0);
-  --color-contrast: oklch(1 0 0);
+  color-scheme: dark;
+  --color-base: #000000;
+  --color-panel: #000000;
+  --color-card: #000000;
+  --color-surface: #000000;
+  --color-text: #ffffff;
+  --color-contrast: #ffffff;
+  --color-accent: #ffffff;
+  --color-border: #ffffff;
+  --color-border-strong: #ffffff;
 }
 
 /* ---------------------------------------------------------------------------
- * Focus ring (AC-13-008.1)
- * :focus-visible (not :focus) — only for keyboard navigation.
- * border-radius follows the element's own --radius via CSS outline (modern).
+ * Focus ring (:focus-visible — keyboard nav only)
  * --------------------------------------------------------------------------- */
 
 :focus-visible {
@@ -159,10 +252,6 @@ html {
   border-radius: var(--radius);
 }
 
-/* Opt-in focus-ring utility class (AC-13-008.1 / WO-13-003 CMP-13-a11y-primitives).
- * For elements that need the ring outside :focus-visible context (e.g. programmatic
- * focus, custom components). Mirrors the :focus-visible rule so the class produces
- * an identical, border-radius-respecting ring. FOCUS_RING_CLASS = "focus-ring". */
 .focus-ring {
   outline: var(--focus-ring);
   outline-offset: 2px;
@@ -170,11 +259,7 @@ html {
 }
 
 /* ---------------------------------------------------------------------------
- * Reduced-motion override (AC-13-006.1)
- * "The UI SHALL honor prefers-reduced-motion: it disables ALL Party animation."
- * Blueprint §2: zero animation durations/transitions globally.
- * Defense-in-depth: also zeroes --duration-* vars so JS RAF consumers
- * (the Party engine, WO-06-011) read 0ms and skip their loops.
+ * Reduced-motion override — honors prefers-reduced-motion (disables Party motion)
  * --------------------------------------------------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {
@@ -185,7 +270,6 @@ html {
     animation-iteration-count: 1 !important;
     transition-duration: 0ms !important;
     scroll-behavior: auto !important;
-    /* Zero the CSS custom properties so JS consumers (Party RAF, WAAPI) also read 0 */
     --duration-fast: 0ms;
     --duration-base: 0ms;
     --duration-expressive: 0ms;
@@ -194,10 +278,6 @@ html {
 
 /* ---------------------------------------------------------------------------
  * CMP-09-celebration — scaling celebration surface (WO-09-006)
- *
- * Layout/chrome lives here (not in inline style) so the animated wrapper
- * only carries transform/opacity in its style attribute (AC-09-006.3).
- * All values use design tokens — zero hardcoded colors (FRD-13).
  * --------------------------------------------------------------------------- */
 
 .celebration-surface {
@@ -214,7 +294,7 @@ html {
   align-items: center;
   gap: calc(var(--space-base, 1rem) * 0.5);
   padding: calc(var(--space-base, 1rem) * 0.5) var(--space-base, 1rem);
-  border-radius: var(--radius, 0.5rem);
+  border-radius: var(--radius, 8px);
   border: var(--hairline, 1px) solid var(--color-accent, currentColor);
   background: var(--color-surface, Canvas);
   box-shadow: var(--shadow-2, none);

@@ -1,0 +1,568 @@
+{
+  "$meta": {
+    "name": "Mission Control — Atelier (pixel-RPG / guild)",
+    "frozen": "2026-06-18",
+    "completedExtraction": "2026-06-19 — added the two layers missed in the first pass (DR-056 complete-extraction): the app-wide RPG embossed skin (rpgSkin group) and the Party pixel-art spec (party group, incl. partyStructural). Core tokens unchanged.",
+    "provenance": "Frozen FROM the owner-approved prototype prototype/index.html (+ party-proposal.html, party-pipeline.html) under DR-054 ADOPT-VISUAL. Mission Control's pixel-RPG identity is intentional — it is the factory's own internal tool, NOT a template for product apps.",
+    "supersedes": "docs/design/brief.md (which wrongly invented a cold-blue hue-230 palette and demoted the prototype to a functional-only reference)",
+    "rule": "The app's globals.css @theme mirrors this file. No hardcoded colors/spacing/radii in committed code. Tokens only.",
+    "themes": ["dark (default)", "light"]
+  },
+
+  "themes": {
+    "dark": {
+      "surfaces": {
+        "canvas": "#0F1517",
+        "panel": "#192123",
+        "card": "#222A2D",
+        "card2": "#2A3336"
+      },
+      "text": {
+        "t1": "#EDEBE7",
+        "t2": "#BAB7B0",
+        "t3": "#9E9B94"
+      },
+      "borders": {
+        "bd": "#2F373A",
+        "bd2": "#4F5A5D"
+      },
+      "accent": {
+        "accent": "#33B6D1",
+        "accentText": "#62CFE8",
+        "accentBg": "#003542",
+        "onAccent": "#071318"
+      },
+      "status": {
+        "ok": "#5EC386",
+        "okBg": "#163A27",
+        "warn": "#EBB25F",
+        "warnBg": "#3A2E18",
+        "danger": "#F36356",
+        "dangerBg": "#3A1A17",
+        "info": "#5EB6E6",
+        "infoBg": "#14303D"
+      },
+      "categories": {
+        "cat1": "#60AD64",
+        "cat2": "#A278E4",
+        "cat3": "#E9609E",
+        "cat4": "#3D96EA",
+        "cat5": "#2CB3B4",
+        "cat6": "#37B2E8",
+        "cat7": "#E39849",
+        "cat8": "#46B68C",
+        "cat9": "#EC5C50"
+      },
+      "tiers": {
+        "tier1": "#989FA8",
+        "tier2": "#53BE70",
+        "tier3": "#339FEE",
+        "tier4": "#B474F4",
+        "tier5": "#F68C36"
+      },
+      "shadows": {
+        "shadow": "0 1px 2px rgba(0,0,0,.3),0 8px 28px rgba(0,0,0,.35)",
+        "shadowPop": "0 18px 50px rgba(0,0,0,.5)"
+      }
+    },
+
+    "light": {
+      "surfaces": {
+        "canvas": "#F8F7F3",
+        "panel": "#FEFDFA",
+        "card": "#FFFFFF",
+        "card2": "#F1EFEA"
+      },
+      "text": {
+        "t1": "#25211B",
+        "t2": "#5C5751",
+        "t3": "#736E67"
+      },
+      "borders": {
+        "bd": "#E0DEDA",
+        "bd2": "#C1BDB7"
+      },
+      "accent": {
+        "accent": "#007890",
+        "accentText": "#00637B",
+        "accentBg": "#D5F5FD",
+        "onAccent": "#FEFCF4"
+      },
+      "status": {
+        "ok": "#177C49",
+        "okBg": "#DEFAE6",
+        "warn": "#A36D24",
+        "warnBg": "#FFEECD",
+        "danger": "#BE3029",
+        "dangerBg": "#FFE8E3",
+        "info": "#1C719A",
+        "infoBg": "#DFF6FF"
+      },
+      "categories": {
+        "cat1": "#3E8343",
+        "cat2": "#784DB6",
+        "cat3": "#BF397A",
+        "cat4": "#006BBB",
+        "cat5": "#008081",
+        "cat6": "#0086BE",
+        "cat7": "#BB731B",
+        "cat8": "#158561",
+        "cat9": "#C83B32"
+      },
+      "tiers": {
+        "tier1": "#757B81",
+        "tier2": "#1C8742",
+        "tier3": "#006EB8",
+        "tier4": "#7C3EB3",
+        "tier5": "#C26300"
+      },
+      "shadows": {
+        "shadow": "0 1px 2px rgba(40,35,28,.05),0 8px 24px rgba(40,35,28,.07)",
+        "shadowPop": "0 16px 48px rgba(40,35,28,.18)"
+      }
+    }
+  },
+
+  "radii": {
+    "sm": "8px",
+    "md": "12px",
+    "lg": "16px",
+    "pill": "999px"
+  },
+
+  "typography": {
+    "families": {
+      "pixel": "'Pixelify Sans', ui-monospace, monospace",
+      "display": "'Space Grotesk', system-ui, sans-serif",
+      "mono": "ui-monospace, SFMono-Regular, Menlo, monospace",
+      "body": "system-ui, -apple-system, 'Segoe UI', sans-serif"
+    },
+    "families_usage": {
+      "pixel": "Pixel/level numerals, XP and tier/rarity badges, the gamified RPG numerals — the pixel-RPG signature.",
+      "display": "Space Grotesk — display, headings (h1/h2/h3), buttons, tabs, nav, card titles.",
+      "mono": "Code, ids, command strings, paths (/pandacorp:* commands, REQ-NN ids, file paths) — tabular-nums.",
+      "body": "Default body copy and prose."
+    },
+    "sizes": {
+      "9": "9px",
+      "10": "10px",
+      "11": "11px",
+      "12": "12px",
+      "13": "13px",
+      "14": "14px",
+      "15": "15px",
+      "16": "16px",
+      "18": "18px",
+      "20": "20px",
+      "22": "22px",
+      "32": "32px",
+      "42": "42px"
+    },
+    "weights": {
+      "regular": 400,
+      "medium": 500,
+      "semibold": 600,
+      "bold": 700
+    },
+    "lineHeights": {
+      "tight": 1.25,
+      "snug": 1.3,
+      "normal": 1.5,
+      "body": 1.6,
+      "relaxed": 1.7
+    },
+    "base": {
+      "fontSize": "15px",
+      "lineHeight": 1.6,
+      "fontVariantNumeric": "tabular-nums"
+    }
+  },
+
+  "spacing": {
+    "scale_px": [2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 24],
+    "notes": "Compact, dense scale extracted from the prototype's padding/gap usage. Common card padding 10px; panel padding 16px 18px; gaps 6–12px."
+  },
+
+  "components": {
+    "panel": {
+      "background": "{surfaces.panel}",
+      "border": ".5px solid {borders.bd}",
+      "borderRadius": "{radii.lg}",
+      "padding": "16px 18px"
+    },
+    "card": {
+      "background": "{surfaces.card}",
+      "border": "1px solid {borders.bd2}",
+      "borderRadius": "9px",
+      "padding": "10px",
+      "hover": "border-color {accent.accent}; box-shadow inset 0 1px 0 rgba(255,255,255,.05), 0 0 14px -7px {accent.accent}",
+      "innerHighlight": "inset 0 1px 0 rgba(255,255,255,.04)"
+    },
+    "chip": {
+      "fontSize": "11px",
+      "padding": "2px 8px",
+      "borderRadius": "{radii.md}"
+    },
+    "button": {
+      "fontFamily": "{typography.families.display}",
+      "background": "{surfaces.card}",
+      "border": "1px solid {borders.bd2}",
+      "borderRadius": "8px",
+      "padding": "7px 13px",
+      "fontSize": "13px",
+      "fontWeight": 500,
+      "innerHighlight": "inset 0 1px 0 rgba(255,255,255,.05), 0 1px 0 {surfaces.canvas}",
+      "hover": "border-color {accent.accent}; box-shadow inset 0 1px 0 rgba(255,255,255,.06), 0 0 14px -7px {accent.accent}"
+    },
+    "tab": {
+      "padding": "7px 13px",
+      "borderRadius": "8px",
+      "fontSize": "13px",
+      "active": "background {accent.accentBg}; color {accent.accentText}"
+    },
+    "navitem": {
+      "padding": "7px 10px",
+      "borderRadius": "{radii.md}",
+      "active": "background {accent.accentBg}; color {accent.accentText}"
+    },
+    "pixelArt": {
+      "imageRendering": "pixelated",
+      "appliesTo": "Party zones (.mcstation .bg) and agent sprites (.mcag img), 54x54 sprites, 32px scene grid",
+      "note": "Pixel-art is a first-class part of the contract (Party / La Fragua / La Campaña). Sprites and zone backgrounds MUST render with image-rendering: pixelated."
+    }
+  },
+
+  "rpgSkin": {
+    "$meta": {
+      "layer": "App-wide RPG embossed skin — MISSED in the first extraction, added under DR-056 complete-extraction.",
+      "provenance": "prototype/index.html lines 128-158, the GLOBAL skin block ('Skin RPG — GLOBAL (toda la app: una sola identidad)'). This is a SECOND-PASS override that re-skins the base components (.panel/.cfgcard/.navitem/.cmd) and adds the RPG primitives. The base .panel (panel component above) is the structural fallback; the skin below is what actually renders app-wide. Both must ship.",
+      "embossSignature": "inset 0 1px 0 rgba(255,255,255,.05), inset 0 -2px 0 rgba(0,0,0,.22), 0 2px 0 {surfaces.canvas} — a 1px top highlight + 2px inner-bottom shadow + 2px solid canvas-colored bottom ledge = the chunky 'pressed pixel tile' look.",
+      "rgbaAreLiteral": "The rgba(255,255,255,.05) highlight and rgba(0,0,0,.22) inner-shadow are theme-independent structural literals (they work in both dark and light); keep them verbatim, do not tokenize to a surface color."
+    },
+
+    "overrides": {
+      "note": "App-wide re-skin of base components. These REPLACE the base look defined in components.* above when the RPG skin is active (i.e. always, app-wide).",
+      "panel": {
+        "background": "{surfaces.card}",
+        "border": "1px solid {borders.bd2}",
+        "borderRadius": "10px",
+        "boxShadow": "inset 0 1px 0 rgba(255,255,255,.05), inset 0 -2px 0 rgba(0,0,0,.22), 0 2px 0 {surfaces.canvas}"
+      },
+      "cfgcard": {
+        "background": "{surfaces.card}",
+        "border": "1px solid {borders.bd2}",
+        "borderRadius": "10px",
+        "boxShadow": "inset 0 1px 0 rgba(255,255,255,.05), inset 0 -2px 0 rgba(0,0,0,.2)",
+        "padding": "12px 13px",
+        "transition": "box-shadow .15s, border-color .15s",
+        "hover": "border-color {accent.accent}; box-shadow inset 0 1px 0 rgba(255,255,255,.06), 0 0 16px -7px {accent.accent}"
+      },
+      "navitem": {
+        "borderRadius": "8px",
+        "fontFamily": "{typography.families.display}",
+        "fontWeight": 500,
+        "activeBoxShadow": "inset 0 0 0 1px {accent.accent}",
+        "note": "The .on (active) state KEEPS the base accentBg/accentText fill (navitem component above) and ADDS a 1px inset accent ring."
+      },
+      "cmd": {
+        "background": "{surfaces.canvas}",
+        "border": "1px solid {borders.bd2}",
+        "borderRadius": "8px",
+        "note": "Command chips (/pandacorp:* strings) sit inset on the canvas color with a bd2 hairline."
+      }
+    },
+
+    "rpgpanel": {
+      "position": "relative",
+      "background": "{surfaces.card}",
+      "border": "1px solid {borders.bd2}",
+      "borderRadius": "10px",
+      "boxShadow": "inset 0 1px 0 rgba(255,255,255,.05), inset 0 -2px 0 rgba(0,0,0,.22), 0 2px 0 {surfaces.canvas}",
+      "note": "Identical surface to the skinned .panel; the explicit RPG panel primitive used by herostat/lockchip/shield containers."
+    },
+
+    "rpggrid": {
+      "backgroundImage": "linear-gradient({borders.bd} 1px, transparent 1px), linear-gradient(90deg, {borders.bd} 1px, transparent 1px)",
+      "backgroundSize": "22px 22px",
+      "note": "The 22px embossed grid texture overlaid on RPG panels (distinct from the Party 32px/30px SCENE grids)."
+    },
+
+    "shield": {
+      "width": "96px",
+      "height": "96px",
+      "borderRadius": "14px",
+      "border": "2px solid {accent.accent}",
+      "background": "{accent.accentBg}",
+      "boxShadow": "0 0 22px -6px {accent.accent}, inset 0 0 0 2px {surfaces.card}",
+      "imageRendering": "pixelated",
+      "layout": "flex column, centered; overflow hidden",
+      "note": "The hero crest. 96x96 accent-bordered + glow medallion; typically carries the .rpggrid texture (class 'shield rpggrid')."
+    },
+
+    "xpbar": {
+      "height": "18px",
+      "borderRadius": "7px",
+      "border": "1px solid {borders.bd2}",
+      "background": "{surfaces.canvas}",
+      "fill": { "background": "{accent.accent}", "transition": "width .6s" },
+      "stripes": {
+        "pseudo": "::after",
+        "background": "repeating-linear-gradient(90deg, transparent 0 16px, {surfaces.canvas} 16px 18px)",
+        "opacity": 0.5,
+        "note": "16px transparent + 2px canvas-colored notch = segmented XP-bar striping."
+      }
+    },
+
+    "herostat": {
+      "container": "uses .rpgpanel; position relative; overflow hidden",
+      "big": {
+        "fontFamily": "{typography.families.pixel}",
+        "fontSize": "40px",
+        "lineHeight": 0.85,
+        "fontVariantNumeric": "tabular-nums",
+        "note": "The big Pixelify-Sans stat numeral — the gamified RPG count (40px)."
+      },
+      "padding": "15px 16px 13px",
+      "tierBadge": "absolute top:11px right:12px; 9px; color {surfaces.canvas} on tier color; padding 1px 6px; radius 4px"
+    },
+
+    "lockchip": {
+      "padding": "9px 11px",
+      "position": "relative",
+      "overflow": "hidden",
+      "lockslot": { "filter": "saturate(.55)", "note": "Dimmed/locked item styling." },
+      "reveal": {
+        "position": "absolute inset 0",
+        "borderRadius": "9px",
+        "background": "{surfaces.card}",
+        "layout": "flex column, justify center; padding 9px 11px",
+        "opacity": 0,
+        "transition": "opacity .18s ease",
+        "pointerEvents": "none",
+        "shownOn": ".lockchip:hover .reveal, .lockchip:focus-within .reveal { opacity: 1 }",
+        "reducedMotion": "@media (prefers-reduced-motion: reduce) { .reveal { transition: none } }",
+        "note": "The locked → hover/focus-reveal mechanic: a card overlay that fades in over the locked chip. Focus-within makes it keyboard-reachable."
+      }
+    },
+
+    "secthead": {
+      "fontFamily": "{typography.families.display}",
+      "fontWeight": 600,
+      "fontSize": "13px",
+      "color": "{text.t2}",
+      "margin": "22px 2px 11px",
+      "layout": "flex, align center, gap 9px",
+      "line": {
+        "selector": ".secthead .ln",
+        "flex": 1,
+        "height": "1px",
+        "background": "{borders.bd}"
+      },
+      "note": "Section header with a trailing 1px rule that fills remaining width."
+    },
+
+    "itemslot": {
+      "borderRadius": "9px",
+      "imageRendering": "pixelated",
+      "layout": "inline-flex, centered; flex 0 0 auto",
+      "sizesObserved_px": [34, 40, 42, 58],
+      "note": "Inventory/equipment slot. Size is set inline per use (34/40/42/58px in the prototype); border 1.5–2px in the tier/accent color; background accentBg/warnBg/panel."
+    },
+
+    "node": {
+      "width": "15px",
+      "height": "15px",
+      "borderRadius": "4px",
+      "imageRendering": "pixelated",
+      "flex": "0 0 auto",
+      "note": "Tiny pixel node marker (skill-tree / mini sprite dots)."
+    },
+
+    "sprite": {
+      "imageRendering": "pixelated",
+      "display": "block",
+      "note": "Generic pixel-art sprite base used inside RPG panels (the Party sub-views define their own larger sprite specs — see party group)."
+    },
+
+    "glowwarn": {
+      "boxShadow": "inset 0 1px 0 rgba(255,255,255,.05), 0 0 18px -7px {warn}",
+      "note": "Warn-colored attention glow used on item slots/cards needing attention."
+    },
+
+    "anim": {
+      "keyframe": "rpgIn",
+      "rpgIn": "from { opacity:0; transform: translateY(9px) } to { opacity:1; transform: translateY(0) }",
+      "application": ".anim { animation: rpgIn .34s ease both }",
+      "reducedMotion": "@media (prefers-reduced-motion: reduce) { .anim { animation: none } }",
+      "note": "App-wide entrance animation for RPG panels: a 9px rise + fade, 340ms. Transform/opacity only; honors reduced-motion."
+    },
+
+    "spot": { "borderWidth": "1.5px", "note": "Spotlight emphasis variant (thicker border)." }
+  },
+
+  "party": {
+    "$meta": {
+      "layer": "Party pixel-art spec — MISSED in the first extraction, added under DR-056 complete-extraction. The two embedded sub-views are part of the contract.",
+      "subViews": {
+        "index": "prototype/index.html (the default Party canvas embedded in the dashboard — #rpg-scene, .mcstation, .mcag). Sprites 54px, scene grid 32px.",
+        "fragua": "prototype/party-proposal.html — 'La Fragua' (build view). Sprites 52px, scene grid 30px, vault/forge rooms positioned on a 920x560 stage.",
+        "campana": "prototype/party-pipeline.html — 'La Campaña' (pipeline view). Sprites 58px, scene grid 30px, phase rooms 250x208 on a 920x560 stage."
+      },
+      "note": "Per-view sprite sizes are recorded individually (index 54 / Fragua 52 / Campaña 58) — DO NOT average. A tokens-only build must be able to reproduce each view's backgrounds and sprite scale exactly.",
+      "rgbaScrimLiteral": "The rgba(12,17,19,.NN) scrim family is theme-independent structural literal (dark map overlays). Keep verbatim."
+    },
+
+    "partyStructural": {
+      "$note": "The ~10 hardcoded structural colors used to paint the Party map backgrounds (scene fill, grid lines, paths/connectors, vault floor, room scrims). These are NOT in the semantic palette; tokenize them as a dedicated group so a tokens-only build reproduces the backgrounds pixel-faithfully. Values are dark-map literals shared across all Party sub-views.",
+
+      "sceneFillRadialA": "#16201f",
+      "sceneFillRadialB": "#141b22",
+      "sceneFillRadialC": "#16201d",
+      "sceneBase": "#0c1113",
+      "gridLine": "#1d2629",
+
+      "pathTrackLight": "#26312f",
+      "pathTrackDarkFragua": "#202927",
+      "pathTrackDarkCampana": "#1c2523",
+      "pathSeam": "#2c3836",
+      "pathFlowLight": "#2f4a3a",
+      "pathFlowDarkCampana": "#21342a",
+
+      "vaultFloorSeam": "#1c3a2a",
+
+      "usage": {
+        "sceneFillRadialA": "Body radial-gradient stop A (Fragua body bg: radial 20% -10%).",
+        "sceneFillRadialB": "Body radial-gradient stop B (Fragua body bg: radial 100% 110%).",
+        "sceneFillRadialC": "Stage radial-gradient center stop (Fragua 24% 36% / Campaña 50% 46%).",
+        "sceneBase": "Solid base color under the stage radial (.stage background base) and chip/doc backgrounds on the map.",
+        "gridLine": "The .stage::before scene-grid lines (.5px, 30px cells, opacity ~.45–.5).",
+        "pathTrackLight": "Light stripe of the dashed path/connector (.pathline / .conn .road repeating gradient, 9–10px).",
+        "pathTrackDarkFragua": "Dark stripe of the Fragua .pathline.",
+        "pathTrackDarkCampana": "Dark stripe of the Campaña inactive .conn .road.",
+        "pathSeam": "inset 1px seam on path/connector tracks (box-shadow inset 0 0 0 1px).",
+        "pathFlowLight": "Light stripe of an ACTIVE/flowing connector (.conn.flow .road) in Campaña.",
+        "pathFlowDarkCampana": "Dark stripe of an active/flowing connector in Campaña.",
+        "vaultFloorSeam": "inset 1px seam on the vault floor (.vaultfloor, boveda.png)."
+      },
+
+      "scrim": {
+        "$note": "The rgba(12,17,19, alpha) scrim family — dark overlays for labels, counts, room darkening and vault gradients. Per-view alphas recorded.",
+        "label_0_8": "rgba(12,17,19,.8)",
+        "label_0_82": "rgba(12,17,19,.82)",
+        "tag_0_85": "rgba(12,17,19,.85)",
+        "tag_0_86": "rgba(12,17,19,.86)",
+        "vaultTop_0_32": "rgba(12,17,19,.32)",
+        "vaultBottom_0_5": "rgba(12,17,19,.5)",
+        "campanaScrimA_0_1": "rgba(12,17,19,.1)",
+        "campanaScrimB_0_28": "rgba(12,17,19,.28)",
+        "campanaScrimC_0_6": "rgba(12,17,19,.6)"
+      }
+    },
+
+    "spriteSizes_px": {
+      "index": 54,
+      "fragua": 52,
+      "campana": 58,
+      "relayStepFragua": 29,
+      "fraguaVault": 42,
+      "campanaSmall": 46,
+      "note": "Per-view sprite render size (img width/height). index .mcag=54, Fragua .ag=52 (vault variant 42, sequential relay rstep 29), Campaña .sp=58 (small variant 46)."
+    },
+
+    "gridSizes_px": {
+      "index": 32,
+      "fragua": 30,
+      "campana": 30,
+      "note": "Scene grid cell. index #rpg-scene = 32px (var(--bd) .5px lines); Fragua/Campaña .stage::before = 30px (#1d2629 .5px lines). Distinct from the rpgSkin .rpggrid 22px panel texture."
+    },
+
+    "roomSizes_px": {
+      "fraguaStage": { "width": 920, "height": 560 },
+      "campanaStage": { "width": 920, "height": 560 },
+      "campanaRoom": { "width": 250, "height": 208 },
+      "fraguaVaultMore": { "width": 54, "height": 54 },
+      "note": "Both redesigned sub-views use a 920x560 stage. Campaña phase rooms are fixed 250x208; Fragua forge/vault rooms are absolutely positioned (no single fixed room box). NOTE: the task brief cited a Fragua 432x372 room and a 32px Fragua grid — the CURRENT prototype (party-proposal.html, the approved redesign) uses a 920x560 stage with positioned rooms and a 30px grid; recorded as found. See 'ambiguity' in the design-decisions log."
+    },
+
+    "stateMachine": {
+      "index": {
+        "selectorBase": ".mcag",
+        "states": ["s-work", "s-review", "s-blocked", "s-idle", "carry"],
+        "behavior": {
+          "s-work": "halo on (mchalo); prog bar visible",
+          "s-review": "halo on (mchalo)",
+          "s-blocked": "halo on, faster (animation-duration .9s)",
+          "s-idle": "img opacity .45 + grayscale(.4)",
+          "carry": ".pkt packet icon shown (.mcag.carry .pkt { display:flex })"
+        },
+        "extras": ["has-emote (mceb)", "has-say (mcsay)", "mcdots (mcdt typing dots)"]
+      },
+      "fragua": {
+        "selectorBase": ".ag",
+        "states": ["work", "review", "carry", "vault", "split", "say-on"],
+        "behavior": {
+          "work": "halo (halo kf) + prog bar (cat7 fill)",
+          "review": "halo (halo kf)",
+          "carry": ".scrollicon shown (a warn scroll)",
+          "vault": "smaller 42px img + .medal shown + ok-colored tag",
+          "split": "img hidden, .relay sequence shown (sequential relay test→backend→contrato→frontend, 29px rstep sprites)",
+          "say-on": ".say speech bubble shown (sayin kf)"
+        }
+      },
+      "campana": {
+        "selectorBase": ".sp / .spi",
+        "states": ["idle (idlebob)", "walking (walkbob)", "small", "locked"],
+        "behavior": {
+          "idle": ".spi animates idlebob 2.6s",
+          "walking": ".spi.walking animates walkbob .42s (the lead roams the room)",
+          "small": "46px img variant",
+          "locked": ".room.locked .spi { animation: none }"
+        },
+        "roomStates": {
+          "selectorBase": ".room / .badge",
+          "active": "roompulse glow + badge.active",
+          "done": "badge.done (ok)",
+          "locked": "badge.locked (dimmed); .room.sel outline accent-text"
+        }
+      }
+    },
+
+    "keyframes": {
+      "$note": "Complete keyframe inventory across the three Party sub-views. transform/opacity only; the Party canvas is where expressive motion is reserved (frequency test). Honor prefers-reduced-motion at the app shell.",
+      "index": {
+        "pcbob": "0% {translate(0,0)} 25% {translate(1px,-2px)} 50% {translate(0,-3px)} 75% {translate(-1px,-2px)} 100% {translate(0,0)} — sprite idle bob/wander.",
+        "mchalo": "0%,100% {scale(.8) opacity .3} 50% {scale(1.15) opacity .55} — under-sprite halo pulse.",
+        "mceb": "0%,100% {translateY(0)} 50% {translateY(-4px)} (X-centered) — emote bob.",
+        "mcsay": "from {opacity 0, translateY(3px)} to {opacity 1, translateY(0)} (X-centered) — speech bubble in.",
+        "mcdt": "0%,100% {opacity .3, translateY(0)} 50% {opacity 1, translateY(-2px)} — typing dots."
+      },
+      "fragua": {
+        "halo": "0%,100% {scale(.8) opacity .32} 50% {scale(1.18) opacity .6} — sprite halo (Fragua variant).",
+        "sayin": "from {opacity 0, translateY(3px)} to {opacity 1, translateY(0)} (X-centered) — speech in.",
+        "pulse": "0%,100% {opacity 1} 50% {opacity .35} — live/FRD pip pulse."
+      },
+      "campana": {
+        "roompulse": "0%,100% {box-shadow 0 0 0 2px accent, 0 0 36px -10px accent} 50% {0 0 0 2px accent, 0 0 52px -6px accent} — active-room glow breathing.",
+        "idlebob": "0%,100% {translateY(0)} 50% {translateY(-3px)} — sprite idle.",
+        "walkbob": "0%,100% {translateY(0)} 50% {translateY(-4px)} — sprite walking.",
+        "cbob": "0%,100% {translateY(0)} 50% {translateY(-5px)} — cast/lead bob.",
+        "slidein": "0% {translateX(-3px) opacity .5} 50% {translateX(3px) opacity 1} 100% {translateX(-3px) opacity .5} — doc pip sliding along an active connector.",
+        "halo": "0%,100% {opacity .3, scale(.85)} 50% {opacity .55, scale(1.15)} (X-centered) — sprite halo (Campaña variant).",
+        "sayin": "from {opacity 0, translateY(3px)} to {opacity 1, translateY(0)} — speech in.",
+        "pulse": "0%,100% {opacity 1} 50% {opacity .35} — live dot pulse."
+      }
+    }
+  },
+
+  "motion": {
+    "rules": "transform/opacity only, <300ms. Everyday motion sober; expressive (sprite bob, halos, emotes) reserved for the Party canvas. Respect prefers-reduced-motion.",
+    "focus": "outline 2px solid {accent.accent}; outline-offset 2px"
+  },
+
+  "assets": {
+    "zones": "prototype/assets/zones/*.png (12 pixel-art zones: research, frontend, backend, architecture, testing, review, security, analytics, release, boveda, build-hall, tribunal)",
+    "agents": "prototype/assets/agents/*.png (13 agent sprites + grid sheets)",
+    "logo": "prototype/assets/pandacorp.png",
+    "staging": "Must be copied into public/ for the Next.js app to serve them (see technical-assumptions.md)."
+  }
+}

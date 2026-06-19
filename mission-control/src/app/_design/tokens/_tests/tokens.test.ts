@@ -1,21 +1,19 @@
 /**
  * WO-13-001 — Token schema validation + agent-color/state-vocab key maps
  *
- * RED phase: all tests are expected to fail until the implementation exists.
+ * Re-anchored 2026-06-18 (DR-054 ADOPT-VISUAL): validateTokenSchema now validates the
+ * owner-approved prototype contract (docs/design/design-tokens.json) — themes.{dark,light}
+ * with surfaces/text/borders/accent/status/categories[9]/tiers[5]/shadows, radii, typography,
+ * spacing and motion. This SUPERSEDES the earlier invented cold-blue OKLCH shape
+ * (oklch.{base,accent,contrast} + flat themes.{light,dark,highContrast} + flat elevation[3]).
+ * The agent-role palette (AGENT_ROLES/AGENT_COLOR) and the state vocabulary are unchanged.
  *
  * Traces:
- *   AC-13-001.1 — Theme derived from few tokens in perceptual space (OKLCH: base, accent, contrast);
- *                 high-contrast mode without redesign.
- *   AC-13-004.1 — Elevation has 3 levels; radius 8px, base 16px, hairline 1px,
- *                 spacing in 0.25rem multiples.
- *   AC-13-005.1 — Animation duration <300ms; 2–3 easing tokens.
+ *   AC-13-001.1 — Theme derived from few tokens; both theme variants present so a
+ *                 high-contrast override can be enabled without a redesign.
+ *   AC-13-004.1 — Tokenized radius/shadow scale (radii sm/md/lg/pill; two-layer shadows).
+ *   AC-13-005.1 — Restrained motion (transform/opacity, <300ms) — motion.rules contract.
  *   AC-13-007.1 — No state depends on color alone: each state paired with icon + label.
- *
- * Bugs anchored in PARTY.md and design/brief.md:
- *   - All ~10 agent roles must have a color key (brief.md §6, PARTY.md §6 agent list).
- *   - STATE_BADGE must cover both the FRD-13 list (working/idle/failed/completed) AND the
- *     blueprint's extended list (+ blocked/reviewing), because PARTY.md §1 defines 5 visual
- *     states and the blueprint defines 6.
  */
 
 import { describe, expect, it } from "vitest";
@@ -25,109 +23,102 @@ import {
   AGENT_STATES,
   type AgentRole,
   type AgentState,
+  CATEGORY_KEYS,
   STATE_BADGE,
+  THEME_VARIANTS,
+  TIER_KEYS,
   type TokenSchema,
   type TokenValidationResult,
   validateTokenSchema,
 } from "../tokens";
 
 // ---------------------------------------------------------------------------
-// Fixtures
+// Fixtures — mirrors the prototype contract (docs/design/design-tokens.json).
+// Hex literals, dark default + light. Values reflect the real frozen palette.
 // ---------------------------------------------------------------------------
 
-/** Minimal valid token shape — matches blueprint §3 / WO-13-001 Scope. */
+/** A complete theme variant matching the prototype's per-theme group shape. */
+function makeVariant(): TokenSchema["themes"]["dark"] {
+  return {
+    surfaces: { canvas: "#0F1517", panel: "#192123", card: "#222A2D", card2: "#2A3336" },
+    text: { t1: "#EDEBE7", t2: "#BAB7B0", t3: "#9E9B94" },
+    borders: { bd: "#2F373A", bd2: "#4F5A5D" },
+    accent: {
+      accent: "#33B6D1",
+      accentText: "#62CFE8",
+      accentBg: "#003542",
+      onAccent: "#071318",
+    },
+    status: {
+      ok: "#5EC386",
+      okBg: "#163A27",
+      warn: "#EBB25F",
+      warnBg: "#3A2E18",
+      danger: "#F36356",
+      dangerBg: "#3A1A17",
+      info: "#5EB6E6",
+      infoBg: "#14303D",
+    },
+    categories: {
+      cat1: "#60AD64",
+      cat2: "#A278E4",
+      cat3: "#E9609E",
+      cat4: "#3D96EA",
+      cat5: "#2CB3B4",
+      cat6: "#37B2E8",
+      cat7: "#E39849",
+      cat8: "#46B68C",
+      cat9: "#EC5C50",
+    },
+    tiers: {
+      tier1: "#989FA8",
+      tier2: "#53BE70",
+      tier3: "#339FEE",
+      tier4: "#B474F4",
+      tier5: "#F68C36",
+    },
+    shadows: {
+      shadow: "0 1px 2px rgba(0,0,0,.3),0 8px 28px rgba(0,0,0,.35)",
+      shadowPop: "0 18px 50px rgba(0,0,0,.5)",
+    },
+  };
+}
+
+/** Minimal valid token shape — matches the prototype contract / DR-054. */
 const VALID_TOKENS: TokenSchema = {
-  oklch: {
-    base: "oklch(0.15 0.02 230)",
-    accent: "oklch(0.75 0.18 60)",
-    contrast: "oklch(0.97 0.01 230)",
-  },
   themes: {
-    light: { surface: "oklch(0.97 0.005 230)", text: "oklch(0.12 0.02 230)" },
-    dark: { surface: "oklch(0.1 0.015 230)", text: "oklch(0.95 0.01 230)" },
-    highContrast: {
-      surface: "oklch(0 0 0)",
-      text: "oklch(1 0 0)",
+    dark: makeVariant(),
+    light: makeVariant(),
+  },
+  radii: { sm: "8px", md: "12px", lg: "16px", pill: "999px" },
+  typography: {
+    families: {
+      pixel: "'Pixelify Sans', ui-monospace, monospace",
+      display: "'Space Grotesk', system-ui, sans-serif",
+      mono: "ui-monospace, SFMono-Regular, Menlo, monospace",
+      body: "system-ui, -apple-system, 'Segoe UI', sans-serif",
     },
   },
-  agents: {
-    researcher: "oklch(0.65 0.18 45)",
-    "backend-dev": "oklch(0.55 0.2 260)",
-    "frontend-dev": "oklch(0.65 0.22 200)",
-    "test-writer": "oklch(0.7 0.2 130)",
-    reviewer: "oklch(0.65 0.2 300)",
-    "security-auditor": "oklch(0.6 0.18 20)",
-    architect: "oklch(0.6 0.2 240)",
-    "product-manager": "oklch(0.7 0.18 85)",
-    designer: "oklch(0.7 0.22 330)",
-    implementer: "oklch(0.68 0.2 160)",
-    copywriter: "oklch(0.72 0.18 70)",
-    analytics: "oklch(0.75 0.16 180)",
-    devops: "oklch(0.6 0.2 220)",
-  },
-  elevation: [
-    { shadow: "none", spacing: "0" },
-    { shadow: "0 1px 4px oklch(0 0 0 / 0.15)", spacing: "0.25rem" },
-    { shadow: "0 4px 16px oklch(0 0 0 / 0.25)", spacing: "0.5rem" },
-  ],
-  radius: "0.5rem",
-  spacing: "1rem",
-  hairline: "1px",
+  spacing: { scale_px: [2, 4, 6, 8, 10, 12, 16, 24] },
   motion: {
-    duration: {
-      fast: 150,
-      base: 200,
-      expressive: 280,
-    },
-    easing: {
-      standard: "cubic-bezier(0.4, 0, 0.2, 1)",
-      decelerate: "cubic-bezier(0, 0, 0.2, 1)",
-    },
+    rules: "transform/opacity only, <300ms. Respect prefers-reduced-motion.",
+    focus: "outline 2px solid {accent.accent}; outline-offset 2px",
   },
 };
 
 // ---------------------------------------------------------------------------
-// AC-13-001.1 — Token schema: OKLCH perceptual space + theme trio
+// AC-13-001.1 — Token schema: both theme variants present (dark default + light)
 // ---------------------------------------------------------------------------
 
-describe("frd-13 AC-13-001.1: validateTokenSchema — oklch keys", () => {
+describe("frd-13 AC-13-001.1: validateTokenSchema — theme variants", () => {
   it("frd-13: WHEN a valid token file is supplied THEN validation succeeds with no errors", () => {
     const result: TokenValidationResult = validateTokenSchema(VALID_TOKENS);
     expect(result.valid).toBe(true);
     expect(result.errors).toHaveLength(0);
   });
 
-  it("frd-13: WHEN oklch.base is missing THEN validation fails with an actionable message", () => {
-    const bad = structuredClone(VALID_TOKENS);
-    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-    delete (bad.oklch as Record<string, unknown>).base;
-    const result = validateTokenSchema(bad);
-    expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /oklch\.base/.test(e))).toBe(true);
-  });
-
-  it("frd-13: WHEN oklch.accent is missing THEN validation fails with an actionable message", () => {
-    const bad = structuredClone(VALID_TOKENS);
-    delete (bad.oklch as Record<string, unknown>).accent;
-    const result = validateTokenSchema(bad);
-    expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /oklch\.accent/.test(e))).toBe(true);
-  });
-
-  it("frd-13: WHEN oklch.contrast is missing THEN validation fails with an actionable message", () => {
-    const bad = structuredClone(VALID_TOKENS);
-    delete (bad.oklch as Record<string, unknown>).contrast;
-    const result = validateTokenSchema(bad);
-    expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /oklch\.contrast/.test(e))).toBe(true);
-  });
-
-  it("frd-13: WHEN themes.light is missing THEN validation fails mentioning the missing theme", () => {
-    const bad = structuredClone(VALID_TOKENS);
-    delete (bad.themes as Record<string, unknown>).light;
-    const result = validateTokenSchema(bad);
-    expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /themes\.light/.test(e))).toBe(true);
+  it("frd-13: THEME_VARIANTS enumerates exactly the prototype's two themes (dark default + light)", () => {
+    expect(THEME_VARIANTS).toEqual(["dark", "light"]);
   });
 
   it("frd-13: WHEN themes.dark is missing THEN validation fails mentioning the missing theme", () => {
@@ -138,208 +129,189 @@ describe("frd-13 AC-13-001.1: validateTokenSchema — oklch keys", () => {
     expect(result.errors.some((e) => /themes\.dark/.test(e))).toBe(true);
   });
 
-  it("frd-13: WHEN themes.highContrast is missing THEN validation fails — high-contrast mode must not require a redesign", () => {
+  it("frd-13: WHEN themes.light is missing THEN validation fails mentioning the missing theme", () => {
     const bad = structuredClone(VALID_TOKENS);
-    delete (bad.themes as Record<string, unknown>).highContrast;
+    delete (bad.themes as Record<string, unknown>).light;
     const result = validateTokenSchema(bad);
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /themes\.highContrast/.test(e))).toBe(true);
+    expect(result.errors.some((e) => /themes\.light/.test(e))).toBe(true);
+  });
+
+  it("frd-13: WHEN a theme variant is missing its surfaces group THEN validation fails naming the path", () => {
+    const bad = structuredClone(VALID_TOKENS);
+    delete (bad.themes.dark as Record<string, unknown>).surfaces;
+    const result = validateTokenSchema(bad);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => /themes\.dark\.surfaces/.test(e))).toBe(true);
+  });
+
+  it("frd-13: WHEN themes.dark.surfaces.canvas is missing THEN validation fails naming the leaf token", () => {
+    const bad = structuredClone(VALID_TOKENS);
+    delete (bad.themes.dark.surfaces as Record<string, unknown>).canvas;
+    const result = validateTokenSchema(bad);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => /themes\.dark\.surfaces\.canvas/.test(e))).toBe(true);
+  });
+
+  it("frd-13: WHEN themes.light.accent.accent is missing THEN validation fails (the rationed accent must exist per theme)", () => {
+    const bad = structuredClone(VALID_TOKENS);
+    delete (bad.themes.light.accent as Record<string, unknown>).accent;
+    const result = validateTokenSchema(bad);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => /themes\.light\.accent\.accent/.test(e))).toBe(true);
+  });
+
+  it("frd-13: WHEN a theme variant is a primitive THEN validation fails (a variant must be a plain object)", () => {
+    const bad = structuredClone(VALID_TOKENS);
+    (bad.themes as Record<string, unknown>).dark = "oklch(...)";
+    const result = validateTokenSchema(bad);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => /themes\.dark/.test(e))).toBe(true);
   });
 });
 
 // ---------------------------------------------------------------------------
-// AC-13-004.1 — Elevation: exactly 3 levels + spacing/radius/hairline scale
+// AC-13-001.1 / AC-13-007.1 — category (9) and tier (5) slots present per theme
 // ---------------------------------------------------------------------------
 
-describe("frd-13 AC-13-004.1: validateTokenSchema — elevation and spacing scale", () => {
-  it("frd-13: WHEN elevation has fewer than 3 levels THEN validation fails mentioning elevation", () => {
+describe("frd-13 AC-13-001.1: validateTokenSchema — category and tier completeness", () => {
+  it("frd-13: CATEGORY_KEYS enumerates the 9 idea-category slots", () => {
+    expect(CATEGORY_KEYS).toHaveLength(9);
+  });
+
+  it("frd-13: TIER_KEYS enumerates the 5 rarity tiers (Bronze → Legend)", () => {
+    expect(TIER_KEYS).toHaveLength(5);
+  });
+
+  it("frd-13: WHEN a category slot is missing from a theme THEN validation fails naming it", () => {
     const bad = structuredClone(VALID_TOKENS);
-    bad.elevation = bad.elevation.slice(0, 2);
+    delete (bad.themes.dark.categories as Record<string, unknown>).cat5;
     const result = validateTokenSchema(bad);
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /elevation/.test(e))).toBe(true);
+    expect(result.errors.some((e) => /themes\.dark\.categories\.cat5/.test(e))).toBe(true);
   });
 
-  it("frd-13: WHEN elevation has more than 3 levels THEN validation fails (unbounded levels break the restrained scale)", () => {
+  it("frd-13: WHEN a tier slot is missing from a theme THEN validation fails naming it", () => {
     const bad = structuredClone(VALID_TOKENS);
-    bad.elevation = [
-      ...bad.elevation,
-      { shadow: "0 8px 32px oklch(0 0 0 / 0.4)", spacing: "1rem" },
-    ];
+    delete (bad.themes.light.tiers as Record<string, unknown>).tier3;
     const result = validateTokenSchema(bad);
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /elevation/.test(e))).toBe(true);
+    expect(result.errors.some((e) => /themes\.light\.tiers\.tier3/.test(e))).toBe(true);
   });
 
-  // I1 fix coverage: per-entry validation of shadow + spacing (AC-13-004.1)
-  it("frd-13: WHEN elevation has 3 empty objects THEN validation fails — empty objects are not a tokenised scale", () => {
-    // Regression guard: the pre-fix validator only checked count, not entry shape.
-    // [{}, {}, {}] would have silently passed even though no shadow/spacing was provided.
+  it("frd-13: WHEN a status background pair is missing THEN validation fails (status colors ship with a -Bg)", () => {
     const bad = structuredClone(VALID_TOKENS);
-    (bad as Record<string, unknown>).elevation = [{}, {}, {}];
+    delete (bad.themes.dark.status as Record<string, unknown>).dangerBg;
     const result = validateTokenSchema(bad);
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /elevation\[/.test(e))).toBe(true);
+    expect(result.errors.some((e) => /themes\.dark\.status\.dangerBg/.test(e))).toBe(true);
   });
+});
 
-  it("frd-13: WHEN elevation[1] is missing shadow THEN validation fails naming the index and field", () => {
+// ---------------------------------------------------------------------------
+// AC-13-004.1 — Radii scale + two-layer shadows
+// ---------------------------------------------------------------------------
+
+describe("frd-13 AC-13-004.1: validateTokenSchema — radii and shadow scale", () => {
+  it("frd-13: WHEN radii is absent THEN validation fails", () => {
     const bad = structuredClone(VALID_TOKENS);
-    delete (bad.elevation[1] as unknown as Record<string, unknown>).shadow;
+    delete (bad as Record<string, unknown>).radii;
     const result = validateTokenSchema(bad);
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /elevation\[1\]\.shadow/.test(e))).toBe(true);
+    expect(result.errors.some((e) => /radii/.test(e))).toBe(true);
   });
 
-  it("frd-13: WHEN elevation[0] has an empty-string shadow THEN validation fails", () => {
+  it("frd-13: WHEN a radii token is absent THEN validation fails naming the missing step", () => {
     const bad = structuredClone(VALID_TOKENS);
-    (bad.elevation[0] as unknown as Record<string, unknown>).shadow = "";
+    delete (bad.radii as Record<string, unknown>).md;
     const result = validateTokenSchema(bad);
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /elevation\[0\]\.shadow/.test(e))).toBe(true);
+    expect(result.errors.some((e) => /radii\.md/.test(e))).toBe(true);
   });
 
-  it("frd-13: WHEN elevation[2] is missing spacing THEN validation fails naming the index and field", () => {
+  it("frd-13: WHEN a theme's shadows.shadowPop is absent THEN validation fails (the two-layer scale must be complete)", () => {
     const bad = structuredClone(VALID_TOKENS);
-    delete (bad.elevation[2] as unknown as Record<string, unknown>).spacing;
+    delete (bad.themes.dark.shadows as Record<string, unknown>).shadowPop;
     const result = validateTokenSchema(bad);
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /elevation\[2\]\.spacing/.test(e))).toBe(true);
+    expect(result.errors.some((e) => /themes\.dark\.shadows\.shadowPop/.test(e))).toBe(true);
   });
 
-  it("frd-13: WHEN elevation entries are all well-formed THEN entry-level validation passes", () => {
-    // Guard against the fix accidentally breaking the happy path.
-    const result = validateTokenSchema(VALID_TOKENS);
-    expect(result.valid).toBe(true);
-    expect(result.errors.filter((e) => /elevation\[/.test(e))).toHaveLength(0);
-  });
-
-  it("frd-13: WHEN radius token is absent THEN validation fails", () => {
+  it("frd-13: WHEN a theme's shadows group is empty-string-valued THEN validation fails (no empty shadow literals)", () => {
     const bad = structuredClone(VALID_TOKENS);
-    delete (bad as Record<string, unknown>).radius;
+    (bad.themes.light.shadows as Record<string, unknown>).shadow = "";
     const result = validateTokenSchema(bad);
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /radius/.test(e))).toBe(true);
+    expect(result.errors.some((e) => /themes\.light\.shadows\.shadow/.test(e))).toBe(true);
   });
+});
 
-  it("frd-13: WHEN hairline token is absent THEN validation fails", () => {
+// ---------------------------------------------------------------------------
+// AC-13-005.1 — Motion contract (transform/opacity, <300ms) + focus ring
+// ---------------------------------------------------------------------------
+
+describe("frd-13 AC-13-005.1 / AC-13-008.1: validateTokenSchema — motion and focus", () => {
+  it("frd-13: WHEN motion is absent THEN validation fails", () => {
     const bad = structuredClone(VALID_TOKENS);
-    delete (bad as Record<string, unknown>).hairline;
+    delete (bad as Record<string, unknown>).motion;
     const result = validateTokenSchema(bad);
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /hairline/.test(e))).toBe(true);
+    expect(result.errors.some((e) => /motion/.test(e))).toBe(true);
   });
 
-  it("frd-13: WHEN spacing token is absent THEN validation fails", () => {
+  it("frd-13: WHEN motion.rules is absent THEN validation fails (the transform/opacity <300ms rule is the contract)", () => {
+    const bad = structuredClone(VALID_TOKENS);
+    delete (bad.motion as Record<string, unknown>).rules;
+    const result = validateTokenSchema(bad);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => /motion\.rules/.test(e))).toBe(true);
+  });
+
+  it("frd-13: WHEN motion.focus is absent THEN validation fails (a focus-ring spec is mandatory, AC-13-008.1)", () => {
+    const bad = structuredClone(VALID_TOKENS);
+    delete (bad.motion as Record<string, unknown>).focus;
+    const result = validateTokenSchema(bad);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => /motion\.focus/.test(e))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// typography & spacing — present and non-empty
+// ---------------------------------------------------------------------------
+
+describe("frd-13: validateTokenSchema — typography and spacing presence", () => {
+  it("frd-13: WHEN typography is absent THEN validation fails", () => {
+    const bad = structuredClone(VALID_TOKENS);
+    delete (bad as Record<string, unknown>).typography;
+    const result = validateTokenSchema(bad);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => /typography/.test(e))).toBe(true);
+  });
+
+  it("frd-13: WHEN spacing is absent THEN validation fails", () => {
     const bad = structuredClone(VALID_TOKENS);
     delete (bad as Record<string, unknown>).spacing;
     const result = validateTokenSchema(bad);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => /spacing/.test(e))).toBe(true);
   });
-});
 
-// ---------------------------------------------------------------------------
-// AC-13-005.1 — Animation: all durations <300ms, 2–3 easing tokens
-// ---------------------------------------------------------------------------
-
-describe("frd-13 AC-13-005.1: validateTokenSchema — motion constraints", () => {
-  it("frd-13: WHEN a motion duration equals 300ms THEN validation fails (must be strictly less than 300)", () => {
+  it("frd-13: WHEN typography is an empty object THEN validation fails (a token-less typography group is invalid)", () => {
     const bad = structuredClone(VALID_TOKENS);
-    bad.motion.duration.base = 300;
+    (bad as Record<string, unknown>).typography = {};
     const result = validateTokenSchema(bad);
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /duration|300/.test(e))).toBe(true);
-  });
-
-  it("frd-13: WHEN a motion duration exceeds 300ms THEN validation fails with the offending value", () => {
-    const bad = structuredClone(VALID_TOKENS);
-    bad.motion.duration.expressive = 350;
-    const result = validateTokenSchema(bad);
-    expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /duration|350/.test(e))).toBe(true);
-  });
-
-  it("frd-13: WHEN a motion duration is NaN THEN validation fails (NaN bypasses the <300 comparison — B1', DR-015)", () => {
-    const bad = structuredClone(VALID_TOKENS);
-    bad.motion.duration.base = Number.NaN;
-    const result = validateTokenSchema(bad);
-    expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /duration|finite|nan/i.test(e))).toBe(true);
-  });
-
-  it("frd-13: WHEN a motion duration is Infinity THEN validation fails (regression guard so the finite check stays — DR-015)", () => {
-    const bad = structuredClone(VALID_TOKENS);
-    bad.motion.duration.base = Number.POSITIVE_INFINITY;
-    const result = validateTokenSchema(bad);
-    expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /duration|finite|infinity/i.test(e))).toBe(true);
-  });
-
-  it("frd-13: WHEN there is only 1 easing token THEN validation fails (minimum is 2)", () => {
-    const bad = structuredClone(VALID_TOKENS);
-    bad.motion.easing = { standard: "cubic-bezier(0.4, 0, 0.2, 1)" };
-    const result = validateTokenSchema(bad);
-    expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /easing/.test(e))).toBe(true);
-  });
-
-  it("frd-13: WHEN there are 4 easing tokens THEN validation fails (maximum is 3)", () => {
-    const bad = structuredClone(VALID_TOKENS);
-    bad.motion.easing = {
-      standard: "cubic-bezier(0.4, 0, 0.2, 1)",
-      decelerate: "cubic-bezier(0, 0, 0.2, 1)",
-      bounce: "cubic-bezier(0.34, 1.56, 0.64, 1)",
-      snap: "cubic-bezier(0.77, 0, 0.18, 1)",
-    };
-    const result = validateTokenSchema(bad);
-    expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /easing/.test(e))).toBe(true);
-  });
-
-  it("frd-13: WHEN exactly 2 easing tokens are present THEN validation succeeds", () => {
-    // Already covered by VALID_TOKENS (2 easings) — explicit assertion for clarity.
-    const result = validateTokenSchema(VALID_TOKENS);
-    expect(result.valid).toBe(true);
-  });
-
-  it("frd-13: WHEN exactly 3 easing tokens are present THEN validation succeeds", () => {
-    const good = structuredClone(VALID_TOKENS);
-    good.motion.easing = {
-      standard: "cubic-bezier(0.4, 0, 0.2, 1)",
-      decelerate: "cubic-bezier(0, 0, 0.2, 1)",
-      expressive: "cubic-bezier(0.34, 1.56, 0.64, 1)",
-    };
-    const result = validateTokenSchema(good);
-    expect(result.valid).toBe(true);
+    expect(result.errors.some((e) => /typography/.test(e))).toBe(true);
   });
 });
 
 // ---------------------------------------------------------------------------
-// Agent palette — all roles present in tokens.agents
-// ---------------------------------------------------------------------------
-
-describe("frd-13 AC-13-001.1: validateTokenSchema — agent palette completeness", () => {
-  it("frd-13: WHEN an agent role is missing from tokens.agents THEN validation fails naming the missing role", () => {
-    const bad = structuredClone(VALID_TOKENS);
-    // Remove one role to trigger failure
-    delete (bad.agents as Record<string, unknown>).researcher;
-    const result = validateTokenSchema(bad);
-    expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /researcher/.test(e))).toBe(true);
-  });
-
-  it("frd-13: WHEN all 10 canonical roles are present in tokens.agents THEN validation succeeds", () => {
-    const result = validateTokenSchema(VALID_TOKENS);
-    expect(result.valid).toBe(true);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// IF-13-agent-colors — AGENT_COLOR key map
+// Agent palette — all roles present in AGENT_COLOR
 // ---------------------------------------------------------------------------
 
 describe("frd-13 AC-13-001.1 / IF-13-agent-colors: AGENT_COLOR covers all canonical roles", () => {
-  it("frd-13: AGENT_ROLES must enumerate all ~13 canonical roles (source of truth for AGENT_COLOR and the token palette)", () => {
+  it("frd-13: AGENT_ROLES must enumerate all 13 canonical roles (source of truth for AGENT_COLOR and the token palette)", () => {
     // Realignment 2026-06-18 (Party redesign): add implementer/copywriter/analytics/devops,
     // remove the fictitious 'guild' aggregate. Source: prototype/party-redesign-spec.md §2.
     const expected: AgentRole[] = [
@@ -492,16 +464,7 @@ describe("frd-13 AC-13-007.1 / IF-13-state-vocab: STATE_BADGE covers all 6 state
 
 describe("frd-13: validateTokenSchema structural invariants", () => {
   it("frd-13: removing ANY top-level required key always makes validation fail", () => {
-    const requiredTopLevel = [
-      "oklch",
-      "themes",
-      "agents",
-      "elevation",
-      "radius",
-      "spacing",
-      "hairline",
-      "motion",
-    ] as const;
+    const requiredTopLevel = ["themes", "radii", "typography", "spacing", "motion"] as const;
 
     for (const key of requiredTopLevel) {
       const bad = structuredClone(VALID_TOKENS);
@@ -517,7 +480,7 @@ describe("frd-13: validateTokenSchema structural invariants", () => {
 
   it("frd-13: validation errors are always strings and never empty strings", () => {
     const bad = structuredClone(VALID_TOKENS);
-    bad.motion.duration.fast = 500; // Force failure
+    delete (bad.themes.dark as Record<string, unknown>).surfaces; // Force failure
     const result = validateTokenSchema(bad);
     expect(result.valid).toBe(false);
     for (const error of result.errors) {
@@ -535,12 +498,12 @@ describe("frd-13: validateTokenSchema structural invariants", () => {
     // Mutation target: a validator that returns early on first failure would miss subsequent
     // errors and make diagnosis harder for the token author.
     const bad = structuredClone(VALID_TOKENS);
-    delete (bad as Record<string, unknown>).radius;
-    delete (bad as Record<string, unknown>).hairline;
+    delete (bad as Record<string, unknown>).radii;
+    delete (bad as Record<string, unknown>).motion;
     const result = validateTokenSchema(bad);
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /radius/.test(e))).toBe(true);
-    expect(result.errors.some((e) => /hairline/.test(e))).toBe(true);
+    expect(result.errors.some((e) => /radii/.test(e))).toBe(true);
+    expect(result.errors.some((e) => /motion/.test(e))).toBe(true);
     expect(result.errors.length).toBeGreaterThanOrEqual(2);
   });
 });
@@ -569,21 +532,10 @@ describe("frd-13: validateTokenSchema — degenerate inputs", () => {
   });
 
   it("frd-13: WHEN called with an empty object THEN validation fails listing all missing required keys", () => {
-    // An empty object has no oklch, themes, agents, elevation, radius, spacing, hairline, motion.
-    // The validator must enumerate them all, not just stop at the first.
     const result = validateTokenSchema({});
     expect(result.valid).toBe(false);
-    // All 8 required top-level keys must be reported.
-    const requiredKeys = [
-      "oklch",
-      "themes",
-      "agents",
-      "elevation",
-      "radius",
-      "spacing",
-      "hairline",
-      "motion",
-    ];
+    // All 5 required top-level keys must be reported.
+    const requiredKeys = ["themes", "radii", "typography", "spacing", "motion"];
     for (const key of requiredKeys) {
       expect(
         result.errors.some((e) => new RegExp(key).test(e)),
@@ -592,41 +544,54 @@ describe("frd-13: validateTokenSchema — degenerate inputs", () => {
     }
   });
 
-  it("frd-13: WHEN agents is an empty object THEN validation fails listing ALL missing canonical roles", () => {
-    // The single-role removal test (above) only exercises the removal of one role; this exercises
-    // the case where the entire agents map is present but empty — catching a validator that
-    // only checks for key existence, not for completeness of the role set.
+  it("frd-13: WHEN a theme variant is an empty object THEN validation fails listing ALL missing groups", () => {
+    // Catches a validator that only checks for the theme key's presence, not for the
+    // completeness of its token groups.
     const bad = structuredClone(VALID_TOKENS);
-    (bad as Record<string, unknown>).agents = {};
+    (bad.themes as Record<string, unknown>).dark = {};
     const result = validateTokenSchema(bad);
     expect(result.valid).toBe(false);
-    for (const role of AGENT_ROLES) {
+    for (const group of [
+      "surfaces",
+      "text",
+      "borders",
+      "accent",
+      "status",
+      "categories",
+      "tiers",
+      "shadows",
+    ]) {
       expect(
-        result.errors.some((e) => new RegExp(role).test(e)),
-        `Expected an error for missing role "${role}"`,
+        result.errors.some((e) => new RegExp(`themes\\.dark\\.${group}`).test(e)),
+        `Expected an error for missing group "themes.dark.${group}"`,
       ).toBe(true);
     }
   });
 
-  it("frd-13: WHEN motion.easing is an empty object THEN validation fails (0 < minimum of 2)", () => {
-    // The "1 easing" test above covers count < 2 from the upper side; zero is a distinct
-    // degenerate case (an agent might accidentally clear the easing map).
+  it("frd-13: WHEN themes is a positional array THEN validation fails (arrays masquerade as objects)", () => {
+    // Regression guard: an array passes `typeof value === 'object'` but theme variants are
+    // referenced by name (dark/light), not position. The array guard must fire.
     const bad = structuredClone(VALID_TOKENS);
-    bad.motion.easing = {};
+    (bad as Record<string, unknown>).themes = [makeVariant(), makeVariant()];
     const result = validateTokenSchema(bad);
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /easing/.test(e))).toBe(true);
+    expect(result.errors.some((e) => /themes/.test(e))).toBe(true);
   });
 
-  it("frd-13: WHEN a motion.duration value is a non-number THEN validation does not silently accept it", () => {
-    // The validator checks `typeof value === 'number' && value >= 300`. A non-number slips
-    // through without a 300ms check. The token JSON schema should reject non-numeric durations.
+  it("frd-13: WHEN a theme's categories group is a positional array THEN validation fails (named slots, not indices)", () => {
     const bad = structuredClone(VALID_TOKENS);
-    (bad.motion.duration as Record<string, unknown>).fast = "150ms"; // string, not number
+    (bad.themes.dark as Record<string, unknown>).categories = ["#60AD64", "#A278E4"];
     const result = validateTokenSchema(bad);
-    // A non-numeric duration is an invalid shape — the validator must flag it.
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /duration/.test(e))).toBe(true);
+    expect(result.errors.some((e) => /themes\.dark\.categories/.test(e))).toBe(true);
+  });
+
+  it("frd-13: WHEN a token leaf is a number instead of a color string THEN validation fails (no non-string token values)", () => {
+    const bad = structuredClone(VALID_TOKENS);
+    (bad.themes.dark.surfaces as Record<string, unknown>).canvas = 123;
+    const result = validateTokenSchema(bad);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => /themes\.dark\.surfaces\.canvas/.test(e))).toBe(true);
   });
 });
 
@@ -697,172 +662,5 @@ describe("frd-13 IF-13-state-vocab: STATE_BADGE icon identifier format", () => {
         `STATE_BADGE["${state}"].label "${label}" must not contain control characters`,
       ).toBe(false);
     }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Regression guards for the three fail-open holes found in the 2nd review
-// (DR-015 adversarial findings — B1', I2, I3 from wo-13-001-review.md)
-//
-// These tests are the permanent RED-phase anchors for the three bugs:
-//   B1' — NaN duration bypasses the <300ms comparison (typeof NaN === "number")
-//   I2  — empty {} and array [] for motion.duration validate vacuously
-//   I3  — positional array for motion.easing passes the 2–3 count check via Object.keys
-//
-// Each test was written to fail against the pre-fix code (the code frozen at
-// last_green_sha=0c980d7) and pass only after the correct guard is in place.
-// ---------------------------------------------------------------------------
-
-describe("frd-13 (adversarial — B1'/I2/I3): motion fail-open guards", () => {
-  // --- B1': Number.isFinite guard on motion.duration values ---
-
-  it("frd-13: WHEN motion.duration.fast is NaN THEN validation fails — NaN must not bypass the <300ms gate (B1', AC-13-005.1)", () => {
-    // Regression anchor: `typeof NaN === "number"` is true and `NaN >= 300` is false,
-    // so without an explicit `Number.isFinite` check the validator silently accepts NaN.
-    // This is the exact fail-open class the B1' fix must close.
-    const bad = structuredClone(VALID_TOKENS);
-    (bad.motion.duration as Record<string, unknown>).fast = Number.NaN;
-    const result = validateTokenSchema(bad);
-    expect(result.valid).toBe(false);
-    // The error must mention the specific key AND indicate the non-finite issue.
-    expect(
-      result.errors.some((e) => /duration/.test(e) && /fast/.test(e)),
-      "Expected an error naming motion.duration.fast as the invalid entry",
-    ).toBe(true);
-  });
-
-  it("frd-13: WHEN motion.duration.expressive is Infinity THEN validation fails — Infinity is not a valid duration (B1', AC-13-005.1)", () => {
-    // Regression anchor: +Infinity passes `typeof value === "number"` and `Infinity >= 300`
-    // is true so it would be caught by the >= 300 check — BUT only if the guard checks
-    // the correct inequality. Pinned here so a Number.isFinite fix doesn't accidentally
-    // regress the Infinity path (the two cases are distinct: NaN slips through, Infinity
-    // hits the >= 300 branch; both must be rejected).
-    const bad = structuredClone(VALID_TOKENS);
-    (bad.motion.duration as Record<string, unknown>).expressive = Number.POSITIVE_INFINITY;
-    const result = validateTokenSchema(bad);
-    expect(result.valid).toBe(false);
-    expect(
-      result.errors.some((e) => /duration/.test(e) && /expressive/.test(e)),
-      "Expected an error naming motion.duration.expressive as the invalid entry",
-    ).toBe(true);
-  });
-
-  it("frd-13: WHEN motion.duration is -Infinity THEN validation fails — negative infinity is not a finite duration (B1', AC-13-005.1)", () => {
-    // Third non-finite variant: -Infinity satisfies `typeof value === "number"` and
-    // `-Infinity >= 300` is false — same fail-open class as NaN.
-    const bad = structuredClone(VALID_TOKENS);
-    (bad.motion.duration as Record<string, unknown>).base = Number.NEGATIVE_INFINITY;
-    const result = validateTokenSchema(bad);
-    expect(result.valid).toBe(false);
-    expect(
-      result.errors.some((e) => /duration/.test(e) && /base/.test(e)),
-      "Expected an error naming motion.duration.base as the invalid entry",
-    ).toBe(true);
-  });
-
-  // --- I2: motion.duration must be a non-array plain object with at least one entry ---
-
-  it("frd-13: WHEN motion.duration is an empty object {} THEN validation fails — vacuous truth must not satisfy AC-13-005.1 (I2)", () => {
-    // Regression anchor: Object.entries({}) is [], so the for-loop never runs and the
-    // "all <300ms" constraint is satisfied trivially. The theme/animation layer downstream
-    // reads motion.duration.fast|base|expressive — an empty map leaves it with nothing.
-    const bad = structuredClone(VALID_TOKENS);
-    (bad.motion as Record<string, unknown>).duration = {};
-    const result = validateTokenSchema(bad);
-    expect(result.valid).toBe(false);
-    expect(
-      result.errors.some((e) => /motion\.duration/.test(e)),
-      "Expected an error on motion.duration when the map is empty",
-    ).toBe(true);
-  });
-
-  it("frd-13: WHEN motion.duration is an array [] THEN validation fails — arrays are not valid token maps (I2, AC-13-005.1)", () => {
-    // Regression anchor: an array passes `typeof value === 'object'` and
-    // `Object.entries([])` is empty — same vacuous-truth path as {}.
-    // Easing tokens are referenced by name, not by position; an array masquerades as a
-    // plain object and breaks the downstream contract.
-    const bad = structuredClone(VALID_TOKENS);
-    (bad.motion as Record<string, unknown>).duration = [];
-    const result = validateTokenSchema(bad);
-    expect(result.valid).toBe(false);
-    expect(
-      result.errors.some((e) => /motion\.duration/.test(e)),
-      "Expected an error on motion.duration when the value is an array",
-    ).toBe(true);
-  });
-
-  it("frd-13: WHEN motion.duration is a non-empty array THEN validation fails — positional arrays are not named token maps (I2)", () => {
-    // Regression anchor: [150, 200, 280] has Object.entries returning ["0":150, "1":200, ...]
-    // so numeric keys pass the typeof-number check and all values satisfy <300ms — fully
-    // valid appearance, but the downstream CSS consumer reads `motion.duration.fast`, not
-    // `motion.duration["0"]`.
-    const bad = structuredClone(VALID_TOKENS);
-    (bad.motion as Record<string, unknown>).duration = [150, 200, 280];
-    const result = validateTokenSchema(bad);
-    expect(result.valid).toBe(false);
-    expect(
-      result.errors.some((e) => /motion\.duration/.test(e)),
-      "Expected an error on motion.duration when the value is a non-empty array",
-    ).toBe(true);
-  });
-
-  // --- I3: motion.easing must be a plain object, not a positional array ---
-
-  it("frd-13: WHEN motion.easing is an array of length 2 THEN validation fails — Object.keys(array) passes the 2–3 count check falsely (I3, AC-13-005.1)", () => {
-    // Regression anchor: Object.keys(["a","b"]).length === 2, which passes the "2–3 easings"
-    // rule even though the array elements are positional ("0", "1"), not named tokens.
-    // Downstream code reads `motion.easing.standard` — an array silently breaks it.
-    const bad = structuredClone(VALID_TOKENS);
-    (bad.motion as Record<string, unknown>).easing = [
-      "cubic-bezier(0.4, 0, 0.2, 1)",
-      "cubic-bezier(0, 0, 0.2, 1)",
-    ];
-    const result = validateTokenSchema(bad);
-    expect(result.valid).toBe(false);
-    expect(
-      result.errors.some((e) => /motion\.easing/.test(e)),
-      "Expected an error on motion.easing when the value is a positional array of length 2",
-    ).toBe(true);
-  });
-
-  it("frd-13: WHEN motion.easing is an array of length 3 THEN validation fails — the 2–3 count alone must not be sufficient (I3, AC-13-005.1)", () => {
-    // Same class as the length-2 case; length-3 also exactly satisfies the count rule.
-    // Tests that the array guard fires before (and independently of) the count check.
-    const bad = structuredClone(VALID_TOKENS);
-    (bad.motion as Record<string, unknown>).easing = [
-      "cubic-bezier(0.4, 0, 0.2, 1)",
-      "cubic-bezier(0, 0, 0.2, 1)",
-      "cubic-bezier(0.34, 1.56, 0.64, 1)",
-    ];
-    const result = validateTokenSchema(bad);
-    expect(result.valid).toBe(false);
-    expect(
-      result.errors.some((e) => /motion\.easing/.test(e)),
-      "Expected an error on motion.easing when the value is a positional array of length 3",
-    ).toBe(true);
-  });
-
-  it("frd-13: WHEN motion.easing is an empty array THEN validation fails — empty arrays are not valid easing maps (I3)", () => {
-    // Degenerate case: [] has Object.keys length 0, which would fail the count check
-    // (0 < 2) — but only if the typeof-plus-array check fires first. Tests that the
-    // array guard does not depend on the count path being reached.
-    const bad = structuredClone(VALID_TOKENS);
-    (bad.motion as Record<string, unknown>).easing = [];
-    const result = validateTokenSchema(bad);
-    expect(result.valid).toBe(false);
-    expect(
-      result.errors.some((e) => /motion\.easing/.test(e)),
-      "Expected an error on motion.easing when the value is an empty array",
-    ).toBe(true);
-  });
-
-  // --- Regression: the three fixes must not break the happy path ---
-
-  it("frd-13: WHEN motion.duration and motion.easing are both valid plain objects THEN validation passes (guards do not over-reject)", () => {
-    // Pin the happy path so that a fix to the guards does not accidentally flip the
-    // validator into always-invalid for the correct input.
-    const result = validateTokenSchema(VALID_TOKENS);
-    expect(result.valid).toBe(true);
-    expect(result.errors.filter((e) => /motion/.test(e))).toHaveLength(0);
   });
 });

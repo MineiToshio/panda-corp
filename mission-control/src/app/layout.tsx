@@ -12,6 +12,7 @@
  */
 
 import type { Metadata } from "next";
+import { Pixelify_Sans, Space_Grotesk } from "next/font/google";
 import { OnboardingGate } from "@/app/_components/OnboardingGate/OnboardingGate";
 import { GuildBar } from "@/components/modules/GuildBar/GuildBar";
 import { ProposalsBadge } from "@/components/modules/ProposalsBadge/ProposalsBadge";
@@ -22,6 +23,21 @@ import { readProfile } from "@/lib/profile/profile";
 import { countOpenProposals } from "@/lib/proposals/proposals";
 import { readStatus } from "@/lib/status/status";
 import "./globals.css";
+
+// Prototype fonts (DR-054) — wired via next/font to avoid CLS and self-host.
+// Exposed as CSS variables consumed by globals.css @theme (--font-pixel / --font-display).
+const pixelify = Pixelify_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-pixelify",
+  display: "swap",
+});
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-space-grotesk",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Pandacorp Mission Control",
@@ -50,7 +66,7 @@ export default function RootLayout({
   const proposalCounts = countOpenProposals();
 
   return (
-    <html lang="es">
+    <html lang="es" className={`${pixelify.variable} ${spaceGrotesk.variable}`}>
       <body>
         {profileResult.present ? (
           <>

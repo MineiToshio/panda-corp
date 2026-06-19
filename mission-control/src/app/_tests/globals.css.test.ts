@@ -1,12 +1,19 @@
 /**
- * WO-13-002 — globals.css wiring acceptance tests (RED phase)
+ * WO-13-002 — globals.css wiring acceptance tests
+ *
+ * Re-anchored 2026-06-18 (DR-054 ADOPT-VISUAL): globals.css @theme now MIRRORS the
+ * owner-approved prototype (docs/design/design-tokens.json) — a warm pixel-RPG / "guild"
+ * palette authored in HEX, dark default + light + high-contrast. This SUPERSEDES the earlier
+ * invented cold-blue hue-230 OKLCH palette AND its "no hardcoded hex / OKLCH-only" mandate:
+ * the prototype is authored in hex, so these tests assert the committed warm hex values are
+ * present and correct (the old "must contain NO hex" rule is inverted — see the structural
+ * invariants block). The per-agent role colors stay OKLCH for role identity (FRD-06/FRD-12).
  *
  * Traces:
- *   AC-13-001.1 — Theme derived from few tokens in perceptual space (OKLCH: base, accent,
- *                 contrast); high-contrast mode without redesign.
+ *   AC-13-001.1 — Theme derived from few tokens; high-contrast mode without redesign.
  *   AC-13-002.1 — A single rationed accent; the rest warm neutrals.
- *   AC-13-004.1 — 3 elevation levels with a tokenized shadow/spacing scale (radius 8px,
- *                 base 16px, hairline 1px, spacing in multiples of 0.25rem).
+ *   AC-13-004.1 — Tokenized shadow/radius/spacing scale (--shadow-0/1/2; radius 8px,
+ *                 base 16px, hairline 1px).
  *   AC-13-005.1 — Animation only transform/opacity, <300ms, 2–3 easing tokens.
  *   AC-13-006.1 — UI honors prefers-reduced-motion: disables ALL Party animation.
  *   AC-13-008.1 — Visible focus ring that respects border-radius.
@@ -15,21 +22,17 @@
  *   CSS cannot be exercised in jsdom by simply injecting globals.css — jsdom has no layout
  *   engine and CSSOM variables are not computed. Instead, the tests parse the CSS source
  *   text and assert the structural/textual contracts that CMP-13-globals must satisfy:
- *     (a) the @theme block declares the required CSS custom properties;
+ *     (a) the @theme block declares the required CSS custom properties with the frozen hex;
  *     (b) the three theme modes (light/dark/high-contrast) are wired;
- *     (c) the 3 elevation levels are present;
+ *     (c) the elevation scale (--shadow-0/1/2) is present (light re-declares 1/2);
  *     (d) animation tokens are declared (durations, easings);
  *     (e) @media (prefers-reduced-motion: reduce) zeroes durations globally;
  *     (f) the focus-ring var is declared.
  *
- *   Token values come from the FROZEN_TOKENS fixture defined below.  When
- *   docs/design/design-tokens.json is committed, the implementer must produce a globals.css
- *   that satisfies these structural contracts.  Tests deliberately do NOT check specific
- *   OKLCH value strings — those belong to the design phase, not the CSS wiring gate.
+ *   Token values come from the FROZEN_TOKENS fixture below, which mirrors the committed
+ *   docs/design/design-tokens.json (the canonical contract).
  *
  * Real bugs anchored (progress.md):
- *   - B1'/I2/I3 from WO-13-001 review: fail-open guards for NaN/Infinity/empty/array motion
- *     tokens — the CSS wiring must not emit CSS vars for non-finite or array-valued tokens.
  *   - The layout guard test revealed that a "present but empty" file still passes presence
  *     checks — regression: globals.css must not be empty (zero @theme vars = invalid wiring).
  */
@@ -50,27 +53,54 @@ import { beforeAll, describe, expect, it } from "vitest";
 const GLOBALS_CSS_PATH = path.resolve(import.meta.dirname, "..", "globals.css");
 
 // ---------------------------------------------------------------------------
-// Frozen token fixture (mirrors the WO-13-001 VALID_TOKENS shape).
-// Used to document what values the implementer must wire into globals.css.
+// Frozen token fixture — mirrors docs/design/design-tokens.json (DR-054).
+// The warm pixel-RPG palette, authored in HEX, dark default + light. These are the
+// EXACT committed values that globals.css @theme must declare (the prototype contract).
 // ---------------------------------------------------------------------------
 
 const FROZEN_TOKENS = {
-  oklch: {
-    base: "oklch(0.15 0.02 230)",
-    accent: "oklch(0.75 0.18 60)",
-    contrast: "oklch(0.97 0.01 230)",
+  /** Dark theme (the @theme default) — committed warm hex from the prototype. */
+  dark: {
+    surfaces: {
+      "--color-base": "#0f1517",
+      "--color-panel": "#192123",
+      "--color-card": "#222a2d",
+      "--color-card2": "#2a3336",
+    },
+    text: {
+      "--color-text": "#edebe7",
+      "--color-text2": "#bab7b0",
+      "--color-text3": "#9e9b94",
+    },
+    borders: {
+      "--color-border": "#2f373a",
+      "--color-border-strong": "#4f5a5d",
+    },
+    accent: {
+      "--color-accent": "#33b6d1",
+      "--color-accent-text": "#62cfe8",
+      "--color-accent-bg": "#003542",
+      "--color-on-accent": "#071318",
+    },
   },
-  themes: {
-    light: { surface: "oklch(0.97 0.005 230)", text: "oklch(0.12 0.02 230)" },
-    dark: { surface: "oklch(0.1 0.015 230)", text: "oklch(0.95 0.01 230)" },
-    highContrast: { surface: "oklch(0 0 0)", text: "oklch(1 0 0)" },
+  /** Light theme — committed warm hex (re-declared under the light selectors). */
+  light: {
+    "--color-base": "#f8f7f3",
+    "--color-card": "#ffffff",
+    "--color-text": "#25211b",
+    "--color-accent": "#007890",
+  },
+  /** High-contrast override — pure black/white extreme inversion (hex, AC-13-001.1). */
+  highContrast: {
+    "--color-base": "#000000",
+    "--color-text": "#ffffff",
+    "--color-accent": "#ffffff",
   },
   /**
-   * Realigned 2026-06-18 (Party redesign, WO-13-002):
-   * - Removed fictitious 'guild' aggregate.
-   * - Added real engine/pipeline roles: implementer, copywriter, analytics, devops.
-   * Matches AGENT_ROLES in app/_design/tokens/tokens.ts (IF-13-agent-colors).
+   * Per-agent role colors — UNCHANGED by the re-anchor (role identity, FRD-06/FRD-12).
+   * These deliberately stay OKLCH. Matches AGENT_ROLES in app/_design/tokens/tokens.ts.
    * Each key must have a matching --color-agent-<role> in globals.css @theme.
+   * Realigned 2026-06-18 (Party redesign): removed 'guild'; added the engine/pipeline roles.
    */
   agents: {
     researcher: "oklch(0.65 0.18 45)",
@@ -87,12 +117,32 @@ const FROZEN_TOKENS = {
     analytics: "oklch(0.68 0.2 100)",
     devops: "oklch(0.6 0.18 200)",
   },
-  elevation: [
-    { shadow: "none", spacing: "0" },
-    { shadow: "0 1px 4px oklch(0 0 0 / 0.15)", spacing: "0.25rem" },
-    { shadow: "0 4px 16px oklch(0 0 0 / 0.25)", spacing: "0.5rem" },
-  ],
-  radius: "0.5rem",
+  /** Category (9) + tier (5) slots — committed dark-theme hex. */
+  categories: {
+    "--color-cat-1": "#60ad64",
+    "--color-cat-2": "#a278e4",
+    "--color-cat-3": "#e9609e",
+    "--color-cat-4": "#3d96ea",
+    "--color-cat-5": "#2cb3b4",
+    "--color-cat-6": "#37b2e8",
+    "--color-cat-7": "#e39849",
+    "--color-cat-8": "#46b68c",
+    "--color-cat-9": "#ec5c50",
+  },
+  tiers: {
+    "--color-tier-1": "#989fa8",
+    "--color-tier-2": "#53be70",
+    "--color-tier-3": "#339fee",
+    "--color-tier-4": "#b474f4",
+    "--color-tier-5": "#f68c36",
+  },
+  /** Two-layer elevation scale (+ pop). --shadow-0 none, 1 resting, 2 pop. */
+  shadows: {
+    "--shadow-0": "none",
+    "--shadow-1": "0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 28px rgba(0, 0, 0, 0.35)",
+    "--shadow-2": "0 18px 50px rgba(0, 0, 0, 0.5)",
+  },
+  radius: "8px",
   spacing: "1rem",
   hairline: "1px",
   motion: {
@@ -212,10 +262,42 @@ describe("frd-13 AC-13-001.1: @theme block declares required OKLCH custom proper
     expect(themeBlock).toMatch(/--color-contrast\s*:/);
   });
 
-  it("frd-13: WHEN globals.css is wired THEN @theme uses oklch() values (perceptual color space mandate)", () => {
-    // The blueprint §1 and AC-13-001.1 require OKLCH. RGB/HSL hex values must not appear
-    // as the primary theme token values (they indicate a wiring from a non-design-phase source).
-    expect(themeBlock).toMatch(/oklch\(/i);
+  it("frd-13: WHEN globals.css is wired THEN @theme declares the frozen warm-hex base/accent/contrast (DR-054: prototype is authored in hex)", () => {
+    // SUPERSEDES the old "must use oklch()" mandate (AC-13-001.1 originally cited a perceptual
+    // OKLCH wiring). DR-054 re-anchored the palette on the owner-approved prototype, which is
+    // authored in HEX — so the contract is now that the committed warm hex values are present
+    // and correct, not that the values are OKLCH. The values come from FROZEN_TOKENS.dark.
+    expect(themeBlock).toMatch(/--color-base\s*:\s*#0f1517/);
+    expect(themeBlock).toMatch(/--color-accent\s*:\s*#33b6d1/);
+    expect(themeBlock).toMatch(/--color-contrast\s*:\s*#edebe7/);
+  });
+
+  it("frd-13: WHEN globals.css is wired THEN @theme declares the full frozen warm-surface/text ramp (prototype fidelity)", () => {
+    // Pins the exact committed hex for the dark surfaces + text ramp so a future edit cannot
+    // silently drift the palette away from the approved prototype (the DR-054 fidelity gate).
+    for (const [varName, hex] of [
+      ...Object.entries(FROZEN_TOKENS.dark.surfaces),
+      ...Object.entries(FROZEN_TOKENS.dark.text),
+      ...Object.entries(FROZEN_TOKENS.dark.borders),
+      ...Object.entries(FROZEN_TOKENS.dark.accent),
+    ]) {
+      expect(
+        themeBlock,
+        `@theme is missing the frozen ${varName}: ${hex} (prototype palette, DR-054)`,
+      ).toMatch(new RegExp(`${varName}\\s*:\\s*${hex}`));
+    }
+  });
+
+  it("frd-13: WHEN globals.css is wired THEN @theme declares the 9 category + 5 tier color slots with the frozen hex", () => {
+    for (const [varName, hex] of [
+      ...Object.entries(FROZEN_TOKENS.categories),
+      ...Object.entries(FROZEN_TOKENS.tiers),
+    ]) {
+      expect(
+        themeBlock,
+        `@theme is missing the frozen ${varName}: ${hex} (category/tier slot, DR-054)`,
+      ).toMatch(new RegExp(`${varName}\\s*:\\s*${hex}`));
+    }
   });
 
   it("frd-13: WHEN globals.css is wired THEN @theme declares per-agent color vars for all 13 canonical roles (IF-13-agent-colors)", () => {
@@ -238,41 +320,55 @@ describe("frd-13 AC-13-001.1: @theme block declares required OKLCH custom proper
 // ---------------------------------------------------------------------------
 
 describe("frd-13 AC-13-001.1: theme modes — light, dark, high-contrast", () => {
-  it("frd-13: WHEN globals.css is wired THEN it contains a light-theme selector with surface and text vars", () => {
+  it("frd-13: WHEN globals.css is wired THEN it contains a light-theme selector that overrides the surface/text/accent vars with the frozen light hex", () => {
     const css = readCss();
-    // The theme is toggled via a data attribute or class (blueprint §2: color-scheme + data-attr).
-    // Accept either [data-theme='light'], .light, or :root.light as selectors.
-    // The key contract is that switching the attribute changes resolved vars (DoD).
-    expect(css).toMatch(/light/);
-    // Must declare surface and text custom properties in the light context.
-    expect(css).toMatch(/--color-surface\s*:/);
-    expect(css).toMatch(/--color-text\s*:/);
+    // The theme is toggled via a data attribute (blueprint §2: color-scheme + data-attr) and
+    // also via @media (prefers-color-scheme: light). A light context must exist and re-declare
+    // the vars with the FROZEN_TOKENS.light values (the prototype's light inversion).
+    expect(css).toMatch(/\[data-theme=['"]light['"]|prefers-color-scheme:\s*light/);
+    // Pin the frozen light values so the light inversion can't silently drift from the prototype.
+    expect(css).toMatch(new RegExp(`--color-base\\s*:\\s*${FROZEN_TOKENS.light["--color-base"]}`));
+    expect(css).toMatch(new RegExp(`--color-text\\s*:\\s*${FROZEN_TOKENS.light["--color-text"]}`));
+    expect(css, "light theme must re-declare --color-accent with the frozen light accent").toMatch(
+      new RegExp(`--color-accent\\s*:\\s*${FROZEN_TOKENS.light["--color-accent"]}`),
+    );
   });
 
-  it("frd-13: WHEN globals.css is wired THEN it contains a dark-theme selector that overrides surface and text vars", () => {
+  it("frd-13: WHEN globals.css is wired THEN it contains a dark-theme selector AND the dark surface/text values are the @theme defaults (prototype: dark is the base)", () => {
     const css = readCss();
-    // Must be a CSS selector containing "dark", not just the word in `color-scheme: light dark`.
-    // Acceptable: [data-theme="dark"], .dark, :root.dark, @media (prefers-color-scheme: dark).
-    // The regex anchors to a selector-like token: a bracket, dot, colon, or @media context.
+    // The prototype ships dark as the DEFAULT — its surface/text live in @theme, and the
+    // [data-theme="dark"] selector only re-asserts color-scheme (the values are already the
+    // defaults). So the contract is: a dark selector exists, AND @theme carries the frozen
+    // dark surface (panel) + text. (SUPERSEDES the old "dark block must override the vars"
+    // assumption, which only held when light was the base.)
     expect(css).toMatch(
       /(?:\[data-theme=['"]dark['"]|\.dark\b|:root\.dark|prefers-color-scheme:\s*dark)/,
     );
-    // The dark theme must also override surface and text vars.
-    // Extract the dark-mode block(s) to check for var declarations.
-    const darkBlockPattern =
-      /(?:\[data-theme=['"]dark['"]|\.dark|prefers-color-scheme:\s*dark)[^{]*\{([^}]+)\}/g;
-    const darkMatches = [...css.matchAll(darkBlockPattern)];
-    const darkBody = darkMatches.map((m) => m[1] ?? "").join("\n");
-    expect(darkBody).toMatch(/--color-surface\s*:/);
-    expect(darkBody).toMatch(/--color-text\s*:/);
+    const themeBlock = extractBlock(css, "@theme");
+    // --color-surface is the default elevated surface (panel = #192123 in the prototype).
+    expect(themeBlock).toMatch(/--color-surface\s*:\s*#192123/);
+    // --color-text is the dark t1 text (#edebe7).
+    expect(themeBlock).toMatch(/--color-text\s*:\s*#edebe7/);
   });
 
-  it("frd-13: WHEN globals.css is wired THEN it contains a high-contrast selector (AC-13-001.1: no redesign required)", () => {
+  it("frd-13: WHEN globals.css is wired THEN it contains a high-contrast selector with a pure black/white extreme inversion (AC-13-001.1: no redesign required)", () => {
     // High-contrast mode must be a selector override of the same token vars — not a
     // separate stylesheet. If this selector is absent, enabling high-contrast requires a
-    // redesign, which violates AC-13-001.1.
+    // redesign, which violates AC-13-001.1. DR-054: the prototype's high-contrast is hex
+    // (#000000 canvas / #ffffff text/accent) — a true extreme inversion, pinned here so it
+    // can't degrade into a re-skinned dark theme.
     const css = readCss();
     expect(css).toMatch(/high-contrast|highContrast/i);
+    const hcBlock = extractBlock(css.slice(css.search(/\[data-theme=['"]high-contrast['"]/)), "{");
+    expect(hcBlock).toMatch(
+      new RegExp(`--color-base\\s*:\\s*${FROZEN_TOKENS.highContrast["--color-base"]}`),
+    );
+    expect(hcBlock).toMatch(
+      new RegExp(`--color-text\\s*:\\s*${FROZEN_TOKENS.highContrast["--color-text"]}`),
+    );
+    expect(hcBlock).toMatch(
+      new RegExp(`--color-accent\\s*:\\s*${FROZEN_TOKENS.highContrast["--color-accent"]}`),
+    );
   });
 
   it("frd-13: WHEN globals.css is wired THEN color-scheme is set on :root (enables native light/dark affordances)", () => {
@@ -290,20 +386,20 @@ describe("frd-13 AC-13-001.1: theme modes — light, dark, high-contrast", () =>
 // ---------------------------------------------------------------------------
 
 describe("frd-13 AC-13-004.1: elevation — 3 levels and spacing/radius/hairline scale", () => {
-  it("frd-13: WHEN globals.css is wired THEN it declares elevation-level-0 shadow (canvas — no elevation)", () => {
-    const css = readCss();
-    // Canvas is the lowest elevation: no shadow or explicit 'none'.
-    expect(css).toMatch(/--shadow-0\s*:|--elevation-0\s*:/);
+  it("frd-13: WHEN globals.css is wired THEN it declares elevation-level-0 shadow as 'none' (canvas — no elevation)", () => {
+    const themeBlock = extractBlock(readCss(), "@theme");
+    // Canvas is the lowest elevation: explicit 'none' (FROZEN_TOKENS.shadows["--shadow-0"]).
+    expect(themeBlock).toMatch(/--shadow-0\s*:\s*none/);
   });
 
-  it("frd-13: WHEN globals.css is wired THEN it declares elevation-level-1 shadow (panel)", () => {
+  it("frd-13: WHEN globals.css is wired THEN it declares elevation-level-1 shadow (resting — panel/card)", () => {
     const css = readCss();
-    expect(css).toMatch(/--shadow-1\s*:|--elevation-1\s*:/);
+    expect(css).toMatch(/--shadow-1\s*:/);
   });
 
-  it("frd-13: WHEN globals.css is wired THEN it declares elevation-level-2 shadow (card/popup)", () => {
+  it("frd-13: WHEN globals.css is wired THEN it declares elevation-level-2 shadow (pop — popup/overlay)", () => {
     const css = readCss();
-    expect(css).toMatch(/--shadow-2\s*:|--elevation-2\s*:/);
+    expect(css).toMatch(/--shadow-2\s*:/);
   });
 
   it("frd-13: WHEN globals.css is wired THEN it declares the base radius token (8px per blueprint)", () => {
@@ -337,12 +433,18 @@ describe("frd-13 AC-13-004.1: elevation — 3 levels and spacing/radius/hairline
     expect(css).toMatch(/--hairline\s*:\s*1px/);
   });
 
-  it("frd-13: WHEN globals.css is wired THEN elevation spacing values are multiples of 0.25rem (AC-13-004.1)", () => {
-    // FROZEN_TOKENS.elevation has [0, 0.25rem, 0.5rem] spacing.
-    // The CSS must reflect 0.25rem multiples — single-precision floating-point.
-    const css = readCss();
-    // Presence of at least one 0.25rem increment confirms the constraint.
-    expect(css).toMatch(/0\.25rem|0\.5rem|0\.75rem|1rem/);
+  it("frd-13: WHEN globals.css is wired THEN the @theme shadow scale matches the frozen prototype values (--shadow-1 resting, --shadow-2 pop)", () => {
+    // SUPERSEDES the old "elevation spacing values are 0.25rem multiples" check — the prototype
+    // contract is a two-layer shadow scale (resting + pop), not a per-level spacing token. Pin
+    // the exact frozen box-shadow strings so the elevation depth can't drift from the prototype.
+    const themeBlock = extractBlock(readCss(), "@theme");
+    const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    expect(themeBlock).toMatch(
+      new RegExp(`--shadow-1\\s*:\\s*${escapeRe(FROZEN_TOKENS.shadows["--shadow-1"])}`),
+    );
+    expect(themeBlock).toMatch(
+      new RegExp(`--shadow-2\\s*:\\s*${escapeRe(FROZEN_TOKENS.shadows["--shadow-2"])}`),
+    );
   });
 });
 
@@ -578,7 +680,10 @@ describe("frd-13 REQ-13-003: tabular-nums applied globally via html selector", (
     // A scoped component selector (e.g. '.kpi-value') must not be the ONLY place it appears.
     // Acceptable: html { ... tabular-nums } is present (the prior test already pins this).
     // Mutation: removing the html block leaves only the component-scoped one.
-    const htmlBlock = extractBlock(css, "html");
+    // NOTE: anchor on the `html {` SELECTOR (with brace), not the bare substring "html" —
+    // the DR-054 header comment mentions "prototype/index.html", which would otherwise make
+    // extractBlock walk to the @theme block instead of the html rule.
+    const htmlBlock = extractBlock(css, "html {");
     expect(htmlBlock).toMatch(/font-variant-numeric\s*:\s*tabular-nums/);
   });
 });
@@ -600,29 +705,50 @@ describe("frd-13: globals.css structural invariants", () => {
     expect(depth).toBe(0);
   });
 
-  it("frd-13: globals.css does not contain hardcoded hex color values (AGENTS.md rule 4: no hardcoded colors)", () => {
-    // Hex colors bypass the token system. Any #rrggbb / #rgb in the wiring block means
-    // the designer's OKLCH token was not used.
-    const css = readCss();
-    // Exclude comments (/* ... */) from the check to avoid false positives.
-    const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, "");
-    // Biome/prettier may auto-format hex; this guard prevents silent regressions.
-    const hexPattern = /#[0-9a-fA-F]{3,6}\b/g;
-    const hexMatches = [...withoutComments.matchAll(hexPattern)];
-    expect(
-      hexMatches.length,
-      `globals.css must not contain hardcoded hex colors. Found: ${hexMatches.map((m) => m[0]).join(", ")}`,
-    ).toBe(0);
+  it("frd-13: globals.css @theme uses the committed warm-HEX palette for the semantic color tokens (DR-054: the prototype is authored in hex — SUPERSEDES the old OKLCH-only / no-hex mandate)", () => {
+    // REPLACES the old "must NOT contain hardcoded hex" rule. DR-054 re-anchored the palette
+    // on the owner-approved prototype, which is authored in HEX. The contract is now the
+    // opposite of the invented one: the @theme semantic surface/text/accent tokens ARE hex.
+    // (Per-agent role colors remain OKLCH — those are role identity, not the warm palette.)
+    const themeBlock = extractBlock(readCss(), "@theme");
+    const semanticHexTokens = [
+      "--color-base",
+      "--color-panel",
+      "--color-card",
+      "--color-text",
+      "--color-accent",
+      "--color-border",
+    ];
+    for (const token of semanticHexTokens) {
+      expect(
+        themeBlock,
+        `@theme ${token} must be a hex literal (warm prototype palette, DR-054)`,
+      ).toMatch(new RegExp(`${token}\\s*:\\s*#[0-9a-fA-F]{3,6}\\b`));
+    }
   });
 
-  it("frd-13: globals.css does not reference rgb() or hsl() for theme colors (OKLCH is the mandated space)", () => {
-    const css = readCss();
-    const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, "");
-    // Allow tailwind utility classes to use rgb internally; the check is for author-written values.
-    // Any rgb()/hsl() in @theme or within the theme selectors indicates wrong color space.
+  it("frd-13: globals.css @theme does NOT use hsl() for color tokens (the prototype is hex + rgba shadows + oklch agent identity, never hsl)", () => {
+    // The prototype's color space is hex (semantic palette) + rgba() (shadows/backdrop) +
+    // oklch() (per-agent identity). hsl() never appears — it would signal a wiring from a
+    // non-prototype source. rgba() is intentionally allowed (it is how the prototype authors
+    // its two-layer shadows: FROZEN_TOKENS.shadows), so it is NOT forbidden here.
+    const withoutComments = readCss().replace(/\/\*[\s\S]*?\*\//g, "");
     const themeBlock = extractBlock(withoutComments, "@theme");
-    expect(themeBlock).not.toMatch(/\brgb\s*\(/);
     expect(themeBlock).not.toMatch(/\bhsl\s*\(/);
+  });
+
+  it("frd-13: globals.css keeps the per-agent role colors in OKLCH (role identity is unchanged by the re-anchor)", () => {
+    // The DR-054 re-anchor changed the warm SEMANTIC palette to hex but deliberately left the
+    // 13 agent-role identity colors in OKLCH (FRD-06 La Fragua + FRD-12 dataviz). Pin that so a
+    // future edit doesn't accidentally flatten the agent palette into hex and lose the perceptual
+    // spacing that keeps the roles distinguishable.
+    const themeBlock = extractBlock(readCss(), "@theme");
+    for (const role of Object.keys(FROZEN_TOKENS.agents)) {
+      expect(
+        themeBlock,
+        `--color-agent-${role} must stay OKLCH (role identity, unchanged by DR-054)`,
+      ).toMatch(new RegExp(`--color-agent-${role}\\s*:\\s*oklch\\(`));
+    }
   });
 
   it("frd-13: globals.css motion vars do not contain non-numeric values (regression: B1' fail-open from WO-13-001)", () => {
@@ -649,9 +775,9 @@ describe("frd-13: globals.css structural invariants", () => {
 
   it("frd-13: globals.css declares at least 15 CSS custom properties (sanity check against nearly-empty wiring)", () => {
     // A nearly-empty globals.css that passes individual checks but is incomplete would
-    // declare fewer than ~15 vars: 3 oklch + 2 surface/text + 10 agents + 3 elevation
-    // + 3 spacing + 3 duration + 2 easing + 1 radius + 1 hairline + 1 focus-ring = 29+.
-    // 15 is a conservative floor that catches "stub" implementations.
+    // declare fewer than ~15 vars: the warm surfaces/text/borders/accent/status/cat/tier hex
+    // + 13 agents (oklch) + 3 shadows + 3 duration + 2 easing + radii + hairline + focus-ring
+    // = far more than 15. 15 is a conservative floor that catches "stub" implementations.
     const themeBlock = extractBlock(readCss(), "@theme");
     const varDeclarations = [...themeBlock.matchAll(/--[a-z][a-z0-9-]*\s*:/g)];
     expect(
@@ -701,18 +827,27 @@ describe("frd-13: token-to-CSS property enumeration (round-trip completeness)", 
     }
   });
 
-  it("frd-13: FROZEN_TOKENS.elevation has exactly 3 entries and globals.css declares exactly 3 shadow levels", () => {
-    // Schema side (already validated by WO-13-001) — pin the count here too so
-    // globals.css wiring can't silently omit or add elevation levels.
-    expect(FROZEN_TOKENS.elevation).toHaveLength(3);
-
-    const css = readCss();
-    const shadowVarPattern = /--shadow-\d\s*:|--elevation-\d\s*:/g;
-    const matches = [...css.matchAll(shadowVarPattern)];
+  it("frd-13: @theme declares exactly the 3 elevation levels --shadow-0/1/2, and the light theme re-declares --shadow-1/2 (DR-054 prototype scale)", () => {
+    // SUPERSEDES the old "exactly 3 --shadow-* anywhere in the file" count. The prototype's
+    // elevation is a 3-level scale (0=none, 1=resting, 2=pop) declared in @theme — but the
+    // light theme legitimately RE-DECLARES --shadow-1/2 with lighter values (the light
+    // box-shadows are softer). So the contract is: @theme has exactly 3 distinct levels, and
+    // the light selector overrides 1 and 2. Counting raw occurrences file-wide (which now =5)
+    // would be wrong.
+    const themeBlock = extractBlock(readCss(), "@theme");
+    const themeShadows = new Set([...themeBlock.matchAll(/--shadow-(\d)\s*:/g)].map((m) => m[1]));
     expect(
-      matches.length,
-      "globals.css must declare exactly 3 shadow/elevation CSS vars (canvas=0, panel=1, card=2)",
-    ).toBe(3);
+      themeShadows,
+      "@theme must declare exactly the 3 elevation levels --shadow-0, --shadow-1, --shadow-2",
+    ).toEqual(new Set(["0", "1", "2"]));
+
+    // The light theme softens the resting + pop shadows (re-declares 1 and 2, never 0).
+    const css = readCss();
+    const lightStart = css.search(/\[data-theme=['"]light['"]/);
+    expect(lightStart, "a [data-theme=light] selector must exist").toBeGreaterThan(-1);
+    const lightBlock = extractBlock(css.slice(lightStart), "{");
+    expect(lightBlock).toMatch(/--shadow-1\s*:/);
+    expect(lightBlock).toMatch(/--shadow-2\s*:/);
   });
 
   it("frd-13: @theme must NOT declare --color-agent-guild (regression: fictitious aggregate removed 2026-06-18)", () => {

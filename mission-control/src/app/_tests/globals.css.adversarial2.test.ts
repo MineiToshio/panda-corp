@@ -26,6 +26,10 @@
  *       (pure black canvas + pure white text, or vice-versa) — a near-black on
  *       near-white "high contrast" that is actually the default dark theme would
  *       silently pass the presence checks. Pins the extreme-luminance contract.
+ *       Re-anchored 2026-06-18 (DR-054): the prototype's high-contrast is authored in
+ *       HEX (#000000 / #ffffff), so this proves the extreme inversion via hex luminance,
+ *       not OKLCH lightness. The contract (an extreme inversion, not a re-skinned dark
+ *       theme) is unchanged — only the color space it is expressed in.
  */
 
 import { execFileSync } from "node:child_process";
@@ -203,19 +207,42 @@ describe("frd-13 AC-13-001.1 [adversarial-2]: high-contrast surface/text are ext
     if (!hc) hc = extractSelectorBlock(readCss(), ".high-contrast");
   });
 
-  it("frd-13: high-contrast surface AND text use OKLCH lightness at the extremes (L≈0 and L≈1), a real inversion not a re-skinned dark theme", () => {
+  it("frd-13: high-contrast surface AND text use HEX luminance at the extremes (≈0 and ≈1), a real inversion not a re-skinned dark theme (DR-054)", () => {
     expect(hc.length, "high-contrast selector block must exist").toBeGreaterThan(0);
-    const surface = hc.match(/--color-surface\s*:\s*oklch\(\s*([\d.]+)/);
-    const text = hc.match(/--color-text\s*:\s*oklch\(\s*([\d.]+)/);
-    expect(surface, "high-contrast must set --color-surface in oklch").not.toBeNull();
-    expect(text, "high-contrast must set --color-text in oklch").not.toBeNull();
-    const ls = Number.parseFloat(surface?.[1] ?? "NaN");
-    const lt = Number.parseFloat(text?.[1] ?? "NaN");
+    // DR-054: the prototype's high-contrast is authored in HEX (#000000 / #ffffff). Parse the
+    // hex and compute relative luminance; the contract is unchanged — one pole near 0, the
+    // other near 1 — only the color space is hex instead of OKLCH.
+    const surface = hc.match(/--color-surface\s*:\s*(#[0-9a-fA-F]{3,6})\b/);
+    const text = hc.match(/--color-text\s*:\s*(#[0-9a-fA-F]{3,6})\b/);
+    expect(surface, "high-contrast must set --color-surface in hex").not.toBeNull();
+    expect(text, "high-contrast must set --color-text in hex").not.toBeNull();
+
+    /** Perceptual relative luminance (0=black, 1=white) from a #rgb/#rrggbb literal. */
+    function hexLuminance(hex: string): number {
+      let h = hex.replace("#", "");
+      if (h.length === 3) {
+        h = h
+          .split("")
+          .map((c) => c + c)
+          .join("");
+      }
+      const toLinear = (channel: number): number => {
+        const c = channel / 255;
+        return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+      };
+      const r = toLinear(Number.parseInt(h.slice(0, 2), 16));
+      const g = toLinear(Number.parseInt(h.slice(2, 4), 16));
+      const b = toLinear(Number.parseInt(h.slice(4, 6), 16));
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    }
+
+    const ls = hexLuminance(surface?.[1] ?? "#888888");
+    const lt = hexLuminance(text?.[1] ?? "#888888");
     // One pole near 0, the other near 1 (either orientation). |L_text - L_surface| must
-    // be large enough to clear 4.5:1 by construction.
+    // be large enough to clear 4.5:1 by construction (pure black/white = 1.0).
     expect(
       Math.abs(lt - ls),
-      `high-contrast L gap |${lt} - ${ls}| = ${Math.abs(lt - ls).toFixed(2)} is too small; HC must be an extreme inversion (AC-13-001.1, contrast ≥4.5:1)`,
+      `high-contrast luminance gap |${lt.toFixed(2)} - ${ls.toFixed(2)}| = ${Math.abs(lt - ls).toFixed(2)} is too small; HC must be an extreme inversion (AC-13-001.1, contrast ≥4.5:1)`,
     ).toBeGreaterThanOrEqual(0.9);
   });
 });
