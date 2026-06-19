@@ -43,13 +43,21 @@ has to go hunting.
 
 ## Visual reference
 
-> **UI work orders only (DR-054).** For a non-UI work order this section is **N/A**.
+> **UI work orders only (DR-054 + DR-056).** For a non-UI work order this section is **N/A**.
+> **Fill it — do not leave a placeholder.** The build engine hands the implementer only a one-line
+> summary, so this section IS the agent's design context; an empty `## Visual reference` means the
+> agent builds blind. Materialize all three pointers below.
 
-Which `mocks/` file(s) and screen(s) this work order must **reproduce** (the binding visual spec from
-the FRD's `fdd.md` + `mocks/`, on the frozen tokens). Add a **fidelity acceptance criterion**
-alongside the functional ACs: *"the built screen visually matches `mocks/<file>` (layout, structure,
-components, density) on the frozen tokens — not an approximation; verified by the preview smoke gate
-(DR-055)."* A screen that uses the tokens but does not look like the mock is **not** done.
+- **Mock screen(s) to reproduce:** the exact `docs/frds/frd-NN-<slug>/mocks/<file>` screen(s) this work
+  order must reproduce (the binding visual spec — the scoped per-FRD shard, on the frozen tokens).
+- **Token slice:** the specific tokens this screen uses (the colors / spacing / type / radii / elevation
+  it actually touches) — not the whole token file, just the slice that grounds this screen.
+- **FDD pointer:** `docs/frds/frd-NN-<slug>/fdd.md` (the feature's design — states, component usage).
+
+Add a **fidelity acceptance criterion** alongside the functional ACs: *"the built screen visually
+matches `mocks/<file>` (layout, structure, components, density) on the frozen tokens — not an
+approximation; verified by the preview smoke gate (DR-055)."* A screen that uses the tokens but does
+not look like the mock is **not** done.
 
 ## Dependencies
 

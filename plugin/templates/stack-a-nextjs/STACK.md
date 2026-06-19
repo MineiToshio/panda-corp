@@ -104,7 +104,40 @@ A web project's gate MUST open the app in a real browser, not just run static ch
      });
    }
    ```
-   Add `"test:smoke": "playwright test e2e/smoke.spec.ts"` to `package.json`. (The reviewer also eyeballs the screenshots vs the FRD's `mocks/` — fidelity, DR-054.)
+   Add `"test:smoke": "playwright test e2e/smoke.spec.ts"` to `package.json`.
+
+## Visual-Fidelity Gate (DR-056) — does the build MATCH the mock (two layers)
+
+When an FRD has approved `mocks/`, "renders clean" is not enough — the build must look like the mock. Two layers, because no single tool reliably compares an arbitrary mock to a build.
+
+**Layer A — deterministic visual regression (the hard block, runs in `verify.sh`).** Playwright `toHaveScreenshot()` against a blessed baseline. Determinism is the whole game (else it flakes):
+```ts
+// playwright.config.ts — add to defineConfig:
+expect: { toHaveScreenshot: { threshold: 0.2, maxDiffPixelRatio: 0.02, animations: "disabled", caret: "hide", scale: "css" } },
+updateSnapshots: process.env.CI ? "none" : "missing",   // CI never blesses drift
+workers: 1, fullyParallel: false,
+```
+```ts
+// e2e/visual.spec.ts — per key route, at ≥2 viewports
+import { test, expect } from "@playwright/test";
+const ROUTES = ["/"];                 // each UI FRD appends its routes
+const SIZES = [{ w: 390, h: 844 }, { w: 1280, h: 900 }];
+for (const route of ROUTES) for (const s of SIZES) {
+  test(`visual ${route} @${s.w}`, async ({ page }) => {
+    await page.setViewportSize({ width: s.w, height: s.h });
+    await page.goto(route, { waitUntil: "networkidle" });
+    await page.evaluate(() => document.fonts.ready);                 // fonts loaded → no glyph flake
+    await page.addStyleTag({ content: `*{transition:none!important;animation:none!important}` });
+    await expect(page).toHaveScreenshot(`${route.replace(/\W+/g,"_")||"root"}-${s.w}.png`, {
+      fullPage: true,
+      mask: [page.locator("[data-dynamic]")],   // mask genuinely volatile regions; DON'T loosen the threshold
+    });
+  });
+}
+```
+Determinism preconditions (all required): pinned Playwright Docker image (`mcr.microsoft.com/playwright:vX-noble`), `workers:1`, seeded deterministic fixtures + frozen clock + mocked network (so data never shifts pixels), and visual specs **excluded from retries** (a retry re-writes a missing baseline → fail-OPEN). Add `"test:visual": "playwright test e2e/visual.spec.ts"`. Baselines: commit via **Git LFS** if the set is large.
+
+**Layer B — VLM mock-judge (the reviewer step, catches the FIRST divergence from the mock).** Not a script — it's the `reviewer` (opus, vision, a different model from the sonnet builder): for each route it places the route screenshot next to the FRD's `mocks/<file>` and enumerates the NAMED divergences (missing/extra component, wrong color/token, gross layout/spacing) BEFORE a verdict, at ≥2 viewports, ≥3 samples with image order randomized (majority vote). Fail-closed on a named structural divergence; do not auto-fail on fine pixel/spacing deltas; an uncertain verdict (looks off but nothing nameable) → BLOCK `needs-owner`, never pass. (See `plugin/agents/reviewer.md` runtime/visual lens.)
 
 ## `.pandacorp/verify.sh`
 
@@ -119,6 +152,13 @@ if grep -q '"test:smoke"' package.json; then
   pnpm test:smoke
 else
   echo "✗ Preview Smoke Gate missing: a web project must render its routes in a browser (DR-055). Add e2e/smoke.spec.ts + playwright.config.ts + the test:smoke script."; exit 1
+fi
+# Visual-Fidelity Gate Layer A (DR-056) — deterministic regression vs blessed baseline, fail-closed.
+# (Layer B, the VLM mock-judge, is the reviewer's runtime/visual lens, not a script.)
+if grep -q '"test:visual"' package.json; then
+  pnpm test:visual
+else
+  echo "✗ Visual-Fidelity Gate missing: a UI project must diff its routes against blessed baselines (DR-056). Add e2e/visual.spec.ts + the test:visual script."; exit 1
 fi
 ```
 

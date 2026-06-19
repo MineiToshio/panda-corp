@@ -86,11 +86,43 @@ Concrete wiring (Playwright config, `e2e/smoke.spec.ts`, the `verify.sh` fail-cl
 `plugin/templates/rules/quality-and-testing.md`. Per DR-051, any change here updates the rule library
 and bumps `OVERLAY_VERSION` so every project inherits it.
 
-## 5. Where this is wired
+## 5. Guaranteeing 100% fidelity when AI agents implement (DR-056)
+
+"Use the tokens" is necessary but nowhere near sufficient — and the build engine makes it worse: it
+passes the implementer **only a one-line summary**, never the design. Research on AI design-to-code
+(Design2Code, DCGen, UI2Code^N; v0, Builder.io; Anthropic) converges on the same playbook, and because
+the reference IS HTML the agent's job is **translation** (HTML→React+Tailwind+tokens), not
+reconstruction-from-pixels. Four mechanisms, **all required**:
+
+1. **Scope / shard.** The design phase shards the approved whole-app prototype into **one
+   self-contained mock per FRD** (`docs/frds/<frd>/mocks/`, that FRD's screens only) — never hand an
+   agent the whole prototype (on a full screenshot, models reproduce ~2% of elements; scoping recovers
+   them). The whole-app prototype's defined home is **`docs/design/prototype/`**.
+2. **Ground / materialize.** The per-FRD `fdd.md` + mock and the work order's **`## Visual reference`**
+   (the exact `mocks/<file>`, the **token slice** that screen uses, the `fdd.md` pointer) are
+   **materialized** — because the engine passes only a one-liner, the **WO body IS the agent's design
+   context** (empty = the agent builds blind). The engine **also injects** those refs + the in-loop
+   directive into the implementer/frontend-dev prompt (belt and suspenders).
+3. **In-loop correct.** The builder renders its route, screenshots it, compares to the mock, and
+   self-corrects **up to 3 cycles** *before* `IN_REVIEW` — the single biggest lever after scoping.
+4. **Gate (the independent verifier).** The two-layer visual-fidelity gate (§4 + `build-orchestration.md`
+   §5): Layer A deterministic `toHaveScreenshot` regression (hard block) + Layer B VLM mock-judge
+   (named structural divergences, escalate-on-uncertainty), a different model from the builder.
+
+Plus **complete extraction**: the ADOPT-VISUAL extraction captures **every layer** — base components +
+any app-wide skin/theme overrides + each embedded sub-view's own spec — not just the palette (a partial
+extraction silently drops the look; in Mission Control an app-wide RPG skin and the Party pixel-art spec
+were missed).
+
+## 6. Where this is wired
 
 | Concern | File |
 |---|---|
 | Design phase (two paths, frozen contract, deliverable gate) | `plugin/skills/design/SKILL.md`, `plugin/agents/designer.md` |
 | Brownfield design adoption (detect + migrate an existing visual) | `plugin/skills/adopt/SKILL.md` |
 | Fidelity downstream (templates + skills + dev agents) | `plugin/templates/docs/{frd,blueprint,work-order}-template.md`, `plugin/skills/{spec,blueprint,work-orders}/SKILL.md`, `plugin/agents/{implementer,frontend-dev}.md` |
-| Runtime/visual verification | `plugin/agents/reviewer.md`, `factory/standards/build-orchestration.md` §5, `plugin/templates/stack-a-nextjs/STACK.md`, `plugin/templates/rules/quality-and-testing.md` |
+| Shard the prototype per-FRD + prototype home (DR-056 §1) | `plugin/skills/design/SKILL.md` (Step 8), `plugin/agents/designer.md`, `plugin/skills/adopt/SKILL.md` (step 6) |
+| Engine injects design refs into the build prompt (DR-056 §2) | `plugin/templates/shared/.claude/workflows/pandacorp-build.js` (`designRef`) |
+| In-loop render→compare→correct (DR-056 §3) | `plugin/agents/{implementer,frontend-dev}.md` |
+| Two-layer visual-fidelity gate (DR-056 §4) | `plugin/agents/reviewer.md`, `factory/standards/build-orchestration.md` §5, `plugin/templates/stack-a-nextjs/STACK.md` |
+| Runtime/visual verification (smoke) | `plugin/agents/reviewer.md`, `factory/standards/build-orchestration.md` §5, `plugin/templates/stack-a-nextjs/STACK.md`, `plugin/templates/rules/quality-and-testing.md` |

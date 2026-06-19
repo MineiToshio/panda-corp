@@ -91,6 +91,31 @@ The build engine reviews and tests **per FRD**, not per work order:
   biome+tsc+vitest, nothing ever opened a browser). It runs inside `verify.sh` (so the FRD gate and
   close-out enforce it automatically) and is re-run independently by the `reviewer` (generator ≠
   verifier). This moves review cost from O(work orders) to O(FRDs).
+- **Visual-fidelity gate (DR-056) — does the build MATCH the mock, not just render clean.** When the
+  feature has an approved mock (`docs/frds/<frd>/mocks/`), the smoke layer is upgraded to a real
+  fidelity gate, **layered** because no single tool reliably compares an arbitrary mock to a build:
+  - **Layer A — deterministic visual regression (the hard block).** Playwright `toHaveScreenshot()`
+    diffs each route against its own **blessed baseline**; fail-closed (a missing or over-budget
+    baseline is RED). Determinism is mandatory or it flakes: pinned Playwright Docker image,
+    `workers:1`, fonts ready (`await document.fonts.ready`), animations disabled + caret hidden,
+    deterministic seeded data + frozen clock, genuinely dynamic regions `mask`ed (never loosen the
+    global threshold to hide them), `updateSnapshots:'none'` in CI, visual specs **excluded from
+    retries** (a retry re-writes a missing baseline and turns the gate fail-OPEN). Budget: default
+    `threshold` 0.2 + `maxDiffPixelRatio` ~0.01–0.02 so anti-aliasing/font noise doesn't false-fail.
+    Catches drift once a screen is blessed.
+  - **Layer B — VLM mock-judge (catches the FIRST divergence from the mock).** A vision model — a
+    **different model from the builder** (generator ≠ verifier) — compares the route screenshot against
+    the FRD's `mocks/<file>` at the same viewport with an explicit rubric (layout, components
+    present/absent, color/tokens, spacing, typography); it enumerates the **named** divergences BEFORE a
+    structured verdict, sampled ≥3× with image order randomized (majority vote, against position bias).
+    **Calibrated to its real competence:** fail-closed only on NAMED structural divergences (missing/extra
+    component, wrong color, gross layout swap); on fine pixel/spacing deltas it does NOT auto-fail, and an
+    uncertain verdict (low score + empty divergence list) **escalates to the owner** (`needs-owner`),
+    never silently passes. A pixel diff says "looks the same"; the VLM says "is the right thing" — they
+    are complementary. Both layers run at **≥2 viewports** (single-viewport match is not real fidelity).
+  This pairs with the builder's **in-loop** render→compare→correct (DR-056): the builder self-corrects
+  against the mock first; the gate then verifies **independently**. Wired into `verify.sh` + re-run by
+  the `reviewer`.
 
 ## 6. How a run stops — health & budget, never a feature count
 

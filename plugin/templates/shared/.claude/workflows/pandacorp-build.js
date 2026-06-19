@@ -136,6 +136,14 @@ if (!plan || !plan.frds || plan.frds.length === 0) {
 }
 log(`${plan.frds.length} FRDs with pending work · stack ${plan.stack}${plan.hasFrontend ? ' (web)' : ''}`)
 
+// Design fidelity (DR-054/056): the engine PASSES the design references into the build prompt.
+// It used to pass only a one-line summary, so the implementer NEVER saw the design — the root cause
+// of a build diverging from an approved prototype. For a web build, inject the binding visual refs
+// + the in-loop fidelity check into every UI work order's prompt (the agent reads the files itself).
+const designRef = (frd) => plan.hasFrontend
+  ? ` VISUAL FIDELITY (DR-054/056, web — do NOT skip): OPEN this work order's \`## Visual reference\`, then read \`docs/frds/${frd}/fdd.md\` + its \`mocks/\` (the BINDING screen mock — view the screenshot AND the mock's source) and \`docs/design/design-tokens.json\` + root \`DESIGN.md\`. Your job is to TRANSLATE that one screen's mock into the project's components on the frozen tokens — reproduce its layout, structure, spacing, components and density; do NOT approximate, invent, or restyle. THEN run the IN-LOOP fidelity check BEFORE marking IN_REVIEW: render the route (preview/Playwright), screenshot it, place it next to the mock, fix the divergences — repeat up to 3 cycles. A screen that does not visually match its mock is NOT done (the FRD gate's visual layer will reject it).`
+  : ''
+
 // Sync DERIVED rollups (DR-050): an FRD/blueprint implementation_status is DERIVED from its work
 // orders (THE source of truth). Correct any drift from a crash mid-build, an interrupted run or a
 // manual edit BEFORE building, so the document never lies about progress. One cheap pass, frontmatter only.
@@ -151,10 +159,10 @@ async function buildWO(wo, frd) {
       { label: `test:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:test-writer' })
     await agent(`${EMIT('backend-dev', wo.id, { frd, activity: 'backend' })}Implement the backend of ${wo.id} (TDD until green): ${wo.summary || ''}. Publish the API contract in docs/api.md.`,
       { label: `be:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:backend-dev' })
-    await agent(`${EMIT('frontend-dev', wo.id, { frd, activity: 'frontend' })}Implement the UI of ${wo.id} using ONLY design tokens and the docs/api.md contract: ${wo.summary || ''}.`,
+    await agent(`${EMIT('frontend-dev', wo.id, { frd, activity: 'frontend' })}Implement the UI of ${wo.id} using ONLY design tokens and the docs/api.md contract: ${wo.summary || ''}.${designRef(frd)}`,
       { label: `fe:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:frontend-dev' })
   } else {
-    await agent(`${EMIT('implementer', wo.id, { frd, activity: 'implement' })}First set ${wo.id}'s frontmatter \`implementation_status: IN_PROGRESS\`. Then fully implement it with TDD (RED→GREEN→refactor), anchored in the EARS criteria of FRD ${frd} and in bugs from .pandacorp/comms/progress.md: ${wo.summary || ''}. This is a COARSE slice (a whole view/capability) — build it end-to-end.`,
+    await agent(`${EMIT('implementer', wo.id, { frd, activity: 'implement' })}First set ${wo.id}'s frontmatter \`implementation_status: IN_PROGRESS\`. Then fully implement it with TDD (RED→GREEN→refactor), anchored in the EARS criteria of FRD ${frd} and in bugs from .pandacorp/comms/progress.md: ${wo.summary || ''}. This is a COARSE slice (a whole view/capability) — build it end-to-end.${designRef(frd)}`,
       { label: `build:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:implementer' })
   }
   // Fast SELECTIVE self-test (NOT the whole suite) → IN_REVIEW + hand-off.
