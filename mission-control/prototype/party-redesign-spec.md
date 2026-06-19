@@ -68,7 +68,7 @@ A single **living map** (not a 3-column kanban) with rooms connected by a path. 
 - **FRD tracker** (with the FRD **title**, not just the number) + **global project counter** (e.g. 52/109 WO) in the header — conveys "FRD by FRD".
 - **Hover a sprite → tooltip** with its WO id + title (titles don't fit under the sprite).
 - **Bitácora del gremio** (feed): the real hand-off events from the Build Plan, via document.
-- The **mode selector + pausar/reiniciar are DEMO-ONLY** (prototype). MC is read-only: in production the **mode is read from state** (the mode the build was launched with), shown as data — no selector, no pause/reset.
+- The **mode selector + power/reset buttons are DEMO-ONLY** (prototype, shown in a marked "SOLO DEMO" block). MC is **read-only**: in production there is **no selector and no power/reset** — the build is launched by `/pandacorp:implement` and the **effort is fixed there**. The chosen **effort surfaces as read-only data in the Misión bar** (next to the project WO progress). The **factory-off state is derived from real state** (no build running / no agents), not from a button; its overlay says the factory is started by launching the skill, not "press play".
 
 ## 4. La Campaña — the pipeline view (lives in the board card detail, FRD-02)
 
