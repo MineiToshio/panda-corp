@@ -30,6 +30,13 @@ h1{font-family:var(--pixel);font-weight:600;font-size:27px;margin:0;letter-spaci
 .live{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--ok);font-family:var(--mono);white-space:nowrap}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok);animation:pulse 1.6s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+/* factory powered down */
+.live.off{color:var(--t3)}
+.live.off .dot{background:var(--bd2);box-shadow:none;animation:none}
+.poweroff{position:absolute;inset:0;z-index:40;display:none;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:rgba(8,11,12,.74);backdrop-filter:grayscale(.7) brightness(.85);border-radius:14px;text-align:center}
+.poweroff .pz{font-family:var(--pixel);font-size:24px;color:var(--t1);letter-spacing:.03em}
+.poweroff .pzs{font-family:var(--mono);font-size:12px;color:var(--t3)}
+body.off .poweroff{display:flex}
 
 /* ---- FRD quest tracker ---- */
 .quest{display:flex;align-items:center;gap:0;background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:9px 14px;margin-bottom:12px;flex-wrap:wrap}
@@ -98,10 +105,6 @@ h1{font-family:var(--pixel);font-weight:600;font-size:27px;margin:0;letter-spaci
 .ag .prog i{display:block;height:100%;width:0;border-radius:3px;background:var(--cat7);transition:width .2s linear}
 .ag .tag{position:absolute;top:45px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:9px;color:var(--t2);background:rgba(12,17,19,.85);border:1px solid var(--bd);border-radius:5px;padding:0 5px;white-space:nowrap;z-index:6;line-height:1.5}
 .ag.vault .tag{top:37px;color:var(--ok)}
-/* in-loop fidelity badge (DR-056): render vs mock, while a UI WO builds */
-.ag .fcheck{position:absolute;top:-24px;left:50%;transform:translateX(-50%);display:none;align-items:center;gap:3px;background:rgba(12,17,19,.9);border:1px solid var(--cat5);border-radius:6px;padding:0 5px;font-family:var(--mono);font-size:9px;color:var(--cat5);white-space:nowrap;z-index:8;line-height:1.6}
-.ag.work:not(.split) .fcheck{display:inline-flex;animation:fpulse 2.1s ease-in-out infinite}
-@keyframes fpulse{0%,100%{opacity:.4;transform:translateX(-50%) scale(.94)}50%{opacity:1;transform:translateX(-50%) scale(1)}}
 /* hover tooltip — the WO title */
 .ag .wotip{position:absolute;bottom:52px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--accent);border-radius:8px;padding:4px 9px;font-family:var(--mono);font-size:10px;color:var(--t1);white-space:nowrap;display:none;z-index:30;box-shadow:0 5px 14px rgba(0,0,0,.55)}
 .ag .wotip b{color:var(--accent-text)}
@@ -168,9 +171,13 @@ body.embed .wrap{padding:4px 2px 8px;max-width:none}
 body.embed .stage{max-width:none}
 .stagefit{width:100%;overflow:hidden}
 /* ---- flow strip: the whole build pipeline, always visible, lights up the active beat ---- */
-.flowstrip{display:flex;align-items:stretch;margin:0 0 12px;padding:9px 8px;background:var(--panel);border:1px solid var(--bd);border-radius:12px;overflow-x:auto}
-.flowstrip .fstep{display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;flex:1;padding:5px 4px;border-radius:8px;opacity:.45;transition:opacity .25s,background .25s,border-color .25s;border:1px solid transparent}
-.flowstrip .fstep.on{opacity:1;background:var(--card);border-color:var(--accent)}
+.flowstrip{display:flex;align-items:stretch;margin:0 0 12px;padding:9px 8px;background:var(--panel);border:1px solid var(--bd);border-radius:12px;position:relative}
+.flowstrip .fstep{display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;flex:1;padding:5px 4px;border-radius:8px;opacity:.45;transition:opacity .25s,background .25s,border-color .25s;border:1px solid transparent;position:relative;cursor:help}
+.flowstrip .fstep.on,.flowstrip .fstep:hover{opacity:1;background:var(--card);border-color:var(--accent)}
+.flowstrip .fstep .ftip{position:absolute;bottom:calc(100% + 9px);left:50%;transform:translateX(-50%);width:236px;background:var(--card2);border:1px solid var(--bd2);border-radius:9px;padding:8px 11px;font-family:var(--display);font-size:11.5px;line-height:1.42;color:var(--t2);text-align:left;display:none;z-index:60;box-shadow:0 10px 26px rgba(0,0,0,.6)}
+.flowstrip .fstep .ftip b{display:block;font-family:var(--pixel);font-weight:500;color:var(--accent-text);margin-bottom:3px;font-size:12px}
+.flowstrip .fstep .ftip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:var(--bd2)}
+.flowstrip .fstep:hover .ftip{display:block}
 .flowstrip .fstep .fi{font-size:17px;line-height:1}
 .flowstrip .fstep .ft{font-family:var(--pixel);font-size:11px;color:var(--t1);white-space:nowrap;letter-spacing:.02em}
 .flowstrip .fstep.on .ft{color:var(--accent-text)}
@@ -187,7 +194,7 @@ body.embed .flowstrip{display:none}
       <h1>⚒️ Party · La Fragua</h1>
       <p class="sub">La estación <b>Construcción</b> como un mundo vivo. Se construye <b>un FRD a la vez</b>: cada muñeco es un <b>work order que de verdad está corriendo</b>. <b>Fundación primero</b> (los primitivos compartidos) → oleadas <b>disjuntas por archivo</b> que <b>reutilizan el inventario</b> y se <b>autocorrigen contra el mock</b> → el <b>Juez</b> (4 lentes + visual) → el motor <b>commitea la oleada</b>. Pasa el ratón por un muñeco para ver su título.</p>
     </div>
-    <div class="live"><span class="dot"></span> Live · AgentWorking + SubagentStop</div>
+    <div class="live" id="live"><span class="dot"></span> Live · AgentWorking + SubagentStop</div>
   </div>
 
   <div class="quest" id="quest"></div>
@@ -196,7 +203,7 @@ body.embed .flowstrip{display:none}
     <span class="hint">Esfuerzo (oleada en paralelo):</span>
     <div class="modes" id="modes"></div>
     <span style="flex:1"></span>
-    <button class="btn" id="pause">⏸ Pausar</button>
+    <button class="btn" id="pause">⏸ Apagar la fábrica</button>
     <button class="btn" id="reset">↺ Reiniciar misión</button>
   </div>
 
@@ -207,6 +214,7 @@ body.embed .flowstrip{display:none}
   <div class="scenetitle" id="scenetitle"></div>
 
   <div class="stage" id="stage">
+    <div class="poweroff" id="poweroff"><div class="pz">⏻ Fábrica apagada</div><div class="pzs">sin agentes trabajando · pulsa “▶ Encender la fábrica” para reanudar</div></div>
     <!-- paths: forge -> tribunal (short top hop) ; tribunal -> vault (short drop) -->
     <div class="pathline" style="left:446px;top:163px;width:30px;height:14px"></div>
     <div class="pathline" style="left:681px;top:410px;width:14px;height:30px"></div>
@@ -334,7 +342,7 @@ function mk(html){const d=document.createElement('div');d.innerHTML=html;return 
 function makeSprite(w){
   const split=MODES[mode].split;
   const el=mk('<div class="ag'+(split?' split':'')+'"><div class="halo" style="background:var(--cat7)"></div><div class="prog"><i></i></div>'+
-    '<div class="scrollicon">📜</div><div class="medal">🏅</div><div class="say"></div><div class="fcheck">🖼<span>↔</span>📸</div>'+
+    '<div class="scrollicon">📜</div><div class="medal">🏅</div><div class="say"></div>'+
     '<div class="wotip"><b>'+w.id+'</b> · '+w.def.name+(split?' · relevo test→backend→frontend':'')+'</div><div class="tag">'+w.id+'</div>'+
     (split?'<div class="prog3"><i><b></b></i><i><b></b></i><i><b></b></i></div>'+
       '<div class="relay">'+
@@ -361,7 +369,7 @@ function reset(){
   feedReset();renderQuest();renderSceneTitle();
   feed(null,'<span style="color:var(--cat5)">⛏️ Fundación primero</span> — los <b>primitivos compartidos</b> (Button/Banner/Card) se forjan antes; las features los <b>reutilizan</b>','var(--t3)');
   feed(null,'<b>'+FRDID+'</b> · oleada de <b>'+MODES[mode].wave+'</b> WO'+(MODES[mode].split?' · cada uno por relevo <b>test→backend→frontend</b> (Opus)':'')+' — disjuntos por archivo (DR-060) · la forja arranca','var(--accent-text)');
-  paused=false;document.getElementById('pause').textContent='⏸ Pausar';
+  setPower(true);
   const me=runId;requestAnimationFrame(()=>loop(me));
 }
 
@@ -440,18 +448,18 @@ function compactVault(){
 
 // the full build pipeline as an always-visible strip; paintFlow lights up the beat(s) happening now
 const FLOW=[
-  {k:'found',i:'⛏️',t:'Fundación',s:'primitivos'},
-  {k:'wave',i:'⚒️',t:'Oleada',s:'disjunta x archivo'},
-  {k:'fid',i:'🖼',t:'Fidelidad',s:'render vs mock ×≤3'},
-  {k:'note',i:'📜',t:'Status Note',s:'interfaces+decisiones'},
-  {k:'trib',i:'⚖️',t:'Tribunal',s:'4 lentes+visual+baseline'},
-  {k:'commit',i:'🔒',t:'Commit',s:'oleada · Opción B'},
-  {k:'vault',i:'🏆',t:'Bóveda',s:'VERIFIED'},
-  {k:'integ',i:'🧩',t:'Integración',s:'cross-feature'}
+  {k:'found',i:'⛏️',t:'Fundación',s:'primitivos',d:'La 1ª oleada forja los primitivos compartidos (Button, Banner, Card). Las features luego los reutilizan, no los reinventan.'},
+  {k:'wave',i:'⚒️',t:'Oleada',s:'disjunta x archivo',d:'N work orders en paralelo (según el modo). Los que escriben los mismos archivos se serializan a oleadas distintas — nunca chocan (DR-060).'},
+  {k:'fid',i:'🖼',t:'Fidelidad',s:'render vs mock ×≤3',d:'Cada WO de UI renderiza, compara contra el mock y se autocorrige (hasta 3 veces) antes de pedir revisión (DR-056).'},
+  {k:'note',i:'📜',t:'Status Note',s:'interfaces+decisiones',d:'Al cerrar, cada WO escribe su nota de hand-off: interfaces publicadas + decisiones y supuestos. El WO dependiente la lee.'},
+  {k:'trib',i:'⚖️',t:'Tribunal',s:'4 lentes+visual+baseline',d:'Un Juez por FRD revisa con 4 lentes (correctitud, seguridad, calidad, runtime/visual), compara captura vs mock y bendice el baseline.'},
+  {k:'commit',i:'🔒',t:'Commit',s:'oleada · Opción B',d:'Los agentes no tocan git. El motor commitea cada oleada con un único escritor serializado (Opción B) — sin conflictos de merge.'},
+  {k:'vault',i:'🏆',t:'Bóveda',s:'VERIFIED',d:'Los WO aprobados quedan como trofeos VERIFIED del FRD. El estado del FRD es la suma de sus WO.'},
+  {k:'integ',i:'🧩',t:'Integración',s:'cross-feature',d:'Al cerrar el proyecto, una pasada cross-feature revisa las costuras entre features (productor/consumidor de cada contrato concuerdan).'}
 ];
 function buildFlow(){
   const el=document.getElementById('flowstrip');if(!el)return;
-  el.innerHTML=FLOW.map((f,i)=>'<div class="fstep" data-k="'+f.k+'"><span class="fi">'+f.i+'</span><span class="ft">'+f.t+'</span><span class="fs">'+f.s+'</span></div>'+(i<FLOW.length-1?'<span class="farrow">→</span>':'')).join('');
+  el.innerHTML=FLOW.map((f,i)=>'<div class="fstep" data-k="'+f.k+'"><span class="fi">'+f.i+'</span><span class="ft">'+f.t+'</span><span class="fs">'+f.s+'</span><div class="ftip"><b>'+f.i+' '+f.t+'</b>'+f.d+'</div></div>'+(i<FLOW.length-1?'<span class="farrow">→</span>':'')).join('');
 }
 function paintFlow(){
   const el=document.getElementById('flowstrip');if(!el)return;
@@ -501,11 +509,13 @@ function loop(me){
           feed('rev','<b style="color:var(--warn)">Juez</b> aprueba <b>'+t.id+'</b> → <span style="color:var(--accent-text)">🔒 el motor commitea la oleada (1 escritor · Opción B)</span> → Bóveda','var(--t2)');}
       }
     }
-    const pace=reviewer.state==='judging'?16:46;
-    reviewer.px=REVIEWER_HOME[0]+Math.sin(now/1100)*pace;
-    const walk=Math.abs(Math.sin(now/280))*2.4;// little step bob
-    reviewer.el.style.transform='translate('+(reviewer.px-26)+'px,'+(reviewer.py-26-walk)+'px)';
-    const rimg=reviewer.el.querySelector('img');if(rimg)rimg.style.transform='scaleX('+(Math.cos(now/1100)>=0?1:-1)+')';// face the walk direction (img only, not the text)
+    if(_gateAnnounced){// only paces once it's active (gate open); dim/inactive = still in its corner
+      const pace=reviewer.state==='judging'?16:46;
+      reviewer.px=REVIEWER_HOME[0]+Math.sin(now/1100)*pace;
+      const walk=Math.abs(Math.sin(now/280))*2.4;// little step bob
+      reviewer.el.style.transform='translate('+(reviewer.px-26)+'px,'+(reviewer.py-26-walk)+'px)';
+      const rimg=reviewer.el.querySelector('img');if(rimg)rimg.style.transform='scaleX('+(Math.cos(now/1100)>=0?1:-1)+')';// face the walk direction (img only, not the text)
+    }else{reviewer.px=REVIEWER_HOME[0];reviewer.el.style.transform='translate('+(REVIEWER_HOME[0]-26)+'px,'+(REVIEWER_HOME[1]-26)+'px)';}
   }
   updateHUD();
   requestAnimationFrame(()=>loop(me));
@@ -561,7 +571,14 @@ function feed(role,html,col){const f=document.getElementById('feed');if(f.datase
 const mc=document.getElementById('modes');
 Object.entries(MODES).forEach(([k,v])=>{const b=document.createElement('button');b.className='mode'+(k===mode?' on':'');b.dataset.m=k;
   b.innerHTML=v.label+'<small>'+v.note+'</small>';b.onclick=()=>{mode=k;document.querySelectorAll('.mode').forEach(x=>x.classList.toggle('on',x.dataset.m===k));reset();};mc.appendChild(b);});
-document.getElementById('pause').onclick=function(){paused=!paused;this.textContent=paused?'▶ Reanudar':'⏸ Pausar';};
+function setPower(on){// the pause button is the factory's on/off switch: off = powered-down view (no agents), on = live build
+  paused=!on;
+  document.body.classList.toggle('off',!on);
+  const live=document.getElementById('live');
+  if(live){live.classList.toggle('off',!on);live.innerHTML='<span class="dot"></span> '+(on?'Live · AgentWorking + SubagentStop':'Fábrica apagada · sin agentes');}
+  document.getElementById('pause').textContent=on?'⏸ Apagar la fábrica':'▶ Encender la fábrica';
+}
+document.getElementById('pause').onclick=function(){setPower(paused);};
 document.getElementById('reset').onclick=()=>{frdIx=1;FRDID=FRD_CYCLE[1];PROJ_DONE=52;WODEFS.forEach(d=>{d.id=d.id.replace(/WO-\d+/,'WO-14');d.deps=d.deps.map(x=>x.replace(/WO-\d+/,'WO-14'));});reset();};
 
 document.getElementById('foot').innerHTML='Fuente real: <b>~/.claude/dashboard-events.ndjson</b> · <b>AgentWorking{role,wo}</b> + <b>SubagentStop</b> · paradigma <b>Dynamic Workflows</b> (DR-013) · Camino A — la estación Construcción de <a href="party-pipeline.html">La Campaña</a>.';
