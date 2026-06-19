@@ -84,6 +84,7 @@ const PLAN_SCHEMA = {
                 id: { type: 'string' },
                 status: { type: 'string', description: 'implementation_status from the WO frontmatter' },
                 deps: { type: 'array', items: { type: 'string' }, description: 'intra-FRD WO ids that must be built first' },
+                artifacts: { type: 'array', items: { type: 'string' }, description: 'globs of files/dirs this WO writes (from its `artifacts:` frontmatter) — the engine serializes wave-parallel WOs whose artifacts overlap, so they never collide (DR-060)' },
                 summary: { type: 'string' },
               },
             },
@@ -164,16 +165,16 @@ async function buildWO(wo, frd) {
   if (P.split && plan.hasFrontend) {
     await agent(`${EMIT('test-writer', wo.id, { frd, activity: 'test' })}Write the acceptance tests (RED) for work order ${wo.id} from the EARS criteria of FRD ${frd}: ${wo.summary || ''}. No production code.`,
       { label: `test:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:test-writer' })
-    await agent(`${EMIT('backend-dev', wo.id, { frd, activity: 'backend' })}Implement the backend of ${wo.id} (TDD until green): ${wo.summary || ''}. Publish the API contract in docs/api.md.`,
+    await agent(`${EMIT('backend-dev', wo.id, { frd, activity: 'backend' })}First read the \`## Status Note\` of the work orders ${wo.id} depends on (their exposed interfaces). Then implement the backend of ${wo.id} (TDD until green): ${wo.summary || ''}. Publish YOUR API contract at docs/api/${wo.id}.md (your own per-WO file — DR-060: never a shared docs/api.md, which races across parallel WOs).`,
       { label: `be:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:backend-dev' })
-    await agent(`${EMIT('frontend-dev', wo.id, { frd, activity: 'frontend' })}Implement the UI of ${wo.id} using ONLY design tokens and the docs/api.md contract: ${wo.summary || ''}.${designRef(frd)}${reuseRef(frd)}`,
+    await agent(`${EMIT('frontend-dev', wo.id, { frd, activity: 'frontend' })}Implement the UI of ${wo.id} using ONLY design tokens and the provider WO's contract at docs/api/<the-backend-WO-in-your-Dependencies>.md (DR-060: read that specific per-WO file, never a shared docs/api.md): ${wo.summary || ''}.${designRef(frd)}${reuseRef(frd)}`,
       { label: `fe:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:frontend-dev' })
   } else {
-    await agent(`${EMIT('implementer', wo.id, { frd, activity: 'implement' })}First set ${wo.id}'s frontmatter \`implementation_status: IN_PROGRESS\`. Then fully implement it with TDD (RED→GREEN→refactor), anchored in the EARS criteria of FRD ${frd} and in bugs from .pandacorp/comms/progress.md: ${wo.summary || ''}. This is a COARSE slice (a whole view/capability) — build it end-to-end.${designRef(frd)}${reuseRef(frd)}`,
+    await agent(`${EMIT('implementer', wo.id, { frd, activity: 'implement' })}First set ${wo.id}'s frontmatter \`implementation_status: IN_PROGRESS\`. Then fully implement it with TDD (RED→GREEN→refactor), anchored in the EARS criteria of FRD ${frd} and in bugs from .pandacorp/comms/progress.md: ${wo.summary || ''}. This is a COARSE slice (a whole view/capability) — build it end-to-end. First read the \`## Status Note\` of the work orders ${wo.id} depends on (their exposed interfaces) and integrate against those, not a guess.${designRef(frd)}${reuseRef(frd)}`,
       { label: `build:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:implementer' })
   }
   // Fast SELECTIVE self-test (NOT the whole suite) → IN_REVIEW + hand-off.
-  const v = await agent(`${EMIT('implementer', wo.id, { frd, activity: 'selftest' })}Fast self-test for work order ${wo.id}: run \`pnpm biome check .\`, \`pnpm tsc --noEmit\`, and \`pnpm vitest run\` limited to THIS work order's own test files (not the whole suite). If green: commit (Conventional Commits with scope; if git reports an index.lock from a parallel sibling, wait briefly and retry the commit), set the WO's frontmatter **\`implementation_status: IN_REVIEW\`**, and fill its **\`## Status Note\`** hand-off (what it built, interfaces/contracts exposed with signatures, integration seams, which test files cover it). Return green=true. If red, return green=false with the reason and do NOT commit. Never commit mid-work-order.`,
+  const v = await agent(`${EMIT('implementer', wo.id, { frd, activity: 'selftest' })}Fast self-test for work order ${wo.id}: run \`pnpm biome check .\`, \`pnpm tsc --noEmit\`, and \`pnpm vitest run\` limited to THIS work order's own test files (not the whole suite). If green: FIRST set the WO's frontmatter **\`implementation_status: IN_REVIEW\`** and fill its **\`## Status Note\`** hand-off (what it built, interfaces/contracts exposed with signatures, integration seams, which test files cover it), THEN commit **code + frontmatter + Status Note together in ONE commit** (Conventional Commits with scope) — atomicity (DR-060): a crash must never leave committed code with stale \`PLANNED\` frontmatter. If git reports an index.lock from a parallel sibling, wait briefly and retry the commit (retry up to ~5×). Return green=true. If red, return green=false with the reason and do NOT commit. Never commit mid-work-order.`,
     { label: `selftest:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:implementer', schema: VERIFY_SCHEMA })
   return Boolean(v && v.green === true)
 }
@@ -220,6 +221,29 @@ function blockFrd(frd, reason) {
   if (reason !== 'external') consecutiveBlocks++   // external = not our bug; don't trip the breaker
 }
 
+// DR-060: keep wave-parallel work orders DISJOINT. Each WO declares `artifacts` (globs it writes); the
+// engine serializes any whose artifacts overlap into different waves, so two agents never race on one
+// file (the generalized banner-collision fix). Undeclared artifacts → fall back to prior behavior
+// (trust the Build Plan) for back-compat with WOs authored before the field existed.
+const globBase = (g) => String(g).split('*')[0].replace(/\/+$/, '')
+const artifactsOverlap = (a, b) => {
+  const A = a.artifacts || [], B = b.artifacts || []
+  if (!A.length || !B.length) return false
+  return A.some((x) => B.some((y) => {
+    const px = globBase(x), py = globBase(y)
+    return px === py || px.startsWith(py + '/') || py.startsWith(px + '/')
+  }))
+}
+const pickDisjointWave = (ready, max) => {
+  const picked = []
+  for (const w of ready) {
+    if (picked.length >= max) break
+    if (picked.some((p) => artifactsOverlap(p, w))) continue   // overlaps a picked WO → defer to a later wave
+    picked.push(w)
+  }
+  return picked
+}
+
 for (const f of plan.frds) {
   if (f.deps && f.deps.some((d) => blockedFrds.includes(d))) { log(`⊘ ${f.frd} skipped (depends on a blocked FRD)`); blockFrd(f.frd, 'needs-owner'); continue }
   if (budget.total && budget.remaining() < LOW_BUDGET) { stopReason = 'budget'; log('Circuit breaker: budget ceiling reached — stopping at a safe point'); break }
@@ -239,7 +263,7 @@ for (const f of plan.frds) {
   while (queue.size > 0) {
     const ready = [...queue.values()].filter((w) => (w.deps || []).every((d) => doneIds.has(d) || !queue.has(d)))
     if (ready.length === 0) { log(`⚠ ${f.frd}: ${queue.size} work orders with unresolved/circular deps`); frdFailed = true; break }
-    const wave = ready.slice(0, P.wave)
+    const wave = pickDisjointWave(ready, P.wave)   // DR-060: never co-schedule WOs whose artifacts overlap
     const results = await parallel(wave.map((w) => () => buildWO(w, f.frd)))
     for (let i = 0; i < wave.length; i++) { queue.delete(wave[i].id); if (results[i]) doneIds.add(wave[i].id); else frdFailed = true }
     if (frdFailed) break

@@ -2,6 +2,16 @@
 
 Installation guide for `/pandacorp:blueprint`, full-stack web case. It's the **recommended starting point** (`factory/standards/stack.md`), NOT a mandate: the `architect` can propose better alternatives and the owner approves in the blueprint. **Always use the latest stable versions** for a new project (`@latest`); an older/brownfield project installs only versions **compatible with its framework major** (DR-052). Recommended stack: Next.js + React + TypeScript + Tailwind + **Prisma** + **Better Auth** + **next-intl** + **PostHog** + **Sentry** + Vitest + Playwright + **Biome** (the single format+lint tool — no Prettier, no ESLint) + **npm**, `src/` structure with the data layer in `queries/`.
 
+## Canonical config files (installed VERBATIM, conformance-checked — DR-059)
+
+This stack ships **three canonical config files** next to this guide; they are installed **VERBATIM** into the project (no hand-rolled partial copies) and `/pandacorp:upgrade` **diffs them against these templates and regenerates on drift** — so a project's enforcement can never silently fall behind the standard:
+
+- **`biome.json`** → project root — MAXIMUM fail-closed lint+format (domains `react`/`next`/`test`, the `a11y` group, hard-enforcement rules promoted to **error**, `noExcessiveCognitiveComplexity: "error"`, `useSortedClasses`).
+- **`verify.sh`** → `.pandacorp/verify.sh` — the fail-closed gate (structure guard, `biome --error-on-warnings`, `tsc`, `knip`, `madge --circular`, `vitest`, smoke shim, visual shim).
+- **`knip.json`** → project root — the dead-code config (entry = app routes + next config; project = `src/**`).
+
+The sections below explain *why* each is configured the way it is; they are the rationale, not a second source to hand-tune.
+
 ## Installation
 
 ```bash
@@ -15,10 +25,10 @@ pnpm create t3-app@latest . --noGit   # the Pandacorp scaffold already has git
 1. **tsconfig**: add `"noUncheckedIndexedAccess": true` (strict already comes).
 2. **Biome — the single standard for format + lint (no Prettier, no ESLint):**
    ```bash
-   pnpm add -D @biomejs/biome@latest && pnpm biome init
+   pnpm add -D @biomejs/biome@latest
    ```
-   In `biome.json` enable the recommended rules + the **domains** (`react`, `next`, `test` — Biome auto-detects them from `package.json`) and the **`a11y`** group. Tailwind class ordering = Biome's `useSortedClasses` (replaces `prettier-plugin-tailwindcss`). Biome formats AND lints; do not add Prettier or ESLint. **Escape hatch only if needed**: a minimal ESLint config running *only* `eslint-plugin-testing-library` (and/or `eslint-config-next`) for the few rules Biome lacks — never re-add Prettier.
-3. **Testing**: `pnpm add -D vitest @testing-library/react @testing-library/jest-dom jsdom @playwright/test`
+   **Do NOT run `biome init` and hand-tune it.** Install the **canonical `biome.json`** (`${CLAUDE_PLUGIN_ROOT}/templates/stack-a-nextjs/biome.json`) **VERBATIM** — it is the MAXIMUM fail-closed config (DR-059), conformance-checked by `/pandacorp:upgrade`. It enables the **domains** (`react`, `next`, `test`) and the **`a11y`** group, and promotes the hard-enforcement rules to **error**. **Correction:** Biome *detects the presence* of a domain from `package.json`, but **the domain's rules are NOT auto-activated** — you must enable each domain (and `useSortedClasses`, a nursery rule) **explicitly** in `biome.json`, which the canonical file does. Tailwind class ordering = Biome's `useSortedClasses` (replaces `prettier-plugin-tailwindcss`). Biome formats AND lints; do not add Prettier or ESLint. **Escape hatch only if needed**: a minimal ESLint config running *only* `eslint-plugin-testing-library` (and/or `eslint-config-next`) for the few rules Biome lacks — never re-add Prettier.
+3. **Testing + dead-code gate**: `pnpm add -D vitest @testing-library/react @testing-library/jest-dom jsdom @playwright/test knip madge` — then install the canonical **`knip.json`** (`${CLAUDE_PLUGIN_ROOT}/templates/stack-a-nextjs/knip.json`) VERBATIM (DR-059).
 4. **shadcn/ui**: `pnpm dlx shadcn@latest init` — use the preset/tokens from `docs/design/design-tokens.json`.
 5. **DB**: **dev → Postgres in Docker** (see below); **staging/prod → managed** (Neon/Supabase). Connection string only in `.env` (DR-021).
 6. **Structure**: features in folders (`src/features/<feature>/`), shared in `src/lib/`, components one file + colocated test.
@@ -49,7 +59,7 @@ Test the last green without stopping the agent: `git worktree add ../<project>-r
 
 ## Hard enforcement (lint rules — make the rule library fail the gate, not just live in prose)
 
-The engineering rules in `docs/rules/` are read by agents (soft enforcement); wire the **mechanically-checkable** ones into **Biome** so a violation **fails `verify.sh`/CI** (this is what catches a rule an agent ignored). Enable these Biome rules:
+The engineering rules in `docs/rules/` are read by agents (soft enforcement); the **mechanically-checkable** ones are wired into **Biome** so a violation **fails `verify.sh`/CI** (this is what catches a rule an agent ignored). These are already enabled **as `error`** in the canonical `biome.json` (DR-059) — you don't re-enable them by hand; this list is the rationale map (rule → standard):
 
 - **`noArrayIndexKey`** — bans `index` as a React list `key` (`react.md`).
 - **`useExhaustiveDependencies`** + **`useHookAtTopLevel`** — hook dependency/ordering bugs (`react.md`).
@@ -57,7 +67,7 @@ The engineering rules in `docs/rules/` are read by agents (soft enforcement); wi
 - **`noImportCycles`** — no circular dependencies (`clean-code.md`). *(Youngest Biome rule — watch its open edge cases.)*
 - **`noBarrelFile`** + **`noReExportAll`** — no barrel files (`clean-code.md` / `web-performance.md`); **`noRestrictedImports`** to ban specific barrel paths.
 - **`useImportType`** — type-only imports (`typescript.md`); **`noUnusedVariables`** — clean imports.
-- **`noParameterAssign`** — don't mutate inputs (`clean-code.md`); **`useMaxParams`** — ≤3 params; **`noExcessiveCognitiveComplexity`** — complexity cap.
+- **`noParameterAssign`** — don't mutate inputs (`clean-code.md`); **`useMaxParams`** — ≤3 params; **`noExcessiveCognitiveComplexity: "error"`** — complexity cap (error, not warn — `clean-code.md`).
 - **`a11y` group** (enabled by default via the domain) — backs `accessibility.md`.
 - **`noDangerouslySetInnerHtml`** + **`noGlobalEval`** — injection (`web-security.md`).
 - **`noFocusedTests`** + **`noSkippedTests`** (`test` domain) — test hygiene.
@@ -66,12 +76,7 @@ The engineering rules in `docs/rules/` are read by agents (soft enforcement); wi
 
 **What Biome can't lint → other gates:** file-size limit and `_tests/` placement (`clean-code`/`project-structure`) → the structure guard below + reviewer; **Testing-Library-specific** query/async rules and full `eslint-plugin-next` parity → the optional ESLint escape hatch; deep type-aware rules → reviewer. A rule no tool can check stays a reviewer/agent check.
 
-**Structure guard (file placement isn't lintable — add a check).** The `_tests/` rule (`project-structure.md`) needs a guard in `verify.sh`, since linters don't check file location:
-```bash
-# fail if any unit/component test sits loose (outside a _tests/ folder, outside e2e/ and src/test/)
-stray=$(find src -name '*.test.ts' -o -name '*.test.tsx' | grep -v '/_tests/' || true)
-[ -n "$stray" ] && { echo "✗ tests must live in a _tests/ folder, not beside source:"; echo "$stray"; exit 1; } || true
-```
+**Structure guard (file placement isn't lintable — already in the gate).** The `_tests/` rule (`project-structure.md`) is enforced by the structure guard at the top of the canonical `verify.sh` (DR-059) — linters don't check file location, so the gate fails on any loose `*.test.ts(x)` outside a `_tests/` folder. **Dead code** is the canonical `knip.json` + the fail-closed `pnpm knip` step in `verify.sh` (`clean-code.md`); **circular imports** double-checked by `madge --circular` (Biome's `noImportCycles` is the linter layer).
 
 ## Preview Smoke Gate (DR-055) — render every UI route, fail-closed
 
@@ -139,28 +144,9 @@ Determinism preconditions (all required): pinned Playwright Docker image (`mcr.m
 
 **Layer B — VLM mock-judge (the reviewer step, catches the FIRST divergence from the mock).** Not a script — it's the `reviewer` (opus, vision, a different model from the sonnet builder): for each route it places the route screenshot next to the FRD's `mocks/<file>` and enumerates the NAMED divergences (missing/extra component, wrong color/token, gross layout/spacing) BEFORE a verdict, at ≥2 viewports, ≥3 samples with image order randomized (majority vote). Fail-closed on a named structural divergence; do not auto-fail on fine pixel/spacing deltas; an uncertain verdict (looks off but nothing nameable) → BLOCK `needs-owner`, never pass. (See `plugin/agents/reviewer.md` runtime/visual lens.)
 
-## `.pandacorp/verify.sh`
+## `.pandacorp/verify.sh` — canonical, installed VERBATIM (DR-059)
 
-```bash
-#!/bin/bash
-set -e
-pnpm biome check .          # format + lint in one (the hard-enforcement rules above)
-pnpm tsc --noEmit
-pnpm vitest run --reporter=dot
-# Preview Smoke Gate (DR-055) — FAIL-CLOSED: a missing smoke harness is RED, never a skip.
-if grep -q '"test:smoke"' package.json; then
-  pnpm test:smoke
-else
-  echo "✗ Preview Smoke Gate missing: a web project must render its routes in a browser (DR-055). Add e2e/smoke.spec.ts + playwright.config.ts + the test:smoke script."; exit 1
-fi
-# Visual-Fidelity Gate Layer A (DR-056) — deterministic regression vs blessed baseline, fail-closed.
-# (Layer B, the VLM mock-judge, is the reviewer's runtime/visual lens, not a script.)
-if grep -q '"test:visual"' package.json; then
-  pnpm test:visual
-else
-  echo "✗ Visual-Fidelity Gate missing: a UI project must diff its routes against blessed baselines (DR-056). Add e2e/visual.spec.ts + the test:visual script."; exit 1
-fi
-```
+The gate is **not** hand-rolled per project. Install `${CLAUDE_PLUGIN_ROOT}/templates/stack-a-nextjs/verify.sh` **VERBATIM** as `.pandacorp/verify.sh` (alongside `biome.json` and `knip.json`); `/pandacorp:upgrade` **conformance-checks** it against this template and regenerates on drift, so a project's enforcement can never silently fall behind the standard. It is MAXIMUM fail-closed — `set -euo pipefail` + `inherit_errexit`, every Biome warn promoted to a hard gate (`--error-on-warnings`), and a **missing** smoke/visual harness is RED, never a skip. The gate runs, in order: structure guard (no loose `*.test.ts(x)`) → `biome check` → `tsc --noEmit` → `knip` (dead code) → `madge --circular` → `vitest run` → the smoke shim (DR-055) → the visual shim (DR-056). The canonical file is the source of truth — read it there, don't duplicate it here.
 
 ## CI (`.github/workflows/ci.yml`)
 

@@ -48,10 +48,23 @@ action menu"), NOT one atomic component. Enough context for an agent to build th
 small enough to review on its own. Typically a handful per FRD — not dozens of tiny ones. Atomic
 work orders multiply the per-slice overhead and were a primary cause of slow, expensive builds.
 
-**Disjoint artifacts within a wave.** Work orders that build in parallel must NOT write the same
-file/module — parallel implementers collide (a real failure mode, not theoretical: e.g. four WOs all
-creating one `lib/x.ts`). Merge such siblings into one coarse work order (preferred), or serialize them
-with an explicit dependency. This rule by itself nudges granularity coarser, the right way.
+**Disjoint artifacts within a wave — declared and ENGINE-ENFORCED (DR-060).** Work orders that build
+in parallel must NOT write the same file/module — parallel implementers collide (a real failure mode,
+not theoretical: e.g. four WOs all creating one `lib/x.ts`). Each work order therefore **declares an
+`artifacts: [globs]` frontmatter field** — the files/dirs it writes. The **engine enforces
+disjointness from that field**: when it builds a wave it computes the artifact sets and **serializes
+any WOs whose `artifacts` overlap into different waves** (the overlapping WO waits a wave instead of
+racing). The Build Plan should still be **disjoint by design** — the architect designs wave-parallel
+WOs with non-overlapping artifacts, and prefers merging genuinely-coupled siblings into one coarse WO
+— but the engine is the backstop: an overlap left in the plan is serialized, never raced. This rule
+also nudges granularity coarser, the right way.
+
+**Per-WO API contract (DR-060).** Each backend work order writes its own contract at
+`docs/api/<wo-id>.md` (e.g. `docs/api/WO-03-002.md`), NOT a single shared `docs/api.md`. The old
+shared file was itself an overlapping artifact: N parallel agents racing one file caused lost-update /
+torn-read. The per-WO file is in the WO's own `artifacts`, so it's disjoint by construction; the
+frontend WO that consumes a contract reads the **specific** provider WO's file (it knows the id from
+its `Dependencies`).
 
 ## 3. The Build Plan lives in the blueprint (per FRD)
 

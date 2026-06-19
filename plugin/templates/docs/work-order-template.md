@@ -7,6 +7,7 @@ status: DRAFT             # DRAFT | ACTIVE | BLOCKED | SUPERSEDED   (document li
 parent: FRD-NN            # the owning FRD
 implementation_status: PLANNED   # PLANNED | IN_PROGRESS | IN_REVIEW | VERIFIED | BLOCKED
 blocked_reason:           # only when BLOCKED: needs-owner | external | error
+artifacts: []             # globs of files/dirs this WO writes (DR-060). The engine keeps parallel WOs disjoint: it serializes any WOs whose artifacts overlap into different waves. List every path this WO creates/edits, incl. its own API contract docs/api/WO-NN-MMM.md if backend.
 source_requirements: []   # REQ-NN-MMM ids this WO delivers (traceability)
 last_updated: YYYY-MM-DD
 ---

@@ -41,6 +41,12 @@ Upstream features/modules this depends on; the main technical risks or edge case
 
 - **Order & parallelism:** which work order must come first; which depend on earlier slices; which
   can run **in parallel** once a prerequisite is `VERIFIED`.
+- **Artifacts per WO — disjoint within a wave (DR-060):** record each work order's `artifacts`
+  (the globs of files/dirs it writes, matching its frontmatter). **Wave-parallel WOs MUST have
+  non-overlapping `artifacts`** — design the plan so it is verifiably disjoint. The engine enforces
+  this from the declared artifacts (it serializes any overlap into a later wave), but the plan should
+  be disjoint by design; merge genuinely-coupled siblings into one coarse WO instead. Each backend WO
+  owns its API contract at `docs/api/<wo-id>.md` (listed in its artifacts), never a shared file.
 - **Integration order:** the sequence that makes the slices plug together cleanly (so an agent never
   builds a consumer before its provider).
 - **Cross-FRD dependencies:** work orders here that depend on another FRD's work orders (by id), and

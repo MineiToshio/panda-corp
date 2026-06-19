@@ -1,0 +1,51 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.0.0/schema.json",
+  "_pandacorp": "Canonical MAXIMUM fail-closed Biome config (DR-059). Installed VERBATIM into projects by /pandacorp:blueprint and re-synced + conformance-checked by /pandacorp:upgrade. Do NOT hand-roll a partial copy — drift is RED. Rationale per rule lives in STACK.md (hard-enforcement section).",
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "files": { "ignoreUnknown": true },
+  "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
+  "javascript": { "formatter": { "quoteStyle": "double", "semicolons": "always" } },
+  "linter": {
+    "enabled": true,
+    "domains": {
+      "react": "recommended",
+      "next": "recommended",
+      "test": "recommended"
+    },
+    "rules": {
+      "recommended": true,
+      "a11y": "recommended",
+      "suspicious": {
+        "noExplicitAny": "error",
+        "noArrayIndexKey": "error",
+        "noFocusedTests": "error",
+        "noSkippedTests": "error",
+        "noGlobalEval": "error"
+      },
+      "style": {
+        "useImportType": "error",
+        "noParameterAssign": "error"
+      },
+      "correctness": {
+        "useExhaustiveDependencies": "error",
+        "useHookAtTopLevel": "error",
+        "noImportCycles": "error"
+      },
+      "complexity": {
+        "noExcessiveCognitiveComplexity": "error",
+        "useMaxParams": "error"
+      },
+      "performance": {
+        "noBarrelFile": "error",
+        "noReExportAll": "error"
+      },
+      "security": {
+        "noDangerouslySetInnerHtml": "error"
+      },
+      "nursery": {
+        "useSortedClasses": "error"
+      }
+    }
+  },
+  "assist": { "enabled": true, "actions": { "source": { "organizeImports": "on" } } }
+}
