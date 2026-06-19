@@ -34,7 +34,7 @@ h1{font-family:var(--pixel);font-weight:600;font-size:27px;margin:0;letter-spaci
 .live.off{color:var(--t3)}
 .live.off .dot{background:var(--bd2);box-shadow:none;animation:none}
 body.off #stage .room{filter:grayscale(.85) brightness(.46)}
-body.off #stage .ag,body.off #stage .pathline,body.off #stage .parchment,body.off #stage #vmore{filter:grayscale(.92) brightness(.42)}
+body.off #stage .ag,body.off #stage .bridge,body.off #stage .parchment,body.off #stage #vmore{filter:grayscale(.92) brightness(.42)}
 body.off #stage .ag .say{display:none!important}
 .poweroff{position:absolute;inset:0;z-index:500;display:none;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:rgba(10,13,14,.5);border-radius:14px;text-align:center}
 .poweroff .pz{font-family:var(--pixel);font-size:24px;color:var(--t1);letter-spacing:.03em;text-shadow:0 2px 8px rgba(0,0,0,.85)}
@@ -88,8 +88,8 @@ body.off .poweroff{display:flex}
 .stage::before{content:"";position:absolute;inset:0;
   background-image:linear-gradient(#1d2629 .5px,transparent .5px),linear-gradient(90deg,#1d2629 .5px,transparent .5px);
   background-size:30px 30px;opacity:.45;pointer-events:none}
-/* placeholder connector (to be replaced by a generated pixel stone-bridge PNG) */
-.pathline{position:absolute;border-radius:8px;background:repeating-linear-gradient(var(--ang,90deg),#26312f 0 10px,#202927 10px 20px);box-shadow:inset 0 0 0 1px #2c3836;opacity:.8;z-index:0}
+/* stone bridges between rooms (generated PNGs): sit above the room backgrounds, below the sprites that cross them */
+.bridge{position:absolute;z-index:2;pointer-events:none}
 
 .room{position:absolute;border-radius:12px;overflow:hidden;border:1px solid var(--bd2);z-index:1;transition:box-shadow .4s,filter .4s}
 .room .bg{position:absolute;inset:0;background-size:cover;background-position:center;image-rendering:pixelated;transition:filter .5s,opacity .5s}
@@ -226,9 +226,9 @@ body.embed .flowstrip{display:none}
 
   <div class="stage" id="stage">
     <div class="poweroff" id="poweroff"><div class="pz">⏻ Fábrica apagada</div><div class="pzs">sin build en curso · en Mission Control la fábrica se enciende al lanzar /pandacorp:implement</div></div>
-    <!-- paths: forge -> tribunal (short top hop) ; tribunal -> vault (short drop) -->
-    <div class="pathline" style="left:446px;top:163px;width:30px;height:14px"></div>
-    <div class="pathline" style="left:681px;top:410px;width:14px;height:30px"></div>
+    <!-- stone bridges between rooms (the WOs cross them): forge -> tribunal (horizontal) ; tribunal -> vault (vertical) -->
+    <img class="bridge" src="assets/zones/bridge-h.png" alt="" style="left:415px;top:140px;width:90px;height:60px">
+    <img class="bridge" src="assets/zones/bridge-v.png" alt="" style="left:662px;top:383px;width:52px;height:84px">
 
     <!-- Forge (build) -->
     <div class="room forge cool" id="room-forge" style="left:16px;top:40px;width:432px;height:372px">
