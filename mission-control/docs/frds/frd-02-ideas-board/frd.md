@@ -2,9 +2,12 @@
 id: FRD-02
 type: frd
 title: FRD-02 — Ideas board
+parent: product/prd.md
 status: ACTIVE
 implementation_status: VERIFIED
-last_updated: '2026-06-18'
+ui: true
+visual_source: docs/frds/frd-02-ideas-board/mocks/la-campana.html
+last_updated: '2026-06-19'
 ---
 # FRD-02 — Ideas board
 
@@ -61,11 +64,21 @@ Read-only kanban of the idea base, with idea capture, a navigable detail and dis
   phases **before** the active one as **done** (showing their delivered deliverable), the active one
   as **current** (glowing), and phases **after** it as **locked**.
 - AC-02-010.4 — WHEN the owner clicks a phase, THE system SHALL show that phase's **ficha**: a
-  description, what it **reads** (the deliverable from the previous phase) and **writes** (the
-  deliverable for the next phase), and the **whole team** of that phase — every specialist with its
-  role and what it does (not only the lead). The teams SHALL be: research = `researcher`; product =
-  `product-manager`; design = `designer` + `copywriter`; architecture = `architect`; build =
-  `implementer` + `reviewer` + `analytics`; release = `security-auditor` + `devops`.
+  description, what it **reads** (LEE — the deliverable from the previous phase) and **writes**
+  (ESCRIBE — the deliverable for the next phase), and the **whole team** of that phase — every
+  specialist with its role and what it does (not only the lead). The teams SHALL be: research =
+  `researcher`; product = `product-manager`; design = `designer` + `copywriter`; architecture =
+  `architect`; build = `implementer` + `reviewer` + `analytics`; release = `security-auditor` +
+  `devops`. The deliverable chain (LEE→ESCRIBE) SHALL be `research.md → PRD/FRDs (EARS) →
+  mockups + design tokens + components.md (microcopy) → blueprint + ADRs + Build Plan + work orders →
+  código → audit + deploy`.
+- AC-02-010.8 — THE fichas SHALL reflect the **current factory**: the **Design** ficha SHALL state
+  that design uses **Claude Design** and produces **`components.md`** + **mocks** + design tokens (and
+  microcopy via `copywriter`); the **Architecture** ficha SHALL state that it **plans the foundation
+  (shared primitives) and the file artifacts** of each work order (plus the blueprint, ADRs and Build
+  Plan); and the **Build** ficha SHALL reflect the **v2 build flow** — foundation-first, disjoint
+  waves serialized by file artifact, per-WO fidelity loop, the 4-lens + visual-judge gate and the
+  Option-B wave commit (consistent with FRD-06 / La Fragua).
 - AC-02-010.5 — WHEN the owner activates the **Construcción** (build) phase's "Entrar a La Fragua"
   action, THE system SHALL **navigate the host app** to Portfolio → that project → the **Party** tab
   (FRD-06 / La Fragua) for that project, WITHOUT an inner iframe reload of the card detail.

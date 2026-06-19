@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Party · La Fragua (build) — mockup fiel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --canvas:#0F1517;--panel:#192123;--card:#222A2D;--card2:#2A3336;
+  --t1:#EDEBE7;--t2:#BAB7B0;--t3:#9E9B94;
+  --bd:#2F373A;--bd2:#4F5A5D;
+  --accent:#33B6D1;--accent-text:#62CFE8;--accent-bg:#003542;
+  --ok:#5EC386;--ok-bg:#163A27;--warn:#EBB25F;--warn-bg:#3A2E18;--danger:#F36356;--danger-bg:#3A1A17;--info:#5EB6E6;--info-bg:#14303D;
+  --cat5:#2CB3B4;--cat6:#37B2E8;--cat7:#E39849;
+  --pixel:'Pixelify Sans',ui-monospace,monospace;--display:'Space Grotesk',system-ui,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:
+  radial-gradient(1200px 500px at 20% -10%, #16201f 0%, transparent 60%),
+  radial-gradient(900px 500px at 100% 110%, #141b22 0%, transparent 55%),
+  var(--canvas);
+  color:var(--t1);font-family:var(--display);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;font-variant-ligatures:none;font-feature-settings:"liga" 0,"clig" 0}
+.wrap{max-width:960px;margin:0 auto;padding:22px 20px 60px}
+h1{font-family:var(--pixel);font-weight:600;font-size:27px;margin:0;letter-spacing:.02em}
+.sub{color:var(--t3);font-size:13px;margin:3px 0 0;max-width:660px}
+.topbar{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+.live{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--ok);font-family:var(--mono);white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok);animation:pulse 1.6s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+/* factory powered down — everything desaturated & dimmed like the dark backgrounds */
+.live.off{color:var(--t3)}
+.live.off .dot{background:var(--bd2);box-shadow:none;animation:none}
+body.off #stage .room{filter:grayscale(.85) brightness(.46)}
+body.off #stage .ag,body.off #stage .bridge,body.off #stage .parchment,body.off #stage #vmore{filter:grayscale(.92) brightness(.42)}
+body.off #stage .ag .say{display:none!important}
+.poweroff{position:absolute;inset:0;z-index:500;display:none;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:rgba(10,13,14,.5);border-radius:14px;text-align:center}
+.poweroff .pz{font-family:var(--pixel);font-size:24px;color:var(--t1);letter-spacing:.03em;text-shadow:0 2px 8px rgba(0,0,0,.85)}
+.poweroff .pzs{font-family:var(--mono);font-size:12px;color:var(--t2);text-shadow:0 1px 5px rgba(0,0,0,.85)}
+body.off .poweroff{display:flex}
+
+/* ---- FRD quest tracker ---- */
+.quest{display:flex;align-items:center;gap:0;background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:9px 14px;margin-bottom:12px;flex-wrap:wrap}
+.quest .qlbl{font-family:var(--pixel);font-size:13px;color:var(--t3);margin-right:12px}
+.frdpip{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px;color:var(--t3);padding:3px 9px;border-radius:20px;border:1px solid transparent}
+.frdpip .b{width:9px;height:9px;border-radius:50%;background:var(--bd2);flex:0 0 auto}
+.frdpip.done{color:var(--ok)}.frdpip.done .b{background:var(--ok);box-shadow:0 0 6px var(--ok)}
+.frdpip.cur{color:var(--accent-text);background:var(--accent-bg);border-color:var(--accent)}.frdpip.cur .b{background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 1.4s infinite}
+.frdarrow{color:var(--t3);font-family:var(--mono);margin:0 3px;opacity:.5}
+.quest .proj{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--t3)}
+.quest .proj b{color:var(--ok)}
+.quest .esf{font-family:var(--mono);font-size:11px;color:var(--accent-text);margin-left:11px;padding-left:11px;border-left:1px solid var(--bd2)}
+.quest .esf b{color:var(--accent-text)}
+/* DEMO-only controls — not part of real Mission Control */
+.controls.demo{border:1px dashed var(--bd2);border-radius:10px;padding:8px 11px;background:rgba(255,255,255,.012)}
+.demobadge{font-family:var(--mono);font-size:10px;color:var(--warn);background:var(--warn-bg);border:1px solid var(--warn);border-radius:6px;padding:2px 7px;white-space:nowrap}
+.demonote{color:var(--t3);font-size:11px}
+.demonote code{font-family:var(--mono);font-size:10.5px;background:var(--card);padding:1px 5px;border-radius:4px;color:var(--t2)}
+
+/* ---- controls ---- */
+.controls{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.hint{color:var(--t3);font-size:12px}
+.modes{display:flex;gap:6px;flex-wrap:wrap}
+.mode{font-family:var(--display);font-weight:500;font-size:13px;background:var(--card);border:1px solid var(--bd2);color:var(--t2);border-radius:8px;padding:6px 11px;cursor:pointer;transition:.15s;text-align:left}
+.mode:hover{border-color:var(--accent)}
+.mode.on{background:var(--accent-bg);border-color:var(--accent);color:var(--accent-text)}
+.mode small{display:block;font-family:var(--mono);font-size:10px;color:var(--t3);margin-top:1px}
+.mode.on small{color:var(--accent-text);opacity:.8}
+.btn{font-family:var(--display);font-weight:500;font-size:13px;background:var(--card);border:1px solid var(--bd2);color:var(--t1);border-radius:8px;padding:7px 12px;cursor:pointer}
+.btn:hover{border-color:var(--accent);color:var(--accent-text)}
+
+/* ---- KPIs ---- */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.kpi{background:var(--panel);border:1px solid var(--bd);border-radius:10px;padding:9px 12px}
+.kpi .v{font-family:var(--pixel);font-size:20px;color:var(--t1);line-height:1}
+.kpi .l{font-size:11px;color:var(--t3);margin-top:3px}
+
+/* ---- scene title ---- */
+.scenetitle{display:flex;align-items:center;gap:9px;margin:0 auto 8px;max-width:920px;font-family:var(--pixel);font-size:16px;color:var(--t1)}
+.scenetitle .chip{font-family:var(--mono);font-size:11px;color:var(--accent-text);background:var(--accent-bg);border:1px solid var(--accent);border-radius:7px;padding:2px 9px}
+.scenetitle .tt{color:var(--t2);font-weight:400;font-family:var(--display);font-size:13px}
+
+/* ---- the living map ---- */
+.stage{position:relative;width:920px;max-width:100%;height:560px;margin:0 auto;border-radius:14px;overflow:hidden;border:1px solid var(--bd);
+  background:radial-gradient(680px 340px at 24% 36%, #16201d 0%, transparent 70%),#0c1113;image-rendering:pixelated}
+.stage::before{content:"";position:absolute;inset:0;
+  background-image:linear-gradient(#1d2629 .5px,transparent .5px),linear-gradient(90deg,#1d2629 .5px,transparent .5px);
+  background-size:30px 30px;opacity:.45;pointer-events:none}
+/* stone bridges between rooms (generated PNGs): sit above the room backgrounds, below the sprites that cross them */
+.bridge{position:absolute;z-index:2;pointer-events:none}
+
+.room{position:absolute;border-radius:12px;overflow:hidden;border:1px solid var(--bd2);z-index:1;transition:box-shadow .4s,filter .4s}
+.room .bg{position:absolute;inset:0;background-size:cover;background-position:center;image-rendering:pixelated;transition:filter .5s,opacity .5s}
+.room.cool{filter:saturate(.85)}
+.room.hot.forge{box-shadow:0 0 0 2px var(--cat7),0 0 34px -6px var(--cat7)}
+.room.hot.tribunal{box-shadow:0 0 0 2px var(--warn),0 0 30px -6px var(--warn)}
+.room .label{position:absolute;top:6px;left:8px;font-family:var(--pixel);font-size:14px;color:var(--t1);background:rgba(12,17,19,.8);border:1px solid var(--bd2);border-radius:7px;padding:1px 8px;display:inline-flex;align-items:center;gap:6px;z-index:3;white-space:nowrap}
+.room .count{position:absolute;top:6px;right:8px;font-family:var(--mono);font-size:11px;color:var(--t2);background:rgba(12,17,19,.8);border:1px solid var(--bd2);border-radius:20px;padding:1px 8px;z-index:3}
+.vaultfloor{position:absolute;inset:0;background:url(../../../design/prototype/assets/zones/boveda.png) center/cover;image-rendering:pixelated;box-shadow:inset 0 0 0 1px #1c3a2a}
+.vaultfloor::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(12,17,19,.32),rgba(12,17,19,.5))}
+.vaultmore{position:absolute;display:flex;align-items:center;justify-content:center;flex-direction:column;width:54px;height:54px;border-radius:10px;border:1px dashed var(--ok);color:var(--ok);font-family:var(--pixel);font-size:15px;background:var(--ok-bg);z-index:4}
+.vaultmore small{font-family:var(--mono);font-size:8px;color:var(--t3)}
+
+/* ---- agents ---- */
+.ag{position:absolute;width:52px;height:52px;will-change:transform;z-index:5;cursor:pointer}
+.ag img{width:52px;height:52px;image-rendering:pixelated;display:block;filter:drop-shadow(0 3px 2px rgba(0,0,0,.5))}
+.ag.vault img{width:42px;height:42px}
+.ag .halo{position:absolute;left:7px;bottom:1px;width:38px;height:13px;border-radius:50%;opacity:0;transition:opacity .3s;z-index:-1}
+.ag.work .halo,.ag.review .halo{opacity:.55;animation:halo 1.5s ease-in-out infinite}
+@keyframes halo{0%,100%{transform:scale(.8);opacity:.32}50%{transform:scale(1.18);opacity:.6}}
+.ag .prog{position:absolute;top:-9px;left:8px;width:36px;height:5px;border-radius:3px;background:#0c1113;border:1px solid var(--bd2);overflow:hidden;opacity:0;z-index:6}
+.ag.work .prog{opacity:1}
+.ag .prog i{display:block;height:100%;width:0;border-radius:3px;background:var(--cat7);transition:width .2s linear}
+.ag .tag{position:absolute;top:45px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:9px;color:var(--t2);background:rgba(12,17,19,.85);border:1px solid var(--bd);border-radius:5px;padding:0 5px;white-space:nowrap;z-index:6;line-height:1.5}
+.ag.vault .tag{top:37px;color:var(--ok)}
+/* hover tooltip — the WO title */
+.ag .wotip{position:absolute;bottom:52px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--accent);border-radius:8px;padding:4px 9px;font-family:var(--mono);font-size:10px;color:var(--t1);white-space:nowrap;display:none;z-index:30;box-shadow:0 5px 14px rgba(0,0,0,.55)}
+.ag .wotip b{color:var(--accent-text)}
+.ag .wotip::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--panel);margin-top:-1px}
+.ag:hover{z-index:40!important}
+.ag:hover .wotip{display:block}
+.ag .say{position:absolute;bottom:48px;left:50%;transform:translateX(-50%);max-width:150px;width:max-content;background:var(--panel);border:1px solid var(--bd2);border-radius:8px;padding:4px 8px;font-family:var(--mono);font-size:10px;line-height:1.3;color:var(--t1);text-align:center;display:none;z-index:9;box-shadow:0 3px 10px rgba(0,0,0,.4)}
+.ag.say-on .say{display:block;animation:sayin .2s ease-out}
+.ag.b-hi .say{bottom:92px}/* even columns talk higher so adjacent bubbles don't overlap */
+.ag:hover .say{display:none}
+.ag .say::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--panel);margin-top:-1px}
+@keyframes sayin{from{opacity:0;transform:translateX(-50%) translateY(3px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+.ag .scrollicon{position:absolute;top:12px;left:40px;width:18px;height:18px;border-radius:4px;background:var(--warn-bg);border:1px solid var(--warn);display:none;align-items:center;justify-content:center;font-size:11px;z-index:7}
+.ag.carry .scrollicon{display:flex}
+.ag .medal{position:absolute;top:-4px;left:30px;width:18px;height:18px;display:none;font-size:14px;z-index:7;filter:drop-shadow(0 0 4px var(--ok))}
+.ag.vault .medal{display:block}
+
+/* deep split — a SEQUENTIAL relay within ONE work order: test → backend →contrato→ frontend */
+.ag.split>img{display:none}
+.ag .relay{position:absolute;top:9px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:1px;z-index:6}
+.ag .rstep{position:relative;width:29px;height:29px;flex:0 0 auto;transition:opacity .25s,filter .25s}
+.ag .rstep img{width:29px;height:29px;image-rendering:pixelated;display:block;filter:drop-shadow(0 2px 1px rgba(0,0,0,.5))}
+.ag .rstep.pending{opacity:.3;filter:grayscale(.75)}
+.ag .rstep.active{filter:drop-shadow(0 0 6px var(--cat7))}
+.ag .rstep.active img{animation:bob 1s ease-in-out infinite}
+.ag .rstep.done{opacity:.65}
+.ag .rstep .chk{position:absolute;top:-2px;right:-3px;font-size:9px;color:var(--ok);display:none;text-shadow:0 0 3px #000;z-index:2}
+.ag .rstep.done .chk{display:block}
+.ag .rarrow{font-family:var(--mono);font-size:10px;color:var(--t3);margin:0 -1px}
+.ag .rcontract{font-size:12px;opacity:0;transition:opacity .3s;filter:drop-shadow(0 0 5px var(--accent));margin:0 -2px}
+.ag .rcontract.on{opacity:1;animation:bob 1.4s ease-in-out infinite}
+.ag .prog3{position:absolute;top:-8px;left:50%;transform:translateX(-50%);display:flex;gap:3px;z-index:6;opacity:0}
+.ag.split.work .prog3{opacity:1}
+.ag.split .prog{display:none}
+.ag .prog3 i{position:relative;display:block;width:17px;height:4px;border-radius:2px;background:#0c1113;border:1px solid var(--bd2);overflow:hidden}
+.ag .prog3 i b{position:absolute;left:0;top:0;height:100%;width:0;background:var(--cat7);display:block}
+
+/* travelling parchment (the real Status Note hand-off) */
+.parchment{position:absolute;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:15px;z-index:8;pointer-events:none;filter:drop-shadow(0 0 6px var(--warn))}
+.pt{position:absolute;width:5px;height:5px;border-radius:50%;pointer-events:none;z-index:7}
+
+/* ---- feed ---- */
+.feedwrap{margin-top:14px}
+.feedwrap h3{font-family:var(--pixel);font-weight:500;font-size:15px;margin:0 0 6px;display:flex;align-items:center;gap:8px}
+.feed{background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:11px 14px;min-height:60px;font-size:12.5px;font-family:var(--mono)}
+.feed .ln{display:flex;gap:8px;align-items:flex-start;margin:0 0 5px;padding-left:8px;border-left:2px solid var(--bd2)}
+.feed .ln img{width:18px;height:18px;border-radius:4px;image-rendering:pixelated;flex:0 0 auto;margin-top:1px}
+.feed .ln .tx{color:var(--t2)}
+.feed .ln b{font-weight:600}
+
+/* ---- fidelity legend ---- */
+.legend{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.lcard{background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:13px 15px}
+.lcard h4{font-family:var(--pixel);font-weight:500;font-size:14px;margin:0 0 7px;display:flex;align-items:center;gap:7px;color:var(--accent-text)}
+.lcard ul{margin:0;padding-left:17px}.lcard li{font-size:12.5px;color:var(--t2);margin:4px 0}
+.lcard code{font-family:var(--mono);font-size:11px;background:var(--card);padding:1px 5px;border-radius:4px;color:var(--t1)}
+.foot{margin-top:14px;font-family:var(--mono);font-size:11px;color:var(--t3);border-top:1px solid var(--bd);padding-top:11px}
+.foot a{color:var(--accent-text);text-decoration:none}
+@media(max-width:760px){.kpis{grid-template-columns:1fr 1fr}.legend{grid-template-columns:1fr}}
+/* embed mode (inside Mission Control's Party tab) */
+body.embed{background:transparent}
+body.embed .topbar,body.embed .legend,body.embed .foot{display:none}
+body.embed .wrap{padding:4px 2px 8px;max-width:none}
+body.embed .stage{max-width:none}
+.stagefit{width:100%;overflow:hidden}
+/* ---- flow strip: the whole build pipeline, always visible, lights up the active beat ---- */
+.flowstrip{display:flex;align-items:stretch;margin:0 0 12px;padding:9px 8px;background:var(--panel);border:1px solid var(--bd);border-radius:12px;position:relative}
+.flowstrip .fstep{display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;flex:1;padding:5px 4px;border-radius:8px;opacity:.45;transition:opacity .25s,background .25s,border-color .25s;border:1px solid transparent;position:relative;cursor:help}
+.flowstrip .fstep.on,.flowstrip .fstep:hover{opacity:1;background:var(--card);border-color:var(--accent)}
+.flowstrip .fstep .ftip{position:absolute;bottom:calc(100% + 9px);left:50%;transform:translateX(-50%);width:236px;background:var(--card2);border:1px solid var(--bd2);border-radius:9px;padding:8px 11px;font-family:var(--display);font-size:11.5px;line-height:1.42;color:var(--t2);text-align:left;display:none;z-index:60;box-shadow:0 10px 26px rgba(0,0,0,.6)}
+.flowstrip .fstep .ftip b{display:block;font-family:var(--pixel);font-weight:500;color:var(--accent-text);margin-bottom:3px;font-size:12px}
+.flowstrip .fstep .ftip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:var(--bd2)}
+.flowstrip .fstep:hover .ftip{display:block}
+.flowstrip .fstep .fi{font-size:17px;line-height:1}
+.flowstrip .fstep .ft{font-family:var(--pixel);font-size:11px;color:var(--t1);white-space:nowrap;letter-spacing:.02em}
+.flowstrip .fstep.on .ft{color:var(--accent-text)}
+.flowstrip .fstep .fs{font-family:var(--mono);font-size:8.5px;color:var(--t3);white-space:nowrap}
+.flowstrip .farrow{display:flex;align-items:center;color:var(--bd2);font-size:12px;padding:0 1px;flex:0 0 auto}
+body.embed .flowstrip{display:none}
+@media(max-width:760px){.flowstrip .fs{display:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div>
+      <h1>⚒️ Party · La Fragua</h1>
+      <p class="sub">La estación <b>Construcción</b> como un mundo vivo. Se construye <b>un FRD a la vez</b>: cada muñeco es un <b>work order que de verdad está corriendo</b>. <b>Fundación primero</b> (los primitivos compartidos) → oleadas <b>disjuntas por archivo</b> que <b>reutilizan el inventario</b> y se <b>autocorrigen contra el mock</b> → el <b>Juez</b> (4 lentes + visual) → el motor <b>commitea la oleada</b>. Pasa el ratón por un muñeco para ver su título.</p>
+    </div>
+    <div class="live" id="live"><span class="dot"></span> Live · AgentWorking + SubagentStop</div>
+  </div>
+
+  <div class="quest" id="quest"></div>
+
+  <div class="controls demo">
+    <span class="demobadge">🔧 SOLO DEMO</span>
+    <span class="demonote">Estos controles <b>no existen</b> en Mission Control real (que es de solo lectura): el build se lanza con <code>/pandacorp:implement</code> y el esfuerzo se fija ahí. Aquí sirven para <b>previsualizar los estados</b>.</span>
+    <div class="modes" id="modes"></div>
+    <span style="flex:1"></span>
+    <button class="btn" id="pause">⏸ Apagar la fábrica</button>
+    <button class="btn" id="reset">↺ Reiniciar misión</button>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="flowstrip" id="flowstrip"></div>
+
+  <div class="scenetitle" id="scenetitle"></div>
+
+  <div class="stage" id="stage">
+    <div class="poweroff" id="poweroff"><div class="pz">⏻ Fábrica apagada</div><div class="pzs">sin build en curso · en Mission Control la fábrica se enciende al lanzar /pandacorp:implement</div></div>
+    <!-- stone bridges between rooms (the WOs cross them): forge -> tribunal (horizontal) ; tribunal -> vault (vertical) -->
+    <img class="bridge" src="../../../design/prototype/assets/zones/bridge-h.png" alt="" style="left:415px;top:140px;width:90px;height:60px">
+    <img class="bridge" src="../../../design/prototype/assets/zones/bridge-v.png" alt="" style="left:662px;top:383px;width:52px;height:84px">
+
+    <!-- Forge (build) -->
+    <div class="room forge cool" id="room-forge" style="left:16px;top:40px;width:432px;height:372px">
+      <div class="bg" style="background-image:url(../../../design/prototype/assets/zones/backend.png)"></div>
+      <span class="label">⚒️ Sala de Forja</span>
+      <span class="count" id="cnt-forge">0</span>
+    </div>
+
+    <!-- Tribunal (review) — same size as the forge -->
+    <div class="room tribunal cool" id="room-tribunal" style="left:472px;top:40px;width:432px;height:372px">
+      <div class="bg" style="background-image:url(../../../design/prototype/assets/zones/tribunal.png)"></div>
+      <span class="label">⚖️ Tribunal del Juez</span>
+      <span class="count" id="cnt-review">0</span>
+    </div>
+
+    <!-- Vault (verified) — bottom shelf -->
+    <div class="room vault" id="room-vault" style="left:16px;top:438px;width:888px;height:106px">
+      <div class="vaultfloor"></div>
+      <span class="label">🏆 Bóveda · trofeos del FRD</span>
+      <span class="count" id="cnt-vault">0</span>
+    </div>
+  </div>
+
+  <div class="feedwrap">
+    <h3>📜 Bitácora del gremio <span style="font-family:var(--display);font-weight:400;color:var(--t3);font-size:11px">· los hand-offs reales del Build Plan, vía documento</span></h3>
+    <div class="feed" id="feed"><span style="color:var(--t3)">Arrancando la forja…</span></div>
+  </div>
+
+  <div class="legend">
+    <div class="lcard">
+      <h4>✓ Qué es fiel al motor</h4>
+      <ul>
+        <li>La escena es <b>el FRD en curso</b> (pocos WO); el total del proyecto va arriba. Por eso la bóveda no se satura.</li>
+        <li>1 muñeco = 1 <code>work order</code> activo; rol real <code>implementer</code> (full-stack), uno por WO. <b>Hover</b> = su título.</li>
+        <li><b>Fundación primero (DR-057):</b> la 1ª oleada forja los <b>primitivos compartidos</b> (Button/Banner/Card); las features <b>los reutilizan</b>, no los reinventan.</li>
+        <li>La <b>oleada</b> = el <b>modo</b> (pro 2 · equilibrado 4 · potente 8 · profundo 6); el resto es <b>+N en cola</b>. Los WO que escriben los <b>mismos archivos</b> se <b>serializan</b> a oleadas distintas (DR-060) — nunca chocan.</li>
+        <li>Antes de crear, el WO <b>consulta el inventario</b> <code>docs/design/components.md</code> → reutiliza/adapta (no duplica).</li>
+        <li><b>Bucle de fidelidad (DR-056):</b> cada WO de UI hace <code>render → compara con el mock → corrige</code> (×≤3) <b>antes</b> de IN_REVIEW.</li>
+        <li>El <b>pergamino</b> = el <code>Status Note</code> real: interfaces <b>+ decisiones/supuestos</b>; el dependiente lo lee (Build Plan).</li>
+        <li>El <b>Juez</b> (<code>reviewer</code>, 1 por FRD) abre el gate con <b>todos</b> en <code>IN_REVIEW</code>: <b>4 lentes</b> (correctitud·seguridad·calidad·<b>runtime/visual</b>) + el <b>juez visual</b> compara captura vs mock y <b>bendice el baseline</b> (DR-055/056).</li>
+        <li><b>Commit Opción B (DR-060):</b> los workers <b>no tocan git</b>; el motor <b>commitea cada oleada con un solo escritor</b> — sin <i>race</i>, sin merge.</li>
+        <li><b>Gran Integración cross-feature (DR-060):</b> al cerrar el proyecto, un revisor traza las <b>costuras entre features</b> — que productor/consumidor de cada contrato concuerden.</li>
+        <li>En <b>Profundo</b> cada WO es un <b>relevo secuencial</b>: <code>test-writer</code> (RED) → <code>backend-dev</code> (publica su contrato <code>docs/api/&lt;wo&gt;.md</code>) → <code>frontend-dev</code> (lo consume), con modelo <b>Opus</b>. No trabajan a la vez.</li>
+      </ul>
+    </div>
+    <div class="lcard">
+      <h4>✗ Qué se quitó (la fantasía vieja)</h4>
+      <ul>
+        <li>Elenco fijo de 10 roles charlando en vivo: no ocurre en el build.</li>
+        <li><code>researcher</code>, <code>designer</code>, <code>architect</code>, <code>PM</code>… viven en <b>otras fases</b> → ver <a href="../../frd-02-ideas-board/mocks/la-campana.html" style="color:var(--accent-text)">La Campaña</a>.</li>
+        <li>El <code>implementer</code> ya no se disfraza de <code>reviewer</code>.</li>
+        <li>Sin "comunicación peer en vivo" inventada.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="foot" id="foot"></div>
+</div>
+
+<script>
+// ======================================================================
+// La Fragua — simulación fiel del build (mockup, no conectado)
+//   Flujo lineal: Forja (izq) → Tribunal (der, mismo tamaño) → Bóveda (franja)
+//   Escena = el FRD en curso. La bóveda se compacta. La cola es un número.
+// ======================================================================
+const MODES={
+  pro:{wave:2,split:false,label:'Pro',note:'2 en paralelo'},
+  balanced:{wave:4,split:false,label:'Equilibrado',note:'4 en paralelo'},
+  powerful:{wave:8,split:false,label:'Potente',note:'8 · por defecto'},
+  deep:{wave:6,split:true,label:'Profundo',note:'6 WO · relevo 3 roles · Opus'}
+};
+const SPRITE={impl:'../../../design/prototype/assets/agents/backend-dev.png',be:'../../../design/prototype/assets/agents/backend-dev.png',fe:'../../../design/prototype/assets/agents/frontend-dev.png',tw:'../../../design/prototype/assets/agents/test-writer.png',rev:'../../../design/prototype/assets/agents/reviewer.png'};
+
+// FRD-14 work orders + Build Plan dependencies (4 roots → hand-offs)
+const WODEFS=[
+  {id:'WO-14-000',name:'fundación · primitivos (Button/Banner/Card)',deps:[],foundation:true},
+  {id:'WO-14-001',name:'buildSnapshot',deps:[]},
+  {id:'WO-14-004',name:'feedback-channels',deps:[]},
+  {id:'WO-14-010',name:'export-panel',deps:[]},
+  {id:'WO-14-011',name:'empty-states',deps:[]},
+  {id:'WO-14-008',name:'snapshot-api',deps:['WO-14-001']},
+  {id:'WO-14-002',name:'snapshot-panel',deps:['WO-14-001']},
+  {id:'WO-14-007',name:'feedback-form',deps:['WO-14-004']},
+  {id:'WO-14-006',name:'snapshot-actions',deps:['WO-14-008']},
+  {id:'WO-14-005',name:'stale-banner',deps:['WO-14-008']},
+  {id:'WO-14-003',name:'StatusChips',deps:['WO-14-002']},
+  {id:'WO-14-009',name:'history-view',deps:['WO-14-002']}
+];
+const SAYS_BUILD=['RED → GREEN','reutilizo del inventario','render → mock → corrijo','self-test ✓','tipando','verify…'];
+// FRD titles (the theme of each feature) + global project state
+const FRD_CYCLE=['FRD-13','FRD-14','FRD-15'];
+const FRD_TITLES={'FRD-13':'Sistema visual & tokens','FRD-14':'Snapshot & canales de feedback','FRD-15':'Aviso de drift del plugin'};
+let frdIx=1, FRDID=FRD_CYCLE[frdIx];
+let PROJ_DONE=52, PROJ_TOTAL=109;
+
+// ---- layout (scene coords) — forge & tribunal same size, side by side ----
+const FORGE_SLOTS=[[95,155],[190,155],[285,155],[378,155],[95,300],[190,300],[285,300],[378,300]];
+const FORGE_CENTER=[236,226]; // the foundation WO builds ALONE, centered in the forge (not a row slot)
+// deep mode: 6 WIDER stations (2×3) so each WO's test→backend→frontend relay fits without overlap
+const DEEP_SLOTS=[[140,150],[320,150],[140,255],[320,255],[140,360],[320,360]];
+function fslots(){return MODES[mode].split?DEEP_SLOTS:FORGE_SLOTS;}
+// tribunal: 12 well-spaced slots (4×3) — never overlap, fits all 11 WO of a FRD
+const REVIEW_SLOTS=[
+  [538,190],[628,190],[718,190],[808,190],
+  [538,275],[628,275],[718,275],[808,275],
+  [538,360],[628,360],[718,360],[808,360]];
+const REVIEWER_HOME=[626,108];
+const MAXVAULT=9;
+const VAULT_Y=492, VAULT_X0=112, VAULT_DX=80;
+const VAULT_MORE=[820,465];
+const FORGE_OUT=[450,170], TRIB_IN=[476,170];   // forge → tribunal (short hop)
+const TRIB_OUT=[688,412], SHELF_Y=420;           // tribunal → vault (drop then shelf)
+
+let mode='powerful', paused=false, runId=0;
+let wos=[], reviewer=null, vaultOrder=[], vaultArchived=0;
+let _gateAnnounced=false,_frdDone=false;
+const stage=document.getElementById('stage');
+
+function lerp(a,b,t){return a+(b-a)*t;}
+function mk(html){const d=document.createElement('div');d.innerHTML=html;return d.firstElementChild;}
+
+function makeSprite(w){
+  const split=MODES[mode].split;
+  const el=mk('<div class="ag'+(split?' split':'')+'"><div class="halo" style="background:var(--cat7)"></div><div class="prog"><i></i></div>'+
+    '<div class="scrollicon">📜</div><div class="medal">🏅</div><div class="say"></div>'+
+    '<div class="wotip"><b>'+w.id+'</b> · '+w.def.name+(split?' · relevo test→backend→frontend':'')+'</div><div class="tag">'+w.id+'</div>'+
+    (split?'<div class="prog3"><i><b></b></i><i><b></b></i><i><b></b></i></div>'+
+      '<div class="relay">'+
+        '<div class="rstep r0"><img src="'+SPRITE.tw+'" alt="test-writer"><span class="chk">✓</span></div>'+
+        '<span class="rarrow">›</span>'+
+        '<div class="rstep r1"><img src="'+SPRITE.be+'" alt="backend-dev"><span class="chk">✓</span></div>'+
+        '<span class="rcontract" title="contrato docs/api.md">📄</span>'+
+        '<div class="rstep r2"><img src="'+SPRITE.fe+'" alt="frontend-dev"><span class="chk">✓</span></div>'+
+      '</div>'
+      :'<img src="'+SPRITE.impl+'">')+'</div>');
+  stage.appendChild(el);w.el=el;place(w);return el;
+}
+function place(o){o.el.style.transform='translate('+(o.px-26)+'px,'+(o.py-26)+'px)';o.el.style.zIndex=Math.round(o.py);}
+
+function reset(){
+  runId++;_gateAnnounced=false;_frdDone=false;vaultOrder=[];vaultArchived=0;
+  stage.querySelectorAll('.ag,.parchment,.pt,#vmore').forEach(n=>n.remove());
+  document.getElementById('room-tribunal').classList.remove('hot');
+  wos=WODEFS.map((d,i)=>({def:d,id:d.id,deps:d.deps.slice(),state:'pending',el:null,px:0,py:0,home:null,path:[],t0:0,dur:0,prog:0,say:0,reviewSlot:-1,slotIx:i}));
+  const rel=mk('<div class="ag" style="z-index:6;cursor:default"><div class="halo" style="background:var(--warn)"></div><div class="say"></div><div class="tag" style="color:var(--warn)">Juez · 1×FRD</div><img src="'+SPRITE.rev+'"></div>');
+  stage.appendChild(rel);reviewer={el:rel,px:REVIEWER_HOME[0],py:REVIEWER_HOME[1],state:'idle',t0:0,dur:0,target:null};
+  reviewer.el.style.transform='translate('+(REVIEWER_HOME[0]-26)+'px,'+(REVIEWER_HOME[1]-26)+'px)';
+  reviewer.el.querySelector('img').style.opacity=.45;
+  feedReset();renderQuest();renderSceneTitle();
+  feed(null,'<span style="color:var(--cat5)">⛏️ Fundación primero</span> — los <b>primitivos compartidos</b> (Button/Banner/Card) se forjan antes; las features los <b>reutilizan</b>','var(--t3)');
+  feed(null,'<b>'+FRDID+'</b> · oleada de <b>'+MODES[mode].wave+'</b> WO'+(MODES[mode].split?' · cada uno por relevo <b>test→backend→frontend</b> (Opus)':'')+' — disjuntos por archivo (DR-060) · la forja arranca','var(--accent-text)');
+  setPower(true);
+  const me=runId;requestAnimationFrame(()=>loop(me));
+}
+
+function freeForgeSlot(){const used=wos.filter(w=>['building','carry'].includes(w.state)).map(w=>w.slotIx);const S=fslots();for(let i=0;i<S.length;i++)if(!used.includes(i))return i;return 0;}
+function depsReady(w){return w.deps.every(id=>{const d=wos.find(x=>x.id===id);return d&&['carry','waitgate','judging','tovault','verified'].includes(d.state);});}
+function activeBuilders(){return wos.filter(w=>['building','carry'].includes(w.state)).length;}
+
+function startBuild(w){
+  w.slotIx=freeForgeSlot();const p=w.def.foundation?FORGE_CENTER:fslots()[w.slotIx];
+  w.state='building';w.px=p[0];w.py=p[1];w.t0=performance.now();w.dur=(MODES[mode].split?4200:2600)+Math.random()*2600;w.prog=0;w._contract=false;
+  if(!w.el)makeSprite(w);place(w);
+  w.el.classList.toggle('b-hi',!w.def.foundation&&w.slotIx%2===0);
+  w.el.classList.remove('queued');w.el.classList.add('work');
+  if(w.def.foundation){
+    w.el.classList.add('foundation');
+    const halo=w.el.querySelector('.halo');if(halo)halo.style.background='var(--cat5)';
+    const tag=w.el.querySelector('.tag');if(tag){tag.textContent='⛏️ Fundación';tag.style.color='var(--cat5)';}
+    say(w,'primitivos compartidos');
+    feed(null,'<span style="color:var(--cat5)">⛏️ Fundación</span> — forja los <b>primitivos</b> (Button/Banner/Card) <b>SOLA</b>; las features esperan','var(--cat5)');
+  } else {
+    feed('impl','<b style="color:var(--cat7)">'+w.id+'</b> <span style="color:var(--t3)">'+w.def.name+'</span> — IN_PROGRESS','var(--t2)');
+  }
+}
+
+function finishBuild(w){
+  w.state='carry';w.el.classList.remove('work');w.el.classList.add('carry');w.prog=1;w.el.querySelector('.prog i').style.width='100%';say(w,null);
+  feed('impl','<b style="color:var(--cat7)">'+w.id+'</b> → IN_REVIEW · <span style="color:var(--warn)">Status Note: interfaces + decisiones</span> · <span style="color:var(--t3)">no commitea (lo hace la oleada)</span>','var(--t2)');
+  wos.filter(x=>x.state==='pending'&&x.deps.includes(w.id)).forEach(dep=>{
+    if(dep.deps.every(id=>{const d=wos.find(y=>y.id===id);return d&&['carry','waitgate','judging','tovault','verified'].includes(d.state);}))
+      spawnParchment(w.px,w.py,dep);});
+  const sl=assignReviewSlot(w);
+  w.path=[FORGE_OUT.slice(),TRIB_IN.slice(),sl.slice()];
+}
+
+// deep relay: drive the test→backend→frontend sub-sequence WITHIN a work order
+const RELAY_SAYS=['tests RED','backend + 📄 contrato','UI con tokens'];
+function updateRelay(w){
+  const p=w.prog, step=p<0.34?0:(p<0.67?1:2);
+  const steps=w.el.querySelectorAll('.rstep');
+  steps.forEach((s,i)=>{s.classList.toggle('done',i<step);s.classList.toggle('active',i===step);s.classList.toggle('pending',i>step);});
+  const segs=w.el.querySelectorAll('.prog3 i b');
+  segs.forEach((b,i)=>{const f=Math.max(0,Math.min(1,(p-i/3)/(1/3)));b.style.width=(f*100)+'%';});
+  if(step>=2&&!w._contract){w._contract=true;w.el.querySelector('.rcontract').classList.add('on');
+    feed('impl','<span style="color:var(--accent-text)">📄 contrato</span> (docs/api/'+w.id+'.md, por-WO) publicado · el frontend lo consume','var(--t3)');}
+}
+
+function spawnParchment(x,y,dep){
+  const p=mk('<div class="parchment">📜</div>');stage.appendChild(p);
+  const _S=fslots(),_sp=_S[dep.slotIx%_S.length],tx=_sp[0],ty=_sp[1],t0=performance.now();
+  feed('impl','<span style="color:var(--warn)">📜 Status Note</span> → <b>'+dep.id+'</b> lo lee (Build Plan)','var(--t3)');
+  (function anim(){const k=Math.min(1,(performance.now()-t0)/850);
+    p.style.transform='translate('+(lerp(x,tx,k)-11)+'px,'+(lerp(y,ty,k)-11-Math.sin(k*Math.PI)*24)+'px)';
+    if(k<1)requestAnimationFrame(anim);else{p.remove();particles(tx,ty,'var(--warn)');}})();
+}
+
+function assignReviewSlot(w){const used=wos.filter(x=>x.reviewSlot>=0).map(x=>x.reviewSlot);let s=0;while(used.includes(s)&&s<REVIEW_SLOTS.length-1)s++;w.reviewSlot=s;return REVIEW_SLOTS[s];}
+
+function particles(x,y,col){for(let i=0;i<8;i++){(function(){const p=document.createElement('div');p.className='pt';p.style.background=col;p.style.left=x+'px';p.style.top=y+'px';stage.appendChild(p);const a=Math.random()*6.28,dist=10+Math.random()*22,t0=performance.now();(function an(){const k=(performance.now()-t0)/520;if(k>=1){p.remove();return;}p.style.opacity=1-k;p.style.transform='translate('+(Math.cos(a)*dist*k)+'px,'+(Math.sin(a)*dist*k-k*10)+'px)';requestAnimationFrame(an);})();})();}}
+
+function say(o,t){const s=o.el.querySelector('.say');if(!s)return;if(t){s.textContent=t;o.el.classList.add('say-on');o.el.style.zIndex=60;}else{o.el.classList.remove('say-on');o.el.style.zIndex=Math.round(o.py||0);}}
+
+function reviewReady(){return !wos.some(w=>['pending','building'].includes(w.state)) && wos.length>0;}
+
+function toVault(w){
+  const ix=Math.min(vaultOrder.length,MAXVAULT-1);
+  vaultOrder.push(w);
+  const vx=VAULT_X0+ix*VAULT_DX;
+  w.path=[TRIB_OUT.slice(),[vx,SHELF_Y],[vx,VAULT_Y]];
+}
+function compactVault(){
+  while(vaultOrder.length>MAXVAULT && vaultOrder[0].state==='verified' && (!vaultOrder[0].path||!vaultOrder[0].path.length)){
+    const old=vaultOrder.shift();if(old.el){old.el.remove();old.el=null;}vaultArchived++;
+  }
+  vaultOrder.forEach((v,i)=>{v.px=VAULT_X0+i*VAULT_DX;v.py=VAULT_Y;if(v.el&&(!v.path||!v.path.length))v.el.style.transform='translate('+(v.px-26)+'px,'+(v.py-21)+'px)';});
+}
+
+// the full build pipeline as an always-visible strip; paintFlow lights up the beat(s) happening now
+const FLOW=[
+  {k:'found',i:'⛏️',t:'Fundación',s:'primitivos',d:'La 1ª oleada forja los primitivos compartidos (Button, Banner, Card). Las features luego los reutilizan, no los reinventan.'},
+  {k:'wave',i:'⚒️',t:'Oleada',s:'disjunta x archivo',d:'N work orders en paralelo (según el modo). Los que escriben los mismos archivos se serializan a oleadas distintas — nunca chocan (DR-060).'},
+  {k:'fid',i:'🖼',t:'Fidelidad',s:'render vs mock ×≤3',d:'Cada WO de UI renderiza, compara contra el mock y se autocorrige (hasta 3 veces) antes de pedir revisión (DR-056).'},
+  {k:'note',i:'📜',t:'Status Note',s:'interfaces+decisiones',d:'Al cerrar, cada WO escribe su nota de hand-off: interfaces publicadas + decisiones y supuestos. El WO dependiente la lee.'},
+  {k:'trib',i:'⚖️',t:'Tribunal',s:'4 lentes+visual+baseline',d:'Un Juez por FRD revisa con 4 lentes (correctitud, seguridad, calidad, runtime/visual), compara captura vs mock y bendice el baseline.'},
+  {k:'commit',i:'🔒',t:'Commit',s:'oleada · Opción B',d:'Los agentes no tocan git. El motor commitea cada oleada con un único escritor serializado (Opción B) — sin conflictos de merge.'},
+  {k:'vault',i:'🏆',t:'Bóveda',s:'VERIFIED',d:'Los WO aprobados quedan como trofeos VERIFIED del FRD. El estado del FRD es la suma de sus WO.'},
+  {k:'integ',i:'🧩',t:'Integración',s:'cross-feature',d:'Al cerrar el proyecto, una pasada cross-feature revisa las costuras entre features (productor/consumidor de cada contrato concuerdan).'}
+];
+function buildFlow(){
+  const el=document.getElementById('flowstrip');if(!el)return;
+  el.innerHTML=FLOW.map((f,i)=>'<div class="fstep" data-k="'+f.k+'"><span class="fi">'+f.i+'</span><span class="ft">'+f.t+'</span><span class="fs">'+f.s+'</span><div class="ftip"><b>'+f.i+' '+f.t+'</b>'+f.d+'</div></div>'+(i<FLOW.length-1?'<span class="farrow">→</span>':'')).join('');
+}
+function paintFlow(){
+  const el=document.getElementById('flowstrip');if(!el)return;
+  const foundBuilding=wos.some(w=>w.def.foundation&&w.state==='building');
+  const featBuilding=wos.some(w=>!w.def.foundation&&['building','carry'].includes(w.state));
+  const note=wos.some(w=>w.state==='waitgate');
+  const judging=wos.some(w=>w.state==='judging');
+  const committing=wos.some(w=>w.state==='tovault');
+  const vault=wos.some(w=>w.state==='verified');
+  const frdDone=wos.length>0&&wos.every(w=>w.state==='verified');
+  const st={found:foundBuilding,wave:featBuilding,fid:featBuilding,note:note,trib:judging,commit:committing,vault:vault,integ:frdDone};
+  el.querySelectorAll('.fstep').forEach(s=>s.classList.toggle('on',!!st[s.dataset.k]));
+}
+function loop(me){
+  if(me!==runId)return;
+  const now=performance.now();
+  paintFlow();
+  if(!paused){
+    const foundDone=!wos.some(w=>w.def.foundation&&!['carry','waitgate','judging','tovault','verified'].includes(w.state));
+    wos.forEach(w=>{if(w.state==='pending'&&(w.def.foundation||foundDone)&&(w.deps.length===0||depsReady(w))&&activeBuilders()<MODES[mode].wave)startBuild(w);});
+    wos.forEach(w=>{
+      if(w.state==='building'){
+        w.prog=Math.min(1,(now-w.t0)/w.dur);
+        if(w.el.classList.contains('split'))updateRelay(w);
+        else w.el.querySelector('.prog i').style.width=(w.prog*100)+'%';
+        if(now-w.t0>w.say){w.say=now-w.t0+1900+Math.random()*1800;say(w,w.el.classList.contains('split')?RELAY_SAYS[Math.min(2,Math.floor(w.prog*3))]:SAYS_BUILD[Math.floor(Math.random()*SAYS_BUILD.length)]);}
+        else if((now-w.t0)%3800>1500)say(w,null);
+        if(w.prog>=1)finishBuild(w);
+        bob(w,now,1.1);
+      } else if(w.state==='carry'){stepPath(w,now,()=>{w.state='waitgate';w.el.classList.remove('carry');});bob(w,now,2.2);}
+      else if(w.state==='waitgate'){bob(w,now,0.5);}
+      else if(w.state==='judging'){bob(w,now,0.6);}
+      else if(w.state==='tovault'){stepPath(w,now,()=>{w.state='verified';w.el.classList.add('vault');w.el.classList.remove('work','carry');particles(w.px,w.py,'var(--ok)');feed('impl','<span style="color:var(--ok)">🏆 '+w.id+' VERIFICADO</span>','var(--ok)');compactVault();});bobVault(w,now);}
+      else if(w.state==='verified'){bobVault(w,now);}
+    });
+
+    if(reviewReady()){
+      if(!_gateAnnounced){_gateAnnounced=true;reviewer.el.querySelector('img').style.opacity=1;document.getElementById('room-tribunal').classList.add('hot');
+        feed('rev','<b style="color:var(--warn)">Juez</b> abre el <b>gate del '+FRDID+'</b> — todos en IN_REVIEW · <b>4 lentes</b> + <span style="color:var(--accent-text)">juez visual (captura vs mock)</span> + baseline','var(--warn)');}
+      if(reviewer.state==='idle'){
+        const next=wos.find(w=>w.state==='waitgate');
+        if(next){reviewer.state='judging';reviewer.target=next;reviewer.t0=now;reviewer.dur=1500+Math.random()*1100;next.state='judging';reviewer.el.classList.add('review');say(reviewer,'4 lentes · captura vs mock · baseline ✓');say(next,'📸 vs 🖼 ✓');}
+        else if(wos.every(w=>w.state==='verified'))frdComplete();
+      } else if(reviewer.state==='judging'){
+        if(now-reviewer.t0>reviewer.dur){const t=reviewer.target;reviewer.state='idle';reviewer.el.classList.remove('review');say(reviewer,null);
+          t.state='tovault';t.reviewSlot=-1;say(t,null);toVault(t);
+          feed('rev','<b style="color:var(--warn)">Juez</b> aprueba <b>'+t.id+'</b> → <span style="color:var(--accent-text)">🔒 el motor commitea la oleada (1 escritor · Opción B)</span> → Bóveda','var(--t2)');}
+      }
+    }
+    if(_gateAnnounced){// only paces once it's active (gate open); dim/inactive = still in its corner
+      const pace=reviewer.state==='judging'?16:46;
+      reviewer.px=REVIEWER_HOME[0]+Math.sin(now/1100)*pace;
+      const walk=Math.abs(Math.sin(now/280))*2.4;// little step bob
+      reviewer.el.style.transform='translate('+(reviewer.px-26)+'px,'+(reviewer.py-26-walk)+'px)';
+      const rimg=reviewer.el.querySelector('img');if(rimg)rimg.style.transform='scaleX('+(Math.cos(now/1100)>=0?1:-1)+')';// face the walk direction (img only, not the text)
+    }else{reviewer.px=REVIEWER_HOME[0];reviewer.el.style.transform='translate('+(REVIEWER_HOME[0]-26)+'px,'+(REVIEWER_HOME[1]-26)+'px)';}
+  }
+  updateHUD();
+  requestAnimationFrame(()=>loop(me));
+}
+
+function bob(w,now,amp){w.el.style.transform='translate('+(w.px-26)+'px,'+(w.py-26+Math.sin(now/520+w.slotIx)*amp)+'px)';w.el.style.zIndex=Math.round(w.py);}
+function bobVault(w,now){if(!w.el||(w.path&&w.path.length))return;w.el.style.transform='translate('+(w.px-26)+'px,'+(w.py-21+Math.sin(now/700+w.slotIx)*1)+'px)';}
+function stepPath(w,now,done){if(!w.el){w.path=[];if(done)done();return;}if(!w.path||!w.path.length){done();return;}const p=w.path[0];const dx=p[0]-w.px,dy=p[1]-w.py,d=Math.hypot(dx,dy),step=2.6;if(d<=step){w.px=p[0];w.py=p[1];w.path.shift();if(!w.path.length){done();return;}}else{w.px+=dx/d*step;w.py+=dy/d*step;}w.el.style.transform='translate('+(w.px-26)+'px,'+(w.py-26)+'px)';w.el.style.zIndex=Math.round(w.py);}
+
+function frdComplete(){
+  if(_frdDone)return;_frdDone=true;PROJ_DONE+=wos.length;
+  feed(null,'✅ <b style="color:var(--ok)">'+FRDID+' COMPLETO</b> — VERIFIED. Proyecto '+PROJ_DONE+'/'+PROJ_TOTAL+'. Siguiente FRD…','var(--ok)');
+  if(PROJ_DONE>=PROJ_TOTAL)feed(null,'<b style="color:var(--accent-text)">🧩 Gran Integración cross-feature</b> — el revisor traza las <b>costuras entre features</b> (productor/consumidor de cada contrato concuerdan) antes de release','var(--accent-text)');
+  setTimeout(()=>{if(!paused)advanceFRD();},2600);
+}
+function advanceFRD(){frdIx=(frdIx+1)%FRD_CYCLE.length;if(frdIx===0){PROJ_DONE=52;}FRDID=FRD_CYCLE[frdIx];
+  WODEFS.forEach(d=>{const nn=FRDID.split('-')[1];d.id=d.id.replace(/WO-\d+/,'WO-'+nn);d.deps=d.deps.map(x=>x.replace(/WO-\d+/,'WO-'+nn));});
+  reset();}
+
+// ---------- HUD ----------
+function updateHUD(){
+  const building=wos.filter(w=>w.state==='building').length;
+  const carry=wos.filter(w=>w.state==='carry').length;
+  const review=wos.filter(w=>['waitgate','judging'].includes(w.state)).length;
+  const vault=wos.filter(w=>w.state==='verified').length;
+  const queued=wos.filter(w=>w.state==='pending').length;
+  document.getElementById('cnt-forge').textContent=(building+carry)+' forjando'+(queued?' · +'+queued+' en cola':'');
+  document.getElementById('cnt-review').textContent=review+(review?' ante el juez':'');
+  document.getElementById('cnt-vault').textContent=vault+' / '+wos.length+' del FRD';
+  document.getElementById('room-forge').classList.toggle('hot',building>0);
+  let more=document.getElementById('vmore');
+  if(vaultArchived>0){if(!more){more=mk('<div class="vaultmore" id="vmore" style="left:'+VAULT_MORE[0]+'px;top:'+VAULT_MORE[1]+'px"></div>');stage.appendChild(more);}more.innerHTML='+'+vaultArchived+'<small>archivados</small>';}
+  else if(more)more.remove();
+  const pct=Math.round(vault/wos.length*100);
+  document.getElementById('kpis').innerHTML=
+    kpi(building+carry,'forjando ahora')+kpi(MODES[mode].wave+(MODES[mode].split?' · split':''),'oleada (modo)')+
+    kpi(vault+' / '+wos.length,'FRD '+pct+'%')+kpi(PROJ_DONE+' / '+PROJ_TOTAL,'proyecto (WO)');
+}
+function kpi(v,l){return '<div class="kpi"><div class="v">'+v+'</div><div class="l">'+l+'</div></div>';}
+function renderQuest(){const q=document.getElementById('quest');let h='<span class="qlbl">🗺️ Misión</span>';
+  FRD_CYCLE.forEach((f,i)=>{const cls=i<frdIx?'done':(i===frdIx?'cur':'');const lbl=(i===frdIx)?(f+' · '+FRD_TITLES[f]):f;h+=(i>0?'<span class="frdarrow">▸</span>':'')+'<span class="frdpip '+cls+'"><span class="b"></span>'+lbl+(i<frdIx?' ✓':'')+'</span>';});
+  h+='<span class="proj">proyecto <b>'+PROJ_DONE+'</b> / '+PROJ_TOTAL+' WO</span><span class="esf">⚙️ esfuerzo · <b>'+MODES[mode].label+'</b></span>';q.innerHTML=h;}
+function renderSceneTitle(){document.getElementById('scenetitle').innerHTML='⚔️ Forjando <span class="chip">'+FRDID+'</span> <span class="tt">'+FRD_TITLES[FRDID]+'</span>';}
+
+// ---------- feed ----------
+function feedReset(){const f=document.getElementById('feed');f.innerHTML='';f.dataset.on='0';}
+function feed(role,html,col){const f=document.getElementById('feed');if(f.dataset.on!=='1'){f.innerHTML='';f.dataset.on='1';}
+  const img=role?'<img src="'+(role==='rev'?SPRITE.rev:SPRITE.impl)+'" alt="">':'';
+  const d=document.createElement('div');d.className='ln';d.innerHTML=img+'<span class="tx" style="color:'+(col||'var(--t2)')+'">'+html+'</span>';
+  f.insertBefore(d,f.firstChild);while(f.children.length>7)f.removeChild(f.lastChild);}
+
+// ---------- modes ----------
+const mc=document.getElementById('modes');
+Object.entries(MODES).forEach(([k,v])=>{const b=document.createElement('button');b.className='mode'+(k===mode?' on':'');b.dataset.m=k;
+  b.innerHTML=v.label+'<small>'+v.note+'</small>';b.onclick=()=>{mode=k;document.querySelectorAll('.mode').forEach(x=>x.classList.toggle('on',x.dataset.m===k));reset();};mc.appendChild(b);});
+function tidyAgents(){// powering off: snap any in-transit agent into the room it's heading to, so none is left mid-path
+  wos.forEach(w=>{
+    if((w.state==='carry'||w.state==='tovault')&&w.path&&w.path.length){
+      const last=w.path[w.path.length-1];
+      w.px=last[0];w.py=last[1];w.path=[last.slice()];
+      if(w.el){w.el.style.transform='translate('+(w.px-26)+'px,'+(w.py-26)+'px)';w.el.style.zIndex=Math.round(w.py);}
+    }
+  });
+}
+function setPower(on){// the pause button is the factory's on/off switch: off = powered-down view (no agents), on = live build
+  paused=!on;
+  document.body.classList.toggle('off',!on);
+  if(!on&&typeof wos!=='undefined'&&wos)tidyAgents();
+  const live=document.getElementById('live');
+  if(live){live.classList.toggle('off',!on);live.innerHTML='<span class="dot"></span> '+(on?'Live · AgentWorking + SubagentStop':'Fábrica apagada · sin agentes');}
+  document.getElementById('pause').textContent=on?'⏸ Apagar la fábrica':'▶ Encender la fábrica';
+}
+document.getElementById('pause').onclick=function(){setPower(paused);};
+document.getElementById('reset').onclick=()=>{frdIx=1;FRDID=FRD_CYCLE[1];PROJ_DONE=52;WODEFS.forEach(d=>{d.id=d.id.replace(/WO-\d+/,'WO-14');d.deps=d.deps.map(x=>x.replace(/WO-\d+/,'WO-14'));});reset();};
+
+document.getElementById('foot').innerHTML='Fuente real: <b>~/.claude/dashboard-events.ndjson</b> · <b>AgentWorking{role,wo}</b> + <b>SubagentStop</b> · paradigma <b>Dynamic Workflows</b> (DR-013) · Camino A — la estación Construcción de <a href="../../frd-02-ideas-board/mocks/la-campana.html">La Campaña</a>.';
+
+// ---------- static tableau for screenshots: ?shot=1 ----------
+function seedShot(){
+  runId++;stage.querySelectorAll('.ag,.parchment,.pt,#vmore').forEach(n=>n.remove());
+  wos=WODEFS.map((d,i)=>({def:d,id:d.id,deps:d.deps.slice(),state:'pending',el:null,px:0,py:0,path:[],slotIx:i,reviewSlot:-1}));
+  const rel=mk('<div class="ag review" style="z-index:6;cursor:default"><div class="halo" style="background:var(--warn)"></div><div class="say say-on">re-corro tests · integro</div><div class="tag" style="color:var(--warn)">Juez · 1×FRD</div><img src="'+SPRITE.rev+'"></div>');
+  stage.appendChild(rel);reviewer={el:rel};rel.style.transform='translate('+(REVIEWER_HOME[0]-26)+'px,'+(REVIEWER_HOME[1]-26)+'px)';
+  const byId=id=>wos.find(w=>w.id===id);
+  const FS=fslots();
+  function set(id,state,pos,opt){opt=opt||{};const w=byId(id);w.state=state;w.px=pos[0];w.py=pos[1];if(opt.slot!=null)w.slotIx=opt.slot;w.prog=opt.prog||.5;makeSprite(w);
+    if(state==='building'){w.el.classList.add('work');
+      if(w.el.classList.contains('split')){w._contract=false;updateRelay(w);if(opt.say)say(w,RELAY_SAYS[Math.min(2,Math.floor(w.prog*3))]);}
+      else{w.el.querySelector('.prog i').style.width=((opt.prog||.5)*100)+'%';if(opt.say){w.el.querySelector('.say').textContent=opt.say;w.el.classList.add('say-on');}}}
+    if(state==='verified'){w.el.classList.add('vault');}
+    w.el.style.transform='translate('+(pos[0]-26)+'px,'+(pos[1]-(state==='verified'?21:26))+'px)';}
+  set('WO-14-001','verified',[VAULT_X0,VAULT_Y]);set('WO-14-004','verified',[VAULT_X0+VAULT_DX,VAULT_Y]);set('WO-14-010','verified',[VAULT_X0+2*VAULT_DX,VAULT_Y]);
+  set('WO-14-011','judging',REVIEW_SLOTS[0]);set('WO-14-002','waitgate',REVIEW_SLOTS[1]);set('WO-14-005','waitgate',REVIEW_SLOTS[4]);
+  set('WO-14-008','building',FS[0],{prog:.72,say:'tipando',slot:0});
+  set('WO-14-006','building',FS[1],{prog:.45,slot:1});
+  set('WO-14-003','building',FS[2],{prog:.88,say:'self-test ✓',slot:2});
+  set('WO-14-009','building',FS[3],{prog:.3,slot:3});
+  const p=mk('<div class="parchment" style="transform:translate('+(462-11)+'px,'+(170-11-20)+'px)">📜</div>');stage.appendChild(p);
+  document.getElementById('room-forge').classList.add('hot');document.getElementById('room-tribunal').classList.add('hot');
+  feedReset();
+  feed('rev','<b style="color:var(--warn)">Juez</b> abre el <b>gate del FRD-14</b> — examina WO-14-011','var(--warn)');
+  feed('impl','<span style="color:var(--warn)">📜 Status Note</span> → <b>WO-14-007</b> lo lee (Build Plan)','var(--t3)');
+  feed('impl','<b style="color:var(--cat7)">WO-14-003</b> → IN_REVIEW','var(--t2)');
+  feed('impl','<span style="color:var(--ok)">🏆 WO-14-001 VERIFICADO</span>','var(--ok)');
+  renderQuest();renderSceneTitle();
+  document.getElementById('cnt-forge').textContent='4 forjando · +2 en cola';
+  document.getElementById('cnt-review').textContent='3 ante el juez';
+  document.getElementById('cnt-vault').textContent='3 / 11 del FRD';
+  document.getElementById('kpis').innerHTML=kpi(4,'forjando ahora')+kpi(MODES[mode].wave,'oleada (modo)')+kpi('3 / 11','FRD 27%')+kpi(PROJ_DONE+' / '+PROJ_TOTAL,'proyecto (WO)');
+}
+
+// --- embed self-sizing: scale the map to width, then push our true height to the host iframe ---
+// (no inner scrollbar — the parent PAGE scrolls; the iframe is always exactly content-tall)
+function fitEmbed(){
+  if(!document.body.classList.contains('embed'))return;
+  const st=document.getElementById('stage');if(!st)return;
+  let fit=st.parentNode&&st.parentNode.classList&&st.parentNode.classList.contains('stagefit')?st.parentNode:null;
+  if(!fit){fit=document.createElement('div');fit.className='stagefit';st.parentNode.insertBefore(fit,st);fit.appendChild(st);st.style.transformOrigin='top left';}
+  const s=Math.min(1,fit.clientWidth/920);
+  st.style.transform='scale('+s+')';
+  fit.style.height=(560*s)+'px';
+}
+function reportHeight(){
+  if(!document.body.classList.contains('embed'))return;
+  const fe=window.frameElement;if(!fe)return;
+  // measure CONTENT (body), not documentElement.scrollHeight — the latter is clamped to the
+  // iframe viewport, so it can grow but never shrink (auto-size trap).
+  const h=Math.ceil(Math.max(document.body.scrollHeight,document.body.offsetHeight));
+  if(h&&Math.abs(parseInt(fe.style.height||0)-h)>1)fe.style.height=h+'px';
+}
+function syncEmbed(){fitEmbed();reportHeight();}
+function initEmbedSizing(){
+  if(!document.body.classList.contains('embed'))return;
+  syncEmbed();
+  if(window.ResizeObserver)new ResizeObserver(reportHeight).observe(document.body);
+  window.addEventListener('resize',syncEmbed);
+  [120,400,900,1600].forEach(ms=>setTimeout(syncEmbed,ms)); // catch fonts/sprites/feed settling
+  setInterval(reportHeight,800); // timer-based safety net (the bitácora grows as the build runs)
+}
+
+// boot
+const _q=new URLSearchParams(location.search);
+if(_q.has('embed'))document.body.classList.add('embed');
+if(_q.get('mode')&&MODES[_q.get('mode')]){mode=_q.get('mode');document.querySelectorAll('.mode').forEach(x=>x.classList.toggle('on',x.dataset.m===mode));}
+buildFlow();
+if(_q.has('shot'))seedShot();else reset();
+initEmbedSizing();
+</script>
+</body>
+</html>
