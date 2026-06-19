@@ -114,7 +114,38 @@ any app-wide skin/theme overrides + each embedded sub-view's own spec — not ju
 extraction silently drops the look; in Mission Control an app-wide RPG skin and the Party pixel-art spec
 were missed).
 
-## 6. Where this is wired
+## 6. Demo-only controls in prototypes are visibly marked (DR-061)
+
+A navigable prototype often needs affordances that exist **only to preview states** — a mode/effort
+picker, play/pause, reset, a state toggler — so the owner can see how each state looks. These do **not**
+exist in the real product (which is frequently read-only, or driven by a skill/CI, not by buttons).
+Leaving them unmarked makes the owner read demo affordances as real behaviour (a real confusion in
+Mission Control: the prototype's effort picker + power/reset buttons looked as if the dashboard could
+*control* the factory, when MC is read-only and the build is launched by `/pandacorp:implement`).
+
+**Rule — every block of demo-only controls is wrapped and tagged the same way, in every prototype:**
+- a **dashed border** container, plus a small uppercase **`DEMO`** tag (warning colour), plus a
+  **one-line note** stating they are preview-only and how the real thing actually works (e.g. "launched
+  via `/pandacorp:implement`; the app is read-only").
+- Any value the **real** app *will* surface (e.g. the effort level a build ran with) is shown as
+  **read-only data in a real UI surface**, never only inside the demo block.
+- The tag/note use the prototype's UI language (Spanish by default → "SOLO DEMO").
+
+Canonical pattern (adapt tokens to the project's system):
+```css
+.demo-controls{border:1px dashed var(--bd2);border-radius:10px;padding:8px 11px}
+.demo-badge{font:10px var(--mono);color:var(--warn);background:var(--warn-bg);
+  border:1px solid var(--warn);border-radius:6px;padding:2px 7px;text-transform:uppercase}
+```
+```html
+<div class="demo-controls">
+  <span class="demo-badge">🔧 solo demo</span>
+  <span class="demo-note">No existen en la app real (solo lectura): … Aquí solo previsualizan estados.</span>
+  …controls…
+</div>
+```
+
+## 7. Where this is wired
 
 | Concern | File |
 |---|---|
@@ -126,3 +157,4 @@ were missed).
 | In-loop render→compare→correct (DR-056 §3) | `plugin/agents/{implementer,frontend-dev}.md` |
 | Two-layer visual-fidelity gate (DR-056 §4) | `plugin/agents/reviewer.md`, `factory/standards/build-orchestration.md` §5, `plugin/templates/stack-a-nextjs/STACK.md` |
 | Runtime/visual verification (smoke) | `plugin/agents/reviewer.md`, `factory/standards/build-orchestration.md` §5, `plugin/templates/stack-a-nextjs/STACK.md`, `plugin/templates/rules/quality-and-testing.md` |
+| Demo-only controls marked in prototypes (DR-061) | `plugin/skills/design/SKILL.md`, `plugin/agents/designer.md` |
