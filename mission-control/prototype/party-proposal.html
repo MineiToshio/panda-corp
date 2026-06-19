@@ -23,7 +23,7 @@ body{margin:0;background:
   radial-gradient(900px 500px at 100% 110%, #141b22 0%, transparent 55%),
   var(--canvas);
   color:var(--t1);font-family:var(--display);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;font-variant-ligatures:none;font-feature-settings:"liga" 0,"clig" 0}
-.wrap{max-width:1020px;margin:0 auto;padding:22px 20px 60px}
+.wrap{max-width:960px;margin:0 auto;padding:22px 20px 60px}
 h1{font-family:var(--pixel);font-weight:600;font-size:27px;margin:0;letter-spacing:.02em}
 .sub{color:var(--t3);font-size:13px;margin:3px 0 0;max-width:660px}
 .topbar{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}
@@ -305,6 +305,7 @@ let PROJ_DONE=52, PROJ_TOTAL=109;
 
 // ---- layout (scene coords) — forge & tribunal same size, side by side ----
 const FORGE_SLOTS=[[95,155],[190,155],[285,155],[378,155],[95,300],[190,300],[285,300],[378,300]];
+const FORGE_CENTER=[236,226]; // the foundation WO builds ALONE, centered in the forge (not a row slot)
 // deep mode: 6 WIDER stations (2×3) so each WO's test→backend→frontend relay fits without overlap
 const DEEP_SLOTS=[[140,150],[320,150],[140,255],[320,255],[140,360],[320,360]];
 function fslots(){return MODES[mode].split?DEEP_SLOTS:FORGE_SLOTS;}
@@ -367,7 +368,7 @@ function depsReady(w){return w.deps.every(id=>{const d=wos.find(x=>x.id===id);re
 function activeBuilders(){return wos.filter(w=>['building','carry'].includes(w.state)).length;}
 
 function startBuild(w){
-  w.slotIx=freeForgeSlot();const p=fslots()[w.slotIx];
+  w.slotIx=freeForgeSlot();const p=w.def.foundation?FORGE_CENTER:fslots()[w.slotIx];
   w.state='building';w.px=p[0];w.py=p[1];w.t0=performance.now();w.dur=(MODES[mode].split?4200:2600)+Math.random()*2600;w.prog=0;w._contract=false;
   if(!w.el)makeSprite(w);place(w);
   w.el.classList.remove('queued');w.el.classList.add('work');
