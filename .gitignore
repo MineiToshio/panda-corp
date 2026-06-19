@@ -13,6 +13,7 @@
 # generates the real versions below. The idea cards are personal too.
 factory/profile.md
 factory/portfolio.md
+factory/ports.yaml
 factory/ideas/*.md
 !factory/ideas/_idea-template.md
 !factory/ideas/decision-log.md

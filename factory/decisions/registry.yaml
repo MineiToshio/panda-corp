@@ -113,7 +113,7 @@ decisiones:
 
   - id: DR-022
     patron: "port assignment (several projects/worktrees in parallel)"
-    default: "each project receives a base range when created; each worktree adds an offset (agent +0, review +1); app/DB/services read the port from the worktree's .env; in Docker, a different Compose project name per worktree"
+    default: "dev ports are ALLOCATED from a central ledger (factory/ports.yaml, gitignored), NEVER guessed or hashed (hashing collides by the birthday problem): scaffold reserves the next free 10-wide block from base 4000 (slug→base recorded in the ledger + dev_port_base in the project's status.yaml) and a project keeps its block forever; within the block, offsets keep worktrees apart (app agent +0 / review +1, Postgres +2/+3, Redis +4/+5, +6..+9 spare); blueprint materializes the ports into .claude/launch.json (app=base+0) and the worktree .env; in Docker, a different Compose project name per worktree. Zero collisions by construction. See factory/standards/infra.md"
     requiere_humano: false
 
   - id: DR-023

@@ -10,10 +10,11 @@ Conventions for how a project runs in **development** (the factory injects them 
 
 ## Port convention (several projects / worktrees at once)
 
-So nothing collides when several things run in parallel:
-- Each **project** gets a **base range** when created (the factory records it; e.g. project A → 4000s, B → 4100s…).
-- Each **worktree** adds an offset within the range (the agent's `+0`, the review one `+1`).
-- App, DB and services read their port from that worktree's `.env`. In Docker, map ports via `.env` and use a different Compose project name per worktree.
+So nothing **ever** collides when several projects/worktrees run in parallel, dev ports are **allocated from a central ledger**, never guessed or hashed (a hash of the slug collides by the birthday problem — with a few dozen projects the odds are real; a ledger gives a guarantee, not a probability). The ledger `factory/ports.yaml` (personal, **gitignored** — it tracks YOUR local projects, like the portfolio) is the single source of truth:
+
+- **One block per project, 10 ports wide from base 4000** (project 1 → `4000–4009`, project 2 → `4010–4019`, …). `/pandacorp:scaffold` reserves the next free block (`next_block`), records `slug → base` in the ledger and writes `dev_port_base` into the project's `.pandacorp/status.yaml`. A project **keeps its block forever**, so re-runs always reuse the same ports and a new project always gets a fresh, disjoint block — **zero collisions, by construction**.
+- **Offsets within the block** (so the agent's build and the owner's review worktree don't step on each other): `+0` app (agent worktree) · `+1` app (review worktree) · `+2`/`+3` Postgres (agent/review) · `+4`/`+5` Redis (agent/review) · `+6..+9` spare for extra services.
+- **Materialized at blueprint** (when the stack and the dev command exist): `/pandacorp:blueprint` writes the app port (`base+0`) into `.claude/launch.json` (so the dev/preview server starts straight from Claude Code) and the app/DB/service ports into the worktree's `.env`. In Docker, map ports via `.env` and use a different Compose project name per worktree.
 - Mission Control shows the port ("test at `localhost:XXXX`").
 
 ## Worktrees (testing a snapshot without stopping the agent)
