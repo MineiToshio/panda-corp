@@ -30,12 +30,15 @@ h1{font-family:var(--pixel);font-weight:600;font-size:27px;margin:0;letter-spaci
 .live{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--ok);font-family:var(--mono);white-space:nowrap}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok);animation:pulse 1.6s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
-/* factory powered down */
+/* factory powered down — everything desaturated & dimmed like the dark backgrounds */
 .live.off{color:var(--t3)}
 .live.off .dot{background:var(--bd2);box-shadow:none;animation:none}
-.poweroff{position:absolute;inset:0;z-index:40;display:none;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:rgba(8,11,12,.74);backdrop-filter:grayscale(.7) brightness(.85);border-radius:14px;text-align:center}
-.poweroff .pz{font-family:var(--pixel);font-size:24px;color:var(--t1);letter-spacing:.03em}
-.poweroff .pzs{font-family:var(--mono);font-size:12px;color:var(--t3)}
+body.off #stage .room{filter:grayscale(.85) brightness(.46)}
+body.off #stage .ag,body.off #stage .pathline,body.off #stage .parchment,body.off #stage #vmore{filter:grayscale(.92) brightness(.42)}
+body.off #stage .ag .say{display:none!important}
+.poweroff{position:absolute;inset:0;z-index:500;display:none;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:rgba(10,13,14,.5);border-radius:14px;text-align:center}
+.poweroff .pz{font-family:var(--pixel);font-size:24px;color:var(--t1);letter-spacing:.03em;text-shadow:0 2px 8px rgba(0,0,0,.85)}
+.poweroff .pzs{font-family:var(--mono);font-size:12px;color:var(--t2);text-shadow:0 1px 5px rgba(0,0,0,.85)}
 body.off .poweroff{display:flex}
 
 /* ---- FRD quest tracker ---- */
@@ -571,9 +574,19 @@ function feed(role,html,col){const f=document.getElementById('feed');if(f.datase
 const mc=document.getElementById('modes');
 Object.entries(MODES).forEach(([k,v])=>{const b=document.createElement('button');b.className='mode'+(k===mode?' on':'');b.dataset.m=k;
   b.innerHTML=v.label+'<small>'+v.note+'</small>';b.onclick=()=>{mode=k;document.querySelectorAll('.mode').forEach(x=>x.classList.toggle('on',x.dataset.m===k));reset();};mc.appendChild(b);});
+function tidyAgents(){// powering off: snap any in-transit agent into the room it's heading to, so none is left mid-path
+  wos.forEach(w=>{
+    if((w.state==='carry'||w.state==='tovault')&&w.path&&w.path.length){
+      const last=w.path[w.path.length-1];
+      w.px=last[0];w.py=last[1];w.path=[last.slice()];
+      if(w.el){w.el.style.transform='translate('+(w.px-26)+'px,'+(w.py-26)+'px)';w.el.style.zIndex=Math.round(w.py);}
+    }
+  });
+}
 function setPower(on){// the pause button is the factory's on/off switch: off = powered-down view (no agents), on = live build
   paused=!on;
   document.body.classList.toggle('off',!on);
+  if(!on&&typeof wos!=='undefined'&&wos)tidyAgents();
   const live=document.getElementById('live');
   if(live){live.classList.toggle('off',!on);live.innerHTML='<span class="dot"></span> '+(on?'Live · AgentWorking + SubagentStop':'Fábrica apagada · sin agentes');}
   document.getElementById('pause').textContent=on?'⏸ Apagar la fábrica':'▶ Encender la fábrica';
