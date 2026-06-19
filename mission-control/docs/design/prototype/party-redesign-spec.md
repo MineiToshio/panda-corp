@@ -2,11 +2,11 @@
 
 > Design reference for taking the Party redesign to production via `/pandacorp:iterate`.
 > The **navigable mockups** are the visual source of truth:
-> - `prototype/party-proposal.html` — **La Fragua** (the build view, embeddable with `?embed=1&mode=<mode>`)
-> - `prototype/party-pipeline.html` — **La Campaña** (the pipeline view, embeddable with `?embed=1&active=<0-5>&slug=<slug>`)
-> - `prototype/index.html` — the two embedded **in place** (Party tab + board card detail)
+> - `party-proposal.html` — **La Fragua** (the build view, embeddable with `?embed=1&mode=<mode>`)
+> - `party-pipeline.html` — **La Campaña** (the pipeline view, embeddable with `?embed=1&active=<0-5>&slug=<slug>`)
+> - `index.html` — the two embedded **in place** (Party tab + board card detail)
 >
-> Supersedes the exploratory `prototype/party-redesign-brief.md`. Interaction language: Spanish; committed artifacts: English.
+> Replaces the earlier exploratory brief (removed). Interaction language: Spanish; committed artifacts: English.
 
 ## 1. Why this redesign
 
@@ -110,7 +110,7 @@ This is documented as a planned plugin change (its own decision-log entry + vers
 
 ## 8. Assets
 
-New room art added under `prototype/assets/zones/`: `tribunal.png`, `boveda.png` (wide), `architecture.png`, `release.png`, `build-hall.png`. Existing reused: `backend.png` (forge), `research.png`, `review.png` (product), `frontend.png` (design). The 4 reused old rooms still carry the green-rug style; a future pass may regenerate them to match the differentiated set. Sprites: `assets/agents/*.png` (the `implementer` reuses `backend-dev.png`).
+New room art added under `assets/zones/`: `tribunal.png`, `boveda.png` (wide), `architecture.png`, `release.png`, `build-hall.png`. Existing reused: `backend.png` (forge), `research.png`, `review.png` (product), `frontend.png` (design). The 4 reused old rooms still carry the green-rug style; a future pass may regenerate them to match the differentiated set. Sprites: `assets/agents/*.png` (the `implementer` reuses `backend-dev.png`).
 
 ## 9. Out of scope / deferred
 
