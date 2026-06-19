@@ -61,6 +61,25 @@ at architecture time. **The engine reads it; it does not re-infer dependencies a
 what makes the build fast (no repeated planning agent) and the integration correct (a consumer is
 never built before its provider).
 
+**Foundation-first & the component inventory (DR-057).** Parallel feature agents can't see each
+other's work, so given the same need they reinvent slightly-different versions of the same component
+(the two-near-identical-banners bug). The Build Plan prevents it:
+
+- **Shared foundation FIRST, then fan out.** The plan schedules the shared design-system primitives
+  (Button, **Banner/Alert**, Card, Chip, Modal, the layout shells) as the **first work order(s)** — a
+  *foundation wave* that completes **before** feature work orders parallelize. Feature WOs declare a
+  dependency on the foundation, so they build against real, existing primitives instead of inventing
+  their own. (Sequencing it first is the cheapest fix; it's the owner's "build the common things first".)
+- **A living component inventory** at `docs/design/components.md` — each shared component with its
+  name, one-line purpose, path and key props/variants. The foundation WO seeds it; every WO that adds
+  a shared component appends a row. **The engine injects "read the inventory before creating any
+  component" into every UI build prompt** (DR-057), so "reuse → adapt → create-only-if-new" is the
+  path of least resistance. Research (Storybook manifests, shadcn registry) shows a machine-readable
+  inventory measurably raises reuse; Claude Design's `_ds_manifest.json` is this inventory when used.
+- **Enforced at the gate:** the `reviewer`'s quality lens rejects a component that re-implements an
+  existing primitive (two banners/cards/modals) and flags sibling components that diverge from one
+  shared pattern. Reuse is verified, not assumed.
+
 ## 4. Hand-off (`## Status Note`)
 
 When a work order closes it writes a hand-off in its `## Status Note`: what it built, the

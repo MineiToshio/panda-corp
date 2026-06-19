@@ -144,6 +144,13 @@ const designRef = (frd) => plan.hasFrontend
   ? ` VISUAL FIDELITY (DR-054/056, web — do NOT skip): OPEN this work order's \`## Visual reference\`, then read \`docs/frds/${frd}/fdd.md\` + its \`mocks/\` (the BINDING screen mock — view the screenshot AND the mock's source) and \`docs/design/design-tokens.json\` + root \`DESIGN.md\`. Your job is to TRANSLATE that one screen's mock into the project's components on the frozen tokens — reproduce its layout, structure, spacing, components and density; do NOT approximate, invent, or restyle. THEN run the IN-LOOP fidelity check BEFORE marking IN_REVIEW: render the route (preview/Playwright), screenshot it, place it next to the mock, fix the divergences — repeat up to 3 cycles. A screen that does not visually match its mock is NOT done (the FRD gate's visual layer will reject it).`
   : ''
 
+// Reuse & coherence (DR-057): parallel agents reinvent slightly-different versions of the same
+// component when they can't see what already exists (the two-near-identical-banners bug). Inject the
+// component-inventory "check before you create" directive so each agent reuses the shared primitives.
+const reuseRef = (frd) => plan.hasFrontend
+  ? ` REUSE & COHERENCE (DR-057): before creating ANY UI component, READ the component inventory \`docs/design/components.md\` and scan \`src/components/core\` + \`src/components/modules\`. REUSE an existing component if one fits; ADAPT/extend it (add a prop/variant) if it is close — do NOT fork a near-duplicate for a small difference; CREATE a new shared component only if none fits, and when you do, APPEND it to \`docs/design/components.md\` so the next agent reuses it. A component that re-implements an existing pattern (a second banner/card/modal) is a defect the gate rejects.`
+  : ''
+
 // Sync DERIVED rollups (DR-050): an FRD/blueprint implementation_status is DERIVED from its work
 // orders (THE source of truth). Correct any drift from a crash mid-build, an interrupted run or a
 // manual edit BEFORE building, so the document never lies about progress. One cheap pass, frontmatter only.
@@ -159,10 +166,10 @@ async function buildWO(wo, frd) {
       { label: `test:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:test-writer' })
     await agent(`${EMIT('backend-dev', wo.id, { frd, activity: 'backend' })}Implement the backend of ${wo.id} (TDD until green): ${wo.summary || ''}. Publish the API contract in docs/api.md.`,
       { label: `be:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:backend-dev' })
-    await agent(`${EMIT('frontend-dev', wo.id, { frd, activity: 'frontend' })}Implement the UI of ${wo.id} using ONLY design tokens and the docs/api.md contract: ${wo.summary || ''}.${designRef(frd)}`,
+    await agent(`${EMIT('frontend-dev', wo.id, { frd, activity: 'frontend' })}Implement the UI of ${wo.id} using ONLY design tokens and the docs/api.md contract: ${wo.summary || ''}.${designRef(frd)}${reuseRef(frd)}`,
       { label: `fe:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:frontend-dev' })
   } else {
-    await agent(`${EMIT('implementer', wo.id, { frd, activity: 'implement' })}First set ${wo.id}'s frontmatter \`implementation_status: IN_PROGRESS\`. Then fully implement it with TDD (RED→GREEN→refactor), anchored in the EARS criteria of FRD ${frd} and in bugs from .pandacorp/comms/progress.md: ${wo.summary || ''}. This is a COARSE slice (a whole view/capability) — build it end-to-end.${designRef(frd)}`,
+    await agent(`${EMIT('implementer', wo.id, { frd, activity: 'implement' })}First set ${wo.id}'s frontmatter \`implementation_status: IN_PROGRESS\`. Then fully implement it with TDD (RED→GREEN→refactor), anchored in the EARS criteria of FRD ${frd} and in bugs from .pandacorp/comms/progress.md: ${wo.summary || ''}. This is a COARSE slice (a whole view/capability) — build it end-to-end.${designRef(frd)}${reuseRef(frd)}`,
       { label: `build:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:implementer' })
   }
   // Fast SELECTIVE self-test (NOT the whole suite) → IN_REVIEW + hand-off.

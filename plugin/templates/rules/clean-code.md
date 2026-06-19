@@ -25,6 +25,11 @@ Optimized for code that is **readable, scalable, and easy for both humans and AI
 ## DRY — with the rule of three
 - Reuse logic, types and utilities, not just components. But **don't abstract before the third occurrence** (rule of three): tolerate the second copy. **Duplication is cheaper than the wrong abstraction** — don't pre-abstract on speculation.
 
+## Reuse before creating — the component inventory (DR-057)
+- The project keeps a **living component inventory** at `docs/design/components.md`: every shared component (core primitives + reusable modules) has a row — name · one-line purpose · path · key props/variants. The design phase seeds it with the foundation primitives; each work order that adds a shared component appends its row.
+- **Check the inventory before creating any UI component.** Then, in order: **reuse** an existing component if one fits → **adapt/extend** it (add a prop/variant) if it's close — do NOT fork a near-duplicate for a small difference (a banner with the icon on the left vs. on top is a *variant*, not a second `Banner`) → **create new only if genuinely none fits**, and append it to `docs/design/components.md`.
+- **A near-duplicate component is a defect, not a feature.** A second alert/banner, card or modal that re-implements an existing primitive is rejected at review (reuse-before-create is verified at the gate). This matters most with parallel agents that never talk to each other: the shared inventory is how they stay coherent.
+
 ## Function signatures
 - **≤ 3 parameters**; beyond that pass a single named **options object**. (Biome: `useMaxParams`)
 - **No boolean-trap parameters** (`doThing(x, true)`): split the function or pass a named option/enum so the call site is self-documenting.
