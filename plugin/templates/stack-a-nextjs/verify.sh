@@ -4,7 +4,7 @@
 # (drift => regenerate/fail) by /pandacorp:upgrade. Do NOT hand-edit per project — drift is RED.
 # Every gate is fail-closed: a missing harness (smoke/visual) is RED, never a skip (DR-019/055/056).
 set -euo pipefail
-shopt -s inherit_errexit
+shopt -s inherit_errexit 2>/dev/null || true  # bash 4.4+; no-op on macOS' bash 3.2 (avoids "invalid shell option")
 
 # --- Optional scope: `verify.sh --since <sha>` (the fast per-FRD gate) ----------
 # Runs only the vitest tests CHANGED since <sha>; biome/tsc/knip/madge stay global

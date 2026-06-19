@@ -4,6 +4,11 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-06-19 — Canonical gate-config bugs fixed (bash-3.2 portability + biome scope) · v8.24.1
+**What:** First real install of the DR-059 canonical gate (into Mission Control) exposed two template bugs. `stack-a-nextjs/verify.sh`: `shopt -s inherit_errexit` is bash 4.4+ → aborted on macOS' bash 3.2; now `shopt -s inherit_errexit 2>/dev/null || true`. `stack-a-nextjs/biome.json`: unscoped, so it linted `.claude/` machinery + `docs/` mocks; now `files.includes: ["**", "!.claude/**", "!docs/**", "!public/**"]`. Config-only PATCH; no rule change → `OVERLAY_VERSION` unchanged. **PATCH → v8.24.1.**
+**Why:** The canonical gate must run on the owner's machine and lint only product code; the MC dry-run proved neither held (the Stop gate failed at `shopt`, then on the linted machinery).
+**Impact:** `plugin/templates/stack-a-nextjs/{verify.sh,biome.json}`, `plugin/.claude-plugin/plugin.json`. Refines DR-059. Pending: commit + `claude plugin update`.
+
 ## 2026-06-19 — Demo-only prototype controls become a marked factory convention (DR-061) · v8.24.0
 **What:** The `designer` agent (rule 4) + the `design` skill (operating rules) now require that any **demo-only control** a prototype adds to *preview states* (mode/effort pickers, play/pause, reset, state togglers) — which won't exist in the real read-only/skill-driven app — be wrapped in a **dashed-border block + uppercase `DEMO` tag + a one-line note of how the real thing works**, with any real value (e.g. effort) shown as **read-only data** in a real surface. Canonical pattern lives in `factory/standards/design.md` §6; registry **DR-061** added. No template/overlay change (design-time guidance), so `OVERLAY_VERSION` is unchanged. **MINOR → v8.24.0.**
 **Why:** Owner saw the Mission Control Party prototype's effort picker + power/reset buttons read as if MC could control the factory (it's read-only; builds launch via `/pandacorp:implement`) and asked to standardise the demo-marking across every generated mockup.
