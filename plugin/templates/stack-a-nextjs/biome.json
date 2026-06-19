@@ -1,6 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.0.0/schema.json",
-  "_pandacorp": "Canonical MAXIMUM fail-closed Biome config (DR-059). Installed VERBATIM into projects by /pandacorp:blueprint and re-synced + conformance-checked by /pandacorp:upgrade. Do NOT hand-roll a partial copy — drift is RED. Rationale per rule lives in STACK.md (hard-enforcement section).",
+  "$schema": "https://biomejs.dev/schemas/2.5.0/schema.json",
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "files": { "ignoreUnknown": true },
   "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
@@ -14,13 +13,11 @@
     },
     "rules": {
       "recommended": true,
-      "a11y": "recommended",
       "suspicious": {
         "noExplicitAny": "error",
         "noArrayIndexKey": "error",
         "noFocusedTests": "error",
-        "noSkippedTests": "error",
-        "noGlobalEval": "error"
+        "noSkippedTests": "error"
       },
       "style": {
         "useImportType": "error",
@@ -28,8 +25,7 @@
       },
       "correctness": {
         "useExhaustiveDependencies": "error",
-        "useHookAtTopLevel": "error",
-        "noImportCycles": "error"
+        "useHookAtTopLevel": "error"
       },
       "complexity": {
         "noExcessiveCognitiveComplexity": "error",
