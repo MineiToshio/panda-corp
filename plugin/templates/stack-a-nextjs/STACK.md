@@ -142,7 +142,18 @@ for (const route of ROUTES) for (const s of SIZES) {
 ```
 Determinism preconditions (all required): pinned Playwright Docker image (`mcr.microsoft.com/playwright:vX-noble`), `workers:1`, seeded deterministic fixtures + frozen clock + mocked network (so data never shifts pixels), and visual specs **excluded from retries** (a retry re-writes a missing baseline → fail-OPEN). Add `"test:visual": "playwright test e2e/visual.spec.ts"`. Baselines: commit via **Git LFS** if the set is large.
 
+**Baseline-blessing flow (DR-056) — a genuinely-new route has no baseline on its first build, and that is NOT a build-blocking RED.** A route's first `toHaveScreenshot` baseline does not exist until someone blesses it; CI never blesses (`updateSnapshots: "none"` / `"missing"`), so the bless happens **once, at the FRD gate, by the reviewer** — never the builder, never CI. The order is strict:
+1. Layer B runs first: the VLM mock-judge confirms the route matches its `mocks/<file>` (named-divergence check, ≥2 viewports, majority vote).
+2. **Only after Layer B passes**, the reviewer blesses the baseline: `playwright test e2e/visual.spec.ts --update-snapshots` and **commits the baseline PNGs** (LFS if large).
+3. **Then** the reviewer runs the gate's `verify.sh` — now Layer A has a blessed baseline to diff against, and from here on Layer A is the **hard regression gate** (any later drift = RED).
+
+So a **missing baseline on a genuinely-new route** is "to be blessed at the gate", not a failure. What IS fail-closed is the **absence of the `test:visual` harness/script itself** (no `e2e/visual.spec.ts`, no `test:visual` script, no visual shim in `verify.sh`) — that's a missing gate, RED, never a skip. Missing baseline = bless it; missing harness = fail.
+
 **Layer B — VLM mock-judge (the reviewer step, catches the FIRST divergence from the mock).** Not a script — it's the `reviewer` (opus, vision, a different model from the sonnet builder): for each route it places the route screenshot next to the FRD's `mocks/<file>` and enumerates the NAMED divergences (missing/extra component, wrong color/token, gross layout/spacing) BEFORE a verdict, at ≥2 viewports, ≥3 samples with image order randomized (majority vote). Fail-closed on a named structural divergence; do not auto-fail on fine pixel/spacing deltas; an uncertain verdict (looks off but nothing nameable) → BLOCK `needs-owner`, never pass. (See `plugin/agents/reviewer.md` runtime/visual lens.)
+
+### Scoped gate — `verify.sh --since <sha>` (fast per-FRD pass)
+
+The full gate is expensive to run on every FRD. `verify.sh` accepts an optional `--since <sha>` that **scopes vitest to the changed tests** for the fast per-FRD gate — `vitest run --changed <sha>` (only specs affected since `<sha>`). The static gates stay **global** (cheap and catch cross-cutting breakage): `biome check` and `tsc --noEmit` always run over the whole tree. Without `--since`, `verify.sh` runs everything. **At close-out** the full suite runs unscoped — `vitest run` over all tests **plus every visual baseline** (all routes, all viewports) — so nothing ships on a partial pass. Per-FRD = scoped + fast; close-out = full + complete.
 
 ## `.pandacorp/verify.sh` — canonical, installed VERBATIM (DR-059)
 

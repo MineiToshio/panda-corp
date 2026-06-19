@@ -6,6 +6,12 @@
 set -euo pipefail
 shopt -s inherit_errexit
 
+# --- Optional scope: `verify.sh --since <sha>` (the fast per-FRD gate) ----------
+# Runs only the vitest tests CHANGED since <sha>; biome/tsc/knip/madge stay global
+# (fast enough, and they scale). The FULL unscoped suite runs at close-out (no --since).
+SINCE=""
+if [ "${1:-}" = "--since" ] && [ -n "${2:-}" ]; then SINCE="$2"; fi
+
 # --- Structure guard (file placement isn't lintable; DR-059) -------------------
 # Fail if any unit/component test sits loose outside a _tests/ folder.
 stray=$(find src -name '*.test.ts' -o -name '*.test.tsx' 2>/dev/null | grep -v '/_tests/' || true)
@@ -26,7 +32,8 @@ pnpm knip
 pnpm madge --circular --extensions ts,tsx src
 
 # --- Behavior -----------------------------------------------------------------
-pnpm vitest run --reporter=dot
+# shellcheck disable=SC2086
+pnpm vitest run --reporter=dot ${SINCE:+--changed "$SINCE"}
 
 # --- Preview Smoke Gate (DR-055) — FAIL-CLOSED: a missing harness is RED -------
 if grep -q '"test:smoke"' package.json; then
