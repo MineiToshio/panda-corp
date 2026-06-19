@@ -1,14 +1,14 @@
 # Machine-readable status for Pandacorp (the factory dashboard) — read by the factory and the dashboard itself.
 # Human-readable Spanish narrative lives in .pandacorp/comms/summary.md (gitignored).
 project: "Pandacorp"
-phase: implementation
+phase: release
 version: v1
 overlay_version: "8.15.0"
 created_with: "6.0.0"
-running: true
+running: false
 run_started_at: "2026-06-18T23:40:53Z"
 repo: ""
-updated_at: "2026-06-19T00:25:00Z"
+updated_at: "2026-06-19T00:16:12Z"
 work_orders_total: 112
 work_orders_verified: 112
 work_orders_in_review: 0
@@ -20,7 +20,7 @@ pending_decisions: 0
 pending_bugs: 0
 rethink_pending: false
 advance_pending: false
-last_green_sha: "bc2adc8"
+last_green_sha: "0d61f2c"
 safe_to_test: true
 blocked: []
-supervisor_heartbeat: "2026-06-19T00:13:14Z"
+supervisor_heartbeat: "2026-06-19T00:15:14Z"
