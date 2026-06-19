@@ -71,14 +71,8 @@ h1{font-family:var(--pixel);font-weight:600;font-size:27px;margin:0;letter-spaci
 .stage::before{content:"";position:absolute;inset:0;
   background-image:linear-gradient(#1d2629 .5px,transparent .5px),linear-gradient(90deg,#1d2629 .5px,transparent .5px);
   background-size:30px 30px;opacity:.45;pointer-events:none}
-/* stone bridge between rooms: pixel cobblestones — 1px bevel per row (light top / dark bottom), alternating cobble columns */
-.pathline{position:absolute;z-index:0;border-radius:2px;overflow:hidden;background-color:#3d4644;
-  background-image:
-    repeating-linear-gradient(0deg,rgba(142,154,149,.55) 0 1px,transparent 1px 6px,rgba(8,11,10,.6) 6px 7px),
-    repeating-linear-gradient(90deg,#0e1211 0 1px,transparent 1px 7px),
-    linear-gradient(180deg,rgba(120,132,127,.28),rgba(0,0,0,0) 55%),
-    repeating-linear-gradient(90deg,#474f4c 0 7px,#3a423f 7px 14px);
-  box-shadow:inset 0 0 0 1px #5b6562,0 1px 2px rgba(0,0,0,.55);image-rendering:pixelated}
+/* placeholder connector (to be replaced by a generated pixel stone-bridge PNG) */
+.pathline{position:absolute;border-radius:8px;background:repeating-linear-gradient(var(--ang,90deg),#26312f 0 10px,#202927 10px 20px);box-shadow:inset 0 0 0 1px #2c3836;opacity:.8;z-index:0}
 
 .room{position:absolute;border-radius:12px;overflow:hidden;border:1px solid var(--bd2);z-index:1;transition:box-shadow .4s,filter .4s}
 .room .bg{position:absolute;inset:0;background-size:cover;background-position:center;image-rendering:pixelated;transition:filter .5s,opacity .5s}
@@ -214,8 +208,8 @@ body.embed .flowstrip{display:none}
 
   <div class="stage" id="stage">
     <!-- paths: forge -> tribunal (short top hop) ; tribunal -> vault (short drop) -->
-    <div class="pathline" style="left:444px;top:161px;width:34px;height:18px"></div>
-    <div class="pathline" style="left:679px;top:410px;width:18px;height:32px"></div>
+    <div class="pathline" style="left:446px;top:163px;width:30px;height:14px"></div>
+    <div class="pathline" style="left:681px;top:410px;width:14px;height:30px"></div>
 
     <!-- Forge (build) -->
     <div class="room forge cool" id="room-forge" style="left:16px;top:40px;width:432px;height:372px">
