@@ -66,6 +66,18 @@ torn-read. The per-WO file is in the WO's own `artifacts`, so it's disjoint by c
 frontend WO that consumes a contract reads the **specific** provider WO's file (it knows the id from
 its `Dependencies`).
 
+**Single-writer commit — Option B, NOT worktrees (DR-060).** The build workers run in parallel on ONE
+shared working tree but **never call git**; after a wave, the engine commits the wave's green work
+orders through **one serialized writer** (each WO staged by its own disjoint files, one commit each).
+This kills the `git index.lock` race with no per-agent worktree and **no merge**. Worktree-per-agent
+was considered and rejected for this shape: the work is already partitioned into disjoint files, so the
+isolation a worktree buys is already achieved by construction; Claude Code's own *agent-teams* guidance
+is "partition the work so each teammate owns a different set of files" (worktrees are for independent,
+human-run sessions, not a coordinated engine); and for Next.js+pnpm a worktree forces a per-tree
+`node_modules` install + a cold `next build`, while a shared/symlinked `node_modules` breaks Next's
+HMR. A worktree flow also ends in a merge, and a textual merge can pass while the code fails to compile
+(CoAgent). "Keep writes single-threaded" (Cognition) is honored natively by the single-writer commit.
+
 ## 3. The Build Plan lives in the blueprint (per FRD)
 
 Each per-FRD `blueprint.md` MUST include a **Build Plan**: the DAG of that FRD's work orders — order,
@@ -83,6 +95,10 @@ other's work, so given the same need they reinvent slightly-different versions o
   *foundation wave* that completes **before** feature work orders parallelize. Feature WOs declare a
   dependency on the foundation, so they build against real, existing primitives instead of inventing
   their own. (Sequencing it first is the cheapest fix; it's the owner's "build the common things first".)
+  **ENGINE-ENFORCED (DR-057), not just prose:** the planner marks the foundation WO `foundation: true`,
+  and while any foundation WO is still pending the engine's wave is **foundation-only** — features
+  cannot fan out before the primitives exist, regardless of whether the blueprint author threaded the
+  dependency to every feature WO.
 - **A living component inventory** at `docs/design/components.md` — each shared component with its
   name, one-line purpose, path and key props/variants. The foundation WO seeds it; every WO that adds
   a shared component appends a row. **The engine injects "read the inventory before creating any
