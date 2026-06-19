@@ -109,6 +109,7 @@ h1{font-family:var(--pixel);font-weight:600;font-size:27px;margin:0;letter-spaci
 .ag:hover .wotip{display:block}
 .ag .say{position:absolute;bottom:48px;left:50%;transform:translateX(-50%);max-width:150px;width:max-content;background:var(--panel);border:1px solid var(--bd2);border-radius:8px;padding:4px 8px;font-family:var(--mono);font-size:10px;line-height:1.3;color:var(--t1);text-align:center;display:none;z-index:9;box-shadow:0 3px 10px rgba(0,0,0,.4)}
 .ag.say-on .say{display:block;animation:sayin .2s ease-out}
+.ag.b-hi .say{bottom:92px}/* even columns talk higher so adjacent bubbles don't overlap */
 .ag:hover .say{display:none}
 .ag .say::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--panel);margin-top:-1px}
 @keyframes sayin{from{opacity:0;transform:translateX(-50%) translateY(3px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
@@ -371,6 +372,7 @@ function startBuild(w){
   w.slotIx=freeForgeSlot();const p=w.def.foundation?FORGE_CENTER:fslots()[w.slotIx];
   w.state='building';w.px=p[0];w.py=p[1];w.t0=performance.now();w.dur=(MODES[mode].split?4200:2600)+Math.random()*2600;w.prog=0;w._contract=false;
   if(!w.el)makeSprite(w);place(w);
+  w.el.classList.toggle('b-hi',!w.def.foundation&&w.slotIx%2===0);
   w.el.classList.remove('queued');w.el.classList.add('work');
   if(w.def.foundation){
     w.el.classList.add('foundation');
@@ -418,7 +420,7 @@ function assignReviewSlot(w){const used=wos.filter(x=>x.reviewSlot>=0).map(x=>x.
 
 function particles(x,y,col){for(let i=0;i<8;i++){(function(){const p=document.createElement('div');p.className='pt';p.style.background=col;p.style.left=x+'px';p.style.top=y+'px';stage.appendChild(p);const a=Math.random()*6.28,dist=10+Math.random()*22,t0=performance.now();(function an(){const k=(performance.now()-t0)/520;if(k>=1){p.remove();return;}p.style.opacity=1-k;p.style.transform='translate('+(Math.cos(a)*dist*k)+'px,'+(Math.sin(a)*dist*k-k*10)+'px)';requestAnimationFrame(an);})();})();}}
 
-function say(o,t){const s=o.el.querySelector('.say');if(!s)return;if(t){s.textContent=t;o.el.classList.add('say-on');}else{o.el.classList.remove('say-on');}}
+function say(o,t){const s=o.el.querySelector('.say');if(!s)return;if(t){s.textContent=t;o.el.classList.add('say-on');o.el.style.zIndex=60;}else{o.el.classList.remove('say-on');o.el.style.zIndex=Math.round(o.py||0);}}
 
 function reviewReady(){return !wos.some(w=>['pending','building'].includes(w.state)) && wos.length>0;}
 
@@ -498,7 +500,11 @@ function loop(me){
           feed('rev','<b style="color:var(--warn)">Juez</b> aprueba <b>'+t.id+'</b> → <span style="color:var(--accent-text)">🔒 el motor commitea la oleada (1 escritor · Opción B)</span> → Bóveda','var(--t2)');}
       }
     }
-    reviewer.el.style.transform='translate('+(reviewer.px-26)+'px,'+(reviewer.py-26+Math.sin(now/600)*(reviewer.state==='judging'?1.3:0.5))+'px)';
+    const pace=reviewer.state==='judging'?16:46;
+    reviewer.px=REVIEWER_HOME[0]+Math.sin(now/1100)*pace;
+    const walk=Math.abs(Math.sin(now/280))*2.4;// little step bob
+    reviewer.el.style.transform='translate('+(reviewer.px-26)+'px,'+(reviewer.py-26-walk)+'px)';
+    const rimg=reviewer.el.querySelector('img');if(rimg)rimg.style.transform='scaleX('+(Math.cos(now/1100)>=0?1:-1)+')';// face the walk direction (img only, not the text)
   }
   updateHUD();
   requestAnimationFrame(()=>loop(me));
