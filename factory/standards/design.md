@@ -10,11 +10,16 @@ produced the frozen artifacts, and the build shipped a UI that looked nothing li
 ## 1. Two design paths — anchor on an approved visual, or explore (DR-054)
 
 Before any visual exploration, the design phase (`/pandacorp:design`) and the brownfield adoption
-(`/pandacorp:adopt`) MUST establish whether the owner already has a visual that is **the binding
-target** — a navigable prototype, the live styled UI, an existing token/CSS system, a Figma, or a
-reference the owner explicitly designated as "the look". The factory **asks the owner directly**
-(in Spanish): *"¿Hay un prototipo o sistema de diseño que sea la referencia visual definitiva (no
-solo funcional)? ¿Dónde está?"*
+(`/pandacorp:adopt`) MUST establish whether a visual that is **the binding target** already exists —
+a navigable prototype, the live styled UI, an existing token/CSS system, a Figma, or a reference the
+owner designated as "the look". **Detect, then confirm — never ask blind:**
+1. **Scan the repo first** for an existing visual/design (a `prototype/` or any HTML mockups,
+   `docs/design/` artifacts, a token/CSS system in the stylesheets, screenshots, the live UI).
+2. **If something is found → present it and let the owner confirm/correct** (in Spanish):
+   *"Encontré esto como posible referencia visual: `<files>`. ¿Es esta la referencia definitiva?
+   ¿Falta alguna, o no son estas?"*
+3. **If nothing is found → ask whether it lives elsewhere** (Figma, another folder). If yes, extract
+   from there; if there is genuinely none, take the EXPLORE path.
 
 - **ADOPT-VISUAL path (an approved visual exists) — fidelity, not novelty.** That artifact is the
   frozen visual source of truth. The `designer` **extracts it faithfully** — its real palette,
