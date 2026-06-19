@@ -266,6 +266,7 @@ const SPRITE={impl:'assets/agents/backend-dev.png',be:'assets/agents/backend-dev
 
 // FRD-14 work orders + Build Plan dependencies (4 roots → hand-offs)
 const WODEFS=[
+  {id:'WO-14-000',name:'fundación · primitivos (Button/Banner/Card)',deps:[],foundation:true},
   {id:'WO-14-001',name:'buildSnapshot',deps:[]},
   {id:'WO-14-004',name:'feedback-channels',deps:[]},
   {id:'WO-14-010',name:'export-panel',deps:[]},
@@ -353,7 +354,15 @@ function startBuild(w){
   w.state='building';w.px=p[0];w.py=p[1];w.t0=performance.now();w.dur=(MODES[mode].split?4200:2600)+Math.random()*2600;w.prog=0;w._contract=false;
   if(!w.el)makeSprite(w);place(w);
   w.el.classList.remove('queued');w.el.classList.add('work');
-  feed('impl','<b style="color:var(--cat7)">'+w.id+'</b> <span style="color:var(--t3)">'+w.def.name+'</span> — IN_PROGRESS','var(--t2)');
+  if(w.def.foundation){
+    w.el.classList.add('foundation');
+    const halo=w.el.querySelector('.halo');if(halo)halo.style.background='var(--cat5)';
+    const tag=w.el.querySelector('.tag');if(tag){tag.textContent='⛏️ Fundación';tag.style.color='var(--cat5)';}
+    say(w,'primitivos compartidos');
+    feed(null,'<span style="color:var(--cat5)">⛏️ Fundación</span> — forja los <b>primitivos</b> (Button/Banner/Card) <b>SOLA</b>; las features esperan','var(--cat5)');
+  } else {
+    feed('impl','<b style="color:var(--cat7)">'+w.id+'</b> <span style="color:var(--t3)">'+w.def.name+'</span> — IN_PROGRESS','var(--t2)');
+  }
 }
 
 function finishBuild(w){
@@ -412,7 +421,8 @@ function loop(me){
   if(me!==runId)return;
   const now=performance.now();
   if(!paused){
-    wos.forEach(w=>{if(w.state==='pending'&&(w.deps.length===0||depsReady(w))&&activeBuilders()<MODES[mode].wave)startBuild(w);});
+    const foundDone=!wos.some(w=>w.def.foundation&&!['carry','waitgate','judging','tovault','verified'].includes(w.state));
+    wos.forEach(w=>{if(w.state==='pending'&&(w.def.foundation||foundDone)&&(w.deps.length===0||depsReady(w))&&activeBuilders()<MODES[mode].wave)startBuild(w);});
     wos.forEach(w=>{
       if(w.state==='building'){
         w.prog=Math.min(1,(now-w.t0)/w.dur);
