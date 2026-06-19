@@ -5,7 +5,7 @@ slug: achievements-engine
 title: 'WO-10-001 — `lib/achievements.ts`: achievements engine (stats/chains/uniques/secrets)'
 status: DRAFT
 parent: FRD-10
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 source_requirements: []
 last_updated: '2026-06-18'
 ---
@@ -194,3 +194,28 @@ asserts `voidSecret.date` is `undefined` (honest) instead of a string.
 `src/app/achievements/_tests/frd-10-integration.reviewer.test.tsx` now passes GREEN (incl. "the
 'void' secret must NOT fabricate an unlock date that no source can prove"). Full `verify.sh` green:
 238 files / 5957 tests passed, biome + tsc clean. The FRD gate remains the authority for VERIFIED.
+
+## FRD-10 gate PASS (powerful reviewer, 2026-06-18) — VERIFIED
+
+All five reviewed work orders (WO-10-001/005/006/007/008) → **VERIFIED**; FRD-10 rollup
+(frd.md + blueprint.md) → **VERIFIED** (all WOs verified).
+
+**Verified independently (generator ≠ verifier).** The prior honesty violation (fabricated
+`void-side` date) is genuinely resolved in `predicates.ts` (commit `4129489`): the unlock now omits
+`date` when no source timestamp exists and surfaces only the provable `project`. Confirmed by reading
+the source, not trusting the status note.
+
+**Second-pass adversarial gate (DR-015/DR-016):** new reviewer file
+`src/app/achievements/_tests/frd-10-gate.reviewer.test.tsx` (11 tests) covering gaps the implementer
+suites missed — NaN/malformed-status poison resistance (only-grow stays finite), maxed lower- and
+higher-is-better chains report 100% (never a stuck bar), dated-less shipped unlocks emit no
+fabricated empty-date row, the `void` secret stays locked while active ideas remain, and engine
+purity (identical input → identical output). **Mutation-tested:** removing the `Number.isFinite(wo)`
+guard and flipping the maxed-chain `pctToNext` to 0 both turn these tests RED — the tests kill real
+mutants, not decorative.
+
+**Gate evidence:** `verify.sh --since feb15c5` green (biome 0 errors / pre-existing warnings only,
+tsc clean, the affected reviewer test 11/11). Full suite re-run independently: 241 files,
+5983 passed + 2 expected-fail + 5 skipped, 0 unexpected failures. Lenses: correctness (190 FRD-10
+tests + 11 adversarial, all green), security (read-only pure derivation, no writes/secrets/injection,
+no new deps), quality (files ≤500 lines, tokens-only, no `any` in production).
