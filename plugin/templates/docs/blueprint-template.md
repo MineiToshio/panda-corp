@@ -47,6 +47,12 @@ Upstream features/modules this depends on; the main technical risks or edge case
   this FRD's position in the cross-FRD order.
 - *(Optional)* a Mermaid dependency diagram + a one-paragraph plain-text summary, so the sequencing
   is readable both ways.
+- **Visual spec for UI work orders (DR-054):** for any work order with UI, cite the FRD's `fdd.md` +
+  the specific `mocks/` file(s)/screen(s) it must **reproduce** — that mock is the binding visual spec
+  the implementer reproduces (layout, structure, components, density), not an approximation.
+  "Render an element that uses tokens" is **not** sufficient — the built screen must match the mock.
+  List the assets the screens need (fonts/images/sprites/icons) so they get staged (e.g. into
+  `public/`) and actually render.
 
 ## Work Orders
 

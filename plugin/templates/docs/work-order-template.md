@@ -41,6 +41,16 @@ The FRD requirements (`REQ-NN-MMM`) and their EARS acceptance criteria (`AC-NN-M
 order must satisfy. **Copy the AC text in** so the work order is self-contained and an agent never
 has to go hunting.
 
+## Visual reference
+
+> **UI work orders only (DR-054).** For a non-UI work order this section is **N/A**.
+
+Which `mocks/` file(s) and screen(s) this work order must **reproduce** (the binding visual spec from
+the FRD's `fdd.md` + `mocks/`, on the frozen tokens). Add a **fidelity acceptance criterion**
+alongside the functional ACs: *"the built screen visually matches `mocks/<file>` (layout, structure,
+components, density) on the frozen tokens — not an approximation; verified by the preview smoke gate
+(DR-055)."* A screen that uses the tokens but does not look like the mock is **not** done.
+
 ## Dependencies
 
 Other work orders that must be `VERIFIED` first (intra- or cross-FRD), by id. The full ordering and

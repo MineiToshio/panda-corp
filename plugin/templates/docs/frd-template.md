@@ -5,6 +5,8 @@ slug: descriptive-slug
 title: Replace with the feature title
 status: DRAFT             # DRAFT | ACTIVE | BLOCKED | SUPERSEDED
 parent: PRD               # the product/PRD this feature belongs to
+ui: false                 # true | false — does this feature have a user interface? (DR-054)
+visual_source:            # ui: true ONLY — path to the approved prototype/screen or to docs/frds/frd-NN-<slug>/mocks/
 implementation_status: PLANNED   # PLANNED | IN_PROGRESS | IN_REVIEW | VERIFIED | BLOCKED (rolls up from work orders)
 source_requirements: []
 last_updated: YYYY-MM-DD
@@ -16,6 +18,16 @@ last_updated: YYYY-MM-DD
 > `fdd.md` + `mocks/` (UI design), a `blueprint.md` (technical design + Build Plan) and `work-orders/`.
 > The `implementation_status` here rolls up from this feature's work orders; the build engine uses it
 > to skip features that are fully `VERIFIED`.
+
+## Visual contract (UI features only — DR-054)
+
+If `ui: true`, this feature **declares a binding visual contract** and is incomplete without an
+`fdd.md` + `mocks/` derived from the frozen design contract (`docs/design/design-tokens.json` + root
+`DESIGN.md`). Set `visual_source` to the approved prototype/screen (or to this feature's `mocks/`).
+The mock is the visual source of truth: the build must **reproduce** it, not merely "use tokens".
+Accordingly, the acceptance criteria below MUST include **visual fidelity to the mocks** (layout,
+structure, components, density) — not only functional behavior. A UI screen that uses the tokens but
+does not look like the mock is **not** done. For `ui: false` there is no visual contract.
 
 ## Overview & domain goal
 

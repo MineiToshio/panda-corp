@@ -78,9 +78,19 @@ The build engine reviews and tests **per FRD**, not per work order:
   last green** (fast, and scales as the suite grows — it does NOT re-run the whole suite every gate). The
   **full** suite runs once at **close-out**. On pass → every work order + the FRD become `VERIFIED`.
 - **Three test layers** at the FRD gate: (1) unit/component (per WO during build); (2) integration +
-  adversarial review across the feature; (3) **functional/browser** (start the app and drive the real
-  flows with the harness `preview_*` tools) — designed in, **opt-in per project** (default off; on for critical web
-  flows). This moves review cost from O(work orders) to O(FRDs).
+  adversarial review across the feature; (3) **functional/browser — the Preview Smoke Gate (DR-055)**.
+  This layer is **mandatory and fail-closed for any FRD that has UI routes** (default ON for web
+  projects; only a genuinely headless project — pure API, scraper — opts out, and that is recorded as a
+  decision, not an omission). It **renders each of the FRD's key routes in a real browser**, and **fails
+  the gate** on any browser **console error / uncaught `pageerror` / failed request / blank-or-error
+  render**, asserts a real-content sentinel (the route's `<main>`/`<h1>` is visible, not `error.tsx`),
+  captures a screenshot to `docs/reviews/smoke/`, and (advisory) flags large divergence from the FRD's
+  `mocks/`. **Fail-closed means: if the smoke harness is absent, the gate is RED, not skipped** — a
+  missing layer must never read as "passed" (the exact hole that let Mission Control ship 112/112
+  VERIFIED while every route threw React errors and matched no mockup: `verify.sh` ran only
+  biome+tsc+vitest, nothing ever opened a browser). It runs inside `verify.sh` (so the FRD gate and
+  close-out enforce it automatically) and is re-run independently by the `reviewer` (generator ≠
+  verifier). This moves review cost from O(work orders) to O(FRDs).
 
 ## 6. How a run stops — health & budget, never a feature count
 

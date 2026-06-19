@@ -73,6 +73,39 @@ stray=$(find src -name '*.test.ts' -o -name '*.test.tsx' | grep -v '/_tests/' ||
 [ -n "$stray" ] && { echo "✗ tests must live in a _tests/ folder, not beside source:"; echo "$stray"; exit 1; } || true
 ```
 
+## Preview Smoke Gate (DR-055) — render every UI route, fail-closed
+
+A web project's gate MUST open the app in a real browser, not just run static checks. This is the layer whose absence let a build pass green while every route threw and matched no mockup. It is **mandatory and fail-closed** for this (web) stack.
+
+1. **`playwright.config.ts`** boots the app itself via `webServer` (so the smoke runs unattended, no human, in CI and inside `verify.sh`):
+   ```ts
+   import { defineConfig } from "@playwright/test";
+   export default defineConfig({
+     testDir: "e2e",
+     webServer: { command: "pnpm build && pnpm start", url: "http://127.0.0.1:3000", reuseExistingServer: !process.env.CI, timeout: 120_000 },
+     use: { baseURL: "http://127.0.0.1:3000" },
+   });
+   ```
+2. **`e2e/smoke.spec.ts`** — one smoke per key UI route (each FRD contributes its routes). Fails the gate on any console error / uncaught exception / blank-or-error render; screenshots for the reviewer's fidelity check:
+   ```ts
+   import { test, expect } from "@playwright/test";
+   const ROUTES = ["/"]; // each UI FRD appends its key routes (DR-055)
+   for (const route of ROUTES) {
+     test(`smoke ${route}`, async ({ page }) => {
+       const problems: string[] = [];
+       page.on("console", (m) => m.type() === "error" && problems.push(`console: ${m.text()}`));
+       page.on("pageerror", (e) => problems.push(`pageerror: ${e.message}`));
+       page.on("requestfailed", (r) => problems.push(`reqfailed: ${r.url()}`));
+       const res = await page.goto(route, { waitUntil: "networkidle" });
+       expect(res?.ok(), `${route} returned ${res?.status()}`).toBeTruthy();
+       await expect(page.locator("main, h1").first()).toBeVisible(); // real content, not error.tsx/blank
+       await page.screenshot({ path: `docs/reviews/smoke/${route.replace(/\W+/g, "_") || "root"}.png`, fullPage: true });
+       expect(problems, `runtime problems on ${route}:\n${problems.join("\n")}`).toEqual([]);
+     });
+   }
+   ```
+   Add `"test:smoke": "playwright test e2e/smoke.spec.ts"` to `package.json`. (The reviewer also eyeballs the screenshots vs the FRD's `mocks/` — fidelity, DR-054.)
+
 ## `.pandacorp/verify.sh`
 
 ```bash
@@ -81,6 +114,12 @@ set -e
 pnpm biome check .          # format + lint in one (the hard-enforcement rules above)
 pnpm tsc --noEmit
 pnpm vitest run --reporter=dot
+# Preview Smoke Gate (DR-055) — FAIL-CLOSED: a missing smoke harness is RED, never a skip.
+if grep -q '"test:smoke"' package.json; then
+  pnpm test:smoke
+else
+  echo "✗ Preview Smoke Gate missing: a web project must render its routes in a browser (DR-055). Add e2e/smoke.spec.ts + playwright.config.ts + the test:smoke script."; exit 1
+fi
 ```
 
 ## CI (`.github/workflows/ci.yml`)

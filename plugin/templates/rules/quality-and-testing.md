@@ -14,8 +14,9 @@ Nothing is "done" until **all** of these are green (enforced by `verify.sh` / CI
 - **Lint & format** report no errors.
 - **Build is clean.**
 - **No dead code** (a `knip` pass finds no new unused files/exports/deps) — see `clean-code`.
+- **Preview Smoke Gate green (any UI change) — the app actually renders.** A browser smoke (Playwright) loads each affected route and the change is **not done** if a route throws a console error / uncaught exception, returns non-2xx, or renders blank / an error boundary. **Fail-closed: a missing smoke harness is a RED gate, not a skip** — static checks (lint/type/unit) passing while the page is broken is the failure this closes. (DR-055)
 
-A change with red tests, type errors or lint errors is **not done**, no exceptions.
+A change with red tests, type errors, lint errors **or a route that errors/blank-renders in the browser** is **not done**, no exceptions.
 
 ## TDD per unit of work
 - Write the acceptance-criteria tests **before** implementing (RED → GREEN → refactor).
