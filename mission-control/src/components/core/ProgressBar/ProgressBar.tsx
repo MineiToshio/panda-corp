@@ -45,7 +45,7 @@ export function ProgressBar({
   total,
   ariaLabel = "Progreso",
 }: ProgressBarProps): React.JSX.Element {
-  const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+  const pct = total === 0 ? 0 : Math.min(100, Math.round((done / total) * 100));
   const isComplete = total > 0 && done >= total;
 
   const trackStyle: React.CSSProperties = {
@@ -70,7 +70,7 @@ export function ProgressBar({
     position: "absolute",
     inset: 0,
     backgroundImage:
-      "repeating-linear-gradient(90deg, transparent 0 16px, var(--color-base, #0f1517) 16px 18px)",
+      "repeating-linear-gradient(90deg, transparent 0 16px, var(--color-base) 16px 18px)",
     opacity: 0.5,
     pointerEvents: "none",
   };
@@ -87,7 +87,7 @@ export function ProgressBar({
   return (
     <div
       data-testid="progress-bar"
-      data-complete={isComplete ? "true" : undefined}
+      data-complete={String(isComplete)}
       role="progressbar"
       aria-label={ariaLabel}
       aria-valuenow={done}
@@ -102,7 +102,7 @@ export function ProgressBar({
         <span>
           {done}/{total}
         </span>
-        <span>{pct}%</span>
+        <span> {pct}%</span>
       </div>
     </div>
   );

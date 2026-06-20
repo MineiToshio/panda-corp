@@ -22,23 +22,18 @@
 
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-
-// WO-13-006
-import { PageTitle } from "@/components/core/PageTitle/PageTitle";
-import { SectionHead } from "@/components/core/SectionHead/SectionHead";
-import { SubTabs, Tabs } from "@/components/core/Tabs/Tabs";
-
 // WO-13-007
 import { Banner, type BannerProps } from "@/components/core/Banner/Banner";
-import { ProgressBar } from "@/components/core/ProgressBar/ProgressBar";
-import { Button } from "@/components/core/Button/Button";
-
 // WO-13-008
 import { ItemSlot } from "@/components/core/ItemSlot/ItemSlot";
 import { KanbanColumn } from "@/components/core/KanbanColumn/KanbanColumn";
+// WO-13-006
+import { PageTitle } from "@/components/core/PageTitle/PageTitle";
+import { ProgressBar } from "@/components/core/ProgressBar/ProgressBar";
+import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import { Shield } from "@/components/core/Shield/Shield";
+import { SubTabs, Tabs } from "@/components/core/Tabs/Tabs";
 import { TierBadge } from "@/components/core/TierBadge/TierBadge";
-
 // WO-13-009
 import { AgentSprite } from "@/components/modules/party/AgentSprite/AgentSprite";
 import { FlowStrip } from "@/components/modules/party/FlowStrip/FlowStrip";
@@ -86,8 +81,8 @@ describe("frd-13 reviewer (WO-13-006): Tabs — adversarial edge cases", () => {
     render(<Tabs level="top" tabs={THREE_TABS} active="inicio" onChange={vi.fn()} />);
     const tablist = screen.getByRole("tablist");
     const buttons = screen.getAllByRole("tab");
-    const first = buttons[0];
-    const last = buttons[buttons.length - 1];
+    const first = buttons[0] as HTMLElement;
+    const last = buttons[buttons.length - 1] as HTMLElement;
     first.focus();
     fireEvent.keyDown(tablist, { key: "ArrowLeft" });
     expect(document.activeElement).toBe(last);
@@ -96,8 +91,10 @@ describe("frd-13 reviewer (WO-13-006): Tabs — adversarial edge cases", () => {
   // Mutation target: roving tabindex — only active tab is 0; others must be -1
   it("only the active tab has tabIndex=0; all others have tabIndex=-1 (roving tabindex)", () => {
     render(<Tabs level="top" tabs={THREE_TABS} active="tablero" onChange={vi.fn()} />);
-    const buttons = screen.getAllByRole("tab");
-    const [inicio, tablero, portfolio] = buttons as HTMLButtonElement[];
+    const buttons = screen.getAllByRole("tab") as HTMLButtonElement[];
+    const inicio = buttons[0] as HTMLButtonElement;
+    const tablero = buttons[1] as HTMLButtonElement;
+    const portfolio = buttons[2] as HTMLButtonElement;
     expect(Number(inicio.tabIndex)).toBe(-1);
     expect(Number(tablero.tabIndex)).toBe(0);
     expect(Number(portfolio.tabIndex)).toBe(-1);
@@ -212,7 +209,9 @@ describe("frd-13 reviewer (WO-13-007): Banner — adversarial edge cases", () =>
 
   // Mutation target: items=undefined must not crash (the implementer used Array.isArray guard)
   it("Banner renders without crashing when items is undefined (no crash on absent list)", () => {
-    expect(() => render(<Banner tone="info" heading="Sin items" items={undefined} />)).not.toThrow();
+    expect(() =>
+      render(<Banner tone="info" heading="Sin items" items={undefined} />),
+    ).not.toThrow();
   });
 
   // Mutation target: items=[] (empty array) must render without a collapse toggle
@@ -222,13 +221,15 @@ describe("frd-13 reviewer (WO-13-007): Banner — adversarial edge cases", () =>
   });
 
   // Mutation target: all four tones must render with role="alert" (not just warn)
-  it.each(["warn", "info", "ok", "danger"] as const)(
-    "tone='%s' renders with role=alert (not just warn tone)",
-    (tone) => {
-      render(<Banner tone={tone} heading={`Banner ${tone}`} />);
-      expect(screen.getByRole("alert")).toBeInTheDocument();
-    },
-  );
+  it.each([
+    "warn",
+    "info",
+    "ok",
+    "danger",
+  ] as const)("tone='%s' renders with role=alert (not just warn tone)", (tone) => {
+    render(<Banner tone={tone} heading={`Banner ${tone}`} />);
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+  });
 
   // Mutation target: each tone must produce a GEOMETRICALLY DISTINCT icon
   // (color-alone test: icons differ by shape, not just color)
@@ -302,15 +303,19 @@ describe("frd-13 reviewer (WO-13-007): ProgressBar — adversarial edge cases", 
       });
       if (stripe) {
         const style = stripe.getAttribute("style") ?? "";
-        expect(style, "Stripe overlay uses hardcoded hex fallback — violates AC tokens-only").not.toMatch(/#[0-9a-fA-F]{3,8}/);
+        expect(
+          style,
+          "Stripe overlay uses hardcoded hex fallback — violates AC tokens-only",
+        ).not.toMatch(/#[0-9a-fA-F]{3,8}/);
       }
       // If no stripe found, at least the container should have no hex
       return;
     }
     const style = stripeDiv.getAttribute("style") ?? "";
-    expect(style, "Stripe overlay uses hardcoded hex fallback — violates AC tokens-only").not.toMatch(
-      /#[0-9a-fA-F]{3,8}/,
-    );
+    expect(
+      style,
+      "Stripe overlay uses hardcoded hex fallback — violates AC tokens-only",
+    ).not.toMatch(/#[0-9a-fA-F]{3,8}/);
   });
 
   // Mutation target: aria-valuenow must reflect `done`, not a stale value
@@ -378,9 +383,7 @@ describe("frd-13 reviewer (WO-13-008): ItemSlot — adversarial edge cases", () 
   // Mutation target: tone=undefined (no tone) must not crash and must use neutral tokens
   it("ItemSlot with no tone renders without crash (neutral style applied)", () => {
     expect(() =>
-      render(
-        <ItemSlot aria-label="Espacio vacío" icon={<span>?</span>} />,
-      ),
+      render(<ItemSlot aria-label="Espacio vacío" icon={<span>?</span>} />),
     ).not.toThrow();
     expect(screen.getByTestId("itemslot-root")).toBeInTheDocument();
   });
@@ -542,9 +545,7 @@ describe("frd-13 reviewer (WO-13-009): AgentSprite — adversarial edge cases", 
 
   // Mutation target: aria-label must include role, woId AND state — three distinct data points
   it("aria-label includes agentRole, woId AND state (DR-062 identity triangle)", () => {
-    render(
-      <AgentSprite agentRole="reviewer" state="review" woId="WO-13-006" />,
-    );
+    render(<AgentSprite agentRole="reviewer" state="review" woId="WO-13-006" />);
     const root = screen.getByTestId("agent-sprite-root");
     const label = root.getAttribute("aria-label") ?? "";
     expect(label).toContain("reviewer");
@@ -579,7 +580,9 @@ describe("frd-13 reviewer (WO-13-009): MissionBar — adversarial edge cases", (
 
   // Mutation target: done=0, total=0 — tabular-nums counter must not show NaN
   it("done=0 total=0 renders counter without NaN", () => {
-    render(<MissionBar frdPips={[{ id: "FRD-01", state: "current" }]} done={0} total={0} effort="pro" />);
+    render(
+      <MissionBar frdPips={[{ id: "FRD-01", state: "current" }]} done={0} total={0} effort="pro" />,
+    );
     const counter = screen.getByTestId("mission-bar-counter");
     expect(counter.textContent).not.toContain("NaN");
   });
@@ -762,7 +765,7 @@ describe("frd-13 reviewer: DR-062 cross-WO integration (all four foundation WOs 
     // Exactly one H1 (DR-062 + WCAG — "H1 equals the nav label")
     const h1s = document.querySelectorAll("h1");
     expect(h1s).toHaveLength(1);
-    expect(h1s[0].textContent).toBe("La Fragua");
+    expect((h1s[0] as HTMLElement).textContent).toBe("La Fragua");
   });
 
   it("no hardcoded hex appears in any of the four WOs when rendered together", () => {

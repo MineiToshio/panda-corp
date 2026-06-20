@@ -155,7 +155,7 @@ export function AgentSprite({
   const progFillStyle: CSSProperties = {
     display: "block",
     height: "100%",
-    width: `${Math.round(progress * 100)}%`,
+    width: `${Math.min(100, Math.round(progress * 100))}%`,
     borderRadius: "3px",
     background: "var(--color-cat-7)",
     transition: "width 0.2s linear",
