@@ -4,6 +4,11 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-06-19 — "One cohesive application" standard (DR-062) · v8.25.0
+**What:** `design` skill + `designer` + `reviewer` now enforce cross-surface visual cohesion (DR-062): standardize the framing patterns across every surface — ONE page-title block (H1 = nav label + optional subtitle), one section-header/tab/chip/panel/empty-state language; a surface inventing its own variant is a cohesion defect; titles/section-headers/tabs are first-class entries in `docs/design/components.md`; the reviewer checks a screen doesn't look like a different app from its siblings. Canonical in `factory/standards/design.md` §7; registry DR-062. Design-time guidance, no `OVERLAY_VERSION` change. **MINOR → v8.25.0.**
+**Why:** Owner reviewed the MC prototype and found surfaces that felt like different apps (bespoke "Códice" header, missing page titles on Inicio/Tablero/Portfolio) and asked to recalcar "feels like ONE app" in the design skill. Menu-vs-title question resolved: align (H1 = nav label).
+**Impact:** `plugin/skills/design/SKILL.md`, `plugin/agents/{designer,reviewer}.md`, `plugin/.claude-plugin/plugin.json`. Factory: `factory/standards/design.md` §7, `factory/decisions/registry.yaml` (DR-062), `factory/decision-log.md`. Pending: commit + `claude plugin update`.
+
 ## 2026-06-19 — Canonical gate-config bugs fixed (bash-3.2 portability + biome scope) · v8.24.1
 **What:** First real install of the DR-059 canonical gate (into Mission Control) exposed two template bugs. `stack-a-nextjs/verify.sh`: `shopt -s inherit_errexit` is bash 4.4+ → aborted on macOS' bash 3.2; now `shopt -s inherit_errexit 2>/dev/null || true`. `stack-a-nextjs/biome.json`: unscoped, so it linted `.claude/` machinery + `docs/` mocks; now `files.includes: ["**", "!.claude/**", "!docs/**", "!public/**"]`. Config-only PATCH; no rule change → `OVERLAY_VERSION` unchanged. **PATCH → v8.24.1.**
 **Why:** The canonical gate must run on the owner's machine and lint only product code; the MC dry-run proved neither held (the Stop gate failed at `shopt`, then on the linted machinery).

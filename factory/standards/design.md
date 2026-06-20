@@ -145,7 +145,17 @@ Canonical pattern (adapt tokens to the project's system):
 </div>
 ```
 
-## 7. Where this is wired
+## 7. One cohesive application — consistency across surfaces (DR-062)
+
+The whole app must feel like **ONE application**, not a set of screens each designed in isolation. Beyond reusing *components* (DR-057), the structural **patterns that frame every surface** are standardized:
+
+- **Page titles — one pattern, everywhere.** The same title block (H1 style + optional one-line subtitle) on every top-level page, and the **page H1 equals its nav-menu label** (nav "Propuestas" → H1 "Propuestas"); any extra description goes in the **subtitle**, never as a different title (the *you-are-here* principle — a page whose title differs from the menu item the owner clicked breaks orientation). Either every page carries a title or each omission is **justified**, not ad-hoc.
+- **Section headers, tabs, chips/badges, panels/cards, command affordances, empty states, spacing rhythm** — each is **ONE canonical pattern reused everywhere**. A surface that invents its own variant of an existing pattern is a **cohesion defect**, the same class of bug as a near-duplicate component.
+- **Deviations only where genuinely justified** (e.g. an intentionally immersive view); the justification is recorded, never silent.
+
+Enforced two ways: the design phase **defines these framing patterns in the system** (the Claude Design system / `docs/design/components.md`, where titles/section-headers/tabs are first-class shared primitives, not per-screen ad-hoc markup), and the **`reviewer`'s runtime/visual lens checks cross-surface consistency** — a screen that looks like a *different app* from its siblings is rejected, exactly like a duplicate component. The owner must never feel they jumped between different apps when switching tabs.
+
+## 8. Where this is wired
 
 | Concern | File |
 |---|---|
@@ -158,3 +168,4 @@ Canonical pattern (adapt tokens to the project's system):
 | Two-layer visual-fidelity gate (DR-056 §4) | `plugin/agents/reviewer.md`, `factory/standards/build-orchestration.md` §5, `plugin/templates/stack-a-nextjs/STACK.md` |
 | Runtime/visual verification (smoke) | `plugin/agents/reviewer.md`, `factory/standards/build-orchestration.md` §5, `plugin/templates/stack-a-nextjs/STACK.md`, `plugin/templates/rules/quality-and-testing.md` |
 | Demo-only controls marked in prototypes (DR-061) | `plugin/skills/design/SKILL.md`, `plugin/agents/designer.md` |
+| One cohesive app — cross-surface consistency (DR-062) | `plugin/skills/design/SKILL.md`, `plugin/agents/designer.md`, `plugin/agents/reviewer.md` |
