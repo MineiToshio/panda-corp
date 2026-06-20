@@ -6,9 +6,9 @@ version: v1
 overlay_version: "8.26.0"
 created_with: "6.0.0"
 running: true
-run_started_at: "2026-06-20T13:16:51Z"
+run_started_at: "2026-06-20T13:39:36Z"
 repo: ""
-updated_at: "2026-06-20T13:16:51Z"
+updated_at: "2026-06-20T13:39:36Z"
 work_orders_total: 78
 work_orders_verified: 57
 work_orders_in_review: 1
@@ -20,7 +20,7 @@ pending_decisions: 0
 pending_bugs: 0
 rethink_pending: false
 advance_pending: false
-last_green_sha: "b99b239"
+last_green_sha: "36edc4e"
 safe_to_test: true
 blocked: []
-supervisor_heartbeat: "2026-06-20T13:16:51Z"
+supervisor_heartbeat: "2026-06-20T13:39:36Z"
