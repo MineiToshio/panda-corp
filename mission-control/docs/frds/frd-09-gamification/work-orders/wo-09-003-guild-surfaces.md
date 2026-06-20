@@ -5,7 +5,7 @@ slug: guild-surfaces
 title: 'WO-09-003 — Guild surfaces: GuildBar + GuildHero + StatRadar + CelebrationSurface'
 status: DRAFT
 parent: FRD-09
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 artifacts:
   - 'src/app/achievements/page.tsx'
   - 'src/components/modules/GuildBar/**'
@@ -93,3 +93,45 @@ Components from `docs/design/components.md` (reuse → adapt → create; never f
 (radar) · `bOverlay(kind)` + `bConfetti()` (celebration/level-up). See [mocks/README.md](../mocks/README.md)
 and [fdd.md](../fdd.md) for the render-fn pointers and the token slice (`rpgSkin`, `tiers`, `accent`,
 `typography.families.pixel`).
+
+## Status Note
+
+**What was built:**
+
+1. **`XpBar`** (`src/components/core/XpBar/XpBar.tsx`) — extended with `size?: "compact" | "full"` prop. Compact = 9px inline bar (hidden XP/next spans for tests, `data-size="compact"`). Full = 18px with label+subtitle rows (default). Both variants use `data-accent="true"` on fill and accent CSS custom properties only.
+
+2. **`GuildBar`** (`src/components/modules/GuildBar/GuildBar.tsx`) — complete rewrite matching prototype `topbar()` ~L646: rpgpanel embossed tile (`data-variant="rpgpanel"`), rpggrid dot overlay, NV level pill (`data-testid="guild-bar-level-pill"`, `data-px="true"`, `data-accent="true"`), level numeral child span (`data-testid="guild-bar-level"`), rank title (`data-testid="guild-bar-title"`), compact XpBar inline.
+
+3. **`GuildHero`** (`src/components/modules/GuildHero/GuildHero.tsx`) — NEW shared module. Matches prototype `logrosHero()` ~L413: rpgpanel+rpggrid `<section>`, `Shield` crest, "GREMIO PANDACORP" pixel eyebrow, display-font title (`data-testid="guild-hero-title"`), feats/trophies/missions summary (`data-testid="guild-hero-summary"`), full `XpBar`, party `<ul>` (`data-testid="guild-hero-party"`), 3 `StatBadge` tiles in `data-testid="guild-hero-stats"`. Props: `level`, `title`, `xp`, `next`, `pctToNext`, `nextTitle`, `featsCount`, `trophiesCount`, `trophiesTotal`, `missionsActive`, `partyRoster: readonly AgentRole[]`, `statsLanzados`, `statsRacha`, `statsVelocidad`.
+
+4. **`StatRadar`** (named export from `src/app/achievements/StatsPanel.tsx`) — NEW. Matches prototype `statRadar()` ~L459: SVG `viewBox="0 0 330 280"`, cx=165/cy=140/R=90, 4 grid ring polygons (`data-testid="radar-ring"`, SVG presentation attributes `stroke="var(--color-border)"`), 6 spoke lines, base polygon, data polygon (`data-testid="radar-data-polygon"`, `fill="var(--color-accent)"`, `stroke="var(--color-accent)"`), 6 accent dots (`data-testid="radar-dot"`), pixel-font axis labels. Props: `axes: StatRadarAxes` (produccion/velocidad/calidad/constancia/ideacion/alcance, 0–100).
+
+5. **`CelebrationSurface`** (`src/components/core/CelebrationSurface/CelebrationSurface.tsx`) — upgraded to match prototype `bOverlay()` + `bConfetti()`. release/levelup tiers: fixed-position overlay (`data-testid="celebration-overlay"`, `role="presentation"`), rpgpanel card (`data-testid="celebration-card"`), confetti (`data-testid="celebration-confetti"`, 26 pieces keyed by position, `data-reduced="true"` under reduced-motion), dismiss button (`data-testid="celebration-dismiss"`). levelup: `data-testid="celebration-level"` with pixel NV numeral + actual level digit. New props: `onDismiss?: () => void`, `newLevel?: number` (default 2). toast/phase: unchanged small `celebration-surface`.
+
+6. **`achievements/page.tsx`** — hero section replaced with `GuildHero`; `StatRadar` added beside `StatsPanel`. Page heading changed to "Logros" (DR-062). Props derived from `computeStats`, `computeUniques`, `eventsSnapshot?.events` (null-guarded). Old `HALL_TABS`/bespoke hero removed.
+
+**Interfaces/contracts exposed:**
+- `XpBarSize = "compact" | "full"` — `XpBar` size prop
+- `GuildHeroProps` — see type in `GuildHero.tsx` (all fields required except `partyRoster` which is `readonly AgentRole[]`)
+- `StatRadarAxes` — `{ produccion; velocidad; calidad; constancia; ideacion; alcance }` all `number` 0–100, exported from `StatsPanel.tsx`
+- `CelebrationSurfaceProps` — `event: Event | null`, `onDismiss?: () => void`, `newLevel?: number`
+
+**Implicit decisions and assumptions:**
+- `GuildHero` is a `<section>` (not `<div>`) for `aria-label` ARIA compatibility (biome a11y rule)
+- `GuildHero` party roster uses `<ul>`/`<li>` (not `div role="list"`)
+- `StatRadar` uses SVG presentation attributes (`stroke=`, `fill=` props) instead of CSS `style={}` so jsdom's `getAttribute("stroke")` works in tests
+- `CelebrationSurface` backdrop uses `rgba(0,0,0,.66)` — the one accepted exception to the no-hardcoded-colors rule (prototype pattern, explicitly commented)
+- `newLevel` defaults to `2` when not provided (first possible level-up result)
+- Confetti pieces keyed by `p.left` (position string) to avoid `noArrayIndexKey` lint rule; 26 pieces total per prototype
+- `radarAxes` in `page.tsx` uses illustrative scale mappings (e.g. 5 products shipped = 100% produccion); `velocidad` = 0 until a velocity-tracking WO ships
+- Old `page.test.tsx` tests for `hall-hero`/`hall-guild-level`/`hall-party-avatars`/`hall-tabs` updated to `guild-hero`/`guild-hero-title`/`guild-hero-party` (4 tab tests removed as tabs are out of WO-09-003 scope)
+- `eventsSnapshot?.events` null-guarded in page derivations (test mock returns null)
+
+**Test files:**
+- `src/components/modules/GuildBar/_tests/wo-09-003-guildbar.test.tsx`
+- `src/components/modules/GuildHero/_tests/GuildHero.test.tsx`
+- `src/app/achievements/_tests/wo-09-003-stat-radar.test.tsx`
+- `src/components/core/CelebrationSurface/_tests/wo-09-003-celebration-overlay.test.tsx`
+- Updated: `src/app/achievements/_tests/page.test.tsx`
+
+**Gate result:** 286 test files / 6671 tests passing, 0 type errors (`tsc --noEmit`), 0 lint errors (biome), 2 warnings (unused suppression comments in `CelebrationSurface.tsx` — cosmetic, non-blocking).

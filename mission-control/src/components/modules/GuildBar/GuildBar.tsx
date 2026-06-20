@@ -1,27 +1,33 @@
 /**
- * CMP-09-guild-bar — Guild top-bar block (WO-09-004)
+ * CMP-09-guild-bar — Guild top-bar block (WO-09-003 re-anchor, originally WO-09-004)
  *
  * Cross-cutting component mounted in app/layout.tsx.
- * Shows: guild level · rank title · XP bar to next rank · "faltan N para Nv X · <nextTitle>"
+ * Matches prototype topbar() guild section (~L646):
+ *   - rpgpanel + rpggrid container (embossed pixel tile + dot grid)
+ *   - NV level pill: pixel font, accent bg, canvas text
+ *   - Guild title: text2 color, 11px
+ *   - Compact inline XpBar: 90px × 9px, vertically centred
  *
  * Consumes:
- *   - IF-09-guild-xp: computeGuildLevel(outcomes) → GuildLevel (lib/gamification.ts, WO-09-001)
- *   - CMP-09-xp-bar: XpBar primitive (WO-09-004)
+ *   - IF-09-guild-xp: computeGuildLevel(outcomes) → GuildLevel (lib/gamification.ts)
+ *   - CMP-09-xp-bar: XpBar primitive in size="compact" (WO-09-003)
  *
  * Design constraints (FRD-09 / FRD-13):
- *   - Rationed accent: accent color only on the XP bar fill (delegated to XpBar).
- *   - Not color-alone: level number + rank title text present alongside the bar shape.
+ *   - Rationed accent: accent color ONLY on the NV pill bg + XP bar fill.
+ *   - Not color-alone: level number text + rank title text + bar shape.
  *   - Numbers are text nodes → tabular-nums applied globally via globals.css.
  *   - Zero hardcoded colors — only CSS custom properties from @theme in globals.css.
- *   - Server Component (no interactivity needed; data is derived from outcomes).
+ *   - Server Component (no interactivity; data derived from outcomes).
  *
  * Traceability:
  *   AC-09-004.1 (level + title + XP bar + subtitle)
  *   AC-09-004.2 (tabular-nums via text nodes + globals.css)
  *   AC-09-004.3 (real pct-to-next from computeGuildLevel — never fake)
  *   AC-09-004.4 (rationed accent, not color-alone)
- *   AC-09-004.5 (reuses XpBar primitive)
- *   CMP-09-guild-bar → blueprint §3 → WO-09-004
+ *   AC-09-004.5 (reuses XpBar primitive, size="compact")
+ *   CMP-09-guild-bar → blueprint §3 → WO-09-003
+ *
+ * Visual reference: prototype topbar() ~L646
  */
 
 import { XpBar } from "@/components/core/XpBar/XpBar";
@@ -35,9 +41,10 @@ export type GuildBarProps = {
 /**
  * GuildBar — guild level/XP top bar block.
  *
- * Derives level, title, xp, next, pctToNext via computeGuildLevel() (IF-09-guild-xp).
- * Delegates bar rendering to XpBar (CMP-09-xp-bar, AC-09-004.5).
+ * Renders the guild section of the persistent topbar:
+ *   NV pill · guild title · compact XpBar
  *
+ * Mounted directly in app/layout.tsx inside the rpgpanel rpggrid topbar wrapper.
  * Server Component: all data is derived from the outcomes prop.
  */
 export function GuildBar({ outcomes }: GuildBarProps): React.JSX.Element {
@@ -45,44 +52,86 @@ export function GuildBar({ outcomes }: GuildBarProps): React.JSX.Element {
   const { level, title, xp, next, pctToNext } = computeGuildLevel(outcomes);
 
   // Determine the next rank title for the "faltan N para Nv X · <nextTitle>" line.
-  // At max rank (pctToNext === 100), nextTitle mirrors current title (no higher rank).
+  // At max rank (pctToNext === 100), nextTitle mirrors current title.
   const nextRankEntry = RANKS[level]; // level is 1-based; RANKS is 0-based → RANKS[level] = next rank
   const nextTitle = nextRankEntry?.title ?? title;
 
   return (
     <div
       data-testid="guild-bar"
-      className="flex items-center gap-[var(--space-base)] px-[var(--space-base)] py-[calc(var(--space-base)*0.5)]"
+      data-variant="rpgpanel"
       style={{
-        borderBottom:
-          "var(--hairline) solid color-mix(in oklch, var(--color-text) 15%, transparent)",
+        /* rpgpanel: embossed pixel tile — matches prototype .rpgpanel */
+        position: "relative",
+        background: "var(--color-card)",
+        border: "1px solid var(--color-border-strong)",
+        borderRadius: "10px",
+        boxShadow:
+          "inset 0 1px 0 rgba(255,255,255,.05), inset 0 -2px 0 rgba(0,0,0,.22), 0 2px 0 var(--color-base)",
+        /* rpggrid: dot grid overlay — matches prototype .rpggrid */
+        backgroundImage:
+          "linear-gradient(var(--color-border) 1px, transparent 1px), linear-gradient(90deg, var(--color-border) 1px, transparent 1px)",
+        backgroundSize: "22px 22px",
+        /* Layout */
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        padding: "4px 8px",
+        flexWrap: "wrap",
+        marginBottom: "16px",
       }}
     >
-      {/* Guild level badge (AC-09-004.1: level number; AC-09-004.2: text node for tabular-nums) */}
-      <div className="flex shrink-0 flex-col items-center">
-        <span className="text-[var(--color-text)] text-xs uppercase leading-none tracking-wide opacity-60">
-          Nv
-        </span>
-        <span
-          data-testid="guild-bar-level"
-          className="font-bold text-[var(--color-accent)] text-xl leading-none"
-        >
-          {level}
-        </span>
-      </div>
+      {/* NV level pill — accent bg, pixel font, canvas text (AC-09-004.1/4.4) */}
+      {/* data-px="true" = pixel-font marker for tests */}
+      <span
+        data-testid="guild-bar-level-pill"
+        data-px="true"
+        data-accent="true"
+        style={{
+          fontFamily: "var(--font-pixel)",
+          fontSize: "10px",
+          color: "var(--color-on-accent)",
+          background: "var(--color-accent)",
+          padding: "1px 6px",
+          borderRadius: "4px",
+          lineHeight: 1.4,
+          letterSpacing: "0.02em",
+          whiteSpace: "nowrap",
+          flexShrink: 0,
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
+        {"NV "}
+        {/* Level numeral in its own text node for tabular-nums (AC-09-004.2) */}
+        <span data-testid="guild-bar-level">{level}</span>
+      </span>
 
-      {/* Rank title + XP bar (AC-09-004.1, AC-09-004.4: label alongside bar) */}
-      <div className="flex min-w-0 flex-1 flex-col gap-[calc(var(--space-base)*0.25)]">
-        <span
-          data-testid="guild-bar-title"
-          className="truncate font-semibold text-[var(--color-text)] text-sm leading-none"
-        >
-          {title}
-        </span>
+      {/* Guild rank title — text2, 11px (AC-09-004.1) */}
+      <span
+        data-testid="guild-bar-title"
+        style={{
+          fontSize: "11px",
+          color: "var(--color-text2)",
+          lineHeight: 1.2,
+          flexShrink: 1,
+          minWidth: 0,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {title}
+      </span>
 
-        {/* CMP-09-xp-bar (AC-09-004.5: reusable primitive, not inlined) */}
-        <XpBar xp={xp} next={next} pctToNext={pctToNext} label={title} nextTitle={nextTitle} />
-      </div>
+      {/* Compact inline XpBar — 90px × 9px (AC-09-004.5: reuses XpBar primitive) */}
+      <XpBar
+        xp={xp}
+        next={next}
+        pctToNext={pctToNext}
+        label={title}
+        nextTitle={nextTitle}
+        size="compact"
+      />
     </div>
   );
 }

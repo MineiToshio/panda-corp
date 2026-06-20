@@ -23,20 +23,20 @@
  */
 
 import type { AgentRole } from "@/app/_design/tokens/tokens";
-import { Avatar } from "@/components/core/Avatar/Avatar";
-import { XpBar } from "@/components/core/XpBar/XpBar";
+import { GuildHero } from "@/components/modules/GuildHero/GuildHero";
 import { computeUniques } from "@/lib/achievements/achievements";
 import type { ReaderData } from "@/lib/achievements/stats";
+import { computeStats } from "@/lib/achievements/stats";
 import { readEvents } from "@/lib/events/events";
-import { computeGuildLevel, deriveGuildOutcomes } from "@/lib/gamification/gamification";
+import { computeGuildLevel, deriveGuildOutcomes, RANKS } from "@/lib/gamification/gamification";
 import { readIdeas } from "@/lib/ideas/ideas";
 import { readPortfolio } from "@/lib/portfolio/portfolio";
 import { readStatus } from "@/lib/status/status";
-import { StatsPanel } from "./StatsPanel";
+import { StatRadar, StatsPanel } from "./StatsPanel";
 import { UniquesSection } from "./UniquesSection/UniquesSection";
 
 // ── Party roster ─────────────────────────────────────────────────────────────
-// The canonical party shown in the Hall hero.
+// The canonical party shown in the GuildHero.
 // Uses a fixed representative subset of agent roles (all unique — no duplicates).
 const HALL_PARTY_ROLES: readonly AgentRole[] = [
   "researcher",
@@ -44,14 +44,6 @@ const HALL_PARTY_ROLES: readonly AgentRole[] = [
   "frontend-dev",
   "test-writer",
   "reviewer",
-] as const;
-
-// ── Tab definitions ───────────────────────────────────────────────────────────
-const HALL_TABS = [
-  { id: "resumen", label: "Resumen" },
-  { id: "misiones", label: "Misiones" },
-  { id: "trofeos", label: "Trofeos" },
-  { id: "estadisticas", label: "Estadísticas" },
 ] as const;
 
 // ── Page (Server Component) ───────────────────────────────────────────────────
@@ -76,11 +68,53 @@ export default async function HallPage(): Promise<React.JSX.Element> {
   const guildOutcomes = deriveGuildOutcomes({ statuses, eventsSnapshot });
   const guildLevel = computeGuildLevel(guildOutcomes);
 
+  // ── Next rank title (for XpBar subtitle in GuildHero) ────────────────────
+  const nextRankEntry = RANKS[guildLevel.level]; // 1-based level; RANKS[level] = next rank
+  const nextTitle = nextRankEntry?.title ?? guildLevel.title;
+
   // ── Build ReaderData for the achievements engine ──────────────────────────
   const readerData: ReaderData = {
     ideas,
     statuses,
     eventsSnapshot,
+  };
+
+  // ── Derive GuildHero stats from ReaderData ────────────────────────────────
+  const statsRows = computeStats(readerData);
+  const shippedStat = statsRows.find((s) => s.key === "shipped");
+  const streakStat = statsRows.find((s) => s.key === "streak");
+  const statsLanzados = shippedStat?.value ?? 0;
+  const statsRacha = streakStat?.value ?? 0;
+  // Fastest idea→launch record: derive from shipped projects (minimum WO count proxy)
+  // Currently the stat engine doesn't track velocity; default to 0 until WO-XX adds it.
+  const statsVelocidad = 0;
+
+  // Trophies: count unlocked uniques vs total defined
+  const uniques = computeUniques(readerData);
+  const trophiesCount = uniques.filter((u) => u.unlocked).length;
+  const trophiesTotal = uniques.length;
+
+  // Feats: total result events (WO completions + phases + releases)
+  // Guard: eventsSnapshot may be null in tests/empty factory
+  const featsCount = (eventsSnapshot?.events ?? []).filter(
+    (e) => e.event === "achievement" || e.event === "end",
+  ).length;
+
+  // Active missions: statuses in build/implementation phase (not yet operation/shipped)
+  const missionsActive = statuses.filter((s) => {
+    if (!s.present || s.status === null) return false;
+    return ["implementation", "build"].includes(s.status.phase ?? "");
+  }).length;
+
+  // StatRadar axes — derived from real stats (0–100 scale)
+  // Cap at 100; these are illustrative scale mappings for the radar
+  const radarAxes = {
+    produccion: Math.min(100, statsLanzados * 20), // 5 launched = 100%
+    velocidad: Math.min(100, statsVelocidad > 0 ? Math.round(100 - statsVelocidad) : 0),
+    calidad: Math.min(100, featsCount * 5), // 20 feats = 100%
+    constancia: Math.min(100, statsRacha * 10), // 10 weeks = 100%
+    ideacion: Math.min(100, ideas.length * 10), // 10 ideas = 100%
+    alcance: Math.min(100, trophiesCount * 5), // 20 trophies = 100%
   };
 
   return (
@@ -92,166 +126,80 @@ export default async function HallPage(): Promise<React.JSX.Element> {
         padding: "var(--space-base)",
       }}
     >
-      {/* ── Page heading ──────────────────────────────────────────────────── */}
+      {/* ── Page heading (DR-062: light PageTitle sits above GuildHero) ───── */}
       <h1
         style={{
           fontSize: "1.5rem",
           fontWeight: 700,
           color: "var(--color-text)",
-          marginBottom: "calc(var(--space-base) * 1.5)",
+          marginBottom: "calc(var(--space-base) * 1)",
         }}
       >
-        Salón del Gremio
+        Logros
       </h1>
 
-      {/* ── Hero (AC-10-005.1) ──────────────────────────────────────────── */}
-      <section
-        data-testid="hall-hero"
-        aria-label="Héroe del Salón del Gremio"
+      {/* ── GuildHero character-sheet (AC-09-003.1..3, AC-09-004.1..5) ─────
+           Replaces the old bespoke hall-hero section (WO-09-003 re-anchor). */}
+      <GuildHero
+        level={guildLevel.level}
+        title={guildLevel.title}
+        xp={guildLevel.xp}
+        next={guildLevel.next}
+        pctToNext={guildLevel.pctToNext}
+        nextTitle={nextTitle}
+        featsCount={featsCount}
+        trophiesCount={trophiesCount}
+        trophiesTotal={trophiesTotal}
+        missionsActive={missionsActive}
+        partyRoster={HALL_PARTY_ROLES}
+        statsLanzados={statsLanzados}
+        statsRacha={statsRacha}
+        statsVelocidad={statsVelocidad}
+      />
+
+      {/* ── Stats panel + radar side-by-side (AC-10-005.2) ──────────────── */}
+      <div
         style={{
-          background: "var(--color-base)",
-          borderRadius: "var(--radius)",
-          boxShadow: "var(--shadow-2)",
-          padding: "calc(var(--space-base) * 1.5)",
-          marginBottom: "calc(var(--space-base) * 1.5)",
           display: "flex",
-          flexDirection: "column",
           gap: "var(--space-base)",
+          flexWrap: "wrap",
+          maxWidth: "72rem",
+          marginBottom: "calc(var(--space-base) * 1.5)",
         }}
       >
-        {/* Guild level badge + XP bar */}
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "calc(var(--space-base) * 0.5)",
-          }}
-        >
-          {/* Guild level + title (AC-10-005.1) */}
-          <div
-            data-testid="hall-guild-level"
+        <section style={{ flex: "2", minWidth: "280px" }}>
+          <h2
             style={{
-              display: "flex",
-              alignItems: "baseline",
-              gap: "calc(var(--space-base) * 0.5)",
+              fontSize: "1rem",
+              fontWeight: 600,
+              color: "var(--color-text)",
+              opacity: 0.7,
+              marginBottom: "calc(var(--space-base) * 0.75)",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
             }}
           >
-            <span
-              style={{
-                fontSize: "2rem",
-                fontWeight: 800,
-                color: "var(--color-accent)",
-                lineHeight: 1,
-              }}
-            >
-              {/* tabular-nums applied via html {} in globals.css */}
-              Nv {guildLevel.level}
-            </span>
-            <span
-              style={{
-                fontSize: "1.125rem",
-                fontWeight: 600,
-                color: "var(--color-text)",
-                opacity: 0.85,
-              }}
-            >
-              {guildLevel.title}
-            </span>
-          </div>
+            Estadísticas
+          </h2>
+          <StatsPanel readerData={readerData} />
+        </section>
 
-          {/* XP bar — reuses CMP-09-xp-bar (honest, no fake fill — AC-10-005.3) */}
-          <XpBar
-            xp={guildLevel.xp}
-            next={guildLevel.next}
-            pctToNext={guildLevel.pctToNext}
-            label={guildLevel.title}
-            nextTitle={guildLevel.title}
-          />
-        </div>
-
-        {/* Party avatars (CMP-09-avatar — AC-10-005.1) */}
-        <ul
-          data-testid="hall-party-avatars"
-          aria-label="Agentes del gremio"
+        {/* StatRadar — Atributos del gremio (WO-09-003) */}
+        <section
           style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "calc(var(--space-base) * 0.5)",
-            alignItems: "center",
-            listStyle: "none",
-            margin: 0,
-            padding: 0,
+            flex: "1",
+            minWidth: "260px",
+            background: "var(--color-card)",
+            border: "1px solid var(--color-border-strong)",
+            borderRadius: "10px",
+            padding: "14px",
+            boxShadow:
+              "inset 0 1px 0 rgba(255,255,255,.05), inset 0 -2px 0 rgba(0,0,0,.22), 0 2px 0 var(--color-base)",
           }}
         >
-          {HALL_PARTY_ROLES.map((role) => (
-            <li key={role} style={{ display: "contents" }}>
-              <Avatar agentId={role} size="md" />
-            </li>
-          ))}
-        </ul>
-
-        {/* Tabs — Resumen · Misiones · Trofeos · Estadísticas (AC-10-005.1) */}
-        <div
-          data-testid="hall-tabs"
-          role="tablist"
-          aria-label="Secciones del Salón del Gremio"
-          style={{
-            display: "flex",
-            gap: "calc(var(--space-base) * 0.25)",
-            borderTop: `var(--hairline) solid var(--color-base)`,
-            paddingTop: "calc(var(--space-base) * 0.75)",
-            flexWrap: "wrap",
-          }}
-        >
-          {HALL_TABS.map((tab, idx) => (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={idx === 0}
-              tabIndex={idx === 0 ? 0 : -1}
-              data-testid={`hall-tab-${tab.id}`}
-              style={{
-                padding: "calc(var(--space-base) * 0.375) calc(var(--space-base) * 0.75)",
-                borderRadius: "var(--radius)",
-                border:
-                  idx === 0
-                    ? `var(--hairline) solid var(--color-accent)`
-                    : `var(--hairline) solid var(--color-base)`,
-                background: idx === 0 ? "var(--color-accent)" : "transparent",
-                color: idx === 0 ? "var(--color-surface)" : "var(--color-text)",
-                fontSize: "0.875rem",
-                fontWeight: idx === 0 ? 600 : 400,
-                cursor: "pointer",
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Stats panel (AC-10-005.2) ────────────────────────────────────── */}
-      <section
-        style={{
-          maxWidth: "48rem",
-        }}
-      >
-        <h2
-          style={{
-            fontSize: "1rem",
-            fontWeight: 600,
-            color: "var(--color-text)",
-            opacity: 0.7,
-            marginBottom: "calc(var(--space-base) * 0.75)",
-            textTransform: "uppercase",
-            letterSpacing: "0.05em",
-          }}
-        >
-          Estadísticas
-        </h2>
-        <StatsPanel readerData={readerData} />
-      </section>
+          <StatRadar axes={radarAxes} />
+        </section>
+      </div>
 
       {/* ── Unique achievements by category (AC-10-007.1) ─────────────── */}
       <section
@@ -273,7 +221,7 @@ export default async function HallPage(): Promise<React.JSX.Element> {
         >
           Trofeos únicos
         </h2>
-        <UniquesSection uniques={computeUniques(readerData)} />
+        <UniquesSection uniques={uniques} />
       </section>
     </main>
   );

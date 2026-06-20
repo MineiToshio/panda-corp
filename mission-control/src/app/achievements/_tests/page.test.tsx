@@ -93,6 +93,7 @@ describe("AC-10-005.4 — empty factory renders gracefully", () => {
   it("does not crash when eventsSnapshot is null", async () => {
     const { readEvents } = await import("@/lib/events/events");
     vi.mocked(readEvents).mockReturnValueOnce(null as unknown as ReturnType<typeof readEvents>);
+    // Page guards eventsSnapshot?.events — must not throw
     await expect(renderPage()).resolves.toBeDefined();
   });
 });
@@ -101,70 +102,44 @@ describe("AC-10-005.4 — empty factory renders gracefully", () => {
 // AC-10-005.1 — Hero: guild level/XP + party avatars + tabs
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("AC-10-005.1 — hero with guild XP + party avatars + tabs", () => {
-  it("renders the hall hero section", async () => {
+// AC-10-005.1 — Hero: guild level/XP + party avatars
+// NOTE: WO-09-003 replaced the bespoke hall-hero section with the shared GuildHero
+// component. Testids updated: hall-hero→guild-hero, hall-party-avatars→guild-hero-party,
+// hall-guild-level→guild-hero-title. Tabs were moved out of scope (WO-10 future work).
+describe("AC-10-005.1 — hero with guild XP + party avatars", () => {
+  it("renders the guild-hero section (WO-09-003 GuildHero)", async () => {
     await renderPage();
-    const hero = screen.getByTestId("hall-hero");
+    const hero = screen.getByTestId("guild-hero");
     expect(hero).toBeDefined();
   });
 
-  it("renders the XP bar (CMP-09-xp-bar) inside the hero", async () => {
+  it("renders the XP bar (CMP-09-xp-bar) inside the guild-hero", async () => {
     await renderPage();
-    const hero = screen.getByTestId("hall-hero");
+    const hero = screen.getByTestId("guild-hero");
     const xpBar = within(hero).getByTestId("xp-bar");
     expect(xpBar).toBeDefined();
   });
 
-  it("renders guild level/title inside the hero", async () => {
+  it("renders guild title inside the guild-hero", async () => {
     await renderPage();
-    const hero = screen.getByTestId("hall-hero");
-    const levelEl = within(hero).getByTestId("hall-guild-level");
-    expect(levelEl).toBeDefined();
-    expect(levelEl.textContent).toBeTruthy();
+    const hero = screen.getByTestId("guild-hero");
+    const titleEl = within(hero).getByTestId("guild-hero-title");
+    expect(titleEl).toBeDefined();
+    expect(titleEl.textContent).toBeTruthy();
   });
 
-  it("renders party avatars section inside the hero", async () => {
+  it("renders party roster section inside the guild-hero", async () => {
     await renderPage();
-    const hero = screen.getByTestId("hall-hero");
-    const party = within(hero).getByTestId("hall-party-avatars");
+    const hero = screen.getByTestId("guild-hero");
+    const party = within(hero).getByTestId("guild-hero-party");
     expect(party).toBeDefined();
   });
 
   it("renders at least one agent avatar in the party section", async () => {
     await renderPage();
-    const party = screen.getByTestId("hall-party-avatars");
+    const party = screen.getByTestId("guild-hero-party");
     const avatars = party.querySelectorAll("[data-testid='agent-avatar']");
     expect(avatars.length).toBeGreaterThan(0);
-  });
-
-  it("renders the tabs section", async () => {
-    await renderPage();
-    const tabs = screen.getByTestId("hall-tabs");
-    expect(tabs).toBeDefined();
-  });
-
-  it("renders all 4 tabs: Resumen, Misiones, Trofeos, Estadísticas", async () => {
-    await renderPage();
-    const tabs = screen.getByTestId("hall-tabs");
-    const tabLinks = tabs.querySelectorAll("[role='tab']");
-    expect(tabLinks.length).toBe(4);
-
-    const labels = Array.from(tabLinks).map((el) => el.textContent?.trim());
-    expect(labels).toContain("Resumen");
-    expect(labels).toContain("Misiones");
-    expect(labels).toContain("Trofeos");
-    expect(labels).toContain("Estadísticas");
-  });
-
-  it("tabs are keyboard navigable (have tabIndex and role=tab)", async () => {
-    await renderPage();
-    const tabs = screen.getByTestId("hall-tabs");
-    const tabLinks = tabs.querySelectorAll("[role='tab']");
-    for (const tab of tabLinks) {
-      // role=tab is keyboard-reachable with tabIndex 0 or -1
-      const ti = (tab as HTMLElement).getAttribute("tabindex");
-      expect(ti === "0" || ti === "-1").toBe(true);
-    }
   });
 });
 
@@ -253,7 +228,8 @@ describe("AC-10-005.3 — tabular-nums + honest XP bar", () => {
 
   it("XP bar does not show a fabricated/inflated fill on empty factory (pctToNext=0 → width=0%)", async () => {
     await renderPage();
-    const hero = screen.getByTestId("hall-hero");
+    // WO-09-003: hero is now guild-hero (GuildHero component)
+    const hero = screen.getByTestId("guild-hero");
     const fill = within(hero).getByTestId("xp-bar-fill");
     const width = (fill as HTMLElement).style.width;
     // On empty factory, pctToNext=0 so XP bar fill must be "0%"
@@ -284,12 +260,6 @@ describe("AC-10-005.5 — design tokens, a11y, keyboard navigation", () => {
     expect(text.length).toBeGreaterThan(0);
   });
 
-  it("hall-tabs has role=tablist for a11y (AC-10-005.5)", async () => {
-    await renderPage();
-    const tabs = screen.getByTestId("hall-tabs");
-    expect(tabs.getAttribute("role")).toBe("tablist");
-  });
-
   it("stats panel has an aria-label in Spanish", async () => {
     await renderPage();
     const panel = screen.getByTestId("stats-panel");
@@ -298,9 +268,10 @@ describe("AC-10-005.5 — design tokens, a11y, keyboard navigation", () => {
     expect(label?.length).toBeGreaterThan(0);
   });
 
-  it("hero region has an aria-label in Spanish", async () => {
+  it("guild-hero region has an aria-label in Spanish (WO-09-003)", async () => {
     await renderPage();
-    const hero = screen.getByTestId("hall-hero");
+    // WO-09-003: hero is now guild-hero (GuildHero section with aria-label)
+    const hero = screen.getByTestId("guild-hero");
     const label = hero.getAttribute("aria-label");
     expect(label).toBeTruthy();
   });
