@@ -5,7 +5,7 @@ slug: foundation-title-nav
 title: 'WO-13-006 — Foundation (FND-1): cohesion title/nav set — PageTitle · SectionHead · Tabs'
 status: DRAFT
 parent: FRD-13
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 foundation: true
 artifacts:
   - 'src/components/core/PageTitle/**'
