@@ -257,6 +257,23 @@ now explicit, because a build went off-script and violated them — costing ~1h:
   for ~1h because it never looked at git. A monitor blind to a broken tree is the same failure class as one
   blind to liveness; both are now covered.
 
+**Build-lifecycle honesty — `running:false` on every exit + stop-the-LOOP, never a lying flag (DR-068).**
+The engine already cleans up on a NORMAL end (its close-out sets `running:false`, plus a fail-safe agent
+"never leave a phantom running build"). Two gaps remained, exposed when a build sat dead ~1h with
+`running:true` and a stuck spinner:
+- **A KILLED/stopped run never reaches the engine close-out**, so clearing state is the **supervisor's**
+  job — and it must be its **guaranteed LAST act on EVERY exit** (clean end, budget/health/needs-owner
+  stop, owner stop signal, or being interrupted): write `running:false` + `rm -f .pandacorp/run/build.lock`.
+  A stopped build that still reads `running:true` is a **lying flag**. Backstops: a stale `running:true`
+  (heartbeat past the 10-min TTL) is **never trusted as alive** — every reader (the concurrent-run guard,
+  the supervisor's health tick, Mission Control's display per DR-066) crosses `running` with heartbeat
+  recency and reads it as STOPPED, and the next state-writer auto-corrects it to `false`.
+- **Stopping a run ≠ stopping the loop.** The supervisor's design is to RELAUNCH the next pass, so a lone
+  TaskStop just triggers another pass ("I stopped it but it came back"). To halt the **whole build** the
+  owner sets a stop signal — `rethink_pending: true` (or `.pandacorp/run/stop`) — which the supervisor
+  checks at each safe point **and before every relaunch**, halting the loop + running the guaranteed
+  shutdown. This distinction must be surfaced to the owner, not implicit.
+
 ## 7. The build supervisor (unattended runs)
 
 Launching a build is **never** just firing the workflow — it is always paired with a **live supervisor**
