@@ -79,7 +79,9 @@ describe("AC-09-004.1 — GuildBar shows guild level, title, and XP bar", () => 
     };
     render(<GuildBar outcomes={highOutcomes} />);
     const levelEl = screen.getByTestId("guild-bar-level");
-    const levelNum = Number.parseInt(levelEl.textContent ?? "0", 10);
+    // The pill text is "NV {level}" — extract the numeric part
+    const digits = (levelEl.textContent ?? "0").match(/\d+/)?.[0] ?? "0";
+    const levelNum = Number.parseInt(digits, 10);
     // With large outcomes, level should be > 1
     expect(levelNum).toBeGreaterThan(1);
   });
@@ -150,7 +152,9 @@ describe("AC-09-004.3 — GuildBar bar fill reflects real pct from computeGuildL
     const fill = screen.getByTestId("xp-bar-fill");
     // At exactly rank threshold, pctToNext should be 0 (just entered); but level should be > 1
     const levelEl = screen.getByTestId("guild-bar-level");
-    const level = Number.parseInt(levelEl.textContent ?? "0", 10);
+    // The pill text is "NV {level}" — extract the numeric part
+    const digits = (levelEl.textContent ?? "0").match(/\d+/)?.[0] ?? "0";
+    const level = Number.parseInt(digits, 10);
     expect(level).toBeGreaterThanOrEqual(1);
     // Fill must be in [0, 100]
     const widthNum = Number.parseFloat(fill.style.width);
