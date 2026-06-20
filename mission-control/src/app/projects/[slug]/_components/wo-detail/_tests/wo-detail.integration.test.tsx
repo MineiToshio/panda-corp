@@ -147,6 +147,12 @@ vi.mock("@/lib/work-orders/work-orders", () => ({
   aggregateProgress: () => ({ done: 1, total: 2, pct: 50 }),
 }));
 
+// Mock the live transport — EventSource is not available in jsdom.
+// WoLiveRefresh renders via TabWorkOrders when the board is shown.
+vi.mock("@/hooks/useLiveSnapshot", () => ({
+  useLiveSnapshot: () => ({ snapshot: null, connected: false, lastEventAt: null }),
+}));
+
 import ProjectWorkspacePage from "../../../page";
 
 function renderPage(searchParams: Record<string, string> = {}) {

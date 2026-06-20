@@ -1,149 +1,140 @@
 /**
- * WO-05-003 — Kanban board (CMP-05-board, CMP-05-column, CMP-05-card)
+ * WO-05-003 — WoBoard (CMP-05-board, CMP-05-column, CMP-05-card)
  *
- * Server Component. Consumes WorkOrder[] from lib/work-orders.ts (IF-05-work-orders,
- * WO-05-001) and renders a 4-column read-only kanban.
+ * Server Component. Five-column read-only kanban for work orders, painted to
+ * match the prototype `projWO()` on the frozen design tokens.
+ *
+ * Columns (AC-05-001.1, prototype WLBL + WORDER):
+ *   To do · En progreso · Review / Testing · Falló · Hecho
+ *
+ * Each column uses the KanbanColumn primitive (WO-13-008, DR-057).
+ * FRD chips use the Chip primitive (WO-13-007, DR-057).
+ * Fail cards render the danger variant (bg + border + icon + danger title).
  *
  * Traceability:
- *   AC-05-001.1  Four columns in order: Pendiente · En progreso · Revisión · Hecho
- *   AC-05-001.2  Equal-width wide columns; horizontal scroll; card text wraps
- *   AC-05-002.1  Each card shows its FRD via a chip
+ *   AC-05-001.1  Five columns in order; equal-width (224px); horizontal scroll
+ *   AC-05-001.2  Card text wraps (overflow-wrap:anywhere); no clipping
+ *   AC-05-002.1  Each card shows its FRD via a Chip (info tone = accent)
  *   AC-05-005.1  Read-only: no drag handlers, no write path
+ *   Fail column  Header in danger color; cards with danger bg + border + alert icon
  *
  * Design rules:
  *   - ZERO hardcoded colors — CSS custom properties only.
+ *   - Reuses KanbanColumn (WO-13-008) and Chip (WO-13-007) — DR-057.
  *   - data-testid on every interactive/significant element.
- *   - Spanish copy (UI-facing text).
- *   - fail state signalled by icon + label (not color alone) per FRD-13/a11y.
+ *   - Fail state signalled by icon + label (not color alone) — FRD-13/a11y.
+ *   - Spanish copy for all UI-facing text.
  */
 
+import type React from "react";
+
+import { Chip } from "@/components/core/Chip/Chip";
+import { KanbanColumn } from "@/components/core/KanbanColumn/KanbanColumn";
 import type { WorkOrder, WorkOrderState } from "@/lib/work-orders/work-orders";
 
 // ---------------------------------------------------------------------------
-// Column definitions (AC-05-001.1 — 4 columns in order)
+// Column definitions — five columns in prototype order (AC-05-001.1)
 // ---------------------------------------------------------------------------
 
-interface KanbanColumn {
-  /** WorkOrderState values that belong to this column */
-  states: WorkOrderState[];
-  /** Spanish heading label */
+interface KanbanColDef {
+  /** WorkOrderState values routed to this column. */
+  states: readonly WorkOrderState[];
+  /** Spanish display label (maps to WLBL in the prototype). */
   label: string;
-  /** Stable key for rendering */
-  key: string;
+  /** Whether this column receives the danger header treatment. */
+  isFail: boolean;
 }
 
-const COLUMNS: KanbanColumn[] = [
-  { key: "todo", states: ["todo"], label: "Pendiente" },
-  { key: "in_progress", states: ["in_progress", "fail"], label: "En progreso" },
-  { key: "review", states: ["review"], label: "Revisión" },
-  { key: "done", states: ["done"], label: "Hecho" },
-];
+/**
+ * Five canonical columns matching `projWO()` in the prototype:
+ * ["todo","progress","review","fail","done"] with WLBL labels.
+ *
+ * Note: the lib uses `in_progress` (not `progress`) — we map them here.
+ */
+const COLUMNS: readonly KanbanColDef[] = [
+  { states: ["todo"], label: "To do", isFail: false },
+  { states: ["in_progress"], label: "En progreso", isFail: false },
+  { states: ["review"], label: "Review / Testing", isFail: false },
+  { states: ["fail"], label: "Falló", isFail: true },
+  { states: ["done"], label: "Hecho", isFail: false },
+] as const;
 
 // ---------------------------------------------------------------------------
-// Styles — CSS custom properties only, zero hardcoded colors
+// Styles — CSS custom properties only
 // ---------------------------------------------------------------------------
 
-const BOARD_STYLE: React.CSSProperties = {
+/** Board outer container — horizontal-scroll row of columns */
+const BOARD_OUTER_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   width: "100%",
-  height: "100%",
   overflow: "hidden",
-  background: "var(--color-surface, Canvas)",
-  color: "var(--color-text, currentColor)",
 };
 
-const SCROLL_CONTAINER_STYLE: React.CSSProperties = {
+/** Horizontal-scroll row that holds the five KanbanColumns */
+const COLUMNS_ROW_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "row",
-  flex: 1,
+  gap: "8px",
   overflowX: "auto",
-  overflowY: "hidden",
-  gap: "calc(var(--spacing, 0.25rem) * 3)",
-  padding: "calc(var(--spacing, 0.25rem) * 4)",
-  minHeight: 0,
+  paddingBottom: "6px",
 };
 
-const COLUMN_STYLE: React.CSSProperties = {
-  flex: "0 0 280px",
-  display: "flex",
-  flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 2)",
-  minWidth: 0,
+/** Read-only caption (prototype `<p style="font-size:12px;color:var(--text3)...">`) */
+const CAPTION_STYLE: React.CSSProperties = {
+  fontSize: "12px",
+  color: "var(--color-text3, var(--color-text2))",
+  margin: "0 0 10px",
 };
 
-const COLUMN_HEADING_STYLE: React.CSSProperties = {
-  fontSize: "0.75rem",
-  fontWeight: 700,
-  letterSpacing: "0.06em",
-  textTransform: "uppercase",
-  color: "var(--color-text-muted, currentColor)",
-  padding: "calc(var(--spacing, 0.25rem) * 1.5) 0",
-  borderBottom: "var(--hairline, 1px) solid var(--color-border, currentColor)",
-  opacity: 0.7,
-  marginBottom: "calc(var(--spacing, 0.25rem) * 1)",
-};
-
-const CARD_LIST_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 2)",
-  flex: 1,
-  overflowY: "auto",
-};
-
+/** Card container */
 const CARD_STYLE: React.CSSProperties = {
-  background: "var(--color-card-bg, var(--color-surface-raised, Canvas))",
-  border: "var(--hairline, 1px) solid var(--color-border, currentColor)",
-  borderRadius: "var(--radius, 6px)",
-  padding: "calc(var(--spacing, 0.25rem) * 3)",
-  display: "flex",
-  flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 1.5)",
-  cursor: "default",
-  boxShadow: "var(--elevation-1-shadow, none)",
+  background: "var(--color-card)",
+  border: "1px solid var(--color-border2, var(--color-border))",
+  borderRadius: "9px",
+  padding: "10px",
+  cursor: "pointer",
+  overflowWrap: "anywhere",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,.04)",
+  transition: "border-color .15s, box-shadow .15s",
+  textDecoration: "none",
+  color: "inherit",
+  display: "block",
 };
 
+/** Fail card — danger background + danger border (prototype: `danger-bg`, `danger`) */
 const CARD_FAIL_STYLE: React.CSSProperties = {
   ...CARD_STYLE,
-  borderColor: "var(--color-fail-border, var(--color-border, currentColor))",
-  background: "var(--color-fail-bg, var(--color-surface-raised, Canvas))",
-  opacity: 0.85,
+  background: "var(--color-danger-bg)",
+  borderColor: "var(--color-danger)",
 };
 
+/** Card title — wraps onto several lines (AC-05-001.2: overflow-wrap:anywhere) */
 const CARD_TITLE_STYLE: React.CSSProperties = {
-  fontSize: "0.8125rem",
-  lineHeight: 1.5,
-  fontWeight: 500,
-  wordBreak: "break-word",
+  fontSize: "12px",
+  marginBottom: "6px",
   overflowWrap: "anywhere",
-  color: "var(--color-text, currentColor)",
-  margin: 0,
+  lineHeight: 1.5,
 };
 
-const FRD_CHIP_STYLE: React.CSSProperties = {
-  display: "inline-block",
-  fontSize: "0.6875rem",
-  fontWeight: 600,
-  letterSpacing: "0.03em",
-  padding: "1px calc(var(--spacing, 0.25rem) * 1.5)",
-  borderRadius: "9999px",
-  background: "var(--color-accent-bg, oklch(0.35 0.05 250 / 0.12))",
-  color: "var(--color-accent, var(--color-text-muted, currentColor))",
-  border: "var(--hairline, 1px) solid var(--color-accent-border, transparent)",
-  maxWidth: "100%",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
+/** Fail card title — danger-colored (prototype: `color:var(--danger)`) */
+const CARD_TITLE_FAIL_STYLE: React.CSSProperties = {
+  ...CARD_TITLE_STYLE,
+  color: "var(--color-danger)",
 };
 
-const FAIL_INDICATOR_STYLE: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "4px",
-  fontSize: "0.6875rem",
-  fontWeight: 600,
-  color: "var(--color-fail-text, var(--color-text-muted, currentColor))",
+/** Fail indicator — alert icon prefix inside the title row */
+const FAIL_ICON_STYLE: React.CSSProperties = {
+  fontSize: "12px",
+  verticalAlign: "-1px",
+  marginRight: "3px",
+};
+
+/** Empty-column placeholder ("—" em dash) */
+const EMPTY_PLACEHOLDER_STYLE: React.CSSProperties = {
+  fontSize: "11px",
+  color: "var(--color-text3, var(--color-text2))",
+  padding: "4px 2px",
 };
 
 // ---------------------------------------------------------------------------
@@ -154,76 +145,49 @@ interface WoCardProps {
   order: WorkOrder;
 }
 
-// Card link style — wraps the entire card, preserves card visual via display:block
-const CARD_LINK_STYLE: React.CSSProperties = {
-  display: "block",
-  textDecoration: "none",
-  color: "inherit",
-  borderRadius: "var(--radius, 6px)",
-};
-
-function WoCard({ order }: WoCardProps): React.JSX.Element {
+/**
+ * WorkOrderCard — CMP-05-card.
+ * The `.card` primitive with a `fail` danger variant (DR-057: variant, not a second card).
+ *
+ * AC-05-003.1: clicking opens the detail view (?tab=work-orders&wo=<id>).
+ * Fail variant: danger bg + danger border + alert icon + danger title.
+ * Accessibility: icon + label (never color alone) per FRD-13.
+ */
+function WorkOrderCard({ order }: WoCardProps): React.JSX.Element {
   const isFail = order.state === "fail";
   const cardStyle = isFail ? CARD_FAIL_STYLE : CARD_STYLE;
+  const titleStyle = isFail ? CARD_TITLE_FAIL_STYLE : CARD_TITLE_STYLE;
 
   return (
-    // AC-05-003.1: each card is a link that opens the detail view (?tab=work-orders&wo=<id>)
     <a
       data-testid="wo-card-link"
       href={`?tab=work-orders&wo=${encodeURIComponent(order.id)}`}
       aria-label={`Ver detalle: ${order.title}`}
-      style={CARD_LINK_STYLE}
     >
       <article data-testid="wo-card" aria-label={order.title} style={cardStyle}>
-        <p style={CARD_TITLE_STYLE}>{order.title}</p>
-        <span data-testid="wo-frd-chip" style={FRD_CHIP_STYLE} title={order.frd}>
-          {order.frd}
+        {/* Title row — fail cards get the alert icon prefix (a11y: icon + label) */}
+        <div style={titleStyle}>
+          {isFail && (
+            <span
+              data-testid="wo-fail-indicator"
+              aria-label="Falló"
+              role="img"
+              style={FAIL_ICON_STYLE}
+            >
+              {/* ti-alert-triangle equivalent — conveyed by icon + label (not color alone) */}
+              <span aria-hidden="true">⚠</span>
+              <span className="sr-only">Falló: </span>
+            </span>
+          )}
+          {order.title}
+        </div>
+
+        {/* FRD chip — Chip primitive (WO-13-007, tone="info" = accent-bg preset) */}
+        <span data-testid="wo-frd-chip">
+          <Chip tone="info" label={order.frd} />
         </span>
-        {isFail && (
-          <span
-            data-testid="wo-fail-indicator"
-            aria-label="Bloqueado"
-            role="img"
-            style={FAIL_INDICATOR_STYLE}
-          >
-            {/* icon + label (a11y: not color alone, AC-05-001.2 + FRD-13) */}
-            <span aria-hidden="true">⚠</span>
-            <span>Bloqueado</span>
-          </span>
-        )}
       </article>
     </a>
-  );
-}
-
-interface WoColumnProps {
-  column: KanbanColumn;
-  orders: WorkOrder[];
-}
-
-function WoColumn({ column, orders }: WoColumnProps): React.JSX.Element {
-  return (
-    <section data-testid="wo-column" aria-label={column.label} style={COLUMN_STYLE}>
-      <h3 data-testid="wo-column-heading" style={COLUMN_HEADING_STYLE}>
-        {column.label}
-        <span
-          style={{
-            marginLeft: "calc(var(--spacing, 0.25rem) * 2)",
-            fontVariantNumeric: "tabular-nums",
-            opacity: 0.5,
-          }}
-        >
-          {orders.length}
-        </span>
-      </h3>
-      <ul style={CARD_LIST_STYLE} aria-label={`Tarjetas de ${column.label}`}>
-        {orders.map((order) => (
-          <li key={order.id} style={{ listStyle: "none", padding: 0, margin: 0 }}>
-            <WoCard order={order} />
-          </li>
-        ))}
-      </ul>
-    </section>
   );
 }
 
@@ -232,40 +196,70 @@ function WoColumn({ column, orders }: WoColumnProps): React.JSX.Element {
 // ---------------------------------------------------------------------------
 
 export interface WorkOrderBoardProps {
-  /** All work orders for this project (from listWorkOrders). */
+  /** All work orders for the current project (from listWorkOrders). */
   orders: WorkOrder[];
 }
 
 /**
- * WorkOrderBoard — 4-column read-only kanban.
+ * WorkOrderBoard — five-column read-only kanban (CMP-05-board).
  *
- * Server Component (no "use client"). Distributes WorkOrder[] into the four
- * canonical columns and renders CMP-05-column + CMP-05-card sub-trees.
+ * Server Component (no "use client"). Distributes WorkOrder[] into the five
+ * canonical columns and renders KanbanColumn (WO-13-008) sub-trees.
+ *
+ * Layout: horizontal-scroll row of 224px KanbanColumns (prototype .col).
  *
  * AC-05-005.1: strictly read-only — no drag handlers, no write path.
+ * AC-05-001.1: five columns in order — To do · En progreso · Review / Testing · Falló · Hecho.
+ * AC-05-001.2: cards wrap (overflow-wrap:anywhere); columns scroll horizontally.
+ * AC-05-002.1: each card shows its FRD via a Chip (tone="info").
+ * Fail treatment: danger bg + border + ⚠ icon prefix + danger title; Fail column header
+ *   uses danger label override via aria-label (column label "Falló" already conveys it).
  */
 export function WorkOrderBoard({ orders }: WorkOrderBoardProps): React.JSX.Element {
-  // Distribute orders into columns
+  // Bucket orders into columns by state
   const byColumn = new Map<string, WorkOrder[]>();
   for (const col of COLUMNS) {
-    byColumn.set(col.key, []);
+    byColumn.set(col.label, []);
   }
 
   for (const order of orders) {
     const col = COLUMNS.find((c) => c.states.includes(order.state));
-    const key = col?.key ?? "todo";
-    const bucket = byColumn.get(key);
-    if (bucket) {
+    const label = col?.label ?? "To do";
+    const bucket = byColumn.get(label);
+    if (bucket !== undefined) {
       bucket.push(order);
     }
   }
 
   return (
-    <section data-testid="wo-board" aria-label="Tablero de work orders" style={BOARD_STYLE}>
-      <div style={SCROLL_CONTAINER_STYLE}>
-        {COLUMNS.map((col) => (
-          <WoColumn key={col.key} column={col} orders={byColumn.get(col.key) ?? []} />
-        ))}
+    <section data-testid="wo-board" aria-label="Tablero de work orders" style={BOARD_OUTER_STYLE}>
+      {/* Read-only caption (prototype paragraph) */}
+      <p style={CAPTION_STYLE}>
+        Estado en vivo de cada work order (lo escriben los agentes). Clic en uno para ver su resumen
+        y de qué FRD es. Solo-lectura.
+      </p>
+
+      {/* Horizontal-scroll row of five KanbanColumns — labelled by the outer section */}
+      <div style={COLUMNS_ROW_STYLE}>
+        {COLUMNS.map((col) => {
+          const colOrders = byColumn.get(col.label) ?? [];
+          return (
+            <KanbanColumn
+              key={col.label}
+              label={col.label}
+              count={colOrders.length}
+              danger={col.isFail}
+            >
+              {colOrders.length > 0 ? (
+                colOrders.map((order) => <WorkOrderCard key={order.id} order={order} />)
+              ) : (
+                <div aria-hidden="true" style={EMPTY_PLACEHOLDER_STYLE}>
+                  —
+                </div>
+              )}
+            </KanbanColumn>
+          );
+        })}
       </div>
     </section>
   );

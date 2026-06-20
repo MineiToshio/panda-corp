@@ -5,7 +5,7 @@ slug: wo-board-tab
 title: 'WO-05-003 — Work-orders tab: live kanban board + detail (re-paint to mock)'
 status: DRAFT
 parent: FRD-05
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 artifacts:
   - 'src/app/projects/[slug]/_components/wo-board/**'
   - 'src/app/projects/[slug]/_components/wo-detail/**'
@@ -95,3 +95,37 @@ completo), aggregated progress and the empty state — all live off the real eve
 `docs/design/prototype/index.html` — render function `projWO()` (board **and** detail), with
 `woFullDoc()` (full document) and `frdChip()`; reached in the `portfolio` view with a project selected
 and the **Work orders** subtab active. See `../fdd.md` and `mocks/README.md`. Fidelity, not novelty.
+
+## Status Note
+
+**Built:** Five-column kanban board (To do · En progreso · Review / Testing · Falló · Hecho) mounted into the FRD-04 workspace Tabbar via `TabWorkOrders` (page.tsx `renderWorkOrdersTab`). In-loop visual fidelity gate (DR-056) passed at cycle 2 against `projWO()` in `docs/design/prototype/index.html`.
+
+**Components and files:**
+
+- `src/app/projects/[slug]/_components/wo-board/wo-board.tsx` — `WorkOrderBoard` (Server Component, 5 columns, reuses `KanbanColumn` + `Chip` — DR-057); `WorkOrderCard` (fail variant: danger bg + border + ⚠ icon + danger title; FRD chip via `<Chip tone="info">`). Exported: `WorkOrderBoard({ orders: WorkOrder[] })`.
+- `src/app/projects/[slug]/_components/tab-work-orders/wo-live-refresh.tsx` — `WoLiveRefresh({ project: string })` (thin "use client" SSE connector — calls `useLiveSnapshot({ project })` and fires `router.refresh()` on each new `lastEventAt`). AC-05-005.1.
+- `src/app/projects/[slug]/_components/tab-work-orders/tab-work-orders.tsx` — `TabWorkOrders({ orders, project? })` extended with optional `project` prop that mounts `WoLiveRefresh`. Existing tests unaffected (prop is optional).
+- `src/app/projects/[slug]/page.tsx` — `renderWorkOrdersTab(projectPath, slug, woParam, woTabParam)` — added `slug` parameter; passes `project={slug}` to `TabWorkOrders`.
+- `src/components/core/KanbanColumn/KanbanColumn.tsx` — `danger?: boolean` prop added (header label color → `var(--color-danger)` when true). `docs/design/components.md` inventory row updated.
+- `src/app/preview-wo05003/page.tsx` — fidelity-check preview route (not shipping code; can be removed after VERIFIED).
+
+**Interfaces/contracts:**
+- `WorkOrderBoard` — `orders: WorkOrder[]` → renders five columns; cards link to `?tab=work-orders&wo=<id>`.
+- `WoLiveRefresh` — `project: string` → hidden span (`data-testid="wo-live-refresh"`), fires `router.refresh()` on SSE events.
+- `TabWorkOrders` — `orders: WorkOrder[], project?: string` → `project` enables live refresh when present.
+- `KanbanColumn` — extended with `danger?: boolean` (default `false`); non-breaking, all existing consumers unaffected.
+
+**Implicit decisions and conventions:**
+- `WorkOrderState` value `in_progress` (not `progress`) is the canonical lib key; the "En progreso" column maps `states: ["in_progress"]`. The prototype seed data used `"progress"` but the lib contract (WO-05-001) defines `in_progress`.
+- Fail column is column index 3 (0-based), between Review/Testing (2) and Hecho (4).
+- `KanbanColumn danger` prop affects only the header label color, not the count span (count stays accent).
+- `WoLiveRefresh` renders a hidden `<span>` (not `null`) so tests can assert `data-testid="wo-live-refresh"` is present.
+- `jsdom` does not support `EventSource`; any test that renders a path containing `WoLiveRefresh` must mock `@/hooks/useLiveSnapshot` — see `wo-detail.integration.test.tsx` for the pattern.
+- The preview route `preview-wo05003/page.tsx` imports from `src/app/projects/[slug]/_components/…` directly (acceptable for a non-shipping fidelity page).
+
+**Test files:**
+- `src/app/projects/[slug]/_components/wo-board/_tests/wo-board.test.tsx` — unit tests for the 5-column board, fail variant, FRD chips, empty placeholder, card links.
+- `src/app/projects/[slug]/_components/_tests/frd-05.reviewer.integration.test.tsx` — updated from 4-column to 5-column API; uses `kanban-col-root` testids.
+- `src/app/projects/[slug]/_components/wo-detail/_tests/wo-detail.integration.test.tsx` — added `useLiveSnapshot` mock to prevent `EventSource` error in jsdom.
+
+**Gates:** 295 test files / 6785 tests pass · `tsc --noEmit` clean · `biome check` clean · visual fidelity confirmed at cycle 2 against `projWO()`.

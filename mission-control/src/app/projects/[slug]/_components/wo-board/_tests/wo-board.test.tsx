@@ -1,14 +1,15 @@
 /**
  * WO-05-003 — Kanban board (CMP-05-board, CMP-05-column, CMP-05-card) tests
  *
- * RED phase — written before implementation.
+ * RED → GREEN → REFACTOR per TDD.
  *
  * Traceability:
- *   AC-05-001.1  The kanban SHALL render four columns in order: To do, In progress,
- *               Review/Testing, Done.
- *   AC-05-001.2  Columns SHALL be equal-width and wide, with horizontal scroll; text wraps.
+ *   AC-05-001.1  The kanban SHALL render FIVE columns in order:
+ *               To do · In progress · Review / Testing · Fail · Done
+ *   AC-05-001.2  Equal-width wide columns; horizontal scroll; card text wraps.
  *   AC-05-002.1  EACH card SHALL show its FRD via a chip.
  *   AC-05-005.1  The kanban SHALL be read-only — no drag, no manual move.
+ *   Fail col     "Fail" column header reads in danger color (conveyed by icon+label+color).
  *
  * Stack: Vitest + @testing-library/react + jsdom.
  * Fixture: WorkOrder[] inlined — no fs calls (I/O tested in lib/work-orders.test.ts).
@@ -68,34 +69,44 @@ const ALL_ORDERS: WorkOrder[] = [WO_TODO, WO_IN_PROGRESS, WO_REVIEW, WO_DONE, WO
 const EMPTY_ORDERS: WorkOrder[] = [];
 
 // ---------------------------------------------------------------------------
-// AC-05-001.1 — Four columns in correct order
+// AC-05-001.1 — FIVE columns in correct order (the re-paint requirement)
 // ---------------------------------------------------------------------------
 
-describe("frd-05: AC-05-001.1 — four columns in order", () => {
-  it("frd-05: AC-05-001.1 — WHEN orders provided THEN renders exactly four column headings", () => {
+describe("frd-05: AC-05-001.1 — five columns in order", () => {
+  it("frd-05: AC-05-001.1 — WHEN orders provided THEN renders exactly FIVE column headings", () => {
     render(<WorkOrderBoard orders={ALL_ORDERS} />);
-    const columns = screen.getAllByTestId("wo-column");
-    expect(columns).toHaveLength(4);
+    const columns = screen.getAllByTestId("kanban-col-root");
+    expect(columns).toHaveLength(5);
   });
 
-  it("frd-05: AC-05-001.1 — WHEN orders provided THEN columns are in order: To do, In progress, Review/Testing, Done", () => {
+  it("frd-05: AC-05-001.1 — WHEN orders provided THEN columns are in order: To do, In progress, Review/Testing, Fail, Done", () => {
     render(<WorkOrderBoard orders={ALL_ORDERS} />);
-    const columns = screen.getAllByTestId("wo-column");
-    expect(columns[0]?.textContent).toContain("Pendiente");
+    const columns = screen.getAllByTestId("kanban-col-root");
+    expect(columns[0]?.textContent).toContain("To do");
     expect(columns[1]?.textContent).toContain("En progreso");
-    expect(columns[2]?.textContent).toContain("Revisión");
-    expect(columns[3]?.textContent).toContain("Hecho");
+    expect(columns[2]?.textContent).toContain("Review");
+    expect(columns[3]?.textContent).toContain("Falló");
+    expect(columns[4]?.textContent).toContain("Hecho");
   });
 
-  it("frd-05: AC-05-001.1 — WHEN empty orders THEN still renders four columns", () => {
+  it("frd-05: AC-05-001.1 — WHEN empty orders THEN still renders five columns", () => {
     render(<WorkOrderBoard orders={EMPTY_ORDERS} />);
-    const columns = screen.getAllByTestId("wo-column");
-    expect(columns).toHaveLength(4);
+    const columns = screen.getAllByTestId("kanban-col-root");
+    expect(columns).toHaveLength(5);
+  });
+
+  it("frd-05: AC-05-001.1 — WHEN rendered THEN Fail column is its own separate column (not merged with In progress)", () => {
+    render(<WorkOrderBoard orders={ALL_ORDERS} />);
+    const labels = screen.getAllByTestId("kanban-col-label");
+    const labelTexts = labels.map((l) => l.textContent ?? "");
+    // Fail must be a distinct label, not embedded in "En progreso"
+    expect(labelTexts.some((t) => t.includes("Falló") || t.includes("Fail"))).toBe(true);
+    expect(labelTexts.some((t) => t.includes("En progreso"))).toBe(true);
   });
 });
 
 // ---------------------------------------------------------------------------
-// AC-05-001.2 — Equal-width columns; board container
+// AC-05-001.2 — Board container and column layout
 // ---------------------------------------------------------------------------
 
 describe("frd-05: AC-05-001.2 — board container and column layout", () => {
@@ -104,10 +115,16 @@ describe("frd-05: AC-05-001.2 — board container and column layout", () => {
     expect(screen.getByTestId("wo-board")).toBeDefined();
   });
 
-  it("frd-05: AC-05-001.2 — WHEN rendered THEN each column has a heading element", () => {
+  it("frd-05: AC-05-001.2 — WHEN rendered THEN each column uses the KanbanColumn primitive (kanban-col-root)", () => {
     render(<WorkOrderBoard orders={ALL_ORDERS} />);
-    const headings = screen.getAllByTestId("wo-column-heading");
-    expect(headings).toHaveLength(4);
+    const cols = screen.getAllByTestId("kanban-col-root");
+    expect(cols).toHaveLength(5);
+  });
+
+  it("frd-05: AC-05-001.2 — WHEN rendered THEN each column has a count badge via kanban-col-count", () => {
+    render(<WorkOrderBoard orders={ALL_ORDERS} />);
+    const counts = screen.getAllByTestId("kanban-col-count");
+    expect(counts).toHaveLength(5);
   });
 });
 
@@ -159,17 +176,16 @@ describe("frd-05: AC-05-005.1 — kanban is read-only", () => {
 
   it("frd-05: AC-05-005.1 — WHEN rendered THEN no drop zone role present", () => {
     render(<WorkOrderBoard orders={ALL_ORDERS} />);
-    // No elements with role=listbox or drop targets expected
     const dropTargets = document.querySelectorAll("[data-dropzone]");
     expect(dropTargets.length).toBe(0);
   });
 });
 
 // ---------------------------------------------------------------------------
-// fail state a11y — icon + label, not color alone
+// Fail column treatment — danger variant (icon + label + color, not color alone)
 // ---------------------------------------------------------------------------
 
-describe("frd-05: fail state accessibility — icon + label, not color alone", () => {
+describe("frd-05: Fail column — danger variant (AC-05-001.1 fail treatment)", () => {
   it("frd-05: WHEN a card has state=fail THEN it has a visible fail indicator element", () => {
     render(<WorkOrderBoard orders={[WO_FAIL]} />);
     const indicators = screen.getAllByTestId("wo-fail-indicator");
@@ -187,6 +203,13 @@ describe("frd-05: fail state accessibility — icon + label, not color alone", (
     const indicators = screen.queryAllByTestId("wo-fail-indicator");
     expect(indicators.length).toBe(0);
   });
+
+  it("frd-05: WHEN a fail card is rendered THEN the Fail column (index 3) contains it", () => {
+    render(<WorkOrderBoard orders={[WO_FAIL]} />);
+    const columns = screen.getAllByTestId("kanban-col-root");
+    // Column index 3 = Fail column (To do=0, In progress=1, Review=2, Fail=3, Done=4)
+    expect(columns[3]?.textContent).toContain(WO_FAIL.title);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -194,36 +217,55 @@ describe("frd-05: fail state accessibility — icon + label, not color alone", (
 // ---------------------------------------------------------------------------
 
 describe("frd-05: cards distributed to correct columns", () => {
-  it("frd-05: WHEN a todo order THEN the todo column contains the card title", () => {
+  it("frd-05: WHEN a todo order THEN the todo column (index 0) contains the card title", () => {
     render(<WorkOrderBoard orders={[WO_TODO]} />);
-    const todoCol = screen.getAllByTestId("wo-column")[0];
-    expect(todoCol?.textContent).toContain(WO_TODO.title);
+    const cols = screen.getAllByTestId("kanban-col-root");
+    expect(cols[0]?.textContent).toContain(WO_TODO.title);
   });
 
-  it("frd-05: WHEN an in_progress order THEN the in_progress column contains the card title", () => {
+  it("frd-05: WHEN an in_progress order THEN the in_progress column (index 1) contains the card title", () => {
     render(<WorkOrderBoard orders={[WO_IN_PROGRESS]} />);
-    const col = screen.getAllByTestId("wo-column")[1];
-    expect(col?.textContent).toContain("Build kanban board");
+    const cols = screen.getAllByTestId("kanban-col-root");
+    expect(cols[1]?.textContent).toContain("Build kanban board");
   });
 
-  it("frd-05: WHEN a review order THEN the review column contains the card title", () => {
+  it("frd-05: WHEN a review order THEN the review column (index 2) contains the card title", () => {
     render(<WorkOrderBoard orders={[WO_REVIEW]} />);
-    const col = screen.getAllByTestId("wo-column")[2];
-    expect(col?.textContent).toContain(WO_REVIEW.title);
+    const cols = screen.getAllByTestId("kanban-col-root");
+    expect(cols[2]?.textContent).toContain(WO_REVIEW.title);
   });
 
-  it("frd-05: WHEN a done order THEN the done column contains the card title", () => {
-    render(<WorkOrderBoard orders={[WO_DONE]} />);
-    const col = screen.getAllByTestId("wo-column")[3];
-    expect(col?.textContent).toContain(WO_DONE.title);
-  });
-
-  it("frd-05: WHEN a fail order THEN the in_progress column contains the fail card (fail maps to in_progress slot)", () => {
-    // fail is a sub-state of in_progress column per blueprint §3
+  it("frd-05: WHEN a fail order THEN the fail column (index 3) contains the card title (fail is its OWN column)", () => {
     render(<WorkOrderBoard orders={[WO_FAIL]} />);
-    // fail card appears somewhere — at least one card is rendered
-    const cards = screen.getAllByTestId("wo-card");
-    expect(cards.length).toBeGreaterThan(0);
+    const cols = screen.getAllByTestId("kanban-col-root");
+    // Fail maps to column index 3, NOT index 1 (in_progress)
+    expect(cols[3]?.textContent).toContain(WO_FAIL.title);
+  });
+
+  it("frd-05: WHEN a done order THEN the done column (index 4) contains the card title", () => {
+    render(<WorkOrderBoard orders={[WO_DONE]} />);
+    const cols = screen.getAllByTestId("kanban-col-root");
+    expect(cols[4]?.textContent).toContain(WO_DONE.title);
+  });
+
+  it("frd-05: WHEN a fail order THEN the in_progress column (index 1) does NOT contain it", () => {
+    render(<WorkOrderBoard orders={[WO_FAIL]} />);
+    const cols = screen.getAllByTestId("kanban-col-root");
+    // Fail must NOT appear in In progress column
+    expect(cols[1]?.textContent).not.toContain(WO_FAIL.title);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Empty column placeholder — "—"
+// ---------------------------------------------------------------------------
+
+describe("frd-05: empty column placeholder", () => {
+  it("frd-05: WHEN a column has no cards THEN it shows the em-dash placeholder", () => {
+    render(<WorkOrderBoard orders={[WO_TODO]} />);
+    // Done column (index 4) should be empty → show "—"
+    const cols = screen.getAllByTestId("kanban-col-root");
+    expect(cols[4]?.textContent).toContain("—");
   });
 });
 
@@ -232,10 +274,10 @@ describe("frd-05: cards distributed to correct columns", () => {
 // ---------------------------------------------------------------------------
 
 describe("frd-05: data-testid completeness", () => {
-  it("frd-05: WHEN rendered THEN board, columns, cards, chips all have data-testid", () => {
+  it("frd-05: WHEN rendered THEN board, columns (kanban-col-root), cards, chips all have data-testid", () => {
     render(<WorkOrderBoard orders={ALL_ORDERS} />);
     expect(screen.getByTestId("wo-board")).toBeDefined();
-    expect(screen.getAllByTestId("wo-column").length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId("kanban-col-root").length).toBe(5);
     expect(screen.getAllByTestId("wo-card").length).toBeGreaterThan(0);
     expect(screen.getAllByTestId("wo-frd-chip").length).toBeGreaterThan(0);
   });
