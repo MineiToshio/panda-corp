@@ -1,40 +1,73 @@
 /**
  * Board page — Server Component (CMP-02-board-view).
  *
- * WO-02-005: re-painted board surface.
+ * WO-02-005: full two-axis board — reads all idea cards, resolves the project
+ * status for each in-pipeline card via readStatus, and derives the board column
+ * for every card via deriveColumn. The resulting `boardColumn` is passed to
+ * IdeaBoardView which routes cards into the 7 canonical columns.
  *
- * Reads all idea cards, resolves the project status for each in-pipeline card
- * via readStatus, and derives the board column for every card via deriveColumn.
- * The resulting `BoardCardEntry[]` is passed to `BoardClient` which handles all
- * interactive state: category filter, intake modal, card-detail slide-in, discard.
- *
- * Platform golden rule (architecture §1): read-only Server Component — never call Claude.
+ * Platform golden rule (architecture §1): read-only, never call Claude.
  * All I/O is synchronous fs reads via readIdeas / readStatus (lib/).
  *
  * Traceability:
- *   CMP-02-board-view → REQ-02-001, REQ-02-002, REQ-02-003, REQ-02-005,
- *                        REQ-02-006, REQ-02-007, REQ-02-008
+ *   CMP-02-board-view → REQ-02-001, REQ-02-002, REQ-02-005, REQ-02-006
  *   IF-01-readIdeas (docs/api.md WO-01-003)
  *   IF-01-readStatus (docs/api.md WO-01-005)
  *   IF-02-deriveColumn (lib/board.ts, WO-02-001)
  */
 
 import path from "node:path";
-import { BoardClient } from "@/app/board/_components/BoardClient/BoardClient";
 import type { BoardCardEntry } from "@/app/board/IdeaBoardView/IdeaBoardView";
 import { deriveColumn } from "@/lib/board/board";
 import { resolveFactoryRoot } from "@/lib/config/config";
 import { readIdeas } from "@/lib/ideas/ideas";
 import { readStatus } from "@/lib/status/status";
+import { IdeaBoardView } from "./IdeaBoardView/IdeaBoardView";
+
+// ---------------------------------------------------------------------------
+// Page styles — CSS custom properties only, zero hardcoded colors
+// ---------------------------------------------------------------------------
+
+const PAGE_STYLE: React.CSSProperties = {
+  minHeight: "100vh",
+  background: "var(--color-surface, Canvas)",
+  color: "var(--color-text, currentColor)",
+};
+
+const HEADER_STYLE: React.CSSProperties = {
+  padding: "calc(var(--spacing, 0.25rem) * 4) calc(var(--spacing, 0.25rem) * 4)",
+  borderBottom: "var(--hairline, 1px) solid var(--color-border, currentColor)",
+  display: "flex",
+  alignItems: "baseline",
+  gap: "calc(var(--spacing, 0.25rem) * 3)",
+};
+
+const HEADING_STYLE: React.CSSProperties = {
+  fontSize: "1.125rem",
+  fontWeight: 700,
+  margin: 0,
+  color: "var(--color-text, currentColor)",
+};
+
+const SUBTEXT_STYLE: React.CSSProperties = {
+  fontSize: "0.75rem",
+  color: "var(--color-text-muted, currentColor)",
+  opacity: 0.6,
+  margin: 0,
+};
+
+// ---------------------------------------------------------------------------
+// Server Component
+// ---------------------------------------------------------------------------
 
 /**
  * Board page (Server Component, Next.js App Router).
  *
- * Two-axis column derivation (WO-02-001):
+ * Two-axis column derivation (WO-02-005):
  *   1. readIdeas() — all idea cards.
  *   2. For each in-pipeline card: readStatus(projectPath) — project phase.
  *   3. deriveColumn(card, status) → BoardColumn.
- *   4. Pass boardColumn into each card entry for BoardClient → IdeaBoardView.
+ *   4. Pass boardColumn into each card entry for IdeaBoardView.
  *
  * readStatus is fail-soft (never throws), so a missing project yields a
  * "documented" fallback column without breaking (AC-02-001.6).
@@ -78,6 +111,17 @@ export default function BoardPage(): React.JSX.Element {
     };
   });
 
-  // Pass to BoardClient (the interactive "use client" wrapper).
-  return <BoardClient cards={cards} />;
+  return (
+    <main data-testid="board-page" style={PAGE_STYLE} aria-label="Tablero de ideas Pandacorp">
+      <header style={HEADER_STYLE}>
+        <h1 style={HEADING_STYLE}>Tablero de Ideas</h1>
+        <p style={SUBTEXT_STYLE}>
+          {cards.length === 0
+            ? "Sin ideas aún."
+            : `${cards.length} idea${cards.length === 1 ? "" : "s"}`}
+        </p>
+      </header>
+      <IdeaBoardView cards={cards} />
+    </main>
+  );
 }

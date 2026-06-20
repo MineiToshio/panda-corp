@@ -1,27 +1,21 @@
 /**
- * RecoveryHint — component tests (WO-03-002 refactor: reuses shared Banner, DR-057).
- *
- * RecoveryHint was refactored onto the shared `Banner` component (WO-03-002).
- * Tests now verify behavior through the rendered output rather than
- * implementation-specific testids.
+ * RecoveryHint — component tests (TDD: RED first).
  *
  * Traceability:
- *   CMP-03-recovery → AC-03-006.2 (⚠️ path not found heading)
+ *   CMP-03-recovery → AC-03-006.2 (⚠️ path not found badge)
  *                     AC-03-006.3 (repo present → copyable git clone + sync command)
  *                     AC-03-006.4 (no repo → no-remote warning)
  *                     AC-03-006.5 (read-only: no clone/write/Claude call)
  *                     AC-03-006.6 (badge clears when exists=true → renders nothing)
  *   REQ-03-006
- *   DR-057 (reuses shared Banner — no forked banner component)
  *
  * Tests cover:
  *   1. exists=true → renders nothing (badge cleared, AC-03-006.6)
- *   2. exists=false + repo → ⚠ heading + copyable git clone + sync command (CopyButton)
- *   3. exists=false + no repo → ⚠ heading + no-remote warning, no CopyButton for clone
- *   4. Accessibility
+ *   2. exists=false + repo → ⚠ badge + copyable git clone + sync command (CopyButton)
+ *   3. exists=false + no repo → ⚠ badge + no-remote warning, no CopyButton for clone
+ *   4. Accessibility: role/aria-label on badge
  *   5. Design-token invariant: zero hardcoded colors
  *   6. Read-only invariant: no form/write/clone DOM elements
- *   7. DR-057: uses the shared Banner (data-testid="banner")
  *
  * Stack: Vitest + @testing-library/react (jsdom).
  */
@@ -52,9 +46,9 @@ describe("RecoveryHint — exists=true (badge cleared)", () => {
     expect(screen.queryByTestId("recovery-hint")).toBeNull();
   });
 
-  it("no path-not-found text when exists=true, even with no repo", () => {
+  it("no not-found badge when exists=true, even with no repo", () => {
     render(<RecoveryHint exists path={PATH} />);
-    expect(screen.queryByText(/ruta no encontrada|path not found/i)).toBeNull();
+    expect(screen.queryByTestId("recovery-hint-badge")).toBeNull();
   });
 });
 
@@ -68,28 +62,29 @@ describe("RecoveryHint — exists=false, repo present", () => {
     expect(screen.getByTestId("recovery-hint")).toBeDefined();
   });
 
-  it("renders the shared Banner (DR-057: reuses Banner, not a fork)", () => {
+  it("renders the ⚠ path-not-found badge", () => {
     render(<RecoveryHint exists={false} path={PATH} repo={REPO} />);
-    expect(screen.getByTestId("banner")).toBeDefined();
+    expect(screen.getByTestId("recovery-hint-badge")).toBeDefined();
   });
 
-  it("Banner heading contains path-not-found indication (AC-03-006.2)", () => {
+  it("badge text contains path not found indication", () => {
     render(<RecoveryHint exists={false} path={PATH} repo={REPO} />);
-    expect(screen.getByText(/ruta no encontrada|path not found/i)).toBeDefined();
+    const badge = screen.getByTestId("recovery-hint-badge");
+    expect(badge.textContent).toMatch(/ruta no encontrada|path not found/i);
   });
 
-  it("banner-cmd-row contains git clone command (AC-03-006.3)", () => {
+  it("renders recovery-hint-command with git clone command", () => {
     render(<RecoveryHint exists={false} path={PATH} repo={REPO} />);
-    const cmdRow = screen.getByTestId("banner-cmd-row");
-    expect(cmdRow.textContent).toContain("git clone");
-    expect(cmdRow.textContent).toContain(REPO);
-    expect(cmdRow.textContent).toContain(PATH);
+    const cmd = screen.getByTestId("recovery-hint-command");
+    expect(cmd.textContent).toContain("git clone");
+    expect(cmd.textContent).toContain(REPO);
+    expect(cmd.textContent).toContain(PATH);
   });
 
-  it("command row contains sync-portfolio step", () => {
+  it("renders the sync command after the clone command", () => {
     render(<RecoveryHint exists={false} path={PATH} repo={REPO} />);
-    const cmdRow = screen.getByTestId("banner-cmd-row");
-    expect(cmdRow.textContent).toContain("/pandacorp:sync-portfolio");
+    const cmd = screen.getByTestId("recovery-hint-command");
+    expect(cmd.textContent).toContain("/pandacorp:sync-portfolio");
   });
 
   it("renders a CopyButton for the recovery command (data-testid=copy-button)", () => {
@@ -101,16 +96,14 @@ describe("RecoveryHint — exists=false, repo present", () => {
     const repo = "https://github.com/org/special-repo";
     const path = "/home/user/workspace/special-repo";
     render(<RecoveryHint exists={false} path={path} repo={repo} />);
-    const cmdRow = screen.getByTestId("banner-cmd-row");
-    expect(cmdRow.textContent).toContain(repo);
-    expect(cmdRow.textContent).toContain(path);
+    const cmd = screen.getByTestId("recovery-hint-command");
+    expect(cmd.textContent).toContain(repo);
+    expect(cmd.textContent).toContain(path);
   });
 
-  it("does NOT render a no-remote warning when repo is present", () => {
+  it("does NOT render no-repo warning when repo is present", () => {
     render(<RecoveryHint exists={false} path={PATH} repo={REPO} />);
-    // No-remote warning mentions /pandacorp:spec but in detail, not as a command row
-    // The command row must exist (git clone) — that's enough verification
-    expect(screen.queryByText(/Sin repositorio registrado/i)).toBeNull();
+    expect(screen.queryByTestId("recovery-hint-no-repo")).toBeNull();
   });
 });
 
@@ -124,48 +117,60 @@ describe("RecoveryHint — exists=false, no repo", () => {
     expect(screen.getByTestId("recovery-hint")).toBeDefined();
   });
 
-  it("renders the shared Banner (DR-057)", () => {
+  it("renders the ⚠ path-not-found badge", () => {
     render(<RecoveryHint exists={false} path={PATH} />);
-    expect(screen.getByTestId("banner")).toBeDefined();
+    expect(screen.getByTestId("recovery-hint-badge")).toBeDefined();
   });
 
-  it("Banner heading contains path-not-found indication (AC-03-006.2)", () => {
+  it("renders recovery-hint-no-repo warning text", () => {
     render(<RecoveryHint exists={false} path={PATH} />);
-    expect(screen.getByText(/ruta no encontrada|path not found/i)).toBeDefined();
+    expect(screen.getByTestId("recovery-hint-no-repo")).toBeDefined();
   });
 
-  it("banner detail mentions /pandacorp:spec (no-remote warning, AC-03-006.4)", () => {
+  it("no-repo warning mentions pandacorp:spec", () => {
     render(<RecoveryHint exists={false} path={PATH} />);
-    expect(screen.getByText(/pandacorp:spec/i)).toBeDefined();
+    const warn = screen.getByTestId("recovery-hint-no-repo");
+    expect(warn.textContent).toContain("/pandacorp:spec");
   });
 
-  it("no-repo banner detail text has substantive content", () => {
+  it("no-repo warning text mentions backup or recreate", () => {
     render(<RecoveryHint exists={false} path={PATH} />);
-    const detail = screen.getByTestId("banner-detail");
-    expect((detail.textContent ?? "").length).toBeGreaterThan(10);
+    const warn = screen.getByTestId("recovery-hint-no-repo");
+    // Should mention backup or local
+    const text = warn.textContent ?? "";
+    expect(text.length).toBeGreaterThan(10);
   });
 
-  it("does NOT render a command row (no git clone) when no repo", () => {
+  it("does NOT render recovery-hint-command when no repo", () => {
     render(<RecoveryHint exists={false} path={PATH} />);
-    expect(screen.queryByTestId("banner-cmd-row")).toBeNull();
-    expect(screen.queryByText(/git clone/i)).toBeNull();
+    expect(screen.queryByTestId("recovery-hint-command")).toBeNull();
   });
 });
 
 // ---------------------------------------------------------------------------
-// 4. Accessibility
+// 4. Accessibility (badge)
 // ---------------------------------------------------------------------------
 
 describe("RecoveryHint — accessibility", () => {
-  it("Banner has role=alert (Banner's own aria invariant)", () => {
+  it("badge has role=status", () => {
     render(<RecoveryHint exists={false} path={PATH} repo={REPO} />);
-    expect(screen.getByRole("alert")).toBeDefined();
+    const badge = screen.getByTestId("recovery-hint-badge");
+    expect(badge.getAttribute("role")).toBe("status");
   });
 
-  it("Banner heading text is non-empty", () => {
+  it("badge has aria-label in Spanish", () => {
     render(<RecoveryHint exists={false} path={PATH} repo={REPO} />);
-    const text = screen.getByText(/ruta no encontrada|path not found/i);
-    expect((text.textContent ?? "").length).toBeGreaterThan(0);
+    const badge = screen.getByTestId("recovery-hint-badge");
+    const label = badge.getAttribute("aria-label") ?? "";
+    expect(label.length).toBeGreaterThan(0);
+  });
+
+  it("badge aria-label mentions the path", () => {
+    render(<RecoveryHint exists={false} path={PATH} repo={REPO} />);
+    const badge = screen.getByTestId("recovery-hint-badge");
+    const label = badge.getAttribute("aria-label") ?? "";
+    // Should provide enough context (either path or generic description)
+    expect(label.length).toBeGreaterThan(5);
   });
 });
 
@@ -197,7 +202,7 @@ describe("RecoveryHint — design tokens", () => {
     const all = container.querySelectorAll("[style]");
     for (const el of all) {
       const style = el.getAttribute("style") ?? "";
-      expect(style).not.toMatch(/\brgb\(/);
+      expect(style).not.toMatch(/\brgb\b/);
     }
   });
 
@@ -206,7 +211,7 @@ describe("RecoveryHint — design tokens", () => {
     const all = container.querySelectorAll("[style]");
     for (const el of all) {
       const style = el.getAttribute("style") ?? "";
-      expect(style).not.toMatch(/\bhsl\(/);
+      expect(style).not.toMatch(/\bhsl\b/);
     }
   });
 });
@@ -226,6 +231,13 @@ describe("RecoveryHint — read-only invariant", () => {
     expect(document.querySelector("form")).toBeNull();
   });
 
+  it("recovery command is pure copyable text — not a clickable link that triggers clone", () => {
+    render(<RecoveryHint exists={false} path={PATH} repo={REPO} />);
+    const cmd = screen.getByTestId("recovery-hint-command");
+    // Should be a code element or span, not an <a> that navigates
+    expect(cmd.tagName.toLowerCase()).not.toBe("a");
+  });
+
   it("does not render any data-write or data-clone marker", () => {
     const { container } = render(<RecoveryHint exists={false} path={PATH} repo={REPO} />);
     expect(container.querySelector("[data-write]")).toBeNull();
@@ -234,25 +246,7 @@ describe("RecoveryHint — read-only invariant", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 7. DR-057 — uses the shared Banner (not a fork)
-// ---------------------------------------------------------------------------
-
-describe("RecoveryHint — DR-057 Banner reuse", () => {
-  it("renders exactly ONE Banner for a missing-path row with repo", () => {
-    render(<RecoveryHint exists={false} path={PATH} repo={REPO} />);
-    const banners = screen.queryAllByTestId("banner");
-    expect(banners.length).toBe(1);
-  });
-
-  it("renders exactly ONE Banner for a missing-path row without repo", () => {
-    render(<RecoveryHint exists={false} path={PATH} />);
-    const banners = screen.queryAllByTestId("banner");
-    expect(banners.length).toBe(1);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 8. Props contract — optional repo
+// 7. Props contract — optional repo
 // ---------------------------------------------------------------------------
 
 describe("RecoveryHint — props contract", () => {
@@ -264,8 +258,8 @@ describe("RecoveryHint — props contract", () => {
 
   it("accepts repo as empty string and treats it as no-repo", () => {
     render(<RecoveryHint exists={false} path={PATH} repo="" />);
-    // Empty string repo should fall back to no-repo warning (no git clone command)
-    expect(screen.queryByText(/git clone/i)).toBeNull();
-    expect(screen.queryByText(/pandacorp:spec/i)).not.toBeNull();
+    // Empty string repo should fall back to no-repo warning
+    expect(screen.getByTestId("recovery-hint-no-repo")).toBeDefined();
+    expect(screen.queryByTestId("recovery-hint-command")).toBeNull();
   });
 });

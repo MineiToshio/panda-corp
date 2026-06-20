@@ -86,20 +86,19 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
     key: "design",
     name: "Diseño",
     description:
-      "Creación del sistema visual y la microcopia con Claude Design. Diseñador y copywriter colaboran para que el producto sea bello, accesible y coherente en lenguaje.",
+      "Creación del sistema visual y la microcopia. Diseñador y copywriter colaboran para que el producto sea bello, accesible y coherente en lenguaje.",
     reads: "PRD + FRDs",
-    writes:
-      "design-tokens + DESIGN.md + components.md (inventario de componentes) + mocks/FDD por FRD + microcopia",
+    writes: "Mockups, design tokens y microcopia",
     team: [
       {
         role: "designer",
         label: "Designer",
-        what: "Define el sistema de diseño con Claude Design (DESIGN.md + tokens + components.md) y los mocks por FRD.",
+        what: "Crea los mockups, define los tokens de diseño y asegura la consistencia visual.",
       },
       {
         role: "copywriter",
         label: "Copywriter",
-        what: "Escribe la voz del producto y el microcopy (botones, vacíos, errores, onboarding).",
+        what: "Redacta la microcopia, los mensajes de error y el texto de la interfaz.",
       },
     ],
   },
@@ -107,15 +106,14 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
     key: "architecture",
     name: "Arquitectura",
     description:
-      "Diseño técnico de la solución. El arquitecto planifica la fundación (primitivas compartidas) y los artefactos de archivo de cada work order, luego escribe el blueprint, los ADRs y el Build Plan.",
-    reads: "design-tokens + DESIGN.md + components.md + mocks/FDD por FRD",
-    writes:
-      "Blueprint + ADRs + Build Plan + work orders (con artifacts disjuntos por WO para oleadas sin colisión)",
+      "Diseño técnico de la solución. El arquitecto traduce los requisitos en ADRs, plano de implementación y órdenes de trabajo para el equipo de build.",
+    reads: "Mockups, design tokens y microcopia",
+    writes: "Blueprint + ADRs + Build Plan + work orders",
     team: [
       {
         role: "architect",
         label: "Architect",
-        what: "Planifica la fundación (primitivas compartidas), define los artifacts disjuntos de cada WO, escribe el blueprint, ADRs y Build Plan.",
+        what: "Diseña la arquitectura, escribe los ADRs, define el build plan y genera los work orders.",
       },
     ],
   },
@@ -123,19 +121,19 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
     key: "build",
     name: "Construcción",
     description:
-      "La party forja FRD por FRD: fundación primero, luego N implementers en oleadas disjuntas por archivo (sin colisión); el Juez aplica 4 lentes + gate visual vs. mock; el motor commitea cada oleada (Option-B). TDD: RED → GREEN → refactor.",
+      "Implementación con TDD (RED → GREEN → refactor). El implementer construye cada work order; el reviewer verifica con tests adversariales; analytics instrumenta eventos clave.",
     reads: "Blueprint + ADRs + Build Plan + work orders",
     writes: "Código verificado (GREEN) — la app funcionando",
     team: [
       {
         role: "implementer",
         label: "Implementer",
-        what: "Construye cada WO end-to-end con TDD; bucle de fidelidad vs. mock (DR-056); reutiliza el inventario de componentes; escribe el Status Note al cerrar.",
+        what: "Construye cada work order end-to-end con TDD; escribe el Status Note al cerrar.",
       },
       {
         role: "reviewer",
         label: "Reviewer",
-        what: "Gate por FRD: 4 lentes (corrección · seguridad · calidad · runtime/visual), tests adversariales, gate visual vs. mock.",
+        what: "Ejecuta el gate de cada FRD: tests adversariales, 3 lentes (corrección/seguridad/calidad).",
       },
       {
         role: "analytics",
