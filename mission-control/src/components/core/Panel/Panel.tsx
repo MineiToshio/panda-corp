@@ -23,8 +23,8 @@
 // Types
 // ---------------------------------------------------------------------------
 
-export type PanelVariant = "panel" | "rpgpanel" | "secondary";
-export type PanelGlow = "warn" | "accent";
+type PanelVariant = "panel" | "rpgpanel" | "secondary";
+type PanelGlow = "warn" | "accent";
 
 export interface PanelProps {
   /** Surface variant. */

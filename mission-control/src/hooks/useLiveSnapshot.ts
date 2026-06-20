@@ -41,7 +41,7 @@ import type { EventsSnapshot } from "@/lib/events/events";
 // ---------------------------------------------------------------------------
 
 /** The shape pushed over SSE — same as EventsSnapshot from the server. */
-export type LiveFrame = EventsSnapshot;
+type LiveFrame = EventsSnapshot;
 
 /** Options accepted by the hook. */
 export interface UseLiveSnapshotOptions {

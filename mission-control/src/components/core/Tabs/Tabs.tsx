@@ -45,7 +45,7 @@ import { useCallback, useRef } from "react";
 // ---------------------------------------------------------------------------
 
 /** A single tab definition. */
-export interface TabDef {
+interface TabDef {
   /** Unique identifier for this tab. */
   id: string;
   /** Displayed label (Spanish). */

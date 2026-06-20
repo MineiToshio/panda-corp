@@ -32,10 +32,10 @@ import { CopyButton } from "@/components/core/CopyButton/CopyButton";
 // Types
 // ---------------------------------------------------------------------------
 
-export type BannerTone = "warn" | "info" | "ok" | "danger";
-export type BannerKind = "drift" | "orphan" | "gate" | "error" | "inline";
+type BannerTone = "warn" | "info" | "ok" | "danger";
+type BannerKind = "drift" | "orphan" | "gate" | "error" | "inline";
 
-export interface BannerItem {
+interface BannerItem {
   id: string;
   label: string;
 }

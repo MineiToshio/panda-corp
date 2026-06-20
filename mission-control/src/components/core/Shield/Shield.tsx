@@ -39,7 +39,7 @@ const SIZE_MAP = {
   lg: { outer: 120, borderRadius: 16, nivelSize: 10, levelSize: 52 },
 } as const;
 
-export type ShieldSize = keyof typeof SIZE_MAP;
+type ShieldSize = keyof typeof SIZE_MAP;
 
 // ── Props ──────────────────────────────────────────────────────────────────────
 

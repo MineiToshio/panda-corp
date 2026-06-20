@@ -51,10 +51,7 @@ export default function PreviewWo13008Page(): React.JSX.Element {
       </h2>
 
       {/* ── Shield ─────────────────────────────────────────────────────────── */}
-      <section
-        aria-label="Shield component preview"
-        style={{ marginBottom: "40px" }}
-      >
+      <section aria-label="Shield component preview" style={{ marginBottom: "40px" }}>
         <h3
           style={{
             fontFamily: "var(--font-display)",
@@ -71,28 +68,33 @@ export default function PreviewWo13008Page(): React.JSX.Element {
         <div style={{ display: "flex", gap: "20px", alignItems: "flex-end", flexWrap: "wrap" }}>
           <div style={{ textAlign: "center" }}>
             <Shield level={1} size="sm" />
-            <div style={{ fontSize: "11px", color: "var(--color-text3)", marginTop: "6px" }}>sm · Nv 1</div>
+            <div style={{ fontSize: "11px", color: "var(--color-text3)", marginTop: "6px" }}>
+              sm · Nv 1
+            </div>
           </div>
           <div style={{ textAlign: "center" }}>
             <Shield level={7} size="md" />
-            <div style={{ fontSize: "11px", color: "var(--color-text3)", marginTop: "6px" }}>md · Nv 7 (default)</div>
+            <div style={{ fontSize: "11px", color: "var(--color-text3)", marginTop: "6px" }}>
+              md · Nv 7 (default)
+            </div>
           </div>
           <div style={{ textAlign: "center" }}>
             <Shield level={42} size="lg" />
-            <div style={{ fontSize: "11px", color: "var(--color-text3)", marginTop: "6px" }}>lg · Nv 42</div>
+            <div style={{ fontSize: "11px", color: "var(--color-text3)", marginTop: "6px" }}>
+              lg · Nv 42
+            </div>
           </div>
           <div style={{ textAlign: "center" }}>
             <Shield level={7} size="md" glow={false} />
-            <div style={{ fontSize: "11px", color: "var(--color-text3)", marginTop: "6px" }}>glow=false</div>
+            <div style={{ fontSize: "11px", color: "var(--color-text3)", marginTop: "6px" }}>
+              glow=false
+            </div>
           </div>
         </div>
       </section>
 
       {/* ── TierBadge ─────────────────────────────────────────────────────── */}
-      <section
-        aria-label="TierBadge component preview"
-        style={{ marginBottom: "40px" }}
-      >
+      <section aria-label="TierBadge component preview" style={{ marginBottom: "40px" }}>
         <h3
           style={{
             fontFamily: "var(--font-display)",
@@ -114,10 +116,7 @@ export default function PreviewWo13008Page(): React.JSX.Element {
       </section>
 
       {/* ── ItemSlot ──────────────────────────────────────────────────────── */}
-      <section
-        aria-label="ItemSlot component preview"
-        style={{ marginBottom: "40px" }}
-      >
+      <section aria-label="ItemSlot component preview" style={{ marginBottom: "40px" }}>
         <h3
           style={{
             fontFamily: "var(--font-display)",
@@ -140,7 +139,9 @@ export default function PreviewWo13008Page(): React.JSX.Element {
               tone="accent"
               aria-label="Ranura de logro (acento)"
             />
-            <div style={{ fontSize: "10px", color: "var(--color-text3)", marginTop: "4px" }}>34 accent</div>
+            <div style={{ fontSize: "10px", color: "var(--color-text3)", marginTop: "4px" }}>
+              34 accent
+            </div>
           </div>
           <div style={{ textAlign: "center" }}>
             <ItemSlot
@@ -149,7 +150,9 @@ export default function PreviewWo13008Page(): React.JSX.Element {
               tone="warn"
               aria-label="Ranura de advertencia"
             />
-            <div style={{ fontSize: "10px", color: "var(--color-text3)", marginTop: "4px" }}>40 warn</div>
+            <div style={{ fontSize: "10px", color: "var(--color-text3)", marginTop: "4px" }}>
+              40 warn
+            </div>
           </div>
           <div style={{ textAlign: "center" }}>
             <ItemSlot
@@ -158,7 +161,9 @@ export default function PreviewWo13008Page(): React.JSX.Element {
               tone="ok"
               aria-label="Ranura completada"
             />
-            <div style={{ fontSize: "10px", color: "var(--color-text3)", marginTop: "4px" }}>42 ok</div>
+            <div style={{ fontSize: "10px", color: "var(--color-text3)", marginTop: "4px" }}>
+              42 ok
+            </div>
           </div>
           <div style={{ textAlign: "center" }}>
             <ItemSlot
@@ -167,7 +172,9 @@ export default function PreviewWo13008Page(): React.JSX.Element {
               tone="danger"
               aria-label="Ranura de peligro"
             />
-            <div style={{ fontSize: "10px", color: "var(--color-text3)", marginTop: "4px" }}>58 danger</div>
+            <div style={{ fontSize: "10px", color: "var(--color-text3)", marginTop: "4px" }}>
+              58 danger
+            </div>
           </div>
           {/* locked + reveal */}
           <div style={{ textAlign: "center" }}>
@@ -176,22 +183,23 @@ export default function PreviewWo13008Page(): React.JSX.Element {
               size={40}
               lock={true}
               reveal={
-                <span style={{ fontSize: "11px", color: "var(--color-accent-text)", lineHeight: 1.3 }}>
+                <span
+                  style={{ fontSize: "11px", color: "var(--color-accent-text)", lineHeight: 1.3 }}
+                >
                   Completa 3 proyectos
                 </span>
               }
               aria-label="Ranura bloqueada — pasa el cursor para ver cómo desbloquear"
             />
-            <div style={{ fontSize: "10px", color: "var(--color-text3)", marginTop: "4px" }}>locked+reveal</div>
+            <div style={{ fontSize: "10px", color: "var(--color-text3)", marginTop: "4px" }}>
+              locked+reveal
+            </div>
           </div>
         </div>
       </section>
 
       {/* ── KanbanColumn ──────────────────────────────────────────────────── */}
-      <section
-        aria-label="KanbanColumn component preview"
-        style={{ marginBottom: "40px" }}
-      >
+      <section aria-label="KanbanColumn component preview" style={{ marginBottom: "40px" }}>
         <h3
           style={{
             fontFamily: "var(--font-display)",

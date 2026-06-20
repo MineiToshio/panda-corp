@@ -37,7 +37,7 @@ const TIER_COLOR_TOKEN: Record<1 | 2 | 3 | 4 | 5, string> = {
 
 // ── Props ──────────────────────────────────────────────────────────────────────
 
-export type TierLevel = 1 | 2 | 3 | 4 | 5;
+type TierLevel = 1 | 2 | 3 | 4 | 5;
 
 export type TierBadgeProps = {
   /** Tier level 1–5 (Bronze=1 … Legend=5). */

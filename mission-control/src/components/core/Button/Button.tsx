@@ -18,8 +18,8 @@
 // Types
 // ---------------------------------------------------------------------------
 
-export type ButtonVariant = "primary" | "secondary" | "ghost";
-export type ButtonSize = "sm" | "md" | "lg";
+type ButtonVariant = "primary" | "secondary" | "ghost";
+type ButtonSize = "sm" | "md" | "lg";
 
 export interface ButtonProps {
   /** Visual variant. Defaults to 'secondary'. */
