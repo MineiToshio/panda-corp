@@ -310,6 +310,59 @@ tokens. The supervisor:
 The operable detail lives in the `implement` skill ("Unattended operation — the build supervisor"); this
 section is the canonical statement that the supervisor is **mandatory**, not optional.
 
+## 8. The change queue — talking to a running build (DR-069)
+
+The owner needs to inject changes (a feature, an adjustment, a bug) **while a build runs** — a build can take
+hours or more than a day, so "wait until it finishes" is not viable. The mechanism is a **durable, classified
+queue** that the build drains at safe points. It is the same pattern production agent runtimes use (a thread-safe
+injection queue drained at iteration boundaries) plus **Kanban classes of service** for urgency.
+
+**One owner door, internal engines.** The owner uses a single command — **`/pandacorp:change`** — for ANY change
+or bug. It classifies the request and files it; it does NOT remember which sub-skill to call. `bug` and `iterate`
+remain the **internal engines** (`change` and the build invoke them) and still work as direct aliases. `decide`
+stays separate — it is the owner *answering* a question the build asked, the opposite direction.
+
+**The queue** lives at `.pandacorp/inbox/changes/` (one file per change + a `README.md` index), **in Spanish**
+(gitignored owner layer). It **unifies** the former channels: `inbox/bugs/` folds in as `type: bug`. Each file
+carries a machine header (`type`, `class`, `status`, `frd`, `rebuilds_verified`) + a Spanish body.
+
+**Classes of service** (Kanban — David J. Anderson): `expedite` (urgent / breaks something → jumps the queue at
+the next safe point), `standard` (default, FIFO), and `intangible`/`fixed-date` for completeness (rarely needed).
+
+**Capture is detection-free and doc-free (the safety property).** `/pandacorp:change` ONLY writes one file to the
+queue — it never edits the build's docs/work-orders/code and **has no build-detection logic**. Therefore a
+mis-detection of "is a build running?" **cannot corrupt anything**: the change waits durably in the queue until the
+build itself pulls it. This is the fix for the owner's real fear — there is no "if no build, edit docs directly"
+branch to get wrong. The ONLY place that decides "is a build running?" is `implement`'s concurrent-run guard
+(DR-050 §9), a **lease + heartbeat + TTL** check with a **fencing token** (the run-id) so a zombie run can't write
+stale state; and even that decision is safe-when-wrong (a wrong launch aborts on the guard; a missed launch just
+leaves the change queued).
+
+**The consumer — the supervisor drains + routes at each safe point** (and before every relaunch). For each queued
+change it decides, **work-conserving** (never stall the whole build for one item):
+- `expedite` → handle at the next safe point, ahead of `standard`.
+- `standard` → FIFO when the build reaches it.
+- **autonomous-resolvable** (a clear scoped change) → integrate it **via the `iterate` engine** (PM/architect →
+  FRD/work-orders/blueprint, calling `work-orders`/`design`) or the `bug` engine (regression test → fix), **at the
+  safe point** (never mid-feature), then the **FRD review/test gate** — so a queued change passes the SAME quality
+  gate as planned work.
+- **needs-owner** (a product/money/irreversible/design decision) → write it to `inbox/decisions.md`, notify, and
+  **DEFER it while continuing with independent FRDs**; only fully STOP if it blocks everything (a foundation/
+  structural change). The owner answers with `/decide`; the next safe point/relaunch unblocks it.
+- **structural / fundamental / new-design** → captured but routed to a **stop + guide**: the build pauses
+  (`rethink_pending`) and tells the owner the command to run (e.g. `/design`), so it never silently rebuilds half
+  the app or auto-approves a visual (the design gate is the owner's).
+
+**Why this doesn't overload the build.** The build stays an **orchestrator of specialized subagents over
+deterministic control flow** (DR-013): docs → PM/architect, code → implementer, review → reviewer (a different
+model), design → designer + the owner's gate. The queue adds one deterministic step — *drain → integrate → build →
+gate*; no single agent's job grows, and quality is enforced by the **independent FRD gate + `verify.sh`** (generator
+≠ verifier, constitution §22), not by trust.
+
+Canonical surfaces: `plugin/skills/change/SKILL.md` (the door), `plugin/skills/implement/SKILL.md` (drain + route),
+`plugin/skills/{bug,iterate}/SKILL.md` (engines), this section. Mission Control surfacing the pending `changes/` and
+`decisions` items is a follow-up (the consumer UI).
+
 ## 8. Templates
 
 The standard is embodied in `${CLAUDE_PLUGIN_ROOT}/templates/docs/`: `prd-template.md`,

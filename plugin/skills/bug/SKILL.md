@@ -4,7 +4,9 @@ description: Reports a bug found while testing a Pandacorp project. You describe
 
 # /pandacorp:bug
 
-The channel to **report a bug** without stopping the build or setting anything up in Mission Control. You run it in the project folder, tell it the bug in plain language, and the skill leaves it noted in the **inbox** `.pandacorp/inbox/bugs/`. The `/pandacorp:implement` that is running picks it up at its next safe point (end of work order) and fixes it with a regression test.
+The channel to **report a bug** without stopping the build or setting anything up in Mission Control. You run it in the project folder, tell it the bug in plain language, and the skill leaves it noted in the **unified change queue** `.pandacorp/inbox/changes/` (as `type: bug`). The `/pandacorp:implement` that is running drains it at its next safe point (end of work order) and fixes it with a regression test.
+
+> **One door (DR-069):** `bug` is now reachable through the single owner front door **`/pandacorp:change`** (which classifies "bug vs feature" for you so you only remember one command). `bug` still works directly as a labelled alias + is the **internal engine** that `change` and the build invoke for the bug case.
 
 > **Preflight (DR-045) — is this a Pandacorp project?** This skill writes to the project's `.pandacorp/inbox/`, so first confirm the Pandacorp marker: `.pandacorp/status.yaml` exists. If it's missing, STOP and tell the owner (in Spanish) that this folder isn't a factory project yet — `/pandacorp:adopt` brings an existing project in, `/pandacorp:spec` creates a new one. Then, if `overlay_version` in `.pandacorp/status.yaml` is behind the plugin's `OVERLAY_VERSION`, run `/pandacorp:upgrade` first (silent for compatible bumps, DR-048) so this skill runs against the current structure. Don't proceed or invent docs over a missing structure.
 
@@ -13,12 +15,11 @@ The channel to **report a bug** without stopping the build or setting anything u
 ## Steps
 
 1. **Capture** the description. If something key for reproducing it is missing, ask the MINIMUM (steps, what you expected vs. what happened, on which screen/flow). Don't investigate in depth or try to fix it — this is just documenting.
-2. **Write** `.pandacorp/inbox/bugs/<slug>.md` (short slug in English derived from the title), with:
-   - `title`, `date`, estimated `severity` (`critical` blocks a flow / `normal` / `minor`)
-   - **steps to reproduce**, **expected result**, **actual result**
-   - which FRD/screen it falls in, if known
-   - `status: pending`
-3. **Increment** `pending_bugs` in `.pandacorp/status.yaml` (Mission Control shows it as a per-project chip).
+2. **Write** `.pandacorp/inbox/changes/<slug>.md` (short slug in English derived from the title), with:
+   - frontmatter (machine): `type: bug`, `class` (`expedite` if it blocks a flow, else `standard`), `status: pending`, `date`, `frd` (the FRD/screen if known)
+   - body (**español**): **pasos para reproducir**, **resultado esperado**, **resultado actual**
+   - append a row to the queue index `.pandacorp/inbox/changes/README.md`
+3. **Increment** `pending_changes` in `.pandacorp/status.yaml` (Mission Control surfaces it).
 4. **Confirm** to the owner: "noted in the inbox; `/implement` will take it at its next safe point." If there is NO build running and they want to fix it now, tell them to run `/pandacorp:implement` (which empties the inbox).
 
 ## Rules
