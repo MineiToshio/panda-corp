@@ -20,7 +20,7 @@ pending_decisions: 0
 pending_bugs: 0
 rethink_pending: false
 advance_pending: false
-last_green_sha: "337700f"
+last_green_sha: "ac2a023"
 safe_to_test: true  # FRD-16 gate PASS
 blocked: []
 supervisor_heartbeat: "2026-06-20T21:27:15Z"
