@@ -67,6 +67,15 @@ export default function RootLayout({
 
   return (
     <html lang="es" className={`${pixelify.variable} ${spaceGrotesk.variable}`}>
+      <head>
+        {/* Tabler Icons webfont — same CDN version as the prototype (index.html line 8).
+            Provides .ti .ti-* icon classes used by PageTitle, SectionHead, Tabs,
+            ConfigurationShell, ManualShell, SectionHero and other components (DR-054). */}
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css"
+        />
+      </head>
       <body>
         {profileResult.present ? (
           <>
