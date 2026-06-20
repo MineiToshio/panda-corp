@@ -31,6 +31,7 @@
 import { useState } from "react";
 import Markdown from "react-markdown";
 import { CopyButton } from "@/components/core/CopyButton/CopyButton";
+import { Tabs } from "@/components/core/Tabs/Tabs";
 import { CampaignPipeline } from "@/components/modules/CampaignPipeline/CampaignPipeline";
 import { phaseFromStatus } from "@/lib/campaign/campaign";
 import type { ProjectDocsIndex } from "@/lib/docs/docs";
@@ -51,9 +52,7 @@ import {
   PANEL_STYLE,
   ROOT_STYLE,
   SUMMARY_STYLE,
-  TAB_ROW_STYLE,
   TITLE_STYLE,
-  tabButtonStyle,
 } from "./CardDetail.styles";
 
 // ---------------------------------------------------------------------------
@@ -63,15 +62,18 @@ import {
 type TabKey = "campana" | "docs" | "comandos";
 
 interface TabDef {
-  key: TabKey;
+  id: TabKey;
   label: string;
 }
 
 const TABS: TabDef[] = [
-  { key: "campana", label: "Campaña" },
-  { key: "docs", label: "Documentos" },
-  { key: "comandos", label: "Comandos" },
+  { id: "campana", label: "Campaña" },
+  { id: "docs", label: "Documentos" },
+  { id: "comandos", label: "Comandos" },
 ];
+
+/** Stable prefix so the shared Tabs primitive emits this screen's test ids. */
+const TAB_TEST_ID_PREFIX = "card-detail-tab-";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -159,6 +161,15 @@ export function CardDetail({
     setActiveTab("docs");
   };
 
+  /**
+   * Tab selection from the shared Tabs primitive. The primitive emits a string
+   * id; narrow it back to the TabKey union (the ids come from our own TABS list).
+   */
+  const handleTabChange = (id: string) => {
+    const match = TABS.find((tab) => tab.id === id);
+    if (match != null) setActiveTab(match.id);
+  };
+
   /** Return the correct style for a panel — active (visible) or inactive (clipped). */
   const panelStyle = (key: TabKey): React.CSSProperties =>
     activeTab === key ? PANEL_STYLE : PANEL_HIDDEN_STYLE;
@@ -168,26 +179,17 @@ export function CardDetail({
       {/* Title (accessible name + visible heading) */}
       <h2 style={TITLE_STYLE}>{title}</h2>
 
-      {/* Tab row (AC-02-009.1 — same stab pattern as the Portfolio project pane).
-          Use <div role="tablist"> — <nav> cannot carry tablist role (Biome a11y). */}
-      <div role="tablist" aria-label="Pestañas del detalle de idea" style={TAB_ROW_STYLE}>
-        {TABS.map(({ key, label }) => {
-          const isActive = key === activeTab;
-          return (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              data-testid={`card-detail-tab-${key}`}
-              aria-selected={isActive ? "true" : "false"}
-              style={tabButtonStyle(isActive)}
-              onClick={() => setActiveTab(key)}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
+      {/* Tab row (AC-02-009.1 / DR-062) — THE shared Tabs primitive (the ONE tab
+          pattern, .stab level), not a bespoke per-screen switcher. testIdPrefix
+          keeps this screen's stable `card-detail-tab-*` test ids. */}
+      <Tabs
+        level="sub"
+        ariaLabel="Pestañas del detalle de idea"
+        tabs={TABS}
+        active={activeTab}
+        onChange={handleTabChange}
+        testIdPrefix={TAB_TEST_ID_PREFIX}
+      />
 
       {/* ---- Campaña panel (default, AC-02-009.1 / AC-02-010.1) ---- */}
       <div

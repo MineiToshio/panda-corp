@@ -22,12 +22,7 @@ import { Tabs } from "@/components/core/Tabs/Tabs";
 
 function renderDetail(): void {
   render(
-    <CardDetail
-      slug="my-idea"
-      title="Mi idea"
-      status="discovered"
-      body="Resumen de la idea."
-    />,
+    <CardDetail slug="my-idea" title="Mi idea" status="discovered" body="Resumen de la idea." />,
   );
 }
 

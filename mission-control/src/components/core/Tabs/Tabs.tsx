@@ -67,6 +67,12 @@ export interface TabsProps {
   onChange: (id: string) => void;
   /** Optional accessible label for the tablist (Spanish). */
   ariaLabel?: string;
+  /**
+   * Optional prefix for each tab button's `data-testid` (default `"tab-"`).
+   * Lets a consuming screen keep stable, screen-specific test ids while still
+   * using the ONE shared tab primitive (DR-062) — e.g. `"card-detail-tab-"`.
+   */
+  testIdPrefix?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -146,7 +152,14 @@ const COUNT_BADGE_STYLE: React.CSSProperties = {
  *   Focus is moved imperatively via ref array; selection stays at `active`
  *   until the user presses Enter/Space or clicks (standard roving tabindex).
  */
-export function Tabs({ level, tabs, active, onChange, ariaLabel }: TabsProps): React.JSX.Element {
+export function Tabs({
+  level,
+  tabs,
+  active,
+  onChange,
+  ariaLabel,
+  testIdPrefix = "tab-",
+}: TabsProps): React.JSX.Element {
   // Ref array to imperatively focus tab buttons on arrow-key navigation
   const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -190,7 +203,7 @@ export function Tabs({ level, tabs, active, onChange, ariaLabel }: TabsProps): R
             }}
             type="button"
             role="tab"
-            data-testid={`tab-${tab.id}`}
+            data-testid={`${testIdPrefix}${tab.id}`}
             aria-selected={isActive ? "true" : "false"}
             tabIndex={isActive ? 0 : -1}
             style={tabStyle(isActive)}

@@ -34,37 +34,9 @@ export const TITLE_STYLE: React.CSSProperties = {
 };
 
 // ---------------------------------------------------------------------------
-// Tab row
+// Tab row — now rendered by the shared Tabs primitive (DR-062); the bespoke
+// TAB_ROW_STYLE / tabButtonStyle were removed when CardDetail adopted <Tabs>.
 // ---------------------------------------------------------------------------
-
-export const TAB_ROW_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "row",
-  gap: 0,
-  borderBottom: "var(--hairline, 1px) solid var(--color-border, currentColor)",
-  overflowX: "auto",
-  scrollbarWidth: "none",
-};
-
-/** Style for a tab button — active or inactive. */
-export function tabButtonStyle(active: boolean): React.CSSProperties {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    padding: "calc(var(--spacing, 0.25rem) * 2) calc(var(--spacing, 0.25rem) * 4)",
-    fontSize: "0.8125rem",
-    fontWeight: active ? 600 : 400,
-    color: active ? "var(--color-accent, currentColor)" : "var(--color-text-muted, currentColor)",
-    background: "none",
-    border: "none",
-    borderBottom: active ? "2px solid var(--color-accent, currentColor)" : "2px solid transparent",
-    marginBottom: "-1px",
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    fontFamily: "inherit",
-    outline: "none",
-  };
-}
 
 // ---------------------------------------------------------------------------
 // Panel base
