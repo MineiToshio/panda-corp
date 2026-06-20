@@ -3,7 +3,7 @@ id: FRD-01-blueprint
 type: blueprint
 parent: FRD-01
 status: ACTIVE
-implementation_status: PLANNED
+implementation_status: VERIFIED
 last_updated: '2026-06-16'
 ---
 # FRD-01 — Data reading layer — Feature blueprint

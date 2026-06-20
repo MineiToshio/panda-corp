@@ -153,4 +153,43 @@ describe("useLiveSnapshot — adversarial", () => {
     expect(result.current.snapshot).not.toBeNull();
     expect(result.current.lastEventAt).toBeNull();
   });
+
+  // DR-016 gap closed (reviewer): the existing "does not reconnect after unmount"
+  // test errors the source AFTER unmount, so a reconnect timer is never pending
+  // at teardown — neither the cleanup's cancelReconnect() nor the inner reconnect
+  // guard is exercised (both mutations survived). This pins the REAL race: an
+  // error fires, a reconnect timer is SCHEDULED, and THEN the component unmounts
+  // before the delay elapses. No new EventSource may be opened after unmount.
+  it("a reconnect timer pending AT unmount is cancelled — no EventSource opens afterwards", async () => {
+    vi.useFakeTimers();
+    const { unmount } = renderHook(() => useLiveSnapshot());
+
+    act(() => {
+      instances[0]?._open();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10);
+    });
+
+    // Error WHILE mounted → schedules a reconnect timer (RECONNECT_DELAY_MS=3000).
+    act(() => {
+      instances[0]?._err();
+    });
+    // Advance only partway — the reconnect timer is now PENDING, not yet fired.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    const countBefore = instances.length;
+
+    // Unmount with the reconnect timer still pending.
+    unmount();
+
+    // Let the original reconnect delay (and more) elapse post-unmount.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    // The pending reconnect must have been cancelled — no new EventSource opened.
+    expect(instances.length).toBe(countBefore);
+  });
 });

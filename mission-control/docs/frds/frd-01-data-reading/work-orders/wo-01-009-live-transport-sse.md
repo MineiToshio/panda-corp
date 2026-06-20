@@ -5,7 +5,7 @@ slug: live-transport-sse
 title: 'WO-01-009 — Foundation (FND-5): the shared live transport (SSE route + useLiveSnapshot)'
 status: DRAFT
 parent: FRD-01
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 foundation: true
 artifacts:
   - 'src/app/api/live/**'
