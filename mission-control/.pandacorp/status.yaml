@@ -11,8 +11,8 @@ repo: ""
 updated_at: "2026-06-20T13:16:51Z"
 work_orders_total: 78
 work_orders_verified: 55
-work_orders_in_review: 3
-work_orders_planned: 20
+work_orders_in_review: 5
+work_orders_planned: 18
 work_orders_in_progress: 0
 work_orders_blocked: 0
 work_orders_done: 55
