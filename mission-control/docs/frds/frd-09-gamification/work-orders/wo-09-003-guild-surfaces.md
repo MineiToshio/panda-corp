@@ -5,7 +5,7 @@ slug: guild-surfaces
 title: 'WO-09-003 — Guild surfaces: GuildBar + GuildHero + StatRadar + CelebrationSurface'
 status: DRAFT
 parent: FRD-09
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
 artifacts:
   - 'src/app/achievements/page.tsx'
   - 'src/components/modules/GuildBar/**'
@@ -111,10 +111,17 @@ and [fdd.md](../fdd.md) for the render-fn pointers and the token slice (`rpgSkin
 6. **`achievements/page.tsx`** — hero section replaced with `GuildHero`; `StatRadar` added beside `StatsPanel`. Page heading changed to "Logros" (DR-062). Props derived from `computeStats`, `computeUniques`, `eventsSnapshot?.events` (null-guarded). Old `HALL_TABS`/bespoke hero removed.
 
 **Interfaces/contracts exposed:**
-- `XpBarSize = "compact" | "full"` — `XpBar` size prop
+- `XpBar` `size` prop accepts `"compact" | "full"` (the `XpBarSize` alias is now module-private — no external consumer, so it is not exported)
 - `GuildHeroProps` — see type in `GuildHero.tsx` (all fields required except `partyRoster` which is `readonly AgentRole[]`)
-- `StatRadarAxes` — `{ produccion; velocidad; calidad; constancia; ideacion; alcance }` all `number` 0–100, exported from `StatsPanel.tsx`
+- `StatRadarAxes` — `{ produccion; velocidad; calidad; constancia; ideacion; alcance }` all `number` 0–100 (module-private in `StatsPanel.tsx`, used by `StatRadarProps`)
 - `CelebrationSurfaceProps` — `event: Event | null`, `onDismiss?: () => void`, `newLevel?: number`
+
+**Repair (2026-06-20, repair engineer — FRD-16 tree-gate green-up):**
+Fixed two of the three FRD-09 reviewer blockers; the third (CelebrationSurface not wired to the event stream — AC-09-006.1/.5) remains open, so this WO stays **PLANNED** for the FRD-09 build to complete the wiring.
+- **Honesty (finding #2, AC-09-004.3 / FRD-09 core principle):** `LevelupContent` no longer hardcodes "Gran maestro del gremio" / `next=2000`. It now derives the rank title, base XP and next threshold from `RANKS` by `newLevel` (1-based → `RANKS[newLevel-1]`): a fresh bar at the new rank reads `xp = currentRank.threshold` toward `next = nextRank.threshold` (0% into the new rank), `label`/`nextTitle` from the real ladder. At max rank, next mirrors current. Pinned by `_tests/wo-09-003-celebration-honesty.adversarial.test.tsx` (3 reviewer adversarial tests).
+- **Biome (finding #1):** removed 2 unused `biome-ignore` suppressions (`useKeyWithClickEvents`+`noStaticElementInteractions` on the backdrop where `role="presentation"` already exempts, and `useExhaustiveDependencies` on the mount-only matchMedia effect). Kept the single suppression that actually fires (`noStaticElementInteractions` on the click-dismiss backdrop). `biome check --error-on-warnings` clean.
+- **Dead code (knip, fail-closed):** dropped the unused `export` on `XpBarSize` and `StatRadarAxes` (both used only internally). The `/board` visual baseline was re-blessed: the FRD-09 compact-XpBar GuildBar correctly replaced the previously-blessed broken double-"Aprendiz" header (height 1211→1178px); the old baseline captured the defect, the new render is the AC-09-004.5-compliant fix.
+- **Still open (finding #3):** `CelebrationSurface` has 0 non-test consumers; it must be mounted in the shell and fed the latest result event for the auto-fire AC to hold in runtime. Not fixable as a repair edit — left for the FRD-09 build.
 
 **Implicit decisions and assumptions:**
 - `GuildHero` is a `<section>` (not `<div>`) for `aria-label` ARIA compatibility (biome a11y rule)

@@ -74,30 +74,6 @@ export const LIST_STYLE: React.CSSProperties = {
   gap: "calc(var(--spacing, 0.25rem) * 1)",
 };
 
-/** Returns style for a standard item row (button). */
-export function standardItemStyle(isOpen: boolean): React.CSSProperties {
-  return {
-    display: "flex",
-    alignItems: "center",
-    gap: "calc(var(--spacing, 0.25rem) * 3)",
-    width: "100%",
-    padding: "calc(var(--spacing, 0.25rem) * 2) calc(var(--spacing, 0.25rem) * 3)",
-    background: isOpen
-      ? "var(--color-surface-raised, oklch(from var(--color-surface, oklch(0.1 0.015 230)) calc(l + 0.04) c h))"
-      : "transparent",
-    border: "var(--hairline, 1px) solid",
-    borderColor: isOpen ? "var(--color-accent, currentColor)" : "var(--color-border, transparent)",
-    borderRadius: "var(--radius, 0.5rem)",
-    cursor: "pointer",
-    textAlign: "left",
-    color: "var(--color-text, currentColor)",
-    fontFamily: "inherit",
-    fontSize: "0.875rem",
-    transition:
-      "background var(--duration-fast, 150ms) var(--easing-standard, ease), border-color var(--duration-fast, 150ms) var(--easing-standard, ease)",
-  };
-}
-
 export const ITEM_TITLE_STYLE: React.CSSProperties = {
   flex: 1,
   fontWeight: 500,

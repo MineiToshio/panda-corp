@@ -25,7 +25,7 @@
  *   CMP-09-xp-bar → blueprint §3 → WO-09-004 / WO-09-003
  */
 
-export type XpBarSize = "compact" | "full";
+type XpBarSize = "compact" | "full";
 
 export type XpBarProps = {
   /** Current accumulated XP total. */

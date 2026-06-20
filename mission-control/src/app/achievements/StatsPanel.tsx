@@ -160,7 +160,7 @@ export type StatsPanelProps = {
  * StatRadar axes — the 6 guild attribute dimensions.
  * Keys match prototype AX array: Producción/velocidad/calidad/constancia/ideacion/lanzados.
  */
-export interface StatRadarAxes {
+interface StatRadarAxes {
   /** Producción axis value 0–100 */
   produccion: number;
   /** Velocidad axis value 0–100 */
