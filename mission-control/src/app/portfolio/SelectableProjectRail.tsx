@@ -49,23 +49,32 @@ const LINK_STYLE: React.CSSProperties = {
   padding: "calc(var(--space-base, 1rem) * 0.25) calc(var(--space-base, 1rem) * 0.375)",
 };
 
+/**
+ * Rail item base style — matches prototype `.rail`:
+ * padding 9px 11px, transparent border (appears on hover/selected),
+ * no background in resting state (hover → secondary, selected → accent-bg).
+ */
 const ROW_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "calc(var(--space-base, 1rem) * 0.25)",
-  padding: "calc(var(--space-base, 1rem) * 0.625) calc(var(--space-base, 1rem) * 0.75)",
-  background: "var(--color-surface, Canvas)",
-  border: "var(--hairline, 1px) solid var(--color-border, currentColor)",
-  borderRadius: "var(--radius, 0.5rem)",
-  boxShadow: "var(--shadow-1, none)",
+  padding: "9px 11px",
+  border: "0.5px solid transparent",
+  borderRadius: "var(--radius-md, var(--radius, 0.5rem))",
+  cursor: "pointer",
+  marginBottom: "6px",
   minWidth: 0,
 };
 
+/**
+ * Rail item selected style — matches prototype `.rail.on`:
+ * accent-bg fill + accent border + inset accent ring.
+ */
 const ROW_SELECTED_STYLE: React.CSSProperties = {
   ...ROW_STYLE,
-  background: "var(--color-base, Canvas)",
+  background: "var(--color-accent-bg, currentColor)",
   borderColor: "var(--color-accent, currentColor)",
-  boxShadow: "var(--shadow-2, none)",
+  boxShadow: "inset 0 0 0 1px var(--color-accent, currentColor)",
 };
 
 const ROW_HEADER_STYLE: React.CSSProperties = {
@@ -110,6 +119,27 @@ const CHIP_BUILDING_STYLE: React.CSSProperties = {
 const CHIP_STOPPED_STYLE: React.CSSProperties = {
   ...CHIP_STYLE,
   opacity: 0.55,
+};
+
+/** Status icon: play (running) or pause (stopped). Matches prototype ti-player-* icons. */
+const ICON_RUNNING_STYLE: React.CSSProperties = {
+  fontSize: "14px",
+  color: "var(--color-ok, currentColor)",
+  flexShrink: 0,
+};
+
+const ICON_STOPPED_STYLE: React.CSSProperties = {
+  fontSize: "14px",
+  color: "var(--color-text3, currentColor)",
+  flexShrink: 0,
+};
+
+/** Stage line — second line below icon+title row, indented 22px (matches prototype stage label). */
+const STAGE_LINE_STYLE: React.CSSProperties = {
+  fontSize: "11px",
+  color: "var(--color-text3, currentColor)",
+  marginTop: "3px",
+  marginLeft: "22px",
 };
 
 const EMPTY_STYLE: React.CSSProperties = {
@@ -231,33 +261,44 @@ export function SelectableProjectRail({
               aria-label={`Seleccionar proyecto: ${item.name}`}
               aria-current={isSelected ? "page" : undefined}
             >
+              {/* Title row: [status icon] [name] [count badges] — matches prototype rail item */}
               <div style={ROW_HEADER_STYLE}>
-                {/* Project name */}
+                {/* Status icon (AC-03-002.1) — ti-player-play (ok) or ti-player-pause (text3).
+                    Only shown when the path exists; a missing path has no running state. */}
+                {item.exists && item.running !== undefined && (
+                  <i
+                    data-testid="rail-item-status-icon"
+                    className={`ti ${item.running ? "ti-player-play" : "ti-player-pause"}`}
+                    style={item.running ? ICON_RUNNING_STYLE : ICON_STOPPED_STYLE}
+                    aria-hidden="true"
+                  />
+                )}
+
+                {/* Project name (500 weight, matches prototype `font-weight:500`) */}
                 <h3 style={NAME_STYLE}>{item.name}</h3>
 
-                {/* Stage chip (AC-03-002.1) */}
-                {item.stage !== undefined && (
-                  <span
-                    data-testid="selectable-row-stage"
-                    style={CHIP_STYLE}
-                    title={`Fase: ${item.stage}`}
-                  >
-                    {item.stage}
-                  </span>
-                )}
-
-                {/* Running indicator (AC-03-002.1): not color-only — text label always present. */}
-                {item.running !== undefined && item.exists && (
-                  <span
-                    data-testid="selectable-row-indicator"
-                    style={indicatorStyle}
-                    role="status"
-                    aria-label={indicatorAriaLabel}
-                  >
-                    {indicatorLabel}
-                  </span>
-                )}
+                {/* Count badges slot — StatusChips renders inline here on the title row */}
               </div>
+
+              {/* Stage line — second line below icon+title, indented (prototype stage label) */}
+              {item.stage !== undefined && (
+                <div data-testid="selectable-row-stage" style={STAGE_LINE_STYLE}>
+                  {item.stage}
+                </div>
+              )}
+
+              {/* Running indicator — kept for existing tests that query selectable-row-indicator */}
+              {item.running !== undefined && item.exists && (
+                <span
+                  data-testid="selectable-row-indicator"
+                  style={indicatorStyle}
+                  role="status"
+                  aria-label={indicatorAriaLabel}
+                  className="sr-only"
+                >
+                  {indicatorLabel}
+                </span>
+              )}
             </Link>
 
             {/* Status chips: decisions / bugs / rethink (CMP-14-status-chips, WO-14-003).

@@ -2,17 +2,20 @@
  * Portfolio page — Server Component (CMP-03-workspace-slot).
  *
  * Reads active projects from activeProjects() and derives the selected project
- * from the ?project= URL param (URL-driven selection, WO-03-004 design).
+ * from the ?project= URL param (URL-driven selection).
  *
  * Selection rules (AC-03-004.1, AC-03-005.1):
  *   - ?project=<name> and that name matches an active project → that project selected.
  *   - No param (or unmatched param) → first active project selected by default.
  *   - No active projects → empty state (WorkspaceSlot + SelectableProjectRail empty).
  *
- * The right panel renders WorkspaceSlot carrying the selected slug.
- * Until FRD-04 lands, WorkspaceSlot is a placeholder with data-slug="<name>".
- * Wiring FRD-04: replace WorkspaceSlot's body with the real workspace component.
+ * Layout (FDD-03 §1, prototype portfolioView()):
+ *   PageTitle "Portfolio" (the ONE light title block, DR-062)
+ *   Two-column grid: 240px rail | 1fr workspace pane; gap 14px; align-items start.
+ *   Rail column: "PROYECTOS" label (railLabel style) + SelectableProjectRail.
+ *   Right column: WorkspaceSlot hosting the selected project's workspace (FRD-04).
  *
+ * Wiring FRD-04: replace WorkspaceSlot's body with the real workspace component.
  * Read-only (architecture §1): activeProjects() never writes, never calls Claude.
  *
  * Traceability:
@@ -20,9 +23,10 @@
  *   IF-03-activeProjects (docs/api.md WO-03-001)
  *   REQ-03-001, REQ-03-004, REQ-03-005
  *   AC-03-004.1, AC-03-005.1
- *   WO-03-004
+ *   WO-03-002 (surface)
  */
 
+import { PageTitle } from "@/components/core/PageTitle/PageTitle";
 import { activeProjects } from "@/lib/portfolio/portfolio";
 import { SelectableProjectRail } from "./SelectableProjectRail";
 import { deriveSelectedSlug } from "./selection";
@@ -35,6 +39,39 @@ import { WorkspaceSlot } from "./WorkspaceSlot";
 interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
+
+// ---------------------------------------------------------------------------
+// Styles — CSS custom properties only; zero hardcoded colors/spacing.
+// ---------------------------------------------------------------------------
+
+const PAGE_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  minHeight: "100dvh",
+  background: "var(--color-base, Canvas)",
+  color: "var(--color-text, currentColor)",
+  padding: "var(--space-base, 1rem)",
+  boxSizing: "border-box",
+};
+
+const GRID_STYLE: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "240px 1fr",
+  gap: "14px",
+  alignItems: "start",
+};
+
+/**
+ * Rail label — mirrors prototype `railLabel()`: small uppercase label
+ * above a section list (PROYECTOS, DOCUMENTOS, CAPÍTULOS).
+ * font-size: 10px, color: var(--color-accent-text), letter-spacing: .08em.
+ */
+const RAIL_LABEL_STYLE: React.CSSProperties = {
+  fontSize: "10px",
+  color: "var(--color-accent-text, currentColor)",
+  letterSpacing: "0.08em",
+  margin: "2px 6px 8px",
+};
 
 // ---------------------------------------------------------------------------
 // Page
@@ -55,40 +92,32 @@ export default async function PortfolioPage({
   const selectedSlug = deriveSelectedSlug(items, projectParam);
 
   return (
-    <main
-      data-testid="portfolio-page"
-      style={{
-        display: "flex",
-        minHeight: "100dvh",
-        background: "var(--color-base, Canvas)",
-        color: "var(--color-text, currentColor)",
-      }}
-    >
-      {/* Left rail — selectable project list (CMP-03-rail, CMP-03-row) */}
-      <aside
-        data-testid="portfolio-page-rail"
-        style={{
-          width: "clamp(220px, 22vw, 320px)",
-          borderRight: "var(--hairline, 1px) solid var(--color-border, currentColor)",
-          overflowY: "auto",
-          flexShrink: 0,
-        }}
-      >
-        <SelectableProjectRail items={items} selectedSlug={selectedSlug} />
-      </aside>
+    <main data-testid="portfolio-page" style={PAGE_STYLE}>
+      {/* PageTitle — THE one light page-title block (DR-062, CMP-13-pagetitle).
+          Icon: ti-stack-2. Title: "Portfolio". Subtitle: description from prototype. */}
+      <PageTitle
+        icon="ti-stack-2"
+        title="Portfolio"
+        subtitle="Tus proyectos en obra y lanzados. Elige uno para su workspace: resumen, work orders, party y documentación."
+      />
 
-      {/* Right panel — workspace slot (CMP-03-workspace-slot) */}
-      <div
-        data-testid="portfolio-page-workspace"
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          minWidth: 0,
-          minHeight: 0,
-        }}
-      >
-        <WorkspaceSlot selectedSlug={selectedSlug} />
+      {/* Two-column grid: 240px rail | 1fr workspace pane (FDD-03 §1) */}
+      <div style={GRID_STYLE}>
+        {/* Left — the project rail column (CMP-03-rail, CMP-03-row) */}
+        <div data-testid="portfolio-page-rail">
+          {/* "PROYECTOS" rail label (prototype railLabel("PROYECTOS")) */}
+          <div data-testid="portfolio-rail-label" aria-hidden="true" style={RAIL_LABEL_STYLE}>
+            PROYECTOS
+          </div>
+
+          {/* Selectable rail: URL-driven selection, one row per active project */}
+          <SelectableProjectRail items={items} selectedSlug={selectedSlug} />
+        </div>
+
+        {/* Right — workspace slot (CMP-03-workspace-slot) */}
+        <div data-testid="portfolio-page-workspace">
+          <WorkspaceSlot selectedSlug={selectedSlug} />
+        </div>
       </div>
     </main>
   );
