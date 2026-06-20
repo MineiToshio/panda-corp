@@ -1,4 +1,4 @@
-# Design standard (DR-054, DR-055)
+# Design standard (DR-054, DR-055, DR-064)
 
 How the factory produces a project's look, freezes it as a contract, and **guarantees the build
 reproduces it**. Born from a failure: Mission Control was adopted with an owner-approved prototype
@@ -155,7 +155,32 @@ The whole app must feel like **ONE application**, not a set of screens each desi
 
 Enforced two ways: the design phase **defines these framing patterns in the system** (the Claude Design system / `docs/design/components.md`, where titles/section-headers/tabs are first-class shared primitives, not per-screen ad-hoc markup), and the **`reviewer`'s runtime/visual lens checks cross-surface consistency** — a screen that looks like a *different app* from its siblings is rejected, exactly like a duplicate component. The owner must never feel they jumped between different apps when switching tabs.
 
-## 8. Where this is wired
+## 8. Functional reconciliation prototype ↔ FRD — bidirectional (DR-064)
+
+When the factory blesses an approved prototype as the canonical source of truth (the ADOPT-VISUAL
+path, §1, and any design re-anchor), it must reconcile **functionality**, not only the **look**. The
+Mission Control failure had two causes, not one: the design wasn't anchored (fixed by DR-054/056)
+**and** behaviour the owner had put in the prototype was never reflected in the FRDs (owner: *"puede
+ser un error mío por no documentarlo bien"*). An approved whole-app prototype is the source of truth
+for **BEHAVIOUR too**, so the reconciliation runs **both directions before the prototype is blessed**:
+
+- **Group A — the prototype HAS it, the FRD LACKS it → update the FRD.** Every interaction, state,
+  screen, affordance or flow the prototype shows that no FRD documents is surfaced and **written into
+  the owning FRD** (acceptance criteria + FDD), so the build actually produces it. A demo-only control
+  (DR-061) is the exception — it is marked, not promoted to a requirement.
+- **Group B — the FRD WANTS it, the prototype LACKS it → build it into the prototype (or flag the
+  hole).** Every behaviour an FRD specifies that the prototype doesn't show is either **built into the
+  prototype** (so the visual gate has a real screen to verify against) or **explicitly flagged as a
+  gap** — never silently grounded on a screen that doesn't exist. A visual/fidelity gate anchored on a
+  missing screen is a false gate.
+
+The reconciliation is **explicit and itemized** (in Mission Control we found ~7 of each), surfaced to
+the owner, and resolved BEFORE the prototype is frozen as canonical — a visual-only re-anchor that
+leaves functional divergence is **not done**. This is the functional analogue of the
+complete-extraction rule (§5): extraction captures every visual layer; reconciliation captures every
+behavioural one.
+
+## 9. Where this is wired
 
 | Concern | File |
 |---|---|
@@ -169,3 +194,4 @@ Enforced two ways: the design phase **defines these framing patterns in the syst
 | Runtime/visual verification (smoke) | `plugin/agents/reviewer.md`, `factory/standards/build-orchestration.md` §5, `plugin/templates/stack-a-nextjs/STACK.md`, `plugin/templates/rules/quality-and-testing.md` |
 | Demo-only controls marked in prototypes (DR-061) | `plugin/skills/design/SKILL.md`, `plugin/agents/designer.md` |
 | One cohesive app — cross-surface consistency (DR-062) | `plugin/skills/design/SKILL.md`, `plugin/agents/designer.md`, `plugin/agents/reviewer.md` |
+| Functional reconciliation prototype ↔ FRD, bidirectional (DR-064) | `plugin/skills/design/SKILL.md`, `plugin/skills/adopt/SKILL.md`, `plugin/agents/designer.md` |

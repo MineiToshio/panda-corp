@@ -29,7 +29,9 @@ const LOW_BUDGET = (args && args.lowBudget) || 80000  // margin to leave when bu
 const MAX_SPEND = (args && args.maxSpend) || null      // output-token ceiling via budget.spent() — UNRELIABLE alone (under-counts subagent work; unenforced if the supervisor dies). Secondary.
 const MAX_AGENTS = (args && args.maxAgents) || null     // hard cap on subagents spawned this run — the RELIABLE spend brake (each implementer/reviewer ≈ work ≈ tokens), counted INSIDE the engine, independent of budget.spent AND of the supervisor surviving. THE real guardrail.
 const MAX_CONSECUTIVE_BLOCKS = (args && args.maxConsecutiveBlocks) || 3   // health breaker: N non-external blocks in a row → stop (something is systemically wrong)
+const FOUNDATION_REPAIR_CAP = (args && args.foundationRepairCap) || 2   // DR-065: bounded auto-repair of an incomplete foundation — after N failed auto-repairs of the SAME class, escalate to the owner instead of looping/burning budget
 let agentSpawned = 0   // running count of subagents spawned (the maxAgents brake)
+let foundationRepairs = 0   // DR-065: how many foundation auto-repairs we've spent this run (capped by FOUNDATION_REPAIR_CAP)
 
 // Concurrency/models per mode (DR-014). `wave` = work orders built in parallel within
 // an FRD. `split` runs test→backend→frontend; otherwise one full-stack implementer
@@ -97,13 +99,29 @@ const PLAN_SCHEMA = {
 }
 // A reason accompanies every block so Mission Control and the owner know what to do.
 const BLOCK_REASON = { type: 'string', enum: ['needs-owner', 'external', 'error'] }
+// DR-065: a `missingFoundation` list flags the HIGH-CONFIDENCE, BOUNDED auto-repair class — "a
+// surface failed because a shared primitive it needs isn't in the foundation". When present, the
+// engine auto-resolves (add the primitive to the foundation, rebuild, retry) instead of escalating.
+const MISSING_FOUNDATION = { type: 'array', items: { type: 'string' }, description: 'names of shared design-system primitives the surface needed but that are NOT in the built foundation (e.g. Room, AgentSprite). Set this when the failure is "a needed primitive is missing from the foundation" — the engine auto-repairs the foundation (DR-065), it does NOT escalate.' }
 const FRD_GATE_SCHEMA = {
   type: 'object', required: ['green'],
-  properties: { green: { type: 'boolean' }, reopen: { type: 'array', items: { type: 'string' } }, blocked_reason: BLOCK_REASON, failure: { type: 'string' } },
+  properties: { green: { type: 'boolean' }, reopen: { type: 'array', items: { type: 'string' } }, missingFoundation: MISSING_FOUNDATION, blocked_reason: BLOCK_REASON, failure: { type: 'string' } },
 }
 const REPAIR_SCHEMA = {
   type: 'object', required: ['green'],
-  properties: { green: { type: 'boolean' }, blocked_reason: BLOCK_REASON, failure: { type: 'string' } },
+  properties: { green: { type: 'boolean' }, missingFoundation: MISSING_FOUNDATION, blocked_reason: BLOCK_REASON, failure: { type: 'string' } },
+}
+// DR-057 (extended) foundation-completeness gate: the foundation = the UNION of EVERY shared
+// primitive any UI surface's mock/fdd references; it must be COMPLETE + green BEFORE surfaces fan out.
+const FOUNDATION_SCHEMA = {
+  type: 'object', required: ['complete'],
+  properties: {
+    complete: { type: 'boolean' },
+    missing: { type: 'array', items: {
+      type: 'object', required: ['name'],
+      properties: { name: { type: 'string' }, referencedBy: { type: 'array', items: { type: 'string' } }, suggestedPath: { type: 'string' }, note: { type: 'string' } },
+    } },
+  },
 }
 
 // ── Baseline self-heal (deadlock breaker) ─────────────────────────────────────
@@ -128,7 +146,8 @@ const plan = await agent(
   - WALK every FRD module docs/frds/*/. For each, read frd.md and blueprint.md's **Build Plan** (WO order, intra-FRD deps, parallelism, cross-FRD deps) in full, and the **frontmatter ONLY** of every work-orders/wo-*.md (the \`implementation_status\`, \`id\`, deps, title — NOT the full WO body; the implementer reads the body when it builds its own WO, so planning stays fast and cheap).
   - For each work order, the **frontmatter \`implementation_status\` is the source of truth**: PLANNED/IN_PROGRESS = pending; IN_REVIEW = built, awaiting its FRD gate; VERIFIED = done (NEVER rebuild); BLOCKED = skip.
   - docs/product/architecture.md → the platform stack.
-  Return the FRDs that still have non-VERIFIED work orders, **in cross-FRD dependency order** (from the Build Plans). For each FRD: its \`frd\` folder, its \`deps\` (FRD folders that must be VERIFIED first), and its \`workOrders\` (each with id, frontmatter \`status\`, intra-FRD \`deps\`, one-line \`summary\`, **its \`artifacts\` = the file/dir globs it writes, COPIED FROM the WO's \`artifacts:\` frontmatter — REQUIRED so the engine keeps parallel WOs disjoint (DR-060); if a WO has none in frontmatter, infer the files it will write from its title/summary**, and **\`foundation: true\` if this WO builds the shared design-system primitives / inventory the other WOs reuse — DR-057, it must build before they fan out**) **in the Build Plan's order**.${ONLY ? ' Limit to these FRD folders: ' + ONLY.join(', ') + '.' : ''}
+  - **FOUNDATION (DR-057, web only): read docs/design/components.md** (the shared-component inventory) and skim every FRD's \`mocks/\`/\`fdd.md\` to grasp the COMPLETE set of shared primitives the surfaces reference. The foundation work orders must build the UNION of those primitives — not a hand-picked subset (the gap that shipped flat Party surfaces: Room/AgentSprite/etc. were never in the foundation). Mark \`foundation: true\` on EVERY WO that builds a shared primitive the inventory lists, so the engine builds them all before surfaces fan out.
+  Return the FRDs that still have non-VERIFIED work orders, **in cross-FRD dependency order** (from the Build Plans). For each FRD: its \`frd\` folder, its \`deps\` (FRD folders that must be VERIFIED first), and its \`workOrders\` (each with id, frontmatter \`status\`, intra-FRD \`deps\`, one-line \`summary\`, **its \`artifacts\` = the file/dir globs it writes, COPIED FROM the WO's \`artifacts:\` frontmatter — REQUIRED so the engine keeps parallel WOs disjoint (DR-060); if a WO has none in frontmatter, infer the files it will write from its title/summary**, and **\`foundation: true\` if this WO builds a shared design-system primitive / the inventory the other WOs reuse — DR-057, it must build before they fan out**) **in the Build Plan's order**.${ONLY ? ' Limit to these FRD folders: ' + ONLY.join(', ') + '.' : ''}
   hasFrontend=true only if the stack is web (A).`,
   { label: 'plan', phase: 'Plan', schema: PLAN_SCHEMA, model: P.judge, agentType: 'pandacorp:architect' },
 )
@@ -188,6 +207,7 @@ async function frdGate(frd, reviewIds) {
   2) Run the FOCUSED gate \`bash .pandacorp/verify.sh --since <last_green_sha>\` (read last_green_sha from .pandacorp/status.yaml) — biome + tsc run globally, but only the TESTS affected since the last green (fast and scales; the full suite runs once at close-out). It must pass clean.
   If everything passes: set the reviewed work orders (${reviewIds.join(', ')}) to **\`implementation_status: VERIFIED\`**, then **recompute the FRD's frd.md + blueprint.md \`implementation_status\` rollup from ALL its work orders** and persist it (VERIFIED iff all are; else BLOCKED if any blocked; else PLANNED if any planned; else IN_PROGRESS if any in progress; else IN_REVIEW) — the FRD status is DERIVED, never left stale; update .pandacorp/status.yaml (per-status counts + last_green_sha + safe_to_test:true), and commit. Return { green: true }.
   If a SPECIFIC reviewed work order is wrong, set ONLY those (from the reviewed set) back to \`implementation_status: PLANNED\` (leave the rest IN_REVIEW; never touch an already-VERIFIED one), do not commit broken code, and return { green: false, reopen: [those ids], failure } — the engine retries them on the next run, not in a loop.
+  **DR-065 — missing foundation primitive:** if a surface looks FLAT / fails visual fidelity because a SHARED design-system primitive it needs is NOT built (it isn't in src/components nor docs/design/components.md — e.g. the mock shows a Room/AgentSprite/StoneBridge the foundation never built), do NOT block and do NOT just reopen — return { green: false, missingFoundation: [the primitive names], failure }. The engine auto-repairs the foundation (adds the primitive) and rebuilds the surfaces against it — this is exactly the case it can resolve itself, so flag it instead of escalating.
   If it's broken and you can't pinpoint specific WOs, return { green: false, failure, blocked_reason } (classify: 'needs-owner' if a human must act, 'external' if it's a transient outside failure, else 'error').${NOTIFY('FRD ' + frd + ' no paso la revision — necesita tu atencion')}`,
     { label: `gate:${frd}`, phase: 'Review', model: P.judge, agentType: 'pandacorp:reviewer', schema: FRD_GATE_SCHEMA })
 }
@@ -205,6 +225,64 @@ async function attemptRepair(frd, context) {
      - 'external' → a transient OUTSIDE failure (no internet, an upstream 5xx) — worth a retry on a later run, not our bug.
      - 'error' → a technical failure you could not resolve.`,
     { label: `repair:${frd}`, phase: 'Review', model: P.judge, agentType: 'pandacorp:implementer', schema: REPAIR_SCHEMA })
+}
+
+// ── Foundation-completeness gate (DR-057 extended) ────────────────────────────
+// PREVENT: the foundation = the UNION of EVERY shared primitive any UI surface's mock/fdd
+// references. It must be COMPLETE + green BEFORE any surface fans out — otherwise surfaces build
+// flat against missing primitives and fail fidelity (the Party regression: Room/AgentSprite/
+// StoneBridge/FlowStrip were never in the foundation). Read-only analysis; returns the gaps.
+async function foundationCompletenessGate() {
+  agentSpawned++
+  return await agent(
+    `You are the FOUNDATION-COMPLETENESS auditor (DR-057). The foundation = the UNION of EVERY shared design-system primitive that ANY UI surface's mock/fdd references — not a hand-picked subset. READ-ONLY, build nothing.
+    1) Enumerate the COMPLETE set: read docs/design/components.md (the living inventory) AND scan every docs/frds/*/mocks/ + fdd.md to list every shared primitive the surfaces depend on (layout shells, Banner/Card/Chip/Modal/Button, and any app-specific shared primitive the mocks show — e.g. Room/AgentSprite/StoneBridge/FlowStrip).
+    2) For each, check it EXISTS as a BUILT shared component (scan src/components/core + src/components/modules) AND its foundation work order is VERIFIED/IN_REVIEW (read the WO frontmatter).
+    Return { complete: true } if every referenced shared primitive is built; otherwise { complete: false, missing: [{ name, referencedBy: [frd folders], suggestedPath, note }] }. Be precise: only list primitives that surfaces genuinely reference and that are NOT yet built.`,
+    { label: 'foundation-gate', phase: 'Plan', model: P.judge, agentType: 'pandacorp:reviewer', schema: FOUNDATION_SCHEMA })
+}
+
+// ── Bounded foundation auto-repair (DR-065) ───────────────────────────────────
+// CURE: the high-confidence, recoverable, BOUNDED class — "a surface needs a shared primitive that
+// isn't in the foundation". The engine auto-resolves (it already knows the fix) instead of stopping
+// to ask: reset to the last green, ADD the missing primitive(s) to the foundation on the frozen
+// tokens per their mock spec, rebuild + re-verify, commit. Capped by FOUNDATION_REPAIR_CAP; on
+// exhaustion it escalates needs-owner. This is the autonomy gap the Party build exposed.
+async function repairFoundation(missing, context) {
+  foundationRepairs++
+  agentSpawned++
+  const list = (missing || []).map((m) => `${m.name}${m.referencedBy && m.referencedBy.length ? ' (needed by ' + m.referencedBy.join(', ') + ')' : ''}${m.suggestedPath ? ' → ' + m.suggestedPath : ''}`).join('; ')
+  return await agent(
+    `${EMIT('implementer', 'foundation', { phase: 'build', activity: 'repair' })}FOUNDATION AUTO-REPAIR (DR-065), attempt ${foundationRepairs}/${FOUNDATION_REPAIR_CAP}. ${context}. The foundation is INCOMPLETE — these shared primitives that surfaces need are NOT built: ${list || '(see the gate output)'}.
+    1) Reset to the last green: \`git reset --hard <last_green_sha>\` (read last_green_sha from .pandacorp/status.yaml) so you discard the flat half-built surfaces, NOT the verified foundation.
+    2) For EACH missing primitive: build it as a SHARED foundation component on the frozen design tokens, faithful to its mock/fdd spec (read docs/frds/*/mocks + docs/design/design-tokens.json + DESIGN.md); place it under src/components/core or src/components/modules; APPEND a row to docs/design/components.md so surfaces reuse it. TDD; never weaken tests.
+    3) Run \`bash .pandacorp/verify.sh\` until green and commit (Conventional Commits, scope). The surfaces that depended on these primitives stay PLANNED so the normal loop rebuilds them next — now against REAL primitives.
+    Return { green: true } if the foundation is now complete + green. If you genuinely cannot (low confidence, the gap is really a design/product decision, or it's beyond a primitive add), return { green: false, blocked_reason: 'needs-owner', failure } describing what a human must decide.${NOTIFY('Auto-reparé la fundación (faltaban primitivos) y reconstruyo las superficies')}`,
+    { label: `foundation-repair:${foundationRepairs}`, phase: 'Build', model: P.judge, agentType: 'pandacorp:implementer', schema: REPAIR_SCHEMA })
+}
+
+// Run the completeness gate once before surfaces fan out; auto-repair (bounded) until complete or
+// escalate. Returns true if the foundation is complete (safe to fan out), false if it needs the owner.
+let foundationVerified = false
+let foundationEscalated = false   // once the foundation needs the owner, don't re-run the gate for every later surface FRD
+async function ensureFoundationComplete() {
+  if (foundationVerified || !plan.hasFrontend) return true
+  if (foundationEscalated) return false
+  while (true) {
+    const fc = await foundationCompletenessGate()
+    if (!fc || fc.complete === true) { foundationVerified = true; return true }
+    log(`⚠ Foundation INCOMPLETE: ${(fc.missing || []).map((m) => m.name).join(', ') || 'unknown primitives'}`)
+    if (foundationRepairs >= FOUNDATION_REPAIR_CAP) {
+      log(`⊘ Foundation still incomplete after ${foundationRepairs} auto-repair(s) — escalating to the owner`)
+      foundationEscalated = true; return false
+    }
+    const fix = await repairFoundation(fc.missing, 'foundation-completeness gate before fanning out surfaces')
+    if (!fix || fix.green !== true) {
+      log(`⊘ Foundation auto-repair could not complete (${(fix && fix.blocked_reason) || 'error'}) — escalating to the owner`)
+      foundationEscalated = true; return false
+    }
+    log(`✓ Foundation auto-repair ${foundationRepairs} done — re-checking completeness`)
+  }
 }
 
 // ── Per-FRD loop ──────────────────────────────────────────────────────────────
@@ -258,6 +336,20 @@ for (const f of plan.frds) {
   if (MAX_SPEND && budget.spent() >= MAX_SPEND) { stopReason = 'budget'; log(`Spend ceiling reached (${Math.round(budget.spent() / 1000)}k ≥ maxSpend ${Math.round(MAX_SPEND / 1000)}k) — stopping at a safe point`); break }
   if ((builtFrds.length + blockedFrds.length + reopenedFrds.length) >= MAX_FRDS) { stopReason = 'maxFrds'; log(`Reached the test cap maxFrds=${MAX_FRDS} (built+blocked+reopened) — stopping at a safe point`); break }
 
+  // DR-057 (extended) PREVENT: before fanning out ANY surface (a non-foundation UI WO), the foundation
+  // must be COMPLETE + green. The gate runs once; an incomplete foundation auto-repairs (bounded,
+  // DR-065) before surfaces build flat against missing primitives. If it can't, surfaces wait on the owner.
+  const hasSurfaceWork = f.workOrders.some((w) => w.status !== 'VERIFIED' && w.status !== 'BLOCKED' && !w.foundation)
+  if (plan.hasFrontend && hasSurfaceWork && !foundationVerified) {
+    const ok = await ensureFoundationComplete()
+    if (!ok) {
+      log(`⊘ ${f.frd}: foundation incomplete and it needs the owner — holding surface work`)
+      blockFrd(f.frd, 'needs-owner')
+      if (consecutiveBlocks >= MAX_CONSECUTIVE_BLOCKS) { stopReason = 'blocks'; break }
+      continue
+    }
+  }
+
   phase('Build')
   const pending = f.workOrders.filter((w) => w.status !== 'VERIFIED' && w.status !== 'BLOCKED')
   const reviewIds = pending.map((w) => w.id)   // all non-VERIFIED/non-BLOCKED reach the gate; already-VERIFIED WOs are a stable foundation, never re-touched
@@ -305,6 +397,21 @@ for (const f of plan.frds) {
   let gate = await frdGate(f.frd, reviewIds)
   if (gate && gate.green === true) { log(`✓ ${f.frd} VERIFIED`); builtFrds.push(f.frd); consecutiveBlocks = 0; continue }
   if (gate && gate.reopen && gate.reopen.length) { log(`↻ ${f.frd}: ${gate.reopen.length} WO reopened (PLANNED) — next run rebuilds only those`); reopenedFrds.push(f.frd); continue }  // reopen is deferred work, not progress — leave the health breaker untouched
+
+  // DR-065 CURE: the surface failed because a shared primitive it needs isn't in the foundation —
+  // a HIGH-CONFIDENCE, BOUNDED class. The engine ALREADY knows the fix, so it auto-resolves instead
+  // of stopping to ask (the autonomy gap the Party build exposed): add the primitive(s) to the
+  // foundation, then let this FRD's surfaces rebuild against the real primitives next pass.
+  if (gate && gate.missingFoundation && gate.missingFoundation.length && foundationRepairs < FOUNDATION_REPAIR_CAP) {
+    log(`! ${f.frd}: gate found primitives missing from the foundation (${gate.missingFoundation.join(', ')}) — auto-repairing (DR-065)`)
+    const fr = await repairFoundation(gate.missingFoundation.map((n) => ({ name: n, referencedBy: [f.frd] })), `the FRD gate for ${f.frd} found a surface needs a primitive missing from the foundation`)
+    if (fr && fr.green === true) {
+      foundationVerified = false   // re-confirm completeness before the next surface fans out
+      log(`✓ ${f.frd}: foundation repaired — its surfaces rebuild against real primitives next pass`)
+      reopenedFrds.push(f.frd); continue   // the repair reset surfaces to the last green (→ PLANNED); next pass rebuilds them
+    }
+    log(`⊘ ${f.frd}: foundation auto-repair failed — falling through to block`)
+  }
 
   // Gate failed with no specific reopen → TRY TO REPAIR, then re-gate ONCE (fail-closed).
   log(`! ${f.frd} gate failed${gate?.failure ? ': ' + gate.failure : ''} — attempting repair`)

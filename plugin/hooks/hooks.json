@@ -20,6 +20,12 @@
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/warn-adhoc-write.sh\"",
             "timeout": 10,
             "statusMessage": "Pandacorp write-gate"
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/remind-manual-sync.sh\"",
+            "timeout": 10,
+            "statusMessage": "Pandacorp Manual-sync"
           }
         ]
       }

@@ -99,6 +99,17 @@ other's work, so given the same need they reinvent slightly-different versions o
   and while any foundation WO is still pending the engine's wave is **foundation-only** — features
   cannot fan out before the primitives exist, regardless of whether the blueprint author threaded the
   dependency to every feature WO.
+- **The foundation must be COMPLETE, not a subset — a foundation-completeness GATE (DR-057, extended).**
+  Foundation-first only works if the foundation is the **UNION of every shared primitive that ANY
+  surface's mock/FDD references** — derived from `docs/design/components.md` (+ each per-FRD `mocks/`/
+  `fdd.md`), never a hand-picked list. The Party regression: the foundation was declared "ready" while
+  **incomplete** (the `Room`/`AgentSprite`/`StoneBridge`/`FlowStrip` primitives the Party surfaces need
+  were never in it), so the surfaces built **flat** and failed the fidelity gate. So the planner
+  derives the complete set from `components.md`, and the engine runs a **foundation-completeness gate
+  BEFORE any surface fans out**: it enumerates the primitives every surface references, checks each
+  exists as a built shared component and its foundation WO is green, and **refuses to start surfaces
+  until the foundation is complete + green**. An incomplete foundation triggers the **bounded
+  auto-repair** below (§6) rather than building surfaces against missing primitives.
 - **A living component inventory** at `docs/design/components.md` — each shared component with its
   name, one-line purpose, path and key props/variants. The foundation WO seeds it; every WO that adds
   a shared component appends a row. **The engine injects "read the inventory before creating any
@@ -125,6 +136,13 @@ The build engine reviews and tests **per FRD**, not per work order:
   `verify.sh --since <last_green>` runs biome + tsc globally but only the vitest tests **affected since the
   last green** (fast, and scales as the suite grows — it does NOT re-run the whole suite every gate). The
   **full** suite runs once at **close-out**. On pass → every work order + the FRD become `VERIFIED`.
+  These two — the per-FRD `--since` gate and the close-out full suite — are where strict whole-project
+  enforcement lives **during a build**. The per-turn `Stop` hook (`verify-before-stop.sh`) deliberately
+  **stands aside while a build is active** (DR-063): mid-build the tree is legitimately red between safe
+  points, so running the full strict suite on every Stop would block every turn (and every other session
+  parked at that `cwd`). The supervisor keeps a freshness-stamped lock at `.pandacorp/run/build.lock`; the
+  Stop hook no-ops while it's fresh and re-engages strictly when the build ends. The engine owns the gate
+  during a build; the Stop hook owns it at rest. See `quality.md` (Gates).
 - **Three test layers** at the FRD gate: (1) unit/component (per WO during build); (2) integration +
   adversarial review across the feature; (3) **functional/browser — the Preview Smoke Gate (DR-055)**.
   This layer is **mandatory and fail-closed for any FRD that has UI routes** (default ON for web
@@ -201,6 +219,24 @@ carries a **`blocked_reason`**:
 A blocked FRD never halts the whole build unless it's a dependency of everything left, or the health
 breaker trips. Notifications are macOS-desktop (`osascript`) from the engine plus a phone
 `PushNotification` from the supervising agent when Remote Control is on (no third-party push app).
+
+**Bounded auto-repair — resolve the known fix, don't stop to ask (DR-065).** Repair-before-block is a
+general diagnose-and-fix pass. On top of it the engine has a **specific autonomy rule** for one
+**high-confidence, recoverable, BOUNDED class**: *"a surface failed (looks flat / fails fidelity)
+because a shared primitive it needs isn't in the foundation."* The Party build **detected this root
+cause correctly but STOPPED to ask the owner** with 4 options — even though it already knew the fix
+(its own recommended option: move the missing primitives into the foundation and retry). The gap was
+**autonomy, not detection**. So for this class the engine **auto-resolves**: it resets to the last
+green (discarding the flat half-built surfaces, never the verified foundation), **adds the missing
+primitive(s) to the foundation** on the frozen tokens per their mock spec, appends them to
+`components.md`, rebuilds + re-verifies, and lets the surfaces rebuild against the real primitives —
+**capped at `foundationRepairCap` (default 2) auto-repairs per run**. It escalates to the owner ONLY
+when: confidence is low, the gap is genuinely a human/design/product decision, or the cap is reached
+after N failed auto-repairs. The signal is structured: the FRD gate returns `missingFoundation: [names]`
+when it sees this class, and the engine routes it to the bounded foundation auto-repair instead of a
+`needs-owner` block. This is the balance the owner asked for — **autonomy without loops or burning the
+budget**. (PREVENT is §3's foundation-completeness gate; CURE is this bounded auto-repair — same root
+cause, two defenses.)
 
 ## 7. The build supervisor (unattended runs)
 
