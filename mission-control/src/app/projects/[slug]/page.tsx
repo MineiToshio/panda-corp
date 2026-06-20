@@ -66,7 +66,14 @@ interface PageProps {
 // Valid tab ids (AC-04-001.1)
 // ---------------------------------------------------------------------------
 
-const VALID_TABS = new Set<string>(["summary", "work-orders", "party", "documents", "commands"]);
+const VALID_TABS = new Set<string>([
+  "summary",
+  "work-orders",
+  "party",
+  "observabilidad",
+  "documents",
+  "commands",
+]);
 
 function resolveTab(raw: string | string[] | undefined): TabId {
   if (typeof raw === "string" && VALID_TABS.has(raw)) {
@@ -147,6 +154,17 @@ function resolveTabBody(projectPath: string, sel: TabSelection): React.JSX.Eleme
       return renderWorkOrdersTab(projectPath, sel.woParam, sel.woTabParam);
     case "party":
       return <PartyTab />;
+    case "observabilidad":
+      // Mount seam for FRD-12 ObservabilidadTab (CMP-12-*).
+      // The tab body is owned by FRD-12; this shell only provides the slot.
+      // Rendered as a placeholder until FRD-12's WO delivers the component.
+      return (
+        <div data-testid="tab-observabilidad-body" style={{ padding: "24px 16px" }}>
+          <p style={{ color: "var(--color-text2, currentColor)", fontSize: "13px" }}>
+            Observabilidad — pendiente FRD-12
+          </p>
+        </div>
+      );
     case "documents":
       return renderDocumentsTab(projectPath, sel.docParam);
     default:

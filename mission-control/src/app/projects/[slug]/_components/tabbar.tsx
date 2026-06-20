@@ -1,43 +1,53 @@
 "use client";
+
 /**
  * WO-04-004 — TabBar (CMP-04-tabbar)
  *
  * Client Component ("use client"): tab selection for the project workspace.
- *   - Five tabs in exact order: Summary · Work orders · Party · Documents · Commands (AC-04-001.1).
- *   - URL-driven selection: receives activeTab prop (derived from ?tab= search param by page.tsx).
- *   - role="tablist" with aria-selected on the active tab (AC-04-001.1, a11y).
- *   - Each tab is an anchor link with href="?tab=<id>" so the server can read the param.
+ *   - Six tabs in exact order: Resumen · Work orders · Party · Observabilidad ·
+ *     Documentos · Comandos (AC-04-001.1, WO-04-004 re-anchor).
+ *   - URL-driven selection: receives activeTab prop (derived from ?tab= search
+ *     param by page.tsx). On change, pushes the new ?tab= to the URL.
+ *   - Built on the shared SubTabs primitive (DR-062 / WO-13-006) — no ad-hoc
+ *     tab switcher. Uses testIdPrefix="tab-" so test-ids stay "tab-<id>".
  *   - Spanish labels (architecture §7 — UI copy in Spanish).
- *   - ZERO hardcoded colors — CSS custom properties only.
- *   - data-testid="tabbar" on the container; data-testid="tab-<id>" on each tab.
+ *   - ZERO hardcoded colors — CSS custom properties only (via SubTabs tokens).
+ *   - data-testid="tabbar" on the container.
  *
  * NOTE: Only CMP-04-tabbar is "use client". All other workspace components are
  * Server Components (blueprint §4, WO-04-004 Definition of Done).
  *
  * Traceability:
  *   CMP-04-tabbar → REQ-04-001
- *   AC-04-001.1 — exactly five tabs in order
+ *   AC-04-001.1 — exactly six tabs in order (WO-04-004: Observabilidad added)
  *   AC-04-001.2 — default Summary; reflects ?tab= param
  */
 
+import { useRouter } from "next/navigation";
+import { SubTabs } from "@/components/core/Tabs/Tabs";
+
 // ---------------------------------------------------------------------------
-// Tab definitions (AC-04-001.1 — five tabs in exact order)
+// Tab definitions (AC-04-001.1 — six tabs in exact order per prototype
+// projectPane() line 897 of docs/design/prototype/index.html)
 // ---------------------------------------------------------------------------
 
-export type TabId = "summary" | "work-orders" | "party" | "documents" | "commands";
+export type TabId =
+  | "summary"
+  | "work-orders"
+  | "party"
+  | "observabilidad"
+  | "documents"
+  | "commands";
 
-interface TabDef {
-  id: TabId;
-  label: string; // Spanish label (architecture §7)
-}
-
-const TABS: TabDef[] = [
+/** Ordered list fed into the shared SubTabs primitive. */
+const WORKSPACE_TABS = [
   { id: "summary", label: "Resumen" },
   { id: "work-orders", label: "Work orders" },
   { id: "party", label: "Party" },
+  { id: "observabilidad", label: "Observabilidad" },
   { id: "documents", label: "Documentos" },
   { id: "commands", label: "Comandos" },
-];
+] as const satisfies ReadonlyArray<{ id: TabId; label: string }>;
 
 // ---------------------------------------------------------------------------
 // Props
@@ -53,46 +63,12 @@ export interface TabBarProps {
 }
 
 // ---------------------------------------------------------------------------
-// Styles — CSS custom properties only, zero hardcoded colors
+// Container style — only for positioning; SubTabs handles the pill visuals.
 // ---------------------------------------------------------------------------
 
-const TABLIST_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "row",
-  gap: 0,
-  borderBottom: "var(--hairline, 1px) solid var(--color-border, currentColor)",
-  background: "var(--color-surface, Canvas)",
-  overflowX: "auto",
-  scrollbarWidth: "none",
+const WRAPPER_STYLE: React.CSSProperties = {
+  padding: "0 14px 10px",
 };
-
-function tabStyle(active: boolean): React.CSSProperties {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    padding: "calc(var(--spacing, 0.25rem) * 3) calc(var(--spacing, 0.25rem) * 5)",
-    fontSize: "0.8125rem",
-    fontWeight: active ? 600 : 400,
-    color: active
-      ? "var(--color-accent, oklch(0.65 0.18 250))"
-      : "var(--color-text-muted, currentColor)",
-    textDecoration: "none",
-    borderBottom: active
-      ? "2px solid var(--color-accent, oklch(0.65 0.18 250))"
-      : "2px solid transparent",
-    marginBottom: "-1px", // overlap the container border-bottom
-    background: "none",
-    border: "none",
-    borderBottomColor: active ? "var(--color-accent, oklch(0.65 0.18 250))" : "transparent",
-    borderBottomWidth: "2px",
-    borderBottomStyle: "solid",
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    transition:
-      "color var(--duration-fast, 150ms) var(--easing-standard, ease), border-color var(--duration-fast, 150ms) var(--easing-standard, ease)",
-    outline: "none",
-  };
-}
 
 // ---------------------------------------------------------------------------
 // TabBar component
@@ -104,31 +80,29 @@ function tabStyle(active: boolean): React.CSSProperties {
  * "use client" directive is at the top of this file. All other workspace shell
  * components (header, objectives bar, page) are Server Components.
  *
- * Tab navigation is URL-driven via href="?tab=<id>"; no client-side state.
- * The active tab is determined server-side from the ?tab= search param and
- * passed in as the `activeTab` prop.
+ * Tab navigation is URL-driven: onChange calls router.push("?tab=<id>") so
+ * the server re-reads the ?tab= search param and renders the right tab body.
+ * The active tab is determined server-side and passed in as the `activeTab` prop.
+ *
+ * Uses the shared SubTabs primitive (DR-062 — the one tab pattern, level="sub").
  */
 export function TabBar({ activeTab }: TabBarProps): React.JSX.Element {
+  const router = useRouter();
+
+  function handleTabChange(id: string) {
+    router.push(`?tab=${id}`);
+  }
+
   return (
-    <nav data-testid="tabbar" aria-label="Pestañas del espacio de trabajo" style={TABLIST_STYLE}>
-      <div role="tablist" style={{ display: "contents" }}>
-        {TABS.map(({ id, label }) => {
-          const isActive = id === activeTab;
-          return (
-            <a
-              key={id}
-              href={`?tab=${id}`}
-              role="tab"
-              data-testid={`tab-${id}`}
-              data-tab={id}
-              aria-selected={isActive ? "true" : "false"}
-              tabIndex={isActive ? 0 : -1}
-              style={tabStyle(isActive)}
-            >
-              {label}
-            </a>
-          );
-        })}
+    <nav data-testid="tabbar" aria-label="Pestañas del espacio de trabajo">
+      <div style={WRAPPER_STYLE}>
+        <SubTabs
+          tabs={WORKSPACE_TABS as unknown as Array<{ id: string; label: string }>}
+          active={activeTab}
+          onChange={handleTabChange}
+          ariaLabel="Pestañas del espacio de trabajo"
+          testIdPrefix="tab-"
+        />
       </div>
     </nav>
   );

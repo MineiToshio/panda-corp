@@ -7,6 +7,7 @@
  *   - tabular-nums on counts (FRD-13 / AC-13-003.1).
  *   - Visible regardless of the active tab (AC-04-002.3) — structural
  *     invariant enforced by page.tsx, not this component.
+ *   - Consumer of the shared ProgressBar primitive (WO-13-007, DR-057).
  *
  * Design rules (AGENTS.md / FRD-13):
  *   - ZERO hardcoded colors — CSS custom properties only.
@@ -18,6 +19,8 @@
  *   CMP-04-objectives-bar → REQ-04-002
  *   AC-04-002.2, AC-04-002.3
  */
+
+import { ProgressBar } from "@/components/core/ProgressBar/ProgressBar";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -38,46 +41,30 @@ const ROOT_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "calc(var(--spacing, 0.25rem) * 1)",
-  padding: "calc(var(--spacing, 0.25rem) * 2) calc(var(--spacing, 0.25rem) * 6)",
-  borderBottom: "var(--hairline, 1px) solid var(--color-border, currentColor)",
+  padding: "8px 14px 10px",
+  borderBottom: "0.5px solid var(--color-border, currentColor)",
   background: "var(--color-surface, Canvas)",
 };
 
 const LABEL_ROW_STYLE: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
+  justifyContent: "space-between",
   gap: "calc(var(--spacing, 0.25rem) * 2)",
 };
 
-const LABEL_STYLE: React.CSSProperties = {
-  fontSize: "0.6875rem",
-  fontWeight: 700,
-  letterSpacing: "0.05em",
-  textTransform: "uppercase",
-  color: "var(--color-text-muted, currentColor)",
-  opacity: 0.65,
+const LABEL_LEFT_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "5px",
+  fontSize: "11px",
+  color: "var(--color-text2, currentColor)",
 };
 
 const COUNTS_STYLE: React.CSSProperties = {
-  fontSize: "0.8125rem",
-  fontWeight: 600,
-  color: "var(--color-text, currentColor)",
+  fontSize: "11px",
+  color: "var(--color-text2, currentColor)",
   fontVariantNumeric: "tabular-nums",
-};
-
-const PCT_STYLE: React.CSSProperties = {
-  fontSize: "0.8125rem",
-  color: "var(--color-text-muted, currentColor)",
-  opacity: 0.75,
-  fontVariantNumeric: "tabular-nums",
-};
-
-const TRACK_STYLE: React.CSSProperties = {
-  width: "100%",
-  height: "4px",
-  borderRadius: "99px",
-  background: "var(--color-border, oklch(0.3 0.01 230))",
-  overflow: "hidden",
 };
 
 // ---------------------------------------------------------------------------
@@ -89,6 +76,9 @@ const TRACK_STYLE: React.CSSProperties = {
  *
  * Server Component (no "use client"). Rendered above the tab bar on every tab.
  * Omitted entirely when total is 0 or undefined (AC-04-002.2).
+ *
+ * Delegates the track rendering to the shared ProgressBar primitive (WO-13-007)
+ * and adds the "Objetivos de la misión" label row with icon and counts above it.
  */
 export function ObjectivesBar({ done, total }: ObjectivesBarProps): React.JSX.Element | null {
   // AC-04-002.2 — omitted when total is 0 or absent
@@ -96,44 +86,37 @@ export function ObjectivesBar({ done, total }: ObjectivesBarProps): React.JSX.El
     return null;
   }
 
-  const pct = Math.round((done / total) * 100);
-  const pctClamped = Math.max(0, Math.min(100, pct));
-
-  const FILL_STYLE: React.CSSProperties = {
-    height: "100%",
-    width: `${pctClamped}%`,
-    borderRadius: "99px",
-    background: "var(--color-accent, oklch(0.65 0.18 250))",
-    transition: "width var(--duration-base, 200ms) var(--easing-standard, ease)",
-  };
+  const pct = Math.max(0, Math.min(100, Math.round((done / total) * 100)));
 
   return (
     <section
       data-testid="objectives-bar"
       style={ROOT_STYLE}
-      aria-label={`Misión: ${done} de ${total} work orders completadas (${pctClamped}%)`}
+      aria-label={`Misión: ${done} de ${total} work orders completadas (${pct}%)`}
     >
-      {/* Label row: title + counts + percentage */}
+      {/* Label row: icon + title + counts + percentage */}
       <div style={LABEL_ROW_STYLE}>
-        <span style={LABEL_STYLE}>Objetivos de misión</span>
-        <span data-testid="objectives-bar-counts" style={COUNTS_STYLE} aria-hidden="true">
-          {done} / {total}
+        <span style={LABEL_LEFT_STYLE}>
+          <i
+            className="ti ti-sword"
+            style={{ fontSize: "12px", color: "var(--color-accent-text)" }}
+            aria-hidden="true"
+          />
+          Objetivos de la misión
         </span>
-        <span data-testid="objectives-bar-pct" style={PCT_STYLE} aria-hidden="true">
-          · {pctClamped}%
+        <span style={COUNTS_STYLE} aria-hidden="true">
+          <span data-testid="objectives-bar-counts" style={{ fontVariantNumeric: "tabular-nums" }}>
+            {done} / {total}
+          </span>{" "}
+          <span data-testid="objectives-bar-pct" style={{ fontVariantNumeric: "tabular-nums" }}>
+            · {pct}%
+          </span>
         </span>
       </div>
 
-      {/* Progress track */}
-      <div
-        style={TRACK_STYLE}
-        role="progressbar"
-        aria-valuenow={pctClamped}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-label={`${pctClamped}% completado`}
-      >
-        <div data-testid="objectives-bar-fill" style={FILL_STYLE} />
+      {/* Progress track — shared ProgressBar primitive (WO-13-007, DR-057) */}
+      <div data-testid="objectives-bar-fill">
+        <ProgressBar done={done} total={total} ariaLabel={`${pct}% de work orders completadas`} />
       </div>
     </section>
   );
