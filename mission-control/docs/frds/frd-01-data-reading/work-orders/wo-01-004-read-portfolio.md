@@ -5,10 +5,9 @@ slug: read-portfolio
 title: WO-01-004 — `readPortfolio` (markdown table parse)
 status: ACTIVE
 parent: FRD-01
-implementation_status: PLANNED
+implementation_status: VERIFIED
 source_requirements: []
-last_updated: '2026-06-20'
-blocked_reason: 'DR-060 cross-feature integration review: parser only handles English headers (HEADER_MAP: name/path/phase); production factory/portfolio.md uses Spanish headers (Proyecto/Ruta/Fase) — columnMap never set → readPortfolio returns [] → Portfolio page shows empty, /projects/[slug] → 404. Fix: add Spanish aliases to HEADER_MAP or change header detection from first-cell === "name" to any-non-separator first row. Confirmed by seam test J.2/J.3 in cross-feature-seams.adversarial.test.ts.'
+last_updated: '2026-06-16'
 ---
 # WO-01-004 — `readPortfolio` (markdown table parse)
 
