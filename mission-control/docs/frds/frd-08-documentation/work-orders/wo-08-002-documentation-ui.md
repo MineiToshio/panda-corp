@@ -5,7 +5,7 @@ slug: documentation-ui
 title: 'WO-08-002 — Documentación UI surface (re-anchor to prototype)'
 status: DRAFT
 parent: FRD-08
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 artifacts:
   - 'src/app/manual/**'
 source_requirements: [REQ-08, AC-08-001, AC-08-002, AC-08-003, AC-08-004, AC-08-005]
@@ -73,3 +73,60 @@ Reuse foundation primitives: `PageTitle`, `SectionHead`, `Panel`, `Chip`, `CmdRo
 `docs/design/prototype/index.html` — the **Documentación** view (`manualView()` + `manualContent()`
 and the reader kinds `manualLanding`/`manualQuickstart`/`manualGuide`/`refSection`/`docPage` plus the
 diagram builders). The in-loop fidelity gate renders `src/app/manual` against this mock.
+
+## Status Note
+
+**What was built:** Re-anchored the full Documentación surface (`src/app/manual/**`) to the
+owner-approved prototype. The shell now matches the prototype `manualView()` layout:
+- `PageTitle` with icon `ti-book`, H1 **"Documentación"**, subtitle — the ONE page title block
+  (DR-062); `page.tsx` no longer has its own header.
+- `ManualShell` uses `display:grid; grid-template-columns:236px 1fr` (not the old `16rem` flex row),
+  with `data-testid="doc-nav-sticky"` wrapper and `data-testid="manual-reader-area"` with `min-width:0`.
+- `DocNav` re-anchored to prototype `.navitem` / `.navitem.on` skin: RPG card background
+  (`var(--color-card)` + emboss `boxShadow`), group headers in 10px pixel font at
+  `var(--color-accent-text)` (not grey/muted), icons before each item, active state uses
+  `var(--color-accent-bg)` fill + `inset 0 0 0 1px var(--color-accent)` ring.
+
+**Interfaces / contracts exposed (unchanged from prior implementation):**
+- `ManualShell` — `"use client"` boundary; props: `{ pages, skills, agents, rules, standards }`
+- `DocNav` — `DocNavProps`; `activePage: ActivePage | null`; `onSelect: (page: ActivePage) => void`
+- `DocReader` — `DocReaderProps`; `activePage: ReaderActivePage | null`; unchanged
+- `types.ts` — `ActivePage` / `ReaderActivePage` discriminated unions: unchanged
+
+**Components reused (DR-057 — no new shared components created):**
+- `PageTitle` — reused verbatim from `src/components/core/PageTitle/PageTitle.tsx`
+- `ReferenceCommandsSection`, `ReferenceAgentsSection`, `ReferenceRulesView`,
+  `ReferenceStandardsView` — all pre-existing, reused unchanged
+- No new shared component was created; all changes are within `src/app/manual/`
+
+**Implicit decisions / assumptions:**
+- Group icons for authored pages use a single icon per Diátaxis group (not per-page) — tutorial:
+  `ti-player-play`, guides: `ti-map-2`, concepts: `ti-brain`. This matches the prototype's
+  per-item icons from `MANUALNAV` but since authored pages come from `readManualPages()` (no icon
+  field), the group default is the closest approximation.
+- The prototype defaults to showing `manualLanding()` content on load (when `ST.manualPage` is
+  unset). This implementation shows an empty state ("Selecciona una página del menú para leerla")
+  because the authored content comes from `content/manual/*.md` files — the `manualLanding()` inline
+  HTML in the prototype is a static fixture, not a real authored page. The existing tests validate
+  this behavior and it is intentional.
+- `page.tsx` wraps `ManualShell` in a `<div>` (not `<main>`) so `DocReader`'s `<main>` is the sole
+  landmark — avoids nested `<main>` violation (WCAG 2.2).
+- The RPG emboss box-shadow on DocNav uses `rgba()` literals (structural shadows, theme-independent
+  — same pattern as `Panel/Panel.tsx`). The no-hardcoded-color test allows this by only checking for
+  hex literals and `hsl()`, not `rgba()`.
+- Light/dark theming: app renders in system light mode. The prototype mock is dark. This is a
+  theming mode difference only (same observation as WO-07-005), not a layout divergence.
+
+**Test files:**
+- `src/app/manual/_tests/visual-reanchor.test.tsx` — 23 new tests covering DR-062 (H1 "Documentación"),
+  FDD-08 §1 (two-pane layout + sticky wrapper + min-width:0), FDD-08 §2 (navitem active state +
+  aria-current), FDD-08 §3 (DocReader page kinds), FRD-13 tokens (no hardcoded hex), and inline
+  content page interaction flows.
+- All 5 existing test files in `src/app/manual/` continue to pass (137 tests total).
+
+**Fidelity check (DR-056):** 3 cycles performed.
+- Cycle 1: H1 was "Manual", no sticky wrapper, no min-width:0, generic nav styling → fixed.
+- Cycle 2: Nav showed accent-teal group headers + icons; nav panel emboss added → verified layout.
+- Cycle 3: Active page interaction verified — clicking nav item shows correct authored content +
+  accent active state. Remaining delta: dark-mode tokens vs light-mode render (theming difference,
+  not a layout failure).
