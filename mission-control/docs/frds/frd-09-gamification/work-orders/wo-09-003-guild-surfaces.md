@@ -5,7 +5,7 @@ slug: guild-surfaces
 title: 'WO-09-003 — Guild surfaces: GuildBar + GuildHero + StatRadar + CelebrationSurface'
 status: DRAFT
 parent: FRD-09
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
 artifacts:
   - 'src/app/achievements/page.tsx'
   - 'src/components/modules/GuildBar/**'
@@ -93,49 +93,3 @@ Components from `docs/design/components.md` (reuse → adapt → create; never f
 (radar) · `bOverlay(kind)` + `bConfetti()` (celebration/level-up). See [mocks/README.md](../mocks/README.md)
 and [fdd.md](../fdd.md) for the render-fn pointers and the token slice (`rpgSkin`, `tiers`, `accent`,
 `typography.families.pixel`).
-
-## Status Note
-
-**Built:** Re-anchored all four Guild visual surfaces to the owner-approved prototype (`docs/design/prototype/index.html`).
-
-### Artifacts delivered
-
-| Artifact | What changed |
-|---|---|
-| `src/components/core/XpBar/XpBar.tsx` | Added `size="compact"\|"full"` prop. Compact: 9px/90px inline-block for GuildBar topbar (sr-only hidden metadata for all testids: `xp-bar-label`, `xp-bar-xp`, `xp-bar-next`, `xp-bar-next-label`, `xp-bar-track` with `role="meter"`). Full: 18px block with visible label row (rank title in `xp-bar-label`), XP/next numerics, track with `role="progressbar"`, striped overlay. `data-accent="true"` on fill. |
-| `src/components/modules/GuildBar/GuildBar.tsx` | Re-anchored to prototype `topbar()`: rpgpanel+rpggrid bg, logo 44px, "NV N" pill (`data-testid="guild-bar-level-pill"`, pixel font, accent bg), guild title (`data-testid="guild-bar-title"`), `<XpBar size="compact" />`. |
-| `src/app/achievements/page.tsx` | Full re-anchor to `logrosHero()`: `<Shield>` crest, `hall-guild-level` `<output>`, GREMIO PANDACORP eyebrow (`data-testid="guild-hero-eyebrow"`), guild title (`data-testid="guild-hero-title"`), feats summary (`data-testid="guild-hero-summary"`), full XpBar, TU PARTY roster (`data-testid="hall-party-avatars"`, 6 Avatar sprites at `size="sm"`), badge stat tiles. Tabs (`data-testid="hall-tabs"`, `role="tablist"`). StatsPanel section. |
-| `src/app/achievements/StatRadar.tsx` | **New file.** 6-axis SVG radar (viewBox "0 0 330 280", cx=165 cy=140 R=90). Axes: Producción/workorders · Velocidad/speed · Calidad/flawless · Constancia/streak · Ideación/ideas · Alcance/shipped. 4 ring polygons (`data-testid="radar-ring"`), 6 spokes, base polygon, data polygon (`data-testid="radar-data-polygon"` accent fill+glow), accent dots, axis labels (`data-testid="radar-axis-label"`, pixel font 9.5px). `data-testid="stat-radar"` on root. |
-| `src/app/achievements/StatsPanel.tsx` | Added `<StatRadar>` top row + 3 hero-stat tiles. Ledger now has 4 groups covering all 12 `computeStats()` stat keys (added "Alcance & velocidad" group with `shipped`, `streak`, `speed` so AC-10-005.2 "12 stat-items" passes). |
-| `src/components/core/CelebrationSurface/CelebrationSurface.tsx` | Re-anchored to prototype `bOverlay()`/`bConfetti()`. For `release`/`levelup`: fixed full-screen overlay (`data-testid="celebration-overlay"`, `role="dialog"`, `background:rgba(0,0,0,.66)`, `backdropFilter:blur(4px)`), rpgpanel inner card, confetti 26 pieces (`data-testid="celebration-confetti"`, `bFall` animation, deterministic keys), dismiss button (`data-testid="celebration-dismiss"`). Release: rocket shield + "+XP" chips. Levelup: "LEVEL UP" pixel label + "NV ↑" numeral (`data-testid="celebration-level"`) + fresh XpBar. DR-061: no trigger button. |
-| `src/app/globals.css` | Added `@keyframes rpgIn` (340ms rise+fade), `@keyframes bFall` (1.5s confetti fall, transform/opacity only), `.anim` class, reduced-motion gate for `.anim`. Updated `.celebration-surface` to `display:contents` (transparent wrapper; overlay is positioned via inline styles). |
-
-### Interfaces / contracts exposed
-
-- **`XpBarProps`**: `{ xp, next, pctToNext, label, nextTitle, size?: "compact"|"full" }` — exported from `src/components/core/XpBar/XpBar.tsx`
-- **`StatRadarProps`**: `{ stats: readonly Stat[] }` — exported from `src/app/achievements/StatRadar.tsx`
-- **`CelebrationSurfaceProps`**: `{ event: Event | null }` — exported from `src/components/core/CelebrationSurface/CelebrationSurface.tsx`
-- **`GuildBarProps`**: `{ outcomes: GuildOutcomes }` — unchanged, re-anchored visually
-
-### Implicit decisions and conventions
-
-- **Compact XpBar sr-only metadata**: all `data-testid` elements that full mode renders visibly are also present in compact mode as visually-hidden (`position:absolute; clip:rect(0,0,0,0)`) spans — this preserves existing test contracts AND aids assistive tech.
-- **`xp-bar-label` content**: contains the rank **title** string (e.g. "Artesano"), NOT the "XP / next XP" numbers (those are in `xp-bar-xp` / `xp-bar-next` siblings). This matches the test expectation at `gamification.integration.reviewer.test.tsx` L210.
-- **`xp-bar-track` in compact mode**: uses `role="meter"` (not `progressbar`) to permit `aria-valuenow` on a div with children (fill+stripe overlay). The compact root `xp-bar` carries `role="progressbar"`. Both expose `aria-valuenow`.
-- **StatRadar axis scaling**: `pct = Math.min(100, Math.max(8, round(value/10 * 100)))` — minimum 8% so polygon is always visible on empty factory (per prototype `Math.max(8,...)`).
-- **StatsPanel 4th ledger group**: `shipped`, `streak`, `speed` appear in both the hero tiles (large pixel numeral) AND the ledger rows — so all 12 `computeStats()` keys have a `data-testid="stat-item"` (AC-10-005.2 requires exactly 12).
-- **CelebrationSurface confetti keys**: deterministic from `leftPct` + `delaySec` (no `Math.random`) — SSR-safe and unique within the 26-piece set.
-- **`hall-guild-level` element**: uses `<output>` element (implicit `role="status"`) which supports `aria-label` — avoids biome `useAriaPropsSupportedByRole` error that `<span>` would trigger.
-- **`bFall` keyframe**: uses `transform: translateY(540px) rotate(360deg)` + `opacity` — compositable properties only (AC-09-006.3). Disabled under `prefers-reduced-motion` via the global `animation-duration:0ms !important` override.
-
-### Test coverage
-
-- `src/app/achievements/_tests/wo-09-003-guild-surfaces.test.tsx` — 39 tests, all pass (GREEN)
-- `src/app/achievements/_tests/page.test.tsx` — all pass
-- `src/components/core/XpBar/_tests/XpBar.test.tsx` — all pass (no regressions)
-- `src/components/modules/GuildBar/_tests/GuildBar.test.tsx` — all pass (no regressions)
-- `src/lib/gamification/_tests/gamification.integration.reviewer.test.tsx` — all pass (no regressions)
-
-### Pre-existing failures (outside scope, not caused by this WO)
-
-The full suite has 3 individual test failures and 11 file-level parse failures from unmerged `Button.tsx` + `CampaignPipeline.tsx` (git merge conflict markers from prior engine waves). None touch any file modified by WO-09-003.
