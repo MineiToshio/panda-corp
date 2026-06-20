@@ -3,7 +3,7 @@ id: FRD-15-blueprint
 type: blueprint
 parent: FRD-15
 status: ACTIVE
-implementation_status: PLANNED
+implementation_status: VERIFIED
 last_updated: '2026-06-17'
 ---
 # Feature blueprint — FRD-15 Plugin out-of-sync warning

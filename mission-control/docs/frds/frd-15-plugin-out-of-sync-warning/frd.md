@@ -3,7 +3,7 @@ id: FRD-15
 type: frd
 title: FRD-15 — Plugin out-of-sync warning
 status: ACTIVE
-implementation_status: PLANNED
+implementation_status: VERIFIED
 ui: true
 visual_source: docs/design/prototype/index.html
 last_updated: '2026-06-19'
