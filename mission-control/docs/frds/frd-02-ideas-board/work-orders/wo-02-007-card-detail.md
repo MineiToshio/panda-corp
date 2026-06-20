@@ -5,7 +5,7 @@ slug: card-detail
 title: 'WO-02-007 — La Campaña card detail (3 tabs + 6-phase pipeline)'
 status: DRAFT
 parent: FRD-02
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 artifacts:
   - 'src/app/board/_components/CardDetail/**'
   - 'src/components/modules/CampaignPipeline/**'
@@ -179,3 +179,34 @@ description + LEE + ESCRIBE + the whole team as `AgentSprite` figures. The build
 - `biome check src/` — 0 errors, 0 warnings (488 files)
 - Visual fidelity (DR-056) — Playwright fidelity check: `campaign-stage`×1, `campaign-phase-*`×6, `tabs-root[data-level=sub]`×1, `card-detail-tab-campana` aria-selected=true role=tab. Zero console errors. Screenshot matches `mocks/la-campana.html` layout.
 - Preview smoke gate — board route HTTP 200; sentinel smoke + visual harness tests pass.
+
+## Reviewer verdict — PASS, VERIFIED (FRD-02 gate, 2026-06-20, pass 2)
+
+Independent FRD gate (Opus 4.8, different model family from the implementers). WO-02-005 + WO-02-007
+reviewed TOGETHER through the real `BoardShell` seam.
+
+- **DR-062 reopen resolved.** `CardDetail.tsx` now composes the shared `Tabs` primitive
+  (`tabs-root[data-level="sub"]`, `card-detail-tab-*` ids via `testIdPrefix`); the bespoke
+  `tabButtonStyle`/`TAB_ROW_STYLE` are gone; ArrowLeft/ArrowRight focus-cycling restored. Confirmed
+  at the board seam, not just in CardDetail.
+- **Adversarial integration (DR-015/016)** — added `src/app/board/_tests/frd-02.shell-integration.reviewer.test.tsx`
+  (9 tests): shared-Tabs at the seam, ArrowRight cycling, doc-click landing + tab persistence after
+  navigating to Comandos, `shipped`→release coherence + "Entrar a La Fragua" still fires,
+  malformed `in-pipeline`→research fallback + locked-phase graceful ficha, read-only invariants
+  (no draggable, board stays mounted behind intake, discard never auto-invoked). **Mutation-verified:**
+  `level="sub"→"top"` and `FALLBACK 0→5` each killed a test — not decorative.
+- **Layer B mock-judge** — `/board` card-detail Campaña vs `mocks/la-campana.html`: 6 serpentine
+  pixel-art rooms + 5 stone-bridge connectors, active room glow, sprites, badges, deliverable chips,
+  "EL VIAJE DE ESTA IDEA POR LAS 6 FASES" label, ficha (Descripción/LEE/ESCRIBE/EQUIPO). No nameable
+  structural divergence (the page following the host light theme while the stage keeps its intrinsic
+  dark pixel-art canvas is correct, not a divergence). Screenshots in `docs/reviews/smoke/`.
+- **Layer A bless** — `/board` had no baseline (genuinely new UI surface); blessed here:
+  `e2e/routes.ts` `tablero.blessed: true`, baselines `e2e/visual.spec.ts-snapshots/tablero-{desktop,mobile}*.png`
+  committed; the visual gate now locks the surface as a real regression gate (re-verified green).
+- **Gate** — biome/tsc/knip/madge clean; vitest 6532 pass / 2 expected-fail; smoke (2 viewports) green,
+  zero console errors.
+
+One non-blocking note (not a defect): in `CampaignPipeline.tsx` the team-member sprite in `FichaContent`
+uses `member.role as ValidAgentRole`, while the room sprites use the `isValidAgentRole` guard — the cast
+is safe (the static `PHASES` roles are all valid) but for consistency a future touch should route both
+through the guard. Tolerated under the rule of three; not gate-blocking.

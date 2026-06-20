@@ -5,14 +5,14 @@ slug: board-surface
 title: 'WO-02-005 — Board surface (columns + cards + filter + legend + intake + discard)'
 status: DRAFT
 parent: FRD-02
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 artifacts:
   - 'src/app/board/**'
   - 'src/components/modules/IdeaCard/**'
   - 'src/components/modules/CategoryFilter/**'
   - 'src/components/modules/BoardLegend/**'
 source_requirements: [REQ-02-002, REQ-02-005, REQ-02-006, REQ-02-008, REQ-02-003, REQ-02-007]
-last_updated: '2026-06-19'
+last_updated: '2026-06-20'
 ---
 # WO-02-005 — Board surface
 
