@@ -19,6 +19,7 @@
 
 import type { AgentRole } from "@/app/_design/tokens/tokens";
 import { Avatar } from "@/components/core/Avatar/Avatar";
+import { Panel } from "@/components/core/Panel/Panel";
 import type { AgentLevelResult } from "@/lib/gamification/agents";
 import type { AgentRef } from "@/lib/reference/reference";
 
@@ -46,57 +47,58 @@ export type AgentListProps = {
 
 const LIST_STYLE: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(calc(var(--spacing, 0.25rem) * 44), 1fr))",
-  gap: "calc(var(--spacing, 0.25rem) * 4)",
+  gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))",
+  gap: "9px",
   padding: "calc(var(--spacing, 0.25rem) * 2) 0",
 };
 
-function cardStyle(selected: boolean): React.CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "calc(var(--spacing, 0.25rem) * 2)",
-    padding: "calc(var(--spacing, 0.25rem) * 4)",
-    background: selected
-      ? "color-mix(in srgb, var(--color-accent, currentColor) 8%, var(--color-surface, Canvas))"
-      : "var(--color-surface, Canvas)",
-    border: selected
-      ? `var(--hairline, 1px) solid var(--color-accent, currentColor)`
-      : `var(--hairline, 1px) solid var(--color-border, currentColor)`,
-    borderRadius: "var(--radius, 0.5rem)",
-    cursor: "pointer",
-    textAlign: "center",
-    transition:
-      "background var(--duration-fast, 150ms) var(--easing-standard, ease), border-color var(--duration-fast, 150ms) var(--easing-standard, ease)",
-    /* Reset button defaults */
-    font: "inherit",
-    color: "var(--color-text, currentColor)",
-    boxShadow: selected ? "var(--shadow-1, none)" : "none",
-  };
-}
+const CARD_BTN_STYLE: React.CSSProperties = {
+  display: "block",
+  width: "100%",
+  textAlign: "left",
+  background: "none",
+  border: "none",
+  padding: 0,
+  cursor: "pointer",
+  fontFamily: "inherit",
+  color: "inherit",
+};
+
+// gxAgentCard layout: horizontal row (avatar left, text column right)
+const CARD_INNER_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "row",
+  alignItems: "center",
+  gap: "11px",
+};
 
 const LEVEL_STYLE: React.CSSProperties = {
   fontSize: "0.6875rem",
+  fontFamily: "var(--font-pixel, monospace)",
   fontWeight: 700,
-  color: "var(--color-accent, currentColor)",
+  color: "var(--color-warn, currentColor)",
   letterSpacing: "0.06em",
-  textTransform: "uppercase",
   lineHeight: 1,
 };
 
 const TITLE_STYLE: React.CSSProperties = {
   fontSize: "0.8125rem",
   fontWeight: 500,
-  color: "var(--color-text-muted, currentColor)",
+  color: "var(--color-warn, currentColor)",
   lineHeight: 1.25,
 };
 
-const NAME_STYLE: React.CSSProperties = {
-  fontSize: "0.875rem",
+const MODEL_CHIP_STYLE: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "2px 8px",
+  borderRadius: "var(--radius-pill, 999px)",
+  border: "1px solid var(--color-border-strong, currentColor)",
+  background: "var(--color-panel, Canvas)",
+  fontSize: "0.6875rem",
+  fontFamily: "var(--font-mono, monospace)",
+  color: "var(--color-text2, currentColor)",
   fontWeight: 600,
-  color: "var(--color-text, currentColor)",
-  lineHeight: 1.25,
 };
 
 // ---------------------------------------------------------------------------
@@ -124,7 +126,6 @@ interface AgentCardProps {
 
 function AgentCard({ agent, level, selected, onClick }: AgentCardProps): React.JSX.Element {
   // Resolve agent role for the Avatar — fallback to "backend-dev" for unknown ids.
-  // The Avatar component itself also falls back, so this is belt-and-suspenders.
   const avatarRole = agent.id as AgentRole;
 
   return (
@@ -133,28 +134,74 @@ function AgentCard({ agent, level, selected, onClick }: AgentCardProps): React.J
       data-testid="agent-card"
       data-agent-id={agent.id}
       data-selected={selected ? "true" : "false"}
-      style={cardStyle(selected)}
+      style={CARD_BTN_STYLE}
       onClick={onClick}
       aria-pressed={selected}
       aria-label={`Ver detalle de ${agent.name ?? agent.id}`}
     >
-      {/* Pixel-art avatar (AC-07-007.1 + AC-09-003.*) */}
-      <Avatar agentId={avatarRole} size="md" />
+      {/* Panel provides the RPG embossed skin (prototype .rpgpanel) */}
+      <Panel variant="rpgpanel" glow={selected ? "accent" : undefined}>
+        {/* gxAgentCard: horizontal row — avatar left, text column right */}
+        <div style={CARD_INNER_STYLE}>
+          {/* Pixel-art avatar on the left (AC-07-007.1 + AC-09-003.*) */}
+          <Avatar agentId={avatarRole} size="md" />
 
-      {/* Level chip */}
-      <span data-testid="agent-card-level" style={LEVEL_STYLE}>
-        Nv {level.level}
-      </span>
+          {/* Text column: id + model chip / display name / level */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {/* Row 1: mono id + model chip (gxAgentCard pattern) */}
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+              <span
+                style={{
+                  fontFamily: "var(--font-mono, monospace)",
+                  fontSize: "0.8125rem",
+                  fontWeight: 600,
+                  color: "var(--color-text, currentColor)",
+                }}
+              >
+                {agent.id}
+              </span>
+              {agent.model && (
+                <span data-testid="agent-model-chip" style={MODEL_CHIP_STYLE}>
+                  {agent.model}
+                </span>
+              )}
+            </div>
 
-      {/* Rank title */}
-      <span data-testid="agent-card-title" style={TITLE_STYLE}>
-        {level.title}
-      </span>
+            {/* Row 2: display name in text2 (shown as agent-card-name for tests) */}
+            <div
+              data-testid="agent-card-name"
+              style={{
+                fontSize: "0.75rem",
+                color: "var(--color-text2, currentColor)",
+                marginTop: "2px",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {agent.name ?? agent.id}
+            </div>
 
-      {/* Agent name */}
-      <span data-testid="agent-card-name" style={NAME_STYLE}>
-        {agent.name ?? agent.id}
-      </span>
+            {/* Row 3: Nv level · title in warn color (gxAgentCard AGMETA pattern) */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "5px",
+                marginTop: "5px",
+              }}
+            >
+              <span data-testid="agent-card-level" style={LEVEL_STYLE}>
+                Nv {level.level}
+              </span>
+              <span style={{ color: "var(--color-text3)", fontSize: "0.6875rem" }}>·</span>
+              <span data-testid="agent-card-title" style={TITLE_STYLE}>
+                {level.title}
+              </span>
+            </div>
+          </div>
+        </div>
+      </Panel>
     </button>
   );
 }

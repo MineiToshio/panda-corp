@@ -25,6 +25,9 @@
 
 import type React from "react";
 
+import { ItemSlot } from "@/components/core/ItemSlot/ItemSlot";
+import { Panel } from "@/components/core/Panel/Panel";
+import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import type { RunsIn, SkillRef } from "@/lib/reference/reference";
 
 // ---------------------------------------------------------------------------
@@ -57,48 +60,56 @@ const GROUP_STYLE: React.CSSProperties = {
   gap: "calc(var(--spacing, 0.25rem) * 3)",
 };
 
-const GROUP_HEADING_STYLE: React.CSSProperties = {
-  fontSize: "0.6875rem",
-  fontWeight: 700,
-  letterSpacing: "0.08em",
-  textTransform: "uppercase",
-  color: "var(--color-text-muted, currentColor)",
-  opacity: 0.6,
-  margin: 0,
-};
-
 const CARDS_GRID_STYLE: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))",
+  gap: "9px",
+};
+
+const CARD_BTN_STYLE: React.CSSProperties = {
+  display: "block",
+  width: "100%",
+  textAlign: "left",
+  background: "none",
+  border: "none",
+  padding: 0,
+  cursor: "pointer",
+  fontFamily: "inherit",
+  color: "inherit",
+};
+
+const CARD_INNER_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
   gap: "calc(var(--spacing, 0.25rem) * 3)",
 };
 
-const CARD_STYLE: React.CSSProperties = {
+const CARD_HEADER_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: "calc(var(--spacing, 0.25rem) * 3)",
+};
+
+const CARD_TEXT_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 2)",
-  padding: "calc(var(--spacing, 0.25rem) * 4)",
-  borderRadius: "var(--radius, 0.375rem)",
-  border: "var(--hairline, 1px) solid var(--color-border, currentColor)",
-  background: "var(--color-surface-raised, Canvas)",
-  cursor: "pointer",
-  textAlign: "left",
-  fontFamily: "inherit",
-  color: "inherit",
-  transition: "border-color var(--duration-fast, 150ms) var(--easing-standard, ease)",
+  gap: "calc(var(--spacing, 0.25rem) * 1.5)",
+  flex: 1,
+  minWidth: 0,
 };
 
 const CARD_NAME_STYLE: React.CSSProperties = {
   fontFamily: "var(--font-mono, monospace)",
   fontSize: "0.8125rem",
   fontWeight: 700,
-  color: "var(--color-accent, currentColor)",
+  color: "var(--color-accent-text, currentColor)",
   margin: 0,
+  lineHeight: 1.2,
 };
 
 const CARD_DESC_STYLE: React.CSSProperties = {
   fontSize: "0.8125rem",
-  color: "var(--color-text-muted, currentColor)",
+  color: "var(--color-text2, currentColor)",
   lineHeight: 1.5,
   margin: 0,
   /* Clamp to 3 lines for uniform card height in grid */
@@ -122,8 +133,11 @@ const EMPTY_STYLE: React.CSSProperties = {
 };
 
 // ---------------------------------------------------------------------------
-// SkillCard subcomponent
+// SkillCard subcomponent (gxSkillCard — Panel + ItemSlot wand tile)
 // ---------------------------------------------------------------------------
+
+/** Wand icon for the skill itemslot (prototype: ti-wand) */
+const WAND_ICON = <i className="ti ti-wand" aria-hidden="true" style={{ fontSize: "20px" }} />;
 
 interface SkillCardProps {
   skill: SkillRef;
@@ -136,21 +150,37 @@ function SkillCard({ skill, onSelect }: SkillCardProps): React.JSX.Element {
     <button
       type="button"
       data-testid={`skill-card-${skill.slug}`}
-      style={CARD_STYLE}
+      style={CARD_BTN_STYLE}
       onClick={() => onSelect(skill)}
     >
-      <span data-testid="skill-card-name" style={CARD_NAME_STYLE}>
-        {skillName}
-      </span>
-      <span data-testid="skill-card-description" style={CARD_DESC_STYLE}>
-        {skill.description}
-      </span>
+      {/* Panel provides the RPG embossed skin (prototype .rpgpanel) */}
+      <Panel variant="rpgpanel">
+        <div style={CARD_INNER_STYLE}>
+          <div style={CARD_HEADER_STYLE}>
+            {/* 38×38 accent itemslot with wand (gxSkillCard pattern) */}
+            <ItemSlot
+              icon={WAND_ICON}
+              size={38}
+              tone="accent"
+              aria-label={`Habilidad ${skillName}`}
+            />
+            <div style={CARD_TEXT_STYLE}>
+              <span data-testid="skill-card-name" style={CARD_NAME_STYLE}>
+                {skillName}
+              </span>
+              <span data-testid="skill-card-description" style={CARD_DESC_STYLE}>
+                {skill.description}
+              </span>
+            </div>
+          </div>
+        </div>
+      </Panel>
     </button>
   );
 }
 
 // ---------------------------------------------------------------------------
-// SkillGroup subcomponent
+// SkillGroup subcomponent (uses SectionHead — the ONE shared section heading)
 // ---------------------------------------------------------------------------
 
 interface SkillGroupProps {
@@ -162,9 +192,10 @@ interface SkillGroupProps {
 function SkillGroup({ groupId, skills, onSelect }: SkillGroupProps): React.JSX.Element {
   return (
     <div data-testid={`skill-group-${groupId}`} style={GROUP_STYLE}>
-      <h3 data-testid={`skill-group-${groupId}-heading`} style={GROUP_HEADING_STYLE}>
-        {GROUP_LABELS[groupId]}
-      </h3>
+      {/* SectionHead = the shared section heading (DR-062, CMP-13-sectionhead) */}
+      <div data-testid={`skill-group-${groupId}-heading`}>
+        <SectionHead label={GROUP_LABELS[groupId]} count={skills.length} />
+      </div>
       <div style={CARDS_GRID_STYLE}>
         {skills.map((skill) => (
           <SkillCard key={skill.slug} skill={skill} onSelect={onSelect} />

@@ -28,6 +28,9 @@
 
 import { useState } from "react";
 import { CopyButton } from "@/components/core/CopyButton/CopyButton";
+import { ItemSlot } from "@/components/core/ItemSlot/ItemSlot";
+import { Panel } from "@/components/core/Panel/Panel";
+import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import type { DecisionRule } from "@/lib/registry/registry";
 
 // ---------------------------------------------------------------------------
@@ -78,9 +81,9 @@ const NEW_RULE_BTN_STYLE: React.CSSProperties = {
 };
 
 const LIST_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 2)",
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))",
+  gap: "9px",
   listStyle: "none",
   padding: 0,
   margin: 0,
@@ -88,27 +91,28 @@ const LIST_STYLE: React.CSSProperties = {
 
 const EMPTY_STYLE: React.CSSProperties = {
   fontSize: "0.875rem",
-  color: "var(--color-text-muted, currentColor)",
+  color: "var(--color-text2, currentColor)",
   fontStyle: "italic",
   padding: "calc(var(--spacing, 0.25rem) * 4) 0",
 };
 
-function ruleItemStyle(selected: boolean): React.CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: "calc(var(--spacing, 0.25rem) * 2)",
-    padding: "calc(var(--spacing, 0.25rem) * 4)",
-    borderRadius: "var(--radius, 0.5rem)",
-    border: selected
-      ? "1px solid var(--color-accent, currentColor)"
-      : "1px solid var(--color-border, currentColor)",
-    background: selected ? "var(--color-surface-raised, Canvas)" : "var(--color-surface, Canvas)",
-    cursor: "pointer",
-    transition:
-      "border-color var(--duration-fast, 150ms) var(--easing-standard, ease), background var(--duration-fast, 150ms) var(--easing-standard, ease)",
-  };
-}
+const GROUP_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "calc(var(--spacing, 0.25rem) * 3)",
+};
+
+const RULE_BTN_STYLE: React.CSSProperties = {
+  display: "block",
+  width: "100%",
+  textAlign: "left",
+  background: "none",
+  border: "none",
+  padding: 0,
+  cursor: "pointer",
+  fontFamily: "inherit",
+  color: "inherit",
+};
 
 const RULE_HEADER_STYLE: React.CSSProperties = {
   display: "flex",
@@ -356,51 +360,139 @@ export function DecisionRulesSection({ rules }: DecisionRulesSectionProps): Reac
         </div>
       </div>
 
-      {/* AC-07-008.2 — Rule list */}
-      <ul data-testid="rules-list" style={LIST_STYLE}>
-        {rules.length === 0 && (
-          <li>
-            <p data-testid="rules-empty" style={EMPTY_STYLE}>
-              No se encontraron reglas de decisión. Verifica que{" "}
-              <code>factory/decisions/registry.yaml</code> exista y tenga entradas válidas.
-            </p>
-          </li>
+      {/* AC-07-008.2 — Rule list, split into two groups (prototype pattern) */}
+      <div data-testid="rules-list">
+        {rules.length === 0 ? (
+          <p data-testid="rules-empty" style={EMPTY_STYLE}>
+            No se encontraron reglas de decisión. Verifica que{" "}
+            <code>factory/decisions/registry.yaml</code> exista y tenga entradas válidas.
+          </p>
+        ) : (
+          <RuleGroupedList rules={rules} selectedId={selectedId} onRuleClick={handleRuleClick} />
         )}
-        {rules.map((rule) => {
-          const isSelected = rule.id === selectedId;
-          const isAuto = !rule.requiereHumano;
-          return (
-            <li key={rule.id}>
-              <button
-                type="button"
-                data-testid={`rule-item-${rule.id}`}
-                data-auto={isAuto ? "true" : "false"}
-                data-selected={isSelected ? "true" : "false"}
-                aria-expanded={isSelected}
-                aria-pressed={isSelected}
-                style={ruleItemStyle(isSelected)}
-                onClick={() => {
-                  handleRuleClick(rule.id);
-                }}
-              >
-                <div style={RULE_HEADER_STYLE}>
-                  {/* Rule id */}
-                  <span style={RULE_ID_STYLE}>{rule.id}</span>
-
-                  {/* Pattern (what situation triggers this rule) */}
-                  <span style={RULE_PATRON_STYLE}>{rule.patron}</span>
-
-                  {/* Indicator: auto-approves or asks-you (shape + label, not color alone) */}
-                  <RuleIndicator ruleId={rule.id} auto={isAuto} />
-                </div>
-              </button>
-
-              {/* Detail panel — shown inline below the selected rule */}
-              {isSelected && <RuleDetail rule={rule} />}
-            </li>
-          );
-        })}
-      </ul>
+      </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// RuleGroupedList — splits rules into human / auto groups with SectionHead
+// ---------------------------------------------------------------------------
+
+interface RuleGroupedListProps {
+  rules: DecisionRule[];
+  selectedId: string | null;
+  onRuleClick: (id: string) => void;
+}
+
+function RuleGroupedList({
+  rules,
+  selectedId,
+  onRuleClick,
+}: RuleGroupedListProps): React.JSX.Element {
+  const humanRules = rules.filter((r) => r.requiereHumano);
+  const autoRules = rules.filter((r) => !r.requiereHumano);
+
+  return (
+    <div
+      style={{ display: "flex", flexDirection: "column", gap: "calc(var(--spacing, 0.25rem) * 6)" }}
+    >
+      {humanRules.length > 0 && (
+        <div style={GROUP_STYLE}>
+          <SectionHead label="Requieren tu aprobación" count={humanRules.length} />
+          <ul style={{ ...LIST_STYLE, listStyle: "none", padding: 0, margin: 0 }}>
+            {humanRules.map((rule) => (
+              <li key={rule.id}>
+                <RuleItem
+                  rule={rule}
+                  isSelected={rule.id === selectedId}
+                  onRuleClick={onRuleClick}
+                />
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {autoRules.length > 0 && (
+        <div style={GROUP_STYLE}>
+          <SectionHead label="Auto-aprobadas" count={autoRules.length} />
+          <ul style={{ ...LIST_STYLE, listStyle: "none", padding: 0, margin: 0 }}>
+            {autoRules.map((rule) => (
+              <li key={rule.id}>
+                <RuleItem
+                  rule={rule}
+                  isSelected={rule.id === selectedId}
+                  onRuleClick={onRuleClick}
+                />
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// RuleItem — single rule card (button + Panel + ItemSlot + detail)
+// ---------------------------------------------------------------------------
+
+interface RuleItemProps {
+  rule: DecisionRule;
+  isSelected: boolean;
+  onRuleClick: (id: string) => void;
+}
+
+function RuleItem({ rule, isSelected, onRuleClick }: RuleItemProps): React.JSX.Element {
+  const isAuto = !rule.requiereHumano;
+  const slotIcon = isAuto ? (
+    <i className="ti ti-check" aria-hidden="true" style={{ fontSize: "18px" }} />
+  ) : (
+    <i className="ti ti-gavel" aria-hidden="true" style={{ fontSize: "18px" }} />
+  );
+
+  return (
+    <>
+      <button
+        type="button"
+        data-testid={`rule-item-${rule.id}`}
+        data-auto={isAuto ? "true" : "false"}
+        data-selected={isSelected ? "true" : "false"}
+        aria-expanded={isSelected}
+        aria-pressed={isSelected}
+        style={RULE_BTN_STYLE}
+        onClick={() => {
+          onRuleClick(rule.id);
+        }}
+      >
+        {/* Panel provides RPG embossed skin; glow accent when selected */}
+        <Panel variant="rpgpanel" glow={isSelected ? "accent" : undefined}>
+          <div style={RULE_HEADER_STYLE}>
+            {/* ItemSlot: gavel (danger) for human rules, check (ok) for auto */}
+            <ItemSlot
+              icon={slotIcon}
+              size={36}
+              tone={isAuto ? "ok" : "danger"}
+              aria-label={isAuto ? "Regla automática" : "Requiere aprobación humana"}
+            />
+
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {/* Rule id + patron (prototype row 1) */}
+              <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
+                <span style={RULE_ID_STYLE}>{rule.id}</span>
+                <span style={RULE_PATRON_STYLE}>{rule.patron}</span>
+              </div>
+              {/* Indicator row (prototype row 2 — icon + text label) */}
+              <div style={{ marginTop: "4px" }}>
+                <RuleIndicator ruleId={rule.id} auto={isAuto} />
+              </div>
+            </div>
+          </div>
+        </Panel>
+      </button>
+
+      {/* Detail panel — shown inline below the selected rule */}
+      {isSelected && <RuleDetail rule={rule} />}
+    </>
   );
 }

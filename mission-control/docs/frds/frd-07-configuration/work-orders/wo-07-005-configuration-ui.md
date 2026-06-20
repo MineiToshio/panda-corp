@@ -5,7 +5,7 @@ slug: configuration-ui
 title: 'WO-07-005 — Configuración UI surface (re-anchor to prototype)'
 status: DRAFT
 parent: FRD-07
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 artifacts:
   - 'src/app/configuration/**'
 source_requirements: [REQ-07, AC-07-001, AC-07-002, AC-07-003, AC-07-004, AC-07-005]
@@ -79,3 +79,37 @@ readers — never a static array.
 `docs/design/prototype/index.html` — the **Configuración** view (`configView()` + `configDetail()`
 and the `gxSkillCard`/`gxAgentCard`/`gxRuleCard`/`gxStdCard` builders). The in-loop fidelity gate
 renders `src/app/configuration` against this mock.
+
+## Status Note
+
+**What was built:** Re-anchored the full Configuración surface (`src/app/configuration/**`) to the
+owner-approved prototype. All four tabs are live and served from real factory data (VERIFIED lib
+readers consumed as-is). The duplicate `<h1>` header in `page.tsx` was removed — `PageTitle` inside
+`ConfigurationShell` is now the sole H1 (DR-062).
+
+**Interfaces / contracts exposed:**
+- `ConfigurationShell` — `"use client"` boundary; props: `{ skills, agentsData, rules, standards }` (unchanged from WO-07-006/007/008/009)
+- `AgentList` — `AgentListProps` with horizontal `gxAgentCard` layout (avatar-left row)
+- `SkillList` — groups by `runsIn` with `SectionHead`
+- `DecisionRulesSection` — groups rules into "Requieren tu aprobación" / "Auto-aprobadas" via `RuleGroupedList` + `RuleItem`; `data-testid="rules-list"` always present on outer wrapper
+- `StandardsSection` / `DomainGroup` — book `ItemSlot` + severity/enforcement badges
+
+**Components reused (DR-057, no new shared components created):**
+- `Panel variant="rpgpanel"` — embossed skin on all four card types
+- `ItemSlot` — wand (accent) for skills, check (ok) / gavel (danger) for rules, book (accent) for standards
+- `SectionHead` — group headings for skill run-location groups and rule human/auto groups
+- `PageTitle` — single page H1 in `ConfigurationShell` header
+- `Avatar` — pixel-art per agent id in `AgentList`
+
+**Implicit decisions / assumptions:**
+- `agent-card-name` testid carries the display name (`agent.name ?? agent.id`), placed on the subtitle row (text2 color); the mono id is on row 1 without its own testid
+- Agent level label uses `Nv N` (capital N, lowercase v) to match existing tests
+- Rules section always mounts a `data-testid="rules-list"` wrapper (even when empty) to satisfy `getByTestId` in gate tests
+- `page.tsx` no longer has its own `<h1>` or header wrapper — `ConfigurationShell` owns the full layout
+- `StandardCard` uses `ti-book` icon (not `ti-book-2` as in prototype) — `ti-book-2` is not in the installed Tabler set
+
+**Test files:**
+- `src/app/configuration/_tests/visual-structure.test.tsx` — 18 new tests covering Panel/ItemSlot/SectionHead/PageTitle structural requirements (WO-07-005 acceptance)
+- Existing tests in `_tests/agents.test.tsx`, `_tests/frd07.gate.reviewer.test.tsx`, `_rules/DecisionRulesSection/_tests/`, `StandardsSection/_tests/` all green
+
+**Fidelity check (DR-056):** 2 cycles performed; all four tabs screenshotted at 1280×800 against `configView()`. Remaining minor delta: prototype uses dark theme (`--canvas:#0F1517`) while app renders in light mode (tokens map to light values) — this is a theming mode difference, not a layout divergence.

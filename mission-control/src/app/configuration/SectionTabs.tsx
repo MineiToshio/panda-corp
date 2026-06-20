@@ -72,16 +72,24 @@ function tabStyle(active: boolean): React.CSSProperties {
     padding: "calc(var(--spacing, 0.25rem) * 3) calc(var(--spacing, 0.25rem) * 5)",
     fontSize: "0.8125rem",
     fontWeight: active ? 600 : 400,
-    color: active ? "var(--color-accent, currentColor)" : "var(--color-text-muted, currentColor)",
+    color: active ? "var(--color-accent, currentColor)" : "var(--color-text2, currentColor)",
     textDecoration: "none",
-    /* Active underline: 2px accent bottom border (shape indicator, not color alone) */
-    borderBottom: active ? "2px solid var(--color-accent, currentColor)" : "2px solid transparent",
+    /* Active underline: 2px accent bottom border (shape indicator, not color alone).
+     * Use only longhand properties to avoid the borderBottom + borderBottomStyle conflict. */
+    borderTopStyle: "solid",
+    borderRightStyle: "solid",
+    borderLeftStyle: "solid",
+    borderBottomStyle: "solid",
+    borderTopWidth: "0",
+    borderRightWidth: "0",
+    borderLeftWidth: "0",
+    borderBottomWidth: "2px",
+    borderTopColor: "transparent",
+    borderRightColor: "transparent",
+    borderLeftColor: "transparent",
+    borderBottomColor: active ? "var(--color-accent, currentColor)" : "transparent",
     marginBottom: "-1px", // overlap container bottom border
     background: "none",
-    border: "none",
-    borderBottomColor: active ? "var(--color-accent, currentColor)" : "transparent",
-    borderBottomWidth: "2px",
-    borderBottomStyle: "solid",
     cursor: "pointer",
     whiteSpace: "nowrap",
     transition:

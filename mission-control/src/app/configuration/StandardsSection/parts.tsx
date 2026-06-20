@@ -17,6 +17,8 @@
 import type React from "react";
 import { useCallback, useState } from "react";
 import Markdown from "react-markdown";
+import { ItemSlot } from "@/components/core/ItemSlot/ItemSlot";
+import { Panel } from "@/components/core/Panel/Panel";
 import type { Standard, StandardDomain } from "@/lib/standards/standards";
 import {
   BADGES_STYLE,
@@ -33,7 +35,6 @@ import {
   SUMMARY_ITEM_STYLE,
   SUMMARY_LIST_STYLE,
   severityBadgeStyle,
-  standardItemStyle,
 } from "./styles";
 
 // ---------------------------------------------------------------------------
@@ -164,56 +165,101 @@ interface StandardItemProps {
   onToggle: () => void;
 }
 
+/** Book icon for the standard itemslot (prototype: ti-book) */
+const BOOK_ICON = <i className="ti ti-book" aria-hidden="true" style={{ fontSize: "18px" }} />;
+
+const STD_BTN_STYLE: React.CSSProperties = {
+  display: "block",
+  width: "100%",
+  textAlign: "left",
+  background: "none",
+  border: "none",
+  padding: 0,
+  cursor: "pointer",
+  fontFamily: "inherit",
+  color: "inherit",
+};
+
+const STD_CARD_INNER_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: "calc(var(--spacing, 0.25rem) * 3)",
+};
+
+const STD_CARD_TEXT_STYLE: React.CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+  display: "flex",
+  flexDirection: "column",
+  gap: "calc(var(--spacing, 0.25rem) * 2)",
+};
+
 function StandardItem({ standard, isOpen, onToggle }: StandardItemProps): React.JSX.Element {
   return (
     <div>
-      {/* Row button */}
+      {/* Row button wrapping the Panel + ItemSlot card */}
       <button
         type="button"
         data-testid={`standard-item-${standard.id}`}
         onClick={onToggle}
-        style={standardItemStyle(isOpen)}
+        style={STD_BTN_STYLE}
         aria-expanded={isOpen}
       >
-        {/* Title */}
-        <span style={ITEM_TITLE_STYLE}>{standard.title}</span>
+        {/* Panel provides RPG embossed skin; glow accent when open */}
+        <Panel variant="rpgpanel" glow={isOpen ? "accent" : undefined}>
+          <div style={STD_CARD_INNER_STYLE}>
+            {/* Book itemslot (gxStdCard pattern) */}
+            <ItemSlot
+              icon={BOOK_ICON}
+              size={36}
+              tone="accent"
+              aria-label={`Estándar: ${standard.title}`}
+            />
 
-        {/* Badges */}
-        <span style={BADGES_STYLE}>
-          {/* Severity badge (AC-07-009.2) */}
-          <span
-            data-testid={`standard-severity-badge-${standard.id}`}
-            data-severity={standard.severity}
-            style={severityBadgeStyle(standard.severity)}
-            title={`Severidad: ${standard.severity}`}
-          >
-            {standard.severity}
-          </span>
+            <div style={STD_CARD_TEXT_STYLE}>
+              {/* Title */}
+              <span style={ITEM_TITLE_STYLE}>{standard.title}</span>
 
-          {/* Enforcement badge (AC-07-009.2) */}
-          <span
-            data-testid={`standard-enforcement-badge-${standard.id}`}
-            data-enforcement={standard.enforcement}
-            style={enforcementBadgeStyle()}
-            title={`Aplicación: ${standard.enforcement}`}
-          >
-            {standard.enforcement}
-          </span>
-        </span>
+              {/* Badges */}
+              <span style={BADGES_STYLE}>
+                {/* Severity badge (AC-07-009.2) */}
+                <span
+                  data-testid={`standard-severity-badge-${standard.id}`}
+                  data-severity={standard.severity}
+                  style={severityBadgeStyle(standard.severity)}
+                  title={`Severidad: ${standard.severity}`}
+                >
+                  {standard.severity}
+                </span>
 
-        {/* Chevron */}
-        <span
-          aria-hidden="true"
-          style={{
-            flexShrink: 0,
-            fontSize: "0.75rem",
-            opacity: 0.5,
-            transition: `transform var(--duration-fast, 150ms) var(--easing-standard, ease)`,
-            transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
-          }}
-        >
-          ›
-        </span>
+                {/* Enforcement badge (AC-07-009.2) */}
+                <span
+                  data-testid={`standard-enforcement-badge-${standard.id}`}
+                  data-enforcement={standard.enforcement}
+                  style={enforcementBadgeStyle()}
+                  title={`Aplicación: ${standard.enforcement}`}
+                >
+                  {standard.enforcement}
+                </span>
+              </span>
+            </div>
+
+            {/* Chevron */}
+            <span
+              aria-hidden="true"
+              style={{
+                flexShrink: 0,
+                fontSize: "0.75rem",
+                opacity: 0.5,
+                transition: `transform var(--duration-fast, 150ms) var(--easing-standard, ease)`,
+                transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
+                alignSelf: "center",
+              }}
+            >
+              ›
+            </span>
+          </div>
+        </Panel>
       </button>
 
       {/* Detail panel — mounted only when open (AC-07-009.3) */}

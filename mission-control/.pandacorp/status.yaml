@@ -23,4 +23,4 @@ advance_pending: false
 last_green_sha: "337700f"
 safe_to_test: true  # FRD-15 gate PASS
 blocked: []
-supervisor_heartbeat: "2026-06-20T19:51:58Z"
+supervisor_heartbeat: "2026-06-20T20:13:10Z"

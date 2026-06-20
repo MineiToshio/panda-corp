@@ -31,6 +31,7 @@
 
 import type React from "react";
 import { useState } from "react";
+import { PageTitle } from "@/components/core/PageTitle/PageTitle";
 import type { AgentLevelResult } from "@/lib/gamification/agents";
 import type { AgentRef, SkillRef } from "@/lib/reference/reference";
 import type { DecisionRule } from "@/lib/registry/registry";
@@ -66,6 +67,12 @@ const SHELL_STYLE: React.CSSProperties = {
   height: "100%",
   background: "var(--color-surface, Canvas)",
   color: "var(--color-text, currentColor)",
+};
+
+const HEADER_STYLE: React.CSSProperties = {
+  flexShrink: 0,
+  padding: "calc(var(--spacing, 0.25rem) * 5) calc(var(--spacing, 0.25rem) * 8)",
+  borderBottom: "var(--hairline, 1px) solid var(--color-border)",
 };
 
 const PANEL_STYLE: React.CSSProperties = {
@@ -223,6 +230,15 @@ export function ConfigurationShell({
 
   return (
     <div data-testid="config-shell" style={SHELL_STYLE}>
+      {/* Page header — PageTitle (DR-062: ONE title block) */}
+      <div style={HEADER_STYLE}>
+        <PageTitle
+          icon="ti-settings"
+          title="Configuración"
+          subtitle="Vista de lectura de la fábrica: habilidades, agentes, reglas y estándares."
+        />
+      </div>
+
       {/* Tab bar — always visible (AC-07-005.1) */}
       <SectionTabs activeSection={activeSection} onSectionChange={handleSectionChange} />
 

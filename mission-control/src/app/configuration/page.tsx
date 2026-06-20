@@ -68,29 +68,6 @@ const PAGE_STYLE: React.CSSProperties = {
   color: "var(--color-text, currentColor)",
 };
 
-const HEADER_STYLE: React.CSSProperties = {
-  flexShrink: 0,
-  padding: "calc(var(--spacing, 0.25rem) * 5) calc(var(--spacing, 0.25rem) * 8)",
-  borderBottom: "var(--hairline, 1px) solid var(--color-border, currentColor)",
-};
-
-const TITLE_STYLE: React.CSSProperties = {
-  fontSize: "1rem",
-  fontWeight: 700,
-  letterSpacing: "0.04em",
-  textTransform: "uppercase",
-  color: "var(--color-text-muted, currentColor)",
-  opacity: 0.65,
-  margin: 0,
-};
-
-const BODY_STYLE: React.CSSProperties = {
-  flex: 1,
-  overflow: "hidden",
-  display: "flex",
-  flexDirection: "column",
-};
-
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
@@ -118,20 +95,14 @@ export default function ConfigurationPage(): React.JSX.Element {
 
   return (
     <main data-testid="configuration-page" style={PAGE_STYLE}>
-      {/* Page chrome — read-only label */}
-      <div style={HEADER_STYLE}>
-        <h1 style={TITLE_STYLE}>Configuración</h1>
-      </div>
-
-      {/* Interactive shell — "use client" boundary */}
-      <div style={BODY_STYLE}>
-        <ConfigurationShell
-          skills={skills}
-          agentsData={{ agents, levels }}
-          rules={rules}
-          standards={standards}
-        />
-      </div>
+      {/* ConfigurationShell owns the PageTitle + tabs + section panels ("use client" boundary).
+       *  No extra header wrapper here — PageTitle (DR-062) lives inside the shell. */}
+      <ConfigurationShell
+        skills={skills}
+        agentsData={{ agents, levels }}
+        rules={rules}
+        standards={standards}
+      />
     </main>
   );
 }
