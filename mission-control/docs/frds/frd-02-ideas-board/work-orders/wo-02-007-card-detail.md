@@ -5,7 +5,7 @@ slug: card-detail
 title: 'WO-02-007 — La Campaña card detail (3 tabs + 6-phase pipeline)'
 status: DRAFT
 parent: FRD-02
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 artifacts:
   - 'src/app/board/_components/CardDetail/**'
   - 'src/components/modules/CampaignPipeline/**'
@@ -116,48 +116,66 @@ AgentSprite composition), phase done/current/locked derivation, fichas (LEE/ESCR
 "Entrar a La Fragua" onEnterForge bubbling, read-only invariant — all green in the integration suite
 and the runtime smoke (route 200, 6 rooms + 5 bridges + 3 tabs rendered, zero console errors).
 
-## Status Note — IN_REVIEW (2026-06-20)
+## Status Note — IN_REVIEW (2026-06-20, pass 2 — DR-062 tab fix)
 
-**What was built:** Rebuilt `CampaignPipeline` from a flat `<ol>/<li>` list into a faithful
-6-room pixel-art trail composing the shared Party canvas primitives (WO-13-009: `Room`,
-`StoneBridge`, `AgentSprite`). The stage is a 920×560 dark canvas with 30px dot-grid (added
-to `globals.css` via `[data-party-stage]::before`) hosting 6 absolutely-positioned `Room`
-zones in the serpentine layout from `la-campana.html` (top row L→R rooms 0–2, bottom row
-R→L rooms 3–5), connected by 5 `StoneBridge` connectors (4 horizontal + 1 vertical). Each
+**What was fixed (pass 2):** Applied the concrete DR-062 cohesion fix from the reviewer finding.
+`CardDetail.tsx` now uses the shared `Tabs` primitive (`src/components/core/Tabs/Tabs.tsx`,
+WO-13-006) with `level="sub"` and `testIdPrefix="card-detail-tab-"` instead of the bespoke
+`<div role="tablist">` + `tabButtonStyle`. The bespoke `TAB_ROW_STYLE` / `tabButtonStyle`
+constants were removed from `CardDetail.styles.ts` (now has a comment marking their removal).
+The shared `Tabs` primitive provides the canonical ArrowLeft/ArrowRight keyboard contract
+(`CardDetail.cohesion.reviewer.test.tsx` second test now passes — previously it failed against
+the bespoke row). The `docs/design/components.md` entry for `CardDetail` is now truthful
+("uses `Tabs`"). All three `role="tabpanel"` bodies and the clip strategy remain unchanged.
+
+**What was built (pass 1):** `CampaignPipeline` rebuilt from a flat `<ol>/<li>` list into a
+faithful 6-room pixel-art trail composing the shared Party canvas primitives (WO-13-009:
+`Room`, `StoneBridge`, `AgentSprite`). The stage is a 920×560 dark canvas with 30px dot-grid
+(added to `globals.css` via `[data-party-stage]::before`) hosting 6 absolutely-positioned
+`Room` zones in the serpentine layout from `la-campana.html` (top row L→R rooms 0–2, bottom
+row R→L rooms 3–5), connected by 5 `StoneBridge` connectors (4 horizontal + 1 vertical). Each
 room has a transparent `<button>` overlay for click/keyboard with `data-testid` and
-`data-phase-state`; the phase ficha (`FichaContent`) renders below the stage on click,
-showing description + LEE + ESCRIBE + the whole team as `AgentSprite` figures. The build
-phase's "Entrar a La Fragua" fires `onEnterForge(slug)`. `CardDetail.tsx` was not modified —
-it was already the correct tabbed shell; only `CampaignPipeline.tsx` was rebuilt.
+`data-phase-state`; the phase ficha (`FichaContent`) renders below the stage on click, showing
+description + LEE + ESCRIBE + the whole team as `AgentSprite` figures. The build phase's
+"Entrar a La Fragua" fires `onEnterForge(slug)`.
 
 **Interfaces/contracts exposed:**
-- `CampaignPipelineProps` — `{ slug: string; activePhase: CampaignPhase; onEnterForge: (slug: string) => void }` (unchanged public API)
+- `CardDetailProps` — `{ slug, title, status, body, phase?, advancePending?, docsIndex?, onEnterForge? }` (unchanged)
+- `CampaignPipelineProps` — `{ slug: string; activePhase: CampaignPhase; onEnterForge: (slug: string) => void }` (unchanged)
+- Tab testids: `data-testid="card-detail-tab-campana"`, `"card-detail-tab-docs"`, `"card-detail-tab-comandos"` (via shared `Tabs` `testIdPrefix="card-detail-tab-"`)
+- `data-testid="tabs-root"` with `data-level="sub"` — confirms the shared primitive is active
 - Stage testid: `data-testid="campaign-stage"` wraps all 6 rooms and 5 bridges
-- Room click targets: `data-testid="campaign-phase-{key}"` (button overlay), `data-phase-state="done|current|locked"`
-- Ficha: `data-testid="campaign-phase-ficha"`, with children `ficha-description`, `ficha-lee`, `ficha-escribe`, `ficha-team`, `ficha-team-member`, `ficha-enter-forge`, `ficha-locked-marker`
+- Room click targets: `data-testid="campaign-phase-{key}"`, `data-phase-state="done|current|locked"`
+- Ficha: `data-testid="campaign-phase-ficha"`, children: `ficha-description`, `ficha-lee`, `ficha-escribe`, `ficha-team`, `ficha-team-member`, `ficha-enter-forge`, `ficha-locked-marker`
 
 **Integration seams:**
-- `CardDetail.tsx` calls `CampaignPipeline` via `activePhase={phaseFromStatus(card)}` and `onEnterForge` callback — unchanged
-- `globals.css` now has `[data-party-stage]::before` (30px dot-grid), `[data-party-stage] [data-testid="room-root"]:hover` (transform lift), `@keyframes roompulse` (active room pulse), and focus-ring `::after` for keyboard users
-- `globals.css` transitions only `transform` (compositable; AC-13-005.1 enforced)
+- `CardDetail.tsx` wires `handleTabChange` (narrows `string` → `TabKey` via `TABS.find`) into the shared `Tabs` `onChange`; panel visibility uses the clip strategy (PANEL_HIDDEN_STYLE) — all three panels are always mounted
+- `CardDetail.tsx` calls `CampaignPipeline` via `activePhase={phaseFromStatus(card)}` and `onEnterForge` callback
+- `globals.css` has `[data-party-stage]::before` (30px dot-grid), `@keyframes roompulse`, focus-ring `::after` for keyboard users; transitions only `transform` (compositable)
 
 **Implicit decisions and conventions (consumer must inherit):**
-1. `PhaseRoom` is a module-local sub-component (not exported); it holds the Room + sprites + badge + button. The `CampaignPipeline` root only renders the stage, bridges, and ficha wrapper.
-2. Room zone mapping: `research→research`, `product→spec`, `design→design`, `architecture→architecture`, `build→build`, `release→release` (spec=review.png, design=frontend.png per WO-13-009 convention).
-3. Room positions (left, top): `[18,46],[335,46],[652,46],[652,306],[335,306],[18,306]` (faithful to la-campana.html).
-4. Bridge `flow` prop = `bridge.fromIdx === activePhase - 1` (the connector leading INTO the active room flows the deliverable).
-5. AgentSprite positions per team size: 1→`[[97,84]]`, 2→`[[52,82],[144,82]]`, 3→`[[34,80],[97,94],[160,80]]`.
-6. `_PHASE_KEYS` constant in the pixel-trail test file has underscore prefix (biome unused-var idiom); no biome-ignore comment needed.
-7. Stage `@keyframes roompulse` and `::before` dot-grid live in `globals.css` (not inline) because pseudo-elements and keyframes cannot be expressed in React inline styles.
+1. `TAB_TEST_ID_PREFIX = "card-detail-tab-"` — the `testIdPrefix` prop on `Tabs` so test ids are screen-specific while still using the ONE shared primitive (DR-062).
+2. `handleTabChange` narrows `string → TabKey` via `TABS.find` — no unsafe `as` cast; unknown ids are silently dropped (no crash).
+3. `PANEL_HIDDEN_STYLE` (clip technique) keeps all panels mounted so `getByTestId` in off-tab panels works; inactive panels are not removed from the DOM.
+4. `PhaseRoom` is module-local (not exported); `CampaignPipeline` root renders stage + bridges + ficha wrapper only.
+5. Room zone mapping: `[research, spec, design, architecture, build, release]` (spec=review.png, design=frontend.png per WO-13-009).
+6. Room positions (left, top): `[18,46],[335,46],[652,46],[652,306],[335,306],[18,306]` (faithful to la-campana.html).
+7. Bridge `flow` prop = `bridge.fromIdx === activePhase - 1` (connector leading INTO the active room carries the deliverable).
+8. AgentSprite home positions per team size: 1→`[[97,84]]`, 2→`[[52,82],[144,82]]`, 3→`[[34,80],[97,94],[160,80]]`.
+9. Stage `@keyframes roompulse` and `::before` dot-grid live in `globals.css` (pseudo-elements and keyframes cannot be expressed in React inline styles).
 
 **Test files covering this WO:**
-- `src/components/modules/CampaignPipeline/_tests/CampaignPipeline.test.tsx` — 59 existing tests (AC-02-010.1/3/4/5/6/7, accessibility, design tokens, robustness)
-- `src/components/modules/CampaignPipeline/_tests/CampaignPipeline.pixel-trail.test.tsx` — 30 new tests (WO-02-007 pixel-trail: 6 rooms, correct zones+states, 5 bridges, agent sprites, stage container, room labels)
-- `src/app/board/_components/CardDetail/_tests/CardDetail.test.tsx` — 114 integration tests (3-tab shell, Campaña/Documentos/Comandos, AC-02-009.1–.4)
+- `src/app/board/_components/CardDetail/_tests/CardDetail.cohesion.reviewer.test.tsx` — 2 reviewer tests (DR-062: both the shared `Tabs` primitive contract AND CardDetail's tab row now pass the ArrowRight focus-cycling check — the blocking finding is resolved)
+- `src/app/board/_components/CardDetail/_tests/CardDetail.tabs.test.tsx` — 34 tests (AC-02-009.1–.4: 3-tab structure, default, activation, doc-entry switch, persistence, CampaignPipeline wiring)
+- `src/app/board/_components/CardDetail/_tests/CardDetail.test.tsx` — 52 tests (AC-02-004.1/008.1: next-step, copy, docs navigator, lifecycle statuses, phases, read-only, tokens, a11y)
+- `src/app/board/_components/CardDetail/_tests/CardDetail.frd02-integration.reviewer.test.tsx` — 8 reviewer integration tests (phase-state invariant, Entrar La Fragua, read-only, tab coexistence)
+- `src/app/board/_components/CardDetail/_tests/CardDetail.adversarial.test.tsx` — adversarial tests
+- `src/components/modules/CampaignPipeline/_tests/CampaignPipeline.test.tsx` — 59 tests (AC-02-010.1/3/4/5/6/7, accessibility, design tokens, robustness)
+- `src/components/modules/CampaignPipeline/_tests/CampaignPipeline.pixel-trail.test.tsx` — 30 tests (6 rooms, zones+states, 5 bridges, agent sprites, stage container, room labels)
 
-**Gate results (2026-06-20):**
-- `vitest run` (full suite) — 6530 passed | 2 expected fail | 277 test files
+**Gate results (2026-06-20, pass 2):**
+- `vitest run` (full suite) — 6532 passed | 2 expected fail | 278 test files
 - `tsc --noEmit` — 0 errors
-- `biome check src/` — 0 errors, 0 warnings (487 files)
-- Visual fidelity (DR-056) — 3 cycles against `mocks/la-campana.html`: Stage + 6 rooms + 5 bridges + active glow + sprites + ficha all match. Zero console errors in browser.
-- Preview smoke gate — route `http://localhost:3099/board` (card detail) returns HTTP 200, CampaignPipeline renders with `campaign-stage`, `room-root`×6, `stone-bridge-root`×5, `agent-sprite-root`×10.
+- `biome check src/` — 0 errors, 0 warnings (488 files)
+- Visual fidelity (DR-056) — Playwright fidelity check: `campaign-stage`×1, `campaign-phase-*`×6, `tabs-root[data-level=sub]`×1, `card-detail-tab-campana` aria-selected=true role=tab. Zero console errors. Screenshot matches `mocks/la-campana.html` layout.
+- Preview smoke gate — board route HTTP 200; sentinel smoke + visual harness tests pass.
