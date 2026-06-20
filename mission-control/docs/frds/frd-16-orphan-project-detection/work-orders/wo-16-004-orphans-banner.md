@@ -5,11 +5,11 @@ slug: orphans-banner
 title: 'WO-16-004 — `OrphansBanner` onto the shared `Banner` (kind="orphan")'
 status: DRAFT
 parent: FRD-16
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 artifacts:
   - 'src/app/_components/orphans-banner/**'
 source_requirements: [REQ-16-001, REQ-16-002, REQ-16-003, REQ-16-004, REQ-16-005, REQ-16-006]
-last_updated: '2026-06-19'
+last_updated: '2026-06-20'
 ---
 # WO-16-004 — `OrphansBanner` onto the shared `Banner` (kind="orphan")
 
@@ -81,3 +81,60 @@ dup-fix consumer**: the current `BANNER_STYLE`/`ICON_STYLE`/`CMD_ROW_STYLE`/`REC
 (~L566/L600), placement under the dashboard `PageTitle` per `dashboardView()` (~L745). On the frozen
 tokens (`docs/design/design-tokens.json`). The engine injects the fdd + mocks + tokens + in-loop visual
 fidelity + the components.md reuse check into this WO.
+
+## Status Note
+
+**Built:** DR-057 refactor of `src/app/_components/orphans-banner/orphans-banner.tsx` — the component is
+now a `kind="orphan"` consumer of the shared `Banner` primitive (`src/components/core/Banner/Banner.tsx`,
+WO-13-007). All local `BANNER_STYLE` / `ICON_STYLE` / `CMD_ROW_STYLE` / `RECALL_STYLE` blocks have been
+deleted. The component contributes only the orphan-specific per-item body and the polling/dismiss logic.
+
+**What changed:**
+- Replaced the legacy re-implementation (BANNER_STYLE + ICON_STYLE etc.) with `Banner` (`tone="warn"`,
+  `kind="orphan"`, `dismissible`). No local style blocks remain.
+- Per-candidate item body refactored into `OrphanItemBody` — renders `Chip` ("sin adoptar" warn / "falta
+  en portfolio" info), monospace `<code>` path, warn hint line, `CmdRow` + `CopyButton` (via CmdRow).
+- Overflow collapse managed in `OrphansBanner` itself (since `Banner.items[]` supports only simple string
+  labels; complex per-item content requires the collapse toggle to live in the `children` slot). The
+  `orphans-toggle` button is rendered inside `Banner`'s children — tests verify it is a DOM descendant
+  of `data-testid="banner"`.
+- Whole-banner dismiss (Banner's × button, `banner-dismiss`) dismisses ALL visible candidates at once;
+  each item also has its own per-item dismiss (`orphan-dismiss-{name}`).
+- Icon: the shared `Banner` provides the warn-triangle SVG (`banner-icon`); `orphan-icon` no longer
+  exists (test updated to check `banner-icon`).
+
+**Interfaces / contracts exposed (unchanged — consumers see the same surface):**
+
+```tsx
+// src/app/_components/orphans-banner/orphans-banner.tsx
+export function OrphansBanner(): React.JSX.Element | null
+// No props. Self-contained. Mounted by FRD-18 dashboard (src/app/page.tsx).
+// Polls GET /api/orphans (CMP-16-route, WO-16-003, Candidate[]).
+// Dismissal: localStorage keyed "mc:orphan-dismissed:<abs-path>" = "1".
+// Collapse threshold: 2 candidates (COLLAPSE_THRESHOLD constant).
+```
+
+**Implicit decisions & naming conventions:**
+- The per-item dismiss button uses `data-testid="orphan-dismiss-{name}"` and `aria-label="Descartar aviso
+  de proyecto {name}"` — keyed by `name` (folder basename) for testability, but dismissal is stored and
+  checked by absolute `path` (correct deduplication).
+- The whole-banner dismiss (from `Banner`'s `dismissible` prop) is `data-testid="banner-dismiss"`.
+- `Chip tone="warn"` for "sin adoptar"; `Chip tone="info"` for "falta en portfolio" (not color alone —
+  text label also distinguishes).
+- Overflow toggle: `data-testid="orphans-toggle"`, `aria-expanded={expanded}`.
+- `CmdRow` (not raw `<div>` + `CopyButton`) for the command row — the shared `CmdRow` primitive.
+- `hintForKind`: orphan → "tiene .pandacorp/ pero nunca pasó por el handoff — adóptalo bajo la fábrica";
+  unlisted → "ya es proyecto de la fábrica (tiene .pandacorp/status.yaml), solo falta su fila en el portfolio".
+
+**Test files covering this WO:**
+- `src/app/_components/orphans-banner/_tests/orphans-banner.test.tsx` — AC-16-004.1–7 (40 tests; updated
+  AC-16-004.6 icon check from `orphan-icon` → `banner-icon`).
+- `src/app/_components/orphans-banner/_tests/orphans-banner.adversarial.test.tsx` — 4 adversarial tests
+  (self-clear via polling interval; read-only wire-level; same-basename independence). Unchanged + green.
+- `src/app/_components/orphans-banner/_tests/orphans-banner.dr057.test.tsx` — NEW: 8 structural tests for
+  AC-16-004.7 / DR-057 consumer verification (Banner testid, kind="orphan", tone="warn", banner-icon,
+  banner-dismiss, collapse toggle inside Banner, Chip per item).
+
+**Gate:** 6680/6682 tests pass (2 pre-existing CelebrationSurface failures unrelated to this WO,
+confirmed by `git stash` check). tsc clean. biome clean. Preview smoke: no console errors, banner
+renders with real orphan candidates from `/api/orphans`.

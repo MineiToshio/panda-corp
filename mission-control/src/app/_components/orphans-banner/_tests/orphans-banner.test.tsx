@@ -473,8 +473,9 @@ describe("AC-16-004.6: Spanish copy + a11y", () => {
     mockFetch([ORPHAN_A]);
     render(<OrphansBanner />);
     await flushInitialPoll();
-    // Icon element must exist to convey state without relying solely on color (FRD-13)
-    expect(screen.getByTestId("orphan-icon")).toBeInTheDocument();
+    // The shared Banner provides the warn-triangle icon (banner-icon) — state conveyed
+    // by icon + text, never color alone (FRD-13, AC-16-004.8, DR-057 consumer).
+    expect(screen.getByTestId("banner-icon")).toBeInTheDocument();
   });
 
   it("renders nothing before the first fetch resolves", () => {

@@ -3,31 +3,41 @@
 /**
  * CMP-16-banner — OrphansBanner
  *
- * Polls `/api/orphans` on mount + on a fixed interval; renders one dismissible
- * banner per candidate (orphan → adopt; unlisted → sync-portfolio) with the
- * project name, path and the copyable command. Collapses to a compact stacked
- * view when several candidates are present.
+ * DR-057 refactor: consumes the ONE shared Banner primitive (kind="orphan",
+ * tone="warn") — no local BANNER_STYLE/ICON_STYLE/CMD_ROW_STYLE/RECALL_STYLE.
+ * ALL banner chrome (strip shape, warn icon, hairline border, dismiss ×,
+ * collapse toggle) comes from Banner (src/components/core/Banner/Banner.tsx,
+ * WO-13-007).
+ *
+ * This component contributes only:
+ *   - Polling loop + localStorage dismiss logic
+ *   - Per-candidate item body: Chip (sin adoptar / falta en portfolio) +
+ *     path <code> + hint line + CmdRow (adopt / sync-portfolio)
  *
  * Dismissal is remembered in `localStorage` keyed by absolute `path`
  * (client-local UI state — NOT a factory write, architecture §4.8).
  *
- * Self-clears when a candidate disappears from the probe (adopted/fixed) or is
- * explicitly dismissed by the owner (AC-16-004.4).
+ * Self-clears when a candidate disappears from the probe (adopted/fixed)
+ * or is explicitly dismissed (AC-16-004.4).
  *
- * Read-only invariant (architecture §7, REQ-16-005): only GET requests to
- * `/api/orphans`. No writes, no exec, no adopt/git invocations.
+ * Read-only invariant (architecture §7, REQ-16-005): only GET /api/orphans;
+ * no writes, no exec, no adopt/git invocations.
  *
  * Traceability:
- *   CMP-16-banner  → AC-16-004.1 … AC-16-004.7
+ *   CMP-16-banner  → AC-16-004.1 … AC-16-004.8
  *   CMP-16-steps   → per-kind recall (adopt / sync-portfolio)
  *   IF-16-scan     → lib/orphans.ts :: Candidate
  *   CMP-16-route   → /api/orphans (WO-16-003)
- *   CopyButton     → components/CopyButton.tsx (FRD-02)
+ *   Banner         → src/components/core/Banner/Banner.tsx (WO-13-007, DR-057)
+ *   Chip           → src/components/core/Chip/Chip.tsx
+ *   CmdRow         → src/components/core/CmdRow/CmdRow.tsx
  *   WO-16-004      → FRD-16
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CopyButton } from "@/components/core/CopyButton/CopyButton";
+import { Banner } from "@/components/core/Banner/Banner";
+import { Chip } from "@/components/core/Chip/Chip";
+import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 import type { Candidate } from "@/lib/orphans/orphans";
 
 // ---------------------------------------------------------------------------
@@ -43,118 +53,12 @@ const DISMISS_PREFIX = "mc:orphan-dismissed:";
 /** API endpoint that returns Candidate[] (CMP-16-route). */
 const API_ENDPOINT = "/api/orphans";
 
-/** The command to suggest for each kind of candidate (AC-16-004.1 / AC-16-004.2). */
+/** Commands per kind (CMP-16-steps, AC-16-004.1 / AC-16-004.2). */
 const CMD_ADOPT = "/pandacorp:adopt";
 const CMD_SYNC = "/pandacorp:sync-portfolio";
 
-/** Above this many candidates, collapse the rest behind a toggle (calm dashboard, FRD-16 collapse criterion). */
+/** Above this many candidates, collapse the rest (calm dashboard, FRD-16 collapse criterion). */
 const COLLAPSE_THRESHOLD = 2;
-
-// ---------------------------------------------------------------------------
-// Styles — zero hardcoded colors (CSS custom properties only, FRD-13)
-// ---------------------------------------------------------------------------
-
-const BANNER_STYLE: React.CSSProperties = {
-  background: "var(--color-warn-bg, oklch(var(--warn-bg, 0.35 0.05 90) / 0.15))",
-  borderTop: "var(--hairline, 1px) solid var(--color-warn, oklch(0.70 0.15 60))",
-  borderBottom: "var(--hairline, 1px) solid var(--color-warn, oklch(0.70 0.15 60))",
-  padding: "calc(var(--space-base, 1rem) * 0.75) var(--space-base, 1rem)",
-  width: "100%",
-};
-
-const ITEM_STYLE: React.CSSProperties = {
-  display: "flex",
-  alignItems: "flex-start",
-  gap: "calc(var(--space-base, 1rem) * 0.625)",
-  maxWidth: "72ch",
-  paddingBottom: "calc(var(--space-base, 1rem) * 0.5)",
-};
-
-const ICON_STYLE: React.CSSProperties = {
-  color: "var(--color-warn, oklch(0.70 0.15 60))",
-  flexShrink: 0,
-  marginTop: "0.125rem",
-  fontSize: "1.25rem",
-  lineHeight: 1,
-};
-
-const BODY_STYLE: React.CSSProperties = {
-  flex: 1,
-  minWidth: 0,
-};
-
-const HEADING_STYLE: React.CSSProperties = {
-  fontSize: "0.875rem",
-  fontWeight: 500,
-  color: "var(--color-warn, oklch(0.70 0.15 60))",
-  margin: 0,
-};
-
-const PATH_STYLE: React.CSSProperties = {
-  fontFamily: "monospace",
-  fontSize: "0.75rem",
-  color: "var(--color-warn, oklch(0.70 0.15 60))",
-  opacity: 0.9,
-  margin: "0.125rem 0 0",
-  userSelect: "all",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
-};
-
-const RECALL_STYLE: React.CSSProperties = {
-  fontSize: "0.6875rem",
-  color: "var(--color-warn, oklch(0.70 0.15 60))",
-  opacity: 0.8,
-  margin: "calc(var(--space-base, 1rem) * 0.375) 0 0",
-};
-
-const CMD_ROW_STYLE: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "calc(var(--space-base, 1rem) * 0.5)",
-  marginTop: "calc(var(--space-base, 1rem) * 0.5)",
-  padding: "0.25rem calc(var(--space-base, 1rem) * 0.5)",
-  background: "var(--color-surface-card, var(--color-surface, Canvas))",
-  border: "var(--hairline, 1px) solid var(--color-warn, oklch(0.70 0.15 60))",
-  borderRadius: "var(--radius, 0.5rem)",
-};
-
-const CMD_TEXT_STYLE: React.CSSProperties = {
-  fontFamily: "monospace",
-  fontSize: "0.75rem",
-  color: "var(--color-warn, oklch(0.70 0.15 60))",
-  flex: 1,
-  userSelect: "all",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
-};
-
-const DISMISS_BTN_STYLE: React.CSSProperties = {
-  background: "transparent",
-  border: "none",
-  cursor: "pointer",
-  color: "var(--color-warn, oklch(0.70 0.15 60))",
-  opacity: 0.7,
-  padding: "0.125rem 0.25rem",
-  marginLeft: "auto",
-  fontSize: "1rem",
-  lineHeight: 1,
-  flexShrink: 0,
-};
-
-const TOGGLE_BTN_STYLE: React.CSSProperties = {
-  background: "transparent",
-  border: "none",
-  cursor: "pointer",
-  color: "var(--color-warn, oklch(0.70 0.15 60))",
-  opacity: 0.85,
-  padding: "0.25rem 0",
-  fontSize: "0.75rem",
-  fontWeight: 500,
-  textDecoration: "underline",
-};
 
 // ---------------------------------------------------------------------------
 // localStorage helpers (architecture §4.8)
@@ -181,19 +85,13 @@ function persistDismissal(candidatePath: string): void {
 }
 
 // ---------------------------------------------------------------------------
-// Per-kind copy helpers (CMP-16-steps)
+// Per-kind helpers (CMP-16-steps)
 // ---------------------------------------------------------------------------
 
-function headingForKind(name: string, kind: Candidate["kind"]): string {
+function hintForKind(kind: Candidate["kind"]): string {
   return kind === "orphan"
-    ? `Proyecto sin registrar: ${name} — ¿adoptarlo?`
-    : `Proyecto con marcador pero fuera del portfolio: ${name}`;
-}
-
-function recallForKind(kind: Candidate["kind"]): string {
-  return kind === "orphan"
-    ? "Abre una sesión en la carpeta y corre /pandacorp:adopt"
-    : "Corre /pandacorp:sync-portfolio para sincronizar el portfolio";
+    ? "tiene .pandacorp/ pero nunca pasó por el handoff — adóptalo bajo la fábrica"
+    : "ya es proyecto de la fábrica (tiene .pandacorp/status.yaml), solo falta su fila en el portfolio";
 }
 
 function commandForKind(kind: Candidate["kind"]): string {
@@ -201,57 +99,99 @@ function commandForKind(kind: Candidate["kind"]): string {
 }
 
 // ---------------------------------------------------------------------------
-// Single orphan item (one per visible candidate)
+// Single orphan item body (rendered inside the shared Banner's children slot)
 // ---------------------------------------------------------------------------
 
-interface OrphanItemProps {
+interface OrphanItemBodyProps {
   candidate: Candidate;
   onDismiss: (path: string) => void;
 }
 
-function OrphanItem({ candidate, onDismiss }: OrphanItemProps): React.JSX.Element {
+/** Per-candidate body rendered inside the shared Banner's children slot. */
+function OrphanItemBody({ candidate, onDismiss }: OrphanItemBodyProps): React.JSX.Element {
   const { name, path, kind } = candidate;
-  const heading = headingForKind(name, kind);
-  const recall = recallForKind(kind);
   const command = commandForKind(kind);
+  const hint = hintForKind(kind);
+
+  const itemStyle: React.CSSProperties = {
+    borderTop: "0.5px solid var(--color-border, var(--hairline, 1px))",
+    paddingTop: "9px",
+    paddingBottom: "4px",
+  };
+
+  const nameRowStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    flexWrap: "wrap" as const,
+    marginBottom: "3px",
+  };
+
+  const pathStyle: React.CSSProperties = {
+    fontSize: "11px",
+    color: "var(--color-text3, var(--color-text2))",
+    background: "var(--color-panel, Canvas)",
+    padding: "1px 6px",
+    borderRadius: "4px",
+    fontFamily: "var(--font-mono, monospace)",
+    userSelect: "all" as const,
+  };
+
+  const hintStyle: React.CSSProperties = {
+    fontSize: "11px",
+    color: "var(--color-warn)",
+    marginBottom: "4px",
+  };
+
+  const dismissStyle: React.CSSProperties = {
+    background: "transparent",
+    border: "none",
+    cursor: "pointer",
+    opacity: 0.7,
+    padding: "0.125rem 0.25rem",
+    fontSize: "1rem",
+    lineHeight: 1,
+    color: "inherit",
+    flexShrink: 0,
+  };
 
   return (
-    <div data-testid={`orphan-item-${name}`} style={ITEM_STYLE}>
-      <div style={BODY_STYLE}>
-        <p style={HEADING_STYLE}>{heading}</p>
-
-        {/* Absolute path — selectable text (AC-16-004.3) */}
-        <p data-testid={`orphan-path-${name}`} style={PATH_STYLE}>
+    <div data-testid={`orphan-item-${name}`} style={itemStyle}>
+      <div style={nameRowStyle}>
+        <span style={{ fontSize: "13px", fontWeight: 500 }}>{name}</span>
+        {/* Case chip: icon+text, not color alone (AC-16-004.8 / FRD-13) */}
+        {kind === "orphan" ? (
+          <Chip tone="warn">sin adoptar</Chip>
+        ) : (
+          <Chip tone="info">falta en portfolio</Chip>
+        )}
+        {/* Monospace selectable path (AC-16-004.1, AC-16-004.3) */}
+        <code data-testid={`orphan-path-${name}`} style={pathStyle}>
           {path}
-        </p>
-
-        {/* Recall steps (CMP-16-steps, AC-16-004.1 / AC-16-004.2) */}
-        <p style={RECALL_STYLE}>{recall}</p>
-
-        {/* Command row with CopyButton (AC-16-004.3) */}
-        <div style={CMD_ROW_STYLE}>
-          <span style={CMD_TEXT_STYLE}>{command}</span>
-          {/* Wrapper gives tests a stable testid; CopyButton has its own "copy-button" testid */}
-          <span data-testid={`orphan-copy-cmd-${name}`}>
-            <CopyButton value={command} label="Copiar" />
-          </span>
-        </div>
+        </code>
+        {/* Per-item dismiss (AC-16-004.4) */}
+        <button
+          type="button"
+          data-testid={`orphan-dismiss-${name}`}
+          aria-label={`Descartar aviso de proyecto ${name}`}
+          style={dismissStyle}
+          onClick={() => {
+            persistDismissal(path);
+            onDismiss(path);
+          }}
+        >
+          {/* × — state conveyed by button label, not color alone (FRD-13) */}
+          &#x00D7;
+        </button>
       </div>
 
-      {/* Dismiss button (AC-16-004.4) */}
-      <button
-        type="button"
-        data-testid={`orphan-dismiss-${name}`}
-        aria-label={`Descartar aviso de proyecto ${name}`}
-        style={DISMISS_BTN_STYLE}
-        onClick={() => {
-          persistDismissal(path);
-          onDismiss(path);
-        }}
-      >
-        {/* × character — state conveyed by icon + button label, not color alone (FRD-13) */}
-        &#x00D7;
-      </button>
+      {/* Hint line — context for the case (AC-16-004.1 / AC-16-004.2) */}
+      <div style={hintStyle}>{hint}</div>
+
+      {/* CmdRow + CopyButton (CMP-16-steps, AC-16-004.1/AC-16-004.3) */}
+      <div data-testid={`orphan-copy-cmd-${name}`}>
+        <CmdRow command={command} />
+      </div>
     </div>
   );
 }
@@ -261,18 +201,19 @@ function OrphanItem({ candidate, onDismiss }: OrphanItemProps): React.JSX.Elemen
 // ---------------------------------------------------------------------------
 
 /**
- * OrphansBanner — CMP-16-banner.
+ * OrphansBanner — CMP-16-banner (DR-057 refactor).
  *
- * Self-contained: manages its own polling loop and localStorage dismissals.
- * Renders nothing until at least one non-dismissed candidate is confirmed.
- * No props required.
+ * kind="orphan" consumer of the shared Banner (tone="warn", dismissible).
+ * Self-contained: manages its own polling loop, per-path localStorage dismissals,
+ * and overflow collapse (>2 candidates). Renders nothing until at least one
+ * non-dismissed candidate is confirmed. No props required.
  */
 export function OrphansBanner(): React.JSX.Element | null {
-  // The full list of candidates from the last poll (null = not yet fetched)
+  // Full list of candidates from the last poll (null = not yet fetched)
   const [candidates, setCandidates] = useState<Candidate[] | null>(null);
   // In-memory set of locally dismissed paths (mirrors localStorage — avoids re-reads)
   const [dismissed, setDismissed] = useState<ReadonlySet<string>>(() => new Set<string>());
-  // Whether the collapsed overflow of candidates is expanded (calm dashboard, FRD-16 collapse criterion)
+  // Whether the overflow collapse is expanded (calm dashboard, FRD-16 collapse criterion)
   const [expanded, setExpanded] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -313,8 +254,8 @@ export function OrphansBanner(): React.JSX.Element | null {
     return null;
   }
 
-  // Filter to candidates that are both still returned by the probe AND not dismissed
-  // (self-clear: candidates not in the latest probe are automatically gone — AC-16-004.4)
+  // Filter: only candidates still returned by the probe AND not locally dismissed
+  // (self-clear: candidates absent from the latest probe are automatically removed — AC-16-004.4)
   const visible = candidates.filter((c) => !dismissed.has(c.path) && !isDismissed(c.path));
 
   // AC-16-004.7: empty candidate list → renders nothing (no empty shell)
@@ -322,40 +263,73 @@ export function OrphansBanner(): React.JSX.Element | null {
     return null;
   }
 
-  // Collapse the overflow so several orphans don't dominate the dashboard (FRD-16 collapse criterion).
+  // Overflow collapse: show only the first COLLAPSE_THRESHOLD items unless expanded
+  // (calm dashboard — prevents wall-of-banners regression, AC-16-004.5 / REQ-16-003.2)
   const shown = expanded ? visible : visible.slice(0, COLLAPSE_THRESHOLD);
   const hiddenCount = visible.length - shown.length;
 
+  const toggleStyle: React.CSSProperties = {
+    background: "transparent",
+    border: "none",
+    cursor: "pointer",
+    opacity: 0.85,
+    padding: "0.25rem 0",
+    fontSize: "0.75rem",
+    fontWeight: 500,
+    textDecoration: "underline",
+    color: "inherit",
+    marginTop: "0.25rem",
+    display: "block",
+  };
+
   return (
-    <div
-      data-testid="orphans-banner"
-      role="alert"
-      aria-label="Avisos de proyectos sin registrar"
-      style={BANNER_STYLE}
-    >
-      {/* Icon — state conveyed by icon + text, not color alone (AC-16-004.6 / FRD-13) */}
-      <span data-testid="orphan-icon" style={ICON_STYLE} aria-hidden="true">
-        &#9651;{/* ▲ warning triangle, same as PluginSyncBanner */}
-      </span>
+    // Outer section: stable testid + aria landmark (same pattern as PluginSyncBanner)
+    <section data-testid="orphans-banner" aria-label="Avisos de proyectos sin registrar">
+      {/*
+       * THE shared Banner (DR-057, WO-13-007) renders:
+       *   - left warn-triangle icon (tone="warn", banner-icon testid)
+       *   - heading "Proyectos de Pandacorp sin registrar"
+       *   - detail: scope note (.pandacorp/ only; foreign folders never listed)
+       *   - children slot: visible candidate items + overflow toggle
+       *   - dismissible × (banner-dismiss testid — dismisses ALL candidates, AC-16-004.4)
+       * No local BANNER_STYLE/ICON_STYLE/CMD_ROW_STYLE/RECALL_STYLE (AC-16-004.7, DR-057).
+       */}
+      <Banner
+        tone="warn"
+        kind="orphan"
+        heading="Proyectos de Pandacorp sin registrar"
+        detail="Detecté carpetas con .pandacorp/ que no están en tu portfolio. (Las carpetas ajenas de ~/Proyectos/ nunca se listan aquí.)"
+        dismissible
+        onDismiss={() => {
+          // Dismiss ALL visible candidates at once (whole-banner dismiss)
+          for (const c of visible) {
+            persistDismissal(c.path);
+            handleDismiss(c.path);
+          }
+        }}
+      >
+        {/* Per-candidate items (collapsed to COLLAPSE_THRESHOLD unless expanded) */}
+        {shown.map((candidate) => (
+          <OrphanItemBody key={candidate.path} candidate={candidate} onDismiss={handleDismiss} />
+        ))}
 
-      {shown.map((candidate) => (
-        <OrphanItem key={candidate.path} candidate={candidate} onDismiss={handleDismiss} />
-      ))}
-
-      {/* Collapsed overflow toggle — keeps the dashboard calm when many orphans exist */}
-      {(hiddenCount > 0 || expanded) && visible.length > COLLAPSE_THRESHOLD && (
-        <button
-          type="button"
-          data-testid="orphans-toggle"
-          aria-expanded={expanded}
-          style={TOGGLE_BTN_STYLE}
-          onClick={() => setExpanded((prev) => !prev)}
-        >
-          {expanded
-            ? "Ver menos"
-            : `Ver ${hiddenCount} proyecto${hiddenCount === 1 ? "" : "s"} más sin registrar`}
-        </button>
-      )}
-    </div>
+        {/* Overflow collapse toggle — scoped inside Banner's children slot (AC-16-004.5) */}
+        {(hiddenCount > 0 || expanded) && visible.length > COLLAPSE_THRESHOLD && (
+          <button
+            type="button"
+            data-testid="orphans-toggle"
+            aria-expanded={expanded}
+            style={toggleStyle}
+            onClick={() => {
+              setExpanded((prev) => !prev);
+            }}
+          >
+            {expanded
+              ? "Ver menos"
+              : `Ver ${hiddenCount} proyecto${hiddenCount === 1 ? "" : "s"} más sin registrar`}
+          </button>
+        )}
+      </Banner>
+    </section>
   );
 }
