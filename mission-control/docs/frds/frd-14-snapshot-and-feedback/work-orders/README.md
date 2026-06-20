@@ -6,19 +6,27 @@ Read [`../blueprint.md`](../blueprint.md) first.
 
 ## Work orders
 
-| WO | Title | Layer | Implements |
-|---|---|---|---|
-| [WO-14-001](./wo-14-001-snapshot-helpers.md) | `lib/snapshot.ts` — `buildSnapshot` + `isSnapshotStale` | lib (TDD) | IF-14-snapshot |
-| [WO-14-002](./wo-14-002-snapshot-panel.md) | `CMP-14-snapshot-panel` — probable point + worktree command + building-now + staleness | component | CMP-14-snapshot-panel |
-| [WO-14-003](./wo-14-003-status-chips.md) | `CMP-14-status-chips` — decisions/bugs/rethink chips on the rail | component | CMP-14-status-chips |
-| [WO-14-004](./wo-14-004-feedback-channels-doc.md) | Manual: three feedback channels (doc) | docs | REQ-14-006 |
+| WO | Title | Layer | Status | Implements |
+|---|---|---|---|---|
+| [WO-14-001](./wo-14-001-snapshot-helpers.md) | `lib/snapshot.ts` — `buildSnapshot` + `isSnapshotStale` | lib (TDD) | VERIFIED | IF-14-snapshot |
+| [WO-14-002](./wo-14-002-snapshot-panel.md) | SnapshotPanel — último commit en verde + worktree command + building-now + staleness | UI | PLANNED | CMP-14-snapshot-panel |
+| [WO-14-003](./wo-14-003-status-chips.md) | `CMP-14-status-chips` — decisions/bugs/rethink chips on the rail | UI | VERIFIED | CMP-14-status-chips |
+| [WO-14-004](./wo-14-004-feedback-channels-doc.md) | Manual: three feedback channels (doc) | docs | VERIFIED | REQ-14-006 |
 
-## Order & parallelization
+## Phase 2 re-plan (2026-06-19)
 
-- **First:** WO-14-001 (pure helpers) — no UI, no dependency.
-- **Then (parallel):** WO-14-002 (panel, needs WO-14-001 + FRD-04 mount slot), WO-14-003 (chips, needs
-  FRD-03 rail slot), WO-14-004 (doc — independent, can run anytime FRD-08 Manual exists).
-- The panel mounts in the FRD-04 workspace; the chips mount on the FRD-03 portfolio rail.
+The `lib/**` helper (WO-14-001) is correct and **VERIFIED** — untouched. Only **WO-14-002** (the snapshot
+panel UI) was re-planned: re-anchored to the prototype `snapshotPanel()`/`bStalenessPanel()`, given the
+clear canonical copy, and its warning refactored onto the **shared `Banner`**. WO-14-003 (rail chips,
+lives in the FRD-03 portfolio surface) and WO-14-004 (doc, hosted by the FRD-08 Manual) are outside this
+FRD's disjoint workspace subfolder (`_components/snapshot-panel`) and stay **VERIFIED**.
+
+## Order & parallelization (Phase 2)
+
+- **Lib VERIFIED:** WO-14-001 — not rebuilt.
+- **WO-14-002** (panel) is the only re-planned WO; it mounts into the FRD-04 workspace via the Tabbar
+  shell seam. See `../blueprint.md` → **Build Plan (Phase 2)**.
+- The panel mounts in the FRD-04 workspace; the chips (WO-14-003) mount on the FRD-03 portfolio rail.
 
 ## Cross-feature dependencies
 

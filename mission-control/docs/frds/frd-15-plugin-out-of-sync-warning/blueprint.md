@@ -125,3 +125,27 @@ All five REQ map to concrete components. No criterion is unsatisfiable on the pl
   prefix-safe (one is a prefix of the other) — captured as an AC in WO-15-002.
 - **No `simple-git` dependency** — two `execFileSync('git', …)` read-only calls are enough; avoids a
   dependency for two commands (consistent with the trimmed stack, architecture §2).
+
+## Build Plan (Phase 2)
+
+Phase-2 re-anchors the **presentational** layer of FRD-15 to the owner-approved prototype. The `lib/` +
+route layer is **VERIFIED and untouched** — only the UI banner is re-planned.
+
+**Coarse WO set:**
+
+| WO | Status | Layer | Artifacts (disjoint) |
+|---|---|---|---|
+| WO-15-001 `sync-readers` | **VERIFIED** (kept) | lib | `src/lib/plugin-sync.ts` (readers) |
+| WO-15-002 `sync-verdict` | **VERIFIED** (kept) | lib | `src/lib/plugin-sync.ts` (verdict) |
+| WO-15-003 `sync-route` | **VERIFIED** (kept) | route | `src/app/api/plugin-sync/**` |
+| WO-15-004 `sync-banner` | **PLANNED** (re-plan) | UI | `src/app/_components/plugin-sync-banner/**` |
+
+**DAG / parallelism:** WO-15-004 is the only Phase-2 work order. It depends on the three VERIFIED lib/route
+WOs (already shipped) and on the foundation **WO-13-007** (the shared `Banner`). It has no peer in this FRD,
+so there is no intra-FRD parallelism; it runs once WO-13-007 is VERIFIED. Its artifact glob
+(`src/app/_components/plugin-sync-banner/**`) is **disjoint** from every other FRD's UI WO — no collision
+with FRD-16's `orphans-banner/**` or FRD-18's dashboard surfaces.
+
+**Cross-FRD deps:** `frd-13` (the shared `Banner`/`CmdRow`/`CopyButton` — WO-13-007). The plugin-drift
+banner is the `kind="drift"` **consumer** of that one `Banner`; it must NOT re-declare a banner style
+block (the DR-057 duplicate-banner defect this Phase-2 WO exists to fix).

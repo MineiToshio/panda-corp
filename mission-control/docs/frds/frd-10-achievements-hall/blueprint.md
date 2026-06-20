@@ -100,4 +100,38 @@ FRD-10 states EARS bullets (no explicit `REQ-10-MMM` ids). Work orders assign `A
 | Honest endowed progress (start from real achieved, no nagging) | `IF-10-chains` (endowed), `CMP-10-chain-card` (negative ACs) |
 | Names fun & scaling in grandeur by tier | `IF-10-chains` (data from `docs/achievements.md`) |
 | Hero with guild level/XP + party | `CMP-10-hall-page` + `IF-09-guild-xp` + `CMP-09-avatar` |
+
+## Build Plan (Phase 2)
+
+Phase 2 re-anchors the **presentational** Hall surfaces to the owner-approved prototype
+(`docs/design/prototype/index.html`, the **Logros** view); the stats/chains/uniques/secrets engine is
+already correct.
+
+**State:**
+- **VERIFIED (do not rebuild):** WO-10-001 — the `lib/achievements.ts` engine (stats/chains/uniques/
+  secrets), verified.
+- **PLANNED (Phase 2 UI):** WO-10-005 — the single coarse Hall-surfaces work order (`ChainCard` +
+  `TrophyCard`/`UniquesSection` + `AlmostThere` + `SecretsPanel` + `HeroStat`/`StatLedgerRow`).
+
+**Coarse DAG & parallelism:**
+
+```
+[VERIFIED engine: WO-10-001]   [FRD-13 foundation: WO-13-006/007/008]   [FRD-09 WO-09-003: page hero + XpBar]
+              └───────────────────────────┬───────────────────────────────────────┘
+                                          ▼
+                          WO-10-005 (Hall surfaces — UI)
+```
+
+WO-10-005 is a single sequential UI WO (no intra-FRD UI peer to parallelize). It starts once the
+foundation primitives, the verified engine, and the FRD-09 page hero/shell exist.
+
+**Disjoint artifacts (shared-route coordination with FRD-09):** the achievements route
+(`src/app/achievements/`) is **shared**. **FRD-09 WO-09-003 owns** the page hero block in `page.tsx`,
+`components/modules/GuildBar/**` and `StatsPanel.tsx` (the radar). **This WO owns** the
+chains/trophies/almost-there files only: `ChainCard/`, `UniquesSection/`, `AlmostThere.tsx`,
+`SecretsPanel.tsx`. Neither FRD re-implements the other's region; `page.tsx`'s hero is FRD-09's, its
+per-tab bodies are populated by this WO's components.
+
+**Cross-FRD deps:** `frd-13` (foundation `SectionHead`/`Tabs`/`ItemSlot`/`TierBadge`/`XpBar`, tier
+tokens, `tabular-nums`); `frd-09` (shared achievements page + the `XpBar` primitive + `IF-09-guild-xp`).
 </content>

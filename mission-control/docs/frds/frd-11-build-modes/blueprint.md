@@ -115,3 +115,36 @@ It reuses the shared `CopyButton` for the command row.
 **Flag (out of MC scope):** REQ-11-004 (the `/pandacorp:implement` skill accepting `pro|powerful|deep`)
 is a factory-plugin change, not Mission Control code. MC only surfaces the command string. No MC work
 order implements it; it is recorded here for traceability and noted in the report.
+
+## 6. Build Plan (Phase 2)
+
+Re-implement the **Comandos tab presentation** to match the approved prototype (`projComandos` =
+`buildModePanel` + `commandsBox`). The data layer (`BUILD_MODES` + per-project store) is **VERIFIED** and
+not rebuilt. **Ownership change:** FRD-11 now owns the **whole Comandos tab** (`tab-commands/**`), moved
+here from FRD-04's former WO-04-007, alongside the selector (`mode-selector/**`).
+
+**Coarse work order (PLANNED):**
+
+| WO | Surface | Disjoint artifacts |
+|---|---|---|
+| WO-11-002 | BuildModeSelector + TabCommands/CommandsBox | `src/app/projects/[slug]/_components/{mode-selector,tab-commands}/**` |
+
+**DAG & parallelism:**
+```
+WO-11-001 (VERIFIED) ──┐
+FRD-13 foundation ─────┼─► WO-11-002 (BuildModeSelector + Comandos tab)
+FRD-04 Tabbar seam +   │
+  workspaceCommands ───┘
+```
+- One coarse UI WO; the selector + tab body share the same tab seam and the same VERIFIED libs, so they
+  are built together (avoids a same-file/same-seam split). It touches **only** the
+  `{mode-selector,tab-commands}` subfolders — disjoint from every sibling tab FRD.
+- Depends on the FRD-04 shell seam being in place (the Comandos tab mounts into the workspace).
+
+**Cross-FRD deps:** `frd-13` (`Tabs`/`Panel`/`CmdRow`/`Toast`), `frd-04` (Tabbar shell seam +
+`workspaceCommands(phase)` in the VERIFIED `lib/next-step.ts`).
+
+**In-loop fidelity:** WO-11-002 renders against `prototype/index.html` (`projComandos`, `buildModePanel`,
+`commandsBox`, `cmdRow`) on the frozen tokens; the selector stays a copy-command affordance (no run
+button — DR-061). The browser fidelity/smoke gate must be clean before VERIFIED. Reuse
+`docs/design/components.md` rows — no bespoke command-row/pill/panel fork.

@@ -127,4 +127,33 @@ FRD-08 states EARS bullets (no explicit `REQ-08-MMM` ids). Work orders assign `A
 | Reference (commands/agents/rules/standards) DERIVED from canonical source, not hand-copied (DR-046) | `CMP-08-reference-*` + `IF-07-reference/registry/standards` |
 | Manual stays in sync: Reference auto-derived; Tutorial/Guides/Concepts kept current by discipline (DR-046) | `CMP-08-reference-*` (auto) + `CMP-08-concept-pages` (discipline) |
 | Concept/Guide pages reflect the feature-centric DR-049 layout + ID spine + hierarchy | `CMP-08-concept-pages` (the structure page) |
-</content>
+
+## 9. Build Plan (Phase 2)
+
+The Phase 2 re-anchor collapses the former UI work orders (shell + two Reference + concept content)
+into **one coarse UI WO**; the authored-content index `lib/manual.ts` stays VERIFIED and is consumed
+as-is. Build foundation-first.
+
+**Coarse WO set**
+| WO | Status | Artifacts (disjoint) | Builds |
+|---|---|---|---|
+| WO-08-001 | VERIFIED | `lib/manual.ts` | `readManualPages` (consume) |
+| **WO-08-002** | **PLANNED** | `src/app/manual/**` | the whole Documentación UI surface |
+
+**DAG & parallelism**
+```
+FRD-13 foundation (WO-13-006 PageTitle/SectionHead/Tabs · WO-13-007 Panel/Chip/CmdRow/Button/DocHeading · WO-13-008 ItemSlot)
+        ▼
+FRD-07 WO-07-005 (Configuración UI — the SkillCard/AgentCard/RuleCard/StandardCard)
+        ▼
+WO-08-002 (Documentación UI)  ◄── reuses FRD-07's catalog cards VERBATIM; consumes VERIFIED readers (WO-08-001 + FRD-07 readers)
+```
+One UI WO remains, so no intra-FRD UI parallelism; its single artifact glob (`src/app/manual/**`) is
+**disjoint** from FRD-07's (`src/app/configuration/**`).
+
+**Cross-FRD deps line (foundation-first):** `frd-13` (foundation primitives + tokens) **must build
+before** WO-08-002; **`frd-07`** must build before it too — the Referencia **reuses** FRD-07's
+`SkillCard`/`AgentCard`/`RuleCard`/`StandardCard` + shared detail verbatim (DR-057, no fork), and the
+four catalogs are **derived live** through FRD-07's readers (DR-046). Build order:
+`frd-13 → frd-07 (WO-07-005) → frd-08 (WO-08-002)`.
+

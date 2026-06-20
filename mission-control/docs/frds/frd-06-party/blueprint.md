@@ -165,3 +165,44 @@ handoffs, the researcher-on-demand, and the standalone **activity-pulse** (`CMP-
 (`event-vm`, `state-map`, `icon-map`, the engine shell, the feed, the achievement toast) is **kept but
 re-pointed** at the faithful model (rooms/wave/relay/parchment), and the layout/roster/snapshot/scene
 work is re-planned (see `work-orders/README.md`).
+
+## Build Plan (Phase 2)
+
+Phase 2 re-paints the **Party · La Fragua** canvas to `mocks/la-fragua.html`. The entire **pure / logic
+layer is VERIFIED** — `lib/events` enriched parse (WO-06-012), `event-vm` (WO-06-001), `layout`
+(WO-06-002), `state-map` (WO-06-003), `engine` (WO-06-004) and `toFraguaSnapshot` (WO-06-005) — and is
+**not** re-planned; the two coarse UI WOs consume it. The existing **real** `EventFeed`,
+`AchievementToast` and `DeepRelay` are **reused**, never recreated.
+
+**Coarse DAG:**
+
+```
+WO-06-001/002/003/004/005/012 (pure/logic, VERIFIED) ─┐
+foundation (FRD-13) + live (WO-01-009) ───────────────┼─▶ WO-06-006  (Party foundation FND-4: canvas primitives, foundation:true)
+                                                                          │
+                                                                          ▼
+                                                                       WO-06-007  (La Fragua scene re-paint: FraguaScene + PartyScene/PartyTab; reuses EventFeed/AchievementToast/DeepRelay)
+```
+
+- **WO-06-006 — Party foundation (FND-4, `foundation: true`)** — forges the pixel-RPG canvas primitives
+  first (DR-057): `Room`, `StoneBridge`, `FlowStrip`, `AgentSprite`, `JudgeSprite`, `SpeechBubble`,
+  `Tooltip`, `Parchment`, `MissionBar` (effort as read-only data, DR-061), `DemoControls` (SOLO DEMO,
+  DR-061), `PowerOffOverlay` (factory-off derived from real state). It is the foundation wave the scene
+  reuses.
+- **WO-06-007 — La Fragua scene re-paint** — composes the FND-4 primitives into `FraguaScene` + the
+  `PartyScene`/`PartyTab` shell, faithful to the mock, **live off `useLiveSnapshot`** (WO-01-009,
+  event-driven, not polling); the always-visible flow strip lights the active beat. **Depends on
+  WO-06-006.**
+
+**Parallelism.** WO-06-006 → WO-06-007 is the intra-FRD order (scene reuses the foundation). Across FRDs
+both are **disjoint** from FRD-05 (`_components/{wo-board,wo-detail,…}/**`) and FRD-12
+(`_observability/**`): their artifacts live only under `src/app/projects/[slug]/_party/**`, so the three
+workspace tabs re-paint in parallel with no file collision.
+
+**Disjoint artifacts:**
+- WO-06-006: `src/app/projects/[slug]/_party/{Room,StoneBridge,FlowStrip,AgentSprite,JudgeSprite,SpeechBubble,Tooltip,Parchment,MissionBar,DemoControls,PowerOffOverlay}/**`.
+- WO-06-007: `src/app/projects/[slug]/_party/{FraguaScene,PartyScene,PartyTab}/**`.
+
+**Cross-FRD deps:** `frd-13` (foundation primitives + per-role color & motion tokens),
+`frd-04` (the workspace Tabbar both mount into), `frd-01` (live — `useLiveSnapshot` + SSE transport,
+WO-01-009).

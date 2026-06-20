@@ -1,83 +1,68 @@
 ---
 id: WO-11-002
 type: work-order
-slug: mode-selector
-title: 'WO-11-002 — `CMP-11-mode-selector`: selector + command + memory'
+slug: mode-selector-and-commands-tab
+title: 'WO-11-002 — BuildModeSelector + Comandos tab'
 status: DRAFT
 parent: FRD-11
-implementation_status: VERIFIED
-source_requirements: []
-last_updated: '2026-06-17'
+implementation_status: PLANNED
+artifacts:
+  - 'src/app/projects/[slug]/_components/mode-selector/**'
+  - 'src/app/projects/[slug]/_components/tab-commands/**'
+source_requirements: [REQ-11-001, REQ-11-002, REQ-11-003]
+last_updated: '2026-06-19'
 ---
-# WO-11-002 — `CMP-11-mode-selector`: selector + command + memory
+# WO-11-002 — BuildModeSelector + Comandos tab
 
-**Feature:** FRD-11 · **Implements:** CMP-11-mode-selector · **REQ-11-001, REQ-11-002, REQ-11-003**
-**Deploy unit:** `app/projects/[slug]/_components/mode-selector.tsx` (`"use client"`) + colocated tests.
+## Goal
+Re-implement the **Comandos tab** of the project workspace so it renders faithfully to the prototype
+`projComandos()` (= `buildModePanel()` + `commandsBox()`) on the frozen tokens, reusing the FRD-13
+foundation primitives. FRD-11 now **owns** the whole Comandos tab (`tab-commands/**`), not just the
+selector slot — it is collapsed into one coarse WO with the selector.
 
-## Acceptance criteria (copied)
-- **AC-11-001.1** The selector SHALL render four mode options in order: Pro/economical, Balanced, Powerful, Deep.
-- **AC-11-001.2** EACH option SHALL show its description (agents, models, recommended plan).
-- **AC-11-001.3** The default selected mode SHALL be Balanced when no mode has been chosen.
-- **AC-11-002.1** WHEN a mode is selected, the exact copy command SHALL be shown with a copy button.
-- **AC-11-002.2** The selected mode's description SHALL be shown alongside the command.
-- **AC-11-003.2** Re-opening the project's Commands tab SHALL restore its remembered mode.
+The data layer (`BUILD_MODES` catalog in `lib/constants.ts`, `getRememberedMode`/`rememberMode` in
+`lib/build-mode-store.ts`, and `workspaceCommands` in `lib/next-step.ts`) is correct and **VERIFIED** —
+this WO is **presentational only**.
 
 ## Scope
-- `CMP-11-mode-selector` (Client): segmented `role=radiogroup` of the four `BUILD_MODES` (WO-11-001);
-  on select, persist via `rememberMode(slug, mode)` and show the active mode's description + copy
-  command (shared `CopyButton`). Initialize from `getRememberedMode(slug)` (default Balanced).
-- Mirrors the approved prototype `buildModePanel`.
-- **Out of scope:** the catalog/persistence (WO-11-001); the Commands tab shell (FRD-04 WO-04-007).
+- **`BuildModeSelector`** (`_components/mode-selector/**`, Client) — mirrors prototype `buildModePanel()`:
+  a `Panel` with the "Modo de construcción" heading + subtitle, then a segmented `role=radiogroup` of the
+  **four `BUILD_MODES`** (Pro / Equilibrado / Potente / Profundo) on the shared `Tabs`/`.stab` idiom.
+  Selecting a mode persists via `rememberMode(slug, mode)` (client-local; **never** a `status.yaml`
+  write) and surfaces the active mode's description + the matching **`/pandacorp:implement…`** command in
+  a shared **`CmdRow`** + `CopyButton`. Initialized from `getRememberedMode(slug)` (default Equilibrado).
+  It is a **read/copy-command surface — NOT a build trigger** (the dashboard is read-only; the human runs
+  the command in the project folder). Active mode shown by more than color (`aria-checked`/checkmark).
+- **`TabCommands` / `CommandsBox`** (`_components/tab-commands/**`, Server) — mirrors prototype
+  `projComandos()` + `commandsBox()`: mounts `<BuildModeSelector slug={slug}/>` at the top, then renders
+  the **stage-relevant** `/pandacorp:*` rows from `workspaceCommands(phase)` (VERIFIED lib) — each as a
+  shared **`CmdRow`** with its "cuándo usarlo" description and a copy button.
+- **Reuse before create** (`docs/design/components.md`): `Panel`, `Tabs` (`.stab`), `CmdRow`,
+  `CopyButton`, `Toast` — no bespoke command-row, pill or panel fork.
+
+## Acceptance criteria
+- **AC-11-001.1** The selector SHALL render four modes in order: Pro/económico, Equilibrado, Potente, Profundo.
+- **AC-11-001.2** EACH mode SHALL show its description (agents, models, recommended plan).
+- **AC-11-001.3** The default selected mode SHALL be **Equilibrado** when none is stored.
+- **AC-11-002.1** WHEN a mode is selected, its exact command SHALL be shown (`/pandacorp:implement` for
+  balanced, `/pandacorp:implement pro|powerful|deep` for the others) with a copy button.
+- **AC-11-002.2** The selected mode's description SHALL be shown alongside the command.
+- **AC-11-003.2** Re-opening the Comandos tab SHALL restore the remembered mode (client-local, no
+  factory/project write).
+- **AC-04-005.1** The Comandos tab SHALL render the stage-relevant command rows from
+  `workspaceCommands(phase)`, each with a copy button + "cuándo usarlo" description.
+- The selector is a **copy-command affordance**, not a build trigger; active mode not by color alone.
+- Rendered output matches `projComandos()` / `buildModePanel()` / `commandsBox()` on the frozen tokens;
+  the browser fidelity/smoke gate is clean.
 
 ## Dependencies
-- **Intra:** WO-11-001 (`BUILD_MODES`, `getRememberedMode`, `rememberMode`).
-- **Cross:** FRD-04 `CMP-04-tab-commands` (mounts this); shared `CopyButton`.
+- **Foundation (FRD-13):** WO-13-006 (`Tabs`), WO-13-007 (`Panel`/`CmdRow`/`Button`/`Toast`).
+- **Intra (FRD-11):** WO-11-001 (`BUILD_MODES`, `DEFAULT_BUILD_MODE`, `getRememberedMode`,
+  `rememberMode`) — VERIFIED lib.
+- **Cross-FRD:** `frd-13` (foundation primitives), `frd-04` (Comandos tab mounts into the workspace via
+  the Tabbar shell seam; `workspaceCommands` lives in the FRD-04 VERIFIED lib `lib/next-step.ts`).
 
-## TDD (RED → GREEN → refactor)
-Component tests (jsdom + `localStorage`):
-1. Renders four modes in order, each with its description (AC-11-001.1/.2).
-2. Defaults to Balanced and shows `/pandacorp:implement` (AC-11-001.3, AC-11-002.1).
-3. Selecting Powerful shows `/pandacorp:implement powerful` + its description (AC-11-002.1/.2).
-4. After selecting a mode and re-mounting with the same slug, the remembered mode is restored
-   (AC-11-003.2).
-5. Active mode indicated by more than color (checkmark/`aria-checked`) — a11y.
-
-## Definition of done
-- [ ] Component tests written first and green.
-- [ ] `"use client"`; `role=radiogroup` + keyboard support; reuses shared `CopyButton`.
-- [ ] Tokens only; `data-testid` on each mode + the command row; Spanish copy via i18n.
-- [ ] `bash .pandacorp/verify.sh` passes.
-
-## Status Note
-
-**What it built:** `CMP-11-mode-selector` — the per-project build mode selector for the Commands tab. Implements all AC-11-001.x / AC-11-002.x / AC-11-003.x criteria end-to-end: four-mode radiogroup (Pro/Balanced/Powerful/Deep), per-project localStorage memory, exact copy command, active description alongside command.
-
-**Interfaces / contracts exposed:**
-
-```tsx
-// app/projects/[slug]/_components/mode-selector.tsx
-export interface ModeSelectorProps { slug: string; }
-export function ModeSelector({ slug }: ModeSelectorProps): React.JSX.Element
-```
-
-**Integration seam:** `TabCommands` (`tab-commands.tsx`) now mounts `<ModeSelector slug={slug} />` replacing the `ModeSelectorSlot` placeholder. The root element carries `data-testid="mode-selector-slot"` — the seam AC-04-005.2 tests check.
-
-**A11y choices documented:**
-- `<input type="radio">` (visually hidden) inside `<label>` for native semantics — biome `useSemanticElements` compliant.
-- `<div role="radiogroup">` wraps the fieldset (biome forbids `role="radiogroup"` on `<fieldset>` via `noNoninteractiveElementToInteractiveRole`).
-- `aria-checked` mirrored explicitly on the `<input>` for test-library `getAttribute` queries.
-- `data-testid="mode-option-{id}"` on the `<label>` (container) so `within(option)` finds child elements; `getInputForOption()` helper in tests reaches the nested input for `aria-checked` checks.
-
-**data-testid coverage:**
-- `mode-selector-slot` — root section (integration seam)
-- `mode-option-{id}` — each mode label container (pro/balanced/powerful/deep)
-- `mode-description-{id}` — description span inside each option
-- `mode-check-{id}` — checkmark span (visible when active, visibility:hidden when inactive)
-- `mode-command-row` — command display section
-- `mode-command-text` — the command `<code>` element
-- `mode-command-copy` — wrapper around `CopyButton`
-- `mode-active-description` — active mode description in command row
-
-**Test files:** `app/projects/[slug]/_components/mode-selector.test.tsx` — 34 tests covering all 5 TDD cases + design token invariants + integration seam.
-
-**Gate:** 124 test files / 3526 tests GREEN, tsc clean, biome clean.
+## Visual reference
+`docs/design/prototype/index.html` → `projComandos()` (~L807), `buildModePanel()` (~L801),
+`commandsBox()` (~L729), `cmdRow()` (~L570), `BUILDMODES` (~L795), on the frozen tokens. Fidelity, not
+novelty (DR-056) — see `../fdd.md`.

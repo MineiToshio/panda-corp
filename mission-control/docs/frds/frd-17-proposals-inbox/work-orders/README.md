@@ -7,22 +7,22 @@ TDD per WO (RED → GREEN → refactor). Gate: `.pandacorp/verify.sh` (biome →
 
 ## List & order
 
-| WO | Title | Layer | Depends on |
-|---|---|---|---|
-| WO-17-001 | `lib/memory` lesson reader (parse + status/promotion/evalGate) | `lib/` | `lib/config.ts` (FRD-01) |
-| WO-17-002 | `lib/memory` views: candidates / promotionQueue / prunable / memoryHealth | `lib/` | WO-17-001 |
-| WO-17-003 | `lib/self-suggest` derivations (6 kinds) | `lib/` | `lib/events`, `lib/status`, `lib/board`, `lib/registry`, `lib/reference`, `lib/portfolio` (FRD-01/02/06/07) |
-| WO-17-004 | `app/proposals` page + 4 streams + proposal card | `app/` | WO-17-002, WO-17-003 |
-| WO-17-005 | Memory-health panel | `components/` | WO-17-002 |
-| WO-17-006 | Promotions queue | `components/` | WO-17-002 |
-| WO-17-007 | Guild badge + portfolio-rail chip + dismissal | `components/` | WO-17-002, WO-17-003 |
+The `lib/memory` + `lib/self-suggest` readers (WO-17-001/002/003) are **VERIFIED**. Phase 2 collapsed
+the four UI WOs (page + streams/card, memory-health panel, promotions queue, badge/chip/dismiss) into
+**one coarse UI work order** (WO-17-004) re-anchoring the Proposals surface to the prototype's canonical
+`propuestasView()` — see the [blueprint Build Plan (Phase 2)](../blueprint.md#build-plan-phase-2).
+
+| WO | Title | Layer | Status | Depends on |
+|---|---|---|---|---|
+| WO-17-001 | `lib/memory` lesson reader (parse + status/promotion/evalGate) | `lib/` | VERIFIED | `lib/config.ts` (FRD-01) |
+| WO-17-002 | `lib/memory` views: candidates / promotionQueue / prunable / memoryHealth | `lib/` | VERIFIED | WO-17-001 |
+| WO-17-003 | `lib/self-suggest` derivations (6 kinds) | `lib/` | VERIFIED | FRD-01/02/06/07 readers |
+| WO-17-004 | Proposals surface: stream/card + promotions queue + memory health + badge/chip | `app/`, `components/` | PLANNED | WO-17-002, WO-17-003, FRD-13 |
 
 ## Parallelization
 
-- WO-17-001 starts immediately (only `lib/config.ts`). WO-17-003 can be authored in parallel with
-  WO-17-001/002 (it depends on other shipped readers, not on `lib/memory`).
-- WO-17-002 → unblocks WO-17-004/005/006/007 (which can then run in parallel).
-- WO-17-004 needs both data layers (WO-17-002 + WO-17-003).
+- The three `lib/` readers are VERIFIED. WO-17-004 is the single coarse UI WO; it consumes both data
+  layers (WO-17-002 + WO-17-003) and the FRD-13 foundation. No intra-FRD UI peer to parallelize.
 
 ## Cross-feature dependencies
 

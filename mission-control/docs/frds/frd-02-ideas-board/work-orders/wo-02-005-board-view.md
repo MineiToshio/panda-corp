@@ -1,70 +1,79 @@
 ---
 id: WO-02-005
 type: work-order
-slug: board-view
-title: WO-02-005 — Board view + columns + cards
+slug: board-surface
+title: 'WO-02-005 — Board surface (columns + cards + filter + legend + intake + discard)'
 status: DRAFT
 parent: FRD-02
-implementation_status: VERIFIED
-source_requirements: []
-last_updated: '2026-06-17'
+implementation_status: PLANNED
+artifacts:
+  - 'src/app/board/**'
+  - 'src/components/modules/IdeaCard/**'
+  - 'src/components/modules/CategoryFilter/**'
+  - 'src/components/modules/BoardLegend/**'
+source_requirements: [REQ-02-002, REQ-02-005, REQ-02-006, REQ-02-008, REQ-02-003, REQ-02-007]
+last_updated: '2026-06-19'
 ---
-# WO-02-005 — Board view + columns + cards
+# WO-02-005 — Board surface
 
-**Module:** `app/board/page.tsx`, `components/IdeaCard.tsx`
-**IDs touched:** `CMP-02-board-view`, `CMP-02-card`; REQ-02-002, REQ-02-005, REQ-02-006 (badges)
-**Dependencies:** WO-02-001 (`deriveColumn`), WO-02-002 (`CopyButton`), FRD-01 (`readIdeas`, `readStatus`)
+## Goal
 
-## EARS criteria (from FRD-02)
+Re-paint the whole `/board` page so it matches the approved prototype: the read-only kanban
+(equal-width, wide columns, horizontal scroll, wrapping text), the idea cards, the category filter,
+the legend, the intake modal, and the discard affordance — H1 **"Tablero"** rendered via `PageTitle`.
+The `lib/board.ts` derivation, `lib/discard.ts` write and the discard Server Action are VERIFIED and
+consumed as-is; this WO is presentational.
 
-- AC-02-002.1 — The board SHALL NOT allow moving cards by hand (no drag/arrows).
-- AC-02-002.2 — Columns SHALL be equal-width, **wide** (not tiny), with **horizontal scroll** when
-  they don't fit; text SHALL wrap onto several lines.
-- AC-02-005.1 — EACH card SHALL show two labels besides the score: **category** (`project_type`) and
-  **return** (`return_type`).
-- AC-02-006.2 — A `recommended` card SHALL show a "recommended" badge.
+## Scope (components from `docs/design/components.md`)
 
-## Design
+Re-paint, reusing the foundation primitives before creating anything:
+- **`IdeaCard`** (`src/components/modules/IdeaCard/IdeaCard.tsx`) — board idea card: title, score
+  (`tabular-nums`), category + return chips (reuse foundation **`Chip`**), recommended badge and the
+  building indicator. Reuse `Chip`/`CountBadge`/`Shield`/`TierBadge` presets — no ad-hoc pills.
+- **`CategoryFilter`** (`src/components/modules/CategoryFilter/CategoryFilter.tsx`) — filter by
+  `project_type`; built from foundation `Chip`/`Button`, not a bespoke control.
+- **`BoardLegend`** (`src/components/modules/BoardLegend/BoardLegend.tsx`) — legend for
+  category / return / score; reuse `Panel` + `Chip`.
+- **Page** (`src/app/board/page.tsx` + `_components/`) — kanban columns via the shared
+  `KanbanColumn` foundation primitive (WO-13-008); H1 **"Tablero"** via `PageTitle`, section heads via
+  `SectionHead`. The **intake modal** (`_components/IntakeModal/`) reuses `Panel` + `CmdRow` + `Button`
+  (backdrop + blur, focus-trap, Escape, return-focus). The **discard button**
+  (`_components/DiscardButton/`) reuses foundation `Button` + `Toast`; it calls the existing
+  `app/board/actions.ts` Server Action (VERIFIED) — do not re-plan the action.
+- Reuse foundation **`Button`** / **`CmdRow`** (WO-13-007) for the clipboard-copy affordance and all
+  actions (the old standalone `CopyButton` is absorbed into `Button`/`CmdRow`).
 
-- `app/board/page.tsx` (Server Component): `readIdeas()` → for each `in-pipeline` card,
-  `readStatus(card.project)` → `deriveColumn(card, status)` → bucket into the 7 columns. Render the
-  columns in fixed order.
-- `components/IdeaCard.tsx`: title (wraps), score (`tabular-nums`), category chip, return chip,
-  "recommended" badge when applicable. No move controls. `data-testid="idea-card"`.
-- Layout: equal-width wide columns, horizontal scroll container. Design tokens only.
+reuse → adapt → create-only-if-new: everything here reuses an existing foundation primitive or an
+already-inventoried module; no new shared component is introduced by this WO.
 
-## Definition of done
+## Acceptance criteria (anchored in FRD-02 EARS)
 
-- Component test (RED first, jsdom) feeding fixture-shaped data:
-  - cards land in the expected columns (uses `deriveColumn`).
-  - a card renders its category + return chips and the score with `tabular-nums`.
-  - a `recommended` card shows the badge.
-  - no drag handles / move buttons exist in the DOM.
-- Read-only; no write.
-- `.pandacorp/verify.sh` green.
+- AC-02-002 — No manual move (no drag/arrows); columns equal-width, **wide**, horizontal scroll on
+  overflow; card text wraps onto several lines.
+- AC-02-005 — Each card shows **category** + **return** chips beside the score.
+- AC-02-006 — The board allows **filtering by category**; a `recommended` card shows a
+  "recommended" badge.
+- AC-02-008 — Building indicator while the project is `running: true`; the legend explains
+  category / return / score.
+- AC-02-003 — "Capture ideas / oportunidades" opens a **modal overlay** (dark backdrop + blur) with
+  the four intake commands, each with icon · title · description · copy-command row; backdrop / ✕
+  closes; the board stays visible behind.
+- AC-02-007 — "Discard idea" rewrites `status: discarded` via the existing Server Action (the only
+  app write); optimistic UI, revert on failure.
+- Page renders with H1 "Tablero" via `PageTitle`; matches `la-campana.html` / prototype board surface;
+  light + dark; the Preview Smoke Gate is green (route renders, no console error).
 
-## Status Note
+## Dependencies
 
-**Built:** 7-column two-axis board view wiring `deriveColumn` end-to-end.
+- Foundation (FRD-13): **WO-13-006** (`PageTitle`/`SectionHead`/`Tabs`), **WO-13-007**
+  (`Banner`/`Chip`/`CountBadge`/`Panel`/`CmdRow`/`Button`/`Toast`/`ProgressBar`), **WO-13-008**
+  (`Shield`/`TierBadge`/`ItemSlot`/`KanbanColumn`).
+- Read/write layer (VERIFIED, consumed as-is): WO-02-001 (`lib/board.ts` `deriveColumn`),
+  WO-02-004 (`lib/discard.ts`), the discard Server Action (`app/board/actions.ts`), FRD-01
+  `readIdeas` / `readStatus`.
+- Cross-FRD: **frd-13** (foundation primitives must land first).
 
-**What was built:**
-- `app/board/IdeaBoardView.tsx` — upgraded from 4 status-based columns to 7 canonical `BoardColumn` columns (`discovered`, `documented`, `design`, `architecture`, `building`, `shipped`, `discarded`). Cards are routed by a pre-computed `boardColumn` prop; legacy callers without `boardColumn` fall back to status-based routing (backward-compat). Added `data-testid="board-scroll-container"` on the horizontal-scroll container (AC-02-002.2). No drag handles, no move controls (AC-02-002.1).
-- `app/board/page.tsx` — Server Component wired with the full two-axis derivation: `readIdeas()` → per in-pipeline card `readStatus(projectPath)` → `deriveColumn(card, status)` → `boardColumn` on each `BoardCardEntry`. Also resolves `isRunning` from `status.running` (REQ-02-008).
-- `app/board/IdeaBoardView.wo02005.test.tsx` — 33 component tests (TDD RED→GREEN): all 7 columns present, boardColumn routing, category+return chips (AC-02-005.1), recommended badge (AC-02-006.2), no drag controls (AC-02-002.1), scroll container testid, backward-compat fallback, empty state.
+## Visual reference
 
-**Interfaces/contracts exposed:**
-- `BoardCardEntry` (exported from `IdeaBoardView.tsx`) — `IdeaCardProps & { boardColumn?: BoardColumn }`. Page passes `boardColumn` always; downstream consumers can omit for fallback.
-- `IdeaBoardViewProps.cards: BoardCardEntry[]` — replaces the previous `IdeaCardProps[]` (backward-compat: `BoardCardEntry extends IdeaCardProps` — no breaking change for existing callers).
-
-**Integration seams:**
-- `IdeaBoardView` consumes `BoardColumn` from `lib/board.ts` (WO-02-001, already verified).
-- `page.tsx` consumes `readStatus` (WO-01-005) + `resolveFactoryRoot` (lib/config) + `deriveColumn` (WO-02-001) + `readIdeas` (WO-01-003) — all already verified.
-- Downstream: `IntakeModal` (WO-02-003), `DiscardButton` (WO-02-004), `CardDetail` (WO-02-007), `CategoryFilter` (WO-02-008) mount inside the board — their testids are unaffected.
-
-**Test files covering this WO:**
-- `app/board/IdeaBoardView.wo02005.test.tsx` — 33 tests (primary, all AC criteria)
-- `app/board/IdeaBoardView.test.tsx` — 22 tests (regression — 2 updated to reflect 7-column world)
-- `components/IdeaCard.test.tsx` — 30 tests (regression, unchanged, all pass)
-- `lib/board.test.ts` — 42 tests (regression, unchanged — `deriveColumn` pure-function coverage)
-
-**verify.sh result:** 3113 tests pass | 2 expected fail | 5 skipped. biome clean. tsc clean.
+`docs/frds/frd-02-ideas-board/mocks/la-campana.html` + `docs/design/prototype/index.html`
+(the board surface: columns, cards, filter, legend, intake modal).

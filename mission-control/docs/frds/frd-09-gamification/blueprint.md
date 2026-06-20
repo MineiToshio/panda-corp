@@ -102,4 +102,37 @@ FRD-09 states EARS bullets (no explicit `REQ-09-MMM` ids). Work orders assign `A
 `lib/gamification.ts` — pure XP/level/celebration derivation over the existing `events`/`status`
 readers. Not separately named in architecture §6 (which maps FRD-09 to `events`+`status`); recorded
 here as the single new file. No new fs/parse access — it consumes already-typed reader output.
+
+## Build Plan (Phase 2)
+
+Phase 2 re-anchors the **presentational** Guild surfaces to the owner-approved prototype
+(`docs/design/prototype/index.html`); the XP/celebration engine is already correct.
+
+**State:**
+- **VERIFIED (do not rebuild):** WO-09-001 (guild XP engine), WO-09-002 (agent XP engine),
+  WO-09-005 (celebration-tier classifier) — the pure `lib/gamification.ts` module, verified.
+- **PLANNED (Phase 2 UI):** WO-09-003 — the single coarse Guild-surfaces work order
+  (`GuildBar` + `GuildHero` + `StatRadar` + `CelebrationSurface`, reusing `Shield`/`XpBar`/`Avatar`).
+
+**Coarse DAG & parallelism:**
+
+```
+[VERIFIED engine: WO-09-001 · WO-09-002 · WO-09-005]   [FRD-13 foundation: WO-13-006/007/008]
+                 └───────────────────────────┬───────────────────────────┘
+                                              ▼
+                              WO-09-003 (Guild surfaces — UI)
+```
+
+WO-09-003 is a single sequential UI WO with no intra-FRD UI peer (nothing to parallelize within
+FRD-09). It starts once the foundation primitives and the verified engine exist.
+
+**Disjoint artifacts (shared-route coordination with FRD-10):** the achievements route
+(`src/app/achievements/`) is **shared** — FRD-09 owns the **hero block in `page.tsx`**,
+`components/modules/GuildBar/**`, and `app/achievements/StatsPanel.tsx` (the radar); FRD-10 owns the
+chains/trophies/almost-there files (`ChainCard/`, `UniquesSection/`, `AlmostThere.tsx`,
+`SecretsPanel.tsx`). The two FRDs must not both claim the same file; `page.tsx` is the one shared
+composition point and is owned for its hero region by this WO.
+
+**Cross-FRD deps:** `frd-13` (foundation primitives `PageTitle`/`Shield`/`XpBar`/`Avatar`/
+`CelebrationSurface`, tokens, motion, `tabular-nums`); shared achievements route with `frd-10`.
 </content>

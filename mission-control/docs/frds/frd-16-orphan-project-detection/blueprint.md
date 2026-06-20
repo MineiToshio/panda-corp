@@ -122,3 +122,29 @@ All REQ map to concrete components. None unsatisfiable.
   if not dismissed — keep the localStorage key stable (the absolute path).
 - **Portfolio path parsing** is reused from `lib/portfolio.ts` (FRD-01), which already tolerates broken
   rows — no duplicate parser.
+
+## Build Plan (Phase 2)
+
+Phase-2 re-anchors the **presentational** layer of FRD-16 to the owner-approved prototype. The `lib/` +
+route layer (the bounded, marker-gated scan + classify) is **VERIFIED and untouched** — only the UI
+banner is re-planned.
+
+**Coarse WO set:**
+
+| WO | Status | Layer | Artifacts (disjoint) |
+|---|---|---|---|
+| WO-16-001 `scan-folders` | **VERIFIED** (kept) | lib | `src/lib/orphans.ts` (scan) |
+| WO-16-002 `classify` | **VERIFIED** (kept) | lib | `src/lib/orphans.ts` (classify) |
+| WO-16-003 `orphans-route` | **VERIFIED** (kept) | route | `src/app/api/orphans/**` |
+| WO-16-004 `orphans-banner` | **PLANNED** (re-plan) | UI | `src/app/_components/orphans-banner/**` |
+
+**DAG / parallelism:** WO-16-004 is the only Phase-2 work order. It depends on the three VERIFIED lib/route
+WOs (already shipped) and on the foundation **WO-13-007** (the shared `Banner` + `Chip`). It has no peer in
+this FRD, so there is no intra-FRD parallelism; it runs once WO-13-007 is VERIFIED. Its artifact glob
+(`src/app/_components/orphans-banner/**`) is **disjoint** from every other FRD's UI WO — no collision with
+FRD-15's `plugin-sync-banner/**` or FRD-18's dashboard surfaces. WO-15-004 and WO-16-004 can run **in
+parallel** (disjoint globs, both consuming the same already-VERIFIED `Banner`).
+
+**Cross-FRD deps:** `frd-13` (the shared `Banner`/`Chip`/`CmdRow`/`CopyButton` — WO-13-007). The orphans
+banner is the `kind="orphan"` (multi-item, dismissible, collapsible) **consumer** of that one `Banner`; it
+must NOT re-declare a banner style block (the DR-057 duplicate-banner defect this Phase-2 WO exists to fix).

@@ -100,3 +100,21 @@ WOs (13-001 validation gains teeth, 13-002 wiring) can complete. The logic-only 
 `STATE_BADGE` vocabulary, the `AGENT_COLOR` *key* map, the schema validator) can be built against
 the agreed *shape* now; the *values* land when the tokens are frozen. This is sequencing, not an
 unbuildable requirement.
+
+## 8. Build Plan (Phase 2 re-anchor — DR-050/057/062)
+
+FRD-13 is **the foundation FRD**: it ships the shared visual vocabulary every surface assembles from,
+so it builds **FIRST** and every UI FRD (02–12, 14–18) declares `frd-13` in its cross-FRD deps.
+
+- **Already VERIFIED (do NOT rebuild):** WO-13-001..005 — the frozen token runtime, `globals.css`
+  wiring, `tabular-nums`/a11y primitives, `ThemeToggle`, `StateBadge`.
+- **Foundation wave (`foundation: true`, build before any surface fans out):**
+  - **WO-13-006 (FND-1)** — `PageTitle` · `SectionHead` · `Tabs`/`SubTabs` (cohesion, DR-062).
+  - **WO-13-007 (FND-2)** — the ONE `Banner` (dup-fix) + `Chip`/`CountBadge`/`Panel`/`CmdRow`/`Button`/
+    `Toast`/`ProgressBar`/`DocHeading`.
+  - **WO-13-008 (FND-3)** — `Shield`/`TierBadge`/`ItemSlot`/`KanbanColumn`.
+- **Parallelism:** 006/007/008 write **disjoint** `src/components/core/*` folders → they parallelize in
+  one foundation wave; the engine keeps the wave foundation-only until all three are done (DR-057).
+- **Cross-FRD deps:** none upstream (tokens frozen). Downstream: **every UI FRD depends on this.**
+- **Gate:** the FRD-13 review/visual gate — primitives render in light+dark, AA contrast, tokens only,
+  keyboard/focus, `prefers-reduced-motion`; `docs/design/components.md` flips these rows to *real*.

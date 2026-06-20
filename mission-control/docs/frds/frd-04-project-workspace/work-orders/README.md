@@ -1,35 +1,39 @@
 # FRD-04 — Work orders
 
-Implementation chunks for the **project workspace** shell, each small and testable in isolation.
+Implementation chunks for the **project workspace** shell.
 Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
-Read [`../blueprint.md`](../blueprint.md) first.
+Read [`../blueprint.md`](../blueprint.md) first — its **Build Plan (Phase 2)** is the live DAG.
 
 ## Work orders
 
-| WO | Title | Layer | Implements |
-|---|---|---|---|
-| [WO-04-001](./wo-04-001-docs-reader.md) | `lib/docs.ts` — doc tree + raw read + comms readers | lib (TDD) | IF-04-docs |
-| [WO-04-003](./wo-04-003-workspace-commands.md) | `lib/next-step.ts` — `workspaceCommands(phase)` | lib (TDD) | IF-04-next-step |
-| [WO-04-004](./wo-04-004-workspace-shell.md) | Workspace shell: header + Mission Objectives bar + tab bar | app + component | CMP-04-workspace/header/objectives-bar/tabbar |
-| [WO-04-005](./wo-04-005-tab-summary.md) | Summary tab: summary, key points, decisions, activity log | component | CMP-04-tab-summary/decisions/activity-log |
-| [WO-04-006](./wo-04-006-tab-documents.md) | Documents tab: nav + rendered markdown | component | CMP-04-tab-documents |
-| [WO-04-007](./wo-04-007-tab-commands.md) | Commands tab: stage commands + FRD-11 selector slot | component | CMP-04-tab-commands |
+| WO | Title | Layer | Status | Implements |
+|---|---|---|---|---|
+| [WO-04-001](./wo-04-001-docs-reader.md) | `lib/docs.ts` — doc tree + raw read + comms readers | lib (TDD) | VERIFIED | IF-04-docs |
+| [WO-04-003](./wo-04-003-workspace-commands.md) | `lib/next-step.ts` — `workspaceCommands(phase)` | lib (TDD) | VERIFIED | IF-04-next-step |
+| [WO-04-004](./wo-04-004-workspace-shell.md) | Workspace shell: header + tabbar + objectives bar | UI | PLANNED | CMP-04-workspace/header/objectives-bar/tabbar |
+| [WO-04-005](./wo-04-005-tab-summary.md) | Resumen + Documentos tabs | UI | PLANNED | CMP-04-tab-summary/decisions/activity-log/tab-documents |
 
-## Order & parallelization
+## Phase 2 re-plan (2026-06-19)
 
-- **First (parallel):** WO-04-001 and WO-04-003 are independent pure-`lib` readers — TDD with
-  fixtures, no UI. They can run concurrently. (WO-04-001 owns the whole `lib/docs.ts`: doc tree + raw
-  read + activity-log/decisions comms readers, built together to avoid same-file collisions.)
-- **Then:** WO-04-004 (shell) depends on `lib/status.ts` (FRD-01) and the readers above for the
-  objectives bar.
-- **Then (parallel after the shell):** WO-04-005 (needs WO-04-001), WO-04-006 (needs WO-04-001),
-  WO-04-007 (needs WO-04-003; slots FRD-11's selector behind a placeholder until FRD-11 lands).
-- The **Work orders** and **Party** tabs are mounted from FRD-05 / FRD-06 — out of scope here; the
-  shell renders a placeholder slot for them until those features land.
+The `lib/**` data layer is correct and **VERIFIED** — WO-04-001 / WO-04-003 are untouched. The gap was
+**presentational**: the prior UI work orders (shell / summary / documents / commands) were collapsed to
+the **coarse** Phase-2 set above and re-anchored to the approved prototype `projectPane()` and the
+FRD-13 foundation primitives. Notes:
+- WO-04-006 (Documentos tab) **folded into** WO-04-005 (it shares the `lib/docs.ts` reader and the tab seam).
+- WO-04-007 (Comandos tab) **moved to FRD-11** — FRD-11 now owns `_components/{mode-selector,tab-commands}`.
+
+## Order & parallelization (Phase 2)
+
+- **Libs already VERIFIED:** WO-04-001, WO-04-003 — not rebuilt.
+- **WO-04-004** (shell) first — it provides the **Tabbar mount seam** that every tab FRD plugs into.
+- **WO-04-005** (Resumen + Documentos) after the shell (mounted into its tab bodies).
+- See `../blueprint.md` → **Build Plan (Phase 2)** for the coarse DAG, parallelism and cross-FRD deps.
 
 ## Cross-feature dependencies
 
-- **FRD-01** (data layer): `lib/config.ts`, `lib/status.ts` base, `lib/portfolio.ts` must exist.
+- **FRD-13** — the foundation primitives (`Tabs`/`ProgressBar`/`Chip`/`CountBadge`/`Panel`/`CmdRow`/
+  `Button`/`Toast`/`DocHeading`) every UI WO consumes (reuse-before-create).
+- **FRD-01** (data layer): `lib/config.ts`, `lib/status.ts`, `lib/portfolio.ts`.
 - **FRD-02** (`lib/next-step.ts` base) — WO-04-003 extends it.
 - **FRD-03** (portfolio rail) — provides the selected `slug` that opens this workspace.
-- **FRD-05 / FRD-06 / FRD-11** — mounted tabs/selector; this feature only reserves the slots.
+- **FRD-05 / FRD-06 / FRD-11 / FRD-12 / FRD-14** — mounted tabs/panels/selector; FRD-04 provides the seam.

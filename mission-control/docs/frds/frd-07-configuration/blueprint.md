@@ -107,5 +107,32 @@ the section is never empty, and **flag the frontmatter addition to the owner** (
 change, not a Mission Control change). `runsIn` for skills is similarly **inferred** (heuristic on
 the description/body keywords "in the factory" / "in the project") — also a candidate for an
 explicit `runs_in:` frontmatter field on skills; flagged, not invented.
-</content>
-</invoke>
+
+## Build Plan (Phase 2)
+
+The Phase 2 re-anchor collapses the former UI work orders into **one coarse UI WO** while the
+`lib/**` readers stay VERIFIED and are consumed as-is. Build foundation-first.
+
+**Coarse WO set**
+| WO | Status | Artifacts (disjoint) | Builds |
+|---|---|---|---|
+| WO-07-001 | VERIFIED | `lib/reference.ts` | `readSkills`/`readAgents` (consume) |
+| WO-07-003 | VERIFIED | `lib/registry.ts` | `readDecisionRules` (consume) |
+| WO-07-004 | VERIFIED | `lib/standards.ts` | `readStandards` (consume) |
+| **WO-07-005** | **PLANNED** | `src/app/configuration/**` | the whole Configuración UI surface |
+
+**DAG & parallelism**
+```
+FRD-13 foundation (WO-13-006 PageTitle/SectionHead/Tabs · WO-13-007 Panel/Chip/CmdRow/Button · WO-13-008 ItemSlot)
+        │   FRD-09 (IF-09-agent-xp · Avatar/XpBar)
+        ▼
+WO-07-005 (Configuración UI)  ◄── consumes VERIFIED readers WO-07-001/003/004
+```
+Only one UI WO remains, so there is no intra-FRD UI parallelism; its single artifact glob
+(`src/app/configuration/**`) is **disjoint** from FRD-08's (`src/app/manual/**`). The three readers
+are already done.
+
+**Cross-FRD deps line (foundation-first):** `frd-13` (foundation primitives + tokens) **must build
+before** WO-07-005; `frd-09` provides the agent XP/avatar. WO-07-005's cards are then **reused
+verbatim** by FRD-08's Referencia — so FRD-07's UI WO builds **before** FRD-08's UI WO.
+

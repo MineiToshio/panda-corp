@@ -14,35 +14,25 @@ refactor). The `lib/**` readers (data layer) come first; the page/components con
 - **FRD-09 (gamification)** — `IF-09-agent-xp` (agent level/title/XP from real work orders) and the
   pixel-art avatar component. Agent WOs (WO-07-006/007) depend on FRD-09 WO-09-002/003.
 
-## Order & parallelization
+## Order & parallelization (Phase 2)
+
+The UI work orders were **collapsed into one coarse WO** (WO-07-005); the three `lib/**` readers stay
+VERIFIED and are consumed as-is. See the blueprint's **Build Plan (Phase 2)**.
 
 ```
-WO-07-001 (lib/reference: skills + agents) ─┐
-WO-07-003 (lib/registry) ───────────────────┼─ parallel (independent readers, depend only on FRD-01)
-WO-07-004 (lib/standards) ───────────────────┘
+WO-07-001 (lib/reference: skills + agents) ─┐  VERIFIED
+WO-07-003 (lib/registry) ───────────────────┼─ VERIFIED (consumed as-is)
+WO-07-004 (lib/standards) ───────────────────┘  VERIFIED
         │
         ▼
-WO-07-005 (config page shell + section tabs)   ← depends on FRD-13 tokens
-        │
-        ├─ WO-07-006 (Skills section + detail + flow)      ← WO-07-001
-        ├─ WO-07-007 (Agents section + detail + XP)        ← WO-07-001 + FRD-09 IF-09-agent-xp
-        ├─ WO-07-008 (Decision rules section + detail)     ← WO-07-003
-        └─ WO-07-009 (Standards section + detail)          ← WO-07-004
+WO-07-005 (Configuración UI surface)   ← foundation-first: FRD-13 (WO-13-006/007/008) + FRD-09 (agent XP/avatar)
 ```
 
-The three readers (001, 003, 004) are fully parallel; `lib/reference.ts` (skills + agents) is one WO
-since both catalogs share the file and the `readPluginDir` helper. The four section WOs (006–009) are
-parallel once the shell (005) exists and their respective reader is done.
-
 ## Work orders
-| ID | Title | Deploy unit | Depends on |
-|---|---|---|---|
-| WO-07-001 | `lib/reference.ts` — read skills + agents catalogs | `lib/reference.ts` | FRD-01 |
-| WO-07-003 | `lib/registry.ts` — read decision rules | `lib/registry.ts` | FRD-01 |
-| WO-07-004 | `lib/standards.ts` — read standards (+ derivation fallback) | `lib/standards.ts` | FRD-01 |
-| WO-07-005 | Configuration page shell + section tabs | `app/configuration/page.tsx` | FRD-13 |
-| WO-07-006 | Skills section: list + detail + mini-flow | `components/config/skills*` | WO-07-001, WO-07-005 |
-| WO-07-007 | Agents section: list + detail + XP bar | `components/config/agents*` | WO-07-001, WO-07-005, FRD-09 |
-| WO-07-008 | Decision rules section: list + detail | `components/config/rules*` | WO-07-003, WO-07-005 |
-| WO-07-009 | Standards section: categorized list + detail | `components/config/standards*` | WO-07-004, WO-07-005 |
+| ID | Title | Deploy unit | Status | Depends on |
+|---|---|---|---|---|
+| WO-07-001 | `lib/reference.ts` — read skills + agents catalogs | `lib/reference.ts` | VERIFIED | FRD-01 |
+| WO-07-003 | `lib/registry.ts` — read decision rules | `lib/registry.ts` | VERIFIED | FRD-01 |
+| WO-07-004 | `lib/standards.ts` — read standards (+ derivation fallback) | `lib/standards.ts` | VERIFIED | FRD-01 |
+| WO-07-005 | Configuración UI surface (re-anchor to prototype) | `src/app/configuration/**` | PLANNED | FRD-13, FRD-09, WO-07-001/003/004 |
 </content>

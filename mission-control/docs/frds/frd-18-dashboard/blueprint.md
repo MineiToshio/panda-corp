@@ -163,4 +163,35 @@ All REQ map to concrete components/derivations. None unsatisfiable on the platfo
   layer + FRD-02 board/next-step + FRD-05 work-orders + FRD-06/12 events + FRD-09 gamification + FRD-15/16
   banners + FRD-17 memory. Sequence it LAST among the data-consuming features (see work-orders README).
 - **`advance_pending` placement** (DR-032): explicitly NOT in "Tu turno" — it is a Board signal. The
-  exclusion is an AC (WO-18-002), not an afterthought.
+  exclusion is an AC (WO-18-001), not an afterthought.
+
+## Build Plan (Phase 2)
+
+Phase-2 re-anchors the **whole `/` home surface** to the owner-approved prototype and makes it
+**REAL-TIME**. FRD-18 owns no `lib/` data of its own — it composes the already-VERIFIED reader layer; so
+there is **no lib-only WO to keep**. The six former presentational WOs (digest / tu-turno / pulso / cartera
+/ progreso / page-assembly) are **collapsed into ONE coarse UI work order** — the surface is a single
+cohesive composition and was splitting cleanly anyway only at the section level, which the prototype
+re-anchor + the shared-primitive reuse make moot.
+
+**Coarse WO set:**
+
+| WO | Status | Layer | Artifacts (disjoint) |
+|---|---|---|---|
+| WO-18-001 `inicio-dashboard` | **PLANNED** (re-plan, collapses old 001–006) | UI (real-time) | `src/app/page.tsx`, `src/app/(dashboard)/**`, `src/components/dashboard/**`, `src/components/modules/Pulso/**`, `src/components/modules/Digest/**` |
+
+**Collapsed / deleted:** the old `wo-18-001-digest`, `wo-18-002-tu-turno`, `wo-18-003-pulso`,
+`wo-18-004-cartera`, `wo-18-005-progreso`, `wo-18-006-page-assembly` files are removed — their scope is
+fully subsumed by the one coarse WO-18-001 (id reused as the lowest existing UI id).
+
+**DAG / parallelism:** WO-18-001 is the **single, terminal** Phase-2 work order. It is the heaviest
+dependency surface in the project and must be sequenced **LAST** among the UI work orders: it cannot start
+until its foundation, transport and hosted-banner dependencies are VERIFIED — FRD-13 WO-13-006/007/008
+(primitives), FRD-01 WO-01-009 (the live transport), and the banners it hosts (FRD-15 WO-15-004, FRD-16
+WO-16-004). No intra-FRD parallelism (one WO). Its artifact globs are **disjoint** from FRD-15's
+`plugin-sync-banner/**` and FRD-16's `orphans-banner/**` (which it merely *mounts*, not edits).
+
+**Cross-FRD deps:** `frd-13` (shared primitives — WO-13-006/007/008), `frd-01` (the `useLiveSnapshot`
+real-time transport — WO-01-009; this surface is event-driven, NOT polling), `frd-15` and `frd-16` (it
+**hosts** both health banners, both `Banner` consumers). The dashboard composes — it must NOT re-implement
+live/no-signal, the next-step map, the board derivation, the memory-health read, or the banners.

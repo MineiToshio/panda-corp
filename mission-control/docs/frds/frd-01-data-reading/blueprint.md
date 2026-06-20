@@ -212,3 +212,19 @@ The FRD lists its acceptance criteria as EARS bullets; numbered here in order fo
 - Event cap (architecture §3) → `readEvents` default cap 200. ✅
 
 No FRD-01 criterion is unbuildable on the platform.
+
+## 7. Build Plan (Phase 2 — the shared live transport, FND-5)
+
+The data-reading layer is **VERIFIED and frozen** (WO-01-000..008 — the readers/parsers; the Phase-2
+gap is presentational, not in `lib/`). Phase 2 adds ONE new piece here: the real-time wire.
+
+- **Already VERIFIED (do NOT rebuild):** WO-01-000..008 — `pathExists`, `readProfile`, `readIdeas`,
+  `readPortfolio`, `readStatus`, `readProjectDocs`, `readEvents`, onboarding gate.
+- **Foundation wave (`foundation: true`):**
+  - **WO-01-009 (FND-5)** — the shared SSE transport (`app/api/live/route.ts`) + the `useLiveSnapshot`
+    hook, built **on the existing readers** (no `lib/` parsing re-implemented). Read-only; pushes deltas.
+- **Cross-FRD deps:** none upstream. **Downstream (real-time consumers that depend on `frd-01`):**
+  FRD-05 (Work orders), FRD-06 (Party), FRD-12 (Observabilidad), FRD-18 (Inicio) — each subscribes to
+  its own event slice via `useLiveSnapshot`, replacing any polling.
+- **Gate:** SSE delivers an appended event to a subscribed client; `?project=` slices correctly; no leak
+  on unmount; defensive on missing/locked files. Its `## Status Note` publishes the frame + hook contract.

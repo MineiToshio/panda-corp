@@ -17,27 +17,22 @@ comes first; the Hall page/components consume it. **Honesty encoded as negative 
 
 ## Order & parallelization
 
+The `lib/achievements.ts` engine (WO-10-001) is **VERIFIED**. Phase 2 collapsed the four UI WOs (hall
+page shell + chains + uniques + secrets) into **one coarse UI work order** (WO-10-005) re-anchoring the
+Hall surfaces to the prototype — see the [blueprint Build Plan (Phase 2)](../blueprint.md#build-plan-phase-2).
+The achievements page hero / `GuildBar` / radar are owned by **FRD-09 WO-09-003** (shared route).
+
 ```
-WO-10-001 (lib/achievements: stats/chains/uniques/secrets)  ← the whole engine, one module
+WO-10-001 (lib/achievements: stats/chains/uniques/secrets)  VERIFIED
         │
         ▼
-WO-10-005 (Hall page shell + hero + tabs + stats panel)  ← WO-10-001, FRD-09, FRD-13
-        │
-        ├─ WO-10-006 (chains + "Almost there")   ← WO-10-001, WO-10-005
-        ├─ WO-10-007 (unique achievements)        ← WO-10-001, WO-10-005
-        └─ WO-10-008 (secret achievements)        ← WO-10-001, WO-10-005
+WO-10-005 (Hall surfaces: ChainCard + TrophyCard + AlmostThere + stat ledger)
+              ← WO-10-001 (engine) + FRD-13 foundation + FRD-09 (shared page + XpBar)
 ```
 
-WO-10-001 is the single `lib/achievements.ts` engine (the four families share the file and the same
-readers, so they are built together to avoid same-file collisions). 006/007/008 are parallel once the
-page shell (005) and the engine (001) exist.
-
 ## Work orders
-| ID | Title | Deploy unit | Depends on |
-|---|---|---|---|
-| WO-10-001 | `lib/achievements.ts` — engine (stats/chains/uniques/secrets) | `lib/achievements.ts` (new) | FRD-01/03/04/06 |
-| WO-10-005 | Hall page shell + hero + tabs + stats panel | `app/achievements/page.tsx` | WO-10-001, FRD-09, FRD-13 |
-| WO-10-006 | Chains cards + "Almost there" | `components/hall/chains*` | WO-10-001, WO-10-005 |
-| WO-10-007 | Unique achievements by category | `components/hall/uniques*` | WO-10-001, WO-10-005 |
-| WO-10-008 | Secret achievements | `components/hall/secrets*` | WO-10-001, WO-10-005 |
+| ID | Title | Deploy unit | Status | Depends on |
+|---|---|---|---|---|
+| WO-10-001 | `lib/achievements.ts` — engine (stats/chains/uniques/secrets) | `lib/achievements.ts` | VERIFIED | FRD-01/03/04/06 |
+| WO-10-005 | Hall surfaces: ChainCard + TrophyCard + AlmostThere + stat ledger | `app/achievements/{ChainCard,UniquesSection}/**`, `AlmostThere.tsx`, `SecretsPanel.tsx` | PLANNED | WO-10-001, FRD-13, FRD-09 |
 </content>

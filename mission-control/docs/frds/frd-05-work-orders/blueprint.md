@@ -124,3 +124,37 @@ route; `CMP-04-workspace` mounts `CMP-05-board`.
 and is not yet pinned in a committed MC doc. `IF-05-work-orders` assumes a parseable per-WO state and
 is partial-tolerant; the reader's WO-05-001 fixtures must be aligned with the actual producer
 convention before GREEN. No requirement is unbuildable — only the marker location needs confirming.
+
+## Build Plan (Phase 2)
+
+Phase 2 re-implements the **Work orders** tab presentation to match the approved prototype. The data
+layer is done: **WO-05-001 and WO-05-002 are VERIFIED** (`lib/work-orders.ts` — discovery, parse,
+`aggregateProgress`, `readWorkOrderDoc`) and are **not** re-planned; the coarse UI work order consumes
+them.
+
+**Coarse DAG:**
+
+```
+WO-05-001 (lib, VERIFIED) ─┐
+WO-05-002 (lib, VERIFIED) ─┼─▶ WO-05-003  (Work-orders tab: board + card + frd-filter + detail + progress + empty)
+foundation + live ────────┘
+```
+
+- **WO-05-003** — single coarse presentational WO. Re-paints `WoBoard`/`KanbanColumn`,
+  `WorkOrderCard` (`.card` + `fail` danger **variant**, not a 2nd card), `WoFrdFilter`/
+  `WoFrdFilteredBoard`, `WoDetail` (Resumen / Documento completo via `Tabs` + `DocView`), `WoProgress`
+  and `WoEmpty`, faithful to `projWO()`. **Real-time**: consumes `useLiveSnapshot` (WO-01-009) for its
+  work-orders slice — event-driven, not polling.
+
+**Parallelism.** WO-05-003 has no intra-FRD UI sibling — it is one unit. Across FRDs it is
+**disjoint** from FRD-06 (`_party/**`) and FRD-12 (`_observability/**`): its artifacts live only under
+`src/app/projects/[slug]/_components/{wo-board,wo-detail,wo-frd-filter,wo-progress,wo-empty}/**`, so the
+three workspace tabs re-paint in parallel with no file collision.
+
+**Disjoint artifacts (WO-05-003):**
+`src/app/projects/[slug]/_components/wo-board/**`, `…/wo-detail/**`, `…/wo-frd-filter/**`,
+`…/wo-progress/**`, `…/wo-empty/**`.
+
+**Cross-FRD deps:** `frd-13` (foundation primitives — KanbanColumn/Chip/Panel/Button/Tabs/DocHeading),
+`frd-04` (the workspace Tabbar this mounts into; `readDoc`/`DocView`), `frd-01` (live — `useLiveSnapshot`
++ SSE transport, WO-01-009).

@@ -191,3 +191,39 @@ All REQ map to concrete components. None unsatisfiable on the platform.
   mutates state is the skills + the `librarian` (FRD non-goal). Auditable: no write path in these modules.
 - **Capped event tail** (architecture §3, FRD-12): velocity/unused-capability read the same capped tail
   (100–200) — long histories never degrade the page.
+
+## Build Plan (Phase 2)
+
+Phase 2 re-anchors the **presentational** Proposals surface to the owner-approved prototype
+(`docs/design/prototype/index.html`, the now-canonical **Propuestas** view `propuestasView()`); the
+`lib/memory` + `lib/self-suggest` data layers are already correct.
+
+**State:**
+- **VERIFIED (do not rebuild):** WO-17-001 (`lib/memory` reader), WO-17-002 (`lib/memory` views),
+  WO-17-003 (`lib/self-suggest` + `gatherSuggestionsInput`) — the read-only data layers, verified.
+- **PLANNED (Phase 2 UI):** WO-17-004 — the single coarse Proposals-surface work order
+  (`ProposalStream`/`DismissableProposalStream` + `ProposalCard` + `PromotionsQueue` +
+  `MemoryHealthPanel` + `ProposalsBadge`/`ProposalsChip`).
+
+**Coarse DAG & parallelism:**
+
+```
+[VERIFIED data: WO-17-001 → WO-17-002 · WO-17-003]   [FRD-13 foundation: WO-13-006/007]
+                 └───────────────────────┬───────────────────────────┘
+                                         ▼
+                          WO-17-004 (Proposals surface — UI)
+```
+
+WO-17-004 is a single sequential UI WO (no intra-FRD UI peer). The earlier per-component WOs were
+collapsed because their pieces are all composed into one rendered surface (`app/proposals`) — the prior
+build's repeated FRD-gate reopens were caused by sibling components built in isolation and left
+orphaned (un-composed); the coarse WO makes the page the single composition owner from the start.
+
+**Disjoint artifacts:** all under `src/app/proposals/**` and the four `src/components/modules/`
+sub-trees (`PromotionsQueue`, `MemoryHealth`, `ProposalsBadge`, `ProposalsDismiss`). The top-bar badge
+mounts in `app/layout.tsx` and the rail chip extends FRD-14's `StatusChips` — those are the only
+cross-surface touch points, owned here as the proposals third stream.
+
+**Cross-FRD deps:** `frd-13` (foundation `PageTitle`/`SectionHead`/the one `Banner`/`Chip`/`CountBadge`/
+`CmdRow`, tokens, `tabular-nums`); FRD-02 `CopyButton`; FRD-14 portfolio-rail chip placement; FRD-09
+White-Hat dismissibility framing.

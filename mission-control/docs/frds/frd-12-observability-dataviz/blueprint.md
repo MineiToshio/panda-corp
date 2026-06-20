@@ -95,3 +95,39 @@ None. FRD-12 derives over existing readers (`lib/events`, `lib/status`, `lib/por
 ## 6. Traceability (REQ → CMP/IF)
 Every REQ-12-MMM maps to a CMP-12-* / IF-12-* in §2. No requirement is unbuildable. REQ-12-006 is
 satisfied by the Dagre choice in WO-12-006 (and recorded in architecture §2).
+
+## 7. Build Plan (Phase 2)
+
+Phase 2 re-paints the project **Observabilidad** tab presentation to the approved prototype. The
+**pure selector layer is VERIFIED** — `topn`/`freshness` (WO-12-001), `kpis` (WO-12-002), `rate`
+(WO-12-003), `timeline` (WO-12-004) — as are the pure `dag.ts` (`toDag`/`dagChain`/`firstError`) and the
+`dagre` dependency; none are re-planned. The two coarse UI WOs consume them. The global dashboard
+`KpiHeader`/`FreshnessBadge` (FRD-18 surface) stay real/VERIFIED and are out of this Phase-2 re-paint.
+
+**Coarse DAG:**
+
+```
+selectors + dag.ts + dagre (VERIFIED) ─┐
+foundation + live (WO-01-009) ─────────┼─▶ WO-12-006  (WoDag: Dagre graph, chain-highlight, jump-to-error, follow-active)
+                                        └─▶ WO-12-005  (ObservabilidadTab + TimelineView)  ──mounts WoDag as DAG lens──┘
+```
+
+- **WO-12-005** — `ObservabilidadTab` (sibling of Party; local `SectionHead` strip + the **Línea de
+  tiempo ↔ DAG** `Tabs` toggle over the SAME work orders) + `TimelineView` (WO→tasks→actions duration
+  bars + time axis + jump-to-first-error). **Live** via `useLiveSnapshot` (WO-01-009), not polling.
+- **WO-12-006** — `WoDag` (the dependency graph: Dagre, bezier edges, chain-highlight upstream+downstream,
+  jump-to-first-error, follow-active-step), mounted as the DAG lens of WO-12-005's toggle. **Live** via
+  `useLiveSnapshot`, not polling.
+
+**Parallelism.** WO-12-006 can be built in parallel with WO-12-005 and is mounted into its toggle. Across
+FRDs both are **disjoint** from FRD-05 (`_components/{wo-*}/**`) and FRD-06 (`_party/**`): artifacts live
+only under `src/app/projects/[slug]/_observability/**`, so the three workspace tabs re-paint in parallel
+with no file collision.
+
+**Disjoint artifacts:**
+- WO-12-005: `src/app/projects/[slug]/_observability/ObservabilidadTab/**`, `…/TimelineView/**`.
+- WO-12-006: `src/app/projects/[slug]/_observability/WoDag/**`.
+
+**Cross-FRD deps:** `frd-13` (foundation primitives + per-state/role color & motion tokens),
+`frd-04` (the workspace Tabbar the tab mounts into), `frd-01` (live — `useLiveSnapshot` + SSE transport,
+WO-01-009). Reads WO dependency data from FRD-05 `lib/work-orders` (VERIFIED).

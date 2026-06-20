@@ -2,98 +2,63 @@
 id: WO-14-002
 type: work-order
 slug: snapshot-panel
-title: >-
-  WO-14-002 — `CMP-14-snapshot-panel`: probable point + worktree command +
-  building-now + staleness
+title: 'WO-14-002 — SnapshotPanel: último commit en verde + worktree command'
 status: DRAFT
 parent: FRD-14
-implementation_status: VERIFIED
-source_requirements: []
-last_updated: '2026-06-18'
+implementation_status: PLANNED
+artifacts:
+  - 'src/app/projects/[slug]/_components/snapshot-panel/**'
+source_requirements: [REQ-14-001, REQ-14-002, REQ-14-003]
+last_updated: '2026-06-19'
 ---
-# WO-14-002 — `CMP-14-snapshot-panel`: probable point + worktree command + building-now + staleness
+# WO-14-002 — SnapshotPanel: último commit en verde + worktree command
 
-**Feature:** FRD-14 · **Implements:** CMP-14-snapshot-panel · **REQ-14-001, REQ-14-002, REQ-14-003**
-**Deploy unit:** `app/projects/[slug]/_components/snapshot-panel.tsx` + colocated tests (+ optional read-only git probe route handler for staleness inputs).
-
-## Acceptance criteria (copied)
-- **AC-14-001.1** FOR a building project, render the last probable point label + a "green" badge + `last_green_sha`.
-- **AC-14-001.2** Render `git worktree add ../<slug>-review <last_green_sha>` with a copy button.
-- **AC-14-001.3** WHEN `last_green_sha` is absent, omit the panel — no broken command.
-- **AC-14-002.1** WHEN running with a work order in progress, show "building now: <progress> · don't test this yet", distinct from the probable point.
-- **AC-14-003.1** WHEN the snapshot is far behind HEAD, show a "snapshot getting stale" warning.
+## Goal
+Re-implement the **snapshot panel** so it renders faithfully to the prototype `snapshotPanel()` /
+`bStalenessPanel()` on the frozen tokens, with the **clear** canonical copy and its warning refactored
+onto the shared **`Banner`** (FRD-13). The pure helpers (`buildSnapshot`, `isSnapshotStale`,
+`SNAPSHOT_STALE_*` in `lib/snapshot.ts`) are correct and **VERIFIED** — this WO is **presentational only**.
 
 ## Scope
-- `CMP-14-snapshot-panel` (Server): consume `buildSnapshot(slug, status)` (WO-14-001). Render the
-  probable point + green badge + sha + worktree command (shared `CopyButton`), the "building now"
-  block when running, and the staleness warning when `stale`. Mirrors prototype `snapshotPanel`.
-- Omit entirely when `buildSnapshot` returns `null` (AC-14-001.3).
-- Staleness inputs (`commitsBehind`/`hoursSinceGreen`): obtain via the read-only `git` probe
-  (reuse the FRD-15/16 route-handler pattern) or the gate-published `status.yaml` timestamp — see
-  blueprint §5 flag; the panel passes them into `isSnapshotStale`.
-- **Out of scope:** the helpers (WO-14-001), the rail chips (WO-14-003).
+- **`SnapshotPanel`** (`_components/snapshot-panel/**`, Server) — consumes `buildSnapshot(slug, status)`
+  (WO-14-001, VERIFIED). Three clearly-separated parts, per the FDD's re-anchored copy:
+  1. **Último commit en verde** — `Panel` with a left `ti-circle-check` (`var(--ok)`) icon, the line
+     **"Último commit en verde · seguro para probar"** + the closed-FRD green `Chip`, then the muted
+     line "commit `<sha>` — pasó todos los gates. Pruébalo en un worktree aparte sin parar el build."
+     SHA `tabular-nums`. The copyable **`git worktree add ../<slug>-review <sha>`** in a shared
+     **`CmdRow`** + `CopyButton`.
+  2. **Building-now line** (when `running`) — visually distinct hammer-icon (`var(--accent)`) line:
+     "El build sigue avanzando: `<progreso>` · eso aún no está en verde, no lo pruebes" — never
+     conflated with the last-green commit.
+  3. **Staleness warning** (when `stale`) — refactored onto the shared **`Banner`** (`tone="warn"`):
+     "El último commit en verde quedó atrás del build … lo que pruebes ahí ya no refleja lo que el build
+     lleva construido." Warn carried by **icon + text**, not color alone.
+- **Omit the whole panel** when `buildSnapshot` returns `null` (no `last_green_sha`) — no empty shell.
+- **Copy guardrails:** the canonical "green = last build commit that passed ALL gates, safe to test in a
+  separate worktree" wording — **NOT** local-vs-remote, **NOT** the old "punto verde" jargon.
+- **Read-only:** MC never runs `git worktree` (FRD-14 non-goal); the panel only surfaces the command.
+- **Reuse before create** (`docs/design/components.md`): `Panel`, `Chip`, `CmdRow`, `CopyButton`,
+  `Toast`, and the **ONE shared `Banner`** for the staleness warning — no second banner/panel fork.
+
+## Acceptance criteria
+- **AC-14-001.1** FOR a building project, the panel SHALL render "Último commit en verde · seguro para
+  probar" + the closed-FRD green chip + `last_green_sha`.
+- **AC-14-001.2** It SHALL render `git worktree add ../<slug>-review <last_green_sha>` with a copy button.
+- **AC-14-001.3** WHEN `last_green_sha` is absent, the panel SHALL be omitted entirely — no broken command.
+- **AC-14-002.1** WHEN `running`, it SHALL show the "building now … eso aún no está en verde, no lo
+  pruebes" line, visually distinct from the last-green commit.
+- **AC-14-003.1** WHEN `stale`, it SHALL show the staleness warning on the shared `Banner` (icon + text,
+  not color alone).
+- Copy uses the canonical clear wording (no "punto verde", no local-vs-remote framing).
+- Rendered output matches `snapshotPanel()` / `bStalenessPanel()` on the frozen tokens; the browser
+  fidelity/smoke gate is clean.
 
 ## Dependencies
-- **Intra:** WO-14-001 (`buildSnapshot`, `isSnapshotStale`).
-- **Cross:** FRD-04 workspace (mounts this panel); FRD-01 `lib/status.ts`; FRD-15/16 probe pattern;
-  shared `CopyButton`.
+- **Foundation (FRD-13):** WO-13-007 (the **ONE `Banner`** + `Chip`/`Panel`/`CmdRow`/`Button`/`Toast`).
+- **Intra (FRD-14):** WO-14-001 (`buildSnapshot`/`isSnapshotStale`/`SNAPSHOT_STALE_*`) — VERIFIED lib.
+- **Cross-FRD:** `frd-13` (foundation primitives), `frd-04` (workspace mounts this panel via the Tabbar
+  shell seam; FRD-01 `lib/status.ts` supplies the fields).
 
-## TDD (RED → GREEN → refactor)
-Component tests:
-1. Building project renders probable point + green badge + sha (AC-14-001.1).
-2. Worktree command rendered with slug + sha + copy button (AC-14-001.2).
-3. Absent `last_green_sha` → panel not rendered (AC-14-001.3).
-4. Running + progress → "building now … don't test this yet", visually separate (AC-14-002.1).
-5. Stale verdict → staleness warning shown; fresh → not shown (AC-14-003.1).
-
-## Definition of done
-- [x] Component tests written first and green.
-- [x] Server Component; reuses shared `CopyButton`; any `git` probe is read-only (`git rev-list`/`git show`).
-- [x] Tokens only; `tabular-nums`; green/stale shown with icon + text (not color alone); Spanish copy via i18n; `data-testid`.
-- [x] `bash .pandacorp/verify.sh` passes.
-
-## Status Note
-
-**Built:** `CMP-14-snapshot-panel` — Server Component that renders the FRD-14 snapshot panel inside the FRD-04 workspace, wired into `app/projects/[slug]/page.tsx` in the chrome area (above the tab bar).
-
-**Files delivered:**
-- `src/app/projects/[slug]/_components/snapshot-panel/snapshot-panel.tsx` — `SnapshotPanel` Server Component
-- `src/app/projects/[slug]/_components/snapshot-panel/_tests/snapshot-panel.test.tsx` — 25 tests RED→GREEN covering all 5 ACs
-- `src/app/projects/[slug]/page.tsx` — wired: imports `buildSnapshot` + `SnapshotPanel`, derives snapshot from status, mounts panel in chrome
-
-**Interfaces/contracts exposed:**
-
-```tsx
-// src/app/projects/[slug]/_components/snapshot-panel/snapshot-panel.tsx
-
-export interface SnapshotPanelProps {
-  slug: string;                   // project slug (panel identification)
-  snapshot: SnapshotInfo | null;  // null → panel omitted (AC-14-001.3)
-}
-
-export function SnapshotPanel({ slug, snapshot }: SnapshotPanelProps): React.JSX.Element | null
-```
-
-**data-testid contract:**
-- `snapshot-panel` — root `<section aria-label="Snapshot del proyecto">` (omitted when null)
-- `snapshot-panel-probable-point` — probable point section container
-- `snapshot-panel-label` — "Último punto probable" heading label
-- `snapshot-panel-green-badge` — green badge with `role="status"` + icon + text (not color alone)
-- `snapshot-panel-sha` — SHA value with `className="tabular-nums"` + `fontVariantNumeric`
-- `snapshot-panel-worktree-cmd` — `<code>` with full `git worktree add ...` command
-- `copy-button` — shared `CopyButton` (from `@/components/core/CopyButton/CopyButton`)
-- `snapshot-panel-building-now` — "building now" block (only when `buildingNow !== undefined`)
-- `snapshot-panel-stale-warning` — staleness warning with `role="alert"` (only when `stale === true`)
-- `snapshot-panel-stale-icon` — warning icon inside the stale warning
-
-**Integration seam (page.tsx):**
-```ts
-// Derives snapshot from already-read status — pure, no git probe
-const snapshot = buildSnapshot(slug, status);
-// Mounts in chrome between ObjectivesBar and TabBar
-<SnapshotPanel slug={slug} snapshot={snapshot} />
-```
-
-**Staleness flag:** `stale` is `false` by default from `buildSnapshot` (pure/no-git). Blueprint §5 flag: a git probe route-handler (`git rev-list --count <sha>..HEAD`) would compute `commitsBehind`/`hoursSinceGreen` and call `isSnapshotStale` to update it. This follow-up is documented in the blueprint but not in scope for this WO — the panel is wired and the staleness verdict is observable when set.
-
-**Gate:** 25/25 own tests GREEN. 191 test files, 5197 tests total GREEN. tsc clean (zero errors). biome clean (no new errors; pre-existing `noExcessiveCognitiveComplexity` warning on `page.tsx` is pre-existing, not introduced here). verify.sh PASS.
+## Visual reference
+`docs/design/prototype/index.html` → `snapshotPanel(i)` (~L867) + `bStalenessPanel(i)` (~L876), on the
+frozen tokens. Fidelity, not novelty (DR-056) — see `../fdd.md` and `../mocks/README.md`.

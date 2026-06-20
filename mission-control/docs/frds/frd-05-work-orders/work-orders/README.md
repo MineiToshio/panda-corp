@@ -6,23 +6,26 @@ Read [`../blueprint.md`](../blueprint.md) first.
 
 ## Work orders
 
-| WO | Title | Layer | Implements |
-|---|---|---|---|
-| [WO-05-001](./wo-05-001-work-orders-reader.md) | `lib/work-orders.ts` — discover + parse work orders | lib (TDD) | IF-05-work-orders |
-| [WO-05-002](./wo-05-002-aggregate-progress.md) | `lib/work-orders.ts` — `aggregateProgress` | lib (TDD) | IF-05-work-orders |
-| [WO-05-003](./wo-05-003-kanban-board.md) | Kanban board: 4 columns + cards + FRD chip | component | CMP-05-board/column/card |
-| [WO-05-004](./wo-05-004-frd-filter.md) | Group/filter by FRD | component | CMP-05-frd-filter |
-| [WO-05-005](./wo-05-005-wo-detail.md) | Work order detail: Summary + Full document tabs | component | CMP-05-detail |
-| [WO-05-006](./wo-05-006-progress-and-empty.md) | Aggregated progress display + empty state | component | CMP-05-progress, CMP-05-empty |
+| WO | Title | Layer | Implements | State |
+|---|---|---|---|---|
+| [WO-05-001](./wo-05-001-work-orders-reader.md) | `lib/work-orders.ts` — discover + parse work orders | lib (TDD) | IF-05-work-orders | VERIFIED |
+| [WO-05-002](./wo-05-002-aggregate-progress.md) | `lib/work-orders.ts` — `aggregateProgress` | lib (TDD) | IF-05-work-orders | VERIFIED |
+| [WO-05-003](./wo-05-003-wo-board-tab.md) | Work-orders tab: live kanban board + detail (re-paint) | UI (Phase 2) | CMP-05-board/column/card/frd-filter/detail/progress/empty | PLANNED |
+
+## Phase 2 re-plan (presentational)
+
+The `lib/work-orders.ts` layer (WO-05-001/002) is **VERIFIED and untouched** — the gap was purely
+presentational. The former UI work orders (the old WO-05-003 board, WO-05-004 filter, WO-05-005 detail,
+WO-05-006 progress+empty) are **collapsed into one coarse WO** (WO-05-003) that re-paints the whole
+**Work orders** tab to the owner-approved prototype `projWO()`, built on the FRD-13 foundation primitives
+and **live off `useLiveSnapshot`** (WO-01-009, event-driven, not polling).
 
 ## Order & parallelization
 
-- **First:** WO-05-001 (the reader) — everything downstream depends on it.
-- **Then (parallel):** WO-05-002 (pure aggregation over `WorkOrder[]`) can run right after the
-  `WorkOrder` type lands in WO-05-001.
-- **Then (parallel after the reader):** WO-05-003 (board), WO-05-005 (detail, also needs FRD-04
-  `readDoc`), WO-05-006 (progress + empty).
-- **Last:** WO-05-004 (FRD filter) layers onto the board (WO-05-003).
+- WO-05-001/002 (the reader + aggregation) are already VERIFIED — never rebuilt.
+- **WO-05-003** is the single coarse UI work order: it consumes the VERIFIED lib + the FRD-13 foundation
+  + the FRD-04 Tabbar slot + the FRD-01 live snapshot. It is **disjoint** from FRD-06 (`_party`) and
+  FRD-12 (`_observability`) — those three subfolders never collide, so the three tabs re-paint in parallel.
 - The board is **mounted** into the FRD-04 workspace Work orders tab — that slot is reserved by
   `CMP-04-workspace` (FRD-04 WO-04-004).
 

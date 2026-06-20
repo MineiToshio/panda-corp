@@ -151,5 +151,39 @@ down; it does not implement those panels.
 | REQ-04-002 | AC-04-002.1/.2/.3 | CMP-04-header, CMP-04-objectives-bar | IF-04-status |
 | REQ-04-003 | AC-04-003.1/.2/.3 | CMP-04-tab-summary, CMP-04-decisions, CMP-04-activity-log | IF-04-docs |
 | REQ-04-004 | AC-04-004.1 | CMP-04-decisions | IF-04-status, IF-04-docs |
-| REQ-04-005 | AC-04-005.1/.2 | CMP-04-tab-commands | IF-04-next-step |
+| REQ-04-005 | AC-04-005.1/.2 | CMP-04-tab-commands (FRD-11) | IF-04-next-step |
 | REQ-04-006 | AC-04-006.1/.2/.3 | CMP-04-tab-documents | IF-04-docs |
+
+## 6. Build Plan (Phase 2)
+
+Re-implement the workspace **presentation** to match the approved prototype (`projectPane`). The
+`lib/**` layer is correct and **VERIFIED** (WO-04-001 `lib/docs.ts`, WO-04-003 `workspaceCommands`) and
+is **not** rebuilt. The Comandos tab moved to FRD-11; the Documentos tab folded into WO-04-005.
+
+**Coarse work orders (PLANNED):**
+
+| WO | Surface | Disjoint artifacts |
+|---|---|---|
+| WO-04-004 | Shell: header + tabbar (6 tabs incl. **Observabilidad**) + objectives bar | `src/app/projects/[slug]/page.tsx`, `_components/{workspace-header,tabbar,objectives-bar}.tsx` |
+| WO-04-005 | Resumen tab + Documentos tab | `_components/tab-summary/**`, `_components/tab-documents/**` |
+
+**DAG & parallelism:**
+```
+WO-04-001 (VERIFIED) ─┐
+WO-04-003 (VERIFIED) ─┼─► WO-04-004 (shell, provides Tabbar seam) ─► WO-04-005 (Resumen + Documentos)
+FRD-13 foundation ────┘
+```
+- **WO-04-004 runs first** — it is the **provider**: it defines the Tabbar (the six-tab mount seam) that
+  the tab FRDs plug into. It is sequential before WO-04-005 (which mounts into its tab bodies).
+- **WO-04-005** runs after the shell. Its two tabs touch **disjoint** subfolders
+  (`tab-summary/**` vs `tab-documents/**`), so its internals are independently testable.
+- Disjoint artifacts guarantee no same-file collision with the sibling tab FRDs, which own **other**
+  subfolders of `_components/` (FRD-05 `wo-*`, FRD-06 `_party`, FRD-12 `_observability`, FRD-14
+  `snapshot-panel`, FRD-11 `{mode-selector,tab-commands}`).
+
+**Cross-FRD deps:** `frd-13` (foundation primitives every UI WO consumes). FRD-04 is itself the
+**provider** of the Tabbar seam: `frd-05`, `frd-06`, `frd-11`, `frd-12`, `frd-14` depend on `frd-04`.
+
+**In-loop fidelity:** every UI WO renders against `prototype/index.html` (`projectPane`, `projResumen`,
+`projDocs`, `progressBar`) on the frozen tokens; the browser fidelity/smoke gate must be clean before
+VERIFIED. Reuse `docs/design/components.md` rows — no bespoke title/tab/banner/card forks (DR-057/062).

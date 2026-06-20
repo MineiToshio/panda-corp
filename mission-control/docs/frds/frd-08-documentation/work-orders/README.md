@@ -14,28 +14,24 @@ them); only `lib/manual.ts` (authored-content index) is new.
 - **FRD-13** — design tokens; all UI WOs depend on tokens.
 - **FRD-02** — `CopyButton` for inline command chips.
 
-## Order & parallelization
+## Order & parallelization (Phase 2)
+
+The UI work orders (shell + two Reference + concept content) were **collapsed into one coarse WO**
+(WO-08-002); `lib/manual.ts` stays VERIFIED and is consumed as-is. See the blueprint's **Build Plan
+(Phase 2)**.
 
 ```
-WO-08-001 (lib/manual: authored-content index)  ← FRD-01
+WO-08-001 (lib/manual: authored-content index)  VERIFIED (consumed as-is)
         │
         ▼
-WO-08-002 (Manual page shell + side menu + reader)  ← FRD-13, WO-08-001
-        │
-        ├─ WO-08-003 (Reference: commands + agents)   ← FRD-07 readers
-        ├─ WO-08-004 (Reference: rules + standards)   ← FRD-07 readers
-        └─ WO-08-005 (Tutorial/Guides/Concepts content, incl. DR-049 structure page)  ← WO-08-001
+WO-08-002 (Documentación UI surface)  ← foundation-first: FRD-13 (WO-13-006/007/008) → FRD-07 (WO-07-005 cards) → here
 ```
-
-WO-08-003/004/005 are parallel once the shell (002) exists. 003/004 additionally need the FRD-07
-readers; 005 needs only the authored content + index.
+The Referencia **reuses FRD-07's catalog cards verbatim** (DR-057) and derives the catalogs through
+FRD-07's readers (DR-046), so WO-08-002 builds **after** FRD-07's UI WO.
 
 ## Work orders
-| ID | Title | Deploy unit | Depends on |
-|---|---|---|---|
-| WO-08-001 | `lib/manual.ts` — index authored Manual content | `lib/manual.ts` (new) | FRD-01 |
-| WO-08-002 | Manual page shell: side menu (Diátaxis) + reader | `app/manual/page.tsx` | FRD-13, WO-08-001 |
-| WO-08-003 | Reference: commands + agents (derived) | `components/manual/reference*` | FRD-07 (001/002), WO-08-002 |
-| WO-08-004 | Reference: decision rules + standards (derived) | `components/manual/reference*` | FRD-07 (003/004), WO-08-002 |
-| WO-08-005 | Tutorial/Guides/Concepts content (+ DR-049 structure page) | `content/manual/**` | WO-08-001, WO-08-002 |
+| ID | Title | Deploy unit | Status | Depends on |
+|---|---|---|---|---|
+| WO-08-001 | `lib/manual.ts` — index authored Manual content | `lib/manual.ts` | VERIFIED | FRD-01 |
+| WO-08-002 | Documentación UI surface (re-anchor to prototype) | `src/app/manual/**` | PLANNED | FRD-13, FRD-07 (WO-07-005), WO-08-001 |
 </content>

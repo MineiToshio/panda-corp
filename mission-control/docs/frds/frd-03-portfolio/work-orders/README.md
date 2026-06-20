@@ -7,22 +7,29 @@ data layer; hosts the FRD-04 workspace in its right panel. See the feature bluep
 
 ## Work orders
 
-| WO | Title | Artifact | Depends on |
-|---|---|---|---|
-| WO-03-001 | `activeProjects` compose helper | `lib/portfolio.ts` (`activeProjects`) | FRD-01 (`readPortfolio`, `readStatus`, `pathExists`) |
-| WO-03-002 | Project rail + rows + indicators | `app/portfolio/page.tsx`, `components/ProjectRail.tsx`, `components/ProjectRow.tsx` | WO-03-001 |
-| WO-03-003 | Business snapshot (shipped) | `components/BusinessSnapshot.tsx` | WO-03-002 |
-| WO-03-004 | Selection + default + workspace slot | `app/portfolio/page.tsx` | WO-03-002, FRD-04 (workspace) |
-| WO-03-005 | Empty state + path-not-found recovery | `components/PortfolioEmpty.tsx`, `components/RecoveryHint.tsx` | WO-03-001, FRD-02 (`CopyButton`) |
+> **Phase 2 re-plan (2026-06-19).** The `lib/**` compose helper stays **VERIFIED** and untouched. The
+> UI WOs are collapsed into **one coarse presentational WO** (`PLANNED`) re-painting the whole
+> `/portfolio` surface onto the FRD-13 foundation primitives to match the prototype. The old
+> fine-grained UI WOs (rail, business-snapshot, selection-slot, empty/recovery) were removed —
+> `BusinessSnapshot` is **deferred** (not built); the rest folds into the coarse WO. See the **Build
+> Plan (Phase 2)** in `../blueprint.md`.
 
-## Ordering & parallelism
+| WO | Status | Title | Artifact | Depends on |
+|---|---|---|---|---|
+| WO-03-001 | VERIFIED (lib) | `activeProjects` compose helper | `lib/portfolio.ts` (`activeProjects`) | FRD-01 (`readPortfolio`, `readStatus`, `pathExists`) |
+| WO-03-002 | PLANNED (UI) | **Portfolio surface** — rail + table + rows + empty + recovery + status chips | `app/portfolio/**`, `components/modules/{ProjectRail,ProjectRow,PortfolioTable}/**` | FRD-13, WO-03-001 (lib), FRD-04 (workspace slot — stub) |
 
-- **WO-03-001 first** — the compose helper that everything renders from (pure-ish, fully testable
-  with fixtures).
-- After WO-03-001: **WO-03-002** (rail) then **WO-03-003** (snapshot) and **WO-03-005** (empty +
-  recovery) parallelize. **WO-03-004** (workspace slot) needs FRD-04's workspace component to host;
-  until FRD-04 lands, stub the slot (render a placeholder) so selection/default-select are testable
-  independently.
+> **Deferred — not built:** `BusinessSnapshot` (shipped-project business snapshot) — FRD-03 "Out of
+> scope / Future". The rail keeps conceptual space but renders nothing today.
+
+## Ordering & parallelism (Phase 2)
+
+- **Foundation first:** the coarse UI WO depends on **FRD-13** (the shared primitives) being VERIFIED;
+  `RecoveryHint` refactors onto the shared `Banner`, StatusChips onto `CountBadge`.
+- **Single coarse WO** — the whole `/portfolio` page is one cohesive surface; no intra-FRD
+  parallelism. The compose helper (WO-03-001) is consumed as-is — never re-planned.
+- The workspace slot hosts FRD-04's component; until FRD-04 lands, stub the slot so
+  selection/default-select stay testable.
 
 ## Cross-feature dependencies
 

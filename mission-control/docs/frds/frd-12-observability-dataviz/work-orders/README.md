@@ -9,24 +9,42 @@ See `../blueprint.md` for components (`CMP-12-*`), interfaces (`IF-12-*`) and th
 
 ## Work orders
 
-| WO | Title | Kind | Depends on |
-|---|---|---|---|
-| WO-12-001 | Top-N cap helper + freshness selector | pure logic | FRD-01 `lib/events` types |
-| WO-12-002 | KPI selector (≤5, incl. failed work orders) | pure logic | FRD-01 `lib/events`+`lib/status`+`lib/portfolio` |
-| WO-12-003 | Events-per-minute selector (per-agent) | pure logic | FRD-01 `lib/events` |
-| WO-12-004 | Timeline selector (WO → task → action, durations) | pure logic | FRD-01 `lib/events` |
-| WO-12-005 | KPI header + freshness badge (UI) | RSC/client | WO-12-001, WO-12-002, FRD-13 tokens |
-| WO-12-006 | Work-order DAG (Dagre) with path-focus + jump-to-error + follow-mode | client UI + dep | FRD-05 `lib/work-orders`, FRD-13 tokens |
-| WO-12-007 | Timeline view + RPG↔timeline↔DAG toggle | client UI | WO-12-004, WO-12-006 |
+| WO | Title | Status | Kind | Depends on |
+|---|---|---|---|---|
+| WO-12-001 | Top-N cap helper + freshness selector | VERIFIED | pure logic | FRD-01 `lib/events` types |
+| WO-12-002 | KPI selector (≤5, incl. failed work orders) | VERIFIED | pure logic | FRD-01 `lib/events`+`lib/status`+`lib/portfolio` |
+| WO-12-003 | Events-per-minute selector (per-agent) | VERIFIED | pure logic | FRD-01 `lib/events` |
+| WO-12-004 | Timeline selector (WO → task → action, durations) | VERIFIED | pure logic | FRD-01 `lib/events` |
+| WO-12-005 | Observabilidad tab + Timeline view (live, re-paint) | **PLANNED** (Phase 2) | client UI | WO-12-004, WO-12-006, FRD-13, FRD-04, FRD-01 (live) |
+| WO-12-006 | Work-order DAG view (Dagre, live, re-paint) | **PLANNED** (Phase 2) | client UI | `dag.ts`+`dagre` (VERIFIED), FRD-13, FRD-04, FRD-01 (live) |
+
+## Phase 2 re-plan (presentational)
+
+The **pure selector layer is VERIFIED and untouched** — `topn`/`freshness` (WO-12-001), `kpis`
+(WO-12-002), `rate` (WO-12-003), `timeline` (WO-12-004) — and so are the pure `dag.ts` module
+(`toDag`/`dagChain`/`firstError`) and the `dagre` dependency. The gap was the **project Observabilidad
+tab** presentation. The former UI work orders (the old KPI-header WO-12-005, the DAG component WO-12-006,
+the toggle WO-12-007) are **collapsed into two coarse WOs** that re-paint the project tab to the approved
+prototype, on the FRD-13 foundation and **live off `useLiveSnapshot`** (WO-01-009, event-driven):
+
+- **WO-12-005** — `ObservabilidadTab` (sibling of Party; local `SectionHead` + the **Línea de tiempo ↔
+  DAG** `Tabs` toggle over the same WOs) + `TimelineView` (Gantt-style duration bars + jump-to-first-
+  error).
+- **WO-12-006** — `WoDag` (Dagre dependency graph; chain-highlight, jump-to-first-error,
+  follow-active-step).
+
+The global dashboard **KpiHeader** / **FreshnessBadge** (`src/app/_observability/…`, an FRD-18 dashboard
+surface) remain **real/VERIFIED** and are NOT re-planned here; the legacy `RpgTimelineToggle` is
+superseded by the `ObservabilidadTab` 2-view toggle.
 
 ## Order & parallelization
 
-- **Wave 1 (parallel, pure):** WO-12-001, WO-12-002, WO-12-003, WO-12-004. All independent
-  selectors over `lib/events` fixtures.
-- **Wave 2:** WO-12-005 (needs 001+002). Unblocks FRD-06 WO-06-009/010 (which consume `IF-12-rate`
-  + `CMP-12-freshness`).
-- **Wave 3:** WO-12-006 (needs FRD-05 `lib/work-orders`; adds Dagre).
-- **Wave 4:** WO-12-007 (needs 004 + 006) — the toggle that FRD-06 WO-06-010 consumes.
+- WO-12-001/002/003/004 (selectors) + `dag.ts`/`dagre` are already VERIFIED — never rebuilt.
+- **WO-12-005** (tab shell + timeline) hosts **WO-12-006** (`WoDag`) as its DAG lens; WO-12-006 can be
+  built in parallel and mounted into the toggle.
+- Across FRDs both are **disjoint** from FRD-05 (`_components/{wo-*}/**`) and FRD-06 (`_party/**`): their
+  artifacts live only under `src/app/projects/[slug]/_observability/{ObservabilidadTab,TimelineView,WoDag}/**`,
+  so the three workspace tabs re-paint in parallel with no file collision.
 
-Cross-feature gates: FRD-01 readers before all selectors; FRD-05 `lib/work-orders` before WO-12-006;
-FRD-13 tokens before all UI WOs.
+Cross-feature gates: FRD-13 tokens + WO-01-009 (`useLiveSnapshot`) before both UI WOs; the VERIFIED
+selectors + `dag.ts`/`dagre` are consumed, not rebuilt.

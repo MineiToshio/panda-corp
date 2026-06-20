@@ -131,3 +131,34 @@ already-read `ProjectStatus` (no duplicate `status.yaml` reads).
    panel WO goes GREEN. No requirement is unbuildable.
 2. **REQ-14-006** is a Manual/doc deliverable owned by FRD-08's surface; FRD-14 contributes the
    content. Tracked as a doc WO here, authored under the Manual when FRD-08 lands.
+
+## 6. Build Plan (Phase 2)
+
+Re-implement the snapshot **presentation** to match the approved prototype (`snapshotPanel`,
+`bStalenessPanel`) with the clear canonical copy. The pure helper (`lib/snapshot.ts`) is **VERIFIED**
+and not rebuilt; the rail chips (WO-14-003, FRD-03 surface) and the feedback-channels doc (WO-14-004,
+FRD-08 surface) stay VERIFIED — neither is in this FRD's disjoint workspace subfolder.
+
+**Coarse work order (PLANNED):**
+
+| WO | Surface | Disjoint artifacts |
+|---|---|---|
+| WO-14-002 | SnapshotPanel: último commit en verde + worktree cmd + building-now + staleness (`Banner`) | `src/app/projects/[slug]/_components/snapshot-panel/**` |
+
+**DAG & parallelism:**
+```
+WO-14-001 (VERIFIED) ─┐
+FRD-13 foundation ────┼─► WO-14-002 (SnapshotPanel)
+FRD-04 Tabbar seam ───┘
+```
+- Single coarse UI WO; no intra-FRD parallelism. It depends on the FRD-04 shell seam being in place
+  (mounted in the workspace), but touches **only** `_components/snapshot-panel/**` — disjoint from every
+  sibling tab FRD, so it never collides on a file.
+
+**Cross-FRD deps:** `frd-13` (the **ONE shared `Banner`** + `Chip`/`Panel`/`CmdRow`/`Toast`), `frd-04`
+(workspace mounts the panel via the Tabbar shell seam; FRD-01 `lib/status.ts` supplies the fields).
+
+**In-loop fidelity:** WO-14-002 renders against `prototype/index.html` (`snapshotPanel`,
+`bStalenessPanel`) on the frozen tokens; the staleness warning MUST reuse the shared `Banner` (no second
+banner — DR-057). The browser fidelity/smoke gate must be clean before VERIFIED. Reuse
+`docs/design/components.md` rows.

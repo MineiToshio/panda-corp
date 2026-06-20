@@ -221,3 +221,41 @@ in the prototype) — no inner reload of the card detail. The pipeline component
   (AC-02-009.4). ✅
 
 No FRD-02 criterion is unbuildable.
+
+---
+
+## Build Plan (Phase 2)
+
+Phase 2 re-implements the **presentational** surfaces to match the approved prototype/mocks. The
+`lib/**` read + write layer is VERIFIED and untouched (WO-02-001 `board.ts`, WO-02-003 `next-step.ts`,
+WO-02-004 `discard.ts`, WO-02-011 `campaign.ts`, plus the `app/board/actions.ts` discard Server
+Action). The UI WOs are collapsed into **two coarse work orders**, each writing a disjoint artifact
+set so they parallelize.
+
+**Cross-FRD dependency (foundation-first):** both coarse WOs depend on **`frd-13`** — the foundation
+primitives (`PageTitle`/`SectionHead`/`Tabs` · `Banner`/`Chip`/`CountBadge`/`Panel`/`CmdRow`/`Button`/
+`Toast`/`ProgressBar`/`DocHeading` · `Shield`/`TierBadge`/`ItemSlot`/`KanbanColumn`) must land
+(VERIFIED) before either runs.
+
+**Coarse WO DAG (intra-FRD):**
+
+```
+frd-13 (foundation, VERIFIED)
+        │
+        ├─ WO-02-005  Board surface         artifacts: app/board/**,
+        │             (columns + cards +                 components/modules/{IdeaCard,
+        │              filter + legend +                 CategoryFilter,BoardLegend}/**
+        │              intake + discard)
+        │
+        └─ WO-02-007  La Campaña card detail artifacts: app/board/_components/CardDetail/**,
+                      (3 tabs + 6-phase                  components/modules/CampaignPipeline/**
+                       pipeline)
+```
+
+- **Parallelism:** WO-02-005 and WO-02-007 write **disjoint artifacts** (the board page/modules vs the
+  card-detail `_components/` + `CampaignPipeline` module) and can run in the same wave once `frd-13`
+  is VERIFIED. WO-02-007's card detail opens from a board card, but the two are independent at the
+  file level; a soft ordering preference is WO-02-005 first if waves are serialized.
+- **Read/write layer:** consumed as-is — never re-planned.
+- One review/test gate per FRD; Preview Smoke Gate on `/board` (both surfaces render, no console
+  error, fidelity vs `mocks/la-campana.html` + `prototype/index.html`).

@@ -120,3 +120,36 @@ Detection uses FRD-01 `pathExists(entry.path)`:
 - Workspace itself is FRD-04 — FRD-03 only hosts it. No overlap. ✅
 
 No FRD-03 criterion is unbuildable.
+
+---
+
+## Build Plan (Phase 2)
+
+Phase 2 re-implements the **presentational** portfolio surface to match the approved prototype. The
+`lib/**` compose layer is VERIFIED and untouched (WO-03-001 `lib/portfolio.ts` `activeProjects`, on
+top of FRD-01 `readPortfolio`/`readStatus`/`pathExists`). The UI WOs are collapsed into **one coarse
+work order**.
+
+**Cross-FRD dependency (foundation-first):** the coarse WO depends on **`frd-13`** — the foundation
+primitives (`PageTitle`/`Tabs` · `Banner` for RecoveryHint · `CountBadge` for StatusChips ·
+`Panel`/`CmdRow`/`Button`) must land (VERIFIED) before it runs.
+
+**Coarse WO DAG (intra-FRD):**
+
+```
+frd-13 (foundation, VERIFIED)
+        │
+        └─ WO-03-002  Portfolio surface      artifacts: app/portfolio/**,
+                      (rail + table + rows +             components/modules/{ProjectRail,
+                       empty + recovery +                ProjectRow,PortfolioTable}/**
+                       status chips)
+```
+
+- **Single coarse WO** — the whole `/portfolio` page is one cohesive surface (rail + table + rows +
+  StatusChips + PortfolioEmpty + RecoveryHint + selection/workspace slot). No intra-FRD parallelism.
+- **Deferred:** `BusinessSnapshot` is NOT built (FRD-03 "Out of scope / Future" — premature). Its WO
+  was removed; the rail keeps conceptual space but renders nothing.
+- **`RecoveryHint` refactors onto the shared `Banner`** (`frd-13`) — no second banner/alert.
+- **Compose layer:** consumed as-is — never re-planned.
+- One review/test gate per FRD; Preview Smoke Gate on `/portfolio` (renders, no console error,
+  fidelity vs `prototype/index.html`).

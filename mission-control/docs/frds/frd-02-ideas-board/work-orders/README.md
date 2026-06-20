@@ -16,45 +16,27 @@ See the feature blueprint ([`../blueprint.md`](../blueprint.md)) and the platfor
 
 ## Work orders
 
-| WO | Title | Artifact | Depends on |
-|---|---|---|---|
-| WO-02-001 | `deriveColumn` two-axis logic | `lib/board.ts` | FRD-01 (`ideas`, `status`) |
-| WO-02-002 | `CopyButton` shared affordance | `components/CopyButton.tsx` | — |
-| WO-02-003 | `nextStep` command map | `lib/next-step.ts` | FRD-01 types |
-| WO-02-004 | `discardIdea` single write | `lib/discard.ts` | FRD-01 (`config`, gray-matter) |
-| WO-02-005 | Board view + columns | `app/board/page.tsx`, `components/IdeaCard.tsx` | WO-02-001, WO-02-002 |
-| WO-02-006 | Intake modal | `components/IntakeModal.tsx` | WO-02-002 |
-| WO-02-007 | Card detail — **3-tab restructure** (Campaña · Documentos · Comandos) + docs navigator | `components/CardDetail.tsx` | WO-02-002, WO-02-003, WO-02-010, FRD-01 (`docs`) |
-| WO-02-008 | Category filter + legend | `components/CategoryFilter.tsx`, `components/BoardLegend.tsx` | WO-02-005 |
-| WO-02-009 | Discard action (Server Action + button) | `app/board/actions.ts`, `components/DiscardButton.tsx` | WO-02-004 |
-| WO-02-010 | **La Campaña** pipeline component (6 phases + per-phase ficha w/ whole team) | `components/CampaignPipeline.tsx` | WO-02-011, WO-02-012 |
-| WO-02-011 | `phaseFromStatus` derivation (status → active phase 0–5) | `lib/campaign.ts` | FRD-01 (`ideas`, `status` types) |
-| WO-02-012 | Host-navigation Construcción → Party tab | host-navigation glue (`onEnterForge`) | WO-02-010, FRD-06 |
+> **Phase 2 re-plan (2026-06-19).** The `lib/**` read/write layer stays **VERIFIED** and untouched.
+> The UI WOs are collapsed into **two coarse presentational WOs** (`PLANNED`) that re-paint the
+> surfaces onto the FRD-13 foundation primitives to match the prototype. The old fine-grained UI WOs
+> (CopyButton, IntakeModal, filter/legend, discard-action, CampaignPipeline, go-party) were removed —
+> their scope folds into the two coarse WOs. See the **Build Plan (Phase 2)** in `../blueprint.md`.
 
-## Ordering & parallelism
+| WO | Status | Title | Artifact | Depends on |
+|---|---|---|---|---|
+| WO-02-001 | VERIFIED (lib) | `deriveColumn` two-axis logic | `lib/board.ts` | FRD-01 (`ideas`, `status`) |
+| WO-02-003 | VERIFIED (lib) | `nextStep` command map | `lib/next-step.ts` | FRD-01 types |
+| WO-02-004 | VERIFIED (lib) | `discardIdea` single write + Server Action | `lib/discard.ts`, `app/board/actions.ts` | FRD-01 (`config`, gray-matter) |
+| WO-02-011 | VERIFIED (lib) | `phaseFromStatus` derivation (status → active phase 0–5) | `lib/campaign.ts` | FRD-01 (`ideas`, `status` types) |
+| WO-02-005 | PLANNED (UI) | **Board surface** — columns + cards + filter + legend + intake + discard | `app/board/**`, `components/modules/{IdeaCard,CategoryFilter,BoardLegend}/**` | FRD-13, WO-02-001/004 (lib) |
+| WO-02-007 | PLANNED (UI) | **La Campaña card detail** — 3 tabs + 6-phase pipeline | `app/board/_components/CardDetail/**`, `components/modules/CampaignPipeline/**` | FRD-13, WO-02-011/003 (lib), FRD-06 |
 
-- **Pure logic first, fully parallel:** WO-02-001 (`board`), WO-02-003 (`next-step`),
-  WO-02-004 (`discard`), and WO-02-002 (`CopyButton`) have no inter-dependencies — do them together.
-  They each depend only on the FRD-01 data layer (and `CopyButton` on nothing).
-- **UI next:** WO-02-005 (board view) needs `deriveColumn` + `CopyButton`. WO-02-006/007/008 build on
-  the board/CopyButton and parallelize among themselves. WO-02-009 (discard action) needs
-  `lib/discard.ts` (WO-02-004) and can land in parallel with the other UI WOs.
+## Ordering & parallelism (Phase 2)
 
-## La Campaña extension (2026-06-18 — REQ-02-009 / REQ-02-010)
-
-The card detail (WO-02-007) is **reopened** (`PLANNED`) and restructured into **3 tabs**
-(Campaña · Documentos · Comandos); its prior single-pane content is preserved under Documentos /
-Comandos. Three new WOs add the Campaña tab:
-
-- **WO-02-011** (`phaseFromStatus`) is **pure logic** — do it first, in parallel with anything.
-- **WO-02-010** (`CampaignPipeline`) consumes WO-02-011 (active phase) and WO-02-012 (the
-  `onEnterForge` host-nav callback).
-- **WO-02-012** (host-navigation Construcción → Party) wires the build phase to FRD-06's Party tab.
-- **WO-02-007** (reopened) hosts `CampaignPipeline` as the default **Campaña** tab → depends on
-  WO-02-010.
-
-Ordering: WO-02-011 → WO-02-012 → WO-02-010 → WO-02-007. All read-only; the only app write remains
-discard (WO-02-009).
+- **Foundation first:** both coarse UI WOs depend on **FRD-13** (the shared primitives) being VERIFIED.
+- **The two coarse WOs write disjoint artifacts** (board page/modules vs card-detail `_components/` +
+  `CampaignPipeline` module) and parallelize once FRD-13 lands; a soft preference is WO-02-005 first.
+- The `lib/**` layer (WO-02-001/003/004/011) is consumed as-is — never re-planned.
 
 ## Cross-feature dependencies
 

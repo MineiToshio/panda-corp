@@ -20,26 +20,25 @@ that forbidden patterns are absent.
 
 ## Order & parallelization
 
+The pure XP/celebration engine (001/002/005) is **VERIFIED**. Phase 2 collapsed the three UI WOs
+(avatar + xp-bar/guild-bar + celebration-surface) into **one coarse UI work order** (WO-09-003) that
+re-anchors all the Guild presentational surfaces to the prototype — see the [blueprint Build Plan
+(Phase 2)](../blueprint.md#build-plan-phase-2).
+
 ```
-WO-09-001 (lib/gamification: guild XP engine)   ─┐  ← FRD-01 + FRD-06/12 readers
-WO-09-002 (lib/gamification: agent XP engine)   ─┤  parallel pure functions
+WO-09-001 (lib/gamification: guild XP engine)   ─┐  VERIFIED
+WO-09-002 (lib/gamification: agent XP engine)   ─┤  pure functions
 WO-09-005 (lib/gamification: celebration tiers) ─┘
         │
-        ├─ WO-09-003 (CMP-09-avatar pixel-art component)   ← FRD-13  (independent, can start early)
-        ├─ WO-09-004 (CMP-09-xp-bar + CMP-09-guild-bar top bar)  ← WO-09-001, FRD-13
-        └─ WO-09-006 (CMP-09-celebration scaling surface)  ← WO-09-005, FRD-13
+        └─ WO-09-003 (Guild surfaces: GuildBar + GuildHero + StatRadar + CelebrationSurface)
+                       ← WO-09-001 + WO-09-005 (engine) + FRD-13 foundation
 ```
 
-001/002/005 are parallel pure-function WOs. 003 (avatar) is independent (needs only FRD-13). 004 and
-006 consume the engine + tokens.
-
 ## Work orders
-| ID | Title | Deploy unit | Depends on |
-|---|---|---|---|
-| WO-09-001 | `lib/gamification.ts` — guild XP/level engine (honest) | `lib/gamification.ts` (new) | FRD-01, FRD-06/12 |
-| WO-09-002 | `lib/gamification.ts` — agent XP/level engine | `lib/gamification.ts` (new) | FRD-06/12 |
-| WO-09-003 | `CMP-09-avatar` pixel-art agent avatar | `components/rpg/Avatar*` | FRD-13 |
-| WO-09-004 | `CMP-09-xp-bar` + guild top-bar | `components/rpg/*`, `app/layout.tsx` | WO-09-001, FRD-13 |
-| WO-09-005 | `lib/gamification.ts` — celebration tier classifier | `lib/gamification.ts` (new) | FRD-06/12 |
-| WO-09-006 | `CMP-09-celebration` scaling surface | `components/rpg/Celebration*` | WO-09-005, FRD-13 |
+| ID | Title | Deploy unit | Status | Depends on |
+|---|---|---|---|---|
+| WO-09-001 | `lib/gamification.ts` — guild XP/level engine (honest) | `lib/gamification.ts` | VERIFIED | FRD-01, FRD-06/12 |
+| WO-09-002 | `lib/gamification.ts` — agent XP/level engine | `lib/gamification.ts` | VERIFIED | FRD-06/12 |
+| WO-09-003 | Guild surfaces: GuildBar + GuildHero + StatRadar + CelebrationSurface | `app/achievements/page.tsx`, `components/modules/GuildBar/**`, `app/achievements/StatsPanel.tsx`, core RPG primitives | PLANNED | WO-09-001, WO-09-005, FRD-13 |
+| WO-09-005 | `lib/gamification.ts` — celebration tier classifier | `lib/gamification.ts` | VERIFIED | FRD-06/12 |
 </content>

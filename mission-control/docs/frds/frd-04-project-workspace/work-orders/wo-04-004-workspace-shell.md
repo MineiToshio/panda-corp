@@ -2,93 +2,73 @@
 id: WO-04-004
 type: work-order
 slug: workspace-shell
-title: 'WO-04-004 — Workspace shell: header + Mission Objectives bar + tab bar'
+title: 'WO-04-004 — Workspace shell: header + tabbar + objectives bar'
 status: DRAFT
 parent: FRD-04
-implementation_status: VERIFIED
-source_requirements: []
-last_updated: '2026-06-16'
+implementation_status: PLANNED
+artifacts:
+  - 'src/app/projects/[slug]/page.tsx'
+  - 'src/app/projects/[slug]/_components/workspace-header.tsx'
+  - 'src/app/projects/[slug]/_components/tabbar.tsx'
+  - 'src/app/projects/[slug]/_components/objectives-bar.tsx'
+source_requirements: [REQ-04-001, REQ-04-002]
+last_updated: '2026-06-19'
 ---
-# WO-04-004 — Workspace shell: header + Mission Objectives bar + tab bar
+# WO-04-004 — Workspace shell: header + tabbar + objectives bar
 
-**Feature:** FRD-04 · **Implements:** CMP-04-workspace, CMP-04-header, CMP-04-objectives-bar, CMP-04-tabbar · **REQ-04-001, REQ-04-002**
-**Deploy unit:** `app/projects/[slug]/page.tsx` + `app/projects/[slug]/_components/` (header, objectives-bar, tabbar) + colocated tests.
+## Goal
+Re-implement the **project workspace chrome** so it renders pixel-faithfully to the approved
+prototype `projectPane()`: a **compact, light header** (DR-062 — its **H1 is the project name**, NOT a
+heavy panel), the **6-tab bar** below it, and the **"Objetivos de la misión"** progress bar — all
+visible on every tab. This is the mount seam the per-tab FRDs plug into.
 
-## Acceptance criteria (copied)
-- **AC-04-001.1** GIVEN a selected project, the workspace SHALL render exactly five tabs in the order Summary, Work orders, Party, Documents, Commands.
-- **AC-04-001.2** WHEN no tab is explicitly selected, the workspace SHALL default to **Summary**.
-- **AC-04-002.1** The header SHALL render title, the stage label (from `phase`), `version` and the `progress` string when present; when absent the line is omitted.
-- **AC-04-002.2** The Mission Objectives bar SHALL show `work_orders_done / work_orders_total` and the percentage; WHEN `work_orders_total` is 0 or absent the bar is omitted.
-- **AC-04-002.3** The header and Mission Objectives bar SHALL be visible regardless of the active tab.
+The `lib/**` data layer (`lib/status.ts`, `lib/docs.ts`, `lib/next-step.ts`) is correct and VERIFIED —
+this WO is **presentational only**: it re-anchors the shell components to the prototype and the frozen
+tokens, reusing the FRD-13 foundation primitives instead of bespoke markup.
 
 ## Scope
-- `CMP-04-workspace` (Server): resolve the project from the slug (via FRD-03 portfolio + FRD-01
-  `lib/status.ts`), render header + objectives bar + tab bar + the active tab body.
-- `CMP-04-header` (Server): title, stage label, version, optional progress line.
-- `CMP-04-objectives-bar` (Server): progress bar from `work_orders_done/total` (`tabular-nums`).
-- `CMP-04-tabbar` (Client, `"use client"`): `role=tablist`, five tabs in order, default Summary,
-  selection via `?tab=` search param (URL-driven so Server Components can render the body).
-- Tab bodies are **placeholders/slots** in this WO: Summary → WO-04-005, Documents → WO-04-006,
-  Commands → WO-04-007, Work orders → FRD-05 slot, Party → FRD-06 slot.
-- **Out of scope:** the tab bodies' content (their own WOs); markdown rendering.
+- **`CMP-04-workspace`** (`src/app/projects/[slug]/page.tsx`, Server) — resolves the project from the
+  slug (FRD-03 portfolio + FRD-01 `lib/status.ts`), renders the header + objectives bar + tab bar +
+  active tab body. It is the **provider of the Tabbar mount seam** for FRD-05/06/11/12/14.
+- **`CMP-04-header` / `WorkspaceHeader`** (`workspace-header.tsx`, Server) — the **compact light
+  header** of the prototype `projectPane()`: the **project name as the H1** (with the live
+  `ti-player-play` `var(--ok)` running pip), a right cluster with the **status `Chip`** + version, and
+  the thin progress line. **NOT a `PageTitle`** and **not a heavy `Panel`** — it is the workspace's own
+  light `compactProjectHeader` per DR-062 / `components.md`.
+- **`CMP-04-tabbar` / `Tabbar`** (`tabbar.tsx`, Client `"use client"`) — the **six-tab bar** built on
+  the shared **`Tabs`** primitive (the project-scoped `.stab` pills), in this order:
+  **Resumen · Work orders · Party · Observabilidad · Documentos · Comandos**. The new **Observabilidad**
+  tab (FRD-12, sibling of Party) is included. `role=tablist`, keyboard-navigable, `aria-selected`,
+  default Resumen, selection URL-driven (`?tab=`) so Server Component bodies render.
+- **`CMP-04-objectives-bar` / `ObjectivesBar`** (`objectives-bar.tsx`, Server) — the **"Objetivos de la
+  misión"** bar, a **consumer of the shared `ProgressBar`** primitive (accent fill, `var(--ok)` at
+  100%, `done / tot · pct%`, `tabular-nums`). Omitted when `work_orders_total` is 0/absent.
+- Tab bodies are **mounted, not owned** here: Resumen/Documentos → WO-04-005; Comandos → FRD-11;
+  Work orders → FRD-05; Party → FRD-06; Observabilidad → FRD-12. The shell renders the slot.
+- **Reuse before create** (`docs/design/components.md`): use `Tabs`, `ProgressBar`, `Chip`, `ItemSlot`
+  — do not fork a second tab bar, progress bar or pill.
+
+## Acceptance criteria
+- **AC-04-001.1** GIVEN a selected project, the workspace SHALL render exactly six tabs in order
+  Resumen, Work orders, Party, Observabilidad, Documentos, Comandos.
+- **AC-04-001.2** WHEN no tab is explicitly selected, the workspace SHALL default to **Resumen**.
+- **AC-04-002.1** The header SHALL render the project name as the H1, the stage label (from `phase`),
+  `version` and the `progress` string when present; the progress line is omitted when absent. The
+  header is a **compact light** block (DR-062), not a heavy panel.
+- **AC-04-002.2** The objectives bar (`ProgressBar` consumer) SHALL show
+  `work_orders_done / work_orders_total` + the percentage; omitted when total is 0/absent.
+- **AC-04-002.3** The header and objectives bar SHALL be visible regardless of the active tab.
+- Rendered output matches `projectPane()` on the frozen tokens; no hardcoded colors; the browser
+  fidelity/smoke gate is clean.
 
 ## Dependencies
-- **Intra:** none for the shell itself (bodies depend on WO-04-005/006/007).
-- **Cross:** FRD-01 `lib/status.ts`, `lib/config.ts`; FRD-03 `lib/portfolio.ts` (slug → project path).
+- **Foundation (FRD-13):** WO-13-006 (`PageTitle`/`SectionHead`/`Tabs`), WO-13-007
+  (`Chip`/`ProgressBar`/`Button`).
+- **Intra (FRD-04):** WO-04-001 (`lib/docs.ts`), WO-04-003 (`workspaceCommands`) — VERIFIED libs.
+- **Cross-FRD:** `frd-13` (foundation primitives), `frd-01`/`frd-03` (`lib/status.ts`,
+  `lib/portfolio.ts`, slug → project).
 
-## TDD (RED → GREEN → refactor)
-Component tests (`@testing-library/react` + jsdom), colocated `*.test.tsx`:
-1. Renders five tabs in exact order (AC-04-001.1).
-2. Defaults to Summary when `?tab=` is absent; reflects `?tab=documents` when present (AC-04-001.2).
-3. Header shows title/stage/version/progress; omits progress line when absent (AC-04-002.1).
-4. Objectives bar shows `2 / 7 · 29%` for those counts; omitted when total is 0/absent (AC-04-002.2).
-5. Header + objectives bar present on every tab (AC-04-002.3).
-
-## Definition of done
-- [x] Component tests written first and green.
-- [x] `CMP-04-tabbar` is the only `"use client"` piece; the rest are Server Components.
-- [x] `data-testid` on tabs and the objectives bar; `aria-selected` on the active tab; Spanish copy via i18n.
-- [x] No hardcoded colors (design tokens only); `tabular-nums` on counts.
-- [x] `bash .pandacorp/verify.sh` passes.
-
-## Status Note
-
-**Built:** Workspace shell — header + Mission Objectives bar + tab bar — for `app/projects/[slug]/`.
-
-**Components delivered:**
-
-| File | Component | Kind |
-|---|---|---|
-| `app/projects/[slug]/page.tsx` | `CMP-04-workspace` | Server |
-| `app/projects/[slug]/_components/workspace-header.tsx` | `CMP-04-header` | Server |
-| `app/projects/[slug]/_components/objectives-bar.tsx` | `CMP-04-objectives-bar` | Server |
-| `app/projects/[slug]/_components/tabbar.tsx` | `CMP-04-tabbar` | Client (`"use client"`) |
-
-**Interfaces/contracts exposed:**
-
-```tsx
-// workspace-header.tsx
-export interface WorkspaceHeaderProps { title: string; stage: Phase; version: string; progress?: string; }
-export function WorkspaceHeader(props: WorkspaceHeaderProps): React.JSX.Element
-
-// objectives-bar.tsx
-export interface ObjectivesBarProps { done: number; total: number | undefined; }
-export function ObjectivesBar(props: ObjectivesBarProps): React.JSX.Element | null  // null when total is 0/absent
-
-// tabbar.tsx
-export type TabId = "summary" | "work-orders" | "party" | "documents" | "commands";
-export interface TabBarProps { activeTab: TabId; }
-export function TabBar(props: TabBarProps): React.JSX.Element
-```
-
-**Page routing:** `app/projects/[slug]/page.tsx` resolves the project via `activeProjects()` (slug = project name), reads status with `readStatus()`, derives tab from `?tab=` param (defaults to `"summary"`), renders the appropriate tab body. Tab bodies for WO-04-005/006/007 are wired to the already-shipped components (TabSummary, TabDocuments) and to FRD-05/06 slots (WorkOrderBoard, PartyTab). Commands tab has a named placeholder (`data-testid="tab-commands-placeholder"`).
-
-**Integration seams:**
-- Slug resolution: `activeProjects().find(p => p.name === slug)` — project must exist in portfolio.
-- `progress` field from `status.yaml` is `number` (e.g. 75); rendered as `"75% completado"` string.
-- Tab bodies receive pre-fetched data from lib/ readers passed as props.
-- `WorkspaceSlot` in `app/portfolio/WorkspaceSlot.tsx` still shows a placeholder — it can be wired to link to `/projects/<slug>` as a follow-up (out of scope for this WO).
-
-**Test file:** `app/projects/[slug]/_components/workspace-shell.test.tsx` — 29 tests covering all 5 ACs (AC-04-001.1/2, AC-04-002.1/2/3).
-
-**verify.sh result:** GREEN — 119 test files, 3410 tests, biome clean, tsc clean. Commit: `5ac5809`.
+## Visual reference
+`docs/design/prototype/index.html` → `projectPane()` (header + subtabs shell), `progressBar()`
+(objectives bar). Reach it in the `portfolio` view with a project selected. Fidelity, not novelty
+(DR-056) — see `../fdd.md` and `../mocks/README.md`.
