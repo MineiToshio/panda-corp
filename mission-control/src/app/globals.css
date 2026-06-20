@@ -277,6 +277,60 @@ h3 {
 }
 
 /* ---------------------------------------------------------------------------
+ * Party canvas stage — 30px dot-grid overlay (WO-02-007 / WO-13-009)
+ * Faithful to la-campana.html .stage::before and la-fragua.html .stage::before.
+ * Applied via [data-party-stage] so the inline Stage div can use it without
+ * JavaScript (::before cannot be set via inline style).
+ * --------------------------------------------------------------------------- */
+[data-party-stage]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(#1d2629 0.5px, transparent 0.5px),
+    linear-gradient(90deg, #1d2629 0.5px, transparent 0.5px);
+  background-size: 30px 30px;
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Party room hover lift — transform-only (AC-13-005.1: only compositable properties in globals.css transitions) */
+[data-party-stage] [data-testid="room-root"]:hover {
+  transform: translateY(-2px);
+  transition: transform 0.15s;
+}
+
+/* Active room pulse animation (roompulse) */
+[data-party-stage] [data-testid="room-root"][data-state="active"] {
+  animation: roompulse 2.2s ease-in-out infinite;
+}
+
+@keyframes roompulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 2px var(--color-accent),
+      0 0 36px -10px var(--color-accent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px var(--color-accent),
+      0 0 52px -6px var(--color-accent);
+  }
+}
+
+/* Room overlay button — visible focus ring for keyboard navigation */
+[data-party-stage] [data-testid="room-root"] button:focus-visible::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--color-accent-text, var(--color-accent));
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------------------
  * CMP-09-celebration — scaling celebration surface (WO-09-006)
  * --------------------------------------------------------------------------- */
 
