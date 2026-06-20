@@ -28,6 +28,13 @@ import path from "node:path";
 import { render, screen } from "@testing-library/react";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+// Mock Next.js router — TabBar uses useRouter for URL-driven tab navigation.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
+  usePathname: () => "/projects/demo",
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 // ---------------------------------------------------------------------------
 // Fixture project tree on disk (real fs; real lib/docs reads it)
 // ---------------------------------------------------------------------------

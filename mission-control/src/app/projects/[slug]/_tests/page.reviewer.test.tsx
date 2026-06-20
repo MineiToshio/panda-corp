@@ -18,6 +18,14 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// --- Mock Next.js router — TabBar uses useRouter for URL-driven navigation ---
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
+  usePathname: () => "/projects/demo",
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 // --- Mock the lib readers so the page resolves a synthetic project ---------
 
 vi.mock("@/lib/portfolio/portfolio", () => ({

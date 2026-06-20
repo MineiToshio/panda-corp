@@ -5,9 +5,9 @@
  * RED → GREEN → refactor.
  *
  * Acceptance criteria covered:
- *   AC-04-001.1 — exactly five tabs in order: Summary, Work orders, Party,
- *                 Documents, Commands
- *   AC-04-001.2 — defaults to Summary when ?tab= is absent; reflects
+ *   AC-04-001.1 — exactly SIX tabs in order: Resumen, Work orders, Party,
+ *                 Observabilidad, Documentos, Comandos
+ *   AC-04-001.2 — defaults to Resumen/summary when ?tab= is absent; reflects
  *                 ?tab=documents when present
  *   AC-04-002.1 — header shows title/stage/version/progress; omits progress
  *                 line when absent
@@ -17,10 +17,17 @@
  */
 
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ObjectivesBar } from "../objectives-bar";
 import { TabBar } from "../tabbar";
 import { WorkspaceHeader } from "../workspace-header";
+
+// Mock Next.js router — TabBar uses useRouter for URL-driven tab navigation.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
+  usePathname: () => "/projects/demo",
+  useSearchParams: () => new URLSearchParams(),
+}));
 
 // ---------------------------------------------------------------------------
 // CMP-04-header
@@ -150,22 +157,38 @@ describe("ObjectivesBar (CMP-04-objectives-bar)", () => {
 
 // ---------------------------------------------------------------------------
 // CMP-04-tabbar ("use client")
+// AC-04-001.1 — exactly SIX tabs in order (WO-04-004 re-anchor adds Observabilidad)
 // ---------------------------------------------------------------------------
 
 describe("TabBar (CMP-04-tabbar)", () => {
-  const TAB_ORDER = ["summary", "work-orders", "party", "documents", "commands"] as const;
+  // Six tabs in the exact order from the prototype projectPane() — WO-04-004
+  const TAB_ORDER = [
+    "summary",
+    "work-orders",
+    "party",
+    "observabilidad",
+    "documents",
+    "commands",
+  ] as const;
 
-  it("AC-04-001.1 — renders exactly five tabs", () => {
+  it("AC-04-001.1 — renders exactly six tabs (WO-04-004: Observabilidad added)", () => {
     render(<TabBar activeTab="summary" />);
     const tabs = screen.getAllByRole("tab");
-    expect(tabs).toHaveLength(5);
+    expect(tabs).toHaveLength(6);
   });
 
-  it("AC-04-001.1 — tabs are in exact order: Summary, Work orders, Party, Documents, Commands", () => {
+  it("AC-04-001.1 — tabs are in exact order: Resumen, Work orders, Party, Observabilidad, Documentos, Comandos", () => {
     render(<TabBar activeTab="summary" />);
     const tabs = screen.getAllByRole("tab");
-    const ids = tabs.map((t) => t.getAttribute("data-tab"));
-    expect(ids).toEqual(["summary", "work-orders", "party", "documents", "commands"]);
+    const ids = tabs.map((t) => t.getAttribute("data-tab") ?? t.getAttribute("data-testid"));
+    expect(ids).toEqual([
+      "tab-summary",
+      "tab-work-orders",
+      "tab-party",
+      "tab-observabilidad",
+      "tab-documents",
+      "tab-commands",
+    ]);
   });
 
   it("AC-04-001.1 — tablist role is present", () => {
@@ -179,13 +202,19 @@ describe("TabBar (CMP-04-tabbar)", () => {
     expect(summaryTab.getAttribute("aria-selected")).toBe("true");
   });
 
-  it("AC-04-001.2 — other tabs are NOT aria-selected when summary is active", () => {
+  it("AC-04-001.2 — other five tabs are NOT aria-selected when summary is active", () => {
     render(<TabBar activeTab="summary" />);
-    const nonActive = ["work-orders", "party", "documents", "commands"];
+    const nonActive = ["work-orders", "party", "observabilidad", "documents", "commands"];
     for (const id of nonActive) {
       const tab = screen.getByTestId(`tab-${id}`);
       expect(tab.getAttribute("aria-selected")).toBe("false");
     }
+  });
+
+  it("AC-04-001.2 — reflects activeTab='observabilidad'", () => {
+    render(<TabBar activeTab="observabilidad" />);
+    expect(screen.getByTestId("tab-observabilidad").getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByTestId("tab-summary").getAttribute("aria-selected")).toBe("false");
   });
 
   it("AC-04-001.2 — reflects activeTab='documents'", () => {
@@ -224,17 +253,10 @@ describe("TabBar (CMP-04-tabbar)", () => {
     }
   });
 
-  it("AC-04-001.2 — each tab is a link (href) pointing to ?tab=<id>", () => {
+  it("AC-04-001.1 — Observabilidad tab label is in Spanish", () => {
     render(<TabBar activeTab="summary" />);
-    const tabs = screen.getAllByRole("tab");
-    for (const tab of tabs) {
-      const tabId = tab.getAttribute("data-tab");
-      // Tab should navigate via href or an onClick; URL-driven approach uses href
-      const href = tab.getAttribute("href");
-      if (href !== null) {
-        expect(href).toContain(tabId ?? "");
-      }
-    }
+    const obsTab = screen.getByTestId("tab-observabilidad");
+    expect(obsTab.textContent?.trim()).toBe("Observabilidad");
   });
 
   it("AC-04-002.3 — tabbar data-testid is present", () => {
@@ -250,7 +272,14 @@ describe("TabBar (CMP-04-tabbar)", () => {
 // ---------------------------------------------------------------------------
 
 describe("AC-04-002.3 — header + objectives bar visible on all tabs", () => {
-  const TABS = ["summary", "work-orders", "party", "documents", "commands"] as const;
+  const TABS = [
+    "summary",
+    "work-orders",
+    "party",
+    "observabilidad",
+    "documents",
+    "commands",
+  ] as const;
 
   it("WorkspaceHeader renders regardless of active tab", () => {
     for (const tab of TABS) {

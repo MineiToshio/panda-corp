@@ -87,6 +87,13 @@ describe("frd-05: AC-05-003.1 — board cards have click targets for detail view
 // Tests exercise page.tsx through mock boundaries (same pattern as page.reviewer.test.tsx).
 // ---------------------------------------------------------------------------
 
+// Mock Next.js router — TabBar uses useRouter for URL-driven tab navigation.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
+  usePathname: () => "/projects/demo",
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 vi.mock("@/lib/portfolio/portfolio", () => ({
   activeProjects: () => [{ name: "demo", path: "/tmp/demo", stage: "implementation" }],
 }));
