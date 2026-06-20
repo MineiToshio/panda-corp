@@ -5,12 +5,12 @@ slug: tab-summary-and-documents
 title: 'WO-04-005 — Resumen + Documentos tabs'
 status: DRAFT
 parent: FRD-04
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 artifacts:
   - 'src/app/projects/[slug]/_components/tab-summary/**'
   - 'src/app/projects/[slug]/_components/tab-documents/**'
 source_requirements: [REQ-04-003, REQ-04-004, REQ-04-006]
-last_updated: '2026-06-19'
+last_updated: '2026-06-20'
 ---
 # WO-04-005 — Resumen + Documentos tabs
 
@@ -69,3 +69,65 @@ VERIFIED — this WO is **presentational only**.
 ## Visual reference
 `docs/design/prototype/index.html` → `projResumen()` (with `decisionesBox()` + `logBox()`) and
 `projDocs()`, on the frozen tokens. Fidelity, not novelty (DR-056) — see `../fdd.md` and `../mocks/README.md`.
+
+## Status Note
+
+**Built:** Re-painted `TabSummary` and `TabDocuments` to faithfully reproduce `projResumen()` /
+`decisionesBox()` / `logBox()` / `projDocs()` on FRD-13 foundation primitives. Fidelity check (DR-056)
+confirmed via Playwright screenshot at `/preview-wo04005`. Smoke gate clean (HTTP 200, all testids
+present, no blank renders or console errors).
+
+**Interfaces / contracts exposed:**
+
+`TabSummary` (Server Component, `src/app/projects/[slug]/_components/tab-summary/tab-summary.tsx`):
+```ts
+interface TabSummaryProps {
+  summary: string;
+  keyPoints: string[];
+  activityLog: ActivityLog;          // { entries: string[] }
+  decisions: DecisionPoint[];        // { title, resolved, recommendation? }
+  pendingDecisions: number;
+}
+```
+
+`TabDocuments` (Server Component, `src/app/projects/[slug]/_components/tab-documents/tab-documents.tsx`):
+```ts
+interface TabDocumentsProps {
+  nodes: DocNode[];       // { id, label, group, relPath } from listProjectDocs()
+  selectedId: string | null;
+  content: string | null; // raw markdown of selected doc, null = loading/unavailable
+}
+```
+
+**Integration seams:**
+- Both are already consumed by `src/app/projects/[slug]/page.tsx` → `resolveTabBody()` →
+  `renderSummaryTab()` / `renderDocumentsTab()`. No changes needed to the page — the prop contract
+  was kept stable from the previous stub.
+- `renderSummaryTab()` passes `keyPoints={[]}` (FRD-04 scope does not include extracting key points
+  from prose yet) and `summary={status.project ?? slug}`.
+- Selection for `TabDocuments` is URL-driven: `?doc=<id>` search param → caller resolves `selectedId`
+  and `content` using `listProjectDocs` + `readDoc` from `lib/docs/tree.ts`.
+
+**Implicit decisions and assumptions:**
+- `pendingDecisions` is passed as a pre-computed count (not re-derived inside `TabSummary`) so the
+  parent page controls what "pending" means. Convention: `decisions.filter(d => !d.resolved).length`.
+- "Aprobar la recomendación" is copy-only: renders a `<button>` containing `CopyButton` with value
+  `/pandacorp:decide "Aprobado: <recommendation>"`. Never writes files or calls Claude.
+- Resolved decisions render as neutral struck-through rows below the pending block (not in warn-bg
+  cards) — visually distinct from pending, not hidden.
+- Activity log entries are plain strings (no markdown); rendered as `ti-point-filled` dotted rows.
+- `TabDocuments` empty state (nodes=[]) does NOT use a Panel — plain centered div with an emoji icon.
+  Nav + body Panels appear only when nodes.length > 0.
+- Nav selection is determined by `selectedId === node.id` comparison; the caller derives this from the
+  URL search param `?doc=<encodedId>`.
+- Group ordering in the nav follows insertion order from `listProjectDocs()` output (typically:
+  Product → Feature: frd-NN-slug → Global).
+
+**Test files:**
+- `src/app/projects/[slug]/_components/tab-summary/_tests/tab-summary.test.tsx` — original FRD-04 AC tests (28 tests)
+- `src/app/projects/[slug]/_components/tab-summary/_tests/tab-summary.wo04005.test.tsx` — WO-04-005 re-paint tests (11 tests): approve-btn, CmdRow presence, Panel usage
+- `src/app/projects/[slug]/_components/tab-documents/_tests/tab-documents.test.tsx` — original FRD-04 AC tests (13 tests)
+- `src/app/projects/[slug]/_components/tab-documents/_tests/tab-documents.wo04005.test.tsx` — WO-04-005 re-paint tests (4 tests): Panel usage in nav + body panes
+- Preview route: `src/app/preview-wo04005/page.tsx` (fidelity check only, not shipping code)
+
+All 56 component tests pass. Full suite: 293 test files, 6726 tests passing. TypeCheck: clean. Biome: clean.

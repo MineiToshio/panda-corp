@@ -1,30 +1,32 @@
 /**
- * WO-04-006 — TabDocuments (CMP-04-tab-documents)
+ * WO-04-005 — TabDocuments (CMP-04-tab-documents)
  *
  * Server Component: two-pane layout for the Documents tab.
- *   - Left pane: grouped nav from `DocNode[]` (IF-04-docs, lib/docs.ts).
- *   - Right pane: rendered markdown body of the selected doc (react-markdown).
+ * Re-painted to prototype projDocs() on FRD-13 foundation (DR-054/056).
+ *
+ * Components used (components.md, DR-057):
+ *   Panel → nav pane + body pane (prototype: .panel on each column)
+ *
+ * Design:
+ *   - Left pane: grouped nav from DocNode[] (IF-04-docs, lib/docs.ts).
+ *     Prototype: 200px .panel with .navitem rows grouped by label.
+ *   - Right pane: rendered markdown body (react-markdown) in a .panel.doc.
  *   - Empty state when nodes is [] (AC-04-006.3).
- *   - Loading state when nodes are present but content is null.
  *
  * Selection is URL-driven (caller passes selectedId + content derived from
- * the `?doc=<id>` search param); this component is purely presentational —
- * no client state, no `"use client"`.
- *
- * Design rules (AGENTS.md / FRD-13):
- *   - ZERO hardcoded colors — CSS custom properties only.
- *   - data-testid on every interactive/significant element.
- *   - Spanish aria-labels and empty state copy.
+ * the ?doc=<id> search param); this component is purely presentational —
+ * no client state, no "use client".
  *
  * Traceability:
  *   CMP-04-tab-documents → REQ-04-006
  *   AC-04-006.1 — feature-centric nav tree
- *   AC-04-006.2 — raw markdown body via react-markdown (first doc default)
+ *   AC-04-006.2 — rendered markdown body (first doc default)
  *   AC-04-006.3 — graceful empty state
- *   IF-04-docs (lib/docs.ts, docs/api.md WO-04-001)
+ *   IF-04-docs (lib/docs.ts, WO-04-001)
  */
 
 import Markdown from "react-markdown";
+import { Panel } from "@/components/core/Panel/Panel";
 import type { DocNode } from "@/lib/docs/tree";
 
 // ---------------------------------------------------------------------------
@@ -45,89 +47,90 @@ export interface TabDocumentsProps {
 // ---------------------------------------------------------------------------
 
 const ROOT_STYLE: React.CSSProperties = {
-  display: "flex",
-  height: "100%",
-  overflow: "hidden",
-  background: "var(--color-surface, Canvas)",
-  color: "var(--color-text, currentColor)",
+  display: "grid",
+  gridTemplateColumns: "200px 1fr",
+  gap: "14px",
+  alignItems: "start",
+  padding: "14px 16px",
 };
 
-const NAV_STYLE: React.CSSProperties = {
-  width: "220px",
-  flexShrink: 0,
-  borderRight: "var(--hairline, 1px) solid var(--color-border, currentColor)",
-  overflowY: "auto",
-  padding: "calc(var(--spacing, 0.25rem) * 3) 0",
+const NAV_PANEL_STYLE: React.CSSProperties = {
+  padding: "10px",
 };
 
 const NAV_GROUP_LABEL_STYLE: React.CSSProperties = {
   display: "block",
-  padding: "calc(var(--spacing, 0.25rem) * 1) calc(var(--spacing, 0.25rem) * 4)",
-  fontSize: "0.6875rem",
+  padding: "4px 6px",
+  fontSize: "10px",
   fontWeight: 700,
-  letterSpacing: "0.05em",
+  letterSpacing: "0.07em",
   textTransform: "uppercase",
-  color: "var(--color-text-muted, currentColor)",
-  opacity: 0.6,
-  marginTop: "calc(var(--spacing, 0.25rem) * 2)",
+  color: "var(--color-text3, var(--color-text-muted, var(--color-text)))",
+  marginTop: "8px",
+  marginBottom: "2px",
 };
 
 const NAV_ITEM_BASE_STYLE: React.CSSProperties = {
-  display: "block",
-  width: "100%",
-  textAlign: "left",
-  background: "none",
-  border: "none",
+  display: "flex",
+  alignItems: "center",
+  gap: "7px",
+  padding: "7px 10px",
+  borderRadius: "var(--radius-sm, 8px)",
   cursor: "pointer",
-  padding: "calc(var(--spacing, 0.25rem) * 1.5) calc(var(--spacing, 0.25rem) * 4)",
-  fontSize: "0.8125rem",
-  color: "var(--color-text, currentColor)",
+  fontSize: "13px",
+  color: "var(--color-text2, var(--color-text-secondary, var(--color-text)))",
   textDecoration: "none",
-  borderRadius: 0,
-  transition: "background var(--motion-duration-fast, 80ms) var(--motion-easing-default, ease)",
+  transition: "background var(--duration-fast, 80ms) ease",
 };
 
 const NAV_ITEM_SELECTED_STYLE: React.CSSProperties = {
   ...NAV_ITEM_BASE_STYLE,
-  background: "var(--color-accent-bg, oklch(0.35 0.05 250 / 0.15))",
-  color: "var(--color-accent, oklch(0.65 0.18 250))",
-  fontWeight: 600,
+  background: "var(--color-accent-bg, var(--color-status-info-bg, #14303d))",
+  color: "var(--color-accent-text, var(--color-accent, #33b6d1))",
+  boxShadow: "inset 0 0 0 1px var(--color-accent, #33b6d1)",
 };
 
 const BODY_STYLE: React.CSSProperties = {
-  flex: 1,
-  overflowY: "auto",
-  padding: "calc(var(--spacing, 0.25rem) * 6) calc(var(--spacing, 0.25rem) * 8)",
+  padding: "16px 18px",
 };
 
 const PROSE_STYLE: React.CSSProperties = {
   maxWidth: "72ch",
-  fontSize: "0.9375rem",
+  fontSize: "15px",
   lineHeight: 1.7,
-  color: "var(--color-text, currentColor)",
+  color: "var(--color-text)",
 };
 
 const LOADING_STYLE: React.CSSProperties = {
-  flex: 1,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  color: "var(--color-text-muted, currentColor)",
-  opacity: 0.5,
-  fontSize: "0.875rem",
+  padding: "48px 24px",
+  color: "var(--color-text3, var(--color-text-muted, var(--color-text)))",
+  fontSize: "14px",
+  opacity: 0.7,
 };
 
 const EMPTY_STYLE: React.CSSProperties = {
-  flex: 1,
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
   justifyContent: "center",
-  gap: "calc(var(--spacing, 0.25rem) * 3)",
-  padding: "calc(var(--spacing, 0.25rem) * 12)",
-  color: "var(--color-text-muted, currentColor)",
-  opacity: 0.6,
+  gap: "10px",
+  padding: "48px 32px",
+  color: "var(--color-text3, var(--color-text-muted, var(--color-text)))",
   textAlign: "center",
+};
+
+const RAIL_LABEL_STYLE: React.CSSProperties = {
+  display: "block",
+  fontSize: "10px",
+  fontWeight: 700,
+  letterSpacing: "0.07em",
+  textTransform: "uppercase",
+  color: "var(--color-text3, var(--color-text-muted, var(--color-text)))",
+  padding: "0 6px 6px",
+  marginBottom: "4px",
 };
 
 // ---------------------------------------------------------------------------
@@ -158,30 +161,32 @@ function groupNodes(nodes: DocNode[]): Map<string, DocNode[]> {
 /**
  * Documents tab — two-pane layout: grouped nav + rendered markdown body.
  *
- * This is a Server Component (no `"use client"`). All interactivity is
- * URL-driven: the parent page reads the `?doc=<id>` search param and passes
- * down `selectedId` and `content`.
+ * Re-painted to prototype projDocs() on FRD-13 Panel foundation (WO-04-005).
+ * This is a Server Component (no "use client"). All interactivity is URL-driven:
+ * the parent page reads the ?doc=<id> search param and passes down selectedId and content.
+ *
+ * Prototype: projDocs(i) → grid-template-columns:200px 1fr; nav .panel + body .panel.doc
  */
 export function TabDocuments({ nodes, selectedId, content }: TabDocumentsProps): React.JSX.Element {
   // AC-04-006.3 — empty state when no docs are available
   if (nodes.length === 0) {
     return (
-      <section
+      <div
         data-testid="documents-empty"
         aria-label="Sin documentos disponibles"
         role="status"
-        style={ROOT_STYLE}
+        style={{ padding: "14px 16px" }}
       >
         <div style={EMPTY_STYLE}>
           <span aria-hidden="true" style={{ fontSize: "2rem" }}>
             📄
           </span>
-          <p style={{ margin: 0, fontSize: "0.875rem" }}>Sin documentos disponibles</p>
-          <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>
+          <p style={{ margin: 0, fontSize: "14px" }}>Sin documentos disponibles</p>
+          <p style={{ margin: 0, fontSize: "12px", opacity: 0.7 }}>
             Los documentos del proyecto aparecerán aquí cuando estén generados
           </p>
         </div>
-      </section>
+      </div>
     );
   }
 
@@ -189,46 +194,60 @@ export function TabDocuments({ nodes, selectedId, content }: TabDocumentsProps):
 
   return (
     <section aria-label="Documentos del proyecto" style={ROOT_STYLE}>
-      {/* Left pane: nav tree (AC-04-006.1) */}
-      <nav data-testid="documents-nav" aria-label="Árbol de documentos" style={NAV_STYLE}>
-        {[...grouped.entries()].map(([group, groupNodes]) => (
-          <div key={group}>
-            <span style={NAV_GROUP_LABEL_STYLE}>{group}</span>
-            {groupNodes.map((node) => {
-              const isSelected = node.id === selectedId;
-              return (
-                <a
-                  key={node.id}
-                  href={`?doc=${encodeURIComponent(node.id)}`}
-                  data-testid="doc-nav-item"
-                  aria-current={isSelected ? "page" : undefined}
-                  aria-label={`Abrir ${node.label} del grupo ${group}`}
-                  style={isSelected ? NAV_ITEM_SELECTED_STYLE : NAV_ITEM_BASE_STYLE}
-                >
-                  {node.label}
-                </a>
-              );
-            })}
-          </div>
-        ))}
-      </nav>
+      {/* Left pane: nav tree panel (AC-04-006.1) — prototype: .panel padding:10px */}
+      <Panel>
+        <div style={NAV_PANEL_STYLE}>
+          <span style={RAIL_LABEL_STYLE}>DOCUMENTOS</span>
+          <nav data-testid="documents-nav" aria-label="Árbol de documentos">
+            {[...grouped.entries()].map(([group, groupNodes]) => (
+              <div key={group}>
+                <span style={NAV_GROUP_LABEL_STYLE}>{group}</span>
+                {groupNodes.map((node) => {
+                  const isSelected = node.id === selectedId;
+                  return (
+                    <a
+                      key={node.id}
+                      href={`?doc=${encodeURIComponent(node.id)}`}
+                      data-testid="doc-nav-item"
+                      aria-current={isSelected ? "page" : undefined}
+                      aria-label={`Abrir ${node.label} del grupo ${group}`}
+                      style={isSelected ? NAV_ITEM_SELECTED_STYLE : NAV_ITEM_BASE_STYLE}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="ti ti-file-text"
+                        style={{ fontSize: "13px", flexShrink: 0 }}
+                      />
+                      {node.label}
+                    </a>
+                  );
+                })}
+              </div>
+            ))}
+          </nav>
+        </div>
+      </Panel>
 
       {/* Right pane: markdown body (AC-04-006.2) or loading state */}
       {content !== null ? (
-        <div data-testid="documents-body" style={BODY_STYLE}>
-          <article aria-label="Contenido del documento" style={PROSE_STYLE}>
-            <Markdown>{content}</Markdown>
-          </article>
-        </div>
+        <Panel>
+          <div data-testid="documents-body" style={BODY_STYLE}>
+            <article aria-label="Contenido del documento" className="doc" style={PROSE_STYLE}>
+              <Markdown>{content}</Markdown>
+            </article>
+          </div>
+        </Panel>
       ) : (
-        <div
-          data-testid="documents-loading"
-          role="status"
-          aria-label="Cargando documento"
-          style={LOADING_STYLE}
-        >
-          <span>Cargando documento…</span>
-        </div>
+        <Panel>
+          <div
+            data-testid="documents-loading"
+            role="status"
+            aria-label="Cargando documento"
+            style={LOADING_STYLE}
+          >
+            <span>Cargando documento…</span>
+          </div>
+        </Panel>
       )}
     </section>
   );
