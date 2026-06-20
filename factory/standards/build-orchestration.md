@@ -238,6 +238,25 @@ when it sees this class, and the engine routes it to the bounded foundation auto
 budget**. (PREVENT is §3's foundation-completeness gate; CURE is this bounded auto-repair — same root
 cause, two defenses.)
 
+**Working-tree health & no-stash recovery (DR-067).** The build is **resumable from the frontmatter +
+commits** (DR-050), and the engine commits with a **single writer, no merge** (§2). Two corollaries are
+now explicit, because a build went off-script and violated them — costing ~1h:
+- **Never `git stash` to preserve in-flight work** across a kill / relaunch / stop. Killing a run discards
+  only the uncommitted work between two safe points; the relaunch rebuilds it from `PLANNED`/`IN_PROGRESS`
+  state. A stash popped later onto a tree that has moved on **conflicts** (the MC Phase-2 build stashed a
+  killed run's `frd02-lacampana` work, then applied it onto an already-`VERIFIED` FRD-02 → `<<<<<<<` markers
+  in `Button.tsx`, 130 gate errors, build wedged). The **only** safe recovery from a dirty/conflicted tree
+  is to **restore it to `last_green_sha`** (a clean reset to the green commit); never hand-resolve a
+  stash-pop. On startup the engine **drops stale build stashes and clears leftover temp `preview-wo*`
+  pages** (baseline self-heal) — they're stale, the work is resumable.
+- **The supervisor watches the tree's git health as a first-class signal**, not just `status.yaml` +
+  liveness. The Monitor checks `git status --porcelain` each tick — any `UU`/unmerged path or conflict
+  marker is a **broken tree** and emits an alarm, routed to the bounded auto-repair (restore to last green).
+  This closes the gap that DR-066 didn't: DR-066 made *liveness* honest (the heartbeat can't lie about
+  "alive"), but a tree can be **broken while perfectly alive** — the Phase-2 supervisor reported "healthy"
+  for ~1h because it never looked at git. A monitor blind to a broken tree is the same failure class as one
+  blind to liveness; both are now covered.
+
 ## 7. The build supervisor (unattended runs)
 
 Launching a build is **never** just firing the workflow — it is always paired with a **live supervisor**
