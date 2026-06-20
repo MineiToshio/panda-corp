@@ -10,7 +10,7 @@ artifacts:
   - 'src/app/board/_components/CardDetail/**'
   - 'src/components/modules/CampaignPipeline/**'
 source_requirements: [REQ-02-004, REQ-02-008, REQ-02-009, REQ-02-010]
-last_updated: '2026-06-19'
+last_updated: '2026-06-20'
 ---
 # WO-02-007 — La Campaña card detail
 
@@ -30,16 +30,23 @@ consumed as-is; this WO is presentational.
   next-step / iterate command panel via `CmdRow` + `Button`. Clicking a doc entry switches to
   Documentos. Reuse `Panel`, `DocHeading`, `CmdRow`, `Button` — no bespoke switcher.
 - **`CampaignPipeline`** (`src/components/modules/CampaignPipeline/CampaignPipeline.tsx`) — the
-  6-phase trail (`research → product → design → architecture → build → release`) wrapped in a
-  labelled container ("EL VIAJE DE ESTA IDEA POR LAS 6 FASES"). Each phase is a room rendered
-  done / current / locked by position vs the active phase; clicking a phase opens its **ficha**
-  (description + LEE/ESCRIBE + the whole team). The build phase's "Entrar a La Fragua" action raises
-  an `onEnterForge(slug)` host-navigation callback (Portfolio → project → Party tab, FRD-06) — no
-  inner reload. Reuse the `ItemSlot`/`Shield`/`TierBadge`/`KanbanColumn` foundation primitives and
-  `Button` for the phase rooms / fichas; create no new shared pill.
+  **6-room pixel-art trail** faithful to `mocks/la-campana.html`, **NOT a flat row list**. It MUST be
+  built from the **shared Party canvas primitives** (`src/components/modules/party/`, foundation
+  WO-13-009): a dark stage + 30px grid hosting six **`Room`** zones in fixed order
+  (`research → product → design → architecture → build → release`, each its phase art
+  `research.png`…`release.png`) connected by **`StoneBridge`** with the deliverable flowing on the
+  active leg; the active room glows (`roompulse`); each phase's **ficha** shows description + LEE/ESCRIBE
+  + the whole team as **`AgentSprite`** figures (with `SpeechBubble` where the mock has captions),
+  wrapped in the labelled container ("EL VIAJE DE ESTA IDEA POR LAS 6 FASES"). Rooms render
+  done / current / locked by position vs the active phase (`phaseFromStatus`, VERIFIED). The build
+  phase's "Entrar a La Fragua" raises an `onEnterForge(slug)` host-navigation callback (Portfolio →
+  project → Party tab, FRD-06) — no inner reload. **Reuse the shared `Room`/`StoneBridge`/`AgentSprite`/
+  `SpeechBubble` — do NOT approximate the trail with `KanbanColumn`/`ItemSlot` or a text list** (that
+  flat fallback is the exact fidelity defect this re-anchor fixes).
 
-reuse → adapt → create-only-if-new: `CardDetail` and `CampaignPipeline` are existing inventory rows
-re-painted onto foundation primitives; the host-navigation callback is glue, not a new component.
+reuse → adapt → create-only-if-new: `CardDetail` re-paints onto the cohesion `Tabs`; `CampaignPipeline`
+**composes the shared Party canvas primitives** (WO-13-009) — it forges no canvas markup of its own and
+is verified ≥2 viewports against `mocks/la-campana.html` before close.
 
 ## Acceptance criteria (anchored in FRD-02 EARS)
 
@@ -64,11 +71,14 @@ re-painted onto foundation primitives; the host-navigation callback is glue, not
 ## Dependencies
 
 - Foundation (FRD-13): **WO-13-006** (`Tabs`), **WO-13-007** (`Panel`/`CmdRow`/`Button`/`DocHeading`),
-  **WO-13-008** (`Shield`/`TierBadge`/`ItemSlot`/`KanbanColumn` — the phase rooms).
+  and — **critically — WO-13-009** (the shared Party canvas: `Room`/`StoneBridge`/`AgentSprite`/
+  `SpeechBubble`, from `src/components/modules/party/`) which the 6-room trail is built from. The whole
+  FRD-13 foundation (incl. WO-13-009) **must be VERIFIED before this WO builds**.
 - Read layer (VERIFIED, consumed as-is): WO-02-011 (`lib/campaign.ts` `phaseFromStatus`),
   WO-02-003 (`lib/next-step.ts`), FRD-01 doc readers.
 - Intra-FRD: WO-02-005 (board surface — the card detail opens from a board card).
-- Cross-FRD: **frd-13** (foundation), **frd-06** (the Party tab is the "Entrar a La Fragua" target).
+- Cross-FRD: **frd-13** (foundation, incl. the Party canvas WO-13-009 — VERIFIED first),
+  **frd-06** (the Party tab is the "Entrar a La Fragua" target).
 
 ## Visual reference
 

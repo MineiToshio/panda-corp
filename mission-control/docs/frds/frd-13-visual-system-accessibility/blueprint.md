@@ -113,8 +113,17 @@ so it builds **FIRST** and every UI FRD (02–12, 14–18) declares `frd-13` in 
   - **WO-13-007 (FND-2)** — the ONE `Banner` (dup-fix) + `Chip`/`CountBadge`/`Panel`/`CmdRow`/`Button`/
     `Toast`/`ProgressBar`/`DocHeading`.
   - **WO-13-008 (FND-3)** — `Shield`/`TierBadge`/`ItemSlot`/`KanbanColumn`.
-- **Parallelism:** 006/007/008 write **disjoint** `src/components/core/*` folders → they parallelize in
-  one foundation wave; the engine keeps the wave foundation-only until all three are done (DR-057).
+  - **WO-13-009 (FND-4)** — the **shared pixel-RPG Party canvas** (`Room`/`StoneBridge`/`FlowStrip`/
+    `AgentSprite`/`JudgeSprite`/`SpeechBubble`/`Tooltip`/`Parchment`/`MissionBar`/`DemoControls`/
+    `PowerOffOverlay`) in `src/components/modules/party/`. **Relocated here from FRD-06** because BOTH
+    **La Campaña** (FRD-02) and **La Fragua** (FRD-06) reuse them; scoping them inside FRD-06's
+    route-local `_party/` was the root cause of La Campaña rendering a flat list (the fidelity failure).
+- **Parallelism:** 006/007/008 write disjoint `src/components/core/*` folders, 009 writes
+  `src/components/modules/party/*` → all four parallelize in one foundation wave; the engine keeps the
+  wave foundation-only until **all four** are done (DR-057).
+- **Strict foundation-first across the whole run:** every surface FRD declares `frd-13` in its deps, and
+  the **foundation (this FRD) is built and VERIFIED before any surface fans out** — run FRD-13 alone
+  first (`/pandacorp:implement` scoped to `frd-13`) so no surface starts before its primitive exists.
 - **Cross-FRD deps:** none upstream (tokens frozen). Downstream: **every UI FRD depends on this.**
 - **Gate:** the FRD-13 review/visual gate — primitives render in light+dark, AA contrast, tokens only,
   keyboard/focus, `prefers-reduced-motion`; `docs/design/components.md` flips these rows to *real*.
