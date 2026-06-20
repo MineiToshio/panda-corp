@@ -5,7 +5,7 @@ slug: foundation-banner-base
 title: 'WO-13-007 — Foundation (FND-2): the one Banner (dup-fix) + base pills/surfaces/command-row'
 status: DRAFT
 parent: FRD-13
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 foundation: true
 artifacts:
   - 'src/components/core/Banner/**'
