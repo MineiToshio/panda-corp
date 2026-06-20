@@ -1,34 +1,31 @@
 /**
- * WO-15-004 — PluginSyncBanner (CMP-15-banner) — RED phase tests
+ * WO-15-004 (Phase 2) — PluginSyncBanner refactored onto shared Banner (kind="drift")
  *
- * Written BEFORE the implementation. Every test is expected to fail until
- * `components/plugin-sync-banner.tsx` exists and satisfies these contracts.
+ * These tests verify the DR-057 refactor: PluginSyncBanner must be a *consumer* of
+ * the shared Banner primitive, not a re-implementation with its own style blocks.
  *
- * Traceability:
+ * AC coverage:
  *   AC-15-004.1 (REQ-15-001/002) — renders on drift=true with reason-appropriate copy
- *   AC-15-004.2 (REQ-15-004)     — renders nothing when drift=false or unknown; self-clears on re-poll
+ *   AC-15-004.2 (REQ-15-004)     — renders nothing when drift=false or unknown; self-clears
  *   AC-15-004.3 (REQ-15-003)     — shows copyable `claude plugin update pandacorp@panda-corp`
- *   AC-15-004.4 (REQ-15-005)     — read-only: no non-GET fetch, no exec
- *   AC-15-004.5                   — all copy is Spanish; state NOT conveyed by color alone (icon+text)
+ *   AC-15-004.4 (REQ-15-005)     — read-only: no non-GET fetch
+ *   AC-15-004.5 (DR-057)         — renders through shared Banner (banner testid present);
+ *                                    no own BANNER_STYLE/ICON_STYLE/CMD_ROW_STYLE/RECALL_STYLE
+ *   AC-15-004.6                   — Spanish copy; state NOT conveyed by color alone (icon+text)
  *
- * Blueprint §3: component polls `/api/plugin-sync` on mount + on an interval;
- * renders nothing unless drift=true; self-clears when re-poll returns drift=false.
- *
- * Timer strategy: vi.useFakeTimers() + vi.runOnlyPendingTimersAsync() flushes only
- * the currently queued microtasks/timers without triggering the setInterval loop again.
- * This avoids the "10 000 timers infinite loop" error that vi.runAllTimersAsync() causes
- * when a setInterval keeps re-scheduling itself.
+ * Timer strategy: vi.useFakeTimers() + vi.advanceTimersByTimeAsync(0) drains the initial
+ * async poll without triggering re-queued intervals.
  *
  * Stack: Vitest + @testing-library/react + jsdom; fake timers; global.fetch mocked.
  */
 
-import { act, cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PluginSyncBanner } from "@/app/_components/plugin-sync-banner/plugin-sync-banner";
 import type { PluginSyncState } from "@/lib/plugin-sync/plugin-sync";
 
 // ---------------------------------------------------------------------------
-// Fixtures — PluginSyncState shapes
+// Fixtures
 // ---------------------------------------------------------------------------
 
 function makeState(overrides: Partial<PluginSyncState>): PluginSyncState {
@@ -110,13 +107,7 @@ function mockFetchSequence(states: PluginSyncState[]): void {
 
 // ---------------------------------------------------------------------------
 // Helper: flush the mount fetch (initial poll) without triggering the interval.
-//
-// The initial `poll()` is called via `void poll()` inside useEffect — it's an
-// async function that chains: fetch → .json() → setState. All three steps are
-// microtasks/Promise continuations, not macrotask timers, so runOnlyPendingTimers
-// alone won't flush them. vi.advanceTimersByTimeAsync(0) advances fake time by 0ms
-// (firing any timers due at t=0) AND flushes all pending microtasks/Promise chains,
-// which is exactly what drains the initial poll.
+// vi.advanceTimersByTimeAsync(0) drains pending microtasks/Promise chains.
 // ---------------------------------------------------------------------------
 
 async function flushInitialPoll(): Promise<void> {
@@ -186,7 +177,6 @@ describe("AC-15-004.1: renders on drift === true", () => {
     render(<PluginSyncBanner />);
     await flushInitialPoll();
     const banner = screen.getByTestId("plugin-sync-banner");
-    // "both" is dirty + behind → recall must mention commitear
     expect(banner).toHaveTextContent(/commitea/i);
   });
 
@@ -223,23 +213,18 @@ describe("AC-15-004.2: renders nothing when drift === false / unknown", () => {
   });
 
   it("renders nothing before the first fetch resolves", () => {
-    // fetch never resolves (pending promise)
     global.fetch = vi.fn().mockReturnValue(new Promise(() => {}));
     render(<PluginSyncBanner />);
-    // Synchronously check — no banner until we know the state
     expect(screen.queryByTestId("plugin-sync-banner")).not.toBeInTheDocument();
   });
 
   it("self-clears: banner disappears when re-poll returns drift=false", async () => {
-    // Sequence: first call → drift=true; second call → in-sync
     mockFetchSequence([UNCOMMITTED, IN_SYNC]);
     render(<PluginSyncBanner />);
 
-    // First poll resolves — banner should appear
     await flushInitialPoll();
     expect(screen.getByTestId("plugin-sync-banner")).toBeInTheDocument();
 
-    // Advance past the poll interval (15 s) so the second fetch fires + drain microtasks
     await act(async () => {
       await vi.advanceTimersByTimeAsync(20_000);
     });
@@ -261,7 +246,7 @@ describe("AC-15-004.2: renders nothing when drift === false / unknown", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-15-004.3 — command is shown + copyable via CopyButton
+// AC-15-004.3 — command is shown + copyable via shared Banner command row
 // ---------------------------------------------------------------------------
 
 describe("AC-15-004.3: copyable update command present", () => {
@@ -282,11 +267,12 @@ describe("AC-15-004.3: copyable update command present", () => {
     expect(banner).toHaveTextContent(POLL_CMD);
   });
 
-  it("renders a copy button for the update command", async () => {
+  it("renders the shared Banner command row for the update command", async () => {
     mockFetch(UNCOMMITTED);
     render(<PluginSyncBanner />);
     await flushInitialPoll();
-    expect(screen.getByTestId("plugin-sync-copy-cmd")).toBeInTheDocument();
+    // The shared Banner renders data-testid="banner-cmd-row"
+    expect(screen.getByTestId("banner-cmd-row")).toBeInTheDocument();
   });
 
   it("clicking the copy button writes the command to the clipboard", async () => {
@@ -301,20 +287,16 @@ describe("AC-15-004.3: copyable update command present", () => {
     render(<PluginSyncBanner />);
     await flushInitialPoll();
 
-    // plugin-sync-copy-cmd is a wrapper span; the actual <button> is inside it.
-    // Use fireEvent (synchronous) so we stay within fake-timer context — userEvent
-    // uses real async timers internally which conflict with vi.useFakeTimers().
-    const wrapper = screen.getByTestId("plugin-sync-copy-cmd");
-    const copyBtn = within(wrapper).getByTestId("copy-button");
+    // The shared Banner's copy button has data-testid="copy-button"
+    const copyBtn = screen.getByTestId("copy-button");
     await act(async () => {
       copyBtn.click();
-      // Drain the clipboard writeText Promise microtask
       await vi.advanceTimersByTimeAsync(0);
     });
     expect(writeText).toHaveBeenCalledWith(POLL_CMD);
   });
 
-  it("shows the 3-step recall sequence (commit→run→restart)", async () => {
+  it("shows the recall sequence (commit→run→restart) via data-testid='plugin-sync-recall'", async () => {
     mockFetch(UNCOMMITTED);
     render(<PluginSyncBanner />);
     await flushInitialPoll();
@@ -363,7 +345,6 @@ describe("AC-15-004.4: read-only — only GET, no writes", () => {
     expect(calls.length).toBeGreaterThan(0);
     for (const [url, init] of calls) {
       expect(url).toContain("/api/plugin-sync");
-      // No method override (defaults to GET) or explicit GET only
       const method = init?.method?.toUpperCase() ?? "GET";
       expect(method).toBe("GET");
     }
@@ -382,57 +363,78 @@ describe("AC-15-004.4: read-only — only GET, no writes", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-15-004.5 — Spanish copy + state not conveyed by color alone
+// AC-15-004.5 — DR-057: renders through shared Banner; no own banner style blocks
 // ---------------------------------------------------------------------------
 
-describe("AC-15-004.5: Spanish copy + a11y (icon+text, aria-label)", () => {
+describe("AC-15-004.5: DR-057 reuse — shared Banner consumer (no own style blocks)", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
 
-  it("banner heading/label is in Spanish", async () => {
+  it("renders the shared Banner primitive (data-testid='banner' present)", async () => {
+    mockFetch(UNCOMMITTED);
+    render(<PluginSyncBanner />);
+    await flushInitialPoll();
+    // The shared Banner component renders data-testid="banner"
+    expect(screen.getByTestId("banner")).toBeInTheDocument();
+  });
+
+  it("shared Banner has tone='warn' and kind='drift' (data attributes)", async () => {
+    mockFetch(UNCOMMITTED);
+    render(<PluginSyncBanner />);
+    await flushInitialPoll();
+    const banner = screen.getByTestId("banner");
+    expect(banner).toHaveAttribute("data-tone", "warn");
+    expect(banner).toHaveAttribute("data-kind", "drift");
+  });
+
+  it("banner wrapper has role=alert or aria-label in Spanish", async () => {
+    mockFetch(UNCOMMITTED);
+    render(<PluginSyncBanner />);
+    await flushInitialPoll();
+    const wrapper = screen.getByTestId("plugin-sync-banner");
+    const hasAlert = wrapper.getAttribute("role") === "alert";
+    const hasLabel = wrapper.getAttribute("aria-label") !== null;
+    expect(hasAlert || hasLabel).toBe(true);
+  });
+
+  it("banner wrapper has no hardcoded hex/rgb/hsl color values (tokens only)", async () => {
+    mockFetch(UNCOMMITTED);
+    render(<PluginSyncBanner />);
+    await flushInitialPoll();
+    const wrapper = screen.getByTestId("plugin-sync-banner");
+    const inlineStyle = wrapper.getAttribute("style") ?? "";
+    expect(inlineStyle).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    expect(inlineStyle).not.toMatch(/\brgb\(/);
+    expect(inlineStyle).not.toMatch(/\bhsl\(/);
+  });
+
+  it("renders a warning icon via the shared Banner (data-testid='banner-icon')", async () => {
+    mockFetch(UNCOMMITTED);
+    render(<PluginSyncBanner />);
+    await flushInitialPoll();
+    expect(screen.getByTestId("banner-icon")).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC-15-004.6 — Spanish copy + state not by color alone
+// ---------------------------------------------------------------------------
+
+describe("AC-15-004.6: Spanish copy + a11y", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  it("banner heading/content is in Spanish — no bare English reason words", async () => {
     mockFetch(UNCOMMITTED);
     render(<PluginSyncBanner />);
     await flushInitialPoll();
     const banner = screen.getByTestId("plugin-sync-banner");
-    // Presence of Spanish words (no English alarm words)
     expect(banner).toHaveTextContent(/plugin/i);
     expect(banner).not.toHaveTextContent(/out of sync/i);
     expect(banner).not.toHaveTextContent(/\buncommitted\b/i);
     expect(banner).not.toHaveTextContent(/\bbehind\b/i);
-  });
-
-  it("renders an alert icon (not just color) for a11y — icon testid present", async () => {
-    mockFetch(UNCOMMITTED);
-    render(<PluginSyncBanner />);
-    await flushInitialPoll();
-    expect(screen.getByTestId("plugin-sync-icon")).toBeInTheDocument();
-  });
-
-  it("banner has role=alert or aria-label in Spanish", async () => {
-    mockFetch(UNCOMMITTED);
-    render(<PluginSyncBanner />);
-    await flushInitialPoll();
-    const banner = screen.getByTestId("plugin-sync-banner");
-    // Either role=alert or aria-label must be present
-    const hasAlert = banner.getAttribute("role") === "alert";
-    const hasLabel = banner.getAttribute("aria-label") !== null;
-    expect(hasAlert || hasLabel).toBe(true);
-  });
-
-  it("has no hardcoded color style values (uses CSS vars only)", async () => {
-    mockFetch(UNCOMMITTED);
-    render(<PluginSyncBanner />);
-    await flushInitialPoll();
-    const banner = screen.getByTestId("plugin-sync-banner");
-    const inlineStyle = banner.getAttribute("style") ?? "";
-    // Must not contain a raw hex or bare rgb()/hsl() values
-    expect(inlineStyle).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
-    expect(inlineStyle).not.toMatch(/\brgb\(/);
-    expect(inlineStyle).not.toMatch(/\bhsl\(/);
-    // oklch() only allowed inside var() fallbacks — any bare oklch is a token value
-    // The style string for a CSS var fallback looks like: var(--color-warn, oklch(...))
-    // We just verify no hardcoded hex or rgb; oklch fallbacks inside var() are fine
   });
 });
 
@@ -458,7 +460,6 @@ describe("polling behaviour", () => {
     await flushInitialPoll();
     const firstCount = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.length;
 
-    // Advance past 15 s poll interval + drain microtasks
     await act(async () => {
       await vi.advanceTimersByTimeAsync(20_000);
     });
@@ -473,7 +474,6 @@ describe("polling behaviour", () => {
     unmount();
 
     const countAtUnmount = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.length;
-    // Advance well past multiple intervals — no additional fetches should fire
     await act(async () => {
       await vi.advanceTimersByTimeAsync(60_000);
     });
@@ -485,7 +485,6 @@ describe("polling behaviour", () => {
     global.fetch = vi.fn().mockRejectedValue(new Error("network error"));
     render(<PluginSyncBanner />);
     await flushInitialPoll();
-    // Banner should simply not be shown (no false alarm)
     expect(screen.queryByTestId("plugin-sync-banner")).not.toBeInTheDocument();
   });
 

@@ -1,30 +1,31 @@
 "use client";
 
 /**
- * CMP-15-banner — PluginSyncBanner
+ * CMP-15-banner — PluginSyncBanner (WO-15-004 Phase 2, DR-057 refactor)
  *
- * Polls `/api/plugin-sync` on mount + on a fixed interval; renders a persistent
- * amber warning banner ONLY when `drift === true`. Clears itself automatically when
- * a subsequent poll returns `drift === false` (REQ-15-004).
+ * KIND="drift" consumer of the ONE shared Banner primitive (src/components/core/Banner/Banner.tsx).
+ * This component owns only the drift-specific body (heading copy, 3-reason recall text) and
+ * the polling loop. ALL banner chrome (strip shape, left alert-triangle icon, hairline border,
+ * command row) comes from the shared Banner — no local BANNER_STYLE/ICON_STYLE/CMD_ROW_STYLE/
+ * RECALL_STYLE blocks (AC-15-004.5 / DR-057).
  *
- * Read-only invariant (architecture §7, REQ-15-005): this component never calls
- * any API with a non-GET method, never executes any shell command. It only shows
- * the recovery command and lets the owner copy + run it.
+ * Polls `/api/plugin-sync` on mount + on a fixed interval; renders the shared Banner with
+ * tone="warn" kind="drift" ONLY when `drift === true`. Self-clears when a re-poll returns
+ * drift=false or reason="unknown" (REQ-15-004).
  *
- * Visual reference: prototype/index.html `pluginBanner()` (lines 563–567) — amber
- * `--warn` panel, alert-triangle icon, 3-step recall (commit→run→restart), command row.
+ * Read-only invariant (architecture §7, REQ-15-005): only GET fetches; never executes the
+ * update command — it only shows it so the owner can copy and run it.
  *
  * Traceability:
  *   CMP-15-banner  → AC-15-004.1, AC-15-004.2, AC-15-004.3, AC-15-004.4, AC-15-004.5
  *   CMP-15-recall  → AC-15-004.3 (3-step recall sequence)
  *   IF-15-sync     → lib/plugin-sync.ts :: PluginSyncState
  *   CMP-15-route   → /api/plugin-sync (WO-15-003)
- *   CopyButton     → components/CopyButton.tsx (FRD-02)
- *   WO-15-004      → FRD-15
+ *   Banner         → src/components/core/Banner/Banner.tsx (WO-13-007, DR-057)
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CopyButton } from "@/components/core/CopyButton/CopyButton";
+import { Banner } from "@/components/core/Banner/Banner";
 import type { PluginSyncState } from "@/lib/plugin-sync/plugin-sync";
 
 // ---------------------------------------------------------------------------
@@ -41,82 +42,7 @@ const UPDATE_CMD = "claude plugin update pandacorp@panda-corp";
 const API_ENDPOINT = "/api/plugin-sync";
 
 // ---------------------------------------------------------------------------
-// Styles — zero hardcoded colors (CSS custom properties only, FRD-13)
-// ---------------------------------------------------------------------------
-
-const BANNER_STYLE: React.CSSProperties = {
-  background: "var(--color-warn-bg, oklch(var(--warn-bg, 0.35 0.05 90) / 0.15))",
-  borderTop: "var(--hairline, 1px) solid var(--color-warn, oklch(0.70 0.15 60))",
-  borderBottom: "var(--hairline, 1px) solid var(--color-warn, oklch(0.70 0.15 60))",
-  padding: "calc(var(--space-base, 1rem) * 0.75) var(--space-base, 1rem)",
-  width: "100%",
-};
-
-const INNER_STYLE: React.CSSProperties = {
-  display: "flex",
-  alignItems: "flex-start",
-  gap: "calc(var(--space-base, 1rem) * 0.625)",
-  maxWidth: "72ch",
-};
-
-const ICON_STYLE: React.CSSProperties = {
-  color: "var(--color-warn, oklch(0.70 0.15 60))",
-  flexShrink: 0,
-  marginTop: "0.125rem",
-  fontSize: "1.25rem",
-  lineHeight: 1,
-};
-
-const BODY_STYLE: React.CSSProperties = {
-  flex: 1,
-  minWidth: 0,
-};
-
-const HEADING_STYLE: React.CSSProperties = {
-  fontSize: "0.875rem",
-  fontWeight: 500,
-  color: "var(--color-warn, oklch(0.70 0.15 60))",
-  margin: 0,
-};
-
-const DETAIL_STYLE: React.CSSProperties = {
-  fontSize: "0.75rem",
-  color: "var(--color-warn, oklch(0.70 0.15 60))",
-  opacity: 0.9,
-  margin: "0.125rem 0 0",
-};
-
-const RECALL_STYLE: React.CSSProperties = {
-  fontSize: "0.6875rem",
-  color: "var(--color-warn, oklch(0.70 0.15 60))",
-  opacity: 0.8,
-  margin: "calc(var(--space-base, 1rem) * 0.375) 0 0",
-};
-
-const CMD_ROW_STYLE: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "calc(var(--space-base, 1rem) * 0.5)",
-  marginTop: "calc(var(--space-base, 1rem) * 0.5)",
-  padding: "0.25rem calc(var(--space-base, 1rem) * 0.5)",
-  background: "var(--color-surface-card, var(--color-surface, Canvas))",
-  border: "var(--hairline, 1px) solid var(--color-warn, oklch(0.70 0.15 60))",
-  borderRadius: "var(--radius, 0.5rem)",
-};
-
-const CMD_TEXT_STYLE: React.CSSProperties = {
-  fontFamily: "monospace",
-  fontSize: "0.75rem",
-  color: "var(--color-warn, oklch(0.70 0.15 60))",
-  flex: 1,
-  userSelect: "all",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
-};
-
-// ---------------------------------------------------------------------------
-// Heading copy per reason (Spanish, AC-15-004.5)
+// Heading copy per reason (Spanish, AC-15-004.6)
 // ---------------------------------------------------------------------------
 
 function headingForReason(reason: PluginSyncState["reason"]): string {
@@ -133,16 +59,15 @@ function headingForReason(reason: PluginSyncState["reason"]): string {
 }
 
 // ---------------------------------------------------------------------------
-// Recall sequence copy (blueprint §4, REQ-15-003)
-// The recall always ends with: run command → restart Claude Code session.
-// When dirty (uncommitted/both), step 1 is "commitea los cambios".
+// Recall sequence per reason (blueprint §4, REQ-15-003)
+// When dirty (uncommitted/both) step 1 is "commitea los cambios".
 // ---------------------------------------------------------------------------
 
 function recallForReason(reason: PluginSyncState["reason"]): string {
-  const commitStep =
-    reason === "uncommitted" || reason === "both" ? "1) commitea los cambios · " : "";
-  const runStep = reason === "uncommitted" || reason === "both" ? "2" : "1";
-  const restartStep = reason === "uncommitted" || reason === "both" ? "3" : "2";
+  const hasDirty = reason === "uncommitted" || reason === "both";
+  const commitStep = hasDirty ? "1) commitea los cambios · " : "";
+  const runStep = hasDirty ? "2" : "1";
+  const restartStep = hasDirty ? "3" : "2";
   return `${commitStep}${runStep}) corre el comando · ${restartStep}) reinicia la sesión de Claude Code`;
 }
 
@@ -153,8 +78,9 @@ function recallForReason(reason: PluginSyncState["reason"]): string {
 /**
  * PluginSyncBanner — CMP-15-banner.
  *
- * Self-contained: manages its own polling loop and renders nothing until
- * drift is confirmed. No props required.
+ * Renders through the ONE shared Banner (kind="drift", tone="warn").
+ * Manages its own polling loop; renders nothing until drift is confirmed.
+ * No props required.
  */
 export function PluginSyncBanner(): React.JSX.Element | null {
   const [state, setState] = useState<PluginSyncState | null>(null);
@@ -193,40 +119,38 @@ export function PluginSyncBanner(): React.JSX.Element | null {
   const recall = recallForReason(state.reason);
 
   return (
-    <div
-      data-testid="plugin-sync-banner"
-      role="alert"
-      aria-label="Aviso de plugin desincronizado"
-      style={BANNER_STYLE}
-    >
-      <div style={INNER_STYLE}>
-        {/* Alert icon — state conveyed by icon + text, not color alone (AC-15-004.5 / FRD-13) */}
-        <span data-testid="plugin-sync-icon" style={ICON_STYLE} aria-hidden="true">
-          &#9651;{/* ▲ warning triangle, fallback for ti-alert-triangle */}
-        </span>
-
-        <div style={BODY_STYLE}>
-          {/* Heading */}
-          <p style={HEADING_STYLE}>{heading}</p>
-
-          {/* Detail one-liner from the state (e.g. "instalado abc1234 · hay cambios…") */}
-          <p style={DETAIL_STYLE}>{state.detail}</p>
-
-          {/* 3-step recall (CMP-15-recall) */}
-          <p data-testid="plugin-sync-recall" style={RECALL_STYLE}>
-            {recall}
-          </p>
-
-          {/* Command row with CopyButton (AC-15-004.3) */}
-          <div style={CMD_ROW_STYLE}>
-            <span style={CMD_TEXT_STYLE}>{UPDATE_CMD}</span>
-            {/* Wrapper gives tests a stable testid; CopyButton has its own "copy-button" testid */}
-            <span data-testid="plugin-sync-copy-cmd">
-              <CopyButton value={UPDATE_CMD} label="Copiar" />
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
+    // Outer wrapper: provides the stable plugin-sync-banner testid and the aria context.
+    // <section aria-label> is a landmark region (role=region) with a Spanish label, satisfying
+    // AC-15-004.6. The inner Banner carries role="alert" for the live alert announcement.
+    <section data-testid="plugin-sync-banner" aria-label="Aviso de plugin desincronizado">
+      {/*
+       * The shared Banner (DR-057, WO-13-007) renders:
+       *   - left alert-triangle icon (tone="warn")
+       *   - heading (reason-appropriate Spanish copy)
+       *   - detail one-liner from PluginSyncState
+       *   - children slot: the 3-step recall paragraph (data-testid="plugin-sync-recall")
+       *   - commandRow: the copyable update command
+       * No local BANNER_STYLE/ICON_STYLE/CMD_ROW_STYLE/RECALL_STYLE — all from Banner.
+       */}
+      <Banner
+        tone="warn"
+        kind="drift"
+        heading={heading}
+        detail={state.detail}
+        commandRow={UPDATE_CMD}
+      >
+        {/* CMP-15-recall: 3-step recovery sequence (AC-15-004.3) — tokens only */}
+        <p
+          data-testid="plugin-sync-recall"
+          style={{
+            fontSize: "0.6875rem",
+            opacity: 0.8,
+            margin: "calc(var(--space-base, 1rem) * 0.375) 0 0",
+          }}
+        >
+          {recall}
+        </p>
+      </Banner>
+    </section>
   );
 }

@@ -49,6 +49,12 @@ export interface BannerProps {
   heading: string;
   /** Optional secondary detail line. */
   detail?: string;
+  /**
+   * Optional extra body content rendered between `detail` and `commandRow`.
+   * Use for recall/recovery sequences (e.g. FRD-15 drift recall steps).
+   * Rendered as-is — consumer is responsible for tokens and testids.
+   */
+  children?: React.ReactNode;
   /** Optional mono command to display in a command row with a copy button. */
   commandRow?: string;
   /** If true, renders a keyboard-operable dismiss × button. */
@@ -201,6 +207,7 @@ export function Banner({
   kind,
   heading,
   detail,
+  children,
   commandRow,
   dismissible,
   onDismiss,
@@ -330,6 +337,9 @@ export function Banner({
               {detail}
             </p>
           )}
+
+          {/* Optional extra body content (recall steps, custom sections) */}
+          {children}
 
           {/* Multi-item list */}
           {hasItems &&

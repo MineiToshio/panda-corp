@@ -5,7 +5,7 @@ slug: sync-banner
 title: 'WO-15-004 — `PluginSyncBanner` onto the shared `Banner` (kind="drift")'
 status: DRAFT
 parent: FRD-15
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 artifacts:
   - 'src/app/_components/plugin-sync-banner/**'
 source_requirements: [REQ-15-001, REQ-15-002, REQ-15-003, REQ-15-004, REQ-15-005]
@@ -72,3 +72,86 @@ duplicate-banner dup-fix consumer**: the current `BANNER_STYLE`/`ICON_STYLE`/`CM
 `bBanner`/`cmdRow` helpers (~L566/L600), placement under the dashboard `PageTitle` per `dashboardView()`
 (~L745). On the frozen tokens (`docs/design/design-tokens.json`). The engine injects the fdd + mocks +
 tokens + in-loop visual fidelity + the components.md reuse check into this WO.
+
+## Status Note
+
+**What was built:** `PluginSyncBanner` refactored onto the shared `Banner` primitive (DR-057 Phase 2
+dup-fix). The component is now the `kind="drift"` consumer of `src/components/core/Banner/Banner.tsx`
+(WO-13-007) — all banner chrome (strip shape, left alert-triangle icon, hairline border, command row)
+comes from the shared `Banner`; no local `BANNER_STYLE`/`ICON_STYLE`/`CMD_ROW_STYLE`/`RECALL_STYLE`
+blocks remain (AC-15-004.5).
+
+**Changes made:**
+
+1. `src/components/core/Banner/Banner.tsx` — extended `BannerProps` with an optional `children?:
+   React.ReactNode` slot, rendered between `detail` and `commandRow`. This is a backward-compatible
+   addition (no existing consumer broken; Banner tests still pass 20/20).
+
+2. `src/app/_components/plugin-sync-banner/plugin-sync-banner.tsx` — full DR-057 refactor:
+   - Deleted all own style blocks (`BANNER_STYLE`, `INNER_STYLE`, `ICON_STYLE`, `BODY_STYLE`,
+     `HEADING_STYLE`, `DETAIL_STYLE`, `RECALL_STYLE`, `CMD_ROW_STYLE`, `CMD_TEXT_STYLE`)
+   - Deleted the direct `CopyButton` import (now comes through Banner)
+   - Now renders `<Banner tone="warn" kind="drift" heading={…} detail={state.detail} commandRow={UPDATE_CMD}>`
+   - The drift-specific recall paragraph (`data-testid="plugin-sync-recall"`) is passed as `children`
+     with only 3 inline style properties (font-size, opacity, margin — all tokens, no colors)
+   - Outer wrapper changed from `<div role="alert">` to `<section aria-label="…">` (valid landmark
+     with label; inner Banner still carries `role="alert"` for the live alert announcement)
+
+**Interfaces/contracts exposed:**
+
+```tsx
+// src/app/_components/plugin-sync-banner/plugin-sync-banner.tsx
+export function PluginSyncBanner(): React.JSX.Element | null;
+// Renders nothing when drift === false or state not yet fetched.
+// Renders <section data-testid="plugin-sync-banner" aria-label="Aviso de plugin desincronizado">
+//   wrapping <Banner tone="warn" kind="drift" …> with children recall paragraph.
+// Polls GET /api/plugin-sync every 15 s; self-clears on drift=false.
+// No props.
+```
+
+```tsx
+// src/components/core/Banner/Banner.tsx — extended interface
+export interface BannerProps {
+  // … existing props unchanged …
+  children?: React.ReactNode; // NEW: extra body content between detail and commandRow
+}
+```
+
+**Implicit decisions & conventions:**
+- The `children` slot in `Banner` is intentionally generic (not drift-specific) so other consumers
+  (e.g. MemoryHealth staleness nudge, FRD-17) can use it for inline body sections.
+- The recall `<p>` is rendered as `children` of Banner, not as a named prop, to avoid coupling Banner
+  to FRD-15 semantics. The consumer (PluginSyncBanner) is responsible for the testid and styling.
+- Outer wrapper is `<section>` (not `<div>`) per Biome's `useSemanticElements` rule: `role="region"`
+  must use `<section>`. This also improves landmark structure.
+- The 3 inline style properties on the recall `<p>` (fontSize/opacity/margin) are token-based
+  (`var(--space-base)`) and not named `RECALL_STYLE` — they are intentionally not extracted to a
+  module-level constant so the component has zero banned style blocks.
+- `UPDATE_CMD` constant retained (`"claude plugin update pandacorp@panda-corp"`) — it is a domain
+  constant, not a style block, and is not forbidden by AC-15-004.5.
+
+**Visual fidelity (DR-056, in-loop check):**
+Rendered at `http://localhost:3099` (dev server) with real `drift=true` state (reason="behind"):
+- Warn-bg strip, left alert-triangle SVG icon, reason-specific Spanish heading, detail one-liner,
+  recall steps (no commit step for "behind"), `claude plugin update pandacorp@panda-corp` command row
+  with copy button. Layout and density match `pluginBanner()` in the prototype. One cycle; no
+  divergences requiring a second cycle.
+- Prototype's static description text ("Editaste el plugin...") is a demo placeholder superseded by
+  the FDD's `state.detail` one-liner (real git state). This is correct per FRD-15 and FDD-15.
+
+**Pre-existing failures (not introduced by this WO):**
+`frd-03-empty-fidelity.reviewer.test.tsx` — 2 tests fail on `WorkspaceSlot.tsx` copy ("Elige un
+proyecto" expected but "Sin proyectos activos" found). This file is **untracked** (added by a prior
+wave agent); the FRD-03 component was not touched by WO-15-004.
+
+**Test files covering this WO:**
+- `src/app/_components/plugin-sync-banner/_tests/plugin-sync-banner.test.tsx` — 32 tests: all 6 ACs
+  covered (AC-15-004.1 through AC-15-004.6 + polling lifecycle). Key new tests vs Phase 1:
+  `data-testid="banner"` present (AC-15-004.5), `data-tone="warn"` / `data-kind="drift"` attributes,
+  `data-testid="banner-cmd-row"` (shared Banner command row), `data-testid="banner-icon"` (shared icon).
+- `src/components/core/Banner/_tests/Banner.test.tsx` — 20 tests pass (children slot is additive,
+  no existing test broken).
+
+**Gate:** 32/32 plugin-sync-banner tests GREEN. 20/20 Banner tests GREEN. tsc --noEmit clean.
+biome check clean. verify.sh: 6567 pass + 2 expected-fail + 2 pre-existing unrelated FRD-03 fails
+(untracked file, not introduced here).
