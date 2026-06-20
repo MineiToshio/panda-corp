@@ -36,21 +36,21 @@
 [data-theme="light"]{
 /* ===== Atelier · TEMA CLARO ===== */
 --canvas:#F8F7F3;--panel:#FEFDFA;--card:#FFFFFF;
---t1:#25211B;--t2:#5C5751;--t3:#736E67;
+--t1:#25211B;--t2:#5C5751;--t3:#6A655E;
 --bd:#E0DEDA;--bd2:#C1BDB7;
 --accent:#007890;--accent-text:#00637B;--accent-bg:#D5F5FD;--on-accent:#FEFCF4;
---ok:#177C49;--ok-bg:#DEFAE6;--warn:#A36D24;--warn-bg:#FFEECD;--danger:#BE3029;--danger-bg:#FFE8E3;--info:#1C719A;--info-bg:#DFF6FF;
---cat-1:#3E8343;--cat-2:#784DB6;--cat-3:#BF397A;--cat-4:#006BBB;--cat-5:#008081;--cat-6:#0086BE;--cat-7:#BB731B;--cat-8:#158561;--cat-9:#C83B32;
+--ok:#177C49;--ok-bg:#DEFAE6;--warn:#8A5A18;--warn-bg:#FFEECD;--danger:#BE3029;--danger-bg:#FFE8E3;--info:#1C719A;--info-bg:#DFF6FF;
+--cat-1:#2F7235;--cat-2:#784DB6;--cat-3:#BF397A;--cat-4:#006BBB;--cat-5:#008081;--cat-6:#0077A8;--cat-7:#BB731B;--cat-8:#0E7050;--cat-9:#C83B32;
 --tier-1:#757B81;--tier-2:#1C8742;--tier-3:#006EB8;--tier-4:#7C3EB3;--tier-5:#C26300;
 --shadow:0 1px 2px rgba(40,35,28,.05),0 8px 24px rgba(40,35,28,.07);--shadow-pop:0 16px 48px rgba(40,35,28,.18);
 }
 @media (prefers-color-scheme: light){:root:not([data-theme="dark"]):not([data-theme="light"]){
 --canvas:#F8F7F3;--panel:#FEFDFA;--card:#FFFFFF;
---t1:#25211B;--t2:#5C5751;--t3:#736E67;
+--t1:#25211B;--t2:#5C5751;--t3:#6A655E;
 --bd:#E0DEDA;--bd2:#C1BDB7;
 --accent:#007890;--accent-text:#00637B;--accent-bg:#D5F5FD;--on-accent:#FEFCF4;
---ok:#177C49;--ok-bg:#DEFAE6;--warn:#A36D24;--warn-bg:#FFEECD;--danger:#BE3029;--danger-bg:#FFE8E3;--info:#1C719A;--info-bg:#DFF6FF;
---cat-1:#3E8343;--cat-2:#784DB6;--cat-3:#BF397A;--cat-4:#006BBB;--cat-5:#008081;--cat-6:#0086BE;--cat-7:#BB731B;--cat-8:#158561;--cat-9:#C83B32;
+--ok:#177C49;--ok-bg:#DEFAE6;--warn:#8A5A18;--warn-bg:#FFEECD;--danger:#BE3029;--danger-bg:#FFE8E3;--info:#1C719A;--info-bg:#DFF6FF;
+--cat-1:#2F7235;--cat-2:#784DB6;--cat-3:#BF397A;--cat-4:#006BBB;--cat-5:#008081;--cat-6:#0077A8;--cat-7:#BB731B;--cat-8:#0E7050;--cat-9:#C83B32;
 --tier-1:#757B81;--tier-2:#1C8742;--tier-3:#006EB8;--tier-4:#7C3EB3;--tier-5:#C26300;
 --shadow:0 1px 2px rgba(40,35,28,.05),0 8px 24px rgba(40,35,28,.07);--shadow-pop:0 16px 48px rgba(40,35,28,.18);
 }}
@@ -139,6 +139,9 @@ h1,h2,h3{font-family:var(--display);font-weight:600;line-height:1.3}
 .secthead .ln{flex:1;height:1px;background:var(--bd)}
 @keyframes rpgIn{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}
 .anim{animation:rpgIn .34s ease both}
+/* ✦ Grupo B — confeti de celebración (FRD-09); solo transform/opacity */
+@keyframes bFall{from{transform:translateY(0) rotate(0);opacity:1}to{transform:translateY(420px) rotate(420deg);opacity:0}}
+@media (prefers-reduced-motion: reduce){@keyframes bFall{from{opacity:1}to{opacity:0}}}
 @media (prefers-reduced-motion: reduce){.anim{animation:none}}
 .spot{border-width:1.5px}
 .herostat{position:relative;overflow:hidden}
@@ -188,14 +191,15 @@ var SEED={view:"dashboard",perfilOk:true,openSlug:null,openDoc:0,intake:false,pr
   decisiones:[{t:"¿Mostrar costos de infraestructura en el Portfolio o dejarlo fuera del MVP?",e:"pendiente",rec:"Dejarlo fuera del MVP — añade complejidad y los proyectos aún no tienen costos reales que mostrar."}],
   docs:[{n:"prd.md",c:"# PRD\n\n## Scope v1\nTablero + Portfolio + workspace por proyecto + Configuración + Documentación."},{n:"blueprint.md",c:"# Blueprint\n\nNext.js, solo-lectura. Lee factory/ideas, portfolio y status.yaml. Sin BD."},{n:"progress.md",c:"# Bitácora\n\n- Capa de lectura lista y testeada\n- Panel Ideas + detalle listos\n- En curso: Panel Portfolio (vista de dos paneles)\n- Desviación: el kanban de ideas pasó a solo-lectura (los skills mueven las tarjetas)"}],
   log:["Capa de lectura implementada y testeada","Panel Ideas y detalle terminados","Decisión: el tablero de ideas es solo-lectura (los skills mueven las tarjetas)","En curso: Panel Portfolio"],
-  wo:[{t:"Capa de lectura (ideas/portfolio)",e:"done",frd:"FRD-01",d:"Leer y parsear las fichas de ideas, el portfolio y el status.yaml de cada proyecto."},{t:"Panel Ideas + detalle",e:"done",frd:"FRD-02",d:"Kanban de ideas y vista de detalle con navegador de documentos."},{t:"Panel Portfolio",e:"progress",frd:"FRD-03",d:"Lista vertical de proyectos a la izquierda + detalle a la derecha."},{t:"Workspace por proyecto + work orders",e:"progress",frd:"FRD-03",d:"Sub-pestañas del proyecto y kanban de work orders."},{t:"Party",e:"todo",frd:"FRD-04",d:"Vista en vivo de los agentes por proyecto."},{t:"Configuración",e:"todo",frd:"FRD-05",d:"Ver skills, agentes, reglas y estándares."},{t:"Documentación",e:"todo",frd:"FRD-06",d:"Manual navegable de la fábrica."},{t:"README + pulido",e:"todo",frd:"FRD-06",d:"Cómo correrlo y pulir estados vacío/carga/error."}]},
+  wo:[{t:"Capa de lectura (ideas/portfolio)",e:"done",frd:"FRD-01",d:"Leer y parsear las fichas de ideas, el portfolio y el status.yaml de cada proyecto."},{t:"Panel Ideas + detalle",e:"done",frd:"FRD-02",d:"Kanban de ideas y vista de detalle con navegador de documentos."},{t:"Panel Portfolio",e:"progress",frd:"FRD-03",d:"Lista vertical de proyectos a la izquierda + detalle a la derecha."},{t:"Workspace por proyecto + work orders",e:"progress",frd:"FRD-03",d:"Sub-pestañas del proyecto y kanban de work orders."},{t:"Party",e:"todo",frd:"FRD-04",d:"Vista en vivo de los agentes por proyecto."},{t:"Configuración",e:"todo",frd:"FRD-05",d:"Ver skills, agentes, reglas y estándares."},{t:"Documentación",e:"todo",frd:"FRD-06",d:"Documentación navegable de la fábrica (el códice del gremio)."},{t:"README + pulido",e:"todo",frd:"FRD-06",d:"Cómo correrlo y pulir estados vacío/carga/error."}]},
  {slug:"budget-buddy",titulo:"Control de gastos compartidos",status:"building",phase:"work-orders",version:"v1",running:true,progreso:"Construyendo «Registrar gasto»",green:{sha:"9f4e2b1",frd:"FRD-01 · Esquema de datos + seeds"},bugs:2,fase_dias:2,signal:"hace 4 h",score:68,cat:"mobile",return_type:"monetary",
+  pathLost:{esperada:"~/Proyectos/budget-buddy",hint:"¿la moviste o renombraste? Actualiza projects_path en factory/profile.md o corre /pandacorp:sync-portfolio"},/* ✦ Grupo B · FRD-03 ruta no encontrada */
   resumen:"App para dividir y rastrear gastos entre roommates o viajes. En arranque de ingeniería.",
   clave:["Monetización: plan premium para grupos"],decisiones:[],
   docs:[{n:"prd.md",c:"# PRD — MVP\n\n## FRDs\n- Crear grupo\n- Registrar gasto\n- Liquidar deudas"}],
   log:["Esquema de datos creado","CRUD de grupos en review","Decisión: las deudas se calculan en el servidor"],
   wo:[{t:"Esquema de datos + seeds",e:"done",frd:"FRD-01",d:"Tablas de grupos, gastos y miembros."},{t:"CRUD de grupos",e:"fail",frd:"FRD-01",d:"Crear, editar y listar grupos. El reviewer rechazó: 2 tests adversariales fallan."},{t:"Registrar gasto",e:"progress",frd:"FRD-02",d:"Formulario para añadir un gasto al grupo."},{t:"Cálculo de deudas",e:"todo",frd:"FRD-03",d:"Quién debe a quién, minimizando transferencias."},{t:"Pantalla de liquidación",e:"todo",frd:"FRD-03",d:"UI para saldar las deudas del grupo."}]},
- {slug:"recipe-keeper",titulo:"Recetario personal",status:"architecture",version:"v1",running:false,fase_dias:6,score:60,cat:"web",return_type:"personal",
+ {slug:"recipe-keeper",titulo:"Recetario personal",status:"architecture",version:"v1",running:false,fase_dias:6,score:60,cat:"web",return_type:"personal",rethink:true,/* ✦ Grupo B · FRD-14 replanteo en curso */
   resumen:"Guardar y organizar recetas con buscador. Definiendo blueprint y work orders.",
   clave:["Diseño aprobado, armando la arquitectura"],
   decisiones:[{t:"Aprobar el stack propuesto: Next.js + Prisma + Postgres (últimas versiones)",e:"pendiente",rec:"Aprobar — es el golden path por defecto y encaja con un recetario con buscador."}],
@@ -213,6 +217,8 @@ var SEED={view:"dashboard",perfilOk:true,openSlug:null,openDoc:0,intake:false,pr
   clave:["Sin score aún"],decisiones:[],
   docs:[{n:"idea-origin.md",c:"# Alertas de precio de vuelos\n\nEnterarme cuando baje el precio de una ruta."}]},
  {slug:"quick-notes",titulo:"Quick Notes",status:"shipped",phase:"operation",version:"v1.2",running:false,score:80,cat:"desktop",return_type:"personal",
+  /* ✦ Grupo B · FRD-14 staleness — el último commit en verde quedó N commits atrás del build actual */
+  staleness:{ultimoVerde:"FRD-02 · v1.2",adelanto:"23 commits atrás del build actual"},
   resumen:"Notas rápidas con atajos de teclado. Ya en producción.",
   clave:["Lanzada","Iterar con /pandacorp:iterate"],decisiones:[],
   docs:[{n:"idea-origin.md",c:"# Quick Notes\n\nNotas instantáneas sin fricción."}],
@@ -408,7 +414,7 @@ function logrosHero(){
  var lp=Math.round(OPLEVEL.xp/OPLEVEL.next*100),falta=OPLEVEL.next-OPLEVEL.xp,c=logrosCounts();
  var roster=["product-manager","architect","backend-dev","frontend-dev","designer","reviewer"];
  var party=roster.map(function(id){return '<img class="sprite" src="'+mcSprite(id)+'" alt="'+id+'" title="'+(MCN[id]||id)+'" style="width:38px;height:38px;border-radius:7px;border:1px solid var(--bd2);background:var(--panel)" onerror="this.remove()">';}).join("");
- var shield='<div class="shield rpggrid"><span class="px" style="font-size:9px;color:var(--accent-text);opacity:.85;letter-spacing:.14em">NIVEL</span><span class="px" style="font-size:42px;line-height:.85;color:var(--accent-text)">'+OPLEVEL.nivel+'</span></div>';
+ var shield='<div class="shield rpggrid"><span class="px" style="font-size:9px;color:var(--accent-text);letter-spacing:.14em">NIVEL</span><span class="px" style="font-size:42px;line-height:.85;color:var(--accent-text)">'+OPLEVEL.nivel+'</span></div>';
  var badge=function(ic,v,l){return '<div class="rpgpanel" style="flex:1;min-width:118px;padding:9px 12px"><div style="display:flex;align-items:center;gap:6px;color:var(--text2);font-size:11px"><i class="ti '+ic+'" style="font-size:14px;color:var(--accent-text)"></i> '+l+'</div><div class="px" style="font-size:22px;margin-top:2px">'+v+'</div></div>';};
  return '<div class="rpgpanel rpggrid" style="padding:18px 20px;margin-bottom:14px">'
   +'<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">'+shield
@@ -428,20 +434,27 @@ function questsNear(){
  var almost=CHAINS.map(function(ch){return {ch:ch,s:chainState(ch)};}).filter(function(x){return x.s.next;}).sort(function(a,b){return b.s.pct-a.s.pct;}).slice(0,3);
  if(!almost.length)return "";
  var cards=almost.map(function(x){return '<div class="rpgpanel" style="padding:13px 14px"><div style="display:flex;align-items:center;gap:9px;margin-bottom:10px"><span class="itemslot" style="width:34px;height:34px;background:var(--accent-bg);color:var(--accent-text)"><i class="ti '+x.ch.ic+'" style="font-size:18px"></i></span><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;line-height:1.2">'+x.s.next[1]+'</div><div style="font-size:11px;color:var(--text3)">'+x.ch.n+'</div></div><span class="px" style="font-size:18px;color:var(--accent-text)">'+x.s.pct+'%</span></div><div class="xpbar" style="height:12px"><i style="width:'+x.s.pct+'%"></i></div><div style="font-size:11px;color:var(--text2);margin-top:7px"><i class="ti ti-flag" style="font-size:11px;vertical-align:-1px;color:var(--text3)"></i> '+(x.ch.lower?('récord '+x.s.v+'d → ≤'+x.s.next[0]+'d'):(x.s.v+' / '+x.s.next[0]))+'</div></div>';}).join("");
- return '<div class="ttl" style="font-size:15px;margin:8px 0 11px;display:flex;align-items:center;gap:7px"><i class="ti ti-target-arrow" style="font-size:17px;color:var(--accent-text)"></i> Próximas hazañas <span style="font-family:system-ui;font-weight:400;color:var(--text3);font-size:12px">· a un paso de caer</span></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(225px,1fr));gap:10px;margin-bottom:24px">'+cards+'</div>';
+ return secthead("ti-target-arrow","Próximas hazañas","a un paso de caer")+'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(225px,1fr));gap:10px;margin-bottom:24px">'+cards+'</div>';
 }
 function recentTrophies(){
  var rec=ONETIME.filter(function(a){return a.on&&a.date;}).sort(function(a,b){return a.date<b.date?1:-1;}).slice(0,4);
  if(!rec.length)return "";
  var cards=rec.map(function(a){return '<div class="rpgpanel glowwarn" style="display:flex;gap:11px;align-items:center;padding:11px 13px;border-color:var(--warn)"><span class="itemslot" style="width:40px;height:40px;background:var(--warn-bg);border:1.5px solid var(--warn);color:var(--warn)"><i class="ti '+a.ic+'" style="font-size:21px"></i></span><div style="min-width:0"><div style="font-size:13px;font-weight:600;line-height:1.2">'+a.n+'</div><div style="font-size:11px;color:var(--text3);margin-top:3px"><i class="ti ti-calendar" style="font-size:11px;vertical-align:-1px"></i> '+a.date+(a.proj&&a.proj!=="—"?' · '+a.proj:'')+'</div></div></div>';}).join("");
- return '<div class="ttl" style="font-size:15px;margin:8px 0 11px;display:flex;align-items:center;gap:7px"><i class="ti ti-sparkles" style="font-size:17px;color:var(--warn)"></i> Vitrina del gremio <span style="font-family:system-ui;font-weight:400;color:var(--text3);font-size:12px">· tus últimos trofeos</span></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:10px">'+cards+'</div>';
+ return secthead("ti-sparkles","Vitrina del gremio","tus últimos trofeos")+'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:10px">'+cards+'</div>';
 }
 function logrosTabs(){var lt=ST.logrosTab||"resumen";var c=logrosCounts();
  var tabs=[["resumen","Resumen","ti-layout-dashboard",0],["misiones","Misiones","ti-map-2",c.chainsActive],["trofeos","Trofeos","ti-trophy",c.trophies],["stats","Estadísticas","ti-chart-bar",0]];
  return '<div style="display:flex;gap:6px;margin:0 0 18px;flex-wrap:wrap">'+tabs.map(function(t){var n=t[3]?' <span class="px" style="font-size:10px;color:var(--text3)">'+t[3]+'</span>':'';return '<span class="stab '+(lt===t[0]?"on":"")+'" data-act="logrostab" data-lt="'+t[0]+'"><i class="ti '+t[2]+'" style="font-size:13px;vertical-align:-2px"></i> '+t[1]+n+'</span>';}).join("")+'</div>';
 }
 function statTier(key){var ch=CHAINS.filter(function(c){return c.s===key;})[0];if(!ch)return null;var s=chainState(ch);if(s.ci<0)return null;return {tc:TIERC[Math.min(s.ci,4)],tn:TIERN[Math.min(s.ci,4)]};}
-function secthead(ic,title,right){return '<div class="secthead"><i class="ti '+ic+'" style="font-size:15px;color:var(--accent-text)"></i> '+title+'<span class="ln"></span>'+(right!=null?'<span class="px" style="font-size:11px;color:var(--text3)">'+right+'</span>':'')+'</div>';}
+/* Cabecera de sección CANÓNICA (una sola forma para toda la app):
+   icono (accent) + título + línea + un slot derecho. `right` = texto pequeño (.px);
+   `rightHtml` = HTML arbitrario (chip/botón), p.ej. el badge de estado del dashboard. */
+function secthead(ic,title,right,rightHtml){return '<div class="secthead"><i class="ti '+ic+'" style="font-size:15px;color:var(--accent-text)"></i> '+title+'<span class="ln"></span>'+(right!=null?'<span class="px" style="font-size:11px;color:var(--text3)">'+right+'</span>':'')+(rightHtml||'')+'</div>';}
+/* Etiqueta de RIEL/PANEL lateral canónica (una sola forma): el rótulo en mayúsculas
+   sobre una lista/navegador lateral (PROYECTOS, DOCUMENTACIÓN…). Coincide con los
+   rótulos de grupo del Manual/Config (.px accent-text). */
+function railLabel(txt,mt){return '<div class="px" style="font-size:10px;color:var(--accent-text);letter-spacing:.08em;margin:'+(mt||"2px")+' 6px 8px">'+txt+'</div>';}
 function axisPct(key){var ch=CHAINS.filter(function(c){return c.s===key;})[0];if(!ch)return 0;var s=chainState(ch);var lvl=(s.ci+1)+(s.next?s.pct/100:0);return Math.max(8,Math.min(100,Math.round(lvl/ch.t.length*100)));}
 function statRadar(){
  var AX=[["Producción","workorders"],["Velocidad","velocidad"],["Calidad","impecables"],["Constancia","racha"],["Ideación","ideas"],["Alcance","lanzados"]];
@@ -526,7 +539,8 @@ function logrosStats(){
  return '<p style="font-size:12px;color:var(--text3);margin:0 0 12px"><i class="ti ti-info-circle" style="font-size:13px;vertical-align:-2px"></i> Tu hoja de personaje: el radar resume tus atributos, los récords arriba y el detalle por categoría — cada stat con su medalla de tier.</p>'+top+'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:10px;align-items:start">'+cols+'</div>';
 }
 function logrosView(){var lt=ST.logrosTab||"resumen";var c=logrosCounts();
- var head='<div style="display:flex;align-items:center;gap:11px;margin-bottom:16px;flex-wrap:wrap"><span class="itemslot" style="width:34px;height:34px;background:var(--warn-bg);border:1.5px solid var(--warn);color:var(--warn)"><i class="ti ti-award" style="font-size:20px"></i></span><span class="ttl" style="font-size:21px">Salón del gremio</span><span class="px" style="font-size:11px;background:var(--warn-bg);color:var(--warn);padding:3px 9px;border-radius:6px">'+c.total+' hazañas</span></div>';
+ var tail='<span class="px" style="font-size:11px;background:var(--warn-bg);color:var(--warn);padding:3px 9px;border-radius:6px">'+c.total+' hazañas</span>';
+ var head=pageHead("ti-award","Logros","El salón del gremio · tus hazañas, misiones, trofeos y la hoja de personaje de la fábrica.",tail);
  var body=lt==="misiones"?logrosMisiones():lt==="trofeos"?logrosTrofeos():lt==="stats"?logrosStats():logrosResumen();
  return '<div class="rpghall">'+head+logrosTabs()+body+'</div>';
 }
@@ -535,6 +549,22 @@ function load(){try{var s=sessionStorage.getItem("pcv2");if(s)return JSON.parse(
 function save(){try{sessionStorage.setItem("pcv2",JSON.stringify(ST));}catch(e){}}
 var root=document.getElementById("pcapp");
 function get(slug){return ST.ideas.filter(function(x){return x.slug===slug;})[0];}
+
+/* ============================================================================
+   ✦ GRUPO B (propuesta) — superficies nuevas montadas sobre el MISMO sistema
+   visual (.panel / .rpgpanel / chips / skin RPG). BGROUP = estado SOLO de demo
+   (no se persiste; controla los togglers que previsualizan estados).
+   ============================================================================ */
+var BGROUP={driftReason:"sinCommit",obsView:"timeline",dagNode:null,dagFollow:true,orphanMore:false,orphanDismiss:false,overlay:null};
+function bDispatch(){save();render();}
+/* Distintivo «✦ Grupo B (propuesta)» — marca cada superficie nueva. */
+function bBadge(){return '';}/* approved + promoted to canonical — the «Grupo B (propuesta)» badge is now a no-op */
+/* Marco DR-061 «SOLO DEMO»: borde discontinuo + etiqueta + nota de cómo funciona de verdad. */
+function bDemo(note,inner){return '<div style="border:1.5px dashed var(--bd2);border-radius:var(--rmd);padding:10px 12px;margin:10px 0">'
+ +'<div style="display:flex;align-items:center;gap:7px;margin-bottom:7px"><span class="px" style="font-size:9px;letter-spacing:.06em;color:var(--canvas);background:var(--warn);padding:1px 7px;border-radius:4px">SOLO DEMO</span><span style="font-size:11px;color:var(--text3)">'+esc(note)+'</span></div>'+inner+'</div>';}
+/* Forma de banner COMPARTIDA (la misma de pluginBanner): un solo look de aviso. */
+function bBanner(tone,icon,title,bodyHtml,cmdRows){var tc=tone==="warn"?"var(--warn)":tone==="info"?"var(--info)":"var(--danger)";var tbg=tone==="warn"?"var(--warn-bg)":tone==="info"?"var(--info-bg)":"var(--danger-bg)";
+ return '<div style="background:'+tbg+';border:.5px solid var(--bd2);border-radius:var(--rlg);padding:12px 14px;margin-bottom:14px"><div style="display:flex;align-items:flex-start;gap:10px"><i class="ti '+icon+'" style="font-size:20px;color:'+tc+';margin-top:1px"></i><div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:500;color:'+tc+';display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+title+' '+bBadge()+'</div>'+bodyHtml+'</div></div>'+(cmdRows||"")+'</div>';}
 
 function nextStep(i){var es=i.status;
  if(es==="discovered")return["/pandacorp:spec "+i.slug,"la fábrica (panda-corp)"];
@@ -567,23 +597,64 @@ function md(t){var o="",ul=false;(t||"").split("\n").forEach(function(l){
  else if(/^- /.test(l)){if(!ul){o+="<ul>";ul=true;}o+="<li>"+esc(l.slice(2))+"</li>";}
  else if(l.trim()===""){if(ul){o+="</ul>";ul=false;}}
  else{if(ul){o+="</ul>";ul=false;}o+="<p style='margin:6px 0'>"+esc(l)+"</p>";}});if(ul)o+="</ul>";return o;}
-function cmdRow(cmd,when){return '<div class="cmd"><i class="ti ti-terminal-2" style="font-size:15px;color:var(--text2)"></i><span class="t">'+esc(cmd)+'</span><span style="font-size:11px;color:var(--text3);max-width:230px;text-align:right">'+when+'</span><button data-act="copy" data-cmd="'+esc(cmd)+'"><i class="ti ti-copy" style="font-size:13px"></i></button></div>';}
+function cmdRow(cmd,when){return '<div class="cmd"><i class="ti ti-terminal-2" style="font-size:15px;color:var(--text2)"></i><span class="t">'+esc(cmd)+'</span><span style="font-size:11px;color:var(--text3);max-width:230px;text-align:right">'+when+'</span><button data-act="copy" data-cmd="'+esc(cmd)+'" aria-label="Copiar comando '+esc(cmd)+'"><i class="ti ti-copy" style="font-size:13px"></i></button></div>';}
 
-var PLUGIN_SYNC={drift:false,sinCommit:true,detalle:"instalado 18a9389 · hay cambios del plugin sin commitear"}; /* mock: pon drift:true para previsualizar el aviso; en la app real lo decide el estado de git (FRD-15) */
+var PLUGIN_SYNC={drift:true,sinCommit:true,detalle:"instalado 18a9389 · hay cambios del plugin sin commitear"}; /* ✦ Grupo B: drift:true para previsualizar las 3 variantes del aviso (FRD-15) */
+/* FRD-15 · 3 motivos del aviso de drift. En la app real lo decide el estado de git
+   (cambios sin commitear) + el SHA instalado vs el último commit del plugin.
+   Aquí el motivo se cicla con un toggler SOLO-DEMO (DR-061). ✦ Grupo B amplía
+   este banner: las variantes "behind" y "ambos" no existían en el prototipo. */
+var DRIFT_REASONS={
+ sinCommit:{lbl:"Sin commitear",det:"instalado 18a9389 · hay cambios del plugin sin commitear",steps:"1) commitea los cambios · 2) corre el comando · 3) reinicia la sesión de Claude Code"},
+ behind:{lbl:"Instalado atrasado (behind)",det:"instalado 18a9389 · el último commit del plugin es a3f91c2 (3 commits por delante)",steps:"1) corre el comando para reinstalar la última versión · 2) reinicia la sesión de Claude Code"},
+ both:{lbl:"Ambos",det:"instalado 18a9389 · hay cambios sin commitear Y el instalado va 3 commits por detrás",steps:"1) commitea los cambios · 2) corre el comando · 3) reinicia la sesión de Claude Code"}
+};
 function pluginBanner(){
  if(!PLUGIN_SYNC||!PLUGIN_SYNC.drift)return "";
- return '<div style="background:var(--warn-bg);border:.5px solid var(--bd2);border-radius:var(--rlg);padding:12px 14px;margin-bottom:14px"><div style="display:flex;align-items:flex-start;gap:10px"><i class="ti ti-alert-triangle" style="font-size:20px;color:var(--warn);margin-top:1px"></i><div style="flex:1"><div style="font-size:14px;font-weight:500;color:var(--warn)">Plugin desincronizado</div><div style="font-size:12px;color:var(--warn);margin-top:2px">Editaste el plugin pero la versión instalada no está al día ('+esc(PLUGIN_SYNC.detalle)+'). Hasta actualizar, los skills nuevos o editados no toman efecto.</div><div style="font-size:11px;color:var(--warn);opacity:.85;margin-top:6px">'+(PLUGIN_SYNC.sinCommit?"1) commitea los cambios · ":"")+'2) corre el comando · 3) reinicia la sesión de Claude Code</div></div></div>'+cmdRow("claude plugin update pandacorp@panda-corp","pégalo en la terminal de la fábrica")+'</div>';
+ var r=BGROUP.driftReason||"sinCommit";var d=DRIFT_REASONS[r]||DRIFT_REASONS.sinCommit;
+ var toggler='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:9px">'
+  +Object.keys(DRIFT_REASONS).map(function(k){return '<span class="stab '+(r===k?"on":"")+'" data-act="b-drift" data-r="'+k+'" style="font-size:11px">'+DRIFT_REASONS[k].lbl+'</span>';}).join("")+'</div>';
+ var demo=bDemo("En la app real el motivo lo decide git (cambios sin commitear) + el SHA instalado vs el último commit del plugin — no se elige a mano.",toggler);
+ return '<div style="background:var(--warn-bg);border:.5px solid var(--bd2);border-radius:var(--rlg);padding:12px 14px;margin-bottom:14px"><div style="display:flex;align-items:flex-start;gap:10px"><i class="ti ti-alert-triangle" style="font-size:20px;color:var(--warn);margin-top:1px"></i><div style="flex:1"><div style="font-size:14px;font-weight:500;color:var(--warn);display:flex;align-items:center;gap:8px;flex-wrap:wrap">Plugin desincronizado · '+d.lbl+' '+bBadge()+'</div><div style="font-size:12px;color:var(--warn);margin-top:2px">Editaste el plugin pero la versión instalada no está al día ('+esc(d.det)+'). Hasta actualizar, los skills nuevos o editados no toman efecto.</div><div style="font-size:11px;color:var(--warn);margin-top:6px">'+d.steps+'</div></div></div>'+cmdRow("claude plugin update pandacorp@panda-corp","pégalo en la terminal de la fábrica")+demo+'</div>';
+}
+/* FRD-16 · proyectos DE PANDACORP que NO están en el portfolio (✦ Grupo B · cambio 2).
+   REGLA: solo se listan carpetas con marcador .pandacorp/ — NUNCA carpetas ajenas
+   (código personal, proyectos de otra IA, etc. que conviven en ~/Proyectos/). Dos casos,
+   ambos REQUIEREN el marcador .pandacorp/:
+   - orphan  = tiene .pandacorp/ pero nunca pasó por el handoff (lo construiste a mano / lo clonaste) → /pandacorp:adopt
+   - unlisted = tiene .pandacorp/status.yaml pero falta su fila en el portfolio → /pandacorp:sync-portfolio
+   En la app real se detectan leyendo SOLO las carpetas con .pandacorp/ + el portfolio (solo lectura). */
+var ORPHANS=[
+ {name:"funko-tracker",path:"~/Proyectos/funko-tracker",kind:"orphan"},
+ {name:"budget-buddy",path:"~/Proyectos/budget-buddy",kind:"unlisted"},
+ {name:"quote-forge",path:"~/Proyectos/quote-forge",kind:"orphan"},
+ {name:"recipe-keeper",path:"~/Proyectos/recipe-keeper",kind:"unlisted"}
+];
+function orphanBanner(){
+ if(BGROUP.orphanDismiss||!ORPHANS.length)return "";
+ var shown=BGROUP.orphanMore?ORPHANS:ORPHANS.slice(0,2),hidden=ORPHANS.length-2;
+ var rows=shown.map(function(o){
+  var isOrphan=o.kind==="orphan";var cmd=isOrphan?"/pandacorp:adopt":"/pandacorp:sync-portfolio";
+  var tag=isOrphan?'<span class="chip" style="background:var(--warn-bg);color:var(--warn);font-size:10px">sin adoptar</span>':'<span class="chip" style="background:var(--info-bg);color:var(--info);font-size:10px">falta en portfolio</span>';
+  var hint=isOrphan?"tiene .pandacorp/ pero nunca pasó por el handoff — adóptalo bajo la fábrica":"ya es proyecto de la fábrica (tiene .pandacorp/status.yaml), solo falta su fila en el portfolio";
+  return '<div style="border-top:.5px solid var(--bd);padding:9px 0 4px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:13px;font-weight:500">'+esc(o.name)+'</span>'+tag+'<code style="font-size:11px;color:var(--text3);background:var(--panel);padding:1px 6px;border-radius:4px">'+esc(o.path)+'</code></div><div style="font-size:11px;color:var(--warn);margin:3px 0 0">'+hint+'</div>'+cmdRow(cmd,isOrphan?"adóptalo desde una sesión en esa carpeta":"refresca el índice del portfolio")+'</div>';
+ }).join("");
+ var more=hidden>0?'<div style="margin-top:6px"><a class="lnk" data-act="b-orphan-more" style="font-size:12px;color:var(--warn)">'+(BGROUP.orphanMore?"Ver menos":("Ver "+hidden+" proyecto"+(hidden>1?"s":"")+" más"))+'</a></div>':"";
+ var head='<div style="display:flex;align-items:flex-start;gap:10px"><i class="ti ti-folder-question" style="font-size:20px;color:var(--warn);margin-top:1px"></i><div style="flex:1;min-width:0"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><div style="font-size:14px;font-weight:500;color:var(--warn);display:flex;align-items:center;gap:8px;flex-wrap:wrap">Proyectos de Pandacorp sin registrar '+bBadge()+'</div><button data-act="b-orphan-dismiss" style="padding:4px 8px;flex:0 0 auto" aria-label="Descartar aviso"><i class="ti ti-x" style="font-size:13px"></i></button></div><div style="font-size:12px;color:var(--warn);margin-top:2px">Detecté carpetas con <code style="font-size:11px;background:var(--panel);padding:1px 5px;border-radius:4px">.pandacorp/</code> que no están en tu portfolio. (Las carpetas ajenas de <code style="font-size:11px;background:var(--panel);padding:1px 5px;border-radius:4px">~/Proyectos/</code> nunca se listan aquí.)</div>'+rows+more+'</div></div>';
+ return '<div style="background:var(--warn-bg);border:.5px solid var(--bd2);border-radius:var(--rlg);padding:12px 14px;margin-bottom:14px">'+head+'</div>';
 }
 function topbar(){var lp=Math.round(OPLEVEL.xp/OPLEVEL.next*100);return '<div class="rpgpanel rpggrid" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:11px 15px;margin-bottom:16px">'
  +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><img src="assets/pandacorp.png" alt="Pandacorp" style="width:44px;height:44px;border-radius:10px;border:1px solid var(--bd2);box-shadow:0 0 16px -8px var(--accent);object-fit:cover;flex:0 0 auto">'
  +'<div><div class="ttl" style="font-size:17px;line-height:1.05">Pandacorp Mission Control</div><div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap"><span class="px" style="font-size:10px;color:var(--canvas);background:var(--accent);padding:1px 6px;border-radius:4px">NV '+OPLEVEL.nivel+'</span><span style="font-size:11px;color:var(--text2)">'+OPLEVEL.titulo+'</span><span class="xpbar" title="'+OPLEVEL.xp+' / '+OPLEVEL.next+' XP" style="display:inline-block;width:90px;height:9px;vertical-align:middle"><i style="width:'+lp+'%"></i></span></div></div></div>'
- +'<div style="display:flex;gap:5px;flex-wrap:wrap">'+tab("dashboard","Inicio")+tab("ideas","Tablero")+tab("portfolio","Portfolio")+tab("logros","Logros")+tab("manual","Manual")+'</div></div>';}
+ +'<div style="display:flex;gap:5px;flex-wrap:wrap">'+tab("dashboard","Inicio")+tab("ideas","Tablero")+tab("portfolio","Portfolio")+tabProp()+tab("logros","Logros")+tab("manual","Documentación")+'</div></div>';}
 function tab(id,label){return '<span class="tab '+(ST.view===id?"on":"")+'" data-act="tab" data-tab="'+id+'">'+label+'</span>';}
+/* FRD-17 · pestaña «Propuestas» con badge del nº de propuestas abiertas (✦ Grupo B). */
+function tabProp(){var n=BPROP_COUNT();var b=n?' <span class="px" style="font-size:10px;background:var(--accent);color:var(--canvas);border-radius:99px;padding:0 6px;margin-left:3px">'+n+'</span>':'';return '<span class="tab '+(ST.view==="propuestas"?"on":"")+'" data-act="tab" data-tab="propuestas">Propuestas'+b+'</span>';}
 
 function qrow(o){return '<div class="card" style="display:flex;align-items:center;gap:12px;margin-bottom:8px;padding:12px 14px"'+(o.act?' data-act="'+o.act+'" data-slug="'+esc(o.slug)+'"':'')+'>'
  +'<div style="width:34px;height:34px;flex:0 0 auto;border-radius:8px;background:'+o.bg+';color:'+o.fg+';display:flex;align-items:center;justify-content:center"><i class="ti '+o.ic+'" style="font-size:18px"></i></div>'
  +'<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:500">'+esc(o.t)+'</div><div style="font-size:12px;color:var(--text2)">'+esc(o.s)+'</div></div>'
- +'<div class="cmd" style="margin:0;flex:0 0 auto"><span class="t" style="font-size:12px">'+esc(o.cmd)+'</span><button data-act="copy" data-cmd="'+esc(o.cmd)+'"><i class="ti ti-copy" style="font-size:12px"></i></button></div>'
+ +'<div class="cmd" style="margin:0;flex:0 0 auto"><span class="t" style="font-size:12px">'+esc(o.cmd)+'</span><button data-act="copy" data-cmd="'+esc(o.cmd)+'" aria-label="Copiar comando '+esc(o.cmd)+'"><i class="ti ti-copy" style="font-size:12px"></i></button></div>'
  +'</div>';}
 function dStat(label,val,sub,ic,accent){return '<div style="background:var(--secondary);border-radius:var(--rmd);padding:13px 15px;border:.5px solid var(--bd)"><div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2)"><i class="ti '+ic+'" style="font-size:14px;color:'+(accent||"var(--text2)")+'"></i> '+label+'</div><div class="px" style="font-size:30px;line-height:1;margin-top:6px;color:'+(accent||"var(--text)")+'">'+val+'</div><div style="font-size:11px;color:var(--text3);margin-top:4px">'+sub+'</div></div>';}
 /* ---- «Desde tu última visita»: marcador persistente (localStorage → sobrevive al refresh y al cierre de pestaña). El refresh NO lo mueve; solo avanza al «marcar visto» o al actuar. ---- */
@@ -606,10 +677,10 @@ function digestSection(){
   .sort(function(a,b){return b.time-a.time;});
  var nuevas=all.filter(function(e){return e.time>seen;});
  var recientes=all.filter(function(e){return e.time>now-24*3600000;});
- var head='<div class="secthead" style="margin-top:4px"><i class="ti ti-history" style="font-size:15px"></i> Desde tu última visita ';
- if(nuevas.length)head+='<span class="chip" style="background:var(--accent-bg);color:var(--accent-text)">'+nuevas.length+' nueva'+(nuevas.length>1?"s":"")+'</span> <button data-act="seen" style="padding:3px 9px;font-size:11px"><i class="ti ti-check" style="font-size:12px;vertical-align:-1px"></i> marcar visto</button>';
- else head+='<span class="chip" style="background:var(--ok-bg);color:var(--ok)"><i class="ti ti-circle-check" style="font-size:11px;vertical-align:-1px"></i> al día</span>';
- head+='<span class="ln"></span></div>';
+ var rightHtml=nuevas.length
+   ?'<span class="chip" style="background:var(--accent-bg);color:var(--accent-text)">'+nuevas.length+' nueva'+(nuevas.length>1?"s":"")+'</span> <button data-act="seen" style="padding:3px 9px;font-size:11px"><i class="ti ti-check" style="font-size:12px;vertical-align:-1px"></i> marcar visto</button>'
+   :'<span class="chip" style="background:var(--ok-bg);color:var(--ok)"><i class="ti ti-circle-check" style="font-size:11px;vertical-align:-1px"></i> al día</span>';
+ var head=secthead("ti-history","Desde tu última visita",null,rightHtml);
  var lead=nuevas.length?"":'<div style="font-size:12px;color:var(--text3);margin-bottom:7px">Estás al día · última revisión '+ago(seen)+'. Esto es la actividad de las últimas 24 h.</div>';
  var list=nuevas.length?nuevas:recientes;
  var body=list.length?('<div style="display:flex;gap:8px;flex-wrap:wrap">'+list.map(function(e){return evCard(e,nuevas.length>0,nuevas.length===0);}).join("")+'</div>'):'<div style="font-size:12px;color:var(--text3);padding:4px 2px">Sin actividad en las últimas 24 h.</div>';
@@ -670,10 +741,12 @@ function dashboardView(){
   +'<div style="flex:1;min-width:200px"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:5px"><span class="px">NV '+OPLEVEL.nivel+' · '+esc(OPLEVEL.titulo)+'</span><span>'+OPLEVEL.xp+' / '+OPLEVEL.next+' XP</span></div><div class="xpbar"><i style="width:'+lp+'%"></i></div></div>'
   +'</div>';
  return ''
+  +pageHead("ti-home","Inicio","Tu cabina de mando: lo que espera por ti, el pulso de la fábrica y la cartera en obra.")
+  +pluginBanner()+orphanBanner()/* ✦ banners debajo del título de Inicio */
   +digest
-  +'<div class="secthead"><i class="ti ti-flag-3" style="font-size:15px"></i> Tu turno'+(urgent?' <span class="chip" style="background:var(--danger-bg);color:var(--danger)">'+urgent+' esperan por ti</span>':' <span class="chip" style="background:var(--ok-bg);color:var(--ok)">al día</span>')+'<span class="ln"></span></div>'
+  +secthead("ti-flag-3","Tu turno",null,urgent?'<span class="chip" style="background:var(--danger-bg);color:var(--danger)">'+urgent+' esperan por ti</span>':'<span class="chip" style="background:var(--ok-bg);color:var(--ok)">al día</span>')
   +queue
-  +'<div class="secthead"><i class="ti ti-activity-heartbeat" style="font-size:15px"></i> Pulso de la fábrica<span class="ln"></span></div>'
+  +secthead("ti-activity-heartbeat","Pulso de la fábrica")
   +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">'
    +dStat("Ideas vivas",discovered.length+pipeline.length,discovered.length+" sin priorizar","ti-bulb")
    +dStat("En construcción",building.length,(liveBuilds?liveBuilds+" en vivo":"ninguno corriendo"),"ti-hammer",liveBuilds?"var(--ok)":null)
@@ -681,10 +754,15 @@ function dashboardView(){
    +dStat("Esperan por ti",urgent,"gates humanos","ti-flag-3",urgent?"var(--danger)":"var(--ok)")
   +'</div>'
   +'<div style="font-size:12px;color:var(--text3);margin-top:9px;text-align:center"><i class="ti ti-route-2" style="font-size:13px;vertical-align:-2px"></i> Conversión idea → lanzada: <b style="color:var(--text2);font-weight:500">'+conv+'%</b> · tu métrica que importa</div>'
-  +'<div class="secthead"><i class="ti ti-layout-grid" style="font-size:15px"></i> Construcción y cartera<span class="ln"></span></div>'
+  +secthead("ti-layout-grid","Construcción y cartera")
   +carteraGrid
-  +'<div class="secthead"><i class="ti ti-trophy" style="font-size:15px"></i> Tu progreso<span class="ln"></span></div>'
-  +foot;
+  +secthead("ti-trophy","Tu progreso")
+  +foot
+  +secthead("ti-sparkles","Momentos de gamificación",null,bBadge())
+  /* ✦ Grupo B · cambio 8 — nota: en la app real estos momentos se disparan SOLOS al cumplirse el hito. */
+  +'<div style="font-size:12px;color:var(--text2);margin:0 2px 8px"><i class="ti ti-info-circle" style="font-size:13px;vertical-align:-2px;color:var(--accent-text)"></i> En la app real estos momentos se disparan <b style="font-weight:500">automáticamente</b> al cumplirse el hito (un proyecto lanzado · subir de nivel), no con un botón. Los botones de abajo son solo para previsualizar el efecto.</div>'
+  +bDemo("En la app real esto NO tiene botón: la celebración la dispara /pandacorp:release (producto lanzado) y el level-up se dispara solo al cruzar un umbral de XP.",
+    '<div style="display:flex;gap:8px;flex-wrap:wrap"><button data-act="b-overlay" data-k="release"><i class="ti ti-rocket" style="font-size:14px;vertical-align:-2px;color:var(--ok)"></i> Previsualizar celebración de release</button><button data-act="b-overlay" data-k="levelup"><i class="ti ti-arrow-up-circle" style="font-size:14px;vertical-align:-2px;color:var(--accent-text)"></i> Previsualizar «¡Subiste de nivel!»</button></div>');
 }
 
 function intakePanel(){
@@ -705,7 +783,7 @@ function intakePanel(){
   +'<div data-act="intake-modal" style="background:var(--panel);border:.5px solid var(--bd2);border-radius:var(--radius-lg);padding:22px 24px;width:540px;max-width:calc(100vw - 32px);max-height:85vh;overflow-y:auto;box-shadow:var(--shadow-pop)">'
   +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
   +'<div style="display:flex;align-items:center;gap:9px"><span class="px" style="font-size:10px;color:var(--accent-text);letter-spacing:.08em"><i class="ti ti-sparkles" style="font-size:11px;vertical-align:-1px"></i> TABLERO</span><span style="font-weight:600;font-size:15px;font-family:var(--display)">Capturar ideas y oportunidades</span></div>'
-  +'<button data-act="intake-close" style="padding:5px 10px"><i class="ti ti-x" style="font-size:13px"></i></button>'
+  +'<button data-act="intake-close" style="padding:5px 10px" aria-label="Cerrar"><i class="ti ti-x" style="font-size:13px"></i></button>'
   +'</div>'
   +'<p style="font-size:12px;color:var(--text3);margin:0 0 14px"><i class="ti ti-info-circle" style="font-size:12px;vertical-align:-1px"></i> Así llenas y priorizas la columna «Descubierta». Copia el comando y pégalo en Claude Code (en la fábrica).</p>'
   +rows+'</div></div>';
@@ -714,15 +792,16 @@ function intakePanel(){
 function boardView(){
  var q=(ST.q||"").toLowerCase(),ft=ST.fType||"";
  function m(i){return (!q||(i.titulo+" "+(i.resumen||"")).toLowerCase().indexOf(q)>=0)&&(!ft||i.cat===ft);}
- var filt='<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap"><div style="position:relative;flex:1;min-width:170px"><i class="ti ti-search" style="position:absolute;left:10px;top:9px;font-size:15px;color:var(--text3)"></i><input id="pc-q" value="'+esc(ST.q||"")+'" oninput="PCq(this.value)" placeholder="Buscar ideas…" style="width:100%;padding:8px 11px 8px 32px;border:1px solid var(--bd2);border-radius:8px;font-size:13px;font-family:inherit;background:var(--canvas);color:var(--text);box-shadow:inset 0 1px 2px rgba(0,0,0,.22)"></div><select onchange="PCt(this.value)" style="padding:8px 10px;border:1px solid var(--bd2);border-radius:8px;font-size:13px;font-family:inherit;background:var(--canvas);color:var(--text);box-shadow:inset 0 1px 2px rgba(0,0,0,.22)">'+["","web","mobile","desktop","ia","claude-code","prompt-system","automatizacion","cli","rework","otro"].map(function(t){return '<option value="'+t+'"'+(ft===t?" selected":"")+'>'+(t===""?"Todas las categor\u00edas":(CAT[t]?CAT[t][0]:t))+'</option>';}).join("")+'</select>'+((ST.q||ft)?'<button data-act="clearf">Limpiar</button>':'')+'</div>';
+ var filt='<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap"><div style="position:relative;flex:1;min-width:170px"><i class="ti ti-search" style="position:absolute;left:10px;top:9px;font-size:15px;color:var(--text3)"></i><input id="pc-q" value="'+esc(ST.q||"")+'" oninput="PCq(this.value)" placeholder="Buscar ideas…" style="width:100%;padding:8px 11px 8px 32px;border:1px solid var(--bd2);border-radius:8px;font-size:13px;font-family:inherit;background:var(--canvas);color:var(--text);box-shadow:inset 0 1px 2px rgba(0,0,0,.22)"></div><select onchange="PCt(this.value)" aria-label="Filtrar por categoría" style="padding:8px 10px;border:1px solid var(--bd2);border-radius:8px;font-size:13px;font-family:inherit;background:var(--canvas);color:var(--text);box-shadow:inset 0 1px 2px rgba(0,0,0,.22)">'+["","web","mobile","desktop","ia","claude-code","prompt-system","automatizacion","cli","rework","otro"].map(function(t){return '<option value="'+t+'"'+(ft===t?" selected":"")+'>'+(t===""?"Todas las categor\u00edas":(CAT[t]?CAT[t][0]:t))+'</option>';}).join("")+'</select>'+((ST.q||ft)?'<button data-act="clearf">Limpiar</button>':'')+'</div>';
  var cols=PIPE.map(function(es){var items=ST.ideas.filter(function(i){return i.status===es&&m(i);});
   var cards=items.map(function(i){return '<div class="card" data-act="open" data-slug="'+i.slug+'"><div style="font-size:13px;font-weight:500;margin-bottom:7px">'+i.titulo+(i.running?' <i class="ti ti-player-play" style="font-size:12px;color:var(--ok)" title="construyendo"></i>':'')+'</div><div style="display:flex;align-items:center;justify-content:space-between;gap:6px"><span style="display:flex;gap:5px;flex-wrap:wrap">'+chipCat(i.cat)+chipRet(i.return_type)+'</span><span style="font-size:11px;color:var(--text3);white-space:nowrap">'+(i.score?('Score <b class="px" style="color:var(--accent-text);font-weight:500">'+i.score+'</b>'):"sin score")+'</span></div></div>';}).join("")||'<div style="font-size:11px;color:var(--text3);padding:4px 2px">—</div>';
   return '<div class="col"><div class="px" style="font-size:11px;color:var(--text2);margin-bottom:9px;letter-spacing:.04em">'+LBL[es].toUpperCase()+' <span style="color:var(--accent-text)">'+items.length+'</span></div>'+cards+'</div>';}).join("");
  var disc=ST.ideas.filter(function(i){return i.status==="discarded"&&m(i);});
  var dc=disc.length?'<div class="col" style="opacity:.6"><div class="px" style="font-size:11px;color:var(--text2);margin-bottom:9px;letter-spacing:.04em">DESCARTADA '+disc.length+'</div>'+disc.map(function(i){return '<div class="card" data-act="open" data-slug="'+i.slug+'"><div style="font-size:13px;text-decoration:line-through;color:var(--text2)">'+i.titulo+'</div></div>';}).join("")+'</div>':"";
- return intakePanel()+filt
+ return pageHead("ti-layout-kanban","Tablero","El tablero de ideas: cada una recorre las 6 fases del pipeline. Solo-lectura — los skills mueven las tarjetas.")
+ +intakePanel()+filt
  +'<p style="font-size:12px;color:var(--text3);margin:0 0 10px"><i class="ti ti-info-circle" style="font-size:13px;vertical-align:-2px"></i> Las tarjetas avanzan cuando apruebas el resultado de cada etapa; si no te gusta, re-corres el mismo comando y sigues iterando. Aquí solo lees y decides.</p>'
- +'<div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px">'+cols+dc+'</div>'
+ +'<div tabindex="0" role="group" aria-label="Tablero de ideas por fase (desplazable)" style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px">'+cols+dc+'</div>'
  +'<p style="font-size:12px;color:var(--text3);margin:12px 2px 0"><b style="font-weight:500">Categoría:</b> web / mobile / desktop / IA / claude-code / prompts / automatización / CLI / rework. <b style="font-weight:500">Retorno:</b> monetario / oportunidad / personal / mixto. <b style="font-weight:500">Score</b> 0-100. <i class="ti ti-player-play" style="font-size:12px;color:var(--ok)"></i> = construyéndose ahora.</p>';
 }
 
@@ -760,38 +839,74 @@ function detailView(){
  // horizontal tabs (same pattern as the Portfolio project pane)
  var tabs=[["campana","Campaña","ti-map-2"],["docs","Documentos","ti-files"],["comandos","Comandos","ti-wand"]].map(function(s){return '<span class="stab '+(tab===s[0]?"on":"")+'" data-act="itab" data-it="'+s[0]+'"><i class="ti '+s[2]+'" style="font-size:13px;vertical-align:-2px"></i> '+s[1]+'</span>';}).join("");
  var campana='<div class="panel" style="padding:9px 10px"><div style="font-size:11px;color:var(--text3);margin:0 2px 7px;display:flex;align-items:center;gap:6px"><i class="ti ti-map-2" style="font-size:13px;color:var(--accent-text)"></i> EL VIAJE DE ESTA IDEA POR LAS 6 FASES <span style="color:var(--text3);font-weight:400">— clic en una sala para su ficha</span></div><iframe src="party-pipeline.html?embed=1&active='+campaignPhase(i.status)+'&slug='+i.slug+'" title="La Campaña · pipeline" style="width:100%;height:720px;border:0;display:block;background:transparent"></iframe></div>';
- var docsBody='<div style="display:grid;grid-template-columns:210px 1fr;gap:14px;align-items:start"><div class="panel" style="padding:10px"><div style="font-size:11px;color:var(--text3);margin:2px 4px 8px">DOCUMENTACIÓN</div>'+nav+'</div><div class="panel">'+content+'</div></div>';
+ var docsBody='<div style="display:grid;grid-template-columns:210px 1fr;gap:14px;align-items:start"><div class="panel" style="padding:10px">'+railLabel("DOCUMENTOS")+nav+'</div><div class="panel">'+content+'</div></div>';
  var body=tab==="docs"?docsBody:(tab==="comandos"?extra:campana);
+ var headTail='<span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">'+chipCat(i.cat)+chipRet(i.return_type)+'<span class="px" style="font-size:11px;color:var(--text3)">Score '+(i.score||"—")+'/100</span></span>';
  return '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><button data-act="back"><i class="ti ti-arrow-left" style="font-size:14px"></i> Volver al tablero</button>'+(canDiscard?'<button data-act="discard" data-slug="'+i.slug+'" style="border-color:var(--danger);color:var(--danger)"><i class="ti ti-trash" style="font-size:14px"></i> Descartar idea</button>':'')+'</div>'
-  +'<div class="panel" style="margin-bottom:14px"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px"><span style="font-size:20px;font-weight:500">'+i.titulo+'</span><span style="display:flex;gap:8px;align-items:center">'+chipCat(i.cat)+chipRet(i.return_type)+'<span style="font-size:12px;color:var(--text2);margin-left:6px">Score '+(i.score||"—")+'/100</span></span></div><div style="font-size:12px;color:var(--text3);margin-top:4px">etapa: '+LBL[i.status]+'</div></div>'
+  +pageHead("ti-bulb",esc(i.titulo),"Etapa: "+LBL[i.status],headTail)
   +'<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">'+tabs+'</div>'+body;
 }
 
 // Portfolio = rail vertical de proyectos + detalle a la derecha
 function portfolioView(){
- var projs=ST.ideas.filter(function(i){return i.status==="building"||i.status==="shipped"||i.status==="architecture";});
+ var projs=ST.ideas.filter(function(i){return i.status==="building"||i.status==="shipped";});
  if(projs.length&&!ST.projectSlug)ST.projectSlug=projs[0].slug;
  var rail=projs.map(function(i){var dn=(i.decisiones||[]).filter(function(d){return d.e!=="resuelta";}).length;var ic=i.running?'<i class="ti ti-player-play" style="font-size:14px;color:var(--ok)" title="construyendo"></i>':'<i class="ti ti-player-pause" style="font-size:14px;color:var(--text3)" title="parado"></i>';
   var dchip=dn?'<span title="'+dn+' decisión(es) pendiente(s)" style="background:var(--warn);color:var(--canvas);border-radius:99px;font-size:10px;font-weight:500;min-width:17px;height:17px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px;flex:0 0 auto">'+dn+'</span>':'';
   var bn=i.bugs||0;var bchip=bn?'<span title="'+bn+' bug(s) por procesar" style="background:var(--danger);color:var(--canvas);border-radius:99px;font-size:10px;font-weight:500;min-width:17px;height:17px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px;flex:0 0 auto">'+bn+'</span>':'';
-  return '<div class="rail '+(ST.projectSlug===i.slug?"on":"")+'" data-act="railproj" data-slug="'+i.slug+'"><div style="display:flex;align-items:center;gap:8px">'+ic+'<span style="font-size:13px;font-weight:500;flex:1">'+i.titulo+'</span><span style="display:flex;gap:4px;flex:0 0 auto">'+dchip+bchip+'</span></div><div style="font-size:11px;color:var(--text3);margin-top:3px;margin-left:22px">'+LBL[i.status]+'</div></div>';}).join("")||'<div style="font-size:12px;color:var(--text3)">Sin proyectos aún.</div>';
+  /* ✦ Grupo B · FRD-14 — chip «replanteo en curso» (rethink_pending) en el rail */
+  var rethink=i.rethink?'<div style="font-size:10px;color:var(--accent-text);margin-top:4px;margin-left:22px"><span class="chip" style="background:var(--accent-bg);color:var(--accent-text);font-size:10px"><i class="ti ti-refresh-dot" style="font-size:10px;vertical-align:-1px"></i> replanteo en curso</span></div>':'';
+  return '<div class="rail '+(ST.projectSlug===i.slug?"on":"")+'" data-act="railproj" data-slug="'+i.slug+'"><div style="display:flex;align-items:center;gap:8px">'+ic+'<span style="font-size:13px;font-weight:500;flex:1">'+i.titulo+'</span><span style="display:flex;gap:4px;flex:0 0 auto">'+dchip+bchip+'</span></div><div style="font-size:11px;color:var(--text3);margin-top:3px;margin-left:22px">'+LBL[i.status]+'</div>'+rethink+'</div>';}).join("")||'<div style="font-size:12px;color:var(--text3)">Sin proyectos aún.</div>';
  var right=ST.projectSlug?projectPane(get(ST.projectSlug)):'<div class="panel" style="color:var(--text3);font-size:13px">Elige un proyecto a la izquierda.</div>';
- return '<div style="display:grid;grid-template-columns:240px 1fr;gap:14px;align-items:start"><div><div style="font-size:11px;color:var(--text3);margin:0 4px 8px">PROYECTOS</div>'+rail+'</div><div>'+right+'</div></div>';
+ return pageHead("ti-stack-2","Portfolio","Tus proyectos en obra y lanzados. Elige uno para su workspace: resumen, work orders, party y documentación.")
+  +'<div style="display:grid;grid-template-columns:240px 1fr;gap:14px;align-items:start"><div>'+railLabel("PROYECTOS")+rail+'</div><div>'+right+'</div></div>';
 }
+/* ✦ Grupo B · cambio 6 — copy claro: es el ÚLTIMO COMMIT DEL BUILD QUE PASÓ TODOS LOS GATES,
+   seguro para probar en un worktree aparte mientras el build sigue. NO es un asunto de git
+   local-vs-remoto. (Antes se llamaba «punto verde», confuso.) */
 function snapshotPanel(i){
  if(!i.green)return "";
  var cmd='git worktree add ../'+i.slug+'-review '+i.green.sha;
- var building=i.running?'<div style="font-size:12px;color:var(--text2);margin-top:6px"><i class="ti ti-hammer" style="font-size:13px;vertical-align:-2px;color:var(--accent)"></i> Construyendo ahora: <b style="font-weight:500">'+esc(i.progreso||'—')+'</b> · no probar esto todavía</div>':'';
- return '<div class="panel" style="margin-bottom:12px"><div style="display:flex;align-items:flex-start;gap:10px"><i class="ti ti-circle-check" style="font-size:18px;color:var(--ok);margin-top:1px"></i><div style="flex:1"><div style="font-size:13px;font-weight:500">Último punto probable: '+esc(i.green.frd)+' <span class="chip" style="background:var(--ok-bg);color:var(--ok);font-size:10px">verde</span></div><div style="font-size:11px;color:var(--text3);margin-top:1px">commit '+esc(i.green.sha)+' · testeable sin parar la construcción</div>'+building+'</div></div>'+cmdRow(cmd,"pruébalo en otra carpeta")+'</div>';
+ var building=i.running?'<div style="font-size:12px;color:var(--text2);margin-top:6px"><i class="ti ti-hammer" style="font-size:13px;vertical-align:-2px;color:var(--accent)"></i> El build sigue avanzando: <b style="font-weight:500">'+esc(i.progreso||'—')+'</b> · eso aún no está en verde, no lo pruebes</div>':'';
+ return '<div class="panel" style="margin-bottom:12px"><div style="display:flex;align-items:flex-start;gap:10px"><i class="ti ti-circle-check" style="font-size:18px;color:var(--ok);margin-top:1px"></i><div style="flex:1"><div style="font-size:13px;font-weight:500">Último commit en verde · seguro para probar <span class="chip" style="background:var(--ok-bg);color:var(--ok);font-size:10px">'+esc(i.green.frd)+'</span></div><div style="font-size:11px;color:var(--text3);margin-top:2px">commit <code style="font-size:11px;background:var(--panel);padding:1px 5px;border-radius:4px">'+esc(i.green.sha)+'</code> — pasó todos los gates. Pruébalo en un worktree aparte sin parar el build.</div>'+building+'</div></div>'+cmdRow(cmd,"crea un worktree de prueba en esa carpeta")+'</div>';
+}
+/* ✦ Grupo B · cambio 5 — el panel «snapshot de negocio» se ELIMINÓ (diferido por prematuro).
+   El banner «ruta no encontrada» (bPathLostBanner) se conserva. */
+/* ✦ Grupo B · cambio 6 · FRD-14 — el último commit en verde quedó N commits atrás del build actual. */
+function bStalenessPanel(i){
+ if(!i.staleness)return "";var s=i.staleness;
+ return '<div class="panel" style="margin-bottom:12px;border-color:var(--warn)"><div style="display:flex;align-items:flex-start;gap:10px"><i class="ti ti-clock-exclamation" style="font-size:18px;color:var(--warn);margin-top:1px"></i><div style="flex:1"><div style="font-size:13px;font-weight:500;color:var(--warn);display:flex;align-items:center;gap:8px;flex-wrap:wrap">El último commit en verde quedó atrás del build '+bBadge()+'</div><div style="font-size:12px;color:var(--text2);margin-top:2px">El último commit en verde (<b style="font-weight:500">'+esc(s.ultimoVerde)+'</b>) quedó '+esc(s.adelanto)+'. Lo que pruebes ahí ya no refleja lo que el build lleva construido.</div></div></div></div>';
+}
+/* ✦ Grupo B · FRD-03 — banner de recuperación «ruta no encontrada». */
+function bPathLostBanner(i){
+ if(!i.pathLost)return "";var p=i.pathLost;
+ return '<div style="background:var(--danger-bg);border:.5px solid var(--bd2);border-radius:var(--rlg);padding:12px 14px;margin-bottom:12px"><div style="display:flex;align-items:flex-start;gap:10px"><i class="ti ti-folder-x" style="font-size:20px;color:var(--danger);margin-top:1px"></i><div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:500;color:var(--danger);display:flex;align-items:center;gap:8px;flex-wrap:wrap">⚠️ Ruta del proyecto no encontrada '+bBadge()+'</div><div style="font-size:12px;color:var(--danger);margin-top:2px">No encuentro la carpeta esperada <code style="font-size:11px;background:var(--panel);padding:1px 6px;border-radius:4px">'+esc(p.esperada)+'</code>.</div><div style="font-size:11px;color:var(--danger);opacity:.85;margin-top:6px">'+esc(p.hint)+'</div></div></div>'+cmdRow("/pandacorp:sync-portfolio","reconcilia las rutas del portfolio")+'</div>';
+}
+/* ✦ Grupo B · cambio 7 — el workspace del proyecto arranca con un HEADER COMPACTO
+   (título · fase · versión · barra de progreso fina) y JUSTO debajo la BARRA DE PESTAÑAS,
+   alcanzable sin scroll. Todo el bloque de overview (objetivos + alertas + decisiones +
+   snapshot del último verde) se movió DENTRO de la pestaña «Resumen» (la de por defecto).
+   cambio 5 — el panel «snapshot de negocio» se eliminó por completo (diferido). */
+function compactProjectHeader(i){
+ var pct=woProgress(i).pct;
+ var bar=woProgress(i).tot?'<span style="display:inline-block;flex:1;min-width:120px;max-width:260px;height:6px;background:var(--secondary);border-radius:99px;overflow:hidden;border:.5px solid var(--bd);vertical-align:middle"><span style="display:block;height:100%;width:'+pct+'%;background:'+(pct>=100?"var(--ok)":"var(--accent)")+'"></span></span><span style="font-size:11px;color:var(--text3)">'+pct+'%</span>':'';
+ return '<div class="panel" style="margin-bottom:12px;padding:10px 14px"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span style="font-size:16px;font-weight:500">'+i.titulo+(i.running?' <i class="ti ti-player-play" style="font-size:13px;color:var(--ok)"></i>':'')+'</span>'+chip2(i.status)+'<span style="font-size:12px;color:var(--text2)">'+(i.version||"")+'</span>'+bar+'</div></div>';
 }
 function projectPane(i){
  if(!i)return "";var t=ST.projectTab;
- var subtabs=[["resumen","Resumen"],["workorders","Work orders"],["mission","Party"],["docs","Documentos"],["comandos","Comandos"]].map(function(s){return '<span class="stab '+(t===s[0]?"on":"")+'" data-act="ptab" data-pt="'+s[0]+'">'+s[1]+'</span>';}).join("");
- var body=t==="docs"?projDocs(i):t==="workorders"?projWO(i):t==="mission"?missionBody(i):t==="comandos"?projComandos(i):projResumen(i);
- return '<div class="panel" style="margin-bottom:12px;padding:12px 16px"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px"><span style="font-size:18px;font-weight:500">'+i.titulo+(i.running?' <i class="ti ti-player-play" style="font-size:14px;color:var(--ok)"></i>':'')+'</span><span style="display:flex;gap:8px;align-items:center">'+chip2(i.status)+'<span style="font-size:12px;color:var(--text2)">'+(i.version||"")+'</span></span></div>'+(i.progreso?'<div style="font-size:12px;color:var(--text3);margin-top:4px">'+esc(i.progreso)+'</div>':'')+progressBar(i)+'</div>'+snapshotPanel(i)
+ var subtabs=[["resumen","Resumen"],["workorders","Work orders"],["mission","Party"],["observabilidad","Observabilidad"],["docs","Documentos"],["comandos","Comandos"]].map(function(s){return '<span class="stab '+(t===s[0]?"on":"")+'" data-act="ptab" data-pt="'+s[0]+'">'+s[1]+'</span>';}).join("");
+ var body=t==="docs"?projDocs(i):t==="workorders"?projWO(i):t==="mission"?missionBody(i):t==="observabilidad"?observabilidadBody(i):t==="comandos"?projComandos(i):projResumen(i);
+ return bPathLostBanner(i)
+  +compactProjectHeader(i)
   +'<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">'+subtabs+'</div>'+body;
 }
-function projResumen(i){return '<div class="panel"><div class="doc"><h2>Resumen</h2><p>'+esc(i.resumen)+'</p><h3>Puntos clave</h3><ul>'+i.clave.map(function(k){return "<li>"+esc(k)+"</li>";}).join("")+'</ul></div></div>'+decisionesBox(i)+logBox(i);}
+/* cambio 7 — la pestaña Resumen ahora ES el overview: progreso/objetivos + último verde +
+   decisiones + actividad. Se ve primero (es la pestaña por defecto), pero las pestañas
+   quedan arriba y alcanzables sin scroll. */
+function projResumen(i){
+ return '<div class="panel"><div class="doc"><h2>Resumen</h2><p>'+esc(i.resumen)+'</p>'+(i.progreso?'<div style="font-size:12px;color:var(--text3);margin:0 0 6px"><i class="ti ti-hammer" style="font-size:12px;vertical-align:-1px;color:var(--accent)"></i> '+esc(i.progreso)+'</div>':'')+'<h3>Puntos clave</h3><ul>'+i.clave.map(function(k){return "<li>"+esc(k)+"</li>";}).join("")+'</ul></div>'+progressBar(i)+'</div>'
+  +snapshotPanel(i)+bStalenessPanel(i)+decisionesBox(i)+logBox(i);
+}
 var BUILDMODES=[
  ["pro","Pro / económico","1 agente a la vez, modelos económicos (sonnet/haiku). Más lento, mínimo consumo. Para plan Pro.","/pandacorp:implement pro"],
  ["balanced","Equilibrado","Equipo de ≤3 agentes; líder opus, obreros sonnet/haiku. Por defecto, pensado para Max 5x.","/pandacorp:implement"],
@@ -812,7 +927,7 @@ function logBox(i){var l=i.log||[];
  return '<div class="panel" style="margin-top:14px"><p style="font-size:13px;font-weight:500;margin:0;color:var(--text2)">Actividad <span style="font-weight:400;color:var(--text3);font-size:12px">· alto nivel, lo que la IA va haciendo y decidiendo</span></p>'+rows+'</div>';}
 function projDocs(i){var di=Math.min(ST.openDoc,i.docs.length);if(di<1)di=1;
  var nav=i.docs.map(function(d,ix){return '<div class="navitem '+(di===ix+1?"on":"")+'" data-act="doc" data-slug="'+i.slug+'" data-doc="'+(ix+1)+'"><i class="ti ti-file-text"></i> '+d.n+'</div>';}).join("");
- return '<div style="display:grid;grid-template-columns:200px 1fr;gap:14px;align-items:start"><div class="panel" style="padding:10px">'+nav+'</div><div class="panel doc">'+md(i.docs[di-1].c)+'</div></div>';}
+ return '<div style="display:grid;grid-template-columns:200px 1fr;gap:14px;align-items:start"><div class="panel" style="padding:10px">'+railLabel("DOCUMENTOS")+nav+'</div><div class="panel doc">'+md(i.docs[di-1].c)+'</div></div>';}
 function frdChip(f){return f?'<span class="chip" style="background:var(--info-bg);color:var(--info);font-size:10px">'+f+'</span>':'';}
 function woFullDoc(w){return "# "+w.t+"\n\n**FRD:** "+(w.frd||"—")+" · **Estado:** "+WLBL[w.e]+"\n\n## Descripción\n"+(w.d||"—")+"\n\n## Criterios de aceptación\n- (criterios EARS del FRD, copiados aquí para que el agente no tenga que ir a buscarlos)\n\n## Alcance\n- Qué archivos/módulos toca y qué NO incluye.\n\n## Definición de terminado\n- Tests de los criterios en verde\n- Type-check + lint limpios\n- Revisión del agente reviewer aprobada\n\n## Evidencia\n- (comando de test ejecutado y su resultado, al cerrar)";}
 function projWO(i){var wos=i.wo||[];if(!wos.length)return '<div class="panel" style="color:var(--text3);font-size:13px">Los work orders se generan en /pandacorp:blueprint.</div>';
@@ -825,7 +940,7 @@ function projWO(i){var wos=i.wo||[];if(!wos.length)return '<div class="panel" st
  var cols=["todo","progress","review","fail","done"].map(function(st){var items=wos.map(function(w,ix){return {w:w,ix:ix};}).filter(function(o){return o.w.e===st;});var isF=st==="fail";
   var cards=items.map(function(o){return '<div class="card" data-act="wo" data-ix="'+o.ix+'"'+(isF?' style="background:var(--danger-bg);border-color:var(--danger)"':'')+'><div style="font-size:12px;margin-bottom:6px'+(isF?';color:var(--danger)':'')+'">'+(isF?'<i class="ti ti-alert-triangle" style="font-size:12px;vertical-align:-1px"></i> ':'')+esc(o.w.t)+'</div>'+frdChip(o.w.frd)+'</div>';}).join("")||'<div style="font-size:11px;color:var(--text3);padding:4px 2px">—</div>';
   return '<div class="col"><div style="font-size:11px;font-weight:500;color:'+(isF?'var(--danger)':'var(--text2)')+';margin-bottom:8px">'+WLBL[st]+' <span style="color:var(--text3)">'+items.length+'</span></div>'+cards+'</div>';}).join("");
- return '<p style="font-size:12px;color:var(--text3);margin:0 0 10px">Estado en vivo de cada work order (lo escriben los agentes). Clic en uno para ver su resumen y de qué FRD es. Solo-lectura.</p><div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:6px">'+cols+'</div>';}
+ return '<p style="font-size:12px;color:var(--text3);margin:0 0 10px">Estado en vivo de cada work order (lo escriben los agentes). Clic en uno para ver su resumen y de qué FRD es. Solo-lectura.</p><div tabindex="0" role="group" aria-label="Work orders por estado (desplazable)" style="display:flex;gap:8px;overflow-x:auto;padding-bottom:6px">'+cols+'</div>';}
 
 function cfgGrid(cards){return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:8px">'+cards.join("")+'</div>';}
 function sevBadge(sev){var c=sev.indexOf("MUST")===0?["var(--danger-bg)","var(--danger)"]:sev.indexOf("SHOULD")===0?["var(--warn-bg)","var(--warn)"]:["var(--secondary)","var(--text2)"];return '<span class="chip" style="background:'+c[0]+';color:'+c[1]+';font-size:10px">'+sev+'</span>';}
@@ -841,7 +956,15 @@ function flowDiagram(skill){if(!skill.flow)return "";
  return '<div style="padding:2px 0">'+html+loop+'</div>';}
 function agentChips(ids){if(!ids||!ids.length)return '<span style="font-size:12px;color:var(--text3)">no usa agentes — son pasos mecánicos / orquestación</span>';return ids.map(function(id){var col=AVCOL[id]||"var(--secondary)";return '<span data-act="gotoagent" data-id="'+id+'" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;background:var(--secondary);border:.5px solid var(--bd);border-radius:99px;padding:3px 10px 3px 4px;font-size:12px;margin:0 5px 5px 0"><span style="width:16px;height:16px;border-radius:50%;background:'+col+';flex:0 0 auto"></span>'+id+'</span>';}).join("");}
 function cfgTabs(){var ct=ST.cfgTab||"resumen";return '<div style="display:flex;gap:6px;margin-bottom:12px">'+[["resumen","Resumen"],["detalle","Detalle"]].map(function(t){return '<span class="stab '+(ct===t[0]?"on":"")+'" data-act="cfgtab" data-ct="'+t[0]+'">'+t[1]+'</span>';}).join("")+'</div>';}
-function gxHero(ic,title,sub){return '<div class="rpgpanel rpggrid anim" style="padding:14px 16px;margin-bottom:14px;display:flex;gap:13px;align-items:center"><span class="itemslot" style="width:46px;height:46px;background:var(--accent-bg);border:1.5px solid var(--accent);color:var(--accent-text);box-shadow:0 0 18px -7px var(--accent);flex:0 0 auto"><i class="ti '+ic+'" style="font-size:25px"></i></span><div style="min-width:0"><div class="ttl" style="font-size:18px;line-height:1.15">'+title+'</div><div style="font-size:12px;color:var(--text2);margin-top:2px">'+sub+'</div></div></div>';}
+/* ===== Bloque de TÍTULO DE PÁGINA canónico (una sola forma para TODA la app) =====
+   Regla: el H1 de la página SIEMPRE es igual a su etiqueta en el menú de navegación
+   (nav «Propuestas» → H1 «Propuestas»); cualquier descripción extra va en el SUBTÍTULO.
+   `tail` es un slot opcional a la derecha del título (chip de conteo, ✦ Grupo B…). */
+/* ✦ título de página — estilo LIVIANO inline (como el original «Salón del gremio» de Logros): icono chico + H1 + chip opcional + subtítulo debajo. NO un panel pesado. El H1 = nombre del menú. */
+function pageHead(ic,title,sub,tail){return '<div style="margin-bottom:16px"><div style="display:flex;align-items:center;gap:11px;flex-wrap:wrap"><span class="itemslot" style="width:34px;height:34px;background:var(--accent-bg);border:1.5px solid var(--accent);color:var(--accent-text);flex:0 0 auto"><i class="ti '+ic+'" style="font-size:20px"></i></span><h1 class="ttl" style="font-size:21px;line-height:1.15;margin:0">'+title+'</h1>'+(tail||"")+'</div>'+(sub?'<div style="font-size:12px;color:var(--text2);margin-top:5px;margin-left:45px">'+sub+'</div>':'')+'</div>';}
+/* gxHero = el MISMO bloque de título canónico, usado por las secciones internas del Manual
+   (Comandos/Agentes/Reglas/Estándares). No es un estilo aparte: delega en pageHead. */
+function gxHero(ic,title,sub){return pageHead(ic,title,sub,null);}
 function gxSkillCard(s,ix,d){
  var ib=s.interno?'<span class="px" style="font-size:9px;color:var(--text3);background:var(--panel);border:1px solid var(--bd);padding:1px 6px;border-radius:4px;margin-left:6px">interno</span>':'';
  var party=(s.agents||[]).slice(0,5).map(function(id){return '<img class="sprite" src="'+mcSprite(id)+'" alt="" title="'+(MCN[id]||id)+'" style="width:22px;height:22px;border-radius:5px;border:1px solid var(--bd2);background:var(--panel)" onerror="this.remove()">';}).join("");
@@ -927,7 +1050,7 @@ var DOCNAV=[
  {g:"Técnico / developer",ic:"ti-bolt",t:"Construcción desatendida"},
  {g:"Técnico / developer",ic:"ti-puzzle",t:"El plugin"}
 ];
-function docCmd(c){return '<div class="cmd" style="margin-top:6px"><i class="ti ti-terminal-2" style="font-size:14px;color:var(--text2)"></i><span class="t">'+esc(c)+'</span><button data-act="copy" data-cmd="'+esc(c)+'"><i class="ti ti-copy" style="font-size:13px"></i></button></div>';}
+function docCmd(c){return '<div class="cmd" style="margin-top:6px"><i class="ti ti-terminal-2" style="font-size:14px;color:var(--text2)"></i><span class="t">'+esc(c)+'</span><button data-act="copy" data-cmd="'+esc(c)+'" aria-label="Copiar comando '+esc(c)+'"><i class="ti ti-copy" style="font-size:13px"></i></button></div>';}
 function docH(t){return '<div class="ttl" style="font-size:18px;margin:2px 0 12px;display:flex;align-items:center;gap:8px"><span style="width:6px;height:18px;border-radius:3px;background:var(--accent);flex:0 0 auto;box-shadow:0 0 9px -2px var(--accent)"></span>'+t+'</div>';}
 function pipelineDiagram(){
  var st=[["Descubierta","var(--t3)","Exploras una idea difusa en conversación, capturas una idea tuya, o la fábrica descubre oportunidades en internet.","/pandacorp:explore · :new-idea · :discover"],
@@ -1002,7 +1125,7 @@ docH("Tipos de lección")+
  return "";}
 function docsView(){var p=Math.min(ST.docsPage||0,DOCNAV.length-1);
  var lastG="";var nav=DOCNAV.map(function(d,ix){var h=d.g!==lastG?(lastG=d.g,'<div class="px" style="font-size:10px;color:var(--accent-text);margin:'+(ix?"15px":"2px")+' 6px 7px;letter-spacing:.08em">'+d.g.toUpperCase()+'</div>'):"";return h+'<div class="navitem '+(p===ix?"on":"")+'" data-act="docpage" data-p="'+ix+'"><i class="ti '+d.ic+'" style="font-size:14px"></i> '+d.t+'</div>';}).join("");
- return '<div class="rpghall">'+gxHero("ti-book","Manual del gremio","El lorebook de la fábrica — todo el cómo y el porqué, capítulo por capítulo.")+'<div style="display:grid;grid-template-columns:230px 1fr;gap:14px;align-items:start"><div class="panel" style="padding:11px">'+nav+'</div><div style="min-width:0">'+docPage(p)+'</div></div></div>';}
+ return '<div class="rpghall">'+gxHero("ti-book","Documentación","El códice del gremio — todo el cómo y el porqué, capítulo por capítulo.")+'<div style="display:grid;grid-template-columns:230px 1fr;gap:14px;align-items:start"><div class="panel" style="padding:11px">'+railLabel("CAPÍTULOS")+nav+'</div><div style="min-width:0">'+docPage(p)+'</div></div></div>';}
 
 var MCN={researcher:"Investigador","backend-dev":"Backend","frontend-dev":"Frontend","test-writer":"Testing",reviewer:"Revisión","security-auditor":"Seguridad",implementer:"Full-stack","product-manager":"PM",designer:"Diseño",architect:"Arquitecto",analytics:"Analítica",copywriter:"Copy",devops:"DevOps"};
 var MCICON={researcher:"ti-books","backend-dev":"ti-server","frontend-dev":"ti-browser","test-writer":"ti-flask",reviewer:"ti-eye-check","security-auditor":"ti-shield-lock",implementer:"ti-code","product-manager":"ti-clipboard-text",designer:"ti-palette",architect:"ti-blueprints",analytics:"ti-chart-line",copywriter:"ti-writing",devops:"ti-rocket"};
@@ -1011,13 +1134,89 @@ var MCSPRITE={implementer:"backend-dev"};
 function mcSprite(id){return IMG[id]||IMG[MCSPRITE[id]]||IMG.implementer||"";}
 var MCROSTER={pro:["implementer","reviewer"],balanced:["backend-dev","frontend-dev","test-writer","reviewer"],powerful:["backend-dev","frontend-dev","test-writer","researcher","reviewer","analytics"],deep:["backend-dev","frontend-dev","test-writer","researcher","reviewer","analytics"]};
 var MCMODES=[["pro","Económico"],["balanced","Equilibrado"],["powerful","Potente"],["deep","Profundo"]];
+/* ============================================================================
+   ✦ GRUPO B · FRD-12 — Observabilidad: toggle RPG ↔ Línea de tiempo ↔ DAG
+   sobre los MISMOS work orders. RPG = el embed existente de La Fragua.
+   Timeline y DAG son mocks estáticos (sin Dagre real) con datos de WO de ejemplo.
+   ============================================================================ */
+/* datos de ejemplo: work orders con duración (min), estado, dependencias y tareas/acciones anidadas */
+var BWO=[
+ {id:"WO-02-001",t:"Esquema de datos + seeds",frd:"FRD-01",e:"done",start:0,dur:34,deps:[],tasks:[{t:"Modelar tablas grupos/gastos",dur:14,e:"done"},{t:"Migración inicial",dur:11,e:"done"},{t:"Seeds de prueba",dur:9,e:"done"}]},
+ {id:"WO-02-002",t:"CRUD de grupos",frd:"FRD-01",e:"fail",start:34,dur:28,deps:["WO-02-001"],tasks:[{t:"Server actions CRUD",dur:13,e:"done"},{t:"Autorización por miembro",dur:9,e:"done"},{t:"Tests adversariales (reviewer)",dur:6,e:"fail"}]},
+ {id:"WO-02-003",t:"Registrar gasto",frd:"FRD-02",e:"progress",start:62,dur:22,deps:["WO-02-001"],tasks:[{t:"Formulario + validación Zod",dur:12,e:"done"},{t:"Optimistic UI",dur:10,e:"progress"}]},
+ {id:"WO-02-004",t:"Cálculo de deudas",frd:"FRD-03",e:"todo",start:84,dur:18,deps:["WO-02-002","WO-02-003"],tasks:[{t:"Algoritmo min-transferencias",dur:18,e:"todo"}]},
+ {id:"WO-02-005",t:"Pantalla de liquidación",frd:"FRD-03",e:"todo",start:102,dur:16,deps:["WO-02-004"],tasks:[{t:"UI de saldar deudas",dur:16,e:"todo"}]}
+];
+var BWO_TOTAL=118;
+var WOCOL={done:"var(--ok)",progress:"var(--accent)",fail:"var(--danger)",todo:"var(--bd2)",review:"var(--info)"};
+var WOICON={done:"ti-circle-check",progress:"ti-loader-2",fail:"ti-alert-triangle",todo:"ti-circle",review:"ti-eye"};
+/* cadena de dependencias (upstream + downstream) de un nodo, para resaltar */
+function bDagChain(id){var up={},dn={},up2=function(n){BWO.filter(function(w){return w.id===n;})[0].deps.forEach(function(d){if(!up[d]){up[d]=1;up2(d);}});};var dn2=function(n){BWO.forEach(function(w){if(w.deps.indexOf(n)>=0&&!dn[w.id]){dn[w.id]=1;dn2(w.id);}});};up2(id);dn2(id);var set={};set[id]=1;Object.keys(up).forEach(function(k){set[k]=1;});Object.keys(dn).forEach(function(k){set[k]=1;});return set;}
+
+function bTimeline(){
+ var firstErr=BWO.filter(function(w){return w.e==="fail";})[0];
+ var rows=BWO.map(function(w){
+  var col=WOCOL[w.e];var left=(w.start/BWO_TOTAL*100),width=(w.dur/BWO_TOTAL*100);
+  var bar='<div style="position:relative;height:22px;background:var(--secondary);border-radius:5px;border:.5px solid var(--bd)"><div title="'+esc(w.t)+' · '+w.dur+' min" style="position:absolute;top:0;bottom:0;left:'+left+'%;width:'+width+'%;min-width:34px;background:'+col+';border-radius:5px;display:flex;align-items:center;padding:0 6px;color:var(--canvas);font-size:10px;font-weight:600;overflow:hidden;white-space:nowrap">'+w.dur+'m</div></div>';
+  var taskBars=w.tasks.map(function(tk,ti){var ts=w.start+w.tasks.slice(0,ti).reduce(function(a,x){return a+x.dur;},0);var tl=(ts/BWO_TOTAL*100),tw=(tk.dur/BWO_TOTAL*100);return '<div style="display:grid;grid-template-columns:150px 1fr;gap:8px;align-items:center;margin-top:3px"><span style="font-size:10px;color:var(--text3);padding-left:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">↳ '+esc(tk.t)+'</span><div style="position:relative;height:11px"><div title="'+esc(tk.t)+' · '+tk.dur+' min" style="position:absolute;top:0;bottom:0;left:'+tl+'%;width:'+tw+'%;min-width:8px;background:'+WOCOL[tk.e]+';opacity:.55;border-radius:3px"></div></div></div>';}).join("");
+  return '<div style="margin-bottom:11px"><div style="display:grid;grid-template-columns:150px 1fr;gap:8px;align-items:center"><div style="min-width:0"><div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><i class="ti '+WOICON[w.e]+'" style="font-size:12px;vertical-align:-1px;color:'+col+'"></i> '+esc(w.t)+'</div><div class="px" style="font-size:9px;color:var(--text3)">'+w.id+' · '+w.frd+'</div></div>'+bar+'</div>'+taskBars+'</div>';
+ }).join("");
+ var axis='<div style="display:grid;grid-template-columns:150px 1fr;gap:8px;margin-bottom:8px"><span></span><div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3)"><span>0 min</span><span>'+Math.round(BWO_TOTAL/2)+'</span><span>'+BWO_TOTAL+' min</span></div></div>';
+ var jump=firstErr?'<div style="font-size:11px;color:var(--danger);margin-bottom:10px"><i class="ti ti-alert-triangle" style="font-size:12px;vertical-align:-1px"></i> Primer error en <b>'+firstErr.id+'</b> ('+esc(firstErr.t)+') — la barra roja marca dónde se rompió la cadena.</div>':'';
+ return '<div class="panel"><div style="font-size:12px;color:var(--text2);margin-bottom:10px"><i class="ti ti-timeline" style="font-size:14px;vertical-align:-2px;color:var(--accent-text)"></i> Work orders → tareas → acciones, por duración. Las barras tenues son las tareas dentro de cada WO.</div>'+jump+axis+rows+'</div>';
+}
+
+function bDag(){
+ var active=BGROUP.dagNode;var chain=active?bDagChain(active):null;
+ var follow=BGROUP.dagFollow;var running=BWO.filter(function(w){return w.e==="progress";})[0];
+ /* posiciones por columna (nivel topológico) — layout estático tipo Dagre */
+ var col={"WO-02-001":0,"WO-02-002":1,"WO-02-003":1,"WO-02-004":2,"WO-02-005":3};
+ var rowIn={"WO-02-001":0,"WO-02-002":0,"WO-02-003":1,"WO-02-004":0,"WO-02-005":0};
+ var COLW=190,ROWH=92,NW=156,NH=58,PADX=14,PADY=14;
+ var pos={};BWO.forEach(function(w){pos[w.id]={x:PADX+col[w.id]*COLW,y:PADY+rowIn[w.id]*ROWH};});
+ var W=PADX*2+3*COLW+NW,H=PADY*2+ROWH+NH;
+ /* aristas */
+ var edges="";BWO.forEach(function(w){w.deps.forEach(function(d){var a=pos[d],b=pos[w.id];var x1=a.x+NW,y1=a.y+NH/2,x2=b.x,y2=b.y+NH/2;var mx=(x1+x2)/2;var on=chain&&chain[d]&&chain[w.id];var ec=on?"var(--accent)":(active?"var(--bd)":"var(--bd2)");var ew=on?2.2:1.2;edges+='<path d="M'+x1+' '+y1+' C'+mx+' '+y1+' '+mx+' '+y2+' '+x2+' '+y2+'" fill="none" stroke="'+ec+'" stroke-width="'+ew+'" marker-end="url(#bArrow'+(on?'On':'')+')" opacity="'+(active&&!on?".3":"1")+'"/>';});});
+ /* nodos */
+ var nodes=BWO.map(function(w){var p=pos[w.id];var col2=WOCOL[w.e];var dim=active&&!(chain&&chain[w.id]);var isFollow=follow&&running&&w.id===running.id;
+  return '<g data-act="b-dagnode" data-id="'+w.id+'" style="cursor:pointer" opacity="'+(dim?".32":"1")+'">'
+   +'<rect x="'+p.x+'" y="'+p.y+'" width="'+NW+'" height="'+NH+'" rx="9" fill="var(--card)" stroke="'+(active===w.id?"var(--accent)":col2)+'" stroke-width="'+(active===w.id?2.4:1.4)+'"'+(isFollow?' style="filter:drop-shadow(0 0 7px var(--accent))"':'')+'/>'
+   +'<text x="'+(p.x+11)+'" y="'+(p.y+22)+'" font-size="12" font-weight="600" fill="var(--t1)">'+esc(w.t.slice(0,18))+'</text>'
+   +'<text x="'+(p.x+11)+'" y="'+(p.y+38)+'" font-size="9.5" fill="var(--t3)" font-family="ui-monospace,monospace">'+w.id+' · '+w.frd+'</text>'
+   +'<circle cx="'+(p.x+NW-15)+'" cy="'+(p.y+18)+'" r="6" fill="'+col2+'"/>'
+   +(isFollow?'<text x="'+(p.x+11)+'" y="'+(p.y+52)+'" font-size="8.5" fill="var(--accent-text)">▶ paso activo</text>':'')
+   +'</g>';
+ }).join("");
+ var svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="min-width:'+W+'px;height:auto;display:block"><defs>'
+  +'<marker id="bArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8z" fill="var(--bd2)"/></marker>'
+  +'<marker id="bArrowOn" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8z" fill="var(--accent)"/></marker>'
+  +'</defs>'+edges+nodes+'</svg>';
+ var hint=active?'<span style="color:var(--accent-text)"><i class="ti ti-affiliate" style="font-size:12px;vertical-align:-1px"></i> Resaltando la cadena de <b>'+active+'</b> (upstream + downstream). <a class="lnk" data-act="b-dagclear">limpiar</a></span>':'Pasa el ratón / clic en un nodo para resaltar su cadena de dependencias y atenuar el resto.';
+ var firstErr=BWO.filter(function(w){return w.e==="fail";})[0];
+ var ctl='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
+  +(firstErr?'<button data-act="b-dagnode" data-id="'+firstErr.id+'" style="border-color:var(--danger);color:var(--danger)"><i class="ti ti-alert-triangle" style="font-size:13px;vertical-align:-2px"></i> Saltar al primer error</button>':'')
+  +'<button data-act="b-dagfollow" style="'+(follow?'border-color:var(--accent);color:var(--accent-text)':'')+'"><i class="ti '+(follow?"ti-eye":"ti-eye-off")+'" style="font-size:13px;vertical-align:-2px"></i> Seguir al paso activo: '+(follow?"ON":"OFF")+'</button>'
+  +'<span style="font-size:11px;color:var(--text3);flex:1;min-width:160px;text-align:right">'+hint+'</span></div>';
+ return '<div class="panel"><div style="font-size:12px;color:var(--text2);margin-bottom:10px"><i class="ti ti-binary-tree" style="font-size:14px;vertical-align:-2px;color:var(--accent-text)"></i> Grafo de dependencias entre work orders (DAG). Layout estático (en la app real lo dibuja Dagre, ~39KB).</div>'+ctl+'<div style="overflow-x:auto;border:.5px solid var(--bd);border-radius:var(--rmd);background:var(--canvas);padding:6px">'+svg+'</div></div>';
+}
+
+/* ✦ Grupo B · cambio 4 — Party es SOLO los agentes en vivo (la vista RPG · La Fragua).
+   Ya NO contiene el toggle RPG/timeline/DAG. La línea de tiempo y el DAG se mudaron
+   a la nueva pestaña «Observabilidad» (observabilidadBody, abajo). */
 function missionBody(i){
- // La Fragua — el build en vivo por FRD (prototype/party-proposal.html), embebida
  var mode=(ST.modes&&ST.modes[i.slug])||"balanced";if(!MCROSTER[mode])mode="balanced";
- return '<div class="panel" style="padding:9px 11px;margin-bottom:12px">'
+ return '<div class="panel" style="padding:9px 11px">'
    +'<div style="font-size:11px;color:var(--text3);margin:0 2px 8px;display:flex;align-items:center;gap:6px"><i class="ti ti-hammer" style="font-size:13px;color:var(--accent-text)"></i> EL BUILD EN VIVO · UN FRD A LA VEZ <span style="color:var(--text3);font-weight:400">— pasa el ratón por un muñeco para ver su work order</span></div>'
-   +'<iframe src="party-proposal.html?embed=1&mode='+mode+'" title="La Fragua · build en vivo" '
-   +'style="width:100%;height:760px;border:0;display:block;background:transparent"></iframe></div>';
+   +'<iframe src="party-proposal.html?embed=1&mode='+mode+'" title="La Fragua · build en vivo" style="width:100%;height:760px;border:0;display:block;background:transparent"></iframe></div>';
+}
+/* ✦ Grupo B · cambio 4 — pestaña «Observabilidad»: toggle Línea de tiempo ↔ DAG
+   sobre los MISMOS work orders (reubicado desde Party). */
+function observabilidadBody(i){
+ var view=BGROUP.obsView==="dag"?"dag":"timeline"; /* solo 2 vistas aquí; RPG vive en Party */
+ var views=[["timeline","Línea de tiempo","ti-timeline"],["dag","DAG","ti-binary-tree"]];
+ var toggle='<div style="display:flex;gap:6px;flex-wrap:wrap">'+views.map(function(v){return '<span class="stab '+(view===v[0]?"on":"")+'" data-act="b-obsview" data-v="'+v[0]+'"><i class="ti '+v[2]+'" style="font-size:13px;vertical-align:-2px"></i> '+v[1]+'</span>';}).join("")+'</div>';
+ var header='<div class="panel" style="padding:10px 12px;margin-bottom:12px"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><div style="font-size:11px;color:var(--text3);display:flex;align-items:center;gap:6px"><i class="ti ti-eye-search" style="font-size:14px;color:var(--accent-text)"></i> OBSERVABILIDAD · 2 vistas sobre los MISMOS work orders '+bBadge()+'</div>'+toggle+'</div><div style="font-size:11px;color:var(--text3);margin-top:6px">¿Buscas a los agentes en vivo? Están en la pestaña <b style="font-weight:500">Party</b>.</div></div>';
+ return header+(view==="dag"?bDag():bTimeline());
 }
 
 // ===== Manual / "Códice del gremio": fusión Documentación + Configuración (Diátaxis) =====
@@ -1132,7 +1331,7 @@ function manualGuide(id){
    "Mission Control te resalta los puntos de decisión pendientes y los bugs por procesar en Portfolio → Resumen.");
  if(id==="g-probar")return guiaDoc("Probar sin parar al agente",
    "El punto seguro es un commit de git, no un estado del agente. Puedes probar el último verde mientras el agente sigue construyendo en su carpeta.",
-   ['Mission Control te muestra el «último punto probable» (el último commit verde) en Portfolio → Resumen.',
+   ['Mission Control te muestra el «último commit en verde · seguro para probar» (el último commit del build que pasó todos los gates) en Portfolio → Resumen.',
     'Copia el comando del snapshot: crea un <code>git worktree</code> en otra carpeta apuntando a ese commit.',
     'Pruebas ahí, en paz, mientras el agente sigue en la suya. Da igual si está a medias: no tocas su carpeta.'],
    "El motor <b style=\"font-weight:600\">repara antes de bloquear</b>: si un WO o el gate de revisión falla, intenta repararlo. Si no puede, lo marca BLOCKED con motivo y sigue con las features independientes; HEAD queda siempre en el último verde verificado. Nada terminado se pierde.");
@@ -1162,17 +1361,113 @@ function manualContent(id){
 function manualView(){
  var p=ST.manualPage||MANUALNAV[0].items[0].id;
  var nav=MANUALNAV.map(function(gr,gi){var items=gr.items.map(function(it){return '<div class="navitem '+(p===it.id?"on":"")+'" data-act="manualnav" data-id="'+it.id+'"'+(it.ref?' data-ref="'+it.ref+'"':'')+'><i class="ti '+it.ic+'" style="font-size:14px"></i> '+it.t+'</div>';}).join("");return '<div class="px" style="font-size:10px;color:var(--accent-text);margin:'+(gi?"15px":"2px")+' 6px 7px;letter-spacing:.08em">'+gr.g.toUpperCase()+'</div>'+items;}).join("");
- return '<div class="rpghall">'+gxHero("ti-book","Códice del gremio","El manual de la fábrica: empieza aquí, guías paso a paso, la referencia completa y el porqué de todo.")+'<div style="display:grid;grid-template-columns:236px 1fr;gap:14px;align-items:start"><div class="panel" style="padding:11px;position:sticky;top:14px">'+nav+'</div><div style="min-width:0">'+manualContent(p)+'</div></div></div>';
+ return '<div class="rpghall">'+pageHead("ti-book","Documentación","El códice del gremio · empieza aquí, guías paso a paso, la referencia completa y el porqué de todo.")+'<div style="display:grid;grid-template-columns:236px 1fr;gap:14px;align-items:start"><div class="panel" style="padding:11px;position:sticky;top:14px">'+nav+'</div><div style="min-width:0">'+manualContent(p)+'</div></div></div>';
+}
+
+/* ============================================================================
+   ✦ GRUPO B · FRD-17 — Bandeja de Propuestas (autoaprendizaje)
+   4 tipos: lecciones candidatas · promociones a aprobar · poda · auto-sugerencias.
+   Solo-lectura: muestra la evidencia + el comando exacto; nunca cosecha/promueve.
+   ============================================================================ */
+var BPROPOSALS={
+ candidate:[
+  {id:"LESSON-0042",t:"Biome `useSortedClasses` choca con `cn()` multilinea",ev:"Capturada en «Control de gastos» · build FRD-02 · (agent-inferred)",gate:"esperando 2ª aparición",cmd:'/pandacorp:memory review'},
+  {id:"LESSON-0043",t:"Polar webhook necesita verificación de firma antes de parsear",ev:"Capturada en «Pandacorp» · release · (owner-stated)",gate:"corroborada — activa",cmd:'/pandacorp:memory review'}
+ ],
+ promote:[
+  {id:"LESSON-0031",t:"`next/font` evita CLS — fijarlo como estándar",target:"estándar · web-performance.md",ev:"Activa en 3 proyectos (quick-notes · Pandacorp · recipe-keeper)",cmd:'/pandacorp:learn "estándar: fuentes vía next/font (anti-CLS)"'},
+  {id:"LESSON-0028",t:"Migraciones destructivas siempre con expand/contract",target:"regla de decisión · DR-006",ev:"Activa en 2 proyectos",cmd:'/pandacorp:learn "regla: expand/contract en migraciones destructivas"'}
+ ],
+ prune:[
+  {id:"LESSON-0009",t:"Usar `getServerSession` (patrón NextAuth v4)",ev:"Obsoleta — el golden path migró a v5; sin uso en 90 días",cmd:'/pandacorp:memory review'}
+ ],
+ self:[
+  {id:"SELF-velocidad",ic:"ti-clock-pause",t:"«Recetario personal» lleva 6 días en Arquitectura",ev:"Cuello de botella · la norma del portfolio son ~2 días en fase",cmd:'/pandacorp:decide'},
+  {id:"SELF-review",ic:"ti-target-arrow",t:"«Quick Notes» lleva 30 días lanzado sin review",ev:"DR-043 · merece leer métricas reales vs hipótesis",cmd:'/pandacorp:review-launch'},
+  {id:"SELF-unused",ic:"ti-ghost-2",t:"El skill `/pandacorp:new-version` no se ha usado nunca",ev:"Capacidad sin uso registrado — ¿la conoces?",cmd:'/pandacorp:new-version'}
+ ]
+};
+function BPROP_COUNT(){return BPROPOSALS.candidate.length+BPROPOSALS.promote.length+BPROPOSALS.prune.length+BPROPOSALS.self.length;}
+/* ✦ Grupo B · cambio 3 — la tarjeta de propuesta es solo título + evidencia (lista limpia).
+   El comando NO va por ítem: cuando el grupo comparte skill se pone UNA vez a nivel de grupo
+   (ver bPropGroup). withCmd=true solo cuando el ítem tiene su propio comando distinto (auto-sugerencias). */
+function bPropCard(p,col,icon,withCmd){
+ return '<div class="rpgpanel" style="padding:12px 13px;margin-bottom:9px"><div style="display:flex;gap:10px;align-items:flex-start"><span class="itemslot" style="width:32px;height:32px;flex:0 0 auto;background:'+col+'22;border:1.5px solid '+col+';color:'+col+'"><i class="ti '+(p.ic||icon)+'" style="font-size:17px"></i></span>'
+  +'<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span class="px" style="font-size:10px;color:var(--text3)">'+esc(p.id)+'</span>'+(p.gate?'<span class="chip" style="font-size:10px;background:'+(/activa|corrobor/.test(p.gate)?"var(--ok-bg);color:var(--ok)":"var(--warn-bg);color:var(--warn)")+'">'+esc(p.gate)+'</span>':"")+(p.target?'<span class="chip" style="font-size:10px;background:var(--accent-bg);color:var(--accent-text)"><i class="ti ti-arrow-up-right" style="font-size:10px;vertical-align:-1px"></i> '+esc(p.target)+'</span>':"")+'</div>'
+  +'<div style="font-size:13px;font-weight:500;margin-top:4px">'+esc(p.t)+'</div><div style="font-size:11px;color:var(--text3);margin-top:3px"><i class="ti ti-file-search" style="font-size:11px;vertical-align:-1px"></i> '+esc(p.ev)+'</div>'+(withCmd?cmdRow(p.cmd,"cópialo y córrelo en la fábrica"):"")+'</div></div></div>';
+}
+/* groupCmd: el comando ÚNICO del grupo (mismo skill para todos los ítems) → se muestra UNA vez
+   bajo el título. Si es null, cada ítem trae su propio comando (auto-sugerencias). */
+function bPropGroup(ic,title,col,arr,icon,groupCmd){if(!arr.length)return "";
+ var lead=groupCmd?'<div style="margin:0 2px 11px"><div style="font-size:12px;color:var(--text2);margin-bottom:4px">Para revisar/activar toda esta lista, corre:</div>'+cmdRow(groupCmd,"un solo comando para todo el grupo")+'</div>':"";
+ return secthead(ic,title+' ',arr.length)+lead+arr.map(function(p){return bPropCard(p,col,icon,!groupCmd);}).join("");}
+function propuestasView(){
+ var tail='<span class="px" style="font-size:11px;background:var(--accent-bg);color:var(--accent-text);padding:3px 9px;border-radius:6px">'+BPROP_COUNT()+' abiertas</span> '+bBadge();
+ var head=pageHead("ti-mail-opened","Propuestas","La bandeja del gremio: lo que la fábrica aprendió y te propone (lecciones, promociones, poda, auto-sugerencias).",tail);
+ var sub='<p style="font-size:13px;color:var(--text2);margin:0 0 4px">Solo-lectura — tú apruebas corriendo el comando; Mission Control nunca cosecha, promueve ni poda.</p>';
+ /* Salud de la memoria */
+ var nudge=(MEM.dias>=7||MEM.candidatas>0)?'<div style="margin-top:10px">'+bDemo("En la app real el aviso de staleness lo decide el tamaño del backlog + días desde la última corrida de /pandacorp:memory.",cmdRow("/pandacorp:memory harvest","hace "+MEM.dias+" días que no cosechas · "+MEM.notas+" notas sin refinar"))+'</div>':'';
+ var saludGrid='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">'
+  +dStat("Notas sin refinar",MEM.notas,"esperan a la cosecha","ti-notes",MEM.notas?"var(--warn)":null)
+  +dStat("Lecciones candidatas",MEM.candidatas,"esperan corroboración","ti-bulb-filled","var(--accent-text)")
+  +dStat("Última cosecha","hace "+MEM.dias+"d","/pandacorp:memory","ti-history",MEM.dias>=7?"var(--warn)":null)
+  +dStat("Promociones a aprobar",BPROPOSALS.promote.length,"lecciones → estándar/regla","ti-arrow-up-right",BPROPOSALS.promote.length?"var(--accent-text)":null)
+  +'</div>';
+ var salud=secthead("ti-heartbeat","Salud de la memoria")+saludGrid+nudge;
+ /* ✦ Grupo B · cambio 3 — los grupos de LECCIONES van juntos y adyacentes:
+    candidatas → obsoletas/poda (ambos comparten /pandacorp:memory, comando a nivel de grupo);
+    luego promociones (cada una su /pandacorp:learn propio) y auto-sugerencias. */
+ var groups=bPropGroup("ti-bulb","Lecciones candidatas","var(--accent)",BPROPOSALS.candidate,"ti-bulb","/pandacorp:memory")
+  +bPropGroup("ti-trash","Lecciones obsoletas / para podar","var(--text3)",BPROPOSALS.prune,"ti-trash","/pandacorp:memory")
+  +bPropGroup("ti-arrow-up-right","Promociones esperando tu aprobación","var(--tier-4)",BPROPOSALS.promote,"ti-arrow-up-right",null)
+  +bPropGroup("ti-sparkles","Auto-sugerencias de Mission Control","var(--info)",BPROPOSALS.self,"ti-sparkles",null);
+ return head+sub+salud+groups;
+}
+
+/* ============================================================================
+   ✦ GRUPO B · FRD-09 — Celebración de release + momento «¡Subiste de nivel!»
+   Overlay a pantalla completa. El disparador es SOLO-DEMO: en la app real lo
+   dispara /pandacorp:release (producto lanzado) o cruzar un umbral de XP.
+   ============================================================================ */
+function bConfetti(){var c=["var(--accent)","var(--ok)","var(--warn)","var(--tier-4)","var(--tier-5)"];var s="";for(var k=0;k<26;k++){var x=Math.round(Math.random()*100),dl=(Math.random()*0.5).toFixed(2),col=c[k%c.length];s+='<i style="position:absolute;top:-12px;left:'+x+'%;width:7px;height:11px;background:'+col+';border-radius:2px;animation:bFall 1.5s ease-in '+dl+'s both"></i>';}return s;}
+function bOverlay(kind){
+ var inner;
+ if(kind==="release"){
+  inner='<div class="rpgpanel anim" style="max-width:440px;text-align:center;padding:28px 26px;position:relative;overflow:hidden">'
+   +'<div style="position:absolute;inset:0;pointer-events:none">'+bConfetti()+'</div>'
+   +'<div style="position:relative"><div class="shield" style="margin:0 auto 16px;width:80px;height:80px;border-radius:16px"><i class="ti ti-rocket" style="font-size:38px;color:var(--accent-text)"></i></div>'
+   +'<div class="px" style="font-size:13px;color:var(--ok);letter-spacing:.08em">PRODUCTO LANZADO</div>'
+   +'<div class="ttl" style="font-size:24px;margin:6px 0 4px">¡Quick Notes está en producción!</div>'
+   +'<div style="font-size:13px;color:var(--text2)">Tu 3.er producto lanzado. La fábrica registró la hazaña en el Salón del gremio.</div>'
+   +'<div style="display:flex;gap:8px;justify-content:center;margin:16px 0 4px;flex-wrap:wrap"><span class="chip" style="background:var(--ok-bg);color:var(--ok)"><i class="ti ti-trophy" style="font-size:11px;vertical-align:-1px"></i> +120 XP</span><span class="chip" style="background:var(--warn-bg);color:var(--warn)"><i class="ti ti-medal" style="font-size:11px;vertical-align:-1px"></i> Logro: «El magnate digital»</span></div>'
+   +'<button data-act="b-overlay-close" style="margin-top:14px">Seguir <i class="ti ti-arrow-right" style="font-size:13px;vertical-align:-2px"></i></button></div></div>';
+ }else{
+  inner='<div class="rpgpanel anim" style="max-width:420px;text-align:center;padding:28px 26px;position:relative;overflow:hidden">'
+   +'<div style="position:absolute;inset:0;pointer-events:none">'+bConfetti()+'</div>'
+   +'<div style="position:relative"><div class="px" style="font-size:13px;color:var(--accent-text);letter-spacing:.1em">LEVEL UP</div>'
+   +'<div class="px" style="font-size:64px;line-height:1;color:var(--accent-text);margin:6px 0;text-shadow:0 0 26px var(--accent)">NV 7</div>'
+   +'<div class="ttl" style="font-size:22px;margin:0 0 4px">¡Subiste de nivel!</div>'
+   +'<div style="font-size:13px;color:var(--text2)">Ahora eres <b style="color:var(--accent-text)">Gran maestro del gremio</b>.</div>'
+   +'<div style="margin:16px auto 4px;max-width:240px"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:5px"><span class="px">NV 7</span><span>0 / 2000 XP</span></div><div class="xpbar"><i style="width:4%"></i></div></div>'
+   +'<button data-act="b-overlay-close" style="margin-top:14px">¡Genial! <i class="ti ti-sparkles" style="font-size:13px;vertical-align:-2px"></i></button></div></div>';
+ }
+ return '<div data-act="b-overlay-close" style="position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.66);backdrop-filter:blur(4px);padding:20px">'+inner+'</div>';
 }
 
 function render(){var body;
  if(ST.view==="dashboard")body=dashboardView();
  else if(ST.view==="ideas")body=ST.openSlug?detailView():boardView();
  else if(ST.view==="portfolio")body=portfolioView();
+ else if(ST.view==="propuestas")body=propuestasView();
  else if(ST.view==="logros")body=logrosView();
  else body=manualView();
- root.innerHTML=pluginBanner()+onboardingGate()+topbar()+body;}
-function onboardingGate(){if(ST.perfilOk!==false)return "";return '<div class="panel" style="border:1px solid var(--warn);background:var(--warn-bg);padding:13px 15px;margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap"><i class="ti ti-user-cog" style="font-size:22px;color:var(--warn)"></i><div style="flex:1;min-width:200px"><div style="font-weight:600;font-size:14px">Configura tu fábrica primero</div><div style="font-size:12px;color:var(--text2);margin-top:2px">No se encontró <code>factory/profile.md</code>. Corre el onboarding para personalizar la fábrica (intereses, objetivos, activos) antes de empezar.</div></div><div class="cmd" style="margin:0"><span class="t">/pandacorp:onboarding</span><button data-act="copy" data-cmd="/pandacorp:onboarding"><i class="ti ti-copy"></i></button></div></div>';}
+ /* ✦ Grupo B · cambio 1 — el header/nav (topbar) SIEMPRE primero; los banners
+    (drift del plugin FRD-15 + huérfanos FRD-16) se apilan JUSTO DEBAJO del header,
+    encima del contenido de la página. */
+ /* banners (plugin drift FRD-15 + huérfanos FRD-16) ahora van DENTRO de dashboardView, debajo del título de Inicio */
+ root.innerHTML=topbar()+onboardingGate()+body;
+ if(BGROUP.overlay)root.insertAdjacentHTML("beforeend",bOverlay(BGROUP.overlay));}
+function onboardingGate(){if(ST.perfilOk!==false)return "";return '<div class="panel" style="border:1px solid var(--warn);background:var(--warn-bg);padding:13px 15px;margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap"><i class="ti ti-user-cog" style="font-size:22px;color:var(--warn)"></i><div style="flex:1;min-width:200px"><div style="font-weight:600;font-size:14px">Configura tu fábrica primero</div><div style="font-size:12px;color:var(--text2);margin-top:2px">No se encontró <code>factory/profile.md</code>. Corre el onboarding para personalizar la fábrica (intereses, objetivos, activos) antes de empezar.</div></div><div class="cmd" style="margin:0"><span class="t">/pandacorp:onboarding</span><button data-act="copy" data-cmd="/pandacorp:onboarding" aria-label="Copiar comando /pandacorp:onboarding"><i class="ti ti-copy"></i></button></div></div>';}
 function copy(t){var d=function(){toast(t);};try{navigator.clipboard.writeText(t).then(d,function(){fb(t,d);});}catch(e){fb(t,d);}}
 function fb(t,d){var a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();try{document.execCommand("copy");d();}catch(e){}document.body.removeChild(a);}
 function toast(t){var d=document.createElement("div");d.textContent="¡Copiado!  "+t;d.style.cssText="margin-top:12px;font-size:12px;color:var(--ok)";root.appendChild(d);setTimeout(function(){if(d.parentNode)d.parentNode.removeChild(d);},1700);}
@@ -1213,7 +1508,19 @@ root.addEventListener("click",function(ev){var el=ev.target.closest("[data-act]"
  else if(a==="intake-modal"){/* swallow — prevents backdrop close when clicking inside the modal */}
  else if(a==="discard"){var x=get(el.dataset.slug);if(x){x.status="discarded";ST.openSlug=null;save();render();}}
  else if(a==="clearf"){ST.q="";ST.fType="";save();render();}
+ /* ===== ✦ Grupo B handlers ===== */
+ else if(a==="b-drift"){BGROUP.driftReason=el.dataset.r;render();}
+ else if(a==="b-orphan-more"){BGROUP.orphanMore=!BGROUP.orphanMore;render();}
+ else if(a==="b-orphan-dismiss"){BGROUP.orphanDismiss=true;render();}
+ else if(a==="b-overlay"){BGROUP.overlay=el.dataset.k;render();}
+ else if(a==="b-overlay-close"){BGROUP.overlay=null;render();}
+ else if(a==="b-obsview"){BGROUP.obsView=el.dataset.v;BGROUP.dagNode=null;render();}
+ else if(a==="b-dagnode"){BGROUP.dagNode=el.dataset.id;render();}
+ else if(a==="b-dagclear"){BGROUP.dagNode=null;render();}
+ else if(a==="b-dagfollow"){BGROUP.dagFollow=!BGROUP.dagFollow;render();}
 });
+/* ✦ Grupo B — hover sobre un nodo del DAG resalta su cadena (alternativa a clic) */
+root.addEventListener("mouseover",function(ev){var el=ev.target.closest('[data-act="b-dagnode"]');if(!el)return;if(BGROUP.obsView!=="dag")return;if(BGROUP.dagNode!==el.dataset.id){BGROUP.dagNode=el.dataset.id;render();}});
 render();
 })();
 </script>
