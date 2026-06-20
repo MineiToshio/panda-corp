@@ -3,7 +3,7 @@ id: FRD-09-blueprint
 type: blueprint
 parent: FRD-09
 status: ACTIVE
-implementation_status: VERIFIED
+implementation_status: PLANNED
 last_updated: '2026-06-16'
 ---
 # FRD-09 — Gamification (RPG theme) · feature blueprint

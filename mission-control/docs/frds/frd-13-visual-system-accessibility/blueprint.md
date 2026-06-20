@@ -3,7 +3,7 @@ id: FRD-13-blueprint
 type: blueprint
 parent: FRD-13
 status: ACTIVE
-implementation_status: VERIFIED
+implementation_status: PLANNED
 last_updated: '2026-06-18'
 ---
 # FRD-13 — Visual system and accessibility — feature blueprint

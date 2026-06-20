@@ -3,7 +3,7 @@ id: FRD-18-blueprint
 type: blueprint
 parent: FRD-18
 status: ACTIVE
-implementation_status: VERIFIED
+implementation_status: PLANNED
 last_updated: '2026-06-18'
 ---
 # Feature blueprint — FRD-18 Dashboard ("Inicio", the command center)

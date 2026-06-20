@@ -4,7 +4,7 @@ type: frd
 title: FRD-06 — Party · La Fragua (live build view)
 parent: product/prd.md
 status: ACTIVE
-implementation_status: VERIFIED
+implementation_status: PLANNED
 ui: true
 visual_source: docs/frds/frd-06-party/mocks/la-fragua.html
 last_updated: '2026-06-19'

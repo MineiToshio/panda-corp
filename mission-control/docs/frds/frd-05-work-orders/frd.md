@@ -3,7 +3,7 @@ id: FRD-05
 type: frd
 title: FRD-05 — Work orders (live view)
 status: ACTIVE
-implementation_status: VERIFIED
+implementation_status: PLANNED
 ui: true
 visual_source: docs/design/prototype/index.html
 last_updated: '2026-06-19'

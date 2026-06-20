@@ -3,7 +3,7 @@ id: FRD-16-blueprint
 type: blueprint
 parent: FRD-16
 status: ACTIVE
-implementation_status: VERIFIED
+implementation_status: PLANNED
 last_updated: '2026-06-17'
 ---
 # Feature blueprint — FRD-16 Orphan project detection (adopt?)

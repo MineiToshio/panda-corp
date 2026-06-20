@@ -3,7 +3,7 @@ id: FRD-12-blueprint
 type: blueprint
 parent: FRD-12
 status: ACTIVE
-implementation_status: VERIFIED
+implementation_status: PLANNED
 last_updated: '2026-06-17'
 ---
 # FRD-12 — Observability and data visualization — feature blueprint
