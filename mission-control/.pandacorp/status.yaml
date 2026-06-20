@@ -10,12 +10,12 @@ run_started_at: "2026-06-20T13:16:51Z"
 repo: ""
 updated_at: "2026-06-20T13:16:51Z"
 work_orders_total: 78
-work_orders_verified: 55
-work_orders_in_review: 5
-work_orders_planned: 18
+work_orders_verified: 57
+work_orders_in_review: 1
+work_orders_planned: 20
 work_orders_in_progress: 0
 work_orders_blocked: 0
-work_orders_done: 55
+work_orders_done: 57
 pending_decisions: 0
 pending_bugs: 0
 rethink_pending: false
