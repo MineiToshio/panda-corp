@@ -17,21 +17,31 @@ describes the Manual ("Códice del gremio") exactly as the prototype renders it,
 design system (the PDD) and the FRD's acceptance criteria.
 
 **Visual source:** the Manual view of `docs/design/prototype/index.html`.
-**Exact render functions:** `manualView()` (the navigable shell — sticky side nav + reader, lines
-~1162–1166), `manualContent(id)` (the router that picks the page kind, lines ~1153–1161), and the four
-reader kinds it routes to:
-- **Empezar aquí** → `manualLanding()` (Qué es Pandacorp, lines ~1080–1089) and `manualQuickstart()`
-  ("Tu primera misión", lines ~1090–1100);
-- **Guías** → `manualGuide(id)` + `guiaDoc()` (lines ~1101–1152);
-- **Referencia** → `refSection(sec)` (lines ~1057–1079), which reuses the Configuración cards/detail
+
+> **Re-anchor note (2026-06-19):** the section is **renamed "Documentación"** — the nav tab label is
+> "Documentación" (`topbar()` ~L649) and the page H1 matches it (`manualView` uses
+> `pageHead("ti-book","Documentación", …)`, ~L1364). The internal "Códice del gremio" stays as the
+> subtitle/flavor, not the title. The Referencia catalogs are **derived dynamically from the factory**
+> (plugin skill/agent frontmatter + `registry.yaml` + `factory/standards/`, DR-046); the Guías reflect
+> the **current** workflow (capture → handoff → design/blueprint → implement → test-without-stopping →
+> hand-off → update-plugin).
+
+**Exact render functions:** `manualView()` (the navigable shell — light page title + sticky side nav +
+reader, ~L1361), `manualContent(id)` (the router that picks the page kind, ~L1352), and the reader kinds
+it routes to:
+- **Empezar aquí** → `manualLanding()` (Qué es Pandacorp, ~L1279) and `manualQuickstart()` ("Tu primera
+  misión", ~L1289);
+- **Guías** → `manualGuide(id)` + `guiaDoc()` (~L1300–1350) — the current-workflow how-tos;
+- **Referencia** → `refSection(sec)` (~L1256), which reuses the Configuración cards/detail
   (`gxSkillCard` / `gxAgentCard` / `gxRuleCard` / `gxStdCard` / `configDetail`) — the same catalogs as
-  FRD-07, surfaced read-only inside the Manual;
-- **Conceptos** → `docPage(p)` (lines ~952–1002), the long explanation pages incl. the diagrams
+  FRD-07, **derived from the factory** and surfaced read-only inside the Manual;
+- **Conceptos** → `docPage(p)` (~L1075), the long explanation pages incl. the diagrams
   `pipelineDiagram`, `teamDiagram`, `channelsDiagram`, `archDiagram`, `cockpitDataDiagram`,
   `snapshotMini` and the **Autoaprendizaje** concept page (`docPage` p=14).
 
-Page/nav data: `MANUALNAV` (the four Diátaxis groups + items, lines ~1024–1056). Headings via `docH`,
-copy-command chips via `docCmd`, the Manual hero via `gxHero`.
+Page/nav data: `MANUALNAV` (the four Diátaxis groups + items, ~L1223). Headings via `docH`,
+copy-command chips via `docCmd`, the Manual page title via `pageHead`, the Referencia section heroes via
+`gxHero` (which itself delegates to `pageHead`).
 
 > The design contract (palette, typography, surfaces, the **app-wide RPG embossed skin**, the
 > pixel-art spec) is the global PDD — it is NOT redefined here. This FDD only assembles the Manual on
@@ -39,8 +49,10 @@ copy-command chips via `docCmd`, the Manual hero via `gxHero`.
 
 ## 1. Layout — a navigable shell + a reader (`AC`)
 
-The Manual is one `.rpghall` column: a `gxHero` banner ("Códice del gremio") on top, then a
-**two-pane grid** (`236px 1fr`, gap 14px, align start):
+The Manual is one `.rpghall` column: the one light **`pageHead`** title block on top
+(`pageHead("ti-book","Documentación", "El códice del gremio · …")` — icon + H1 = nav label
+"Documentación" + subtitle, **not** a heavy hero panel), then a **two-pane grid** (`236px 1fr`, gap 14px,
+align start):
 - **Side menu** (`AC` "side menu with pages") — a `panel` that is **`position: sticky; top: 14px`**,
   listing every page as a `.navitem` (icon + label), grouped under four uppercase **Diátaxis group
   headers** in the `pixel` accent color: **Empezar aquí · Guías · Referencia · Conceptos**. The active
@@ -90,7 +102,8 @@ captures/protections, the promotions queue — which is also where FRD-17's surf
 
 | On screen | Component (see `docs/design/components.md`) | Notes |
 |---|---|---|
-| Manual banner | `SectionHero` (`gxHero`) | `rpgpanel rpggrid` + accent `itemslot` |
+| Manual page title | `PageTitle` (`pageHead`) | light icon + H1 "Documentación" + subtitle — the one canonical title block |
+| Referencia section hero | `SectionHero` (`gxHero`) | per-catalog section title; **delegates to `pageHead`** — same light title shape |
 | Sticky side menu | `DocNav` (`manualView` nav) | grouped `.navitem`s, `sticky top:14px`, `pixel` group headers |
 | Page heading | `DocHeading` (`docH`) | accent ledge + title |
 | Tutorial / landing | `ManualLanding` (`manualLanding`) | intro + feature row + pipeline + CTA |
@@ -122,6 +135,14 @@ catalog cards. All on the PDD's `panel`/`rpgpanel` surfaces, `chip`, `button`, t
 - **Error** — a malformed source file for a derived Reference section degrades to the read-error note
   for that section (danger color + icon), with the rest of the Manual still navigable; an unknown
   `?page` id falls back to the default page (`manualContent` guard).
+
+## Cohesion (DR-062)
+The Manual uses the app-wide framing: the one light **`PageTitle`** block (`pageHead`) for the page
+title, and the Referencia **`gxHero`** section titles **delegate to `pageHead`** so a section header is
+the same light icon + title shape, never a heavy bespoke banner. Section dividers inside Referencia card
+groups are the one **`SectionHead`** (`secthead`); the four Diátaxis nav groups are the one `.navitem`
+nav (a distinct primitive from `.tab`/`.rail`, picked deliberately). Cards, chips and command-rows are
+the shared `Panel`/`Chip`/`CmdRow`. No surface re-invents a title, header, chip or command-row.
 
 ## 5. Demo-only controls — none
 

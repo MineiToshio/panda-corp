@@ -50,16 +50,24 @@ project (FRD-06). FRD-09 covers the **Guild** elements only.
   by FRD-10's chain cards. Tier name + color always travel together (color is **never** the sole
   signal — the tier name text rides alongside, satisfying "state by shape+text, not color alone").
 
-### 5. The celebration scale (honest, graduated)
+### 5. The celebration scale (honest, graduated) — auto-firing
 The FRD mandates a celebration that **scales**, never flat. Mapped to the frozen motion system:
-- **Work order closed → small toast.** `toast()` (index.html ~L1178) — a transient bottom chip on
-  `card` surface. No XP fireworks.
+- **Work order closed → small toast.** `toast()` — a transient bottom chip on `card` surface. No XP
+  fireworks.
 - **Phase closed → medium entrance.** The `rpgSkin.anim` keyframe (`rpgIn`: 9px rise + fade, 340ms,
   transform/opacity only) replayed on the affected panel.
-- **Release → celebration** and **level-up → moment** are the reserved expressive tier (the FRD's
-  "Future" full-screen level-up). Expressive motion is **rationed** (frequency test): the everyday
-  guild bar is sober; the level-up is the rare expressive moment. All motion honors
-  `prefers-reduced-motion` (the `anim`/`reveal` rules already gate this).
+- **Release → full-screen celebration** and **level-up → full-screen "¡Subiste de nivel!"** are the
+  reserved expressive tier — now drawn in the prototype as `bOverlay(kind)` (~L1433): a centered
+  `rpgpanel anim` over a dimmed/blurred backdrop, with `bConfetti()` (~L1432, `transform`/`opacity`-only
+  fall) — release shows the rocket crest + "+120 XP" + achievement chips; level-up shows the big pixel
+  "NV {n}" numeral + new rank + the fresh `XpBar`.
+- **The trigger is automatic.** In the real app the celebration fires when `/pandacorp:release` lands a
+  shipped product and the level-up fires **on crossing an XP threshold** — **not from a button**. The
+  prototype's "Previsualizar celebración / Previsualizar ¡Subiste de nivel!" buttons exist only to
+  preview the effect and are wrapped in a DR-061 `SOLO DEMO` block (see §Demo-only controls).
+- Expressive motion is **rationed** (frequency test): the everyday guild bar is sober; the celebration
+  is the rare expressive moment. All motion honors `prefers-reduced-motion` (the `anim`/`reveal`/
+  `bFall` rules gate this — confetti collapses to a static state under reduced-motion).
 
 ### 6. Guild radar — "Atributos del gremio" (character attributes)
 - **Render fn:** `statRadar()` (~L446), hosted in the Hall's Stats tab (FRD-10). A 6-axis SVG radar
@@ -88,14 +96,26 @@ host-driven but the gamified elements define their own fallbacks:
   `aria-label`/`role="progressbar"` with `aria-valuenow/min/max` when implemented.
 - Expressive motion gated by `prefers-reduced-motion`.
 
+## Cohesion (DR-062)
+The guild bar is the app shell's persistent top bar (one per app), not a per-screen header; the hero/
+foot variants sit **under** each host's own light `PageTitle` (`pageHead`) — they never replace it.
+Level/XP pills, tier medals and the celebration surface are the shared gamified primitives reused
+everywhere; no host re-implements an XP bar, level pill or celebration. The dashboard "Momentos de
+gamificación" group divider is the one `SectionHead` (`secthead`).
+
 ## Demo-only controls (DR-061)
-FRD-09's own elements are read-only derived data — **no demo controls belong to this feature**. (The
-dashboard digest's "simular novedad / reiniciar novedades" links are FRD-12's demo affordances, not
-gamification's; flagged in FRD-12's FDD.) When implemented, none of the guild bar / hero / XP
-surfaces gains a state-toggler.
+FRD-09's own elements are read-only derived data, **with one demo affordance**: the dashboard's
+**"Previsualizar celebración de release" / "Previsualizar ¡Subiste de nivel!"** buttons
+(`dashboardView` ~L764) exist only to preview the auto-firing overlays in the static prototype. They are
+wrapped in the prototype's `bDemo` block (dashed border + uppercase **`SOLO DEMO`** tag + note: "En la
+app real esto NO tiene botón: la celebración la dispara /pandacorp:release y el level-up se dispara solo
+al cruzar un umbral de XP"). On implementation these MUST keep that DR-061 wrapper — the real overlays
+fire automatically on the milestone, never from a control. (The dashboard digest's "simular/reiniciar"
+links are FRD-12's demo affordances, flagged in FRD-12's FDD.) The guild bar / hero / XP surfaces
+themselves gain no state-toggler.
 
 ## index.html render-fn pointers
-`topbar` (~L577) · `logrosHero` (~L407) · dashboard foot in `dashboardView` (~L665) ·
-`statRadar` (~L446) · `toast` (~L1178). CSS: `.xpbar` L131-133, `.shield` L130, `.rpgpanel` L128,
-`.rpggrid` L129, `.itemslot`/`.node` (rpgSkin group), `.tab`/`.tab.on` L62-63, `rpgIn` keyframe
-(rpgSkin.anim).
+`topbar` (~L646) · `logrosHero` (~L413) · dashboard foot + celebration demo block in `dashboardView`
+(~L740/~L764) · `bOverlay` (~L1433) · `bConfetti` (~L1432) · `statRadar` (~L446 group) · `toast`.
+CSS: `.xpbar`, `.shield`, `.rpgpanel`, `.rpggrid`, `.itemslot`/`.node` (rpgSkin group), `.tab`/`.tab.on`,
+`rpgIn` + `bFall` keyframes (rpgSkin.anim / Group B confetti, gated by `prefers-reduced-motion`).

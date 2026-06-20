@@ -12,9 +12,14 @@ visual_source: docs/design/prototype/index.html
 
 A page of achievements that are also **stats that grow**, with a date and project on each one. (Today with example data in the prototype; when the real Mission Control is built, the stats are computed by reading the factory and the projects.)
 
+## Tier vs rarity (distinct concepts)
+**Tier** and **rarity** are two different things and must not be conflated:
+- **Tier** = the level a cumulative chain has reached. A chain tiers up through **5 tiers** — **Común → Poco común → Raro → Épico → Leyenda** (Common → Uncommon → Rare → Epic → Legend) — each time its stat crosses a threshold. Tier is a property of *where a chain currently sits*.
+- **Rarity** = how rare an individual achievement is to obtain (estimated Common→Legendary), a per-achievement attribute independent of chain tiers. Rarity is **Future** (see below) and is NOT shown today.
+
 ## Acceptance criteria (EARS)
-- It SHALL show a **statistics panel** (counters that only grow): products shipped, ideas captured, work orders, phases completed, iterations, flawless launches, ideas discarded, PRDs, ADRs, agents coordinated, record streak, record idea→launch.
-- It SHALL show **cumulative chains** that tier up (**Bronze → Silver → Gold → Platinum → Legend**) when the associated stat crosses each threshold, with a **progress bar to the next tier** and the name of the next tier.
+- It SHALL show a **statistics panel** (counters that only grow), comprising exactly these stats: products shipped, ideas captured, work orders, phases completed, iterations, flawless launches, ideas discarded, PRDs written, ADRs registered, agents coordinated, record streak (weeks), and record idea→launch (days). These SHALL be presented as the character sheet — a radar of guild attributes, the record/hero stats (products shipped · record streak · record idea→launch) and the per-category ledger (Production · Quality · Pace & reach).
+- It SHALL show **cumulative chains** that **tier up** through the 5 tiers (**Común → Poco común → Raro → Épico → Leyenda**) when the associated stat crosses each threshold, with a **progress bar to the next tier** and the name of the next tier.
 - EACH unlocked tier SHALL store and show the **date** and **project** where it happened.
 - It SHALL show an **"Almost there"** section with the chains closest to their next tier (Zeigarnik effect).
 - It SHALL show **unique achievements** (one-time only) grouped by category (**Discovery, Speed, Quality, Consistency, Mastery**), with date + project when unlocked, and the condition when locked.
@@ -26,4 +31,4 @@ A page of achievements that are also **stats that grow**, with a date and projec
 Full list of stats, thresholds, tier names and unique achievements in [mission-control/docs/achievements.md](../../achievements.md).
 
 ## Future
-Meta-achievements (titled, displayable Seals), a "New" badge for 7 days after unlocking, estimated rarity (Common→Legendary).
+Meta-achievements (titled, displayable Seals), a "New" badge for 7 days after unlocking, and a per-achievement **rarity** estimate (Common→Legendary) — a concept distinct from chain tiers (see "Tier vs rarity" above), not shown today.

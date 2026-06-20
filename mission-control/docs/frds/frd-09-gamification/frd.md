@@ -26,6 +26,9 @@ Analogy: you belong to a **guild** (the organization) and you go out in a **part
 - The vocabulary and visual accents SHALL have RPG flavor with **restraint** (missions, objectives, party, guild; pixel touches), **without sacrificing the legibility** of the data.
 - The gamification SHALL represent **real work**: XP is earned by **result** (work order/phase/release closed), **not** by volume of trivial tasks nor by opening the app.
 - The celebration SHALL **scale**: small toast (work order) → medium animation (phase) → celebration (release) → **level-up** moment. Never a flat celebration on every action.
+- WHEN a product **ships** (the release milestone is met) THE system SHALL fire the **release celebration AUTOMATICALLY** (triggered by the milestone, e.g. `/pandacorp:release` completing), NOT via a button the owner presses.
+- WHEN an agent or the guild **levels up** (an XP threshold is crossed) THE system SHALL fire the **level-up moment AUTOMATICALLY** on the milestone, NOT via a button.
+- IF a celebration/level-up overlay is shown THEN the owner SHALL be able to **dismiss** it (honest, fatigue-free — White-Hat): the trigger is automatic, but it never blocks or nags.
 - The system SHALL NOT include: **leaderboards**, **lives/death**, **daily streaks with reset**, nor **false urgency/timers**. Streaks SHALL be **weekly** (with a "freeze").
 - The gamification SHALL complement good UX, not compensate for bad UX (clear data comes first).
 

@@ -10,7 +10,7 @@ last_updated: '2026-06-19'
 ---
 # FRD-18 — Dashboard ("Inicio", the command center)
 
-The landing screen of Mission Control: a read-only **command center** that answers, at a glance, *"what needs me now, what changed while I was away, and what's the next command"* across the whole factory. It is the **default view**; the Board / Portfolio / Achievements / Configuration / Manual tabs stay reachable from the top nav.
+The landing screen of Mission Control: a read-only **command center** that answers, at a glance, *"what needs me now, what changed while I was away, and what's the next command"* across the whole factory. It is the **default view**; the Board / Portfolio / Achievements / Configuration / Documentation tabs stay reachable from the top nav.
 
 It composes existing layers — honest gamification ([FRD-09](../frd-09-gamification/frd.md)), observability and data-viz ([FRD-12](../frd-12-observability-dataviz/frd.md)), the visual/accessibility system ([FRD-13](../frd-13-visual-system-accessibility/frd.md)) — and surfaces existing signals: the onboarding gate ([FRD-01](../frd-01-data-reading/frd.md)), plugin drift ([FRD-15](../frd-15-plugin-out-of-sync-warning/frd.md)), orphan projects ([FRD-16](../frd-16-orphan-project-detection/frd.md)) and the proposals / memory-health stream ([FRD-17](../frd-17-proposals-inbox/frd.md)). Designed from the dashboard-design research (action-oriented, exception-first, anti-vanity; see the decision log entry of 2026-06-16).
 
@@ -23,9 +23,10 @@ It composes existing layers — honest gamification ([FRD-09](../frd-09-gamifica
 6. **Tu progreso** — the honest gamification strip.
 
 ## Acceptance criteria (EARS)
-- The dashboard SHALL be the default landing view; the Board / Portfolio / Achievements / Configuration / Manual tabs SHALL remain reachable from the top nav.
+- The dashboard SHALL be the default landing view; the Board / Portfolio / Achievements / Configuration / Documentation tabs SHALL remain reachable from the top nav.
 - The dashboard SHALL be read-only and SHALL NOT call Claude; every actionable item SHALL surface the exact `/pandacorp:*` command with a copy button, and clicking an item SHALL navigate to the relevant project, idea or board.
 - **Exception-first / quiet when healthy**: WHEN nothing needs the operator, the screen SHALL read calm (e.g. "Tu turno" shows an *al día* badge) rather than manufacture urgency. No vanity or cumulative counters with no decision attached.
+- **Real-time / event-driven**: the dashboard SHALL update LIVE — it watches the events NDJSON stream and the project `status.yaml` files and pushes deltas into the affected sections (digest count, queue, pulse, project cards), NOT a static render produced only on navigation. WHEN a new event arrives or a status file changes, the relevant section SHALL reflect it without the operator reloading the page.
 
 ### Desde tu última visita (the digest)
 - The section SHALL show factory **events** (work orders closed/failed, phase transitions, decisions queued, lessons captured) as change-framed items with a relative timestamp, read from the event stream + state diffs (FRD-01) — NOT as cumulative totals.
@@ -47,7 +48,9 @@ It composes existing layers — honest gamification ([FRD-09](../frd-09-gamifica
 - Per active project (architecture / building) and per shipped project, a card SHALL show phase + version, work-order progress, age-in-stage, and the next command.
 - WHEN a running build's last event is older than a freshness threshold, the card SHALL flag it *sin señal* (no-signal) with the last-event time; a fresh build SHALL show *en vivo* (live). (No-signal is itself the alarm.)
 - WHEN a project has sat in its current phase beyond a staleness threshold, the card SHALL flag it *estancado* (stalled) with the age.
+- WHEN a project has open bugs awaiting processing (count > 0), the card SHALL show a **"N bugs" count chip** so the operator sees pending defects at a glance.
 - WHEN a work order is failing/blocked, the card SHALL surface the blocker reason inline (no need to open logs).
+- The **next command** shown per card SHALL be derived from the project phase: a `building` project with work orders still open SHALL map to `/pandacorp:implement`; a `shipped` project SHALL map to `/pandacorp:review-launch`; otherwise the phase's natural next step.
 - A shipped project SHALL be presented as *estable · en operación* with `/pandacorp:review-launch` as its next action.
 - WHEN there are no active projects, the section SHALL show a **first-action card** with the command to start one — never a blank.
 

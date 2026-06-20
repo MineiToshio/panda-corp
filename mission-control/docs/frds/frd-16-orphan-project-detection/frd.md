@@ -12,23 +12,33 @@ last_updated: '2026-06-19'
 
 Catches the inverse of a registered project: a real project sitting in the projects folder that the factory doesn't know about — typically one built **outside** the handoff (brownfield). Mission Control spots these unregistered sibling repos and offers to **adopt** them. Read-only (reads files + local git; does not call Claude). Sibling of FRD-15 (plugin drift): same "detect a gap, show the command, don't act" shape.
 
-## How it's detected (all local)
+## How it's detected (all local) — the `.pandacorp/` marker is the gate
+
+The banner lists **only Pandacorp projects** — folders that carry the `.pandacorp/` marker. The owner's projects folder mixes Pandacorp projects with **personal code and other-AI projects**; those foreign folders must **never** appear here. The `.pandacorp/` marker is the hard gate for **both** cases below.
 
 - **Projects folder**: `projects_path` from `factory/profile.md`; if empty, the parent directory of the factory root.
-- **On-disk candidates**: immediate subfolders of the projects folder that are git repos (`.git` present). Exclude the factory itself and `mission-control/` (internal).
+- **On-disk candidates**: immediate subfolders of the projects folder that **contain a `.pandacorp/` marker** (canonically `.pandacorp/status.yaml`; `Origin — Pandacorp` lives in `.pandacorp/guide.md`, not `CLAUDE.md`). Exclude the factory itself and `mission-control/` (internal).
 - **Registered set**: the paths listed in `factory/portfolio.md`.
-- **Pandacorp marker**: a folder is already a factory project if it has `.pandacorp/status.yaml` (the canonical marker — `Origin — Pandacorp` now lives in `.pandacorp/guide.md`, not `CLAUDE.md`).
-- **Orphan** = an on-disk git repo in the projects folder that is **not in the portfolio** and has **no Pandacorp marker**.
+- **Two cases, both requiring the `.pandacorp/` marker:**
+  - **Orphan** = a folder with the `.pandacorp/` marker that is **missing from the portfolio** and **never went through the handoff** (built by hand / cloned) → adopt with `/pandacorp:adopt`.
+  - **Unlisted** = a folder with the `.pandacorp/` marker that is already a factory project but whose **portfolio row was lost** → reconcile with `/pandacorp:sync-portfolio` (NOT adopt — it's already a factory project).
 
 ## Acceptance criteria (EARS)
 
-- IF there is an **orphan** project in the projects folder, Mission Control SHALL show a dismissible banner: "Unregistered project: `<name>` — adopt it into the factory?".
-- The banner SHALL show the **path** and the steps to adopt: open a session in the folder and run `/pandacorp:adopt` (shown as copyable text).
-- WHERE a folder has the **Pandacorp marker but is missing from the portfolio** (registered-but-unlisted, e.g. the portfolio row was lost), it SHALL instead suggest running `/pandacorp:sync-portfolio` — NOT adopt (it's already a factory project).
-- The banner SHALL **disappear on its own** once the project is adopted (marker + portfolio row appear) or explicitly dismissed by the owner.
-- WHERE **more than two** candidates are present, the banner SHALL **collapse the overflow** — showing the first two and a toggle ("Ver N proyectos más sin registrar" / "Ver menos") — so several orphans do not dominate the dashboard (the wall-of-banners regression).
-- The detection SHALL be **read-only**: it never runs `adopt`, `git`, or writes the portfolio for the owner.
-- The scan SHALL be **bounded** to the projects folder (immediate children only) — it does not crawl the whole disk.
+### REQ-16-001 — Marker gate (never list foreign folders)
+- **AC-16-001.1** — A folder SHALL be a candidate for the banner **only if** it contains the `.pandacorp/` marker (`.pandacorp/status.yaml`); a folder **without** the marker SHALL NEVER appear, regardless of whether it is a git repo or sits in the projects folder.
+- **AC-16-001.2** — Personal code and other-AI projects that coexist in the projects folder (no `.pandacorp/` marker) SHALL be **excluded** from the banner.
+
+### REQ-16-002 — Orphan vs unlisted (both have the marker)
+- **AC-16-002.1** — IF a folder has the `.pandacorp/` marker, is **missing from the portfolio**, and was never adopted (true orphan), THEN Mission Control SHALL show a dismissible banner offering **`/pandacorp:adopt`** with the **path** and the step (open a session in the folder), as copyable text.
+- **AC-16-002.2** — WHERE a folder has the `.pandacorp/` marker but is **missing from the portfolio** as a lost row (unlisted), Mission Control SHALL instead suggest **`/pandacorp:sync-portfolio`** — NOT adopt (it's already a factory project).
+- **AC-16-002.3** — Each listed candidate SHALL be visually tagged by case (orphan → "sin adoptar"; unlisted → "falta en portfolio") so the two are not confused.
+
+### REQ-16-003 — Banner lifecycle and bounds
+- **AC-16-003.1** — The banner SHALL **disappear on its own** once the project is reconciled (marker + portfolio row both present) or is explicitly dismissed by the owner.
+- **AC-16-003.2** — WHERE **more than two** candidates are present, the banner SHALL **collapse the overflow** — showing the first two and a toggle ("Ver N proyectos más sin registrar" / "Ver menos") — so several candidates do not dominate the dashboard (the wall-of-banners regression).
+- **AC-16-003.3** — The detection SHALL be **read-only**: it never runs `adopt`, `git`, or writes the portfolio for the owner.
+- **AC-16-003.4** — The scan SHALL be **bounded** to the projects folder (immediate children only) — it does not crawl the whole disk.
 
 ## Non-goals
 - It does not adopt anything, nor create the portfolio row. It only surfaces the candidate and the command.

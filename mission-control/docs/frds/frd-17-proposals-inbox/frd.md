@@ -24,6 +24,11 @@ The owner-facing surface of the factory's self-learning loop (DR-047) and the pl
 - Proposals SHALL be **honest and dismissible** (White-Hat, [FRD-09](../frd-09-gamification/frd.md)): no false urgency, no nagging, no streaks; a proposal is a suggestion the owner can dismiss, and dismissing it is remembered. Framed in the guild theme (the `librarian` is the guild's cronista), never as pressure.
 - High-risk proposals (promote to a MUST standard, create/edit a skill/agent, change a DR, delete) SHALL only ever be **displayed**; approval routes to the owner running the relevant skill — Mission Control never applies them itself (DR-047 human gate).
 
+### REQ-17-001 — Group-level command + lesson grouping
+- **AC-17-001.1** — WHERE a proposal group shares a single activating command (e.g. candidate lessons and prunable/obsolete lessons both act through `/pandacorp:memory`), the command SHALL be shown **once at the group level**, under the group title — NOT as a per-item copy button.
+- **AC-17-001.2** — A proposal item SHALL show its own per-item command **only when** its command genuinely differs from the rest of its group (e.g. each self-suggestion routes to a different skill); otherwise the item is title + evidence only and defers to the group-level command.
+- **AC-17-001.3** — The **lesson-oriented groups SHALL be grouped together and adjacent**: candidate lessons first, then prunable/obsolete lessons immediately after (both sharing the group-level `/pandacorp:memory` command), before the promotions and self-suggestion groups.
+
 ## Non-goals
 - Mission Control does NOT harvest, promote, prune, or run any skill. It never edits `factory/memory/`, `factory/standards/`, `factory/decisions/registry.yaml` or `plugin/`. The loop's harvest/apply/prune live in `/pandacorp:memory` + `/pandacorp:learn` + the owner.
 - No auto-acceptance of high-risk self-modification (DR-047). No Claude calls — suggestions are derived from existing files/events, not generated on the fly.

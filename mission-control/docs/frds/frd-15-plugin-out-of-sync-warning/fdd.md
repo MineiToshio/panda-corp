@@ -4,23 +4,34 @@
 > `DESIGN.md`, extracted from the owner-approved prototype under DR-054). Cross-cutting tokens/a11y
 > are FRD-13's FDD. No new tokens introduced.
 
-- **Visual source:** `docs/design/prototype/index.html` → **`pluginBanner()`** (lines ~573–575),
-  with the demo flag `PLUGIN_SYNC` (line 572). Shared style: `.cmd`, the warn tokens, `cmdRow()`.
+- **Visual source:** `docs/design/prototype/index.html` → **`pluginBanner()`** (~L612), the three drift
+  reasons `DRIFT_REASONS` (~L607), with the demo flag `PLUGIN_SYNC` (~L602). Shared style: `.cmd`, the
+  warn tokens, `cmdRow()`, `bDemo()`.
+
+> **Re-anchor note (2026-06-19):** the banner now ships **3 drift-reason variants** —
+> **Sin commitear · Instalado atrasado (behind) · Ambos** (`DRIFT_REASONS`, ~L607), each with its own
+> heading, detail and recall steps. In the real app the reason is decided by **git state (uncommitted
+> changes) + the installed SHA vs the last plugin commit**; in the prototype the reason cycles via a
+> DR-061 `SOLO DEMO` toggler.
 
 ## Surface — the drift banner (CMP-15-banner)
 
 - **Layout:** a top-of-app **persistent warning banner** (warn tone): `warn-bg` background, hairline
-  warn border, a left **alert-triangle** icon (`--warn`), and a body column.
-- **Body:** heading (`--warn`, weight 500) — *"Plugin desincronizado"* (varying by reason:
-  uncommitted / behind / both); a `text`-tone detail line (e.g. *"instalado 18a9389 · hay cambios del
-  plugin sin commitear"*); a smaller **3-step recall** line: *"1) commitea los cambios · 2) corre el
-  comando · 3) reinicia la sesión de Claude Code"* (step 1 dropped when there are no uncommitted
-  changes).
+  warn border, a left **alert-triangle** icon (`--warn`), and a body column. Placed under the dashboard
+  page title (with the orphans banner), per `dashboardView()` (~L745).
+- **Body — varies by the 3 reasons (`DRIFT_REASONS`):** heading (`--warn`, weight 500) *"Plugin
+  desincronizado · {reason label}"*:
+  - **Sin commitear** — "instalado {sha} · hay cambios del plugin sin commitear"; recall: *"1) commitea
+    los cambios · 2) corre el comando · 3) reinicia la sesión de Claude Code"*.
+  - **Instalado atrasado (behind)** — "instalado {sha} · el último commit del plugin es {sha2} (N
+    commits por delante)"; recall: *"1) corre el comando para reinstalar la última versión · 2) reinicia
+    la sesión"* (commit step dropped — nothing to commit).
+  - **Ambos** — combined detail; 3-step recall.
 - **Command row:** a `.cmd` row with `claude plugin update pandacorp@panda-corp` + `CopyButton`
   ("pégalo en la terminal de la fábrica"). **Read-only** — shows the command, never executes
   (REQ-15-005).
-- **State signal not by color alone:** the warning triangle icon + heading text carry the meaning, not
-  the warn color (FRD-13).
+- **State signal not by color alone:** the warning triangle icon + heading text (incl. the reason label)
+  carry the meaning, not the warn color (FRD-13).
 
 ## Components mapped to shared primitives
 | Surface | Primitive | Notes |
@@ -51,6 +62,19 @@ that one `Banner`.
 - **Error:** a failed/parse-error poll does **not** update state (no false alarm) — the banner simply
   stays hidden; the rest of the app is unaffected.
 
+## Cohesion (DR-062)
+The drift banner is the one shared **`Banner`** (`kind="drift"`) — same strip shape, chip and `CmdRow` as
+the orphans banner (FRD-16) and every other app banner; never a second banner type. It sits under the
+dashboard's one light `PageTitle` (`pageHead`), not a bespoke header.
+
+## Demo-only controls (DR-061)
+The **drift-reason toggler** (Sin commitear / behind / Ambos) is a **preview-only** control: it cycles
+the variant in the static prototype. It is wrapped in the prototype's `bDemo` block (~L617) — dashed
+border + uppercase **`SOLO DEMO`** tag + note: *"En la app real el motivo lo decide git (cambios sin
+commitear) + el SHA instalado vs el último commit del plugin — no se elige a mano."* On implementation
+this MUST keep the DR-061 wrapper; the real reason/detail is **real read-only data** derived from git +
+the installed SHA, surfaced in the banner body, not behind a toggle.
+
 ## Visual reference
-`docs/design/prototype/index.html` → `pluginBanner()` (lines ~573–575), on the frozen tokens. See
-`mocks/README.md`.
+`docs/design/prototype/index.html` → `pluginBanner()` (~L612), `DRIFT_REASONS` (~L607), `PLUGIN_SYNC`
+(~L602), on the frozen tokens. See `mocks/README.md`.

@@ -19,13 +19,25 @@ Catches the most common slip: editing the factory plugin and forgetting to commi
   - last commit that touched the plugin: `git log -1 --format=%H -- plugin/`
   - are there uncommitted changes?: `git status --porcelain -- plugin/`
 
+## The three drift reason variants
+
+The drift banner has **three reason variants**, each with its **own heading and recall steps** — it is not a single generic message:
+
+1. **Uncommitted changes** ("Sin commitear") — there are uncommitted changes under `plugin/`. Steps: commit the changes → run the command → restart the Claude Code session.
+2. **Installed SHA behind** ("Instalado atrasado / behind") — the committed plugin advanced but the installed `gitCommitSha` is behind the latest commit that touched `plugin/`. Steps: run the command to reinstall the latest version → restart the Claude Code session.
+3. **Both** ("Ambos") — there are uncommitted changes AND the installed SHA is behind. Steps: commit the changes → run the command → restart the Claude Code session.
+
 ## Acceptance criteria (EARS)
 
-- IF there are **uncommitted changes** under `plugin/`, Mission Control SHALL show a **persistent warning** at the top: "Plugin out of sync — there are uncommitted changes".
-- IF the **installed SHA ≠ last commit that touched `plugin/`** (committed but not reinstalled), it SHALL show the warning: "The installed plugin is behind".
-- The warning SHALL show the **command to copy** `claude plugin update pandacorp@panda-corp` and recall the sequence (commit if needed → run the command → restart the Claude Code session).
-- The warning SHALL **disappear on its own** when the plugin is back in sync (no uncommitted changes and installed SHA == the plugin's last commit).
-- The warning SHALL NOT execute anything (read-only): it shows the command, the owner runs it.
+### REQ-15-001 — Three drift reason variants
+- **AC-15-001.1** — IF there are **uncommitted changes** under `plugin/` (and the installed SHA is current), Mission Control SHALL show the **"uncommitted changes"** variant — its own heading + its own recall steps (commit → run command → restart session).
+- **AC-15-001.2** — IF the **installed SHA ≠ the last commit that touched `plugin/`** with no uncommitted changes (committed but not reinstalled), Mission Control SHALL show the **"installed plugin is behind"** variant — its own heading + its own recall steps (run command to reinstall → restart session).
+- **AC-15-001.3** — IF there are uncommitted changes **AND** the installed SHA is behind, Mission Control SHALL show the **"both"** variant — its own heading + its own recall steps (commit → run command → restart session).
+- **AC-15-001.4** — Each variant SHALL show the **command to copy** `claude plugin update pandacorp@panda-corp`.
+
+### REQ-15-002 — Lifecycle & read-only
+- **AC-15-002.1** — The warning SHALL **disappear on its own** when the plugin is back in sync (no uncommitted changes and installed SHA == the plugin's last commit).
+- **AC-15-002.2** — The warning SHALL NOT execute anything (read-only): it shows the command, the owner runs it.
 
 ## Non-goals
 - It does not run `git` or `plugin update` for the owner. It does not install anything.

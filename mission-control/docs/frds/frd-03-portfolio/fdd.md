@@ -15,28 +15,37 @@ sharded from the owner-approved whole-app prototype. **Fidelity, not novelty**: 
 portfolio exactly as the prototype renders it, mapped to the frozen design system and to FRD-03's
 acceptance criteria.
 
-- **Visual source:** `docs/design/prototype/index.html` — render function **`portfolioView()`** (the
-  two-column rail + pane shell). The right pane is the project workspace, owned by FDD-04.
+- **Visual source:** `docs/design/prototype/index.html` — render function **`portfolioView()`** (~L851,
+  the two-column rail + pane shell). The right pane is the project workspace, owned by FDD-04.
 - The build's visual-fidelity gate captures the baseline from the `portfolio` view of `index.html`
   (see `mocks/README.md`).
+
+> **Re-anchor note (2026-06-19):** the rail is now scoped to **building + shipped** projects only
+> (`projs = status==="building" || "shipped"`, ~L852), each carrying **decision/bug count badges**. The
+> shipped-project **business snapshot panel was removed** from this surface (deferred as premature) —
+> the rail no longer reserves space for it. The **path-not-found recovery banner** (`bPathLostBanner`,
+> ~L881) is kept.
 
 > The design contract (palette, typography, surfaces, the app-wide RPG skin) is the **global PDD** —
 > not redefined here. Every value named below resolves to a token, never a hardcoded literal.
 
 ## 1. Layout
 
-`portfolioView()` renders a **two-column grid** `grid-template-columns: 240px 1fr; gap 14px;
-align-items: start`:
+`portfolioView()` opens with the one light **`pageHead`** title block ("Portfolio") and then renders a
+**two-column grid** `grid-template-columns: 240px 1fr; gap 14px; align-items: start`:
 
-- **Left — the project rail.** A small uppercase "PROYECTOS" label (`var(--text3)`), then one
-  **rail item** per project (`.rail`). Each rail item: a running/stopped status icon
-  (`ti-player-play` `var(--ok)` / `ti-player-pause` `var(--text3)`), the title (500 weight), a trailing
-  group of **count badges** (pending-decisions pill on `var(--warn)`, bugs pill on `var(--danger)` —
-  pill, canvas-colored text, 17px min), and a second line with the stage label (`var(--text3)`,
-  indented under the icon). The selected rail (`.rail.on`) gets the `var(--accent-bg)` fill +
-  `var(--accent)` border + inset accent ring.
+- **Left — the project rail (building + shipped only).** A small uppercase "PROYECTOS" label
+  (`var(--text3)`), then one **rail item** per project whose status is **building or shipped**
+  (`projs`, ~L852) — earlier-phase projects live in the board/dashboard, not here. Each rail item: a
+  running/stopped status icon (`ti-player-play` `var(--ok)` / `ti-player-pause` `var(--text3)`), the
+  title (500 weight), a trailing group of **count badges** (pending-decisions pill on `var(--warn)`,
+  bugs pill on `var(--danger)` — pill, canvas-colored text, 17px min), a second line with the stage
+  label (`var(--text3)`, indented under the icon), and an optional "replanteo en curso" rethink chip
+  (accent). The selected rail (`.rail.on`) gets the `var(--accent-bg)` fill + `var(--accent)` border +
+  inset accent ring.
 - **Right — the workspace pane.** `projectPane(get(ST.projectSlug))` (FDD-04) when a project is
-  selected, else a placeholder `.panel` ("Elige un proyecto a la izquierda.").
+  selected, else a placeholder `.panel` ("Elige un proyecto a la izquierda."). **No business-snapshot
+  panel** — it was removed/deferred.
 
 On mobile the two columns stack (the rail above the pane); the rail stays a vertical list.
 
@@ -44,16 +53,23 @@ On mobile the two columns stack (the rail above the pane); the rail stays a vert
 
 | On screen | Component (see `docs/design/components.md`) | Notes |
 |---|---|---|
+| Page title | `PageTitle` (`pageHead`) | light icon + H1 "Portfolio" + subtitle — not a heavy panel |
 | Rail header label | text label | uppercase 11px `var(--text3)` |
-| Project rail item | `RailItem` (`.rail`) | status icon + title + count badges + stage line; `.on` selected variant |
+| Project rail item | `RailItem` (`.rail`) | status icon + title + count badges + stage line; `.on` selected variant; building+shipped only |
 | Running / stopped indicator | status icon | `ti-player-play` (ok) / `ti-player-pause` (text3) |
-| Pending-decisions / bugs counts | `CountBadge` (pill) | warn pill / danger pill, canvas-colored numeral |
-| Path-not-found warning | `Banner` | `⚠️ path not found` row + copyable recovery command (FRD-15/16 shape) |
+| Pending-decisions / bugs counts | `CountBadge` (pill) | warn pill / danger pill, canvas-colored numeral, `tabular-nums` |
+| Path-not-found warning | `Banner` (`bPathLostBanner`) | `⚠️ ruta no encontrada` row + copyable `/pandacorp:sync-portfolio` recovery (FRD-15/16 shape) |
 | Empty rail | text empty-state | "Sin proyectos aún." |
 | Right pane | `ProjectWorkspace` (FDD-04) | the selected project's workspace |
 
 The rail item is a distinct **selectable navigation primitive** (`.rail`) — adjacent to but separate
 from `.navitem` (docs nav) and `.tab`; reuse `RailItem`, do not fork a near-duplicate for the docs nav.
+
+## Cohesion (DR-062)
+The portfolio uses the one light **`PageTitle`** block (`pageHead`) like every top-level view — no heavy
+title panel. The path-not-found warning is the one shared **`Banner`**; the count badges are the shared
+**`CountBadge`**/`Chip` presets. The rail's tabs/sub-tabs inside the workspace are owned by FDD-04 and
+use the one `Tabs` pattern. No bespoke header, chip or banner on this surface.
 
 ## 3. States
 
@@ -73,5 +89,5 @@ from `.navitem` (docs nav) and `.tab`; reuse `RailItem`, do not fork a near-dupl
 
 None. The portfolio rail surfaces only real read-only data (status, decision/bug counts, stage) and
 real navigation; there are no state-preview/demo controls on this surface. The shipped-project
-**business snapshot** (active users / return metric / last verdict, FRD-03 AC) is real data filled by
-`/pandacorp:review-launch`, surfaced read-only — never inside a demo block.
+**business snapshot was removed/deferred** (premature) — it is not on this surface, so there is no
+demo-block consideration for it here.
