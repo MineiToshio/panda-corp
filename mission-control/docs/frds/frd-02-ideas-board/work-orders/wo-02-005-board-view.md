@@ -5,7 +5,7 @@ slug: board-surface
 title: 'WO-02-005 — Board surface (columns + cards + filter + legend + intake + discard)'
 status: DRAFT
 parent: FRD-02
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 artifacts:
   - 'src/app/board/**'
   - 'src/components/modules/IdeaCard/**'
@@ -77,3 +77,47 @@ already-inventoried module; no new shared component is introduced by this WO.
 
 `docs/frds/frd-02-ideas-board/mocks/la-campana.html` + `docs/design/prototype/index.html`
 (the board surface: columns, cards, filter, legend, intake modal).
+
+## Status Note
+
+**Built:** The `/board` page is fully re-painted. `page.tsx` (Server Component) resolves all
+cards via `readIdeas` + `readStatus` + `deriveColumn`, then passes them to `BoardShell`
+(new `"use client"` component at `src/app/board/_components/BoardShell/BoardShell.tsx`).
+
+**Interfaces / contracts exposed:**
+
+- `BoardShell({ cards: BoardCardEntry[], discardAction: (slug) => Promise<DiscardResult> }): JSX.Element`
+  — the interactive client boundary; manages `selectedCategory`, `intakeOpen`, `openSlug` state.
+- `IdeaBoardView` extended with `onCardClick?: (slug: string) => void` prop (backward-compat;
+  when absent, cards are read-only articles; when present, each card is wrapped in a `<button>`).
+- `Button` extended with `testId?: string` and `"data-testid"?: string` props
+  (override the default `data-testid="button"` when multiple buttons share a surface).
+
+**Integration seams:**
+
+- `page.tsx` → `BoardShell` (passes resolved `BoardCardEntry[]` + `discardIdeaAction` Server Action).
+- `BoardShell` → `IdeaBoardView` (passes `filteredCards` + `onCardClick`).
+- `BoardShell` → `CategoryFilter` (passes `categories`, `selected`, `onSelect`).
+- `BoardShell` → `IntakeModal` (passes `open`, `onClose`).
+- `BoardShell` → `CardDetail` (passes `slug`, `title`, `status`, `body`, `onEnterForge`).
+- `BoardShell` → `DiscardButton` (passes `slug`, `discardAction`; shown when `status` is not
+  `"discarded"` or `"shipped"`).
+
+**Implicit decisions / assumptions made:**
+
+- Card clickability: the `<button>` wrapper approach (not `<article role="button">`) preserves
+  semantic `<article>` identity; the wrapper has `background:none; border:none; padding:0; cursor:pointer`.
+- `discardIdeaAction` is injected as a prop on `BoardShell` (not imported directly) so the
+  component is testable without Next.js infrastructure.
+- `IntakeModal` is always mounted (not conditionally rendered) so the overlay fades in/out without
+  remounting — the board is always visible behind it (AC-02-003.3).
+- Filter: `CategoryFilter` chip-style was used (WO specifies this module) rather than the
+  prototype's search+select. The WO wins over the prototype for component choice.
+- The "Volver al tablero" back button uses `variant="secondary" size="sm"` and
+  `data-testid="card-detail-back"`.
+- `canDiscard` = `status !== "discarded" && status !== "shipped"` — only active, non-terminal ideas.
+
+**Test files:** `src/app/board/_tests/wo-02-005-board-surface.test.tsx` (29 tests, all green).
+
+**Verification:** 274 test files / 6372 tests pass; tsc --noEmit clean; biome clean;
+Playwright smoke gate green (route 200, no console errors, no blank render).

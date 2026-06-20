@@ -95,6 +95,13 @@ export interface IdeaBoardViewProps {
   isLoading?: boolean;
   /** When set, render the error state with this message. */
   error?: string;
+  /**
+   * Callback fired when the owner clicks an idea card.
+   * When provided, each IdeaCard becomes interactive (role="button", cursor pointer).
+   * When absent, cards are read-only (no click affordance, backward compat).
+   * AC-02-004: clicking a card opens its detail.
+   */
+  onCardClick?: (slug: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -233,6 +240,7 @@ export function IdeaBoardView({
   cards,
   isLoading = false,
   error,
+  onCardClick,
 }: IdeaBoardViewProps): React.JSX.Element {
   // Loading state takes priority
   if (isLoading) {
@@ -296,7 +304,33 @@ export function IdeaBoardView({
                     —
                   </div>
                 ) : (
-                  colCards.map((card) => <IdeaCard key={card.slug} {...card} />)
+                  colCards.map((card) =>
+                    onCardClick != null ? (
+                      /* When onCardClick is provided: wrap in a clickable <button> so the
+                         article itself remains a semantic landmark (not a button). The button
+                         is the interactive wrapper; IdeaCard renders inside it read-only.
+                         AC-02-004: clicking a card opens its detail. */
+                      <button
+                        key={card.slug}
+                        type="button"
+                        style={{
+                          display: "block",
+                          width: "100%",
+                          background: "none",
+                          border: "none",
+                          padding: 0,
+                          cursor: "pointer",
+                          textAlign: "left",
+                        }}
+                        onClick={() => onCardClick(card.slug)}
+                        aria-label={`Abrir detalle: ${card.title}`}
+                      >
+                        <IdeaCard key={undefined} {...card} />
+                      </button>
+                    ) : (
+                      <IdeaCard key={card.slug} {...card} />
+                    ),
+                  )
                 )}
               </div>
             </section>
