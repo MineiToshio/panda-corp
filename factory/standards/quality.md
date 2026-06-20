@@ -15,6 +15,13 @@ These commands live in the project's `.pandacorp/verify.sh` and the factory's `S
 
 **Gate hardening (DR-019):** `verify.sh` is **fail-closed** (any ambiguous or unparseable output = failure, never "passes by default"), runs in a clean environment, **does not expose to the generating agent the exact names of the tests** it must pass nor the fixtures, and emits **actionable messages** (which rule failed and why — rule-based feedback is the most effective for an agent to self-correct; "LLM-as-judge" is not reliable).
 
+## Observability-fidelity gate (DR-066, projects with a dashboard/monitor)
+A UI/transport that claims to show a **live** process must prove it tells the truth about its own liveness before it ships. Applies to any monitor, status page or "live" surface (the canonical rule is in [observability.md](observability.md) "Liveness & freshness fidelity"):
+1. **Liveness crosses `running` with recency** — a test asserts the UI reads `live ⇔ running AND (now − heartbeat) < window`, NOT the flag alone. A frozen `running: true` with a stale heartbeat must render as **stale/sin señal**, not live.
+2. **Freshness is declared** — the UI shows its data age in three bands (en vivo `< 3·T` / **datos de hace X** / **sin señal** `≥ hard_TTL`); intermediate-age data is stamped, never passed off as live.
+3. **The "sin señal" path is actually exercised** — a test **stops the producer** (no more heartbeats) and asserts the UI flips to stale/sin-señal within `hard_TTL` instead of freezing on the last value. "Silence is not success" for a monitor exactly as for a build.
+4. **Real-change latency is bounded** — a real state change is reflected in the UI quickly: push/watch (fs-watch on the event stream, SSE, websocket) for near-real-time when the transport allows it at ~zero cost; poll-based fallback bounded to **≤ 30 s worst case** (never tighter than the app's performance/resource budget allows). The producer side (positive, time-driven heartbeat) is in [build-orchestration.md](build-orchestration.md) §9.
+
 ## Adversarial and independent verification (DR-015)
 - The **generator and verifier cannot be the same model**: an LLM's errors cluster and its tests inherit its blind spots. The `reviewer` (opus, ideally from a different family than the generator) **re-runs** all the evidence and writes **adversarial and edge-case tests that the implementer didn't see**.
 - The tests are anchored in **human sources** —EARS criteria of the FRDs and real bugs from `.pandacorp/comms/progress.md`—, not in the model's imagination.

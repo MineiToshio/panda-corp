@@ -289,17 +289,35 @@ work order), `status.yaml` corruption, and conflicting git commits.
 
 **The mechanism: TTL lock via supervisor heartbeat.**
 
-`status.yaml` carries three fields written at launch and cleared on close:
+`status.yaml` carries these fields written at launch and cleared on close:
 
 ```yaml
 running: true
-run_started_at: "2026-06-17T10:00:00Z"   # set once at launch
-supervisor_heartbeat: "2026-06-17T10:08:30Z"  # updated every ~2 min by the supervisor
+run_started_at: "2026-06-17T10:00:00Z"     # set once at launch
+supervisor_heartbeat: "2026-06-17T10:08:30Z"  # advanced every ~2 min by the supervisor (liveness of the watcher)
+last_event_at: "2026-06-17T10:08:12Z"       # advanced by the PRODUCER (engine) at every safe point — liveness of the build itself (DR-066)
 ```
 
 The **supervisor** (the agent that runs `implement`) writes `supervisor_heartbeat` to `status.yaml`
 on every Monitor tick (~2 min). This is the liveness signal — as long as the supervisor is alive, the
 heartbeat stays fresh.
+
+**Observability fidelity — the heartbeat must be POSITIVE and the consumer must cross it with recency (DR-066).**
+A frozen `running: true` is not proof of life; the audit found exactly that (`running: true` + a stale
+timestamp while the build was advancing). So:
+- **The producer emits a positive, time-driven heartbeat.** The engine appends an `AgentWorking` event to
+  the event stream as each agent starts (`~/.claude/dashboard-events.ndjson`) AND **advances `last_event_at`
+  in `status.yaml` at every safe point** (each FRD gate, sync, close-out). The supervisor's tick is
+  **time-driven** (a `ScheduleWakeup` timer, not only the event-driven `Monitor`) and on every tick it BOTH
+  advances `supervisor_heartbeat` AND appends a positive `SupervisorTick` heartbeat event — so "sin señal"
+  (no events at all) genuinely means *hung*, not merely *quiet between long agents*.
+- **The consumer (Mission Control / any monitor) reads liveness as `running AND fresh`, never `running` alone**,
+  and declares its own freshness in three bands (en vivo `< 3·T` / datos de hace X / sin señal `≥ 10 min`),
+  where `T` ≈ the 2-min tick. This is the canonical observability standard; see
+  [observability.md](observability.md) "Liveness & freshness fidelity".
+- **Gate:** a transport/UI that claims to be live does not pass without proving (1) a real state change is
+  reflected in the UI quickly — push/watch for near-real-time when cheap, polling **≤ 30 s** worst case — and
+  (2) "sin señal" engages when the heartbeat stops. See [quality.md](quality.md) "Observability-fidelity gate".
 
 The **`implement` preflight** checks, after confirming `status.yaml` exists:
 
