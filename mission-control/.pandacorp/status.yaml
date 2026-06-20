@@ -5,7 +5,7 @@ phase: implementation
 version: v1
 overlay_version: "8.26.0"
 created_with: "6.0.0"
-running: true
+running: false
 run_started_at: "2026-06-20T13:39:36Z"
 repo: ""
 updated_at: "2026-06-20T13:39:36Z"
@@ -20,7 +20,7 @@ pending_decisions: 0
 pending_bugs: 0
 rethink_pending: false
 advance_pending: false
-last_green_sha: "95b005e"
+last_green_sha: "381d9f8"
 safe_to_test: true
 blocked: []
-supervisor_heartbeat: "2026-06-20T13:39:36Z"
+supervisor_heartbeat: ""
