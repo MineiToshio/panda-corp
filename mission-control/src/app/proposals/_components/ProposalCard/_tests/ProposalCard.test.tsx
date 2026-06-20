@@ -66,10 +66,12 @@ describe("ProposalCard — candidate lesson variant", () => {
     expect(screen.getByTestId("proposal-card-source")).toHaveTextContent("LESSON-0001");
   });
 
-  it("AC-17-004.2: renders the lesson source field as evidence", () => {
+  it("AC-17-004.2: renders the lesson source field as evidence (evidence line below title)", () => {
+    // The card now shows: mono id in proposal-card-source, source in the evidence line below.
     const lesson = makeLesson({ source: "proj-alpha (WO-01-001 review)" });
     render(<ProposalCard kind="candidate-lesson" lesson={lesson} />);
-    expect(screen.getByTestId("proposal-card-source")).toHaveTextContent("proj-alpha");
+    // The card must show the source somewhere in its tree (even if not in proposal-card-source)
+    expect(screen.getByTestId("proposal-card").textContent).toContain("proj-alpha");
   });
 
   it("AC-17-004.2: renders the suggested action text (Spanish)", () => {
@@ -80,12 +82,13 @@ describe("ProposalCard — candidate lesson variant", () => {
     expect(action.textContent).toBeTruthy();
   });
 
-  it("AC-17-004.2: renders a CopyButton with the /pandacorp:memory review command", () => {
+  it("AC-17-004.2: renders a CopyButton when withCommand=true (group provides cmd by default, card can show it explicitly)", () => {
+    // REQ-17-001: by default, candidate cards defer to the group-level command.
+    // When withCommand=true is explicit (e.g. for testing), the card shows its own CmdRow.
     const lesson = makeLesson();
-    render(<ProposalCard kind="candidate-lesson" lesson={lesson} />);
+    render(<ProposalCard kind="candidate-lesson" lesson={lesson} withCommand={true} />);
     const copyButton = screen.getByTestId("copy-button");
     expect(copyButton).toBeInTheDocument();
-    // The copy button value should include /pandacorp:memory
     expect(copyButton).toHaveAttribute("aria-label", expect.stringContaining("Copiar"));
   });
 
@@ -119,15 +122,20 @@ describe("ProposalCard — candidate lesson variant", () => {
     expect(card).toHaveAttribute("data-kind", "candidate-lesson");
   });
 
-  it("AC-17-004.4: no button that executes the command (only copy affordance)", () => {
+  it("AC-17-004.4: no button that executes the command — group-level cards have no buttons at all", () => {
+    // REQ-17-001: candidate cards default to withCommand=false (group provides the cmd).
+    // With no per-card CmdRow, there is no button at all on the card.
     const lesson = makeLesson();
     render(<ProposalCard kind="candidate-lesson" lesson={lesson} />);
-    // There must be no submit/action button that runs the command
-    // Only a copy button is allowed
+    // No submit or action button on the card
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("AC-17-004.4: when withCommand=true, only a copy button is present (no submit/run)", () => {
+    const lesson = makeLesson();
+    render(<ProposalCard kind="candidate-lesson" lesson={lesson} withCommand={true} />);
     const allButtons = screen.getAllByRole("button");
-    // Copy button is the only interactive element for the command
     for (const btn of allButtons) {
-      // None of the buttons should have type="submit" or trigger action
       expect(btn).not.toHaveAttribute("type", "submit");
     }
   });
@@ -191,9 +199,11 @@ describe("ProposalCard — prune variant", () => {
     expect(screen.getByTestId("proposal-card-source")).toHaveTextContent("LESSON-0007");
   });
 
-  it("AC-17-004.2: renders /pandacorp:memory review command copy button", () => {
+  it("AC-17-004.2: renders /pandacorp:memory review command copy button when withCommand=true", () => {
+    // REQ-17-001: prune cards default to withCommand=false (group-level cmd).
+    // Pass withCommand=true explicitly to verify the card CAN render the command.
     const lesson = makeLesson({ status: "deprecated" });
-    render(<ProposalCard kind="prune" lesson={lesson} />);
+    render(<ProposalCard kind="prune" lesson={lesson} withCommand={true} />);
     expect(screen.getByTestId("copy-button")).toBeInTheDocument();
   });
 });

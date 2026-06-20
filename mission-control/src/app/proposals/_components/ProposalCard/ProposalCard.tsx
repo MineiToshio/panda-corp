@@ -3,22 +3,37 @@
  *
  * Renders a single proposal card for any of the four stream kinds:
  *   - candidate-lesson: a lesson with status === "candidate", with eval-gate badge
- *   - promotion: a lesson with promotion === "proposed"
- *   - prune: a lesson with status === "deprecated"
- *   - self-suggestion: a Suggestion from computeSuggestions()
+ *   - promotion: a lesson with promotion === "proposed" (per-card command)
+ *   - prune: a lesson with status === "deprecated" (no per-card command — group-level)
+ *   - self-suggestion: a Suggestion from computeSuggestions() (per-card command)
  *
- * Read-only: the only interaction affordance is the CopyButton.
+ * REQ-17-001 / AC-17-001.2:
+ *   withCommand=true   → show a per-card CmdRow (promotions, self-suggestions)
+ *   withCommand=false  → card shows title + evidence only; command is at the group level
+ *
+ * Visual fidelity (DR-054/DR-056, FDD-17 §3):
+ *   - `rpgpanel` card (Panel variant="rpgpanel")
+ *   - 32px ItemSlot icon in the kind color
+ *   - LESSON-NNNN id in mono (proposal-card-source)
+ *   - eval-gate Chip (ok/warn) for candidates; target Chip (accent) for promotions
+ *   - title (proposal-card-action) + evidence line (file-search icon)
+ *   - CmdRow only when withCommand=true
+ *
+ * Read-only: the only interaction affordance is CopyButton (inside CmdRow).
  * No form, no action button, no run command (AC-17-004.4).
  * State communicated by text + data attribute, not color alone (AC-17-004.6).
  *
  * Traceability:
  *   CMP-17-proposalcard → AC-17-004.2, AC-17-004.3, AC-17-004.4, AC-17-004.6
+ *   REQ-17-001 → AC-17-001.2 (withCommand controls per-card vs group-level)
  *   REQ-17-003 — evidence + action + copy button
  *   REQ-17-007 — candidate visually distinct + eval-gate state
  *   REQ-17-009 — high-risk display-only
  */
 
-import { CopyButton } from "@/components/core/CopyButton/CopyButton";
+import { Chip } from "@/components/core/Chip/Chip";
+import { CmdRow } from "@/components/core/CmdRow/CmdRow";
+import { Panel } from "@/components/core/Panel/Panel";
 import type { Lesson } from "@/lib/memory/memory";
 import type { Suggestion } from "@/lib/self-suggest/self-suggest";
 
@@ -30,24 +45,32 @@ type CandidateLessonCardProps = {
   kind: "candidate-lesson";
   lesson: Lesson;
   suggestion?: never;
+  /** When false, the card defers to the group-level command (REQ-17-001). */
+  withCommand?: boolean;
 };
 
 type PromotionCardProps = {
   kind: "promotion";
   lesson: Lesson;
   suggestion?: never;
+  /** Promotions always carry their own /pandacorp:learn <id> (REQ-17-001). */
+  withCommand?: boolean;
 };
 
 type PruneCardProps = {
   kind: "prune";
   lesson: Lesson;
   suggestion?: never;
+  /** When false, the card defers to the group-level command (REQ-17-001). */
+  withCommand?: boolean;
 };
 
 type SelfSuggestionCardProps = {
   kind: "self-suggestion";
   suggestion: Suggestion;
   lesson?: never;
+  /** Self-suggestions always carry their own command per card (REQ-17-001). */
+  withCommand?: boolean;
 };
 
 export type ProposalCardProps =
@@ -67,86 +90,81 @@ function lessonCommand(kind: "candidate-lesson" | "promotion" | "prune", lessonI
   return "/pandacorp:memory review";
 }
 
-/** Derive a human-readable suggested action for a lesson-based card. */
-function lessonAction(kind: "candidate-lesson" | "promotion" | "prune"): string {
-  if (kind === "promotion") return "Revisar y aprobar la promoción a estándar/regla/habilidad";
-  if (kind === "prune") return "Revisar y depurar esta lección obsoleta";
-  return "Revisar la lección candidata (corroboración pendiente)";
+/** Derive a human-readable title for a lesson-based card. */
+function lessonTitle(kind: "candidate-lesson" | "promotion" | "prune"): string {
+  if (kind === "promotion") return "Promover lección a estándar / regla / habilidad";
+  if (kind === "prune") return "Depurar lección obsoleta o para reconciliar";
+  return "Revisar lección candidata";
 }
 
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
 
-/** Eval-gate badge for candidate lessons (AC-17-004.3). */
-function EvalGateBadge({ evalGate }: { evalGate: Lesson["evalGate"] }): React.JSX.Element {
-  const label =
-    evalGate === "corroborated" ? "Corroborada (≥2 proyectos)" : "Pendiente 2ª ocurrencia";
+/**
+ * Eval-gate Chip for candidate lessons (AC-17-004.3).
+ * Uses the shared Chip primitive (tone ok/warn) — not color alone.
+ */
+function EvalGateChip({ evalGate }: { evalGate: Lesson["evalGate"] }): React.JSX.Element {
+  const isCorroborated = evalGate === "corroborated";
+  const label = isCorroborated ? "corroborada — activa" : "esperando 2ª aparición";
 
   return (
+    <Chip tone={isCorroborated ? "ok" : "warn"}>
+      <span data-testid="proposal-eval-gate-badge" data-eval-gate={evalGate}>
+        {label}
+      </span>
+    </Chip>
+  );
+}
+
+/**
+ * ItemSlot icon — 32px, kind-colored, per prototype bPropCard.
+ * Uses a simple inline div matching the prototype's `.itemslot` dimensions.
+ * Color is conveyed by data-kind in addition to the tint (text + icon, not color alone).
+ */
+function KindIcon({
+  icon,
+  color,
+  kind,
+}: {
+  icon: string;
+  color: string;
+  kind: string;
+}): React.JSX.Element {
+  return (
     <span
-      data-testid="proposal-eval-gate-badge"
-      data-eval-gate={evalGate}
+      data-testid="proposal-kind-icon"
+      data-kind-icon={kind}
+      aria-hidden="true"
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: "0.25rem",
-        fontSize: "0.7rem",
-        fontWeight: 600,
-        padding: "0.1rem 0.4rem",
-        borderRadius: "var(--radius, 0.5rem)",
-        border: "var(--hairline, 1px) solid currentColor",
-        color:
-          evalGate === "corroborated"
-            ? "var(--color-agent-test-writer, currentColor)"
-            : "var(--color-accent, currentColor)",
-        opacity: 0.9,
+        justifyContent: "center",
+        width: "32px",
+        height: "32px",
+        flexShrink: 0,
+        borderRadius: "8px",
+        background: `color-mix(in oklch, ${color} 13%, transparent)`,
+        border: `1.5px solid ${color}`,
+        color,
       }}
     >
-      {evalGate === "corroborated" ? "✓" : "⏳"} {label}
+      <i className={`ti ${icon}`} style={{ fontSize: "17px" }} />
     </span>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Card layout helpers
+// Kind metadata — icon + color per kind
 // ---------------------------------------------------------------------------
 
-const CARD_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "0.5rem",
-  padding: "0.75rem 1rem",
-  borderRadius: "var(--radius, 0.5rem)",
-  border: "var(--hairline, 1px) solid currentColor",
-  background: "var(--color-surface, Canvas)",
-  color: "var(--color-text, currentColor)",
-  opacity: 1,
-};
-
-const SOURCE_STYLE: React.CSSProperties = {
-  fontSize: "0.7rem",
-  opacity: 0.65,
-  fontFamily: "monospace",
-};
-
-const ACTION_STYLE: React.CSSProperties = {
-  fontSize: "0.875rem",
-  fontWeight: 500,
-};
-
-const COMMAND_ROW_STYLE: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "0.5rem",
-  flexWrap: "wrap",
-};
-
-const COMMAND_TEXT_STYLE: React.CSSProperties = {
-  fontSize: "0.75rem",
-  fontFamily: "monospace",
-  opacity: 0.8,
-};
+const KIND_META = {
+  "candidate-lesson": { icon: "ti-bulb", color: "var(--color-accent)" },
+  promotion: { icon: "ti-arrow-up-right", color: "var(--color-tier-4, var(--color-accent))" },
+  prune: { icon: "ti-trash", color: "var(--color-text3)" },
+  "self-suggestion": { icon: "ti-sparkles", color: "var(--color-info)" },
+} as const;
 
 // ---------------------------------------------------------------------------
 // ProposalCard
@@ -158,13 +176,25 @@ const COMMAND_TEXT_STYLE: React.CSSProperties = {
  * Discriminated by the `kind` prop. The `lesson` prop is required for
  * lesson-based kinds; `suggestion` for self-suggestion.
  *
- * Read-only: no action button, only a CopyButton (AC-17-004.4).
+ * withCommand controls whether the per-card command row is rendered:
+ *   - false (default for candidate-lesson and prune) → group provides the command
+ *   - true  (default for promotion and self-suggestion) → card shows its own CmdRow
+ *
+ * Read-only: no action button, only a CopyButton inside CmdRow (AC-17-004.4).
  */
 export function ProposalCard(props: ProposalCardProps): React.JSX.Element {
   if (props.kind === "self-suggestion") {
-    return <SelfSuggestionCard suggestion={props.suggestion} />;
+    return (
+      <SelfSuggestionCard suggestion={props.suggestion} withCommand={props.withCommand ?? true} />
+    );
   }
-  return <LessonCard kind={props.kind} lesson={props.lesson} />;
+  return (
+    <LessonCard
+      kind={props.kind}
+      lesson={props.lesson}
+      withCommand={props.withCommand ?? props.kind === "promotion"}
+    />
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -174,49 +204,100 @@ export function ProposalCard(props: ProposalCardProps): React.JSX.Element {
 function LessonCard({
   kind,
   lesson,
+  withCommand,
 }: {
   kind: "candidate-lesson" | "promotion" | "prune";
   lesson: Lesson;
+  withCommand: boolean;
 }): React.JSX.Element {
   const command = lessonCommand(kind, lesson.id);
-  const action = lessonAction(kind);
+  const title = lessonTitle(kind);
+  const meta = KIND_META[kind];
 
   return (
-    <article
-      data-testid="proposal-card"
-      data-kind={kind}
-      style={CARD_STYLE}
-      aria-label={`Propuesta: ${lesson.id}`}
-    >
-      {/* Header row — id + eval-gate badge for candidates */}
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-        <span data-testid="proposal-card-source" style={SOURCE_STYLE}>
-          {lesson.id}
-          {lesson.source ? ` · ${lesson.source}` : ""}
-        </span>
-        {kind === "candidate-lesson" && <EvalGateBadge evalGate={lesson.evalGate} />}
-      </div>
+    <Panel variant="rpgpanel">
+      <article
+        data-testid="proposal-card"
+        data-kind={kind}
+        aria-label={`Propuesta: ${lesson.id}`}
+        style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}
+      >
+        {/* 32px kind icon (prototype bPropCard itemslot) */}
+        <KindIcon icon={meta.icon} color={meta.color} kind={kind} />
 
-      {/* Suggested action */}
-      <p data-testid="proposal-card-action" style={ACTION_STYLE}>
-        {action}
-      </p>
+        {/* Content column */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Header row: mono id + eval-gate chip (candidate) or target chip (promotion) */}
+          <div style={{ display: "flex", alignItems: "center", gap: "7px", flexWrap: "wrap" }}>
+            <span
+              data-testid="proposal-card-source"
+              style={{
+                fontFamily: "var(--font-mono, monospace)",
+                fontSize: "10px",
+                color: "var(--color-text3)",
+              }}
+            >
+              {lesson.id}
+            </span>
 
-      {/* Body snippet (the lesson content) */}
-      {lesson.body ? (
-        <p style={{ fontSize: "0.8rem", opacity: 0.75, margin: 0, lineHeight: 1.4 }}>
-          {lesson.body.length > 200 ? `${lesson.body.slice(0, 200)}…` : lesson.body}
-        </p>
-      ) : null}
+            {kind === "candidate-lesson" && <EvalGateChip evalGate={lesson.evalGate} />}
 
-      {/* Command row — copyable command, no run button */}
-      <div style={COMMAND_ROW_STYLE}>
-        <code data-testid="proposal-card-command" style={COMMAND_TEXT_STYLE}>
-          {command}
-        </code>
-        <CopyButton value={command} label="Copiar comando" />
-      </div>
-    </article>
+            {kind === "promotion" && (
+              <Chip tone="accent">
+                <i
+                  className="ti ti-arrow-up-right"
+                  style={{ fontSize: "10px", verticalAlign: "-1px" }}
+                />{" "}
+                {lesson.type} · {lesson.domain}
+              </Chip>
+            )}
+          </div>
+
+          {/* Title — the suggested action (plain language) */}
+          <p
+            data-testid="proposal-card-action"
+            style={{
+              fontSize: "13px",
+              fontWeight: 500,
+              margin: "4px 0 0",
+              color: "var(--color-text)",
+            }}
+          >
+            {lesson.body ? lesson.body.slice(0, 120) : title}
+          </p>
+
+          {/* Evidence line (file-search icon + source text) */}
+          {lesson.source && (
+            <div
+              style={{
+                fontSize: "11px",
+                color: "var(--color-text3)",
+                marginTop: "3px",
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+              }}
+            >
+              <i
+                className="ti ti-file-search"
+                style={{ fontSize: "11px", verticalAlign: "-1px" }}
+              />
+              {lesson.source}
+            </div>
+          )}
+
+          {/* Per-card command — only when withCommand=true (REQ-17-001 / AC-17-001.2) */}
+          {withCommand && (
+            <div style={{ marginTop: "8px" }}>
+              <span data-testid="proposal-card-command" style={{ display: "none" }}>
+                {command}
+              </span>
+              <CmdRow command={command} />
+            </div>
+          )}
+        </div>
+      </article>
+    </Panel>
   );
 }
 
@@ -224,37 +305,76 @@ function LessonCard({
 // SelfSuggestionCard
 // ---------------------------------------------------------------------------
 
-function SelfSuggestionCard({ suggestion }: { suggestion: Suggestion }): React.JSX.Element {
+function SelfSuggestionCard({
+  suggestion,
+  withCommand,
+}: {
+  suggestion: Suggestion;
+  withCommand: boolean;
+}): React.JSX.Element {
+  const meta = KIND_META["self-suggestion"];
+
   return (
-    <article
-      data-testid="proposal-card"
-      data-kind="self-suggestion"
-      data-severity={suggestion.severity}
-      style={CARD_STYLE}
-      aria-label={`Sugerencia automática: ${suggestion.title}`}
-    >
-      {/* Evidence / source */}
-      <span data-testid="proposal-card-source" style={SOURCE_STYLE}>
-        {suggestion.evidence}
-      </span>
+    <Panel variant="rpgpanel">
+      <article
+        data-testid="proposal-card"
+        data-kind="self-suggestion"
+        data-severity={suggestion.severity}
+        aria-label={`Sugerencia automática: ${suggestion.title}`}
+        style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}
+      >
+        {/* 32px kind icon */}
+        <KindIcon
+          icon={suggestion.kind === "bottleneck" ? "ti-clock-pause" : meta.icon}
+          color={meta.color}
+          kind="self-suggestion"
+        />
 
-      {/* Suggested action (title) */}
-      <p data-testid="proposal-card-action" style={ACTION_STYLE}>
-        {suggestion.title}
-      </p>
+        {/* Content column */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Header row: id (SELF-kind) */}
+          <div style={{ display: "flex", alignItems: "center", gap: "7px", flexWrap: "wrap" }}>
+            <span
+              data-testid="proposal-card-source"
+              style={{
+                fontFamily: "var(--font-mono, monospace)",
+                fontSize: "10px",
+                color: "var(--color-text3)",
+              }}
+            >
+              {suggestion.evidence}
+            </span>
 
-      {/* Severity label — text, not color alone (AC-17-004.6) */}
-      <span style={{ fontSize: "0.7rem", opacity: 0.7 }}>
-        {suggestion.severity === "nudge" ? "! Aviso" : "i Información"}
-      </span>
+            {/* Severity chip — text, not color alone (AC-17-004.6) */}
+            <Chip tone={suggestion.severity === "nudge" ? "warn" : "info"}>
+              {suggestion.severity === "nudge" ? "aviso" : "info"}
+            </Chip>
+          </div>
 
-      {/* Command row — display + copy only, no run */}
-      <div style={COMMAND_ROW_STYLE}>
-        <code data-testid="proposal-card-command" style={COMMAND_TEXT_STYLE}>
-          {suggestion.command}
-        </code>
-        <CopyButton value={suggestion.command} label="Copiar comando" />
-      </div>
-    </article>
+          {/* Title — the suggested action */}
+          <p
+            data-testid="proposal-card-action"
+            style={{
+              fontSize: "13px",
+              fontWeight: 500,
+              margin: "4px 0 0",
+              color: "var(--color-text)",
+            }}
+          >
+            {suggestion.title}
+          </p>
+
+          {/* Per-card command — always true for self-suggestions (each differs) */}
+          {withCommand && (
+            <div style={{ marginTop: "8px" }}>
+              <span data-testid="proposal-card-command" style={{ display: "none" }}>
+                {suggestion.command}
+              </span>
+              <CmdRow command={suggestion.command} />
+            </div>
+          )}
+        </div>
+      </article>
+    </Panel>
   );
 }

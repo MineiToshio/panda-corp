@@ -5,7 +5,7 @@ slug: proposals-surface
 title: 'WO-17-004 — Proposals surface: stream/card + promotions queue + memory health + badge/chip'
 status: DRAFT
 parent: FRD-17
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 artifacts:
   - 'src/app/proposals/**'
   - 'src/components/modules/PromotionsQueue/**'
@@ -96,3 +96,67 @@ Components from `docs/design/components.md` (reuse → adapt → create; never f
 data (~L352/~L1408). See [fdd.md](../fdd.md) (the canonical render-fn contract) and
 [mocks/README.md](../mocks/README.md) for the token slice. (The mocks README's "prototype does not yet
 draw this screen" note is **superseded** by the FDD re-anchor: `propuestasView()` is now canonical.)
+
+## Status Note
+
+**What was built:** The complete `app/proposals` surface for the FRD-17 proposals inbox — a Server
+Component page (`src/app/proposals/page.tsx`) that composes four dismissable proposal streams, a
+memory-health panel, a durable promotions queue, and a top-bar badge.
+
+**Key interfaces and signatures exposed:**
+
+- `ProposalCard(props: ProposalCardProps): React.JSX.Element` — discriminated union on `kind`
+  (`"candidate-lesson" | "promotion" | "prune" | "self-suggestion"`). Consumes `Lesson` (from
+  `@/lib/memory/memory`) or `Suggestion` (from `@/lib/self-suggest/self-suggest`). The `withCommand`
+  prop (boolean, default `false` for candidate/prune, `true` for promotion/self-suggestion) controls
+  whether the per-card `CmdRow` is rendered — when `false`, the card defers to the group-level command
+  (REQ-17-001). Located at `src/app/proposals/_components/ProposalCard/ProposalCard.tsx`.
+
+- `DismissableProposalStream(props: DismissableProposalStreamProps): React.JSX.Element` — discriminated
+  union on `kind`. The `groupCmd?: string` prop (only on `"candidate-lesson"` and `"prune"` variants)
+  renders a shared `CmdRow` once under the `SectionHead` when the stream is non-empty, and sets
+  `withCommand=false` on all child cards (REQ-17-001). Uses `proposalsDismissStore` (localStorage) for
+  client-local dismissal. Located at
+  `src/app/proposals/_components/DismissableProposalStream/DismissableProposalStream.tsx`.
+
+- `ProposalsPage(): React.JSX.Element` — Next.js Server Component (no `"use server"` directive). Reads
+  four data streams: `candidateLessons()`, `prunable()`, `promotionQueue()`, `computeSuggestions()`.
+  Renders in AC-17-001.3 order: candidates → prune → promotions + `PromotionsQueue` →
+  self-suggestions. Open-count tail = `candidates.length + prunables.length + promotions.length +
+  suggestions.length`. Located at `src/app/proposals/page.tsx`.
+
+**Implicit decisions and conventions:**
+
+- `groupCmd` shown only when `!isEmpty` — the group command never appears on an empty stream (UX:
+  nothing to run `/pandacorp:memory` on).
+- `MEMORY_GROUP_CMD = "/pandacorp:memory"` — the single activating command for both candidates and
+  prune groups. If the memory skill is renamed, update this constant in `page.tsx`.
+- `withCommand` default by kind: `candidate-lesson` → `false`, `promotion` → `true`, `prune` →
+  `false`, `self-suggestion` → `true`. Matches REQ-17-001: per-card command only when the group has
+  no shared command.
+- `proposal-card-source` data-testid holds the **lesson id** (e.g. `LESSON-0001`) in monospace; the
+  source field (project name + WO reference) is rendered below the title in the evidence line.
+- `EvalGateChip` uses shared `<Chip tone="ok"|"warn">` — not a bespoke badge. State communicated by
+  `data-eval-gate` attribute + Spanish text label (not color alone).
+- `KindIcon` is a 32px inline `<span>` with `background: color-mix(in oklch, …)` and icon-specific
+  color from `KIND_META`. It is NOT a new `components/core` primitive (route-local, not shared).
+- `SectionIcon` per kind: `ti-bulb` (candidate), `ti-arrow-up-right` (promotion), `ti-trash` (prune),
+  `ti-sparkles` (self-suggestion). Tabler icon classes.
+- Dismiss button uses `ti-x` Tabler icon + "Descartar" label. Dismissal ID for lessons =
+  `lessonProposalId(lesson)`, for suggestions = `suggestionProposalId(suggestion)` (from
+  `streamMeta.ts`).
+- `PromotionsQueue` appears inside the promotions stream block (after `DismissableProposalStream
+  kind="promotion"`), rendering the same `promotionQueue()` data as a durable reviewed list.
+
+**Test files:**
+- `src/app/proposals/_tests/wo-17-004-req17001.test.tsx` — 14 tests covering REQ-17-001 / AC-17-001.1/
+  .2/.3 and DR-062 canonical-primitive usage (PageTitle, SectionHead, rpgpanel Panel).
+- `src/app/proposals/_components/ProposalCard/_tests/ProposalCard.test.tsx` — 18 tests covering all
+  four card kinds, eval-gate badge, withCommand behavior, display-only invariant.
+- `src/app/proposals/_tests/proposals-page.test.tsx` — proposals page integration tests.
+- `src/app/proposals/_tests/proposals-integration.reviewer.test.tsx` — adversarial integration tests.
+
+**Gates passed:** 6710 tests passing (0 failures), `tsc --noEmit` clean, `biome check src/` clean,
+Next.js build clean (static `/proposals` route). Visual fidelity check (DR-056): screenshot matched
+prototype `propuestasView()` layout — PageTitle + accent chip, MemoryHealth panel with stats, four
+SectionHead dividers, rpgpanel cards with dismiss buttons, empty-state Italian italic guild copy.

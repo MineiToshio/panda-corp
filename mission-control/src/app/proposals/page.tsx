@@ -3,30 +3,41 @@
  *
  * The owner-facing surface of the factory's self-learning loop (DR-047) and the
  * place where Mission Control suggests improvements on its own. Composes the
- * memory-health panel, the four proposal streams (candidate lessons, promotions,
- * prune, self-suggestions) and the durable promotions queue.
+ * memory-health panel, the four proposal streams (candidate lessons, prune,
+ * promotions, self-suggestions) and the durable promotions queue.
+ *
+ * Group ordering per REQ-17-001 / AC-17-001.3 (prototype propuestasView(), ~L1420):
+ *   1. Lecciones candidatas   (group cmd: /pandacorp:memory)
+ *   2. Lecciones obsoletas    (group cmd: /pandacorp:memory) — adjacent to candidates
+ *   3. Promociones            (no group cmd — each /pandacorp:learn <id>)
+ *   4. Auto-sugerencias       (no group cmd — each computed command)
+ *
+ * Visual fidelity (DR-054/DR-056, FDD-17):
+ *   - PageTitle (DR-062, the ONE light title block) with open-count tail
+ *   - MemoryHealthPanel (Salud de la memoria section)
+ *   - DismissableProposalStream × 4 with group-level commands for candidates+prune
+ *   - PromotionsQueue (inside the promotions stream, durable reviewed list)
  *
  * Theme: the guild's *crónica* (the `librarian` as cronista). Honest / White-Hat
  * (FRD-09): no false urgency, no nagging, no streaks. Guild-framed language.
  *
  * Data flow (Server Component — architecture §3):
- *   - memoryHealth()     → CMP-17-health panel (REQ-17-005)
- *   - candidateLessons() → CMP-17-stream candidate-lesson
- *   - promotionQueue()   → CMP-17-stream promotion + CMP-17-promoqueue (REQ-17-006)
- *   - prunable()         → CMP-17-stream prune
- *   - computeSuggestions(input) — pure, no Claude — → CMP-17-stream self-suggestion
+ *   - memoryHealth()          → MemoryHealth panel (REQ-17-005)
+ *   - candidateLessons()      → stream 1 (candidates, group cmd /pandacorp:memory)
+ *   - prunable()              → stream 2 (prune, group cmd /pandacorp:memory)
+ *   - promotionQueue()        → stream 3 (each /pandacorp:learn) + PromotionsQueue
+ *   - computeSuggestions()    → stream 4 (each own command, no Claude)
  *
  * Read-only: never writes to factory/memory, factory/standards, factory/decisions
  * or plugin/ (FRD-17 non-goal). Architecture §7 golden rule: read-only, no Claude.
  *
  * NOTE: NO "use server" directive on this file. This is a Server Component (a
  * Next.js page), not a Server Action module. Adding "use server" would convert
- * all exports to Server Actions and break the build (all Server Actions must be
- * async — the default export `ProposalsPage` is a sync function). See progress.md
- * reviewer finding 2026-06-17 (WO-08-002 / WO-07 pre-existing bug).
+ * all exports to Server Actions and break the build.
  *
  * Traceability:
  *   CMP-17-page → AC-17-004.1..6
+ *   REQ-17-001 / AC-17-001.1/.2/.3 — group-level command + ordering
  *   REQ-17-002 (4 streams), REQ-17-003 (evidence + action + copy)
  *   REQ-17-007 (candidate distinct + eval-gate)
  *   REQ-17-008 (honest/dismissible; guild theme)
@@ -34,6 +45,8 @@
  */
 
 import type { Metadata } from "next";
+import { Chip } from "@/components/core/Chip/Chip";
+import { PageTitle } from "@/components/core/PageTitle/PageTitle";
 import { MemoryHealth } from "@/components/modules/MemoryHealth/MemoryHealth";
 import { PromotionsQueue } from "@/components/modules/PromotionsQueue/PromotionsQueue";
 import { candidateLessons, promotionQueue, prunable } from "@/lib/memory/memory";
@@ -53,43 +66,34 @@ export const metadata: Metadata = {
 };
 
 // ---------------------------------------------------------------------------
+// Constants — group-level commands (REQ-17-001)
+// ---------------------------------------------------------------------------
+
+/** The single activating command for candidate-lesson and prune groups. */
+const MEMORY_GROUP_CMD = "/pandacorp:memory";
+
+// ---------------------------------------------------------------------------
 // Styles — CSS custom properties only, zero hardcoded colors
 // ---------------------------------------------------------------------------
 
 const PAGE_STYLE: React.CSSProperties = {
   minHeight: "100dvh",
-  background: "var(--color-base, Canvas)",
-  color: "var(--color-text, currentColor)",
-};
-
-const HEADER_STYLE: React.CSSProperties = {
-  padding: "calc(var(--space-base, 1rem) * 1.5) calc(var(--space-base, 1rem) * 2)",
-  borderBottom: "var(--hairline, 1px) solid currentColor",
-  display: "flex",
-  flexDirection: "column",
-  gap: "0.25rem",
-};
-
-const HEADING_STYLE: React.CSSProperties = {
-  fontSize: "1.25rem",
-  fontWeight: 700,
-  margin: 0,
-  color: "var(--color-text, currentColor)",
-};
-
-const SUBHEADING_STYLE: React.CSSProperties = {
-  fontSize: "0.8rem",
-  opacity: 0.6,
-  margin: 0,
-  fontStyle: "italic",
+  background: "var(--color-base)",
+  color: "var(--color-text)",
 };
 
 const CONTENT_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: "calc(var(--space-base, 1rem) * 2)",
-  padding: "calc(var(--space-base, 1rem) * 1.5) calc(var(--space-base, 1rem) * 2)",
+  gap: "0",
+  padding: "0 0 32px",
   maxWidth: "900px",
+};
+
+const READONLY_NOTE_STYLE: React.CSSProperties = {
+  fontSize: "13px",
+  color: "var(--color-text2)",
+  margin: "0 2px 18px",
 };
 
 // ---------------------------------------------------------------------------
@@ -101,13 +105,14 @@ const CONTENT_STYLE: React.CSSProperties = {
  *
  * Server Component: reads filesystem data from lib/memory and computes
  * self-suggestions via lib/self-suggest (pure, no Claude, no network).
- * Renders four ProposalStream sections, one per kind.
+ * Renders the memory-health panel, then four ProposalStream sections in the
+ * protocol order (candidates → prune → promotions → self-suggestions, AC-17-001.3).
  */
 export default function ProposalsPage(): React.JSX.Element {
   // Read the four data streams
   const candidates = candidateLessons();
-  const promotions = promotionQueue();
   const prunables = prunable();
+  const promotions = promotionQueue();
 
   // Memory-loop health for the dedicated panel (REQ-17-005).
   const health = memoryHealth();
@@ -119,26 +124,48 @@ export default function ProposalsPage(): React.JSX.Element {
   // no Claude (architecture §7); each reader is fail-soft.
   const suggestions = computeSuggestions(gatherSuggestionsInput());
 
+  // Compute open count for the tail pill (all four streams)
+  const openCount = candidates.length + prunables.length + promotions.length + suggestions.length;
+
+  // Open-count tail pill for the PageTitle (prototype tabProp badge, ~L652)
+  const openCountTail =
+    openCount > 0 ? (
+      <Chip tone="accent">
+        <span style={{ fontVariantNumeric: "tabular-nums" }}>{openCount} abiertas</span>
+      </Chip>
+    ) : null;
+
   return (
     <main data-testid="proposals-page" style={PAGE_STYLE}>
-      {/* Page header — guild cronista theme */}
-      <header style={HEADER_STYLE}>
-        <h1 style={HEADING_STYLE}>Propuestas / Crónica del gremio</h1>
-        <p style={SUBHEADING_STYLE}>
-          Registro del librarian: lecciones pendientes, promociones y sugerencias del sistema. Solo
-          lectura — el owner actúa a través de las habilidades.
-        </p>
-      </header>
-
-      {/* Proposal surface */}
       <div style={CONTENT_STYLE}>
-        {/* Memory-loop health panel (CMP-17-health → REQ-17-005) */}
+        {/* Page title — THE one light PageTitle (DR-062), not a heavy hero panel */}
+        <PageTitle
+          icon="ti-mail-opened"
+          title="Propuestas"
+          subtitle="La bandeja del gremio: lecciones, promociones, poda y auto-sugerencias de Mission Control."
+          tail={openCountTail}
+        />
+
+        {/* Read-only notice */}
+        <p style={READONLY_NOTE_STYLE}>
+          Solo-lectura — tú apruebas corriendo el comando; Mission Control nunca cosecha, promueve
+          ni poda.
+        </p>
+
+        {/* Memory-loop health panel (CMP-17-health → REQ-17-005, AC-17-005.1..5) */}
         <MemoryHealth health={health} />
 
-        {/* Stream 1: candidate lessons (dismissible — REQ-17-008) */}
-        <DismissableProposalStream kind="candidate-lesson" lessons={candidates} />
+        {/* Stream 1: candidate lessons (group cmd → /pandacorp:memory, AC-17-001.1/.3) */}
+        <DismissableProposalStream
+          kind="candidate-lesson"
+          lessons={candidates}
+          groupCmd={MEMORY_GROUP_CMD}
+        />
 
-        {/* Stream 2: promotions stream (CMP-17-stream, generic proposal cards) */}
+        {/* Stream 2: prune proposals (adjacent to candidates, AC-17-001.3; group cmd → /pandacorp:memory) */}
+        <DismissableProposalStream kind="prune" lessons={prunables} groupCmd={MEMORY_GROUP_CMD} />
+
+        {/* Stream 3: promotions (each has own /pandacorp:learn <id> — no group cmd, AC-17-001.2) */}
         <DismissableProposalStream kind="promotion" lessons={promotions} />
 
         {/* Durable promotions queue (CMP-17-promoqueue → REQ-17-006):
@@ -146,10 +173,7 @@ export default function ProposalsPage(): React.JSX.Element {
             badge + copyable /pandacorp:learn command. */}
         <PromotionsQueue lessons={promotions} />
 
-        {/* Stream 3: prune proposals (dismissible — REQ-17-008) */}
-        <DismissableProposalStream kind="prune" lessons={prunables} />
-
-        {/* Stream 4: self-suggestions (computed locally, no Claude; dismissible) */}
+        {/* Stream 4: self-suggestions (computed locally, no Claude; each has own cmd, AC-17-001.2) */}
         <DismissableProposalStream kind="self-suggestion" suggestions={suggestions} />
       </div>
     </main>

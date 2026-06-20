@@ -1,24 +1,35 @@
 "use client";
 
 /**
- * DismissableProposalStream — CMP-17-stream with the dismiss affordance (WO-17-004,
- * WO-17-007, REQ-17-008 / AC-17-007.3).
+ * DismissableProposalStream — CMP-17-stream with dismiss + group-level command
+ * (WO-17-004, REQ-17-008, REQ-17-001 / AC-17-007.3, AC-17-001.1/.2).
  *
- * The client boundary for the proposals page. Wraps each proposal card with an
- * accessible "Descartar" button; a dismissal is remembered in localStorage via
- * `proposalsDismissStore` and survives refreshes (White-Hat, FRD-09 — no false
- * urgency, the owner can quiet any proposal). The page itself stays a Server
- * Component; this is the only client island.
+ * The client boundary for the proposals page. Each card can be dismissed
+ * (localStorage, no factory write — White-Hat FRD-09). When `groupCmd` is
+ * provided, it is rendered ONCE under the section title as a `CmdRow` (the
+ * group-level command pattern from REQ-17-001), and individual cards are
+ * rendered WITHOUT their own per-card command (`withCommand=false`). When
+ * `groupCmd` is absent (promotions / self-suggestions), each card renders its
+ * own `CmdRow` (`withCommand=true`).
+ *
+ * Visual structure (DR-062):
+ *   - Section header → shared `SectionHead` (one per group, no bespoke header)
+ *   - Group command   → shared `CmdRow` with data-testid="group-level-command"
+ *   - Cards           → `ProposalCard` with `withCommand` flag
+ *   - Dismiss button  → per-row ✕ accessible button
  *
  * Read-only over the factory: dismissing touches localStorage ONLY (architecture
  * §4.8) — never factory/memory, factory/standards or plugin/.
  *
  * Traceability:
  *   CMP-17-stream + CMP-17-dismiss → REQ-17-008, AC-17-007.3
- *   Reuses ProposalCard (CMP-17-proposalcard) and STREAM_META (shared copy).
+ *   REQ-17-001 → AC-17-001.1 (groupCmd rendered once)
+ *   REQ-17-001 → AC-17-001.2 (withCommand=false when groupCmd present)
  */
 
 import { useCallback, useState } from "react";
+import { CmdRow } from "@/components/core/CmdRow/CmdRow";
+import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import {
   dismissProposal,
   getDismissedIds,
@@ -41,24 +52,32 @@ type CandidateLessonStreamProps = {
   kind: "candidate-lesson";
   lessons: Lesson[];
   suggestions?: never;
+  /** Group-level command (shown once under section title). When present, cards carry no command. */
+  groupCmd?: string;
 };
 
 type PromotionStreamProps = {
   kind: "promotion";
   lessons: Lesson[];
   suggestions?: never;
+  /** No group command for promotions (each has its own /pandacorp:learn <id>). */
+  groupCmd?: never;
 };
 
 type PruneStreamProps = {
   kind: "prune";
   lessons: Lesson[];
   suggestions?: never;
+  /** Group-level command (shown once under section title). When present, cards carry no command. */
+  groupCmd?: string;
 };
 
 type SelfSuggestionStreamProps = {
   kind: "self-suggestion";
   suggestions: Suggestion[];
   lessons?: never;
+  /** No group command for self-suggestions (each has its own computed command). */
+  groupCmd?: never;
 };
 
 export type DismissableProposalStreamProps =
@@ -74,41 +93,26 @@ export type DismissableProposalStreamProps =
 const SECTION_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: "0.5rem",
-};
-
-const HEADING_STYLE: React.CSSProperties = {
-  fontSize: "1rem",
-  fontWeight: 700,
-  margin: 0,
-  color: "var(--color-text, currentColor)",
-};
-
-const DESCRIPTION_STYLE: React.CSSProperties = {
-  fontSize: "0.8rem",
-  opacity: 0.65,
-  margin: "0 0 0.25rem",
-  lineHeight: 1.4,
+  gap: "0",
 };
 
 const CARDS_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: "0.5rem",
+  gap: "9px",
 };
 
 const EMPTY_STYLE: React.CSSProperties = {
   fontSize: "0.875rem",
-  opacity: 0.65,
+  color: "var(--color-text3)",
   fontStyle: "italic",
-  padding: "0.75rem 0",
-  color: "var(--color-text, currentColor)",
+  padding: "0.75rem 2px",
 };
 
 const ROW_STYLE: React.CSSProperties = {
   display: "flex",
   alignItems: "flex-start",
-  gap: "0.5rem",
+  gap: "8px",
 };
 
 const CARD_WRAP_STYLE: React.CSSProperties = {
@@ -120,16 +124,26 @@ const DISMISS_BUTTON_STYLE: React.CSSProperties = {
   flexShrink: 0,
   display: "inline-flex",
   alignItems: "center",
-  gap: "0.25rem",
-  padding: "0.25rem 0.5rem",
-  fontSize: "0.7rem",
-  fontWeight: 600,
+  gap: "4px",
+  padding: "4px 8px",
+  fontSize: "11px",
+  fontWeight: 500,
   cursor: "pointer",
-  borderRadius: "var(--radius, 0.5rem)",
-  border: "var(--hairline, 1px) solid currentColor",
-  background: "var(--color-surface, Canvas)",
-  color: "var(--color-text, currentColor)",
-  opacity: 0.8,
+  borderRadius: "var(--radius-sm, 8px)",
+  border: "1px solid var(--color-border)",
+  background: "transparent",
+  color: "var(--color-text3)",
+  marginTop: "4px",
+};
+
+const GROUP_CMD_WRAP_STYLE: React.CSSProperties = {
+  marginBottom: "11px",
+};
+
+const GROUP_CMD_LABEL_STYLE: React.CSSProperties = {
+  fontSize: "12px",
+  color: "var(--color-text2)",
+  marginBottom: "4px",
 };
 
 // ---------------------------------------------------------------------------
@@ -141,16 +155,21 @@ type RenderableProposal = {
   node: React.JSX.Element;
 };
 
-function toRenderable(props: DismissableProposalStreamProps): RenderableProposal[] {
+function toRenderable(
+  props: DismissableProposalStreamProps,
+  withCommand: boolean,
+): RenderableProposal[] {
   if (props.kind === "self-suggestion") {
     return props.suggestions.map((suggestion) => ({
       id: suggestionProposalId(suggestion),
-      node: <ProposalCard kind="self-suggestion" suggestion={suggestion} />,
+      node: (
+        <ProposalCard kind="self-suggestion" suggestion={suggestion} withCommand={withCommand} />
+      ),
     }));
   }
   return props.lessons.map((lesson) => ({
     id: lessonProposalId(lesson),
-    node: <ProposalCard kind={props.kind} lesson={lesson} />,
+    node: <ProposalCard kind={props.kind} lesson={lesson} withCommand={withCommand} />,
   }));
 }
 
@@ -161,16 +180,24 @@ function toRenderable(props: DismissableProposalStreamProps): RenderableProposal
 /**
  * DismissableProposalStream — a proposal stream whose cards can be dismissed.
  *
- * Mirrors `ProposalStream`'s section chrome and calm empty-state copy, but each
- * visible card carries a "Descartar" button. Dismissed ids are read from and
- * written to `proposalsDismissStore` (localStorage); the local `dismissedIds`
- * state forces a re-render so the card disappears immediately.
+ * When `groupCmd` is present (candidates, prune):
+ *   - A CmdRow with `data-testid="group-level-command"` is shown once under
+ *     the SectionHead, labelled "Para revisar/activar toda esta lista, corre:"
+ *   - Individual cards are rendered with `withCommand=false` (no per-card cmd)
+ *
+ * When `groupCmd` is absent (promotions, self-suggestions):
+ *   - No group command row
+ *   - Individual cards are rendered with `withCommand=true` (per-card cmd)
  */
 export function DismissableProposalStream(
   props: DismissableProposalStreamProps,
 ): React.JSX.Element {
   const meta = STREAM_META[props.kind as StreamKind];
   const testId = `proposal-stream-${props.kind}`;
+  const groupCmd = "groupCmd" in props ? props.groupCmd : undefined;
+
+  // When a group command exists, individual cards carry no command (REQ-17-001)
+  const withCommand = !groupCmd;
 
   // Initialise from the store so an already-dismissed proposal never flashes in.
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => new Set(getDismissedIds()));
@@ -184,15 +211,27 @@ export function DismissableProposalStream(
     });
   }, []);
 
-  const visible = toRenderable(props).filter((p) => !dismissedIds.has(p.id));
+  const visible = toRenderable(props, withCommand).filter((p) => !dismissedIds.has(p.id));
   const isEmpty = visible.length === 0;
 
   return (
     <section data-testid={testId} style={SECTION_STYLE} aria-labelledby={`${testId}-heading`}>
-      <h2 id={`${testId}-heading`} style={HEADING_STYLE}>
-        {meta.label}
-      </h2>
-      <p style={DESCRIPTION_STYLE}>{meta.description}</p>
+      {/* THE one SectionHead — DR-062, no bespoke per-screen section header */}
+      <SectionHead
+        icon={SECTION_ICON[props.kind]}
+        label={meta.label}
+        count={visible.length > 0 ? visible.length : undefined}
+      />
+
+      {/* Group-level command row — once under the title (REQ-17-001 / AC-17-001.1) */}
+      {groupCmd && !isEmpty && (
+        <div style={GROUP_CMD_WRAP_STYLE}>
+          <p style={GROUP_CMD_LABEL_STYLE}>Para revisar/activar toda esta lista, corre:</p>
+          <div data-testid="group-level-command">
+            <CmdRow command={groupCmd} />
+          </div>
+        </div>
+      )}
 
       {isEmpty ? (
         <p data-testid="proposal-stream-empty" style={EMPTY_STYLE}>
@@ -208,6 +247,17 @@ export function DismissableProposalStream(
     </section>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Section icon map (per-kind Tabler icon for SectionHead)
+// ---------------------------------------------------------------------------
+
+const SECTION_ICON: Record<StreamKind, string> = {
+  "candidate-lesson": "ti-bulb",
+  promotion: "ti-arrow-up-right",
+  prune: "ti-trash",
+  "self-suggestion": "ti-sparkles",
+};
 
 // ---------------------------------------------------------------------------
 // DismissRow — one card + its dismiss button
@@ -234,7 +284,8 @@ function DismissRow({
         onClick={handleClick}
         aria-label={`Descartar propuesta: ${proposal.id}`}
       >
-        ✕ Descartar
+        <i className="ti ti-x" style={{ fontSize: "11px" }} aria-hidden="true" />
+        Descartar
       </button>
     </div>
   );
