@@ -45,12 +45,6 @@ export const FIXTURE_EVENTS_EMPTY_NDJSON: string = path.join(
   "dashboard-events-empty.ndjson",
 );
 
-/** Tasks fixture directory with one team subdirectory (active team). */
-export const FIXTURE_TASKS_ACTIVE_DIR: string = path.join(FIXTURES_DIR, "tasks");
-
-/** Nonexistent tasks directory (absent tasks → no active team). */
-export const FIXTURE_TASKS_ABSENT_DIR: string = path.join(FIXTURES_DIR, "tasks-absent");
-
 /**
  * NDJSON with enriched AgentWorking events carrying {frd, wo, phase, activity, mode, role}.
  * Used for toFraguaSnapshot tests (WO-06-005 La Fragua redesign).

@@ -36,7 +36,8 @@
  */
 
 import { notFound } from "next/navigation";
-import { listProjectDocs, readActivityLog, readDecisions, readDoc } from "@/lib/docs/docs";
+import { readActivityLog, readDecisions } from "@/lib/docs/activity";
+import { listProjectDocs, readDoc } from "@/lib/docs/tree";
 import { activeProjects } from "@/lib/portfolio/portfolio";
 import { buildSnapshot } from "@/lib/snapshot/snapshot";
 import { type Phase, readStatus } from "@/lib/status/status";
@@ -73,6 +74,85 @@ function resolveTab(raw: string | string[] | undefined): TabId {
   }
   // Default: Summary (AC-04-001.2)
   return "summary";
+}
+
+// ---------------------------------------------------------------------------
+// Tab-body resolvers — one per tab. Extracted to module scope so the page's
+// render stays flat and under the complexity budget. Each reads only the data
+// its tab needs (lazy reads stay co-located with the branch that owns them).
+// ---------------------------------------------------------------------------
+
+function renderSummaryTab(projectPath: string, summary: string): React.JSX.Element {
+  const activityLog = readActivityLog(projectPath);
+  const decisions = readDecisions(projectPath);
+  const pendingDecisions = decisions.filter((dp) => !dp.resolved).length;
+  return (
+    <TabSummary
+      summary={summary}
+      keyPoints={[]}
+      activityLog={activityLog}
+      decisions={decisions}
+      pendingDecisions={pendingDecisions}
+    />
+  );
+}
+
+function renderWorkOrdersTab(
+  projectPath: string,
+  woParam: string | undefined,
+  woTabParam: WoDetailTab,
+): React.JSX.Element {
+  const orders = listWorkOrders(projectPath);
+  // WO-05-005: if ?wo=<id> is present and matches a known order, show the detail view.
+  const selectedOrder =
+    woParam !== undefined ? (orders.find((o) => o.id === woParam) ?? null) : null;
+  if (selectedOrder !== null) {
+    // AC-05-003.2: read raw markdown for the Full document tab via readWorkOrderDoc.
+    const woContent = readWorkOrderDoc(projectPath, selectedOrder.relPath);
+    return <WorkOrderDetail order={selectedOrder} content={woContent} activeWoTab={woTabParam} />;
+  }
+  return <TabWorkOrders orders={orders} />;
+}
+
+function renderDocumentsTab(projectPath: string, docParam: string | undefined): React.JSX.Element {
+  const nodes = listProjectDocs(projectPath);
+  // Default: first node's relPath, or the ?doc= param if valid
+  const firstNodeId = nodes[0]?.id ?? null;
+  const selectedId =
+    nodes.find((n) => n.id === docParam) !== undefined ? (docParam ?? null) : firstNodeId;
+  const content =
+    selectedId !== null
+      ? readDoc(projectPath, nodes.find((n) => n.id === selectedId)?.relPath ?? selectedId)
+      : null;
+  return <TabDocuments nodes={nodes} selectedId={selectedId} content={content} />;
+}
+
+/** URL-derived selection state shared across the tab resolvers. */
+interface TabSelection {
+  activeTab: TabId;
+  slug: string;
+  stage: string;
+  summary: string;
+  docParam: string | undefined;
+  woParam: string | undefined;
+  woTabParam: WoDetailTab;
+}
+
+/** Dispatch to the active tab's body. Lazy: each branch reads only its own data. */
+function resolveTabBody(projectPath: string, sel: TabSelection): React.JSX.Element {
+  switch (sel.activeTab) {
+    case "summary":
+      return renderSummaryTab(projectPath, sel.summary);
+    case "work-orders":
+      return renderWorkOrdersTab(projectPath, sel.woParam, sel.woTabParam);
+    case "party":
+      return <PartyTab />;
+    case "documents":
+      return renderDocumentsTab(projectPath, sel.docParam);
+    default:
+      // commands — CMP-04-tab-commands (WO-04-007, AC-04-005.1/.2)
+      return <TabCommands phase={sel.stage as Phase} slug={sel.slug} />;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -155,52 +235,15 @@ export default async function ProjectWorkspacePage({
     typeof sp.wotab === "string" && sp.wotab === "full" ? "full" : "summary";
 
   // --- Read tab-specific data (lazy: only what the active tab needs) ---
-  let tabBody: React.JSX.Element;
-
-  if (activeTab === "summary") {
-    const activityLog = readActivityLog(projectPath);
-    const decisions = readDecisions(projectPath);
-    const pendingDecisions = decisions.filter((dp) => !dp.resolved).length;
-    tabBody = (
-      <TabSummary
-        summary={status.project ?? slug}
-        keyPoints={[]}
-        activityLog={activityLog}
-        decisions={decisions}
-        pendingDecisions={pendingDecisions}
-      />
-    );
-  } else if (activeTab === "work-orders") {
-    const orders = listWorkOrders(projectPath);
-    // WO-05-005: if ?wo=<id> is present and matches a known order, show the detail view.
-    const selectedOrder =
-      woParam !== undefined ? (orders.find((o) => o.id === woParam) ?? null) : null;
-    if (selectedOrder !== null) {
-      // AC-05-003.2: read raw markdown for the Full document tab via readWorkOrderDoc.
-      const woContent = readWorkOrderDoc(projectPath, selectedOrder.relPath);
-      tabBody = (
-        <WorkOrderDetail order={selectedOrder} content={woContent} activeWoTab={woTabParam} />
-      );
-    } else {
-      tabBody = <TabWorkOrders orders={orders} />;
-    }
-  } else if (activeTab === "party") {
-    tabBody = <PartyTab />;
-  } else if (activeTab === "documents") {
-    const nodes = listProjectDocs(projectPath);
-    // Default: first node's relPath, or the ?doc= param if valid
-    const firstNodeId = nodes[0]?.id ?? null;
-    const selectedId =
-      nodes.find((n) => n.id === docParam) !== undefined ? (docParam ?? null) : firstNodeId;
-    const content =
-      selectedId !== null
-        ? readDoc(projectPath, nodes.find((n) => n.id === selectedId)?.relPath ?? selectedId)
-        : null;
-    tabBody = <TabDocuments nodes={nodes} selectedId={selectedId} content={content} />;
-  } else {
-    // commands — CMP-04-tab-commands (WO-04-007, AC-04-005.1/.2)
-    tabBody = <TabCommands phase={stage as Phase} slug={slug} />;
-  }
+  const tabBody = resolveTabBody(projectPath, {
+    activeTab,
+    slug,
+    stage,
+    summary: status.project ?? slug,
+    docParam,
+    woParam,
+    woTabParam,
+  });
 
   return (
     <main data-testid="workspace-page" data-slug={slug} style={PAGE_STYLE}>

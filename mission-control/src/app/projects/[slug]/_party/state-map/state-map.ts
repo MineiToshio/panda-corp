@@ -92,7 +92,7 @@ export type RelayStep = "test" | "backend" | "frontend";
  * Set a work-order sprite's visual state (e.g. building, in_review, verified, blocked).
  * Used for: AgentWorking phase:build → setWo(wo,'building').
  */
-export type SetWoAction = {
+type SetWoAction = {
   kind: "setWo";
   wo: string;
   state: WoState;
@@ -102,7 +102,7 @@ export type SetWoAction = {
  * Enqueue a work order that is not yet building (queued/pending dependencies).
  * Displayed as "+N en cola" (not a sprite) per AC-06-001.3.
  */
-export type EnqueueAction = {
+type EnqueueAction = {
   kind: "enqueue";
   wo: string;
 };
@@ -112,7 +112,7 @@ export type EnqueueAction = {
  * Driven by HandoffWritten (artifact hand-off, NOT live chat) per AC-06-006.1/AC-06-006.2.
  * toWo may be undefined when the dependent WO is not in the current scene (edge case).
  */
-export type StartHandoffAction = {
+type StartHandoffAction = {
   kind: "startHandoff";
   fromWo: string;
   toWo: string | undefined;
@@ -122,7 +122,7 @@ export type StartHandoffAction = {
  * Advance the deep-mode relay to the given step within a work order (AC-06-007.2).
  * Steps are sequential: test → backend → frontend (one completed before the next).
  */
-export type AdvanceRelayAction = {
+type AdvanceRelayAction = {
   kind: "advanceRelay";
   wo: string;
   step: RelayStep;
@@ -132,7 +132,7 @@ export type AdvanceRelayAction = {
  * Render the 📄 contract hand-off between backend-dev and frontend-dev steps (AC-06-007.3).
  * Driven by ContractPublished (docs/api.md published).
  */
-export type PublishContractAction = {
+type PublishContractAction = {
   kind: "publishContract";
   wo: string;
 };
@@ -141,7 +141,7 @@ export type PublishContractAction = {
  * Open the reviewer gate (Tribunal del Juez).
  * Fired when AgentWorking carries phase:'review' — the gate opens once all WOs are IN_REVIEW.
  */
-export type OpenGateAction = {
+type OpenGateAction = {
   kind: "openGate";
 };
 
@@ -149,7 +149,7 @@ export type OpenGateAction = {
  * Mark a work order as verified (Bóveda trophy).
  * Driven by SubagentStop (the WO closed cleanly).
  */
-export type VerifyWoAction = {
+type VerifyWoAction = {
   kind: "verifyWo";
   wo: string;
 };
@@ -158,7 +158,7 @@ export type VerifyWoAction = {
  * Fire the "¡Logro desbloqueado!" achievement toast (AC-06-012.1).
  * Driven by achievement events. wo may be undefined when the event omits it.
  */
-export type FireAchievementAction = {
+type FireAchievementAction = {
   kind: "fireAchievement";
   wo: string | undefined;
 };
@@ -168,7 +168,7 @@ export type FireAchievementAction = {
  * Driven by status:'fail' OR test_fail, regardless of other event semantics.
  * wo may be undefined when the event omits the workOrder field.
  */
-export type DownSpriteAction = {
+type DownSpriteAction = {
   kind: "downSprite";
   wo: string | undefined;
 };
@@ -177,7 +177,7 @@ export type DownSpriteAction = {
  * Safe no-op for unknown / unactionable events (defensive).
  * The engine ignores noops; they must never cause errors.
  */
-export type NoopAction = {
+type NoopAction = {
   kind: "noop";
 };
 

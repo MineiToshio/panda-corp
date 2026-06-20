@@ -619,28 +619,12 @@ describe("frd-13 AC-13-008.1: focus ring — visible and radius-aware", () => {
     // Hardcoded outline colors violate the token contract (AGENTS.md rule 4: no hardcoded colors).
     const css = readCss();
     // Extract the :focus-visible block.
-    const focusPos = css.indexOf(":focus-visible");
-    if (focusPos === -1) {
+    if (!css.includes(":focus-visible")) {
       // This test acts as a secondary check; the prior test guards presence.
       expect(css).toMatch(/:focus-visible/);
       return;
     }
-    // Find the block body.
-    let depth = 0;
-    let open = -1;
-    let focusBlock = "";
-    for (let i = focusPos; i < css.length; i++) {
-      if (css[i] === "{") {
-        if (open === -1) open = i;
-        depth++;
-      } else if (css[i] === "}") {
-        depth--;
-        if (depth === 0 && open !== -1) {
-          focusBlock = css.slice(open + 1, i);
-          break;
-        }
-      }
-    }
+    const focusBlock = extractBlock(css, ":focus-visible");
     expect(focusBlock).toMatch(/var\(--focus-ring\)|var\(--color-accent\)/);
   });
 

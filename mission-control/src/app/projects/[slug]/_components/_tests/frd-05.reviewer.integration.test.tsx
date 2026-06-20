@@ -42,16 +42,19 @@ import { WorkOrderDetail } from "../wo-detail/wo-detail";
 
 let projectRoot = "";
 
+/** A single work-order fixture to write under a project root. */
+interface WoFixture {
+  frdSlug: string;
+  file: string;
+  id: string;
+  title: string;
+  implStatus: string;
+  body?: string;
+}
+
 /** Write a work-order markdown file with frontmatter implementation_status. */
-function writeWo(
-  root: string,
-  frdSlug: string,
-  file: string,
-  id: string,
-  title: string,
-  implStatus: string,
-  body = "",
-): void {
+function writeWo(root: string, wo: WoFixture): void {
+  const { frdSlug, file, id, title, implStatus, body = "" } = wo;
   const dir = path.join(root, "docs", "frds", frdSlug, "work-orders");
   fs.mkdirSync(dir, { recursive: true });
   const content = [
@@ -72,36 +75,51 @@ beforeAll(() => {
   projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mc-frd05-rev-"));
 
   // FRD-A: one of every DR-050 state so column placement is fully exercised.
-  writeWo(projectRoot, "frd-01-alpha", "wo-01-001-a.md", "WO-01-001", "Alpha planned", "PLANNED");
-  writeWo(
-    projectRoot,
-    "frd-01-alpha",
-    "wo-01-002-a.md",
-    "WO-01-002",
-    "Alpha in progress",
-    "IN_PROGRESS",
-  );
-  writeWo(
-    projectRoot,
-    "frd-01-alpha",
-    "wo-01-003-a.md",
-    "WO-01-003",
-    "Alpha in review",
-    "IN_REVIEW",
-  );
-  writeWo(projectRoot, "frd-01-alpha", "wo-01-004-a.md", "WO-01-004", "Alpha verified", "VERIFIED");
-  writeWo(projectRoot, "frd-01-alpha", "wo-01-005-a.md", "WO-01-005", "Alpha blocked", "BLOCKED");
+  writeWo(projectRoot, {
+    frdSlug: "frd-01-alpha",
+    file: "wo-01-001-a.md",
+    id: "WO-01-001",
+    title: "Alpha planned",
+    implStatus: "PLANNED",
+  });
+  writeWo(projectRoot, {
+    frdSlug: "frd-01-alpha",
+    file: "wo-01-002-a.md",
+    id: "WO-01-002",
+    title: "Alpha in progress",
+    implStatus: "IN_PROGRESS",
+  });
+  writeWo(projectRoot, {
+    frdSlug: "frd-01-alpha",
+    file: "wo-01-003-a.md",
+    id: "WO-01-003",
+    title: "Alpha in review",
+    implStatus: "IN_REVIEW",
+  });
+  writeWo(projectRoot, {
+    frdSlug: "frd-01-alpha",
+    file: "wo-01-004-a.md",
+    id: "WO-01-004",
+    title: "Alpha verified",
+    implStatus: "VERIFIED",
+  });
+  writeWo(projectRoot, {
+    frdSlug: "frd-01-alpha",
+    file: "wo-01-005-a.md",
+    id: "WO-01-005",
+    title: "Alpha blocked",
+    implStatus: "BLOCKED",
+  });
 
   // FRD-B: a second feature so cross-feature aggregation + filter are real.
-  writeWo(
-    projectRoot,
-    "frd-02-beta",
-    "wo-02-001-b.md",
-    "WO-02-001",
-    "Beta verified",
-    "VERIFIED",
-    "## Full body marker for the detail tab\n\nUnique-beta-doc-token-9173.",
-  );
+  writeWo(projectRoot, {
+    frdSlug: "frd-02-beta",
+    file: "wo-02-001-b.md",
+    id: "WO-02-001",
+    title: "Beta verified",
+    implStatus: "VERIFIED",
+    body: "## Full body marker for the detail tab\n\nUnique-beta-doc-token-9173.",
+  });
 });
 
 afterAll(() => {

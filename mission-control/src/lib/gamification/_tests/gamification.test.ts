@@ -24,10 +24,9 @@ import {
   AGENT_RANKS,
   AGENT_XP_THRESHOLDS,
   type AgentLevelResult,
-  type CelebrationTier,
-  classifyCelebration,
   computeAgentLevel,
-} from "../gamification";
+} from "../agents";
+import { type CelebrationTier, classifyCelebration } from "../gamification";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 

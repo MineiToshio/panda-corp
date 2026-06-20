@@ -32,8 +32,7 @@
 import type { AgentRole } from "@/app/_design/tokens/tokens";
 import { Avatar } from "@/components/core/Avatar/Avatar";
 import { XpBar } from "@/components/core/XpBar/XpBar";
-import type { AgentLevelResult } from "@/lib/gamification/gamification";
-import { AGENT_RANKS } from "@/lib/gamification/gamification";
+import { AGENT_RANKS, type AgentLevelResult } from "@/lib/gamification/agents";
 import type { AgentRef } from "@/lib/reference/reference";
 
 // ---------------------------------------------------------------------------

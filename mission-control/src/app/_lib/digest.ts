@@ -20,7 +20,7 @@
 import type { Event } from "@/lib/events/events";
 
 /** Window in milliseconds that defines "last 24h" rolling fallback. */
-export const LAST_24H_MS = 24 * 60 * 60 * 1000;
+const LAST_24H_MS = 24 * 60 * 60 * 1000;
 
 /**
  * A single change-framed item in the digest.

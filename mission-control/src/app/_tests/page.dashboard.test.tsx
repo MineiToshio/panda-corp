@@ -98,11 +98,18 @@ vi.mock("@/lib/gamification/gamification", async (importOriginal) => {
   };
 });
 
+vi.mock("@/lib/achievements/stats", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/achievements/stats")>();
+  return {
+    ...actual,
+    computeStats: vi.fn(() => []),
+  };
+});
+
 vi.mock("@/lib/achievements/achievements", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/achievements/achievements")>();
   return {
     ...actual,
-    computeStats: vi.fn(() => []),
     computeChains: vi.fn(() => []),
     computeUniques: vi.fn(() => []),
     computeSecrets: vi.fn(() => []),

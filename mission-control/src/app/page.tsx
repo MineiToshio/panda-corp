@@ -33,13 +33,8 @@ import { Progreso } from "@/components/dashboard/Progreso/Progreso";
 import { TuTurno } from "@/components/dashboard/TuTurno/TuTurno";
 import { Digest } from "@/components/modules/Digest/Digest";
 import { Pulso } from "@/components/modules/Pulso/Pulso";
-import {
-  computeChains,
-  computeStats,
-  computeUniques,
-  type Unique,
-} from "@/lib/achievements/achievements";
-import type { ReaderData } from "@/lib/achievements/stats";
+import { computeChains, computeUniques, type Unique } from "@/lib/achievements/achievements";
+import { computeStats, type ReaderData } from "@/lib/achievements/stats";
 import {
   FRESHNESS_THRESHOLD_MS,
   MEMORY_RAW_NOTES_THRESHOLD,
@@ -197,14 +192,23 @@ function deriveTurnItems(
   });
 }
 
+/** Input bundle for {@link derivePulse}. */
+interface DerivePulseInput {
+  ideas: readonly IdeaCard[];
+  projects: readonly ProjectListItem[];
+  byProject: EventsSnapshot["byProject"];
+  ownerWaiting: number;
+  nowMs: number;
+}
+
 /** IF-18-pulse derivation from live data. */
-function derivePulse(
-  ideas: readonly IdeaCard[],
-  projects: readonly ProjectListItem[],
-  byProject: EventsSnapshot["byProject"],
-  ownerWaiting: number,
-  nowMs: number,
-): PulseResult {
+function derivePulse({
+  ideas,
+  projects,
+  byProject,
+  ownerWaiting,
+  nowMs,
+}: DerivePulseInput): PulseResult {
   const ideasAlive = ideas.filter((i) => i.status !== "discarded" && i.status !== "shipped").length;
   const ideasShipped = ideas.filter((i) => i.status === "shipped").length;
   const { live: inConstructionLive, stale: inConstructionStale } = countConstructionSplit(
@@ -262,13 +266,13 @@ export default function HomePage(): React.JSX.Element {
   // ── 2. Derive sections ──────────────────────────────────────────────────
 
   const turnItems = deriveTurnItems(statuses, projects, ideas, memHealth);
-  const pulseResult = derivePulse(
+  const pulseResult = derivePulse({
     ideas,
     projects,
-    eventsSnapshot.byProject,
-    turnItems.length,
+    byProject: eventsSnapshot.byProject,
+    ownerWaiting: turnItems.length,
     nowMs,
-  );
+  });
   const cards = projects.map((p) => deriveProjectCard(p, eventsSnapshot.byProject, nowMs));
 
   const readerData: ReaderData = { ideas, statuses, eventsSnapshot };

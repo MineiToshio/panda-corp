@@ -77,87 +77,11 @@ const ACTIVE_PHASES = new Set<string>(["architecture", "implementation", "releas
  * @returns An array of exactly 5 `Kpi` objects in specification order.
  */
 export function deriveKpis(events: Event[], projects: ProjectInput[]): Kpi[] {
-  // ---- 1. active-projects -----------------------------------------------
-  // Count projects whose stage is in the active set.
-  // Note: this is a scalar count, NOT itself capped at 5 (REQ-12-004 applies
-  // to rankings/groupings, not to this aggregated scalar — test anchors this).
-  let activeProjectsCount = 0;
-  for (const project of projects) {
-    if (typeof project.stage === "string" && ACTIVE_PHASES.has(project.stage)) {
-      activeProjectsCount += 1;
-    }
-  }
-
-  // ---- 2. agents-working ------------------------------------------------
-  // Count distinct `agent` string values from AgentWorking events.
-  // Regression I3: only count when agent is a string (not an array or undefined).
-  const activeAgents = new Set<string>();
-  for (const ev of events) {
-    if (ev.event === "AgentWorking" && typeof ev.agent === "string") {
-      activeAgents.add(ev.agent);
-    }
-  }
-  const agentsWorkingCount = activeAgents.size;
-
-  // ---- 3. xp-today ------------------------------------------------------
-  // Count XpAwarded events in the tail (honest metric, REQ-12-007).
-  // No extra instrumentation beyond the event tail.
-  let xpTodayCount = 0;
-  for (const ev of events) {
-    if (ev.event === "XpAwarded") {
-      xpTodayCount += 1;
-    }
-  }
-
-  // ---- 4. builds-queued ------------------------------------------------
-  // Count BuildQueued events in the tail.
-  let buildsQueuedCount = 0;
-  for (const ev of events) {
-    if (ev.event === "BuildQueued") {
-      buildsQueuedCount += 1;
-    }
-  }
-
-  // ---- 5. failed-work-orders -------------------------------------------
-  // Count events with status exactly === "fail" (regression I3: string equality only).
-  // First-class KPI per FRD-06/13 failure visibility.
-  // Collect unique work order IDs from fail events for the detail field.
-  let failedCount = 0;
-  const failedWorkOrderIds: string[] = [];
-  const seenWorkOrderIds = new Set<string>();
-
-  for (const ev of events) {
-    if (ev.status === "fail") {
-      failedCount += 1;
-      // Surface the work order ID in detail when present (unique, insertion order).
-      if (typeof ev.workOrder === "string" && !seenWorkOrderIds.has(ev.workOrder)) {
-        seenWorkOrderIds.add(ev.workOrder);
-        failedWorkOrderIds.push(ev.workOrder);
-      }
-    }
-  }
-
-  // Build the detail string for failed-work-orders.
-  // Present and non-empty when failedCount > 0; undefined when no failures.
-  let failedDetail: string | undefined;
-  if (failedCount > 0) {
-    if (failedWorkOrderIds.length > 0) {
-      failedDetail = failedWorkOrderIds.join(", ");
-    } else {
-      // Some fail events had no workOrder field — still produce a non-empty detail.
-      failedDetail = `${failedCount} evento(s) con error`;
-    }
-  }
-
-  // ---- Regression B1' guard --------------------------------------------
-  // All counts derive from integer increment (+= 1) or Set.size — both are always
-  // finite non-negative integers. No floating-point arithmetic is involved.
-  // The guard below is a belt-and-suspenders runtime check so the contract is
-  // self-documenting: no KPI value may be NaN or non-finite.
-  function safeCount(n: number): number {
-    // Number.isFinite rejects NaN, +Infinity, -Infinity.
-    return Number.isFinite(n) && n >= 0 ? Math.trunc(n) : 0;
-  }
+  const activeProjectsCount = countActiveProjects(projects);
+  const agentsWorkingCount = countAgentsWorking(events);
+  const xpTodayCount = countEvents(events, "XpAwarded");
+  const buildsQueuedCount = countEvents(events, "BuildQueued");
+  const { failedCount, failedDetail } = countFailedWorkOrders(events);
 
   // ---- Return exactly 5 KPIs in specification order --------------------
   return [
@@ -188,4 +112,85 @@ export function deriveKpis(events: Event[], projects: ProjectInput[]): Kpi[] {
       ...(failedDetail !== undefined ? { detail: failedDetail } : {}),
     },
   ];
+}
+
+// ---------------------------------------------------------------------------
+// Counting helpers (one per KPI) — each pure, no I/O, never throws.
+// ---------------------------------------------------------------------------
+
+/**
+ * Regression B1' guard: coerce a count to a finite non-negative integer.
+ * Number.isFinite rejects NaN, +Infinity, -Infinity; negatives clamp to 0.
+ */
+function safeCount(n: number): number {
+  return Number.isFinite(n) && n >= 0 ? Math.trunc(n) : 0;
+}
+
+/**
+ * Count projects whose stage is in the active set.
+ * Scalar count, NOT capped at 5 (REQ-12-004 applies to rankings, not this scalar).
+ */
+function countActiveProjects(projects: ProjectInput[]): number {
+  let count = 0;
+  for (const project of projects) {
+    if (typeof project.stage === "string" && ACTIVE_PHASES.has(project.stage)) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+/**
+ * Count distinct `agent` string values from AgentWorking events.
+ * Regression I3: only count when agent is a string (not an array or undefined).
+ */
+function countAgentsWorking(events: Event[]): number {
+  const activeAgents = new Set<string>();
+  for (const ev of events) {
+    if (ev.event === "AgentWorking" && typeof ev.agent === "string") {
+      activeAgents.add(ev.agent);
+    }
+  }
+  return activeAgents.size;
+}
+
+/** Count events whose `event` field matches the given name (honest metric, REQ-12-007). */
+function countEvents(events: Event[], eventName: string): number {
+  let count = 0;
+  for (const ev of events) {
+    if (ev.event === eventName) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+/**
+ * Count events with status exactly === "fail" (regression I3: string equality only)
+ * and build the detail string of unique work-order ids (insertion order).
+ * Detail is undefined when there are no failures.
+ */
+function countFailedWorkOrders(events: Event[]): { failedCount: number; failedDetail?: string } {
+  let failedCount = 0;
+  const failedWorkOrderIds: string[] = [];
+  const seenWorkOrderIds = new Set<string>();
+
+  for (const ev of events) {
+    if (ev.status === "fail") {
+      failedCount += 1;
+      if (typeof ev.workOrder === "string" && !seenWorkOrderIds.has(ev.workOrder)) {
+        seenWorkOrderIds.add(ev.workOrder);
+        failedWorkOrderIds.push(ev.workOrder);
+      }
+    }
+  }
+
+  if (failedCount === 0) {
+    return { failedCount };
+  }
+  const failedDetail =
+    failedWorkOrderIds.length > 0
+      ? failedWorkOrderIds.join(", ")
+      : `${failedCount} evento(s) con error`;
+  return { failedCount, failedDetail };
 }

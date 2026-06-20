@@ -76,121 +76,179 @@ export type { TimelineRow } from "./types";
  */
 export function toTimeline(events: Event[]): TimelineRow[] {
   // Ordered maps preserve insertion order, which determines output ordering.
-  const woAccMap = new Map<string, NodeAcc>(); // key: workOrder id
-  const taskAccMap = new Map<string, NodeAcc>(); // key: `${workOrder}:${task}`
-  // Action rows are individual events — each becomes its own row.
-  const actionRows: TimelineRow[] = [];
-  // Orphan action rows (no workOrder, no task) — top-level.
-  const orphanRows: TimelineRow[] = [];
-
-  let woCounter = 0;
-  let taskCounter = 0;
-  let actionCounter = 0;
+  const fold: TimelineFold = {
+    woAccMap: new Map<string, NodeAcc>(), // key: workOrder id
+    taskAccMap: new Map<string, NodeAcc>(), // key: `${workOrder}:${task}`
+    // Action rows are individual events — each becomes its own row.
+    actionRows: [],
+    // Orphan action rows (no workOrder, no task) — top-level.
+    orphanRows: [],
+    counters: { wo: 0, task: 0, action: 0 },
+  };
 
   for (const ev of events) {
-    // FREEZE-ON-RED: guard against null/undefined elements in the array.
-    if (ev === null || ev === undefined || typeof ev !== "object") continue;
-
-    // Skip events missing required fields (event name or at timestamp).
-    if (typeof ev.event !== "string" || typeof ev.at !== "string") continue;
-
-    const atMs = parseMs(ev.at);
-
-    // B1' guard: skip events with unparseable timestamps — they cannot contribute
-    // any meaningful timing information.
-    if (!Number.isFinite(atMs)) continue;
-
-    const atStr = ev.at;
-    const status = ev.status === "ok" || ev.status === "fail" ? ev.status : undefined;
-
-    const hasWorkOrder = typeof ev.workOrder === "string" && ev.workOrder.length > 0;
-    const hasTask = typeof ev.task === "string" && ev.task.length > 0;
-
-    if (!hasWorkOrder) {
-      // True orphan — no workOrder (task is irrelevant without a workOrder).
-      // Produce a standalone action row at the top level (parentId=null).
-      actionCounter++;
-      const orphanId = `orphan:${actionCounter}`;
-      const orphanAcc = makeAcc(orphanId, "action", ev.event, null);
-      accumulateEvent(orphanAcc, atMs, atStr, status);
-      orphanRows.push(materialize(orphanAcc));
-      continue;
-    }
-
-    // We have a workOrder — ensure the WO accumulator exists.
-    const woKey = ev.workOrder as string;
-    if (!woAccMap.has(woKey)) {
-      woCounter++;
-      const woId = `wo:${woCounter}:${woKey}`;
-      woAccMap.set(woKey, makeAcc(woId, "wo", woKey, null));
-    }
-    const woAcc = woAccMap.get(woKey) as NodeAcc;
-    // Always update minMs/minAt so the WO start reflects the earliest event across
-    // ALL children (task and direct-action alike). WO status/end/duration are derived
-    // in deriveWoRow by merging child task rows with woAcc direct-action stats.
-    if (atMs < woAcc.minMs) {
-      woAcc.minMs = atMs;
-      woAcc.minAt = atStr;
-    }
-
-    if (!hasTask) {
-      // Event has a workOrder but no task — attach directly as an action child of the WO.
-      // Accumulate into woAcc for WO-level terminal stats (B1 fix: also used when task
-      // children exist, so deriveWoRow can merge direct-action stats with task stats).
-      woAcc.hasDirectActions = true;
-      // Track the latest direct-action timestamp for B2 detection (see deriveWoRow).
-      if (atMs > woAcc.maxDirectActionMs) {
-        woAcc.maxDirectActionMs = atMs;
-      }
-      accumulateEvent(woAcc, atMs, atStr, status);
-
-      actionCounter++;
-      const actionId = `action:${actionCounter}`;
-      const actionAcc = makeAcc(actionId, "action", ev.event, woAcc.id);
-      accumulateEvent(actionAcc, atMs, atStr, status);
-      actionRows.push(materialize(actionAcc));
-      continue;
-    }
-
-    // Full event: workOrder + task — create/update the task accumulator.
-    const taskKey = `${woKey}:${ev.task}`;
-    if (!taskAccMap.has(taskKey)) {
-      taskCounter++;
-      const taskId = `task:${taskCounter}:${ev.task}`;
-      taskAccMap.set(taskKey, makeAcc(taskId, "task", ev.task as string, woAcc.id));
-    }
-    const taskAcc = taskAccMap.get(taskKey) as NodeAcc;
-    accumulateEvent(taskAcc, atMs, atStr, status);
-
-    // Create an action row for this individual event (leaf node).
-    actionCounter++;
-    const actionId = `action:${actionCounter}`;
-    const actionAcc = makeAcc(actionId, "action", ev.event, taskAcc.id);
-    accumulateEvent(actionAcc, atMs, atStr, status);
-    actionRows.push(materialize(actionAcc));
+    const parsed = parseValidEvent(ev);
+    if (parsed === null) continue;
+    foldEvent(parsed, fold);
   }
 
   // Materialise task rows first (needed for WO status propagation).
-  const taskRows = Array.from(taskAccMap.values()).map(materialize);
+  const taskRows = Array.from(fold.taskAccMap.values()).map(materialize);
 
   // Build a per-WO index of child task rows for status propagation.
-  // Key: woAcc.id → child task TimelineRow[].
-  const childTasksByWoId = new Map<string, TimelineRow[]>();
-  for (const taskRow of taskRows) {
-    if (taskRow.parentId !== null) {
-      if (!childTasksByWoId.has(taskRow.parentId)) {
-        childTasksByWoId.set(taskRow.parentId, []);
-      }
-      (childTasksByWoId.get(taskRow.parentId) as TimelineRow[]).push(taskRow);
-    }
-  }
+  const childTasksByWoId = indexTaskRowsByWo(taskRows);
 
   // Materialise WO rows using child task status propagation.
-  const woRows = Array.from(woAccMap.values()).map((woAcc) => {
+  const woRows = Array.from(fold.woAccMap.values()).map((woAcc) => {
     const children = childTasksByWoId.get(woAcc.id) ?? [];
     return deriveWoRow(woAcc, children);
   });
 
   // Assemble: WO rows → task rows → action rows → orphan rows.
-  return [...woRows, ...taskRows, ...actionRows, ...orphanRows];
+  return [...woRows, ...taskRows, ...fold.actionRows, ...fold.orphanRows];
+}
+
+// ---------------------------------------------------------------------------
+// Internal fold state + helpers
+// ---------------------------------------------------------------------------
+
+/** Mutable accumulator state threaded through the per-event fold. */
+interface TimelineFold {
+  woAccMap: Map<string, NodeAcc>;
+  taskAccMap: Map<string, NodeAcc>;
+  actionRows: TimelineRow[];
+  orphanRows: TimelineRow[];
+  counters: { wo: number; task: number; action: number };
+}
+
+/** A validated event with its parsed timestamp and normalised status. */
+interface ParsedEvent {
+  event: string;
+  atMs: number;
+  atStr: string;
+  status: "ok" | "fail" | undefined;
+  workOrder: string | null;
+  task: string | null;
+}
+
+/**
+ * Validate one raw event and parse its timestamp.
+ * Returns null when the event is malformed or its timestamp is unparseable
+ * (FREEZE-ON-RED + B1' guards — skip, never throw).
+ */
+function parseValidEvent(ev: Event): ParsedEvent | null {
+  // FREEZE-ON-RED: guard against null/undefined elements in the array.
+  if (ev === null || ev === undefined || typeof ev !== "object") return null;
+
+  // Skip events missing required fields (event name or at timestamp).
+  if (typeof ev.event !== "string" || typeof ev.at !== "string") return null;
+
+  const atMs = parseMs(ev.at);
+  // B1' guard: skip events with unparseable timestamps.
+  if (!Number.isFinite(atMs)) return null;
+
+  const hasWorkOrder = typeof ev.workOrder === "string" && ev.workOrder.length > 0;
+  const hasTask = typeof ev.task === "string" && ev.task.length > 0;
+
+  return {
+    event: ev.event,
+    atMs,
+    atStr: ev.at,
+    status: ev.status === "ok" || ev.status === "fail" ? ev.status : undefined,
+    workOrder: hasWorkOrder ? (ev.workOrder as string) : null,
+    task: hasTask ? (ev.task as string) : null,
+  };
+}
+
+/** Route one parsed event to the correct accumulation branch. */
+function foldEvent(ev: ParsedEvent, fold: TimelineFold): void {
+  if (ev.workOrder === null) {
+    foldOrphan(ev, fold);
+    return;
+  }
+
+  const woAcc = ensureWoAcc(ev.workOrder, fold);
+  // Always update minMs/minAt so the WO start reflects the earliest event across
+  // ALL children (task and direct-action alike). WO status/end/duration are derived
+  // in deriveWoRow by merging child task rows with woAcc direct-action stats.
+  if (ev.atMs < woAcc.minMs) {
+    woAcc.minMs = ev.atMs;
+    woAcc.minAt = ev.atStr;
+  }
+
+  if (ev.task === null) {
+    foldDirectAction(ev, woAcc, fold);
+  } else {
+    foldTaskAction(ev, ev.task, woAcc, fold);
+  }
+}
+
+/** Get or create the WO accumulator for a workOrder key. */
+function ensureWoAcc(woKey: string, fold: TimelineFold): NodeAcc {
+  const existing = fold.woAccMap.get(woKey);
+  if (existing !== undefined) return existing;
+  fold.counters.wo++;
+  const woAcc = makeAcc(`wo:${fold.counters.wo}:${woKey}`, "wo", woKey, null);
+  fold.woAccMap.set(woKey, woAcc);
+  return woAcc;
+}
+
+/** Emit a standalone top-level action row for an event with no workOrder. */
+function foldOrphan(ev: ParsedEvent, fold: TimelineFold): void {
+  fold.counters.action++;
+  const orphanAcc = makeAcc(`orphan:${fold.counters.action}`, "action", ev.event, null);
+  accumulateEvent(orphanAcc, ev.atMs, ev.atStr, ev.status);
+  fold.orphanRows.push(materialize(orphanAcc));
+}
+
+/**
+ * Event with a workOrder but no task — attach directly as an action child of the WO.
+ * Accumulate into woAcc for WO-level terminal stats (B1 fix: also used when task
+ * children exist, so deriveWoRow can merge direct-action stats with task stats).
+ */
+function foldDirectAction(ev: ParsedEvent, woAcc: NodeAcc, fold: TimelineFold): void {
+  woAcc.hasDirectActions = true;
+  // Track the latest direct-action timestamp for B2 detection (see deriveWoRow).
+  if (ev.atMs > woAcc.maxDirectActionMs) {
+    woAcc.maxDirectActionMs = ev.atMs;
+  }
+  accumulateEvent(woAcc, ev.atMs, ev.atStr, ev.status);
+
+  fold.counters.action++;
+  const actionAcc = makeAcc(`action:${fold.counters.action}`, "action", ev.event, woAcc.id);
+  accumulateEvent(actionAcc, ev.atMs, ev.atStr, ev.status);
+  fold.actionRows.push(materialize(actionAcc));
+}
+
+/** Full event: workOrder + task — update the task accumulator and emit a leaf action row. */
+function foldTaskAction(ev: ParsedEvent, task: string, woAcc: NodeAcc, fold: TimelineFold): void {
+  const taskKey = `${woAcc.label}:${task}`;
+  let taskAcc = fold.taskAccMap.get(taskKey);
+  if (taskAcc === undefined) {
+    fold.counters.task++;
+    taskAcc = makeAcc(`task:${fold.counters.task}:${task}`, "task", task, woAcc.id);
+    fold.taskAccMap.set(taskKey, taskAcc);
+  }
+  accumulateEvent(taskAcc, ev.atMs, ev.atStr, ev.status);
+
+  fold.counters.action++;
+  const actionAcc = makeAcc(`action:${fold.counters.action}`, "action", ev.event, taskAcc.id);
+  accumulateEvent(actionAcc, ev.atMs, ev.atStr, ev.status);
+  fold.actionRows.push(materialize(actionAcc));
+}
+
+/** Index materialised task rows by their parent WO id for status propagation. */
+function indexTaskRowsByWo(taskRows: TimelineRow[]): Map<string, TimelineRow[]> {
+  const childTasksByWoId = new Map<string, TimelineRow[]>();
+  for (const taskRow of taskRows) {
+    if (taskRow.parentId !== null) {
+      const list = childTasksByWoId.get(taskRow.parentId);
+      if (list === undefined) {
+        childTasksByWoId.set(taskRow.parentId, [taskRow]);
+      } else {
+        list.push(taskRow);
+      }
+    }
+  }
+  return childTasksByWoId;
 }

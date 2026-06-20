@@ -21,7 +21,7 @@
 // ---------------------------------------------------------------------------
 
 /** A specialist in a campaign phase. */
-export interface TeamMember {
+interface TeamMember {
   /** Machine-readable role key (hyphenated, e.g. "product-manager"). */
   role: string;
   /** Human-readable display label (e.g. "Product Manager"). */

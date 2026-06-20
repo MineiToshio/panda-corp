@@ -49,7 +49,7 @@ describe("frd-12 adversarial: freshness — instant ordering vs lexicographic or
   // is latent, not a live failure. Skipped to keep the suite green; un-skip when
   // the fix lands (compare by Date.parse instant, keep the raw string for display).
   // See docs/reviews/wo-12-001-review.md.
-  it.skip("WHEN events use mixed UTC offsets THEN lastAt is the latest INSTANT, not the lexicographic max", () => {
+  it("WHEN events use mixed UTC offsets THEN lastAt is the latest INSTANT, not the lexicographic max", () => {
     const newerInstant = "2026-06-16T12:00:00Z"; // 12:00 UTC  (the real max)
     const olderInstant = "2026-06-16T13:00:00+02:00"; // = 11:00 UTC (earlier instant)
     const result = freshness([ev(olderInstant), ev(newerInstant)], now);

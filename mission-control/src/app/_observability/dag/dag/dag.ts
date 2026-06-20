@@ -119,16 +119,32 @@ export function toDag(workOrders: WorkOrderWithDeps[]): DagGraph {
  */
 export function dagChain(id: string, nodes: DagNode[], edges: DagEdge[]): DagChainResult {
   const nodeIds = new Set(nodes.map((n) => n.id));
-  const up = new Set<string>();
-  const down = new Set<string>();
 
   if (!nodeIds.has(id) || nodes.length === 0) {
-    return { up, down };
+    return { up: new Set<string>(), down: new Set<string>() };
   }
 
   // Build adjacency for fast BFS.
   // predecessors: node → set of nodes that point TO it (upstream)
   // successors:   node → set of nodes it points TO (downstream)
+  const { predecessors, successors } = buildAdjacency(nodes, edges);
+
+  // BFS upstream (follow predecessor links) / downstream (follow successor links),
+  // each excluding the pivot node from its own chain.
+  const up = bfsFrom(id, predecessors);
+  const down = bfsFrom(id, successors);
+
+  return { up, down };
+}
+
+/**
+ * Build predecessor and successor adjacency maps from the node/edge lists.
+ * Every node is seeded with an empty set so lookups never miss.
+ */
+function buildAdjacency(
+  nodes: DagNode[],
+  edges: DagEdge[],
+): { predecessors: Map<string, Set<string>>; successors: Map<string, Set<string>> } {
   const predecessors = new Map<string, Set<string>>();
   const successors = new Map<string, Set<string>>();
 
@@ -142,29 +158,25 @@ export function dagChain(id: string, nodes: DagNode[], edges: DagEdge[]): DagCha
     predecessors.get(edge.to)?.add(edge.from);
   }
 
-  // BFS upstream (follow predecessor links).
-  const upQueue: string[] = [...(predecessors.get(id) ?? [])];
-  while (upQueue.length > 0) {
-    const cur = upQueue.shift();
-    if (cur === undefined || cur === id || up.has(cur)) continue;
-    up.add(cur);
-    for (const pred of predecessors.get(cur) ?? []) {
-      if (!up.has(pred)) upQueue.push(pred);
+  return { predecessors, successors };
+}
+
+/**
+ * BFS from `start` over the given adjacency map, returning all reachable node
+ * ids. The pivot `start` itself is never included in the result.
+ */
+function bfsFrom(start: string, adjacency: Map<string, Set<string>>): Set<string> {
+  const visited = new Set<string>();
+  const queue: string[] = [...(adjacency.get(start) ?? [])];
+  while (queue.length > 0) {
+    const cur = queue.shift();
+    if (cur === undefined || cur === start || visited.has(cur)) continue;
+    visited.add(cur);
+    for (const neighbor of adjacency.get(cur) ?? []) {
+      if (!visited.has(neighbor)) queue.push(neighbor);
     }
   }
-
-  // BFS downstream (follow successor links).
-  const downQueue: string[] = [...(successors.get(id) ?? [])];
-  while (downQueue.length > 0) {
-    const cur = downQueue.shift();
-    if (cur === undefined || cur === id || down.has(cur)) continue;
-    down.add(cur);
-    for (const succ of successors.get(cur) ?? []) {
-      if (!down.has(succ)) downQueue.push(succ);
-    }
-  }
-
-  return { up, down };
+  return visited;
 }
 
 // ---------------------------------------------------------------------------

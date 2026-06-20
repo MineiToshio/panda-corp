@@ -28,15 +28,6 @@
 import type { Event, EventsSnapshot } from "../events/events";
 import type { StatusResult } from "../status/status";
 
-// Agent-level scoring (WO-09-002) lives in ./agents; re-exported here so the
-// public surface of `@/lib/gamification/gamification` stays identical.
-export {
-  AGENT_RANKS,
-  AGENT_XP_THRESHOLDS,
-  type AgentLevelResult,
-  computeAgentLevel,
-} from "./agents";
-
 // ---------------------------------------------------------------------------
 // IF-09-guild-xp — computeGuildLevel (WO-09-001)
 // ---------------------------------------------------------------------------
@@ -267,49 +258,61 @@ export function classifyCelebration(event: Event): CelebrationTier {
 
   // ── achievement events (the primary verifiable-result signal) ──────────────
   if (kind === "achievement") {
-    // Level-up crossing takes priority over everything else.
-    if (task === "levelup" || task === "level-up") {
-      return "levelup";
-    }
-    // Release / launch (reached operation phase).
-    if (task === "release") {
-      return "release";
-    }
-    // Phase completion (e.g. "phase:design", "phase:architecture").
-    if (typeof task === "string" && task.startsWith("phase:")) {
-      return "phase";
-    }
-    // Work-order closed (the most common verifiable result).
-    if (typeof workOrder === "string" && workOrder.length > 0) {
-      return "toast";
-    }
-    // achievement with no meaningful context → ambiguous → none.
-    return "none";
+    return _classifyAchievement(task, workOrder);
   }
 
   // ── test_ok: green test suite with a work-order attribution ───────────────
   if (kind === "test_ok") {
-    if (typeof workOrder === "string" && workOrder.length > 0) {
-      return "toast";
-    }
     // test_ok without a work-order is ambiguous (could be a standalone run).
-    return "none";
+    return _hasWorkOrder(workOrder) ? "toast" : "none";
   }
 
   // ── end / handoff: phase-scoped transitions ────────────────────────────────
   if (kind === "end" || kind === "handoff") {
-    if (task === "release") {
-      return "release";
-    }
-    if (typeof task === "string" && task.startsWith("phase:")) {
-      return "phase";
-    }
-    // end/handoff without a phase scope is not a verifiable result.
-    return "none";
+    return _classifyPhaseScoped(task);
   }
 
   // ── everything else: activity events (read, write, edit, message, start,
   //    review, blocked, test_fail, navigation, app-open, unknown) ─────────────
+  return "none";
+}
+
+/** True when `workOrder` is a non-empty string. */
+function _hasWorkOrder(workOrder: unknown): boolean {
+  return typeof workOrder === "string" && workOrder.length > 0;
+}
+
+/** Classify an "achievement" event. Behavior copied verbatim from the inline block. */
+function _classifyAchievement(task: unknown, workOrder: unknown): CelebrationTier {
+  // Level-up crossing takes priority over everything else.
+  if (task === "levelup" || task === "level-up") {
+    return "levelup";
+  }
+  // Release / launch (reached operation phase).
+  if (task === "release") {
+    return "release";
+  }
+  // Phase completion (e.g. "phase:design", "phase:architecture").
+  if (typeof task === "string" && task.startsWith("phase:")) {
+    return "phase";
+  }
+  // Work-order closed (the most common verifiable result).
+  if (_hasWorkOrder(workOrder)) {
+    return "toast";
+  }
+  // achievement with no meaningful context → ambiguous → none.
+  return "none";
+}
+
+/** Classify an end/handoff event by its phase scope. Behavior copied verbatim. */
+function _classifyPhaseScoped(task: unknown): CelebrationTier {
+  if (task === "release") {
+    return "release";
+  }
+  if (typeof task === "string" && task.startsWith("phase:")) {
+    return "phase";
+  }
+  // end/handoff without a phase scope is not a verifiable result.
   return "none";
 }
 
@@ -363,49 +366,68 @@ export function deriveGuildOutcomes(input: GuildOutcomesInput): GuildOutcomes {
   let phasesCompleted = 0;
   let releases = 0;
 
-  const COMPLETED_PHASES = new Set([
-    "design",
-    "architecture",
-    "implementation",
-    "release",
-    "operation",
-  ]);
-
   for (const sr of statuses) {
-    if (!sr.present || sr.status === null) continue;
-    const st = sr.status;
-
-    // workOrdersDone: accumulate per-project WOs closed
-    if (typeof st.workOrdersDone === "number" && Number.isFinite(st.workOrdersDone)) {
-      workOrdersDone += Math.max(0, Math.trunc(st.workOrdersDone));
-    }
-
-    // phasesCompleted: project advanced beyond "product" phase
-    if (typeof st.phase === "string" && COMPLETED_PHASES.has(st.phase)) {
-      phasesCompleted += 1;
-    }
-
-    // releases: project reached operation (launched)
-    if (st.phase === "operation") {
-      releases += 1;
-    }
-  }
-
-  // greenTestRuns: count test_ok events in the snapshot
-  let greenTestRuns = 0;
-  if (eventsSnapshot) {
-    for (const ev of eventsSnapshot.events) {
-      if (ev.event === "test_ok") {
-        greenTestRuns += 1;
-      }
-    }
+    const tally = _tallyStatus(sr);
+    workOrdersDone += tally.workOrdersDone;
+    phasesCompleted += tally.phasesCompleted;
+    releases += tally.releases;
   }
 
   return {
     workOrdersDone,
     phasesCompleted,
     releases,
-    greenTestRuns,
+    greenTestRuns: _countGreenTestRuns(eventsSnapshot),
     weeklyStreak: weeklyStreak ?? 0,
   };
+}
+
+/** Phases that count as advanced past "product" (one phaseCompleted each). */
+const COMPLETED_PHASES = new Set([
+  "design",
+  "architecture",
+  "implementation",
+  "release",
+  "operation",
+]);
+
+/**
+ * Per-project contribution to the guild outcomes. Behavior copied verbatim from
+ * the original inline loop body (fail-soft: absent/null status → all zeros).
+ */
+function _tallyStatus(sr: StatusResult): {
+  workOrdersDone: number;
+  phasesCompleted: number;
+  releases: number;
+} {
+  if (!sr.present || sr.status === null) {
+    return { workOrdersDone: 0, phasesCompleted: 0, releases: 0 };
+  }
+  const st = sr.status;
+
+  // workOrdersDone: accumulate per-project WOs closed
+  const workOrdersDone =
+    typeof st.workOrdersDone === "number" && Number.isFinite(st.workOrdersDone)
+      ? Math.max(0, Math.trunc(st.workOrdersDone))
+      : 0;
+
+  // phasesCompleted: project advanced beyond "product" phase
+  const phasesCompleted = typeof st.phase === "string" && COMPLETED_PHASES.has(st.phase) ? 1 : 0;
+
+  // releases: project reached operation (launched)
+  const releases = st.phase === "operation" ? 1 : 0;
+
+  return { workOrdersDone, phasesCompleted, releases };
+}
+
+/** Count "test_ok" events in the snapshot (0 when absent). Behavior copied verbatim. */
+function _countGreenTestRuns(eventsSnapshot: EventsSnapshot | null | undefined): number {
+  if (!eventsSnapshot) return 0;
+  let greenTestRuns = 0;
+  for (const ev of eventsSnapshot.events) {
+    if (ev.event === "test_ok") {
+      greenTestRuns += 1;
+    }
+  }
+  return greenTestRuns;
 }

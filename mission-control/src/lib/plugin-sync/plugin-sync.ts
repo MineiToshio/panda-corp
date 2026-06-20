@@ -224,6 +224,15 @@ function shaEqual(installed: string, head: string): boolean {
  * Build the Spanish detail one-liner for the banner.
  * Blueprint §2 example: "instalado 18a9389 · hay cambios sin commitear"
  */
+/** "instalado <sha> · <tail>" when the SHA is known, else `fallback`. */
+function withInstalledPrefix(
+  shortInstalled: string | null,
+  tail: string,
+  fallback: string,
+): string {
+  return shortInstalled ? `instalado ${shortInstalled} · ${tail}` : fallback;
+}
+
 function buildDetail(
   installedSha: string | null,
   pluginHeadSha: string | null,
@@ -231,26 +240,35 @@ function buildDetail(
 ): string {
   const shortInstalled = installedSha ? installedSha.slice(0, 7) : null;
   const shortHead = pluginHeadSha ? pluginHeadSha.slice(0, 7) : null;
+  const headSuffix = shortHead ? ` (${shortHead})` : "";
 
   switch (reason) {
     case "uncommitted":
-      return shortInstalled
-        ? `instalado ${shortInstalled} · hay cambios sin commitear`
-        : "hay cambios sin commitear en plugin/";
+      return withInstalledPrefix(
+        shortInstalled,
+        "hay cambios sin commitear",
+        "hay cambios sin commitear en plugin/",
+      );
     case "behind":
-      return shortInstalled
-        ? `instalado ${shortInstalled} · el plugin instalado está atrás del HEAD${shortHead ? ` (${shortHead})` : ""}`
-        : `el plugin instalado está atrás del HEAD${shortHead ? ` (${shortHead})` : ""}`;
+      return withInstalledPrefix(
+        shortInstalled,
+        `el plugin instalado está atrás del HEAD${headSuffix}`,
+        `el plugin instalado está atrás del HEAD${headSuffix}`,
+      );
     case "both":
-      return shortInstalled
-        ? `instalado ${shortInstalled} · atrás del HEAD y hay cambios sin commitear`
-        : "atrás del HEAD y hay cambios sin commitear en plugin/";
+      return withInstalledPrefix(
+        shortInstalled,
+        "atrás del HEAD y hay cambios sin commitear",
+        "atrás del HEAD y hay cambios sin commitear en plugin/",
+      );
     case "in-sync":
-      return shortInstalled ? `instalado ${shortInstalled} · plugin al día` : "plugin al día";
+      return withInstalledPrefix(shortInstalled, "plugin al día", "plugin al día");
     case "unknown":
-      return shortInstalled
-        ? `instalado ${shortInstalled} · estado desconocido (no se puede verificar)`
-        : "estado desconocido (plugin no instalado o repo no disponible)";
+      return withInstalledPrefix(
+        shortInstalled,
+        "estado desconocido (no se puede verificar)",
+        "estado desconocido (plugin no instalado o repo no disponible)",
+      );
   }
 }
 

@@ -20,7 +20,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { Event } from "@/lib/events/events";
-import { computeDigest, type DigestItem, type DigestResult } from "../digest";
+import { computeDigest, type DigestResult } from "../digest";
 
 // ---------------------------------------------------------------------------
 // Test fixtures
@@ -82,8 +82,11 @@ describe("frd-18: IF-18-digest — AC-18-001.1 (change-framed, relative timestam
     // ev30minAgo (newer) should come before ev2hAgo (older)
     expect(newEvents.length).toBeGreaterThan(1);
     for (let i = 1; i < newEvents.length; i++) {
+      const prev = newEvents[i - 1];
+      const curr = newEvents[i];
+      if (prev === undefined || curr === undefined) continue;
       // DigestItem exposes the source event via .event.at
-      expect(newEvents[i - 1]!.event.at >= newEvents[i]!.event.at).toBe(true);
+      expect(prev.event.at >= curr.event.at).toBe(true);
     }
   });
 
@@ -93,8 +96,11 @@ describe("frd-18: IF-18-digest — AC-18-001.1 (change-framed, relative timestam
     const { last24h } = computeDigest(FULL_TAIL, markerMs, NOW_MS);
     expect(last24h.length).toBeGreaterThan(1);
     for (let i = 1; i < last24h.length; i++) {
+      const prev = last24h[i - 1];
+      const curr = last24h[i];
+      if (prev === undefined || curr === undefined) continue;
       // DigestItem exposes the source event via .event.at
-      expect(last24h[i - 1]!.event.at >= last24h[i]!.event.at).toBe(true);
+      expect(prev.event.at >= curr.event.at).toBe(true);
     }
   });
 
@@ -115,7 +121,7 @@ describe("frd-18: IF-18-digest — AC-18-001.1 (change-framed, relative timestam
     // The 30-minute-ago event should produce a relative label containing 'min'
     const item = newEvents.find((i) => i.event.at === ev30minAgo.at);
     expect(item).toBeDefined();
-    expect(item!.relativeLabel).toMatch(/min/);
+    expect(item?.relativeLabel).toMatch(/min/);
   });
 
   it("frd-18: AC-18-001.1 — relative label for 2h event includes 'h'", () => {
@@ -124,7 +130,7 @@ describe("frd-18: IF-18-digest — AC-18-001.1 (change-framed, relative timestam
     const item = newEvents.find((i) => i.event.at === ev2hAgo.at);
     expect(item).toBeDefined();
     // Either "Xh" or "X h" pattern
-    expect(item!.relativeLabel).toMatch(/\d+\s*h/);
+    expect(item?.relativeLabel).toMatch(/\d+\s*h/);
   });
 });
 
@@ -251,9 +257,9 @@ describe("frd-18: IF-18-digest — change-framed (not cumulative)", () => {
 
   it("frd-18: computeDigest does not mutate the input array", () => {
     const tail = [...FULL_TAIL];
-    const originalFirst = tail[0]!.at;
+    const originalFirst = tail[0]?.at;
     computeDigest(tail, NOW_MS - 5 * HOUR_MS, NOW_MS);
-    expect(tail[0]!.at).toBe(originalFirst);
+    expect(tail[0]?.at).toBe(originalFirst);
     expect(tail.length).toBe(FULL_TAIL.length);
   });
 });

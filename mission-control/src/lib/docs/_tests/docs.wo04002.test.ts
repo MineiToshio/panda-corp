@@ -61,7 +61,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { FIXTURE_FULL } from "@/tests/fixtures";
-import { readActivityLog, readDecisions } from "../docs";
+import { readActivityLog, readDecisions } from "../activity";
 
 // ---------------------------------------------------------------------------
 // Local type mirrors — mirror the IF-04-docs contract.

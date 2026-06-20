@@ -59,10 +59,16 @@ export function listProjectDocs(projectPath: string): DocNode[] {
     return [];
   }
 
-  // Collect nodes across all layers.
+  // Collect nodes across all layers (each helper pushes into the shared array).
   const nodes: DocNode[] = [];
+  _collectProductDocs(projectPath, nodes);
+  _collectFrdDocs(projectPath, nodes);
+  _collectGlobalDocs(projectPath, nodes);
+  return nodes;
+}
 
-  // ---- Product layer ----------------------------------------------------------
+/** Product layer: docs/product/{prd,architecture}.md. Behavior copied verbatim. */
+function _collectProductDocs(projectPath: string, nodes: DocNode[]): void {
   const prdPath = path.join(projectPath, "docs", "product", "prd.md");
   if (pathExists(prdPath) && statIsFile(prdPath)) {
     nodes.push(makeDocNode("docs/product/prd.md", "prd.md", "Product"));
@@ -71,37 +77,42 @@ export function listProjectDocs(projectPath: string): DocNode[] {
   if (pathExists(archPath) && statIsFile(archPath)) {
     nodes.push(makeDocNode("docs/product/architecture.md", "architecture.md", "Product"));
   }
+}
 
-  // ---- Per-FRD layer ----------------------------------------------------------
+/** Per-FRD layer: docs/frds/frd-NN-<slug>/{frd,fdd,blueprint}.md. Behavior copied verbatim. */
+function _collectFrdDocs(projectPath: string, nodes: DocNode[]): void {
   const frdsDir = path.join(projectPath, "docs", "frds");
-  if (pathExists(frdsDir) && statIsDir(frdsDir)) {
-    let frdEntries: string[] = [];
-    try {
-      frdEntries = fs.readdirSync(frdsDir);
-    } catch {
-      frdEntries = [];
+  if (!pathExists(frdsDir) || !statIsDir(frdsDir)) {
+    return;
+  }
+  let frdEntries: string[] = [];
+  try {
+    frdEntries = fs.readdirSync(frdsDir);
+  } catch {
+    frdEntries = [];
+  }
+  for (const entry of frdEntries) {
+    if (!FRD_DIR_PATTERN.test(entry)) {
+      continue;
     }
-    for (const entry of frdEntries) {
-      if (!FRD_DIR_PATTERN.test(entry)) {
-        continue;
-      }
-      const frdDir = path.join(frdsDir, entry);
-      if (!statIsDir(frdDir)) {
-        continue;
-      }
-      const group = `Feature: ${entry}`;
-      // Surface only the three document files (regression I2: only if present).
-      for (const docFile of ["frd.md", "fdd.md", "blueprint.md"] as const) {
-        const filePath = path.join(frdDir, docFile);
-        if (pathExists(filePath) && statIsFile(filePath)) {
-          const relPath = `docs/frds/${entry}/${docFile}`;
-          nodes.push(makeDocNode(relPath, docFile, group));
-        }
+    const frdDir = path.join(frdsDir, entry);
+    if (!statIsDir(frdDir)) {
+      continue;
+    }
+    const group = `Feature: ${entry}`;
+    // Surface only the three document files (regression I2: only if present).
+    for (const docFile of ["frd.md", "fdd.md", "blueprint.md"] as const) {
+      const filePath = path.join(frdDir, docFile);
+      if (pathExists(filePath) && statIsFile(filePath)) {
+        const relPath = `docs/frds/${entry}/${docFile}`;
+        nodes.push(makeDocNode(relPath, docFile, group));
       }
     }
   }
+}
 
-  // ---- Global layer -----------------------------------------------------------
+/** Global layer: docs/adr/*.md + docs/decision-log.md. Behavior copied verbatim. */
+function _collectGlobalDocs(projectPath: string, nodes: DocNode[]): void {
   // docs/adr/*.md files
   const adrDir = path.join(projectPath, "docs", "adr");
   if (pathExists(adrDir) && statIsDir(adrDir)) {
@@ -129,8 +140,6 @@ export function listProjectDocs(projectPath: string): DocNode[] {
   if (pathExists(dlPath) && statIsFile(dlPath)) {
     nodes.push(makeDocNode("docs/decision-log.md", "decision-log.md", "Global"));
   }
-
-  return nodes;
 }
 
 /**

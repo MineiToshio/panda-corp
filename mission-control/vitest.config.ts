@@ -8,7 +8,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
     include: ["**/*.{test,spec}.{ts,tsx}"],
-    exclude: ["node_modules", ".next", "prototype"],
+    exclude: ["node_modules", ".next", "prototype", "e2e/**"],
     // Raised from the default 5 000 ms to accommodate:
     //   - WO-13-003 large-list keyboard-nav stress test (1 100 fireEvent × 1 000 items in jsdom)
     //   - WO-13-002 adversarial tests that invoke npx @tailwindcss/cli (cold-cache download)

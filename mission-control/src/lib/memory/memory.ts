@@ -24,9 +24,9 @@ import { resolveFactoryRoot } from "../config/config";
 // Types (blueprint §3 IF-17-memory)
 // ---------------------------------------------------------------------------
 
-export type PromotionState = "none" | "proposed" | "approved" | "rejected";
-export type LessonStatus = "candidate" | "active" | "deprecated";
-export type EvalGate = "corroborated" | "awaiting-2nd";
+type PromotionState = "none" | "proposed" | "approved" | "rejected";
+type LessonStatus = "candidate" | "active" | "deprecated";
+type EvalGate = "corroborated" | "awaiting-2nd";
 
 export type Lesson = {
   id: string;
@@ -188,6 +188,111 @@ function memoryDir(): string {
   return path.join(resolveFactoryRoot(), "factory", "memory");
 }
 
+/** True when a filename should be parsed as a lesson card (LESSON-*.md, not skipped). */
+function isLessonFile(filename: string): boolean {
+  // Only process .md files matching LESSON-*.md (AC-17-001.2).
+  if (!filename.endsWith(".md")) return false;
+  // Skip the explicitly excluded files (AC-17-001.2).
+  if ((SKIP_FILES as readonly string[]).includes(filename)) return false;
+  // Only files that start with "LESSON-" (skip README, _inbox, _template
+  // even if they somehow match .md and aren't in SKIP_FILES).
+  return filename.startsWith("LESSON-");
+}
+
+/** Coerce the `source` frontmatter field to a string (AC-17-001.3, regression I3). */
+function coerceSource(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    // Array-shaped source: join safely (I3 regression — do not expose string[]).
+    return (value as unknown[]).filter((item) => typeof item === "string").join(", ");
+  }
+  return "";
+}
+
+/** Coerce the `links` frontmatter field to a string[] (AC-17-001.3, regression I2). */
+function coerceLinks(value: unknown): string[] {
+  if (isStringArray(value)) {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    // Partial array: keep only string items.
+    return (value as unknown[]).filter((item): item is string => typeof item === "string");
+  }
+  return [];
+}
+
+/**
+ * Parse a single `LESSON-*.md` file into a `Lesson`, or `null` when it should be
+ * skipped (unreadable, empty, malformed frontmatter, or missing required fields).
+ */
+function parseLessonFile(filePath: string): Lesson | null {
+  let raw: string;
+  try {
+    raw = fs.readFileSync(filePath, "utf-8");
+  } catch {
+    return null;
+  }
+
+  // Empty file → skip (AC-17-001.3).
+  if (!raw.trim()) return null;
+
+  let parsed: matter.GrayMatterFile<string>;
+  try {
+    // Pass { excerpt: false } to bypass gray-matter's internal content-based
+    // cache that can cause a malformed parse to pollute the next call with
+    // a stale empty object (regression: gray-matter cache bug 2026-06-16).
+    parsed = matter(raw, { excerpt: false });
+  } catch {
+    // Malformed YAML frontmatter → skip file, no throw (AC-17-001.3).
+    return null;
+  }
+
+  const fm = parsed.data as Record<string, unknown>;
+
+  // --- Required fields ---
+
+  const id = typeof fm.id === "string" ? fm.id : undefined;
+  const type = typeof fm.type === "string" ? fm.type : undefined;
+  const domain = typeof fm.domain === "string" ? fm.domain : undefined;
+
+  if (id === undefined || type === undefined || domain === undefined) {
+    return null;
+  }
+
+  const status = isLessonStatus(fm.status) ? fm.status : undefined;
+  if (status === undefined) return null;
+
+  // --- Optional fields with safe defaults (AC-17-001.3) ---
+
+  // promotion: default "none" if absent or not a valid PromotionState.
+  const promotion: PromotionState = isPromotionState(fm.promotion) ? fm.promotion : "none";
+  const source = coerceSource(fm.source);
+  const links = coerceLinks(fm.links);
+
+  // body: gray-matter exposes content after the frontmatter as `.content`.
+  const body: string = typeof parsed.content === "string" ? parsed.content.trim() : "";
+
+  // --- Derived fields ---
+
+  const projects = parseProjects(source);
+  const evalGate = deriveEvalGate(status, projects);
+
+  return {
+    id,
+    type,
+    domain,
+    status,
+    promotion,
+    source,
+    links,
+    projects,
+    body,
+    evalGate,
+  };
+}
+
 /**
  * Read and parse all `LESSON-*.md` files from `factory/memory/`.
  *
@@ -216,105 +321,12 @@ export function readLessons(): Lesson[] {
   const lessons: Lesson[] = [];
 
   for (const filename of entries) {
-    // Only process .md files matching LESSON-*.md (AC-17-001.2).
-    if (!filename.endsWith(".md")) continue;
+    if (!isLessonFile(filename)) continue;
 
-    // Skip the explicitly excluded files (AC-17-001.2).
-    if ((SKIP_FILES as readonly string[]).includes(filename)) continue;
-
-    // Only files that start with "LESSON-" (skip README, _inbox, _template
-    // even if they somehow match .md and aren't in SKIP_FILES).
-    if (!filename.startsWith("LESSON-")) continue;
-
-    const filePath = path.join(dir, filename);
-
-    let raw: string;
-    try {
-      raw = fs.readFileSync(filePath, "utf-8");
-    } catch {
-      continue;
+    const lesson = parseLessonFile(path.join(dir, filename));
+    if (lesson !== null) {
+      lessons.push(lesson);
     }
-
-    // Empty file → skip (AC-17-001.3).
-    if (!raw.trim()) continue;
-
-    let parsed: matter.GrayMatterFile<string>;
-    try {
-      // Pass { excerpt: false } to bypass gray-matter's internal content-based
-      // cache that can cause a malformed parse to pollute the next call with
-      // a stale empty object (regression: gray-matter cache bug 2026-06-16).
-      parsed = matter(raw, { excerpt: false });
-    } catch {
-      // Malformed YAML frontmatter → skip file, no throw (AC-17-001.3).
-      continue;
-    }
-
-    const fm = parsed.data as Record<string, unknown>;
-
-    // --- Required fields ---
-
-    const id = typeof fm.id === "string" ? fm.id : undefined;
-    const type = typeof fm.type === "string" ? fm.type : undefined;
-    const domain = typeof fm.domain === "string" ? fm.domain : undefined;
-
-    if (id === undefined || type === undefined || domain === undefined) {
-      continue;
-    }
-
-    const status = isLessonStatus(fm.status) ? fm.status : undefined;
-    if (status === undefined) continue;
-
-    // --- Optional fields with safe defaults (AC-17-001.3) ---
-
-    // promotion: default "none" if absent or not a valid PromotionState.
-    const promotion: PromotionState = isPromotionState(fm.promotion) ? fm.promotion : "none";
-
-    // source: must be a string; if it was parsed as an array (YAML block sequence),
-    // coerce to a joined string rather than exposing it as unknown (regression I3).
-    let source: string;
-    if (typeof fm.source === "string") {
-      source = fm.source;
-    } else if (Array.isArray(fm.source)) {
-      // Array-shaped source: join safely (I3 regression — do not expose string[]).
-      source = (fm.source as unknown[]).filter((item) => typeof item === "string").join(", ");
-    } else {
-      source = "";
-    }
-
-    // links: default [] if absent or not a string[]; filter out non-string items
-    // rather than rejecting the whole lesson (regression I2: empty array guard).
-    let links: string[];
-    if (isStringArray(fm.links)) {
-      links = fm.links;
-    } else if (Array.isArray(fm.links)) {
-      // Partial array: keep only string items.
-      links = (fm.links as unknown[]).filter((item): item is string => typeof item === "string");
-    } else {
-      links = [];
-    }
-
-    // body: gray-matter exposes content after the frontmatter as `.content`.
-    const body: string = typeof parsed.content === "string" ? parsed.content.trim() : "";
-
-    // --- Derived fields ---
-
-    const projects = parseProjects(source);
-    const evalGate = deriveEvalGate(status, projects);
-
-    const lesson: Lesson = {
-      id,
-      type,
-      domain,
-      status,
-      promotion,
-      source,
-      links,
-      projects,
-      body,
-      evalGate,
-    };
-
-    lessons.push(lesson);
   }
 
   return lessons;

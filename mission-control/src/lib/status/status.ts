@@ -89,6 +89,107 @@ const VALID_PHASES: ReadonlyArray<Phase> = [
 ];
 
 // ---------------------------------------------------------------------------
+// Field coercers (each returns the validated value or undefined — never throws)
+// ---------------------------------------------------------------------------
+
+/** A non-empty string passes; any other type → undefined. */
+function asString(raw: unknown): string | undefined {
+  return typeof raw === "string" ? raw : undefined;
+}
+
+/** A finite number passes; NaN/Infinity/non-number → undefined (regression B1'). */
+function asFiniteNumber(raw: unknown): number | undefined {
+  return typeof raw === "number" && Number.isFinite(raw) ? raw : undefined;
+}
+
+/** Strict boolean only: 1/0/NaN/"true" rejected (regression B1'). */
+function asStrictBoolean(raw: unknown): boolean | undefined {
+  return raw === true || raw === false ? raw : undefined;
+}
+
+/** One of the six valid Phase literals; array/non-string values rejected (regression I3). */
+function asPhase(raw: unknown): Phase | undefined {
+  if (typeof raw === "string" && VALID_PHASES.includes(raw as Phase)) {
+    return raw as Phase;
+  }
+  return undefined;
+}
+
+/** Map the string-typed fields (snake_case → camelCase); invalid/missing omitted. */
+function mapStringFields(raw: Record<string, unknown>, status: Partial<ProjectStatus>): void {
+  const project = asString(raw.project);
+  if (project !== undefined) status.project = project;
+
+  const version = asString(raw.version);
+  if (version !== undefined) status.version = version;
+
+  const lastGreenSha = asString(raw.last_green_sha);
+  if (lastGreenSha !== undefined) status.lastGreenSha = lastGreenSha;
+
+  const overlayVersion = asString(raw.overlay_version);
+  if (overlayVersion !== undefined) status.overlayVersion = overlayVersion;
+
+  const createdWith = asString(raw.created_with);
+  if (createdWith !== undefined) status.createdWith = createdWith;
+
+  const updatedAt = asString(raw.updated_at);
+  if (updatedAt !== undefined) status.updatedAt = updatedAt;
+
+  const repo = asString(raw.repo);
+  if (repo !== undefined) status.repo = repo;
+}
+
+/** Map the finite-number fields; invalid/NaN/missing omitted (regression B1'). */
+function mapNumberFields(raw: Record<string, unknown>, status: Partial<ProjectStatus>): void {
+  const progress = asFiniteNumber(raw.progress);
+  if (progress !== undefined) status.progress = progress;
+
+  const workOrdersTotal = asFiniteNumber(raw.work_orders_total);
+  if (workOrdersTotal !== undefined) status.workOrdersTotal = workOrdersTotal;
+
+  const workOrdersDone = asFiniteNumber(raw.work_orders_done);
+  if (workOrdersDone !== undefined) status.workOrdersDone = workOrdersDone;
+
+  const pendingDecisions = asFiniteNumber(raw.pending_decisions);
+  if (pendingDecisions !== undefined) status.pendingDecisions = pendingDecisions;
+
+  const pendingBugs = asFiniteNumber(raw.pending_bugs);
+  if (pendingBugs !== undefined) status.pendingBugs = pendingBugs;
+}
+
+/** Map the strict-boolean fields; non-boolean/missing omitted (regression B1'). */
+function mapBooleanFields(raw: Record<string, unknown>, status: Partial<ProjectStatus>): void {
+  const running = asStrictBoolean(raw.running);
+  if (running !== undefined) status.running = running;
+
+  const rethinkPending = asStrictBoolean(raw.rethink_pending);
+  if (rethinkPending !== undefined) status.rethinkPending = rethinkPending;
+
+  const advancePending = asStrictBoolean(raw.advance_pending);
+  if (advancePending !== undefined) status.advancePending = advancePending;
+
+  const safeToTest = asStrictBoolean(raw.safe_to_test);
+  if (safeToTest !== undefined) status.safeToTest = safeToTest;
+}
+
+/**
+ * Map a validated YAML map (snake_case keys) into a partial ProjectStatus
+ * (camelCase keys). Type-invalid or missing keys are omitted, never fabricated.
+ */
+function mapStatusFields(raw: Record<string, unknown>): Partial<ProjectStatus> {
+  const status: Partial<ProjectStatus> = {};
+
+  const phase = asPhase(raw.phase);
+  if (phase !== undefined) status.phase = phase;
+
+  mapStringFields(raw, status);
+  mapNumberFields(raw, status);
+  mapBooleanFields(raw, status);
+
+  return status;
+}
+
+// ---------------------------------------------------------------------------
 // Implementation
 // ---------------------------------------------------------------------------
 
@@ -151,111 +252,8 @@ export function readStatus(projectPath: string): StatusResult {
     return { present: true, malformed: true, status: {} };
   }
 
-  // --- Map snake_case → camelCase with type validation ---
-  const raw_data = parsed as Record<string, unknown>;
-  const status: Partial<ProjectStatus> = {};
-
-  // project: string
-  const project = raw_data.project;
-  if (typeof project === "string") {
-    status.project = project;
-  }
-
-  // phase: Phase (one of six valid literals; array/non-string values rejected — regression I3)
-  const phase = raw_data.phase;
-  if (typeof phase === "string" && VALID_PHASES.includes(phase as Phase)) {
-    status.phase = phase as Phase;
-  }
-
-  // version: string
-  const version = raw_data.version;
-  if (typeof version === "string") {
-    status.version = version;
-  }
-
-  // running: boolean (strict boolean only — regression B1': 1/0 or NaN not accepted)
-  const running = raw_data.running;
-  if (running === true || running === false) {
-    status.running = running;
-  }
-
-  // progress: number (finite, integer-safe — optional)
-  const progress = raw_data.progress;
-  if (typeof progress === "number" && Number.isFinite(progress)) {
-    status.progress = progress;
-  }
-
-  // work_orders_total → workOrdersTotal: number (finite — regression B1')
-  const workOrdersTotal = raw_data.work_orders_total;
-  if (typeof workOrdersTotal === "number" && Number.isFinite(workOrdersTotal)) {
-    status.workOrdersTotal = workOrdersTotal;
-  }
-
-  // work_orders_done → workOrdersDone: number (finite)
-  const workOrdersDone = raw_data.work_orders_done;
-  if (typeof workOrdersDone === "number" && Number.isFinite(workOrdersDone)) {
-    status.workOrdersDone = workOrdersDone;
-  }
-
-  // pending_decisions → pendingDecisions: number (finite)
-  const pendingDecisions = raw_data.pending_decisions;
-  if (typeof pendingDecisions === "number" && Number.isFinite(pendingDecisions)) {
-    status.pendingDecisions = pendingDecisions;
-  }
-
-  // pending_bugs → pendingBugs: number (finite)
-  const pendingBugs = raw_data.pending_bugs;
-  if (typeof pendingBugs === "number" && Number.isFinite(pendingBugs)) {
-    status.pendingBugs = pendingBugs;
-  }
-
-  // rethink_pending → rethinkPending: boolean (strict)
-  const rethinkPending = raw_data.rethink_pending;
-  if (rethinkPending === true || rethinkPending === false) {
-    status.rethinkPending = rethinkPending;
-  }
-
-  // advance_pending → advancePending: boolean (strict)
-  const advancePending = raw_data.advance_pending;
-  if (advancePending === true || advancePending === false) {
-    status.advancePending = advancePending;
-  }
-
-  // last_green_sha → lastGreenSha: string
-  const lastGreenSha = raw_data.last_green_sha;
-  if (typeof lastGreenSha === "string") {
-    status.lastGreenSha = lastGreenSha;
-  }
-
-  // safe_to_test → safeToTest: boolean (strict — regression B1')
-  const safeToTest = raw_data.safe_to_test;
-  if (safeToTest === true || safeToTest === false) {
-    status.safeToTest = safeToTest;
-  }
-
-  // overlay_version → overlayVersion: string (optional)
-  const overlayVersion = raw_data.overlay_version;
-  if (typeof overlayVersion === "string") {
-    status.overlayVersion = overlayVersion;
-  }
-
-  // created_with → createdWith: string (optional)
-  const createdWith = raw_data.created_with;
-  if (typeof createdWith === "string") {
-    status.createdWith = createdWith;
-  }
-
-  // updated_at → updatedAt: string (optional; ISO 8601 date string, serializable)
-  const updatedAt = raw_data.updated_at;
-  if (typeof updatedAt === "string") {
-    status.updatedAt = updatedAt;
-  }
-
-  // repo: string (optional)
-  const repo = raw_data.repo;
-  if (typeof repo === "string") {
-    status.repo = repo;
-  }
+  // --- Map snake_case → camelCase with per-field type validation ---
+  const status = mapStatusFields(parsed as Record<string, unknown>);
 
   return { present: true, malformed: false, status };
 }

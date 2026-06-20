@@ -18,12 +18,8 @@
 
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import {
-  computeChains,
-  computeSecrets,
-  computeStats,
-  type ReaderData,
-} from "@/lib/achievements/achievements";
+import { computeChains, computeSecrets } from "@/lib/achievements/achievements";
+import { computeStats, type ReaderData } from "@/lib/achievements/stats";
 import type { Event, EventsSnapshot } from "@/lib/events/events";
 import type { IdeaCard } from "@/lib/ideas/ideas";
 import type { StatusResult } from "@/lib/status/status";

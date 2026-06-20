@@ -10,7 +10,7 @@ import type { BuildMode } from "@/lib/constants";
 import type { RelayStep, VisualAction, WoState } from "../state-map/state-map";
 
 /** Relay state carried by a deep-mode WO sprite. */
-export type RelayState = {
+type RelayState = {
   /** Current relay sub-step. */
   step: RelayStep;
   /** True once the backend contract is published to the frontend. */
@@ -116,7 +116,7 @@ export type FraguaEngine = {
 };
 
 /** Room a WO sprite currently occupies. */
-export type RoomState = "forge" | "tribunal" | "vault";
+type RoomState = "forge" | "tribunal" | "vault";
 
 /** An in-flight parchment document between two WO stations. */
 export type ParchmentFlight = {

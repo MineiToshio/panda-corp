@@ -22,20 +22,20 @@ const GLOBAL_BUCKET = "__global__";
  * Engine phase for the build run (FRD-06, REQ-06-008).
  * Optional — emitted by the plugin when the engine enriches the event.
  */
-export type EventPhase = "build" | "review";
+type EventPhase = "build" | "review";
 
 /**
  * Activity sub-step within a work order (FRD-06, REQ-06-008).
  * Used in deep-mode relay (`test-writer → backend-dev → frontend-dev`)
  * and the non-split `implement` step.
  */
-export type EventActivity = "test" | "backend" | "frontend" | "selftest" | "implement";
+type EventActivity = "test" | "backend" | "frontend" | "selftest" | "implement";
 
 /**
  * Build mode read from the engine state (FRD-06, REQ-06-008).
  * Controls the wave size and whether a deep relay is rendered.
  */
-export type EventMode = "pro" | "balanced" | "powerful" | "deep";
+type EventMode = "pro" | "balanced" | "powerful" | "deep";
 
 /** Valid phase values — used for enum-guarded parsing. */
 const VALID_PHASES: ReadonlySet<string> = new Set<EventPhase>(["build", "review"]);

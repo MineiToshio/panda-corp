@@ -110,6 +110,43 @@ function normalizeCell(raw: string): string | undefined {
  * - Rows with missing cells degrade to `undefined` fields — never throws.
  * - Returns `[]` when there is no table, the content is empty, or the file is missing.
  */
+type ColumnMap = (keyof PortfolioEntry | undefined)[];
+
+/**
+ * Trim a required cell, returning null when it is missing, blank, or a placeholder.
+ */
+function requiredCell(raw: string | undefined): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (trimmed === "" || PLACEHOLDERS.has(trimmed)) return null;
+  return trimmed;
+}
+
+/**
+ * Build a PortfolioEntry from a data row's cells using the header-derived column map.
+ * Returns null when the required `name` / `path` cells are blank/placeholder.
+ */
+function buildEntry(cells: readonly string[], columnMap: ColumnMap): PortfolioEntry | null {
+  // name and path are required; skip rows where either is blank/placeholder.
+  const name = requiredCell(cells[0]);
+  const projectPath = requiredCell(cells[1]);
+  if (name === null || projectPath === null) return null;
+
+  const entry: PortfolioEntry = { name, path: projectPath };
+
+  // Map remaining columns using the header-derived column map.
+  for (let i = 2; i < columnMap.length; i++) {
+    const key = columnMap[i];
+    if (key === undefined || key === "name" || key === "path") continue;
+    const normalized = normalizeCell(cells[i] ?? "");
+    if (normalized !== undefined) {
+      (entry as Record<string, string | undefined>)[key] = normalized;
+    }
+  }
+
+  return entry;
+}
+
 function parsePortfolioTable(content: string): PortfolioEntry[] {
   if (!content || content.trim() === "") return [];
 
@@ -117,62 +154,28 @@ function parsePortfolioTable(content: string): PortfolioEntry[] {
   const entries: PortfolioEntry[] = [];
 
   // `columnMap[i]` = the PortfolioEntry key for column index i (undefined = unknown column).
-  let columnMap: (keyof PortfolioEntry | undefined)[] | null = null;
+  let columnMap: ColumnMap | null = null;
 
   for (const line of lines) {
-    if (!isTableRow(line)) {
-      // Non-table line: if we had a header, reset so we can pick up a new header later.
-      // (Supports multiple disjoint tables.)
-      // We do NOT reset columnMap here — we reset it only when we encounter a new header row.
-      continue;
-    }
-
-    if (isSeparatorRow(line)) {
-      // Separator row: skip.
-      continue;
-    }
+    // Non-table / separator lines: skip. We do NOT reset columnMap on a non-table
+    // line — it is reset only when we encounter a new header row (multi-table support).
+    if (!isTableRow(line) || isSeparatorRow(line)) continue;
 
     const cells = splitTableRow(line);
 
-    // Detect header row: a row where the first cell normalizes to a known header key.
-    const firstCell = (cells[0] ?? "").trim().toLowerCase();
-    if (firstCell === "name") {
-      // This is a header row — build the column map.
+    // Detect header row: a row where the first cell normalizes to "name".
+    if ((cells[0] ?? "").trim().toLowerCase() === "name") {
       columnMap = cells.map((cell) => HEADER_MAP[cell.trim().toLowerCase()] ?? undefined);
       continue;
     }
 
     // Data row: need a column map to interpret it.
-    if (columnMap === null) {
-      // No header seen yet — skip.
-      continue;
+    if (columnMap === null) continue;
+
+    const entry = buildEntry(cells, columnMap);
+    if (entry !== null) {
+      entries.push(entry);
     }
-
-    // Build the entry from the cells.
-    const rawName = cells[0];
-    const rawPath = cells[1];
-
-    // name and path are required; skip rows where either is blank/placeholder.
-    if (!rawName || PLACEHOLDERS.has(rawName.trim()) || rawName.trim() === "") continue;
-    if (!rawPath || PLACEHOLDERS.has(rawPath.trim()) || rawPath.trim() === "") continue;
-
-    const entry: PortfolioEntry = {
-      name: rawName.trim(),
-      path: rawPath.trim(),
-    };
-
-    // Map remaining columns using the header-derived column map.
-    for (let i = 2; i < columnMap.length; i++) {
-      const key = columnMap[i];
-      if (key === undefined || key === "name" || key === "path") continue;
-      const raw = cells[i] ?? "";
-      const normalized = normalizeCell(raw);
-      if (normalized !== undefined) {
-        (entry as Record<string, string | undefined>)[key] = normalized;
-      }
-    }
-
-    entries.push(entry);
   }
 
   return entries;
@@ -338,64 +341,77 @@ function resolveProjectPath(rawPath: string): string {
  *
  * Traceability: IF-03-activeProjects → REQ-03-001..003, REQ-03-006; AC-03-001.1
  */
+/**
+ * Determine the rail display phase: status.yaml is authoritative; fall back to the
+ * portfolio advisory phase cell (mapped to a Phase literal). Undefined when neither
+ * source supplies a valid phase.
+ */
+function resolveStage(entry: PortfolioEntry, statusResult: StatusResult): Phase | undefined {
+  if (statusResult.present && statusResult.status.phase !== undefined) {
+    return statusResult.status.phase;
+  }
+  if (entry.phase !== undefined) {
+    return ADVISORY_TO_PHASE[entry.phase.toLowerCase().trim()];
+  }
+  return undefined;
+}
+
+/** Strict boolean from status.running; undefined otherwise (regression B1'). */
+function resolveRunning(statusResult: StatusResult): boolean | undefined {
+  if (
+    statusResult.present &&
+    (statusResult.status.running === true || statusResult.status.running === false)
+  ) {
+    return statusResult.status.running;
+  }
+  return undefined;
+}
+
+/** Business snapshot, populated only for operation phase from the portfolio row columns. */
+function resolveSnapshot(entry: PortfolioEntry, stage: Phase): ProjectListItem["snapshot"] {
+  if (stage !== "operation") return undefined;
+  const { users, returnMetric, verdict } = entry;
+  if (users !== undefined || returnMetric !== undefined || verdict !== undefined) {
+    return { users, returnMetric, verdict };
+  }
+  return undefined;
+}
+
+/**
+ * Enrich a single portfolio entry into a ProjectListItem, or null when its phase
+ * is not active (so it should not appear in the rail).
+ */
+function enrichEntry(entry: PortfolioEntry): ProjectListItem | null {
+  const resolvedPath = resolveProjectPath(entry.path);
+  const statusResult = readStatus(resolvedPath);
+  const exists = pathExists(resolvedPath);
+
+  const stage = resolveStage(entry, statusResult);
+  if (stage === undefined || !ACTIVE_PHASES.has(stage)) {
+    return null;
+  }
+
+  return {
+    name: entry.name,
+    path: entry.path,
+    repo: entry.repo,
+    status: statusResult,
+    exists,
+    stage,
+    running: resolveRunning(statusResult),
+    snapshot: resolveSnapshot(entry, stage),
+  };
+}
+
 export function activeProjects(content?: string): ProjectListItem[] {
   const entries = readPortfolio(content);
   const result: ProjectListItem[] = [];
 
   for (const entry of entries) {
-    const resolvedPath = resolveProjectPath(entry.path);
-    const statusResult = readStatus(resolvedPath);
-    const exists = pathExists(resolvedPath);
-
-    // --- Determine phase (authoritative → advisory fallback) ---
-    // Authoritative: status.yaml phase (validated Phase literal).
-    let stage: Phase | undefined;
-    if (statusResult.present && statusResult.status.phase !== undefined) {
-      stage = statusResult.status.phase;
+    const item = enrichEntry(entry);
+    if (item !== null) {
+      result.push(item);
     }
-
-    // Fallback: portfolio advisory phase cell (mapped to Phase literal).
-    if (stage === undefined && entry.phase !== undefined) {
-      const mapped = ADVISORY_TO_PHASE[entry.phase.toLowerCase().trim()];
-      if (mapped !== undefined) {
-        stage = mapped;
-      }
-    }
-
-    // --- Filter: only active phases ---
-    if (stage === undefined || !ACTIVE_PHASES.has(stage)) {
-      continue;
-    }
-
-    // --- running: strict boolean from status, undefined otherwise (regression B1') ---
-    let running: boolean | undefined;
-    if (
-      statusResult.present &&
-      statusResult.status.running !== undefined &&
-      (statusResult.status.running === true || statusResult.status.running === false)
-    ) {
-      running = statusResult.status.running;
-    }
-
-    // --- snapshot: only for operation phase, from portfolio row columns ---
-    let snapshot: ProjectListItem["snapshot"];
-    if (stage === "operation") {
-      const { users, returnMetric, verdict } = entry;
-      if (users !== undefined || returnMetric !== undefined || verdict !== undefined) {
-        snapshot = { users, returnMetric, verdict };
-      }
-    }
-
-    result.push({
-      name: entry.name,
-      path: entry.path,
-      repo: entry.repo,
-      status: statusResult,
-      exists,
-      stage,
-      running,
-      snapshot,
-    });
   }
 
   return result;

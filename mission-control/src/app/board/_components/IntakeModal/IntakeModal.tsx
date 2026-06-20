@@ -214,6 +214,40 @@ const COMMAND_VALUE_STYLE: React.CSSProperties = {
 };
 
 // ---------------------------------------------------------------------------
+// Focus-trap helper — keeps Tab/Shift+Tab inside the dialog panel (a11y).
+// Module-scope so the keydown handler stays small (one responsibility each).
+// ---------------------------------------------------------------------------
+
+const FOCUSABLE_SELECTOR =
+  'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+/**
+ * Wrap focus inside `panel` when Tab/Shift+Tab would otherwise escape it.
+ * No-op when the panel has no focusable descendants.
+ */
+function trapFocus(event: KeyboardEvent, panel: HTMLDivElement): void {
+  const focusable = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+  const first = focusable.at(0);
+  const last = focusable.at(-1);
+  if (!first || !last) return;
+
+  if (event.shiftKey) {
+    // Shift+Tab: if on first, wrap to last
+    if (document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    }
+    return;
+  }
+
+  // Tab: if on last (or the panel container itself), wrap to first
+  if (document.activeElement === last || document.activeElement === panel) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
 
@@ -257,28 +291,7 @@ export function IntakeModal({ open, onClose }: IntakeModalProps): React.JSX.Elem
 
       // Focus trap — keep Tab/Shift+Tab inside the dialog panel.
       if (event.key === "Tab" && panelRef.current) {
-        const FOCUSABLE =
-          'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
-        const focusable = Array.from(panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE));
-        if (focusable.length === 0) return;
-
-        const first = focusable.at(0);
-        const last = focusable.at(-1);
-        if (!first || !last) return;
-
-        if (event.shiftKey) {
-          // Shift+Tab: if on first, wrap to last
-          if (document.activeElement === first) {
-            event.preventDefault();
-            last.focus();
-          }
-        } else {
-          // Tab: if on last (or the panel container itself), wrap to first
-          if (document.activeElement === last || document.activeElement === panelRef.current) {
-            event.preventDefault();
-            first.focus();
-          }
-        }
+        trapFocus(event, panelRef.current);
       }
     }
 

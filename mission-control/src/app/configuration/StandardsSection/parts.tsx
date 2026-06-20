@@ -96,7 +96,7 @@ interface DetailPanelProps {
   standard: Standard;
 }
 
-export function DetailPanel({ standard }: DetailPanelProps): React.JSX.Element {
+function DetailPanel({ standard }: DetailPanelProps): React.JSX.Element {
   const [view, setView] = useState<"summary" | "detail">("summary");
 
   return (
@@ -164,7 +164,7 @@ interface StandardItemProps {
   onToggle: () => void;
 }
 
-export function StandardItem({ standard, isOpen, onToggle }: StandardItemProps): React.JSX.Element {
+function StandardItem({ standard, isOpen, onToggle }: StandardItemProps): React.JSX.Element {
   return (
     <div>
       {/* Row button */}

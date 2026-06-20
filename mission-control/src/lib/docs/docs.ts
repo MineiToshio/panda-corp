@@ -41,18 +41,11 @@ import path from "node:path";
 import { pathExists } from "../fs-utils/fs-utils";
 import { FRD_DIR_PATTERN } from "./tree";
 
-// Re-export the comms-reader surface (moved to ./activity).
-export type { ActivityLog, DecisionPoint } from "./activity";
-export { readActivityLog, readDecisions } from "./activity";
-// Re-export the document-tree surface (moved to ./tree).
-export type { DocNode } from "./tree";
-export { listProjectDocs, readDoc } from "./tree";
-
 // ---------------------------------------------------------------------------
 // Types (exported — consumed by FRD-04, FRD-05, FRD-08)
 // ---------------------------------------------------------------------------
 
-export type FrdModule = {
+type FrdModule = {
   /** Directory name under docs/frds/ (e.g. "frd-01-data-reading") — no path separators. */
   slug: string;
   /** fdd.md present in the FRD directory. */

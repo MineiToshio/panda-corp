@@ -46,17 +46,21 @@ export function occupiedSlots(wos: Map<string, InternalWo>, room: InternalWo["ro
   return occ;
 }
 
+/** Inputs to {@link stepToward}: current position, target position, and max step. */
+export type StepTowardInput = {
+  readonly px: number;
+  readonly py: number;
+  readonly targetPx: number;
+  readonly targetPy: number;
+  readonly step: number;
+};
+
 /**
  * Move (px, py) toward (targetPx, targetPy) by at most `step` pixels.
  * Returns the new position.
  */
-export function stepToward(
-  px: number,
-  py: number,
-  targetPx: number,
-  targetPy: number,
-  step: number,
-): [number, number] {
+export function stepToward(input: StepTowardInput): [number, number] {
+  const { px, py, targetPx, targetPy, step } = input;
   const dx = targetPx - px;
   const dy = targetPy - py;
   const d = Math.hypot(dx, dy);

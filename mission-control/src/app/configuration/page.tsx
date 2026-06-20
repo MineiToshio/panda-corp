@@ -39,8 +39,7 @@
 
 import type { Metadata } from "next";
 import { readEvents } from "@/lib/events/events";
-import type { AgentLevelResult } from "@/lib/gamification/gamification";
-import { computeAgentLevel } from "@/lib/gamification/gamification";
+import { type AgentLevelResult, computeAgentLevel } from "@/lib/gamification/agents";
 import { readAgents, readSkills } from "@/lib/reference/reference";
 import { readDecisionRules } from "@/lib/registry/registry";
 import { readStandards } from "@/lib/standards/standards";

@@ -132,45 +132,62 @@ export function listProjectFolders(projectsPath: string, factoryRoot?: string): 
 
   for (const name of entries) {
     const childPath = path.join(projectsPath, name);
-
-    // Exclusion 1: skip the factory root (AC-16-001.5).
-    if (resolvedFactory !== null && path.resolve(childPath) === resolvedFactory) {
-      continue;
+    if (isIncludedProjectFolder(name, childPath, resolvedFactory)) {
+      result.push(childPath);
     }
-
-    // Exclusion 2: skip the mission-control directory by name (blueprint §5, AC-16-001.5).
-    if (name === MISSION_CONTROL_DIR_NAME) {
-      continue;
-    }
-
-    // Guard: child must be a directory, not a regular file (regression I3: AC-16-001.4).
-    let childStat: fs.Stats;
-    try {
-      childStat = fs.statSync(childPath);
-    } catch {
-      // Unreadable entry → skip silently.
-      continue;
-    }
-
-    if (!childStat.isDirectory()) {
-      continue;
-    }
-
-    // Git-repo check: `.git` must exist as a file or directory inside the child
-    // (REQ-16-006 existence check — no git subprocess, no write, blueprint §5 note).
-    const gitMarker = path.join(childPath, ".git");
-    try {
-      fs.accessSync(gitMarker);
-      // If accessSync does not throw, the .git entry exists (file or dir).
-    } catch {
-      // No .git → not a git repo; skip.
-      continue;
-    }
-
-    result.push(childPath);
   }
 
   return result;
+}
+
+/**
+ * Decide whether a top-level entry qualifies as an included project folder:
+ * not the factory root, not `mission-control/`, an existing directory, and a git repo.
+ *
+ * @param name           Entry basename (for the name-based exclusions).
+ * @param childPath      Absolute path to the entry.
+ * @param resolvedFactory Resolved factory root to exclude, or null when not provided.
+ */
+function isIncludedProjectFolder(
+  name: string,
+  childPath: string,
+  resolvedFactory: string | null,
+): boolean {
+  // Exclusion 1: skip the factory root (AC-16-001.5).
+  if (resolvedFactory !== null && path.resolve(childPath) === resolvedFactory) {
+    return false;
+  }
+
+  // Exclusion 2: skip the mission-control directory by name (blueprint §5, AC-16-001.5).
+  if (name === MISSION_CONTROL_DIR_NAME) {
+    return false;
+  }
+
+  // Guard: child must be a directory, not a regular file (regression I3: AC-16-001.4).
+  let childStat: fs.Stats;
+  try {
+    childStat = fs.statSync(childPath);
+  } catch {
+    // Unreadable entry → skip silently.
+    return false;
+  }
+
+  if (!childStat.isDirectory()) {
+    return false;
+  }
+
+  // Git-repo check: `.git` must exist as a file or directory inside the child
+  // (REQ-16-006 existence check — no git subprocess, no write, blueprint §5 note).
+  const gitMarker = path.join(childPath, ".git");
+  try {
+    fs.accessSync(gitMarker);
+    // If accessSync does not throw, the .git entry exists (file or dir).
+  } catch {
+    // No .git → not a git repo; skip.
+    return false;
+  }
+
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -182,7 +199,7 @@ export function listProjectFolders(projectsPath: string, factoryRoot?: string): 
  *   "orphan"   → no marker, not in portfolio → suggest /pandacorp:adopt
  *   "unlisted" → has marker, not in portfolio → suggest /pandacorp:sync-portfolio
  */
-export type OrphanKind = "orphan" | "unlisted";
+type OrphanKind = "orphan" | "unlisted";
 
 /**
  * A folder that needs a factory nudge (either adopt or sync-portfolio).

@@ -42,8 +42,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import type { AgentSnapshot, EngineAgent, PartyEngine } from "../engine/engine";
-import { createPartyEngine } from "../engine/engine";
+import type { AgentSnapshot, EngineAgent, PartyEngine } from "../engine/engine.legacy";
+import { createPartyEngine } from "../engine/engine.legacy";
 import type { Role } from "../layout";
 import { agentColor, mcPositions, ZONE_ROLE } from "../layout";
 import type { AgentState, VisualAction } from "../state-map/state-map";
@@ -52,7 +52,7 @@ import type { AgentState, VisualAction } from "../state-map/state-map";
 // Types — public props contract
 // ---------------------------------------------------------------------------
 
-export interface AgentInfo {
+interface AgentInfo {
   /** Canonical role id (e.g. "backend-dev"). */
   id: Role;
   /** Initial visual state for this agent. */

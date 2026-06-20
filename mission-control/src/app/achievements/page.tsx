@@ -25,7 +25,8 @@
 import type { AgentRole } from "@/app/_design/tokens/tokens";
 import { Avatar } from "@/components/core/Avatar/Avatar";
 import { XpBar } from "@/components/core/XpBar/XpBar";
-import { computeUniques, type ReaderData } from "@/lib/achievements/achievements";
+import { computeUniques } from "@/lib/achievements/achievements";
+import type { ReaderData } from "@/lib/achievements/stats";
 import { readEvents } from "@/lib/events/events";
 import { computeGuildLevel, deriveGuildOutcomes } from "@/lib/gamification/gamification";
 import { readIdeas } from "@/lib/ideas/ideas";

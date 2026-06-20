@@ -35,16 +35,14 @@ import { EVENT_ICON, type EventType, toEventVM } from "../event-vm";
 describe("frd-06 Wave 2: EVENT_ICON — contract and gate in bounded vocabulary", () => {
   it("frd-06: EVENT_ICON has an entry for 'contract'", () => {
     expect(EVENT_ICON).toHaveProperty("contract");
-    expect(typeof (EVENT_ICON as Record<string, string>)["contract"]).toBe("string");
-    expect(((EVENT_ICON as Record<string, string>)["contract"] as string).length).toBeGreaterThan(
-      0,
-    );
+    expect(typeof (EVENT_ICON as Record<string, string>).contract).toBe("string");
+    expect(((EVENT_ICON as Record<string, string>).contract as string).length).toBeGreaterThan(0);
   });
 
   it("frd-06: EVENT_ICON has an entry for 'gate'", () => {
     expect(EVENT_ICON).toHaveProperty("gate");
-    expect(typeof (EVENT_ICON as Record<string, string>)["gate"]).toBe("string");
-    expect(((EVENT_ICON as Record<string, string>)["gate"] as string).length).toBeGreaterThan(0);
+    expect(typeof (EVENT_ICON as Record<string, string>).gate).toBe("string");
+    expect(((EVENT_ICON as Record<string, string>).gate as string).length).toBeGreaterThan(0);
   });
 });
 
@@ -52,13 +50,13 @@ describe("frd-06 Wave 2: toEventVM — icon mapping for contract and gate", () =
   it("frd-06: WHEN event type is 'contract' THEN icon is set from EVENT_ICON.contract", () => {
     const ev: DashboardEvent = { event: "contract", at: "2026-06-18T10:00:00Z" };
     const vm = toEventVM(ev);
-    expect(vm.icon).toBe((EVENT_ICON as Record<string, string>)["contract"]);
+    expect(vm.icon).toBe((EVENT_ICON as Record<string, string>).contract);
   });
 
   it("frd-06: WHEN event type is 'gate' THEN icon is set from EVENT_ICON.gate", () => {
     const ev: DashboardEvent = { event: "gate", at: "2026-06-18T10:00:00Z" };
     const vm = toEventVM(ev);
-    expect(vm.icon).toBe((EVENT_ICON as Record<string, string>)["gate"]);
+    expect(vm.icon).toBe((EVENT_ICON as Record<string, string>).gate);
   });
 });
 

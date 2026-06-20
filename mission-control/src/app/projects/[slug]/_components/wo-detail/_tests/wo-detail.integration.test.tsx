@@ -105,9 +105,12 @@ vi.mock("@/lib/status/status", () => ({
   }),
 }));
 
-vi.mock("@/lib/docs/docs", () => ({
+vi.mock("@/lib/docs/tree", () => ({
   listProjectDocs: () => [],
   readDoc: () => null,
+}));
+
+vi.mock("@/lib/docs/activity", () => ({
   readActivityLog: () => ({ entries: [] }),
   readDecisions: () => [],
 }));

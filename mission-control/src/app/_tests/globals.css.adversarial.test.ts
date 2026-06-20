@@ -36,9 +36,13 @@ function readCss(): string {
   return fs.readFileSync(GLOBALS_CSS_PATH, "utf-8");
 }
 
-function extractBlock(css: string, atRule: string): string {
-  const start = css.indexOf(atRule);
-  if (start === -1) return "";
+/**
+ * Walk braces from `start` and return the body of the first balanced `{ ... }`
+ * block at or after that position. Returns "" if `start` is negative or no
+ * balanced block is found. Shared by the at-rule and regex-anchored extractors.
+ */
+function blockBodyFrom(css: string, start: number): string {
+  if (start < 0) return "";
   let depth = 0;
   let open = -1;
   for (let i = start; i < css.length; i++) {
@@ -51,6 +55,10 @@ function extractBlock(css: string, atRule: string): string {
     }
   }
   return "";
+}
+
+function extractBlock(css: string, atRule: string): string {
+  return blockBodyFrom(css, css.indexOf(atRule));
 }
 
 // ---------------------------------------------------------------------------
@@ -114,25 +122,7 @@ describe("frd-13 AC-13-001.1 [adversarial]: high-contrast overrides the accent (
     const css = readCss();
     // Extract the high-contrast selector block.
     const pos = css.search(/\[data-theme=['"]high-contrast['"]\]|\.high-contrast/);
-    if (pos === -1) {
-      hcBlock = "";
-      return;
-    }
-    let depth = 0;
-    let open = -1;
-    hcBlock = "";
-    for (let i = pos; i < css.length; i++) {
-      if (css[i] === "{") {
-        if (open === -1) open = i;
-        depth++;
-      } else if (css[i] === "}") {
-        depth--;
-        if (depth === 0 && open !== -1) {
-          hcBlock = css.slice(open + 1, i);
-          break;
-        }
-      }
-    }
+    hcBlock = blockBodyFrom(css, pos);
   });
 
   it("frd-13: high-contrast block exists as a selector override (no separate stylesheet)", () => {
@@ -202,21 +192,7 @@ describe("frd-13 AC-13-006.1 [adversarial]: reduced-motion zeroes every declared
     expect(pos, "globals.css must contain a prefers-reduced-motion media query").toBeGreaterThan(
       -1,
     );
-    let depth = 0;
-    let open = -1;
-    let rmBlock = "";
-    for (let i = pos; i < css.length; i++) {
-      if (css[i] === "{") {
-        if (open === -1) open = i;
-        depth++;
-      } else if (css[i] === "}") {
-        depth--;
-        if (depth === 0 && open !== -1) {
-          rmBlock = css.slice(open + 1, i);
-          break;
-        }
-      }
-    }
+    const rmBlock = blockBodyFrom(css, pos);
 
     for (const name of declared) {
       const re = new RegExp(`--duration-${name}\\s*:\\s*0(?:ms|s)?`);

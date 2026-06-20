@@ -137,55 +137,72 @@ export function readDecisions(projectPath: string): DecisionPoint[] {
     return [];
   }
 
-  // Pattern for OPEN / CLOSED / RESOLVED headings at H2 level.
-  // The status word is captured in group 1; the title text in group 2.
-  const BLOCK_HEADING = /^##\s+(OPEN|CLOSED|RESOLVED):\s*(.+)/i;
-  // Pattern for a recommendation bullet: "- **Recommendation:** <text>"
-  // Both bold styles: **Recommendation:** or *Recommendation:*
-  const RECOMMENDATION_LINE = /^-\s+\*{1,2}Recommendation:\*{1,2}\s*(.+)/i;
-
   // Regression I3: genuine Array built with push.
   const result: DecisionPoint[] = [];
 
-  let currentStatus: string | null = null;
-  let currentTitle: string | null = null;
-  let currentRecommendation: string | undefined;
-
-  const flush = (): void => {
-    if (currentTitle !== null && currentTitle.trim().length > 0 && currentStatus !== null) {
-      const resolved = currentStatus.toUpperCase() !== "OPEN";
-      const dp: DecisionPoint = { title: currentTitle, resolved };
-      if (currentRecommendation !== undefined) {
-        dp.recommendation = currentRecommendation;
-      }
-      result.push(dp);
-    }
-  };
+  let current: DecisionBlock | null = null;
 
   for (const line of content.split("\n")) {
     const headingMatch = BLOCK_HEADING.exec(line);
     if (headingMatch) {
       // Flush the previous block before starting a new one.
-      flush();
-      currentStatus = headingMatch[1] ?? null;
-      currentTitle = (headingMatch[2] ?? "").trim();
-      currentRecommendation = undefined;
+      _pushDecision(result, current);
+      current = { status: headingMatch[1] ?? null, title: (headingMatch[2] ?? "").trim() };
       continue;
     }
 
-    if (currentTitle !== null) {
-      const recMatch = RECOMMENDATION_LINE.exec(line);
-      if (recMatch) {
-        const text = (recMatch[1] ?? "").trim();
-        if (text.length > 0) {
-          currentRecommendation = text;
-        }
+    if (current !== null) {
+      const recommendation = _parseRecommendation(line);
+      if (recommendation !== undefined) {
+        current.recommendation = recommendation;
       }
     }
   }
 
   // Flush the last block.
-  flush();
+  _pushDecision(result, current);
 
   return result;
+}
+
+// Pattern for OPEN / CLOSED / RESOLVED headings at H2 level.
+// The status word is captured in group 1; the title text in group 2.
+const BLOCK_HEADING = /^##\s+(OPEN|CLOSED|RESOLVED):\s*(.+)/i;
+// Pattern for a recommendation bullet: "- **Recommendation:** <text>"
+// Both bold styles: **Recommendation:** or *Recommendation:*
+const RECOMMENDATION_LINE = /^-\s+\*{1,2}Recommendation:\*{1,2}\s*(.+)/i;
+
+/** Mutable accumulator for the decision block currently being parsed. */
+type DecisionBlock = {
+  status: string | null;
+  title: string;
+  recommendation?: string;
+};
+
+/**
+ * Extract the recommendation text from a line, or `undefined` when the line is
+ * not a (non-empty) recommendation bullet. Behavior copied verbatim from the
+ * original inline match.
+ */
+function _parseRecommendation(line: string): string | undefined {
+  const recMatch = RECOMMENDATION_LINE.exec(line);
+  if (!recMatch) return undefined;
+  const text = (recMatch[1] ?? "").trim();
+  return text.length > 0 ? text : undefined;
+}
+
+/**
+ * Append a parsed block as a DecisionPoint when it is complete (non-empty title
+ * + a status). Behavior copied verbatim from the original `flush` closure.
+ */
+function _pushDecision(result: DecisionPoint[], block: DecisionBlock | null): void {
+  if (block === null || block.title.trim().length === 0 || block.status === null) {
+    return;
+  }
+  const resolved = block.status.toUpperCase() !== "OPEN";
+  const dp: DecisionPoint = { title: block.title, resolved };
+  if (block.recommendation !== undefined) {
+    dp.recommendation = block.recommendation;
+  }
+  result.push(dp);
 }

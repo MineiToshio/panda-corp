@@ -97,6 +97,31 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 /**
+ * Compute the next selected index for an arrow/Home/End key press.
+ *
+ * Returns the unchanged `prev` for any non-navigation key (caller treats an
+ * unchanged value as a no-op). Wrapping is applied at the boundaries when
+ * `wrap` is true; otherwise the index clamps at 0 / last.
+ */
+function nextIndexForKey(key: string, prev: number, last: number, wrap: boolean): number {
+  switch (key) {
+    case "ArrowDown":
+      return prev >= last ? (wrap ? 0 : last) : prev + 1;
+    case "ArrowUp":
+      return prev <= 0 ? (wrap ? last : 0) : prev - 1;
+    case "Home":
+      return 0;
+    case "End":
+      return last;
+    default:
+      return prev;
+  }
+}
+
+/** Keys that this hook handles (preventDefault is called for these). */
+const NAV_KEYS: ReadonlySet<string> = new Set(["ArrowDown", "ArrowUp", "Home", "End"]);
+
+/**
  * useKeyboardNav — arrow-key list navigation hook.
  *
  * AC-13-008.1 / WO-13-003.
@@ -137,35 +162,13 @@ export function useKeyboardNav({
     (e: KeyboardEvent) => {
       if (count === 0) return;
 
+      // All non-navigation keys are a no-op (selectedIndex unchanged).
+      if (!NAV_KEYS.has(e.key)) return;
+      e.preventDefault();
+
       const last = count - 1;
       const prev = indexRef.current;
-      let next = prev;
-
-      switch (e.key) {
-        case "ArrowDown": {
-          e.preventDefault();
-          next = prev >= last ? (wrap ? 0 : last) : prev + 1;
-          break;
-        }
-        case "ArrowUp": {
-          e.preventDefault();
-          next = prev <= 0 ? (wrap ? last : 0) : prev - 1;
-          break;
-        }
-        case "Home": {
-          e.preventDefault();
-          next = 0;
-          break;
-        }
-        case "End": {
-          e.preventDefault();
-          next = last;
-          break;
-        }
-        default:
-          // All other keys — no-op.
-          return;
-      }
+      const next = nextIndexForKey(e.key, prev, last, wrap);
 
       if (next === prev) return;
 

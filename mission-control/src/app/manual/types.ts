@@ -18,7 +18,7 @@ export type { ManualPage as ManualPageRef };
 // ---------------------------------------------------------------------------
 
 /** An authored Tutorial / Guides / Concepts page selected from the nav. */
-export type AuthoredPageSelection = {
+type AuthoredPageSelection = {
   type: "authored";
   /** Diátaxis group (matches ManualPage.group). */
   group: string;
@@ -27,7 +27,7 @@ export type AuthoredPageSelection = {
 };
 
 /** A Reference catalog entry selected from the nav. */
-export type ReferencePageSelection = {
+type ReferencePageSelection = {
   type: "reference";
   catalog: "commands" | "agents" | "rules" | "standards";
 };
@@ -41,13 +41,13 @@ export type ActivePage = AuthoredPageSelection | ReferencePageSelection;
 // ---------------------------------------------------------------------------
 
 /** An authored page fully resolved (includes the ManualPage body for rendering). */
-export type ReaderAuthoredPage = {
+type ReaderAuthoredPage = {
   type: "authored";
   page: ManualPage;
 };
 
 /** A reference catalog selection (data comes via separate props). */
-export type ReaderReferencePage = {
+type ReaderReferencePage = {
   type: "reference";
   catalog: "commands" | "agents" | "rules" | "standards";
 };

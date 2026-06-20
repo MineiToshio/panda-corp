@@ -94,7 +94,7 @@ function DigestItemRow({ item }: DigestItemRowProps): React.JSX.Element {
       data-dimmed={!isNew ? "true" : undefined}
       className={[
         "flex items-start gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-        isNew ? "border border-accent/40 bg-accent/5 text-text" : "opacity-50 text-text",
+        isNew ? "border border-accent/40 bg-accent/5 text-text" : "text-text opacity-50",
       ].join(" ")}
       aria-label={`${event.event}${event.project ? ` en ${event.project}` : ""}, ${relativeLabel}`}
     >
@@ -161,7 +161,7 @@ export function Digest({ events, nowMs: nowMsProp }: DigestProps): React.JSX.Ele
     <section aria-label="Desde tu última visita" className="space-y-3">
       {/* Section header */}
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-base font-semibold text-text">Desde tu última visita</h2>
+        <h2 className="font-semibold text-base text-text">Desde tu última visita</h2>
 
         <div className="flex items-center gap-2">
           {/* Live new-event count badge (AC-18-001.3, AC-18-001.5) */}
@@ -170,7 +170,7 @@ export function Digest({ events, nowMs: nowMsProp }: DigestProps): React.JSX.Ele
               role="status"
               aria-live="polite"
               aria-label={`${newCount} evento${newCount !== 1 ? "s" : ""} nuevo${newCount !== 1 ? "s" : ""}`}
-              className="inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-accent px-2 py-0.5 text-xs font-bold text-base"
+              className="inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-accent px-2 py-0.5 font-bold text-base text-xs"
             >
               {newCount}
             </span>
@@ -182,7 +182,7 @@ export function Digest({ events, nowMs: nowMsProp }: DigestProps): React.JSX.Ele
               type="button"
               data-testid="marcar-visto-btn"
               onClick={handleMarkSeen}
-              className="rounded-md border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-medium text-accent transition-colors hover:bg-accent/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="rounded-md border border-accent/30 bg-accent/10 px-3 py-1 font-medium text-accent text-xs transition-colors hover:bg-accent/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               Marcar visto
             </button>
@@ -192,7 +192,7 @@ export function Digest({ events, nowMs: nowMsProp }: DigestProps): React.JSX.Ele
 
       {/* Al día state (AC-18-001.4) */}
       {atDia && (
-        <p className="text-sm font-medium text-accent">
+        <p className="font-medium text-accent text-sm">
           <span aria-hidden="true">✓</span> <span>Al día</span>
         </p>
       )}
@@ -210,7 +210,7 @@ export function Digest({ events, nowMs: nowMsProp }: DigestProps): React.JSX.Ele
       {last24h.length > 0 && (
         <div>
           {atDia && (
-            <p className="mb-1 text-xs font-medium uppercase tracking-wide opacity-50">
+            <p className="mb-1 font-medium text-xs uppercase tracking-wide opacity-50">
               Últimas 24 h
             </p>
           )}

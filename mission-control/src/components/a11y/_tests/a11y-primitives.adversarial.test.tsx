@@ -31,7 +31,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { FOCUS_RING_CLASS } from "@/components/a11y";
+import { FOCUS_RING_CLASS } from "@/components/a11y/constants";
 import { LiveRegion } from "@/components/a11y/LiveRegion";
 import { useKeyboardNav } from "@/components/a11y/useKeyboardNav";
 

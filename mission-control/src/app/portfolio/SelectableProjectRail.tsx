@@ -125,6 +125,42 @@ const EMPTY_STYLE: React.CSSProperties = {
 };
 
 // ---------------------------------------------------------------------------
+// Per-row derivation — pull the status/indicator computation out of the map
+// callback so the render stays flat and under the complexity budget.
+// ---------------------------------------------------------------------------
+
+interface RowView {
+  rowStyle: React.CSSProperties;
+  indicatorStyle: React.CSSProperties;
+  indicatorLabel: string;
+  indicatorAriaLabel: string;
+  pendingDecisions: number | undefined;
+  pendingBugs: number | undefined;
+  rethinkPending: true | undefined;
+}
+
+/** Compute the derived view fields (styles, indicator copy, status counts) for one row. */
+function deriveRowView(item: ProjectListItem, isSelected: boolean): RowView {
+  const isRunning = item.running === true;
+
+  // Extract pending fields from status.status (Partial<ProjectStatus>).
+  // Absent / malformed status → undefined → StatusChips renders nothing.
+  const statusFields = item.status.present && item.status.status !== null ? item.status.status : {};
+
+  return {
+    rowStyle: isSelected ? ROW_SELECTED_STYLE : ROW_STYLE,
+    indicatorStyle: isRunning ? CHIP_BUILDING_STYLE : CHIP_STOPPED_STYLE,
+    indicatorLabel: isRunning ? "Construyendo" : "Parado",
+    indicatorAriaLabel: isRunning ? "Construcción activa" : "Proceso detenido",
+    pendingDecisions:
+      typeof statusFields.pendingDecisions === "number" ? statusFields.pendingDecisions : undefined,
+    pendingBugs:
+      typeof statusFields.pendingBugs === "number" ? statusFields.pendingBugs : undefined,
+    rethinkPending: statusFields.rethinkPending === true ? true : undefined,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
 
@@ -166,23 +202,15 @@ export function SelectableProjectRail({
     <nav data-testid="selectable-project-rail" style={RAIL_STYLE} aria-label="Proyectos activos">
       {items.map((item) => {
         const isSelected = item.name === selectedSlug;
-        const rowStyle = isSelected ? ROW_SELECTED_STYLE : ROW_STYLE;
-        const indicatorStyle = item.running === true ? CHIP_BUILDING_STYLE : CHIP_STOPPED_STYLE;
-        const indicatorLabel = item.running === true ? "Construyendo" : "Parado";
-        const indicatorAriaLabel =
-          item.running === true ? "Construcción activa" : "Proceso detenido";
-
-        // Extract pending fields from status.status (Partial<ProjectStatus>).
-        // Absent / malformed status → undefined → StatusChips renders nothing.
-        const statusFields =
-          item.status.present && item.status.status !== null ? item.status.status : {};
-        const pendingDecisions =
-          typeof statusFields.pendingDecisions === "number"
-            ? statusFields.pendingDecisions
-            : undefined;
-        const pendingBugs =
-          typeof statusFields.pendingBugs === "number" ? statusFields.pendingBugs : undefined;
-        const rethinkPending = statusFields.rethinkPending === true ? true : undefined;
+        const {
+          rowStyle,
+          indicatorStyle,
+          indicatorLabel,
+          indicatorAriaLabel,
+          pendingDecisions,
+          pendingBugs,
+          rethinkPending,
+        } = deriveRowView(item, isSelected);
 
         return (
           // The <article> is the ROW CONTAINER (block-level chrome). The navigation

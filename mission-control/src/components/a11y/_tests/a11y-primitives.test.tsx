@@ -39,7 +39,7 @@ import { describe, expect, it } from "vitest";
 // The hook must live at components/a11y/useKeyboardNav.ts
 // The constants must live at components/a11y/index.ts (or the same files)
 // ---------------------------------------------------------------------------
-import { FOCUS_RING_CLASS, TABULAR_NUMS_CLASS } from "@/components/a11y";
+import { FOCUS_RING_CLASS, TABULAR_NUMS_CLASS } from "@/components/a11y/constants";
 import { LiveRegion, type LiveRegionProps } from "@/components/a11y/LiveRegion";
 import { useKeyboardNav } from "@/components/a11y/useKeyboardNav";
 

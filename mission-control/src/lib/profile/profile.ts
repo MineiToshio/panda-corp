@@ -33,7 +33,7 @@ import { resolveFactoryRoot } from "../config/config";
 // Types
 // ---------------------------------------------------------------------------
 
-export type Profile = {
+type Profile = {
   name?: string;
   goals?: string;
   interests?: string[];

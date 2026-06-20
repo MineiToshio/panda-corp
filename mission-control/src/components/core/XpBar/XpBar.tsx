@@ -54,11 +54,11 @@ export function XpBar({ xp, next, pctToNext, label, nextTitle }: XpBarProps): Re
       <div className="flex items-baseline justify-between gap-2">
         <span
           data-testid="xp-bar-label"
-          className="text-[var(--color-text)] text-sm font-medium leading-none"
+          className="font-medium text-[var(--color-text)] text-sm leading-none"
         >
           {label}
         </span>
-        <span className="text-[var(--color-text)] text-xs opacity-70 leading-none">
+        <span className="text-[var(--color-text)] text-xs leading-none opacity-70">
           {/* tabular-nums applied via html { font-variant-numeric: tabular-nums } in globals.css */}
           <span data-testid="xp-bar-xp">{xp}</span>
           {" / "}
@@ -92,7 +92,7 @@ export function XpBar({ xp, next, pctToNext, label, nextTitle }: XpBarProps): Re
       {/* "faltan N para Nv X · <nextTitle>" subtitle */}
       <span
         data-testid="xp-bar-next-label"
-        className="text-[var(--color-text)] text-xs opacity-60 leading-none"
+        className="text-[var(--color-text)] text-xs leading-none opacity-60"
       >
         {clampedPct < 100 ? `faltan ${faltan} XP para ${nextTitle}` : nextTitle}
       </span>

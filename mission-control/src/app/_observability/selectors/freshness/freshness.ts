@@ -49,6 +49,7 @@ export const FRESHNESS_THRESHOLD_MS = 5 * 60 * 1_000; // 5 minutes
  */
 export function freshness(events: Event[], now: Date): { lastAt: string | null; live: boolean } {
   let lastAt: string | null = null;
+  let lastInstant = Number.NEGATIVE_INFINITY;
 
   for (const ev of events) {
     // B1' regression: guard against unparseable `at` values before comparing.
@@ -58,12 +59,14 @@ export function freshness(events: Event[], now: Date): { lastAt: string | null; 
       continue;
     }
 
-    // ISO 8601 strings compare lexicographically, so string comparison is
-    // equivalent to numeric timestamp comparison for well-formed UTC strings.
-    // We keep the raw string (not the numeric ms) as lastAt because the
-    // contract specifies `string | null` and callers display it as-is.
-    if (lastAt === null || ev.at > lastAt) {
+    // Compare by the parsed INSTANT (ms since epoch), not lexicographically:
+    // ISO strings only sort like instants when every value uses the same `Z`
+    // offset; a mixed `+02:00` offset would otherwise pick the wrong event.
+    // We keep the raw string as lastAt because the contract specifies
+    // `string | null` and callers display it as-is.
+    if (lastAt === null || parsed > lastInstant) {
       lastAt = ev.at;
+      lastInstant = parsed;
     }
   }
 

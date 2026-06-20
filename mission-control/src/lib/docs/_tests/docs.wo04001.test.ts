@@ -58,7 +58,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { FIXTURE_FULL } from "@/tests/fixtures";
-import { listProjectDocs, readDoc } from "../docs";
+import { listProjectDocs, readDoc } from "../tree";
 
 // ---------------------------------------------------------------------------
 // Local type mirror — mirrors the IF-04-docs contract.

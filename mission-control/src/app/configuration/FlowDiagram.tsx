@@ -45,7 +45,7 @@ const SORTED_ROLES: readonly AgentRole[] = [...AGENT_ROLES].sort((a, b) => b.len
  *
  * Returns each matched role in document order, deduplicated.
  */
-export function extractAgents(body: string): AgentRole[] {
+function extractAgents(body: string): AgentRole[] {
   const found: AgentRole[] = [];
   const seen = new Set<AgentRole>();
 

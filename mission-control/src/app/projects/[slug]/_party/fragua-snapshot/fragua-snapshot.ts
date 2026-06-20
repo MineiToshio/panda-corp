@@ -28,7 +28,7 @@ import { toEventVM } from "../event-vm/event-vm";
 // ---------------------------------------------------------------------------
 
 /** Work-order visual state within a FRD (La Fragua faithful model). */
-export type WoState = "building" | "in_review" | "verified" | "blocked";
+type WoState = "building" | "in_review" | "verified" | "blocked";
 
 /** Relay state for deep-mode work orders that have a frontend sub-step. */
 export type RelayState = {
@@ -187,6 +187,12 @@ function detectModeAndFrd(events: readonly DashboardEvent[]): {
 // Pass 2 helpers: process individual event types
 // ---------------------------------------------------------------------------
 
+/** Mutable running-WO tracking sets shared across pass-2 event processors. */
+interface RunningTracking {
+  readonly seenWoIds: Set<string>;
+  readonly stoppedWoIds: Set<string>;
+}
+
 /**
  * Process an AgentWorking event: register its WO as running (if not stopped),
  * up to the wave cap, and track it in allWoIds.
@@ -194,8 +200,7 @@ function detectModeAndFrd(events: readonly DashboardEvent[]): {
 function processAgentWorking(
   ev: DashboardEvent,
   ctx: FrdContext,
-  seenWoIds: Set<string>,
-  stoppedWoIds: Set<string>,
+  tracking: RunningTracking,
   scan: FrdScan,
 ): void {
   if (
@@ -206,8 +211,8 @@ function processAgentWorking(
     return;
 
   scan.allWoIds.add(ev.workOrder);
-  if (!seenWoIds.has(ev.workOrder) && !stoppedWoIds.has(ev.workOrder)) {
-    seenWoIds.add(ev.workOrder);
+  if (!tracking.seenWoIds.has(ev.workOrder) && !tracking.stoppedWoIds.has(ev.workOrder)) {
+    tracking.seenWoIds.add(ev.workOrder);
     if (scan.runningWos.length < ctx.wave) {
       scan.runningWos.push(ev.workOrder);
     }
@@ -289,6 +294,7 @@ function scanFrdData(events: readonly DashboardEvent[], ctx: FrdContext): FrdSca
   const seenWoIds = new Set<string>();
   const stoppedWoIds = new Set<string>();
   const seenTrophies = new Set<string>();
+  const tracking: RunningTracking = { seenWoIds, stoppedWoIds };
 
   for (const ev of events) {
     // Track all WOs for this FRD across all event types.
@@ -296,7 +302,7 @@ function scanFrdData(events: readonly DashboardEvent[], ctx: FrdContext): FrdSca
       scan.allWoIds.add(ev.workOrder);
     }
 
-    processAgentWorking(ev, ctx, seenWoIds, stoppedWoIds, scan);
+    processAgentWorking(ev, ctx, tracking, scan);
     processSubagentStop(ev, ctx, stoppedWoIds, scan);
     processAchievement(ev, ctx, seenTrophies, scan);
 

@@ -18,7 +18,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import type { ActivityLog, DecisionPoint } from "@/lib/docs/docs";
+import type { ActivityLog, DecisionPoint } from "@/lib/docs/activity";
 import { TabSummary } from "../tab-summary";
 
 // ---------------------------------------------------------------------------

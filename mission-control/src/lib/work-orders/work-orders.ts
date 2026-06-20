@@ -121,6 +121,85 @@ function parseFrontmatterStatus(content: string): WorkOrderState | null {
 // ---------------------------------------------------------------------------
 // Per-file parsing (partial-tolerant — never throws)
 // ---------------------------------------------------------------------------
+
+/** Title: first H1 line (# …), trimmed; fallback to filename stem. */
+function deriveTitle(lines: readonly string[], absPath: string): string {
+  for (const line of lines) {
+    const m = /^#\s+(.+)$/.exec(line);
+    if (m?.[1]) {
+      return m[1].trim();
+    }
+  }
+  return path.basename(absPath, ".md");
+}
+
+/** ID: first WO-\d\d-\d\d\d token in the title, else derived from filename. */
+function deriveId(title: string, absPath: string): string {
+  const titleIdMatch = /\b(WO-\d{2,}-\d{3,})\b/.exec(title);
+  if (titleIdMatch?.[1]) {
+    return titleIdMatch[1];
+  }
+  // Derive from filename: "wo-05-001-work-orders-reader.md" → "WO-05-001"
+  const fnMatch = /^(wo-\d{2,}-\d{3,})/i.exec(path.basename(absPath));
+  if (fnMatch?.[1]) {
+    return fnMatch[1].toUpperCase();
+  }
+  return path.basename(absPath, ".md");
+}
+
+/**
+ * Legacy ## Status: body-marker scan. A heading marker wins over a plain one.
+ * Returns the normalised WorkOrderState, or "todo" when no marker is present.
+ */
+function deriveLegacyBodyState(lines: readonly string[]): WorkOrderState {
+  let headingState: string | undefined;
+  let plainState: string | undefined;
+  for (const line of lines) {
+    const m = STATUS_LINE_RE.exec(line);
+    if (!m?.[1]) continue;
+    if (/^\s{0,3}#{1,6}/.test(line)) {
+      if (headingState === undefined) headingState = m[1];
+    } else if (plainState === undefined) {
+      plainState = m[1];
+    }
+  }
+  const stateRaw = headingState ?? plainState;
+  return stateRaw ? normaliseState(stateRaw) : "todo";
+}
+
+/**
+ * State derivation — DR-050 frontmatter takes precedence over the legacy
+ * ## Status: body marker.
+ *
+ * Precedence:
+ *   1. frontmatter `implementation_status` (DR-050, source of truth when present)
+ *   2. ## Status: body marker (legacy retrocompat — projects not yet migrated)
+ *   3. Default: "todo" (partial-tolerant)
+ */
+function deriveState(content: string, lines: readonly string[]): WorkOrderState {
+  const frontmatterState = parseFrontmatterStatus(content);
+  if (frontmatterState !== null) {
+    return frontmatterState;
+  }
+  return deriveLegacyBodyState(lines);
+}
+
+/** Summary: text under a "## Summary" section, first non-empty paragraph. */
+function deriveWorkOrderSummary(content: string): string | undefined {
+  const summaryRe = /^#{1,6}\s+Summary\s*$/im;
+  const summaryStart = summaryRe.exec(content);
+  if (!summaryStart) return undefined;
+  const after = content.slice((summaryStart.index ?? 0) + summaryStart[0].length);
+  // Collect lines until the next heading or end of file.
+  const paragraphLines: string[] = [];
+  for (const line of after.split("\n")) {
+    if (/^#{1,6}\s/.test(line)) break;
+    paragraphLines.push(line);
+  }
+  const paragraph = paragraphLines.join("\n").trim();
+  return paragraph.length > 0 ? paragraph : undefined;
+}
+
 function parseWorkOrderFile(absPath: string, frdSlug: string, projectPath: string): WorkOrder {
   let content = "";
   try {
@@ -130,84 +209,10 @@ function parseWorkOrderFile(absPath: string, frdSlug: string, projectPath: strin
   }
 
   const lines = content.split("\n");
-
-  // Title: first H1 line (# …), trimmed; fallback to filename stem.
-  let title = "";
-  for (const line of lines) {
-    const m = /^#\s+(.+)$/.exec(line);
-    if (m?.[1]) {
-      title = m[1].trim();
-      break;
-    }
-  }
-  if (!title) {
-    title = path.basename(absPath, ".md");
-  }
-
-  // ID: first token that matches WO-\d\d-\d\d\d in the title, or derived from filename.
-  let id = "";
-  const titleIdMatch = /\b(WO-\d{2,}-\d{3,})\b/.exec(title);
-  if (titleIdMatch?.[1]) {
-    id = titleIdMatch[1];
-  } else {
-    // Derive from filename: "wo-05-001-work-orders-reader.md" → "WO-05-001"
-    const fnMatch = /^(wo-\d{2,}-\d{3,})/i.exec(path.basename(absPath));
-    if (fnMatch?.[1]) {
-      id = fnMatch[1].toUpperCase();
-    } else {
-      id = path.basename(absPath, ".md");
-    }
-  }
-
-  // State derivation — DR-050 frontmatter takes precedence over the legacy
-  // ## Status: body marker.
-  //
-  // Precedence:
-  //   1. frontmatter `implementation_status` (DR-050, source of truth when present)
-  //   2. ## Status: body marker (legacy retrocompat — projects not yet migrated)
-  //   3. Default: "todo" (partial-tolerant)
-  let state: WorkOrderState = "todo";
-
-  // 1. Try frontmatter first.
-  const frontmatterState = parseFrontmatterStatus(content);
-  if (frontmatterState !== null) {
-    state = frontmatterState;
-  } else {
-    // 2. Fall back to the legacy body marker.
-    let headingState: string | undefined;
-    let plainState: string | undefined;
-    for (const line of lines) {
-      const m = STATUS_LINE_RE.exec(line);
-      if (!m?.[1]) continue;
-      if (/^\s{0,3}#{1,6}/.test(line)) {
-        if (headingState === undefined) headingState = m[1];
-      } else if (plainState === undefined) {
-        plainState = m[1];
-      }
-    }
-    const stateRaw = headingState ?? plainState;
-    if (stateRaw) {
-      state = normaliseState(stateRaw);
-    }
-  }
-
-  // Summary: text under a "## Summary" section, first non-empty paragraph.
-  let summary: string | undefined;
-  const summaryRe = /^#{1,6}\s+Summary\s*$/im;
-  const summaryStart = summaryRe.exec(content);
-  if (summaryStart) {
-    const after = content.slice((summaryStart.index ?? 0) + summaryStart[0].length);
-    // Collect lines until the next heading or end of file.
-    const paragraphLines: string[] = [];
-    for (const line of after.split("\n")) {
-      if (/^#{1,6}\s/.test(line)) break;
-      paragraphLines.push(line);
-    }
-    const paragraph = paragraphLines.join("\n").trim();
-    if (paragraph.length > 0) {
-      summary = paragraph;
-    }
-  }
+  const title = deriveTitle(lines, absPath);
+  const id = deriveId(title, absPath);
+  const state = deriveState(content, lines);
+  const summary = deriveWorkOrderSummary(content);
 
   // relPath: forward-slash relative path from project root.
   const relPath = path.relative(projectPath, absPath).split(path.sep).join("/");
@@ -241,6 +246,51 @@ function parseWorkOrderFile(absPath: string, frdSlug: string, projectPath: strin
  * @param projectPath - Absolute path to the project root.
  * @returns Array of WorkOrder. Empty array when none found.
  */
+/** True when `absPath` is a directory (fail-soft: any stat error → false). */
+function isDirectorySafe(absPath: string): boolean {
+  try {
+    return fs.statSync(absPath).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/** True when `absPath` is a regular file (fail-soft: any stat error → false). */
+function isFileSafe(absPath: string): boolean {
+  try {
+    return fs.statSync(absPath).isFile();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Parse all wo-*.md files in a single FRD's work-orders/ directory.
+ * Absent/unreadable work-orders/ → [] (not an error).
+ */
+function listWorkOrdersForFrd(frdPath: string, frdSlug: string, projectPath: string): WorkOrder[] {
+  const woDir = path.join(frdPath, "work-orders");
+  let woEntries: string[];
+  try {
+    woEntries = fs.readdirSync(woDir);
+  } catch {
+    // No work-orders/ dir → 0 items for this FRD
+    return [];
+  }
+
+  const results: WorkOrder[] = [];
+  for (const woFile of woEntries) {
+    // Only process files matching wo-*.md
+    if (!/^wo-.+\.md$/i.test(woFile)) continue;
+
+    const woAbsPath = path.join(woDir, woFile);
+    if (!isFileSafe(woAbsPath)) continue;
+
+    results.push(parseWorkOrderFile(woAbsPath, frdSlug, projectPath));
+  }
+  return results;
+}
+
 export function listWorkOrders(projectPath: string): WorkOrder[] {
   if (!projectPath || projectPath.trim() === "") return [];
 
@@ -261,38 +311,9 @@ export function listWorkOrders(projectPath: string): WorkOrder[] {
     if (!/^frd-\d/.test(entry)) continue;
 
     const frdPath = path.join(frdsDir, entry);
-    let stat: fs.Stats;
-    try {
-      stat = fs.statSync(frdPath);
-    } catch {
-      continue;
-    }
-    if (!stat.isDirectory()) continue;
+    if (!isDirectorySafe(frdPath)) continue;
 
-    const woDir = path.join(frdPath, "work-orders");
-    let woEntries: string[];
-    try {
-      woEntries = fs.readdirSync(woDir);
-    } catch {
-      // No work-orders/ dir → 0 items for this FRD
-      continue;
-    }
-
-    for (const woFile of woEntries) {
-      // Only process files matching wo-*.md
-      if (!/^wo-.+\.md$/i.test(woFile)) continue;
-
-      const woAbsPath = path.join(woDir, woFile);
-      try {
-        const wfStat = fs.statSync(woAbsPath);
-        if (!wfStat.isFile()) continue;
-      } catch {
-        continue;
-      }
-
-      const wo = parseWorkOrderFile(woAbsPath, entry, projectPath);
-      results.push(wo);
-    }
+    results.push(...listWorkOrdersForFrd(frdPath, entry, projectPath));
   }
 
   return results;

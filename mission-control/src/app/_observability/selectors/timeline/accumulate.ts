@@ -113,7 +113,7 @@ export function accumulateEvent(
  * Compute the end/duration/status fields from accumulated terminal stats.
  * B1' guard: Number.isFinite before arithmetic.
  */
-export function computeEndDurationStatus(acc: {
+function computeEndDurationStatus(acc: {
   minMs: number;
   hasTerminal: boolean;
   maxTerminalMs: number;
@@ -182,108 +182,136 @@ export function materialize(acc: NodeAcc): TimelineRow {
  */
 export function deriveWoRow(woAcc: NodeAcc, childTaskRows: TimelineRow[]): TimelineRow {
   if (childTaskRows.length === 0) {
-    // No task children — WO status is determined from direct action events
-    // already accumulated into woAcc (actions without a task field).
-    //
-    // B2 fix (2026-06-16): `materialize(woAcc)` uses `hasTerminal` (true if ANY
-    // direct action has a terminal status). When multiple direct actions exist and
-    // the LATEST one has no terminal status, the WO must stay "running".
-    //
-    // Semantic: a direct-action-only WO is "running" when its latest event (by timestamp)
-    // has no terminal status — i.e., maxDirectActionMs > maxTerminalMs (the latest event
-    // came after the last terminal event).
-    //
-    // This correctly handles:
-    //   - B2 case: A(ok)@10:00, B(open)@10:05 → maxDA=10:05 > maxTerminal=10:00 → running ✓
-    //   - B1 regression: Action1(open)@10:00, Action2(ok)@10:02 → maxDA=10:02 = maxTerminal=10:02 → ok ✓
-    //   - Single terminal: Action(ok)@10:00 → maxDA=maxTerminal=10:00 → ok ✓
-    //   - No terminals: Action(open)@10:00 → hasTerminal=false → materialize returns running ✓
-    const hasOpenLatestDirectAction =
-      woAcc.hasDirectActions &&
-      Number.isFinite(woAcc.maxDirectActionMs) &&
-      woAcc.maxDirectActionMs > woAcc.maxTerminalMs;
-    if (hasOpenLatestDirectAction) {
-      return {
-        id: woAcc.id,
-        kind: "wo",
-        label: woAcc.label,
-        start: woAcc.minAt,
-        end: null,
-        duration: null,
-        parentId: null,
-        status: "running",
-      };
-    }
-    return materialize(woAcc);
+    return deriveWoRowNoTasks(woAcc);
   }
 
   // Derive WO status by merging task child stats with woAcc's direct-action stats.
-  let anyRunning = false;
-  let anyFail = false;
-  let maxEndMs = -Infinity;
-  let maxEndAt = "";
+  const verdict = mergeWoStats(woAcc, childTaskRows);
+  return finalizeWoRow(woAcc, verdict);
+}
 
-  // --- task children ---
+/** Mutable accumulation of child verdict stats while merging task + direct-action children. */
+type WoVerdict = {
+  anyRunning: boolean;
+  anyFail: boolean;
+  maxEndMs: number;
+  maxEndAt: string;
+};
+
+/**
+ * Derive a WO row when it has no task children — status comes from the direct
+ * action events accumulated into woAcc.
+ *
+ * B2 fix (2026-06-16): `materialize(woAcc)` uses `hasTerminal` (true if ANY
+ * direct action has a terminal status). When multiple direct actions exist and
+ * the LATEST one has no terminal status, the WO must stay "running".
+ *
+ * Semantic: a direct-action-only WO is "running" when its latest event (by timestamp)
+ * has no terminal status — i.e., maxDirectActionMs > maxTerminalMs (the latest event
+ * came after the last terminal event).
+ *
+ * This correctly handles:
+ *   - B2 case: A(ok)@10:00, B(open)@10:05 → maxDA=10:05 > maxTerminal=10:00 → running ✓
+ *   - B1 regression: Action1(open)@10:00, Action2(ok)@10:02 → maxDA=10:02 = maxTerminal=10:02 → ok ✓
+ *   - Single terminal: Action(ok)@10:00 → maxDA=maxTerminal=10:00 → ok ✓
+ *   - No terminals: Action(open)@10:00 → hasTerminal=false → materialize returns running ✓
+ */
+function deriveWoRowNoTasks(woAcc: NodeAcc): TimelineRow {
+  const hasOpenLatestDirectAction =
+    woAcc.hasDirectActions &&
+    Number.isFinite(woAcc.maxDirectActionMs) &&
+    woAcc.maxDirectActionMs > woAcc.maxTerminalMs;
+  if (hasOpenLatestDirectAction) {
+    return {
+      id: woAcc.id,
+      kind: "wo",
+      label: woAcc.label,
+      start: woAcc.minAt,
+      end: null,
+      duration: null,
+      parentId: null,
+      status: "running",
+    };
+  }
+  return materialize(woAcc);
+}
+
+/**
+ * Merge child task row stats with woAcc's direct-action stats into a WoVerdict
+ * (B1 fix: direct-action stats are merged even when task children exist).
+ */
+function mergeWoStats(woAcc: NodeAcc, childTaskRows: TimelineRow[]): WoVerdict {
+  const verdict: WoVerdict = {
+    anyRunning: false,
+    anyFail: false,
+    maxEndMs: -Infinity,
+    maxEndAt: "",
+  };
+
   for (const taskRow of childTaskRows) {
-    if (taskRow.status === "running") {
-      anyRunning = true;
-    } else if (taskRow.status === "fail") {
-      anyFail = true;
-    }
-    // Accumulate end timestamps (only for closed tasks).
-    if (taskRow.end !== null) {
-      const endMs = Date.parse(taskRow.end);
-      if (Number.isFinite(endMs) && endMs > maxEndMs) {
-        maxEndMs = endMs;
-        maxEndAt = taskRow.end;
-      }
-    }
+    accumulateTaskRow(verdict, taskRow);
   }
 
-  // --- direct-action children (accumulated in woAcc, B1 fix) ---
-  // woAcc.hasDirectActions is true only when at least one direct-action event
-  // (workOrder set, no task) was seen. Without this guard we would incorrectly
-  // interpret a WO that only has task children as having an open direct action.
-  if (woAcc.hasDirectActions) {
-    if (!woAcc.hasTerminal) {
-      // At least one direct-action event has no terminal status → running.
-      anyRunning = true;
-    } else {
-      // woAcc has terminal direct-action events — merge their stats.
-      if (woAcc.anyFail) {
-        anyFail = true;
-      }
-      if (Number.isFinite(woAcc.maxTerminalMs) && woAcc.maxTerminalMs > maxEndMs) {
-        maxEndMs = woAcc.maxTerminalMs;
-        maxEndAt = woAcc.maxTerminalAt;
-      }
+  mergeDirectActionStats(verdict, woAcc);
+  return verdict;
+}
+
+/** Fold one materialised task row's status/end into the running verdict. */
+function accumulateTaskRow(verdict: WoVerdict, taskRow: TimelineRow): void {
+  if (taskRow.status === "running") {
+    verdict.anyRunning = true;
+  } else if (taskRow.status === "fail") {
+    verdict.anyFail = true;
+  }
+  // Accumulate end timestamps (only for closed tasks).
+  if (taskRow.end !== null) {
+    const endMs = Date.parse(taskRow.end);
+    if (Number.isFinite(endMs) && endMs > verdict.maxEndMs) {
+      verdict.maxEndMs = endMs;
+      verdict.maxEndAt = taskRow.end;
     }
   }
+}
 
+/**
+ * Merge woAcc's direct-action stats into the verdict.
+ * woAcc.hasDirectActions is true only when at least one direct-action event
+ * (workOrder set, no task) was seen. Without this guard we would incorrectly
+ * interpret a WO that only has task children as having an open direct action.
+ */
+function mergeDirectActionStats(verdict: WoVerdict, woAcc: NodeAcc): void {
+  if (!woAcc.hasDirectActions) return;
+  if (!woAcc.hasTerminal) {
+    // At least one direct-action event has no terminal status → running.
+    verdict.anyRunning = true;
+    return;
+  }
+  // woAcc has terminal direct-action events — merge their stats.
+  if (woAcc.anyFail) {
+    verdict.anyFail = true;
+  }
+  if (Number.isFinite(woAcc.maxTerminalMs) && woAcc.maxTerminalMs > verdict.maxEndMs) {
+    verdict.maxEndMs = woAcc.maxTerminalMs;
+    verdict.maxEndAt = woAcc.maxTerminalAt;
+  }
+}
+
+/** Build the final WO TimelineRow from the merged verdict. */
+function finalizeWoRow(woAcc: NodeAcc, verdict: WoVerdict): TimelineRow {
   let woStatus: "ok" | "fail" | "running";
   let woEnd: string | null;
   let woDuration: number | null;
 
-  if (anyRunning) {
+  if (verdict.anyRunning) {
     // At least one child is still running → WO is running.
     woStatus = "running";
     woEnd = null;
     woDuration = null;
-  } else if (anyFail) {
-    woStatus = "fail";
-    woEnd = maxEndMs > -Infinity ? maxEndAt : null;
-    if (woEnd !== null) {
-      const delta = maxEndMs - woAcc.minMs;
-      woDuration = Number.isFinite(delta) ? Math.max(0, delta) : null;
-    } else {
-      woDuration = null;
-    }
   } else {
-    // All children ok.
-    woStatus = "ok";
-    woEnd = maxEndMs > -Infinity ? maxEndAt : null;
+    woStatus = verdict.anyFail ? "fail" : "ok";
+    woEnd = verdict.maxEndMs > -Infinity ? verdict.maxEndAt : null;
     if (woEnd !== null) {
-      const delta = maxEndMs - woAcc.minMs;
+      const delta = verdict.maxEndMs - woAcc.minMs;
       woDuration = Number.isFinite(delta) ? Math.max(0, delta) : null;
     } else {
       woDuration = null;

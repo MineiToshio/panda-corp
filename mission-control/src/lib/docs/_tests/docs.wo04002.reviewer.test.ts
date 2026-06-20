@@ -22,7 +22,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { readActivityLog, readDecisions } from "../docs";
+import { readActivityLog, readDecisions } from "../activity";
 
 type ActivityLog = { entries: string[] };
 type DecisionPoint = { title: string; recommendation?: string; resolved: boolean };

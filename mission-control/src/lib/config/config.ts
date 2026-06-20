@@ -36,39 +36,6 @@ export const PROFILE: string = path.join(FACTORY_ROOT, "factory", "profile.md");
 /** Portfolio index of created projects (rows → project paths). */
 export const PORTFOLIO: string = path.join(FACTORY_ROOT, "factory", "portfolio.md");
 
-/** Decision registry (read-only; surfaced in Configuration / Manual). */
-export const DECISIONS_REGISTRY: string = path.join(
-  FACTORY_ROOT,
-  "factory",
-  "decisions",
-  "registry.yaml",
-);
-
-/** Engineering standards directory (read-only; surfaced in Configuration / Manual). */
-export const STANDARDS_DIR: string = path.join(FACTORY_ROOT, "factory", "standards");
-
-/** Cross-project engineering memory (lessons, candidates) for FRD-17. */
-export const MEMORY_DIR: string = path.join(FACTORY_ROOT, "factory", "memory");
-
-/** Plugin source (skills + agents) — read-only, for the Manual's derived Reference (FRD-08). */
-export const PLUGIN_DIR: string = path.join(FACTORY_ROOT, "plugin");
-export const PLUGIN_SKILLS_DIR: string = path.join(PLUGIN_DIR, "skills");
-export const PLUGIN_AGENTS_DIR: string = path.join(PLUGIN_DIR, "agents");
-
-/** Installed-plugin manifest in the user's Claude install (FRD-15 drift check). */
-export const INSTALLED_PLUGINS_JSON: string = path.join(
-  homeDir(),
-  ".claude",
-  "plugins",
-  "installed_plugins.json",
-);
-
-/** The factory's live event stream (FRD-06 Party / FRD-12 / FRD-18 digest). */
-export const EVENTS_NDJSON: string = path.join(homeDir(), ".claude", "dashboard-events.ndjson");
-
-/** The build task state directory (FRD-06 Party). */
-export const TASKS_DIR: string = path.join(homeDir(), ".claude", "tasks");
-
 /** Per-project status file, relative to a project root: `<projectPath>/.pandacorp/status.yaml`. */
 export function projectStatusPath(projectPath: string): string {
   return path.join(projectPath, ".pandacorp", "status.yaml");
@@ -76,7 +43,3 @@ export function projectStatusPath(projectPath: string): string {
 
 /** Filenames inside `IDEAS_DIR` that are NOT idea cards (FRD-01). */
 export const NON_IDEA_FILES: readonly string[] = ["_idea-template.md", "decision-log.md"];
-
-function homeDir(): string {
-  return process.env.HOME ?? process.env.USERPROFILE ?? "";
-}

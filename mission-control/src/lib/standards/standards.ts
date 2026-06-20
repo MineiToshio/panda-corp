@@ -39,8 +39,8 @@ import { resolveFactoryRoot } from "../config/config";
 // Public types
 // ---------------------------------------------------------------------------
 
-export type StandardSeverity = "MUST" | "SHOULD" | "MAY";
-export type StandardEnforcement = "lint" | "CI" | "checklist" | "human gate" | string;
+type StandardSeverity = "MUST" | "SHOULD" | "MAY";
+type StandardEnforcement = "lint" | "CI" | "checklist" | "human gate" | string;
 export type StandardDomain =
   | "Programming"
   | "Architecture"
@@ -130,10 +130,8 @@ function extractTitle(body: string): string {
  *  1. First contiguous block of `- ` or `* ` bullet items.
  *  2. First non-empty, non-heading paragraph (split into sentences).
  */
-function deriveSummary(body: string): string[] {
-  const lines = body.split("\n");
-
-  // Collect the first contiguous bullet block
+/** Collect the first contiguous block of `- `/`* ` bullet items (trimmed). */
+function extractFirstBulletBlock(lines: readonly string[]): string[] {
   const bullets: string[] = [];
   let inBulletBlock = false;
   for (const line of lines) {
@@ -141,50 +139,52 @@ function deriveSummary(body: string): string[] {
     if (bulletMatch?.[1]) {
       bullets.push(bulletMatch[1].trim());
       inBulletBlock = true;
-    } else if (inBulletBlock && line.trim() === "") {
-      // Blank line ends the bullet block
-      break;
     } else if (inBulletBlock) {
-      // Non-blank, non-bullet line while inside a block — continuation or end
+      // A blank or non-bullet line ends the contiguous block.
       break;
     }
   }
+  return bullets;
+}
 
+/** The first non-empty, non-heading, non-blockquote paragraph, or null. */
+function extractLeadParagraph(lines: readonly string[]): string | null {
+  const paragraphs: string[] = [];
+  let current: string[] = [];
+
+  const flush = () => {
+    if (current.length > 0) {
+      paragraphs.push(current.join(" "));
+      current = [];
+    }
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed === "") {
+      flush();
+    } else if (!trimmed.startsWith("#") && !trimmed.startsWith(">")) {
+      current.push(trimmed);
+    } else {
+      // Heading/blockquote after text ends the paragraph.
+      flush();
+    }
+  }
+  flush();
+
+  return paragraphs.find((p) => p.trim().length > 0) ?? null;
+}
+
+function deriveSummary(body: string): string[] {
+  const lines = body.split("\n");
+
+  const bullets = extractFirstBulletBlock(lines);
   if (bullets.length > 0) {
     return bullets;
   }
 
-  // Fall back to the first non-empty, non-heading paragraph
-  const paragraphs: string[] = [];
-  let current: string[] = [];
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (trimmed === "") {
-      if (current.length > 0) {
-        paragraphs.push(current.join(" "));
-        current = [];
-      }
-    } else {
-      // Skip headings and blockquotes for the lead paragraph
-      if (!trimmed.startsWith("#") && !trimmed.startsWith(">")) {
-        current.push(trimmed);
-      } else if (current.length > 0) {
-        // Heading/blockquote after text ends the paragraph
-        paragraphs.push(current.join(" "));
-        current = [];
-      }
-    }
-  }
-  if (current.length > 0) {
-    paragraphs.push(current.join(" "));
-  }
-
-  const firstParagraph = paragraphs.find((p) => p.trim().length > 0);
-  if (firstParagraph) {
-    return [firstParagraph];
-  }
-
-  return [];
+  const firstParagraph = extractLeadParagraph(lines);
+  return firstParagraph !== null ? [firstParagraph] : [];
 }
 
 /** Coerce a frontmatter value to string[] for the summary field. */
@@ -217,6 +217,102 @@ function coerceSeverity(raw: unknown): StandardSeverity | null {
  * Returns one `Standard` per `*.md` file, excluding `README.md`. Never throws.
  * Added/renamed files are automatically included (no static catalog of content).
  */
+/** Resolved frontmatter view: the data map plus whether usable frontmatter exists. */
+type ParsedFrontmatter = {
+  fm: Record<string, unknown>;
+  body: string;
+  hasFrontmatter: boolean;
+};
+
+/**
+ * Parse a standards file's frontmatter, fail-soft on malformed YAML.
+ *
+ * Applies the gray-matter cache bypass (LESSON inbox 2026-06-16): pass
+ * `{ excerpt: false }` so gray-matter skips its internal LRU cache, which can
+ * return stale/empty results when two files share identical content in tests.
+ */
+function parseStandardFrontmatter(raw: string): ParsedFrontmatter {
+  let parsed: matter.GrayMatterFile<string>;
+  let frontmatterMalformed = false;
+  try {
+    parsed = matter(raw, { excerpt: false });
+  } catch {
+    // Malformed YAML frontmatter — treat as if no frontmatter (option B/default).
+    frontmatterMalformed = true;
+    parsed = {
+      data: {},
+      content: raw,
+      orig: raw,
+      matter: "",
+      stringify: () => raw,
+      language: "yaml",
+      excerpt: "",
+    };
+  }
+
+  const fm = parsed.data as Record<string, unknown>;
+  return {
+    fm,
+    body: parsed.content.trim(),
+    hasFrontmatter: !frontmatterMalformed && Object.keys(fm).length > 0,
+  };
+}
+
+/**
+ * Resolve domain / severity / enforcement: frontmatter (option A) → derivation
+ * map (option B) → defaults with a typed warning.
+ */
+function resolveMetadata(
+  filename: string,
+  fm: Record<string, unknown>,
+  hasFrontmatter: boolean,
+): DerivationEntry {
+  // Option A: frontmatter present and carries the fields.
+  if (hasFrontmatter && typeof fm.domain === "string" && fm.domain.trim() !== "") {
+    return {
+      domain: fm.domain.trim(),
+      severity: coerceSeverity(fm.severity) ?? DEFAULT_ENTRY.severity,
+      enforcement:
+        typeof fm.enforcement === "string" ? fm.enforcement.trim() : DEFAULT_ENTRY.enforcement,
+    };
+  }
+
+  // Option B: derivation map.
+  const mapped = DERIVATION_MAP[filename];
+  if (mapped) {
+    return mapped;
+  }
+
+  // Default: AC-07-004.3 unmapped file → typed warning + defaults.
+  console.warn(
+    `[standards.ts] No frontmatter and no derivation map entry for "${filename}". ` +
+      `Using defaults (domain: "Other", severity: "SHOULD", enforcement: "checklist"). ` +
+      `Add frontmatter to factory/standards/${filename} (option A, DR-046) or add it to the derivation map.`,
+  );
+  return DEFAULT_ENTRY;
+}
+
+/** Parse a single standards file into a Standard, or null when unreadable. */
+function parseStandardFile(standardsDir: string, filename: string): Standard | null {
+  const filePath = path.join(standardsDir, filename);
+  let raw: string;
+  try {
+    raw = fs.readFileSync(filePath, "utf8");
+  } catch {
+    return null;
+  }
+
+  const { fm, body, hasFrontmatter } = parseStandardFrontmatter(raw);
+  const title = extractTitle(body);
+  const { domain, severity, enforcement } = resolveMetadata(filename, fm, hasFrontmatter);
+
+  // --- Summary (AC-07-004.4) ---
+  const fmSummary = hasFrontmatter ? coerceSummary(fm.summary) : null;
+  const summary = fmSummary !== null ? fmSummary : deriveSummary(body);
+
+  return { id: filename, title, body, domain, severity, enforcement, summary };
+}
+
 export function readStandards(factoryRoot: string = resolveFactoryRoot()): Standard[] {
   const standardsDir = path.join(factoryRoot, "factory", "standards");
 
@@ -239,85 +335,10 @@ export function readStandards(factoryRoot: string = resolveFactoryRoot()): Stand
       continue;
     }
 
-    const filePath = path.join(standardsDir, filename);
-    let raw: string;
-    try {
-      raw = fs.readFileSync(filePath, "utf8");
-    } catch {
-      continue;
+    const standard = parseStandardFile(standardsDir, filename);
+    if (standard !== null) {
+      results.push(standard);
     }
-
-    // Parse frontmatter. Apply the gray-matter cache bypass (LESSON inbox 2026-06-16):
-    // pass `{ excerpt: false }` so gray-matter skips its internal LRU cache, which
-    // can return stale/empty results when two files share identical content in tests.
-    let parsed: matter.GrayMatterFile<string>;
-    let frontmatterMalformed = false;
-    try {
-      parsed = matter(raw, { excerpt: false });
-    } catch {
-      // Malformed YAML frontmatter — treat as if no frontmatter (option B/default).
-      frontmatterMalformed = true;
-      // Build a minimal parsed-like structure so the rest of the code can proceed.
-      parsed = {
-        data: {},
-        content: raw,
-        orig: raw,
-        matter: "",
-        stringify: () => raw,
-        language: "yaml",
-        excerpt: "",
-      };
-    }
-
-    const fm = parsed.data as Record<string, unknown>;
-    const body = parsed.content.trim();
-    const hasFrontmatter = !frontmatterMalformed && Object.keys(fm).length > 0;
-
-    // --- Title (AC-07-004.1) ---
-    const title = extractTitle(body);
-
-    // --- Domain / Severity / Enforcement ---
-    // Option A: frontmatter present and carries the fields
-    let domain: StandardDomain;
-    let severity: StandardSeverity;
-    let enforcement: StandardEnforcement;
-
-    if (hasFrontmatter && typeof fm.domain === "string" && fm.domain.trim() !== "") {
-      // Option A — use frontmatter values
-      domain = fm.domain.trim();
-      severity = coerceSeverity(fm.severity) ?? DEFAULT_ENTRY.severity;
-      enforcement =
-        typeof fm.enforcement === "string" ? fm.enforcement.trim() : DEFAULT_ENTRY.enforcement;
-    } else {
-      // Option B — derivation map, then defaults
-      const mapped = DERIVATION_MAP[filename];
-      if (mapped) {
-        domain = mapped.domain;
-        severity = mapped.severity;
-        enforcement = mapped.enforcement;
-      } else {
-        // Default: AC-07-004.3 unmapped file → typed warning + defaults
-        console.warn(
-          `[standards.ts] No frontmatter and no derivation map entry for "${filename}". ` +
-            `Using defaults (domain: "Other", severity: "SHOULD", enforcement: "checklist"). ` +
-            `Add frontmatter to factory/standards/${filename} (option A, DR-046) or add it to the derivation map.`,
-        );
-        domain = DEFAULT_ENTRY.domain;
-        severity = DEFAULT_ENTRY.severity;
-        enforcement = DEFAULT_ENTRY.enforcement;
-      }
-    }
-
-    // --- Summary (AC-07-004.4) ---
-    let summary: string[];
-    const fmSummary = hasFrontmatter ? coerceSummary(fm.summary) : null;
-    if (fmSummary !== null) {
-      summary = fmSummary;
-    } else {
-      summary = deriveSummary(body);
-    }
-
-    results.push({ id: filename, title, body, domain, severity, enforcement, summary });
   }
 
   return results;

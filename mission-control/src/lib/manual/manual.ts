@@ -85,30 +85,7 @@ export function readManualPages(appRoot: string = process.cwd()): ManualPage[] {
 
     const group = groupEntry.name;
     const groupDir = path.join(manualDir, group);
-
-    let fileEntries: fs.Dirent[];
-    try {
-      fileEntries = fs.readdirSync(groupDir, { withFileTypes: true });
-    } catch {
-      continue;
-    }
-
-    for (const fileEntry of fileEntries) {
-      // AC-08-001.4 — only .md files (and .mdx, for future extensibility)
-      if (!fileEntry.isFile()) {
-        continue;
-      }
-      const filename = fileEntry.name;
-      if (!filename.endsWith(".md") && !filename.endsWith(".mdx")) {
-        continue;
-      }
-
-      const filePath = path.join(groupDir, filename);
-      const page = parseManualPage(filePath, filename, group);
-      if (page !== null) {
-        pages.push(page);
-      }
-    }
+    pages.push(...readGroupPages(groupDir, group));
   }
 
   // AC-08-001.2 — sort by group then by order (deterministic)
@@ -124,6 +101,41 @@ export function readManualPages(appRoot: string = process.cwd()): ManualPage[] {
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Read all valid manual pages from a single group directory.
+ *
+ * @returns The parsed pages; an unreadable directory yields []. Never throws.
+ */
+function readGroupPages(groupDir: string, group: string): ManualPage[] {
+  let fileEntries: fs.Dirent[];
+  try {
+    fileEntries = fs.readdirSync(groupDir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+
+  const pages: ManualPage[] = [];
+
+  for (const fileEntry of fileEntries) {
+    // AC-08-001.4 — only .md files (and .mdx, for future extensibility)
+    if (!fileEntry.isFile()) {
+      continue;
+    }
+    const filename = fileEntry.name;
+    if (!filename.endsWith(".md") && !filename.endsWith(".mdx")) {
+      continue;
+    }
+
+    const filePath = path.join(groupDir, filename);
+    const page = parseManualPage(filePath, filename, group);
+    if (page !== null) {
+      pages.push(page);
+    }
+  }
+
+  return pages;
+}
 
 /**
  * Parse a single manual page file.

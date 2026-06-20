@@ -32,19 +32,11 @@
  * Thresholds/tier names from docs/achievements.md. Prototype data tables in prototype/index.html.
  */
 
+import type { TierEntry } from "./definitions";
 import { CHAIN_DEFINITIONS } from "./definitions";
 import type { UniqueCategory } from "./predicates";
 import { SECRET_DEFINITIONS, UNIQUE_DEFINITIONS } from "./predicates";
 import type { ReaderData, Stat, TierUnlockEvent } from "./stats";
-
-export type { ChainDefinition, TierEntry } from "./definitions";
-// Re-export the public surface moved to sibling files so consumers keep importing
-// everything from "@/lib/achievements/achievements" unchanged.
-export { CHAIN_DEFINITIONS } from "./definitions";
-export type { SecretDefinition, UniqueCategory, UniqueDefinition } from "./predicates";
-export { SECRET_DEFINITIONS, UNIQUE_DEFINITIONS } from "./predicates";
-export type { ReaderData, Stat, TierUnlockEvent } from "./stats";
-export { computeStats } from "./stats";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // § 5. IF-10-chains — computeChains
@@ -96,31 +88,14 @@ export type ChainState = {
  *   - Endowed: bar starts from real earned position, never zero-faked.
  */
 export function computeChains(stats: readonly Stat[]): ChainState[] {
-  const result: ChainState[] = [];
-
-  for (const chainDef of CHAIN_DEFINITIONS) {
+  return CHAIN_DEFINITIONS.map((chainDef) => {
     const stat = stats.find((s) => s.key === chainDef.statKey);
     const value = stat?.value ?? 0;
     const unlockEvents = stat?.unlockEvents ?? [];
     const lowerIsBetter = chainDef.lowerIsBetter === true;
     const tiers = chainDef.tiers;
 
-    // ── Find current tier index ──────────────────────────────────────────────
-    // Walk all thresholds; current = last one crossed.
-    // For lower-is-better: crossed when value ≤ threshold.
-    // For normal: crossed when value ≥ threshold.
-    // Special case for lower-is-better: if value=0, no tier (0 means "no record").
-    let currentTierIndex = -1;
-
-    if (!lowerIsBetter || value > 0) {
-      for (let i = 0; i < tiers.length; i++) {
-        const tier = tiers[i];
-        if (!tier) continue;
-        if (lowerIsBetter ? value <= tier.threshold : value >= tier.threshold) {
-          currentTierIndex = i;
-        }
-      }
-    }
+    const currentTierIndex = _findCurrentTierIndex(tiers, value, lowerIsBetter);
 
     const currentTier = currentTierIndex >= 0 ? tiers[currentTierIndex] : undefined;
     const currentTierName = currentTier?.name ?? null;
@@ -130,39 +105,15 @@ export function computeChains(stats: readonly Stat[]): ChainState[] {
       ? { name: nextTierEntry.name, threshold: nextTierEntry.threshold }
       : null;
 
-    // ── Honest endowed progress ──────────────────────────────────────────────
-    let pctToNext: number;
+    const pctToNext = _computeChainPct({
+      tiers,
+      value,
+      lowerIsBetter,
+      currentTierIndex,
+      nextTierEntry,
+    });
 
-    if (nextTierEntry === null) {
-      // Maxed out (or no tiers exist): 100%
-      pctToNext = currentTierIndex >= 0 ? 100 : 0;
-    } else if (lowerIsBetter) {
-      if (value === 0) {
-        // No record yet: 0%
-        pctToNext = 0;
-      } else {
-        // Lower-is-better progress:
-        // prevThreshold = threshold of current tier (or the value itself if no tier yet)
-        // progress = (prevThreshold - value) / (prevThreshold - nextThreshold) * 100
-        const prevThreshold =
-          currentTierIndex >= 0 ? (tiers[currentTierIndex]?.threshold ?? value) : value;
-        const nextThreshold = nextTierEntry.threshold;
-        const span = prevThreshold - nextThreshold;
-        const progress = prevThreshold - value;
-        pctToNext = span > 0 ? Math.min(100, Math.floor((progress / span) * 100)) : 0;
-      }
-    } else {
-      // Normal progress (higher is better):
-      // progress = (value - currentThreshold) / (nextThreshold - currentThreshold) * 100
-      const currentThreshold =
-        currentTierIndex >= 0 ? (tiers[currentTierIndex]?.threshold ?? 0) : 0;
-      const nextThreshold = nextTierEntry.threshold;
-      const span = nextThreshold - currentThreshold;
-      const progress = value - currentThreshold;
-      pctToNext = span > 0 ? Math.min(100, Math.floor((progress / span) * 100)) : 0;
-    }
-
-    result.push({
+    return {
       statKey: chainDef.statKey,
       label: chainDef.label,
       currentTierIndex,
@@ -171,10 +122,76 @@ export function computeChains(stats: readonly Stat[]): ChainState[] {
       pctToNext,
       lowerIsBetter,
       unlocks: unlockEvents,
-    });
+    };
+  });
+}
+
+/**
+ * Find the current tier index for a chain value (behavior copied verbatim from
+ * the original inline loop).
+ *
+ * Walk all thresholds; current = last one crossed.
+ * For lower-is-better: crossed when value ≤ threshold; for normal: value ≥ threshold.
+ * Special case for lower-is-better: value=0 means "no record" → no tier (-1).
+ */
+function _findCurrentTierIndex(
+  tiers: readonly TierEntry[],
+  value: number,
+  lowerIsBetter: boolean,
+): number {
+  let currentTierIndex = -1;
+  if (lowerIsBetter && value <= 0) {
+    return currentTierIndex;
+  }
+  for (let i = 0; i < tiers.length; i++) {
+    const tier = tiers[i];
+    if (!tier) continue;
+    if (lowerIsBetter ? value <= tier.threshold : value >= tier.threshold) {
+      currentTierIndex = i;
+    }
+  }
+  return currentTierIndex;
+}
+
+/**
+ * Honest endowed progress toward the next tier, 0–100 (behavior copied verbatim
+ * from the original inline branching).
+ */
+function _computeChainPct(args: {
+  tiers: readonly TierEntry[];
+  value: number;
+  lowerIsBetter: boolean;
+  currentTierIndex: number;
+  nextTierEntry: TierEntry | null;
+}): number {
+  const { tiers, value, lowerIsBetter, currentTierIndex, nextTierEntry } = args;
+
+  if (nextTierEntry === null) {
+    // Maxed out (or no tiers exist): 100%
+    return currentTierIndex >= 0 ? 100 : 0;
   }
 
-  return result;
+  if (lowerIsBetter) {
+    if (value === 0) {
+      // No record yet: 0%
+      return 0;
+    }
+    // Lower-is-better progress:
+    // prevThreshold = threshold of current tier (or the value itself if no tier yet)
+    // progress = (prevThreshold - value) / (prevThreshold - nextThreshold) * 100
+    const prevThreshold =
+      currentTierIndex >= 0 ? (tiers[currentTierIndex]?.threshold ?? value) : value;
+    const span = prevThreshold - nextTierEntry.threshold;
+    const progress = prevThreshold - value;
+    return span > 0 ? Math.min(100, Math.floor((progress / span) * 100)) : 0;
+  }
+
+  // Normal progress (higher is better):
+  // progress = (value - currentThreshold) / (nextThreshold - currentThreshold) * 100
+  const currentThreshold = currentTierIndex >= 0 ? (tiers[currentTierIndex]?.threshold ?? 0) : 0;
+  const span = nextTierEntry.threshold - currentThreshold;
+  const progress = value - currentThreshold;
+  return span > 0 ? Math.min(100, Math.floor((progress / span) * 100)) : 0;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

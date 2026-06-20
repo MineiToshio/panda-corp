@@ -31,10 +31,8 @@ import { CopyButton } from "@/components/core/CopyButton/CopyButton";
 import type { Phase } from "@/lib/status/status";
 
 // ---------------------------------------------------------------------------
-// Types (re-exported so consumers can build CardData without importing card.ts)
+// Types
 // ---------------------------------------------------------------------------
-
-export type { WoProgress };
 
 export type CardData = {
   name: string;

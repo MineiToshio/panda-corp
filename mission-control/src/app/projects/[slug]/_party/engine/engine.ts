@@ -309,7 +309,13 @@ export function createFraguaEngine(opts: FraguaEngineOpts): FraguaEngine {
     sprite._lastTick = now;
 
     const step = WALK_SPEED * dt;
-    const [nx, ny] = stepToward(sprite.px, sprite.py, sprite.targetPx, sprite.targetPy, step);
+    const [nx, ny] = stepToward({
+      px: sprite.px,
+      py: sprite.py,
+      targetPx: sprite.targetPx,
+      targetPy: sprite.targetPy,
+      step,
+    });
     sprite.px = nx;
     sprite.py = ny;
   }
@@ -318,7 +324,13 @@ export function createFraguaEngine(opts: FraguaEngineOpts): FraguaEngine {
     const step = WALK_SPEED * Math.min(MAX_DT, 16);
     for (const p of parchments) {
       if (p.done) continue;
-      const [nx, ny] = stepToward(p.px, p.py, p.targetPx, p.targetPy, step);
+      const [nx, ny] = stepToward({
+        px: p.px,
+        py: p.py,
+        targetPx: p.targetPx,
+        targetPy: p.targetPy,
+        step,
+      });
       p.px = nx;
       p.py = ny;
       if (Math.hypot(p.targetPx - p.px, p.targetPy - p.py) < 1) {
@@ -400,15 +412,4 @@ export function createFraguaEngine(opts: FraguaEngineOpts): FraguaEngine {
 // Public type re-exports (IF-06-engine) — consumers import these from here.
 // ---------------------------------------------------------------------------
 
-export type { FraguaEngine, FraguaEngineOpts, GateState, RelayState, WoSprite } from "./types";
-
-// ---------------------------------------------------------------------------
-// Legacy exports — kept for backward compatibility while WO-06-006/005
-// (PartyScene, PartyTab) are still using the old model.
-// New code MUST NOT import these — use createFraguaEngine above.
-// ---------------------------------------------------------------------------
-
-// AgentState is re-exported from state-map for consumers that import it through the engine module
-export type { AgentState } from "../state-map/state-map";
-export type { AgentSnapshot, EngineAgent, EngineOpts, PartyEngine } from "./engine.legacy";
-export { createPartyEngine } from "./engine.legacy";
+export type { FraguaEngine, FraguaEngineOpts } from "./types";

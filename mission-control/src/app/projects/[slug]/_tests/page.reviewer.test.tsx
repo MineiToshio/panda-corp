@@ -39,7 +39,7 @@ vi.mock("@/lib/status/status", () => ({
   }),
 }));
 
-vi.mock("@/lib/docs/docs", () => ({
+vi.mock("@/lib/docs/tree", () => ({
   listProjectDocs: () => [
     { id: "product/prd", label: "prd.md", group: "Product", relPath: "docs/product/prd.md" },
     {
@@ -50,6 +50,9 @@ vi.mock("@/lib/docs/docs", () => ({
     },
   ],
   readDoc: (_p: string, rel: string) => `# Body of ${rel}`,
+}));
+
+vi.mock("@/lib/docs/activity", () => ({
   readActivityLog: () => ({ entries: ["did a thing"] }),
   readDecisions: () => [{ title: "pick a db", resolved: false }],
 }));

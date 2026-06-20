@@ -27,7 +27,7 @@ import { describe, expect, it, vi } from "vitest";
 // Fixtures for mocks
 // ---------------------------------------------------------------------------
 
-import type { AgentLevelResult } from "@/lib/gamification/gamification";
+import type { AgentLevelResult } from "@/lib/gamification/agents";
 import type { AgentRef, SkillRef } from "@/lib/reference/reference";
 import type { DecisionRule } from "@/lib/registry/registry";
 import type { Standard } from "@/lib/standards/standards";
@@ -123,7 +123,7 @@ vi.mock("@/lib/standards/standards", () => ({
   readStandards: vi.fn(() => FIXTURE_STANDARDS),
 }));
 
-vi.mock("@/lib/gamification/gamification", () => ({
+vi.mock("@/lib/gamification/agents", () => ({
   computeAgentLevel: vi.fn(() => FIXTURE_LEVEL),
   AGENT_RANKS: ["Apprentice", "Engineer", "Senior", "Architect"],
   AGENT_XP_THRESHOLDS: [5, 20, 60, 100],

@@ -21,9 +21,9 @@ import { CelebrationSurface } from "@/components/core/CelebrationSurface/Celebra
 import { XpBar } from "@/components/core/XpBar/XpBar";
 import { GuildBar } from "@/components/modules/GuildBar/GuildBar";
 import type { Event, EventsSnapshot } from "@/lib/events/events";
+import { computeAgentLevel } from "@/lib/gamification/agents";
 import {
   classifyCelebration,
-  computeAgentLevel,
   computeGuildLevel,
   deriveGuildOutcomes,
   type GuildOutcomes,

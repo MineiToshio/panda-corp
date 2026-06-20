@@ -27,7 +27,7 @@
 // ---------------------------------------------------------------------------
 
 /** Surface ramp (canvas → panel → card → card2). */
-export interface SurfaceTokens {
+interface SurfaceTokens {
   [key: string]: unknown;
   canvas: string;
   panel: string;
@@ -36,7 +36,7 @@ export interface SurfaceTokens {
 }
 
 /** Text ramp (t1 high-emphasis → t3 muted). */
-export interface TextTokens {
+interface TextTokens {
   [key: string]: unknown;
   t1: string;
   t2: string;
@@ -44,14 +44,14 @@ export interface TextTokens {
 }
 
 /** Border ramp (bd hairline → bd2 strong). */
-export interface BorderTokens {
+interface BorderTokens {
   [key: string]: unknown;
   bd: string;
   bd2: string;
 }
 
 /** Rationed accent set. */
-export interface AccentTokens {
+interface AccentTokens {
   [key: string]: unknown;
   accent: string;
   accentText: string;
@@ -60,7 +60,7 @@ export interface AccentTokens {
 }
 
 /** Status set (each with a paired -Bg). */
-export interface StatusTokens {
+interface StatusTokens {
   [key: string]: unknown;
   ok: string;
   okBg: string;
@@ -73,14 +73,14 @@ export interface StatusTokens {
 }
 
 /** Two-layer shadow scale (resting + pop). */
-export interface ShadowTokens {
+interface ShadowTokens {
   [key: string]: unknown;
   shadow: string;
   shadowPop: string;
 }
 
 /** A full theme variant (dark default / light). */
-export interface ThemeVariant {
+interface ThemeVariant {
   [key: string]: unknown;
   surfaces: SurfaceTokens;
   text: TextTokens;
@@ -92,13 +92,13 @@ export interface ThemeVariant {
   shadows: ShadowTokens;
 }
 
-export interface ThemeTokens {
+interface ThemeTokens {
   [key: string]: unknown;
   dark: ThemeVariant;
   light: ThemeVariant;
 }
 
-export interface RadiiTokens {
+interface RadiiTokens {
   [key: string]: unknown;
   sm: string;
   md: string;
@@ -106,7 +106,7 @@ export interface RadiiTokens {
   pill: string;
 }
 
-export interface MotionTokens {
+interface MotionTokens {
   [key: string]: unknown;
   rules: string;
   focus: string;
@@ -129,7 +129,6 @@ export interface TokenValidationResult {
 
 /** The two prototype theme variants (dark is the default). */
 export const THEME_VARIANTS = ["dark", "light"] as const;
-export type ThemeName = (typeof THEME_VARIANTS)[number];
 
 /** The 9 idea-category color slots present in every theme. */
 export const CATEGORY_KEYS = [
@@ -306,46 +305,62 @@ function validateThemeVariant(variantRaw: unknown, themeName: string, errors: st
  *   - motion present with the focus ring + motion rules
  */
 export function validateTokenSchema(tokens: unknown): TokenValidationResult {
-  const errors: string[] = [];
-
   if (!isPlainObject(tokens)) {
     return { valid: false, errors: ["Token root must be a plain object"] };
   }
 
-  // --- themes (dark default + light) ---
+  const errors: string[] = [];
+  validateThemes(tokens, errors);
+  validateRadii(tokens, errors);
+  validateTypographyAndSpacing(tokens, errors);
+  validateMotion(tokens, errors);
+
+  return { valid: errors.length === 0, errors };
+}
+
+/** Validate themes.{dark,light}, each a full theme variant (dark default + light). */
+function validateThemes(tokens: Record<string, unknown>, errors: string[]): void {
   const themesRaw = pick(tokens, "themes");
   if (themesRaw === undefined || themesRaw === null) {
     errors.push("themes: required top-level key is missing");
-  } else if (!isPlainObject(themesRaw)) {
+    return;
+  }
+  if (!isPlainObject(themesRaw)) {
     errors.push("themes: must be a plain object with dark and light variants, not an array");
-  } else {
-    for (const themeName of THEME_VARIANTS) {
-      const variantRaw = pick(themesRaw, themeName);
-      if (variantRaw === undefined || variantRaw === null) {
-        errors.push(
-          `themes.${themeName}: required theme variant is missing (dark is the default, light is the inverse)`,
-        );
-      } else {
-        validateThemeVariant(variantRaw, themeName, errors);
-      }
+    return;
+  }
+  for (const themeName of THEME_VARIANTS) {
+    const variantRaw = pick(themesRaw, themeName);
+    if (variantRaw === undefined || variantRaw === null) {
+      errors.push(
+        `themes.${themeName}: required theme variant is missing (dark is the default, light is the inverse)`,
+      );
+    } else {
+      validateThemeVariant(variantRaw, themeName, errors);
     }
   }
+}
 
-  // --- radii ---
+/** Validate radii.{sm,md,lg,pill} present and non-empty strings. */
+function validateRadii(tokens: Record<string, unknown>, errors: string[]): void {
   const radiiRaw = pick(tokens, "radii");
   if (radiiRaw === undefined || radiiRaw === null) {
     errors.push("radii: required top-level key is missing");
-  } else if (!isPlainObject(radiiRaw)) {
+    return;
+  }
+  if (!isPlainObject(radiiRaw)) {
     errors.push("radii: must be a plain object (named radius scale), not an array or primitive");
-  } else {
-    for (const key of ["sm", "md", "lg", "pill"]) {
-      if (!isNonEmptyString(pick(radiiRaw, key))) {
-        errors.push(`radii.${key}: required radius token is missing or not a non-empty string`);
-      }
+    return;
+  }
+  for (const key of ["sm", "md", "lg", "pill"]) {
+    if (!isNonEmptyString(pick(radiiRaw, key))) {
+      errors.push(`radii.${key}: required radius token is missing or not a non-empty string`);
     }
   }
+}
 
-  // --- typography & spacing (presence + non-empty plain object) ---
+/** Validate typography & spacing — present and non-empty plain objects. */
+function validateTypographyAndSpacing(tokens: Record<string, unknown>, errors: string[]): void {
   for (const key of ["typography", "spacing"]) {
     const groupRaw = pick(tokens, key);
     if (groupRaw === undefined || groupRaw === null) {
@@ -356,23 +371,25 @@ export function validateTokenSchema(tokens: unknown): TokenValidationResult {
       errors.push(`${key}: must declare at least one entry (empty group is invalid)`);
     }
   }
+}
 
-  // --- motion (focus ring + motion rules) ---
+/** Validate motion.{rules,focus} — the focus ring + motion rules. */
+function validateMotion(tokens: Record<string, unknown>, errors: string[]): void {
   const motionRaw = pick(tokens, "motion");
   if (motionRaw === undefined || motionRaw === null) {
     errors.push("motion: required top-level key is missing");
-  } else if (!isPlainObject(motionRaw)) {
-    errors.push("motion: must be a plain object, not an array or primitive");
-  } else {
-    if (!isNonEmptyString(pick(motionRaw, "rules"))) {
-      errors.push(
-        "motion.rules: required motion rule statement is missing (transform/opacity <300ms)",
-      );
-    }
-    if (!isNonEmptyString(pick(motionRaw, "focus"))) {
-      errors.push("motion.focus: required focus-ring spec is missing (AC-13-008.1)");
-    }
+    return;
   }
-
-  return { valid: errors.length === 0, errors };
+  if (!isPlainObject(motionRaw)) {
+    errors.push("motion: must be a plain object, not an array or primitive");
+    return;
+  }
+  if (!isNonEmptyString(pick(motionRaw, "rules"))) {
+    errors.push(
+      "motion.rules: required motion rule statement is missing (transform/opacity <300ms)",
+    );
+  }
+  if (!isNonEmptyString(pick(motionRaw, "focus"))) {
+    errors.push("motion.focus: required focus-ring spec is missing (AC-13-008.1)");
+  }
 }

@@ -51,7 +51,7 @@ import { afterEach, describe, expect, it } from "vitest";
 // Auto-cleanup between tests (guards against DOM accumulation in loops).
 afterEach(() => cleanup());
 
-import { FOCUS_RING_CLASS, TABULAR_NUMS_CLASS } from "@/components/a11y";
+import { FOCUS_RING_CLASS, TABULAR_NUMS_CLASS } from "@/components/a11y/constants";
 import { LiveRegion, type LiveRegionProps } from "@/components/a11y/LiveRegion";
 import { useKeyboardNav } from "@/components/a11y/useKeyboardNav";
 

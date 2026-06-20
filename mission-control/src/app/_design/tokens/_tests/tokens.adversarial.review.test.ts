@@ -132,8 +132,8 @@ describe("frd-13 (reviewer adversarial): boundary holes the implementer did not 
 
   it("motion present but missing the focus-ring spec is rejected (AC-13-008.1)", () => {
     const t = base();
-    // biome-ignore lint/performance/noDelete: adversarial fixture mutation
-    delete t.motion.focus;
+    const { focus: _focus, ...motionWithoutFocus } = t.motion;
+    t.motion = motionWithoutFocus;
     expect(validateTokenSchema(t).valid).toBe(false);
   });
 

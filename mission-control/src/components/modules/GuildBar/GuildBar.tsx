@@ -59,23 +59,23 @@ export function GuildBar({ outcomes }: GuildBarProps): React.JSX.Element {
       }}
     >
       {/* Guild level badge (AC-09-004.1: level number; AC-09-004.2: text node for tabular-nums) */}
-      <div className="flex flex-col items-center shrink-0">
-        <span className="text-[var(--color-text)] text-xs opacity-60 leading-none uppercase tracking-wide">
+      <div className="flex shrink-0 flex-col items-center">
+        <span className="text-[var(--color-text)] text-xs uppercase leading-none tracking-wide opacity-60">
           Nv
         </span>
         <span
           data-testid="guild-bar-level"
-          className="text-[var(--color-accent)] text-xl font-bold leading-none"
+          className="font-bold text-[var(--color-accent)] text-xl leading-none"
         >
           {level}
         </span>
       </div>
 
       {/* Rank title + XP bar (AC-09-004.1, AC-09-004.4: label alongside bar) */}
-      <div className="flex flex-col gap-[calc(var(--space-base)*0.25)] min-w-0 flex-1">
+      <div className="flex min-w-0 flex-1 flex-col gap-[calc(var(--space-base)*0.25)]">
         <span
           data-testid="guild-bar-title"
-          className="text-[var(--color-text)] text-sm font-semibold leading-none truncate"
+          className="truncate font-semibold text-[var(--color-text)] text-sm leading-none"
         >
           {title}
         </span>

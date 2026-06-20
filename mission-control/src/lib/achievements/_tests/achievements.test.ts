@@ -31,16 +31,10 @@ import { describe, expect, it } from "vitest";
 import type { Event, EventsSnapshot } from "../../events/events";
 import type { IdeaCard } from "../../ideas/ideas";
 import type { StatusResult } from "../../status/status";
-import {
-  CHAIN_DEFINITIONS,
-  computeChains,
-  computeSecrets,
-  computeStats,
-  computeUniques,
-  type ReaderData,
-  SECRET_DEFINITIONS,
-  UNIQUE_DEFINITIONS,
-} from "../achievements";
+import { computeChains, computeSecrets, computeUniques } from "../achievements";
+import { CHAIN_DEFINITIONS } from "../definitions";
+import { SECRET_DEFINITIONS, UNIQUE_DEFINITIONS } from "../predicates";
+import { computeStats, type ReaderData } from "../stats";
 
 // ─── Fixture helpers ─────────────────────────────────────────────────────────
 

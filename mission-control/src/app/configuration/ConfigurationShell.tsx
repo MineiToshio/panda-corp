@@ -31,7 +31,7 @@
 
 import type React from "react";
 import { useState } from "react";
-import type { AgentLevelResult } from "@/lib/gamification/gamification";
+import type { AgentLevelResult } from "@/lib/gamification/agents";
 import type { AgentRef, SkillRef } from "@/lib/reference/reference";
 import type { DecisionRule } from "@/lib/registry/registry";
 import type { Standard } from "@/lib/standards/standards";
@@ -82,6 +82,89 @@ const AGENTS_PANEL_STYLE: React.CSSProperties = {
   gap: "calc(var(--spacing, 0.25rem) * 6)",
   padding: "calc(var(--spacing, 0.25rem) * 6) calc(var(--spacing, 0.25rem) * 8)",
 };
+
+// ---------------------------------------------------------------------------
+// Section panels — one per tab. Module-scope helpers (hoisted, never nested)
+// so the shell's render stays flat and under the complexity budget.
+// ---------------------------------------------------------------------------
+
+function SkillsPanel({ skills }: { skills: SkillRef[] }): React.JSX.Element {
+  return (
+    <div
+      role="tabpanel"
+      data-testid="config-section-skills"
+      aria-labelledby="config-tab-id-skills"
+      style={PANEL_STYLE}
+    >
+      <SkillsSection skills={skills} />
+    </div>
+  );
+}
+
+interface AgentsPanelProps {
+  agents: AgentRef[];
+  levels: Record<string, AgentLevelResult>;
+  selectedAgentId: string | null;
+  onSelectAgent: (id: string) => void;
+  selectedAgent: AgentRef | null;
+  selectedLevel: AgentLevelResult | null;
+}
+
+function AgentsPanel({
+  agents,
+  levels,
+  selectedAgentId,
+  onSelectAgent,
+  selectedAgent,
+  selectedLevel,
+}: AgentsPanelProps): React.JSX.Element {
+  return (
+    <div
+      role="tabpanel"
+      data-testid="config-section-agents"
+      aria-labelledby="config-tab-id-agents"
+      style={AGENTS_PANEL_STYLE}
+    >
+      {/* Agent list — always visible; empty = honest zero state */}
+      <AgentList
+        agents={agents}
+        levels={levels}
+        selectedAgentId={selectedAgentId}
+        onSelectAgent={onSelectAgent}
+      />
+      {/* Agent detail — shown when a card is selected (AC-07-007.2) */}
+      {selectedAgent !== null && selectedLevel !== null ? (
+        <AgentDetail agent={selectedAgent} level={selectedLevel} />
+      ) : null}
+    </div>
+  );
+}
+
+function RulesPanel({ rules }: { rules: DecisionRule[] }): React.JSX.Element {
+  return (
+    <div
+      role="tabpanel"
+      data-testid="config-section-rules"
+      aria-labelledby="config-tab-id-rules"
+      style={PANEL_STYLE}
+    >
+      <DecisionRulesSection rules={rules} />
+    </div>
+  );
+}
+
+function StandardsPanel({ standards }: { standards: Standard[] }): React.JSX.Element {
+  return (
+    <div
+      role="tabpanel"
+      data-testid="config-section-standards"
+      aria-labelledby="config-tab-id-standards"
+      style={PANEL_STYLE}
+    >
+      <StandardsSection standards={standards} />
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // ConfigurationShell — main export (CMP-07-config-page)
@@ -145,55 +228,20 @@ export function ConfigurationShell({
 
       {/* Active section panel — only one mounted at a time (AC-07-005.2) */}
       {activeSection === "skills" ? (
-        /* WO-07-006: real Skills section (CMP-07-skill-list + CMP-07-skill-detail) */
-        <div
-          role="tabpanel"
-          data-testid="config-section-skills"
-          aria-labelledby="config-tab-id-skills"
-          style={PANEL_STYLE}
-        >
-          <SkillsSection skills={skills} />
-        </div>
+        <SkillsPanel skills={skills} />
       ) : activeSection === "agents" ? (
-        /* WO-07-007: real Agents section (CMP-07-agent-list + CMP-07-agent-detail) */
-        <div
-          role="tabpanel"
-          data-testid="config-section-agents"
-          aria-labelledby="config-tab-id-agents"
-          style={AGENTS_PANEL_STYLE}
-        >
-          {/* Agent list — always visible; empty = honest zero state */}
-          <AgentList
-            agents={agents}
-            levels={levels}
-            selectedAgentId={selectedAgentId}
-            onSelectAgent={setSelectedAgentId}
-          />
-          {/* Agent detail — shown when a card is selected (AC-07-007.2) */}
-          {selectedAgent !== null && selectedLevel !== null ? (
-            <AgentDetail agent={selectedAgent} level={selectedLevel} />
-          ) : null}
-        </div>
+        <AgentsPanel
+          agents={agents}
+          levels={levels}
+          selectedAgentId={selectedAgentId}
+          onSelectAgent={setSelectedAgentId}
+          selectedAgent={selectedAgent}
+          selectedLevel={selectedLevel}
+        />
       ) : activeSection === "rules" ? (
-        /* WO-07-008: real Decision rules section (CMP-07-rules-list + CMP-07-rule-detail) */
-        <div
-          role="tabpanel"
-          data-testid="config-section-rules"
-          aria-labelledby="config-tab-id-rules"
-          style={PANEL_STYLE}
-        >
-          <DecisionRulesSection rules={rules} />
-        </div>
+        <RulesPanel rules={rules} />
       ) : (
-        /* WO-07-009: real Standards section (CMP-07-standards-list + CMP-07-standard-detail) */
-        <div
-          role="tabpanel"
-          data-testid="config-section-standards"
-          aria-labelledby="config-tab-id-standards"
-          style={PANEL_STYLE}
-        >
-          <StandardsSection standards={standards} />
-        </div>
+        <StandardsPanel standards={standards} />
       )}
     </div>
   );

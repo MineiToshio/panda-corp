@@ -179,64 +179,72 @@ export function createPartyEngine(
     }
   }
 
+  function tickWalk(ag: InternalAgent, now: number, dt: number): void {
+    if (ag.walkPhase === "wait") {
+      if (now >= ag.waitUntil) {
+        ag.walkPhase = "back";
+        ag.path = [[...MCCENTER] as Pos, [...ag.home] as Pos];
+      }
+      return;
+    }
+    if (ag.path.length === 0) return;
+
+    const target = ag.path[0];
+    if (target === undefined) return;
+    const dx = target[0] - ag.px;
+    const dy = target[1] - ag.py;
+    const d = vecLen(dx, dy);
+    const step = WALK_SPEED * dt;
+
+    if (d <= step) {
+      ag.px = target[0];
+      ag.py = target[1];
+      ag.path.shift();
+      if (ag.path.length === 0) onArrive(ag, now);
+    } else {
+      ag.px += (dx / d) * step;
+      ag.py += (dy / d) * step;
+    }
+  }
+
+  function tickWander(ag: InternalAgent, now: number, dt: number): void {
+    if (now >= ag.wanderNextAt) {
+      const angle = rnd(ag.phase + now, 0, Math.PI * 2);
+      const radius = rnd(ag.phase + now + 1, 0, WANDER_RADIUS);
+      const wx = ag.home[0] + Math.cos(angle) * radius;
+      const wy = ag.home[1] + Math.sin(angle) * radius;
+      ag.wanderTarget = [wx, wy];
+      ag.wanderNextAt = now + WANDER_INTERVAL;
+    }
+
+    const dx = ag.wanderTarget[0] - ag.px;
+    const dy = ag.wanderTarget[1] - ag.py;
+    const d = vecLen(dx, dy);
+    const step = WALK_SPEED * 0.15 * dt;
+    if (d > 1) {
+      ag.px += (dx / d) * Math.min(step, d);
+      ag.py += (dy / d) * Math.min(step, d);
+    }
+
+    const distFromHome = vecLen(ag.px - ag.home[0], ag.py - ag.home[1]);
+    if (distFromHome > WANDER_RADIUS) {
+      const backDx = ag.home[0] - ag.px;
+      const backDy = ag.home[1] - ag.py;
+      const backD = vecLen(backDx, backDy) || 1;
+      const excess = distFromHome - WANDER_RADIUS;
+      ag.px += (backDx / backD) * excess;
+      ag.py += (backDy / backD) * excess;
+    }
+  }
+
   function tickAgent(ag: InternalAgent, now: number): void {
     const dt = Math.min(MAX_DT, ag._lastTick > 0 ? now - ag._lastTick : 16);
     ag._lastTick = now;
 
     if (ag.state === "walk") {
-      if (ag.walkPhase === "wait") {
-        if (now >= ag.waitUntil) {
-          ag.walkPhase = "back";
-          ag.path = [[...MCCENTER] as Pos, [...ag.home] as Pos];
-        }
-      } else if (ag.path.length > 0) {
-        const target = ag.path[0];
-        if (target === undefined) return;
-        const dx = target[0] - ag.px;
-        const dy = target[1] - ag.py;
-        const d = vecLen(dx, dy);
-        const step = WALK_SPEED * dt;
-
-        if (d <= step) {
-          ag.px = target[0];
-          ag.py = target[1];
-          ag.path.shift();
-          if (ag.path.length === 0) onArrive(ag, now);
-        } else {
-          ag.px += (dx / d) * step;
-          ag.py += (dy / d) * step;
-        }
-      }
-    } else {
-      if (ag.state === "idle" || ag.state === "work") {
-        if (now >= ag.wanderNextAt) {
-          const angle = rnd(ag.phase + now, 0, Math.PI * 2);
-          const radius = rnd(ag.phase + now + 1, 0, WANDER_RADIUS);
-          const wx = ag.home[0] + Math.cos(angle) * radius;
-          const wy = ag.home[1] + Math.sin(angle) * radius;
-          ag.wanderTarget = [wx, wy];
-          ag.wanderNextAt = now + WANDER_INTERVAL;
-        }
-
-        const dx = ag.wanderTarget[0] - ag.px;
-        const dy = ag.wanderTarget[1] - ag.py;
-        const d = vecLen(dx, dy);
-        const step = WALK_SPEED * 0.15 * dt;
-        if (d > 1) {
-          ag.px += (dx / d) * Math.min(step, d);
-          ag.py += (dy / d) * Math.min(step, d);
-        }
-
-        const distFromHome = vecLen(ag.px - ag.home[0], ag.py - ag.home[1]);
-        if (distFromHome > WANDER_RADIUS) {
-          const backDx = ag.home[0] - ag.px;
-          const backDy = ag.home[1] - ag.py;
-          const backD = vecLen(backDx, backDy) || 1;
-          const excess = distFromHome - WANDER_RADIUS;
-          ag.px += (backDx / backD) * excess;
-          ag.py += (backDy / backD) * excess;
-        }
-      }
+      tickWalk(ag, now, dt);
+    } else if (ag.state === "idle" || ag.state === "work") {
+      tickWander(ag, now, dt);
     }
 
     const sp = ag.state === "walk" ? 7.5 : 3.5;
@@ -261,37 +269,37 @@ export function createPartyEngine(
     return "idle";
   }
 
+  function processHandoff(fromWo: string, toWo: string | undefined, now: number): void {
+    const ag = getAgent(fromWo);
+    if (!ag) return;
+    const targetAg = toWo !== undefined ? getAgent(toWo) : undefined;
+    const targetHome: Pos = targetAg ? ([...targetAg.home] as Pos) : ([...MCCENTER] as Pos);
+    beginWalk(ag, targetHome, toWo ?? null);
+    ag.t0 = now;
+  }
+
+  function setAgentState(wo: string, state: AgentState, now: number): void {
+    const ag = getAgent(wo);
+    if (ag) applySetState(ag, state, now);
+  }
+
   function processAction(action: VisualAction, now: number): void {
     switch (action.kind) {
-      case "setWo": {
-        const ag = getAgent(action.wo);
-        if (ag) applySetState(ag, woStateToAgentState(action.state), now);
+      case "setWo":
+        setAgentState(action.wo, woStateToAgentState(action.state), now);
         break;
-      }
 
-      case "startHandoff": {
-        const ag = getAgent(action.fromWo);
-        if (!ag) return;
-        const targetAg = action.toWo !== undefined ? getAgent(action.toWo) : undefined;
-        const targetHome: Pos = targetAg ? ([...targetAg.home] as Pos) : ([...MCCENTER] as Pos);
-        beginWalk(ag, targetHome, action.toWo ?? null);
-        ag.t0 = now;
+      case "startHandoff":
+        processHandoff(action.fromWo, action.toWo, now);
         break;
-      }
 
-      case "downSprite": {
-        if (action.wo !== undefined) {
-          const ag = getAgent(action.wo);
-          if (ag) applySetState(ag, "blocked", now);
-        }
+      case "downSprite":
+        if (action.wo !== undefined) setAgentState(action.wo, "blocked", now);
         break;
-      }
 
-      case "verifyWo": {
-        const ag = getAgent(action.wo);
-        if (ag) applySetState(ag, "idle", now);
+      case "verifyWo":
+        setAgentState(action.wo, "idle", now);
         break;
-      }
 
       case "fireAchievement":
       case "openGate":

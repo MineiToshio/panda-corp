@@ -34,7 +34,7 @@ import type { Lesson } from "../memory/memory";
 // Public types (blueprint §3 IF-17-suggest)
 // ---------------------------------------------------------------------------
 
-export type SuggestionKind =
+type SuggestionKind =
   | "bottleneck"
   | "velocity"
   | "unused-capability"

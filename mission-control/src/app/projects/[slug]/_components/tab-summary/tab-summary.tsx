@@ -26,7 +26,7 @@
  *   AC-04-004.1 — warning treatment when pending_decisions > 0
  */
 
-import type { ActivityLog, DecisionPoint } from "@/lib/docs/docs";
+import type { ActivityLog, DecisionPoint } from "@/lib/docs/activity";
 
 // ---------------------------------------------------------------------------
 // Props

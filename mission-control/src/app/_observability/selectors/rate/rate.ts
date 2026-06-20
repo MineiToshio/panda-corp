@@ -108,39 +108,7 @@ export function eventsPerMinute(events: Event[], window: number, now?: Date): Bu
 
   // --- Classify events into buckets ---
   for (const ev of events) {
-    // B1' + FREEZE-ON-RED: guard invalid `at` values before arithmetic.
-    const parsed = Date.parse(ev.at);
-    if (!Number.isFinite(parsed)) {
-      // Invalid / missing timestamp → skip this event silently.
-      continue;
-    }
-
-    // Floor the event's timestamp to its minute key.
-    const evMinuteMs = Math.floor(parsed / 60_000) * 60_000;
-    const evKey = toMinuteKey(evMinuteMs);
-
-    const bucket = bucketMap.get(evKey);
-    if (bucket === undefined) {
-      // Event is outside the window (older or future) → skip.
-      continue;
-    }
-
-    bucket.total += 1;
-
-    // I3 regression: only track string-valued agent fields.
-    // Arrays, numbers, booleans, etc. must not appear as byAgent keys.
-    if (typeof ev.agent === "string" && ev.agent.length > 0) {
-      // Use Object.hasOwn to read the existing count so that agent keys that
-      // collide with Object.prototype members ("constructor", "toString",
-      // "valueOf", "hasOwnProperty") are read as own properties only, not the
-      // inherited function. Without this, `bucket.byAgent["constructor"] ?? 0`
-      // evaluates to the built-in constructor Function (truthy), so `Function + 1`
-      // produces the string "function Object() { [native code] }1" — a B1b violation.
-      const current = Object.hasOwn(bucket.byAgent, ev.agent)
-        ? (bucket.byAgent[ev.agent] as number)
-        : 0;
-      bucket.byAgent[ev.agent] = current + 1;
-    }
+    classifyEvent(ev, bucketMap);
   }
 
   // --- Return buckets in chronological (ascending) order ---
@@ -165,6 +133,53 @@ export function eventsPerMinute(events: Event[], window: number, now?: Date): Bu
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Increment a bucket's per-agent count for a string-valued agent field.
+ *
+ * I3 regression: only track string-valued agent fields — arrays, numbers,
+ * booleans, etc. must not appear as byAgent keys.
+ *
+ * Uses Object.hasOwn to read the existing count so that agent keys that collide
+ * with Object.prototype members ("constructor", "toString", "valueOf",
+ * "hasOwnProperty") are read as own properties only, not the inherited function.
+ * Without this, `bucket.byAgent["constructor"] ?? 0` evaluates to the built-in
+ * constructor Function (truthy), so `Function + 1` produces the string
+ * "function Object() { [native code] }1" — a B1b violation.
+ */
+function trackAgent(bucket: Bucket, agent: unknown): void {
+  if (typeof agent !== "string" || agent.length === 0) return;
+  const current = Object.hasOwn(bucket.byAgent, agent) ? (bucket.byAgent[agent] as number) : 0;
+  bucket.byAgent[agent] = current + 1;
+}
+
+/**
+ * Classify a single event into its minute bucket (if it falls within the
+ * window) and update its totals.
+ *
+ * B1' + FREEZE-ON-RED: invalid/missing `at` values are skipped silently before
+ * any arithmetic; events outside the window are skipped.
+ */
+function classifyEvent(ev: Event, bucketMap: Map<string, Bucket>): void {
+  const parsed = Date.parse(ev.at);
+  if (!Number.isFinite(parsed)) {
+    // Invalid / missing timestamp → skip this event silently.
+    return;
+  }
+
+  // Floor the event's timestamp to its minute key.
+  const evMinuteMs = Math.floor(parsed / 60_000) * 60_000;
+  const evKey = toMinuteKey(evMinuteMs);
+
+  const bucket = bucketMap.get(evKey);
+  if (bucket === undefined) {
+    // Event is outside the window (older or future) → skip.
+    return;
+  }
+
+  bucket.total += 1;
+  trackAgent(bucket, ev.agent);
+}
 
 /**
  * Convert a UTC timestamp (milliseconds, floored to minute boundary) to the

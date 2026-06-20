@@ -14,12 +14,8 @@
  * Blueprint: CMP-10-stats-panel (FRD-10 blueprint §4)
  */
 
-import {
-  computeChains,
-  computeStats,
-  type ReaderData,
-  type Stat,
-} from "@/lib/achievements/achievements";
+import { computeChains } from "@/lib/achievements/achievements";
+import { computeStats, type ReaderData, type Stat } from "@/lib/achievements/stats";
 
 // ── Tier medal config ─────────────────────────────────────────────────────────
 

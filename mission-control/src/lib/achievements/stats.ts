@@ -139,37 +139,18 @@ export function computeStats(data: ReaderData): Stat[] {
     }
   }
 
-  // ── iterations: achievement events with task="iteration" ─────────────────
-  const iterations = events.filter(
-    (ev) => ev.event === "achievement" && ev.task === "iteration" && ev.status === "ok",
-  ).length;
-
-  // ── flawless: achievement events with task="flawless" ─────────────────────
-  const flawless = events.filter(
-    (ev) => ev.event === "achievement" && ev.task === "flawless" && ev.status === "ok",
-  ).length;
+  // ── iterations / flawless / prds / adrs: achievement events by task ───────
+  const iterations = _countAchievementTask(events, "iteration");
+  const flawless = _countAchievementTask(events, "flawless");
 
   // ── discarded: idea cards with status="discarded" ─────────────────────────
   const discarded = ideas.filter((idea) => idea.status === "discarded").length;
 
-  // ── prds: achievement events with task="prd" ─────────────────────────────
-  const prds = events.filter(
-    (ev) => ev.event === "achievement" && ev.task === "prd" && ev.status === "ok",
-  ).length;
-
-  // ── adrs: achievement events with task="adr" ─────────────────────────────
-  const adrs = events.filter(
-    (ev) => ev.event === "achievement" && ev.task === "adr" && ev.status === "ok",
-  ).length;
+  const prds = _countAchievementTask(events, "prd");
+  const adrs = _countAchievementTask(events, "adr");
 
   // ── agents: distinct agent names from ok events ───────────────────────────
-  const agentSet = new Set<string>();
-  for (const ev of events) {
-    if (ev.status === "ok" && typeof ev.agent === "string" && ev.agent.length > 0) {
-      agentSet.add(ev.agent);
-    }
-  }
-  const agents = agentSet.size;
+  const agents = _countDistinctAgents(events);
 
   // ── streak: max weekly streak from events (computed later / TBD) ─────────
   // Current implementation: 0 unless explicitly set via streak event.
@@ -199,6 +180,26 @@ export function computeStats(data: ReaderData): Stat[] {
     { key: "streak", label: "Racha récord (sem)", value: streak, unlockEvents: [] },
     { key: "speed", label: "Récord idea→launch (días)", value: speed, unlockEvents: [] },
   ];
+}
+
+/** Count "achievement" events with status="ok" for a given task. */
+function _countAchievementTask(
+  events: readonly { event: string; task?: string; status?: string }[],
+  task: string,
+): number {
+  return events.filter((ev) => ev.event === "achievement" && ev.task === task && ev.status === "ok")
+    .length;
+}
+
+/** Count distinct, non-empty agent names across all status="ok" events. */
+function _countDistinctAgents(events: readonly { status?: string; agent?: string }[]): number {
+  const agentSet = new Set<string>();
+  for (const ev of events) {
+    if (ev.status === "ok" && typeof ev.agent === "string" && ev.agent.length > 0) {
+      agentSet.add(ev.agent);
+    }
+  }
+  return agentSet.size;
 }
 
 /**
@@ -271,8 +272,15 @@ function _computeWeeklyStreak(
 
   if (weekKeys.size === 0) return 0;
 
-  // Sort week keys ascending
-  const sortedWeeks = [...weekKeys].sort();
+  // Sort week keys ascending and find the longest run of consecutive weeks.
+  return _longestConsecutiveWeekRun([...weekKeys].sort());
+}
+
+/**
+ * Longest run of consecutive ISO weeks in an ascending-sorted list of week keys.
+ * Behavior copied verbatim from the original inline streak loop (min run is 1).
+ */
+function _longestConsecutiveWeekRun(sortedWeeks: readonly string[]): number {
   let maxStreak = 1;
   let curStreak = 1;
 
