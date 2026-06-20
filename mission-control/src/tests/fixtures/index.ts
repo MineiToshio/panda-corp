@@ -9,6 +9,7 @@
  * enabling isolation of every lib/ reader.
  */
 
+import fs from "node:fs";
 import path from "node:path";
 
 /** Absolute path to the fixtures directory (this folder). */
@@ -29,6 +30,21 @@ export const FIXTURE_FULL: string = path.join(FIXTURES_DIR, "factory-full");
  * Use this for: onboarding-gate trigger, empty-ideas edge case.
  */
 export const FIXTURE_FRESH: string = path.join(FIXTURES_DIR, "factory-fresh");
+
+/**
+ * Git cannot track empty directories, so the FIXTURE_FRESH tree — whose whole
+ * point is an *empty* `factory/ideas/` folder and the *absence* of profile.md /
+ * portfolio.md — cannot be committed as static files. We anchor the tree in git
+ * with `factory-fresh/factory/.gitkeep` and materialize the empty `ideas/`
+ * directory here, at fixture-module load, idempotently. This keeps the fixture
+ * available on any clean checkout while leaving `ideas/` genuinely empty.
+ */
+function ensureFreshFixture(): void {
+  const ideasDir = path.join(FIXTURE_FRESH, "factory", "ideas");
+  fs.mkdirSync(ideasDir, { recursive: true });
+}
+
+ensureFreshFixture();
 
 /** Absolute path to the events fixture directory. */
 export const FIXTURE_EVENTS_DIR: string = path.join(FIXTURES_DIR, "events");
