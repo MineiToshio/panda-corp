@@ -95,6 +95,12 @@ export interface IdeaBoardViewProps {
   isLoading?: boolean;
   /** When set, render the error state with this message. */
   error?: string;
+  /**
+   * Optional callback invoked when the user clicks a card.
+   * When absent, cards are rendered non-interactively (read-only display).
+   * (AC-02-004.1: clicking a card shows its detail.)
+   */
+  onCardClick?: (slug: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -228,11 +234,15 @@ function ErrorState({ message }: { message: string }): React.JSX.Element {
 /**
  * Presentational board view. Accepts pre-resolved cards from the Server Component.
  * Client-safe: no filesystem access, pure props → DOM.
+ *
+ * When `onCardClick` is provided the cards render as interactive buttons;
+ * otherwise they are purely presentational (read-only display).
  */
 export function IdeaBoardView({
   cards,
   isLoading = false,
   error,
+  onCardClick,
 }: IdeaBoardViewProps): React.JSX.Element {
   // Loading state takes priority
   if (isLoading) {
@@ -296,7 +306,34 @@ export function IdeaBoardView({
                     —
                   </div>
                 ) : (
-                  colCards.map((card) => <IdeaCard key={card.slug} {...card} />)
+                  colCards.map((card) =>
+                    onCardClick !== undefined ? (
+                      // When interactive: wrap in a button so the card is keyboard-operable
+                      // (AC-02-004.1 — clicking a card shows its detail).
+                      // data-testid="idea-card-btn" so we don't collide with the IdeaCard's
+                      // own data-testid="idea-card" (the inner article keeps its testid).
+                      <button
+                        key={card.slug}
+                        type="button"
+                        data-testid="idea-card-btn"
+                        aria-label={`Ver detalle de idea: ${card.title}`}
+                        onClick={() => onCardClick(card.slug)}
+                        style={{
+                          display: "block",
+                          width: "100%",
+                          background: "none",
+                          border: "none",
+                          padding: 0,
+                          cursor: "pointer",
+                          textAlign: "left",
+                        }}
+                      >
+                        <IdeaCard key={undefined} {...card} />
+                      </button>
+                    ) : (
+                      <IdeaCard key={card.slug} {...card} />
+                    ),
+                  )
                 )}
               </div>
             </section>
