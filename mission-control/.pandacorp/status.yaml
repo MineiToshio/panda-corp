@@ -3,9 +3,9 @@
 project: "Pandacorp"
 phase: implementation
 version: v1
-overlay_version: "8.26.0"
+overlay_version: "8.28.0"
 created_with: "6.0.0"
-running: true
+running: false
 run_started_at: "2026-06-20T15:21:11Z"
 repo: ""
 updated_at: "2026-06-20T16:31:00Z"
@@ -23,4 +23,4 @@ advance_pending: false
 last_green_sha: "a6371a0"
 safe_to_test: true  # FRD-15 gate PASS
 blocked: []
-supervisor_heartbeat: "2026-06-20T15:21:11Z"
+supervisor_heartbeat: ""

@@ -3,10 +3,12 @@
 # Installed VERBATIM into projects by /pandacorp:blueprint; re-synced + conformance-checked
 # (drift => regenerate/fail) by /pandacorp:upgrade. Do NOT hand-edit per project — drift is RED.
 # Every gate is fail-closed: a missing harness (smoke/visual) is RED, never a skip (DR-019/055/056).
+# This script is ALWAYS strict — it never softens itself. The build engine drives it (`--since`
+# per FRD, full at close-out). The PHASE-AWARENESS lives in the Stop hook (verify-before-stop.sh,
+# DR-063): that wrapper skips THIS gate while a build is active so it doesn't block every turn;
+# the engine keeps running this strictly. So: hook = phase-aware; verify.sh = always strict.
 set -euo pipefail
 shopt -s inherit_errexit 2>/dev/null || true  # bash 4.4+; no-op on macOS' bash 3.2 (avoids "invalid shell option")
-
-cd "$(dirname "$0")/.."
 
 # --- Optional scope: `verify.sh --since <sha>` (the fast per-FRD gate) ----------
 # Runs only the vitest tests CHANGED since <sha>; biome/tsc/knip/madge stay global
