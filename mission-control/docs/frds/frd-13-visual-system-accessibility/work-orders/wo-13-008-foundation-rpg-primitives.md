@@ -5,7 +5,7 @@ slug: foundation-rpg-primitives
 title: 'WO-13-008 — Foundation (FND-3): RPG/gamification primitives — Shield · TierBadge · ItemSlot · KanbanColumn'
 status: DRAFT
 parent: FRD-13
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
 foundation: true
 artifacts:
   - 'src/components/core/Shield/**'
