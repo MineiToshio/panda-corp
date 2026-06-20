@@ -77,7 +77,7 @@ re-implement a primitive inside one.
 | Name | Purpose | Path | Key props / variants | Status |
 |---|---|---|---|---|
 | `PluginSyncBanner` | Plugin-drift warning banner (FRD-15) | `src/app/_components/plugin-sync-banner/plugin-sync-banner.tsx` | `kind="drift"` consumer of `Banner` | **real** — ⚠ **refactor onto shared `Banner`** |
-| `OrphansBanner` | Orphan/unlisted-project banner (FRD-16), multi-item + collapse + per-item dismiss | `src/app/_components/orphans-banner/orphans-banner.tsx` | `kind="orphan"` consumer of `Banner` (dismissible, collapsible) — **DR-057 dup-fix done (WO-16-004)** | **real** |
+| `OrphansBanner` | Orphan/unlisted-project banner (FRD-16), multi-item + collapse + dismiss | `src/app/_components/orphans-banner/orphans-banner.tsx` | `kind="orphan"` consumer of `Banner` (dismissible, collapsible) | **real** — ⚠ **refactor onto shared `Banner`** |
 | `OnboardingGate` | First-boot onboarding gate banner (FRD-01) | `src/app/_components/OnboardingGate/OnboardingGate.tsx` | `kind="gate"` consumer of `Banner` | **real** — should reuse shared `Banner` |
 | `IdeaCard` | Board idea card (category + return labels, score, building indicator) | `src/components/modules/IdeaCard/IdeaCard.tsx` | `idea`, `recommended`, `building` | **real** |
 | `CategoryFilter` | Filter the board by `project_type` | `src/components/modules/CategoryFilter/CategoryFilter.tsx` | `selected`, `onChange` | **real** |

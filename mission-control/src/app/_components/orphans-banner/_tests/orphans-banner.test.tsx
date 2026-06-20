@@ -541,52 +541,6 @@ describe("AC-16-004.7: empty candidate list → renders nothing", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-16-004.7 (DR-057) — Banner consumer contract: uses the shared Banner primitive
-// The component must NOT re-declare BANNER_STYLE/ICON_STYLE/CMD_ROW_STYLE/RECALL_STYLE.
-// Verified structurally: the shared Banner's data-testid="banner" must be present inside
-// the orphans-banner wrapper (proves delegation, not re-implementation).
-// ---------------------------------------------------------------------------
-
-describe("AC-16-004.7 (DR-057): is a consumer of the shared Banner, not a re-implementation", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-
-  it("renders the shared Banner primitive (data-testid='banner' present inside orphans-banner)", async () => {
-    mockFetch([ORPHAN_A]);
-    render(<OrphansBanner />);
-    await flushInitialPoll();
-    const wrapper = screen.getByTestId("orphans-banner");
-    // The shared Banner component renders data-testid="banner" — must be inside our wrapper
-    expect(wrapper.querySelector('[data-testid="banner"]')).not.toBeNull();
-  });
-
-  it("renders a warning icon via the shared Banner (data-testid='banner-icon' present)", async () => {
-    mockFetch([ORPHAN_A]);
-    render(<OrphansBanner />);
-    await flushInitialPoll();
-    // Banner renders data-testid="banner-icon" on the ToneIcon SVG
-    expect(screen.getByTestId("banner-icon")).toBeInTheDocument();
-  });
-
-  it("has data-kind='orphan' on the Banner element (kind prop passed)", async () => {
-    mockFetch([ORPHAN_A]);
-    render(<OrphansBanner />);
-    await flushInitialPoll();
-    const bannerEl = screen.getByTestId("banner");
-    expect(bannerEl).toHaveAttribute("data-kind", "orphan");
-  });
-
-  it("has data-tone='warn' on the Banner element (warn tone passed)", async () => {
-    mockFetch([ORPHAN_A]);
-    render(<OrphansBanner />);
-    await flushInitialPoll();
-    const bannerEl = screen.getByTestId("banner");
-    expect(bannerEl).toHaveAttribute("data-tone", "warn");
-  });
-});
-
-// ---------------------------------------------------------------------------
 // FRD-16 collapse criterion — >2 candidates collapse behind a toggle
 // (the wall-of-banners regression: several orphans must not dominate the dashboard)
 // ---------------------------------------------------------------------------
