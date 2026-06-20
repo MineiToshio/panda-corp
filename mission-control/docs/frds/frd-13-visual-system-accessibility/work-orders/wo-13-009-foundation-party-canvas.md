@@ -5,7 +5,7 @@ slug: foundation-party-canvas
 title: 'WO-13-009 — Foundation (FND-4): shared pixel-RPG Party canvas primitives'
 status: DRAFT
 parent: FRD-13
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 foundation: true
 artifacts:
   - 'src/components/modules/party/Room/**'
