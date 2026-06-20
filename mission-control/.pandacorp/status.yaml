@@ -8,11 +8,11 @@ created_with: "6.0.0"
 running: true
 run_started_at: "2026-06-20T19:39:27Z"
 repo: ""
-updated_at: "2026-06-20T21:27:00Z"
+updated_at: "2026-06-20T21:48:00Z"
 work_orders_total: 78
 work_orders_verified: 63
-work_orders_in_review: 1
-work_orders_planned: 14
+work_orders_in_review: 0
+work_orders_planned: 15
 work_orders_in_progress: 0
 work_orders_blocked: 0
 work_orders_done: 63
@@ -23,4 +23,4 @@ advance_pending: false
 last_green_sha: "ac2a023"
 safe_to_test: true  # FRD-16 gate PASS
 blocked: []
-supervisor_heartbeat: "2026-06-20T21:27:15Z"
+supervisor_heartbeat: "2026-06-20T21:47:16Z"

@@ -17,7 +17,7 @@ the four UI WOs (page + streams/card, memory-health panel, promotions queue, bad
 | WO-17-001 | `lib/memory` lesson reader (parse + status/promotion/evalGate) | `lib/` | VERIFIED | `lib/config.ts` (FRD-01) |
 | WO-17-002 | `lib/memory` views: candidates / promotionQueue / prunable / memoryHealth | `lib/` | VERIFIED | WO-17-001 |
 | WO-17-003 | `lib/self-suggest` derivations (6 kinds) | `lib/` | VERIFIED | FRD-01/02/06/07 readers |
-| WO-17-004 | Proposals surface: stream/card + promotions queue + memory health + badge/chip | `app/`, `components/` | PLANNED | WO-17-002, WO-17-003, FRD-13 |
+| WO-17-004 | Proposals surface: stream/card + promotions queue + memory health + badge/chip | `app/`, `components/` | PLANNED (gate REJECTED 2026-06-20: self-suggestion flood + bespoke header/banner) | WO-17-002, WO-17-003, FRD-13 |
 
 ## Parallelization
 
