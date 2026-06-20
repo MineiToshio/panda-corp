@@ -360,7 +360,7 @@ export function Banner({
           {commandRow !== undefined && (
             <div data-testid="banner-cmd-row" style={cmdRowStyle}>
               <span style={cmdTextStyle}>{commandRow}</span>
-              <CopyButton value={commandRow} label="Copiar" />
+              <CopyButton value={commandRow} />
             </div>
           )}
         </div>

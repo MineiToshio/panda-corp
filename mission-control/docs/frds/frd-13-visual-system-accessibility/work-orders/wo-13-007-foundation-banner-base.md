@@ -5,7 +5,7 @@ slug: foundation-banner-base
 title: 'WO-13-007 — Foundation (FND-2): the one Banner (dup-fix) + base pills/surfaces/command-row'
 status: DRAFT
 parent: FRD-13
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 foundation: true
 artifacts:
   - 'src/components/core/Banner/**'
@@ -59,7 +59,7 @@ The single shared `Banner` + the base pill/surface/command-row/button primitives
 [`docs/design/prototype/index.html`](../../../design/prototype/index.html) — the health banners, chips,
 `.panel`/`.rpgpanel`, `.cmd` rows; [`components.md`](../../../design/components.md) §1 + the ⚠ Banner note.
 
-## Status Note — IN_REVIEW (2026-06-19)
+## Status Note — IN_REVIEW (2026-06-20)
 
 **What was built:** Nine shared core primitives that eliminate the duplicate-banner defect (DR-057) and establish the foundation visual vocabulary for all app surfaces. FRD-13 is cross-cutting (no single route/screen); the visual reference is the prototype's CSS `.panel`/`.chip`/`.cmd`/banners/buttons extracted faithfully onto frozen tokens.
 
@@ -86,6 +86,7 @@ The single shared `Banner` + the base pill/surface/command-row/button primitives
 - `Button` disabled state: `onClick` is passed as `undefined` when `disabled=true` (not relying solely on the `disabled` attribute) to satisfy the "disabled prevents click" test in jsdom (which does not enforce `disabled` on the handler).
 - `ProgressBar` shows `done/total` and `pct%` in a visually hidden (aria-hidden) label below the track — numbers are `tabular-nums`.
 - `DocHeading` renders the accent ledge as a `<span>` sibling of the heading tag (not a CSS `::before` pseudo-element) so it is testable with `data-testid="doc-heading-ledge"`.
+- `CmdRow` passes no `label` prop to `CopyButton` (fix applied in DR-056 fidelity cycle 1): `CopyButton` already renders its own "copiar"/"copiado" text; passing an additional label caused "Copiar copiar" duplication. Same fix applied in `Banner`'s `commandRow` slot.
 
 **Integration seams (for FRD-15/16/03/17/18 consumers):**
 
@@ -93,6 +94,13 @@ The single shared `Banner` + the base pill/surface/command-row/button primitives
 - `MemoryHealth` staleness nudge and `RecoveryHint` should consume `Banner` directly (no new banner component needed).
 - `CmdRow` replaces any inline command-row markup in `TabCommands`, `CardDetail`, `SnapshotPanel`. Import from `@/components/core/CmdRow/CmdRow`.
 - `ProgressBar` should replace `objectives-bar.tsx` and `wo-progress.tsx` inline implementations.
+
+**Visual fidelity check (DR-056) — completed 2026-06-20:**
+
+- Preview route: `src/app/preview-wo13007/page.tsx` (fidelity-only, not shipping code).
+- Cycle 1: Playwright screenshot at `http://localhost:3099/preview-wo13007` showed one divergence — "Copiar copiar" label duplication in `CmdRow` and `Banner`. Fixed by removing the redundant `label="Copiar"` prop passed to `CopyButton`.
+- Cycle 2: Re-screenshotted after fix. Zero console errors. All 9 components render correctly against the prototype's visual patterns: tone-correct banners (triangle/circle icons, tonal bg/text), pills, numeric badges, embossed panels (including grid overlay and glow variants), mono command rows, button variants/sizes/disabled, progress bars (stripe overlay, ok-color at 100%), accent-ledge headings.
+- FRD-13 has no single-screen mock (cross-cutting token/a11y layer); fidelity is validated against the prototype's shared CSS patterns (`.panel`/`.chip`/`.cmd`/`button`/banners), not a single-screen slice.
 
 **Test files:**
 
@@ -106,9 +114,10 @@ The single shared `Banner` + the base pill/surface/command-row/button primitives
 - `src/components/core/ProgressBar/_tests/ProgressBar.test.tsx` — 9 tests
 - `src/components/core/DocHeading/_tests/DocHeading.test.tsx` — 7 tests
 
-**Gate results:**
+**Gate results (2026-06-20):**
 
-- `vitest run` (full suite) — 257 files / 6174 passed | 2 expected fail | 0 regressions
-- `tsc --noEmit` — clean (0 errors in WO scope; pre-existing KanbanColumn TS error is out of scope)
-- `biome check` (18 WO files) — clean (0 errors, 0 warnings)
+- `vitest run` (WO-13-007 scope, 9 files) — 87 passed | 0 failed
+- `vitest run` (full suite) — 264 passed | 9 pre-existing party stub failures (out of scope, confirmed identical before/after this WO) | 2 expected fail
+- `tsc --noEmit` — 0 errors in WO scope; 6 pre-existing party stub TS errors (Cannot find module) are out of scope, confirmed pre-existing
+- `biome check` (19 WO files incl. preview) — clean (0 errors, 0 warnings)
 - `docs/design/components.md` — 8 rows updated from **planned** → **real** (WO-13-007)

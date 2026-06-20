@@ -64,7 +64,7 @@ export function CmdRow({ command, copy = true }: CmdRowProps): React.JSX.Element
   return (
     <div data-testid="cmd-row" style={style}>
       <span style={textStyle}>{command}</span>
-      {copy && <CopyButton value={command} label="Copiar" />}
+      {copy && <CopyButton value={command} />}
     </div>
   );
 }
