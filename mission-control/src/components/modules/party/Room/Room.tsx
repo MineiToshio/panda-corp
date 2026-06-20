@@ -27,7 +27,7 @@ import type { CSSProperties, ReactNode } from "react";
 // ---------------------------------------------------------------------------
 
 /** The zone determines the background asset. */
-export type RoomZone =
+type RoomZone =
   | "forge"
   | "tribunal"
   | "vault"
@@ -39,7 +39,7 @@ export type RoomZone =
   | "release";
 
 /** Visual state of the room. */
-export type RoomState = "cool" | "hot" | "active" | "done" | "locked";
+type RoomState = "cool" | "hot" | "active" | "done" | "locked";
 
 export interface RoomProps {
   /** Zone determines background image and identity. */

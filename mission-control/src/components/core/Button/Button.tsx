@@ -35,6 +35,8 @@ export interface ButtonProps {
   type?: "button" | "submit" | "reset";
   /** aria-label for icon-only buttons. */
   ariaLabel?: string;
+  /** Override the default data-testid ("button"). For callers that need a unique testid. */
+  "data-testid"?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -101,6 +103,7 @@ export function Button({
   children,
   type = "button",
   ariaLabel,
+  "data-testid": testId = "button",
 }: ButtonProps): React.JSX.Element {
   const baseStyle: React.CSSProperties = {
     fontFamily: "var(--font-display, system-ui, sans-serif)",
@@ -127,7 +130,7 @@ export function Button({
 
   return (
     <button
-      data-testid="button"
+      data-testid={testId}
       data-variant={variant}
       data-size={size}
       type={type}

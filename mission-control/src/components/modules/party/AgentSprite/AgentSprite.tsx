@@ -25,9 +25,9 @@ import type { CSSProperties } from "react";
 // Types
 // ---------------------------------------------------------------------------
 
-export type AgentSpriteState = "work" | "carry" | "vault" | "say-on" | "idle" | "split" | "review";
+type AgentSpriteState = "work" | "carry" | "vault" | "say-on" | "idle" | "split" | "review";
 
-export type AgentSpriteRole =
+type AgentSpriteRole =
   | "implementer"
   | "reviewer"
   | "test-writer"

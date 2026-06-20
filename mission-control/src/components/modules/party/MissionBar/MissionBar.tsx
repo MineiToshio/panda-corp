@@ -24,9 +24,9 @@ import type { CSSProperties } from "react";
 // Types
 // ---------------------------------------------------------------------------
 
-export type FrdPipState = "done" | "current" | "pending";
+type FrdPipState = "done" | "current" | "pending";
 
-export interface FrdPip {
+interface FrdPip {
   id: string;
   state: FrdPipState;
 }
