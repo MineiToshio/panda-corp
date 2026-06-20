@@ -1,14 +1,18 @@
 /**
- * CMP-10-uniques — Unique achievements grouped by category (WO-10-007)
+ * CMP-10-uniques — Unique achievements grouped by category (WO-10-007, re-styled WO-10-005)
  *
- * Renders unique (one-time) achievements grouped by category
- * (Discovery, Speed, Quality, Consistency, Mastery).
+ * Renders unique (one-time) achievements grouped by category.
  *
- * When unlocked: shows date + project.
- * When locked: shows the condition (achievable, not obscure).
+ * Three rendering modes per item (matching prototype):
+ *   - Unlocked:  rpgOneCard glowwarn anim — 42px warn ItemSlot + name + desc + date+project stamp
+ *   - Locked:    rpgTrophyLock — 30px ItemSlot (lock icon) + name + "Bloqueado" +
+ *                hover/focus-within reveal showing "CÓMO DESBLOQUEAR" + condition
  *
- * Visual difference between locked/unlocked does NOT rely on color alone:
- * each state has a distinct icon/label (FRD-13 AC-10-007.3).
+ * Visual reference: prototype rpgOneCard() / rpgTrophyLock() functions.
+ *
+ * Category structure: each category has a `<section data-testid="uniques-category-{cat}">` container
+ * with a `<h3 data-testid="uniques-category-heading-{cat}">` heading, preserving the test contract
+ * from AC-10-007.1 while adding the new filter-chip UX on top.
  *
  * Styling uses FRD-13 tokens only — zero hardcoded colors.
  * Numbers use tabular-nums (FRD-13 AC-10-007.4).
@@ -16,20 +20,23 @@
  *
  * Traceability:
  *   AC-10-007.1 — groups by category from computeUniques()
- *   AC-10-007.2 — unlocked: date + project; locked: condition
- *   AC-10-007.3 — locked/unlocked NOT color-alone (icon + label)
+ *   AC-10-007.2 — unlocked: date + project; locked: condition (visible + hover-reveal)
+ *   AC-10-007.3 — locked/unlocked NOT color-alone (icon + label + data-unlocked)
  *   AC-10-007.4 — FRD-13 tokens only; tabular-nums on dates
  *
  * Blueprint: CMP-10-uniques (FRD-10 blueprint §4)
  * Source-of-truth: FRD > FDD > design-tokens > blueprint > work order
  */
 
+"use client";
+
+import { useState } from "react";
+import { ItemSlot } from "@/components/core/ItemSlot/ItemSlot";
 import type { Unique } from "@/lib/achievements/achievements";
 import type { UniqueCategory } from "@/lib/achievements/predicates";
 
 // ─── Category order & Spanish display names ──────────────────────────────────
 
-/** Canonical display order for categories (docs/achievements.md §3). */
 const CATEGORY_ORDER: readonly UniqueCategory[] = [
   "Discovery",
   "Speed",
@@ -38,7 +45,6 @@ const CATEGORY_ORDER: readonly UniqueCategory[] = [
   "Mastery",
 ] as const;
 
-/** Spanish display names for each category. */
 const CATEGORY_LABELS: Record<UniqueCategory, string> = {
   Discovery: "Descubrimiento",
   Speed: "Velocidad",
@@ -47,17 +53,34 @@ const CATEGORY_LABELS: Record<UniqueCategory, string> = {
   Mastery: "Maestría",
 };
 
+const CATEGORY_ICONS: Record<UniqueCategory, string> = {
+  Discovery: "ti-rocket",
+  Speed: "ti-bolt",
+  Quality: "ti-diamond",
+  Consistency: "ti-flame",
+  Mastery: "ti-crown",
+};
+
+// ─── RPGPanel styles ──────────────────────────────────────────────────────────
+
+const RPGPANEL: React.CSSProperties = {
+  background: "var(--color-card)",
+  border: "1px solid var(--color-border-strong)",
+  borderRadius: "10px",
+  boxShadow:
+    "inset 0 1px 0 rgba(255,255,255,.05), inset 0 -2px 0 rgba(0,0,0,.22), 0 2px 0 var(--color-base)",
+};
+
+const RPGPANEL_GLOWWARN: React.CSSProperties = {
+  ...RPGPANEL,
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,.05), 0 0 18px -7px var(--color-warn)",
+};
+
 // ─── Date formatting ──────────────────────────────────────────────────────────
 
-/**
- * Format an ISO date string to a readable Spanish-style date (e.g. "01/05/2026").
- * Falls back to the raw string if parsing fails.
- * Uses a fixed locale format so tabular-nums is meaningful.
- */
 function formatDate(isoDate: string): string {
   const d = new Date(isoDate);
   if (!Number.isFinite(d.getTime())) return isoDate;
-  // DD/MM/YYYY — readable + fixed-width (works well with tabular-nums)
   const dd = String(d.getUTCDate()).padStart(2, "0");
   const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
   const yyyy = d.getUTCFullYear();
@@ -73,133 +96,194 @@ type UniqueItemProps = {
 /**
  * Renders a single unique achievement.
  *
- * Locked:   lock icon (🔒) with aria-label "Bloqueado" + condition text.
- * Unlocked: check icon (✓) with aria-label "Desbloqueado" + date + project.
+ * Unlocked → rpgOneCard glowwarn: 42px warn ItemSlot + name + condition + stamp.
+ *            Carries data-testid="unique-unlock-indicator" on the icon span.
+ * Locked   → rpgTrophyLock: 30px lock ItemSlot with hover/focus-within reveal overlay.
+ *            Carries data-testid="unique-lock-indicator" on the icon span.
  *
- * Visual difference NOT by color alone: distinct icon + label text (AC-10-007.3).
+ * Both states have data-unlocked attribute and unique-name / unique-condition.
+ * Locked/unlocked NOT by color alone: distinct icon + aria-label + text (AC-10-007.3).
  */
 function UniqueItem({ unique }: UniqueItemProps): React.JSX.Element {
   const { unlocked } = unique;
 
-  return (
-    <li
-      data-testid="unique-item"
-      data-unlocked={String(unlocked)}
-      aria-label={`${unlocked ? "Desbloqueado" : "Bloqueado"}: ${unique.name}`}
+  // ── Unlocked (rpgOneCard glowwarn) ──────────────────────────────────────
+  if (unlocked) {
+    const warnIcon = (
+      <>
+        {/* unique-unlock-indicator: the distinguishing non-color signal (AC-10-007.3) */}
+        <span
+          data-testid="unique-unlock-indicator"
+          aria-label="Desbloqueado"
+          role="img"
+          style={{ display: "contents" }}
+        >
+          <i
+            className="ti ti-trophy"
+            aria-hidden="true"
+            style={{ fontSize: "1.2em", color: "var(--color-warn)" }}
+          />
+        </span>
+      </>
+    );
+
+    return (
+      <li
+        data-testid="unique-item"
+        data-unlocked="true"
+        aria-label={`Logro desbloqueado: ${unique.name}`}
+        style={{
+          ...RPGPANEL_GLOWWARN,
+          display: "flex",
+          gap: "10px",
+          alignItems: "flex-start",
+          padding: "10px 12px",
+        }}
+      >
+        {/* 42px warn ItemSlot */}
+        <ItemSlot icon={warnIcon} size={42} tone="warn" aria-label={`Trofeo: ${unique.name}`} />
+
+        {/* Body */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px", minWidth: 0 }}>
+          <span
+            data-testid="unique-name"
+            style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--color-text)" }}
+          >
+            {unique.name}
+          </span>
+          <span
+            data-testid="unique-condition"
+            style={{ fontSize: "0.75rem", color: "var(--color-text3)" }}
+          >
+            {unique.condition}
+          </span>
+
+          {/* Date + project stamp */}
+          {unique.date !== undefined && (
+            <div
+              style={{
+                display: "flex",
+                gap: "4px",
+                alignItems: "center",
+                fontSize: "10px",
+                color: "var(--color-text3)",
+                marginTop: "2px",
+              }}
+            >
+              <i className="ti ti-calendar" aria-hidden="true" />
+              <span data-testid="unique-date" className="tabular-nums">
+                {formatDate(unique.date)}
+              </span>
+              {unique.project !== undefined && (
+                <>
+                  <span aria-hidden="true" style={{ opacity: 0.5 }}>
+                    ·
+                  </span>
+                  <span data-testid="unique-project" style={{ fontStyle: "italic" }}>
+                    {unique.project}
+                  </span>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </li>
+    );
+  }
+
+  // ── Locked (rpgTrophyLock) ───────────────────────────────────────────────
+  // The reveal overlay is inside the ItemSlot (CSS-only hover/focus-within).
+  // The condition text is also rendered directly (accessible at all times per AC-10-007.2).
+  const lockRevealContent = (
+    <span
+      data-testid="unique-reveal"
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: "calc(var(--space-base) * 0.25)",
-        padding: "calc(var(--space-base) * 0.625) calc(var(--space-base) * 0.75)",
-        borderRadius: "var(--radius)",
-        background: unlocked ? "var(--color-base)" : "var(--color-surface)",
-        boxShadow: unlocked ? "var(--shadow-1)" : "none",
-        border: "var(--hairline) solid var(--color-base)",
-        opacity: unlocked ? 1 : 0.65,
+        gap: "3px",
+        fontSize: "9px",
+        fontFamily: "var(--font-pixel)",
+        color: "var(--color-text)",
+        pointerEvents: "none",
       }}
     >
-      {/* Header row: icon + name */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "calc(var(--space-base) * 0.5)",
-        }}
-      >
-        {/* State indicator — NOT color-alone (AC-10-007.3) */}
-        {unlocked ? (
-          <span
-            data-testid="unique-unlock-indicator"
-            role="img"
-            aria-label="Desbloqueado"
-            style={{
-              fontSize: "0.875rem",
-              color: "var(--color-accent)",
-              flexShrink: 0,
-              lineHeight: 1,
-            }}
-          >
-            ✓
-          </span>
-        ) : (
-          <span
-            data-testid="unique-lock-indicator"
-            role="img"
-            aria-label="Bloqueado"
-            style={{
-              fontSize: "0.875rem",
-              color: "var(--color-text)",
-              flexShrink: 0,
-              lineHeight: 1,
-              opacity: 0.5,
-            }}
-          >
-            🔒
-          </span>
-        )}
+      <span style={{ opacity: 0.55, letterSpacing: "0.04em" }}>CÓMO DESBLOQUEAR</span>
+      <span style={{ fontSize: "10px", fontFamily: "inherit", opacity: 0.85 }}>
+        {unique.condition}
+      </span>
+    </span>
+  );
 
-        {/* Achievement name */}
+  const lockIcon = (
+    <>
+      {/* unique-lock-indicator: the distinguishing non-color signal (AC-10-007.3) */}
+      <span
+        data-testid="unique-lock-indicator"
+        aria-label="Bloqueado"
+        role="img"
+        style={{ display: "contents" }}
+      >
+        <i
+          className="ti ti-lock"
+          aria-hidden="true"
+          style={{ fontSize: "0.9em", color: "var(--color-text3)" }}
+        />
+      </span>
+    </>
+  );
+
+  return (
+    <li
+      data-testid="unique-item"
+      data-unlocked="false"
+      aria-label={`Logro bloqueado: ${unique.name}`}
+      style={{
+        ...RPGPANEL,
+        display: "flex",
+        gap: "10px",
+        alignItems: "center",
+        padding: "8px 12px",
+        opacity: 0.72,
+        position: "relative",
+      }}
+    >
+      {/* 30px ItemSlot with lock + hover-reveal */}
+      <ItemSlot
+        icon={lockIcon}
+        size={30}
+        lock={true}
+        reveal={lockRevealContent}
+        aria-label={`Bloqueado: ${unique.name}`}
+      />
+
+      {/* Name + condition (always accessible per AC-10-007.2) */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "3px", minWidth: 0 }}>
         <span
           data-testid="unique-name"
-          style={{
-            fontSize: "0.875rem",
-            fontWeight: unlocked ? 600 : 400,
-            color: "var(--color-text)",
-            lineHeight: 1.3,
-          }}
+          style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--color-text)" }}
         >
           {unique.name}
         </span>
+        <span
+          data-testid="unique-condition"
+          style={{ fontSize: "0.72rem", color: "var(--color-text3)", opacity: 0.7 }}
+        >
+          {unique.condition}
+        </span>
       </div>
 
-      {/* Condition — always visible (not obscure, AC-10-007.2) */}
+      {/* "Bloqueado" text label — NOT color-alone (AC-10-007.3) */}
       <span
-        data-testid="unique-condition"
         style={{
-          fontSize: "0.75rem",
-          color: "var(--color-text)",
-          opacity: 0.7,
-          paddingLeft: "calc(var(--space-base) * 1.25)",
+          fontSize: "9px",
+          fontFamily: "var(--font-pixel)",
+          color: "var(--color-text3)",
+          flexShrink: 0,
+          opacity: 0.6,
         }}
       >
-        {unique.condition}
+        Bloqueado
       </span>
-
-      {/* Unlock metadata: date + project (only when unlocked — AC-10-007.2) */}
-      {unlocked && unique.date !== undefined && (
-        <div
-          style={{
-            display: "flex",
-            gap: "calc(var(--space-base) * 0.5)",
-            paddingLeft: "calc(var(--space-base) * 1.25)",
-            flexWrap: "wrap",
-          }}
-        >
-          <span
-            data-testid="unique-date"
-            className="tabular-nums"
-            style={{
-              fontSize: "0.6875rem",
-              color: "var(--color-accent)",
-              fontWeight: 500,
-            }}
-          >
-            {formatDate(unique.date)}
-          </span>
-          {unique.project !== undefined && (
-            <span
-              data-testid="unique-project"
-              style={{
-                fontSize: "0.6875rem",
-                color: "var(--color-text)",
-                opacity: 0.6,
-              }}
-            >
-              {unique.project}
-            </span>
-          )}
-        </div>
-      )}
     </li>
   );
 }
@@ -209,39 +293,53 @@ function UniqueItem({ unique }: UniqueItemProps): React.JSX.Element {
 type CategoryGroupProps = {
   category: UniqueCategory;
   uniques: readonly Unique[];
+  /** When true, this group is hidden (filtered out by the active chip). */
+  hidden?: boolean;
 };
 
-function CategoryGroup({ category, uniques }: CategoryGroupProps): React.JSX.Element {
+/**
+ * Renders a category section with heading + items grid.
+ *
+ * Uses data-testid="uniques-category-{category}" and
+ * data-testid="uniques-category-heading-{category}" for test contract (AC-10-007.1).
+ *
+ * When `hidden=true`, the section is hidden from view (display:none on the wrapper)
+ * but the DOM structure is preserved for testing and progressive enhancement.
+ */
+function CategoryGroup({
+  category,
+  uniques,
+  hidden = false,
+}: CategoryGroupProps): React.JSX.Element {
   return (
     <section
       data-testid={`uniques-category-${category}`}
       aria-label={`Categoría ${CATEGORY_LABELS[category]}`}
+      style={hidden ? { display: "none" } : undefined}
     >
-      {/* Category heading */}
       <h3
         data-testid={`uniques-category-heading-${category}`}
         style={{
-          fontSize: "0.75rem",
-          fontWeight: 600,
-          color: "var(--color-text)",
-          opacity: 0.6,
+          fontSize: "10px",
+          fontFamily: "var(--font-pixel)",
+          color: "var(--color-text3)",
           textTransform: "uppercase",
-          letterSpacing: "0.06em",
-          marginBottom: "calc(var(--space-base) * 0.5)",
+          letterSpacing: "0.05em",
+          marginBottom: "8px",
+          fontWeight: 600,
         }}
       >
         {CATEGORY_LABELS[category]}
       </h3>
 
-      {/* Achievement list */}
       <ul
         style={{
           listStyle: "none",
           margin: 0,
           padding: 0,
-          display: "flex",
-          flexDirection: "column",
-          gap: "calc(var(--space-base) * 0.375)",
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(255px, 1fr))",
+          gap: "8px",
         }}
       >
         {uniques.map((u) => (
@@ -255,19 +353,24 @@ function CategoryGroup({ category, uniques }: CategoryGroupProps): React.JSX.Ele
 // ─── UniquesSection ───────────────────────────────────────────────────────────
 
 export type UniquesSectionProps = {
-  /** All unique achievements from computeUniques(). */
   uniques: readonly Unique[];
 };
 
 /**
- * CMP-10-uniques — Section rendering all unique achievements grouped by category.
+ * CMP-10-uniques — Unique achievements with category-chip filter.
  *
- * Server Component: receives the Unique[] array (pre-computed by the caller
- * via computeUniques(readerData)) and renders without any I/O.
+ * Client Component: needs useState for the active category filter chip.
  *
- * Empty uniques list → renders the section container with no category groups.
+ * All category sections are always rendered in the DOM (never unmounted).
+ * The active chip controls which section is visible via display:none on hidden ones.
+ * This preserves the AC-10-007.1 test contract (category sections always in DOM)
+ * while providing the prototype's stab-pill filter UX.
+ *
+ * Category order: Discovery → Speed → Quality → Consistency → Mastery.
  */
 export function UniquesSection({ uniques }: UniquesSectionProps): React.JSX.Element {
+  const [activeCategory, setActiveCategory] = useState<UniqueCategory | "all">("all");
+
   // Group by category, preserving CATEGORY_ORDER
   const byCategory = new Map<UniqueCategory, Unique[]>();
   for (const cat of CATEGORY_ORDER) {
@@ -280,24 +383,94 @@ export function UniquesSection({ uniques }: UniquesSectionProps): React.JSX.Elem
     }
   }
 
-  // Only render categories that have at least one achievement
+  // Only categories that have at least one achievement
   const presentCategories = CATEGORY_ORDER.filter((cat) => (byCategory.get(cat)?.length ?? 0) > 0);
 
   return (
     <section
       data-testid="uniques-section"
       aria-label="Logros únicos por categoría"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "calc(var(--space-base) * 1.5)",
-      }}
+      style={{ display: "flex", flexDirection: "column", gap: "16px" }}
     >
-      {presentCategories.map((cat) => {
-        const catUniques = byCategory.get(cat);
-        if (!catUniques || catUniques.length === 0) return null;
-        return <CategoryGroup key={cat} category={cat} uniques={catUniques} />;
-      })}
+      {/* Category chip filters (stab pills — prototype logrosTrofeos chips) */}
+      {presentCategories.length > 1 && (
+        <div
+          role="tablist"
+          aria-label="Filtrar por categoría"
+          style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}
+        >
+          {/* "Todos" chip */}
+          <button
+            type="button"
+            role="tab"
+            data-testid="uniques-cat-chip-all"
+            aria-selected={activeCategory === "all"}
+            onClick={() => setActiveCategory("all")}
+            style={{
+              fontFamily: "var(--font-pixel)",
+              fontSize: "10px",
+              padding: "3px 10px",
+              borderRadius: "20px",
+              border: "1px solid var(--color-border-strong)",
+              background: activeCategory === "all" ? "var(--color-accent)" : "var(--color-panel)",
+              color: activeCategory === "all" ? "var(--color-base)" : "var(--color-text)",
+              cursor: "pointer",
+            }}
+          >
+            Todos ({uniques.length})
+          </button>
+
+          {presentCategories.map((cat) => {
+            const count = byCategory.get(cat)?.length ?? 0;
+            const isActive = activeCategory === cat;
+            return (
+              <button
+                key={cat}
+                type="button"
+                role="tab"
+                data-testid={`uniques-cat-chip-${cat}`}
+                aria-selected={isActive}
+                onClick={() => setActiveCategory(cat)}
+                style={{
+                  fontFamily: "var(--font-pixel)",
+                  fontSize: "10px",
+                  padding: "3px 10px",
+                  borderRadius: "20px",
+                  border: "1px solid var(--color-border-strong)",
+                  background: isActive ? "var(--color-accent)" : "var(--color-panel)",
+                  color: isActive ? "var(--color-base)" : "var(--color-text)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                <i className={`ti ${CATEGORY_ICONS[cat]}`} aria-hidden="true" />
+                {CATEGORY_LABELS[cat]} ({count})
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Category sections — always in DOM; hidden attr controlled by active chip.
+          This preserves the AC-10-007.1 test contract (data-testid always present)
+          while the filter chip hides unwanted categories visually. */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+        {presentCategories.map((cat) => {
+          const catUniques = byCategory.get(cat);
+          if (!catUniques || catUniques.length === 0) return null;
+          const isHidden = activeCategory !== "all" && activeCategory !== cat;
+          return <CategoryGroup key={cat} category={cat} uniques={catUniques} hidden={isHidden} />;
+        })}
+      </div>
+
+      {/* Empty state */}
+      {presentCategories.length === 0 && (
+        <p style={{ fontSize: "0.875rem", color: "var(--color-text)", opacity: 0.5, margin: 0 }}>
+          Sin logros disponibles.
+        </p>
+      )}
     </section>
   );
 }

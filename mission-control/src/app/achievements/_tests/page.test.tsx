@@ -238,7 +238,10 @@ describe("AC-10-005.3 — tabular-nums + honest XP bar", () => {
 
   it("XP bar has role=progressbar with aria-valuenow (AC-10-005.3)", async () => {
     await renderPage();
-    const track = screen.getByTestId("xp-bar-track");
+    // Scope to the guild-hero to disambiguate from chain XP bars rendered in the
+    // always-mounted tab panels (WO-10-005: all tab panels render in DOM for a11y).
+    const hero = screen.getByTestId("guild-hero");
+    const track = within(hero).getByTestId("xp-bar-track");
     expect(track.getAttribute("role")).toBe("progressbar");
     expect(track.getAttribute("aria-valuenow")).toBe("0");
     expect(track.getAttribute("aria-valuemin")).toBe("0");

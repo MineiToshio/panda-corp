@@ -382,7 +382,8 @@ describe("AC-10-006.4 — AlmostThere section: top chains by % to next tier", ()
   it("renders a section heading in Spanish", () => {
     render(<AlmostThere chains={chains} />);
     const section = screen.getByTestId("almost-there");
-    expect(section.textContent).toMatch(/casi|cerca|siguiente|logro/i);
+    // WO-10-005 re-style: heading now matches prototype questsNear() — "Próximas hazañas"
+    expect(section.textContent).toMatch(/casi|cerca|siguiente|logro|próximas|hazañas/i);
   });
 
   it("shows the top chains ordered by pctToNext descending (highest % first)", () => {
