@@ -5,7 +5,7 @@ slug: card-detail
 title: 'WO-02-007 — La Campaña card detail (3 tabs + 6-phase pipeline)'
 status: DRAFT
 parent: FRD-02
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
 artifacts:
   - 'src/app/board/_components/CardDetail/**'
   - 'src/components/modules/CampaignPipeline/**'
@@ -84,6 +84,37 @@ is verified ≥2 viewports against `mocks/la-campana.html` before close.
 
 `docs/frds/frd-02-ideas-board/mocks/la-campana.html` (La Campaña) + `docs/design/prototype/index.html`
 (the board card detail with the `.stab` tab row).
+
+## Reviewer finding — REOPENED to PLANNED (FRD-02 gate, 2026-06-20)
+
+**Blocking (DR-062 cohesion / AC-02-009.1):** `CardDetail.tsx` does NOT use the shared `Tabs`
+primitive. It rolls a **bespoke per-screen tab switcher** — `<div role="tablist">` + the local
+`tabButtonStyle` in `CardDetail.styles.ts` (underline/border-bottom style) — instead of composing
+`src/components/core/Tabs/Tabs.tsx` (the canonical `.stab` pill pattern, WO-13-006). This violates:
+- **AC-02-009.1** — "the SAME tab pattern as the Portfolio project pane (the `stab` selector row)".
+- **WO-02-007 scope** — "the shared `Tabs` primitive (the ONE tab pattern, DR-062 — `.stab` level)".
+- **DR-062** — a one-off tab look is rejected the same as a duplicate component; the app must feel
+  like ONE application.
+- It also **drops the canonical keyboard a11y contract**: the shared `Tabs` cycles focus with
+  ArrowLeft/ArrowRight; the bespoke row does not (proved by
+  `CardDetail.cohesion.reviewer.test.tsx` — first test passes against `Tabs`, second fails against
+  CardDetail). The pixel-art pipeline (the rest of the WO) renders faithfully and is otherwise sound.
+- **Inventory lie:** `docs/design/components.md` L86 claims CardDetail "uses `Tabs`" — false until fixed.
+
+**Concrete fix (file:line):**
+- `src/app/board/_components/CardDetail/CardDetail.tsx:173–190` — replace the hand-rolled
+  `<div role="tablist">…{TABS.map(button tabButtonStyle)}` with `<Tabs level="sub" tabs={…}
+  active={activeTab} onChange={setActiveTab} ariaLabel="Pestañas del detalle de idea" />`
+  (id ↔ `TabKey`). Keep the three `role="tabpanel"` bodies and the clip strategy as-is; they pass.
+- Delete the now-unused `TAB_ROW_STYLE` / `tabButtonStyle` from `CardDetail.styles.ts` (knip would
+  flag them once unimported).
+- The doc-entry click → Documentos (AC-02-009.3) and active-tab persistence (AC-02-009.4) keep
+  working since the panel state is unchanged.
+
+**Not blocking (consumed as-is, verified working):** the 6-room pixel-art trail (Room/StoneBridge/
+AgentSprite composition), phase done/current/locked derivation, fichas (LEE/ESCRIBE/team),
+"Entrar a La Fragua" onEnterForge bubbling, read-only invariant — all green in the integration suite
+and the runtime smoke (route 200, 6 rooms + 5 bridges + 3 tabs rendered, zero console errors).
 
 ## Status Note — IN_REVIEW (2026-06-20)
 
