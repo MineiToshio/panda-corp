@@ -32,6 +32,11 @@ const MAX_CONSECUTIVE_BLOCKS = (args && args.maxConsecutiveBlocks) || 3   // hea
 const FOUNDATION_REPAIR_CAP = (args && args.foundationRepairCap) || 2   // DR-065: bounded auto-repair of an incomplete foundation — after N failed auto-repairs of the SAME class, escalate to the owner instead of looping/burning budget
 let agentSpawned = 0   // running count of subagents spawned (the maxAgents brake)
 let foundationRepairs = 0   // DR-065: how many foundation auto-repairs we've spent this run (capped by FOUNDATION_REPAIR_CAP)
+// DR-070: the maxAgents brake, checked at EVERY safe point (FRD boundary AND each build-wave boundary)
+// — not only at the top of the per-FRD loop. A pass with a few large FRDs used to inflate the count
+// INSIDE one FRD and overshoot the ceiling arbitrarily (a 40-cap run reached 68). The supervisor ALSO
+// enforces a reliable EXTERNAL agent-file count brake, independent of this in-engine counter.
+const capHit = () => Boolean(MAX_AGENTS && agentSpawned >= MAX_AGENTS)
 
 // Concurrency/models per mode (DR-014). `wave` = work orders built in parallel within
 // an FRD. `split` runs test→backend→frontend; otherwise one full-stack implementer
@@ -131,6 +136,7 @@ const FOUNDATION_SCHEMA = {
 
 // ── Baseline self-heal (deadlock breaker) ─────────────────────────────────────
 phase('Baseline')
+agentSpawned++   // DR-070: count every spawn so the maxAgents brake is honest
 const baseline = await agent(
   `You are the Pandacorp baseline-repair engineer. FIRST: if \`git rev-parse --short HEAD\` equals \`last_green_sha\` in .pandacorp/status.yaml, the tree is already known-green → return { green: true } immediately and do NOT run verify.sh (skip the cold-start cost). Otherwise run \`bash .pandacorp/verify.sh\`:
   - GREEN → return { green: true }, change nothing.
@@ -146,6 +152,7 @@ log('Baseline green — planning by FRD.')
 
 // ── Plan: read FRDs, their Build Plans and the frontmatter state (no inferred "done") ──
 phase('Plan')
+agentSpawned++   // DR-070: count every spawn so the maxAgents brake is honest
 const plan = await agent(
   `You are the Pandacorp build planner. Read state WITHOUT modifying anything:
   - WALK every FRD module docs/frds/*/. For each, read frd.md and blueprint.md's **Build Plan** (WO order, intra-FRD deps, parallelism, cross-FRD deps) in full, and the **frontmatter ONLY** of every work-orders/wo-*.md (the \`implementation_status\`, \`id\`, deps, title — NOT the full WO body; the implementer reads the body when it builds its own WO, so planning stays fast and cheap).
@@ -211,7 +218,7 @@ async function frdGate(frd, reviewIds) {
   1) Review the changed work orders with your 3 lenses (correctness/security/quality) and write adversarial tests the implementers did not see (anchored in EARS + real bugs), exercising them TOGETHER with the rest of the feature (real integration, not isolated).
   2) Run the FOCUSED gate \`bash .pandacorp/verify.sh --since <last_green_sha>\` (read last_green_sha from .pandacorp/status.yaml) — biome + tsc run globally, but only the TESTS affected since the last green (fast and scales; the full suite runs once at close-out). It must pass clean.
   If everything passes: set the reviewed work orders (${reviewIds.join(', ')}) to **\`implementation_status: VERIFIED\`**, then **recompute the FRD's frd.md + blueprint.md \`implementation_status\` rollup from ALL its work orders** and persist it (VERIFIED iff all are; else BLOCKED if any blocked; else PLANNED if any planned; else IN_PROGRESS if any in progress; else IN_REVIEW) — the FRD status is DERIVED, never left stale; update .pandacorp/status.yaml (per-status counts + last_green_sha + safe_to_test:true + **advance \`last_event_at\` and \`updated_at\` to now, ISO 8601 — the DR-066 producer freshness stamp, so a monitor never reads a frozen heartbeat as live**), and commit. Return { green: true }.
-  If a SPECIFIC reviewed work order is wrong, set ONLY those (from the reviewed set) back to \`implementation_status: PLANNED\` (leave the rest IN_REVIEW; never touch an already-VERIFIED one), do not commit broken code, and return { green: false, reopen: [those ids], failure } — the engine retries them on the next run, not in a loop.
+  If a SPECIFIC reviewed work order is wrong, set ONLY those (from the reviewed set) back to \`implementation_status: PLANNED\` (leave the rest IN_REVIEW; never touch an already-VERIFIED one). **DR-070 — discard the rejected WO's committed code so it does NOT pollute sibling FRDs' GLOBAL gate (biome/tsc/knip run whole-project; a rejected surface's dead exports/warnings turn EVERY later FRD's gate RED — this is what blocked clean siblings last run): for EACH reopened WO revert its files to the last green — \`git checkout <last_green_sha> -- <its files that existed at last_green>\` and \`git rm\` any files the WO newly created. NEVER a hard reset of the whole tree (that would discard verified siblings).** Commit the status change + the revert together, and return { green: false, reopen: [those ids], failure } — the engine retries them on the next run, not in a loop.
   **DR-065 — missing foundation primitive:** if a surface looks FLAT / fails visual fidelity because a SHARED design-system primitive it needs is NOT built (it isn't in src/components nor docs/design/components.md — e.g. the mock shows a Room/AgentSprite/StoneBridge the foundation never built), do NOT block and do NOT just reopen — return { green: false, missingFoundation: [the primitive names], failure }. The engine auto-repairs the foundation (adds the primitive) and rebuilds the surfaces against it — this is exactly the case it can resolve itself, so flag it instead of escalating.
   If it's broken and you can't pinpoint specific WOs, return { green: false, failure, blocked_reason } (classify: 'needs-owner' if a human must act, 'external' if it's a transient outside failure, else 'error').${NOTIFY('FRD ' + frd + ' no paso la revision — necesita tu atencion')}`,
     { label: `gate:${frd}`, phase: 'Review', model: P.judge, agentType: 'pandacorp:reviewer', schema: FRD_GATE_SCHEMA })
@@ -225,7 +232,7 @@ async function attemptRepair(frd, context) {
   return await agent(`${EMIT('implementer', frd, { frd, phase: 'review', activity: 'repair' })}The build of FRD ${frd} hit a problem: ${context}. You are the repair engineer — TRY TO FIX it before we give up.
   1) Diagnose the root cause: read the failing output, the work orders, and .pandacorp/comms/progress.md.
   2) If it is within your reach (code / test / local config): fix the PRODUCTION code (never weaken or skip tests) until \`bash .pandacorp/verify.sh\` is green for this feature; set the affected work orders' frontmatter back to \`implementation_status: IN_REVIEW\`; commit (Conventional Commits with scope); return { green: true }.
-  3) If you CANNOT fix it, classify WHY, set the affected work orders' frontmatter to \`implementation_status: BLOCKED\` + \`blocked_reason: <reason>\`, mirror it in .pandacorp/status.yaml, leave HEAD at last_green_sha (commit nothing broken), and return { green: false, blocked_reason, failure }:
+  3) If you CANNOT fix it, classify WHY, set the affected work orders' frontmatter to \`implementation_status: BLOCKED\` + \`blocked_reason: <reason>\`, mirror it in .pandacorp/status.yaml. **DR-070 — discard the blocked WO's committed-but-broken code so it doesn't pollute sibling FRDs' global gate: revert its files to the last green (\`git checkout <last_green_sha> -- <its existing files>\`; \`git rm\` newly-created ones; NEVER a hard reset of the whole tree).** Commit only the status change + the revert, and return { green: false, blocked_reason, failure }:
      - 'needs-owner' → it needs a HUMAN action/decision the agent can't take: a missing env var or secret, an external account/service to set up, a product decision. ALSO append it to .pandacorp/inbox/decisions.md (what's blocked, the options, your recommendation).
      - 'external' → a transient OUTSIDE failure (no internet, an upstream 5xx) — worth a retry on a later run, not our bug.
      - 'error' → a technical failure you could not resolve.`,
@@ -365,6 +372,7 @@ for (const f of plan.frds) {
   let frdFailed = false
   // Build in waves honoring the Build Plan's intra-FRD dependencies.
   while (queue.size > 0) {
+    if (capHit()) { log(`⛔ Agent ceiling (${agentSpawned} ≥ maxAgents ${MAX_AGENTS}) reached mid-FRD — stopping at the wave boundary (DR-070)`); stopReason = 'agents'; break }
     const ready = [...queue.values()].filter((w) => (w.deps || []).every((d) => doneIds.has(d) || !queue.has(d)))
     if (ready.length === 0) { log(`⚠ ${f.frd}: ${queue.size} work orders with unresolved/circular deps`); frdFailed = true; break }
     // DR-057 foundation-first, ENGINE-ENFORCED (not prose): while any foundation WO is still pending,
@@ -383,6 +391,7 @@ for (const f of plan.frds) {
     }
     if (frdFailed) break
   }
+  if (stopReason === 'agents') break   // DR-070: mid-FRD ceiling hit → leave this FRD's built WOs IN_REVIEW (resumable), skip its gate, go to close-out
 
   // A work order failed its self-test → TRY TO REPAIR before blocking (owner's rule).
   if (frdFailed) {

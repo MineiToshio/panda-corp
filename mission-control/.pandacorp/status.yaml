@@ -3,16 +3,16 @@
 project: "Pandacorp"
 phase: implementation
 version: v1
-overlay_version: "8.28.0"
+overlay_version: "8.29.0"
 created_with: "6.0.0"
-running: true
+running: false
 run_started_at: "2026-06-20T19:39:27Z"
 repo: ""
-updated_at: "2026-06-21T21:55:00Z"
+updated_at: "2026-06-21T22:00:00Z"
 work_orders_total: 78
 work_orders_verified: 63
-work_orders_in_review: 1
-work_orders_planned: 14
+work_orders_in_review: 4
+work_orders_planned: 11
 work_orders_in_progress: 0
 work_orders_blocked: 0
 work_orders_done: 63
@@ -21,6 +21,6 @@ pending_bugs: 0
 rethink_pending: false
 advance_pending: false
 last_green_sha: "d18c825"
-safe_to_test: false  # FRD-18 gate RED: WO-18-001 reopened (digest runaway/no-cap fidelity fail + SSE/networkidle blocks blessing); global gate also red on WO-12-005 GanttTask dead code
+safe_to_test: false  # knip RED: GanttTask unused export in TimelineView.tsx (pre-existing); FRD-11/FRD-14 gates blocked by tree contamination (WO-06-007 anchor RED)
 blocked: []
-supervisor_heartbeat: "2026-06-21T02:53:39Z"
+supervisor_heartbeat: "2026-06-21T22:00:00Z"
