@@ -5,7 +5,7 @@ slug: observabilidad-tab-timeline
 title: 'WO-12-005 — Observabilidad tab + Timeline view (live, re-paint to mock)'
 status: DRAFT
 parent: FRD-12
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 artifacts:
   - 'src/app/projects/[slug]/_observability/ObservabilidadTab/**'
   - 'src/app/projects/[slug]/_observability/TimelineView/**'
@@ -82,7 +82,8 @@ Render the **Observabilidad** tab exactly as the prototype `observabilidadBody()
 **`ObservabilidadTab`** (`src/app/projects/[slug]/_observability/ObservabilidadTab/ObservabilidadTab.tsx`)
 The Observabilidad project sub-tab (sibling of Party, AC-12-002.1). Renders:
 - A header panel strip: `ti-eye-search` icon + "OBSERVABILIDAD · 2 vistas sobre los MISMOS work orders"
-  eyebrow + pill-button toggle (Línea de tiempo / DAG, `role="tablist"`, `aria-selected`)
+  eyebrow + **shared `SubTabs` toggle** (Línea de tiempo / DAG) — the one `.stab` pattern (DR-062), NOT
+  a bespoke pill-button; wrapped in `data-testid="obs-toggle"` div for test stability
 - A Party hint line pointing operators to the Party tab (AC-12-002.2)
 - Below: either `TimelineView` (default) or `WoDag` stub depending on active view (AC-12-002.3)
 - Live: subscribes to `useLiveSnapshot({ project })` and derives `GanttWorkOrder[]` from events via the
@@ -157,6 +158,9 @@ export interface ObservabilidadTabProps {
   minute offsets relative to the first WO's start. The `total` prop is also in minutes.
 - **Static fallback: 20 min/slot** — when no live snapshot has events, each WO gets `dur=20`, sequentially
   stacked from `start=0`. No tasks are created in the static fallback (tasks come from live events only).
+- **Toggle uses shared `SubTabs` (DR-062)** — the Línea de tiempo ↔ DAG switcher is `<SubTabs>` from
+  `src/components/core/Tabs/Tabs.tsx` (the one `.stab` pattern), wrapped in a `div[data-testid="obs-toggle"]`
+  so existing tests remain stable. No bespoke pill buttons.
 - **Toggle state is local** — `useState<"timeline" | "dag">("timeline")`; not URL-driven (the URL tab param
   is "observabilidad", the sub-lens is ephemeral).
 - **`WoDag` receives `staticOrders` (WorkOrder[])**, not `GanttWorkOrder[]` — the DAG implementation

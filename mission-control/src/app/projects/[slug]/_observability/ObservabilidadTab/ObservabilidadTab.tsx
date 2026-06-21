@@ -21,6 +21,7 @@
 
 import { useState } from "react";
 import { toTimeline } from "@/app/_observability/selectors/timeline/timeline";
+import { SubTabs } from "@/components/core/Tabs/Tabs";
 import { useLiveSnapshot } from "@/hooks/useLiveSnapshot";
 import type { EventsSnapshot } from "@/lib/events/events";
 import type { WorkOrder } from "@/lib/work-orders/work-orders";
@@ -183,12 +184,12 @@ function deriveStaticGantt(staticOrders: WorkOrder[]): {
 }
 
 // ---------------------------------------------------------------------------
-// Tab definitions
+// Tab definitions (shared SubTabs pattern — DR-062)
 // ---------------------------------------------------------------------------
 
 const OBS_TABS = [
-  { id: "timeline" as const, label: "Línea de tiempo", icon: "ti-timeline" },
-  { id: "dag" as const, label: "DAG", icon: "ti-binary-tree" },
+  { id: "timeline", label: "Línea de tiempo", icon: "ti-timeline" },
+  { id: "dag", label: "DAG", icon: "ti-binary-tree" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -259,40 +260,14 @@ export function ObservabilidadTab({
             <span>OBSERVABILIDAD · 2 vistas sobre los MISMOS work orders</span>
           </div>
 
-          {/* Right: Línea de tiempo ↔ DAG toggle */}
-          <div
-            data-testid="obs-toggle"
-            role="tablist"
-            aria-label="Vista de observabilidad"
-            style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}
-          >
-            {OBS_TABS.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                data-testid={`tab-${tab.id}`}
-                aria-selected={view === tab.id}
-                onClick={() => setView(tab.id)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  padding: "4px 10px",
-                  borderRadius: "99px",
-                  border: "0.5px solid var(--color-border)",
-                  background: view === tab.id ? "var(--color-card2)" : "transparent",
-                  color: view === tab.id ? "var(--color-text)" : "var(--color-text3)",
-                  fontSize: "12px",
-                  fontWeight: view === tab.id ? 500 : 400,
-                  cursor: "pointer",
-                  transition: "background 150ms ease, color 150ms ease",
-                }}
-              >
-                <i className={`ti ${tab.icon}`} aria-hidden="true" style={{ fontSize: "13px" }} />
-                {tab.label}
-              </button>
-            ))}
+          {/* Right: Línea de tiempo ↔ DAG toggle — shared SubTabs pattern (DR-062) */}
+          <div data-testid="obs-toggle">
+            <SubTabs
+              tabs={OBS_TABS}
+              active={view}
+              onChange={(id) => setView(id as ObsView)}
+              ariaLabel="Vista de observabilidad"
+            />
           </div>
         </div>
 
