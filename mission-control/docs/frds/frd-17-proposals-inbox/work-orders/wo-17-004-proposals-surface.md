@@ -5,7 +5,7 @@ slug: proposals-surface
 title: 'WO-17-004 — Proposals surface: stream/card + promotions queue + memory health + badge/chip'
 status: DRAFT
 parent: FRD-17
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 reopen_count: 1
 artifacts:
   - 'src/app/proposals/**'
@@ -102,7 +102,9 @@ draw this screen" note is **superseded** by the FDD re-anchor: `propuestasView()
 
 **What was built:** The complete `app/proposals` surface for the FRD-17 proposals inbox — a Server
 Component page (`src/app/proposals/page.tsx`) that composes four dismissable proposal streams, a
-memory-health panel, a durable promotions queue, and a top-bar badge.
+memory-health panel, a durable promotions queue, and a top-bar badge. All DR-057 (reuse) gates pass:
+`MemoryHealth` staleness nudge uses the shared `Banner`; `PromotionsQueue` uses shared `SectionHead` +
+`Panel` + `Chip`; `ProposalsBadge` uses shared `CountBadge`.
 
 **Key interfaces and signatures exposed:**
 
@@ -126,6 +128,21 @@ memory-health panel, a durable promotions queue, and a top-bar badge.
   self-suggestions. Open-count tail = `candidates.length + prunables.length + promotions.length +
   suggestions.length`. Located at `src/app/proposals/page.tsx`.
 
+- `MemoryHealth({ health: MemoryHealthData }): React.JSX.Element` — memory-health panel with raw-notes/
+  candidates/last-run stats and shared `Banner` staleness nudge. Located at
+  `src/components/modules/MemoryHealth/MemoryHealth.tsx`.
+
+- `PromotionsQueue({ lessons: Lesson[] }): React.JSX.Element` — durable proposed/rejected list, uses
+  shared `SectionHead` + `Panel` + `Chip`. Located at
+  `src/components/modules/PromotionsQueue/PromotionsQueue.tsx`.
+
+- `ProposalsBadge({ openCount: number }): React.JSX.Element` — top-bar badge consuming shared
+  `CountBadge`. Located at `src/components/modules/ProposalsBadge/ProposalsBadge.tsx`.
+
+- `proposalsDismissStore` — `getDismissedIds()`, `dismissProposal(id)`, `filterUndismissed(proposals)`
+  pure localStorage helpers. Located at
+  `src/components/modules/ProposalsDismiss/proposalsDismissStore.ts`.
+
 **Implicit decisions and conventions:**
 
 - `groupCmd` shown only when `!isEmpty` — the group command never appears on an empty stream (UX:
@@ -139,25 +156,39 @@ memory-health panel, a durable promotions queue, and a top-bar badge.
   source field (project name + WO reference) is rendered below the title in the evidence line.
 - `EvalGateChip` uses shared `<Chip tone="ok"|"warn">` — not a bespoke badge. State communicated by
   `data-eval-gate` attribute + Spanish text label (not color alone).
-- `KindIcon` is a 32px inline `<span>` with `background: color-mix(in oklch, …)` and icon-specific
-  color from `KIND_META`. It is NOT a new `components/core` primitive (route-local, not shared).
+- `KindIcon` is a 32px inline `<span>` icon slot with `background: color-mix(in oklch, …)`. It is NOT
+  a new `components/core` primitive (route-local, not shared).
 - `SectionIcon` per kind: `ti-bulb` (candidate), `ti-arrow-up-right` (promotion), `ti-trash` (prune),
   `ti-sparkles` (self-suggestion). Tabler icon classes.
 - Dismiss button uses `ti-x` Tabler icon + "Descartar" label. Dismissal ID for lessons =
   `lessonProposalId(lesson)`, for suggestions = `suggestionProposalId(suggestion)` (from
   `streamMeta.ts`).
-- `PromotionsQueue` appears inside the promotions stream block (after `DismissableProposalStream
-  kind="promotion"`), rendering the same `promotionQueue()` data as a durable reviewed list.
+- `PromotionsQueue` appears inside the page after the promotions `DismissableProposalStream` block,
+  rendering the same `promotionQueue()` data as a durable reviewed list.
+- `Banner` consumed via `tone="warn"` (staleness above threshold) and `tone="info"` (first-harvest
+  invite); `kind="inline"` in both cases.
 
 **Test files:**
+- `src/app/proposals/_tests/frd-17-reuse.gate.reviewer.test.tsx` — 6 DR-057 gate tests (the RED
+  anchor that triggered the reopen): all pass — `Banner`, `SectionHead`, `Panel`, `Chip`, `CountBadge`
+  all verified via their canonical `data-testid` attributes.
 - `src/app/proposals/_tests/wo-17-004-req17001.test.tsx` — 14 tests covering REQ-17-001 / AC-17-001.1/
   .2/.3 and DR-062 canonical-primitive usage (PageTitle, SectionHead, rpgpanel Panel).
 - `src/app/proposals/_components/ProposalCard/_tests/ProposalCard.test.tsx` — 18 tests covering all
   four card kinds, eval-gate badge, withCommand behavior, display-only invariant.
 - `src/app/proposals/_tests/proposals-page.test.tsx` — proposals page integration tests.
 - `src/app/proposals/_tests/proposals-integration.reviewer.test.tsx` — adversarial integration tests.
+- `src/app/proposals/_tests/proposals-composition.reviewer.test.tsx` — composition tests.
+- `src/app/proposals/_tests/proposals-wiring.reviewer.test.tsx` — wiring tests.
+- `src/app/proposals/_tests/frd-17-gate.reviewer.test.tsx` — end-to-end gate tests.
+- `src/components/modules/PromotionsQueue/_tests/PromotionsQueue.test.tsx` — PromotionsQueue tests.
+- `src/components/modules/ProposalsBadge/_tests/ProposalsBadge.test.tsx` — ProposalsBadge tests.
 
-**Gates passed:** 6710 tests passing (0 failures), `tsc --noEmit` clean, `biome check src/` clean,
-Next.js build clean (static `/proposals` route). Visual fidelity check (DR-056): screenshot matched
-prototype `propuestasView()` layout — PageTitle + accent chip, MemoryHealth panel with stats, four
-SectionHead dividers, rpgpanel cards with dismiss buttons, empty-state Italian italic guild copy.
+**Gates passed:** 162 FRD-17 tests passing (0 failures) across 13 test files, `tsc --noEmit` clean,
+`biome check` clean on all 30 FRD-17 source files. Route `/proposals` returns HTTP 200 with no console
+errors. Visual fidelity check (DR-056/DR-072): screenshot matched prototype `propuestasView()` layout
+— PageTitle + "37 abiertas" accent chip, MemoryHealth panel with real stats (65 raw notes, warn Banner
+staleness nudge), four SectionHead dividers (candidate/prune/promotion/self-suggestion), calm empty-state
+italic guild copy for empty groups, self-suggestion rpgpanel cards with per-card CmdRow + Descartar
+dismiss buttons. DR-057 reuse gate: `data-testid="banner"`, `data-testid="section-head"`,
+`data-testid="panel"`, `data-testid="chip"`, `data-testid="count-badge"` all verified present.
