@@ -13,7 +13,12 @@ test("visual harness present", () => {
 
 for (const s of BLESSED) {
   test(`visual · ${s.id} (${s.path}) matches baseline`, async ({ page }, testInfo) => {
-    await page.goto(s.path, { waitUntil: "networkidle" });
+    // Block the live transport (SSE) so the screenshot is DETERMINISTIC (no streaming data shifting
+    // pixels) and the page doesn't hang — a live EventSource never lets networkidle settle (DR-071).
+    // The page still renders its initial server snapshot, which is what the blessed baseline captures.
+    await page.route("**/api/live**", (r) => r.abort());
+    await page.goto(s.path, { waitUntil: "domcontentloaded" });
+    await expect(page.locator("main, h1").first()).toBeVisible(); // real content rendered before the shot
     await page.evaluate(() => document.fonts.ready);
     await expect(page).toHaveScreenshot(`${s.id}-${testInfo.project.name}.png`, { fullPage: true });
   });

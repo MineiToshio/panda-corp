@@ -18,7 +18,10 @@ for (const s of BLESSED) {
     });
     page.on("pageerror", (e) => errors.push(String(e)));
 
-    const res = await page.goto(s.path, { waitUntil: "networkidle" });
+    // domcontentloaded, NOT networkidle: a live SSE/EventSource (DashboardLiveWatcher) keeps the
+    // network busy forever, so networkidle never settles and the page times out (DR-071). The
+    // toBeVisible() wait below is the deterministic readiness signal instead.
+    const res = await page.goto(s.path, { waitUntil: "domcontentloaded" });
     expect(res?.status(), `${s.path} HTTP status`).toBeLessThan(400);
     await expect(page.locator("main, h1").first()).toBeVisible();
     expect(errors, `console/page errors on ${s.path}`).toEqual([]);
