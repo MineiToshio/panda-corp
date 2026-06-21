@@ -482,3 +482,12 @@ expect(screen.queryByTestId("skill-list")).not.toBeNull();
 **NON-PROGRESS NOTE (DR-072 C2):** `reopen_count` is now 2 (cap 3). The defect class is NEW each pass (R#1: 5 missing EARS + reuse forks; R#2: reverse cross-nav half; R#3: dead-code KNIP slip; R#4: a reachable dead Back button after the now-correct reverse cross-nav) = forward progress, not a stuck loop, so a reopen (not BLOCK) is warranted. BUT if the NEXT gate finds this WO still not green, it MUST set `BLOCKED: needs-owner` + log to `.pandacorp/inbox/decisions.md` rather than reopen a 4th time.
 
 **Advisory nits (NOT blocking → punch-list):** light-mode skin vs the prototype's dark RPG skin; px-not-token inline values across the config components; the `AgentDetail` "Usado por" using-skill chip uses a bespoke inline `SKILL_CHIP_STYLE` button rather than composing the shared `Chip` (it must be a clickable `<button>`, so it's a borderline reuse note, not a duplicate primitive); the surface is registered `blessed:false` in `e2e/routes.ts` — bless + commit its baseline only once it's VERIFIED.
+
+## CONSOLIDATED DIRECTIVE — attempt 5, get ALL of it right AT ONCE (2026-06-21)
+
+The last 4 gate rejects each fixed one finding but a fresh full rebuild broke/missed another. This pass (opus/deep) must satisfy the ENTIRE checklist SIMULTANEOUSLY — verify each before marking IN_REVIEW:
+1. All EARS behaviors: copy-to-clipboard on the `/pandacorp:<slug>` chip; "interno" flag on internal skills (card + detail); skill detail shows what-it-produces + mini-flow; run-location grouping with counts; agent detail shows XP/level/title/model-chip + model-assignment explanation.
+2. Cross-navigation BOTH directions: skill→agent (clickable flow chips) AND agent→skill (using-skills chips) — and **every navigation control works, INCLUDING the "Back" button after an agent→skill jump (reject #4: that Back button was DEAD).** Manually exercise: open skill → jump to agent → jump back to skill via Back. No dead handlers.
+3. Reuse shared `Tabs`/`SubTabs`/`Chip`/cards — no forked primitives (DR-057/DR-062).
+4. ZERO dead code — no unused exports/files; `knip` must pass clean (reject #3).
+The reviewer anchor tests encode 1–3; #2's Back button and #4 are the easy-to-miss ones. Don't fix one and regress another.
