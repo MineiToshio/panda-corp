@@ -34,7 +34,7 @@ Habilidad: `/pandacorp:blueprint`.
 
 ### 4. Build (Implement)
 
-El motor de `implement` orquesta subagentes especializados que construyen las work orders en paralelo con dependencias explícitas. Cada WO sigue TDD (RED → GREEN → refactor). El `reviewer` valida cada FRD antes de marcarlo VERIFIED.
+El motor de `implement` orquesta subagentes especializados que construyen las work orders en paralelo con dependencias explícitas. Cada WO sigue TDD (RED → GREEN → refactor). El `reviewer` valida cada FRD antes de marcarlo VERIFIED. Si una WO falla la revisión, el motor **repara el fallo puntual en sitio antes de reconstruirla** y **sube el modelo a Opus** cuando la WO es difícil o ya falló (DR-073).
 
 Habilidad: `/pandacorp:implement`.
 

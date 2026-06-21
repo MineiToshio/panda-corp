@@ -53,6 +53,23 @@ Cuando todas las WOs de un FRD están `IN_REVIEW`, el `reviewer` (un agente de m
 
 Solo cuando el reviewer aprueba, el FRD pasa a `VERIFIED`.
 
+### Cuando el gate rechaza: reparar antes de rehacer
+
+Si el reviewer encuentra un fallo concreto en una WO, el motor **no tira el trabajo para reconstruirlo de cero**. Primero intenta **un parche puntual sobre lo ya construido** (DR-073): le inyecta el fallo exacto y un test que lo prueba, y arregla solo eso. El parche se re-valida sobre **todo el proyecto** (no solo los tests afectados), de modo que un resto de código muerto no pueda romper otro FRD.
+
+- Si el parche deja todo en verde → la WO pasa a `VERIFIED` **en sitio**, sin reconstruir nada.
+- Si el parche no lo consigue → recién ahí el motor revierte esa WO al último verde y la reconstruye en la siguiente pasada (con un modelo más potente, ver abajo).
+- Si una WO falla el gate demasiadas veces seguidas sin resolverse, el motor la **bloquea y escala al owner** en vez de reintentar para siempre.
+
+## Qué modelo usa cada WO (selección adaptativa)
+
+Cada modo de build define un modelo base para los implementers (p. ej. en `powerful`, Sonnet). Pero el motor **sube a Opus automáticamente** —sin salir del modo— cuando una WO lo justifica (DR-073):
+
+- **A priori** — la WO viene marcada `difficulty: high` en su frontmatter (una superficie compleja: muchos componentes, navegación cruzada, ≥5 criterios). Arranca directamente en Opus.
+- **Empírico** — la WO ya falló el gate al menos una vez. El reintento sube a Opus, porque un modelo más capaz tiene más probabilidad de cerrarla.
+
+El freno de presupuesto cuenta cada agente Opus como ~3, para que escalar no dispare el gasto sin que se note.
+
 ## Seguir el avance
 
 Mission Control muestra:
