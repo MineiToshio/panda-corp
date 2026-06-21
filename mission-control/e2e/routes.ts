@@ -40,7 +40,7 @@ export const SURFACES: readonly Surface[] = [
     frd: "frd-09-gamification",
     path: "/achievements",
     name: "Logros",
-    blessed: false,
+    blessed: true,
   },
   {
     id: "documentacion",

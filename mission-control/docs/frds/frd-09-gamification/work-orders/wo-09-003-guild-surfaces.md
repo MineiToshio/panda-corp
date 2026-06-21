@@ -5,7 +5,8 @@ slug: guild-surfaces
 title: 'WO-09-003 — Guild surfaces: GuildBar + GuildHero + StatRadar + CelebrationSurface'
 status: DRAFT
 parent: FRD-09
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
+reopen_count: 0
 artifacts:
   - 'src/app/achievements/page.tsx'
   - 'src/components/modules/GuildBar/**'
