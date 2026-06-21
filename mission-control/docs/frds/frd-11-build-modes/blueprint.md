@@ -3,7 +3,7 @@ id: FRD-11-blueprint
 type: blueprint
 parent: FRD-11
 status: ACTIVE
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 last_updated: '2026-06-17'
 ---
 # FRD-11 — Per-project build modes · feature blueprint

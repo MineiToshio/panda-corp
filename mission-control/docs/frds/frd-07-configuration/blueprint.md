@@ -3,7 +3,7 @@ id: FRD-07-blueprint
 type: blueprint
 parent: FRD-07
 status: ACTIVE
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 last_updated: '2026-06-18'
 ---
 # FRD-07 — Configuration · feature blueprint
