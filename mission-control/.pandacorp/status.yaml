@@ -24,4 +24,4 @@ advance_pending: false
 last_green_sha: "d37fa48"
 safe_to_test: true  # full verify.sh green at d37fa48 (build stopped by owner mid-pass-2, 2026-06-21); DR-070 gate-revert validated — reject left the tree clean
 blocked: []
-supervisor_heartbeat: "2026-06-21T07:08:21Z"
+supervisor_heartbeat: "2026-06-21T07:14:21Z"
