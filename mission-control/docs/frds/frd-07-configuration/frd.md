@@ -3,7 +3,7 @@ id: FRD-07
 type: frd
 title: FRD-07 — Configuration
 status: ACTIVE
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
 ui: true
 visual_source: docs/design/prototype/index.html
 last_updated: '2026-06-19'
