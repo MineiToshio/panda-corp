@@ -8,20 +8,21 @@ created_with: "6.0.0"
 running: true
 run_started_at: "2026-06-21T06:52:14Z"
 repo: ""
-updated_at: "2026-06-21T07:47:13Z"
-last_event_at: "2026-06-21T07:47:13Z"
+updated_at: "2026-06-21T08:12:54Z"
+last_event_at: "2026-06-21T08:12:54Z"
 work_orders_total: 78
 work_orders_verified: 65
-work_orders_in_review: 1
+work_orders_in_review: 0
 work_orders_planned: 12
 work_orders_in_progress: 0
-work_orders_blocked: 0
+work_orders_blocked: 1
 work_orders_done: 65
-pending_decisions: 0
+pending_decisions: 1
 pending_bugs: 0
 rethink_pending: false
 advance_pending: false
 last_green_sha: "d37fa48"
-safe_to_test: false  # FRD-09 gate PASS (2026-06-21): WO-09-003 (Guild surfaces) VERIFIED — all FRD-09 WOs VERIFIED → frd.md+blueprint.md VERIFIED; /achievements blessed (new visual baselines logros-desktop/mobile). FRD-09 focused subset green (519 tests). BUT the tree is NOT fully green: the prior FRD-04 reject still stands — WO-04-005 reopened (reopen_count 1), nested <button>-in-<button> in the "Aprobar la recomendación" path → React #418, reviewer RED anchor (tab-summary.reviewer.test.tsx) fails until rebuilt. So safe_to_test stays false and last_green_sha stays d37fa48 until WO-04-005 is fixed.
-blocked: []
-supervisor_heartbeat: "2026-06-21T08:06:24Z"
+safe_to_test: false  # FRD-03 gate REJECT → NON-PROGRESS STOP (2026-06-21, DR-072): WO-03-002 BLOCKED needs-owner (reopen_count 3). Same DR-057 duplicate-rail fault rejected 3 cycles (942f821, d37fa48, now); 2 builders never wired page.tsx to the shared ProjectRail nor removed the orphaned ProjectRail/ProjectRow/PortfolioTable modules — the 59423d2 rebuild fixed only banner+chips, the bespoke SelectableProjectRail rail leg stayed. Owner must pick the rail-consolidation direction (see .pandacorp/inbox/decisions.md). FRD-03 frd.md+blueprint.md rollup → BLOCKED. Reviewer RED anchor: src/app/portfolio/_tests/frd-03-rail-reuse.gate.reviewer.test.tsx. Also still open from before: FRD-04 WO-04-005 reopened (reopen_count 1), nested <button>-in-<button> in "Aprobar la recomendación" → React #418 (tab-summary.reviewer.test.tsx). safe_to_test stays false, last_green_sha stays d37fa48.
+blocked:
+  - "WO-03-002"
+supervisor_heartbeat: "2026-06-21T08:12:24Z"

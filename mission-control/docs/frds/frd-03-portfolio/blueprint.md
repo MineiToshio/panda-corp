@@ -3,8 +3,8 @@ id: FRD-03-blueprint
 type: blueprint
 parent: FRD-03
 status: ACTIVE
-implementation_status: PLANNED
-last_updated: '2026-06-18'
+implementation_status: BLOCKED
+last_updated: '2026-06-21'
 ---
 # FRD-03 — Portfolio & project navigation — Feature blueprint
 

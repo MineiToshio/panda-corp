@@ -5,7 +5,9 @@ slug: portfolio-surface
 title: 'WO-03-002 — Portfolio surface (rail + table + rows + empty + recovery + status chips)'
 status: DRAFT
 parent: FRD-03
-implementation_status: IN_REVIEW
+implementation_status: BLOCKED
+blocked_reason: needs-owner
+reopen_count: 3
 artifacts:
   - 'src/app/portfolio/**'
   - 'src/components/modules/ProjectRail/**'
