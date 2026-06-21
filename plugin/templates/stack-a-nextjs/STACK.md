@@ -101,7 +101,10 @@ A web project's gate MUST open the app in a real browser, not just run static ch
        page.on("console", (m) => m.type() === "error" && problems.push(`console: ${m.text()}`));
        page.on("pageerror", (e) => problems.push(`pageerror: ${e.message}`));
        page.on("requestfailed", (r) => problems.push(`reqfailed: ${r.url()}`));
-       const res = await page.goto(route, { waitUntil: "networkidle" });
+       // domcontentloaded, NOT networkidle (DR-071): a real-time transport (SSE/EventSource,
+       // websocket, long-poll) keeps the network busy forever → networkidle never settles → the
+       // page times out. The toBeVisible() below is the deterministic readiness signal instead.
+       const res = await page.goto(route, { waitUntil: "domcontentloaded" });
        expect(res?.ok(), `${route} returned ${res?.status()}`).toBeTruthy();
        await expect(page.locator("main, h1").first()).toBeVisible(); // real content, not error.tsx/blank
        await page.screenshot({ path: `docs/reviews/smoke/${route.replace(/\W+/g, "_") || "root"}.png`, fullPage: true });
@@ -130,7 +133,11 @@ const SIZES = [{ w: 390, h: 844 }, { w: 1280, h: 900 }];
 for (const route of ROUTES) for (const s of SIZES) {
   test(`visual ${route} @${s.w}`, async ({ page }) => {
     await page.setViewportSize({ width: s.w, height: s.h });
-    await page.goto(route, { waitUntil: "networkidle" });
+    // Block any real-time transport so the shot is DETERMINISTIC + the page doesn't hang on a never-
+    // settling network (DR-071). Adjust the glob to your live endpoint (SSE/websocket/poll):
+    await page.route("**/api/live**", (r) => r.abort());
+    await page.goto(route, { waitUntil: "domcontentloaded" });       // NOT networkidle — SSE never idles
+    await expect(page.locator("main, h1").first()).toBeVisible();     // real content before the screenshot
     await page.evaluate(() => document.fonts.ready);                 // fonts loaded → no glyph flake
     await page.addStyleTag({ content: `*{transition:none!important;animation:none!important}` });
     await expect(page).toHaveScreenshot(`${route.replace(/\W+/g,"_")||"root"}-${s.w}.png`, {
