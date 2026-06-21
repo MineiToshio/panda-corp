@@ -336,7 +336,7 @@ describe("FDD-08 §3 — DocReader renders each page kind correctly", () => {
       />,
     );
     expect(screen.getByTestId("doc-reader-reference")).toBeTruthy();
-    expect(screen.getByTestId("reference-commands-section")).toBeTruthy();
+    expect(screen.getByTestId("skills-section")).toBeTruthy();
   });
 
   it("DocReader main element has aria-label in Spanish", () => {
@@ -434,7 +434,7 @@ describe("Inline content pages — the Diátaxis page kinds", () => {
     );
     fireEvent.click(screen.getByTestId("doc-nav-item-reference-commands"));
     expect(screen.getByTestId("doc-reader-reference")).toBeTruthy();
-    expect(screen.getByTestId("reference-commands-section")).toBeTruthy();
+    expect(screen.getByTestId("skills-section")).toBeTruthy();
   });
 
   it("Guides page renders authored content when selected", () => {

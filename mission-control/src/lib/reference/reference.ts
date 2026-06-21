@@ -31,12 +31,26 @@ export type RunsIn = "factory" | "project" | "unknown";
  * - `slug`        = the directory name (NEVER a `name:` frontmatter field — CLAUDE.md rule).
  * - `description` = frontmatter `description` field.
  * - `runsIn`      = inferred from description/body; ambiguous → "unknown".
+ * - `internal`    = derived: the skill is normally invoked by ANOTHER skill, not run
+ *                   directly by the owner ("interno" flag — AC-07-006). DR-046: derived
+ *                   from the description, never a hand-copied list.
+ * - `produces`    = derived: a short "what it produces" line (the skill's output), or
+ *                   null when no machine-readable output is declared.
+ * - `agents`      = canonical agent ids/roles this skill uses, in document order
+ *                   (derived from the body — powers the cross-navigation EARS).
  * - `body`        = raw markdown after the frontmatter (for the detail view).
  */
 export type SkillRef = {
   slug: string;
   description: string;
   runsIn: RunsIn;
+  /**
+   * Derived flags (always populated by readSkills(); optional on the type so
+   * lightweight fixtures that predate these fields still satisfy SkillRef).
+   */
+  internal?: boolean;
+  produces?: string | null;
+  agents?: string[];
   body: string;
 };
 
@@ -140,6 +154,94 @@ function inferRunsIn(description: string, body: string): RunsIn {
 }
 
 // ---------------------------------------------------------------------------
+// internal inference (AC-07-006 — the "interno" flag)
+//
+// An internal skill is one normally invoked by ANOTHER skill, not run directly
+// by the owner. The plugin descriptions state this consistently ("invoked by
+// /pandacorp:spec", "created by /pandacorp:blueprint together with…", "use …
+// separately only to…"). Derived from the description — never a hand-copied list
+// (DR-046).
+// ---------------------------------------------------------------------------
+
+const INTERNAL_PATTERNS: readonly RegExp[] = [
+  /\binvoked by\b/i,
+  /\bcreated by\b/i,
+  /\bnormally invoked by\b/i,
+  /\buse (?:it|this skill)? ?separately only\b/i,
+  /\bmechanical step\b/i,
+];
+
+function inferInternal(description: string): boolean {
+  return INTERNAL_PATTERNS.some((re) => re.test(description));
+}
+
+// ---------------------------------------------------------------------------
+// produces inference (AC-07-006 — "what it produces")
+//
+// Scan the description/body for the skill's declared output. Conservative: the
+// first sentence that names a produced artifact ("creates", "generates",
+// "produces", "documents"). Returns null when nothing machine-readable is found.
+// ---------------------------------------------------------------------------
+
+const PRODUCES_PATTERNS: readonly RegExp[] = [
+  /\b(?:creates?|generates?|produces?|documents?|creates the)\b[^.\n]*/i,
+];
+
+function inferProduces(description: string, body: string): string | null {
+  for (const re of PRODUCES_PATTERNS) {
+    const fromDesc = description.match(re);
+    if (fromDesc?.[0]) return fromDesc[0].trim();
+    const fromBody = body.match(re);
+    if (fromBody?.[0]) return fromBody[0].trim();
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// agents inference (AC-07-006 cross-navigation)
+//
+// Extract the canonical agent roles a skill references in its body, in document
+// order, deduplicated. Powers the clickable agent chips in the skill's mini-flow.
+// ---------------------------------------------------------------------------
+
+/** Canonical agent role names, longest-first to avoid partial matches. */
+const KNOWN_AGENT_ROLES: readonly string[] = [
+  "security-auditor",
+  "product-manager",
+  "frontend-dev",
+  "backend-dev",
+  "test-writer",
+  "implementer",
+  "researcher",
+  "copywriter",
+  "architect",
+  "designer",
+  "analytics",
+  "reviewer",
+  "devops",
+];
+
+function inferAgents(body: string): string[] {
+  const found: string[] = [];
+  const seen = new Set<string>();
+  const lower = body.toLowerCase();
+  // Walk the body in order; record each known role at its first occurrence.
+  const positions: Array<{ role: string; at: number }> = [];
+  for (const role of KNOWN_AGENT_ROLES) {
+    const at = lower.indexOf(role.toLowerCase());
+    if (at !== -1) positions.push({ role, at });
+  }
+  positions.sort((a, b) => a.at - b.at);
+  for (const { role } of positions) {
+    if (!seen.has(role)) {
+      found.push(role);
+      seen.add(role);
+    }
+  }
+  return found;
+}
+
+// ---------------------------------------------------------------------------
 // readSkills() — AC-07-001.*
 // ---------------------------------------------------------------------------
 
@@ -198,8 +300,11 @@ export function readSkills(): SkillRef[] {
 
     const body = typeof parsed.content === "string" ? parsed.content.trim() : "";
     const runsIn = inferRunsIn(description, body);
+    const internal = inferInternal(description);
+    const produces = inferProduces(description, body);
+    const agents = inferAgents(body);
 
-    skills.push({ slug, description, runsIn, body });
+    skills.push({ slug, description, runsIn, internal, produces, agents, body });
   }
 
   return skills;

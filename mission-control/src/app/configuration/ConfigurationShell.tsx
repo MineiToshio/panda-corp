@@ -95,7 +95,13 @@ const AGENTS_PANEL_STYLE: React.CSSProperties = {
 // so the shell's render stays flat and under the complexity budget.
 // ---------------------------------------------------------------------------
 
-function SkillsPanel({ skills }: { skills: SkillRef[] }): React.JSX.Element {
+function SkillsPanel({
+  skills,
+  onAgentClick,
+}: {
+  skills: SkillRef[];
+  onAgentClick: (role: string) => void;
+}): React.JSX.Element {
   return (
     <div
       role="tabpanel"
@@ -103,7 +109,7 @@ function SkillsPanel({ skills }: { skills: SkillRef[] }): React.JSX.Element {
       aria-labelledby="config-tab-id-skills"
       style={PANEL_STYLE}
     >
-      <SkillsSection skills={skills} />
+      <SkillsSection skills={skills} onAgentClick={onAgentClick} />
     </div>
   );
 }
@@ -228,6 +234,13 @@ export function ConfigurationShell({
     setActiveSection(id);
   }
 
+  // Cross-navigation (FRD-07 EARS): clicking an agent chip in a skill's mini-flow
+  // jumps to the agents tab with that agent's detail open.
+  function handleAgentCrossNav(role: string): void {
+    setSelectedAgentId(role);
+    setActiveSection("agents");
+  }
+
   return (
     <div data-testid="config-shell" style={SHELL_STYLE}>
       {/* Page header — PageTitle (DR-062: ONE title block) */}
@@ -244,7 +257,7 @@ export function ConfigurationShell({
 
       {/* Active section panel — only one mounted at a time (AC-07-005.2) */}
       {activeSection === "skills" ? (
-        <SkillsPanel skills={skills} />
+        <SkillsPanel skills={skills} onAgentClick={handleAgentCrossNav} />
       ) : activeSection === "agents" ? (
         <AgentsPanel
           agents={agents}

@@ -102,6 +102,24 @@ const TITLE_STYLE: React.CSSProperties = {
   color: "var(--color-text-muted, currentColor)",
 };
 
+const MODEL_CHIP_STYLE: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "calc(var(--spacing, 0.25rem) * 0.5) calc(var(--spacing, 0.25rem) * 2)",
+  borderRadius: "var(--radius-sm, 8px)",
+  border: "var(--hairline, 1px) solid var(--color-border, currentColor)",
+  fontFamily: "var(--font-mono, monospace)",
+  fontSize: "0.6875rem",
+  color: "var(--color-text2, currentColor)",
+  background: "var(--color-card2, var(--color-panel))",
+};
+
+const MODEL_SECTION_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "calc(var(--spacing, 0.25rem) * 2)",
+};
+
 const DIVIDER_STYLE: React.CSSProperties = {
   border: "none",
   borderTop: `var(--hairline, 1px) solid var(--color-border, currentColor)`,
@@ -142,6 +160,29 @@ const DESC_STYLE: React.CSSProperties = {
 // ---------------------------------------------------------------------------
 
 /**
+ * Explain an agent's model assignment (FRD-07 EARS): opus = judgment work
+ * (architecture, review, specs — the most capable model); sonnet = mechanical,
+ * verifiable work (implementation, search — cheaper and faster). Any other model
+ * value gets a neutral, honest line. Derived from the agent's `model` field.
+ */
+function modelAssignmentExplanation(model: string): string {
+  const m = model.toLowerCase();
+  if (m.includes("opus")) {
+    return (
+      "Corre en opus — el modelo más capaz — porque su trabajo es de juicio: " +
+      "arquitectura, revisión y especificaciones, donde la calidad del criterio importa más que la velocidad."
+    );
+  }
+  if (m.includes("sonnet")) {
+    return (
+      "Corre en sonnet — más barato y rápido — porque su trabajo es mecánico y verificable: " +
+      "implementación y búsqueda, donde el resultado se comprueba contra tests y criterios objetivos."
+    );
+  }
+  return `Modelo asignado: ${model}. La asignación equilibra trabajo de juicio (opus) frente a trabajo mecánico y verificable (sonnet).`;
+}
+
+/**
  * Get the title of the next rank after the current one.
  * At max rank, returns the current title (Architect stays Architect).
  */
@@ -167,6 +208,7 @@ function nextRankTitle(currentLevel: number): string {
 export function AgentDetail({ agent, level }: AgentDetailProps): React.JSX.Element {
   const avatarRole = agent.id as AgentRole;
   const nextTitle = nextRankTitle(level.level);
+  const modelExplanation = modelAssignmentExplanation(agent.model);
 
   // pctToNext from computeAgentLevel is a FRACTION [0, 1].
   // XpBar expects a percentage [0, 100].
@@ -190,9 +232,21 @@ export function AgentDetail({ agent, level }: AgentDetailProps): React.JSX.Eleme
             <span data-testid="agent-detail-title" style={TITLE_STYLE}>
               {level.title}
             </span>
+            {/* Model chip — opus / sonnet (AC-07-007.x) */}
+            <span data-testid="agent-detail-model" style={MODEL_CHIP_STYLE}>
+              {agent.model}
+            </span>
           </div>
         </div>
       </div>
+
+      {/* ── Model assignment: WHY this agent runs on opus or sonnet (EARS) ─── */}
+      <section style={MODEL_SECTION_STYLE} aria-label="Asignación de modelo del agente">
+        <h3 style={XP_HEADING_STYLE}>Asignación de modelo</h3>
+        <p data-testid="agent-detail-model-explanation" style={EXPLANATION_STYLE}>
+          {modelExplanation}
+        </p>
+      </section>
 
       {/* ── Description (from body or description field) ─────────────────── */}
       {agent.description ? (

@@ -125,6 +125,11 @@ const EMPTY_STYLE: React.CSSProperties = {
 export interface FlowDiagramProps {
   /** Raw markdown body of the skill (after frontmatter). */
   body: string;
+  /**
+   * Optional cross-navigation handler (FRD-07 EARS). When provided, each agent
+   * chip becomes a clickable <button> that jumps to that agent's detail.
+   */
+  onAgentClick?: (role: AgentRole) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -137,7 +142,7 @@ export interface FlowDiagramProps {
  * Degrades gracefully when no agents can be extracted (AC-07-006.4):
  * shows a "no declared flow" message — never invents steps.
  */
-export function FlowDiagram({ body }: FlowDiagramProps): React.JSX.Element {
+export function FlowDiagram({ body, onAgentClick }: FlowDiagramProps): React.JSX.Element {
   const agents = extractAgents(body);
 
   return (
@@ -149,6 +154,29 @@ export function FlowDiagram({ body }: FlowDiagramProps): React.JSX.Element {
       ) : (
         agents.map((role, idx) => {
           const tokenKey = AGENT_COLOR[role];
+          // Cross-navigation EARS: when onAgentClick is provided, the chip is a
+          // clickable <button> that jumps to the agent's detail; otherwise a span.
+          const chip =
+            onAgentClick !== undefined ? (
+              <button
+                type="button"
+                data-testid={`flow-agent-chip-${role}`}
+                data-agent-color={tokenKey}
+                aria-label={`Ir al agente ${role}`}
+                onClick={() => onAgentClick(role)}
+                style={{ ...chipStyle(tokenKey), cursor: "pointer" }}
+              >
+                {role}
+              </button>
+            ) : (
+              <span
+                data-testid={`flow-agent-chip-${role}`}
+                data-agent-color={tokenKey}
+                style={chipStyle(tokenKey)}
+              >
+                {role}
+              </span>
+            );
           return (
             <span
               key={role}
@@ -158,13 +186,7 @@ export function FlowDiagram({ body }: FlowDiagramProps): React.JSX.Element {
                 gap: "calc(var(--spacing, 0.25rem) * 1)",
               }}
             >
-              <span
-                data-testid={`flow-agent-chip-${role}`}
-                data-agent-color={tokenKey}
-                style={chipStyle(tokenKey)}
-              >
-                {role}
-              </span>
+              {chip}
               {idx < agents.length - 1 && (
                 <span data-testid={`flow-arrow-${idx}`} style={ARROW_STYLE} aria-hidden="true">
                   →

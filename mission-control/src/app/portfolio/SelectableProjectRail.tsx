@@ -22,21 +22,23 @@
  */
 
 import Link from "next/link";
+import {
+  CHIP_BUILDING_STYLE,
+  CHIP_STOPPED_STYLE,
+  RAIL_STYLE,
+  ROW_STYLE,
+} from "@/components/modules/ProjectRail/ProjectRail";
 import type { ProjectListItem } from "@/lib/portfolio/portfolio";
 import { BusinessSnapshot } from "./_components/BusinessSnapshot/BusinessSnapshot";
 import { RecoveryHint } from "./_components/RecoveryHint/RecoveryHint";
 import { StatusChips } from "./_components/status-chips/status-chips";
 
 // ---------------------------------------------------------------------------
-// Styles — CSS custom properties only; zero hardcoded hex/rgb/hsl values.
+// Styles — REUSE the ONE shared rail primitive's style constants (DR-057):
+// RAIL_STYLE / ROW_STYLE / CHIP_BUILDING_STYLE / CHIP_STOPPED_STYLE are imported
+// from components/modules/ProjectRail, never re-declared here. Only the
+// selection-specific deltas (the selected-row treatment) are local.
 // ---------------------------------------------------------------------------
-
-const RAIL_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "calc(var(--space-base, 1rem) * 0.375)",
-  padding: "calc(var(--space-base, 1rem) * 0.75)",
-};
 
 const LINK_STYLE: React.CSSProperties = {
   display: "block",
@@ -50,25 +52,9 @@ const LINK_STYLE: React.CSSProperties = {
 };
 
 /**
- * Rail item base style — matches prototype `.rail`:
- * padding 9px 11px, transparent border (appears on hover/selected),
- * no background in resting state (hover → secondary, selected → accent-bg).
- */
-const ROW_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "calc(var(--space-base, 1rem) * 0.25)",
-  padding: "9px 11px",
-  border: "0.5px solid transparent",
-  borderRadius: "var(--radius-md, var(--radius, 0.5rem))",
-  cursor: "pointer",
-  marginBottom: "6px",
-  minWidth: 0,
-};
-
-/**
  * Rail item selected style — matches prototype `.rail.on`:
- * accent-bg fill + accent border + inset accent ring.
+ * accent-bg fill + accent border + inset accent ring. Builds on the shared
+ * ROW_STYLE so only the selection delta lives here.
  */
 const ROW_SELECTED_STYLE: React.CSSProperties = {
   ...ROW_STYLE,
@@ -94,31 +80,6 @@ const NAME_STYLE: React.CSSProperties = {
   wordBreak: "break-word",
   flex: 1,
   minWidth: 0,
-};
-
-const CHIP_STYLE: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  padding: "0.125rem 0.375rem",
-  borderRadius: "calc(var(--radius, 0.5rem) * 0.5)",
-  fontSize: "0.6875rem",
-  fontWeight: 500,
-  background: "var(--color-surface, Canvas)",
-  color: "var(--color-text, currentColor)",
-  border: "var(--hairline, 1px) solid var(--color-border, currentColor)",
-};
-
-const CHIP_BUILDING_STYLE: React.CSSProperties = {
-  ...CHIP_STYLE,
-  background: "var(--color-agent-frontend-dev, currentColor)",
-  color: "var(--color-contrast, Canvas)",
-  border: "none",
-  fontWeight: 600,
-};
-
-const CHIP_STOPPED_STYLE: React.CSSProperties = {
-  ...CHIP_STYLE,
-  opacity: 0.55,
 };
 
 /** Status icon: play (running) or pause (stopped). Matches prototype ti-player-* icons. */

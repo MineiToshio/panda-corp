@@ -180,17 +180,17 @@ const DECISION_ACTION_LABEL_STYLE: React.CSSProperties = {
 
 const APPROVE_BTN_STYLE: React.CSSProperties = {
   marginTop: "8px",
-  fontSize: "12px",
-  cursor: "pointer",
-  background: "none",
-  border: "1px solid var(--color-warn, var(--color-status-warn, #ebb25f))",
-  borderRadius: "var(--radius-sm, 8px)",
-  color: "var(--color-warn, var(--color-status-warn, #ebb25f))",
-  padding: "5px 10px",
   display: "inline-flex",
   alignItems: "center",
-  gap: "5px",
-  fontFamily: "inherit",
+  gap: "8px",
+  color: "var(--color-warn, var(--color-status-warn, #ebb25f))",
+};
+
+const APPROVE_COMMAND_STYLE: React.CSSProperties = {
+  fontFamily: "var(--font-mono, monospace)",
+  fontSize: "11px",
+  userSelect: "all" as const,
+  color: "var(--color-warn, var(--color-status-warn, #ebb25f))",
 };
 
 // Activity log
@@ -389,21 +389,17 @@ function DecisionsBlock({
  */
 function ApproveButton({ recommendation }: { recommendation: string }): React.JSX.Element {
   const command = `/pandacorp:decide "Aprobado: ${recommendation}"`;
+  // Single interactive control: the approve affordance IS the CopyButton (one
+  // <button>), never a <button> wrapping another <button> (HTML validity + a11y +
+  // React #418). The exact command is rendered as visible, copy-selectable text
+  // alongside the button so it is present in the DOM and the AC behavior survives.
   return (
-    <button
-      type="button"
-      data-testid="approve-btn"
-      style={APPROVE_BTN_STYLE}
-      aria-label={`Aprobar la recomendación y copiar el comando`}
-    >
-      <span
-        aria-hidden="true"
-        className="ti ti-check"
-        style={{ fontSize: "13px", verticalAlign: "-2px" }}
-      />
-      <span>Aprobar la recomendación</span>
-      <CopyButton value={command} />
-    </button>
+    <div data-testid="approve-btn" style={APPROVE_BTN_STYLE}>
+      <span aria-hidden="true" style={APPROVE_COMMAND_STYLE}>
+        {command}
+      </span>
+      <CopyButton value={command} label="Aprobar la recomendación" />
+    </div>
   );
 }
 

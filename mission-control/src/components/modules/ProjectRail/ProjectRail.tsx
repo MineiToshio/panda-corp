@@ -43,7 +43,12 @@ export interface ProjectRailProps {
 // design tokens are frozen (WO-13-002, globals.css).
 // ---------------------------------------------------------------------------
 
-const RAIL_STYLE: React.CSSProperties = {
+/**
+ * Shared rail style constants — exported so the URL-selectable variant
+ * (app/portfolio/SelectableProjectRail) reuses the ONE rail primitive's styles
+ * instead of forking verbatim copies (DR-057 reuse-before-create).
+ */
+export const RAIL_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "calc(var(--space-base, 1rem) * 0.5)",
@@ -71,7 +76,7 @@ const ERROR_BOX_STYLE: React.CSSProperties = {
   opacity: 0.85,
 };
 
-const ROW_STYLE: React.CSSProperties = {
+export const ROW_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "calc(var(--space-base, 1rem) * 0.375)",
@@ -123,7 +128,7 @@ const CHIP_STYLE: React.CSSProperties = {
   border: "var(--hairline, 1px) solid var(--color-border, currentColor)",
 };
 
-const CHIP_BUILDING_STYLE: React.CSSProperties = {
+export const CHIP_BUILDING_STYLE: React.CSSProperties = {
   ...CHIP_STYLE,
   background: "var(--color-agent-frontend-dev, currentColor)",
   color: "var(--color-contrast, Canvas)",
@@ -131,7 +136,7 @@ const CHIP_BUILDING_STYLE: React.CSSProperties = {
   fontWeight: 600,
 };
 
-const CHIP_STOPPED_STYLE: React.CSSProperties = {
+export const CHIP_STOPPED_STYLE: React.CSSProperties = {
   ...CHIP_STYLE,
   opacity: 0.55,
 };

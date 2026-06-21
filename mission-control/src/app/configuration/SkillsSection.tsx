@@ -28,6 +28,7 @@
 import type React from "react";
 import { useState } from "react";
 
+import type { AgentRole } from "@/app/_design/tokens/tokens";
 import type { SkillRef } from "@/lib/reference/reference";
 import { SkillDetail } from "./SkillDetail";
 import { SkillList } from "./SkillList";
@@ -39,6 +40,11 @@ import { SkillList } from "./SkillList";
 export interface SkillsSectionProps {
   /** Skills catalog from readSkills() — passed from the Server Component. */
   skills: SkillRef[];
+  /**
+   * Cross-navigation (FRD-07 EARS): called with an agent role when the owner
+   * clicks an agent chip in a skill's mini-flow, to jump to that agent's detail.
+   */
+  onAgentClick?: (role: AgentRole) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -51,7 +57,7 @@ export interface SkillsSectionProps {
  * selectedSkill === null → SkillList
  * selectedSkill !== null → SkillDetail (with back button to return to list)
  */
-export function SkillsSection({ skills }: SkillsSectionProps): React.JSX.Element {
+export function SkillsSection({ skills, onAgentClick }: SkillsSectionProps): React.JSX.Element {
   const [selectedSkill, setSelectedSkill] = useState<SkillRef | null>(null);
 
   return (
@@ -59,7 +65,11 @@ export function SkillsSection({ skills }: SkillsSectionProps): React.JSX.Element
       {selectedSkill === null ? (
         <SkillList skills={skills} onSelect={(skill) => setSelectedSkill(skill)} />
       ) : (
-        <SkillDetail skill={selectedSkill} onBack={() => setSelectedSkill(null)} />
+        <SkillDetail
+          skill={selectedSkill}
+          onBack={() => setSelectedSkill(null)}
+          onAgentClick={onAgentClick}
+        />
       )}
     </div>
   );

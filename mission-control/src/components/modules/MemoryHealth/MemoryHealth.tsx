@@ -1,4 +1,5 @@
-import { CopyButton } from "@/components/core/CopyButton/CopyButton";
+import { Banner } from "@/components/core/Banner/Banner";
+import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import { MEMORY_RAW_NOTES_THRESHOLD, MEMORY_STALE_DAYS_THRESHOLD } from "@/lib/constants";
 import type { MemoryHealth as MemoryHealthData } from "@/lib/memory/memory-health";
 
@@ -163,31 +164,8 @@ export function MemoryHealth({ health }: MemoryHealthProps): React.JSX.Element {
         gap: "0.75rem",
       }}
     >
-      {/* Heading */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "0.5rem",
-          borderBottom:
-            "var(--hairline) solid color-mix(in oklch, var(--color-text) 10%, transparent)",
-          paddingBottom: "0.5rem",
-        }}
-      >
-        <span role="img" aria-label="Memoria" style={{ fontSize: "1.1em" }}>
-          🧠
-        </span>
-        <span
-          style={{
-            fontWeight: 700,
-            fontSize: "0.875rem",
-            textTransform: "uppercase",
-            letterSpacing: "0.06em",
-          }}
-        >
-          Salud de la memoria
-        </span>
-      </div>
+      {/* Heading — the ONE shared SectionHead primitive (DR-062), not a bespoke header */}
+      <SectionHead label="Salud de la memoria" icon="ti-brain" />
 
       {/* Stats grid (AC-17-005.1) */}
       <div style={{ display: "flex", flexDirection: "column", gap: "0.125rem" }}>
@@ -252,84 +230,35 @@ export function MemoryHealth({ health }: MemoryHealthProps): React.JSX.Element {
         </div>
       )}
 
-      {/* First-harvest invite — fresh factory (AC-17-005.3) */}
+      {/* First-harvest invite — fresh factory (AC-17-005.3).
+          The ONE shared Banner primitive (DR-057), not a bespoke nudge <div>. */}
       {isFreshFactory && (
-        <div
-          data-testid="memory-health-first-harvest"
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.5rem",
-            padding: "0.625rem",
-            borderRadius: "calc(var(--radius) * 0.75)",
-            border:
-              "var(--hairline) solid color-mix(in oklch, var(--color-accent) 35%, transparent)",
-            background: "color-mix(in oklch, var(--color-accent) 8%, transparent)",
-          }}
-        >
-          <p
-            style={{
-              margin: 0,
-              fontSize: "0.8125rem",
-              lineHeight: 1.5,
-            }}
-          >
-            Sin memoria aún. Comienza la primera cosecha para iniciar el bucle de aprendizaje del
-            gremio:
-          </p>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <code
-              style={{
-                fontFamily: "monospace",
-                fontSize: "0.8125rem",
-                color: "var(--color-accent)",
-              }}
-            >
-              {CMD_HARVEST}
-            </code>
-            <CopyButton value={CMD_HARVEST} />
-          </div>
+        <div data-testid="memory-health-first-harvest">
+          <Banner
+            tone="info"
+            kind="inline"
+            heading="Sin memoria aún"
+            detail="Comienza la primera cosecha para iniciar el bucle de aprendizaje del gremio:"
+            commandRow={CMD_HARVEST}
+          />
         </div>
       )}
 
-      {/* Staleness nudge — above threshold (AC-17-005.2, REQ-17-008: no nagging) */}
+      {/* Staleness nudge — above threshold (AC-17-005.2, REQ-17-008: no nagging).
+          The ONE shared Banner primitive (DR-057), not a second bespoke banner. */}
       {shouldNudge && !isFreshFactory && (
-        <div
-          data-testid="memory-health-nudge"
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.5rem",
-            padding: "0.625rem",
-            borderRadius: "calc(var(--radius) * 0.75)",
-            border:
-              "var(--hairline) solid color-mix(in oklch, var(--color-accent) 35%, transparent)",
-            background: "color-mix(in oklch, var(--color-accent) 8%, transparent)",
-          }}
-        >
-          <p
-            style={{
-              margin: 0,
-              fontSize: "0.8125rem",
-              lineHeight: 1.5,
-            }}
-          >
-            {isStaleDaysAbove
-              ? `La memoria lleva ${staleDays} día${staleDays === 1 ? "" : "s"} sin refinar. Ejecuta una revisión:`
-              : `Hay ${rawNotes} notas pendientes de cosechar. Ejecuta:`}
-          </p>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <code
-              style={{
-                fontFamily: "monospace",
-                fontSize: "0.8125rem",
-                color: "var(--color-accent)",
-              }}
-            >
-              {nudgeCommand}
-            </code>
-            <CopyButton value={nudgeCommand} />
-          </div>
+        <div data-testid="memory-health-nudge">
+          <Banner
+            tone="warn"
+            kind="inline"
+            heading={
+              isStaleDaysAbove
+                ? `La memoria lleva ${staleDays} día${staleDays === 1 ? "" : "s"} sin refinar`
+                : `Hay ${rawNotes} notas pendientes de cosechar`
+            }
+            detail={isStaleDaysAbove ? "Ejecuta una revisión:" : "Ejecuta una cosecha:"}
+            commandRow={nudgeCommand}
+          />
         </div>
       )}
     </section>

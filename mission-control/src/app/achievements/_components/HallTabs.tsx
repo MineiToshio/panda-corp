@@ -25,6 +25,7 @@
 "use client";
 
 import { useState } from "react";
+import { Tabs } from "@/components/core/Tabs/Tabs";
 import type { ChainState, Secret, Unique } from "@/lib/achievements/achievements";
 import type { ReaderData } from "@/lib/achievements/stats";
 import { AlmostThere } from "../AlmostThere";
@@ -44,21 +45,9 @@ const TABS: Array<{ id: TabId; label: string }> = [
   { id: "estadisticas", label: "Estadísticas" },
 ];
 
-// ── Stab (sub-tab pill) styles ────────────────────────────────────────────────
-
-function stabStyle(active: boolean): React.CSSProperties {
-  return {
-    fontFamily: "var(--font-pixel)",
-    fontSize: "10px",
-    padding: "5px 14px",
-    borderRadius: "20px",
-    border: "1px solid var(--color-border-strong)",
-    background: active ? "var(--color-accent)" : "var(--color-panel)",
-    color: active ? "var(--color-base)" : "var(--color-text)",
-    cursor: "pointer",
-    transition: "background 0.15s, color 0.15s",
-    whiteSpace: "nowrap" as const,
-  };
+/** Type guard: narrow the shared Tabs onChange string back to a TabId. */
+function isTabId(id: string): id is TabId {
+  return TABS.some((t) => t.id === id);
 }
 
 // ── RecentTrophies (Resumen tab) ──────────────────────────────────────────────
@@ -456,6 +445,10 @@ export function HallTabs({
 }: HallTabsProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<TabId>("resumen");
 
+  const handleTabChange = (id: string): void => {
+    if (isTabId(id)) setActiveTab(id);
+  };
+
   return (
     <div
       style={{
@@ -466,28 +459,18 @@ export function HallTabs({
         maxWidth: "80rem",
       }}
     >
-      {/* Sub-tab bar — prototype logrosTabs() stab pills */}
-      <div
-        data-testid="logros-tabs"
-        role="tablist"
-        aria-label="Secciones de logros"
-        style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}
-      >
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            role="tab"
-            data-testid={`logros-tab-${tab.id}`}
-            aria-selected={activeTab === tab.id}
-            aria-controls={`logros-panel-${tab.id}`}
-            id={`logros-tab-btn-${tab.id}`}
-            onClick={() => setActiveTab(tab.id)}
-            style={stabStyle(activeTab === tab.id)}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Sub-tab bar — the ONE shared Tabs/SubTabs primitive (DR-062, logrosTabs
+          alias), not a hand-rolled role=tablist. testIdPrefix keeps the stable
+          screen-specific ids (logros-tab-<id>) used by existing tests. */}
+      <div data-testid="logros-tabs">
+        <Tabs
+          level="sub"
+          ariaLabel="Secciones de logros"
+          testIdPrefix="logros-tab-"
+          active={activeTab}
+          onChange={handleTabChange}
+          tabs={TABS}
+        />
       </div>
 
       {/* Tab panels — all rendered in DOM, visibility toggled via style.

@@ -25,6 +25,7 @@
 
 import type React from "react";
 
+import { Chip } from "@/components/core/Chip/Chip";
 import { ItemSlot } from "@/components/core/ItemSlot/ItemSlot";
 import { Panel } from "@/components/core/Panel/Panel";
 import { SectionHead } from "@/components/core/SectionHead/SectionHead";
@@ -98,6 +99,13 @@ const CARD_TEXT_STYLE: React.CSSProperties = {
   minWidth: 0,
 };
 
+const CARD_NAME_ROW_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  flexWrap: "wrap",
+  gap: "calc(var(--spacing, 0.25rem) * 2)",
+};
+
 const CARD_NAME_STYLE: React.CSSProperties = {
   fontFamily: "var(--font-mono, monospace)",
   fontSize: "0.8125rem",
@@ -165,8 +173,16 @@ function SkillCard({ skill, onSelect }: SkillCardProps): React.JSX.Element {
               aria-label={`Habilidad ${skillName}`}
             />
             <div style={CARD_TEXT_STYLE}>
-              <span data-testid="skill-card-name" style={CARD_NAME_STYLE}>
-                {skillName}
+              <span style={CARD_NAME_ROW_STYLE}>
+                <span data-testid="skill-card-name" style={CARD_NAME_STYLE}>
+                  {skillName}
+                </span>
+                {/* "interno" flag — internal skills are invoked by another skill (EARS) */}
+                {skill.internal && (
+                  <span data-testid={`skill-card-internal-${skill.slug}`} title="Skill interno">
+                    <Chip tone="secondary">interno</Chip>
+                  </span>
+                )}
               </span>
               <span data-testid="skill-card-description" style={CARD_DESC_STYLE}>
                 {skill.description}

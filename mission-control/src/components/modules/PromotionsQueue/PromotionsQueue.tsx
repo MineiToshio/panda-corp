@@ -25,7 +25,10 @@
  *   AC-17-006.6  empty queue → calm al día state, Spanish + a11y
  */
 
+import { Chip } from "@/components/core/Chip/Chip";
 import { CopyButton } from "@/components/core/CopyButton/CopyButton";
+import { Panel } from "@/components/core/Panel/Panel";
+import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import type { Lesson } from "@/lib/memory/memory";
 
 // ---------------------------------------------------------------------------
@@ -68,6 +71,60 @@ function buildLearnCommand(lesson: Lesson): string {
 }
 
 // ---------------------------------------------------------------------------
+// Shared entry styles (tokens only) — the surface itself is the shared Panel
+// ---------------------------------------------------------------------------
+
+const ENTRY_BODY_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "calc(var(--space-base) * 0.5)",
+};
+
+const ENTRY_HEADER_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "calc(var(--space-base) * 0.5)",
+  flexWrap: "wrap",
+};
+
+const ENTRY_TARGET_STYLE: React.CSSProperties = {
+  margin: 0,
+  fontSize: "0.875rem",
+  fontWeight: 600,
+  color: "var(--color-text)",
+};
+
+const ENTRY_TARGET_MUTED_STYLE: React.CSSProperties = {
+  ...ENTRY_TARGET_STYLE,
+  color: "var(--color-text2)",
+};
+
+const ENTRY_RATIONALE_STYLE: React.CSSProperties = {
+  margin: 0,
+  fontSize: "0.8rem",
+  color: "var(--color-text)",
+  whiteSpace: "pre-wrap",
+  wordBreak: "break-word",
+};
+
+const ENTRY_ACTIONS_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "calc(var(--space-base) * 0.5)",
+  flexWrap: "wrap",
+  marginTop: "calc(var(--space-base) * 0.25)",
+};
+
+const ENTRY_COMMAND_STYLE: React.CSSProperties = {
+  fontFamily: "var(--font-mono, monospace)",
+  fontSize: "0.75rem",
+  padding: "0.2em 0.5em",
+  borderRadius: "var(--radius-sm, 8px)",
+  background: "var(--color-panel)",
+  color: "var(--color-text)",
+};
+
+// ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
 
@@ -108,168 +165,75 @@ function ProposedEntry({ lesson }: { lesson: Lesson }): React.JSX.Element {
   const command = buildLearnCommand(lesson);
 
   return (
-    <article
-      data-testid={`promotion-entry-${lesson.id}`}
-      data-promotion-state="proposed"
-      aria-label={`Propuesta de promoción ${lesson.id}`}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "calc(var(--space-base) * 0.5)",
-        padding: "var(--space-base)",
-        borderRadius: "var(--radius)",
-        border: "var(--hairline) solid color-mix(in oklch, var(--color-text) 12%, transparent)",
-        background: "color-mix(in oklch, var(--color-surface) 80%, var(--color-accent) 3%)",
-        boxShadow: "var(--shadow-1)",
-      }}
-    >
-      {/* Header row: target + high-risk badge */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "calc(var(--space-base) * 0.5)",
-          flexWrap: "wrap",
-        }}
+    <Panel variant="rpgpanel">
+      <article
+        data-testid={`promotion-entry-${lesson.id}`}
+        data-promotion-state="proposed"
+        aria-label={`Propuesta de promoción ${lesson.id}`}
+        style={ENTRY_BODY_STYLE}
       >
-        <h3
-          data-testid="promotion-target"
-          style={{
-            margin: 0,
-            fontSize: "0.875rem",
-            fontWeight: 600,
-            color: "var(--color-text)",
-          }}
-        >
-          {lesson.type} · {lesson.domain}
-        </h3>
-        {highRisk && (
-          <span
-            data-testid="promotion-high-risk-badge"
-            title="Objetivo de alto riesgo — ejecutar el comando en el skill correspondiente"
-            style={{
-              fontSize: "0.65rem",
-              fontWeight: 700,
-              letterSpacing: "0.05em",
-              textTransform: "uppercase",
-              color: "var(--color-accent)",
-              border: "var(--hairline) solid var(--color-accent)",
-              borderRadius: "calc(var(--radius) * 0.5)",
-              padding: "0.1em 0.4em",
-            }}
-          >
-            Alto riesgo
-          </span>
+        {/* Header row: target + high-risk badge */}
+        <div style={ENTRY_HEADER_STYLE}>
+          <h3 data-testid="promotion-target" style={ENTRY_TARGET_STYLE}>
+            {lesson.type} · {lesson.domain}
+          </h3>
+          {highRisk && (
+            <span
+              data-testid="promotion-high-risk-badge"
+              title="Objetivo de alto riesgo — ejecutar el comando en el skill correspondiente"
+            >
+              <Chip tone="accent">Alto riesgo</Chip>
+            </span>
+          )}
+        </div>
+
+        {/* Rationale (body excerpt) */}
+        {lesson.body && (
+          <p data-testid="promotion-rationale" style={ENTRY_RATIONALE_STYLE}>
+            {lesson.body.slice(0, 300)}
+            {lesson.body.length > 300 ? "…" : ""}
+          </p>
         )}
-      </div>
 
-      {/* Rationale (body excerpt) */}
-      {lesson.body && (
-        <p
-          data-testid="promotion-rationale"
-          style={{
-            margin: 0,
-            fontSize: "0.8rem",
-            color: "color-mix(in oklch, var(--color-text) 85%, transparent)",
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-word",
-          }}
-        >
-          {lesson.body.slice(0, 300)}
-          {lesson.body.length > 300 ? "…" : ""}
-        </p>
-      )}
+        {/* Evidence */}
+        <EvidenceBlock lesson={lesson} />
 
-      {/* Evidence */}
-      <EvidenceBlock lesson={lesson} />
-
-      {/* Approve affordance: copyable /pandacorp:learn command (AC-17-006.3) */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "calc(var(--space-base) * 0.5)",
-          flexWrap: "wrap",
-          marginTop: "calc(var(--space-base) * 0.25)",
-        }}
-      >
-        <code
-          data-testid="promotion-learn-command"
-          style={{
-            fontFamily: "monospace",
-            fontSize: "0.75rem",
-            padding: "0.2em 0.5em",
-            borderRadius: "calc(var(--radius) * 0.5)",
-            background: "color-mix(in oklch, var(--color-text) 8%, transparent)",
-            color: "var(--color-text)",
-          }}
-        >
-          {command}
-        </code>
-        <CopyButton value={command} label="Copiar comando" />
-      </div>
-    </article>
+        {/* Approve affordance: copyable /pandacorp:learn command (AC-17-006.3) */}
+        <div style={ENTRY_ACTIONS_STYLE}>
+          <code data-testid="promotion-learn-command" style={ENTRY_COMMAND_STYLE}>
+            {command}
+          </code>
+          <CopyButton value={command} label="Copiar comando" />
+        </div>
+      </article>
+    </Panel>
   );
 }
 
 /** Rejected entry: shows lesson info + rejected badge, no write affordance (AC-17-006.4). */
 function RejectedEntry({ lesson }: { lesson: Lesson }): React.JSX.Element {
   return (
-    <article
-      data-testid={`promotion-entry-${lesson.id}`}
-      data-promotion-state="rejected"
-      aria-label={`Promoción rechazada ${lesson.id}`}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "calc(var(--space-base) * 0.5)",
-        padding: "var(--space-base)",
-        borderRadius: "var(--radius)",
-        border: "var(--hairline) solid color-mix(in oklch, var(--color-text) 8%, transparent)",
-        background: "color-mix(in oklch, var(--color-surface) 90%, transparent)",
-        opacity: 0.7,
-      }}
-    >
-      {/* Header row: target + rejected badge */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "calc(var(--space-base) * 0.5)",
-          flexWrap: "wrap",
-        }}
+    <Panel variant="rpgpanel">
+      <article
+        data-testid={`promotion-entry-${lesson.id}`}
+        data-promotion-state="rejected"
+        aria-label={`Promoción rechazada ${lesson.id}`}
+        style={{ ...ENTRY_BODY_STYLE, opacity: 0.7 }}
       >
-        <h3
-          data-testid="promotion-target"
-          style={{
-            margin: 0,
-            fontSize: "0.875rem",
-            fontWeight: 600,
-            color: "color-mix(in oklch, var(--color-text) 70%, transparent)",
-          }}
-        >
-          {lesson.type} · {lesson.domain}
-        </h3>
-        <span
-          data-testid="promotion-rejected-badge"
-          style={{
-            fontSize: "0.65rem",
-            fontWeight: 700,
-            letterSpacing: "0.05em",
-            textTransform: "uppercase",
-            color: "color-mix(in oklch, var(--color-text) 50%, transparent)",
-            border: "var(--hairline) solid color-mix(in oklch, var(--color-text) 30%, transparent)",
-            borderRadius: "calc(var(--radius) * 0.5)",
-            padding: "0.1em 0.4em",
-          }}
-        >
-          Rechazada
-        </span>
-      </div>
+        {/* Header row: target + rejected badge */}
+        <div style={ENTRY_HEADER_STYLE}>
+          <h3 data-testid="promotion-target" style={ENTRY_TARGET_MUTED_STYLE}>
+            {lesson.type} · {lesson.domain}
+          </h3>
+          <span data-testid="promotion-rejected-badge">
+            <Chip tone="secondary">Rechazada</Chip>
+          </span>
+        </div>
 
-      {/* Evidence (read-only, informational) */}
-      <EvidenceBlock lesson={lesson} />
-    </article>
+        {/* Evidence (read-only, informational) */}
+        <EvidenceBlock lesson={lesson} />
+      </article>
+    </Panel>
   );
 }
 
@@ -330,17 +294,8 @@ export function PromotionsQueue({ lessons }: PromotionsQueueProps): React.JSX.El
         gap: "var(--space-base)",
       }}
     >
-      {/* Section heading */}
-      <h2
-        style={{
-          margin: 0,
-          fontSize: "1rem",
-          fontWeight: 700,
-          color: "var(--color-text)",
-        }}
-      >
-        Cola de promociones
-      </h2>
+      {/* Section heading — the ONE shared SectionHead primitive (DR-062) */}
+      <SectionHead label="Cola de promociones" icon="ti-arrow-up-circle" />
       <p
         style={{
           margin: 0,

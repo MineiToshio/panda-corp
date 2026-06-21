@@ -31,7 +31,10 @@
  *   - tabular-nums on state badge counts.
  */
 
+import { useCallback } from "react";
 import Markdown from "react-markdown";
+import { Chip } from "@/components/core/Chip/Chip";
+import { Tabs } from "@/components/core/Tabs/Tabs";
 import type { WorkOrder, WorkOrderState } from "@/lib/work-orders/work-orders";
 
 // ---------------------------------------------------------------------------
@@ -39,6 +42,12 @@ import type { WorkOrder, WorkOrderState } from "@/lib/work-orders/work-orders";
 // ---------------------------------------------------------------------------
 
 export type WoDetailTab = "summary" | "full";
+
+/** The two work-order detail tabs, in display order (AC-05-003.1). */
+const WO_DETAIL_TABS: Array<{ id: string; label: string }> = [
+  { id: "summary", label: "Resumen" },
+  { id: "full", label: "Documento completo" },
+];
 
 export interface WorkOrderDetailProps {
   /** The work order to display. */
@@ -112,18 +121,6 @@ const META_ROW_STYLE: React.CSSProperties = {
   marginBottom: "calc(var(--spacing, 0.25rem) * 3)",
 };
 
-const FRD_CHIP_STYLE: React.CSSProperties = {
-  display: "inline-block",
-  fontSize: "0.6875rem",
-  fontWeight: 600,
-  letterSpacing: "0.03em",
-  padding: "2px calc(var(--spacing, 0.25rem) * 2)",
-  borderRadius: "9999px",
-  background: "var(--color-accent-bg, oklch(0.35 0.05 250 / 0.12))",
-  color: "var(--color-accent, var(--color-text-muted, currentColor))",
-  border: "var(--hairline, 1px) solid var(--color-accent-border, transparent)",
-};
-
 function stateBadgeStyle(state: WorkOrderState): React.CSSProperties {
   const base: React.CSSProperties = {
     display: "inline-flex",
@@ -176,32 +173,6 @@ const TABLIST_STYLE: React.CSSProperties = {
   gap: 0,
   marginTop: "calc(var(--spacing, 0.25rem) * 2)",
 };
-
-function tabButtonStyle(active: boolean): React.CSSProperties {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    padding: "calc(var(--spacing, 0.25rem) * 2.5) calc(var(--spacing, 0.25rem) * 4)",
-    fontSize: "0.8125rem",
-    fontWeight: active ? 600 : 400,
-    color: active
-      ? "var(--color-accent, oklch(0.65 0.18 250))"
-      : "var(--color-text-muted, currentColor)",
-    background: "none",
-    border: "none",
-    borderBottomColor: active ? "var(--color-accent, oklch(0.65 0.18 250))" : "transparent",
-    borderBottomWidth: "2px",
-    borderBottomStyle: "solid",
-    borderTopStyle: "none",
-    borderLeftStyle: "none",
-    borderRightStyle: "none",
-    marginBottom: "-1px",
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    textDecoration: "none",
-    outline: "none",
-  };
-}
 
 const PANE_STYLE: React.CSSProperties = {
   flex: 1,
@@ -285,6 +256,18 @@ export function WorkOrderDetail({
   content,
   activeWoTab,
 }: WorkOrderDetailProps): React.JSX.Element {
+  // Tab switching is URL-driven (?wotab=): the parent page (a Server Component)
+  // reads ?wotab= and renders the correct pane. The shared Tabs primitive (DR-062)
+  // drives selection through onChange; we translate the tab id into a navigation.
+  // No useRouter dependency — so the component renders standalone in any context.
+  const handleTabChange = useCallback(
+    (id: string) => {
+      if (typeof window === "undefined") return;
+      window.location.assign(`?tab=work-orders&wo=${order.id}&wotab=${id}`);
+    },
+    [order.id],
+  );
+
   return (
     <section data-testid="wo-detail" aria-label={`Detalle: ${order.title}`} style={ROOT_STYLE}>
       {/* Header: back affordance + title + meta + tab bar */}
@@ -305,8 +288,9 @@ export function WorkOrderDetail({
 
         {/* Meta row: FRD chip + state badge */}
         <div style={META_ROW_STYLE}>
-          <span data-testid="wo-detail-frd-chip" style={FRD_CHIP_STYLE} title={`FRD: ${order.frd}`}>
-            {order.frd}
+          {/* FRD chip — the ONE shared Chip primitive (DR-057), not a bespoke pill */}
+          <span data-testid="wo-detail-frd-chip" title={`FRD: ${order.frd}`}>
+            <Chip tone="accent">{order.frd}</Chip>
           </span>
           <span
             data-testid="wo-detail-state"
@@ -320,28 +304,17 @@ export function WorkOrderDetail({
           </span>
         </div>
 
-        {/* Tab bar — AC-05-003.1: role=tablist */}
-        <div role="tablist" aria-label="Pestañas del work order" style={TABLIST_STYLE}>
-          <a
-            data-testid="wo-detail-tab-summary"
-            href="?tab=work-orders&wotab=summary"
-            role="tab"
-            aria-selected={activeWoTab === "summary" ? "true" : "false"}
-            tabIndex={activeWoTab === "summary" ? 0 : -1}
-            style={tabButtonStyle(activeWoTab === "summary")}
-          >
-            Resumen
-          </a>
-          <a
-            data-testid="wo-detail-tab-full"
-            href="?tab=work-orders&wotab=full"
-            role="tab"
-            aria-selected={activeWoTab === "full" ? "true" : "false"}
-            tabIndex={activeWoTab === "full" ? 0 : -1}
-            style={tabButtonStyle(activeWoTab === "full")}
-          >
-            Documento completo
-          </a>
+        {/* Tab bar — AC-05-003.1: the ONE shared Tabs primitive (DR-062), not an
+            ad-hoc role=tablist. testIdPrefix keeps the stable screen-specific ids. */}
+        <div style={TABLIST_STYLE}>
+          <Tabs
+            level="sub"
+            ariaLabel="Pestañas del work order"
+            testIdPrefix="wo-detail-tab-"
+            active={activeWoTab}
+            onChange={handleTabChange}
+            tabs={WO_DETAIL_TABS}
+          />
         </div>
       </header>
 

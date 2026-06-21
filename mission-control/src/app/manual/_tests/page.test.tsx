@@ -432,8 +432,8 @@ describe("AC-08-002.3 — selecting a page renders it in the reading area", () =
         standards={FIXTURE_STANDARDS}
       />,
     );
-    // WO-08-003: delegated to ReferenceCommandsSection (data-testid changed from -view to -section)
-    expect(screen.getByTestId("reference-commands-section")).toBeTruthy();
+    // DR-046/DR-057: the catalog REUSES the FRD-07 SkillsSection → SkillCard.
+    expect(screen.getByTestId("skills-section")).toBeTruthy();
   });
 
   it("DocReader renders the agents Reference catalog view when agents page is active", () => {
@@ -446,8 +446,8 @@ describe("AC-08-002.3 — selecting a page renders it in the reading area", () =
         standards={FIXTURE_STANDARDS}
       />,
     );
-    // WO-08-003: delegated to ReferenceAgentsSection (data-testid changed from -view to -section)
-    expect(screen.getByTestId("reference-agents-section")).toBeTruthy();
+    // DR-046/DR-057: the catalog REUSES the FRD-07 AgentList → agent-card.
+    expect(screen.getAllByTestId("agent-card").length).toBeGreaterThan(0);
   });
 
   it("DocReader renders the rules Reference catalog view when rules page is active", () => {
@@ -460,7 +460,8 @@ describe("AC-08-002.3 — selecting a page renders it in the reading area", () =
         standards={FIXTURE_STANDARDS}
       />,
     );
-    expect(screen.getByTestId("reference-rules-view")).toBeTruthy();
+    // DR-046/DR-057: the catalog REUSES the FRD-07 DecisionRulesSection.
+    expect(screen.getByTestId("rules-section")).toBeTruthy();
   });
 
   it("DocReader renders the standards Reference catalog view when standards page is active", () => {
@@ -473,7 +474,8 @@ describe("AC-08-002.3 — selecting a page renders it in the reading area", () =
         standards={FIXTURE_STANDARDS}
       />,
     );
-    expect(screen.getByTestId("reference-standards-view")).toBeTruthy();
+    // DR-046/DR-057: the catalog REUSES the FRD-07 StandardsSection.
+    expect(screen.getByTestId("standards-section")).toBeTruthy();
   });
 
   it("DocReader reference-commands view lists all skill slugs", () => {
@@ -486,12 +488,11 @@ describe("AC-08-002.3 — selecting a page renders it in the reading area", () =
         standards={FIXTURE_STANDARDS}
       />,
     );
-    // Skills are rendered as /pandacorp:<slug> — find by testid and check text content
-    expect(screen.getByTestId("reference-command-explore")).toBeTruthy();
-    expect(screen.getByTestId("reference-command-spec")).toBeTruthy();
-    // The text content includes the slug
-    expect(screen.getByTestId("reference-command-explore").textContent).toContain("explore");
-    expect(screen.getByTestId("reference-command-spec").textContent).toContain("spec");
+    // Skills render through the shared SkillCard (skill-card-<slug>).
+    expect(screen.getByTestId("skill-card-explore")).toBeTruthy();
+    expect(screen.getByTestId("skill-card-spec")).toBeTruthy();
+    expect(screen.getByTestId("skill-card-explore").textContent).toContain("explore");
+    expect(screen.getByTestId("skill-card-spec").textContent).toContain("spec");
   });
 
   it("DocReader reference-agents view lists agent names", () => {
@@ -504,8 +505,8 @@ describe("AC-08-002.3 — selecting a page renders it in the reading area", () =
         standards={FIXTURE_STANDARDS}
       />,
     );
-    // WO-08-003: delegated to ReferenceAgentsSection (testid: -section)
-    const view = screen.getByTestId("reference-agents-section");
+    // Agents render through the shared AgentList (agent-card).
+    const view = screen.getByTestId("doc-reader-reference");
     expect(within(view).getByText("Backend Developer")).toBeTruthy();
   });
 
@@ -519,7 +520,7 @@ describe("AC-08-002.3 — selecting a page renders it in the reading area", () =
         standards={FIXTURE_STANDARDS}
       />,
     );
-    const view = screen.getByTestId("reference-rules-view");
+    const view = screen.getByTestId("rules-section");
     expect(within(view).getByText("DR-001")).toBeTruthy();
   });
 
@@ -533,7 +534,7 @@ describe("AC-08-002.3 — selecting a page renders it in the reading area", () =
         standards={FIXTURE_STANDARDS}
       />,
     );
-    const view = screen.getByTestId("reference-standards-view");
+    const view = screen.getByTestId("standards-section");
     expect(within(view).getByText("Conventions")).toBeTruthy();
   });
 });

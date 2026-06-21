@@ -22,14 +22,17 @@
  */
 
 import type React from "react";
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { DecisionRulesSection } from "@/app/configuration/_rules/DecisionRulesSection/DecisionRulesSection";
+import { AgentDetail } from "@/app/configuration/AgentDetail";
+import { AgentList } from "@/app/configuration/AgentList";
+import { SkillsSection } from "@/app/configuration/SkillsSection";
+import { StandardsSection } from "@/app/configuration/StandardsSection/StandardsSection";
+import type { AgentLevelResult } from "@/lib/gamification/agents";
 import type { AgentRef, SkillRef } from "@/lib/reference/reference";
 import type { DecisionRule } from "@/lib/registry/registry";
 import type { Standard } from "@/lib/standards/standards";
-import { ReferenceAgentsSection } from "./ReferenceAgentsSection";
-import { ReferenceCommandsSection } from "./ReferenceCommandsSection/ReferenceCommandsSection";
-import { ReferenceRulesView } from "./ReferenceRulesView";
-import { ReferenceStandardsView } from "./ReferenceStandardsView";
 import type { ReaderActivePage } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -87,8 +90,46 @@ const PAGE_TITLE_STYLE: React.CSSProperties = {
 };
 
 // ---------------------------------------------------------------------------
-// Reference catalog views — all four delegated to dedicated components (WO-08-003/004)
+// Reference catalog views — REUSE the FRD-07 card primitives VERBATIM (DR-046 /
+// DR-057): the Manual Referencia and Configuración stay visually + behaviorally
+// consistent because they render the SAME SkillsSection / AgentList /
+// DecisionRulesSection / StandardsSection — never a forked catalog.
 // ---------------------------------------------------------------------------
+
+/** Zero-state level for the agents catalog (the Manual has no computed XP). */
+const ZERO_AGENT_LEVEL: AgentLevelResult = {
+  level: 1,
+  title: "Apprentice",
+  xp: 0,
+  next: 5,
+  pctToNext: 0,
+};
+
+/**
+ * Agents reference catalog — reuses the shared AgentList + AgentDetail (FRD-07).
+ * Manages its own selection state since the Manual has no parent shell for it.
+ */
+function ReferenceAgentsCatalog({ agents }: { agents: AgentRef[] }): React.JSX.Element {
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const levels: Record<string, AgentLevelResult> = {};
+  const selectedAgent = selectedAgentId
+    ? (agents.find((a) => a.id === selectedAgentId) ?? null)
+    : null;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "calc(var(--space-base) * 1.5)" }}>
+      <AgentList
+        agents={agents}
+        levels={levels}
+        selectedAgentId={selectedAgentId}
+        onSelectAgent={setSelectedAgentId}
+      />
+      {selectedAgent !== null ? (
+        <AgentDetail agent={selectedAgent} level={ZERO_AGENT_LEVEL} />
+      ) : null}
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Prose wrapper for react-markdown output
@@ -130,12 +171,13 @@ export function DocReader({
           </div>
         </article>
       ) : (
-        /* Reference catalog view — AC-08-002.3: render derived catalog */
+        /* Reference catalog view — AC-08-002.3: render derived catalog by REUSING
+           the FRD-07 card primitives verbatim (DR-046 / DR-057), never a fork. */
         <article data-testid="doc-reader-reference">
-          {activePage.catalog === "commands" && <ReferenceCommandsSection skills={skills} />}
-          {activePage.catalog === "agents" && <ReferenceAgentsSection agents={agents} />}
-          {activePage.catalog === "rules" && <ReferenceRulesView rules={rules} />}
-          {activePage.catalog === "standards" && <ReferenceStandardsView standards={standards} />}
+          {activePage.catalog === "commands" && <SkillsSection skills={skills} />}
+          {activePage.catalog === "agents" && <ReferenceAgentsCatalog agents={agents} />}
+          {activePage.catalog === "rules" && <DecisionRulesSection rules={rules} />}
+          {activePage.catalog === "standards" && <StandardsSection standards={standards} />}
         </article>
       )}
     </main>

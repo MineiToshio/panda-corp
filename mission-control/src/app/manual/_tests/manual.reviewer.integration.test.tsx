@@ -161,15 +161,16 @@ describe("FRD-08 reviewer — Manual derivation integration (DR-046, anti-orphan
     seedFullFactory();
     renderManual();
     // Anti-orphan: the catalog must NOT show before selection (reader starts empty).
-    expect(screen.queryByTestId("reference-commands-section")).toBeNull();
+    expect(screen.queryByTestId("skills-section")).toBeNull();
 
     selectNav("doc-nav-item-reference-commands");
 
-    const section = screen.getByTestId("reference-commands-section");
+    // Reuses the FRD-07 SkillsSection → SkillList (skills-section / skill-card-<slug>).
+    const section = screen.getByTestId("skills-section");
     expect(within(section).getByText("/pandacorp:spec")).toBeTruthy();
     expect(within(section).getByText("/pandacorp:implement")).toBeTruthy();
     // Malformed skill (no description) is skipped end-to-end — never reaches the user.
-    expect(screen.queryByTestId("reference-command-no-desc")).toBeNull();
+    expect(screen.queryByTestId("skill-card-no-desc")).toBeNull();
   });
 
   it("AC-08-003.3 (DR-046 swap) — renaming a skill dir in the factory renames it in the Manual, with ZERO Manual file edits", () => {
@@ -200,7 +201,8 @@ describe("FRD-08 reviewer — Manual derivation integration (DR-046, anti-orphan
     renderManual();
     selectNav("doc-nav-item-reference-agents");
 
-    const section = screen.getByTestId("reference-agents-section");
+    // Reuses the FRD-07 AgentList (agent-list / agent-card / agent-model-chip).
+    const section = screen.getByTestId("agent-list");
     expect(within(section).getByText("Reviewer")).toBeTruthy();
     expect(within(section).getByText("Implementer")).toBeTruthy();
     // Model surfaced as a labelled badge (not color alone).
@@ -213,18 +215,20 @@ describe("FRD-08 reviewer — Manual derivation integration (DR-046, anti-orphan
     renderManual();
     selectNav("doc-nav-item-reference-rules");
 
-    const view = screen.getByTestId("reference-rules-view");
-    expect(within(view).getByTestId("reference-rule-DR-XEDGE-AUTO")).toBeTruthy();
-    expect(within(view).getByTestId("reference-rule-DR-XEDGE-HUMAN")).toBeTruthy();
+    // Reuses the FRD-07 DecisionRulesSection (rules-section / rule-item-<id>).
+    const view = screen.getByTestId("rules-section");
+    expect(within(view).getByTestId("rule-item-DR-XEDGE-AUTO")).toBeTruthy();
+    expect(within(view).getByTestId("rule-item-DR-XEDGE-HUMAN")).toBeTruthy();
 
-    // The human-gate rule must carry a readable text indicator + data attribute.
+    // The human-gate rule must carry a readable text indicator + data attribute
+    // (state never by color alone): the shared indicator pairs a dot + a label.
     const humanIndicator = screen.getByTestId("rule-indicator-DR-XEDGE-HUMAN");
-    expect(humanIndicator.textContent).toContain("Requiere humano");
-    expect(humanIndicator.getAttribute("data-requires-human")).toBe("true");
+    expect(humanIndicator.textContent).toContain("Te consulta");
+    expect(humanIndicator.getAttribute("data-indicator")).toBe("human");
 
     const autoIndicator = screen.getByTestId("rule-indicator-DR-XEDGE-AUTO");
-    expect(autoIndicator.textContent).toContain("Auto-aprobado");
-    expect(autoIndicator.getAttribute("data-requires-human")).toBe("false");
+    expect(autoIndicator.textContent).toContain("Auto-aprueba");
+    expect(autoIndicator.getAttribute("data-indicator")).toBe("auto");
   });
 
   it("AC-08-004.2/.4 — standards are derived end-to-end; structure.md (DR-049) surfaces; README.md is skipped", () => {
@@ -232,23 +236,21 @@ describe("FRD-08 reviewer — Manual derivation integration (DR-046, anti-orphan
     renderManual();
     selectNav("doc-nav-item-reference-standards");
 
-    const view = screen.getByTestId("reference-standards-view");
+    // Reuses the FRD-07 StandardsSection (standards-section / standard-item-<id>).
+    const view = screen.getByTestId("standards-section");
     // structure.md (DR-049 currency) flows through the same uniform loop.
     // The standards reader ids entries by filename (incl. extension).
-    expect(within(view).getByTestId("reference-standard-structure.md")).toBeTruthy();
-    expect(within(view).getByTestId("reference-standard-conventions.md")).toBeTruthy();
-    expect(within(view).getByTestId("standard-domain-structure.md").textContent).toContain(
-      "structure",
-    );
+    expect(within(view).getByTestId("standard-item-structure.md")).toBeTruthy();
+    expect(within(view).getByTestId("standard-item-conventions.md")).toBeTruthy();
     // README.md must NOT become a standard entry.
-    expect(screen.queryByTestId("reference-standard-README.md")).toBeNull();
+    expect(screen.queryByTestId("standard-item-README.md")).toBeNull();
   });
 
   it("AC-08-004.3 (DR-046 swap) — removing a rule from the registry removes it from the Manual with no Manual edit", () => {
     seedFullFactory();
     renderManual();
     selectNav("doc-nav-item-reference-rules");
-    expect(screen.getByTestId("reference-rule-DR-XEDGE-HUMAN")).toBeTruthy();
+    expect(screen.getByTestId("rule-item-DR-XEDGE-HUMAN")).toBeTruthy();
     cleanup();
 
     // Drop one rule from the registry (factory-only change).
@@ -259,8 +261,8 @@ describe("FRD-08 reviewer — Manual derivation integration (DR-046, anti-orphan
 
     renderManual();
     selectNav("doc-nav-item-reference-rules");
-    expect(screen.getByTestId("reference-rule-DR-XEDGE-AUTO")).toBeTruthy();
-    expect(screen.queryByTestId("reference-rule-DR-XEDGE-HUMAN")).toBeNull();
+    expect(screen.getByTestId("rule-item-DR-XEDGE-AUTO")).toBeTruthy();
+    expect(screen.queryByTestId("rule-item-DR-XEDGE-HUMAN")).toBeNull();
   });
 
   it("AC-08-001/.005 — authored content pages reach the reader: selecting one renders its body via the markdown reader", () => {
@@ -287,11 +289,13 @@ describe("FRD-08 reviewer — Manual derivation integration (DR-046, anti-orphan
     renderManual();
 
     selectNav("doc-nav-item-reference-commands");
-    expect(screen.getByTestId("reference-commands-empty")).toBeTruthy();
+    // Shared SkillList honest empty state.
+    expect(screen.getByTestId("skill-list-empty")).toBeTruthy();
     cleanup();
 
     renderManual();
     selectNav("doc-nav-item-reference-rules");
-    expect(screen.getByTestId("reference-rules-empty")).toBeTruthy();
+    // Shared DecisionRulesSection honest empty state.
+    expect(screen.getByTestId("rules-empty")).toBeTruthy();
   });
 });

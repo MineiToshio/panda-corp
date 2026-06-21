@@ -19,6 +19,7 @@
  */
 
 import Link from "next/link";
+import { CountBadge } from "@/components/core/CountBadge/CountBadge";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -53,22 +54,6 @@ const LINK_BASE_STYLE: React.CSSProperties = {
   fontSize: "0.75rem",
   fontWeight: 500,
   transition: "background 0.15s",
-};
-
-const BADGE_STYLE: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  minWidth: "1.25rem",
-  height: "1.25rem",
-  padding: "0 0.25rem",
-  borderRadius: "9999px",
-  fontSize: "0.6875rem",
-  fontWeight: 700,
-  lineHeight: 1,
-  background: "var(--color-accent, currentColor)",
-  color: "var(--color-base, Canvas)",
-  fontVariantNumeric: "tabular-nums",
 };
 
 const LABEL_STYLE: React.CSSProperties = {
@@ -111,10 +96,11 @@ export function ProposalsBadge({ openCount }: ProposalsBadgeProps): React.JSX.El
           Propuestas
         </span>
 
-        {/* Count pill — only shown when there are open proposals (AC-17-007.4) */}
+        {/* Count pill — only shown when there are open proposals (AC-17-007.4).
+            The pill IS the shared CountBadge primitive (DR-057): no bespoke pill. */}
         {hasProposals && (
-          <span data-testid="proposals-badge-count" style={BADGE_STYLE} aria-hidden="true">
-            {openCount}
+          <span data-testid="proposals-badge-count" aria-hidden="true">
+            <CountBadge count={openCount} tone="accent" />
           </span>
         )}
       </Link>

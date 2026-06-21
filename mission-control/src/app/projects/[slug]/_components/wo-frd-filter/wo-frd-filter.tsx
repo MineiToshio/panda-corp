@@ -14,7 +14,10 @@
  *   - data-testid on every interactive element.
  *   - aria-pressed on each toggle button (a11y).
  *   - Spanish copy (UI-facing).
+ *   - The option pills ARE the shared Chip primitive (DR-057), not a bespoke pill.
  */
+
+import { Chip } from "@/components/core/Chip/Chip";
 
 // ---------------------------------------------------------------------------
 // Styles
@@ -41,27 +44,16 @@ const LABEL_STYLE: React.CSSProperties = {
   marginRight: "calc(var(--spacing, 0.25rem) * 1)",
 };
 
-function chipStyle(active: boolean): React.CSSProperties {
-  return {
-    display: "inline-block",
-    fontSize: "0.75rem",
-    fontWeight: active ? 700 : 500,
-    padding: "2px calc(var(--spacing, 0.25rem) * 2)",
-    borderRadius: "9999px",
-    border: "var(--hairline, 1px) solid var(--color-border, currentColor)",
-    background: active ? "var(--color-accent-bg, oklch(0.35 0.05 250 / 0.15))" : "transparent",
-    color: active
-      ? "var(--color-accent, var(--color-text, currentColor))"
-      : "var(--color-text-muted, currentColor)",
-    cursor: "pointer",
-    transition: "background var(--motion-duration-fast, 80ms) var(--motion-easing-default, ease)",
-    fontFamily: "var(--font-mono, ui-monospace, monospace)",
-    maxWidth: "200px",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  };
-}
+/** The toggle <button> is a transparent shell; the visual pill is the shared Chip. */
+const TOGGLE_STYLE: React.CSSProperties = {
+  display: "inline-flex",
+  background: "none",
+  border: "none",
+  padding: 0,
+  margin: 0,
+  cursor: "pointer",
+  maxWidth: "200px",
+};
 
 // ---------------------------------------------------------------------------
 // Component
@@ -97,9 +89,10 @@ export function WoFrdFilter({ frds, selected, onSelect }: WoFrdFilterProps): Rea
         data-testid="wo-frd-filter-all"
         aria-pressed={allActive}
         onClick={() => onSelect(null)}
-        style={chipStyle(allActive)}
+        style={TOGGLE_STYLE}
       >
-        Todos
+        {/* The pill IS the shared Chip primitive (DR-057), not a bespoke chipStyle() */}
+        <Chip tone={allActive ? "accent" : "secondary"}>Todos</Chip>
       </button>
       {frds.map((frd) => {
         const active = selected === frd;
@@ -111,10 +104,10 @@ export function WoFrdFilter({ frds, selected, onSelect }: WoFrdFilterProps): Rea
             aria-pressed={active}
             aria-label={`Filtrar por ${frd}`}
             onClick={() => onSelect(frd)}
-            style={chipStyle(active)}
+            style={TOGGLE_STYLE}
             title={frd}
           >
-            {frd}
+            <Chip tone={active ? "accent" : "secondary"}>{frd}</Chip>
           </button>
         );
       })}

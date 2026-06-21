@@ -21,6 +21,9 @@
 
 import type React from "react";
 
+import type { AgentRole } from "@/app/_design/tokens/tokens";
+import { Chip } from "@/components/core/Chip/Chip";
+import { CopyButton } from "@/components/core/CopyButton/CopyButton";
 import type { RunsIn, SkillRef } from "@/lib/reference/reference";
 import { FlowDiagram } from "./FlowDiagram";
 
@@ -62,6 +65,13 @@ const BACK_BTN_STYLE: React.CSSProperties = {
   fontSize: "0.8125rem",
   color: "var(--color-text-muted, currentColor)",
   fontFamily: "inherit",
+};
+
+const NAME_ROW_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  flexWrap: "wrap",
+  gap: "calc(var(--spacing, 0.25rem) * 3)",
 };
 
 const SKILL_NAME_STYLE: React.CSSProperties = {
@@ -125,6 +135,11 @@ export interface SkillDetailProps {
   skill: SkillRef;
   /** Called when the user clicks the back button. */
   onBack: () => void;
+  /**
+   * Cross-navigation (FRD-07 EARS): called with an agent role when the owner
+   * clicks an agent chip in the mini-flow, to jump to that agent's detail.
+   */
+  onAgentClick?: (role: AgentRole) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -144,7 +159,7 @@ export interface SkillDetailProps {
  *
  * No edit affordance anywhere (AC-07-006.5).
  */
-export function SkillDetail({ skill, onBack }: SkillDetailProps): React.JSX.Element {
+export function SkillDetail({ skill, onBack, onAgentClick }: SkillDetailProps): React.JSX.Element {
   const skillName = `/pandacorp:${skill.slug}`;
   const runsInLabel = RUNS_IN_LABEL[skill.runsIn];
 
@@ -162,11 +177,21 @@ export function SkillDetail({ skill, onBack }: SkillDetailProps): React.JSX.Elem
         </button>
       </div>
 
-      {/* Header: name + description */}
+      {/* Header: name + interno flag + copy-to-clipboard + description */}
       <div style={HEADER_STYLE}>
-        <h2 data-testid="skill-detail-name" style={SKILL_NAME_STYLE}>
-          {skillName}
-        </h2>
+        <div style={NAME_ROW_STYLE}>
+          <h2 data-testid="skill-detail-name" style={SKILL_NAME_STYLE}>
+            {skillName}
+          </h2>
+          {/* Copy-to-clipboard for the /pandacorp:<slug> command (EARS) */}
+          <CopyButton value={skillName} />
+          {/* "interno" flag — internal skills are invoked by another skill (EARS) */}
+          {skill.internal && (
+            <span data-testid="skill-detail-internal" title="Skill interno">
+              <Chip tone="secondary">interno</Chip>
+            </span>
+          )}
+        </div>
         <p data-testid="skill-detail-description" style={DESCRIPTION_STYLE}>
           {skill.description}
         </p>
@@ -182,10 +207,18 @@ export function SkillDetail({ skill, onBack }: SkillDetailProps): React.JSX.Elem
         </span>
       </div>
 
-      {/* Mini-flow: agent chips */}
+      {/* What it produces (EARS: the detail SHALL show what it produces) */}
+      <div data-testid="skill-detail-produces">
+        <p style={SECTION_LABEL_STYLE}>Produce</p>
+        <p style={DESCRIPTION_STYLE}>
+          {skill.produces ?? "Su salida no está declarada de forma legible en el skill."}
+        </p>
+      </div>
+
+      {/* Mini-flow: agent chips (cross-navigation to each agent's detail) */}
       <div data-testid="skill-detail-flow">
         <p style={SECTION_LABEL_STYLE}>Agentes que usa (flujo)</p>
-        <FlowDiagram body={skill.body} />
+        <FlowDiagram body={skill.body} onAgentClick={onAgentClick} />
       </div>
 
       <hr style={DIVIDER_STYLE} />
