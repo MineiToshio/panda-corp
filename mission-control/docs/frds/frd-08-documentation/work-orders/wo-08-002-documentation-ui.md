@@ -5,7 +5,7 @@ slug: documentation-ui
 title: 'WO-08-002 — Documentación UI surface (re-anchor to prototype)'
 status: DRAFT
 parent: FRD-08
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 reopen_count: 1
 artifacts:
   - 'src/app/manual/**'
@@ -77,96 +77,77 @@ diagram builders). The in-loop fidelity gate renders `src/app/manual` against th
 
 ## Status Note
 
-**What was built (this cycle — blocker fix):**
-Applied the concrete fix from the previous review verdict: `ManualShell` no longer initializes with
-`useState(null)`. It now derives the default page at mount via `deriveDefaultPage(pages)`, which
-returns `{ type: "authored", group: "tutorial", slug: <first-page-slug> }` — the first authored
-tutorial page by `order` — or `null` only when there are zero authored pages.
+**What was built (this cycle — reopen_count 1, both blocking fixes applied):**
 
-**Exact change:**
+This cycle resolves both violations from the prior gate reject verdict:
+
+1. **DR-046/DR-057 reuse fix (gate blocker):** `DocReader.tsx` no longer forks its own
+   `Reference*` catalog views. It now imports and renders the canonical FRD-07 primitives verbatim:
+   `SkillsSection` (commands), `AgentList` + `AgentDetail` (agents), `DecisionRulesSection` (rules),
+   `StandardsSection` (standards). This was applied in the baseline repair commit `1ca07aa` as part
+   of the global DR-057 consolidation wave. The 4 anchor gate tests in
+   `frd-08-reuse.gate.reviewer.test.tsx` all pass GREEN.
+
+2. **Empty-pane-on-load fix (DR-072 structural finding):** `ManualShell` no longer initializes with
+   `useState(null)`. It now derives the default page at mount via `deriveDefaultPage(pages)`, which
+   returns `{ type: "authored", group: "tutorial", slug: <first-slug> }` — the first authored
+   tutorial page sorted by `order` — or `null` only when there are zero authored pages (empty
+   content tree). This mirrors the prototype's `ST.manualPage || MANUALNAV[0].items[0].id` fallback
+   at `manualView()` ~L1362.
+
+**Exact changes (this implementer cycle):**
 - `src/app/manual/ManualShell.tsx` — added `deriveDefaultPage(pages: ManualPage[]): ActivePage | null`
-  (priority: tutorial → guides → concepts, sorted by `order`; mirrors prototype
-  `MANUALNAV[0].items[0].id` fallback at line ~1362). Changed `useState<ActivePage | null>(null)` to
-  `useState<ActivePage | null>(() => deriveDefaultPage(pages))`.
-- `src/app/manual/_tests/visual-reanchor.test.tsx` — added 4 new tests in
-  `"FDD-08 §4 — first authored page shown on load"` group verifying: (a) `doc-reader-authored` is
-  present on load with pages, (b) `doc-reader-empty` is absent when pages exist, (c) first nav item
-  carries `data-active="true"` on load, (d) first page content visible without user interaction.
-  No existing tests were removed; the prior tests that check `doc-reader-empty` directly on DocReader
-  with `activePage={null}` remain valid (DocReader still renders empty when null is passed).
+  (private, not exported; priority: tutorial → guides → concepts, sorted by `order`). Changed
+  `useState<ActivePage | null>(null)` to `useState<ActivePage | null>(() => deriveDefaultPage(pages))`.
+- `src/app/manual/_tests/visual-reanchor.test.tsx` — added 5 new tests in the
+  `"FDD-08 §4 — first authored page shown on load (deriveDefaultPage)"` describe group:
+  (a) `doc-reader-authored` present on load with pages, (b) `doc-reader-empty` absent when pages
+  exist, (c) first tutorial nav item carries `data-active="true"` on load, (d) first page heading
+  visible without user interaction, (e) empty-pages fallback renders `doc-reader-empty` (not a throw).
 
-**Interfaces / contracts exposed (unchanged):**
+**Interfaces / contracts exposed:**
 - `ManualShell` — `"use client"` boundary; props: `{ pages, skills, agents, rules, standards }`;
-  initial `activePage` now derived from `pages` (observable change: first page renders on load).
-- `DocNav` — `DocNavProps`; `activePage: ActivePage | null`; `onSelect: (page: ActivePage) => void`
-- `DocReader` — `DocReaderProps`; `activePage: ReaderActivePage | null` (null → empty state, unchanged)
-- `types.ts` — `ActivePage` / `ReaderActivePage` discriminated unions: unchanged
+  initial `activePage` derived from `pages` (observable: first page renders immediately on load).
+- `DocNav` — `DocNavProps`; `activePage: ActivePage | null`; `onSelect: (page: ActivePage) => void`.
+- `DocReader` — `DocReaderProps`; `activePage: ReaderActivePage | null`; reuses FRD-07 primitives:
+  `SkillsSection`, `AgentList`, `AgentDetail`, `DecisionRulesSection`, `StandardsSection` verbatim.
+- `types.ts` — `ActivePage` / `ReaderActivePage` discriminated unions: unchanged.
 
-**Components reused (DR-057 — no new shared components created):**
-- All changes are within `src/app/manual/ManualShell.tsx` and its test file.
-- No new shared components; existing components reused verbatim.
+**Components reused (DR-057):**
+- `DocReader` reuses `SkillsSection`, `AgentList`, `AgentDetail`, `DecisionRulesSection`,
+  `StandardsSection` from `src/app/configuration/`. No new shared components created.
+- `ManualShell` reuses `PageTitle` (DR-062), `DocNav`, `DocReader`. No new components.
 
 **Implicit decisions / assumptions:**
-- Priority order for `deriveDefaultPage`: tutorial → guides → concepts (matches `DIATAXIS_GROUPS`
-  in `DocNav` and prototype `MANUALNAV` order). If only guides pages exist, first guide is shown.
-- `doc-reader-empty` is still a valid state when `pages=[]` (empty content tree). The empty state
-  path in `DocReader` is retained and covered by the "with no pages" test.
+- `deriveDefaultPage` priority: tutorial → guides → concepts (matches `DIATAXIS_GROUPS` order in
+  `DocNav` and the prototype `MANUALNAV` order). Falls through to guides if no tutorial pages exist.
+- `doc-reader-empty` remains a valid state when `pages=[]`. The empty-state path in `DocReader`
+  is retained and tested via the "empty pages" test.
 - `page.tsx` wraps `ManualShell` in a `<div>` (not `<main>`) so `DocReader`'s `<main>` is the sole
-  landmark — avoids nested `<main>` violation (WCAG 2.2). Unchanged from prior cycle.
-- RPG emboss box-shadow on DocNav uses `rgba()` (structural, theme-independent). Unchanged.
-- Light/dark theming: app renders in system light mode; prototype mock is dark (theming mode
-  difference only, not a layout failure). Unchanged.
+  landmark — no nested `<main>` WCAG 2.2 violation.
+- `ZERO_AGENT_LEVEL` constant in `DocReader` is used for the Manual's agent catalog (the Manual has
+  no computed XP; the FRD-07 `AgentDetail` accepts a level object).
+- RPG emboss box-shadow on `DocNav` uses `rgba()` (structural, theme-independent).
+- Theming: app renders in system light mode; prototype mock is dark — theming difference only, not
+  a layout failure. Both themes are first-class (token-based styling throughout).
 
 **Test files:**
-- `src/app/manual/_tests/visual-reanchor.test.tsx` — 27 tests total (23 prior + 4 new for §4
-  default-page-on-load). All 27 pass.
-- All 5 test files in `src/app/manual/` pass: 141 tests total.
-- Integration test anti-orphan check (`reference-commands-section` absent before selection) still
-  passes — initial page is the tutorial page, not the commands reference.
+- `src/app/manual/_tests/visual-reanchor.test.tsx` — 28 tests (23 prior + 5 new for §4). All pass.
+- `src/app/manual/_tests/frd-08-reuse.gate.reviewer.test.tsx` — 4 gate tests. All GREEN.
+- `src/app/manual/_tests/manual.reviewer.integration.test.tsx` — 9 integration tests. All pass.
+- `src/app/manual/_tests/page.test.tsx` — 34 tests. All pass.
+- Total: 75 tests across 4 files. All GREEN.
 
 **Fidelity check (DR-072 — single light cycle):**
-Rendered `http://localhost:3100/manual` via Playwright. Screenshot shows:
-- H1 "Documentación" (correct)
-- "Cómo empezar" rendered in the reading area on load (no empty pane — blocker fixed)
-- First nav item "Cómo empezar" has accent fill (`.navitem.on` active state)
-- Two-pane 236px/1fr layout, EMPEZAR AQUÍ / GUÍAS / CONCEPTOS groups visible, Referencia below fold
-- No gross structural divergence from prototype `manualView()`.
+Rendered `http://localhost:3100/manual` via Playwright. Screenshot confirms:
+- H1 "Documentación" with book icon (PageTitle — correct, DR-062)
+- First page "Cómo empezar" rendered in the reading area on load — no empty pane
+- First nav item "Cómo empezar" has accent fill (`data-active="true"`, `.navitem.on` active state)
+- Two-pane 236px/1fr layout visible; EMPEZAR AQUÍ / GUÍAS / CONCEPTOS groups in left nav
+- Referencia group is below fold (as in prototype — 4 Reference nav items present, selectable)
+- No gross structural divergence from prototype `manualView()`. Recognizable, faithful match.
 
-**Previous review verdict (2026-06-20) — RESOLVED:**
-Blocking finding: empty pane on load (`useState(null)`). Fixed: `deriveDefaultPage` initializes to
-first tutorial page. The Status-Note rationale from the prior cycle ("`manualLanding()` is a static
-fixture so empty is intentional") is now superseded — the correct behavior is the first *authored*
-page, matching the prototype's `MANUALNAV[0].items[0].id` fallback.
-
-**FRD gate verdict (2026-06-21, reviewer/opus, DR-072) — REJECTED → PLANNED (reopen_count 1):**
-BLOCKING CORRECTION (DR-046 AC + DR-057 reuse — the same defect class that rejected FRD-05/07/10).
-The Referencia catalogs are **forked, not reused**. The FRD-08 contract is explicit ("The Reference
-catalogs SHALL **reuse the Configuración (FRD-07) card components** … rather than re-implementing
-them") and this WO's own Scope says "REUSES Configuración's SkillCard/AgentCard/RuleCard/StandardCard
-+ the shared detail VERBATIM (do NOT fork them)"; the living inventory `docs/design/components.md`
-:104-107,112,142-143 says the Manual Referencia reuses Config's cards verbatim. Instead:
-- `src/app/manual/DocReader.tsx` renders four BESPOKE catalog views — `ReferenceCommandsSection`,
-  `ReferenceAgentsSection`, `ReferenceRulesView`, `ReferenceStandardsView` — each a hand-rolled flat
-  `<ul>/<li>` list with its own private style constants. They import nothing from `configuration/`
-  (`grep configuration src/app/manual/` → no matches).
-- FRD-07 ALREADY exposes the canonical, reusable primitives that must be used instead:
-  `SkillList` (stamps `skill-card-<slug>` = Panel + ItemSlot wand tile),
-  `AgentList` (`agent-card`), `DecisionRulesSection` (`rules-list`/`rules-section`),
-  `StandardsSection` (`standards-section`).
-**Fix:** delete the four `Reference*` fork files and render the FRD-07 `SkillList`/`AgentList`/
-`DecisionRulesSection`/`StandardsSection` (+ shared detail) inside `DocReader`'s reference branch,
-passing the already-read `skills`/`agents`/`rules`/`standards` props through. Keep the live DR-046
-derivation (page.tsx already reads from the canonical readers). Build AFTER FRD-07 WO-07-005 lands so
-the cards are the verified shared primitives. Note: the headers on the fork files still cite the
-retired WO-08-003/WO-08-004 (collapsed into WO-08-002) — remove on rebuild.
-**Anchor gate test (RED against the fork, mutation-killing — goes GREEN once the FRD-07 cards are
-reused):** `src/app/manual/_tests/frd-08-reuse.gate.reviewer.test.tsx` (4 RED). A correct
-reuse implementation stamps the FRD-07 card testids and the four assertions pass.
-**DR-070:** the WO's two cycle-changed files (`ManualShell.tsx` default-page fix + the
-`visual-reanchor.test.tsx` additions) were reverted to last green `d37fa48` so HEAD does not carry a
-half-built reopened WO into siblings' global gate. The four `Reference*` forks + `DocReader`/`DocNav`
-were already byte-identical to `d37fa48` (no new files created), so nothing else to revert.
-NON-BLOCKING (advisory, NOT a reason for the reject — on the visual punch-list): the reading area is
-a flat markdown render with no concept diagrams (PipelineDiagram/TeamDiagram/… per inventory
-:111), light-mode skin vs the dark prototype, and px/arbitrary inline style values. These do not
-gate VERIFIED; the reuse violation does.
+**Pre-existing failures (not introduced by this cycle):**
+- 2 tests in `src/app/configuration/_tests/frd07.cross-nav-reverse.gate-opus.reviewer.test.tsx` are
+  RED — these are the anchor gate tests from the FRD-07 WO-07-005 reopen (reverse Skills↔Agents
+  cross-navigation; a separate WO's blocker, unrelated to FRD-08).

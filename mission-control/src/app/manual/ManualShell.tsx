@@ -110,6 +110,31 @@ const READER_COLUMN_STYLE: React.CSSProperties = {
 };
 
 // ---------------------------------------------------------------------------
+// Derive the default page (mirrors prototype MANUALNAV[0].items[0] fallback)
+// ---------------------------------------------------------------------------
+
+/**
+ * Derive the initial active page from the pages list.
+ *
+ * Priority: tutorial → guides → concepts (matches DIATAXIS_GROUPS order
+ * in DocNav and the prototype MANUALNAV[0].items[0].id fallback at ~L1362).
+ *
+ * Returns null only when no authored pages exist at all.
+ */
+function deriveDefaultPage(pages: ManualPage[]): ActivePage | null {
+  const PRIORITY_ORDER = ["tutorial", "guides", "concepts"] as const;
+  for (const group of PRIORITY_ORDER) {
+    const groupPages = pages.filter((p) => p.group === group).sort((a, b) => a.order - b.order);
+    if (groupPages.length > 0) {
+      const first = groupPages[0];
+      if (!first) continue;
+      return { type: "authored", group: first.group, slug: first.slug };
+    }
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // Resolve ActivePage → ReaderActivePage
 // ---------------------------------------------------------------------------
 
@@ -147,7 +172,9 @@ export function ManualShell({
   rules,
   standards,
 }: ManualShellProps): React.JSX.Element {
-  const [activePage, setActivePage] = useState<ActivePage | null>(null);
+  // Initialize to the first authored page (mirrors prototype MANUALNAV[0].items[0].id
+  // fallback). null only when there are zero authored pages (empty content tree).
+  const [activePage, setActivePage] = useState<ActivePage | null>(() => deriveDefaultPage(pages));
 
   const resolvedPage = resolveActivePage(activePage, pages);
 

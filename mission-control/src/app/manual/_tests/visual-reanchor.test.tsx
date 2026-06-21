@@ -465,3 +465,85 @@ describe("Inline content pages — the Diátaxis page kinds", () => {
     expect(screen.getByTestId("doc-reader-authored")).toBeTruthy();
   });
 });
+
+// ---------------------------------------------------------------------------
+// FDD-08 §4 — first authored page shown on load (prototype MANUALNAV[0].items[0])
+// ManualShell must NOT start with an empty pane — the prototype always renders
+// the default page (ST.manualPage || MANUALNAV[0].items[0].id) on first load.
+// ---------------------------------------------------------------------------
+
+describe("FDD-08 §4 — first authored page shown on load (deriveDefaultPage)", () => {
+  it("doc-reader-authored is present on load when pages are provided", () => {
+    render(
+      <ManualShell
+        pages={PAGES}
+        skills={SKILLS}
+        agents={AGENTS}
+        rules={RULES}
+        standards={STANDARDS}
+      />,
+    );
+    // The first tutorial page must be rendered immediately — no user interaction required.
+    expect(screen.getByTestId("doc-reader-authored")).toBeTruthy();
+  });
+
+  it("doc-reader-empty is NOT shown on load when pages are provided", () => {
+    render(
+      <ManualShell
+        pages={PAGES}
+        skills={SKILLS}
+        agents={AGENTS}
+        rules={RULES}
+        standards={STANDARDS}
+      />,
+    );
+    expect(screen.queryByTestId("doc-reader-empty")).toBeNull();
+  });
+
+  it("the first nav item (tutorial group) carries data-active='true' on load", () => {
+    render(
+      <ManualShell
+        pages={PAGES}
+        skills={SKILLS}
+        agents={AGENTS}
+        rules={RULES}
+        standards={STANDARDS}
+      />,
+    );
+    // The first page in PAGES is tutorial/que-es (order:1).
+    const firstItem = screen.getByTestId("doc-nav-item-tutorial-que-es");
+    expect(firstItem.getAttribute("data-active")).toBe("true");
+  });
+
+  it("the first page content is visible without any user interaction", () => {
+    render(
+      <ManualShell
+        pages={PAGES}
+        skills={SKILLS}
+        agents={AGENTS}
+        rules={RULES}
+        standards={STANDARDS}
+      />,
+    );
+    // The first page title "Qué es Pandacorp" must appear in the reading area.
+    const reader = screen.getByTestId("doc-reader-authored");
+    const headings = reader.querySelectorAll("h1");
+    const hasTitle = Array.from(headings).some((h) => h.textContent?.includes("Qué es Pandacorp"));
+    expect(hasTitle).toBe(true);
+  });
+
+  it("ManualShell with empty pages still renders doc-reader (empty state, never throws)", () => {
+    render(
+      <ManualShell
+        pages={[]}
+        skills={SKILLS}
+        agents={AGENTS}
+        rules={RULES}
+        standards={STANDARDS}
+      />,
+    );
+    // No pages → empty state is acceptable; must not throw.
+    expect(screen.getByTestId("doc-reader")).toBeTruthy();
+    expect(screen.getByTestId("doc-reader-empty")).toBeTruthy();
+  });
+});
