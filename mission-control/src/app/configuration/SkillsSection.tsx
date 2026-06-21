@@ -45,12 +45,6 @@ export interface SkillsSectionProps {
    * clicks an agent chip in a skill's mini-flow, to jump to that agent's detail.
    */
   onAgentClick?: (role: AgentRole) => void;
-  /**
-   * Reverse cross-navigation (FRD-07 EARS): when set, opens the detail of the
-   * skill with this slug immediately (used when the owner jumps from an agent
-   * detail's "Usado por" chip to the corresponding skill's detail).
-   */
-  selectedSkillSlug?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -63,28 +57,17 @@ export interface SkillsSectionProps {
  * selectedSkill === null → SkillList
  * selectedSkill !== null → SkillDetail (with back button to return to list)
  */
-export function SkillsSection({
-  skills,
-  onAgentClick,
-  selectedSkillSlug,
-}: SkillsSectionProps): React.JSX.Element {
-  const [localSelectedSkill, setLocalSelectedSkill] = useState<SkillRef | null>(null);
-
-  // Derive the displayed skill: controlled (from cross-nav) takes precedence over local selection.
-  // Derive-don't-sync: compute during render, no useEffect mirror (react.md).
-  const controlledSkill =
-    selectedSkillSlug != null ? (skills.find((s) => s.slug === selectedSkillSlug) ?? null) : null;
-
-  const selectedSkill = controlledSkill ?? localSelectedSkill;
+export function SkillsSection({ skills, onAgentClick }: SkillsSectionProps): React.JSX.Element {
+  const [selectedSkill, setSelectedSkill] = useState<SkillRef | null>(null);
 
   return (
     <div data-testid="skills-section">
       {selectedSkill === null ? (
-        <SkillList skills={skills} onSelect={(skill) => setLocalSelectedSkill(skill)} />
+        <SkillList skills={skills} onSelect={(skill) => setSelectedSkill(skill)} />
       ) : (
         <SkillDetail
           skill={selectedSkill}
-          onBack={() => setLocalSelectedSkill(null)}
+          onBack={() => setSelectedSkill(null)}
           onAgentClick={onAgentClick}
         />
       )}

@@ -2,17 +2,17 @@
 /**
  * WO-07-005 — SectionTabs (CMP-07-config-page, tab bar portion)
  *
- * Delegates entirely to the shared SubTabs primitive (DR-057 / DR-062).
- * THE one tab pattern is src/components/core/Tabs/Tabs.tsx — no bespoke
- * per-screen tablist (a hand-rolled role="tablist" is a DR-062 defect).
- *
- * Four sections in exact order: Habilidades · Agentes · Reglas de decisión · Estándares
- * (AC-07-005.1). Controlled: receives activeSection + onSectionChange (AC-07-005.2).
- *
- * testIdPrefix="config-tab-"  → data-testid="config-tab-skills" etc. (all downstream
- *   tests keep stable config-tab-{id} testids).
- * tabIdPrefix="config-tab-id-" → id="config-tab-id-skills" etc. so the paired
- *   role="tabpanel" elements can use aria-labelledby (AC-07-005.4).
+ * Client Component: section tab bar for the Configuration page.
+ *   - Four sections in exact order: Habilidades · Agentes · Reglas de decisión · Estándares
+ *     (AC-07-005.1).
+ *   - Controlled: receives activeSection + onSectionChange callback (AC-07-005.2).
+ *   - role="tablist" with aria-selected on the active tab (AC-07-005.4).
+ *   - Spanish labels and aria-label (architecture §7 — UI copy in Spanish, AC-07-005.4).
+ *   - Active state paired with data-active + aria-selected, NOT color alone (AC-07-005.3 a11y).
+ *   - Keyboard-navigable: Enter / Space activate the focused tab (AC-07-005.4).
+ *   - ZERO hardcoded colors — CSS custom properties only (FRD-13 / AC-07-005.3).
+ *   - data-testid="config-section-tabs" on container; "config-tab-<id>" on each tab.
+ *   - Stable id on each tab for aria-labelledby pairing with panels.
  *
  * Traceability:
  *   CMP-07-config-page → FRD-07
@@ -20,7 +20,7 @@
  */
 
 import type React from "react";
-import { SubTabs } from "@/components/core/Tabs/Tabs";
+import { useCallback } from "react";
 
 // ---------------------------------------------------------------------------
 // Section definitions (AC-07-005.1 — four sections in exact order)
@@ -28,12 +28,17 @@ import { SubTabs } from "@/components/core/Tabs/Tabs";
 
 export type SectionId = "skills" | "agents" | "rules" | "standards";
 
-const SECTION_TABS = [
+interface SectionDef {
+  id: SectionId;
+  label: string; // Spanish label (AC-07-005.4)
+}
+
+const SECTIONS: SectionDef[] = [
   { id: "skills", label: "Habilidades" },
   { id: "agents", label: "Agentes" },
   { id: "rules", label: "Reglas de decisión" },
   { id: "standards", label: "Estándares" },
-] as const;
+];
 
 // ---------------------------------------------------------------------------
 // Props
@@ -47,47 +52,104 @@ export interface SectionTabsProps {
 }
 
 // ---------------------------------------------------------------------------
-// Container style — wraps the SubTabs with the section-specific chrome
-// (bottom border, scrollable overflow)
+// Styles — CSS custom properties only, zero hardcoded colors (FRD-13)
 // ---------------------------------------------------------------------------
 
-const CONTAINER_STYLE: React.CSSProperties = {
-  flexShrink: 0,
+const TABLIST_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "row",
+  gap: 0,
   borderBottom: "var(--hairline, 1px) solid var(--color-border, currentColor)",
   background: "var(--color-surface, Canvas)",
   overflowX: "auto",
   scrollbarWidth: "none",
-  padding: "calc(var(--spacing, 0.25rem) * 2) calc(var(--spacing, 0.25rem) * 8)",
 };
 
+function tabStyle(active: boolean): React.CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "calc(var(--spacing, 0.25rem) * 3) calc(var(--spacing, 0.25rem) * 5)",
+    fontSize: "0.8125rem",
+    fontWeight: active ? 600 : 400,
+    color: active ? "var(--color-accent, currentColor)" : "var(--color-text2, currentColor)",
+    textDecoration: "none",
+    /* Active underline: 2px accent bottom border (shape indicator, not color alone).
+     * Use only longhand properties to avoid the borderBottom + borderBottomStyle conflict. */
+    borderTopStyle: "solid",
+    borderRightStyle: "solid",
+    borderLeftStyle: "solid",
+    borderBottomStyle: "solid",
+    borderTopWidth: "0",
+    borderRightWidth: "0",
+    borderLeftWidth: "0",
+    borderBottomWidth: "2px",
+    borderTopColor: "transparent",
+    borderRightColor: "transparent",
+    borderLeftColor: "transparent",
+    borderBottomColor: active ? "var(--color-accent, currentColor)" : "transparent",
+    marginBottom: "-1px", // overlap container bottom border
+    background: "none",
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    transition:
+      "color var(--duration-fast, 150ms) var(--easing-standard, ease), border-color var(--duration-fast, 150ms) var(--easing-standard, ease)",
+    outline: "none",
+  };
+}
+
 // ---------------------------------------------------------------------------
-// SectionTabs component — thin wrapper that delegates to SubTabs (DR-057)
+// SectionTabs component
 // ---------------------------------------------------------------------------
 
 /**
- * CMP-07-config-page (tab bar) — delegates to SubTabs (DR-057/DR-062).
+ * CMP-07-config-page (tab bar) — controlled section tab list for Configuration.
  *
- * "use client" — inherited from SubTabs (client boundary for onClick/onKeyDown).
+ * "use client" — receives callbacks; needs onClick / onKeyDown handlers.
  * Parent (ConfigurationShell) owns the state.
  */
 export function SectionTabs({
   activeSection,
   onSectionChange,
 }: SectionTabsProps): React.JSX.Element {
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLButtonElement>, id: SectionId) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onSectionChange(id);
+      }
+    },
+    [onSectionChange],
+  );
+
   return (
     <nav
       data-testid="config-section-tabs"
       aria-label="Secciones de configuración"
-      style={CONTAINER_STYLE}
+      style={TABLIST_STYLE}
     >
-      <SubTabs
-        tabs={SECTION_TABS as unknown as { id: string; label: string }[]}
-        active={activeSection}
-        onChange={(id) => onSectionChange(id as SectionId)}
-        ariaLabel="Secciones de configuración"
-        testIdPrefix="config-tab-"
-        tabIdPrefix="config-tab-id-"
-      />
+      <div role="tablist" aria-label="Secciones de configuración" style={{ display: "contents" }}>
+        {SECTIONS.map(({ id, label }) => {
+          const isActive = id === activeSection;
+          return (
+            <button
+              key={id}
+              id={`config-tab-id-${id}`}
+              role="tab"
+              type="button"
+              data-testid={`config-tab-${id}`}
+              data-active={isActive ? "true" : "false"}
+              aria-selected={isActive ? "true" : "false"}
+              tabIndex={isActive ? 0 : -1}
+              style={tabStyle(isActive)}
+              onClick={() => onSectionChange(id)}
+              onKeyDown={(e) => handleKeyDown(e, id)}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
     </nav>
   );
 }

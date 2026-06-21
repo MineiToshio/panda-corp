@@ -5,8 +5,8 @@ slug: configuration-ui
 title: 'WO-07-005 — Configuración UI surface (re-anchor to prototype)'
 status: DRAFT
 parent: FRD-07
-implementation_status: IN_REVIEW
-reopen_count: 1
+implementation_status: PLANNED
+reopen_count: 2
 artifacts:
   - 'src/app/configuration/**'
 source_requirements: [REQ-07, AC-07-001, AC-07-002, AC-07-003, AC-07-004, AC-07-005]
@@ -452,3 +452,33 @@ NOT reopen again: set `implementation_status: BLOCKED`, `blocked_reason: needs-o
 The 3 prior gate rejects were resolved in sequence — ALL FRD-07 behaviors are confirmed achievable and were present at reject #3 (skill→agent AND agent→skill cross-nav, copy-to-clipboard chip, "interno" flag, "produces" section, model-assignment explanation, run-location grouping with counts, reuse of shared Tabs/SubTabs — the reviewer anchor tests encode them). The ONLY reject #3 cause was a **dead-code knip failure** (an unused export/file left behind).
 
 Rebuild the FULL Configuración surface with ALL of the above AND **leave ZERO dead code** (no unused exports/files — `knip` must pass clean). This pass runs in DEEP mode (opus implementer + extra adversarial review) per owner request. reopen_count reset 3→1 to give buffer (prior rejects were progressive, not a stuck loop).
+
+## Gate verdict — REJECT #4 (2026-06-21, opus reviewer, DEEP mode, DR-072)
+
+**Status: reopened PLANNED, `reopen_count: 1 → 2`** (cap is 3; not yet hit — the defect class is NEW, see below).
+
+**Good news first — the reject #3 dead-code blocker is RESOLVED and the surface is otherwise CORRECT & mutation-locked.** Verified INDEPENDENTLY (read the whole tree, not the WO note):
+- `grep -rn 'DETAIL_TABS_STYLE\|detailTabStyle' src/` returns NOTHING — the two orphaned exports are gone from `StandardsSection/styles.ts`; `knip` is clean (focused gate `verify.sh --since 5e2ca47` EXITs 0 at every stage: structure guard, biome, tsc, KNIP, madge, vitest 755 passed/41 files, smoke 14/14, visual Layer A 14/14).
+- All other EARS behaviors are present AND honest (not decorative), confirmed against the REAL factory tree (23 skills, 14 agents): four sections in order; copy-to-clipboard `CopyButton` on the skill-detail command; `interno` chip on the two real internal skills (`scaffold`, `work-orders`) and absent on the rest; "Produce" section (21/23 skills carry a derived produces line); run-location grouping with counts via shared `SectionHead`; forward skill→agent flow chips; reverse agent→skill "Usado por" chips; model-assignment explanation (opus=judgment / sonnet=mechanical). `SectionTabs` + `StandardsSection/DetailPanel` delegate to the shared `SubTabs` (DR-057). `/configuration` renders clean live (Preview Smoke 2 viewports, HTTP 200, 0 console/pageerror/failedReq; VLM mock-judge: recognizably `configView()` — PageTitle "Configuración" = nav label DR-062, 4 SubTabs, "En la fábrica" 2 / "En el proyecto" 11 SectionHead groups, RPG wand cards, interno chips visible — NO gross structural mismatch).
+- Mutation-confirmed reverse cross-nav PRECISION (DR-016): the agent→skill "Usado por" inversion is EXACTLY the set of skills declaring the agent (no over/under-listing) — my adversarial precision test passes against the busiest agent (`architect`, 13 skills) and the empty case.
+
+**The single blocking CORRECTION defect (why the gate is RED): the skill-detail "Volver a habilidades" Back button is DEAD after a reverse cross-navigation.** When the owner jumps agent → skill (`ConfigurationShell.handleSkillCrossNav` sets `crossNavSkillSlug`), `SkillsSection` makes the controlled `controlledSkill` (derived from `selectedSkillSlug`) take precedence over `localSelectedSkill`. The Back button's handler is only `onBack={() => setLocalSelectedSkill(null)}` (`SkillsSection.tsx:87`) — it never clears the PARENT's `crossNavSkillSlug`, so `controlledSkill` stays truthy and the detail stays open. **The owner is permanently stuck on the skill detail** (proven: 3 consecutive "Volver" clicks → still on detail); the only escape is switching to another tab and back (which clears `crossNavSkillSlug` in `handleSectionChange`). A delivered, visible control that does nothing in a reachable state is a correctness defect (EARS "click → detail" implies a navigable way back), NOT a visual nit — it blocks.
+
+**Why prior gate tests missed it (DR-015):** the existing reverse-cross-nav test only asserts the chip OPENS the skill detail (the forward landing). It never presses Back afterward, so the dead-return-path was invisible.
+
+**FIX (small, unambiguous):** the Back action must reset BOTH selections. Lift it: pass an `onBackToList` from `ConfigurationShell` into `SkillsSection` (→ `SkillDetail.onBack`) that does `setLocalSelectedSkill(null)` AND `setCrossNavSkillSlug(null)`; OR have `SkillsSection` accept an `onClearCrossNav` callback the Back handler also calls. Self-check before declaring done: open an agent → click a "Usado por" chip → press "Volver a habilidades" → the skill LIST must reappear and `skill-detail` must be gone.
+
+**Anchor reviewer test (RECORDED, not committed — DR-070 keeps it out of the global suite as a RED; rebuild it WITH the fix next pass).** New file `src/app/configuration/_tests/frd07.deep-gate-opus.reviewer.test.tsx` (4 passing already / 1 RED on this defect). It drives the WHOLE surface through the real `ConfigurationPage` + real factory tree and asserts: (1) reverse cross-nav PRECISION = exact set equality of using-skill chips vs `skills.filter(s => s.agents.includes(agentId))` (busiest agent + orphan-agent empty case); (2) **the RED one** — agent→skill cross-nav then "Volver" must show `skill-list` again and hide `skill-detail` (3 Volver clicks must not stay stuck); (3) the two real internal skills carry the `interno` chip and a non-internal one does not; (4) a skill with a derived `produces` renders a non-empty Produce section. The exact test body (so the next pass re-creates it verbatim with the fix):
+
+```tsx
+// after agent→skill cross-nav opens the skill detail:
+fireEvent.click(screen.getByTestId("skill-detail-back"));
+expect(screen.queryByTestId("skill-detail")).toBeNull();      // <-- currently RED
+expect(screen.queryByTestId("skill-list")).not.toBeNull();
+```
+
+**DR-070 revert performed:** the reopened WO's footprint was reverted to last green `5e2ca47` so HEAD carries no half-built WO into siblings' GLOBAL gate. The 6 existing files this cycle changed (`AgentDetail.tsx`, `ConfigurationShell.tsx`, `SectionTabs.tsx`, `SkillsSection.tsx`, `StandardsSection/parts.tsx`, `StandardsSection/styles.ts`) + the additive `src/components/core/Tabs/Tabs.tsx` were `git checkout 5e2ca47 --`'d; the WO-newly-created `_tests/dr057-reuse.test.tsx` + `_tests/frd07.cross-nav-reverse.gate-opus.reviewer.test.tsx` were `git rm`'d. `git diff 5e2ca47 -- src/app/configuration src/components/core/Tabs/Tabs.tsx` is EMPTY (byte-identical); the 277 existing config tests are GREEN against the reverted code; my RED anchor was removed from the tree (recorded above only). The genuinely-good behavior + the Back-button fix are rebuilt together next run.
+
+**NON-PROGRESS NOTE (DR-072 C2):** `reopen_count` is now 2 (cap 3). The defect class is NEW each pass (R#1: 5 missing EARS + reuse forks; R#2: reverse cross-nav half; R#3: dead-code KNIP slip; R#4: a reachable dead Back button after the now-correct reverse cross-nav) = forward progress, not a stuck loop, so a reopen (not BLOCK) is warranted. BUT if the NEXT gate finds this WO still not green, it MUST set `BLOCKED: needs-owner` + log to `.pandacorp/inbox/decisions.md` rather than reopen a 4th time.
+
+**Advisory nits (NOT blocking → punch-list):** light-mode skin vs the prototype's dark RPG skin; px-not-token inline values across the config components; the `AgentDetail` "Usado por" using-skill chip uses a bespoke inline `SKILL_CHIP_STYLE` button rather than composing the shared `Chip` (it must be a clickable `<button>`, so it's a borderline reuse note, not a duplicate primitive); the surface is registered `blessed:false` in `e2e/routes.ts` — bless + commit its baseline only once it's VERIFIED.

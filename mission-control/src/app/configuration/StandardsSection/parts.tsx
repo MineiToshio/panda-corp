@@ -19,13 +19,14 @@ import { useCallback, useState } from "react";
 import Markdown from "react-markdown";
 import { ItemSlot } from "@/components/core/ItemSlot/ItemSlot";
 import { Panel } from "@/components/core/Panel/Panel";
-import { SubTabs } from "@/components/core/Tabs/Tabs";
 import type { Standard, StandardDomain } from "@/lib/standards/standards";
 import {
   BADGES_STYLE,
   DETAIL_PANEL_STYLE,
+  DETAIL_TABS_STYLE,
   DOMAIN_GROUP_STYLE,
   DOMAIN_HEADING_STYLE,
+  detailTabStyle,
   enforcementBadgeStyle,
   ITEM_TITLE_STYLE,
   LIST_STYLE,
@@ -96,24 +97,34 @@ interface DetailPanelProps {
   standard: Standard;
 }
 
-const DETAIL_VIEW_TABS = [
-  { id: "summary", label: "Resumen" },
-  { id: "detail", label: "Detalle" },
-] as const;
-
 function DetailPanel({ standard }: DetailPanelProps): React.JSX.Element {
   const [view, setView] = useState<"summary" | "detail">("summary");
 
   return (
     <div style={DETAIL_PANEL_STYLE} data-testid={`standard-detail-${standard.id}`}>
-      {/* Summary / Detail toggle — shared SubTabs (DR-057 / DR-062) */}
-      <SubTabs
-        tabs={DETAIL_VIEW_TABS as unknown as { id: string; label: string }[]}
-        active={view}
-        onChange={(id) => setView(id as "summary" | "detail")}
-        ariaLabel="Vista del estándar"
-        testIdPrefix="standard-tab-"
-      />
+      {/* Summary / Detail toggle tabs */}
+      <div style={DETAIL_TABS_STYLE}>
+        <button
+          type="button"
+          data-testid="standard-tab-summary"
+          data-active={view === "summary" ? "true" : "false"}
+          onClick={() => setView("summary")}
+          style={detailTabStyle(view === "summary")}
+          aria-pressed={view === "summary"}
+        >
+          Resumen
+        </button>
+        <button
+          type="button"
+          data-testid="standard-tab-detail"
+          data-active={view === "detail" ? "true" : "false"}
+          onClick={() => setView("detail")}
+          style={detailTabStyle(view === "detail")}
+          aria-pressed={view === "detail"}
+        >
+          Detalle
+        </button>
+      </div>
 
       {/* Content */}
       {view === "summary" ? (

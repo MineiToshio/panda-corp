@@ -141,6 +141,30 @@ export const DETAIL_PANEL_STYLE: React.CSSProperties = {
   gap: "calc(var(--spacing, 0.25rem) * 3)",
 };
 
+export const DETAIL_TABS_STYLE: React.CSSProperties = {
+  display: "flex",
+  gap: "calc(var(--spacing, 0.25rem) * 2)",
+};
+
+/** Returns style for a summary/detail toggle tab. */
+export function detailTabStyle(isActive: boolean): React.CSSProperties {
+  return {
+    padding: "calc(var(--spacing, 0.25rem) * 1) calc(var(--spacing, 0.25rem) * 3)",
+    border: "var(--hairline, 1px) solid",
+    borderColor: isActive
+      ? "var(--color-accent, currentColor)"
+      : "var(--color-border, currentColor)",
+    borderRadius: "calc(var(--radius, 0.5rem) * 0.75)",
+    background: isActive ? "var(--color-accent, currentColor)" : "transparent",
+    color: isActive ? "var(--color-surface, currentColor)" : "var(--color-text, currentColor)",
+    cursor: "pointer",
+    fontSize: "0.75rem",
+    fontWeight: isActive ? 600 : 400,
+    fontFamily: "inherit",
+    transition: "background var(--duration-fast, 150ms) var(--easing-standard, ease)",
+  };
+}
+
 export const SUMMARY_LIST_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
