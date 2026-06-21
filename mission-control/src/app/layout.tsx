@@ -25,6 +25,12 @@ import { countOpenProposals } from "@/lib/proposals/proposals";
 import { readStatus } from "@/lib/status/status";
 import "./globals.css";
 
+// Local always-on deploy: the production build is served as a stable snapshot via launchd, but the
+// app is a LIVE dashboard over the factory filesystem — so every route must render per-request (read
+// the current status.yaml / ideas / portfolio), never freeze at build time. force-dynamic on the root
+// layout makes all routes dynamic (SSR per request). Live surfaces also push deltas via SSE (/api/live).
+export const dynamic = "force-dynamic";
+
 // Prototype fonts (DR-054) — wired via next/font to avoid CLS and self-host.
 // Exposed as CSS variables consumed by globals.css @theme (--font-pixel / --font-display).
 const pixelify = Pixelify_Sans({
