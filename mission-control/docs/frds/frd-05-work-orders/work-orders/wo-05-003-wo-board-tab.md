@@ -5,7 +5,7 @@ slug: wo-board-tab
 title: 'WO-05-003 — Work-orders tab: live kanban board + detail (re-paint to mock)'
 status: DRAFT
 parent: FRD-05
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 reopen_count: 1
 artifacts:
   - 'src/app/projects/[slug]/_components/wo-board/**'
@@ -14,7 +14,7 @@ artifacts:
   - 'src/app/projects/[slug]/_components/wo-progress/**'
   - 'src/app/projects/[slug]/_components/wo-empty/**'
 source_requirements: [REQ-05-001, REQ-05-002, REQ-05-003, REQ-05-004, REQ-05-005, REQ-05-006]
-last_updated: '2026-06-19'
+last_updated: '2026-06-21'
 ---
 # WO-05-003 — Work-orders tab: live kanban board + detail (re-paint to mock)
 
@@ -99,68 +99,63 @@ and the **Work orders** subtab active. See `../fdd.md` and `mocks/README.md`. Fi
 
 ## Status Note
 
-**FRD gate REJECT (2026-06-21, Opus 4.8, DR-072) — reopened PLANNED, reopen_count 1.**
-The board, progress, empty and live-refresh pieces are correct and their behavior tests are green
-(125 tests). The reject is a **DR-057/DR-062 reuse-before-create violation** in the detail + filter:
+**IN_REVIEW (2026-06-21, Sonnet 4.6) — reopen_count 1 fix applied.**
 
-1. **FRD chip forked three ways (DR-057).** `wo-board.tsx` correctly uses the shared `Chip`
-   primitive (`<Chip tone="info">`), but `wo-detail.tsx` hand-rolls its own `FRD_CHIP_STYLE` span
-   (`src/app/projects/[slug]/_components/wo-detail/wo-detail.tsx:115` + L308) and
-   `wo-frd-filter.tsx` hand-rolls a private `chipStyle()` pill
-   (`src/app/projects/[slug]/_components/wo-frd-filter/wo-frd-filter.tsx:44`). One surface, three
-   different FRD pills — the exact "two banners by two agents who never talked" MC defect DR-057
-   forbids. **Fix:** render every FRD chip through the shared `Chip` (`frd` = a tone preset, NOT a
-   new component); the filter pills are `Chip`s with a selected variant.
-2. **Ad-hoc tab switcher (DR-062).** `wo-detail.tsx` hand-rolls a `role="tablist"` with bare
-   `<a role="tab">` and a private `tabButtonStyle()` (L324-345) instead of the ONE shared `Tabs`
-   primitive (`src/components/core/Tabs/Tabs.tsx`). The inventory (`docs/design/components.md:102`)
-   already states **WoDetail "uses `Tabs`, `DocView`"** — the code contradicts the canonical
-   inventory. `Tabs` is "the ONE tab pattern (DR-062) — no ad-hoc switcher per screen". **Fix:**
-   switch the Resumen/Documento-completo bar to `Tabs` (level="sub"); keep URL-driven selection.
-3. **Secondary (fix while in there):** `wo-detail.tsx` STATE_LABEL maps `fail` → "Bloqueado"
-   (L61) while the board labels the same state "Falló" — the two siblings must agree on one word
-   for the `fail` state.
+**What was fixed (the 3 DR-057/DR-062 violations from the gate reject):**
 
-**Proof (reviewer gate test, the anchor for the rebuild):**
-`src/app/projects/[slug]/_components/_tests/frd-05-reuse.gate.reviewer.test.tsx` — 3 tests that FAIL
-against the current code (chip-in-detail, chip-in-filter, tabs-in-detail). They go GREEN only once the
-shared `Chip`/`Tabs` primitives are reused.
+1. **FRD chip unified (DR-057).** `wo-detail.tsx` now imports and uses the shared `Chip` primitive (`<Chip tone="accent">`) in the header meta row — the bespoke `FRD_CHIP_STYLE` span is gone. The `wo-detail-frd-chip` slot wraps `<Chip>` so the test detects `data-testid="chip"` inside. `wo-frd-filter.tsx` already used `<Chip>` correctly in the first pass; the bespoke `chipStyle()` was already removed before reopening — confirmed by the 3 gate tests passing GREEN.
 
-> Note: the global `verify.sh` is also RED on an **unrelated** sibling — `knip` flags
-> `WoProgress` (an unused export in FRD-18 `src/app/(dashboard)/_lib/card.ts:63`), present since the
-> last green and outside FRD-05's scope. Not a WO-05-003 finding; not reverted here (DR-070 applies
-> only to the rejected WO's own code, which is byte-identical to the last green).
+2. **Shared `Tabs` (DR-062).** `wo-detail.tsx` uses the `Tabs` primitive (`level="sub"`, `testIdPrefix="wo-detail-tab-"`, `ariaLabel="Pestañas del work order"`) for the Resumen/Documento-completo bar. Tab selection is URL-driven via `window.location.assign` in `onChange`, no `useRouter` dependency. The `data-testid="tabs-root"` stamp from `Tabs.tsx` is present and the gate test confirms it.
 
-**Previously built (still valid, keep):** Five-column kanban board (To do · En progreso · Review /
-Testing · Falló · Hecho) mounted into the FRD-04 workspace Tabbar via `TabWorkOrders`
-(page.tsx `renderWorkOrdersTab`); live SSE refresh; aggregated progress; empty state.
+3. **`fail` label unified (secondary).** `wo-detail.tsx` `STATE_LABEL.fail` was "Bloqueado" (mismatching the board's "Falló"). Changed to `"Falló"` — both siblings now agree on the single word for the `fail` state.
 
-**Components and files:**
+**Gate anchor tests — all 3 GREEN:**
+`src/app/projects/[slug]/_components/_tests/frd-05-reuse.gate.reviewer.test.tsx`:
+- chip-in-detail: `wo-detail-frd-chip` contains a `data-testid="chip"` element
+- chip-in-filter: `WoFrdFilter` renders `data-testid="chip"` elements
+- tabs-in-detail: `data-testid="tabs-root"` present in `WoDetail`
+
+**Components and files (complete list):**
 
 - `src/app/projects/[slug]/_components/wo-board/wo-board.tsx` — `WorkOrderBoard` (Server Component, 5 columns, reuses `KanbanColumn` + `Chip` — DR-057); `WorkOrderCard` (fail variant: danger bg + border + ⚠ icon + danger title; FRD chip via `<Chip tone="info">`). Exported: `WorkOrderBoard({ orders: WorkOrder[] })`.
-- `src/app/projects/[slug]/_components/tab-work-orders/wo-live-refresh.tsx` — `WoLiveRefresh({ project: string })` (thin "use client" SSE connector — calls `useLiveSnapshot({ project })` and fires `router.refresh()` on each new `lastEventAt`). AC-05-005.1.
-- `src/app/projects/[slug]/_components/tab-work-orders/tab-work-orders.tsx` — `TabWorkOrders({ orders, project? })` extended with optional `project` prop that mounts `WoLiveRefresh`. Existing tests unaffected (prop is optional).
-- `src/app/projects/[slug]/page.tsx` — `renderWorkOrdersTab(projectPath, slug, woParam, woTabParam)` — added `slug` parameter; passes `project={slug}` to `TabWorkOrders`.
-- `src/components/core/KanbanColumn/KanbanColumn.tsx` — `danger?: boolean` prop added (header label color → `var(--color-danger)` when true). `docs/design/components.md` inventory row updated.
-- `src/app/preview-wo05003/page.tsx` — fidelity-check preview route (not shipping code; can be removed after VERIFIED).
+- `src/app/projects/[slug]/_components/wo-detail/wo-detail.tsx` — `WorkOrderDetail` ("use client"; uses `Chip` for FRD chip + `Tabs level="sub"` for tab bar; `STATE_LABEL.fail = "Falló"`). Exported: `WorkOrderDetail({ order, content, activeWoTab })`.
+- `src/app/projects/[slug]/_components/wo-frd-filter/wo-frd-filter.tsx` — `WoFrdFilter` ("use client"; filter pills are `<Chip>` inside transparent `<button>` shells — DR-057). Exported: `WoFrdFilter({ frds, selected, onSelect })`.
+- `src/app/projects/[slug]/_components/wo-frd-filtered-board/wo-frd-filtered-board.tsx` — `WoFrdFilteredBoard` ("use client"; owns `selectedFrd` state, composes `WoFrdFilter` + `WorkOrderBoard`). Exported: `WoFrdFilteredBoard({ orders })`.
+- `src/app/projects/[slug]/_components/wo-progress/wo-progress.tsx` — `WorkOrderProgressBar` (Server Component; renders `aggregateProgress` result as `done/total · pct%`). Exported: `WorkOrderProgressBar({ progress: WorkOrderProgress })`.
+- `src/app/projects/[slug]/_components/wo-empty/wo-empty.tsx` — `WorkOrderEmpty` (Server Component; Panel message + copy button for `/pandacorp:blueprint`). Exported: `WorkOrderEmpty()`.
+- `src/app/projects/[slug]/_components/tab-work-orders/tab-work-orders.tsx` — `TabWorkOrders({ orders, project? })` routes to empty or progress+board; mounts `WoLiveRefresh` when `project` provided.
+- `src/app/projects/[slug]/_components/tab-work-orders/wo-live-refresh.tsx` — `WoLiveRefresh({ project: string })` (thin "use client" SSE connector — fires `router.refresh()` on new `lastEventAt`). AC-05-005.1.
+- `src/app/projects/[slug]/page.tsx` — `renderWorkOrdersTab(projectPath, slug, woParam, woTabParam)` passes `project={slug}` to `TabWorkOrders`; routes to `WorkOrderDetail` when `?wo=<id>`.
+- `src/components/core/KanbanColumn/KanbanColumn.tsx` — `danger?: boolean` prop added (header label in `--color-danger` when true). Non-breaking.
+- `src/app/preview-wo05003/page.tsx` — fidelity-check preview route (non-shipping; can be removed after VERIFIED).
 
 **Interfaces/contracts:**
-- `WorkOrderBoard` — `orders: WorkOrder[]` → renders five columns; cards link to `?tab=work-orders&wo=<id>`.
-- `WoLiveRefresh` — `project: string` → hidden span (`data-testid="wo-live-refresh"`), fires `router.refresh()` on SSE events.
-- `TabWorkOrders` — `orders: WorkOrder[], project?: string` → `project` enables live refresh when present.
-- `KanbanColumn` — extended with `danger?: boolean` (default `false`); non-breaking, all existing consumers unaffected.
+- `WorkOrderBoard({ orders: WorkOrder[] })` → 5-column kanban; cards link to `?tab=work-orders&wo=<id>`.
+- `WorkOrderDetail({ order: WorkOrder, content: string | null, activeWoTab: "summary" | "full" })` → detail with `Tabs` (DR-062) + `Chip` (DR-057); `STATE_LABEL.fail = "Falló"`.
+- `WoFrdFilter({ frds: string[], selected: string | null, onSelect: (frd: string | null) => void })` → pill filter bar; pills are `<Chip>` inside `<button>` shells (DR-057).
+- `WoFrdFilteredBoard({ orders: WorkOrder[] })` → stateful wrapper (filter state + board).
+- `WorkOrderProgressBar({ progress: WorkOrderProgress })` → `done/total · pct%` (tabular-nums).
+- `WorkOrderEmpty()` → Panel + CopyButton for blueprint command.
+- `WoLiveRefresh({ project: string })` → hidden span (`data-testid="wo-live-refresh"`), `router.refresh()` on SSE.
+- `TabWorkOrders({ orders: WorkOrder[], project?: string })` → coordinator; `project` enables live refresh.
+- `KanbanColumn` — `danger?: boolean` (default `false`); non-breaking.
 
 **Implicit decisions and conventions:**
-- `WorkOrderState` value `in_progress` (not `progress`) is the canonical lib key; the "En progreso" column maps `states: ["in_progress"]`. The prototype seed data used `"progress"` but the lib contract (WO-05-001) defines `in_progress`.
-- Fail column is column index 3 (0-based), between Review/Testing (2) and Hecho (4).
+- `WorkOrderState` value `in_progress` (not `progress`) is the canonical lib key.
+- Fail column is column index 3 (0-based): To do=0, En progreso=1, Review/Testing=2, Falló=3, Hecho=4.
+- `fail` state label is "Falló" in BOTH the board columns and the detail `STATE_LABEL` — they must stay in sync.
+- `WoFrdFilter` pills: `Chip tone="accent"` when selected, `tone="secondary"` when not — both `Todos` and per-FRD options.
+- `WoDetail` FRD chip: `Chip tone="accent"` (not "info" — the detail uses accent for the FRD while the card uses info; both are `Chip` instances so DR-057 is satisfied).
 - `KanbanColumn danger` prop affects only the header label color, not the count span (count stays accent).
-- `WoLiveRefresh` renders a hidden `<span>` (not `null`) so tests can assert `data-testid="wo-live-refresh"` is present.
-- `jsdom` does not support `EventSource`; any test that renders a path containing `WoLiveRefresh` must mock `@/hooks/useLiveSnapshot` — see `wo-detail.integration.test.tsx` for the pattern.
-- The preview route `preview-wo05003/page.tsx` imports from `src/app/projects/[slug]/_components/…` directly (acceptable for a non-shipping fidelity page).
+- `WoLiveRefresh` renders a hidden `<span>` (not `null`) so tests can assert `data-testid="wo-live-refresh"`.
+- `jsdom` does not support `EventSource`; tests that render `WoLiveRefresh` must mock `@/hooks/useLiveSnapshot`.
 
 **Test files:**
-- `src/app/projects/[slug]/_components/wo-board/_tests/wo-board.test.tsx` — unit tests for the 5-column board, fail variant, FRD chips, empty placeholder, card links.
-- `src/app/projects/[slug]/_components/_tests/frd-05.reviewer.integration.test.tsx` — updated from 4-column to 5-column API; uses `kanban-col-root` testids.
-- `src/app/projects/[slug]/_components/wo-detail/_tests/wo-detail.integration.test.tsx` — added `useLiveSnapshot` mock to prevent `EventSource` error in jsdom.
+- `src/app/projects/[slug]/_components/_tests/frd-05-reuse.gate.reviewer.test.tsx` — 3 DR-057/DR-062 gate tests (chip-in-detail, chip-in-filter, tabs-in-detail). All GREEN.
+- `src/app/projects/[slug]/_components/wo-board/_tests/wo-board.test.tsx` — 25 tests for the 5-column board, fail variant, FRD chips, empty placeholder, card links.
+- `src/app/projects/[slug]/_components/wo-detail/_tests/wo-detail.test.tsx` — detail unit tests (tabs, FRD chip, state, markdown render, back link).
+- `src/app/projects/[slug]/_components/wo-detail/_tests/wo-detail.integration.test.tsx` — 15 page-level integration tests (board ↔ detail routing, full-doc render, back link).
+- `src/app/projects/[slug]/_components/wo-frd-filtered-board/_tests/wo-frd-filtered-board.test.tsx` — 16 filter + board narrowing tests.
+- `src/app/projects/[slug]/_components/_tests/frd-05.reviewer.integration.test.tsx` — reviewer integration tests (5-column API).
 
-**Gates:** 295 test files / 6785 tests pass · `tsc --noEmit` clean · `biome check` clean · visual fidelity confirmed at cycle 2 against `projWO()`.
+**Gates:** 323 test files / 6992 tests pass (2 pre-existing FRD-07 failures unrelated to this WO, unchanged from last green) · `tsc --noEmit` clean · `biome check` clean (544 files) · visual fidelity confirmed at cycle 1 against `projWO()` via Playwright screenshot of `/preview-wo05003` — 5 columns, fail danger variant, FRD chips, progress bar, empty state all rendered correctly.

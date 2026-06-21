@@ -67,7 +67,7 @@ const STATE_LABEL: Record<WorkOrderState, string> = {
   in_progress: "En progreso",
   review: "En revisión",
   done: "Hecho",
-  fail: "Bloqueado",
+  fail: "Falló",
 };
 
 // ---------------------------------------------------------------------------
