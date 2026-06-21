@@ -2,29 +2,42 @@
  * WO-14-002 — SnapshotPanel (CMP-14-snapshot-panel)
  *
  * Server Component: renders the FRD-14 snapshot panel inside the FRD-04
- * workspace. Shows the last probable point (last green SHA + worktree command),
- * a "building now" notice when a work order is in progress, and a staleness
- * warning when the snapshot is far behind HEAD.
+ * workspace "Resumen" tab. Shows the last build commit that passed all gates
+ * ("último commit en verde · seguro para probar"), a "building now" notice
+ * when a work order is in progress, and a staleness warning when the snapshot
+ * is far behind HEAD.
  *
- * Design rules:
- *   - ZERO hardcoded colors — CSS custom properties only.
+ * Primitives (DR-057 — reuse before create):
+ *   - Panel     → the app-wide surface wrapper
+ *   - Chip      → green status signal (tone="ok")
+ *   - CmdRow    → the worktree command row with copy button
+ *   - Banner    → staleness warning (tone="warn")
+ *
+ * Design rules (DR-054/055/056):
+ *   - ZERO hardcoded colors — CSS custom properties only (tokens).
  *   - data-testid on every significant element.
- *   - Spanish UI copy per architecture §7.
- *   - Server Component (no "use client") — CopyButton is its own "use client".
- *   - Green badge and staleness warning use icon + text (not color alone).
- *   - tabular-nums on the SHA for numeric alignment.
+ *   - Spanish UI copy per the re-anchored FDD (2026-06-19).
+ *   - Server Component (no "use client"); Banner/CopyButton are their own client islands.
+ *   - Warn state carried by icon + text (not color alone) — a11y.
+ *   - tabular-nums on the SHA.
+ *
+ * Visual reference:
+ *   docs/design/prototype/index.html → snapshotPanel(i) (~L867) + bStalenessPanel(i) (~L876)
  *
  * Traceability:
  *   CMP-14-snapshot-panel → REQ-14-001, REQ-14-002, REQ-14-003
- *   AC-14-001.1 — probable point label + green badge + sha
- *   AC-14-001.2 — worktree command + copy button
+ *   AC-14-001.1 — green heading + Chip + sha + muted detail line
+ *   AC-14-001.2 — worktree command in CmdRow with copy button
  *   AC-14-001.3 — absent snapshot → panel omitted entirely
- *   AC-14-002.1 — building now block (visually distinct from probable point)
- *   AC-14-003.1 — staleness warning (icon + text)
+ *   AC-14-002.1 — building-now block (visually distinct; canonical copy)
+ *   AC-14-003.1 — staleness warning on shared Banner (tone="warn")
  *   IF-14-snapshot (lib/snapshot.ts, WO-14-001)
  */
 
-import { CopyButton } from "@/components/core/CopyButton/CopyButton";
+import { Banner } from "@/components/core/Banner/Banner";
+import { Chip } from "@/components/core/Chip/Chip";
+import { CmdRow } from "@/components/core/CmdRow/CmdRow";
+import { Panel } from "@/components/core/Panel/Panel";
 import type { SnapshotInfo } from "@/lib/snapshot/snapshot";
 
 // ---------------------------------------------------------------------------
@@ -45,122 +58,82 @@ export interface SnapshotPanelProps {
 }
 
 // ---------------------------------------------------------------------------
-// Styles — CSS custom properties only, zero hardcoded colors
+// Styles — CSS custom properties only (no hardcoded colors / spacing)
 // ---------------------------------------------------------------------------
 
-const PANEL_STYLE: React.CSSProperties = {
+/** Row: left icon + body (mirrors prototype flex layout). */
+const ROW_STYLE: React.CSSProperties = {
   display: "flex",
-  flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 3)",
-  padding: "calc(var(--spacing, 0.25rem) * 5) calc(var(--spacing, 0.25rem) * 6)",
-  border: "var(--hairline, 1px) solid var(--color-border, currentColor)",
-  borderRadius: "var(--radius, 0.5rem)",
-  background: "var(--color-surface-panel, var(--color-surface, Canvas))",
-  color: "var(--color-text, currentColor)",
-  boxShadow: "var(--shadow-panel, none)",
+  alignItems: "flex-start",
+  gap: "10px",
 };
 
-const SECTION_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 2)",
+/** Icon column — ti-circle-check in var(--color-ok). */
+const CHECK_ICON_STYLE: React.CSSProperties = {
+  fontSize: "18px",
+  color: "var(--color-ok)",
+  marginTop: "1px",
+  flexShrink: 0,
 };
 
-const LABEL_STYLE: React.CSSProperties = {
-  fontSize: "0.6875rem",
-  fontWeight: 700,
-  letterSpacing: "0.05em",
-  textTransform: "uppercase",
-  color: "var(--color-text-muted, currentColor)",
-  opacity: 0.65,
+/** Flexible body column. */
+const BODY_STYLE: React.CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+};
+
+/** Main heading line: "Último commit en verde · seguro para probar". */
+const HEADING_STYLE: React.CSSProperties = {
+  fontSize: "13px",
+  fontWeight: 500,
   margin: 0,
-};
-
-const PROBABLE_POINT_ROW_STYLE: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: "calc(var(--spacing, 0.25rem) * 2)",
+  gap: "6px",
   flexWrap: "wrap",
 };
 
-const GREEN_BADGE_STYLE: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "calc(var(--spacing, 0.25rem) * 1)",
-  padding: "calc(var(--spacing, 0.25rem) * 0.5) calc(var(--spacing, 0.25rem) * 2)",
-  borderRadius: "calc(var(--radius, 0.5rem) * 0.5)",
-  fontSize: "0.6875rem",
-  fontWeight: 700,
-  letterSpacing: "0.04em",
-  textTransform: "uppercase",
-  background: "var(--color-success-bg, oklch(0.3 0.08 150 / 0.15))",
-  color: "var(--color-success, oklch(0.65 0.18 150))",
-  border: "var(--hairline, 1px) solid var(--color-success, oklch(0.65 0.18 150))",
+/**
+ * Muted detail line: "commit <sha> — pasó todos los gates. Pruébalo en un worktree aparte sin
+ * parar el build."
+ */
+const DETAIL_STYLE: React.CSSProperties = {
+  fontSize: "11px",
+  color: "var(--color-text3, var(--color-text2))",
+  marginTop: "2px",
 };
 
-const SHA_STYLE: React.CSSProperties = {
-  fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace)",
-  fontSize: "0.875rem",
-  fontWeight: 600,
+/** Inline SHA code chip (var(--color-panel) background as in prototype). */
+const SHA_CODE_STYLE: React.CSSProperties = {
+  fontSize: "11px",
+  background: "var(--color-panel, var(--color-card))",
+  padding: "1px 5px",
+  borderRadius: "4px",
   fontVariantNumeric: "tabular-nums",
-  color: "var(--color-text, currentColor)",
 };
 
-const WORKTREE_ROW_STYLE: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "calc(var(--spacing, 0.25rem) * 3)",
-  flexWrap: "wrap",
-  padding: "calc(var(--spacing, 0.25rem) * 2) calc(var(--spacing, 0.25rem) * 3)",
-  background: "var(--color-code-bg, oklch(0.08 0.01 230 / 0.6))",
-  borderRadius: "calc(var(--radius, 0.5rem) * 0.5)",
-  border: "var(--hairline, 1px) solid var(--color-border, currentColor)",
-};
-
-const WORKTREE_CMD_STYLE: React.CSSProperties = {
-  fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace)",
-  fontSize: "0.8125rem",
-  color: "var(--color-text, currentColor)",
-  flexGrow: 1,
-  wordBreak: "break-all",
-};
-
+/** Building-now line: hammer icon + progress text. */
 const BUILDING_NOW_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 1.5)",
-  padding: "calc(var(--spacing, 0.25rem) * 3) calc(var(--spacing, 0.25rem) * 4)",
-  borderRadius: "calc(var(--radius, 0.5rem) * 0.5)",
-  background: "var(--color-accent-bg, oklch(0.35 0.05 250 / 0.12))",
-  border: "var(--hairline, 1px) solid var(--color-accent, oklch(0.65 0.18 250))",
-  color: "var(--color-text, currentColor)",
-};
-
-const BUILDING_NOW_HEADER_STYLE: React.CSSProperties = {
+  fontSize: "12px",
+  color: "var(--color-text2)",
+  marginTop: "6px",
   display: "flex",
   alignItems: "center",
-  gap: "calc(var(--spacing, 0.25rem) * 1.5)",
-  fontWeight: 600,
-  fontSize: "0.875rem",
+  gap: "4px",
+  flexWrap: "wrap",
 };
 
-const BUILDING_NOW_NOTICE_STYLE: React.CSSProperties = {
-  fontSize: "0.8125rem",
-  color: "var(--color-text-muted, currentColor)",
-  opacity: 0.8,
-  margin: 0,
+/** Hammer icon in var(--color-accent) for the "building now" signal. */
+const HAMMER_ICON_STYLE: React.CSSProperties = {
+  fontSize: "13px",
+  verticalAlign: "-2px",
+  color: "var(--color-accent)",
+  flexShrink: 0,
 };
 
-const STALE_WARNING_STYLE: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "calc(var(--spacing, 0.25rem) * 2)",
-  padding: "calc(var(--spacing, 0.25rem) * 2.5) calc(var(--spacing, 0.25rem) * 3)",
-  borderRadius: "calc(var(--radius, 0.5rem) * 0.5)",
-  background: "var(--color-warning-bg, oklch(0.35 0.05 90 / 0.12))",
-  border: "var(--hairline, 1px) solid var(--color-warning, oklch(0.72 0.18 80))",
-  color: "var(--color-warning-text, var(--color-text-muted, currentColor))",
-  fontSize: "0.8125rem",
+/** Wrapper for the CmdRow — top-margin matches prototype. */
+const CMD_ROW_WRAPPER_STYLE: React.CSSProperties = {
+  marginTop: "10px",
 };
 
 // ---------------------------------------------------------------------------
@@ -171,7 +144,14 @@ const STALE_WARNING_STYLE: React.CSSProperties = {
  * CMP-14-snapshot-panel — snapshot panel for the FRD-04 workspace.
  *
  * Renders only when snapshot is non-null (AC-14-001.3).
- * Server Component (no "use client"). CopyButton is its own client island.
+ * Server Component (no "use client"). Banner and CopyButton are client islands.
+ *
+ * Layout (per prototype snapshotPanel + bStalenessPanel):
+ *   1. Panel (shared primitive) wrapping:
+ *      a. flex row: ti-circle-check icon + body
+ *         body: heading + Chip (ok) + sha muted line + optional building-now
+ *      b. CmdRow (shared primitive) — the git worktree add command
+ *   2. Optional Banner (shared primitive, tone="warn") — staleness warning
  */
 export function SnapshotPanel({ snapshot }: SnapshotPanelProps): React.JSX.Element | null {
   // AC-14-001.3 — absent snapshot → omit panel entirely
@@ -182,75 +162,68 @@ export function SnapshotPanel({ snapshot }: SnapshotPanelProps): React.JSX.Eleme
   const { sha, worktreeCommand, buildingNow, stale } = snapshot;
 
   return (
-    <section data-testid="snapshot-panel" aria-label="Snapshot del proyecto" style={PANEL_STYLE}>
-      {/* Probable point section (AC-14-001.1) */}
-      <div data-testid="snapshot-panel-probable-point" style={SECTION_STYLE}>
-        <p data-testid="snapshot-panel-label" style={LABEL_STYLE}>
-          Último punto probable
-        </p>
+    <section
+      data-testid="snapshot-panel"
+      aria-label="Último commit en verde — seguro para probar"
+      style={{ marginBottom: "12px" }}
+    >
+      {/* Main panel — Panel primitive (DR-057) */}
+      <Panel>
+        {/* Row: left check icon + body */}
+        <div style={ROW_STYLE}>
+          {/* ti-circle-check in var(--color-ok) — state carried by icon + text */}
+          <i className="ti ti-circle-check" style={CHECK_ICON_STYLE} aria-hidden="true" />
 
-        <div style={PROBABLE_POINT_ROW_STYLE}>
-          {/* Green badge — icon + text, not color alone (a11y requirement) */}
-          <span
-            data-testid="snapshot-panel-green-badge"
-            role="status"
-            aria-label="Snapshot verde — seguro para probar"
-            style={GREEN_BADGE_STYLE}
-          >
-            {/* Checkmark icon (unicode) — decorative but additive to the text */}
-            <span aria-hidden="true">✓</span>
-            <span>Verde</span>
-          </span>
+          {/* Body column */}
+          <div data-testid="snapshot-panel-green-section" style={BODY_STYLE}>
+            {/* Heading + green Chip (AC-14-001.1) */}
+            <p style={HEADING_STYLE}>
+              Último commit en verde · seguro para probar{" "}
+              {/* Chip (shared primitive, tone="ok") — the FRD green signal (DR-057) */}
+              <Chip tone="ok">en verde</Chip>
+            </p>
 
-          {/* SHA value (tabular-nums for numeric alignment) */}
-          <code
-            data-testid="snapshot-panel-sha"
-            className="tabular-nums"
-            style={SHA_STYLE}
-            title={sha}
-          >
-            {sha}
-          </code>
-        </div>
+            {/* Muted detail: commit sha — pasó todos los gates (AC-14-001.1) */}
+            <p style={DETAIL_STYLE}>
+              commit{" "}
+              <code
+                data-testid="snapshot-panel-sha"
+                className="tabular-nums"
+                style={SHA_CODE_STYLE}
+              >
+                {sha}
+              </code>{" "}
+              — pasó todos los gates. Pruébalo en un worktree aparte sin parar el build.
+            </p>
 
-        {/* Worktree command + copy button (AC-14-001.2) */}
-        <div style={WORKTREE_ROW_STYLE}>
-          <code data-testid="snapshot-panel-worktree-cmd" style={WORKTREE_CMD_STYLE}>
-            {worktreeCommand}
-          </code>
-          <CopyButton value={worktreeCommand} />
-        </div>
-      </div>
-
-      {/* Staleness warning (AC-14-003.1) — shown only when stale */}
-      {stale && (
-        <div
-          data-testid="snapshot-panel-stale-warning"
-          role="alert"
-          aria-live="polite"
-          style={STALE_WARNING_STYLE}
-        >
-          <span data-testid="snapshot-panel-stale-icon" aria-hidden="true">
-            ⚠
-          </span>
-          <span>
-            El snapshot está desactualizado — el último punto probable se está quedando atrás de
-            HEAD
-          </span>
-        </div>
-      )}
-
-      {/* Building now block (AC-14-002.1) — shown only when running */}
-      {buildingNow !== undefined && (
-        <div data-testid="snapshot-panel-building-now" style={BUILDING_NOW_STYLE}>
-          <div style={BUILDING_NOW_HEADER_STYLE}>
-            {/* Pulse icon to indicate active work */}
-            <span aria-hidden="true">⚙</span>
-            <span>{buildingNow}</span>
+            {/* Building-now block (AC-14-002.1) — only when running */}
+            {buildingNow !== undefined && (
+              <div data-testid="snapshot-panel-building-now" style={BUILDING_NOW_STYLE}>
+                {/* ti-hammer in var(--color-accent) — visually distinct from the green section */}
+                <i className="ti ti-hammer" style={HAMMER_ICON_STYLE} aria-hidden="true" />
+                {/* "El build sigue avanzando: <progress> · eso aún no está en verde, no lo pruebes" */}
+                El build sigue avanzando: <b style={{ fontWeight: 500 }}>{buildingNow}</b>
+                {" · "}
+                eso aún no está en verde, no lo pruebes
+              </div>
+            )}
           </div>
-          <p style={BUILDING_NOW_NOTICE_STYLE}>
-            No lo pruebes aún — hay un work order en progreso en este momento.
-          </p>
+        </div>
+
+        {/* CmdRow (shared primitive, DR-057) — worktree command (AC-14-001.2) */}
+        <div style={CMD_ROW_WRAPPER_STYLE}>
+          <CmdRow command={worktreeCommand} />
+        </div>
+      </Panel>
+
+      {/* Staleness warning — shared Banner (tone="warn", DR-057) — AC-14-003.1 */}
+      {stale && (
+        <div style={{ marginTop: "8px" }}>
+          <Banner
+            tone="warn"
+            heading="El último commit en verde quedó atrás del build"
+            detail="Lo que pruebes ahí ya no refleja lo que el build lleva construido."
+          />
         </div>
       )}
     </section>

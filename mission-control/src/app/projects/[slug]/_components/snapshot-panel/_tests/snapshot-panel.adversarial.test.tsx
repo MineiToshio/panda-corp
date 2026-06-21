@@ -5,10 +5,16 @@
  * the work orders TOGETHER: WO-14-001 helpers feed WO-14-002 panel feed the same
  * shapes the FRD-04 page derives. These probe edges the implementer tests did not:
  *   - buildSnapshot → SnapshotPanel end-to-end (not the panel in isolation).
- *   - staleness wiring: isSnapshotStale verdict actually drives the panel warning.
+ *   - staleness wiring: isSnapshotStale verdict actually drives the Banner warning.
  *   - progress edges (negative / NaN / >100 / fractional) that reach the UI copy.
- *   - safeToTest=false while the panel still claims "Verde" (the green-badge gap).
+ *   - safeToTest=false while the panel still shows the green Chip.
  *   - whitespace-only sha, slug with shell metacharacters in the shown command.
+ *
+ * Primitive reuse (DR-057) — queried via the shared primitives' testids:
+ *   - Command row  → data-testid="cmd-row"   (CmdRow, not a bespoke element)
+ *   - Stale warn   → data-testid="banner"    (Banner, not a bespoke element)
+ *   - Stale icon   → data-testid="banner-icon" (from Banner's ToneIcon)
+ *   - Green signal → data-testid="chip"      (Chip tone="ok", not a bespoke badge)
  *
  * These tests are NOT decorative: each would fail against a plausible naive
  * implementation (e.g. one that fires the warning unconditionally, or that
@@ -50,11 +56,12 @@ describe("FRD-14 integration — buildSnapshot feeds SnapshotPanel (the page.tsx
     expect(screen.queryByTestId("snapshot-panel")).toBeNull();
   });
 
-  it("derived command from buildSnapshot is the exact string the panel shows + copies", () => {
+  it("derived command from buildSnapshot is the exact string shown in CmdRow (DR-057)", () => {
     const snap = buildSnapshot("mission-control", status({ lastGreenSha: "d150223" }));
     render(<SnapshotPanel slug="mission-control" snapshot={snap} />);
-    const cmd = screen.getByTestId("snapshot-panel-worktree-cmd");
-    expect(cmd.textContent).toBe("git worktree add ../mission-control-review d150223");
+    // Command is shown inside the shared CmdRow (data-testid="cmd-row")
+    const cmdRow = screen.getByTestId("cmd-row");
+    expect(cmdRow.textContent).toContain("git worktree add ../mission-control-review d150223");
   });
 
   it("running build → buildingNow set by helper → panel shows the don't-test-yet block", () => {
@@ -72,29 +79,32 @@ describe("FRD-14 integration — buildSnapshot feeds SnapshotPanel (the page.tsx
 });
 
 // ---------------------------------------------------------------------------
-// AC-14-003.1 — the staleness verdict must actually drive the warning.
+// AC-14-003.1 — the staleness verdict must actually drive the Banner warning.
 // This is the seam blueprint §5 deferred: prove the panel reacts to the
 // isSnapshotStale verdict so wiring the git probe later is a one-line change.
 // ---------------------------------------------------------------------------
 
-describe("FRD-14 staleness — isSnapshotStale verdict drives the panel warning (AC-14-003.1)", () => {
-  it("verdict TRUE (>= commit threshold) → warning shown", () => {
+describe("FRD-14 staleness — isSnapshotStale verdict drives the Banner warning (AC-14-003.1)", () => {
+  it("verdict TRUE (>= commit threshold) → Banner shown (DR-057, tone=warn)", () => {
     const snap = buildSnapshot("proj", status());
     const stale = isSnapshotStale(SNAPSHOT_STALE_COMMITS_THRESHOLD, 0);
     expect(stale).toBe(true);
     render(<SnapshotPanel slug="proj" snapshot={{ ...(snap as SnapshotInfo), stale }} />);
-    expect(screen.getByTestId("snapshot-panel-stale-warning")).toBeTruthy();
+    // Staleness warning is the shared Banner (data-testid="banner")
+    const banner = screen.getByTestId("banner");
+    expect(banner).toBeTruthy();
+    expect(banner.getAttribute("data-tone")).toBe("warn");
   });
 
-  it("verdict TRUE (>= hour threshold) → warning shown even with 0 commits behind", () => {
+  it("verdict TRUE (>= hour threshold) → Banner shown even with 0 commits behind", () => {
     const snap = buildSnapshot("proj", status());
     const stale = isSnapshotStale(0, SNAPSHOT_STALE_HOURS_THRESHOLD);
     expect(stale).toBe(true);
     render(<SnapshotPanel slug="proj" snapshot={{ ...(snap as SnapshotInfo), stale }} />);
-    expect(screen.getByTestId("snapshot-panel-stale-warning")).toBeTruthy();
+    expect(screen.getByTestId("banner")).toBeTruthy();
   });
 
-  it("verdict FALSE (fresh, just below both thresholds) → NO warning", () => {
+  it("verdict FALSE (fresh, just below both thresholds) → NO Banner", () => {
     const snap = buildSnapshot("proj", status());
     const stale = isSnapshotStale(
       SNAPSHOT_STALE_COMMITS_THRESHOLD - 1,
@@ -102,16 +112,19 @@ describe("FRD-14 staleness — isSnapshotStale verdict drives the panel warning 
     );
     expect(stale).toBe(false);
     render(<SnapshotPanel slug="proj" snapshot={{ ...(snap as SnapshotInfo), stale }} />);
-    expect(screen.queryByTestId("snapshot-panel-stale-warning")).toBeNull();
+    expect(screen.queryByTestId("banner")).toBeNull();
   });
 
-  it("the warning carries text + icon (not color alone) — a11y", () => {
+  it("Banner carries text + icon (not color alone) — a11y; role=alert", () => {
     const snap = buildSnapshot("proj", status());
     render(<SnapshotPanel slug="proj" snapshot={{ ...(snap as SnapshotInfo), stale: true }} />);
-    const warn = screen.getByTestId("snapshot-panel-stale-warning");
-    expect(warn.getAttribute("role")).toBe("alert");
-    expect(warn.textContent?.trim().length ?? 0).toBeGreaterThan(0);
-    expect(screen.getByTestId("snapshot-panel-stale-icon")).toBeTruthy();
+    const banner = screen.getByTestId("banner");
+    // Banner has role="alert" (DR-057 Banner contract)
+    expect(banner.getAttribute("role")).toBe("alert");
+    // Banner text is non-empty (state conveyed by text, not color alone)
+    expect(banner.textContent?.trim().length ?? 0).toBeGreaterThan(0);
+    // Banner renders ToneIcon (data-testid="banner-icon") — icon + text, not color alone
+    expect(screen.getByTestId("banner-icon")).toBeTruthy();
   });
 });
 
@@ -146,20 +159,21 @@ describe("FRD-14 progress edges — buildingNow copy stays sane", () => {
 });
 
 // ---------------------------------------------------------------------------
-// safeToTest semantics vs the green badge — documents the actual behavior.
-// The panel shows "Verde / seguro para probar" purely from a non-null snapshot;
-// safeToTest is NOT consulted by the panel. Pin that so a future change is
-// a conscious one (the badge currently does not reflect safe_to_test=false).
+// safeToTest semantics vs the green Chip — documents the actual behavior.
+// The panel shows "en verde" from a non-null snapshot; safeToTest is NOT
+// consulted by the panel. Pin that so a future change is a conscious one.
 // ---------------------------------------------------------------------------
 
-describe("FRD-14 safeToTest — green badge is independent of safe_to_test (documented gap)", () => {
-  it("safeToTest=false still produces a non-null snapshot with the green badge shown", () => {
+describe("FRD-14 safeToTest — green Chip is independent of safe_to_test (documented gap)", () => {
+  it("safeToTest=false still produces a non-null snapshot with the green Chip shown", () => {
     const snap = buildSnapshot("proj", status({ safeToTest: false }));
     expect(snap).not.toBeNull();
     expect((snap as SnapshotInfo).safeToTest).toBe(false);
     render(<SnapshotPanel slug="proj" snapshot={snap} />);
-    // The panel renders the green badge regardless of safeToTest.
-    expect(screen.getByTestId("snapshot-panel-green-badge")).toBeTruthy();
+    // Panel renders the Chip (data-testid="chip", tone="ok") regardless of safeToTest
+    const chip = screen.getByTestId("chip");
+    expect(chip).toBeTruthy();
+    expect(chip.getAttribute("data-tone")).toBe("ok");
   });
 });
 
@@ -172,14 +186,15 @@ describe("FRD-14 robustness — sha/slug edges in the shown command", () => {
     expect(buildSnapshot("proj", status({ lastGreenSha: "   " }))).toBeNull();
   });
 
-  it("slug is embedded verbatim — the panel never silently runs it (read-only display)", () => {
+  it("slug is embedded verbatim in CmdRow — read-only display only (not executed)", () => {
     // FRD-14 non-goal: MC shows the command, never executes it. Verify the
     // panel only renders text; a weird slug appears as-is, harmless on screen.
     const snap = buildSnapshot("a b;rm", status({ lastGreenSha: "deadbee" }));
     render(<SnapshotPanel slug="a b;rm" snapshot={snap} />);
-    const cmd = screen.getByTestId("snapshot-panel-worktree-cmd");
-    expect(cmd.textContent).toBe("git worktree add ../a b;rm-review deadbee");
-    // It is plain text content, not an executed action.
-    expect(cmd.tagName.toLowerCase()).toBe("code");
+    // Command is in the shared CmdRow (data-testid="cmd-row")
+    const cmdRow = screen.getByTestId("cmd-row");
+    expect(cmdRow.textContent).toContain("git worktree add ../a b;rm-review deadbee");
+    // The cmd-row is a plain div (not an executed action)
+    expect(cmdRow.tagName.toLowerCase()).toBe("div");
   });
 });
