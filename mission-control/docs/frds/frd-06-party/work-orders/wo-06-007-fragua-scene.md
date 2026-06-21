@@ -5,7 +5,8 @@ slug: fragua-scene
 title: 'WO-06-007 — La Fragua scene re-paint (FraguaScene + PartyScene/PartyTab shell)'
 status: DRAFT
 parent: FRD-06
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
+reopen_count: 0
 artifacts:
   - 'src/app/projects/[slug]/_party/FraguaScene/**'
   - 'src/app/projects/[slug]/_party/PartyScene/**'

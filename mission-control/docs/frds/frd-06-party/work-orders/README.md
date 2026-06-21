@@ -33,8 +33,8 @@ See `../blueprint.md` for components (`CMP-06-*`), interfaces (`IF-06-*`) and th
 | WO-06-003 | Event → visual-action map (La Fragua decoupling boundary) | VERIFIED | pure logic | WO-06-001, WO-06-012 |
 | WO-06-004 | La Fragua engine (RAF loop, wave cap, rooms, parchment, gate) | VERIFIED | client logic | WO-06-002, WO-06-003 |
 | WO-06-005 | `toFraguaSnapshot` (RSC snapshot, read-only) | VERIFIED | pure logic | WO-06-001/002/003, WO-06-012 |
-| WO-06-006 | **Party foundation (FND-4)** — pixel-RPG canvas primitives (`foundation:true`) | **PLANNED** (Phase 2) | client UI | WO-06-001/002/003/004/005, FRD-13, FRD-01 (live) |
-| WO-06-007 | La Fragua scene re-paint (FraguaScene + PartyScene/PartyTab shell) | **PLANNED** (Phase 2) | client UI | WO-06-006, FRD-13, FRD-04, FRD-01 (live) |
+| WO-06-006 | **Party foundation (FND-4)** — pixel-RPG canvas primitives | VERIFIED (delivered by WO-13-009) | client UI | WO-06-001/002/003/004/005, FRD-13, FRD-01 (live) |
+| WO-06-007 | La Fragua scene re-paint (FraguaScene + PartyScene/PartyTab shell) | VERIFIED | client UI | WO-06-006, FRD-13, FRD-04, FRD-01 (live) |
 
 ## Phase 2 re-plan (presentational)
 
