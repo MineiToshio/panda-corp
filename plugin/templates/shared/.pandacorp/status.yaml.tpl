@@ -3,6 +3,7 @@
 project: "{{PROJECT_NAME}}"
 phase: product   # product | design | architecture | implementation | release | operation
 version: v1
+target_platforms: responsive  # desktop | mobile | responsive — the gate asserts mobile widths only when this includes mobile (DR-074)
 overlay_version: "{{OVERLAY_VERSION}}"  # Pandacorp overlay version this project carries; /pandacorp:upgrade bumps it
 created_with: "{{OVERLAY_VERSION}}"     # overlay version the project was born/adopted with (immutable)
 running: false    # true while /pandacorp:implement is actively building. OBSERVABILITY FIDELITY (DR-066): NEVER read `running` alone as proof of life — a consumer (Mission Control / any monitor) must cross it with heartbeat recency: live ⇔ running AND (now − supervisor_heartbeat) < ~3·tick; show "datos de hace X" past that and "sin señal" at ≥10 min. A frozen `running:true` is NOT live.

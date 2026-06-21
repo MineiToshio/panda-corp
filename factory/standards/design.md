@@ -86,6 +86,32 @@ Concrete wiring (Playwright config, `e2e/smoke.spec.ts`, the `verify.sh` fail-cl
 `plugin/templates/rules/quality-and-testing.md`. Per DR-051, any change here updates the rule library
 and bumps `OVERLAY_VERSION` so every project inherits it.
 
+## 4b. Target platform & responsiveness (DR-074)
+
+The **target platform is a product decision made when the app is DEFINED**, not an implicit default
+discovered at the end. A new project carries a tracked field `target_platforms ∈ { desktop, mobile,
+responsive }` in `.pandacorp/status.yaml`, decided + recorded in the PRD by `spec` (one line: who uses
+it on what device). **`responsive` is the default** — most web apps should work on a phone and a
+desktop; `desktop`-only / `mobile`-only is the rare, deliberate opt-out (an internal back-office, a
+native-companion web view). An adopted (brownfield) project and an existing project being upgraded are
+back-filled to the conservative `desktop` (they may not be responsive yet; the owner promotes them once
+verified) — only a NEW project is born `responsive`.
+
+**Responsiveness is enforced by the gate, not by per-breakpoint mocks.** There is one mock per FRD;
+responsiveness comes from the fluid design system + the shipped **Responsive Gate** (DR-074), which —
+when `target_platforms` includes mobile — asserts at the mobile viewport, per scroll-root: **no
+horizontal overflow** and **no silent off-canvas clip** (`overflow-x:hidden|clip` while wider than the
+box), **tap targets ≥ 24px** (axe `target-size`, WCAG 2.2 SC 2.5.8), and **`<main>` not occluded** by a
+fixed bar (WCAG 2.4.11). The gate is SMART, not naïve: a **legitimate horizontal-scroll region** (a
+kanban board, a dependency DAG, a wide data table that scrolls by design) marks itself
+`data-scroll-x="intentional"` ONCE — that author-declared signal is how the gate tells a real overflow
+defect from a designed scroll region (never a heuristic, never wrapping content in `overflow:hidden` to
+silence a false red, which would itself create a clip bug). For a `desktop`-only / API / scraper project
+the responsive checks are a vacuous pass. Wiring: the VERBATIM templates
+`plugin/templates/stack-a-nextjs/e2e/{responsive.spec.ts,_responsive-helper.ts}` +
+`plugin/templates/stack-a-nextjs/STACK.md` (Responsive Gate), propagated by `blueprint` and
+conformance-checked by `upgrade` (DR-059).
+
 ## 5. Guaranteeing 100% fidelity when AI agents implement (DR-056)
 
 "Use the tokens" is necessary but nowhere near sufficient — and the build engine makes it worse: it
@@ -192,6 +218,7 @@ behavioural one.
 | In-loop render→compare→correct (DR-056 §3) | `plugin/agents/{implementer,frontend-dev}.md` |
 | Two-layer visual-fidelity gate (DR-056 §4) | `plugin/agents/reviewer.md`, `factory/standards/build-orchestration.md` §5, `plugin/templates/stack-a-nextjs/STACK.md` |
 | Runtime/visual verification (smoke) | `plugin/agents/reviewer.md`, `factory/standards/build-orchestration.md` §5, `plugin/templates/stack-a-nextjs/STACK.md`, `plugin/templates/rules/quality-and-testing.md` |
+| Target platform + responsive gate (DR-074) | `plugin/templates/stack-a-nextjs/e2e/{responsive.spec.ts,_responsive-helper.ts}`, `plugin/templates/stack-a-nextjs/STACK.md`, `plugin/templates/shared/.pandacorp/status.yaml.tpl` (`target_platforms`), `plugin/skills/{spec,blueprint,upgrade,adopt}/SKILL.md`, `factory/standards/quality.md` |
 | Demo-only controls marked in prototypes (DR-061) | `plugin/skills/design/SKILL.md`, `plugin/agents/designer.md` |
 | One cohesive app — cross-surface consistency (DR-062) | `plugin/skills/design/SKILL.md`, `plugin/agents/designer.md`, `plugin/agents/reviewer.md` |
 | Functional reconciliation prototype ↔ FRD, bidirectional (DR-064) | `plugin/skills/design/SKILL.md`, `plugin/skills/adopt/SKILL.md`, `plugin/agents/designer.md` |

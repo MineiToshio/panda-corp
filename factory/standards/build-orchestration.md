@@ -182,6 +182,16 @@ The build engine reviews and tests **per FRD**, not per work order:
   This pairs with the builder's **in-loop** render→compare→correct (DR-056): the builder self-corrects
   against the mock first; the gate then verifies **independently**. Wired into `verify.sh` + re-run by
   the `reviewer`.
+- **Responsive gate (DR-074) — does the build actually WORK at a mobile width.** Part of both the
+  per-FRD gate and the close-out verification (it runs inside `verify.sh`, fail-closed). When the
+  project's `target_platforms` (`.pandacorp/status.yaml`) includes mobile, it asserts at the mobile
+  viewport, per scroll-root: no horizontal overflow, no silent off-canvas clip (`overflow-x:hidden|clip`
+  while wider than the box), tap targets ≥ 24px (axe `target-size`, WCAG 2.2 SC 2.5.8), and `<main>` not
+  occluded by a fixed bar (WCAG 2.4.11) — catching exactly the desktop-first overflow a baseline-match
+  visual gate blesses. SMART, not naïve: a legit horizontal-scroll region (kanban/DAG/wide table) marks
+  itself `data-scroll-x="intentional"` once. For a `desktop`-only / API / scraper project it is a vacuous
+  pass. Ships VERBATIM (`e2e/responsive.spec.ts` + `e2e/_responsive-helper.ts`, propagated by `blueprint`,
+  conformance-checked by `upgrade`); canonical in `factory/standards/design.md` §4b + `quality.md`.
 
 ## 6. How a run stops — health & budget, never a feature count
 

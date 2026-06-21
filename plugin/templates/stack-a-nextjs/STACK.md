@@ -7,8 +7,9 @@ Installation guide for `/pandacorp:blueprint`, full-stack web case. It's the **r
 This stack ships **three canonical config files** next to this guide; they are installed **VERBATIM** into the project (no hand-rolled partial copies) and `/pandacorp:upgrade` **diffs them against these templates and regenerates on drift** — so a project's enforcement can never silently fall behind the standard:
 
 - **`biome.json`** → project root — MAXIMUM fail-closed lint+format (domains `react`/`next`/`test`, the `a11y` group, hard-enforcement rules promoted to **error**, `noExcessiveCognitiveComplexity: "error"`, `useSortedClasses`).
-- **`verify.sh`** → `.pandacorp/verify.sh` — the fail-closed gate (structure guard, `biome --error-on-warnings`, `tsc`, `knip`, `madge --circular`, `vitest`, smoke shim, visual shim).
+- **`verify.sh`** → `.pandacorp/verify.sh` — the fail-closed gate (structure guard, `biome --error-on-warnings`, `tsc`, `knip`, `madge --circular`, `vitest`, smoke shim, visual shim, responsive shim).
 - **`knip.json`** → project root — the dead-code config (entry = app routes + next config; project = `src/**`).
+- **`e2e/{smoke,visual,responsive}.spec.ts` + `e2e/_responsive-helper.ts` + `playwright.config.ts`** → `e2e/` and project root — the gate **machinery** (DR-055/056/074), installed VERBATIM and conformance-checked, exactly like the config files above. **`e2e/routes.ts` and `e2e/_target.ts` are PER-PROJECT seeds** (the surface manifest + the platform read) — created only if missing, NEVER byte-diffed/overwritten.
 
 The sections below explain *why* each is configured the way it is; they are the rationale, not a second source to hand-tune.
 
@@ -158,13 +159,25 @@ So a **missing baseline on a genuinely-new route** is "to be blessed at the gate
 
 **Layer B — VLM mock-judge (the reviewer step, catches the FIRST divergence from the mock).** Not a script — it's the `reviewer` (opus, vision, a different model from the sonnet builder): for each route it places the route screenshot next to the FRD's `mocks/<file>` and enumerates the NAMED divergences (missing/extra component, wrong color/token, gross layout/spacing) BEFORE a verdict, at ≥2 viewports, ≥3 samples with image order randomized (majority vote). Fail-closed on a named structural divergence; do not auto-fail on fine pixel/spacing deltas; an uncertain verdict (looks off but nothing nameable) → BLOCK `needs-owner`, never pass. (See `plugin/agents/reviewer.md` runtime/visual lens.)
 
+## Responsive Gate (DR-074) — does the build actually WORK at a mobile width
+
+A web app that ships desktop-first and overflows on a phone passes the smoke + visual gates (they only check "renders clean" and "matches its OWN baseline" — even a broken baseline). This gate is the real fix: a SHIPPED, smart, fail-closed check at the mobile viewport, propagated VERBATIM exactly like the smoke/visual machinery.
+
+- **`e2e/_responsive-helper.ts`** exports `assertResponsive(page, url, { mobileWidth })`. It settles FIRST (the #1 flake risk: mobile viewport → block the live transport `**/api/live**` → `domcontentloaded` → `document.fonts.ready` → `<main>` visible), then runs four SMART checks at the mobile width:
+  - **Per-scroll-root overflow**: RED if any element has `scrollWidth > clientWidth + 1` (sub-pixel tolerance only) UNLESS that element or an ancestor is marked `data-scroll-x="intentional"` (the author-declared escape hatch for legit kanban / DAG / wide-table horizontal scroll — broken-vs-intentional is DECLARED, not guessed).
+  - **Silent off-canvas clip**: RED if `overflow-x: hidden|clip` AND `scrollWidth > clientWidth + 1` (content clipped off-screen — what MC actually shipped), same escape hatch.
+  - **Tap targets**: axe-core `target-size` (WCAG 2.2 SC 2.5.8, the **24px** line — not 44px) at the mobile width.
+  - **`<main>` not occluded** by a `position:fixed` element overlapping the top of its content box, UNLESS `<main>` reserves `scroll-margin-top ≥` the fixed element's height (the legit sticky-header pattern, WCAG 2.4.11).
+- **`e2e/responsive.spec.ts`** runs the mobile-width checks **only when `target_platforms` includes mobile** (read from `.pandacorp/status.yaml` via `e2e/_target.ts`); for a desktop-only / API / scraper project it is a **vacuous pass**. Add `"test:responsive": "playwright test e2e/responsive.spec.ts"` to `package.json` and `@axe-core/playwright` to `devDependencies`.
+- **Mark intentional scroll-x once**: a deliberate horizontal-scroll container (kanban board, dependency DAG, a wide data table that scrolls by design) carries `data-scroll-x="intentional"` so the gate doesn't false-red it — and so an implementer can't "fix" a false red by wrapping content in `overflow:hidden` (which would CREATE a silent-clip bug). That is the whole point: the gate distinguishes a real overflow defect from a designed scroll region by an explicit author signal, not a heuristic.
+
 ### Scoped gate — `verify.sh --since <sha>` (fast per-FRD pass)
 
 The full gate is expensive to run on every FRD. `verify.sh` accepts an optional `--since <sha>` that **scopes vitest to the changed tests** for the fast per-FRD gate — `vitest run --changed <sha>` (only specs affected since `<sha>`). The static gates stay **global** (cheap and catch cross-cutting breakage): `biome check` and `tsc --noEmit` always run over the whole tree. Without `--since`, `verify.sh` runs everything. **At close-out** the full suite runs unscoped — `vitest run` over all tests **plus every visual baseline** (all routes, all viewports) — so nothing ships on a partial pass. Per-FRD = scoped + fast; close-out = full + complete.
 
 ## `.pandacorp/verify.sh` — canonical, installed VERBATIM (DR-059)
 
-The gate is **not** hand-rolled per project. Install `${CLAUDE_PLUGIN_ROOT}/templates/stack-a-nextjs/verify.sh` **VERBATIM** as `.pandacorp/verify.sh` (alongside `biome.json` and `knip.json`); `/pandacorp:upgrade` **conformance-checks** it against this template and regenerates on drift, so a project's enforcement can never silently fall behind the standard. It is MAXIMUM fail-closed — `set -euo pipefail` + `inherit_errexit`, every Biome warn promoted to a hard gate (`--error-on-warnings`), and a **missing** smoke/visual harness is RED, never a skip. The gate runs, in order: structure guard (no loose `*.test.ts(x)`) → `biome check` → `tsc --noEmit` → `knip` (dead code) → `madge --circular` → `vitest run` → the smoke shim (DR-055) → the visual shim (DR-056). The canonical file is the source of truth — read it there, don't duplicate it here.
+The gate is **not** hand-rolled per project. Install `${CLAUDE_PLUGIN_ROOT}/templates/stack-a-nextjs/verify.sh` **VERBATIM** as `.pandacorp/verify.sh` (alongside `biome.json` and `knip.json`); `/pandacorp:upgrade` **conformance-checks** it against this template and regenerates on drift, so a project's enforcement can never silently fall behind the standard. It is MAXIMUM fail-closed — `set -euo pipefail` + `inherit_errexit`, every Biome warn promoted to a hard gate (`--error-on-warnings`), and a **missing** smoke/visual harness is RED, never a skip. The gate runs, in order: structure guard (no loose `*.test.ts(x)`) → `biome check` → `tsc --noEmit` → `knip` (dead code) → `madge --circular` → `vitest run` → the smoke shim (DR-055) → the visual shim (DR-056) → the responsive shim (DR-074). The canonical file is the source of truth — read it there, don't duplicate it here.
 
 ## CI (`.github/workflows/ci.yml`)
 
