@@ -5,7 +5,7 @@ slug: configuration-ui
 title: 'WO-07-005 — Configuración UI surface (re-anchor to prototype)'
 status: DRAFT
 parent: FRD-07
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 reopen_count: 2
 artifacts:
   - 'src/app/configuration/**'
@@ -80,6 +80,75 @@ readers — never a static array.
 `docs/design/prototype/index.html` — the **Configuración** view (`configView()` + `configDetail()`
 and the `gxSkillCard`/`gxAgentCard`/`gxRuleCard`/`gxStdCard` builders). The in-loop fidelity gate
 renders `src/app/configuration` against this mock.
+
+## Status Note (reopen pass 2 — 2026-06-21)
+
+**What this reopen fixed (gate reject #2):**
+
+This pass completed the two DR-057 reuse defects from gate reject #2 (which were previously fixed in
+pass 1 but then reverted by DR-070 along with the whole WO) and confirmed all 5 EARS behaviors from
+gate reject #1 are still present in the reverted code:
+
+1. **`SectionTabs.tsx` — replaced hand-rolled `role="tablist"` with shared `SubTabs`** (DR-057/DR-062).
+   `SectionTabs` now delegates entirely to `SubTabs` from `src/components/core/Tabs/Tabs.tsx` with
+   `testIdPrefix="config-tab-"` (keeps all downstream test ids stable) and
+   `tabIdPrefix="config-tab-id-"` (stable HTML ids for `aria-labelledby` panel pairing).
+
+2. **`StandardsSection/parts.tsx` `DetailPanel` — replaced hand-rolled Resumen/Detalle toggle
+   buttons with `SubTabs`** (DR-057/DR-062). Dead-code helpers `detailTabStyle`/`DETAIL_TABS_STYLE`
+   removed from `styles.ts`. Imports reorganized per Biome sort rules.
+
+**Shared `Tabs` component extended (non-breaking, additive):**
+- Added `data-active` attribute to each tab button (mirrors `aria-selected`; required by existing
+  a11y tests asserting shape/label beyond color).
+- Added per-button `onKeyDown` handler for Enter/Space (WAI-ARIA compliant activation; on the button
+  itself, not on the container div, so it works when `fireEvent.keyDown` targets the button directly).
+- Added optional `tabIdPrefix` prop — generates stable HTML `id` on each button for `aria-labelledby`.
+- Added `data-tab-id` attribute for internal Enter/Space dispatch.
+
+**All 5 EARS behaviors confirmed present** (verified by `frd07.gate-opus.reviewer.test.tsx` +
+`frd07.cross-nav-reverse.gate-opus.reviewer.test.tsx`, both GREEN):
+- Copy-to-clipboard on skill command chip (`CopyButton`, `data-testid="copy-button"`)
+- "interno" flag on internal skill cards and detail headers
+- "Produce" section in skill detail
+- Forward cross-nav: flow agent chips are clickable → jump to agent detail
+- Reverse cross-nav: agent detail lists using-skills as clickable chips → jump to skill detail
+- Model-assignment explanation in agent detail (opus = judgment / sonnet = mechanical)
+
+**Interfaces / contracts exposed (unchanged from previous pass):**
+- `ConfigurationShell` — `"use client"` boundary; props: `{ skills, agentsData, rules, standards }`
+- `SectionTabs` — `{ activeSection, onSectionChange }` (same API; now delegates to `SubTabs`)
+- `AgentDetail` — `{ agent, level, usingSkills?, onSkillClick? }` (reverse cross-nav unchanged)
+- `AgentList`, `SkillList`, `DecisionRulesSection`, `StandardsSection` / `DomainGroup` — unchanged
+
+**Components reused (DR-057):**
+- `SubTabs` (= `Tabs level="sub"`) — now used in `SectionTabs` AND `StandardsSection DetailPanel`
+- `Panel variant="rpgpanel"`, `ItemSlot`, `SectionHead`, `PageTitle`, `Avatar`, `CopyButton`,
+  `FlowDiagram`, `XpBar` — all unchanged
+
+**Implicit decisions / assumptions:**
+- `SubTabs` uses `testIdPrefix="config-tab-"` → all downstream tests keep `config-tab-{id}` testids
+- `tabIdPrefix="config-tab-id-"` → panel `aria-labelledby="config-tab-id-skills"` etc. stay valid
+- `StandardsSection` detail tabs use `testIdPrefix="standard-tab-"` → `standard-tab-summary` /
+  `standard-tab-detail` testids preserved (gate tests depend on these)
+- `Tabs` `data-active` mirrors `aria-selected`: `"true"` when active, `"false"` when not
+- Enter/Space on a tab button calls `onChange(tab.id)` immediately (per-button handler)
+- `data-tab-id` is an internal attribute on each button (used by the container-level Arrow key nav
+  to dispatch the correct id when pressing Enter/Space after Arrow focus movement)
+
+**Test files:**
+- `src/app/configuration/_tests/dr057-reuse.test.tsx` — 11 new RED→GREEN tests enforcing DR-057
+  reuse: `SectionTabs` uses shared `Tabs` (`data-testid="tabs-root"`, `data-level="sub"`); all
+  4 `config-tab-*` testids reachable; `StandardsSection` detail uses `SubTabs`; Resumen/Detalle
+  toggle still works.
+- All 327 test files pass (7028 tests); 2 expected-fail unchanged.
+- tsc clean; biome clean (547 files).
+
+**Fidelity check (DR-072, one light pass):** Route `/configuration` screenshotted at 1280×720.
+Layout matches prototype: PageTitle "Configuración" + 4 SubTabs pill bar (Habilidades active) +
+SectionHead groups ("En la fábrica" 2, "En el proyecto" 11) + RPG embossed skill cards.
+No gross structural divergence. Light/dark theming delta (prototype dark, app light) is an advisory
+nit carried from prior pass, not a gate-blocking divergence (DR-072).
 
 ## Status Note (reopen pass — 2026-06-21)
 
