@@ -216,15 +216,40 @@ stops only when:
 **reopened** — a reopen counts, so chained reopens can't slip past the cap; a bug the 2026-06-16 overnight
 test caught). It is never the overnight guardrail; `maxAgents` is.
 
-**A gate rejection reverts its own code (DR-070).** The FRD gate's `verify.sh --since` scopes only the
-**tests**; `biome`/`tsc`/`knip` run **whole-project**. The wave-writer commits a surface's code during the
-build (Option B, §2), so when the gate then **reopens or blocks** that work order, its committed code used to
-be **left in the tree** — and its dead exports / lint warnings turned **every later FRD's global gate RED**,
-blocking clean siblings on another feature's mess (MC Phase-2: `frd-11`/`frd-14` blocked `error`, "entangled
-with a sibling FRD"). So on reopen/block the gate/repair agent now **reverts the rejected work order's files
-to `last_green_sha`** — surgical `git checkout <sha> -- <files>` + `git rm` for newly-created files, **never a
-whole-tree hard reset** (that would discard verified siblings) — and commits the revert with the status
-change. The reopened WO is `PLANNED`, so the next pass rebuilds it from a clean green base.
+**A gate reject PATCHES IN PLACE before reverting (DR-073), and the revert is the fallback (DR-070).** When
+the FRD gate rejects a SPECIFIC work order for a localized CORRECTION fault, the build is typically ~correct
+except a bounded fault — discarding a 99%-correct build to rebuild from scratch wastes a full multi-agent pass
+AND re-introduces a new micro-bug (the WO-07-005 4-cycle non-convergence: 5 EARS → reverse cross-nav → dead-code
+knip → dead Back button, each reject a different progressively-smaller finding, only converging when a human
+patched the one bug). So the default is **patch-first**:
+- The reviewer does NOT revert on a localized reject; it **reports the fixable fault(s)** — `findings: [{ wo,
+  finding (file:line), failingTest (a RED-proven test that fails without the fix), files }]` — and leaves the
+  WO `IN_REVIEW` (no `reopen_count` change yet).
+- The engine attempts **exactly ONE in-place patch** (`attemptPatch`, opus + `xhigh`): fix only the named
+  finding on the EXISTING build, make the RED-proven test pass, then **re-gate WHOLE-PROJECT** — the full FRD
+  adversarial + integration pass AND a whole-project `knip` + `biome` + `tsc` (NOT `verify.sh --since`: a dead
+  export the patch leaves must not slip to a sibling FRD's global gate — the red-team-A fix). It commits + sets
+  the WOs `VERIFIED` (and resets their `reopen_count: 0`) **only on whole-project-clean**; the patch runs
+  **synchronously inside this FRD's gate step**, so a sibling never sees broken committed code — DR-070's true
+  invariant ("never broken-committed whole-project") is preserved without a revert.
+- **Only if the patch can't green it whole-project** does the engine fall back to `revertAndReopen` (the DR-070
+  path): set the WO `PLANNED`, **increment `reopen_count`**, and revert its files to `last_green_sha` — surgical
+  `git checkout <sha> -- <files>` + `git rm` for newly-created files, **never a whole-tree hard reset** (that
+  would discard verified siblings) — committed with the status change, so the next pass rebuilds it from a clean
+  green base. **One unified budget:** `reopen_count` is the single counter (the in-place patch is a sub-step of
+  one reject cycle, NOT a second axis — this avoids the nesting/non-termination the red team flagged); at
+  `MAX_REOPENS` (default 3) the gate BLOCKs `needs-owner` instead of grinding.
+
+**Model selection — adaptive escalation within the mode (DR-073).** The mode's `P.worker` is the **floor**, never
+downgraded. `pickWorkerModel(wo)` escalates a work order's build to **opus** when **either** it is a-priori hard
+— `difficulty: high` in the WO frontmatter (HYBRID, owner decision; the rubric is in `work-orders`) — **or** it
+has already failed once — `reopen_count >= 1` (empirical: a sonnet build that didn't pass is unlikely to pass
+again, so raise the model for the retry). The in-place patch always runs on opus. **Cost-weighted brake (the
+red-team-B fix):** `maxAgents` counts AGENTS, not tokens, so an opus escalation would silently blow the token
+budget while the counter reads low — so `agentSpawned` is **weighted by model cost** (opus ≈ 3 cost-units), making
+`maxAgents` brake on a token-proxy. Every escalation is logged (`⤴ opus: <wo> (difficulty=high | reopen=N)`) so
+spend is visible. A-priori difficulty is a *prior*; `reopen_count` is the *empirical* correction, so a
+mis-estimated `medium` WO still escalates once it actually fails.
 
 **Repair before block (the owner's rule).** When a work order or the FRD gate fails, the engine first
 runs a **repair pass** (a strong-model agent diagnoses and tries to fix, re-verifying with
@@ -413,9 +438,12 @@ re-run `verify.sh` to confirm no regression → leave the residual for the owner
 polish, NEVER a reject-to-rebuild.** Two visual touchpoints, different jobs: a LIGHT advisory per-FRD check
 (catches GROSS divergence early, in-loop, cheap) + this THOROUGH end pass (the complete polish, outside the loop).
 
-**Non-progress stop (refuse to treat repeated failure as progress).** A WO carries a `reopen_count`; when the gate
-would reopen a WO already reopened `MAX_REOPENS` (default 3) times, it BLOCKS `needs-owner` instead (the gate can't
-be satisfied autonomously — the owner must look), rather than grinding the same fault every run.
+**Non-progress stop (refuse to treat repeated failure as progress).** A WO carries a `reopen_count` — the **single**
+attempt budget (DR-073: the in-place patch is a sub-step of one reject cycle, not a second axis, so there is no
+separate `patch_attempts` to nest). A reject defaults to ONE in-place patch (above + §6); only the *revert*
+fallback increments `reopen_count`. When the gate would reopen a WO already reopened `MAX_REOPENS` (default 3)
+times, it BLOCKS `needs-owner` instead (the gate can't be satisfied autonomously — the owner must look), rather
+than grinding the same fault every run.
 
 **Selective reasoning effort.** Higher effort has diminishing returns by base-model strength, and `max` overthinks
 structured tasks — so raise it only where reasoning is hardest: the FRD gate, the repair pass, and the cross-feature
