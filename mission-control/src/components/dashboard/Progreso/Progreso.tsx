@@ -31,6 +31,7 @@
  * Source-of-truth hierarchy: FRD > FDD > design-tokens > blueprint > work order
  */
 
+import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import { XpBar } from "@/components/core/XpBar/XpBar";
 import type { ChainState, Unique } from "@/lib/achievements/achievements";
 import { type GuildLevel, RANKS } from "@/lib/gamification/gamification";
@@ -79,178 +80,182 @@ export function Progreso({
   const nextRankTitle = nextRankEntry?.title ?? guildLevel.title;
 
   return (
-    <section
-      data-testid="progreso-strip"
-      aria-label="Tu progreso en el gremio"
-      style={{
-        background: "var(--color-base)",
-        borderRadius: "var(--radius)",
-        boxShadow: "var(--shadow-1)",
-        padding: "calc(var(--space-base) * 0.875) var(--space-base)",
-        display: "flex",
-        gap: "var(--space-base)",
-        alignItems: "center",
-        flexWrap: "wrap",
-      }}
-    >
-      {/* ── Left: recent achievement icon + text ──────────────────────── */}
-      <div
+    <div>
+      {/* SectionHead (CMP-13-sectionhead, DR-062, AC-18-001.10) */}
+      <SectionHead icon="ti-trophy" label="Tu progreso" />
+      <section
+        data-testid="progreso-strip"
+        aria-label="Tu progreso en el gremio"
         style={{
+          background: "var(--color-base)",
+          borderRadius: "var(--radius)",
+          boxShadow: "var(--shadow-1)",
+          padding: "calc(var(--space-base) * 0.875) var(--space-base)",
           display: "flex",
+          gap: "var(--space-base)",
           alignItems: "center",
-          gap: "calc(var(--space-base) * 0.75)",
-          flex: "1",
-          minWidth: "240px",
+          flexWrap: "wrap",
         }}
       >
-        {/* Trophy icon badge (uses accent-adjacent warm tone from design tokens) */}
+        {/* ── Left: recent achievement icon + text ──────────────────────── */}
         <div
           style={{
-            width: "42px",
-            height: "42px",
-            flexShrink: 0,
-            borderRadius: "calc(var(--radius) * 1.125)",
-            background: "color-mix(in oklch, var(--color-accent) 18%, var(--color-surface))",
-            color: "var(--color-accent)",
             display: "flex",
             alignItems: "center",
-            justifyContent: "center",
-            fontSize: "1.375rem",
-            userSelect: "none",
-            // AC-18-005.3: no false urgency — just a static icon
+            gap: "calc(var(--space-base) * 0.75)",
+            flex: "1",
+            minWidth: "240px",
           }}
-          aria-hidden="true"
         >
-          {recentAchievement ? "🏆" : "🎯"}
-        </div>
-
-        {/* Achievement text */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-          <span
-            data-testid="progreso-recent-achievement"
+          {/* Trophy icon badge (uses accent-adjacent warm tone from design tokens) */}
+          <div
             style={{
-              fontSize: "0.8125rem",
-              fontWeight: 500,
-              color: "var(--color-text)",
-              lineHeight: 1.3,
+              width: "42px",
+              height: "42px",
+              flexShrink: 0,
+              borderRadius: "calc(var(--radius) * 1.125)",
+              background: "color-mix(in oklch, var(--color-accent) 18%, var(--color-surface))",
+              color: "var(--color-accent)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "1.375rem",
+              userSelect: "none",
+              // AC-18-005.3: no false urgency — just a static icon
             }}
+            aria-hidden="true"
           >
-            {recentAchievement
-              ? `Logro reciente: ${recentAchievement.name}`
-              : "Tu primer logro te espera"}
-          </span>
+            {recentAchievement ? "🏆" : "🎯"}
+          </div>
 
-          {/* Next milestone line (AC-18-005.1) */}
-          {hasMilestone ? (
+          {/* Achievement text */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
             <span
-              data-testid="progreso-next-milestone"
+              data-testid="progreso-recent-achievement"
               style={{
-                fontSize: "0.6875rem",
+                fontSize: "0.8125rem",
+                fontWeight: 500,
                 color: "var(--color-text)",
-                opacity: 0.65,
                 lineHeight: 1.3,
               }}
             >
-              {`Próximo hito: ${milestoneText}`}
+              {recentAchievement
+                ? `Logro reciente: ${recentAchievement.name}`
+                : "Tu primer logro te espera"}
             </span>
-          ) : (
-            <span
-              data-testid="progreso-next-milestone"
-              style={{
-                fontSize: "0.6875rem",
-                color: "var(--color-text)",
-                opacity: 0.65,
-                lineHeight: 1.3,
-              }}
-            >
-              Cadenas al máximo
-            </span>
-          )}
+
+            {/* Next milestone line (AC-18-005.1) */}
+            {hasMilestone ? (
+              <span
+                data-testid="progreso-next-milestone"
+                style={{
+                  fontSize: "0.6875rem",
+                  color: "var(--color-text)",
+                  opacity: 0.65,
+                  lineHeight: 1.3,
+                }}
+              >
+                {`Próximo hito: ${milestoneText}`}
+              </span>
+            ) : (
+              <span
+                data-testid="progreso-next-milestone"
+                style={{
+                  fontSize: "0.6875rem",
+                  color: "var(--color-text)",
+                  opacity: 0.65,
+                  lineHeight: 1.3,
+                }}
+              >
+                Cadenas al máximo
+              </span>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* ── Right: guild level badge + XP bar ─────────────────────────── */}
-      <div
-        style={{
-          flex: "1",
-          minWidth: "200px",
-          display: "flex",
-          flexDirection: "column",
-          gap: "calc(var(--space-base) * 0.375)",
-        }}
-      >
-        {/* Guild level + title header (AC-18-005.1, AC-18-005.5: tabular-nums via text nodes) */}
+        {/* ── Right: guild level badge + XP bar ─────────────────────────── */}
         <div
           style={{
+            flex: "1",
+            minWidth: "200px",
             display: "flex",
-            alignItems: "baseline",
-            justifyContent: "space-between",
-            gap: "calc(var(--space-base) * 0.5)",
+            flexDirection: "column",
+            gap: "calc(var(--space-base) * 0.375)",
           }}
         >
-          <span style={{ display: "flex", alignItems: "baseline", gap: "0.375rem" }}>
+          {/* Guild level + title header (AC-18-005.1, AC-18-005.5: tabular-nums via text nodes) */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "baseline",
+              justifyContent: "space-between",
+              gap: "calc(var(--space-base) * 0.5)",
+            }}
+          >
+            <span style={{ display: "flex", alignItems: "baseline", gap: "0.375rem" }}>
+              <span
+                style={{
+                  fontSize: "0.6875rem",
+                  color: "var(--color-text)",
+                  opacity: 0.6,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                Nv
+              </span>
+              <span
+                data-testid="progreso-guild-level"
+                style={{
+                  fontSize: "1.125rem",
+                  fontWeight: 700,
+                  color: "var(--color-accent)",
+                  lineHeight: 1,
+                }}
+              >
+                {/* tabular-nums applied via html { font-variant-numeric: tabular-nums } in globals.css */}
+                {guildLevel.level}
+              </span>
+              <span
+                data-testid="progreso-guild-title"
+                style={{
+                  fontSize: "0.8125rem",
+                  fontWeight: 600,
+                  color: "var(--color-text)",
+                  opacity: 0.85,
+                }}
+              >
+                {guildLevel.title}
+              </span>
+            </span>
+
+            {/* XP / next XP (AC-18-005.5: tabular-nums via text nodes) */}
             <span
               style={{
                 fontSize: "0.6875rem",
                 color: "var(--color-text)",
                 opacity: 0.6,
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-              }}
-            >
-              Nv
-            </span>
-            <span
-              data-testid="progreso-guild-level"
-              style={{
-                fontSize: "1.125rem",
-                fontWeight: 700,
-                color: "var(--color-accent)",
                 lineHeight: 1,
+                whiteSpace: "nowrap",
               }}
             >
-              {/* tabular-nums applied via html { font-variant-numeric: tabular-nums } in globals.css */}
-              {guildLevel.level}
+              <span data-testid="progreso-xp">{guildLevel.xp}</span>
+              {" / "}
+              {guildLevel.next}
+              {" XP"}
             </span>
-            <span
-              data-testid="progreso-guild-title"
-              style={{
-                fontSize: "0.8125rem",
-                fontWeight: 600,
-                color: "var(--color-text)",
-                opacity: 0.85,
-              }}
-            >
-              {guildLevel.title}
-            </span>
-          </span>
+          </div>
 
-          {/* XP / next XP (AC-18-005.5: tabular-nums via text nodes) */}
-          <span
-            style={{
-              fontSize: "0.6875rem",
-              color: "var(--color-text)",
-              opacity: 0.6,
-              lineHeight: 1,
-              whiteSpace: "nowrap",
-            }}
-          >
-            <span data-testid="progreso-xp">{guildLevel.xp}</span>
-            {" / "}
-            {guildLevel.next}
-            {" XP"}
-          </span>
+          {/* CMP-09-xp-bar: reusable honest XP bar (AC-18-005.1, AC-18-005.5) */}
+          <XpBar
+            xp={guildLevel.xp}
+            next={guildLevel.next}
+            pctToNext={guildLevel.pctToNext}
+            label={guildLevel.title}
+            nextTitle={nextRankTitle}
+          />
         </div>
-
-        {/* CMP-09-xp-bar: reusable honest XP bar (AC-18-005.1, AC-18-005.5) */}
-        <XpBar
-          xp={guildLevel.xp}
-          next={guildLevel.next}
-          pctToNext={guildLevel.pctToNext}
-          label={guildLevel.title}
-          nextTitle={nextRankTitle}
-        />
-      </div>
-    </section>
+      </section>
+    </div>
   );
 }

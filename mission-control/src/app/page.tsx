@@ -2,8 +2,9 @@
  * CMP-18-page — Dashboard "Inicio" (default landing route `/`)
  *
  * Server Component. Composes the six dashboard sections top-to-bottom:
- *   1. Health banners  (conditional: plugin-sync + orphans)
- *   2. Desde tu última visita  (digest of events since last ack)
+ *   0. PageTitle "Inicio" (CMP-13-pagetitle, DR-062)
+ *   1. Health banners  (conditional: OnboardingGate + PluginSyncBanner + OrphansBanner)
+ *   2. Desde tu última visita  (Digest — visto_hasta marker, client-local)
  *   3. Tu turno  (human-gate queue, hero block)
  *   4. Pulso de la fábrica  (funnel + conversion metric)
  *   5. Construcción y cartera  (per-project cards + first-action card)
@@ -12,23 +13,35 @@
  * Read-only invariant (architecture §1, REQ-18-002): no writes, no Claude calls.
  * All I/O is fs-based reads via `lib/**`. "use client" is NOT set here.
  *
- * Traceability:
- *   AC-18-006.1  / renders the dashboard; tabs reachable from layout's top nav
- *   AC-18-006.2  banner stack conditional (PluginSyncBanner + OrphansBanner)
- *   AC-18-006.3  read-only; no Claude
- *   AC-18-006.4  calm when healthy (al-día, no manufactured urgency)
- *   AC-18-006.5  six sections in order
- *   AC-18-006.6  fresh factory safe (al-día digest + first-action card; no crash)
+ * Real-time (AC-18-001.2): DashboardLiveWatcher (client component) subscribes to
+ * useLiveSnapshot and calls router.refresh() on new events — the Server Component
+ * re-runs with fresh lib data without a full navigation.
  *
- * WO-18-006 — FRD-18 blueprint §3 (CMP-18-page, CMP-18-banners)
+ * Traceability:
+ *   AC-18-001.1  / renders the dashboard under PageTitle "Inicio"
+ *   AC-18-001.2  DashboardLiveWatcher provides event-driven live updates
+ *   AC-18-001.3  OnboardingGate + PluginSyncBanner + OrphansBanner hosted (conditional)
+ *   AC-18-001.4  visto_hasta client-local (Digest owns localStorage)
+ *   AC-18-001.5  Tu turno: human-gate queue only (IF-18-turn exclusions enforced)
+ *   AC-18-001.6  Pulso: ≤5 signals (IF-18-pulse)
+ *   AC-18-001.7  Cartera: per-project card with phase/WO/flags/nextcmd
+ *   AC-18-001.8  Tu progreso: honest gamification, no streaks
+ *   AC-18-001.9  read-only; copyable commands; navigates on click
+ *   AC-18-001.10 shared primitives: SectionHead, Chip, CmdRow, PageTitle, ProgressBar
+ *
+ * WO-18-001 — FRD-18 blueprint §3 (CMP-18-page, CMP-18-banners)
  */
 
+import { OnboardingGate } from "@/app/_components/OnboardingGate/OnboardingGate";
 import { OrphansBanner } from "@/app/_components/orphans-banner/orphans-banner";
 import { PluginSyncBanner } from "@/app/_components/plugin-sync-banner/plugin-sync-banner";
 import { type PulseResult, pulse } from "@/app/_lib/pulse";
 import { type CardData, deriveCard } from "@/app/(dashboard)/_lib/card";
 import { buildTurnQueue, type TurnItem } from "@/app/(dashboard)/_lib/turn";
+import { Chip } from "@/components/core/Chip/Chip";
+import { PageTitle } from "@/components/core/PageTitle/PageTitle";
 import { Cartera } from "@/components/dashboard/Cartera/Cartera";
+import { DashboardLiveWatcher } from "@/components/dashboard/DashboardLiveWatcher/DashboardLiveWatcher";
 import { Progreso } from "@/components/dashboard/Progreso/Progreso";
 import { TuTurno } from "@/components/dashboard/TuTurno/TuTurno";
 import { Digest } from "@/components/modules/Digest/Digest";
@@ -50,6 +63,7 @@ import { type IdeaCard, readIdeas } from "@/lib/ideas/ideas";
 import type { MemoryHealth } from "@/lib/memory/memory-health";
 import { memoryHealth } from "@/lib/memory/memory-health";
 import { activeProjects, type ProjectListItem, readPortfolio } from "@/lib/portfolio/portfolio";
+import { readProfile } from "@/lib/profile/profile";
 import { readStatus, type StatusResult } from "@/lib/status/status";
 import { listWorkOrders } from "@/lib/work-orders/work-orders";
 
@@ -74,7 +88,7 @@ const PAGE_STYLE: React.CSSProperties = {
 const IN_CONSTRUCTION_PHASES = new Set(["implementation", "architecture", "release"]);
 
 /**
- * Count live vs stale in-construction builds (FRD-12 freshness, AC-18-003.2).
+ * Count live vs stale in-construction builds (FRD-12 freshness, AC-18-001.6).
  * Pure: split `projects` that are running by whether their last event is fresh.
  */
 function countConstructionSplit(
@@ -248,7 +262,9 @@ function deriveGamification(
  * Dashboard "Inicio" — the default landing route.
  *
  * Reads all lib layers server-side, delegates derivations to pure helpers, and
- * renders the six stacked sections. Never calls Claude; never writes to disk.
+ * renders the six stacked sections under PageTitle "Inicio". Never calls Claude;
+ * never writes to disk. DashboardLiveWatcher (client) provides event-driven
+ * real-time refresh (AC-18-001.2).
  */
 export default function HomePage(): React.JSX.Element {
   const nowMs = Date.now();
@@ -262,6 +278,7 @@ export default function HomePage(): React.JSX.Element {
   const memHealth = memoryHealth();
   const portfolioEntries = readPortfolio();
   const statuses = portfolioEntries.map((e) => readStatus(e.path));
+  const profileResult = readProfile();
 
   // ── 2. Derive sections ──────────────────────────────────────────────────
 
@@ -282,31 +299,57 @@ export default function HomePage(): React.JSX.Element {
     eventsSnapshot,
   );
 
+  // ── Tu turno count chip (right slot of SectionHead) ─────────────────────
+  const turnCount = turnItems.length;
+  const turnChip =
+    turnCount > 0 ? (
+      <span data-testid="tu-turno-count" role="status">
+        <Chip tone="danger">{turnCount} esperan por ti</Chip>
+      </span>
+    ) : (
+      <span data-testid="tu-turno-al-dia">
+        <Chip tone="ok">al día</Chip>
+      </span>
+    );
+
   // ── 3. Render ───────────────────────────────────────────────────────────
 
   return (
     <main data-testid="dashboard-page" style={PAGE_STYLE}>
-      {/* ── Health banners (conditional, client-side polled, AC-18-006.2) ── */}
+      {/* ── Live watcher: subscribes to useLiveSnapshot, calls router.refresh() ── */}
+      {/* AC-18-001.2: event-driven real-time, NOT polling; doesn't own transport */}
+      <DashboardLiveWatcher />
+
+      {/* ── PageTitle "Inicio" (CMP-13-pagetitle, DR-062, AC-18-001.1) ── */}
+      <PageTitle
+        icon="ti-home"
+        title="Inicio"
+        subtitle="Tu cabina de mando: lo que espera por ti, el pulso de la fábrica y la cartera en obra."
+      />
+
+      {/* ── Health banners (conditional, AC-18-001.3) ── */}
       <div data-testid="dashboard-banners">
+        {/* OnboardingGate: renders only when profile is absent (FRD-01, AC-18-001.3) */}
+        {!profileResult.present && <OnboardingGate />}
         {/* PluginSyncBanner: "use client"; renders null until drift confirmed (FRD-15) */}
         <PluginSyncBanner />
         {/* OrphansBanner: "use client"; renders null until candidates confirmed (FRD-16) */}
         <OrphansBanner />
       </div>
 
-      {/* ── Section 1: Desde tu última visita (digest, AC-18-006.5) ── */}
+      {/* ── Section 2: Desde tu última visita (digest, AC-18-001.4) ── */}
       <Digest events={events} nowMs={nowMs} />
 
-      {/* ── Section 2: Tu turno (human-gate queue, AC-18-006.4/5) ── */}
-      <TuTurno items={turnItems} />
+      {/* ── Section 3: Tu turno (human-gate queue, AC-18-001.5) ── */}
+      <TuTurno items={turnItems} turnChip={turnChip} />
 
-      {/* ── Section 3: Pulso de la fábrica (funnel + conversion, AC-18-006.5) ── */}
+      {/* ── Section 4: Pulso de la fábrica (funnel + conversion, AC-18-001.6) ── */}
       <Pulso pulse={pulseResult} />
 
-      {/* ── Section 4: Construcción y cartera (project cards, AC-18-006.5/6) ── */}
+      {/* ── Section 5: Construcción y cartera (project cards, AC-18-001.7) ── */}
       <Cartera cards={cards} />
 
-      {/* ── Section 5: Tu progreso (gamification strip, AC-18-006.5) ── */}
+      {/* ── Section 6: Tu progreso (gamification strip, AC-18-001.8) ── */}
       <Progreso
         guildLevel={guildLevel}
         recentAchievement={recentAchievement}

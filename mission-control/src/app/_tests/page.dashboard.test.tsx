@@ -116,6 +116,20 @@ vi.mock("@/lib/achievements/achievements", async (importOriginal) => {
   };
 });
 
+vi.mock("@/lib/profile/profile", () => ({
+  readProfile: vi.fn(() => ({ present: true as const, profile: { name: "Test" } })),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: vi.fn(() => ({ refresh: vi.fn(), push: vi.fn(), replace: vi.fn() })),
+  usePathname: vi.fn(() => "/"),
+  useSearchParams: vi.fn(() => new URLSearchParams()),
+}));
+
+vi.mock("@/hooks/useLiveSnapshot", () => ({
+  useLiveSnapshot: vi.fn(() => ({ snapshot: null, connected: false, lastEventAt: null })),
+}));
+
 // ---------------------------------------------------------------------------
 // Render helper
 // ---------------------------------------------------------------------------

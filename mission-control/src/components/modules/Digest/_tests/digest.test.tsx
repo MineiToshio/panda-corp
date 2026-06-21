@@ -191,8 +191,9 @@ describe("frd-18: Digest — AC-18-001.4 (al-día state)", () => {
 
     render(<Digest events={EVENTS_WITH_NEW} nowMs={NOW_MS} />);
 
-    // Should show "al día" state
-    expect(screen.getByText(/al día/i)).toBeDefined();
+    // Should show "al día" state — SectionHead chip carries it (AC-18-001.10)
+    const matches = screen.getAllByText(/al día/i);
+    expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 
   it("frd-18: AC-18-001.4 — shows last-24h events (dimmed) in al-día state (never empty)", () => {
@@ -210,7 +211,9 @@ describe("frd-18: Digest — AC-18-001.4 (al-día state)", () => {
 
     render(<Digest events={EMPTY_EVENTS} nowMs={NOW_MS} />);
 
-    expect(screen.getByText(/al día/i)).toBeDefined();
+    // "al día" now lives in the SectionHead chip (AC-18-001.10) — use getAllByText
+    const matches = screen.getAllByText(/al día/i);
+    expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 
   it("frd-18: AC-18-001.4 — no 'marcar visto' button in al-día state", () => {

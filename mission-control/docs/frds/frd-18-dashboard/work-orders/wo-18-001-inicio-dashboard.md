@@ -5,7 +5,7 @@ slug: inicio-dashboard
 title: 'WO-18-001 — `Inicio` real-time dashboard (all six sections + health banners)'
 status: DRAFT
 parent: FRD-18
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 artifacts:
   - 'src/app/page.tsx'
   - 'src/app/(dashboard)/**'
@@ -120,3 +120,77 @@ The six stacked sections, top to bottom (FRD layout), under one light `PageTitle
 `qrow()`, `dStat()`, the `.rpgpanel.rpggrid` + `.xpbar` foot), the conditional banner placement under the
 one `pageHead`/`PageTitle`. On the frozen tokens (`docs/design/design-tokens.json`). The engine injects the
 fdd + mocks + tokens + in-loop visual fidelity + the components.md reuse check into this WO.
+
+## Status Note
+
+**What was built (WO-18-001, IN_REVIEW):**
+
+The default landing route `/` (`src/app/page.tsx`, Server Component) now assembles the complete
+six-section "Inicio" dashboard end-to-end:
+
+1. **PageTitle "Inicio"** (`CMP-13-pagetitle`) — icon `ti-home`, subtitle "Tu cabina de mando…",
+   renders `data-testid="page-title"` and an `<h1>` with text "Inicio". Placed before all banners.
+
+2. **Health banner stack** (`data-testid="dashboard-banners"`) — three conditional slots:
+   - `OnboardingGate` — mounted only when `readProfile().present === false` (FRD-01). The page now
+     calls `readProfile()` and guards the gate, so the `<h1>` in OnboardingGate doesn't collide with
+     PageTitle's `<h1>` when the profile is present.
+   - `PluginSyncBanner` (FRD-15, WO-15-004) — "use client", renders null until drift confirmed.
+   - `OrphansBanner` (FRD-16, WO-16-004) — "use client", renders null until candidates confirmed.
+
+3. **DashboardLiveWatcher** (`CMP-18-live-watcher`, NEW) — "use client" invisible component;
+   subscribes to `useLiveSnapshot` (WO-01-009 SSE transport) and calls `router.refresh()` when
+   `lastEventAt` changes; renders null; does not own the transport; not polling (AC-18-001.2).
+   Registered in `docs/design/components.md`.
+
+4. **Digest** (`src/components/modules/Digest/Digest.tsx`) — updated to use `SectionHead` (icon
+   `ti-history`, label "Desde tu última visita") with right slot carrying the al-día/nuevas chip +
+   marcar-visto button. Removed the old standalone `<h2>` row.
+
+5. **TuTurno** (`src/components/dashboard/TuTurno/TuTurno.tsx`) — rewritten to use `SectionHead`
+   (icon `ti-flag-3`, label "Tu turno"). Accepts optional `turnChip` prop from page.tsx (the
+   count/al-día chip with `data-testid="tu-turno-al-dia"` or `data-testid="tu-turno-count"`).
+
+6. **Pulso** (`src/components/modules/Pulso/Pulso.tsx`) — updated to use `SectionHead` (icon
+   `ti-activity-heartbeat`, label "Pulso de la fábrica"). Old standalone `<h2>` removed.
+
+7. **Cartera** (`src/components/dashboard/Cartera/Cartera.tsx`) — updated to use `SectionHead`
+   (icon `ti-layout-grid`, label "Construcción y cartera"). Old `<h2>` visually hidden (sr-only)
+   for aria-labelledby backward compat.
+
+8. **Progreso** (`src/components/dashboard/Progreso/Progreso.tsx`) — wrapped in a `<div>` that
+   leads with `SectionHead` (icon `ti-trophy`, label "Tu progreso") before the RPG strip.
+
+**Interfaces / contracts exposed:**
+
+- `DashboardLiveWatcher` — no props; "use client"; must be inside Next.js App Router context.
+- `TuTurnoProps.turnChip?: React.ReactNode` — optional right-slot chip for SectionHead, passed from
+  page.tsx. Falls back to inline al-día/count span when not provided (legacy test compat).
+- `page.tsx` now calls `readProfile()` and conditionally mounts `<OnboardingGate />`. Consumer of
+  `readProfile` from `@/lib/profile/profile`.
+
+**Implicit decisions / naming conventions:**
+
+- `data-testid="tu-turno-al-dia"` wraps the `<Chip tone="ok">al día</Chip>` in page.tsx; the `data-testid`
+  lives on the outer `<span>` wrapper, not on the Chip itself.
+- `data-testid="tu-turno-count"` similarly wraps the danger chip when queue is non-empty.
+- Pulso's old `HEADING_STYLE` constant was removed (no longer referenced after SectionHead adoption).
+- The `DashboardLiveWatcher` deduplicates event arrival via `useRef<string | null>` tracking
+  `prevLastEventAt` to avoid spurious refreshes.
+- `OnboardingGate` always renders its full gate markup (including its own `<h1>`); the conditional
+  is at the page level (`!profileResult.present`), not inside the component.
+
+**Test files covering this WO:**
+
+- `src/app/_tests/wo-18-001-inicio-dashboard.test.tsx` — 14 tests covering AC-18-001.1/3/9/10
+  (PageTitle, banner stack, commands visible, SectionHead for all sections).
+- `src/app/_tests/page.dashboard.test.tsx` — 15 tests (AC-18-006.1–6.6), updated with
+  `next/navigation`, `useLiveSnapshot` and `readProfile` mocks.
+- `src/components/modules/Pulso/_tests/pulso.test.tsx` — updated "renders a Spanish heading" to
+  use `getByTestId("section-head")` (SectionHead renders a div, not a semantic heading).
+- `src/components/modules/Digest/_tests/digest.test.tsx` — updated two "al día" `getByText` calls
+  to `getAllByText` (chip now renders the text alongside the note text).
+
+**Visual fidelity (DR-056):** One in-loop cycle performed. Screenshot at `http://localhost:3100/`
+in dark mode matches `dashboardView()` structure: PageTitle + banners + five SectionHead-divided
+sections with icons and horizontal rules, correct tokens. No divergences requiring a second cycle.

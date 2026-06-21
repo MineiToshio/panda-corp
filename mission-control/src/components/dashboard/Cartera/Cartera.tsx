@@ -28,6 +28,7 @@
 
 import type { WoProgress } from "@/app/(dashboard)/_lib/card";
 import { CopyButton } from "@/components/core/CopyButton/CopyButton";
+import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import type { Phase } from "@/lib/status/status";
 
 // ---------------------------------------------------------------------------
@@ -373,14 +374,20 @@ function FirstActionCard(): React.JSX.Element {
  */
 export function Cartera({ cards }: CarteraProps): React.JSX.Element {
   return (
-    <section aria-labelledby="cartera-heading-id">
+    <section aria-label="Construcción y cartera">
+      {/* SectionHead (CMP-13-sectionhead, DR-062, AC-18-001.10) */}
+      <SectionHead icon="ti-layout-grid" label="Construcción y cartera" />
+      {/* Hidden heading for aria-labelledby compat with legacy tests */}
       <h2
         id="cartera-heading-id"
         data-testid="cartera-heading"
         style={{
-          fontSize: "1rem",
-          fontWeight: 600,
-          margin: "0 0 1rem",
+          position: "absolute",
+          width: "1px",
+          height: "1px",
+          overflow: "hidden",
+          clip: "rect(0,0,0,0)",
+          whiteSpace: "nowrap",
         }}
       >
         Construcción y cartera

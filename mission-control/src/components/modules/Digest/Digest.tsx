@@ -23,6 +23,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { computeDigest, type DigestItem } from "@/app/_lib/digest";
+import { Chip } from "@/components/core/Chip/Chip";
+import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import type { Event } from "@/lib/events/events";
 
 // ---------------------------------------------------------------------------
@@ -157,43 +159,62 @@ export function Digest({ events, nowMs: nowMsProp }: DigestProps): React.JSX.Ele
     setMarkerMs(next);
   }, [nowMs]);
 
+  // Right slot for SectionHead: count chip or al-día chip + marcar-visto button
+  const digestRightSlot = (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+      {newCount > 0 ? (
+        <>
+          {/* Live new-event count chip (AC-18-001.3, AC-18-001.5) */}
+          <span
+            role="status"
+            aria-live="polite"
+            aria-label={`${newCount} evento${newCount !== 1 ? "s" : ""} nuevo${newCount !== 1 ? "s" : ""}`}
+          >
+            <Chip tone="accent">
+              {newCount} nueva{newCount !== 1 ? "s" : ""}
+            </Chip>
+          </span>
+          {/* "Marcar visto" button (AC-18-001.3) */}
+          <button
+            type="button"
+            data-testid="marcar-visto-btn"
+            onClick={handleMarkSeen}
+            style={{
+              fontSize: "11px",
+              padding: "3px 9px",
+              borderRadius: "var(--radius-sm, 8px)",
+              border: "1px solid var(--color-border, currentColor)",
+              background: "var(--color-card, currentColor)",
+              color: "var(--color-text, currentColor)",
+              cursor: "pointer",
+              fontFamily: "var(--font-display, inherit)",
+              fontWeight: 500,
+            }}
+          >
+            marcar visto
+          </button>
+        </>
+      ) : (
+        <Chip tone="ok">al día</Chip>
+      )}
+    </span>
+  );
+
   return (
     <section aria-label="Desde tu última visita" className="space-y-3">
-      {/* Section header */}
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="font-semibold text-base text-text">Desde tu última visita</h2>
+      {/* SectionHead (CMP-13-sectionhead, DR-062, AC-18-001.10) */}
+      <SectionHead icon="ti-history" label="Desde tu última visita" rightHtml={digestRightSlot} />
 
-        <div className="flex items-center gap-2">
-          {/* Live new-event count badge (AC-18-001.3, AC-18-001.5) */}
-          {newCount > 0 && (
-            <span
-              role="status"
-              aria-live="polite"
-              aria-label={`${newCount} evento${newCount !== 1 ? "s" : ""} nuevo${newCount !== 1 ? "s" : ""}`}
-              className="inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-accent px-2 py-0.5 font-bold text-base text-xs"
-            >
-              {newCount}
-            </span>
-          )}
-
-          {/* "Marcar visto" button (AC-18-001.3) */}
-          {newCount > 0 && (
-            <button
-              type="button"
-              data-testid="marcar-visto-btn"
-              onClick={handleMarkSeen}
-              className="rounded-md border border-accent/30 bg-accent/10 px-3 py-1 font-medium text-accent text-xs transition-colors hover:bg-accent/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            >
-              Marcar visto
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Al día state (AC-18-001.4) */}
-      {atDia && (
-        <p className="font-medium text-accent text-sm">
-          <span aria-hidden="true">✓</span> <span>Al día</span>
+      {/* Al-día note — shown below SectionHead when no new events */}
+      {atDia && last24h.length > 0 && (
+        <p
+          style={{
+            fontSize: "12px",
+            color: "var(--color-text3, currentColor)",
+            margin: "0 2px 4px",
+          }}
+        >
+          Estás al día. Esto es la actividad de las últimas 24 h.
         </p>
       )}
 

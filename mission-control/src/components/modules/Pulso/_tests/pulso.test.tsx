@@ -206,10 +206,12 @@ describe("Pulso — Spanish labels + a11y (AC-18-003.5)", () => {
     expect(section).toBeTruthy();
   });
 
-  it("renders a Spanish heading", () => {
+  it("renders a Spanish section label (via SectionHead, AC-18-001.10)", () => {
     render(<Pulso pulse={TYPICAL_PULSE} />);
-    const heading = screen.getByRole("heading", { name: /pulso de la fábrica/i });
-    expect(heading).toBeTruthy();
+    // SectionHead renders the label in a styled div (data-testid="section-head"), not an h2.
+    // The section's accessible name is provided by aria-label on the <section> element.
+    const sectionHead = screen.getByTestId("section-head");
+    expect(sectionHead.textContent).toMatch(/pulso de la fábrica/i);
   });
 
   it("funnel signal labels are in Spanish", () => {

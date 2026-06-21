@@ -18,6 +18,7 @@
 
 import type React from "react";
 import type { PulseResult } from "@/app/_lib/pulse";
+import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -38,16 +39,6 @@ const SECTION_STYLE: React.CSSProperties = {
   background: "color-mix(in oklch, var(--color-surface, currentColor) 60%, transparent)",
   border: "var(--hairline, 1px) solid color-mix(in oklch, currentColor 12%, transparent)",
   boxShadow: "var(--shadow-1, 0 1px 4px oklch(0 0 0 / 0.15))",
-};
-
-const HEADING_STYLE: React.CSSProperties = {
-  fontSize: "0.85rem",
-  fontWeight: 600,
-  letterSpacing: "0.04em",
-  textTransform: "uppercase",
-  color: "var(--color-text-muted, var(--color-text, currentColor))",
-  marginBottom: "calc(var(--space-base, 1rem) * 0.75)",
-  opacity: 0.7,
 };
 
 const SIGNALS_GRID_STYLE: React.CSSProperties = {
@@ -176,14 +167,10 @@ function Signal({
  * @param pulse - Derived pulse signals from `pulse(input)`.
  */
 export function Pulso({ pulse: p }: PulsoProps): React.JSX.Element {
-  const headingId = "pulso-heading";
-
   return (
-    <section data-testid="pulso-section" aria-labelledby={headingId} style={SECTION_STYLE}>
-      {/* Section heading (AC-18-003.5 — Spanish) */}
-      <h2 id={headingId} style={HEADING_STYLE}>
-        Pulso de la fábrica
-      </h2>
+    <section data-testid="pulso-section" aria-label="Pulso de la fábrica" style={SECTION_STYLE}>
+      {/* SectionHead (CMP-13-sectionhead, DR-062, AC-18-001.10) */}
+      <SectionHead icon="ti-activity-heartbeat" label="Pulso de la fábrica" />
 
       {/* Calm / al-día badge — shown only when nothing needs attention */}
       {p.calm && (
