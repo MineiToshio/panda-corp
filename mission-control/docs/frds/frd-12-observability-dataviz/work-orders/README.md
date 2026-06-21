@@ -15,8 +15,56 @@ See `../blueprint.md` for components (`CMP-12-*`), interfaces (`IF-12-*`) and th
 | WO-12-002 | KPI selector (≤5, incl. failed work orders) | VERIFIED | pure logic | FRD-01 `lib/events`+`lib/status`+`lib/portfolio` |
 | WO-12-003 | Events-per-minute selector (per-agent) | VERIFIED | pure logic | FRD-01 `lib/events` |
 | WO-12-004 | Timeline selector (WO → task → action, durations) | VERIFIED | pure logic | FRD-01 `lib/events` |
-| WO-12-005 | Observabilidad tab + Timeline view (live, re-paint) | **PLANNED** (reopened — gate REJECT) | client UI | WO-12-004, WO-12-006, FRD-13, FRD-04, FRD-01 (live) |
-| WO-12-006 | Work-order DAG view (Dagre, live, re-paint) | IN_REVIEW | client UI | `dag.ts`+`dagre` (VERIFIED), FRD-13, FRD-04, FRD-01 (live) |
+| WO-12-005 | Observabilidad tab + Timeline view (live, re-paint) | VERIFIED | client UI | WO-12-004, WO-12-006, FRD-13, FRD-04, FRD-01 (live) |
+| WO-12-006 | Work-order DAG view (Dagre, live, re-paint) | VERIFIED | client UI | `dag.ts`+`dagre` (VERIFIED), FRD-13, FRD-04, FRD-01 (live) |
+
+## Gate review 2026-06-21 (FRD-12 — PASS, DR-072 split gate)
+
+Reviewer (opus) FRD gate over WO-12-005 + WO-12-006, exercised TOGETHER (real integration —
+the existing ObservabilidadTab suite stubs WoDag; this gate mounts the REAL Dagre graph).
+**Both WOs → VERIFIED** (reopen_count 0). The FRD rollup recomputes to VERIFIED (all six WOs
+VERIFIED) → frd.md + blueprint.md flipped to VERIFIED.
+
+The two prior blocking findings are RESOLVED:
+1. knip dead-code (`GanttTask` exported but unused) — fixed (commit c84d102: dropped the `export`).
+   FRD-12 files are knip-clean. (The global `verify.sh --since` still exits 1 at knip on the
+   NON-FRD-12 `WoProgress` dead export in `src/app/(dashboard)/_lib/card.ts:63`, FRD-18 area,
+   dead since before last green — tracked, NOT an FRD-12 regression. `last_green_sha` stays pending.)
+2. DR-057/DR-062 bespoke toggle — fixed: the Línea-de-tiempo↔DAG switcher now uses the shared
+   `SubTabs` primitive (one `role=tablist`, two tabs); no forked switcher. Confirmed by grep
+   (the only `role="tablist"` in `_observability/` is in the reviewer test's querySelector) and
+   by the adversarial gate test.
+
+CORRECTION lenses all green:
+- AC-12-002.1/.2/.3 — Observabilidad sibling of Party; exactly the 2-view toggle (no RPG view).
+- AC-12-003.1/.2 — timeline WO→task nested duration bars + jump-to-first-error (live 30m bar
+  derived from event timestamps proves the `deriveGanttOrders → toTimeline` live seam runs).
+- AC-12-004.1/.2/.3/.4 — Dagre layout, chain-highlight+dim, jump-to-error, follow-active; real
+  edges (WO-B→WO-A, WO-B→WO-C) render as paths; mutation-confirmed.
+- AC-12-005.1/.2 — live event-driven via `useLiveSnapshot`; null/empty snapshot = no fabricated
+  progress (a todo WO keeps its todo icon).
+- Cross-view consistency — the same failed WO is the first error in BOTH lenses over one dataset.
+
+Adversarial + mutation (DR-015/016): `src/app/projects/[slug]/_observability/_tests/frd-12-gate-opus.reviewer.test.tsx`
+(11 green, WoDag NOT mocked). Mutation-confirmed: forcing the static fallback → live-duration
+test RED; jump-error→null → cross-view test RED; live fail→done mapping → fail-bar test RED.
+FRD-12 vitest 69 green (58 impl + 11 adversarial). biome/tsc on FRD-12 clean; global tsc 0 errors.
+
+Runtime/visual (DR-055/072): the Observabilidad surface lives in the `/projects/[slug]` workspace
+route which 404s LIVE (FRD-03/04 portfolio slug+phase data bug — on the punch-list, NOT FRD-12),
+so the smoke ran on the preview route `/preview-wo12005` (mounts the real ObservabilidadTab +
+TimelineView + DAG). PRODUCTION build clean; headless browser at 2 viewports → HTTP 200,
+0 console/pageerror/failedReq; timeline renders 5 WO duration bars + first-error note + axis;
+toggling DAG renders the real Dagre SVG with 5 nodes. Recognizably the designed surface — NO
+gross structural mismatch. Blessed smoke (inicio/tablero/logros) + visual Layer A still green
+(no regression). `workspace` stays `blessed:false` until FRD-03/04 fix the 404.
+
+Visual/quality nits → `.pandacorp/comms/visual-punch-list.md` (advisory, do NOT block, DR-072):
+header/body framed with inline `<div>` instead of shared `Panel`/`SectionHead` (the duplicate-
+primitive part — the forked toggle — is already fixed, so this is a skin/reuse nit, not a new
+duplicate); WoDag.tsx 685 lines (over ~500, NOT enforced by verify.sh); px arbitrary values;
+preview `SAMPLE_ORDERS` lacks `dependsOn` so the DAG preview shows no edges (real edges proven in
+tests); temp preview route still committed.
 
 ## Gate review 2026-06-20 (FRD-12 — REJECTED)
 

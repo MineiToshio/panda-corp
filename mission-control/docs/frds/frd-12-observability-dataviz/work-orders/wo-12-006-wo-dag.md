@@ -5,11 +5,12 @@ slug: wo-dag
 title: 'WO-12-006 — Work-order DAG view (Dagre, live, re-paint to mock)'
 status: DRAFT
 parent: FRD-12
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
+reopen_count: 0
 artifacts:
   - 'src/app/projects/[slug]/_observability/WoDag/**'
 source_requirements: [REQ-12-004, REQ-12-005, REQ-12-006]
-last_updated: '2026-06-19'
+last_updated: '2026-06-21'
 ---
 # WO-12-006 — Work-order DAG view (Dagre, live, re-paint to mock)
 

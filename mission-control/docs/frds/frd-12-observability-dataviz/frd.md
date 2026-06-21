@@ -3,7 +3,7 @@ id: FRD-12
 type: frd
 title: FRD-12 — Observability and data visualization
 status: ACTIVE
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 last_updated: '2026-06-21'
 ui: true
 visual_source: docs/design/prototype/index.html
