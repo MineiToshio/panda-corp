@@ -5,7 +5,7 @@ slug: workspace-shell
 title: 'WO-04-004 — Workspace shell: header + tabbar + objectives bar'
 status: DRAFT
 parent: FRD-04
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 artifacts:
   - 'src/app/projects/[slug]/page.tsx'
   - 'src/app/projects/[slug]/_components/workspace-header.tsx'
