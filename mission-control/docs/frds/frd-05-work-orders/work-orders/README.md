@@ -10,7 +10,7 @@ Read [`../blueprint.md`](../blueprint.md) first.
 |---|---|---|---|---|
 | [WO-05-001](./wo-05-001-work-orders-reader.md) | `lib/work-orders.ts` — discover + parse work orders | lib (TDD) | IF-05-work-orders | VERIFIED |
 | [WO-05-002](./wo-05-002-aggregate-progress.md) | `lib/work-orders.ts` — `aggregateProgress` | lib (TDD) | IF-05-work-orders | VERIFIED |
-| [WO-05-003](./wo-05-003-wo-board-tab.md) | Work-orders tab: live kanban board + detail (re-paint) | UI (Phase 2) | CMP-05-board/column/card/frd-filter/detail/progress/empty | PLANNED |
+| [WO-05-003](./wo-05-003-wo-board-tab.md) | Work-orders tab: live kanban board + detail (re-paint) | UI (Phase 2) | CMP-05-board/column/card/frd-filter/detail/progress/empty | VERIFIED |
 
 ## Phase 2 re-plan (presentational)
 

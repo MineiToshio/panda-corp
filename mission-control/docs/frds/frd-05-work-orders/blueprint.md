@@ -3,8 +3,8 @@ id: FRD-05-blueprint
 type: blueprint
 parent: FRD-05
 status: ACTIVE
-implementation_status: PLANNED
-last_updated: '2026-06-17'
+implementation_status: VERIFIED
+last_updated: '2026-06-21'
 ---
 # FRD-05 — Work orders (live view) · feature blueprint
 
