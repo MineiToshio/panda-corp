@@ -3,10 +3,10 @@ id: FRD-03
 type: frd
 title: FRD-03 — Portfolio and project navigation
 status: ACTIVE
-implementation_status: BLOCKED
+implementation_status: PLANNED
 ui: true
 visual_source: docs/design/prototype/index.html
-last_updated: '2026-06-19'
+last_updated: '2026-06-21'
 ---
 # FRD-03 — Portfolio and project navigation
 
