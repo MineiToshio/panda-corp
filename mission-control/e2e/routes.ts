@@ -47,7 +47,7 @@ export const SURFACES: readonly Surface[] = [
     frd: "frd-08-documentation",
     path: "/manual",
     name: "Documentación",
-    blessed: false,
+    blessed: true,
   },
   {
     id: "configuracion",
