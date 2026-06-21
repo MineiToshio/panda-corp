@@ -5,7 +5,8 @@ slug: mode-selector-and-commands-tab
 title: 'WO-11-002 — BuildModeSelector + Comandos tab'
 status: DRAFT
 parent: FRD-11
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
+reopen_count: 0
 artifacts:
   - 'src/app/projects/[slug]/_components/mode-selector/**'
   - 'src/app/projects/[slug]/_components/tab-commands/**'
