@@ -7,13 +7,17 @@
  * Selection rules (AC-03-004.1, AC-03-005.1):
  *   - ?project=<name> and that name matches an active project → that project selected.
  *   - No param (or unmatched param) → first active project selected by default.
- *   - No active projects → empty state (WorkspaceSlot + SelectableProjectRail empty).
+ *   - No active projects → empty state (WorkspaceSlot + ProjectRail empty).
  *
  * Layout (FDD-03 §1, prototype portfolioView()):
  *   PageTitle "Portfolio" (the ONE light title block, DR-062)
  *   Two-column grid: 240px rail | 1fr workspace pane; gap 14px; align-items start.
- *   Rail column: "PROYECTOS" label (railLabel style) + SelectableProjectRail.
+ *   Rail column: "PROYECTOS" label (railLabel style) + ProjectRail (selectedSlug mode).
  *   Right column: WorkspaceSlot hosting the selected project's workspace (FRD-04).
+ *
+ * DR-057 (reuse-before-create): imports the ONE shared ProjectRail directly.
+ * No bespoke SelectableProjectRail is used here — the selectable mode is a
+ * prop variant of the shared primitive.
  *
  * Wiring FRD-04: replace WorkspaceSlot's body with the real workspace component.
  * Read-only (architecture §1): activeProjects() never writes, never calls Claude.
@@ -24,11 +28,12 @@
  *   REQ-03-001, REQ-03-004, REQ-03-005
  *   AC-03-004.1, AC-03-005.1
  *   WO-03-002 (surface)
+ *   DR-057 (one rail, not two)
  */
 
 import { PageTitle } from "@/components/core/PageTitle/PageTitle";
+import { ProjectRail } from "@/components/modules/ProjectRail/ProjectRail";
 import { activeProjects } from "@/lib/portfolio/portfolio";
-import { SelectableProjectRail } from "./SelectableProjectRail";
 import { deriveSelectedSlug } from "./selection";
 import { WorkspaceSlot } from "./WorkspaceSlot";
 
@@ -106,15 +111,19 @@ export default async function PortfolioPage({
 
       {/* Two-column grid: 240px rail | 1fr workspace pane (FDD-03 §1) */}
       <div style={GRID_STYLE}>
-        {/* Left — the project rail column (CMP-03-rail, CMP-03-row) */}
+        {/* Left — the project rail column (CMP-03-rail, CMP-03-row)
+            DR-057: uses the ONE shared ProjectRail with selectedSlug prop (selectable mode).
+            No bespoke SelectableProjectRail — the selectable variant is a prop. */}
         <div data-testid="portfolio-page-rail">
           {/* "PROYECTOS" rail label (prototype railLabel("PROYECTOS")) */}
           <div data-testid="portfolio-rail-label" aria-hidden="true" style={RAIL_LABEL_STYLE}>
             PROYECTOS
           </div>
 
-          {/* Selectable rail: URL-driven selection, one row per active project */}
-          <SelectableProjectRail items={items} selectedSlug={selectedSlug} />
+          {/* Shared ProjectRail in selectable mode — selectedSlug activates URL-driven
+              selection, Link nav per row, data-selected on the active row, StatusChips +
+              BusinessSnapshot + RecoveryHint per row (DR-057 reuse-before-create). */}
+          <ProjectRail items={items} selectedSlug={selectedSlug ?? ""} />
         </div>
 
         {/* Right — workspace slot (CMP-03-workspace-slot) */}

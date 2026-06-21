@@ -7,6 +7,8 @@
  *   - Business snapshot chips for operation/shipped projects (REQ-03-003)
  *   - Path-not-found badge + copyable recovery command (REQ-03-006)
  *   - Graceful empty, loading and error states (architecture §7)
+ *   - URL-driven selection mode (selectedSlug prop) — DR-057 reuse-before-create:
+ *     the selectable variant is a PROP of this ONE shared rail, not a forked component.
  *
  * Design rules (FRD-13, AGENTS.md):
  *   - ZERO hardcoded colors — all visual values via CSS custom properties.
@@ -15,12 +17,25 @@
  *   - Spanish aria-labels and user-facing copy.
  *   - Server Component safe — no hooks, no browser APIs.
  *
+ * Selectable mode (selectedSlug prop):
+ *   - When selectedSlug is defined, each row becomes a Next.js <Link> to
+ *     ?project=<name>; the selected row gets data-selected="true".
+ *   - Testids switch to selectable-* so the integration seam used by
+ *     app/portfolio/page.tsx tests stays valid.
+ *   - StatusChips, BusinessSnapshot, RecoveryHint are siblings of the Link
+ *     (never descendants) so no <button> is nested inside an <a> (WCAG 4.1.2).
+ *
  * Traceability:
  *   CMP-03-rail, CMP-03-row, CMP-03-snapshot, CMP-03-empty, CMP-03-recovery
  *   IF-03-activeProjects (docs/api.md WO-03-001)
- *   REQ-03-001, REQ-03-002, REQ-03-003, REQ-03-006
+ *   REQ-03-001, REQ-03-002, REQ-03-003, REQ-03-004, REQ-03-005, REQ-03-006
+ *   DR-057 (reuse-before-create): ONE rail primitive, not two
  */
 
+import Link from "next/link";
+import { BusinessSnapshot } from "@/app/portfolio/_components/BusinessSnapshot/BusinessSnapshot";
+import { RecoveryHint } from "@/app/portfolio/_components/RecoveryHint/RecoveryHint";
+import { StatusChips } from "@/app/portfolio/_components/status-chips/status-chips";
 import { CopyButton } from "@/components/core/CopyButton/CopyButton";
 import type { ProjectListItem } from "@/lib/portfolio/portfolio";
 
@@ -35,6 +50,13 @@ export interface ProjectRailProps {
   isLoading?: boolean;
   /** When set, render the error state with this message. */
   error?: string;
+  /**
+   * URL-driven selection mode (DR-057 selectable variant).
+   * When provided, each row becomes a Link to ?project=<name>;
+   * the matching row gets data-selected="true" and the accent fill.
+   * Testids switch to selectable-* for integration-test compatibility.
+   */
+  selectedSlug?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -43,12 +65,8 @@ export interface ProjectRailProps {
 // design tokens are frozen (WO-13-002, globals.css).
 // ---------------------------------------------------------------------------
 
-/**
- * Shared rail style constants — exported so the URL-selectable variant
- * (app/portfolio/SelectableProjectRail) reuses the ONE rail primitive's styles
- * instead of forking verbatim copies (DR-057 reuse-before-create).
- */
-export const RAIL_STYLE: React.CSSProperties = {
+/** Rail container layout — flex column, token-based gap + padding. */
+const RAIL_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "calc(var(--space-base, 1rem) * 0.5)",
@@ -76,7 +94,7 @@ const ERROR_BOX_STYLE: React.CSSProperties = {
   opacity: 0.85,
 };
 
-export const ROW_STYLE: React.CSSProperties = {
+const ROW_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "calc(var(--space-base, 1rem) * 0.375)",
@@ -128,7 +146,7 @@ const CHIP_STYLE: React.CSSProperties = {
   border: "var(--hairline, 1px) solid var(--color-border, currentColor)",
 };
 
-export const CHIP_BUILDING_STYLE: React.CSSProperties = {
+const CHIP_BUILDING_STYLE: React.CSSProperties = {
   ...CHIP_STYLE,
   background: "var(--color-agent-frontend-dev, currentColor)",
   color: "var(--color-contrast, Canvas)",
@@ -136,7 +154,7 @@ export const CHIP_BUILDING_STYLE: React.CSSProperties = {
   fontWeight: 600,
 };
 
-export const CHIP_STOPPED_STYLE: React.CSSProperties = {
+const CHIP_STOPPED_STYLE: React.CSSProperties = {
   ...CHIP_STYLE,
   opacity: 0.55,
 };
@@ -200,13 +218,75 @@ const WARNING_STYLE: React.CSSProperties = {
   lineHeight: 1.5,
 };
 
+/** Stage line — second line below icon+title row (selectable mode: indented 22px). */
+const STAGE_LINE_STYLE: React.CSSProperties = {
+  fontSize: "11px",
+  color: "var(--color-text3, currentColor)",
+  marginTop: "3px",
+  marginLeft: "22px",
+};
+
+/** Status icon: ok (play) / text3 (pause). */
+const ICON_RUNNING_STYLE: React.CSSProperties = {
+  fontSize: "14px",
+  color: "var(--color-ok, currentColor)",
+  flexShrink: 0,
+};
+
+const ICON_STOPPED_STYLE: React.CSSProperties = {
+  fontSize: "14px",
+  color: "var(--color-text3, currentColor)",
+  flexShrink: 0,
+};
+
+/** Link wrapper for selectable rows — full-row click target; no visual chrome. */
+const LINK_STYLE: React.CSSProperties = {
+  display: "block",
+  textDecoration: "none",
+  color: "inherit",
+  borderRadius: "var(--radius, 0.5rem)",
+  margin: "calc(var(--space-base, 1rem) * -0.25) calc(var(--space-base, 1rem) * -0.375)",
+  padding: "calc(var(--space-base, 1rem) * 0.25) calc(var(--space-base, 1rem) * 0.375)",
+};
+
+/** Selected row treatment: accent-bg fill + accent border + inset ring (.rail.on). */
+const ROW_SELECTED_STYLE: React.CSSProperties = {
+  ...ROW_STYLE,
+  background: "var(--color-accent-bg, currentColor)",
+  borderColor: "var(--color-accent, currentColor)",
+  boxShadow: "inset 0 0 0 1px var(--color-accent, currentColor)",
+};
+
+const EMPTY_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "calc(var(--space-base, 1rem) * 0.5)",
+  padding: "calc(var(--space-base, 1rem) * 2)",
+  textAlign: "center",
+  color: "var(--color-text, currentColor)",
+  opacity: 0.7,
+};
+
 // ---------------------------------------------------------------------------
-// Sub-components
+// Sub-components (non-selectable / shared)
 // ---------------------------------------------------------------------------
 
 function EmptyState(): React.JSX.Element {
   return (
     <div data-testid="project-rail-empty" style={STATE_BOX_STYLE} aria-live="polite">
+      <p style={{ margin: 0, fontSize: "0.875rem" }}>Sin proyectos activos.</p>
+      <p style={{ margin: 0, fontSize: "0.75rem" }}>
+        Usa <code style={{ fontFamily: "monospace" }}>/pandacorp:spec</code> para crear uno.
+      </p>
+    </div>
+  );
+}
+
+function SelectableEmptyState(): React.JSX.Element {
+  return (
+    <div data-testid="selectable-project-rail-empty" style={EMPTY_STYLE} aria-live="polite">
       <p style={{ margin: 0, fontSize: "0.875rem" }}>Sin proyectos activos.</p>
       <p style={{ margin: 0, fontSize: "0.75rem" }}>
         Usa <code style={{ fontFamily: "monospace" }}>/pandacorp:spec</code> para crear uno.
@@ -246,9 +326,9 @@ function ErrorState({ message }: { message: string }): React.JSX.Element {
 
 /**
  * Recovery hint for path-not-found entries (REQ-03-006 / CMP-03-recovery).
- * Read-only: the recovery is a copyable command; MC never clones or writes.
+ * Used by the non-selectable ProjectRow. Read-only: copyable command only.
  */
-function RecoveryHint({
+function InlineRecoveryHint({
   repo,
   path,
 }: {
@@ -282,9 +362,9 @@ function RecoveryHint({
 
 /**
  * Business snapshot chips for operation (shipped) projects (REQ-03-003 / CMP-03-snapshot).
- * Renders users / returnMetric / verdict chips when present; silently omits absent fields.
+ * Used by the non-selectable ProjectRow. Renders users / returnMetric / verdict chips.
  */
-function BusinessSnapshot({
+function InlineBusinessSnapshot({
   users,
   returnMetric,
   verdict,
@@ -328,6 +408,10 @@ function BusinessSnapshot({
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Non-selectable row (original ProjectRow)
+// ---------------------------------------------------------------------------
 
 /**
  * Single project row (CMP-03-row): name, stage chip, running indicator, snapshot, not-found badge.
@@ -387,7 +471,7 @@ function ProjectRow({ item }: { item: ProjectListItem }): React.JSX.Element {
 
       {/* Business snapshot — operation only (REQ-03-003) */}
       {isOperation && snapshot !== undefined && (
-        <BusinessSnapshot
+        <InlineBusinessSnapshot
           users={snapshot.users}
           returnMetric={snapshot.returnMetric}
           verdict={snapshot.verdict}
@@ -395,7 +479,143 @@ function ProjectRow({ item }: { item: ProjectListItem }): React.JSX.Element {
       )}
 
       {/* Recovery hint — only when path not found (REQ-03-006) */}
-      {!exists && <RecoveryHint repo={repo} path={path} />}
+      {!exists && <InlineRecoveryHint repo={repo} path={path} />}
+    </article>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Per-row derivation helpers (selectable mode)
+// ---------------------------------------------------------------------------
+
+interface SelectableRowView {
+  rowStyle: React.CSSProperties;
+  indicatorLabel: string;
+  indicatorAriaLabel: string;
+  pendingDecisions: number | undefined;
+  pendingBugs: number | undefined;
+  rethinkPending: true | undefined;
+}
+
+/** Compute derived view fields for a selectable row. */
+function deriveSelectableRowView(item: ProjectListItem, isSelected: boolean): SelectableRowView {
+  const isRunning = item.running === true;
+  const statusFields = item.status.present && item.status.status !== null ? item.status.status : {};
+
+  return {
+    rowStyle: isSelected ? ROW_SELECTED_STYLE : ROW_STYLE,
+    indicatorLabel: isRunning ? "Construyendo" : "Parado",
+    indicatorAriaLabel: isRunning ? "Construcción activa" : "Proceso detenido",
+    pendingDecisions:
+      typeof statusFields.pendingDecisions === "number" ? statusFields.pendingDecisions : undefined,
+    pendingBugs:
+      typeof statusFields.pendingBugs === "number" ? statusFields.pendingBugs : undefined,
+    rethinkPending: statusFields.rethinkPending === true ? true : undefined,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Selectable row (URL-driven, with Link navigation)
+// ---------------------------------------------------------------------------
+
+/**
+ * SelectableRow — one project row in selectable mode (DR-057 rail variant).
+ *
+ * Each row is a Next.js <Link> for URL-driven navigation. StatusChips,
+ * BusinessSnapshot and RecoveryHint are SIBLINGS of the Link (never
+ * descendants) — this prevents <button> nested inside <a> (WCAG 4.1.2).
+ */
+function SelectableRow({
+  item,
+  isSelected,
+}: {
+  item: ProjectListItem;
+  isSelected: boolean;
+}): React.JSX.Element {
+  const {
+    rowStyle,
+    indicatorLabel,
+    indicatorAriaLabel,
+    pendingDecisions,
+    pendingBugs,
+    rethinkPending,
+  } = deriveSelectableRowView(item, isSelected);
+
+  return (
+    <article
+      key={item.name}
+      data-testid="selectable-project-row"
+      data-selected={String(isSelected)}
+      style={rowStyle}
+      aria-label={`Proyecto: ${item.name}`}
+    >
+      {/* Navigation Link — wraps ONLY the row's visual chrome (icon + title + stage).
+          CopyButton (in RecoveryHint) is a sibling, never a descendant, so no
+          <button> is nested inside <a> (invalid interactive-content; WCAG 4.1.2). */}
+      <Link
+        href={`?project=${encodeURIComponent(item.name)}`}
+        style={LINK_STYLE}
+        aria-label={`Seleccionar proyecto: ${item.name}`}
+        aria-current={isSelected ? "page" : undefined}
+      >
+        {/* Title row: [status icon] [name] — matches prototype rail item layout */}
+        <div style={ROW_HEADER_STYLE}>
+          {/* Status icon — ti-player-play (ok) or ti-player-pause (text3).
+              Only shown when the path exists; a missing path has no running state. */}
+          {item.exists && item.running !== undefined && (
+            <i
+              data-testid="rail-item-status-icon"
+              className={`ti ${item.running ? "ti-player-play" : "ti-player-pause"}`}
+              style={item.running ? ICON_RUNNING_STYLE : ICON_STOPPED_STYLE}
+              aria-hidden="true"
+            />
+          )}
+
+          {/* Project name (500 weight, matches prototype font-weight:500) */}
+          <h3 style={PROJECT_NAME_STYLE}>{item.name}</h3>
+        </div>
+
+        {/* Stage line — second line below icon+title, indented (prototype stage label) */}
+        {item.stage !== undefined && (
+          <div data-testid="selectable-row-stage" style={STAGE_LINE_STYLE}>
+            {item.stage}
+          </div>
+        )}
+
+        {/* Running indicator — sr-only; preserved for existing tests */}
+        {item.running !== undefined && item.exists && (
+          <span
+            data-testid="selectable-row-indicator"
+            role="status"
+            aria-label={indicatorAriaLabel}
+            className="sr-only"
+          >
+            {indicatorLabel}
+          </span>
+        )}
+      </Link>
+
+      {/* StatusChips — sibling of the Link (not nested inside it).
+          Renders pending-decisions / bugs / rethink count badges. */}
+      <StatusChips
+        pendingDecisions={pendingDecisions}
+        pendingBugs={pendingBugs}
+        rethinkPending={rethinkPending}
+      />
+
+      {/* BusinessSnapshot — sibling of Link; renders for shipped/operation rows
+          (CMP-03-snapshot, AC-03-003.1). */}
+      {item.snapshot !== undefined && (
+        <BusinessSnapshot
+          users={item.snapshot.users}
+          returnMetric={item.snapshot.returnMetric}
+          verdict={item.snapshot.verdict}
+        />
+      )}
+
+      {/* RecoveryHint — sibling of Link; renders when exists===false
+          (CMP-03-recovery, AC-03-006.2/.3). Its CopyButton is NOT inside <a>. */}
+      <RecoveryHint exists={item.exists} path={item.path} repo={item.repo} />
     </article>
   );
 }
@@ -408,15 +628,48 @@ function ProjectRow({ item }: { item: ProjectListItem }): React.JSX.Element {
  * ProjectRail — vertical rail listing active projects from activeProjects().
  * Server Component safe — no hooks, no browser APIs.
  *
+ * When `selectedSlug` is provided, activates selectable mode:
+ *   - Each row is a Link to ?project=<name>
+ *   - Selected row highlighted (accent-bg fill + accent border)
+ *   - Testids switch to selectable-* for page-level integration compatibility
+ *   - StatusChips / BusinessSnapshot / RecoveryHint rendered per row
+ *
  * Traceability:
- *   CMP-03-rail → REQ-03-001, REQ-03-002, REQ-03-003, REQ-03-006
+ *   CMP-03-rail → REQ-03-001, REQ-03-002, REQ-03-003, REQ-03-004, REQ-03-005, REQ-03-006
  *   IF-03-activeProjects (docs/api.md WO-03-001)
+ *   DR-057 (reuse-before-create): ONE rail, not two
  */
 export function ProjectRail({
   items,
   isLoading = false,
   error,
+  selectedSlug,
 }: ProjectRailProps): React.JSX.Element {
+  // Selectable mode: render the URL-driven selectable variant.
+  if (selectedSlug !== undefined) {
+    if (items.length === 0) {
+      return (
+        <nav
+          data-testid="selectable-project-rail"
+          style={RAIL_STYLE}
+          aria-label="Proyectos activos"
+        >
+          <SelectableEmptyState />
+        </nav>
+      );
+    }
+
+    return (
+      <nav data-testid="selectable-project-rail" style={RAIL_STYLE} aria-label="Proyectos activos">
+        {items.map((item) => (
+          <SelectableRow key={item.name} item={item} isSelected={item.name === selectedSlug} />
+        ))}
+      </nav>
+    );
+  }
+
+  // Non-selectable mode (original behavior).
+
   // Loading state takes priority
   if (isLoading) {
     return (

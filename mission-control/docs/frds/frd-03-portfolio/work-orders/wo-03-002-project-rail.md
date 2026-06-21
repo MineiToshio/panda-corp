@@ -5,7 +5,7 @@ slug: portfolio-surface
 title: 'WO-03-002 — Portfolio surface (rail + table + rows + empty + recovery + status chips)'
 status: DRAFT
 parent: FRD-03
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 reopen_count: 0
 artifacts:
   - 'src/app/portfolio/**'
@@ -13,7 +13,7 @@ artifacts:
   - 'src/components/modules/ProjectRow/**'
   - 'src/components/modules/PortfolioTable/**'
 source_requirements: [REQ-03-001, REQ-03-002, REQ-03-004, REQ-03-005, REQ-03-006]
-last_updated: '2026-06-19'
+last_updated: '2026-06-21'
 ---
 # WO-03-002 — Portfolio surface
 
@@ -85,55 +85,58 @@ path-not-found recovery banner).
 
 ## Status Note
 
-**What was built (pass 3 — DR-057 reuse fix, 2026-06-21):** Resolved the gate rejection reason: the previous implementation used bespoke banner/box/chip styles instead of the shared `Banner` + `CountBadge` primitives. This pass refactors those two components onto the shared foundation.
+**What was built (pass 4 — DR-057 reuse fix: one rail, not two, 2026-06-21):**
 
-**Root cause of gate rejection (d37fa48):** `RecoveryHint` reimplemented a banner box with its own `BADGE_STYLE`/`HINT_BOX_STYLE`/`COMMAND_ROW_STYLE` (a duplicate of the shared `Banner`). `StatusChips` reimplemented pill styles with `AMBER_CHIP_STYLE`/`RED_CHIP_STYLE` instead of using `CountBadge` presets.
+Resolved the owner's Option A decision: the shared inventoried `ProjectRail` (`src/components/modules/ProjectRail/ProjectRail.tsx`) now absorbs URL-driven selection as a `selectedSlug` prop/variant ("selectable mode"). `page.tsx` imports `ProjectRail` directly (DR-057 gate: production consumer, not orphan). `SelectableProjectRail.tsx` is kept as a thin pass-through wrapper that delegates to `ProjectRail` — import-site compatibility for the many existing test files that import from it.
+
+**Key architectural change:**
+
+`ProjectRail` has two modes:
+1. **Default mode** (no `selectedSlug`): static list of rows with testids `project-rail` / `project-rail-row` — unchanged behavior, all 54 original tests still pass.
+2. **Selectable mode** (`selectedSlug` defined): each row is a Next.js `<Link>` to `?project=<name>`; testids switch to `selectable-project-rail` / `selectable-project-row`; `StatusChips` + `BusinessSnapshot` + `RecoveryHint` are siblings of the Link (never descendants — WCAG 4.1.2 no button-in-anchor).
 
 **Files changed in this pass:**
 
-- `src/app/portfolio/_components/RecoveryHint/RecoveryHint.tsx` — refactored onto shared `Banner` (CMP-13-banner, tone="danger", kind="error") + `CmdRow` (CMP-13-cmdrow). All bespoke `BADGE_STYLE`/`HINT_BOX_STYLE`/`LABEL_STYLE`/`COMMAND_ROW_STYLE`/`CODE_STYLE`/`WARNING_STYLE` removed. Visual shell now from `Banner`; recovery command from `CmdRow`; no-repo warning in `Banner.children` with `data-testid="recovery-hint-no-repo"`.
-- `src/app/portfolio/_components/RecoveryHint/_tests/RecoveryHint.test.tsx` — updated from testid-based queries (`recovery-hint-badge`, `recovery-hint-command`) to accessible role queries (`getByRole("alert")`, `getByTestId("cmd-row")`). 30 tests → 30 tests, all green.
-- `src/app/portfolio/_components/RecoveryHint/_tests/RecoveryHint.reuse.test.tsx` — new RED→GREEN structural tests (11 tests): verify `data-testid="banner"` present, `data-tone="danger"`, `data-testid="cmd-row"` with command text, no bespoke box style on root.
-- `src/app/portfolio/_components/status-chips/status-chips.tsx` — refactored onto `CountBadge` (CMP-13-countbadge). All bespoke `BASE_CHIP_STYLE`/`AMBER_CHIP_STYLE`/`RED_CHIP_STYLE`/`PROPOSALS_CHIP_STYLE` removed. Decisions chip: `CountBadge count={pendingDecisions} tone="warn"`. Bugs chip: `CountBadge count={pendingBugs} tone="danger"`. Proposals chip: `CountBadge count={pendingProposals} tone="accent"`. Outer semantic wrappers preserve existing `data-testid` and `data-variant` attributes; `status-chip-decisions-count` span preserved (wraps CountBadge) for test-contract compat.
-- `src/app/portfolio/_components/status-chips/_tests/status-chips.reuse.test.tsx` — new RED→GREEN structural tests (6 tests): verify `data-testid="count-badge"` inside decisions/bugs wrappers, correct `data-tone` on each badge.
+- `src/components/modules/ProjectRail/ProjectRail.tsx` — added `selectedSlug?: string` prop; `SelectableRow` sub-component with Link nav + `data-selected` + icon + stage line + indicator; `SelectableEmptyState` for empty selectable mode; imports `BusinessSnapshot`, `RecoveryHint`, `StatusChips` from `app/portfolio/_components/`. Style constants de-exported (no longer needed externally — `SelectableProjectRail` was the only consumer and is now a thin wrapper).
+- `src/components/modules/ProjectRail/_tests/ProjectRail.selectable.test.tsx` — new 27 tests (RED→GREEN): selectable mode root/row testids, Link nav, status icons, stage line, running indicator, StatusChips, BusinessSnapshot, RecoveryHint, no-button-in-anchor structural test, design token invariant.
+- `src/app/portfolio/SelectableProjectRail.tsx` — converted from bespoke implementation to thin pass-through: `<ProjectRail items={items} selectedSlug={slug} />`. No style re-declarations, no duplicated logic.
+- `src/app/portfolio/page.tsx` — now imports `ProjectRail` directly from `@/components/modules/ProjectRail/ProjectRail` and passes `selectedSlug` to activate selectable mode. `SelectableProjectRail` no longer imported here (DR-057 gate: page.tsx is the production consumer).
 
-**Contracts preserved (unchanged interfaces for FRD-04):**
+**DR-057 gate results:**
+
+- `frd-03-rail-reuse.gate.reviewer.test.tsx` test 1: `page.tsx` imports `modules/ProjectRail/ProjectRail` — PASS.
+- `frd-03-rail-reuse.gate.reviewer.test.tsx` test 2: `SelectableProjectRail.tsx` re-declares none of `RAIL_STYLE`/`ROW_STYLE`/`CHIP_BUILDING_STYLE`/`CHIP_STOPPED_STYLE` as top-level `const` — PASS.
+
+**Contracts for FRD-04 (unchanged):**
 
 ```tsx
 // src/app/portfolio/WorkspaceSlot.tsx — unchanged
 // data-testid="workspace-slot" data-slug="<name>"
 // data-testid="workspace-slot-placeholder" / "workspace-slot-empty"
 
-// src/app/portfolio/SelectableProjectRail.tsx — unchanged
-// Each row: data-testid="selectable-project-row" data-selected="true|false"
-// Status icon: data-testid="rail-item-status-icon" className="ti ti-player-play|ti-player-pause"
-// Stage line: data-testid="selectable-row-stage"
-// Recovery: data-testid="recovery-hint" root (when exists===false) wrapping Banner
-
-// RecoveryHint.tsx — updated public surface:
-// data-testid="recovery-hint"    — root wrapper (preserved)
-// data-testid="banner"           — shared Banner (replaces bespoke box)
-// data-testid="cmd-row"          — CmdRow with clone command (repo path)
-// data-testid="recovery-hint-no-repo" — no-repo warning paragraph (preserved)
-// role="alert"                   — Banner's semantic role (replaces role="status" badge)
-
-// StatusChips.tsx — updated public surface:
-// data-testid="status-chip-decisions" / "status-chip-bugs" / "status-chip-rethink" — preserved
-// data-testid="status-chip-decisions-count" / "status-chip-bugs-count" — preserved (wrap CountBadge)
-// data-testid="count-badge" inside decisions/bugs wrappers — new (CountBadge)
+// ProjectRail selectable mode (via page.tsx or SelectableProjectRail):
+// rail root: data-testid="selectable-project-rail"
+// each row: data-testid="selectable-project-row" data-selected="true|false"
+// status icon: data-testid="rail-item-status-icon" className="ti ti-player-play|ti-player-pause"
+// stage line: data-testid="selectable-row-stage"
+// running indicator: data-testid="selectable-row-indicator" (sr-only)
+// recovery (when exists===false): data-testid="recovery-hint" wrapping Banner (role="alert")
+// StatusChips: data-testid="status-chip-decisions" / "status-chip-bugs" / "status-chip-rethink"
+// BusinessSnapshot: data-testid="business-snapshot"
 ```
 
 **Implicit decisions:**
 
-1. `RecoveryHint` keeps `data-testid="recovery-hint"` as a wrapping `<div>` around `Banner` — Banner itself has `data-testid="banner"`. This allows integration tests to `within(row).getByTestId("recovery-hint")` and navigate down to the Banner, while the row-level `queryByText(/ruta no encontrada/)` finds the Banner heading.
-2. Tests previously querying `recovery-hint-badge` (a now-removed span) were updated to `getByRole("alert")` — semantically cleaner and more robust. The `Banner` renders `role="alert"` which is the correct semantic for path-not-found notification.
-3. The `recovery-hint-command` testid (pointing to a `<code>` element) was removed; the `cmd-row` testid (pointing to `CmdRow`) is the new contract. `CmdRow.textContent` contains the full clone command.
-4. `StatusChips` outer wrapper spans (`status-chip-decisions` etc.) retain their `color: var(--color-warn/danger/accent-text)` style so the design-token invariant test (`style.toContain("var(--")`) passes without CountBadge re-implementing the token check.
-5. `RETHINK_CHIP_STYLE` is retained in `StatusChips` for the rethink indicator because `CountBadge` is a numeric count preset — rethink is a boolean flag indicator, not a count, so it is not a CountBadge consumer. No new component was created (DR-057: no new bespoke pill).
-6. Pre-existing failures in `tab-summary.reviewer.test.tsx` (2 tests, WO-04-005 nested button defect) existed before this WO and are unchanged.
+1. `selectedSlug=""` (empty string) activates selectable mode with the empty state — this is the sentinel used by `page.tsx` when `deriveSelectedSlug` returns `undefined` (no active projects). The empty string never matches any project name so no row is selected.
+2. `SelectableProjectRail` passes `selectedSlug ?? ""` to `ProjectRail` — undefined becomes `""` (selectable mode, empty sentinel) rather than `undefined` (non-selectable mode). This is the behavior all existing tests expect.
+3. Style constants `RAIL_STYLE`, `ROW_STYLE`, `CHIP_BUILDING_STYLE`, `CHIP_STOPPED_STYLE` are now unexported (they were exported only for `SelectableProjectRail` to import; that consumer no longer needs them). Knip confirms no new unused exports.
+4. Pre-existing failures in `tab-summary.reviewer.test.tsx` (2 tests, WO-04-005 nested button defect) existed before this WO and are unchanged.
 
-**Test files covering this WO (190 total, all green):**
+**Test files covering this WO (273 total across ProjectRail + portfolio, all green):**
 
+- `src/components/modules/ProjectRail/_tests/ProjectRail.test.tsx` — 54 tests (original non-selectable mode)
+- `src/components/modules/ProjectRail/_tests/ProjectRail.selectable.test.tsx` — 27 tests (new selectable mode)
+- `src/app/portfolio/_tests/frd-03-rail-reuse.gate.reviewer.test.tsx` — 2 tests (DR-057 one-rail gate)
 - `src/app/portfolio/_tests/wo-03-002-portfolio-surface.test.tsx` — 24 tests (page surface)
 - `src/app/portfolio/_tests/wo-03-004.test.tsx` — 27 tests (selection + workspace slot)
 - `src/app/portfolio/_tests/frd-03-page-assembly.reviewer.test.tsx` — 6 tests (full-page assembly)
@@ -147,10 +150,11 @@ path-not-found recovery banner).
 - `src/app/portfolio/_components/status-chips/_tests/status-chips.reuse.test.tsx` — 6 tests (DR-057 structural)
 - `src/app/portfolio/_components/status-chips/_tests/proposals-chip.test.tsx` — 10 tests
 - Plus BusinessSnapshot, PortfolioEmpty component tests.
+- **Full suite: 326 test files, 7042 passing, 2 expected failures (pre-existing).**
 
-**Preview Smoke Gate (DR-055):** `/portfolio` → HTTP 200, zero console errors, H1 = "Portfolio", `data-testid="portfolio-rail-label"` text = "PROYECTOS". Verified with Playwright against `http://localhost:3100/portfolio`. Layout matches prototype: two-column grid (240px rail | 1fr workspace), PageTitle with icon + subtitle, PROYECTOS label, empty state graceful.
+**Preview Smoke Gate (DR-055 / DR-072):** `/portfolio` → HTTP 200, zero console errors. H1 "Portfolio" visible, `data-testid="portfolio-rail-label"` text "PROYECTOS", two-column grid layout (240px rail | 1fr workspace), PageTitle with icon + subtitle, graceful empty state (no active projects on this machine — correct per FRD-03: building/shipped only). Visual check: one screenshot taken; layout matches prototype structure (two-column, PageTitle, PROYECTOS label, empty state graceful). No gross structural divergence.
 
-**Typecheck / lint:** `tsc --noEmit` exit 0. `biome check .` exit 0 (1 pre-existing info: biome.json deprecation). `knip` exit 0 (no new dead code).
+**Typecheck / lint / dead code:** `tsc --noEmit` exit 0. `biome check .` — 1 pre-existing info (biome.json deprecation), 0 errors. `knip` — 0 unused exports/files (style constants correctly de-exported).
 
 ## OWNER DECISION — Option A (2026-06-21)
 
