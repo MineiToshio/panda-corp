@@ -98,9 +98,13 @@ const AGENTS_PANEL_STYLE: React.CSSProperties = {
 function SkillsPanel({
   skills,
   onAgentClick,
+  selectedSlug,
+  onSelectedSlugChange,
 }: {
   skills: SkillRef[];
   onAgentClick: (role: string) => void;
+  selectedSlug: string | null;
+  onSelectedSlugChange: (slug: string | null) => void;
 }): React.JSX.Element {
   return (
     <div
@@ -109,7 +113,12 @@ function SkillsPanel({
       aria-labelledby="config-tab-id-skills"
       style={PANEL_STYLE}
     >
-      <SkillsSection skills={skills} onAgentClick={onAgentClick} />
+      <SkillsSection
+        skills={skills}
+        onAgentClick={onAgentClick}
+        selectedSlug={selectedSlug}
+        onSelectedSlugChange={onSelectedSlugChange}
+      />
     </div>
   );
 }
@@ -121,6 +130,10 @@ interface AgentsPanelProps {
   onSelectAgent: (id: string) => void;
   selectedAgent: AgentRef | null;
   selectedLevel: AgentLevelResult | null;
+  /** Skills that use the selected agent (reverse cross-nav source). */
+  usingSkills: SkillRef[];
+  /** Jump to a skill's detail when its chip is clicked (reverse cross-nav). */
+  onSkillClick: (slug: string) => void;
 }
 
 function AgentsPanel({
@@ -130,6 +143,8 @@ function AgentsPanel({
   onSelectAgent,
   selectedAgent,
   selectedLevel,
+  usingSkills,
+  onSkillClick,
 }: AgentsPanelProps): React.JSX.Element {
   return (
     <div
@@ -147,7 +162,12 @@ function AgentsPanel({
       />
       {/* Agent detail — shown when a card is selected (AC-07-007.2) */}
       {selectedAgent !== null && selectedLevel !== null ? (
-        <AgentDetail agent={selectedAgent} level={selectedLevel} />
+        <AgentDetail
+          agent={selectedAgent}
+          level={selectedLevel}
+          usingSkills={usingSkills}
+          onSkillClick={onSkillClick}
+        />
       ) : null}
     </div>
   );
@@ -217,6 +237,7 @@ export function ConfigurationShell({
 }: ConfigurationShellProps): React.JSX.Element {
   const [activeSection, setActiveSection] = useState<SectionId>("skills");
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [selectedSkillSlug, setSelectedSkillSlug] = useState<string | null>(null);
 
   // Resolve agents + levels from the prop (empty defaults = honest zero state, AC-07-007.3)
   const agents = agentsData?.agents ?? [];
@@ -228,9 +249,18 @@ export function ConfigurationShell({
     : null;
   const selectedLevel = selectedAgentId ? (levels[selectedAgentId] ?? null) : null;
 
+  // Reverse cross-nav source (FRD-07 EARS): invert SkillRef.agents into the list
+  // of skills that USE the currently-selected agent. Derived during render
+  // ("derive, don't sync") from the skills prop + the selected agent id.
+  const usingSkills =
+    selectedAgentId !== null
+      ? skills.filter((s) => (s.agents ?? []).includes(selectedAgentId))
+      : [];
+
   // Reset agent selection when leaving the agents tab
   function handleSectionChange(id: SectionId): void {
     if (id !== "agents") setSelectedAgentId(null);
+    if (id !== "skills") setSelectedSkillSlug(null);
     setActiveSection(id);
   }
 
@@ -239,6 +269,13 @@ export function ConfigurationShell({
   function handleAgentCrossNav(role: string): void {
     setSelectedAgentId(role);
     setActiveSection("agents");
+  }
+
+  // Reverse cross-navigation (FRD-07 EARS): clicking a using-skill chip in an
+  // agent's detail jumps to the skills tab with that skill's detail open.
+  function handleSkillCrossNav(slug: string): void {
+    setSelectedSkillSlug(slug);
+    setActiveSection("skills");
   }
 
   return (
@@ -257,7 +294,12 @@ export function ConfigurationShell({
 
       {/* Active section panel — only one mounted at a time (AC-07-005.2) */}
       {activeSection === "skills" ? (
-        <SkillsPanel skills={skills} onAgentClick={handleAgentCrossNav} />
+        <SkillsPanel
+          skills={skills}
+          onAgentClick={handleAgentCrossNav}
+          selectedSlug={selectedSkillSlug}
+          onSelectedSlugChange={setSelectedSkillSlug}
+        />
       ) : activeSection === "agents" ? (
         <AgentsPanel
           agents={agents}
@@ -266,6 +308,8 @@ export function ConfigurationShell({
           onSelectAgent={setSelectedAgentId}
           selectedAgent={selectedAgent}
           selectedLevel={selectedLevel}
+          usingSkills={usingSkills}
+          onSkillClick={handleSkillCrossNav}
         />
       ) : activeSection === "rules" ? (
         <RulesPanel rules={rules} />
