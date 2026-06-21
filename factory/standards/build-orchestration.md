@@ -197,6 +197,17 @@ stops only when:
   died and left the run orphaned (both observed 2026-06-17 — a run hit ~6M tokens with `maxSpend` set to 2M,
   because `budget.spent()` didn't reflect the subagents and the orphaned run had no supervisor enforcing it).
   `maxSpend` (output tokens via `budget.spent()`) is only a **secondary** ceiling.
+  - **The cap must be HONEST and FINE-GRAINED (DR-070).** `agentSpawned` increments on **every** spawn
+    (baseline, plan, close-out included — they were uncounted) and the ceiling is checked via `capHit()` at
+    **two** safe points: the per-FRD-loop top **and the top of each build wave inside an FRD**. Checking it
+    only between FRDs let a pass with a few large FRDs inflate the count inside one FRD and overshoot the
+    ceiling arbitrarily (a `maxAgents=40` run reached **68** agents / ~4.95M tokens, MC Phase-2 pass-1,
+    2026-06-21). A mid-FRD cap hit stops at the wave boundary, leaving that FRD's built WOs `IN_REVIEW`
+    (resumable) and skipping its gate. The **supervisor also enforces a reliable EXTERNAL brake**: it counts
+    the actual `agent-*.jsonl` files in the run's transcript dir and `TaskStop`s the workflow past the ceiling
+    (small overshoot allowance), independent of the in-engine counter (which silently under-counted). The
+    supervisor treats `maxAgents` as the **cumulative-across-passes** walk-away budget too — it does not
+    relaunch once cumulative agents reach it.
 - **Health breaker** — too many features `BLOCKED` in a row (default 3, excluding `external`) → stop;
   something is systemically wrong.
 - **Needs the owner** — what remains is `BLOCKED: needs-owner`.
@@ -204,6 +215,16 @@ stops only when:
 `maxFrds` bounds a deliberate, **supervised test run** and counts features **processed** (built + blocked +
 **reopened** — a reopen counts, so chained reopens can't slip past the cap; a bug the 2026-06-16 overnight
 test caught). It is never the overnight guardrail; `maxAgents` is.
+
+**A gate rejection reverts its own code (DR-070).** The FRD gate's `verify.sh --since` scopes only the
+**tests**; `biome`/`tsc`/`knip` run **whole-project**. The wave-writer commits a surface's code during the
+build (Option B, §2), so when the gate then **reopens or blocks** that work order, its committed code used to
+be **left in the tree** — and its dead exports / lint warnings turned **every later FRD's global gate RED**,
+blocking clean siblings on another feature's mess (MC Phase-2: `frd-11`/`frd-14` blocked `error`, "entangled
+with a sibling FRD"). So on reopen/block the gate/repair agent now **reverts the rejected work order's files
+to `last_green_sha`** — surgical `git checkout <sha> -- <files>` + `git rm` for newly-created files, **never a
+whole-tree hard reset** (that would discard verified siblings) — and commits the revert with the status
+change. The reopened WO is `PLANNED`, so the next pass rebuilds it from a clean green base.
 
 **Repair before block (the owner's rule).** When a work order or the FRD gate fails, the engine first
 runs a **repair pass** (a strong-model agent diagnoses and tries to fix, re-verifying with
