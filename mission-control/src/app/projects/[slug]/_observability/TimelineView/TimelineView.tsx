@@ -27,7 +27,7 @@
 // Types
 // ---------------------------------------------------------------------------
 
-export interface GanttTask {
+interface GanttTask {
   /** Task title */
   title: string;
   /** Duration in minutes */
