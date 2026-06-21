@@ -5,7 +5,7 @@ slug: snapshot-panel
 title: 'WO-14-002 — SnapshotPanel: último commit en verde + worktree command'
 status: DRAFT
 parent: FRD-14
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
 artifacts:
   - 'src/app/projects/[slug]/_components/snapshot-panel/**'
   - 'src/app/preview-wo14002/page.tsx'
