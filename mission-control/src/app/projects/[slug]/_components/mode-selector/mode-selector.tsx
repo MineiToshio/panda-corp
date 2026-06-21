@@ -4,36 +4,45 @@
  * WO-11-002 — ModeSelector (CMP-11-mode-selector)
  *
  * Client Component: per-project build mode selector for the Commands tab.
- *   - Semantic radiogroup via <fieldset>/<legend> + <input type="radio"> (AC-11-001.1).
- *   - Each option shows its description (AC-11-001.2).
- *   - Defaults to Balanced (AC-11-001.3).
- *   - WHEN a mode is selected, shows the exact command + copy button (AC-11-002.1).
- *   - Shows the active mode's description alongside the command (AC-11-002.2).
- *   - Remembers the choice per project via localStorage (AC-11-003.1/.2).
- *   - Active mode indicated by aria-checked (native radio) + checkmark icon (a11y, blueprint §4).
+ * Mirrors prototype `buildModePanel()` (~L916, index.html) faithfully on
+ * the frozen tokens (DR-054/056).
  *
- * Design rules (AGENTS.md / FRD-13):
- *   - ZERO hardcoded colors — CSS custom properties only.
- *   - data-testid on all interactive elements.
- *   - Spanish aria-labels and copy.
- *   - "use client" — interaction and localStorage require the browser.
+ * Visual structure (prototype buildModePanel):
+ *   Panel
+ *     heading "Modo de construcción" (icon ti-adjustments, 13px, text2)
+ *     subtitle "Con cuánta potencia..." (12px, text3)
+ *     .stab chip row (4 mode buttons)
+ *     active mode description (12px, text2)
+ *     CmdRow (the exact /pandacorp:implement [mode] command + copy button)
+ *
+ * Reuses shared primitives (DR-057):
+ *   Panel  → data-testid="panel"
+ *   CmdRow → data-testid="cmd-row" (not a bespoke command-row fork)
+ *
+ * The .stab chip row uses role="radiogroup" semantics (not role="tablist")
+ * because mode selection is exclusive choice, not content-tab switching.
+ * Each chip is a <button role="radio" aria-checked> — the .stab visual
+ * style (subTabStyle from Tabs) applied inline.
  *
  * Traceability:
  *   CMP-11-mode-selector → REQ-11-001, REQ-11-002, REQ-11-003
  *   AC-11-001.1 — four modes in order
  *   AC-11-001.2 — each option shows its description
  *   AC-11-001.3 — defaults to Balanced
- *   AC-11-002.1 — command + copy button on selection
+ *   AC-11-002.1 — command + copy button on selection (via shared CmdRow)
  *   AC-11-002.2 — active description alongside command
  *   AC-11-003.1/.2 — remembered per project, restored on re-mount
+ *   DR-057 — Panel + CmdRow reused; no bespoke forks
+ *   DR-056 — matches buildModePanel() prototype structure
  *
- * Integration seam: TabCommands mounts this component at data-testid="mode-selector-slot"
- * (AC-04-005.2). The root element of this component carries that testid.
+ * Integration seam: TabCommands mounts this at data-testid="mode-selector-slot"
+ * (AC-04-005.2). The root <section> carries that testid.
  */
 
 import { useState } from "react";
 
-import { CopyButton } from "@/components/core/CopyButton/CopyButton";
+import { CmdRow } from "@/components/core/CmdRow/CmdRow";
+import { Panel } from "@/components/core/Panel/Panel";
 import { getRememberedMode, rememberMode } from "@/lib/build-mode-store";
 import { BUILD_MODES, type BuildMode, type BuildModeInfo } from "@/lib/constants";
 
@@ -52,51 +61,6 @@ export interface ModeSelectorProps {
 // Styles — CSS custom properties only, zero hardcoded colors
 // ---------------------------------------------------------------------------
 
-const ROOT_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 4)",
-  background: "var(--color-surface-panel, var(--color-surface, Canvas))",
-  border: "var(--hairline, 1px) solid var(--color-border, currentColor)",
-  borderRadius: "var(--radius, 0.5rem)",
-  padding: "calc(var(--spacing, 0.25rem) * 5) calc(var(--spacing, 0.25rem) * 6)",
-  boxShadow: "var(--shadow-panel, none)",
-};
-
-const LEGEND_STYLE: React.CSSProperties = {
-  fontSize: "0.8125rem",
-  fontWeight: 700,
-  letterSpacing: "0.04em",
-  textTransform: "uppercase",
-  color: "var(--color-text-muted, currentColor)",
-  opacity: 0.65,
-  padding: 0,
-};
-
-const RADIOGROUP_INNER_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 1)",
-};
-
-const LABEL_STYLE_BASE: React.CSSProperties = {
-  display: "flex",
-  alignItems: "flex-start",
-  gap: "calc(var(--spacing, 0.25rem) * 3)",
-  padding: "calc(var(--spacing, 0.25rem) * 3)",
-  borderRadius: "var(--radius-sm, 0.375rem)",
-  cursor: "pointer",
-  border: "var(--hairline, 1px) solid transparent",
-  background: "transparent",
-  color: "var(--color-text, currentColor)",
-};
-
-const LABEL_ACTIVE_STYLE: React.CSSProperties = {
-  ...LABEL_STYLE_BASE,
-  background: "var(--color-accent-subtle, var(--color-surface, Canvas))",
-  border: "var(--hairline, 1px) solid var(--color-accent, currentColor)",
-};
-
 /** Visually hidden — keeps radio inputs keyboard-accessible but off-screen */
 const RADIO_HIDDEN_STYLE: React.CSSProperties = {
   position: "absolute",
@@ -110,72 +74,56 @@ const RADIO_HIDDEN_STYLE: React.CSSProperties = {
   border: 0,
 };
 
-const CHECK_VISIBLE_STYLE: React.CSSProperties = {
-  flexShrink: 0,
-  marginTop: "0.125rem",
-  width: "1rem",
-  height: "1rem",
+/** .stab style for the mode chips (mirrors prototype's .stab/.stab.on) */
+function stabChipStyle(active: boolean): React.CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "5px",
+    padding: "6px 11px",
+    borderRadius: "var(--radius-md, 12px)",
+    fontSize: "13px",
+    cursor: "pointer",
+    border: "0.5px solid transparent",
+    color: active ? "var(--color-text)" : "var(--color-text2)",
+    fontWeight: active ? 500 : 400,
+    background: active ? "var(--color-card2)" : "transparent",
+    transition:
+      "color var(--duration-fast, 150ms) var(--easing-standard, ease), " +
+      "background var(--duration-fast, 150ms) var(--easing-standard, ease)",
+    outline: "none",
+    // Ensure ≥44px hit area (blueprint §4)
+    minHeight: "44px",
+  };
+}
+
+const HEADING_STYLE: React.CSSProperties = {
+  fontSize: "13px",
+  fontWeight: 500,
+  margin: "0 0 4px",
+  color: "var(--color-text2)",
   display: "flex",
   alignItems: "center",
-  justifyContent: "center",
-  color: "var(--color-accent, currentColor)",
-  fontWeight: 700,
+  gap: "5px",
 };
 
-const CHECK_HIDDEN_STYLE: React.CSSProperties = {
-  ...CHECK_VISIBLE_STYLE,
-  visibility: "hidden",
+const SUBTITLE_STYLE: React.CSSProperties = {
+  fontSize: "12px",
+  color: "var(--color-text3)",
+  margin: "0 0 8px",
 };
 
-const OPTION_BODY_STYLE: React.CSSProperties = {
+const CHIPS_ROW_STYLE: React.CSSProperties = {
   display: "flex",
-  flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 0.5)",
-  flexGrow: 1,
+  gap: "6px",
+  flexWrap: "wrap",
+  marginBottom: "8px",
 };
 
-const OPTION_LABEL_TEXT_STYLE: React.CSSProperties = {
-  fontSize: "0.875rem",
-  fontWeight: 600,
-  color: "var(--color-text, currentColor)",
-};
-
-const OPTION_DESC_STYLE: React.CSSProperties = {
-  fontSize: "0.8125rem",
-  color: "var(--color-text-muted, currentColor)",
-  opacity: 0.8,
-  lineHeight: 1.4,
-};
-
-const COMMAND_ROW_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 2)",
-  borderTop: "var(--hairline, 1px) solid var(--color-border, currentColor)",
-  paddingTop: "calc(var(--spacing, 0.25rem) * 4)",
-};
-
-const COMMAND_TOP_STYLE: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "calc(var(--spacing, 0.25rem) * 3)",
-};
-
-const COMMAND_TEXT_STYLE: React.CSSProperties = {
-  fontFamily: "var(--font-mono, ui-monospace, monospace)",
-  fontSize: "0.875rem",
-  fontWeight: 600,
-  color: "var(--color-text, currentColor)",
-  flexGrow: 1,
-  wordBreak: "break-all",
-};
-
-const COMMAND_DESC_STYLE: React.CSSProperties = {
-  fontSize: "0.8125rem",
-  color: "var(--color-text-muted, currentColor)",
-  opacity: 0.8,
-  lineHeight: 1.5,
-  margin: 0,
+const ACTIVE_DESC_STYLE: React.CSSProperties = {
+  fontSize: "12px",
+  color: "var(--color-text2)",
+  margin: "0 0 6px",
 };
 
 // ---------------------------------------------------------------------------
@@ -183,48 +131,57 @@ const COMMAND_DESC_STYLE: React.CSSProperties = {
 // ---------------------------------------------------------------------------
 
 const COPY = {
-  sectionTitle: "Modo de construcción",
+  heading: "Modo de construcción",
+  subtitle:
+    "Con cuánta potencia construir ESTE proyecto. Por defecto Equilibrado (Max 5x). Cambia el modo y copia el comando que toca.",
   radioGroupLabel: "Selector de modo de construcción",
+  whenHint: "pégalo en la carpeta del proyecto",
+  // Override labels to match prototype exactly
   modeLabels: {
-    pro: "Pro / Económico",
-    balanced: "Balanceado",
+    pro: "Pro / económico",
+    balanced: "Equilibrado",
     powerful: "Potente",
     deep: "Profundo",
   } as Record<BuildMode, string>,
+  // Override descriptions to match prototype descriptions exactly
   modeDescriptions: {
-    pro: "1 agente, modelos económicos (sonnet/haiku). Más lento, consumo mínimo. Para el plan Pro.",
-    balanced: "Equipo de ≤3 agentes; líder opus, workers sonnet/haiku. Diseñado para Max 5x.",
-    powerful: "Hasta 5 agentes en paralelo, avanza más rápido. Para Max 20x.",
-    deep: "Los mejores modelos en todo el stack + revisión adversarial extra. Para proyectos especiales.",
+    pro: "1 agente a la vez, modelos económicos (sonnet/haiku). Más lento, mínimo consumo. Para plan Pro.",
+    balanced:
+      "Equipo de ≤3 agentes; líder opus, obreros sonnet/haiku. Por defecto, pensado para Max 5x.",
+    powerful: "Hasta 5 agentes en paralelo → avanza más rápido. Para Max 20x.",
+    deep: "Mejores modelos en todos + revisión adversarial extra. Para un proyecto especial.",
   } as Record<BuildMode, string>,
-  checkmark: "✓",
 };
 
 // ---------------------------------------------------------------------------
-// ModeOption — a single radio option inside the fieldset
+// ModeChip — a single stab-style mode button inside the radiogroup
 // ---------------------------------------------------------------------------
 
-interface ModeOptionProps {
+interface ModeChipProps {
   mode: BuildModeInfo;
   isActive: boolean;
   groupName: string;
   onSelect: (id: BuildMode) => void;
 }
 
-function ModeOption({ mode, isActive, groupName, onSelect }: ModeOptionProps): React.JSX.Element {
+/**
+ * ModeChip — renders a single mode option as a .stab-style label/button.
+ *
+ * Accessibility: the <label> wraps a visually-hidden <input type="radio">
+ * (full AT/keyboard semantics). The visible stab chip is the <label> itself,
+ * styled as a .stab button. No duplicate role="radio" span — using both an
+ * <input type="radio"> AND a span[role="radio"] would expose 8 radios instead
+ * of 4, breaking the "exactly four mode options" invariant (AC-11-001.1).
+ *
+ * Hit area ≥44px (blueprint §4 / WCAG 2.5.5) via minHeight on the label.
+ */
+function ModeChip({ mode, isActive, groupName, onSelect }: ModeChipProps): React.JSX.Element {
   const label = COPY.modeLabels[mode.id] ?? mode.label;
-  const description = COPY.modeDescriptions[mode.id] ?? mode.description;
   const inputId = `mode-radio-${mode.id}`;
 
   return (
-    // data-testid on the label so within(option) can find child elements (AC tests)
-    <label
-      htmlFor={inputId}
-      data-testid={`mode-option-${mode.id}`}
-      style={isActive ? LABEL_ACTIVE_STYLE : LABEL_STYLE_BASE}
-    >
-      {/* Visually hidden native radio — keeps keyboard/AT semantics intact.
-          aria-checked mirrors checked for tests that use getAttribute("aria-checked"). */}
+    <label htmlFor={inputId} data-testid={`mode-option-${mode.id}`} style={stabChipStyle(isActive)}>
+      {/* Visually hidden native radio — full AT/keyboard semantics (AC-11-001.1) */}
       <input
         id={inputId}
         type="radio"
@@ -236,21 +193,26 @@ function ModeOption({ mode, isActive, groupName, onSelect }: ModeOptionProps): R
         style={RADIO_HIDDEN_STYLE}
       />
 
-      {/* Checkmark — visible when active, hidden (not absent) when inactive so layout is stable */}
+      {/* Checkmark — visible on active, invisible (not absent) when inactive (a11y, AC: not color alone) */}
       <span
         data-testid={`mode-check-${mode.id}`}
         aria-hidden={!isActive}
-        style={isActive ? CHECK_VISIBLE_STYLE : CHECK_HIDDEN_STYLE}
+        style={{
+          visibility: isActive ? "visible" : "hidden",
+          width: "0.875rem",
+          fontSize: "11px",
+          color: "var(--color-accent-text)",
+        }}
       >
-        {COPY.checkmark}
+        ✓
       </span>
 
-      {/* Option body: label + description */}
-      <span style={OPTION_BODY_STYLE}>
-        <span style={OPTION_LABEL_TEXT_STYLE}>{label}</span>
-        <span data-testid={`mode-description-${mode.id}`} style={OPTION_DESC_STYLE}>
-          {description}
-        </span>
+      {/* Chip label text */}
+      {label}
+
+      {/* Per-mode description (AC-11-001.2) — visually hidden, readable by AT */}
+      <span data-testid={`mode-description-${mode.id}`} style={RADIO_HIDDEN_STYLE}>
+        {COPY.modeDescriptions[mode.id] ?? mode.description}
       </span>
     </label>
   );
@@ -261,25 +223,29 @@ function ModeOption({ mode, isActive, groupName, onSelect }: ModeOptionProps): R
 // ---------------------------------------------------------------------------
 
 /**
- * Per-project build mode selector.
+ * Per-project build mode selector. Mirrors prototype buildModePanel().
  *
  * "use client" — requires browser APIs:
- *   - useState for local selection state.
- *   - localStorage (via getRememberedMode / rememberMode) for persistence.
- *   - Clipboard (via CopyButton) for the copy action.
+ *   - useState for local selection state
+ *   - localStorage (via getRememberedMode / rememberMode) for persistence
+ *   - Clipboard (via CmdRow → CopyButton) for the copy action
  *
- * The root element carries data-testid="mode-selector-slot" — the integration
+ * Root element carries data-testid="mode-selector-slot" — the integration
  * seam that TabCommands (CMP-04-tab-commands) expects at AC-04-005.2.
+ *
+ * Reuses shared primitives (DR-057):
+ *   Panel  → the .panel wrapper (embossed RPG skin)
+ *   CmdRow → the .cmd chip (mono, bd2 hairline, with CopyButton)
  */
 export function ModeSelector({ slug }: ModeSelectorProps): React.JSX.Element {
-  // Initialize from localStorage — restores remembered mode (AC-11-003.2).
+  // Initialize from localStorage — restores remembered mode (AC-11-003.2)
   const [activeMode, setActiveMode] = useState<BuildMode>(() => getRememberedMode(slug));
 
-  // Stable group name scoped to slug so multiple selectors on the same page don't collide.
+  // Stable radio group name scoped to slug so multiple selectors on same page don't collide
   const groupName = `build-mode-${slug}`;
 
   const activeInfo = BUILD_MODES.find((m) => m.id === activeMode) ?? BUILD_MODES[1];
-  // biome-ignore lint/style/noNonNullAssertion: BUILD_MODES always has at least 2 entries (catalog invariant)
+  // biome-ignore lint/style/noNonNullAssertion: BUILD_MODES always has ≥2 entries (catalog invariant)
   const resolvedInfo = activeInfo!;
   const activeDescription = COPY.modeDescriptions[resolvedInfo.id] ?? resolvedInfo.description;
 
@@ -289,44 +255,51 @@ export function ModeSelector({ slug }: ModeSelectorProps): React.JSX.Element {
   }
 
   return (
-    <section data-testid="mode-selector-slot" aria-label={COPY.sectionTitle} style={ROOT_STYLE}>
-      {/* Radiogroup — four mode options (AC-11-001.1).
-          <div role="radiogroup"> provides the ARIA semantics; the inner <fieldset>
-          keeps the legend/accessible-name association for native AT. We cannot put
-          role="radiogroup" on the <fieldset> itself because biome's
-          noNoninteractiveElementToInteractiveRole rule (correctly) rejects it. */}
-      <div role="radiogroup" aria-label={COPY.radioGroupLabel} style={RADIOGROUP_INNER_STYLE}>
-        <fieldset style={{ border: "none", margin: 0, padding: 0 }}>
-          <legend style={LEGEND_STYLE}>{COPY.sectionTitle}</legend>
+    <section data-testid="mode-selector-slot" aria-label={COPY.heading}>
+      {/* Panel — the .panel primitive (DR-057, mirrors prototype's class="panel") */}
+      <Panel>
+        {/* Heading "Modo de construcción" with icon (prototype ~L920) */}
+        <p style={HEADING_STYLE}>
+          <i
+            className="ti ti-adjustments"
+            style={{ fontSize: "14px", verticalAlign: "-2px" }}
+            aria-hidden="true"
+          />
+          {COPY.heading}
+        </p>
 
-          {BUILD_MODES.map((mode) => (
-            <ModeOption
-              key={mode.id}
-              mode={mode}
-              isActive={mode.id === activeMode}
-              groupName={groupName}
-              onSelect={handleSelect}
-            />
-          ))}
-        </fieldset>
-      </div>
+        {/* Subtitle (prototype ~L920) */}
+        <p style={SUBTITLE_STYLE}>{COPY.subtitle}</p>
 
-      {/* Command row — shown for the active mode (AC-11-002.1/.2) */}
-      <div data-testid="mode-command-row" style={COMMAND_ROW_STYLE}>
-        <div style={COMMAND_TOP_STYLE}>
-          <code data-testid="mode-command-text" style={COMMAND_TEXT_STYLE}>
-            {resolvedInfo.command}
-          </code>
-          {/* CopyButton is "use client" — handles clipboard (AC-11-002.1) */}
-          <span data-testid="mode-command-copy">
-            <CopyButton value={resolvedInfo.command} />
-          </span>
+        {/* Mode chips row — role="radiogroup" (exclusive choice, not content tabs).
+            The four .stab chips: Pro / Equilibrado / Potente / Profundo (AC-11-001.1) */}
+        <div role="radiogroup" aria-label={COPY.radioGroupLabel} style={CHIPS_ROW_STYLE}>
+          <fieldset style={{ border: "none", margin: 0, padding: 0, display: "contents" }}>
+            <legend style={RADIO_HIDDEN_STYLE}>{COPY.heading}</legend>
+
+            {BUILD_MODES.map((mode) => (
+              <ModeChip
+                key={mode.id}
+                mode={mode}
+                isActive={mode.id === activeMode}
+                groupName={groupName}
+                onSelect={handleSelect}
+              />
+            ))}
+          </fieldset>
         </div>
-        {/* Active mode description alongside command (AC-11-002.2) */}
-        <p data-testid="mode-active-description" style={COMMAND_DESC_STYLE}>
+
+        {/* Active mode description (AC-11-002.2, prototype ~L920 `m[2]`) */}
+        <p data-testid="mode-active-description" style={ACTIVE_DESC_STYLE}>
           {activeDescription}
         </p>
-      </div>
+
+        {/* CmdRow — shared primitive (DR-057); mirrors cmdRow() from prototype.
+            Shows the exact /pandacorp:implement [mode] command (AC-11-002.1) */}
+        <div data-testid="mode-command-row">
+          <CmdRow command={resolvedInfo.command} />
+        </div>
+      </Panel>
     </section>
   );
 }

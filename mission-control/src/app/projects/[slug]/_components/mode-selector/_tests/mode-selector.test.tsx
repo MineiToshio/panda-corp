@@ -139,13 +139,15 @@ describe("ModeSelector — AC-11-001.3 + AC-11-002.1: default Balanced + command
 
   it("shows /pandacorp:implement (bare, no argument) as the command for Balanced (AC-11-002.1)", () => {
     renderSelector();
-    const cmdDisplay = screen.getByTestId("mode-command-text");
-    expect(cmdDisplay.textContent?.trim()).toBe("/pandacorp:implement");
+    // CmdRow (data-testid="cmd-row") now holds the command text (DR-057 — shared primitive)
+    const cmdRow = screen.getByTestId("cmd-row");
+    expect(cmdRow.textContent?.trim()).toContain("/pandacorp:implement");
   });
 
   it("renders a copy button for the command (AC-11-002.1)", () => {
     renderSelector();
-    expect(screen.getByTestId("mode-command-copy")).toBeTruthy();
+    // CopyButton is inside CmdRow (data-testid="cmd-row")
+    expect(screen.getByTestId("copy-button")).toBeTruthy();
   });
 
   it("command section is visible (testid=mode-command-row)", () => {
@@ -171,8 +173,9 @@ describe("ModeSelector — AC-11-002.1/.2: selecting Powerful shows command + de
   it("clicking Powerful shows '/pandacorp:implement powerful' as the command (AC-11-002.1)", () => {
     renderSelector();
     fireEvent.click(screen.getByTestId("mode-option-powerful"));
-    const cmdDisplay = screen.getByTestId("mode-command-text");
-    expect(cmdDisplay.textContent?.trim()).toBe("/pandacorp:implement powerful");
+    // CmdRow (data-testid="cmd-row") now holds the command text (DR-057 — shared primitive)
+    const cmdRow = screen.getByTestId("cmd-row");
+    expect(cmdRow.textContent?.trim()).toContain("/pandacorp:implement powerful");
   });
 
   it("clicking Powerful unchecks Balanced (only one active at a time)", () => {
@@ -184,15 +187,13 @@ describe("ModeSelector — AC-11-002.1/.2: selecting Powerful shows command + de
   it("clicking Pro shows '/pandacorp:implement pro' as the command (AC-11-002.1)", () => {
     renderSelector();
     fireEvent.click(screen.getByTestId("mode-option-pro"));
-    expect(screen.getByTestId("mode-command-text").textContent?.trim()).toBe(
-      "/pandacorp:implement pro",
-    );
+    expect(screen.getByTestId("cmd-row").textContent?.trim()).toContain("/pandacorp:implement pro");
   });
 
   it("clicking Deep shows '/pandacorp:implement deep' as the command (AC-11-002.1)", () => {
     renderSelector();
     fireEvent.click(screen.getByTestId("mode-option-deep"));
-    expect(screen.getByTestId("mode-command-text").textContent?.trim()).toBe(
+    expect(screen.getByTestId("cmd-row").textContent?.trim()).toContain(
       "/pandacorp:implement deep",
     );
   });
@@ -200,9 +201,8 @@ describe("ModeSelector — AC-11-002.1/.2: selecting Powerful shows command + de
   it("the command row shows the selected mode's description (AC-11-002.2)", () => {
     renderSelector();
     fireEvent.click(screen.getByTestId("mode-option-powerful"));
-    // The description of powerful must appear in the command area
-    const cmdRow = screen.getByTestId("mode-command-row");
-    const descText = within(cmdRow).getByTestId("mode-active-description");
+    // mode-active-description is in the Panel alongside mode-command-row (AC-11-002.2)
+    const descText = screen.getByTestId("mode-active-description");
     expect(descText.textContent?.trim().length).toBeGreaterThan(0);
   });
 
@@ -241,9 +241,8 @@ describe("ModeSelector — AC-11-003.2: re-mounting restores remembered mode", (
     unmount();
 
     renderSelector("proj-memory-cmd");
-    expect(screen.getByTestId("mode-command-text").textContent?.trim()).toBe(
-      "/pandacorp:implement pro",
-    );
+    // CmdRow (data-testid="cmd-row") now holds the command (DR-057 — shared primitive)
+    expect(screen.getByTestId("cmd-row").textContent?.trim()).toContain("/pandacorp:implement pro");
   });
 
   it("re-mounting with a DIFFERENT slug starts fresh at Balanced (AC-11-001.3)", () => {
@@ -282,6 +281,8 @@ describe("ModeSelector — a11y: aria-checked + visual indicator beyond color", 
   it("exactly one radio has aria-checked='true' at any time", () => {
     renderSelector();
     fireEvent.click(screen.getByTestId("mode-option-powerful"));
+    // getRadioButtons() uses getByRole("radio") which picks up <input type="radio"> only
+    // (the visible chip is a <label>, not role="radio", so no double-count)
     const checked = getRadioButtons().filter((b) => b.getAttribute("aria-checked") === "true");
     expect(checked).toHaveLength(1);
   });
@@ -355,14 +356,18 @@ describe("ModeSelector — design tokens + data-testid invariants", () => {
     }
   });
 
-  it("the command copy button has data-testid='mode-command-copy'", () => {
+  it("the command copy button is inside the CmdRow (data-testid='copy-button' inside 'cmd-row')", () => {
+    // DR-057: CopyButton is now inside the shared CmdRow primitive — no bespoke mode-command-copy
     renderSelector();
-    expect(screen.getByTestId("mode-command-copy")).toBeTruthy();
+    const cmdRow = screen.getByTestId("cmd-row");
+    expect(cmdRow.querySelector("[data-testid='copy-button']")).not.toBeNull();
   });
 
-  it("the command text element has data-testid='mode-command-text'", () => {
+  it("the command is displayed inside the CmdRow (data-testid='cmd-row')", () => {
+    // DR-057: CmdRow now serves as the command display — no bespoke mode-command-text
     renderSelector();
-    expect(screen.getByTestId("mode-command-text")).toBeTruthy();
+    const cmdRow = screen.getByTestId("cmd-row");
+    expect(cmdRow.textContent?.trim().length).toBeGreaterThan(0);
   });
 });
 

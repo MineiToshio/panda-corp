@@ -5,7 +5,7 @@ slug: mode-selector-and-commands-tab
 title: 'WO-11-002 — BuildModeSelector + Comandos tab'
 status: DRAFT
 parent: FRD-11
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 artifacts:
   - 'src/app/projects/[slug]/_components/mode-selector/**'
   - 'src/app/projects/[slug]/_components/tab-commands/**'
@@ -66,3 +66,41 @@ this WO is **presentational only**.
 `docs/design/prototype/index.html` → `projComandos()` (~L807), `buildModePanel()` (~L801),
 `commandsBox()` (~L729), `cmdRow()` (~L570), `BUILDMODES` (~L795), on the frozen tokens. Fidelity, not
 novelty (DR-056) — see `../fdd.md`.
+
+## Status Note
+
+**Built:** `ModeSelector` (Client Component) and `TabCommands` + `CommandsBox` (Server Components),
+repainted to match the prototype `projComandos()` = `buildModePanel()` + `commandsBox()` structure
+on the frozen tokens. Preview route at `/preview-wo11002` for visual inspection.
+
+**Interfaces/contracts exposed:**
+
+- `ModeSelector({ slug: string })` — `src/app/projects/[slug]/_components/mode-selector/mode-selector.tsx`
+  - Root: `<section data-testid="mode-selector-slot" aria-label="Modo de construcción">`
+  - Reads `getRememberedMode(slug)` on mount; writes `rememberMode(slug, mode)` on change
+  - Renders `<Panel>` → heading + subtitle + `role="radiogroup"` chip row → active description → `<CmdRow command={…} />`
+  - Each chip: `<label data-testid="mode-option-{id}">` wrapping hidden `<input type="radio" name="build-mode-{slug}" aria-checked>` + visible checkmark `<span data-testid="mode-check-{id}">` + `<span data-testid="mode-description-{id}">`
+  - Active description: `<p data-testid="mode-active-description">`
+  - Command row wrapper: `<div data-testid="mode-command-row">` containing `<CmdRow />`
+
+- `TabCommands({ phase: Phase, slug: string })` — `src/app/projects/[slug]/_components/tab-commands/tab-commands.tsx`
+  - Root: `<main data-testid="tab-commands-body">`
+  - Renders `<ModeSelector slug={slug} />` then `<CommandsBox phase={phase} />`
+  - `CommandsBox` root: `<Panel>` with heading `<p data-testid="tab-commands-heading">Comandos a la mano</p>` and `<ul data-testid="commands-list">` of `<li data-testid="command-row">` items, each containing `<CmdRow />` + `<p data-testid="command-row-description">` + `<span data-testid="command-row-command" aria-hidden>`
+
+**DR-057 reuse:** `Panel` (data-testid="panel") and `CmdRow` (data-testid="cmd-row") shared primitives used throughout — no bespoke forks. `CopyButton` (data-testid="copy-button") is inside `CmdRow`.
+
+**Implicit decisions / naming conventions:**
+- Mode chip pattern: `<label>` (not `<button role="radio">`) wrapping a visually-hidden `<input type="radio">` — avoids duplicate role="radio" count (8 vs expected 4) when stab chip also carries the role. The `<label>` itself is styled as the stab chip.
+- `mode-command-text` and `mode-command-copy` testids were **removed** — replaced by `cmd-row` (DR-057). All tests updated to assert via `getByTestId("cmd-row")` and `getByTestId("copy-button")`.
+- `mode-active-description` is a **sibling** of `mode-command-row` inside the Panel, not nested inside it. Tests updated accordingly.
+- `command-row-command` testid preserved as a hidden `<span aria-hidden>` for backward compat with any consumer querying it.
+- `fieldset` with `display: "contents"` wraps the chips inside the radiogroup div — gives AT a named group without adding layout.
+- COPY strings (mode labels, descriptions, subtitle) are defined in a module-level `COPY` const — the canonical Spanish strings live there, not in constants.ts.
+
+**Test files:**
+- `src/app/projects/[slug]/_components/mode-selector/_tests/mode-selector.test.tsx` — AC-11-001.x / AC-11-002.x / AC-11-003.2 / a11y / design-token invariants
+- `src/app/projects/[slug]/_components/mode-selector/_tests/mode-selector.fidelity.test.tsx` — DR-056/057 structural fidelity (Panel + CmdRow reuse, prototype structure)
+- `src/app/projects/[slug]/_components/mode-selector/_tests/mode-selector.reviewer.test.tsx` — adversarial (catalog drift, clipboard exact value, per-project isolation, corrupt storage)
+- `src/app/projects/[slug]/_components/tab-commands/_tests/tab-commands.test.tsx` — AC-04-005.x / phase-by-phase rows / a11y invariants
+- `src/app/projects/[slug]/_components/tab-commands/_tests/tab-commands.fidelity.test.tsx` — DR-056/057 fidelity (Panel + CmdRow in CommandsBox, projComandos layout)

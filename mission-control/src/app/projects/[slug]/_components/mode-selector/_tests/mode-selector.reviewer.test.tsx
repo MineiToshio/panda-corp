@@ -48,8 +48,9 @@ describe("frd-11 reviewer: catalog ⇄ UI command consistency across ALL modes",
       localStorage.clear();
       const { unmount } = render(<ModeSelector slug="consistency" />);
       fireEvent.click(screen.getByTestId(`mode-option-${mode.id}`));
-      const shown = screen.getByTestId("mode-command-text").textContent?.trim();
-      expect(shown).toBe(mode.command);
+      // DR-057: command is now inside the shared CmdRow primitive (data-testid="cmd-row")
+      const shown = screen.getByTestId("cmd-row").textContent?.trim();
+      expect(shown).toContain(mode.command);
       unmount();
     }
   });
@@ -59,7 +60,8 @@ describe("frd-11 reviewer: catalog ⇄ UI command consistency across ALL modes",
     const seen = new Set<string>();
     for (const mode of BUILD_MODES) {
       fireEvent.click(screen.getByTestId(`mode-option-${mode.id}`));
-      seen.add(screen.getByTestId("mode-command-text").textContent?.trim() ?? "");
+      // DR-057: CmdRow holds the command text
+      seen.add(screen.getByTestId("cmd-row").textContent?.trim() ?? "");
     }
     // Four distinct command strings must have appeared.
     expect(seen.size).toBe(BUILD_MODES.length);
@@ -87,9 +89,9 @@ describe("frd-11 reviewer: the exact value handed to the clipboard (REQ-11-002)"
     render(<ModeSelector slug="copy-exact" />);
 
     fireEvent.click(screen.getByTestId("mode-option-deep"));
-    // The CopyButton is inside data-testid="mode-command-copy".
-    const copyWrap = screen.getByTestId("mode-command-copy");
-    const button = copyWrap.querySelector("button");
+    // DR-057: CopyButton is inside the shared CmdRow (data-testid="cmd-row"), not a bespoke wrapper
+    const cmdRow = screen.getByTestId("cmd-row");
+    const button = cmdRow.querySelector("button");
     expect(button).not.toBeNull();
     if (button) fireEvent.click(button);
 
@@ -127,8 +129,8 @@ describe("frd-11 reviewer: corrupt storage must not crash the mounted component"
     expect(() => render(<ModeSelector slug="hostile" />)).not.toThrow();
     const balanced = screen.getByTestId("mode-option-balanced").querySelector("input");
     expect(balanced?.getAttribute("aria-checked")).toBe("true");
-    expect(screen.getByTestId("mode-command-text").textContent?.trim()).toBe(
-      BUILD_MODES.find((m) => m.id === DEFAULT_BUILD_MODE)?.command,
-    );
+    // DR-057: command is now inside the shared CmdRow primitive (data-testid="cmd-row")
+    const expectedCommand = BUILD_MODES.find((m) => m.id === DEFAULT_BUILD_MODE)?.command ?? "";
+    expect(screen.getByTestId("cmd-row").textContent?.trim()).toContain(expectedCommand);
   });
 });
