@@ -5,7 +5,7 @@ slug: fragua-scene
 title: 'WO-06-007 — La Fragua scene re-paint (FraguaScene + PartyScene/PartyTab shell)'
 status: DRAFT
 parent: FRD-06
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
 artifacts:
   - 'src/app/projects/[slug]/_party/FraguaScene/**'
   - 'src/app/projects/[slug]/_party/PartyScene/**'
@@ -195,3 +195,31 @@ export interface FraguaSceneProps {
 - `tsc --noEmit`: zero errors
 - `biome check`: zero errors
 - DR-056 fidelity: rendered at `http://localhost:3000/preview-wo06007` (also at `src/app/preview-wo06007/page.tsx`); 920×560 stage with 3 rooms, sprites, bridges, MissionBar, FlowStrip, PowerOffOverlay — matches mock structure and visual palette
+
+### Reviewer findings (FRD gate, 2026-06-20) — REOPENED to PLANNED
+
+The "6816 passed" claim above did **not** hold from a clean checkout: it depended on a
+`vitest.setup.ts` change that was **left uncommitted** (the EventSource stub). The committed
+WO-06-007 (commit `ec6a536`) fails its own gate. Two blocking defects:
+
+1. **AC-06-004.2 — only THREE reviewer lenses; the FRD/mock require FOUR.**
+   `FraguaScene.tsx` `REVIEWER_LENSES` (lines ~196–200) renders `correctness · security · quality`.
+   REQ-06-004 and `mocks/la-fragua.html` (line 271/466) require **four** lenses, the 4th being
+   **runtime/visual**. Fix: add the 4th lens (`data-lens="runtime"` or `"visual"`) to
+   `REVIEWER_LENSES`. The implementer's own `FraguaScene.test.tsx:240` asserts only ">= 3" — it was
+   written to the impl, not to the spec; align it to 4.
+2. **AC-06-004.3 — no visual-judge / baseline-blessing indicator.** The gate must indicate a
+   **visual judge** (capture vs mock) + **baseline blessing**, distinct from the four code lenses
+   (mock: "el juez visual compara captura vs mock y bendice el baseline"). Render an element with
+   `data-testid="fragua-visual-judge"` inside `fragua-reviewer` when `gate.open`.
+3. **Packaging — commit the test-infra it depends on.** The `vitest.setup.ts` global `StubEventSource`
+   (needed because `PartyLiveShell` → `useLiveSnapshot` constructs an `EventSource` jsdom lacks) must
+   be **committed in the same change** as the WO, or the WO is RED from clean.
+
+Adversarial gate (RED, locks the contract for the rebuild):
+`src/app/projects/[slug]/_party/FraguaScene/_tests/FraguaScene.adversarial.test.tsx`.
+
+Non-blocking notes (out of scope here / next iteration): the "⛏️ Fundación" foundation-tag
+(AC-06-001.4) has no field in the VERIFIED `FraguaSnapshot` (WO-06-005) and is not rendered — track
+as a separate iteration; the temp `src/app/preview-wo06007/page.tsx` fidelity route must be removed
+before the WO ships (it self-declares "NOT shipping code").
