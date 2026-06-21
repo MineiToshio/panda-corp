@@ -1,523 +1,284 @@
 "use client";
 
 /**
- * WO-06-006 — PartyScene (CMP-06-scene)
+ * WO-06-007 — PartyScene (the outer chrome shell for La Fragua)
  *
- * The RPG map: zones, stations, sprites, the RAF loop, the animation queue.
- * Wraps the engine (IF-06-engine, WO-06-004).
+ * This is the SCENE SHELL that frames the 920×560 stage with:
+ *   - Scene title "La Fragua" above the stage
+ *   - MissionBar (FND-4 primitive) — FRD pipeline pips + global WO counter + effort (read-only)
+ *   - FlowStrip (FND-4 primitive) — always-visible 8-beat pipeline row
+ *   - FraguaScene — the living map inside the stage (rooms, sprites, bridges)
+ *   - PowerOffOverlay (FND-4 primitive) — derived from snapshot.active; never a toggle
+ *   - EventFeed + AchievementToast are rendered by the parent (PartyTab), not here
  *
- * Responsibilities:
- *  - Mounts the engine once on mount (createPartyEngine).
- *  - Binds it to a requestAnimationFrame loop — the loop reads engine.agents()
- *    each tick and applies transforms + state classes to sprite DOM refs.
- *  - Re-mount discipline (PARTY.md §5): each render bumps a runId via useRef;
- *    the old loop self-stops via closure. Tab-hidden pauses RAF automatically
- *    (browser default: RAF does not fire when the tab is not visible).
- *  - Calls engine.applyEvents(diff) when the events prop changes (prop-driven
- *    event dispatch — the RSC re-renders this component with new events).
- *  - Renders zones (stations) with labels — zone label stays in the station
- *    so it persists when the agent leaves for a handoff (PARTY.md §2).
- *  - Renders sprites with per-agent color and initial state class.
- *  - Observation-only: ZERO control affordances (buttons, inputs, etc.)
- *    per REQ-06-009 / AC-06-009.1.
+ * Read-only invariant (DR-061, AC-06-009.1):
+ *   - NO mode selector, NO pause/reset controls anywhere
+ *   - Effort shown as read-only data in MissionBar (DR-061)
+ *   - DemoControls are NOT rendered in production — demo-only block never ships
  *
- * Design rules (FRD-13 / AGENTS.md):
- *  - image-rendering: pixelated on all sprite/zone images.
- *  - CSS custom properties only — zero hardcoded colors.
- *  - data-testid on every significant element.
- *  - Spanish aria-labels.
+ * Factory-off treatment (AC-06-013):
+ *   - PowerOffOverlay covers the stage when snapshot.active=false
+ *   - Never a blank screen; derived from real state, not a prop toggle
+ *
+ * Design rules (FRD-13, AGENTS.md):
+ *   - ZERO hardcoded colors — CSS custom properties only
+ *   - data-testid on every significant element
+ *   - Spanish aria-labels and labels
  *
  * Traceability:
- *   CMP-06-scene → REQ-06-001, REQ-06-002, REQ-06-003, REQ-06-004, REQ-06-009
- *   AC-06-001.1 — 4 zones with labels
- *   AC-06-002.1 — sprite per roster role in its zone
- *   AC-06-003.1 — breathing + wandering (engine handles physics; scene renders)
- *   AC-06-009.1 — observation-only (no control affordances)
+ *   CMP-06-scene (shell) → REQ-06-009, REQ-06-010, REQ-06-012, REQ-06-013
  *
- * Dependencies:
- *   WO-06-004 (engine.ts) — createPartyEngine, PartyEngine, AgentSnapshot, EngineAgent
- *   WO-06-002 (layout.ts) — mcPositions, ZONE_ROLE, agentColor, Role
- *   WO-06-003 (state-map.ts) — AgentState, VisualAction
+ * data-testid surface:
+ *   party-scene               — root <section> container
+ *   mission-bar-root          — MissionBar FND-4 primitive
+ *   flow-strip-root           — FlowStrip FND-4 primitive
+ *   fragua-scene              — FraguaScene living map (inside)
+ *   power-off-overlay-root    — PowerOffOverlay FND-4 primitive
  */
 
-import { useEffect, useRef, useState } from "react";
+import type { FlowBeat } from "@/components/modules/party/FlowStrip/FlowStrip";
+import { FlowStrip } from "@/components/modules/party/FlowStrip/FlowStrip";
+import { MissionBar } from "@/components/modules/party/MissionBar/MissionBar";
+import { PowerOffOverlay } from "@/components/modules/party/PowerOffOverlay/PowerOffOverlay";
 
-import type { AgentSnapshot, EngineAgent, PartyEngine } from "../engine/engine.legacy";
-import { createPartyEngine } from "../engine/engine.legacy";
-import type { Role } from "../layout";
-import { agentColor, mcPositions, ZONE_ROLE } from "../layout";
-import type { AgentState, VisualAction } from "../state-map/state-map";
+import { FraguaScene } from "../FraguaScene/FraguaScene";
+import type { FraguaSnapshot } from "../fragua-snapshot/fragua-snapshot";
 
 // ---------------------------------------------------------------------------
-// Types — public props contract
+// Props
 // ---------------------------------------------------------------------------
-
-interface AgentInfo {
-  /** Canonical role id (e.g. "backend-dev"). */
-  id: Role;
-  /** Initial visual state for this agent. */
-  state: AgentState;
-  /** CSS custom property value for this agent's color. */
-  color: string;
-}
 
 export interface PartySceneProps {
-  /** Ordered list of roles in the current build party. */
-  roster: Role[];
-  /** Initial agent states (server-derived snapshot). */
-  agents: AgentInfo[];
-  /** Whether there is an active team running. */
-  active: boolean;
-  /** Build mode — affects station layout (IF-06-positions). */
-  mode: "pro" | "balanced" | "powerful" | "deep";
-  /**
-   * New visual actions since last render (prop-driven event dispatch).
-   * The component calls engine.applyEvents(events) whenever this changes.
-   * Optional — if absent, no events are applied on this render.
-   */
-  events?: VisualAction[];
+  /** The server-derived snapshot — drives everything in the scene. */
+  snapshot: FraguaSnapshot;
 }
 
 // ---------------------------------------------------------------------------
-// Zone metadata — labels and zone background images
-// The 4 canonical Party zones (AC-06-001.1 / REQ-06-001)
+// Flow strip beats (8-beat pipeline, always visible)
+// Labels in Spanish (user-facing copy per AGENTS.md).
 // ---------------------------------------------------------------------------
 
-type ZoneName = "library" | "forge" | "workshop" | "lab";
-
-interface ZoneMeta {
-  name: ZoneName;
-  /** Spanish display label (UI copy in Spanish per AGENTS.md) */
-  label: string;
-  /** Path to zone background image (pixel-art room, PARTY.md §6) */
-  bgSrc: string;
-  /** Canonical role that "owns" this zone (ZONE_ROLE). */
-  role: Role;
-}
-
-const ZONES: ZoneMeta[] = [
+const FLOW_BEATS: readonly FlowBeat[] = [
   {
-    name: "library",
-    label: "Biblioteca",
-    bgSrc: "/prototype/assets/zones/research.png",
-    role: ZONE_ROLE.library,
+    key: "foundation",
+    icon: "🧱",
+    label: "Fundación",
+    sub: "primitivos",
+    tipBody: "El implementer forja los primitivos compartidos antes de la primera oleada.",
   },
   {
-    name: "forge",
-    label: "Forja",
-    bgSrc: "/prototype/assets/zones/backend.png",
-    role: ZONE_ROLE.forge,
+    key: "wave",
+    icon: "🌊",
+    label: "Oleada",
+    sub: "en paralelo",
+    tipBody: "Varios WO corren en paralelo según el modo (pro 2 · equilibrado 4 · potente 8).",
   },
   {
-    name: "workshop",
-    label: "Taller",
-    bgSrc: "/prototype/assets/zones/frontend.png",
-    role: ZONE_ROLE.workshop,
+    key: "fidelity",
+    icon: "🖼",
+    label: "Fidelidad",
+    sub: "render→mock",
+    tipBody:
+      "Cada WO de UI hace render→compara con el mock→corrige (×≤3) antes de IN_REVIEW. DR-056.",
   },
   {
-    name: "lab",
-    label: "Laboratorio",
-    bgSrc: "/prototype/assets/zones/testing.png",
-    role: ZONE_ROLE.lab,
+    key: "status-note",
+    icon: "📜",
+    label: "Status Note",
+    sub: "mano a mano",
+    tipBody:
+      "El pergamino viaja del WO cerrado a su dependiente: interfaces + decisiones/supuestos reales.",
   },
-];
-
-// Reverse map: role → zone name (for sprites to declare their home zone)
-const ROLE_TO_ZONE: Partial<Record<Role, ZoneName>> = Object.fromEntries(
-  ZONES.map((z) => [z.role, z.name]),
-) as Partial<Record<Role, ZoneName>>;
+  {
+    key: "tribunal",
+    icon: "⚖️",
+    label: "Tribunal",
+    sub: "4 lentes",
+    tipBody:
+      "El Juez abre el gate cuando todos están IN_REVIEW: corrección · seguridad · calidad · visual.",
+  },
+  {
+    key: "commit",
+    icon: "✅",
+    label: "Commit",
+    sub: "oleada serializada",
+    tipBody:
+      "El motor commitea la oleada con un solo escritor serializado. Workers no tocan git. DR-060.",
+  },
+  {
+    key: "vault",
+    icon: "🏆",
+    label: "Bóveda",
+    sub: "WOs verificados",
+    tipBody: "Los WO VERIFIED van a la Bóveda como trofeos del FRD. Más de 9 → '+N archivados'.",
+  },
+  {
+    key: "integration",
+    icon: "🔗",
+    label: "Integración",
+    sub: "costuras cross-FRD",
+    tipBody:
+      "Al cerrar el proyecto, un revisor verifica que productor y consumidor de cada contrato concuerden.",
+  },
+] as const;
 
 // ---------------------------------------------------------------------------
-// Sprite asset path helper
+// Mode-to-FRD-pip and effort helpers
 // ---------------------------------------------------------------------------
 
-function spriteSrc(role: Role): string {
-  // Map canonical role ids to asset file names
-  const FILE: Partial<Record<Role, string>> = {
-    researcher: "researcher.png",
-    "backend-dev": "backend-dev.png",
-    "frontend-dev": "frontend-dev.png",
-    "test-writer": "test-writer.png",
-    reviewer: "reviewer.png",
-    "security-auditor": "security-auditor.png",
-    "product-manager": "product-manager.png",
-    guild: "analytics.png",
-    designer: "designer.png",
-    architect: "architect.png",
+/** Effort label in Spanish per the mock. */
+function effortLabel(mode: string): string {
+  const MAP: Record<string, string> = {
+    pro: "potente",
+    balanced: "equilibrado",
+    powerful: "potente",
+    deep: "profundo",
   };
-  return `/prototype/assets/agents/${FILE[role] ?? "backend-dev.png"}`;
+  return MAP[mode] ?? mode;
+}
+
+/** Derive which flow beats are active from the snapshot. */
+function activeFlowBeats(snapshot: FraguaSnapshot): string[] {
+  const { running, gate, trophies, mode } = snapshot;
+  const keys: string[] = [];
+
+  if (running.length > 0) {
+    // Check if it's a foundation/first WO
+    if (trophies.length === 0 && running.length === 1) {
+      keys.push("foundation");
+    }
+    keys.push("wave");
+  }
+
+  if (running.some((r) => r.state === "in_review")) {
+    keys.push("tribunal");
+  }
+
+  if (gate.open) {
+    keys.push("tribunal", "commit");
+  }
+
+  if (trophies.length > 0) {
+    keys.push("vault");
+  }
+
+  if (mode === "deep") {
+    // Deep mode relay includes status note step
+    keys.push("status-note");
+  }
+
+  return [...new Set(keys)];
 }
 
 // ---------------------------------------------------------------------------
-// Scene canvas dimensions (ported from prototype coordinate system)
+// Inline styles — CSS custom properties only
 // ---------------------------------------------------------------------------
 
-const SCENE_WIDTH = 760;
-const SCENE_HEIGHT = 570;
+const ROOT_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "calc(var(--spacing, 0.25rem) * 3)",
+  background: "var(--color-surface, Canvas)",
+  color: "var(--color-text, currentColor)",
+};
 
-// Station dimensions (ported from prototype)
-const STATION_W = 160;
-const STATION_H = 140;
+const TITLE_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "calc(var(--spacing, 0.25rem) * 2)",
+  fontFamily: "var(--font-pixel)",
+  fontSize: "16px",
+  color: "var(--color-text, currentColor)",
+  margin: 0,
+};
 
-// Sprite element size (54×54 px, centered on position — apply transform: translate(px-27, py-27+bob))
-const SPRITE_HALF = 27;
+const TITLE_CHIP_STYLE: React.CSSProperties = {
+  fontFamily: "var(--font-mono)",
+  fontSize: "11px",
+  color: "var(--color-accent-text, var(--color-text))",
+  background: "var(--color-accent-bg, transparent)",
+  border: "1px solid var(--color-accent, var(--color-border))",
+  borderRadius: "7px",
+  padding: "2px 9px",
+};
+
+const STAGE_WRAPPER_STYLE: React.CSSProperties = {
+  position: "relative",
+};
 
 // ---------------------------------------------------------------------------
 // PartyScene component
 // ---------------------------------------------------------------------------
 
-export function PartyScene({ roster, agents, mode, events }: PartySceneProps): React.JSX.Element {
-  // -----------------------------------------------------------------------
-  // Reduced-motion detection (FRD-13, WO-06-011)
-  // Read matchMedia once on mount — disables the RAF loop when true so ALL
-  // Party animation is suppressed for users who have opted out of motion.
-  // Using useState initializer so it runs once synchronously before the
-  // first render (avoids a flash of animated content).
-  // -----------------------------------------------------------------------
-  const [reducedMotion] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    if (typeof window.matchMedia !== "function") return false;
-    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  });
+/**
+ * PartyScene — the outer chrome shell for La Fragua.
+ * Frames the stage with MissionBar, FlowStrip, scene title, and
+ * PowerOffOverlay. Embeds FraguaScene (the living map) inside.
+ *
+ * Observation-only: no mode selector, no pause/reset (DR-061).
+ * Factory-off derived from snapshot.active (AC-06-013).
+ *
+ * @param props.snapshot - The FraguaSnapshot from the RSC PartyTab.
+ */
+export function PartyScene({ snapshot }: PartySceneProps): React.JSX.Element {
+  const { project, mode, frd, active } = snapshot;
 
-  // -----------------------------------------------------------------------
-  // Refs — sprite DOM elements (keyed by role id)
-  // -----------------------------------------------------------------------
-  const spriteRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  // Derive FRD pips — one pip per FRD in the project (simplified: just the current FRD)
+  const frdPips = frd ? [{ id: frd.id, state: "current" as const }] : [];
 
-  // Engine ref — persists across renders without causing re-renders
-  const engineRef = useRef<PartyEngine | null>(null);
-
-  // runId ref — bumped on (re)mount to stop the previous RAF loop (PARTY.md §5)
-  const runIdRef = useRef(0);
-
-  // Stable refs for values used inside the RAF closure — avoids stale captures
-  // and lets biome's exhaustive-deps see only primitive/stable-string deps.
-  const agentsRef = useRef(agents);
-  const rosterRef = useRef(roster);
-  const modeRef = useRef(mode);
-  const eventsRef = useRef<VisualAction[] | undefined>(events);
-
-  // Keep refs in sync with props on every render (no dep array = runs every render,
-  // which is exactly what we want for stale-closure safety inside the RAF loop).
-  useEffect(() => {
-    agentsRef.current = agents;
-    rosterRef.current = roster;
-    modeRef.current = mode;
-    eventsRef.current = events;
-  });
-
-  // -----------------------------------------------------------------------
-  // Compute station positions for this roster + mode (used in render)
-  // -----------------------------------------------------------------------
-  const positions = mcPositions(roster, mode);
-
-  // Stable string key — changes only when roster composition or mode changes.
-  // This is the dep that triggers engine re-mount without needing the array ref.
-  const rosterKey = `${roster.join(",")}:${mode}`;
-
-  // -----------------------------------------------------------------------
-  // Mount / re-mount the engine and RAF loop (PARTY.md §5)
-  // -----------------------------------------------------------------------
-  useEffect(() => {
-    // rosterKey is the trigger dep: its value changes when roster composition
-    // or mode changes, causing the engine to re-mount. It is also passed to
-    // createPartyEngine as the seed comment so biome sees it referenced here.
-    void rosterKey; // referenced so biome's exhaustive-deps sees this dep
-
-    // Read roster/agents/mode through refs so the effect body only closes over
-    // refs (always stable) — avoids unnecessary re-mounts on agent state change.
-    const currentRoster = rosterRef.current;
-    const currentAgents = agentsRef.current;
-    const currentMode = modeRef.current;
-
-    const currentPositions = mcPositions(currentRoster, currentMode);
-
-    const engineSnapshot: AgentSnapshot[] = currentRoster.map((role, ix) => {
-      const agentInfo = currentAgents.find((a) => a.id === role);
-      const pos = currentPositions[ix] ?? [SCENE_WIDTH / 2, SCENE_HEIGHT / 2];
-      return {
-        id: role,
-        state: (agentInfo?.state ?? "idle") as AgentState,
-        home: pos as [number, number],
-      };
-    });
-
-    // (Re)create the engine from the current snapshot
-    const engine = createPartyEngine(engineSnapshot, {});
-    engineRef.current = engine;
-
-    // Apply initial states from the agents prop
-    for (const agInfo of currentAgents) {
-      engine.setState(agInfo.id, agInfo.state);
-    }
-
-    // Bump runId — the previous loop's closure will see its myId !== runId
-    runIdRef.current += 1;
-    const myId = runIdRef.current;
-
-    // Apply any events that arrived with this render
-    const initialEvents = eventsRef.current;
-    if (initialEvents && initialEvents.length > 0) {
-      engine.applyEvents(initialEvents);
-    }
-
-    // When the user prefers reduced motion, skip the RAF loop entirely.
-    // Sprites remain visible at their initial positions with their state class,
-    // but no continuous animation runs (FRD-13, WO-06-011).
-    if (reducedMotion) {
-      return () => {
-        runIdRef.current += 1;
-      };
-    }
-
-    // RAF loop — advances the engine and syncs DOM sprite positions/classes
-    function loop(now: number): void {
-      if (runIdRef.current !== myId) return; // self-stop on re-mount
-
-      engine.tick(now);
-
-      // Sync sprite DOM elements
-      const agentStates: EngineAgent[] = engine.agents();
-      for (const ag of agentStates) {
-        const el = spriteRefs.current.get(ag.id);
-        if (!el) continue;
-
-        // Apply transform — position within the scene canvas
-        el.style.transform = `translate(${ag.px - SPRITE_HALF}px, ${ag.py - SPRITE_HALF + ag.bob}px)`;
-
-        // Apply state class (s-work / s-walk / s-idle / s-blocked / s-review)
-        el.className = `mcag s-${ag.state}`;
-      }
-
-      requestAnimationFrame(loop);
-    }
-
-    const rafHandle = requestAnimationFrame(loop);
-
-    return () => {
-      // Cleanup: bump runId to stop the loop
-      runIdRef.current += 1;
-      cancelAnimationFrame(rafHandle);
-    };
-  }, [rosterKey, reducedMotion]);
-
-  // -----------------------------------------------------------------------
-  // Apply new events when the events prop changes (without remounting)
-  // -----------------------------------------------------------------------
-  useEffect(() => {
-    if (events && events.length > 0 && engineRef.current) {
-      engineRef.current.applyEvents(events);
-    }
-  }, [events]);
-
-  // -----------------------------------------------------------------------
-  // Apply agents state on prop change (sync without remounting the engine)
-  // -----------------------------------------------------------------------
-  useEffect(() => {
-    const engine = engineRef.current;
-    if (!engine) return;
-    for (const agInfo of agents) {
-      engine.setState(agInfo.id, agInfo.state);
-    }
-    // Immediately sync DOM to reflect new state classes (before next RAF tick)
-    const agentStates: EngineAgent[] = engine.agents();
-    for (const ag of agentStates) {
-      const el = spriteRefs.current.get(ag.id);
-      if (!el) continue;
-      el.className = `mcag s-${ag.state}`;
-    }
-  }, [agents]);
-
-  // -----------------------------------------------------------------------
-  // Render
-  // -----------------------------------------------------------------------
-
-  const sceneStyle: React.CSSProperties = {
-    position: "relative",
-    width: SCENE_WIDTH,
-    height: SCENE_HEIGHT,
-    overflow: "hidden",
-    background: "var(--color-surface, Canvas)",
-    // Grid background matching prototype's dot-grid aesthetic using CSS custom properties
-    backgroundImage: [
-      "linear-gradient(var(--color-border, oklch(0.3 0 0 / 0.15)) 0.5px, transparent 0.5px)",
-      "linear-gradient(90deg, var(--color-border, oklch(0.3 0 0 / 0.15)) 0.5px, transparent 0.5px)",
-    ].join(", "),
-    backgroundSize: "32px 32px",
-    imageRendering: "pixelated",
-    // Prevent the map from overflowing its parent
-    flexShrink: 0,
-  };
+  const activeKeys = activeFlowBeats(snapshot);
 
   return (
     <section
       data-testid="party-scene"
-      aria-label="Mapa RPG del equipo de agentes"
-      data-reduced-motion={reducedMotion ? "true" : undefined}
-      style={sceneStyle}
+      aria-label="La Fragua — sala de construcción"
+      style={ROOT_STYLE}
     >
-      {/* Stations — fixed pixel-art zone backgrounds with labels */}
-      {ZONES.map((zone) => {
-        // Check if this zone's role is in the roster
-        const isActive = roster.includes(zone.role);
-        const roleColor = agentColor(zone.role);
+      {/* === MissionBar — FRD pips + global WO counter + effort (read-only) === */}
+      <MissionBar
+        frdPips={frdPips}
+        done={project.done}
+        total={project.total}
+        effort={effortLabel(mode)}
+      />
 
-        const stationLeft = (() => {
-          const idx = roster.indexOf(zone.role);
-          if (idx === -1) {
-            const zoneIdx = ZONES.findIndex((z) => z.name === zone.name);
-            const defaultPos = mcPositions(
-              ZONES.map((z) => z.role),
-              "balanced",
-            );
-            return (defaultPos[zoneIdx]?.[0] ?? 0) - STATION_W / 2;
-          }
-          return (positions[idx]?.[0] ?? 0) - STATION_W / 2;
-        })();
+      {/* === FlowStrip — always-visible 8-beat pipeline row (AC-06-010) === */}
+      <FlowStrip beats={FLOW_BEATS} activeKeys={activeKeys} />
 
-        const stationTop = (() => {
-          const idx = roster.indexOf(zone.role);
-          if (idx === -1) {
-            const zoneIdx = ZONES.findIndex((z) => z.name === zone.name);
-            const defaultPos = mcPositions(
-              ZONES.map((z) => z.role),
-              "balanced",
-            );
-            return (defaultPos[zoneIdx]?.[1] ?? 0) - STATION_H / 2;
-          }
-          return (positions[idx]?.[1] ?? 0) - STATION_H / 2;
-        })();
-
-        const stationStyle: React.CSSProperties = {
-          position: "absolute",
-          left: stationLeft,
-          top: stationTop,
-          width: STATION_W,
-          height: STATION_H,
-          borderRadius: "var(--radius, 10px)",
-          overflow: "hidden",
-          border: `1px solid ${isActive ? `var(${roleColor})` : "var(--color-border, currentColor)"}`,
-          zIndex: 0,
-          opacity: isActive ? 1 : 0.4,
-        };
-
-        const bgStyle: React.CSSProperties = {
-          position: "absolute",
-          inset: 0,
-          backgroundImage: `url(${zone.bgSrc})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          imageRendering: "pixelated",
-          filter: isActive ? "none" : "grayscale(0.82) brightness(0.93)",
-          opacity: isActive ? 1 : 0.5,
-        };
-
-        const labelStyle: React.CSSProperties = {
-          position: "absolute",
-          bottom: 4,
-          left: "50%",
-          transform: "translateX(-50%)",
-          fontSize: "0.6875rem",
-          fontWeight: 500,
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 4,
-          background: "var(--color-surface, Canvas)",
-          border: "0.5px solid var(--color-border, currentColor)",
-          borderRadius: "var(--radius, 5px)",
-          padding: "0 6px",
-          whiteSpace: "nowrap",
-          zIndex: 2,
-          lineHeight: 1.5,
-          color: `var(${roleColor})`,
-        };
-
-        return (
-          <div
-            key={zone.name}
-            data-testid={`party-zone-${zone.name}`}
-            data-pixelart="true"
-            style={stationStyle}
-          >
-            {/* Zone background image */}
-            <div style={bgStyle} aria-hidden="true" />
-
-            {/* Zone label — stays here even when the agent leaves (PARTY.md §2) */}
-            <span style={labelStyle}>{zone.label}</span>
-          </div>
-        );
-      })}
-
-      {/* Sprites — one per roster role (AC-06-002.1) */}
-      {roster.map((role, ix) => {
-        const agentInfo = agents.find((a) => a.id === role);
-        const initialState: AgentState = agentInfo?.state ?? "idle";
-        const roleColor = agentColor(role);
-        const pos = positions[ix];
-        const zoneName = ROLE_TO_ZONE[role] ?? "forge";
-
-        // Initial transform before RAF loop kicks in
-        const initialX = (pos?.[0] ?? 0) - SPRITE_HALF;
-        const initialY = (pos?.[1] ?? 0) - SPRITE_HALF;
-
-        const spriteStyle: React.CSSProperties = {
-          position: "absolute",
-          width: 54,
-          height: 54,
-          willChange: "transform",
-          zIndex: 2,
-          transform: `translate(${initialX}px, ${initialY}px)`,
-        };
-
-        const haloStyle: React.CSSProperties = {
-          position: "absolute",
-          left: 7,
-          bottom: 2,
-          width: 40,
-          height: 14,
-          borderRadius: "50%",
-          background: `var(${roleColor})`,
-          opacity: 0,
-          zIndex: 1,
-        };
-
-        return (
-          <div
-            key={role}
-            ref={(el) => {
-              if (el) {
-                spriteRefs.current.set(role, el);
-              } else {
-                spriteRefs.current.delete(role);
-              }
+      {/* === Scene title === */}
+      <div style={TITLE_STYLE}>
+        <span>⚒️ La Fragua</span>
+        {frd && <span style={TITLE_CHIP_STYLE}>{frd.id}</span>}
+        {frd && (
+          <span
+            style={{
+              color: "var(--color-text-muted, currentColor)",
+              fontWeight: 400,
+              fontFamily: "var(--font-display, system-ui)",
+              fontSize: "13px",
             }}
-            data-testid={`party-sprite-${role}`}
-            data-zone={zoneName}
-            data-role={role}
-            className={`mcag s-${initialState}`}
-            style={spriteStyle}
           >
-            {/* Halo — pulsing ellipse, shown on work/review/blocked (PARTY.md §2) */}
-            <div className="halo" style={haloStyle} aria-hidden="true" />
+            {frd.title}
+          </span>
+        )}
+      </div>
 
-            {/* Sprite image — pixel-art character (PARTY.md §6) */}
-            {/* biome-ignore lint/performance/noImgElement: pixelated pixel-art sprite — Next.js Image does not support image-rendering:pixelated */}
-            <img
-              src={spriteSrc(role)}
-              alt={`Sprite de ${role}`}
-              style={{
-                width: 54,
-                height: 54,
-                imageRendering: "pixelated",
-                display: "block",
-                position: "relative",
-                zIndex: 2,
-              }}
-            />
-          </div>
-        );
-      })}
+      {/* === Stage wrapper — contains the living map + power-off overlay === */}
+      <div style={STAGE_WRAPPER_STYLE}>
+        {/* The living map: rooms, sprites, bridges */}
+        <FraguaScene snapshot={snapshot} />
+
+        {/* Power-off overlay — covers the stage when factory is powered down */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            pointerEvents: active ? "none" : "auto",
+          }}
+        >
+          <PowerOffOverlay off={!active} />
+        </div>
+      </div>
     </section>
   );
 }

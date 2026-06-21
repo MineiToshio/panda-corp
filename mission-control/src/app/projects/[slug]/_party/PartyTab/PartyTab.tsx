@@ -40,9 +40,9 @@ import { readEvents } from "@/lib/events/events";
 import { AchievementToast } from "../AchievementToast/AchievementToast";
 import { EventFeed } from "../EventFeed/EventFeed";
 import { toEventVM } from "../event-vm/event-vm";
-import { FraguaScene } from "../FraguaScene/FraguaScene";
 import { toFraguaSnapshot } from "../fragua-snapshot/fragua-snapshot";
 import { PartyEmptyState } from "../PartyEmptyState/PartyEmptyState";
+import { PartyLiveShell } from "./PartyLiveShell";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -215,13 +215,16 @@ export function PartyTab({ eventsPath, cap = DEFAULT_CAP }: PartyTabProps): Reac
         )}
       </header>
 
-      {/* Body: La Fragua scene + feed, or empty state (AC-06-010.1) */}
+      {/* Body: La Fragua scene (via PartyLiveShell) + feed, or empty state (AC-06-010.1) */}
       {active ? (
         <div style={BODY_STYLE}>
-          {/* CMP-06-scene — the La Fragua scene (rooms, sprites, trophies, gate).
-              Observation-only: no mode selector, no pause/reset (AC-06-009.1). */}
+          {/* CMP-06-scene — PartyLiveShell: client boundary that subscribes to
+              useLiveSnapshot (SSE) and re-derives FraguaSnapshot on every frame.
+              Falls back to the server-derived snapshot until first SSE frame.
+              PartyScene (the outer chrome: MissionBar + FlowStrip + stage) lives inside.
+              Observation-only: no mode selector, no pause/reset (AC-06-009.1, DR-061). */}
           <div style={SCENE_WRAPPER_STYLE}>
-            <FraguaScene snapshot={snapshot} />
+            <PartyLiveShell initialSnapshot={snapshot} />
           </div>
 
           {/* CMP-06-feed — the capped event log alongside the scene. */}

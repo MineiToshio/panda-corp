@@ -5,7 +5,7 @@ slug: fragua-scene
 title: 'WO-06-007 — La Fragua scene re-paint (FraguaScene + PartyScene/PartyTab shell)'
 status: DRAFT
 parent: FRD-06
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 artifacts:
   - 'src/app/projects/[slug]/_party/FraguaScene/**'
   - 'src/app/projects/[slug]/_party/PartyScene/**'
@@ -97,3 +97,101 @@ snapshot.
 
 `docs/frds/frd-06-party/mocks/la-fragua.html` (visual source `docs/design/prototype/party-proposal.html`,
 embedded in `prototype/index.html`). See `../fdd.md` §1–§9. Fidelity, not novelty.
+
+## Status Note
+
+### What was built
+
+**`FraguaScene`** (`src/app/projects/[slug]/_party/FraguaScene/FraguaScene.tsx`) was rewritten to compose
+the VERIFIED FND-4 primitives (`Room`, `StoneBridge`, `AgentSprite`, `JudgeSprite`, `Parchment`) on a
+920×560 bounded stage matching `mocks/la-fragua.html`. The three rooms (Sala de Forja, Tribunal, Bóveda)
+are rendered as `<Room zone="forge|tribunal|vault">` at the exact pixel positions from the mock. Sprites
+are placed in `FORGE_SLOTS` (8 normal-mode positions) or `DEEP_SLOTS` (6 deep-mode positions), with
+`woStateToSpriteState()` mapping `building→work`, `in_review→review`, `verified→vault`, `blocked→idle`.
+All existing test-ids are preserved (`fragua-wo-{id}`, `fragua-queue-badge`, `fragua-reviewer`,
+`fragua-trophy-{id}`, `fragua-archived`, `fragua-parchment`, `fragua-frd-tracker`, etc.).
+
+**`PartyScene`** (`src/app/projects/[slug]/_party/PartyScene/PartyScene.tsx`) was rewritten as the outer
+chrome shell: it takes `{ snapshot: FraguaSnapshot }` and renders `MissionBar` (FND-4, effort read-only),
+`FlowStrip` (8 constant beats), scene title, the `FraguaScene` stage, and `PowerOffOverlay` derived from
+`!snapshot.active`. Interface: `PartySceneProps = { snapshot: FraguaSnapshot }`. No mode selector, no
+pause/reset (DR-061, AC-06-009.1).
+
+**`PartyLiveShell`** (`src/app/projects/[slug]/_party/PartyTab/PartyLiveShell.tsx`) was created as a
+`"use client"` boundary component: takes `{ initialSnapshot: FraguaSnapshot, project?: string }`, opens
+`useLiveSnapshot` (SSE), re-derives `FraguaSnapshot` via `toFraguaSnapshot` on each live frame, and
+renders `<PartyScene snapshot={...}>`. Falls back to `initialSnapshot` until first SSE frame.
+data-testid surface: `party-live-shell`, `party-live-connected` (when SSE connected).
+
+**`PartyTab`** (`src/app/projects/[slug]/_party/PartyTab/PartyTab.tsx`) was updated: now renders
+`<PartyLiveShell initialSnapshot={snapshot}>` instead of `<FraguaScene snapshot={snapshot}>` directly,
+wiring the live SSE update path while keeping all existing test-ids and the RSC server-render baseline.
+
+**`vitest.setup.ts`** was updated with a global `StubEventSource` class (no-op, stays CONNECTING) so
+all tests that render client components using `useLiveSnapshot` don't throw `EventSource is not defined`.
+Tests that exercise the live SSE path (useLiveSnapshot.test.ts) install their own per-test mock which
+overrides this global stub.
+
+**`src/app/preview-wo06007/page.tsx`** was created as a temporary DR-056 fidelity route (not shipped).
+
+### Interfaces / contracts exposed
+
+```typescript
+// PartyScene — outer chrome shell
+export interface PartySceneProps {
+  snapshot: FraguaSnapshot;
+}
+export function PartyScene(props: PartySceneProps): React.JSX.Element
+
+// PartyLiveShell — client boundary
+export interface PartyLiveShellProps {
+  initialSnapshot: FraguaSnapshot;
+  project?: string;
+}
+export function PartyLiveShell(props: PartyLiveShellProps): React.JSX.Element
+
+// FraguaScene — unchanged external interface
+export interface FraguaSceneProps {
+  snapshot: FraguaSnapshot;
+}
+```
+
+### Implicit decisions and conventions
+
+- **`display: "contents"` wrappers**: The `fragua-room-forge/tribunal/vault` test-id wrappers are rendered
+  as `<div style={{ display: "contents" }}>` so they are invisible to layout but provide test hooks. The
+  `Room` primitive's absolute position is unaffected.
+- **WO in `in_review` appears in both Forge and Tribunal**: A WO in `in_review` stays in its forge slot
+  AND gains a review sprite in the tribunal section. Tests use `getAllByTestId` + filter by `data-state`.
+- **`FLOW_BEATS` constant**: 8 beats hard-coded in `PartyScene.tsx` — `foundation`, `wave`, `fidelity`,
+  `status-note`, `tribunal`, `commit`, `vault`, `integration`. Labels are in Spanish.
+- **`woStateToSpriteState`**: Internal mapping in `FraguaScene.tsx`. Not exported — consumed only locally.
+- **SSE fallback**: `PartyLiveShell` renders `initialSnapshot` (server-computed) until first live frame.
+  The SSE stub in vitest.setup.ts stays CONNECTING (never delivers frames), so tests always see the
+  `initialSnapshot` baseline.
+- **Trophy type**: `trophies: { wo: string }[]` — no `title` field on trophies (only `wo` id).
+- **`REVIEWER_HOME`**: `[626, 108]` — the single JudgeSprite home position in the tribunal room.
+- **Normal-mode slots** (`FORGE_SLOTS`): 8 positions in a 4×2 grid.
+- **Deep-mode slots** (`DEEP_SLOTS`): 6 positions in a 2×3 grid.
+- **Review slots** (`REVIEW_SLOTS`): 12 positions in a 4×3 grid starting at `[538, 190]`.
+
+### Test files
+
+- `FraguaScene/_tests/FraguaScene.fnd4.test.tsx` — FND-4 primitive composition (Room, StoneBridge,
+  AgentSprite, JudgeSprite, Parchment), stage layout (920×560), `data-zone` attributes
+- `FraguaScene/_tests/FraguaScene.test.tsx` — existing behavioral tests (preserved, all passing)
+- `PartyScene/_tests/PartyScene.shell.test.tsx` — NEW: PartyScene shell contract (MissionBar, FlowStrip,
+  PowerOffOverlay derived from active, read-only invariant)
+- `PartyScene/_tests/PartyScene.test.tsx` — REWRITTEN: new shell interface (`snapshot: FraguaSnapshot`)
+- `PartyScene/_tests/PartyScene.reducedmotion.test.tsx` — REWRITTEN: reduced-motion via new interface
+- `PartyTab/_tests/PartyTab.test.tsx` — existing tests pass (PartyLiveShell renders inside)
+- `PartyTab/_tests/PartyTab.fragua.integration.test.tsx` — existing tests pass
+- `PartyTab/_tests/PartyTab.integration.reviewer.test.tsx` — existing tests pass
+- `PartyTab/_tests/PartyTab.snapshot.test.tsx` — existing tests pass
+
+### Gate results
+
+- Tests: 6816 passed (297 files) + 2 expected-fail
+- `tsc --noEmit`: zero errors
+- `biome check`: zero errors
+- DR-056 fidelity: rendered at `http://localhost:3000/preview-wo06007` (also at `src/app/preview-wo06007/page.tsx`); 920×560 stage with 3 rooms, sprites, bridges, MissionBar, FlowStrip, PowerOffOverlay — matches mock structure and visual palette

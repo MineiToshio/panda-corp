@@ -1,42 +1,38 @@
 /**
- * WO-06-006 — PartyScene (CMP-06-scene) tests
+ * WO-06-007 — PartyScene (CMP-06-scene) shell tests
  *
- * Component tests (jsdom + RTL):
- *   - renders 4 zones with their labels (AC-06-001.1)
- *   - one sprite per roster role placed in its zone (AC-06-002.1)
- *   - state classes applied from snapshot (AC-06-003.1, AC-06-009.1)
- *   - no button/control to command agents (observation-only, AC-06-009.1)
- *   - RAF is mocked via vi.stubGlobal
+ * Updated by WO-06-007: PartyScene is now the OUTER CHROME SHELL that
+ * receives a `FraguaSnapshot` and renders:
+ *   - MissionBar (FND-4) — FRD pips + WO counter + effort as read-only data
+ *   - FlowStrip (FND-4) — 8-beat pipeline row, always visible
+ *   - Scene title "La Fragua"
+ *   - FraguaScene (the living map with three rooms + sprites)
+ *   - PowerOffOverlay (FND-4) — derived from snapshot.active
+ *
+ * The old 4-zone (library/forge/workshop/lab) model is replaced by the
+ * La Fragua faithful model (Sala de Forja → Tribunal → Bóveda). These
+ * tests now verify the shell contract, not the old roster/agents API.
  *
  * Traceability:
- *   AC-06-001.1 → REQ-06-001 (4 zones with labels)
- *   AC-06-002.1 → REQ-06-002 (sprite per roster role in its zone)
- *   AC-06-003.1 → REQ-06-003 (state classes from snapshot)
- *   AC-06-009.1 → REQ-06-009 (observation-only, no controls)
+ *   WO-06-007 → AC-06-009 (MissionBar effort read-only)
+ *   WO-06-007 → AC-06-010 (FlowStrip always visible)
+ *   WO-06-007 → AC-06-013 (PowerOffOverlay derived from state)
+ *   WO-06-007 → DR-061 (no mode selector, no controls)
  */
 
 import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Role } from "../../layout";
-import type { AgentState } from "../../state-map/state-map";
+import type { FraguaSnapshot } from "../../fragua-snapshot/fragua-snapshot";
 import { PartyScene, type PartySceneProps } from "../PartyScene";
 
 // ---------------------------------------------------------------------------
-// Mock RAF — the engine uses requestAnimationFrame; jsdom does not implement it
-// properly. We stub it to a no-op so the component can mount without errors.
+// Mock RAF — FraguaScene inside uses requestAnimationFrame
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
-  let rafId = 0;
-  vi.stubGlobal("requestAnimationFrame", (_cb: FrameRequestCallback) => {
-    // Don't actually call _cb — just return a numeric id.
-    rafId += 1;
-    return rafId;
-  });
-  vi.stubGlobal("cancelAnimationFrame", (_id: number) => {
-    // no-op
-  });
+  vi.stubGlobal("requestAnimationFrame", (_cb: FrameRequestCallback) => 0);
+  vi.stubGlobal("cancelAnimationFrame", (_id: number) => {});
 });
 
 afterEach(() => {
@@ -44,190 +40,82 @@ afterEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// Fixtures
+// Snapshot factory — default active build
 // ---------------------------------------------------------------------------
 
-type AgentSpec = { id: Role; state: AgentState; color: string };
-
-const BALANCED_ROSTER: Role[] = ["backend-dev", "frontend-dev", "test-writer", "reviewer"];
-
-const BALANCED_AGENTS: AgentSpec[] = [
-  { id: "backend-dev", state: "idle", color: "var(--color-agent-backend-dev)" },
-  { id: "frontend-dev", state: "work", color: "var(--color-agent-frontend-dev)" },
-  { id: "test-writer", state: "blocked", color: "var(--color-agent-test-writer)" },
-  { id: "reviewer", state: "review", color: "var(--color-agent-reviewer)" },
-];
-
-function makeProps(overrides: Partial<PartySceneProps> = {}): PartySceneProps {
+function makeProps(overrides: Partial<FraguaSnapshot> = {}): PartySceneProps {
   return {
-    roster: BALANCED_ROSTER,
-    agents: BALANCED_AGENTS,
-    active: true,
-    mode: "balanced",
-    ...overrides,
+    snapshot: {
+      frd: { id: "frd-06-party", title: "FRD-06 Party" },
+      mode: "powerful",
+      wave: 8,
+      running: [],
+      queuedCount: 0,
+      gate: { open: false },
+      trophies: [],
+      archivedCount: 0,
+      project: { done: 4, total: 12 },
+      events: [],
+      active: true,
+      lastEventAt: "2026-06-18T20:00:00Z",
+      ...overrides,
+    },
   };
 }
 
 // ---------------------------------------------------------------------------
-// AC-06-001.1 — 4 zones with labels
+// Outer chrome: MissionBar + FlowStrip + scene title
 // ---------------------------------------------------------------------------
 
-describe("frd-06: PartyScene — 4 zones with labels (AC-06-001.1)", () => {
-  it("frd-06: WHEN rendered THEN it has 4 zone elements", () => {
+describe("frd-06: PartyScene shell — MissionBar and FlowStrip (AC-06-009/010)", () => {
+  it("frd-06: WHEN rendered THEN MissionBar is present", () => {
     render(<PartyScene {...makeProps()} />);
-    const zones = screen.getAllByTestId(/^party-zone-/);
-    expect(zones).toHaveLength(4);
+    expect(screen.getByTestId("mission-bar-root")).toBeInTheDocument();
   });
 
-  it("frd-06: WHEN rendered THEN the library zone has its label", () => {
+  it("frd-06: WHEN rendered THEN FlowStrip is present", () => {
     render(<PartyScene {...makeProps()} />);
-    expect(screen.getByTestId("party-zone-library")).toBeDefined();
-    expect(screen.getByText("Biblioteca")).toBeDefined();
+    expect(screen.getByTestId("flow-strip-root")).toBeInTheDocument();
   });
 
-  it("frd-06: WHEN rendered THEN the forge zone has its label", () => {
+  it("frd-06: WHEN rendered THEN FlowStrip shows 8 beats", () => {
     render(<PartyScene {...makeProps()} />);
-    expect(screen.getByTestId("party-zone-forge")).toBeDefined();
-    expect(screen.getByText("Forja")).toBeDefined();
+    const beats = screen.getAllByTestId(/^flow-beat-/);
+    expect(beats).toHaveLength(8);
   });
 
-  it("frd-06: WHEN rendered THEN the workshop zone has its label", () => {
+  it("frd-06: WHEN rendered THEN scene title contains 'La Fragua'", () => {
     render(<PartyScene {...makeProps()} />);
-    expect(screen.getByTestId("party-zone-workshop")).toBeDefined();
-    expect(screen.getByText("Taller")).toBeDefined();
+    expect(screen.getAllByText(/La Fragua/i).length).toBeGreaterThan(0);
   });
 
-  it("frd-06: WHEN rendered THEN the lab zone has its label", () => {
-    render(<PartyScene {...makeProps()} />);
-    expect(screen.getByTestId("party-zone-lab")).toBeDefined();
-    expect(screen.getByText("Laboratorio")).toBeDefined();
-  });
-
-  it("frd-06: WHEN rendered THEN labels persist when agents leave their zone (labels are in zones, not agents)", () => {
-    // Zone labels are NOT inside the sprite element — they live in the station div.
-    render(<PartyScene {...makeProps()} />);
-    const forgeZone = screen.getByTestId("party-zone-forge");
-    // The zone label is inside the station, not in the sprite.
-    expect(forgeZone.textContent).toContain("Forja");
+  it("frd-06: WHEN rendered THEN MissionBar effort is read-only text (no button)", () => {
+    render(<PartyScene {...makeProps({ mode: "powerful" })} />);
+    const bar = screen.getByTestId("mission-bar-root");
+    expect(bar.querySelector("button")).toBeNull();
   });
 });
 
 // ---------------------------------------------------------------------------
-// AC-06-002.1 — one sprite per roster role placed in its zone
+// PowerOffOverlay — derived from snapshot.active (AC-06-013)
 // ---------------------------------------------------------------------------
 
-describe("frd-06: PartyScene — sprites per roster role (AC-06-002.1)", () => {
-  it("frd-06: WHEN rendered with 4-agent balanced roster THEN shows 4 sprites", () => {
-    render(<PartyScene {...makeProps()} />);
-    const sprites = screen.getAllByTestId(/^party-sprite-/);
-    expect(sprites).toHaveLength(4);
+describe("frd-06: PartyScene shell — PowerOffOverlay from active state (AC-06-013)", () => {
+  it("frd-06: WHEN active=true THEN PowerOffOverlay has data-off=false", () => {
+    render(<PartyScene {...makeProps({ active: true })} />);
+    const overlay = screen.getByTestId("power-off-overlay-root");
+    expect(overlay.getAttribute("data-off")).toBe("false");
   });
 
-  it("frd-06: WHEN rendered THEN each agent in the roster has a sprite", () => {
-    render(<PartyScene {...makeProps()} />);
-    for (const role of BALANCED_ROSTER) {
-      expect(screen.getByTestId(`party-sprite-${role}`)).toBeDefined();
-    }
-  });
-
-  it("frd-06: WHEN rendered with 2-agent pro roster THEN shows 2 sprites", () => {
-    const proRoster: Role[] = ["backend-dev", "reviewer"];
-    const proAgents: AgentSpec[] = [
-      { id: "backend-dev", state: "idle", color: "var(--color-agent-backend-dev)" },
-      { id: "reviewer", state: "idle", color: "var(--color-agent-reviewer)" },
-    ];
-    render(<PartyScene {...makeProps({ roster: proRoster, agents: proAgents, mode: "pro" })} />);
-    const sprites = screen.getAllByTestId(/^party-sprite-/);
-    expect(sprites).toHaveLength(2);
-  });
-
-  it("frd-06: WHEN rendered THEN the backend-dev sprite is placed inside or near the forge zone", () => {
-    render(<PartyScene {...makeProps()} />);
-    const sprite = screen.getByTestId("party-sprite-backend-dev");
-    // Sprite carries the data-zone attribute reflecting its home zone
-    expect(sprite.getAttribute("data-zone")).toBe("forge");
-  });
-
-  it("frd-06: WHEN rendered THEN the frontend-dev sprite is associated with the workshop zone", () => {
-    render(<PartyScene {...makeProps()} />);
-    const sprite = screen.getByTestId("party-sprite-frontend-dev");
-    expect(sprite.getAttribute("data-zone")).toBe("workshop");
-  });
-
-  it("frd-06: WHEN rendered THEN the test-writer sprite is associated with the lab zone", () => {
-    render(<PartyScene {...makeProps()} />);
-    const sprite = screen.getByTestId("party-sprite-test-writer");
-    expect(sprite.getAttribute("data-zone")).toBe("lab");
-  });
-
-  it("frd-06: WHEN rendered THEN the researcher sprite is associated with the library zone (powerful/deep roster)", () => {
-    const powerfulRoster: Role[] = [
-      "backend-dev",
-      "frontend-dev",
-      "test-writer",
-      "researcher",
-      "reviewer",
-      "guild",
-    ];
-    const powerfulAgents: AgentSpec[] = powerfulRoster.map((id) => ({
-      id,
-      state: "idle" as AgentState,
-      color: `var(--color-agent-${id})`,
-    }));
-    render(
-      <PartyScene
-        {...makeProps({ roster: powerfulRoster, agents: powerfulAgents, mode: "powerful" })}
-      />,
-    );
-    const sprite = screen.getByTestId("party-sprite-researcher");
-    expect(sprite.getAttribute("data-zone")).toBe("library");
+  it("frd-06: WHEN active=false THEN PowerOffOverlay has data-off=true", () => {
+    render(<PartyScene {...makeProps({ active: false })} />);
+    const overlay = screen.getByTestId("power-off-overlay-root");
+    expect(overlay.getAttribute("data-off")).toBe("true");
   });
 });
 
 // ---------------------------------------------------------------------------
-// AC-06-003.1 — state classes applied from snapshot
-// ---------------------------------------------------------------------------
-
-describe("frd-06: PartyScene — state classes from snapshot (AC-06-003.1)", () => {
-  it("frd-06: WHEN an agent has state='work' THEN its sprite has class s-work", () => {
-    render(<PartyScene {...makeProps()} />);
-    const sprite = screen.getByTestId("party-sprite-frontend-dev");
-    expect(sprite.className).toContain("s-work");
-  });
-
-  it("frd-06: WHEN an agent has state='blocked' THEN its sprite has class s-blocked", () => {
-    render(<PartyScene {...makeProps()} />);
-    const sprite = screen.getByTestId("party-sprite-test-writer");
-    expect(sprite.className).toContain("s-blocked");
-  });
-
-  it("frd-06: WHEN an agent has state='review' THEN its sprite has class s-review", () => {
-    render(<PartyScene {...makeProps()} />);
-    const sprite = screen.getByTestId("party-sprite-reviewer");
-    expect(sprite.className).toContain("s-review");
-  });
-
-  it("frd-06: WHEN an agent has state='idle' THEN its sprite has class s-idle", () => {
-    render(<PartyScene {...makeProps()} />);
-    const sprite = screen.getByTestId("party-sprite-backend-dev");
-    expect(sprite.className).toContain("s-idle");
-  });
-
-  it("frd-06: WHEN an agent has state='walk' THEN its sprite has class s-walk", () => {
-    const agents: AgentSpec[] = [
-      { id: "backend-dev", state: "walk", color: "var(--color-agent-backend-dev)" },
-      { id: "frontend-dev", state: "idle", color: "var(--color-agent-frontend-dev)" },
-      { id: "test-writer", state: "idle", color: "var(--color-agent-test-writer)" },
-      { id: "reviewer", state: "idle", color: "var(--color-agent-reviewer)" },
-    ];
-    render(<PartyScene {...makeProps({ agents })} />);
-    const sprite = screen.getByTestId("party-sprite-backend-dev");
-    expect(sprite.className).toContain("s-walk");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// AC-06-009.1 — observation-only: no buttons or controls to command agents
+// Read-only invariant (AC-06-009.1, DR-061)
 // ---------------------------------------------------------------------------
 
 describe("frd-06: PartyScene — observation-only (AC-06-009.1)", () => {
@@ -256,13 +144,13 @@ describe("frd-06: PartyScene — observation-only (AC-06-009.1)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Scene container — data-testid and aria
+// Container and accessibility
 // ---------------------------------------------------------------------------
 
 describe("frd-06: PartyScene — container and accessibility", () => {
   it("frd-06: WHEN rendered THEN scene has data-testid='party-scene'", () => {
     render(<PartyScene {...makeProps()} />);
-    expect(screen.getByTestId("party-scene")).toBeDefined();
+    expect(screen.getByTestId("party-scene")).toBeInTheDocument();
   });
 
   it("frd-06: WHEN rendered THEN scene has an aria-label in Spanish", () => {
@@ -270,41 +158,49 @@ describe("frd-06: PartyScene — container and accessibility", () => {
     const scene = screen.getByTestId("party-scene");
     const label = scene.getAttribute("aria-label");
     expect(label).toBeTruthy();
+    expect(label).toMatch(/La Fragua|fragua|sala/i);
   });
 
-  it("frd-06: WHEN rendered THEN scene is a <section> element (implicit region role)", () => {
+  it("frd-06: WHEN rendered THEN scene is a <section> element", () => {
     render(<PartyScene {...makeProps()} />);
     const scene = screen.getByTestId("party-scene");
     expect(scene.tagName.toLowerCase()).toBe("section");
   });
 
-  it("frd-06: WHEN rendered THEN zone stations have image-rendering:pixelated (pixel-art, AC-06-001.1)", () => {
+  it("frd-06: WHEN rendered THEN FraguaScene is embedded inside PartyScene", () => {
     render(<PartyScene {...makeProps()} />);
-    const zone = screen.getByTestId("party-zone-forge");
-    // image-rendering is applied via style; test the data-attribute approach
-    expect(zone.getAttribute("data-pixelart")).toBe("true");
+    expect(screen.getByTestId("fragua-scene")).toBeInTheDocument();
+  });
+
+  it("frd-06: WHEN rendered THEN the three La Fragua rooms are visible (Sala de Forja, Tribunal, Bóveda)", () => {
+    render(<PartyScene {...makeProps()} />);
+    const rooms = screen.getAllByTestId("room-root");
+    expect(rooms).toHaveLength(3);
   });
 });
 
 // ---------------------------------------------------------------------------
-// applyEvents / prop-change integration seam
+// Prop change — snapshot updates drive the scene
 // ---------------------------------------------------------------------------
 
-describe("frd-06: PartyScene — applyEvents on prop change", () => {
-  it("frd-06: WHEN agents prop changes state THEN sprite class updates on re-render", () => {
-    const { rerender } = render(<PartyScene {...makeProps()} />);
-
-    // Initial: frontend-dev is 'work'
-    let sprite = screen.getByTestId("party-sprite-frontend-dev");
-    expect(sprite.className).toContain("s-work");
-
-    // After prop change: frontend-dev becomes 'blocked'
-    const newAgents: AgentSpec[] = BALANCED_AGENTS.map((a) =>
-      a.id === "frontend-dev" ? { ...a, state: "blocked" as AgentState } : a,
+describe("frd-06: PartyScene — snapshot-driven updates", () => {
+  it("frd-06: WHEN running WOs in snapshot THEN AgentSprites appear in the forge", () => {
+    render(
+      <PartyScene
+        {...makeProps({
+          running: [{ wo: "WO-06-001", title: "First", state: "building" }],
+        })}
+      />,
     );
-    rerender(<PartyScene {...makeProps({ agents: newAgents })} />);
+    const sprites = screen.getAllByTestId("agent-sprite-root");
+    expect(sprites.length).toBeGreaterThanOrEqual(1);
+  });
 
-    sprite = screen.getByTestId("party-sprite-frontend-dev");
-    expect(sprite.className).toContain("s-blocked");
+  it("frd-06: WHEN active changes to false THEN PowerOffOverlay becomes visible", () => {
+    const { rerender } = render(<PartyScene {...makeProps({ active: true })} />);
+    expect(screen.getByTestId("power-off-overlay-root").getAttribute("data-off")).toBe("false");
+
+    rerender(<PartyScene {...makeProps({ active: false })} />);
+    expect(screen.getByTestId("power-off-overlay-root").getAttribute("data-off")).toBe("true");
   });
 });
