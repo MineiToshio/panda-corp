@@ -220,7 +220,7 @@ function StampLine({ unlock }: StampLineProps): React.JSX.Element {
 
 // ── ChainCard ─────────────────────────────────────────────────────────────────
 
-export type ChainCardVariant = "card" | "spot" | "mini";
+type ChainCardVariant = "card" | "spot" | "mini";
 
 export type ChainCardProps = {
   chain: ChainState;

@@ -5,7 +5,7 @@ slug: documentation-ui
 title: 'WO-08-002 — Documentación UI surface (re-anchor to prototype)'
 status: DRAFT
 parent: FRD-08
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
 artifacts:
   - 'src/app/manual/**'
 source_requirements: [REQ-08, AC-08-001, AC-08-002, AC-08-003, AC-08-004, AC-08-005]
@@ -130,3 +130,34 @@ owner-approved prototype. The shell now matches the prototype `manualView()` lay
 - Cycle 3: Active page interaction verified — clicking nav item shows correct authored content +
   accent active state. Remaining delta: dark-mode tokens vs light-mode render (theming difference,
   not a layout failure).
+
+## Review verdict (FRD-08 gate, 2026-06-20) — REJECTED → PLANNED
+
+Reviewer (opus, independent of the sonnet builder). The route renders clean — independent Preview
+Smoke (DR-055) over `/manual` at desktop+mobile: HTTP 200, **0 console errors, 0 pageerrors, 0 failed
+requests**, H1 = nav label "Documentación" (DR-062 ✓). Nav Diátaxis grouping, derived Reference
+catalogs (DR-046), FRD-07 card reuse (DR-057) and authored-content rendering all work. Captures:
+`docs/reviews/smoke/manual-{desktop,mobile}{,-reading}.png`.
+
+**Blocking finding (DR-056 Layer B — named structural divergence vs the owner-approved prototype):**
+- **`src/app/manual/ManualShell.tsx:150`** — `useState<ActivePage | null>(null)` makes the reading
+  area load **empty** ("Selecciona una página del menú para leerla" + 📖). The approved prototype
+  `manualView()` (`docs/design/prototype/index.html:1362`) **never** shows an empty pane on load:
+  `var p = ST.manualPage || MANUALNAV[0].items[0].id` falls back to the **first nav item**
+  (`tutorial/como-empezar`, a real authored page) and immediately renders `manualContent(p)`. The
+  Status-Note rationale ("`manualLanding()` is a static fixture so empty is intentional") is wrong:
+  the fallback is to the first *authored* page, not to the static landing. A no-context reader — the
+  FRD's entire purpose — lands on a blank pane instead of the "Cómo empezar" tutorial.
+- **Concrete fix:** initialize `activePage` to the first nav item in declared Diátaxis/order
+  (`{ type: "authored", group: "tutorial", slug: <first page slug> }`, derived from the `pages`
+  prop; fall back to `null` only when there are zero authored pages). Update the tests in
+  `_tests/visual-reanchor.test.tsx` / `_tests/page.test.tsx` that currently assert
+  `doc-reader-empty` on load — the empty pane is no longer the default; assert the first page renders.
+- **Not blessed:** `/manual` visual baseline NOT blessed and `e2e/routes.ts` `documentacion.blessed`
+  stays `false` (a route is blessed only after it matches its mock; this one diverges).
+
+**Out of scope (notes, not gating this WO):** loose multi-file components in `src/app/manual/`
+(`DocNav.tsx`/`DocReader.tsx`/`ManualShell.tsx` outside a `_tests/`-bearing folder) are a
+project-structure smell but pre-existing, not introduced this cycle. A nested-`<button>` hydration
+warning surfaced in the unit run from an FRD-17 component (ApproveButton▸CopyButton), unrelated to
+FRD-08.

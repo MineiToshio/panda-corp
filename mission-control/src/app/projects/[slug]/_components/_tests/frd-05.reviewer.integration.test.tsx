@@ -7,9 +7,9 @@
  *
  *   - WO-05-001 (listWorkOrders) → WO-05-003 (board column placement) wired
  *     end-to-end: a frontmatter `implementation_status: IN_REVIEW` work order
- *     MUST land in the "Revisión" column on the *rendered* board, not just in
- *     the reader's output. (The FRD-05 work orders are themselves IN_REVIEW, so
- *     this is the live reality the kanban must reflect — REQ-05-005.)
+ *     MUST land in the "Review / Testing" column on the *rendered* board, not
+ *     just in the reader's output. (The FRD-05 work orders are themselves
+ *     IN_REVIEW, so this is the live reality the kanban must reflect — REQ-05-005.)
  *   - WO-05-002 (aggregateProgress) wired through WO-05-006 (TabWorkOrders):
  *     the progress bar shows PROJECT-WIDE done/total even though the board may
  *     be FRD-filtered (AC-05-004.1 "summing every feature's work-orders/").
@@ -22,6 +22,11 @@
  * AC-05-005.1, AC-05-006.1.
  *
  * Stack: Vitest + @testing-library/react + jsdom + real fs temp trees.
+ *
+ * NOTE (WO-05-003 re-paint): the board now renders FIVE columns using the
+ * KanbanColumn primitive (testid=kanban-col-root, kanban-col-label,
+ * kanban-col-body). Column order: To do(0) · En progreso(1) · Review/Testing(2)
+ * · Falló(3) · Hecho(4). "Blocked" / BLOCKED state → fail → "Falló" column.
  */
 
 import fs from "node:fs";
@@ -128,34 +133,40 @@ afterAll(() => {
 
 // ---------------------------------------------------------------------------
 // 1. Reader → board column placement (WO-05-001 ⨯ WO-05-003), end-to-end.
+//    Board now has FIVE columns (WO-05-003 re-paint):
+//    index 0=To do, 1=En progreso, 2=Review/Testing, 3=Falló, 4=Hecho
 // ---------------------------------------------------------------------------
 
 describe("FRD-05 integration: live state reaches the rendered board", () => {
-  it("AC-05-005.1 / REQ-05-005 — an IN_REVIEW work order lands in the 'Revisión' column on the rendered board", () => {
+  it("AC-05-005.1 / REQ-05-005 — an IN_REVIEW work order lands in the 'Review / Testing' column on the rendered board", () => {
     const orders = listWorkOrders(projectRoot);
     render(<WorkOrderBoard orders={orders} />);
 
-    const columns = screen.getAllByTestId("wo-column");
-    // Columns are in canonical order: Pendiente · En progreso · Revisión · Hecho
-    expect(columns).toHaveLength(4);
+    // Five columns via KanbanColumn primitive (kanban-col-root)
+    const columns = screen.getAllByTestId("kanban-col-root");
+    expect(columns).toHaveLength(5);
+
+    // Column 2 = Review / Testing
     const review = columns[2];
     expect(review).toBeDefined();
     if (!review) throw new Error("review column missing");
 
     // The IN_REVIEW order must be visible inside the review column, not elsewhere.
     expect(within(review).getByText("Alpha in review")).toBeInTheDocument();
-    // And NOT in the "Pendiente" (todo) column.
+    // And NOT in the "To do" (todo) column (index 0).
     const todo = columns[0];
     if (!todo) throw new Error("todo column missing");
     expect(within(todo).queryByText("Alpha in review")).toBeNull();
   });
 
-  it("AC-05-001.1 — every DR-050 state maps to the correct column (planned→Pendiente, verified→Hecho, blocked surfaces with icon+label)", () => {
+  it("AC-05-001.1 — every DR-050 state maps to the correct column (planned→To do, verified→Hecho, blocked surfaces with icon+label in Falló)", () => {
     const orders = listWorkOrders(projectRoot);
     render(<WorkOrderBoard orders={orders} />);
-    const columns = screen.getAllByTestId("wo-column");
-    const [todo, inProgress, , done] = columns;
-    if (!todo || !inProgress || !done) throw new Error("columns missing");
+
+    const columns = screen.getAllByTestId("kanban-col-root");
+    // 5 columns: To do(0) · En progreso(1) · Review/Testing(2) · Falló(3) · Hecho(4)
+    const [todo, inProgress, , failCol, done] = columns;
+    if (!todo || !inProgress || !failCol || !done) throw new Error("columns missing");
 
     expect(within(todo).getByText("Alpha planned")).toBeInTheDocument();
     expect(within(inProgress).getByText("Alpha in progress")).toBeInTheDocument();
@@ -163,8 +174,12 @@ describe("FRD-05 integration: live state reaches the rendered board", () => {
     expect(within(done).getByText("Alpha verified")).toBeInTheDocument();
     expect(within(done).getByText("Beta verified")).toBeInTheDocument();
 
-    // BLOCKED (fail) surfaces with an a11y label, not color alone.
-    expect(screen.getByText("Bloqueado")).toBeInTheDocument();
+    // BLOCKED (fail) surfaces in its own "Falló" column with an a11y indicator,
+    // not color alone (FRD-13 rule — icon + label).
+    expect(within(failCol).getByText("Alpha blocked")).toBeInTheDocument();
+    // The fail indicator (⚠ icon element) is present
+    const failIndicators = screen.getAllByTestId("wo-fail-indicator");
+    expect(failIndicators.length).toBeGreaterThan(0);
   });
 });
 

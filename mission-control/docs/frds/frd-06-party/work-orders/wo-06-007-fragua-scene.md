@@ -5,13 +5,13 @@ slug: fragua-scene
 title: 'WO-06-007 — La Fragua scene re-paint (FraguaScene + PartyScene/PartyTab shell)'
 status: DRAFT
 parent: FRD-06
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 artifacts:
   - 'src/app/projects/[slug]/_party/FraguaScene/**'
   - 'src/app/projects/[slug]/_party/PartyScene/**'
   - 'src/app/projects/[slug]/_party/PartyTab/**'
 source_requirements: [REQ-06-001, REQ-06-002, REQ-06-003, REQ-06-004, REQ-06-005, REQ-06-006, REQ-06-007, REQ-06-008, REQ-06-009, REQ-06-010, REQ-06-011, REQ-06-012, REQ-06-013]
-last_updated: '2026-06-19'
+last_updated: '2026-06-20'
 ---
 # WO-06-007 — La Fragua scene re-paint (FraguaScene + PartyScene/PartyTab shell)
 
@@ -223,3 +223,24 @@ Non-blocking notes (out of scope here / next iteration): the "⛏️ Fundación"
 (AC-06-001.4) has no field in the VERIFIED `FraguaSnapshot` (WO-06-005) and is not rendered — track
 as a separate iteration; the temp `src/app/preview-wo06007/page.tsx` fidelity route must be removed
 before the WO ships (it self-declares "NOT shipping code").
+
+### Repair (2026-06-20) — REOPENED → IN_REVIEW
+
+Repair engineer resolved the two blocking reviewer defects in `FraguaScene.tsx`:
+
+1. **AC-06-004.2 — fourth lens added.** `REVIEWER_LENSES` now carries the 4th lens
+   `{ key: "runtime", label: "Runtime/visual", icon: "▶" }` → the gate renders four
+   `[data-lens]` chips (`correctness · security · quality · runtime`). The implementer's own
+   `FraguaScene.test.tsx` lens assertion was aligned from `>= 3` to `>= 4` (strengthened, not weakened),
+   and its title now reads "four lenses".
+2. **AC-06-004.3 — visual judge added.** A distinct `data-testid="fragua-visual-judge"` element
+   (the 📸 capture-vs-mock / baseline indicator, styled on `--color-accent*` tokens) renders inside
+   `fragua-reviewer` when `gate.open`. It is a sibling of the four lenses, not one of them.
+3. **Test infra committed.** The `vitest.setup.ts` `StubEventSource` global is committed in this same
+   change (the `as any` suppression replaced by a typed `(globalThis as { EventSource?: unknown })`
+   cast — no `biome-ignore`).
+
+The FRD-06 adversarial gate (`FraguaScene.adversarial.test.tsx`) is now GREEN (3 RED → 0). Full
+strict gate `verify.sh --since ac2a023` exits 0 (biome/tsc/knip/madge/vitest 6862 + 2 expected-fail /
+smoke 4/4 / visual 4/4). Still IN_REVIEW for the FRD-06 reviewer to gate; not marked VERIFIED.
+The `preview-wo06007` route + foundation-tag remain the pre-existing non-blocking items above.

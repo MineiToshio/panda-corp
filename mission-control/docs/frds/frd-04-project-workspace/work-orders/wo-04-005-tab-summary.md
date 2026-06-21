@@ -5,7 +5,7 @@ slug: tab-summary-and-documents
 title: 'WO-04-005 — Resumen + Documentos tabs'
 status: DRAFT
 parent: FRD-04
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
 artifacts:
   - 'src/app/projects/[slug]/_components/tab-summary/**'
   - 'src/app/projects/[slug]/_components/tab-documents/**'

@@ -106,6 +106,7 @@ function renderSummaryTab(projectPath: string, summary: string): React.JSX.Eleme
 
 function renderWorkOrdersTab(
   projectPath: string,
+  slug: string,
   woParam: string | undefined,
   woTabParam: WoDetailTab,
 ): React.JSX.Element {
@@ -118,7 +119,8 @@ function renderWorkOrdersTab(
     const woContent = readWorkOrderDoc(projectPath, selectedOrder.relPath);
     return <WorkOrderDetail order={selectedOrder} content={woContent} activeWoTab={woTabParam} />;
   }
-  return <TabWorkOrders orders={orders} />;
+  // AC-05-005.1: pass project slug so TabWorkOrders mounts WoLiveRefresh.
+  return <TabWorkOrders orders={orders} project={slug} />;
 }
 
 function renderDocumentsTab(projectPath: string, docParam: string | undefined): React.JSX.Element {
@@ -151,7 +153,7 @@ function resolveTabBody(projectPath: string, sel: TabSelection): React.JSX.Eleme
     case "summary":
       return renderSummaryTab(projectPath, sel.summary);
     case "work-orders":
-      return renderWorkOrdersTab(projectPath, sel.woParam, sel.woTabParam);
+      return renderWorkOrdersTab(projectPath, sel.slug, sel.woParam, sel.woTabParam);
     case "party":
       return <PartyTab />;
     case "observabilidad":

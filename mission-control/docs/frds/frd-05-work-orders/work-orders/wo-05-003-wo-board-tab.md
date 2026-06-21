@@ -5,7 +5,7 @@ slug: wo-board-tab
 title: 'WO-05-003 — Work-orders tab: live kanban board + detail (re-paint to mock)'
 status: DRAFT
 parent: FRD-05
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
 artifacts:
   - 'src/app/projects/[slug]/_components/wo-board/**'
   - 'src/app/projects/[slug]/_components/wo-detail/**'

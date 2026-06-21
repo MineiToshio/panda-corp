@@ -190,13 +190,15 @@ function woStateToSpriteState(state: WoState): "work" | "review" | "vault" | "id
 }
 
 // ---------------------------------------------------------------------------
-// Three lenses for the reviewer gate (AC-06-004.2)
+// Four lenses for the reviewer gate (AC-06-004.2) — the 4th is runtime/visual.
+// The mock spells it out: "4 lentes (correctitud·seguridad·calidad·runtime/visual)".
 // ---------------------------------------------------------------------------
 
 const REVIEWER_LENSES = [
   { key: "correctness", label: "Corrección", icon: "✓" },
   { key: "security", label: "Seguridad", icon: "🔒" },
   { key: "quality", label: "Calidad", icon: "⭐" },
+  { key: "runtime", label: "Runtime/visual", icon: "▶" },
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -331,6 +333,18 @@ const LENS_STYLE: React.CSSProperties = {
   borderRadius: "var(--radius, 0.25rem)",
   border: "1px solid var(--color-warn)",
   color: "var(--color-warn)",
+};
+
+// The visual judge (distinct from the four code lenses): it compares the live
+// capture against the mock and blesses the baseline (DR-055/056). Mock: "el juez
+// visual compara captura vs mock y bendice el baseline".
+const VISUAL_JUDGE_STYLE: React.CSSProperties = {
+  fontSize: "0.6875rem",
+  padding: "0 calc(var(--spacing, 0.25rem) * 0.5)",
+  background: "var(--color-accent-bg)",
+  borderRadius: "var(--radius, 0.25rem)",
+  border: "1px solid var(--color-accent)",
+  color: "var(--color-accent-text)",
 };
 
 // ---------------------------------------------------------------------------
@@ -612,7 +626,7 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
                 }}
               />
 
-              {/* Three lenses — shown when gate is open (AC-06-004.2) */}
+              {/* Four lenses + the visual judge — shown when gate is open (AC-06-004.2/.3) */}
               {gate.open && (
                 <div style={REVIEWER_ACTIVE_STYLE}>
                   {REVIEWER_LENSES.map(({ key, label, icon }) => (
@@ -626,6 +640,14 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
                       {icon}
                     </span>
                   ))}
+                  {/* The visual judge: capture vs mock + baseline (AC-06-004.3) */}
+                  <span
+                    data-testid="fragua-visual-judge"
+                    title="Juez visual — compara captura vs mock y bendice el baseline"
+                    style={VISUAL_JUDGE_STYLE}
+                  >
+                    📸
+                  </span>
                 </div>
               )}
 

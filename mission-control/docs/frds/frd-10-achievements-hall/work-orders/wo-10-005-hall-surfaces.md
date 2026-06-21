@@ -5,7 +5,7 @@ slug: hall-surfaces
 title: 'WO-10-005 — Hall surfaces: ChainCard + TrophyCard + AlmostThere + stat ledger'
 status: DRAFT
 parent: FRD-10
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
 artifacts:
   - 'src/app/achievements/ChainCard/**'
   - 'src/app/achievements/UniquesSection/**'

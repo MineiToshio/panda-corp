@@ -237,11 +237,11 @@ describe("FraguaScene — reviewer gate (AC-06-004.1 / AC-06-004.2)", () => {
     expect(reviewer).toHaveAttribute("data-gate-open", "true");
   });
 
-  it("frd-06: WHEN gate is open THEN three lenses are indicated", () => {
+  it("frd-06: WHEN gate is open THEN four lenses are indicated", () => {
     render(<FraguaScene snapshot={snap({ gate: { open: true } })} />);
-    // The reviewer indicates it reviews with three lenses (correctness, security, quality)
+    // The reviewer reviews with four lenses (correctness · security · quality · runtime/visual)
     const reviewer = screen.getByTestId("fragua-reviewer");
-    expect(reviewer.querySelectorAll("[data-lens]").length).toBeGreaterThanOrEqual(3);
+    expect(reviewer.querySelectorAll("[data-lens]").length).toBeGreaterThanOrEqual(4);
   });
 });
 

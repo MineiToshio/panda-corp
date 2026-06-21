@@ -198,17 +198,6 @@ export type VisualAction =
   | NoopAction;
 
 // ---------------------------------------------------------------------------
-// Backward-compatible AgentState export
-// (kept for consumers not yet migrated to the WO-keyed model)
-// ---------------------------------------------------------------------------
-
-/**
- * @deprecated Use WoState for the work-order-keyed model.
- * Retained for backward compatibility with PartyScene/engine consumers.
- */
-export type AgentState = "work" | "walk" | "idle" | "blocked" | "review";
-
-// ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 

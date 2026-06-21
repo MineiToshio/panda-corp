@@ -33,6 +33,11 @@ export type KanbanColumnProps = {
   label: string;
   /** Number of items in the column — displayed with tabular-nums. */
   count: number;
+  /**
+   * Danger variant — renders the column header label in `var(--color-danger)`.
+   * Used for the "Falló" column (prototype `.col` danger-color header).
+   */
+  danger?: boolean;
   /** WO card children to render in the scrollable column body. */
   children?: React.ReactNode;
 };
@@ -45,7 +50,12 @@ export type KanbanColumnProps = {
  * Consumed by WoBoard (FRD-05) and any future kanban surface.
  * Server Component: pure, deterministic, no I/O.
  */
-export function KanbanColumn({ label, count, children }: KanbanColumnProps): React.JSX.Element {
+export function KanbanColumn({
+  label,
+  count,
+  danger = false,
+  children,
+}: KanbanColumnProps): React.JSX.Element {
   return (
     <section
       data-testid="kanban-col-root"
@@ -77,7 +87,7 @@ export function KanbanColumn({ label, count, children }: KanbanColumnProps): Rea
           style={{
             fontFamily: "var(--font-pixel)",
             fontSize: "11px",
-            color: "var(--color-text2)",
+            color: danger ? "var(--color-danger)" : "var(--color-text2)",
             letterSpacing: "0.04em",
             textTransform: "uppercase",
             lineHeight: 1,
