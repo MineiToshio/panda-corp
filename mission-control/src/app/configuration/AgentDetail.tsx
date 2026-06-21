@@ -22,16 +22,8 @@
  *   - XpBar receives pctToNext scaled to [0, 100] to match its API.
  *   - Zero work orders → xp=0, pctToNext=0 → XpBar fill=0% (no fake bar).
  *
- * Reverse cross-navigation (FRD-07 EARS): when given the skills that use this
- * agent + an onSkillClick handler, it renders clickable skill chips so the owner
- * can jump from an agent's detail to a skill that uses it ("clicking the linked
- * chip opens the other item's detail" — the second clause of the bidirectional
- * Skills↔Agents cross-nav). The skills are derived by the shell by inverting
- * SkillRef.agents.
- *
  * Traceability:
  *   CMP-07-agent-detail → FRD-07 → AC-07-007.2, AC-07-007.3, AC-07-007.4
- *   FRD-07 Skills↔Agents cross-navigation (reverse half, agent → skill)
  *   IF-09-agent-xp (computeAgentLevel) → lib/gamification.ts
  *   CMP-09-avatar (Avatar) → components/rpg/Avatar.tsx
  *   CMP-09-xp-bar (XpBar) → components/rpg/XpBar.tsx
@@ -41,7 +33,7 @@ import type { AgentRole } from "@/app/_design/tokens/tokens";
 import { Avatar } from "@/components/core/Avatar/Avatar";
 import { XpBar } from "@/components/core/XpBar/XpBar";
 import { AGENT_RANKS, type AgentLevelResult } from "@/lib/gamification/agents";
-import type { AgentRef, SkillRef } from "@/lib/reference/reference";
+import type { AgentRef } from "@/lib/reference/reference";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -52,19 +44,6 @@ export type AgentDetailProps = {
   agent: AgentRef;
   /** The agent's current level/XP result from computeAgentLevel(). */
   level: AgentLevelResult;
-  /**
-   * Cross-navigation (FRD-07 EARS, reverse half): the skills that USE this agent
-   * (derived by inverting `SkillRef.agents`). Rendered as clickable chips so the
-   * owner can jump from an agent's detail to a skill that uses it. Empty/absent →
-   * no chip list (honest zero state, e.g. an agent no skill references).
-   */
-  usingSkills?: readonly SkillRef[];
-  /**
-   * Called with a skill slug when the owner clicks a using-skill chip, to open
-   * that skill's detail ("clicking the linked chip opens the other item's detail").
-   * When omitted, no chip list is rendered (nothing to navigate to).
-   */
-  onSkillClick?: (slug: string) => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -176,41 +155,6 @@ const DESC_STYLE: React.CSSProperties = {
   margin: 0,
 };
 
-const SKILLS_SECTION_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 2)",
-};
-
-const SKILLS_CHIPS_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "calc(var(--spacing, 0.25rem) * 1.5)",
-};
-
-const SKILL_CHIP_STYLE: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  padding: "calc(var(--spacing, 0.25rem) * 1) calc(var(--spacing, 0.25rem) * 2.5)",
-  borderRadius: "var(--radius, 0.375rem)",
-  border: "var(--hairline, 1px) solid var(--color-border, currentColor)",
-  background: "var(--color-card2, var(--color-panel))",
-  color: "var(--color-accent, currentColor)",
-  fontFamily: "var(--font-mono, monospace)",
-  fontSize: "0.75rem",
-  fontWeight: 600,
-  cursor: "pointer",
-  whiteSpace: "nowrap",
-};
-
-const SKILLS_EMPTY_STYLE: React.CSSProperties = {
-  fontSize: "0.8125rem",
-  color: "var(--color-text-muted, currentColor)",
-  opacity: 0.6,
-  fontStyle: "italic",
-  margin: 0,
-};
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -261,12 +205,7 @@ function nextRankTitle(currentLevel: number): string {
  * Server Component: pure rendering, no client interactivity.
  * Consumed by ConfigurationShell when an agent card is selected.
  */
-export function AgentDetail({
-  agent,
-  level,
-  usingSkills,
-  onSkillClick,
-}: AgentDetailProps): React.JSX.Element {
+export function AgentDetail({ agent, level }: AgentDetailProps): React.JSX.Element {
   const avatarRole = agent.id as AgentRole;
   const nextTitle = nextRankTitle(level.level);
   const modelExplanation = modelAssignmentExplanation(agent.model);
@@ -274,11 +213,6 @@ export function AgentDetail({
   // pctToNext from computeAgentLevel is a FRACTION [0, 1].
   // XpBar expects a percentage [0, 100].
   const pctForBar = Math.round(level.pctToNext * 100);
-
-  // Cross-navigation (reverse half): only render the using-skills section when a
-  // navigation handler is wired (nothing to jump to otherwise).
-  const showUsingSkills = onSkillClick !== undefined;
-  const skillsThatUseAgent = usingSkills ?? [];
 
   return (
     <div data-testid="agent-detail" style={DETAIL_STYLE}>
@@ -319,38 +253,6 @@ export function AgentDetail({
         <p data-testid="agent-detail-description" style={DESC_STYLE}>
           {agent.description}
         </p>
-      ) : null}
-
-      {/* ── Using-skills: jump back to any skill that uses this agent (EARS
-          reverse cross-nav). Each chip opens that skill's detail. ─────────── */}
-      {showUsingSkills ? (
-        <section
-          data-testid="agent-detail-using-skills"
-          style={SKILLS_SECTION_STYLE}
-          aria-label="Habilidades que usan este agente"
-        >
-          <h3 style={XP_HEADING_STYLE}>Habilidades que lo usan</h3>
-          {skillsThatUseAgent.length > 0 ? (
-            <div style={SKILLS_CHIPS_STYLE}>
-              {skillsThatUseAgent.map((skill) => (
-                <button
-                  key={skill.slug}
-                  type="button"
-                  data-testid={`agent-skill-chip-${skill.slug}`}
-                  aria-label={`Ir a la habilidad /pandacorp:${skill.slug}`}
-                  onClick={() => onSkillClick?.(skill.slug)}
-                  style={SKILL_CHIP_STYLE}
-                >
-                  /pandacorp:{skill.slug}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <p data-testid="agent-detail-using-skills-empty" style={SKILLS_EMPTY_STYLE}>
-              Ninguna habilidad declara este agente en su flujo.
-            </p>
-          )}
-        </section>
       ) : null}
 
       <hr style={DIVIDER_STYLE} />

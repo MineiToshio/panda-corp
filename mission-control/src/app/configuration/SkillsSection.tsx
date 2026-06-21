@@ -45,19 +45,6 @@ export interface SkillsSectionProps {
    * clicks an agent chip in a skill's mini-flow, to jump to that agent's detail.
    */
   onAgentClick?: (role: AgentRole) => void;
-  /**
-   * Controlled selection (FRD-07 EARS, reverse cross-nav): when provided, the
-   * open skill is driven by the parent (the shell sets it when the owner clicks a
-   * using-skill chip in an agent's detail). When `undefined`, the section is
-   * uncontrolled and owns its own list↔detail state.
-   */
-  selectedSlug?: string | null;
-  /**
-   * Called when the selected skill changes (controlled mode): the slug of the
-   * skill to open, or `null` when returning to the list. Required to keep the
-   * parent's `selectedSlug` in sync (back button, picking another skill).
-   */
-  onSelectedSlugChange?: (slug: string | null) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -67,40 +54,20 @@ export interface SkillsSectionProps {
 /**
  * Owns the list↔detail navigation for the Skills tab panel.
  *
- * Uncontrolled (default): owns its own `selectedSkill` state.
- *   selectedSkill === null → SkillList
- *   selectedSkill !== null → SkillDetail (with back button to return to list)
- *
- * Controlled (when `selectedSlug` is provided): the open skill is resolved from
- * the parent-supplied slug and changes flow back through `onSelectedSlugChange`.
- * This powers the reverse cross-navigation (agent detail → skill detail).
+ * selectedSkill === null → SkillList
+ * selectedSkill !== null → SkillDetail (with back button to return to list)
  */
-export function SkillsSection({
-  skills,
-  onAgentClick,
-  selectedSlug,
-  onSelectedSlugChange,
-}: SkillsSectionProps): React.JSX.Element {
-  const [internalSelectedSlug, setInternalSelectedSlug] = useState<string | null>(null);
-
-  // Controlled when the parent passes `selectedSlug`; otherwise self-managed.
-  const isControlled = selectedSlug !== undefined;
-  const activeSlug = isControlled ? selectedSlug : internalSelectedSlug;
-  const selectedSkill = activeSlug ? (skills.find((s) => s.slug === activeSlug) ?? null) : null;
-
-  function select(slug: string | null): void {
-    if (!isControlled) setInternalSelectedSlug(slug);
-    onSelectedSlugChange?.(slug);
-  }
+export function SkillsSection({ skills, onAgentClick }: SkillsSectionProps): React.JSX.Element {
+  const [selectedSkill, setSelectedSkill] = useState<SkillRef | null>(null);
 
   return (
     <div data-testid="skills-section">
       {selectedSkill === null ? (
-        <SkillList skills={skills} onSelect={(skill) => select(skill.slug)} />
+        <SkillList skills={skills} onSelect={(skill) => setSelectedSkill(skill)} />
       ) : (
         <SkillDetail
           skill={selectedSkill}
-          onBack={() => select(null)}
+          onBack={() => setSelectedSkill(null)}
           onAgentClick={onAgentClick}
         />
       )}

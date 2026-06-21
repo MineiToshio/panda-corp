@@ -5,8 +5,8 @@ slug: configuration-ui
 title: 'WO-07-005 — Configuración UI surface (re-anchor to prototype)'
 status: DRAFT
 parent: FRD-07
-implementation_status: IN_REVIEW
-reopen_count: 2
+implementation_status: PLANNED
+reopen_count: 3
 artifacts:
   - 'src/app/configuration/**'
 source_requirements: [REQ-07, AC-07-001, AC-07-002, AC-07-003, AC-07-004, AC-07-005]
@@ -307,3 +307,65 @@ will be re-built next run together with the reverse cross-nav.
 
 **Not blocking (advisory, → punch-list):** the light-mode-vs-dark theming delta carried from the
 prior pass remains a visual nit, not a gate failure.
+
+## Gate verdict — REJECT #3 (2026-06-21, opus reviewer, DR-072)
+
+**Status: reopened PLANNED, `reopen_count: 2 → 3`** (the non-progress cap has now been HIT — see
+the warning at the bottom; if this exact dead-code defect recurs next run, the next gate must set
+`BLOCKED: needs-owner` instead of reopening again).
+
+**Good news first — the REJECT #2 blocker is RESOLVED & mutation-locked.** The reverse half of the
+bidirectional Skills↔Agents cross-navigation (agent → skill) is now genuinely built and CORRECT,
+verified independently (not from the WO note):
+- `page.tsx` passes `skills` (each carrying `inferAgents`) into `ConfigurationShell`.
+- `ConfigurationShell` inverts `skills.filter(s => (s.agents ?? []).includes(selectedAgentId))` into
+  `usingSkills` (derive-don't-sync, no effect mirror) and wires `handleSkillCrossNav` (sets the skill
+  slug + switches to the skills tab) → `SkillsSection` (controlled mode) opens the right `SkillDetail`.
+- `AgentDetail` renders clickable `<button data-testid="agent-skill-chip-<slug>">` chips → `onSkillClick`.
+- Mutation-confirmed (DR-016): (1) over-listing (return all skills, drop the `.filter`) → 2 RED in my
+  adversarial correctness test; (2) wrong nav target (always open `skillsThatUseAgent[0]`) → 1 RED;
+  both restore GREEN; the two files were byte-restored after each probe. So the reverse cross-nav is
+  NOT decorative — the inversion is exactly the set of skills that declare the agent (no over/under-
+  listing) and the clicked chip opens THAT skill's detail.
+
+**The single blocking CORRECTION defect (why the gate is RED):** DEAD CODE introduced this cycle.
+`src/app/configuration/StandardsSection/styles.ts` exports two now-orphaned helpers,
+`DETAIL_TABS_STYLE` (L144) and `detailTabStyle` (L150). This cycle's `parts.tsx` correctly switched
+its Resumen/Detalle toggle to the shared `SubTabs` (DR-057 reuse — good), which removed the only
+consumers of those two helpers, but the helpers were left behind in `styles.ts`. KNIP reports them as
+Unused exports and `.pandacorp/verify.sh` is fail-closed on dead code (clean-code rule), so the
+focused gate (`verify.sh --since ecb5a13`) exits non-zero at KNIP. This is a QUALITY-gate failure
+(the gate literally cannot go green), NOT a visual nit — it blocks. Ironically the WO note for pass 2
+already CLAIMS these helpers were "removed from `styles.ts`" — they were not; the DR-070 revert of
+pass 2 restored `styles.ts` to a state inconsistent with the refactored `parts.tsx`, leaving them
+dead. (The reverse-cross-nav anchor + the rest of the gate are otherwise GREEN — proven by a probe:
+with only those 2 exports stripped, the FULL focused gate is EXIT 0: structure guard, biome, tsc,
+KNIP clean, madge, vitest 769 passed/43 files incl my new adversarial test, smoke 12/12, visual
+Layer A 12/12. So dead code is the ONLY blocker — the fix below is complete, no second problem hides
+behind it.)
+
+**FIX (tiny, unambiguous — exactly what the pass-2 note already claimed):** delete the two dead
+exports `DETAIL_TABS_STYLE` and `detailTabStyle` from
+`src/app/configuration/StandardsSection/styles.ts` (lines 143–166). They have ZERO consumers
+(`grep -rn 'DETAIL_TABS_STYLE\|detailTabStyle' src/` returns only their own declarations). Do this
+TOGETHER with re-building the (now-reverted) reverse cross-nav + DR-057 `SubTabs` refactor, then run
+`verify.sh --since <last_green>` to confirm KNIP is clean. **Self-check before declaring done: run
+`pnpm knip` (or `verify.sh`) — a refactor that drops a consumer MUST also remove the now-dead helper
+in the SAME change.**
+
+**DR-070 revert performed:** the reopened WO's footprint was reverted to last green `ecb5a13` so HEAD
+carries no half-built WO into siblings' GLOBAL gate. Existing files (`AgentDetail.tsx`,
+`ConfigurationShell.tsx`, `SectionTabs.tsx`, `SkillsSection.tsx`, `StandardsSection/parts.tsx`,
+`src/components/core/Tabs/Tabs.tsx`) were `git checkout ecb5a13 --`'d; the WO-newly-created tests
+(`_tests/dr057-reuse.test.tsx`, `_tests/frd07.cross-nav-reverse.gate-opus.reviewer.test.tsx`) were
+`git rm`'d. The whole `src/app/configuration/**` + `Tabs.tsx` are now byte-identical to `ecb5a13`
+(`git diff ecb5a13 -- …` is EMPTY) and the 277 existing config tests are GREEN. The genuinely-good
+reverse-cross-nav work + the dead-code cleanup are rebuilt together next run.
+
+**NON-PROGRESS WARNING (DR-072 C2):** `reopen_count` is now **3** — the cap. The defect *class* has
+shifted each pass (REJECT #1: 5 missing EARS + 2 reuse forks; REJECT #2: reverse cross-nav still
+missing; REJECT #3: a clean dead-code slip after the behavior was finally built), so this is forward
+progress, not the same fault stuck — that is why a reopen (not BLOCK) is still warranted here. BUT if
+the NEXT gate run finds this WO still not green (especially the same dead-code/KNIP failure), it MUST
+NOT reopen again: set `implementation_status: BLOCKED`, `blocked_reason: needs-owner`, log to
+`.pandacorp/inbox/decisions.md`, and stop the grind.
