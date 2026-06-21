@@ -5,7 +5,8 @@ slug: tab-summary-and-documents
 title: 'WO-04-005 — Resumen + Documentos tabs'
 status: DRAFT
 parent: FRD-04
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
+reopen_count: 1
 artifacts:
   - 'src/app/projects/[slug]/_components/tab-summary/**'
   - 'src/app/projects/[slug]/_components/tab-documents/**'
@@ -131,3 +132,39 @@ interface TabDocumentsProps {
 - Preview route: `src/app/preview-wo04005/page.tsx` (fidelity check only, not shipping code)
 
 All 56 component tests pass. Full suite: 293 test files, 6726 tests passing. TypeCheck: clean. Biome: clean.
+
+## Gate finding (FRD-04 review, 2026-06-21) — REOPENED (reopen_count 1)
+
+**CORRECTION (blocking) — nested interactive controls in the AC-mandated "Aprobar la
+recomendación" affordance.** `ApproveButton` (`tab-summary.tsx`, ~L390-408) renders an outer
+`<button data-testid="approve-btn">` that *contains* `<CopyButton>`, which itself renders a
+`<button data-testid="copy-button">`. A `<button>` inside a `<button>` is invalid HTML.
+
+Evidence (verified at the gate, not from the implementer summary):
+- Real browser (`next start`, `/preview-wo04005`): the route throws an uncaught **React #418**
+  `pageerror` (hydration mismatch — the server drops the nested button, client markup diverges).
+  This is exactly what the mandatory Preview Smoke Gate (DR-055) fails on; the only reason the
+  automated smoke is currently green is that the workspace route isn't blessed and doesn't resolve
+  (see the separate FRD-03 note below) — the defect is real and would block the moment the route is
+  smoked.
+- React-DOM `validateDOMNesting` emits `console.error("<button> cannot contain a nested <button>")`
+  in the test renderer too.
+- a11y: nested interactive controls are not correctly keyboard/AT-operable (`accessibility.md`).
+
+**Fix direction (do NOT drop the affordance — the EARS AC requires it):** make the approve
+affordance a SINGLE interactive control. Either (a) a single `<button>` whose own click copies
+`/pandacorp:decide "Aprobado: <recommendation>"` (reuse the copy logic, not the `CopyButton`
+element nested inside another button), or (b) use `CopyButton` directly with its `label` prop
+("Aprobar la recomendación") and the full command as its `value` — one button, no nesting. Keep
+copy-only (never writes / never calls Claude).
+
+**RED test added by the reviewer (drives the rebuild):**
+`src/app/projects/[slug]/_components/tab-summary/_tests/tab-summary.reviewer.test.tsx` — asserts no
+`<button>` contains a descendant `<button>`, and that the exact `/pandacorp:decide "Aprobado: …"`
+command survives the fix. Currently RED against the defective code; make it GREEN.
+
+Note: the WO-04-005 source is byte-identical to last-green `d37fa48` (the code was built in pass-2
+before the owner stopped; this cycle only re-flagged it IN_REVIEW). So the defect is pre-existing in
+the last-green tree — there is nothing new to revert (DR-070 is a no-op here); the fix must come from
+the rebuild. The two tab bodies otherwise render structurally faithfully to `projResumen()` /
+`projDocs()` (NOT a gross structural mismatch — the layout is recognizably the designed thing).

@@ -10,8 +10,8 @@ Read [`../blueprint.md`](../blueprint.md) first — its **Build Plan (Phase 2)**
 |---|---|---|---|---|
 | [WO-04-001](./wo-04-001-docs-reader.md) | `lib/docs.ts` — doc tree + raw read + comms readers | lib (TDD) | VERIFIED | IF-04-docs |
 | [WO-04-003](./wo-04-003-workspace-commands.md) | `lib/next-step.ts` — `workspaceCommands(phase)` | lib (TDD) | VERIFIED | IF-04-next-step |
-| [WO-04-004](./wo-04-004-workspace-shell.md) | Workspace shell: header + tabbar + objectives bar | UI | PLANNED | CMP-04-workspace/header/objectives-bar/tabbar |
-| [WO-04-005](./wo-04-005-tab-summary.md) | Resumen + Documentos tabs | UI | PLANNED | CMP-04-tab-summary/decisions/activity-log/tab-documents |
+| [WO-04-004](./wo-04-004-workspace-shell.md) | Workspace shell: header + tabbar + objectives bar | UI | VERIFIED | CMP-04-workspace/header/objectives-bar/tabbar |
+| [WO-04-005](./wo-04-005-tab-summary.md) | Resumen + Documentos tabs | UI | PLANNED (reopened ×1 — nested-button defect, see WO note) | CMP-04-tab-summary/decisions/activity-log/tab-documents |
 
 ## Phase 2 re-plan (2026-06-19)
 

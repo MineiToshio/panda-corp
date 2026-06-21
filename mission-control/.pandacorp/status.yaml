@@ -8,20 +8,20 @@ created_with: "6.0.0"
 running: true
 run_started_at: "2026-06-21T06:52:14Z"
 repo: ""
-updated_at: "2026-06-21T18:30:00Z"
-last_event_at: "2026-06-21T18:30:00Z"
+updated_at: "2026-06-21T19:42:00Z"
+last_event_at: "2026-06-21T19:42:00Z"
 work_orders_total: 78
-work_orders_verified: 63
-work_orders_in_review: 4
-work_orders_planned: 11
+work_orders_verified: 64
+work_orders_in_review: 2
+work_orders_planned: 12
 work_orders_in_progress: 0
 work_orders_blocked: 0
-work_orders_done: 63
+work_orders_done: 64
 pending_decisions: 0
 pending_bugs: 0
 rethink_pending: false
 advance_pending: false
 last_green_sha: "d37fa48"
-safe_to_test: true  # full verify.sh green at d37fa48 (build stopped by owner mid-pass-2, 2026-06-21); DR-070 gate-revert validated — reject left the tree clean
+safe_to_test: false  # FRD-04 gate REJECT (2026-06-21): WO-04-005 reopened (reopen_count 1) — nested <button>-in-<button> in the "Aprobar la recomendación" path → React #418 pageerror; reviewer RED test added (tab-summary.reviewer.test.tsx). WO-04-004 VERIFIED. Tree no longer fully green until WO-04-005 is rebuilt. last_green_sha stays d37fa48.
 blocked: []
-supervisor_heartbeat: "2026-06-21T07:14:21Z"
+supervisor_heartbeat: "2026-06-21T07:26:22Z"
