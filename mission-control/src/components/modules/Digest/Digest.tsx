@@ -85,7 +85,15 @@ interface DigestItemRowProps {
   item: DigestItem;
 }
 
-/** A single event row in the digest list. */
+/**
+ * A single event card in the digest wrap-row.
+ *
+ * Visual contract: prototype `evCard()` (index.html ~L670) — a compact card
+ * (icon + title line + sub·ago) that flows in a `flex-wrap` row, NOT a stacked
+ * full-width list item. New cards carry an accent border; al-día (dimmed) cards
+ * use the neutral border at reduced opacity. `flex-1 min-w-[210px]` lets cards
+ * grow to fill the row and wrap once they fall below the min width.
+ */
 function DigestItemRow({ item }: DigestItemRowProps): React.JSX.Element {
   const { event, isNew, relativeLabel } = item;
 
@@ -95,22 +103,23 @@ function DigestItemRow({ item }: DigestItemRowProps): React.JSX.Element {
       data-new={isNew ? "true" : undefined}
       data-dimmed={!isNew ? "true" : undefined}
       className={[
-        "flex items-start gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-        isNew ? "border border-accent/40 bg-accent/5 text-text" : "text-text opacity-50",
+        "flex min-w-[210px] flex-1 items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors",
+        isNew ? "border-accent/50 bg-accent/5 text-text" : "border-border text-text opacity-50",
       ].join(" ")}
       aria-label={`${event.event}${event.project ? ` en ${event.project}` : ""}, ${relativeLabel}`}
     >
-      {/* New indicator dot */}
-      {isNew && (
-        <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-accent" aria-hidden="true" />
-      )}
+      {/* Event marker — accent dot for new, neutral for dimmed (icon stand-in) */}
+      <span
+        className={["h-2 w-2 shrink-0 rounded-full", isNew ? "bg-accent" : "bg-text3"].join(" ")}
+        aria-hidden="true"
+      />
 
       <div className="min-w-0 flex-1">
-        <p className="truncate font-medium leading-snug">
+        <p className="truncate font-medium leading-tight">
           {event.event}
           {event.project && <span className="ml-1 font-normal opacity-70">· {event.project}</span>}
         </p>
-        <p className="mt-0.5 text-xs opacity-60">{relativeLabel}</p>
+        <p className="mt-0.5 truncate text-xs opacity-60">{relativeLabel}</p>
       </div>
     </li>
   );
@@ -222,7 +231,7 @@ export function Digest({ events, nowMs: nowMsProp }: DigestProps): React.JSX.Ele
       {/* New events list (AC-18-001.3) — capped at MAX_NEW_EVENTS to prevent visual runaway */}
       {newEvents.length > 0 && (
         <>
-          <ul aria-label="Eventos nuevos" className="space-y-1">
+          <ul aria-label="Eventos nuevos" className="flex flex-wrap gap-2">
             {withUniqueKeys(newEvents).map(({ item, key }) => (
               <DigestItemRow key={key} item={item} />
             ))}
@@ -252,7 +261,7 @@ export function Digest({ events, nowMs: nowMsProp }: DigestProps): React.JSX.Ele
               Últimas 24 h
             </p>
           )}
-          <ul aria-label="Actividad en las últimas 24 horas" className="space-y-1">
+          <ul aria-label="Actividad en las últimas 24 horas" className="flex flex-wrap gap-2">
             {withUniqueKeys(last24h).map(({ item, key }) => (
               <DigestItemRow key={key} item={item} />
             ))}
