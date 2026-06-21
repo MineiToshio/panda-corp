@@ -3,7 +3,7 @@
 project: "Pandacorp"
 phase: implementation
 version: v1
-overlay_version: "8.29.0"
+overlay_version: "8.33.0"
 created_with: "6.0.0"
 running: false
 run_started_at: "2026-06-21T03:17:31Z"

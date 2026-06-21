@@ -30,6 +30,7 @@ const MAX_SPEND = (args && args.maxSpend) || null      // output-token ceiling v
 const MAX_AGENTS = (args && args.maxAgents) || null     // hard cap on subagents spawned this run — the RELIABLE spend brake (each implementer/reviewer ≈ work ≈ tokens), counted INSIDE the engine, independent of budget.spent AND of the supervisor surviving. THE real guardrail.
 const MAX_CONSECUTIVE_BLOCKS = (args && args.maxConsecutiveBlocks) || 3   // health breaker: N non-external blocks in a row → stop (something is systemically wrong)
 const FOUNDATION_REPAIR_CAP = (args && args.foundationRepairCap) || 2   // DR-065: bounded auto-repair of an incomplete foundation — after N failed auto-repairs of the SAME class, escalate to the owner instead of looping/burning budget
+const MAX_REOPENS = (args && args.maxReopens) || 3   // DR-072 NON-PROGRESS STOP: a WO reopened this many times across runs (same gate fault not resolving) → BLOCK needs-owner instead of grinding forever. "Refuse to treat repeated failure as progress" — the gate can't be satisfied autonomously, the owner must look.
 let agentSpawned = 0   // running count of subagents spawned (the maxAgents brake)
 let foundationRepairs = 0   // DR-065: how many foundation auto-repairs we've spent this run (capped by FOUNDATION_REPAIR_CAP)
 // DR-070: the maxAgents brake, checked at EVERY safe point (FRD boundary AND each build-wave boundary)
@@ -48,7 +49,11 @@ const PROFILES = {
   deep:     { wave: 6, worker: 'opus',   judge: 'opus',   split: true  },
 }
 const P = PROFILES[MODE] || PROFILES.balanced
-log(`Mode ${MODE} · wave ≤${P.wave} · maxFrds ${MAX_FRDS === Infinity ? 'sin tope (corre hasta terminar)' : MAX_FRDS} · workers ${P.worker} · judge ${P.judge}`)
+// DR-072 R2 — make a silently-dropped `args` VISIBLE: if the launcher passed args as a STRING (the
+// Workflow-tool serialization bug seen 2026-06-19), `args.maxAgents`/`mode`/`frds` all read as undefined
+// and a "bounded" overnight run silently goes UNBOUNDED in powerful mode. Surface it loudly at start.
+if (args && typeof args !== 'object') log(`⚠⚠ args arrived as a ${typeof args}, NOT an object — mode/maxAgents/maxFrds were DROPPED. This run is UNBOUNDED. Stop and relaunch passing args as a JSON object (DR-072 R2).`)
+log(`Mode ${MODE} · wave ≤${P.wave} · maxFrds ${MAX_FRDS === Infinity ? 'sin tope' : MAX_FRDS} · maxAgents ${MAX_AGENTS || 'OFF (sin freno de presupuesto!)'} · workers ${P.worker} · judge ${P.judge}`)
 
 // Party telemetry. `ctx` enriches the event so the Party views can be faithful to the run
 // WITHOUT inventing anything: frd (which feature), phase ('build'|'review'), activity (the
@@ -174,7 +179,7 @@ log(`${plan.frds.length} FRDs with pending work · stack ${plan.stack}${plan.has
 // of a build diverging from an approved prototype. For a web build, inject the binding visual refs
 // + the in-loop fidelity check into every UI work order's prompt (the agent reads the files itself).
 const designRef = (frd) => plan.hasFrontend
-  ? ` VISUAL FIDELITY (DR-054/056, web — do NOT skip): OPEN this work order's \`## Visual reference\`, then read \`docs/frds/${frd}/fdd.md\` + its \`mocks/\` (the BINDING screen mock — view the screenshot AND the mock's source) and \`docs/design/design-tokens.json\` + root \`DESIGN.md\`. Your job is to TRANSLATE that one screen's mock into the project's components on the frozen tokens — reproduce its layout, structure, spacing, components and density; do NOT approximate, invent, or restyle. THEN run the IN-LOOP fidelity check BEFORE marking IN_REVIEW: render the route (preview/Playwright), screenshot it, place it next to the mock, fix the divergences — repeat up to 3 cycles. A screen that does not visually match its mock is NOT done (the FRD gate's visual layer will reject it).`
+  ? ` VISUAL FIDELITY (DR-054/056, web — do NOT skip): OPEN this work order's \`## Visual reference\`, then read \`docs/frds/${frd}/fdd.md\` + its \`mocks/\` (the BINDING screen mock — view the screenshot AND the mock's source) and \`docs/design/design-tokens.json\` + root \`DESIGN.md\`. Your job is to TRANSLATE that one screen's mock into the project's components on the frozen tokens — reproduce its layout, structure, spacing, components and density; do NOT approximate, invent, or restyle. THEN run a SINGLE LIGHT in-loop fidelity check BEFORE marking IN_REVIEW (DR-072 — keep it cheap; the thorough pass is at the end): render the route ONCE (preview/Playwright), screenshot it next to the mock, and fix ONLY a GROSS structural divergence (wrong layout, a missing section) — do NOT iterate on nits (exact sizes/spacing/shades): the dedicated end-of-build Visual QA pass owns fine fidelity, so don't pay that loop twice. Aim for a RECOGNIZABLE, faithful match (right layout, structure, components, density), NOT pixel-perfection. The FRD gate blocks only a GROSS structural mismatch (a flat list where the mock is a rich layout, a missing section); small nits (exact sizes/spacing/shades) are swept later by the end-of-build Visual QA pass + the owner (DR-072) — so get it recognizably right and move on, don't burn cycles chasing the last pixel.`
   : ''
 
 // Reuse & coherence (DR-057): parallel agents reinvent slightly-different versions of the same
@@ -215,13 +220,20 @@ async function buildWO(wo, frd) {
 async function frdGate(frd, reviewIds) {
   agentSpawned++
   return await agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'gate' })}FRD review + integration gate for ${frd}. Review the work orders built/changed THIS cycle: ${reviewIds.join(', ')} (all IN_REVIEW). This FRD MAY already have OTHER work orders VERIFIED from a previous run — treat those as a stable foundation: exercise them in integration, but do NOT re-review them and NEVER change their state.
-  1) Review the changed work orders with your 3 lenses (correctness/security/quality) and write adversarial tests the implementers did not see (anchored in EARS + real bugs), exercising them TOGETHER with the rest of the feature (real integration, not isolated).
+
+  **THE GATE IS SPLIT (DR-072) — this is what makes the build converge instead of churning. Two categories with DIFFERENT consequences:**
+  • **CORRECTION (BLOCKING — your hard gate):** correctness, **requirements/acceptance criteria met** (the EARS AC of FRD ${frd} — the required behavior/sections/elements EXIST and work), security, no genuine DUPLICATE of an existing shared primitive (DR-057), and **GROSS visual-structural mismatch** (the surface is not RECOGNIZABLY the designed thing — e.g. a flat text list where the mock shows a multi-panel/pixel-art layout; a section missing entirely). These BLOCK.
+  • **VISUAL-FIDELITY NITS (ADVISORY — do NOT block, do NOT reopen):** sizing (15px vs 16px), spacing, exact color/shade, minor density/polish, "doesn't match the mock 100%". A pixel-judge is noisy; rejecting on nits is the #1 cause of the build never finishing. **NEVER reopen a WO for a nit.** Instead APPEND each nit to the punch-list \`.pandacorp/comms/visual-punch-list.md\` (one line: \`- [ ] ${frd} · <route> · <the gap, e.g. "heading is 15px, design tokens say 16px"> · <file:approx-line if known>\`). The dedicated end-of-build Visual QA pass + the owner sweep these directly — they do not gate VERIFIED. Scope yourself to CORRECTION + GROSS only; **flag, don't fix, don't reject** the rest (an over-broad reviewer reporting every gap HARMS convergence — research-backed).
+
+  1) Review the changed work orders for CORRECTION (the blocking lenses above) and write adversarial tests the implementers did not see (anchored in EARS + real bugs), exercising them TOGETHER with the rest of the feature (real integration, not isolated).
   2) Run the FOCUSED gate \`bash .pandacorp/verify.sh --since <last_green_sha>\` (read last_green_sha from .pandacorp/status.yaml) — biome + tsc run globally, but only the TESTS affected since the last green (fast and scales; the full suite runs once at close-out). It must pass clean.
-  If everything passes: set the reviewed work orders (${reviewIds.join(', ')}) to **\`implementation_status: VERIFIED\`**, then **recompute the FRD's frd.md + blueprint.md \`implementation_status\` rollup from ALL its work orders** and persist it (VERIFIED iff all are; else BLOCKED if any blocked; else PLANNED if any planned; else IN_PROGRESS if any in progress; else IN_REVIEW) — the FRD status is DERIVED, never left stale; update .pandacorp/status.yaml (per-status counts + last_green_sha + safe_to_test:true + **advance \`last_event_at\` and \`updated_at\` to now, ISO 8601 — the DR-066 producer freshness stamp, so a monitor never reads a frozen heartbeat as live**), and commit. Return { green: true }.
-  If a SPECIFIC reviewed work order is wrong, set ONLY those (from the reviewed set) back to \`implementation_status: PLANNED\` (leave the rest IN_REVIEW; never touch an already-VERIFIED one). **DR-070 — discard the rejected WO's committed code so it does NOT pollute sibling FRDs' GLOBAL gate (biome/tsc/knip run whole-project; a rejected surface's dead exports/warnings turn EVERY later FRD's gate RED — this is what blocked clean siblings last run): for EACH reopened WO revert its files to the last green — \`git checkout <last_green_sha> -- <its files that existed at last_green>\` and \`git rm\` any files the WO newly created. NEVER a hard reset of the whole tree (that would discard verified siblings).** Commit the status change + the revert together, and return { green: false, reopen: [those ids], failure } — the engine retries them on the next run, not in a loop.
-  **DR-065 — missing foundation primitive:** if a surface looks FLAT / fails visual fidelity because a SHARED design-system primitive it needs is NOT built (it isn't in src/components nor docs/design/components.md — e.g. the mock shows a Room/AgentSprite/StoneBridge the foundation never built), do NOT block and do NOT just reopen — return { green: false, missingFoundation: [the primitive names], failure }. The engine auto-repairs the foundation (adds the primitive) and rebuilds the surfaces against it — this is exactly the case it can resolve itself, so flag it instead of escalating.
-  If it's broken and you can't pinpoint specific WOs, return { green: false, failure, blocked_reason } (classify: 'needs-owner' if a human must act, 'external' if it's a transient outside failure, else 'error').${NOTIFY('FRD ' + frd + ' no paso la revision — necesita tu atencion')}`,
-    { label: `gate:${frd}`, phase: 'Review', model: P.judge, agentType: 'pandacorp:reviewer', schema: FRD_GATE_SCHEMA })
+
+  **If CORRECTION passes (visual nits, if any, go to the punch-list — they do NOT block):** set the reviewed work orders (${reviewIds.join(', ')}) to **\`implementation_status: VERIFIED\`** and **reset their \`reopen_count: 0\`** (the non-progress counter measures CONSECUTIVE unresolved reopens — clearing it on success so a future unrelated change/iterate starts fresh, not pre-capped, DR-072 C2), then **recompute the FRD's frd.md + blueprint.md \`implementation_status\` rollup from ALL its work orders** and persist it (VERIFIED iff all are; else BLOCKED if any blocked; else PLANNED if any planned; else IN_PROGRESS if any in progress; else IN_REVIEW) — the FRD status is DERIVED, never left stale; update .pandacorp/status.yaml (per-status counts + last_green_sha + safe_to_test:true + **advance \`last_event_at\` and \`updated_at\` to now, ISO 8601 — the DR-066 producer freshness stamp**), and commit. Return { green: true }.
+
+  **If a SPECIFIC reviewed work order fails CORRECTION (a real bug / missing requirement / gross-structural miss):** check that WO's frontmatter \`reopen_count\` (default 0). **DR-072 NON-PROGRESS STOP — if it is already ≥ ${MAX_REOPENS}, do NOT reopen again** (the same fault is not resolving autonomously): set it \`implementation_status: BLOCKED\` + \`blocked_reason: needs-owner\`, append to .pandacorp/inbox/decisions.md (what the gate keeps rejecting, your diagnosis, your recommendation), and return { green: false, reopen: [], blocked_reason: 'needs-owner', failure: 'reopened ${MAX_REOPENS}x, gate not satisfiable autonomously' }. **Otherwise reopen:** set ONLY those (from the reviewed set) back to \`implementation_status: PLANNED\`, **increment their \`reopen_count\`** (so the cap above can fire next time), leave the rest IN_REVIEW, never touch an already-VERIFIED one. **DR-070 — discard the rejected WO's committed code so it does NOT pollute sibling FRDs' GLOBAL gate: for EACH reopened WO revert its files to the last green — \`git checkout <last_green_sha> -- <its files that existed at last_green>\` and \`git rm\` any files the WO newly created. NEVER a hard reset of the whole tree.** Commit the status change + the revert together, and return { green: false, reopen: [those ids], failure } — the engine retries them on the next run, not in a loop.
+  **DR-065 — missing foundation primitive:** if a surface looks FLAT / structurally wrong because a SHARED design-system primitive it needs is NOT built (it isn't in src/components nor docs/design/components.md — e.g. the mock shows a Room/AgentSprite/StoneBridge the foundation never built), do NOT block and do NOT just reopen — return { green: false, missingFoundation: [the primitive names], failure }. The engine auto-repairs the foundation and rebuilds the surfaces against it.
+  If it's broken and you can't pinpoint specific WOs, return { green: false, failure, blocked_reason } (classify: 'needs-owner' if a human must act, 'external' if it's a transient outside failure, else 'error').${NOTIFY('FRD ' + frd + ' no paso la revision (correccion) — necesita tu atencion')}`,
+    { label: `gate:${frd}`, phase: 'Review', model: P.judge, effort: 'xhigh', agentType: 'pandacorp:reviewer', schema: FRD_GATE_SCHEMA })
 }
 
 // ── Repair pass: TRY TO FIX before giving up (owner's rule, DR-050) ────────────
@@ -236,7 +248,7 @@ async function attemptRepair(frd, context) {
      - 'needs-owner' → it needs a HUMAN action/decision the agent can't take: a missing env var or secret, an external account/service to set up, a product decision. ALSO append it to .pandacorp/inbox/decisions.md (what's blocked, the options, your recommendation).
      - 'external' → a transient OUTSIDE failure (no internet, an upstream 5xx) — worth a retry on a later run, not our bug.
      - 'error' → a technical failure you could not resolve.`,
-    { label: `repair:${frd}`, phase: 'Review', model: P.judge, agentType: 'pandacorp:implementer', schema: REPAIR_SCHEMA })
+    { label: `repair:${frd}`, phase: 'Review', model: P.judge, effort: 'xhigh', agentType: 'pandacorp:implementer', schema: REPAIR_SCHEMA })
 }
 
 // ── Foundation-completeness gate (DR-057 extended) ────────────────────────────
@@ -266,7 +278,7 @@ async function repairFoundation(missing, context) {
   const list = (missing || []).map((m) => `${m.name}${m.referencedBy && m.referencedBy.length ? ' (needed by ' + m.referencedBy.join(', ') + ')' : ''}${m.suggestedPath ? ' → ' + m.suggestedPath : ''}`).join('; ')
   return await agent(
     `${EMIT('implementer', 'foundation', { phase: 'build', activity: 'repair' })}FOUNDATION AUTO-REPAIR (DR-065), attempt ${foundationRepairs}/${FOUNDATION_REPAIR_CAP}. ${context}. The foundation is INCOMPLETE — these shared primitives that surfaces need are NOT built: ${list || '(see the gate output)'}.
-    1) Reset to the last green: \`git reset --hard <last_green_sha>\` (read last_green_sha from .pandacorp/status.yaml) so you discard the flat half-built surfaces, NOT the verified foundation.
+    1) Reset to the last green — SAFELY (DR-072 R3, this prevents wiping verified work): read last_green_sha from .pandacorp/status.yaml, then FIRST verify it is an ANCESTOR of HEAD: \`git merge-base --is-ancestor <last_green_sha> HEAD && echo ANCESTOR || echo ORPHAN\`. **If ANCESTOR:** \`git reset --hard <last_green_sha>\` to discard the flat half-built surfaces (NOT the verified foundation). **If ORPHAN** (the SHA drifted off-branch via reverts / factory commits / an overlay upgrade — a real footgun seen 2026-06-20): do NOT hard-reset (it would discard verified work). Instead surgically discard ONLY the failed surfaces' files — \`git checkout HEAD -- <those surface files>\` and \`git clean -fd <their new dirs>\` — keeping HEAD and every verified commit. If you cannot safely identify exactly which files to discard, STOP: return { green: false, blocked_reason: 'needs-owner', failure: 'last_green_sha orphaned — a hard reset would wipe verified work; the owner must confirm the recovery point' }.
     2) For EACH missing primitive: build it as a SHARED foundation component on the frozen design tokens, faithful to its mock/fdd spec (read docs/frds/*/mocks + docs/design/design-tokens.json + DESIGN.md); place it under src/components/core or src/components/modules; APPEND a row to docs/design/components.md so surfaces reuse it. TDD; never weaken tests.
     3) Run \`bash .pandacorp/verify.sh\` until green and commit (Conventional Commits, scope). The surfaces that depended on these primitives stay PLANNED so the normal loop rebuilds them next — now against REAL primitives.
     Return { green: true } if the foundation is now complete + green. If you genuinely cannot (low confidence, the gap is really a design/product decision, or it's beyond a primitive add), return { green: false, blocked_reason: 'needs-owner', failure } describing what a human must decide.${NOTIFY('Auto-reparé la fundación (faltaban primitivos) y reconstruyo las superficies')}`,
@@ -427,6 +439,17 @@ for (const f of plan.frds) {
     log(`⊘ ${f.frd}: foundation auto-repair failed — falling through to block`)
   }
 
+  // DR-072 C1 — the gate already CLASSIFIED a block (needs-owner from the reopen-cap / a human decision,
+  // or external/transient): do NOT waste a repair pass + a second xhigh re-gate on it (a human or an
+  // outside fix is required — a repair can't help). This is what makes the non-progress stop actually
+  // STOP instead of grinding another full cycle per capped FRD every run. 'error' still falls through to repair.
+  if (gate && (gate.blocked_reason === 'needs-owner' || gate.blocked_reason === 'external')) {
+    log(`⊘ ${f.frd}: gate classified ${gate.blocked_reason}${gate.failure ? ' — ' + gate.failure : ''} — blocking (no repair)`)
+    blockFrd(f.frd, gate.blocked_reason)
+    if (consecutiveBlocks >= MAX_CONSECUTIVE_BLOCKS) { stopReason = 'blocks'; break }
+    continue
+  }
+
   // Gate failed with no specific reopen → TRY TO REPAIR, then re-gate ONCE (fail-closed).
   log(`! ${f.frd} gate failed${gate?.failure ? ': ' + gate.failure : ''} — attempting repair`)
   const fix = await attemptRepair(f.frd, 'the FRD review/integration gate failed: ' + (gate?.failure || 'unknown'))
@@ -440,6 +463,24 @@ for (const f of plan.frds) {
   if (consecutiveBlocks >= MAX_CONSECUTIVE_BLOCKS) { stopReason = 'blocks'; break }
 }
 
+// ── End-of-build VISUAL QA pass (DR-072) ──────────────────────────────────────
+// The fidelity work consolidated into ONE dedicated phase, OUTSIDE the convergence loop, so being
+// thorough here can't cause the churn a per-FRD fidelity BLOCK would. Scoped to the FRDs touched THIS
+// run. PUNCH-LIST + bounded DIRECT fixes — NEVER a reject-to-rebuild. The owner sweeps the residual.
+if (plan.hasFrontend && builtFrds.length) {
+  phase('Review')
+  agentSpawned++
+  await agent(`${EMIT('reviewer', 'visual-qa', { phase: 'review', activity: 'visual-qa' })}END-OF-BUILD VISUAL QA (DR-072) — the dedicated fidelity pass, scoped to the FRDs VERIFIED this run: ${builtFrds.join(', ')}. This is a PUNCH-LIST + bounded DIRECT fixes, NOT a re-gate: NEVER reopen a work order or send anything back to the build loop (that restarts the churn). Compare, list, fix the cheap ones, leave the rest for the owner.
+  For EACH of those FRDs, for each key route:
+  1) Render the route (start the dev server if needed) and screenshot it; open the BINDING mock (docs/frds/<frd>/mocks/ — screenshot AND source), fdd.md, docs/design/design-tokens.json, DESIGN.md.
+  2) Compare SEMANTICALLY (does the build look like the design?): layout, structure, spacing, sizing, colors/tokens, component reuse, density. Write every divergence to \`.pandacorp/comms/visual-punch-list.md\` (merge + dedupe with what the per-FRD gates already appended), one line each: \`- [ ] <frd> · <route> · <gap> · <file:line if known>\`.
+  3) FIX the cheap, unambiguous ones DIRECTLY (a token/size/spacing/color/class correction against the EXISTING design docs — the doc already specified it, the build implemented it wrong; NO doc change). Check them off. Leave ambiguous/large gaps UNCHECKED for the owner. Bound your fixes (don't grind to perfection — the owner does the final polish).
+  4) After fixing, run the FULL \`bash .pandacorp/verify.sh\` to confirm no regression; if a fix broke a test, revert THAT one fix (keep the rest) and re-run. Commit (e.g. \`style(visual-qa): sweep punch-list for ${builtFrds.slice(0, 3).join(', ')}\`). Advance status.yaml last_event_at + updated_at + kill any dev server with TaskStop.
+  Return { done: true } once the punch-list is written, safe fixes committed, and verify is green.${NOTIFY('QA Visual: punch-list generado + arreglos seguros aplicados', 'Glass')}`,
+    { label: 'visual-qa', phase: 'Review', model: P.judge, effort: 'high', agentType: 'pandacorp:reviewer', schema: { type: 'object', required: ['done'], properties: { done: { type: 'boolean' } } } })
+  log(`Visual QA pass done over ${builtFrds.length} FRD(s) — see .pandacorp/comms/visual-punch-list.md`)
+}
+
 // ── Close-out + ALWAYS notify the owner how this run ended ────────────────────
 phase('Review')
 const STOP_SCHEMA = { type: 'object', required: ['done'], properties: { done: { type: 'boolean' } } }
@@ -448,7 +489,7 @@ const allDone = !stopReason && blockedFrds.length === 0 && reopenedFrds.length =
 let closed
 if (allDone) {
   closed = await agent(`All FRDs are VERIFIED — now the CROSS-FEATURE INTEGRATION REVIEW (DR-060): the seam check the per-FRD gates CANNOT do (each only sees its own feature). The dominant failure of parallel builds is at the seams BETWEEN features — every component correct in isolation, broken together. Trace the data flow ACROSS feature boundaries and verify every producer/consumer pair actually AGREES: each consumer's expectations vs its provider's \`docs/api/<wo-id>.md\` contract (field names, data shapes, formats, units, status codes, routes), shared types/enums used consistently across features, and NO two features that shipped duplicate or divergent versions of the same component/util (cross-check \`docs/design/components.md\`). THEN run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since — includes the smoke + visual gates) and kill any test dev servers with TaskStop. If a cross-feature seam is wrong, reopen the offending work order (set it \`implementation_status: PLANNED\`) and return done:false with the finding. If everything integrates AND the full suite is green: set .pandacorp/status.yaml phase: release and running: false. Return done:true once status.yaml is written.${NOTIFY('Build COMPLETO: FRDs verificados + integracion cross-feature OK', 'Glass')}`,
-    { label: 'close-out', phase: 'Review', model: P.judge, agentType: 'pandacorp:reviewer', schema: STOP_SCHEMA })
+    { label: 'close-out', phase: 'Review', model: P.judge, effort: 'xhigh', agentType: 'pandacorp:reviewer', schema: STOP_SCHEMA })
   log('Run ended: all FRDs verified.')
 } else {
   const blk = blockedFrds.map((x) => `${x}(${blockedReasons[x]})`).slice(0, 8).join(', ') || 'ninguno'
