@@ -1,28 +1,33 @@
 /**
- * RecoveryHint — Path-not-found badge + copyable recovery command (CMP-03-recovery).
+ * RecoveryHint — Path-not-found signal + copyable recovery command (CMP-03-recovery).
  *
- * Rendered on a project row whose `exists === false`. Shows the ⚠️ path not found badge
- * and either:
- *   - a copyable `git clone <repo> <path> && /pandacorp:sync-portfolio` command (repo present)
+ * Refactored (WO-03-002, DR-057) to delegate visual structure to the shared
+ * Banner primitive (CMP-13-banner) and CmdRow (CMP-13-cmdrow) — no bespoke
+ * banner box style. The visual shell is Banner (tone="danger", role="alert");
+ * the recovery command uses CmdRow (the THE command-chip primitive).
+ *
+ * Rendered on a project row whose `exists === false`. Shows the ⚠️ path not
+ * found signal and either:
+ *   - a copyable `git clone <repo> <path> && /pandacorp:sync-portfolio` via CmdRow
  *   - a no-remote warning with /pandacorp:spec suggestion (no repo)
  *
- * When `exists === true`, renders nothing (badge cleared automatically on next read — no
- * stored state, AC-03-006.6).
+ * When `exists === true`, renders nothing (badge cleared automatically on next
+ * read — no stored state, AC-03-006.6).
  *
  * Design rules (FRD-13, AGENTS.md):
- *   - ZERO hardcoded colors — all values via CSS custom properties.
+ *   - ZERO hardcoded colors — Banner + CmdRow own all color tokens.
  *   - Spanish user-facing copy.
  *   - Server Component safe — no hooks, no browser APIs.
- *   - data-testid="recovery-hint" on root; "recovery-hint-badge", "recovery-hint-command",
- *     "recovery-hint-no-repo" on sub-elements.
+ *   - data-testid="recovery-hint" on root wrapper.
  *
  * Traceability:
  *   CMP-03-recovery → AC-03-006.2, AC-03-006.3, AC-03-006.4, AC-03-006.5, AC-03-006.6
  *   REQ-03-006
- *   Reuses CMP-02-copy-button (components/CopyButton.tsx).
+ *   Reuses CMP-13-banner (Banner) + CMP-13-cmdrow (CmdRow) — DR-057.
  */
 
-import { CopyButton } from "@/components/core/CopyButton/CopyButton";
+import { Banner } from "@/components/core/Banner/Banner";
+import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -38,61 +43,19 @@ export interface RecoveryHintProps {
 }
 
 // ---------------------------------------------------------------------------
-// Styles — CSS custom properties only; zero hardcoded hex/rgb/hsl values.
+// Styles — root wrapper only; visual chrome delegated to Banner.
 // ---------------------------------------------------------------------------
 
-const BADGE_STYLE: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  padding: "0.125rem 0.375rem",
-  borderRadius: "calc(var(--radius, 0.5rem) * 0.5)",
-  fontSize: "0.6875rem",
-  fontWeight: 700,
-  background: "var(--color-error, currentColor)",
-  color: "var(--color-on-error, Canvas)",
-  border: "none",
+/** Root wrapper — no visual chrome (Banner owns it). */
+const HINT_WRAPPER_STYLE: React.CSSProperties = {
+  marginTop: "calc(var(--space-base, 1rem) * 0.375)",
 };
 
-const HINT_BOX_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "calc(var(--space-base, 1rem) * 0.375)",
-  padding: "calc(var(--space-base, 1rem) * 0.5)",
-  background: "var(--color-surface, Canvas)",
-  border: "var(--hairline, 1px) solid var(--color-border, currentColor)",
-  borderRadius: "calc(var(--radius, 0.5rem) * 0.75)",
+/** No-repo warning text (inside Banner children). */
+const NO_REPO_STYLE: React.CSSProperties = {
+  margin: "calc(var(--space-base, 1rem) * 0.25) 0 0",
   fontSize: "0.75rem",
-};
-
-const LABEL_STYLE: React.CSSProperties = {
-  fontSize: "0.6875rem",
-  fontWeight: 600,
   color: "var(--color-text, currentColor)",
-  opacity: 0.65,
-  margin: 0,
-};
-
-const COMMAND_ROW_STYLE: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "calc(var(--space-base, 1rem) * 0.375)",
-  flexWrap: "wrap",
-};
-
-const CODE_STYLE: React.CSSProperties = {
-  fontFamily: "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace",
-  fontSize: "0.75rem",
-  fontWeight: 600,
-  color: "var(--color-accent, currentColor)",
-  flex: 1,
-  wordBreak: "break-all",
-  minWidth: 0,
-};
-
-const WARNING_STYLE: React.CSSProperties = {
-  fontSize: "0.75rem",
-  color: "var(--color-error, currentColor)",
-  margin: 0,
   lineHeight: 1.5,
 };
 
@@ -101,12 +64,16 @@ const WARNING_STYLE: React.CSSProperties = {
 // ---------------------------------------------------------------------------
 
 /**
- * RecoveryHint — path-not-found badge + recovery command.
+ * RecoveryHint — path-not-found Banner + recovery CmdRow.
  *
- * Renders nothing when `exists === true` (AC-03-006.6: badge clears once the path
- * reappears — no state stored, re-derived on next read).
+ * Uses the shared Banner (CMP-13-banner, tone="danger") for the visual shell
+ * and CmdRow (CMP-13-cmdrow) for the copyable recovery command.
+ * DR-057: no bespoke banner box — one Banner in the app.
  *
- * Read-only (AC-03-006.5): the recovery is copyable text only. MC never clones,
+ * Renders nothing when `exists === true` (AC-03-006.6: badge clears once the
+ * path reappears — no state stored, re-derived on next read).
+ *
+ * Read-only (AC-03-006.5): recovery is copyable text only. MC never clones,
  * never writes the portfolio, never calls Claude.
  */
 export function RecoveryHint({ exists, path, repo }: RecoveryHintProps): React.JSX.Element | null {
@@ -118,34 +85,32 @@ export function RecoveryHint({ exists, path, repo }: RecoveryHintProps): React.J
   const cloneCommand = hasRepo ? `git clone ${repo} ${path} && /pandacorp:sync-portfolio` : null;
 
   return (
-    <div data-testid="recovery-hint" style={HINT_BOX_STYLE}>
-      {/* ⚠️ path not found badge (AC-03-006.2) */}
-      <span
-        data-testid="recovery-hint-badge"
-        style={BADGE_STYLE}
-        role="status"
-        aria-label="Ruta no encontrada en disco"
-      >
-        ⚠ ruta no encontrada
-      </span>
-
+    <div data-testid="recovery-hint" style={HINT_WRAPPER_STYLE}>
       {hasRepo && cloneCommand !== null ? (
-        /* repo present → copyable git clone + sync command (AC-03-006.3) */
-        <>
-          <p style={LABEL_STYLE}>Recuperación (solo lectura):</p>
-          <div style={COMMAND_ROW_STYLE}>
-            <code data-testid="recovery-hint-command" style={CODE_STYLE}>
-              {cloneCommand}
-            </code>
-            <CopyButton value={cloneCommand} label="Copiar" />
-          </div>
-        </>
+        /*
+         * repo present → Banner (danger) + CmdRow for the clone+sync command.
+         * AC-03-006.2: ⚠ ruta no encontrada signal via Banner heading (role="alert").
+         * AC-03-006.3: copyable git clone + sync command via CmdRow.
+         */
+        <Banner
+          tone="danger"
+          kind="error"
+          heading="⚠ ruta no encontrada"
+          detail="Recuperación (solo lectura):"
+        >
+          <CmdRow command={cloneCommand} />
+        </Banner>
       ) : (
-        /* no repo → no-remote warning (AC-03-006.4) */
-        <p data-testid="recovery-hint-no-repo" style={WARNING_STYLE}>
-          Sin repositorio registrado — revisa un respaldo local o recrea con{" "}
-          <code style={{ fontFamily: "monospace" }}>/pandacorp:spec</code>.
-        </p>
+        /*
+         * no repo → Banner (danger) with no-remote warning in children.
+         * AC-03-006.4: warning shown when no remote registered.
+         */
+        <Banner tone="danger" kind="error" heading="⚠ ruta no encontrada">
+          <p data-testid="recovery-hint-no-repo" style={NO_REPO_STYLE}>
+            Sin repositorio registrado — revisa un respaldo local o recrea con{" "}
+            <code style={{ fontFamily: "monospace" }}>/pandacorp:spec</code>.
+          </p>
+        </Banner>
       )}
     </div>
   );

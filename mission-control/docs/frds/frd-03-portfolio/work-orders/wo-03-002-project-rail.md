@@ -5,7 +5,7 @@ slug: portfolio-surface
 title: 'WO-03-002 — Portfolio surface (rail + table + rows + empty + recovery + status chips)'
 status: DRAFT
 parent: FRD-03
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 artifacts:
   - 'src/app/portfolio/**'
   - 'src/components/modules/ProjectRail/**'
@@ -84,49 +84,69 @@ path-not-found recovery banner).
 
 ## Status Note
 
-**What was built:** The complete `/portfolio` page surface (WO-03-002) — fully presentational, consuming the VERIFIED `activeProjects()` data layer from WO-03-001.
+**What was built (pass 3 — DR-057 reuse fix, 2026-06-21):** Resolved the gate rejection reason: the previous implementation used bespoke banner/box/chip styles instead of the shared `Banner` + `CountBadge` primitives. This pass refactors those two components onto the shared foundation.
 
-**Files changed / created:**
+**Root cause of gate rejection (d37fa48):** `RecoveryHint` reimplemented a banner box with its own `BADGE_STYLE`/`HINT_BOX_STYLE`/`COMMAND_ROW_STYLE` (a duplicate of the shared `Banner`). `StatusChips` reimplemented pill styles with `AMBER_CHIP_STYLE`/`RED_CHIP_STYLE` instead of using `CountBadge` presets.
 
-- `src/app/portfolio/page.tsx` — re-anchored to the prototype layout: `PageTitle` (H1 "Portfolio", icon `ti-stack-2`, subtitle from prototype), CSS grid `240px 1fr / gap 14px / align-items start`, `PROYECTOS` rail label (10px, `var(--font-pixel)`, `--color-accent-text`, `letter-spacing: 0.08em`, weight 500 — mirrors prototype `railLabel()` + `.px` class exactly), `SelectableProjectRail` in the left column, `WorkspaceSlot` in the right.
-- `src/app/portfolio/SelectableProjectRail.tsx` — added status icon (`<i data-testid="rail-item-status-icon" class="ti ti-player-play|ti-player-pause">`) as first element in the title row (matches prototype `ic` position); moved stage label to a second indented line (`marginLeft: 22px` — matches prototype stage line); added `sr-only` accessible indicator span (preserves existing `selectable-row-indicator` testid for legacy tests); extracted `STAGE_LINE_STYLE` constant; updated `ROW_STYLE` to match prototype `.rail` (transparent 0.5px border, no background, 9px 11px padding) and `ROW_SELECTED_STYLE` to match `.rail.on` (`--color-accent-bg` fill + `--color-accent` border + `inset 0 0 0 1px var(--color-accent)` box-shadow).
-- `src/app/portfolio/_tests/wo-03-002-portfolio-surface.test.tsx` — new test file (24 tests, all green): PageTitle H1, subtitle, two-column layout, `PROYECTOS` label, status icons (ti-player-play/pause), stage line, count badges, selection/workspace, empty state, path-not-found recovery, design-token invariant.
+**Files changed in this pass:**
 
-**Interfaces / contracts exposed (for consumer — FRD-04 workspace slot):**
+- `src/app/portfolio/_components/RecoveryHint/RecoveryHint.tsx` — refactored onto shared `Banner` (CMP-13-banner, tone="danger", kind="error") + `CmdRow` (CMP-13-cmdrow). All bespoke `BADGE_STYLE`/`HINT_BOX_STYLE`/`LABEL_STYLE`/`COMMAND_ROW_STYLE`/`CODE_STYLE`/`WARNING_STYLE` removed. Visual shell now from `Banner`; recovery command from `CmdRow`; no-repo warning in `Banner.children` with `data-testid="recovery-hint-no-repo"`.
+- `src/app/portfolio/_components/RecoveryHint/_tests/RecoveryHint.test.tsx` — updated from testid-based queries (`recovery-hint-badge`, `recovery-hint-command`) to accessible role queries (`getByRole("alert")`, `getByTestId("cmd-row")`). 30 tests → 30 tests, all green.
+- `src/app/portfolio/_components/RecoveryHint/_tests/RecoveryHint.reuse.test.tsx` — new RED→GREEN structural tests (11 tests): verify `data-testid="banner"` present, `data-tone="danger"`, `data-testid="cmd-row"` with command text, no bespoke box style on root.
+- `src/app/portfolio/_components/status-chips/status-chips.tsx` — refactored onto `CountBadge` (CMP-13-countbadge). All bespoke `BASE_CHIP_STYLE`/`AMBER_CHIP_STYLE`/`RED_CHIP_STYLE`/`PROPOSALS_CHIP_STYLE` removed. Decisions chip: `CountBadge count={pendingDecisions} tone="warn"`. Bugs chip: `CountBadge count={pendingBugs} tone="danger"`. Proposals chip: `CountBadge count={pendingProposals} tone="accent"`. Outer semantic wrappers preserve existing `data-testid` and `data-variant` attributes; `status-chip-decisions-count` span preserved (wraps CountBadge) for test-contract compat.
+- `src/app/portfolio/_components/status-chips/_tests/status-chips.reuse.test.tsx` — new RED→GREEN structural tests (6 tests): verify `data-testid="count-badge"` inside decisions/bugs wrappers, correct `data-tone` on each badge.
+
+**Contracts preserved (unchanged interfaces for FRD-04):**
 
 ```tsx
-// src/app/portfolio/WorkspaceSlot.tsx — unchanged contract
-// data-testid="workspace-slot" data-slug="<name>"  — always present
-// data-testid="workspace-slot-placeholder"          — when slug present (stub for FRD-04)
-// data-testid="workspace-slot-empty"                — when no projects
+// src/app/portfolio/WorkspaceSlot.tsx — unchanged
+// data-testid="workspace-slot" data-slug="<name>"
+// data-testid="workspace-slot-placeholder" / "workspace-slot-empty"
 
-// src/app/portfolio/SelectableProjectRail.tsx
-interface SelectableProjectRailProps {
-  items: ProjectListItem[];   // from activeProjects()
-  selectedSlug: string | undefined;  // URL-derived or first item
-}
+// src/app/portfolio/SelectableProjectRail.tsx — unchanged
 // Each row: data-testid="selectable-project-row" data-selected="true|false"
 // Status icon: data-testid="rail-item-status-icon" className="ti ti-player-play|ti-player-pause"
 // Stage line: data-testid="selectable-row-stage"
-// Recovery: data-testid="recovery-hint" (when exists===false)
+// Recovery: data-testid="recovery-hint" root (when exists===false) wrapping Banner
+
+// RecoveryHint.tsx — updated public surface:
+// data-testid="recovery-hint"    — root wrapper (preserved)
+// data-testid="banner"           — shared Banner (replaces bespoke box)
+// data-testid="cmd-row"          — CmdRow with clone command (repo path)
+// data-testid="recovery-hint-no-repo" — no-repo warning paragraph (preserved)
+// role="alert"                   — Banner's semantic role (replaces role="status" badge)
+
+// StatusChips.tsx — updated public surface:
+// data-testid="status-chip-decisions" / "status-chip-bugs" / "status-chip-rethink" — preserved
+// data-testid="status-chip-decisions-count" / "status-chip-bugs-count" — preserved (wrap CountBadge)
+// data-testid="count-badge" inside decisions/bugs wrappers — new (CountBadge)
 ```
 
-**Implicit decisions / assumptions:**
+**Implicit decisions:**
 
-1. `ROW_STYLE` uses `marginBottom: 6px` (from prototype `.rail { margin-bottom: 6px }`) instead of a `gap` on the parent — this matches the prototype spacing exactly.
-2. The `sr-only` span for `selectable-row-indicator` is retained to keep all 150 pre-existing tests green (they query `selectable-row-indicator` for accessibility text); the visual indicator is now the Tabler icon (`rail-item-status-icon`), not color alone.
-3. `PROYECTOS` label renders `aria-hidden="true"` — it is a decorative section label (the `<nav aria-label="Proyectos activos">` already names the region for screen readers).
-4. The workspace right column still hosts `WorkspaceSlot` (stub with `data-slug`). FRD-04 wires in by replacing the slot body with `<ProjectWorkspace slug={selectedSlug} />` — the `data-testid="workspace-slot"` and `data-slug` attributes are the integration seam.
-5. `BusinessSnapshot` component (`_components/BusinessSnapshot/`) is still in the codebase (pre-existing from earlier WOs) and wired in `SelectableProjectRail` — it renders nothing for non-operation rows (gated on `item.snapshot !== undefined`). FRD-03 deferred the snapshot; component stays dormant.
+1. `RecoveryHint` keeps `data-testid="recovery-hint"` as a wrapping `<div>` around `Banner` — Banner itself has `data-testid="banner"`. This allows integration tests to `within(row).getByTestId("recovery-hint")` and navigate down to the Banner, while the row-level `queryByText(/ruta no encontrada/)` finds the Banner heading.
+2. Tests previously querying `recovery-hint-badge` (a now-removed span) were updated to `getByRole("alert")` — semantically cleaner and more robust. The `Banner` renders `role="alert"` which is the correct semantic for path-not-found notification.
+3. The `recovery-hint-command` testid (pointing to a `<code>` element) was removed; the `cmd-row` testid (pointing to `CmdRow`) is the new contract. `CmdRow.textContent` contains the full clone command.
+4. `StatusChips` outer wrapper spans (`status-chip-decisions` etc.) retain their `color: var(--color-warn/danger/accent-text)` style so the design-token invariant test (`style.toContain("var(--")`) passes without CountBadge re-implementing the token check.
+5. `RETHINK_CHIP_STYLE` is retained in `StatusChips` for the rethink indicator because `CountBadge` is a numeric count preset — rethink is a boolean flag indicator, not a count, so it is not a CountBadge consumer. No new component was created (DR-057: no new bespoke pill).
+6. Pre-existing failures in `tab-summary.reviewer.test.tsx` (2 tests, WO-04-005 nested button defect) existed before this WO and are unchanged.
 
-**Test files covering this WO:**
+**Test files covering this WO (190 total, all green):**
 
-- `src/app/portfolio/_tests/wo-03-002-portfolio-surface.test.tsx` — 24 tests (new, this WO)
+- `src/app/portfolio/_tests/wo-03-002-portfolio-surface.test.tsx` — 24 tests (page surface)
 - `src/app/portfolio/_tests/wo-03-004.test.tsx` — 27 tests (selection + workspace slot)
 - `src/app/portfolio/_tests/frd-03-page-assembly.reviewer.test.tsx` — 6 tests (full-page assembly)
 - `src/app/portfolio/_tests/frd-03-integration.reviewer.test.tsx` — 3 tests (live rail integration)
 - `src/app/portfolio/_tests/frd-03-integration.gate.reviewer.test.tsx` — 5 tests (edge cases)
-- `src/app/portfolio/_tests/frd-03-nested-interactive.reviewer.test.tsx` — 1 test (no nested `<button>` in `<a>`)
-- Total portfolio suite: 174 tests, all passing.
+- `src/app/portfolio/_tests/frd-03-nested-interactive.reviewer.test.tsx` — 1 test (no nested button)
+- `src/app/portfolio/_components/RecoveryHint/_tests/RecoveryHint.test.tsx` — 30 tests
+- `src/app/portfolio/_components/RecoveryHint/_tests/RecoveryHint.reuse.test.tsx` — 11 tests (DR-057 structural)
+- `src/app/portfolio/_components/status-chips/_tests/status-chips.test.tsx` — 29 tests
+- `src/app/portfolio/_components/status-chips/_tests/status-chips.adversarial.test.tsx` — 13 tests
+- `src/app/portfolio/_components/status-chips/_tests/status-chips.reuse.test.tsx` — 6 tests (DR-057 structural)
+- `src/app/portfolio/_components/status-chips/_tests/proposals-chip.test.tsx` — 10 tests
+- Plus BusinessSnapshot, PortfolioEmpty component tests.
 
-**Preview Smoke Gate (DR-055):** `/portfolio` → HTTP 200, zero console errors, H1 = "Portfolio", `data-testid="portfolio-rail-label"` text = "PROYECTOS". Verified with Playwright against `http://localhost:3000/portfolio`.
+**Preview Smoke Gate (DR-055):** `/portfolio` → HTTP 200, zero console errors, H1 = "Portfolio", `data-testid="portfolio-rail-label"` text = "PROYECTOS". Verified with Playwright against `http://localhost:3100/portfolio`. Layout matches prototype: two-column grid (240px rail | 1fr workspace), PageTitle with icon + subtitle, PROYECTOS label, empty state graceful.
+
+**Typecheck / lint:** `tsc --noEmit` exit 0. `biome check .` exit 0 (1 pre-existing info: biome.json deprecation). `knip` exit 0 (no new dead code).

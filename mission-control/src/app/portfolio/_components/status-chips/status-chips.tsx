@@ -1,21 +1,25 @@
 /**
- * WO-14-003 — `CMP-14-status-chips`: decisions/bugs/rethink/proposals chips
+ * WO-03-002 (refactored, DR-057) — `CMP-14-status-chips`: decisions/bugs/rethink/proposals chips
  *
- * Server Component. Given pending counters from `lib/status.ts` (ProjectStatus),
- * renders:
- *   - Amber chip with `pendingDecisions` count when > 0  (AC-14-004.1)
- *   - Red chip with `pendingBugs` count when > 0         (AC-14-004.2)
- *   - "Rethink pending" indicator when `rethinkPending`  (AC-14-005.1)
- *   - Proposals chip with `pendingProposals` count when > 0 (AC-17-007.2 — third stream)
- *   - Nothing (null) when all are zero / absent / false  (no empty chips)
+ * Refactored to use CountBadge (CMP-13-countbadge) presets for the numeric pill visual
+ * — no bespoke chip/pill styles. The outer semantic wrappers keep their existing testids
+ * (status-chip-decisions / status-chip-bugs / status-chip-rethink / status-chip-proposals)
+ * and accessibility attributes; the visual pill delegates to CountBadge.
  *
- * Mirrors the prototype rail `dchip` / `bchip` visual idiom.
+ * Server Component. Given pending counters from `lib/status.ts` (ProjectStatus), renders:
+ *   - warn CountBadge with `pendingDecisions` count when > 0  (AC-14-004.1)
+ *   - danger CountBadge with `pendingBugs` count when > 0    (AC-14-004.2)
+ *   - "Rethink pending" indicator when `rethinkPending`       (AC-14-005.1)
+ *   - proposals CountBadge when > 0                           (AC-17-007.2)
+ *   - Nothing (null) when all are zero / absent / false       (no empty chips)
+ *
+ * Mirrors the prototype rail `dchip` / `bchip` visual idiom via CountBadge tones.
  * Reusable in the FRD-04 workspace header (same props surface).
  *
  * Design rules (FRD-13, AGENTS.md):
- *   - ZERO hardcoded colors — all visual values via CSS custom properties.
- *   - tabular-nums on every count (AC-13-003).
- *   - data-testid on every chip/indicator (test-writer contract).
+ *   - ZERO hardcoded colors — CountBadge + Chip own all color tokens.
+ *   - tabular-nums on every count (CountBadge provides this via Chip).
+ *   - data-testid on every chip/indicator (test-writer contract — preserved).
  *   - Chips carry count + title label — NOT color alone (a11y, FRD-13).
  *   - Spanish user-facing copy (i18n: Spanish by default).
  *   - Server Component safe — no hooks, no browser APIs.
@@ -23,10 +27,11 @@
  * Traceability:
  *   CMP-14-status-chips → REQ-14-004, REQ-14-005
  *   AC-14-004.1, AC-14-004.2, AC-14-005.1
- *   WO-14-003
  *   CMP-17-badge (rail chip) → REQ-17-001; AC-17-007.2, AC-17-007.4, AC-17-007.5
- *   WO-17-007
+ *   Reuses CMP-13-countbadge (CountBadge) — DR-057.
  */
+
+import { CountBadge } from "@/components/core/CountBadge/CountBadge";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -57,13 +62,64 @@ export interface StatusChipsProps {
 }
 
 // ---------------------------------------------------------------------------
-// Styles — CSS custom properties only; zero hardcoded hex/rgb/hsl values.
-// Fallbacks use system semantic values so the component renders before
-// design tokens are frozen (WO-13-002, globals.css).
+// Styles — semantic wrappers only; visual pill delegated to CountBadge.
+// Uses CSS custom-property tokens so design-token tests pass.
 // ---------------------------------------------------------------------------
 
-/** Shared base chip layout */
-const BASE_CHIP_STYLE: React.CSSProperties = {
+/** Wrapper row for all chips */
+const ROW_STYLE: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  flexWrap: "wrap",
+  gap: "calc(var(--space-base, 1rem) * 0.25)",
+};
+
+/**
+ * Decisions chip outer wrapper — semantic grouping with accessible label.
+ * Visual pill (color/size) delegated to CountBadge (tone="warn").
+ * Carries color token var(--color-warn) for design-token invariant test.
+ */
+const DECISIONS_WRAPPER_STYLE: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.25em",
+  color: "var(--color-warn)",
+};
+
+/**
+ * Bugs chip outer wrapper — semantic grouping with accessible label.
+ * Visual pill delegated to CountBadge (tone="danger").
+ */
+const BUGS_WRAPPER_STYLE: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.25em",
+  color: "var(--color-danger)",
+};
+
+/**
+ * Proposals chip outer wrapper — semantic grouping.
+ * Visual pill delegated to CountBadge (tone="accent").
+ */
+const PROPOSALS_WRAPPER_STYLE: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.25em",
+  color: "var(--color-accent-text)",
+};
+
+/**
+ * Count span — for test-contract compatibility (tabular-nums on count testid).
+ * Wraps CountBadge so status-chip-*-count testid carries fontVariantNumeric.
+ */
+const COUNT_SPAN_STYLE: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  fontVariantNumeric: "tabular-nums",
+};
+
+/** Rethink indicator — muted warning outline pill (not a CountBadge: no numeric count). */
+const RETHINK_CHIP_STYLE: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   gap: "0.25em",
@@ -74,49 +130,12 @@ const BASE_CHIP_STYLE: React.CSSProperties = {
   lineHeight: 1.4,
   border: "none",
   whiteSpace: "nowrap",
-};
-
-/** Amber chip: pending decisions */
-const AMBER_CHIP_STYLE: React.CSSProperties = {
-  ...BASE_CHIP_STYLE,
-  background: "var(--color-agent-researcher, currentColor)",
-  color: "var(--color-contrast, Canvas)",
-};
-
-/** Red chip: pending bugs */
-const RED_CHIP_STYLE: React.CSSProperties = {
-  ...BASE_CHIP_STYLE,
-  background: "var(--color-agent-security-auditor, currentColor)",
-  color: "var(--color-contrast, Canvas)",
-};
-
-/** Proposals chip: guild accent tone (FRD-17, WO-17-007) */
-const PROPOSALS_CHIP_STYLE: React.CSSProperties = {
-  ...BASE_CHIP_STYLE,
-  background: "var(--color-agent-product-manager, currentColor)",
-  color: "var(--color-contrast, Canvas)",
-};
-
-/** Rethink indicator: muted warning tone */
-const RETHINK_CHIP_STYLE: React.CSSProperties = {
-  ...BASE_CHIP_STYLE,
   background: "var(--color-surface, Canvas)",
   color: "var(--color-text, currentColor)",
-  border: "var(--hairline, 1px) solid var(--color-agent-security-auditor, currentColor)",
+  borderStyle: "solid",
+  borderWidth: "var(--hairline, 1px)",
+  borderColor: "var(--color-danger)",
   opacity: 0.85,
-};
-
-/** Count <span> — tabular-nums for alignment (AC-13-003) */
-const COUNT_STYLE: React.CSSProperties = {
-  fontVariantNumeric: "tabular-nums",
-};
-
-/** Wrapper row */
-const ROW_STYLE: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  flexWrap: "wrap",
-  gap: "calc(var(--space-base, 1rem) * 0.25)",
 };
 
 // ---------------------------------------------------------------------------
@@ -124,9 +143,11 @@ const ROW_STYLE: React.CSSProperties = {
 // ---------------------------------------------------------------------------
 
 /**
- * StatusChips — Server Component that renders amber/red/rethink/proposals chips.
+ * StatusChips — Server Component that renders warn/danger/accent CountBadge presets
+ * for decisions/bugs/proposals, and a rethink indicator.
  *
  * Returns null when nothing to show (all counts zero or false).
+ * Uses CountBadge (CMP-13-countbadge) for all numeric pills — DR-057.
  *
  * Traceability:
  *   CMP-14-status-chips → REQ-14-004, REQ-14-005; AC-14-004.1/.2, AC-14-005.1
@@ -150,39 +171,40 @@ export function StatusChips({
 
   return (
     <span style={ROW_STYLE}>
-      {/* Amber chip — pending decisions (AC-14-004.1) */}
-      {hasDecisions && (
+      {/* Decisions chip — warn CountBadge (AC-14-004.1) */}
+      {hasDecisions && typeof pendingDecisions === "number" && (
         <span
           data-testid="status-chip-decisions"
           data-variant="amber"
-          style={AMBER_CHIP_STYLE}
+          style={DECISIONS_WRAPPER_STYLE}
           title={`Decisiones pendientes: ${pendingDecisions}`}
           role="status"
         >
-          <span data-testid="status-chip-decisions-count" style={COUNT_STYLE}>
-            {pendingDecisions}
+          {/* Count span wraps CountBadge for testid/tabular-nums contract compat */}
+          <span data-testid="status-chip-decisions-count" style={COUNT_SPAN_STYLE}>
+            <CountBadge count={pendingDecisions} tone="warn" />
           </span>
           {" decisiones"}
         </span>
       )}
 
-      {/* Red chip — pending bugs (AC-14-004.2) */}
-      {hasBugs && (
+      {/* Bugs chip — danger CountBadge (AC-14-004.2) */}
+      {hasBugs && typeof pendingBugs === "number" && (
         <span
           data-testid="status-chip-bugs"
           data-variant="red"
-          style={RED_CHIP_STYLE}
+          style={BUGS_WRAPPER_STYLE}
           title={`Bugs pendientes: ${pendingBugs}`}
           role="status"
         >
-          <span data-testid="status-chip-bugs-count" style={COUNT_STYLE}>
-            {pendingBugs}
+          <span data-testid="status-chip-bugs-count" style={COUNT_SPAN_STYLE}>
+            <CountBadge count={pendingBugs} tone="danger" />
           </span>
           {" bugs"}
         </span>
       )}
 
-      {/* Rethink indicator (AC-14-005.1) */}
+      {/* Rethink indicator (AC-14-005.1) — no CountBadge: not a numeric count */}
       {hasRethink && (
         <span
           data-testid="status-chip-rethink"
@@ -195,17 +217,17 @@ export function StatusChips({
         </span>
       )}
 
-      {/* Proposals chip — FRD-17 third stream (AC-17-007.2, AC-17-007.4) */}
-      {hasProposals && (
+      {/* Proposals chip — accent CountBadge (AC-17-007.2, AC-17-007.4) */}
+      {hasProposals && typeof pendingProposals === "number" && (
         <span
           data-testid="status-chip-proposals"
           data-variant="proposals"
-          style={PROPOSALS_CHIP_STYLE}
+          style={PROPOSALS_WRAPPER_STYLE}
           title={`Propuestas abiertas: ${pendingProposals}`}
           role="status"
         >
-          <span data-testid="status-chip-proposals-count" style={COUNT_STYLE}>
-            {pendingProposals}
+          <span data-testid="status-chip-proposals-count" style={COUNT_SPAN_STYLE}>
+            <CountBadge count={pendingProposals} tone="accent" />
           </span>
           {" propuestas"}
         </span>
