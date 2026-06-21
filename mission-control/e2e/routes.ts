@@ -19,7 +19,7 @@ export type Surface = {
 };
 
 export const SURFACES: readonly Surface[] = [
-  { id: "inicio", frd: "frd-18-dashboard", path: "/", name: "Inicio", blessed: false },
+  { id: "inicio", frd: "frd-18-dashboard", path: "/", name: "Inicio", blessed: true },
   { id: "tablero", frd: "frd-02-ideas-board", path: "/board", name: "Tablero", blessed: true },
   {
     id: "portfolio",

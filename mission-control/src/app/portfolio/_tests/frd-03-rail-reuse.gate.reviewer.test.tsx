@@ -42,10 +42,7 @@ function readSrc(relative: string): string {
 /** Count production (non-test) importers of a module path fragment across src/. */
 function productionImporters(moduleFragment: string): string[] {
   // Walk a focused, deterministic set of candidate dirs to keep the test fast.
-  const candidates = [
-    "app/portfolio/page.tsx",
-    "app/portfolio/SelectableProjectRail.tsx",
-  ];
+  const candidates = ["app/portfolio/page.tsx", "app/portfolio/SelectableProjectRail.tsx"];
   const hits: string[] = [];
   for (const rel of candidates) {
     let body = "";
@@ -72,7 +69,12 @@ describe("FRD-03 gate — DR-057 one rail, not two (reviewer)", () => {
 
   it("the page-local rail does not re-declare the shared rail's core style constants verbatim", () => {
     const bespoke = readSrc("app/portfolio/SelectableProjectRail.tsx");
-    const forkedConstants = ["RAIL_STYLE", "ROW_STYLE", "CHIP_BUILDING_STYLE", "CHIP_STOPPED_STYLE"];
+    const forkedConstants = [
+      "RAIL_STYLE",
+      "ROW_STYLE",
+      "CHIP_BUILDING_STYLE",
+      "CHIP_STOPPED_STYLE",
+    ];
     const reDeclared = forkedConstants.filter((name) =>
       new RegExp(`^const ${name}\\b`, "m").test(bespoke),
     );

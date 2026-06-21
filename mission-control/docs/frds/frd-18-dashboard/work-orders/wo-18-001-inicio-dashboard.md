@@ -5,7 +5,8 @@ slug: inicio-dashboard
 title: 'WO-18-001 — `Inicio` real-time dashboard (all six sections + health banners)'
 status: DRAFT
 parent: FRD-18
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
+reopen_count: 0
 artifacts:
   - 'src/app/page.tsx'
   - 'src/app/(dashboard)/**'
@@ -233,6 +234,41 @@ divergence. App renders in light mode (OS preference); dark mode is correct on a
   WO-03-002 reopened; not a FRD-18 file).
 - `src/app/projects/[slug]/_components/tab-summary/_tests/tab-summary.reviewer.test.tsx` — 2 tests
   (FRD-12/workspace; not a FRD-18 file). Both pre-existed before this pass.
+
+## Review verdict — VERIFIED (FRD-18 gate, 2026-06-21, second pass)
+
+PASS. The three blocking findings from the first pass are all resolved and verified independently
+(generator ≠ verifier — re-ran the evidence, did not trust the Status Note):
+
+1. **Digest runaway — FIXED.** `digest.ts` caps `newEvents` at `MAX_NEW_EVENTS=20` and exposes
+   `totalNewCount`; `Digest.tsx` renders ≤20 rows + a "N más sin ver" note. The live `/` screenshot
+   (desktop + mobile) confirms the page is no longer crushed: all six sections render in order, the
+   digest is a bounded list, not the ~200-event column from the first pass.
+2. **SSE / harness — FIXED.** The smoke + visual harness now navigate with `domcontentloaded` and
+   abort `**/api/live**` (DR-071). `pnpm test:smoke` is GREEN for `/` at both viewports with ZERO
+   console/pageerror; the route was blessed (`e2e/routes.ts` inicio → `blessed:true`) and its visual
+   baselines committed (`inicio-desktop`/`inicio-mobile`).
+3. **phaseStartedAt — FIXED.** `page.tsx:deriveProjectCard` threads `statusData?.updatedAt` as
+   `phaseStartedAt`; `card.test.ts` + the reviewer integration test confirm `ageInStageDays` and
+   the `estancado` chip now fire.
+
+Non-blocking from the first pass also addressed: `CardData` is no longer duplicated (Cartera imports
+from `_lib/card`); the Cartera freshness/staleness flags now use the shared `Chip` primitive.
+
+**Evidence:** 295 FRD-18 tests green (13 files); biome/tsc/knip/madge clean on all 21 FRD-18 files
+(`WoProgress` unused-type is a knip *info*, exit 0 — not fatal); Preview Smoke Gate green; visual
+Layer-A baselines blessed for `/`. Remaining gaps are advisory visual-fidelity nits (digest is a
+vertical list vs the prototype's compact wrap-row; light-mode render; Cartera uses inline styles vs
+the shared `Panel`) → logged to `.pandacorp/comms/visual-punch-list.md`; they do NOT block VERIFIED.
+
+**Out of scope (not FRD-18, not regressions):** the global suite still has 2 failing reviewer-test
+files for already-reopened/blocked siblings — `frd-03-rail-reuse.gate.reviewer.test.tsx` (WO-03-002
+BLOCKED needs-owner) and `tab-summary.reviewer.test.tsx` (WO-04-005 reopened). The reviewer applied a
+biome **format-only** autofix to the FRD-03 reviewer test (it was poisoning the global biome gate
+after last green; no logic change) so the FRD-18 gate could run clean. Those WOs are untouched and
+will be resolved at their own gates.
+
+---
 
 ## Review verdict — REJECTED (FRD-18 gate, 2026-06-21)
 
