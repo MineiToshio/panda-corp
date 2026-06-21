@@ -32,6 +32,7 @@
 
 import { useState } from "react";
 import { ItemSlot } from "@/components/core/ItemSlot/ItemSlot";
+import { SubTabs } from "@/components/core/Tabs/Tabs";
 import type { Unique } from "@/lib/achievements/achievements";
 import type { UniqueCategory } from "@/lib/achievements/predicates";
 
@@ -386,71 +387,44 @@ export function UniquesSection({ uniques }: UniquesSectionProps): React.JSX.Elem
   // Only categories that have at least one achievement
   const presentCategories = CATEGORY_ORDER.filter((cat) => (byCategory.get(cat)?.length ?? 0) > 0);
 
+  // Build the tabs list for the shared SubTabs primitive (DR-062 — the ONE tab pattern).
+  // "all" tab + one per present category. The icon and count are carried in TabDef so
+  // SubTabs renders them without bespoke buttons.
+  const filterTabs = [
+    { id: "all", label: "Todos", count: uniques.length },
+    ...presentCategories.map((cat) => ({
+      id: cat,
+      label: CATEGORY_LABELS[cat],
+      icon: CATEGORY_ICONS[cat],
+      count: byCategory.get(cat)?.length ?? 0,
+    })),
+  ];
+
+  const handleFilterChange = (id: string): void => {
+    if (id === "all") {
+      setActiveCategory("all");
+    } else if (CATEGORY_ORDER.includes(id as UniqueCategory)) {
+      setActiveCategory(id as UniqueCategory);
+    }
+  };
+
   return (
     <section
       data-testid="uniques-section"
       aria-label="Logros únicos por categoría"
       style={{ display: "flex", flexDirection: "column", gap: "16px" }}
     >
-      {/* Category chip filters (stab pills — prototype logrosTrofeos chips) */}
+      {/* Category chip filters — shared SubTabs primitive (DR-062, logrosTrofeos alias).
+          testIdPrefix="uniques-cat-chip-" preserves the existing AC test contracts
+          (e.g. data-testid="uniques-cat-chip-all", "uniques-cat-chip-Discovery", …). */}
       {presentCategories.length > 1 && (
-        <div
-          role="tablist"
-          aria-label="Filtrar por categoría"
-          style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}
-        >
-          {/* "Todos" chip */}
-          <button
-            type="button"
-            role="tab"
-            data-testid="uniques-cat-chip-all"
-            aria-selected={activeCategory === "all"}
-            onClick={() => setActiveCategory("all")}
-            style={{
-              fontFamily: "var(--font-pixel)",
-              fontSize: "10px",
-              padding: "3px 10px",
-              borderRadius: "20px",
-              border: "1px solid var(--color-border-strong)",
-              background: activeCategory === "all" ? "var(--color-accent)" : "var(--color-panel)",
-              color: activeCategory === "all" ? "var(--color-base)" : "var(--color-text)",
-              cursor: "pointer",
-            }}
-          >
-            Todos ({uniques.length})
-          </button>
-
-          {presentCategories.map((cat) => {
-            const count = byCategory.get(cat)?.length ?? 0;
-            const isActive = activeCategory === cat;
-            return (
-              <button
-                key={cat}
-                type="button"
-                role="tab"
-                data-testid={`uniques-cat-chip-${cat}`}
-                aria-selected={isActive}
-                onClick={() => setActiveCategory(cat)}
-                style={{
-                  fontFamily: "var(--font-pixel)",
-                  fontSize: "10px",
-                  padding: "3px 10px",
-                  borderRadius: "20px",
-                  border: "1px solid var(--color-border-strong)",
-                  background: isActive ? "var(--color-accent)" : "var(--color-panel)",
-                  color: isActive ? "var(--color-base)" : "var(--color-text)",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                }}
-              >
-                <i className={`ti ${CATEGORY_ICONS[cat]}`} aria-hidden="true" />
-                {CATEGORY_LABELS[cat]} ({count})
-              </button>
-            );
-          })}
-        </div>
+        <SubTabs
+          tabs={filterTabs}
+          active={activeCategory}
+          onChange={handleFilterChange}
+          ariaLabel="Filtrar por categoría"
+          testIdPrefix="uniques-cat-chip-"
+        />
       )}
 
       {/* Category sections — always in DOM; hidden attr controlled by active chip.

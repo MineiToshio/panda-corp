@@ -5,7 +5,7 @@ slug: hall-surfaces
 title: 'WO-10-005 — Hall surfaces: ChainCard + TrophyCard + AlmostThere + stat ledger'
 status: DRAFT
 parent: FRD-10
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 reopen_count: 1
 artifacts:
   - 'src/app/achievements/ChainCard/**'
@@ -13,7 +13,7 @@ artifacts:
   - 'src/app/achievements/AlmostThere.tsx'
   - 'src/app/achievements/SecretsPanel.tsx'
 source_requirements: [AC-10-006.1, AC-10-006.2, AC-10-006.3, AC-10-006.4, AC-10-006.5, AC-10-007.1, AC-10-007.2, AC-10-007.3, AC-10-007.4, AC-10-008.1, AC-10-008.2, AC-10-008.3, AC-10-008.4, AC-10-005.2, AC-10-005.3]
-last_updated: '2026-06-19'
+last_updated: '2026-06-21'
 ---
 # WO-10-005 — Hall surfaces: ChainCard + TrophyCard + AlmostThere + stat ledger
 
@@ -198,3 +198,24 @@ UniquesSection grouped-by-category with date+project / condition, lock not color
 The engine (WO-10-001) stays VERIFIED and untouched. Only the tab-bar fork blocks.
 
 frd-10 frd.md + blueprint.md rollup → **PLANNED** (one WO planned).
+
+## Repair pass (2026-06-21, reopen_count 1) — back to IN_REVIEW
+
+**Single defect fixed:** `UniquesSection` hand-rolled `role="tablist"` replaced with the shared `SubTabs` primitive (DR-062 reuse violation, the second instance named in the reviewer finding).
+
+**Fix applied:**
+- `src/app/achievements/UniquesSection/UniquesSection.tsx` — imported `SubTabs` from `@/components/core/Tabs/Tabs`; replaced the bespoke `role="tablist"` div + private pill `<button>` loop with a single `<SubTabs tabs={filterTabs} active={activeCategory} onChange={handleFilterChange} ariaLabel="Filtrar por categoría" testIdPrefix="uniques-cat-chip-" />`. The `filterTabs` array is built from `["all" + presentCategories]`; each entry carries `id`, `label`, `icon` (from `CATEGORY_ICONS`) and `count`. `testIdPrefix="uniques-cat-chip-"` preserves the pre-existing test contract (`data-testid="uniques-cat-chip-all"`, `"uniques-cat-chip-Discovery"`, etc.).
+- `HallTabs.tsx` was already using the shared `Tabs` primitive from the previous build — no change needed there.
+
+**Note on first defect (HallTabs):** The reviewer finding described a hand-rolled `stabStyle()` in `HallTabs`. Reading the actual source confirms `HallTabs.tsx` already imports and renders `<Tabs level="sub" …>` from `@/components/core/Tabs/Tabs` — the gate tests for `HallTabs` already passed GREEN before this repair pass. Only the `UniquesSection` defect was live.
+
+**Implicit decisions:**
+- `SubTabs` carries `count` in its badge, which renders the count in a small pill inside each tab button — matches the prototype's `logrosTrofeos()` chip style close enough (same `.stab` CSS class hierarchy, counts inline). No visual regression vs the hand-rolled version.
+- When only one category is present (`presentCategories.length <= 1`) the `SubTabs` is not rendered (same guard as before) — single-category dataset stays uncluttered.
+- `handleFilterChange` validates the incoming id against `CATEGORY_ORDER` before setting state so unknown ids are silently ignored (defensive narrowing, matches pattern in `HallTabs`).
+
+**Test files covering this repair:**
+- `src/app/achievements/_tests/frd-10-reuse.gate.reviewer.test.tsx` — 2 new tests for `UniquesSection` (asserting `tabs-root` present + `role="tab"` buttons inside it); total 4 tests in the file (all GREEN).
+- All 9 existing achievements test files still pass (199 tests total, +2 new gate tests vs prior 197).
+
+**Gate evidence:** 199 tests pass; tsc --noEmit clean; biome check 0 errors; build clean; achievement route renders without console errors (in-loop visual check confirms layout, sub-tab bar, Resumen tab content). Pre-existing FRD-07 failures (2 tests in `frd07.cross-nav-reverse.gate-opus.reviewer.test.tsx`) are outside this WO's scope and unchanged.

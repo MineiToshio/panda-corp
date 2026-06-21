@@ -40,6 +40,7 @@ import { describe, expect, it } from "vitest";
 import type { ChainState, Secret, Unique } from "@/lib/achievements/achievements";
 import type { ReaderData } from "@/lib/achievements/stats";
 import { HallTabs } from "../_components/HallTabs";
+import { UniquesSection } from "../UniquesSection/UniquesSection";
 
 // ── Minimal fixtures (the page already verifies the data pipeline; this gate is
 //    purely about WHICH primitive renders the tab bar) ─────────────────────────
@@ -107,5 +108,55 @@ describe("frd-10 GATE (DR-062): the Achievements Hall sub-tab bar is the ONE Tab
       tabsRoot,
       "the four .stab sub-tabs (Resumen · Misiones · Trofeos · Estadísticas) must live inside the shared Tabs primitive",
     ).not.toBeNull();
+  });
+});
+
+// ── UniquesSection category filter — DR-057/DR-062 (second defect in reopening) ──────────────
+
+const UNIQUE_DISCOVERY: Unique = {
+  name: "El explorador",
+  category: "Discovery",
+  unlocked: false,
+  condition: "Crea tu primera idea.",
+};
+const UNIQUE_SPEED: Unique = {
+  name: "El rápido",
+  category: "Speed",
+  unlocked: false,
+  condition: "Lanza en 48 horas.",
+};
+
+describe("frd-10 GATE (DR-057): UniquesSection category filter uses the shared Tabs primitive", () => {
+  /**
+   * The WO-10-005 reopening finding (2026-06-21) explicitly names a SECOND defect:
+   * UniquesSection hand-rolls a role="tablist" + inline pill buttons for the category
+   * filter chips, instead of composing the shared Tabs/SubTabs (the ONE tab/pill pattern,
+   * DR-062).  The fix must render through the shared Tabs primitive (data-testid="tabs-root").
+   *
+   * Detection: the shared Tabs stamps data-testid="tabs-root" on its wrapper div.
+   * A hand-rolled role="tablist" does NOT carry this testid.
+   */
+  it("frd-10: UniquesSection category filter renders through the shared Tabs primitive (tabs-root present)", () => {
+    render(<UniquesSection uniques={[UNIQUE_DISCOVERY, UNIQUE_SPEED]} />);
+    // The shared Tabs primitive stamps data-testid="tabs-root" on its container.
+    // If the filter uses a hand-rolled role=tablist this will be null → RED.
+    expect(
+      screen.queryByTestId("tabs-root"),
+      "UniquesSection's category filter must use the shared Tabs/SubTabs primitive (DR-062 'no ad-hoc " +
+        "switcher per screen'); a private role=tablist + inline pill styles is a fork of the ONE Tabs " +
+        "pattern. The WO-10-005 reopening finding (2026-06-21) explicitly requires this fix.",
+    ).not.toBeNull();
+  });
+
+  it("frd-10: UniquesSection category filter chip buttons are inside the shared Tabs primitive", () => {
+    render(<UniquesSection uniques={[UNIQUE_DISCOVERY, UNIQUE_SPEED]} />);
+    const tabsRoot = screen.queryByTestId("tabs-root");
+    // Filter tabs (buttons with role="tab") must live inside the shared Tabs wrapper
+    expect(tabsRoot, "shared Tabs wrapper must be present").not.toBeNull();
+    const tabButtons = tabsRoot?.querySelectorAll('[role="tab"]');
+    expect(
+      tabButtons?.length ?? 0,
+      "category filter tabs must be role=tab buttons inside the shared Tabs primitive",
+    ).toBeGreaterThan(0);
   });
 });
