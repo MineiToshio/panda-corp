@@ -5,7 +5,7 @@ slug: configuration-ui
 title: 'WO-07-005 — Configuración UI surface (re-anchor to prototype)'
 status: DRAFT
 parent: FRD-07
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 reopen_count: 1
 artifacts:
   - 'src/app/configuration/**'
@@ -80,6 +80,83 @@ readers — never a static array.
 `docs/design/prototype/index.html` — the **Configuración** view (`configView()` + `configDetail()`
 and the `gxSkillCard`/`gxAgentCard`/`gxRuleCard`/`gxStdCard` builders). The in-loop fidelity gate
 renders `src/app/configuration` against this mock.
+
+## Status Note (pass 4 — 2026-06-21, IN_REVIEW)
+
+**What this pass built (RETRY DIRECTIVE — mechanical close):**
+
+All three REJECT blockers resolved in a single coherent pass. Zero dead code.
+
+### 1. DR-057 reuse — `SectionTabs` delegates to `SubTabs`
+
+`SectionTabs.tsx` is now a thin wrapper that delegates entirely to `SubTabs` (the shared
+`Tabs level="sub"` primitive from `src/components/core/Tabs/Tabs.tsx`). No hand-rolled
+`role="tablist"`. All downstream `config-tab-{id}` testids remain stable via
+`testIdPrefix="config-tab-"`. Stable HTML `id="config-tab-id-{id}"` on each button via
+`tabIdPrefix="config-tab-id-"` (aria-labelledby for paired tabpanels).
+
+### 2. DR-057 reuse — `StandardsSection/DetailPanel` delegates to `SubTabs`
+
+`parts.tsx` `DetailPanel` now uses `SubTabs` with `testIdPrefix="standard-tab-"` for the
+Resumen/Detalle toggle. The now-dead `DETAIL_TABS_STYLE` and `detailTabStyle` were **removed**
+from `styles.ts` in the same change (no unused exports — knip clean).
+
+### 3. Reverse cross-navigation (EARS bidirectional)
+
+`agent → skill` direction fully implemented:
+- `page.tsx` passes `skills` into `ConfigurationShell`.
+- `ConfigurationShell` derives `usingSkills` by inverting `skills.filter(s => s.agents.includes(selectedAgentId))` (derive-don't-sync, pure computation during render).
+- `handleSkillCrossNav(slug)` sets `crossNavSkillSlug` state + switches to `"skills"` tab.
+- `SkillsSection` accepts `selectedSkillSlug?: string | null`; controlled skill (cross-nav) takes precedence over local selection (derive-don't-sync, no useEffect mirror).
+- `AgentDetail` accepts `usingSkills?: string[]` + `onSkillClick?: (slug) => void`; renders `<button data-testid="agent-skill-chip-{slug}">` chips for each using-skill.
+
+### 4. Shared `Tabs` extended (non-breaking, additive)
+
+`src/components/core/Tabs/Tabs.tsx` extended with:
+- `tabIdPrefix?: string` prop — generates `id="${tabIdPrefix}${tab.id}"` on each button for `aria-labelledby` pairing.
+- `data-active="true"|"false"` on each button (mirrors `aria-selected`; stable DOM attribute for tests that assert beyond color).
+- Per-button `onKeyDown` for Enter/Space WAI-ARIA activation.
+
+**All 5 EARS behaviors confirmed GREEN:**
+1. Copy-to-clipboard on skill command chip (`CopyButton`, `data-testid="copy-button"`)
+2. "interno" flag on internal skill cards and detail headers
+3. "Produce" section in skill detail (`data-testid="skill-detail-produces"`)
+4. Forward cross-nav: flow agent chips are clickable buttons → jump to agent detail
+5. Reverse cross-nav: agent detail lists using-skill chips → clicking opens skill detail (NEW this pass)
+6. Model-assignment explanation in agent detail (`data-testid="agent-detail-model-explanation"`)
+
+**Dead code: ZERO** — `DETAIL_TABS_STYLE` / `detailTabStyle` deleted from `styles.ts` in the same
+change that removed their only consumer (`parts.tsx`). `pnpm knip` exits clean.
+
+**Test counts:** 329 test files, 7071 passing, 2 expected-fail (unchanged). tsc clean. biome 0 errors/0 warnings.
+
+**Fidelity check (DR-072, one light pass):** Route `/configuration` screenshotted at 1280×720.
+PageTitle "Configuración" + icon + subtitle, 4 SubTabs pill bar (Habilidades active), SectionHead
+groups ("En la fábrica" 2, "En el proyecto" 11), RPG embossed skill cards grid. No gross structural
+divergence. Light/dark theming delta (prototype dark, app light) is an advisory nit (Visual QA pass).
+
+**Interfaces / contracts exposed:**
+- `ConfigurationShell` — `"use client"` boundary; props: `{ skills, agentsData, rules, standards }`
+- `SectionTabs` — `{ activeSection, onSectionChange }` (same API; now delegates to `SubTabs`)
+- `AgentDetail` — `{ agent, level, usingSkills?, onSkillClick? }` (reverse cross-nav added)
+- `SkillsSection` — `{ skills, onAgentClick?, selectedSkillSlug? }` (controlled mode added)
+- `Tabs` / `SubTabs` — `{ ..., tabIdPrefix?, data-active, Enter/Space activation }` (additive)
+
+**Implicit decisions / assumptions:**
+- `SubTabs` uses `testIdPrefix="config-tab-"` → all downstream tests keep `config-tab-{id}` testids
+- `tabIdPrefix="config-tab-id-"` → `aria-labelledby="config-tab-id-skills"` etc. in tabpanels
+- `StandardsSection` detail uses `testIdPrefix="standard-tab-"` → `standard-tab-summary` / `standard-tab-detail` testids preserved
+- `Tabs` `data-active` mirrors `aria-selected`: `"true"` when active, `"false"` when not
+- `usingSkills` derivation is pure (no state sync): computed in `ConfigurationShell` render
+- `crossNavSkillSlug` reset when leaving skills tab (handleSectionChange clears it)
+- `SkillsSection` controlled skill takes precedence over local selection (derive-don't-sync)
+
+**Test files:**
+- `src/app/configuration/_tests/dr057-reuse.test.tsx` — 11 RED→GREEN tests enforcing DR-057 reuse
+- `src/app/configuration/_tests/frd07.cross-nav-reverse.gate-opus.reviewer.test.tsx` — 2 RED→GREEN tests for reverse cross-nav (agent→skill)
+- `src/app/configuration/_tests/frd07.gate-opus.reviewer.test.tsx` — 5 existing opus reviewer tests (all GREEN)
+
+---
 
 ## Status Note (reopen pass 2 — 2026-06-21)
 

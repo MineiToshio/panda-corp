@@ -73,6 +73,13 @@ export interface TabsProps {
    * using the ONE shared tab primitive (DR-062) — e.g. `"card-detail-tab-"`.
    */
   testIdPrefix?: string;
+  /**
+   * Optional prefix for each tab button's HTML `id` attribute (default: none).
+   * When set, each button gets `id="${tabIdPrefix}${tab.id}"` so paired
+   * `role="tabpanel"` elements can reference them with `aria-labelledby`.
+   * Example: `tabIdPrefix="config-tab-id-"` → `id="config-tab-id-skills"`.
+   */
+  tabIdPrefix?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -159,6 +166,7 @@ export function Tabs({
   onChange,
   ariaLabel,
   testIdPrefix = "tab-",
+  tabIdPrefix,
 }: TabsProps): React.JSX.Element {
   // Ref array to imperatively focus tab buttons on arrow-key navigation
   const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -201,13 +209,21 @@ export function Tabs({
             ref={(el) => {
               buttonRefs.current[idx] = el;
             }}
+            id={tabIdPrefix != null ? `${tabIdPrefix}${tab.id}` : undefined}
             type="button"
             role="tab"
             data-testid={`${testIdPrefix}${tab.id}`}
+            data-active={isActive ? "true" : "false"}
             aria-selected={isActive ? "true" : "false"}
             tabIndex={isActive ? 0 : -1}
             style={tabStyle(isActive)}
             onClick={() => onChange(tab.id)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onChange(tab.id);
+              }
+            }}
           >
             {/* Optional leading icon (AC-13-006.19 / icon tests) */}
             {tab.icon != null && (
