@@ -5,7 +5,7 @@ slug: portfolio-surface
 title: 'WO-03-002 — Portfolio surface (rail + table + rows + empty + recovery + status chips)'
 status: DRAFT
 parent: FRD-03
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 reopen_count: 0
 artifacts:
   - 'src/app/portfolio/**'
@@ -155,6 +155,27 @@ Resolved the owner's Option A decision: the shared inventoried `ProjectRail` (`s
 **Preview Smoke Gate (DR-055 / DR-072):** `/portfolio` → HTTP 200, zero console errors. H1 "Portfolio" visible, `data-testid="portfolio-rail-label"` text "PROYECTOS", two-column grid layout (240px rail | 1fr workspace), PageTitle with icon + subtitle, graceful empty state (no active projects on this machine — correct per FRD-03: building/shipped only). Visual check: one screenshot taken; layout matches prototype structure (two-column, PageTitle, PROYECTOS label, empty state graceful). No gross structural divergence.
 
 **Typecheck / lint / dead code:** `tsc --noEmit` exit 0. `biome check .` — 1 pre-existing info (biome.json deprecation), 0 errors. `knip` — 0 unused exports/files (style constants correctly de-exported).
+
+## GATE VERDICT — PASS (2026-06-21, opus reviewer, DR-072)
+
+**WO-03-002 → VERIFIED (reopen_count reset 0). FRD-03 rollup → VERIFIED** (WO-03-001 lib already VERIFIED + WO-03-002 surface VERIFIED → frd.md + blueprint.md VERIFIED).
+
+The owner's Option A is correctly implemented and the historical DR-057 "two rails" blocker (3 prior rejects) is RESOLVED & mutation-locked, verified INDEPENDENTLY (not from the WO note):
+- `page.tsx` imports the ONE shared `ProjectRail` (`@/components/modules/ProjectRail/ProjectRail`) directly and passes `selectedSlug` — selectable mode is a PROP/VARIANT of the shared primitive, not a forked second rail.
+- `SelectableProjectRail.tsx` is now a 9-line pass-through wrapper that delegates 100% to `ProjectRail` (no re-declared style constants, no duplicate logic) — kept only for test-import compatibility. NOT a duplicate (one rail implementation). Advisory cleanup (delete it + migrate test imports) → punch-list, NOT blocking.
+- `RecoveryHint` composes the shared `Banner` + `CmdRow`; `StatusChips` composes the shared `CountBadge` (DR-057 reuse across the surface, not just the rail).
+
+Mutation-confirmed (DR-016): (1) re-forking `SelectableProjectRail` by re-declaring `RAIL_STYLE/ROW_STYLE/CHIP_BUILDING_STYLE/CHIP_STOPPED_STYLE` → `frd-03-rail-reuse.gate.reviewer` assertion 2 RED; (2) making `product` an active phase (membership leak) → `frd-03-gate-opus.reviewer` membership RED; (3) nesting the recovery `<button>` inside the nav `<Link>` (WCAG 4.1.2) → opus button-in-anchor RED; (4) `pendingDecisions >= 0` (zero-nag) → opus 2 RED. All restore GREEN; the 5 production files (`page.tsx`, `SelectableProjectRail.tsx`, `ProjectRail.tsx`, `lib/portfolio/portfolio.ts`, `status-chips.tsx`) are byte-identical after restores (`git diff` empty).
+
+Adversarial gate the implementers did not write (DR-015): `src/app/portfolio/_tests/frd-03-gate-opus.reviewer.test.tsx` (18 green) exercises the parts TOGETHER through the production path — DR-057 one-rail (selectable-project-rail via the shared ProjectRail); AC-03-001 membership end-to-end through `activeProjects()` (only building/shipped; product/design excluded; re-version returns); AC-03-002 indicator not color-only (text + aria, Construyendo/Parado); status chips (counts + zero-suppression + no cross-row leak); AC-03-004/.005 default-select + exact match + empty→undefined; AC-03-006 read-only recovery (exact `git clone … && /pandacorp:sync-portfolio` inside a Banner role=alert; copy button SIBLING of the Link, not nested; no-repo warning not a command; existing row shows neither).
+
+CORRECTION lenses all green: every EARS AC met; read-only surface (no `<form>`, the only buttons are CopyButtons, no fs write/Claude call — `activeProjects()` is `readFileSync`-only); no `any`/`@ts-ignore`/secrets/homegrown-auth; tokens via CSS custom props; no scope creep (touched only `src/app/portfolio/**` + `src/components/modules/ProjectRail/**`); inventory `docs/design/components.md` L88-92,139 unchanged (no new shared component introduced).
+
+Runtime/visual (DR-055, MANDATORY, re-run INDEPENDENTLY — generator≠verifier): `/portfolio` Preview Smoke 2/2 (desktop 1280 + mobile 390, HTTP<400, 0 console/pageerror/failedReq besides the deliberately-ignored `/api/live` SSE). VLM mock-judge against the prototype `portfolioView()`: PageTitle (ti-stack-2 icon + H1 "Portfolio" = nav label, DR-062, + subtitle), "PROYECTOS" accent rail label, the two-column `240px 1fr` shell (left rail | right workspace slot). On this machine there are no `building`/`shipped` projects so the rail + workspace render the graceful empty state ("Sin proyectos activos · /pandacorp:spec") — the HONEST render given the data (FRD-03 membership: building+shipped only), NOT a defect, NOT a gross structural mismatch. **`/portfolio` BLESSED this gate** (genuinely-new route, no prior baseline → blessed not RED, DR-072): `e2e/routes.ts` portfolio `blessed:true` + committed baselines (`portfolio-desktop`/`portfolio-mobile`); full smoke 14/14 + visual Layer A 14/14 green (existing blessed routes unchanged — no regression).
+
+Advisory nits (NOT blocking, on `.pandacorp/comms/visual-punch-list.md`): light-mode skin vs dark prototype; px-not-token inline values (consistent with Chip/Tabs/CmdRow); mobile 390px keeps the 240px rail column fixed (workspace cramped, no overlap/clipping → density nit); `SelectableProjectRail` wrapper not deleted (cleanup); the blessed baseline captures the empty state (re-bless when an active project exists on the owner's machine).
+
+Focused gate (`verify.sh --since ecb5a13`): biome (562 files) + tsc + knip + madge ALL clean; 386 affected vitest tests green (incl my opus test); smoke 14/14 + visual Layer A 14/14 green.
 
 ## OWNER DECISION — Option A (2026-06-21)
 

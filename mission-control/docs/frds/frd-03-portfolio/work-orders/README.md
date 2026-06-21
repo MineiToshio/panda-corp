@@ -17,7 +17,7 @@ data layer; hosts the FRD-04 workspace in its right panel. See the feature bluep
 | WO | Status | Title | Artifact | Depends on |
 |---|---|---|---|---|
 | WO-03-001 | VERIFIED (lib) | `activeProjects` compose helper | `lib/portfolio.ts` (`activeProjects`) | FRD-01 (`readPortfolio`, `readStatus`, `pathExists`) |
-| WO-03-002 | PLANNED (UI) | **Portfolio surface** — rail + table + rows + empty + recovery + status chips | `app/portfolio/**`, `components/modules/{ProjectRail,ProjectRow,PortfolioTable}/**` | FRD-13, WO-03-001 (lib), FRD-04 (workspace slot — stub) |
+| WO-03-002 | VERIFIED (UI) | **Portfolio surface** — rail + table + rows + empty + recovery + status chips | `app/portfolio/**`, `components/modules/{ProjectRail,ProjectRow,PortfolioTable}/**` | FRD-13, WO-03-001 (lib), FRD-04 (workspace slot — stub) |
 
 > **Deferred — not built:** `BusinessSnapshot` (shipped-project business snapshot) — FRD-03 "Out of
 > scope / Future". The rail keeps conceptual space but renders nothing today.
