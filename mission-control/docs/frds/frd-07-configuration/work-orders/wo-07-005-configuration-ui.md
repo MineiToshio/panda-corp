@@ -6,7 +6,7 @@ title: 'WO-07-005 — Configuración UI surface (re-anchor to prototype)'
 status: DRAFT
 parent: FRD-07
 implementation_status: PLANNED
-reopen_count: 3
+reopen_count: 1
 artifacts:
   - 'src/app/configuration/**'
 source_requirements: [REQ-07, AC-07-001, AC-07-002, AC-07-003, AC-07-004, AC-07-005]
@@ -369,3 +369,9 @@ progress, not the same fault stuck — that is why a reopen (not BLOCK) is still
 the NEXT gate run finds this WO still not green (especially the same dead-code/KNIP failure), it MUST
 NOT reopen again: set `implementation_status: BLOCKED`, `blocked_reason: needs-owner`, log to
 `.pandacorp/inbox/decisions.md`, and stop the grind.
+
+## RETRY DIRECTIVE — mechanical close, opus/deep (2026-06-21)
+
+The 3 prior gate rejects were resolved in sequence — ALL FRD-07 behaviors are confirmed achievable and were present at reject #3 (skill→agent AND agent→skill cross-nav, copy-to-clipboard chip, "interno" flag, "produces" section, model-assignment explanation, run-location grouping with counts, reuse of shared Tabs/SubTabs — the reviewer anchor tests encode them). The ONLY reject #3 cause was a **dead-code knip failure** (an unused export/file left behind).
+
+Rebuild the FULL Configuración surface with ALL of the above AND **leave ZERO dead code** (no unused exports/files — `knip` must pass clean). This pass runs in DEEP mode (opus implementer + extra adversarial review) per owner request. reopen_count reset 3→1 to give buffer (prior rejects were progressive, not a stuck loop).

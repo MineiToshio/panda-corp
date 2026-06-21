@@ -5,9 +5,8 @@ slug: portfolio-surface
 title: 'WO-03-002 — Portfolio surface (rail + table + rows + empty + recovery + status chips)'
 status: DRAFT
 parent: FRD-03
-implementation_status: BLOCKED
-blocked_reason: needs-owner
-reopen_count: 3
+implementation_status: PLANNED
+reopen_count: 0
 artifacts:
   - 'src/app/portfolio/**'
   - 'src/components/modules/ProjectRail/**'
@@ -152,3 +151,12 @@ path-not-found recovery banner).
 **Preview Smoke Gate (DR-055):** `/portfolio` → HTTP 200, zero console errors, H1 = "Portfolio", `data-testid="portfolio-rail-label"` text = "PROYECTOS". Verified with Playwright against `http://localhost:3100/portfolio`. Layout matches prototype: two-column grid (240px rail | 1fr workspace), PageTitle with icon + subtitle, PROYECTOS label, empty state graceful.
 
 **Typecheck / lint:** `tsc --noEmit` exit 0. `biome check .` exit 0 (1 pre-existing info: biome.json deprecation). `knip` exit 0 (no new dead code).
+
+## OWNER DECISION — Option A (2026-06-21)
+
+The owner resolved the duplicate-rail block: **Option A — reuse the inventoried component.** Rebuild this WO to:
+- **REUSE** the shared inventoried module `ProjectRail` / `ProjectRow` (`src/components/modules/ProjectRail/…`, components.md L88-89) — do NOT fork it.
+- Add URL-based selection (+ default-select + workspace slot) as a **PROP/VARIANT of the shared `ProjectRail`**, not a copy.
+- **DELETE** the bespoke `src/app/portfolio/SelectableProjectRail.tsx` and its verbatim style-constant copies (RAIL_STYLE/ROW_STYLE/CHIP_STYLE/…).
+- After this, the shared `ProjectRail` MUST have a production consumer (the `/portfolio` page); the anchor test `src/app/portfolio/_tests/frd-03-rail-reuse.gate.reviewer.test.tsx` must pass (no orphan, no fork).
+Rows/table/status-chips/empty/recovery + the VERIFIED `lib` layer stay as specified.
