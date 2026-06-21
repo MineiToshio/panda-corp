@@ -9,7 +9,7 @@
  *
  * Primitives (DR-057 — reuse before create):
  *   - Panel     → the app-wide surface wrapper
- *   - Chip      → green status signal (tone="ok")
+ *   - Chip      → status signal: tone="ok" when safeToTest=true, tone="warn" when safeToTest=false
  *   - CmdRow    → the worktree command row with copy button
  *   - Banner    → staleness warning (tone="warn")
  *
@@ -149,7 +149,7 @@ const CMD_ROW_WRAPPER_STYLE: React.CSSProperties = {
  * Layout (per prototype snapshotPanel + bStalenessPanel):
  *   1. Panel (shared primitive) wrapping:
  *      a. flex row: ti-circle-check icon + body
- *         body: heading + Chip (ok) + sha muted line + optional building-now
+ *         body: heading + Chip (ok|warn per safeToTest) + sha muted line + optional building-now
  *      b. CmdRow (shared primitive) — the git worktree add command
  *   2. Optional Banner (shared primitive, tone="warn") — staleness warning
  */
@@ -159,12 +159,22 @@ export function SnapshotPanel({ snapshot }: SnapshotPanelProps): React.JSX.Eleme
     return null;
   }
 
-  const { sha, worktreeCommand, buildingNow, stale } = snapshot;
+  const { sha, safeToTest, worktreeCommand, buildingNow, stale } = snapshot;
+
+  // AC-14-001.1 — reads BOTH last_green_sha AND safe_to_test.
+  // When safeToTest=false (HEAD has moved past the last green SHA), do NOT claim
+  // "seguro para probar" — that would mislead the operator (lib/snapshot.ts comment:
+  // "fail-safe: don't mislead the user"). Show a warn chip instead.
+  const isGreenAndSafe = safeToTest === true;
 
   return (
     <section
       data-testid="snapshot-panel"
-      aria-label="Último commit en verde — seguro para probar"
+      aria-label={
+        isGreenAndSafe
+          ? "Último commit en verde — seguro para probar"
+          : "Último commit en verde — HEAD avanzó, no es el punto seguro actual"
+      }
       style={{ marginBottom: "12px" }}
     >
       {/* Main panel — Panel primitive (DR-057) */}
@@ -176,11 +186,21 @@ export function SnapshotPanel({ snapshot }: SnapshotPanelProps): React.JSX.Eleme
 
           {/* Body column */}
           <div data-testid="snapshot-panel-green-section" style={BODY_STYLE}>
-            {/* Heading + green Chip (AC-14-001.1) */}
+            {/* Heading + status Chip (AC-14-001.1) */}
             <p style={HEADING_STYLE}>
-              Último commit en verde · seguro para probar{" "}
-              {/* Chip (shared primitive, tone="ok") — the FRD green signal (DR-057) */}
-              <Chip tone="ok">en verde</Chip>
+              {isGreenAndSafe
+                ? "Último commit en verde · seguro para probar"
+                : "Último commit en verde"}{" "}
+              {/*
+               * Chip (shared primitive, DR-057):
+               *   - safeToTest=true  → tone="ok" "en verde" (green signal — safe to test)
+               *   - safeToTest=false → tone="warn" "aún no seguro" (HEAD advanced past green SHA)
+               */}
+              {isGreenAndSafe ? (
+                <Chip tone="ok">en verde</Chip>
+              ) : (
+                <Chip tone="warn">aún no seguro</Chip>
+              )}
             </p>
 
             {/* Muted detail: commit sha — pasó todos los gates (AC-14-001.1) */}

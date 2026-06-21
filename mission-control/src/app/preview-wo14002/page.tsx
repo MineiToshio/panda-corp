@@ -39,6 +39,14 @@ const STALE_SNAPSHOT: SnapshotInfo = {
   stale: true,
 };
 
+const NOT_SAFE_SNAPSHOT: SnapshotInfo = {
+  sha: "d150223",
+  safeToTest: false,
+  worktreeCommand: "git worktree add ../mission-control-review d150223",
+  buildingNow: "building now: 45%",
+  stale: false,
+};
+
 const SECTION_STYLE: React.CSSProperties = {
   marginBottom: "32px",
 };
@@ -93,9 +101,15 @@ export default function PreviewWo14002(): React.JSX.Element {
         <SnapshotPanel slug="mission-control" snapshot={STALE_SNAPSHOT} />
       </div>
 
-      {/* State 4: No snapshot — panel omitted */}
+      {/* State 4: safeToTest=false — warn Chip, heading without "seguro para probar" */}
       <div style={SECTION_STYLE}>
-        <p style={LABEL_STYLE}>4 · Sin snapshot (panel omitido)</p>
+        <p style={LABEL_STYLE}>4 · safeToTest=false (HEAD avanzó, chip warn)</p>
+        <SnapshotPanel slug="mission-control" snapshot={NOT_SAFE_SNAPSHOT} />
+      </div>
+
+      {/* State 5: No snapshot — panel omitted */}
+      <div style={SECTION_STYLE}>
+        <p style={LABEL_STYLE}>5 · Sin snapshot (panel omitido)</p>
         <div
           style={{
             fontSize: "12px",

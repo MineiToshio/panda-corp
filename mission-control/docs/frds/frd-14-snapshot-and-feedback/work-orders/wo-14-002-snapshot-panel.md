@@ -5,7 +5,7 @@ slug: snapshot-panel
 title: 'WO-14-002 — SnapshotPanel: último commit en verde + worktree command'
 status: DRAFT
 parent: FRD-14
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 artifacts:
   - 'src/app/projects/[slug]/_components/snapshot-panel/**'
   - 'src/app/preview-wo14002/page.tsx'
@@ -66,62 +66,66 @@ frozen tokens. Fidelity, not novelty (DR-056) — see `../fdd.md` and `../mocks/
 
 ## Status Note
 
-**What was built:**
+**What was built (repair pass — 2026-06-21):**
 
-`SnapshotPanel` (`src/app/projects/[slug]/_components/snapshot-panel/snapshot-panel.tsx`, Server Component) — re-implemented presentationally to match `snapshotPanel(i)` + `bStalenessPanel(i)` on frozen tokens, using the shared foundation primitives (DR-057). The component was already partially built but used bespoke inline styles instead of the shared primitives; this WO replaced the whole presentation layer.
+Correctness fix for the gate-reviewer defect: `SnapshotPanel` previously showed "Último commit en verde · seguro para probar" unconditionally, ignoring `safeToTest`. When `safeToTest === false` (HEAD has moved past the last green SHA — the normal state during an active build), claiming "seguro para probar" misleads the operator. This WO repairs that.
 
-**Interfaces/contracts exposed:**
+**Change summary (presentational only, `_components/snapshot-panel/**`):**
+
+- `snapshot-panel.tsx` — extracts `safeToTest` from `snapshot`; derives `isGreenAndSafe = safeToTest === true`. When `true`: heading = "Último commit en verde · seguro para probar" + `Chip tone="ok" "en verde"`. When `false`: heading = "Último commit en verde" (no safe-to-test claim) + `Chip tone="warn" "aún no seguro"`. The SHA, worktree command, building-now block, and staleness Banner are unchanged.
+- `snapshot-panel.adversarial.test.tsx` — replaced the "documented gap" describe block (which pinned the broken behavior, DR-016 decorative test) with 5 correct tests that would fail against the old implementation and pass against the fix. 4 tests added (net +4 from 51 to 55 total).
+- `preview-wo14002/page.tsx` — added state 4 (`safeToTest: false`) to the preview route so the new branch is visually verifiable. State 5 is the null state (was state 4).
+
+**Interfaces/contracts exposed (unchanged from prior build):**
 
 ```ts
 // snapshot-panel.tsx
 export interface SnapshotPanelProps {
-  slug: string;            // project slug (passed through — command is pre-built in snapshot)
+  slug: string;            // project slug (for aria-label context)
   snapshot: SnapshotInfo | null;  // from buildSnapshot() (WO-14-001 VERIFIED)
 }
 export function SnapshotPanel(props: SnapshotPanelProps): React.JSX.Element | null;
 // null when snapshot === null (AC-14-001.3 — panel omitted entirely)
 ```
 
-**Primitives reused (DR-057):**
+**Primitives reused (DR-057 — unchanged):**
 
 | Primitive | Role in SnapshotPanel |
 |---|---|
-| `Panel` (`src/components/core/Panel/Panel.tsx`) | Outer embossed container (replaces bespoke panel styles) |
-| `Chip tone="ok"` (`src/components/core/Chip/Chip.tsx`) | Green "en verde" status signal (replaces bespoke badge) |
-| `CmdRow` (`src/components/core/CmdRow/CmdRow.tsx`) | The `git worktree add` command row with copy button |
-| `Banner tone="warn"` (`src/components/core/Banner/Banner.tsx`) | Staleness warning (DR-057 dup-fix: one banner, not a second custom panel) |
+| `Panel` | Outer embossed container |
+| `Chip tone="ok"` | Green "en verde" signal — shown when `safeToTest=true` |
+| `Chip tone="warn"` | Amber "aún no seguro" signal — shown when `safeToTest=false` |
+| `CmdRow` | The `git worktree add` command row with copy button |
+| `Banner tone="warn"` | Staleness warning (shown when `stale=true`) |
 
 **Implicit decisions and assumptions:**
 
-- `SnapshotInfo` (WO-14-001 VERIFIED) has no `frd` field, so the green `Chip` carries the label "en verde" instead of the prototype's `i.green.frd` FRD identifier. This is an acceptable semantic equivalent — "en verde" is the status signal; the FRD name would require a new field in the lib (out of scope for this presentational WO).
-- The staleness warning uses the shared `Banner tone="warn"` (WO spec) rather than the prototype's bespoke `.panel border-color:var(--warn)` + `ti-clock-exclamation`. The `Banner` renders a triangle SVG instead of `ti-clock-exclamation` — intentional DR-057 convergence. Heading: "El último commit en verde quedó atrás del build". Detail: "Lo que pruebes ahí ya no refleja lo que el build lleva construido."
-- The building-now line uses `buildingNow` verbatim from `SnapshotInfo` (e.g. "building now: 67%"), which comes from `buildSnapshot()`. The prototype shows `i.progreso` directly (e.g. "67%") — the slightly different format is inherited from the VERIFIED lib and is acceptable.
-- Tabler icons are used via `<i className="ti ti-...">` (same as prototype). The `ti-circle-check` (ok color) and `ti-hammer` (accent color) render correctly because the Tabler icon font is loaded globally.
-- The outer `<section>` carries `data-testid="snapshot-panel"` + `aria-label` as the landmark; the `Panel` inside has its own `data-testid="panel"`.
-- URL token names: `var(--color-ok)`, `var(--color-accent)`, `var(--color-text2)`, `var(--color-text3)`, `var(--color-panel)` — matching the token contract from `design-tokens.json` / `globals.css`.
+- `safeToTest=false` does NOT hide the SHA or the worktree command — the information is still useful to the operator (they can check out that SHA, just not assume it's the current safe point). Only the "seguro para probar" claim is suppressed.
+- The `ti-circle-check` icon in `var(--color-ok)` remains in the heading row even when `safeToTest=false` — it identifies the last green commit (the icon refers to "passed all gates"), not the current safety status. The Chip is the safety signal. This is consistent with icon+text a11y (not color alone).
+- `aria-label` on the `<section>` is updated contextually: "Último commit en verde — seguro para probar" when safe; "Último commit en verde — HEAD avanzó, no es el punto seguro actual" when not safe.
+- The previous build's other decisions remain: "en verde" (not FRD name) in the ok Chip; Banner over bespoke stale panel (DR-057); `buildingNow` verbatim from `SnapshotInfo`.
 
-**Integration seams:**
+**Integration seams (unchanged):**
 
-- `page.tsx` already imports and renders `<SnapshotPanel slug={slug} snapshot={snapshot} />` (mounted in WO-04-004 chrome, above the tab bar). No page-level changes needed.
-- The `buildSnapshot(slug, status)` call in `page.tsx` feeds the panel's `snapshot` prop directly — stale is `false` by default (no git probe yet; see blueprint §5 flag).
-- When the git probe is added (future WO), the caller calls `isSnapshotStale(commitsBehind, hours)` and sets `snapshot.stale = true` to trigger the `Banner` warning — a one-line change.
+- `page.tsx` feeds `<SnapshotPanel slug={slug} snapshot={snapshot} />` — the panel now correctly reads `snapshot.safeToTest` which `buildSnapshot()` (WO-14-001) derives from `status.safeToTest === true`.
+- The staleness Banner wiring is unaffected.
 
-**In-loop fidelity check (DR-056) — completed 2026-06-20:**
+**In-loop fidelity check (DR-056/DR-072) — completed 2026-06-21:**
 
-- Preview route: `src/app/preview-wo14002/page.tsx` → `/preview-wo14002` (four states: normal, building, stale+building, null).
-- HTTP 200, zero console errors. Screenshot at `/tmp/wo14002-preview-full.png`.
-- All four states render correctly: Panel + Chip + SHA code + CmdRow for normal/building; Banner warn strip below the Panel for stale; nothing for null.
-- Divergences from prototype (both intentional, documented above): Chip shows "en verde" not FRD name; Banner replaces bespoke stale panel (DR-057).
-- No cycle-2 corrections needed.
+- Preview route `/preview-wo14002` extended with 5 states (was 4): normal · building · stale+building · safeToTest=false · null.
+- HTTP 200, zero console errors. Screenshot at `/tmp/wo14002-after-fix-full.png`.
+- State 4 (`safeToTest=false`): Panel renders with "Último commit en verde" heading + amber "aún no seguro" chip + SHA + building-now block + CmdRow. No "seguro para probar" text visible. Structurally matches the panel layout of states 1–3; only the heading text and chip tone differ.
+- No gross structural divergences from the mock. No cycle-2 corrections needed.
 
-**Gate results (2026-06-20):**
+**Gate results (2026-06-21):**
 
-- `vitest run` (WO-14-002 scope: 2 files) — **46 passed | 0 failed**
-- `vitest run` (full suite) — **6854 passed | 3 pre-existing failures (FraguaScene WO-06-007 RED anchor, out of scope) | 2 expected-fail** — no regressions
+- `vitest run "snapshot-panel"` (3 test files) — **55 passed | 0 failed**
+- `vitest run` (full suite) — **7008 passed | 7 pre-existing failures (frd-03-rail-reuse, frd-05-reuse, tab-summary.reviewer — RED anchors documented in progress.md, not caused by this WO) | 2 expected-fail** — no regressions
 - `tsc --noEmit` — 0 errors
-- `biome check` (WO scope: 4 files) — clean (0 errors, 0 warnings)
+- `biome check` (WO scope: 5 files) — clean (0 errors, 0 warnings)
 
 **Test files:**
 
-- `src/app/projects/[slug]/_components/snapshot-panel/_tests/snapshot-panel.test.tsx` — 30 tests (AC-14-001.1/.2/.3, AC-14-002.1, AC-14-003.1, a11y + DR-057 primitive assertions)
-- `src/app/projects/[slug]/_components/snapshot-panel/_tests/snapshot-panel.adversarial.test.tsx` — 16 tests (end-to-end buildSnapshot→SnapshotPanel, staleness wiring, progress edges, safeToTest gap, slug robustness — all updated to query via shared primitive testids)
+- `src/app/projects/[slug]/_components/snapshot-panel/_tests/snapshot-panel.test.tsx` — 30 tests (AC-14-001.1/.2/.3, AC-14-002.1, AC-14-003.1, a11y + DR-057 primitive assertions) — unchanged
+- `src/app/projects/[slug]/_components/snapshot-panel/_tests/snapshot-panel.adversarial.test.tsx` — 20 tests (was 16; the "documented gap" decorative block replaced with 5 correct safeToTest tests; net +4)
+- `src/app/projects/[slug]/_components/snapshot-panel/_tests/snapshot-panel.gate.reviewer.test.tsx` — 5 tests — unchanged

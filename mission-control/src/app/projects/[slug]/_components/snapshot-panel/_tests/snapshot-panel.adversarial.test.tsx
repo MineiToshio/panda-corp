@@ -159,20 +159,51 @@ describe("FRD-14 progress edges — buildingNow copy stays sane", () => {
 });
 
 // ---------------------------------------------------------------------------
-// safeToTest semantics vs the green Chip — documents the actual behavior.
-// The panel shows "en verde" from a non-null snapshot; safeToTest is NOT
-// consulted by the panel. Pin that so a future change is a conscious one.
+// safeToTest semantics — AC-14-001.1 reads BOTH last_green_sha AND safe_to_test.
+// When safeToTest=false the panel MUST NOT claim "seguro para probar".
+// The previous version of this test was decorative (it pinned broken behavior).
+// These tests are the CORRECT behavior per AC-14-001.1 and the gate review.
 // ---------------------------------------------------------------------------
 
-describe("FRD-14 safeToTest — green Chip is independent of safe_to_test (documented gap)", () => {
-  it("safeToTest=false still produces a non-null snapshot with the green Chip shown", () => {
+describe("FRD-14 safeToTest — panel MUST consult safe_to_test (AC-14-001.1)", () => {
+  it("safeToTest=false: panel still renders (snapshot non-null) but does NOT say 'seguro para probar'", () => {
     const snap = buildSnapshot("proj", status({ safeToTest: false }));
     expect(snap).not.toBeNull();
     expect((snap as SnapshotInfo).safeToTest).toBe(false);
     render(<SnapshotPanel slug="proj" snapshot={snap} />);
-    // Panel renders the Chip (data-testid="chip", tone="ok") regardless of safeToTest
+    // The panel must NOT claim "seguro para probar" when safeToTest=false
+    const panel = screen.getByTestId("snapshot-panel");
+    expect(panel.textContent?.toLowerCase()).not.toContain("seguro para probar");
+  });
+
+  it("safeToTest=false: panel shows the sha + worktree command (the info is still useful)", () => {
+    const snap = buildSnapshot("proj", status({ safeToTest: false }));
+    render(<SnapshotPanel slug="proj" snapshot={snap} />);
+    // SHA is still shown
+    expect(screen.getByTestId("snapshot-panel-sha")).toBeTruthy();
+    // Command row is still shown
+    expect(screen.getByTestId("cmd-row")).toBeTruthy();
+  });
+
+  it("safeToTest=false: Chip does NOT have tone='ok' (not a green signal when not safe)", () => {
+    const snap = buildSnapshot("proj", status({ safeToTest: false }));
+    render(<SnapshotPanel slug="proj" snapshot={snap} />);
     const chip = screen.getByTestId("chip");
-    expect(chip).toBeTruthy();
+    // Must not be "ok" tone (would imply safe/green when it's not)
+    expect(chip.getAttribute("data-tone")).not.toBe("ok");
+  });
+
+  it("safeToTest=true: panel shows 'seguro para probar' (normal green state)", () => {
+    const snap = buildSnapshot("proj", status({ safeToTest: true }));
+    render(<SnapshotPanel slug="proj" snapshot={snap} />);
+    const panel = screen.getByTestId("snapshot-panel");
+    expect(panel.textContent?.toLowerCase()).toContain("seguro para probar");
+  });
+
+  it("safeToTest=true: Chip has tone='ok' (green signal)", () => {
+    const snap = buildSnapshot("proj", status({ safeToTest: true }));
+    render(<SnapshotPanel slug="proj" snapshot={snap} />);
+    const chip = screen.getByTestId("chip");
     expect(chip.getAttribute("data-tone")).toBe("ok");
   });
 });
