@@ -60,7 +60,7 @@ export type CardInput = {
 };
 
 /** Work-order progress counts. */
-export type WoProgress = {
+type WoProgress = {
   done: number;
   total: number;
   /** Percentage, rounded to the nearest integer. */
