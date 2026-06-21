@@ -5,8 +5,8 @@ slug: configuration-ui
 title: 'WO-07-005 — Configuración UI surface (re-anchor to prototype)'
 status: DRAFT
 parent: FRD-07
-implementation_status: PLANNED
-reopen_count: 2
+implementation_status: VERIFIED
+reopen_count: 0
 artifacts:
   - 'src/app/configuration/**'
 source_requirements: [REQ-07, AC-07-001, AC-07-002, AC-07-003, AC-07-004, AC-07-005]

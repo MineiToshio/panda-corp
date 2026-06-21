@@ -44,6 +44,17 @@ export type AgentDetailProps = {
   agent: AgentRef;
   /** The agent's current level/XP result from computeAgentLevel(). */
   level: AgentLevelResult;
+  /**
+   * Reverse cross-navigation (FRD-07 EARS): slugs of skills that reference
+   * this agent. When non-empty, each skill is shown as a clickable chip so
+   * the owner can jump from the agent's detail to that skill's detail.
+   */
+  usingSkills?: string[];
+  /**
+   * Called with a skill slug when the owner clicks a using-skill chip.
+   * Wired by ConfigurationShell to switch to the Skills tab + open that skill.
+   */
+  onSkillClick?: (slug: string) => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -148,6 +159,32 @@ const EXPLANATION_STYLE: React.CSSProperties = {
   margin: 0,
 };
 
+const USING_SKILLS_SECTION_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "calc(var(--spacing, 0.25rem) * 2)",
+};
+
+const USING_SKILLS_CHIPS_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "calc(var(--spacing, 0.25rem) * 2)",
+};
+
+const SKILL_CHIP_STYLE: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "calc(var(--spacing, 0.25rem) * 1) calc(var(--spacing, 0.25rem) * 2.5)",
+  borderRadius: "var(--radius, 0.375rem)",
+  border: "var(--hairline, 1px) solid var(--color-accent, currentColor)",
+  fontSize: "0.75rem",
+  fontWeight: 600,
+  fontFamily: "var(--font-mono, monospace)",
+  color: "var(--color-accent, currentColor)",
+  background: "transparent",
+  cursor: "pointer",
+};
+
 const DESC_STYLE: React.CSSProperties = {
   fontSize: "0.875rem",
   color: "var(--color-text, currentColor)",
@@ -205,7 +242,12 @@ function nextRankTitle(currentLevel: number): string {
  * Server Component: pure rendering, no client interactivity.
  * Consumed by ConfigurationShell when an agent card is selected.
  */
-export function AgentDetail({ agent, level }: AgentDetailProps): React.JSX.Element {
+export function AgentDetail({
+  agent,
+  level,
+  usingSkills = [],
+  onSkillClick,
+}: AgentDetailProps): React.JSX.Element {
   const avatarRole = agent.id as AgentRole;
   const nextTitle = nextRankTitle(level.level);
   const modelExplanation = modelAssignmentExplanation(agent.model);
@@ -247,6 +289,27 @@ export function AgentDetail({ agent, level }: AgentDetailProps): React.JSX.Eleme
           {modelExplanation}
         </p>
       </section>
+
+      {/* ── Reverse cross-navigation: skills that use this agent (EARS) ───── */}
+      {usingSkills.length > 0 ? (
+        <section style={USING_SKILLS_SECTION_STYLE} aria-label="Habilidades que usan este agente">
+          <h3 style={XP_HEADING_STYLE}>Usado por</h3>
+          <div style={USING_SKILLS_CHIPS_STYLE}>
+            {usingSkills.map((slug) => (
+              <button
+                key={slug}
+                type="button"
+                data-testid={`agent-skill-chip-${slug}`}
+                aria-label={`Ir a la habilidad /pandacorp:${slug}`}
+                onClick={() => onSkillClick?.(slug)}
+                style={SKILL_CHIP_STYLE}
+              >
+                /pandacorp:{slug}
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {/* ── Description (from body or description field) ─────────────────── */}
       {agent.description ? (
