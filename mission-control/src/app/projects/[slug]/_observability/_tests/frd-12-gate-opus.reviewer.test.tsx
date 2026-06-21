@@ -88,7 +88,7 @@ const WO_D: WoWithDeps = {
 const STATIC_WOS: WorkOrder[] = [WO_A, WO_B, WO_C, WO_D];
 
 function makeSnapshot(events: Event[]): EventsSnapshot {
-  const last = events.length > 0 ? events[events.length - 1]?.at ?? null : null;
+  const last = events.length > 0 ? (events[events.length - 1]?.at ?? null) : null;
   return { events, lastEventAt: last, byProject: {} };
 }
 
