@@ -8,12 +8,12 @@ created_with: "6.0.0"
 running: true
 run_started_at: "2026-06-21T06:52:14Z"
 repo: ""
-updated_at: "2026-06-21T08:31:56Z"
-last_event_at: "2026-06-21T08:31:56Z"
+updated_at: "2026-06-21T08:49:03Z"
+last_event_at: "2026-06-21T08:49:03Z"
 work_orders_total: 78
 work_orders_verified: 66
-work_orders_in_review: 4
-work_orders_planned: 7
+work_orders_in_review: 3
+work_orders_planned: 8
 work_orders_in_progress: 0
 work_orders_blocked: 1
 work_orders_done: 66
@@ -22,7 +22,7 @@ pending_bugs: 0
 rethink_pending: false
 advance_pending: false
 last_green_sha: "d37fa48"
-safe_to_test: false  # FRD-18 gate PASS (2026-06-21, DR-072): WO-18-001 VERIFIED → frd-18 frd.md+blueprint.md rollup VERIFIED. The three first-pass blocking findings are resolved & re-verified: digest capped (MAX_NEW_EVENTS=20, no runaway), smoke+visual harness uses domcontentloaded + aborts /api/live (DR-071) so / passes the Preview Smoke Gate with 0 console errors, and phaseStartedAt is wired (estancado/age fire). / blessed (e2e/routes.ts inicio blessed:true) + baselines committed (inicio-desktop/mobile). 295 FRD-18 tests green. Visual nits → .pandacorp/comms/visual-punch-list.md (advisory). | last_green_sha + safe_to_test STAY at d37fa48/false because the GLOBAL suite is still red on two NON-FRD-18 siblings (not regressions, both already tracked): FRD-03 WO-03-002 BLOCKED needs-owner (reopen_count 3, DR-057 duplicate rail — owner must pick direction, see .pandacorp/inbox/decisions.md; anchor src/app/portfolio/_tests/frd-03-rail-reuse.gate.reviewer.test.tsx) and FRD-04 WO-04-005 reopened (reopen_count 1, nested <button>-in-<button> → React #418, tab-summary.reviewer.test.tsx). The reviewer applied a biome format-only autofix to the FRD-03 reviewer test (it poisoned the global biome gate after last green; no logic change). last_green_sha advances only once the global suite is clean.
+safe_to_test: false  # FRD-05 gate REJECT (2026-06-21, DR-072): WO-05-003 reopened PLANNED (reopen_count 1) — DR-057/DR-062 reuse violation: the FRD chip is forked 3 ways (wo-board uses shared Chip; wo-detail + wo-frd-filter hand-roll their own pills) and the wo-detail tab switcher is a hand-rolled role=tablist instead of the ONE shared Tabs primitive (inventory components.md:102 says WoDetail "uses Tabs, DocView"). Anchor reviewer gate test (FAILS against current code): src/app/projects/[slug]/_components/_tests/frd-05-reuse.gate.reviewer.test.tsx. WO-05-003 impl is byte-identical to last green (HEAD only flipped its status), so no DR-070 revert was needed. frd-05 frd.md+blueprint.md rollup stay PLANNED (one WO planned). The board/progress/empty/live behavior tests are green (125). | FRD-18 gate PASS (2026-06-21, DR-072): WO-18-001 VERIFIED → frd-18 frd.md+blueprint.md rollup VERIFIED. The three first-pass blocking findings are resolved & re-verified: digest capped (MAX_NEW_EVENTS=20, no runaway), smoke+visual harness uses domcontentloaded + aborts /api/live (DR-071) so / passes the Preview Smoke Gate with 0 console errors, and phaseStartedAt is wired (estancado/age fire). / blessed (e2e/routes.ts inicio blessed:true) + baselines committed (inicio-desktop/mobile). 295 FRD-18 tests green. Visual nits → .pandacorp/comms/visual-punch-list.md (advisory). | last_green_sha + safe_to_test STAY at d37fa48/false because the GLOBAL suite is still red on two NON-FRD-18 siblings (not regressions, both already tracked): FRD-03 WO-03-002 BLOCKED needs-owner (reopen_count 3, DR-057 duplicate rail — owner must pick direction, see .pandacorp/inbox/decisions.md; anchor src/app/portfolio/_tests/frd-03-rail-reuse.gate.reviewer.test.tsx) and FRD-04 WO-04-005 reopened (reopen_count 1, nested <button>-in-<button> → React #418, tab-summary.reviewer.test.tsx). The reviewer applied a biome format-only autofix to the FRD-03 reviewer test (it poisoned the global biome gate after last green; no logic change). last_green_sha advances only once the global suite is clean.
 blocked:
   - "WO-03-002"
-supervisor_heartbeat: "2026-06-21T08:40:25Z"
+supervisor_heartbeat: "2026-06-21T08:48:26Z"

@@ -5,7 +5,8 @@ slug: wo-board-tab
 title: 'WO-05-003 — Work-orders tab: live kanban board + detail (re-paint to mock)'
 status: DRAFT
 parent: FRD-05
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
+reopen_count: 1
 artifacts:
   - 'src/app/projects/[slug]/_components/wo-board/**'
   - 'src/app/projects/[slug]/_components/wo-detail/**'
@@ -98,7 +99,41 @@ and the **Work orders** subtab active. See `../fdd.md` and `mocks/README.md`. Fi
 
 ## Status Note
 
-**Built:** Five-column kanban board (To do · En progreso · Review / Testing · Falló · Hecho) mounted into the FRD-04 workspace Tabbar via `TabWorkOrders` (page.tsx `renderWorkOrdersTab`). In-loop visual fidelity gate (DR-056) passed at cycle 2 against `projWO()` in `docs/design/prototype/index.html`.
+**FRD gate REJECT (2026-06-21, Opus 4.8, DR-072) — reopened PLANNED, reopen_count 1.**
+The board, progress, empty and live-refresh pieces are correct and their behavior tests are green
+(125 tests). The reject is a **DR-057/DR-062 reuse-before-create violation** in the detail + filter:
+
+1. **FRD chip forked three ways (DR-057).** `wo-board.tsx` correctly uses the shared `Chip`
+   primitive (`<Chip tone="info">`), but `wo-detail.tsx` hand-rolls its own `FRD_CHIP_STYLE` span
+   (`src/app/projects/[slug]/_components/wo-detail/wo-detail.tsx:115` + L308) and
+   `wo-frd-filter.tsx` hand-rolls a private `chipStyle()` pill
+   (`src/app/projects/[slug]/_components/wo-frd-filter/wo-frd-filter.tsx:44`). One surface, three
+   different FRD pills — the exact "two banners by two agents who never talked" MC defect DR-057
+   forbids. **Fix:** render every FRD chip through the shared `Chip` (`frd` = a tone preset, NOT a
+   new component); the filter pills are `Chip`s with a selected variant.
+2. **Ad-hoc tab switcher (DR-062).** `wo-detail.tsx` hand-rolls a `role="tablist"` with bare
+   `<a role="tab">` and a private `tabButtonStyle()` (L324-345) instead of the ONE shared `Tabs`
+   primitive (`src/components/core/Tabs/Tabs.tsx`). The inventory (`docs/design/components.md:102`)
+   already states **WoDetail "uses `Tabs`, `DocView`"** — the code contradicts the canonical
+   inventory. `Tabs` is "the ONE tab pattern (DR-062) — no ad-hoc switcher per screen". **Fix:**
+   switch the Resumen/Documento-completo bar to `Tabs` (level="sub"); keep URL-driven selection.
+3. **Secondary (fix while in there):** `wo-detail.tsx` STATE_LABEL maps `fail` → "Bloqueado"
+   (L61) while the board labels the same state "Falló" — the two siblings must agree on one word
+   for the `fail` state.
+
+**Proof (reviewer gate test, the anchor for the rebuild):**
+`src/app/projects/[slug]/_components/_tests/frd-05-reuse.gate.reviewer.test.tsx` — 3 tests that FAIL
+against the current code (chip-in-detail, chip-in-filter, tabs-in-detail). They go GREEN only once the
+shared `Chip`/`Tabs` primitives are reused.
+
+> Note: the global `verify.sh` is also RED on an **unrelated** sibling — `knip` flags
+> `WoProgress` (an unused export in FRD-18 `src/app/(dashboard)/_lib/card.ts:63`), present since the
+> last green and outside FRD-05's scope. Not a WO-05-003 finding; not reverted here (DR-070 applies
+> only to the rejected WO's own code, which is byte-identical to the last green).
+
+**Previously built (still valid, keep):** Five-column kanban board (To do · En progreso · Review /
+Testing · Falló · Hecho) mounted into the FRD-04 workspace Tabbar via `TabWorkOrders`
+(page.tsx `renderWorkOrdersTab`); live SSE refresh; aggregated progress; empty state.
 
 **Components and files:**
 
