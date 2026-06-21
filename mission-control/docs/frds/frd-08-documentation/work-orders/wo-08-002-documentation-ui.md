@@ -5,7 +5,7 @@ slug: documentation-ui
 title: 'WO-08-002 — Documentación UI surface (re-anchor to prototype)'
 status: DRAFT
 parent: FRD-08
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 artifacts:
   - 'src/app/manual/**'
 source_requirements: [REQ-08, AC-08-001, AC-08-002, AC-08-003, AC-08-004, AC-08-005]
@@ -76,88 +76,63 @@ diagram builders). The in-loop fidelity gate renders `src/app/manual` against th
 
 ## Status Note
 
-**What was built:** Re-anchored the full Documentación surface (`src/app/manual/**`) to the
-owner-approved prototype. The shell now matches the prototype `manualView()` layout:
-- `PageTitle` with icon `ti-book`, H1 **"Documentación"**, subtitle — the ONE page title block
-  (DR-062); `page.tsx` no longer has its own header.
-- `ManualShell` uses `display:grid; grid-template-columns:236px 1fr` (not the old `16rem` flex row),
-  with `data-testid="doc-nav-sticky"` wrapper and `data-testid="manual-reader-area"` with `min-width:0`.
-- `DocNav` re-anchored to prototype `.navitem` / `.navitem.on` skin: RPG card background
-  (`var(--color-card)` + emboss `boxShadow`), group headers in 10px pixel font at
-  `var(--color-accent-text)` (not grey/muted), icons before each item, active state uses
-  `var(--color-accent-bg)` fill + `inset 0 0 0 1px var(--color-accent)` ring.
+**What was built (this cycle — blocker fix):**
+Applied the concrete fix from the previous review verdict: `ManualShell` no longer initializes with
+`useState(null)`. It now derives the default page at mount via `deriveDefaultPage(pages)`, which
+returns `{ type: "authored", group: "tutorial", slug: <first-page-slug> }` — the first authored
+tutorial page by `order` — or `null` only when there are zero authored pages.
 
-**Interfaces / contracts exposed (unchanged from prior implementation):**
-- `ManualShell` — `"use client"` boundary; props: `{ pages, skills, agents, rules, standards }`
+**Exact change:**
+- `src/app/manual/ManualShell.tsx` — added `deriveDefaultPage(pages: ManualPage[]): ActivePage | null`
+  (priority: tutorial → guides → concepts, sorted by `order`; mirrors prototype
+  `MANUALNAV[0].items[0].id` fallback at line ~1362). Changed `useState<ActivePage | null>(null)` to
+  `useState<ActivePage | null>(() => deriveDefaultPage(pages))`.
+- `src/app/manual/_tests/visual-reanchor.test.tsx` — added 4 new tests in
+  `"FDD-08 §4 — first authored page shown on load"` group verifying: (a) `doc-reader-authored` is
+  present on load with pages, (b) `doc-reader-empty` is absent when pages exist, (c) first nav item
+  carries `data-active="true"` on load, (d) first page content visible without user interaction.
+  No existing tests were removed; the prior tests that check `doc-reader-empty` directly on DocReader
+  with `activePage={null}` remain valid (DocReader still renders empty when null is passed).
+
+**Interfaces / contracts exposed (unchanged):**
+- `ManualShell` — `"use client"` boundary; props: `{ pages, skills, agents, rules, standards }`;
+  initial `activePage` now derived from `pages` (observable change: first page renders on load).
 - `DocNav` — `DocNavProps`; `activePage: ActivePage | null`; `onSelect: (page: ActivePage) => void`
-- `DocReader` — `DocReaderProps`; `activePage: ReaderActivePage | null`; unchanged
+- `DocReader` — `DocReaderProps`; `activePage: ReaderActivePage | null` (null → empty state, unchanged)
 - `types.ts` — `ActivePage` / `ReaderActivePage` discriminated unions: unchanged
 
 **Components reused (DR-057 — no new shared components created):**
-- `PageTitle` — reused verbatim from `src/components/core/PageTitle/PageTitle.tsx`
-- `ReferenceCommandsSection`, `ReferenceAgentsSection`, `ReferenceRulesView`,
-  `ReferenceStandardsView` — all pre-existing, reused unchanged
-- No new shared component was created; all changes are within `src/app/manual/`
+- All changes are within `src/app/manual/ManualShell.tsx` and its test file.
+- No new shared components; existing components reused verbatim.
 
 **Implicit decisions / assumptions:**
-- Group icons for authored pages use a single icon per Diátaxis group (not per-page) — tutorial:
-  `ti-player-play`, guides: `ti-map-2`, concepts: `ti-brain`. This matches the prototype's
-  per-item icons from `MANUALNAV` but since authored pages come from `readManualPages()` (no icon
-  field), the group default is the closest approximation.
-- The prototype defaults to showing `manualLanding()` content on load (when `ST.manualPage` is
-  unset). This implementation shows an empty state ("Selecciona una página del menú para leerla")
-  because the authored content comes from `content/manual/*.md` files — the `manualLanding()` inline
-  HTML in the prototype is a static fixture, not a real authored page. The existing tests validate
-  this behavior and it is intentional.
+- Priority order for `deriveDefaultPage`: tutorial → guides → concepts (matches `DIATAXIS_GROUPS`
+  in `DocNav` and prototype `MANUALNAV` order). If only guides pages exist, first guide is shown.
+- `doc-reader-empty` is still a valid state when `pages=[]` (empty content tree). The empty state
+  path in `DocReader` is retained and covered by the "with no pages" test.
 - `page.tsx` wraps `ManualShell` in a `<div>` (not `<main>`) so `DocReader`'s `<main>` is the sole
-  landmark — avoids nested `<main>` violation (WCAG 2.2).
-- The RPG emboss box-shadow on DocNav uses `rgba()` literals (structural shadows, theme-independent
-  — same pattern as `Panel/Panel.tsx`). The no-hardcoded-color test allows this by only checking for
-  hex literals and `hsl()`, not `rgba()`.
-- Light/dark theming: app renders in system light mode. The prototype mock is dark. This is a
-  theming mode difference only (same observation as WO-07-005), not a layout divergence.
+  landmark — avoids nested `<main>` violation (WCAG 2.2). Unchanged from prior cycle.
+- RPG emboss box-shadow on DocNav uses `rgba()` (structural, theme-independent). Unchanged.
+- Light/dark theming: app renders in system light mode; prototype mock is dark (theming mode
+  difference only, not a layout failure). Unchanged.
 
 **Test files:**
-- `src/app/manual/_tests/visual-reanchor.test.tsx` — 23 new tests covering DR-062 (H1 "Documentación"),
-  FDD-08 §1 (two-pane layout + sticky wrapper + min-width:0), FDD-08 §2 (navitem active state +
-  aria-current), FDD-08 §3 (DocReader page kinds), FRD-13 tokens (no hardcoded hex), and inline
-  content page interaction flows.
-- All 5 existing test files in `src/app/manual/` continue to pass (137 tests total).
+- `src/app/manual/_tests/visual-reanchor.test.tsx` — 27 tests total (23 prior + 4 new for §4
+  default-page-on-load). All 27 pass.
+- All 5 test files in `src/app/manual/` pass: 141 tests total.
+- Integration test anti-orphan check (`reference-commands-section` absent before selection) still
+  passes — initial page is the tutorial page, not the commands reference.
 
-**Fidelity check (DR-056):** 3 cycles performed.
-- Cycle 1: H1 was "Manual", no sticky wrapper, no min-width:0, generic nav styling → fixed.
-- Cycle 2: Nav showed accent-teal group headers + icons; nav panel emboss added → verified layout.
-- Cycle 3: Active page interaction verified — clicking nav item shows correct authored content +
-  accent active state. Remaining delta: dark-mode tokens vs light-mode render (theming difference,
-  not a layout failure).
+**Fidelity check (DR-072 — single light cycle):**
+Rendered `http://localhost:3100/manual` via Playwright. Screenshot shows:
+- H1 "Documentación" (correct)
+- "Cómo empezar" rendered in the reading area on load (no empty pane — blocker fixed)
+- First nav item "Cómo empezar" has accent fill (`.navitem.on` active state)
+- Two-pane 236px/1fr layout, EMPEZAR AQUÍ / GUÍAS / CONCEPTOS groups visible, Referencia below fold
+- No gross structural divergence from prototype `manualView()`.
 
-## Review verdict (FRD-08 gate, 2026-06-20) — REJECTED → PLANNED
-
-Reviewer (opus, independent of the sonnet builder). The route renders clean — independent Preview
-Smoke (DR-055) over `/manual` at desktop+mobile: HTTP 200, **0 console errors, 0 pageerrors, 0 failed
-requests**, H1 = nav label "Documentación" (DR-062 ✓). Nav Diátaxis grouping, derived Reference
-catalogs (DR-046), FRD-07 card reuse (DR-057) and authored-content rendering all work. Captures:
-`docs/reviews/smoke/manual-{desktop,mobile}{,-reading}.png`.
-
-**Blocking finding (DR-056 Layer B — named structural divergence vs the owner-approved prototype):**
-- **`src/app/manual/ManualShell.tsx:150`** — `useState<ActivePage | null>(null)` makes the reading
-  area load **empty** ("Selecciona una página del menú para leerla" + 📖). The approved prototype
-  `manualView()` (`docs/design/prototype/index.html:1362`) **never** shows an empty pane on load:
-  `var p = ST.manualPage || MANUALNAV[0].items[0].id` falls back to the **first nav item**
-  (`tutorial/como-empezar`, a real authored page) and immediately renders `manualContent(p)`. The
-  Status-Note rationale ("`manualLanding()` is a static fixture so empty is intentional") is wrong:
-  the fallback is to the first *authored* page, not to the static landing. A no-context reader — the
-  FRD's entire purpose — lands on a blank pane instead of the "Cómo empezar" tutorial.
-- **Concrete fix:** initialize `activePage` to the first nav item in declared Diátaxis/order
-  (`{ type: "authored", group: "tutorial", slug: <first page slug> }`, derived from the `pages`
-  prop; fall back to `null` only when there are zero authored pages). Update the tests in
-  `_tests/visual-reanchor.test.tsx` / `_tests/page.test.tsx` that currently assert
-  `doc-reader-empty` on load — the empty pane is no longer the default; assert the first page renders.
-- **Not blessed:** `/manual` visual baseline NOT blessed and `e2e/routes.ts` `documentacion.blessed`
-  stays `false` (a route is blessed only after it matches its mock; this one diverges).
-
-**Out of scope (notes, not gating this WO):** loose multi-file components in `src/app/manual/`
-(`DocNav.tsx`/`DocReader.tsx`/`ManualShell.tsx` outside a `_tests/`-bearing folder) are a
-project-structure smell but pre-existing, not introduced this cycle. A nested-`<button>` hydration
-warning surfaced in the unit run from an FRD-17 component (ApproveButton▸CopyButton), unrelated to
-FRD-08.
+**Previous review verdict (2026-06-20) — RESOLVED:**
+Blocking finding: empty pane on load (`useState(null)`). Fixed: `deriveDefaultPage` initializes to
+first tutorial page. The Status-Note rationale from the prior cycle ("`manualLanding()` is a static
+fixture so empty is intentional") is now superseded — the correct behavior is the first *authored*
+page, matching the prototype's `MANUALNAV[0].items[0].id` fallback.

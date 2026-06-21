@@ -405,6 +405,77 @@ describe("FRD-13 — no hardcoded colors in ManualShell or DocNav", () => {
 // Verified via the full ManualShell + DocReader integration
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// FDD-08 §4 (BLOCKER FIX) — Default page on load
+// Prototype `manualView()` line ~1362: `var p = ST.manualPage || MANUALNAV[0].items[0].id`
+// The approved prototype NEVER loads with an empty pane — it falls back to the
+// first nav item (first authored tutorial page).
+// ---------------------------------------------------------------------------
+
+describe("FDD-08 §4 — first authored page shown on load (no empty pane, prototype default)", () => {
+  it("ManualShell with pages renders the first tutorial page immediately (no empty pane)", () => {
+    render(
+      <ManualShell
+        pages={PAGES}
+        skills={SKILLS}
+        agents={AGENTS}
+        rules={RULES}
+        standards={STANDARDS}
+      />,
+    );
+    // On load, the first authored page (tutorial/que-es) must already be in the reader.
+    expect(screen.getByTestId("doc-reader-authored")).toBeTruthy();
+    // No empty pane when pages are available.
+    expect(screen.queryByTestId("doc-reader-empty")).toBeNull();
+  });
+
+  it("ManualShell with no pages shows the empty pane (fallback when no authored pages)", () => {
+    render(
+      <ManualShell
+        pages={[]}
+        skills={SKILLS}
+        agents={AGENTS}
+        rules={RULES}
+        standards={STANDARDS}
+      />,
+    );
+    // No authored pages → empty pane is acceptable (no first-page to show).
+    expect(screen.getByTestId("doc-reader-empty")).toBeTruthy();
+  });
+
+  it("the first tutorial page is selected (active) in DocNav on load", () => {
+    render(
+      <ManualShell
+        pages={PAGES}
+        skills={SKILLS}
+        agents={AGENTS}
+        rules={RULES}
+        standards={STANDARDS}
+      />,
+    );
+    // The first tutorial page (que-es) must carry data-active="true" on load.
+    const firstItem = screen.getByTestId("doc-nav-item-tutorial-que-es");
+    expect(firstItem.getAttribute("data-active")).toBe("true");
+  });
+
+  it("the first page content is visible on load without any user interaction", () => {
+    render(
+      <ManualShell
+        pages={PAGES}
+        skills={SKILLS}
+        agents={AGENTS}
+        rules={RULES}
+        standards={STANDARDS}
+      />,
+    );
+    // The first tutorial page title ("Qué es Pandacorp") must be visible right away.
+    const authored = screen.getByTestId("doc-reader-authored");
+    const headings = Array.from(authored.querySelectorAll("h1, h2, h3, [role='heading']"));
+    const texts = headings.map((h) => h.textContent ?? "");
+    expect(texts.some((t) => t.includes("Qué es"))).toBe(true);
+  });
+});
+
 describe("Inline content pages — the Diátaxis page kinds", () => {
   it("ManualLanding renders when 'que-es' tutorial page is selected", () => {
     render(
