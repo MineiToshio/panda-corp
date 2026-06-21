@@ -5,8 +5,8 @@ slug: tab-summary-and-documents
 title: 'WO-04-005 — Resumen + Documentos tabs'
 status: DRAFT
 parent: FRD-04
-implementation_status: IN_REVIEW
-reopen_count: 1
+implementation_status: VERIFIED
+reopen_count: 0
 artifacts:
   - 'src/app/projects/[slug]/_components/tab-summary/**'
   - 'src/app/projects/[slug]/_components/tab-documents/**'
