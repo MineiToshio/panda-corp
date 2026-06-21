@@ -5,11 +5,12 @@ slug: documentation-ui
 title: 'WO-08-002 — Documentación UI surface (re-anchor to prototype)'
 status: DRAFT
 parent: FRD-08
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
+reopen_count: 1
 artifacts:
   - 'src/app/manual/**'
 source_requirements: [REQ-08, AC-08-001, AC-08-002, AC-08-003, AC-08-004, AC-08-005]
-last_updated: '2026-06-19'
+last_updated: '2026-06-21'
 ---
 # WO-08-002 — Documentación UI surface (re-anchor to prototype)
 
@@ -136,3 +137,36 @@ Blocking finding: empty pane on load (`useState(null)`). Fixed: `deriveDefaultPa
 first tutorial page. The Status-Note rationale from the prior cycle ("`manualLanding()` is a static
 fixture so empty is intentional") is now superseded — the correct behavior is the first *authored*
 page, matching the prototype's `MANUALNAV[0].items[0].id` fallback.
+
+**FRD gate verdict (2026-06-21, reviewer/opus, DR-072) — REJECTED → PLANNED (reopen_count 1):**
+BLOCKING CORRECTION (DR-046 AC + DR-057 reuse — the same defect class that rejected FRD-05/07/10).
+The Referencia catalogs are **forked, not reused**. The FRD-08 contract is explicit ("The Reference
+catalogs SHALL **reuse the Configuración (FRD-07) card components** … rather than re-implementing
+them") and this WO's own Scope says "REUSES Configuración's SkillCard/AgentCard/RuleCard/StandardCard
++ the shared detail VERBATIM (do NOT fork them)"; the living inventory `docs/design/components.md`
+:104-107,112,142-143 says the Manual Referencia reuses Config's cards verbatim. Instead:
+- `src/app/manual/DocReader.tsx` renders four BESPOKE catalog views — `ReferenceCommandsSection`,
+  `ReferenceAgentsSection`, `ReferenceRulesView`, `ReferenceStandardsView` — each a hand-rolled flat
+  `<ul>/<li>` list with its own private style constants. They import nothing from `configuration/`
+  (`grep configuration src/app/manual/` → no matches).
+- FRD-07 ALREADY exposes the canonical, reusable primitives that must be used instead:
+  `SkillList` (stamps `skill-card-<slug>` = Panel + ItemSlot wand tile),
+  `AgentList` (`agent-card`), `DecisionRulesSection` (`rules-list`/`rules-section`),
+  `StandardsSection` (`standards-section`).
+**Fix:** delete the four `Reference*` fork files and render the FRD-07 `SkillList`/`AgentList`/
+`DecisionRulesSection`/`StandardsSection` (+ shared detail) inside `DocReader`'s reference branch,
+passing the already-read `skills`/`agents`/`rules`/`standards` props through. Keep the live DR-046
+derivation (page.tsx already reads from the canonical readers). Build AFTER FRD-07 WO-07-005 lands so
+the cards are the verified shared primitives. Note: the headers on the fork files still cite the
+retired WO-08-003/WO-08-004 (collapsed into WO-08-002) — remove on rebuild.
+**Anchor gate test (RED against the fork, mutation-killing — goes GREEN once the FRD-07 cards are
+reused):** `src/app/manual/_tests/frd-08-reuse.gate.reviewer.test.tsx` (4 RED). A correct
+reuse implementation stamps the FRD-07 card testids and the four assertions pass.
+**DR-070:** the WO's two cycle-changed files (`ManualShell.tsx` default-page fix + the
+`visual-reanchor.test.tsx` additions) were reverted to last green `d37fa48` so HEAD does not carry a
+half-built reopened WO into siblings' global gate. The four `Reference*` forks + `DocReader`/`DocNav`
+were already byte-identical to `d37fa48` (no new files created), so nothing else to revert.
+NON-BLOCKING (advisory, NOT a reason for the reject — on the visual punch-list): the reading area is
+a flat markdown render with no concept diagrams (PipelineDiagram/TeamDiagram/… per inventory
+:111), light-mode skin vs the dark prototype, and px/arbitrary inline style values. These do not
+gate VERIFIED; the reuse violation does.

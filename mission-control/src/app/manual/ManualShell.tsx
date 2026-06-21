@@ -136,28 +136,6 @@ function resolveActivePage(
   return { type: "authored", page: found };
 }
 
-/**
- * Derive the default (first) page to show on load.
- *
- * Matches prototype `manualView()` line ~1362:
- *   `var p = ST.manualPage || MANUALNAV[0].items[0].id`
- * which falls back to the first nav item — the first authored tutorial page.
- *
- * Priority order matches DIATAXIS_GROUPS in DocNav: tutorial → guides → concepts.
- * Returns null only when there are zero authored pages (empty content tree).
- */
-function deriveDefaultPage(pages: ManualPage[]): ActivePage | null {
-  const priority = ["tutorial", "guides", "concepts"] as const;
-  for (const group of priority) {
-    const inGroup = pages.filter((p) => p.group === group).sort((a, b) => a.order - b.order);
-    const first = inGroup[0];
-    if (first) {
-      return { type: "authored", group: first.group, slug: first.slug };
-    }
-  }
-  return null;
-}
-
 // ---------------------------------------------------------------------------
 // ManualShell
 // ---------------------------------------------------------------------------
@@ -169,7 +147,7 @@ export function ManualShell({
   rules,
   standards,
 }: ManualShellProps): React.JSX.Element {
-  const [activePage, setActivePage] = useState<ActivePage | null>(() => deriveDefaultPage(pages));
+  const [activePage, setActivePage] = useState<ActivePage | null>(null);
 
   const resolvedPage = resolveActivePage(activePage, pages);
 
