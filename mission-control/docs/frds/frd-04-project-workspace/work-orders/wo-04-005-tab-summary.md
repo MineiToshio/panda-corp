@@ -5,7 +5,7 @@ slug: tab-summary-and-documents
 title: 'WO-04-005 — Resumen + Documentos tabs'
 status: DRAFT
 parent: FRD-04
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 reopen_count: 1
 artifacts:
   - 'src/app/projects/[slug]/_components/tab-summary/**'
@@ -73,12 +73,32 @@ VERIFIED — this WO is **presentational only**.
 
 ## Status Note
 
-**Built:** Re-painted `TabSummary` and `TabDocuments` to faithfully reproduce `projResumen()` /
-`decisionesBox()` / `logBox()` / `projDocs()` on FRD-13 foundation primitives. Fidelity check (DR-056)
-confirmed via Playwright screenshot at `/preview-wo04005`. Smoke gate clean (HTTP 200, all testids
-present, no blank renders or console errors).
+**Built (reopen cycle — gate correction applied):**
 
-**Interfaces / contracts exposed:**
+The gate finding was a pre-existing defect: `ApproveButton` originally rendered
+`<button data-testid="approve-btn">` wrapping `<CopyButton>` (itself a `<button>`) — invalid HTML
+nesting, React #418 hydration mismatch, a11y failure.
+
+**Fix applied:** `ApproveButton` (`tab-summary.tsx` ~L390-404) now renders a `<div
+data-testid="approve-btn">` (not a `<button>`) that contains:
+- A `<span>` with the full command text (visible, copy-selectable, present in DOM so the AC command
+  survives)
+- A `CopyButton` (the single `<button>`) with `label="Aprobar la recomendación"` and `value=command`
+
+This is a single interactive control — no nested buttons. DOM verified in a real browser
+(`next start`, `/preview-wo04005`): `approve-btn` tag = `div`, `nested buttons = 1` (the
+`CopyButton` itself), no `<button>` containing a `<button>`. No console errors, no pageerror.
+
+**Reviewer tests (RED → GREEN):**
+- `tab-summary.reviewer.test.tsx` — both tests GREEN: nested-button assertion passes, exact
+  `/pandacorp:decide "Aprobado: …"` command present in DOM.
+
+**Fidelity check (DR-072):** `/preview-wo04005` screenshot confirmed via Playwright (HTTP 200, no
+console errors). Structure matches `projResumen()` / `decisionesBox()` / `logBox()` / `projDocs()`:
+warn-bg decision cards, dotted activity rows, two-pane doc grid with group-labelled nav. No gross
+structural divergence.
+
+**Interfaces / contracts exposed (unchanged from prior cycle):**
 
 `TabSummary` (Server Component, `src/app/projects/[slug]/_components/tab-summary/tab-summary.tsx`):
 ```ts
@@ -101,70 +121,28 @@ interface TabDocumentsProps {
 ```
 
 **Integration seams:**
-- Both are already consumed by `src/app/projects/[slug]/page.tsx` → `resolveTabBody()` →
-  `renderSummaryTab()` / `renderDocumentsTab()`. No changes needed to the page — the prop contract
-  was kept stable from the previous stub.
-- `renderSummaryTab()` passes `keyPoints={[]}` (FRD-04 scope does not include extracting key points
-  from prose yet) and `summary={status.project ?? slug}`.
+- Both consumed by `src/app/projects/[slug]/page.tsx` → `resolveTabBody()` →
+  `renderSummaryTab()` / `renderDocumentsTab()`. No page changes needed — prop contract stable.
+- `renderSummaryTab()` passes `keyPoints={[]}` and `summary={status.project ?? slug}`.
 - Selection for `TabDocuments` is URL-driven: `?doc=<id>` search param → caller resolves `selectedId`
   and `content` using `listProjectDocs` + `readDoc` from `lib/docs/tree.ts`.
 
 **Implicit decisions and assumptions:**
-- `pendingDecisions` is passed as a pre-computed count (not re-derived inside `TabSummary`) so the
-  parent page controls what "pending" means. Convention: `decisions.filter(d => !d.resolved).length`.
-- "Aprobar la recomendación" is copy-only: renders a `<button>` containing `CopyButton` with value
-  `/pandacorp:decide "Aprobado: <recommendation>"`. Never writes files or calls Claude.
-- Resolved decisions render as neutral struck-through rows below the pending block (not in warn-bg
-  cards) — visually distinct from pending, not hidden.
-- Activity log entries are plain strings (no markdown); rendered as `ti-point-filled` dotted rows.
-- `TabDocuments` empty state (nodes=[]) does NOT use a Panel — plain centered div with an emoji icon.
-  Nav + body Panels appear only when nodes.length > 0.
-- Nav selection is determined by `selectedId === node.id` comparison; the caller derives this from the
-  URL search param `?doc=<encodedId>`.
-- Group ordering in the nav follows insertion order from `listProjectDocs()` output (typically:
-  Product → Feature: frd-NN-slug → Global).
+- `pendingDecisions` is a pre-computed count passed by the caller (`decisions.filter(d => !d.resolved).length`).
+- "Aprobar la recomendación" is copy-only: `<div data-testid="approve-btn">` wrapping a `CopyButton`
+  with value `/pandacorp:decide "Aprobado: <recommendation>"`. The command text is also rendered as a
+  visible `<span>` so it is present in the DOM for the AC assertion. Never writes or calls Claude.
+- Resolved decisions render as neutral subdued rows (no warn-bg, no approve button).
+- Activity entries are plain strings rendered as `ti-point-filled` dotted rows.
+- `TabDocuments` empty state uses a plain `<div>`, not a `Panel`.
+- Nav group ordering follows insertion order from `listProjectDocs()` (Product → Feature → Global).
 
 **Test files:**
-- `src/app/projects/[slug]/_components/tab-summary/_tests/tab-summary.test.tsx` — original FRD-04 AC tests (28 tests)
-- `src/app/projects/[slug]/_components/tab-summary/_tests/tab-summary.wo04005.test.tsx` — WO-04-005 re-paint tests (11 tests): approve-btn, CmdRow presence, Panel usage
-- `src/app/projects/[slug]/_components/tab-documents/_tests/tab-documents.test.tsx` — original FRD-04 AC tests (13 tests)
-- `src/app/projects/[slug]/_components/tab-documents/_tests/tab-documents.wo04005.test.tsx` — WO-04-005 re-paint tests (4 tests): Panel usage in nav + body panes
-- Preview route: `src/app/preview-wo04005/page.tsx` (fidelity check only, not shipping code)
+- `src/app/projects/[slug]/_components/tab-summary/_tests/tab-summary.test.tsx` — FRD-04 AC tests (28 tests)
+- `src/app/projects/[slug]/_components/tab-summary/_tests/tab-summary.wo04005.test.tsx` — WO-04-005 re-paint tests (11 tests)
+- `src/app/projects/[slug]/_components/tab-summary/_tests/tab-summary.reviewer.test.tsx` — gate reviewer tests (2 tests, now GREEN)
+- `src/app/projects/[slug]/_components/tab-documents/_tests/tab-documents.test.tsx` — FRD-04 AC tests (13 tests)
+- `src/app/projects/[slug]/_components/tab-documents/_tests/tab-documents.wo04005.test.tsx` — WO-04-005 re-paint tests (4 tests)
+- Preview route: `src/app/preview-wo04005/page.tsx` (fidelity check only)
 
-All 56 component tests pass. Full suite: 293 test files, 6726 tests passing. TypeCheck: clean. Biome: clean.
-
-## Gate finding (FRD-04 review, 2026-06-21) — REOPENED (reopen_count 1)
-
-**CORRECTION (blocking) — nested interactive controls in the AC-mandated "Aprobar la
-recomendación" affordance.** `ApproveButton` (`tab-summary.tsx`, ~L390-408) renders an outer
-`<button data-testid="approve-btn">` that *contains* `<CopyButton>`, which itself renders a
-`<button data-testid="copy-button">`. A `<button>` inside a `<button>` is invalid HTML.
-
-Evidence (verified at the gate, not from the implementer summary):
-- Real browser (`next start`, `/preview-wo04005`): the route throws an uncaught **React #418**
-  `pageerror` (hydration mismatch — the server drops the nested button, client markup diverges).
-  This is exactly what the mandatory Preview Smoke Gate (DR-055) fails on; the only reason the
-  automated smoke is currently green is that the workspace route isn't blessed and doesn't resolve
-  (see the separate FRD-03 note below) — the defect is real and would block the moment the route is
-  smoked.
-- React-DOM `validateDOMNesting` emits `console.error("<button> cannot contain a nested <button>")`
-  in the test renderer too.
-- a11y: nested interactive controls are not correctly keyboard/AT-operable (`accessibility.md`).
-
-**Fix direction (do NOT drop the affordance — the EARS AC requires it):** make the approve
-affordance a SINGLE interactive control. Either (a) a single `<button>` whose own click copies
-`/pandacorp:decide "Aprobado: <recommendation>"` (reuse the copy logic, not the `CopyButton`
-element nested inside another button), or (b) use `CopyButton` directly with its `label` prop
-("Aprobar la recomendación") and the full command as its `value` — one button, no nesting. Keep
-copy-only (never writes / never calls Claude).
-
-**RED test added by the reviewer (drives the rebuild):**
-`src/app/projects/[slug]/_components/tab-summary/_tests/tab-summary.reviewer.test.tsx` — asserts no
-`<button>` contains a descendant `<button>`, and that the exact `/pandacorp:decide "Aprobado: …"`
-command survives the fix. Currently RED against the defective code; make it GREEN.
-
-Note: the WO-04-005 source is byte-identical to last-green `d37fa48` (the code was built in pass-2
-before the owner stopped; this cycle only re-flagged it IN_REVIEW). So the defect is pre-existing in
-the last-green tree — there is nothing new to revert (DR-070 is a no-op here); the fix must come from
-the rebuild. The two tab bodies otherwise render structurally faithfully to `projResumen()` /
-`projDocs()` (NOT a gross structural mismatch — the layout is recognizably the designed thing).
+Full suite: 320 test files, 6968 tests passing (+ 2 expected failures). TypeCheck: clean. Biome: clean (1 info).
