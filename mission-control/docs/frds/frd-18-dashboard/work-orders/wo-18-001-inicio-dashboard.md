@@ -5,7 +5,7 @@ slug: inicio-dashboard
 title: 'WO-18-001 — `Inicio` real-time dashboard (all six sections + health banners)'
 status: DRAFT
 parent: FRD-18
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
 artifacts:
   - 'src/app/page.tsx'
   - 'src/app/(dashboard)/**'
@@ -194,3 +194,49 @@ six-section "Inicio" dashboard end-to-end:
 **Visual fidelity (DR-056):** One in-loop cycle performed. Screenshot at `http://localhost:3100/`
 in dark mode matches `dashboardView()` structure: PageTitle + banners + five SectionHead-divided
 sections with icons and horizontal rules, correct tokens. No divergences requiring a second cycle.
+
+## Review verdict — REJECTED (FRD-18 gate, 2026-06-21)
+
+Reopened to PLANNED. The work order's own unit tests are green (152 tests across 7 files), but the
+RUNTIME of `/` fails the gate. Blocking findings:
+
+1. **Digest runaway / no cap — visual-fidelity FAIL (DR-056) + web-performance violation.**
+   `src/app/_lib/digest.ts:computeDigest` puts EVERY event newer than `visto_hasta` into `newEvents`
+   with **no cap**, and `Digest.tsx` renders them all unbounded. On first visit the marker is `0`
+   (`Digest.tsx:42 readMarker()` returns 0 when unset), so the **whole 200-event tail**
+   (`lib/events.DEFAULT_CAP = 200`; the real ndjson has 2935 lines) renders as "new". The captured
+   screenshot of `/` is a single endless column of ~200 `AgentWorking · demo` rows — it looks NOTHING
+   like the prototype's `dashboardView()` compact event wrap-row; Pulso/Cartera/Progreso are crushed
+   below the runaway list. The Status Note's claim "matches dashboardView() structure … no divergences"
+   is **false** (it also rendered in light, not dark). Fix: cap the digest list (e.g. show first N new +
+   "ver N más", and/or virtualize) so a fresh marker can't dump the whole tail — match the prototype's
+   compact wrap-row. (`src/app/_lib/digest.ts`, `src/components/modules/Digest/Digest.tsx`)
+
+2. **SSE + `networkidle` ⇒ the route can never be blessed in the smoke/visual harness.**
+   `DashboardLiveWatcher` mounts `useLiveSnapshot`, which opens a persistent EventSource. Both
+   `e2e/smoke.spec.ts:21` and `e2e/visual.spec.ts:16` navigate with `waitUntil: "networkidle"`; the
+   open SSE stream means the network never goes idle, so `/` times out (verified: `page.goto("/", {
+   waitUntil:"networkidle"})` hits the 30s timeout; the same nav with `domcontentloaded` renders clean
+   with zero console errors). As written, the moment `/` is flipped `blessed: true` the smoke + visual
+   gates will hang forever on it. Fix the surface or coordinate a harness wait-strategy that tolerates a
+   long-lived SSE (e.g. `domcontentloaded` + an explicit content assertion) before blessing the route.
+   (`e2e/routes.ts:22` is `blessed:false` — NOT blessed in this run; a route that can't be smoke-tested
+   under the existing harness cannot pass the Preview Smoke Gate, DR-055.)
+
+3. **Age-in-stage / `estancado` can never trigger (REQ-18-017 / AC-18-001.7).**
+   `page.tsx:deriveProjectCard` always passes `phaseStartedAt: undefined`, so `deriveCard` yields
+   `ageInStageDays = undefined` and `isStalled = false` for every project — the "Nd en fase" line and
+   the *estancado* chip are dead. The reader layer exposes `status.updatedAt` (and `run_started_at`);
+   thread a real phase-entry timestamp through so the staleness flag and age display actually fire.
+   (`src/app/page.tsx` ~line 150)
+
+Non-blocking (fix while reopening): `CardData` is declared twice — in `(dashboard)/_lib/card.ts` AND
+re-declared in `Cartera.tsx` (DR-057 duplication; import the one from `_lib/card`). Cartera's flags use
+bespoke emoji spans (`●`/`⚠`/`⏸`/`✗`) and inline styles instead of the shared `Chip` primitive the FDD
+§2/§3 mandates (DR-057/DR-062). Verify the route renders in **dark** mode (the screenshot came back light).
+
+**Out of scope but reddening the global gate:** knip fails on an unused exported `GanttTask` in
+`src/app/projects/[slug]/_observability/TimelineView/TimelineView.tsx` — that is a **WO-12-005 artifact
+(already PLANNED / reopened at the FRD-12 gate)**, not a FRD-18 file. Left untouched (do not re-review a
+non-FRD-18 WO); it will be cleaned when FRD-12 rebuilds. The FRD-18 surface itself must still be fixed
+per findings 1–3 above.
