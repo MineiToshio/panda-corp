@@ -14,6 +14,7 @@
 import type { Metadata } from "next";
 import { Pixelify_Sans, Space_Grotesk } from "next/font/google";
 import { OnboardingGate } from "@/app/_components/OnboardingGate/OnboardingGate";
+import { CelebrationWatcher } from "@/components/modules/CelebrationWatcher/CelebrationWatcher";
 import { GuildBar } from "@/components/modules/GuildBar/GuildBar";
 import { ProposalsBadge } from "@/components/modules/ProposalsBadge/ProposalsBadge";
 import { readEvents } from "@/lib/events/events";
@@ -81,6 +82,10 @@ export default function RootLayout({
           <>
             <GuildBar outcomes={guildOutcomes} />
             <ProposalsBadge openCount={proposalCounts.total} />
+            {/* CelebrationWatcher — auto-fires CelebrationSurface on result events
+                (release/levelup/phase/toast). Client component; no server I/O;
+                fires automatically from the live event stream (DR-061, AC-09-006.1). */}
+            <CelebrationWatcher />
             {children}
           </>
         ) : (

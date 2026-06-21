@@ -24,4 +24,4 @@ advance_pending: false
 last_green_sha: "d37fa48"
 safe_to_test: false  # FRD-04 gate REJECT (2026-06-21): WO-04-005 reopened (reopen_count 1) — nested <button>-in-<button> in the "Aprobar la recomendación" path → React #418 pageerror; reviewer RED test added (tab-summary.reviewer.test.tsx). WO-04-004 VERIFIED. Tree no longer fully green until WO-04-005 is rebuilt. last_green_sha stays d37fa48.
 blocked: []
-supervisor_heartbeat: "2026-06-21T07:26:22Z"
+supervisor_heartbeat: "2026-06-21T07:38:22Z"

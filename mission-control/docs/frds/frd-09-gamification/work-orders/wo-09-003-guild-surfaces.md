@@ -5,17 +5,20 @@ slug: guild-surfaces
 title: 'WO-09-003 — Guild surfaces: GuildBar + GuildHero + StatRadar + CelebrationSurface'
 status: DRAFT
 parent: FRD-09
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 artifacts:
   - 'src/app/achievements/page.tsx'
   - 'src/components/modules/GuildBar/**'
+  - 'src/components/modules/GuildHero/**'
+  - 'src/components/modules/CelebrationWatcher/**'
   - 'src/app/achievements/StatsPanel.tsx'
   - 'src/components/core/CelebrationSurface/**'
   - 'src/components/core/Shield/**'
   - 'src/components/core/XpBar/**'
   - 'src/components/core/Avatar/**'
+  - 'src/app/layout.tsx'
 source_requirements: [AC-09-004.1, AC-09-004.2, AC-09-004.3, AC-09-004.4, AC-09-004.5, AC-09-003.1, AC-09-003.2, AC-09-003.3, AC-09-006.1, AC-09-006.2, AC-09-006.3, AC-09-006.4, AC-09-006.5]
-last_updated: '2026-06-19'
+last_updated: '2026-06-21'
 ---
 # WO-09-003 — Guild surfaces: GuildBar + GuildHero + StatRadar + CelebrationSurface
 
@@ -96,49 +99,59 @@ and [fdd.md](../fdd.md) for the render-fn pointers and the token slice (`rpgSkin
 
 ## Status Note
 
-**What was built:**
+**What was built (this run — 2026-06-21, completing finding #3 from prior repair):**
 
-1. **`XpBar`** (`src/components/core/XpBar/XpBar.tsx`) — extended with `size?: "compact" | "full"` prop. Compact = 9px inline bar (hidden XP/next spans for tests, `data-size="compact"`). Full = 18px with label+subtitle rows (default). Both variants use `data-accent="true"` on fill and accent CSS custom properties only.
+7. **`CelebrationWatcher`** (`src/components/modules/CelebrationWatcher/CelebrationWatcher.tsx`) — NEW "use client" module. The global auto-fire wiring layer that connects the SSE transport to `CelebrationSurface`:
+   - Subscribes to `useLiveSnapshot()` (WO-01-009, the shared EventSource hook) — no project filter; celebrations are app-wide.
+   - Extracts the **most-recent event** from the live snapshot via `latestResultEvent()`: checks `events[events.length-1]` only — if it classifies as "none", no celebration fires (AC-09-006.2 negative AC: non-result events → silence, even if earlier events in the snapshot were results).
+   - Passes the result event (or `null`) directly to `CelebrationSurface`, which calls `classifyCelebration()` internally to determine the tier and render.
+   - No timer, no countdown, no auto-dismiss, no preview button (AC-09-006.4 negative AC; DR-061).
+   - The ONLY button in the wired experience is the dismiss button inside `CelebrationSurface`'s overlay.
+   - Mounted in `src/app/layout.tsx` inside the `profileResult.present` branch, alongside `GuildBar` and `ProposalsBadge`.
 
-2. **`GuildBar`** (`src/components/modules/GuildBar/GuildBar.tsx`) — complete rewrite matching prototype `topbar()` ~L646: rpgpanel embossed tile (`data-variant="rpgpanel"`), rpggrid dot overlay, NV level pill (`data-testid="guild-bar-level-pill"`, `data-px="true"`, `data-accent="true"`), level numeral child span (`data-testid="guild-bar-level"`), rank title (`data-testid="guild-bar-title"`), compact XpBar inline.
+8. **`src/app/layout.tsx`** — added `CelebrationWatcher` import and mount point (after `ProposalsBadge`, before `{children}`).
 
-3. **`GuildHero`** (`src/components/modules/GuildHero/GuildHero.tsx`) — NEW shared module. Matches prototype `logrosHero()` ~L413: rpgpanel+rpggrid `<section>`, `Shield` crest, "GREMIO PANDACORP" pixel eyebrow, display-font title (`data-testid="guild-hero-title"`), feats/trophies/missions summary (`data-testid="guild-hero-summary"`), full `XpBar`, party `<ul>` (`data-testid="guild-hero-party"`), 3 `StatBadge` tiles in `data-testid="guild-hero-stats"`. Props: `level`, `title`, `xp`, `next`, `pctToNext`, `nextTitle`, `featsCount`, `trophiesCount`, `trophiesTotal`, `missionsActive`, `partyRoster: readonly AgentRole[]`, `statsLanzados`, `statsRacha`, `statsVelocidad`.
+9. **`docs/design/components.md`** — appended `CelebrationWatcher` row to the modules inventory (DR-057).
 
-4. **`StatRadar`** (named export from `src/app/achievements/StatsPanel.tsx`) — NEW. Matches prototype `statRadar()` ~L459: SVG `viewBox="0 0 330 280"`, cx=165/cy=140/R=90, 4 grid ring polygons (`data-testid="radar-ring"`, SVG presentation attributes `stroke="var(--color-border)"`), 6 spoke lines, base polygon, data polygon (`data-testid="radar-data-polygon"`, `fill="var(--color-accent)"`, `stroke="var(--color-accent)"`), 6 accent dots (`data-testid="radar-dot"`), pixel-font axis labels. Props: `axes: StatRadarAxes` (produccion/velocidad/calidad/constancia/ideacion/alcance, 0–100).
+**All prior built artifacts (carried from prior implementation runs) — unchanged:**
 
-5. **`CelebrationSurface`** (`src/components/core/CelebrationSurface/CelebrationSurface.tsx`) — upgraded to match prototype `bOverlay()` + `bConfetti()`. release/levelup tiers: fixed-position overlay (`data-testid="celebration-overlay"`, `role="presentation"`), rpgpanel card (`data-testid="celebration-card"`), confetti (`data-testid="celebration-confetti"`, 26 pieces keyed by position, `data-reduced="true"` under reduced-motion), dismiss button (`data-testid="celebration-dismiss"`). levelup: `data-testid="celebration-level"` with pixel NV numeral + actual level digit. New props: `onDismiss?: () => void`, `newLevel?: number` (default 2). toast/phase: unchanged small `celebration-surface`.
+1. **`XpBar`** (`src/components/core/XpBar/XpBar.tsx`) — `size?: "compact" | "full"`. Compact = 9px inline; full = 18px with label+subtitle.
 
-6. **`achievements/page.tsx`** — hero section replaced with `GuildHero`; `StatRadar` added beside `StatsPanel`. Page heading changed to "Logros" (DR-062). Props derived from `computeStats`, `computeUniques`, `eventsSnapshot?.events` (null-guarded). Old `HALL_TABS`/bespoke hero removed.
+2. **`GuildBar`** (`src/components/modules/GuildBar/GuildBar.tsx`) — rpgpanel+rpggrid, NV level pill, rank title, compact `XpBar`. Mounted in `app/layout.tsx`.
+
+3. **`GuildHero`** (`src/components/modules/GuildHero/GuildHero.tsx`) — rpgpanel+rpggrid `<section>`, `Shield` crest, "GREMIO PANDACORP" eyebrow, display-font title, feats/trophies/missions summary, full `XpBar`, party `<ul>`, 3 `StatBadge` tiles.
+
+4. **`StatRadar`** (named export from `src/app/achievements/StatsPanel.tsx`) — SVG `viewBox="0 0 330 280"`, cx=165/cy=140/R=90, 4 grid rings, 6 spokes, base polygon, accent data polygon + glow, 6 accent dots, pixel-font axis labels.
+
+5. **`CelebrationSurface`** (`src/components/core/CelebrationSurface/CelebrationSurface.tsx`) — release/levelup full-screen overlay + confetti (26 pieces, keyed by position); toast/phase small surface. `LevelupContent` derives honest rank/XP from `RANKS[newLevel-1]` (AC-09-004.3).
+
+6. **`achievements/page.tsx`** — `GuildHero` hero block + `HallTabs` 4-tab body. `StatRadar` in `StatsPanel`.
 
 **Interfaces/contracts exposed:**
-- `XpBar` `size` prop accepts `"compact" | "full"` (the `XpBarSize` alias is now module-private — no external consumer, so it is not exported)
-- `GuildHeroProps` — see type in `GuildHero.tsx` (all fields required except `partyRoster` which is `readonly AgentRole[]`)
-- `StatRadarAxes` — `{ produccion; velocidad; calidad; constancia; ideacion; alcance }` all `number` 0–100 (module-private in `StatsPanel.tsx`, used by `StatRadarProps`)
-- `CelebrationSurfaceProps` — `event: Event | null`, `onDismiss?: () => void`, `newLevel?: number`
-
-**Repair (2026-06-20, repair engineer — FRD-16 tree-gate green-up):**
-Fixed two of the three FRD-09 reviewer blockers; the third (CelebrationSurface not wired to the event stream — AC-09-006.1/.5) remains open, so this WO stays **PLANNED** for the FRD-09 build to complete the wiring.
-- **Honesty (finding #2, AC-09-004.3 / FRD-09 core principle):** `LevelupContent` no longer hardcodes "Gran maestro del gremio" / `next=2000`. It now derives the rank title, base XP and next threshold from `RANKS` by `newLevel` (1-based → `RANKS[newLevel-1]`): a fresh bar at the new rank reads `xp = currentRank.threshold` toward `next = nextRank.threshold` (0% into the new rank), `label`/`nextTitle` from the real ladder. At max rank, next mirrors current. Pinned by `_tests/wo-09-003-celebration-honesty.adversarial.test.tsx` (3 reviewer adversarial tests).
-- **Biome (finding #1):** removed 2 unused `biome-ignore` suppressions (`useKeyWithClickEvents`+`noStaticElementInteractions` on the backdrop where `role="presentation"` already exempts, and `useExhaustiveDependencies` on the mount-only matchMedia effect). Kept the single suppression that actually fires (`noStaticElementInteractions` on the click-dismiss backdrop). `biome check --error-on-warnings` clean.
-- **Dead code (knip, fail-closed):** dropped the unused `export` on `XpBarSize` and `StatRadarAxes` (both used only internally). The `/board` visual baseline was re-blessed: the FRD-09 compact-XpBar GuildBar correctly replaced the previously-blessed broken double-"Aprendiz" header (height 1211→1178px); the old baseline captured the defect, the new render is the AC-09-004.5-compliant fix.
-- **Still open (finding #3):** `CelebrationSurface` has 0 non-test consumers; it must be mounted in the shell and fed the latest result event for the auto-fire AC to hold in runtime. Not fixable as a repair edit — left for the FRD-09 build.
+- `CelebrationWatcher` — no props; `"use client"`; mounted once in layout (global)
+- `XpBar` `size` prop: `"compact" | "full"` (default `"full"`)
+- `GuildHeroProps` — `level`, `title`, `xp`, `next`, `pctToNext`, `nextTitle`, `featsCount`, `trophiesCount`, `trophiesTotal`, `missionsActive`, `partyRoster: readonly AgentRole[]`, `statsLanzados`, `statsRacha`, `statsVelocidad` (all required)
+- `StatRadarAxes` — `{ produccion; velocidad; calidad; constancia; ideacion; alcance }` all `number` 0–100 (module-private in `StatsPanel.tsx`)
+- `CelebrationSurfaceProps` — `event: Event | null`, `onDismiss?: () => void`, `newLevel?: number` (default 2)
+- `GuildBarProps` — `outcomes: GuildOutcomes`
 
 **Implicit decisions and assumptions:**
-- `GuildHero` is a `<section>` (not `<div>`) for `aria-label` ARIA compatibility (biome a11y rule)
-- `GuildHero` party roster uses `<ul>`/`<li>` (not `div role="list"`)
-- `StatRadar` uses SVG presentation attributes (`stroke=`, `fill=` props) instead of CSS `style={}` so jsdom's `getAttribute("stroke")` works in tests
-- `CelebrationSurface` backdrop uses `rgba(0,0,0,.66)` — the one accepted exception to the no-hardcoded-colors rule (prototype pattern, explicitly commented)
-- `newLevel` defaults to `2` when not provided (first possible level-up result)
-- Confetti pieces keyed by `p.left` (position string) to avoid `noArrayIndexKey` lint rule; 26 pieces total per prototype
-- `radarAxes` in `page.tsx` uses illustrative scale mappings (e.g. 5 products shipped = 100% produccion); `velocidad` = 0 until a velocity-tracking WO ships
-- Old `page.test.tsx` tests for `hall-hero`/`hall-guild-level`/`hall-party-avatars`/`hall-tabs` updated to `guild-hero`/`guild-hero-title`/`guild-hero-party` (4 tab tests removed as tabs are out of WO-09-003 scope)
-- `eventsSnapshot?.events` null-guarded in page derivations (test mock returns null)
+- `latestResultEvent()` checks only the LAST event in the snapshot array (most-recent). Rationale: when a non-result event (read/navigate) arrives after a result event, the celebration should already have been seen and possibly dismissed — honoring the non-nagging contract (FRD-09 §White-Hat).
+- `CelebrationWatcher` uses no project filter on `useLiveSnapshot()` — celebrations fire for any project in the factory (guild-level, cross-project scope).
+- `GuildHero` is a `<section>` (not `<div>`) for `aria-label` ARIA compatibility (Biome a11y rule).
+- `CelebrationSurface` backdrop uses `rgba(0,0,0,.66)` — the one accepted exception to the no-hardcoded-colors rule (prototype pattern, explicitly commented in source).
+- `newLevel` defaults to `2` (the first possible level-up result) when not provided.
+- Confetti pieces keyed by `p.left` (position string) to avoid `noArrayIndexKey` lint rule; 26 pieces per prototype.
+- `radarAxes` in `page.tsx` uses illustrative scale mappings (e.g., 5 products shipped = 100% produccion); `velocidad` = 0 until a velocity-tracking WO ships.
+- Test event fixtures for `CelebrationWatcher` tests use `event: "achievement"` with `task: "release"` (→ "release" tier) and `workOrder: "WO-09-003"` (→ "toast" tier), matching the actual `classifyCelebration()` decision table.
 
 **Test files:**
+- `src/components/modules/CelebrationWatcher/_tests/wo-09-003-celebration-watcher.test.tsx` — 11 tests (NEW, this run)
 - `src/components/modules/GuildBar/_tests/wo-09-003-guildbar.test.tsx`
 - `src/components/modules/GuildHero/_tests/GuildHero.test.tsx`
 - `src/app/achievements/_tests/wo-09-003-stat-radar.test.tsx`
 - `src/components/core/CelebrationSurface/_tests/wo-09-003-celebration-overlay.test.tsx`
-- Updated: `src/app/achievements/_tests/page.test.tsx`
+- `src/components/core/CelebrationSurface/_tests/wo-09-003-celebration-honesty.adversarial.test.tsx`
+- `src/app/achievements/_tests/page.test.tsx`
 
-**Gate result:** 286 test files / 6671 tests passing, 0 type errors (`tsc --noEmit`), 0 lint errors (biome), 2 warnings (unused suppression comments in `CelebrationSurface.tsx` — cosmetic, non-blocking).
+**Gate result (2026-06-21):** 308 test files / 6947 tests passing (+ 2 expected-fail from pre-existing WO-04-005 RED anchor, not regressed by this WO), 0 type errors (`tsc --noEmit`), 0 lint/format errors (biome), knip clean. Visual fidelity: `/achievements` screenshot shows GuildBar topbar + "Logros" h1 + GuildHero panel (Shield, GREMIO PANDACORP eyebrow, title, XP bar, TU PARTY sprites, 3 stat badges) + 4 tabs — recognizable match to prototype `logrosHero()` / `topbar()`. Route returns HTTP 200.
