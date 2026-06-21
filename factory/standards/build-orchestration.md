@@ -384,6 +384,49 @@ Canonical surfaces: `plugin/skills/change/SKILL.md` (the door), `plugin/skills/i
 `plugin/skills/{bug,iterate}/SKILL.md` (engines), this section. Mission Control surfacing the pending `changes/` and
 `decisions` items is a follow-up (the consumer UI).
 
+## 9. Convergence — the split gate + the Visual QA pass (DR-072)
+
+A build that NEVER FINISHES is the dominant overnight failure: every surface gets built, the gate rejects it on
+visual fidelity, it's reopened and rebuilt, rejected again — hours of work, ~0 net `VERIFIED`. The research is
+unanimous: **convergence is an engineering-of-the-gate problem.** A noisy subjective gate (a pixel/VLM judge:
+re-runs flip, anti-aliasing/sub-pixel/dynamic-content deltas, trivially reward-hackable) used as a HARD BLOCKER
+rejects spuriously; an over-broad adversarial reviewer harms convergence by over-engineering. The fix is NOT
+"lower quality" — it's **splitting the gate by category and consolidating fidelity into a non-blocking pass.**
+
+**The gate is SPLIT (the convergence keystone):**
+- **CORRECTION — the hard, blocking gate (the no-bugs guarantee, kept STRICT):** renders clean (smoke — no console
+  error / non-2xx / blank / error-boundary), tests + types + lint green, the FRD's **acceptance criteria** met
+  (the required behavior/sections EXIST and work), security, no genuine DUPLICATE of an existing shared primitive
+  (DR-057), and a **GROSS visual-structural mismatch** (the surface is not recognizably the designed thing — a
+  flat list where the mock is a rich layout, a section missing). A real bug here BLOCKS.
+- **VISUAL-FIDELITY NITS — ADVISORY, never block:** sizing (15px vs 16px), spacing, exact shade, density, "doesn't
+  match 100%". The gate **never reopens a WO for a nit** — it appends each to `.pandacorp/comms/visual-punch-list.md`.
+  A nit never gates `VERIFIED`. (The deterministic Playwright `toHaveScreenshot()` *regression* baseline stays a
+  hard gate — it's a regression guard, not a fidelity-vs-mock judgment.)
+
+**End-of-build VISUAL QA pass.** All the systematic fidelity work is consolidated into ONE dedicated phase at the
+end of the run, scoped to the FRDs touched that run, run OUTSIDE the convergence loop (so being thorough here can't
+cause churn): render each route → compare semantically to its mock/fdd/tokens → complete the punch-list → **fix the
+cheap, unambiguous gaps DIRECTLY** (a size/spacing/color/token correction against the EXISTING design docs — the
+doc already specified it, the build implemented it wrong; **no doc change, no `change`/`iterate` ceremony**) →
+re-run `verify.sh` to confirm no regression → leave the residual for the owner. It is a **punch-list + bounded
+polish, NEVER a reject-to-rebuild.** Two visual touchpoints, different jobs: a LIGHT advisory per-FRD check
+(catches GROSS divergence early, in-loop, cheap) + this THOROUGH end pass (the complete polish, outside the loop).
+
+**Non-progress stop (refuse to treat repeated failure as progress).** A WO carries a `reopen_count`; when the gate
+would reopen a WO already reopened `MAX_REOPENS` (default 3) times, it BLOCKS `needs-owner` instead (the gate can't
+be satisfied autonomously — the owner must look), rather than grinding the same fault every run.
+
+**Selective reasoning effort.** Higher effort has diminishing returns by base-model strength, and `max` overthinks
+structured tasks — so raise it only where reasoning is hardest: the FRD gate, the repair pass, and the cross-feature
+close-out run `effort: 'xhigh'`; the build workers stay at the session default. Don't max everything.
+
+**The realistic target this buys.** An overnight run lands a **functionally-complete, gate-green app (a working
+draft, no functional bugs) + a short visual punch-list** the owner sweeps in the morning — NOT a pixel-perfect,
+hands-off, accept-on-trust product (no agent system reliably does that at 2026 SOTA — METR/SWE-Marathon). The
+build's job is to converge to that draft or STOP cleanly with a reason, never to burn the night looping on a gate.
+Canonical: `pandacorp-build.js` (split `frdGate`, the Visual QA phase, `MAX_REOPENS`, `effort`), `plugin/agents/reviewer.md`.
+
 ## 8. Templates
 
 The standard is embodied in `${CLAUDE_PLUGIN_ROOT}/templates/docs/`: `prd-template.md`,
