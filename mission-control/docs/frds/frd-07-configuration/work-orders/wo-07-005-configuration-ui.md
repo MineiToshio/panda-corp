@@ -5,7 +5,7 @@ slug: configuration-ui
 title: 'WO-07-005 — Configuración UI surface (re-anchor to prototype)'
 status: DRAFT
 parent: FRD-07
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 reopen_count: 1
 artifacts:
   - 'src/app/configuration/**'
@@ -81,39 +81,61 @@ readers — never a static array.
 and the `gxSkillCard`/`gxAgentCard`/`gxRuleCard`/`gxStdCard` builders). The in-loop fidelity gate
 renders `src/app/configuration` against this mock.
 
-## Status Note
+## Status Note (reopen pass — 2026-06-21)
 
-**What was built:** Re-anchored the full Configuración surface (`src/app/configuration/**`) to the
-owner-approved prototype. All four tabs are live and served from real factory data (VERIFIED lib
-readers consumed as-is). The duplicate `<h1>` header in `page.tsx` was removed — `PageTitle` inside
-`ConfigurationShell` is now the sole H1 (DR-062).
+**What this reopen fixed (gate verdict items):**
 
-**Interfaces / contracts exposed:**
-- `ConfigurationShell` — `"use client"` boundary; props: `{ skills, agentsData, rules, standards }` (unchanged from WO-07-006/007/008/009)
-- `AgentList` — `AgentListProps` with horizontal `gxAgentCard` layout (avatar-left row)
-- `SkillList` — groups by `runsIn` with `SectionHead`
-- `DecisionRulesSection` — groups rules into "Requieren tu aprobación" / "Auto-aprobadas" via `RuleGroupedList` + `RuleItem`; `data-testid="rules-list"` always present on outer wrapper
-- `StandardsSection` / `DomainGroup` — book `ItemSlot` + severity/enforcement badges
+The 5 EARS behaviors flagged by the opus reviewer (copy-to-clipboard on skill chip, "interno" flag,
+"Produce" section, Skills↔Agents cross-navigation, model-assignment explanation) were already
+implemented in the code — the `frd07.gate-opus.reviewer.test.tsx` file proves all 5 pass against the
+real factory tree. This reopen addressed the two **DR-057 reuse defects** the gate also required:
 
-**Components reused (DR-057, no new shared components created):**
-- `Panel variant="rpgpanel"` — embossed skin on all four card types
-- `ItemSlot` — wand (accent) for skills, check (ok) / gavel (danger) for rules, book (accent) for standards
-- `SectionHead` — group headings for skill run-location groups and rule human/auto groups
-- `PageTitle` — single page H1 in `ConfigurationShell` header
-- `Avatar` — pixel-art per agent id in `AgentList`
+1. **`SectionTabs.tsx` — replaced hand-rolled `role="tablist"` with shared `SubTabs`** (DR-057/DR-062).
+   `SectionTabs` now delegates entirely to `SubTabs` from `src/components/core/Tabs/Tabs.tsx` with
+   `testIdPrefix="config-tab-"` (keeps all downstream test ids stable) and `tabIdPrefix="config-tab-id-"`.
 
-**Implicit decisions / assumptions:**
-- `agent-card-name` testid carries the display name (`agent.name ?? agent.id`), placed on the subtitle row (text2 color); the mono id is on row 1 without its own testid
-- Agent level label uses `Nv N` (capital N, lowercase v) to match existing tests
-- Rules section always mounts a `data-testid="rules-list"` wrapper (even when empty) to satisfy `getByTestId` in gate tests
-- `page.tsx` no longer has its own `<h1>` or header wrapper — `ConfigurationShell` owns the full layout
-- `StandardCard` uses `ti-book` icon (not `ti-book-2` as in prototype) — `ti-book-2` is not in the installed Tabler set
+2. **`StandardsSection/parts.tsx` `DetailPanel` — replaced hand-rolled Resumen/Detalle toggle
+   buttons with `SubTabs`** (DR-057/DR-062). The `detailTabStyle`/`DETAIL_TABS_STYLE` helpers were
+   removed from `styles.ts` (dead code eliminated).
+
+**Shared `Tabs` component extended (non-breaking, additive):**
+- Added `data-active` attribute to each tab button (mirrors `aria-selected`; required by existing
+  a11y tests that assert shape/label beyond color).
+- Added `Enter`/`Space` `onKeyDown` handler on each tab button (WAI-ARIA compliant tab activation).
+- Added optional `tabIdPrefix` prop — generates stable HTML `id` attributes on tab buttons so paired
+  `role="tabpanel"` elements can use `aria-labelledby` (required by ConfigurationShell panels).
+
+**Interfaces / contracts exposed (unchanged from previous pass):**
+- `ConfigurationShell` — `"use client"` boundary; props: `{ skills, agentsData, rules, standards }`
+- `SectionTabs` — `{ activeSection, onSectionChange }` (same API; now delegates to `SubTabs`)
+- `AgentList`, `SkillList`, `DecisionRulesSection`, `StandardsSection` / `DomainGroup` — unchanged
+
+**Components reused (DR-057):**
+- `SubTabs` (= `Tabs level="sub"`) — the ONE tab pattern (DR-062); now used in `SectionTabs` and
+  `StandardsSection` `DetailPanel`
+- `Panel variant="rpgpanel"`, `ItemSlot`, `SectionHead`, `PageTitle`, `Avatar`, `CopyButton`,
+  `FlowDiagram`, `XpBar` — all unchanged from prior pass
+
+**Implicit decisions / assumptions (carried from prior pass + new):**
+- `SubTabs` uses `testIdPrefix="config-tab-"` → all downstream tests keep `config-tab-{id}` testids
+- `tabIdPrefix="config-tab-id-"` → panel `aria-labelledby="config-tab-id-skills"` etc. stay valid
+- `StandardsSection` detail tabs use `testIdPrefix="standard-tab-"` → `standard-tab-summary` /
+  `standard-tab-detail` testids preserved (gate tests depend on these)
+- `Tabs` `data-active` mirrors `aria-selected`: `"true"` when active, `"false"` when not
+- Enter/Space on a tab button calls `onChange(tab.id)` immediately (no focus-only movement)
 
 **Test files:**
-- `src/app/configuration/_tests/visual-structure.test.tsx` — 18 new tests covering Panel/ItemSlot/SectionHead/PageTitle structural requirements (WO-07-005 acceptance)
-- Existing tests in `_tests/agents.test.tsx`, `_tests/frd07.gate.reviewer.test.tsx`, `_rules/DecisionRulesSection/_tests/`, `StandardsSection/_tests/` all green
+- `src/app/configuration/_tests/dr057-reuse.test.tsx` — 9 new RED→GREEN tests enforcing DR-057
+  reuse: `SectionTabs` uses shared `Tabs` (`data-testid="tabs-root"`, `data-level="sub"`); all
+  4 `config-tab-*` testids reachable; `StandardsSection` detail uses `SubTabs`; Resumen/Detalle
+  toggle still works.
+- All 322 test files pass (6985 tests); 2 expected-fail unchanged.
+- tsc clean; biome clean.
 
-**Fidelity check (DR-056):** 2 cycles performed; all four tabs screenshotted at 1280×800 against `configView()`. Remaining minor delta: prototype uses dark theme (`--canvas:#0F1517`) while app renders in light mode (tokens map to light values) — this is a theming mode difference, not a layout divergence.
+**Fidelity check (DR-072, one light pass):** Route `/configuration` screenshotted at 1280×720.
+Layout matches prototype: PageTitle + 4 SubTabs + SectionHead groups + RPG embossed skill cards.
+No gross structural divergence. Light/dark theming delta (prototype dark, app light) is an advisory
+nit, not a gate-blocking divergence (carried from prior pass).
 
 ## Gate verdict — REJECT (2026-06-21, opus reviewer, DR-072)
 
