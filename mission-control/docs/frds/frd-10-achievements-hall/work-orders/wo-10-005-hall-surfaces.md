@@ -5,7 +5,8 @@ slug: hall-surfaces
 title: 'WO-10-005 — Hall surfaces: ChainCard + TrophyCard + AlmostThere + stat ledger'
 status: DRAFT
 parent: FRD-10
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
+reopen_count: 1
 artifacts:
   - 'src/app/achievements/ChainCard/**'
   - 'src/app/achievements/UniquesSection/**'
@@ -135,3 +136,65 @@ Components from `docs/design/components.md` (reuse → adapt → create; never f
 - `src/app/achievements/_tests/page.test.tsx` — pre-existing page integration tests; `xp-bar-track` query scoped to `within(guild-hero)` to avoid collisions with always-mounted tab panels
 
 **Gate:** 6780 tests pass (295 test files), 0 tsc errors, 0 biome errors. In-loop fidelity check (DR-056) completed — 3 screenshots taken; all 4 tabs render correctly against prototype structure.
+
+## Reviewer finding (FRD-10 gate, powerful/Opus 4.8, 2026-06-21) — REOPENED to PLANNED (reopen_count 1)
+
+**Blocking DR-062 cohesion / DR-057 reuse violation — the SAME defect class that reopened
+FRD-05 and FRD-07.** The Achievements Hall sub-tab bar (Resumen · Misiones · Trofeos ·
+Estadísticas) is **forked**: `HallTabs` (`src/app/achievements/_components/HallTabs.tsx:469-491`)
+hand-rolls a `role="tablist"` with a private `stabStyle()` (lines 49-62) instead of rendering the
+ONE shared `Tabs`/`SubTabs` primitive (`src/components/core/Tabs/Tabs.tsx`).
+
+This is exactly what the inventory forbids:
+- `components.md:42` lists `Tabs`/`SubTabs` as "THE ONE tab pattern (DR-062)" with explicit alias
+  **`logrosTabs`** and the explicit reuse target "WO/config/**logros sub-tabs**" — "no ad-hoc
+  switcher per screen".
+- `components.md:209` — "One banner, one chip, one panel, **one tab** … the aliases noted in each
+  row (`.stab`/…) are the same primitive named differently across FDDs — collapse to the canonical
+  row, **never fork**."
+- This WO's own **Scope** (above) lists `Tabs`/`SubTabs` (core) — "the four `.stab` sub-tabs" — as a
+  primitive to REUSE, not re-implement.
+
+The hand-roll is also functionally inferior to the shared primitive: the shared `Tabs` provides
+roving-tabindex + ArrowLeft/ArrowRight keyboard navigation; `HallTabs` provides none. The JSDoc on
+`HallTabs` even **falsely claims** "Uses the shared Tabs/SubTabs primitive for keyboard
+accessibility" (line 444-447) while the code does the opposite — a lying comment.
+
+**Second instance (same defect, fix in the same pass):** `UniquesSection`
+(`src/app/achievements/UniquesSection/UniquesSection.tsx:396-453`) hand-rolls a SECOND
+`role="tablist"` with bespoke pill buttons for the category filter chips, instead of composing the
+shared `Tabs`/`SubTabs` (or the shared `Chip` primitive for filter pills). Same "never fork" rule.
+
+**Why the implementer's own 6780 tests missed it (DR-016, decorative for cohesion):** the existing
+suites assert tab *behavior* (clicking a tab shows its panel) — which a hand-rolled tablist also
+satisfies — but never assert WHICH primitive renders the bar. Reuse-before-create is verified at the
+gate, not by the build suite.
+
+**Concrete fix (next run):**
+- `HallTabs`: delete `stabStyle()` and the `<div role="tablist">…<button role="tab">` block; render
+  `<SubTabs tabs={…} active={activeTab} onChange={setActiveTab} ariaLabel="Secciones de logros"
+  testIdPrefix="logros-tab-" />` from `@/components/core/Tabs/Tabs`. Keep the panels' `hidden`
+  toggling. Remove the false "uses the shared Tabs primitive" claim or make it true.
+- `UniquesSection`: render the category filter through the shared `Tabs`/`SubTabs` (or the shared
+  `Chip` primitive for filter pills) — no private `role="tablist"` + inline pill styles.
+
+**Evidence:** reviewer adversarial gate test
+`src/app/achievements/_tests/frd-10-reuse.gate.reviewer.test.tsx` (2 tests) — asserts `HallTabs`
+renders the shared `Tabs` primitive (`data-testid="tabs-root"`). Both fail RED against the current
+hand-rolled tablist; the detection contract is proven valid (the shared `Tabs` stamps `tabs-root`,
+and the existing CardDetail cohesion test — a component that DOES use shared `Tabs` — passes), so the
+test kills the mutant, not decorative.
+
+**No DR-070 revert needed:** `git diff d37fa48 HEAD -- src/app/achievements/` is empty — the WO-10-005
+impl is **byte-identical to last green** (d37fa48); HEAD only flipped its status to IN_REVIEW. A
+`git checkout d37fa48 -- src/app/achievements/…` would be a no-op, and the WO created no new files.
+
+**Non-blocking (correct, NOT reasons to reopen):** ChainCard reuses `ItemSlot` + `XpBar` (AC-10-006.3
+honest endowed progress, no custom bar) and shows tier+text not color-alone (AC-10-006.5) with
+date+project stamps (AC-10-006.2) ✓; AlmostThere top-3 by pct, no false urgency (AC-10-006.4) ✓;
+UniquesSection grouped-by-category with date+project / condition, lock not color-alone
+(AC-10-007.1/.2/.3/.4) ✓; SecretsPanel silhouette+hint locked / criterion+date+project on unlock
+(AC-10-008.1/.2/.3/.4) ✓; StatsPanel ledger with tier medals + tabular-nums (AC-10-005.2/.3) ✓.
+The engine (WO-10-001) stays VERIFIED and untouched. Only the tab-bar fork blocks.
+
+frd-10 frd.md + blueprint.md rollup → **PLANNED** (one WO planned).
