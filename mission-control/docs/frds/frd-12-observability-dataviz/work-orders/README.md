@@ -15,8 +15,32 @@ See `../blueprint.md` for components (`CMP-12-*`), interfaces (`IF-12-*`) and th
 | WO-12-002 | KPI selector (≤5, incl. failed work orders) | VERIFIED | pure logic | FRD-01 `lib/events`+`lib/status`+`lib/portfolio` |
 | WO-12-003 | Events-per-minute selector (per-agent) | VERIFIED | pure logic | FRD-01 `lib/events` |
 | WO-12-004 | Timeline selector (WO → task → action, durations) | VERIFIED | pure logic | FRD-01 `lib/events` |
-| WO-12-005 | Observabilidad tab + Timeline view (live, re-paint) | **PLANNED** (Phase 2) | client UI | WO-12-004, WO-12-006, FRD-13, FRD-04, FRD-01 (live) |
-| WO-12-006 | Work-order DAG view (Dagre, live, re-paint) | **PLANNED** (Phase 2) | client UI | `dag.ts`+`dagre` (VERIFIED), FRD-13, FRD-04, FRD-01 (live) |
+| WO-12-005 | Observabilidad tab + Timeline view (live, re-paint) | **PLANNED** (reopened — gate REJECT) | client UI | WO-12-004, WO-12-006, FRD-13, FRD-04, FRD-01 (live) |
+| WO-12-006 | Work-order DAG view (Dagre, live, re-paint) | IN_REVIEW | client UI | `dag.ts`+`dagre` (VERIFIED), FRD-13, FRD-04, FRD-01 (live) |
+
+## Gate review 2026-06-20 (FRD-12 — REJECTED)
+
+Reviewer (opus) FRD gate over WO-12-005 + WO-12-006. **WO-12-005 reopened to PLANNED**; WO-12-006
+left IN_REVIEW (the shared gate failed inside WO-12-005's file before WO-12-006 could be independently
+validated — re-gated on the next run, not reopened). Blocking findings, all in WO-12-005:
+
+1. **RED — knip dead-code (hard gate).** `GanttTask` is an exported interface that nothing imports
+   (`src/app/projects/[slug]/_observability/TimelineView/TimelineView.tsx:30`). `pnpm knip` exits 1, so
+   `verify.sh --since d18c825` fails at the dead-code step (before tests/smoke/visual). The "tests pass"
+   claim was false (generator ≠ verifier). Fix: drop the `export` (it's only used inline inside
+   `GanttWorkOrder.tasks`) or actually consume the named type.
+2. **DR-062 / DR-057 — bespoke toggle + hand-rolled panels instead of the shared primitives.**
+   `ObservabilidadTab.tsx` hand-rolls the Línea-de-tiempo↔DAG toggle as inline-styled `<button>`s in a
+   raw `role="tablist"` `<div>` (L263–296), and frames everything in raw `<div>` strips with inline
+   styles (L223–311) — when the WO, the blueprint and `docs/design/components.md` (L42, L207) all mandate
+   the ONE `Tabs`/`SubTabs` pattern, the `Panel` primitive and `SectionHead`. The sibling `TabBar`
+   (`_components/tabbar.tsx`) correctly delegates to `SubTabs`; this surface diverges → the exact
+   bespoke-switcher defect this gate rejects. The inventory was pre-marked "real (WO-12-005)" but the code
+   does NOT consume the primitives it claims. Fix: build the toggle from `SubTabs` (testIdPrefix to keep
+   `tab-timeline`/`tab-dag` ids), wrap the strip in `Panel` + `SectionHead`, drop the inline-styled divs.
+
+Non-blocking (fix while reopening): WO-12-006 `WoDag.tsx` is 685 lines, over the ~500 hard limit
+(`clean-code.md`) — split it before its own gate.
 
 ## Phase 2 re-plan (presentational)
 

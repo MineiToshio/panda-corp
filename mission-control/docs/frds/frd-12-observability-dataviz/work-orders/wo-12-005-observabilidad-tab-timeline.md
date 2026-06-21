@@ -5,12 +5,12 @@ slug: observabilidad-tab-timeline
 title: 'WO-12-005 — Observabilidad tab + Timeline view (live, re-paint to mock)'
 status: DRAFT
 parent: FRD-12
-implementation_status: IN_REVIEW
+implementation_status: PLANNED
 artifacts:
   - 'src/app/projects/[slug]/_observability/ObservabilidadTab/**'
   - 'src/app/projects/[slug]/_observability/TimelineView/**'
 source_requirements: [REQ-12-002, REQ-12-003, REQ-12-005]
-last_updated: '2026-06-19'
+last_updated: '2026-06-20'
 ---
 # WO-12-005 — Observabilidad tab + Timeline view (live, re-paint to mock)
 
