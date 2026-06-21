@@ -149,8 +149,9 @@ export function Digest({ events, nowMs: nowMsProp }: DigestProps): React.JSX.Ele
   }, []);
 
   // Derive digest from current events + marker (reactive to prop changes → AC-18-001.5).
-  const { newEvents, last24h, atDia } = computeDigest(events, markerMs, nowMs);
-  const newCount = newEvents.length;
+  const { newEvents, totalNewCount, last24h, atDia } = computeDigest(events, markerMs, nowMs);
+  const newCount = totalNewCount; // full count (may exceed the rendered cap)
+  const overflowCount = totalNewCount - newEvents.length; // how many are hidden
 
   // "Marcar visto" — advance the marker to now (AC-18-001.3).
   const handleMarkSeen = useCallback(() => {
@@ -218,13 +219,29 @@ export function Digest({ events, nowMs: nowMsProp }: DigestProps): React.JSX.Ele
         </p>
       )}
 
-      {/* New events list (AC-18-001.3) */}
+      {/* New events list (AC-18-001.3) — capped at MAX_NEW_EVENTS to prevent visual runaway */}
       {newEvents.length > 0 && (
-        <ul aria-label="Eventos nuevos" className="space-y-1">
-          {withUniqueKeys(newEvents).map(({ item, key }) => (
-            <DigestItemRow key={key} item={item} />
-          ))}
-        </ul>
+        <>
+          <ul aria-label="Eventos nuevos" className="space-y-1">
+            {withUniqueKeys(newEvents).map(({ item, key }) => (
+              <DigestItemRow key={key} item={item} />
+            ))}
+          </ul>
+          {/* Overflow notice: shown when totalNewCount exceeds the rendered cap */}
+          {overflowCount > 0 && (
+            <p
+              data-testid="digest-overflow"
+              style={{
+                fontSize: "11px",
+                color: "var(--color-text3, currentColor)",
+                margin: "4px 2px 0",
+                opacity: 0.7,
+              }}
+            >
+              {overflowCount} más sin ver — marca como visto para limpiar
+            </p>
+          )}
+        </>
       )}
 
       {/* Last-24h fallback (AC-18-001.4) — shown in al-día state, dimmed */}

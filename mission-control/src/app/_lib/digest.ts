@@ -23,6 +23,16 @@ import type { Event } from "@/lib/events/events";
 const LAST_24H_MS = 24 * 60 * 60 * 1000;
 
 /**
+ * Maximum number of new-event rows rendered.
+ *
+ * A fresh marker (0) can match thousands of events; rendering them all causes a
+ * visual runaway (DR-056 gate finding). Capped at 20 — the prototype shows ≈4–8
+ * compact rows. The actual total is exposed via `totalNewCount` so the UI can
+ * show "N más sin ver" without rendering all of them.
+ */
+const MAX_NEW_EVENTS = 20;
+
+/**
  * A single change-framed item in the digest.
  *
  * - `event`        — the source Event.
@@ -38,14 +48,19 @@ export interface DigestItem {
 /**
  * The result returned by `computeDigest`.
  *
- * - `newEvents` — change-framed items newer than the marker, newest-first.
- * - `last24h`   — change-framed items within the last-24h window (always computed;
- *                 used as fallback when `atDia` is true), newest-first.
- *                 Only includes events that are NOT already in `newEvents` (i.e. seen).
- * - `atDia`     — true when `newEvents` is empty.
+ * - `newEvents`      — change-framed items newer than the marker, newest-first.
+ *                      Capped at `MAX_NEW_EVENTS` to prevent visual runaway on a
+ *                      fresh marker (DR-056 gate finding).
+ * - `totalNewCount`  — the true count of all events newer than the marker, before
+ *                      the cap. Use this to display "N más sin ver" when truncated.
+ * - `last24h`        — change-framed items within the last-24h window (always
+ *                      computed; used as fallback when `atDia` is true), newest-first.
+ *                      Only includes events NOT already in `newEvents` (i.e. seen).
+ * - `atDia`          — true when `totalNewCount` is 0 (no new events at all).
  */
 export interface DigestResult {
   newEvents: DigestItem[];
+  totalNewCount: number;
   last24h: DigestItem[];
   atDia: boolean;
 }
@@ -85,7 +100,7 @@ export function computeDigest(
 ): DigestResult {
   const windowStart = nowMs - LAST_24H_MS;
 
-  const newEvents: DigestItem[] = [];
+  const allNewEvents: DigestItem[] = [];
   const last24h: DigestItem[] = [];
 
   for (const ev of events) {
@@ -93,7 +108,7 @@ export function computeDigest(
     const isNew = evMs > markerMs;
 
     if (isNew) {
-      newEvents.push({ event: ev, isNew: true, relativeLabel: relativeLabel(evMs, nowMs) });
+      allNewEvents.push({ event: ev, isNew: true, relativeLabel: relativeLabel(evMs, nowMs) });
     } else if (evMs > windowStart) {
       // Seen but within 24h rolling window → fallback list (dimmed)
       last24h.push({ event: ev, isNew: false, relativeLabel: relativeLabel(evMs, nowMs) });
@@ -101,12 +116,18 @@ export function computeDigest(
   }
 
   // Sort newest-first (ISO strings compare lexicographically)
-  newEvents.sort((a, b) => (a.event.at > b.event.at ? -1 : a.event.at < b.event.at ? 1 : 0));
+  allNewEvents.sort((a, b) => (a.event.at > b.event.at ? -1 : a.event.at < b.event.at ? 1 : 0));
   last24h.sort((a, b) => (a.event.at > b.event.at ? -1 : a.event.at < b.event.at ? 1 : 0));
+
+  // Cap to prevent visual runaway when marker is 0 (DR-056 gate finding).
+  // Expose totalNewCount so the UI can show "N más sin ver" for the overflow.
+  const totalNewCount = allNewEvents.length;
+  const newEvents = allNewEvents.slice(0, MAX_NEW_EVENTS);
 
   return {
     newEvents,
+    totalNewCount,
     last24h,
-    atDia: newEvents.length === 0,
+    atDia: totalNewCount === 0,
   };
 }

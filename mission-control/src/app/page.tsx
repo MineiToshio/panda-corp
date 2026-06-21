@@ -140,6 +140,10 @@ function deriveProjectCard(
 
   const statusData = p.status.present && p.status.status !== null ? p.status.status : null;
 
+  // Thread status.updatedAt as the phase-entry timestamp so ageInStageDays and
+  // isStalled can actually fire (AC-18-001.7, REQ-18-017).
+  const phaseStartedAt = statusData?.updatedAt ?? undefined;
+
   return deriveCard({
     name: p.name,
     phase: p.stage ?? "product",
@@ -147,7 +151,7 @@ function deriveProjectCard(
     running: p.running ?? false,
     workOrdersDone: statusData?.workOrdersDone ?? 0,
     workOrdersTotal: statusData?.workOrdersTotal ?? 0,
-    phaseStartedAt: undefined,
+    phaseStartedAt,
     lastEventAt,
     failedWoReason,
     nowMs,

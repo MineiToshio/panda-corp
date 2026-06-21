@@ -26,29 +26,14 @@
  *   AC-18-004.7  Spanish + a11y + data-testid surface
  */
 
-import type { WoProgress } from "@/app/(dashboard)/_lib/card";
+import type { CardData } from "@/app/(dashboard)/_lib/card";
+import { Chip } from "@/components/core/Chip/Chip";
 import { CopyButton } from "@/components/core/CopyButton/CopyButton";
 import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import type { Phase } from "@/lib/status/status";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export type CardData = {
-  name: string;
-  phase: Phase;
-  version: string;
-  woProgress: WoProgress;
-  ageInStageDays: number | undefined;
-  nextCommand: string;
-  isLive: boolean;
-  isNoSignal: boolean;
-  isStalled: boolean;
-  isShipped: boolean;
-  blockerReason: string | undefined;
-  lastEventAt: string | undefined;
-};
+// CardData is imported from @/app/(dashboard)/_lib/card — not re-declared here (DR-057).
+export type { CardData };
 
 export type CarteraProps = {
   /** Derived cards for each active/shipped project. Empty → first-action card. */
@@ -75,85 +60,52 @@ const PHASE_LABELS: Readonly<Record<Phase, string>> = {
 // Sub-components
 // ---------------------------------------------------------------------------
 
-/** "en vivo" freshness badge. */
+/**
+ * "en vivo" freshness badge — Chip primitive (DR-057/DR-062, AC-18-001.10).
+ * tone="ok" maps to var(--ok-bg) per FDD §3: "en vivo" numeral colored var(--ok).
+ */
 function LiveBadge(): React.JSX.Element {
   return (
-    <span
-      data-testid="cartera-flag-live"
-      role="status"
-      aria-label="Construcción en vivo"
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: "0.25rem",
-        fontSize: "0.75rem",
-        color: "var(--color-text)",
-        opacity: 0.8,
-      }}
-    >
-      <span aria-hidden="true">●</span>
-      en vivo
+    <span data-testid="cartera-flag-live" role="status" aria-label="Construcción en vivo">
+      <Chip tone="ok">en vivo</Chip>
     </span>
   );
 }
 
-/** "sin señal" no-signal badge — text+icon, never color alone (a11y). */
+/**
+ * "sin señal" no-signal badge — Chip primitive (DR-057/DR-062).
+ * tone="warn" per FDD §3: alert icon. Text conveys meaning (never color alone, a11y).
+ */
 function NoSignalBadge({ lastEventAt }: { lastEventAt: string | undefined }): React.JSX.Element {
+  const suffix = lastEventAt !== undefined ? ` (último: ${formatShortDate(lastEventAt)})` : "";
   return (
     <span
       data-testid="cartera-flag-nosignal"
       role="status"
       aria-label="Sin señal — construcción sin actividad reciente"
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: "0.25rem",
-        fontSize: "0.75rem",
-        color: "var(--color-text)",
-        opacity: 0.7,
-      }}
     >
-      <span aria-hidden="true" role="img">
-        ⚠
-      </span>
-      sin señal
-      {lastEventAt !== undefined && (
-        <span style={{ fontSize: "0.7rem", opacity: 0.6 }}>
-          {" "}
-          (último: {formatShortDate(lastEventAt)})
-        </span>
-      )}
+      <Chip tone="warn">sin señal{suffix}</Chip>
     </span>
   );
 }
 
-/** "estancado" staleness badge — text+icon, never color alone (a11y). */
+/**
+ * "estancado" staleness badge — Chip primitive (DR-057/DR-062).
+ * tone="warn": stalled phase. Text conveys meaning (never color alone, a11y).
+ */
 function StalledBadge({
   ageInStageDays,
 }: {
   ageInStageDays: number | undefined;
 }): React.JSX.Element {
+  const suffix = ageInStageDays !== undefined ? ` · ${ageInStageDays}d` : "";
   return (
     <span
       data-testid="cartera-flag-stalled"
       role="status"
       aria-label="Proyecto estancado en esta fase"
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: "0.25rem",
-        fontSize: "0.75rem",
-        color: "var(--color-text)",
-        opacity: 0.7,
-      }}
     >
-      <span aria-hidden="true" role="img">
-        ⏸
-      </span>
-      estancado
-      {ageInStageDays !== undefined && (
-        <span style={{ fontSize: "0.7rem", opacity: 0.6 }}> ({ageInStageDays}d)</span>
-      )}
+      <Chip tone="warn">estancado{suffix}</Chip>
     </span>
   );
 }

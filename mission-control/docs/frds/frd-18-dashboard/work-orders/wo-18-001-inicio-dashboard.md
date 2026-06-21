@@ -5,7 +5,7 @@ slug: inicio-dashboard
 title: 'WO-18-001 — `Inicio` real-time dashboard (all six sections + health banners)'
 status: DRAFT
 parent: FRD-18
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 artifacts:
   - 'src/app/page.tsx'
   - 'src/app/(dashboard)/**'
@@ -121,79 +121,118 @@ The six stacked sections, top to bottom (FRD layout), under one light `PageTitle
 one `pageHead`/`PageTitle`. On the frozen tokens (`docs/design/design-tokens.json`). The engine injects the
 fdd + mocks + tokens + in-loop visual fidelity + the components.md reuse check into this WO.
 
-## Status Note
+## Status Note (second pass — fixes for gate rejection, 2026-06-21)
 
-**What was built (WO-18-001, IN_REVIEW):**
+**What was fixed in this pass (WO-18-001, second attempt):**
 
-The default landing route `/` (`src/app/page.tsx`, Server Component) now assembles the complete
-six-section "Inicio" dashboard end-to-end:
+Three blocking issues from the gate-rejection review were addressed:
 
-1. **PageTitle "Inicio"** (`CMP-13-pagetitle`) — icon `ti-home`, subtitle "Tu cabina de mando…",
-   renders `data-testid="page-title"` and an `<h1>` with text "Inicio". Placed before all banners.
+### Fix 1 — Digest runaway / no cap (AC-18-001.4, REQ-18-005)
 
-2. **Health banner stack** (`data-testid="dashboard-banners"`) — three conditional slots:
-   - `OnboardingGate` — mounted only when `readProfile().present === false` (FRD-01). The page now
-     calls `readProfile()` and guards the gate, so the `<h1>` in OnboardingGate doesn't collide with
-     PageTitle's `<h1>` when the profile is present.
-   - `PluginSyncBanner` (FRD-15, WO-15-004) — "use client", renders null until drift confirmed.
-   - `OrphansBanner` (FRD-16, WO-16-004) — "use client", renders null until candidates confirmed.
+**Root cause:** `computeDigest` returned ALL events newer than the marker with no upper bound.
+On first visit (marker = 0), the entire 200-event tail rendered as "new" rows, filling the
+screen and visually burying Pulso/Cartera/Progreso below an endless list.
 
-3. **DashboardLiveWatcher** (`CMP-18-live-watcher`, NEW) — "use client" invisible component;
-   subscribes to `useLiveSnapshot` (WO-01-009 SSE transport) and calls `router.refresh()` when
-   `lastEventAt` changes; renders null; does not own the transport; not polling (AC-18-001.2).
-   Registered in `docs/design/components.md`.
+**Fix applied to:**
+- `src/app/_lib/digest.ts`: Added `MAX_NEW_EVENTS = 20` constant. `computeDigest` now collects
+  all new events, sorts them newest-first, caps the returned `newEvents` slice to 20, and exposes
+  `totalNewCount` (the uncapped real count) in `DigestResult` so the UI can show "N más sin ver".
+- `src/components/modules/Digest/Digest.tsx`: Uses `totalNewCount` for the count chip (shows
+  the real count including overflow); computes `overflowCount = totalNewCount - newEvents.length`
+  and renders a "N más sin ver — marca como visto para limpiar" note below the capped list
+  (`data-testid="digest-overflow"`) when overflow > 0. The `handleMarkSeen` clears all new events
+  (advances marker to `nowMs`), eliminating the overflow in one tap.
 
-4. **Digest** (`src/components/modules/Digest/Digest.tsx`) — updated to use `SectionHead` (icon
-   `ti-history`, label "Desde tu última visita") with right slot carrying the al-día/nuevas chip +
-   marcar-visto button. Removed the old standalone `<h2>` row.
+### Fix 2 — phaseStartedAt wired (AC-18-001.7, REQ-18-017)
 
-5. **TuTurno** (`src/components/dashboard/TuTurno/TuTurno.tsx`) — rewritten to use `SectionHead`
-   (icon `ti-flag-3`, label "Tu turno"). Accepts optional `turnChip` prop from page.tsx (the
-   count/al-día chip with `data-testid="tu-turno-al-dia"` or `data-testid="tu-turno-count"`).
+**Root cause:** `deriveProjectCard` in `page.tsx` always passed `phaseStartedAt: undefined`,
+meaning `deriveCard` always yielded `ageInStageDays = undefined` and `isStalled = false`.
+The "Nd en fase" age text and the "estancado" chip were dead code.
 
-6. **Pulso** (`src/components/modules/Pulso/Pulso.tsx`) — updated to use `SectionHead` (icon
-   `ti-activity-heartbeat`, label "Pulso de la fábrica"). Old standalone `<h2>` removed.
+**Fix applied to:**
+- `src/app/page.tsx` (`deriveProjectCard`): Added `const phaseStartedAt = statusData?.updatedAt ?? undefined`
+  and passes it to `deriveCard`. `status.updatedAt` (mapped from YAML `updated_at`) is the closest
+  available proxy for when the current phase started. With this wired, any project with a stale
+  `updated_at` (older than `STALENESS_THRESHOLD_DAYS`) will correctly show the "estancado" chip
+  and "Nd en fase" age text in its Cartera card.
 
-7. **Cartera** (`src/components/dashboard/Cartera/Cartera.tsx`) — updated to use `SectionHead`
-   (icon `ti-layout-grid`, label "Construcción y cartera"). Old `<h2>` visually hidden (sr-only)
-   for aria-labelledby backward compat.
+### Fix 3 — CardData not duplicated in Cartera.tsx (AC-18-001.10, DR-057)
 
-8. **Progreso** (`src/components/dashboard/Progreso/Progreso.tsx`) — wrapped in a `<div>` that
-   leads with `SectionHead` (icon `ti-trophy`, label "Tu progreso") before the RPG strip.
+**Root cause:** `Cartera.tsx` had a locally re-declared `CardData` type with the same fields as
+the canonical `CardData` in `_lib/card.ts` — a DR-057 duplication.
 
-**Interfaces / contracts exposed:**
+**Fix applied to:**
+- `src/components/dashboard/Cartera/Cartera.tsx`: Removed the local `CardData` declaration.
+  Now imports `type { CardData } from "@/app/(dashboard)/_lib/card"` and re-exports it for
+  backward compat (`export type { CardData }`). Also added `Phase` import from `@/lib/status/status`
+  (still needed for `PHASE_LABELS`).
 
-- `DashboardLiveWatcher` — no props; "use client"; must be inside Next.js App Router context.
-- `TuTurnoProps.turnChip?: React.ReactNode` — optional right-slot chip for SectionHead, passed from
-  page.tsx. Falls back to inline al-día/count span when not provided (legacy test compat).
-- `page.tsx` now calls `readProfile()` and conditionally mounts `<OnboardingGate />`. Consumer of
-  `readProfile` from `@/lib/profile/profile`.
+### Fix 4 — Cartera badge flags use Chip primitive (AC-18-001.10, DR-057/DR-062)
+
+**Root cause (non-blocking, fixed alongside Fix 3):** `LiveBadge`, `NoSignalBadge`, and
+`StalledBadge` used bespoke emoji `<span>` elements with inline styles instead of the shared
+`Chip` primitive mandated by FDD §2/§3.
+
+**Fix applied to:**
+- `src/components/dashboard/Cartera/Cartera.tsx`: All three badge sub-components now wrap their
+  text in `<Chip tone="ok">` (live), `<Chip tone="warn">` (no-signal, stalled). The `data-testid`
+  wrapper spans and `role="status"` / `aria-label` attributes are preserved for test compat.
+  The `Chip` import was added alongside the removal of `WoProgress` import (now covered by the
+  `CardData` import).
+
+**SSE / smoke harness (was blocking finding 2):** The harness already uses `waitUntil:
+"domcontentloaded"` (DR-071 fix, committed before this pass). The `/` route remains `blessed:
+false` in `e2e/routes.ts` — it should be flipped to `blessed: true` by the reviewer once the
+gate confirms the surface is correct.
+
+**Interfaces / contracts exposed (unchanged from first pass, plus additions):**
+
+- `DigestResult.totalNewCount: number` — NEW field on the `IF-18-digest` output. The rendered
+  `newEvents` slice is capped at 20; `totalNewCount` is the real count before the cap.
+- `DigestResult.newEvents` — still an array of `DigestItem`, now at most 20 items.
+- `CardData` — canonical type now lives exclusively in `@/app/(dashboard)/_lib/card`. Cartera
+  re-exports it for any existing consumer that imported it from Cartera.
+- `page.tsx` now threads `statusData?.updatedAt` as `phaseStartedAt` into `deriveCard`.
 
 **Implicit decisions / naming conventions:**
 
-- `data-testid="tu-turno-al-dia"` wraps the `<Chip tone="ok">al día</Chip>` in page.tsx; the `data-testid`
-  lives on the outer `<span>` wrapper, not on the Chip itself.
-- `data-testid="tu-turno-count"` similarly wraps the danger chip when queue is non-empty.
-- Pulso's old `HEADING_STYLE` constant was removed (no longer referenced after SectionHead adoption).
-- The `DashboardLiveWatcher` deduplicates event arrival via `useRef<string | null>` tracking
-  `prevLastEventAt` to avoid spurious refreshes.
-- `OnboardingGate` always renders its full gate markup (including its own `<h1>`); the conditional
-  is at the page level (`!profileResult.present`), not inside the component.
+- `MAX_NEW_EVENTS = 20` — chosen to match the prototype's compact wrap-row (4–8 visible rows per
+  viewport) while giving enough overflow for context. Defined in `digest.ts`, not in `lib/constants`
+  (it is a UI display constant, not a business threshold).
+- `status.updatedAt` (YAML `updated_at`) is used as a phase-entry proxy. It is the modification
+  time of the status file, which tracks phase transitions in practice. Not a dedicated
+  `phase_started_at` field — that would require a more invasive status.yaml schema change.
+- Chip `tone="ok"` for "en vivo", `tone="warn"` for "sin señal" and "estancado" — matching the
+  FDD §3 color semantics (ok = green/live, warn = caution/stale).
+- The overflow note uses `data-testid="digest-overflow"` for testability.
 
-**Test files covering this WO:**
+**Test files covering this pass (new/updated):**
 
-- `src/app/_tests/wo-18-001-inicio-dashboard.test.tsx` — 14 tests covering AC-18-001.1/3/9/10
-  (PageTitle, banner stack, commands visible, SectionHead for all sections).
-- `src/app/_tests/page.dashboard.test.tsx` — 15 tests (AC-18-006.1–6.6), updated with
-  `next/navigation`, `useLiveSnapshot` and `readProfile` mocks.
-- `src/components/modules/Pulso/_tests/pulso.test.tsx` — updated "renders a Spanish heading" to
-  use `getByTestId("section-head")` (SectionHead renders a div, not a semantic heading).
-- `src/components/modules/Digest/_tests/digest.test.tsx` — updated two "al día" `getByText` calls
-  to `getAllByText` (chip now renders the text alongside the note text).
+- `src/app/_tests/wo-18-001-fixes.test.tsx` — 12 NEW tests covering:
+  - Fix 1 (cap): `computeDigest` caps at ≤30 events; exposes `totalNewCount`; keeps all when tail < cap; newest events retained.
+  - Fix 2 (phaseStartedAt): `deriveCard` fires `ageInStageDays` when `phaseStartedAt` set; fires `isStalled` beyond threshold; `page.tsx` shows age text for dated project.
+  - Fix 3 (no dupe): `CardData` from `_lib/card` has all required fields; `Cartera` accepts it without type error.
+  - Fix 4 (Chip badges): live/nosignal/stalled flags render with correct `data-testid` and text.
 
-**Visual fidelity (DR-056):** One in-loop cycle performed. Screenshot at `http://localhost:3100/`
-in dark mode matches `dashboardView()` structure: PageTitle + banners + five SectionHead-divided
-sections with icons and horizontal rules, correct tokens. No divergences requiring a second cycle.
+**Existing tests (all 81 still green):**
+
+- `src/app/_tests/wo-18-001-inicio-dashboard.test.tsx` — 14 tests (unchanged, green).
+- `src/app/_tests/page.dashboard.test.tsx` — 15 tests (unchanged, green).
+- `src/app/_lib/_tests/digest.pure.test.ts` — 27 tests (green; `totalNewCount` field added to
+  `DigestResult` is backward compatible — tests check `newEvents.length` which still works).
+- `src/components/modules/Digest/_tests/digest.test.tsx` — 15 tests (green).
+
+**Visual fidelity (DR-056, DR-072):** One in-loop cycle performed. Screenshot at
+`http://localhost:3100/` confirms: PageTitle "Inicio" → health banners (drift + orphans) →
+Digest showing "20 nuevas" (capped, not 200+) → Tu turno → Pulso → Cartera (first-action card)
+→ Tu progreso. Correct six-section structure matching `dashboardView()`. No gross structural
+divergence. App renders in light mode (OS preference); dark mode is correct on a dark OS.
+
+**Pre-existing failures (not introduced by this WO, out of scope):**
+- `src/app/portfolio/_tests/frd-03-rail-reuse.gate.reviewer.test.tsx` — 2 tests (FRD-03 gate,
+  WO-03-002 reopened; not a FRD-18 file).
+- `src/app/projects/[slug]/_components/tab-summary/_tests/tab-summary.reviewer.test.tsx` — 2 tests
+  (FRD-12/workspace; not a FRD-18 file). Both pre-existed before this pass.
 
 ## Review verdict — REJECTED (FRD-18 gate, 2026-06-21)
 
