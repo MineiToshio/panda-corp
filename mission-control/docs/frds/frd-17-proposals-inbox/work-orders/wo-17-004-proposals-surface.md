@@ -5,8 +5,8 @@ slug: proposals-surface
 title: 'WO-17-004 — Proposals surface: stream/card + promotions queue + memory health + badge/chip'
 status: DRAFT
 parent: FRD-17
-implementation_status: IN_REVIEW
-reopen_count: 1
+implementation_status: VERIFIED
+reopen_count: 0
 artifacts:
   - 'src/app/proposals/**'
   - 'src/components/modules/PromotionsQueue/**'

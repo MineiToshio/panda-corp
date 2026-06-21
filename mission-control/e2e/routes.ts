@@ -33,7 +33,7 @@ export const SURFACES: readonly Surface[] = [
     frd: "frd-17-proposals-inbox",
     path: "/proposals",
     name: "Propuestas",
-    blessed: false,
+    blessed: true,
   },
   {
     id: "logros",
