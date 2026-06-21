@@ -5,8 +5,8 @@ slug: hall-surfaces
 title: 'WO-10-005 — Hall surfaces: ChainCard + TrophyCard + AlmostThere + stat ledger'
 status: DRAFT
 parent: FRD-10
-implementation_status: IN_REVIEW
-reopen_count: 1
+implementation_status: VERIFIED
+reopen_count: 0
 artifacts:
   - 'src/app/achievements/ChainCard/**'
   - 'src/app/achievements/UniquesSection/**'
@@ -219,3 +219,51 @@ frd-10 frd.md + blueprint.md rollup → **PLANNED** (one WO planned).
 - All 9 existing achievements test files still pass (199 tests total, +2 new gate tests vs prior 197).
 
 **Gate evidence:** 199 tests pass; tsc --noEmit clean; biome check 0 errors; build clean; achievement route renders without console errors (in-loop visual check confirms layout, sub-tab bar, Resumen tab content). Pre-existing FRD-07 failures (2 tests in `frd07.cross-nav-reverse.gate-opus.reviewer.test.tsx`) are outside this WO's scope and unchanged.
+
+## Reviewer verdict — FRD-10 gate PASS (powerful/Opus 4.8, 2026-06-21) — VERIFIED (reopen_count reset 0)
+
+**The single reopen blocker is RESOLVED & mutation-locked.** Both forked `role="tablist"` bars
+named in the reopen finding (reopen_count 1) now render through the ONE shared `Tabs`/`SubTabs`
+primitive (DR-062 cohesion / DR-057 reuse):
+- `HallTabs` (`src/app/achievements/_components/HallTabs.tsx:466`) renders `<Tabs level="sub"
+  testIdPrefix="logros-tab-" …>` — `stabStyle()`/hand-rolled tablist gone; the JSDoc claim
+  (line 433-436) is now TRUE (the shared primitive really provides keyboard a11y).
+- `UniquesSection` (`src/app/achievements/UniquesSection/UniquesSection.tsx:421`) renders
+  `<SubTabs testIdPrefix="uniques-cat-chip-" …>` for the category filter — the second-instance fork
+  is gone. Verified independently: `grep role="tablist"` across `src/app/achievements/` returns ONLY
+  the gate-test comments (no live fork); both files import `@/components/core/Tabs/Tabs`.
+
+**Mutation-confirmed (DR-016), not decorative:** re-forking `HallTabs` to a bespoke `role=tablist`
+(no key handler, no roving tabindex, no `tabs-root` testid) → 3 RED across the gate suites — the
+reuse-gate's `tabs-root` asserts AND the new ArrowRight roving-focus assert. The fork cannot satisfy
+the gate, so the test kills the mutant.
+
+**Adversarial gate test the implementers did not see (DR-015):**
+`src/app/achievements/_tests/frd-10-gate-opus.reviewer.test.tsx` (9 tests, all GREEN) — closes the
+"present-but-decorative" gap left by the reuse-gate: it exercises the surfaces TOGETHER and asserts
+the shared primitive is WIRED, not just imported — (1) clicking a sub-tab swaps the visible `hidden`
+panel + content; (2) `aria-selected` tracks the active tab; (3) ArrowRight/ArrowLeft move roving
+focus across the sub-tabs and WRAP (the capability the hand-roll lacked); (4) clicking a category
+chip filters via the shared SubTabs `onChange` (Discovery hides when Speed is active) and "Todos"
+restores; (5) the 3 filter chips are `role=tab` inside the one `tabs-root`.
+
+**CORRECTION lenses all green** (re-confirmed; the prior gate already validated these and the engine
+is untouched): AC-10-006.1..5 (ChainCard tier+bar+pips, date+project stamp, honest endowed `XpBar`,
+tier-text-not-color, AlmostThere no-false-urgency); AC-10-007.1..4 (uniques grouped-by-category,
+date+project / condition, lock-not-color, tabular-nums); AC-10-008.1..4 (secret silhouette+hint
+locked / criterion+date+project on unlock, anti-loot-box); AC-10-005.2/.3 (stat ledger + tier medals
++ tabular-nums). Engine WO-10-001 stays VERIFIED & untouched. No security/scope concerns (read-only
+presentational surface, tokens only, no `any`/`@ts-ignore`/secrets/fs/Claude).
+
+**Focused gate (`bash .pandacorp/verify.sh --since ecb5a13`):** biome + tsc + knip + madge clean;
+254 FRD-10 surface+engine tests GREEN (11 files, incl. the new opus gate). The only 2 reds in the
+focused run are the FRD-07 sibling anchor tests (`frd07.cross-nav-reverse.gate-opus.reviewer.test.tsx`
+— a DIFFERENT FRD, already PLANNED/reopened per status.yaml, the agent→skill reverse cross-nav still
+unbuilt) — NOT FRD-10, NOT a regression, out of scope.
+
+**Runtime/visual lens (DR-055, re-run independently):** `/achievements` (Logros) — Preview Smoke Gate
+8/8 GREEN (2 viewports, 0 console/pageerror), Visual Layer A 8/8 GREEN (matches the blessed baseline).
+The reuse refactor is visually identical (same `.stab` styling via the shared primitive), so no
+baseline change needed. Route stays `blessed: true`.
+
+frd-10 frd.md + blueprint.md rollup → **VERIFIED** (WO-10-001 + WO-10-005 both VERIFIED).
