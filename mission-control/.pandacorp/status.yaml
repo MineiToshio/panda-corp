@@ -23,4 +23,4 @@ advance_pending: false
 last_green_sha: "d18c825"
 safe_to_test: true  # repaired FRD-14 gate green (FraguaScene 4th lens + visual judge + dead-code purge)
 blocked: []
-supervisor_heartbeat: "2026-06-21T01:39:33Z"
+supervisor_heartbeat: "2026-06-21T02:01:35Z"

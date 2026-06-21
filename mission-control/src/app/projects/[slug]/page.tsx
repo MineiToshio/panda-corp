@@ -51,6 +51,7 @@ import { TabWorkOrders } from "./_components/tab-work-orders/tab-work-orders";
 import { TabBar, type TabId } from "./_components/tabbar";
 import { type WoDetailTab, WorkOrderDetail } from "./_components/wo-detail/wo-detail";
 import { WorkspaceHeader } from "./_components/workspace-header";
+import { ObservabilidadTab } from "./_observability/ObservabilidadTab/ObservabilidadTab";
 import { PartyTab } from "./_party/PartyTab/PartyTab";
 
 // ---------------------------------------------------------------------------
@@ -156,17 +157,16 @@ function resolveTabBody(projectPath: string, sel: TabSelection): React.JSX.Eleme
       return renderWorkOrdersTab(projectPath, sel.slug, sel.woParam, sel.woTabParam);
     case "party":
       return <PartyTab />;
-    case "observabilidad":
-      // Mount seam for FRD-12 ObservabilidadTab (CMP-12-*).
-      // The tab body is owned by FRD-12; this shell only provides the slot.
-      // Rendered as a placeholder until FRD-12's WO delivers the component.
+    case "observabilidad": {
+      // WO-12-005: ObservabilidadTab — sibling of Party (AC-12-002.1).
+      // Reads the project's work orders and renders the Línea de tiempo ↔ DAG toggle.
+      const obsOrders = listWorkOrders(projectPath);
       return (
-        <div data-testid="tab-observabilidad-body" style={{ padding: "24px 16px" }}>
-          <p style={{ color: "var(--color-text2, currentColor)", fontSize: "13px" }}>
-            Observabilidad — pendiente FRD-12
-          </p>
+        <div data-testid="tab-observabilidad-body" style={{ padding: "12px 16px" }}>
+          <ObservabilidadTab workOrders={obsOrders} project={sel.slug} />
         </div>
       );
+    }
     case "documents":
       return renderDocumentsTab(projectPath, sel.docParam);
     default:
