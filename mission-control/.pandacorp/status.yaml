@@ -24,4 +24,4 @@ advance_pending: false
 last_green_sha: "d18c825"
 safe_to_test: false  # knip RED: GanttTask unused export in TimelineView.tsx (pre-existing); FRD-11/FRD-14 gates blocked by tree contamination (WO-06-007 anchor RED)
 blocked: []
-supervisor_heartbeat: "2026-06-21T03:22:28Z"
+supervisor_heartbeat: "2026-06-21T03:36:29Z"

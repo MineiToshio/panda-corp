@@ -62,12 +62,15 @@ const GRID_STYLE: React.CSSProperties = {
 };
 
 /**
- * Rail label — mirrors prototype `railLabel()`: small uppercase label
- * above a section list (PROYECTOS, DOCUMENTOS, CAPÍTULOS).
+ * Rail label — mirrors prototype `railLabel()` + `.px` class:
+ * small uppercase label above a section list (PROYECTOS, DOCUMENTOS, CAPÍTULOS).
+ * Uses the pixel font (--font-pixel) for exact fidelity with the prototype's `.px` class.
  * font-size: 10px, color: var(--color-accent-text), letter-spacing: .08em.
  */
 const RAIL_LABEL_STYLE: React.CSSProperties = {
   fontSize: "10px",
+  fontFamily: "var(--font-pixel, ui-monospace, monospace)",
+  fontWeight: 500,
   color: "var(--color-accent-text, currentColor)",
   letterSpacing: "0.08em",
   margin: "2px 6px 8px",
