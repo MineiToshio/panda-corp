@@ -23,6 +23,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { getSkillFlow } from "@/lib/manual/skill-flows";
 import type { SkillRef } from "@/lib/reference/reference";
 
 import { FlowDiagram } from "../FlowDiagram";
@@ -223,11 +224,12 @@ describe("frd-07: SkillDetail — AC-07-006.2 detail view content", () => {
     expect(screen.getByTestId("skill-detail-name").textContent).toBe("/pandacorp:explore");
   });
 
-  it("frd-07: AC-07-006.2 — shows the skill description (what it is for)", () => {
+  it("frd-07: AC-07-006.2 — shows what the skill is for (curated explainer, else description)", () => {
     render(<SkillDetail skill={FIXTURE_FACTORY_SKILL} onBack={() => {}} />);
-    expect(screen.getByTestId("skill-detail-description").textContent).toContain(
-      FIXTURE_FACTORY_SKILL.description,
-    );
+    // FRD-08: a curated Spanish explainer (for-dummies) wins over the frontmatter description.
+    const expected =
+      getSkillFlow(FIXTURE_FACTORY_SKILL.slug)?.explainer ?? FIXTURE_FACTORY_SKILL.description;
+    expect(screen.getByTestId("skill-detail-description").textContent).toContain(expected);
   });
 
   it("frd-07: AC-07-006.2 — shows where it runs (factory → Spanish label)", () => {
@@ -392,16 +394,17 @@ describe("frd-07: SkillDetail integration — mini-flow embedded in detail view"
     expect(screen.getByTestId("skill-detail-flow")).toBeDefined();
   });
 
-  it("frd-07: flow diagram is visible inside skill detail", () => {
+  it("frd-08: the interactive flow graph is visible inside skill detail", () => {
     render(<SkillDetail skill={FIXTURE_FACTORY_SKILL} onBack={() => {}} />);
-    // The FlowDiagram is rendered inside the skill-detail-flow section
+    // A skill with a curated flow renders the interactive FlowGraph inside the flow section.
     const flowSection = screen.getByTestId("skill-detail-flow");
-    expect(within(flowSection).getByTestId("flow-diagram")).toBeDefined();
+    expect(within(flowSection).getByTestId("flow-graph")).toBeDefined();
   });
 
-  it("frd-07: flow diagram agent chips are visible inside skill detail", () => {
+  it("frd-08: a clickable agent node (researcher) is visible inside the flow graph", () => {
     render(<SkillDetail skill={FIXTURE_FACTORY_SKILL} onBack={() => {}} />);
-    expect(screen.getByTestId("flow-agent-chip-researcher")).toBeDefined();
+    // explore's flow invokes the researcher agent → a clickable flow-call node.
+    expect(screen.getByTestId("flow-call-agent-researcher")).toBeDefined();
   });
 
   it("frd-07: skill detail with no-flow skill shows flow-diagram-empty inside detail", () => {

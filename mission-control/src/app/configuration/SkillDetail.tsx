@@ -1,35 +1,26 @@
 "use client";
 /**
- * WO-07-006 — SkillDetail (CMP-07-skill-detail)
+ * SkillDetail (CMP-07-skill-detail) — the curated, "for-dummies" detail for a single skill.
  *
- * Detail view for a single skill: what it is for, where it runs,
- * what it produces, and the mini-flow diagram of agent chips.
+ * Not a raw file dump: a plain-language explainer + an INTERACTIVE step-by-step flow graph (clickable
+ * skill/agent nodes navigate to that skill/agent's own doc — a navigable graph, FRD-08) + the full
+ * SKILL.md rendered as markdown (not a <pre>). The curated explainer + flow come from the hand-authored
+ * lib/manual/skill-flows; if a skill has no authored flow yet, it degrades to the agent mini-flow + the
+ * frontmatter description.
  *
- * AC-07-006.2: shows purpose, where it runs (factory/project), what it produces.
- * AC-07-006.3: embeds FlowDiagram (agent chips colored per FRD-13 tokens).
- * AC-07-006.5: read-only — no edit affordance.
- *
- * Design rules (FRD-13 / AGENTS.md):
- *   - Zero hardcoded colors — CSS custom properties only.
- *   - data-testid on every structural element.
- *   - Spanish copy.
- *
- * Traceability:
- *   CMP-07-skill-detail → FRD-07
- *   AC-07-006.2, AC-07-006.3, AC-07-006.5
+ * Design rules (FRD-13): zero hardcoded colors; data-testid on structural elements; Spanish copy.
+ * Traceability: CMP-07-skill-detail → FRD-07/FRD-08; AC-07-006.2/.3/.5.
  */
 
 import type React from "react";
-
+import ReactMarkdown from "react-markdown";
 import type { AgentRole } from "@/app/_design/tokens/tokens";
 import { Chip } from "@/components/core/Chip/Chip";
 import { CopyButton } from "@/components/core/CopyButton/CopyButton";
+import { FlowGraph } from "@/components/modules/manual-diagrams/FlowGraph";
+import { getSkillFlow } from "@/lib/manual/skill-flows";
 import type { RunsIn, SkillRef } from "@/lib/reference/reference";
 import { FlowDiagram } from "./FlowDiagram";
-
-// ---------------------------------------------------------------------------
-// runsIn → Spanish label
-// ---------------------------------------------------------------------------
 
 const RUNS_IN_LABEL: Record<RunsIn, string> = {
   factory: "En la fábrica",
@@ -38,32 +29,26 @@ const RUNS_IN_LABEL: Record<RunsIn, string> = {
 };
 
 // ---------------------------------------------------------------------------
-// Styles — CSS custom properties only, zero hardcoded colors (FRD-13)
+// Styles — tokens only
 // ---------------------------------------------------------------------------
 
 const DETAIL_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 5)",
-  padding: "calc(var(--spacing, 0.25rem) * 2) 0",
-};
-
-const HEADER_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 2)",
+  gap: "16px",
+  padding: "8px 0",
 };
 
 const BACK_BTN_STYLE: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
-  gap: "calc(var(--spacing, 0.25rem) * 1)",
-  padding: "calc(var(--spacing, 0.25rem) * 1.5) 0",
+  gap: "5px",
+  padding: "6px 0",
   background: "none",
   border: "none",
   cursor: "pointer",
-  fontSize: "0.8125rem",
-  color: "var(--color-text-muted, currentColor)",
+  fontSize: "13px",
+  color: "var(--color-text3)",
   fontFamily: "inherit",
 };
 
@@ -71,101 +56,100 @@ const NAME_ROW_STYLE: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   flexWrap: "wrap",
-  gap: "calc(var(--spacing, 0.25rem) * 3)",
+  gap: "10px",
 };
 
 const SKILL_NAME_STYLE: React.CSSProperties = {
   fontFamily: "var(--font-mono, monospace)",
   fontSize: "1.125rem",
   fontWeight: 700,
-  color: "var(--color-accent, currentColor)",
+  color: "var(--color-accent-text)",
   margin: 0,
 };
 
-const DESCRIPTION_STYLE: React.CSSProperties = {
-  fontSize: "0.9375rem",
-  color: "var(--color-text, currentColor)",
-  lineHeight: 1.6,
+const EXPLAINER_STYLE: React.CSSProperties = {
+  fontSize: "15px",
+  color: "var(--color-text)",
+  lineHeight: 1.65,
   margin: 0,
+};
+
+const META_ROW_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "8px 18px",
+  fontSize: "12px",
+  color: "var(--color-text2)",
+  alignItems: "center",
+};
+
+const META_BADGE_STYLE: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "5px",
+  padding: "3px 9px",
+  borderRadius: "var(--radius-sm, 8px)",
+  border: "0.5px solid var(--color-border-strong)",
+  background: "var(--color-panel)",
+  color: "var(--color-text2)",
 };
 
 const SECTION_LABEL_STYLE: React.CSSProperties = {
-  fontSize: "0.6875rem",
+  fontSize: "11px",
   fontWeight: 700,
-  letterSpacing: "0.08em",
+  letterSpacing: "0.07em",
   textTransform: "uppercase",
-  color: "var(--color-text-muted, currentColor)",
-  opacity: 0.6,
-  margin: 0,
-  marginBottom: "calc(var(--spacing, 0.25rem) * 1)",
-};
-
-const RUNS_IN_BADGE_STYLE: React.CSSProperties = {
-  display: "inline-flex",
+  color: "var(--color-accent-text)",
+  margin: "0 0 10px",
+  display: "flex",
   alignItems: "center",
-  padding: "calc(var(--spacing, 0.25rem) * 1) calc(var(--spacing, 0.25rem) * 2.5)",
-  borderRadius: "var(--radius, 0.375rem)",
-  border: "var(--hairline, 1px) solid var(--color-border, currentColor)",
-  fontSize: "0.8125rem",
-  color: "var(--color-text, currentColor)",
-  background: "var(--color-surface-raised, Canvas)",
-};
-
-const BODY_STYLE: React.CSSProperties = {
-  fontSize: "0.875rem",
-  color: "var(--color-text, currentColor)",
-  lineHeight: 1.7,
-  whiteSpace: "pre-wrap",
-  fontFamily: "inherit",
+  gap: "6px",
 };
 
 const DIVIDER_STYLE: React.CSSProperties = {
   border: "none",
-  borderTop: "var(--hairline, 1px) solid var(--color-border, currentColor)",
-  opacity: 0.4,
+  borderTop: "1px solid var(--color-border)",
   margin: 0,
 };
 
+const RAW_SUMMARY_STYLE: React.CSSProperties = {
+  cursor: "pointer",
+  fontSize: "12px",
+  fontWeight: 600,
+  color: "var(--color-text2)",
+  padding: "8px 0",
+  display: "flex",
+  alignItems: "center",
+  gap: "6px",
+  userSelect: "none",
+};
+
+const PROSE_STYLE: React.CSSProperties = {
+  fontSize: "13px",
+  color: "var(--color-text2)",
+  lineHeight: 1.7,
+};
+
 // ---------------------------------------------------------------------------
-// Props
+// Component
 // ---------------------------------------------------------------------------
 
 export interface SkillDetailProps {
-  /** The skill to render. */
   skill: SkillRef;
-  /** Called when the user clicks the back button. */
   onBack: () => void;
-  /**
-   * Cross-navigation (FRD-07 EARS): called with an agent role when the owner
-   * clicks an agent chip in the mini-flow, to jump to that agent's detail.
-   */
+  /** Legacy cross-nav for the fallback agent mini-flow (used only when no curated flow exists). */
   onAgentClick?: (role: AgentRole) => void;
 }
 
-// ---------------------------------------------------------------------------
-// SkillDetail component (CMP-07-skill-detail)
-// ---------------------------------------------------------------------------
-
-/**
- * Read-only detail view for a single skill.
- *
- * Shows:
- *   - Back button
- *   - Skill name as /pandacorp:<slug>
- *   - Description (what it is for)
- *   - Where it runs (runsIn → Spanish label)
- *   - Mini-flow (FlowDiagram — agent chips colored per FRD-13 tokens)
- *   - Body content (raw markdown text)
- *
- * No edit affordance anywhere (AC-07-006.5).
- */
 export function SkillDetail({ skill, onBack, onAgentClick }: SkillDetailProps): React.JSX.Element {
   const skillName = `/pandacorp:${skill.slug}`;
-  const runsInLabel = RUNS_IN_LABEL[skill.runsIn];
+  const flow = getSkillFlow(skill.slug);
+  // Curated Spanish explainer wins over the (English) frontmatter description (DR-046 derive note).
+  const explainer = flow?.explainer ?? skill.description;
+  const runsInLabel = RUNS_IN_LABEL[flow?.runsIn ?? skill.runsIn];
 
   return (
     <div data-testid="skill-detail" style={DETAIL_STYLE}>
-      {/* Back button */}
       <div>
         <button
           type="button"
@@ -173,61 +157,74 @@ export function SkillDetail({ skill, onBack, onAgentClick }: SkillDetailProps): 
           style={BACK_BTN_STYLE}
           onClick={onBack}
         >
-          ← Volver a habilidades
+          <i className="ti ti-arrow-left" aria-hidden="true" /> Volver a comandos
         </button>
       </div>
 
-      {/* Header: name + interno flag + copy-to-clipboard + description */}
-      <div style={HEADER_STYLE}>
-        <div style={NAME_ROW_STYLE}>
-          <h2 data-testid="skill-detail-name" style={SKILL_NAME_STYLE}>
-            {skillName}
-          </h2>
-          {/* Copy-to-clipboard for the /pandacorp:<slug> command (EARS) */}
-          <CopyButton value={skillName} />
-          {/* "interno" flag — internal skills are invoked by another skill (EARS) */}
-          {skill.internal && (
-            <span data-testid="skill-detail-internal" title="Skill interno">
-              <Chip tone="secondary">interno</Chip>
-            </span>
-          )}
-        </div>
-        <p data-testid="skill-detail-description" style={DESCRIPTION_STYLE}>
-          {skill.description}
-        </p>
+      {/* Header: name + copy + interno */}
+      <div style={NAME_ROW_STYLE}>
+        <h2 data-testid="skill-detail-name" style={SKILL_NAME_STYLE}>
+          {skillName}
+        </h2>
+        <CopyButton value={skillName} />
+        {skill.internal && (
+          <span data-testid="skill-detail-internal" title="Skill interno">
+            <Chip tone="secondary">interno</Chip>
+          </span>
+        )}
       </div>
 
-      <hr style={DIVIDER_STYLE} />
+      {/* Curated, for-dummies explainer */}
+      <p data-testid="skill-detail-description" style={EXPLAINER_STYLE}>
+        {explainer}
+      </p>
 
-      {/* Where it runs */}
-      <div>
-        <p style={SECTION_LABEL_STYLE}>Dónde se ejecuta</p>
-        <span data-testid="skill-detail-runs-in" style={RUNS_IN_BADGE_STYLE}>
+      {/* Meta: where it runs + what it produces */}
+      <div style={META_ROW_STYLE}>
+        <span data-testid="skill-detail-runs-in" style={META_BADGE_STYLE}>
+          <i className="ti ti-map-pin" aria-hidden="true" style={{ fontSize: "12px" }} />{" "}
           {runsInLabel}
         </span>
-      </div>
-
-      {/* What it produces (EARS: the detail SHALL show what it produces) */}
-      <div data-testid="skill-detail-produces">
-        <p style={SECTION_LABEL_STYLE}>Produce</p>
-        <p style={DESCRIPTION_STYLE}>
-          {skill.produces ?? "Su salida no está declarada de forma legible en el skill."}
-        </p>
-      </div>
-
-      {/* Mini-flow: agent chips (cross-navigation to each agent's detail) */}
-      <div data-testid="skill-detail-flow">
-        <p style={SECTION_LABEL_STYLE}>Agentes que usa (flujo)</p>
-        <FlowDiagram body={skill.body} onAgentClick={onAgentClick} />
+        {skill.produces != null && skill.produces.length > 0 && (
+          <span data-testid="skill-detail-produces" style={META_BADGE_STYLE}>
+            <i className="ti ti-package-export" aria-hidden="true" style={{ fontSize: "12px" }} />{" "}
+            Produce: {skill.produces}
+          </span>
+        )}
       </div>
 
       <hr style={DIVIDER_STYLE} />
 
-      {/* Body content */}
-      <div data-testid="skill-detail-body">
-        <p style={SECTION_LABEL_STYLE}>Descripción completa</p>
-        <pre style={BODY_STYLE}>{skill.body}</pre>
+      {/* Interactive flow (curated) OR the legacy agent mini-flow */}
+      <div data-testid="skill-detail-flow">
+        <p style={SECTION_LABEL_STYLE}>
+          <i className="ti ti-route" aria-hidden="true" style={{ fontSize: "13px" }} /> Cómo
+          funciona, paso a paso
+        </p>
+        {flow !== undefined ? (
+          <FlowGraph flow={flow} />
+        ) : (
+          <>
+            <p style={{ fontSize: "12px", color: "var(--color-text3)", margin: "0 0 8px" }}>
+              Agentes que invoca:
+            </p>
+            <FlowDiagram body={skill.body} onAgentClick={onAgentClick} />
+          </>
+        )}
       </div>
+
+      <hr style={DIVIDER_STYLE} />
+
+      {/* Full SKILL.md — rendered markdown, collapsed by default */}
+      <details data-testid="skill-detail-body">
+        <summary style={RAW_SUMMARY_STYLE}>
+          <i className="ti ti-file-text" aria-hidden="true" style={{ fontSize: "13px" }} /> Ver el
+          SKILL.md completo
+        </summary>
+        <div className="doc" style={PROSE_STYLE}>
+          <ReactMarkdown>{skill.body}</ReactMarkdown>
+        </div>
+      </details>
     </div>
   );
 }

@@ -75,15 +75,21 @@ describe("FRD-07 gate — skill detail renders an honest agent mini-flow", () =>
     fireEvent.click(screen.getByTestId("config-tab-skills"));
     fireEvent.click(screen.getByTestId(`skill-card-${first.slug}`));
 
-    // The detail view + its flow region must exist (EARS: skill detail shows a mini-flow).
+    // The detail view + its flow region must exist (EARS: skill detail shows a flow).
     expect(screen.getByTestId("skill-detail")).toBeDefined();
-    const flow = screen.getByTestId("flow-diagram");
+    const flowSection = screen.getByTestId("skill-detail-flow");
 
-    // Either real agent chips OR the honest "no declared flow" degradation —
-    // never an empty silent region (AC-07-006.4: no invented steps).
-    const chips = within(flow).queryAllByTestId(/^flow-agent-chip-/);
-    const empty = within(flow).queryByTestId("flow-diagram-empty");
-    expect(chips.length > 0 || empty !== null).toBe(true);
+    // FRD-08: a curated skill renders the interactive flow-graph (clickable skill/agent nodes); a
+    // skill without one falls back to the agent mini-flow (chips or the honest empty). Either is
+    // acceptable, never an empty silent region (AC-07-006.4: no invented steps).
+    const graph = within(flowSection).queryByTestId("flow-graph");
+    const diagram = within(flowSection).queryByTestId("flow-diagram");
+    expect(graph !== null || diagram !== null).toBe(true);
+
+    const calls = within(flowSection).queryAllByTestId(/^flow-call-/);
+    const chips = within(flowSection).queryAllByTestId(/^flow-agent-chip-/);
+    const empty = within(flowSection).queryByTestId("flow-diagram-empty");
+    expect(calls.length > 0 || chips.length > 0 || empty !== null).toBe(true);
   });
 
   it("a skill whose body declares an Agents-used section renders real per-agent chips with token colors (no hardcoded color)", async () => {

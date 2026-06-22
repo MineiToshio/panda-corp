@@ -35,6 +35,7 @@ import type { ManualPage } from "@/lib/manual/manual";
 import type { AgentRef, SkillRef } from "@/lib/reference/reference";
 import type { DecisionRule } from "@/lib/registry/registry";
 import type { Standard } from "@/lib/standards/standards";
+import { useManualNav } from "./ManualNavContext";
 import { getManualPageComponent } from "./manualPages";
 import type { ReaderActivePage } from "./types";
 
@@ -58,6 +59,14 @@ export interface DocReaderProps {
   rules: DecisionRule[];
   /** Standards (from readStandards()) — for the standards reference view. */
   standards: Standard[];
+  /** Cross-nav: open this skill's detail in the Commands catalog (set by a flow-graph node). */
+  selectedSkillSlug?: string | null;
+  /** Cross-nav: open this agent's detail in the Agents catalog (set by a flow-graph node). */
+  selectedAgentId?: string | null;
+  /** Clears the skill cross-nav selection (Back inside the skill detail). */
+  onClearSkill?: () => void;
+  /** Clears the agent cross-nav selection (Back inside the agent detail). */
+  onClearAgent?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -105,12 +114,29 @@ const ZERO_AGENT_LEVEL: AgentLevelResult = {
  * Agents reference catalog — reuses the shared AgentList + AgentDetail (FRD-07).
  * Manages its own selection state since the Manual has no parent shell for it.
  */
-function ReferenceAgentsCatalog({ agents }: { agents: AgentRef[] }): React.JSX.Element {
-  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+function ReferenceAgentsCatalog({
+  agents,
+  controlledAgentId,
+  onClear,
+}: {
+  agents: AgentRef[];
+  /** Cross-nav override (from a flow-graph agent node); takes precedence over local selection. */
+  controlledAgentId?: string | null;
+  onClear?: () => void;
+}): React.JSX.Element {
+  const [localAgentId, setLocalAgentId] = useState<string | null>(null);
   const levels: Record<string, AgentLevelResult> = {};
+  // Derive-don't-sync: controlled cross-nav selection wins over local clicks.
+  const selectedAgentId = controlledAgentId != null ? controlledAgentId : localAgentId;
   const selectedAgent = selectedAgentId
     ? (agents.find((a) => a.id === selectedAgentId) ?? null)
     : null;
+
+  // Any list interaction drops the controlled override so local selection takes over (incl. Back → null).
+  function handleSelect(id: string | null): void {
+    onClear?.();
+    setLocalAgentId(id);
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "calc(var(--space-base) * 1.5)" }}>
@@ -118,7 +144,7 @@ function ReferenceAgentsCatalog({ agents }: { agents: AgentRef[] }): React.JSX.E
         agents={agents}
         levels={levels}
         selectedAgentId={selectedAgentId}
-        onSelectAgent={setSelectedAgentId}
+        onSelectAgent={handleSelect}
       />
       {selectedAgent !== null ? (
         <AgentDetail agent={selectedAgent} level={ZERO_AGENT_LEVEL} />
@@ -171,7 +197,12 @@ export function DocReader({
   agents,
   rules,
   standards,
+  selectedSkillSlug,
+  selectedAgentId,
+  onClearSkill,
+  onClearAgent,
 }: DocReaderProps): React.JSX.Element {
+  const nav = useManualNav();
   return (
     <main data-testid="doc-reader" aria-label="Área de lectura del Manual" style={READER_STYLE}>
       {activePage === null ? (
@@ -195,8 +226,21 @@ export function DocReader({
         /* Reference catalog view — AC-08-002.3: render derived catalog by REUSING
            the FRD-07 card primitives verbatim (DR-046 / DR-057), never a fork. */
         <article data-testid="doc-reader-reference">
-          {activePage.catalog === "commands" && <SkillsSection skills={skills} />}
-          {activePage.catalog === "agents" && <ReferenceAgentsCatalog agents={agents} />}
+          {activePage.catalog === "commands" && (
+            <SkillsSection
+              skills={skills}
+              selectedSkillSlug={selectedSkillSlug}
+              onClearCrossNav={onClearSkill}
+              onAgentClick={(role) => nav.goToAgent(role)}
+            />
+          )}
+          {activePage.catalog === "agents" && (
+            <ReferenceAgentsCatalog
+              agents={agents}
+              controlledAgentId={selectedAgentId}
+              onClear={onClearAgent}
+            />
+          )}
           {activePage.catalog === "rules" && <DecisionRulesSection rules={rules} />}
           {activePage.catalog === "standards" && <StandardsSection standards={standards} />}
         </article>

@@ -27,7 +27,7 @@
  */
 
 import type React from "react";
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { PageTitle } from "@/components/core/PageTitle/PageTitle";
 import type { ManualPage } from "@/lib/manual/manual";
 import type { AgentRef, SkillRef } from "@/lib/reference/reference";
@@ -35,6 +35,7 @@ import type { DecisionRule } from "@/lib/registry/registry";
 import type { Standard } from "@/lib/standards/standards";
 import { DocNav } from "./DocNav";
 import { DocReader } from "./DocReader";
+import { type ManualNav, ManualNavProvider } from "./ManualNavContext";
 import type { ActivePage, ReaderActivePage } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -175,46 +176,80 @@ export function ManualShell({
   // Initialize to the first authored page (mirrors prototype MANUALNAV[0].items[0].id
   // fallback). null only when there are zero authored pages (empty content tree).
   const [activePage, setActivePage] = useState<ActivePage | null>(() => deriveDefaultPage(pages));
+  // Reference cross-nav selection: which skill/agent detail is open inside the Reference catalogs.
+  // Set by the flow-graph clickable nodes (goToSkill/goToAgent); a plain nav selection clears them.
+  const [refSkill, setRefSkill] = useState<string | null>(null);
+  const [refAgent, setRefAgent] = useState<string | null>(null);
 
   const resolvedPage = resolveActivePage(activePage, pages);
 
+  // A nav-menu selection always resets the cross-nav detail (fresh page).
+  const handleNavSelect = useCallback((page: ActivePage): void => {
+    setActivePage(page);
+    setRefSkill(null);
+    setRefAgent(null);
+  }, []);
+
+  // The in-Manual navigation the flow graphs use: jump to a skill/agent's Reference detail.
+  const nav = useMemo<ManualNav>(
+    () => ({
+      goToSkill: (slug: string): void => {
+        setActivePage({ type: "reference", catalog: "commands" });
+        setRefSkill(slug);
+        setRefAgent(null);
+      },
+      goToAgent: (id: string): void => {
+        setActivePage({ type: "reference", catalog: "agents" });
+        setRefAgent(id);
+        setRefSkill(null);
+      },
+    }),
+    [],
+  );
+
   return (
-    <div data-testid="manual-shell" style={SHELL_STYLE}>
-      {/* Page header — DR-062: ONE PageTitle block, H1 "Documentación" */}
-      <div style={HEADER_STYLE}>
-        <PageTitle
-          icon="ti-book"
-          title="Documentación"
-          subtitle="El códice del gremio — guías, referencia y conceptos."
-        />
-      </div>
-
-      {/* Two-pane body: 236px nav | 1fr reader (prototype manualView()) */}
-      <div style={BODY_STYLE}>
-        {/* Side menu — sticky nav column (AC-08-002.2) */}
-        <div data-testid="doc-nav-sticky" style={NAV_COLUMN_STYLE}>
-          <DocNav
-            pages={pages}
-            skills={skills}
-            agents={agents}
-            rules={rules}
-            standards={standards}
-            activePage={activePage}
-            onSelect={setActivePage}
+    <ManualNavProvider value={nav}>
+      <div data-testid="manual-shell" style={SHELL_STYLE}>
+        {/* Page header — DR-062: ONE PageTitle block, H1 "Documentación" */}
+        <div style={HEADER_STYLE}>
+          <PageTitle
+            icon="ti-book"
+            title="Documentación"
+            subtitle="El códice del gremio — guías, referencia y conceptos."
           />
         </div>
 
-        {/* Reading area — min-width:0 prevents grid overflow (AC-08-002.1, AC-08-002.3) */}
-        <div data-testid="manual-reader-area" style={READER_COLUMN_STYLE}>
-          <DocReader
-            activePage={resolvedPage}
-            skills={skills}
-            agents={agents}
-            rules={rules}
-            standards={standards}
-          />
+        {/* Two-pane body: 236px nav | 1fr reader (prototype manualView()) */}
+        <div style={BODY_STYLE}>
+          {/* Side menu — sticky nav column (AC-08-002.2) */}
+          <div data-testid="doc-nav-sticky" style={NAV_COLUMN_STYLE}>
+            <DocNav
+              pages={pages}
+              skills={skills}
+              agents={agents}
+              rules={rules}
+              standards={standards}
+              activePage={activePage}
+              onSelect={handleNavSelect}
+            />
+          </div>
+
+          {/* Reading area — min-width:0 prevents grid overflow (AC-08-002.1, AC-08-002.3) */}
+          <div data-testid="manual-reader-area" style={READER_COLUMN_STYLE}>
+            <DocReader
+              activePage={resolvedPage}
+              skills={skills}
+              agents={agents}
+              rules={rules}
+              standards={standards}
+              selectedSkillSlug={refSkill}
+              selectedAgentId={refAgent}
+              onClearSkill={() => setRefSkill(null)}
+              onClearAgent={() => setRefAgent(null)}
+            />
+          </div>
         </div>
       </div>
-    </div>
+    </ManualNavProvider>
   );
 }

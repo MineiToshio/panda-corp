@@ -23,6 +23,7 @@ import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 import { ItemSlot } from "@/components/core/ItemSlot/ItemSlot";
 import { Panel } from "@/components/core/Panel/Panel";
 import { ArchDiagram } from "@/components/modules/manual-diagrams/ArchDiagram";
+import { DownArrow, IconRow } from "@/components/modules/manual-diagrams/atoms";
 import { ChannelsDiagram } from "@/components/modules/manual-diagrams/ChannelsDiagram";
 import { CockpitDataDiagram } from "@/components/modules/manual-diagrams/CockpitDataDiagram";
 import { DocH } from "@/components/modules/manual-diagrams/DocH";
@@ -473,9 +474,10 @@ function GuideFeedback(): React.JSX.Element {
     <>
       <DocH title="Reportar un bug o responder una decisión" level={1} />
       <Lead>
-        Mientras un proyecto se construye (o ya lanzado), tienes tres canales para meterle mano —
-        todos por archivos, que el agente revisa en su próximo punto seguro, sin que tengas que
-        pararlo.
+        La puerta única para pedir un cambio es <Code>/pandacorp:change</Code> (ver{" "}
+        <B weight={600}>Cómo pedir un cambio</B>); por dentro, esos cambios se atienden por estos{" "}
+        <B weight={600}>tres canales</B>, todos por archivos, que el agente revisa en su próximo
+        punto seguro, sin que tengas que pararlo.
       </Lead>
       <ChannelsDiagram />
       <NotePanel icon="ti-info-circle">
@@ -1141,6 +1143,865 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
 }
 
 // ---------------------------------------------------------------------------
+// Shared helpers for the audit-gap concept pages
+// ---------------------------------------------------------------------------
+
+/** A two-column "key → value" row inside a Panel (label left, content right). */
+function KvRow({
+  label,
+  isFirst,
+  children,
+}: {
+  label: React.ReactNode;
+  isFirst: boolean;
+  children: React.ReactNode;
+}): React.JSX.Element {
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: "12px",
+        alignItems: "baseline",
+        padding: "7px 0",
+        borderTop: isFirst ? undefined : "1px solid var(--color-border)",
+      }}
+    >
+      <div
+        style={{
+          flex: "0 0 132px",
+          fontSize: "12px",
+          fontWeight: 600,
+          color: "var(--color-text)",
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          flex: 1,
+          minWidth: 0,
+          fontSize: "13px",
+          color: "var(--color-text2)",
+          lineHeight: 1.55,
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** A labelled chip + description row (e.g. a return_type or a verdict). */
+function ChipDefRow({
+  chip,
+  tone,
+  isFirst,
+  children,
+}: {
+  chip: string;
+  tone: "info" | "ok" | "warn" | "danger" | "accent" | "secondary";
+  isFirst: boolean;
+  children: React.ReactNode;
+}): React.JSX.Element {
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: "10px",
+        alignItems: "flex-start",
+        padding: "8px 0",
+        borderTop: isFirst ? undefined : "1px solid var(--color-border)",
+      }}
+    >
+      <div style={{ flex: "0 0 116px" }}>
+        <Chip tone={tone}>{chip}</Chip>
+      </div>
+      <div
+        style={{
+          flex: 1,
+          minWidth: 0,
+          fontSize: "13px",
+          color: "var(--color-text2)",
+          lineHeight: 1.55,
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** A small "step n + body" trail node with a down-arrow connector. */
+function NumberedTrail({
+  steps,
+}: {
+  steps: readonly { title: React.ReactNode; body: React.ReactNode }[];
+}): React.JSX.Element {
+  return (
+    <div>
+      {steps.map((s, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: static authored ordered trail
+        <div key={i}>
+          <Panel variant="rpgpanel">
+            <div style={{ display: "flex", gap: "11px", alignItems: "flex-start" }}>
+              <ItemSlot
+                size={28}
+                tone="accent"
+                aria-label={`Paso ${i + 1}`}
+                icon={
+                  <span
+                    style={{
+                      fontFamily: "var(--font-pixel, monospace)",
+                      fontSize: "14px",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {i + 1}
+                  </span>
+                }
+              />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: "13px", color: "var(--color-text)" }}>
+                  {s.title}
+                </div>
+                <div
+                  style={{
+                    fontSize: "13px",
+                    color: "var(--color-text2)",
+                    lineHeight: 1.55,
+                    marginTop: "3px",
+                  }}
+                >
+                  {s.body}
+                </div>
+              </div>
+            </div>
+          </Panel>
+          {i < steps.length - 1 && <DownArrow marginLeft="14px" />}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// CONCEPT: El arco económico
+// ---------------------------------------------------------------------------
+
+function ConceptArcoEconomico(): React.JSX.Element {
+  return (
+    <>
+      <DocH title="El arco económico" level={1} />
+      <Lead>
+        No todas las ideas se construyen igual. El pipeline{" "}
+        <B weight={600}>
+          se bifurca según el <Code>return_type</Code>
+        </B>{" "}
+        de la idea y adapta lo que hace en cada fase: no es un pipeline único con forma de «app que
+        cobra» — lee el tipo de retorno y se ajusta (DR-042).
+      </Lead>
+
+      <DocH title="Los cuatro tipos de retorno" />
+      <Panel>
+        <ChipDefRow chip="personal" tone="info" isFirst>
+          El usuario eres tú. Se salta investigación de mercado/competencia, validación de demanda,
+          precio y GTM; el foco es resolver bien tu necesidad.
+        </ChipDefRow>
+        <ChipDefRow chip="monetary" tone="ok" isFirst={false}>
+          App pensada para generar ingresos. Tratamiento completo: gate de demanda, unit-economics y
+          plan de distribución.
+        </ChipDefRow>
+        <ChipDefRow chip="mixed" tone="accent" isFirst={false}>
+          Útil para ti y monetizable a la vez. Mismo tratamiento que <Code>monetary</Code>.
+        </ChipDefRow>
+        <ChipDefRow chip="opportunity" tone="warn" isFirst={false}>
+          Apalanca un activo tuyo (audiencia, comunidad, red, posicionamiento). Valida que el
+          alcance es real y define una métrica de oportunidad; sin precio salvo que sea{" "}
+          <Code>mixed</Code>.
+        </ChipDefRow>
+      </Panel>
+
+      <DocH title="El gate de demanda · puede matar una idea antes de construir" />
+      <Body>
+        <Code>/pandacorp:spec</Code> hace una pre-comprobación de demanda{" "}
+        <B weight={600}>ANTES de crear la carpeta</B> del proyecto. Para <Code>monetary</Code>/
+        <Code>mixed</Code> revisa si hay competidores <B weight={600}>que cobran de verdad</B> (el
+        mercado existe y paga), si el dolor es frecuente y, en B2B, quién paga.
+      </Body>
+      <NotePanel icon="ti-skull" iconColor="var(--color-danger)">
+        Si la señal falta o contradice la idea,{" "}
+        <B weight={600}>para y recomienda matar/pivotar — NO crea el proyecto</B> (matar aquí no
+        deja un repo huérfano). Es la pieza que evita invertir diseño y construcción en una idea
+        monetaria sin validar.
+      </NotePanel>
+
+      <DocH title="Unit-economics y kill-signals · viven en el PRD" />
+      <Panel>
+        <Ul>
+          <li>
+            <B weight={500}>Unit-economics</B> — precio propuesto (anclado a los competidores que
+            cobran) + coste variable por usuario activo (Polar ~4%+$0.40, Vercel Pro, tiers de
+            Neon/R2/Resend/PostHog) + break-even de servilleta. El blueprint rellena el lado del
+            coste.
+          </li>
+          <li>
+            <B weight={500}>Kill-signals</B> — señales de muerte con umbrales numéricos (p. ej.{" "}
+            <Code>&lt; N usuarios activos</Code> o <Code>$0 de ingresos a los 60 días</Code> →
+            revisión formal). Para <Code>opportunity</Code>, la métrica de oportunidad.
+          </li>
+        </Ul>
+      </Panel>
+
+      <DocH title="La distribución · en release" />
+      <Body>
+        <Code>/pandacorp:release</Code> es consciente del retorno: para <Code>monetary</Code>/
+        <Code>mixed</Code>/<Code>opportunity</Code> produce además <Code>docs/launch-plan.md</Code>{" "}
+        — el canal de adquisición principal + 3-5 borradores de posts para que tú publiques, bajo el
+        gate de comunicaciones externas (DR-008). Para <Code>personal</Code>, se salta.
+      </Body>
+      <NotePanel icon="ti-rocket" iconColor="var(--color-accent-text)">
+        <B weight={600}>Desplegado ≠ lanzado:</B> una app sin usuarios no genera nada. El cierre del
+        arco lo hace <Code>review-launch</Code> (kill / hold / double-down) — ver{" "}
+        <B weight={600}>Después de lanzar</B>.
+      </NotePanel>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// CONCEPT: Después de lanzar
+// ---------------------------------------------------------------------------
+
+function ConceptDespuesDeLanzar(): React.JSX.Element {
+  return (
+    <>
+      <DocH title="Después de lanzar" level={1} />
+      <Lead>
+        <B weight={600}>Desplegado ≠ lanzado.</B> Que una versión esté en producción no significa
+        que tenga usuarios ni que funcione el negocio. El ciclo de vida no termina en el deploy: la
+        fase <B weight={600}>operación</B> es real, no un sumidero muerto.
+      </Lead>
+
+      <Panel>
+        <div
+          style={{
+            fontSize: "12px",
+            fontWeight: 500,
+            color: "var(--color-text2)",
+            marginBottom: "8px",
+          }}
+        >
+          Las 6 fases (operación incluida)
+        </div>
+        <ChipFlow>
+          <Chip tone="secondary">product</Chip>
+          {RIGHT_ARROW}
+          <Chip tone="secondary">design</Chip>
+          {RIGHT_ARROW}
+          <Chip tone="secondary">architecture</Chip>
+          {RIGHT_ARROW}
+          <Chip tone="secondary">build</Chip>
+          {RIGHT_ARROW}
+          <Chip tone="info">release</Chip>
+          {RIGHT_ARROW}
+          <Chip tone="ok">operation</Chip>
+        </ChipFlow>
+        <Divider />
+        <div style={{ fontSize: "12px", color: "var(--color-text2)", lineHeight: 1.6 }}>
+          <Code>release</Code> es <B weight={500}>desplegar</B> (una versión queda viva);{" "}
+          <Code>operation</Code> es <B weight={500}>operar</B> (leer métricas y decidir). Son cosas
+          distintas.
+        </div>
+      </Panel>
+
+      <DocH title="review-launch · cierra el bucle (DR-043)" />
+      <Lead>
+        <Code>/pandacorp:review-launch</Code> corre en un proyecto lanzado (precondición{" "}
+        <Code>phase: operation</Code>). Lee los objetivos del PRD, las métricas reales en PostHog (
+        <Code>docs/analytics/events.md</Code>) según el <Code>return_type</Code>, compara, y
+        actualiza las columnas de negocio del portfolio.
+      </Lead>
+      <Panel>
+        <KvRow label="monetary / mixed" isFirst>
+          usuarios activos, ingresos/MRR y el chequeo de unit-economics (¿los ingresos cubren el
+          coste por usuario + el asiento de Vercel Pro?).
+        </KvRow>
+        <KvRow label="opportunity" isFirst={false}>
+          la métrica de oportunidad (alcance/contactos/posicionamiento ganados).
+        </KvRow>
+        <KvRow label="personal" isFirst={false}>
+          ¿el dueño realmente la usa (una señal mínima de uso)?
+        </KvRow>
+      </Panel>
+
+      <DocH title="Los tres veredictos" />
+      <Panel>
+        <ChipDefRow chip="DOUBLE DOWN" tone="ok" isFirst>
+          La hipótesis se sostuvo (o va bien): recomienda el siguiente paso (iterar una feature con{" "}
+          <Code>/pandacorp:iterate</Code>, o empujar la distribución de{" "}
+          <Code>docs/launch-plan.md</Code>).
+        </ChipDefRow>
+        <ChipDefRow chip="HOLD" tone="warn" isFirst={false}>
+          No concluyente / demasiado pronto: seguir midiendo; fija la próxima fecha de revisión.
+        </ChipDefRow>
+        <ChipDefRow chip="KILL / ARCHIVE" tone="danger" isFirst={false}>
+          Saltó un kill-signal (monetary: bajo el umbral o CAC &gt; LTV; opportunity: métrica plana;
+          personal: el dueño dejó de usarla): recomienda archivar y liberar el foco.
+        </ChipDefRow>
+      </Panel>
+
+      <NotePanel icon="ti-hand-stop" iconColor="var(--color-warn)">
+        <B weight={600}>No mata por su cuenta.</B> review-launch lee, recomienda y solo escribe las
+        columnas de negocio + una nota. Matar, archivar, desplegar o gastar siguen siendo{" "}
+        <B weight={500}>gates humanos</B>: el bucle produce la recomendación, tú decides. Es
+        consciente del retorno — una herramienta <Code>personal</Code> que usas a diario es un éxito
+        aunque facture $0.
+      </NotePanel>
+      <NotePanel icon="ti-layout-dashboard" iconColor="var(--color-accent)">
+        Alimenta el portfolio con columnas de negocio —Usuarios / Retorno / Veredicto— para ver
+        ganadores vs zombies. Puede correr a demanda o como un job <Code>/loop</Code> autopautado
+        sobre el portfolio lanzado: sin nadie presente, solo mide, registra y avisa.
+      </NotePanel>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// CONCEPT: Servicios, cuentas y secretos
+// ---------------------------------------------------------------------------
+
+const SERVICE_STACK: readonly { concern: string; service: string }[] = [
+  { concern: "Base de datos (Postgres)", service: "Neon" },
+  { concern: "Almacenamiento de ficheros/fotos", service: "Cloudflare R2" },
+  { concern: "Correo transaccional", service: "Resend" },
+  { concern: "Correo marketing / lista de espera", service: "Kit" },
+  { concern: "Errores", service: "Sentry" },
+  { concern: "Analítica de producto", service: "PostHog" },
+  { concern: "Pagos", service: "Polar" },
+] as const;
+
+function ConceptServiciosSecretos(): React.JSX.Element {
+  return (
+    <>
+      <DocH title="Servicios, cuentas y secretos" level={1} />
+      <Lead>
+        Cuando una app necesita base de datos, correo, pagos o analítica, la fábrica no inventa: usa
+        un <B weight={600}>stack de servicios probado</B>, un <B weight={600}>modelo de cuentas</B>{" "}
+        que da aislamiento sin pesadilla operativa, y guarda los{" "}
+        <B weight={600}>secretos cifrados fuera de todo repo</B>.
+      </Lead>
+
+      <DocH title="El stack de servicios (probado)" />
+      <Panel>
+        {SERVICE_STACK.map((row, i) => (
+          <KvRow key={row.service} label={row.concern} isFirst={i === 0}>
+            <span style={{ fontWeight: 600, color: "var(--color-text)" }}>{row.service}</span>
+          </KvRow>
+        ))}
+      </Panel>
+
+      <DocH title="El modelo de cuentas" />
+      <Body>
+        <B weight={600}>Por defecto: UNA cuenta/org compartida por servicio</B>, separando cada app
+        por su <B weight={600}>primitivo nativo</B>. El aislamiento no viene de tener cuentas
+        separadas: viene de un proyecto de Neon (= BD física aislada), un bucket de R2, un dominio
+        de Resend, una org de PostHog, un producto de Polar — cada uno con su credencial. Basta para
+        producción real con datos personales (GDPR).
+      </Body>
+      <NotePanel icon="ti-shield-check" iconColor="var(--color-ok)">
+        <B weight={600}>Regla «free org SÍ, cuenta-títere NO».</B> Usar la separación que el
+        proveedor ofrece (orgs de PostHog, proyectos de Neon) es legítimo. Crear varias cuentas con{" "}
+        <Code>+alias</Code> para esquivar un tope del free-tier viola los términos de servicio y
+        arriesga baneos que tumban apps vivas.
+      </NotePanel>
+
+      <DocH title="Los secretos · cifrados, fuera de todo repo" />
+      <Panel>
+        <Ul>
+          <li>
+            <B weight={500}>Runtime</B> — en el <Code>.env</Code> del proyecto (gitignored;{" "}
+            <Code>.env.example</Code> sin valores).
+          </li>
+          <li>
+            <B weight={500}>Almacén de máquina</B> (lo que el agente lee sin ti presente) →{" "}
+            <B weight={500}>SOPS + age</B>: un fichero cifrado{" "}
+            <B weight={600}>fuera de cualquier repo</B> (p. ej.{" "}
+            <Code>~/.config/pandacorp/secrets/</Code>), con la clave privada <Code>age</Code> en el{" "}
+            <B weight={500}>Keychain de macOS</B>. SOPS cifra solo los <i>valores</i>.
+          </li>
+        </Ul>
+        <Divider />
+        <div style={{ fontSize: "12px", color: "var(--color-text2)" }}>
+          <i
+            className="ti ti-lock"
+            aria-hidden="true"
+            style={{ fontSize: "13px", verticalAlign: "-2px", color: "var(--color-text2)" }}
+          />{" "}
+          Nunca van secretos al código ni al contexto de los agentes (DR-037).
+        </div>
+      </Panel>
+
+      <DocH title="Pagos desde Perú · Merchant of Record" />
+      <Body>
+        El dueño está en <B weight={600}>Perú</B>, donde Stripe directo no opera (requeriría una LLC
+        en EE. UU.). Un <B weight={600}>Merchant of Record</B> es el vendedor legal: cobra
+        globalmente, gestiona IVA/impuestos y compliance, y <B weight={600}>te paga en Perú</B>. El
+        estándar es <B weight={600}>Polar</B> (payout vía Stripe Connect Express, ~4% + $0.40,
+        enfocado a developers).
+      </Body>
+
+      <DocH title="El aviso de Vercel Pro" />
+      <NotePanel icon="ti-alert-triangle" iconColor="var(--color-warn)">
+        Vercel Hobby (gratis) es <B weight={500}>no comercial</B>: cualquier cobro, anuncio o
+        donación cuenta como comercial. Si una versión cobra, requiere{" "}
+        <B weight={500}>Vercel Pro</B> ($20/mes por asiento — un asiento = toda la fábrica).{" "}
+        <B weight={500}>No bloquea</B> (no es un gate): la fábrica solo AVISA en 3 momentos —al
+        definir el PRD, en el blueprint y en el release (DR-035).
+      </NotePanel>
+
+      <DocH title="Push al celular en cada gate" />
+      <NotePanel icon="ti-device-mobile-message" iconColor="var(--color-accent-text)">
+        En cualquier punto que requiera una decisión/acción tuya (gates DR-004/005/007/008/035,
+        pendientes de <Code>decide</Code>, o un signup/2FA/pago durante el aprovisionamiento), el
+        agente dispara una notificación push. Llega al celular si Remote Control / la app de Claude
+        está conectada, con un mensaje accionable, <B weight={500}>además</B> de dejar el pendiente
+        por archivo (DR-038).
+      </NotePanel>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// CONCEPT: Los gates humanos
+// ---------------------------------------------------------------------------
+
+const HUMAN_GATES: readonly { icon: string; label: React.ReactNode; body: React.ReactNode }[] = [
+  { icon: "ti-bulb", label: "Selección de idea", body: "elegir qué idea avanza." },
+  { icon: "ti-palette", label: "Elección de diseño", body: "aprobar el diseño visual." },
+  {
+    icon: "ti-cloud-upload",
+    label: "Release a producción",
+    body: <>el deploy a producción (DR-004).</>,
+  },
+  {
+    icon: "ti-coin",
+    label: "Gastar dinero",
+    body: (
+      <>
+        compras, planes de pago, dominios, APIs de pago. El bloqueo siempre es{" "}
+        <B weight={500}>con el monto</B> (DR-005): no hay umbral automático.
+      </>
+    ),
+  },
+  {
+    icon: "ti-trash",
+    label: "Borrar datos o recursos",
+    body: <>datos, repos, ramas remotas o recursos cloud (DR-007).</>,
+  },
+  {
+    icon: "ti-mail-forward",
+    label: "Comunicaciones externas",
+    body: <>emails a usuarios, webhooks públicos, publicar en stores/marketplaces (DR-008).</>,
+  },
+  {
+    icon: "ti-key",
+    label: "Cambios de acceso",
+    body: "permisos, roles, credenciales.",
+  },
+] as const;
+
+function ConceptGatesHumanos(): React.JSX.Element {
+  return (
+    <>
+      <DocH title="Los gates humanos" level={1} />
+      <Lead>
+        La fábrica es autónoma, pero hay decisiones que <B weight={600}>solo tú</B> puedes tomar:
+        las que tienen consecuencias irreversibles, cuestan dinero o salen al mundo. Todo lo demás
+        lo resuelve el registro de decisiones; una decisión no cubierta se escala UNA vez y se
+        codifica como regla.
+      </Lead>
+
+      <DocH title="La lista completa" />
+      <Panel>
+        {HUMAN_GATES.map((g) => (
+          <div key={String(g.label)} style={{ marginBottom: "8px" }}>
+            <Panel variant="rpgpanel">
+              <IconRow icon={g.icon} iconColor="var(--color-accent-text)" title={g.label}>
+                {g.body}
+              </IconRow>
+            </Panel>
+          </div>
+        ))}
+      </Panel>
+
+      <DocH title="Se aplican como reglas duras, no como conversación" />
+      <NotePanel icon="ti-lock" iconColor="var(--color-danger)">
+        Estos gates se aplican como{" "}
+        <B weight={600}>
+          reglas <Code>deny</Code> duras
+        </B>{" "}
+        en <Code>.claude/settings.json</Code> + hooks deterministas, <B weight={600}>nunca</B> como
+        límites dichos en la conversación: el contexto puede compactarse y perderse, un hook no.{" "}
+        <B weight={500}>«Auto mode» no es una salvaguarda.</B>
+      </NotePanel>
+
+      <DocH title="Cada intervención reduce las futuras" />
+      <Body>
+        La otra mitad del principio:{" "}
+        <B weight={600}>toda intervención humana debe reducir las futuras.</B> Cuando te escalan
+        algo no cubierto, das tu respuesta y esa respuesta se codifica como regla en el registro. La
+        próxima vez que aparezca el mismo caso, ya no te preguntan: el default decide. Así la
+        fábrica se vuelve más autónoma con el uso, sin perder el control sobre lo que importa.
+      </Body>
+      <NotePanel icon="ti-device-mobile-message" iconColor="var(--color-accent)">
+        Cada gate dispara además un <B weight={500}>push al celular</B> (DR-038): el pendiente queda
+        por archivo y te llega un aviso accionable.
+      </NotePanel>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// CONCEPT: El espinazo de documentos
+// ---------------------------------------------------------------------------
+
+function ConceptEspinazoDocs(): React.JSX.Element {
+  return (
+    <>
+      <DocH title="El espinazo de documentos" level={1} />
+      <Lead>
+        Cada proyecto se documenta con una cadena de documentos enlazados por IDs estables. No es
+        burocracia: es la <B weight={600}>trazabilidad</B> que permite saber, para cada línea de
+        código, de qué requisito vino y qué criterio la verifica.
+      </Lead>
+
+      <DocH title="Qué es cada documento" />
+      <Panel>
+        <KvRow label="PRD" isFirst>
+          <Code>docs/product/prd.md</Code> — la visión, usuarios, métricas y alcance + una tabla
+          VIVA de «feature landscape» (el mapa de FRDs).
+        </KvRow>
+        <KvRow label="FRD" isFirst={false}>
+          <Code>docs/frds/frd-NN-&lt;slug&gt;/frd.md</Code> — el contrato de usuario:{" "}
+          <Code>REQ-NN-MMM</Code> + <Code>AC-NN-MMM.K</Code> (EARS, testeable).
+        </KvRow>
+        <KvRow label="FDD" isFirst={false}>
+          <Code>frd-NN-&lt;slug&gt;/fdd.md</Code> — el diseño de la feature. Condicional: solo si
+          tiene UI.
+        </KvRow>
+        <KvRow label="Blueprint" isFirst={false}>
+          dos capas: plataforma (<Code>docs/product/architecture.md</Code>, uno por proyecto) y
+          feature (<Code>frd-NN-&lt;slug&gt;/blueprint.md</Code>, por FRD). Nunca se fusionan.
+        </KvRow>
+        <KvRow label="ADR" isFirst={false}>
+          <Code>docs/adr/</Code> — decisiones técnicas a nivel de plataforma (cross-feature).
+        </KvRow>
+        <KvRow label="Work order" isFirst={false}>
+          <Code>frd-NN-&lt;slug&gt;/work-orders/wo-NN-MMM-&lt;slug&gt;.md</Code> — una rebanada
+          gruesa (una vista/capacidad); copia sus AC en línea.
+        </KvRow>
+      </Panel>
+
+      <DocH title="La cadena de trazabilidad" />
+      <Panel>
+        <ChipFlow>
+          <Chip tone="accent">REQ-NN-MMM</Chip>
+          {RIGHT_ARROW}
+          <Chip tone="accent">AC-NN-MMM.K</Chip>
+          {RIGHT_ARROW}
+          <Chip tone="info">CMP-NN · IF-NN</Chip>
+          {RIGHT_ARROW}
+          <Chip tone="ok">WO-NN-MMM</Chip>
+        </ChipFlow>
+        <Divider />
+        <div style={{ fontSize: "12px", color: "var(--color-text2)", lineHeight: 1.6 }}>
+          <Code>REQ</Code> requisito (en <Code>frd.md</Code>) · <Code>AC</Code> criterio de
+          aceptación (EARS) · <Code>CMP/IF</Code> componente/interfaz (en <Code>blueprint.md</Code>)
+          · <Code>WO</Code> work order, cuyos tests mapean de vuelta a <Code>AC-NN-MMM.K</Code>.
+        </div>
+      </Panel>
+
+      <DocH title="La jerarquía de fuente de verdad" />
+      <Lead>
+        Cuando dos documentos se contradicen, <B weight={600}>gana el de arriba</B> y se corrige el
+        de abajo. Los cambios propagan upstream en ese orden.
+      </Lead>
+      <Panel>
+        <ChipFlow>
+          <Chip tone="accent">FRD</Chip>
+          <span style={{ color: "var(--color-text3)" }}>&gt;</span>
+          <Chip tone="info">FDD</Chip>
+          <span style={{ color: "var(--color-text3)" }}>&gt;</span>
+          <Chip tone="info">design-tokens</Chip>
+          <span style={{ color: "var(--color-text3)" }}>&gt;</span>
+          <Chip tone="secondary">blueprint</Chip>
+          <span style={{ color: "var(--color-text3)" }}>&gt;</span>
+          <Chip tone="secondary">work order</Chip>
+        </ChipFlow>
+      </Panel>
+
+      <DocH title="La disciplina de las dos escrituras" />
+      <Panel>
+        <Body size="13px" margin="0 0 8px">
+          Documentar un cambio son <B weight={600}>dos cosas, siempre</B>:
+        </Body>
+        <Ul>
+          <li>
+            <B weight={500}>Actualizar el documento canónico</B> (la verdad de ahora) — el que{" "}
+            <i>posee</i> ese hecho.
+          </li>
+          <li>
+            <B weight={500}>Registrar la decisión</B> en <Code>docs/decision-log.md</Code> (la
+            historia) — fecha, qué, por qué, enlazando el documento tocado.
+          </li>
+        </Ul>
+        <Divider />
+        <div style={{ fontSize: "12px", color: "var(--color-text2)", lineHeight: 1.6 }}>
+          El canónico responde «¿qué es verdad ahora?»; el log, «¿cómo llegamos aquí y por qué?».
+          Hacen falta los dos: el FRD solo pierde el porqué; el log solo deja el FRD mintiendo. Un
+          cambio de comportamiento <B weight={500}>no está hecho</B> sin su FRD actualizado{" "}
+          <B weight={500}>y</B> su entrada de decision-log.
+        </div>
+      </Panel>
+      <NotePanel icon="ti-folders" iconColor="var(--color-accent)">
+        La estructura es <B weight={500}>feature-céntrica</B> (DR-049): una capa fina de producto +
+        un módulo autocontenido por feature. Las carpetas aparecen bajo demanda. El Manual de
+        Mission Control refleja esta misma disciplina (DR-046).
+      </NotePanel>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// CONCEPT: Tu perfil
+// ---------------------------------------------------------------------------
+
+function ConceptTuPerfil(): React.JSX.Element {
+  return (
+    <>
+      <DocH title="Tu perfil · cómo personaliza la fábrica" level={1} />
+      <Lead>
+        La fábrica se personaliza para ti. Un perfil tuyo —intereses, activos y apetito— hace que
+        las ideas que te propone encajen contigo en vez de ser genéricas. Vive en{" "}
+        <Code>factory/profile.md</Code> (personal, gitignored).
+      </Lead>
+
+      <DocH title="El onboarding lo arranca" />
+      <Body>
+        <Code>/pandacorp:onboarding</Code> es el primer paso al clonar la fábrica. Te entrevista a
+        fondo —nombre, objetivos, intereses, hobbies, gustos, <B weight={600}>activos/palancas</B>,
+        apetito de monetización, tipos de proyecto y cómo trabajas— y guarda el perfil en{" "}
+        <Code>factory/profile.md</Code>. Puede arrancarlo desde tus conversaciones pasadas. Nunca
+        inventa datos: lo que no digas, lo deja vacío.
+      </Body>
+
+      <DocH title="Dos corrientes en discover (~50/50)" />
+      <Lead>
+        <Code>/pandacorp:discover</Code> no busca a ciegas: lanza al <Code>researcher</Code> en dos
+        corrientes en paralelo, apuntando a ~50/50 (DR-039).
+      </Lead>
+      <Panel>
+        <KvRow label="Corriente A" isFirst>
+          <B weight={500}>Oportunidades generales</B> (independientes del tema): lo mejor del
+          momento por valor/facilidad/retorno, te gusten o no (Reddit, foros, reviews negativas,
+          tendencias).
+        </KvRow>
+        <KvRow label="Corriente B" isFirst={false}>
+          <B weight={500}>Alineadas al perfil</B>: ideas que encajan con tus intereses/objetivos o
+          que apalancan tus activos / te abren puertas, aunque el retorno monetario sea menor.
+        </KvRow>
+      </Panel>
+      <NotePanel icon="ti-scale">
+        El criterio dual se honra: no descarta una idea alineada por monetizar poco, ni una idea
+        general brillante por no ser «tu tema».
+      </NotePanel>
+
+      <DocH title="recommend usa la misma lógica dual" />
+      <Body>
+        <Code>/pandacorp:recommend</Code> arma el ranking ponderando, además del score: alineación
+        con el perfil, <B weight={500}>tipo de retorno</B> (monetario, de oportunidad o personal;
+        pesado por tu apetito), balance de portfolio y quick wins. Lo presenta en{" "}
+        <B weight={500}>dos bloques</B>: «Mejores apuestas» y «Alineadas contigo».
+      </Body>
+
+      <DocH title="El perfil se mantiene vivo solo (DR-053)" />
+      <NotePanel icon="ti-refresh" iconColor="var(--color-accent)">
+        El perfil <B weight={600}>no es un formulario de una sola vez</B>: es un documento vivo.
+        Cuando revelas un hecho personal y durable sobre ti en cualquier conversación, el agente lo
+        escribe/actualiza en el perfil (lee primero, deduplica, nunca duplica). El destino es
+        siempre <Code>factory/profile.md</Code>. No te pide permiso para anotar un hecho personal.
+      </NotePanel>
+      <NotePanel icon="ti-stack-2">
+        El perfil del dueño es un plano distinto de la <B weight={500}>memoria de ingeniería</B> (
+        <Code>factory/memory/</Code>, lecciones reutilizables) y del{" "}
+        <B weight={500}>decision-log</B> (historia). No se mezclan.
+      </NotePanel>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// GUIDE: Adoptar un proyecto que ya tienes
+// ---------------------------------------------------------------------------
+
+function GuideAdoptar(): React.JSX.Element {
+  return (
+    <>
+      <DocH title="Adoptar un proyecto que ya tienes" level={1} />
+      <Lead>
+        ¿Tienes un proyecto que NO nació del handoff de Pandacorp —externo, brownfield— y quieres
+        meterlo bajo la fábrica? Para eso está <Code>/pandacorp:adopt</Code>: el espejo brownfield
+        de <Code>scaffold</Code>. En vez de crear un proyecto vacío,{" "}
+        <B weight={600}>envuelve lo que ya existe</B>. Se corre <B weight={600}>DENTRO</B> de la
+        carpeta del proyecto.
+      </Lead>
+      <NumberedTrail
+        steps={[
+          {
+            title: <>Tocar un proyecto existente = gate humano</>,
+            body: (
+              <>
+                adopt presenta el <B weight={500}>plan de adopción</B> y espera tu OK antes de
+                escribir nada (DR-045, DR-038).
+              </>
+            ),
+          },
+          {
+            title: <>Lee el proyecto para entenderlo (sin escribir aún)</>,
+            body: (
+              <>
+                Inspecciona stack, estructura, <Code>git log</Code> y <Code>git remote</Code> para
+                inferir la <B weight={500}>fase real</B> del código: deploy vivo →{" "}
+                <Code>operation</Code>
+                {"; código + tests sin deploy → "}
+                <Code>implementation</Code>
+                {"; solo boilerplate → "}
+                <Code>architecture</Code>. Declara la inferencia y su evidencia.
+              </>
+            ),
+          },
+          {
+            title: <>Inyecta el overlay SIN pisar</>,
+            body: (
+              <>
+                Copia las plantillas (<Code>CLAUDE.md</Code>, <Code>AGENTS.md</Code>,{" "}
+                <Code>.pandacorp/</Code>) pero nunca sobrescribe: si ya tienes{" "}
+                <Code>CLAUDE.md</Code>, <B weight={500}>añade</B> las líneas de import sin tocar tu
+                contenido.
+              </>
+            ),
+          },
+          {
+            title: <>Reconstruye docs as-built mínimas</>,
+            body: (
+              <>para que el proyecto tenga la documentación base que el resto de skills esperan.</>
+            ),
+          },
+          {
+            title: <>Registra en la fábrica</>,
+            body: (
+              <>
+                Crea una <B weight={500}>ficha de idea retroactiva</B> (
+                <Code>factory/ideas/&lt;slug&gt;.md</Code>, <Code>status: in-pipeline</Code>), la
+                copia a <Code>.pandacorp/idea-origin.md</Code> y añade la fila a{" "}
+                <Code>factory/portfolio.md</Code>.
+              </>
+            ),
+          },
+          {
+            title: <>Handoff a los skills normales</>,
+            body: (
+              <>
+                Desde ahí operas el proyecto como cualquier otro: <Code>/pandacorp:iterate</Code>,{" "}
+                <Code>/pandacorp:implement</Code>, <Code>/pandacorp:release</Code>…
+              </>
+            ),
+          },
+        ]}
+      />
+      <NotePanel icon="ti-plug-connected" iconColor="var(--color-accent)">
+        Tras adoptar, el proyecto aparece en el Portfolio de Mission Control con su fase inferida,
+        igual que un proyecto nacido del handoff.
+      </NotePanel>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// GUIDE: Cómo pedir un cambio
+// ---------------------------------------------------------------------------
+
+function GuideCambio(): React.JSX.Element {
+  return (
+    <>
+      <DocH title="Cómo pedir un cambio" level={1} />
+      <Lead>
+        <Code>/pandacorp:change</Code> es <B weight={600}>la puerta única</B> para pedirle a un
+        proyecto CUALQUIER cambio —una feature nueva, un ajuste o un bug—. No tienes que recordar
+        qué es: lo describes en lenguaje normal y el skill lo clasifica, le da una clase de urgencia
+        y lo deja en la cola de cambios <Code>.pandacorp/inbox/changes/</Code>.
+      </Lead>
+      <NotePanel icon="ti-shield-check" iconColor="var(--color-ok)">
+        <B weight={600}>Es seguro por diseño (DR-069).</B> <Code>change</Code> solo captura +
+        clasifica + escribe un fichero a la cola. No edita docs/work-orders/código y no tiene lógica
+        de detección de build, así que no puede confundirse sobre si hay un build corriendo y
+        corromperlo.
+      </NotePanel>
+      <Panel>
+        <div
+          style={{
+            fontSize: "12px",
+            fontWeight: 500,
+            color: "var(--color-text2)",
+            marginBottom: "6px",
+          }}
+        >
+          Cómo viaja un cambio
+        </div>
+        <ChipFlow>
+          <Chip tone="accent">/change</Chip>
+          {RIGHT_ARROW}
+          <Chip tone="info">cola de cambios</Chip>
+          {RIGHT_ARROW}
+          <Chip tone="warn">punto seguro del build</Chip>
+          {RIGHT_ARROW}
+          <Chip tone="ok">mismo gate de revisión/test</Chip>
+        </ChipFlow>
+      </Panel>
+      <Panel>
+        <Ul>
+          <li>
+            <B weight={500}>El build drena la cola en su punto seguro</B> (entre features, nunca a
+            mitad de una). Si no hay build, <Code>/pandacorp:implement</Code> la vacía cuando lo
+            corres.
+          </li>
+          <li>
+            <B weight={500}>Clase de servicio:</B> <Chip tone="danger">expedite</Chip> (urgente /
+            rompe algo / bloquea pruebas → salta al frente) o <Chip tone="secondary">standard</Chip>{" "}
+            (default, FIFO).
+          </li>
+          <li>
+            <B weight={500}>draft vs ready:</B> <Chip tone="ok">ready</Chip> = completo, el build lo
+            construye; <Chip tone="secondary">draft</Chip> = lo aparcas para visibilidad, el build
+            lo SALTA hasta que lo pases a ready. Mission Control muestra ambos.
+          </li>
+          <li>
+            <B weight={500}>
+              <Code>bug</Code> e <Code>iterate</Code> son los motores internos.
+            </B>{" "}
+            Tú solo recuerdas <Code>/change</Code>; siguen existiendo como alias directos.
+          </li>
+        </Ul>
+      </Panel>
+      <NotePanel icon="ti-help-circle" iconColor="var(--color-warn)">
+        ¿Te preguntó algo el build? Eso NO es un cambio (va en sentido contrario) → usa{" "}
+        <Code>/pandacorp:decide</Code>.
+      </NotePanel>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Registry: slug → render function
 // ---------------------------------------------------------------------------
 
@@ -1153,7 +2014,8 @@ const MANUAL_PAGE_COMPONENTS: Record<string, () => React.JSX.Element> = {
   // Tutorial
   bienvenida: ManualLanding,
   "como-empezar": ManualQuickstart,
-  // Guides (prototype's 7)
+  // Guides (prototype's 7 + audit-gap additions)
+  "g-cambio": GuideCambio,
   "g-capturar": GuideCapturar,
   "g-handoff": GuideHandoff,
   "g-modo": GuideModo,
@@ -1161,6 +2023,7 @@ const MANUAL_PAGE_COMPONENTS: Record<string, () => React.JSX.Element> = {
   "g-probar": GuideProbar,
   "g-traspaso": GuideTraspaso,
   "g-plugin": GuidePlugin,
+  "g-adoptar": GuideAdoptar,
   // Concepts
   "que-es-pandacorp": ConceptQueEs,
   "el-pipeline": ConceptPipeline,
@@ -1174,6 +2037,13 @@ const MANUAL_PAGE_COMPONENTS: Record<string, () => React.JSX.Element> = {
   "construccion-desatendida": ConceptDesatendida,
   "el-plugin": ConceptPlugin,
   autoaprendizaje: ConceptAutoaprendizaje,
+  // Concepts — audit-gap additions
+  "el-arco-economico": ConceptArcoEconomico,
+  "despues-de-lanzar": ConceptDespuesDeLanzar,
+  "servicios-cuentas-secretos": ConceptServiciosSecretos,
+  "los-gates-humanos": ConceptGatesHumanos,
+  "espinazo-de-documentos": ConceptEspinazoDocs,
+  "tu-perfil": ConceptTuPerfil,
 };
 
 /**

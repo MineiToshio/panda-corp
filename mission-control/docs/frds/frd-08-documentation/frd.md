@@ -6,7 +6,7 @@ status: ACTIVE
 implementation_status: VERIFIED
 ui: true
 visual_source: docs/design/prototype/index.html
-last_updated: '2026-06-19'
+last_updated: '2026-06-22'
 ---
 # FRD-08 — Documentation
 
@@ -20,6 +20,11 @@ The **"Documentación"** surface: the navigable face of the factory's know-how i
 - The content SHALL be sufficient for someone with no prior context to understand how the factory works and how to operate it.
 - The Reference catalogs — commands (skills), agents (party), decision rules, and standards — SHALL be **derived dynamically from the factory at build/read time** from the canonical source: the plugin skill and agent frontmatter (name + description) under `plugin/skills/` and `plugin/agents/`, `factory/decisions/registry.yaml`, and `factory/standards/`. They SHALL NOT be a hand-maintained copy, so that a **new, renamed or removed** skill, agent, rule or standard appears in the Reference **automatically** with no drift (DR-046).
 - The Reference catalogs SHALL **reuse the Configuración (FRD-07) card components** — the same skill / agent / rule / standard card, grid and detail surfaces — rather than re-implementing them, so the two surfaces stay visually and behaviorally consistent.
+- The **skill detail** SHALL present a **curated, plain-language explainer** (Spanish, "for-dummies") of what the skill does, when it is used and why it matters — from a hand-authored layer, NOT the raw English frontmatter description — falling back to the frontmatter description only when no explainer is authored.
+- The skill detail SHALL render an **interactive, step-by-step flow graph**: ordered, **typed** steps (a normal step, a human-gate/decision, a safe point, an owner↔IA exchange, a repeating phase — each colour-coded by type), with parallel steps and the repeating loop made explicit, so a reader with no prior context can follow how the skill works.
+- WHERE a flow step invokes another skill or an agent, that node SHALL be **clickable cross-navigation**: clicking a skill node SHALL open that skill's own doc (with its own flow graph); clicking an agent node SHALL open that agent's card — so the Documentation is a **navigable graph**, not a set of flat pages.
+- The full **`SKILL.md`** SHALL remain available rendered as **markdown** (a collapsible "ver el `SKILL.md` completo"), NOT a raw unformatted text dump.
+- The curated explainer + flow layer SHALL be **hand-authored** (`src/lib/manual/skill-flows.ts`) and SHALL reflect the **real** `plugin/skills/<slug>/SKILL.md` body + the factory decision rules (accuracy contract); when a skill's flow changes, its authored flow SHALL be updated in the same change (DR-046).
 - The hand-authored Tutorial / Guides / Concepts pages SHALL reflect the **current** factory workflow — the v2 build engine (the Build Plan, coarse work orders, repair-before-block, resumable runs) and the recent decision rules — NOT stale earlier content; a change to how the factory is operated SHALL update the affected page in the same change (DR-046; see the root `CLAUDE.md` "Decision log" section).
 - WHERE a Concept/Guide page describes a project's documentation structure, it SHALL reflect the **feature-centric** layout (DR-049): the shared product layer (`docs/product/`), the per-feature module folders `docs/frds/frd-NN-<slug>/` (`frd.md` + on-demand `fdd.md`/`blueprint.md`/`mocks/`/`work-orders/`), the global `docs/{adr,analytics,reviews,decision-log.md}`, the stable-ID spine (`REQ-NN-MMM → AC-NN-MMM.K → CMP/IF-NN → WO-NN-MMM`) and the source-of-truth hierarchy `FRD > FDD > design-tokens > blueprint > work order` — NOT the old by-type layout (a flat `docs/frds/`, a global `docs/blueprint.md`, a global `docs/work-orders/`). The derived Reference picks up DR-049 and the rewritten `structure.md` standard automatically.
 

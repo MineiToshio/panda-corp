@@ -155,7 +155,7 @@ describe("FRD-07 gate (opus) — reverse cross-navigation: agent detail lists us
     ).not.toBeNull();
 
     // Back MUST close it — clearing only local state left the prop-driven detail open (the bug).
-    fireEvent.click(screen.getByRole("button", { name: /Volver a habilidades/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Volver a comandos/i }));
 
     expect(
       screen.queryByTestId("skill-detail"),
