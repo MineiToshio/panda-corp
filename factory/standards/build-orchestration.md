@@ -402,6 +402,15 @@ stays separate — it is the owner *answering* a question the build asked, the o
 (gitignored owner layer). It **unifies** the former channels: `inbox/bugs/` folds in as `type: bug`. Each file
 carries a machine header (`type`, `class`, `status`, `frd`, `rebuilds_verified`) + a Spanish body.
 
+**Readiness gate — `status: draft | ready` (the owner's hold switch).** A queued item is one of: **`ready`** (the
+description is complete enough to action → the build drains and builds it), **`draft`** (captured for visibility but
+the owner is still working out the details, it depends on something not done yet, it needs a design pass, or it is
+infra/deployment the build doesn't implement → **the build SKIPS it**, untouched), or **`done`** (built, set by the
+build with the landing commit). This lets the owner **park half-formed ideas in the queue** — they show in Mission
+Control without the build acting on them — and promote one with a single edit (`draft → ready`) when it's cooked.
+`/pandacorp:change` defaults a clear, actionable request to `ready`; the owner says "just note it" for a `draft`.
+**The build acts ONLY on `ready`** — this is the gate that separates "I'm still thinking" from "go build it."
+
 **Classes of service** (Kanban — David J. Anderson): `expedite` (urgent / breaks something → jumps the queue at
 the next safe point), `standard` (default, FIFO), and `intangible`/`fixed-date` for completeness (rarely needed).
 
@@ -414,7 +423,8 @@ branch to get wrong. The ONLY place that decides "is a build running?" is `imple
 stale state; and even that decision is safe-when-wrong (a wrong launch aborts on the guard; a missed launch just
 leaves the change queued).
 
-**The consumer — the supervisor drains + routes at each safe point** (and before every relaunch). For each queued
+**The consumer — the supervisor drains + routes at each safe point** (and before every relaunch). It takes **only
+`status: ready` items and skips `draft`** (see the readiness gate above). For each `ready` queued
 change it decides, **work-conserving** (never stall the whole build for one item):
 - `expedite` → handle at the next safe point, ahead of `standard`.
 - `standard` → FIFO when the build reaches it.
