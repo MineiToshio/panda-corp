@@ -194,7 +194,7 @@ describe("AC-02-010.3 — done / current / locked phase states", () => {
 // AC-02-010.4 — per-phase ficha with description + LEE/ESCRIBE + WHOLE team
 // ---------------------------------------------------------------------------
 
-describe("AC-02-010.4 — per-phase ficha (active by default; click to switch/toggle)", () => {
+describe("AC-02-010.4 — per-phase ficha (active by default; click to switch, never toggle-close)", () => {
   it("the active phase's ficha is shown by default (sel initialises to active)", () => {
     // New contract: selectedPhaseKey defaults to the active phase, so its ficha
     // is open on initial render — there is no "nothing open" state before a click.
@@ -353,14 +353,14 @@ describe("AC-02-010.4 — per-phase ficha (active by default; click to switch/to
     expect(screen.getAllByTestId("campaign-phase-ficha")).toHaveLength(1);
   });
 
-  // --- clicking an already-selected phase closes the ficha ---
-  it("clicking the already-open (active) phase closes the ficha (toggle)", () => {
-    // research is open by default at activePhase=0; the first click toggles it closed.
+  // --- the ficha is always visible: clicking the open phase does NOT close it ---
+  it("clicking the already-open (active) phase keeps the ficha visible (no toggle-close)", () => {
+    // research is open by default at activePhase=0; re-clicking it must NOT hide the ficha
+    // (the detail below the map must always stay visible).
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} />);
     expect(screen.getByTestId("campaign-phase-ficha")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("campaign-phase-research"));
-    expect(screen.queryByTestId("campaign-phase-ficha")).not.toBeInTheDocument();
-    // Clicking it again re-opens it.
+    expect(screen.getByTestId("campaign-phase-ficha")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("campaign-phase-research"));
     expect(screen.getByTestId("campaign-phase-ficha")).toBeInTheDocument();
   });

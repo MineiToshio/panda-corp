@@ -93,10 +93,13 @@ Read-only kanban of the idea base, with idea capture, a navigable detail and dis
 A visual-fidelity reconciliation of the card detail against `prototype/party-pipeline.html` (the
 campaign map) + `prototype/index.html` `detailView()`:
 - **AC-02-010.4 amended** — the **active** phase's ficha is shown **by default** (the prototype opens
-  the active phase), not only after a click; clicking another phase switches it, clicking the open one
-  toggles it closed. The ficha gains a header "`{n} · {name}` — {state}" (e.g. "Investigación — EN
-  CURSO"). The active room's cast **roams** — sprites wander and collaborate (lead halo, speech on
-  meet); `prefers-reduced-motion` renders them static.
+  the active phase) and **stays pinned**: clicking another phase switches it; clicking the open one
+  keeps it open (the detail below the map is always visible, never toggled closed). The ficha gains a
+  header "`{n} · {name}` — {state}" (e.g. "Investigación — EN CURSO"). The active room's cast **roams**
+  — sprites wander and collaborate (lead halo, speech on meet); `prefers-reduced-motion` renders them
+  static. The campaign body is one bordered panel below the (bare, icon-bearing) tab pills; the header
+  caption is left-aligned; the stage is full-width with the rooms centred; the road connectors sit
+  **under** the rooms.
 - **AC-02-010.3 deliverable** — each non-locked room shows the short artifact with its icon only
   (`🔍 research.md`, `📋 PRD + FRDs`, …); the "entrega ▸" label + arrow were dropped. The inter-phase
   connectors render as the prototype's striped **road** (done ✓ / flowing → / locked), not the Fragua

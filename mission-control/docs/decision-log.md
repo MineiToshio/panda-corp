@@ -4,6 +4,21 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-06-22 — Card-detail fidelity, round 2 (tab container, full-width stage, road under rooms, ficha pinned, red discard)
+**What:** Second owner-QA pass on the open-card detail:
+- **Tab container** — the card detail's outer border/background was wrapping the tabs **and** the body in one box. Removed it (`CardDetail` `ROOT_STYLE` is now transparent layout with a 14px gap); the **Campaña body is its own bordered panel below the bare tab pills** (`CampaignPipeline` `ROOT_STYLE` gained the border/bg/radius/padding — the prototype `detailView` campana `.panel`). `PANEL_STYLE` padding → 0 so the content panel reads full-width.
+- **Header left** — "EL VIAJE…" is back to **left-aligned** (`justify-content: flex-start`); the prior pass had over-corrected it to centre.
+- **Full-width stage, centred rooms** — the stage backdrop is now `width: 100%`; the 920×560 serpentine moved into an inner `STAGE_INNER_STYLE` (`margin: 0 auto`) so the **rooms are centred** in the full-width canvas. The ficha now matches that width (both 100% of the panel) so the team cards distribute instead of cramping.
+- **Road under the rooms** — the connectors were painting **over** the room images (bridge z-index 2 > room z-index 1). Flipped it in the campaign: rooms `z-index: 2`, the road `z-index: 1` (the doc chip, centred in the gap, stays visible).
+- **Ficha pinned (no toggle)** — `handlePhaseClick` no longer toggles the open phase closed; the detail below the map is **always visible** (clicking a phase switches it, clicking the open one keeps it). Owner: "siempre debería estar visible."
+- **Discard button** — `DiscardButton` used the non-existent `--color-error` token (fell back to grey); switched to `--color-danger`, dropped the 0.8 opacity, added the `ti-trash` icon → red border + red text + trash icon (prototype `data-act="discard"`).
+
+**Why:** Owner visual-QA round 2: *"el contenedor del tab va bajo y los tabs arriba… el viaje debería ir pegado a la izquierda… el panel de las fases centrado… los puentes deberían ir por debajo de las imágenes… descartar debería ser bordes rojos, texto rojo, le falta el ícono… la leyenda de abajo no debería aparecer/desaparecer, siempre visible… ese contenedor que ocupe el 100% del ancho para que no se vea apretado."*
+
+**Verified:** Live DOM measure — card-detail border 0 / campana panel border 1px (1200px) / header `flex-start` / stage 1174 (was 920) / room z-index 2 vs bridge 1 / ficha present at 1174 / discard `rgb(243,99,86)` text+border + `ti-trash`. `verify.sh` **GREEN** (321 vitest, smoke/visual/responsive/shell); no visual re-bless (card detail not in default route shots). The toggle test was updated to the pinned-ficha contract.
+
+**Impact:** `CardDetail.styles.ts` (`ROOT_STYLE`, `PANEL_STYLE`), `CampaignPipeline.tsx` (`ROOT_STYLE` panel, header, `STAGE_STYLE`+`STAGE_INNER_STYLE`, room/bridge z-index, `handlePhaseClick`), `DiscardButton.tsx`. Canonical: extends the [frd-02 card-detail amendment](frds/frd-02-ideas-board/frd.md).
+
 ## 2026-06-22 — Card-detail fidelity overhaul (Campaña roam + road connectors, Documentos rail, Comandos)
 **What:** A visual-fidelity reconciliation of the board card detail (open a card → Campaña · Documentos · Comandos) against the approved prototype (`prototype/party-pipeline.html` for the campaign map + `prototype/index.html` `detailView()`). Twelve owner-reported defects, fixed:
 - **Tabs** carry their icons (`ti-map-2 · ti-files · ti-wand`) — the shared `Tabs` primitive already supported `icon`, just unused here.

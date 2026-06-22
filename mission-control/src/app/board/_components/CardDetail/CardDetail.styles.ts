@@ -10,14 +10,16 @@ import type { ProjectDocsIndex } from "@/lib/docs/docs";
 // Root container
 // ---------------------------------------------------------------------------
 
+/**
+ * Card detail root — transparent layout only: the tabs sit on top and each tab's
+ * own content panel is the bordered container BELOW them (prototype detailView:
+ * bare `.stab` pills above, the body panel below). No outer border here.
+ */
 export const ROOT_STYLE: React.CSSProperties = {
   position: "relative",
   display: "flex",
   flexDirection: "column",
-  gap: 0,
-  background: "var(--color-surface-panel, var(--color-surface, Canvas))",
-  border: "var(--hairline, 1px) solid var(--color-border, currentColor)",
-  borderRadius: "var(--radius, 0.5rem)",
+  gap: "14px",
 };
 
 // ---------------------------------------------------------------------------
@@ -51,11 +53,13 @@ export const TITLE_STYLE: React.CSSProperties = {
 // Panel base
 // ---------------------------------------------------------------------------
 
+/** Active tab panel — full width; padding 0 (each tab's own content panel(s)
+ *  carry the border + padding, so they read as the container below the tabs). */
 export const PANEL_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "calc(var(--spacing, 0.25rem) * 4)",
-  padding: "calc(var(--spacing, 0.25rem) * 4)",
+  padding: 0,
 };
 
 /** Style for a visually-hidden (but accessible) off-screen panel. */

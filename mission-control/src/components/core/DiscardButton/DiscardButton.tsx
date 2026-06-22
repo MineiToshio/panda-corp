@@ -82,16 +82,15 @@ const BASE_BTN_STYLE: React.CSSProperties = {
 
 const DISCARD_BTN_STYLE: React.CSSProperties = {
   ...BASE_BTN_STYLE,
-  color: "var(--color-error, currentColor)",
-  borderColor: "var(--color-error, currentColor)",
-  opacity: 0.8,
+  color: "var(--color-danger, currentColor)",
+  borderColor: "var(--color-danger, currentColor)",
 };
 
 const CONFIRM_BTN_STYLE: React.CSSProperties = {
   ...BASE_BTN_STYLE,
-  background: "var(--color-error, currentColor)",
-  color: "var(--color-on-error, Canvas)",
-  borderColor: "var(--color-error, currentColor)",
+  background: "var(--color-danger, currentColor)",
+  color: "var(--color-on-accent, Canvas)",
+  borderColor: "var(--color-danger, currentColor)",
   fontWeight: 700,
 };
 
@@ -125,7 +124,7 @@ const CONFIRM_ROW_STYLE: React.CSSProperties = {
 
 const ERROR_STYLE: React.CSSProperties = {
   fontSize: "0.7rem",
-  color: "var(--color-error, currentColor)",
+  color: "var(--color-danger, currentColor)",
   marginTop: "calc(var(--spacing, 0.25rem) * 1)",
   opacity: 0.85,
 };
@@ -250,6 +249,7 @@ export function DiscardButton({ slug, discardAction }: DiscardButtonProps): Reac
         onClick={handleTrigger}
         style={DISCARD_BTN_STYLE}
       >
+        <i className="ti ti-trash" aria-hidden="true" style={{ fontSize: "14px" }} />
         Descartar idea
       </button>
       {errorMsg !== null && (

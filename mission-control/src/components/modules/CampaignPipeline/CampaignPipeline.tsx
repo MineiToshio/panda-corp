@@ -214,12 +214,18 @@ const ROOT_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "calc(var(--spacing, 0.25rem) * 3)",
+  // The campana tab body is one bordered panel (prototype detailView campana .panel):
+  // header (left) + full-width stage (rooms centred) + ficha, sitting below the tabs.
+  padding: "10px 12px",
+  background: "var(--color-panel, var(--color-surface, Canvas))",
+  border: "1px solid var(--color-border)",
+  borderRadius: "var(--radius-md, 12px)",
 };
 
 const CONTAINER_HEADING_STYLE: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
-  justifyContent: "center",
+  justifyContent: "flex-start",
   gap: "6px",
   flexWrap: "wrap",
   fontSize: "0.6875rem",
@@ -245,14 +251,22 @@ const CONTAINER_HEADING_HINT_STYLE: React.CSSProperties = {
 
 const STAGE_STYLE: React.CSSProperties = {
   position: "relative",
-  width: "920px",
-  maxWidth: "100%",
+  width: "100%",
   height: "560px",
   borderRadius: "14px",
   overflow: "hidden",
   border: "1px solid var(--color-border)",
   background: "radial-gradient(760px 380px at 50% 46%, #16201d 0%, transparent 72%), #0c1113",
   imageRendering: "pixelated",
+};
+
+/** Inner rooms layer — the 920×560 serpentine, centred in the full-width stage. */
+const STAGE_INNER_STYLE: React.CSSProperties = {
+  position: "relative",
+  width: "920px",
+  maxWidth: "100%",
+  height: "560px",
+  margin: "0 auto",
 };
 
 const FICHA_WRAPPER_STYLE: React.CSSProperties = {
@@ -510,6 +524,7 @@ function PhaseRoom({
     top: pos[1],
     width: ROOM_W,
     height: ROOM_H,
+    zIndex: 2,
     cursor: "pointer",
     outline: isSelected ? "2px solid var(--color-accent-text, var(--color-accent))" : undefined,
     outlineOffset: isSelected ? "2px" : undefined,
@@ -716,8 +731,10 @@ export function CampaignPipeline({
     () => PHASES[activePhase]?.key ?? null,
   );
 
+  // The ficha stays open: clicking a phase selects it; clicking the open one does
+  // NOT toggle it closed (owner: the detail below must always stay visible).
   const handlePhaseClick = (key: string) => {
-    setSelectedPhaseKey((prev) => (prev === key ? null : key));
+    setSelectedPhaseKey(key);
   };
 
   const selectedPhase =
@@ -745,40 +762,45 @@ export function CampaignPipeline({
 
       {/* Stage — 920×560 dark pixel-art canvas */}
       <div data-testid="campaign-stage" style={STAGE_STYLE} data-party-stage="campana">
-        {/* 5 StoneBridge connectors between rooms — each carries its deliverable label */}
-        {BRIDGES.map((bridge) => {
-          const deliverable = PHASE_META[bridge.fromIdx];
-          const deliverState = bridgeDeliverState(bridge.fromIdx, activePhase);
-          return (
-            <StoneBridge
-              key={`bridge-${bridge.fromIdx}`}
-              orientation={bridge.orientation}
-              variant="road"
-              flow={bridge.fromIdx === activePhase - 1}
-              deliverableEmoji={deliverable?.emo}
-              deliverableLabel={deliverable?.deliver}
-              deliverableState={deliverState}
-              style={{
-                left: bridge.left,
-                top: bridge.top,
-                width: bridge.width,
-                height: bridge.height,
-              }}
-            />
-          );
-        })}
+        {/* Inner 920×560 layer — centred in the full-width stage backdrop */}
+        <div style={STAGE_INNER_STYLE}>
+          {/* 5 connectors — z-index 1: the road sits UNDER the rooms; its doc chip,
+              centred in the gap between rooms, stays visible */}
+          {BRIDGES.map((bridge) => {
+            const deliverable = PHASE_META[bridge.fromIdx];
+            const deliverState = bridgeDeliverState(bridge.fromIdx, activePhase);
+            return (
+              <StoneBridge
+                key={`bridge-${bridge.fromIdx}`}
+                orientation={bridge.orientation}
+                variant="road"
+                flow={bridge.fromIdx === activePhase - 1}
+                deliverableEmoji={deliverable?.emo}
+                deliverableLabel={deliverable?.deliver}
+                deliverableState={deliverState}
+                style={{
+                  left: bridge.left,
+                  top: bridge.top,
+                  width: bridge.width,
+                  height: bridge.height,
+                  zIndex: 1,
+                }}
+              />
+            );
+          })}
 
-        {/* 6 Phase Rooms */}
-        {PHASES.map((phase, index) => (
-          <PhaseRoom
-            key={phase.key}
-            phase={phase}
-            index={index}
-            state={getPhaseState(index, activePhase)}
-            isSelected={selectedPhaseKey === phase.key}
-            onPhaseClick={handlePhaseClick}
-          />
-        ))}
+          {/* 6 Phase Rooms — z-index 2 (above the road) */}
+          {PHASES.map((phase, index) => (
+            <PhaseRoom
+              key={phase.key}
+              phase={phase}
+              index={index}
+              state={getPhaseState(index, activePhase)}
+              isSelected={selectedPhaseKey === phase.key}
+              onPhaseClick={handlePhaseClick}
+            />
+          ))}
+        </div>
       </div>
 
       {/* Ficha — shown below the stage for the selected phase */}
