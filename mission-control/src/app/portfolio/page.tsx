@@ -31,6 +31,11 @@
  *   DR-057 (one rail, not two)
  */
 
+import {
+  ProjectWorkspace,
+  resolveWorkspaceTab,
+  type WorkspaceSelection,
+} from "@/app/projects/[slug]/ProjectWorkspace";
 import { PageTitle } from "@/components/core/PageTitle/PageTitle";
 import { ProjectRail } from "@/components/modules/ProjectRail/ProjectRail";
 import { activeProjects } from "@/lib/portfolio/portfolio";
@@ -49,13 +54,12 @@ interface PageProps {
 // Styles — CSS custom properties only; zero hardcoded colors/spacing.
 // ---------------------------------------------------------------------------
 
+// Width + outer padding come from the single AppShell container (#pcapp, 1240px).
 const PAGE_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  minHeight: "100dvh",
   background: "var(--color-base, Canvas)",
   color: "var(--color-text, currentColor)",
-  padding: "var(--space-base, 1rem)",
   boxSizing: "border-box",
 };
 
@@ -99,6 +103,20 @@ export default async function PortfolioPage({
   // Derive selected slug: ?project=<name> → match → else first item → else undefined.
   const selectedSlug = deriveSelectedSlug(items, projectParam);
 
+  // Resolve the selected project's workspace (prototype projectPane embedded in the right pane, DEC-4).
+  // URL-driven tab selection shares the page's searchParams (?tab/?doc/?wo) — TabBar preserves ?project.
+  const selectedItem = items.find((p) => p.name === selectedSlug);
+  let workspace: React.ReactNode;
+  if (selectedItem !== undefined) {
+    const selection: WorkspaceSelection = {
+      activeTab: resolveWorkspaceTab(params.tab),
+      docParam: typeof params.doc === "string" ? params.doc : undefined,
+      woParam: typeof params.wo === "string" && params.wo.length > 0 ? params.wo : undefined,
+      woTabParam: typeof params.wotab === "string" && params.wotab === "full" ? "full" : "summary",
+    };
+    workspace = <ProjectWorkspace item={selectedItem} selection={selection} headingLevel={2} />;
+  }
+
   return (
     <main data-testid="portfolio-page" style={PAGE_STYLE}>
       {/* PageTitle — THE one light page-title block (DR-062, CMP-13-pagetitle).
@@ -126,9 +144,9 @@ export default async function PortfolioPage({
           <ProjectRail items={items} selectedSlug={selectedSlug ?? ""} />
         </div>
 
-        {/* Right — workspace slot (CMP-03-workspace-slot) */}
+        {/* Right — workspace slot (CMP-03-workspace-slot) hosting the real <ProjectWorkspace> (DEC-4) */}
         <div data-testid="portfolio-page-workspace">
-          <WorkspaceSlot selectedSlug={selectedSlug} />
+          <WorkspaceSlot selectedSlug={selectedSlug}>{workspace}</WorkspaceSlot>
         </div>
       </div>
     </main>

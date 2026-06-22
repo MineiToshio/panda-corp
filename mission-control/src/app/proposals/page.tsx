@@ -82,12 +82,11 @@ const PAGE_STYLE: React.CSSProperties = {
   color: "var(--color-text)",
 };
 
+// Width + outer padding come from the single AppShell container (#pcapp, 1240px).
 const CONTENT_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "0",
-  padding: "0 0 32px",
-  maxWidth: "900px",
 };
 
 const READONLY_NOTE_STYLE: React.CSSProperties = {
@@ -142,7 +141,7 @@ export default function ProposalsPage(): React.JSX.Element {
         <PageTitle
           icon="ti-mail-opened"
           title="Propuestas"
-          subtitle="La bandeja del gremio: lecciones, promociones, poda y auto-sugerencias de Mission Control."
+          subtitle="La bandeja del gremio: lo que la fábrica aprendió y te propone (lecciones, promociones, poda, auto-sugerencias)."
           tail={openCountTail}
         />
 
@@ -152,8 +151,10 @@ export default function ProposalsPage(): React.JSX.Element {
           ni poda.
         </p>
 
-        {/* Memory-loop health panel (CMP-17-health → REQ-17-005, AC-17-005.1..5) */}
-        <MemoryHealth health={health} />
+        {/* Memory-loop health panel (CMP-17-health → REQ-17-005, AC-17-005.1..5).
+            promotionsCount feeds the 4th dStat card "Promociones a aprobar"
+            (prototype reads BPROPOSALS.promote.length, index.html ~L1414). */}
+        <MemoryHealth health={health} promotionsCount={promotions.length} />
 
         {/* Stream 1: candidate lessons (group cmd → /pandacorp:memory, AC-17-001.1/.3) */}
         <DismissableProposalStream

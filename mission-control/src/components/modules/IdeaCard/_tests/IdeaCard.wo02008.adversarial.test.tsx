@@ -77,10 +77,12 @@ describe("frd-02: AC-02-008.2 — building indicator and recommended badge do no
 // ---------------------------------------------------------------------------
 
 describe("frd-02: AC-02-008.2 — indicator carries text + aria-label + announcing role together", () => {
-  it("frd-02: AC-02-008.2 — indicator has all three: visible text, aria-label, and role=status", () => {
+  it("frd-02: AC-02-008.2 — indicator has all three: icon glyph, aria-label, and role=status", () => {
     render(<IdeaCard {...IN_PIPELINE_RUNNING} />);
     const ind = screen.getByTestId("idea-card-building-indicator");
-    expect((ind.textContent ?? "").trim().length).toBeGreaterThan(0);
+    // Non-color visual cue is the play icon glyph (prototype-faithful), plus the
+    // screen-reader affordances aria-label + role=status (not color alone, §7).
+    expect(ind.className).toMatch(/\bti-player-play\b/);
     expect((ind.getAttribute("aria-label") ?? "").trim().length).toBeGreaterThan(0);
     expect(ind.getAttribute("role")).toBe("status");
   });

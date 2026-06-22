@@ -23,7 +23,7 @@
  *   AC-04-001.2 — default Summary; reflects ?tab= param
  */
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { SubTabs } from "@/components/core/Tabs/Tabs";
 
 // ---------------------------------------------------------------------------
@@ -88,9 +88,17 @@ const WRAPPER_STYLE: React.CSSProperties = {
  */
 export function TabBar({ activeTab }: TabBarProps): React.JSX.Element {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   function handleTabChange(id: string) {
-    router.push(`?tab=${id}`);
+    // Merge into the CURRENT query so the embedding context survives (e.g. ?project= in Portfolio);
+    // reset the per-tab sub-selection (doc/wo) when switching tabs.
+    const next = new URLSearchParams(searchParams.toString());
+    next.set("tab", id);
+    next.delete("doc");
+    next.delete("wo");
+    next.delete("wotab");
+    router.push(`?${next.toString()}`);
   }
 
   return (

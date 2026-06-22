@@ -86,11 +86,12 @@ describe("frd-02: AC-02-008.2 — building indicator shown WHILE running: true",
 // ---------------------------------------------------------------------------
 
 describe("frd-02: AC-02-008.2 — building indicator a11y: icon + label, not color-only", () => {
-  it("frd-02: AC-02-008.2 — WHILE isRunning=true THEN indicator has non-empty visible text", () => {
+  it("frd-02: AC-02-008.2 — WHILE isRunning=true THEN indicator is a non-color icon glyph", () => {
     render(<IdeaCard {...RUNNING_CARD} />);
     const indicator = screen.getByTestId("idea-card-building-indicator");
-    // Must carry text visible to sighted users — not rely on color alone (§7 a11y)
-    expect((indicator.textContent ?? "").trim().length).toBeGreaterThan(0);
+    // BRD-03 / prototype: the indicator is a play icon (a perceivable shape, not
+    // color alone). It carries a Tabler icon class — a non-color visual cue.
+    expect(indicator.className).toMatch(/\bti-player-play\b/);
   });
 
   it("frd-02: AC-02-008.2 — WHILE isRunning=true THEN indicator has an aria-label for screen readers", () => {

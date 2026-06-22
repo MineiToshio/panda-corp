@@ -54,7 +54,7 @@ export interface PhaseDefinition {
 export const PHASES: ReadonlyArray<PhaseDefinition> = [
   {
     key: "research",
-    name: "Research",
+    name: "Investigación",
     description:
       "Exploración del problema, del mercado y de las oportunidades. El researcher sumerge la idea en datos reales antes de tomar ninguna decisión de producto.",
     reads: "Idea inicial (card de la base de ideas)",

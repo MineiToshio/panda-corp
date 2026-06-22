@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { resolveFactoryRoot } from "../config/config";
+import { resolveFactoryRoot, resolveProjectPath } from "../config/config";
 import { pathExists } from "../fs-utils/fs-utils";
 import { type Phase, readStatus, type StatusResult } from "../status/status";
 
@@ -50,6 +50,17 @@ const HEADER_MAP: Record<string, keyof PortfolioEntry> = {
   "return metric": "returnMetric",
   verdict: "verdict",
   "last sync": "lastSync",
+  // Spanish headers — the real portfolio.md is gitignored → Spanish (DR-009). Without these the
+  // header row is never recognized, columnMap stays null and every data row is dropped → [].
+  proyecto: "name",
+  ruta: "path",
+  "idea origen": "originIdea",
+  fase: "phase",
+  usuarios: "users",
+  retorno: "returnMetric",
+  veredicto: "verdict",
+  "última sync": "lastSync",
+  "ultima sync": "lastSync",
 };
 
 // Placeholder values that should be mapped to `undefined`.
@@ -123,6 +134,16 @@ function requiredCell(raw: string | undefined): string | null {
 }
 
 /**
+ * Clean a portfolio path cell. The real (Spanish) portfolio wraps the path in backticks and may append
+ * prose, e.g. "`mission-control/` (dentro de la fábrica — es su interfaz)" → "mission-control".
+ */
+function cleanPathCell(raw: string): string {
+  // Prefer the backticked path; otherwise drop any trailing parenthetical prose.
+  const p = raw.match(/`([^`]+)`/)?.[1] ?? raw.replace(/\s*\(.*$/, "");
+  return p.trim().replace(/\/+$/, "");
+}
+
+/**
  * Build a PortfolioEntry from a data row's cells using the header-derived column map.
  * Returns null when the required `name` / `path` cells are blank/placeholder.
  */
@@ -132,7 +153,7 @@ function buildEntry(cells: readonly string[], columnMap: ColumnMap): PortfolioEn
   const projectPath = requiredCell(cells[1]);
   if (name === null || projectPath === null) return null;
 
-  const entry: PortfolioEntry = { name, path: projectPath };
+  const entry: PortfolioEntry = { name, path: cleanPathCell(projectPath) };
 
   // Map remaining columns using the header-derived column map.
   for (let i = 2; i < columnMap.length; i++) {
@@ -163,8 +184,9 @@ function parsePortfolioTable(content: string): PortfolioEntry[] {
 
     const cells = splitTableRow(line);
 
-    // Detect header row: a row where the first cell normalizes to "name".
-    if ((cells[0] ?? "").trim().toLowerCase() === "name") {
+    // Detect header row: a row whose first cell is the name column header (EN "name" or ES "proyecto").
+    const firstCell = (cells[0] ?? "").trim().toLowerCase();
+    if (firstCell === "name" || firstCell === "proyecto") {
       columnMap = cells.map((cell) => HEADER_MAP[cell.trim().toLowerCase()] ?? undefined);
       continue;
     }
@@ -292,6 +314,14 @@ const ADVISORY_TO_PHASE: Record<string, Phase> = {
   release: "release",
   operation: "operation",
   shipped: "operation",
+  // Spanish advisory cell values (the real portfolio.md is Spanish, DR-009).
+  arquitectura: "architecture",
+  implementación: "implementation",
+  construcción: "implementation",
+  "en construcción": "implementation",
+  lanzamiento: "release",
+  operación: "operation",
+  lanzada: "operation",
 };
 
 /** Active phases — entries with these phases appear in the portfolio rail (REQ-03-001). */
@@ -301,20 +331,6 @@ const ACTIVE_PHASES: ReadonlySet<Phase> = new Set<Phase>([
   "release",
   "operation",
 ]);
-
-/**
- * Resolve a portfolio path to an absolute path.
- *
- * - Already-absolute paths (start with `/`) are returned verbatim.
- * - Relative paths are resolved against the factory root (at call-time so
- *   PANDACORP_FACTORY_ROOT env overrides in tests are respected).
- */
-function resolveProjectPath(rawPath: string): string {
-  if (path.isAbsolute(rawPath)) {
-    return rawPath;
-  }
-  return path.join(resolveFactoryRoot(), rawPath);
-}
 
 /**
  * Compose helper: read the portfolio, enrich each entry with its status and

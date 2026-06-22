@@ -38,14 +38,16 @@ interface ColumnDef {
   label: string;
 }
 
+// Column labels are the prototype's canonical phase labels (LBL, boardView()) — singular, matching
+// the rest of the app ("En construcción", not "Construyendo").
 const COLUMNS: ColumnDef[] = [
-  { id: "discovered", label: "Descubiertas" },
-  { id: "documented", label: "Documentadas" },
+  { id: "discovered", label: "Descubierta" },
+  { id: "documented", label: "Documentada" },
   { id: "design", label: "Diseño" },
   { id: "architecture", label: "Arquitectura" },
-  { id: "building", label: "Construyendo" },
-  { id: "shipped", label: "Lanzadas" },
-  { id: "discarded", label: "Descartadas" },
+  { id: "building", label: "En construcción" },
+  { id: "shipped", label: "Lanzada" },
+  { id: "discarded", label: "Descartada" },
 ];
 
 /**
@@ -118,62 +120,84 @@ const BOARD_STYLE: React.CSSProperties = {
 
 const SCROLL_CONTAINER_STYLE: React.CSSProperties = {
   display: "flex",
-  gap: "calc(var(--spacing, 0.25rem) * 4)",
+  gap: "8px",
   overflowX: "auto",
   // Prevent columns from collapsing below their minimum
   alignItems: "flex-start",
-  paddingBottom: "calc(var(--spacing, 0.25rem) * 2)",
+  paddingBottom: "8px",
 };
 
+/** Prototype `.col`: fixed-width column (224px). */
 const COLUMN_STYLE: React.CSSProperties = {
-  // Wide, equal-width columns that don't collapse (AC-02-002.2)
-  flex: "0 0 clamp(240px, 20vw, 320px)",
+  flex: "0 0 auto",
+  width: "224px",
   display: "flex",
   flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 2)",
+  gap: "8px",
   minWidth: 0,
+};
+
+/** The "Descartada" column reads as muted/secondary (BRD-04). */
+const DISCARDED_COLUMN_STYLE: React.CSSProperties = {
+  ...COLUMN_STYLE,
+  opacity: 0.6,
 };
 
 const COLUMN_HEADER_STYLE: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
-  justifyContent: "space-between",
-  padding: "calc(var(--spacing, 0.25rem) * 2) calc(var(--spacing, 0.25rem) * 2)",
-  borderBottom: "var(--hairline, 1px) solid var(--color-border, currentColor)",
+  gap: "6px",
+  marginBottom: "9px",
 };
 
+/** Prototype column header: pixel font, uppercase, text2, letter-spacing .04em. */
 const COLUMN_TITLE_STYLE: React.CSSProperties = {
-  fontSize: "0.75rem",
-  fontWeight: 700,
-  letterSpacing: "0.05em",
+  fontFamily: "var(--font-pixel, var(--font-mono, monospace))",
+  fontSize: "11px",
+  fontWeight: 400,
+  letterSpacing: "0.04em",
   textTransform: "uppercase",
-  color: "var(--color-text-muted, currentColor)",
-  opacity: 0.7,
+  color: "var(--color-text2, var(--color-text-muted, currentColor))",
   margin: 0,
+  lineHeight: 1,
 };
 
+/** Count rendered in accent, tabular-nums (prototype). */
 const COLUMN_COUNT_STYLE: React.CSSProperties = {
-  fontSize: "0.75rem",
+  fontFamily: "var(--font-pixel, var(--font-mono, monospace))",
+  fontSize: "11px",
   fontVariantNumeric: "tabular-nums",
-  color: "var(--color-text-muted, currentColor)",
-  opacity: 0.6,
+  color: "var(--color-accent-text, currentColor)",
+  lineHeight: 1,
 };
 
 const COLUMN_CARDS_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 2)",
+  gap: "8px",
   flexGrow: 1,
 };
 
 const EMPTY_COLUMN_STYLE: React.CSSProperties = {
-  padding: "calc(var(--spacing, 0.25rem) * 4)",
-  textAlign: "center",
-  fontSize: "0.75rem",
-  color: "var(--color-text-muted, currentColor)",
-  opacity: 0.4,
-  border: "var(--hairline, 1px) dashed var(--color-border, currentColor)",
-  borderRadius: "var(--radius, 0.5rem)",
+  padding: "4px 2px",
+  fontSize: "11px",
+  color: "var(--color-text3, var(--color-text-muted, currentColor))",
+};
+
+/** Discarded-card title: struck-through, muted (prototype L800). */
+const DISCARDED_TITLE_STYLE: React.CSSProperties = {
+  fontSize: "13px",
+  textDecoration: "line-through",
+  color: "var(--color-text2, var(--color-text-muted, currentColor))",
+  margin: 0,
+  wordBreak: "break-word",
+};
+
+const DISCARDED_CARD_STYLE: React.CSSProperties = {
+  background: "var(--color-card)",
+  border: "1px solid var(--color-border)",
+  borderRadius: "10px",
+  padding: "10px 11px",
 };
 
 const STATE_BOX_STYLE: React.CSSProperties = {
@@ -225,6 +249,60 @@ function ErrorState({ message }: { message: string }): React.JSX.Element {
       <p style={{ margin: 0, fontWeight: 600, fontSize: "0.875rem" }}>Error al cargar las ideas</p>
       <p style={{ margin: 0, fontSize: "0.75rem" }}>{message}</p>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// CardSlot — one card in a column. Active columns render the full IdeaCard;
+// the discarded column renders a muted, struck-through title-only card (BRD-04).
+// Both are click-wrapped in a <button> when onCardClick is provided (AC-02-004).
+// ---------------------------------------------------------------------------
+
+const CARD_BUTTON_STYLE: React.CSSProperties = {
+  display: "block",
+  width: "100%",
+  background: "none",
+  border: "none",
+  padding: 0,
+  cursor: "pointer",
+  textAlign: "left",
+};
+
+interface CardSlotProps {
+  card: IdeaCardProps & { boardColumn?: BoardColumn };
+  discarded: boolean;
+  onCardClick?: (slug: string) => void;
+}
+
+function CardSlot({ card, discarded, onCardClick }: CardSlotProps): React.JSX.Element {
+  // Discarded cards show only a struck-through title (prototype L800).
+  const inner = discarded ? (
+    <article
+      data-testid="idea-card"
+      aria-label={`Idea: ${card.title}`}
+      style={DISCARDED_CARD_STYLE}
+    >
+      <h3 data-testid="idea-card-title" style={DISCARDED_TITLE_STYLE}>
+        {card.title}
+      </h3>
+    </article>
+  ) : (
+    <IdeaCard {...card} />
+  );
+
+  if (onCardClick == null) return inner;
+
+  /* Click-wrapper: the <article> stays a semantic landmark; the button is the
+     interactive affordance (AC-02-004: clicking a card opens its detail). */
+  return (
+    <button
+      type="button"
+      style={CARD_BUTTON_STYLE}
+      onClick={() => onCardClick(card.slug)}
+      aria-label={`Abrir detalle: ${card.title}`}
+    >
+      {inner}
+    </button>
   );
 }
 
@@ -282,14 +360,17 @@ export function IdeaBoardView({
             return resolved === col.id;
           });
 
+          // The "Descartada" column reads as muted, with struck-through titles (BRD-04).
+          const isDiscarded = col.id === "discarded";
+
           return (
             <section
               key={col.id}
               data-testid={`board-column-${col.id}`}
-              style={COLUMN_STYLE}
+              style={isDiscarded ? DISCARDED_COLUMN_STYLE : COLUMN_STYLE}
               aria-label={`Columna: ${col.label}`}
             >
-              {/* Column header */}
+              {/* Column header — pixel label + accent count (prototype .col) */}
               <header style={COLUMN_HEADER_STYLE}>
                 <h2 style={COLUMN_TITLE_STYLE}>{col.label}</h2>
                 <span style={COLUMN_COUNT_STYLE} title={`${colCards.length} ideas`}>
@@ -304,33 +385,14 @@ export function IdeaBoardView({
                     —
                   </div>
                 ) : (
-                  colCards.map((card) =>
-                    onCardClick != null ? (
-                      /* When onCardClick is provided: wrap in a clickable <button> so the
-                         article itself remains a semantic landmark (not a button). The button
-                         is the interactive wrapper; IdeaCard renders inside it read-only.
-                         AC-02-004: clicking a card opens its detail. */
-                      <button
-                        key={card.slug}
-                        type="button"
-                        style={{
-                          display: "block",
-                          width: "100%",
-                          background: "none",
-                          border: "none",
-                          padding: 0,
-                          cursor: "pointer",
-                          textAlign: "left",
-                        }}
-                        onClick={() => onCardClick(card.slug)}
-                        aria-label={`Abrir detalle: ${card.title}`}
-                      >
-                        <IdeaCard key={undefined} {...card} />
-                      </button>
-                    ) : (
-                      <IdeaCard key={card.slug} {...card} />
-                    ),
-                  )
+                  colCards.map((card) => (
+                    <CardSlot
+                      key={card.slug}
+                      card={card}
+                      discarded={isDiscarded}
+                      onCardClick={onCardClick}
+                    />
+                  ))
                 )}
               </div>
             </section>

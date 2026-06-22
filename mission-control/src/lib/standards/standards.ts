@@ -87,6 +87,7 @@ const DERIVATION_MAP: Readonly<Record<string, DerivationEntry>> = {
   "api-design.md": { domain: "Programming", severity: "MUST", enforcement: "lint/CI" },
   "build-orchestration.md": { domain: "Product/Docs", severity: "MUST", enforcement: "checklist" },
   "conventions.md": { domain: "Programming", severity: "MUST", enforcement: "lint" },
+  "design.md": { domain: "Design", severity: "MUST", enforcement: "checklist" },
   "documentation.md": { domain: "Product/Docs", severity: "MUST", enforcement: "checklist" },
   "external-services.md": { domain: "Technology", severity: "MUST", enforcement: "checklist" },
   "infra.md": { domain: "Operation", severity: "SHOULD", enforcement: "checklist" },

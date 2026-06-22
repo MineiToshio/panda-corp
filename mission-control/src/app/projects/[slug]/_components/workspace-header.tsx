@@ -48,6 +48,11 @@ export interface WorkspaceHeaderProps {
   progress?: string;
   /** Whether the project build is currently running (shows ti-player-play pip). */
   running?: boolean;
+  /**
+   * Heading level for the title. 1 (default) on the standalone /projects page where it IS the page
+   * heading; 2 when embedded in the Portfolio pane (whose "Portfolio" PageTitle owns the single h1).
+   */
+  headingLevel?: 1 | 2;
 }
 
 // ---------------------------------------------------------------------------
@@ -125,15 +130,17 @@ export function WorkspaceHeader({
   version,
   progress,
   running = false,
+  headingLevel = 1,
 }: WorkspaceHeaderProps): React.JSX.Element {
   const stageLabel = STAGE_LABELS[stage] ?? stage;
   const hasProgress = progress !== undefined && progress.trim().length > 0;
+  const TitleTag = headingLevel === 2 ? "h2" : "h1";
 
   return (
     <header data-testid="workspace-header" style={HEADER_STYLE}>
       {/* Title row: title + running pip + stage Chip + version */}
       <div style={TITLE_ROW_STYLE}>
-        <h1 data-testid="workspace-header-title" style={TITLE_STYLE}>
+        <TitleTag data-testid="workspace-header-title" style={TITLE_STYLE}>
           {title}
           {running && (
             <i
@@ -143,7 +150,7 @@ export function WorkspaceHeader({
               title="construyendo"
             />
           )}
-        </h1>
+        </TitleTag>
 
         {/* Stage chip — shared Chip primitive (WO-13-007, DR-057) */}
         <span data-testid="workspace-header-stage">

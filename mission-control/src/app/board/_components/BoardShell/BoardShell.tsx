@@ -4,16 +4,17 @@
  * BoardShell — Client-side interactive shell for the /board page (CMP-02-board-shell).
  *
  * WO-02-005: Wires the presentational board components with interactive state:
+ *   - Search input (filters by title + body) + "Limpiar" reset (BRD-01)
  *   - Category filter (CategoryFilter → filters IdeaBoardView)
  *   - Intake modal (button → IntakeModal overlay)
- *   - Card selection (IdeaCard click → CardDetail slide-in or panel)
- *   - Discard action (DiscardButton inside CardDetail)
+ *   - Card selection (IdeaCard click → CardDetail panel under a PageTitle, BRD-02)
+ *   - Discard action (DiscardButton inside the detail header)
  *   - BoardLegend (static, below the board)
- *   - PageTitle "Tablero" (DR-062 — one per surface)
+ *   - PageTitle — "Tablero" on the board; the idea's own pageHead on the detail
  *
  * The Server Component (page.tsx) resolves cards (readIdeas + readStatus +
  * deriveColumn), then passes them here. This component is the interactive
- * boundary: "use client" required for useState (filter, modal, selection) +
+ * boundary: "use client" required for useState (search/filter/selection) +
  * DiscardButton (clipboard / Server Action).
  *
  * Traceability:
@@ -39,10 +40,13 @@ import { IntakeModal } from "@/app/board/_components/IntakeModal/IntakeModal";
 import type { BoardCardEntry } from "@/app/board/IdeaBoardView/IdeaBoardView";
 import { IdeaBoardView } from "@/app/board/IdeaBoardView/IdeaBoardView";
 import { Button } from "@/components/core/Button/Button";
+import { Chip } from "@/components/core/Chip/Chip";
 import { DiscardButton } from "@/components/core/DiscardButton/DiscardButton";
 import { PageTitle } from "@/components/core/PageTitle/PageTitle";
 import { BoardLegend } from "@/components/modules/BoardLegend/BoardLegend";
 import { CategoryFilter } from "@/components/modules/CategoryFilter/CategoryFilter";
+import { CATEGORY_LABELS, RETURN_LABELS } from "@/components/modules/IdeaCard/IdeaCard";
+import type { BoardColumn } from "@/lib/board/board";
 import type { DiscardResult } from "@/lib/discard/discard";
 
 // ---------------------------------------------------------------------------
@@ -63,6 +67,21 @@ export interface BoardShellProps {
 }
 
 // ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/** Board column → Spanish "Etapa" label for the idea detail pageHead (BRD-02). */
+const COLUMN_STAGE_LABEL: Record<BoardColumn, string> = {
+  discovered: "Descubierta",
+  documented: "Documentada",
+  design: "Diseño",
+  architecture: "Arquitectura",
+  building: "En construcción",
+  shipped: "Lanzada",
+  discarded: "Descartada",
+};
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -80,9 +99,22 @@ function extractCategories(cards: BoardCardEntry[]): string[] {
 }
 
 /** Return true when the card matches the active category filter (or no filter). */
-function matchesFilter(card: BoardCardEntry, selectedCategory: string | null): boolean {
+function matchesCategory(card: BoardCardEntry, selectedCategory: string | null): boolean {
   if (selectedCategory === null) return true;
   return card.projectType === selectedCategory;
+}
+
+/** Return true when the card matches the search query (title + body, or empty query). */
+function matchesQuery(card: BoardCardEntry, query: string): boolean {
+  if (query === "") return true;
+  const haystack = `${card.title} ${card.body ?? ""}`.toLowerCase();
+  return haystack.includes(query);
+}
+
+/** Stage label for the idea detail pageHead — from the resolved board column. */
+function stageLabel(card: BoardCardEntry): string {
+  const col = card.boardColumn;
+  return col != null ? COLUMN_STAGE_LABEL[col] : "—";
 }
 
 // ---------------------------------------------------------------------------
@@ -113,10 +145,37 @@ const TOOLBAR_STYLE: React.CSSProperties = {
 const FILTER_AREA_STYLE: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: "calc(var(--spacing, 0.25rem) * 2)",
+  gap: "8px",
   flexWrap: "wrap",
   flex: 1,
   minWidth: 0,
+};
+
+const SEARCH_WRAP_STYLE: React.CSSProperties = {
+  position: "relative",
+  flex: 1,
+  minWidth: "170px",
+};
+
+const SEARCH_ICON_STYLE: React.CSSProperties = {
+  position: "absolute",
+  left: "10px",
+  top: "9px",
+  fontSize: "15px",
+  color: "var(--color-text3)",
+  pointerEvents: "none",
+};
+
+const SEARCH_INPUT_STYLE: React.CSSProperties = {
+  width: "100%",
+  padding: "8px 11px 8px 32px",
+  border: "1px solid var(--color-border-strong)",
+  borderRadius: "8px",
+  fontSize: "13px",
+  fontFamily: "inherit",
+  background: "var(--color-base, var(--color-panel))",
+  color: "var(--color-text)",
+  boxShadow: "inset 0 1px 2px rgba(0,0,0,.22)",
 };
 
 const DETAIL_HEADER_STYLE: React.CSSProperties = {
@@ -128,11 +187,75 @@ const DETAIL_HEADER_STYLE: React.CSSProperties = {
   flexWrap: "wrap",
 };
 
+const DETAIL_TAIL_STYLE: React.CSSProperties = {
+  display: "flex",
+  gap: "6px",
+  alignItems: "center",
+  flexWrap: "wrap",
+};
+
+const CATEGORY_TAIL_CHIP_STYLE: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "3px",
+  fontSize: "11px",
+  padding: "2px 8px",
+  borderRadius: "var(--radius-sm, 8px)",
+  fontWeight: 500,
+  lineHeight: 1.4,
+  whiteSpace: "nowrap",
+  background: "var(--color-secondary, var(--color-card2, var(--color-panel)))",
+  color: "var(--color-text2)",
+};
+
+const SCORE_TAIL_STYLE: React.CSSProperties = {
+  fontSize: "11px",
+  color: "var(--color-text3)",
+  fontVariantNumeric: "tabular-nums",
+};
+
 const HINT_STYLE: React.CSSProperties = {
   fontSize: "12px",
   color: "var(--color-text3, var(--color-text-muted, currentColor))",
   margin: 0,
 };
+
+// ---------------------------------------------------------------------------
+// DetailTail — category + return chips + "Score N/100" for the detail pageHead
+// ---------------------------------------------------------------------------
+
+function DetailTail({ card }: { card: BoardCardEntry }): React.JSX.Element {
+  const categoryEntry =
+    card.projectType !== undefined ? CATEGORY_LABELS[card.projectType] : undefined;
+  const categoryLabel = categoryEntry?.[0] ?? card.projectType;
+  const categoryIcon = categoryEntry?.[1];
+  const returnEntry = card.returnType !== undefined ? RETURN_LABELS[card.returnType] : undefined;
+
+  return (
+    <span style={DETAIL_TAIL_STYLE}>
+      {categoryLabel !== undefined && (
+        <span data-testid="detail-head-category" style={CATEGORY_TAIL_CHIP_STYLE}>
+          {categoryIcon != null && (
+            <i
+              className={`ti ${categoryIcon}`}
+              style={{ fontSize: "11px", verticalAlign: "-1px" }}
+              aria-hidden="true"
+            />
+          )}
+          {categoryLabel}
+        </span>
+      )}
+      {returnEntry != null && (
+        <span data-testid="detail-head-return">
+          <Chip tone={returnEntry[1]}>{returnEntry[0]}</Chip>
+        </span>
+      )}
+      <span data-testid="detail-head-score" style={SCORE_TAIL_STYLE}>
+        Score {card.score ?? "—"}/100
+      </span>
+    </span>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -141,12 +264,14 @@ const HINT_STYLE: React.CSSProperties = {
 /**
  * BoardShell — the interactive client shell for the /board page.
  *
- * Manages three pieces of state:
- *   1. `selectedCategory` — category filter for the board view
- *   2. `intakeOpen`        — whether the intake modal is open
- *   3. `openSlug`          — slug of the card whose detail is open (null = board view)
+ * State:
+ *   1. `query`            — search text (title + body filter, BRD-01)
+ *   2. `selectedCategory` — category filter for the board view
+ *   3. `intakeOpen`       — whether the intake modal is open
+ *   4. `openSlug`         — slug of the card whose detail is open (null = board view)
  */
 export function BoardShell({ cards, discardAction }: BoardShellProps): React.JSX.Element {
+  const [query, setQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [intakeOpen, setIntakeOpen] = useState(false);
   const [openSlug, setOpenSlug] = useState<string | null>(null);
@@ -154,8 +279,11 @@ export function BoardShell({ cards, discardAction }: BoardShellProps): React.JSX
   // Derive the unique categories from the full card list (not filtered).
   const categories = extractCategories(cards);
 
-  // Filtered card list for the board view.
-  const filteredCards = cards.filter((c) => matchesFilter(c, selectedCategory));
+  // Filtered card list for the board view (search query AND category).
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredCards = cards.filter(
+    (c) => matchesQuery(c, normalizedQuery) && matchesCategory(c, selectedCategory),
+  );
 
   // When a card is open, locate it by slug.
   const openCard = openSlug != null ? (cards.find((c) => c.slug === openSlug) ?? null) : null;
@@ -164,13 +292,21 @@ export function BoardShell({ cards, discardAction }: BoardShellProps): React.JSX
   const canDiscard =
     openCard != null && openCard.status !== "discarded" && openCard.status !== "shipped";
 
+  // Whether the "Limpiar" reset is offered (any active search or category).
+  const hasActiveFilter = query !== "" || selectedCategory !== null;
+
   // ----------------------------------------------------------
-  // Handler: open a card detail
+  // Handlers
   // ----------------------------------------------------------
   function handleCardClick(slug: string): void {
     setOpenSlug(slug);
     // Close the intake modal if open (only one overlay at a time)
     setIntakeOpen(false);
+  }
+
+  function handleClearFilters(): void {
+    setQuery("");
+    setSelectedCategory(null);
   }
 
   return (
@@ -179,16 +315,18 @@ export function BoardShell({ cards, discardAction }: BoardShellProps): React.JSX
       <IntakeModal open={intakeOpen} onClose={() => setIntakeOpen(false)} />
 
       <div style={CONTENT_STYLE}>
-        {/* PageTitle "Tablero" — DR-062: the ONE light title block per surface */}
-        <PageTitle
-          icon="ti-layout-kanban"
-          title="Tablero"
-          subtitle="El tablero de ideas: cada una recorre las 6 fases del pipeline. Solo-lectura — los skills mueven las tarjetas."
-        />
-
-        {/* ---- Card detail view ---- */}
         {openCard != null ? (
+          /* ---- Card detail view ---- */
           <>
+            {/* PageTitle — the idea's own pageHead (BRD-02): bulb + title +
+                "Etapa: {LBL}" + tail (category/return chips + Score N/100) */}
+            <PageTitle
+              icon="ti-bulb"
+              title={openCard.title}
+              subtitle={`Etapa: ${stageLabel(openCard)}`}
+              tail={<DetailTail card={openCard} />}
+            />
+
             {/* Back nav + discard affordance */}
             <div style={DETAIL_HEADER_STYLE}>
               <Button
@@ -221,7 +359,14 @@ export function BoardShell({ cards, discardAction }: BoardShellProps): React.JSX
         ) : (
           /* ---- Board view ---- */
           <>
-            {/* Toolbar: Capture button + category filter */}
+            {/* PageTitle "Tablero" — DR-062: the ONE light title block per surface */}
+            <PageTitle
+              icon="ti-layout-kanban"
+              title="Tablero"
+              subtitle="El tablero de ideas: cada una recorre las 6 fases del pipeline. Solo-lectura — los skills mueven las tarjetas."
+            />
+
+            {/* Toolbar: Capture button + search + category filter + Limpiar */}
             <div style={TOOLBAR_STYLE}>
               {/* Capture ideas button (AC-02-003) */}
               <Button
@@ -234,13 +379,41 @@ export function BoardShell({ cards, discardAction }: BoardShellProps): React.JSX
                 + Capturar ideas / oportunidades
               </Button>
 
-              {/* Category filter (AC-02-006.1) */}
+              {/* Search + category filter + clear (AC-02-006.1, BRD-01) */}
               <div style={FILTER_AREA_STYLE}>
+                {/* Search input — filters by title + body (BRD-01) */}
+                <div style={SEARCH_WRAP_STYLE}>
+                  <i className="ti ti-search" style={SEARCH_ICON_STYLE} aria-hidden="true" />
+                  <input
+                    id="pc-q"
+                    data-testid="board-search"
+                    type="search"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Buscar ideas…"
+                    aria-label="Buscar ideas por título o resumen"
+                    style={SEARCH_INPUT_STYLE}
+                  />
+                </div>
+
                 <CategoryFilter
                   categories={categories}
                   selected={selectedCategory}
                   onSelect={setSelectedCategory}
                 />
+
+                {/* Limpiar — visible only when there is an active search/category */}
+                {hasActiveFilter && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    data-testid="board-clear-filters"
+                    onClick={handleClearFilters}
+                    ariaLabel="Limpiar la búsqueda y el filtro"
+                  >
+                    Limpiar
+                  </Button>
+                )}
               </div>
             </div>
 

@@ -29,6 +29,7 @@ function makeCard(overrides: Partial<CardData> = {}): CardData {
   return {
     name: "Test Project",
     phase: "implementation",
+    phaseLabel: "Implementación",
     version: "v1",
     woProgress: { done: 5, total: 10, pct: 50 },
     ageInStageDays: 3,
@@ -37,6 +38,7 @@ function makeCard(overrides: Partial<CardData> = {}): CardData {
     isNoSignal: false,
     isStalled: false,
     isShipped: false,
+    isYoungInPhase: true,
     blockerReason: undefined,
     lastEventAt: undefined,
     ...overrides,
@@ -66,12 +68,16 @@ describe("wo-18-004: AC-18-004.1 — card shows core info", () => {
     expect(card.textContent).toContain("v2");
   });
 
-  it("wo-18-004: GIVEN woProgress 5/10 WHEN rendered THEN progress fraction and % are visible", () => {
+  it("wo-18-004: GIVEN woProgress 5/10 WHEN rendered THEN the WO fraction is visible and a progress bar reflects the percentage", () => {
     render(<Cartera cards={[makeCard({ woProgress: { done: 5, total: 10, pct: 50 } })]} />);
     const card = screen.getByTestId("cartera-card-test-project");
+    // Prototype meta line shows the "done/total work orders" fraction (not a "50%" literal);
+    // the percentage is conveyed by the accent progress bar's width.
     expect(card.textContent).toContain("5");
     expect(card.textContent).toContain("10");
-    expect(card.textContent).toContain("50");
+    expect(card.textContent).toMatch(/work orders/i);
+    const bar = within(card).getByTestId("cartera-progress").firstChild as HTMLElement;
+    expect(bar.style.width).toBe("50%");
   });
 
   it("wo-18-004: GIVEN ageInStageDays=7 WHEN rendered THEN age is displayed", () => {

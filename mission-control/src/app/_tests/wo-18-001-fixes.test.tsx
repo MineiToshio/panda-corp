@@ -307,9 +307,10 @@ describe("frd-18: Fix 2 — phaseStartedAt wired via status.updatedAt (AC-18-001
     // We use a loose check — "20d" or similar age in a cartera card
     const carteraGrid = screen.queryByTestId("cartera-grid");
     if (carteraGrid) {
-      // If there's a project card, it must show age information
-      // (ageInStageDays defined → "Nd en fase" text visible)
-      expect(carteraGrid.textContent).toMatch(/\d+d/);
+      // If there's a project card, it must show age information. The faithful prototype renders the
+      // compact "Nd en fase" for a young project AND "estancado · N días" for a stalled one (>5d), so
+      // accept both the no-space ("3d") and the spaced ("20 días") forms.
+      expect(carteraGrid.textContent).toMatch(/\d+\s*d/i);
     }
     // If there are no cards (mock returned no active projects somehow), at least
     // verify the page renders without crashing

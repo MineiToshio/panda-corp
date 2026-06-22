@@ -84,7 +84,8 @@ function parseIdeaCard(filePath: string, slug: string): IdeaCard | null {
   const projectType = typeof fm.project_type === "string" ? fm.project_type : undefined;
   const returnType = isValidReturnType(fm.return_type) ? fm.return_type : undefined;
   const score = typeof fm.score === "number" ? fm.score : undefined;
-  const project = typeof fm.project === "string" ? fm.project : undefined;
+  // Treat an empty `project: ""` (non-in-pipeline ideas) as absent, not a spurious empty link target.
+  const project = typeof fm.project === "string" && fm.project !== "" ? fm.project : undefined;
 
   // gray-matter exposes the markdown body (content after the frontmatter block) as `.content`.
   const body: string = typeof parsed.content === "string" ? parsed.content : "";

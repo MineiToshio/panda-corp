@@ -25,6 +25,7 @@
 "use client";
 
 import { useState } from "react";
+import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import { Tabs } from "@/components/core/Tabs/Tabs";
 import type { ChainState, Secret, Unique } from "@/lib/achievements/achievements";
 import type { ReaderData } from "@/lib/achievements/stats";
@@ -78,22 +79,23 @@ function RecentTrophies({ uniques }: RecentTrophiesProps): React.JSX.Element | n
       aria-label="Últimos trofeos"
       style={{ display: "flex", flexDirection: "column", gap: "10px" }}
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-        <span
-          style={{
-            fontSize: "0.875rem",
-            fontWeight: 700,
-            color: "var(--color-text)",
-            textTransform: "uppercase",
-            letterSpacing: "0.05em",
-          }}
-        >
-          Vitrina del gremio
-        </span>
-        <span style={{ fontSize: "0.75rem", color: "var(--color-text3)" }}>
-          tus últimos trofeos
-        </span>
-      </div>
+      {/* Canonical SectionHead (LOG-03) — prototype recentTrophies():
+          secthead("ti-sparkles","Vitrina del gremio","tus últimos trofeos"). */}
+      <SectionHead
+        icon="ti-sparkles"
+        label="Vitrina del gremio"
+        rightHtml={
+          <span
+            style={{
+              fontSize: "11px",
+              color: "var(--color-text3)",
+              fontFamily: "var(--font-pixel)",
+            }}
+          >
+            tus últimos trofeos
+          </span>
+        }
+      />
       <ul
         style={{
           listStyle: "none",
@@ -227,22 +229,26 @@ function MisionesTab({ chains }: MisionesTabProps): React.JSX.Element {
         </section>
       )}
 
-      {/* "En ascenso" — rising chains grid (bigGrid minmax 430px) */}
+      {/* "En ascenso" — rising chains grid (bigGrid minmax 430px).
+          Canonical SectionHead (LOG-04) — prototype logrosMisiones():
+          secthead("ti-flame","En ascenso", N+" · poco comunes y raras"). */}
       {risingChains.length > 0 && (
         <section aria-label="Misiones en ascenso">
-          <span
-            style={{
-              display: "block",
-              fontSize: "10px",
-              fontFamily: "var(--font-pixel)",
-              color: "var(--color-text3)",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-              marginBottom: "10px",
-            }}
-          >
-            En ascenso ({risingChains.length})
-          </span>
+          <SectionHead
+            icon="ti-flame"
+            label="En ascenso"
+            rightHtml={
+              <span
+                style={{
+                  fontSize: "11px",
+                  color: "var(--color-text3)",
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                {risingChains.length} · poco comunes y raras
+              </span>
+            }
+          />
           <ul
             style={{
               listStyle: "none",
@@ -262,22 +268,11 @@ function MisionesTab({ chains }: MisionesTabProps): React.JSX.Element {
         </section>
       )}
 
-      {/* "Comunes" — mini grid (minmax 232px) */}
+      {/* "Comunes" — mini grid (minmax 232px).
+          Canonical SectionHead (LOG-04) — prototype: secthead("ti-pick","Comunes",N). */}
       {commonChains.length > 0 && (
         <section aria-label="Misiones comunes">
-          <span
-            style={{
-              display: "block",
-              fontSize: "10px",
-              fontFamily: "var(--font-pixel)",
-              color: "var(--color-text3)",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-              marginBottom: "10px",
-            }}
-          >
-            Comunes ({commonChains.length})
-          </span>
+          <SectionHead icon="ti-pick" label="Comunes" count={commonChains.length} />
           <ul
             style={{
               listStyle: "none",
@@ -297,22 +292,11 @@ function MisionesTab({ chains }: MisionesTabProps): React.JSX.Element {
         </section>
       )}
 
-      {/* "Legendarias" — bigGrid */}
+      {/* "Legendarias" — bigGrid.
+          Canonical SectionHead (LOG-04) — prototype: secthead("ti-crown","Legendarias",N). */}
       {legendChains.length > 0 && (
         <section aria-label="Misiones legendarias">
-          <span
-            style={{
-              display: "block",
-              fontSize: "10px",
-              fontFamily: "var(--font-pixel)",
-              color: "var(--color-text3)",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-              marginBottom: "10px",
-            }}
-          >
-            Legendarias ({legendChains.length})
-          </span>
+          <SectionHead icon="ti-crown" label="Legendarias" count={legendChains.length} />
           <ul
             style={{
               listStyle: "none",
@@ -456,7 +440,6 @@ export function HallTabs({
         display: "flex",
         flexDirection: "column",
         gap: "20px",
-        maxWidth: "80rem",
       }}
     >
       {/* Sub-tab bar — the ONE shared Tabs/SubTabs primitive (DR-062, logrosTabs

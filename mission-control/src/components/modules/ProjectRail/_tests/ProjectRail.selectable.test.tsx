@@ -219,7 +219,8 @@ describe("ProjectRail selectable mode — stage line", () => {
     const row = screen.getByRole("article", { name: /proj-alpha/i });
     const stageLine = within(row).getByTestId("selectable-row-stage");
     expect(stageLine).toBeDefined();
-    expect(stageLine.textContent).toMatch(/implementation/i);
+    // UI copy is Spanish (architecture §7): implementation → "En construcción".
+    expect(stageLine.textContent).toMatch(/construcción/i);
   });
 });
 

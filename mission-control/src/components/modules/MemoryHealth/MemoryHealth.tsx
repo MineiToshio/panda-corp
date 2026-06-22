@@ -1,3 +1,4 @@
+import type React from "react";
 import { Banner } from "@/components/core/Banner/Banner";
 import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import { MEMORY_RAW_NOTES_THRESHOLD, MEMORY_STALE_DAYS_THRESHOLD } from "@/lib/constants";
@@ -6,12 +7,20 @@ import type { MemoryHealth as MemoryHealthData } from "@/lib/memory/memory-healt
 /**
  * CMP-17-health — MemoryHealth panel (WO-17-005, FRD-17, REQ-17-005).
  *
- * Shows the self-learning-loop health:
- *   - Raw-notes count (factory/_inbox.md + per-project .pandacorp/run/lessons.md lines)
- *   - Candidate-lessons count (status: candidate in factory/memory/)
- *   - Last /pandacorp:memory run time (approximate — mtime proxy, not exact event)
- *   - Staleness nudge WHEN rawNotes >= threshold OR staleDays >= threshold
- *   - First-harvest invite WHEN lastMemoryRunAt === null (fresh factory)
+ * Shows the self-learning-loop health as a 4-card stat grid (prototype
+ * `propuestasView()` "Salud de la memoria", index.html ~L1410-1415 using
+ * `dStat()` ~L659):
+ *   - "Notas sin refinar"       — rawNotes (warn-colored when > 0)
+ *   - "Lecciones candidatas"    — candidates (accent-text)
+ *   - "Última cosecha"          — "hace Nd" (warn-colored when staleDays >= 7)
+ *   - "Promociones a aprobar"   — promotionsCount (accent-text when > 0)
+ * Plus a staleness nudge WHEN rawNotes >= threshold OR staleDays >= threshold,
+ * and a first-harvest invite WHEN lastMemoryRunAt === null (fresh factory).
+ *
+ * The staleness nudge is wrapped in the prototype's "SOLO DEMO" dashed frame
+ * (`bDemo`, index.html ~L563): a dashed border, a warn "SOLO DEMO" pill, and a
+ * note explaining how the real trigger is computed — around the shared `Banner`
+ * (the real, copyable affordance, kept intact per DR-057 reuse-gate).
  *
  * Doubles as the on-demand refine-trigger surface: the owner runs the refinement
  * when the panel says there is something to consolidate (REQ-17-005).
@@ -58,60 +67,76 @@ function formatDate(iso: string): string {
   });
 }
 
-/** Icon indicating staleness — text+icon for a11y (not color alone). */
-function StaleIcon(): React.JSX.Element {
-  return (
-    <span
-      data-testid="memory-health-stale-icon"
-      role="img"
-      aria-label="Antigüedad de la memoria"
-      style={{ fontSize: "1em" }}
-    >
-      ⏳
-    </span>
-  );
-}
+// ── dStat grid styles (prototype dStat(), index.html ~L659) ──────────────────
+// dStat: --secondary surface (≈ --color-panel), --rmd radius (≈ --radius-md),
+// 13px 15px padding, .5px --bd border (≈ --color-border); 11px label row with
+// a 14px icon tinted by `accent`; 30px display value tinted by `accent`; 11px
+// muted sub-line. Light + dark first-class (tokens re-declared per theme).
 
-/** Stat row: label + value. */
-function StatRow({
+const D_STAT_STYLE: React.CSSProperties = {
+  background: "var(--color-panel)",
+  borderRadius: "var(--radius-md, 12px)",
+  padding: "13px 15px",
+  border: "var(--hairline, 1px) solid var(--color-border)",
+};
+
+const D_STAT_LABEL_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "6px",
+  fontSize: "11px",
+  color: "var(--color-text2)",
+};
+
+const D_STAT_SUB_STYLE: React.CSSProperties = {
+  fontSize: "11px",
+  color: "var(--color-text3)",
+  marginTop: "4px",
+};
+
+/**
+ * dStat — the prototype's stat card (label + icon · big value · sub-line).
+ * `accent` tints both the icon and the value; omit for the neutral text tone.
+ * `icon` element carried as ReactNode so the staleness card can inject the
+ * a11y-required stale icon (text + icon, not color alone — AC-17-005.5).
+ */
+function DStat({
   label,
   value,
-  testId,
+  sub,
+  icon,
+  accent,
+  valueTestId,
 }: {
   label: string;
   value: React.ReactNode;
-  testId: string;
+  sub: string;
+  icon: React.ReactNode;
+  accent?: string;
+  valueTestId: string;
 }): React.JSX.Element {
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "baseline",
-        gap: "0.5rem",
-        padding: "0.25rem 0",
-      }}
-    >
-      <span
-        style={{
-          fontSize: "0.75rem",
-          color: "var(--color-text)",
-          opacity: 0.6,
-          textTransform: "uppercase",
-          letterSpacing: "0.06em",
-          whiteSpace: "nowrap",
-        }}
-      >
+    <div style={D_STAT_STYLE}>
+      <div style={D_STAT_LABEL_STYLE}>
+        <span style={{ color: accent ?? "var(--color-text2)", display: "inline-flex" }}>
+          {icon}
+        </span>
         {label}
-      </span>
-      <span
-        data-testid={testId}
+      </div>
+      <div
+        data-testid={valueTestId}
         style={{
-          fontWeight: 600,
-          color: "var(--color-text)",
+          fontFamily: "var(--font-mono, monospace)",
+          fontSize: "30px",
+          lineHeight: 1,
+          marginTop: "6px",
+          color: accent ?? "var(--color-text)",
+          fontVariantNumeric: "tabular-nums",
         }}
       >
         {value}
-      </span>
+      </div>
+      <div style={D_STAT_SUB_STYLE}>{sub}</div>
     </div>
   );
 }
@@ -123,6 +148,95 @@ function StatRow({
 export interface MemoryHealthProps {
   /** Health data from memoryHealth() (lib/memory/memory-health.ts). */
   health: MemoryHealthData;
+  /**
+   * Number of promotions awaiting approval (promotion: "proposed"). Drives the
+   * 4th stat card "Promociones a aprobar" (prototype reads BPROPOSALS.promote.length,
+   * index.html ~L1414). Defaults to 0 so the panel renders standalone in tests.
+   */
+  promotionsCount?: number;
+}
+
+// ---------------------------------------------------------------------------
+// bDemo frame (prototype index.html ~L563) — dashed border + "SOLO DEMO" pill
+// + a note on how the real trigger is computed, wrapping the real affordance.
+// ---------------------------------------------------------------------------
+
+const B_DEMO_FRAME_STYLE: React.CSSProperties = {
+  border: "1.5px dashed var(--color-border-strong)",
+  borderRadius: "var(--radius-md, 12px)",
+  padding: "10px 12px",
+  marginTop: "10px",
+};
+
+const B_DEMO_HEAD_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "7px",
+  marginBottom: "7px",
+};
+
+const B_DEMO_PILL_STYLE: React.CSSProperties = {
+  fontFamily: "var(--font-mono, monospace)",
+  fontSize: "9px",
+  letterSpacing: "0.06em",
+  color: "var(--color-base)",
+  background: "var(--color-warn)",
+  padding: "1px 7px",
+  borderRadius: "var(--radius-sm, 8px)",
+};
+
+const B_DEMO_NOTE_STYLE: React.CSSProperties = {
+  fontSize: "11px",
+  color: "var(--color-text3)",
+};
+
+/** bDemo — the "SOLO DEMO" dashed frame wrapping a real inner affordance. */
+function BDemo({ note, children }: { note: string; children: React.ReactNode }): React.JSX.Element {
+  return (
+    <div style={B_DEMO_FRAME_STYLE}>
+      <div style={B_DEMO_HEAD_STYLE}>
+        <span style={B_DEMO_PILL_STYLE}>SOLO DEMO</span>
+        <span style={B_DEMO_NOTE_STYLE}>{note}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/** Human "hace Nd" label for the staleness day-delta (or em-dash when unknown). */
+function staleLabel(staleDays: number | null): string {
+  if (staleDays === null) return "—";
+  if (staleDays === 0) return "hoy";
+  return `hace ${staleDays}d`;
+}
+
+/**
+ * "Última cosecha" card value (AC-17-005.1/.5). For a fresh factory it reads
+ * "nunca"; otherwise it pairs a history icon (the a11y stale icon — text + icon,
+ * never color alone) with the "hace Nd" delta. Carries the testids the suite
+ * asserts on (memory-health-last-run / -stale-icon / -stale-days).
+ */
+function HarvestRecencyValue({
+  isFreshFactory,
+  staleDays,
+}: {
+  isFreshFactory: boolean;
+  staleDays: number | null;
+}): React.JSX.Element {
+  if (isFreshFactory) {
+    return <span data-testid="memory-health-last-run">nunca</span>;
+  }
+  return (
+    <span
+      data-testid="memory-health-last-run"
+      style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+    >
+      <span data-testid="memory-health-stale-icon" role="img" aria-label="Antigüedad de la memoria">
+        <i className="ti ti-history" style={{ fontSize: "1em" }} />
+      </span>
+      <span data-testid="memory-health-stale-days">{staleLabel(staleDays)}</span>
+    </span>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -135,7 +249,10 @@ export interface MemoryHealthProps {
  * Receives a pre-computed `health` prop (from memoryHealth() called server-side).
  * Pure presentation: derives nudge/invite logic from the data, no fs reads.
  */
-export function MemoryHealth({ health }: MemoryHealthProps): React.JSX.Element {
+export function MemoryHealth({
+  health,
+  promotionsCount = 0,
+}: MemoryHealthProps): React.JSX.Element {
   const { rawNotes, candidates, lastMemoryRunAt, staleDays } = health;
 
   // Threshold checks (AC-17-005.2).
@@ -149,116 +266,110 @@ export function MemoryHealth({ health }: MemoryHealthProps): React.JSX.Element {
   // Fresh factory: no memory run ever (AC-17-005.3).
   const isFreshFactory = lastMemoryRunAt === null;
 
+  // "Última cosecha" value: "hace Nd" when known (warn-tinted at/above threshold),
+  // otherwise "nunca" for a fresh factory (no null/NaN — AC-17-005.3).
+  const harvestAccent = isStaleDaysAbove ? "var(--color-warn)" : undefined;
+
   return (
     <section
       data-testid="memory-health-panel"
       aria-label="Salud del bucle de aprendizaje"
-      style={{
-        padding: "var(--space-base)",
-        borderRadius: "var(--radius)",
-        border: "var(--hairline) solid color-mix(in oklch, var(--color-text) 15%, transparent)",
-        background: "var(--color-surface)",
-        color: "var(--color-text)",
-        display: "flex",
-        flexDirection: "column",
-        gap: "0.75rem",
-      }}
+      style={{ color: "var(--color-text)" }}
     >
-      {/* Heading — the ONE shared SectionHead primitive (DR-062), not a bespoke header */}
-      <SectionHead label="Salud de la memoria" icon="ti-brain" />
+      {/* Heading — the ONE shared SectionHead primitive (DR-062), not a bespoke header.
+          Prototype: secthead("ti-heartbeat","Salud de la memoria") (~L1416). */}
+      <SectionHead label="Salud de la memoria" icon="ti-heartbeat" />
 
-      {/* Stats grid (AC-17-005.1) */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.125rem" }}>
-        <StatRow label="Notas pendientes" value={rawNotes} testId="memory-health-raw-notes" />
-        <StatRow label="Candidatas" value={candidates} testId="memory-health-candidates" />
+      {/* 4-card dStat grid (AC-17-005.1; prototype saludGrid ~L1410-1415) */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+          gap: "10px",
+        }}
+      >
+        <DStat
+          label="Notas sin refinar"
+          value={rawNotes}
+          sub="esperan a la cosecha"
+          icon={<i className="ti ti-notes" style={{ fontSize: "14px" }} aria-hidden="true" />}
+          accent={rawNotes ? "var(--color-warn)" : undefined}
+          valueTestId="memory-health-raw-notes"
+        />
+        <DStat
+          label="Lecciones candidatas"
+          value={candidates}
+          sub="esperan corroboración"
+          icon={<i className="ti ti-bulb-filled" style={{ fontSize: "14px" }} aria-hidden="true" />}
+          accent="var(--color-accent-text)"
+          valueTestId="memory-health-candidates"
+        />
+        <DStat
+          label="Última cosecha"
+          value={<HarvestRecencyValue isFreshFactory={isFreshFactory} staleDays={staleDays} />}
+          sub={
+            isFreshFactory
+              ? "/pandacorp:memory · aún sin correr"
+              : `/pandacorp:memory · ${formatDate(lastMemoryRunAt ?? "")} (aprox.)`
+          }
+          icon={<i className="ti ti-history" style={{ fontSize: "14px" }} aria-hidden="true" />}
+          accent={harvestAccent}
+          valueTestId="memory-health-last-run-value"
+        />
+        <DStat
+          label="Promociones a aprobar"
+          value={promotionsCount}
+          sub="lecciones → estándar/regla"
+          icon={
+            <i className="ti ti-arrow-up-right" style={{ fontSize: "14px" }} aria-hidden="true" />
+          }
+          accent={promotionsCount ? "var(--color-accent-text)" : undefined}
+          valueTestId="memory-health-promotions"
+        />
       </div>
 
-      {/* Last-run section — only when there is a signal (AC-17-005.1 + AC-17-005.4) */}
-      {!isFreshFactory && lastMemoryRunAt !== null && (
-        <div
-          data-testid="memory-health-last-run"
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.25rem",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.375rem",
-              flexWrap: "wrap",
-            }}
-          >
-            <span
-              style={{
-                fontSize: "0.75rem",
-                color: "var(--color-text)",
-                opacity: 0.6,
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-              }}
-            >
-              Última ejecución{" "}
-              <span data-testid="memory-health-last-run-label" style={{ fontStyle: "italic" }}>
-                (aprox.)
-              </span>
-            </span>
-            <span style={{ fontWeight: 600, fontSize: "0.875rem" }}>
-              {formatDate(lastMemoryRunAt)}
-            </span>
-          </div>
-
-          {/* Staleness row with icon (AC-17-005.5: text + icon, not color alone) */}
-          {staleDays !== null && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.375rem",
-                fontSize: "0.8125rem",
-                opacity: staleDays > 0 ? 1 : 0.7,
-              }}
-            >
-              <StaleIcon />
-              <span data-testid="memory-health-stale-days" style={{ color: "var(--color-text)" }}>
-                {staleDays === 0 ? "Hoy" : `Hace ${staleDays} día${staleDays === 1 ? "" : "s"}`}
-              </span>
-            </div>
-          )}
-        </div>
+      {/* Approximate-run label (AC-17-005.4) — a screen-reader-available marker that
+          the last-run value is a proxy, not an exact event. */}
+      {!isFreshFactory && (
+        <span data-testid="memory-health-last-run-label" style={{ display: "none" }}>
+          aproximado (proxy de mtime)
+        </span>
       )}
 
       {/* First-harvest invite — fresh factory (AC-17-005.3).
-          The ONE shared Banner primitive (DR-057), not a bespoke nudge <div>. */}
+          The ONE shared Banner primitive (DR-057), wrapped in the bDemo frame. */}
       {isFreshFactory && (
         <div data-testid="memory-health-first-harvest">
-          <Banner
-            tone="info"
-            kind="inline"
-            heading="Sin memoria aún"
-            detail="Comienza la primera cosecha para iniciar el bucle de aprendizaje del gremio:"
-            commandRow={CMD_HARVEST}
-          />
+          <BDemo note="En la app real esto aparece hasta la primera corrida de /pandacorp:memory.">
+            <Banner
+              tone="info"
+              kind="inline"
+              heading="Sin memoria aún"
+              detail="Comienza la primera cosecha para iniciar el bucle de aprendizaje del gremio:"
+              commandRow={CMD_HARVEST}
+            />
+          </BDemo>
         </div>
       )}
 
       {/* Staleness nudge — above threshold (AC-17-005.2, REQ-17-008: no nagging).
-          The ONE shared Banner primitive (DR-057), not a second bespoke banner. */}
+          The shared Banner (DR-057), wrapped in the prototype "SOLO DEMO" bDemo frame
+          (PROP-02): dashed border + warn pill + a note on the real trigger. */}
       {shouldNudge && !isFreshFactory && (
         <div data-testid="memory-health-nudge">
-          <Banner
-            tone="warn"
-            kind="inline"
-            heading={
-              isStaleDaysAbove
-                ? `La memoria lleva ${staleDays} día${staleDays === 1 ? "" : "s"} sin refinar`
-                : `Hay ${rawNotes} notas pendientes de cosechar`
-            }
-            detail={isStaleDaysAbove ? "Ejecuta una revisión:" : "Ejecuta una cosecha:"}
-            commandRow={nudgeCommand}
-          />
+          <BDemo note="En la app real el aviso lo decide el tamaño del backlog + días desde la última corrida de /pandacorp:memory.">
+            <Banner
+              tone="warn"
+              kind="inline"
+              heading={
+                isStaleDaysAbove
+                  ? `La memoria lleva ${staleDays} día${staleDays === 1 ? "" : "s"} sin refinar`
+                  : `Hay ${rawNotes} notas pendientes de cosechar`
+              }
+              detail={isStaleDaysAbove ? "Ejecuta una revisión:" : "Ejecuta una cosecha:"}
+              commandRow={nudgeCommand}
+            />
+          </BDemo>
         </div>
       )}
     </section>

@@ -128,6 +128,7 @@ function pluginAgentsDir(): string {
 const FACTORY_PATTERNS: readonly RegExp[] = [
   /\bfrom the factory\b/i,
   /\bin the factory\b/i,
+  /\bin panda-corp\b/i,
   /\bfactory context\b/i,
   /\bruns in the factory\b/i,
   /\brun from the factory\b/i,
@@ -213,6 +214,7 @@ const KNOWN_AGENT_ROLES: readonly string[] = [
   "test-writer",
   "implementer",
   "researcher",
+  "librarian",
   "copywriter",
   "architect",
   "designer",

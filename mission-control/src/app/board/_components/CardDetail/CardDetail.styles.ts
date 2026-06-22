@@ -24,13 +24,22 @@ export const ROOT_STYLE: React.CSSProperties = {
 // Title
 // ---------------------------------------------------------------------------
 
+/**
+ * The idea title is shown by the host's PageTitle (the prototype's pageHead,
+ * BRD-02); inside CardDetail it is kept as an accessible-but-visually-hidden
+ * <h2> so the component keeps an internal heading/name and isolated tests can
+ * still query it by text — without a duplicate visible title.
+ */
 export const TITLE_STYLE: React.CSSProperties = {
-  fontSize: "1rem",
-  fontWeight: 700,
-  color: "var(--color-text, currentColor)",
-  margin: 0,
-  padding: "calc(var(--spacing, 0.25rem) * 4)",
-  paddingBottom: "calc(var(--spacing, 0.25rem) * 3)",
+  position: "absolute",
+  width: "1px",
+  height: "1px",
+  padding: 0,
+  margin: "-1px",
+  overflow: "hidden",
+  clip: "rect(0, 0, 0, 0)",
+  whiteSpace: "nowrap",
+  border: 0,
 };
 
 // ---------------------------------------------------------------------------

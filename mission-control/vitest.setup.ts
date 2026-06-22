@@ -15,6 +15,31 @@ vi.mock("next/font/google", () => {
 });
 
 /**
+ * Mock next/navigation CLIENT HOOKS (useRouter / useSearchParams / usePathname): jsdom has no App
+ * Router context, so any client component that reads them (TabBar, AppShell, Nav…) throws
+ * "invariant expected app router to be mounted" when rendered outside the Next runtime. We stub the
+ * hooks with inert defaults and keep everything else REAL (notFound/redirect still throw), so
+ * server-component page tests that now embed those client children render without a provider.
+ * A test that needs specific navigation behaviour installs its own per-file `vi.mock` (overrides this).
+ */
+vi.mock("next/navigation", async (importActual) => {
+  const actual = await importActual<typeof import("next/navigation")>();
+  return {
+    ...actual,
+    useRouter: () => ({
+      push: vi.fn(),
+      replace: vi.fn(),
+      back: vi.fn(),
+      forward: vi.fn(),
+      refresh: vi.fn(),
+      prefetch: vi.fn(),
+    }),
+    useSearchParams: () => new URLSearchParams(),
+    usePathname: () => "/",
+  };
+});
+
+/**
  * vi.runAllMicrotasksAsync — polyfill for vitest 4.x.
  *
  * vitest 4.1.9 exposes `vi.runAllTimersAsync` / `vi.runOnlyPendingTimersAsync`

@@ -265,7 +265,7 @@ describe("FRD-08 reviewer — Manual derivation integration (DR-046, anti-orphan
     expect(screen.queryByTestId("rule-item-DR-XEDGE-HUMAN")).toBeNull();
   });
 
-  it("AC-08-001/.005 — authored content pages reach the reader: selecting one renders its body via the markdown reader", () => {
+  it("AC-08-001/.005 — authored content pages reach the reader: selecting one renders its body", () => {
     seedFullFactory();
     renderManual();
 
@@ -278,10 +278,12 @@ describe("FRD-08 reviewer — Manual derivation integration (DR-046, anti-orphan
 
     fireEvent.click(firstAuthored);
     const authored = screen.getByTestId("doc-reader-authored");
-    // The body must have flowed into the markdown reader (non-empty), proving the
-    // readManualPages → ManualShell → DocReader → react-markdown chain is wired.
-    const output = within(authored).getByTestId("react-markdown-output");
-    expect((output.textContent ?? "").length).toBeGreaterThan(0);
+    // The page content must have flowed into the reader (non-empty), proving the
+    // readManualPages → ManualShell → DocReader chain is wired. The reader renders
+    // either a bespoke React page (the repaint, prototype-faithful composed UI) or,
+    // for an unmapped slug, the react-markdown fallback — both surface the content.
+    expect((authored.textContent ?? "").trim().length).toBeGreaterThan(0);
+    expect(within(authored).getAllByRole("heading").length).toBeGreaterThan(0);
   });
 
   it("empty-factory resilience — no skills/agents/rules/standards => reader shows empty states, never throws", () => {

@@ -24,6 +24,19 @@ export function resolveFactoryRoot(
   return path.resolve(cwd, "..");
 }
 
+/**
+ * Resolve a project path (a portfolio path cell) to an absolute path.
+ * Already-absolute → verbatim; relative → joined against the factory root (call-time, env-aware).
+ * Lives here (not in the portfolio module) so consumers can resolve a path without importing — and
+ * being mocked out by — the portfolio module.
+ */
+export function resolveProjectPath(rawPath: string): string {
+  if (path.isAbsolute(rawPath)) {
+    return rawPath;
+  }
+  return path.join(resolveFactoryRoot(), rawPath);
+}
+
 /** The root of the factory repo (the folder that contains `mission-control/`). */
 export const FACTORY_ROOT: string = resolveFactoryRoot();
 

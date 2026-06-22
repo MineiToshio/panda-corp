@@ -78,6 +78,12 @@ export interface WorkspaceSlotProps {
    * and the empty state is shown (should not happen after default-select in the page).
    */
   selectedSlug: string | undefined;
+  /**
+   * The resolved project workspace node (`<ProjectWorkspace>`, FRD-04) for the selected project.
+   * When present it is rendered as the slot body (the prototype's projectPane). When absent but a
+   * slug is selected, the legacy placeholder is shown (graceful fallback).
+   */
+  children?: React.ReactNode;
 }
 
 // ---------------------------------------------------------------------------
@@ -90,7 +96,7 @@ export interface WorkspaceSlotProps {
  * When FRD-04 lands, replace the placeholder body with the real workspace
  * component; keep this element's `data-testid` and `data-slug` attributes.
  */
-export function WorkspaceSlot({ selectedSlug }: WorkspaceSlotProps): React.JSX.Element {
+export function WorkspaceSlot({ selectedSlug, children }: WorkspaceSlotProps): React.JSX.Element {
   const slotProps: React.HTMLAttributes<HTMLElement> & {
     "data-testid": string;
     "data-slug"?: string;
@@ -115,18 +121,20 @@ export function WorkspaceSlot({ selectedSlug }: WorkspaceSlotProps): React.JSX.E
     );
   }
 
+  // FRD-04: render the real project workspace (prototype projectPane) when provided.
+  if (children !== undefined && children !== null) {
+    return <section {...slotProps}>{children}</section>;
+  }
+
+  // Graceful fallback: a project is selected but its workspace could not be resolved.
   return (
     <section {...slotProps}>
-      {/* Placeholder until FRD-04 workspace lands. One-line swap: replace this block
-          with <ProjectWorkspace slug={selectedSlug} /> (FRD-04 component). */}
       <div data-testid="workspace-slot-placeholder" style={PLACEHOLDER_STYLE}>
         <p style={{ margin: 0, fontSize: "0.75rem" }}>Espacio de trabajo</p>
         <code data-testid="workspace-slot-slug" style={SLUG_STYLE}>
           {selectedSlug}
         </code>
-        <p style={{ margin: 0, fontSize: "0.75rem" }}>
-          (Componente FRD-04 — disponible cuando esa feature aterrice)
-        </p>
+        <p style={{ margin: 0, fontSize: "0.75rem" }}>No se pudo cargar el workspace.</p>
       </div>
     </section>
   );

@@ -33,11 +33,14 @@ import { isShellExempt } from "./shellScope";
 // Styles — CSS custom properties only (tokens); responsive bits live in globals.css
 // ---------------------------------------------------------------------------
 
-/** Centered column matching the pages' own max-width so the topbar aligns with content. */
-const OUTER_STYLE: React.CSSProperties = {
-  maxWidth: "72rem",
+/**
+ * The single page column — the prototype's `#pcapp` (max-width 1240px, centered, padding 24/20/60).
+ * It wraps the topbar AND the page content so both share one width; no per-page max-width drift.
+ */
+const APP_CONTAINER_STYLE: React.CSSProperties = {
+  maxWidth: "1240px",
   margin: "0 auto",
-  padding: "var(--space-base) var(--space-base) 0",
+  padding: "24px 20px 60px",
 };
 
 /** The rpgpanel topbar surface — the embossed pixel tile + dot grid (matches GuildBar / Panel). */
@@ -130,8 +133,10 @@ export function AppShell({ levelBar, proposalsBadge, children }: AppShellProps):
 
   if (exempt) {
     return (
-      <div id="main-content" tabIndex={-1}>
-        {children}
+      <div style={APP_CONTAINER_STYLE}>
+        <div id="main-content" tabIndex={-1}>
+          {children}
+        </div>
       </div>
     );
   }
@@ -142,7 +147,7 @@ export function AppShell({ levelBar, proposalsBadge, children }: AppShellProps):
         Saltar al contenido
       </a>
 
-      <div style={OUTER_STYLE}>
+      <div style={APP_CONTAINER_STYLE}>
         {/* <header> not inside a sectioning element → implicit ARIA role "banner" (no explicit role). */}
         <header data-app-shell data-testid="app-shell" style={TOPBAR_STYLE}>
           {/* Left — brand + guild identity (level/XP) */}
@@ -183,10 +188,10 @@ export function AppShell({ levelBar, proposalsBadge, children }: AppShellProps):
             </div>
           </div>
         </header>
-      </div>
 
-      <div id="main-content" tabIndex={-1}>
-        {children}
+        <div id="main-content" tabIndex={-1}>
+          {children}
+        </div>
       </div>
     </>
   );

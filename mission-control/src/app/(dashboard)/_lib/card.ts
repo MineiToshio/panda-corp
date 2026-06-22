@@ -18,6 +18,23 @@
 import { FRESHNESS_THRESHOLD_MS, STALENESS_THRESHOLD_DAYS } from "@/lib/constants";
 import type { Phase } from "@/lib/status/status";
 
+/**
+ * Below this age (in full days) a non-shipped project shows the neutral
+ * "Nd en fase" chip instead of staying silent — it is "young in phase", not
+ * stalled. Mirrors the prototype's `fase_dias < 5` branch (dashboardView, ~L719).
+ */
+const YOUNG_IN_PHASE_MAX_DAYS = 5;
+
+/** Map a Phase to its short Spanish display label (prototype `LBL`). */
+const PHASE_LABELS: Readonly<Record<Phase, string>> = {
+  product: "Producto",
+  design: "Diseño",
+  architecture: "Arquitectura",
+  implementation: "Implementación",
+  release: "Release",
+  operation: "Operación",
+};
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -73,6 +90,8 @@ export type CardData = {
   name: string;
   /** Current phase label. */
   phase: Phase;
+  /** Short Spanish phase label for display (e.g. "Implementación"). */
+  phaseLabel: string;
   /** Version string (e.g. "v1"). */
   version: string;
   /** Work-order progress. */
@@ -105,6 +124,12 @@ export type CardData = {
    * Shows "estable · en operación".
    */
   isShipped: boolean;
+  /**
+   * True when the project is non-shipped and has been in its current phase for
+   * fewer than YOUNG_IN_PHASE_MAX_DAYS. Drives the neutral "Nd en fase" chip
+   * (prototype's `fase_dias < 5` branch). Mutually exclusive with isStalled.
+   */
+  isYoungInPhase: boolean;
   /**
    * Inline blocker reason from the most recent failing/blocked WO.
    * Undefined when no WO is failing.
@@ -160,6 +185,23 @@ function deriveAgeDays(phaseStartedAt: string | undefined, nowMs: number): numbe
   return Math.floor(deltaMs / (24 * 60 * 60 * 1000));
 }
 
+/**
+ * Derive the mutually-exclusive freshness flags (AC-18-004.2).
+ * Only meaningful while the build is actively running; a non-running project is
+ * neither live nor no-signal.
+ */
+function deriveFreshness(
+  running: boolean,
+  lastEventAt: string | null | undefined,
+  nowMs: number,
+): { isLive: boolean; isNoSignal: boolean } {
+  if (!running) return { isLive: false, isNoSignal: false };
+  if (!lastEventAt) return { isLive: false, isNoSignal: true }; // no event yet → no-signal
+  const ageMs = nowMs - new Date(lastEventAt).getTime();
+  const isLive = Number.isFinite(ageMs) && ageMs < FRESHNESS_THRESHOLD_MS;
+  return { isLive, isNoSignal: !isLive };
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -197,30 +239,17 @@ export function deriveCard(input: CardInput): CardData {
   const nextCommand = PHASE_TO_COMMAND[phase] ?? CMD_REVIEW_LAUNCH;
 
   // --- Freshness flags (AC-18-004.2) ---
-  // Only meaningful while the build is actively running.
-  let isLive = false;
-  let isNoSignal = false;
-
-  if (running) {
-    if (!lastEventAt) {
-      // No event yet — treat as no-signal.
-      isNoSignal = true;
-    } else {
-      const lastMs = new Date(lastEventAt).getTime();
-      const ageMs = nowMs - lastMs;
-      if (Number.isFinite(ageMs) && ageMs < FRESHNESS_THRESHOLD_MS) {
-        isLive = true;
-      } else {
-        isNoSignal = true;
-      }
-    }
-  }
+  const { isLive, isNoSignal } = deriveFreshness(running, lastEventAt, nowMs);
 
   // --- Staleness flag (AC-18-004.3) ---
   const isStalled = ageInStageDays !== undefined && ageInStageDays > STALENESS_THRESHOLD_DAYS;
 
   // --- Shipped flag (AC-18-004.5) ---
   const isShipped = phase === "operation";
+
+  // --- Young-in-phase flag (prototype "Nd en fase" neutral chip) ---
+  const isYoungInPhase =
+    !isShipped && ageInStageDays !== undefined && ageInStageDays < YOUNG_IN_PHASE_MAX_DAYS;
 
   // --- Blocker reason (AC-18-004.4) — empty string normalised to undefined ---
   const blockerReason =
@@ -233,6 +262,7 @@ export function deriveCard(input: CardInput): CardData {
   return {
     name,
     phase,
+    phaseLabel: PHASE_LABELS[phase] ?? phase,
     version,
     woProgress,
     ageInStageDays,
@@ -241,6 +271,7 @@ export function deriveCard(input: CardInput): CardData {
     isNoSignal,
     isStalled,
     isShipped,
+    isYoungInPhase,
     blockerReason,
     lastEventAt: lastEventAtDisplay,
   };

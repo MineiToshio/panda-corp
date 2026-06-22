@@ -79,6 +79,18 @@ const FIXTURE_PAGES = [
   },
 ];
 
+// A page whose slug has NO bespoke React renderer in the registry, so DocReader
+// takes the markdown fallback path (DocH title + react-markdown body). Used by the
+// markdown-reader / title-heading tests so they assert the fallback path directly
+// (the real content slugs render bespoke composed React pages — the repaint).
+const FIXTURE_MD_PAGE = {
+  group: "concepts",
+  slug: "__fixture_markdown_only__",
+  title: "Página de prueba",
+  order: 99,
+  body: "# Página de prueba\n\nCuerpo de la página de prueba.",
+} as const;
+
 const FIXTURE_SKILLS = [
   {
     slug: "explore",
@@ -409,8 +421,8 @@ describe("AC-08-002.3 — selecting a page renders it in the reading area", () =
   it("DocReader renders authored markdown body when an authored page is active", () => {
     render(
       <DocReader
-        // biome-ignore lint/style/noNonNullAssertion: FIXTURE_PAGES[0] is always defined
-        activePage={{ type: "authored", page: FIXTURE_PAGES[0]! }}
+        // A slug with no bespoke React page → markdown fallback path.
+        activePage={{ type: "authored", page: FIXTURE_MD_PAGE }}
         skills={FIXTURE_SKILLS}
         agents={FIXTURE_AGENTS}
         rules={FIXTURE_RULES}
@@ -419,7 +431,7 @@ describe("AC-08-002.3 — selecting a page renders it in the reading area", () =
     );
     // The mock react-markdown renders children as text
     const output = screen.getByTestId("react-markdown-output");
-    expect(output.textContent).toContain("Cómo empezar");
+    expect(output.textContent).toContain("Página de prueba");
   });
 
   it("DocReader renders the commands Reference catalog view when commands page is active", () => {
@@ -735,8 +747,8 @@ describe("AC-08-002.4 — FRD-13 tokens, Spanish labels, keyboard nav, focus rin
   it("DocReader renders page title as a heading element", () => {
     render(
       <DocReader
-        // biome-ignore lint/style/noNonNullAssertion: FIXTURE_PAGES[0] is always defined
-        activePage={{ type: "authored", page: FIXTURE_PAGES[0]! }}
+        // Markdown-fallback page: the title renders as a DocH <h1> heading.
+        activePage={{ type: "authored", page: FIXTURE_MD_PAGE }}
         skills={FIXTURE_SKILLS}
         agents={FIXTURE_AGENTS}
         rules={FIXTURE_RULES}
@@ -746,6 +758,6 @@ describe("AC-08-002.4 — FRD-13 tokens, Spanish labels, keyboard nav, focus rin
     // The page title should appear as a heading
     const headings = screen.getAllByRole("heading");
     const texts = headings.map((h) => h.textContent);
-    expect(texts.some((t) => t?.includes("Cómo empezar"))).toBe(true);
+    expect(texts.some((t) => t?.includes("Página de prueba"))).toBe(true);
   });
 });

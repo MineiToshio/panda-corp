@@ -90,11 +90,46 @@ function lessonCommand(kind: "candidate-lesson" | "promotion" | "prune", lessonI
   return "/pandacorp:memory review";
 }
 
-/** Derive a human-readable title for a lesson-based card. */
+/** Fallback action title when a lesson has no usable body to title from. */
 function lessonTitle(kind: "candidate-lesson" | "promotion" | "prune"): string {
   if (kind === "promotion") return "Promover lección a estándar / regla / habilidad";
   if (kind === "prune") return "Depurar lección obsoleta o para reconciliar";
   return "Revisar lección candidata";
+}
+
+/** Max length of the derived lesson title before ellipsis (word-boundary safe). */
+const LESSON_TITLE_MAX = 120;
+
+/**
+ * Derive a clean, human-readable TITLE from a lesson body (PROP-04/05).
+ *
+ * Lesson bodies are markdown that open with `**Situation:** …` / `**Lesson:** …`
+ * sections. The actionable takeaway is the `**Lesson:**` sentence; we prefer it,
+ * fall back to the first sentence, strip markdown emphasis markers, collapse
+ * whitespace and truncate on a word boundary — never a raw mid-word `.slice()`.
+ */
+function deriveLessonTitle(body: string): string | null {
+  const normalized = body.replace(/\s+/g, " ").trim();
+  if (normalized === "") return null;
+
+  // Prefer the "Lesson:" takeaway; else the first sentence of the body.
+  const lessonMatch = normalized.match(/\*\*\s*Lesson\s*:?\s*\*\*\s*(.+?)(?:\*\*|$)/i);
+  const raw = (lessonMatch?.[1] ?? normalized)
+    // Strip markdown emphasis/inline-code markers, keep the words.
+    .replace(/\*\*|__|`/g, "")
+    // Drop a leading "Label:" prefix (e.g. "Situation:") if one survived.
+    .replace(/^[A-Za-zÁÉÍÓÚáéíóúñ ]{3,20}:\s*/, "")
+    .trim();
+
+  // First sentence only (up to the first sentence terminator).
+  const firstSentence = raw.split(/(?<=[.!?])\s/)[0]?.trim() ?? raw;
+  if (firstSentence === "") return null;
+
+  if (firstSentence.length <= LESSON_TITLE_MAX) return firstSentence;
+  // Truncate on a word boundary, never mid-word.
+  const cut = firstSentence.slice(0, LESSON_TITLE_MAX);
+  const lastSpace = cut.lastIndexOf(" ");
+  return `${(lastSpace > 40 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`;
 }
 
 // ---------------------------------------------------------------------------
@@ -211,7 +246,8 @@ function LessonCard({
   withCommand: boolean;
 }): React.JSX.Element {
   const command = lessonCommand(kind, lesson.id);
-  const title = lessonTitle(kind);
+  // PROP-04/05: show the lesson's TITLE (clean takeaway), not a raw body slice.
+  const title = deriveLessonTitle(lesson.body) ?? lessonTitle(kind);
   const meta = KIND_META[kind];
 
   return (
@@ -242,7 +278,10 @@ function LessonCard({
 
             {kind === "candidate-lesson" && <EvalGateChip evalGate={lesson.evalGate} />}
 
-            {kind === "promotion" && (
+            {/* Target/classification chip (PROP-06) — accent, "tipo · dominio"
+                (the real-data form of the prototype's "estándar · web-performance.md").
+                Shown for candidates and promotions, mirroring bPropCard's two-chip head. */}
+            {(kind === "candidate-lesson" || kind === "promotion") && (
               <Chip tone="accent">
                 <i
                   className="ti ti-arrow-up-right"
@@ -253,7 +292,7 @@ function LessonCard({
             )}
           </div>
 
-          {/* Title — the suggested action (plain language) */}
+          {/* Title — the lesson's clean takeaway (PROP-04/05), not a raw body slice */}
           <p
             data-testid="proposal-card-action"
             style={{
@@ -263,10 +302,10 @@ function LessonCard({
               color: "var(--color-text)",
             }}
           >
-            {lesson.body ? lesson.body.slice(0, 120) : title}
+            {title}
           </p>
 
-          {/* Evidence line (file-search icon + source text) */}
+          {/* Evidence line (file-search icon + source text) — PROP-06 */}
           {lesson.source && (
             <div
               style={{

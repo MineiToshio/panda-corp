@@ -29,6 +29,8 @@ import { CountBadge } from "@/components/core/CountBadge/CountBadge";
 import { DocHeading } from "@/components/core/DocHeading/DocHeading";
 import { Panel } from "@/components/core/Panel/Panel";
 import type { ActivityLog, DecisionPoint } from "@/lib/docs/activity";
+import type { SnapshotInfo } from "@/lib/snapshot/snapshot";
+import { SnapshotPanel } from "../snapshot-panel/snapshot-panel";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -49,6 +51,10 @@ export interface TabSummaryProps {
    * Used for the warning treatment (AC-04-004.1).
    */
   pendingDecisions: number;
+  /** Project slug — for the snapshot panel's worktree command (WS-2, prototype projResumen). */
+  slug?: string;
+  /** FRD-14 snapshot; null/absent when there is no last_green_sha (panel omitted). */
+  snapshot?: SnapshotInfo | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -468,6 +474,8 @@ export function TabSummary({
   activityLog,
   decisions,
   pendingDecisions,
+  slug = "",
+  snapshot = null,
 }: TabSummaryProps): React.JSX.Element {
   return (
     <main data-testid="tab-summary" aria-label="Resumen del proyecto" style={ROOT_STYLE}>
@@ -497,6 +505,9 @@ export function TabSummary({
           )}
         </div>
       </Panel>
+
+      {/* FRD-14 snapshot panel — inside Summary (WS-2, prototype projResumen); omitted when null */}
+      <SnapshotPanel slug={slug} snapshot={snapshot} />
 
       {/* AC-04-003.3 + AC-04-004.1 — decision points (prototype: decisionesBox()) */}
       <DecisionsBlock decisions={decisions} pendingDecisions={pendingDecisions} />

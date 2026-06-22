@@ -35,11 +35,13 @@
 import { OnboardingGate } from "@/app/_components/OnboardingGate/OnboardingGate";
 import { OrphansBanner } from "@/app/_components/orphans-banner/orphans-banner";
 import { PluginSyncBanner } from "@/app/_components/plugin-sync-banner/plugin-sync-banner";
+import { filterDigestEvents } from "@/app/_lib/digest";
 import { type PulseResult, pulse } from "@/app/_lib/pulse";
 import { type CardData, deriveCard } from "@/app/(dashboard)/_lib/card";
 import { buildTurnQueue, type TurnItem } from "@/app/(dashboard)/_lib/turn";
 import { Chip } from "@/components/core/Chip/Chip";
 import { PageTitle } from "@/components/core/PageTitle/PageTitle";
+import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import { Cartera } from "@/components/dashboard/Cartera/Cartera";
 import { DashboardLiveWatcher } from "@/components/dashboard/DashboardLiveWatcher/DashboardLiveWatcher";
 import { Progreso } from "@/components/dashboard/Progreso/Progreso";
@@ -71,10 +73,9 @@ import { listWorkOrders } from "@/lib/work-orders/work-orders";
 // Page layout styles (CSS custom properties only — FRD-13)
 // ---------------------------------------------------------------------------
 
+// Width/margin/padding now come from the single AppShell container (#pcapp, 1240px). The page only
+// owns its internal vertical rhythm.
 const PAGE_STYLE: React.CSSProperties = {
-  maxWidth: "72rem",
-  margin: "0 auto",
-  padding: "calc(var(--space-base) * 1.5) var(--space-base)",
   display: "flex",
   flexDirection: "column",
   gap: "calc(var(--space-base) * 1.5)",
@@ -259,6 +260,102 @@ function deriveGamification(
 }
 
 // ---------------------------------------------------------------------------
+// Gamification moments (prototype "Momentos de gamificación", ~L761-765)
+// ---------------------------------------------------------------------------
+
+/** Dashed "SOLO DEMO" frame (prototype `bDemo`) — tokens only. */
+const DEMO_FRAME_STYLE: React.CSSProperties = {
+  border: "1.5px dashed var(--color-border-strong)",
+  borderRadius: "var(--radius-md)",
+  padding: "10px 12px",
+  margin: "10px 0",
+};
+
+const DEMO_LABEL_STYLE: React.CSSProperties = {
+  fontFamily: "var(--font-pixel)",
+  fontSize: "9px",
+  letterSpacing: "0.06em",
+  color: "var(--color-base)",
+  background: "var(--color-warn)",
+  padding: "1px 7px",
+  borderRadius: "var(--radius-sm)",
+};
+
+const DEMO_BUTTON_STYLE: React.CSSProperties = {
+  padding: "8px 12px",
+  borderRadius: "var(--radius-sm)",
+  border: "1px solid var(--color-border-strong)",
+  background: "var(--color-card2)",
+  color: "var(--color-text)",
+  fontFamily: "var(--font-display)",
+  fontSize: "13px",
+};
+
+/**
+ * "Momentos de gamificación" — the honest demo strip.
+ *
+ * In the real app these moments fire AUTOMATICALLY on the milestone event (a
+ * product shipped · a level-up) via the globally-mounted CelebrationWatcher
+ * (app/layout.tsx) — never from a button (DR-061). This section reproduces the
+ * prototype's `bDemo` frame as a faithful visual demonstration; the buttons are
+ * non-interactive preview affordances (the page is a read-only Server Component).
+ */
+function GamificationMoments(): React.JSX.Element {
+  return (
+    <section aria-label="Momentos de gamificación" data-testid="gamification-moments">
+      <SectionHead icon="ti-sparkles" label="Momentos de gamificación" />
+      <p style={{ fontSize: "12px", color: "var(--color-text2)", margin: "0 2px 8px" }}>
+        <i
+          className="ti ti-info-circle"
+          aria-hidden="true"
+          style={{ fontSize: "13px", verticalAlign: "-2px", color: "var(--color-accent-text)" }}
+        />{" "}
+        En la app real estos momentos se disparan <b style={{ fontWeight: 500 }}>automáticamente</b>{" "}
+        al cumplirse el hito (un proyecto lanzado · subir de nivel), no con un botón. Los de abajo
+        son solo para previsualizar el efecto.
+      </p>
+      <div style={DEMO_FRAME_STYLE}>
+        <div style={{ display: "flex", alignItems: "center", gap: "7px", marginBottom: "7px" }}>
+          <span style={DEMO_LABEL_STYLE}>SOLO DEMO</span>
+          <span style={{ fontSize: "11px", color: "var(--color-text3)" }}>
+            En la app real esto NO tiene botón: la celebración la dispara /pandacorp:release
+            (producto lanzado) y el level-up se dispara solo al cruzar un umbral de XP.
+          </span>
+        </div>
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            disabled
+            title="En la app real la dispara /pandacorp:release automáticamente"
+            style={DEMO_BUTTON_STYLE}
+          >
+            <i
+              className="ti ti-rocket"
+              aria-hidden="true"
+              style={{ fontSize: "14px", verticalAlign: "-2px", color: "var(--color-ok)" }}
+            />{" "}
+            Previsualizar celebración de release
+          </button>
+          <button
+            type="button"
+            disabled
+            title="En la app real se dispara solo al cruzar un umbral de XP"
+            style={DEMO_BUTTON_STYLE}
+          >
+            <i
+              className="ti ti-arrow-up-circle"
+              aria-hidden="true"
+              style={{ fontSize: "14px", verticalAlign: "-2px", color: "var(--color-accent-text)" }}
+            />{" "}
+            Previsualizar «¡Subiste de nivel!»
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // HomePage — Server Component (default export, route `/`)
 // ---------------------------------------------------------------------------
 
@@ -276,7 +373,9 @@ export default function HomePage(): React.JSX.Element {
   // ── 1. Read the live data layers (all read-only) ────────────────────────
 
   const eventsSnapshot = readEvents();
-  const events = eventsSnapshot.events;
+  // Drop infra/live-stream noise (SubagentStop/SupervisorTick/AgentWorking) so the "since last visit"
+  // digest shows milestone changes, not thousands of SubagentStop rows (coherence, prototype digest).
+  const events = filterDigestEvents(eventsSnapshot.events);
   const projects = activeProjects();
   const ideas = readIdeas();
   const memHealth = memoryHealth();
@@ -359,6 +458,10 @@ export default function HomePage(): React.JSX.Element {
         recentAchievement={recentAchievement}
         nextMilestone={nextMilestone}
       />
+
+      {/* ── Section 7: Momentos de gamificación (prototype demo strip) ── */}
+      {/* The real celebrations auto-fire via CelebrationWatcher (layout.tsx). */}
+      <GamificationMoments />
     </main>
   );
 }

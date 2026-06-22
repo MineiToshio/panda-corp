@@ -37,8 +37,16 @@ const APP_ROOT = path.resolve(__dirname, "../..");
 // Tutorial (Empezar aquí) — at least one entry point
 const REQUIRED_TUTORIAL_SLUGS = ["como-empezar"];
 
-// Guides (Guías) — operation + build + handoff
-const REQUIRED_GUIDE_SLUGS = ["operacion-diaria", "como-se-construye", "handoff"];
+// Guides (Guías) — the prototype's 7 how-to guides (FRD-08 re-anchor).
+const REQUIRED_GUIDE_SLUGS = [
+  "g-capturar",
+  "g-handoff",
+  "g-modo",
+  "g-feedback",
+  "g-probar",
+  "g-traspaso",
+  "g-plugin",
+];
 
 // Concepts (Conceptos) — explanatory quadrant
 const REQUIRED_CONCEPT_SLUGS = [
@@ -114,29 +122,29 @@ describe("AC-08-005.1 + AC-08-005.2 — required page slugs are present and inde
     expect(body.toLowerCase()).toMatch(/pandacorp|fábrica|factory|instala|primer/);
   });
 
-  it("guide 'operacion-diaria' covers daily operation concepts", () => {
+  it("guide 'g-feedback' covers the bug/iterate/decide channels", () => {
     const pages = getPages();
-    const page = pages.find((p) => p.slug === "operacion-diaria");
-    expect(page, "operacion-diaria page not found").toBeDefined();
+    const page = pages.find((p) => p.slug === "g-feedback");
+    expect(page, "g-feedback page not found").toBeDefined();
     const body = page?.body ?? "";
-    // Should mention skills / commands in the context of daily use
-    expect(body.toLowerCase()).toMatch(/skill|comando|diaria|operac/i);
+    // Should mention the feedback channels available while a build runs.
+    expect(body.toLowerCase()).toMatch(/bug|iterate|decid|canal|agente/i);
   });
 
-  it("guide 'como-se-construye' covers the build pipeline / implement", () => {
+  it("guide 'g-modo' covers the build modes / implement", () => {
     const pages = getPages();
-    const page = pages.find((p) => p.slug === "como-se-construye");
-    expect(page, "como-se-construye page not found").toBeDefined();
+    const page = pages.find((p) => p.slug === "g-modo");
+    expect(page, "g-modo page not found").toBeDefined();
     const body = page?.body ?? "";
-    expect(body.toLowerCase()).toMatch(/implement|build|construi|pipeline/i);
+    expect(body.toLowerCase()).toMatch(/implement|modo|construi|balanced|powerful/i);
   });
 
-  it("guide 'handoff' covers how to hand off to another person", () => {
+  it("guide 'g-traspaso' covers how to hand off to another person", () => {
     const pages = getPages();
-    const page = pages.find((p) => p.slug === "handoff");
-    expect(page, "handoff page not found").toBeDefined();
+    const page = pages.find((p) => p.slug === "g-traspaso");
+    expect(page, "g-traspaso page not found").toBeDefined();
     const body = page?.body ?? "";
-    expect(body.toLowerCase()).toMatch(/persona|hand.?off|transfier|otra/i);
+    expect(body.toLowerCase()).toMatch(/persona|traspas|hand.?off|retomar|otra/i);
   });
 
   it("concept 'que-es-pandacorp' covers what the factory is", () => {

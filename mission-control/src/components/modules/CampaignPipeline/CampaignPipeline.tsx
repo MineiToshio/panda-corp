@@ -136,6 +136,29 @@ const BRIDGES: ReadonlyArray<BridgeDesc> = [
   { fromIdx: 4, orientation: "h", left: 268, top: 395, width: 67, height: 16 },
 ];
 
+/**
+ * Deliverable label per bridge source phase (emoji + short name), faithful to
+ * the prototype conn()/PHASES `emo` + `deliver` (party-pipeline.html L172-191).
+ * Index = source phase (0–4); the bridge carries the deliverable that phase ships.
+ */
+const BRIDGE_DELIVERABLE: ReadonlyArray<readonly [string, string]> = [
+  ["🔍", "research.md"],
+  ["📋", "PRD + FRDs"],
+  ["🎨", "sistema + mocks"],
+  ["📐", "blueprint + Build Plan"],
+  ["⚒️", "el código"],
+];
+
+/**
+ * Delivery state of a bridge, by its source phase index vs the active phase:
+ *   fromIdx < active-1 → done (✓) · fromIdx === active-1 → flow (→) · else locked.
+ */
+function bridgeDeliverState(fromIdx: number, activePhase: number): "done" | "flow" | "locked" {
+  if (fromIdx === activePhase - 1) return "flow";
+  if (fromIdx < activePhase - 1) return "done";
+  return "locked";
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -670,20 +693,27 @@ export function CampaignPipeline({
 
       {/* Stage — 920×560 dark pixel-art canvas */}
       <div data-testid="campaign-stage" style={STAGE_STYLE} data-party-stage="campana">
-        {/* 5 StoneBridge connectors between rooms */}
-        {BRIDGES.map((bridge) => (
-          <StoneBridge
-            key={`bridge-${bridge.fromIdx}`}
-            orientation={bridge.orientation}
-            flow={bridge.fromIdx === activePhase - 1}
-            style={{
-              left: bridge.left,
-              top: bridge.top,
-              width: bridge.width,
-              height: bridge.height,
-            }}
-          />
-        ))}
+        {/* 5 StoneBridge connectors between rooms — each carries its deliverable label */}
+        {BRIDGES.map((bridge) => {
+          const deliverable = BRIDGE_DELIVERABLE[bridge.fromIdx];
+          const deliverState = bridgeDeliverState(bridge.fromIdx, activePhase);
+          return (
+            <StoneBridge
+              key={`bridge-${bridge.fromIdx}`}
+              orientation={bridge.orientation}
+              flow={bridge.fromIdx === activePhase - 1}
+              deliverableEmoji={deliverable?.[0]}
+              deliverableLabel={deliverable?.[1]}
+              deliverableState={deliverState}
+              style={{
+                left: bridge.left,
+                top: bridge.top,
+                width: bridge.width,
+                height: bridge.height,
+              }}
+            />
+          );
+        })}
 
         {/* 6 Phase Rooms */}
         {PHASES.map((phase, index) => (

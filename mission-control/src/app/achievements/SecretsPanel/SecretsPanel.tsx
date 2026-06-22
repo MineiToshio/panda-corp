@@ -21,6 +21,7 @@
  * Source-of-truth hierarchy: FRD > FDD > design-tokens > blueprint > work order
  */
 
+import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import type { Secret } from "@/lib/achievements/achievements";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -208,19 +209,11 @@ export function SecretsPanel({ secrets }: SecretsPanelProps): React.JSX.Element 
         gap: 0,
       }}
     >
-      {/* Section heading */}
-      <h2
-        style={{
-          fontSize: "1rem",
-          fontWeight: 600,
-          color: "var(--color-text)",
-          opacity: 0.7,
-          marginBottom: "calc(var(--space-base) * 0.75)",
-          textTransform: "uppercase",
-          letterSpacing: "0.05em",
-        }}
-      >
-        Logros secretos
+      {/* Section heading — THE canonical SectionHead (LOG-03). Prototype
+          logrosTrofeos(): secthead("ti-help","Secretos",N). Wrapped in an <h2>
+          (margin:0) to keep the heading landmark; SectionHead drives the visuals. */}
+      <h2 style={{ margin: 0 }}>
+        <SectionHead icon="ti-help" label="Secretos" count={secrets.length} />
       </h2>
 
       {/* Secret items list */}

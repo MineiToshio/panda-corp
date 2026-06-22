@@ -29,10 +29,13 @@ import { AgentDetail } from "@/app/configuration/AgentDetail";
 import { AgentList } from "@/app/configuration/AgentList";
 import { SkillsSection } from "@/app/configuration/SkillsSection";
 import { StandardsSection } from "@/app/configuration/StandardsSection/StandardsSection";
+import { DocH } from "@/components/modules/manual-diagrams/DocH";
 import type { AgentLevelResult } from "@/lib/gamification/agents";
+import type { ManualPage } from "@/lib/manual/manual";
 import type { AgentRef, SkillRef } from "@/lib/reference/reference";
 import type { DecisionRule } from "@/lib/registry/registry";
 import type { Standard } from "@/lib/standards/standards";
+import { getManualPageComponent } from "./manualPages";
 import type { ReaderActivePage } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -80,13 +83,6 @@ const EMPTY_STYLE: React.CSSProperties = {
   opacity: 0.45,
   fontSize: "0.9375rem",
   gap: "calc(var(--space-base, 1rem) * 0.5)",
-};
-
-const PAGE_TITLE_STYLE: React.CSSProperties = {
-  fontSize: "1.5rem",
-  fontWeight: 700,
-  marginBottom: "calc(var(--space-base, 1rem) * 1.5)",
-  color: "var(--color-text, currentColor)",
 };
 
 // ---------------------------------------------------------------------------
@@ -141,6 +137,30 @@ const PROSE_STYLE: React.CSSProperties = {
   fontSize: "0.9375rem",
 };
 
+/**
+ * Render an authored page body.
+ *
+ * Faithful path: a bespoke React page registered for the slug (composed UI that
+ * mirrors the prototype — DocH + Panel cards + CmdRow + chips + concept diagrams).
+ * Fallback path: the markdown reader (a DocH-styled title + react-markdown body),
+ * so authored pages without a bespoke layout still render and their body still
+ * reaches the reader.
+ */
+function AuthoredBody({ page }: { page: ManualPage }): React.JSX.Element {
+  const Bespoke = getManualPageComponent(page.slug);
+  if (Bespoke !== null) {
+    return <Bespoke />;
+  }
+  return (
+    <>
+      <DocH title={page.title} level={1} />
+      <div style={PROSE_STYLE}>
+        <ReactMarkdown>{page.body}</ReactMarkdown>
+      </div>
+    </>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // DocReader
 // ---------------------------------------------------------------------------
@@ -163,12 +183,13 @@ export function DocReader({
           <span>Selecciona una página del menú para leerla</span>
         </div>
       ) : activePage.type === "authored" ? (
-        /* Authored page — AC-08-002.3: render via react-markdown */
+        /* Authored page — AC-08-002.3.
+           Faithful path: if the slug has a bespoke React page in the registry
+           (the prototype-faithful composed layout: DocH + Panel cards + CmdRow +
+           chips + concept diagrams), render it. Otherwise fall back to the
+           markdown reader (authored pages without a bespoke layout still render). */
         <article data-testid="doc-reader-authored">
-          <h1 style={PAGE_TITLE_STYLE}>{activePage.page.title}</h1>
-          <div style={PROSE_STYLE}>
-            <ReactMarkdown>{activePage.page.body}</ReactMarkdown>
-          </div>
+          <AuthoredBody page={activePage.page} />
         </article>
       ) : (
         /* Reference catalog view — AC-08-002.3: render derived catalog by REUSING

@@ -33,6 +33,42 @@ const LAST_24H_MS = 24 * 60 * 60 * 1000;
 const MAX_NEW_EVENTS = 20;
 
 /**
+ * Event types that are pure infrastructure / live-stream noise — excluded from the "since last visit"
+ * digest. The real `dashboard-events.ndjson` is dominated by these (thousands of SubagentStop +
+ * SupervisorTick + AgentWorking); surfacing them floods the digest with meaningless "SubagentStop ·
+ * mission-control" rows instead of the milestone changes the prototype's digest shows.
+ */
+const DIGEST_NOISE_EVENTS: ReadonlySet<string> = new Set([
+  "SubagentStop", // Claude runtime per-subagent stop — not a factory milestone
+  "SupervisorTick", // supervisor heartbeat
+  "AgentWorking", // fine-grained "agent is working on WO X" — belongs to the live Party, not the digest
+]);
+
+/** Keep only digest-worthy (milestone) events — drops the high-volume infra / live-stream noise. */
+export function filterDigestEvents(events: readonly Event[]): Event[] {
+  return events.filter((ev) => !DIGEST_NOISE_EVENTS.has(ev.event));
+}
+
+/** Spanish, human-readable labels for the milestone event types (UI copy is Spanish, architecture §7). */
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  ReviewVerdict: "Veredicto de revisión",
+  ReviewDone: "Revisión terminada",
+  GateVerdict: "Veredicto del gate",
+  GateResult: "Resultado del gate",
+  BuildLaunch: "Construcción iniciada",
+  BuildComplete: "Construcción completada",
+  BuildRelaunch: "Construcción relanzada",
+  AgentDone: "Agente completó su trabajo",
+  AgentFinding: "Hallazgo de un agente",
+  TaskCreated: "Tarea creada",
+};
+
+/** Human label for an event: a Spanish milestone label, falling back to the raw type. */
+export function eventLabel(event: Event): string {
+  return EVENT_TYPE_LABELS[event.event] ?? event.event;
+}
+
+/**
  * A single change-framed item in the digest.
  *
  * - `event`        — the source Event.

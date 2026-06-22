@@ -32,6 +32,7 @@
 
 import { useState } from "react";
 import { ItemSlot } from "@/components/core/ItemSlot/ItemSlot";
+import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import { SubTabs } from "@/components/core/Tabs/Tabs";
 import type { Unique } from "@/lib/achievements/achievements";
 import type { UniqueCategory } from "@/lib/achievements/predicates";
@@ -318,20 +319,15 @@ function CategoryGroup({
       aria-label={`Categoría ${CATEGORY_LABELS[category]}`}
       style={hidden ? { display: "none" } : undefined}
     >
-      <h3
-        data-testid={`uniques-category-heading-${category}`}
-        style={{
-          fontSize: "10px",
-          fontFamily: "var(--font-pixel)",
-          color: "var(--color-text3)",
-          textTransform: "uppercase",
-          letterSpacing: "0.05em",
-          marginBottom: "8px",
-          fontWeight: 600,
-        }}
-      >
-        {CATEGORY_LABELS[category]}
-      </h3>
+      {/* Category heading — THE canonical SectionHead (LOG-03): accent icon +
+          label + rule + count. Wrapped to keep the AC-10-007.1 heading testid. */}
+      <div data-testid={`uniques-category-heading-${category}`}>
+        <SectionHead
+          icon={CATEGORY_ICONS[category]}
+          label={CATEGORY_LABELS[category]}
+          count={uniques.length}
+        />
+      </div>
 
       <ul
         style={{

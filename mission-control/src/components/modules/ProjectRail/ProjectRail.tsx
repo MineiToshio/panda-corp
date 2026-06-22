@@ -226,6 +226,16 @@ const STAGE_LINE_STYLE: React.CSSProperties = {
   marginLeft: "22px",
 };
 
+/** Spanish phase labels (UI copy in Spanish, architecture §7) — never show the raw English phase. */
+const PHASE_LABELS: Record<string, string> = {
+  product: "Producto",
+  design: "Diseño",
+  architecture: "Arquitectura",
+  implementation: "En construcción",
+  release: "Lanzamiento",
+  operation: "Operación",
+};
+
 /** Status icon: ok (play) / text3 (pause). */
 const ICON_RUNNING_STYLE: React.CSSProperties = {
   fontSize: "14px",
@@ -447,7 +457,7 @@ function ProjectRow({ item }: { item: ProjectListItem }): React.JSX.Element {
         {/* Stage chip */}
         {stage !== undefined && (
           <span data-testid="project-rail-row-stage" style={CHIP_STYLE} title={`Fase: ${stage}`}>
-            {stage}
+            {PHASE_LABELS[stage] ?? stage}
           </span>
         )}
 
@@ -578,7 +588,7 @@ function SelectableRow({
         {/* Stage line — second line below icon+title, indented (prototype stage label) */}
         {item.stage !== undefined && (
           <div data-testid="selectable-row-stage" style={STAGE_LINE_STYLE}>
-            {item.stage}
+            {PHASE_LABELS[item.stage] ?? item.stage}
           </div>
         )}
 

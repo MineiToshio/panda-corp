@@ -214,7 +214,8 @@ describe("ProjectRail — row rendering", () => {
   it("renders project-rail-row-stage with the stage", () => {
     render(<ProjectRail items={[IMPL_ITEM]} />);
     const stage = screen.getByTestId("project-rail-row-stage");
-    expect(stage.textContent).toMatch(/implementation/i);
+    // UI copy is Spanish (architecture §7) — the phase label is localized, the raw phase is in title.
+    expect(stage.textContent).toMatch(/construcción/i);
   });
 
   it("renders project-rail-row-indicator for building (running=true)", () => {
@@ -269,20 +270,20 @@ describe("ProjectRail — stage chip", () => {
   it("renders stage chip for architecture", () => {
     render(<ProjectRail items={[ARCH_ITEM]} />);
     const chip = screen.getByTestId("project-rail-row-stage");
-    expect(chip.textContent).toMatch(/architecture/i);
+    expect(chip.textContent).toMatch(/Arquitectura/i);
   });
 
   it("renders stage chip for operation", () => {
     render(<ProjectRail items={[OPERATION_ITEM]} />);
     const chip = screen.getByTestId("project-rail-row-stage");
-    expect(chip.textContent).toMatch(/operation/i);
+    expect(chip.textContent).toMatch(/Operación/i);
   });
 
   it("renders stage chip for release", () => {
     const releaseItem = makeItem({ name: "r", stage: "release", running: true });
     render(<ProjectRail items={[releaseItem]} />);
     const chip = screen.getByTestId("project-rail-row-stage");
-    expect(chip.textContent).toMatch(/release/i);
+    expect(chip.textContent).toMatch(/Lanzamiento/i);
   });
 });
 

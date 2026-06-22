@@ -29,6 +29,8 @@
  */
 
 import type { AgentRole } from "@/app/_design/tokens/tokens";
+import { Chip } from "@/components/core/Chip/Chip";
+import { PageTitle } from "@/components/core/PageTitle/PageTitle";
 import { GuildHero } from "@/components/modules/GuildHero/GuildHero";
 import { computeChains, computeSecrets, computeUniques } from "@/lib/achievements/achievements";
 import type { ReaderData } from "@/lib/achievements/stats";
@@ -78,9 +80,13 @@ export default async function HallPage(): Promise<React.JSX.Element> {
   // ── GuildHero stats ───────────────────────────────────────────────────────
   const shippedStat = statsRows.find((s) => s.key === "shipped");
   const streakStat = statsRows.find((s) => s.key === "streak");
+  const speedStat = statsRows.find((s) => s.key === "speed");
   const statsLanzados = shippedStat?.value ?? 0;
   const statsRacha = streakStat?.value ?? 0;
-  const statsVelocidad = 0;
+  // Récord idea→launch (días, lower-is-better): the honest "speed" stat computed by
+  // computeStats() from speed:<days> achievement events. 0 = no record yet (null state),
+  // never a fabricated value (FRD-10 honesty contract). Same source the Estadísticas tab uses.
+  const statsVelocidad = speedStat?.value ?? 0;
 
   const trophiesCount = uniques.filter((u) => u.unlocked).length;
   const trophiesTotal = uniques.length;
@@ -103,17 +109,15 @@ export default async function HallPage(): Promise<React.JSX.Element> {
         padding: "var(--space-base)",
       }}
     >
-      {/* ── Page heading (h1 — DR-062) ───────────────────────────────────── */}
-      <h1
-        style={{
-          fontSize: "1.5rem",
-          fontWeight: 700,
-          color: "var(--color-text)",
-          marginBottom: "calc(var(--space-base) * 1)",
-        }}
-      >
-        Logros
-      </h1>
+      {/* ── Page heading — THE one light PageTitle block (DR-062, LOG-01) ──
+          Mirrors prototype logrosView()/pageHead(): ti-award icon + H1 "Logros" +
+          subtitle "El salón del gremio · …" + tail = warn Chip "N hazañas". */}
+      <PageTitle
+        icon="ti-award"
+        title="Logros"
+        subtitle="El salón del gremio · tus hazañas, misiones, trofeos y la hoja de personaje de la fábrica."
+        tail={<Chip tone="warn">{`${featsCount} hazañas`}</Chip>}
+      />
 
       {/* ── GuildHero character-sheet (AC-09-003.1..3, AC-09-004.1..5) ─────*/}
       <GuildHero

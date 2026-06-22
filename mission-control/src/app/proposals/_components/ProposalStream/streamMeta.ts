@@ -22,6 +22,8 @@ export type StreamMeta = {
   emptyMessage: string;
 };
 
+// Group labels mirror the prototype propuestasView() bPropGroup calls EXACTLY
+// (index.html ~L1420-1423) — PROP-03. Do not reword: the labels are the contract.
 export const STREAM_META: Record<StreamKind, StreamMeta> = {
   "candidate-lesson": {
     label: "Lecciones candidatas",
@@ -30,18 +32,18 @@ export const STREAM_META: Record<StreamKind, StreamMeta> = {
     emptyMessage: "El gremio está al día — no hay lecciones candidatas pendientes.",
   },
   promotion: {
-    label: "Propuestas de promoción",
+    label: "Promociones esperando tu aprobación",
     description:
       "Lecciones activas en ≥2 proyectos propuestas para convertirse en estándar, regla o habilidad.",
     emptyMessage: "La crónica está tranquila — no hay lecciones pendientes de promoción.",
   },
   prune: {
-    label: "Propuestas de depuración",
+    label: "Lecciones obsoletas / para podar",
     description: "Lecciones marcadas para reconciliar o archivar por `/pandacorp:memory review`.",
     emptyMessage: "La biblioteca del gremio está limpia — no hay lecciones para depurar.",
   },
   "self-suggestion": {
-    label: "Sugerencias automáticas",
+    label: "Auto-sugerencias de Mission Control",
     description:
       "Oportunidades detectadas localmente por Mission Control desde los datos que ya lee (sin llamadas a Claude).",
     emptyMessage: "Todo en orden — el gremio no detectó cuellos de botella ni alertas.",

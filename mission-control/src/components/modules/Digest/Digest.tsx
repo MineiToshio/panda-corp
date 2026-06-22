@@ -22,7 +22,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { computeDigest, type DigestItem } from "@/app/_lib/digest";
+import { computeDigest, type DigestItem, eventLabel } from "@/app/_lib/digest";
 import { Chip } from "@/components/core/Chip/Chip";
 import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import type { Event } from "@/lib/events/events";
@@ -78,6 +78,45 @@ function withUniqueKeys(items: readonly DigestItem[]): { item: DigestItem; key: 
 }
 
 // ---------------------------------------------------------------------------
+// Event → Tabler icon + color (prototype `evCard` uses the EVENT's own icon/color)
+// ---------------------------------------------------------------------------
+
+interface EventVisual {
+  icon: string;
+  color: string;
+}
+
+/**
+ * Derive the Tabler icon + color token for an event (prototype `evCard`, ~L670:
+ * the event renders with ITS OWN icon coloured by `e.fg`, never a neutral dot).
+ *
+ * The app's `Event` is a free-form `{ event, status?, ... }`, so we map by the
+ * failure flag first, then by well-known event-name shapes, with an accent bolt
+ * fallback (the prototype's default for simulated/unknown events).
+ */
+function eventVisual(event: Event): EventVisual {
+  if (event.status === "fail" || /fail|error|reject/i.test(event.event)) {
+    return { icon: "ti-alert-triangle", color: "var(--color-danger)" };
+  }
+  if (/complet|closed|done|pass|green/i.test(event.event)) {
+    return { icon: "ti-checkbox", color: "var(--color-ok)" };
+  }
+  if (/phase|transition|advanc|stage|moved/i.test(event.event)) {
+    return { icon: "ti-arrow-right", color: "var(--color-info)" };
+  }
+  if (/lesson|memory|harvest/i.test(event.event)) {
+    return { icon: "ti-brain", color: "var(--color-accent-text)" };
+  }
+  if (/decision|decide|queued/i.test(event.event)) {
+    return { icon: "ti-coin", color: "var(--color-warn)" };
+  }
+  if (/ship|release|launch/i.test(event.event)) {
+    return { icon: "ti-rocket", color: "var(--color-ok)" };
+  }
+  return { icon: "ti-bolt", color: "var(--color-accent-text)" };
+}
+
+// ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
 
@@ -89,13 +128,15 @@ interface DigestItemRowProps {
  * A single event card in the digest wrap-row.
  *
  * Visual contract: prototype `evCard()` (index.html ~L670) — a compact card
- * (icon + title line + sub·ago) that flows in a `flex-wrap` row, NOT a stacked
- * full-width list item. New cards carry an accent border; al-día (dimmed) cards
- * use the neutral border at reduced opacity. `flex-1 min-w-[210px]` lets cards
- * grow to fill the row and wrap once they fall below the min width.
+ * (the EVENT's Tabler icon coloured by its tone + title line + sub·ago) that
+ * flows in a `flex-wrap` row, NOT a stacked full-width list item. New cards
+ * carry an accent border; al-día (dimmed) cards use the neutral border at
+ * reduced opacity. `flex-1 min-w-[210px]` lets cards grow to fill the row and
+ * wrap once they fall below the min width.
  */
 function DigestItemRow({ item }: DigestItemRowProps): React.JSX.Element {
   const { event, isNew, relativeLabel } = item;
+  const visual = eventVisual(event);
 
   return (
     <li
@@ -108,15 +149,16 @@ function DigestItemRow({ item }: DigestItemRowProps): React.JSX.Element {
       ].join(" ")}
       aria-label={`${event.event}${event.project ? ` en ${event.project}` : ""}, ${relativeLabel}`}
     >
-      {/* Event marker — accent dot for new, neutral for dimmed (icon stand-in) */}
-      <span
-        className={["h-2 w-2 shrink-0 rounded-full", isNew ? "bg-accent" : "bg-text3"].join(" ")}
+      {/* Event marker — the EVENT's Tabler icon, coloured by its tone (not a dot) */}
+      <i
+        className={`ti ${visual.icon} shrink-0`}
         aria-hidden="true"
+        style={{ fontSize: "17px", color: visual.color }}
       />
 
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium leading-tight">
-          {event.event}
+          {eventLabel(event)}
           {event.project && <span className="ml-1 font-normal opacity-70">· {event.project}</span>}
         </p>
         <p className="mt-0.5 truncate text-xs opacity-60">{relativeLabel}</p>

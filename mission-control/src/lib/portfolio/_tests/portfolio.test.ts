@@ -655,3 +655,56 @@ describe("frd-01: readPortfolio — required field invariant: name and path alwa
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Regression: the REAL portfolio.md is gitignored → Spanish (DR-009). The parser
+// must recognize Spanish headers AND clean a backticked/prose path cell, or
+// readPortfolio() returns [] and Portfolio / Workspace / Party all go dark.
+// ---------------------------------------------------------------------------
+
+describe("Spanish-header portfolio (real-file shape, DR-009)", () => {
+  const SPANISH = [
+    "# Portfolio Pandacorp",
+    "",
+    "| Proyecto | Ruta | Repo | Idea origen | Fase | Usuarios | Retorno | Veredicto | Última sync |",
+    "|---|---|---|---|---|---|---|---|---|",
+    "| Pandacorp (Mission Control) | `mission-control/` (dentro de la fábrica — es su interfaz) | — | conversación de diseño | arquitectura | — | — (herramienta interna) | — | 2026-06-13 |",
+    "| Quick Notes | `~/Proyectos/quick-notes` | https://github.com/x/y | idea-origin | lanzada | 1.2k | $340/mes | double-down | 2026-06-09 |",
+    "",
+  ].join("\n");
+
+  /** Parse SPANISH and narrow the two expected rows (strict `noUncheckedIndexedAccess`). */
+  function parseTwo(): { mc: PortfolioEntry; qn: PortfolioEntry } {
+    const [mc, qn] = readPortfolio(SPANISH) as PortfolioEntry[];
+    if (!mc || !qn) throw new Error("expected two Spanish portfolio entries");
+    return { mc, qn };
+  }
+
+  it("recognizes the Spanish header row and returns every project (not [])", () => {
+    const entries = readPortfolio(SPANISH) as PortfolioEntry[];
+    expect(entries).toHaveLength(2);
+    expect(entries.map((e) => e.name)).toEqual(["Pandacorp (Mission Control)", "Quick Notes"]);
+  });
+
+  it("cleans a backticked path cell with trailing prose to the bare path", () => {
+    expect(parseTwo().mc.path).toBe("mission-control");
+  });
+
+  it("maps the Spanish business columns (Usuarios/Retorno/Veredicto/Última sync)", () => {
+    const { qn } = parseTwo();
+    expect(qn.path).toBe("~/Proyectos/quick-notes");
+    expect(qn.phase).toBe("lanzada");
+    expect(qn.users).toBe("1.2k");
+    expect(qn.returnMetric).toBe("$340/mes");
+    expect(qn.verdict).toBe("double-down");
+    expect(qn.lastSync).toBe("2026-06-09");
+    expect(qn.repo).toBe("https://github.com/x/y");
+  });
+
+  it("normalizes the em-dash placeholder cells to undefined", () => {
+    const { mc } = parseTwo();
+    expect(mc.repo).toBeUndefined();
+    expect(mc.verdict).toBeUndefined();
+    expect(mc.originIdea).toBe("conversación de diseño");
+  });
+});

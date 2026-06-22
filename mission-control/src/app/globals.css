@@ -123,6 +123,14 @@
 
 :root {
   color-scheme: dark light; /* dark is the prototype's default */
+
+  /* Compatibility aliases — some components reference token names that were never declared
+     (they fell back to `currentColor` / `Canvas`, breaking fidelity). Map each to its real
+     prototype token here, in one place, so they cascade correctly across light/dark. */
+  --color-text-muted: var(--color-text3);
+  --color-canvas: var(--color-base);
+  --color-border2: var(--color-border-strong);
+  --color-surface-panel: var(--color-card);
 }
 
 html {
@@ -155,7 +163,7 @@ h3 {
   --color-surface: #fefdfa;
   --color-text: #25211b;
   --color-text2: #5c5751;
-  --color-text3: #736e67;
+  --color-text3: #6a655e;
   --color-contrast: #25211b;
   --color-border: #e0deda;
   --color-border-strong: #c1bdb7;
@@ -165,20 +173,20 @@ h3 {
   --color-on-accent: #fefcf4;
   --color-ok: #177c49;
   --color-ok-bg: #defae6;
-  --color-warn: #a36d24;
+  --color-warn: #8a5a18;
   --color-warn-bg: #ffeecd;
   --color-danger: #be3029;
   --color-danger-bg: #ffe8e3;
   --color-info: #1c719a;
   --color-info-bg: #dff6ff;
-  --color-cat-1: #3e8343;
+  --color-cat-1: #2f7235;
   --color-cat-2: #784db6;
   --color-cat-3: #bf397a;
   --color-cat-4: #006bbb;
   --color-cat-5: #008081;
-  --color-cat-6: #0086be;
+  --color-cat-6: #0077a8;
   --color-cat-7: #bb731b;
-  --color-cat-8: #158561;
+  --color-cat-8: #0e7050;
   --color-cat-9: #c83b32;
   --color-tier-1: #757b81;
   --color-tier-2: #1c8742;
@@ -204,7 +212,7 @@ h3 {
     --color-surface: #fefdfa;
     --color-text: #25211b;
     --color-text2: #5c5751;
-    --color-text3: #736e67;
+    --color-text3: #6a655e;
     --color-contrast: #25211b;
     --color-border: #e0deda;
     --color-border-strong: #c1bdb7;
@@ -214,17 +222,29 @@ h3 {
     --color-on-accent: #fefcf4;
     --color-ok: #177c49;
     --color-ok-bg: #defae6;
-    --color-warn: #a36d24;
+    --color-warn: #8a5a18;
     --color-warn-bg: #ffeecd;
     --color-danger: #be3029;
     --color-danger-bg: #ffe8e3;
     --color-info: #1c719a;
     --color-info-bg: #dff6ff;
+    --color-cat-1: #2f7235;
+    --color-cat-2: #784db6;
+    --color-cat-3: #bf397a;
+    --color-cat-4: #006bbb;
+    --color-cat-5: #008081;
+    --color-cat-6: #0077a8;
+    --color-cat-7: #bb731b;
+    --color-cat-8: #0e7050;
+    --color-cat-9: #c83b32;
     --color-tier-1: #757b81;
     --color-tier-2: #1c8742;
     --color-tier-3: #006eb8;
     --color-tier-4: #7c3eb3;
     --color-tier-5: #c26300;
+    --color-backdrop: rgba(40, 35, 28, 0.4);
+    --shadow-1: 0 1px 2px rgba(40, 35, 28, 0.05), 0 8px 24px rgba(40, 35, 28, 0.07);
+    --shadow-2: 0 16px 48px rgba(40, 35, 28, 0.18);
   }
 }
 

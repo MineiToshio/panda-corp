@@ -27,7 +27,9 @@ import { readManualPages } from "@/lib/manual/manual";
 // ---------------------------------------------------------------------------
 
 const APP_ROOT = path.resolve(__dirname, "../..");
-const FEED_BUILD_SLUG = "alimentar-build";
+// FRD-08 re-anchor: the feedback-channels how-to is the prototype's "g-feedback"
+// guide ("Reportar bug o decidir"). It documents the same three channels.
+const FEED_BUILD_SLUG = "g-feedback";
 const FEED_BUILD_FILE = path.join(APP_ROOT, "content", "manual", "guides", `${FEED_BUILD_SLUG}.md`);
 
 function getFeedBuildPage() {
@@ -40,11 +42,11 @@ function getFeedBuildPage() {
 // ---------------------------------------------------------------------------
 
 describe("AC-14-006.1 — file existence and indexing", () => {
-  it("content/manual/guides/alimentar-build.md exists on disk", () => {
+  it("content/manual/guides/g-feedback.md exists on disk", () => {
     expect(fs.existsSync(FEED_BUILD_FILE), `File not found: ${FEED_BUILD_FILE}`).toBe(true);
   });
 
-  it("alimentar-build page is indexed by readManualPages()", () => {
+  it("g-feedback page is indexed by readManualPages()", () => {
     const page = getFeedBuildPage();
     expect(page, `Page slug '${FEED_BUILD_SLUG}' not found in readManualPages()`).toBeDefined();
   });
@@ -167,10 +169,18 @@ describe("AC-14-006.1 — consistent with infra.md semantics", () => {
 // ---------------------------------------------------------------------------
 
 describe("WO-14-004 does not break WO-08-005 content suite", () => {
-  it("guides group still contains all prior required slugs", () => {
+  it("guides group still contains the prototype's 7 how-to guide slugs", () => {
     const pages = readManualPages(APP_ROOT);
     const guideSlugs = pages.filter((p) => p.group === "guides").map((p) => p.slug);
-    for (const slug of ["operacion-diaria", "como-se-construye", "handoff"]) {
+    for (const slug of [
+      "g-capturar",
+      "g-handoff",
+      "g-modo",
+      "g-feedback",
+      "g-probar",
+      "g-traspaso",
+      "g-plugin",
+    ]) {
       expect(guideSlugs, `Missing guide page: ${slug}`).toContain(slug);
     }
   });

@@ -35,6 +35,7 @@
  */
 
 import { ItemSlot } from "@/components/core/ItemSlot/ItemSlot";
+import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import { XpBar } from "@/components/core/XpBar/XpBar";
 import type { ChainState } from "@/lib/achievements/achievements";
 
@@ -227,28 +228,24 @@ export function AlmostThere({ chains }: AlmostThereProps): React.JSX.Element {
         gap: "var(--space-base)",
       }}
     >
-      {/* Section heading — matches prototype questsNear() SectionHead text */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-        <span
-          style={{
-            fontSize: "0.875rem",
-            fontWeight: 700,
-            color: "var(--color-text)",
-            textTransform: "uppercase",
-            letterSpacing: "0.05em",
-          }}
-        >
-          Próximas hazañas
-        </span>
-        <span
-          style={{
-            fontSize: "0.75rem",
-            color: "var(--color-text3)",
-          }}
-        >
-          a un paso de caer
-        </span>
-      </div>
+      {/* Section heading — THE canonical SectionHead (LOG-02). Mirrors the
+          prototype questsNear(): secthead("ti-target-arrow","Próximas hazañas",
+          "a un paso de caer") → accent icon + title + rule + right descriptor. */}
+      <SectionHead
+        icon="ti-target-arrow"
+        label="Próximas hazañas"
+        rightHtml={
+          <span
+            style={{
+              fontSize: "11px",
+              color: "var(--color-text3)",
+              fontFamily: "var(--font-pixel)",
+            }}
+          >
+            a un paso de caer
+          </span>
+        }
+      />
 
       {candidates.length === 0 ? (
         <p

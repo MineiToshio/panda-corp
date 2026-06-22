@@ -172,7 +172,8 @@ describe("SelectableProjectRail — clickable rows (AC-03-004.1)", () => {
   it("row shows stage chip", () => {
     render(<SelectableProjectRail items={[ITEM_ALPHA]} selectedSlug="proj-alpha" />);
     const chip = screen.getByTestId("selectable-row-stage");
-    expect(chip.textContent).toMatch(/implementation/i);
+    // UI copy is Spanish (architecture §7): implementation → "En construcción".
+    expect(chip.textContent).toMatch(/construcción/i);
   });
 
   it("row shows building indicator when running=true", () => {
