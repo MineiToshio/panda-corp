@@ -140,6 +140,38 @@ any app-wide skin/theme overrides + each embedded sub-view's own spec — not ju
 extraction silently drops the look; in Mission Control an app-wide RPG skin and the Party pixel-art spec
 were missed).
 
+## 5b. The app shell is a captured foundation, never orphaned by the shard (DR-075)
+
+The shard in §5 deliberately gives each work order **only its own screen, never the whole app**. But a
+whole-app prototype is a SPA with a **persistent shell** — topbar/primary nav (+ active-state), header,
+footer, the layout frame every screen mounts into — and that shell **belongs to no single FRD**, so the
+per-FRD shard silently drops it. This is the Mission Control failure: the app shipped with **no global
+navigation menu at all**, and the visual gate — which proves *consistency* with a self-baseline, not
+*fidelity* to the prototype — rendered every page menu-less, blessed menu-less baselines, and passed
+112/112 green. Two rules close it:
+
+1. **Capture the shell as a FOUNDATION concern, before sharding.** When the prototype has persistent
+   chrome, the design phase registers it as the `AppShell`/`Nav` foundation component in
+   `docs/design/components.md` (`artifacts` include `app/layout.tsx` + the nav). `blueprint` schedules it
+   in the **foundation wave** (DR-057) so it is built FIRST and every surface route mounts into it. It is
+   a **foundation work order, NOT a new FRD** — a design-emitted `frd-NN-app-shell` would be an orphan in
+   the `REQ-NN-MMM → WO-NN-MMM` spine and the engine has no "build this FRD between foundation and
+   surfaces" primitive, whereas the existing foundation-completeness gate already enforces "no surface
+   until the foundation is green" for the shell for free. On the brownfield `adopt` path the same capture
+   runs: if the code already has a shell, record its real path; if it lacks the shell the prototype shows
+   (MC), record it as an **owed** Group-B reconciliation gap (§8) to build on the re-anchor.
+2. **Verify FIDELITY to the prototype, not self-consistency — the Shell-Presence Gate.** A new shipped,
+   deterministic, fail-closed gate (`e2e/shell.spec.ts`, VERBATIM like the smoke/visual/responsive
+   machinery) asserts the app against the **prototype-anchored nav contract** `e2e/shell.ts`
+   (author-declared at design time, drifts only when the prototype changes — never derived from the app's
+   own routes, which would just move the consistency-not-fidelity trap up a level). On every declared
+   route (minus author-declared exempt routes): the persistent shell landmark is **visible**, every
+   top-level destination is a **visible in-shell link to its correct path**, each destination
+   **2xx-resolves**, and on mobile the nav is reachable. Empty contract (an app with no shell) ⇒ a vacuous
+   pass. The reviewer's whole-app fidelity check is the advisory companion (shell *resemblance* —
+   placement/order/active-state — is a punch-list nit, never a block, DR-072 preserved); the **block is
+   the deterministic gate**.
+
 ## 6. Demo-only controls in prototypes are visibly marked (DR-061)
 
 A navigable prototype often needs affordances that exist **only to preview states** — a mode/effort
@@ -214,6 +246,7 @@ behavioural one.
 | Brownfield design adoption (detect + migrate an existing visual) | `plugin/skills/adopt/SKILL.md` |
 | Fidelity downstream (templates + skills + dev agents) | `plugin/templates/docs/{frd,blueprint,work-order}-template.md`, `plugin/skills/{spec,blueprint,work-orders}/SKILL.md`, `plugin/agents/{implementer,frontend-dev}.md` |
 | Shard the prototype per-FRD + prototype home (DR-056 §1) | `plugin/skills/design/SKILL.md` (Step 8), `plugin/agents/designer.md`, `plugin/skills/adopt/SKILL.md` (step 6) |
+| App shell = captured foundation + Shell-Presence Gate (DR-075 §5b) | `plugin/templates/stack-a-nextjs/e2e/{shell.spec.ts,shell.ts}`, `plugin/templates/stack-a-nextjs/{verify.sh,STACK.md}`, `plugin/skills/design/SKILL.md` (Step 8a), `plugin/skills/{blueprint,upgrade,adopt}/SKILL.md`, `plugin/agents/{designer,reviewer}.md`, `factory/standards/{build-orchestration,quality}.md` |
 | Engine injects design refs into the build prompt (DR-056 §2) | `plugin/templates/shared/.claude/workflows/pandacorp-build.js` (`designRef`) |
 | In-loop render→compare→correct (DR-056 §3) | `plugin/agents/{implementer,frontend-dev}.md` |
 | Two-layer visual-fidelity gate (DR-056 §4) | `plugin/agents/reviewer.md`, `factory/standards/build-orchestration.md` §5, `plugin/templates/stack-a-nextjs/STACK.md` |

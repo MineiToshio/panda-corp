@@ -1,5 +1,5 @@
-import { expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { expect, type Page } from "@playwright/test";
 
 /**
  * Smart responsive assertions for a single route at a mobile viewport (DR-074).
@@ -74,9 +74,13 @@ export async function assertResponsive(
         const overflowX = getComputedStyle(el).overflowX;
         if (overflowX === "hidden" || overflowX === "clip") {
           // content is CLIPPED off-canvas (what MC actually shipped) — silent data loss
-          clipped.push(`${describe(el)} (scrollWidth ${el.scrollWidth} > clientWidth ${el.clientWidth})`);
+          clipped.push(
+            `${describe(el)} (scrollWidth ${el.scrollWidth} > clientWidth ${el.clientWidth})`,
+          );
         } else {
-          overflowing.push(`${describe(el)} (scrollWidth ${el.scrollWidth} > clientWidth ${el.clientWidth})`);
+          overflowing.push(
+            `${describe(el)} (scrollWidth ${el.scrollWidth} > clientWidth ${el.clientWidth})`,
+          );
         }
       }
       return { overflowing, clipped };
@@ -114,21 +118,23 @@ export async function assertResponsive(
     const main = document.querySelector("main");
     if (!main) return null;
     const mainBox = main.getBoundingClientRect();
-    const mainStyle = getComputedStyle(main);
-    const scrollMarginTop = Number.parseFloat(mainStyle.scrollMarginTop) || 0;
-    for (const el of Array.from(document.querySelectorAll<HTMLElement>("*"))) {
-      if (el === main || main.contains(el)) continue;
-      if (getComputedStyle(el).position !== "fixed") continue;
+    const scrollMarginTop = Number.parseFloat(getComputedStyle(main).scrollMarginTop) || 0;
+    // A fixed element occludes <main>'s top if it overlaps the top edge AND is taller than the
+    // reserved scroll-margin (the legit sticky-header opt-out). Extracted so each function stays
+    // within the cognitive-complexity budget.
+    const occludesMainTop = (el: HTMLElement): boolean => {
+      if (el === main || main.contains(el)) return false;
+      if (getComputedStyle(el).position !== "fixed") return false;
       const box = el.getBoundingClientRect();
-      if (box.width === 0 || box.height === 0) continue;
+      if (box.width === 0 || box.height === 0) return false;
       const overlapsTop = box.top <= mainBox.top && box.bottom > mainBox.top;
       const overlapsX = box.left < mainBox.right && box.right > mainBox.left;
-      if (overlapsTop && overlapsX && box.height > scrollMarginTop + 1) {
-        const tag = el.tagName.toLowerCase();
-        return `${tag} (fixed, height ${Math.round(box.height)}px) occludes the top of <main> (scroll-margin-top ${scrollMarginTop}px)`;
-      }
-    }
-    return null;
+      return overlapsTop && overlapsX && box.height > scrollMarginTop + 1;
+    };
+    const offender = Array.from(document.querySelectorAll<HTMLElement>("*")).find(occludesMainTop);
+    if (!offender) return null;
+    const box = offender.getBoundingClientRect();
+    return `${offender.tagName.toLowerCase()} (fixed, height ${Math.round(box.height)}px) occludes the top of <main> (scroll-margin-top ${scrollMarginTop}px)`;
   });
   expect(
     occlusion,

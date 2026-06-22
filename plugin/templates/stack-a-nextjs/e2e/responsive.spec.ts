@@ -1,7 +1,7 @@
 import { test } from "@playwright/test";
-import { BLESSED } from "./routes";
 import { assertResponsive } from "./_responsive-helper";
 import { MOBILE_WIDTH, TARGET_PLATFORM, TARGETS_MOBILE } from "./_target";
+import { BLESSED } from "./routes";
 
 /**
  * Responsive Gate (DR-074) — the SHIPPED, smart, fail-closed check that the app actually works at

@@ -91,10 +91,16 @@ other's work, so given the same need they reinvent slightly-different versions o
 (the two-near-identical-banners bug). The Build Plan prevents it:
 
 - **Shared foundation FIRST, then fan out.** The plan schedules the shared design-system primitives
-  (Button, **Banner/Alert**, Card, Chip, Modal, the layout shells) as the **first work order(s)** — a
-  *foundation wave* that completes **before** feature work orders parallelize. Feature WOs declare a
-  dependency on the foundation, so they build against real, existing primitives instead of inventing
-  their own. (Sequencing it first is the cheapest fix; it's the owner's "build the common things first".)
+  (Button, **Banner/Alert**, Card, Chip, Modal, **the persistent app shell / global nav — DR-075**) as
+  the **first work order(s)** — a *foundation wave* that completes **before** feature work orders
+  parallelize. Feature WOs declare a dependency on the foundation, so they build against real, existing
+  primitives instead of inventing their own. (Sequencing it first is the cheapest fix; it's the owner's
+  "build the common things first".) **The app shell belongs here, not in a feature FRD:** a whole-app
+  prototype's persistent topbar/nav/footer/layout frame belongs to no single FRD, so the per-FRD shard
+  drops it (the Mission Control "no nav menu shipped green" failure). Captured as the `AppShell`/`Nav`
+  foundation WO (`artifacts` include `app/layout.tsx`), it is built first and every surface mounts into
+  it — and the foundation-completeness gate below enforces "no surface until the shell is green" for
+  free, with no engine change and no `REQ→WO` spine collision a new `frd-app-shell` would cause.
   **ENGINE-ENFORCED (DR-057), not just prose:** the planner marks the foundation WO `foundation: true`,
   and while any foundation WO is still pending the engine's wave is **foundation-only** — features
   cannot fan out before the primitives exist, regardless of whether the blueprint author threaded the
@@ -192,6 +198,20 @@ The build engine reviews and tests **per FRD**, not per work order:
   itself `data-scroll-x="intentional"` once. For a `desktop`-only / API / scraper project it is a vacuous
   pass. Ships VERBATIM (`e2e/responsive.spec.ts` + `e2e/_responsive-helper.ts`, propagated by `blueprint`,
   conformance-checked by `upgrade`); canonical in `factory/standards/design.md` §4b + `quality.md`.
+- **Shell-Presence gate (DR-075) — does the build have the prototype's global shell / nav.** Part of
+  both the per-FRD gate and close-out (runs inside `verify.sh`, fail-closed). The visual gate proves
+  *consistency* (matches its own baseline), NOT *fidelity*: a build rendered menu-less blessed menu-less
+  baselines and passed green (the MC "no nav menu" failure). This gate asserts the app against the
+  **prototype-anchored** nav contract `e2e/shell.ts` (author-declared at design time, never derived from
+  the app's own routes): on every declared route (minus author-declared exempt routes) the persistent
+  shell landmark is **visible**, every top-level destination is a **visible in-shell link to its correct
+  path**, each destination **2xx-resolves**, and on mobile the nav is reachable. It iterates `SURFACES`
+  (not `BLESSED` — the MC failure is a route that shipped *blessed* without the shell). An app with no
+  persistent shell (empty contract) ⇒ a vacuous pass. The reviewer's whole-app fidelity check is the
+  advisory companion (shell *resemblance* is a punch-list nit, never a block — DR-072 preserved); the
+  **deterministic gate is the block**. Ships VERBATIM (`e2e/shell.spec.ts`, propagated by `blueprint`,
+  conformance-checked by `upgrade`; `e2e/shell.ts` is the per-project seed); canonical in
+  `factory/standards/design.md` §5b + `quality.md`.
 
 ## 6. How a run stops — health & budget, never a feature count
 

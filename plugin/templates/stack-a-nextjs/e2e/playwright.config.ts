@@ -1,8 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
 /**
- * Preview Smoke Gate (DR-055) + Visual-Fidelity Gate Layer A (DR-056) + Responsive Gate (DR-074).
- * VERBATIM stack template (DR-059) — installed at the project ROOT, conformance-checked by
+ * Preview Smoke Gate (DR-055) + Visual-Fidelity Gate Layer A (DR-056) + Responsive Gate (DR-074) +
+ * Shell-Presence Gate (DR-075). VERBATIM stack template (DR-059) — at the project ROOT, conformance-checked by
  * /pandacorp:upgrade. Deterministic by construction: single worker, animations disabled, caret
  * hidden, fonts settled before each shot, retries OFF (a retry re-creates a missing baseline → the
  * gate fails OPEN; DR-056 forbids it). In CI baselines are frozen (`updateSnapshots:'none'`);
