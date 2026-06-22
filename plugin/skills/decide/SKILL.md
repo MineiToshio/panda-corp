@@ -10,7 +10,7 @@ The mechanism for **the owner to answer the decision points** the AI left pendin
 
 ## Steps
 
-1. **Read `.pandacorp/inbox/decisions.md`** and list the decisions with status `pending`. For each one show: the question, the options that were researched, and **the AI's recommendation** (with its rationale).
+1. **Read `.pandacorp/inbox/decisions.md`** (its format: `${CLAUDE_PLUGIN_ROOT}/templates/docs/decisions-inbox-template.md` — agents append decision points to it following that shape) and list the decisions with status `pending`. For each one show: the question, the options that were researched, and **the AI's recommendation** (with its rationale).
 2. **Ask for the owner's answer**:
    - Without arguments: present each pending decision with its recommendation and ask what they decide. The owner can say "your recommendation" to accept the suggested one.
    - With arguments: apply the answer to the pending decision (if there are several, ask which one they mean). Never decide yourself: if the owner doesn't answer something, it stays pending.

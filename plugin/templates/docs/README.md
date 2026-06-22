@@ -22,6 +22,16 @@ given, so a fat template yields padded, low-signal docs (DR-077).
 | `events-template.md` | `docs/analytics/events.md` | `blueprint` · `analytics` |
 | `design-system-template.md` | root `DESIGN.md` (the design system / PDD) | `design` |
 | `change-request-template.md` | `.pandacorp/inbox/changes/<slug>.md` (owner channel) | `change` · `bug` · `iterate` |
+| `api-contract-template.md` | `docs/api/<wo-id>.md` (per backend WO, DR-060) | **`backend-dev`** (agent, not a skill) |
+| `components-inventory-template.md` | `docs/design/components.md` (DR-057) | `design` · **`designer`** (agent) |
+| `changes-readme-template.md` | `.pandacorp/inbox/changes/README.md` (queue index) | `change` · `bug` |
+| `decisions-inbox-template.md` | `.pandacorp/inbox/decisions.md` (owner channel) | `decide` (+ agents that raise a decision) |
+
+**Agent-created docs** (the bold ones) are produced mid-`implement` by a build agent, not a phase
+skill — so the **agent's prompt** (`plugin/agents/<agent>.md`) names the template path. **Docs with no
+automated creator** (decision-log entries, `docs/proposals/`, `design-tokens.json`) and the
+**intentionally-freeform** docs are covered in the top-level [`../README.md`](../README.md) ("How a
+template is honored" + "Intentionally NOT templated").
 
 The decision-log **entry** format is in `../shared/docs/decision-log.md.tpl`; the `.pandacorp/`
 overlay templates (`guide`, `status`, `README`, `iteration`, `CLAUDE`/`AGENTS`) are in

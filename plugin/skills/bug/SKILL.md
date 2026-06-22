@@ -18,7 +18,7 @@ The channel to **report a bug** without stopping the build or setting anything u
 2. **Write** `.pandacorp/inbox/changes/<slug>.md` (following `${CLAUDE_PLUGIN_ROOT}/templates/docs/change-request-template.md`; short slug in English derived from the title), with:
    - frontmatter (machine): `type: bug`, `class` (`expedite` if it blocks a flow, else `standard`), `status: pending`, `date`, `frd` (the FRD/screen if known)
    - body (**español**): **pasos para reproducir**, **resultado esperado**, **resultado actual**
-   - append a row to the queue index `.pandacorp/inbox/changes/README.md`
+   - append a row to the queue index `.pandacorp/inbox/changes/README.md` (following `${CLAUDE_PLUGIN_ROOT}/templates/docs/changes-readme-template.md`)
 3. **Increment** `pending_changes` in `.pandacorp/status.yaml` (Mission Control surfaces it).
 4. **Confirm** to the owner: "noted in the inbox; `/implement` will take it at its next safe point." If there is NO build running and they want to fix it now, tell them to run `/pandacorp:implement` (which empties the inbox).
 
