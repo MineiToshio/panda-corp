@@ -20,9 +20,17 @@ import { HAS_SHELL, NAV_DESTINATIONS, NAV_TOGGLE, SHELL_EXEMPT, SHELL_SELECTOR }
  * networkidle settle) → domcontentloaded → fonts.ready → <main> visible → THEN web-first
  * auto-retrying assertions (which absorb client-side hydration of the nav). Never networkidle, never
  * a bare .count() (no retry), never waitForTimeout.
+ *
+ * Width scoping: the structural shell-presence checks (1)+(2) assert the nav is DIRECTLY visible,
+ * which is a DESKTOP-width truth — at a mobile width a correct responsive nav legitimately collapses
+ * behind a toggle. So (1)+(2) FORCE a desktop viewport (they assert at DESKTOP_WIDTH regardless of the
+ * playwright project they run under — self-contained, no project-name/script-flag dependency, and
+ * biome's test domain forbids `test.skip`). Mobile nav reachability is owned by (4) (toggle-aware,
+ * sets its own mobile viewport) + the Responsive Gate (overflow/tap/occlusion at the mobile width).
  */
 
 const LIVE_ENDPOINT_GLOB = "**/api/live**";
+const DESKTOP_WIDTH = 1280; // structural shell checks assert at desktop width (see header)
 
 const matchesExempt = (path: string): boolean =>
   SHELL_EXEMPT.some((p) => (p.endsWith("/**") ? path.startsWith(p.slice(0, -2)) : path === p));
@@ -47,6 +55,7 @@ if (HAS_SHELL) {
   //     on a page" (visible, not merely attached: a display:none / off-canvas nav is not a shell).
   for (const s of gated) {
     test(`shell · landmark visible on ${s.id} (${s.path})`, async ({ page }) => {
+      await page.setViewportSize({ width: DESKTOP_WIDTH, height: 900 });
       await settle(page, s.path);
       await expect(
         page.locator(SHELL_SELECTOR).first(),
@@ -59,6 +68,7 @@ if (HAS_SHELL) {
   //     path — kills dead hrefs (href="/"/"#"/404), page-wide stray links, and an empty landmark.
   test("shell · every nav destination is reachable from the shell", async ({ page }) => {
     if (!firstDest) return;
+    await page.setViewportSize({ width: DESKTOP_WIDTH, height: 900 });
     await settle(page, firstDest.path);
     const shell = page.locator(SHELL_SELECTOR).first();
     await expect(shell, `no visible app shell (${SHELL_SELECTOR})`).toBeVisible();
@@ -70,9 +80,12 @@ if (HAS_SHELL) {
     }
   });
 
-  // (3) Each declared destination actually 2xx-renders — a nav link to a route that errors/404s is a
-  //     broken shell. Once per destination, not per route.
-  for (const d of NAV_DESTINATIONS) {
+  // (3) Each declared destination whose route is BLESSED (built + verified) actually 2xx-renders — a
+  //     nav link to a built route that errors/404s is a broken shell. Gated on `blessed` so a
+  //     not-yet-built target doesn't red the gate mid-build; at close-out (all blessed) they are all
+  //     checked. (Tests 1+2 above — the shell-presence fidelity check — use the full SURFACES set.)
+  const blessedPaths = new Set(SURFACES.filter((s) => s.blessed).map((s) => s.path));
+  for (const d of NAV_DESTINATIONS.filter((dest) => blessedPaths.has(dest.path))) {
     test(`shell · destination ${d.path} resolves`, async ({ page }) => {
       await page.route(LIVE_ENDPOINT_GLOB, (r) => r.abort());
       const res = await page.goto(d.path, { waitUntil: "domcontentloaded" });
