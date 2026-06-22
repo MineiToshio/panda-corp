@@ -351,6 +351,114 @@ h3 {
 }
 
 /* ---------------------------------------------------------------------------
+ * Campaign cast — roaming sprites (CampaignPipeline / RoamingCast).
+ * Faithful to party-pipeline.html .spi / .walking / .halo / .say (~L76-91).
+ * The roam engine (RoamingCast) toggles `.walking` and `.on` imperatively; the
+ * bob/halo keyframes are auto-disabled by the global prefers-reduced-motion rule
+ * above (so reduced-motion = fully static, alongside the engine's matchMedia skip).
+ * --------------------------------------------------------------------------- */
+@keyframes campaign-idle-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+@keyframes campaign-walk-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+@keyframes campaign-halo {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: translateX(-50%) scale(0.85);
+  }
+  50% {
+    opacity: 0.55;
+    transform: translateX(-50%) scale(1.15);
+  }
+}
+.campaign-bob {
+  animation: campaign-idle-bob 2.6s ease-in-out infinite;
+}
+.campaign-bob.walking {
+  animation: campaign-walk-bob 0.42s ease-in-out infinite;
+}
+.campaign-halo {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  width: 44px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  opacity: 0.45;
+  filter: blur(2px);
+  transform: translateX(-50%);
+  z-index: -1;
+  pointer-events: none;
+  animation: campaign-halo 1.5s ease-in-out infinite;
+}
+.campaign-say {
+  position: absolute;
+  bottom: 54px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 120px;
+  width: max-content;
+  display: none;
+  padding: 3px 7px;
+  border-radius: 8px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border-strong);
+  box-shadow: 0 3px 9px rgba(0, 0, 0, 0.4);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  line-height: 1.25;
+  color: var(--color-text);
+  text-align: center;
+  z-index: 9;
+  pointer-events: none;
+}
+.campaign-say.on {
+  display: block;
+}
+.campaign-say::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: -1px;
+  border: 5px solid transparent;
+  border-top-color: var(--color-panel);
+}
+
+/* ---------------------------------------------------------------------------
+ * Card detail · Documentos tab — two-pane rail + reader (prototype docsBody).
+ * 210px rail + reader on desktop; stacks to one column on narrow viewports.
+ * --------------------------------------------------------------------------- */
+.card-detail-docs-grid {
+  display: grid;
+  grid-template-columns: 210px 1fr;
+  gap: 14px;
+  align-items: start;
+}
+@media (max-width: 640px) {
+  .card-detail-docs-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------------------------------------------------------------------------
  * CMP-09-celebration — scaling celebration surface (WO-09-006)
  * --------------------------------------------------------------------------- */
 

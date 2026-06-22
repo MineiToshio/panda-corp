@@ -194,57 +194,68 @@ describe("AC-02-010.3 — done / current / locked phase states", () => {
 // AC-02-010.4 — per-phase ficha with description + LEE/ESCRIBE + WHOLE team
 // ---------------------------------------------------------------------------
 
-describe("AC-02-010.4 — per-phase ficha on click", () => {
-  it("no ficha is shown before any phase is clicked", () => {
-    render(<CampaignPipeline {...DEFAULT_PROPS} />);
-    expect(screen.queryByTestId("campaign-phase-ficha")).not.toBeInTheDocument();
+describe("AC-02-010.4 — per-phase ficha (active by default; click to switch/toggle)", () => {
+  it("the active phase's ficha is shown by default (sel initialises to active)", () => {
+    // New contract: selectedPhaseKey defaults to the active phase, so its ficha
+    // is open on initial render — there is no "nothing open" state before a click.
+    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} />);
+    const ficha = screen.getByTestId("campaign-phase-ficha");
+    expect(ficha).toBeInTheDocument();
+    // It's the ACTIVE phase's ficha (research) — its team member is the researcher.
+    expect(within(ficha).getByTestId("ficha-team")).toHaveTextContent(/researcher/i);
   });
 
-  it("clicking the research phase shows its ficha", () => {
-    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} />);
-    fireEvent.click(screen.getByTestId("campaign-phase-research"));
-    expect(screen.getByTestId("campaign-phase-ficha")).toBeInTheDocument();
+  it("clicking a DIFFERENT phase shows that phase's ficha", () => {
+    // research is open by default (active); clicking the (done/unlocked) product
+    // phase switches the ficha to product. Use activePhase=5 so product is unlocked.
+    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={5} />);
+    fireEvent.click(screen.getByTestId("campaign-phase-product"));
+    const ficha = screen.getByTestId("campaign-phase-ficha");
+    expect(ficha).toBeInTheDocument();
+    expect(within(ficha).getByTestId("ficha-team")).toHaveTextContent(/product-manager/i);
   });
 
-  it("ficha contains a description section", () => {
+  it("the active phase ficha contains a description section", () => {
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} />);
-    fireEvent.click(screen.getByTestId("campaign-phase-research"));
     const ficha = screen.getByTestId("campaign-phase-ficha");
     expect(within(ficha).getByTestId("ficha-description")).toBeInTheDocument();
   });
 
-  it("ficha contains LEE (reads previous deliverable)", () => {
+  it("the active phase ficha contains LEE (reads previous deliverable)", () => {
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={1} />);
-    fireEvent.click(screen.getByTestId("campaign-phase-product"));
     const ficha = screen.getByTestId("campaign-phase-ficha");
     expect(within(ficha).getByTestId("ficha-lee")).toBeInTheDocument();
   });
 
-  it("ficha contains ESCRIBE (writes next deliverable)", () => {
+  it("the active phase ficha contains ESCRIBE (writes next deliverable)", () => {
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={1} />);
-    fireEvent.click(screen.getByTestId("campaign-phase-product"));
     const ficha = screen.getByTestId("campaign-phase-ficha");
     expect(within(ficha).getByTestId("ficha-escribe")).toBeInTheDocument();
   });
 
-  it("ficha contains the team section", () => {
+  it("the active phase ficha contains the team section", () => {
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} />);
-    fireEvent.click(screen.getByTestId("campaign-phase-research"));
     const ficha = screen.getByTestId("campaign-phase-ficha");
     expect(within(ficha).getByTestId("ficha-team")).toBeInTheDocument();
   });
 
-  // --- research team: researcher only ---
+  it("the active phase ficha header shows '{n · name} — {state}' (EN CURSO for the active phase)", () => {
+    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} />);
+    const header = screen.getByTestId("ficha-header");
+    // n · name (1 · Investigación) and the state label EN CURSO for the current phase.
+    expect(header).toHaveTextContent(/1 · Investigación/);
+    expect(header).toHaveTextContent(/EN CURSO/);
+  });
+
+  // --- research team: researcher only (active by default at activePhase=0) ---
   it("research ficha shows 'researcher' team member", () => {
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} />);
-    fireEvent.click(screen.getByTestId("campaign-phase-research"));
     const ficha = screen.getByTestId("campaign-phase-ficha");
     expect(within(ficha).getByTestId("ficha-team")).toHaveTextContent(/researcher/i);
   });
 
   it("research ficha shows exactly 1 team member", () => {
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} />);
-    fireEvent.click(screen.getByTestId("campaign-phase-research"));
     const team = screen.getByTestId("ficha-team");
     const members = within(team).getAllByTestId("ficha-team-member");
     expect(members).toHaveLength(1);
@@ -253,7 +264,6 @@ describe("AC-02-010.4 — per-phase ficha on click", () => {
   // --- product team: product-manager only ---
   it("product ficha shows 'product-manager' team member", () => {
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={1} />);
-    fireEvent.click(screen.getByTestId("campaign-phase-product"));
     const ficha = screen.getByTestId("campaign-phase-ficha");
     // ficha-team must include the role key "product-manager"
     expect(within(ficha).getByTestId("ficha-team")).toHaveTextContent(/product-manager/i);
@@ -261,7 +271,6 @@ describe("AC-02-010.4 — per-phase ficha on click", () => {
 
   it("product ficha shows exactly 1 team member", () => {
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={1} />);
-    fireEvent.click(screen.getByTestId("campaign-phase-product"));
     const team = screen.getByTestId("ficha-team");
     const members = within(team).getAllByTestId("ficha-team-member");
     expect(members).toHaveLength(1);
@@ -270,7 +279,6 @@ describe("AC-02-010.4 — per-phase ficha on click", () => {
   // --- design team: designer + copywriter ---
   it("design ficha shows BOTH designer and copywriter team members (AC-02-010.4)", () => {
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={2} />);
-    fireEvent.click(screen.getByTestId("campaign-phase-design"));
     const team = screen.getByTestId("ficha-team");
     // Both role key and display label match /designer/i — use getAllByText (multiple ok)
     expect(within(team).getAllByText(/designer/i).length).toBeGreaterThanOrEqual(1);
@@ -279,7 +287,6 @@ describe("AC-02-010.4 — per-phase ficha on click", () => {
 
   it("design ficha shows exactly 2 team members", () => {
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={2} />);
-    fireEvent.click(screen.getByTestId("campaign-phase-design"));
     const team = screen.getByTestId("ficha-team");
     const members = within(team).getAllByTestId("ficha-team-member");
     expect(members).toHaveLength(2);
@@ -288,14 +295,12 @@ describe("AC-02-010.4 — per-phase ficha on click", () => {
   // --- architecture team: architect only ---
   it("architecture ficha shows 'architect' team member", () => {
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={3} />);
-    fireEvent.click(screen.getByTestId("campaign-phase-architecture"));
     const team = screen.getByTestId("ficha-team");
     expect(within(team).getAllByText(/architect/i).length).toBeGreaterThanOrEqual(1);
   });
 
   it("architecture ficha shows exactly 1 team member", () => {
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={3} />);
-    fireEvent.click(screen.getByTestId("campaign-phase-architecture"));
     const team = screen.getByTestId("ficha-team");
     const members = within(team).getAllByTestId("ficha-team-member");
     expect(members).toHaveLength(1);
@@ -304,7 +309,6 @@ describe("AC-02-010.4 — per-phase ficha on click", () => {
   // --- build team: implementer + reviewer + analytics ---
   it("build ficha shows implementer, reviewer AND analytics (AC-02-010.4 whole team)", () => {
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={4} />);
-    fireEvent.click(screen.getByTestId("campaign-phase-build"));
     const team = screen.getByTestId("ficha-team");
     expect(within(team).getAllByText(/implementer/i).length).toBeGreaterThanOrEqual(1);
     expect(within(team).getAllByText(/reviewer/i).length).toBeGreaterThanOrEqual(1);
@@ -313,7 +317,6 @@ describe("AC-02-010.4 — per-phase ficha on click", () => {
 
   it("build ficha shows exactly 3 team members", () => {
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={4} />);
-    fireEvent.click(screen.getByTestId("campaign-phase-build"));
     const team = screen.getByTestId("ficha-team");
     const members = within(team).getAllByTestId("ficha-team-member");
     expect(members).toHaveLength(3);
@@ -322,7 +325,6 @@ describe("AC-02-010.4 — per-phase ficha on click", () => {
   // --- release team: security-auditor + devops ---
   it("release ficha shows BOTH security-auditor and devops team members (AC-02-010.4)", () => {
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={5} />);
-    fireEvent.click(screen.getByTestId("campaign-phase-release"));
     const team = screen.getByTestId("ficha-team");
     expect(within(team).getAllByText(/security-auditor/i).length).toBeGreaterThanOrEqual(1);
     expect(within(team).getAllByText(/devops/i).length).toBeGreaterThanOrEqual(1);
@@ -330,7 +332,6 @@ describe("AC-02-010.4 — per-phase ficha on click", () => {
 
   it("release ficha shows exactly 2 team members", () => {
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={5} />);
-    fireEvent.click(screen.getByTestId("campaign-phase-release"));
     const team = screen.getByTestId("ficha-team");
     const members = within(team).getAllByTestId("ficha-team-member");
     expect(members).toHaveLength(2);
@@ -338,7 +339,8 @@ describe("AC-02-010.4 — per-phase ficha on click", () => {
 
   // --- clicking a different phase updates the ficha ---
   it("clicking a second phase replaces the ficha with the new phase's data", () => {
-    // activePhase=5 (release) → all prior phases are done, so both research and build are accessible
+    // activePhase=5 (release) → all prior phases are done, so both research and build are accessible.
+    // release is the active phase, so its ficha is open by default; click research, then build.
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={5} />);
     fireEvent.click(screen.getByTestId("campaign-phase-research"));
     const researchFicha = screen.getByTestId("campaign-phase-ficha");
@@ -352,12 +354,15 @@ describe("AC-02-010.4 — per-phase ficha on click", () => {
   });
 
   // --- clicking an already-selected phase closes the ficha ---
-  it("clicking the already-open phase closes the ficha (toggle)", () => {
+  it("clicking the already-open (active) phase closes the ficha (toggle)", () => {
+    // research is open by default at activePhase=0; the first click toggles it closed.
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} />);
-    fireEvent.click(screen.getByTestId("campaign-phase-research"));
     expect(screen.getByTestId("campaign-phase-ficha")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("campaign-phase-research"));
     expect(screen.queryByTestId("campaign-phase-ficha")).not.toBeInTheDocument();
+    // Clicking it again re-opens it.
+    fireEvent.click(screen.getByTestId("campaign-phase-research"));
+    expect(screen.getByTestId("campaign-phase-ficha")).toBeInTheDocument();
   });
 });
 
@@ -366,33 +371,36 @@ describe("AC-02-010.4 — per-phase ficha on click", () => {
 // ---------------------------------------------------------------------------
 
 describe("AC-02-010.5 — build phase Entrar a La Fragua callback", () => {
-  it("build phase ficha shows 'Entrar a La Fragua' button", () => {
+  it("build phase ficha shows 'Entrar a La Fragua' button (build is active → open by default)", () => {
+    // At activePhase=4 the build ficha is open by default — no click needed.
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={4} />);
-    fireEvent.click(screen.getByTestId("campaign-phase-build"));
     const ficha = screen.getByTestId("campaign-phase-ficha");
     expect(within(ficha).getByTestId("ficha-enter-forge")).toBeInTheDocument();
   });
 
   it("clicking 'Entrar a La Fragua' calls onEnterForge with the slug", () => {
     const mockOnEnterForge = vi.fn();
+    // build is the active phase → its ficha (with the forge button) is open by default.
     render(<CampaignPipeline slug="cool-idea" activePhase={4} onEnterForge={mockOnEnterForge} />);
-    fireEvent.click(screen.getByTestId("campaign-phase-build"));
     fireEvent.click(screen.getByTestId("ficha-enter-forge"));
     expect(mockOnEnterForge).toHaveBeenCalledWith("cool-idea");
     expect(mockOnEnterForge).toHaveBeenCalledTimes(1);
   });
 
   it("other phases do NOT show the 'Entrar a La Fragua' button", () => {
+    // research is the active phase → its ficha is open by default and must NOT
+    // expose the forge button (only the build ficha does).
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} />);
-    // Open a non-build phase ficha
-    fireEvent.click(screen.getByTestId("campaign-phase-research"));
+    const ficha = screen.getByTestId("campaign-phase-ficha");
+    expect(within(ficha).getByTestId("ficha-team")).toHaveTextContent(/researcher/i);
     expect(screen.queryByTestId("ficha-enter-forge")).not.toBeInTheDocument();
   });
 
   it("onEnterForge is NOT called just by opening the build phase ficha (only on button click)", () => {
     const mockOnEnterForge = vi.fn();
+    // Rendering with build active opens its ficha by default; that alone must not navigate.
     render(<CampaignPipeline slug="s" activePhase={4} onEnterForge={mockOnEnterForge} />);
-    fireEvent.click(screen.getByTestId("campaign-phase-build"));
+    expect(screen.getByTestId("ficha-enter-forge")).toBeInTheDocument();
     expect(mockOnEnterForge).not.toHaveBeenCalled();
   });
 });
@@ -499,8 +507,8 @@ describe("accessibility", () => {
   });
 
   it("Entrar a La Fragua button has an accessible label", () => {
+    // build is the active phase → its ficha (with the forge button) is open by default.
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={4} />);
-    fireEvent.click(screen.getByTestId("campaign-phase-build"));
     const btn = screen.getByTestId("ficha-enter-forge");
     const label = btn.getAttribute("aria-label") ?? btn.textContent ?? "";
     expect(label.trim().length).toBeGreaterThan(0);

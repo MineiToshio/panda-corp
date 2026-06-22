@@ -244,10 +244,12 @@ describe("FRD-02 integration: CardDetail surfaces the real next-step command + c
     expect(within(detail).getByTestId("copy-button")).toBeTruthy();
   });
 
-  it("AC-02-008.1: a card with no docsIndex shows summary only — no docs navigator", () => {
+  it("AC-02-008.1: a card with no docsIndex shows the Resumen reader and zero project doc items", () => {
     render(<CardDetail slug="s" title="T" status="discovered" body="Solo resumen." />);
     expect(screen.getByTestId("card-detail-summary")).toBeTruthy();
-    expect(screen.queryByTestId("card-detail-docs-nav")).toBeNull();
+    // The rail always lists Resumen; with no project there are no project doc items.
+    expect(screen.getByTestId("card-detail-docs-nav-resumen")).toBeTruthy();
+    expect(screen.queryAllByTestId("card-detail-docs-nav-item")).toHaveLength(0);
   });
 
   it("a discovered card's detail offers spec, matching its discovered column", () => {

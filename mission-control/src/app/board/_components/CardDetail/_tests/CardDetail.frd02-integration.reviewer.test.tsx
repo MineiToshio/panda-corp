@@ -143,8 +143,8 @@ describe("FRD-02 integration — Entrar a La Fragua bubbles the slug to onEnterF
       status: "in-pipeline",
       phase: "implementation",
     });
-    // build is the current phase → its ficha exposes the forge button.
-    fireEvent.click(screen.getByTestId("campaign-phase-build"));
+    // build is the current phase → its ficha is open by DEFAULT and exposes the forge button
+    // (sel initialises to the active phase). Clicking build again would toggle it closed.
     fireEvent.click(screen.getByTestId("ficha-enter-forge"));
     expect(onEnterForge).toHaveBeenCalledTimes(1);
     expect(onEnterForge).toHaveBeenCalledWith("panda-shop");
@@ -169,7 +169,7 @@ describe("FRD-02 integration — Entrar a La Fragua bubbles the slug to onEnterF
         body="x"
       />,
     );
-    fireEvent.click(screen.getByTestId("campaign-phase-build"));
+    // build is the active phase → its ficha (with the forge button) is open by default.
     expect(() => fireEvent.click(screen.getByTestId("ficha-enter-forge"))).not.toThrow();
   });
 });
@@ -192,7 +192,9 @@ describe("FRD-02 integration — 3 tabs coexist with the real pipeline (AC-02-00
   it("a card with no docs shows summary only and still renders the full pipeline (no cross-tab breakage)", () => {
     renderDetail({ status: "discovered", body: "Solo resumen.", docsIndex: null });
     fireEvent.click(screen.getByTestId("card-detail-tab-docs"));
-    expect(screen.queryByTestId("card-detail-docs-nav")).toBeNull();
+    // New contract: the docs rail is always present (lists Resumen); with no project
+    // docs it has zero project doc items, and the Resumen reader shows the summary.
+    expect(screen.queryAllByTestId("card-detail-docs-nav-item")).toHaveLength(0);
     expect(screen.getByTestId("card-detail-summary")).toBeInTheDocument();
     // pipeline still mounted (clip strategy keeps all panels in the tree)
     expect(screen.getByTestId("campaign-pipeline")).toBeInTheDocument();

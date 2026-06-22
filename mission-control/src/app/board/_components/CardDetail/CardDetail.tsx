@@ -29,22 +29,22 @@
  */
 
 import { useState } from "react";
-import Markdown from "react-markdown";
-import { CopyButton } from "@/components/core/CopyButton/CopyButton";
+import Markdown, { type Components } from "react-markdown";
+import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 import { Tabs } from "@/components/core/Tabs/Tabs";
 import { CampaignPipeline } from "@/components/modules/CampaignPipeline/CampaignPipeline";
 import { phaseFromStatus } from "@/lib/campaign/campaign";
 import type { ProjectDocsIndex } from "@/lib/docs/docs";
 import type { IdeaStatus } from "@/lib/ideas/ideas";
-import { nextStep } from "@/lib/next-step/next-step";
+import { nextStep, workspaceCommands } from "@/lib/next-step/next-step";
 import type { Phase } from "@/lib/status/status";
 import {
   buildNavEntries,
-  COMMAND_CODE_STYLE,
-  COMMAND_STYLE,
+  COMMAND_WHEN_STYLE,
   DOCS_NAV_HEADING_STYLE,
-  DOCS_NAV_STYLE,
-  NAV_ITEM_STYLE,
+  DOCS_READER_STYLE,
+  DOCS_SIDEBAR_STYLE,
+  docsNavItemStyle,
   type NavEntry,
   NEXT_STEP_LABEL_STYLE,
   NEXT_STEP_STYLE,
@@ -64,16 +64,65 @@ type TabKey = "campana" | "docs" | "comandos";
 interface TabDef {
   id: TabKey;
   label: string;
+  icon?: string;
 }
 
 const TABS: TabDef[] = [
-  { id: "campana", label: "Campaña" },
-  { id: "docs", label: "Documentos" },
-  { id: "comandos", label: "Comandos" },
+  { id: "campana", label: "Campaña", icon: "ti-map-2" },
+  { id: "docs", label: "Documentos", icon: "ti-files" },
+  { id: "comandos", label: "Comandos", icon: "ti-wand" },
 ];
 
 /** Stable prefix so the shared Tabs primitive emits this screen's test ids. */
 const TAB_TEST_ID_PREFIX = "card-detail-tab-";
+
+/**
+ * Markdown heading components remapped to <strong>/<p> so body headings don't
+ * conflict with the component's own <h2> title (keeps queryByRole("heading") stable).
+ */
+const MARKDOWN_COMPONENTS = {
+  h1: ({ children }) => (
+    <p>
+      <strong>{children}</strong>
+    </p>
+  ),
+  h2: ({ children }) => (
+    <p>
+      <strong>{children}</strong>
+    </p>
+  ),
+  h3: ({ children }) => (
+    <p>
+      <strong>{children}</strong>
+    </p>
+  ),
+  h4: ({ children }) => (
+    <p>
+      <strong>{children}</strong>
+    </p>
+  ),
+  h5: ({ children }) => (
+    <p>
+      <strong>{children}</strong>
+    </p>
+  ),
+  h6: ({ children }) => (
+    <p>
+      <strong>{children}</strong>
+    </p>
+  ),
+} satisfies Components;
+
+const DOCS_NAV_LIST_STYLE: React.CSSProperties = {
+  listStyle: "none",
+  margin: 0,
+  padding: 0,
+  display: "flex",
+  flexDirection: "column",
+  gap: "2px",
+};
+
+const DOCS_NAV_ICON_STYLE: React.CSSProperties = { fontSize: "13px", flexShrink: 0 };
 
 // ---------------------------------------------------------------------------
 // Props
@@ -140,24 +189,33 @@ export function CardDetail({
   // Active tab — defaults to Campaña (AC-02-009.1). Persists across re-renders.
   const [activeTab, setActiveTab] = useState<TabKey>("campana");
 
+  // Selected document in the Documentos rail — "summary" (Resumen) or a doc key.
+  const [selectedDocKey, setSelectedDocKey] = useState<string>("summary");
+
   // Resolve the next-step command for this card's lifecycle position.
   const step = nextStep({ cardStatus: status, phase, advancePending });
+
+  // Project commands for the Comandos tab — the multi-command box shows for
+  // building/operation cards (prototype commandsBox); else just the next step.
+  const projectCommands = phase != null ? workspaceCommands(phase) : [];
+  const showProjectCommands =
+    phase === "implementation" || phase === "release" || phase === "operation";
 
   // Derive the active campaign phase index for CampaignPipeline.
   const activePhase = phaseFromStatus({ cardStatus: status, phase });
 
   // Build navigable doc entries (empty when no docs).
   const navEntries: NavEntry[] = docsIndex != null ? buildNavEntries(docsIndex) : [];
-  const hasNav = navEntries.length > 0;
 
   // Forge handler: use provided callback or no-op.
   const handleEnterForge = onEnterForge ?? noop;
 
   /**
-   * Clicking a doc nav entry switches the active tab to Documentos
-   * so the owner always lands on the Documentos panel (AC-02-009.3).
+   * Select a document in the Documentos rail and keep the active tab on Documentos
+   * (AC-02-009.3). "summary" shows the Resumen; any other key shows that document.
    */
-  const handleDocEntryClick = () => {
+  const handleSelectDoc = (key: string) => {
+    setSelectedDocKey(key);
     setActiveTab("docs");
   };
 
@@ -201,118 +259,116 @@ export function CardDetail({
         <CampaignPipeline slug={slug} activePhase={activePhase} onEnterForge={handleEnterForge} />
       </div>
 
-      {/* ---- Documentos panel (AC-02-009.2 — existing doc navigator behavior) ---- */}
+      {/* ---- Documentos panel — rail (210px) + reader (prototype docsBody) ---- */}
       <div
         data-testid="card-detail-panel-docs"
         role="tabpanel"
         aria-labelledby="card-detail-tab-docs"
         style={panelStyle("docs")}
       >
-        {/* Summary — markdown body (AC-02-004.1: summary + key points).
-            Headings in the body are remapped to <strong>/<p> so they do not conflict
-            with the component's own <h2> title — keeps queryByRole("heading") stable. */}
-        <div data-testid="card-detail-summary" style={SUMMARY_STYLE}>
-          <Markdown
-            components={{
-              h1: ({ children }) => (
-                <p>
-                  <strong>{children}</strong>
-                </p>
-              ),
-              h2: ({ children }) => (
-                <p>
-                  <strong>{children}</strong>
-                </p>
-              ),
-              h3: ({ children }) => (
-                <p>
-                  <strong>{children}</strong>
-                </p>
-              ),
-              h4: ({ children }) => (
-                <p>
-                  <strong>{children}</strong>
-                </p>
-              ),
-              h5: ({ children }) => (
-                <p>
-                  <strong>{children}</strong>
-                </p>
-              ),
-              h6: ({ children }) => (
-                <p>
-                  <strong>{children}</strong>
-                </p>
-              ),
-            }}
-          >
-            {body}
-          </Markdown>
-        </div>
-
-        {/* Docs navigator (only when docsIndex has navigable entries — AC-02-008.1) */}
-        {hasNav && (
+        <div className="card-detail-docs-grid">
+          {/* Left rail — the documents navigator (always lists Resumen first) */}
           <nav
             data-testid="card-detail-docs-nav"
-            style={DOCS_NAV_STYLE}
+            style={DOCS_SIDEBAR_STYLE}
             aria-label="Documentos del proyecto"
           >
             <p style={DOCS_NAV_HEADING_STYLE}>Documentos</p>
-            <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+            <ul style={DOCS_NAV_LIST_STYLE}>
+              <li>
+                <button
+                  type="button"
+                  data-testid="card-detail-docs-nav-resumen"
+                  data-active={selectedDocKey === "summary"}
+                  aria-current={selectedDocKey === "summary" ? "true" : undefined}
+                  style={docsNavItemStyle(selectedDocKey === "summary")}
+                  onClick={() => handleSelectDoc("summary")}
+                >
+                  <i className="ti ti-list" aria-hidden="true" style={DOCS_NAV_ICON_STYLE} />
+                  Resumen
+                </button>
+              </li>
               {navEntries.map((entry) => (
                 <li key={entry.key}>
-                  {/* Semantic <button> inside <li> — <li role="button"> is rejected by Biome
-                      (noNoninteractiveElementToInteractiveRole, useSemanticElements). */}
+                  {/* Semantic <button> inside <li> — <li role="button"> is rejected by Biome. */}
                   <button
                     type="button"
                     data-testid="card-detail-docs-nav-item"
-                    style={{
-                      ...NAV_ITEM_STYLE,
-                      background: "none",
-                      border: "none",
-                      width: "100%",
-                      textAlign: "left",
-                      fontFamily: "inherit",
-                    }}
-                    onClick={handleDocEntryClick}
+                    data-active={selectedDocKey === entry.key}
+                    aria-current={selectedDocKey === entry.key ? "true" : undefined}
+                    style={docsNavItemStyle(selectedDocKey === entry.key)}
+                    onClick={() => handleSelectDoc(entry.key)}
                   >
+                    <i className="ti ti-file-text" aria-hidden="true" style={DOCS_NAV_ICON_STYLE} />
                     {entry.label}
                   </button>
                 </li>
               ))}
             </ul>
           </nav>
-        )}
+
+          {/* Reader — the selected document (Resumen body, or a project doc) */}
+          <div style={DOCS_READER_STYLE}>
+            {selectedDocKey === "summary" ? (
+              /* Summary — markdown body (AC-02-004.1). Headings remapped to <strong>/<p>
+                 so they don't conflict with the component's own <h2> title. */
+              <div data-testid="card-detail-summary" style={SUMMARY_STYLE}>
+                <Markdown components={MARKDOWN_COMPONENTS}>{body}</Markdown>
+              </div>
+            ) : (
+              <div data-testid="card-detail-doc-reader" style={SUMMARY_STYLE}>
+                <p style={{ margin: "0 0 6px" }}>
+                  <strong>
+                    {navEntries.find((e) => e.key === selectedDocKey)?.label ?? selectedDocKey}
+                  </strong>
+                </p>
+                <p style={{ margin: 0, color: "var(--color-text-muted, currentColor)" }}>
+                  Este documento vive en el proyecto. Ábrelo en el workspace del proyecto
+                  (Portfolio) para leerlo completo.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* ---- Comandos panel (AC-02-009.2 — existing next-step behavior) ---- */}
+      {/* ---- Comandos panel — next step · avanzar + (building/operation) the project box ---- */}
       <div
         data-testid="card-detail-panel-comandos"
         role="tabpanel"
         aria-labelledby="card-detail-tab-comandos"
         style={panelStyle("comandos")}
       >
-        {/* Next-step command row (AC-02-004.1: next-step command with copy button) */}
+        {/* Next step · advance (AC-02-004.1) */}
         <section
           data-testid="card-detail-next-step"
           style={NEXT_STEP_STYLE}
           aria-label="Siguiente comando"
         >
-          <p style={NEXT_STEP_LABEL_STYLE}>Siguiente paso</p>
-          <p
-            style={{
-              fontSize: "0.8125rem",
-              color: "var(--color-text-muted, currentColor)",
-              margin: 0,
-            }}
-          >
-            {step.label}
-          </p>
-          <div style={COMMAND_STYLE}>
-            <code style={COMMAND_CODE_STYLE}>{step.command}</code>
-            <CopyButton value={step.command} />
-          </div>
+          <p style={NEXT_STEP_LABEL_STYLE}>Siguiente paso · avanzar</p>
+          <p style={COMMAND_WHEN_STYLE}>{step.label}</p>
+          <CmdRow command={step.command} />
         </section>
+
+        {/* Project command box — building/operation cards (prototype commandsBox) */}
+        {showProjectCommands && (
+          <section
+            data-testid="card-detail-project-commands"
+            style={NEXT_STEP_STYLE}
+            aria-label="Comandos del proyecto"
+          >
+            <p style={NEXT_STEP_LABEL_STYLE}>Comandos del proyecto</p>
+            {projectCommands.map((row) => (
+              <div
+                key={row.command}
+                style={{ display: "flex", flexDirection: "column", gap: "4px" }}
+              >
+                <p style={COMMAND_WHEN_STYLE}>{row.when}</p>
+                <CmdRow command={row.command} />
+              </div>
+            ))}
+          </section>
+        )}
       </div>
 
       {/* Hidden metadata for data binding */}

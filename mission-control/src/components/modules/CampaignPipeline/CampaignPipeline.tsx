@@ -40,6 +40,7 @@ import { StoneBridge } from "@/components/modules/party/StoneBridge/StoneBridge"
 import type { CampaignPhase } from "@/lib/campaign/campaign";
 import type { PhaseDefinition } from "./phases";
 import { PHASES } from "./phases";
+import { RoamingCast, type RoamingCastMember } from "./RoamingCast";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -92,16 +93,6 @@ const ROOM_POS: ReadonlyArray<readonly [number, number]> = [
  */
 const PHASE_ZONE = ["research", "spec", "design", "architecture", "build", "release"] as const;
 
-/** Spanish display labels for each room's top-left chip. */
-const PHASE_ROOM_LABEL = [
-  "1 · Investigación",
-  "2 · Producto",
-  "3 · Diseño",
-  "4 · Arquitectura",
-  "5 · Construcción",
-  "6 · Release",
-] as const;
-
 /** Sprite home positions [left, top] inside a room, by team size (1,2,3 members). */
 const SPRITE_HOMES: Record<number, ReadonlyArray<readonly [number, number]>> = {
   1: [[97, 84]],
@@ -115,7 +106,6 @@ const SPRITE_HOMES: Record<number, ReadonlyArray<readonly [number, number]>> = {
     [160, 80],
   ],
 };
-const SPRITE_HOME_DEFAULT: readonly [number, number] = [97, 84];
 
 /** Bridge descriptors: one per connector between consecutive rooms. */
 interface BridgeDesc {
@@ -129,24 +119,26 @@ interface BridgeDesc {
 
 /** 5 StoneBridge connectors (positions faithful to la-campana.html conn() calls). */
 const BRIDGES: ReadonlyArray<BridgeDesc> = [
-  { fromIdx: 0, orientation: "h", left: 268, top: 135, width: 67, height: 16 },
-  { fromIdx: 1, orientation: "h", left: 585, top: 135, width: 67, height: 16 },
-  { fromIdx: 2, orientation: "v", left: 762, top: 254, width: 16, height: 52 },
-  { fromIdx: 3, orientation: "h", left: 585, top: 395, width: 67, height: 16 },
-  { fromIdx: 4, orientation: "h", left: 268, top: 395, width: 67, height: 16 },
+  { fromIdx: 0, orientation: "h", left: 268, top: 143, width: 67, height: 16 },
+  { fromIdx: 1, orientation: "h", left: 585, top: 143, width: 67, height: 16 },
+  { fromIdx: 2, orientation: "v", left: 770, top: 254, width: 16, height: 52 },
+  { fromIdx: 3, orientation: "h", left: 585, top: 403, width: 67, height: 16 },
+  { fromIdx: 4, orientation: "h", left: 268, top: 403, width: 67, height: 16 },
 ];
 
 /**
- * Deliverable label per bridge source phase (emoji + short name), faithful to
- * the prototype conn()/PHASES `emo` + `deliver` (party-pipeline.html L172-191).
- * Index = source phase (0–4); the bridge carries the deliverable that phase ships.
+ * Per-phase presentation meta (emoji · short deliverable name · accent colour),
+ * faithful to the prototype PHASES `emo` / `deliver` / `col` (party-pipeline.html
+ * L171-197). Index 0–5 = phase. The room shows `{emo} {deliver}`; a bridge from a
+ * phase carries that phase's deliverable; the ficha header tints `{n · name}` in `col`.
  */
-const BRIDGE_DELIVERABLE: ReadonlyArray<readonly [string, string]> = [
-  ["🔍", "research.md"],
-  ["📋", "PRD + FRDs"],
-  ["🎨", "sistema + mocks"],
-  ["📐", "blueprint + Build Plan"],
-  ["⚒️", "el código"],
+const PHASE_META: ReadonlyArray<{ emo: string; deliver: string; col: string }> = [
+  { emo: "🔍", deliver: "research.md", col: "var(--color-cat-8)" },
+  { emo: "📋", deliver: "PRD + FRDs", col: "var(--color-cat-2)" },
+  { emo: "🎨", deliver: "sistema + mocks", col: "var(--color-cat-3)" },
+  { emo: "📐", deliver: "blueprint + Build Plan", col: "var(--color-cat-4)" },
+  { emo: "⚒️", deliver: "el código", col: "var(--color-cat-7)" },
+  { emo: "🚀", deliver: "auditoría + deploy", col: "var(--color-cat-9)" },
 ];
 
 /**
@@ -179,6 +171,13 @@ function phaseBadgeLabel(state: PhaseState): string {
   if (state === "done") return "✓ Completada";
   if (state === "current") return "● Activa";
   return "🔒 Bloqueada";
+}
+
+/** Ficha header state label (prototype renderDetail: completada / EN CURSO / en espera). */
+function fichaStateLabel(state: PhaseState): string {
+  if (state === "done") return "completada";
+  if (state === "current") return "EN CURSO";
+  return "en espera";
 }
 
 // ---------------------------------------------------------------------------
@@ -218,13 +217,30 @@ const ROOT_STYLE: React.CSSProperties = {
 };
 
 const CONTAINER_HEADING_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "6px",
+  flexWrap: "wrap",
   fontSize: "0.6875rem",
-  fontWeight: 700,
-  letterSpacing: "0.1em",
+  fontWeight: 400,
+  letterSpacing: "0.04em",
   textTransform: "uppercase",
-  color: "var(--color-text-muted, var(--color-text, currentColor))",
+  color: "var(--color-text3, var(--color-text-muted, currentColor))",
   margin: 0,
   padding: "0 calc(var(--spacing, 0.25rem) * 2)",
+};
+
+const CONTAINER_HEADING_ICON_STYLE: React.CSSProperties = {
+  fontSize: "13px",
+  color: "var(--color-accent-text)",
+};
+
+const CONTAINER_HEADING_HINT_STYLE: React.CSSProperties = {
+  color: "var(--color-text3, var(--color-text-muted, currentColor))",
+  fontWeight: 400,
+  textTransform: "none",
+  letterSpacing: 0,
 };
 
 const STAGE_STYLE: React.CSSProperties = {
@@ -251,6 +267,24 @@ const FICHA_STYLE: React.CSSProperties = {
   background: "var(--color-panel, var(--color-surface, Canvas))",
   border: "var(--hairline, 1px) solid var(--color-border, currentColor)",
   borderRadius: "var(--radius, 0.5rem)",
+};
+
+/** Ficha header — "{n · name} — {state}" (prototype `.detail h3`). */
+const FICHA_HEADER_STYLE: React.CSSProperties = {
+  fontFamily: "var(--font-pixel, monospace)",
+  fontWeight: 500,
+  fontSize: "18px",
+  margin: 0,
+  display: "flex",
+  alignItems: "center",
+  gap: "9px",
+  flexWrap: "wrap",
+};
+
+const FICHA_HEADER_STATE_STYLE: React.CSSProperties = {
+  fontFamily: "var(--font-mono, monospace)",
+  fontSize: "11px",
+  color: "var(--color-text3, var(--color-text-muted))",
 };
 
 const FICHA_SECTION_LABEL_STYLE: React.CSSProperties = {
@@ -370,12 +404,6 @@ const DELIVERABLE_CHIP_WRAPPER_STYLE: React.CSSProperties = {
   pointerEvents: "none",
 };
 
-const DELIVERABLE_LABEL_STYLE: React.CSSProperties = {
-  fontFamily: "var(--font-mono, monospace)",
-  fontSize: "10px",
-  color: "var(--color-text3, var(--color-text-muted))",
-};
-
 // ---------------------------------------------------------------------------
 // PhaseBadge — top-right status chip inside a room
 // ---------------------------------------------------------------------------
@@ -465,10 +493,17 @@ function PhaseRoom({
 }: PhaseRoomProps): React.JSX.Element {
   const roomState = phaseStateToRoomState(state);
   const pos = ROOM_POS[index] ?? [0, 0];
-  const label = PHASE_ROOM_LABEL[index] ?? phase.name;
+  const num = index + 1;
+  const ariaLabel = `${num} ${phase.name}`;
+  const meta = PHASE_META[index];
   const zone = PHASE_ZONE[index] ?? "research";
   const homes = SPRITE_HOMES[phase.team.length] ?? SPRITE_HOMES[1] ?? [];
-  const spriteState = state === "current" ? "work" : "idle";
+  const castMembers: RoamingCastMember[] = [];
+  for (const member of phase.team) {
+    if (isValidAgentRole(member.role)) {
+      castMembers.push({ role: member.role, label: member.label, lead: castMembers.length === 0 });
+    }
+  }
 
   const roomStyle: React.CSSProperties = {
     left: pos[0],
@@ -481,7 +516,18 @@ function PhaseRoom({
   };
 
   return (
-    <Room key={phase.key} zone={zone} label={label} state={roomState} style={roomStyle}>
+    <Room
+      key={phase.key}
+      zone={zone}
+      label={ariaLabel}
+      labelNode={
+        <>
+          <span style={{ color: "var(--color-accent-text)" }}>{num}</span> {phase.name}
+        </>
+      }
+      state={roomState}
+      style={roomStyle}
+    >
       {/* Transparent overlay button — carries testid/a11y attrs; Room<section> cannot be role=button */}
       <button
         data-testid={`campaign-phase-${phase.key}`}
@@ -506,29 +552,15 @@ function PhaseRoom({
         </span>
       )}
 
-      {/* Agent sprites — the phase's team members */}
-      {phase.team.map((member, memberIdx) => {
-        if (!isValidAgentRole(member.role)) return null;
-        const homePos = homes[memberIdx] ?? SPRITE_HOME_DEFAULT;
-        const lockedFilter =
-          state === "locked" ? { filter: "grayscale(0.9) brightness(0.7)", opacity: 0.72 } : {};
-        return (
-          <AgentSprite
-            key={member.role}
-            agentRole={member.role}
-            state={spriteState}
-            woId={member.role}
-            style={{ left: homePos[0], top: homePos[1], zIndex: 3, ...lockedFilter }}
-          />
-        );
-      })}
+      {/* Agent sprites — roam in the active room, idle-bob when done, static when locked */}
+      <RoamingCast members={castMembers} homes={homes} state={state} />
 
-      {/* Deliverable chip — bottom of room (hidden for locked) */}
-      {state !== "locked" && (
+      {/* Deliverable chip — bottom of room (hidden for locked). Owner: drop the
+          "entrega ▸" label + arrow — just the icon + short artifact name (prototype `.art`). */}
+      {state !== "locked" && meta != null && (
         <div aria-hidden="true" style={DELIVERABLE_CHIP_WRAPPER_STYLE}>
-          <span style={DELIVERABLE_LABEL_STYLE}>entrega ▸</span>
           <span style={deliverableChipStyle(state)}>
-            {phase.writes.split(",")[0]?.trim() ?? phase.writes}
+            <span>{meta.emo}</span> {meta.deliver}
           </span>
         </div>
       )}
@@ -542,6 +574,8 @@ function PhaseRoom({
 
 interface FichaContentProps {
   phase: PhaseDefinition;
+  /** Phase index 0–5 — for the header number + accent colour. */
+  phaseIndex: number;
   phaseState: PhaseState;
   slug: string;
   onEnterForge: (slug: string) => void;
@@ -549,6 +583,7 @@ interface FichaContentProps {
 
 function FichaContent({
   phase,
+  phaseIndex,
   phaseState,
   slug,
   onEnterForge,
@@ -584,6 +619,14 @@ function FichaContent({
       style={FICHA_STYLE}
       aria-label={`Ficha de fase: ${phase.name}`}
     >
+      {/* Header — "investigación EN CURSO": phase n · name (accent-tinted) + state */}
+      <p data-testid="ficha-header" style={FICHA_HEADER_STYLE}>
+        <span style={{ color: PHASE_META[phaseIndex]?.col ?? "var(--color-text)" }}>
+          {phaseIndex + 1} · {phase.name}
+        </span>
+        <span style={FICHA_HEADER_STATE_STYLE}>— {fichaStateLabel(phaseState)}</span>
+      </p>
+
       <div data-testid="ficha-description" style={FICHA_SUBSECTION_STYLE}>
         <p style={FICHA_SECTION_LABEL_STYLE}>Descripción</p>
         <p style={FICHA_SECTION_VALUE_STYLE}>{phase.description}</p>
@@ -667,7 +710,11 @@ export function CampaignPipeline({
   activePhase,
   onEnterForge,
 }: CampaignPipelineProps): React.JSX.Element {
-  const [selectedPhaseKey, setSelectedPhaseKey] = useState<string | null>(null);
+  // Default the open ficha to the ACTIVE phase so the "investigación en curso" team
+  // panel shows by default (the prototype initialises sel=active), not only after a click.
+  const [selectedPhaseKey, setSelectedPhaseKey] = useState<string | null>(
+    () => PHASES[activePhase]?.key ?? null,
+  );
 
   const handlePhaseClick = (key: string) => {
     setSelectedPhaseKey((prev) => (prev === key ? null : key));
@@ -688,22 +735,28 @@ export function CampaignPipeline({
       style={ROOT_STYLE}
       aria-label="La Campaña — las 6 fases del viaje de la idea"
     >
-      {/* Labelled container heading (AC-02-010.1) */}
-      <p style={CONTAINER_HEADING_STYLE}>EL VIAJE DE ESTA IDEA POR LAS 6 FASES</p>
+      {/* Labelled container heading (AC-02-010.1) — centred, light weight, with the
+          map icon + a hint (prototype detailView wrapper, party-pipeline.html). */}
+      <p style={CONTAINER_HEADING_STYLE}>
+        <i className="ti ti-map-2" style={CONTAINER_HEADING_ICON_STYLE} aria-hidden="true" />
+        EL VIAJE DE ESTA IDEA POR LAS 6 FASES
+        <span style={CONTAINER_HEADING_HINT_STYLE}>— clic en una sala para su ficha</span>
+      </p>
 
       {/* Stage — 920×560 dark pixel-art canvas */}
       <div data-testid="campaign-stage" style={STAGE_STYLE} data-party-stage="campana">
         {/* 5 StoneBridge connectors between rooms — each carries its deliverable label */}
         {BRIDGES.map((bridge) => {
-          const deliverable = BRIDGE_DELIVERABLE[bridge.fromIdx];
+          const deliverable = PHASE_META[bridge.fromIdx];
           const deliverState = bridgeDeliverState(bridge.fromIdx, activePhase);
           return (
             <StoneBridge
               key={`bridge-${bridge.fromIdx}`}
               orientation={bridge.orientation}
+              variant="road"
               flow={bridge.fromIdx === activePhase - 1}
-              deliverableEmoji={deliverable?.[0]}
-              deliverableLabel={deliverable?.[1]}
+              deliverableEmoji={deliverable?.emo}
+              deliverableLabel={deliverable?.deliver}
               deliverableState={deliverState}
               style={{
                 left: bridge.left,
@@ -733,6 +786,7 @@ export function CampaignPipeline({
         <div style={FICHA_WRAPPER_STYLE}>
           <FichaContent
             phase={selectedPhase}
+            phaseIndex={selectedPhaseIndex}
             phaseState={selectedPhaseState}
             slug={slug}
             onEnterForge={onEnterForge}

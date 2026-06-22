@@ -89,8 +89,27 @@ Read-only kanban of the idea base, with idea capture, a navigable detail and dis
   system SHALL render a graceful **locked/empty state** for that phase (no document, locked marker)
   without breaking the view.
 
+### Card-detail fidelity pass (amendment, 2026-06-22)
+A visual-fidelity reconciliation of the card detail against `prototype/party-pipeline.html` (the
+campaign map) + `prototype/index.html` `detailView()`:
+- **AC-02-010.4 amended** — the **active** phase's ficha is shown **by default** (the prototype opens
+  the active phase), not only after a click; clicking another phase switches it, clicking the open one
+  toggles it closed. The ficha gains a header "`{n} · {name}` — {state}" (e.g. "Investigación — EN
+  CURSO"). The active room's cast **roams** — sprites wander and collaborate (lead halo, speech on
+  meet); `prefers-reduced-motion` renders them static.
+- **AC-02-010.3 deliverable** — each non-locked room shows the short artifact with its icon only
+  (`🔍 research.md`, `📋 PRD + FRDs`, …); the "entrega ▸" label + arrow were dropped. The inter-phase
+  connectors render as the prototype's striped **road** (done ✓ / flowing → / locked), not the Fragua
+  stone PNG.
+- **AC-02-009.1** — the three tabs carry their icons (`ti-map-2 · ti-files · ti-wand`).
+- **AC-02-009.2/.3 Documentos** is a **rail (210px) + reader**: the rail always lists **Resumen** (the
+  summary reader) plus one item per project document; selecting an item shows it in the reader (a board
+  card defers the full document read to the project workspace). **Comandos** uses the shared `CmdRow`,
+  and building/operation cards add a project-command box (`workspaceCommands`).
+
 ## Edge cases
-- Idea with no documents → show only the summary (Documentos tab).
+- Idea with no documents → the Documentos rail still shows **Resumen** (the reader = the summary); there
+  are simply zero project-document items.
 - Category (web/mobile/desktop/AI/…), return (monetary/opportunity/personal/mixed) and score are shown with a legend explaining them.
 - An `in-pipeline` card whose project / `status.yaml` is missing or malformed → La Campaña active phase falls back to **research** (index 0) and the view still renders (AC-02-010.2).
 - A `discovered` card (no project yet) → La Campaña active phase = **research**; the future phases are all locked (AC-02-010.3 / AC-02-010.7).

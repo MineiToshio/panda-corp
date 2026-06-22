@@ -32,12 +32,13 @@
  *     docsIndex?: ProjectDocsIndex | null   — from readProjectDocs(card.project), null when absent
  *
  *   Rendered structure (data-testid):
- *     "card-detail"              — root container
- *     "card-detail-summary"      — markdown body (react-markdown or <div>)
- *     "card-detail-docs-nav"     — docs navigator (only when docsIndex has entries)
- *     "card-detail-docs-nav-item"— one per navigable doc (queryAllByTestId)
- *     "card-detail-next-step"    — row containing the next-step command string
- *     "copy-button"              — CopyButton (data-testid from CopyButton.tsx)
+ *     "card-detail"               — root container
+ *     "card-detail-summary"       — markdown body (shown when "Resumen" is selected — the default)
+ *     "card-detail-docs-nav"      — docs navigator rail (ALWAYS present; always lists Resumen)
+ *     "card-detail-docs-nav-resumen" — the always-present "Resumen" rail item
+ *     "card-detail-docs-nav-item" — one per navigable project doc (only when docsIndex has entries)
+ *     "card-detail-next-step"     — row containing the next-step command string
+ *     "copy-button"               — CopyButton (data-testid from CopyButton.tsx; now nested in CmdRow)
  */
 
 import { render, screen } from "@testing-library/react";
@@ -53,11 +54,16 @@ import type { Phase } from "@/lib/status/status";
 
 vi.mock("@/lib/next-step/next-step", () => ({
   nextStep: vi.fn(),
+  // CardDetail also imports workspaceCommands for the Comandos tab project-command
+  // box (building/operation cards). Most fixtures here aren't building/operation, so
+  // the default empty list keeps the import resolvable; tests that need rows override it.
+  workspaceCommands: vi.fn(() => []),
 }));
 
-import { nextStep } from "@/lib/next-step/next-step";
+import { nextStep, workspaceCommands } from "@/lib/next-step/next-step";
 
 const mockNextStep = vi.mocked(nextStep);
+const mockWorkspaceCommands = vi.mocked(workspaceCommands);
 
 // ---------------------------------------------------------------------------
 // Import the component under test (will be RED until implementation exists)
@@ -173,6 +179,9 @@ const DISCARDED_CARD = {
 
 beforeEach(() => {
   mockNextStep.mockReturnValue(DEFAULT_NEXT_STEP);
+  // Re-establish the default after resetAllMocks() so .map() in CardDetail's Comandos
+  // panel never sees undefined (the real workspaceCommands always returns an array).
+  mockWorkspaceCommands.mockReturnValue([]);
 });
 
 afterEach(() => {
@@ -298,9 +307,13 @@ describe("frd-02: AC-02-004.1 — docs navigator (in-pipeline card with docs)", 
 // ---------------------------------------------------------------------------
 
 describe("frd-02: AC-02-008.1 — edge: card with no docs (summary only)", () => {
-  it("frd-02: WHEN docsIndex is null THEN no docs navigator is rendered", () => {
+  it("frd-02: WHEN docsIndex is null THEN the rail still lists Resumen but no project doc items", () => {
+    // New contract: the docs rail is always present (it always lists "Resumen");
+    // project doc items appear only when docsIndex has entries. A null index ⇒ none.
     render(<CardDetail {...MINIMAL_CARD} />);
-    expect(screen.queryByTestId("card-detail-docs-nav")).not.toBeInTheDocument();
+    expect(screen.getByTestId("card-detail-docs-nav")).toBeInTheDocument();
+    expect(screen.getByTestId("card-detail-docs-nav-resumen")).toBeInTheDocument();
+    expect(screen.queryAllByTestId("card-detail-docs-nav-item")).toHaveLength(0);
   });
 
   it("frd-02: WHEN docsIndex is null THEN no nav items are rendered", () => {
@@ -308,9 +321,11 @@ describe("frd-02: AC-02-008.1 — edge: card with no docs (summary only)", () =>
     expect(screen.queryAllByTestId("card-detail-docs-nav-item")).toHaveLength(0);
   });
 
-  it("frd-02: WHEN docsIndex has no navigable entries THEN no navigator is rendered (empty index)", () => {
+  it("frd-02: WHEN docsIndex has no navigable entries THEN the rail lists only Resumen (no doc items)", () => {
     render(<CardDetail {...IN_PIPELINE_EMPTY_DOCS_CARD} />);
-    expect(screen.queryByTestId("card-detail-docs-nav")).not.toBeInTheDocument();
+    expect(screen.getByTestId("card-detail-docs-nav")).toBeInTheDocument();
+    expect(screen.getByTestId("card-detail-docs-nav-resumen")).toBeInTheDocument();
+    expect(screen.queryAllByTestId("card-detail-docs-nav-item")).toHaveLength(0);
   });
 
   it("frd-02: WHEN docsIndex is null THEN the summary is still rendered (no crash)", () => {
@@ -541,10 +556,13 @@ describe("frd-02: regression B1' — undefined phase on in-pipeline card", () =>
 // frd-02: Regression — empty docs index does NOT show navigator
 // ---------------------------------------------------------------------------
 
-describe("frd-02: regression I2 — empty docsIndex must not show navigator", () => {
-  it("frd-02: WHEN docsIndex has frds:[] and no other entries THEN navigator is absent", () => {
+describe("frd-02: regression I2 — empty docsIndex shows no project doc items", () => {
+  it("frd-02: WHEN docsIndex has frds:[] and no other entries THEN no project doc items appear", () => {
+    // I2 regression under the new always-present rail: an empty index must not
+    // fabricate any project doc nav item (the rail still lists Resumen only).
     render(<CardDetail {...IN_PIPELINE_EMPTY_DOCS_CARD} />);
-    expect(screen.queryByTestId("card-detail-docs-nav")).not.toBeInTheDocument();
+    expect(screen.getByTestId("card-detail-docs-nav-resumen")).toBeInTheDocument();
+    expect(screen.queryAllByTestId("card-detail-docs-nav-item")).toHaveLength(0);
   });
 
   it("frd-02: WHEN docsIndex has frds:[] and no other entries THEN summary is still visible", () => {

@@ -35,6 +35,14 @@ export interface StoneBridgeProps {
   orientation: "h" | "v";
   /** When true the bridge is the active/flowing connector. */
   flow: boolean;
+  /**
+   * Visual style of the connector body:
+   *   "stone" (default) — the pixel-art bridge PNG (La Fragua, FRD-06).
+   *   "road" — the CSS striped "doc-handoff road" of the campaign pipeline
+   *            (party-pipeline.html `.conn .road`), tinted ok-green while flowing.
+   * The centred deliverable `.doc` chip is shared by both.
+   */
+  variant?: "stone" | "road";
   /** Inline style for absolute positioning on the stage (left/top/width/height). */
   style?: CSSProperties;
   /** Deliverable name shown on the centred `.doc` chip (e.g. "research.md"). */
@@ -56,6 +64,26 @@ const BRIDGE_ASSET: Record<"h" | "v", string> = {
   h: "/prototype/assets/zones/bridge-h.png",
   v: "/prototype/assets/zones/bridge-v.png",
 };
+
+/**
+ * Campaign "road" body (party-pipeline.html `.conn .road` / `.flow .road`, L46-47).
+ * The stripe hexes are party structural literals (canvas texture, like Room's scrim
+ * rgba) — not design tokens. Stripes run perpendicular to the road (90deg horizontal,
+ * 180deg vertical); the flowing road tints ok-green.
+ */
+function roadBodyStyle(orientation: "h" | "v", state: BridgeDeliverState): CSSProperties {
+  const ang = orientation === "v" ? "180deg" : "90deg";
+  const flow = state === "flow";
+  const stripes = flow ? "#2f4a3a 0 9px, #21342a 9px 18px" : "#26312f 0 9px, #1c2523 9px 18px";
+  return {
+    position: "absolute",
+    inset: 0,
+    borderRadius: "7px",
+    background: `repeating-linear-gradient(${ang}, ${stripes})`,
+    boxShadow: flow ? "inset 0 0 0 1px var(--color-ok)" : "inset 0 0 0 1px #2c3836",
+    opacity: state === "locked" ? 0.5 : flow ? 1 : 0.8,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Deliverable label styles (faithful to `.conn .doc` in party-pipeline.html L48-50)
@@ -120,6 +148,7 @@ function deliverableLabelStyle(state: BridgeDeliverState): CSSProperties {
 export function StoneBridge({
   orientation,
   flow,
+  variant = "stone",
   style,
   deliverableLabel,
   deliverableEmoji,
@@ -146,8 +175,21 @@ export function StoneBridge({
       data-flow={String(flow)}
       style={rootStyle}
     >
-      {/* biome-ignore lint/performance/noImgElement: pixel-art bridge needs image-rendering:pixelated; next/image breaks it */}
-      <img data-testid="stone-bridge-img" src={BRIDGE_ASSET[orientation]} alt="" style={imgStyle} />
+      {variant === "road" ? (
+        <div
+          data-testid="stone-bridge-road"
+          aria-hidden="true"
+          style={roadBodyStyle(orientation, deliverableState)}
+        />
+      ) : (
+        // biome-ignore lint/performance/noImgElement: pixel-art bridge needs image-rendering:pixelated; next/image breaks it
+        <img
+          data-testid="stone-bridge-img"
+          src={BRIDGE_ASSET[orientation]}
+          alt=""
+          style={imgStyle}
+        />
+      )}
 
       {/* Deliverable chip — emoji + name + state marker (prototype .conn .doc) */}
       {deliverableLabel != null && (

@@ -26,6 +26,10 @@ import type { Phase } from "@/lib/status/status";
 
 vi.mock("@/lib/next-step/next-step", () => ({
   nextStep: vi.fn(),
+  // CardDetail now also imports workspaceCommands (Comandos tab project-command box).
+  // These tab-wiring fixtures never reach a building/operation phase, so an empty
+  // list is enough to keep the import resolvable without rendering project commands.
+  workspaceCommands: vi.fn(() => []),
 }));
 
 // Mock CampaignPipeline so the tab-wiring tests are isolated from its internals.
@@ -228,10 +232,15 @@ describe("frd-02: AC-02-009.2 — Documentos tab body contains summary and docs 
     expect(screen.getByTestId("card-detail-docs-nav")).toBeInTheDocument();
   });
 
-  it("frd-02: WHEN Documentos tab is active and card has no docs THEN no navigator is shown", () => {
+  it("frd-02: WHEN Documentos tab is active and card has no docs THEN the rail lists only Resumen (no project doc items)", () => {
+    // New contract: the docs navigator is ALWAYS present — it always lists the
+    // "Resumen" item; project doc items appear only when docsIndex has entries.
     render(<CardDetail {...MINIMAL} />);
     fireEvent.click(screen.getByTestId("card-detail-tab-docs"));
-    expect(screen.queryByTestId("card-detail-docs-nav")).not.toBeInTheDocument();
+    expect(screen.getByTestId("card-detail-docs-nav")).toBeInTheDocument();
+    expect(screen.getByTestId("card-detail-docs-nav-resumen")).toBeInTheDocument();
+    // No project documents → zero doc nav items.
+    expect(screen.queryAllByTestId("card-detail-docs-nav-item")).toHaveLength(0);
   });
 });
 

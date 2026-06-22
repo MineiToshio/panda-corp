@@ -81,32 +81,61 @@ export const SUMMARY_STYLE: React.CSSProperties = {
   color: "var(--color-text, currentColor)",
 };
 
-export const DOCS_NAV_STYLE: React.CSSProperties = {
+/** Two-pane Documentos layout: left rail (210px) + reader. Responsive via the
+ *  `.card-detail-docs-grid` class in globals.css (stacks under ~640px). */
+
+/** Left rail panel (the "DOCUMENTOS" navigator). Prototype docsBody left panel. */
+export const DOCS_SIDEBAR_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 2)",
-  padding: "calc(var(--spacing, 0.25rem) * 3)",
+  gap: "calc(var(--spacing, 0.25rem) * 1.5)",
+  padding: "calc(var(--spacing, 0.25rem) * 2.5)",
   background: "var(--color-surface, Canvas)",
   border: "var(--hairline, 1px) solid var(--color-border, currentColor)",
   borderRadius: "var(--radius, 0.5rem)",
 };
 
-export const DOCS_NAV_HEADING_STYLE: React.CSSProperties = {
-  fontSize: "0.75rem",
-  fontWeight: 600,
-  textTransform: "uppercase",
-  letterSpacing: "0.05em",
-  color: "var(--color-text-muted, var(--color-text, currentColor))",
-  margin: 0,
+/** Reader panel (the selected document's body). Prototype docsBody right panel. */
+export const DOCS_READER_STYLE: React.CSSProperties = {
+  padding: "calc(var(--spacing, 0.25rem) * 3.5)",
+  background: "var(--color-surface, Canvas)",
+  border: "var(--hairline, 1px) solid var(--color-border, currentColor)",
+  borderRadius: "var(--radius, 0.5rem)",
+  minWidth: 0,
 };
 
-export const NAV_ITEM_STYLE: React.CSSProperties = {
-  fontSize: "0.8125rem",
-  color: "var(--color-accent, currentColor)",
-  padding: "0.125rem 0",
-  wordBreak: "break-all",
-  cursor: "pointer",
+/** Rail label "DOCUMENTOS" (also reused as a section heading). */
+export const DOCS_NAV_HEADING_STYLE: React.CSSProperties = {
+  fontSize: "0.6875rem",
+  fontWeight: 600,
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+  color: "var(--color-text3, var(--color-text-muted, currentColor))",
+  margin: "0 0 calc(var(--spacing, 0.25rem) * 0.5)",
 };
+
+/** A single rail nav item (Resumen / a document), with an active state. */
+export function docsNavItemStyle(active: boolean): React.CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    gap: "7px",
+    width: "100%",
+    textAlign: "left",
+    padding: "5px 8px",
+    borderRadius: "7px",
+    border: "none",
+    fontFamily: "inherit",
+    fontSize: "0.8125rem",
+    lineHeight: 1.35,
+    cursor: "pointer",
+    background: active ? "var(--color-accent-bg)" : "transparent",
+    color: active
+      ? "var(--color-accent-text)"
+      : "var(--color-text2, var(--color-text, currentColor))",
+    wordBreak: "break-word",
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Comandos panel — next-step command row
@@ -131,21 +160,11 @@ export const NEXT_STEP_LABEL_STYLE: React.CSSProperties = {
   margin: 0,
 };
 
-export const COMMAND_STYLE: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "calc(var(--spacing, 0.25rem) * 2)",
-  flexWrap: "wrap",
-};
-
-export const COMMAND_CODE_STYLE: React.CSSProperties = {
-  fontFamily: "var(--font-mono, monospace)",
-  fontSize: "0.8125rem",
-  color: "var(--color-text, currentColor)",
-  background: "var(--color-surface-panel, var(--color-surface, Canvas))",
-  border: "var(--hairline, 1px) solid var(--color-border, currentColor)",
-  borderRadius: "calc(var(--radius, 0.5rem) * 0.5)",
-  padding: "0.125rem 0.375rem",
+/** Command-row "when"/label hint shown above each command (Comandos tab). */
+export const COMMAND_WHEN_STYLE: React.CSSProperties = {
+  fontSize: "0.75rem",
+  color: "var(--color-text-muted, var(--color-text, currentColor))",
+  margin: 0,
 };
 
 // ---------------------------------------------------------------------------

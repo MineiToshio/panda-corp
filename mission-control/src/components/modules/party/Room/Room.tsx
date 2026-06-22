@@ -44,8 +44,14 @@ type RoomState = "cool" | "hot" | "active" | "done" | "locked";
 export interface RoomProps {
   /** Zone determines background image and identity. */
   zone: RoomZone;
-  /** Spanish display label shown in the top-left chip. */
+  /** Spanish display label shown in the top-left chip (also the accessible name). */
   label: string;
+  /**
+   * Optional rich label node for the visible chip (e.g. a phase number coloured
+   * with the accent). When provided it replaces `label` in the visible chip;
+   * `label` still backs the section's aria-label.
+   */
+  labelNode?: ReactNode;
   /** Visual state of the room. */
   state: RoomState;
   /** Optional WO/agent count shown in the top-right chip. */
@@ -131,7 +137,15 @@ const SCRIM_COUNT = "rgba(12,17,19,.8)";
  * @param props.style     - inline style for absolute positioning on stage
  * @param props.children  - sprites, cast, overlays layered above the background
  */
-export function Room({ zone, label, state, count, style, children }: RoomProps): React.JSX.Element {
+export function Room({
+  zone,
+  label,
+  labelNode,
+  state,
+  count,
+  style,
+  children,
+}: RoomProps): React.JSX.Element {
   const filter = roomFilter(state);
   const boxShadow = roomBoxShadow(state, zone);
 
@@ -162,7 +176,7 @@ export function Room({ zone, label, state, count, style, children }: RoomProps):
     top: 6,
     left: 8,
     fontFamily: "var(--font-pixel)",
-    fontSize: "14px",
+    fontSize: "13px",
     color: "var(--color-text)",
     background: SCRIM_LABEL,
     border: "1px solid var(--color-border-strong)",
@@ -203,7 +217,7 @@ export function Room({ zone, label, state, count, style, children }: RoomProps):
 
       {/* Top-left label chip */}
       <span data-testid="room-label" style={labelStyle}>
-        {label}
+        {labelNode ?? label}
       </span>
 
       {/* Top-right count chip (optional) */}

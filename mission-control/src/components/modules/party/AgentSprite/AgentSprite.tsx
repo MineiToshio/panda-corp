@@ -141,6 +141,9 @@ export function AgentSprite({
   };
 
   const progBarStyle: CSSProperties = {
+    // Only the work state shows the progress bar — idle/campaign sprites must not
+    // render an empty bar above them (kept in the DOM via data-visible for tests).
+    display: isWork ? "block" : "none",
     position: "absolute",
     top: "-9px",
     left: "8px",
