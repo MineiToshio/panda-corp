@@ -242,7 +242,12 @@ function DetailTail({ card }: { card: BoardCardEntry }): React.JSX.Element {
         </span>
       )}
       {returnEntry != null && (
-        <span data-testid="detail-head-return">
+        // inline-flex + center so the Chip aligns on the same line as the category
+        // chip + score (a plain inline span baseline-aligned it ~2px low).
+        <span
+          data-testid="detail-head-return"
+          style={{ display: "inline-flex", alignItems: "center" }}
+        >
           <Chip tone={returnEntry[1]}>{returnEntry[0]}</Chip>
         </span>
       )}

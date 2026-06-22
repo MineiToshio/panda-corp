@@ -4,6 +4,13 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-06-22 — Card-detail header: return chip vertically aligned with the title row
+**What:** In the open-card `PageTitle` row (title + category · return · "Score N/100"), the **return chip sat ~2px low** — it was wrapped in a plain inline `<span>` that baseline-aligned the `Chip` instead of centring it. Gave the `detail-head-return` span `display: inline-flex; align-items: center` (the same fix already applied to `IdeaCard`). Measured: all of H1 / category / return / score now share `midY 125`.
+
+**Why:** Owner: *"el título y web/mixto/score deberían estar alineados verticalmente; no está alineado, se ve en diferente orden."*
+
+**Verified:** Live DOM — the four mid-Ys equal (125). `verify.sh` GREEN; no visual re-bless (the card-detail header isn't in the default board shot). **Impact:** `BoardShell.tsx` `DetailTail`. (Recurring nit — a `Chip` dropped into a plain inline span baseline-aligns ~2px low; wrap it in `inline-flex`/`align-items:center`.)
+
 ## 2026-06-22 — Board↔campaign vocabulary aligned + "en curso" is honest (only when an agent runs)
 **What:**
 - **Board columns renamed to La Campaña's phase names (numbered)** so the Kanban and the card-detail campaign read the same words: `Descubierta→1 Investigación`, `Documentada→2 Producto`, `Diseño→3 Diseño`, `Arquitectura→4 Arquitectura`, `En construcción→5 Construcción`, `Lanzada→6 Release` (`Descartada` unchanged — terminal, not a pipeline phase). Pure label change; the two-axis column **derivation** (status + phase) is untouched.
