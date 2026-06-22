@@ -95,12 +95,19 @@ other's work, so given the same need they reinvent slightly-different versions o
   the **first work order(s)** — a *foundation wave* that completes **before** feature work orders
   parallelize. Feature WOs declare a dependency on the foundation, so they build against real, existing
   primitives instead of inventing their own. (Sequencing it first is the cheapest fix; it's the owner's
-  "build the common things first".) **The app shell belongs here, not in a feature FRD:** a whole-app
-  prototype's persistent topbar/nav/footer/layout frame belongs to no single FRD, so the per-FRD shard
-  drops it (the Mission Control "no nav menu shipped green" failure). Captured as the `AppShell`/`Nav`
-  foundation WO (`artifacts` include `app/layout.tsx`), it is built first and every surface mounts into
-  it — and the foundation-completeness gate below enforces "no surface until the shell is green" for
-  free, with no engine change and no `REQ→WO` spine collision a new `frd-app-shell` would cause.
+  "build the common things first".) **The app shell is a foundation concern, built first (DR-075/076):**
+  a whole-app prototype's persistent topbar/nav/footer/layout frame belongs to no single feature FRD, so
+  the per-FRD shard drops it (the Mission Control "no nav menu shipped green" failure). Capture it as the
+  `AppShell`/`Nav` foundation work order (`artifacts` include `app/layout.tsx`) so it builds first and
+  every surface mounts into it — the foundation-completeness gate below then enforces "no surface until
+  the shell is green" for free, with no engine change. **Do not AUTO-EMIT an orphan `frd-NN-app-shell` at
+  greenfield shard time** (it would have no `REQ-NN-MMM` in any PRD and the engine has no "build this FRD
+  between foundation and surfaces" primitive — that orphan is the failure mode DR-075 avoids). But a
+  **deliberately-authored app-shell FRD, rooted in the PRD** (e.g. a brownfield re-anchor where the PM
+  writes the shell's user contract — persistent nav, active-state, responsive — as real `REQ`/`AC`), **is
+  correct and well-documented**: its work orders still carry `foundation: true` so they build first. FRD
+  = where the shell's *contract* lives; the `foundation` flag = its *build-first ordering*. Both, not
+  either/or (DR-076).
   **ENGINE-ENFORCED (DR-057), not just prose:** the planner marks the foundation WO `foundation: true`,
   and while any foundation WO is still pending the engine's wave is **foundation-only** — features
   cannot fan out before the primitives exist, regardless of whether the blueprint author threaded the

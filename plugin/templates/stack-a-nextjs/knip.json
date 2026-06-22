@@ -1,6 +1,5 @@
 {
-  "$schema": "https://unpkg.com/knip@5/schema.json",
-  "_pandacorp": "Canonical knip config (DR-059) for the Next.js stack. Installed VERBATIM by /pandacorp:blueprint; re-synced + conformance-checked by /pandacorp:upgrade. Fail-closed dead-code gate wired into verify.sh.",
+  "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": [
     "src/app/**/{page,layout,loading,error,not-found,global-error,route,template,default}.{ts,tsx}",
     "src/app/**/{sitemap,robots,manifest,opengraph-image,icon,apple-icon}.{ts,tsx}",
@@ -13,7 +12,7 @@
   ],
   "project": ["src/**/*.{ts,tsx}"],
   "ignore": ["**/*.d.ts", ".next/**", "src/test/**"],
-  "ignoreDependencies": [],
+  "ignoreDependencies": ["tailwindcss", "@axe-core/playwright"],
   "next": true,
   "vitest": true,
   "playwright": true

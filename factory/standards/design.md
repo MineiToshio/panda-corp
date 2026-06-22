@@ -153,11 +153,15 @@ navigation menu at all**, and the visual gate — which proves *consistency* wit
 1. **Capture the shell as a FOUNDATION concern, before sharding.** When the prototype has persistent
    chrome, the design phase registers it as the `AppShell`/`Nav` foundation component in
    `docs/design/components.md` (`artifacts` include `app/layout.tsx` + the nav). `blueprint` schedules it
-   in the **foundation wave** (DR-057) so it is built FIRST and every surface route mounts into it. It is
-   a **foundation work order, NOT a new FRD** — a design-emitted `frd-NN-app-shell` would be an orphan in
-   the `REQ-NN-MMM → WO-NN-MMM` spine and the engine has no "build this FRD between foundation and
-   surfaces" primitive, whereas the existing foundation-completeness gate already enforces "no surface
-   until the foundation is green" for the shell for free. On the brownfield `adopt` path the same capture
+   in the **foundation wave** (DR-057) so it is built FIRST and every surface route mounts into it; its
+   work order(s) are **`foundation: true`** (build-first ordering). **Don't AUTO-EMIT an orphan
+   `frd-NN-app-shell` at greenfield shard time** — it would have no `REQ-NN-MMM` in any PRD and the engine
+   has no "build this FRD between foundation and surfaces" primitive; the foundation-completeness gate
+   enforces "no surface until the shell is green" for free without one. **But a deliberately-authored
+   app-shell FRD rooted in the PRD is correct and better-documented (DR-076)** — e.g. a brownfield
+   re-anchor where the PM writes the shell's user contract (persistent nav, active-state, responsive) as
+   real `REQ`/`AC`; its WOs still carry `foundation: true`. The FRD is where the *contract* lives; the
+   `foundation` flag is the *build-first ordering* — both, not either/or. On the brownfield `adopt` path the same capture
    runs: if the code already has a shell, record its real path; if it lacks the shell the prototype shows
    (MC), record it as an **owed** Group-B reconciliation gap (§8) to build on the re-anchor.
 2. **Verify FIDELITY to the prototype, not self-consistency — the Shell-Presence Gate.** A new shipped,

@@ -26,6 +26,12 @@
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/remind-manual-sync.sh\"",
             "timeout": 10,
             "statusMessage": "Pandacorp Manual-sync"
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/remind-backport-gate-config.sh\"",
+            "timeout": 10,
+            "statusMessage": "Pandacorp gate-config back-port"
           }
         ]
       }

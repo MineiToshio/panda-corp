@@ -49,40 +49,21 @@ pnpm madge --circular --extensions ts,tsx src
 # shellcheck disable=SC2086
 pnpm vitest run --reporter=dot ${SINCE:+--changed "$SINCE"}
 
-# --- Preview Smoke Gate (DR-055) — FAIL-CLOSED: a missing harness is RED -------
-if grep -q '"test:smoke"' package.json; then
-  pnpm test:smoke
-else
-  echo "✗ Preview Smoke Gate missing: a web project must render its routes in a browser (DR-055). Add e2e/smoke.spec.ts + playwright.config.ts + the test:smoke script."; exit 1
-fi
-
-# --- Visual-Fidelity Gate Layer A (DR-056) — FAIL-CLOSED ----------------------
-# (Layer B, the VLM mock-judge, is the reviewer's runtime/visual lens, not a script.)
-if grep -q '"test:visual"' package.json; then
-  pnpm test:visual
-else
-  echo "✗ Visual-Fidelity Gate missing: a UI project must diff its routes against blessed baselines (DR-056). Add e2e/visual.spec.ts + the test:visual script."; exit 1
-fi
-
-# --- Responsive Gate (DR-074) — FAIL-CLOSED -----------------------------------
-# Smart per-scroll-root overflow / silent-clip / tap-target / fixed-occlusion checks at the mobile
-# width — but ONLY when the project's `target_platforms` (.pandacorp/status.yaml) includes mobile;
-# for a desktop-only / API / scraper project the spec is a vacuous pass. The harness itself is
-# mandatory: a missing test:responsive script is RED, never a skip.
-if grep -q '"test:responsive"' package.json; then
-  pnpm test:responsive
-else
-  echo "✗ Responsive Gate missing: a web project must assert mobile-width responsiveness (DR-074). Add e2e/responsive.spec.ts + e2e/_responsive-helper.ts + e2e/_target.ts + the test:responsive script."; exit 1
-fi
-
-# --- Shell-Presence Gate (DR-075) — FAIL-CLOSED -------------------------------
-# Asserts the app against the PROTOTYPE's nav contract (e2e/shell.ts), not its own baseline — the fix
-# for "a whole nav menu went missing and passed green" (the visual gate proves consistency, not
-# fidelity). On every declared route (minus author-declared SHELL_EXEMPT) the persistent shell must be
-# present + every top-level destination reachable. For an app with NO persistent shell (empty
-# NAV_DESTINATIONS) it is a vacuous pass; the harness itself is mandatory — a missing test:shell is RED.
-if grep -q '"test:shell"' package.json; then
-  pnpm test:shell
-else
-  echo "✗ Shell-Presence Gate missing: a web project must assert its app shell / global nav against the prototype contract (DR-075). Add e2e/shell.spec.ts + e2e/shell.ts + the test:shell script."; exit 1
-fi
+# --- Browser gates (DR-055/056/074/075) — FAIL-CLOSED: a missing harness is RED ---
+# ONE playwright invocation = ONE webServer boot for the whole e2e layer (smoke + visual + responsive
+# + shell). The old four-`pnpm test:X` split bought nothing and quadrupled server boots. Each spec is
+# self-contained (its own page.route abort for the live transport, DR-071), so determinism is
+# unchanged; `workers:1` + `fullyParallel:false` (playwright.config) already serialize everything.
+# Fail-closed gates on the SPEC FILE + config the combined run actually discovers (testDir:"./e2e"),
+# NOT the npm scripts — a run finds specs by filesystem, so a deleted spec must RED here (a present
+# script with an absent spec would otherwise pass as "no matching tests"). The `test:*` npm scripts
+# stay for manual/blessing use, but they are no longer the gate's contract.
+# NOTE: this does NOT fix the `.next`/process-contention ERR_CONNECTION_REFUSED a co-located dev /
+# always-on server causes (it dies mid-invocation; DR-075 lessons) — that fix is worktree isolation,
+# tracked separately. This only removes the inter-invocation churn (DR-076).
+[ -f playwright.config.ts ] || { echo "✗ Browser gates missing: no playwright.config.ts (DR-055)."; exit 1; }
+[ -f e2e/smoke.spec.ts ]      || { echo "✗ Preview Smoke Gate missing (DR-055): add e2e/smoke.spec.ts — every route must render clean in a browser."; exit 1; }
+[ -f e2e/visual.spec.ts ]     || { echo "✗ Visual-Fidelity Gate missing (DR-056): add e2e/visual.spec.ts — diff each route against its blessed baseline."; exit 1; }
+[ -f e2e/responsive.spec.ts ] || { echo "✗ Responsive Gate missing (DR-074): add e2e/responsive.spec.ts + e2e/_responsive-helper.ts + e2e/_target.ts."; exit 1; }
+[ -f e2e/shell.spec.ts ]      || { echo "✗ Shell-Presence Gate missing (DR-075): add e2e/shell.spec.ts + e2e/shell.ts — assert the app shell / global nav vs the prototype."; exit 1; }
+pnpm exec playwright test e2e/
