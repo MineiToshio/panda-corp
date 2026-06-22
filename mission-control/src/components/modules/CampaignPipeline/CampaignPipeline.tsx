@@ -53,6 +53,12 @@ export interface CampaignPipelineProps {
   /** Active phase index 0–5, derived from phaseFromStatus (WO-02-011). */
   activePhase: CampaignPhase;
   /**
+   * Whether an agent is genuinely running right now (the project's status.yaml
+   * `running: true` — in practice the live build). Drives "en curso" vs "fase
+   * actual" and whether the active room's cast roams or just idle-bobs.
+   */
+  running?: boolean;
+  /**
    * Host-navigation callback wired to goToParty (WO-02-012).
    * Called when the user activates "Entrar a La Fragua" in the build phase.
    * @param slug - the project/idea slug.
@@ -173,10 +179,10 @@ function phaseBadgeLabel(state: PhaseState): string {
   return "🔒 Bloqueada";
 }
 
-/** Ficha header state label (prototype renderDetail: completada / EN CURSO / en espera). */
-function fichaStateLabel(state: PhaseState): string {
+/** Ficha header state label — "EN CURSO" only when the agent is genuinely running. */
+function fichaStateLabel(state: PhaseState, running: boolean): string {
   if (state === "done") return "completada";
-  if (state === "current") return "EN CURSO";
+  if (state === "current") return running ? "EN CURSO" : "FASE ACTUAL";
   return "en espera";
 }
 
@@ -459,9 +465,12 @@ function phaseBadgeStyle(state: PhaseState): React.CSSProperties {
   };
 }
 
-function phaseBadgeText(state: PhaseState): string {
+// "en curso" is reserved for a phase whose agent is GENUINELY running (the build,
+// status.yaml running:true). A phase the idea merely sits at — with no agent active —
+// reads "fase actual" (and its cast idle-bobs in place rather than roaming).
+function phaseBadgeText(state: PhaseState, running: boolean): string {
   if (state === "done") return "✓ entregado";
-  if (state === "current") return "● en curso";
+  if (state === "current") return running ? "● en curso" : "fase actual";
   return "🔒 en espera";
 }
 
@@ -495,6 +504,8 @@ interface PhaseRoomProps {
   index: number;
   state: PhaseState;
   isSelected: boolean;
+  /** Whether an agent is genuinely running (only meaningful for the current phase). */
+  running: boolean;
   onPhaseClick: (key: string) => void;
 }
 
@@ -503,6 +514,7 @@ function PhaseRoom({
   index,
   state,
   isSelected,
+  running,
   onPhaseClick,
 }: PhaseRoomProps): React.JSX.Element {
   const roomState = phaseStateToRoomState(state);
@@ -557,7 +569,7 @@ function PhaseRoom({
 
       {/* Status badge (top-right) */}
       <span aria-hidden="true" style={phaseBadgeStyle(state)}>
-        {phaseBadgeText(state)}
+        {phaseBadgeText(state, running)}
       </span>
 
       {/* Lock overlay for locked phases */}
@@ -568,7 +580,7 @@ function PhaseRoom({
       )}
 
       {/* Agent sprites — roam in the active room, idle-bob when done, static when locked */}
-      <RoamingCast members={castMembers} homes={homes} state={state} />
+      <RoamingCast members={castMembers} homes={homes} state={state} running={running} />
 
       {/* Deliverable chip — bottom of room (hidden for locked). Owner: drop the
           "entrega ▸" label + arrow — just the icon + short artifact name (prototype `.art`). */}
@@ -592,6 +604,8 @@ interface FichaContentProps {
   /** Phase index 0–5 — for the header number + accent colour. */
   phaseIndex: number;
   phaseState: PhaseState;
+  /** Whether an agent is genuinely running (drives EN CURSO vs FASE ACTUAL). */
+  running: boolean;
   slug: string;
   onEnterForge: (slug: string) => void;
 }
@@ -600,6 +614,7 @@ function FichaContent({
   phase,
   phaseIndex,
   phaseState,
+  running,
   slug,
   onEnterForge,
 }: FichaContentProps): React.JSX.Element {
@@ -639,7 +654,7 @@ function FichaContent({
         <span style={{ color: PHASE_META[phaseIndex]?.col ?? "var(--color-text)" }}>
           {phaseIndex + 1} · {phase.name}
         </span>
-        <span style={FICHA_HEADER_STATE_STYLE}>— {fichaStateLabel(phaseState)}</span>
+        <span style={FICHA_HEADER_STATE_STYLE}>— {fichaStateLabel(phaseState, running)}</span>
       </p>
 
       <div data-testid="ficha-description" style={FICHA_SUBSECTION_STYLE}>
@@ -723,6 +738,7 @@ function FichaContent({
 export function CampaignPipeline({
   slug,
   activePhase,
+  running = false,
   onEnterForge,
 }: CampaignPipelineProps): React.JSX.Element {
   // Default the open ficha to the ACTIVE phase so the "investigación en curso" team
@@ -797,6 +813,7 @@ export function CampaignPipeline({
               index={index}
               state={getPhaseState(index, activePhase)}
               isSelected={selectedPhaseKey === phase.key}
+              running={running}
               onPhaseClick={handlePhaseClick}
             />
           ))}
@@ -810,6 +827,7 @@ export function CampaignPipeline({
             phase={selectedPhase}
             phaseIndex={selectedPhaseIndex}
             phaseState={selectedPhaseState}
+            running={running}
             slug={slug}
             onEnterForge={onEnterForge}
           />

@@ -38,15 +38,16 @@ interface ColumnDef {
   label: string;
 }
 
-// Column labels are the prototype's canonical phase labels (LBL, boardView()) — singular, matching
-// the rest of the app ("En construcción", not "Construyendo").
+// Column labels are aligned to La Campaña's 6 phase names (numbered) so the board and the
+// card-detail campaign read the same vocabulary: research→1 Investigación … shipped→6 Release.
+// Discarded is terminal (not a pipeline phase) and keeps its own label.
 const COLUMNS: ColumnDef[] = [
-  { id: "discovered", label: "Descubierta" },
-  { id: "documented", label: "Documentada" },
-  { id: "design", label: "Diseño" },
-  { id: "architecture", label: "Arquitectura" },
-  { id: "building", label: "En construcción" },
-  { id: "shipped", label: "Lanzada" },
+  { id: "discovered", label: "1 Investigación" },
+  { id: "documented", label: "2 Producto" },
+  { id: "design", label: "3 Diseño" },
+  { id: "architecture", label: "4 Arquitectura" },
+  { id: "building", label: "5 Construcción" },
+  { id: "shipped", label: "6 Release" },
   { id: "discarded", label: "Descartada" },
 ];
 

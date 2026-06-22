@@ -358,6 +358,7 @@ export function BoardShell({ cards, discardAction }: BoardShellProps): React.JSX
               title={openCard.title}
               status={openCard.status}
               body={openCard.body}
+              isRunning={openCard.isRunning}
               onEnterForge={(slug) => {
                 // AC-02-010.5: navigate host to Portfolio → Party tab.
                 // In this shell we navigate by changing view; in the full app

@@ -239,11 +239,16 @@ describe("AC-02-010.4 — per-phase ficha (active by default; click to switch, n
     expect(within(ficha).getByTestId("ficha-team")).toBeInTheDocument();
   });
 
-  it("the active phase ficha header shows '{n · name} — {state}' (EN CURSO for the active phase)", () => {
-    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} />);
-    const header = screen.getByTestId("ficha-header");
-    // n · name (1 · Investigación) and the state label EN CURSO for the current phase.
+  it("the active phase ficha header shows '{n · name} — {state}'; EN CURSO only when running", () => {
+    // Not running → the active phase is just where the idea sits: "FASE ACTUAL".
+    const { rerender } = render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} />);
+    let header = screen.getByTestId("ficha-header");
     expect(header).toHaveTextContent(/1 · Investigación/);
+    expect(header).toHaveTextContent(/FASE ACTUAL/);
+    expect(header).not.toHaveTextContent(/EN CURSO/);
+    // Running (an agent genuinely working) → "EN CURSO".
+    rerender(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} running={true} />);
+    header = screen.getByTestId("ficha-header");
     expect(header).toHaveTextContent(/EN CURSO/);
   });
 

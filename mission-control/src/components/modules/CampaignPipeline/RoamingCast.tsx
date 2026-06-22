@@ -36,8 +36,14 @@ interface RoamingCastProps {
   members: ReadonlyArray<RoamingCastMember>;
   /** Sprite home positions [left, top] inside the room, by cast index. */
   homes: ReadonlyArray<readonly [number, number]>;
-  /** Room state: "current" roams, "done" idle-bobs, "locked" is static + dimmed. */
+  /** Room state: "current" + running roams; otherwise idle-bobs; "locked" is static + dimmed. */
   state: "current" | "done" | "locked";
+  /**
+   * Whether an agent is genuinely running. The cast only ROAMS (wanders + halo +
+   * speech) when the current room's agent is actually working; otherwise it just
+   * idle-bobs in place (owner: "quietecito en el centro" until something runs).
+   */
+  running: boolean;
 }
 
 /** Short in-character lines popped when two members meet (prototype DIALOG). */
@@ -80,11 +86,17 @@ const Y_MIN = 74;
 const Y_SPAN = 40;
 const DEFAULT_HOME: readonly [number, number] = [97, 84];
 
-export function RoamingCast({ members, homes, state }: RoamingCastProps): React.JSX.Element {
+export function RoamingCast({
+  members,
+  homes,
+  state,
+  running,
+}: RoamingCastProps): React.JSX.Element {
   const wrapperRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   useEffect(() => {
-    if (state !== "current") return;
+    // Only the current room's cast roams, and only while an agent is genuinely running.
+    if (state !== "current" || !running) return;
     // jsdom/SSR have no matchMedia — skip the roam loop entirely there (no animation needed).
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -175,9 +187,9 @@ export function RoamingCast({ members, homes, state }: RoamingCastProps): React.
     };
 
     let raf = 0;
-    let running = true;
+    let alive = true;
     const loop = (): void => {
-      if (!running) return;
+      if (!alive) return;
       const now = performance.now();
       for (const s of sprites) advance(s, now);
       raf = requestAnimationFrame(loop);
@@ -185,11 +197,11 @@ export function RoamingCast({ members, homes, state }: RoamingCastProps): React.
     raf = requestAnimationFrame(loop);
 
     return () => {
-      running = false;
+      alive = false;
       cancelAnimationFrame(raf);
       for (const s of sprites) window.clearTimeout(s.sayTimer);
     };
-  }, [state]);
+  }, [state, running]);
 
   const hasBob = state !== "locked";
 
@@ -228,7 +240,7 @@ export function RoamingCast({ members, homes, state }: RoamingCastProps): React.
                 ...(state === "done" ? { animationDelay: `${(-(i * 0.7)).toFixed(2)}s` } : {}),
               }}
             >
-              {m.lead && state === "current" && (
+              {m.lead && state === "current" && running && (
                 <span
                   aria-hidden="true"
                   data-testid="campaign-sprite-halo"
@@ -241,7 +253,7 @@ export function RoamingCast({ members, homes, state }: RoamingCastProps): React.
                 woId={m.label}
                 style={{ position: "relative", ...lockedStyle }}
               />
-              {state === "current" && (
+              {state === "current" && running && (
                 <span aria-hidden="true" data-roam-say="" className="campaign-say" />
               )}
             </div>

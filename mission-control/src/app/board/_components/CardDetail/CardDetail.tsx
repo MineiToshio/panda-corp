@@ -143,6 +143,9 @@ export interface CardDetailProps {
   advancePending?: boolean;
   /** Result of readProjectDocs(card.project). Null when no project or docs. */
   docsIndex?: ProjectDocsIndex | null;
+  /** Whether the linked project is actively building (status.yaml running:true) —
+   *  drives "en curso" + roam vs "fase actual" + idle-bob in the campaign. */
+  isRunning?: boolean;
   /**
    * Host-navigation callback — called when the user activates "Entrar a La Fragua"
    * in the build phase of CampaignPipeline (AC-02-010.5).
@@ -184,6 +187,7 @@ export function CardDetail({
   phase,
   advancePending,
   docsIndex,
+  isRunning,
   onEnterForge,
 }: CardDetailProps): React.JSX.Element {
   // Active tab — defaults to Campaña (AC-02-009.1). Persists across re-renders.
@@ -256,7 +260,12 @@ export function CardDetail({
         aria-labelledby="card-detail-tab-campana"
         style={panelStyle("campana")}
       >
-        <CampaignPipeline slug={slug} activePhase={activePhase} onEnterForge={handleEnterForge} />
+        <CampaignPipeline
+          slug={slug}
+          activePhase={activePhase}
+          running={isRunning === true}
+          onEnterForge={handleEnterForge}
+        />
       </div>
 
       {/* ---- Documentos panel — rail (210px) + reader (prototype docsBody) ---- */}

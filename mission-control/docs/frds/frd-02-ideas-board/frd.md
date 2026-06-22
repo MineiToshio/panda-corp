@@ -109,6 +109,12 @@ campaign map) + `prototype/index.html` `detailView()`:
   summary reader) plus one item per project document; selecting an item shows it in the reader (a board
   card defers the full document read to the project workspace). **Comandos** uses the shared `CmdRow`,
   and building/operation cards add a project-command box (`workspaceCommands`).
+- **Board columns use La Campaña's phase names** (numbered): `1 Investigación · 2 Producto · 3 Diseño ·
+  4 Arquitectura · 5 Construcción · 6 Release` (+ `Descartada`). Same vocabulary as the campaign;
+  the two-axis column derivation is unchanged.
+- **"en curso" is gated on a genuinely running agent** (the project `running` flag, threaded from the
+  card). The active phase reads **"fase actual" / "FASE ACTUAL"** and its cast **idle-bobs in place**
+  unless an agent is actually running; only then does it read "en curso" and the cast roams.
 
 ## Edge cases
 - Idea with no documents → the Documentos rail still shows **Resumen** (the reader = the summary); there
