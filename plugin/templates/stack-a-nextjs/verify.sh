@@ -16,6 +16,17 @@ shopt -s inherit_errexit 2>/dev/null || true  # bash 4.4+; no-op on macOS' bash 
 SINCE=""
 if [ "${1:-}" = "--since" ] && [ -n "${2:-}" ]; then SINCE="$2"; fi
 
+# --- Canary mode (DR-079): prove each fail-closed gate STILL goes RED on a broken input ---------
+# `verify.sh --canary` runs the project's deliberately-broken fixtures through the gates and asserts
+# each gate REJECTS its fixture — a gate that stays GREEN on a broken input has rotted (a renamed
+# selector, a disabled rule, a swallowed exit code) and THAT is a RED. Invoked by /pandacorp:upgrade,
+# never on a normal build. Vacuous until the fixtures + runner are installed (like doc-lint, DR-077),
+# so it can never red-lock a normal run.
+if [ "${1:-}" = "--canary" ]; then
+  if [ -f .pandacorp/canary.sh ]; then exec bash .pandacorp/canary.sh; fi
+  echo "✓ canary: no .pandacorp/canary.sh installed yet (DR-079 — vacuous pass)"; exit 0
+fi
+
 # --- Structure guard (file placement isn't lintable; DR-059) -------------------
 # Fail if any unit/component test sits loose outside a _tests/ folder.
 stray=$(find src -name '*.test.ts' -o -name '*.test.tsx' 2>/dev/null | grep -v '/_tests/' || true)
@@ -67,3 +78,12 @@ pnpm vitest run --reporter=dot ${SINCE:+--changed "$SINCE"}
 [ -f e2e/responsive.spec.ts ] || { echo "✗ Responsive Gate missing (DR-074): add e2e/responsive.spec.ts + e2e/_responsive-helper.ts + e2e/_target.ts."; exit 1; }
 [ -f e2e/shell.spec.ts ]      || { echo "✗ Shell-Presence Gate missing (DR-075): add e2e/shell.spec.ts + e2e/shell.ts — assert the app shell / global nav vs the prototype."; exit 1; }
 pnpm exec playwright test e2e/
+
+# --- Bless-provenance advisory (DR-080) — non-blocking -------------------------
+# A blessed visual baseline with no recorded ORACLE (the prototype path/shard + sign-off + a
+# `prototype_blessed_at` SHA in the FRD's fdd.md) is a self-reference — the trap that let a menu-less
+# baseline ship green (E6). ADVISORY: it warns, never fails (so it can't red-lock baselines blessed
+# before this rule). The deterministic block is the reviewer's bless step (DR-080) + the gate canary.
+if ls e2e/visual.spec.ts-snapshots/*.png >/dev/null 2>&1 && ! grep -rqs "prototype_blessed_at" docs/frds 2>/dev/null; then
+  echo "⚠ DR-080: blessed visual baselines exist but no fdd.md records a 'prototype_blessed_at' provenance line — the baseline's independent oracle is unrecorded (advisory)."
+fi

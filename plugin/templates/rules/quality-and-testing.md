@@ -18,6 +18,12 @@ Nothing is "done" until **all** of these are green (enforced by `verify.sh` / CI
 
 A change with red tests, type errors, lint errors **or a route that errors/blank-renders in the browser** is **not done**, no exceptions.
 
+## Fail-loud read boundaries (DR-078)
+A reader/parser of an internal artifact (a markdown table, `status.yaml`, an ndjson event stream, a config/portfolio file) MUST distinguish **"the source is empty"** from **"I could not interpret the source"** — returning `[]`/`null` on a shape it doesn't recognise is a silent failure that passes every gate while half the UI renders dark.
+- **Parse, don't validate**: the reader returns a typed result OR **throws / returns an explicit error** on an unparseable shape; the caller renders an *error state*, never an empty list.
+- **Test each reader against a REAL fixture — the actual shape it meets in production, including a foreign-language / gitignored variant — AND a malformed one.** The malformed fixture must make the reader **fail loud**, not return empty. Parser invariants → property-based (fast-check).
+- A collection that is never legitimately empty is typed `NonEmpty` (or carries an explicit empty-variant **with a reason**), so "empty" is a deliberate state, not a fallthrough.
+
 ## TDD per unit of work
 - Write the acceptance-criteria tests **before** implementing (RED → GREEN → refactor).
 - A behavior is verified by a test that fails without the change and passes with it.

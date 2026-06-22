@@ -6,6 +6,7 @@ title: Replace with the feature title
 status: DRAFT             # DRAFT | ACTIVE | BLOCKED | SUPERSEDED
 parent: FRD-NN
 last_updated: YYYY-MM-DD
+prototype_blessed_at: ''  # DR-080: git SHA of docs/design/prototype/ when the reviewer blessed this feature's visual baselines (the bless's independent oracle). Empty until blessed; a prototype change past this SHA flags the baseline as possibly stale.
 ---
 
 # FDD — FRD-NN Replace with the feature title
@@ -19,6 +20,13 @@ last_updated: YYYY-MM-DD
 
 Each screen this feature has, and the `mocks/` file it realizes (the binding visual spec the build
 **reproduces**, DR-054). One row per screen: name · purpose · `mocks/<file>`.
+
+> **Bless provenance (DR-080) — the visual baseline's independent oracle.** When the reviewer blesses a
+> screen's baseline, it records here the `mocks/<file>` / prototype shard it was blessed against + its
+> Layer-B sign-off, and sets the frontmatter `prototype_blessed_at` to the git SHA of
+> `docs/design/prototype/`. A baseline blessed with **no** provenance is a self-reference (the trap that
+> let a menu-less baseline ship green) — `verify.sh` flags it (advisory); a prototype edit past that SHA
+> surfaces a staleness reminder.
 
 ## States
 
