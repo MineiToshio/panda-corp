@@ -1,14 +1,18 @@
 import { defineConfig, devices } from "@playwright/test";
 
 /**
- * Preview Smoke Gate (DR-055) + Visual-Fidelity Gate Layer A (DR-056).
- * Deterministic by construction: single worker, animations disabled, caret hidden,
- * fonts settled before each shot, retries OFF (a retry re-creates a missing baseline →
- * the gate fails OPEN; DR-056 forbids it). In CI baselines are frozen (`updateSnapshots:'none'`);
+ * Preview Smoke Gate (DR-055) + Visual-Fidelity Gate Layer A (DR-056) + Responsive Gate (DR-074) +
+ * Shell-Presence Gate (DR-075). VERBATIM stack template (DR-059) — at the project ROOT, conformance-checked by
+ * /pandacorp:upgrade. Deterministic by construction: single worker, animations disabled, caret
+ * hidden, fonts settled before each shot, retries OFF (a retry re-creates a missing baseline → the
+ * gate fails OPEN; DR-056 forbids it). In CI baselines are frozen (`updateSnapshots:'none'`);
  * locally a NEW route's baseline is written once and must then be reviewed/blessed by the FRD gate.
+ *
+ * The dev server runs on the project's reserved dev port (factory/standards/infra.md). Adjust PORT
+ * to this project's `dev_port_base` if it differs from the default below.
  */
 const isCI = Boolean(process.env.CI);
-const PORT = 3100;
+const PORT = Number(process.env.PORT) || 3000;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 
 export default defineConfig({

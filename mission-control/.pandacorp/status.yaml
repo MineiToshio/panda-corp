@@ -3,8 +3,9 @@
 project: "Pandacorp"
 phase: release
 version: v1
-overlay_version: "8.33.0"
+overlay_version: "8.36.1"
 created_with: "6.0.0"
+target_platforms: desktop
 running: false
 run_started_at: "2026-06-21T15:53:26Z"
 repo: ""
@@ -25,3 +26,4 @@ last_green_sha: "a2304e8"
 safe_to_test: true  # full verify.sh green at a2304e8 (build complete: 78/78 WOs, 18/18 FRDs, 2026-06-21)
 blocked: []
 supervisor_heartbeat: ""
+pending_changes: 6

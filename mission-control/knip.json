@@ -12,7 +12,7 @@
   ],
   "project": ["src/**/*.{ts,tsx}"],
   "ignore": ["**/*.d.ts", ".next/**", "src/test/**"],
-  "ignoreDependencies": ["tailwindcss"],
+  "ignoreDependencies": ["tailwindcss", "@axe-core/playwright"],
   "next": true,
   "vitest": true,
   "playwright": true

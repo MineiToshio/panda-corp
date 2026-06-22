@@ -2,8 +2,9 @@ import { expect, test } from "@playwright/test";
 import { BLESSED } from "./routes";
 
 /**
- * Visual-Fidelity Gate Layer A (DR-056): each blessed surface is diffed against its own
- * blessed baseline at ≥2 viewports (the playwright projects), fonts settled, animations off.
+ * Visual-Fidelity Gate Layer A (DR-056): each blessed surface is diffed against its own blessed
+ * baseline at ≥2 viewports (the playwright projects), fonts settled, animations off. VERBATIM stack
+ * template (DR-059) — propagated by /pandacorp:blueprint, conformance-checked by /pandacorp:upgrade.
  * Fail-closed; the sentinel keeps the suite non-empty while no surface is blessed yet.
  * Layer B (the VLM mock-judge) is the reviewer's runtime/visual lens, not a script.
  */

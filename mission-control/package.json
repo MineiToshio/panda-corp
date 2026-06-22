@@ -15,6 +15,8 @@
     "test:watch": "vitest",
     "test:smoke": "playwright test e2e/smoke.spec.ts",
     "test:visual": "playwright test e2e/visual.spec.ts",
+    "test:responsive": "playwright test e2e/responsive.spec.ts",
+    "test:shell": "playwright test e2e/shell.spec.ts",
     "verify": "bash .pandacorp/verify.sh",
     "lint:eslint": "eslint .",
     "lint:cycles": "madge --circular --extensions ts,tsx --ts-config tsconfig.json src"
@@ -29,6 +31,7 @@
     "yaml": "^2.8.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.3",
     "@biomejs/biome": "^2.4.16",
     "@playwright/test": "^1.61.0",
     "@tailwindcss/postcss": "^4.1.13",

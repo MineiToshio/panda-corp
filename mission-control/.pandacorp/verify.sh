@@ -53,3 +53,26 @@ if grep -q '"test:visual"' package.json; then
 else
   echo "✗ Visual-Fidelity Gate missing: a UI project must diff its routes against blessed baselines (DR-056). Add e2e/visual.spec.ts + the test:visual script."; exit 1
 fi
+
+# --- Responsive Gate (DR-074) — FAIL-CLOSED -----------------------------------
+# Smart per-scroll-root overflow / silent-clip / tap-target / fixed-occlusion checks at the mobile
+# width — but ONLY when the project's `target_platforms` (.pandacorp/status.yaml) includes mobile;
+# for a desktop-only / API / scraper project the spec is a vacuous pass. The harness itself is
+# mandatory: a missing test:responsive script is RED, never a skip.
+if grep -q '"test:responsive"' package.json; then
+  pnpm test:responsive
+else
+  echo "✗ Responsive Gate missing: a web project must assert mobile-width responsiveness (DR-074). Add e2e/responsive.spec.ts + e2e/_responsive-helper.ts + e2e/_target.ts + the test:responsive script."; exit 1
+fi
+
+# --- Shell-Presence Gate (DR-075) — FAIL-CLOSED -------------------------------
+# Asserts the app against the PROTOTYPE's nav contract (e2e/shell.ts), not its own baseline — the fix
+# for "a whole nav menu went missing and passed green" (the visual gate proves consistency, not
+# fidelity). On every declared route (minus author-declared SHELL_EXEMPT) the persistent shell must be
+# present + every top-level destination reachable. For an app with NO persistent shell (empty
+# NAV_DESTINATIONS) it is a vacuous pass; the harness itself is mandatory — a missing test:shell is RED.
+if grep -q '"test:shell"' package.json; then
+  pnpm test:shell
+else
+  echo "✗ Shell-Presence Gate missing: a web project must assert its app shell / global nav against the prototype contract (DR-075). Add e2e/shell.spec.ts + e2e/shell.ts + the test:shell script."; exit 1
+fi
