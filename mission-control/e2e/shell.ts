@@ -33,8 +33,14 @@ export type NavDestination = {
  * pages are routes but not top-level nav). Empty ⇒ no shell ⇒ vacuous pass.
  */
 export const NAV_DESTINATIONS: readonly NavDestination[] = [
-  // Seed example — replace with THIS app's prototype topbar (one row per top-level nav link):
-  // { label: "Home", path: "/" },
+  // The prototype topbar() six destinations (index.html ~L646-652) — FRD-19 nav contract.
+  // Mirrors docs/frds/frd-19-app-shell/mocks/README.md and the Nav/ProposalsBadge link list.
+  { label: "Inicio", path: "/" },
+  { label: "Tablero", path: "/board" },
+  { label: "Portfolio", path: "/portfolio" },
+  { label: "Propuestas", path: "/proposals" },
+  { label: "Logros", path: "/achievements" },
+  { label: "Documentación", path: "/manual" },
 ] as const;
 
 /**
@@ -44,7 +50,10 @@ export const NAV_DESTINATIONS: readonly NavDestination[] = [
  * `/**` matches the whole subtree; otherwise the match is exact.
  */
 export const SHELL_EXEMPT: readonly string[] = [
-  // "/login", "/print/**", "/embed/**", "/projects/**",
+  // Drill-in surfaces with their own in-context header + back control (FRD-19 AC-19-004).
+  // Mirrored by the app in src/components/modules/AppShell/shellScope.ts — keep in sync.
+  "/projects/**",
+  "/configuration",
 ] as const;
 
 /**

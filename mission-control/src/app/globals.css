@@ -355,3 +355,60 @@ h3 {
   color: var(--color-text, currentColor);
   font-size: 0.875rem;
 }
+
+/* ---------------------------------------------------------------------------
+ * CMP-19-app-shell — global shell (FRD-19): skip link + responsive nav
+ * Desktop: the six destinations are inline in the topbar, the toggle is hidden.
+ * Mobile (≤860px): the nav collapses behind [data-nav-toggle] (a drawer); the
+ * React `navOpen` state drives [data-nav-region][data-open]. The mobile-width
+ * gate stays deferred until target_platforms flips to `responsive` (Phase B).
+ * --------------------------------------------------------------------------- */
+
+/* Skip link — first focusable element; offscreen until focused (WCAG 2.4.1) */
+.app-skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 200;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--color-accent-bg);
+  color: var(--color-accent-text);
+  font-family: var(--font-display);
+  font-size: 13px;
+}
+.app-skip-link:focus {
+  left: 8px;
+  top: 8px;
+}
+
+/* Desktop: the nav is inline next to the toggle (which is hidden) */
+[data-nav-region] {
+  display: flex;
+  align-items: center;
+}
+[data-nav-toggle] {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  /* Mobile: the toggle appears; the nav collapses into a drawer */
+  [data-nav-toggle] {
+    display: inline-flex;
+  }
+  [data-nav-region] {
+    display: none;
+    width: 100%;
+  }
+  [data-nav-region][data-open="true"] {
+    display: flex;
+    width: 100%;
+    margin-top: 8px;
+  }
+  /* The drawer stacks the destinations as a full-width column */
+  [data-nav-region][data-open="true"] [data-testid="app-nav"] {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+}

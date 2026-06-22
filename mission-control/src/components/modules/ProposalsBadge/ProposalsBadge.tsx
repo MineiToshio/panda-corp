@@ -1,103 +1,66 @@
 /**
- * ProposalsBadge — guild top-bar badge for open proposal count (WO-17-007).
+ * ProposalsBadge — the "Propuestas" destination of the global app shell (CMP-17-badge → CMP-19-nav).
  *
- * Server Component. Shows the open proposal count (candidates + promotions + prune +
- * self-suggestions, minus dismissed) and links to `app/proposals`.
+ * Re-anchor (FRD-19): the prototype's `tabProp()` is the Propuestas nav pill carrying its open-count
+ * badge — ONE element, not a tab plus a separate badge. So ProposalsBadge IS the Propuestas
+ * destination: a `.tab`-styled `next/link` to /proposals, active by route, whose accessible name is
+ * exactly "Propuestas" (the Shell-Presence Gate matches destinations by exact label) with the count
+ * shown as a visible, aria-hidden CountBadge pill (FRD-17 AC-17-007.5: count conveyed as text, not
+ * color-alone; the prototype's badge is visual-only — the /proposals page announces the count).
  *
- * Design rules (FRD-09 White-Hat, AC-17-007.4):
- *   - When openCount === 0: calm / al-día state — badge is still present for navigation
- *     but has no urgency decoration (no dot, no pulse, no nagging copy).
- *   - When openCount > 0: shows the count as a text node (not color-alone — AC-17-007.5).
- *   - Zero hardcoded colors — all visual values via CSS custom properties.
- *   - Spanish copy + accessible label with count (AC-17-007.5).
+ * Design rules:
+ *   - When openCount === 0: calm / al-día — no count pill, no urgency decoration (AC-17-007.4); the
+ *     link stays present for navigation.
+ *   - When openCount > 0: the count is the shared CountBadge primitive (DR-057), not a forked pill.
+ *   - Zero hardcoded colors — the `.tab` visual + tokens (shared navTabStyle).
  *
  * Traceability:
- *   CMP-17-badge → REQ-17-001, REQ-17-008
- *   AC-17-007.1 (links to /proposals with count)
- *   AC-17-007.4 (calm when 0)
- *   AC-17-007.5 (Spanish + a11y, count not color-alone)
+ *   CMP-17-badge → REQ-17-001, REQ-17-008, AC-17-007.1/.4/.5
+ *   CMP-19-nav  → REQ-19-001 (AC-19-001.2/.3), REQ-19-002 (AC-19-002.1)
  */
 
-import Link from "next/link";
-import { CountBadge } from "@/components/core/CountBadge/CountBadge";
+"use client";
 
-// ---------------------------------------------------------------------------
-// Props
-// ---------------------------------------------------------------------------
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { CountBadge } from "@/components/core/CountBadge/CountBadge";
+import { isNavActive, navTabStyle } from "@/components/modules/Nav/navTab";
+
+const PROPOSALS_PATH = "/proposals";
 
 export interface ProposalsBadgeProps {
   /**
-   * Number of open proposals (candidates + promotions + prune + self-suggestions,
-   * minus dismissed). Pass 0 for the calm / al-día state.
+   * Number of open proposals (candidates + promotions + prune + self-suggestions, minus dismissed).
+   * Pass 0 for the calm / al-día state.
    */
   openCount: number;
 }
 
-// ---------------------------------------------------------------------------
-// Styles — CSS custom properties only
-// ---------------------------------------------------------------------------
-
-const WRAPPER_STYLE: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  position: "relative",
-};
-
-const LINK_BASE_STYLE: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "0.3em",
-  textDecoration: "none",
-  color: "var(--color-text, currentColor)",
-  padding: "0.25rem 0.5rem",
-  borderRadius: "var(--radius, 0.5rem)",
-  fontSize: "0.75rem",
-  fontWeight: 500,
-  transition: "background 0.15s",
-};
-
-const LABEL_STYLE: React.CSSProperties = {
-  lineHeight: 1.2,
-};
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
 /**
- * ProposalsBadge — proposal count badge for the guild top bar.
+ * ProposalsBadge — the Propuestas shell-nav destination with its open-count.
  *
- * Renders a link to /proposals with the open proposal count.
- * When openCount === 0: calm state (no urgency decoration).
- * When openCount > 0: shows a distinct count pill alongside the label.
- *
- * Server Component: no interactivity; data is passed as a prop.
- *
- * Traceability:
- *   CMP-17-badge → AC-17-007.1, AC-17-007.4, AC-17-007.5
+ * Renders a `.tab` link to /proposals (accessible name "Propuestas"), marked active via
+ * `usePathname()` when on /proposals, with the open count as a visible aria-hidden CountBadge.
  */
 export function ProposalsBadge({ openCount }: ProposalsBadgeProps): React.JSX.Element {
+  const pathname = usePathname() ?? "";
+  const active = isNavActive(pathname, PROPOSALS_PATH);
   const hasProposals = openCount > 0;
 
-  const ariaLabel = hasProposals
-    ? `Propuestas abiertas: ${openCount}. Ir a bandeja de propuestas.`
-    : "Propuestas. Sin elementos pendientes.";
-
   return (
-    <span data-testid="proposals-badge" style={WRAPPER_STYLE}>
+    <span data-testid="proposals-badge" style={{ display: "inline-flex", alignItems: "center" }}>
       <Link
-        href="/proposals"
+        href={PROPOSALS_PATH}
         data-testid="proposals-badge-link"
-        aria-label={ariaLabel}
-        style={LINK_BASE_STYLE}
+        data-active={active ? "true" : "false"}
+        aria-current={active ? "page" : undefined}
+        style={navTabStyle(active)}
       >
-        {/* Text label — Spanish, always present (navigation + a11y) */}
-        <span data-testid="proposals-badge-label" style={LABEL_STYLE}>
-          Propuestas
-        </span>
-
-        {/* Count pill — only shown when there are open proposals (AC-17-007.4).
-            The pill IS the shared CountBadge primitive (DR-057): no bespoke pill. */}
+        {/* Visible label — the link's accessible name is exactly "Propuestas" (Shell-Presence Gate). */}
+        Propuestas
+        {/* Count pill — only when there are open proposals (AC-17-007.4). The pill IS the shared
+            CountBadge primitive (DR-057); aria-hidden so it stays out of the link's accessible name
+            while remaining visible (count not color-alone, AC-17-007.5). */}
         {hasProposals && (
           <span data-testid="proposals-badge-count" aria-hidden="true">
             <CountBadge count={openCount} tone="accent" />

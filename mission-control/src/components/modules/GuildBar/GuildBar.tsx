@@ -36,6 +36,44 @@ import { computeGuildLevel, type GuildOutcomes, RANKS } from "@/lib/gamification
 export type GuildBarProps = {
   /** Verifiable outcomes that drive guild XP (from status.yaml + events — read server-side). */
   outcomes: GuildOutcomes;
+  /**
+   * Embedded variant (DR-057 extend, FRD-19): render only the inner level/XP row WITHOUT the
+   * standalone rpgpanel chrome + bottom margin, so GuildBar can sit inside the app shell's own
+   * surface (the persistent topbar) instead of being its own panel. Default `false` keeps the
+   * original standalone block (existing usages + tests unchanged).
+   */
+  embedded?: boolean;
+};
+
+/** Standalone rpgpanel block style (default) — the embossed pixel tile + dot grid + bottom margin. */
+const STANDALONE_STYLE: React.CSSProperties = {
+  /* rpgpanel: embossed pixel tile — matches prototype .rpgpanel */
+  position: "relative",
+  background: "var(--color-card)",
+  border: "1px solid var(--color-border-strong)",
+  borderRadius: "10px",
+  boxShadow:
+    "inset 0 1px 0 rgba(255,255,255,.05), inset 0 -2px 0 rgba(0,0,0,.22), 0 2px 0 var(--color-base)",
+  /* rpggrid: dot grid overlay — matches prototype .rpggrid */
+  backgroundImage:
+    "linear-gradient(var(--color-border) 1px, transparent 1px), linear-gradient(90deg, var(--color-border) 1px, transparent 1px)",
+  backgroundSize: "22px 22px",
+  /* Layout */
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+  padding: "4px 8px",
+  flexWrap: "wrap",
+  marginBottom: "16px",
+};
+
+/** Embedded variant style — bare inner row, no panel chrome / no margin (the shell owns the surface). */
+const EMBEDDED_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+  flexWrap: "wrap",
+  minWidth: 0,
 };
 
 /**
@@ -44,10 +82,11 @@ export type GuildBarProps = {
  * Renders the guild section of the persistent topbar:
  *   NV pill · guild title · compact XpBar
  *
- * Mounted directly in app/layout.tsx inside the rpgpanel rpggrid topbar wrapper.
- * Server Component: all data is derived from the outcomes prop.
+ * Mounted inside the app shell's persistent topbar (FRD-19) via the `embedded` variant; the
+ * default (standalone) variant keeps the original rpgpanel block. Server Component: all data is
+ * derived from the outcomes prop.
  */
-export function GuildBar({ outcomes }: GuildBarProps): React.JSX.Element {
+export function GuildBar({ outcomes, embedded = false }: GuildBarProps): React.JSX.Element {
   // IF-09-guild-xp: pure derivation — same outcomes always yields same result.
   const { level, title, xp, next, pctToNext } = computeGuildLevel(outcomes);
 
@@ -59,27 +98,9 @@ export function GuildBar({ outcomes }: GuildBarProps): React.JSX.Element {
   return (
     <div
       data-testid="guild-bar"
-      data-variant="rpgpanel"
-      style={{
-        /* rpgpanel: embossed pixel tile — matches prototype .rpgpanel */
-        position: "relative",
-        background: "var(--color-card)",
-        border: "1px solid var(--color-border-strong)",
-        borderRadius: "10px",
-        boxShadow:
-          "inset 0 1px 0 rgba(255,255,255,.05), inset 0 -2px 0 rgba(0,0,0,.22), 0 2px 0 var(--color-base)",
-        /* rpggrid: dot grid overlay — matches prototype .rpggrid */
-        backgroundImage:
-          "linear-gradient(var(--color-border) 1px, transparent 1px), linear-gradient(90deg, var(--color-border) 1px, transparent 1px)",
-        backgroundSize: "22px 22px",
-        /* Layout */
-        display: "flex",
-        alignItems: "center",
-        gap: "8px",
-        padding: "4px 8px",
-        flexWrap: "wrap",
-        marginBottom: "16px",
-      }}
+      data-variant={embedded ? "embedded" : "rpgpanel"}
+      data-embedded={embedded ? "true" : undefined}
+      style={embedded ? EMBEDDED_STYLE : STANDALONE_STYLE}
     >
       {/* NV level pill — accent bg, pixel font, canvas text (AC-09-004.1/4.4) */}
       {/* data-px="true" = pixel-font marker for tests */}

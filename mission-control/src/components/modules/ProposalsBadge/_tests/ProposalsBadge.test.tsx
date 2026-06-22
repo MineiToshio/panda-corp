@@ -14,9 +14,12 @@
  *   AC-17-007.1, AC-17-007.4, AC-17-007.5
  */
 
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { ProposalsBadge } from "../ProposalsBadge";
+
+// ProposalsBadge is now the Propuestas destination of the shell nav (FRD-19) → it reads usePathname.
+vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
 
 // ---------------------------------------------------------------------------
 // AC-17-007.1 — badge shows open proposal count and links to /proposals
@@ -42,13 +45,15 @@ describe("AC-17-007.1 — badge shows count + link to /proposals", () => {
     expect(count).toHaveTextContent("1");
   });
 
-  it("renders with an accessible label that includes the count (a11y — not color alone)", () => {
+  it("is the 'Propuestas' destination with the count as visible text (a11y — not color alone)", () => {
     render(<ProposalsBadge openCount={7} />);
     const link = screen.getByTestId("proposals-badge-link");
-    // aria-label must convey both the entity and the count (AC-17-007.5)
-    const ariaLabel = link.getAttribute("aria-label") ?? "";
-    expect(ariaLabel.toLowerCase()).toMatch(/propuesta|proposal/);
-    expect(ariaLabel).toMatch(/7/);
+    // FRD-19: the link's accessible name is exactly "Propuestas" (the Shell-Presence Gate matches
+    // nav destinations by exact label) — the count is NOT folded into the link name.
+    expect(link).not.toHaveAttribute("aria-label");
+    expect(within(link).getByText("Propuestas")).toBeInTheDocument();
+    // The count is conveyed as a visible text node (not color-alone, AC-17-007.5).
+    expect(screen.getByTestId("proposals-badge-count")).toHaveTextContent("7");
   });
 
   it("has data-testid='proposals-badge' as the root wrapper", () => {

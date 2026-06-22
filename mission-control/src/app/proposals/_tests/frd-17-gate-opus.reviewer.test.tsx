@@ -19,10 +19,13 @@
  */
 
 import { render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { PromotionsQueue } from "@/components/modules/PromotionsQueue/PromotionsQueue";
 import { ProposalsBadge } from "@/components/modules/ProposalsBadge/ProposalsBadge";
 import type { Lesson } from "@/lib/memory/memory";
+
+// ProposalsBadge is now the Propuestas destination of the shell nav (FRD-19) → it reads usePathname.
+vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
 
 afterEach(() => {
   try {
@@ -166,11 +169,14 @@ describe("FRD-17 GATE (AC-17-007.4/.5): the proposals badge is honest and count-
     const countBadge = screen.getByTestId("count-badge");
     // The number itself is a text node — a screen reader / colour-blind user reads "4".
     expect(countBadge.textContent).toContain("4");
-    // And the accessible label spells it out (count not by colour/shape alone).
-    expect(screen.getByTestId("proposals-badge-link")).toHaveAttribute(
-      "aria-label",
-      expect.stringContaining("4"),
-    );
+    // CMP-17-badge is now the Propuestas destination of the global shell nav (FRD-19): the link's
+    // accessible name is exactly "Propuestas" (the Shell-Presence Gate matches destinations by exact
+    // label), and the count is conveyed as visible CountBadge text — not by colour alone, and not
+    // folded into the link name.
+    const link = screen.getByTestId("proposals-badge-link");
+    expect(link).toHaveAttribute("href", "/proposals");
+    expect(link).not.toHaveAttribute("aria-label");
+    expect(within(link).getByText("Propuestas")).toBeInTheDocument();
   });
 
   it("with zero open proposals there is NO count pill (no zero-badge nag, AC-17-007.4)", () => {

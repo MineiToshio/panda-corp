@@ -27,12 +27,15 @@
  */
 
 import { render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryHealth } from "@/components/modules/MemoryHealth/MemoryHealth";
 import { PromotionsQueue } from "@/components/modules/PromotionsQueue/PromotionsQueue";
 import { ProposalsBadge } from "@/components/modules/ProposalsBadge/ProposalsBadge";
 import type { Lesson } from "@/lib/memory/memory";
 import type { MemoryHealth as MemoryHealthData } from "@/lib/memory/memory-health";
+
+// ProposalsBadge is now the Propuestas destination of the shell nav (FRD-19) → it reads usePathname.
+vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
 
 afterEach(() => {
   try {

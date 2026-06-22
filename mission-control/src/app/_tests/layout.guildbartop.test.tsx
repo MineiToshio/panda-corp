@@ -65,8 +65,14 @@ function findNode(node: unknown, predicate: (el: ReactElement) => boolean): Reac
   if (!isValidElement(node)) return null;
   const el = node as ReactElement;
   if (predicate(el)) return el;
-  const props = el.props as { children?: unknown };
-  return findNode(props.children, predicate);
+  // Traverse ALL element-valued props, not just children: GuildBar/ProposalsBadge are now passed to
+  // AppShell as the `levelBar`/`proposalsBadge` slots (FRD-19), not as children.
+  const props = el.props as Record<string, unknown>;
+  for (const value of Object.values(props)) {
+    const found = findNode(value, predicate);
+    if (found) return found;
+  }
+  return null;
 }
 
 function containsGuildBar(tree: ReactElement): boolean {

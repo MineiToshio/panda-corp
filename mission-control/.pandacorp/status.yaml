@@ -9,21 +9,21 @@ target_platforms: desktop
 running: false
 run_started_at: "2026-06-21T15:53:26Z"
 repo: ""
-updated_at: "2026-06-21T16:10:34Z"
-last_event_at: "2026-06-21T16:10:34Z"
-work_orders_total: 78
-work_orders_verified: 78
+updated_at: "2026-06-22T05:07:15Z"
+last_event_at: "2026-06-22T05:07:15Z"
+work_orders_total: 79
+work_orders_verified: 79
 work_orders_in_review: 0
 work_orders_planned: 0
 work_orders_in_progress: 0
 work_orders_blocked: 0
-work_orders_done: 78
+work_orders_done: 79
 pending_decisions: 1
 pending_bugs: 0
 rethink_pending: false
 advance_pending: false
-last_green_sha: "a2304e8"
-safe_to_test: true  # full verify.sh green at a2304e8 (build complete: 78/78 WOs, 18/18 FRDs, 2026-06-21)
+last_green_sha: "a2304e8"  # updated to the FRD-19 commit in the follow-up sha record
+safe_to_test: true  # full verify.sh green (re-anchor Phase A: FRD-19 app shell, 79/79 WOs, 2026-06-22)
 blocked: []
 supervisor_heartbeat: ""
 pending_changes: 6

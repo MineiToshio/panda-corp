@@ -14,6 +14,7 @@
 import type { Metadata } from "next";
 import { Pixelify_Sans, Space_Grotesk } from "next/font/google";
 import { OnboardingGate } from "@/app/_components/OnboardingGate/OnboardingGate";
+import { AppShell } from "@/components/modules/AppShell/AppShell";
 import { CelebrationWatcher } from "@/components/modules/CelebrationWatcher/CelebrationWatcher";
 import { GuildBar } from "@/components/modules/GuildBar/GuildBar";
 import { ProposalsBadge } from "@/components/modules/ProposalsBadge/ProposalsBadge";
@@ -86,13 +87,20 @@ export default function RootLayout({
       <body>
         {profileResult.present ? (
           <>
-            <GuildBar outcomes={guildOutcomes} />
-            <ProposalsBadge openCount={proposalCounts.total} />
+            {/* AppShell — the persistent global topbar (FRD-19): brand + guild level/XP on the left,
+                the six top-level destinations on the right. GuildBar (embedded) and ProposalsBadge are
+                passed as slots so they keep their server-derived data; AppShell decides scope (no
+                topbar on the exempt drill-ins) and wraps the page in #main-content. */}
+            <AppShell
+              levelBar={<GuildBar outcomes={guildOutcomes} embedded />}
+              proposalsBadge={<ProposalsBadge openCount={proposalCounts.total} />}
+            >
+              {children}
+            </AppShell>
             {/* CelebrationWatcher — auto-fires CelebrationSurface on result events
                 (release/levelup/phase/toast). Client component; no server I/O;
                 fires automatically from the live event stream (DR-061, AC-09-006.1). */}
             <CelebrationWatcher />
-            {children}
           </>
         ) : (
           <OnboardingGate />
