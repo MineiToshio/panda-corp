@@ -15,7 +15,7 @@ The channel to **report a bug** without stopping the build or setting anything u
 ## Steps
 
 1. **Capture** the description. If something key for reproducing it is missing, ask the MINIMUM (steps, what you expected vs. what happened, on which screen/flow). Don't investigate in depth or try to fix it — this is just documenting.
-2. **Write** `.pandacorp/inbox/changes/<slug>.md` (short slug in English derived from the title), with:
+2. **Write** `.pandacorp/inbox/changes/<slug>.md` (following `${CLAUDE_PLUGIN_ROOT}/templates/docs/change-request-template.md`; short slug in English derived from the title), with:
    - frontmatter (machine): `type: bug`, `class` (`expedite` if it blocks a flow, else `standard`), `status: pending`, `date`, `frd` (the FRD/screen if known)
    - body (**español**): **pasos para reproducir**, **resultado esperado**, **resultado actual**
    - append a row to the queue index `.pandacorp/inbox/changes/README.md`

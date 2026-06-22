@@ -23,6 +23,16 @@ if [ -n "$stray" ]; then
   echo "✗ tests must live in a _tests/ folder, not beside source:"; echo "$stray"; exit 1
 fi
 
+# --- Doc-structure lint (DR-077) — frontmatter + stable-ID spine; vacuous if no docs ----
+# Validates generated docs (FRD/PRD/work-orders) carry required frontmatter and that REQ->WO IDs
+# resolve. ADVISORY — it reports drift and NEVER fails the gate (so it can't red-lock an adopted /
+# partial-spine project); a project with no docs/ passes. The harness is new, so a missing script is
+# a no-op (older overlays); /pandacorp:upgrade installs it. Drift is surfaced here, NOT tracked by a
+# per-doc version stamp (DR-077).
+if [ -f .pandacorp/doc-lint.sh ]; then
+  bash .pandacorp/doc-lint.sh
+fi
+
 # --- Lint + format (every warn is a hard gate; --error-on-warnings) ------------
 pnpm biome check . --error-on-warnings
 
