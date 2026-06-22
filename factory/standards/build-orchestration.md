@@ -446,6 +446,21 @@ change it decides, **work-conserving** (never stall the whole build for one item
   (`rethink_pending`) and tells the owner the command to run (e.g. `/design`), so it never silently rebuilds half
   the app or auto-approves a visual (the design gate is the owner's).
 
+**Completion — verify the durable record, then ARCHIVE (never hand-delete).** When a change lands, the build does
+NOT just flip a flag and leave the file in the active queue (that would clutter the owner's "what's pending?" view),
+NOR hard-delete it (the folder is **gitignored** — a delete is **irreversible**, with no git history to recover the
+owner's original phrasing). Instead it **archives**: (1) **verify the durable record exists** — independently
+(generator ≠ verifier) confirm the landing commit **touched the canonical doc** (FRD/PRD/blueprint) AND a
+`docs/decision-log.md` entry references the change; (2) stamp `status: done` + `shipped_sha` + `shipped_at`; (3)
+**move the file to `changes/done/`** (a move, never an `rm`). The active `changes/` then holds **pending-only** (the
+owner's clean queue) while the Spanish owner-language audit trail survives in `done/` (Mission Control reads it for a
+"recently shipped" view). If the durable record is **missing**, the change is **not archived** — it stays in place
+and the missing decision-log/FRD update is flagged as the real defect (archival is thus also the enforcement point
+for the documentation discipline). This is the industry-standard *commit-before-retire* ordering (Kanban/issue-
+trackers archive-not-delete; event-sourcing append-only; durable queues delete only after the durable write is
+confirmed): the changes/ file is a transient intake artifact, but it is retired into an archive, **never destroyed**,
+and **never auto-deleted** — any later prune of `done/` is a separate, owner-gated, reversible action.
+
 **Why this doesn't overload the build.** The build stays an **orchestrator of specialized subagents over
 deterministic control flow** (DR-013): docs → PM/architect, code → implementer, review → reviewer (a different
 model), design → designer + the owner's gate. The queue adds one deterministic step — *drain → integrate → build →
