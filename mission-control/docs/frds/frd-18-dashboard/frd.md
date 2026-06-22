@@ -12,10 +12,10 @@ last_updated: '2026-06-19'
 
 The landing screen of Mission Control: a read-only **command center** that answers, at a glance, *"what needs me now, what changed while I was away, and what's the next command"* across the whole factory. It is the **default view**; the Board / Portfolio / Achievements / Configuration / Documentation tabs stay reachable from the top nav.
 
-It composes existing layers — honest gamification ([FRD-09](../frd-09-gamification/frd.md)), observability and data-viz ([FRD-12](../frd-12-observability-dataviz/frd.md)), the visual/accessibility system ([FRD-13](../frd-13-visual-system-accessibility/frd.md)) — and surfaces existing signals: the onboarding gate ([FRD-01](../frd-01-data-reading/frd.md)), plugin drift ([FRD-15](../frd-15-plugin-out-of-sync-warning/frd.md)), orphan projects ([FRD-16](../frd-16-orphan-project-detection/frd.md)) and the proposals / memory-health stream ([FRD-17](../frd-17-proposals-inbox/frd.md)). Designed from the dashboard-design research (action-oriented, exception-first, anti-vanity; see the decision log entry of 2026-06-16).
+It composes existing layers — honest gamification ([FRD-09](../frd-09-gamification/frd.md)), observability and data-viz ([FRD-12](../frd-12-observability-dataviz/frd.md)), the visual/accessibility system ([FRD-13](../frd-13-visual-system-accessibility/frd.md)) — and surfaces existing signals: the onboarding gate ([FRD-01](../frd-01-data-reading/frd.md)), plugin drift ([FRD-15](../frd-15-plugin-out-of-sync-warning/frd.md)) and the proposals / memory-health stream ([FRD-17](../frd-17-proposals-inbox/frd.md)). Designed from the dashboard-design research (action-oriented, exception-first, anti-vanity; see the decision log entry of 2026-06-16).
 
 ## Layout (top to bottom)
-1. **Health banners** (conditional, only when triggered): onboarding gate (FRD-01), plugin drift (FRD-15), orphan projects (FRD-16).
+1. **Health banners** (conditional, only when triggered): onboarding gate (FRD-01), plugin drift (FRD-15).
 2. **Desde tu última visita** — the digest of events since the operator last acknowledged.
 3. **Tu turno** — the human-gate decision queue (the hero block).
 4. **Pulso de la fábrica** — the funnel + the one metric that matters.

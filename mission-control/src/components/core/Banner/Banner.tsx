@@ -5,7 +5,7 @@
  *
  * THE shared warn/info/ok/danger banner strip (DR-057 dup-fix).
  * Eliminates the duplicate BANNER_STYLE/ICON_STYLE/CMD_ROW_STYLE blocks that
- * existed independently in PluginSyncBanner (FRD-15) and OrphansBanner (FRD-16).
+ * each consumer used to re-declare independently (e.g. PluginSyncBanner, FRD-15).
  *
  * Contract:
  *   - tone: warn/info/ok/danger — sets data-tone, colors via CSS vars only
@@ -26,14 +26,14 @@
  */
 
 import { useState } from "react";
-import { CopyButton } from "@/components/core/CopyButton/CopyButton";
+import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 type BannerTone = "warn" | "info" | "ok" | "danger";
-type BannerKind = "drift" | "orphan" | "gate" | "error" | "inline";
+type BannerKind = "drift" | "gate" | "error" | "inline";
 
 interface BannerItem {
   id: string;
@@ -45,6 +45,11 @@ export interface BannerProps {
   tone: BannerTone;
   /** Consumer context — identifies what kind of condition this banner represents. */
   kind?: BannerKind;
+  /**
+   * Optional Tabler icon class (e.g. "ti-alert-triangle") shown left of the heading,
+   * matching the prototype's per-banner glyph. Falls back to the tone SVG when omitted.
+   */
+  icon?: string;
   /** Required heading (primary signal, always visible). */
   heading: string;
   /** Optional secondary detail line. */
@@ -197,14 +202,15 @@ function ToneIcon({ tone }: { tone: BannerTone }): React.JSX.Element {
 /**
  * Banner — THE shared warn/info/ok/danger banner strip.
  *
- * One component for all app banners (FRD-15 PluginSyncBanner, FRD-16 OrphansBanner,
- * FRD-03 path-not-found, FRD-18 health banners, FRD-17 memory-health nudge).
+ * One component for all app banners (FRD-15 PluginSyncBanner, FRD-03 path-not-found,
+ * FRD-18 health banners, FRD-17 memory-health nudge).
  *
  * Use via: `<Banner tone="warn" heading="…" detail="…" commandRow="…" dismissible />`
  */
 export function Banner({
   tone,
   kind,
+  icon,
   heading,
   detail,
   children,
@@ -218,11 +224,13 @@ export function Banner({
 
   const vars = TONE_VARS[tone];
 
+  // Full rounded card, neutral hairline border (prototype: `.5px solid var(--bd2)`,
+  // radius-md) — NOT a top/bottom strip and NOT the loud tone-colored border.
   const rootStyle: React.CSSProperties = {
     background: vars.bg,
-    borderTop: `var(--hairline, 1px) solid ${vars.border}`,
-    borderBottom: `var(--hairline, 1px) solid ${vars.border}`,
-    padding: "calc(var(--space-base, 1rem) * 0.75) var(--space-base, 1rem)",
+    border: "0.5px solid var(--color-border-strong)",
+    borderRadius: "var(--radius-md, 12px)",
+    padding: "12px 14px",
     width: "100%",
     color: vars.fg,
   };
@@ -230,8 +238,7 @@ export function Banner({
   const innerStyle: React.CSSProperties = {
     display: "flex",
     alignItems: "flex-start",
-    gap: "calc(var(--space-base, 1rem) * 0.625)",
-    maxWidth: "72ch",
+    gap: "10px",
   };
 
   const bodyStyle: React.CSSProperties = {
@@ -249,27 +256,6 @@ export function Banner({
     fontSize: "0.75rem",
     opacity: 0.9,
     margin: "0.125rem 0 0",
-  };
-
-  const cmdRowStyle: React.CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    gap: "calc(var(--space-base, 1rem) * 0.5)",
-    marginTop: "calc(var(--space-base, 1rem) * 0.5)",
-    padding: "0.25rem calc(var(--space-base, 1rem) * 0.5)",
-    background: "var(--color-surface, var(--color-card, Canvas))",
-    border: `var(--hairline, 1px) solid ${vars.border}`,
-    borderRadius: "var(--radius-sm, 8px)",
-  };
-
-  const cmdTextStyle: React.CSSProperties = {
-    fontFamily: "var(--font-mono, monospace)",
-    fontSize: "0.75rem",
-    flex: 1,
-    userSelect: "all" as const,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap" as const,
   };
 
   const dismissStyle: React.CSSProperties = {
@@ -322,9 +308,19 @@ export function Banner({
       style={rootStyle}
     >
       <div style={innerStyle}>
-        {/* Tone icon — state conveyed by icon + heading text, never color alone (FRD-13) */}
-        <span style={{ flexShrink: 0, marginTop: "0.125rem", lineHeight: 1 }}>
-          <ToneIcon tone={tone} />
+        {/* Icon — state conveyed by icon + heading text, never color alone (FRD-13).
+            Prefer the consumer's per-banner Tabler glyph; fall back to the tone SVG. */}
+        <span style={{ flexShrink: 0, marginTop: "1px", lineHeight: 1, color: vars.fg }}>
+          {icon !== undefined ? (
+            <i
+              className={`ti ${icon}`}
+              data-testid="banner-icon"
+              aria-hidden="true"
+              style={{ fontSize: "20px", lineHeight: 1 }}
+            />
+          ) : (
+            <ToneIcon tone={tone} />
+          )}
         </span>
 
         <div style={bodyStyle}>
@@ -365,14 +361,6 @@ export function Banner({
                 : `Ver ${hiddenCount} elemento${hiddenCount === 1 ? "" : "s"} más`}
             </button>
           )}
-
-          {/* Optional command row */}
-          {commandRow !== undefined && (
-            <div data-testid="banner-cmd-row" style={cmdRowStyle}>
-              <span style={cmdTextStyle}>{commandRow}</span>
-              <CopyButton value={commandRow} />
-            </div>
-          )}
         </div>
 
         {/* Optional dismiss button (keyboard-operable, AC-13-006.3) */}
@@ -389,6 +377,14 @@ export function Banner({
           </button>
         )}
       </div>
+
+      {/* Optional command row — full banner width below the icon/body row (prototype),
+          reusing the shared CmdRow primitive (DR-057). */}
+      {commandRow !== undefined && (
+        <div data-testid="banner-cmd-row" style={{ marginTop: "10px" }}>
+          <CmdRow command={commandRow} />
+        </div>
+      )}
     </div>
   );
 }

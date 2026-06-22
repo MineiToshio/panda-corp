@@ -9,9 +9,30 @@ const REVERT_DELAY_MS = 2_000;
 export interface CopyButtonProps {
   /** The text value to copy to the clipboard when the button is clicked. */
   value: string;
-  /** Optional visible label rendered inside the button alongside the copy icon. */
+  /** Optional visible label rendered inside the button before the copy icon. */
   label?: string;
 }
+
+/**
+ * Button chrome — neutral tokens (prototype `button`: card bg, bd2 border, text fg),
+ * NOT the surrounding tone color. Tokens only (no hardcoded colors).
+ */
+const BUTTON_STYLE: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.375rem",
+  padding: "6px 9px",
+  cursor: "pointer",
+  borderRadius: "var(--radius-sm, 8px)",
+  border: "1px solid var(--color-border-strong)",
+  background: "var(--color-card)",
+  color: "var(--color-text)",
+  fontFamily: "var(--font-display, inherit)",
+  fontSize: "13px",
+  fontWeight: 500,
+  lineHeight: 1,
+  flexShrink: 0,
+};
 
 /**
  * CopyButton — shared clipboard affordance (CMP-02-copy-button).
@@ -77,21 +98,16 @@ export function CopyButton({ value, label }: CopyButtonProps): React.JSX.Element
       data-testid="copy-button"
       aria-label={ariaLabel}
       onClick={handleClick}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: "0.25rem",
-        padding: "0.25rem 0.5rem",
-        cursor: "pointer",
-        borderRadius: "0.375rem",
-        border: "1px solid currentColor",
-        background: "transparent",
-        fontFamily: "inherit",
-        fontSize: "inherit",
-      }}
+      style={BUTTON_STYLE}
     >
       {label !== undefined && <span>{label}</span>}
-      {copied ? <span>copiado</span> : <span>copiar</span>}
+      {/* Icon-only affordance (prototype `ti-copy`); state via aria-label + icon swap,
+          never a visible "copiar"/"copiado" word. */}
+      <i
+        className={copied ? "ti ti-check" : "ti ti-copy"}
+        aria-hidden="true"
+        style={{ fontSize: "13px", lineHeight: 1, color: copied ? "var(--color-ok)" : "inherit" }}
+      />
     </button>
   );
 }

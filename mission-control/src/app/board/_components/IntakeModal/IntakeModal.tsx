@@ -3,47 +3,42 @@
 /**
  * IntakeModal — Intake command overlay (CMP-02-intake-modal).
  *
- * Modal overlay (dark backdrop + blur) with the four `/pandacorp:*` intake
- * commands. Opens when the owner clicks "Capturar ideas / oportunidades" on
- * the board page; the board stays mounted behind the modal (overlay, not
- * replacement).
+ * Modal overlay with the four `/pandacorp:*` intake commands. Opens from the board's
+ * "Capturar ideas / oportunidades" button; the board stays mounted behind (overlay).
+ *
+ * Faithful to the prototype `intakePanel()` (index.html ~L768): panel on `--color-panel`
+ * with a `bd2` hairline + `radius-lg`; header carries the celeste **"TABLERO"** badge +
+ * the title and an **icon** ✕ (`ti-x`); a one-line description; then one card per command
+ * with a **Tabler icon** (never an emoji) in a tinted slot + the shared `CmdRow`.
  *
  * Acceptance criteria (FRD-02):
- *   AC-02-003.1 — WHEN open=true THEN show modal overlay with four intake
- *                 commands — /pandacorp:explore, :new-idea, :discover,
- *                 :recommend — each with icon, title, description and copy row.
- *   AC-02-003.2 — Clicking backdrop OR ✕ button OR pressing Escape SHALL
- *                 call onClose.
- *   AC-02-003.3 — The board SHALL remain visible behind the modal (overlay).
+ *   AC-02-003.1 — open=true → modal with the four intake commands (icon, title, desc, copy row).
+ *   AC-02-003.2 — backdrop / ✕ / Escape → onClose.
+ *   AC-02-003.3 — the board stays visible behind (overlay).
  *
- * Accessibility:
- *   - role="dialog" + aria-modal="true" + aria-label
- *   - Focus placed on modal panel on open
- *   - Escape key fires onClose
- *   - ✕ button is a <button> with Spanish aria-label
+ * Accessibility: role="dialog" + aria-modal + aria-label; focus on open; Escape closes;
+ * Tab/Shift+Tab trapped; ✕ is a <button> with a Spanish aria-label.
  *
- * Design rules (FRD-13, AGENTS.md):
- *   - ZERO hardcoded color values — all via CSS custom properties.
- *   - data-testid on every significant element (test-writer contract).
- *   - Spanish copy (AGENTS.md — single operator, Spanish UI).
- *   - Uses <CopyButton> for each command (CMP-02-copy-button).
+ * Design rules: zero hardcoded colors (CSS custom properties), data-testid on key nodes,
+ * Spanish copy, reuses `CmdRow` (CMP-13-cmdrow) for the copy affordance (DR-057).
  *
- * Traceability:
- *   CMP-02-intake-modal → REQ-02-003
- *   Depends on WO-02-002 (CopyButton)
+ * Traceability: CMP-02-intake-modal → REQ-02-003.
  */
 
 import { useEffect, useRef } from "react";
-import { CopyButton } from "@/components/core/CopyButton/CopyButton";
+import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 
 // ---------------------------------------------------------------------------
-// Static data — the four intake commands
+// Static data — the four intake commands (icons + accent per prototype intakePanel)
 // ---------------------------------------------------------------------------
 
 interface CommandDef {
   slug: string;
   command: string;
+  /** Tabler icon class (prototype ICONS) — never an emoji. */
   icon: string;
+  /** Category-accent color token for the icon slot (prototype ACCS). */
+  accent: string;
   title: string;
   description: string;
 }
@@ -52,7 +47,8 @@ const INTAKE_COMMANDS: CommandDef[] = [
   {
     slug: "explore",
     command: "/pandacorp:explore",
-    icon: "🔭",
+    icon: "ti-compass",
+    accent: "var(--color-cat-8)",
     title: "Explorar una idea",
     description:
       "Abre una conversación guiada para clarificar y expandir una idea difusa antes de capturarla.",
@@ -60,7 +56,8 @@ const INTAKE_COMMANDS: CommandDef[] = [
   {
     slug: "new-idea",
     command: "/pandacorp:new-idea",
-    icon: "💡",
+    icon: "ti-bulb",
+    accent: "var(--color-cat-4)",
     title: "Capturar idea",
     description:
       "Cristaliza y guarda una idea (de la conversación o de un concepto propio) en la base de ideas.",
@@ -68,7 +65,8 @@ const INTAKE_COMMANDS: CommandDef[] = [
   {
     slug: "discover",
     command: "/pandacorp:discover",
-    icon: "🌐",
+    icon: "ti-world-search",
+    accent: "var(--color-cat-5)",
     title: "Descubrir oportunidades",
     description:
       "Busca en internet dolores monetizables y los sugiere como nuevas ideas para la base.",
@@ -76,7 +74,8 @@ const INTAKE_COMMANDS: CommandDef[] = [
   {
     slug: "recommend",
     command: "/pandacorp:recommend",
-    icon: "⭐",
+    icon: "ti-chart-bar",
+    accent: "var(--color-cat-7)",
     title: "Recomendar idea",
     description:
       "Analiza la base de ideas y recomienda la mejor candidata según el perfil del propietario.",
@@ -84,13 +83,13 @@ const INTAKE_COMMANDS: CommandDef[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Styles — CSS custom properties only; zero hardcoded color values.
+// Styles — CSS custom properties only.
 // ---------------------------------------------------------------------------
 
 const OVERLAY_STYLE: React.CSSProperties = {
   position: "fixed",
   inset: 0,
-  zIndex: 100,
+  zIndex: 200,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
@@ -100,26 +99,26 @@ const BACKDROP_STYLE: React.CSSProperties = {
   position: "absolute",
   inset: 0,
   background:
-    "var(--color-backdrop, color-mix(in oklch, var(--color-canvas, #000) 70%, transparent))",
-  backdropFilter: "blur(4px)",
-  WebkitBackdropFilter: "blur(4px)",
+    "var(--color-backdrop, color-mix(in oklch, var(--color-base, black) 60%, transparent))",
+  backdropFilter: "blur(3px)",
+  WebkitBackdropFilter: "blur(3px)",
 };
 
 const PANEL_STYLE: React.CSSProperties = {
   position: "relative",
   zIndex: 1,
-  background: "var(--color-surface-panel, var(--color-surface, Canvas))",
-  border: "var(--hairline, 1px) solid var(--color-border, currentColor)",
-  borderRadius: "var(--radius-lg, 0.75rem)",
-  padding: "calc(var(--spacing, 0.25rem) * 6)",
-  maxWidth: "min(90vw, 560px)",
-  width: "100%",
-  maxHeight: "90vh",
+  background: "var(--color-panel)",
+  border: "0.5px solid var(--color-border-strong)",
+  borderRadius: "var(--radius-lg, 16px)",
+  padding: "22px 24px",
+  width: "540px",
+  maxWidth: "calc(100vw - 32px)",
+  maxHeight: "85vh",
   overflowY: "auto",
-  boxShadow: "var(--shadow-overlay, 0 8px 40px rgba(0,0,0,0.5))",
+  boxShadow: "var(--shadow-pop, var(--shadow-overlay, 0 18px 50px rgba(0,0,0,0.5)))",
   display: "flex",
   flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 4)",
+  gap: "14px",
   outline: "none",
 };
 
@@ -127,104 +126,114 @@ const HEADER_STYLE: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: "calc(var(--spacing, 0.25rem) * 2)",
+  gap: "10px",
+};
+
+/** Left side of the header: the celeste "TABLERO" badge + the title. */
+const HEADER_LEFT_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "9px",
+  flexWrap: "wrap",
+  minWidth: 0,
+};
+
+const TABLERO_BADGE_STYLE: React.CSSProperties = {
+  fontFamily: "var(--font-pixel, ui-monospace, monospace)",
+  fontSize: "10px",
+  letterSpacing: "0.08em",
+  color: "var(--color-accent-text)",
+  whiteSpace: "nowrap",
 };
 
 const HEADING_STYLE: React.CSSProperties = {
   margin: 0,
-  fontSize: "1.125rem",
-  fontWeight: 700,
-  color: "var(--color-text, currentColor)",
+  fontFamily: "var(--font-display, inherit)",
+  fontSize: "15px",
+  fontWeight: 600,
+  color: "var(--color-text)",
 };
 
 const CLOSE_BTN_STYLE: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  background: "transparent",
-  border: "none",
+  background: "var(--color-card)",
+  border: "1px solid var(--color-border-strong)",
   cursor: "pointer",
-  color: "var(--color-text-muted, currentColor)",
-  fontSize: "1.25rem",
-  lineHeight: 1,
-  padding: "0.375rem",
-  borderRadius: "var(--radius, 0.5rem)",
-  minHeight: "44px", // a11y touch target
-  minWidth: "44px",
+  color: "var(--color-text)",
+  padding: "5px 10px",
+  borderRadius: "8px",
+  flexShrink: 0,
+};
+
+const DESC_STYLE: React.CSSProperties = {
+  fontSize: "12px",
+  color: "var(--color-text3)",
+  margin: 0,
+  lineHeight: 1.5,
 };
 
 const COMMANDS_LIST_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 3)",
+  gap: "9px",
   listStyle: "none",
   margin: 0,
   padding: 0,
 };
 
 const COMMAND_ROW_STYLE: React.CSSProperties = {
+  background: "var(--color-card)",
+  border: "1px solid var(--color-border)",
+  borderRadius: "var(--radius-sm, 8px)",
+  padding: "14px 15px",
   display: "flex",
   flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 1)",
-  padding: "calc(var(--spacing, 0.25rem) * 3)",
-  borderRadius: "var(--radius, 0.5rem)",
-  border: "var(--hairline, 1px) solid var(--color-border, currentColor)",
-  background:
-    "var(--color-surface-elevated, var(--color-surface, color-mix(in oklch, currentColor 3%, Canvas)))",
+  gap: "9px",
 };
 
-const COMMAND_ROW_HEADER_STYLE: React.CSSProperties = {
+const COMMAND_HEAD_STYLE: React.CSSProperties = {
+  display: "flex",
+  gap: "12px",
+  alignItems: "flex-start",
+};
+
+/** Tinted 36×36 icon slot (prototype: secondary bg + category-accent glyph). */
+const COMMAND_ICON_SLOT_STYLE: React.CSSProperties = {
+  flex: "0 0 auto",
+  width: "36px",
+  height: "36px",
+  background: "var(--color-panel)",
+  borderRadius: "8px",
   display: "flex",
   alignItems: "center",
-  gap: "calc(var(--spacing, 0.25rem) * 2)",
-};
-
-const COMMAND_ICON_STYLE: React.CSSProperties = {
-  fontSize: "1.25rem",
-  lineHeight: 1,
-  flexShrink: 0,
+  justifyContent: "center",
 };
 
 const COMMAND_TITLE_STYLE: React.CSSProperties = {
   margin: 0,
-  fontSize: "0.9375rem",
+  fontSize: "13px",
   fontWeight: 600,
-  color: "var(--color-text, currentColor)",
+  lineHeight: 1.2,
+  color: "var(--color-text)",
 };
 
 const COMMAND_DESC_STYLE: React.CSSProperties = {
-  margin: 0,
-  fontSize: "0.8125rem",
-  color: "var(--color-text-muted, currentColor)",
+  margin: "3px 0 0",
+  fontSize: "11px",
+  color: "var(--color-text2)",
   lineHeight: 1.5,
-};
-
-const COMMAND_COPY_ROW_STYLE: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "calc(var(--spacing, 0.25rem) * 2)",
-  marginTop: "calc(var(--spacing, 0.25rem) * 1)",
-};
-
-const COMMAND_VALUE_STYLE: React.CSSProperties = {
-  fontSize: "0.8125rem",
-  fontFamily: "var(--font-mono, ui-monospace, monospace)",
-  color: "var(--color-accent, currentColor)",
-  opacity: 0.85,
 };
 
 // ---------------------------------------------------------------------------
 // Focus-trap helper — keeps Tab/Shift+Tab inside the dialog panel (a11y).
-// Module-scope so the keydown handler stays small (one responsibility each).
 // ---------------------------------------------------------------------------
 
 const FOCUSABLE_SELECTOR =
   'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
-/**
- * Wrap focus inside `panel` when Tab/Shift+Tab would otherwise escape it.
- * No-op when the panel has no focusable descendants.
- */
+/** Wrap focus inside `panel` when Tab/Shift+Tab would otherwise escape it. */
 function trapFocus(event: KeyboardEvent, panel: HTMLDivElement): void {
   const focusable = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
   const first = focusable.at(0);
@@ -232,7 +241,6 @@ function trapFocus(event: KeyboardEvent, panel: HTMLDivElement): void {
   if (!first || !last) return;
 
   if (event.shiftKey) {
-    // Shift+Tab: if on first, wrap to last
     if (document.activeElement === first) {
       event.preventDefault();
       last.focus();
@@ -240,7 +248,6 @@ function trapFocus(event: KeyboardEvent, panel: HTMLDivElement): void {
     return;
   }
 
-  // Tab: if on last (or the panel container itself), wrap to first
   if (document.activeElement === last || document.activeElement === panel) {
     event.preventDefault();
     first.focus();
@@ -262,11 +269,6 @@ export interface IntakeModalProps {
 // Component
 // ---------------------------------------------------------------------------
 
-/**
- * Client overlay component — renders the four intake commands when `open=true`.
- * The component is rendered alongside the board (not replacing it), so toggling
- * `open` never unmounts the board (AC-02-003.3).
- */
 export function IntakeModal({ open, onClose }: IntakeModalProps): React.JSX.Element | null {
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -277,9 +279,7 @@ export function IntakeModal({ open, onClose }: IntakeModalProps): React.JSX.Elem
     }
   }, [open]);
 
-  // Escape key dismisses the modal + focus trap (AC-02-003.2 — a11y).
-  // aria-modal="true" contracts that focus never leaves the dialog; the trap
-  // enforces this by intercepting Tab/Shift+Tab and wrapping focus.
+  // Escape dismisses + Tab/Shift+Tab focus trap (AC-02-003.2, a11y).
   useEffect(() => {
     if (!open) return;
 
@@ -288,8 +288,6 @@ export function IntakeModal({ open, onClose }: IntakeModalProps): React.JSX.Elem
         onClose();
         return;
       }
-
-      // Focus trap — keep Tab/Shift+Tab inside the dialog panel.
       if (event.key === "Tab" && panelRef.current) {
         trapFocus(event, panelRef.current);
       }
@@ -313,10 +311,6 @@ export function IntakeModal({ open, onClose }: IntakeModalProps): React.JSX.Elem
         onClick={onClose}
       />
 
-      {/* Dialog panel — clicking here must NOT propagate to the backdrop.
-          onKeyDown is a no-op here because keyboard (Escape) is handled by
-          the document-level listener in the useEffect above; the handler is
-          required to satisfy the a11y rule (useKeyWithClickEvents). */}
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard handled via document keydown useEffect above */}
       <div
         ref={panelRef}
@@ -328,11 +322,20 @@ export function IntakeModal({ open, onClose }: IntakeModalProps): React.JSX.Elem
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
+        {/* Header: celeste TABLERO badge + title (left) · icon ✕ (right) */}
         <div style={HEADER_STYLE}>
-          <h2 style={HEADING_STYLE}>Capturar ideas / oportunidades</h2>
+          <div style={HEADER_LEFT_STYLE}>
+            <span className="px" style={TABLERO_BADGE_STYLE}>
+              <i
+                className="ti ti-sparkles"
+                aria-hidden="true"
+                style={{ fontSize: "11px", verticalAlign: "-1px", marginRight: "3px" }}
+              />
+              TABLERO
+            </span>
+            <h2 style={HEADING_STYLE}>Capturar ideas y oportunidades</h2>
+          </div>
 
-          {/* ✕ close button (AC-02-003.2) */}
           <button
             type="button"
             data-testid="intake-close"
@@ -340,39 +343,50 @@ export function IntakeModal({ open, onClose }: IntakeModalProps): React.JSX.Elem
             style={CLOSE_BTN_STYLE}
             onClick={onClose}
           >
-            ✕
+            <i className="ti ti-x" aria-hidden="true" style={{ fontSize: "13px" }} />
           </button>
         </div>
 
-        {/* Four command rows (AC-02-003.1) */}
+        {/* One-line description (prototype) */}
+        <p data-testid="intake-description" style={DESC_STYLE}>
+          <i
+            className="ti ti-info-circle"
+            aria-hidden="true"
+            style={{ fontSize: "12px", verticalAlign: "-1px", marginRight: "4px" }}
+          />
+          Así llenas y priorizas la columna «Descubierta». Copia el comando y pégalo en Claude Code
+          (en la fábrica).
+        </p>
+
+        {/* Four command cards (AC-02-003.1) */}
         <ul style={COMMANDS_LIST_STYLE}>
           {INTAKE_COMMANDS.map((cmd) => (
             <li key={cmd.slug} data-testid={`intake-command-${cmd.slug}`} style={COMMAND_ROW_STYLE}>
-              {/* Row header: icon + title */}
-              <div style={COMMAND_ROW_HEADER_STYLE}>
+              <div style={COMMAND_HEAD_STYLE}>
+                {/* Tinted icon slot — Tabler glyph in the category-accent color (never an emoji) */}
                 <span
                   data-testid={`intake-command-${cmd.slug}-icon`}
-                  style={COMMAND_ICON_STYLE}
-                  role="img"
+                  style={{ ...COMMAND_ICON_SLOT_STYLE, color: cmd.accent }}
                   aria-hidden="true"
                 >
-                  {cmd.icon}
+                  <i className={`ti ${cmd.icon}`} style={{ fontSize: "18px" }} />
                 </span>
-                <h3 data-testid={`intake-command-${cmd.slug}-title`} style={COMMAND_TITLE_STYLE}>
-                  {cmd.title}
-                </h3>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h3 data-testid={`intake-command-${cmd.slug}-title`} style={COMMAND_TITLE_STYLE}>
+                    {cmd.title}
+                  </h3>
+                  <p
+                    data-testid={`intake-command-${cmd.slug}-description`}
+                    style={COMMAND_DESC_STYLE}
+                  >
+                    {cmd.description}
+                  </p>
+                </div>
               </div>
 
-              {/* Description */}
-              <p data-testid={`intake-command-${cmd.slug}-description`} style={COMMAND_DESC_STYLE}>
-                {cmd.description}
-              </p>
-
-              {/* Copy row: command value + CopyButton */}
-              <div style={COMMAND_COPY_ROW_STYLE}>
-                <code style={COMMAND_VALUE_STYLE}>{cmd.command}</code>
-                <CopyButton value={cmd.command} />
-              </div>
+              {/* Copy affordance — the shared CmdRow (terminal glyph + mono + copy icon) */}
+              <CmdRow command={cmd.command} />
             </li>
           ))}
         </ul>

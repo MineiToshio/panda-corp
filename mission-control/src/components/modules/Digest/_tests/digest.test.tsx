@@ -216,6 +216,25 @@ describe("frd-18: Digest — AC-18-001.4 (al-día state)", () => {
     expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 
+  it("frd-18: AC-18-001.4 — empty stream shows an explicit 'no changes' message (never blank)", () => {
+    localStorage.setItem("mc:digest:visto_hasta", String(NOW_MS));
+
+    render(<Digest events={EMPTY_EVENTS} nowMs={NOW_MS} />);
+
+    // With nothing new AND no last-24h activity, say so — don't leave the section empty
+    expect(screen.getByTestId("digest-empty")).toBeDefined();
+    expect(screen.getByText(/no ha habido cambios desde tu última visita/i)).toBeDefined();
+  });
+
+  it("frd-18: AC-18-001.4 — the 'no changes' message is NOT shown when there is recent activity", () => {
+    localStorage.setItem("mc:digest:visto_hasta", String(NOW_MS));
+
+    render(<Digest events={EVENTS_WITH_NEW} nowMs={NOW_MS} />);
+
+    // last-24h activity present → the empty message must not appear
+    expect(screen.queryByTestId("digest-empty")).toBeNull();
+  });
+
   it("frd-18: AC-18-001.4 — no 'marcar visto' button in al-día state", () => {
     localStorage.setItem("mc:digest:visto_hasta", String(NOW_MS));
 

@@ -259,9 +259,15 @@ export function IdeaCard({
             </span>
           )}
 
-          {/* Return chip — Spanish label + semantic tone (AC-02-005.1, BRD-03) */}
+          {/* Return chip — Spanish label + semantic tone (AC-02-005.1, BRD-03).
+              inline-flex wrapper so the Chip aligns on the same line as the category
+              chip + score (a plain inline span added a stray line-box offset). */}
           {returnEntry != null && (
-            <span data-testid="idea-card-return-type" title={`Retorno: ${returnEntry[0]}`}>
+            <span
+              data-testid="idea-card-return-type"
+              title={`Retorno: ${returnEntry[0]}`}
+              style={{ display: "inline-flex", alignItems: "center" }}
+            >
               <Chip tone={returnEntry[1]}>{returnEntry[0]}</Chip>
             </span>
           )}

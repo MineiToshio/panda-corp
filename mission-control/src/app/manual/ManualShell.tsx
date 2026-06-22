@@ -70,10 +70,10 @@ const SHELL_STYLE: React.CSSProperties = {
 };
 
 /** Header block: PageTitle with bottom border. */
+// De-boxed header: the PageTitle sits at the container edge with its own marginBottom,
+// matching the PageLayout pages (DR-062 coherence). No bordered/inset header bar.
 const HEADER_STYLE: React.CSSProperties = {
   flexShrink: 0,
-  padding: "14px 20px 10px",
-  borderBottom: "1px solid var(--color-border-strong)",
 };
 
 /**

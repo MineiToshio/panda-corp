@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -7,15 +6,21 @@ import path from "node:path";
  * Plugin sync readers for FRD-15 — Plugin out-of-sync warning.
  *
  * Platform golden rule (architecture §1/§7): read-only, never call Claude, never write.
- * All three functions are defensive: unreadable/missing inputs → null/false, never throws.
+ * Every function is defensive: unreadable/missing inputs → null/"unknown", never throws.
  *
- * Critical invariant (blueprint §1, architecture §4.7):
- *   Drift is determined by comparing the installed `gitCommitSha` against the git HEAD commit
- *   that last touched `plugin/`. The semver `version` field is NEVER used for comparison.
+ * Critical invariant (FRD-15, amended 2026-06-22 — version-based, see decision-log):
+ *   Drift is determined by comparing the **installed semver `version`**
+ *   (`~/.claude/plugins/installed_plugins.json`) against the **source `version`**
+ *   (`plugin/.claude-plugin/plugin.json`) — the SAME signal `claude plugin update` uses.
+ *   The banner shows ONLY when the installed version is strictly behind the source version.
+ *
+ *   (Previously this compared git commit SHAs. That produced permanent false "behind"
+ *   alarms: `installed_plugins.json.gitCommitSha` is frozen at install time and does NOT
+ *   advance when `claude plugin update` runs, while the compared `git log -1 -- plugin/`
+ *   advanced on every plugin commit — so the banner was always on. See FRD-15.)
  *
  * Traceability:
- *   IF-15-sync → REQ-15-001 (dirty check), REQ-15-002 (SHA mismatch), REQ-15-005 (read-only)
- *   WO-15-001 → AC-15-001.1..5
+ *   IF-15-sync → REQ-15-002 (version mismatch), REQ-15-005 (read-only)
  */
 
 /**
@@ -24,177 +29,147 @@ import path from "node:path";
  */
 const PLUGIN_KEY = "pandacorp@panda-corp";
 
+/** Source-of-truth manifest for the plugin's published version, relative to the factory root. */
+const PLUGIN_MANIFEST_REL = path.join("plugin", ".claude-plugin", "plugin.json");
+
 /**
- * Parse `<claudeHome>/plugins/installed_plugins.json` and return the `gitCommitSha`
- * of the `pandacorp@panda-corp` entry. Reads only `gitCommitSha`, NEVER the semver
- * `version` field (architecture §4.7, AC-15-001.3).
+ * Read the installed plugin's semver `version` from
+ * `<claudeHome>/plugins/installed_plugins.json` for `pandacorp@panda-corp`.
  *
- * @param claudeHome - Path to the user's `~/.claude` directory.
- * @returns The `gitCommitSha` string, or `null` if:
- *   - The file does not exist.
- *   - The file contains invalid JSON.
- *   - There is no `pandacorp@panda-corp` key.
- *   - The entry array is empty.
- *   - The `gitCommitSha` field is absent, empty, or not a non-empty string.
- * Never throws (AC-15-001.2).
+ * This is the version `claude plugin update` maintains (NOT the unreliable
+ * `gitCommitSha`, which is frozen at install time — FRD-15).
+ *
+ * @returns the `version` string, or `null` if the file is missing, invalid JSON,
+ *   has no `pandacorp@panda-corp` entry, or no non-empty `version`. Never throws.
  */
-export function readInstalledSha(claudeHome: string): string | null {
+export function readInstalledVersion(claudeHome: string): string | null {
   const filePath = path.join(claudeHome, "plugins", "installed_plugins.json");
+  const parsed = readJsonFile(filePath);
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return null;
+  }
+
+  const plugins = (parsed as Record<string, unknown>).plugins;
+  if (typeof plugins !== "object" || plugins === null || Array.isArray(plugins)) {
+    return null;
+  }
+
+  const entry = (plugins as Record<string, unknown>)[PLUGIN_KEY];
+
+  // Canonical format is an array of entries; tolerate a single object too (lenient, no throw).
+  const record = Array.isArray(entry) ? entry[0] : entry;
+  if (typeof record !== "object" || record === null || Array.isArray(record)) {
+    return null;
+  }
+
+  return extractVersion(record as Record<string, unknown>);
+}
+
+/**
+ * Read the source `version` from `<factoryRoot>/plugin/.claude-plugin/plugin.json`.
+ * This is the authoritative "latest published" version.
+ *
+ * @returns the `version` string, or `null` if the manifest is missing/invalid or
+ *   has no non-empty `version`. Never throws.
+ */
+export function readPluginSourceVersion(factoryRoot: string): string | null {
+  const parsed = readJsonFile(path.join(factoryRoot, PLUGIN_MANIFEST_REL));
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return null;
+  }
+  return extractVersion(parsed as Record<string, unknown>);
+}
+
+/** Read + JSON.parse a file; return the parsed value or null on any error. */
+function readJsonFile(filePath: string): unknown {
   let raw: string;
   try {
     raw = fs.readFileSync(filePath, "utf-8");
   } catch {
     return null;
   }
-
-  let parsed: unknown;
   try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-
-  // Expect: { version: 2, plugins: { "pandacorp@panda-corp": [ { gitCommitSha: "..." } ] } }
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    return null;
-  }
-
-  const root = parsed as Record<string, unknown>;
-  const plugins = root.plugins;
-  if (typeof plugins !== "object" || plugins === null || Array.isArray(plugins)) {
-    return null;
-  }
-
-  const pluginsMap = plugins as Record<string, unknown>;
-  const entry = pluginsMap[PLUGIN_KEY];
-
-  // The canonical format is an array of entries. If it is not an array, attempt to
-  // read it as a single object (lenient, regression I3 — no throw, return null or SHA).
-  if (!Array.isArray(entry)) {
-    if (typeof entry !== "object" || entry === null) {
-      return null;
-    }
-    return extractSha(entry as Record<string, unknown>);
-  }
-
-  // Array format: use the first element (regression I2: empty array → null).
-  if (entry.length === 0) {
-    return null;
-  }
-
-  const first = entry[0];
-  if (typeof first !== "object" || first === null || Array.isArray(first)) {
-    return null;
-  }
-
-  return extractSha(first as Record<string, unknown>);
-}
-
-/**
- * Extract and validate a `gitCommitSha` from a plugin entry object.
- * Returns the SHA string only when it is a non-empty string.
- * Returns `null` for absent, empty, or non-string values (regression B1').
- */
-function extractSha(entry: Record<string, unknown>): string | null {
-  const sha = entry.gitCommitSha;
-  // Only accept non-empty strings (regression B1': typeof 0 === "number" != "string").
-  if (typeof sha !== "string" || sha.trim() === "") {
-    return null;
-  }
-  // Trim surrounding whitespace so equality comparisons with pluginHeadSha never
-  // produce false-drift alarms (SHA hygiene, AC-15-001.3 invariant / WO-15-002 verdict).
-  return sha.trim();
-}
-
-/**
- * Return the 40-char commit SHA of the most recent commit that touched `plugin/`
- * in the factory git repo, using `git log -1 --format=%H -- plugin/`.
- *
- * @param factoryRoot - Absolute path to the factory git repo root.
- * @returns The 40-char hex SHA, or `null` if:
- *   - `factoryRoot` is not a git repo.
- *   - `git` is not available.
- *   - `plugin/` has never been touched in this repo.
- *   - Any other error condition.
- * Never throws (AC-15-001.4). Uses the arg-array form of execFileSync (no shell injection).
- */
-export function readPluginHeadSha(factoryRoot: string): string | null {
-  try {
-    const output = execFileSync("git", ["log", "-1", "--format=%H", "--", "plugin/"], {
-      cwd: factoryRoot,
-      encoding: "utf-8",
-      stdio: ["ignore", "pipe", "ignore"],
-    });
-    const sha = output.trim();
-    // git log returns empty string when no commit touches plugin/.
-    if (sha === "") {
-      return null;
-    }
-    return sha;
+    return JSON.parse(raw);
   } catch {
     return null;
   }
 }
 
-/**
- * Return `true` when `git status --porcelain -- plugin/` reports any output (staged
- * or unstaged changes, untracked files) under `plugin/`.
- *
- * @param factoryRoot - Absolute path to the factory git repo root.
- * @returns `true` if there are uncommitted changes under `plugin/`.
- *          `false` when `plugin/` is clean, when `factoryRoot` is not a git repo,
- *          or on any other error condition. Never throws (AC-15-001.5, REQ-15-005).
- * Uses the arg-array form of execFileSync (no shell injection).
- */
-export function readPluginDirty(factoryRoot: string): boolean {
-  try {
-    const output = execFileSync("git", ["status", "--porcelain", "--", "plugin/"], {
-      cwd: factoryRoot,
-      encoding: "utf-8",
-      stdio: ["ignore", "pipe", "ignore"],
-    });
-    return output.trim().length > 0;
-  } catch {
-    return false;
+/** Extract a non-empty, trimmed `version` string from a record, else null. */
+function extractVersion(record: Record<string, unknown>): string | null {
+  const version = record.version;
+  if (typeof version !== "string" || version.trim() === "") {
+    return null;
   }
+  return version.trim();
 }
 
 // ---------------------------------------------------------------------------
-// WO-15-002 — PluginSyncState verdict
+// Semver comparison
+// ---------------------------------------------------------------------------
+
+/** Parse a semver core (`MAJOR.MINOR.PATCH`) into a numeric tuple; null if unparseable. */
+function parseSemver(version: string): [number, number, number] | null {
+  // Strip an optional leading "v" and any pre-release / build suffix (-beta, +build).
+  const core = version.trim().replace(/^v/i, "").split(/[-+]/)[0] ?? "";
+  const parts = core.split(".");
+  const major = Number.parseInt(parts[0] ?? "", 10);
+  const minor = Number.parseInt(parts[1] ?? "0", 10);
+  const patch = Number.parseInt(parts[2] ?? "0", 10);
+  if (!Number.isFinite(major) || !Number.isFinite(minor) || !Number.isFinite(patch)) {
+    return null;
+  }
+  return [major, minor, patch];
+}
+
+/**
+ * Compare installed vs source versions.
+ *   - "behind"  → installed is strictly older than source (an update is genuinely needed).
+ *   - "in-sync" → installed equals OR is newer than source (no update needed).
+ *   - "unknown" → either version is unparseable (no false alarm).
+ */
+function compareVersions(installed: string, source: string): "behind" | "in-sync" | "unknown" {
+  const a = parseSemver(installed);
+  const b = parseSemver(source);
+  if (a === null || b === null) return "unknown";
+  for (let i = 0; i < 3; i++) {
+    const ai = a[i] ?? 0;
+    const bi = b[i] ?? 0;
+    if (ai < bi) return "behind";
+    if (ai > bi) return "in-sync"; // installed ahead of source → nothing to update
+  }
+  return "in-sync";
+}
+
+// ---------------------------------------------------------------------------
+// PluginSyncState verdict
 // ---------------------------------------------------------------------------
 
 /**
  * The computed drift verdict for FRD-15's banner.
- *
- * Traceability:
- *   IF-15-sync (blueprint §3) · WO-15-002 AC-15-002.1..7
+ * Version-based (FRD-15): the banner fires ONLY on reason "behind".
  */
 export type PluginSyncState = {
-  /** gitCommitSha of pandacorp@panda-corp, or null if not installed/unreadable. */
-  installedSha: string | null;
-  /** git log -1 --format=%H -- plugin/ (null if git/path unreadable). */
-  pluginHeadSha: string | null;
-  /** git status --porcelain -- plugin/ is non-empty. */
-  dirty: boolean;
-  /** True only on a positive drift signal (dirty or two known SHAs that differ). */
+  /** Installed semver version (installed_plugins.json), or null if not installed/unreadable. */
+  installedVersion: string | null;
+  /** Source semver version (plugin/.claude-plugin/plugin.json), or null if unreadable. */
+  sourceVersion: string | null;
+  /** True ONLY when the installed version is strictly behind the source version. */
   drift: boolean;
-  /** The drift reason. "unknown" never raises the alarm (REQ-15-005). */
-  reason: "uncommitted" | "behind" | "both" | "in-sync" | "unknown";
+  /** The drift reason. Only "behind" raises the banner. */
+  reason: "behind" | "in-sync" | "unknown";
   /** Human (Spanish) one-liner for the banner, always non-empty. */
   detail: string;
 };
 
-/**
- * Resolve the user's home directory from env, falling back to `os.homedir()`.
- * Separate from lib/config.ts to keep plugin-sync.ts self-contained (no circular dep).
- */
+/** Resolve `~/.claude` from env, falling back to `os.homedir()`. */
 function resolveClaudeHome(): string {
   const home = process.env.HOME ?? process.env.USERPROFILE ?? os.homedir();
   return path.join(home, ".claude");
 }
 
 /**
- * Resolve the factory root: use PANDACORP_FACTORY_ROOT env override if set,
+ * Resolve the factory root: PANDACORP_FACTORY_ROOT env override if set,
  * otherwise one level up from cwd (matching lib/config.ts resolveFactoryRoot).
  */
 function resolveFactoryRootLocal(): string {
@@ -205,125 +180,49 @@ function resolveFactoryRootLocal(): string {
   return path.resolve(process.cwd(), "..");
 }
 
-/**
- * Check whether one SHA is "equal" to another under the prefix-safe rule
- * (AC-15-002.6): an abbreviated installed SHA that is a prefix of the full
- * plugin HEAD SHA counts as equal (no spurious "behind" alarm).
- *
- * Both directions are checked: installed is a prefix of head, OR head is a
- * prefix of installed (handles future format changes gracefully).
- */
-function shaEqual(installed: string, head: string): boolean {
-  if (installed === head) return true;
-  // Prefix-safe: one starts with the other (shorter is the abbreviation)
-  if (head.startsWith(installed) || installed.startsWith(head)) return true;
-  return false;
-}
-
-/**
- * Build the Spanish detail one-liner for the banner.
- * Blueprint §2 example: "instalado 18a9389 · hay cambios sin commitear"
- */
-/** "instalado <sha> · <tail>" when the SHA is known, else `fallback`. */
-function withInstalledPrefix(
-  shortInstalled: string | null,
-  tail: string,
-  fallback: string,
-): string {
-  return shortInstalled ? `instalado ${shortInstalled} · ${tail}` : fallback;
-}
-
+/** Build the Spanish detail one-liner for the banner. */
 function buildDetail(
-  installedSha: string | null,
-  pluginHeadSha: string | null,
+  installedVersion: string | null,
+  sourceVersion: string | null,
   reason: PluginSyncState["reason"],
 ): string {
-  const shortInstalled = installedSha ? installedSha.slice(0, 7) : null;
-  const shortHead = pluginHeadSha ? pluginHeadSha.slice(0, 7) : null;
-  const headSuffix = shortHead ? ` (${shortHead})` : "";
+  const inst = installedVersion ? `v${installedVersion}` : "desconocida";
+  const src = sourceVersion ? `v${sourceVersion}` : "desconocida";
 
   switch (reason) {
-    case "uncommitted":
-      return withInstalledPrefix(
-        shortInstalled,
-        "hay cambios sin commitear",
-        "hay cambios sin commitear en plugin/",
-      );
     case "behind":
-      return withInstalledPrefix(
-        shortInstalled,
-        `el plugin instalado está atrás del HEAD${headSuffix}`,
-        `el plugin instalado está atrás del HEAD${headSuffix}`,
-      );
-    case "both":
-      return withInstalledPrefix(
-        shortInstalled,
-        "atrás del HEAD y hay cambios sin commitear",
-        "atrás del HEAD y hay cambios sin commitear en plugin/",
-      );
+      return `instalado ${inst} · hay una versión más nueva del plugin (${src})`;
     case "in-sync":
-      return withInstalledPrefix(shortInstalled, "plugin al día", "plugin al día");
+      return `instalado ${inst} · plugin al día`;
     case "unknown":
-      return withInstalledPrefix(
-        shortInstalled,
-        "estado desconocido (no se puede verificar)",
-        "estado desconocido (plugin no instalado o repo no disponible)",
-      );
+      return "estado desconocido (plugin no instalado o versión no disponible)";
   }
 }
 
 /**
- * Compose the three primitive readers into the drift verdict.
+ * Compose the readers into the version-based drift verdict.
  *
- * Reads paths from the environment:
- *   - PANDACORP_FACTORY_ROOT (or ../cwd) → git probes
- *   - HOME / USERPROFILE → ~/.claude/plugins/installed_plugins.json
+ * Reads:
+ *   - HOME / USERPROFILE → ~/.claude/plugins/installed_plugins.json (`version`)
+ *   - PANDACORP_FACTORY_ROOT (or ../cwd) → plugin/.claude-plugin/plugin.json (`version`)
  *
- * Defensive contract (blueprint §3, REQ-15-005):
- *   - Unknown/unreadable inputs → reason "unknown", drift false (no false alarm).
- *   - Only a POSITIVE signal (dirty, or two known SHAs that differ) raises drift.
- *   - A null SHA never produces reason "behind".
- *
- * Prefix-safe SHA comparison (AC-15-002.6): abbreviated installed SHA that is
- * a prefix of the full HEAD SHA counts as equal.
- *
+ * Defensive contract (REQ-15-005): any unreadable/unparseable input → reason "unknown",
+ * drift false (NEVER a false alarm). Only a strictly-older installed version raises drift.
  * Never throws. Read-only.
  */
 export function getPluginSyncState(): PluginSyncState {
-  const factoryRoot = resolveFactoryRootLocal();
-  const claudeHome = resolveClaudeHome();
+  const installedVersion = readInstalledVersion(resolveClaudeHome());
+  const sourceVersion = readPluginSourceVersion(resolveFactoryRootLocal());
 
-  const installedSha = readInstalledSha(claudeHome);
-  const pluginHeadSha = readPluginHeadSha(factoryRoot);
-  const dirty = readPluginDirty(factoryRoot);
-
-  // Determine reason using the precedence matrix (AC-15-002.1..5):
-  //   1. dirty && known-SHAs-differ → "both"
-  //   2. dirty (regardless of SHAs)  → "uncommitted"
-  //   3. both SHAs known && differ   → "behind"
-  //   4. both SHAs known && equal    → "in-sync"
-  //   5. any null SHA && not dirty   → "unknown"
   let reason: PluginSyncState["reason"];
-
-  const bothKnown = installedSha !== null && pluginHeadSha !== null;
-  const shasDiffer = bothKnown && !shaEqual(installedSha as string, pluginHeadSha as string);
-
-  if (dirty && shasDiffer) {
-    reason = "both";
-  } else if (dirty) {
-    reason = "uncommitted";
-  } else if (shasDiffer) {
-    reason = "behind";
-  } else if (bothKnown) {
-    // Both known and equal (prefix-safe)
-    reason = "in-sync";
-  } else {
-    // At least one SHA unknown and not dirty → unknown (no false alarm)
+  if (installedVersion === null || sourceVersion === null) {
     reason = "unknown";
+  } else {
+    reason = compareVersions(installedVersion, sourceVersion);
   }
 
-  const drift = reason !== "in-sync" && reason !== "unknown";
-  const detail = buildDetail(installedSha, pluginHeadSha, reason);
+  const drift = reason === "behind";
+  const detail = buildDetail(installedVersion, sourceVersion, reason);
 
-  return { installedSha, pluginHeadSha, dirty, drift, reason, detail };
+  return { installedVersion, sourceVersion, drift, reason, detail };
 }

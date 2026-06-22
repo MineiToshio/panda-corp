@@ -63,6 +63,12 @@ export function CmdRow({ command, copy = true }: CmdRowProps): React.JSX.Element
 
   return (
     <div data-testid="cmd-row" style={style}>
+      {/* Leading terminal glyph (prototype `.cmd` → `ti-terminal-2`) */}
+      <i
+        className="ti ti-terminal-2"
+        aria-hidden="true"
+        style={{ fontSize: "15px", color: "var(--color-text2)", lineHeight: 1, flexShrink: 0 }}
+      />
       <span style={textStyle}>{command}</span>
       {copy && <CopyButton value={command} />}
     </div>

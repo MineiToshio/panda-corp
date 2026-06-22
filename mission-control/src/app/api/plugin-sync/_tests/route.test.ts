@@ -26,48 +26,27 @@ import type { PluginSyncState } from "@/lib/plugin-sync/plugin-sync";
 // ---------------------------------------------------------------------------
 
 const STATE_IN_SYNC: PluginSyncState = {
-  installedSha: "eb76145abc1234567890abcdef1234567890abcd",
-  pluginHeadSha: "eb76145abc1234567890abcdef1234567890abcd",
-  dirty: false,
+  installedVersion: "8.42.0",
+  sourceVersion: "8.42.0",
   drift: false,
   reason: "in-sync",
-  detail: "instalado eb76145 · plugin al día",
-};
-
-const STATE_UNCOMMITTED: PluginSyncState = {
-  installedSha: "18a9389abc1234567890abcdef1234567890abcd",
-  pluginHeadSha: "18a9389abc1234567890abcdef1234567890abcd",
-  dirty: true,
-  drift: true,
-  reason: "uncommitted",
-  detail: "instalado 18a9389 · hay cambios sin commitear",
+  detail: "instalado v8.42.0 · plugin al día",
 };
 
 const STATE_BEHIND: PluginSyncState = {
-  installedSha: "aaaaaaa1111111111111111111111111111111111",
-  pluginHeadSha: "bbbbbbb2222222222222222222222222222222222",
-  dirty: false,
+  installedVersion: "8.42.0",
+  sourceVersion: "8.43.0",
   drift: true,
   reason: "behind",
-  detail: "instalado aaaaaaa · el plugin instalado está atrás del HEAD (bbbbbbb)",
-};
-
-const STATE_BOTH: PluginSyncState = {
-  installedSha: "aaaaaaa1111111111111111111111111111111111",
-  pluginHeadSha: "bbbbbbb2222222222222222222222222222222222",
-  dirty: true,
-  drift: true,
-  reason: "both",
-  detail: "instalado aaaaaaa · atrás del HEAD y hay cambios sin commitear",
+  detail: "instalado v8.42.0 · hay una versión más nueva del plugin (v8.43.0)",
 };
 
 const STATE_UNKNOWN: PluginSyncState = {
-  installedSha: null,
-  pluginHeadSha: null,
-  dirty: false,
+  installedVersion: null,
+  sourceVersion: null,
   drift: false,
   reason: "unknown",
-  detail: "estado desconocido (plugin no instalado o repo no disponible)",
+  detail: "estado desconocido (plugin no instalado o versión no disponible)",
 };
 
 // ---------------------------------------------------------------------------
@@ -122,26 +101,11 @@ describe("GET /api/plugin-sync — WO-15-003", () => {
       expect(response.status).toBe(200);
       const body = await response.json();
       expect(body).toMatchObject({
-        installedSha: STATE_IN_SYNC.installedSha,
-        pluginHeadSha: STATE_IN_SYNC.pluginHeadSha,
-        dirty: false,
+        installedVersion: STATE_IN_SYNC.installedVersion,
+        sourceVersion: STATE_IN_SYNC.sourceVersion,
         drift: false,
         reason: "in-sync",
         detail: STATE_IN_SYNC.detail,
-      });
-    });
-
-    it("WHEN uncommitted state THEN returns 200 with drift=true reason=uncommitted", async () => {
-      mockGetState.mockReturnValue(STATE_UNCOMMITTED);
-
-      const response = await GET(makeRequest());
-
-      expect(response.status).toBe(200);
-      const body = await response.json();
-      expect(body).toMatchObject({
-        dirty: true,
-        drift: true,
-        reason: "uncommitted",
       });
     });
 
@@ -153,23 +117,10 @@ describe("GET /api/plugin-sync — WO-15-003", () => {
       expect(response.status).toBe(200);
       const body = await response.json();
       expect(body).toMatchObject({
-        dirty: false,
+        installedVersion: STATE_BEHIND.installedVersion,
+        sourceVersion: STATE_BEHIND.sourceVersion,
         drift: true,
         reason: "behind",
-      });
-    });
-
-    it("WHEN both (dirty+behind) THEN returns 200 with drift=true reason=both", async () => {
-      mockGetState.mockReturnValue(STATE_BOTH);
-
-      const response = await GET(makeRequest());
-
-      expect(response.status).toBe(200);
-      const body = await response.json();
-      expect(body).toMatchObject({
-        dirty: true,
-        drift: true,
-        reason: "both",
       });
     });
 
@@ -181,15 +132,14 @@ describe("GET /api/plugin-sync — WO-15-003", () => {
       expect(response.status).toBe(200);
       const body = await response.json();
       expect(body).toMatchObject({
-        installedSha: null,
-        pluginHeadSha: null,
-        dirty: false,
+        installedVersion: null,
+        sourceVersion: null,
         drift: false,
         reason: "unknown",
       });
     });
 
-    it("JSON body always contains all 6 required PluginSyncState keys", async () => {
+    it("JSON body always contains all 5 required PluginSyncState keys", async () => {
       mockGetState.mockReturnValue(STATE_IN_SYNC);
 
       const response = await GET(makeRequest());
@@ -197,9 +147,8 @@ describe("GET /api/plugin-sync — WO-15-003", () => {
 
       // All required fields from the PluginSyncState type must be present
       const requiredKeys: (keyof PluginSyncState)[] = [
-        "installedSha",
-        "pluginHeadSha",
-        "dirty",
+        "installedVersion",
+        "sourceVersion",
         "drift",
         "reason",
         "detail",
@@ -215,10 +164,10 @@ describe("GET /api/plugin-sync — WO-15-003", () => {
       const response = await GET(makeRequest());
       const body = await response.json();
 
-      // Only the 6 canonical keys (no extra internal/private fields leaked)
+      // Only the 5 canonical keys (no extra internal/private fields leaked)
       const actualKeys = Object.keys(body).sort();
       expect(actualKeys).toEqual(
-        ["detail", "dirty", "drift", "installedSha", "pluginHeadSha", "reason"].sort(),
+        ["detail", "drift", "installedVersion", "reason", "sourceVersion"].sort(),
       );
     });
   });
@@ -303,11 +252,11 @@ describe("GET /api/plugin-sync — WO-15-003", () => {
       expect(body.drift).toBe(false);
     });
 
-    it("WHEN getPluginSyncState is called THEN the route does NOT throw even with null SHAs", () => {
+    it("WHEN getPluginSyncState is called THEN the route does NOT throw even with null versions", () => {
       mockGetState.mockReturnValue(STATE_UNKNOWN);
 
       // GET is synchronous — it returns a Response directly (not a Promise).
-      // Calling it with null SHAs in the state must not throw.
+      // Calling it with null versions in the state must not throw.
       expect(() => GET(makeRequest())).not.toThrow();
     });
   });

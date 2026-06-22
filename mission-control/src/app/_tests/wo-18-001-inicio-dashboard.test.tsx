@@ -4,8 +4,8 @@
  * These tests cover the acceptance criteria that were NOT covered by the legacy
  * per-section tests (WO-18-002..006). They focus on:
  *   AC-18-001.1  PageTitle "Inicio" rendered at the top (shared primitive)
- *   AC-18-001.3  All three health banners mounted (OnboardingGate + PluginSyncBanner +
- *                OrphansBanner), each rendering only when condition holds
+ *   AC-18-001.3  Health banners mounted (OnboardingGate + PluginSyncBanner),
+ *                each rendering only when condition holds
  *   AC-18-001.10 Shared primitives used: SectionHead for every section divider
  *                (no ad-hoc h2 in place of SectionHead)
  *
@@ -15,7 +15,7 @@
  *
  * Traceability:
  *   AC-18-001.1  — PageTitle + subtitle
- *   AC-18-001.3  — OnboardingGate + PluginSyncBanner + OrphansBanner present
+ *   AC-18-001.3  — OnboardingGate + PluginSyncBanner present
  *   AC-18-001.10 — shared SectionHead, no ad-hoc section title
  */
 
@@ -167,7 +167,7 @@ describe("frd-18: WO-18-001 AC-18-001.1 — PageTitle 'Inicio' rendered", () => 
 });
 
 // ---------------------------------------------------------------------------
-// AC-18-001.3 — All three health banners hosted
+// AC-18-001.3 — Health banners hosted (OnboardingGate + PluginSyncBanner)
 // ---------------------------------------------------------------------------
 
 describe("frd-18: WO-18-001 AC-18-001.3 — health banner stack", () => {
@@ -180,12 +180,6 @@ describe("frd-18: WO-18-001 AC-18-001.3 — health banner stack", () => {
     await renderDashboard();
     const container = screen.getByTestId("dashboard-banners");
     // PluginSyncBanner renders null until drift is confirmed — its container is present
-    expect(container).toBeDefined();
-  });
-
-  it("frd-18: OrphansBanner mount point is inside the banner container", async () => {
-    await renderDashboard();
-    const container = screen.getByTestId("dashboard-banners");
     expect(container).toBeDefined();
   });
 

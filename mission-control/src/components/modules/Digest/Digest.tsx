@@ -257,6 +257,21 @@ export function Digest({ events, nowMs: nowMsProp }: DigestProps): React.JSX.Ele
       {/* SectionHead (CMP-13-sectionhead, DR-062, AC-18-001.10) */}
       <SectionHead icon="ti-history" label="Desde tu última visita" rightHtml={digestRightSlot} />
 
+      {/* Empty state — nothing new AND no activity in the last 24 h (AC-18-001.4):
+          never leave the section blank — say so explicitly. */}
+      {newEvents.length === 0 && last24h.length === 0 && (
+        <p
+          data-testid="digest-empty"
+          style={{
+            fontSize: "12px",
+            color: "var(--color-text3, currentColor)",
+            margin: "0 2px 4px",
+          }}
+        >
+          No ha habido cambios desde tu última visita.
+        </p>
+      )}
+
       {/* Al-día note — shown below SectionHead when no new events */}
       {atDia && last24h.length > 0 && (
         <p

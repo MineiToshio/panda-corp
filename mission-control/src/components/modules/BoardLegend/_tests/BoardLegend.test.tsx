@@ -1,55 +1,40 @@
 /**
- * WO-02-008 — BoardLegend component tests (RED phase).
- *
- * Written BEFORE implementation per TDD protocol.
+ * WO-02-008 — BoardLegend component tests.
  *
  * Traceability:
- *   CMP-02-legend → components/BoardLegend.tsx
+ *   CMP-02-legend → components/modules/BoardLegend/BoardLegend.tsx
  *   AC-02-008.3 — Category, return and score are shown with a legend explaining them.
  *   REQ-02-008  — legend explaining category / return / score.
  *   FRD-02 edge case: "Category (web/mobile/desktop/AI/…), return
  *     (monetary/opportunity/personal/mixed) and score are shown with a legend
  *     explaining them."
  *
- * Contract (from WO-02-008 design):
- *   - data-testid="board-legend" on the root element.
- *   - data-testid="board-legend-category-section" — section for project_type entries.
- *   - data-testid="board-legend-return-section" — section for return_type entries.
- *   - data-testid="board-legend-score-section" — section explaining the score field.
- *   - data-testid="board-legend-category-entry" (one per known category) inside the category section.
- *   - data-testid="board-legend-return-entry" (one per return type) inside the return section.
- *   - Static, accessible, no props required (self-contained i18n data).
+ * Contract (repainted faithful to the prototype `boardView()` footer):
+ *   - The legend is ONE compact line: a single `<p>` of inline text, NOT a
+ *     multi-section panel. There are NO discrete per-category / per-return
+ *     entry elements — the information is conveyed as inline prose.
+ *   - data-testid="board-legend" on the root element, which is an accessible
+ *     landmark (`<section>`) carrying an aria-label.
+ *   - Static, accessible, no props required (self-contained i18n copy).
  *
- * Known categories (FRD-02 examples): web, mobile, desktop, ai, claude-code,
- *   prompt-system, automation, cli, rework.
- * Known return types: monetary, opportunity, personal, mixed.
+ * Known categories (FRD-02 examples): web, mobile, desktop, IA, claude-code,
+ *   prompts, automatización, CLI, rework.
+ * Known return types: monetario, oportunidad, personal, mixto.
  *
  * Stack: Vitest + @testing-library/react (jsdom).
- * No implementation exists yet — all tests MUST fail RED.
  */
 
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { BoardLegend } from "@/components/modules/BoardLegend/BoardLegend";
 
 // ---------------------------------------------------------------------------
-// Known values from FRD-02
+// Key terms the single-line legend must mention (Spanish copy).
 // ---------------------------------------------------------------------------
 
-const KNOWN_CATEGORIES = [
-  "web",
-  "mobile",
-  "desktop",
-  "ai",
-  "claude-code",
-  "prompt-system",
-  "automation",
-  "cli",
-  "rework",
-];
-
-const KNOWN_RETURN_TYPES = ["monetary", "opportunity", "personal", "mixed"];
+const CATEGORY_TERMS = ["web", "mobile", "desktop", "rework"];
+const RETURN_TERMS = ["monetario", "oportunidad", "personal", "mixto"];
 
 // ---------------------------------------------------------------------------
 // frd-02: AC-02-008.3 — renders the legend container
@@ -61,108 +46,72 @@ describe("frd-02: AC-02-008.3 — BoardLegend renders correctly", () => {
     expect(screen.getByTestId("board-legend")).toBeInTheDocument();
   });
 
-  it("frd-02: AC-02-008.3 — WHEN rendered THEN shows the category section", () => {
-    render(<BoardLegend />);
-    expect(screen.getByTestId("board-legend-category-section")).toBeInTheDocument();
-  });
-
-  it("frd-02: AC-02-008.3 — WHEN rendered THEN shows the return-type section", () => {
-    render(<BoardLegend />);
-    expect(screen.getByTestId("board-legend-return-section")).toBeInTheDocument();
-  });
-
-  it("frd-02: AC-02-008.3 — WHEN rendered THEN shows the score section", () => {
-    render(<BoardLegend />);
-    expect(screen.getByTestId("board-legend-score-section")).toBeInTheDocument();
-  });
-
   it("frd-02: AC-02-008.3 — WHEN rendered THEN does not throw", () => {
     expect(() => render(<BoardLegend />)).not.toThrow();
   });
 });
 
 // ---------------------------------------------------------------------------
-// frd-02: AC-02-008.3 — category entries (one per known project_type)
+// frd-02: AC-02-008.3 — category info (inline text mentions the known types)
 // ---------------------------------------------------------------------------
 
-describe("frd-02: AC-02-008.3 — BoardLegend category entries", () => {
-  it("frd-02: AC-02-008.3 — WHEN rendered THEN category section contains at least one entry per known type", () => {
+describe("frd-02: AC-02-008.3 — BoardLegend category info", () => {
+  it("frd-02: AC-02-008.3 — WHEN rendered THEN the legend labels the category axis", () => {
     render(<BoardLegend />);
-    const section = screen.getByTestId("board-legend-category-section");
-    const entries = within(section).getAllByTestId("board-legend-category-entry");
-    expect(entries.length).toBeGreaterThanOrEqual(KNOWN_CATEGORIES.length);
+    const text = (screen.getByTestId("board-legend").textContent ?? "").toLowerCase();
+    expect(text).toContain("categoría");
   });
 
-  for (const cat of KNOWN_CATEGORIES) {
-    it(`frd-02: AC-02-008.3 — WHEN rendered THEN category section includes an entry for '${cat}'`, () => {
+  for (const cat of CATEGORY_TERMS) {
+    it(`frd-02: AC-02-008.3 — WHEN rendered THEN the legend text mentions '${cat}'`, () => {
       render(<BoardLegend />);
-      const section = screen.getByTestId("board-legend-category-section");
-      const entries = within(section).getAllByTestId("board-legend-category-entry");
-      const texts = entries.map((e) => e.textContent ?? "");
-      expect(texts.some((t) => t.toLowerCase().includes(cat))).toBe(true);
+      const text = (screen.getByTestId("board-legend").textContent ?? "").toLowerCase();
+      expect(text).toContain(cat);
     });
   }
-
-  it("frd-02: AC-02-008.3 — WHEN rendered THEN each category entry has a non-empty explanation", () => {
-    render(<BoardLegend />);
-    const section = screen.getByTestId("board-legend-category-section");
-    const entries = within(section).getAllByTestId("board-legend-category-entry");
-    for (const entry of entries) {
-      // Each entry must contain both the category label AND some explanatory text
-      expect((entry.textContent ?? "").trim().length).toBeGreaterThan(3);
-    }
-  });
 });
 
 // ---------------------------------------------------------------------------
-// frd-02: AC-02-008.3 — return-type entries (monetary, opportunity, personal, mixed)
+// frd-02: AC-02-008.3 — return-type info (monetario, oportunidad, personal, mixto)
 // ---------------------------------------------------------------------------
 
-describe("frd-02: AC-02-008.3 — BoardLegend return-type entries", () => {
-  it("frd-02: AC-02-008.3 — WHEN rendered THEN return section has exactly 4 entries", () => {
+describe("frd-02: AC-02-008.3 — BoardLegend return-type info", () => {
+  it("frd-02: AC-02-008.3 — WHEN rendered THEN the legend labels the return axis", () => {
     render(<BoardLegend />);
-    const section = screen.getByTestId("board-legend-return-section");
-    const entries = within(section).getAllByTestId("board-legend-return-entry");
-    expect(entries).toHaveLength(KNOWN_RETURN_TYPES.length);
+    const text = (screen.getByTestId("board-legend").textContent ?? "").toLowerCase();
+    expect(text).toContain("retorno");
   });
 
-  for (const rt of KNOWN_RETURN_TYPES) {
-    it(`frd-02: AC-02-008.3 — WHEN rendered THEN return section includes an entry for '${rt}'`, () => {
+  for (const rt of RETURN_TERMS) {
+    it(`frd-02: AC-02-008.3 — WHEN rendered THEN the legend text mentions '${rt}'`, () => {
       render(<BoardLegend />);
-      const section = screen.getByTestId("board-legend-return-section");
-      const entries = within(section).getAllByTestId("board-legend-return-entry");
-      const texts = entries.map((e) => e.textContent ?? "");
-      expect(texts.some((t) => t.toLowerCase().includes(rt))).toBe(true);
+      const text = (screen.getByTestId("board-legend").textContent ?? "").toLowerCase();
+      expect(text).toContain(rt);
     });
   }
-
-  it("frd-02: AC-02-008.3 — WHEN rendered THEN each return entry has a non-empty explanation", () => {
-    render(<BoardLegend />);
-    const section = screen.getByTestId("board-legend-return-section");
-    const entries = within(section).getAllByTestId("board-legend-return-entry");
-    for (const entry of entries) {
-      expect((entry.textContent ?? "").trim().length).toBeGreaterThan(3);
-    }
-  });
 });
 
 // ---------------------------------------------------------------------------
-// frd-02: AC-02-008.3 — score section explains what the score means
+// frd-02: AC-02-008.3 — score info explains what the score means
 // ---------------------------------------------------------------------------
 
-describe("frd-02: AC-02-008.3 — BoardLegend score section", () => {
-  it("frd-02: AC-02-008.3 — WHEN rendered THEN score section has visible explanatory text", () => {
+describe("frd-02: AC-02-008.3 — BoardLegend score info", () => {
+  it("frd-02: AC-02-008.3 — WHEN rendered THEN the legend has visible explanatory text", () => {
     render(<BoardLegend />);
-    const section = screen.getByTestId("board-legend-score-section");
-    expect((section.textContent ?? "").trim().length).toBeGreaterThan(5);
+    expect((screen.getByTestId("board-legend").textContent ?? "").trim().length).toBeGreaterThan(5);
   });
 
-  it("frd-02: AC-02-008.3 — WHEN rendered THEN score section mentions 'score' or 'puntuación'", () => {
+  it("frd-02: AC-02-008.3 — WHEN rendered THEN the legend mentions 'score' or 'puntuación'", () => {
     render(<BoardLegend />);
-    const section = screen.getByTestId("board-legend-score-section");
-    const text = (section.textContent ?? "").toLowerCase();
+    const text = (screen.getByTestId("board-legend").textContent ?? "").toLowerCase();
     const mentionsScore = text.includes("score") || text.includes("puntuaci");
     expect(mentionsScore).toBe(true);
+  });
+
+  it("frd-02: AC-02-008.3 — WHEN rendered THEN the legend states the 0-100 range", () => {
+    render(<BoardLegend />);
+    const text = (screen.getByTestId("board-legend").textContent ?? "").toLowerCase();
+    expect(text.includes("0") && text.includes("100")).toBe(true);
   });
 });
 

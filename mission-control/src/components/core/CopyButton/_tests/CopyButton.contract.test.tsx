@@ -80,35 +80,38 @@ describe("frd-02 AC-02-003/004: confirmation reverts at exactly 2 000 ms", () =>
     cleanup();
   });
 
-  it("frd-02: WHEN 1 999 ms have elapsed THEN 'copiado' is still visible", async () => {
+  it("frd-02: WHEN 1 999 ms have elapsed THEN 'copiado' is still active", async () => {
     installClipboard(vi.fn().mockResolvedValue(undefined));
     render(<CopyButton value="/pandacorp:explore" />);
-    fireEvent.click(screen.getByTestId("copy-button"));
+    const btn = screen.getByTestId("copy-button");
+    fireEvent.click(btn);
     await vi.runAllMicrotasksAsync();
-    // Confirmation must be present...
-    expect(screen.getByText(/copiado/i)).toBeDefined();
+    // Confirmation must be present (on the accessible label — icon-only button)...
+    expect(btn.getAttribute("aria-label")).toMatch(/copiado/i);
     // ...and still present one millisecond before the deadline
     vi.advanceTimersByTime(1_999);
-    expect(screen.getByText(/copiado/i)).toBeDefined();
+    expect(btn.getAttribute("aria-label")).toMatch(/copiado/i);
   });
 
-  it("frd-02: WHEN exactly 2 000 ms have elapsed THEN 'copiado' has disappeared", async () => {
+  it("frd-02: WHEN exactly 2 000 ms have elapsed THEN 'copiado' has cleared", async () => {
     installClipboard(vi.fn().mockResolvedValue(undefined));
     render(<CopyButton value="/pandacorp:explore" />);
-    fireEvent.click(screen.getByTestId("copy-button"));
+    const btn = screen.getByTestId("copy-button");
+    fireEvent.click(btn);
     await vi.runAllMicrotasksAsync();
     vi.advanceTimersByTime(2_000);
-    expect(screen.queryByText(/copiado/i)).toBeNull();
+    expect(btn.getAttribute("aria-label")).not.toMatch(/copiado/i);
   });
 
-  it("frd-02: 'copiar' text reappears after the 2 000 ms revert", async () => {
+  it("frd-02: 'copiar' label reappears after the 2 000 ms revert", async () => {
     installClipboard(vi.fn().mockResolvedValue(undefined));
     render(<CopyButton value="/pandacorp:recommend" />);
-    fireEvent.click(screen.getByTestId("copy-button"));
+    const btn = screen.getByTestId("copy-button");
+    fireEvent.click(btn);
     await vi.runAllMicrotasksAsync();
     vi.advanceTimersByTime(2_000);
-    // The initial idle text must be back; confirms state truly reset, not just hidden
-    expect(screen.getByText(/copiar/i)).toBeDefined();
+    // The idle label must be back; confirms state truly reset, not just hidden
+    expect(btn.getAttribute("aria-label")).toMatch(/copiar/i);
   });
 });
 
@@ -195,9 +198,9 @@ describe("frd-02 AC-02-003/004: button stays usable after revert timeout fires",
     for (let i = 0; i < 3; i++) {
       fireEvent.click(btn);
       await vi.runAllMicrotasksAsync();
-      expect(screen.getByText(/copiado/i)).toBeDefined();
+      expect(btn.getAttribute("aria-label")).toMatch(/copiado/i);
       vi.advanceTimersByTime(2_000);
-      expect(screen.queryByText(/copiado/i)).toBeNull();
+      expect(btn.getAttribute("aria-label")).not.toMatch(/copiado/i);
     }
     expect(writeText).toHaveBeenCalledTimes(3);
   });
@@ -294,39 +297,32 @@ describe("frd-02 AC-02-003/004: value prop is current at click time (stale closu
 });
 
 // ---------------------------------------------------------------------------
-// 6. DOM order — label prop renders BEFORE the state text (copiar / copiado)
-//    WO-02-002 contract: `{ value, label? }` — the optional label is a visible
-//    human-readable name alongside the copy icon/text; it must precede the verb.
-//    Mutation killed: an implementation that renders label AFTER the state text,
-//    producing confusing output like "copiar Descubrir".
+// 6. Optional label — renders as a visible human-readable name alongside the
+//    icon-only copy affordance; copied/idle state lives on the aria-label, never
+//    a visible verb word (prototype: copy is an icon, not the word "copiar").
+//    Mutation killed: dropping the label, or leaking a visible state verb.
 // ---------------------------------------------------------------------------
 
-describe("frd-02 AC-02-003/004: label prop renders before state text in DOM order", () => {
-  it("frd-02: label text appears before the 'copiar' text in document order", () => {
+describe("frd-02 AC-02-003/004: optional label renders alongside the copy icon", () => {
+  it("frd-02: the label text is rendered (visible) on the copy button", () => {
     installClipboard(vi.fn().mockResolvedValue(undefined));
     render(<CopyButton value="/pandacorp:explore" label="Explorar" />);
     const btn = screen.getByTestId("copy-button");
-    const textContent = btn.textContent ?? "";
-    const labelIdx = textContent.indexOf("Explorar");
-    const verbIdx = textContent.toLowerCase().indexOf("copiar");
-    expect(labelIdx).toBeGreaterThanOrEqual(0);
-    expect(verbIdx).toBeGreaterThanOrEqual(0);
-    expect(labelIdx).toBeLessThan(verbIdx);
+    // Label is the human-readable name shown next to the icon-only affordance
+    expect(btn.textContent).toContain("Explorar");
+    expect(btn.getAttribute("aria-label")).toMatch(/copiar/i);
   });
 
-  it("frd-02: AFTER a successful copy, label text still precedes the 'copiado' text in DOM order", async () => {
+  it("frd-02: AFTER a successful copy the label text stays put (only the aria-label flips)", async () => {
     vi.useFakeTimers();
     installClipboard(vi.fn().mockResolvedValue(undefined));
     render(<CopyButton value="/pandacorp:new-idea" label="Nueva idea" />);
     const btn = screen.getByTestId("copy-button");
     fireEvent.click(btn);
     await vi.runAllMicrotasksAsync();
-    const textContent = btn.textContent ?? "";
-    const labelIdx = textContent.indexOf("Nueva idea");
-    const verbIdx = textContent.toLowerCase().indexOf("copiado");
-    expect(labelIdx).toBeGreaterThanOrEqual(0);
-    expect(verbIdx).toBeGreaterThanOrEqual(0);
-    expect(labelIdx).toBeLessThan(verbIdx);
+    // The visible label is unchanged; the copied state is conveyed by the aria-label.
+    expect(btn.textContent).toContain("Nueva idea");
+    expect(btn.getAttribute("aria-label")).toMatch(/copiado/i);
     vi.useRealTimers();
   });
 });
@@ -393,7 +389,7 @@ describe("frd-02 AC-02-003/004: click during confirmation window (pendingRef sti
     fireEvent.click(btn);
     await vi.runAllMicrotasksAsync();
     // Now in the confirmation window: copied=true, pendingRef.current=true
-    expect(screen.getByText(/copiado/i)).toBeDefined();
+    expect(btn.getAttribute("aria-label")).toMatch(/copiado/i);
 
     // Clicking again while the timer is still running
     fireEvent.click(btn);
@@ -455,11 +451,11 @@ describe("frd-02 AC-02-003/004: isolation between concurrent CopyButton instance
     // biome-ignore lint/style/noNonNullAssertion: 2-element array is guaranteed above
     fireEvent.click(first!);
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
-    // second button must still show "copiar" (not "copiado")
+    // second button must still be idle "copiar" (not "copiado") on its accessible label
     // biome-ignore lint/style/noNonNullAssertion: same guarantee
-    expect(second!.textContent?.toLowerCase()).toContain("copiar");
+    expect(second!.getAttribute("aria-label")?.toLowerCase()).toContain("copiar");
     // biome-ignore lint/style/noNonNullAssertion: same guarantee
-    expect(second!.textContent?.toLowerCase()).not.toContain("copiado");
+    expect(second!.getAttribute("aria-label")?.toLowerCase()).not.toContain("copiado");
   });
 });
 

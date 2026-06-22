@@ -110,31 +110,34 @@ export interface IdeaBoardViewProps {
 // Styles — CSS custom properties only
 // ---------------------------------------------------------------------------
 
+// Full-width board wrapper — no bespoke padding/minHeight (PageLayout owns the page chrome).
 const BOARD_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 4)",
-  padding: "calc(var(--spacing, 0.25rem) * 4)",
-  minHeight: "100%",
 };
 
 const SCROLL_CONTAINER_STYLE: React.CSSProperties = {
   display: "flex",
   gap: "8px",
   overflowX: "auto",
-  // Prevent columns from collapsing below their minimum
-  alignItems: "flex-start",
+  // stretch (default): every column grows to the tallest one's height — empty
+  // columns are full-height panels, not stubs (prototype: equal-height `.col`s).
+  alignItems: "stretch",
   paddingBottom: "8px",
 };
 
-/** Prototype `.col`: fixed-width column (224px). */
+/** Prototype `.col`: fixed-width column (224px) with its own panel surface. */
 const COLUMN_STYLE: React.CSSProperties = {
   flex: "0 0 auto",
   width: "224px",
   display: "flex",
   flexDirection: "column",
-  gap: "8px",
   minWidth: 0,
+  // Each column is its own panel tile (prototype `.col`: bg/border/radius/padding).
+  background: "var(--color-panel)",
+  border: "1px solid var(--color-border)",
+  borderRadius: "10px",
+  padding: "10px",
 };
 
 /** The "Descartada" column reads as muted/secondary (BRD-04). */

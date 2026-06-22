@@ -42,9 +42,8 @@ import { IdeaBoardView } from "@/app/board/IdeaBoardView/IdeaBoardView";
 import { Button } from "@/components/core/Button/Button";
 import { Chip } from "@/components/core/Chip/Chip";
 import { DiscardButton } from "@/components/core/DiscardButton/DiscardButton";
-import { PageTitle } from "@/components/core/PageTitle/PageTitle";
+import { PageLayout } from "@/components/core/PageLayout/PageLayout";
 import { BoardLegend } from "@/components/modules/BoardLegend/BoardLegend";
-import { CategoryFilter } from "@/components/modules/CategoryFilter/CategoryFilter";
 import { CATEGORY_LABELS, RETURN_LABELS } from "@/components/modules/IdeaCard/IdeaCard";
 import type { BoardColumn } from "@/lib/board/board";
 import type { DiscardResult } from "@/lib/discard/discard";
@@ -121,34 +120,31 @@ function stageLabel(card: BoardCardEntry): string {
 // Styles — CSS custom properties only; zero hardcoded colors
 // ---------------------------------------------------------------------------
 
-const PAGE_STYLE: React.CSSProperties = {
-  minHeight: "100vh",
-  background: "var(--color-base, var(--color-surface, Canvas))",
-  color: "var(--color-text, currentColor)",
-};
-
+// The page <main> + title + outer chrome come from PageLayout (DR-062). The board
+// body just stacks its rows (full width — no bespoke padding/minHeight/background).
 const CONTENT_STYLE: React.CSSProperties = {
-  padding: "calc(var(--spacing, 0.25rem) * 4)",
   display: "flex",
   flexDirection: "column",
   gap: "calc(var(--spacing, 0.25rem) * 3)",
 };
 
-const TOOLBAR_STYLE: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "calc(var(--spacing, 0.25rem) * 3)",
-  flexWrap: "wrap",
-};
-
-const FILTER_AREA_STYLE: React.CSSProperties = {
+const FILTER_ROW_STYLE: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   gap: "8px",
   flexWrap: "wrap",
-  flex: 1,
-  minWidth: 0,
+};
+
+/** Category <select> — prototype boardView select (canvas bg, bd2 border, inset shadow). */
+const SELECT_STYLE: React.CSSProperties = {
+  padding: "8px 10px",
+  border: "1px solid var(--color-border-strong)",
+  borderRadius: "8px",
+  fontSize: "13px",
+  fontFamily: "inherit",
+  background: "var(--color-base, var(--color-panel))",
+  color: "var(--color-text)",
+  boxShadow: "inset 0 1px 2px rgba(0,0,0,.22)",
 };
 
 const SEARCH_WRAP_STYLE: React.CSSProperties = {
@@ -309,24 +305,38 @@ export function BoardShell({ cards, discardAction }: BoardShellProps): React.JSX
     setSelectedCategory(null);
   }
 
+  // Conditional page-title chrome (DR-062): the open card's own head, or the board title.
+  const titleProps = openCard
+    ? {
+        icon: "ti-bulb",
+        title: openCard.title,
+        subtitle: `Etapa: ${stageLabel(openCard)}`,
+        tail: (<DetailTail card={openCard} />) as React.ReactNode,
+      }
+    : {
+        icon: "ti-layout-kanban",
+        title: "Tablero",
+        subtitle:
+          "El tablero de ideas: cada una recorre las 6 fases del pipeline. Solo-lectura — los skills mueven las tarjetas.",
+        tail: undefined,
+      };
+
   return (
-    <main data-testid="board-page" style={PAGE_STYLE} aria-label="Tablero de ideas Pandacorp">
-      {/* Intake modal — overlay, board remains mounted behind (AC-02-003.3) */}
+    <PageLayout
+      icon={titleProps.icon}
+      title={titleProps.title}
+      subtitle={titleProps.subtitle}
+      tail={titleProps.tail}
+      testId="board-page"
+      ariaLabel="Tablero de ideas Pandacorp"
+    >
+      {/* Intake modal — fixed overlay; board stays mounted behind (AC-02-003.3) */}
       <IntakeModal open={intakeOpen} onClose={() => setIntakeOpen(false)} />
 
       <div style={CONTENT_STYLE}>
         {openCard != null ? (
           /* ---- Card detail view ---- */
           <>
-            {/* PageTitle — the idea's own pageHead (BRD-02): bulb + title +
-                "Etapa: {LBL}" + tail (category/return chips + Score N/100) */}
-            <PageTitle
-              icon="ti-bulb"
-              title={openCard.title}
-              subtitle={`Etapa: ${stageLabel(openCard)}`}
-              tail={<DetailTail card={openCard} />}
-            />
-
             {/* Back nav + discard affordance */}
             <div style={DETAIL_HEADER_STYLE}>
               <Button
@@ -359,18 +369,12 @@ export function BoardShell({ cards, discardAction }: BoardShellProps): React.JSX
         ) : (
           /* ---- Board view ---- */
           <>
-            {/* PageTitle "Tablero" — DR-062: the ONE light title block per surface */}
-            <PageTitle
-              icon="ti-layout-kanban"
-              title="Tablero"
-              subtitle="El tablero de ideas: cada una recorre las 6 fases del pipeline. Solo-lectura — los skills mueven las tarjetas."
-            />
-
-            {/* Toolbar: Capture button + search + category filter + Limpiar */}
-            <div style={TOOLBAR_STYLE}>
-              {/* Capture ideas button (AC-02-003) */}
+            {/* Capture ideas button — standalone, above the filter row (prototype intakePanel).
+                Neutral (secondary) button — card bg + bd2 border + accent-glow hover, like the
+                prototype's default `button`, NOT an accent-filled primary. */}
+            <div>
               <Button
-                variant="primary"
+                variant="secondary"
                 size="sm"
                 data-testid="intake-trigger"
                 onClick={() => setIntakeOpen(true)}
@@ -378,43 +382,53 @@ export function BoardShell({ cards, discardAction }: BoardShellProps): React.JSX
               >
                 + Capturar ideas / oportunidades
               </Button>
+            </div>
 
-              {/* Search + category filter + clear (AC-02-006.1, BRD-01) */}
-              <div style={FILTER_AREA_STYLE}>
-                {/* Search input — filters by title + body (BRD-01) */}
-                <div style={SEARCH_WRAP_STYLE}>
-                  <i className="ti ti-search" style={SEARCH_ICON_STYLE} aria-hidden="true" />
-                  <input
-                    id="pc-q"
-                    data-testid="board-search"
-                    type="search"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Buscar ideas…"
-                    aria-label="Buscar ideas por título o resumen"
-                    style={SEARCH_INPUT_STYLE}
-                  />
-                </div>
-
-                <CategoryFilter
-                  categories={categories}
-                  selected={selectedCategory}
-                  onSelect={setSelectedCategory}
+            {/* Filter row: search + category SELECT + Limpiar (AC-02-006.1, BRD-01; prototype boardView) */}
+            <div style={FILTER_ROW_STYLE}>
+              {/* Search input — filters by title + body (BRD-01) */}
+              <div style={SEARCH_WRAP_STYLE}>
+                <i className="ti ti-search" style={SEARCH_ICON_STYLE} aria-hidden="true" />
+                <input
+                  id="pc-q"
+                  data-testid="board-search"
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Buscar ideas…"
+                  aria-label="Buscar ideas por título o resumen"
+                  style={SEARCH_INPUT_STYLE}
                 />
-
-                {/* Limpiar — visible only when there is an active search/category */}
-                {hasActiveFilter && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    data-testid="board-clear-filters"
-                    onClick={handleClearFilters}
-                    ariaLabel="Limpiar la búsqueda y el filtro"
-                  >
-                    Limpiar
-                  </Button>
-                )}
               </div>
+
+              {/* Category filter — native select (prototype boardView <select>) */}
+              <select
+                data-testid="category-filter"
+                aria-label="Filtrar por categoría"
+                value={selectedCategory ?? ""}
+                onChange={(e) => setSelectedCategory(e.target.value === "" ? null : e.target.value)}
+                style={SELECT_STYLE}
+              >
+                <option value="">Todas las categorías</option>
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {CATEGORY_LABELS[cat]?.[0] ?? cat}
+                  </option>
+                ))}
+              </select>
+
+              {/* Limpiar — visible only when there is an active search/category */}
+              {hasActiveFilter && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  data-testid="board-clear-filters"
+                  onClick={handleClearFilters}
+                  ariaLabel="Limpiar la búsqueda y el filtro"
+                >
+                  Limpiar
+                </Button>
+              )}
             </div>
 
             {/* Read-only hint */}
@@ -431,6 +445,6 @@ export function BoardShell({ cards, discardAction }: BoardShellProps): React.JSX
           </>
         )}
       </div>
-    </main>
+    </PageLayout>
   );
 }

@@ -25,9 +25,9 @@
 > **complete for WO-12-002** (IF-12-kpis `deriveKpis`, `app/_observability/selectors/kpis.ts`) +
 > **complete for WO-11-001** (IF-11-modes `BUILD_MODES`/`DEFAULT_BUILD_MODE`, IF-11-mode-store `getRememberedMode`/`rememberMode`) +
 > **complete for WO-12-003** (IF-12-rate `eventsPerMinute`, `app/_observability/selectors/rate.ts`) +
-> **complete for WO-15-001** (IF-15-sync `readInstalledSha`/`readPluginHeadSha`/`readPluginDirty`, `lib/plugin-sync.ts`) +
+> **complete for WO-15-001** (IF-15-sync — **version-based since 2026-06-22**: `readInstalledVersion`/`readPluginSourceVersion`, `lib/plugin-sync.ts`) +
 > **complete for WO-12-004** (IF-12-timeline `toTimeline`, `app/_observability/selectors/timeline.ts`) +
-> **complete for WO-16-001** (IF-16-scan `resolveProjectsPath`/`listProjectFolders`, `lib/orphans.ts`) +
+> ~~**complete for WO-16-001** (IF-16-scan, `lib/orphans.ts`)~~ — **REMOVED 2026-06-22** (FRD-16 dropped) +
 > **complete for WO-04-001** (IF-04-docs `listProjectDocs`/`readDoc`, `lib/docs.ts` additions) +
 > **complete for WO-04-002** (IF-04-docs `readActivityLog`/`readDecisions`, `lib/docs.ts` comms readers) +
 > **complete for WO-04-003** (IF-04-next-step `workspaceCommands`/`CommandRow`, `lib/next-step.ts` extension) +
@@ -1399,6 +1399,11 @@ Notes on the mapping:
 
 ## WO-16-001: `lib/orphans.ts` — projects path resolution + bounded folder listing
 
+> ⚠ **REMOVED 2026-06-22.** FRD-16 (orphan project detection) was dropped at the owner's request;
+> `lib/orphans.ts`, `app/api/orphans/` and `OrphansBanner` were deleted. The interface below is kept
+> only as a historical record — none of it exists in the codebase anymore. See the
+> [decision log](decision-log.md) and the [FRD-16 tombstone](frds/frd-16-orphan-project-detection/frd.md).
+
 **Module:** `lib/orphans.ts`
 **Traces:** IF-16-scan; REQ-16-005 (read-only invariant), REQ-16-006 (bounded scan); AC-16-001.1..6
 **Dependencies:** `lib/profile.ts` (WO-01-002, shipped — `readProfile`, `Profile.projectsPath`)
@@ -1523,6 +1528,13 @@ export function listProjectFolders(projectsPath: string, factoryRoot?: string): 
 ---
 
 ## WO-15-001: `lib/plugin-sync.ts` — installed SHA, plugin HEAD SHA, dirty readers
+
+> ⚠ **SUPERSEDED 2026-06-22 — FRD-15 is now version-based (no SHA, no git, no dirty).** The
+> SHA/dirty readers below (`readInstalledSha` / `readPluginHeadSha` / `readPluginDirty` / `shaEqual`)
+> were **removed**; drift is now `readInstalledVersion` (installed_plugins.json `version`) vs
+> `readPluginSourceVersion` (plugin.json `version`), strictly-behind only. The interface below is kept
+> only as a historical record. See the [decision log](decision-log.md) and the
+> [FRD-15 amendment](frds/frd-15-plugin-out-of-sync-warning/frd.md).
 
 **Module:** `lib/plugin-sync.ts`
 **Traces:** IF-15-sync; REQ-15-001 (uncommitted changes), REQ-15-002 (installed SHA behind), REQ-15-005 (read-only invariant); AC-15-001.1..5

@@ -221,3 +221,29 @@ describe("frd-13/wo-13-007: Banner — tokens only (AC-13-006.6)", () => {
     expect(style).not.toMatch(/#[0-9a-fA-F]{3,6}/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 8. Border fidelity — full rounded card, never a top/bottom-only strip
+//    (prototype bBanner: `.5px solid var(--bd2)` + radius). Regression guard for
+//    the home-page alerts looking like full-bleed strips without side borders.
+// ---------------------------------------------------------------------------
+
+describe("frd-13/wo-13-007: Banner — full rounded border (prototype fidelity)", () => {
+  it("frd-13: root has a 4-side rounded border, not a top/bottom-only strip", () => {
+    const { container } = renderBanner({ tone: "warn", heading: "Bordered" });
+    const root = container.firstElementChild as HTMLElement | null;
+    if (!root) throw new Error("Root element not found");
+    const style = root.getAttribute("style") ?? "";
+    expect(style).toMatch(/border-radius/);
+    expect(style).not.toMatch(/border-top\s*:/);
+    expect(style).not.toMatch(/border-bottom\s*:/);
+    expect(style).toMatch(/border\s*:/);
+  });
+
+  it("frd-13: optional icon prop renders a Tabler glyph as the banner-icon", () => {
+    renderBanner({ tone: "warn", heading: "Iconned", icon: "ti-folder-question" });
+    const icon = screen.getByTestId("banner-icon");
+    expect(icon.className).toContain("ti-folder-question");
+    expect(icon.getAttribute("aria-hidden")).toBe("true");
+  });
+});

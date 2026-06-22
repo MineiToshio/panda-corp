@@ -130,25 +130,29 @@ describe("frd-02 AC-02-003/004: transient 'copiado' confirmation", () => {
     cleanup();
   });
 
-  it("frd-02: WHEN clicked THEN a 'copiado' confirmation is shown", async () => {
+  it("frd-02: WHEN clicked THEN a 'copiado' confirmation is surfaced (accessible label)", async () => {
     mockClipboard();
     render(<CopyButton value="/pandacorp:new-idea" />);
-    fireEvent.click(screen.getByTestId("copy-button"));
+    const btn = screen.getByTestId("copy-button");
+    fireEvent.click(btn);
     // Advance microtask queue so the resolved clipboard promise is handled
     await vi.runAllMicrotasksAsync();
-    // The component must surface the Spanish confirmation word
-    expect(screen.getByText(/copiado/i)).toBeDefined();
+    // Icon-only affordance (prototype): the confirmation lives on the accessible
+    // label + icon swap, never a visible "copiado" word.
+    expect(btn.getAttribute("aria-label")).toMatch(/copiado/i);
   });
 
   it("frd-02: AFTER the timeout elapses THEN the confirmation reverts to the initial state", async () => {
     mockClipboard();
     render(<CopyButton value="/pandacorp:discover" />);
-    fireEvent.click(screen.getByTestId("copy-button"));
+    const btn = screen.getByTestId("copy-button");
+    fireEvent.click(btn);
     await vi.runAllMicrotasksAsync();
-    expect(screen.getByText(/copiado/i)).toBeDefined();
+    expect(btn.getAttribute("aria-label")).toMatch(/copiado/i);
     // Advance past the revert timeout (component must use ≤5 000 ms per spec)
     vi.advanceTimersByTime(5_000);
-    expect(screen.queryByText(/copiado/i)).toBeNull();
+    expect(btn.getAttribute("aria-label")).not.toMatch(/copiado/i);
+    expect(btn.getAttribute("aria-label")).toMatch(/copiar/i);
   });
 
   it("frd-02: the button is not permanently disabled after copying", async () => {

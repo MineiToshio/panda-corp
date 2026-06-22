@@ -2,10 +2,13 @@
  * WO-15-004 — ADVERSARIAL reviewer tests (DR-015).
  *
  * Edge cases / abuse the implementer's happy-path suite did NOT exercise, anchored in
- * the FRD's EARS criteria and integrated with the VERIFIED route + lib (WO-15-001/002/003):
+ * the FRD's EARS criteria and integrated with the VERIFIED route + lib (WO-15-001/002/003).
  *
- *   1. recall step-numbering invariant for "behind" — the 2-step recall (no commit step)
- *      must be numbered 1) … 2) …, NEVER 2) … 3) … (the renumber bug surface).
+ * Version-based (FRD-15): drift fires ONLY on reason "behind"; the heading and the 2-step
+ * recall are constants (no per-reason copy, no commit step).
+ *
+ *   1. recall step-numbering invariant for "behind" — the constant 2-step recall must be
+ *      numbered 1) … 2) …, NEVER carry a 3) (the renumber bug surface) or a commit step.
  *   2. inconsistent server payload: drift=true but reason="in-sync"/"unknown" — banner must
  *      still render (it trusts `drift`, AC-15-004.1/.2) and NOT crash / NOT leak English.
  *   3. read-only invariant exercised through the REAL route GET handler (integration):
@@ -24,21 +27,20 @@ const CANONICAL_CMD = "claude plugin update pandacorp@panda-corp";
 
 function makeState(overrides: Partial<PluginSyncState>): PluginSyncState {
   return {
-    installedSha: "abc1234",
-    pluginHeadSha: "abc1234",
-    dirty: false,
+    installedVersion: "8.42.0",
+    sourceVersion: "8.42.0",
     drift: false,
     reason: "in-sync",
-    detail: "plugin al día",
+    detail: "instalado v8.42.0 · plugin al día",
     ...overrides,
   };
 }
 
 const BEHIND = makeState({
-  pluginHeadSha: "def5678",
+  sourceVersion: "8.43.0",
   drift: true,
   reason: "behind",
-  detail: "instalado abc1234 · el plugin instalado está atrás del HEAD (def5678)",
+  detail: "instalado v8.42.0 · hay una versión más nueva del plugin (v8.43.0)",
 });
 
 function mockFetch(state: PluginSyncState): void {
@@ -72,29 +74,18 @@ describe("ADV-1: 'behind' recall is a contiguous 1..N sequence (no orphaned step
     vi.useFakeTimers();
   });
 
-  it("'behind' recall starts at '1)' and has no '3)' (commit step dropped, renumbered)", async () => {
+  it("'behind' recall starts at '1)' and has no '3)' (constant 2-step, no commit step)", async () => {
     mockFetch(BEHIND);
     render(<PluginSyncBanner />);
     await flush();
     const recall = screen.getByTestId("plugin-sync-recall").textContent ?? "";
-    // The 2-step recall must be numbered 1) … 2) … — a stray 3) would mean the
-    // implementer dropped the commit step but forgot to renumber.
+    // The constant 2-step recall must be numbered 1) … 2) … — a stray 3) would mean the
+    // commit step was dropped without renumbering.
     expect(recall).toMatch(/\b1\)/);
     expect(recall).toMatch(/\b2\)/);
     expect(recall).not.toMatch(/\b3\)/);
-    // And it must not still carry a phantom commit instruction.
+    // And it must not carry a phantom commit instruction (version-based, FRD-15).
     expect(recall).not.toMatch(/commitea/i);
-  });
-
-  it("'uncommitted' recall is the full 1..3 sequence (commit first)", async () => {
-    mockFetch(makeState({ dirty: true, drift: true, reason: "uncommitted", detail: "x" }));
-    render(<PluginSyncBanner />);
-    await flush();
-    const recall = screen.getByTestId("plugin-sync-recall").textContent ?? "";
-    expect(recall).toMatch(/1\)\s*commitea/i);
-    expect(recall).toMatch(/\b2\)/);
-    expect(recall).toMatch(/\b3\)/);
-    expect(recall).not.toMatch(/\b4\)/);
   });
 });
 
@@ -109,8 +100,8 @@ describe("ADV-2: inconsistent server payload (drift=true with non-drift reason)"
     await flush();
     const banner = screen.getByTestId("plugin-sync-banner");
     expect(banner).toBeInTheDocument();
-    // Falls back to the generic Spanish heading; no English leak.
-    expect(banner).toHaveTextContent(/plugin desincronizado/i);
+    // The heading is the constant Spanish copy regardless of reason; no English leak.
+    expect(banner).toHaveTextContent(/el plugin instalado está atrás/i);
     expect(banner).not.toHaveTextContent(/out of sync|behind|uncommitted/i);
   });
 
@@ -132,9 +123,9 @@ describe("ADV-3: read-only invariant via the REAL route handler (integration)", 
     expect(res.status).toBe(200);
     expect(res.headers.get("Cache-Control")).toBe("no-store");
     const body = (await res.json()) as PluginSyncState;
-    // The verdict is well-formed regardless of the host's real git state.
+    // The verdict is well-formed regardless of the host's real version state.
     expect(typeof body.drift).toBe("boolean");
-    expect(["uncommitted", "behind", "both", "in-sync", "unknown"]).toContain(body.reason);
+    expect(["behind", "in-sync", "unknown"]).toContain(body.reason);
   });
 
   it("banner only issues GET — no method, body, or non-GET verb ever", async () => {

@@ -2,7 +2,7 @@
  * WO-18-006 — `app/page.tsx` assembly tests (CMP-18-page, CMP-18-banners)
  *
  * Tests the default landing route `/` which assembles:
- *   - Health banners (plugin-sync + orphans) — conditional client components
+ *   - Health banners (plugin-sync) — conditional client components
  *   - Digest section ("Desde tu última visita")
  *   - Tu turno section (human-gate queue)
  *   - Pulso section (factory pulse)
@@ -11,7 +11,7 @@
  *
  * Traceability:
  *   AC-18-006.1 — / renders the dashboard
- *   AC-18-006.2 — banner stack: plugin-sync + orphans conditional mount points present
+ *   AC-18-006.2 — banner stack: plugin-sync conditional mount point present
  *   AC-18-006.3 — read-only (only read mocks called)
  *   AC-18-006.4 — calm when nothing needs attention
  *   AC-18-006.5 — six sections render in correct order
@@ -20,7 +20,7 @@
  * Strategy:
  *   Render the real HomePage (Server Component called as a function).
  *   All lib reads are mocked. The "use client" components (Digest, TuTurno uses
- *   CopyButton, Cartera uses CopyButton, PluginSyncBanner, OrphansBanner) are
+ *   CopyButton, Cartera uses CopyButton, PluginSyncBanner) are
  *   resolved through jsdom; they render their static markup but skip browser APIs
  *   (localStorage returns null → al-día state; polling never fires in jsdom).
  */

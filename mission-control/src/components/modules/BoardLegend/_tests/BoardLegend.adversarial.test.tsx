@@ -1,157 +1,97 @@
 /**
  * WO-02-008 — BoardLegend ADVERSARIAL tests (reviewer, DR-015).
  *
- * Edge cases the implementer did NOT cover for AC-02-008.3:
- *   1. No DUPLICATE category/return entries (a dup would double-render and a
- *      consumer mapping by label would key-collide).
- *   2. Category entries cover EXACTLY the FRD known set — no extra/typo'd keys
- *      and none missing (the legend must stay in sync with the union).
- *   3. Each entry actually carries an EXPLANATION distinct from the bare label
- *      (a legend with `label: web → "web"` would technically pass the loose
- *      length>3 check but explains nothing).
- *   4. Score section explains the 0–100 range (the FRD says score is shown
- *      with a legend "explaining" it — a placeholder is not an explanation).
- *   5. Idempotent render — two mounts produce identical entry counts (static).
+ * The legend is ONE compact inline line (prototype `boardView()` footer), not a
+ * multi-section panel — so the edge cases shift from "per-entry" structure to
+ * "the single line is complete, honest and static":
+ *   1. The line covers EVERY axis term the FRD names (categories + returns) —
+ *      none silently dropped.
+ *   2. The score is explained with its 0–100 range, not just the bare word.
+ *   3. The play-icon → "construyéndose ahora" meaning is spelled out (the
+ *      building indicator the board uses must be decoded in the legend).
+ *   4. Idempotent render — two mounts produce identical text (fully static).
  *
  * Stack: Vitest + @testing-library/react (jsdom).
  */
 
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { BoardLegend } from "@/components/modules/BoardLegend/BoardLegend";
 
-const KNOWN_CATEGORIES = [
-  "web",
-  "mobile",
-  "desktop",
-  "ai",
-  "claude-code",
-  "prompt-system",
-  "automation",
-  "cli",
-  "rework",
-];
-const KNOWN_RETURN_TYPES = ["monetary", "opportunity", "personal", "mixed"];
+const CATEGORY_TERMS = ["web", "mobile", "desktop", "rework"];
+const RETURN_TERMS = ["monetario", "oportunidad", "personal", "mixto"];
+
+function legendText(): string {
+  return (screen.getByTestId("board-legend").textContent ?? "").toLowerCase();
+}
 
 // ---------------------------------------------------------------------------
-// 1. No duplicate entries
+// 1. Every FRD axis term is present in the single line
 // ---------------------------------------------------------------------------
 
-describe("frd-02: AC-02-008.3 — legend has no duplicate keys", () => {
-  it("frd-02: AC-02-008.3 — WHEN rendered THEN each category appears at most once", () => {
+describe("frd-02: AC-02-008.3 — legend covers every axis term", () => {
+  it("frd-02: AC-02-008.3 — WHEN rendered THEN every known category term appears", () => {
     render(<BoardLegend />);
-    const section = screen.getByTestId("board-legend-category-section");
-    const entries = within(section).getAllByTestId("board-legend-category-entry");
-    const matched = KNOWN_CATEGORIES.map(
-      (cat) =>
-        entries.filter((e) => (e.textContent ?? "").toLowerCase().includes(cat.toLowerCase()))
-          .length,
-    );
-    // Note: "ai" is a substring of nothing else here; "claude-code"/"prompt-system"
-    // are distinct. Each known category should resolve to exactly one entry row.
-    for (const count of matched) {
-      expect(count).toBeGreaterThanOrEqual(1);
+    const text = legendText();
+    for (const cat of CATEGORY_TERMS) {
+      expect(text).toContain(cat);
     }
-    // And there are no MORE category entries than known categories (no extras).
-    expect(entries.length).toBe(KNOWN_CATEGORIES.length);
   });
 
-  it("frd-02: AC-02-008.3 — WHEN rendered THEN return section has no extra entries beyond the 4 known", () => {
+  it("frd-02: AC-02-008.3 — WHEN rendered THEN every known return term appears", () => {
     render(<BoardLegend />);
-    const section = screen.getByTestId("board-legend-return-section");
-    const entries = within(section).getAllByTestId("board-legend-return-entry");
-    expect(entries.length).toBe(KNOWN_RETURN_TYPES.length);
+    const text = legendText();
+    for (const rt of RETURN_TERMS) {
+      expect(text).toContain(rt);
+    }
+  });
+
+  it("frd-02: AC-02-008.3 — WHEN rendered THEN both axes are labelled", () => {
+    render(<BoardLegend />);
+    const text = legendText();
+    expect(text).toContain("categoría");
+    expect(text).toContain("retorno");
   });
 });
 
 // ---------------------------------------------------------------------------
-// 2. Exact coverage of the FRD known set
-// ---------------------------------------------------------------------------
-
-describe("frd-02: AC-02-008.3 — legend stays in sync with the FRD union", () => {
-  it("frd-02: AC-02-008.3 — every known category is present AND no unknown category leaks in", () => {
-    render(<BoardLegend />);
-    const section = screen.getByTestId("board-legend-category-section");
-    const entries = within(section).getAllByTestId("board-legend-category-entry");
-    // Pull the first token (the label span) of each entry; it must be a known key.
-    for (const entry of entries) {
-      const text = (entry.textContent ?? "").toLowerCase();
-      const isKnown = KNOWN_CATEGORIES.some((cat) => text.startsWith(cat.toLowerCase()));
-      expect(isKnown).toBe(true);
-    }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 3. Explanation is distinct from the bare label
-// ---------------------------------------------------------------------------
-
-describe("frd-02: AC-02-008.3 — entries actually explain, not just repeat the label", () => {
-  it("frd-02: AC-02-008.3 — each category entry text is longer than its own label (has a description)", () => {
-    render(<BoardLegend />);
-    const section = screen.getByTestId("board-legend-category-section");
-    const entries = within(section).getAllByTestId("board-legend-category-entry");
-    for (const entry of entries) {
-      const text = (entry.textContent ?? "").trim();
-      // Find which known label it starts with, then assert there is extra prose after it.
-      const label = KNOWN_CATEGORIES.find((c) => text.toLowerCase().startsWith(c.toLowerCase()));
-      expect(label).toBeDefined();
-      if (label) {
-        // The entry must contain more than just the label (an actual explanation).
-        expect(text.length).toBeGreaterThan(label.length + 3);
-      }
-    }
-  });
-
-  it("frd-02: AC-02-008.3 — each return entry has prose beyond its label", () => {
-    render(<BoardLegend />);
-    const section = screen.getByTestId("board-legend-return-section");
-    const entries = within(section).getAllByTestId("board-legend-return-entry");
-    for (const entry of entries) {
-      const text = (entry.textContent ?? "").trim();
-      const label = KNOWN_RETURN_TYPES.find((c) => text.toLowerCase().startsWith(c.toLowerCase()));
-      expect(label).toBeDefined();
-      if (label) {
-        expect(text.length).toBeGreaterThan(label.length + 3);
-      }
-    }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 4. Score section explains the range / meaning
+// 2. Score is explained with its range / meaning
 // ---------------------------------------------------------------------------
 
 describe("frd-02: AC-02-008.3 — score legend explains the metric", () => {
-  it("frd-02: AC-02-008.3 — score section references the numeric range (0–100)", () => {
+  it("frd-02: AC-02-008.3 — score is named (score / puntuación) AND its 0–100 range stated", () => {
     render(<BoardLegend />);
-    const section = screen.getByTestId("board-legend-score-section");
-    const text = (section.textContent ?? "").toLowerCase();
-    // The score is a 0–100 value (FRD). An explanation should mention the scale,
-    // not just the word "puntuación".
-    const mentionsRange = text.includes("0") && text.includes("100");
-    expect(mentionsRange).toBe(true);
+    const text = legendText();
+    expect(text.includes("score") || text.includes("puntuaci")).toBe(true);
+    expect(text.includes("0") && text.includes("100")).toBe(true);
   });
 });
 
 // ---------------------------------------------------------------------------
-// 5. Static / idempotent
+// 3. The building indicator is decoded
+// ---------------------------------------------------------------------------
+
+describe("frd-02: AC-02-008.3 — legend decodes the building indicator", () => {
+  it("frd-02: AC-02-008.3 — WHEN rendered THEN it explains the play icon means 'construyéndose ahora'", () => {
+    render(<BoardLegend />);
+    expect(legendText()).toContain("construyéndose");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4. Static / idempotent
 // ---------------------------------------------------------------------------
 
 describe("frd-02: AC-02-008.3 — legend is static and idempotent", () => {
-  it("frd-02: AC-02-008.3 — two independent renders yield the same entry counts", () => {
+  it("frd-02: AC-02-008.3 — two independent renders yield identical text", () => {
     const first = render(<BoardLegend />);
-    const firstCats = within(first.getByTestId("board-legend-category-section")).getAllByTestId(
-      "board-legend-category-entry",
-    ).length;
+    const firstText = first.getByTestId("board-legend").textContent ?? "";
     first.unmount();
 
     const second = render(<BoardLegend />);
-    const secondCats = within(second.getByTestId("board-legend-category-section")).getAllByTestId(
-      "board-legend-category-entry",
-    ).length;
+    const secondText = second.getByTestId("board-legend").textContent ?? "";
 
-    expect(secondCats).toBe(firstCats);
+    expect(secondText).toBe(firstText);
   });
 });

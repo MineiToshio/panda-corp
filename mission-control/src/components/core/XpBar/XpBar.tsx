@@ -17,15 +17,17 @@
  *   - Zero hardcoded colors — all values from CSS custom properties (design-tokens).
  *
  * size variants (WO-09-003):
- *   "compact" — 9px tall, no label row, no subtitle; used in GuildBar inline (topbar)
- *   "full"    — 18px tall, label + subtitle rows; used in GuildHero, FRD-10 (default)
+ *   "compact" — 9px tall, fixed 90px wide, no labels; used in GuildBar inline (topbar)
+ *   "full"    — 18px tall, FULL width, label + subtitle rows; used in GuildHero, FRD-10 (default)
+ *   "track"   — 18px tall, FULL width, NO labels (just the bar); for callers that render their
+ *               own label row (the dashboard "Tu progreso" foot, prototype index.html ~L741)
  *
  * Traceability:
  *   AC-09-004.2, AC-09-004.3, AC-09-004.4, AC-09-004.5
  *   CMP-09-xp-bar → blueprint §3 → WO-09-004 / WO-09-003
  */
 
-type XpBarSize = "compact" | "full";
+type XpBarSize = "compact" | "full" | "track";
 
 export type XpBarProps = {
   /** Current accumulated XP total. */
@@ -48,6 +50,62 @@ export type XpBarProps = {
    */
   size?: XpBarSize;
 };
+
+/**
+ * The full-size bar track (18px tall, full width, 7px radius) — the prototype `.xpbar`.
+ * Shared by the "full" and "track" variants (rule-of-three: same track, two callers).
+ * Carries the progressbar role + ARIA, the accent fill, and the segmented stripe overlay.
+ */
+function FullTrack({
+  clampedPct,
+  nextTitle,
+}: {
+  clampedPct: number;
+  nextTitle: string;
+}): React.JSX.Element {
+  return (
+    <div
+      data-testid="xp-bar-track"
+      role="progressbar"
+      aria-valuenow={clampedPct}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-label={`Progreso XP: ${clampedPct}% hacia ${nextTitle}`}
+      style={{
+        position: "relative",
+        height: "18px",
+        borderRadius: "7px",
+        border: "1px solid var(--color-border-strong)",
+        background: "var(--color-base)",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        data-testid="xp-bar-fill"
+        data-accent="true"
+        style={{
+          position: "absolute",
+          inset: "0 auto 0 0",
+          width: `${clampedPct}%`,
+          background: "var(--color-accent)",
+          transition: "width 0.6s",
+        }}
+      />
+      {/* Segmented stripe overlay (prototype .xpbar::after) */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "repeating-linear-gradient(90deg, transparent 0 16px, var(--color-base) 16px 18px)",
+          opacity: 0.5,
+          pointerEvents: "none",
+        }}
+      />
+    </div>
+  );
+}
 
 /**
  * XpBar — honest, reusable XP progress bar primitive.
@@ -99,8 +157,9 @@ export function XpBar({
           style={{
             position: "relative",
             width: "90px",
-            height: "9px",
-            borderRadius: "4px",
+            // Taller than the prototype's 9px — the thin line read as broken in the topbar.
+            height: "14px",
+            borderRadius: "6px",
             border: "1px solid var(--color-border-strong)",
             background: "var(--color-base)",
             overflow: "hidden",
@@ -139,6 +198,16 @@ export function XpBar({
     );
   }
 
+  // ── Track variant: full-width 18px bar only, no label rows ────────────────
+  // For callers that render their own label row (the dashboard "Tu progreso" foot).
+  if (size === "track") {
+    return (
+      <div data-testid="xp-bar" data-size="track">
+        <FullTrack clampedPct={clampedPct} nextTitle={nextTitle} />
+      </div>
+    );
+  }
+
   // ── Full variant (default): 18px bar with label + subtitle ────────────────
   return (
     <div
@@ -164,46 +233,7 @@ export function XpBar({
       </div>
 
       {/* Bar track + fill (shape + accent — not color alone) */}
-      <div
-        data-testid="xp-bar-track"
-        role="progressbar"
-        aria-valuenow={clampedPct}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-label={`Progreso XP: ${clampedPct}% hacia ${nextTitle}`}
-        style={{
-          position: "relative",
-          height: "18px",
-          borderRadius: "7px",
-          border: "1px solid var(--color-border-strong)",
-          background: "var(--color-base)",
-          overflow: "hidden",
-        }}
-      >
-        <div
-          data-testid="xp-bar-fill"
-          data-accent="true"
-          style={{
-            position: "absolute",
-            inset: "0 auto 0 0",
-            width: `${clampedPct}%`,
-            background: "var(--color-accent)",
-            transition: "width 0.6s",
-          }}
-        />
-        {/* Segmented stripe overlay (prototype .xpbar::after) */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "repeating-linear-gradient(90deg, transparent 0 16px, var(--color-base) 16px 18px)",
-            opacity: 0.5,
-            pointerEvents: "none",
-          }}
-        />
-      </div>
+      <FullTrack clampedPct={clampedPct} nextTitle={nextTitle} />
 
       {/* "faltan N para Nv X · <nextTitle>" subtitle */}
       <span

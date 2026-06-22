@@ -23,7 +23,7 @@ Living index of the FRDs (feature-centric docs, DR-049). Each FRD is a self-cont
 | [FRD-13](../frds/frd-13-visual-system-accessibility/frd.md) | Visual system and accessibility | OKLCH tokens, rationed accent, restrained motion, accessibility rigor. |
 | [FRD-14](../frds/frd-14-snapshot-and-feedback/frd.md) | Probable snapshot and feedback channels | The "last probable point / building now" panel and decision/bug chips per project. |
 | [FRD-15](../frds/frd-15-plugin-out-of-sync-warning/frd.md) | Plugin out-of-sync warning | Warns when the installed plugin has drifted from the repo. |
-| [FRD-16](../frds/frd-16-orphan-project-detection/frd.md) | Orphan project detection | Detects external projects not yet adopted and suggests `/pandacorp:adopt`. |
+| [FRD-16](../frds/frd-16-orphan-project-detection/frd.md) | ~~Orphan project detection~~ — **REMOVED** | **Removed 2026-06-22** (owner: not wanted). The detection scan, `/api/orphans` route and dashboard banner were deleted; use `/pandacorp:adopt` / `/pandacorp:sync-portfolio` on demand instead. See [decision-log](../decision-log.md). |
 | [FRD-17](../frds/frd-17-proposals-inbox/frd.md) | Proposals inbox | The self-learning gate + self-suggestion stream (promotions, bottlenecks, nudges). |
 | [FRD-18](../frds/frd-18-dashboard/frd.md) | Dashboard ("Inicio") | The landing command center: since-last-visit digest, human-gate queue, factory pulse. |
 | [FRD-19](../frds/frd-19-app-shell/frd.md) | Global app shell | The persistent top-navigation shell: brand + guild identity + the six top-level destinations, active-aware and responsive. |

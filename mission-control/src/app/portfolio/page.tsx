@@ -36,7 +36,7 @@ import {
   resolveWorkspaceTab,
   type WorkspaceSelection,
 } from "@/app/projects/[slug]/ProjectWorkspace";
-import { PageTitle } from "@/components/core/PageTitle/PageTitle";
+import { PageLayout } from "@/components/core/PageLayout/PageLayout";
 import { ProjectRail } from "@/components/modules/ProjectRail/ProjectRail";
 import { activeProjects } from "@/lib/portfolio/portfolio";
 import { deriveSelectedSlug } from "./selection";
@@ -54,15 +54,8 @@ interface PageProps {
 // Styles — CSS custom properties only; zero hardcoded colors/spacing.
 // ---------------------------------------------------------------------------
 
-// Width + outer padding come from the single AppShell container (#pcapp, 1240px).
-const PAGE_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  background: "var(--color-base, Canvas)",
-  color: "var(--color-text, currentColor)",
-  boxSizing: "border-box",
-};
-
+// Width + outer padding + the page <main> come from PageLayout (DR-062) inside the
+// single AppShell container (#pcapp, 1240px).
 const GRID_STYLE: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "240px 1fr",
@@ -118,15 +111,12 @@ export default async function PortfolioPage({
   }
 
   return (
-    <main data-testid="portfolio-page" style={PAGE_STYLE}>
-      {/* PageTitle — THE one light page-title block (DR-062, CMP-13-pagetitle).
-          Icon: ti-stack-2. Title: "Portfolio". Subtitle: description from prototype. */}
-      <PageTitle
-        icon="ti-stack-2"
-        title="Portfolio"
-        subtitle="Tus proyectos en obra y lanzados. Elige uno para su workspace: resumen, work orders, party y documentación."
-      />
-
+    <PageLayout
+      icon="ti-stack-2"
+      title="Portfolio"
+      subtitle="Tus proyectos en obra y lanzados. Elige uno para su workspace: resumen, work orders, party y documentación."
+      testId="portfolio-page"
+    >
       {/* Two-column grid: 240px rail | 1fr workspace pane (FDD-03 §1) */}
       <div style={GRID_STYLE}>
         {/* Left — the project rail column (CMP-03-rail, CMP-03-row)
@@ -149,6 +139,6 @@ export default async function PortfolioPage({
           <WorkspaceSlot selectedSlug={selectedSlug}>{workspace}</WorkspaceSlot>
         </div>
       </div>
-    </main>
+    </PageLayout>
   );
 }

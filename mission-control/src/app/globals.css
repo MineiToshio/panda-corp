@@ -402,6 +402,35 @@ h3 {
   top: 8px;
 }
 
+/* Health-banner stack on Inicio (OnboardingGate + PluginSyncBanner). The flex/gap
+   live in this class (NOT inline) so the `:empty` rule below can actually win: when
+   every banner renders null (profile present, plugin in-sync) the wrapper is empty
+   and collapses, leaving the title→first-section gap identical to the other pages
+   (an inline `display:flex` would beat `:empty` and re-introduce a 24px stray gap). */
+.dashboard-banners {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.dashboard-banners:empty {
+  display: none;
+}
+
+/* Shared Button hover (prototype `button:hover`) — accent border + soft glow.
+   `!important` overrides the per-variant border-color the Button sets inline; the
+   Button's own `transition` animates it. Honored on every <Button> (.pc-btn). */
+.pc-btn:hover {
+  border-color: var(--color-accent) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 14px -7px var(--color-accent) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pc-btn {
+    transition: none;
+  }
+}
+
 /* Desktop: the nav is inline next to the toggle (which is hidden) */
 [data-nav-region] {
   display: flex;

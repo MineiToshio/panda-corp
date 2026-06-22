@@ -109,33 +109,33 @@ describe("BoardShell WO-02-005 — page structure", () => {
 // ---------------------------------------------------------------------------
 
 describe("BoardShell WO-02-005 — category filter (AC-02-006)", () => {
-  it("renders the category filter", () => {
+  it("renders the category filter (native <select>)", () => {
     render(<BoardShell cards={ALL_CARDS} discardAction={noOpDiscard} />);
     expect(screen.getByTestId("category-filter")).toBeInTheDocument();
   });
 
-  it("renders 'Todas' reset chip in the filter", () => {
+  it("offers the 'Todas las categorías' reset option (empty value)", () => {
     render(<BoardShell cards={ALL_CARDS} discardAction={noOpDiscard} />);
-    expect(screen.getByTestId("category-filter-all")).toBeInTheDocument();
+    const select = screen.getByTestId("category-filter");
+    const resetOption = within(select).getByRole("option", { name: "Todas las categorías" });
+    expect(resetOption).toBeInTheDocument();
+    expect(resetOption).toHaveValue("");
   });
 
-  it("renders one chip per distinct project_type", () => {
+  it("renders one option per distinct project_type (plus the reset option)", () => {
     render(<BoardShell cards={ALL_CARDS} discardAction={noOpDiscard} />);
-    const options = screen.getAllByTestId("category-filter-option");
-    // web, ai, cli
-    expect(options).toHaveLength(3);
+    const select = screen.getByTestId("category-filter");
+    const options = within(select).getAllByRole("option");
+    // reset + web, ai, cli
+    expect(options).toHaveLength(4);
   });
 
-  it("clicking a category chip filters the board (only matching cards visible)", async () => {
+  it("selecting a category filters the board (only matching cards visible)", async () => {
     const user = userEvent.setup();
     render(<BoardShell cards={ALL_CARDS} discardAction={noOpDiscard} />);
 
-    // Click 'web' filter
-    const options = screen.getAllByTestId("category-filter-option");
-    const webChip = options.find((o) => o.textContent?.includes("web"));
-    expect(webChip).toBeTruthy();
-    // webChip is asserted truthy above — safe cast via expect guard
-    await user.click(webChip as HTMLElement);
+    // Select the 'web' category (option value = projectType slug).
+    await user.selectOptions(screen.getByTestId("category-filter"), "web");
 
     // Web Idea should be visible in discovered column
     const discoveredCol = screen.getByTestId("board-column-discovered");
@@ -146,17 +146,15 @@ describe("BoardShell WO-02-005 — category filter (AC-02-006)", () => {
     expect(within(discoveredCol).queryByText("AI Idea")).not.toBeInTheDocument();
   });
 
-  it("clicking 'Todas' resets the filter (all cards visible again)", async () => {
+  it("resetting to 'Todas las categorías' restores all cards", async () => {
     const user = userEvent.setup();
     render(<BoardShell cards={ALL_CARDS} discardAction={noOpDiscard} />);
 
     // Select web filter first
-    const options = screen.getAllByTestId("category-filter-option");
-    const webChip = options.find((o) => o.textContent?.includes("web"));
-    await user.click(webChip as HTMLElement);
+    await user.selectOptions(screen.getByTestId("category-filter"), "web");
 
-    // Reset
-    await user.click(screen.getByTestId("category-filter-all"));
+    // Reset (empty value = all categories)
+    await user.selectOptions(screen.getByTestId("category-filter"), "");
 
     // Both cards visible again
     const discoveredCol = screen.getByTestId("board-column-discovered");
@@ -175,19 +173,12 @@ describe("BoardShell WO-02-005 — legend (AC-02-008)", () => {
     expect(screen.getByTestId("board-legend")).toBeInTheDocument();
   });
 
-  it("legend has category section", () => {
+  it("legend explains the category, return and score axes (single inline line)", () => {
     render(<BoardShell cards={ALL_CARDS} discardAction={noOpDiscard} />);
-    expect(screen.getByTestId("board-legend-category-section")).toBeInTheDocument();
-  });
-
-  it("legend has return type section", () => {
-    render(<BoardShell cards={ALL_CARDS} discardAction={noOpDiscard} />);
-    expect(screen.getByTestId("board-legend-return-section")).toBeInTheDocument();
-  });
-
-  it("legend has score section", () => {
-    render(<BoardShell cards={ALL_CARDS} discardAction={noOpDiscard} />);
-    expect(screen.getByTestId("board-legend-score-section")).toBeInTheDocument();
+    const text = (screen.getByTestId("board-legend").textContent ?? "").toLowerCase();
+    expect(text).toContain("categoría");
+    expect(text).toContain("retorno");
+    expect(text.includes("score") || text.includes("puntuaci")).toBe(true);
   });
 });
 

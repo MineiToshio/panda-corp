@@ -42,34 +42,14 @@ const UPDATE_CMD = "claude plugin update pandacorp@panda-corp";
 const API_ENDPOINT = "/api/plugin-sync";
 
 // ---------------------------------------------------------------------------
-// Heading copy per reason (Spanish, AC-15-004.6)
+// Banner copy — version-behind is the only state that renders (FRD-15, AC-15-004.6)
 // ---------------------------------------------------------------------------
 
-function headingForReason(reason: PluginSyncState["reason"]): string {
-  switch (reason) {
-    case "uncommitted":
-      return "Plugin desincronizado — hay cambios sin commitear";
-    case "behind":
-      return "El plugin instalado está atrás";
-    case "both":
-      return "Plugin desincronizado — atrás y con cambios sin commitear";
-    default:
-      return "Plugin desincronizado";
-  }
-}
+/** Heading shown when the installed version is strictly behind the source version. */
+const HEADING = "El plugin instalado está atrás";
 
-// ---------------------------------------------------------------------------
-// Recall sequence per reason (blueprint §4, REQ-15-003)
-// When dirty (uncommitted/both) step 1 is "commitea los cambios".
-// ---------------------------------------------------------------------------
-
-function recallForReason(reason: PluginSyncState["reason"]): string {
-  const hasDirty = reason === "uncommitted" || reason === "both";
-  const commitStep = hasDirty ? "1) commitea los cambios · " : "";
-  const runStep = hasDirty ? "2" : "1";
-  const restartStep = hasDirty ? "3" : "2";
-  return `${commitStep}${runStep}) corre el comando · ${restartStep}) reinicia la sesión de Claude Code`;
-}
+/** Recovery sequence: run the update command, then restart the Claude Code session. */
+const RECALL = "1) corre el comando · 2) reinicia la sesión de Claude Code";
 
 // ---------------------------------------------------------------------------
 // Component
@@ -115,9 +95,6 @@ export function PluginSyncBanner(): React.JSX.Element | null {
     return null;
   }
 
-  const heading = headingForReason(state.reason);
-  const recall = recallForReason(state.reason);
-
   return (
     // Outer wrapper: provides the stable plugin-sync-banner testid and the aria context.
     // <section aria-label> is a landmark region (role=region) with a Spanish label, satisfying
@@ -135,7 +112,8 @@ export function PluginSyncBanner(): React.JSX.Element | null {
       <Banner
         tone="warn"
         kind="drift"
-        heading={heading}
+        icon="ti-alert-triangle"
+        heading={HEADING}
         detail={state.detail}
         commandRow={UPDATE_CMD}
       >
@@ -148,7 +126,7 @@ export function PluginSyncBanner(): React.JSX.Element | null {
             margin: "calc(var(--space-base, 1rem) * 0.375) 0 0",
           }}
         >
-          {recall}
+          {RECALL}
         </p>
       </Banner>
     </section>

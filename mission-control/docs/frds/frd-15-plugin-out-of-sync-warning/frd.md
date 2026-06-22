@@ -6,41 +6,41 @@ status: ACTIVE
 implementation_status: VERIFIED
 ui: true
 visual_source: docs/design/prototype/index.html
-last_updated: '2026-06-19'
+last_updated: '2026-06-22'
 ---
 # FRD-15 — Plugin out-of-sync warning
 
-Catches the most common slip: editing the factory plugin and forgetting to commit / run `claude plugin update`. Mission Control detects the gap between the **installed** plugin and the repo's **source code**, and warns. Read-only (reads files + local git; does not call Claude).
+Catches the most common slip: the factory plugin advanced but the **installed** copy is an older version, so newly added/edited skills don't take effect until `claude plugin update`. Mission Control detects that gap and warns. Read-only (reads two JSON files; does not call Claude, run git, or write).
 
-## How it's detected (all local)
+> **Amended 2026-06-22 (version-based) — see the [decision log](../../decision-log.md).**
+> This FRD previously compared git **commit SHAs** (installed `gitCommitSha` vs `git log -1 -- plugin/`) plus an uncommitted-changes check. That produced a **permanent false alarm**: `installed_plugins.json.gitCommitSha` is frozen at install time and does **not** advance when `claude plugin update` runs, while the compared HEAD advanced on every `plugin/` commit — so the banner was always on even when the owner was fully up to date. The check is now **semver-version-based**, matching exactly what `claude plugin update` reports.
 
-- **Installed SHA**: read `~/.claude/plugins/installed_plugins.json` → the `gitCommitSha` of `pandacorp@panda-corp` (user scope). NOTE: the `version` field is the semver label (e.g. `4.0.0`), NOT a commit — the drift check compares `gitCommitSha`, never `version`. (`claude plugin list` shows the version.)
-- **Source code state** in the factory repo:
-  - last commit that touched the plugin: `git log -1 --format=%H -- plugin/`
-  - are there uncommitted changes?: `git status --porcelain -- plugin/`
+## How it's detected (all local, two file reads)
 
-## The three drift reason variants
+- **Installed version**: read `~/.claude/plugins/installed_plugins.json` → the `version` of the `pandacorp@panda-corp` entry (user scope) — the version `claude plugin update` maintains.
+- **Source version**: read `plugin/.claude-plugin/plugin.json` → its `version` (the authoritative "latest published" version, bumped on every plugin change per DR-034).
+- **Verdict**: compare the two as semver. The banner shows **only** when the installed version is **strictly behind** the source version. Equal or newer → no banner. The git `gitCommitSha` and any uncommitted-changes / dirty check are **no longer used** (they were the source of the false positive).
 
-The drift banner has **three reason variants**, each with its **own heading and recall steps** — it is not a single generic message:
+## The single drift case
 
-1. **Uncommitted changes** ("Sin commitear") — there are uncommitted changes under `plugin/`. Steps: commit the changes → run the command → restart the Claude Code session.
-2. **Installed SHA behind** ("Instalado atrasado / behind") — the committed plugin advanced but the installed `gitCommitSha` is behind the latest commit that touched `plugin/`. Steps: run the command to reinstall the latest version → restart the Claude Code session.
-3. **Both** ("Ambos") — there are uncommitted changes AND the installed SHA is behind. Steps: commit the changes → run the command → restart the Claude Code session.
+The banner has one reason that renders: **the installed version is behind the source version** ("El plugin instalado está atrás"). Recovery steps: run the command → restart the Claude Code session. (Uncommitted-in-`plugin/` is deliberately NOT a trigger — in the factory the owner edits `plugin/` constantly; only a genuinely older *installed version* warrants the "needs update" banner — owner decision 2026-06-22.)
 
 ## Acceptance criteria (EARS)
 
-### REQ-15-001 — Three drift reason variants
-- **AC-15-001.1** — IF there are **uncommitted changes** under `plugin/` (and the installed SHA is current), Mission Control SHALL show the **"uncommitted changes"** variant — its own heading + its own recall steps (commit → run command → restart session).
-- **AC-15-001.2** — IF the **installed SHA ≠ the last commit that touched `plugin/`** with no uncommitted changes (committed but not reinstalled), Mission Control SHALL show the **"installed plugin is behind"** variant — its own heading + its own recall steps (run command to reinstall → restart session).
-- **AC-15-001.3** — IF there are uncommitted changes **AND** the installed SHA is behind, Mission Control SHALL show the **"both"** variant — its own heading + its own recall steps (commit → run command → restart session).
-- **AC-15-001.4** — Each variant SHALL show the **command to copy** `claude plugin update pandacorp@panda-corp`.
+### REQ-15-002 — Version drift verdict
+- **AC-15-002.1** — IF the installed `version` is **strictly behind** the source `version` (semver), Mission Control SHALL show the banner — heading "El plugin instalado está atrás", the detail naming both versions, and the recall steps (run command → restart session).
+- **AC-15-002.2** — IF the installed `version` **equals or is newer than** the source `version`, Mission Control SHALL show **nothing** (reason `in-sync`, no banner) — this is the up-to-date state `claude plugin update` reports.
+- **AC-15-002.3** — IF either version is missing or unparseable, Mission Control SHALL treat the state as `unknown` and show **nothing** (no false alarm).
+- **AC-15-004.1** — The banner SHALL show the **command to copy** `claude plugin update pandacorp@panda-corp`.
 
-### REQ-15-002 — Lifecycle & read-only
-- **AC-15-002.1** — The warning SHALL **disappear on its own** when the plugin is back in sync (no uncommitted changes and installed SHA == the plugin's last commit).
-- **AC-15-002.2** — The warning SHALL NOT execute anything (read-only): it shows the command, the owner runs it.
+### REQ-15-004 — Lifecycle
+- The banner SHALL **disappear on its own** (self-clear on the next poll) once the installed version catches up to the source version.
+
+### REQ-15-005 — Read-only
+- The check SHALL **not execute anything**: it only reads the two JSON files and shows the command; the owner runs it. Any unreadable/unparseable input yields `unknown` (never a false alarm), and the readers never throw.
 
 ## Non-goals
-- It does not run `git` or `plugin update` for the owner. It does not install anything.
+- It does not run `claude plugin update`, `git`, or install anything. It does not warn on uncommitted `plugin/` edits.
 
 ## Implementation note
-In the real app (Next.js), a server-side endpoint does the file/git reads and returns the state; the prototype simulates it with a flag (`PLUGIN_SYNC`). See the plugin maintenance rule in the factory's `CLAUDE.md`.
+In the real app (Next.js), `GET /api/plugin-sync` does the two file reads and returns the `PluginSyncState` (`installedVersion`, `sourceVersion`, `drift`, `reason`, `detail`); the client banner polls it and self-clears. The prototype simulates it with a flag.

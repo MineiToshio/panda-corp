@@ -133,7 +133,7 @@ Markdown with YAML frontmatter (parsed by `gray-matter`). Fields read (FRD-01/02
 
 ### 4.2 Owner profile — `factory/profile.md`
 Its **absence** triggers the onboarding gate (FRD-01); when present, fields (name, goals,
-interests, assets, `projects_path`) personalize views and bound the FRD-16 orphan scan.
+interests, assets, `projects_path`) personalize views.
 
 ### 4.3 Portfolio — `factory/portfolio.md`
 A table of created projects → each row yields a **project path** and optional `repo:` URL
@@ -219,8 +219,7 @@ their owning FRD's work orders.
 | `lib/work-orders.ts` | Read per-FRD work orders; aggregate progress. | FRD-05 |
 | `lib/events.ts` | Tail & parse `dashboard-events.ndjson` (capped); diffs. | FRD-06, FRD-12, FRD-18 |
 | `lib/tasks.ts` | Read `~/.claude/tasks/` task state. | FRD-06 |
-| `lib/plugin-sync.ts` | Installed SHA vs `git log -1 -- plugin/` + dirty check. | FRD-15 |
-| `lib/orphans.ts` | Bounded scan of the projects folder for unadopted repos. | FRD-16 |
+| `lib/plugin-sync.ts` | Installed `version` (`installed_plugins.json`) vs source `version` (`plugin/.claude-plugin/plugin.json`); banner only when strictly behind (FRD-15 amended 2026-06-22 — version-based, no git/SHA). | FRD-15 |
 | `lib/registry.ts` | Parse `decisions/registry.yaml`. | FRD-07 |
 | `lib/standards.ts` | Read `factory/standards/` (domain/severity/enforcement). | FRD-07 |
 | `lib/memory.ts` | Read `factory/memory/` lessons + promotion state. | FRD-17 |
@@ -280,7 +279,7 @@ mission-control/
 ```
 
 No microservices, no separate API server: Next.js is the whole app. Route handlers exist only for
-the few reads that need Node APIs outside a Server Component render (git probes for drift/orphan
+the few reads that need Node APIs outside a Server Component render (git probes for drift
 detection).
 
 ---
@@ -333,7 +332,7 @@ platform — no FRD is flagged as unbuildable.
 | FRD-13 | Visual system & a11y | — (tokens) | `app/globals.css` + `docs/design/` (design phase) |
 | FRD-14 | Snapshot & feedback | `status` (last_green_sha, chips) | workspace + portfolio rail |
 | FRD-15 | Plugin out-of-sync warning | `plugin-sync` | dashboard banner + route handler |
-| FRD-16 | Orphan project detection | `orphans`, `profile`, `portfolio` | dashboard banner + route handler |
+| ~~FRD-16~~ | ~~Orphan project detection~~ — **removed 2026-06-22** | — | — |
 | FRD-17 | Proposals inbox | `memory`, `events`, `status` | `app/proposals` + badges |
 | FRD-18 | Dashboard ("Inicio") | composes `events`, `status`, `portfolio`, `memory` | `app/` (default landing) |
 

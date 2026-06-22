@@ -4,8 +4,12 @@
  * These tests verify the DR-057 refactor: PluginSyncBanner must be a *consumer* of
  * the shared Banner primitive, not a re-implementation with its own style blocks.
  *
+ * Version-based (FRD-15): drift is set ONLY when reason === "behind" (installed version
+ * strictly older than the source version). The "uncommitted"/"both" reasons were removed,
+ * the heading is now a constant, and the recall is a constant 2-step sequence (no commit step).
+ *
  * AC coverage:
- *   AC-15-004.1 (REQ-15-001/002) — renders on drift=true with reason-appropriate copy
+ *   AC-15-004.1 (REQ-15-001/002) — renders on drift=true (reason "behind") with the constant copy
  *   AC-15-004.2 (REQ-15-004)     — renders nothing when drift=false or unknown; self-clears
  *   AC-15-004.3 (REQ-15-003)     — shows copyable `claude plugin update pandacorp@panda-corp`
  *   AC-15-004.4 (REQ-15-005)     — read-only: no non-GET fetch
@@ -30,54 +34,35 @@ import type { PluginSyncState } from "@/lib/plugin-sync/plugin-sync";
 
 function makeState(overrides: Partial<PluginSyncState>): PluginSyncState {
   return {
-    installedSha: "abc1234",
-    pluginHeadSha: "abc1234",
-    dirty: false,
+    installedVersion: "8.42.0",
+    sourceVersion: "8.42.0",
     drift: false,
     reason: "in-sync",
-    detail: "plugin al día",
+    detail: "instalado v8.42.0 · plugin al día",
     ...overrides,
   };
 }
 
-const UNCOMMITTED: PluginSyncState = makeState({
-  dirty: true,
-  drift: true,
-  reason: "uncommitted",
-  detail: "instalado abc1234 · hay cambios sin commitear",
-});
-
 const BEHIND: PluginSyncState = makeState({
-  installedSha: "abc1234",
-  pluginHeadSha: "def5678",
-  dirty: false,
+  installedVersion: "8.42.0",
+  sourceVersion: "8.43.0",
   drift: true,
   reason: "behind",
-  detail: "instalado abc1234 · el plugin instalado está atrás del HEAD (def5678)",
-});
-
-const BOTH: PluginSyncState = makeState({
-  installedSha: "abc1234",
-  pluginHeadSha: "def5678",
-  dirty: true,
-  drift: true,
-  reason: "both",
-  detail: "instalado abc1234 · atrás del HEAD y hay cambios sin commitear",
+  detail: "instalado v8.42.0 · hay una versión más nueva del plugin (v8.43.0)",
 });
 
 const IN_SYNC: PluginSyncState = makeState({
   drift: false,
   reason: "in-sync",
-  detail: "plugin al día",
+  detail: "instalado v8.42.0 · plugin al día",
 });
 
 const UNKNOWN: PluginSyncState = makeState({
-  installedSha: null,
-  pluginHeadSha: null,
-  dirty: false,
+  installedVersion: null,
+  sourceVersion: null,
   drift: false,
   reason: "unknown",
-  detail: "estado desconocido (plugin no instalado o repo no disponible)",
+  detail: "estado desconocido (plugin no instalado o versión no disponible)",
 });
 
 // ---------------------------------------------------------------------------
@@ -127,19 +112,12 @@ afterEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-15-004.1 — renders banner on drift=true with reason-appropriate copy
+// AC-15-004.1 — renders banner on drift=true (reason "behind") with the constant copy
 // ---------------------------------------------------------------------------
 
 describe("AC-15-004.1: renders on drift === true", () => {
   beforeEach(() => {
     vi.useFakeTimers();
-  });
-
-  it("renders the banner when reason is 'uncommitted'", async () => {
-    mockFetch(UNCOMMITTED);
-    render(<PluginSyncBanner />);
-    await flushInitialPoll();
-    expect(screen.getByTestId("plugin-sync-banner")).toBeInTheDocument();
   });
 
   it("renders the banner when reason is 'behind'", async () => {
@@ -149,22 +127,7 @@ describe("AC-15-004.1: renders on drift === true", () => {
     expect(screen.getByTestId("plugin-sync-banner")).toBeInTheDocument();
   });
 
-  it("renders the banner when reason is 'both'", async () => {
-    mockFetch(BOTH);
-    render(<PluginSyncBanner />);
-    await flushInitialPoll();
-    expect(screen.getByTestId("plugin-sync-banner")).toBeInTheDocument();
-  });
-
-  it("shows 'uncommitted' copy when reason is 'uncommitted'", async () => {
-    mockFetch(UNCOMMITTED);
-    render(<PluginSyncBanner />);
-    await flushInitialPoll();
-    const banner = screen.getByTestId("plugin-sync-banner");
-    expect(banner).toHaveTextContent(/sin commitear/i);
-  });
-
-  it("shows 'behind' copy when reason is 'behind'", async () => {
+  it("shows the constant 'behind' heading copy", async () => {
     mockFetch(BEHIND);
     render(<PluginSyncBanner />);
     await flushInitialPoll();
@@ -172,20 +135,12 @@ describe("AC-15-004.1: renders on drift === true", () => {
     expect(banner).toHaveTextContent(/atrás/i);
   });
 
-  it("shows 'both' copy when reason is 'both' (dirty+behind)", async () => {
-    mockFetch(BOTH);
-    render(<PluginSyncBanner />);
-    await flushInitialPoll();
-    const banner = screen.getByTestId("plugin-sync-banner");
-    expect(banner).toHaveTextContent(/commitea/i);
-  });
-
   it("shows the detail string from the state", async () => {
-    mockFetch(UNCOMMITTED);
+    mockFetch(BEHIND);
     render(<PluginSyncBanner />);
     await flushInitialPoll();
     const banner = screen.getByTestId("plugin-sync-banner");
-    expect(banner).toHaveTextContent(UNCOMMITTED.detail);
+    expect(banner).toHaveTextContent(BEHIND.detail);
   });
 });
 
@@ -219,7 +174,7 @@ describe("AC-15-004.2: renders nothing when drift === false / unknown", () => {
   });
 
   it("self-clears: banner disappears when re-poll returns drift=false", async () => {
-    mockFetchSequence([UNCOMMITTED, IN_SYNC]);
+    mockFetchSequence([BEHIND, IN_SYNC]);
     render(<PluginSyncBanner />);
 
     await flushInitialPoll();
@@ -260,7 +215,7 @@ describe("AC-15-004.3: copyable update command present", () => {
   });
 
   it("shows the exact update command in the banner", async () => {
-    mockFetch(UNCOMMITTED);
+    mockFetch(BEHIND);
     render(<PluginSyncBanner />);
     await flushInitialPoll();
     const banner = screen.getByTestId("plugin-sync-banner");
@@ -268,7 +223,7 @@ describe("AC-15-004.3: copyable update command present", () => {
   });
 
   it("renders the shared Banner command row for the update command", async () => {
-    mockFetch(UNCOMMITTED);
+    mockFetch(BEHIND);
     render(<PluginSyncBanner />);
     await flushInitialPoll();
     // The shared Banner renders data-testid="banner-cmd-row"
@@ -283,7 +238,7 @@ describe("AC-15-004.3: copyable update command present", () => {
       configurable: true,
     });
 
-    mockFetch(UNCOMMITTED);
+    mockFetch(BEHIND);
     render(<PluginSyncBanner />);
     await flushInitialPoll();
 
@@ -296,34 +251,20 @@ describe("AC-15-004.3: copyable update command present", () => {
     expect(writeText).toHaveBeenCalledWith(POLL_CMD);
   });
 
-  it("shows the recall sequence (commit→run→restart) via data-testid='plugin-sync-recall'", async () => {
-    mockFetch(UNCOMMITTED);
+  it("shows the recall sequence (run→restart) via data-testid='plugin-sync-recall'", async () => {
+    mockFetch(BEHIND);
     render(<PluginSyncBanner />);
     await flushInitialPoll();
     expect(screen.getByTestId("plugin-sync-recall")).toBeInTheDocument();
   });
 
-  it("recall mentions 'commitea' when reason is uncommitted", async () => {
-    mockFetch(UNCOMMITTED);
-    render(<PluginSyncBanner />);
-    await flushInitialPoll();
-    const recall = screen.getByTestId("plugin-sync-recall");
-    expect(recall).toHaveTextContent(/commitea/i);
-  });
-
-  it("recall mentions 'commitea' when reason is both", async () => {
-    mockFetch(BOTH);
-    render(<PluginSyncBanner />);
-    await flushInitialPoll();
-    const recall = screen.getByTestId("plugin-sync-recall");
-    expect(recall).toHaveTextContent(/commitea/i);
-  });
-
-  it("recall does NOT mention 'commitea' when reason is 'behind'", async () => {
+  it("recall is the constant run→restart sequence (no 'commitea' step)", async () => {
     mockFetch(BEHIND);
     render(<PluginSyncBanner />);
     await flushInitialPoll();
     const recall = screen.getByTestId("plugin-sync-recall");
+    expect(recall).toHaveTextContent(/corre el comando/i);
+    expect(recall).toHaveTextContent(/reinicia la sesión/i);
     expect(recall).not.toHaveTextContent(/commitea/i);
   });
 });
@@ -338,7 +279,7 @@ describe("AC-15-004.4: read-only — only GET, no writes", () => {
   });
 
   it("fetches only /api/plugin-sync with GET", async () => {
-    mockFetch(UNCOMMITTED);
+    mockFetch(BEHIND);
     render(<PluginSyncBanner />);
     await flushInitialPoll();
     const calls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls as [string, RequestInit?][];
@@ -351,7 +292,7 @@ describe("AC-15-004.4: read-only — only GET, no writes", () => {
   });
 
   it("does not call fetch with POST/PUT/DELETE/PATCH", async () => {
-    mockFetch(UNCOMMITTED);
+    mockFetch(BEHIND);
     render(<PluginSyncBanner />);
     await flushInitialPoll();
     const calls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls as [string, RequestInit?][];
@@ -372,7 +313,7 @@ describe("AC-15-004.5: DR-057 reuse — shared Banner consumer (no own style blo
   });
 
   it("renders the shared Banner primitive (data-testid='banner' present)", async () => {
-    mockFetch(UNCOMMITTED);
+    mockFetch(BEHIND);
     render(<PluginSyncBanner />);
     await flushInitialPoll();
     // The shared Banner component renders data-testid="banner"
@@ -380,7 +321,7 @@ describe("AC-15-004.5: DR-057 reuse — shared Banner consumer (no own style blo
   });
 
   it("shared Banner has tone='warn' and kind='drift' (data attributes)", async () => {
-    mockFetch(UNCOMMITTED);
+    mockFetch(BEHIND);
     render(<PluginSyncBanner />);
     await flushInitialPoll();
     const banner = screen.getByTestId("banner");
@@ -389,7 +330,7 @@ describe("AC-15-004.5: DR-057 reuse — shared Banner consumer (no own style blo
   });
 
   it("banner wrapper has role=alert or aria-label in Spanish", async () => {
-    mockFetch(UNCOMMITTED);
+    mockFetch(BEHIND);
     render(<PluginSyncBanner />);
     await flushInitialPoll();
     const wrapper = screen.getByTestId("plugin-sync-banner");
@@ -399,7 +340,7 @@ describe("AC-15-004.5: DR-057 reuse — shared Banner consumer (no own style blo
   });
 
   it("banner wrapper has no hardcoded hex/rgb/hsl color values (tokens only)", async () => {
-    mockFetch(UNCOMMITTED);
+    mockFetch(BEHIND);
     render(<PluginSyncBanner />);
     await flushInitialPoll();
     const wrapper = screen.getByTestId("plugin-sync-banner");
@@ -410,7 +351,7 @@ describe("AC-15-004.5: DR-057 reuse — shared Banner consumer (no own style blo
   });
 
   it("renders a warning icon via the shared Banner (data-testid='banner-icon')", async () => {
-    mockFetch(UNCOMMITTED);
+    mockFetch(BEHIND);
     render(<PluginSyncBanner />);
     await flushInitialPoll();
     expect(screen.getByTestId("banner-icon")).toBeInTheDocument();
@@ -427,7 +368,7 @@ describe("AC-15-004.6: Spanish copy + a11y", () => {
   });
 
   it("banner heading/content is in Spanish — no bare English reason words", async () => {
-    mockFetch(UNCOMMITTED);
+    mockFetch(BEHIND);
     render(<PluginSyncBanner />);
     await flushInitialPoll();
     const banner = screen.getByTestId("plugin-sync-banner");

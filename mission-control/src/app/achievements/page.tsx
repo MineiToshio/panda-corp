@@ -30,7 +30,7 @@
 
 import type { AgentRole } from "@/app/_design/tokens/tokens";
 import { Chip } from "@/components/core/Chip/Chip";
-import { PageTitle } from "@/components/core/PageTitle/PageTitle";
+import { PageLayout } from "@/components/core/PageLayout/PageLayout";
 import { GuildHero } from "@/components/modules/GuildHero/GuildHero";
 import { computeChains, computeSecrets, computeUniques } from "@/lib/achievements/achievements";
 import type { ReaderData } from "@/lib/achievements/stats";
@@ -101,24 +101,13 @@ export default async function HallPage(): Promise<React.JSX.Element> {
   }).length;
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "var(--color-surface)",
-        color: "var(--color-text)",
-        padding: "var(--space-base)",
-      }}
+    <PageLayout
+      icon="ti-award"
+      title="Logros"
+      subtitle="El salón del gremio · tus hazañas, misiones, trofeos y la hoja de personaje de la fábrica."
+      tail={<Chip tone="warn">{`${featsCount} hazañas`}</Chip>}
+      testId="achievements-page"
     >
-      {/* ── Page heading — THE one light PageTitle block (DR-062, LOG-01) ──
-          Mirrors prototype logrosView()/pageHead(): ti-award icon + H1 "Logros" +
-          subtitle "El salón del gremio · …" + tail = warn Chip "N hazañas". */}
-      <PageTitle
-        icon="ti-award"
-        title="Logros"
-        subtitle="El salón del gremio · tus hazañas, misiones, trofeos y la hoja de personaje de la fábrica."
-        tail={<Chip tone="warn">{`${featsCount} hazañas`}</Chip>}
-      />
-
       {/* ── GuildHero character-sheet (AC-09-003.1..3, AC-09-004.1..5) ─────*/}
       <GuildHero
         level={guildLevel.level}
@@ -146,6 +135,6 @@ export default async function HallPage(): Promise<React.JSX.Element> {
         trophiesCount={trophiesCount}
         trophiesTotal={trophiesTotal}
       />
-    </main>
+    </PageLayout>
   );
 }

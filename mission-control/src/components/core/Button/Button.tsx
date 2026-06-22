@@ -130,6 +130,7 @@ export function Button({
 
   return (
     <button
+      className="pc-btn"
       data-testid={testId}
       data-variant={variant}
       data-size={size}

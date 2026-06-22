@@ -37,8 +37,10 @@ export function resolveProjectPath(rawPath: string): string {
   return path.join(resolveFactoryRoot(), rawPath);
 }
 
-/** The root of the factory repo (the folder that contains `mission-control/`). */
-export const FACTORY_ROOT: string = resolveFactoryRoot();
+/** The root of the factory repo (the folder that contains `mission-control/`).
+ * Module-private: only the derived paths below consume it (no external importer since
+ * FRD-16/orphans was removed). External callers use `resolveFactoryRoot()` directly. */
+const FACTORY_ROOT: string = resolveFactoryRoot();
 
 /** Idea base: `factory/ideas/*.md` (ignore `_idea-template.md` and `decision-log.md`). */
 export const IDEAS_DIR: string = path.join(FACTORY_ROOT, "factory", "ideas");

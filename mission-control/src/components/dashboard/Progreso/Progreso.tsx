@@ -12,7 +12,7 @@
  *     var(--color-warn) with a Tabler ICON (never an emoji).
  *   - The guild NV + title render in var(--font-pixel) (the `.px` class).
  *   - Next milestone line: "Próximo hito: <name> (<threshold>)".
- *   - XpBar (compact) carries the honest fill.
+ *   - XpBar (size="track": full-width 18px bar) carries the honest fill below the labels.
  *
  * Design constraints (FRD-09 / FRD-13 / REQ-18-021):
  *   - All values passed as pre-computed props (Server Component or parent derives the data).
@@ -223,14 +223,15 @@ export function Progreso({
                 </span>
               </div>
 
-              {/* CMP-09-xp-bar: reusable honest XP bar (compact, AC-18-005.1/.5) */}
+              {/* CMP-09-xp-bar: full-width 18px track (prototype "Tu progreso" foot, ~L741).
+                  size="track" = the bar only; the NV·title + XP/next labels are rendered above. */}
               <XpBar
                 xp={guildLevel.xp}
                 next={guildLevel.next}
                 pctToNext={guildLevel.pctToNext}
                 label={guildLevel.title}
                 nextTitle={nextRankTitle}
-                size="compact"
+                size="track"
               />
             </div>
           </div>

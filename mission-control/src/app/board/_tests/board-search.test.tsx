@@ -140,11 +140,8 @@ describe("BoardShell BRD-01 — Limpiar reset", () => {
     const user = userEvent.setup();
     render(<BoardShell cards={ALL_CARDS} discardAction={noOpDiscard} />);
 
-    // Activate the 'web' category chip.
-    const options = screen.getAllByTestId("category-filter-option");
-    const webChip = options.find((o) => o.textContent?.includes("web"));
-    expect(webChip).toBeTruthy();
-    await user.click(webChip as HTMLElement);
+    // Activate the 'web' category via the native <select> (value = projectType slug).
+    await user.selectOptions(screen.getByTestId("category-filter"), "web");
 
     expect(screen.getByTestId("board-clear-filters")).toBeInTheDocument();
   });

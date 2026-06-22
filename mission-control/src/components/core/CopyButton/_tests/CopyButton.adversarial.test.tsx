@@ -119,8 +119,8 @@ describe("ADVERSARIAL frd-02: guard resets after failure so the button stays usa
     // After the rejection, the guard must have reset — a second click must fire.
     fireEvent.click(btn);
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(2));
-    // And THIS time the confirmation should appear.
-    await waitFor(() => expect(screen.getByText(/copiado/i)).toBeDefined());
+    // And THIS time the confirmation should appear (on the accessible label).
+    await waitFor(() => expect(btn.getAttribute("aria-label")).toMatch(/copiado/i));
   });
 });
 

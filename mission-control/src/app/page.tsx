@@ -3,7 +3,7 @@
  *
  * Server Component. Composes the six dashboard sections top-to-bottom:
  *   0. PageTitle "Inicio" (CMP-13-pagetitle, DR-062)
- *   1. Health banners  (conditional: OnboardingGate + PluginSyncBanner + OrphansBanner)
+ *   1. Health banners  (conditional: OnboardingGate + PluginSyncBanner)
  *   2. Desde tu última visita  (Digest — visto_hasta marker, client-local)
  *   3. Tu turno  (human-gate queue, hero block)
  *   4. Pulso de la fábrica  (funnel + conversion metric)
@@ -20,7 +20,7 @@
  * Traceability:
  *   AC-18-001.1  / renders the dashboard under PageTitle "Inicio"
  *   AC-18-001.2  DashboardLiveWatcher provides event-driven live updates
- *   AC-18-001.3  OnboardingGate + PluginSyncBanner + OrphansBanner hosted (conditional)
+ *   AC-18-001.3  OnboardingGate + PluginSyncBanner hosted (conditional)
  *   AC-18-001.4  visto_hasta client-local (Digest owns localStorage)
  *   AC-18-001.5  Tu turno: human-gate queue only (IF-18-turn exclusions enforced)
  *   AC-18-001.6  Pulso: ≤5 signals (IF-18-pulse)
@@ -33,15 +33,13 @@
  */
 
 import { OnboardingGate } from "@/app/_components/OnboardingGate/OnboardingGate";
-import { OrphansBanner } from "@/app/_components/orphans-banner/orphans-banner";
 import { PluginSyncBanner } from "@/app/_components/plugin-sync-banner/plugin-sync-banner";
 import { filterDigestEvents } from "@/app/_lib/digest";
 import { type PulseResult, pulse } from "@/app/_lib/pulse";
 import { type CardData, deriveCard } from "@/app/(dashboard)/_lib/card";
 import { buildTurnQueue, type TurnItem } from "@/app/(dashboard)/_lib/turn";
 import { Chip } from "@/components/core/Chip/Chip";
-import { PageTitle } from "@/components/core/PageTitle/PageTitle";
-import { SectionHead } from "@/components/core/SectionHead/SectionHead";
+import { PageLayout } from "@/components/core/PageLayout/PageLayout";
 import { Cartera } from "@/components/dashboard/Cartera/Cartera";
 import { DashboardLiveWatcher } from "@/components/dashboard/DashboardLiveWatcher/DashboardLiveWatcher";
 import { Progreso } from "@/components/dashboard/Progreso/Progreso";
@@ -80,6 +78,11 @@ const PAGE_STYLE: React.CSSProperties = {
   flexDirection: "column",
   gap: "calc(var(--space-base) * 1.5)",
 };
+
+// Health banners stack: layout (flex/gap) + the empty-collapse live in the
+// `.dashboard-banners` CSS class (globals.css) so an empty wrapper adds no stray
+// gap between the page title and the first section (the `:empty` rule must beat
+// what would otherwise be an inline display).
 
 // ---------------------------------------------------------------------------
 // Pure derivation helpers (extracted to satisfy clean-code complexity limit)
@@ -260,102 +263,6 @@ function deriveGamification(
 }
 
 // ---------------------------------------------------------------------------
-// Gamification moments (prototype "Momentos de gamificación", ~L761-765)
-// ---------------------------------------------------------------------------
-
-/** Dashed "SOLO DEMO" frame (prototype `bDemo`) — tokens only. */
-const DEMO_FRAME_STYLE: React.CSSProperties = {
-  border: "1.5px dashed var(--color-border-strong)",
-  borderRadius: "var(--radius-md)",
-  padding: "10px 12px",
-  margin: "10px 0",
-};
-
-const DEMO_LABEL_STYLE: React.CSSProperties = {
-  fontFamily: "var(--font-pixel)",
-  fontSize: "9px",
-  letterSpacing: "0.06em",
-  color: "var(--color-base)",
-  background: "var(--color-warn)",
-  padding: "1px 7px",
-  borderRadius: "var(--radius-sm)",
-};
-
-const DEMO_BUTTON_STYLE: React.CSSProperties = {
-  padding: "8px 12px",
-  borderRadius: "var(--radius-sm)",
-  border: "1px solid var(--color-border-strong)",
-  background: "var(--color-card2)",
-  color: "var(--color-text)",
-  fontFamily: "var(--font-display)",
-  fontSize: "13px",
-};
-
-/**
- * "Momentos de gamificación" — the honest demo strip.
- *
- * In the real app these moments fire AUTOMATICALLY on the milestone event (a
- * product shipped · a level-up) via the globally-mounted CelebrationWatcher
- * (app/layout.tsx) — never from a button (DR-061). This section reproduces the
- * prototype's `bDemo` frame as a faithful visual demonstration; the buttons are
- * non-interactive preview affordances (the page is a read-only Server Component).
- */
-function GamificationMoments(): React.JSX.Element {
-  return (
-    <section aria-label="Momentos de gamificación" data-testid="gamification-moments">
-      <SectionHead icon="ti-sparkles" label="Momentos de gamificación" />
-      <p style={{ fontSize: "12px", color: "var(--color-text2)", margin: "0 2px 8px" }}>
-        <i
-          className="ti ti-info-circle"
-          aria-hidden="true"
-          style={{ fontSize: "13px", verticalAlign: "-2px", color: "var(--color-accent-text)" }}
-        />{" "}
-        En la app real estos momentos se disparan <b style={{ fontWeight: 500 }}>automáticamente</b>{" "}
-        al cumplirse el hito (un proyecto lanzado · subir de nivel), no con un botón. Los de abajo
-        son solo para previsualizar el efecto.
-      </p>
-      <div style={DEMO_FRAME_STYLE}>
-        <div style={{ display: "flex", alignItems: "center", gap: "7px", marginBottom: "7px" }}>
-          <span style={DEMO_LABEL_STYLE}>SOLO DEMO</span>
-          <span style={{ fontSize: "11px", color: "var(--color-text3)" }}>
-            En la app real esto NO tiene botón: la celebración la dispara /pandacorp:release
-            (producto lanzado) y el level-up se dispara solo al cruzar un umbral de XP.
-          </span>
-        </div>
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-          <button
-            type="button"
-            disabled
-            title="En la app real la dispara /pandacorp:release automáticamente"
-            style={DEMO_BUTTON_STYLE}
-          >
-            <i
-              className="ti ti-rocket"
-              aria-hidden="true"
-              style={{ fontSize: "14px", verticalAlign: "-2px", color: "var(--color-ok)" }}
-            />{" "}
-            Previsualizar celebración de release
-          </button>
-          <button
-            type="button"
-            disabled
-            title="En la app real se dispara solo al cruzar un umbral de XP"
-            style={DEMO_BUTTON_STYLE}
-          >
-            <i
-              className="ti ti-arrow-up-circle"
-              aria-hidden="true"
-              style={{ fontSize: "14px", verticalAlign: "-2px", color: "var(--color-accent-text)" }}
-            />{" "}
-            Previsualizar «¡Subiste de nivel!»
-          </button>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // HomePage — Server Component (default export, route `/`)
 // ---------------------------------------------------------------------------
 
@@ -418,50 +325,44 @@ export default function HomePage(): React.JSX.Element {
   // ── 3. Render ───────────────────────────────────────────────────────────
 
   return (
-    <main data-testid="dashboard-page" style={PAGE_STYLE}>
-      {/* ── Live watcher: subscribes to useLiveSnapshot, calls router.refresh() ── */}
-      {/* AC-18-001.2: event-driven real-time, NOT polling; doesn't own transport */}
+    <PageLayout
+      icon="ti-home"
+      title="Inicio"
+      subtitle="Tu cabina de mando: lo que espera por ti, el pulso de la fábrica y la cartera en obra."
+      testId="dashboard-page"
+    >
+      {/* ── Live watcher (renders null): event-driven real-time refresh, AC-18-001.2 ── */}
       <DashboardLiveWatcher />
 
-      {/* ── PageTitle "Inicio" (CMP-13-pagetitle, DR-062, AC-18-001.1) ── */}
-      <PageTitle
-        icon="ti-home"
-        title="Inicio"
-        subtitle="Tu cabina de mando: lo que espera por ti, el pulso de la fábrica y la cartera en obra."
-      />
+      <div style={PAGE_STYLE}>
+        {/* ── Health banners (conditional, AC-18-001.3). Collapses when empty
+            (globals.css :empty rule) so it never adds a stray gap. ── */}
+        <div data-testid="dashboard-banners" className="dashboard-banners">
+          {/* OnboardingGate: renders only when profile is absent (FRD-01, AC-18-001.3) */}
+          {!profileResult.present && <OnboardingGate />}
+          {/* PluginSyncBanner: "use client"; renders null until drift confirmed (FRD-15) */}
+          <PluginSyncBanner />
+        </div>
 
-      {/* ── Health banners (conditional, AC-18-001.3) ── */}
-      <div data-testid="dashboard-banners">
-        {/* OnboardingGate: renders only when profile is absent (FRD-01, AC-18-001.3) */}
-        {!profileResult.present && <OnboardingGate />}
-        {/* PluginSyncBanner: "use client"; renders null until drift confirmed (FRD-15) */}
-        <PluginSyncBanner />
-        {/* OrphansBanner: "use client"; renders null until candidates confirmed (FRD-16) */}
-        <OrphansBanner />
+        {/* ── Section 2: Desde tu última visita (digest, AC-18-001.4) ── */}
+        <Digest events={events} nowMs={nowMs} />
+
+        {/* ── Section 3: Tu turno (human-gate queue, AC-18-001.5) ── */}
+        <TuTurno items={turnItems} turnChip={turnChip} />
+
+        {/* ── Section 4: Pulso de la fábrica (funnel + conversion, AC-18-001.6) ── */}
+        <Pulso pulse={pulseResult} />
+
+        {/* ── Section 5: Construcción y cartera (project cards, AC-18-001.7) ── */}
+        <Cartera cards={cards} />
+
+        {/* ── Section 6: Tu progreso (gamification strip, AC-18-001.8) ── */}
+        <Progreso
+          guildLevel={guildLevel}
+          recentAchievement={recentAchievement}
+          nextMilestone={nextMilestone}
+        />
       </div>
-
-      {/* ── Section 2: Desde tu última visita (digest, AC-18-001.4) ── */}
-      <Digest events={events} nowMs={nowMs} />
-
-      {/* ── Section 3: Tu turno (human-gate queue, AC-18-001.5) ── */}
-      <TuTurno items={turnItems} turnChip={turnChip} />
-
-      {/* ── Section 4: Pulso de la fábrica (funnel + conversion, AC-18-001.6) ── */}
-      <Pulso pulse={pulseResult} />
-
-      {/* ── Section 5: Construcción y cartera (project cards, AC-18-001.7) ── */}
-      <Cartera cards={cards} />
-
-      {/* ── Section 6: Tu progreso (gamification strip, AC-18-001.8) ── */}
-      <Progreso
-        guildLevel={guildLevel}
-        recentAchievement={recentAchievement}
-        nextMilestone={nextMilestone}
-      />
-
-      {/* ── Section 7: Momentos de gamificación (prototype demo strip) ── */}
-      {/* The real celebrations auto-fire via CelebrationWatcher (layout.tsx). */}
-      <GamificationMoments />
-    </main>
+    </PageLayout>
   );
 }

@@ -182,3 +182,43 @@ describe("AC-09-004.2 — tabular-nums on numbers", () => {
     expect(root?.querySelector('[data-testid="xp-bar-next"]')).not.toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// size="track" — full-width 18px bar only, no label rows
+// (dashboard "Tu progreso" foot; the caller renders its own labels)
+// ---------------------------------------------------------------------------
+
+describe("size='track' — full-width bar, no label rows", () => {
+  it("renders the bar track with the progressbar role and the real fill width", () => {
+    render(
+      <XpBar xp={0} next={100} pctToNext={0} label="Aprendiz" nextTitle="Artesano" size="track" />,
+    );
+    expect(screen.getByTestId("xp-bar").getAttribute("data-size")).toBe("track");
+    expect(screen.getByTestId("xp-bar-fill").style.width).toBe("0%");
+    expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("0");
+  });
+
+  it("does NOT render the label rows (the caller renders its own)", () => {
+    render(
+      <XpBar
+        xp={20}
+        next={100}
+        pctToNext={20}
+        label="Aprendiz"
+        nextTitle="Artesano"
+        size="track"
+      />,
+    );
+    expect(screen.queryByTestId("xp-bar-label")).toBeNull();
+    expect(screen.queryByTestId("xp-bar-next-label")).toBeNull();
+  });
+
+  it("the track is full-width (not the fixed 90px compact width) and 18px tall", () => {
+    render(
+      <XpBar xp={0} next={100} pctToNext={0} label="Aprendiz" nextTitle="Artesano" size="track" />,
+    );
+    const style = screen.getByTestId("xp-bar-track").getAttribute("style") ?? "";
+    expect(style).not.toContain("width: 90px");
+    expect(style).toContain("18px"); // prototype .xpbar height — thick bar, never the 9px compact
+  });
+});

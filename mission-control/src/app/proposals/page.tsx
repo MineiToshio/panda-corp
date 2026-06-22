@@ -46,7 +46,7 @@
 
 import type { Metadata } from "next";
 import { Chip } from "@/components/core/Chip/Chip";
-import { PageTitle } from "@/components/core/PageTitle/PageTitle";
+import { PageLayout } from "@/components/core/PageLayout/PageLayout";
 import { MemoryHealth } from "@/components/modules/MemoryHealth/MemoryHealth";
 import { PromotionsQueue } from "@/components/modules/PromotionsQueue/PromotionsQueue";
 import { candidateLessons, promotionQueue, prunable } from "@/lib/memory/memory";
@@ -76,13 +76,8 @@ const MEMORY_GROUP_CMD = "/pandacorp:memory";
 // Styles — CSS custom properties only, zero hardcoded colors
 // ---------------------------------------------------------------------------
 
-const PAGE_STYLE: React.CSSProperties = {
-  minHeight: "100dvh",
-  background: "var(--color-base)",
-  color: "var(--color-text)",
-};
-
-// Width + outer padding come from the single AppShell container (#pcapp, 1240px).
+// The page <main> + title + outer chrome come from PageLayout (DR-062), inside the
+// single AppShell container (#pcapp, 1240px).
 const CONTENT_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
@@ -135,16 +130,14 @@ export default function ProposalsPage(): React.JSX.Element {
     ) : null;
 
   return (
-    <main data-testid="proposals-page" style={PAGE_STYLE}>
+    <PageLayout
+      icon="ti-mail-opened"
+      title="Propuestas"
+      subtitle="La bandeja del gremio: lo que la fábrica aprendió y te propone (lecciones, promociones, poda, auto-sugerencias)."
+      tail={openCountTail}
+      testId="proposals-page"
+    >
       <div style={CONTENT_STYLE}>
-        {/* Page title — THE one light PageTitle (DR-062), not a heavy hero panel */}
-        <PageTitle
-          icon="ti-mail-opened"
-          title="Propuestas"
-          subtitle="La bandeja del gremio: lo que la fábrica aprendió y te propone (lecciones, promociones, poda, auto-sugerencias)."
-          tail={openCountTail}
-        />
-
         {/* Read-only notice */}
         <p style={READONLY_NOTE_STYLE}>
           Solo-lectura — tú apruebas corriendo el comando; Mission Control nunca cosecha, promueve
@@ -177,6 +170,6 @@ export default function ProposalsPage(): React.JSX.Element {
         {/* Stream 4: self-suggestions (computed locally, no Claude; each has own cmd, AC-17-001.2) */}
         <DismissableProposalStream kind="self-suggestion" suggestions={suggestions} />
       </div>
-    </main>
+    </PageLayout>
   );
 }
