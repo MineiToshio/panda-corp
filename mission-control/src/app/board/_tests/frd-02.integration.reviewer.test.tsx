@@ -247,7 +247,7 @@ describe("FRD-02 integration: CardDetail surfaces the real next-step command + c
     expect(within(nextStep).getByTestId("copy-button")).toBeTruthy();
   });
 
-  it("AC-02-008.1: a card with no docsIndex shows the Resumen reader and zero project doc items", () => {
+  it("AC-02-008.1: a card with no docNodes shows the Resumen reader and zero project doc items", () => {
     render(<CardDetail slug="s" title="T" status="discovered" body="Solo resumen." />);
     expect(screen.getByTestId("card-detail-summary")).toBeTruthy();
     // The rail always lists Resumen; with no project there are no project doc items.

@@ -1,10 +1,8 @@
 /**
- * CardDetail — style constants and nav-entry helpers (sibling module).
+ * CardDetail — style constants (sibling module).
  * Extracted to keep CardDetail.tsx under the 500-line limit (clean-code.md).
  * All values use CSS custom properties — zero hardcoded colors.
  */
-
-import type { ProjectDocsIndex } from "@/lib/docs/docs";
 
 // ---------------------------------------------------------------------------
 // Root container
@@ -139,58 +137,4 @@ export function docsNavItemStyle(active: boolean): React.CSSProperties {
       : "var(--color-text2, var(--color-text, currentColor))",
     wordBreak: "break-word",
   };
-}
-
-// ---------------------------------------------------------------------------
-// Nav entry helpers
-// ---------------------------------------------------------------------------
-
-/** A single navigable entry in the docs navigator. */
-export type NavEntry = { key: string; label: string };
-
-/**
- * Convert a ProjectDocsIndex into a flat list of navigable entries.
- * Returns an empty array if there are no navigable entries (AC-02-008.1).
- */
-export function buildNavEntries(docsIndex: ProjectDocsIndex): NavEntry[] {
-  const entries: NavEntry[] = [];
-
-  if (docsIndex.prd) {
-    entries.push({ key: "prd", label: "PRD (docs/product/prd.md)" });
-  }
-
-  if (docsIndex.architecture) {
-    entries.push({ key: "architecture", label: "Architecture (docs/product/architecture.md)" });
-  }
-
-  for (const frd of docsIndex.frds) {
-    entries.push({ key: frd.slug, label: frd.slug });
-  }
-
-  if (docsIndex.hasAdr) {
-    entries.push({ key: "adr", label: "ADR (docs/adr/)" });
-  }
-
-  if (docsIndex.hasAnalytics) {
-    entries.push({ key: "analytics", label: "Analytics (docs/analytics/)" });
-  }
-
-  if (docsIndex.hasDecisionLog) {
-    entries.push({ key: "decision-log", label: "Decision log (docs/decision-log.md)" });
-  }
-
-  if (docsIndex.comms.progress) {
-    entries.push({ key: "progress", label: "Progress (.pandacorp/comms/progress.md)" });
-  }
-
-  if (docsIndex.comms.decisions) {
-    entries.push({ key: "decisions", label: "Decisions (.pandacorp/inbox/decisions.md)" });
-  }
-
-  for (const bugPath of docsIndex.comms.bugs) {
-    const filename = bugPath.split("/").at(-1) ?? bugPath;
-    entries.push({ key: `bug-${filename}`, label: `Bug: ${filename}` });
-  }
-
-  return entries;
 }

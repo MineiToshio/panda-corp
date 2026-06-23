@@ -21,11 +21,30 @@
 
 import { BoardShell } from "@/app/board/_components/BoardShell/BoardShell";
 import { discardIdeaAction } from "@/app/board/actions/actions";
+import { readBoardDoc } from "@/app/board/actions/read-doc";
 import type { BoardCardEntry } from "@/app/board/IdeaBoardView/IdeaBoardView";
 import { deriveColumn } from "@/lib/board/board";
 import { resolveProjectPath } from "@/lib/config/config";
+import { type DocNode, listProjectDocs } from "@/lib/docs/tree";
 import { readIdeas } from "@/lib/ideas/ideas";
 import { readStatus } from "@/lib/status/status";
+
+// ---------------------------------------------------------------------------
+// Scoped doc set (DR-046 / FRD-02): the Documentos tab surfaces ONLY the
+// PRD + research + per-FRD docs — never architecture.md, the Global group
+// (ADR, decision-log) or anything in .pandacorp/. Structure only (cheap):
+// listProjectDocs probes directories and reads no file content; bodies load
+// lazily via the read action.
+// ---------------------------------------------------------------------------
+
+/** Keep a DocNode only if it is the PRD, the research doc, or a per-FRD doc. */
+function isScopedBoardDoc(node: DocNode): boolean {
+  return (
+    node.relPath === "docs/product/prd.md" ||
+    node.relPath === "docs/product/research.md" ||
+    node.group.startsWith("Feature:")
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Server Component
@@ -58,9 +77,12 @@ export default function BoardPage(): React.JSX.Element {
     // project lives. A hardcoded "factoryRoot/../slug" assumed every project is a
     // sibling OUTSIDE the factory and missed Mission Control, which lives INSIDE it.
     let projectStatus = null;
+    // Scoped doc structure for the card-detail Documentos tab (in-pipeline only).
+    let docNodes: DocNode[] | undefined;
     if (card.status === "in-pipeline" && card.project) {
       const projectPath = resolveProjectPath(card.project);
       projectStatus = readStatus(projectPath);
+      docNodes = listProjectDocs(projectPath).filter(isScopedBoardDoc);
     }
 
     const boardColumn = deriveColumn(card, projectStatus);
@@ -90,10 +112,15 @@ export default function BoardPage(): React.JSX.Element {
       // Forward the deploy target (DR-085) so the campaign's Release ficha shows
       // whether the launch is internal (in-house tool) or external (Vercel/AWS).
       deployTarget: projectStatus?.present ? projectStatus.status.deployTarget : undefined,
+      // Scoped doc STRUCTURE (PRD + research + FRDs); bodies load lazily on select.
+      docNodes,
     };
   });
 
   // BoardShell is the client boundary: it manages filter/modal/selection state
-  // and receives the discard Server Action as a prop (injected for testability).
-  return <BoardShell cards={cards} discardAction={discardIdeaAction} />;
+  // and receives the discard (write) + read-doc (lazy doc body) Server Actions as
+  // props (injected for testability — read stays separate from the single write).
+  return (
+    <BoardShell cards={cards} discardAction={discardIdeaAction} readDocAction={readBoardDoc} />
+  );
 }

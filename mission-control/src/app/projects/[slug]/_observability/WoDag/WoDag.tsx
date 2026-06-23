@@ -27,18 +27,14 @@
  *   CMP-12-dag → REQ-12-004/005 → AC-12-004.1/2/3/4, AC-12-005.1/2
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { dagChain, firstError, toDag } from "@/app/_observability/dag/dag/dag";
 import { useLiveSnapshot } from "@/hooks/useLiveSnapshot";
 import type { WorkOrder, WorkOrderState } from "@/lib/work-orders/work-orders";
-import {
-  computeLayout,
-  deriveDeps,
-  NODE_H,
-  NODE_W,
-  type PositionedEdge,
-  type PositionedNode,
-} from "./layout";
+import { DagNodeGroup } from "./DagNodeGroup";
+import { computeLayout, deriveDeps, type PositionedEdge } from "./layout";
+import { useDagZoom } from "./useDagZoom";
+import { ZoomControls } from "./ZoomControls";
 
 // ---------------------------------------------------------------------------
 // Public props
@@ -56,26 +52,6 @@ export interface WoDagProps {
 // ---------------------------------------------------------------------------
 
 type WorkOrderWithDeps = WorkOrder & { dependsOn?: string[] };
-
-// ---------------------------------------------------------------------------
-// State color/icon maps — mirrors prototype WOCOL / WOICON
-// ---------------------------------------------------------------------------
-
-const STATE_COLOR: Record<WorkOrderState, string> = {
-  done: "var(--color-ok)",
-  fail: "var(--color-danger)",
-  in_progress: "var(--color-accent)",
-  review: "var(--color-info)",
-  todo: "var(--color-border-strong)",
-};
-
-const STATE_ICON: Record<WorkOrderState, string> = {
-  done: "ti-circle-check",
-  fail: "ti-alert-triangle",
-  in_progress: "ti-loader-2",
-  review: "ti-eye",
-  todo: "ti-circle",
-};
 
 // Shared panel/box styles (tokens only) — kept as consts so the JSX stays lean.
 const PANEL_STYLE: React.CSSProperties = {
@@ -148,127 +124,6 @@ function computeEdgeStyle(
 }
 
 // ---------------------------------------------------------------------------
-// DagNodeGroup — extracted SVG node to keep render map simple (complexity)
-// ---------------------------------------------------------------------------
-
-interface DagNodeGroupProps {
-  node: PositionedNode;
-  isActiveNode: boolean;
-  isDimmed: boolean;
-  isRunning: boolean;
-  frd: string;
-  onNodeClick: (id: string) => void;
-}
-
-/**
- * A single interactive DAG node rendered as an SVG `<g>`.
- * `<g>` cannot be a native `<button>` (not valid in SVG), so we use
- * `role="button"` + keyboard handler — required for interactive SVG nodes.
- */
-function DagNodeGroup({
-  node,
-  isActiveNode,
-  isDimmed,
-  isRunning,
-  frd,
-  onNodeClick,
-}: DagNodeGroupProps): React.JSX.Element {
-  const nodeOpacity = isDimmed ? "0.32" : "1";
-  const nodeBorderColor = isActiveNode ? "var(--color-accent)" : STATE_COLOR[node.state];
-  const nodeBorderWidth = isActiveNode ? 2.4 : 1.4;
-  const nodeFilter = isRunning ? "drop-shadow(0 0 7px var(--color-accent))" : undefined;
-  const stateColor = STATE_COLOR[node.state];
-  const stateIcon = STATE_ICON[node.state];
-  const titleSlice = node.title.slice(0, 18);
-  const metaLine = `${node.id} · ${frd}`;
-
-  return (
-    // biome-ignore lint/a11y/useSemanticElements: SVG <g> cannot be a native <button>; role=button is the correct ARIA pattern for interactive SVG nodes
-    <g
-      key={node.id}
-      data-testid={`dag-node-${node.id}`}
-      data-active={isActiveNode ? "true" : "false"}
-      aria-pressed={isActiveNode ? "true" : "false"}
-      aria-label={`${node.id} ${node.title} — ${node.state}`}
-      role="button"
-      tabIndex={0}
-      onClick={() => onNodeClick(node.id)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onNodeClick(node.id);
-        }
-      }}
-      style={{
-        cursor: "pointer",
-        opacity: nodeOpacity,
-        ...(nodeFilter ? { filter: nodeFilter } : {}),
-      }}
-    >
-      {/* Node rect */}
-      <rect
-        x={node.x}
-        y={node.y}
-        width={NODE_W}
-        height={NODE_H}
-        rx="8"
-        fill="var(--color-card)"
-        stroke={nodeBorderColor}
-        strokeWidth={nodeBorderWidth}
-      />
-
-      {/* State icon (decorative — pairs with state dot + WO id text for a11y) */}
-      <foreignObject x={node.x + 10} y={node.y + 8} width="14" height="14">
-        <span
-          className={`ti ${stateIcon}`}
-          style={{ fontSize: "11px", color: stateColor, display: "block", lineHeight: 1 }}
-        />
-      </foreignObject>
-
-      {/* Title (first 18 chars) */}
-      <text x={node.x + 28} y={node.y + 20} fontSize="12" fontWeight="600" fill="var(--color-text)">
-        {titleSlice}
-      </text>
-
-      {/* WO id · FRD mono sub-line */}
-      <text
-        data-testid={`dag-node-meta-${node.id}`}
-        x={node.x + 11}
-        y={node.y + 38}
-        fontSize="9.5"
-        fill="var(--color-text3)"
-        fontFamily="ui-monospace, monospace"
-      >
-        {metaLine}
-      </text>
-
-      {/* State dot (top-right, not color alone — pairs with the state icon) */}
-      <circle
-        data-testid={`dag-node-dot-${node.id}`}
-        cx={node.x + NODE_W - 14}
-        cy={node.y + 16}
-        r="5.5"
-        fill={stateColor}
-      />
-
-      {/* "▶ paso activo" caption when follow is ON and this is the running WO */}
-      {isRunning && (
-        <text
-          data-testid={`dag-node-active-caption-${node.id}`}
-          x={node.x + NODE_W - 11}
-          y={node.y + NODE_H - 7}
-          fontSize="8.5"
-          textAnchor="end"
-          fill="var(--color-accent-text)"
-        >
-          ▶ paso activo
-        </text>
-      )}
-    </g>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Live-state merge + dependency derivation
 // ---------------------------------------------------------------------------
 
@@ -310,31 +165,29 @@ export function WoDag({ workOrders, project }: WoDagProps): React.JSX.Element {
   // Live subscription (AC-12-005.1/.2)
   const { snapshot } = useLiveSnapshot({ project });
 
-  // Live-merged + dependency-derived work orders
-  const effectiveOrders = buildEffectiveOrders(workOrders, snapshot);
+  // Data pipeline → layout, memoized on [workOrders, snapshot]: zoom/hover/
+  // selection re-renders must NOT recompute the whole graph each frame.
+  const graph = useMemo(() => {
+    const effectiveOrders = buildEffectiveOrders(workOrders, snapshot);
+    const { nodes: dagNodes, edges: dagEdges } = toDag(effectiveOrders);
+    const frdById: Record<string, string> = {};
+    for (const wo of effectiveOrders) frdById[wo.id.trim()] = wo.frd;
+    return {
+      effectiveOrders,
+      dagNodes,
+      dagEdges,
+      frdById,
+      layout: computeLayout(dagNodes, dagEdges),
+      firstErrorId: firstError(dagNodes, dagEdges),
+      runningNode: dagNodes.find((n) => n.state === "in_progress") ?? null,
+    };
+  }, [workOrders, snapshot]);
 
-  // Build DAG (nodes + directed edges) from the derived deps
-  const { nodes: dagNodes, edges: dagEdges } = toDag(effectiveOrders);
+  const { effectiveOrders, dagNodes, dagEdges, frdById, firstErrorId, runningNode } = graph;
+  const { nodes: layoutNodes, edges: layoutEdges, width: svgW, height: svgH } = graph.layout;
 
-  // FRD lookup map (id → frd label) — DagNode doesn't carry frd, carry it aside
-  const frdById: Record<string, string> = {};
-  for (const wo of effectiveOrders) {
-    frdById[wo.id.trim()] = wo.frd;
-  }
-
-  // Compute the compact layered layout
-  const {
-    nodes: layoutNodes,
-    edges: layoutEdges,
-    width: svgW,
-    height: svgH,
-  } = computeLayout(dagNodes, dagEdges);
-
-  // First error node (AC-12-004.3)
-  const firstErrorId = firstError(dagNodes, dagEdges);
-
-  // Running node (in_progress state, for follow-active)
-  const runningNode = dagNodes.find((n) => n.state === "in_progress");
+  // Zoom/pan transform for the canvas (buttons + mouse wheel)
+  const { scale, containerRef, zoomIn, zoomOut, reset, fitToView } = useDagZoom();
 
   // UI state
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
@@ -361,6 +214,8 @@ export function WoDag({ workOrders, project }: WoDagProps): React.JSX.Element {
   const handleFollowToggle = useCallback(() => {
     setFollowActive((prev) => !prev);
   }, []);
+
+  const handleFit = useCallback(() => fitToView(svgW, svgH), [fitToView, svgW, svgH]);
 
   // Empty state
   if (effectiveOrders.length === 0) {
@@ -397,88 +252,105 @@ export function WoDag({ workOrders, project }: WoDagProps): React.JSX.Element {
         onClearChain={handleClearChain}
       />
 
-      {/* SVG graph container — bounded; horizontal scroll only if it overflows */}
-      <div
-        data-testid="dag-svg-container"
-        style={{
-          overflowX: "auto",
-          border: "0.5px solid var(--color-border)",
-          borderRadius: "var(--radius-md, 8px)",
-          background: "var(--color-canvas)",
-          padding: "8px",
-        }}
-      >
-        <svg
-          viewBox={`0 0 ${svgW} ${svgH}`}
-          width={svgW}
-          height={svgH}
-          style={{ maxWidth: "100%", height: "auto", display: "block" }}
-          aria-label="Grafo de dependencias entre work orders"
-          role="img"
+      {/* Zoom/pan canvas — the toolbar stays pinned (outside the scroll area)
+          while the scaled graph pans inside the bounded viewport. */}
+      <div style={{ position: "relative" }}>
+        <ZoomControls
+          scale={scale}
+          onZoomIn={zoomIn}
+          onZoomOut={zoomOut}
+          onReset={reset}
+          onFit={handleFit}
+        />
+        <div
+          ref={containerRef}
+          data-testid="dag-svg-container"
+          style={{
+            overflow: "auto",
+            maxHeight: "min(68vh, 680px)",
+            border: "0.5px solid var(--color-border)",
+            borderRadius: "var(--radius-md, 8px)",
+            background: "var(--color-canvas)",
+            padding: "8px",
+          }}
         >
-          <defs>
-            {/* Default arrowhead */}
-            <marker id="dag-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-              <path d="M0 0L8 4L0 8z" fill="var(--color-border-strong)" />
-            </marker>
-            {/* Accent arrowhead for chain-highlight */}
-            <marker
-              id="dag-arrow-on"
-              markerWidth="8"
-              markerHeight="8"
-              refX="7"
-              refY="4"
-              orient="auto"
-            >
-              <path d="M0 0L8 4L0 8z" fill="var(--color-accent)" />
-            </marker>
-          </defs>
+          <svg
+            viewBox={`0 0 ${svgW} ${svgH}`}
+            width={svgW * scale}
+            height={svgH * scale}
+            style={{ display: "block" }}
+            aria-label="Grafo de dependencias entre work orders"
+            role="img"
+          >
+            <defs>
+              {/* Default arrowhead */}
+              <marker
+                id="dag-arrow"
+                markerWidth="8"
+                markerHeight="8"
+                refX="7"
+                refY="4"
+                orient="auto"
+              >
+                <path d="M0 0L8 4L0 8z" fill="var(--color-border-strong)" />
+              </marker>
+              {/* Accent arrowhead for chain-highlight */}
+              <marker
+                id="dag-arrow-on"
+                markerWidth="8"
+                markerHeight="8"
+                refX="7"
+                refY="4"
+                orient="auto"
+              >
+                <path d="M0 0L8 4L0 8z" fill="var(--color-accent)" />
+              </marker>
+            </defs>
 
-          {/* Edges (bezier paths) — style computed by computeEdgeStyle helper */}
-          {layoutEdges.map((edge) => {
-            const { strokeColor, strokeWidth, opacity, markerId, isHighlighted } = computeEdgeStyle(
-              edge,
-              chain,
-              activeNodeId,
-            );
-            const dPath = buildBezierPath(edge.points);
-            if (!dPath) return null;
+            {/* Edges (bezier paths) — style computed by computeEdgeStyle helper */}
+            {layoutEdges.map((edge) => {
+              const { strokeColor, strokeWidth, opacity, markerId, isHighlighted } =
+                computeEdgeStyle(edge, chain, activeNodeId);
+              const dPath = buildBezierPath(edge.points);
+              if (!dPath) return null;
 
-            return (
-              <path
-                key={`${edge.from}-${edge.to}`}
-                d={dPath}
-                fill="none"
-                stroke={strokeColor}
-                strokeWidth={strokeWidth}
-                opacity={opacity}
-                markerEnd={`url(#${markerId})`}
-                data-edge={`${edge.from}-${edge.to}`}
-                data-chain={isHighlighted ? "true" : "false"}
-              />
-            );
-          })}
+              return (
+                <path
+                  key={`${edge.from}-${edge.to}`}
+                  d={dPath}
+                  fill="none"
+                  stroke={strokeColor}
+                  strokeWidth={strokeWidth}
+                  opacity={opacity}
+                  markerEnd={`url(#${markerId})`}
+                  data-edge={`${edge.from}-${edge.to}`}
+                  data-chain={isHighlighted ? "true" : "false"}
+                />
+              );
+            })}
 
-          {/* Nodes — rendered by DagNodeGroup subcomponent */}
-          {layoutNodes.map((node) => {
-            const isActiveNode = node.id === activeNodeId;
-            const isInChain = chain !== null && (chain.up.has(node.id) || chain.down.has(node.id));
-            const isDimmed = activeNodeId !== null && !isActiveNode && !isInChain;
-            const isRunning = followActive && runningNode?.id === node.id;
+            {/* Nodes — rendered by DagNodeGroup subcomponent */}
+            {layoutNodes.map((node) => {
+              const isActiveNode = node.id === activeNodeId;
+              const isInChain =
+                chain !== null && (chain.up.has(node.id) || chain.down.has(node.id));
+              const isDimmed = activeNodeId !== null && !isActiveNode && !isInChain;
+              const isRunning = followActive && runningNode?.id === node.id;
 
-            return (
-              <DagNodeGroup
-                key={node.id}
-                node={node}
-                isActiveNode={isActiveNode}
-                isDimmed={isDimmed}
-                isRunning={isRunning}
-                frd={frdById[node.id] ?? ""}
-                onNodeClick={handleNodeClick}
-              />
-            );
-          })}
-        </svg>
+              return (
+                <DagNodeGroup
+                  key={node.id}
+                  node={node}
+                  isActiveNode={isActiveNode}
+                  isDimmed={isDimmed}
+                  isRunning={isRunning}
+                  frd={frdById[node.id] ?? ""}
+                  onNodeClick={handleNodeClick}
+                />
+              );
+            })}
+          </svg>
+        </div>
       </div>
     </div>
   );

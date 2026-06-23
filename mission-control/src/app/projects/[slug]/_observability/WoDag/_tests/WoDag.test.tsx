@@ -83,11 +83,29 @@ describe("WoDag — AC-12-004.1: renders DAG graph", () => {
     expect(screen.getByTestId("dag-node-WO-01-004")).toBeTruthy();
   });
 
-  it("renders the WO title (first 18 chars) in each node", () => {
+  it("renders the WO title in each node", () => {
     render(<WoDag workOrders={[DONE_WO]} project="test-project" />);
     const node = screen.getByTestId("dag-node-WO-01-001");
-    // Title truncated to 18 chars: "Esquema de datos" (16 chars — fits)
     expect(node.textContent).toContain("Esquema de datos");
+  });
+
+  it("keeps the full description (wrapped, not JS-truncated) and strips a redundant WO-id title prefix", () => {
+    // A long title that ALSO repeats the id as a "WO-NN-MMM — " prefix.
+    const longWo: WorkOrder = {
+      id: "WO-01-009",
+      title: "WO-01-009 — Implementa el pipeline completo de validación de entrada",
+      frd: "FRD-01",
+      state: "todo",
+      relPath: "x.md",
+    };
+    render(<WoDag workOrders={[longWo]} project="p" />);
+    const node = screen.getByTestId("dag-node-WO-01-009");
+    // Full description is present — the title is wrapped via CSS, never sliced to 18 chars.
+    expect(node.textContent).toContain("validación de entrada");
+    // The id is shown ONCE (in the mono sub-line), stripped from the title to save room.
+    const idOccurrences = (node.textContent?.match(/WO-01-009/g) ?? []).length;
+    expect(idOccurrences).toBe(1);
+    expect(screen.getByTestId("dag-node-meta-WO-01-009").textContent).toContain("WO-01-009");
   });
 
   it("renders WO id and FRD in mono sub-line per node", () => {
@@ -362,5 +380,20 @@ describe("WoDag — fidelity: tokens, a11y, motion", () => {
   it("wraps the SVG in an overflow-x:auto scroll container", () => {
     render(<WoDag workOrders={ALL_WOS} project="test-project" />);
     expect(screen.getByTestId("dag-svg-container")).toBeTruthy();
+  });
+
+  it("renders the zoom toolbar (out · level · in · fit) defaulting to 100%", () => {
+    render(<WoDag workOrders={ALL_WOS} project="test-project" />);
+    expect(screen.getByTestId("dag-zoom")).toBeTruthy();
+    expect(screen.getByTestId("dag-zoom-out")).toBeTruthy();
+    expect(screen.getByTestId("dag-zoom-in")).toBeTruthy();
+    expect(screen.getByTestId("dag-zoom-fit")).toBeTruthy();
+    expect(screen.getByTestId("dag-zoom-level").textContent).toContain("100%");
+  });
+
+  it("clicking zoom-in raises the displayed zoom level above 100%", () => {
+    render(<WoDag workOrders={ALL_WOS} project="test-project" />);
+    fireEvent.click(screen.getByTestId("dag-zoom-in"));
+    expect(screen.getByTestId("dag-zoom-level").textContent).not.toBe("100%");
   });
 });

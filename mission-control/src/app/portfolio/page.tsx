@@ -58,7 +58,12 @@ interface PageProps {
 // single AppShell container (#pcapp, 1240px).
 const GRID_STYLE: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "240px 1fr",
+  // grid-template-columns is RESPONSIVE via the `pc-portfolio-grid` class (globals.css):
+  // a single stacked column on mobile (rail above the full-width workspace — otherwise a
+  // 240px rail leaves the workspace too narrow and long docs squish to one char per line),
+  // and "240px + workspace" on desktop. minmax(0, …) floors the workspace track at 0 so a
+  // wide child (the WoDag canvas, a long timeline/table) scrolls inside its own container
+  // instead of forcing the whole page to scroll horizontally.
   gap: "14px",
   alignItems: "start",
 };
@@ -117,8 +122,8 @@ export default async function PortfolioPage({
       subtitle="Tus proyectos en obra y lanzados. Elige uno para su workspace: resumen, work orders, party y documentación."
       testId="portfolio-page"
     >
-      {/* Two-column grid: 240px rail | 1fr workspace pane (FDD-03 §1) */}
-      <div style={GRID_STYLE}>
+      {/* Responsive grid: stacked on mobile, 240px rail | workspace pane on desktop (FDD-03 §1) */}
+      <div className="pc-portfolio-grid" style={GRID_STYLE}>
         {/* Left — the project rail column (CMP-03-rail, CMP-03-row)
             DR-057: uses the ONE shared ProjectRail with selectedSlug prop (selectable mode).
             No bespoke SelectableProjectRail — the selectable variant is a prop. */}

@@ -67,11 +67,15 @@ export function listProjectDocs(projectPath: string): DocNode[] {
   return nodes;
 }
 
-/** Product layer: docs/product/{prd,architecture}.md. Behavior copied verbatim. */
+/** Product layer: docs/product/{prd,research,architecture}.md. */
 function _collectProductDocs(projectPath: string, nodes: DocNode[]): void {
   const prdPath = path.join(projectPath, "docs", "product", "prd.md");
   if (pathExists(prdPath) && statIsFile(prdPath)) {
     nodes.push(makeDocNode("docs/product/prd.md", "prd.md", "Product"));
+  }
+  const researchPath = path.join(projectPath, "docs", "product", "research.md");
+  if (pathExists(researchPath) && statIsFile(researchPath)) {
+    nodes.push(makeDocNode("docs/product/research.md", "research.md", "Product"));
   }
   const archPath = path.join(projectPath, "docs", "product", "architecture.md");
   if (pathExists(archPath) && statIsFile(archPath)) {

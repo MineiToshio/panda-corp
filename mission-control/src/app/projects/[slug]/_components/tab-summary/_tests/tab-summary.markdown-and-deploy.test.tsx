@@ -46,6 +46,26 @@ describe("TabSummary (#20) — summary rendered through the shared <Markdown>", 
     expect(summary.textContent).not.toContain("# Pandacorp");
   });
 
+  it("does NOT emit a second <h1> for the card body's top-level '#' (no page-h1 collision)", () => {
+    render(
+      <TabSummary
+        summary={MARKDOWN_SUMMARY}
+        keyPoints={[]}
+        activityLog={EMPTY_LOG}
+        decisions={[]}
+        pendingDecisions={0}
+      />,
+    );
+    const summary = screen.getByTestId("summary-text");
+    // The card body's "# Pandacorp (Mission Control)" must render as an <h2>, NEVER an <h1>:
+    // the Portfolio page already owns the single page <h1> (PageTitle). A regression to
+    // h1→<h1> reintroduces the "two <h1>" a11y defect (decision-log 2026-06-22 / 17bb6da).
+    expect(within(summary).queryByRole("heading", { level: 1 })).toBeNull();
+    expect(
+      within(summary).getByRole("heading", { level: 2, name: "Pandacorp (Mission Control)" }),
+    ).toBeInTheDocument();
+  });
+
   it("uses the shared .pc-markdown container for the summary (DR-057, one renderer)", () => {
     render(
       <TabSummary

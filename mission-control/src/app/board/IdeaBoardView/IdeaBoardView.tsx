@@ -28,6 +28,7 @@
 import type { IdeaCardProps } from "@/components/modules/IdeaCard/IdeaCard";
 import { IdeaCard } from "@/components/modules/IdeaCard/IdeaCard";
 import type { BoardColumn } from "@/lib/board/board";
+import type { DocNode } from "@/lib/docs/tree";
 import type { DeployTarget, Phase } from "@/lib/status/status";
 
 // ---------------------------------------------------------------------------
@@ -98,6 +99,12 @@ export interface BoardCardEntry extends IdeaCardProps {
   phase?: Phase;
   /** The linked project's deploy target (DR-085) — shown in the Release ficha. */
   deployTarget?: DeployTarget;
+  /**
+   * Scoped doc STRUCTURE (PRD + research + per-FRD docs) from listProjectDocs in
+   * page.tsx, for in-pipeline cards. Forwarded to CardDetail's Documentos tab; the
+   * doc body loads lazily on select (the board ships structure only, never bodies).
+   */
+  docNodes?: DocNode[];
 }
 
 export interface IdeaBoardViewProps {

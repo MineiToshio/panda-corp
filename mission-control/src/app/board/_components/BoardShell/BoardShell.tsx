@@ -63,6 +63,12 @@ export interface BoardShellProps {
    * Injected so the component stays testable without Next.js infrastructure.
    */
   discardAction: (slug: string) => Promise<DiscardResult>;
+  /**
+   * Read-only Server Action that returns a scoped project doc's body on demand
+   * (the card-detail Documentos reader). Injected like discardAction so the
+   * component stays testable; optional so older callers/tests don't break.
+   */
+  readDocAction?: (project: string, relPath: string) => Promise<string | null>;
 }
 
 // ---------------------------------------------------------------------------
@@ -271,7 +277,11 @@ function DetailTail({ card }: { card: BoardCardEntry }): React.JSX.Element {
  *   3. `intakeOpen`       — whether the intake modal is open
  *   4. `openSlug`         — slug of the card whose detail is open (null = board view)
  */
-export function BoardShell({ cards, discardAction }: BoardShellProps): React.JSX.Element {
+export function BoardShell({
+  cards,
+  discardAction,
+  readDocAction,
+}: BoardShellProps): React.JSX.Element {
   const [query, setQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [intakeOpen, setIntakeOpen] = useState(false);
@@ -357,7 +367,7 @@ export function BoardShell({ cards, discardAction }: BoardShellProps): React.JSX
               {canDiscard && <DiscardButton slug={openCard.slug} discardAction={discardAction} />}
             </div>
 
-            {/* Card detail — Campaña · Documentos · Comandos tabs */}
+            {/* Card detail — Campaña · Documentos tabs */}
             <CardDetail
               slug={openCard.slug}
               title={openCard.title}
@@ -365,6 +375,9 @@ export function BoardShell({ cards, discardAction }: BoardShellProps): React.JSX
               phase={openCard.phase}
               deployTarget={openCard.deployTarget}
               body={openCard.body}
+              docNodes={openCard.docNodes}
+              project={openCard.project}
+              readDocAction={readDocAction}
               isRunning={openCard.isRunning}
               onEnterForge={(slug) => {
                 // AC-02-010.5: navigate host to Portfolio → Party tab.

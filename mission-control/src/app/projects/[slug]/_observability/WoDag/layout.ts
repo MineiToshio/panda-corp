@@ -19,17 +19,22 @@
 import type { DagEdge, DagNode } from "@/app/_observability/dag/dag/dag";
 
 // ---------------------------------------------------------------------------
-// Compact node + spacing constants (mirror prototype NW/NH/COLW/ROWH, tightened)
+// Node + spacing constants
+//
+// Sized for legibility: a node fits a state icon, a 2-line wrapped title and a
+// mono id·FRD sub-line WITHOUT the text spilling past the card edge. The canvas
+// renders at natural size (no auto-shrink) and the view is zoom/pan-able, so a
+// larger node is a feature, not a cost — see WoDag's ZoomControls.
 // ---------------------------------------------------------------------------
 
-/** Node width in px — matches prototype NW. */
-export const NODE_W = 150;
-/** Node height in px — matches prototype NH. */
-export const NODE_H = 54;
+/** Node width in px. */
+export const NODE_W = 170;
+/** Node height in px — room for a 2-line title + the id·FRD sub-line. */
+export const NODE_H = 62;
 /** Horizontal step between column origins (node + gap). */
-export const COL_STEP = 188;
+export const COL_STEP = 212;
 /** Vertical step between row origins within a column (node + gap). */
-export const ROW_STEP = 74;
+export const ROW_STEP = 84;
 /** Canvas inner padding. */
 export const PAD = 16;
 

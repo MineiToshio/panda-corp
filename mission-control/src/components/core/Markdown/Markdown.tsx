@@ -26,8 +26,11 @@ const ROOT_STYLE: CSSProperties = {
   fontSize: "15px",
   lineHeight: 1.6,
   color: "var(--color-text, currentColor)",
-  overflowWrap: "anywhere",
-  wordBreak: "break-word",
+  // `break-word` (not `anywhere`) breaks long unbreakable tokens (urls/paths/ids) to
+  // prevent overflow WITHOUT collapsing the min-content width to one character — which,
+  // in a narrow flex/grid cell (mobile), squished the whole document to 1 char per line.
+  overflowWrap: "break-word",
+  minWidth: 0,
 };
 
 // ---------------------------------------------------------------------------

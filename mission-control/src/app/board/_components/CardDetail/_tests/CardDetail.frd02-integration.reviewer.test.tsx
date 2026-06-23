@@ -45,7 +45,9 @@ function renderDetail(overrides: Partial<React.ComponentProps<typeof CardDetail>
       body={overrides.body ?? "Resumen de la idea."}
       phase={overrides.phase}
       advancePending={overrides.advancePending}
-      docsIndex={overrides.docsIndex}
+      docNodes={overrides.docNodes}
+      project={overrides.project}
+      readDocAction={overrides.readDocAction}
       onEnterForge={overrides.onEnterForge ?? onEnterForge}
     />,
   );
@@ -191,7 +193,7 @@ describe("FRD-02 integration — 2 tabs coexist with the real pipeline (AC-02-00
   });
 
   it("a card with no docs shows summary only and still renders the full pipeline (no cross-tab breakage)", () => {
-    renderDetail({ status: "discovered", body: "Solo resumen.", docsIndex: null });
+    renderDetail({ status: "discovered", body: "Solo resumen." });
     fireEvent.click(screen.getByTestId("card-detail-tab-docs"));
     // New contract: the docs rail is always present (lists Resumen); with no project
     // docs it has zero project doc items, and the Resumen reader shows the summary.

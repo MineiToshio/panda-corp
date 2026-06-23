@@ -4,44 +4,38 @@
  * Traceability:
  *   CMP-02-card-detail → components/CardDetail.tsx
  *   REQ-02-004   WHEN the owner clicks a card, the system SHALL show: summary, key points,
- *                a navigator of the idea's documents. (The next-step command moved into the
- *                campaign ficha — CampaignPipeline — and is covered there.)
- *   REQ-02-008   (Edge) Idea with no documents → show only the summary.
- *   AC-02-004.1  Summary + key points + docs navigator.
- *   AC-02-008.1  Card with no docs → summary only, no navigator, no crash.
+ *                a navigator of the idea's documents WITH their content (DR-046). (The
+ *                next-step command lives in the campaign ficha — CampaignPipeline.)
+ *   REQ-02-008   (Edge) Idea with no documents → show only the summary (rail lists Resumen).
+ *   AC-02-004.1  Summary + key points + docs navigator with content.
+ *   AC-02-008.1  Card with no docs → Resumen only, no project doc items, no crash.
+ *
+ * Docs model (DR-046): the rail is built from `docNodes` (the scoped DocNode list —
+ * PRD + research + per-FRD docs). Selecting a doc lazily loads its body via the
+ * injected `readDocAction` and renders it through the shared <Markdown> (.pc-markdown).
  *
  * Regression anchors from progress.md (past bugs → regression tests):
  *   B1' (rate/timeline/status): NaN / array-shaped values for phase must not crash the detail.
  *   I2  (status): empty / absent status.yaml → component still renders summary-only, no crash.
  *   I3  (status): array-shaped phase value → component survives gracefully.
- *   WO-04-003 adversarial: shared-reference mutation — docs index objects must not mutate
- *     across renders (each render gets its own prop reference).
  *
  * Stack: Vitest + @testing-library/react (jsdom).
  * CampaignPipeline is the real child here (the markdown summary + docs navigator are the unit
  * under test); the next-step command it now carries is verified in CampaignPipeline.test.tsx.
  *
- * Design contract for CardDetail (from WO-02-007):
- *   Props:
- *     slug: string
- *     title: string
- *     status: IdeaStatus
- *     body: string                          — markdown body (summary + key points)
- *     phase?: Phase                         — from linked project's status.yaml (in-pipeline only)
- *     advancePending?: boolean              — DR-032 hint
- *     docsIndex?: ProjectDocsIndex | null   — from readProjectDocs(card.project), null when absent
- *
- *   Rendered structure (data-testid):
- *     "card-detail"               — root container
- *     "card-detail-summary"       — markdown body (shown when "Resumen" is selected — the default)
- *     "card-detail-docs-nav"      — docs navigator rail (ALWAYS present; always lists Resumen)
- *     "card-detail-docs-nav-resumen" — the always-present "Resumen" rail item
- *     "card-detail-docs-nav-item" — one per navigable project doc (only when docsIndex has entries)
+ * Rendered structure (data-testid):
+ *   "card-detail"                  — root container
+ *   "card-detail-summary"          — markdown body (shown when "Resumen" is selected — the default)
+ *   "card-detail-doc-reader"       — reader for a selected project doc (lazy body)
+ *   "card-detail-docs-nav"         — docs navigator rail (ALWAYS present; always lists Resumen)
+ *   "card-detail-docs-nav-resumen" — the always-present "Resumen" rail item
+ *   "card-detail-docs-nav-section" — a rail section header (Producto / an FRD slug)
+ *   "card-detail-docs-nav-item"    — one per navigable project doc (only when docNodes has entries)
  */
 
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
-import type { ProjectDocsIndex } from "@/lib/docs/docs";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import type { DocNode } from "@/lib/docs/tree";
 import type { IdeaStatus } from "@/lib/ideas/ideas";
 import type { Phase } from "@/lib/status/status";
 
@@ -55,6 +49,41 @@ import { CardDetail } from "@/app/board/_components/CardDetail/CardDetail";
 // Shared fixtures
 // ---------------------------------------------------------------------------
 
+/** Scoped DocNode list (PRD + research + two FRDs) as page.tsx would produce. */
+const DOC_NODES: DocNode[] = [
+  { id: "docs/product/prd", label: "prd.md", group: "Product", relPath: "docs/product/prd.md" },
+  {
+    id: "docs/product/research",
+    label: "research.md",
+    group: "Product",
+    relPath: "docs/product/research.md",
+  },
+  {
+    id: "docs/frds/frd-01-auth/frd",
+    label: "frd.md",
+    group: "Feature: frd-01-auth",
+    relPath: "docs/frds/frd-01-auth/frd.md",
+  },
+  {
+    id: "docs/frds/frd-01-auth/blueprint",
+    label: "blueprint.md",
+    group: "Feature: frd-01-auth",
+    relPath: "docs/frds/frd-01-auth/blueprint.md",
+  },
+  {
+    id: "docs/frds/frd-02-billing/frd",
+    label: "frd.md",
+    group: "Feature: frd-02-billing",
+    relPath: "docs/frds/frd-02-billing/frd.md",
+  },
+];
+
+/** A read action that echoes which doc was requested (markdown). */
+const echoReadDoc = vi.fn(
+  async (_project: string, relPath: string): Promise<string | null> =>
+    `# Documento\n\nContenido de **${relPath}**.`,
+);
+
 /** Minimal card — no docs, no phase. */
 const MINIMAL_CARD = {
   slug: "minimal-idea",
@@ -63,10 +92,9 @@ const MINIMAL_CARD = {
   body: "## Summary\n\nThis is a short summary.\n\n- Key point A\n- Key point B",
   phase: undefined,
   advancePending: undefined,
-  docsIndex: null,
 };
 
-/** Full in-pipeline card with a rich docs index. */
+/** Full in-pipeline card with a rich scoped doc list + a working read action. */
 const IN_PIPELINE_CARD = {
   slug: "my-saas-idea",
   title: "My SaaS Idea",
@@ -74,46 +102,16 @@ const IN_PIPELINE_CARD = {
   body: "## Summary\n\nBuilding a great SaaS product.\n\n- Multi-tenant\n- Subscription billing",
   phase: "design" as Phase,
   advancePending: false,
-  docsIndex: {
-    prd: "/projects/my-saas/docs/product/prd.md",
-    architecture: "/projects/my-saas/docs/product/architecture.md",
-    frds: [
-      {
-        slug: "frd-01-auth",
-        hasFdd: true,
-        hasBlueprint: true,
-        hasMocks: false,
-        hasWorkOrders: true,
-      },
-      {
-        slug: "frd-02-billing",
-        hasFdd: false,
-        hasBlueprint: true,
-        hasMocks: true,
-        hasWorkOrders: false,
-      },
-    ],
-    hasAdr: true,
-    hasAnalytics: false,
-    hasDecisionLog: true,
-    comms: {
-      progress: "/projects/my-saas/.pandacorp/comms/progress.md",
-      bugs: [],
-    },
-  } satisfies ProjectDocsIndex,
+  docNodes: DOC_NODES,
+  project: "projects/my-saas",
+  readDocAction: echoReadDoc,
 };
 
-/** In-pipeline card with a completely empty docs index (no navigable entries). */
+/** In-pipeline card with no scoped docs (rail lists only Resumen). */
 const IN_PIPELINE_EMPTY_DOCS_CARD = {
   ...IN_PIPELINE_CARD,
   slug: "empty-docs-idea",
-  docsIndex: {
-    frds: [],
-    hasAdr: false,
-    hasAnalytics: false,
-    hasDecisionLog: false,
-    comms: { bugs: [] },
-  } satisfies ProjectDocsIndex,
+  docNodes: [] as DocNode[],
 };
 
 /** Shipped card — terminal state. */
@@ -124,7 +122,6 @@ const SHIPPED_CARD = {
   body: "## Summary\n\nAlready live.",
   phase: "release" as Phase,
   advancePending: false,
-  docsIndex: null,
 };
 
 /** Discarded card — terminal state. */
@@ -135,7 +132,6 @@ const DISCARDED_CARD = {
   body: "## Summary\n\nNot pursued.",
   phase: undefined,
   advancePending: undefined,
-  docsIndex: null,
 };
 
 // ---------------------------------------------------------------------------
@@ -238,84 +234,154 @@ describe("frd-02: AC-02-004.1 — summary markdown renders real headings", () =>
 });
 
 // ---------------------------------------------------------------------------
-// frd-02: AC-02-004.1 — docs navigator (in-pipeline with docs)
+// frd-02: AC-02-004.1 — docs navigator (in-pipeline with scoped docs)
 // ---------------------------------------------------------------------------
 
 describe("frd-02: AC-02-004.1 — docs navigator (in-pipeline card with docs)", () => {
-  it("frd-02: WHEN an in-pipeline card has a PRD THEN the docs navigator is present", () => {
+  it("frd-02: WHEN an in-pipeline card has docs THEN the docs navigator is present", () => {
     render(<CardDetail {...IN_PIPELINE_CARD} />);
     expect(screen.getByTestId("card-detail-docs-nav")).toBeInTheDocument();
   });
 
-  it("frd-02: WHEN an in-pipeline card has a PRD THEN a nav item for it is rendered", () => {
+  it("frd-02: WHEN an in-pipeline card has docs THEN nav items are rendered", () => {
     render(<CardDetail {...IN_PIPELINE_CARD} />);
     const items = screen.getAllByTestId("card-detail-docs-nav-item");
     expect(items.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("frd-02: WHEN docsIndex has two FRD modules THEN two FRD items appear in the navigator", () => {
+  it("frd-02: WHEN docNodes has the PRD THEN a nav item labelled 'PRD' is present", () => {
     render(<CardDetail {...IN_PIPELINE_CARD} />);
     const items = screen.getAllByTestId("card-detail-docs-nav-item");
-    // PRD + architecture + 2 FRDs + decision-log = at least 5 items; exact FRD text check:
-    const itemTexts = items.map((el) => el.textContent ?? "");
-    const frdItems = itemTexts.filter((t) => t.toLowerCase().includes("frd-0"));
-    expect(frdItems.length).toBe(2);
-  });
-
-  it("frd-02: WHEN docsIndex has a PRD THEN a nav item referencing 'prd' or 'PRD' is present", () => {
-    render(<CardDetail {...IN_PIPELINE_CARD} />);
-    const items = screen.getAllByTestId("card-detail-docs-nav-item");
-    const hasPrd = items.some((el) => /prd/i.test(el.textContent ?? ""));
+    const hasPrd = items.some((el) => /^PRD$/.test((el.textContent ?? "").trim()));
     expect(hasPrd).toBe(true);
   });
 
-  it("frd-02: WHEN docsIndex has an architecture doc THEN a nav item for it is present", () => {
+  it("frd-02: WHEN docNodes has research THEN a nav item labelled 'Research' is present under Producto", () => {
     render(<CardDetail {...IN_PIPELINE_CARD} />);
     const items = screen.getAllByTestId("card-detail-docs-nav-item");
-    const hasArch = items.some((el) => /architecture|arquitectura/i.test(el.textContent ?? ""));
-    expect(hasArch).toBe(true);
+    const hasResearch = items.some((el) => /research/i.test(el.textContent ?? ""));
+    expect(hasResearch).toBe(true);
+    const sections = screen
+      .getAllByTestId("card-detail-docs-nav-section")
+      .map((s) => s.textContent);
+    expect(sections).toContain("Producto");
   });
 
-  it("frd-02: WHEN docsIndex has a progress comms file THEN a nav item for it is present", () => {
+  it("frd-02: WHEN docNodes has two FRD groups THEN one section per FRD slug appears", () => {
     render(<CardDetail {...IN_PIPELINE_CARD} />);
-    const items = screen.getAllByTestId("card-detail-docs-nav-item");
-    const hasProgress = items.some((el) => /progress|progreso/i.test(el.textContent ?? ""));
-    expect(hasProgress).toBe(true);
+    const sections = screen
+      .getAllByTestId("card-detail-docs-nav-section")
+      .map((s) => s.textContent);
+    expect(sections).toContain("frd-01-auth");
+    expect(sections).toContain("frd-02-billing");
+  });
+
+  it("frd-02: WHEN an FRD has frd.md + blueprint.md THEN they carry the Spanish labels", () => {
+    render(<CardDetail {...IN_PIPELINE_CARD} />);
+    const itemTexts = screen
+      .getAllByTestId("card-detail-docs-nav-item")
+      .map((el) => el.textContent ?? "");
+    expect(itemTexts.some((t) => t.includes("Contrato (frd.md)"))).toBe(true);
+    expect(itemTexts.some((t) => t.includes("Implementación (blueprint.md)"))).toBe(true);
   });
 });
 
 // ---------------------------------------------------------------------------
-// frd-02: AC-02-008.1 — edge: card with no docs → summary only, no navigator
+// frd-02: AC-02-009.3 / AC-02-004.1 — lazy reader loads the selected doc's body
 // ---------------------------------------------------------------------------
 
-describe("frd-02: AC-02-008.1 — edge: card with no docs (summary only)", () => {
-  it("frd-02: WHEN docsIndex is null THEN the rail still lists Resumen but no project doc items", () => {
-    // New contract: the docs rail is always present (it always lists "Resumen");
-    // project doc items appear only when docsIndex has entries. A null index ⇒ none.
+describe("frd-02: lazy doc reader — selecting a doc loads its content via the read action", () => {
+  it("frd-02: WHEN a doc nav item is selected THEN readDocAction is called with the project + relPath", async () => {
+    const read = vi.fn(async () => "# Doc\n\nbody");
+    render(<CardDetail {...IN_PIPELINE_CARD} readDocAction={read} />);
+    const prdItem = screen
+      .getAllByTestId("card-detail-docs-nav-item")
+      .find((el) => /^PRD$/.test((el.textContent ?? "").trim()));
+    expect(prdItem).toBeDefined();
+    fireEvent.click(prdItem as HTMLElement);
+    await waitFor(() => expect(read).toHaveBeenCalled());
+    expect(read).toHaveBeenCalledWith("projects/my-saas", "docs/product/prd.md");
+  });
+
+  it("frd-02: WHEN the read action resolves THEN the doc content renders via .pc-markdown in the reader", async () => {
+    render(<CardDetail {...IN_PIPELINE_CARD} />);
+    const prdItem = screen
+      .getAllByTestId("card-detail-docs-nav-item")
+      .find((el) => /^PRD$/.test((el.textContent ?? "").trim())) as HTMLElement;
+    fireEvent.click(prdItem);
+    const reader = await screen.findByTestId("card-detail-doc-reader");
+    await waitFor(() => expect(reader.querySelector(".pc-markdown")).not.toBeNull());
+    expect(reader).toHaveTextContent("docs/product/prd.md");
+  });
+
+  it("frd-02: WHEN the read action returns null THEN the reader shows 'No se pudo leer este documento.'", async () => {
+    const read = vi.fn(async () => null);
+    render(<CardDetail {...IN_PIPELINE_CARD} readDocAction={read} />);
+    const item = screen.getAllByTestId("card-detail-docs-nav-item")[0] as HTMLElement;
+    fireEvent.click(item);
+    const reader = await screen.findByTestId("card-detail-doc-reader");
+    await waitFor(() => expect(reader).toHaveTextContent("No se pudo leer este documento."));
+  });
+
+  it("frd-02: WHEN no readDocAction is provided THEN selecting a doc shows the workspace fallback (no crash)", () => {
+    // Older callers/tests: docNodes present but no read action → graceful fallback.
+    render(
+      <CardDetail
+        slug="no-action"
+        title="No action"
+        status="in-pipeline"
+        body="x"
+        phase="design"
+        docNodes={DOC_NODES}
+        project="projects/p"
+      />,
+    );
+    const item = screen.getAllByTestId("card-detail-docs-nav-item")[0] as HTMLElement;
+    expect(() => fireEvent.click(item)).not.toThrow();
+    const reader = screen.getByTestId("card-detail-doc-reader");
+    expect(reader).toHaveTextContent("El contenido se abre en el workspace del proyecto.");
+  });
+
+  it("frd-02: WHEN switching from a loaded doc to Resumen THEN the summary shows again (content reset)", async () => {
+    render(<CardDetail {...IN_PIPELINE_CARD} />);
+    const item = screen.getAllByTestId("card-detail-docs-nav-item")[0] as HTMLElement;
+    fireEvent.click(item);
+    await screen.findByTestId("card-detail-doc-reader");
+    fireEvent.click(screen.getByTestId("card-detail-docs-nav-resumen"));
+    expect(screen.getByTestId("card-detail-summary")).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// frd-02: AC-02-008.1 — edge: card with no docs → Resumen only, no doc items
+// ---------------------------------------------------------------------------
+
+describe("frd-02: AC-02-008.1 — edge: card with no docs (Resumen only)", () => {
+  it("frd-02: WHEN docNodes is absent THEN the rail still lists Resumen but no project doc items", () => {
     render(<CardDetail {...MINIMAL_CARD} />);
     expect(screen.getByTestId("card-detail-docs-nav")).toBeInTheDocument();
     expect(screen.getByTestId("card-detail-docs-nav-resumen")).toBeInTheDocument();
     expect(screen.queryAllByTestId("card-detail-docs-nav-item")).toHaveLength(0);
   });
 
-  it("frd-02: WHEN docsIndex is null THEN no nav items are rendered", () => {
+  it("frd-02: WHEN docNodes is absent THEN no section headers are rendered", () => {
     render(<CardDetail {...MINIMAL_CARD} />);
-    expect(screen.queryAllByTestId("card-detail-docs-nav-item")).toHaveLength(0);
+    expect(screen.queryAllByTestId("card-detail-docs-nav-section")).toHaveLength(0);
   });
 
-  it("frd-02: WHEN docsIndex has no navigable entries THEN the rail lists only Resumen (no doc items)", () => {
+  it("frd-02: WHEN docNodes is an empty array THEN the rail lists only Resumen (no doc items)", () => {
     render(<CardDetail {...IN_PIPELINE_EMPTY_DOCS_CARD} />);
     expect(screen.getByTestId("card-detail-docs-nav")).toBeInTheDocument();
     expect(screen.getByTestId("card-detail-docs-nav-resumen")).toBeInTheDocument();
     expect(screen.queryAllByTestId("card-detail-docs-nav-item")).toHaveLength(0);
   });
 
-  it("frd-02: WHEN docsIndex is null THEN the summary is still rendered (no crash)", () => {
+  it("frd-02: WHEN docNodes is absent THEN the summary is still rendered (no crash)", () => {
     render(<CardDetail {...MINIMAL_CARD} />);
     expect(screen.getByTestId("card-detail-summary")).toBeInTheDocument();
   });
 
-  it("frd-02: WHEN docsIndex is null and body has content THEN summary text is visible", () => {
+  it("frd-02: WHEN docNodes is absent and body has content THEN summary text is visible", () => {
     render(<CardDetail {...MINIMAL_CARD} />);
     expect(screen.getByTestId("card-detail-summary")).toHaveTextContent("This is a short summary.");
   });
@@ -344,7 +410,6 @@ describe("frd-02: AC-02-008.1 — all lifecycle statuses render without crash", 
           body="Body content."
           phase={undefined}
           advancePending={undefined}
-          docsIndex={null}
         />,
       );
       expect(screen.getByTestId("card-detail")).toBeInTheDocument();
@@ -370,7 +435,6 @@ describe("frd-02: AC-02-008.1 — all pipeline phases render without crash", () 
           body="Body."
           phase={phase}
           advancePending={false}
-          docsIndex={null}
         />,
       );
       expect(screen.getByTestId("card-detail")).toBeInTheDocument();
@@ -394,7 +458,6 @@ describe("frd-02: regression B1' — undefined phase on in-pipeline card", () =>
         body="Some content."
         phase={undefined}
         advancePending={false}
-        docsIndex={null}
       />,
     );
     expect(screen.getByTestId("card-detail")).toBeInTheDocument();
@@ -403,19 +466,17 @@ describe("frd-02: regression B1' — undefined phase on in-pipeline card", () =>
 });
 
 // ---------------------------------------------------------------------------
-// frd-02: Regression — empty docs index does NOT show navigator
+// frd-02: Regression — empty docs list does NOT fabricate doc items
 // ---------------------------------------------------------------------------
 
-describe("frd-02: regression I2 — empty docsIndex shows no project doc items", () => {
-  it("frd-02: WHEN docsIndex has frds:[] and no other entries THEN no project doc items appear", () => {
-    // I2 regression under the new always-present rail: an empty index must not
-    // fabricate any project doc nav item (the rail still lists Resumen only).
+describe("frd-02: regression I2 — empty docNodes shows no project doc items", () => {
+  it("frd-02: WHEN docNodes is [] THEN no project doc items appear (rail lists Resumen only)", () => {
     render(<CardDetail {...IN_PIPELINE_EMPTY_DOCS_CARD} />);
     expect(screen.getByTestId("card-detail-docs-nav-resumen")).toBeInTheDocument();
     expect(screen.queryAllByTestId("card-detail-docs-nav-item")).toHaveLength(0);
   });
 
-  it("frd-02: WHEN docsIndex has frds:[] and no other entries THEN summary is still visible", () => {
+  it("frd-02: WHEN docNodes is [] THEN summary is still visible", () => {
     render(<CardDetail {...IN_PIPELINE_EMPTY_DOCS_CARD} />);
     expect(screen.getByTestId("card-detail-summary")).toBeInTheDocument();
   });
@@ -431,6 +492,12 @@ describe("frd-02: read-only invariant — no side effects on render", () => {
     // card (summary + docs navigator + real campaign) must produce no crash.
     expect(() => render(<CardDetail {...IN_PIPELINE_CARD} />)).not.toThrow();
     expect(screen.getByTestId("card-detail")).toBeInTheDocument();
+  });
+
+  it("frd-02: WHEN the component first renders THEN the read action is NOT called (lazy — only on select)", () => {
+    const read = vi.fn(async () => "x");
+    render(<CardDetail {...IN_PIPELINE_CARD} readDocAction={read} />);
+    expect(read).not.toHaveBeenCalled();
   });
 
   it("frd-02: WHEN the component renders twice with different slugs THEN both mount in isolation", () => {
@@ -496,7 +563,7 @@ describe("frd-02: accessibility — Spanish aria-label", () => {
 });
 
 // ---------------------------------------------------------------------------
-// frd-02: Structural order — summary precedes the docs navigator-less reader layout
+// frd-02: Structural order — navigator precedes the reader/summary
 // ---------------------------------------------------------------------------
 
 describe("frd-02: structural order — navigator precedes the reader/summary", () => {

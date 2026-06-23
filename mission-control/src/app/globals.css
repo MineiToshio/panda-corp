@@ -587,6 +587,21 @@ h3 {
   max-width: 100%;
 }
 
+/* Portfolio grid responsiveness (#portfolio-mobile). Inline styles can't express a
+   media query, so the responsive track-template lives here: a single stacked column on
+   mobile (rail above the full-width workspace — a 240px rail beside the workspace leaves
+   it too narrow on phones and long docs squish to one char per line), and "240px rail +
+   workspace" from the tablet breakpoint up. minmax(0, …) floors the workspace at 0 so a
+   wide child scrolls inside itself, never the whole page. */
+.pc-portfolio-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 768px) {
+  .pc-portfolio-grid {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+}
+
 /* Desktop: the nav is inline next to the toggle (which is hidden) */
 [data-nav-region] {
   display: flex;

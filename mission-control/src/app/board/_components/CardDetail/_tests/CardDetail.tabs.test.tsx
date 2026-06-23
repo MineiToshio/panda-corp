@@ -18,7 +18,7 @@
 
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { ProjectDocsIndex } from "@/lib/docs/docs";
+import type { DocNode } from "@/lib/docs/tree";
 import type { IdeaStatus } from "@/lib/ideas/ideas";
 import type { Phase } from "@/lib/status/status";
 
@@ -58,7 +58,9 @@ const MINIMAL: {
   body: string;
   phase: Phase | undefined;
   advancePending: boolean | undefined;
-  docsIndex: ProjectDocsIndex | null;
+  docNodes?: DocNode[];
+  project?: string;
+  readDocAction?: (project: string, relPath: string) => Promise<string | null>;
   onEnterForge?: (slug: string) => void;
 } = {
   slug: "test-idea",
@@ -67,7 +69,6 @@ const MINIMAL: {
   body: "## Summary\n\nAn idea summary.\n\n- Point A\n- Point B",
   phase: undefined,
   advancePending: undefined,
-  docsIndex: null,
 };
 
 const WITH_DOCS: typeof MINIMAL = {
@@ -75,23 +76,17 @@ const WITH_DOCS: typeof MINIMAL = {
   slug: "pipeline-idea",
   status: "in-pipeline",
   phase: "design",
-  docsIndex: {
-    prd: "/projects/p/docs/product/prd.md",
-    architecture: "/projects/p/docs/product/architecture.md",
-    frds: [
-      {
-        slug: "frd-01-auth",
-        hasFdd: false,
-        hasBlueprint: true,
-        hasMocks: false,
-        hasWorkOrders: true,
-      },
-    ],
-    hasAdr: false,
-    hasAnalytics: false,
-    hasDecisionLog: false,
-    comms: { bugs: [] },
-  } satisfies ProjectDocsIndex,
+  project: "projects/p",
+  readDocAction: vi.fn(async () => "# Doc\n\nbody"),
+  docNodes: [
+    { id: "docs/product/prd", label: "prd.md", group: "Product", relPath: "docs/product/prd.md" },
+    {
+      id: "docs/frds/frd-01-auth/frd",
+      label: "frd.md",
+      group: "Feature: frd-01-auth",
+      relPath: "docs/frds/frd-01-auth/frd.md",
+    },
+  ],
 };
 
 // ---------------------------------------------------------------------------
@@ -200,7 +195,7 @@ describe("frd-02: AC-02-009.2 — Documentos tab body contains summary and docs 
 
   it("frd-02: WHEN Documentos tab is active and card has no docs THEN the rail lists only Resumen (no project doc items)", () => {
     // New contract: the docs navigator is ALWAYS present — it always lists the
-    // "Resumen" item; project doc items appear only when docsIndex has entries.
+    // "Resumen" item; project doc items appear only when docNodes has entries.
     render(<CardDetail {...MINIMAL} />);
     fireEvent.click(screen.getByTestId("card-detail-tab-docs"));
     expect(screen.getByTestId("card-detail-docs-nav")).toBeInTheDocument();

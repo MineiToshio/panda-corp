@@ -129,6 +129,24 @@ describe("frd-04: listProjectDocs — AC-04-006.1 Product group (proj-a)", () =>
     expect(archNode?.group).toBe("Product");
   });
 
+  it("frd-04: AC-04-006.1 — WHEN research.md exists THEN a DocNode with group='Product' and relPath='docs/product/research.md' is surfaced", () => {
+    const nodes = docs(PROJ_A);
+    const researchNode = nodes.find((n) => n.label === "research.md");
+    expect(researchNode).toBeDefined();
+    expect(researchNode?.group).toBe("Product");
+    expect(researchNode?.relPath).toBe("docs/product/research.md");
+  });
+
+  it("frd-04: AC-04-006.2 — WHEN research.md is surfaced THEN readDoc returns its actual file content", () => {
+    const nodes = docs(PROJ_A);
+    const researchNode = nodes.find((n) => n.label === "research.md");
+    const relPath = researchNode?.relPath ?? "";
+    const content = read(PROJ_A, relPath);
+    const rawFile = fs.readFileSync(path.join(PROJ_A, relPath), "utf-8");
+    expect(content).toBe(rawFile);
+    expect((content ?? "").length).toBeGreaterThan(0);
+  });
+
   it("frd-04: AC-04-006.1 — WHEN prd.md exists THEN its DocNode.relPath starts with 'docs/product/'", () => {
     const nodes = docs(PROJ_A);
     const prdNode = nodes.find((n) => n.label === "prd.md");
