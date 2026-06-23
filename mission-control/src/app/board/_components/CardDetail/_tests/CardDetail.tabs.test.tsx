@@ -1,12 +1,15 @@
 /**
- * WO-02-007 (reopened) — CardDetail 3-tab restructure tests
+ * WO-02-007 (reopened) — CardDetail 2-tab restructure tests
  *
  * Traceability:
  *   CMP-02-card-detail → REQ-02-009
- *   AC-02-009.1 — 3 tabs (Campaña · Documentos · Comandos); default active = Campaña.
+ *   AC-02-009.1 — 2 tabs (Campaña · Documentos); default active = Campaña.
  *   AC-02-009.2 — clicking a tab activates it and shows its body.
  *   AC-02-009.3 — clicking a doc entry switches to Documentos tab.
  *   AC-02-009.4 — active tab persists across re-renders of the detail.
+ *
+ * The "Comandos" tab is gone: the next-step command moved into the campaign ficha
+ * (CampaignPipeline). Its coverage now lives in CampaignPipeline.test.tsx.
  *
  * Stack: Vitest + @testing-library/react (jsdom).
  * CampaignPipeline is mocked because its internal animation/phases are tested
@@ -14,23 +17,14 @@
  */
 
 import { fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ProjectDocsIndex } from "@/lib/docs/docs";
 import type { IdeaStatus } from "@/lib/ideas/ideas";
-import type { NextStep } from "@/lib/next-step/next-step";
 import type { Phase } from "@/lib/status/status";
 
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
-
-vi.mock("@/lib/next-step/next-step", () => ({
-  nextStep: vi.fn(),
-  // CardDetail now also imports workspaceCommands (Comandos tab project-command box).
-  // These tab-wiring fixtures never reach a construction/launched phase, so an empty
-  // list is enough to keep the import resolvable without rendering project commands.
-  workspaceCommands: vi.fn(() => []),
-}));
 
 // Mock CampaignPipeline so the tab-wiring tests are isolated from its internals.
 vi.mock("@/components/modules/CampaignPipeline/CampaignPipeline", () => ({
@@ -52,18 +46,10 @@ vi.mock("@/components/modules/CampaignPipeline/CampaignPipeline", () => ({
 }));
 
 import { CardDetail } from "@/app/board/_components/CardDetail/CardDetail";
-import { nextStep } from "@/lib/next-step/next-step";
-
-const mockNextStep = vi.mocked(nextStep);
 
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
-
-const STEP: NextStep = {
-  command: "/pandacorp:spec <idea>",
-  label: "Crear spec del proyecto",
-};
 
 const MINIMAL: {
   slug: string;
@@ -108,23 +94,25 @@ const WITH_DOCS: typeof MINIMAL = {
   } satisfies ProjectDocsIndex,
 };
 
-beforeEach(() => {
-  mockNextStep.mockReturnValue(STEP);
-});
-afterEach(() => {
-  vi.resetAllMocks();
-});
-
 // ---------------------------------------------------------------------------
-// AC-02-009.1 — 3 tabs rendered; default active = Campaña
+// AC-02-009.1 — 2 tabs rendered; default active = Campaña
 // ---------------------------------------------------------------------------
 
-describe("frd-02: AC-02-009.1 — 3-tab structure, default Campaña", () => {
-  it("frd-02: WHEN a card detail renders THEN all 3 tab buttons are present", () => {
+describe("frd-02: AC-02-009.1 — 2-tab structure, default Campaña", () => {
+  it("frd-02: WHEN a card detail renders THEN both tab buttons are present", () => {
     render(<CardDetail {...MINIMAL} />);
     expect(screen.getByTestId("card-detail-tab-campana")).toBeInTheDocument();
     expect(screen.getByTestId("card-detail-tab-docs")).toBeInTheDocument();
-    expect(screen.getByTestId("card-detail-tab-comandos")).toBeInTheDocument();
+  });
+
+  it("frd-02: WHEN a card detail renders THEN there is NO Comandos tab", () => {
+    render(<CardDetail {...MINIMAL} />);
+    expect(screen.queryByTestId("card-detail-tab-comandos")).not.toBeInTheDocument();
+  });
+
+  it("frd-02: WHEN a card detail renders THEN exactly 2 tabs are present", () => {
+    render(<CardDetail {...MINIMAL} />);
+    expect(screen.getAllByRole("tab")).toHaveLength(2);
   });
 
   it("frd-02: WHEN card detail renders THEN the Campaña tab button is active by default", () => {
@@ -133,13 +121,9 @@ describe("frd-02: AC-02-009.1 — 3-tab structure, default Campaña", () => {
     expect(tab).toHaveAttribute("aria-selected", "true");
   });
 
-  it("frd-02: WHEN card detail renders THEN Documentos and Comandos tabs are NOT active by default", () => {
+  it("frd-02: WHEN card detail renders THEN the Documentos tab is NOT active by default", () => {
     render(<CardDetail {...MINIMAL} />);
     expect(screen.getByTestId("card-detail-tab-docs")).toHaveAttribute("aria-selected", "false");
-    expect(screen.getByTestId("card-detail-tab-comandos")).toHaveAttribute(
-      "aria-selected",
-      "false",
-    );
   });
 
   it("frd-02: WHEN card detail renders THEN the CampaignPipeline is mounted (Campaña is default)", () => {
@@ -153,11 +137,10 @@ describe("frd-02: AC-02-009.1 — 3-tab structure, default Campaña", () => {
     expect(screen.getByTestId("card-detail-panel-campana")).toBeInTheDocument();
   });
 
-  it("frd-02: WHEN card detail renders THEN tab labels are in Spanish (Campaña / Documentos / Comandos)", () => {
+  it("frd-02: WHEN card detail renders THEN tab labels are in Spanish (Campaña / Documentos)", () => {
     render(<CardDetail {...MINIMAL} />);
     expect(screen.getByTestId("card-detail-tab-campana")).toHaveTextContent("Campaña");
     expect(screen.getByTestId("card-detail-tab-docs")).toHaveTextContent("Documentos");
-    expect(screen.getByTestId("card-detail-tab-comandos")).toHaveTextContent("Comandos");
   });
 });
 
@@ -172,27 +155,10 @@ describe("frd-02: AC-02-009.2 — tab activation on click", () => {
     expect(screen.getByTestId("card-detail-tab-docs")).toHaveAttribute("aria-selected", "true");
   });
 
-  it("frd-02: WHEN Documentos tab is clicked THEN Campaña and Comandos are no longer active", () => {
+  it("frd-02: WHEN Documentos tab is clicked THEN Campaña is no longer active", () => {
     render(<CardDetail {...MINIMAL} />);
     fireEvent.click(screen.getByTestId("card-detail-tab-docs"));
     expect(screen.getByTestId("card-detail-tab-campana")).toHaveAttribute("aria-selected", "false");
-    expect(screen.getByTestId("card-detail-tab-comandos")).toHaveAttribute(
-      "aria-selected",
-      "false",
-    );
-  });
-
-  it("frd-02: WHEN Comandos tab is clicked THEN it becomes active", () => {
-    render(<CardDetail {...MINIMAL} />);
-    fireEvent.click(screen.getByTestId("card-detail-tab-comandos"));
-    expect(screen.getByTestId("card-detail-tab-comandos")).toHaveAttribute("aria-selected", "true");
-  });
-
-  it("frd-02: WHEN Comandos tab is clicked THEN Campaña and Documentos are no longer active", () => {
-    render(<CardDetail {...MINIMAL} />);
-    fireEvent.click(screen.getByTestId("card-detail-tab-comandos"));
-    expect(screen.getByTestId("card-detail-tab-campana")).toHaveAttribute("aria-selected", "false");
-    expect(screen.getByTestId("card-detail-tab-docs")).toHaveAttribute("aria-selected", "false");
   });
 
   it("frd-02: WHEN Campaña tab is clicked after navigating away THEN it becomes active again", () => {
@@ -245,32 +211,6 @@ describe("frd-02: AC-02-009.2 — Documentos tab body contains summary and docs 
 });
 
 // ---------------------------------------------------------------------------
-// AC-02-009.2 — Comandos tab body: existing next-step command
-// ---------------------------------------------------------------------------
-
-describe("frd-02: AC-02-009.2 — Comandos tab body contains next-step command", () => {
-  it("frd-02: WHEN Comandos tab is clicked THEN the comandos panel is the active panel", () => {
-    render(<CardDetail {...MINIMAL} />);
-    fireEvent.click(screen.getByTestId("card-detail-tab-comandos"));
-    expect(screen.getByTestId("card-detail-tab-comandos")).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByTestId("card-detail-next-step")).toBeInTheDocument();
-  });
-
-  it("frd-02: WHEN Comandos tab is active THEN the next-step command text is in the Comandos panel", () => {
-    render(<CardDetail {...MINIMAL} />);
-    fireEvent.click(screen.getByTestId("card-detail-tab-comandos"));
-    const panel = screen.getByTestId("card-detail-panel-comandos");
-    expect(panel).toHaveTextContent("/pandacorp:spec <idea>");
-  });
-
-  it("frd-02: WHEN Comandos tab is active THEN the copy button is present in the Comandos panel", () => {
-    render(<CardDetail {...MINIMAL} />);
-    fireEvent.click(screen.getByTestId("card-detail-tab-comandos"));
-    expect(screen.getByTestId("copy-button")).toBeInTheDocument();
-  });
-});
-
-// ---------------------------------------------------------------------------
 // AC-02-009.3 — clicking a doc entry switches to Documentos tab
 // ---------------------------------------------------------------------------
 
@@ -293,11 +233,11 @@ describe("frd-02: AC-02-009.3 — doc entry click switches to Documentos tab", (
     expect(screen.getByTestId("card-detail-tab-campana")).toHaveAttribute("aria-selected", "false");
   });
 
-  it("frd-02: WHEN a doc nav item is clicked from Comandos tab THEN Documentos tab becomes active", () => {
+  it("frd-02: WHEN the Resumen rail item is clicked THEN Documentos tab becomes active", () => {
     render(<CardDetail {...WITH_DOCS} />);
-    fireEvent.click(screen.getByTestId("card-detail-tab-comandos"));
-    const [firstItem] = screen.getAllByTestId("card-detail-docs-nav-item");
-    fireEvent.click(firstItem as HTMLElement);
+    // Start on Campaña (default); clicking the always-present Resumen item also
+    // switches to the Documentos tab (handleSelectDoc forces the docs panel).
+    fireEvent.click(screen.getByTestId("card-detail-docs-nav-resumen"));
     expect(screen.getByTestId("card-detail-tab-docs")).toHaveAttribute("aria-selected", "true");
   });
 });
@@ -315,11 +255,13 @@ describe("frd-02: AC-02-009.4 — active tab persists across re-renders", () => 
     expect(screen.getByTestId("card-detail-tab-docs")).toHaveAttribute("aria-selected", "true");
   });
 
-  it("frd-02: WHEN Comandos tab is selected and the card re-renders THEN it stays on Comandos", () => {
+  it("frd-02: WHEN Campaña tab is selected and the card re-renders THEN it stays on Campaña", () => {
     const { rerender } = render(<CardDetail {...MINIMAL} />);
-    fireEvent.click(screen.getByTestId("card-detail-tab-comandos"));
+    // Campaña is the default; switch to docs, back to Campaña, then re-render.
+    fireEvent.click(screen.getByTestId("card-detail-tab-docs"));
+    fireEvent.click(screen.getByTestId("card-detail-tab-campana"));
     rerender(<CardDetail {...MINIMAL} advancePending={true} />);
-    expect(screen.getByTestId("card-detail-tab-comandos")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("card-detail-tab-campana")).toHaveAttribute("aria-selected", "true");
   });
 });
 

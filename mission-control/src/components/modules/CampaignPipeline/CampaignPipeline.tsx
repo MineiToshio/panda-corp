@@ -35,6 +35,7 @@
 
 import { useState } from "react";
 import { Chip } from "@/components/core/Chip/Chip";
+import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 import { AgentSprite } from "@/components/modules/party/AgentSprite/AgentSprite";
 import { Room } from "@/components/modules/party/Room/Room";
 import { StoneBridge } from "@/components/modules/party/StoneBridge/StoneBridge";
@@ -693,6 +694,16 @@ function FichaContent({
               </div>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Siguiente paso — the command to advance from this phase (replaces the old Comandos tab;
+          the owner wanted the command beside the phase info, not in a separate tab). */}
+      <div data-testid="ficha-next-step" style={FICHA_SUBSECTION_STYLE}>
+        <p style={FICHA_SECTION_LABEL_STYLE}>SIGUIENTE PASO</p>
+        <p style={FICHA_SECTION_VALUE_STYLE}>{phase.nextStep.label}</p>
+        <div style={{ marginTop: "calc(var(--spacing, 0.25rem) * 1.5)" }}>
+          <CmdRow command={phase.nextStep.command} />
         </div>
       </div>
 

@@ -2,7 +2,7 @@
  * FRD-02 GATE — adversarial integration (reviewer-authored, DR-015).
  *
  * Exercises the FRD-02 work orders TOGETHER with NO internal mocks:
- *   WO-02-007 CardDetail (3-tab shell)
+ *   WO-02-007 CardDetail (2-tab shell)
  *     → mounts WO-02-010 CampaignPipeline (real)
  *       → driven by WO-02-011 phaseFromStatus (real, via CardDetail)
  *     → raises onEnterForge wired in WO-02-012 goToParty contract (real callback shape)
@@ -176,10 +176,10 @@ describe("FRD-02 integration — Entrar a La Fragua bubbles the slug to onEnterF
 });
 
 // ---------------------------------------------------------------------------
-// Seam 4: the tab default + Documentos/Comandos coexistence (AC-02-009.x) with the REAL pipeline
+// Seam 4: the tab default + Documentos coexistence (AC-02-009.x) with the REAL pipeline
 // ---------------------------------------------------------------------------
 
-describe("FRD-02 integration — 3 tabs coexist with the real pipeline (AC-02-009.x)", () => {
+describe("FRD-02 integration — 2 tabs coexist with the real pipeline (AC-02-009.x)", () => {
   it("defaults to Campaña and the real pipeline is the active panel's content", () => {
     renderDetail({ status: "discovered" });
     expect(screen.getByTestId("card-detail-tab-campana").getAttribute("aria-selected")).toBe(
@@ -203,16 +203,12 @@ describe("FRD-02 integration — 3 tabs coexist with the real pipeline (AC-02-00
 
   it("opening a phase ficha does NOT reset the active tab choice (AC-02-009.4 across an interaction that re-renders)", () => {
     renderDetail({ status: "in-pipeline", phase: "implementation" });
-    // switch to Comandos
-    fireEvent.click(screen.getByTestId("card-detail-tab-comandos"));
-    expect(screen.getByTestId("card-detail-tab-comandos").getAttribute("aria-selected")).toBe(
-      "true",
-    );
+    // switch to Documentos
+    fireEvent.click(screen.getByTestId("card-detail-tab-docs"));
+    expect(screen.getByTestId("card-detail-tab-docs").getAttribute("aria-selected")).toBe("true");
     // interacting with the (hidden) pipeline ficha must not steal the active tab
     fireEvent.click(screen.getByTestId("campaign-phase-build"));
-    expect(screen.getByTestId("card-detail-tab-comandos").getAttribute("aria-selected")).toBe(
-      "true",
-    );
+    expect(screen.getByTestId("card-detail-tab-docs").getAttribute("aria-selected")).toBe("true");
   });
 });
 

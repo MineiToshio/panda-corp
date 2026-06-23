@@ -12,13 +12,16 @@
  *   AC-02-010.6 — read-only: no write, no network, no fs, no Claude call.
  *   AC-02-010.7 — locked future phase renders graceful locked state without crashing.
  *
- * Team fixture (from FRD-02 / blueprint §4b):
+ * Team fixture (from FRD-02 / blueprint §4b; DR-085 moved the audit into build):
  *   research      → researcher
  *   product       → product-manager
  *   design        → designer + copywriter
  *   architecture  → architect
- *   build         → implementer + reviewer + analytics
- *   release       → security-auditor + devops
+ *   build         → implementer + reviewer + analytics + security-auditor
+ *   release       → devops
+ *
+ * Each phase's ficha also carries a "Siguiente paso" command (ficha-next-step) — the
+ * command to advance from that phase (the old Comandos tab folded into the ficha).
  *
  * Stack: Vitest + @testing-library/react (jsdom).
  */
@@ -311,35 +314,42 @@ describe("AC-02-010.4 — per-phase ficha (active by default; click to switch, n
     expect(members).toHaveLength(1);
   });
 
-  // --- build team: implementer + reviewer + analytics ---
-  it("build ficha shows implementer, reviewer AND analytics (AC-02-010.4 whole team)", () => {
+  // --- build team (DR-085): implementer + reviewer + analytics + security-auditor ---
+  it("build ficha shows implementer, reviewer, analytics AND security-auditor (AC-02-010.4 whole team)", () => {
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={4} />);
     const team = screen.getByTestId("ficha-team");
     expect(within(team).getAllByText(/implementer/i).length).toBeGreaterThanOrEqual(1);
     expect(within(team).getAllByText(/reviewer/i).length).toBeGreaterThanOrEqual(1);
     expect(within(team).getAllByText(/analytics/i).length).toBeGreaterThanOrEqual(1);
+    // DR-085: the security audit (the final hardening) moved into construction.
+    expect(within(team).getAllByText(/security-auditor/i).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("build ficha shows exactly 3 team members", () => {
+  it("build ficha shows exactly 4 team members (DR-085)", () => {
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={4} />);
     const team = screen.getByTestId("ficha-team");
     const members = within(team).getAllByTestId("ficha-team-member");
-    expect(members).toHaveLength(3);
+    expect(members).toHaveLength(4);
   });
 
-  // --- release team: security-auditor + devops ---
-  it("release ficha shows BOTH security-auditor and devops team members (AC-02-010.4)", () => {
+  // --- release team (DR-085): devops only (security-auditor moved into build) ---
+  it("release ficha shows the devops team member (AC-02-010.4)", () => {
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={5} />);
     const team = screen.getByTestId("ficha-team");
-    expect(within(team).getAllByText(/security-auditor/i).length).toBeGreaterThanOrEqual(1);
     expect(within(team).getAllByText(/devops/i).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("release ficha shows exactly 2 team members", () => {
+  it("release ficha NO LONGER shows the security-auditor (DR-085: it moved into build)", () => {
+    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={5} />);
+    const team = screen.getByTestId("ficha-team");
+    expect(within(team).queryByText(/security-auditor/i)).not.toBeInTheDocument();
+  });
+
+  it("release ficha shows exactly 1 team member (DR-085)", () => {
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={5} />);
     const team = screen.getByTestId("ficha-team");
     const members = within(team).getAllByTestId("ficha-team-member");
-    expect(members).toHaveLength(2);
+    expect(members).toHaveLength(1);
   });
 
   // --- clicking a different phase updates the ficha ---
@@ -368,6 +378,42 @@ describe("AC-02-010.4 — per-phase ficha (active by default; click to switch, n
     expect(screen.getByTestId("campaign-phase-ficha")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("campaign-phase-research"));
     expect(screen.getByTestId("campaign-phase-ficha")).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ficha "Siguiente paso" — the per-phase next-step command (replaces the old Comandos tab)
+// ---------------------------------------------------------------------------
+
+describe("ficha-next-step — per-phase next-step command", () => {
+  it("the open ficha shows a 'Siguiente paso' section with the next-step command", () => {
+    // build is the active phase → its ficha is open by default and shows its command.
+    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={4} />);
+    const nextStep = screen.getByTestId("ficha-next-step");
+    expect(nextStep).toBeInTheDocument();
+    expect(nextStep).toHaveTextContent(/SIGUIENTE PASO/i);
+    // build's command advances to release.
+    expect(nextStep).toHaveTextContent("/pandacorp:release");
+  });
+
+  it("the next-step command tracks the selected phase (research → /pandacorp:spec)", () => {
+    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} />);
+    expect(screen.getByTestId("ficha-next-step")).toHaveTextContent("/pandacorp:spec <idea>");
+  });
+
+  it("the next-step section renders a copyable command row (CmdRow)", () => {
+    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} />);
+    const nextStep = screen.getByTestId("ficha-next-step");
+    expect(within(nextStep).getByTestId("cmd-row")).toBeInTheDocument();
+  });
+
+  it("clicking a different phase swaps the next-step command (release → /pandacorp:iterate)", () => {
+    // activePhase=5 (release) is open by default → its command is /pandacorp:iterate.
+    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={5} />);
+    expect(screen.getByTestId("ficha-next-step")).toHaveTextContent("/pandacorp:iterate");
+    // Click the (done) design phase → its command is /pandacorp:blueprint.
+    fireEvent.click(screen.getByTestId("campaign-phase-design"));
+    expect(screen.getByTestId("ficha-next-step")).toHaveTextContent("/pandacorp:blueprint");
   });
 });
 

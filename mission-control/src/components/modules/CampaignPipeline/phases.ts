@@ -44,6 +44,8 @@ export interface PhaseDefinition {
   writes: string;
   /** Entire specialist team for this phase (every member, AC-02-010.4). */
   team: ReadonlyArray<TeamMember>;
+  /** The command to advance from this phase to the next — shown as "Siguiente paso" in the ficha. */
+  nextStep: { label: string; command: string };
 }
 
 // ---------------------------------------------------------------------------
@@ -59,6 +61,10 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
       "Exploración del problema, del mercado y de las oportunidades. El researcher sumerge la idea en datos reales antes de tomar ninguna decisión de producto.",
     reads: "Idea inicial (card de la base de ideas)",
     writes: "research.md — hallazgos, oportunidades y restricciones",
+    nextStep: {
+      label: "Documenta el MVP (research + PRD + FRDs)",
+      command: "/pandacorp:spec <idea>",
+    },
     team: [
       {
         role: "researcher",
@@ -74,6 +80,7 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
       "Definición del producto mínimo viable. El product manager transforma los hallazgos en requisitos EARS y criterios de aceptación medibles.",
     reads: "research.md",
     writes: "PRD + FRDs (requisitos EARS con criterios de aceptación)",
+    nextStep: { label: "Diseña la interfaz y los tokens", command: "/pandacorp:design" },
     team: [
       {
         role: "product-manager",
@@ -89,6 +96,10 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
       "Creación del sistema visual y la microcopia. Diseñador y copywriter colaboran para que el producto sea bello, accesible y coherente en lenguaje.",
     reads: "PRD + FRDs",
     writes: "Mockups, design tokens y microcopia",
+    nextStep: {
+      label: "Define la arquitectura y los work orders",
+      command: "/pandacorp:blueprint",
+    },
     team: [
       {
         role: "designer",
@@ -109,6 +120,7 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
       "Diseño técnico de la solución. El arquitecto traduce los requisitos en ADRs, plano de implementación y órdenes de trabajo para el equipo de build.",
     reads: "Mockups, design tokens y microcopia",
     writes: "Blueprint + ADRs + Build Plan + work orders",
+    nextStep: { label: "Construye con TDD", command: "/pandacorp:implement" },
     team: [
       {
         role: "architect",
@@ -121,9 +133,10 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
     key: "build",
     name: "Construcción",
     description:
-      "Implementación con TDD (RED → GREEN → refactor). El implementer construye cada work order; el reviewer verifica con tests adversariales; analytics instrumenta eventos clave.",
+      "Implementación con TDD (RED → GREEN → refactor) y, como último paso, el endurecimiento: el security-auditor revisa la seguridad, el reviewer cierra la calidad y analytics instrumenta las métricas. El implementer construye cada work order.",
     reads: "Blueprint + ADRs + Build Plan + work orders",
-    writes: "Código verificado (GREEN) — la app funcionando",
+    writes: "Código verificado y endurecido (GREEN) — la app lista para lanzar",
+    nextStep: { label: "Lanza (interno o externo)", command: "/pandacorp:release" },
     team: [
       {
         role: "implementer",
@@ -140,25 +153,26 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
         label: "Analytics",
         what: "Instrumenta los eventos clave para métricas de negocio y telemetría.",
       },
+      {
+        role: "security-auditor",
+        label: "Security Auditor",
+        what: "Audita seguridad, dependencias y superficie de ataque — el endurecimiento final, último paso de la construcción antes de lanzar.",
+      },
     ],
   },
   {
     key: "release",
     name: "Release",
     description:
-      "Auditoría de seguridad y despliegue a producción. El auditor revisa vulnerabilidades; el devops orquesta el deploy y el plan de lanzamiento.",
-    reads: "Código verificado (GREEN)",
-    writes: "App en producción + plan de lanzamiento",
+      "El producto YA está lanzado: desplegado a un host externo (Vercel/AWS) o publicado como herramienta interna en la red. El devops orquesta el despliegue y el plan de lanzamiento; desde aquí se itera con métricas reales.",
+    reads: "Código verificado y endurecido (GREEN)",
+    writes: "App lanzada (interna o externa) + plan de lanzamiento",
+    nextStep: { label: "Itera o revisa el lanzamiento", command: "/pandacorp:iterate" },
     team: [
-      {
-        role: "security-auditor",
-        label: "Security Auditor",
-        what: "Revisa vulnerabilidades, cabeceras, dependencias y la superficie de ataque antes del deploy.",
-      },
       {
         role: "devops",
         label: "DevOps",
-        what: "Orquesta el despliegue, la infraestructura y el plan de retorno al mercado.",
+        what: "Orquesta el despliegue (interno en la red o externo a un host) y el plan de retorno al mercado.",
       },
     ],
   },

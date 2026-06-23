@@ -142,36 +142,6 @@ export function docsNavItemStyle(active: boolean): React.CSSProperties {
 }
 
 // ---------------------------------------------------------------------------
-// Comandos panel — next-step command row
-// ---------------------------------------------------------------------------
-
-export const NEXT_STEP_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 2)",
-  padding: "calc(var(--spacing, 0.25rem) * 3)",
-  background: "var(--color-surface, Canvas)",
-  border: "var(--hairline, 1px) solid var(--color-border, currentColor)",
-  borderRadius: "var(--radius, 0.5rem)",
-};
-
-export const NEXT_STEP_LABEL_STYLE: React.CSSProperties = {
-  fontSize: "0.75rem",
-  fontWeight: 600,
-  textTransform: "uppercase",
-  letterSpacing: "0.05em",
-  color: "var(--color-text-muted, var(--color-text, currentColor))",
-  margin: 0,
-};
-
-/** Command-row "when"/label hint shown above each command (Comandos tab). */
-export const COMMAND_WHEN_STYLE: React.CSSProperties = {
-  fontSize: "0.75rem",
-  color: "var(--color-text-muted, var(--color-text, currentColor))",
-  margin: 0,
-};
-
-// ---------------------------------------------------------------------------
 // Nav entry helpers
 // ---------------------------------------------------------------------------
 

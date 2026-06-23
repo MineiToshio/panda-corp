@@ -1,25 +1,25 @@
 /**
- * WO-02-007 — CardDetail component tests (TDD: RED phase)
+ * WO-02-007 — CardDetail component tests
  *
  * Traceability:
  *   CMP-02-card-detail → components/CardDetail.tsx
  *   REQ-02-004   WHEN the owner clicks a card, the system SHALL show: summary, key points,
- *                a navigator of the idea's documents, and the next-step command (with a copy button).
+ *                a navigator of the idea's documents. (The next-step command moved into the
+ *                campaign ficha — CampaignPipeline — and is covered there.)
  *   REQ-02-008   (Edge) Idea with no documents → show only the summary.
- *   AC-02-004.1  Summary + key points + docs navigator + next-step command (copy).
+ *   AC-02-004.1  Summary + key points + docs navigator.
  *   AC-02-008.1  Card with no docs → summary only, no navigator, no crash.
  *
  * Regression anchors from progress.md (past bugs → regression tests):
  *   B1' (rate/timeline/status): NaN / array-shaped values for phase must not crash the detail.
- *     nextStep already guards these upstream; we verify the component tolerates undefined phase.
  *   I2  (status): empty / absent status.yaml → component still renders summary-only, no crash.
  *   I3  (status): array-shaped phase value → component survives gracefully.
  *   WO-04-003 adversarial: shared-reference mutation — docs index objects must not mutate
  *     across renders (each render gets its own prop reference).
  *
  * Stack: Vitest + @testing-library/react (jsdom).
- * All external modules (nextStep, readProjectDocs) are mocked at the module boundary —
- * this is a unit test for the component; the library contracts are tested separately.
+ * CampaignPipeline is the real child here (the markdown summary + docs navigator are the unit
+ * under test); the next-step command it now carries is verified in CampaignPipeline.test.tsx.
  *
  * Design contract for CardDetail (from WO-02-007):
  *   Props:
@@ -37,36 +37,16 @@
  *     "card-detail-docs-nav"      — docs navigator rail (ALWAYS present; always lists Resumen)
  *     "card-detail-docs-nav-resumen" — the always-present "Resumen" rail item
  *     "card-detail-docs-nav-item" — one per navigable project doc (only when docsIndex has entries)
- *     "card-detail-next-step"     — row containing the next-step command string
- *     "copy-button"               — CopyButton (data-testid from CopyButton.tsx; now nested in CmdRow)
  */
 
 import { render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { ProjectDocsIndex } from "@/lib/docs/docs";
 import type { IdeaStatus } from "@/lib/ideas/ideas";
-import type { NextStep } from "@/lib/next-step/next-step";
 import type { Phase } from "@/lib/status/status";
 
 // ---------------------------------------------------------------------------
-// Mock: lib/next-step — nextStep is a pure function tested separately
-// ---------------------------------------------------------------------------
-
-vi.mock("@/lib/next-step/next-step", () => ({
-  nextStep: vi.fn(),
-  // CardDetail also imports workspaceCommands for the Comandos tab project-command
-  // box (implementation/release cards). Most fixtures here aren't construction/launched,
-  // so the default empty list keeps the import resolvable; tests that need rows override it.
-  workspaceCommands: vi.fn(() => []),
-}));
-
-import { nextStep, workspaceCommands } from "@/lib/next-step/next-step";
-
-const mockNextStep = vi.mocked(nextStep);
-const mockWorkspaceCommands = vi.mocked(workspaceCommands);
-
-// ---------------------------------------------------------------------------
-// Import the component under test (will be RED until implementation exists)
+// Import the component under test
 // ---------------------------------------------------------------------------
 
 import { CardDetail } from "@/app/board/_components/CardDetail/CardDetail";
@@ -74,21 +54,6 @@ import { CardDetail } from "@/app/board/_components/CardDetail/CardDetail";
 // ---------------------------------------------------------------------------
 // Shared fixtures
 // ---------------------------------------------------------------------------
-
-const DEFAULT_NEXT_STEP: NextStep = {
-  command: "/pandacorp:spec <idea>",
-  label: "Crear spec del proyecto",
-};
-
-const DESIGN_NEXT_STEP: NextStep = {
-  command: "/pandacorp:design",
-  label: "Ejecutar diseño",
-};
-
-const ADVANCE_PENDING_NEXT_STEP: NextStep = {
-  command: "/pandacorp:blueprint",
-  label: "Crear blueprint — escribe «ok, advance» para continuar",
-};
 
 /** Minimal card — no docs, no phase. */
 const MINIMAL_CARD = {
@@ -174,21 +139,6 @@ const DISCARDED_CARD = {
 };
 
 // ---------------------------------------------------------------------------
-// Setup / teardown
-// ---------------------------------------------------------------------------
-
-beforeEach(() => {
-  mockNextStep.mockReturnValue(DEFAULT_NEXT_STEP);
-  // Re-establish the default after resetAllMocks() so .map() in CardDetail's Comandos
-  // panel never sees undefined (the real workspaceCommands always returns an array).
-  mockWorkspaceCommands.mockReturnValue([]);
-});
-
-afterEach(() => {
-  vi.resetAllMocks();
-});
-
-// ---------------------------------------------------------------------------
 // frd-02: AC-02-004.1 — rendering the root container
 // ---------------------------------------------------------------------------
 
@@ -203,7 +153,6 @@ describe("frd-02: AC-02-004.1 — CardDetail root container", () => {
   });
 
   it("frd-02: WHEN an in-pipeline card is rendered THEN the component mounts without throwing", () => {
-    mockNextStep.mockReturnValue(DESIGN_NEXT_STEP);
     expect(() => render(<CardDetail {...IN_PIPELINE_CARD} />)).not.toThrow();
   });
 });
@@ -231,7 +180,6 @@ describe("frd-02: AC-02-004.1 — summary section (markdown body)", () => {
   });
 
   it("frd-02: WHEN an in-pipeline card is rendered THEN its body text appears in the summary", () => {
-    mockNextStep.mockReturnValue(DESIGN_NEXT_STEP);
     render(<CardDetail {...IN_PIPELINE_CARD} />);
     expect(screen.getByTestId("card-detail-summary")).toHaveTextContent(
       "Building a great SaaS product.",
@@ -250,25 +198,59 @@ describe("frd-02: AC-02-004.1 — summary section (markdown body)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// frd-02: AC-02-004.1 — summary markdown renders REAL headings (shared <Markdown>)
+// ---------------------------------------------------------------------------
+
+describe("frd-02: AC-02-004.1 — summary markdown renders real headings", () => {
+  it("frd-02: WHEN the body has an h1 THEN the summary renders a real <h1> (not remapped to <p>/<strong>)", () => {
+    render(<CardDetail {...MINIMAL_CARD} body="# The Big Title\n\nBody." />);
+    const summary = screen.getByTestId("card-detail-summary");
+    const h1 = summary.querySelector("h1");
+    expect(h1).not.toBeNull();
+    expect(h1).toHaveTextContent("The Big Title");
+  });
+
+  it("frd-02: WHEN the body has an h2 THEN the summary renders a real <h2>", () => {
+    render(<CardDetail {...MINIMAL_CARD} body="## Section\n\nBody." />);
+    const summary = screen.getByTestId("card-detail-summary");
+    const h2 = summary.querySelector("h2");
+    expect(h2).not.toBeNull();
+    expect(h2).toHaveTextContent("Section");
+  });
+
+  it("frd-02: WHEN the body has headings THEN they render inside the shared .pc-markdown container", () => {
+    render(<CardDetail {...MINIMAL_CARD} body="# Title\n\nBody." />);
+    const summary = screen.getByTestId("card-detail-summary");
+    expect(summary.querySelector(".pc-markdown")).not.toBeNull();
+  });
+
+  it("frd-02: WHEN the summary has its own headings THEN queryAllByRole('heading') finds them (additional to the title)", () => {
+    // The component's own <h2> title is clipped but present; the summary adds real
+    // headings on top. Both are discoverable as headings — they no longer collapse to <p>.
+    render(<CardDetail {...MINIMAL_CARD} body="# Summary heading\n\nText." />);
+    const summary = screen.getByTestId("card-detail-summary");
+    const headings = summary.querySelectorAll("h1, h2, h3, h4");
+    expect(headings.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // frd-02: AC-02-004.1 — docs navigator (in-pipeline with docs)
 // ---------------------------------------------------------------------------
 
 describe("frd-02: AC-02-004.1 — docs navigator (in-pipeline card with docs)", () => {
   it("frd-02: WHEN an in-pipeline card has a PRD THEN the docs navigator is present", () => {
-    mockNextStep.mockReturnValue(DESIGN_NEXT_STEP);
     render(<CardDetail {...IN_PIPELINE_CARD} />);
     expect(screen.getByTestId("card-detail-docs-nav")).toBeInTheDocument();
   });
 
   it("frd-02: WHEN an in-pipeline card has a PRD THEN a nav item for it is rendered", () => {
-    mockNextStep.mockReturnValue(DESIGN_NEXT_STEP);
     render(<CardDetail {...IN_PIPELINE_CARD} />);
     const items = screen.getAllByTestId("card-detail-docs-nav-item");
     expect(items.length).toBeGreaterThanOrEqual(1);
   });
 
   it("frd-02: WHEN docsIndex has two FRD modules THEN two FRD items appear in the navigator", () => {
-    mockNextStep.mockReturnValue(DESIGN_NEXT_STEP);
     render(<CardDetail {...IN_PIPELINE_CARD} />);
     const items = screen.getAllByTestId("card-detail-docs-nav-item");
     // PRD + architecture + 2 FRDs + decision-log = at least 5 items; exact FRD text check:
@@ -278,7 +260,6 @@ describe("frd-02: AC-02-004.1 — docs navigator (in-pipeline card with docs)", 
   });
 
   it("frd-02: WHEN docsIndex has a PRD THEN a nav item referencing 'prd' or 'PRD' is present", () => {
-    mockNextStep.mockReturnValue(DESIGN_NEXT_STEP);
     render(<CardDetail {...IN_PIPELINE_CARD} />);
     const items = screen.getAllByTestId("card-detail-docs-nav-item");
     const hasPrd = items.some((el) => /prd/i.test(el.textContent ?? ""));
@@ -286,7 +267,6 @@ describe("frd-02: AC-02-004.1 — docs navigator (in-pipeline card with docs)", 
   });
 
   it("frd-02: WHEN docsIndex has an architecture doc THEN a nav item for it is present", () => {
-    mockNextStep.mockReturnValue(DESIGN_NEXT_STEP);
     render(<CardDetail {...IN_PIPELINE_CARD} />);
     const items = screen.getAllByTestId("card-detail-docs-nav-item");
     const hasArch = items.some((el) => /architecture|arquitectura/i.test(el.textContent ?? ""));
@@ -294,7 +274,6 @@ describe("frd-02: AC-02-004.1 — docs navigator (in-pipeline card with docs)", 
   });
 
   it("frd-02: WHEN docsIndex has a progress comms file THEN a nav item for it is present", () => {
-    mockNextStep.mockReturnValue(DESIGN_NEXT_STEP);
     render(<CardDetail {...IN_PIPELINE_CARD} />);
     const items = screen.getAllByTestId("card-detail-docs-nav-item");
     const hasProgress = items.some((el) => /progress|progreso/i.test(el.textContent ?? ""));
@@ -340,114 +319,6 @@ describe("frd-02: AC-02-008.1 — edge: card with no docs (summary only)", () =>
 });
 
 // ---------------------------------------------------------------------------
-// frd-02: AC-02-004.1 — next-step command row
-// ---------------------------------------------------------------------------
-
-describe("frd-02: AC-02-004.1 — next-step command row", () => {
-  it("frd-02: WHEN a card is rendered THEN the next-step section has data-testid='card-detail-next-step'", () => {
-    render(<CardDetail {...MINIMAL_CARD} />);
-    expect(screen.getByTestId("card-detail-next-step")).toBeInTheDocument();
-  });
-
-  it("frd-02: WHEN nextStep returns a command THEN that command string is visible in the detail", () => {
-    render(<CardDetail {...MINIMAL_CARD} />);
-    expect(screen.getByTestId("card-detail-next-step")).toHaveTextContent("/pandacorp:spec <idea>");
-  });
-
-  it("frd-02: WHEN an in-pipeline card with phase=design is rendered THEN nextStep is called with correct args", () => {
-    mockNextStep.mockReturnValue(DESIGN_NEXT_STEP);
-    render(<CardDetail {...IN_PIPELINE_CARD} />);
-    expect(mockNextStep).toHaveBeenCalledWith({
-      cardStatus: "in-pipeline",
-      phase: "design",
-      advancePending: false,
-    });
-  });
-
-  it("frd-02: WHEN nextStep returns /pandacorp:design THEN that command appears in the next-step row", () => {
-    mockNextStep.mockReturnValue(DESIGN_NEXT_STEP);
-    render(<CardDetail {...IN_PIPELINE_CARD} />);
-    expect(screen.getByTestId("card-detail-next-step")).toHaveTextContent("/pandacorp:design");
-  });
-
-  it("frd-02: WHEN a discovered card is rendered THEN nextStep is called with cardStatus=discovered", () => {
-    render(<CardDetail {...MINIMAL_CARD} />);
-    expect(mockNextStep).toHaveBeenCalledWith(
-      expect.objectContaining({ cardStatus: "discovered" }),
-    );
-  });
-
-  it("frd-02: WHEN a shipped card is rendered THEN nextStep receives cardStatus=shipped", () => {
-    const shippedStep: NextStep = {
-      command: "/pandacorp:review-launch",
-      label: "Revisar métricas de lanzamiento",
-    };
-    mockNextStep.mockReturnValue(shippedStep);
-    render(<CardDetail {...SHIPPED_CARD} />);
-    expect(mockNextStep).toHaveBeenCalledWith(expect.objectContaining({ cardStatus: "shipped" }));
-    expect(screen.getByTestId("card-detail-next-step")).toHaveTextContent(
-      "/pandacorp:review-launch",
-    );
-  });
-
-  it("frd-02: WHEN a discarded card is rendered THEN nextStep receives cardStatus=discarded", () => {
-    const discardedStep: NextStep = {
-      command: "/pandacorp:recommend",
-      label: "Ver ideas recomendadas",
-    };
-    mockNextStep.mockReturnValue(discardedStep);
-    render(<CardDetail {...DISCARDED_CARD} />);
-    expect(mockNextStep).toHaveBeenCalledWith(expect.objectContaining({ cardStatus: "discarded" }));
-  });
-
-  it("frd-02: DR-032 WHEN advancePending is true THEN nextStep is called with advancePending=true", () => {
-    mockNextStep.mockReturnValue(ADVANCE_PENDING_NEXT_STEP);
-    render(<CardDetail {...IN_PIPELINE_CARD} phase="design" advancePending={true} />);
-    expect(mockNextStep).toHaveBeenCalledWith({
-      cardStatus: "in-pipeline",
-      phase: "design",
-      advancePending: true,
-    });
-  });
-
-  it("frd-02: DR-032 WHEN advancePending is true THEN the advance hint text is visible in the next-step row", () => {
-    mockNextStep.mockReturnValue(ADVANCE_PENDING_NEXT_STEP);
-    render(<CardDetail {...IN_PIPELINE_CARD} phase="design" advancePending={true} />);
-    // The label returned by nextStep (with the DR-032 suffix) must be rendered
-    expect(screen.getByTestId("card-detail-next-step")).toHaveTextContent("ok, advance");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// frd-02: AC-02-004.1 — CopyButton for the next-step command
-// ---------------------------------------------------------------------------
-
-describe("frd-02: AC-02-004.1 — CopyButton on the next-step command", () => {
-  it("frd-02: WHEN a card detail is rendered THEN a copy-button is present", () => {
-    render(<CardDetail {...MINIMAL_CARD} />);
-    expect(screen.getByTestId("copy-button")).toBeInTheDocument();
-  });
-
-  it("frd-02: WHEN the next-step command is /pandacorp:spec THEN CopyButton receives that value", () => {
-    render(<CardDetail {...MINIMAL_CARD} />);
-    // The CopyButton aria-label defaults to "Copiar al portapapeles" (unclicked)
-    expect(screen.getByRole("button", { name: /copiar al portapapeles/i })).toBeInTheDocument();
-  });
-
-  it("frd-02: WHEN the next-step command is /pandacorp:design THEN CopyButton shows it", () => {
-    mockNextStep.mockReturnValue(DESIGN_NEXT_STEP);
-    render(<CardDetail {...IN_PIPELINE_CARD} />);
-    // Verify one copy-button exists (exact value is verified via CopyButton's own tests)
-    expect(screen.getByTestId("copy-button")).toBeInTheDocument();
-  });
-
-  it("frd-02: WHEN nextStep returns a command THEN only one CopyButton is rendered (no duplication)", () => {
-    render(<CardDetail {...MINIMAL_CARD} />);
-    expect(screen.getAllByTestId("copy-button")).toHaveLength(1);
-  });
-});
-
-// ---------------------------------------------------------------------------
 // frd-02: AC-02-008.1 — edge: all lifecycle statuses render without crash
 // ---------------------------------------------------------------------------
 
@@ -475,7 +346,6 @@ describe("frd-02: AC-02-008.1 — all lifecycle statuses render without crash", 
       );
       expect(screen.getByTestId("card-detail")).toBeInTheDocument();
       expect(screen.getByTestId("card-detail-summary")).toBeInTheDocument();
-      expect(screen.getByTestId("card-detail-next-step")).toBeInTheDocument();
     });
   }
 });
@@ -512,7 +382,7 @@ describe("frd-02: AC-02-008.1 — all pipeline phases render without crash", () 
 describe("frd-02: regression B1' — undefined phase on in-pipeline card", () => {
   it("frd-02: WHEN phase is undefined on in-pipeline card THEN component renders without crash", () => {
     // B1': NaN/array phase values are rejected upstream by readStatus; arrive here as undefined.
-    // nextStep falls back to CMD_SPEC — the component must not crash on undefined phase.
+    // The campaign view falls back to research — the component must not crash on undefined phase.
     render(
       <CardDetail
         slug="no-phase-idea"
@@ -526,22 +396,6 @@ describe("frd-02: regression B1' — undefined phase on in-pipeline card", () =>
     );
     expect(screen.getByTestId("card-detail")).toBeInTheDocument();
     expect(screen.getByTestId("card-detail-summary")).toBeInTheDocument();
-    expect(screen.getByTestId("card-detail-next-step")).toBeInTheDocument();
-  });
-
-  it("frd-02: WHEN phase is undefined THEN nextStep is called with phase=undefined (not fabricated)", () => {
-    render(
-      <CardDetail
-        slug="no-phase-idea"
-        title="No Phase Idea"
-        status="in-pipeline"
-        body="Some content."
-        phase={undefined}
-        advancePending={false}
-        docsIndex={null}
-      />,
-    );
-    expect(mockNextStep).toHaveBeenCalledWith(expect.objectContaining({ phase: undefined }));
   });
 });
 
@@ -562,34 +416,43 @@ describe("frd-02: regression I2 — empty docsIndex shows no project doc items",
     render(<CardDetail {...IN_PIPELINE_EMPTY_DOCS_CARD} />);
     expect(screen.getByTestId("card-detail-summary")).toBeInTheDocument();
   });
+});
 
-  it("frd-02: WHEN docsIndex has frds:[] and no other entries THEN next-step row is still present", () => {
-    render(<CardDetail {...IN_PIPELINE_EMPTY_DOCS_CARD} />);
-    expect(screen.getByTestId("card-detail-next-step")).toBeInTheDocument();
+// ---------------------------------------------------------------------------
+// frd-02: Read-only invariant — no network calls triggered by render
+// ---------------------------------------------------------------------------
+
+describe("frd-02: read-only invariant — no side effects on render", () => {
+  it("frd-02: WHEN an in-pipeline card with docs renders THEN it mounts without throwing (read-only)", () => {
+    // CardDetail is a read-only display component. Rendering the rich in-pipeline
+    // card (summary + docs navigator + real campaign) must produce no crash.
+    expect(() => render(<CardDetail {...IN_PIPELINE_CARD} />)).not.toThrow();
+    expect(screen.getByTestId("card-detail")).toBeInTheDocument();
+  });
+
+  it("frd-02: WHEN the component renders twice with different slugs THEN both mount in isolation", () => {
+    const { unmount } = render(<CardDetail {...MINIMAL_CARD} />);
+    expect(screen.getByTestId("card-detail")).toBeInTheDocument();
+    unmount();
+    render(<CardDetail {...SHIPPED_CARD} />);
+    expect(screen.getByTestId("card-detail")).toBeInTheDocument();
+    expect(screen.getByTestId("card-detail-summary")).toHaveTextContent("Already live.");
   });
 });
 
 // ---------------------------------------------------------------------------
-// frd-02: Read-only invariant — no write or network calls triggered by render
+// frd-02: terminal cards (shipped / discarded) render summary
 // ---------------------------------------------------------------------------
 
-describe("frd-02: read-only invariant — no side effects on render", () => {
-  it("frd-02: WHEN the component renders THEN it does not call any write or network function", () => {
-    // CardDetail is a read-only display component. No write or Claude call must happen.
-    // If the implementation calls fs.writeFileSync or fetch, the vi.mock below would catch it.
-    // This test verifies that rendering alone produces no unintended calls beyond nextStep.
-    mockNextStep.mockReturnValue(DEFAULT_NEXT_STEP);
-    const callCountBefore = mockNextStep.mock.calls.length;
-    render(<CardDetail {...IN_PIPELINE_CARD} />);
-    // nextStep was called exactly once (not zero, not more than once per render)
-    expect(mockNextStep.mock.calls.length - callCountBefore).toBe(1);
+describe("frd-02: terminal cards render the summary", () => {
+  it("frd-02: WHEN a shipped card is rendered THEN its summary text is visible", () => {
+    render(<CardDetail {...SHIPPED_CARD} />);
+    expect(screen.getByTestId("card-detail-summary")).toHaveTextContent("Already live.");
   });
 
-  it("frd-02: WHEN the component renders twice with different slugs THEN nextStep is called twice (isolated)", () => {
-    const { unmount } = render(<CardDetail {...MINIMAL_CARD} />);
-    unmount();
-    render(<CardDetail {...SHIPPED_CARD} status="shipped" />);
-    expect(mockNextStep).toHaveBeenCalledTimes(2);
+  it("frd-02: WHEN a discarded card is rendered THEN its summary text is visible", () => {
+    render(<CardDetail {...DISCARDED_CARD} />);
+    expect(screen.getByTestId("card-detail-summary")).toHaveTextContent("Not pursued.");
   });
 });
 
@@ -615,9 +478,11 @@ describe("frd-02: accessibility — Spanish aria-label", () => {
   it("frd-02: WHEN rendered THEN the root element carries an accessible name", () => {
     render(<CardDetail {...MINIMAL_CARD} />);
     const root = screen.getByTestId("card-detail");
-    // Either aria-label or a heading supplies the accessible name.
+    // Either aria-label or a heading supplies the accessible name. Use the plural
+    // query: the real CampaignPipeline mounts its own headings too, so queryByRole
+    // (singular) would throw on multiple matches.
     const ariaLabel = root.getAttribute("aria-label") ?? "";
-    const hasHeading = screen.queryByRole("heading") !== null;
+    const hasHeading = screen.queryAllByRole("heading").length > 0;
     expect(ariaLabel.length > 0 || hasHeading).toBe(true);
   });
 
@@ -628,25 +493,15 @@ describe("frd-02: accessibility — Spanish aria-label", () => {
 });
 
 // ---------------------------------------------------------------------------
-// frd-02: Structural order — summary precedes next-step (layout contract)
+// frd-02: Structural order — summary precedes the docs navigator-less reader layout
 // ---------------------------------------------------------------------------
 
-describe("frd-02: structural order — summary before next-step", () => {
-  it("frd-02: WHEN rendered THEN the summary section appears before the next-step section in the DOM", () => {
-    render(<CardDetail {...MINIMAL_CARD} />);
-    const summary = screen.getByTestId("card-detail-summary");
-    const nextStepEl = screen.getByTestId("card-detail-next-step");
-    // compareDocumentPosition: 4 means summary precedes next-step
-    expect(
-      summary.compareDocumentPosition(nextStepEl) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-  });
-
-  it("frd-02: WHEN an in-pipeline card with docs is rendered THEN navigator appears before next-step", () => {
-    mockNextStep.mockReturnValue(DESIGN_NEXT_STEP);
+describe("frd-02: structural order — navigator precedes the reader/summary", () => {
+  it("frd-02: WHEN an in-pipeline card with docs is rendered THEN the navigator appears before the summary reader", () => {
     render(<CardDetail {...IN_PIPELINE_CARD} />);
     const nav = screen.getByTestId("card-detail-docs-nav");
-    const nextStepEl = screen.getByTestId("card-detail-next-step");
-    expect(nav.compareDocumentPosition(nextStepEl) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const summary = screen.getByTestId("card-detail-summary");
+    // compareDocumentPosition: FOLLOWING means nav precedes summary in the DOM.
+    expect(nav.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
