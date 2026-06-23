@@ -362,6 +362,7 @@ export function BoardShell({ cards, discardAction }: BoardShellProps): React.JSX
               slug={openCard.slug}
               title={openCard.title}
               status={openCard.status}
+              phase={openCard.phase}
               body={openCard.body}
               isRunning={openCard.isRunning}
               onEnterForge={(slug) => {

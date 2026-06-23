@@ -28,6 +28,7 @@
 import type { IdeaCardProps } from "@/components/modules/IdeaCard/IdeaCard";
 import { IdeaCard } from "@/components/modules/IdeaCard/IdeaCard";
 import type { BoardColumn } from "@/lib/board/board";
+import type { Phase } from "@/lib/status/status";
 
 // ---------------------------------------------------------------------------
 // Column definitions — the 7 canonical columns (FRD-02, blueprint §2)
@@ -89,6 +90,12 @@ function fallbackColumn(status: IdeaCardProps["status"]): BoardColumn {
 export interface BoardCardEntry extends IdeaCardProps {
   /** Pre-computed two-axis column (set by page.tsx via deriveColumn). */
   boardColumn?: BoardColumn;
+  /**
+   * The linked project's phase (from readStatus in page.tsx), for in-pipeline cards.
+   * Forwarded to CardDetail so the campaign's active phase matches the board column
+   * (without it the card detail falls back to research → board/detail desync).
+   */
+  phase?: Phase;
 }
 
 export interface IdeaBoardViewProps {

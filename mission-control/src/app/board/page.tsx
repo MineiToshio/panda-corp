@@ -84,6 +84,9 @@ export default function BoardPage(): React.JSX.Element {
       body: card.body,
       isRunning,
       boardColumn,
+      // Forward the real project phase so the card detail's campaign matches the
+      // board column (without it the detail falls back to research → desync).
+      phase: projectStatus?.present ? projectStatus.status.phase : undefined,
     };
   });
 
