@@ -4,7 +4,7 @@ type: blueprint
 parent: FRD-02
 status: ACTIVE
 implementation_status: VERIFIED
-last_updated: '2026-06-20'
+last_updated: '2026-06-22'
 ---
 # FRD-02 — Ideas board — Feature blueprint
 
@@ -39,11 +39,12 @@ heart of the feature (`lib/board.ts`).
 | `CMP-02-board-view` | UI (Server) | `app/board/page.tsx` | Render the kanban columns + cards from `readIdeas` + `readStatus` + `lib/board`. | REQ-02-001, REQ-02-002, REQ-02-005 |
 | `CMP-02-card` | UI (Server) | `components/IdeaCard.tsx` | One card: title, score, category + return chips, recommended/building badges. | REQ-02-005, REQ-02-006 |
 | `CMP-02-intake-modal` | UI (client) | `components/IntakeModal.tsx` | Modal overlay (backdrop + blur) with the 4 intake commands. | REQ-02-003 |
-| `CMP-02-card-detail` | UI (Server + client copy) | `components/CardDetail.tsx` | The **tabbed card-detail container** (Campaña · Documentos · Comandos); hosts the three tab bodies; default tab Campaña; tab state persists. | REQ-02-004, REQ-02-009 |
-| `CMP-02-campaign-pipeline` | UI (client) | `components/CampaignPipeline.tsx` | **La Campaña** view: the 6-phase pipeline, derived active phase, per-phase ficha (description + reads/writes + the WHOLE team), Construcción → host-navigate to Party, read-only. | REQ-02-010 |
-| `CMP-02-phase-from-status` | module | `lib/campaign.ts` | Pure `phaseFromStatus(status)` derivation: card status / project phase → active phase index (0–5), with a safe fallback to `research`. | REQ-02-010 |
-| `CMP-02-go-party` | UI (client glue) | host-navigation callback (`mcGoParty(slug)`) | Navigate the host app to Portfolio → that project → the Party tab (FRD-06), no inner reload. | REQ-02-010 |
-| `CMP-02-category-filter` | UI (client) | `components/CategoryFilter.tsx` | Filter the board by `project_type`. | REQ-02-006 |
+| `CMP-02-card-detail` | UI (client) | `app/board/_components/CardDetail/CardDetail.tsx` (+ `CardDetail.styles.ts`) | The **tabbed card-detail container** (Campaña · Documentos · Comandos) via the shared `Tabs` primitive (icons, `level="sub"`); default tab Campaña; tab state persists. Root is transparent layout (each tab's own content is the bordered panel below the bare pills). Documentos = rail (Resumen + project docs) + reader; Comandos = `CmdRow` next-step + (building/operation) `workspaceCommands` box. Threads `isRunning` → `CampaignPipeline.running`. | REQ-02-004, REQ-02-008, REQ-02-009 |
+| `CMP-02-campaign-pipeline` | UI (client) | `components/modules/CampaignPipeline/CampaignPipeline.tsx` (+ `phases.ts`, `RoamingCast.tsx`) | **La Campaña** view: the 6-phase pipeline (full-width stage, rooms centred in an inner layer), derived active phase, road connectors **under** the rooms, per-phase ficha (header `{n · name} — state` + description + reads/writes + the WHOLE team) shown **by default + pinned**, "en curso"/roam gated on `running`, Construcción → host-navigate to Party, read-only. `PHASE_META` (emoji · short deliverable · accent) feeds rooms + connectors. | REQ-02-010 |
+| `CMP-02-roaming-cast` | UI (client) | `components/modules/CampaignPipeline/RoamingCast.tsx` | The active room's cast: a `requestAnimationFrame` roam loop (walk/idle bob, lead halo, speech-on-meet) that runs **only when `state==="current" && running`**; done → idle-bob in place; locked → static + dimmed. Honors `prefers-reduced-motion` (and jsdom/SSR — no `matchMedia` → static). | REQ-02-010 |
+| `CMP-02-phase-from-status` | module | `lib/campaign/campaign.ts` | Pure `phaseFromStatus(input)` derivation: card status / project phase → active phase index (0–5), with a safe fallback to `research`. | REQ-02-010 |
+| `CMP-02-go-party` | UI (client glue) | host-navigation callback (`onEnterForge(slug)` → `goToParty`) | Navigate the host app to Portfolio → that project → the Party tab (FRD-06), no inner reload. | REQ-02-010 |
+| `CMP-02-category-filter` | UI (client) | native `<select>` in `BoardShell` | Filter the board by `project_type`. **Was** a `CategoryFilter` chip component — replaced by a native `<select>` (owner) and the component **deleted** (2026-06-22). | REQ-02-006 |
 | `CMP-02-discard-action` | UI (client + Server Action) | `components/DiscardButton.tsx` + `app/board/actions.ts` | "Discard idea" → Server Action calling `lib/discard.ts`. | REQ-02-007 |
 | `CMP-02-copy-button` | UI (client) | `components/CopyButton.tsx` | Shared clipboard-copy affordance (introduced here; reused by FRD-01/03). | REQ-02-003, REQ-02-004 |
 | `CMP-02-legend` | UI | `components/BoardLegend.tsx` | Legend explaining category / return / score. | REQ-02-008 |
@@ -122,16 +123,25 @@ command strings come from the pipeline (CLAUDE.md operation table); enumerated i
 > detail (`detailView()` — the `stab` tab row + the `party-pipeline.html?embed=1&active=…&slug=…`
 > iframe). The production build replaces the iframe with a native React `CampaignPipeline`.
 
-**Tabbed container (`CMP-02-card-detail`, REQ-02-009).** `CardDetail` becomes a tabbed shell with the
-**same tab pattern as the Portfolio project pane** (the `stab` selector row): three tabs
-**Campaña · Documentos · Comandos**, default **Campaña**.
-- **Campaña** (default) → `<CampaignPipeline>`.
-- **Documentos** → the **existing** doc navigator + body (the current REQ-02-004 behavior, unchanged).
-- **Comandos** → the **existing** next-step / iterate command panel (current REQ-02-004 behavior).
-- Tab state is local client state on the open card and **persists across re-renders** (AC-02-009.4).
+**Tabbed container (`CMP-02-card-detail`, REQ-02-009).** `CardDetail` is a tabbed shell rendered with
+the **shared `Tabs` primitive** (`level="sub"`, the one `.stab` pattern, DR-062) carrying the three
+tabs' icons (`ti-map-2 · ti-files · ti-wand`): **Campaña · Documentos · Comandos**, default
+**Campaña**. The root is **transparent layout** (`ROOT_STYLE`: a flex column with a 14px gap, no
+border/bg); the tab pills are bare, and each tab's own content panel carries the border/padding (so
+the body reads as the bordered container *below* the pills) — `PANEL_STYLE` padding is 0.
+- **Campaña** (default) → `<CampaignPipeline running={isRunning} …>` (one bordered panel).
+- **Documentos** → a **rail (210px) + reader** (`.card-detail-docs-grid`, stacks under ~640px). The
+  rail always lists **Resumen** (the summary reader = the markdown body) first, then one item per
+  project document (`buildNavEntries` over `ProjectDocsIndex`). For a board card the reader shows the
+  summary in full and, for a project doc, a short "open it in the project workspace" pointer.
+- **Comandos** → the shared **`CmdRow`** "Siguiente paso · avanzar" (from `nextStep`) plus, for
+  building/operation cards (phase `implementation`/`release`/`operation`), a **project-command box**
+  from `workspaceCommands(phase)` (the prototype `commandsBox`).
+- Tab state is local client state on the open card and **persists across re-renders** (AC-02-009.4);
+  a separate `selectedDocKey` drives the Documentos rail/reader.
 - Clicking a document entry **selects the Documentos tab** and shows that doc (AC-02-009.3).
 
-**`phaseFromStatus` (`CMP-02-phase-from-status`, `lib/campaign.ts`) — pure derivation:**
+**`phaseFromStatus` (`CMP-02-phase-from-status`, `lib/campaign/campaign.ts`) — pure derivation:**
 
 ```ts
 type CampaignPhase = 0 | 1 | 2 | 3 | 4 | 5; // research · product · design · architecture · build · release
@@ -153,30 +163,57 @@ export function phaseFromStatus(input: { cardStatus?: IdeaStatus; phase?: Phase 
 This mirrors `deriveColumn` (it is the same two-axis read), but collapses to the 6-phase index La
 Campaña paints. Pure, fully unit-testable from fixtures.
 
-**`CampaignPipeline` (`CMP-02-campaign-pipeline`) — the view.** Static phase model (the 6 phases, in
-order, each with: name, deliverable, what it reads/writes, and its **whole team** of specialists with
-role + one-line "what it does"), faithful to `party-redesign-spec.md` §2. Renders each phase as
-done / current / locked by its position vs the derived active phase (AC-02-010.3); clicking a phase
-opens its **ficha** (description + LEE/ESCRIBE + the whole team — every specialist, AC-02-010.4). The
-teams are fixed: research=`researcher`; product=`product-manager`; design=`designer`+`copywriter`;
-architecture=`architect`; build=`implementer`+`reviewer`+`analytics`; release=`security-auditor`+
-`devops`. **Read-only** — no Claude, no write, no build (AC-02-010.6); locked future phases render a
-graceful empty state (AC-02-010.7).
+**`CampaignPipeline` (`CMP-02-campaign-pipeline`) — the view.** Static phase model in `phases.ts`
+(the 6 phases, in order, each with: name, description, what it reads/writes, and its **whole team** of
+specialists with role + one-line "what it does"), faithful to `party-redesign-spec.md` §2; a sibling
+`PHASE_META` map (`emo · deliver · col`) carries the short deliverable + accent colour that feed both
+the room chips and the connectors. Built on the shared Party primitives (DR-057 / WO-13-009):
+
+- **Stage** — a `width:100%` dark canvas; the `920×560` serpentine sits in an **inner layer**
+  (`margin:0 auto`) so the rooms are centred. Rooms `z-index:2`; the **road connectors `z-index:1`**
+  (under the rooms); the cast `z-index:3`.
+- **`Room`** per phase, `state` done/current/locked by position vs the derived active phase
+  (AC-02-010.3), with a `labelNode` (accent-tinted phase number + name) and the deliverable chip
+  (`{emoji} {short artifact}` — no "entrega ▸").
+- **`StoneBridge variant="road"`** for the 5 connectors (the CSS striped road, not the stone PNG),
+  state done/flow/locked by source phase vs active.
+- **`RoamingCast`** for the active room's specialists — roams only when `running`, else idle-bobs
+  (`CMP-02-roaming-cast`).
+- **`AgentSprite`** (`state="idle"`) for each team member in the ficha; the progress bar renders only
+  in `work` state, so campaign sprites carry no empty bar.
+
+Clicking a phase pins its **ficha** (description + LEE/ESCRIBE + the whole team — every specialist,
+AC-02-010.4) with a header `{n · name} — {state}`; the active phase's ficha shows **by default** and
+the ficha **never toggles closed**. The teams are fixed: research=`researcher`;
+product=`product-manager`; design=`designer`+`copywriter`; architecture=`architect`;
+build=`implementer`+`reviewer`+`analytics`; release=`security-auditor`+`devops`. **Read-only** — no
+Claude, no write, no build (AC-02-010.6). A **locked future phase's ficha still renders its full info**
+(AC-02-010.7, rewritten 2026-06-22); only the build phase's "Entrar a La Fragua" **action** is gated
+on reaching build. The `running` prop is threaded `BoardShell` → `CardDetail` (`isRunning`) →
+`CampaignPipeline` → `PhaseRoom`/`RoamingCast`/`FichaContent`, driving "en curso" vs "fase actual".
 
 **Host navigation (`CMP-02-go-party`, AC-02-010.5).** The build phase's "Entrar a La Fragua" action
-calls the host `mcGoParty(slug)` which switches the host to Portfolio → that project → the **Party**
-tab (FRD-06). In the app this is direct host state navigation (not an iframe `window.parent` bridge as
-in the prototype) — no inner reload of the card detail. The pipeline component receives the project
-`slug` and a `onEnterForge(slug)` callback wired to the host router.
-
-
+calls the host (`onEnterForge(slug)` → `goToParty`) which switches the host to Portfolio → that
+project → the **Party** tab (FRD-06). In the app this is direct host state navigation (not an iframe
+`window.parent` bridge as in the prototype) — no inner reload of the card detail. The pipeline
+component receives the project `slug` and the `onEnterForge(slug)` callback wired to the host router.
 
 - **`lib/**`** (architecture §6): creates `board.ts`, `next-step.ts`, `discard.ts`. Consumes FRD-01's
   `ideas.ts`, `status.ts`, `docs.ts`.
-- **App surface** (architecture §11): `app/board/page.tsx` (+ `actions.ts`), card detail. Server
-  Components by default; client only for the modal, filter, copy and discard (architecture §3).
-- Styling via design tokens only; columns equal-width, **wide**, horizontal scroll when overflowing,
-  text wraps (REQ-02-002). `tabular-nums` on the score (architecture §7).
+- **App surface** (architecture §11): `app/board/page.tsx` (+ `actions.ts`), `BoardShell`, card
+  detail. Server Components by default; client only for the modal, the category `<select>`, copy and
+  discard (architecture §3). The board page wraps its body in the shared **`PageLayout`** (the
+  standard page chrome — single `<main>` + `PageTitle`, passed `titleProps` so the open card swaps
+  "Tablero" for its own head); no bespoke per-page `<main>`/padding.
+- **Board columns** (`CMP-02-board-view`): the 7 columns use La Campaña's numbered phase names
+  (`1 Investigación · 2 Producto · 3 Diseño · 4 Arquitectura · 5 Construcción · 6 Release` +
+  `Descartada`) — a label-only change (2026-06-22); the two-axis derivation (§2) is unchanged. Columns
+  are equal-width fixed-width panels (`stretch` so empty ones grow to full height), **wide**,
+  horizontal scroll when overflowing, text wraps (REQ-02-002). `tabular-nums` on the score
+  (architecture §7).
+- **Discard button** (`CMP-02-discard-action`): the shared-`Button` `size="sm"` sizing (matches the
+  "← Volver al tablero" back button) + a **danger** hover (`.pc-discard`: red border + danger-bg tint
+  + danger glow, transition inline per AC-13-005.1) + the `ti-trash` icon, using `--color-danger`.
 
 ---
 
@@ -192,8 +229,8 @@ in the prototype) — no inner reload of the card detail. The pipeline component
 | REQ-02-006 | Filter by category; recommended card shows a "recommended" badge. | `CMP-02-category-filter`, `CMP-02-card` |
 | REQ-02-007 | Discard → rewrite `status: discarded`, preserving the rest of the file (the only write). | `CMP-02-discard`, `CMP-02-discard-action`, `IF-02-discardIdea` |
 | REQ-02-008 | Building indicator while `running: true`; legend explaining category/return/score; card with no docs → summary only. | `CMP-02-card` (badge), `CMP-02-legend`, `CMP-02-card-detail` |
-| REQ-02-009 | Card detail = 3 tabs (Campaña · Documentos · Comandos), default Campaña; doc click → Documentos; tab persists; Documentos/Comandos keep existing behavior. | `CMP-02-card-detail` |
-| REQ-02-010 | La Campaña: 6-phase pipeline, active phase derived from status, done/current/locked, per-phase ficha with the whole team, build→host-navigate to Party, read-only, graceful locked states. | `CMP-02-campaign-pipeline`, `CMP-02-phase-from-status`, `CMP-02-go-party`, `IF-02-phaseFromStatus`, `IF-02-goParty` |
+| REQ-02-009 | Card detail = 3 tabs (Campaña · Documentos · Comandos) via shared `Tabs` (icons), default Campaña; doc click → Documentos; tab persists; Documentos = rail+reader, Comandos = `CmdRow` + (building/operation) project box. | `CMP-02-card-detail` |
+| REQ-02-010 | La Campaña: 6-phase pipeline (full-width stage, road under rooms), active phase derived from status, done/current/locked, per-phase ficha (by default + pinned) with the whole team, "en curso"/roam gated on running, build→host-navigate to Party, read-only; a locked phase's ficha shows full info (only the build action is gated). | `CMP-02-campaign-pipeline`, `CMP-02-roaming-cast`, `CMP-02-phase-from-status`, `CMP-02-go-party`, `IF-02-phaseFromStatus`, `IF-02-goParty` |
 
 > REQ numbering maps the FRD's EARS bullets in document order. The "recommended badge" lives inside
 > the first/sixth bullets; the "building indicator" and the legend are folded into REQ-02-008.
@@ -211,9 +248,15 @@ in the prototype) — no inner reload of the card detail. The pipeline component
 - "board visible behind the modal" → modal is an overlay, board stays mounted. ✅
 - "La Campaña active phase from real status" → `phaseFromStatus` reads the same two axes as
   `deriveColumn`; fallback to `research` when status absent (FRD-01 `StatusResult` is fail-soft). ✅
-- "the whole team per phase, not just the lead" → `CampaignPipeline`'s static phase model enumerates
-  every specialist per phase; the ficha renders all of them (AC-02-010.4). ✅
-- "Construcción → Party, no inner reload" → host navigation via `mcGoParty(slug)`/`onEnterForge`,
+- "the whole team per phase, not just the lead" → `CampaignPipeline`'s static phase model (`phases.ts`)
+  enumerates every specialist per phase; the ficha renders all of them (AC-02-010.4). ✅
+- "a locked phase's ficha shows full info; only the build action is gated" → `FichaContent` always
+  renders description + LEE/ESCRIBE + team; the "Entrar a La Fragua" button is conditioned on
+  `phase.key === "build" && phaseState !== "locked"` (AC-02-010.7, rewritten 2026-06-22). ✅
+- "'en curso' only when genuinely running" → `running` is threaded from `status.yaml` through
+  `CardDetail`; the badge reads "fase actual" and `RoamingCast` stays idle unless `current && running`
+  (amendment, 2026-06-22). ✅
+- "Construcción → Party, no inner reload" → host navigation via `onEnterForge(slug)` → `goToParty`,
   host router state change, not an iframe reload (AC-02-010.5). ✅
 - "read-only" → `CampaignPipeline` has no write, no Claude call, no build trigger; the only app write
   remains discard. ✅
@@ -259,3 +302,11 @@ frd-13 (foundation, VERIFIED)
 - **Read/write layer:** consumed as-is — never re-planned.
 - One review/test gate per FRD; Preview Smoke Gate on `/board` (both surfaces render, no console
   error, fidelity vs `mocks/la-campana.html` + `prototype/index.html`).
+
+> **Post-build fidelity changes (2026-06-22, recorded in the decision log).** After this plan ran, an
+> owner-QA fidelity pass reworked both surfaces against the *current* prototype (`party-pipeline.html`
+> for the campaign): WO-02-005 dropped the `CategoryFilter` component (replaced by a native `<select>`
+> in `BoardShell`) and adopted `PageLayout` + the numbered column labels; WO-02-007's card detail
+> gained the `RoamingCast`/road-connector/pinned-ficha/Documentos-rail/Comandos-`CmdRow` shape above
+> (see §1/§4b and the canonical contract in [`frd.md`](frd.md)). The artifact boxes above record the
+> plan **as originally executed**; the components/§4b sections describe current reality.

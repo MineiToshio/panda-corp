@@ -4,6 +4,74 @@ History and rationale for the design contract. The canonical token values live i
 
 ---
 
+## 2026-06-22 — Whole-app fidelity pass: design decisions (page chrome, campaign honesty, board↔campaign vocabulary)
+
+**What.** A round of owner-QA fidelity decisions against the approved prototype
+(`docs/design/prototype/index.html` + the embedded `party-pipeline.html` for La Campaña). These are
+**fidelity decisions on the frozen tokens** — they change *how surfaces are composed*, not the token
+contract (palette/typography/surfaces are untouched; the 2026-06-18 freeze stands). Recorded here per
+the design decision-log discipline; the behavioural contract lives in the FRDs and the
+[decision log](../decision-log.md) (the 2026-06-22 entries), the implementation in the blueprints.
+
+- **Page chrome is one component (`PageLayout`).** Every top-level surface wraps its body in a single
+  `PageLayout` (the page's one `<main>` + the shared `PageTitle` + the body slot), so the title block
+  (icon + name + description) lands in the **same place with the same spacing** everywhere. The
+  bespoke per-page `<main>`/padding (the Board was the worst offender) is gone. A *wrapper each page
+  invokes* was chosen over the root shell rendering the title, to keep dynamic count tails
+  (Propuestas/Logros) and the Board's conditional title (Tablero vs an open card) local while still
+  enforcing one chrome. (The page-chrome principle was also added to `factory/standards/`, DR-062
+  extension.)
+- **Campaign liveliness is honest — roam only when an agent runs.** The active phase reads "● en
+  curso" and its cast **roams** (rAF wander, lead halo, speech-on-meet) **only** when the project is
+  genuinely `running` (`status.yaml running: true`, threaded card → CardDetail → CampaignPipeline);
+  otherwise it reads **"fase actual"** and the cast **idle-bobs in place** ("quietecito en el
+  centro"). The app only tracks a persistent running state for the build, so momentary skill runs
+  (research/product/…) read the truthful "fase actual" rather than a fake "en curso." Honours
+  `prefers-reduced-motion` (and jsdom/SSR → static). Consistent with FRD-09's honest-gamification
+  principle: no fake motion implying work that isn't happening.
+- **CSS road connectors, under the rooms.** La Campaña's inter-phase connectors are the prototype's
+  striped **CSS road** (`StoneBridge variant="road"`, tinted ok-green while flowing) — *not* the
+  Fragua stone PNG the campaign had been reusing (it was built faithful to an older mock,
+  `la-campana.html`; the current canonical prototype is `party-pipeline.html`). The road sits **under**
+  the room images (rooms z-index 2, road z-index 1) so connectors never paint over the pixel-art; the
+  centred doc chip stays visible. Lesson: anchor to the *current* canonical prototype.
+- **Deliverable = icon + short artifact name.** Each non-locked room shows the phase emoji + the short
+  artifact only (`🔍 research.md`, `📋 PRD + FRDs`, …); the "entrega ▸" label + arrow were dropped and
+  the leaked `phase.writes` split ("— hallazgos") removed. A `PHASE_META` map (emoji · deliver ·
+  accent colour) feeds both the room chips and the connectors.
+- **Board ↔ campaign share one vocabulary.** The Kanban columns use La Campaña's numbered phase names
+  (`1 Investigación · 2 Producto · 3 Diseño · 4 Arquitectura · 5 Construcción · 6 Release` +
+  `Descartada`), so the board and the card-detail campaign read the same words. Pure label change; the
+  two-axis column derivation is untouched.
+- **Locked-phase ficha shows its info.** A future (not-yet-reached) phase's ficha still renders its
+  full information (description, LEE/ESCRIBE, the whole team) — information *about* the phase is
+  readable regardless of progress; only the build phase's "Entrar a La Fragua" **action** is gated on
+  reaching build. The header label ("en espera") signals the future phase.
+- **Discard button: danger hover, not accent glow.** The discard affordance matches the shared
+  `Button` `size="sm"` (same size as "← Volver al tablero") and gets a **danger-coloured** hover
+  (`.pc-discard`: red border + danger-bg tint + danger glow) — a destructive button shouldn't glow
+  accent-cyan. The transition is inline (the shared-Button pattern), since `globals.css` may only
+  transition compositable props (AC-13-005.1). It uses `--color-danger` + the `ti-trash` icon.
+- **Home alerts + tab bodies on the shared primitives.** Earlier in the same pass: the home health
+  alerts became rounded `Banner` cards + an icon `CopyButton` + the shared `CmdRow` (terminal glyph);
+  the card-detail Documentos tab became a rail + reader and Comandos a `CmdRow` + project-command box
+  (both formerly bespoke). All fixed at the *primitive* level (DR-057 single-source), not per consumer.
+
+**Why.** Repeated "it's done" had been false because surfaces were never browser-verified against the
+prototype, and the visual gate proves *consistency with its own baseline*, not *fidelity to the
+prototype*. This pass verified each surface in the browser against the prototype itself (dark + light,
+interacting) and only re-blessed baselines after that confirmation. The decisions above are the
+fidelity reconciliation; the tokens were already correct (the defects were in composition).
+
+**Impact / docs touched.** Behaviour contracts → the FRDs (esp. [FRD-02](../frds/frd-02-ideas-board/frd.md)
+card-detail amendment + AC-02-010.7 rewrite); implementation → the feature blueprints +
+[`components.md`](components.md) (the `PageLayout`, `RoamingCast`, `StoneBridge variant`, `Room
+labelNode` inventory rows); history + why → the [decision log](../decision-log.md) (2026-06-22). No
+token value changed — `docs/design/design-tokens.json` and root `DESIGN.md` are unchanged (the
+2026-06-18 freeze stands).
+
+---
+
 ## 2026-06-19 — Complete the extraction: app-wide RPG skin + Party pixel-art spec (DR-056) — **FROZEN**
 
 **What.** A completeness audit of the 2026-06-18 freeze found **two layers of the approved prototype were missed** (the core extraction captured palette/typography/categories/tiers/radii/shadows/base components, but not these). Added them to the contract under the DR-056 complete-extraction rule — **ADDING the missing layers, not rewriting the core**:
