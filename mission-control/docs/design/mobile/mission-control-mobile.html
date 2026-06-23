@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pandacorp Mission Control · maqueta MÓVIL (~375px)</title>
+<link rel="icon" type="image/png" href="../prototype/assets/pandacorp.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================================
+   TOKENS + SKIN — copiados VERBATIM del prototipo congelado (index.html 11-158).
+   El sistema bespoke RPG/pixel-art NO se toca: esta maqueta solo AÑADE una capa
+   móvil (sección « CAPA MÓVIL » al final).  DR-054/056 fidelity.
+   ============================================================================ */
+:root{
+--canvas:#0F1517;--panel:#192123;--card:#222A2D;
+--t1:#EDEBE7;--t2:#BAB7B0;--t3:#9E9B94;
+--bd:#2F373A;--bd2:#4F5A5D;
+--accent:#33B6D1;--accent-text:#62CFE8;--accent-bg:#003542;--on-accent:#071318;
+--ok:#5EC386;--ok-bg:#163A27;--warn:#EBB25F;--warn-bg:#3A2E18;--danger:#F36356;--danger-bg:#3A1A17;--info:#5EB6E6;--info-bg:#14303D;
+--cat-1:#60AD64;--cat-2:#A278E4;--cat-3:#E9609E;--cat-4:#3D96EA;--cat-5:#2CB3B4;--cat-6:#37B2E8;--cat-7:#E39849;--cat-8:#46B68C;--cat-9:#EC5C50;
+--tier-1:#989FA8;--tier-2:#53BE70;--tier-3:#339FEE;--tier-4:#B474F4;--tier-5:#F68C36;
+--radius-sm:8px;--radius-md:12px;--radius-lg:16px;--radius-pill:999px;
+--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 28px rgba(0,0,0,.35);--shadow-pop:0 18px 50px rgba(0,0,0,.5);
+--bg:var(--canvas);--primary:var(--card);--secondary:var(--panel);
+--text:var(--t1);--text2:var(--t2);--text3:var(--t3);
+--rmd:var(--radius-sm);--rlg:var(--radius-md);
+--mono:ui-monospace,SFMono-Regular,Menlo,monospace;--pixel:'Pixelify Sans',ui-monospace,monospace;--display:'Space Grotesk',system-ui,sans-serif;
+}
+[data-theme="light"]{
+--canvas:#F8F7F3;--panel:#FEFDFA;--card:#FFFFFF;
+--t1:#25211B;--t2:#5C5751;--t3:#6A655E;
+--bd:#E0DEDA;--bd2:#C1BDB7;
+--accent:#007890;--accent-text:#00637B;--accent-bg:#D5F5FD;--on-accent:#FEFCF4;
+--ok:#177C49;--ok-bg:#DEFAE6;--warn:#8A5A18;--warn-bg:#FFEECD;--danger:#BE3029;--danger-bg:#FFE8E3;--info:#1C719A;--info-bg:#DFF6FF;
+--cat-1:#2F7235;--cat-2:#784DB6;--cat-3:#BF397A;--cat-4:#006BBB;--cat-5:#008081;--cat-6:#0077A8;--cat-7:#BB731B;--cat-8:#0E7050;--cat-9:#C83B32;
+--tier-1:#757B81;--tier-2:#1C8742;--tier-3:#006EB8;--tier-4:#7C3EB3;--tier-5:#C26300;
+--shadow:0 1px 2px rgba(40,35,28,.05),0 8px 24px rgba(40,35,28,.07);--shadow-pop:0 16px 48px rgba(40,35,28,.18);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.6;font-size:15px;font-variant-numeric:tabular-nums}
+button{font-family:var(--display);background:var(--card);border:1px solid var(--bd2);color:var(--text);border-radius:8px;padding:7px 13px;cursor:pointer;font-size:13px;font-weight:500;box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 1px 0 var(--canvas);transition:border-color .15s,box-shadow .15s}
+button:hover{border-color:var(--accent);box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 0 14px -7px var(--accent)}
+.tab{padding:7px 13px;border-radius:8px;font-size:13px;cursor:pointer;border:1px solid transparent;color:var(--text2);font-family:var(--display);font-weight:500}
+.tab.on{background:var(--accent-bg);color:var(--accent-text);font-weight:500}
+.stab{padding:6px 11px;border-radius:var(--rmd);font-size:13px;cursor:pointer;color:var(--text2);border:.5px solid transparent}
+.stab.on{background:var(--secondary);color:var(--text);font-weight:500}
+.col{flex:0 0 auto;width:224px;background:var(--panel);border:1px solid var(--bd);border-radius:10px;padding:10px}
+.card{background:var(--card);border:1px solid var(--bd2);border-radius:9px;padding:10px;margin-bottom:8px;cursor:pointer;overflow-wrap:anywhere;box-shadow:inset 0 1px 0 rgba(255,255,255,.04);transition:border-color .15s,box-shadow .15s}
+.card:hover{border-color:var(--accent);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 0 14px -7px var(--accent)}
+.chip{font-size:11px;padding:2px 8px;border-radius:var(--rmd)}
+.panel{background:var(--card);border:1px solid var(--bd2);border-radius:10px;box-shadow:inset 0 1px 0 rgba(255,255,255,.05),inset 0 -2px 0 rgba(0,0,0,.22),0 2px 0 var(--canvas);padding:16px 18px}
+.cmd{display:flex;align-items:center;gap:10px;background:var(--secondary);border-radius:var(--rmd);padding:9px 11px;margin-top:6px}
+.cmd .t{font-family:var(--mono);font-size:13px;flex:1;overflow-wrap:anywhere}
+table{width:100%;border-collapse:collapse;font-size:14px}
+a.lnk{color:var(--info);cursor:pointer;text-decoration:none;font-size:12px}
+h1,h2,h3{font-family:var(--display);font-weight:600;line-height:1.3}
+.doc h1{font-size:20px;margin:0 0 6px}.doc h2{font-size:16px;margin:18px 0 4px}.doc h3{font-size:14px;margin:14px 0 4px}
+.doc code{font-family:var(--mono);background:var(--secondary);padding:1px 5px;border-radius:4px;font-size:13px}
+.doc ul{margin:6px 0;padding-left:20px}.doc li{margin:3px 0}
+.navitem{padding:9px 10px;border-radius:var(--rmd);cursor:pointer;font-size:14px;color:var(--text2);display:flex;align-items:center;gap:9px;font-family:var(--display);font-weight:500}
+.navitem.on{background:var(--accent-bg);color:var(--accent-text);box-shadow:inset 0 0 0 1px var(--accent)}
+.navitem:hover{background:var(--secondary)}
+.rail{padding:9px 11px;border-radius:var(--rmd);cursor:pointer;margin-bottom:6px;border:.5px solid transparent}
+.rail:hover{background:var(--secondary)}
+.rail.on{background:var(--accent-bg);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ttl{font-family:var(--display);font-weight:600;letter-spacing:-.01em}
+.px{font-family:var(--pixel);font-weight:500;letter-spacing:.01em;font-variant-numeric:tabular-nums}
+.rpgpanel{position:relative;background:var(--card);border:1px solid var(--bd2);border-radius:10px;box-shadow:inset 0 1px 0 rgba(255,255,255,.05),inset 0 -2px 0 rgba(0,0,0,.22),0 2px 0 var(--canvas)}
+.rpggrid{background-image:linear-gradient(var(--bd) 1px,transparent 1px),linear-gradient(90deg,var(--bd) 1px,transparent 1px);background-size:22px 22px}
+.shield{position:relative;flex:0 0 auto;width:84px;height:84px;border-radius:14px;border:2px solid var(--accent);background:var(--accent-bg);display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 0 22px -6px var(--accent),inset 0 0 0 2px var(--card);overflow:hidden;image-rendering:pixelated}
+.xpbar{position:relative;height:18px;border-radius:7px;border:1px solid var(--bd2);background:var(--canvas);overflow:hidden}
+.xpbar > i{display:block;height:100%;background:var(--accent);transition:width .6s}
+.xpbar::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 16px,var(--canvas) 16px 18px);opacity:.5;pointer-events:none}
+.itemslot{position:relative;display:inline-flex;align-items:center;justify-content:center;border-radius:9px;image-rendering:pixelated;flex:0 0 auto}
+.secthead{font-family:var(--display);font-weight:600;font-size:13px;color:var(--text2);margin:20px 2px 11px;display:flex;align-items:center;gap:9px}
+.secthead .ln{flex:1;height:1px;background:var(--bd)}
+.herostat{position:relative;overflow:hidden}
+.herostat .big{font-family:var(--pixel);font-size:34px;line-height:.85;font-variant-numeric:tabular-nums}
+@keyframes rpgIn{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}
+.anim{animation:rpgIn .34s ease both}
+@media (prefers-reduced-motion: reduce){.anim{animation:none}}
+
+/* ============================================================================
+   CAPA MÓVIL — lo ÚNICO nuevo de esta maqueta (breakpoints ~375px).
+   El shell global (topbar desktop / drawer móvil) lo construye la Fase A; aquí
+   se representa el comportamiento móvil acordado para que el dueño lo apruebe.
+   ============================================================================ */
+.device{max-width:420px;margin:0 auto;min-height:100vh;background:var(--bg);position:relative;border-left:1px solid var(--bd);border-right:1px solid var(--bd);overflow:hidden}
+.hint{font-size:11px;color:var(--text3);text-align:center;padding:5px 8px;background:var(--secondary);border-bottom:.5px solid var(--bd);font-family:var(--mono)}
+
+/* —— Shell móvil: barra superior compacta + hamburguesa (asunción Fase A) —— */
+.mtopbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--card);border-bottom:1px solid var(--bd2);box-shadow:0 2px 0 var(--canvas)}
+.mtopbar img.logo{width:32px;height:32px;border-radius:8px;border:1px solid var(--bd2);box-shadow:0 0 14px -8px var(--accent);flex:0 0 auto}
+.mtopbar .brand{flex:1;min-width:0}
+.mtopbar .brand .t{font-family:var(--display);font-weight:600;font-size:14px;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mtopbar .brand .lv{display:flex;align-items:center;gap:6px;margin-top:2px}
+.mtopbar .brand .lv .px{font-size:9px;color:var(--canvas);background:var(--accent);padding:1px 5px;border-radius:4px}
+.mtopbar .brand .lv .sub{font-size:10px;color:var(--text3)}
+.mhamb{width:40px;height:40px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;padding:0;font-size:20px}
+.mscrim{position:fixed;inset:0;background:rgba(8,12,13,.62);z-index:40;opacity:0;pointer-events:none;transition:opacity .2s}
+.mscrim.open{opacity:1;pointer-events:auto}
+.mdrawer{position:fixed;top:0;left:0;bottom:0;width:268px;max-width:84vw;z-index:50;background:var(--card);border-right:1px solid var(--bd2);box-shadow:14px 0 40px rgba(0,0,0,.5);transform:translateX(-100%);transition:transform .22s ease;display:flex;flex-direction:column;padding:14px 12px;overflow-y:auto}
+.mdrawer.open{transform:none}
+@media (prefers-reduced-motion: reduce){.mdrawer{transition:none}.mscrim{transition:none}}
+.mdrawer .dhero{display:flex;gap:11px;align-items:center;padding:4px 4px 14px;border-bottom:1px solid var(--bd);margin-bottom:10px}
+.mdrawer .dhero .big{font-family:var(--pixel);font-size:24px;line-height:.9}
+.mdrawer .navitem{position:relative}
+.mdrawer .navitem .badge{margin-left:auto;font-size:10px;background:var(--accent);color:var(--canvas);border-radius:99px;padding:0 6px;font-family:var(--pixel)}
+.dclose{position:absolute;top:12px;right:10px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;padding:0;background:transparent;border-color:transparent;font-size:16px;color:var(--text3)}
+
+/* —— Contenedor de contenido móvil —— */
+#app{padding:14px 12px 72px}
+.pagehead{margin-bottom:14px}
+.pagehead .row{display:flex;align-items:center;gap:11px;flex-wrap:wrap}
+.pagehead h1{font-size:19px;line-height:1.15;margin:0}
+.pagehead .sub{font-size:12px;color:var(--text2);margin-top:5px}
+.grid1{display:grid;grid-template-columns:1fr;gap:10px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+/* —— Tablero / Work orders: kanban scroll-x con SNAP + indicador de fase —— */
+.phasebar{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.phasebar::-webkit-scrollbar{display:none}
+.phasepill{flex:0 0 auto;font-size:11px;padding:5px 11px;border-radius:99px;border:.5px solid var(--bd2);background:var(--secondary);color:var(--text2);font-family:var(--display);font-weight:500;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.phasepill.on{background:var(--accent-bg);color:var(--accent-text);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.phasepill .n{font-family:var(--pixel);color:var(--accent-text)}
+.kanban{display:flex;gap:10px;overflow-x:auto;padding-bottom:10px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+.kanban .col{width:84vw;max-width:300px;scroll-snap-align:start}
+.kanban .col .colhead{font-size:11px;color:var(--text2);margin-bottom:9px;letter-spacing:.04em;font-family:var(--pixel)}
+.kanban .col .colhead .n{color:var(--accent-text)}
+.swipehint{font-size:11px;color:var(--text3);margin:0 2px 8px;display:flex;align-items:center;gap:6px}
+
+/* —— Pestañas de proyecto (6): tira horizontal scrollable, sin wrap —— */
+.substrip{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.substrip::-webkit-scrollbar{display:none}
+.substrip .stab{flex:0 0 auto;white-space:nowrap}
+
+/* —— Party: escena pixel-art a ESCALA NATIVA dentro de un marco con paneo —— */
+.partyframe{position:relative;border:1px solid var(--bd2);border-radius:10px;overflow:hidden;background:var(--canvas);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),inset 0 -2px 0 rgba(0,0,0,.22),0 2px 0 var(--canvas)}
+.partyscroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch}
+.partyscroll iframe{width:940px;height:520px;border:0;display:block;background:transparent}
+.panhint{position:absolute;top:8px;right:8px;z-index:5;font-size:10px;font-family:var(--mono);color:var(--accent-text);background:rgba(12,17,19,.82);border:.5px solid var(--bd2);border-radius:99px;padding:3px 9px;display:flex;align-items:center;gap:5px;pointer-events:none}
+
+/* —— Selector tipo riel (Portfolio) / disclosure (Manual) —— */
+.railstrip{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:12px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.railstrip::-webkit-scrollbar{display:none}
+.railchip{flex:0 0 auto;min-width:170px;max-width:210px;padding:9px 11px;border-radius:var(--rmd);border:.5px solid var(--bd2);background:var(--secondary);cursor:pointer;scroll-snap-align:start}
+.railchip.on{background:var(--accent-bg);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+details.mdisclose{margin-bottom:14px;border:1px solid var(--bd2);border-radius:10px;background:var(--card);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),inset 0 -2px 0 rgba(0,0,0,.22),0 2px 0 var(--canvas);overflow:hidden}
+details.mdisclose>summary{list-style:none;cursor:pointer;padding:11px 13px;display:flex;align-items:center;gap:9px;font-family:var(--display);font-weight:600;font-size:14px}
+details.mdisclose>summary::-webkit-details-marker{display:none}
+details.mdisclose>summary .chev{margin-left:auto;transition:transform .2s;color:var(--text3)}
+details.mdisclose[open]>summary .chev{transform:rotate(180deg)}
+details.mdisclose .dbody{padding:4px 8px 10px;border-top:1px solid var(--bd)}
+details.mdisclose .px.grp{font-size:10px;color:var(--accent-text);margin:9px 6px 4px;letter-spacing:.05em}
+
+/* —— Party móvil (Opción 2): overview + drill-down —— */
+.livedot{width:7px;height:7px;border-radius:50%;background:var(--ok);position:absolute;top:-2px;right:-2px;box-shadow:0 0 0 2px var(--card);animation:livepulse 1.4s ease-in-out infinite}
+@keyframes livepulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.7)}}
+.roomthumb{flex:0 0 auto;width:50px;height:50px;border-radius:9px;background-size:cover;background-position:center;image-rendering:pixelated;border:1px solid var(--bd2);box-shadow:inset 0 0 0 2px var(--card)}
+.roomrow:hover{border-color:var(--accent)}
+/* la escena de UNA sala, a escala nativa, cabe en 375px */
+.roomscene{position:relative;width:100%;aspect-ratio:1/1;max-height:344px;border:1px solid var(--bd2);border-radius:12px;overflow:hidden;box-shadow:inset 0 1px 0 rgba(255,255,255,.05),inset 0 -2px 0 rgba(0,0,0,.22),0 2px 0 var(--canvas)}
+.roombg{position:absolute;inset:0;background-size:cover;background-position:center;image-rendering:pixelated}
+.roomtitle{position:absolute;top:8px;left:8px;z-index:3;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;font-family:var(--display);background:rgba(12,17,19,.82);border:.5px solid var(--bd2);border-radius:7px;padding:3px 9px}
+.roomlive{position:absolute;top:8px;right:8px;z-index:3;display:inline-flex;align-items:center;gap:5px;font-size:10px;font-family:var(--mono);color:var(--ok);background:rgba(12,17,19,.82);border:.5px solid var(--bd2);border-radius:99px;padding:3px 9px}
+.rsprite{position:absolute;width:54px;height:54px;z-index:2}
+.rsprite img{width:54px;height:54px;image-rendering:pixelated;display:block;position:relative;z-index:2}
+.rsprite .rhalo{position:absolute;left:7px;bottom:2px;width:40px;height:14px;border-radius:50%;background:var(--accent);opacity:0;z-index:1}
+.rsprite.s-live .rhalo{opacity:.5;animation:mchalo 1.6s ease-in-out infinite}
+@keyframes mchalo{0%,100%{transform:scale(.8);opacity:.3}50%{transform:scale(1.15);opacity:.55}}
+.rsprite .rtag{position:absolute;bottom:48px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:9px;font-family:var(--mono);color:var(--t1);background:rgba(12,17,19,.85);border:.5px solid var(--bd2);border-radius:5px;padding:1px 5px;z-index:3}
+.rsprite .rsay{position:absolute;bottom:62px;left:50%;transform:translateX(-50%);white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis;font-size:9px;color:var(--t1);background:var(--card);border:1px solid var(--bd2);border-radius:7px;padding:2px 6px;z-index:4;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.rsprite.s-live img{animation:rbob 1.8s ease-in-out infinite}
+@keyframes rbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+/* barra de controles SOLO-DEMO (réplica móvil del harness del desktop) */
+.partybar{background:var(--card);border:1px dashed var(--bd2);border-radius:10px;padding:9px 10px;margin-bottom:12px}
+.pbrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.demobadge{font-size:10px;font-weight:500;color:var(--warn);background:var(--warn-bg);border:.5px solid var(--warn);border-radius:6px;padding:2px 7px;flex:0 0 auto}
+.pbtn{width:34px;height:34px;padding:0;display:inline-flex;align-items:center;justify-content:center;font-size:15px;flex:0 0 auto}
+.pbtn.on{border-color:var(--accent);color:var(--accent-text)}
+.pkpi{margin-left:auto;font-size:11px;color:var(--text2);white-space:nowrap}
+.pmodes{display:flex;gap:5px;overflow-x:auto;margin-top:8px;scrollbar-width:none}
+.pmodes::-webkit-scrollbar{display:none}
+.pmode{flex:0 0 auto;font-size:11px;padding:4px 10px;border-radius:99px;border:.5px solid var(--bd2);background:var(--secondary);color:var(--text2);cursor:pointer;white-space:nowrap;font-family:var(--display);font-weight:500}
+.pmode.on{background:var(--accent-bg);color:var(--accent-text);border-color:var(--accent)}
+.pnote{font-size:10px;color:var(--text3);margin-top:7px;line-height:1.35}
+@media (prefers-reduced-motion: reduce){.livedot,.rsprite.s-live .rhalo,.rsprite.s-live img{animation:none}}
+
+/* —— Documentos (proyecto): tira de chips de doc + contenido —— */
+.docchips{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:12px;scrollbar-width:none}
+.docchips::-webkit-scrollbar{display:none}
+.docchip{flex:0 0 auto;white-space:nowrap;font-size:12px;padding:6px 11px;border-radius:99px;border:.5px solid var(--bd2);background:var(--secondary);color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:6px}
+.docchip.on{background:var(--accent-bg);color:var(--accent-text);border-color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="device" id="device">
+  <div class="hint">Maqueta MÓVIL navegable · vista a ~375px · skin congelado (DR-054/056) · el shell lo construye la Fase A</div>
+
+  <!-- ===== Shell móvil (representación de lo que construye la Fase A) ===== -->
+  <header class="mtopbar">
+    <img class="logo" src="../prototype/assets/pandacorp.png" alt="Pandacorp">
+    <div class="brand">
+      <div class="t">Mission Control</div>
+      <div class="lv"><span class="px">NV 7</span><span class="sub">Maestro de la Fábrica</span></div>
+    </div>
+    <button class="mhamb" id="hamb" aria-label="Abrir menú" aria-expanded="false"><i class="ti ti-menu-2"></i></button>
+  </header>
+
+  <div class="mscrim" id="scrim"></div>
+  <nav class="mdrawer" id="drawer" aria-label="Navegación principal">
+    <button class="dclose" id="dclose" aria-label="Cerrar menú"><i class="ti ti-x"></i></button>
+    <div class="dhero">
+      <div class="shield" style="width:58px;height:58px"><span class="px big">7</span></div>
+      <div style="min-width:0">
+        <div class="ttl" style="font-size:14px">Pandacorp</div>
+        <div style="font-size:11px;color:var(--text2)">Maestro de la Fábrica</div>
+        <div class="xpbar" style="margin-top:6px;width:130px"><i style="width:64%"></i></div>
+      </div>
+    </div>
+    <div id="drawernav"></div>
+  </nav>
+
+  <!-- ===== Contenido (router por superficie) ===== -->
+  <main id="app"></main>
+</div>
+
+<script>
+/* ----- Datos de muestra (maqueta) ----- */
+var CAT={web:["--cat-4","web"],ia:["--cat-2","IA"],auto:["--cat-7","automatización"],cli:["--cat-5","CLI"],cc:["--cat-6","claude-code"]};
+var NAV=[
+ {id:"inicio",t:"Inicio",ic:"ti-home"},
+ {id:"tablero",t:"Tablero",ic:"ti-layout-kanban"},
+ {id:"portfolio",t:"Portfolio",ic:"ti-stack-2"},
+ {id:"propuestas",t:"Propuestas",ic:"ti-bulb",badge:6},
+ {id:"logros",t:"Logros",ic:"ti-trophy"},
+ {id:"documentacion",t:"Documentación",ic:"ti-book"}
+];
+var IDEAS={
+ discovered:[{t:"Conciliador de gastos por voz",cat:"ia",sc:78},{t:"Lector RSS minimalista",cat:"web",sc:61},{t:"CLI de backups cifrados",cat:"cli",sc:55}],
+ documented:[{t:"Agenda para terapeutas",cat:"web",sc:72}],
+ design:[{t:"Panel de hábitos gamificado",cat:"web",sc:69}],
+ architecture:[{t:"Recetario personal",cat:"web",sc:64}],
+ building:[{t:"Control de gastos",cat:"web",sc:81,run:true}],
+ shipped:[{t:"Quick Notes",cat:"web",sc:74}]
+};
+var PHASES=[["discovered","Descubierta",1],["documented","Documentada",2],["design","Diseño",3],["architecture","Arquitectura",4],["building","Construyéndose",5],["shipped","Lanzada",6]];
+var PROJECTS=[
+ {slug:"gastos",t:"Control de gastos",fase:"Construyéndose · build",ver:"v0.4.0",run:true,dec:2,bug:1,pct:62},
+ {slug:"recetario",t:"Recetario personal",fase:"Arquitectura",ver:"—",run:false,dec:0,bug:0,pct:0},
+ {slug:"quick",t:"Quick Notes",fase:"Lanzada · operación",ver:"v1.2.0",run:false,dec:0,bug:0,pct:100}
+];
+var WO={todo:["Form de alta de gasto","Filtro por categoría","Export CSV"],progress:["API /transactions","Gráfica mensual"],review:["Auth con magic-link"],fail:["Webhook de Polar (firma)"],done:["Esquema de datos","Layout base","Tokens @theme","Seed demo"]};
+var WLBL={todo:"Por hacer",progress:"En curso",review:"En revisión",fail:"Fallo",done:"Hecho"};
+/* ===== La Fragua (build en vivo) — FIEL al desktop party-proposal.html =====
+   3 salas: Forja → Tribunal → Bóveda. 1 muñeco = 1 work order activo (rol
+   implementer). La oleada = el modo. Fundación primero (DR-057). Simulación
+   viva con controles SOLO-DEMO (igual que el desktop) para previsualizar el
+   movimiento; NO existen en la app real (solo-lectura). */
+var PARTYROOM=null, PTIMER=null, SIM=null;
+var P_MODES={pro:{wave:2,label:"Pro"},balanced:{wave:4,label:"Equilibrado"},powerful:{wave:8,label:"Potente"},deep:{wave:6,label:"Profundo"}};
+var P_WODEFS=[
+ {id:"WO-14-000",name:"fundación · primitivos (Button/Banner/Card)",foundation:true},
+ {id:"WO-14-001",name:"buildSnapshot"},{id:"WO-14-004",name:"feedback-channels"},
+ {id:"WO-14-010",name:"export-panel"},{id:"WO-14-011",name:"empty-states"},
+ {id:"WO-14-008",name:"snapshot-api"},{id:"WO-14-002",name:"snapshot-panel"},
+ {id:"WO-14-007",name:"feedback-form"},{id:"WO-14-006",name:"snapshot-actions"},
+ {id:"WO-14-005",name:"stale-banner"},{id:"WO-14-003",name:"StatusChips"},
+ {id:"WO-14-009",name:"history-view"}
+];
+var P_SAYS=["RED → GREEN","reutilizo del inventario","render → mock → corrijo","self-test ✓","tipando","verify…"];
+var P_FRDS=["FRD-13","FRD-14","FRD-15"];
+/* las 3 salas: zona pixel-art (fiel: forge=backend.png · tribunal=tribunal.png · vault=boveda.png) */
+var P_ROOMS=[
+ {id:"forge",n:"Sala de Forja",lbl:"⚒️",zone:"backend",ic:"ti-flame",cl:"var(--accent)",clbg:"var(--accent-bg)",stlbl:"Forjando"},
+ {id:"tribunal",n:"Tribunal del Juez",lbl:"⚖️",zone:"tribunal",ic:"ti-gavel",cl:"var(--warn)",clbg:"var(--warn-bg)",stlbl:"En revisión"},
+ {id:"vault",n:"Bóveda",lbl:"🏆",zone:"boveda",ic:"ti-trophy",cl:"var(--ok)",clbg:"var(--ok-bg)",stlbl:"Trofeos"}
+];
+var BUILD_DUR=5, REVIEW_DUR=3; // ticks por sala
+var MANUAL=[
+ {g:"Empieza aquí",items:[["start","Qué es la fábrica","ti-rocket"],["flow","El ciclo de vida","ti-route"]]},
+ {g:"Guías",items:[["idea","De idea a proyecto","ti-bulb"],["build","Construir un MVP","ti-hammer"],["ship","Lanzar y medir","ti-send"]]},
+ {g:"Referencia",items:[["cmds","Comandos","ti-terminal-2"],["agents","Agentes","ti-users"],["rules","Reglas de decisión","ti-gavel"],["stds","Estándares","ti-book-2"]]}
+];
+
+/* ----- helpers ----- */
+function el(h){var d=document.createElement("div");d.innerHTML=h;return d.firstElementChild;}
+function chip(cat){var c=CAT[cat]||["--text3",cat];return '<span class="chip" style="background:color-mix(in srgb,var('+c[0]+') 18%,transparent);color:var('+c[0]+')">'+c[1]+'</span>';}
+function pageHead(ic,t,sub,tail){return '<div class="pagehead"><div class="row"><span class="itemslot" style="width:32px;height:32px;background:var(--accent-bg);border:1.5px solid var(--accent);color:var(--accent-text)"><i class="ti '+ic+'" style="font-size:18px"></i></span><h1 class="ttl">'+t+'</h1>'+(tail||"")+'</div>'+(sub?'<div class="sub">'+sub+'</div>':"")+'</div>';}
+function ideaCard(i){return '<div class="card"><div style="font-size:13px;font-weight:500;margin-bottom:7px">'+i.t+(i.run?' <i class="ti ti-player-play" style="font-size:12px;color:var(--ok)"></i>':'')+'</div><div style="display:flex;align-items:center;justify-content:space-between;gap:6px">'+chip(i.cat)+'<span class="px" style="font-size:11px;color:var(--text3)">'+i.sc+'/100</span></div></div>';}
+
+/* ====================== SUPERFICIES ====================== */
+function vInicio(){
+ var cards='';
+ var k=[["ti-bulb","3","ideas nuevas","--accent-text"],["ti-hammer","1","en obra","--ok"],["ti-rocket","1","lanzadas","--cat-4"]];
+ var stats=k.map(function(s){return '<div class="rpgpanel" style="padding:12px 13px"><div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2)"><i class="ti '+s[0]+'" style="font-size:14px;color:var('+s[3]+')"></i> '+s[2]+'</div><div class="px" style="font-size:28px;line-height:1;margin-top:6px">'+s[1]+'</div></div>';}).join("");
+ cards+='<div class="grid2" style="margin-bottom:6px">'+stats+'</div>';
+ cards+='<div class="secthead"><i class="ti ti-history" style="font-size:14px"></i> Desde tu última visita <span class="chip" style="background:var(--accent-bg);color:var(--accent-text)">2 nuevas</span><span class="ln"></span></div>';
+ var ev=[["ti-circle-check","Control de gastos · FRD-04 verificado","var(--ok)","hace 12 min"],["ti-alert-triangle","Recetario · decisión pendiente","var(--warn)","hace 3 h"]];
+ cards+='<div class="grid1">'+ev.map(function(e){return '<div style="display:flex;align-items:center;gap:9px;padding:11px 12px;background:var(--secondary);border-radius:var(--rmd);border:.5px solid var(--accent)"><i class="ti '+e[0]+'" style="font-size:17px;color:'+e[2]+'"></i><div style="min-width:0"><div style="font-size:12px;font-weight:500;line-height:1.25">'+e[1]+'</div><div style="font-size:11px;color:var(--text3)">'+e[3]+'</div></div></div>';}).join("")+'</div>';
+ cards+='<div class="secthead"><i class="ti ti-wand" style="font-size:14px"></i> A la mano<span class="ln"></span></div>';
+ cards+='<div class="cmd"><span class="t">/pandacorp:discover</span><button aria-label="copiar"><i class="ti ti-copy" style="font-size:12px"></i></button></div>';
+ cards+='<div class="cmd"><span class="t">/pandacorp:recommend</span><button aria-label="copiar"><i class="ti ti-copy" style="font-size:12px"></i></button></div>';
+ return pageHead("ti-home","Inicio","Tu fábrica de un vistazo. Todo apila en una columna; sin decisiones de layout especiales.")+cards;
+}
+
+function vTablero(){
+ var pills=PHASES.map(function(p,ix){return '<button class="phasepill'+(ix===0?' on':'')+'" data-phase="'+ix+'"><span class="n">'+p[2]+'</span> '+p[1]+'</button>';}).join("");
+ var cols=PHASES.map(function(p){var items=IDEAS[p[0]]||[];return '<div class="col" data-col><div class="colhead">'+p[1].toUpperCase()+' <span class="n">'+items.length+'</span></div>'+items.map(ideaCard).join("")+(items.length?'':'<div style="font-size:11px;color:var(--text3);padding:4px 2px">—</div>')+'</div>';}).join("");
+ return pageHead("ti-layout-kanban","Tablero","Las 6 fases del pipeline. Solo-lectura — los skills mueven las tarjetas.")
+  +'<div class="phasebar">'+pills+'</div>'
+  +'<div class="swipehint"><i class="ti ti-arrows-horizontal" style="font-size:13px"></i> Desliza para recorrer las fases · toca una fase arriba para saltar</div>'
+  +'<div class="kanban" id="kanban" tabindex="0" role="group" aria-label="Tablero por fase (desplazable)">'+cols+'</div>';
+}
+
+function vPortfolio(){
+ var rail=PROJECTS.map(function(p,ix){var dchip=p.dec?'<span style="background:var(--warn);color:var(--canvas);border-radius:99px;font-size:10px;min-width:17px;height:17px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px">'+p.dec+'</span>':'';var bchip=p.bug?'<span style="background:var(--danger);color:var(--canvas);border-radius:99px;font-size:10px;min-width:17px;height:17px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px">'+p.bug+'</span>':'';return '<div class="railchip'+(ix===0?' on':'')+'" data-proj="'+ix+'"><div style="display:flex;align-items:center;gap:7px"><i class="ti '+(p.run?'ti-player-play" style="color:var(--ok);font-size:14px':'ti-player-pause" style="color:var(--text3);font-size:14px')+'"></i><span style="font-size:13px;font-weight:500;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+p.t+'</span><span style="display:flex;gap:4px">'+dchip+bchip+'</span></div><div style="font-size:11px;color:var(--text3);margin-top:3px">'+p.fase+'</div></div>';}).join("");
+ return pageHead("ti-stack-2","Portfolio","Elige un proyecto para su workspace. El riel se vuelve un selector horizontal arriba.")
+  +'<div style="font-size:10px;color:var(--accent-text);font-family:var(--pixel);letter-spacing:.05em;margin:0 2px 7px">PROYECTOS</div>'
+  +'<div class="railstrip" id="railstrip">'+rail+'</div>'
+  +'<div id="pane">'+projectPane(0)+'</div>';
+}
+
+function projectPane(ix){
+ var p=PROJECTS[ix];
+ var tabs=[["resumen","Resumen"],["wo","Work orders"],["party","Party"],["obs","Observabilidad"],["docs","Documentos"],["cmd","Comandos"]];
+ var strip=tabs.map(function(t,i){return '<span class="stab'+(i===0?' on':'')+'" data-ptab="'+t[0]+'">'+t[1]+'</span>';}).join("");
+ var header='<div class="panel" style="padding:11px 13px;margin-bottom:12px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:16px;font-weight:500">'+p.t+(p.run?' <i class="ti ti-player-play" style="font-size:13px;color:var(--ok)"></i>':'')+'</span><span class="chip" style="background:var(--secondary);color:var(--text2)">'+p.fase+'</span><span style="font-size:12px;color:var(--text2)">'+p.ver+'</span></div>'+(p.pct?'<div style="display:flex;align-items:center;gap:8px;margin-top:9px"><span style="flex:1;height:6px;background:var(--secondary);border-radius:99px;overflow:hidden;border:.5px solid var(--bd)"><span style="display:block;height:100%;width:'+p.pct+'%;background:'+(p.pct>=100?'var(--ok)':'var(--accent)')+'"></span></span><span style="font-size:11px;color:var(--text3)">'+p.pct+'%</span></div>':'')+'</div>';
+ return header+'<div class="substrip" id="psub" data-proj="'+ix+'">'+strip+'</div><div id="pbody">'+ptabBody("resumen",ix)+'</div>';
+}
+
+function ptabBody(tab,ix){
+ var p=PROJECTS[ix];
+ if(tab==="party") return renderParty(ix);
+ if(tab==="wo"){
+  var pills=Object.keys(WO).map(function(st,ix2){return '<button class="phasepill'+(ix2===0?' on':'')+'"><span class="n">'+WO[st].length+'</span> '+WLBL[st]+'</button>';}).join("");
+  var cols=Object.keys(WO).map(function(st){var isF=st==="fail";return '<div class="col" style="width:80vw;max-width:280px;scroll-snap-align:start"><div class="colhead" style="color:'+(isF?'var(--danger)':'var(--text2)')+'">'+WLBL[st].toUpperCase()+' <span class="n">'+WO[st].length+'</span></div>'+WO[st].map(function(t){return '<div class="card"'+(isF?' style="background:var(--danger-bg);border-color:var(--danger)"':'')+'><div style="font-size:12px"'+(isF?' style="color:var(--danger)"':'')+'>'+(isF?'<i class="ti ti-alert-triangle" style="font-size:12px;color:var(--danger);vertical-align:-1px"></i> ':'')+t+'</div></div>';}).join("")+'</div>';}).join("");
+  return '<p style="font-size:12px;color:var(--text3);margin:0 0 10px">Estado en vivo de cada work order. Mismo patrón que el Tablero: scroll horizontal con snap.</p><div class="phasebar">'+pills+'</div><div class="kanban" tabindex="0" role="group" aria-label="Work orders por estado">'+cols+'</div>';
+ }
+ if(tab==="obs"){
+  return '<div class="panel" style="margin-bottom:12px;padding:11px 13px"><div style="display:flex;gap:6px"><span class="stab on">Línea de tiempo</span><span class="stab">DAG</span></div></div>'+['FRD-01 · Esquema de datos','FRD-02 · Layout base','FRD-03 · Auth magic-link','FRD-04 · Transacciones'].map(function(t,i){var done=i<2;return '<div style="display:flex;gap:10px;align-items:center;padding:10px 12px;background:var(--secondary);border-radius:var(--rmd);border:.5px solid var(--bd);margin-bottom:8px"><i class="ti '+(done?'ti-circle-check" style="color:var(--ok)':'ti-loader" style="color:var(--accent)')+';font-size:16px"></i><div style="font-size:13px;flex:1">'+t+'</div><span class="chip" style="background:'+(done?'var(--ok-bg);color:var(--ok)':'var(--accent-bg);color:var(--accent-text)')+'">'+(done?'hecho':'en curso')+'</span></div>';}).join("");
+ }
+ if(tab==="docs"){
+  var docs=["Resumen","PRD","FRD-04","Blueprint","ADR-002","Decision log"];
+  var chips=docs.map(function(d,i){return '<span class="docchip'+(i===0?' on':'')+'"><i class="ti ti-file-text" style="font-size:12px"></i> '+d+'</span>';}).join("");
+  return '<div class="docchips">'+chips+'</div><div class="panel doc"><h2>Resumen</h2><p style="font-size:13px;color:var(--text2)">Control de gastos personales con conciliación automática. El selector de documento es una tira de chips arriba; el documento ocupa todo el ancho.</p><h3>Puntos clave</h3><ul style="font-size:13px;color:var(--text2)"><li>Magic-link, sin contraseñas</li><li>Import de CSV del banco</li><li>Gráficas mensuales por categoría</li></ul></div>';
+ }
+ if(tab==="cmd"){
+  return '<div class="panel"><p style="font-size:13px;font-weight:500;margin:0 0 6px;color:var(--text2)">Comandos a la mano</p>'+['/pandacorp:implement','/pandacorp:release','/pandacorp:iterate'].map(function(c){return '<div class="cmd"><span class="t">'+c+'</span><button aria-label="copiar"><i class="ti ti-copy" style="font-size:12px"></i></button></div>';}).join("")+'</div>';
+ }
+ // resumen
+ return '<div class="panel doc"><h2>Resumen</h2><p style="font-size:13px;color:var(--text2)">'+p.t+' — el overview vive en la pestaña por defecto. Las pestañas quedan arriba en una tira deslizable, alcanzables sin scroll vertical.</p></div>'
+  +(p.dec?'<div class="panel" style="margin-top:12px;border-color:var(--warn)"><div style="display:flex;gap:9px;align-items:flex-start"><i class="ti ti-alert-triangle" style="font-size:16px;color:var(--warn);margin-top:1px"></i><div><div style="font-size:13px;color:var(--warn);font-weight:500">'+p.dec+' decisión(es) pendiente(s)</div><div style="font-size:12px;color:var(--text3);margin-top:3px">Respondes con <code style="font-family:var(--mono);background:var(--secondary);padding:1px 4px;border-radius:4px">/pandacorp:decide</code></div></div></div></div>':'');
+}
+
+/* ===== Party móvil · Opción 2 (overview + drill-down) con SIMULACIÓN viva ===== */
+function pInit(){SIM={mode:"balanced",playing:true,frdIx:1,projDone:52,projTotal:109,feed:[],wos:[],holdT:0};pSeedFRD();}
+function pSeedFRD(){SIM.frd=P_FRDS[SIM.frdIx];SIM.holdT=0;SIM.wos=P_WODEFS.map(function(d){return {def:d,id:d.id,name:d.name,foundation:!!d.foundation,state:"queue",t:0,say:""};});SIM.feed=[[null,"⛏️ Fundación primero — los primitivos compartidos se forjan antes; las features los reutilizan"]];}
+function pCount(st){return SIM.wos.filter(function(w){return w.state===st;}).length;}
+function pFoundationDone(){var f=SIM.wos.filter(function(w){return w.foundation;})[0];return !f||["tribunal","vault"].indexOf(f.state)>=0;}
+function pFeed(t,s){SIM.feed.unshift([t,s]);if(SIM.feed.length>6)SIM.feed.pop();}
+function pRand(a){return a[Math.floor(Math.random()*a.length)];}
+function pStep(){
+ if(!SIM.playing)return;
+ var wave=P_MODES[SIM.mode].wave;
+ SIM.wos.filter(function(w){return w.state==="tribunal";}).forEach(function(w){w.t++;if(w.t>=REVIEW_DUR){w.state="vault";w.t=0;SIM.projDone++;pFeed(w.id,"VERIFIED ✓ — a la Bóveda");}});
+ SIM.wos.filter(function(w){return w.state==="forge";}).forEach(function(w){w.t++;if(Math.random()<.5)w.say=pRand(P_SAYS);if(w.t>=BUILD_DUR+(w.foundation?2:0)){w.state="tribunal";w.t=0;w.say="";pFeed(w.id,"→ IN_REVIEW · Status Note: interfaces + decisiones");}});
+ var building=pCount("forge"),fdone=pFoundationDone(),q=SIM.wos.filter(function(w){return w.state==="queue";});
+ for(var i=0;i<q.length;i++){var w=q[i];
+  if(w.foundation){if(building===0){w.state="forge";w.t=0;w.say="primitivos compartidos";building++;pFeed(w.id,"IN_PROGRESS · forja la fundación SOLA");}continue;}
+  if(!fdone)continue;
+  if(building>=wave)break;
+  w.state="forge";w.t=0;w.say=pRand(P_SAYS);building++;pFeed(w.id,w.name+" — IN_PROGRESS");}
+ if(SIM.wos.every(function(w){return w.state==="vault";})){SIM.holdT++;if(SIM.holdT>=4){SIM.frdIx=(SIM.frdIx+1)%P_FRDS.length;pSeedFRD();pFeed(null,"🏆 oleada cerrada · arranca el siguiente FRD");}}
+}
+function pSprite(role,sz,live){return '<span class="itemslot" style="width:'+sz+'px;height:'+sz+'px;background:var(--panel);border:1px solid var(--bd2);'+(live?'box-shadow:0 0 12px -4px var(--accent)':'')+'"><img class="sprite" src="../prototype/assets/agents/'+role+'.png" alt="" style="width:'+(sz-6)+'px;height:'+(sz-6)+'px" onerror="this.remove()">'+(live?'<span class="livedot"></span>':'')+'</span>';}
+function pBar(){
+ var m=P_MODES[SIM.mode];
+ var modes=Object.keys(P_MODES).map(function(k){return '<span class="pmode'+(k===SIM.mode?" on":"")+'" data-pmode="'+k+'">'+P_MODES[k].label+'</span>';}).join("");
+ return '<div class="pbrow"><span class="demobadge">🔧 SOLO DEMO</span>'
+  +'<button class="pbtn'+(SIM.playing?" on":"")+'" data-pplay aria-label="play/pausa"><i class="ti '+(SIM.playing?"ti-player-pause-filled":"ti-player-play-filled")+'"></i></button>'
+  +'<button class="pbtn" data-preset aria-label="reiniciar"><i class="ti ti-rotate"></i></button>'
+  +'<span class="pkpi" id="party-kpi"><span class="px">'+SIM.frd+'</span> · oleada '+m.wave+' · <span class="px">'+SIM.projDone+'/'+SIM.projTotal+'</span></span></div>'
+  +'<div class="pmodes">'+modes+'</div>'
+  +'<div class="pnote">Controles solo para previsualizar el movimiento — no existen en la app real (es solo-lectura).</div>';
+}
+function pOverview(){
+ var q=pCount("queue");
+ var rows=P_ROOMS.map(function(r){
+  var inroom=SIM.wos.filter(function(w){return w.state===r.id;});
+  var active=r.id==="forge"&&inroom.length>0,review=r.id==="tribunal"&&inroom.length>0;
+  var cntlbl=r.id==="forge"?(inroom.length+(q?" · +"+q+" en cola":"")):(r.id==="vault"?(inroom.length+" del FRD"):inroom.length+"");
+  var avs;
+  if(r.id==="vault"){avs=inroom.slice(0,4).map(function(){return '<span class="itemslot" style="width:24px;height:24px;background:var(--ok-bg);border:1px solid var(--ok);color:var(--ok)"><i class="ti ti-trophy" style="font-size:13px"></i></span>';});}
+  else{avs=inroom.slice(0,3).map(function(){return pSprite("backend-dev",26,active);});if(review)avs.unshift(pSprite("reviewer",26,true));}
+  var more=inroom.length>3?'<span class="px" style="font-size:11px;color:var(--text3);align-self:center">+'+(inroom.length-3)+'</span>':"";
+  var avbox=avs.length?'<span style="display:flex;gap:5px;margin-left:auto;flex:0 0 auto;align-items:center">'+avs.join("")+more+'</span>':'<i class="ti ti-chevron-right" style="font-size:16px;color:var(--text3);margin-left:auto"></i>';
+  var live=active?'<div style="font-size:11px;color:var(--accent-text);margin-top:5px;display:flex;align-items:center;gap:6px"><span class="livedot" style="position:static"></span> corriendo: <b style="font-weight:500;font-family:var(--mono)">'+inroom[0].id+'</b>'+(inroom[0].say?" · "+inroom[0].say:"")+'</div>':"";
+  var dim=(!inroom.length&&r.id!=="vault");
+  return '<div class="rpgpanel roomrow'+(active?" spot":"")+'" data-room="'+r.id+'" style="padding:11px 12px;margin-bottom:9px;cursor:pointer'+(active?";border-color:var(--accent)":"")+'"><div style="display:flex;align-items:center;gap:11px"><span class="roomthumb" style="background-image:url(../prototype/assets/zones/'+r.zone+'.png)'+(dim?";filter:grayscale(.6) brightness(.85);opacity:.7":"")+'"></span><div style="min-width:0;flex:1"><div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span style="font-size:14px;font-weight:500">'+r.lbl+" "+r.n+'</span><span class="chip" style="font-size:10px;background:'+r.clbg+";color:"+r.cl+'"><i class="ti '+r.ic+'" style="font-size:10px;vertical-align:-1px"></i> '+r.stlbl+'</span><span class="px" style="font-size:11px;color:var(--text3);margin-left:auto">'+cntlbl+'</span></div>'+live+'</div>'+avbox+'</div></div>';
+ }).join("");
+ var feed=SIM.feed.slice(0,2).map(function(f){return '<div style="font-size:11px;color:var(--text3);display:flex;gap:6px;padding:3px 0"><i class="ti ti-point-filled" style="font-size:11px;color:var(--accent-text);margin-top:3px;flex:0 0 auto"></i><div>'+(f[0]?'<b style="font-weight:500;font-family:var(--mono);color:var(--cat-7)">'+f[0]+'</b> ':"")+f[1]+'</div></div>';}).join("");
+ return '<div style="font-size:11px;color:var(--text3);margin:0 2px 10px;display:flex;align-items:center;gap:6px"><i class="ti ti-map-2" style="font-size:13px;color:var(--accent-text)"></i> EL BUILD EN VIVO · 1 FRD a la vez · toca una sala para entrar</div>'
+  +rows
+  +'<div class="rpgpanel" style="padding:9px 12px;margin-top:2px"><div style="font-size:10px;color:var(--accent-text);font-family:var(--pixel);letter-spacing:.05em;margin-bottom:3px">📜 BITÁCORA DEL GREMIO</div>'+(feed||'<div style="font-size:11px;color:var(--text3)">Arrancando la forja…</div>')+'</div>'
+  +'<p style="font-size:11px;color:var(--text3);margin:8px 2px 0"><i class="ti ti-info-circle" style="font-size:12px;vertical-align:-1px"></i> El mapa-mundo se vuelve esta lista glanceable: las <b style="font-weight:500">3 salas</b> (Forja → Tribunal → Bóveda) + cuál corre + la cola. El pixel-art se ve a tamaño real al entrar a una sala.</p>';
+}
+function pRoom(rid){
+ var r=P_ROOMS.filter(function(x){return x.id===rid;})[0],inroom=SIM.wos.filter(function(w){return w.state===rid;}),live=rid==="forge"&&inroom.length>0;
+ var slots=[[15,20],[44,16],[71,22],[24,48],[55,46],[78,50]],sprites;
+ if(rid==="vault"){sprites=inroom.slice(0,8).map(function(w,i){return '<div class="rsprite" style="left:'+(8+i*11)+'%;bottom:16%;width:30px;height:30px"><i class="ti ti-trophy" style="font-size:24px;color:var(--ok)"></i><span class="rtag" style="color:var(--ok)">'+w.id+'</span></div>';}).join("")||'<div class="rtag" style="position:absolute;left:50%;top:46%;transform:translateX(-50%);color:var(--text3)">aún sin trofeos de este FRD</div>';}
+ else{sprites=inroom.slice(0,6).map(function(w,i){var sl=slots[i]||[20+i*11,40],found=w.foundation;return '<div class="rsprite'+(rid==="forge"?" s-live":"")+'" style="left:'+sl[0]+'%;top:'+sl[1]+'%"><div class="rhalo" style="background:'+(found?"var(--cat-5)":"var(--accent)")+'"></div><img class="sprite" src="../prototype/assets/agents/backend-dev.png" alt="" onerror="this.parentNode.remove()"><span class="rtag"'+(found?' style="color:var(--cat-5)"':"")+'>'+(found?"⛏️ "+w.id:w.id)+'</span>'+(w.say?'<span class="rsay">'+w.say+'</span>':"")+'</div>';}).join("");
+  if(rid==="tribunal")sprites='<div class="rsprite" style="left:43%;top:6%"><img class="sprite" src="../prototype/assets/agents/reviewer.png" alt="" onerror="this.parentNode.remove()"><span class="rtag" style="color:var(--warn)">⚖️ Juez</span></div>'+sprites;
+  if(!inroom.length)sprites+='<div class="rtag" style="position:absolute;left:50%;top:48%;transform:translateX(-50%);color:var(--text3)">sala vacía — entra un WO al avanzar el build</div>';}
+ var cnt=rid==="vault"?(inroom.length+" trofeos"):(inroom.length+(rid==="forge"?" forjando":" en revisión"));
+ var legend=inroom.length?inroom.map(function(w){return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:.5px solid var(--bd)">'+(rid==="vault"?'<span class="itemslot" style="width:28px;height:28px;background:var(--ok-bg);border:1px solid var(--ok);color:var(--ok)"><i class="ti ti-trophy" style="font-size:15px"></i></span>':pSprite("backend-dev",28,live))+'<div style="min-width:0"><div style="font-size:12px;font-weight:500;font-family:var(--mono)">'+w.id+'</div><div style="font-size:11px;color:var(--text3)">'+(w.say||w.name)+'</div></div></div>';}).join(""):'<div style="font-size:12px;color:var(--text3);margin-top:6px">Sala vacía ahora mismo — los work orders entran al avanzar el build (dale ▶ arriba).</div>';
+ return '<div style="margin-bottom:12px"><button data-roomback><i class="ti ti-arrow-left" style="font-size:14px"></i> Volver al mapa</button></div>'
+  +'<div class="roomscene"><div class="roombg" style="background-image:url(../prototype/assets/zones/'+r.zone+'.png)"></div><div class="roomtitle"><i class="ti '+r.ic+'" style="font-size:13px;color:'+r.cl+'"></i> '+r.lbl+" "+r.n+' <span class="px" style="font-size:10px;color:var(--text3);margin-left:4px">'+cnt+'</span></div>'+(live?'<div class="roomlive"><span class="livedot" style="position:static"></span> en vivo</div>':"")+sprites+'</div>'
+  +'<div class="rpgpanel" style="padding:11px 13px;margin-top:12px"><div style="font-size:11px;color:var(--text2);font-weight:500;margin-bottom:2px">Work orders en esta sala</div>'+legend+'</div>'
+  +'<p style="font-size:11px;color:var(--text3);margin:10px 2px 0">Sala a escala nativa (cabe en 375px) — sprites/halos del skin congelado, nítidos. Se mueven con el build (dale ▶ arriba).</p>';
+}
+function pPaint(){
+ var dyn=document.getElementById("party-dyn");if(!dyn){pStop();return;}
+ dyn.innerHTML=PARTYROOM?pRoom(PARTYROOM):pOverview();
+ dyn.querySelectorAll("[data-room]").forEach(function(elm){elm.addEventListener("click",function(){PARTYROOM=elm.dataset.room;pPaint();var d=document.getElementById("party-dyn");if(d)d.scrollIntoView({block:"start"});});});
+ var back=dyn.querySelector("[data-roomback]");if(back)back.addEventListener("click",function(){PARTYROOM=null;pPaint();});
+}
+function pPaintBar(){
+ var bar=document.getElementById("party-bar");if(!bar)return;
+ bar.innerHTML=pBar();
+ bar.querySelector("[data-pplay]").addEventListener("click",function(){SIM.playing=!SIM.playing;pPaintBar();});
+ bar.querySelector("[data-preset]").addEventListener("click",function(){pInit();PARTYROOM=null;pPaintBar();pPaint();});
+ bar.querySelectorAll("[data-pmode]").forEach(function(m){m.addEventListener("click",function(){SIM.mode=m.dataset.pmode;pPaintBar();});});
+}
+function pTick(){pStep();var k=document.getElementById("party-kpi");if(k)k.innerHTML='<span class="px">'+SIM.frd+'</span> · oleada '+P_MODES[SIM.mode].wave+' · <span class="px">'+SIM.projDone+'/'+SIM.projTotal+'</span>';pPaint();}
+function pStart(){pStop();PTIMER=setInterval(pTick,800);}
+function pStop(){if(PTIMER){clearInterval(PTIMER);PTIMER=null;}}
+function renderParty(ix){if(!SIM)pInit();return '<div class="partybar" id="party-bar"></div><div id="party-dyn"></div>';}
+function vPropuestas(){
+ var k=[["6","abiertas","--accent-text"],["2","candidatas","--warn"],["2","a promover","--ok"]];
+ var stats='<div class="grid2" style="margin-bottom:6px">'+k.map(function(s){return '<div class="rpgpanel" style="padding:11px 13px"><div class="px" style="font-size:24px;line-height:1">'+s[0]+'</div><div style="font-size:11px;color:var(--text2)">'+s[1]+'</div></div>';}).join("")+'</div>';
+ var grp=function(t,col,arr){return '<div class="secthead"><i class="ti ti-file-search" style="font-size:14px"></i> '+t+' <span class="chip" style="background:'+col+'22;color:'+col+'">'+arr.length+'</span><span class="ln"></span></div>'+arr.map(function(p){return '<div class="rpgpanel" style="padding:12px 13px;margin-bottom:9px"><div style="display:flex;gap:10px;align-items:flex-start"><span class="itemslot" style="width:30px;height:30px;background:'+col+'22;border:1.5px solid '+col+';color:'+col+'"><i class="ti ti-bulb" style="font-size:15px"></i></span><div style="min-width:0"><div style="font-size:13px;font-weight:500">'+p[0]+'</div><div style="font-size:11px;color:var(--text3);margin-top:3px">'+p[1]+'</div></div></div></div>';}).join("");};
+ return pageHead("ti-bulb","Propuestas","Autoaprendizaje de la fábrica. Tarjetas que apilan en una columna; las cifras en 2 columnas.")
+  +stats
+  +grp("Lecciones candidatas","var(--warn)",[["Biome useSortedClasses choca con cn() multilínea","Capturada en «Control de gastos» · build FRD-02"],["Polar webhook: verificar firma antes de parsear","Capturada en «Pandacorp» · release"]])
+  +grp("A promover","var(--ok)",[["next/font evita CLS — fijar como estándar","Activa en 3 proyectos"]]);
+}
+
+function vLogros(){
+ var hero='<div class="rpgpanel rpggrid" style="padding:14px;margin-bottom:14px;display:flex;gap:13px;align-items:center"><div class="shield"><span class="px big">7</span></div><div style="flex:1;min-width:0"><div class="ttl" style="font-size:16px">Maestro de la Fábrica</div><div style="font-size:12px;color:var(--text2);margin:2px 0 8px">2.140 / 3.000 XP · nivel 7</div><div class="xpbar"><i style="width:71%"></i></div></div></div>';
+ var badges=[["ti-rocket","Primer lanzamiento","--tier-3",true],["ti-flame","Racha de 7 días","--tier-5",true],["ti-bug","Cazador de bugs","--tier-2",true],["ti-crown","10 proyectos","--tier-4",false]];
+ var grid='<div class="secthead"><i class="ti ti-medal" style="font-size:14px"></i> Insignias<span class="ln"></span></div><div class="grid2">'+badges.map(function(b){return '<div class="rpgpanel" style="padding:13px;text-align:center;'+(b[3]?'':'filter:saturate(.5);opacity:.7')+'"><span class="itemslot" style="width:46px;height:46px;background:var('+b[2]+')22;border:1.5px solid var('+b[2]+');color:var('+b[2]+');margin:0 auto 8px"><i class="ti '+b[0]+'" style="font-size:22px"></i></span><div style="font-size:12px;font-weight:500">'+b[1]+'</div>'+(b[3]?'':'<div style="font-size:10px;color:var(--text3);margin-top:2px"><i class="ti ti-lock" style="font-size:10px"></i> bloqueada</div>')+'</div>';}).join("")+'</div>';
+ return pageHead("ti-trophy","Logros","El salón del gremio. Hero apilable + insignias en rejilla de 2 columnas.")+hero+grid;
+}
+
+function vDocumentacion(){
+ var nav=MANUAL.map(function(gr){return '<div class="px grp">'+gr.g.toUpperCase()+'</div>'+gr.items.map(function(it,i){return '<div class="navitem'+(gr.g==="Empieza aquí"&&i===0?' on':'')+'" data-doc="'+it[0]+'"><i class="ti '+it[2]+'" style="font-size:15px"></i> '+it[1]+'</div>';}).join("");}).join("");
+ return pageHead("ti-book","Documentación","El códice del gremio. El menú lateral colapsa en un desplegable « Secciones » arriba.")
+  +'<details class="mdisclose"><summary><i class="ti ti-list" style="font-size:16px;color:var(--accent-text)"></i> Secciones <span style="font-size:12px;color:var(--text3);font-weight:400">· Qué es la fábrica</span><i class="ti ti-chevron-down chev"></i></summary><div class="dbody">'+nav+'</div></details>'
+  +'<div class="panel doc"><h1>Qué es la fábrica</h1><p style="font-size:13px;color:var(--text2)">Pandacorp es una fábrica de software 100% IA. Documentas una idea, la diseñas, la construyes y la lanzas — todo orquestado por skills y agentes.</p><h2>El ciclo de vida</h2><p style="font-size:13px;color:var(--text2)">Seis fases: descubierta → documentada → diseño → arquitectura → construcción → operación. Cada una con su gate humano.</p><h3>Cómo navegar en móvil</h3><ul style="font-size:13px;color:var(--text2)"><li>El índice lateral se vuelve el desplegable de arriba.</li><li>El contenido ocupa todo el ancho.</li><li>Las rejillas de Referencia (comandos/agentes) pasan a 1 columna.</li></ul></div>';
+}
+
+/* ====================== ROUTER + INTERACCIÓN ====================== */
+var VIEWS={inicio:vInicio,tablero:vTablero,portfolio:vPortfolio,propuestas:vPropuestas,logros:vLogros,documentacion:vDocumentacion};
+function curRoute(){var h=(location.hash||"#inicio").slice(1);return VIEWS[h]?h:"inicio";}
+function renderDrawer(){
+ var r=curRoute();
+ document.getElementById("drawernav").innerHTML=NAV.map(function(n){return '<a class="navitem'+(n.id===r?' on':'')+'" href="#'+n.id+'" data-nav="'+n.id+'"><i class="ti '+n.ic+'" style="font-size:16px"></i> '+n.t+(n.badge?'<span class="badge">'+n.badge+'</span>':'')+'</a>';}).join("");
+}
+function render(){
+ pStop();PARTYROOM=null;
+ var r=curRoute();
+ document.getElementById("app").innerHTML='<div class="anim">'+VIEWS[r]()+'</div>';
+ renderDrawer();
+ wire();
+ document.getElementById("app").scrollTop=0;
+ window.scrollTo(0,0);
+}
+function openDrawer(o){document.getElementById("drawer").classList.toggle("open",o);document.getElementById("scrim").classList.toggle("open",o);document.getElementById("hamb").setAttribute("aria-expanded",o?"true":"false");}
+
+function wire(){
+ // Tablero: pills saltan a la columna
+ var kan=document.getElementById("kanban");
+ if(kan){document.querySelectorAll(".phasebar .phasepill[data-phase]").forEach(function(b){b.addEventListener("click",function(){var ix=+b.dataset.phase;document.querySelectorAll(".phasebar .phasepill").forEach(function(x){x.classList.remove("on");});b.classList.add("on");var col=kan.querySelectorAll("[data-col]")[ix];if(col)kan.scrollTo({left:col.offsetLeft-kan.offsetLeft-8,behavior:"smooth"});});});}
+ // Portfolio: selección de proyecto
+ var rs=document.getElementById("railstrip");
+ if(rs){rs.querySelectorAll(".railchip").forEach(function(c){c.addEventListener("click",function(){rs.querySelectorAll(".railchip").forEach(function(x){x.classList.remove("on");});c.classList.add("on");document.getElementById("pane").innerHTML=projectPane(+c.dataset.proj);wireProject();});});wireProject();}
+}
+function wireProject(){
+ var sub=document.getElementById("psub");
+ if(!sub)return;
+ var ix=+sub.dataset.proj;
+ PARTYROOM=null;
+ sub.querySelectorAll(".stab").forEach(function(s){s.addEventListener("click",function(){sub.querySelectorAll(".stab").forEach(function(x){x.classList.remove("on");});s.classList.add("on");PARTYROOM=null;setPbody(s.dataset.ptab,ix);});});
+ wirePbody(ix);
+}
+function setPbody(tab,ix){pStop();document.getElementById("pbody").innerHTML=ptabBody(tab,ix);wirePbody(ix);}
+function wirePbody(ix){
+ // Documentos: chips
+ document.querySelectorAll("#pbody .docchip").forEach(function(d){d.addEventListener("click",function(){document.querySelectorAll("#pbody .docchip").forEach(function(x){x.classList.remove("on");});d.classList.add("on");});});
+ // Party: arrancar la simulación viva (barra + overview/detalle se pintan solos)
+ if(document.getElementById("party-bar")){pPaintBar();pPaint();pStart();}
+}
+
+document.getElementById("hamb").addEventListener("click",function(){openDrawer(!document.getElementById("drawer").classList.contains("open"));});
+document.getElementById("dclose").addEventListener("click",function(){openDrawer(false);});
+document.getElementById("scrim").addEventListener("click",function(){openDrawer(false);});
+document.getElementById("drawer").addEventListener("click",function(e){if(e.target.closest("[data-nav]"))openDrawer(false);});
+window.addEventListener("hashchange",render);
+render();
+</script>
+</body>
+</html>
