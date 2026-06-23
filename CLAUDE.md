@@ -38,6 +38,7 @@ The other phases are run **inside the project folder**, without a name:
 - `/pandacorp:release` — audit + deploy + return-aware launch plan (human gate for production).
 - `/pandacorp:review-launch` — after launch, reads real metrics vs the value hypothesis and recommends kill / hold / double-down (DR-043); runs on demand or as a `/loop` job.
 - `/pandacorp:iterate` — add features or changes at any time (building or shipped).
+- `/pandacorp:sync` — the **reverse** flow: reconcile the docs *backwards* from changes you made directly in the code (the inverse of `iterate`). Classifies the diff with the canonical-doc table and propagates reality to the owning docs + the area's decision log, behind an intent gate (DR-081).
 
 Optional/internal: `:new-version` (large milestone with a mini-PRD), `:scaffold` and `:work-orders` (steps normally invoked by `spec`/`blueprint`), `:upgrade` (re-sync a project's `.pandacorp/` overlay to the latest factory version — usually automatic, DR-048).
 
