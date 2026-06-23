@@ -52,7 +52,7 @@ The real existing products/competitors, one line + link each — or an explicit 
 How it stacks up against the similar ones and the clear **wedge**: why ours wins / where the value is.
 
 ### Return (monetary or opportunity)
-What the owner gains — monetary and/or opportunity (reach/network/positioning) and/or personal. If it leverages an asset (audience, community, niche, data), say so.
+What the owner gains — monetary and/or opportunity (reach/network/positioning) and/or personal. If it leverages an asset (audience, community, niche, data), say so. **Validate the revenue rail in the owner's market** (e.g. Perú): does the affiliate program / payment processor / ad network actually exist and pay there, or does the model only work abroad (then say so, and whether it's *build-for-others*)?
 
 ### Red team (why it could fail)
 The 2-3 kill-risks with their mechanism (the pre-mortem). Be concrete: not "strong competition" but "Incumbent X ships this natively, covering 80% of the use case".

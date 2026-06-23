@@ -14,7 +14,7 @@ Opportunity discovery **that helps the owner decide** — not a buffet of option
 
 ## Step 0 — Read the profile + what the owner already has
 
-Read `factory/profile.md` (interests, hobbies, likes/dislikes, goals, **assets/levers** —audience, community, niche, data—, monetization appetite, project types). If it doesn't exist, say so and suggest onboarding (you can still run the general stream).
+Read `factory/profile.md` (interests, hobbies, likes/dislikes, goals, **assets/levers** —audience, community, niche, data—, monetization appetite, project types, and the owner's **country/market** — e.g. Perú/LATAM, which the market reality check below depends on). If it doesn't exist, say so and suggest onboarding (you can still run the general stream).
 
 Then read **what the owner already owns**, for fold-in detection (Step 5): `factory/portfolio.md` + the owner's existing project folders (the profile's `projects_path`, default = the factory's sibling folders). Note each app's name + one-line purpose, so a new idea can be judged *standalone* vs *a feature of something he already has*.
 
@@ -35,6 +35,7 @@ Then read **what the owner already owns**, for fold-in detection (Step 5): `fact
    - **Distribution / founder-fit** — can the owner reach the first 10 customers (their channel/niche/asset)? or is there no clear channel?
    - **Why now** — the catalyst that makes this the right moment.
    - **Effort** — honest weeks-to-first-usable-MVP for one person.
+   - **Market reality (owner's country)** — does the revenue rail (affiliate program, payment processor, ad network) AND the customer base actually exist and *pay* from the owner's country (e.g. Perú), or does the premise silently assume US/abroad infrastructure? (e.g. Amazon Associates excludes Perú; Japan proxies pay only store credit.) Name the in-market alternative if the default doesn't apply.
 
 2. **Filter (feasibility)** with Pandacorp criteria: implementable by one person in **weeks** (not months) with the golden paths or as tooling/prompt/automation; no heavy regulatory load (health, regulated finance); **clear return** (monetary OR opportunity/personal).
 
@@ -46,6 +47,7 @@ Then read **what the owner already owns**, for fold-in detection (Step 5): `fact
    5. **Too complex for the window** — honest MVP > ~4-6 weeks for one person, or needs data/licenses/regulation that don't exist.
    6. **Not founder-fit** — owner doesn't live the problem and has no access to users to iterate.
    7. **Market = "everyone"** — can't name a specific first customer (industry + size + specific problem + where they live).
+   8. **Doesn't work in the owner's market** — the revenue rail (affiliate program, payment processor, ad network) or the customer base doesn't exist / isn't accessible from the owner's country (e.g. Amazon Associates excludes Perú; Japan proxies pay only store credit; no local affiliate programs), and there's no viable local alternative. A monetization premise that silently assumes US/abroad infrastructure is a **kill-or-reframe** flag: *reframe* = build-for-others (the owner is the builder, NOT the first monetizing user — name that validation risk), or find the in-market model; *kill* only if money was the sole value and no in-market model exists.
 
    An idea that fails a hard criterion (1-4 especially) is **KILLED** — it does NOT become a card. A *valid problem* with a *strong incumbent and no wedge*, or *no distribution*, is a **kill**, not a card. Killed ideas are listed in the report as "**descartadas y por qué**" (one line each) — that one-line honesty is what makes the survivors feel earned.
 
@@ -70,6 +72,7 @@ Then read **what the owner already owns**, for fold-in detection (Step 5): `fact
 - **Red team every idea.** A valid problem with a strong incumbent + no wedge, or no distribution, is a **discard**, not a card. Run the kill-gate BEFORE presenting, not as a footnote.
 - **Verdict is explicit and asymmetric.** Every survivor gets build / validate / integrate, up front. Say "no" with conviction where it's warranted.
 - **Check what he already has first.** Prefer **integrate** into an owned app over a near-duplicate standalone; name the app.
+- **Evaluate in the owner's market, never a US default.** Verify the revenue rail (affiliate/payment/ads) AND the customer base actually exist and pay from the owner's country (Perú/LATAM). A monetization premise built on US infrastructure (Amazon Associates, US-only affiliate programs) that excludes the owner's country is a **kill-or-reframe** flag — find the in-market model (local affiliates, TikTok Live, sponsorships, own store) or say plainly it only works *built-for-others*.
 - **The conviction hooks are mandatory.** Founder-fit, why-now, the #1 surviving risk, and a 7-day validation step — these are what make it a "wow", not a feature list.
 - **Problem as storytelling**; **sell the differential value**, never a me-too; **evidence first** (≥2 real links); **don't inflate** the score (70+ must be genuinely promising — rubric in `/pandacorp:new-idea`).
 - Honor the dual criterion: don't kill an aligned idea only for low monetization, nor a brilliant general one only for being off-topic.

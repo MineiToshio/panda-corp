@@ -4,6 +4,11 @@ Decisions about the **idea base and its process** (scoring, discarding, discover
 
 > Note: the content and status of **each idea** lives in its own card (`factory/ideas/<slug>.md`, frontmatter). This file holds decisions about **how we manage ideas**, not the ideas themselves.
 
+## 2026-06-23 — Card Return must validate the revenue rail in the owner's market (Perú/LATAM)
+**What:** The template's Return section now requires checking that the affiliate program / payment processor / ad network actually exists and pays in the owner's country — and saying so if the model only works abroad (and whether it's *build-for-others*). The discovery-flow side (kill criterion #8 + market-reality research) is in `plugin/docs/decision-log.md` (same date, v9.3.0).
+**Why:** A PandaShelf re-eval exposed US-lens monetization (affiliates that exclude Perú); cards must contextualize return to where the owner actually operates.
+**Impact:** `factory/ideas/_idea-template.md` (Return section). Cross-ref: `plugin/docs/decision-log.md` v9.3.0.
+
 ## 2026-06-23 — Card = a decision memo: verdict frontmatter + 2-layer (glance/deep-dive) body
 **What:** The idea-card format (`_idea-template.md`) is now a **1-page decision memo**. New frontmatter decision fields: `verdict` (build | validate | integrate), `the_bet` (one-line hook), `fold_into` (an existing owned app, if integrate), `why_now`, `kill_risk`, `validation_step`. The body is restructured into two layers: **At a glance** (verdict + la apuesta + storytelling problem + diferencial + why-now + founder-fit + #1 risk + 7-day test + a 5-axis scorecard) for deciding, and **Deep dive** (solución, features, similares, comparación, retorno, red team, evidencia, notas) for reading more. A `discard` never becomes a card (it's red-teamed out before carding). This is the idea-base/process side; the skill + plugin-version side is in `plugin/docs/decision-log.md` (same date, v9.2.0).
 **Why:** Owner couldn't decide from a flat 9-card buffet — needed a verdict at a glance, the conviction hooks (why-you/why-now/what-winning-looks-like + an honest surviving risk), and awareness of apps he already owns (fold-in). The card had to stop merely informing and start enabling a yes/no.
