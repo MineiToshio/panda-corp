@@ -4,6 +4,17 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-06-22 — Discard button sized + danger hover; locked-phase ficha shows its info
+**What:**
+- **Discard button** matched to the shared `Button` `size="sm"` so it's the same size as the "← Volver al tablero" back button beside it (was taller — a 44px min-height). Added a hover consistent with the app's button hovers but in the **danger** colour (a `.pc-discard` class: red border + danger-bg tint + danger glow) — a destructive button shouldn't glow accent-cyan. Its transition is inline (the shared-Button pattern), since `globals.css` may only transition compositable props (AC-13-005.1).
+- **A locked (not-yet-reached) phase's campaign ficha now shows its full info** — description, LEE/ESCRIBE, and the whole team — instead of a "🔒 esta fase no está disponible" placeholder. The ficha is information *about* the phase; the header still marks a future phase "en espera". Only the build phase's **"Entrar a La Fragua" action** stays gated behind reaching build (info yes, action no).
+
+**Why:** Owner: *"el botón de descartar es un poco más grande que en el HTML y le falta un hover (distinto al del HTML, alineado con los otros como 'volver al tablero'). Y la info de abajo (la fase, los agentes) debería poder leerse siempre, aunque no hayas llegado a esa fase — es info de la fase, no veo sentido bloquearla."*
+
+**Verified:** Live DOM — discard height 29px == back 29px, class `pc-discard` + transition present; a locked Release ficha shows header "6 · Release — en espera" + 2 team members, no locked marker, no forge action. `verify.sh` GREEN (incl. the `globals.css` non-compositable-transition adversarial gate, after moving the transition inline); no visual re-bless (both live only inside the open card detail).
+
+**Impact:** `DiscardButton.tsx` (sm sizing + `.pc-discard` class + inline transition), `globals.css` (`.pc-discard:hover`), `CampaignPipeline.tsx` (dropped the locked-ficha early return + `FICHA_LOCKED_STYLE`; forge button gated on `phaseState !== "locked"`). Canonical: **AC-02-010.7** rewritten + [frd-02 amendment](frds/frd-02-ideas-board/frd.md). Tests updated to the new locked-ficha contract.
+
 ## 2026-06-22 — Card-detail header: return chip vertically aligned with the title row
 **What:** In the open-card `PageTitle` row (title + category · return · "Score N/100"), the **return chip sat ~2px low** — it was wrapped in a plain inline `<span>` that baseline-aligned the `Chip` instead of centring it. Gave the `detail-head-return` span `display: inline-flex; align-items: center` (the same fix already applied to `IdeaCard`). Measured: all of H1 / category / return / score now share `midY 125`.
 

@@ -539,6 +539,18 @@ h3 {
   }
 }
 
+/* Discard affordance hover — same glow treatment as .pc-btn but in the danger
+   colour (it's a destructive button); a subtle danger-bg tint on hover. The
+   transition lives inline on the button (like the shared Button), not here —
+   globals.css may only transition compositable props (AC-13-005.1). */
+.pc-discard:hover {
+  border-color: var(--color-danger) !important;
+  background: var(--color-danger-bg) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 14px -7px var(--color-danger) !important;
+}
+
 /* Desktop: the nav is inline next to the toggle (which is hidden) */
 [data-nav-region] {
   display: flex;

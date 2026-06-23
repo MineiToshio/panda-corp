@@ -414,7 +414,7 @@ describe("AC-02-010.5 — build phase Entrar a La Fragua callback", () => {
 // AC-02-010.7 — locked future phases render graceful locked state without crash
 // ---------------------------------------------------------------------------
 
-describe("AC-02-010.7 — locked future phases: graceful locked state", () => {
+describe("AC-02-010.7 — locked future phases: info readable, no crash", () => {
   it("a locked phase renders its element without crashing (activePhase=0 → all locked except research)", () => {
     expect(() => render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} />)).not.toThrow();
     // All future phases still render
@@ -423,21 +423,23 @@ describe("AC-02-010.7 — locked future phases: graceful locked state", () => {
     }
   });
 
-  it("clicking a locked future phase shows a ficha with a locked marker", () => {
+  it("clicking a locked future phase shows its full ficha (no locked-out marker); header marks it 'en espera'", () => {
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} />);
     // product is locked (index 1 > activePhase 0)
     fireEvent.click(screen.getByTestId("campaign-phase-product"));
     const ficha = screen.getByTestId("campaign-phase-ficha");
-    // The ficha must show some locked indicator (data-locked="true" or a testid)
-    expect(within(ficha).getByTestId("ficha-locked-marker")).toBeInTheDocument();
+    // The phase INFO is always readable — no locked-out marker anymore.
+    expect(within(ficha).queryByTestId("ficha-locked-marker")).not.toBeInTheDocument();
+    // The header still signals it's a future phase.
+    expect(within(ficha).getByTestId("ficha-header")).toHaveTextContent(/en espera/i);
   });
 
-  it("a locked phase's ficha does NOT show the team members (no deliverable)", () => {
+  it("a locked phase's ficha SHOWS its team (phase info readable regardless of progress)", () => {
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} />);
     fireEvent.click(screen.getByTestId("campaign-phase-product"));
     const ficha = screen.getByTestId("campaign-phase-ficha");
-    // No team members in a locked ficha
-    expect(within(ficha).queryAllByTestId("ficha-team-member")).toHaveLength(0);
+    // product's specialist (product-manager) is shown even though the phase is locked.
+    expect(within(ficha).queryAllByTestId("ficha-team-member").length).toBeGreaterThan(0);
   });
 
   it("all 6 phases render even when all but one are locked (activePhase=0)", () => {

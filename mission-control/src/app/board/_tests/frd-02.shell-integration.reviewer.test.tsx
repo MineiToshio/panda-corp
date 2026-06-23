@@ -218,9 +218,12 @@ describe("FRD-02 shell · AC-02-010.2 — malformed in-pipeline falls back to re
       "locked",
     );
 
-    // The locked future phase renders a graceful ficha when clicked (AC-02-010.7).
+    // The locked future phase opens its FULL ficha when clicked (info always readable);
+    // there is no locked-out marker, and the header marks it "en espera" (AC-02-010.7).
     await user.click(screen.getByTestId("campaign-phase-release"));
-    expect(await screen.findByTestId("ficha-locked-marker")).toBeInTheDocument();
+    expect(await screen.findByTestId("campaign-phase-ficha")).toBeInTheDocument();
+    expect(screen.queryByTestId("ficha-locked-marker")).not.toBeInTheDocument();
+    expect(screen.getByTestId("ficha-header")).toHaveTextContent(/en espera/i);
   });
 });
 

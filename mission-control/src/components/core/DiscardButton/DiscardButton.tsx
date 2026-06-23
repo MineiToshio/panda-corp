@@ -62,22 +62,28 @@ type UIState = "idle" | "confirming" | "pending" | "done";
 // These variables are wired by the design system (WO-13-002, globals.css).
 // ---------------------------------------------------------------------------
 
+// Mirrors the shared Button (size="sm") so the discard affordance matches the
+// "← Volver al tablero" back button beside it (prototype detailView back/discard row).
 const BASE_BTN_STYLE: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  gap: "calc(var(--spacing, 0.25rem) * 1)",
-  padding: "calc(var(--spacing, 0.25rem) * 1) calc(var(--spacing, 0.25rem) * 2)",
-  borderRadius: "var(--radius, 0.5rem)",
-  fontSize: "0.75rem",
+  gap: "6px",
+  padding: "5px 10px",
+  borderRadius: "var(--radius-sm, 8px)",
+  fontSize: "12px",
   fontWeight: 500,
-  fontFamily: "inherit",
+  lineHeight: 1.4,
+  fontFamily: "var(--font-display, inherit)",
   cursor: "pointer",
-  border: "var(--hairline, 1px) solid var(--color-border, currentColor)",
-  background: "transparent",
-  color: "var(--color-text-muted, currentColor)",
-  minHeight: "44px", // a11y: touch target ≥44px (FRD-13)
-  minWidth: "44px",
+  border: "1px solid var(--color-border-strong)",
+  background: "var(--color-card)",
+  color: "var(--color-text)",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,.05), 0 1px 0 var(--color-base)",
+  // Hover animation lives inline (like the shared Button); globals.css may only
+  // transition compositable props (AC-13-005.1).
+  transition:
+    "border-color var(--duration-fast, 150ms), box-shadow var(--duration-fast, 150ms), background var(--duration-fast, 150ms)",
 };
 
 const DISCARD_BTN_STYLE: React.CSSProperties = {
@@ -209,6 +215,7 @@ export function DiscardButton({ slug, discardAction }: DiscardButtonProps): Reac
         >
           <button
             type="button"
+            className="pc-discard"
             data-testid="discard-confirm-button"
             aria-label="Confirmar descarte de idea"
             onClick={handleConfirm}
@@ -219,6 +226,7 @@ export function DiscardButton({ slug, discardAction }: DiscardButtonProps): Reac
           </button>
           <button
             type="button"
+            className="pc-btn"
             data-testid="discard-cancel-button"
             aria-label="Cancelar descarte"
             onClick={handleCancel}
@@ -244,6 +252,7 @@ export function DiscardButton({ slug, discardAction }: DiscardButtonProps): Reac
     <div style={WRAPPER_STYLE}>
       <button
         type="button"
+        className="pc-discard"
         data-testid="discard-button"
         aria-label="Descartar idea"
         onClick={handleTrigger}

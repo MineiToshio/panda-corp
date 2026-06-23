@@ -323,14 +323,6 @@ const FICHA_SECTION_VALUE_STYLE: React.CSSProperties = {
   margin: 0,
 };
 
-const FICHA_LOCKED_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 2)",
-  alignItems: "center",
-  padding: "calc(var(--spacing, 0.25rem) * 6) 0",
-};
-
 const FICHA_SUBSECTION_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
@@ -618,29 +610,9 @@ function FichaContent({
   slug,
   onEnterForge,
 }: FichaContentProps): React.JSX.Element {
-  if (phaseState === "locked") {
-    return (
-      <section
-        data-testid="campaign-phase-ficha"
-        style={FICHA_STYLE}
-        aria-label={`Ficha de fase bloqueada: ${phase.name}`}
-      >
-        <div data-testid="ficha-locked-marker" style={FICHA_LOCKED_STYLE}>
-          <span style={{ fontSize: "2rem" }}>🔒</span>
-          <p
-            style={{
-              ...FICHA_SECTION_VALUE_STYLE,
-              textAlign: "center",
-              color: "var(--color-text-muted, var(--color-text, currentColor))",
-            }}
-          >
-            Esta fase aún no está disponible. Completa las fases anteriores para desbloquearla.
-          </p>
-        </div>
-      </section>
-    );
-  }
-
+  // The ficha always shows the full phase info (description · LEE/ESCRIBE · team) —
+  // it's information ABOUT the phase, readable whether or not the idea has reached it
+  // (owner). A future phase is signalled by the header label ("en espera"), not hidden.
   const isBuild = phase.key === "build";
 
   return (
@@ -704,7 +676,10 @@ function FichaContent({
         </div>
       </div>
 
-      {isBuild && (
+      {/* "Entrar a La Fragua" is an ACTION (the live build), so only when build is
+          reached — the phase INFO above is always readable, but a locked build has no
+          Fragua to enter yet. */}
+      {isBuild && phaseState !== "locked" && (
         <button
           data-testid="ficha-enter-forge"
           type="button"

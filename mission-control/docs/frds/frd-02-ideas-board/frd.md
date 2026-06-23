@@ -85,9 +85,11 @@ Read-only kanban of the idea base, with idea capture, a navigable detail and dis
 - AC-02-010.6 — THE Campaña view SHALL be **read-only**: it SHALL NOT call Claude, write any file, or
   trigger any build; the only "communication" it depicts between phases is the deliverable document
   travelling to the next phase (artifact across time).
-- AC-02-010.7 — IF a phase has no deliverable to show because it is locked (a future phase), THEN the
-  system SHALL render a graceful **locked/empty state** for that phase (no document, locked marker)
-  without breaking the view.
+- AC-02-010.7 — A **locked** (future, not-yet-reached) phase's ficha SHALL still render its **full
+  information** (description, LEE/ESCRIBE, the whole team) — the ficha is information *about* the phase,
+  readable regardless of progress (owner, 2026-06-22); the header label ("en espera") signals it is a
+  future phase. Only the build phase's "Entrar a La Fragua" **action** is withheld until the build is
+  reached. (Superseded the earlier locked/empty placeholder, which hid the phase info.)
 
 ### Card-detail fidelity pass (amendment, 2026-06-22)
 A visual-fidelity reconciliation of the card detail against `prototype/party-pipeline.html` (the

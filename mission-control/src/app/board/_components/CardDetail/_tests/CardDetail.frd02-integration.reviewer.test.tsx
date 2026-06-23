@@ -120,13 +120,14 @@ describe("FRD-02 integration — phase-state invariant through CardDetail (AC-02
     expect(states).toEqual(["current", "locked", "locked", "locked", "locked", "locked"]);
   });
 
-  it("a locked future phase opens a graceful locked ficha with NO team members (AC-02-010.7)", () => {
+  it("a locked future phase opens its full ficha (team readable), no locked-out marker, no forge action (AC-02-010.7)", () => {
     renderDetail({ status: "discovered" });
     fireEvent.click(screen.getByTestId("campaign-phase-release"));
     const ficha = screen.getByTestId("campaign-phase-ficha");
-    expect(within(ficha).getByTestId("ficha-locked-marker")).toBeInTheDocument();
-    expect(within(ficha).queryAllByTestId("ficha-team-member")).toHaveLength(0);
-    // A locked future phase must NOT expose the forge button.
+    // Phase INFO is always readable — no locked-out marker; the team is shown.
+    expect(within(ficha).queryByTestId("ficha-locked-marker")).not.toBeInTheDocument();
+    expect(within(ficha).queryAllByTestId("ficha-team-member").length).toBeGreaterThan(0);
+    // A locked phase still must NOT expose the forge ACTION (info yes, action no).
     expect(within(ficha).queryByTestId("ficha-enter-forge")).toBeNull();
   });
 });
