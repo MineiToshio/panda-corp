@@ -19,12 +19,11 @@
  *   CMP-02-board-shell (BoardShell — the interactive client boundary)
  */
 
-import path from "node:path";
 import { BoardShell } from "@/app/board/_components/BoardShell/BoardShell";
 import { discardIdeaAction } from "@/app/board/actions/actions";
 import type { BoardCardEntry } from "@/app/board/IdeaBoardView/IdeaBoardView";
 import { deriveColumn } from "@/lib/board/board";
-import { resolveFactoryRoot } from "@/lib/config/config";
+import { resolveProjectPath } from "@/lib/config/config";
 import { readIdeas } from "@/lib/ideas/ideas";
 import { readStatus } from "@/lib/status/status";
 
@@ -52,13 +51,15 @@ export default function BoardPage(): React.JSX.Element {
   const rawCards = readIdeas();
 
   // 2 + 3. Resolve boardColumn for every card via two-axis deriveColumn.
-  const factoryRoot = resolveFactoryRoot();
-
   const cards: BoardCardEntry[] = rawCards.map((card) => {
     // For in-pipeline cards: resolve project status to get the phase.
+    // Use the canonical resolveProjectPath (factory-root-relative, or absolute) — the
+    // SAME resolver the portfolio uses — so the board and portfolio agree on where a
+    // project lives. A hardcoded "factoryRoot/../slug" assumed every project is a
+    // sibling OUTSIDE the factory and missed Mission Control, which lives INSIDE it.
     let projectStatus = null;
     if (card.status === "in-pipeline" && card.project) {
-      const projectPath = path.resolve(factoryRoot, "..", card.project);
+      const projectPath = resolveProjectPath(card.project);
       projectStatus = readStatus(projectPath);
     }
 

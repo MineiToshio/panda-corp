@@ -1898,13 +1898,16 @@ function GuideAdoptar(): React.JSX.Element {
             ),
           },
           {
-            title: <>Registra en la fábrica</>,
+            title: <>Registra en la fábrica: ficha (Tablero) siempre, Portfolio si ya construye</>,
             body: (
               <>
-                Crea una <B weight={500}>ficha de idea retroactiva</B> (
-                <Code>factory/ideas/&lt;slug&gt;.md</Code>, <Code>status: in-pipeline</Code>), la
-                copia a <Code>.pandacorp/idea-origin.md</Code> y añade la fila a{" "}
-                <Code>factory/portfolio.md</Code>.
+                Crea <B weight={500}>siempre</B> una <B weight={500}>ficha de idea retroactiva</B> (
+                <Code>factory/ideas/&lt;slug&gt;.md</Code>, <Code>status: in-pipeline</Code>) y la
+                copia a <Code>.pandacorp/idea-origin.md</Code> — esa ficha es lo que hace que el
+                proyecto salga en el <B weight={500}>Tablero</B>. Añade la fila a{" "}
+                <Code>factory/portfolio.md</Code>{" "}
+                <B weight={500}>solo si ya empezó la construcción</B> (fase{" "}
+                <Code>implementation</Code> o posterior).
               </>
             ),
           },
@@ -1920,8 +1923,9 @@ function GuideAdoptar(): React.JSX.Element {
         ]}
       />
       <NotePanel icon="ti-plug-connected" iconColor="var(--color-accent)">
-        Tras adoptar, el proyecto aparece en el Portfolio de Mission Control con su fase inferida,
-        igual que un proyecto nacido del handoff.
+        Tras adoptar, el proyecto aparece en el <B weight={600}>Tablero</B> de Mission Control (por
+        su ficha) y —una vez en construcción— también en el <B weight={600}>Portfolio</B> con su
+        fase inferida, igual que un proyecto nacido del handoff.
       </NotePanel>
     </>
   );

@@ -26,7 +26,7 @@
 
 import path from "node:path";
 import { deriveColumn } from "@/lib/board/board";
-import { resolveFactoryRoot } from "@/lib/config/config";
+import { resolveFactoryRoot, resolveProjectPath } from "@/lib/config/config";
 import { readDecisions } from "@/lib/docs/activity";
 import { readEvents } from "@/lib/events/events";
 import { readIdeas } from "@/lib/ideas/ideas";
@@ -61,12 +61,13 @@ function deriveBoardColumnCounts(): Record<string, number> {
     return counts;
   }
 
-  const factoryRoot = resolveFactoryRoot();
   for (const card of cards) {
     let projectStatus = null;
     if (card.status === "in-pipeline" && card.project) {
-      const projectPath = path.resolve(factoryRoot, "..", card.project);
-      projectStatus = readStatus(projectPath);
+      // Same canonical resolver as the board page + portfolio (factory-root-relative
+      // or absolute) — a hardcoded "../" missed projects living inside the factory,
+      // skewing the board-column counts the self-suggestions are derived from.
+      projectStatus = readStatus(resolveProjectPath(card.project));
     }
     const column = deriveColumn(card, projectStatus);
     counts[column] = (counts[column] ?? 0) + 1;
