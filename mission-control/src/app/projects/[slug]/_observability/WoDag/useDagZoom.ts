@@ -25,6 +25,8 @@ const MAX_SCALE = 2.5;
 const STEP = 1.15;
 /** Inner margin (px) left around the graph when fitting to the viewport. */
 const FIT_PAD = 24;
+/** Pointer travel (px) past which a press becomes a pan (not a node click). */
+const PAN_THRESHOLD = 4;
 
 /** Clamp a scale into [MIN_SCALE, MAX_SCALE]. */
 function clampScale(scale: number): number {
@@ -44,6 +46,8 @@ interface ZoomAnchor {
 export interface DagZoom {
   scale: number;
   containerRef: React.RefObject<HTMLDivElement | null>;
+  /** True while the user is grab-dragging the canvas (drives the grab/grabbing cursor). */
+  isPanning: boolean;
   zoomIn: () => void;
   zoomOut: () => void;
   reset: () => void;
@@ -60,11 +64,16 @@ export interface DagZoom {
  */
 export function useDagZoom(): DagZoom {
   const [scale, setScale] = useState(1);
+  const [isPanning, setIsPanning] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   // Mirror scale in a ref so the (once-attached) wheel listener reads it live.
   const scaleRef = useRef(scale);
   scaleRef.current = scale;
+
+  // True once a press has travelled past PAN_THRESHOLD — used to swallow the
+  // click that ends a drag so a pan never accidentally selects a node.
+  const didPanRef = useRef(false);
 
   // Anchor to re-align after the scaled DOM has laid out (set on every zoom).
   const pendingAnchor = useRef<ZoomAnchor | null>(null);
@@ -137,5 +146,65 @@ export function useDagZoom(): DagZoom {
     return () => el.removeEventListener("wheel", onWheel);
   }, [zoomTo]);
 
-  return { scale, containerRef, zoomIn, zoomOut, reset, fitToView };
+  // Grab-to-pan: press and drag anywhere on the canvas to scroll it. Listeners
+  // live on window during the drag so it keeps tracking if the pointer leaves
+  // the viewport, and a travelled press swallows the trailing click so panning
+  // never selects a node.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    let origin: { x: number; y: number; left: number; top: number } | null = null;
+
+    const onMouseMove = (e: MouseEvent): void => {
+      if (!origin) return;
+      const dx = e.clientX - origin.x;
+      const dy = e.clientY - origin.y;
+      if (!didPanRef.current && Math.abs(dx) + Math.abs(dy) > PAN_THRESHOLD) {
+        didPanRef.current = true;
+      }
+      el.scrollLeft = origin.left - dx;
+      el.scrollTop = origin.top - dy;
+    };
+
+    const endPan = (): void => {
+      if (!origin) return;
+      origin = null;
+      setIsPanning(false);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", endPan);
+    };
+
+    const onMouseDown = (e: MouseEvent): void => {
+      // Left button only; ignore presses on the native scrollbar gutter.
+      if (e.button !== 0) return;
+      const rect = el.getBoundingClientRect();
+      if (e.clientX - rect.left > el.clientWidth || e.clientY - rect.top > el.clientHeight) return;
+      didPanRef.current = false;
+      origin = { x: e.clientX, y: e.clientY, left: el.scrollLeft, top: el.scrollTop };
+      setIsPanning(true);
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mouseup", endPan);
+    };
+
+    // Capture phase: if the press turned into a pan, stop the click before it
+    // reaches a node (which would otherwise toggle its dependency chain).
+    const onClickCapture = (e: MouseEvent): void => {
+      if (didPanRef.current) {
+        e.stopPropagation();
+        e.preventDefault();
+        didPanRef.current = false;
+      }
+    };
+
+    el.addEventListener("mousedown", onMouseDown);
+    el.addEventListener("click", onClickCapture, true);
+    return () => {
+      el.removeEventListener("mousedown", onMouseDown);
+      el.removeEventListener("click", onClickCapture, true);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", endPan);
+    };
+  }, []);
+
+  return { scale, containerRef, isPanning, zoomIn, zoomOut, reset, fitToView };
 }

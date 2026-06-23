@@ -382,13 +382,20 @@ describe("WoDag — fidelity: tokens, a11y, motion", () => {
     expect(screen.getByTestId("dag-svg-container")).toBeTruthy();
   });
 
-  it("renders the zoom toolbar (out · level · in · fit) defaulting to 100%", () => {
+  it("renders the zoom toolbar (out · level · in · fit · fullscreen) defaulting to 100%", () => {
     render(<WoDag workOrders={ALL_WOS} project="test-project" />);
     expect(screen.getByTestId("dag-zoom")).toBeTruthy();
     expect(screen.getByTestId("dag-zoom-out")).toBeTruthy();
     expect(screen.getByTestId("dag-zoom-in")).toBeTruthy();
     expect(screen.getByTestId("dag-zoom-fit")).toBeTruthy();
     expect(screen.getByTestId("dag-zoom-level").textContent).toContain("100%");
+  });
+
+  it("renders a fullscreen toggle button", () => {
+    render(<WoDag workOrders={ALL_WOS} project="test-project" />);
+    const btn = screen.getByTestId("dag-fullscreen");
+    expect(btn).toBeTruthy();
+    expect(btn.getAttribute("aria-label")).toContain("pantalla completa");
   });
 
   it("clicking zoom-in raises the displayed zoom level above 100%", () => {

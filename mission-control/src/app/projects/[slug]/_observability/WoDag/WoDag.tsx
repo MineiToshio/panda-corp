@@ -27,13 +27,14 @@
  *   CMP-12-dag → REQ-12-004/005 → AC-12-004.1/2/3/4, AC-12-005.1/2
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { dagChain, firstError, toDag } from "@/app/_observability/dag/dag/dag";
 import { useLiveSnapshot } from "@/hooks/useLiveSnapshot";
 import type { WorkOrder, WorkOrderState } from "@/lib/work-orders/work-orders";
 import { DagNodeGroup } from "./DagNodeGroup";
 import { computeLayout, deriveDeps, type PositionedEdge } from "./layout";
 import { useDagZoom } from "./useDagZoom";
+import { useFullscreen } from "./useFullscreen";
 import { ZoomControls } from "./ZoomControls";
 
 // ---------------------------------------------------------------------------
@@ -186,8 +187,12 @@ export function WoDag({ workOrders, project }: WoDagProps): React.JSX.Element {
   const { effectiveOrders, dagNodes, dagEdges, frdById, firstErrorId, runningNode } = graph;
   const { nodes: layoutNodes, edges: layoutEdges, width: svgW, height: svgH } = graph.layout;
 
-  // Zoom/pan transform for the canvas (buttons + mouse wheel)
-  const { scale, containerRef, zoomIn, zoomOut, reset, fitToView } = useDagZoom();
+  // Zoom/pan transform for the canvas (buttons + mouse wheel + grab-to-pan)
+  const { scale, containerRef, isPanning, zoomIn, zoomOut, reset, fitToView } = useDagZoom();
+
+  // Fullscreen the whole DAG panel (legend + controls + canvas) on demand.
+  const panelRef = useRef<HTMLDivElement>(null);
+  const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(panelRef);
 
   // UI state
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
@@ -217,6 +222,28 @@ export function WoDag({ workOrders, project }: WoDagProps): React.JSX.Element {
 
   const handleFit = useCallback(() => fitToView(svgW, svgH), [fitToView, svgW, svgH]);
 
+  // Fullscreen reshapes the panel into a flex column whose canvas fills the
+  // screen; inline it keeps the bounded, capped height.
+  const panelStyle: React.CSSProperties = isFullscreen
+    ? { ...PANEL_STYLE, height: "100%", display: "flex", flexDirection: "column", borderRadius: 0 }
+    : PANEL_STYLE;
+  const canvasWrapperStyle: React.CSSProperties = isFullscreen
+    ? { position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }
+    : { position: "relative" };
+  const scrollContainerStyle: React.CSSProperties = {
+    overflow: "auto",
+    border: "0.5px solid var(--color-border)",
+    borderRadius: "var(--radius-md, 8px)",
+    background: "var(--color-canvas)",
+    padding: "8px",
+    // Grab-to-pan affordance; userSelect:none stops text being selected mid-drag.
+    cursor: isPanning ? "grabbing" : "grab",
+    userSelect: "none",
+    ...(isFullscreen
+      ? { flex: 1, minHeight: 0, maxHeight: "none" }
+      : { maxHeight: "min(68vh, 680px)" }),
+  };
+
   // Empty state
   if (effectiveOrders.length === 0) {
     return (
@@ -238,7 +265,7 @@ export function WoDag({ workOrders, project }: WoDagProps): React.JSX.Element {
   }
 
   return (
-    <div data-testid="wo-dag" style={PANEL_STYLE}>
+    <div data-testid="wo-dag" ref={panelRef} style={panelStyle}>
       {/* Legend */}
       <Legend />
 
@@ -253,27 +280,19 @@ export function WoDag({ workOrders, project }: WoDagProps): React.JSX.Element {
       />
 
       {/* Zoom/pan canvas — the toolbar stays pinned (outside the scroll area)
-          while the scaled graph pans inside the bounded viewport. */}
-      <div style={{ position: "relative" }}>
+          while the scaled graph pans inside the bounded viewport. In fullscreen
+          the wrapper + container flex-grow so the canvas fills the screen. */}
+      <div style={canvasWrapperStyle}>
         <ZoomControls
           scale={scale}
+          isFullscreen={isFullscreen}
           onZoomIn={zoomIn}
           onZoomOut={zoomOut}
           onReset={reset}
           onFit={handleFit}
+          onToggleFullscreen={toggleFullscreen}
         />
-        <div
-          ref={containerRef}
-          data-testid="dag-svg-container"
-          style={{
-            overflow: "auto",
-            maxHeight: "min(68vh, 680px)",
-            border: "0.5px solid var(--color-border)",
-            borderRadius: "var(--radius-md, 8px)",
-            background: "var(--color-canvas)",
-            padding: "8px",
-          }}
-        >
+        <div ref={containerRef} data-testid="dag-svg-container" style={scrollContainerStyle}>
           <svg
             viewBox={`0 0 ${svgW} ${svgH}`}
             width={svgW * scale}

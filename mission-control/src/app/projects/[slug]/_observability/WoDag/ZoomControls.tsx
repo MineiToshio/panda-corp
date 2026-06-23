@@ -8,11 +8,20 @@
 
 interface ZoomControlsProps {
   scale: number;
+  isFullscreen: boolean;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onReset: () => void;
   onFit: () => void;
+  onToggleFullscreen: () => void;
 }
+
+const DIVIDER_STYLE: React.CSSProperties = {
+  width: "1px",
+  height: "16px",
+  margin: "0 2px",
+  background: "var(--color-border)",
+};
 
 const BAR_STYLE: React.CSSProperties = {
   position: "absolute",
@@ -57,13 +66,15 @@ const LEVEL_STYLE: React.CSSProperties = {
   fontVariantNumeric: "tabular-nums",
 };
 
-/** The floating zoom toolbar (out · level/reset · in · fit). */
+/** The floating zoom toolbar (out · level/reset · in · fit · fullscreen). */
 export function ZoomControls({
   scale,
+  isFullscreen,
   onZoomIn,
   onZoomOut,
   onReset,
   onFit,
+  onToggleFullscreen,
 }: ZoomControlsProps): React.JSX.Element {
   const pct = `${Math.round(scale * 100)}%`;
 
@@ -106,6 +117,18 @@ export function ZoomControls({
         style={BTN_STYLE}
       >
         <i className="ti ti-zoom-scan" aria-hidden="true" />
+      </button>
+      <span style={DIVIDER_STYLE} aria-hidden="true" />
+      <button
+        type="button"
+        data-testid="dag-fullscreen"
+        aria-label={isFullscreen ? "Salir de pantalla completa" : "Ver en pantalla completa"}
+        aria-pressed={isFullscreen}
+        title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+        onClick={onToggleFullscreen}
+        style={BTN_STYLE}
+      >
+        <i className={`ti ${isFullscreen ? "ti-minimize" : "ti-maximize"}`} aria-hidden="true" />
       </button>
     </div>
   );

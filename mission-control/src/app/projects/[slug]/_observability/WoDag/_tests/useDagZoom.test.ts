@@ -11,9 +11,10 @@ import { describe, expect, it } from "vitest";
 import { useDagZoom } from "../useDagZoom";
 
 describe("useDagZoom", () => {
-  it("starts at scale 1 (100%)", () => {
+  it("starts at scale 1 (100%) and not panning", () => {
     const { result } = renderHook(() => useDagZoom());
     expect(result.current.scale).toBe(1);
+    expect(result.current.isPanning).toBe(false);
   });
 
   it("zoomIn increases the scale; zoomOut decreases it", () => {
