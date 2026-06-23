@@ -25,7 +25,7 @@
  *   IF-04-docs (lib/docs.ts, WO-04-001)
  */
 
-import Markdown from "react-markdown";
+import { Markdown } from "@/components/core/Markdown/Markdown";
 import { Panel } from "@/components/core/Panel/Panel";
 import type { DocNode } from "@/lib/docs/tree";
 

@@ -16,8 +16,8 @@
 
 import type React from "react";
 import { useCallback, useState } from "react";
-import Markdown from "react-markdown";
 import { ItemSlot } from "@/components/core/ItemSlot/ItemSlot";
+import { Markdown } from "@/components/core/Markdown/Markdown";
 import { Panel } from "@/components/core/Panel/Panel";
 import { SubTabs } from "@/components/core/Tabs/Tabs";
 import type { Standard, StandardDomain } from "@/lib/standards/standards";

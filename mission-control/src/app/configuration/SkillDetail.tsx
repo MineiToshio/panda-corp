@@ -13,10 +13,10 @@
  */
 
 import type React from "react";
-import ReactMarkdown from "react-markdown";
 import type { AgentRole } from "@/app/_design/tokens/tokens";
 import { Chip } from "@/components/core/Chip/Chip";
 import { CopyButton } from "@/components/core/CopyButton/CopyButton";
+import { Markdown } from "@/components/core/Markdown/Markdown";
 import { FlowGraph } from "@/components/modules/manual-diagrams/FlowGraph";
 import { getSkillFlow } from "@/lib/manual/skill-flows";
 import type { RunsIn, SkillRef } from "@/lib/reference/reference";
@@ -222,7 +222,7 @@ export function SkillDetail({ skill, onBack, onAgentClick }: SkillDetailProps): 
           SKILL.md completo
         </summary>
         <div className="doc" style={PROSE_STYLE}>
-          <ReactMarkdown>{skill.body}</ReactMarkdown>
+          <Markdown>{skill.body}</Markdown>
         </div>
       </details>
     </div>

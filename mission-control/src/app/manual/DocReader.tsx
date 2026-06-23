@@ -23,12 +23,12 @@
 
 import type React from "react";
 import { useState } from "react";
-import ReactMarkdown from "react-markdown";
 import { DecisionRulesSection } from "@/app/configuration/_rules/DecisionRulesSection/DecisionRulesSection";
 import { AgentDetail } from "@/app/configuration/AgentDetail";
 import { AgentList } from "@/app/configuration/AgentList";
 import { SkillsSection } from "@/app/configuration/SkillsSection";
 import { StandardsSection } from "@/app/configuration/StandardsSection/StandardsSection";
+import { Markdown } from "@/components/core/Markdown/Markdown";
 import { DocH } from "@/components/modules/manual-diagrams/DocH";
 import type { AgentLevelResult } from "@/lib/gamification/agents";
 import type { ManualPage } from "@/lib/manual/manual";
@@ -181,7 +181,7 @@ function AuthoredBody({ page }: { page: ManualPage }): React.JSX.Element {
     <>
       <DocH title={page.title} level={1} />
       <div style={PROSE_STYLE}>
-        <ReactMarkdown>{page.body}</ReactMarkdown>
+        <Markdown>{page.body}</Markdown>
       </div>
     </>
   );
