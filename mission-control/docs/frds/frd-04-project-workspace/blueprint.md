@@ -66,6 +66,8 @@ selector is FRD-11's component slotted in).
 - **AC-04-006.2** WHEN a document is selected, the Documents tab SHALL render its markdown body
   (`react-markdown`); the first available document is selected by default.
 - **AC-04-006.3** WHEN the project has no readable documents, the Documents tab SHALL show a graceful empty state.
+- **AC-04-006.4** Every Documents-tab navigation link (doc tree AND in-document links) SHALL preserve the embedding context — carry `?project` and `tab=documents` — so selecting a document never drops to the Summary tab; the document body SHALL render at the **full width** of the reader pane (no fixed measure cap).
+- **AC-04-006.5** WHEN a document body contains a link, the reader SHALL resolve it: a relative path to a document the tree surfaces → opens in the **same reader** (`?project&tab=documents&doc=<id>`); an off-app URL (http/https/mailto) → new tab; any other relative path → **plain, non-clickable text** (no 404).
 
 ## 2. Interfaces (`lib/**`)
 

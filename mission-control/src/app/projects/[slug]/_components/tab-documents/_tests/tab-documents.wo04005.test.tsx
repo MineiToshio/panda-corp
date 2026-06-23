@@ -59,6 +59,7 @@ describe("WO-04-005: TabDocuments re-paint — Panel usage", () => {
         nodes={FIXTURE_NODES}
         selectedId={FIXTURE_NODES[0]?.id ?? null}
         content={SAMPLE_CONTENT}
+        project="mc"
       />,
     );
     // Panel renders data-testid="panel"
@@ -72,6 +73,7 @@ describe("WO-04-005: TabDocuments re-paint — Panel usage", () => {
         nodes={FIXTURE_NODES}
         selectedId={FIXTURE_NODES[0]?.id ?? null}
         content={SAMPLE_CONTENT}
+        project="mc"
       />,
     );
     const panels = screen.getAllByTestId("panel");
@@ -79,7 +81,7 @@ describe("WO-04-005: TabDocuments re-paint — Panel usage", () => {
   });
 
   it("AC-WO-04-005-I: WHEN nodes is empty THEN no Panel is used (or just for the empty state container)", () => {
-    render(<TabDocuments nodes={[]} selectedId={null} content={null} />);
+    render(<TabDocuments nodes={[]} selectedId={null} content={null} project="mc" />);
     // The empty state may or may not use a Panel — what matters is it doesn't crash and shows the empty state
     expect(screen.getByTestId("documents-empty")).toBeDefined();
   });
@@ -90,6 +92,7 @@ describe("WO-04-005: TabDocuments re-paint — Panel usage", () => {
         nodes={FIXTURE_NODES}
         selectedId={FIXTURE_NODES[0]?.id ?? null}
         content={null}
+        project="mc"
       />,
     );
     const panels = screen.getAllByTestId("panel");

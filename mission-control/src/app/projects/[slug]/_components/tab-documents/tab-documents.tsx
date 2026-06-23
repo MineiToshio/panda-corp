@@ -25,7 +25,7 @@
  *   IF-04-docs (lib/docs.ts, WO-04-001)
  */
 
-import { Markdown } from "@/components/core/Markdown/Markdown";
+import { type LinkResolver, Markdown } from "@/components/core/Markdown/Markdown";
 import { Panel } from "@/components/core/Panel/Panel";
 import type { DocNode } from "@/lib/docs/tree";
 
@@ -40,6 +40,14 @@ export interface TabDocumentsProps {
   selectedId: string | null;
   /** Raw markdown of the selected document, or null when loading/unavailable. */
   content: string | null;
+  /**
+   * Project slug — used to build nav hrefs that PRESERVE the embedding context.
+   * The Documents tab renders inside both `/portfolio?project=<slug>&tab=documents`
+   * and `/projects/<slug>?tab=documents`; a bare `?doc=<id>` would replace the whole
+   * query string (dropping `project` + `tab`), bouncing the user back to the Summary
+   * tab. So each nav link carries `?project=<slug>&tab=documents&doc=<id>` (AC-04-006.4).
+   */
+  project: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -95,7 +103,9 @@ const BODY_STYLE: React.CSSProperties = {
 };
 
 const PROSE_STYLE: React.CSSProperties = {
-  maxWidth: "72ch",
+  // Full container width (owner request): the document fills the reader pane instead of
+  // being capped to a ~72ch measure that left the text hugging the left edge.
+  maxWidth: "none",
   fontSize: "15px",
   lineHeight: 1.7,
   color: "var(--color-text)",
@@ -138,6 +148,68 @@ const RAIL_LABEL_STYLE: React.CSSProperties = {
 // ---------------------------------------------------------------------------
 
 /**
+ * Build the in-app reader href for a document, PRESERVING the embedding context.
+ *
+ * A bare `?doc=<id>` replaces the entire query string — dropping `project` (which the
+ * Portfolio uses to pick the project) and `tab=documents` (so the page falls back to the
+ * Summary tab). Carrying both keeps the user on this doc reader in every context; the
+ * standalone `/projects/<slug>` route reads its slug from the path and ignores the extra
+ * `project` param, so the SAME href is correct there too (AC-04-006.4).
+ */
+export function docHref(project: string, docId: string): string {
+  const q = new URLSearchParams({ project, tab: "documents", doc: docId });
+  return `?${q.toString()}`;
+}
+
+/**
+ * Resolve a relative link (e.g. "../frds/frd-01-x/frd.md") against the directory of the
+ * document it appears in, into a project-root-relative path. Pure string math (no node:path)
+ * so it runs anywhere; collapses "." and ".." and drops empty segments.
+ */
+function resolveRelativePath(fromDir: string, link: string): string {
+  const out: string[] = fromDir ? fromDir.split("/") : [];
+  for (const seg of link.split("/")) {
+    if (seg === "" || seg === ".") continue;
+    if (seg === "..") {
+      out.pop();
+      continue;
+    }
+    out.push(seg);
+  }
+  return out.join("/");
+}
+
+/**
+ * Build the <Markdown> link resolver for a document (owner choice "cablear al lector"):
+ *   - a relative link to a doc the reader KNOWS (PRD, research, architecture, FRD/FDD/
+ *     blueprint, ADR, decision-log) → rewritten to open that doc in the SAME reader;
+ *   - an off-app URL (http/https/mailto) → opens in a new tab;
+ *   - any other relative path (a doc the reader doesn't surface, e.g. a work order) → null,
+ *     so <Markdown> renders it as plain text instead of a link that would 404.
+ */
+function makeLinkResolver(currentRelPath: string, nodes: DocNode[], project: string): LinkResolver {
+  const idByRelPath = new Map(nodes.map((n) => [n.relPath, n.id]));
+  const lastSlash = currentRelPath.lastIndexOf("/");
+  const currentDir = lastSlash >= 0 ? currentRelPath.slice(0, lastSlash) : "";
+  return (href) => {
+    if (!href || href.startsWith("#")) {
+      // empty or in-page anchor → leave as-is (same tab; harmless)
+      return { href: href || "#", external: false };
+    }
+    // off-app URL: http(s):, mailto:, protocol-relative
+    if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith("//")) {
+      return { href, external: true };
+    }
+    // relative path → resolve against the current doc's directory, ignoring #anchor / ?query
+    const noAnchor = href.split("#")[0] ?? href;
+    const cleanPath = noAnchor.split("?")[0] ?? noAnchor;
+    const resolved = resolveRelativePath(currentDir, cleanPath);
+    const id = idByRelPath.get(resolved);
+    return id !== undefined ? { href: docHref(project, id), external: false } : null;
+  };
+}
+
+/**
  * Group DocNode[] by their `group` field, preserving insertion order.
  * Returns a Map<groupName, DocNode[]> with stable order (Product → Feature → Global).
  */
@@ -167,7 +239,12 @@ function groupNodes(nodes: DocNode[]): Map<string, DocNode[]> {
  *
  * Prototype: projDocs(i) → grid-template-columns:200px 1fr; nav .panel + body .panel.doc
  */
-export function TabDocuments({ nodes, selectedId, content }: TabDocumentsProps): React.JSX.Element {
+export function TabDocuments({
+  nodes,
+  selectedId,
+  content,
+  project,
+}: TabDocumentsProps): React.JSX.Element {
   // AC-04-006.3 — empty state when no docs are available
   if (nodes.length === 0) {
     return (
@@ -192,6 +269,12 @@ export function TabDocuments({ nodes, selectedId, content }: TabDocumentsProps):
 
   const grouped = groupNodes(nodes);
 
+  // Link resolver: rewrite in-doc links that point at a doc the reader knows so they open
+  // in THIS reader (owner choice "cablear al lector"); dead relative links render as text.
+  const currentRelPath = nodes.find((n) => n.id === selectedId)?.relPath;
+  const resolveLink =
+    currentRelPath !== undefined ? makeLinkResolver(currentRelPath, nodes, project) : undefined;
+
   return (
     <section aria-label="Documentos del proyecto" style={ROOT_STYLE}>
       {/* Left pane: nav tree panel (AC-04-006.1) — prototype: .panel padding:10px */}
@@ -207,7 +290,7 @@ export function TabDocuments({ nodes, selectedId, content }: TabDocumentsProps):
                   return (
                     <a
                       key={node.id}
-                      href={`?doc=${encodeURIComponent(node.id)}`}
+                      href={docHref(project, node.id)}
                       data-testid="doc-nav-item"
                       aria-current={isSelected ? "page" : undefined}
                       aria-label={`Abrir ${node.label} del grupo ${group}`}
@@ -233,7 +316,7 @@ export function TabDocuments({ nodes, selectedId, content }: TabDocumentsProps):
         <Panel>
           <div data-testid="documents-body" style={BODY_STYLE}>
             <article aria-label="Contenido del documento" className="doc" style={PROSE_STYLE}>
-              <Markdown>{content}</Markdown>
+              <Markdown resolveLink={resolveLink}>{content}</Markdown>
             </article>
           </div>
         </Panel>

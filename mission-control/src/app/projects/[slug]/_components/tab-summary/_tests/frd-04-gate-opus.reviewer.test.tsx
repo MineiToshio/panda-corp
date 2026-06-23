@@ -110,7 +110,7 @@ describe("FRD-04 gate (opus) — Documentos nav + body integration", () => {
 
   it("marks EXACTLY the selected node aria-current and renders its markdown body (AC-04-006.1/.2)", () => {
     const md = "# Workspace\n\nbody copy";
-    render(<TabDocuments nodes={NODES} selectedId="frd-04-frd" content={md} />);
+    render(<TabDocuments nodes={NODES} selectedId="frd-04-frd" content={md} project="mc" />);
 
     const items = screen.getAllByTestId("doc-nav-item");
     const current = items.filter((el) => el.getAttribute("aria-current") === "page");
@@ -124,7 +124,7 @@ describe("FRD-04 gate (opus) — Documentos nav + body integration", () => {
   });
 
   it("renders the graceful empty state with no docs and never throws (AC-04-006.3)", () => {
-    render(<TabDocuments nodes={[]} selectedId={null} content={null} />);
+    render(<TabDocuments nodes={[]} selectedId={null} content={null} project="mc" />);
     expect(screen.getByTestId("documents-empty")).toBeInTheDocument();
     expect(screen.queryByTestId("documents-nav")).not.toBeInTheDocument();
   });
@@ -147,7 +147,9 @@ describe("FRD-04 gate (opus) — read-only invariant (DR-061)", () => {
     const nodes: DocNode[] = [
       { id: "prd", label: "prd.md", group: "Product", relPath: "docs/product/prd.md" },
     ];
-    const { container } = render(<TabDocuments nodes={nodes} selectedId="prd" content="# Title" />);
+    const { container } = render(
+      <TabDocuments nodes={nodes} selectedId="prd" content="# Title" project="mc" />,
+    );
     expect(container.querySelector("form")).toBeNull();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     // Nav items are anchors with an href (URL-driven selection, no client mutation).

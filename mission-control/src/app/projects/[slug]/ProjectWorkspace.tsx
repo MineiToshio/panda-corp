@@ -112,7 +112,11 @@ function resolveProjectSummary(projectPath: string, fallback: string): string {
   return body !== undefined && body.length > 0 ? body : fallback;
 }
 
-function renderDocumentsTab(projectPath: string, docParam: string | undefined): React.JSX.Element {
+function renderDocumentsTab(
+  projectPath: string,
+  slug: string,
+  docParam: string | undefined,
+): React.JSX.Element {
   const nodes = listProjectDocs(projectPath);
   const firstNodeId = nodes[0]?.id ?? null;
   const selectedId =
@@ -121,7 +125,7 @@ function renderDocumentsTab(projectPath: string, docParam: string | undefined): 
     selectedId !== null
       ? readDoc(projectPath, nodes.find((n) => n.id === selectedId)?.relPath ?? selectedId)
       : null;
-  return <TabDocuments nodes={nodes} selectedId={selectedId} content={content} />;
+  return <TabDocuments nodes={nodes} selectedId={selectedId} content={content} project={slug} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -179,7 +183,7 @@ export function ProjectWorkspace({
       break;
     }
     case "documents":
-      body = renderDocumentsTab(projectPath, docParam);
+      body = renderDocumentsTab(projectPath, slug, docParam);
       break;
     case "commands":
       body = <TabCommands phase={stage} slug={slug} />;

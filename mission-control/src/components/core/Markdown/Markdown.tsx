@@ -80,6 +80,9 @@ const A_STYLE: CSSProperties = {
   textDecoration: "underline",
   textUnderlineOffset: "2px",
 };
+/** A link the resolver could NOT map to a real destination → rendered as plain (non-clickable)
+ *  text so a dead relative path never looks like a working link. */
+const A_NEUTRAL_STYLE: CSSProperties = { color: "inherit" };
 
 const INLINE_CODE_STYLE: CSSProperties = {
   fontFamily: "var(--font-mono)",
@@ -186,6 +189,49 @@ const COMPONENTS: Components = {
 const REMARK_PLUGINS = [remarkGfm];
 
 // ---------------------------------------------------------------------------
+// Link resolution (opt-in) — lets a caller rewrite where a markdown link points.
+//   - returns { href, external } → render an <a> (external → new tab, internal → same tab)
+//   - returns null               → render the link text as plain, non-clickable text
+// Used by the document reader so a relative link like `../frds/frd-01-.../frd.md` opens
+// that doc inside the SAME in-app reader instead of 404-ing against the app's routes.
+// ---------------------------------------------------------------------------
+
+/** Where a markdown link should point after resolution (or null to neutralize it). */
+interface ResolvedLink {
+  href: string;
+  /** true → open in a new tab (off-app URL); false → same tab (in-app navigation). */
+  external: boolean;
+}
+
+export type LinkResolver = (href: string) => ResolvedLink | null;
+
+/** Build a resolver-aware anchor renderer; a null resolution renders plain text. */
+function makeAnchor(resolveLink: LinkResolver): NonNullable<Components["a"]> {
+  return ({ href, children }) => {
+    const resolved = typeof href === "string" ? resolveLink(href) : null;
+    if (resolved === null) {
+      return (
+        <span style={A_NEUTRAL_STYLE} title="Documento no disponible en el lector">
+          {children}
+        </span>
+      );
+    }
+    if (resolved.external) {
+      return (
+        <a href={resolved.href} style={A_STYLE} target="_blank" rel="noreferrer noopener">
+          {children}
+        </a>
+      );
+    }
+    return (
+      <a href={resolved.href} style={A_STYLE}>
+        {children}
+      </a>
+    );
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Public component
 // ---------------------------------------------------------------------------
 
@@ -196,21 +242,34 @@ export interface MarkdownProps {
   "data-testid"?: string;
   /** Optional style overrides merged onto the root (e.g. a tighter font-size). */
   style?: CSSProperties;
+  /**
+   * Optional link resolver. When provided, each link href is passed through it to decide
+   * the destination (in-app vs new tab) or to neutralize a dead relative path. When omitted,
+   * links render as-is in a new tab (the default for every other markdown surface).
+   */
+  resolveLink?: LinkResolver;
 }
 
 /**
  * Render a markdown string with the app's shared document styling.
  *
  * @example <Markdown>{doc.body}</Markdown>
+ * @example <Markdown resolveLink={resolver}>{doc.body}</Markdown>
  */
-export function Markdown({ children, style, ...rest }: MarkdownProps): React.JSX.Element {
+export function Markdown({
+  children,
+  style,
+  resolveLink,
+  ...rest
+}: MarkdownProps): React.JSX.Element {
+  const components = resolveLink ? { ...COMPONENTS, a: makeAnchor(resolveLink) } : COMPONENTS;
   return (
     <div
       className="pc-markdown"
       style={style ? { ...ROOT_STYLE, ...style } : ROOT_STYLE}
       data-testid={rest["data-testid"]}
     >
-      <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={COMPONENTS}>
+      <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={components}>
         {children}
       </ReactMarkdown>
     </div>
