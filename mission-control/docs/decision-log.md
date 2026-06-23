@@ -4,6 +4,12 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-06-23 — Fix: the portfolio resumen now actually shows the card-detail summary (matching bug)
+**What:** A second-pass review caught that the portfolio resumen still rendered just "Pandacorp", not the idea-card body. Root cause: `resolveProjectSummary` matched `card.project === item.name` ("Pandacorp (Mission Control)", the display name) but `card.project` is the **pointer** "mission-control" — never matched, so it fell back to `status.project`. Fixed by matching on the **resolved project path** (`resolveProjectPath(card.project) === projectPath`), the same key the board uses to link a card to its project.
+**Why:** Owner's original ask ("el resumen debe ser el mismo del tablero") was only half-implemented — the wiring matched the wrong key.
+**Verified:** Live (dev :3000): the resumen now renders the real body — "Pandacorp (Mission Control) · Problema · La fábrica Pandacorp produce ideas…" (same as the board card-detail). `verify.sh` GREEN; portfolio baseline re-blessed with the real summary.
+**Impact:** `ProjectWorkspace.tsx` (`resolveProjectSummary` matches by resolved path), portfolio visual baseline.
+
 ## 2026-06-23 — Finish the `<Markdown>` migration: every markdown surface uses the shared core
 **What:** Migrated the remaining ad-hoc `react-markdown` renderers to the shared `components/core/Markdown` so EVERY document surface shares one styled renderer (heading hierarchy, demotion, gfm tables, tokens): `configuration/SkillDetail` (the full SKILL.md), `configuration/StandardsSection/parts` (a standard's body), `manual/DocReader` (the authored-page markdown fallback) and the project `tab-documents` reader. With the earlier card-detail, work-order detail and project summary, `react-markdown` is now imported in EXACTLY ONE place — `core/Markdown.tsx` — and nowhere else.
 **Why:** Owner: "reusa markdown en todos los lugares que corresponda." Completes the DR-057 reuse goal from the card-detail pass — no surface re-implements markdown styling.

@@ -98,13 +98,16 @@ function renderWorkOrdersTab(
 
 /**
  * Resolve the project's summary — the SAME markdown the board card-detail shows in its
- * Documentos → Resumen. Both surfaces read the idea card's markdown body from
- * `factory/ideas/<slug>.md`, matched by the card's `project` pointer (the board links a card
- * to its project via that field; the page is reached by the project slug). Falls back to the
- * project title when no card or an empty body exists, so the panel is never blank.
+ * Documentos → Resumen. Both read the idea card's markdown body from `factory/ideas/*.md`.
+ * Match by the RESOLVED project path: the card's `project` field is a pointer like
+ * "mission-control" (NOT the display name), so we compare `resolveProjectPath(card.project)`
+ * to the project's own resolved path — the same key the board uses to link a card to its
+ * project. Falls back to the title when no card / empty body exists, so it's never blank.
  */
-function resolveProjectSummary(slug: string, fallback: string): string {
-  const card = readIdeas().find((c) => c.project === slug);
+function resolveProjectSummary(projectPath: string, fallback: string): string {
+  const card = readIdeas().find(
+    (c) => c.project != null && resolveProjectPath(c.project) === projectPath,
+  );
   const body = card?.body.trim();
   return body !== undefined && body.length > 0 ? body : fallback;
 }
@@ -188,7 +191,7 @@ export function ProjectWorkspace({
       const pendingDecisions = decisions.filter((dp) => !dp.resolved).length;
       // Summary = the idea-card markdown body (the SAME content the board card-detail shows),
       // not the bare project name; falls back to the title when there is no card/body.
-      const summary = resolveProjectSummary(slug, status.project ?? slug);
+      const summary = resolveProjectSummary(projectPath, status.project ?? slug);
       body = (
         <TabSummary
           summary={summary}
