@@ -3,8 +3,12 @@
  * WO-05-005 — WorkOrderDetail (CMP-05-detail)
  *
  * Detail view for a single work order. Two tabs:
- *   - Summary: title, FRD chip, state badge, optional summary text.
- *   - Full document: rendered markdown via react-markdown.
+ *   - Summary: title, FRD chip, state badge, description + a useful body excerpt.
+ *   - Full document: rendered markdown via the shared <Markdown> primitive (#23).
+ *
+ * Both panes render markdown through @/components/core/Markdown (DR-057) so they
+ * get the app's one consistent typographic scale instead of a bare, ugly
+ * react-markdown dump (the previous Full-document renderer) (#23).
  *
  * Architecture:
  *   The ENTIRE component is "use client" because the tab bar needs click
@@ -32,8 +36,8 @@
  */
 
 import { useCallback } from "react";
-import Markdown from "react-markdown";
 import { Chip } from "@/components/core/Chip/Chip";
+import { Markdown } from "@/components/core/Markdown/Markdown";
 import { Tabs } from "@/components/core/Tabs/Tabs";
 import type { WorkOrder, WorkOrderState } from "@/lib/work-orders/work-orders";
 
@@ -202,11 +206,9 @@ const SUMMARY_TEXT_STYLE: React.CSSProperties = {
   whiteSpace: "pre-wrap",
 };
 
-const PROSE_STYLE: React.CSSProperties = {
+/** Full-document wrapper — width cap only; <Markdown> owns the typographic scale (#23). */
+const PROSE_WRAP_STYLE: React.CSSProperties = {
   maxWidth: "72ch",
-  fontSize: "0.9375rem",
-  lineHeight: 1.7,
-  color: "var(--color-text, currentColor)",
 };
 
 const LOADING_STYLE: React.CSSProperties = {
@@ -238,6 +240,26 @@ function stateIcon(state: WorkOrderState): string {
   }
 }
 
+/** Max characters of the work-order body to show as the summary excerpt (#23). */
+const SUMMARY_EXCERPT_LIMIT = 600;
+
+/**
+ * Build a short, useful markdown excerpt of the work-order body for the Summary
+ * tab (#23) — the previous summary only showed the file PATH, which is useless.
+ *
+ * Strips the YAML frontmatter block and trims to a sensible length so the excerpt
+ * renders through <Markdown> with the same typographic scale as the full document.
+ * Returns null when there is no body to show (caller then falls back gracefully).
+ */
+function summaryExcerpt(content: string | null): string | null {
+  if (content === null) return null;
+  // Drop a leading `---\n…\n---` frontmatter block if present.
+  const withoutFrontmatter = content.replace(/^---\n[\s\S]*?\n---\n?/, "").trim();
+  if (withoutFrontmatter === "") return null;
+  if (withoutFrontmatter.length <= SUMMARY_EXCERPT_LIMIT) return withoutFrontmatter;
+  return `${withoutFrontmatter.slice(0, SUMMARY_EXCERPT_LIMIT).trimEnd()}…`;
+}
+
 // ---------------------------------------------------------------------------
 // WorkOrderDetail — CMP-05-detail
 // ---------------------------------------------------------------------------
@@ -249,7 +271,7 @@ function stateIcon(state: WorkOrderState): string {
  * The active tab is also URL-driven (parent reads ?wotab= and passes it in).
  *
  * AC-05-003.1: two tabs (Summary, Full document) with role=tablist.
- * AC-05-003.2: Full document tab renders markdown via react-markdown.
+ * AC-05-003.2: Full document tab renders markdown via the shared <Markdown> (#23).
  */
 export function WorkOrderDetail({
   order,
@@ -267,6 +289,9 @@ export function WorkOrderDetail({
     },
     [order.id],
   );
+
+  // A useful body excerpt for the Summary tab (#23) — replaces the old file-path.
+  const excerpt = summaryExcerpt(content);
 
   return (
     <section data-testid="wo-detail" aria-label={`Detalle: ${order.title}`} style={ROOT_STYLE}>
@@ -327,7 +352,7 @@ export function WorkOrderDetail({
           style={PANE_STYLE}
         >
           <div style={SUMMARY_SECTION_STYLE}>
-            {/* Work order ID + title */}
+            {/* Work order ID */}
             <p
               style={{
                 ...SUMMARY_TEXT_STYLE,
@@ -348,19 +373,15 @@ export function WorkOrderDetail({
               </>
             ) : null}
 
-            {/* rel path for traceability */}
-            <p style={SUMMARY_LABEL_STYLE}>Archivo</p>
-            <p
-              style={{
-                ...SUMMARY_TEXT_STYLE,
-                fontSize: "0.75rem",
-                fontFamily: "var(--font-mono, monospace)",
-                color: "var(--color-text-muted, currentColor)",
-                opacity: 0.7,
-              }}
-            >
-              {order.relPath}
-            </p>
+            {/* Useful body excerpt (#23) — replaces the old, useless file-path line.
+                Rendered via the shared <Markdown> so it reads with the app's scale.
+                The full text lives one tab over ("Documento completo"). */}
+            {excerpt !== null ? (
+              <div data-testid="wo-detail-summary-excerpt">
+                <p style={SUMMARY_LABEL_STYLE}>Resumen del documento</p>
+                <Markdown>{excerpt}</Markdown>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : /* Full document tab — AC-05-003.2 */
@@ -371,7 +392,9 @@ export function WorkOrderDetail({
           aria-labelledby="wo-detail-tab-full"
           style={PANE_STYLE}
         >
-          <article aria-label="Documento completo del work order" style={PROSE_STYLE}>
+          <article aria-label="Documento completo del work order" style={PROSE_WRAP_STYLE}>
+            {/* The shared <Markdown> brings the app's typographic scale (#23) —
+                no bespoke prose font styling here, just a max-width wrapper. */}
             <Markdown>{content}</Markdown>
           </article>
         </div>

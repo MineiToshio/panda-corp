@@ -160,20 +160,20 @@ describe("FRD-14 progress edges — buildingNow copy stays sane", () => {
 
 // ---------------------------------------------------------------------------
 // safeToTest semantics — AC-14-001.1 reads BOTH last_green_sha AND safe_to_test.
-// When safeToTest=false the panel MUST NOT claim "seguro para probar".
+// When safeToTest=false the panel MUST NOT claim "segura para probar".
 // The previous version of this test was decorative (it pinned broken behavior).
 // These tests are the CORRECT behavior per AC-14-001.1 and the gate review.
 // ---------------------------------------------------------------------------
 
 describe("FRD-14 safeToTest — panel MUST consult safe_to_test (AC-14-001.1)", () => {
-  it("safeToTest=false: panel still renders (snapshot non-null) but does NOT say 'seguro para probar'", () => {
+  it("safeToTest=false: panel still renders (snapshot non-null) but does NOT say 'segura para probar'", () => {
     const snap = buildSnapshot("proj", status({ safeToTest: false }));
     expect(snap).not.toBeNull();
     expect((snap as SnapshotInfo).safeToTest).toBe(false);
     render(<SnapshotPanel slug="proj" snapshot={snap} />);
-    // The panel must NOT claim "seguro para probar" when safeToTest=false
+    // The panel must NOT claim "segura para probar" when safeToTest=false
     const panel = screen.getByTestId("snapshot-panel");
-    expect(panel.textContent?.toLowerCase()).not.toContain("seguro para probar");
+    expect(panel.textContent?.toLowerCase()).not.toContain("segura para probar");
   });
 
   it("safeToTest=false: panel shows the sha + worktree command (the info is still useful)", () => {
@@ -193,11 +193,11 @@ describe("FRD-14 safeToTest — panel MUST consult safe_to_test (AC-14-001.1)", 
     expect(chip.getAttribute("data-tone")).not.toBe("ok");
   });
 
-  it("safeToTest=true: panel shows 'seguro para probar' (normal green state)", () => {
+  it("safeToTest=true: panel shows 'segura para probar' (normal green state)", () => {
     const snap = buildSnapshot("proj", status({ safeToTest: true }));
     render(<SnapshotPanel slug="proj" snapshot={snap} />);
     const panel = screen.getByTestId("snapshot-panel");
-    expect(panel.textContent?.toLowerCase()).toContain("seguro para probar");
+    expect(panel.textContent?.toLowerCase()).toContain("segura para probar");
   });
 
   it("safeToTest=true: Chip has tone='ok' (green signal)", () => {

@@ -240,10 +240,11 @@ describe("FRD-02 integration: CardDetail surfaces the real next-step command + c
         phase="architecture"
       />,
     );
-    const detail = screen.getByTestId("card-detail-next-step");
-    expect(within(detail).getByText("/pandacorp:implement")).toBeTruthy();
-    // The copy affordance (WO-02-002) is wired in.
-    expect(within(detail).getByTestId("copy-button")).toBeTruthy();
+    // The next-step command now lives in the campaign ficha (the Comandos tab was folded in).
+    const nextStep = screen.getByTestId("ficha-next-step");
+    expect(within(nextStep).getByText("/pandacorp:implement")).toBeTruthy();
+    // The copy affordance (WO-02-002) is wired in via CmdRow.
+    expect(within(nextStep).getByTestId("copy-button")).toBeTruthy();
   });
 
   it("AC-02-008.1: a card with no docsIndex shows the Resumen reader and zero project doc items", () => {
@@ -258,7 +259,7 @@ describe("FRD-02 integration: CardDetail surfaces the real next-step command + c
     const c = card({ slug: "n", status: "discovered" });
     expect(deriveColumn(c, null)).toBe("discovered");
     render(<CardDetail slug="n" title="N" status="discovered" body="x" />);
-    const detail = screen.getByTestId("card-detail-next-step");
-    expect(within(detail).getByText("/pandacorp:spec <idea>")).toBeTruthy();
+    const nextStep = screen.getByTestId("ficha-next-step");
+    expect(within(nextStep).getByText("/pandacorp:spec <idea>")).toBeTruthy();
   });
 });

@@ -9,11 +9,12 @@
  *
  * These tests exercise the rail the page actually renders, asserting the FRD's
  * acceptance criteria reach the integrated surface:
- *   AC-03-003.1 — a launched (release) project shows its business snapshot. (DR-085)
+ *   Rail item = name + stage + count dots only (prototype `.rail`) — NO business
+ *     snapshot in the sidebar (this removed the "herramienta interna" return chip).
  *   AC-03-006.2 — a project whose path is missing shows a ⚠ path-not-found badge.
  *   AC-03-006.3 — with a repo, that row shows the copyable recovery command.
  *
- * Traceability: REQ-03-003, REQ-03-006 → CMP-03-rail (the LIVE rail).
+ * Traceability: REQ-03-006 → CMP-03-rail (the LIVE rail).
  */
 
 import { render, screen, within } from "@testing-library/react";
@@ -51,14 +52,16 @@ const MISSING_PATH_WITH_REPO: ProjectListItem = {
 };
 
 describe("FRD-03 integration gate — the LIVE rail (SelectableProjectRail)", () => {
-  it("AC-03-003.1 — a shipped project's business snapshot reaches the rendered rail", () => {
+  it("the rail item carries NO business snapshot — even for a shipped project (prototype `.rail`)", () => {
+    // Prototype fidelity: the rail item is name + stage + count dots only. The business
+    // snapshot (users / return metric / verdict) does NOT belong in the sidebar rail —
+    // this is what removed the "herramienta interna" return-metric chip from the rail.
     render(<SelectableProjectRail items={[SHIPPED_WITH_SNAPSHOT]} selectedSlug="proj-shipped" />);
 
     const row = screen.getByRole("article", { name: /proj-shipped/i });
-    // The snapshot values must be visible somewhere in the row, not just on the data model.
-    expect(within(row).queryByText("1234")).not.toBeNull();
-    expect(within(row).queryByText("$980 MRR")).not.toBeNull();
-    expect(within(row).queryByText("double-down")).not.toBeNull();
+    expect(within(row).queryByTestId("business-snapshot")).toBeNull();
+    expect(within(row).queryByText("$980 MRR")).toBeNull();
+    expect(within(row).queryByText("double-down")).toBeNull();
   });
 
   it("AC-03-006.2 — a missing-path project shows the ⚠ path-not-found badge on its row", () => {

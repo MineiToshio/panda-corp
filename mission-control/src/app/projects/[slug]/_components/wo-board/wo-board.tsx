@@ -117,6 +117,22 @@ const CARD_TITLE_STYLE: React.CSSProperties = {
   lineHeight: 1.5,
 };
 
+/**
+ * FRD-chip wrapper — guarantees the chip respects the card width (#22).
+ * The shared Chip is `white-space:nowrap` (correct for most chips), so a long
+ * FRD slug would spill past the card edge. This wrapper drops the chip onto its
+ * own line and lets it wrap mid-token (`overflow-wrap:anywhere`), capped at the
+ * card width — it can never overflow/overlap the card again.
+ */
+const CARD_FRD_WRAP_STYLE: React.CSSProperties = {
+  display: "block",
+  minWidth: 0,
+  maxWidth: "100%",
+  overflowWrap: "anywhere",
+  wordBreak: "break-word",
+  whiteSpace: "normal",
+};
+
 /** Fail card title — danger-colored (prototype: `color:var(--danger)`) */
 const CARD_TITLE_FAIL_STYLE: React.CSSProperties = {
   ...CARD_TITLE_STYLE,
@@ -164,7 +180,9 @@ function WorkOrderCard({ order }: WoCardProps): React.JSX.Element {
       href={`?tab=work-orders&wo=${encodeURIComponent(order.id)}`}
       aria-label={`Ver detalle: ${order.title}`}
     >
-      <article data-testid="wo-card" aria-label={order.title} style={cardStyle}>
+      {/* `wo-card` class carries the :hover treatment (globals.css) — inline styles
+          cannot express :hover, which is why the hover was missing (#22). */}
+      <article data-testid="wo-card" className="wo-card" aria-label={order.title} style={cardStyle}>
         {/* Title row — fail cards get the alert icon prefix (a11y: icon + label) */}
         <div style={titleStyle}>
           {isFail && (
@@ -182,8 +200,10 @@ function WorkOrderCard({ order }: WoCardProps): React.JSX.Element {
           {order.title}
         </div>
 
-        {/* FRD chip — Chip primitive (WO-13-007, tone="info" = accent-bg preset) */}
-        <span data-testid="wo-frd-chip">
+        {/* FRD chip — Chip primitive (WO-13-007, tone="info" = accent-bg preset).
+            The `wo-frd-chip` wrapper + class force the chip to wrap and respect
+            the card width so a long FRD slug never overflows the card (#22). */}
+        <span data-testid="wo-frd-chip" className="wo-frd-chip" style={CARD_FRD_WRAP_STYLE}>
           <Chip tone="info" label={order.frd} />
         </span>
       </article>

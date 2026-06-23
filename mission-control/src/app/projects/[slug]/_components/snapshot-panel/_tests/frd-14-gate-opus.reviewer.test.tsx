@@ -18,9 +18,9 @@
  *   2. NO DOUBLE-DERIVE — the command shown is EXACTLY snapshot.worktreeCommand (the panel
  *      must not re-build the command from slug+sha and risk drift from the helper).
  *   3. CONTEXTUAL a11y — the <section> aria-label tracks safeToTest (safe vs HEAD-moved),
- *      so a screen-reader is not told "seguro para probar" when it is not.
+ *      so a screen-reader is not told "segura para probar" when it is not.
  *   4. CURRENT-MC INTEGRATION — safeToTest=false + running (today's real state): the panel
- *      shows the building-now don't-test warning AND never claims "seguro para probar"
+ *      shows the building-now don't-test warning AND never claims "segura para probar"
  *      anywhere in its subtree — the two-fault conflation the reopen targeted.
  *   5. GREEN-DETAIL INTEGRITY — the muted detail line carries "pasó todos los gates" and
  *      the SHA verbatim, even when not safe (the info is still useful, only the claim drops).
@@ -77,23 +77,23 @@ describe("FRD-14 opus gate — command shown is EXACTLY the helper output (no do
 });
 
 describe("FRD-14 opus gate — contextual a11y label tracks safety (AC-14-001.2)", () => {
-  it("aria-label does NOT claim 'seguro para probar' when safeToTest=false", () => {
+  it("aria-label does NOT claim 'segura para probar' when safeToTest=false", () => {
     const snap = buildSnapshot("mission-control", status({ safeToTest: false }));
     render(<SnapshotPanel slug="mission-control" snapshot={snap} />);
     const label = screen.getByTestId("snapshot-panel").getAttribute("aria-label") ?? "";
-    expect(label.toLowerCase()).not.toContain("seguro para probar");
+    expect(label.toLowerCase()).not.toContain("segura para probar");
   });
 
-  it("aria-label DOES claim 'seguro para probar' when safeToTest=true", () => {
+  it("aria-label DOES claim 'segura para probar' when safeToTest=true", () => {
     const snap = buildSnapshot("mission-control", status({ safeToTest: true }));
     render(<SnapshotPanel slug="mission-control" snapshot={snap} />);
     const label = screen.getByTestId("snapshot-panel").getAttribute("aria-label") ?? "";
-    expect(label.toLowerCase()).toContain("seguro para probar");
+    expect(label.toLowerCase()).toContain("segura para probar");
   });
 });
 
 describe("FRD-14 opus gate — current-MC integration: safeToTest=false + running (the reopen target)", () => {
-  it("today's real state (HEAD moved past green, build running) shows the don't-test warning and NEVER 'seguro para probar'", () => {
+  it("today's real state (HEAD moved past green, build running) shows the don't-test warning and NEVER 'segura para probar'", () => {
     // This is exactly the live status.yaml shape that caused the reopen.
     const snap = buildSnapshot(
       "mission-control",
@@ -102,7 +102,7 @@ describe("FRD-14 opus gate — current-MC integration: safeToTest=false + runnin
     render(<SnapshotPanel slug="mission-control" snapshot={snap} />);
     const panel = screen.getByTestId("snapshot-panel");
     // The dangerous conflation: claiming safe while a build is mid-flight.
-    expect((panel.textContent ?? "").toLowerCase()).not.toContain("seguro para probar");
+    expect((panel.textContent ?? "").toLowerCase()).not.toContain("segura para probar");
     // The building-now warning IS present and carries the don't-test wording.
     const building = screen.getByTestId("snapshot-panel-building-now");
     expect(building.textContent).toMatch(/no lo pruebes/i);

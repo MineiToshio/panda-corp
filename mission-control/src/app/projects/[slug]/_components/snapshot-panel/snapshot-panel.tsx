@@ -3,7 +3,7 @@
  *
  * Server Component: renders the FRD-14 snapshot panel inside the FRD-04
  * workspace "Resumen" tab. Shows the last build commit that passed all gates
- * ("último commit en verde · seguro para probar"), a "building now" notice
+ * ("última versión verificada · segura para probar"), a "building now" notice
  * when a work order is in progress, and a staleness warning when the snapshot
  * is far behind HEAD.
  *
@@ -82,7 +82,7 @@ const BODY_STYLE: React.CSSProperties = {
   minWidth: 0,
 };
 
-/** Main heading line: "Último commit en verde · seguro para probar". */
+/** Main heading line: "Última versión verificada · segura para probar". */
 const HEADING_STYLE: React.CSSProperties = {
   fontSize: "13px",
   fontWeight: 500,
@@ -172,8 +172,8 @@ export function SnapshotPanel({ snapshot }: SnapshotPanelProps): React.JSX.Eleme
       data-testid="snapshot-panel"
       aria-label={
         isGreenAndSafe
-          ? "Último commit en verde — seguro para probar"
-          : "Último commit en verde — HEAD avanzó, no es el punto seguro actual"
+          ? "Última versión verificada — segura para probar"
+          : "Última versión verificada — HEAD avanzó, no es el punto seguro actual"
       }
       style={{ marginBottom: "12px" }}
     >
@@ -189,15 +189,15 @@ export function SnapshotPanel({ snapshot }: SnapshotPanelProps): React.JSX.Eleme
             {/* Heading + status Chip (AC-14-001.1) */}
             <p style={HEADING_STYLE}>
               {isGreenAndSafe
-                ? "Último commit en verde · seguro para probar"
-                : "Último commit en verde"}{" "}
+                ? "Última versión verificada · segura para probar"
+                : "Última versión verificada"}{" "}
               {/*
                * Chip (shared primitive, DR-057):
-               *   - safeToTest=true  → tone="ok" "en verde" (green signal — safe to test)
-               *   - safeToTest=false → tone="warn" "aún no seguro" (HEAD advanced past green SHA)
+               *   - safeToTest=true  → tone="ok" "verificada" (passed all gates — safe to test)
+               *   - safeToTest=false → tone="warn" "aún no seguro" (HEAD advanced past the verified SHA)
                */}
               {isGreenAndSafe ? (
-                <Chip tone="ok">en verde</Chip>
+                <Chip tone="ok">verificada</Chip>
               ) : (
                 <Chip tone="warn">aún no seguro</Chip>
               )}
@@ -221,10 +221,10 @@ export function SnapshotPanel({ snapshot }: SnapshotPanelProps): React.JSX.Eleme
               <div data-testid="snapshot-panel-building-now" style={BUILDING_NOW_STYLE}>
                 {/* ti-hammer in var(--color-accent) — visually distinct from the green section */}
                 <i className="ti ti-hammer" style={HAMMER_ICON_STYLE} aria-hidden="true" />
-                {/* "El build sigue avanzando: <progress> · eso aún no está en verde, no lo pruebes" */}
+                {/* "El build sigue avanzando: <progress> · eso aún no está verificado, no lo pruebes" */}
                 El build sigue avanzando: <b style={{ fontWeight: 500 }}>{buildingNow}</b>
                 {" · "}
-                eso aún no está en verde, no lo pruebes
+                eso aún no está verificado, no lo pruebes
               </div>
             )}
           </div>
@@ -241,7 +241,7 @@ export function SnapshotPanel({ snapshot }: SnapshotPanelProps): React.JSX.Eleme
         <div style={{ marginTop: "8px" }}>
           <Banner
             tone="warn"
-            heading="El último commit en verde quedó atrás del build"
+            heading="La última versión verificada quedó atrás del build"
             detail="Lo que pruebes ahí ya no refleja lo que el build lleva construido."
           />
         </div>

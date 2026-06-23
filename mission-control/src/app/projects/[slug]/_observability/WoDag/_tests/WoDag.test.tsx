@@ -1,8 +1,8 @@
 /**
- * WO-12-006 — WoDag tests (CMP-12-dag, Dagre layout, chain-highlight, live)
+ * WO-12-006 — WoDag tests (CMP-12-dag, layered layout, chain-highlight, live)
  *
  * Acceptance criteria covered:
- *   AC-12-004.1 — DAG renders work-order dependency graph via Dagre (not ELK)
+ *   AC-12-004.1 — DAG renders the work-order dependency graph (compact layered layout)
  *   AC-12-004.2 — Hovering/selecting a node highlights dependency chain (up+down) and dims rest
  *   AC-12-004.3 — "saltar al primer error" selects/highlights the first failed WO and its chain
  *   AC-12-004.4 — "seguir al paso activo" toggle marks/centers the WO currently in execution
@@ -66,10 +66,10 @@ const TODO_WO: WorkOrder & { dependsOn?: string[] } = {
 const ALL_WOS = [DONE_WO, FAIL_WO, PROGRESS_WO, TODO_WO];
 
 // ---------------------------------------------------------------------------
-// AC-12-004.1 — DAG renders the work-order dependency graph via Dagre
+// AC-12-004.1 — DAG renders the work-order dependency graph (layered layout)
 // ---------------------------------------------------------------------------
 
-describe("WoDag — AC-12-004.1: renders DAG graph (not ELK)", () => {
+describe("WoDag — AC-12-004.1: renders DAG graph", () => {
   it("renders the dag panel wrapper", () => {
     render(<WoDag workOrders={ALL_WOS} project="test-project" />);
     expect(screen.getByTestId("wo-dag")).toBeTruthy();
@@ -132,6 +132,41 @@ describe("WoDag — AC-12-004.1: renders DAG graph (not ELK)", () => {
     const html = container.innerHTML;
     // No bare hex colors
     expect(html).not.toMatch(/#[0-9a-fA-F]{6}\b/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Dependency derivation — the graph must read as a DAG even when the work
+// orders carry NO explicit dependsOn (the production case: lib/work-orders
+// reads on-disk markdown that has no deps field). Fallback: a sequential
+// chain within each FRD, derived from the WO-NN-MMM id sequence.
+// ---------------------------------------------------------------------------
+
+describe("WoDag — dependency derivation (no explicit dependsOn)", () => {
+  // Three work orders in ONE FRD, NONE with explicit dependsOn.
+  const SEQ_WOS: ReadonlyArray<WorkOrder> = [
+    { id: "WO-07-001", title: "Primero", frd: "FRD-07", state: "done", relPath: "a.md" },
+    { id: "WO-07-002", title: "Segundo", frd: "FRD-07", state: "in_progress", relPath: "b.md" },
+    { id: "WO-07-003", title: "Tercero", frd: "FRD-07", state: "todo", relPath: "c.md" },
+  ];
+
+  it("derives a sequential chain within the FRD (001→002→003)", () => {
+    const { container } = render(<WoDag workOrders={[...SEQ_WOS]} project="p" />);
+    // Two edges expected: WO-07-001→WO-07-002 and WO-07-002→WO-07-003.
+    expect(container.querySelector('[data-edge="WO-07-001-WO-07-002"]')).not.toBeNull();
+    expect(container.querySelector('[data-edge="WO-07-002-WO-07-003"]')).not.toBeNull();
+    // It must NOT skip a step (no direct 001→003 edge).
+    expect(container.querySelector('[data-edge="WO-07-001-WO-07-003"]')).toBeNull();
+  });
+
+  it("does not connect work orders across different FRDs by the fallback", () => {
+    const crossFrd: ReadonlyArray<WorkOrder> = [
+      { id: "WO-08-001", title: "A", frd: "FRD-08", state: "done", relPath: "a.md" },
+      { id: "WO-09-001", title: "B", frd: "FRD-09", state: "todo", relPath: "b.md" },
+    ];
+    const { container } = render(<WoDag workOrders={[...crossFrd]} project="p" />);
+    // No fallback edge between two single-WO FRDs.
+    expect(container.querySelector("path[data-edge]")).toBeNull();
   });
 });
 

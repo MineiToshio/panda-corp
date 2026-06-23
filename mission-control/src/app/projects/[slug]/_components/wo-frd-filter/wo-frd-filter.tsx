@@ -27,8 +27,10 @@ const CONTAINER_STYLE: React.CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
   alignItems: "center",
-  gap: "calc(var(--spacing, 0.25rem) * 1.5)",
-  padding: "calc(var(--spacing, 0.25rem) * 2) calc(var(--spacing, 0.25rem) * 4)",
+  // #22: the chips were glued together — give them real breathing room
+  // (8px between chips, 6px row gap when they wrap).
+  gap: "calc(var(--spacing, 0.25rem) * 1.5) calc(var(--spacing, 0.25rem) * 2)",
+  padding: "calc(var(--spacing, 0.25rem) * 3) calc(var(--spacing, 0.25rem) * 4)",
   borderBottom: "var(--hairline, 1px) solid var(--color-border, currentColor)",
   background: "var(--color-surface, Canvas)",
 };
@@ -41,7 +43,7 @@ const LABEL_STYLE: React.CSSProperties = {
   color: "var(--color-text-muted, currentColor)",
   opacity: 0.65,
   flexShrink: 0,
-  marginRight: "calc(var(--spacing, 0.25rem) * 1)",
+  marginRight: "calc(var(--spacing, 0.25rem) * 2)",
 };
 
 /** The toggle <button> is a transparent shell; the visual pill is the shared Chip. */

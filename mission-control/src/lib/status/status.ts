@@ -72,6 +72,8 @@ export type ProjectStatus = {
   updatedAt?: string;
   repo?: string;
   deployTarget?: DeployTarget;
+  /** Live URL where the release is deployed (DR-085). Absent until launched. */
+  deployUrl?: string;
 };
 
 export type StatusResult =
@@ -144,6 +146,9 @@ function mapStringFields(raw: Record<string, unknown>, status: Partial<ProjectSt
 
   const repo = asString(raw.repo);
   if (repo !== undefined) status.repo = repo;
+
+  const deployUrl = asString(raw.deploy_url);
+  if (deployUrl !== undefined) status.deployUrl = deployUrl;
 }
 
 /** Map the finite-number fields; invalid/NaN/missing omitted (regression B1'). */

@@ -184,31 +184,38 @@ describe("FRD-05 integration: live state reaches the rendered board", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2. Project-wide progress even when only one tab/feature is shown
-//    (WO-05-002 ⨯ WO-05-006). AC-05-004.1 says "summing every feature's
-//    work-orders/" — the bar must NOT be a per-FRD count.
+// 2. Project-wide progress aggregation (WO-05-002). AC-05-004.1 says "summing
+//    every feature's work-orders/" — it must NOT be a per-FRD count.
+//
+//    Note (#22): the visual progress bar was removed from the Work Orders tab
+//    (it duplicated the project header's canonical objectives bar). The header
+//    now consumes `aggregateProgress`; here we still pin the aggregation itself
+//    so the canonical figure stays correct, but no longer assert a bar in the tab.
 // ---------------------------------------------------------------------------
 
 describe("FRD-05 integration: aggregated progress is project-wide", () => {
-  it("AC-05-004.1 — progress bar counts done/total across ALL features, not one", () => {
+  it("AC-05-004.1 — aggregateProgress counts done/total across ALL features, not one", () => {
     const orders = listWorkOrders(projectRoot);
     // Ground truth from the reader: 6 orders total, 2 verified (done).
     const progress = aggregateProgress(orders);
     expect(progress.total).toBe(6);
     expect(progress.done).toBe(2);
-
-    render(<TabWorkOrders orders={orders} />);
-    const bar = screen.getByTestId("wo-progress");
-    // The bar's aria label encodes the project-wide numbers.
-    expect(bar.getAttribute("aria-label")).toContain("2 de 6");
   });
 
-  it("AC-05-004.1 — pct is consistent with the rendered done/total (no drift)", () => {
+  it("AC-05-004.1 — pct is consistent with the aggregated done/total (no drift)", () => {
     const orders = listWorkOrders(projectRoot);
     const { done, total, pct } = aggregateProgress(orders);
     // 2/6 → 33.3 (1-decimal precision pinned by the implementer).
     expect(pct).toBe(Math.round((done / total) * 1000) / 10);
     expect(pct).toBe(33.3);
+  });
+
+  it("#22 — the Work Orders tab does NOT render the redundant progress bar", () => {
+    const orders = listWorkOrders(projectRoot);
+    render(<TabWorkOrders orders={orders} />);
+    expect(screen.queryByTestId("wo-progress")).toBeNull();
+    // the board is still there
+    expect(screen.getByTestId("wo-board")).toBeInTheDocument();
   });
 });
 

@@ -52,8 +52,8 @@ describe("FRD-14 gate — anti-conflation: green claim ≠ building-now warning 
     render(<SnapshotPanel slug="proj" snapshot={snap} />);
     const green = screen.getByTestId("snapshot-panel-green-section");
     const building = screen.getByTestId("snapshot-panel-building-now");
-    // The green "seguro para probar" claim must NOT live inside the building-now block.
-    expect(building.textContent).not.toMatch(/seguro para probar/i);
+    // The green "segura para probar" claim must NOT live inside the building-now block.
+    expect(building.textContent).not.toMatch(/segura para probar/i);
     // And the building-now "no lo pruebes" warning must NOT bleed into the green section heading.
     expect(green.querySelector('[data-testid="snapshot-panel-building-now"]')).toBeTruthy();
     // building-now carries the don't-test wording; green section carries the safe wording.

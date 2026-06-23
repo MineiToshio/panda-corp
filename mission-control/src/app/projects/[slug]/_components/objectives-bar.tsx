@@ -1,13 +1,24 @@
 /**
  * WO-04-004 — ObjectivesBar (CMP-04-objectives-bar)
  *
- * Server Component: "Mission Objectives" progress bar.
- *   - Shows work_orders_done / work_orders_total and percentage (AC-04-002.2).
+ * Server Component: the project's mission-progress bar, faithful to the prototype's
+ * compactProjectHeader() — a THIN (6px) inline bar that sits on ONE line beside its
+ * readout, inside the header panel (NOT the thick striped XpBar used in the Summary tab):
+ *
+ *   compactProjectHeader bar (index.html):
+ *     <span style="flex:1;min-width:120px;max-width:260px;height:6px;
+ *                  background:var(--secondary);border-radius:99px;overflow:hidden;
+ *                  border:.5px solid var(--bd)">
+ *       <span style="height:100%;width:PCT%;background: PCT>=100 ? var(--ok) : var(--accent)"></span>
+ *     </span>
+ *     <span style="font-size:11px;color:var(--text3)">PCT%</span>
+ *
+ *   - Single inline row: [ thin bar ] [ pct% · done/total ] — never stacked.
+ *   - The readout adds the work-order count to the prototype's bare percentage:
+ *     "100% · 79/79" (percentage AND N/N work orders).
  *   - Omitted when total is 0 or absent (AC-04-002.2).
  *   - tabular-nums on counts (FRD-13 / AC-13-003.1).
- *   - Visible regardless of the active tab (AC-04-002.3) — structural
- *     invariant enforced by page.tsx, not this component.
- *   - Consumer of the shared ProgressBar primitive (WO-13-007, DR-057).
+ *   - Visible regardless of the active tab (AC-04-002.3) — structural invariant.
  *
  * Design rules (AGENTS.md / FRD-13):
  *   - ZERO hardcoded colors — CSS custom properties only.
@@ -19,8 +30,6 @@
  *   CMP-04-objectives-bar → REQ-04-002
  *   AC-04-002.2, AC-04-002.3
  */
-
-import { ProgressBar } from "@/components/core/ProgressBar/ProgressBar";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -35,36 +44,36 @@ export interface ObjectivesBarProps {
 
 // ---------------------------------------------------------------------------
 // Styles — CSS custom properties only, zero hardcoded colors
+// Matches the prototype compactProjectHeader() inline bar (one line, thin track).
 // ---------------------------------------------------------------------------
 
+/** One inline row: thin track + readout. No own border/background (the panel owns it). */
 const ROOT_STYLE: React.CSSProperties = {
   display: "flex",
-  flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 1)",
-  padding: "8px 14px 10px",
-  borderBottom: "0.5px solid var(--color-border, currentColor)",
-  background: "var(--color-surface, Canvas)",
-};
-
-const LABEL_ROW_STYLE: React.CSSProperties = {
-  display: "flex",
   alignItems: "center",
-  justifyContent: "space-between",
-  gap: "calc(var(--spacing, 0.25rem) * 2)",
+  gap: "8px",
 };
 
-const LABEL_LEFT_STYLE: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "5px",
-  fontSize: "11px",
-  color: "var(--color-text2, currentColor)",
+/** Thin 6px pill track — flex:1, capped at 260px (prototype bar). Recessed canvas tone. */
+const TRACK_STYLE: React.CSSProperties = {
+  display: "block",
+  flex: 1,
+  minWidth: "120px",
+  maxWidth: "260px",
+  height: "6px",
+  background: "var(--color-base, Canvas)",
+  borderRadius: "var(--radius-pill, 999px)",
+  overflow: "hidden",
+  border: "0.5px solid var(--color-border, currentColor)",
 };
 
-const COUNTS_STYLE: React.CSSProperties = {
+/** Readout: "pct% · N/N", 11px muted, tabular numerals. */
+const READOUT_STYLE: React.CSSProperties = {
   fontSize: "11px",
-  color: "var(--color-text2, currentColor)",
+  color: "var(--color-text3, currentColor)",
   fontVariantNumeric: "tabular-nums",
+  whiteSpace: "nowrap",
+  flex: "0 0 auto",
 };
 
 // ---------------------------------------------------------------------------
@@ -72,13 +81,12 @@ const COUNTS_STYLE: React.CSSProperties = {
 // ---------------------------------------------------------------------------
 
 /**
- * CMP-04-objectives-bar — "Mission Objectives" progress bar.
+ * CMP-04-objectives-bar — the project's mission-progress bar (thin, inline).
  *
- * Server Component (no "use client"). Rendered above the tab bar on every tab.
+ * Server Component (no "use client"). Rendered inside the header panel, on one line.
  * Omitted entirely when total is 0 or undefined (AC-04-002.2).
  *
- * Delegates the track rendering to the shared ProgressBar primitive (WO-13-007)
- * and adds the "Objetivos de la misión" label row with icon and counts above it.
+ * Shows the percentage AND the work-order count: "100% · 79/79".
  */
 export function ObjectivesBar({ done, total }: ObjectivesBarProps): React.JSX.Element | null {
   // AC-04-002.2 — omitted when total is 0 or absent
@@ -87,37 +95,40 @@ export function ObjectivesBar({ done, total }: ObjectivesBarProps): React.JSX.El
   }
 
   const pct = Math.max(0, Math.min(100, Math.round((done / total) * 100)));
+  const isComplete = done >= total;
+
+  const fillStyle: React.CSSProperties = {
+    display: "block",
+    height: "100%",
+    width: `${pct}%`,
+    background: isComplete ? "var(--color-ok, currentColor)" : "var(--color-accent, currentColor)",
+  };
 
   return (
-    <section
+    <div
       data-testid="objectives-bar"
       style={ROOT_STYLE}
+      role="progressbar"
+      aria-valuenow={done}
+      aria-valuemin={0}
+      aria-valuemax={total}
       aria-label={`Misión: ${done} de ${total} work orders completadas (${pct}%)`}
     >
-      {/* Label row: icon + title + counts + percentage */}
-      <div style={LABEL_ROW_STYLE}>
-        <span style={LABEL_LEFT_STYLE}>
-          <i
-            className="ti ti-sword"
-            style={{ fontSize: "12px", color: "var(--color-accent-text)" }}
-            aria-hidden="true"
-          />
-          Objetivos de la misión
-        </span>
-        <span style={COUNTS_STYLE} aria-hidden="true">
-          <span data-testid="objectives-bar-counts" style={{ fontVariantNumeric: "tabular-nums" }}>
-            {done} / {total}
-          </span>{" "}
-          <span data-testid="objectives-bar-pct" style={{ fontVariantNumeric: "tabular-nums" }}>
-            · {pct}%
-          </span>
-        </span>
-      </div>
+      {/* Thin pill track with accent/ok fill (prototype compactProjectHeader bar) */}
+      <span data-testid="objectives-bar-fill" style={TRACK_STYLE} aria-hidden="true">
+        <span style={fillStyle} />
+      </span>
 
-      {/* Progress track — shared ProgressBar primitive (WO-13-007, DR-057) */}
-      <div data-testid="objectives-bar-fill">
-        <ProgressBar done={done} total={total} ariaLabel={`${pct}% de work orders completadas`} />
-      </div>
-    </section>
+      {/* Readout: percentage AND work-order count on the same line — "100% · 79/79" */}
+      <span style={READOUT_STYLE} aria-hidden="true">
+        <span data-testid="objectives-bar-pct" style={{ fontVariantNumeric: "tabular-nums" }}>
+          {pct}%
+        </span>
+        {" · "}
+        <span data-testid="objectives-bar-counts" style={{ fontVariantNumeric: "tabular-nums" }}>
+          {done}/{total}
+        </span>
+      </span>
+    </div>
   );
 }

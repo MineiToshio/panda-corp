@@ -492,9 +492,9 @@ function GuideProbar(): React.JSX.Element {
   return (
     <GuidePage
       title="Probar sin parar al agente"
-      intro="El punto seguro es un commit de git, no un estado del agente. Puedes probar el último verde mientras el agente sigue construyendo en su carpeta."
+      intro="El punto seguro es un commit de git, no un estado del agente. Puedes probar la última versión verificada mientras el agente sigue construyendo en su carpeta."
       steps={[
-        "Mission Control te muestra el «último commit en verde · seguro para probar» (el último commit del build que pasó todos los gates) en Portfolio → Resumen.",
+        "Mission Control te muestra la «última versión verificada · segura para probar» (el último commit del build que pasó todos los gates) en Portfolio → Resumen.",
         <>
           Copia el comando del snapshot: crea un <Code>git worktree</Code> en otra carpeta apuntando
           a ese commit.

@@ -73,6 +73,7 @@ type ProjectStatus = {
   updatedAt?: string;
   repo?: string;
   deployTarget?: DeployTarget;
+  deployUrl?: string;
 };
 
 type StatusResult =
@@ -587,6 +588,39 @@ describe("frd-01: readStatus — DR-085 deploy_target parsing", () => {
     const result = readStatus(tempProject) as StatusResult;
     if (!result.present) throw new Error("Expected present: true");
     expect(result.status.deployTarget).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DR-085 — deploy_url (string). The live URL where the release is deployed.
+// readStatus maps snake_case deploy_url → camelCase deployUrl (string coercer).
+// ---------------------------------------------------------------------------
+
+describe("frd-01: readStatus — DR-085 deploy_url parsing", () => {
+  let tempProject: string;
+  afterEach(() => {
+    if (tempProject) fs.rmSync(tempProject, { recursive: true, force: true });
+  });
+
+  it("frd-01: WHEN deploy_url is a string THEN deployUrl is exactly that string", () => {
+    tempProject = makeTempProject('phase: release\ndeploy_url: "http://192.168.18.227:1987"\n');
+    const result = readStatus(tempProject) as StatusResult;
+    if (!result.present) throw new Error("Expected present: true");
+    expect(result.status.deployUrl).toBe("http://192.168.18.227:1987");
+  });
+
+  it("frd-01: WHEN deploy_url is absent THEN deployUrl is undefined (not fabricated)", () => {
+    tempProject = makeTempProject("phase: release\nrunning: false\n");
+    const result = readStatus(tempProject) as StatusResult;
+    if (!result.present) throw new Error("Expected present: true");
+    expect(result.status.deployUrl).toBeUndefined();
+  });
+
+  it("frd-01: WHEN deploy_url is a non-string (number) THEN deployUrl is undefined (rejected)", () => {
+    tempProject = makeTempProject("phase: release\ndeploy_url: 1987\n");
+    const result = readStatus(tempProject) as StatusResult;
+    if (!result.present) throw new Error("Expected present: true");
+    expect(result.status.deployUrl).toBeUndefined();
   });
 });
 

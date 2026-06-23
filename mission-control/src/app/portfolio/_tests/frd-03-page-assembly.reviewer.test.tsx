@@ -136,13 +136,15 @@ describe("FRD-03 page assembly — the LIVE PortfolioPage (reviewer)", () => {
     expect(slot.getAttribute("data-slug")).toBe("alpha");
   });
 
-  it("AC-03-003.1 — a shipped project's business snapshot reaches the LIVE page", async () => {
+  it("a shipped project's rail row carries NO business snapshot on the LIVE page (prototype `.rail`)", async () => {
     await renderPage({});
 
+    // The rail item is name + stage + count dots only; the business snapshot (the
+    // "herramienta interna" return chip included) does not belong in the sidebar.
     const shippedRow = screen.getByRole("article", { name: /beta-shipped/i });
-    expect(within(shippedRow).queryByText("742")).not.toBeNull();
-    expect(within(shippedRow).queryByText("$1 900 MRR")).not.toBeNull();
-    expect(within(shippedRow).queryByText("double-down")).not.toBeNull();
+    expect(within(shippedRow).queryByTestId("business-snapshot")).toBeNull();
+    expect(within(shippedRow).queryByText("$1 900 MRR")).toBeNull();
+    expect(within(shippedRow).queryByText("double-down")).toBeNull();
   });
 
   it("AC-03-006.2/.3 — a missing-path project shows badge + copyable recovery on the LIVE page", async () => {

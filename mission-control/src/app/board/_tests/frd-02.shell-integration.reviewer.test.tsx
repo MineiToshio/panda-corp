@@ -76,10 +76,11 @@ describe("FRD-02 shell · DR-062 — card detail uses the ONE shared Tabs primit
     const tabsRoot = screen.getByTestId("tabs-root");
     expect(tabsRoot).toHaveAttribute("data-level", "sub");
 
-    // The three tabs are role="tab" with this screen's stable ids via testIdPrefix.
+    // The two tabs (Campaña · Documentos) are role="tab"; the Comandos tab was removed
+    // (its command folded into the campaign ficha).
     expect(screen.getByTestId("card-detail-tab-campana")).toHaveAttribute("role", "tab");
     expect(screen.getByTestId("card-detail-tab-docs")).toHaveAttribute("role", "tab");
-    expect(screen.getByTestId("card-detail-tab-comandos")).toHaveAttribute("role", "tab");
+    expect(screen.queryByTestId("card-detail-tab-comandos")).toBeNull();
 
     // Default active tab is Campaña (AC-02-009.1).
     expect(screen.getByTestId("card-detail-tab-campana")).toHaveAttribute("aria-selected", "true");
@@ -97,9 +98,7 @@ describe("FRD-02 shell · DR-062 — card detail uses the ONE shared Tabs primit
     // The bespoke row this WO replaced did NOT do arrow cycling; the shared Tabs does.
     await user.keyboard("{ArrowRight}");
     expect(screen.getByTestId("card-detail-tab-docs")).toHaveFocus();
-    await user.keyboard("{ArrowRight}");
-    expect(screen.getByTestId("card-detail-tab-comandos")).toHaveFocus();
-    // wraps back to the first
+    // wraps back to the first (two tabs: Campaña · Documentos)
     await user.keyboard("{ArrowRight}");
     expect(campana).toHaveFocus();
   });
@@ -110,25 +109,21 @@ describe("FRD-02 shell · DR-062 — card detail uses the ONE shared Tabs primit
 // ---------------------------------------------------------------------------
 
 describe("FRD-02 shell · AC-02-009.3/.4 — doc-click landing + tab persistence", () => {
-  it("after switching to Comandos, clicking the next-step copy stays on Comandos (no reset)", async () => {
+  it("after switching to Documentos, the tab stays selected across a re-render (no reset)", async () => {
     const user = userEvent.setup();
     render(<BoardShell cards={[card({ status: "discovered" })]} discardAction={okDiscard} />);
     await openCard(user, "Tracker de Funkos");
 
-    await user.click(screen.getByTestId("card-detail-tab-comandos"));
-    expect(screen.getByTestId("card-detail-tab-comandos")).toHaveAttribute("aria-selected", "true");
+    await user.click(screen.getByTestId("card-detail-tab-docs"));
+    expect(screen.getByTestId("card-detail-tab-docs")).toHaveAttribute("aria-selected", "true");
 
-    // The Comandos panel is the active one and exposes the next-step command.
-    const comandos = screen.getByTestId("card-detail-panel-comandos");
-    expect(within(comandos).getByTestId("card-detail-next-step")).toBeInTheDocument();
+    // The Documentos panel is the active one and exposes the summary reader.
+    const docs = screen.getByTestId("card-detail-panel-docs");
+    expect(within(docs).getByTestId("card-detail-summary")).toBeInTheDocument();
 
     // A re-render of the open card (status unchanged) must not silently reset the tab.
-    // Re-assert after a microtask flush.
     await waitFor(() => {
-      expect(screen.getByTestId("card-detail-tab-comandos")).toHaveAttribute(
-        "aria-selected",
-        "true",
-      );
+      expect(screen.getByTestId("card-detail-tab-docs")).toHaveAttribute("aria-selected", "true");
     });
   });
 });

@@ -5,7 +5,7 @@
  *
  * Acceptance criteria covered:
  *   AC-14-001.1 — FOR a building project, render:
- *                 - "Último commit en verde · seguro para probar" heading
+ *                 - "Última versión verificada · segura para probar" heading
  *                 - A green Chip (shared primitive, data-testid="chip", tone="ok")
  *                 - The last_green_sha in a <code> element
  *                 - Muted line "commit <sha> — pasó todos los gates. Pruébalo..."
@@ -13,8 +13,8 @@
  *                 in the shared CmdRow primitive (data-testid="cmd-row").
  *   AC-14-001.3 — WHEN `last_green_sha` is absent, omit the panel entirely.
  *   AC-14-002.1 — WHEN running, show "El build sigue avanzando: <progress> ·
- *                 eso aún no está en verde, no lo pruebes" — distinct from the
- *                 last-green commit. Uses ti-hammer icon.
+ *                 eso aún no está verificado, no lo pruebes" — distinct from the
+ *                 last verified commit. Uses ti-hammer icon.
  *   AC-14-003.1 — WHEN stale, show the staleness warning on the shared Banner
  *                 (data-testid="banner", tone="warn"); icon + text (not color alone).
  *                 WHEN fresh, do NOT show the warning.
@@ -56,7 +56,7 @@ function makeSnapshot(overrides: Partial<SnapshotInfo> = {}): SnapshotInfo {
 }
 
 // ---------------------------------------------------------------------------
-// AC-14-001.1 — "Último commit en verde · seguro para probar" heading + green Chip + sha
+// AC-14-001.1 — "Última versión verificada · segura para probar" heading + green Chip + sha
 // ---------------------------------------------------------------------------
 
 describe("SnapshotPanel — AC-14-001.1 (heading + green Chip + sha)", () => {
@@ -65,10 +65,10 @@ describe("SnapshotPanel — AC-14-001.1 (heading + green Chip + sha)", () => {
     expect(screen.getByTestId("snapshot-panel")).toBeTruthy();
   });
 
-  it("renders the 'Último commit en verde · seguro para probar' heading (re-anchored copy)", () => {
+  it("renders the 'Última versión verificada · segura para probar' heading (re-anchored copy)", () => {
     render(<SnapshotPanel slug="test-project" snapshot={makeSnapshot()} />);
     const panel = screen.getByTestId("snapshot-panel");
-    expect(panel.textContent).toMatch(/último commit en verde.*seguro para probar/i);
+    expect(panel.textContent).toMatch(/última versión verificada.*segura para probar/i);
   });
 
   it("uses the shared Panel primitive as the outer container (DR-057)", () => {
@@ -192,11 +192,11 @@ describe("SnapshotPanel — AC-14-002.1 (building now block)", () => {
     expect(block.textContent).toContain("45");
   });
 
-  it("building-now block contains 'eso aún no está en verde, no lo pruebes' (canonical copy)", () => {
+  it("building-now block contains 'eso aún no está verificado, no lo pruebes' (canonical copy)", () => {
     const snapshot = makeSnapshot({ buildingNow: "building now: 75%" });
     render(<SnapshotPanel slug="test-project" snapshot={snapshot} />);
     const block = screen.getByTestId("snapshot-panel-building-now");
-    expect(block.textContent).toMatch(/eso aún no está en verde.*no lo pruebes/i);
+    expect(block.textContent).toMatch(/eso aún no está verificado.*no lo pruebes/i);
   });
 
   it("building-now block is rendered separately from the last-green section", () => {
@@ -232,11 +232,11 @@ describe("SnapshotPanel — AC-14-003.1 (Banner staleness warning)", () => {
     expect(banner.getAttribute("data-tone")).toBe("warn");
   });
 
-  it("Banner carries 'El último commit en verde quedó atrás' heading (canonical copy)", () => {
+  it("Banner carries 'La última versión verificada quedó atrás' heading (canonical copy)", () => {
     const snapshot = makeSnapshot({ stale: true });
     render(<SnapshotPanel slug="test-project" snapshot={snapshot} />);
     const banner = screen.getByTestId("banner");
-    expect(banner.textContent).toMatch(/el último commit en verde quedó atrás/i);
+    expect(banner.textContent).toMatch(/la última versión verificada quedó atrás/i);
   });
 
   it("Banner has role=alert (a11y — warn state NOT by color alone)", () => {

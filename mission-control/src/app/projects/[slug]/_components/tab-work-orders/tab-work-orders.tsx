@@ -1,16 +1,19 @@
 /**
- * WO-05-003 — TabWorkOrders (CMP-05-progress + CMP-05-empty coordinator)
+ * WO-05-003 — TabWorkOrders (CMP-05-empty coordinator)
  *
  * Server Component. Coordinates the work-orders tab view:
  *   - When orders.length === 0  → renders WorkOrderEmpty (AC-05-006.1)
- *   - When orders.length > 0   → renders WorkOrderProgressBar + WorkOrderBoard
- *                                 (AC-05-004.1 + AC-05-001.1)
+ *   - When orders.length > 0   → renders WorkOrderBoard (AC-05-001.1)
  *
  * Also mounts WoLiveRefresh (a thin "use client" child) so the board updates
  * live off the SSE event stream without polling (AC-05-005.1).
  *
+ * Note (#22): the per-tab work-order progress bar was REMOVED — it duplicated the
+ * canonical objectives/progress bar in the project header (the prototype's
+ * `projWO()` has no progress bar; it lives in the header). The aggregated count
+ * is owned by the header now, so the tab no longer aggregates it.
+ *
  * Traceability:
- *   AC-05-004.1  The view SHALL show aggregated progress done/total and %.
  *   AC-05-005.1  Board SHALL update LIVE as agents change WO state (no reload).
  *   AC-05-006.1  WHEN a project has no work orders, show the blueprint message.
  *
@@ -20,10 +23,9 @@
  *   - Server Component (no "use client" — client children hydrate themselves).
  */
 
-import { aggregateProgress, type WorkOrder } from "@/lib/work-orders/work-orders";
+import type { WorkOrder } from "@/lib/work-orders/work-orders";
 import { WorkOrderEmpty } from "../wo-empty/wo-empty";
 import { WoFrdFilteredBoard } from "../wo-frd-filtered-board/wo-frd-filtered-board";
-import { WorkOrderProgressBar } from "../wo-progress/wo-progress";
 import { WoLiveRefresh } from "./wo-live-refresh";
 
 // ---------------------------------------------------------------------------
@@ -56,10 +58,12 @@ export interface TabWorkOrdersProps {
 /**
  * TabWorkOrders — top-level coordinator for the Work Orders tab.
  *
- * Server Component. Routes to empty state or (progress bar + kanban board)
- * depending on whether the project has any work orders.
+ * Server Component. Routes to the empty state or the kanban board depending on
+ * whether the project has any work orders.
  *
- * AC-05-004.1: progress aggregated from aggregateProgress(orders).
+ * The aggregated done/total progress is NOT shown here (#22): it duplicated the
+ * canonical objectives bar in the project header. The header owns that figure now.
+ *
  * AC-05-005.1: WoLiveRefresh subscribes to SSE and calls router.refresh() on
  *   new events, causing the Server Component tree to re-run and re-read files.
  * AC-05-006.1: empty state with /pandacorp:blueprint command + copy button.
@@ -74,13 +78,10 @@ export function TabWorkOrders({ orders, project }: TabWorkOrdersProps): React.JS
     );
   }
 
-  const progress = aggregateProgress(orders);
-
   return (
     <div data-testid="tab-work-orders" style={ROOT_STYLE}>
       {/* Live SSE connector — invisible, triggers router.refresh() on new events */}
       {project !== undefined && <WoLiveRefresh project={project} />}
-      <WorkOrderProgressBar progress={progress} />
       <WoFrdFilteredBoard orders={orders} />
     </div>
   );

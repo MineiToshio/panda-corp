@@ -22,6 +22,7 @@
 import { resolveProjectPath } from "@/lib/config/config";
 import { readActivityLog, readDecisions } from "@/lib/docs/activity";
 import { listProjectDocs, readDoc } from "@/lib/docs/tree";
+import { readIdeas } from "@/lib/ideas/ideas";
 import type { ProjectListItem } from "@/lib/portfolio/portfolio";
 import { buildSnapshot } from "@/lib/snapshot/snapshot";
 import { type Phase, readStatus } from "@/lib/status/status";
@@ -95,6 +96,19 @@ function renderWorkOrdersTab(
   return <TabWorkOrders orders={orders} project={slug} />;
 }
 
+/**
+ * Resolve the project's summary — the SAME markdown the board card-detail shows in its
+ * Documentos → Resumen. Both surfaces read the idea card's markdown body from
+ * `factory/ideas/<slug>.md`, matched by the card's `project` pointer (the board links a card
+ * to its project via that field; the page is reached by the project slug). Falls back to the
+ * project title when no card or an empty body exists, so the panel is never blank.
+ */
+function resolveProjectSummary(slug: string, fallback: string): string {
+  const card = readIdeas().find((c) => c.project === slug);
+  const body = card?.body.trim();
+  return body !== undefined && body.length > 0 ? body : fallback;
+}
+
 function renderDocumentsTab(projectPath: string, docParam: string | undefined): React.JSX.Element {
   const nodes = listProjectDocs(projectPath);
   const firstNodeId = nodes[0]?.id ?? null;
@@ -123,7 +137,10 @@ export function ProjectWorkspace({
   const statusResult = readStatus(projectPath);
   const status = statusResult.present && statusResult.status !== null ? statusResult.status : {};
 
-  const title = status.project ?? slug;
+  // Full project name for the header title. The portfolio "Proyecto" cell (item.name) is the
+  // FULL name the board card-detail shows (e.g. "Pandacorp (Mission Control)"); status.project
+  // can be a shorter label (e.g. "Pandacorp"), so prefer item.name and fall back to status.project.
+  const title = item.name.trim().length > 0 ? item.name : (status.project ?? slug);
   const stage = (status.phase ?? item.stage ?? "implementation") as Phase;
   const deployTarget = status.deployTarget;
   const version = status.version ?? "0.0.0";
@@ -169,15 +186,20 @@ export function ProjectWorkspace({
       const activityLog = readActivityLog(projectPath);
       const decisions = readDecisions(projectPath);
       const pendingDecisions = decisions.filter((dp) => !dp.resolved).length;
+      // Summary = the idea-card markdown body (the SAME content the board card-detail shows),
+      // not the bare project name; falls back to the title when there is no card/body.
+      const summary = resolveProjectSummary(slug, status.project ?? slug);
       body = (
         <TabSummary
-          summary={status.project ?? slug}
+          summary={summary}
           keyPoints={[]}
           activityLog={activityLog}
           decisions={decisions}
           pendingDecisions={pendingDecisions}
           slug={slug}
           snapshot={snapshot}
+          deployTarget={deployTarget}
+          deployUrl={status.deployUrl}
         />
       );
     }
@@ -185,6 +207,8 @@ export function ProjectWorkspace({
 
   return (
     <section data-testid="workspace-page" data-slug={slug}>
+      {/* Header + objectives bar live in ONE rounded panel (prototype compactProjectHeader).
+          The objectives bar is passed as children so it renders inside that same panel. */}
       <WorkspaceHeader
         title={title}
         stage={stage}
@@ -193,9 +217,16 @@ export function ProjectWorkspace({
         progress={progress}
         running={running}
         headingLevel={headingLevel}
-      />
-      <ObjectivesBar done={woDone} total={woTotal} />
-      <TabBar activeTab={activeTab} />
+      >
+        <ObjectivesBar done={woDone} total={woTotal} />
+      </WorkspaceHeader>
+
+      {/* Breathing room between the header panel and the tabs (prototype: panel margin-bottom:12px).
+          The tabs are NOT flush against the header; TabBar owns its own bottom padding. */}
+      <div style={{ marginTop: "12px" }}>
+        <TabBar activeTab={activeTab} />
+      </div>
+
       <div data-testid="workspace-tab-body">{body}</div>
     </section>
   );

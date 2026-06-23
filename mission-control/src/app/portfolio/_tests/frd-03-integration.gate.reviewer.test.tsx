@@ -2,13 +2,13 @@
  * FRD-03 integration gate (DR-050, DR-015) — reviewer adversarial edge cases.
  *
  * The implementer's repair anchor (frd-03-integration.reviewer.test.tsx) covers the
- * happy paths the prior reopen demanded (snapshot reaches the rail, badge + recovery
- * reach the rail). These tests probe the EDGE cases the implementer did NOT write,
- * exercising the WOs TOGETHER through the LIVE rail (SelectableProjectRail), which is
- * the only rail the /portfolio page renders:
+ * happy paths (badge + recovery reach the rail; the rail item carries NO business
+ * snapshot, per the prototype `.rail`). These tests probe the EDGE cases the
+ * implementer did NOT write, exercising the WOs TOGETHER through the LIVE rail
+ * (SelectableProjectRail), which is the only rail the /portfolio page renders:
  *
- *   - WO-03-003 + WO-03-005 + WO-03-004 in ONE list (snapshot row AND broken-path row
- *     in the same render): no cross-row leakage.
+ *   - launched row AND broken-path row in ONE list (same render): no cross-row leakage,
+ *     and neither carries a business snapshot.
  *   - AC-03-006.4 — no-repo missing-path row shows the warning, NOT a clone command.
  *   - AC-03-006.5/.6 — an EXISTING release (launched) row never shows the not-found badge.
  *   - empty-string repo treated as no-repo (RecoveryHint contract) on the live rail.
@@ -69,18 +69,18 @@ function rowFor(name: string): HTMLElement {
 }
 
 describe("FRD-03 integration gate — LIVE rail edge cases (reviewer)", () => {
-  it("snapshot row and broken-path row coexist in one list without cross-leakage", () => {
+  it("launched row and broken-path row coexist in one list without cross-leakage", () => {
     render(<SelectableProjectRail items={[SHIPPED, BROKEN_WITH_REPO]} selectedSlug="winner" />);
 
     const winner = rowFor("winner");
     const gone = rowFor("gone-repo");
 
-    // The winner row has the snapshot, NOT the recovery hint.
-    expect(within(winner).queryByText("500")).not.toBeNull();
-    expect(within(winner).queryByText("double-down")).not.toBeNull();
+    // The launched row carries no business snapshot (prototype `.rail`) and no recovery hint.
+    expect(within(winner).queryByTestId("business-snapshot")).toBeNull();
+    expect(within(winner).queryByText("double-down")).toBeNull();
     expect(within(winner).queryByText(/ruta no encontrada|path not found/i)).toBeNull();
 
-    // The broken row has the recovery hint, NOT the snapshot values.
+    // The broken row has the recovery hint, and (like every row) no snapshot values.
     expect(within(gone).queryByText(/ruta no encontrada|path not found/i)).not.toBeNull();
     expect(within(gone).queryByText("500")).toBeNull();
     expect(within(gone).queryByText("double-down")).toBeNull();
@@ -115,7 +115,7 @@ describe("FRD-03 integration gate — LIVE rail edge cases (reviewer)", () => {
     expect(within(row).queryByText(/pandacorp:spec/i)).not.toBeNull();
   });
 
-  it("a partial snapshot (verdict only) still surfaces on the rail; absent omitted", () => {
+  it("a row never renders a business-snapshot block, even with snapshot data on the model", () => {
     const partial: ProjectListItem = {
       ...SHIPPED,
       name: "partial",
@@ -131,31 +131,32 @@ describe("FRD-03 integration gate — LIVE rail edge cases (reviewer)", () => {
     };
     render(<SelectableProjectRail items={[partial, noSnap]} selectedSlug="partial" />);
 
+    // Prototype `.rail`: no snapshot in the rail, regardless of the data model.
     const partialRow = rowFor("partial");
-    expect(within(partialRow).queryByText("hold")).not.toBeNull();
+    expect(within(partialRow).queryByTestId("business-snapshot")).toBeNull();
+    expect(within(partialRow).queryByText("hold")).toBeNull();
 
     const noSnapRow = rowFor("no-snap");
-    // No business-snapshot block when no fields are present.
     expect(within(noSnapRow).queryByTestId("business-snapshot")).toBeNull();
   });
 
-  it("selection does not gate the contract — an UNSELECTED row still carries snapshot + recovery", () => {
+  it("selection does not gate the contract — an UNSELECTED broken row still carries recovery", () => {
     render(
       <SelectableProjectRail
-        items={[BROKEN_WITH_REPO, SHIPPED]}
-        // Select the broken row; the winner (snapshot) row is unselected.
-        selectedSlug="gone-repo"
+        items={[SHIPPED, BROKEN_WITH_REPO]}
+        // Select the launched row; the broken (recovery) row is unselected.
+        selectedSlug="winner"
       />,
     );
 
     const winner = rowFor("winner");
-    expect(winner.getAttribute("data-selected")).toBe("false");
-    // The unselected winner row must still render its snapshot.
-    expect(within(winner).queryByText("500")).not.toBeNull();
+    expect(winner.getAttribute("data-selected")).toBe("true");
+    // No business snapshot reaches the rail item (prototype `.rail`).
+    expect(within(winner).queryByTestId("business-snapshot")).toBeNull();
 
     const gone = rowFor("gone-repo");
-    expect(gone.getAttribute("data-selected")).toBe("true");
-    // The selected broken row must still render its recovery command.
+    expect(gone.getAttribute("data-selected")).toBe("false");
+    // The unselected broken row must still render its recovery command.
     expect(within(gone).queryByText(/git clone/i)).not.toBeNull();
     expect(within(gone).queryByText(/sync-portfolio/i)).not.toBeNull();
   });

@@ -10,8 +10,10 @@
  *   - Stage line below icon+title row (data-testid="selectable-row-stage")
  *   - Running indicator (data-testid="selectable-row-indicator", sr-only)
  *   - Empty state: data-testid="selectable-project-rail-empty"
- *   - StatusChips, BusinessSnapshot, RecoveryHint rendered as siblings of the link
- *     (NOT nested inside the link — no button-inside-anchor)
+ *   - Pending-decisions/bugs as bare count dots (right-aligned, NO text label),
+ *     a "replanteo en curso" line when rethink is pending, and RecoveryHint as a
+ *     sibling of the link (no button-inside-anchor). NO business snapshot in the
+ *     rail item — faithful to the prototype `.rail` item.
  *
  * These tests replace the integration seam previously provided by
  * app/portfolio/SelectableProjectRail.tsx. After this, page.tsx imports
@@ -249,23 +251,30 @@ describe("ProjectRail selectable mode — running indicator", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 7. StatusChips in selectable mode (count badges)
+// 7. Pending-decisions / bugs as bare count dots (right-aligned, no text label)
 // ---------------------------------------------------------------------------
 
-describe("ProjectRail selectable mode — StatusChips (count badges)", () => {
-  it("shows decisions badge when pendingDecisions > 0", () => {
+describe("ProjectRail selectable mode — count dots (no text label)", () => {
+  it("shows decisions dot when pendingDecisions > 0", () => {
     render(<ProjectRail items={[ITEM_WITH_BADGES]} selectedSlug="needs-attention" />);
     expect(screen.getByTestId("status-chip-decisions")).toBeDefined();
     expect(screen.getByTestId("status-chip-decisions").textContent).toContain("3");
   });
 
-  it("shows bugs badge when pendingBugs > 0", () => {
+  it("shows bugs dot when pendingBugs > 0", () => {
     render(<ProjectRail items={[ITEM_WITH_BADGES]} selectedSlug="needs-attention" />);
     expect(screen.getByTestId("status-chip-bugs")).toBeDefined();
     expect(screen.getByTestId("status-chip-bugs").textContent).toContain("1");
   });
 
-  it("shows NO count badges when counts are 0 / absent", () => {
+  it("renders the dots WITHOUT a 'decisiones' / 'bugs' text label (prototype dot idiom)", () => {
+    render(<ProjectRail items={[ITEM_WITH_BADGES]} selectedSlug="needs-attention" />);
+    // The dot is the count only — the word lives in the title (a11y), not as visible copy.
+    expect(screen.getByTestId("status-chip-decisions").textContent).not.toMatch(/decisiones/i);
+    expect(screen.getByTestId("status-chip-bugs").textContent).not.toMatch(/bugs/i);
+  });
+
+  it("shows NO count dots when counts are 0 / absent", () => {
     render(<ProjectRail items={[ITEM_ALPHA]} selectedSlug="proj-alpha" />);
     expect(screen.queryByTestId("status-chip-decisions")).toBeNull();
     expect(screen.queryByTestId("status-chip-bugs")).toBeNull();
@@ -273,19 +282,20 @@ describe("ProjectRail selectable mode — StatusChips (count badges)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 8. BusinessSnapshot in selectable mode (shipped projects)
+// 8. No business snapshot in the rail item (prototype rail has none)
 // ---------------------------------------------------------------------------
 
-describe("ProjectRail selectable mode — BusinessSnapshot", () => {
-  it("shows business snapshot for a shipped project", () => {
+describe("ProjectRail selectable mode — no business snapshot", () => {
+  it("does NOT render a business snapshot, even for a shipped project", () => {
     render(<ProjectRail items={[ITEM_SHIPPED]} selectedSlug="proj-shipped" />);
     const row = screen.getByRole("article", { name: /proj-shipped/i });
-    expect(within(row).queryByText("1234")).not.toBeNull();
-    expect(within(row).queryByText("$900 MRR")).not.toBeNull();
-    expect(within(row).queryByText("double-down")).not.toBeNull();
+    // The prototype rail item is name + stage + dots only — no return/users/verdict,
+    // so the "herramienta interna" return-metric chip never appears in the sidebar.
+    expect(within(row).queryByTestId("business-snapshot")).toBeNull();
+    expect(within(row).queryByText("$900 MRR")).toBeNull();
   });
 
-  it("does NOT show business snapshot for a building project", () => {
+  it("does NOT render a business snapshot for a building project", () => {
     render(<ProjectRail items={[ITEM_ALPHA]} selectedSlug="proj-alpha" />);
     const row = screen.getByRole("article", { name: /proj-alpha/i });
     expect(within(row).queryByTestId("business-snapshot")).toBeNull();

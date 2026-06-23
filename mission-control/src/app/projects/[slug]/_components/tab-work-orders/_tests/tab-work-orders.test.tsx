@@ -1,18 +1,13 @@
 /**
- * WO-05-006 — TabWorkOrders (CMP-05-progress + CMP-05-empty integration) tests
- *
- * RED phase — written before implementation.
+ * WO-05-006 — TabWorkOrders (kanban board + CMP-05-empty integration) tests
  *
  * Traceability:
- *   AC-05-004.1  The view SHALL show aggregated progress done/total and %,
- *               summing every feature's work-orders/.
  *   AC-05-006.1  WHEN a project has no work orders, the view SHALL show a message
  *               that they are generated in /pandacorp:blueprint.
  *
- * TDD cases (from WO-05-006):
- *   1. Progress shows 2/7 · 28.6% for that set (AC-05-004.1).
- *   2. total === 0 renders the empty state instead of a zeroed bar (AC-05-006.1).
- *   3. Empty state message references /pandacorp:blueprint with a copy button.
+ * Note (#22): the per-tab progress bar was removed (it duplicated the project
+ * header's canonical objectives bar). The tab now renders the kanban board only;
+ * these tests assert the board is present and `wo-progress` is NOT rendered here.
  *
  * Stack: Vitest + @testing-library/react + jsdom.
  */
@@ -52,49 +47,29 @@ const ORDERS_PARTIAL: WorkOrder[] = [
 const ORDERS_EMPTY: WorkOrder[] = [];
 
 // ---------------------------------------------------------------------------
-// AC-05-004.1 — TDD case 1: progress shows 2/7 · 28.6%
+// AC-05-001.1 — orders present → kanban board (NO duplicate progress bar, #22)
 // ---------------------------------------------------------------------------
 
-describe("frd-05: AC-05-004.1 — TabWorkOrders renders aggregated progress", () => {
-  it("frd-05: AC-05-004.1 — WHEN 2 of 7 orders are done THEN renders the progress section", () => {
-    render(<TabWorkOrders orders={ORDERS_PARTIAL} />);
-    expect(screen.getByTestId("wo-progress")).toBeDefined();
-  });
-
-  it("frd-05: AC-05-004.1 — WHEN 2 of 7 orders are done THEN progress shows '2'", () => {
-    render(<TabWorkOrders orders={ORDERS_PARTIAL} />);
-    expect(screen.getByTestId("wo-progress").textContent).toContain("2");
-  });
-
-  it("frd-05: AC-05-004.1 — WHEN 2 of 7 orders are done THEN progress shows '7'", () => {
-    render(<TabWorkOrders orders={ORDERS_PARTIAL} />);
-    expect(screen.getByTestId("wo-progress").textContent).toContain("7");
-  });
-
-  it("frd-05: AC-05-004.1 — WHEN 2 of 7 orders are done THEN progress shows percentage '28.6'", () => {
-    render(<TabWorkOrders orders={ORDERS_PARTIAL} />);
-    expect(screen.getByTestId("wo-progress").textContent).toContain("28.6");
-  });
-
-  it("frd-05: AC-05-004.1 — WHEN orders present THEN the kanban board is also rendered", () => {
+describe("frd-05: AC-05-001.1 — TabWorkOrders renders the kanban board", () => {
+  it("frd-05: AC-05-001.1 — WHEN orders present THEN the kanban board is rendered", () => {
     render(<TabWorkOrders orders={ORDERS_PARTIAL} />);
     expect(screen.getByTestId("wo-board")).toBeDefined();
+  });
+
+  it("frd-05: #22 — WHEN orders present THEN the redundant per-tab progress bar is NOT rendered", () => {
+    render(<TabWorkOrders orders={ORDERS_PARTIAL} />);
+    expect(screen.queryByTestId("wo-progress")).toBeNull();
   });
 });
 
 // ---------------------------------------------------------------------------
-// AC-05-006.1 — TDD case 2: total === 0 → empty state, not a zeroed bar
+// AC-05-006.1 — total === 0 → empty state (not the board)
 // ---------------------------------------------------------------------------
 
 describe("frd-05: AC-05-006.1 — TabWorkOrders renders empty state when no orders", () => {
-  it("frd-05: AC-05-006.1 — WHEN no work orders THEN empty state is shown (not progress bar)", () => {
+  it("frd-05: AC-05-006.1 — WHEN no work orders THEN empty state is shown", () => {
     render(<TabWorkOrders orders={ORDERS_EMPTY} />);
     expect(screen.getByTestId("wo-empty")).toBeDefined();
-  });
-
-  it("frd-05: AC-05-006.1 — WHEN no work orders THEN progress bar is NOT shown", () => {
-    render(<TabWorkOrders orders={ORDERS_EMPTY} />);
-    expect(screen.queryByTestId("wo-progress")).toBeNull();
   });
 
   it("frd-05: AC-05-006.1 — WHEN no work orders THEN kanban board is NOT shown", () => {

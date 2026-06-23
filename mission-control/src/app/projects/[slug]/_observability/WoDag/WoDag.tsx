@@ -1,30 +1,44 @@
 "use client";
 
 /**
- * WoDag — Work-order DAG view (WO-12-006)
+ * WoDag — Work-order dependency graph (DAG) view (WO-12-006)
  *
- * Renders the work-order dependency graph via Dagre (~39KB), with:
- *   - Bezier edges from dependency → dependent
- *   - Chain-highlight: hover/click a node → accent edges + dim rest (opacity .32)
+ * Renders the work orders as a compact, left-to-right LAYERED dependency graph:
+ *   - Nodes (work orders) placed in topological columns by dependency depth
+ *   - Directed bezier edges (dependency → dependent) with arrowheads
+ *   - Compact fixed-size nodes + capped spacing → fits the tab, never gigantic
+ *   - Chain-highlight: click a node → accent its up/downstream chain, dim the rest
  *   - Jump to first error: danger-bordered button → select first fail WO + chain
  *   - Follow active step: toggle → running WO gets accent drop-shadow + "▶ paso activo"
  *   - Live: subscribes to useLiveSnapshot (WO-01-009) for event-driven state updates
  *
- * Prototype: bDag() (~L1169), bDagChain() (~L1154)
+ * Layout: hand-rolled layered layout (see ./layout.ts), NOT Dagre. In production
+ * the work orders carry no explicit `dependsOn` (read from on-disk markdown), so
+ * dependencies are DERIVED: explicit `dependsOn` wins; otherwise a sequential
+ * chain within each FRD (from the WO-NN-MMM id scheme). This guarantees the view
+ * always reads as a directed dependency graph instead of scattered boxes.
+ *
+ * Prototype: bDag() (~L1169), bDagChain() (~L1154) — static `col`/`rowIn` layout.
  * Design rules: tokens only, no hardcoded colors/spacing/radii.
  * a11y: state by icon + dot + text + color; nodes are interactive buttons;
- *       motion: transform/opacity only; honors prefers-reduced-motion.
+ *       motion: transform/opacity only.
  *
  * Traceability:
  *   CMP-12-dag → REQ-12-004/005 → AC-12-004.1/2/3/4, AC-12-005.1/2
  */
 
-import { Graph, layout } from "@dagrejs/dagre";
 import { useCallback, useState } from "react";
-import type { DagEdge, DagNode } from "@/app/_observability/dag/dag/dag";
 import { dagChain, firstError, toDag } from "@/app/_observability/dag/dag/dag";
 import { useLiveSnapshot } from "@/hooks/useLiveSnapshot";
 import type { WorkOrder, WorkOrderState } from "@/lib/work-orders/work-orders";
+import {
+  computeLayout,
+  deriveDeps,
+  NODE_H,
+  NODE_W,
+  type PositionedEdge,
+  type PositionedNode,
+} from "./layout";
 
 // ---------------------------------------------------------------------------
 // Public props
@@ -42,29 +56,6 @@ export interface WoDagProps {
 // ---------------------------------------------------------------------------
 
 type WorkOrderWithDeps = WorkOrder & { dependsOn?: string[] };
-
-// ---------------------------------------------------------------------------
-// Node / edge layout output
-// ---------------------------------------------------------------------------
-
-interface LayoutNode extends DagNode {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-interface LayoutEdge extends DagEdge {
-  /** Bezier control points from Dagre */
-  points: Array<{ x: number; y: number }>;
-}
-
-interface DagLayout {
-  nodes: LayoutNode[];
-  edges: LayoutEdge[];
-  width: number;
-  height: number;
-}
 
 // ---------------------------------------------------------------------------
 // State color/icon maps — mirrors prototype WOCOL / WOICON
@@ -86,105 +77,34 @@ const STATE_ICON: Record<WorkOrderState, string> = {
   todo: "ti-circle",
 };
 
-// Node dimensions — matches prototype NW=156, NH=58
-const NODE_W = 156;
-const NODE_H = 58;
-const PAD_X = 14;
-const PAD_Y = 14;
+// Shared panel/box styles (tokens only) — kept as consts so the JSX stays lean.
+const PANEL_STYLE: React.CSSProperties = {
+  background: "var(--color-panel)",
+  border: "0.5px solid var(--color-border)",
+  borderRadius: "var(--radius-md, 8px)",
+  padding: "12px 14px",
+};
+
+const BTN_STYLE: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "4px",
+  padding: "4px 10px",
+  borderRadius: "var(--radius-sm, 4px)",
+  background: "transparent",
+  fontSize: "12px",
+  cursor: "pointer",
+};
 
 // ---------------------------------------------------------------------------
-// computeLayout — run Dagre and return positioned nodes + edges
+// buildBezierPath — SVG "d" from the 4 layout control points
 // ---------------------------------------------------------------------------
 
-/**
- * Build the Dagre layout for the given nodes and edges.
- * Returns pixel-positioned nodes and edge bezier points.
- * Never throws — returns an empty layout on any error (defensive).
- */
-function computeLayout(nodes: DagNode[], edges: DagEdge[]): DagLayout {
-  if (nodes.length === 0) {
-    return { nodes: [], edges: [], width: 0, height: 0 };
-  }
-
-  const g = new Graph();
-  g.setGraph({
-    rankdir: "LR",
-    nodesep: 34,
-    ranksep: 34,
-    marginx: PAD_X,
-    marginy: PAD_Y,
-  });
-  g.setDefaultEdgeLabel(() => ({}));
-
-  for (const node of nodes) {
-    g.setNode(node.id, { width: NODE_W, height: NODE_H, label: node.id });
-  }
-
-  for (const edge of edges) {
-    g.setEdge(edge.from, edge.to);
-  }
-
-  try {
-    layout(g);
-  } catch {
-    // Dagre layout failed — fall back to empty layout so the component still renders
-    return { nodes: [], edges: [], width: 0, height: 0 };
-  }
-
-  const graphLabel = g.graph() as { width?: number; height?: number };
-  const graphW = (graphLabel.width ?? 400) + PAD_X * 2;
-  const graphH = (graphLabel.height ?? 200) + PAD_Y * 2;
-
-  const layoutNodes: LayoutNode[] = nodes.map((n) => {
-    const gn = g.node(n.id) as
-      | { x?: number; y?: number; width?: number; height?: number }
-      | undefined;
-    return {
-      ...n,
-      x: gn?.x != null ? gn.x - NODE_W / 2 : 0,
-      y: gn?.y != null ? gn.y - NODE_H / 2 : 0,
-      width: NODE_W,
-      height: NODE_H,
-    };
-  });
-
-  const layoutEdges: LayoutEdge[] = edges.map((e) => {
-    const ge = g.edge(e.from, e.to) as { points?: Array<{ x: number; y: number }> } | undefined;
-    return {
-      ...e,
-      points: ge?.points ?? [],
-    };
-  });
-
-  return { nodes: layoutNodes, edges: layoutEdges, width: graphW, height: graphH };
-}
-
-// ---------------------------------------------------------------------------
-// buildBezierPath — generate an SVG cubic bezier "d" attribute
-// ---------------------------------------------------------------------------
-
-/**
- * Build a cubic bezier path from Dagre edge points.
- * If only 2 points: straight line. Otherwise: C cubic curve.
- */
-function buildBezierPath(points: Array<{ x: number; y: number }>): string {
-  if (points.length < 2) return "";
-  const [first, ...rest] = points;
-  if (!first) return "";
-  const last = rest[rest.length - 1];
-  if (!last) return "";
-
-  if (points.length === 2) {
-    return `M${first.x} ${first.y} L${last.x} ${last.y}`;
-  }
-
-  // Build cubic bezier: M start C cp1 cp2 end
-  const mid = Math.floor(points.length / 2);
-  const cp1 = points[1];
-  const cp2 = points[mid] ?? points[1];
-  if (!cp1 || !cp2) return `M${first.x} ${first.y} L${last.x} ${last.y}`;
-
-  return `M${first.x} ${first.y} C${cp1.x} ${first.y} ${cp2.x} ${last.y} ${last.x} ${last.y}`;
+/** Build a cubic-bezier path `d` from the layout's [start, cp1, cp2, end] points. */
+function buildBezierPath(points: PositionedEdge["points"]): string {
+  const [start, cp1, cp2, end] = points;
+  if (!start || !cp1 || !cp2 || !end) return "";
+  return `M${start.x} ${start.y} C${cp1.x} ${cp1.y} ${cp2.x} ${cp2.y} ${end.x} ${end.y}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -204,7 +124,7 @@ interface EdgeStyle {
  * Extracted to keep the render-map callback under the complexity threshold.
  */
 function computeEdgeStyle(
-  edge: LayoutEdge,
+  edge: PositionedEdge,
   chain: { up: Set<string>; down: Set<string> } | null,
   activeNodeId: string | null,
 ): EdgeStyle {
@@ -232,7 +152,7 @@ function computeEdgeStyle(
 // ---------------------------------------------------------------------------
 
 interface DagNodeGroupProps {
-  node: LayoutNode;
+  node: PositionedNode;
   isActiveNode: boolean;
   isDimmed: boolean;
   isRunning: boolean;
@@ -269,6 +189,7 @@ function DagNodeGroup({
       data-testid={`dag-node-${node.id}`}
       data-active={isActiveNode ? "true" : "false"}
       aria-pressed={isActiveNode ? "true" : "false"}
+      aria-label={`${node.id} ${node.title} — ${node.state}`}
       role="button"
       tabIndex={0}
       onClick={() => onNodeClick(node.id)}
@@ -290,14 +211,22 @@ function DagNodeGroup({
         y={node.y}
         width={NODE_W}
         height={NODE_H}
-        rx="9"
+        rx="8"
         fill="var(--color-card)"
         stroke={nodeBorderColor}
         strokeWidth={nodeBorderWidth}
       />
 
+      {/* State icon (decorative — pairs with state dot + WO id text for a11y) */}
+      <foreignObject x={node.x + 10} y={node.y + 8} width="14" height="14">
+        <span
+          className={`ti ${stateIcon}`}
+          style={{ fontSize: "11px", color: stateColor, display: "block", lineHeight: 1 }}
+        />
+      </foreignObject>
+
       {/* Title (first 18 chars) */}
-      <text x={node.x + 11} y={node.y + 22} fontSize="12" fontWeight="600" fill="var(--color-text)">
+      <text x={node.x + 28} y={node.y + 20} fontSize="12" fontWeight="600" fill="var(--color-text)">
         {titleSlice}
       </text>
 
@@ -316,27 +245,20 @@ function DagNodeGroup({
       {/* State dot (top-right, not color alone — pairs with the state icon) */}
       <circle
         data-testid={`dag-node-dot-${node.id}`}
-        cx={node.x + NODE_W - 15}
-        cy={node.y + 18}
-        r="6"
+        cx={node.x + NODE_W - 14}
+        cy={node.y + 16}
+        r="5.5"
         fill={stateColor}
       />
-
-      {/* State icon (decorative — pairs with state dot + WO id text for a11y) */}
-      <foreignObject x={node.x + 11} y={node.y + 2} width="16" height="16">
-        <span
-          className={`ti ${stateIcon}`}
-          style={{ fontSize: "11px", color: stateColor, display: "block" }}
-        />
-      </foreignObject>
 
       {/* "▶ paso activo" caption when follow is ON and this is the running WO */}
       {isRunning && (
         <text
           data-testid={`dag-node-active-caption-${node.id}`}
-          x={node.x + 11}
-          y={node.y + NODE_H - 8}
+          x={node.x + NODE_W - 11}
+          y={node.y + NODE_H - 7}
           fontSize="8.5"
+          textAnchor="end"
           fill="var(--color-accent-text)"
         >
           ▶ paso activo
@@ -347,25 +269,21 @@ function DagNodeGroup({
 }
 
 // ---------------------------------------------------------------------------
-// WoDag component
+// Live-state merge + dependency derivation
 // ---------------------------------------------------------------------------
 
 /**
- * WoDag — work-order DAG with Dagre layout, chain-highlight, jump-to-error,
- * follow-active-step, live updates via useLiveSnapshot.
- *
- * Prototype: bDag() (~L1169).
+ * Merge live event state onto the static work orders, then derive dependencies
+ * (explicit `dependsOn` wins; otherwise a sequential chain within each FRD).
+ * Returns work orders ready for `toDag`.
  */
-export function WoDag({ workOrders, project }: WoDagProps): React.JSX.Element {
-  // Live subscription (AC-12-005.1/.2)
-  const { snapshot } = useLiveSnapshot({ project });
-
-  // Merge live state into work orders when a snapshot exists
-  const effectiveOrders: WorkOrderWithDeps[] = workOrders.map((wo) => {
+function buildEffectiveOrders(
+  workOrders: WorkOrder[],
+  snapshot: ReturnType<typeof useLiveSnapshot>["snapshot"],
+): WorkOrderWithDeps[] {
+  const withLiveState: WorkOrderWithDeps[] = workOrders.map((wo) => {
     if (snapshot === null) return wo;
-    // Find last event for this WO to derive live state
     const woEvents = snapshot.events.filter((e) => e.workOrder === wo.id);
-    if (woEvents.length === 0) return wo;
     const last = woEvents[woEvents.length - 1];
     if (!last) return wo;
     let liveState: WorkOrderState = wo.state;
@@ -375,16 +293,36 @@ export function WoDag({ workOrders, project }: WoDagProps): React.JSX.Element {
     return { ...wo, state: liveState };
   });
 
-  // Build DAG from effective orders
+  return deriveDeps(withLiveState);
+}
+
+// ---------------------------------------------------------------------------
+// WoDag component
+// ---------------------------------------------------------------------------
+
+/**
+ * WoDag — work-order dependency graph with a compact layered layout,
+ * chain-highlight, jump-to-error, follow-active-step and live updates.
+ *
+ * Prototype: bDag() (~L1169).
+ */
+export function WoDag({ workOrders, project }: WoDagProps): React.JSX.Element {
+  // Live subscription (AC-12-005.1/.2)
+  const { snapshot } = useLiveSnapshot({ project });
+
+  // Live-merged + dependency-derived work orders
+  const effectiveOrders = buildEffectiveOrders(workOrders, snapshot);
+
+  // Build DAG (nodes + directed edges) from the derived deps
   const { nodes: dagNodes, edges: dagEdges } = toDag(effectiveOrders);
 
-  // FRD lookup map (id → frd label) — DagNode doesn't carry frd, so we carry it separately
+  // FRD lookup map (id → frd label) — DagNode doesn't carry frd, carry it aside
   const frdById: Record<string, string> = {};
   for (const wo of effectiveOrders) {
     frdById[wo.id.trim()] = wo.frd;
   }
 
-  // Compute Dagre layout
+  // Compute the compact layered layout
   const {
     nodes: layoutNodes,
     edges: layoutEdges,
@@ -427,15 +365,7 @@ export function WoDag({ workOrders, project }: WoDagProps): React.JSX.Element {
   // Empty state
   if (effectiveOrders.length === 0) {
     return (
-      <div
-        data-testid="wo-dag"
-        style={{
-          background: "var(--color-panel)",
-          border: "0.5px solid var(--color-border)",
-          borderRadius: "var(--radius-md, 8px)",
-          padding: "12px 14px",
-        }}
-      >
+      <div data-testid="wo-dag" style={PANEL_STYLE}>
         <Legend />
         <div
           data-testid="dag-empty"
@@ -453,126 +383,21 @@ export function WoDag({ workOrders, project }: WoDagProps): React.JSX.Element {
   }
 
   return (
-    <div
-      data-testid="wo-dag"
-      style={{
-        background: "var(--color-panel)",
-        border: "0.5px solid var(--color-border)",
-        borderRadius: "var(--radius-md, 8px)",
-        padding: "12px 14px",
-      }}
-    >
+    <div data-testid="wo-dag" style={PANEL_STYLE}>
       {/* Legend */}
       <Legend />
 
       {/* Controls bar (AC-12-004.3/.4) */}
-      <div
-        data-testid="dag-controls"
-        style={{
-          display: "flex",
-          gap: "8px",
-          alignItems: "center",
-          flexWrap: "wrap",
-          marginBottom: "10px",
-        }}
-      >
-        {/* Jump to first error button */}
-        {firstErrorId !== null && (
-          <button
-            type="button"
-            data-testid="dag-jump-error"
-            onClick={handleJumpError}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "4px",
-              padding: "4px 10px",
-              border: "1px solid var(--color-danger)",
-              borderRadius: "var(--radius-sm, 4px)",
-              background: "transparent",
-              color: "var(--color-danger)",
-              fontSize: "12px",
-              cursor: "pointer",
-            }}
-          >
-            <i className="ti ti-alert-triangle" aria-hidden="true" style={{ fontSize: "13px" }} />
-            Saltar al primer error
-          </button>
-        )}
+      <Controls
+        firstErrorId={firstErrorId}
+        followActive={followActive}
+        activeNodeId={activeNodeId}
+        onJumpError={handleJumpError}
+        onFollowToggle={handleFollowToggle}
+        onClearChain={handleClearChain}
+      />
 
-        {/* Follow active toggle (AC-12-004.4) */}
-        <button
-          type="button"
-          data-testid="dag-follow-toggle"
-          onClick={handleFollowToggle}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "4px",
-            padding: "4px 10px",
-            border: followActive
-              ? "1px solid var(--color-accent)"
-              : "0.5px solid var(--color-border)",
-            borderRadius: "var(--radius-sm, 4px)",
-            background: "transparent",
-            color: followActive ? "var(--color-accent-text)" : "var(--color-text3)",
-            fontSize: "12px",
-            cursor: "pointer",
-          }}
-        >
-          <i
-            className={`ti ${followActive ? "ti-eye" : "ti-eye-off"}`}
-            aria-hidden="true"
-            style={{ fontSize: "13px" }}
-          />
-          Seguir al paso activo: {followActive ? "ON" : "OFF"}
-        </button>
-
-        {/* Chain hint / default hint */}
-        <span
-          style={{
-            fontSize: "11px",
-            color: "var(--color-text3)",
-            flex: 1,
-            minWidth: "160px",
-            textAlign: "right",
-          }}
-        >
-          {activeNodeId !== null ? (
-            <span data-testid="dag-chain-hint">
-              <i
-                className="ti ti-affiliate"
-                aria-hidden="true"
-                style={{ fontSize: "12px", verticalAlign: "-1px" }}
-              />{" "}
-              Resaltando la cadena de <strong>{activeNodeId}</strong> (upstream + downstream).{" "}
-              <button
-                type="button"
-                data-testid="dag-chain-clear"
-                onClick={handleClearChain}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "var(--color-accent-text)",
-                  cursor: "pointer",
-                  padding: 0,
-                  fontSize: "inherit",
-                  textDecoration: "underline",
-                }}
-              >
-                limpiar
-              </button>
-            </span>
-          ) : (
-            <span data-testid="dag-default-hint">
-              Pasa el ratón / clic en un nodo para resaltar su cadena de dependencias y atenuar el
-              resto.
-            </span>
-          )}
-        </span>
-      </div>
-
-      {/* SVG graph container */}
+      {/* SVG graph container — bounded; horizontal scroll only if it overflows */}
       <div
         data-testid="dag-svg-container"
         style={{
@@ -580,13 +405,14 @@ export function WoDag({ workOrders, project }: WoDagProps): React.JSX.Element {
           border: "0.5px solid var(--color-border)",
           borderRadius: "var(--radius-md, 8px)",
           background: "var(--color-canvas)",
-          padding: "6px",
+          padding: "8px",
         }}
       >
         <svg
           viewBox={`0 0 ${svgW} ${svgH}`}
-          width="100%"
-          style={{ minWidth: `${svgW}px`, height: "auto", display: "block" }}
+          width={svgW}
+          height={svgH}
+          style={{ maxWidth: "100%", height: "auto", display: "block" }}
           aria-label="Grafo de dependencias entre work orders"
           role="img"
         >
@@ -659,6 +485,121 @@ export function WoDag({ workOrders, project }: WoDagProps): React.JSX.Element {
 }
 
 // ---------------------------------------------------------------------------
+// Controls subcomponent (jump-to-error + follow toggle + chain hint)
+// ---------------------------------------------------------------------------
+
+interface ControlsProps {
+  firstErrorId: string | null;
+  followActive: boolean;
+  activeNodeId: string | null;
+  onJumpError: () => void;
+  onFollowToggle: () => void;
+  onClearChain: () => void;
+}
+
+function Controls({
+  firstErrorId,
+  followActive,
+  activeNodeId,
+  onJumpError,
+  onFollowToggle,
+  onClearChain,
+}: ControlsProps): React.JSX.Element {
+  return (
+    <div
+      data-testid="dag-controls"
+      style={{
+        display: "flex",
+        gap: "8px",
+        alignItems: "center",
+        flexWrap: "wrap",
+        marginBottom: "10px",
+      }}
+    >
+      {/* Jump to first error button */}
+      {firstErrorId !== null && (
+        <button
+          type="button"
+          data-testid="dag-jump-error"
+          onClick={onJumpError}
+          style={{
+            ...BTN_STYLE,
+            border: "1px solid var(--color-danger)",
+            color: "var(--color-danger)",
+          }}
+        >
+          <i className="ti ti-alert-triangle" aria-hidden="true" style={{ fontSize: "13px" }} />
+          Saltar al primer error
+        </button>
+      )}
+
+      {/* Follow active toggle (AC-12-004.4) */}
+      <button
+        type="button"
+        data-testid="dag-follow-toggle"
+        onClick={onFollowToggle}
+        style={{
+          ...BTN_STYLE,
+          border: followActive
+            ? "1px solid var(--color-accent)"
+            : "0.5px solid var(--color-border)",
+          color: followActive ? "var(--color-accent-text)" : "var(--color-text3)",
+        }}
+      >
+        <i
+          className={`ti ${followActive ? "ti-eye" : "ti-eye-off"}`}
+          aria-hidden="true"
+          style={{ fontSize: "13px" }}
+        />
+        Seguir al paso activo: {followActive ? "ON" : "OFF"}
+      </button>
+
+      {/* Chain hint / default hint */}
+      <span
+        style={{
+          fontSize: "11px",
+          color: "var(--color-text3)",
+          flex: 1,
+          minWidth: "160px",
+          textAlign: "right",
+        }}
+      >
+        {activeNodeId !== null ? (
+          <span data-testid="dag-chain-hint">
+            <i
+              className="ti ti-affiliate"
+              aria-hidden="true"
+              style={{ fontSize: "12px", verticalAlign: "-1px" }}
+            />{" "}
+            Resaltando la cadena de <strong>{activeNodeId}</strong> (upstream + downstream).{" "}
+            <button
+              type="button"
+              data-testid="dag-chain-clear"
+              onClick={onClearChain}
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--color-accent-text)",
+                cursor: "pointer",
+                padding: 0,
+                fontSize: "inherit",
+                textDecoration: "underline",
+              }}
+            >
+              limpiar
+            </button>
+          </span>
+        ) : (
+          <span data-testid="dag-default-hint">
+            Haz clic en un nodo para resaltar su cadena de dependencias y atenuar el resto.
+          </span>
+        )}
+      </span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Legend subcomponent
 // ---------------------------------------------------------------------------
 
@@ -678,8 +619,8 @@ function Legend(): React.JSX.Element {
           marginRight: "6px",
         }}
       />
-      Grafo de dependencias entre work orders (DAG). Layout estático (en la app real lo dibuja
-      Dagre, ~39KB).
+      Grafo de dependencias entre work orders (DAG) — por orden topológico, de dependencia a
+      dependiente.
     </div>
   );
 }

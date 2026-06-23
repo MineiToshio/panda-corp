@@ -459,6 +459,19 @@ h3 {
 }
 
 /* ---------------------------------------------------------------------------
+ * Summary tab · activity entries — each entry renders through <Markdown>, which
+ * wraps its content in block <p>/<ul> with vertical margins. In the compact,
+ * single-line activity rows those margins read as uneven gaps, so collapse the
+ * leading/trailing block margins (multi-paragraph entries still flow inside).
+ * --------------------------------------------------------------------------- */
+.pc-activity-entry > .pc-markdown > :first-child {
+  margin-top: 0;
+}
+.pc-activity-entry > .pc-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+/* ---------------------------------------------------------------------------
  * CMP-09-celebration — scaling celebration surface (WO-09-006)
  * --------------------------------------------------------------------------- */
 
@@ -549,6 +562,29 @@ h3 {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
     0 0 14px -7px var(--color-danger) !important;
+}
+
+/* Work-order kanban card hover (prototype `.card:hover`) — accent border + soft
+   glow. Inline styles cannot express `:hover`, so the wo-board card uses this
+   class while its `transition` stays inline. The danger (Falló) variant keeps
+   its own border/background inline; the hover glow still reads as interactive. */
+.wo-card:hover {
+  border-color: var(--color-accent) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 14px -7px var(--color-accent) !important;
+}
+
+/* FRD chip overflow guard (#22). The shared Chip is `white-space:nowrap` inline
+   (right for most chips), so a long FRD slug spills past the kanban card edge.
+   Inside the wo-board card we relax the chip so it wraps mid-token and stays
+   within the card width — the override has to target the chip element itself,
+   because its `white-space` is set inline and won't inherit from the wrapper. */
+.wo-frd-chip [data-testid="chip"] {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
 }
 
 /* Desktop: the nav is inline next to the toggle (which is hidden) */

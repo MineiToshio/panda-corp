@@ -129,17 +129,23 @@ const TD_STYLE: CSSProperties = {
 const IMG_STYLE: CSSProperties = { maxWidth: "100%", borderRadius: "var(--radius-sm, 8px)" };
 
 // ---------------------------------------------------------------------------
-// Element map. Inline code vs fenced code: in react-markdown v10 a fenced block
-// carries a `language-*` className, inline code does not — so we chip only inline.
+// Element map. Two notes:
+//   1. Headings are DEMOTED one level (markdown `#` → <h2>, `##` → <h3>, …) while
+//      keeping the visual scale (H1_STYLE on the <h2>, etc.). Markdown here is always
+//      EMBEDDED under a page that already owns the single <h1> (the PageTitle), so the
+//      content must never emit its own <h1> (WCAG: one h1 per page) — yet the document's
+//      main title must still READ as the biggest heading. Demotion satisfies both.
+//   2. Inline code vs fenced code: in react-markdown v10 a fenced block carries a
+//      `language-*` className, inline code does not — so we chip only inline.
 // ---------------------------------------------------------------------------
 
 const COMPONENTS: Components = {
-  h1: ({ children }) => <h1 style={H1_STYLE}>{children}</h1>,
-  h2: ({ children }) => <h2 style={H2_STYLE}>{children}</h2>,
-  h3: ({ children }) => <h3 style={H3_STYLE}>{children}</h3>,
-  h4: ({ children }) => <h4 style={H4_STYLE}>{children}</h4>,
-  h5: ({ children }) => <h4 style={H4_STYLE}>{children}</h4>,
-  h6: ({ children }) => <h4 style={H4_STYLE}>{children}</h4>,
+  h1: ({ children }) => <h2 style={H1_STYLE}>{children}</h2>,
+  h2: ({ children }) => <h3 style={H2_STYLE}>{children}</h3>,
+  h3: ({ children }) => <h4 style={H3_STYLE}>{children}</h4>,
+  h4: ({ children }) => <h5 style={H4_STYLE}>{children}</h5>,
+  h5: ({ children }) => <h6 style={H4_STYLE}>{children}</h6>,
+  h6: ({ children }) => <h6 style={H4_STYLE}>{children}</h6>,
   p: ({ children }) => <p style={P_STYLE}>{children}</p>,
   ul: ({ children }) => <ul style={UL_STYLE}>{children}</ul>,
   ol: ({ children }) => <ol style={{ ...UL_STYLE, paddingLeft: "26px" }}>{children}</ol>,

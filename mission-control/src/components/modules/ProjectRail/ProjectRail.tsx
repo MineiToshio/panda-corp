@@ -22,8 +22,10 @@
  *     ?project=<name>; the selected row gets data-selected="true".
  *   - Testids switch to selectable-* so the integration seam used by
  *     app/portfolio/page.tsx tests stays valid.
- *   - StatusChips, BusinessSnapshot, RecoveryHint are siblings of the Link
- *     (never descendants) so no <button> is nested inside an <a> (WCAG 4.1.2).
+ *   - Faithful to the prototype `.rail` item: name + stage + pending-decisions/bugs
+ *     dots (right-aligned, no text label) + optional "replanteo en curso" line.
+ *     No business snapshot in the rail. RecoveryHint is a sibling of the Link
+ *     (never a descendant) so no <button> is nested inside an <a> (WCAG 4.1.2).
  *
  * Traceability:
  *   CMP-03-rail, CMP-03-row, CMP-03-snapshot, CMP-03-empty, CMP-03-recovery
@@ -33,10 +35,9 @@
  */
 
 import Link from "next/link";
-import { BusinessSnapshot } from "@/app/portfolio/_components/BusinessSnapshot/BusinessSnapshot";
 import { RecoveryHint } from "@/app/portfolio/_components/RecoveryHint/RecoveryHint";
-import { StatusChips } from "@/app/portfolio/_components/status-chips/status-chips";
 import { CopyButton } from "@/components/core/CopyButton/CopyButton";
+import { CountBadge } from "@/components/core/CountBadge/CountBadge";
 import type { ProjectListItem } from "@/lib/portfolio/portfolio";
 
 // ---------------------------------------------------------------------------
@@ -258,12 +259,56 @@ const LINK_STYLE: React.CSSProperties = {
   padding: "calc(var(--space-base, 1rem) * 0.25) calc(var(--space-base, 1rem) * 0.375)",
 };
 
-/** Selected row treatment: accent-bg fill + accent border + inset ring (.rail.on). */
-const ROW_SELECTED_STYLE: React.CSSProperties = {
-  ...ROW_STYLE,
+// ---------------------------------------------------------------------------
+// Selectable-row styles — faithful to the prototype `.rail` item (index.html):
+//   .rail   { padding:9px 11px; border-radius:var(--rmd); border:.5px solid transparent }
+//   .rail.on{ background:var(--accent-bg); border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent) }
+// The rail item has NO per-row card chrome (no surface fill, no 1px border, no
+// drop shadow) — only the selected state draws an accent ring. The non-selectable
+// ProjectRow keeps its own card treatment above; these are the selectable variant.
+// ---------------------------------------------------------------------------
+
+/** Selectable rail item — transparent hairline border, radius-md, compact padding (.rail). */
+const SELECTABLE_ROW_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "calc(var(--space-base, 1rem) * 0.1875)",
+  padding: "9px 11px",
+  borderRadius: "var(--radius-md, 0.75rem)",
+  border: "0.5px solid transparent",
+  minWidth: 0,
+};
+
+/** Selected selectable rail item (.rail.on): accent-bg fill + accent border + inset ring. */
+const SELECTABLE_ROW_SELECTED_STYLE: React.CSSProperties = {
+  ...SELECTABLE_ROW_STYLE,
   background: "var(--color-accent-bg, currentColor)",
   borderColor: "var(--color-accent, currentColor)",
   boxShadow: "inset 0 0 0 1px var(--color-accent, currentColor)",
+};
+
+/** Right-aligned inline group holding the pending-decisions / bugs dots (no text label). */
+const RAIL_DOTS_STYLE: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "4px",
+  flex: "0 0 auto",
+  marginLeft: "auto",
+};
+
+/** Rethink "replanteo en curso" line — indented accent chip below the stage (prototype). */
+const RETHINK_LINE_STYLE: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  width: "fit-content",
+  marginTop: "4px",
+  marginLeft: "22px",
+  padding: "2px 8px",
+  borderRadius: "var(--radius-md, 0.75rem)",
+  fontSize: "10px",
+  fontWeight: 500,
+  background: "var(--color-accent-bg, currentColor)",
+  color: "var(--color-accent-text, currentColor)",
 };
 
 const EMPTY_STYLE: React.CSSProperties = {
@@ -512,7 +557,7 @@ function deriveSelectableRowView(item: ProjectListItem, isSelected: boolean): Se
   const statusFields = item.status.present && item.status.status !== null ? item.status.status : {};
 
   return {
-    rowStyle: isSelected ? ROW_SELECTED_STYLE : ROW_STYLE,
+    rowStyle: isSelected ? SELECTABLE_ROW_SELECTED_STYLE : SELECTABLE_ROW_STYLE,
     indicatorLabel: isRunning ? "Construyendo" : "Parado",
     indicatorAriaLabel: isRunning ? "Construcción activa" : "Proceso detenido",
     pendingDecisions:
@@ -530,9 +575,16 @@ function deriveSelectableRowView(item: ProjectListItem, isSelected: boolean): Se
 /**
  * SelectableRow — one project row in selectable mode (DR-057 rail variant).
  *
- * Each row is a Next.js <Link> for URL-driven navigation. StatusChips,
- * BusinessSnapshot and RecoveryHint are SIBLINGS of the Link (never
- * descendants) — this prevents <button> nested inside <a> (WCAG 4.1.2).
+ * Faithful to the prototype `.rail` item (portfolioView in index.html):
+ *   [icon] [name ........] [dot dot]   ← decisions/bugs as bare dots, right-aligned
+ *   stage label (indented)
+ *   [replanteo en curso] (indented, when rethinkPending)
+ *
+ * NO business snapshot and NO "N decisiones" text label — the rail item is just
+ * name + stage + count dots. The dots are non-interactive spans, so they sit
+ * inside the navigation Link's title row (matching the prototype, where the whole
+ * rail item is the click target). RecoveryHint is a SIBLING of the Link (its
+ * CopyButton must not be a <button> nested inside <a>; WCAG 4.1.2).
  */
 function SelectableRow({
   item,
@@ -550,6 +602,9 @@ function SelectableRow({
     rethinkPending,
   } = deriveSelectableRowView(item, isSelected);
 
+  const hasDecisions = typeof pendingDecisions === "number" && pendingDecisions > 0;
+  const hasBugs = typeof pendingBugs === "number" && pendingBugs > 0;
+
   return (
     <article
       key={item.name}
@@ -558,16 +613,16 @@ function SelectableRow({
       style={rowStyle}
       aria-label={`Proyecto: ${item.name}`}
     >
-      {/* Navigation Link — wraps ONLY the row's visual chrome (icon + title + stage).
-          CopyButton (in RecoveryHint) is a sibling, never a descendant, so no
-          <button> is nested inside <a> (invalid interactive-content; WCAG 4.1.2). */}
+      {/* Navigation Link — wraps the row's visual chrome (icon + title + dots + stage).
+          The count dots are plain spans (non-interactive), so they are valid inside <a>.
+          RecoveryHint (with its CopyButton) is a sibling, never a descendant. */}
       <Link
         href={`?project=${encodeURIComponent(item.name)}`}
         style={LINK_STYLE}
         aria-label={`Seleccionar proyecto: ${item.name}`}
         aria-current={isSelected ? "page" : undefined}
       >
-        {/* Title row: [status icon] [name] — matches prototype rail item layout */}
+        {/* Title row: [status icon] [name] [dots →] — matches prototype rail item layout */}
         <div style={ROW_HEADER_STYLE}>
           {/* Status icon — ti-player-play (ok) or ti-player-pause (text3).
               Only shown when the path exists; a missing path has no running state. */}
@@ -582,12 +637,49 @@ function SelectableRow({
 
           {/* Project name (500 weight, matches prototype font-weight:500) */}
           <h3 style={PROJECT_NAME_STYLE}>{item.name}</h3>
+
+          {/* Pending-decisions / bugs dots — right-aligned, inline, NO text label
+              (prototype dchip/bchip). Each carries the title for a11y instead of a label. */}
+          {(hasDecisions || hasBugs) && (
+            <span style={RAIL_DOTS_STYLE}>
+              {hasDecisions && typeof pendingDecisions === "number" && (
+                <span
+                  data-testid="status-chip-decisions"
+                  title={`Decisiones pendientes: ${pendingDecisions}`}
+                  role="status"
+                >
+                  <CountBadge count={pendingDecisions} tone="warn" />
+                </span>
+              )}
+              {hasBugs && typeof pendingBugs === "number" && (
+                <span
+                  data-testid="status-chip-bugs"
+                  title={`Bugs pendientes: ${pendingBugs}`}
+                  role="status"
+                >
+                  <CountBadge count={pendingBugs} tone="danger" />
+                </span>
+              )}
+            </span>
+          )}
         </div>
 
         {/* Stage line — second line below icon+title, indented (prototype stage label) */}
         {item.stage !== undefined && (
           <div data-testid="selectable-row-stage" style={STAGE_LINE_STYLE}>
             {PHASE_LABELS[item.stage] ?? item.stage}
+          </div>
+        )}
+
+        {/* Rethink indicator — indented chip line below the stage (prototype rethink row) */}
+        {rethinkPending === true && (
+          <div data-testid="status-chip-rethink" style={RETHINK_LINE_STYLE}>
+            <i
+              className="ti ti-refresh-dot"
+              style={{ fontSize: "10px", verticalAlign: "-1px" }}
+              aria-hidden="true"
+            />{" "}
+            replanteo en curso
           </div>
         )}
 
@@ -603,24 +695,6 @@ function SelectableRow({
           </span>
         )}
       </Link>
-
-      {/* StatusChips — sibling of the Link (not nested inside it).
-          Renders pending-decisions / bugs / rethink count badges. */}
-      <StatusChips
-        pendingDecisions={pendingDecisions}
-        pendingBugs={pendingBugs}
-        rethinkPending={rethinkPending}
-      />
-
-      {/* BusinessSnapshot — sibling of Link; renders for launched ("release") rows
-          (CMP-03-snapshot, AC-03-003.1). */}
-      {item.snapshot !== undefined && (
-        <BusinessSnapshot
-          users={item.snapshot.users}
-          returnMetric={item.snapshot.returnMetric}
-          verdict={item.snapshot.verdict}
-        />
-      )}
 
       {/* RecoveryHint — sibling of Link; renders when exists===false
           (CMP-03-recovery, AC-03-006.2/.3). Its CopyButton is NOT inside <a>. */}
@@ -641,7 +715,7 @@ function SelectableRow({
  *   - Each row is a Link to ?project=<name>
  *   - Selected row highlighted (accent-bg fill + accent border)
  *   - Testids switch to selectable-* for page-level integration compatibility
- *   - StatusChips / BusinessSnapshot / RecoveryHint rendered per row
+ *   - Per-row: pending-decisions/bugs dots (right-aligned) + RecoveryHint (sibling)
  *
  * Traceability:
  *   CMP-03-rail → REQ-03-001, REQ-03-002, REQ-03-003, REQ-03-004, REQ-03-005, REQ-03-006

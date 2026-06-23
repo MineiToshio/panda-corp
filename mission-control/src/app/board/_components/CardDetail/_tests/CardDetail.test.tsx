@@ -202,20 +202,23 @@ describe("frd-02: AC-02-004.1 — summary section (markdown body)", () => {
 // ---------------------------------------------------------------------------
 
 describe("frd-02: AC-02-004.1 — summary markdown renders real headings", () => {
-  it("frd-02: WHEN the body has an h1 THEN the summary renders a real <h1> (not remapped to <p>/<strong>)", () => {
+  it("frd-02: WHEN the body has an h1 THEN it renders as a real heading demoted to <h2> (never an <h1> — embedded content keeps the page's single h1)", () => {
     render(<CardDetail {...MINIMAL_CARD} body="# The Big Title\n\nBody." />);
     const summary = screen.getByTestId("card-detail-summary");
-    const h1 = summary.querySelector("h1");
-    expect(h1).not.toBeNull();
-    expect(h1).toHaveTextContent("The Big Title");
-  });
-
-  it("frd-02: WHEN the body has an h2 THEN the summary renders a real <h2>", () => {
-    render(<CardDetail {...MINIMAL_CARD} body="## Section\n\nBody." />);
-    const summary = screen.getByTestId("card-detail-summary");
+    // Embedded markdown must not emit an <h1> (WCAG one-h1-per-page); the document title is
+    // demoted to <h2> but still a real heading (not flattened to <p>/<strong>) at the top scale.
+    expect(summary.querySelector("h1")).toBeNull();
     const h2 = summary.querySelector("h2");
     expect(h2).not.toBeNull();
-    expect(h2).toHaveTextContent("Section");
+    expect(h2).toHaveTextContent("The Big Title");
+  });
+
+  it("frd-02: WHEN the body has an h2 THEN it renders as a real heading demoted to <h3>", () => {
+    render(<CardDetail {...MINIMAL_CARD} body="## Section\n\nBody." />);
+    const summary = screen.getByTestId("card-detail-summary");
+    const h3 = summary.querySelector("h3");
+    expect(h3).not.toBeNull();
+    expect(h3).toHaveTextContent("Section");
   });
 
   it("frd-02: WHEN the body has headings THEN they render inside the shared .pc-markdown container", () => {

@@ -55,6 +55,11 @@ export interface WorkspaceHeaderProps {
    * heading; 2 when embedded in the Portfolio pane (whose "Portfolio" PageTitle owns the single h1).
    */
   headingLevel?: 1 | 2;
+  /**
+   * Optional content rendered inside the same rounded panel, below the title row — the objectives
+   * bar (prototype compactProjectHeader keeps the progress bar in the SAME panel as the title).
+   */
+  children?: React.ReactNode;
 }
 
 // ---------------------------------------------------------------------------
@@ -71,14 +76,23 @@ const STAGE_LABELS: Record<Phase, string> = {
 
 // ---------------------------------------------------------------------------
 // Styles — CSS custom properties only, zero hardcoded colors
-// Matches prototype compactProjectHeader(): .panel padding:10px 14px
+// Matches prototype compactProjectHeader(): a rounded `.panel`
+//   .panel { background:var(--primary); border:.5px solid var(--bd);
+//            border-radius:var(--rlg /* = --radius-md */); }
+//   compactProjectHeader override: padding:10px 14px
 // ---------------------------------------------------------------------------
 
 const HEADER_STYLE: React.CSSProperties = {
   padding: "10px 14px",
-  borderBottom: "0.5px solid var(--color-border, currentColor)",
+  border: "0.5px solid var(--color-border, currentColor)",
+  borderRadius: "var(--radius-md, 0.75rem)",
   background: "var(--color-surface, Canvas)",
   color: "var(--color-text, currentColor)",
+};
+
+/** Objectives slot — sits inside the same rounded panel, just below the title row. */
+const OBJECTIVES_SLOT_STYLE: React.CSSProperties = {
+  marginTop: "8px",
 };
 
 const TITLE_ROW_STYLE: React.CSSProperties = {
@@ -123,7 +137,8 @@ const PROGRESS_STYLE: React.CSSProperties = {
  * (AC-04-002.3 is a structural invariant of the page layout, not this component).
  *
  * NOT a PageTitle (that is for top-level nav surfaces); this is the workspace's
- * own compactProjectHeader per the prototype and DR-062.
+ * own compactProjectHeader per the prototype and DR-062 — a rounded panel that also
+ * hosts the objectives bar (passed as children) in the SAME block, like the prototype.
  */
 export function WorkspaceHeader({
   title,
@@ -133,6 +148,7 @@ export function WorkspaceHeader({
   progress,
   running = false,
   headingLevel = 1,
+  children,
 }: WorkspaceHeaderProps): React.JSX.Element {
   const stageLabel = STAGE_LABELS[stage] ?? stage;
   const hasProgress = progress !== undefined && progress.trim().length > 0;
@@ -183,6 +199,9 @@ export function WorkspaceHeader({
           {progress}
         </p>
       )}
+
+      {/* Objectives bar — inside the SAME rounded panel as the title (prototype). */}
+      {children !== undefined && <div style={OBJECTIVES_SLOT_STYLE}>{children}</div>}
     </header>
   );
 }

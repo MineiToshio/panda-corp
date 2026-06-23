@@ -23,13 +23,16 @@
  * Traceability: CMP-04-tab-summary → REQ-04-003, REQ-04-004.
  */
 
+import { Chip } from "@/components/core/Chip/Chip";
 import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 import { CopyButton } from "@/components/core/CopyButton/CopyButton";
 import { CountBadge } from "@/components/core/CountBadge/CountBadge";
 import { DocHeading } from "@/components/core/DocHeading/DocHeading";
+import { Markdown } from "@/components/core/Markdown/Markdown";
 import { Panel } from "@/components/core/Panel/Panel";
 import type { ActivityLog, DecisionPoint } from "@/lib/docs/activity";
 import type { SnapshotInfo } from "@/lib/snapshot/snapshot";
+import type { DeployTarget } from "@/lib/status/status";
 import { SnapshotPanel } from "../snapshot-panel/snapshot-panel";
 
 // ---------------------------------------------------------------------------
@@ -55,6 +58,10 @@ export interface TabSummaryProps {
   slug?: string;
   /** FRD-14 snapshot; null/absent when there is no last_green_sha (panel omitted). */
   snapshot?: SnapshotInfo | null;
+  /** Deploy target (DR-085) — internal (in-house tool) vs external (Vercel/AWS). */
+  deployTarget?: DeployTarget;
+  /** Live URL of the deployment (DR-085). When present, a clickable "Versión desplegada" row shows. */
+  deployUrl?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -68,11 +75,37 @@ const ROOT_STYLE: React.CSSProperties = {
   padding: "14px 16px",
 };
 
-const SUMMARY_TEXT_STYLE: React.CSSProperties = {
-  fontSize: "14px",
-  lineHeight: 1.65,
-  color: "var(--color-text)",
-  margin: "0 0 6px",
+// Deployment row — mirrors the snapshot (green-SHA) row, but for the live deployment.
+const DEPLOY_ROW_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+  flexWrap: "wrap",
+  marginTop: "10px",
+  paddingTop: "10px",
+  borderTop: "0.5px solid var(--color-border)",
+  fontSize: "13px",
+  color: "var(--color-text2, var(--color-text))",
+};
+
+const DEPLOY_ICON_STYLE: React.CSSProperties = {
+  fontSize: "15px",
+  color: "var(--color-ok)",
+  flexShrink: 0,
+};
+
+const DEPLOY_LABEL_STYLE: React.CSSProperties = {
+  fontWeight: 500,
+};
+
+const DEPLOY_LINK_STYLE: React.CSSProperties = {
+  fontFamily: "var(--font-mono, monospace)",
+  fontSize: "12px",
+  color: "var(--color-accent-text, var(--color-accent))",
+  textDecoration: "underline",
+  textUnderlineOffset: "2px",
+  overflowWrap: "anywhere",
+  wordBreak: "break-word",
 };
 
 const KEY_POINTS_HEADING_STYLE: React.CSSProperties = {
@@ -230,9 +263,15 @@ const ACTIVITY_ICON_STYLE: React.CSSProperties = {
 };
 
 const ACTIVITY_TEXT_STYLE: React.CSSProperties = {
+  flex: 1,
+  minWidth: 0,
   fontSize: "13px",
+  lineHeight: 1.55,
   color: "var(--color-text2, var(--color-text-secondary, var(--color-text)))",
 };
+
+/** Recent-activity cap: progress.md can hold thousands of lines — the summary shows only the most recent. */
+const ACTIVITY_MAX = 15;
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -416,17 +455,21 @@ function ApproveButton({ recommendation }: { recommendation: string }): React.JS
  * "No activity" empty state when entries is [] (AC-04-003.2).
  */
 function ActivityLogBlock({ activityLog }: { activityLog: ActivityLog }): React.JSX.Element {
+  // progress.md can hold thousands of lines; show a RECENT feed (newest first), not the
+  // whole history — rendering every entry made the panel grow unbounded (~40k px).
+  const total = activityLog.entries.length;
+  const recent = activityLog.entries.slice(-ACTIVITY_MAX).reverse();
   return (
     <Panel>
       <section data-testid="activity-log" aria-label="Registro de actividad">
         <p style={ACTIVITY_LOG_TITLE_STYLE}>
           Actividad{" "}
           <span style={ACTIVITY_SUBTITLE_STYLE}>
-            · alto nivel, lo que la IA va haciendo y decidiendo
+            · lo más reciente{total > ACTIVITY_MAX ? ` · últimas ${ACTIVITY_MAX} de ${total}` : ""}
           </span>
         </p>
 
-        {activityLog.entries.length === 0 ? (
+        {recent.length === 0 ? (
           <p data-testid="activity-log-empty" role="status" style={EMPTY_STATE_STYLE}>
             Aún sin actividad registrada.
           </p>
@@ -435,22 +478,74 @@ function ActivityLogBlock({ activityLog }: { activityLog: ActivityLog }): React.
             aria-label="Entradas del registro de actividad"
             style={{ listStyle: "none", margin: 0, padding: 0 }}
           >
-            {activityLog.entries.map((entry, idx) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: stable derived index; no reordering
-              <li key={idx} data-testid="activity-log-item" style={ACTIVITY_ROW_STYLE}>
+            {recent.map((entry, idx) => (
+              <li
+                // biome-ignore lint/suspicious/noArrayIndexKey: stable derived index; no reordering
+                key={idx}
+                data-testid="activity-log-item"
+                className="pc-activity-entry"
+                style={ACTIVITY_ROW_STYLE}
+              >
                 {/* Icon indicator — decorative, aria-hidden (prototype: ti-point-filled) */}
                 <span
                   aria-hidden="true"
                   className="ti ti-point-filled"
                   style={ACTIVITY_ICON_STYLE}
                 />
-                <span style={ACTIVITY_TEXT_STYLE}>{entry}</span>
+                {/* Entries carry markdown (bold/inline-code/links) — render through the shared
+                    <Markdown> so **bold** etc. show styled, not as raw asterisks. The
+                    .pc-activity-entry rule (globals.css) collapses the block margins so a
+                    single-line entry stays tight in the row. */}
+                <Markdown style={ACTIVITY_TEXT_STYLE}>{entry}</Markdown>
               </li>
             ))}
           </ul>
         )}
       </section>
     </Panel>
+  );
+}
+
+/**
+ * Deployment row (DR-085) — shown inside the Resumen panel when a live URL is known.
+ *
+ * Mirrors the snapshot (last-verified-commit) row, but for the running deployment: a
+ * "Versión desplegada" label, the internal/external target, and the URL as a clickable
+ * link that opens in a new tab. Omitted entirely when there is no deployUrl, so a project
+ * that isn't launched yet shows nothing here.
+ *
+ * State is carried by an icon + text (not color alone) — a11y.
+ */
+function DeployRow({
+  deployTarget,
+  deployUrl,
+}: {
+  deployTarget?: DeployTarget;
+  deployUrl?: string;
+}): React.JSX.Element | null {
+  if (deployUrl === undefined || deployUrl.trim() === "") {
+    return null;
+  }
+  const targetLabel = deployTarget === "external" ? "externo" : "interno";
+  return (
+    <p data-testid="deploy-row" style={DEPLOY_ROW_STYLE}>
+      <i className="ti ti-rocket" aria-hidden="true" style={DEPLOY_ICON_STYLE} />
+      <span style={DEPLOY_LABEL_STYLE}>Versión desplegada</span>
+      {deployTarget !== undefined && (
+        <span data-testid="deploy-row-target">
+          <Chip tone="info">{targetLabel}</Chip>
+        </span>
+      )}
+      <a
+        data-testid="deploy-row-link"
+        href={deployUrl}
+        target="_blank"
+        rel="noreferrer noopener"
+        style={DEPLOY_LINK_STYLE}
+      >
+        {deployUrl}
+      </a>
+    </p>
   );
 }
 
@@ -476,16 +571,20 @@ export function TabSummary({
   pendingDecisions,
   slug = "",
   snapshot = null,
+  deployTarget,
+  deployUrl,
 }: TabSummaryProps): React.JSX.Element {
   return (
     <main data-testid="tab-summary" aria-label="Resumen del proyecto" style={ROOT_STYLE}>
-      {/* AC-04-003.1 — summary + key points (prototype: projResumen() doc .panel) */}
+      {/* AC-04-003.1 — summary + key points (prototype: projResumen() doc .panel).
+          The summary is the idea-card markdown body (the SAME content the board card-detail
+          shows in Documentos → Resumen), rendered through the shared <Markdown> renderer so
+          its headings/lists/bold show with the app's document styling — not as raw text. */}
       <Panel>
         <div data-testid="summary-section" className="doc">
           <DocHeading title="Resumen" level={2} />
-          <p data-testid="summary-text" style={SUMMARY_TEXT_STYLE}>
-            {summary}
-          </p>
+          <Markdown data-testid="summary-text">{summary}</Markdown>
+          <DeployRow deployTarget={deployTarget} deployUrl={deployUrl} />
           {keyPoints.length > 0 && (
             <>
               <h3 style={KEY_POINTS_HEADING_STYLE}>Puntos clave</h3>
