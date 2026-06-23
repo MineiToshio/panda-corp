@@ -600,7 +600,39 @@ h3 {
   .pc-portfolio-grid {
     grid-template-columns: 240px minmax(0, 1fr);
   }
+  /* Collapsed (owner toggle): the rail column shrinks to just its toggle button so the
+     workspace — and the cramped 3-column Documentos view — takes the full width. */
+  .pc-portfolio-grid.is-collapsed {
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
 }
+.pc-portfolio-railcol {
+  min-width: 0;
+}
+/* When collapsed, hide the rail itself; the toggle button stays to bring it back. */
+.pc-portfolio-grid.is-collapsed .pc-rail-body {
+  display: none;
+}
+/* Rail collapse/expand toggle — a small, quiet icon button above the rail. */
+.pc-rail-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 0 0 8px;
+  border: 0.5px solid var(--color-border);
+  border-radius: var(--radius-sm, 8px);
+  background: var(--color-panel);
+  color: var(--color-text2);
+  font-size: 16px;
+  cursor: pointer;
+}
+.pc-rail-toggle:hover {
+  color: var(--color-accent-text);
+  border-color: var(--color-accent);
+}
+/* Portfolio collapsible rail (owner toggle) — styles above. */
 
 /* Desktop: the nav is inline next to the toggle (which is hidden) */
 [data-nav-region] {

@@ -39,6 +39,7 @@ import {
 import { PageLayout } from "@/components/core/PageLayout/PageLayout";
 import { ProjectRail } from "@/components/modules/ProjectRail/ProjectRail";
 import { activeProjects } from "@/lib/portfolio/portfolio";
+import { PortfolioLayout } from "./PortfolioLayout";
 import { deriveSelectedSlug } from "./selection";
 import { WorkspaceSlot } from "./WorkspaceSlot";
 
@@ -56,18 +57,6 @@ interface PageProps {
 
 // Width + outer padding + the page <main> come from PageLayout (DR-062) inside the
 // single AppShell container (#pcapp, 1240px).
-const GRID_STYLE: React.CSSProperties = {
-  display: "grid",
-  // grid-template-columns is RESPONSIVE via the `pc-portfolio-grid` class (globals.css):
-  // a single stacked column on mobile (rail above the full-width workspace — otherwise a
-  // 240px rail leaves the workspace too narrow and long docs squish to one char per line),
-  // and "240px + workspace" on desktop. minmax(0, …) floors the workspace track at 0 so a
-  // wide child (the WoDag canvas, a long timeline/table) scrolls inside its own container
-  // instead of forcing the whole page to scroll horizontally.
-  gap: "14px",
-  alignItems: "start",
-};
-
 /**
  * Rail label — mirrors prototype `railLabel()` + `.px` class:
  * small uppercase label above a section list (PROYECTOS, DOCUMENTOS, CAPÍTULOS).
@@ -122,28 +111,29 @@ export default async function PortfolioPage({
       subtitle="Tus proyectos en obra y lanzados. Elige uno para su workspace: resumen, work orders, party y documentación."
       testId="portfolio-page"
     >
-      {/* Responsive grid: stacked on mobile, 240px rail | workspace pane on desktop (FDD-03 §1) */}
-      <div className="pc-portfolio-grid" style={GRID_STYLE}>
-        {/* Left — the project rail column (CMP-03-rail, CMP-03-row)
-            DR-057: uses the ONE shared ProjectRail with selectedSlug prop (selectable mode).
-            No bespoke SelectableProjectRail — the selectable variant is a prop. */}
-        <div data-testid="portfolio-page-rail">
-          {/* "PROYECTOS" rail label (prototype railLabel("PROYECTOS")) */}
-          <div data-testid="portfolio-rail-label" aria-hidden="true" style={RAIL_LABEL_STYLE}>
-            PROYECTOS
+      {/* Responsive grid with a user-collapsible projects rail (PortfolioLayout owns the toggle +
+          persistence; the grid track-template + mobile single-column stack live in globals.css). */}
+      <PortfolioLayout
+        rail={
+          <div data-testid="portfolio-page-rail">
+            {/* "PROYECTOS" rail label (prototype railLabel("PROYECTOS")) */}
+            <div data-testid="portfolio-rail-label" aria-hidden="true" style={RAIL_LABEL_STYLE}>
+              PROYECTOS
+            </div>
+            {/* Shared ProjectRail in selectable mode — URL-driven selection, per-row Link nav,
+                data-selected on the active row (DR-057 reuse-before-create). */}
+            <ProjectRail items={items} selectedSlug={selectedSlug ?? ""} />
           </div>
-
-          {/* Shared ProjectRail in selectable mode — selectedSlug activates URL-driven
-              selection, Link nav per row, data-selected on the active row, StatusChips +
-              BusinessSnapshot + RecoveryHint per row (DR-057 reuse-before-create). */}
-          <ProjectRail items={items} selectedSlug={selectedSlug ?? ""} />
-        </div>
-
-        {/* Right — workspace slot (CMP-03-workspace-slot) hosting the real <ProjectWorkspace> (DEC-4) */}
-        <div data-testid="portfolio-page-workspace">
-          <WorkspaceSlot selectedSlug={selectedSlug}>{workspace}</WorkspaceSlot>
-        </div>
-      </div>
+        }
+        workspace={
+          // minWidth:0 — a grid item defaults to min-width:auto (its min-content); without it a wide
+          // child (the WoDag canvas, a long timeline/table) forces the pane past the frame and the
+          // whole page scrolls sideways. With it, such content scrolls inside its own container.
+          <div data-testid="portfolio-page-workspace" style={{ minWidth: 0 }}>
+            <WorkspaceSlot selectedSlug={selectedSlug}>{workspace}</WorkspaceSlot>
+          </div>
+        }
+      />
     </PageLayout>
   );
 }
