@@ -61,3 +61,7 @@ El avance es siempre **explícito**: cada skill termina con `advance_pending: tr
 ## Iteración sin retroceder
 
 `/pandacorp:iterate` añade funcionalidades o cambia comportamientos en cualquier momento del pipeline sin necesidad de volver a la fase product. El motor crea nuevas WOs y las integra en el build en curso.
+
+## El flujo inverso: del código a los documentos
+
+A veces editas el código directamente —para ir rápido o ver el cambio en vivo— sin pasar por el pipeline. Entonces el código se adelanta a los documentos. `/pandacorp:sync` es el **flujo inverso** (`código → documentos`), el reverso de `/pandacorp:iterate`: clasifica los cambios, te muestra un plan y, con tu visto bueno, propaga la realidad a los documentos dueños (FRD, work orders, blueprint, FDD…) y al `docs/decision-log.md`. Como el código se vuelve el oráculo, **documenta pero no verifica**: tú aportas la intención en un gate, y solo se documenta lo que el código hace de más —un bug o una feature documentada-pero-no-construida no se escribe en la especificación, se deriva a `/pandacorp:change`. Detalle en la guía «Documentar cambios hechos a mano».

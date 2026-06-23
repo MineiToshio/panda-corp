@@ -555,7 +555,7 @@ const FLOWS: SkillFlow[] = [
   {
     slug: "release",
     explainer:
-      "Prepara y ejecuta el lanzamiento de una versión: auditoría de seguridad, checklist pre-release, deploy a staging y el gate humano de producción. Regla de oro: la auditoría va PRIMERO, nunca «despliega y audita luego». Se corre DENTRO del proyecto cuando la implementación de una versión está completa.",
+      "DESPLIEGA / LANZA una versión —interno (en local, sin servidor externo) o externo (Vercel, AWS…)— y deja el proyecto en fase release. El endurecimiento (seguridad, calidad, métricas/telemetría) es el ÚLTIMO paso de la CONSTRUCCIÓN, no del release: cuando una versión llega aquí ya está auditada. release revalida que ese endurecimiento está verde, prepara la landing/checklist y pasa por el gate humano de producción. Se corre DENTRO del proyecto cuando la construcción de una versión está completa.",
     runsIn: "project",
     steps: [
       {
@@ -603,7 +603,7 @@ const FLOWS: SkillFlow[] = [
         title: "Producción + cierre",
         kind: "action",
         detail:
-          "Tras tu aprobación, devops despliega a producción con verificación post-deploy y rollback listo; tag de versión, changelog, status → operation, la idea → lanzada. Mejoras después con /new-version o /iterate.",
+          "Tras tu aprobación, devops despliega (externo a producción, o interno en local) con verificación post-deploy y rollback listo; tag de versión, changelog, status → release (ya lanzado). Desde aquí iteras con /new-version o /iterate; no hay una fase «operation» aparte.",
         calls: [
           { ref: "devops", as: "agent", note: "producción + rollback" },
           { ref: "review-launch", as: "skill", note: "después, para leer las métricas reales" },
@@ -614,7 +614,7 @@ const FLOWS: SkillFlow[] = [
   {
     slug: "review-launch",
     explainer:
-      "Cierra la mitad posterior del arco económico: lee las métricas REALES del producto (PostHog) contra la hipótesis de valor y las kill-signals del PRD, y te da un veredicto kill / hold / double-down. NO mata nada solo — matar/archivar es tu decisión. Se corre en un proyecto ya lanzado (operación), a demanda o como job /loop sobre el portfolio.",
+      "Cierra la mitad posterior del arco económico: lee las métricas REALES del producto (PostHog) contra la hipótesis de valor y las kill-signals del PRD, y te da un veredicto kill / hold / double-down. NO mata nada solo — matar/archivar es tu decisión. Es la iteración post-lanzamiento: corre en un proyecto ya en release (lanzado), a demanda o como job /loop sobre el portfolio.",
     runsIn: "project",
     steps: [
       {
@@ -901,7 +901,7 @@ const FLOWS: SkillFlow[] = [
         title: "Leer el proyecto para entenderlo (sin escribir)",
         kind: "action",
         detail:
-          "Inspecciona stack/estructura, git, y señales de madurez para INFERIR la fase (deploy en prod → operación; código+tests → implementación; solo boilerplate → arquitectura) e inventaria el diseño existente.",
+          "Inspecciona stack/estructura, git, y señales de madurez para INFERIR la fase (deploy vivo, ya lanzado → release; código+tests → implementation; solo boilerplate → architecture) e inventaria el diseño existente.",
       },
       {
         title: "Presentar el plan de adopción (GATE HUMANO)",
@@ -935,7 +935,7 @@ const FLOWS: SkillFlow[] = [
           "Crea la idea retroactiva (in-pipeline), la fila del portfolio y los enlaces bidireccionales; commit solo del overlay+docs (nunca el código). Reporta y apunta al siguiente skill según la fase.",
         calls: [
           { ref: "implement", as: "skill", note: "siguiente si está en implementación" },
-          { ref: "review-launch", as: "skill", note: "siguiente si ya está en operación" },
+          { ref: "review-launch", as: "skill", note: "siguiente si ya está en release (lanzado)" },
         ],
       },
     ],
@@ -1169,6 +1169,52 @@ const FLOWS: SkillFlow[] = [
       },
     ],
     loop: "Idempotente: re-correr estando en sync es no-op. Los gates canónicos se editan en la FUENTE (templates), nunca in-place — la conformance los sobrescribe en el próximo /upgrade (DR-076).",
+  },
+  {
+    slug: "sync",
+    explainer:
+      "El flujo INVERSO: cuando editas el código a mano (para ir rápido o verlo en vivo) fuera de spec→implement/change, el código se adelanta a los docs; sync los pone al día desde el código (código→docs), el reverso de iterate. Es EXHAUSTIVO (propaga cada cambio por toda su cascada de docs) y honesto: el código se vuelve el oráculo, así que DOCUMENTA pero nunca VERIFICA — tú aportas la intención en un gate. Corre DENTRO del proyecto.",
+    runsIn: "project",
+    steps: [
+      {
+        title: "Detectar contexto y modo",
+        kind: "gate",
+        detail:
+          "Confirma que es un proyecto (modo proyecto). Con contexto = parte de los cambios de la charla (pero verifica el diff real); SIN contexto = auditoría completa en frío: recorre toda la app contra los docs y encuentra todos los gaps.",
+        note: "un cambio a mano en el plugin/la fábrica se deriva a /learn",
+        calls: [{ ref: "learn", as: "skill", note: "si editaste el plugin o la fábrica a mano" }],
+      },
+      {
+        title: "Clasificar cada divergencia — la dirección decide",
+        kind: "action",
+        detail:
+          "El código adelantó al doc → documentar; un cambio deliberado → actualizar el doc. Pero si el DOC tiene razón, NO lo degrada: un bug (código que contradice un doc correcto) se deriva a /change|/bug, y una feature documentada-pero-no-construida se marca pendiente. La especificación nunca se rebaja para describir un código roto.",
+        calls: [
+          { ref: "change", as: "skill", note: "si la divergencia es un bug a arreglar" },
+          { ref: "bug", as: "skill", note: "el motor que integra el fix con test de regresión" },
+        ],
+      },
+      {
+        title: "Expandir la cascada completa",
+        kind: "action",
+        detail:
+          "Para lo que SÍ se documenta, propaga por toda la cascada: comportamiento → FRD + work order(s) + fdd; arquitectura → blueprint + ADR + architecture.md; UI → fdd + tokens/components; scope → PRD. Barre docs/ y .pandacorp/. Nada se queda sin documentar.",
+      },
+      {
+        title: "GATE de intención (lo decides tú)",
+        kind: "gate",
+        detail:
+          "Te presenta el plan y clasificas cada divergencia en una acción: documentar · actualizar-doc · es-bug · pendiente · experimento. Es el oráculo independiente que el skill no tiene — el único sitio donde un bug se distingue de un cambio deliberado.",
+        note: "el código no revela la intención; solo tú",
+      },
+      {
+        title: "Escribir + dos capas + Claude Design",
+        kind: "safe",
+        detail:
+          "Escribe cada doc bendecido marcado reconciled-from-code, registra la entrada en docs/decision-log.md (te PREGUNTA el porqué), refresca status.yaml y corre el doc-lint. Si el diseño tiene espejo en Claude Design, AVISA y OFRECE re-sincronizarlo vía /design-sync (nunca empuja solo, es una escritura hacia afuera tras tu login).",
+      },
+    ],
+    loop: "sync documenta lo que el código hizo de MÁS; /change y /bug arreglan lo que hace de MENOS — complementarios.",
   },
 ];
 

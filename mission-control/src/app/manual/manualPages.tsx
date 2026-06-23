@@ -1377,9 +1377,11 @@ function ConceptDespuesDeLanzar(): React.JSX.Element {
     <>
       <DocH title="Después de lanzar" level={1} />
       <Lead>
-        <B weight={600}>Desplegado ≠ lanzado.</B> Que una versión esté en producción no significa
-        que tenga usuarios ni que funcione el negocio. El ciclo de vida no termina en el deploy: la
-        fase <B weight={600}>operación</B> es real, no un sumidero muerto.
+        <B weight={600}>Desplegado ≠ lanzado.</B> Que una versión esté desplegada no significa que
+        tenga usuarios ni que funcione el negocio. El ciclo de vida no termina en el deploy:{" "}
+        <Code>release</Code> es la fase en la que la idea <B weight={600}>YA está lanzada</B> — y
+        desde ahí se itera. No hay una fase «operación» aparte: operar (leer métricas y decidir) es
+        lo que haces estando ya en <Code>release</Code>.
       </Lead>
 
       <Panel>
@@ -1391,35 +1393,55 @@ function ConceptDespuesDeLanzar(): React.JSX.Element {
             marginBottom: "8px",
           }}
         >
-          Las 6 fases (operación incluida)
+          Las 6 fases (termina en release)
         </div>
         <ChipFlow>
+          <Chip tone="secondary">investigación</Chip>
+          {RIGHT_ARROW}
           <Chip tone="secondary">product</Chip>
           {RIGHT_ARROW}
           <Chip tone="secondary">design</Chip>
           {RIGHT_ARROW}
           <Chip tone="secondary">architecture</Chip>
           {RIGHT_ARROW}
-          <Chip tone="secondary">build</Chip>
+          <Chip tone="secondary">implementation</Chip>
           {RIGHT_ARROW}
-          <Chip tone="info">release</Chip>
-          {RIGHT_ARROW}
-          <Chip tone="ok">operation</Chip>
+          <Chip tone="ok">release</Chip>
         </ChipFlow>
         <Divider />
         <div style={{ fontSize: "12px", color: "var(--color-text2)", lineHeight: 1.6 }}>
-          <Code>release</Code> es <B weight={500}>desplegar</B> (una versión queda viva);{" "}
-          <Code>operation</Code> es <B weight={500}>operar</B> (leer métricas y decidir). Son cosas
-          distintas.
+          La <B weight={500}>auditoría —seguridad, calidad y métricas/telemetría—</B> es el{" "}
+          <B weight={500}>último paso de la construcción</B> (<Code>implementation</Code>), no del
+          release. Cuando una versión llega a <Code>release</Code> ya está endurecida y desplegada;{" "}
+          <Code>release</Code> significa «ya está lanzado», y desde ahí iteras.
         </div>
+      </Panel>
+
+      <DocH title="Interno vs externo · el mismo release" />
+      <Lead>
+        La distinción real no es lanzar-vs-operar, sino <B weight={600}>dónde se despliega</B> (el
+        campo <Code>deploy_target</Code>). Es el mismo concepto —un release de un producto de
+        software—; solo cambia el destino.
+      </Lead>
+      <Panel>
+        <ChipDefRow chip="internal" tone="info" isFirst>
+          Herramienta interna: vive sin servidor externo (como el propio Mission Control en{" "}
+          <Code>127.0.0.1</Code>). <Code>/pandacorp:release</Code> aquí significa correrla en local —
+          sin deploy a la nube ni gate de producción.
+        </ChipDefRow>
+        <ChipDefRow chip="external" tone="ok" isFirst={false}>
+          Producto desplegado fuera (Vercel, AWS, etc.), con su gate humano de producción. Mismo
+          ciclo: una vez lanzado, estás en <Code>release</Code> e iteras.
+        </ChipDefRow>
       </Panel>
 
       <DocH title="review-launch · cierra el bucle (DR-043)" />
       <Lead>
-        <Code>/pandacorp:review-launch</Code> corre en un proyecto lanzado (precondición{" "}
-        <Code>phase: operation</Code>). Lee los objetivos del PRD, las métricas reales en PostHog (
-        <Code>docs/analytics/events.md</Code>) según el <Code>return_type</Code>, compara, y
-        actualiza las columnas de negocio del portfolio.
+        <Code>/pandacorp:review-launch</Code> es la <B weight={600}>iteración post-lanzamiento</B>:
+        corre en un proyecto ya lanzado (precondición <Code>phase: release</Code>), no en una fase
+        «operación» separada. Lee los objetivos del PRD, las métricas reales en PostHog (
+        <Code>docs/analytics/events.md</Code>) según el <Code>return_type</Code>, compara, y actualiza
+        las columnas de negocio del portfolio.
       </Lead>
       <Panel>
         <KvRow label="monetary / mixed" isFirst>
@@ -1871,8 +1893,8 @@ function GuideAdoptar(): React.JSX.Element {
             body: (
               <>
                 Inspecciona stack, estructura, <Code>git log</Code> y <Code>git remote</Code> para
-                inferir la <B weight={500}>fase real</B> del código: deploy vivo →{" "}
-                <Code>operation</Code>
+                inferir la <B weight={500}>fase real</B> del código: deploy vivo (ya lanzado) →{" "}
+                <Code>release</Code>
                 {"; código + tests sin deploy → "}
                 <Code>implementation</Code>
                 {"; solo boilerplate → "}
@@ -1926,6 +1948,100 @@ function GuideAdoptar(): React.JSX.Element {
         Tras adoptar, el proyecto aparece en el <B weight={600}>Tablero</B> de Mission Control (por
         su ficha) y —una vez en construcción— también en el <B weight={600}>Portfolio</B> con su
         fase inferida, igual que un proyecto nacido del handoff.
+      </NotePanel>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// GUIDE: Documentar cambios hechos a mano (el flujo inverso)
+// ---------------------------------------------------------------------------
+
+function GuideSync(): React.JSX.Element {
+  return (
+    <>
+      <DocH title="Documentar cambios hechos a mano" level={1} />
+      <Lead>
+        ¿Editaste el código directamente —para ir rápido, para verlo cambiar en vivo— sin pasar por{" "}
+        <Code>/spec</Code>, <Code>/design</Code>, <Code>/implement</Code> o <Code>/change</Code>? El
+        código se adelantó a los documentos. <Code>/pandacorp:sync</Code> es el{" "}
+        <B weight={600}>flujo inverso</B>: del <B weight={600}>código a los documentos</B>, no al
+        revés. Es <Code>/pandacorp:iterate</Code> al revés, y se corre <B weight={600}>DENTRO</B>{" "}
+        del proyecto.
+      </Lead>
+      <NumberedTrail
+        steps={[
+          {
+            title: <>El código es el oráculo: documenta, no verifica</>,
+            body: (
+              <>
+                No puede saber si un cambio es <B weight={500}>correcto</B>, solo describir lo que
+                el código hace. Por eso lo que escribe se marca{" "}
+                <B weight={500}>reconciled-from-code</B> (como las docs as-built de{" "}
+                <Code>/adopt</Code>), nunca como diseño autorizado.
+              </>
+            ),
+          },
+          {
+            title: <>Con contexto, o en frío (auditoría completa)</>,
+            body: (
+              <>
+                Si la conversación ya tiene los cambios, parte de ahí (pero verifica el diff real).
+                Sin contexto hace una <B weight={500}>auditoría completa</B>: recorre toda la app
+                contra los docs y encuentra todos los gaps.
+              </>
+            ),
+          },
+          {
+            title: <>La dirección decide la acción</>,
+            body: (
+              <>
+                Solo documenta lo que el código hace de <B weight={500}>más</B>. Si el doc tiene
+                razón, no lo degrada: un <B weight={500}>bug</B> (el código contradice un doc
+                correcto) se deriva a <Code>/pandacorp:change</Code>; una feature{" "}
+                <B weight={500}>documentada pero no construida</B>, se marca pendiente. La
+                especificación nunca se rebaja para describir un código roto.
+              </>
+            ),
+          },
+          {
+            title: <>Exhaustivo: toda la cascada, en ambos árboles</>,
+            body: (
+              <>
+                Un cambio de comportamiento toca el <Code>FRD</Code> <B weight={500}>y</B> su work
+                order <B weight={500}>y</B> el <Code>fdd</Code>; arquitectura → blueprint + ADR; UI
+                → fdd + tokens. Barre <Code>docs/</Code> y <Code>.pandacorp/</Code>. Nada se queda
+                sin documentar.
+              </>
+            ),
+          },
+          {
+            title: <>Gate de intención (lo decides tú)</>,
+            body: (
+              <>
+                Te muestra el plan y clasificas cada divergencia: <B weight={500}>documentar</B> ·
+                actualizar-doc · es-bug · pendiente · experimento. Es el único sitio donde se
+                distingue un bug de un cambio deliberado.
+              </>
+            ),
+          },
+          {
+            title: <>Dos capas + el espejo de Claude Design</>,
+            body: (
+              <>
+                Cada cambio actualiza el doc dueño <B weight={500}>y</B> registra la entrada en{" "}
+                <Code>docs/decision-log.md</Code> (el «porqué» se te pregunta). Si el diseño vive
+                también en Claude Design, sync <B weight={500}>avisa y ofrece</B> re-sincronizar vía{" "}
+                <Code>/design-sync</Code> — nunca empuja solo.
+              </>
+            ),
+          },
+        ]}
+      />
+      <NotePanel icon="ti-arrow-back-up" iconColor="var(--color-accent)">
+        Complementa a <Code>/pandacorp:change</Code>: <B weight={600}>sync</B> documenta lo que el
+        código hizo de <B weight={600}>más</B>; <Code>change</Code>/<Code>bug</Code> arregla lo que
+        el código hace de <B weight={600}>menos</B>.
       </NotePanel>
     </>
   );
@@ -2028,6 +2144,7 @@ const MANUAL_PAGE_COMPONENTS: Record<string, () => React.JSX.Element> = {
   "g-traspaso": GuideTraspaso,
   "g-plugin": GuidePlugin,
   "g-adoptar": GuideAdoptar,
+  "g-sync": GuideSync,
   // Concepts
   "que-es-pandacorp": ConceptQueEs,
   "el-pipeline": ConceptPipeline,
