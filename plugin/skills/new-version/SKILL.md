@@ -10,15 +10,15 @@ New iteration of an existing project. Runs IN the project. `$ARGUMENTS`: what th
 
 ## Steps
 
-1. **Context**: read `.pandacorp/status.yaml`, `docs/product/prd.md` (vision + the living feature-landscape backlog of future versions), accumulated feedback/operation and the existing FRD modules under `docs/frds/`.
+1. **Context**: read `.pandacorp/status.yaml` (a shipped project sits at `phase: release`, DR-085), `docs/product/prd.md` (vision + the living feature-landscape backlog of future versions), accumulated feedback / post-launch results (from `/pandacorp:review-launch`) and the existing FRD modules under `docs/frds/`.
 2. **Define the version**: with the `product-manager` agent, turn the goal into concrete scope — which new FRDs, which existing FRDs change, what is left out (DR-012). Increment `version:` in `.pandacorp/status.yaml`.
 3. **Re-enter the pipeline, only what changes** (feature-centric, DR-049 — a new feature is a new `docs/frds/frd-NN-<slug>/` module, nothing else moves):
    - New FRD → new `docs/frds/frd-NN-<slug>/frd.md` module (numbering continues); modified FRD → edit its existing module
    - New screens or visual changes? → mini design phase (mockup of the new stuff in the FRD's `mocks/` + its `fdd.md`, same frozen global design system in `docs/design/`; visual gate only if the visual language changes)
    - Architectural impact? → update the feature's `docs/frds/frd-NN-<slug>/blueprint.md` (and `docs/product/architecture.md` only if it's platform-level) + ADR; if not, skip
    - New work orders → the feature's `docs/frds/frd-NN-<slug>/work-orders/` (per-FRD numbering continues); a change that **extends an existing work order** → **reopen it** (`implementation_status: VERIFIED → PLANNED` in its frontmatter + widen its scope/`Status Note`) so the engine rebuilds only what changed (DR-050)
-4. **Implementation**: same `/pandacorp:implement` loop. Full regression: the tests of previous versions must stay green.
-5. **Release**: `/pandacorp:release` (same gates).
+4. **Implementation**: same `/pandacorp:implement` loop, which also runs the security/quality/metrics hardening as its last step (DR-085). Full regression: the tests of previous versions must stay green.
+5. **Release**: `/pandacorp:release` — deploy/launch the new version (internal or external, same `deploy_target`).
 6. Sync the factory portfolio at close (or run `/pandacorp:sync-portfolio` from panda-corp).
 
 ## Rules

@@ -20,6 +20,14 @@ for (const s of BLESSED) {
     await page.route("**/api/live**", (r) => r.abort());
     await page.goto(s.path, { waitUntil: "domcontentloaded" });
     await expect(page.locator("main, h1").first()).toBeVisible(); // real content rendered before the shot
+    // Exclude the environment-dependent health banners (FRD-15 plugin-drift, onboarding gate) from the
+    // visual baseline. They appear only in transient/per-machine states — most notably the plugin-drift
+    // banner mid-version-bump (installed < source, before `claude plugin update`) — so their presence
+    // must not gate pixel diffs. Collapsing the container keeps the baseline = the settled render
+    // regardless of plugin sync state (DR-085 follow-up; the banner has its own unit/component tests).
+    await page.addStyleTag({
+      content: '[data-testid="dashboard-banners"]{display:none!important}',
+    });
     await page.evaluate(() => document.fonts.ready);
     await expect(page).toHaveScreenshot(`${s.id}-${testInfo.project.name}.png`, { fullPage: true });
   });

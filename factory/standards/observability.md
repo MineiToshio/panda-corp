@@ -1,6 +1,8 @@
-# Observability (operation / production)
+# Observability (telemetry / production)
 
-> Domain: Operation · Severity: **MUST** for the baseline; the rest staged. Enforcement: checklist + CI. Complements `infra.md` (which covers only local dev).
+> Severity: **MUST** for the baseline; the rest staged. Enforcement: checklist + CI. Complements `infra.md` (which covers only local dev).
+>
+> **When it's added (DR-085):** observability/telemetry is instrumented **during construction** (`/pandacorp:implement`), as part of the final hardening step — not as a post-launch concern. The product ships from construction already instrumented; the `release` phase only verifies it's live, and `/pandacorp:review-launch` *reads* what construction wired.
 
 ## Rule
 - **Mandatory baseline (every project), cheap:**
@@ -27,7 +29,7 @@ Three rules, applied to BOTH sides of the wire (the **producer** of the state an
 **Why.** A monitoring UI exists to be trusted in the one moment it matters — when something is wrong. The most dangerous failure of a monitor is a confident lie: showing a dead/hung process as "running" because a flag said so. Crossing the flag with recency, declaring freshness, and emitting a real heartbeat make the UI fail *honest* (it says "sin señal" when it can't see) instead of fail *silent*.
 
 ## How it is verified
-- Checklist in `/pandacorp:release`: structured logs? Sentry connected? `service.name` correct?
+- Checklist in `/pandacorp:implement`'s final hardening step (DR-085): structured logs? Sentry connected? `service.name` correct? events fire in the critical flow? (`/pandacorp:release` only confirms it's live.)
 - **Observability-fidelity (DR-066)**: for any dashboard/monitor surface — does liveness cross `running` with heartbeat recency (never the flag alone)? Does the UI declare its own freshness (en vivo / datos de hace X / sin señal)? Does the producer emit a positive, time-driven heartbeat? Is the "sin señal" path actually exercised by a test (stop the producer → UI goes stale)? (The gate lives in `quality.md` + `build-orchestration.md` §9.)
 - The data goes to **Sentry** (errors/traces) and **PostHog** (analytics), already present — OTel is the instrumentation layer, **not a parallel pipeline**.
 

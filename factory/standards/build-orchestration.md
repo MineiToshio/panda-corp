@@ -220,13 +220,42 @@ The build engine reviews and tests **per FRD**, not per work order:
   conformance-checked by `upgrade`; `e2e/shell.ts` is the per-project seed); canonical in
   `factory/standards/design.md` §5b + `quality.md`.
 
+## 5b. The phase model & `deploy_target` (DR-085)
+
+The project lifecycle (the `phase` in `.pandacorp/status.yaml`) has **six phases**, matching Mission
+Control's six rooms: **research** (pre-project) → `product` → `design` → `architecture` →
+`implementation` → `release`. Two changes over the old model:
+
+- **Construction (`implementation`) owns the hardening.** The security audit, quality close-out and
+  telemetry/metrics verification are the **last step of construction** (see §6 "Nothing is left"), not a
+  separate release activity. The build leaves the project audited, quality-gated and instrumented before
+  it sets `phase: release`.
+- **`release` is the terminal phase = launched.** It means the product is **deployed / launched** (internal
+  or external) and from there it is iterated (`/pandacorp:iterate`) and its results read
+  (`/pandacorp:review-launch`). The old `operation` phase is **folded into `release`** — there is no
+  separate "live/operating" phase. `/pandacorp:release` performs the deploy/launch + launch plan and sets
+  `phase: release`.
+
+**`deploy_target: internal | external`** — a `status.yaml` field, **NOT a phase**, recording *where* a
+released product runs:
+
+- **internal** — an in-house tool used as-is, no external host (e.g. Mission Control on `127.0.0.1`).
+  "Launch" = it runs locally; no external deploy, no production gate, no landing/GTM.
+- **external** — deployed to an external server (Vercel / AWS / …) for real users. "Launch" = the
+  production deploy + launch plan, behind the human production gate (DR-004).
+
+Both are a real release of a software product — the same `release` phase, distinguished only by
+`deploy_target` (typically derived from the idea's `return_type`: `personal`/in-house ⇒ internal,
+`monetary`/`mixed`/`opportunity` ⇒ external). A change that needs a second build pass may loop
+`release → implementation` (conceptually allowed; the day-to-day is `/pandacorp:iterate`).
+
 ## 6. How a run stops — health & budget, never a feature count
 
 The build **runs to completion** by default (owner decision 2026-06-16). It does NOT stop after N
 features: one feature can cost 10x another, so a count protects neither tokens nor progress. A run
 stops only when:
 
-- **Nothing is left** — every FRD is `VERIFIED` → `phase: release`.
+- **Nothing is left** — every FRD is `VERIFIED`, then the **final hardening step** runs (DR-085: security audit + quality close-out + telemetry/metrics verification — the audit that used to live in `/pandacorp:release` is now construction's last step) → `phase: release`. Reaching `release` means the build is hardened and ready to be **launched** (deployed internal or external) by `/pandacorp:release`; there is no `operation` phase after it.
 - **Budget ceiling** — `maxAgents` (a hard cap on subagents spawned this run) is reached, or a `+Nk` turn
   directive / `maxSpend` is nearly spent → stop at the last safe point (a commit). For overnight runs,
   **`maxAgents` is the real guardrail**: counted **inside the engine** (each implementer/reviewer ≈ work ≈

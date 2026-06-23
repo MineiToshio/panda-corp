@@ -5,7 +5,7 @@ Conventions for how a project runs in **development** (the factory injects them 
 ## Database and services in dev → Docker
 
 - **Dev**: each project brings up its DB and services (Postgres, Redis if applicable) with **Docker Compose**, defined in the repo (`docker-compose.yml`). Reproducible, isolated, and the agent brings it up deterministically. Sole machine requirement: Docker Desktop installed.
-- **Staging / production**: NO Docker — managed DB of the golden path (Neon / Supabase). Docker is for local only.
+- **Staging / production**: NO Docker — managed DB of the golden path (Neon / Supabase). Docker is for local only. (This applies to an **external** deploy — `deploy_target: external`, DR-085. An **internal** release runs the app as-is for the owner, e.g. on `127.0.0.1`, with no external host; see `build-orchestration.md` §5b.)
 - Each **worktree** uses its own instance/DB (or a different Compose project name, `docker compose -p <worktree>`) so that the owner's test and the agent's don't step on each other.
 
 ## Port convention (several projects / worktrees at once)
