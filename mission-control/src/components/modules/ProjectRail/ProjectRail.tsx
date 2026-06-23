@@ -4,7 +4,7 @@
  * Consumes IF-03-activeProjects contract (lib/portfolio.ts → activeProjects()).
  * Displays ProjectListItem[] as a vertical list with:
  *   - Project name, stage chip, building/stopped indicator (REQ-03-002)
- *   - Business snapshot chips for operation/shipped projects (REQ-03-003)
+ *   - Business snapshot chips for launched ("release") projects (REQ-03-003)
  *   - Path-not-found badge + copyable recovery command (REQ-03-006)
  *   - Graceful empty, loading and error states (architecture §7)
  *   - URL-driven selection mode (selectedSlug prop) — DR-057 reuse-before-create:
@@ -233,7 +233,6 @@ const PHASE_LABELS: Record<string, string> = {
   architecture: "Arquitectura",
   implementation: "En construcción",
   release: "Lanzamiento",
-  operation: "Operación",
 };
 
 /** Status icon: ok (play) / text3 (pause). */
@@ -371,7 +370,7 @@ function InlineRecoveryHint({
 }
 
 /**
- * Business snapshot chips for operation (shipped) projects (REQ-03-003 / CMP-03-snapshot).
+ * Business snapshot chips for launched ("release") projects (REQ-03-003 / CMP-03-snapshot).
  * Used by the non-selectable ProjectRow. Renders users / returnMetric / verdict chips.
  */
 function InlineBusinessSnapshot({
@@ -429,7 +428,7 @@ function InlineBusinessSnapshot({
  */
 function ProjectRow({ item }: { item: ProjectListItem }): React.JSX.Element {
   const { name, path, repo, stage, running, exists, snapshot } = item;
-  const isOperation = stage === "operation";
+  const isLaunched = stage === "release";
   const indicatorStyle = running === true ? CHIP_BUILDING_STYLE : CHIP_STOPPED_STYLE;
   const indicatorLabel = running === true ? "Construyendo" : "Parado";
   const indicatorAriaLabel = running === true ? "Construcción activa" : "Proceso detenido";
@@ -479,8 +478,8 @@ function ProjectRow({ item }: { item: ProjectListItem }): React.JSX.Element {
         {path}
       </p>
 
-      {/* Business snapshot — operation only (REQ-03-003) */}
-      {isOperation && snapshot !== undefined && (
+      {/* Business snapshot — launched ("release") only (REQ-03-003) */}
+      {isLaunched && snapshot !== undefined && (
         <InlineBusinessSnapshot
           users={snapshot.users}
           returnMetric={snapshot.returnMetric}
@@ -613,7 +612,7 @@ function SelectableRow({
         rethinkPending={rethinkPending}
       />
 
-      {/* BusinessSnapshot — sibling of Link; renders for shipped/operation rows
+      {/* BusinessSnapshot — sibling of Link; renders for launched ("release") rows
           (CMP-03-snapshot, AC-03-003.1). */}
       {item.snapshot !== undefined && (
         <BusinessSnapshot

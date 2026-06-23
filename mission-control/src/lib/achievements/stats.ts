@@ -74,13 +74,7 @@ export type TierUnlockEvent = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Phases that count as "past product" (used for phasesCompleted counter). */
-const ADVANCED_PHASES = new Set([
-  "design",
-  "architecture",
-  "implementation",
-  "release",
-  "operation",
-]);
+const ADVANCED_PHASES = new Set(["design", "architecture", "implementation", "release"]);
 
 /**
  * Derive the character-sheet counters from reader data (IF-10-stats, WO-10-001).
@@ -93,7 +87,7 @@ const ADVANCED_PHASES = new Set([
  *
  * | Stat key    | Source                                                        |
  * |-------------|---------------------------------------------------------------|
- * | shipped     | projects at phase=operation (lib/status.ts via portfolio)    |
+ * | shipped     | projects at phase=release (lib/status.ts via portfolio)      |
  * | ideas       | all idea cards (any status) — ever created = only grows      |
  * | workorders  | sum of status.workOrdersDone across all projects              |
  * | phases      | count of projects that advanced past "product" phase          |
@@ -110,9 +104,9 @@ export function computeStats(data: ReaderData): Stat[] {
   const { ideas, statuses, eventsSnapshot } = data;
   const events = eventsSnapshot?.events ?? [];
 
-  // ── shipped: projects at operation phase ─────────────────────────────────
+  // ── shipped: projects at the launched "release" phase ────────────────────
   const shippedProjects = statuses.filter(
-    (sr) => sr.present && sr.status !== null && sr.status.phase === "operation",
+    (sr) => sr.present && sr.status !== null && sr.status.phase === "release",
   );
   const shipped = shippedProjects.length;
 

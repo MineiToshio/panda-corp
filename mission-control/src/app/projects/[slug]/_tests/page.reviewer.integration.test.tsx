@@ -239,12 +239,13 @@ describe("FRD-04 reviewer — header + objectives numeric edges", () => {
 // ---------------------------------------------------------------------------
 
 describe("FRD-04 reviewer — Commands tab phase robustness", () => {
-  it("operation phase shows iterate + new-version (not the building set)", async () => {
-    statusState.phase = "operation";
+  it("release phase shows iterate + new-version (not the building set)", async () => {
+    statusState.phase = "release";
     render(await renderPage({ tab: "commands" }));
     const commands = screen.getAllByTestId("command-row-command").map((n) => n.textContent ?? "");
     expect(commands.some((c) => c.includes("/pandacorp:new-version"))).toBe(true);
-    expect(commands.some((c) => c.includes("/pandacorp:release"))).toBe(false);
+    expect(commands.some((c) => c.includes("/pandacorp:iterate"))).toBe(true);
+    expect(commands.some((c) => c.includes("/pandacorp:implement"))).toBe(false);
   });
 
   it("an UNKNOWN phase string survives to the Commands tab → safe fallback, never a building command", async () => {

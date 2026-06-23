@@ -51,7 +51,7 @@ function mkStatus(
     malformed: false,
     status: {
       project: overrides.project ?? "test-project",
-      phase: (overrides.phase ?? "operation") as StatusResult extends { status: infer S }
+      phase: (overrides.phase ?? "release") as StatusResult extends { status: infer S }
         ? S extends null
           ? never
           : S extends object
@@ -159,7 +159,7 @@ describe("computeStats — AC-10-001 — character-sheet counters", () => {
   it("AC-10-001.4 (purity): same input always returns equal output", () => {
     const data: ReaderData = {
       ideas: [mkIdea("discovered"), mkIdea("discarded", "idea-2")],
-      statuses: [mkStatus({ phase: "operation", workOrdersDone: 5 })],
+      statuses: [mkStatus({ phase: "release", workOrdersDone: 5 })],
       eventsSnapshot: mkEventsSnapshot([]),
     };
     const a = computeStats(data);
@@ -167,12 +167,12 @@ describe("computeStats — AC-10-001 — character-sheet counters", () => {
     expect(a).toEqual(b);
   });
 
-  it("AC-10-001.1 (shipped): counts projects in operation phase", () => {
+  it("AC-10-001.1 (shipped): counts projects in release (launched) phase", () => {
     const data: ReaderData = {
       ideas: [],
       statuses: [
-        mkStatus({ phase: "operation" }),
-        mkStatus({ phase: "operation", project: "p2" }),
+        mkStatus({ phase: "release" }),
+        mkStatus({ phase: "release", project: "p2" }),
         mkStatus({ phase: "implementation", project: "p3" }),
       ],
       eventsSnapshot: mkEventsSnapshot([]),
@@ -228,7 +228,7 @@ describe("computeStats — AC-10-001 — character-sheet counters", () => {
       statuses: [
         mkStatus({ phase: "product" }),
         mkStatus({ phase: "design", project: "p2" }),
-        mkStatus({ phase: "operation", project: "p3" }),
+        mkStatus({ phase: "release", project: "p3" }),
         mkStatus({ phase: "release", project: "p4" }),
       ],
       eventsSnapshot: mkEventsSnapshot([]),
@@ -340,7 +340,7 @@ describe("computeChains — AC-10-002 — cumulative chains with honest endowed 
   it("AC-10-002.1: crossing tier-1 threshold unlocks Bronze (currentTierIndex=0)", () => {
     const data: ReaderData = {
       ideas: [],
-      statuses: [mkStatus({ phase: "operation", project: "p1" })],
+      statuses: [mkStatus({ phase: "release", project: "p1" })],
       eventsSnapshot: mkEventsSnapshot([]),
     };
     const stats = computeStats(data);
@@ -353,7 +353,7 @@ describe("computeChains — AC-10-002 — cumulative chains with honest endowed 
   it("AC-10-002.1: returns nextTier.name for all non-maxed chains", () => {
     const data: ReaderData = {
       ideas: [],
-      statuses: [mkStatus({ phase: "operation" })],
+      statuses: [mkStatus({ phase: "release" })],
       eventsSnapshot: mkEventsSnapshot([]),
     };
     const stats = computeStats(data);
@@ -584,7 +584,7 @@ describe("computeUniques — AC-10-003 — one-time achievements by category", (
     const data: ReaderData = {
       ideas: [],
       statuses: [
-        mkStatus({ phase: "operation", project: "quick-notes", updatedAt: "2026-05-02T00:00:00Z" }),
+        mkStatus({ phase: "release", project: "quick-notes", updatedAt: "2026-05-02T00:00:00Z" }),
       ],
       eventsSnapshot: mkEventsSnapshot([]),
     };
@@ -616,8 +616,8 @@ describe("computeUniques — AC-10-003 — one-time achievements by category", (
     const data: ReaderData = {
       ideas: [],
       statuses: [
-        mkStatus({ phase: "operation", project: "p1" }),
-        mkStatus({ phase: "operation", project: "p2" }),
+        mkStatus({ phase: "release", project: "p1" }),
+        mkStatus({ phase: "release", project: "p2" }),
       ],
       eventsSnapshot: mkEventsSnapshot([]),
     };
@@ -629,9 +629,9 @@ describe("computeUniques — AC-10-003 — one-time achievements by category", (
     const data3: ReaderData = {
       ideas: [],
       statuses: [
-        mkStatus({ phase: "operation", project: "p1" }),
-        mkStatus({ phase: "operation", project: "p2" }),
-        mkStatus({ phase: "operation", project: "p3" }),
+        mkStatus({ phase: "release", project: "p1" }),
+        mkStatus({ phase: "release", project: "p2" }),
+        mkStatus({ phase: "release", project: "p3" }),
       ],
       eventsSnapshot: mkEventsSnapshot([]),
     };
@@ -663,7 +663,7 @@ describe("computeUniques — AC-10-003 — one-time achievements by category", (
     const dataFri: ReaderData = {
       ideas: [],
       statuses: [
-        mkStatus({ phase: "operation", project: "fri-project", updatedAt: "2026-06-19T18:00:00Z" }),
+        mkStatus({ phase: "release", project: "fri-project", updatedAt: "2026-06-19T18:00:00Z" }),
       ],
       eventsSnapshot: mkEventsSnapshot([
         // 2026-06-19 is a Friday
@@ -778,7 +778,7 @@ describe("computeSecrets — AC-10-004 — secret achievements", () => {
     const data: ReaderData = {
       ideas: [],
       statuses: [
-        mkStatus({ phase: "operation", project: "speed-project", updatedAt: `${today}T14:00:00Z` }),
+        mkStatus({ phase: "release", project: "speed-project", updatedAt: `${today}T14:00:00Z` }),
       ],
       eventsSnapshot: mkEventsSnapshot(events),
     };

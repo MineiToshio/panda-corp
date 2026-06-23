@@ -1426,8 +1426,8 @@ function ConceptDespuesDeLanzar(): React.JSX.Element {
       <Panel>
         <ChipDefRow chip="internal" tone="info" isFirst>
           Herramienta interna: vive sin servidor externo (como el propio Mission Control en{" "}
-          <Code>127.0.0.1</Code>). <Code>/pandacorp:release</Code> aquí significa correrla en local —
-          sin deploy a la nube ni gate de producción.
+          <Code>127.0.0.1</Code>). <Code>/pandacorp:release</Code> aquí significa correrla en local
+          — sin deploy a la nube ni gate de producción.
         </ChipDefRow>
         <ChipDefRow chip="external" tone="ok" isFirst={false}>
           Producto desplegado fuera (Vercel, AWS, etc.), con su gate humano de producción. Mismo
@@ -1440,8 +1440,8 @@ function ConceptDespuesDeLanzar(): React.JSX.Element {
         <Code>/pandacorp:review-launch</Code> es la <B weight={600}>iteración post-lanzamiento</B>:
         corre en un proyecto ya lanzado (precondición <Code>phase: release</Code>), no en una fase
         «operación» separada. Lee los objetivos del PRD, las métricas reales en PostHog (
-        <Code>docs/analytics/events.md</Code>) según el <Code>return_type</Code>, compara, y actualiza
-        las columnas de negocio del portfolio.
+        <Code>docs/analytics/events.md</Code>) según el <Code>return_type</Code>, compara, y
+        actualiza las columnas de negocio del portfolio.
       </Lead>
       <Panel>
         <KvRow label="monetary / mixed" isFirst>

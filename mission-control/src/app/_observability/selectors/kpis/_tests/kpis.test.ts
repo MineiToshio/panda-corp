@@ -20,7 +20,7 @@
  *   - "failed-work-orders" counts events with status:"fail" + closed-failed WO markers.
  *   - "agents-working" counts distinct `agent` values from recent AgentWorking events.
  *   - "active-projects" = count of projects in active phases (architecture / implementation /
- *     release / operation).
+ *     release).
  *   - All values are numbers ≥ 0; function never throws.
  *   - Empty inputs → all values zeroed (never throws, never returns undefined fields).
  *   - Pure: no I/O, no env reads, no Claude calls.
@@ -201,8 +201,8 @@ describe("frd-12 kpis: AC-12-001.1 — active-projects KPI", () => {
     expect(kpi?.value).toBe(3);
   });
 
-  it("frd-12: WHEN project in operation phase THEN counted as active", () => {
-    const projects = [makeProject({ stage: "operation" })];
+  it("frd-12: WHEN project in release phase THEN counted as active", () => {
+    const projects = [makeProject({ stage: "release" })];
     const kpis = deriveKpis([], projects);
     const kpi = kpis.find((k: Kpi) => k.key === "active-projects");
     expect(kpi?.value).toBe(1);
@@ -591,11 +591,11 @@ describe("frd-12 kpis: property-based invariants — parametric table", () => {
         makeProject({ name: "a", stage: "implementation" }),
         makeProject({ name: "b", stage: "product" }),
         makeProject({ name: "c", stage: "design" }),
-        makeProject({ name: "d", stage: "operation" }),
+        makeProject({ name: "d", stage: "release" }),
       ],
       check: (kpis) => {
         const kpi = kpis.find((k) => k.key === "active-projects");
-        expect(kpi?.value).toBe(2); // implementation + operation
+        expect(kpi?.value).toBe(2); // implementation + release
       },
     },
     {

@@ -10,7 +10,7 @@
  *   - WO-03-003 + WO-03-005 + WO-03-004 in ONE list (snapshot row AND broken-path row
  *     in the same render): no cross-row leakage.
  *   - AC-03-006.4 — no-repo missing-path row shows the warning, NOT a clone command.
- *   - AC-03-006.5/.6 — an EXISTING operation row never shows the not-found badge.
+ *   - AC-03-006.5/.6 — an EXISTING release (launched) row never shows the not-found badge.
  *   - empty-string repo treated as no-repo (RecoveryHint contract) on the live rail.
  *   - partial snapshot (only verdict) still surfaces; absent snapshot omitted silently.
  *   - selected vs unselected rows BOTH carry their snapshot/recovery (selection must not
@@ -38,9 +38,9 @@ const absentStatus: StatusResult = { present: false, malformed: false, status: n
 const SHIPPED: ProjectListItem = {
   name: "winner",
   path: "/p/winner",
-  status: status("operation", false),
+  status: status("release", false),
   exists: true,
-  stage: "operation",
+  stage: "release",
   running: false,
   snapshot: { users: "500", returnMetric: "$1 200 MRR", verdict: "double-down" },
 };
@@ -97,7 +97,7 @@ describe("FRD-03 integration gate — LIVE rail edge cases (reviewer)", () => {
     expect(within(row).queryByText(/pandacorp:spec/i)).not.toBeNull();
   });
 
-  it("AC-03-006.5/.6 — an EXISTING operation row never shows the not-found badge", () => {
+  it("AC-03-006.5/.6 — an EXISTING release (launched) row never shows the not-found badge", () => {
     render(<SelectableProjectRail items={[SHIPPED]} selectedSlug="winner" />);
 
     const row = rowFor("winner");
@@ -124,9 +124,9 @@ describe("FRD-03 integration gate — LIVE rail edge cases (reviewer)", () => {
     const noSnap: ProjectListItem = {
       name: "no-snap",
       path: "/p/no-snap",
-      status: status("operation", false),
+      status: status("release", false),
       exists: true,
-      stage: "operation",
+      stage: "release",
       running: false,
     };
     render(<SelectableProjectRail items={[partial, noSnap]} selectedSlug="partial" />);

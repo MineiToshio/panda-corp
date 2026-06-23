@@ -50,7 +50,9 @@ import { readStatus } from "../status";
 // Kept local to express what the tests assert; the module will export them.
 // ---------------------------------------------------------------------------
 
-type Phase = "product" | "design" | "architecture" | "implementation" | "release" | "operation";
+type Phase = "product" | "design" | "architecture" | "implementation" | "release";
+
+type DeployTarget = "internal" | "external";
 
 type ProjectStatus = {
   project: string;
@@ -70,6 +72,7 @@ type ProjectStatus = {
   createdWith?: string;
   updatedAt?: string;
   repo?: string;
+  deployTarget?: DeployTarget;
 };
 
 type StatusResult =
@@ -129,14 +132,13 @@ describe("frd-01: readStatus — AC-01-005.1 happy path (proj-a complete status.
     expect(result.status.phase).toBe("implementation");
   });
 
-  it("frd-01: WHEN status.yaml is present THEN phase is one of the six valid Phase values", () => {
+  it("frd-01: WHEN status.yaml is present THEN phase is one of the five valid Phase values", () => {
     const VALID_PHASES: Phase[] = [
       "product",
       "design",
       "architecture",
       "implementation",
       "release",
-      "operation",
     ];
     const result = readStatus(PROJ_A_PATH) as StatusResult;
     if (!result.present) throw new Error("Expected present: true");
@@ -504,7 +506,8 @@ describe("frd-01: readStatus — edge case: partial status.yaml (only phase + ru
 
 // ---------------------------------------------------------------------------
 // AC-01-006.1 — Phase as single source of truth for column derivation.
-// All six valid Phase values must be read correctly from status.yaml.
+// All five valid Phase values must be read correctly from status.yaml
+// (DR-085: the old "operation" phase folded into "release").
 // (The column derivation itself lives in FRD-02 lib/board.ts; this WO only
 //  proves the phase is faithfully exposed by readStatus.)
 // ---------------------------------------------------------------------------
@@ -515,10 +518,9 @@ const VALID_PHASE_CASES: Array<{ yaml: string; expected: Phase }> = [
   { yaml: "phase: architecture\nrunning: false\n", expected: "architecture" },
   { yaml: "phase: implementation\nrunning: true\n", expected: "implementation" },
   { yaml: "phase: release\nrunning: false\n", expected: "release" },
-  { yaml: "phase: operation\nrunning: false\n", expected: "operation" },
 ];
 
-describe("frd-01: readStatus — AC-01-006.1: all six Phase values read correctly", () => {
+describe("frd-01: readStatus — AC-01-006.1: all five Phase values read correctly", () => {
   let tempProject: string;
   afterEach(() => {
     if (tempProject) fs.rmSync(tempProject, { recursive: true, force: true });
@@ -534,6 +536,57 @@ describe("frd-01: readStatus — AC-01-006.1: all six Phase values read correctl
     const result = readStatus(tempProject) as StatusResult;
     if (!result.present) throw new Error("Expected present: true");
     expect(result.status.phase).toBe(expected);
+  });
+
+  it("frd-01: DR-085 — WHEN phase is the retired 'operation' value THEN phase is undefined (rejected)", () => {
+    // The old "operation" phase folded into "release" (DR-085); it is no longer a valid Phase.
+    tempProject = makeTempProject("phase: operation\nrunning: false\n");
+    const result = readStatus(tempProject) as StatusResult;
+    if (!result.present) throw new Error("Expected present: true");
+    expect(result.status.phase).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DR-085 — deploy_target (internal | external). Not a phase; an attribute of a
+// release. readStatus maps snake_case deploy_target → camelCase deployTarget.
+// ---------------------------------------------------------------------------
+
+describe("frd-01: readStatus — DR-085 deploy_target parsing", () => {
+  let tempProject: string;
+  afterEach(() => {
+    if (tempProject) fs.rmSync(tempProject, { recursive: true, force: true });
+  });
+
+  const DEPLOY_TARGET_CASES: Array<{ yaml: string; expected: DeployTarget }> = [
+    { yaml: "phase: release\ndeploy_target: internal\n", expected: "internal" },
+    { yaml: "phase: release\ndeploy_target: external\n", expected: "external" },
+  ];
+
+  it.each(
+    DEPLOY_TARGET_CASES,
+  )("frd-01: WHEN deploy_target is '$expected' THEN deployTarget is exactly '$expected'", ({
+    yaml,
+    expected,
+  }) => {
+    tempProject = makeTempProject(yaml);
+    const result = readStatus(tempProject) as StatusResult;
+    if (!result.present) throw new Error("Expected present: true");
+    expect(result.status.deployTarget).toBe(expected);
+  });
+
+  it("frd-01: WHEN deploy_target is absent THEN deployTarget is undefined (not fabricated)", () => {
+    tempProject = makeTempProject("phase: release\nrunning: false\n");
+    const result = readStatus(tempProject) as StatusResult;
+    if (!result.present) throw new Error("Expected present: true");
+    expect(result.status.deployTarget).toBeUndefined();
+  });
+
+  it("frd-01: WHEN deploy_target is an invalid value THEN deployTarget is undefined (rejected)", () => {
+    tempProject = makeTempProject("phase: release\ndeploy_target: somewhere\n");
+    const result = readStatus(tempProject) as StatusResult;
+    if (!result.present) throw new Error("Expected present: true");
+    expect(result.status.deployTarget).toBeUndefined();
   });
 });
 
@@ -645,7 +698,6 @@ describe("frd-01: readStatus — regression I3: array value for phase must be re
         "architecture",
         "implementation",
         "release",
-        "operation",
       ];
       expect(VALID_PHASES).toContain(result.status.phase);
     }

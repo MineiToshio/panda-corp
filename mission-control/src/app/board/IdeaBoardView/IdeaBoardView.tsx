@@ -28,7 +28,7 @@
 import type { IdeaCardProps } from "@/components/modules/IdeaCard/IdeaCard";
 import { IdeaCard } from "@/components/modules/IdeaCard/IdeaCard";
 import type { BoardColumn } from "@/lib/board/board";
-import type { Phase } from "@/lib/status/status";
+import type { DeployTarget, Phase } from "@/lib/status/status";
 
 // ---------------------------------------------------------------------------
 // Column definitions — the 7 canonical columns (FRD-02, blueprint §2)
@@ -96,6 +96,8 @@ export interface BoardCardEntry extends IdeaCardProps {
    * (without it the card detail falls back to research → board/detail desync).
    */
   phase?: Phase;
+  /** The linked project's deploy target (DR-085) — shown in the Release ficha. */
+  deployTarget?: DeployTarget;
 }
 
 export interface IdeaBoardViewProps {

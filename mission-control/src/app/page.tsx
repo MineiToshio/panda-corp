@@ -196,7 +196,7 @@ function deriveTurnItems(
   }, 0);
 
   const shippedAwaitingReview = projects
-    .filter((p) => p.stage === "operation")
+    .filter((p) => p.stage === "release")
     .map((p) => ({ name: p.name, path: p.path }));
 
   const memoryNeedsAttention =

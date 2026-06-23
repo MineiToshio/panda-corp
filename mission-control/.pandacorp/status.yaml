@@ -6,6 +6,7 @@ version: v1
 overlay_version: "8.36.1"
 created_with: "6.0.0"
 target_platforms: desktop
+deploy_target: internal  # internal tool (runs on 127.0.0.1) — no external host (DR-085)
 running: false
 run_started_at: "2026-06-21T15:53:26Z"
 repo: ""

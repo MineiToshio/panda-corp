@@ -77,8 +77,8 @@ describe("TabCommands fidelity — CmdRow primitive for command rows (DR-057)", 
     expect(texts.some((t) => t.includes("/pandacorp:implement"))).toBe(true);
   });
 
-  it("the operation phase cmd-rows include /pandacorp:iterate", () => {
-    renderCommands("operation");
+  it("the release (launched) phase cmd-rows include /pandacorp:iterate", () => {
+    renderCommands("release");
     const cmdRows = screen.getAllByTestId("cmd-row");
     const texts = cmdRows.map((r) => r.textContent ?? "");
     expect(texts.some((t) => t.includes("/pandacorp:iterate"))).toBe(true);

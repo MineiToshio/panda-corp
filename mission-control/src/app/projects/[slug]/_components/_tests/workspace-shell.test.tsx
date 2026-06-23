@@ -67,14 +67,7 @@ describe("WorkspaceHeader (CMP-04-header)", () => {
   });
 
   it("AC-04-002.1 — title is visible regardless of stage", () => {
-    const phases = [
-      "product",
-      "design",
-      "architecture",
-      "implementation",
-      "release",
-      "operation",
-    ] as const;
+    const phases = ["product", "design", "architecture", "implementation", "release"] as const;
     for (const phase of phases) {
       const { unmount } = render(<WorkspaceHeader title="Any" stage={phase} version="1.0" />);
       expect(screen.getByTestId("workspace-header-title").textContent).toBe("Any");

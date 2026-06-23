@@ -15,8 +15,8 @@
  *                  product → documented
  *                  design  → design
  *                  architecture → architecture
- *                  implementation | release → building
- *                  operation → shipped
+ *                  implementation → building
+ *                  release → shipped  (launched — "6 Release"; DR-085: operation folded in)
  *   AC-02-001.4  shipped → shipped; discarded → discarded.
  *   AC-02-001.5  The board SHALL NOT expect design/architecture/building as a card status.
  *   AC-02-001.6  IF an in-pipeline card's project or status.yaml is missing/malformed
@@ -59,7 +59,7 @@ type IdeaCard = {
   body: string;
 };
 
-type Phase = "product" | "design" | "architecture" | "implementation" | "release" | "operation";
+type Phase = "product" | "design" | "architecture" | "implementation" | "release";
 
 type ProjectStatus = {
   project?: string;
@@ -167,14 +167,9 @@ describe("frd-02: deriveColumn — AC-02-001.3 in-pipeline phase mapping", () =>
     expect(result).toBe<BoardColumn>("building");
   });
 
-  it("frd-02: WHEN card is in-pipeline AND phase is release THEN column is building", () => {
-    // release maps to the same column as implementation (blueprint §2)
+  it("frd-02: WHEN card is in-pipeline AND phase is release THEN column is shipped", () => {
+    // release = launched (DR-085: operation folded in) → the "shipped" column ("6 Release")
     const result = deriveColumn(makeCard({ status: "in-pipeline" }), makePresent("release"));
-    expect(result).toBe<BoardColumn>("building");
-  });
-
-  it("frd-02: WHEN card is in-pipeline AND phase is operation THEN column is shipped", () => {
-    const result = deriveColumn(makeCard({ status: "in-pipeline" }), makePresent("operation"));
     expect(result).toBe<BoardColumn>("shipped");
   });
 });
@@ -200,7 +195,7 @@ describe("frd-02: deriveColumn — AC-02-001.4 terminal statuses", () => {
   });
 
   it("frd-02: WHEN card status is discarded AND projectStatus is present THEN project phase is ignored", () => {
-    const result = deriveColumn(makeCard({ status: "discarded" }), makePresent("operation"));
+    const result = deriveColumn(makeCard({ status: "discarded" }), makePresent("release"));
     expect(result).toBe<BoardColumn>("discarded");
   });
 });
@@ -356,14 +351,7 @@ describe("frd-02: deriveColumn — pure function invariants", () => {
       "shipped",
       "discarded",
     ];
-    const validPhases: Phase[] = [
-      "product",
-      "design",
-      "architecture",
-      "implementation",
-      "release",
-      "operation",
-    ];
+    const validPhases: Phase[] = ["product", "design", "architecture", "implementation", "release"];
 
     for (const status of validStatuses) {
       // Test with null projectStatus
@@ -387,7 +375,6 @@ describe("frd-02: deriveColumn — pure function invariants", () => {
       "architecture",
       "implementation",
       "release",
-      "operation",
       undefined,
     ];
 
@@ -408,7 +395,6 @@ describe("frd-02: deriveColumn — pure function invariants", () => {
       "architecture",
       "implementation",
       "release",
-      "operation",
       undefined,
     ];
 
@@ -465,16 +451,9 @@ describe("frd-02: deriveColumn — complete mapping table (blueprint §2)", () =
     );
   });
 
-  // Row 7: in-pipeline | release → building
-  it("frd-02 mapping[7]: in-pipeline + release → building", () => {
+  // Row 7: in-pipeline | release → shipped (launched — "6 Release"; DR-085)
+  it("frd-02 mapping[7]: in-pipeline + release → shipped", () => {
     expect(deriveColumn(makeCard({ status: "in-pipeline" }), makePresent("release"))).toBe(
-      "building",
-    );
-  });
-
-  // Row 8: in-pipeline | operation → shipped
-  it("frd-02 mapping[8]: in-pipeline + operation → shipped", () => {
-    expect(deriveColumn(makeCard({ status: "in-pipeline" }), makePresent("operation"))).toBe(
       "shipped",
     );
   });

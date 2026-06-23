@@ -11,9 +11,9 @@
  *
  *   1) DR-057 ONE rail — the production page renders the SHARED ProjectRail in selectable
  *      mode (selectable-project-rail testid), NOT a forked second rail. (mutation-killing)
- *   2) AC-03-001 membership — activeProjects() over a real fixture lists ONLY building+shipped
- *      (implementation/operation), NEVER product/design/architecture-cell-only rows; a
- *      re-versioned project (status.yaml phase implementation) re-appears.
+ *   2) AC-03-001 membership — activeProjects() over a real fixture lists ONLY building+launched
+ *      (implementation/release), NEVER product/design/architecture-cell-only rows; a
+ *      re-versioned project (status.yaml phase implementation) re-appears. (DR-085)
  *   3) AC-03-002 indicator is NOT color-only — running/stopped carries a text label + aria.
  *   4) status chips — decisions(warn) + bugs(danger) counts render when > 0; ZERO renders
  *      no chip (no zero-nag); both coexist on one row without leaking to a sibling row.
@@ -68,9 +68,9 @@ const BUILDING: ProjectListItem = {
 const SHIPPED: ProjectListItem = {
   name: "beta-shipped",
   path: "/p/beta",
-  status: status("operation", { running: false, pendingDecisions: 0, pendingBugs: 0 }),
+  status: status("release", { running: false, pendingDecisions: 0, pendingBugs: 0 }),
   exists: true,
-  stage: "operation",
+  stage: "release",
   running: false,
 };
 
@@ -130,8 +130,8 @@ describe("FRD-03 gate (opus) — AC-03-001 membership (building+shipped only)", 
   it("lists ONLY building/shipped phases; product/design/architecture-only rows are excluded", () => {
     // A raw portfolio table whose advisory phase cells span the whole lifecycle.
     // status.yaml is absent for every fixture path → resolveStage falls back to the
-    // advisory cell. ACTIVE_PHASES = architecture | implementation | release | operation.
-    // The membership EARS for the rail is building (implementation) + shipped (operation):
+    // advisory cell. ACTIVE_PHASES = architecture | implementation | release (DR-085).
+    // The membership EARS for the rail is building (implementation) + launched (release):
     // product & design advisory cells must NOT map to an active phase → excluded.
     const md = [
       "| Name | Path | Phase |",

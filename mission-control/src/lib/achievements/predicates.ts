@@ -102,7 +102,7 @@ export const UNIQUE_DEFINITIONS: readonly UniqueDefinition[] = [
     category: "Discovery",
     condition: "Recorriste las 6 fases del pipeline de punta a punta.",
     check: (data) => {
-      // Unlocked when any project reaches operation (all 6 phases completed)
+      // Unlocked when any project reaches the launched "release" phase (all 6 rooms completed)
       const shipped = _firstShippedProject(data);
       if (!shipped) return { unlocked: false };
       return { unlocked: true, date: shipped.date, project: shipped.project };
@@ -270,12 +270,12 @@ export const UNIQUE_DEFINITIONS: readonly UniqueDefinition[] = [
     condition: "3 productos vivos en producción al mismo tiempo.",
     check: (data) => {
       const shippedCount = data.statuses.filter(
-        (sr) => sr.present && sr.status !== null && sr.status.phase === "operation",
+        (sr) => sr.present && sr.status !== null && sr.status.phase === "release",
       ).length;
       if (shippedCount < 3) return { unlocked: false };
       // Use the 3rd shipped project's date
       const sorted = [...data.statuses]
-        .filter((sr) => sr.present && sr.status !== null && sr.status.phase === "operation")
+        .filter((sr) => sr.present && sr.status !== null && sr.status.phase === "release")
         .sort((a, b) => {
           const da = (a.present && a.status ? a.status.updatedAt : undefined) ?? "";
           const db = (b.present && b.status ? b.status.updatedAt : undefined) ?? "";
@@ -295,7 +295,7 @@ export const UNIQUE_DEFINITIONS: readonly UniqueDefinition[] = [
     category: "Mastery",
     condition: "Un producto que pasó por todos los estados del tablero.",
     check: (data) => {
-      // Unlocked when any project reached operation (covered all phases)
+      // Unlocked when any project reached the launched "release" phase (covered all phases)
       const shipped = _firstShippedProject(data);
       if (!shipped) return { unlocked: false };
       return { unlocked: true, date: shipped.date, project: shipped.project };
@@ -308,7 +308,7 @@ export const UNIQUE_DEFINITIONS: readonly UniqueDefinition[] = [
 /** Returns the first shipped project's date + project name, or null. */
 function _firstShippedProject(data: ReaderData): { date: string; project: string } | null {
   const shippedStatuses = data.statuses.filter(
-    (sr) => sr.present && sr.status !== null && sr.status.phase === "operation",
+    (sr) => sr.present && sr.status !== null && sr.status.phase === "release",
   );
   if (shippedStatuses.length === 0) return null;
   // Return earliest by updatedAt

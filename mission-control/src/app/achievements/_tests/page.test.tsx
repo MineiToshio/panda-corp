@@ -301,7 +301,7 @@ describe("AC-10-005.5 — design tokens, a11y, keyboard navigation", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("Integration — stats derived from real reader data", () => {
-  it("shows non-zero shipped count when portfolio has an operation-phase project", async () => {
+  it("shows non-zero shipped count when portfolio has a release-phase (launched) project", async () => {
     const { readPortfolio } = await import("@/lib/portfolio/portfolio");
     const { readStatus } = await import("@/lib/status/status");
 
@@ -313,7 +313,7 @@ describe("Integration — stats derived from real reader data", () => {
       malformed: false,
       status: {
         project: "my-proj",
-        phase: "operation",
+        phase: "release",
         workOrdersDone: 5,
         workOrdersTotal: 5,
         pendingDecisions: 0,

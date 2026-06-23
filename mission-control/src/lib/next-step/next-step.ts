@@ -12,9 +12,8 @@
  *   in-pipeline + product              → /pandacorp:design
  *   in-pipeline + design               → /pandacorp:blueprint
  *   in-pipeline + architecture         → /pandacorp:implement
- *   in-pipeline + implementation       → /pandacorp:release
- *   in-pipeline + release              → /pandacorp:release
- *   in-pipeline + operation            → /pandacorp:iterate
+ *   in-pipeline + implementation       → /pandacorp:release   (construction done → launch)
+ *   in-pipeline + release              → /pandacorp:iterate   (launched → iterate/review, DR-085)
  *   advancePending: true (any in-pipeline phase) → label carries the "ok, advance" hint (DR-032)
  *   shipped / discarded                → terminal, no pipeline progression command
  *
@@ -51,7 +50,7 @@ export interface CommandRow {
 }
 
 // ---------------------------------------------------------------------------
-// Building-phase command rows (implementation / release)
+// Construction-phase command rows (implementation)
 // ---------------------------------------------------------------------------
 
 const BUILDING_ROWS: readonly CommandRow[] = [
@@ -70,10 +69,10 @@ const BUILDING_ROWS: readonly CommandRow[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Operation-phase command rows
+// Launched ("release") command rows (DR-085: the old "operation" phase)
 // ---------------------------------------------------------------------------
 
-const OPERATION_ROWS: readonly CommandRow[] = [
+const RELEASE_ROWS: readonly CommandRow[] = [
   {
     command: "/pandacorp:iterate",
     when: "Itera sobre el proyecto: agrega, ajusta o corrige",
@@ -93,12 +92,11 @@ const EARLY_PHASE_WHEN: Readonly<Record<Phase, string>> = {
   product: "Ejecuta el diseño del producto",
   design: "Crea el blueprint de arquitectura",
   architecture: "Inicia la implementación del proyecto",
-  // Building / operation phases are NOT in this delegation path.
+  // Construction / launched phases are NOT in this delegation path.
   // These entries are present only to satisfy the Record<Phase, …> constraint;
-  // workspaceCommands handles implementation / release / operation directly.
+  // workspaceCommands handles implementation / release directly.
   implementation: "Continúa o reanuda la construcción",
-  release: "Completa el lanzamiento",
-  operation: "Itera o revisa el lanzamiento",
+  release: "Itera o revisa el lanzamiento",
 };
 
 // Fallback row for unknown / undefined phases (regression B1', I3).
@@ -120,18 +118,18 @@ const FALLBACK_ROW: CommandRow = {
  *   an empty array.
  */
 export function workspaceCommands(phase: Phase): CommandRow[] {
-  // --- Building phases: implement + release + iterate ---
-  if (phase === "implementation" || phase === "release") {
+  // --- Construction phase: implement + release + iterate ---
+  if (phase === "implementation") {
     // Deep-copy each row object so callers cannot mutate shared module constants
     // (adversarial: `[...BUILDING_ROWS]` copies the array but row objects would
     // still alias BUILDING_ROWS[n] by reference — pure-function contract broken).
     return BUILDING_ROWS.map((r) => ({ ...r }));
   }
 
-  // --- Operation phase: iterate + new-version ---
-  if (phase === "operation") {
+  // --- Launched ("release") phase: iterate + new-version (DR-085) ---
+  if (phase === "release") {
     // Same deep-copy requirement as building rows above.
-    return OPERATION_ROWS.map((r) => ({ ...r }));
+    return RELEASE_ROWS.map((r) => ({ ...r }));
   }
 
   // --- Early phases: delegate to FRD-02 base map (single next-step command) ---
@@ -192,8 +190,8 @@ const PHASE_COMMANDS: Readonly<Record<Phase, string>> = {
   design: CMD_BLUEPRINT,
   architecture: CMD_IMPLEMENT,
   implementation: CMD_RELEASE,
-  release: CMD_RELEASE,
-  operation: CMD_ITERATE,
+  // release = launched (DR-085): iterate / review-launch, what the old "operation" gave.
+  release: CMD_ITERATE,
 };
 
 const PHASE_LABELS: Readonly<Record<Phase, string>> = {
@@ -201,8 +199,7 @@ const PHASE_LABELS: Readonly<Record<Phase, string>> = {
   design: "Crear blueprint",
   architecture: "Iniciar implementación",
   implementation: "Lanzar release",
-  release: "Completar release",
-  operation: "Iterar o revisar lanzamiento",
+  release: "Iterar o revisar lanzamiento",
 };
 
 // DR-032: advance_pending label suffix — must differ from the non-pending label

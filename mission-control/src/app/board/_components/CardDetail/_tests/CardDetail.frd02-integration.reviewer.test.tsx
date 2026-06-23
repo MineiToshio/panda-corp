@@ -72,8 +72,8 @@ describe("FRD-02 integration — CardDetail drives the REAL CampaignPipeline act
     { status: "in-pipeline", phase: "design", expectKey: "design" },
     { status: "in-pipeline", phase: "architecture", expectKey: "architecture" },
     { status: "in-pipeline", phase: "implementation", expectKey: "build" },
-    { status: "in-pipeline", phase: "release", expectKey: "build" },
-    { status: "in-pipeline", phase: "operation", expectKey: "release" },
+    // DR-085: release is the launched phase (folds in the old "operation") → release room.
+    { status: "in-pipeline", phase: "release", expectKey: "release" },
     { status: "shipped", expectKey: "release" },
   ];
 

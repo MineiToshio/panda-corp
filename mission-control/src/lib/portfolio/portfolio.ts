@@ -282,7 +282,7 @@ export type ProjectListItem = {
   exists: boolean;
   /**
    * Phase used for rail display: authoritative from status.yaml when present and valid,
-   * falls back to the portfolio row's phase cell (with "shipped" → "operation" mapping).
+   * falls back to the portfolio row's phase cell (with "shipped" → "release" mapping).
    * Undefined only when neither source can supply a valid phase.
    */
   stage?: Phase;
@@ -292,8 +292,8 @@ export type ProjectListItem = {
    */
   running?: boolean;
   /**
-   * Business snapshot populated ONLY for operation (shipped) phase, from the portfolio row's
-   * Users / Return metric / Verdict columns. Undefined for non-operation entries or when all
+   * Business snapshot populated ONLY for the launched ("release") phase, from the portfolio row's
+   * Users / Return metric / Verdict columns. Undefined for non-launched entries or when all
    * snapshot cells are placeholders.
    */
   snapshot?: {
@@ -305,23 +305,24 @@ export type ProjectListItem = {
 
 /**
  * The set of portfolio phase advisory cell values that map to active phases.
- * "shipped" is the human-readable alias for "operation" in the portfolio table.
+ * "shipped" / "lanzada" are human-readable aliases for the launched "release" phase
+ * in the portfolio table (DR-085: the old "operation" phase folded into "release").
  */
 const ADVISORY_TO_PHASE: Record<string, Phase> = {
   architecture: "architecture",
   implementation: "implementation",
   building: "implementation",
   release: "release",
-  operation: "operation",
-  shipped: "operation",
+  shipped: "release",
+  launched: "release",
   // Spanish advisory cell values (the real portfolio.md is Spanish, DR-009).
   arquitectura: "architecture",
   implementación: "implementation",
   construcción: "implementation",
   "en construcción": "implementation",
   lanzamiento: "release",
-  operación: "operation",
-  lanzada: "operation",
+  lanzado: "release",
+  lanzada: "release",
 };
 
 /** Active phases — entries with these phases appear in the portfolio rail (REQ-03-001). */
@@ -329,14 +330,13 @@ const ACTIVE_PHASES: ReadonlySet<Phase> = new Set<Phase>([
   "architecture",
   "implementation",
   "release",
-  "operation",
 ]);
 
 /**
  * Compose helper: read the portfolio, enrich each entry with its status and
  * existence flag, and return only the active-phase entries.
  *
- * Active set: `architecture` | `implementation` | `release` | `operation`.
+ * Active set: `architecture` | `implementation` | `release` (DR-085: `operation` folded into `release`).
  * Phase is determined from `status.yaml` (authoritative); absent/malformed status
  * falls back to the portfolio table's `phase` cell (advisory).
  *
@@ -383,9 +383,9 @@ function resolveRunning(statusResult: StatusResult): boolean | undefined {
   return undefined;
 }
 
-/** Business snapshot, populated only for operation phase from the portfolio row columns. */
+/** Business snapshot, populated only for the launched "release" phase from the portfolio row columns. */
 function resolveSnapshot(entry: PortfolioEntry, stage: Phase): ProjectListItem["snapshot"] {
-  if (stage !== "operation") return undefined;
+  if (stage !== "release") return undefined;
   const { users, returnMetric, verdict } = entry;
   if (users !== undefined || returnMetric !== undefined || verdict !== undefined) {
     return { users, returnMetric, verdict };

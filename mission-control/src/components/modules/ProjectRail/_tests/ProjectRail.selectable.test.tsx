@@ -94,9 +94,9 @@ const ITEM_BROKEN_WITH_REPO = makeItem({
 const ITEM_SHIPPED = makeItem({
   name: "proj-shipped",
   path: "/projects/proj-shipped",
-  status: makeStatus("operation", false),
+  status: makeStatus("release", false),
   exists: true,
-  stage: "operation",
+  stage: "release",
   running: false,
   snapshot: { users: "1234", returnMetric: "$900 MRR", verdict: "double-down" },
 });

@@ -43,13 +43,15 @@ import { pathExists } from "../fs-utils/fs-utils";
 // Types (exported — consumed by FRD-02, FRD-03, FRD-04/05)
 // ---------------------------------------------------------------------------
 
-export type Phase =
-  | "product"
-  | "design"
-  | "architecture"
-  | "implementation"
-  | "release"
-  | "operation";
+export type Phase = "product" | "design" | "architecture" | "implementation" | "release";
+
+/**
+ * Where a release is deployed (DR-085). The release is the same concept either way —
+ * a launched software product — only the destination differs:
+ *   - `internal`: an internal tool used in-house (like Mission Control on 127.0.0.1) — no external server.
+ *   - `external`: deployed to an external host (Vercel, AWS, …).
+ */
+export type DeployTarget = "internal" | "external";
 
 export type ProjectStatus = {
   project: string;
@@ -69,6 +71,7 @@ export type ProjectStatus = {
   createdWith?: string;
   updatedAt?: string;
   repo?: string;
+  deployTarget?: DeployTarget;
 };
 
 export type StatusResult =
@@ -85,7 +88,6 @@ const VALID_PHASES: ReadonlyArray<Phase> = [
   "architecture",
   "implementation",
   "release",
-  "operation",
 ];
 
 // ---------------------------------------------------------------------------
@@ -107,12 +109,17 @@ function asStrictBoolean(raw: unknown): boolean | undefined {
   return raw === true || raw === false ? raw : undefined;
 }
 
-/** One of the six valid Phase literals; array/non-string values rejected (regression I3). */
+/** One of the five valid Phase literals; array/non-string values rejected (regression I3). */
 function asPhase(raw: unknown): Phase | undefined {
   if (typeof raw === "string" && VALID_PHASES.includes(raw as Phase)) {
     return raw as Phase;
   }
   return undefined;
+}
+
+/** One of the two deploy targets (DR-085); any other value → undefined. */
+function asDeployTarget(raw: unknown): DeployTarget | undefined {
+  return raw === "internal" || raw === "external" ? raw : undefined;
 }
 
 /** Map the string-typed fields (snake_case → camelCase); invalid/missing omitted. */
@@ -181,6 +188,9 @@ function mapStatusFields(raw: Record<string, unknown>): Partial<ProjectStatus> {
 
   const phase = asPhase(raw.phase);
   if (phase !== undefined) status.phase = phase;
+
+  const deployTarget = asDeployTarget(raw.deploy_target);
+  if (deployTarget !== undefined) status.deployTarget = deployTarget;
 
   mapStringFields(raw, status);
   mapNumberFields(raw, status);

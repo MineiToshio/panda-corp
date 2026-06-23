@@ -9,7 +9,7 @@
  *
  * These tests exercise the rail the page actually renders, asserting the FRD's
  * acceptance criteria reach the integrated surface:
- *   AC-03-003.1 — a shipped (operation) project shows its business snapshot.
+ *   AC-03-003.1 — a launched (release) project shows its business snapshot. (DR-085)
  *   AC-03-006.2 — a project whose path is missing shows a ⚠ path-not-found badge.
  *   AC-03-006.3 — with a repo, that row shows the copyable recovery command.
  *
@@ -33,9 +33,9 @@ function makeStatus(phase: string, running?: boolean): StatusResult {
 const SHIPPED_WITH_SNAPSHOT: ProjectListItem = {
   name: "proj-shipped",
   path: "/projects/proj-shipped",
-  status: makeStatus("operation", false),
+  status: makeStatus("release", false),
   exists: true,
-  stage: "operation",
+  stage: "release",
   running: false,
   snapshot: { users: "1234", returnMetric: "$980 MRR", verdict: "double-down" },
 };

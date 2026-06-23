@@ -77,7 +77,7 @@ const XP_PER_WO = 10;
 /** XP earned per completed phase. */
 const XP_PER_PHASE = 50;
 
-/** XP earned per release / launch (reaching operation phase). */
+/** XP earned per release / launch (reaching the launched "release" phase). */
 const XP_PER_RELEASE = 200;
 
 /** XP earned per green test run (minor confirmation signal). */
@@ -92,7 +92,7 @@ const XP_PER_STREAK_WEEK = 5;
  * Each field maps to a source from the honesty contract (blueprint §2):
  *   - `workOrdersDone`  ← `status.yaml:work_orders_done` / `achievement` event with workOrder
  *   - `phasesCompleted` ← `status.yaml:phase` transitions
- *   - `releases`        ← `phase: operation` reached in portfolio
+ *   - `releases`        ← `phase: release` reached in portfolio
  *   - `greenTestRuns`   ← `test_ok` events
  *   - `weeklyStreak`    ← optional; weekly cadence with freeze (never daily-reset)
  *
@@ -103,9 +103,9 @@ const XP_PER_STREAK_WEEK = 5;
 export type GuildOutcomes = {
   /** Number of work orders closed green. */
   readonly workOrdersDone: number;
-  /** Number of phases completed (design, architecture, implementation, release, operation). */
+  /** Number of phases completed (design, architecture, implementation, release). */
   readonly phasesCompleted: number;
-  /** Number of releases (projects reaching operation phase). */
+  /** Number of releases (projects reaching the launched "release" phase). */
   readonly releases: number;
   /** Number of green test suite runs. */
   readonly greenTestRuns: number;
@@ -219,7 +219,7 @@ export function computeGuildLevel(outcomes: GuildOutcomes): GuildLevel {
  *
  *   "toast"   — work order closed (green tests, achievement + workOrder)
  *   "phase"   — phase completed (phase transition or phase-scoped end/handoff)
- *   "release" — project released / reached operation phase
+ *   "release" — project released / reached the launched "release" phase
  *   "levelup" — guild or agent crossed a level threshold
  *   "none"    — no celebration (activity events, unknown, failure, ambiguous)
  */
@@ -288,7 +288,7 @@ function _classifyAchievement(task: unknown, workOrder: unknown): CelebrationTie
   if (task === "levelup" || task === "level-up") {
     return "levelup";
   }
-  // Release / launch (reached operation phase).
+  // Release / launch (reached the launched "release" phase).
   if (task === "release") {
     return "release";
   }
@@ -350,8 +350,8 @@ export type GuildOutcomesInput = {
  * Honesty contract (blueprint §2):
  *   - workOrdersDone  = sum of status.workOrdersDone across all projects (present + valid)
  *   - phasesCompleted = count of projects whose phase is in { design, architecture, implementation,
- *                       release, operation } (each project that advanced past product = 1 phase)
- *   - releases        = count of projects in "operation" phase (reached launch)
+ *                       release } (each project that advanced past product = 1 phase)
+ *   - releases        = count of projects in the launched "release" phase (reached launch)
  *   - greenTestRuns   = count of "test_ok" events in the snapshot
  *
  * All missing/malformed statuses are skipped (never throws, fail-soft).
@@ -383,13 +383,7 @@ export function deriveGuildOutcomes(input: GuildOutcomesInput): GuildOutcomes {
 }
 
 /** Phases that count as advanced past "product" (one phaseCompleted each). */
-const COMPLETED_PHASES = new Set([
-  "design",
-  "architecture",
-  "implementation",
-  "release",
-  "operation",
-]);
+const COMPLETED_PHASES = new Set(["design", "architecture", "implementation", "release"]);
 
 /**
  * Per-project contribution to the guild outcomes. Behavior copied verbatim from
@@ -414,8 +408,8 @@ function _tallyStatus(sr: StatusResult): {
   // phasesCompleted: project advanced beyond "product" phase
   const phasesCompleted = typeof st.phase === "string" && COMPLETED_PHASES.has(st.phase) ? 1 : 0;
 
-  // releases: project reached operation (launched)
-  const releases = st.phase === "operation" ? 1 : 0;
+  // releases: project reached the launched "release" phase (DR-085)
+  const releases = st.phase === "release" ? 1 : 0;
 
   return { workOrdersDone, phasesCompleted, releases };
 }

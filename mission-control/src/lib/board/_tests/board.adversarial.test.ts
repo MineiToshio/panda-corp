@@ -88,14 +88,15 @@ describe("frd-02 ADVERSARIAL: in-pipeline with runtime-invalid phase fails close
 });
 
 // ---------------------------------------------------------------------------
-// Mutation killer: the `operation → shipped` mapping must be distinguishable from
+// Mutation killer: the `release → shipped` mapping must be distinguishable from
 // the `shipped` CARD status path. If an implementer collapsed both, swapping one
 // branch would still pass. Pin both independently.
+// (DR-085: the launched phase is "release"; the old "operation" phase is gone.)
 // ---------------------------------------------------------------------------
 
 describe("frd-02 ADVERSARIAL: shipped column has two distinct sources that must both hold", () => {
-  it("frd-02 adv: in-pipeline + operation yields shipped via the PHASE axis", () => {
-    expect(deriveColumn(card("in-pipeline"), presentWithRawPhase("operation"))).toBe("shipped");
+  it("frd-02 adv: in-pipeline + release yields shipped via the PHASE axis", () => {
+    expect(deriveColumn(card("in-pipeline"), presentWithRawPhase("release"))).toBe("shipped");
   });
 
   it("frd-02 adv: shipped CARD status yields shipped even when phase axis says product", () => {
@@ -103,7 +104,7 @@ describe("frd-02 ADVERSARIAL: shipped column has two distinct sources that must 
     expect(deriveColumn(card("shipped"), presentWithRawPhase("product"))).toBe("shipped");
   });
 
-  it("frd-02 adv: in-pipeline + product does NOT become shipped (kills operation/product swap)", () => {
+  it("frd-02 adv: in-pipeline + product does NOT become shipped (kills release/product swap)", () => {
     expect(deriveColumn(card("in-pipeline"), presentWithRawPhase("product"))).not.toBe("shipped");
   });
 });
@@ -139,7 +140,7 @@ describe("frd-02 ADVERSARIAL: invalid card status never throws and never borrows
   const invalidStatuses = ["design", "architecture", "building", "documented", "", "FOO", "null"];
   const projectStates: StatusResult[] = [
     { present: false, malformed: false, status: null },
-    { present: true, malformed: false, status: { phase: "operation" } },
+    { present: true, malformed: false, status: { phase: "release" } },
     { present: true, malformed: false, status: { phase: "design" } },
   ];
 
@@ -154,8 +155,8 @@ describe("frd-02 ADVERSARIAL: invalid card status never throws and never borrows
         }).not.toThrow();
         expect(VALID_COLUMNS).toContain(result);
         // An invalid CARD status must not inherit the project's phase column.
-        // i.e. with phase=operation the result must NOT be "shipped".
-        if (ps.present && ps.status.phase === "operation") {
+        // i.e. with phase=release the result must NOT be "shipped".
+        if (ps.present && ps.status.phase === "release") {
           expect(result).not.toBe<BoardColumn>("shipped");
         }
         if (ps.present && ps.status.phase === "design") {

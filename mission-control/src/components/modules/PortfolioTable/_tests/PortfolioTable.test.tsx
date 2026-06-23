@@ -56,7 +56,7 @@ const MISSING_REPO_ENTRY: PortfolioTableEntry = {
   name: "proj-missing-repo",
   path: "projects/proj-missing-repo",
   repo: undefined,
-  phase: "operation",
+  phase: "release",
   users: "12",
   returnMetric: "$240 MRR",
   verdict: "building",
@@ -327,7 +327,7 @@ describe("PortfolioTable — recovery hint without repo", () => {
 // ---------------------------------------------------------------------------
 
 describe("PortfolioTable — business snapshot", () => {
-  it("renders snapshot section for shipped (phase=operation) entry with data", () => {
+  it("renders snapshot section for launched (phase=release) entry with data", () => {
     render(<PortfolioTable entries={[MISSING_REPO_ENTRY]} />);
     expect(screen.getByTestId("portfolio-snapshot")).toBeDefined();
   });
@@ -350,7 +350,7 @@ describe("PortfolioTable — business snapshot", () => {
 
   it("does NOT render snapshot section when all snapshot fields are absent", () => {
     const noSnapshot: PortfolioTableEntry = {
-      ...makeEntry({ phase: "operation" }),
+      ...makeEntry({ phase: "release" }),
       users: undefined,
       returnMetric: undefined,
       verdict: undefined,
@@ -376,7 +376,7 @@ describe("PortfolioTable — business snapshot", () => {
 
   it("does NOT render users chip when users is absent", () => {
     const noUsers: PortfolioTableEntry = {
-      ...makeEntry({ phase: "operation" }),
+      ...makeEntry({ phase: "release" }),
       users: undefined,
       returnMetric: "big bucks",
     };
@@ -386,7 +386,7 @@ describe("PortfolioTable — business snapshot", () => {
 
   it("does NOT render returnMetric chip when returnMetric is absent", () => {
     const noReturn: PortfolioTableEntry = {
-      ...makeEntry({ phase: "operation" }),
+      ...makeEntry({ phase: "release" }),
       users: "5",
       returnMetric: undefined,
     };

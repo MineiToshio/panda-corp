@@ -26,7 +26,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { readStatus } from "../status";
 
-type Phase = "product" | "design" | "architecture" | "implementation" | "release" | "operation";
+type Phase = "product" | "design" | "architecture" | "implementation" | "release";
 type ProjectStatus = {
   project: string;
   phase: Phase;

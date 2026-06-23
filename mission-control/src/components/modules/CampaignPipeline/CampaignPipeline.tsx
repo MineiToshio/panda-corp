@@ -34,10 +34,12 @@
  */
 
 import { useState } from "react";
+import { Chip } from "@/components/core/Chip/Chip";
 import { AgentSprite } from "@/components/modules/party/AgentSprite/AgentSprite";
 import { Room } from "@/components/modules/party/Room/Room";
 import { StoneBridge } from "@/components/modules/party/StoneBridge/StoneBridge";
 import type { CampaignPhase } from "@/lib/campaign/campaign";
+import type { DeployTarget } from "@/lib/status/status";
 import type { PhaseDefinition } from "./phases";
 import { PHASES } from "./phases";
 import { RoamingCast, type RoamingCastMember } from "./RoamingCast";
@@ -58,6 +60,8 @@ export interface CampaignPipelineProps {
    * actual" and whether the active room's cast roams or just idle-bobs.
    */
   running?: boolean;
+  /** Deploy target (DR-085) — shown as a chip in the Release ficha (internal/external). */
+  deployTarget?: DeployTarget;
   /**
    * Host-navigation callback wired to goToParty (WO-02-012).
    * Called when the user activates "Entrar a La Fragua" in the build phase.
@@ -598,6 +602,8 @@ interface FichaContentProps {
   phaseState: PhaseState;
   /** Whether an agent is genuinely running (drives EN CURSO vs FASE ACTUAL). */
   running: boolean;
+  /** Deploy target (DR-085) — rendered as a chip in the Release ficha header. */
+  deployTarget?: DeployTarget;
   slug: string;
   onEnterForge: (slug: string) => void;
 }
@@ -607,6 +613,7 @@ function FichaContent({
   phaseIndex,
   phaseState,
   running,
+  deployTarget,
   slug,
   onEnterForge,
 }: FichaContentProps): React.JSX.Element {
@@ -614,6 +621,7 @@ function FichaContent({
   // it's information ABOUT the phase, readable whether or not the idea has reached it
   // (owner). A future phase is signalled by the header label ("en espera"), not hidden.
   const isBuild = phase.key === "build";
+  const isRelease = phase.key === "release";
 
   return (
     <section
@@ -627,6 +635,18 @@ function FichaContent({
           {phaseIndex + 1} · {phase.name}
         </span>
         <span style={FICHA_HEADER_STATE_STYLE}>— {fichaStateLabel(phaseState, running)}</span>
+        {isRelease && deployTarget !== undefined && (
+          <span data-testid="ficha-deploy-target" style={{ marginLeft: "6px" }}>
+            <Chip tone="info">
+              <i
+                className={deployTarget === "internal" ? "ti ti-home-2" : "ti ti-cloud-up"}
+                aria-hidden="true"
+                style={{ marginRight: "3px" }}
+              />
+              {deployTarget === "internal" ? "interno" : "externo"}
+            </Chip>
+          </span>
+        )}
       </p>
 
       <div data-testid="ficha-description" style={FICHA_SUBSECTION_STYLE}>
@@ -714,6 +734,7 @@ export function CampaignPipeline({
   slug,
   activePhase,
   running = false,
+  deployTarget,
   onEnterForge,
 }: CampaignPipelineProps): React.JSX.Element {
   // Default the open ficha to the ACTIVE phase so the "investigación en curso" team
@@ -803,6 +824,7 @@ export function CampaignPipeline({
             phaseIndex={selectedPhaseIndex}
             phaseState={selectedPhaseState}
             running={running}
+            deployTarget={deployTarget}
             slug={slug}
             onEnterForge={onEnterForge}
           />

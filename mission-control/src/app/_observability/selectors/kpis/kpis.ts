@@ -13,7 +13,7 @@
  *   - "failed-work-orders" counts events with status === "fail" (first-class per FRD-06/13).
  *   - "agents-working" counts distinct `agent` string values from AgentWorking events.
  *   - "active-projects" counts projects in active phases
- *     (architecture | implementation | release | operation).
+ *     (architecture | implementation | release).
  *   - "xp-today" counts XpAwarded events (or 0 if none).
  *   - "builds-queued" counts BuildQueued events (or 0 if none).
  *   - All values are finite non-negative integers.
@@ -62,7 +62,7 @@ type ProjectInput = {
  * Active phases — projects in these phases contribute to the "active-projects" KPI.
  * Mirrors the ACTIVE_PHASES set in lib/portfolio.ts.
  */
-const ACTIVE_PHASES = new Set<string>(["architecture", "implementation", "release", "operation"]);
+const ACTIVE_PHASES = new Set<string>(["architecture", "implementation", "release"]);
 
 /**
  * Derive the ≤5 critical KPIs from the capped event tail and the projects list.

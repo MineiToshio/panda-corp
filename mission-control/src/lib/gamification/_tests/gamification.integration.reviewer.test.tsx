@@ -165,12 +165,12 @@ describe("FRD-09 deriveGuildOutcomes — abusive status values", () => {
     expect(outcomes.workOrdersDone).toBe(3);
   });
 
-  it("a project in 'operation' counts as both a completed phase AND a release", () => {
+  it("a project in 'release' (launched) counts as both a completed phase AND a release", () => {
     const outcomes = deriveGuildOutcomes({
-      statuses: [statusPresent({ phase: "operation", workOrdersDone: 0 })],
+      statuses: [statusPresent({ phase: "release", workOrdersDone: 0 })],
       eventsSnapshot: null,
     });
-    // Documented design: operation ⇒ phasesCompleted +1 and releases +1.
+    // Documented design: release (launched) ⇒ phasesCompleted +1 and releases +1.
     expect(outcomes.phasesCompleted).toBe(1);
     expect(outcomes.releases).toBe(1);
   });

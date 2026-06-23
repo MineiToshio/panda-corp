@@ -96,18 +96,19 @@ describe("ProjectRow — stage label", () => {
     expect(chip.textContent).toMatch(/architecture/i);
   });
 
-  it("renders operation stage label", () => {
+  it("renders release stage label for a launched (stopped) project", () => {
+    // DR-085: the old 'operation' phase folded into 'release' (the launched phase).
     render(
       <ProjectRow
         item={makeItem({
-          stage: "operation",
+          stage: "release",
           running: false,
-          status: makePresentStatus("operation"),
+          status: makePresentStatus("release"),
         })}
       />,
     );
     const chip = screen.getByTestId("project-row-stage");
-    expect(chip.textContent).toMatch(/operation/i);
+    expect(chip.textContent).toMatch(/release/i);
   });
 
   it("renders release stage label", () => {

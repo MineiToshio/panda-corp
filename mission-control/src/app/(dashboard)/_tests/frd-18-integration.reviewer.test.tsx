@@ -251,7 +251,7 @@ describe("FRD-18 Cartera card: freshness/staleness/blocker (REQ-18-016/017/018)"
   });
 
   it("a NON-running project is neither live nor no-signal (freshness only applies while building)", () => {
-    const c = card({ running: false, phase: "operation", lastEventAt: null });
+    const c = card({ running: false, phase: "release", lastEventAt: null });
     expect(c.isLive).toBe(false);
     expect(c.isNoSignal).toBe(false);
     expect(c.isShipped).toBe(true);

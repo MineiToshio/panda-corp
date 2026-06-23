@@ -17,7 +17,7 @@
  *   1. Loading, error, empty states (required by AGENTS.md rule 4)
  *   2. Row rendering: name, stage, building/stopped indicator
  *   3. Not-found badge + recovery hint (repo present / absent)
- *   4. Business snapshot chips (operation/shipped projects)
+ *   4. Business snapshot chips (launched / "release" projects, DR-085)
  *   5. data-testid on every interactive/significant element
  *   6. Zero hardcoded colors (CSS custom properties only)
  *   7. Accessibility: aria-labels, role attributes, aria-live
@@ -75,9 +75,9 @@ const OPERATION_ITEM = makeItem({
   name: "proj-operation",
   path: "projects/proj-operation",
   repo: "https://github.com/ada/proj-operation",
-  stage: "operation",
+  stage: "release",
   running: false,
-  status: makePresentStatus("operation"),
+  status: makePresentStatus("release"),
   snapshot: { users: "500", returnMetric: "$1 200 MRR", verdict: "double-down" },
 });
 
@@ -85,7 +85,7 @@ const MISSING_PATH_WITH_REPO = makeItem({
   name: "proj-broken-path",
   path: "/nonexistent/path/does/not/exist",
   repo: "https://github.com/ada/broken",
-  stage: "operation",
+  stage: "release",
   running: undefined,
   exists: false,
   status: ABSENT_STATUS,
@@ -273,10 +273,11 @@ describe("ProjectRail — stage chip", () => {
     expect(chip.textContent).toMatch(/Arquitectura/i);
   });
 
-  it("renders stage chip for operation", () => {
+  it("renders stage chip for the launched (release) project", () => {
+    // DR-085: the old 'operation' phase folded into 'release' → chip shows "Lanzamiento".
     render(<ProjectRail items={[OPERATION_ITEM]} />);
     const chip = screen.getByTestId("project-rail-row-stage");
-    expect(chip.textContent).toMatch(/Operación/i);
+    expect(chip.textContent).toMatch(/Lanzamiento/i);
   });
 
   it("renders stage chip for release", () => {
@@ -356,12 +357,12 @@ describe("ProjectRail — recovery hint (CMP-03-recovery)", () => {
 // ---------------------------------------------------------------------------
 
 describe("ProjectRail — business snapshot (CMP-03-snapshot)", () => {
-  it("renders project-rail-snapshot for operation items", () => {
+  it("renders project-rail-snapshot for launched (release) items", () => {
     render(<ProjectRail items={[OPERATION_ITEM]} />);
     expect(screen.getByTestId("project-rail-snapshot")).toBeDefined();
   });
 
-  it("does NOT render snapshot for non-operation items", () => {
+  it("does NOT render snapshot for non-launched (non-release) items", () => {
     render(<ProjectRail items={[IMPL_ITEM]} />);
     expect(screen.queryByTestId("project-rail-snapshot")).toBeNull();
   });
@@ -386,7 +387,7 @@ describe("ProjectRail — business snapshot (CMP-03-snapshot)", () => {
 
   it("does NOT render snapshot-users when users is undefined", () => {
     const item = makeItem({
-      stage: "operation",
+      stage: "release",
       snapshot: { users: undefined, returnMetric: "$100 MRR", verdict: "hold" },
     });
     render(<ProjectRail items={[item]} />);
@@ -395,7 +396,7 @@ describe("ProjectRail — business snapshot (CMP-03-snapshot)", () => {
 
   it("does NOT render snapshot when all fields are undefined", () => {
     const item = makeItem({
-      stage: "operation",
+      stage: "release",
       snapshot: undefined,
     });
     render(<ProjectRail items={[item]} />);

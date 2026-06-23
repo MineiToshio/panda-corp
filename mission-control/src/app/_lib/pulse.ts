@@ -10,7 +10,7 @@
  * Signals (≤5, AC-18-003.1):
  *   1. ideasAlive        — ideas in the funnel (discovered/recommended/in-pipeline)
  *   2. inConstructionLive — builds with a recent event (FRD-12 "En vivo")
- *   3. ideasShipped      — shipped ideas (operation phase)
+ *   3. ideasShipped      — shipped ideas (launched "release" phase)
  *   4. ownerWaiting      — items genuinely requiring the owner (pending decisions etc.)
  *   5. conversionPct     — idea→shipped as an integer percentage (safe, 0 when no ideas)
  *
@@ -33,7 +33,7 @@
 export type PulseInput = {
   /** Total ideas in play: discovered + recommended + in-pipeline (non-shipped, non-discarded). */
   ideasAlive: number;
-  /** Ideas that have reached the operation/shipped phase. */
+  /** Ideas that have reached the launched/shipped state. */
   ideasShipped: number;
   /**
    * In-construction builds whose last event is within the freshness threshold

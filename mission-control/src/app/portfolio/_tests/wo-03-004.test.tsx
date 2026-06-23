@@ -61,8 +61,8 @@ const ITEM_BETA = makeItem({
 const ITEM_GAMMA = makeItem({
   name: "proj-gamma",
   path: "/projects/proj-gamma",
-  status: makeStatus("operation"),
-  stage: "operation",
+  status: makeStatus("release"),
+  stage: "release",
   running: false,
 });
 

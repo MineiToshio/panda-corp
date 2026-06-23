@@ -27,7 +27,7 @@ import type { Phase } from "@/lib/status/status";
 vi.mock("@/lib/next-step/next-step", () => ({
   nextStep: vi.fn(),
   // CardDetail now also imports workspaceCommands (Comandos tab project-command box).
-  // These tab-wiring fixtures never reach a building/operation phase, so an empty
+  // These tab-wiring fixtures never reach a construction/launched phase, so an empty
   // list is enough to keep the import resolvable without rendering project commands.
   workspaceCommands: vi.fn(() => []),
 }));

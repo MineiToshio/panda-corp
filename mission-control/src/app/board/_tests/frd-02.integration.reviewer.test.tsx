@@ -81,8 +81,9 @@ describe("FRD-02 integration: board column and next-step command are coherent", 
     { phase: "design", column: "design", command: "/pandacorp:blueprint" },
     { phase: "architecture", column: "architecture", command: "/pandacorp:implement" },
     { phase: "implementation", column: "building", command: "/pandacorp:release" },
-    { phase: "release", column: "building", command: "/pandacorp:release" },
-    { phase: "operation", column: "shipped", command: "/pandacorp:iterate" },
+    // DR-085: release is the launched/shipped phase (folds in the old "operation").
+    // It maps to the shipped column and its next command is iterate.
+    { phase: "release", column: "shipped", command: "/pandacorp:iterate" },
   ];
 
   for (const { phase, column, command } of phaseExpectations) {
@@ -99,18 +100,19 @@ describe("FRD-02 integration: board column and next-step command are coherent", 
     });
   }
 
-  // implementation vs release: BOTH land in the "building" column, but the
-  // detail must still surface a /pandacorp:release command for each (no drift).
-  it("implementation and release share the building column AND the release command", () => {
+  // DR-085: implementation is still construction (building column → /pandacorp:release),
+  // but release is now the launched/shipped phase (shipped column → /pandacorp:iterate).
+  // The two no longer share a column or command — verify they diverge coherently.
+  it("implementation is construction (building → release) while release is launched (shipped → iterate)", () => {
     const impl = card({ slug: "i", status: "in-pipeline", project: "p" });
     const rel = card({ slug: "r", status: "in-pipeline", project: "p" });
     expect(deriveColumn(impl, present("implementation"))).toBe("building");
-    expect(deriveColumn(rel, present("release"))).toBe("building");
+    expect(deriveColumn(rel, present("release"))).toBe("shipped");
     expect(nextStep({ cardStatus: "in-pipeline", phase: "implementation" }).command).toBe(
       "/pandacorp:release",
     );
     expect(nextStep({ cardStatus: "in-pipeline", phase: "release" }).command).toBe(
-      "/pandacorp:release",
+      "/pandacorp:iterate",
     );
   });
 });

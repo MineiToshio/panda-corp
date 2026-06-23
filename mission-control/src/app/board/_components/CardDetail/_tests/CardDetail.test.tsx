@@ -55,8 +55,8 @@ import type { Phase } from "@/lib/status/status";
 vi.mock("@/lib/next-step/next-step", () => ({
   nextStep: vi.fn(),
   // CardDetail also imports workspaceCommands for the Comandos tab project-command
-  // box (building/operation cards). Most fixtures here aren't building/operation, so
-  // the default empty list keeps the import resolvable; tests that need rows override it.
+  // box (implementation/release cards). Most fixtures here aren't construction/launched,
+  // so the default empty list keeps the import resolvable; tests that need rows override it.
   workspaceCommands: vi.fn(() => []),
 }));
 
@@ -157,7 +157,7 @@ const SHIPPED_CARD = {
   title: "Shipped Idea",
   status: "shipped" as IdeaStatus,
   body: "## Summary\n\nAlready live.",
-  phase: "operation" as Phase,
+  phase: "release" as Phase,
   advancePending: false,
   docsIndex: null,
 };
@@ -485,14 +485,7 @@ describe("frd-02: AC-02-008.1 — all lifecycle statuses render without crash", 
 // ---------------------------------------------------------------------------
 
 describe("frd-02: AC-02-008.1 — all pipeline phases render without crash", () => {
-  const PHASES: Phase[] = [
-    "product",
-    "design",
-    "architecture",
-    "implementation",
-    "release",
-    "operation",
-  ];
+  const PHASES: Phase[] = ["product", "design", "architecture", "implementation", "release"];
 
   for (const phase of PHASES) {
     it(`frd-02: WHEN in-pipeline card has phase='${phase}' THEN renders without throwing`, () => {

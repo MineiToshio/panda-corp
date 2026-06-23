@@ -36,7 +36,6 @@ const ALL_PHASES: readonly Phase[] = [
   "architecture",
   "implementation",
   "release",
-  "operation",
 ];
 
 const keyFor = (slug: string) => `mc:build-mode:${slug}`;

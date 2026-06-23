@@ -117,7 +117,7 @@ const SHIPPED_CARD_PIPELINE = makeCard({
   slug: "idea-shipped-pipeline",
   title: "Idea En Operación",
   status: "in-pipeline",
-  boardColumn: "shipped", // in-pipeline with phase=operation → shipped
+  boardColumn: "shipped", // in-pipeline with phase=release → shipped
   projectType: "web",
   returnType: "monetary",
   score: 95,
@@ -265,8 +265,8 @@ describe("IdeaBoardView WO-02-005 — cards in correct columns (two-axis routing
     expect(col).toHaveTextContent("Idea Descartada");
   });
 
-  it("in-pipeline card with boardColumn=shipped (phase=operation) lands in shipped column (two-axis)", () => {
-    // This is the key two-axis test: an in-pipeline card should be in shipped if phase=operation
+  it("in-pipeline card with boardColumn=shipped (phase=release) lands in shipped column (two-axis)", () => {
+    // This is the key two-axis test: an in-pipeline card should be in shipped if phase=release
     render(<IdeaBoardView cards={[SHIPPED_CARD_PIPELINE]} />);
     const col = screen.getByTestId("board-column-shipped");
     expect(col).toHaveTextContent("Idea En Operación");

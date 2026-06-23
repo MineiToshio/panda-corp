@@ -137,7 +137,7 @@ describe("FRD-10 [reviewer]: shipped unlock dates are verifiable, never fabricat
     const data: ReaderData = {
       ideas: [],
       // one shipped project, but with no updatedAt timestamp at all
-      statuses: [mkStatus({ phase: "operation", project: "ghost" })],
+      statuses: [mkStatus({ phase: "release", project: "ghost" })],
       eventsSnapshot: mkSnapshot([]),
     };
     const shipped = computeChains(computeStats(data)).find((c) => c.statKey === "shipped");
@@ -150,7 +150,7 @@ describe("FRD-10 [reviewer]: shipped unlock dates are verifiable, never fabricat
   it("ChainCard never renders an empty/blank date for a dated-less shipped unlock", () => {
     const data: ReaderData = {
       ideas: [],
-      statuses: [mkStatus({ phase: "operation", project: "ghost" })],
+      statuses: [mkStatus({ phase: "release", project: "ghost" })],
       eventsSnapshot: mkSnapshot([]),
     };
     const shipped = computeChains(computeStats(data)).find((c) => c.statKey === "shipped");
@@ -200,7 +200,7 @@ describe("FRD-10 [reviewer]: engine is pure — identical input yields identical
     const at = "2026-06-15T09:30:00Z";
     const data: ReaderData = {
       ideas: [mkIdea("discovered", "i1"), mkIdea("discarded", "d1")],
-      statuses: [mkStatus({ phase: "operation", project: "p", updatedAt: at })],
+      statuses: [mkStatus({ phase: "release", project: "p", updatedAt: at })],
       eventsSnapshot: mkSnapshot([
         mkEvent({ event: "review", at, status: "ok", agent: "frd-reviewer", project: "p" }),
         mkEvent({ event: "achievement", at, status: "ok", task: "prd", project: "p" }),

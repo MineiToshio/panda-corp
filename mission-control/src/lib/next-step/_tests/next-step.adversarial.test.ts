@@ -195,18 +195,11 @@ describe("frd-02 adversarial: terminal status substance", () => {
 
 describe("frd-02 adversarial: per-phase labels are distinct (mutation hardening)", () => {
   it("frd-02 adversarial: each in-pipeline phase yields a distinct label", () => {
-    const phases = [
-      "product",
-      "design",
-      "architecture",
-      "implementation",
-      "release",
-      "operation",
-    ] as const;
+    const phases = ["product", "design", "architecture", "implementation", "release"] as const;
     const labels = phases.map((p) => nextStep({ cardStatus: "in-pipeline", phase: p }).label);
     const unique = new Set(labels);
-    // implementation and release share a *command* but their labels may still differ;
-    // at minimum no two phases may collapse to the identical label by a swap mutant.
+    // DR-085: implementation → release, release → iterate (distinct commands AND labels);
+    // no two phases may collapse to the identical label by a swap mutant.
     expect(unique.size).toBe(phases.length);
   });
 });

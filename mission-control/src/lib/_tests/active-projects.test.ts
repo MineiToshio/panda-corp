@@ -6,9 +6,10 @@
  *
  * Traceability:
  *   AC-03-001.1  The portfolio SHALL list the projects in `architecture`,
- *                `building` (implementation | release) and `shipped` (operation).
+ *                `implementation` and `release` (launched) — DR-085 folded the old
+ *                `operation` phase into `release`, so the launched/shipped project is `release`.
  *   AC-03-002.1  Each project SHALL expose its stage and a running indicator.
- *   AC-03-003.1  Each shipped/operation project SHALL expose its business snapshot
+ *   AC-03-003.1  Each launched (`release`) project SHALL expose its business snapshot
  *                when present in the portfolio.
  *   AC-03-006.x  Path-not-found detection: exists:false still listed; badge-ready.
  *
@@ -28,7 +29,7 @@
  *   proj-a           implementation (running:true)   YES  active phase
  *   proj-architecture architecture (running:false)   YES  active phase
  *   proj-release      release (running:true)         YES  active phase (building)
- *   proj-operation    operation (running:false)       YES  active phase (shipped) + snapshot
+ *   proj-operation    release (running:false)         YES  active phase (launched) + snapshot (DR-085)
  *   proj-b            malformed YAML (no phase)       YES  active but status malformed → fallback
  *   proj-missing-repo no status.yaml                  NO   portfolio phase=product → NON-active
  *   proj-product      product (running:false)          YES  NON-active phase, excluded
@@ -101,7 +102,7 @@ describe("frd-03: activeProjects — AC-03-001.1 active phase inclusion", () => 
     });
   });
 
-  it("frd-03: WHEN activeProjects() runs THEN proj-operation (operation/shipped) is included", async () => {
+  it("frd-03: WHEN activeProjects() runs THEN proj-operation (release/launched) is included", async () => {
     await withFactoryRoot(FIXTURE_FULL, () => {
       const names = (activeProjects() as ProjectListItem[]).map((p) => p.name);
       expect(names).toContain("proj-operation");
@@ -125,9 +126,9 @@ describe("frd-03: activeProjects — AC-03-001.1 active phase inclusion", () => 
   });
 
   it("frd-03: WHEN activeProjects() runs THEN the result contains only active-phase entries", async () => {
-    // Active phases: architecture | implementation | release | operation.
+    // Active phases (DR-085): architecture | implementation | release.
     // Any entry with a stage outside that set is a test defect.
-    const ACTIVE_STAGES = new Set(["architecture", "implementation", "release", "operation"]);
+    const ACTIVE_STAGES = new Set(["architecture", "implementation", "release"]);
     await withFactoryRoot(FIXTURE_FULL, () => {
       for (const item of activeProjects() as ProjectListItem[]) {
         if (item.stage !== undefined) {
@@ -146,7 +147,7 @@ describe("frd-03: activeProjects — AC-03-001.1 active phase inclusion", () => 
 describe("frd-03: activeProjects — AC-03-006.x: missing path still listed with exists:false", () => {
   it("frd-03: WHEN a portfolio row has a nonexistent path AND portfolio phase=shipped THEN it appears in the result", async () => {
     // proj-broken-path: portfolio phase cell = 'shipped', path=/nonexistent/...
-    // Status is absent → fallback to portfolio phase 'shipped' → maps to 'operation' active set.
+    // Status is absent → fallback to portfolio phase 'shipped' → maps to 'release' active set (DR-085).
     await withFactoryRoot(FIXTURE_FULL, () => {
       const names = (activeProjects() as ProjectListItem[]).map((p) => p.name);
       expect(names).toContain("proj-broken-path");
@@ -229,22 +230,21 @@ describe("frd-03: activeProjects — AC-03-002.1 stage and running fields", () =
     });
   });
 
-  it("frd-03: proj-operation (operation) has stage='operation'", async () => {
+  it("frd-03: proj-operation (release/launched) has stage='release'", async () => {
     await withFactoryRoot(FIXTURE_FULL, () => {
       const item = (activeProjects() as ProjectListItem[]).find((p) => p.name === "proj-operation");
-      expect(item?.stage).toBe("operation");
+      expect(item?.stage).toBe("release");
     });
   });
 
   it("frd-03: stage is a valid Phase literal or undefined on every returned item", async () => {
-    // Regression I3: stage must never be an array.
+    // Regression I3: stage must never be an array. (DR-085: no 'operation' phase.)
     const VALID_PHASES = new Set([
       "product",
       "design",
       "architecture",
       "implementation",
       "release",
-      "operation",
     ]);
     await withFactoryRoot(FIXTURE_FULL, () => {
       for (const item of activeProjects() as ProjectListItem[]) {
@@ -269,12 +269,12 @@ describe("frd-03: activeProjects — AC-03-002.1 stage and running fields", () =
 });
 
 // ---------------------------------------------------------------------------
-// AC-03-003.1 — business snapshot for shipped/operation projects
-// blueprint §2/§3: snapshot populated ONLY for operation phase; absent fields omitted silently
+// AC-03-003.1 — business snapshot for launched (release) projects
+// blueprint §2/§3: snapshot populated ONLY for the launched (release) phase; absent fields omitted silently (DR-085)
 // ---------------------------------------------------------------------------
 
-describe("frd-03: activeProjects — AC-03-003.1 business snapshot for shipped projects", () => {
-  it("frd-03: proj-operation (operation) has a snapshot object", async () => {
+describe("frd-03: activeProjects — AC-03-003.1 business snapshot for launched projects", () => {
+  it("frd-03: proj-operation (release/launched) has a snapshot object", async () => {
     await withFactoryRoot(FIXTURE_FULL, () => {
       const item = (activeProjects() as ProjectListItem[]).find((p) => p.name === "proj-operation");
       expect(item?.snapshot).toBeDefined();
@@ -303,11 +303,11 @@ describe("frd-03: activeProjects — AC-03-003.1 business snapshot for shipped p
   });
 
   it("frd-03: proj-a (implementation) has no snapshot (snapshot is undefined or absent)", async () => {
-    // Snapshot is only for operation phase, not for building phases.
+    // Snapshot is only for the launched (release) phase, not for the building phases (DR-085).
     await withFactoryRoot(FIXTURE_FULL, () => {
       const item = (activeProjects() as ProjectListItem[]).find((p) => p.name === "proj-a");
-      // The contract says snapshot is populated only for shipped/operation.
-      // It must not appear on non-operation entries.
+      // The contract says snapshot is populated only for the launched (release) phase.
+      // It must not appear on non-release entries.
       expect(item?.snapshot).toBeUndefined();
     });
   });
@@ -321,21 +321,21 @@ describe("frd-03: activeProjects — AC-03-003.1 business snapshot for shipped p
     });
   });
 
-  it("frd-03: WHEN an operation row has placeholder values in snapshot columns THEN those fields are undefined (not placeholder strings)", () => {
-    // Inline fixture: operation row with "—" in all snapshot columns.
+  it("frd-03: WHEN a launched (release) row has placeholder values in snapshot columns THEN those fields are undefined (not placeholder strings)", () => {
+    // Inline fixture: launched (release) row with "—" in all snapshot columns (DR-085).
     // Tests that normalizeCell from readPortfolio propagates through activeProjects.
     // This is a unit-level inline fixture test (no fs round-trip needed).
     const ACTIVE_PHASES_WITH_PLACEHOLDERS = [
       "| Name | Path | Repo | Origin idea | Phase | Users | Return metric | Verdict | Last sync |",
       "|---|---|---|---|---|---|---|---|---|",
-      "| op-no-snap | projects/proj-operation | — | An op project | operation | — | — | — | 2026-06-10 |",
+      "| op-no-snap | projects/proj-operation | — | An op project | release | — | — | — | 2026-06-10 |",
     ].join("\n");
     // We invoke via a string-content overload of readPortfolio to test the compose logic
     // without touching the PANDACORP_FACTORY_ROOT env (pure parser path).
     // The compose helper activeProjects() wraps readPortfolio + readStatus + pathExists;
     // to test this specific normalization path, we assert via the portfolioContent overload
     // of activeProjects (if the WO exposes one), or we verify the property on the
-    // output item from the full fixture where proj-architecture has all "—" snapshot cells.
+    // output item from the full fixture (a launched/release row with all "—" snapshot cells).
     const item = (activeProjects as (content?: string) => ProjectListItem[])(
       ACTIVE_PHASES_WITH_PLACEHOLDERS,
     );
@@ -374,7 +374,7 @@ describe("frd-03: activeProjects — malformed status falls back to portfolio ph
   });
 
   it("frd-03: WHEN status.yaml is absent AND portfolio phase is 'shipped' THEN the row is included via fallback", async () => {
-    // proj-broken-path: no status.yaml, portfolio phase='shipped' → maps to operation/active set.
+    // proj-broken-path: no status.yaml, portfolio phase='shipped' → maps to release/active set (DR-085).
     await withFactoryRoot(FIXTURE_FULL, () => {
       const names = (activeProjects() as ProjectListItem[]).map((p) => p.name);
       expect(names).toContain("proj-broken-path");
@@ -389,7 +389,7 @@ describe("frd-03: activeProjects — malformed status falls back to portfolio ph
       const item = (activeProjects() as ProjectListItem[]).find((p) => p.name === "proj-b");
       if (item !== undefined) {
         // If it appears (because a portfolio row for proj-b exists), stage must be valid.
-        const VALID_PHASES = new Set(["architecture", "implementation", "release", "operation"]);
+        const VALID_PHASES = new Set(["architecture", "implementation", "release"]);
         expect(item.stage === undefined || VALID_PHASES.has(item.stage ?? "")).toBe(true);
         // Regression I3: stage must not be an array.
         expect(Array.isArray(item.stage)).toBe(false);
@@ -534,7 +534,7 @@ describe("frd-03: activeProjects — inline content with a single active project
     // If the overload is not supported (no-arg only), the call returns the live
     // fixture result — which may be non-empty. We only assert the invariant that
     // no non-active stage leaks out.
-    const ACTIVE_PHASES = new Set(["architecture", "implementation", "release", "operation"]);
+    const ACTIVE_PHASES = new Set(["architecture", "implementation", "release"]);
     for (const item of result) {
       if (item.stage !== undefined) {
         expect(ACTIVE_PHASES.has(item.stage)).toBe(true);
@@ -549,7 +549,7 @@ describe("frd-03: activeProjects — inline content with a single active project
 // ---------------------------------------------------------------------------
 
 describe("frd-03: activeProjects — snapshot omitted when all columns are placeholder", () => {
-  it("frd-03: proj-broken-path (shipped/operation fallback, all snapshot cells are portfolio values) has snapshot populated", async () => {
+  it("frd-03: proj-broken-path (shipped→release fallback, all snapshot cells are portfolio values) has snapshot populated", async () => {
     // proj-broken-path: portfolio row has users=340, returnMetric='OSS stars', verdict='shipped'
     // It is classified as active via the 'shipped' portfolio phase fallback.
     // Its snapshot should be populated from portfolio columns.

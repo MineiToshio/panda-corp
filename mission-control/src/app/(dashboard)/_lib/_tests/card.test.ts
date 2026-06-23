@@ -101,13 +101,10 @@ describe("wo-18-004: AC-18-004.1 — phase+version, WO progress, age-in-stage, n
     expect(result.nextCommand).toBe("/pandacorp:release");
   });
 
-  it("wo-18-004: GIVEN release phase WHEN derived THEN nextCommand is /pandacorp:release", () => {
-    const result = deriveCard(makeInput({ phase: "release" }));
-    expect(result.nextCommand).toBe("/pandacorp:release");
-  });
-
-  it("wo-18-004: GIVEN operation phase WHEN derived THEN nextCommand is /pandacorp:review-launch", () => {
-    const result = deriveCard(makeInput({ phase: "operation", running: false }));
+  it("wo-18-004: GIVEN release (launched) phase WHEN derived THEN nextCommand is /pandacorp:review-launch", () => {
+    // DR-085: release is the launched phase (what "operation" used to mean); its
+    // next command is the post-launch review.
+    const result = deriveCard(makeInput({ phase: "release", running: false }));
     expect(result.nextCommand).toBe("/pandacorp:review-launch");
   });
 });
@@ -243,18 +240,18 @@ describe("wo-18-004: AC-18-004.4 — blocker reason from failing WO", () => {
 // AC-18-004.5 — shipped project: "estable · en operación" + review-launch
 // ---------------------------------------------------------------------------
 
-describe("wo-18-004: AC-18-004.5 — shipped project (operation phase)", () => {
-  it("wo-18-004: GIVEN operation phase WHEN derived THEN isShipped is true", () => {
-    const result = deriveCard(makeInput({ phase: "operation", running: false }));
+describe("wo-18-004: AC-18-004.5 — shipped project (release/launched phase)", () => {
+  it("wo-18-004: GIVEN release phase WHEN derived THEN isShipped is true", () => {
+    const result = deriveCard(makeInput({ phase: "release", running: false }));
     expect(result.isShipped).toBe(true);
   });
 
-  it("wo-18-004: GIVEN operation phase WHEN derived THEN nextCommand is /pandacorp:review-launch", () => {
-    const result = deriveCard(makeInput({ phase: "operation", running: false }));
+  it("wo-18-004: GIVEN release phase WHEN derived THEN nextCommand is /pandacorp:review-launch", () => {
+    const result = deriveCard(makeInput({ phase: "release", running: false }));
     expect(result.nextCommand).toBe("/pandacorp:review-launch");
   });
 
-  it("wo-18-004: GIVEN non-operation phase WHEN derived THEN isShipped is false", () => {
+  it("wo-18-004: GIVEN non-release phase WHEN derived THEN isShipped is false", () => {
     const result = deriveCard(makeInput({ phase: "implementation" }));
     expect(result.isShipped).toBe(false);
   });

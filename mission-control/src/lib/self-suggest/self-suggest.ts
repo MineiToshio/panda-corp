@@ -78,7 +78,7 @@ export type SuggestEvent = {
 export type SuggestPortfolioItem = {
   name: string;
   path: string;
-  /** Phase of the project (e.g. "operation", "implementation"). */
+  /** Phase of the project (e.g. "release", "implementation"). */
   stage?: string;
   /** ISO 8601 date when the project entered the current phase; null if unknown. */
   phaseStartedAt: string | null;
@@ -309,14 +309,14 @@ function deriveRecurringLesson(lessons: Lesson[]): Suggestion[] {
 // ---------------------------------------------------------------------------
 // Derivation 6: launch-review
 //
-// Rule: a shipped (operation) project older than LAUNCH_REVIEW_DAYS days.
+// Rule: a launched ("release") project older than LAUNCH_REVIEW_DAYS days.
 // Command: /pandacorp:review-launch (DR-043)
 // ---------------------------------------------------------------------------
 
 function deriveLaunchReview(portfolioItems: SuggestPortfolioItem[]): Suggestion[] {
   const suggestions: Suggestion[] = [];
   for (const item of portfolioItems) {
-    if (item.stage !== "operation") continue;
+    if (item.stage !== "release") continue;
     const age = daysAgo(item.phaseStartedAt);
     if (age === null || !Number.isFinite(age)) continue;
     if (age <= LAUNCH_REVIEW_DAYS) continue;

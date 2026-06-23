@@ -11,7 +11,7 @@
  *   AC-18-004.2 (REQ-18-016)  isLive / isNoSignal based on lastEventAt freshness
  *   AC-18-004.3 (REQ-18-017)  isStalled when phase age > STALENESS_THRESHOLD_DAYS
  *   AC-18-004.4 (REQ-18-018)  blockerReason from failing WO (passed in by caller)
- *   AC-18-004.5 (REQ-18-019)  isShipped for operation phase + /pandacorp:review-launch
+ *   AC-18-004.5 (REQ-18-019)  isShipped for launched "release" phase + /pandacorp:review-launch
  *   AC-18-004.7               thresholds read from lib/constants — no magic numbers
  */
 
@@ -32,7 +32,6 @@ const PHASE_LABELS: Readonly<Record<Phase, string>> = {
   architecture: "Arquitectura",
   implementation: "Implementación",
   release: "Release",
-  operation: "Operación",
 };
 
 // ---------------------------------------------------------------------------
@@ -120,7 +119,7 @@ export type CardData = {
    */
   isStalled: boolean;
   /**
-   * True for operation (shipped) phase projects.
+   * True for launched ("release") phase projects (DR-085: the old "operation" phase).
    * Shows "estable · en operación".
    */
   isShipped: boolean;
@@ -154,15 +153,15 @@ const CMD_REVIEW_LAUNCH = "/pandacorp:review-launch";
 
 /**
  * Map each phase to the primary next command.
- * Operation phase → review-launch (the shipped follow-up, DR-043).
+ * Construction (implementation) → release (launch it).
+ * Launched (release) → review-launch (the shipped follow-up, DR-043 / DR-085).
  */
 const PHASE_TO_COMMAND: Readonly<Record<Phase, string>> = {
   product: "/pandacorp:design",
   design: "/pandacorp:blueprint",
   architecture: "/pandacorp:implement",
   implementation: "/pandacorp:release",
-  release: "/pandacorp:release",
-  operation: CMD_REVIEW_LAUNCH,
+  release: CMD_REVIEW_LAUNCH,
 };
 
 // ---------------------------------------------------------------------------
@@ -244,8 +243,8 @@ export function deriveCard(input: CardInput): CardData {
   // --- Staleness flag (AC-18-004.3) ---
   const isStalled = ageInStageDays !== undefined && ageInStageDays > STALENESS_THRESHOLD_DAYS;
 
-  // --- Shipped flag (AC-18-004.5) ---
-  const isShipped = phase === "operation";
+  // --- Shipped flag (AC-18-004.5) — launched "release" phase (DR-085) ---
+  const isShipped = phase === "release";
 
   // --- Young-in-phase flag (prototype "Nd en fase" neutral chip) ---
   const isYoungInPhase =

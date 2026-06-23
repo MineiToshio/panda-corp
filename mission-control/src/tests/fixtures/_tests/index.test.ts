@@ -424,14 +424,7 @@ describe("frd-01 fixtures: status.yaml content (REQ-01-005)", () => {
       path.join(FIXTURE_FULL, "projects", "proj-a", ".pandacorp", "status.yaml"),
       "utf-8",
     );
-    const validPhases = [
-      "product",
-      "design",
-      "architecture",
-      "implementation",
-      "release",
-      "operation",
-    ];
+    const validPhases = ["product", "design", "architecture", "implementation", "release"];
     const phaseMatch = raw.match(/^phase:\s*(\S+)/m);
     expect(phaseMatch).not.toBeNull();
     if (phaseMatch) {

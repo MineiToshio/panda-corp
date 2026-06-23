@@ -391,14 +391,14 @@ describe("recurring-lesson derivation", () => {
 // ---------------------------------------------------------------------------
 
 describe("launch-review derivation", () => {
-  it("AC-17-003.1 — WHEN a shipped project is past LAUNCH_REVIEW_DAYS THEN emits suggestion", () => {
+  it("AC-17-003.1 — WHEN a launched project is past LAUNCH_REVIEW_DAYS THEN emits suggestion", () => {
     const input: SuggestionsInput = {
       ...emptyInput(),
       portfolioItems: [
         {
           name: "proj-old",
           path: "/tmp/proj-old",
-          stage: "operation",
+          stage: "release",
           phaseStartedAt: daysAgoISO(LAUNCH_REVIEW_DAYS + 1),
         },
       ],
@@ -416,7 +416,7 @@ describe("launch-review derivation", () => {
         {
           name: "proj-old",
           path: "/tmp/proj-old",
-          stage: "operation",
+          stage: "release",
           phaseStartedAt: daysAgoISO(LAUNCH_REVIEW_DAYS + 1),
         },
       ],
@@ -426,14 +426,14 @@ describe("launch-review derivation", () => {
     expect(launchReview?.command).toBe("/pandacorp:review-launch");
   });
 
-  it("AC-17-003.1 — WHEN a shipped project is within LAUNCH_REVIEW_DAYS THEN no launch-review", () => {
+  it("AC-17-003.1 — WHEN a launched project is within LAUNCH_REVIEW_DAYS THEN no launch-review", () => {
     const input: SuggestionsInput = {
       ...emptyInput(),
       portfolioItems: [
         {
           name: "proj-fresh",
           path: "/tmp/proj-fresh",
-          stage: "operation",
+          stage: "release",
           phaseStartedAt: daysAgoISO(LAUNCH_REVIEW_DAYS - 1),
         },
       ],
@@ -442,7 +442,7 @@ describe("launch-review derivation", () => {
     expect(results.filter((s) => s.kind === "launch-review")).toHaveLength(0);
   });
 
-  it("AC-17-003.1 — WHEN a project is not in operation phase THEN no launch-review", () => {
+  it("AC-17-003.1 — WHEN a project is not in release phase THEN no launch-review", () => {
     const input: SuggestionsInput = {
       ...emptyInput(),
       portfolioItems: [

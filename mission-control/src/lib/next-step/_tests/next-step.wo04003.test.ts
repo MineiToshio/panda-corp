@@ -1,9 +1,5 @@
 /**
- * WO-04-003 — `lib/next-step.ts`: `workspaceCommands(phase)` — RED phase
- *
- * Tests are written BEFORE the implementation of workspaceCommands.
- * The function does not yet exist in lib/next-step.ts; every test here will
- * fail (RED) until the GREEN phase. That is the intent.
+ * WO-04-003 — `lib/next-step.ts`: `workspaceCommands(phase)`
  *
  * Traceability:
  *   REQ-04-005   The Commands tab SHALL show the stage-relevant commands
@@ -13,14 +9,14 @@
  *                use" description. → workspaceCommands must return CommandRow[]
  *                where every row has command (string) and when (string).
  *
- * WO-04-003 scope (blueprint §2, IF-04-next-step):
+ * WO-04-003 scope (blueprint §2, IF-04-next-step) — updated for DR-085:
  *   export interface CommandRow { command: string; when: string; }
  *   export function workspaceCommands(phase: Phase): CommandRow[];
  *
- *   Phase → CommandRow[] mapping (canonical per WO-04-003 §Scope):
+ *   Phase → CommandRow[] mapping (DR-085: construction = implementation; the
+ *   launched phase = "release", which folded in the old "operation"):
  *     "implementation" → [/pandacorp:implement, /pandacorp:release, /pandacorp:iterate]
- *     "release"        → same three as implementation (all WOs done = release time)
- *     "operation"      → [/pandacorp:iterate, /pandacorp:new-version]
+ *     "release"        → [/pandacorp:iterate, /pandacorp:new-version]  (launched project)
  *     earlier phases   → delegates to FRD-02 base nextStep; returns the single
  *                        next-step command as a one-element CommandRow array.
  *
@@ -41,10 +37,6 @@
 
 import { describe, expect, it } from "vitest";
 
-// The function under test — does not exist yet (RED phase).
-// The CommandRow type is defined in lib/next-step.ts; mirror it here so the
-// test file is self-documenting and survives a rename during GREEN.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { workspaceCommands } from "../next-step";
 
 // Mirror of CommandRow from the blueprint contract (IF-04-next-step).
@@ -56,7 +48,7 @@ const CMD_RELEASE = "/pandacorp:release";
 const CMD_ITERATE = "/pandacorp:iterate";
 const CMD_NEW_VERSION = "/pandacorp:new-version";
 
-// Commands that MUST NOT appear for operation-phase rows (pre-build commands).
+// Commands that MUST NOT appear for launched ("release") rows (pre-build commands).
 const PRE_BUILD_COMMANDS = ["/pandacorp:spec <idea>", "/pandacorp:design", "/pandacorp:blueprint"];
 
 // ---------------------------------------------------------------------------
@@ -72,10 +64,10 @@ function assertCommandRow(row: CommandRow): void {
 }
 
 // ---------------------------------------------------------------------------
-// AC-04-005.1 — implementation phase
+// AC-04-005.1 — implementation (construction) phase
 //
 // WHEN phase is "implementation" THEN workspaceCommands returns the three
-// building-phase commands in the required order:
+// construction-phase commands in the required order:
 //   1. /pandacorp:implement  — "continue/resume the build"
 //   2. /pandacorp:release    — "when all work orders are done"
 //   3. /pandacorp:iterate    — "add an FRD, tweak or fix"
@@ -140,36 +132,33 @@ describe("frd-04: workspaceCommands — AC-04-005.1 implementation phase", () =>
 });
 
 // ---------------------------------------------------------------------------
-// AC-04-005.1 — release phase (same three commands as implementation)
+// AC-04-005.1 — release (launched) phase
 //
-// The blueprint maps both "implementation" and "release" to the same command
-// set.  Both phases are mid-build; the owner can still resume, release or
-// iterate.  The row order must be the same.
+// DR-085: "release" is the launched phase (the old "operation" folded in).
+// WHEN phase is "release" THEN workspaceCommands returns the launched-project set:
+//   1. /pandacorp:iterate    — primary action for a launched project
+//   2. /pandacorp:new-version — optional milestone (WO-04-003 §Scope)
+// The iterate command is the primary one; new-version is the second.
 // ---------------------------------------------------------------------------
 
-describe("frd-04: workspaceCommands — AC-04-005.1 release phase", () => {
+describe("frd-04: workspaceCommands — AC-04-005.1 release (launched) phase", () => {
   it("frd-04: WHEN phase is release THEN function does not throw", () => {
     expect(() => workspaceCommands("release")).not.toThrow();
   });
 
-  it("frd-04: WHEN phase is release THEN returns exactly three rows", () => {
+  it("frd-04: WHEN phase is release THEN returns exactly two rows", () => {
     const rows: CommandRow[] = workspaceCommands("release");
-    expect(rows).toHaveLength(3);
+    expect(rows).toHaveLength(2);
   });
 
-  it("frd-04: WHEN phase is release THEN first row command is /pandacorp:implement", () => {
+  it("frd-04: WHEN phase is release THEN first row command is /pandacorp:iterate", () => {
     const rows: CommandRow[] = workspaceCommands("release");
-    expect(rows[0]?.command).toBe(CMD_IMPLEMENT);
+    expect(rows[0]?.command).toBe(CMD_ITERATE);
   });
 
-  it("frd-04: WHEN phase is release THEN second row command is /pandacorp:release", () => {
+  it("frd-04: WHEN phase is release THEN second row command is /pandacorp:new-version", () => {
     const rows: CommandRow[] = workspaceCommands("release");
-    expect(rows[1]?.command).toBe(CMD_RELEASE);
-  });
-
-  it("frd-04: WHEN phase is release THEN third row command is /pandacorp:iterate", () => {
-    const rows: CommandRow[] = workspaceCommands("release");
-    expect(rows[2]?.command).toBe(CMD_ITERATE);
+    expect(rows[1]?.command).toBe(CMD_NEW_VERSION);
   });
 
   it("frd-04: WHEN phase is release THEN each row has non-empty command and when strings", () => {
@@ -179,67 +168,22 @@ describe("frd-04: workspaceCommands — AC-04-005.1 release phase", () => {
     }
   });
 
-  it("frd-04 mapping: implementation and release produce the same command sequence", () => {
-    // Mutation hardening: a mutant that swaps one row between the two phases
-    // would pass individual tests but break this parity assertion.
-    const impl: CommandRow[] = workspaceCommands("implementation");
-    const rel: CommandRow[] = workspaceCommands("release");
-    expect(impl.map((r: CommandRow) => r.command)).toEqual(rel.map((r: CommandRow) => r.command));
-  });
-});
-
-// ---------------------------------------------------------------------------
-// AC-04-005.1 — operation phase
-//
-// WHEN phase is "operation" THEN workspaceCommands returns:
-//   1. /pandacorp:iterate    — primary action for a shipped project
-//   2. /pandacorp:new-version — optional milestone (WO-04-003 §Scope)
-// The iterate command is the primary one; new-version is the second.
-// ---------------------------------------------------------------------------
-
-describe("frd-04: workspaceCommands — AC-04-005.1 operation phase", () => {
-  it("frd-04: WHEN phase is operation THEN function does not throw", () => {
-    expect(() => workspaceCommands("operation")).not.toThrow();
-  });
-
-  it("frd-04: WHEN phase is operation THEN returns exactly two rows", () => {
-    const rows: CommandRow[] = workspaceCommands("operation");
-    expect(rows).toHaveLength(2);
-  });
-
-  it("frd-04: WHEN phase is operation THEN first row command is /pandacorp:iterate", () => {
-    const rows: CommandRow[] = workspaceCommands("operation");
-    expect(rows[0]?.command).toBe(CMD_ITERATE);
-  });
-
-  it("frd-04: WHEN phase is operation THEN second row command is /pandacorp:new-version", () => {
-    const rows: CommandRow[] = workspaceCommands("operation");
-    expect(rows[1]?.command).toBe(CMD_NEW_VERSION);
-  });
-
-  it("frd-04: WHEN phase is operation THEN each row has non-empty command and when strings", () => {
-    const rows: CommandRow[] = workspaceCommands("operation");
-    for (const row of rows) {
-      assertCommandRow(row);
-    }
-  });
-
-  it("frd-04: WHEN phase is operation THEN no pre-build command appears (regression: wrong delegation)", () => {
-    const rows: CommandRow[] = workspaceCommands("operation");
+  it("frd-04: WHEN phase is release THEN no pre-build command appears (regression: wrong delegation)", () => {
+    const rows: CommandRow[] = workspaceCommands("release");
     const commands = rows.map((r: CommandRow) => r.command);
     for (const preBuilt of PRE_BUILD_COMMANDS) {
       expect(commands).not.toContain(preBuilt);
     }
   });
 
-  it("frd-04: WHEN phase is operation THEN /pandacorp:implement does not appear (shipped project)", () => {
-    const rows: CommandRow[] = workspaceCommands("operation");
+  it("frd-04: WHEN phase is release THEN /pandacorp:implement does not appear (launched project)", () => {
+    const rows: CommandRow[] = workspaceCommands("release");
     const commands = rows.map((r) => r.command);
     expect(commands).not.toContain(CMD_IMPLEMENT);
   });
 
-  it("frd-04: WHEN phase is operation THEN /pandacorp:release does not appear (shipped project)", () => {
-    const rows: CommandRow[] = workspaceCommands("operation");
+  it("frd-04: WHEN phase is release THEN /pandacorp:release does not appear (already launched)", () => {
+    const rows: CommandRow[] = workspaceCommands("release");
     const commands = rows.map((r) => r.command);
     expect(commands).not.toContain(CMD_RELEASE);
   });
@@ -324,14 +268,7 @@ describe("frd-04: workspaceCommands — AC-04-005.1 early-phase delegation to FR
 
 describe("frd-04: workspaceCommands — pure function invariants", () => {
   it("frd-04: WHEN called twice with the same phase THEN returns the same commands (deterministic)", () => {
-    const phases = [
-      "implementation",
-      "release",
-      "operation",
-      "product",
-      "design",
-      "architecture",
-    ] as const;
+    const phases = ["implementation", "release", "product", "design", "architecture"] as const;
     for (const phase of phases) {
       const first = workspaceCommands(phase).map((r: CommandRow) => r.command);
       const second = workspaceCommands(phase).map((r: CommandRow) => r.command);
@@ -340,14 +277,7 @@ describe("frd-04: workspaceCommands — pure function invariants", () => {
   });
 
   it("frd-04: WHEN called with any valid phase THEN returns an Array (not falsy, not null, not undefined)", () => {
-    const phases = [
-      "product",
-      "design",
-      "architecture",
-      "implementation",
-      "release",
-      "operation",
-    ] as const;
+    const phases = ["product", "design", "architecture", "implementation", "release"] as const;
     for (const phase of phases) {
       const rows = workspaceCommands(phase);
       expect(rows).not.toBeNull();
@@ -358,14 +288,7 @@ describe("frd-04: workspaceCommands — pure function invariants", () => {
 
   it("frd-04: WHEN called with any valid phase THEN returns at least one row (never empty array)", () => {
     // Regression B2 / WO-12-004: an empty array is undetectable by generic toBeTruthy.
-    const phases = [
-      "product",
-      "design",
-      "architecture",
-      "implementation",
-      "release",
-      "operation",
-    ] as const;
+    const phases = ["product", "design", "architecture", "implementation", "release"] as const;
     for (const phase of phases) {
       const rows = workspaceCommands(phase);
       expect(rows.length).toBeGreaterThanOrEqual(1);
@@ -373,9 +296,9 @@ describe("frd-04: workspaceCommands — pure function invariants", () => {
   });
 
   it("frd-04: WHEN called THEN does not mutate any module-level state (idempotent across repeated calls)", () => {
-    // Call in an order that exercises all branches, then verify the two building
-    // phases still produce their canonical output.
-    workspaceCommands("operation");
+    // Call in an order that exercises all branches, then verify the construction
+    // phase still produces its canonical output.
+    workspaceCommands("release");
     workspaceCommands("product");
     workspaceCommands("design");
     const impl = workspaceCommands("implementation");
@@ -388,7 +311,7 @@ describe("frd-04: workspaceCommands — pure function invariants", () => {
 
   it("frd-04: WHEN called THEN every returned row's when field is distinct from its command field", () => {
     // 'when' is the description of when to use the command — it is NOT the command string itself.
-    const phases = ["implementation", "release", "operation"] as const;
+    const phases = ["implementation", "release"] as const;
     for (const phase of phases) {
       for (const row of workspaceCommands(phase)) {
         expect(row.when).not.toBe(row.command);
@@ -416,23 +339,12 @@ describe("frd-04: workspaceCommands — complete mapping table (mutation hardeni
     expect(workspaceCommands("implementation")[2]?.command).toBe(CMD_ITERATE);
   });
 
-  // Release rows (parallel to implementation)
-  it("frd-04 mapping[rel-0]: release row[0] command is /pandacorp:implement", () => {
-    expect(workspaceCommands("release")[0]?.command).toBe(CMD_IMPLEMENT);
+  // Release (launched) rows
+  it("frd-04 mapping[rel-0]: release row[0] command is /pandacorp:iterate", () => {
+    expect(workspaceCommands("release")[0]?.command).toBe(CMD_ITERATE);
   });
-  it("frd-04 mapping[rel-1]: release row[1] command is /pandacorp:release", () => {
-    expect(workspaceCommands("release")[1]?.command).toBe(CMD_RELEASE);
-  });
-  it("frd-04 mapping[rel-2]: release row[2] command is /pandacorp:iterate", () => {
-    expect(workspaceCommands("release")[2]?.command).toBe(CMD_ITERATE);
-  });
-
-  // Operation rows
-  it("frd-04 mapping[op-0]: operation row[0] command is /pandacorp:iterate", () => {
-    expect(workspaceCommands("operation")[0]?.command).toBe(CMD_ITERATE);
-  });
-  it("frd-04 mapping[op-1]: operation row[1] command is /pandacorp:new-version", () => {
-    expect(workspaceCommands("operation")[1]?.command).toBe(CMD_NEW_VERSION);
+  it("frd-04 mapping[rel-1]: release row[1] command is /pandacorp:new-version", () => {
+    expect(workspaceCommands("release")[1]?.command).toBe(CMD_NEW_VERSION);
   });
 
   // Early-phase delegation (locks the FRD-02 delegation chain)
@@ -447,27 +359,24 @@ describe("frd-04: workspaceCommands — complete mapping table (mutation hardeni
   });
 
   // Count guards (kills array-truncation mutants)
-  it("frd-04 mapping counts: implementation has 3 rows, operation has 2, early phases have 1", () => {
+  it("frd-04 mapping counts: implementation has 3 rows, release has 2, early phases have 1", () => {
     expect(workspaceCommands("implementation")).toHaveLength(3);
-    expect(workspaceCommands("release")).toHaveLength(3);
-    expect(workspaceCommands("operation")).toHaveLength(2);
+    expect(workspaceCommands("release")).toHaveLength(2);
     expect(workspaceCommands("product")).toHaveLength(1);
     expect(workspaceCommands("design")).toHaveLength(1);
     expect(workspaceCommands("architecture")).toHaveLength(1);
   });
 
-  // Row order: iterate must come AFTER implement and release in building phases,
-  // and BEFORE new-version in operation.
-  it("frd-04 mapping order: in building phases, /pandacorp:iterate is last (row index 2)", () => {
-    for (const phase of ["implementation", "release"] as const) {
-      const rows = workspaceCommands(phase);
-      const iterateIndex = rows.findIndex((r: CommandRow) => r.command === CMD_ITERATE);
-      expect(iterateIndex).toBe(2);
-    }
+  // Row order: iterate must come AFTER implement and release in the construction phase,
+  // and BEFORE new-version in the launched (release) phase.
+  it("frd-04 mapping order: in implementation, /pandacorp:iterate is last (row index 2)", () => {
+    const rows = workspaceCommands("implementation");
+    const iterateIndex = rows.findIndex((r: CommandRow) => r.command === CMD_ITERATE);
+    expect(iterateIndex).toBe(2);
   });
 
-  it("frd-04 mapping order: in operation, /pandacorp:iterate is first (row index 0)", () => {
-    const rows = workspaceCommands("operation");
+  it("frd-04 mapping order: in release, /pandacorp:iterate is first (row index 0)", () => {
+    const rows = workspaceCommands("release");
     expect(rows[0]?.command).toBe(CMD_ITERATE);
   });
 });
@@ -483,8 +392,8 @@ describe("frd-04: workspaceCommands — complete mapping table (mutation hardeni
 //   Same: undefined phase after readStatus rejection must be handled safely.
 //
 // The function signature accepts Phase (a string union); runtime callers from
-// a partially-typed YAML path may pass undefined or an unrecognised string.
-// The function owns its boundary.
+// a partially-typed YAML path may pass undefined or an unrecognised string
+// (including the retired "operation" phase). The function owns its boundary.
 // ---------------------------------------------------------------------------
 
 describe("frd-04: workspaceCommands — regression B1' and I3 (undefined / unknown phase)", () => {
@@ -531,5 +440,12 @@ describe("frd-04: workspaceCommands — regression B1' and I3 (undefined / unkno
     const commands = rows.map((r: CommandRow) => r.command);
     expect(commands).not.toContain(CMD_IMPLEMENT);
     expect(commands).not.toContain(CMD_RELEASE);
+  });
+
+  it("frd-04 DR-085: WHEN phase is the retired 'operation' value THEN falls back to spec (not the launched set)", () => {
+    // The old "operation" phase folded into "release"; passing it now is an unknown phase.
+    const rows = workspaceCommands("operation" as never);
+    expect(rows.length).toBeGreaterThanOrEqual(1);
+    expect(rows[0]?.command).toBe("/pandacorp:spec <idea>");
   });
 });

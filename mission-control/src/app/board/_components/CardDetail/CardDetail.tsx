@@ -37,7 +37,7 @@ import { phaseFromStatus } from "@/lib/campaign/campaign";
 import type { ProjectDocsIndex } from "@/lib/docs/docs";
 import type { IdeaStatus } from "@/lib/ideas/ideas";
 import { nextStep, workspaceCommands } from "@/lib/next-step/next-step";
-import type { Phase } from "@/lib/status/status";
+import type { DeployTarget, Phase } from "@/lib/status/status";
 import {
   buildNavEntries,
   COMMAND_WHEN_STYLE,
@@ -139,6 +139,8 @@ export interface CardDetailProps {
   body: string;
   /** Project phase from linked project's status.yaml (in-pipeline only). */
   phase?: Phase;
+  /** Deploy target (DR-085) — surfaced in the campaign's Release ficha (internal/external). */
+  deployTarget?: DeployTarget;
   /** DR-032: whether a skill has advanced a phase and is waiting for "ok, advance". */
   advancePending?: boolean;
   /** Result of readProjectDocs(card.project). Null when no project or docs. */
@@ -185,6 +187,7 @@ export function CardDetail({
   status,
   body,
   phase,
+  deployTarget,
   advancePending,
   docsIndex,
   isRunning,
@@ -200,10 +203,9 @@ export function CardDetail({
   const step = nextStep({ cardStatus: status, phase, advancePending });
 
   // Project commands for the Comandos tab — the multi-command box shows for
-  // building/operation cards (prototype commandsBox); else just the next step.
+  // construction/launched cards (prototype commandsBox); else just the next step.
   const projectCommands = phase != null ? workspaceCommands(phase) : [];
-  const showProjectCommands =
-    phase === "implementation" || phase === "release" || phase === "operation";
+  const showProjectCommands = phase === "implementation" || phase === "release";
 
   // Derive the active campaign phase index for CampaignPipeline.
   const activePhase = phaseFromStatus({ cardStatus: status, phase });
@@ -264,6 +266,7 @@ export function CardDetail({
           slug={slug}
           activePhase={activePhase}
           running={isRunning === true}
+          deployTarget={deployTarget}
           onEnterForge={handleEnterForge}
         />
       </div>
@@ -341,7 +344,7 @@ export function CardDetail({
         </div>
       </div>
 
-      {/* ---- Comandos panel — next step · avanzar + (building/operation) the project box ---- */}
+      {/* ---- Comandos panel — next step · avanzar + (construction/launched) the project box ---- */}
       <div
         data-testid="card-detail-panel-comandos"
         role="tabpanel"
@@ -359,7 +362,7 @@ export function CardDetail({
           <CmdRow command={step.command} />
         </section>
 
-        {/* Project command box — building/operation cards (prototype commandsBox) */}
+        {/* Project command box — construction/launched cards (prototype commandsBox) */}
         {showProjectCommands && (
           <section
             data-testid="card-detail-project-commands"

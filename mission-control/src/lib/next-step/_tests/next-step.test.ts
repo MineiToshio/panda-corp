@@ -15,9 +15,8 @@
  *   in-pipeline + product              → /pandacorp:design
  *   in-pipeline + design               → /pandacorp:blueprint
  *   in-pipeline + architecture         → /pandacorp:implement
- *   in-pipeline + implementation       → /pandacorp:release
- *   in-pipeline + release              → /pandacorp:release
- *   in-pipeline + operation            → /pandacorp:iterate   (or :review-launch)
+ *   in-pipeline + implementation       → /pandacorp:release   (construction done → launch)
+ *   in-pipeline + release              → /pandacorp:iterate   (launched → iterate/review, DR-085)
  *   advancePending: true (any in-pipeline phase) → command MUST carry the "ok, advance" hint
  *   shipped / discarded                → terminal, no meaningful next step
  *
@@ -49,7 +48,7 @@ import { nextStep } from "../next-step";
 // ---------------------------------------------------------------------------
 
 type IdeaStatus = "discovered" | "recommended" | "in-pipeline" | "shipped" | "discarded";
-type Phase = "product" | "design" | "architecture" | "implementation" | "release" | "operation";
+type Phase = "product" | "design" | "architecture" | "implementation" | "release";
 type NextStep = { command: string; openPath?: string; label: string };
 
 // ---------------------------------------------------------------------------
@@ -179,35 +178,19 @@ describe("frd-02: nextStep — AC-02-004.1 in-pipeline + implementation phase", 
 });
 
 // ---------------------------------------------------------------------------
-// AC-02-004.1 — in-pipeline + release → /pandacorp:release
-// (release phase maps to the same command as implementation: audit + deploy)
+// AC-02-004.1 — in-pipeline + release → /pandacorp:iterate
+// (DR-085: release = launched project; canonical command is :iterate / review-launch,
+//  what the old "operation" phase gave)
 // ---------------------------------------------------------------------------
 
-describe("frd-02: nextStep — AC-02-004.1 in-pipeline + release phase", () => {
-  it("frd-02: WHEN cardStatus is in-pipeline AND phase is release THEN command is /pandacorp:release", () => {
+describe("frd-02: nextStep — AC-02-004.1 in-pipeline + release (launched) phase", () => {
+  it("frd-02: WHEN cardStatus is in-pipeline AND phase is release THEN command is /pandacorp:iterate", () => {
     const result: NextStep = nextStep(makeInput({ cardStatus: "in-pipeline", phase: "release" }));
-    expect(result.command).toBe("/pandacorp:release");
+    expect(result.command).toBe("/pandacorp:iterate");
   });
 
   it("frd-02: WHEN cardStatus is in-pipeline AND phase is release THEN result has a non-empty label", () => {
     const result: NextStep = nextStep(makeInput({ cardStatus: "in-pipeline", phase: "release" }));
-    expect(result.label.length).toBeGreaterThan(0);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// AC-02-004.1 — in-pipeline + operation → /pandacorp:iterate
-// (operation = shipped project in maintenance; canonical command is :iterate)
-// ---------------------------------------------------------------------------
-
-describe("frd-02: nextStep — AC-02-004.1 in-pipeline + operation phase", () => {
-  it("frd-02: WHEN cardStatus is in-pipeline AND phase is operation THEN command is /pandacorp:iterate", () => {
-    const result: NextStep = nextStep(makeInput({ cardStatus: "in-pipeline", phase: "operation" }));
-    expect(result.command).toBe("/pandacorp:iterate");
-  });
-
-  it("frd-02: WHEN cardStatus is in-pipeline AND phase is operation THEN result has a non-empty label", () => {
-    const result: NextStep = nextStep(makeInput({ cardStatus: "in-pipeline", phase: "operation" }));
     expect(result.label.length).toBeGreaterThan(0);
   });
 });
@@ -456,25 +439,21 @@ describe("frd-02: nextStep — complete mapping table (lock against mutation)", 
     );
   });
 
-  // Row 7: in-pipeline + release → /pandacorp:release (same as implementation)
-  it("frd-02 mapping[7]: in-pipeline + release → command is /pandacorp:release", () => {
+  // Row 7: in-pipeline + release → /pandacorp:iterate (launched, DR-085)
+  it("frd-02 mapping[7]: in-pipeline + release → command is /pandacorp:iterate", () => {
     expect(nextStep({ cardStatus: "in-pipeline", phase: "release" }).command).toBe(
-      "/pandacorp:release",
-    );
-  });
-
-  // Row 8: in-pipeline + operation → /pandacorp:iterate
-  it("frd-02 mapping[8]: in-pipeline + operation → command is /pandacorp:iterate", () => {
-    expect(nextStep({ cardStatus: "in-pipeline", phase: "operation" }).command).toBe(
       "/pandacorp:iterate",
     );
   });
 
-  // Row 9: implementation and release must map to the SAME command (not confused)
-  it("frd-02 mapping[9]: implementation and release both map to the same command", () => {
+  // Row 9: implementation and release must map to DIFFERENT commands (DR-085: construction
+  // → release; launched → iterate). They must NOT be confused.
+  it("frd-02 mapping[9]: implementation and release map to different commands", () => {
     const implCmd = nextStep({ cardStatus: "in-pipeline", phase: "implementation" }).command;
     const releaseCmd = nextStep({ cardStatus: "in-pipeline", phase: "release" }).command;
-    expect(implCmd).toBe(releaseCmd);
+    expect(implCmd).toBe("/pandacorp:release");
+    expect(releaseCmd).toBe("/pandacorp:iterate");
+    expect(implCmd).not.toBe(releaseCmd);
   });
 
   // Row 10: discovered and recommended must map to the SAME command (not confused)
@@ -522,7 +501,6 @@ describe("frd-02: nextStep — pure function invariants", () => {
       { cardStatus: "in-pipeline", phase: "architecture" },
       { cardStatus: "in-pipeline", phase: "implementation" },
       { cardStatus: "in-pipeline", phase: "release" },
-      { cardStatus: "in-pipeline", phase: "operation" },
       { cardStatus: "shipped" },
       { cardStatus: "discarded" },
     ];
@@ -553,25 +531,24 @@ describe("frd-02: nextStep — pure function invariants", () => {
   });
 
   it("frd-02: WHEN called with adjacent phases THEN commands are distinct (no phase aliasing)", () => {
-    // Each phase must produce a DISTINCT command — no two adjacent phases should be
-    // collapsed to the same command unless the spec explicitly says so
-    // (only implementation+release share a command; all others must differ).
+    // Each phase must produce a DISTINCT command (DR-085: no two phases collapse to the
+    // same command — construction → release, launched → iterate, all others differ).
     const product = nextStep({ cardStatus: "in-pipeline", phase: "product" }).command;
     const design = nextStep({ cardStatus: "in-pipeline", phase: "design" }).command;
     const architecture = nextStep({ cardStatus: "in-pipeline", phase: "architecture" }).command;
-    const operation = nextStep({ cardStatus: "in-pipeline", phase: "operation" }).command;
+    const release = nextStep({ cardStatus: "in-pipeline", phase: "release" }).command;
 
     // All four are distinct
     expect(product).not.toBe(design);
     expect(design).not.toBe(architecture);
-    expect(architecture).not.toBe(operation);
+    expect(architecture).not.toBe(release);
 
     // None of them equals the spec command (pre-pipeline)
     const spec = nextStep({ cardStatus: "discovered" }).command;
     expect(product).not.toBe(spec);
     expect(design).not.toBe(spec);
     expect(architecture).not.toBe(spec);
-    expect(operation).not.toBe(spec);
+    expect(release).not.toBe(spec);
   });
 });
 

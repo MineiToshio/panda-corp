@@ -11,9 +11,10 @@
  *   1. Authoritative-over-advisory precedence: status.yaml phase MUST override a conflicting
  *      portfolio `phase` cell (status=architecture beats portfolio=shipped) — and the snapshot
  *      gating follows the AUTHORITATIVE phase, not the portfolio cell.
- *   2. Snapshot is gated on the resolved `stage === "operation"`, so portfolio snapshot cells on
- *      a non-operation row must be dropped; and an authoritative `operation` phase pulls the
- *      snapshot from the portfolio row even when the portfolio `phase` cell disagrees.
+ *   2. Snapshot is gated on the resolved `stage === "release"` (DR-085 folded `operation` into
+ *      the launched `release` phase), so portfolio snapshot cells on a non-release row must be
+ *      dropped; and an authoritative `release` phase pulls the snapshot from the portfolio row
+ *      even when the portfolio `phase` cell disagrees.
  *   3. `building` advisory keyword → implementation (the human alias the FRD names but the
  *      implementer never fallback-tested without a status.yaml).
  *   4. Mixed-case advisory phase cell is normalized.
@@ -76,16 +77,16 @@ describe("frd-03 adversarial: activeProjects — status.yaml phase beats a confl
 });
 
 // ---------------------------------------------------------------------------
-// (2) Authoritative `operation` pulls the snapshot from the portfolio row even when
-// the portfolio `phase` cell disagrees. proj-operation's status.yaml = operation;
+// (2) Authoritative `release` pulls the snapshot from the portfolio row even when
+// the portfolio `phase` cell disagrees. proj-operation's status.yaml = release (DR-085);
 // we give it a portfolio row claiming `implementation` but carrying snapshot cells.
-// Resolved stage must be operation (status wins) AND the snapshot must be populated
+// Resolved stage must be release (status wins) AND the snapshot must be populated
 // from the portfolio columns. A mutant that gated the snapshot on the portfolio cell
 // (which says implementation) would drop the snapshot and be caught.
 // ---------------------------------------------------------------------------
 
-describe("frd-03 adversarial: activeProjects — authoritative operation snapshot from portfolio row", () => {
-  it("attaches the portfolio snapshot when status says operation but the portfolio cell says implementation", async () => {
+describe("frd-03 adversarial: activeProjects — authoritative release snapshot from portfolio row", () => {
+  it("attaches the portfolio snapshot when status says release but the portfolio cell says implementation", async () => {
     await withFactoryRoot(FIXTURE_FULL, () => {
       const content = [
         H,
@@ -93,19 +94,19 @@ describe("frd-03 adversarial: activeProjects — authoritative operation snapsho
         "| proj-operation | projects/proj-operation | r | i | implementation | 500 | $1 MRR | dd | x |",
       ].join("\n");
       const item = activeProjects(content).find((p) => p.name === "proj-operation");
-      expect(item?.stage).toBe("operation");
+      expect(item?.stage).toBe("release");
       expect(item?.snapshot).toEqual({ users: "500", returnMetric: "$1 MRR", verdict: "dd" });
     });
   });
 });
 
 // ---------------------------------------------------------------------------
-// (2b) Snapshot is dropped for a NON-operation authoritative phase even when the
+// (2b) Snapshot is dropped for a NON-release authoritative phase even when the
 // portfolio row carries snapshot cells. proj-a status = implementation; portfolio
-// row lies with snapshot cells → must NOT produce a snapshot.
+// row lies with snapshot cells → must NOT produce a snapshot. (DR-085)
 // ---------------------------------------------------------------------------
 
-describe("frd-03 adversarial: activeProjects — no snapshot on a non-operation phase despite portfolio cells", () => {
+describe("frd-03 adversarial: activeProjects — no snapshot on a non-release phase despite portfolio cells", () => {
   it("drops portfolio snapshot cells when the resolved stage is implementation", async () => {
     await withFactoryRoot(FIXTURE_FULL, () => {
       const content = [
@@ -182,21 +183,21 @@ describe("frd-03 adversarial: activeProjects — unknown advisory phase is exclu
   });
 
   it("never emits an item whose stage is outside the active set, across a mixed table", () => {
-    const ACTIVE = new Set(["architecture", "implementation", "release", "operation"]);
+    const ACTIVE = new Set(["architecture", "implementation", "release"]);
     const content = [
       H,
       S,
       "| a-arch | /p/a | r | i | architecture | — | — | — | x |",
       "| a-gib | /p/g | r | i | not-a-phase | — | — | — | x |",
       "| a-design | /p/d | r | i | design | — | — | — | x |",
-      "| a-op | /p/o | r | i | operation | 1 | $2 | win | x |",
+      "| a-op | /p/o | r | i | release | 1 | $2 | win | x |",
     ].join("\n");
     const result = activeProjects(content);
     for (const item of result) {
       expect(item.stage).toBeDefined();
       expect(ACTIVE.has(item.stage as string)).toBe(true);
     }
-    // design + gibberish excluded; architecture + operation kept.
+    // design + gibberish excluded; architecture + release (launched) kept.
     expect(result.map((p) => p.name).sort()).toEqual(["a-arch", "a-op"]);
   });
 });
@@ -229,14 +230,14 @@ describe("frd-03 adversarial: activeProjects — running undefined (not coerced)
 // ---------------------------------------------------------------------------
 
 describe("frd-03 adversarial: activeProjects — partial snapshot omits placeholder columns", () => {
-  it("emits only the non-placeholder snapshot fields for an operation row", () => {
+  it("emits only the non-placeholder snapshot fields for a launched (release) row", () => {
     const content = [
       H,
       S,
-      "| part-op | /no/such/path/part-op | r | i | operation | 5 | — | — | x |",
+      "| part-op | /no/such/path/part-op | r | i | release | 5 | — | — | x |",
     ].join("\n");
     const item = activeProjects(content).find((p) => p.name === "part-op");
-    expect(item?.stage).toBe("operation");
+    expect(item?.stage).toBe("release");
     expect(item?.snapshot).toEqual({ users: "5" });
     // The dropped fields are genuinely absent, never the placeholder string.
     expect(item?.snapshot?.returnMetric).toBeUndefined();

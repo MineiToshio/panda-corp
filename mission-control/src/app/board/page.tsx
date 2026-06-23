@@ -87,6 +87,9 @@ export default function BoardPage(): React.JSX.Element {
       // Forward the real project phase so the card detail's campaign matches the
       // board column (without it the detail falls back to research → desync).
       phase: projectStatus?.present ? projectStatus.status.phase : undefined,
+      // Forward the deploy target (DR-085) so the campaign's Release ficha shows
+      // whether the launch is internal (in-house tool) or external (Vercel/AWS).
+      deployTarget: projectStatus?.present ? projectStatus.status.deployTarget : undefined,
     };
   });
 

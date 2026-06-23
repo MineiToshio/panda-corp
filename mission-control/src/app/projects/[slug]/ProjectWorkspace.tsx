@@ -125,6 +125,7 @@ export function ProjectWorkspace({
 
   const title = status.project ?? slug;
   const stage = (status.phase ?? item.stage ?? "implementation") as Phase;
+  const deployTarget = status.deployTarget;
   const version = status.version ?? "0.0.0";
   const running = item.running === true || status.running === true;
   const progress =
@@ -187,6 +188,7 @@ export function ProjectWorkspace({
       <WorkspaceHeader
         title={title}
         stage={stage}
+        deployTarget={deployTarget}
         version={version}
         progress={progress}
         running={running}

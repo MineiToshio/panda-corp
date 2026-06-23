@@ -2,7 +2,7 @@
  * BusinessSnapshot — compact chip row for shipped project metrics (CMP-03-snapshot).
  *
  * Renders active users / return metric / last review verdict as compact chips.
- * Only for shipped/operation projects. Absent snapshot → renders nothing (null).
+ * Only for launched ("release") projects. Absent snapshot → renders nothing (null).
  *
  * Design rules (FRD-13, AGENTS.md):
  *   - ZERO hardcoded colors — all visual values via CSS custom properties.

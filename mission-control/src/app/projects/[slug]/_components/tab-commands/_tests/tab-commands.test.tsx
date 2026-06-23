@@ -16,8 +16,8 @@
  *      description (AC-04-005.1).
  *   2. Renders the FRD-11 selector slot (placeholder or real component) at the
  *      top (AC-04-005.2).
- *   3. Building phase (implementation/release) shows implement/release/iterate.
- *   4. Operation phase shows iterate/new-version.
+ *   3. Construction phase (implementation) shows implement/release/iterate.
+ *   4. Release (launched) phase shows iterate/new-version (DR-085).
  *
  * Stack: Vitest + @testing-library/react + jsdom.
  * Data layer: pure workspaceCommands() from lib/next-step.ts — no I/O.
@@ -68,8 +68,8 @@ describe("TabCommands — FRD-11 selector slot (AC-04-005.2)", () => {
     expect(slot.textContent?.trim().length).toBeGreaterThan(0);
   });
 
-  it("renders mode-selector-slot for operation phase too", () => {
-    renderCommands("operation");
+  it("renders mode-selector-slot for release (launched) phase too", () => {
+    renderCommands("release");
     expect(screen.getByTestId("mode-selector-slot")).toBeTruthy();
   });
 });
@@ -116,11 +116,11 @@ describe("TabCommands — command rows (AC-04-005.1)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// TDD case 3 — Building phases (implementation / release)
+// TDD case 3 — Construction phase (implementation)
 // ---------------------------------------------------------------------------
 
-describe("TabCommands — building phases (implementation, release)", () => {
-  const BUILDING_PHASES: Phase[] = ["implementation", "release"];
+describe("TabCommands — construction phase (implementation)", () => {
+  const BUILDING_PHASES: Phase[] = ["implementation"];
 
   for (const phase of BUILDING_PHASES) {
     it(`phase='${phase}': includes /pandacorp:implement row`, () => {
@@ -155,31 +155,31 @@ describe("TabCommands — building phases (implementation, release)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// TDD case 4 — Operation phase
+// TDD case 4 — Release (launched) phase (DR-085: the old "operation" set)
 // ---------------------------------------------------------------------------
 
-describe("TabCommands — operation phase", () => {
-  it("phase='operation': includes /pandacorp:iterate row", () => {
-    renderCommands("operation");
+describe("TabCommands — release (launched) phase", () => {
+  it("phase='release': includes /pandacorp:iterate row", () => {
+    renderCommands("release");
     const commands = screen.getAllByTestId("command-row-command").map((el) => el.textContent ?? "");
     expect(commands.some((c) => c.includes("/pandacorp:iterate"))).toBe(true);
   });
 
-  it("phase='operation': includes /pandacorp:new-version row", () => {
-    renderCommands("operation");
+  it("phase='release': includes /pandacorp:new-version row", () => {
+    renderCommands("release");
     const commands = screen.getAllByTestId("command-row-command").map((el) => el.textContent ?? "");
     expect(commands.some((c) => c.includes("/pandacorp:new-version"))).toBe(true);
   });
 
-  it("phase='operation': renders exactly 2 command rows", () => {
-    renderCommands("operation");
+  it("phase='release': renders exactly 2 command rows", () => {
+    renderCommands("release");
     expect(screen.getAllByTestId("command-row")).toHaveLength(2);
   });
 
-  it("phase='operation': does NOT include /pandacorp:release", () => {
-    renderCommands("operation");
+  it("phase='release': does NOT include /pandacorp:implement", () => {
+    renderCommands("release");
     const commands = screen.getAllByTestId("command-row-command").map((el) => el.textContent ?? "");
-    expect(commands.some((c) => c.includes("/pandacorp:release"))).toBe(false);
+    expect(commands.some((c) => c.includes("/pandacorp:implement"))).toBe(false);
   });
 });
 

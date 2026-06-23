@@ -17,8 +17,8 @@
  *   2. Cross-phase row-object identity isolation.
  *   3. `when` descriptions must be distinct per row (a mutant copying one row's
  *      `when` onto another passes the implementer's length-only checks).
- *   4. Building vs operation `iterate` rows must not share the same `when`
- *      (different context: "during build" vs "shipped project").
+ *   4. Construction (implementation) vs launched (release) `iterate` rows must not
+ *      share the same `when` (different context: "during build" vs "launched project").
  *   5. Unknown/empty/whitespace phase strings → safe fallback, never building cmds.
  *
  * Pure function — no fs, no mocks. Stack: Vitest.
@@ -49,29 +49,30 @@ describe("frd-04 adversarial: each row's 'when' is unique within a phase", () =>
     expect(new Set(whens).size).toBe(whens.length);
   });
 
-  it("operation: the two 'when' descriptions are distinct", () => {
-    const whens = workspaceCommands("operation").map((r: Row) => r.when);
+  it("release: the two 'when' descriptions are distinct", () => {
+    const whens = workspaceCommands("release").map((r: Row) => r.when);
     expect(new Set(whens).size).toBe(whens.length);
   });
 });
 
 // ---------------------------------------------------------------------------
 // 4. Context-specific copy — the iterate row's 'when' should differ between a
-//    mid-build context and a shipped-project context (they describe different
-//    moments). A mutant reusing the building 'when' for operation is misleading.
+//    mid-build (implementation) context and a launched (release) context (they
+//    describe different moments). A mutant reusing the build 'when' for the
+//    launched phase is misleading.
 // ---------------------------------------------------------------------------
 
 describe("frd-04 adversarial: iterate row 'when' is context-specific", () => {
-  it("the iterate row's 'when' differs between building and operation phases", () => {
+  it("the iterate row's 'when' differs between implementation and release phases", () => {
     const buildingIterate = workspaceCommands("implementation").find(
       (r: Row) => r.command === "/pandacorp:iterate",
     );
-    const operationIterate = workspaceCommands("operation").find(
+    const releaseIterate = workspaceCommands("release").find(
       (r: Row) => r.command === "/pandacorp:iterate",
     );
     expect(buildingIterate).toBeDefined();
-    expect(operationIterate).toBeDefined();
-    expect(buildingIterate?.when).not.toBe(operationIterate?.when);
+    expect(releaseIterate).toBeDefined();
+    expect(buildingIterate?.when).not.toBe(releaseIterate?.when);
   });
 });
 
@@ -122,7 +123,7 @@ describe("frd-04 adversarial: malformed phase strings fall back safely", () => {
 //
 // A function documented as "Pure: no side effects. Same input → same output
 // every time" must not hand callers a reference into its internal constant
-// arrays (`BUILDING_ROWS` / `OPERATION_ROWS`). `[...CONST]` copies the array
+// arrays (`BUILDING_ROWS` / `RELEASE_ROWS`). `[...CONST]` copies the array
 // but the ROW OBJECTS are shared by reference; `readonly` is compile-time only.
 // ---------------------------------------------------------------------------
 
@@ -146,8 +147,8 @@ describe("frd-04 adversarial: command→when pairing is pinned (mutation kill)",
     expect(byCmd.get("/pandacorp:iterate")).toMatch(/FRD|ajust|corrig/i);
   });
 
-  it("operation: new-version's 'when' is about a milestone/major version, not iteration", () => {
-    const rows = workspaceCommands("operation");
+  it("release: new-version's 'when' is about a milestone/major version, not iteration", () => {
+    const rows = workspaceCommands("release");
     const byCmd = new Map(rows.map((r: Row) => [r.command, r.when]));
     expect(byCmd.get("/pandacorp:new-version")).toMatch(/hito|versi[oó]n mayor/i);
     // new-version's 'when' must NOT be the iterate copy (a swap mutant).
@@ -155,14 +156,7 @@ describe("frd-04 adversarial: command→when pairing is pinned (mutation kill)",
   });
 
   it("every returned row has a non-empty command AND a non-empty 'when' (no blank-string mutant)", () => {
-    for (const p of [
-      "implementation",
-      "release",
-      "operation",
-      "product",
-      "design",
-      "architecture",
-    ] as const) {
+    for (const p of ["implementation", "release", "product", "design", "architecture"] as const) {
       for (const r of workspaceCommands(p)) {
         expect(r.command.trim().length).toBeGreaterThan(0);
         expect(r.when.trim().length).toBeGreaterThan(0);
@@ -172,10 +166,16 @@ describe("frd-04 adversarial: command→when pairing is pinned (mutation kill)",
     }
   });
 
-  it("release phase yields the SAME rows as implementation (both are 'building')", () => {
+  it("release phase yields DIFFERENT rows from implementation (launched ≠ construction, DR-085)", () => {
+    // DR-085: implementation is the construction set (implement/release/iterate);
+    // release is the launched set (iterate/new-version). They must NOT be equal.
     const impl = workspaceCommands("implementation");
     const rel = workspaceCommands("release");
-    expect(rel).toEqual(impl);
+    expect(rel).not.toEqual(impl);
+    expect(rel.map((r: Row) => r.command)).toEqual([
+      "/pandacorp:iterate",
+      "/pandacorp:new-version",
+    ]);
   });
 });
 
@@ -193,12 +193,12 @@ describe("frd-04 adversarial: returned rows must not alias shared module state",
     expect(second[0]?.when).not.toBe("tampered");
   });
 
-  it("mutating a returned operation row must NOT corrupt the next call", () => {
-    const firstRow = workspaceCommands("operation")[0];
+  it("mutating a returned release (launched) row must NOT corrupt the next call", () => {
+    const firstRow = workspaceCommands("release")[0];
     expect(firstRow).toBeDefined();
     if (firstRow === undefined) return;
     firstRow.command = "/pandacorp:HACKED";
-    const second = workspaceCommands("operation");
+    const second = workspaceCommands("release");
     expect(second[0]?.command).toBe("/pandacorp:iterate");
   });
 
@@ -211,8 +211,8 @@ describe("frd-04 adversarial: returned rows must not alias shared module state",
   it("a returned row object is not the SAME object instance as the next call's row", () => {
     // If row objects are shared, a[0] === b[0]; a pure boundary must hand out
     // fresh (or frozen) objects so callers cannot reach module state.
-    const a = workspaceCommands("operation");
-    const b = workspaceCommands("operation");
+    const a = workspaceCommands("release");
+    const b = workspaceCommands("release");
     expect(a[0]).not.toBe(b[0]);
   });
 });

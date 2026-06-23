@@ -196,7 +196,7 @@ describe("wo-18-004: AC-18-004.5 — shipped project display", () => {
       <Cartera
         cards={[
           makeCard({
-            phase: "operation",
+            phase: "release",
             isShipped: true,
             isLive: false,
             isNoSignal: false,
@@ -214,7 +214,7 @@ describe("wo-18-004: AC-18-004.5 — shipped project display", () => {
       <Cartera
         cards={[
           makeCard({
-            phase: "operation",
+            phase: "release",
             isShipped: true,
             isLive: false,
             isNoSignal: false,

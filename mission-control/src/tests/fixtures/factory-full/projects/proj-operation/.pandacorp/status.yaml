@@ -1,5 +1,5 @@
 project: "proj-operation"
-phase: operation
+phase: release
 version: v1
 overlay_version: "7.1.0"
 created_with: "6.0.0"

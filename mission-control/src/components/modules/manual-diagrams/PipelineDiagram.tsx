@@ -55,13 +55,13 @@ const PHASES: readonly Phase[] = [
   {
     name: "En construcción",
     color: "var(--color-cat-6)",
-    body: "Un workflow dinámico orquesta a los subagentes (TDD), desatendido. Lo sigues en Mission Control.",
+    body: "Un workflow dinámico orquesta a los subagentes (TDD), desatendido. Lo sigues en Mission Control. El último paso es el endurecimiento: seguridad, calidad, auditoría y métricas/telemetría.",
     cmd: "/pandacorp:implement",
   },
   {
     name: "Lanzada",
     color: "var(--color-cat-1)",
-    body: "Auditoría de seguridad, copy de landing y verificación de telemetría; el devops despliega. Producción la apruebas tú.",
+    body: "La versión (ya auditada) se despliega y lanza —interno en local o externo (Vercel/AWS)—; el devops la pone viva con la copy de landing lista. Producción la apruebas tú. Desde aquí iteras: no hay una fase «operación» aparte.",
     cmd: "/pandacorp:release",
   },
 ] as const;

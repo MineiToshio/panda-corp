@@ -31,7 +31,7 @@
  */
 
 import { Chip } from "@/components/core/Chip/Chip";
-import type { Phase } from "@/lib/status/status";
+import type { DeployTarget, Phase } from "@/lib/status/status";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -42,6 +42,8 @@ export interface WorkspaceHeaderProps {
   title: string;
   /** Current phase from status.yaml. */
   stage: Phase;
+  /** Deploy target (DR-085) — shown next to the stage chip when launched (release). */
+  deployTarget?: DeployTarget;
   /** Version string, e.g. "1.2.0". */
   version: string;
   /** Optional progress string from status.yaml; omitted when absent/empty. */
@@ -64,8 +66,7 @@ const STAGE_LABELS: Record<Phase, string> = {
   design: "Diseño",
   architecture: "Arquitectura",
   implementation: "Implementación",
-  release: "Lanzamiento",
-  operation: "Operación",
+  release: "Release",
 };
 
 // ---------------------------------------------------------------------------
@@ -127,6 +128,7 @@ const PROGRESS_STYLE: React.CSSProperties = {
 export function WorkspaceHeader({
   title,
   stage,
+  deployTarget,
   version,
   progress,
   running = false,
@@ -156,6 +158,13 @@ export function WorkspaceHeader({
         <span data-testid="workspace-header-stage">
           <Chip tone="accent">{stageLabel}</Chip>
         </span>
+
+        {/* Deploy target chip — only for launched (release) projects (DR-085) */}
+        {stage === "release" && deployTarget !== undefined && (
+          <span data-testid="workspace-header-deploy">
+            <Chip tone="info">{deployTarget === "internal" ? "interno" : "externo"}</Chip>
+          </span>
+        )}
 
         {/* Version string */}
         <span data-testid="workspace-header-version" style={VERSION_STYLE}>

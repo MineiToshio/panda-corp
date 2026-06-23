@@ -11,8 +11,7 @@
  *   | in-pipeline           | design                  | 2 design       |
  *   | in-pipeline           | architecture            | 3 architecture |
  *   | in-pipeline           | implementation          | 4 build        |
- *   | in-pipeline           | release                 | 4 build        |
- *   | in-pipeline           | operation               | 5 release      |
+ *   | in-pipeline           | release                 | 5 release      |
  *   | shipped               | —                       | 5 release      |
  *   | absent/unrecognized   | —                       | 0 research (fallback) |
  *
@@ -63,12 +62,9 @@ describe("phaseFromStatus", () => {
       expect(phaseFromStatus({ cardStatus: "in-pipeline", phase: "implementation" })).toBe(4);
     });
 
-    it("returns 4 for in-pipeline + release phase", () => {
-      expect(phaseFromStatus({ cardStatus: "in-pipeline", phase: "release" })).toBe(4);
-    });
-
-    it("returns 5 for in-pipeline + operation phase", () => {
-      expect(phaseFromStatus({ cardStatus: "in-pipeline", phase: "operation" })).toBe(5);
+    it("returns 5 for in-pipeline + release phase", () => {
+      // release = launched (DR-085: operation folded in) → final campaign room (5)
+      expect(phaseFromStatus({ cardStatus: "in-pipeline", phase: "release" })).toBe(5);
     });
   });
 
@@ -142,7 +138,6 @@ describe("phaseFromStatus", () => {
       { cardStatus: "in-pipeline" as const, phase: "architecture" as const },
       { cardStatus: "in-pipeline" as const, phase: "implementation" as const },
       { cardStatus: "in-pipeline" as const, phase: "release" as const },
-      { cardStatus: "in-pipeline" as const, phase: "operation" as const },
       { cardStatus: "shipped" as const },
       { cardStatus: "discarded" as const },
       {},

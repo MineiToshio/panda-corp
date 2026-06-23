@@ -16,9 +16,9 @@
  *   - unmatched ?project → graceful fall back to the first project (no blank slot).
  *   - AC-03-003.1 + AC-03-006.2/.3 reach the LIVE page (not just the rail in isolation):
  *     a shipped row's snapshot and a missing-path row's badge+recovery are in the DOM.
- *   - snapshot leakage guard: a NON-operation row carrying a snapshot would still render
+ *   - snapshot leakage guard: a NON-release row carrying a snapshot would still render
  *     it (the rail renders on `snapshot !== undefined`, not on stage) — assert the page
- *     does not surface a snapshot on a building row that has none.
+ *     does not surface a snapshot on a building row that has none. (DR-085)
  *
  * Anchored in: AC-03-003.1, AC-03-004.1, AC-03-005.1, AC-03-006.2/.3 → CMP-03-rail +
  * CMP-03-workspace-slot through page.tsx (the LIVE surface).
@@ -51,9 +51,9 @@ const BUILDING: ProjectListItem = {
 const SHIPPED: ProjectListItem = {
   name: "beta-shipped",
   path: "/p/beta-shipped",
-  status: status("operation", false),
+  status: status("release", false),
   exists: true,
-  stage: "operation",
+  stage: "release",
   running: false,
   snapshot: { users: "742", returnMetric: "$1 900 MRR", verdict: "double-down" },
 };

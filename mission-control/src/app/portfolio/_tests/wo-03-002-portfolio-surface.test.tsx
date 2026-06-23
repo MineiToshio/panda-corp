@@ -62,9 +62,9 @@ const BUILDING: ProjectListItem = {
 const SHIPPED: ProjectListItem = {
   name: "widget-pro",
   path: "/projects/widget-pro",
-  status: status("operation", false),
+  status: status("release", false),
   exists: true,
-  stage: "operation",
+  stage: "release",
   running: false,
   snapshot: { users: "1234", returnMetric: "$900 MRR", verdict: "double-down" },
 };

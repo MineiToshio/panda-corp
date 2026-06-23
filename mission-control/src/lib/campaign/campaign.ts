@@ -22,8 +22,7 @@
  *   in-pipeline       | design                | 2 (design)
  *   in-pipeline       | architecture          | 3 (architecture)
  *   in-pipeline       | implementation        | 4 (build)
- *   in-pipeline       | release               | 4 (build)
- *   in-pipeline       | operation             | 5 (release)
+ *   in-pipeline       | release               | 5 (release — launched)
  *   shipped           | —                     | 5 (release)
  *   absent / unrecog. | —                     | 0 (research fallback)
  *
@@ -112,8 +111,8 @@ function phaseFromProjectPhase(phase: Phase | undefined): CampaignPhase {
     case "implementation":
       return 4;
     case "release":
-      return 4;
-    case "operation":
+      // release = launched (internal or external) — the final campaign room
+      // (DR-085: operation folded into release).
       return 5;
     default: {
       // Exhaustive guard: TypeScript enforces Phase is a closed union.

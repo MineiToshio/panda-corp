@@ -143,7 +143,7 @@ describe("FRD-10 [reviewer]: endowed progress is honest (AC-10-002.3)", () => {
     // workorders chain: tier1=10, tier2=50. value=30 → 20/40 = 50%.
     const data: ReaderData = {
       ideas: [],
-      statuses: [mkStatus("operation", "p", "2026-01-01T00:00:00Z")],
+      statuses: [mkStatus("release", "p", "2026-01-01T00:00:00Z")],
       eventsSnapshot: mkSnapshot([]),
     };
     // override the workorders stat directly via a synthetic stat array
@@ -180,8 +180,8 @@ describe("FRD-10 [reviewer]: engine → component integration", () => {
     const data: ReaderData = {
       ideas: [],
       statuses: [
-        mkStatus("operation", "alpha", "2026-02-01T00:00:00Z"),
-        mkStatus("operation", "beta", "2026-03-01T00:00:00Z"),
+        mkStatus("release", "alpha", "2026-02-01T00:00:00Z"),
+        mkStatus("release", "beta", "2026-03-01T00:00:00Z"),
       ],
       eventsSnapshot: mkSnapshot([]),
     };

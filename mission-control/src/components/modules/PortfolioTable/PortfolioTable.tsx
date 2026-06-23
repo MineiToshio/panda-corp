@@ -337,7 +337,7 @@ function BusinessSnapshot({
  */
 function ProjectRow({ entry }: { entry: PortfolioTableEntry }): React.JSX.Element {
   const { name, path, repo, phase, users, returnMetric, verdict, exists, isRunning } = entry;
-  const isShipped = phase === "operation" || phase === "shipped";
+  const isShipped = phase === "release" || phase === "shipped";
 
   return (
     <article data-testid="portfolio-row" style={ROW_STYLE} aria-label={`Proyecto: ${name}`}>

@@ -18,8 +18,7 @@
  *   in-pipeline      | design                               | design
  *   in-pipeline      | architecture                         | architecture
  *   in-pipeline      | implementation                       | building
- *   in-pipeline      | release                              | building
- *   in-pipeline      | operation                            | shipped
+ *   in-pipeline      | release                              | shipped  (launched — "6 Release")
  *   in-pipeline      | missing / absent / malformed / undef | documented (fallback)
  *   shipped          | —                                    | shipped
  *   discarded        | —                                    | discarded
@@ -130,8 +129,8 @@ function deriveFromPhase(projectStatus: StatusResult | null): BoardColumn {
     case "implementation":
       return "building";
     case "release":
-      return "building";
-    case "operation":
+      // release = launched (internal or external) — the terminal "shipped" column,
+      // labelled "6 Release" on the board (DR-085: operation folded into release).
       return "shipped";
     default: {
       // Exhaustive: TypeScript knows phase is Phase (a closed union), but a defensive

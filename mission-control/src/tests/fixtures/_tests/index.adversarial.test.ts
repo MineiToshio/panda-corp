@@ -77,14 +77,9 @@ describe("adversarial: tolerance fixtures bite the REAL parsers", () => {
       "utf-8",
     );
     const parsed = parseYaml(raw) as Record<string, unknown>;
-    expect([
-      "product",
-      "design",
-      "architecture",
-      "implementation",
-      "release",
-      "operation",
-    ]).toContain(parsed.phase);
+    expect(["product", "design", "architecture", "implementation", "release"]).toContain(
+      parsed.phase,
+    );
   });
 
   it("frd-01: the in-pipeline card's project pointer names proj-a and resolves from the factory root", () => {
