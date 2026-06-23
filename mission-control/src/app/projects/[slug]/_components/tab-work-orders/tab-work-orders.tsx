@@ -32,12 +32,12 @@ import { WoLiveRefresh } from "./wo-live-refresh";
 // Styles
 // ---------------------------------------------------------------------------
 
+// Flows in the page (no fixed height / overflow): the board grows with its columns and the
+// PAGE scrolls — so a tall column never gets its own internal scrollbar (owner request).
 const ROOT_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   width: "100%",
-  height: "100%",
-  overflow: "hidden",
 };
 
 // ---------------------------------------------------------------------------

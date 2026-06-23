@@ -15,7 +15,7 @@
  *   - Tokens only — zero hardcoded colors/spacing/radii.
  *   - aria-label in Spanish referencing the column label (REQ-13-008).
  *   - count displayed with tabular-nums (REQ-13-003).
- *   - Column body is vertically scrollable to contain WO cards.
+ *   - Column body grows with its WO cards (no internal scroll; the page scrolls).
  *
  * Server Component — pure, no "use client".
  *
@@ -110,16 +110,14 @@ export function KanbanColumn({
         </span>
       </div>
 
-      {/* Scrollable column body — WO cards */}
+      {/* Column body — WO cards. Grows with its content (no internal scroll); the page
+          scrolls instead, so a tall column like "Hecho" never gets its own scrollbar. */}
       <div
         data-testid="kanban-col-body"
         style={{
           display: "flex",
           flexDirection: "column",
           gap: "6px",
-          flex: 1,
-          overflowY: "auto",
-          minHeight: 0,
         }}
       >
         {children}

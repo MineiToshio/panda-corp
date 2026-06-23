@@ -27,6 +27,7 @@
 
 import { type LinkResolver, Markdown } from "@/components/core/Markdown/Markdown";
 import { Panel } from "@/components/core/Panel/Panel";
+import { classifyDocLink } from "@/lib/docs/links";
 import type { DocNode } from "@/lib/docs/tree";
 
 // ---------------------------------------------------------------------------
@@ -162,50 +163,32 @@ export function docHref(project: string, docId: string): string {
 }
 
 /**
- * Resolve a relative link (e.g. "../frds/frd-01-x/frd.md") against the directory of the
- * document it appears in, into a project-root-relative path. Pure string math (no node:path)
- * so it runs anywhere; collapses "." and ".." and drops empty segments.
- */
-function resolveRelativePath(fromDir: string, link: string): string {
-  const out: string[] = fromDir ? fromDir.split("/") : [];
-  for (const seg of link.split("/")) {
-    if (seg === "" || seg === ".") continue;
-    if (seg === "..") {
-      out.pop();
-      continue;
-    }
-    out.push(seg);
-  }
-  return out.join("/");
-}
-
-/**
  * Build the <Markdown> link resolver for a document (owner choice "cablear al lector"):
- *   - a relative link to a doc the reader KNOWS (PRD, research, architecture, FRD/FDD/
- *     blueprint, ADR, decision-log) → rewritten to open that doc in the SAME reader;
+ *   - a relative link to a doc the reader KNOWS → rewritten to open that doc in the SAME
+ *     reader (URL-driven: `?project&tab=documents&doc=<id>`);
  *   - an off-app URL (http/https/mailto) → opens in a new tab;
- *   - any other relative path (a doc the reader doesn't surface, e.g. a work order) → null,
- *     so <Markdown> renders it as plain text instead of a link that would 404.
+ *   - an in-page anchor → kept (same tab);
+ *   - any other relative path (a doc the reader doesn't surface) → null, so <Markdown>
+ *     renders it as plain text instead of a link that would 404.
+ * Link classification is shared with the board card-detail via `lib/docs/links`.
  */
 function makeLinkResolver(currentRelPath: string, nodes: DocNode[], project: string): LinkResolver {
   const idByRelPath = new Map(nodes.map((n) => [n.relPath, n.id]));
-  const lastSlash = currentRelPath.lastIndexOf("/");
-  const currentDir = lastSlash >= 0 ? currentRelPath.slice(0, lastSlash) : "";
+  const known = new Set(idByRelPath.keys());
   return (href) => {
-    if (!href || href.startsWith("#")) {
-      // empty or in-page anchor → leave as-is (same tab; harmless)
-      return { href: href || "#", external: false };
+    const target = classifyDocLink(href, currentRelPath, known);
+    switch (target.kind) {
+      case "doc": {
+        const id = idByRelPath.get(target.relPath);
+        return id !== undefined ? { href: docHref(project, id), external: false } : null;
+      }
+      case "external":
+        return { href: target.href, external: true };
+      case "anchor":
+        return { href: target.href, external: false };
+      default:
+        return null;
     }
-    // off-app URL: http(s):, mailto:, protocol-relative
-    if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith("//")) {
-      return { href, external: true };
-    }
-    // relative path → resolve against the current doc's directory, ignoring #anchor / ?query
-    const noAnchor = href.split("#")[0] ?? href;
-    const cleanPath = noAnchor.split("?")[0] ?? noAnchor;
-    const resolved = resolveRelativePath(currentDir, cleanPath);
-    const id = idByRelPath.get(resolved);
-    return id !== undefined ? { href: docHref(project, id), external: false } : null;
   };
 }
 

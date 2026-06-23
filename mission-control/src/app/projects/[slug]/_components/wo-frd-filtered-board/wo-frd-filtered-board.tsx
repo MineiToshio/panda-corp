@@ -67,10 +67,7 @@ export function WoFrdFilteredBoard({ orders }: WoFrdFilteredBoardProps): React.J
   const visibleOrders = selectedFrd === null ? orders : orders.filter((o) => o.frd === selectedFrd);
 
   return (
-    <div
-      data-testid="wo-frd-filtered-board"
-      style={{ display: "flex", flexDirection: "column", height: "100%" }}
-    >
+    <div data-testid="wo-frd-filtered-board" style={{ display: "flex", flexDirection: "column" }}>
       <WoFrdFilter frds={frds} selected={selectedFrd} onSelect={setSelectedFrd} />
       <WorkOrderBoard orders={visibleOrders} />
     </div>

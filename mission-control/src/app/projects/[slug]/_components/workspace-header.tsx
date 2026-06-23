@@ -90,9 +90,22 @@ const HEADER_STYLE: React.CSSProperties = {
   color: "var(--color-text, currentColor)",
 };
 
-/** Objectives slot — sits inside the same rounded panel, just below the title row. */
-const OBJECTIVES_SLOT_STYLE: React.CSSProperties = {
-  marginTop: "8px",
+/** Top row: title block (left) + objectives bar (right), like a justify-between (owner request:
+ *  the progress bar should sit pinned to the right of the title, not stacked below it). */
+const TOP_ROW_STYLE: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "10px 20px",
+  flexWrap: "wrap",
+};
+
+/** Objectives-bar wrapper — pinned to the right of the title; wraps below on narrow widths. */
+const OBJECTIVES_RIGHT_STYLE: React.CSSProperties = {
+  flex: "0 1 auto",
+  minWidth: "200px",
+  maxWidth: "320px",
+  marginLeft: "auto",
 };
 
 const TITLE_ROW_STYLE: React.CSSProperties = {
@@ -156,36 +169,42 @@ export function WorkspaceHeader({
 
   return (
     <header data-testid="workspace-header" style={HEADER_STYLE}>
-      {/* Title row: title + running pip + stage Chip + version */}
-      <div style={TITLE_ROW_STYLE}>
-        <TitleTag data-testid="workspace-header-title" style={TITLE_STYLE}>
-          {title}
-          {running && (
-            <i
-              className="ti ti-player-play"
-              style={{ fontSize: "13px", color: "var(--color-ok)" }}
-              aria-hidden="true"
-              title="construyendo"
-            />
-          )}
-        </TitleTag>
+      {/* Title block (left) + objectives bar (right) on ONE justify-between row */}
+      <div style={TOP_ROW_STYLE}>
+        {/* Title row: title + running pip + stage Chip + version */}
+        <div style={TITLE_ROW_STYLE}>
+          <TitleTag data-testid="workspace-header-title" style={TITLE_STYLE}>
+            {title}
+            {running && (
+              <i
+                className="ti ti-player-play"
+                style={{ fontSize: "13px", color: "var(--color-ok)" }}
+                aria-hidden="true"
+                title="construyendo"
+              />
+            )}
+          </TitleTag>
 
-        {/* Stage chip — shared Chip primitive (WO-13-007, DR-057) */}
-        <span data-testid="workspace-header-stage">
-          <Chip tone="accent">{stageLabel}</Chip>
-        </span>
-
-        {/* Deploy target chip — only for launched (release) projects (DR-085) */}
-        {stage === "release" && deployTarget !== undefined && (
-          <span data-testid="workspace-header-deploy">
-            <Chip tone="info">{deployTarget === "internal" ? "interno" : "externo"}</Chip>
+          {/* Stage chip — shared Chip primitive (WO-13-007, DR-057) */}
+          <span data-testid="workspace-header-stage">
+            <Chip tone="accent">{stageLabel}</Chip>
           </span>
-        )}
 
-        {/* Version string */}
-        <span data-testid="workspace-header-version" style={VERSION_STYLE}>
-          {version}
-        </span>
+          {/* Deploy target chip — only for launched (release) projects (DR-085) */}
+          {stage === "release" && deployTarget !== undefined && (
+            <span data-testid="workspace-header-deploy">
+              <Chip tone="info">{deployTarget === "internal" ? "interno" : "externo"}</Chip>
+            </span>
+          )}
+
+          {/* Version string */}
+          <span data-testid="workspace-header-version" style={VERSION_STYLE}>
+            {version}
+          </span>
+        </div>
+
+        {/* Objectives bar — pinned to the right of the title (owner request: justify-between). */}
+        {children !== undefined && <div style={OBJECTIVES_RIGHT_STYLE}>{children}</div>}
       </div>
 
       {/* Optional progress line (AC-04-002.1 — omitted when absent/empty) */}
@@ -199,9 +218,6 @@ export function WorkspaceHeader({
           {progress}
         </p>
       )}
-
-      {/* Objectives bar — inside the SAME rounded panel as the title (prototype). */}
-      {children !== undefined && <div style={OBJECTIVES_SLOT_STYLE}>{children}</div>}
     </header>
   );
 }

@@ -16,8 +16,8 @@
  * Stack: Vitest + @testing-library/react + jsdom. Accessible-role queries only.
  */
 
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import { type LinkResolver, Markdown } from "../Markdown";
 
@@ -94,5 +94,32 @@ describe("core/Markdown — resolveLink (in-doc link rewriting)", () => {
     const link = screen.getByRole("link", { name: "ido" });
     expect(link.getAttribute("href")).toBe("../nope.md");
     expect(link.getAttribute("target")).toBe("_blank");
+  });
+
+  it("renders an { onSelect } resolution as a BUTTON that fires the callback (client nav)", () => {
+    const onSelect = vi.fn();
+    const actionResolver: LinkResolver = (href) => (href.includes("frd-12") ? { onSelect } : null);
+    render(<Markdown resolveLink={actionResolver}>{MD}</Markdown>);
+    // No <a> for the in-app doc link — it is a <button> (client-side selection).
+    expect(screen.queryByRole("link", { name: "FRD-12" })).toBeNull();
+    const button = screen.getByRole("button", { name: "FRD-12" });
+    fireEvent.click(button);
+    expect(onSelect).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("core/Markdown — list markers (Tailwind preflight resets list-style)", () => {
+  it("renders a bulleted <ul> with a disc marker (not just indentation)", () => {
+    const { container } = render(<Markdown>{"- uno\n- dos"}</Markdown>);
+    const ul = container.querySelector("ul");
+    expect(ul).not.toBeNull();
+    expect(ul?.style.listStyleType).toBe("disc");
+  });
+
+  it("renders an ordered <ol> with a decimal marker", () => {
+    const { container } = render(<Markdown>{"1. uno\n2. dos"}</Markdown>);
+    const ol = container.querySelector("ol");
+    expect(ol).not.toBeNull();
+    expect(ol?.style.listStyleType).toBe("decimal");
   });
 });

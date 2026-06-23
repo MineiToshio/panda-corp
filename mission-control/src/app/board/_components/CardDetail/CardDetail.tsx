@@ -38,10 +38,11 @@
  */
 
 import { useState, useTransition } from "react";
-import { Markdown } from "@/components/core/Markdown/Markdown";
+import { type LinkResolver, Markdown } from "@/components/core/Markdown/Markdown";
 import { Tabs } from "@/components/core/Tabs/Tabs";
 import { CampaignPipeline } from "@/components/modules/CampaignPipeline/CampaignPipeline";
 import { phaseFromStatus } from "@/lib/campaign/campaign";
+import { classifyDocLink } from "@/lib/docs/links";
 import type { DocNode } from "@/lib/docs/tree";
 import type { IdeaStatus } from "@/lib/ideas/ideas";
 import type { DeployTarget, Phase } from "@/lib/status/status";
@@ -167,6 +168,67 @@ function buildDocSections(docNodes: readonly DocNode[]): DocRailSection[] {
   }
 
   return sections;
+}
+
+/**
+ * Build the card-detail's in-doc link resolver. Unlike the workspace reader (URL-driven),
+ * the card-detail navigates by client state, so a link to a doc the reader surfaces resolves
+ * to a SELECTION (onSelect → handleSelectDoc); off-app URLs open in a new tab; anything else
+ * renders as plain text. Link classification is shared with the workspace (lib/docs/links).
+ */
+function makeCardLinkResolver(
+  currentRelPath: string,
+  knownDocPaths: ReadonlySet<string>,
+  onSelectDoc: (relPath: string) => void,
+): LinkResolver {
+  return (href) => {
+    const target = classifyDocLink(href, currentRelPath, knownDocPaths);
+    switch (target.kind) {
+      case "doc":
+        return { onSelect: () => onSelectDoc(target.relPath) };
+      case "external":
+        return { href: target.href, external: true };
+      default:
+        return null;
+    }
+  };
+}
+
+interface DocReaderBodyProps {
+  /** No read action wired (or no project) → graceful "opens in the workspace" fallback. */
+  noReader: boolean;
+  /** A doc body load is in flight. */
+  docLoading: boolean;
+  /** The loaded doc body, or null. */
+  docContent: string | null;
+  /** In-doc link resolver (shared with the summary). */
+  resolveLink: LinkResolver;
+}
+
+/**
+ * The non-summary reader body — graceful fallback / loading / the doc's markdown. Extracted
+ * from CardDetail so that component stays under the cognitive-complexity cap.
+ */
+function DocReaderBody({
+  noReader,
+  docLoading,
+  docContent,
+  resolveLink,
+}: DocReaderBodyProps): React.JSX.Element {
+  if (noReader) {
+    return <p style={READER_STATE_STYLE}>El contenido se abre en el workspace del proyecto.</p>;
+  }
+  if (docLoading) {
+    return (
+      <p style={READER_STATE_STYLE} aria-live="polite">
+        Cargando…
+      </p>
+    );
+  }
+  if (docContent != null) {
+    return <Markdown resolveLink={resolveLink}>{docContent}</Markdown>;
+  }
+  return <p style={READER_STATE_STYLE}>No se pudo leer este documento.</p>;
 }
 
 // ---------------------------------------------------------------------------
@@ -316,6 +378,16 @@ export function CardDetail({
   // A doc is selected but no read action is wired (or no project) → graceful fallback.
   const noReader = !isSummary && (readDocAction == null || project == null);
 
+  // In-doc links resolve to THIS reader (owner: the board had the same broken-link bug as the
+  // portfolio). The base path is the doc being read (the summary has none → relative links there
+  // just neutralize). See makeCardLinkResolver above.
+  const knownDocPaths = new Set((docNodes ?? []).map((node) => node.relPath));
+  const resolveDocLink = makeCardLinkResolver(
+    isSummary ? "" : selectedDocKey,
+    knownDocPaths,
+    handleSelectDoc,
+  );
+
   return (
     <section data-testid="card-detail" style={ROOT_STYLE} aria-label={`Detalle de idea: ${title}`}>
       {/* Title (accessible name + visible heading) */}
@@ -420,23 +492,16 @@ export function CardDetail({
               /* Summary — markdown body (AC-02-004.1) via the shared <Markdown> renderer
                  (real h1/h2 hierarchy). The component's own title is the clipped <h2>. */
               <div data-testid="card-detail-summary" style={SUMMARY_STYLE}>
-                <Markdown>{body}</Markdown>
+                <Markdown resolveLink={resolveDocLink}>{body}</Markdown>
               </div>
             ) : (
               <div data-testid="card-detail-doc-reader" style={SUMMARY_STYLE}>
-                {noReader ? (
-                  <p style={READER_STATE_STYLE}>
-                    El contenido se abre en el workspace del proyecto.
-                  </p>
-                ) : docLoading ? (
-                  <p style={READER_STATE_STYLE} aria-live="polite">
-                    Cargando…
-                  </p>
-                ) : docContent != null ? (
-                  <Markdown>{docContent}</Markdown>
-                ) : (
-                  <p style={READER_STATE_STYLE}>No se pudo leer este documento.</p>
-                )}
+                <DocReaderBody
+                  noReader={noReader}
+                  docLoading={docLoading}
+                  docContent={docContent}
+                  resolveLink={resolveDocLink}
+                />
               </div>
             )}
           </div>

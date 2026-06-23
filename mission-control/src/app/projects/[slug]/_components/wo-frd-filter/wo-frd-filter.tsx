@@ -80,12 +80,16 @@ export function WoFrdFilter({ frds, selected, onSelect }: WoFrdFilterProps): Rea
   const allActive = selected === null;
 
   return (
+    // A <fieldset> WITHOUT a <legend>: the legend (in a display:flex fieldset) rendered
+    // out-of-flow and overlapped the chips ("el contenedor tapa el texto de filtrar"), and the
+    // old override zeroed the padding (filter glued to the edges). The visible label is now a
+    // plain inline <span>; the group's accessible name comes from aria-label (#c).
     <fieldset
       data-testid="wo-frd-filter"
       aria-label="Filtrar por FRD"
-      style={{ ...CONTAINER_STYLE, border: "none", padding: 0, margin: 0 }}
+      style={{ border: "none", ...CONTAINER_STYLE, margin: 0 }}
     >
-      <legend style={LABEL_STYLE}>Filtrar:</legend>
+      <span style={LABEL_STYLE}>Filtrar:</span>
       <button
         type="button"
         data-testid="wo-frd-filter-all"

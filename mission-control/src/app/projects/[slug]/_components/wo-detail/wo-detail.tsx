@@ -89,8 +89,9 @@ const ROOT_STYLE: React.CSSProperties = {
 
 const HEADER_STYLE: React.CSSProperties = {
   flexShrink: 0,
+  // No borderBottom (owner: "esa línea yo la borraría"): the SubTabs underline is the only
+  // divider, so the tabs no longer sit glued against a redundant second hairline.
   padding: "calc(var(--spacing, 0.25rem) * 4) calc(var(--spacing, 0.25rem) * 6) 0",
-  borderBottom: "var(--hairline, 1px) solid var(--color-border, currentColor)",
 };
 
 const BACK_STYLE: React.CSSProperties = {
@@ -244,6 +245,15 @@ function stateIcon(state: WorkOrderState): string {
 const SUMMARY_EXCERPT_LIMIT = 600;
 
 /**
+ * Strip a leading `---\n…\n---` YAML frontmatter block. It is machine metadata, not prose —
+ * rendered raw it shows as an `<hr>` line + a stray heading at the top of the document (the
+ * "línea extra" the owner flagged in the Full-document tab).
+ */
+function stripFrontmatter(content: string): string {
+  return content.replace(/^---\n[\s\S]*?\n---\n?/, "");
+}
+
+/**
  * Build a short, useful markdown excerpt of the work-order body for the Summary
  * tab (#23) — the previous summary only showed the file PATH, which is useless.
  *
@@ -253,8 +263,7 @@ const SUMMARY_EXCERPT_LIMIT = 600;
  */
 function summaryExcerpt(content: string | null): string | null {
   if (content === null) return null;
-  // Drop a leading `---\n…\n---` frontmatter block if present.
-  const withoutFrontmatter = content.replace(/^---\n[\s\S]*?\n---\n?/, "").trim();
+  const withoutFrontmatter = stripFrontmatter(content).trim();
   if (withoutFrontmatter === "") return null;
   if (withoutFrontmatter.length <= SUMMARY_EXCERPT_LIMIT) return withoutFrontmatter;
   return `${withoutFrontmatter.slice(0, SUMMARY_EXCERPT_LIMIT).trimEnd()}…`;
@@ -393,9 +402,10 @@ export function WorkOrderDetail({
           style={PANE_STYLE}
         >
           <article aria-label="Documento completo del work order" style={PROSE_WRAP_STYLE}>
-            {/* The shared <Markdown> brings the app's typographic scale (#23) —
-                no bespoke prose font styling here, just a max-width wrapper. */}
-            <Markdown>{content}</Markdown>
+            {/* The shared <Markdown> brings the app's typographic scale (#23) — no bespoke
+                prose styling, just a max-width wrapper. Frontmatter stripped so the doc doesn't
+                open with a stray `---` line + heading (owner: "una línea extra"). */}
+            <Markdown>{stripFrontmatter(content)}</Markdown>
           </article>
         </div>
       ) : (

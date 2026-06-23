@@ -575,3 +575,50 @@ describe("frd-02: structural order — navigator precedes the reader/summary", (
     expect(nav.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
+
+// ---------------------------------------------------------------------------
+// In-doc links resolve to THIS reader (owner: the board had the same broken-link
+// bug as the portfolio). A relative link to a doc the reader surfaces SELECTS it
+// (client-state nav); off-app URLs open in a new tab; anything else is plain text.
+// ---------------------------------------------------------------------------
+
+describe("frd-02: in-doc links open the linked doc in the card-detail reader", () => {
+  // A read action whose PRD body links a sibling FRD (relative → known), an external site,
+  // and a doc the reader does NOT surface — exercising each branch of the resolver.
+  const linkyReadDoc = vi.fn(async (_project: string, relPath: string): Promise<string | null> => {
+    if (relPath === "docs/product/prd.md") {
+      return "Ver [FRD-02](../frds/frd-02-billing/frd.md), [sitio](https://x.com) y [WO](../work-orders/wo-01.md).";
+    }
+    return `# ${relPath}\n\nCuerpo de ${relPath}.`;
+  });
+  const CARD = { ...IN_PIPELINE_CARD, readDocAction: linkyReadDoc };
+
+  async function openPrd(): Promise<void> {
+    render(<CardDetail {...CARD} />);
+    // The first project doc in the rail is the PRD (Producto section, first item).
+    const [prdItem] = screen.getAllByTestId("card-detail-docs-nav-item");
+    if (!prdItem) throw new Error("expected a PRD nav item");
+    fireEvent.click(prdItem);
+    await waitFor(() => expect(screen.getByRole("button", { name: "FRD-02" })).toBeInTheDocument());
+  }
+
+  it("frd-02: a link to a KNOWN doc renders as a button; selecting it loads that doc", async () => {
+    await openPrd();
+    fireEvent.click(screen.getByRole("button", { name: "FRD-02" }));
+    await waitFor(() =>
+      expect(linkyReadDoc).toHaveBeenCalledWith(CARD.project, "docs/frds/frd-02-billing/frd.md"),
+    );
+  });
+
+  it("frd-02: an external in-doc link stays a new-tab anchor", async () => {
+    await openPrd();
+    expect(screen.getByRole("link", { name: "sitio" }).getAttribute("target")).toBe("_blank");
+  });
+
+  it("frd-02: a link to a doc the reader does not surface becomes plain text", async () => {
+    await openPrd();
+    expect(screen.queryByRole("link", { name: "WO" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "WO" })).toBeNull();
+    expect(screen.getByText("WO")).toBeInTheDocument();
+  });
+});

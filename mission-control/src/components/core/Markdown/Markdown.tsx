@@ -72,8 +72,21 @@ const H4_STYLE: CSSProperties = {
 };
 
 const P_STYLE: CSSProperties = { margin: "8px 0", lineHeight: 1.65 };
-const UL_STYLE: CSSProperties = { margin: "8px 0", paddingLeft: "22px" };
-const LI_STYLE: CSSProperties = { margin: "4px 0", lineHeight: 1.6 };
+// Tailwind v4's preflight resets `ul,ol { list-style: none }`, which removed the bullets
+// (leaving only the indent). Restore the markers explicitly: disc for ul, decimal for ol.
+const UL_STYLE: CSSProperties = {
+  margin: "8px 0",
+  paddingLeft: "22px",
+  listStyleType: "disc",
+  listStylePosition: "outside",
+};
+const OL_STYLE: CSSProperties = {
+  margin: "8px 0",
+  paddingLeft: "26px",
+  listStyleType: "decimal",
+  listStylePosition: "outside",
+};
+const LI_STYLE: CSSProperties = { margin: "4px 0", lineHeight: 1.6, display: "list-item" };
 const STRONG_STYLE: CSSProperties = { fontWeight: 600, color: "var(--color-text)" };
 const A_STYLE: CSSProperties = {
   color: "var(--color-accent-text, var(--color-accent))",
@@ -154,7 +167,7 @@ const COMPONENTS: Components = {
   h6: ({ children }) => <h6 style={H4_STYLE}>{children}</h6>,
   p: ({ children }) => <p style={P_STYLE}>{children}</p>,
   ul: ({ children }) => <ul style={UL_STYLE}>{children}</ul>,
-  ol: ({ children }) => <ol style={{ ...UL_STYLE, paddingLeft: "26px" }}>{children}</ol>,
+  ol: ({ children }) => <ol style={OL_STYLE}>{children}</ol>,
   li: ({ children }) => <li style={LI_STYLE}>{children}</li>,
   strong: ({ children }) => <strong style={STRONG_STYLE}>{children}</strong>,
   em: ({ children }) => <em style={{ fontStyle: "italic" }}>{children}</em>,
@@ -190,20 +203,38 @@ const REMARK_PLUGINS = [remarkGfm];
 
 // ---------------------------------------------------------------------------
 // Link resolution (opt-in) — lets a caller rewrite where a markdown link points.
-//   - returns { href, external } → render an <a> (external → new tab, internal → same tab)
-//   - returns null               → render the link text as plain, non-clickable text
-// Used by the document reader so a relative link like `../frds/frd-01-.../frd.md` opens
-// that doc inside the SAME in-app reader instead of 404-ing against the app's routes.
+//   - { href, external }  → render an <a> (external → new tab, internal → same tab)
+//   - { onSelect }        → render a link-styled <button> (client-side navigation,
+//                           e.g. the board card-detail selects the doc in its own rail)
+//   - null                → render the link text as plain, non-clickable text
+// Used by the document readers so a relative link like `../frds/frd-01-.../frd.md` opens
+// that doc inside the SAME reader instead of 404-ing against the app's routes.
 // ---------------------------------------------------------------------------
 
-/** Where a markdown link should point after resolution (or null to neutralize it). */
-interface ResolvedLink {
+/** Resolve to a navigable href (URL-driven readers). */
+interface HrefLink {
   href: string;
   /** true → open in a new tab (off-app URL); false → same tab (in-app navigation). */
   external: boolean;
 }
+/** Resolve to a client-side selection (state-driven readers, e.g. board card-detail). */
+interface ActionLink {
+  onSelect: () => void;
+}
+/** Where a markdown link resolves to (or null to neutralize it). */
+type ResolvedLink = HrefLink | ActionLink;
 
 export type LinkResolver = (href: string) => ResolvedLink | null;
+
+/** A link rendered as a button (client-side selection) — link visuals, button semantics. */
+const A_BUTTON_STYLE: CSSProperties = {
+  ...A_STYLE,
+  background: "none",
+  border: "none",
+  padding: 0,
+  font: "inherit",
+  cursor: "pointer",
+};
 
 /** Build a resolver-aware anchor renderer; a null resolution renders plain text. */
 function makeAnchor(resolveLink: LinkResolver): NonNullable<Components["a"]> {
@@ -214,6 +245,13 @@ function makeAnchor(resolveLink: LinkResolver): NonNullable<Components["a"]> {
         <span style={A_NEUTRAL_STYLE} title="Documento no disponible en el lector">
           {children}
         </span>
+      );
+    }
+    if ("onSelect" in resolved) {
+      return (
+        <button type="button" style={A_BUTTON_STYLE} onClick={resolved.onSelect}>
+          {children}
+        </button>
       );
     }
     if (resolved.external) {

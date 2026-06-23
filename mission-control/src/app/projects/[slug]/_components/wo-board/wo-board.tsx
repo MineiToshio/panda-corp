@@ -63,18 +63,23 @@ const COLUMNS: readonly KanbanColDef[] = [
 // Styles — CSS custom properties only
 // ---------------------------------------------------------------------------
 
-/** Board outer container — horizontal-scroll row of columns */
+/** Board outer container — flows in the page (no own scroll; the page scrolls). */
 const BOARD_OUTER_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   width: "100%",
-  overflow: "hidden",
 };
 
-/** Horizontal-scroll row that holds the five KanbanColumns */
+/**
+ * Row that holds the five KanbanColumns. `align-items:flex-start` so each column is its
+ * OWN height (content-sized) instead of all stretching to the tallest — paired with the
+ * columns no longer scrolling internally, a tall column (e.g. "Hecho") just makes the page
+ * taller. Horizontal scroll only when the five columns exceed the width.
+ */
 const COLUMNS_ROW_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "row",
+  alignItems: "flex-start",
   gap: "8px",
   overflowX: "auto",
   paddingBottom: "6px",

@@ -111,6 +111,10 @@ campaign map) + `prototype/index.html` `detailView()`:
   summary reader) plus one item per project document; selecting an item shows it in the reader (a board
   card defers the full document read to the project workspace). **Comandos** uses the shared `CmdRow`,
   and building/operation cards add a project-command box (`workspaceCommands`).
+- **AC-02-009.4 In-document links open in the reader** — a relative link inside a document to another
+  document the reader surfaces (e.g. the PRD linking an FRD) SHALL open that document in the SAME
+  card-detail reader (it selects it in the rail — client-state navigation, not a page nav); an off-app
+  URL SHALL open in a new tab; any other relative link SHALL render as plain text (never a broken link).
 - **Board columns use La Campaña's phase names** (numbered): `1 Investigación · 2 Producto · 3 Diseño ·
   4 Arquitectura · 5 Construcción · 6 Release` (+ `Descartada`). Same vocabulary as the campaign;
   the two-axis column derivation is unchanged.
