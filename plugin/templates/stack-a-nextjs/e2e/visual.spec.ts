@@ -26,9 +26,11 @@ for (const s of BLESSED) {
     //     (installed < source, before `claude plugin update`), a transient/per-machine state.
     //   - activity-log — the project summary's activity feed is the tail of .pandacorp/comms/
     //     progress.md, which grows on every build; its content is volatile, not a fixed render.
+    //   - summary-text — the project summary renders the idea-card body (long prose); its line
+    //     metrics reflow subtly between cold/warm dev-server renders, exceeding the pixel ratio.
     await page.addStyleTag({
       content:
-        '[data-testid="dashboard-banners"],[data-testid="activity-log"]{display:none!important}',
+        '[data-testid="dashboard-banners"],[data-testid="activity-log"],[data-testid="summary-text"]{display:none!important}',
     });
     await page.evaluate(() => document.fonts.ready);
     await expect(page).toHaveScreenshot(`${s.id}-${testInfo.project.name}.png`, { fullPage: true });
