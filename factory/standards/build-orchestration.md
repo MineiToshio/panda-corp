@@ -66,10 +66,19 @@ torn-read. The per-WO file is in the WO's own `artifacts`, so it's disjoint by c
 frontend WO that consumes a contract reads the **specific** provider WO's file (it knows the id from
 its `Dependencies`).
 
-**Single-writer commit — Option B, NOT worktrees (DR-060).** The build workers run in parallel on ONE
-shared working tree but **never call git**; after a wave, the engine commits the wave's green work
-orders through **one serialized writer** (each WO staged by its own disjoint files, one commit each).
-This kills the `git index.lock` race with no per-agent worktree and **no merge**. Worktree-per-agent
+**Single-writer commit — Option B, NOT worktrees (DR-060); finer save points (DR-086).** The build
+workers run in parallel on ONE shared working tree but **never call git**; the engine commits **each
+work order the INSTANT its self-test greens** through **one serialized writer** (each WO staged by its
+own disjoint files, one commit each) — **NOT batched at wave end**. Committing as-you-green is what
+makes the rework on an interruption minimal: a kill/cut/crash keeps every WO already committed
+(committed → `IN_REVIEW` → skipped on resume, never rebuilt) and only the **still-building**
+(uncommitted) WOs are redone — a mid-wave cut used to discard the WHOLE wave (up to `wave` WOs). The
+**serialization** (one git writer at a time, via a promise chain) kills the `git index.lock` race even
+while sibling WOs of the same wave are still building, and the **selective `git add` of the WO's own
+disjoint `artifacts`** can never capture a sibling's in-flight files — so there is still **no merge**
+and no per-agent worktree. `last_green_sha` is still advanced only by the **FRD gate** (the
+review-verified anchor for `safe_to_test` / the review worktree / baseline-skip); the per-WO commits
+are finer *resume* points via the frontmatter, not new *verified* points. Worktree-per-agent
 was considered and rejected for this shape: the work is already partitioned into disjoint files, so the
 isolation a worktree buys is already achieved by construction; Claude Code's own *agent-teams* guidance
 is "partition the work so each teammate owns a different set of files" (worktrees are for independent,

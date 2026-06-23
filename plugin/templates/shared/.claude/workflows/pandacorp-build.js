@@ -220,7 +220,28 @@ function pickWorkerModel(wo) {
   return P.worker
 }
 
-// ── Build ONE work order: implement → fast self-test → IN_REVIEW + hand-off ──
+// ── Finer save points (DR-086, owner): commit each WO the INSTANT its self-test greens ──
+// Not batched at wave end. So an interruption keeps every already-green WO and only the
+// still-building ones rebuild (a mid-wave cut used to lose the WHOLE wave — up to P.wave WOs).
+// ONE git writer at a time, serialized through this promise chain, so committing a WO while sibling
+// WOs of the SAME wave are still building causes NO index.lock race (the invariant Option B/DR-060
+// protects); the selective `git add` of the WO's DISJOINT `artifacts` (+ its own work-order .md) can
+// never capture a sibling's in-flight files. The resume path is unchanged: a committed WO is IN_REVIEW
+// → skipped on relaunch (never rebuilt); only PLANNED/IN_PROGRESS (uncommitted) work is redone.
+let commitChain = Promise.resolve()
+async function commitWOGreen(wo, frd) {
+  agentSpawned++
+  const link = commitChain.then(() =>
+    agent(
+      `You are the SOLE git writer at this instant (serialized — no other commit runs concurrently, so there is NO index.lock race), committing work order ${wo.id} now that its self-test is green and its frontmatter is IN_REVIEW. Make exactly ONE commit (Conventional Commits, with scope) staging ONLY this work order's own files: its declared artifacts ${wo.artifacts && wo.artifacts.length ? '(' + wo.artifacts.join(' ') + ')' : "(use `git status` to identify THIS wo's files)"} AND its own work-order markdown under \`docs/frds/${frd}/work-orders/\` (the IN_REVIEW frontmatter + ## Status Note). Sibling work orders of the same wave may be MID-BUILD — do NOT stage or touch their files; if \`git status\` shows changes outside this WO's files, leave them untouched. Do NOT advance last_green_sha (that is the FRD gate's job — this WO is self-test-green, not yet review-verified). Return { committed: 1 }.`,
+      { label: `commit:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:implementer' },
+    ),
+  )
+  commitChain = link.catch(() => {}) // keep the chain alive even if one commit errors
+  return link
+}
+
+// ── Build ONE work order: implement → fast self-test → IN_REVIEW + hand-off → commit-when-green ──
 async function buildWO(wo, frd) {
   const woModel = pickWorkerModel(wo)   // DR-073: opus floor-escalation, a-priori (difficulty=high) or empirical (reopen_count>=1)
   if (woModel !== P.worker) log(`⤴ opus: ${wo.id} (${wo.difficulty === 'high' ? 'difficulty=high' : 'reopen=' + (wo.reopen_count || 0)})`)
@@ -230,18 +251,23 @@ async function buildWO(wo, frd) {
   if (P.split && plan.hasFrontend) {
     await agent(`${EMIT('test-writer', wo.id, { frd, activity: 'test' })}Write the acceptance tests (RED) for work order ${wo.id} from the EARS criteria of FRD ${frd}: ${wo.summary || ''}. No production code.`,
       { label: `test:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:test-writer' })
-    await agent(`${EMIT('backend-dev', wo.id, { frd, activity: 'backend' })}First read the \`## Status Note\` of the work orders ${wo.id} depends on (their exposed interfaces). Then implement the backend of ${wo.id} (TDD until green): ${wo.summary || ''}. Publish YOUR API contract at docs/api/${wo.id}.md (your own per-WO file — DR-060: never a shared docs/api.md, which races across parallel WOs). Do NOT call git — you never commit; the engine commits the wave with one serialized writer (Option B).`,
+    await agent(`${EMIT('backend-dev', wo.id, { frd, activity: 'backend' })}First read the \`## Status Note\` of the work orders ${wo.id} depends on (their exposed interfaces). Then implement the backend of ${wo.id} (TDD until green): ${wo.summary || ''}. Publish YOUR API contract at docs/api/${wo.id}.md (your own per-WO file — DR-060: never a shared docs/api.md, which races across parallel WOs). Do NOT call git — you never commit; the engine commits this work order (serialized single writer) when it greens (Option B).`,
       { label: `be:${wo.id}`, phase: 'Build', model: woModel, effort: woModel === 'opus' ? 'high' : undefined, agentType: 'pandacorp:backend-dev' })
-    await agent(`${EMIT('frontend-dev', wo.id, { frd, activity: 'frontend' })}Implement the UI of ${wo.id} using ONLY design tokens and the provider WO's contract at docs/api/<the-backend-WO-in-your-Dependencies>.md (DR-060: read that specific per-WO file, never a shared docs/api.md): ${wo.summary || ''}.${designRef(frd)}${reuseRef(frd)} Do NOT call git — you never commit; the engine commits the wave (Option B).`,
+    await agent(`${EMIT('frontend-dev', wo.id, { frd, activity: 'frontend' })}Implement the UI of ${wo.id} using ONLY design tokens and the provider WO's contract at docs/api/<the-backend-WO-in-your-Dependencies>.md (DR-060: read that specific per-WO file, never a shared docs/api.md): ${wo.summary || ''}.${designRef(frd)}${reuseRef(frd)} Do NOT call git — you never commit; the engine commits this work order when it greens (Option B).`,
       { label: `fe:${wo.id}`, phase: 'Build', model: woModel, effort: woModel === 'opus' ? 'high' : undefined, agentType: 'pandacorp:frontend-dev' })
   } else {
-    await agent(`${EMIT('implementer', wo.id, { frd, activity: 'implement' })}First set ${wo.id}'s frontmatter \`implementation_status: IN_PROGRESS\`. Then fully implement it with TDD (RED→GREEN→refactor), anchored in the EARS criteria of FRD ${frd} and in bugs from .pandacorp/comms/progress.md: ${wo.summary || ''}. This is a COARSE slice (a whole view/capability) — build it end-to-end. First read the \`## Status Note\` of the work orders ${wo.id} depends on (their exposed interfaces) and integrate against those, not a guess.${designRef(frd)}${reuseRef(frd)} Do NOT call git — you never commit; the engine commits the wave with one serialized writer (Option B, DR-060).`,
+    await agent(`${EMIT('implementer', wo.id, { frd, activity: 'implement' })}First set ${wo.id}'s frontmatter \`implementation_status: IN_PROGRESS\`. Then fully implement it with TDD (RED→GREEN→refactor), anchored in the EARS criteria of FRD ${frd} and in bugs from .pandacorp/comms/progress.md: ${wo.summary || ''}. This is a COARSE slice (a whole view/capability) — build it end-to-end. First read the \`## Status Note\` of the work orders ${wo.id} depends on (their exposed interfaces) and integrate against those, not a guess.${designRef(frd)}${reuseRef(frd)} Do NOT call git — you never commit; the engine commits this work order (serialized single writer) the moment its self-test greens (Option B, DR-060).`,
       { label: `build:${wo.id}`, phase: 'Build', model: woModel, effort: woModel === 'opus' ? 'high' : undefined, agentType: 'pandacorp:implementer' })
   }
   // Fast SELECTIVE self-test (NOT the whole suite) → IN_REVIEW + hand-off.
-  const v = await agent(`${EMIT('implementer', wo.id, { frd, activity: 'selftest' })}Fast self-test for work order ${wo.id}: run \`pnpm biome check .\`, \`pnpm tsc --noEmit\`, and \`pnpm vitest run\` limited to THIS work order's own test files (not the whole suite). If green: set the WO's frontmatter **\`implementation_status: IN_REVIEW\`** and fill its **\`## Status Note\`** hand-off (what it built; the interfaces/contracts exposed with signatures; the integration seams; **the implicit DECISIONS & ASSUMPTIONS you made — naming, data shapes, formats, units, error/empty conventions — so the consumer inherits them instead of re-deciding incompatibly**; which test files cover it). **Do NOT call git — you NEVER commit (Option B, DR-060): the engine commits the whole wave with a single serialized writer, so there is no index.lock race.** Return green=true. If red, return green=false with the reason. These are file edits to THIS WO's own files only.`,
+  const v = await agent(`${EMIT('implementer', wo.id, { frd, activity: 'selftest' })}Fast self-test for work order ${wo.id}: run \`pnpm biome check .\`, \`pnpm tsc --noEmit\`, and \`pnpm vitest run\` limited to THIS work order's own test files (not the whole suite). If green: set the WO's frontmatter **\`implementation_status: IN_REVIEW\`** and fill its **\`## Status Note\`** hand-off (what it built; the interfaces/contracts exposed with signatures; the integration seams; **the implicit DECISIONS & ASSUMPTIONS you made — naming, data shapes, formats, units, error/empty conventions — so the consumer inherits them instead of re-deciding incompatibly**; which test files cover it). **Do NOT call git — the engine commits THIS work order the INSTANT your self-test passes, via a serialized single writer (Option B, DR-060), so there is no index.lock race.** Return green=true. If red, return green=false with the reason. These are file edits to THIS WO's own files only.`,
     { label: `selftest:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:implementer', schema: VERIFY_SCHEMA })
-  return Boolean(v && v.green === true)
+  const green = Boolean(v && v.green === true)
+  // Finer save points (DR-086): commit THIS WO the instant it is green — serialized single writer —
+  // so a mid-wave interruption keeps it (committed → IN_REVIEW → skipped on resume) instead of losing
+  // the whole wave. Only still-building (uncommitted) WOs are rebuilt.
+  if (green) await commitWOGreen(wo, frd)
+  return green
 }
 
 // ── FRD gate: ONE review + integration test over the whole feature ──
@@ -457,14 +483,11 @@ for (const f of plan.frds) {
     const wave = pickDisjointWave(foundationReady.length ? foundationReady : ready, P.wave)   // DR-060: never co-schedule WOs whose artifacts overlap
     const results = await parallel(wave.map((w) => () => buildWO(w, f.frd)))
     for (let i = 0; i < wave.length; i++) { queue.delete(wave[i].id); if (results[i]) doneIds.add(wave[i].id); else frdFailed = true }
-    // Option B (DR-060): ONE serialized writer commits the wave's GREEN work orders — no per-agent
-    // git, so no index.lock race and no merge. WOs are disjoint, so staging each WO's own files is clean.
-    const greenWave = wave.filter((_, i) => results[i])
-    if (greenWave.length) {
-      agentSpawned++
-      await agent(`You are the SOLE git writer for this build wave (Option B, DR-060): no other agent touches git, so there is no index.lock contention and no merge. The work below already built green with their frontmatter set to IN_REVIEW + their \`## Status Note\` written (file edits, not committed). Commit each GREEN work order in ITS OWN commit (Conventional Commits, scope), staging ONLY that WO's own files: ${greenWave.map((w) => `${w.id} → \`git add ${(w.artifacts && w.artifacts.length ? w.artifacts.join(' ') : 'the files this WO changed (use git status to see THIS wo\'s disjoint files)')}\` then commit`).join('  ·  ')}. Do NOT touch any other uncommitted changes. If \`git status\` shows changes outside these WOs' files, leave them. Return { committed: <count> }.`,
-        { label: `commit:${f.frd}:w`, phase: 'Build', model: P.worker, agentType: 'pandacorp:implementer' })
-    }
+    // Option B (DR-060) + finer save points (DR-086): each GREEN work order was ALREADY committed the
+    // instant its self-test passed (commitWOGreen — one serialized git writer, selective `git add` of
+    // its disjoint artifacts), so there is no batched after-wave commit. A mid-wave interruption keeps
+    // every WO that already greened (committed → IN_REVIEW → skipped on resume) and only the
+    // still-building (uncommitted) WOs rebuild. No index.lock race: the writer is serialized.
     if (frdFailed) break
   }
   if (stopReason === 'agents') break   // DR-070: mid-FRD ceiling hit → leave this FRD's built WOs IN_REVIEW (resumable), skip its gate, go to close-out
