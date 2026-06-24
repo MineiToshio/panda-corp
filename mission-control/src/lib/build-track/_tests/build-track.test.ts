@@ -15,7 +15,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { WorkOrder } from "@/lib/work-orders/work-orders";
-import { readBuildTimeline } from "../build-track";
+import { deriveGitTimeline, readBuildTimeline } from "../build-track";
 
 // ---------------------------------------------------------------------------
 // Temp-dir fixture helpers
@@ -309,5 +309,92 @@ describe("readBuildTimeline — malformed input is fail-soft", () => {
     const orders: WorkOrder[] = [makeOrder({ id: "WO-01-001", frd: "frd-01-x", state: "todo" })];
     const tl = readBuildTimeline(projectPath, orders);
     expect(tl.source).toBe("structural");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// (f) Git fallback — estimated reconstruction from commit history (pure)
+// ---------------------------------------------------------------------------
+
+describe("deriveGitTimeline — estimated reconstruction from git history", () => {
+  const ms = (iso: string): number => Date.parse(iso);
+
+  it("returns null when no commit mentions a WO id", () => {
+    const tl = deriveGitTimeline(
+      [{ atMs: ms("2026-06-01T10:00:00Z"), subject: "chore: tidy" }],
+      [],
+    );
+    expect(tl).toBeNull();
+  });
+
+  it("reconstructs FRD▸WO in real order with estimated durations, flagged estimated", () => {
+    const commits = [
+      { atMs: ms("2026-06-01T10:00:00Z"), subject: "feat(x): WO-01-001 reader" },
+      { atMs: ms("2026-06-01T10:12:00Z"), subject: "feat(x): WO-01-002 view" },
+      { atMs: ms("2026-06-01T11:00:00Z"), subject: "feat(y): WO-02-001 wire" },
+    ];
+    const orders: WorkOrder[] = [
+      makeOrder({ id: "WO-01-001", frd: "frd-01-x", state: "done" }),
+      makeOrder({ id: "WO-01-002", frd: "frd-01-x", state: "done" }),
+      makeOrder({ id: "WO-02-001", frd: "frd-02-y", state: "fail" }),
+    ];
+    const tl = deriveGitTimeline(commits, orders);
+    expect(tl).not.toBeNull();
+    if (tl === null) return;
+    expect(tl.source).toBe("git");
+    expect(tl.estimated).toBe(true);
+    expect(tl.hasDurations).toBe(true);
+    expect(tl.frds.map((f) => f.id)).toEqual(["frd-01-x", "frd-02-y"]);
+    expect(tl.frds[0]?.workOrders.map((w) => w.id)).toEqual(["WO-01-001", "WO-01-002"]);
+    // WO-01-002 duration = the 12-min gap to the previous commit.
+    expect(tl.frds[0]?.workOrders[1]?.durationMin).toBe(12);
+    // Final state comes from the orders, not git.
+    expect(tl.frds[1]?.state).toBe("fail");
+  });
+
+  it("clamps an overnight gap to the 60-min cap (no absurd multi-hour bars)", () => {
+    const commits = [
+      { atMs: ms("2026-06-01T10:00:00Z"), subject: "WO-01-001" },
+      { atMs: ms("2026-06-02T10:00:00Z"), subject: "WO-01-002" }, // +24h
+    ];
+    const orders: WorkOrder[] = [
+      makeOrder({ id: "WO-01-001", frd: "frd-01-x", state: "done" }),
+      makeOrder({ id: "WO-01-002", frd: "frd-01-x", state: "done" }),
+    ];
+    const tl = deriveGitTimeline(commits, orders);
+    expect(tl?.frds[0]?.workOrders[1]?.durationMin).toBe(60);
+  });
+
+  it("counts the commits mentioning a WO as its attempts (reopens)", () => {
+    const commits = [
+      { atMs: ms("2026-06-01T10:00:00Z"), subject: "WO-01-001 build" },
+      { atMs: ms("2026-06-01T10:30:00Z"), subject: "reopen WO-01-001" },
+      { atMs: ms("2026-06-01T11:00:00Z"), subject: "WO-01-001 fixed" },
+    ];
+    const orders: WorkOrder[] = [makeOrder({ id: "WO-01-001", frd: "frd-01-x", state: "done" })];
+    const tl = deriveGitTimeline(commits, orders);
+    expect(tl?.frds[0]?.workOrders[0]?.attempts).toBe(3);
+  });
+
+  it("orders WOs by their real finish time even when commits arrive unsorted", () => {
+    const commits = [
+      { atMs: ms("2026-06-01T11:00:00Z"), subject: "WO-02-001" },
+      { atMs: ms("2026-06-01T10:00:00Z"), subject: "WO-01-001" },
+    ];
+    const orders: WorkOrder[] = [
+      makeOrder({ id: "WO-01-001", frd: "frd-01-x", state: "done" }),
+      makeOrder({ id: "WO-02-001", frd: "frd-02-y", state: "done" }),
+    ];
+    const tl = deriveGitTimeline(commits, orders);
+    expect(tl?.frds.map((f) => f.id)).toEqual(["frd-01-x", "frd-02-y"]);
+  });
+
+  it("falls back to a frd-NN slug for a WO id absent from the orders list", () => {
+    const commits = [{ atMs: ms("2026-06-01T10:00:00Z"), subject: "WO-07-003 orphan" }];
+    const tl = deriveGitTimeline(commits, []);
+    expect(tl?.frds[0]?.id).toBe("frd-07");
+    expect(tl?.frds[0]?.label).toBe("FRD-07");
+    // No order ⇒ assume the commit landing means it shipped.
+    expect(tl?.frds[0]?.workOrders[0]?.state).toBe("done");
   });
 });

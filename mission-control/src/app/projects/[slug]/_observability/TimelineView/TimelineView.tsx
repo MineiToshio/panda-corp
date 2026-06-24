@@ -466,7 +466,39 @@ function DurationsTimeline({ timeline }: { timeline: BuildTimeline }): React.JSX
   const firstErr = findFirstError(timeline);
 
   return (
-    <div data-testid="timeline-gantt" data-mode="durations" style={{ width: "100%" }}>
+    <div
+      data-testid="timeline-gantt"
+      data-mode={timeline.estimated ? "estimated" : "durations"}
+      style={{ width: "100%" }}
+    >
+      {/* Estimated banner (git-reconstructed timeline — durations are approximate, AC-12-003.1a) */}
+      {timeline.estimated && (
+        <div
+          data-testid="timeline-gantt-estimated-banner"
+          role="note"
+          style={{
+            fontSize: "11px",
+            color: "var(--color-text2)",
+            background: "var(--color-card2)",
+            border: "0.5px solid var(--color-border)",
+            borderRadius: "var(--radius-md, 8px)",
+            padding: "8px 10px",
+            marginBottom: "12px",
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+          }}
+        >
+          <i
+            className="ti ti-history"
+            aria-hidden="true"
+            style={{ fontSize: "14px", color: "var(--color-accent-text)" }}
+          />
+          ≈ Tiempos estimados (reconstruidos de git): el orden, las fechas y los resultados son
+          reales; las duraciones son aproximadas (tiempo entre commits, acotado).
+        </div>
+      )}
+
       {/* Legend */}
       <div
         data-testid="timeline-gantt-legend"
@@ -484,7 +516,9 @@ function DurationsTimeline({ timeline }: { timeline: BuildTimeline }): React.JSX
           aria-hidden="true"
           style={{ fontSize: "14px", color: "var(--color-accent-text)" }}
         />
-        FRDs → work orders, por duración real del build. La barra de revisión cierra cada FRD.
+        {timeline.estimated
+          ? "FRDs → work orders, en su orden real. La duración de cada barra es estimada."
+          : "FRDs → work orders, por duración real del build. La barra de revisión cierra cada FRD."}
       </div>
 
       {/* Jump-to-first-error note (AC-12-003.2) */}

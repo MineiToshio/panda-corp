@@ -31,7 +31,12 @@ The analytical views live in a project-level **"Observabilidad" tab** that is a 
 
 ### REQ-12-003 — Timeline view
 - **AC-12-003.1** — WHEN the **Línea de tiempo** view is selected THE system SHALL render the build as **FRD ▸ work order (+ a per-FRD review segment)** — FRD rows at the top level, each work order nested under its FRD as a bar sized to its **real wall-clock duration**, plus the FRD's review/test phase as its own segment. Granularity is FRD▸WO+review (NOT task/action — too granular). A reopened work order shows its **last attempt** (the attempt count is surfaced as meta).
-- **AC-12-003.1a (data source + honest fallbacks)** — The timeline reads the **durable per-project log `.pandacorp/track.jsonl`** (written by the build engine: `wo_start`/`wo_end`/`review_*`/`frd_end`, DR-086). WHERE a track exists → real durations. WHERE a project has **no track** (built before the log, or never built with it) → a **structural** view (FRD▸WO with states, NO durations) under an honest banner ("histórico — estructura sin duraciones"). WHERE there is no build data at all → an **honest empty state**. The system SHALL NEVER render fabricated/placeholder duration bars.
+- **AC-12-003.1a (data source + honest fallbacks)** — The timeline reads the **durable per-project log `.pandacorp/track.jsonl`** (written by the build engine: `wo_start`/`wo_end`/`review_*`/`frd_end`, DR-086) and degrades through an honest precedence:
+  1. **track present** → **real** durations (`source: "track"`).
+  2. **no track, but git history records the build** (WO-tagged commits) → an **estimated** timeline reconstructed from git (`source: "git"`): the **order, the dates and the outcomes are real**; **durations are estimated** from the gap between commits (clamped to a sane max, laid out sequentially so multi-day pauses don't distort the axis). It SHALL be shown under an explicit **"≈ tiempos estimados"** banner and never presented as real.
+  3. **no track, no git build** but work orders exist → a **structural** view (FRD▸WO with states, NO durations) under an honest banner ("histórico — estructura sin duraciones").
+  4. **no build data at all** → an **honest empty state**.
+  The system SHALL NEVER render fabricated/placeholder duration bars, and SHALL always flag estimated durations as estimates.
 - **AC-12-003.2** — The timeline SHALL offer a **"saltar al primer error"** affordance that locates the first failed work order in the sequence.
 
 ### REQ-12-004 — DAG view and interactions

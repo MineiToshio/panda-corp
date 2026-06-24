@@ -65,7 +65,7 @@ Fichero NDJSON en el directorio home. Los agentes escriben eventos con `printf` 
 
 ## La línea de tiempo durable: `.pandacorp/track.jsonl`
 
-A diferencia del fichero de eventos (efímero, global), el motor de build escribe un **registro durable por proyecto** en `.pandacorp/track.jsonl`: una línea por transición (`wo_start`, `wo_end`, `review_start`/`review_end`, `frd_end`). Es **estado-máquina versionado** (como `status.yaml`, lo commitea el motor), así que sobrevive al build. Es la fuente que lee la **Observabilidad → Línea de tiempo** (FRD ▸ work order ▸ revisión, con duraciones reales). Solo lo tienen los proyectos construidos con el motor que lo escribe; los anteriores muestran una vista estructural sin duraciones.
+A diferencia del fichero de eventos (efímero, global), el motor de build escribe un **registro durable por proyecto** en `.pandacorp/track.jsonl`: una línea por transición (`wo_start`, `wo_end`, `review_start`/`review_end`, `frd_end`). Es **estado-máquina versionado** (como `status.yaml`, lo commitea el motor), así que sobrevive al build. Es la fuente que lee la **Observabilidad → Línea de tiempo** (FRD ▸ work order ▸ revisión, con duraciones reales). Solo lo tienen los proyectos construidos con el motor que lo escribe; para los anteriores, la línea de tiempo se **reconstruye del historial de git** (el orden, las fechas y los resultados son reales; las duraciones son **estimadas** del tiempo entre commits, bajo una bandera "≈ tiempos estimados") y, si tampoco hay commits de build, cae a una vista estructural sin duraciones.
 
 ## La memoria de la fábrica: `factory/memory/`
 

@@ -25,7 +25,7 @@ Cada proyecto tiene una página con tabs:
 - **Comandos** — los comandos recomendados para la fase actual, con botón de copia.
 - **Work Orders** — tablero Kanban de WOs (PLANNED / IN_PROGRESS / IN_REVIEW / VERIFIED / BLOCKED).
 - **Party** — los agentes del equipo animados con su estado en tiempo real.
-- **Observabilidad** — grafo de dependencias entre WOs, freshness badge, y **línea de tiempo de la construcción** (FRD ▸ work order + revisión, con duraciones reales del track durable `.pandacorp/track.jsonl`; vista estructural honesta si el proyecto no tiene track).
+- **Observabilidad** — grafo de dependencias entre WOs, freshness badge, y **línea de tiempo de la construcción** (FRD ▸ work order + revisión, con duraciones reales del track durable `.pandacorp/track.jsonl`; si el proyecto no tiene track, se reconstruye del historial de git con duraciones **estimadas** bajo bandera honesta, y si tampoco hay commits de build, una vista estructural sin duraciones).
 - **Documentos** — navegador de los docs del proyecto (`docs/frds/`, `docs/product/`).
 
 ## Cómo lee los datos

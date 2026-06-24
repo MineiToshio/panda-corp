@@ -13,6 +13,7 @@
  * never thrown.
  */
 
+import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import type { WorkOrder } from "@/lib/work-orders/work-orders";
@@ -61,9 +62,18 @@ export interface TLFrd {
 
 export interface BuildTimeline {
   frds: TLFrd[];
-  /** True only when the source is the track and real durations are present. */
+  /** True when bars carry a duration (real from the track, or estimated from git). */
   hasDurations: boolean;
-  source: "track" | "structural" | "empty";
+  /**
+   * Where the timeline came from:
+   *   - "track"      → real durations from `.pandacorp/track.jsonl`.
+   *   - "git"        → reconstructed from git history: real order/dates/outcomes, ESTIMATED durations.
+   *   - "structural" → the work-order list only, no durations.
+   *   - "empty"      → nothing to show.
+   */
+  source: "track" | "git" | "structural" | "empty";
+  /** True only for `source: "git"` — durations are estimates (commit-gap based), not real build time. Omitted (falsy) otherwise. */
+  estimated?: boolean;
   /** Earliest start across all WOs (epoch ms), or null when unknown. */
   buildStartMs: number | null;
 }
@@ -462,6 +472,191 @@ function fromStructural(orders: readonly WorkOrder[]): BuildTimeline {
 }
 
 // ---------------------------------------------------------------------------
+// Git fallback (DR-086 → estimated): reconstruct from git when there is no track.
+// Real ORDER, DATES and OUTCOMES; ESTIMATED durations (commit-gap, clamped) laid out
+// SEQUENTIALLY so multi-day pauses don't explode the axis. Always flagged `estimated`.
+// ---------------------------------------------------------------------------
+
+/** A parsed git commit relevant to the build: its time + the subject (for WO ids). */
+interface GitCommit {
+  atMs: number;
+  subject: string;
+}
+
+const WO_ID_RE = /\bWO-\d{2,}-\d{3,}\b/g;
+/** Estimated-duration clamp (ms) so an overnight gap between commits is not an 8h bar. */
+const GIT_DUR_MIN_MS = 60_000; // 1 min
+const GIT_DUR_MAX_MS = 60 * 60_000; // 60 min
+const GIT_DUR_DEFAULT_MS = 8 * 60_000; // first WO (no previous commit to gap from)
+
+/** Read git commits touching the project (newest-capped) as {atMs, subject}. Fail-soft → []. */
+function readGitLog(projectPath: string): GitCommit[] {
+  let out = "";
+  try {
+    out = execSync("git log -n 4000 --format=%cI%x09%s -- .", {
+      cwd: projectPath,
+      encoding: "utf-8",
+      maxBuffer: 16 * 1024 * 1024,
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch {
+    return [];
+  }
+  const commits: GitCommit[] = [];
+  for (const line of out.split("\n")) {
+    const tab = line.indexOf("\t");
+    if (tab < 0) continue;
+    const atMs = Date.parse(line.slice(0, tab));
+    if (!Number.isFinite(atMs)) continue;
+    commits.push({ atMs, subject: line.slice(tab + 1) });
+  }
+  return commits;
+}
+
+/** FRD folder slug for a WO id — the order's real slug when known, else "frd-NN" from the id. */
+function frdSlugForWo(woId: string, orderById: ReadonlyMap<string, WorkOrder>): string {
+  const order = orderById.get(woId);
+  if (order !== undefined) return order.frd;
+  const m = /^WO-(\d{2,})-/.exec(woId);
+  return m?.[1] !== undefined ? `frd-${m[1]}` : "otros";
+}
+
+/** Per WO id: latest commit time (finish) + commit count (≈ attempts). */
+function tallyWoCommits(commits: readonly GitCommit[]): {
+  finishMs: Map<string, number>;
+  commitCount: Map<string, number>;
+} {
+  const finishMs = new Map<string, number>();
+  const commitCount = new Map<string, number>();
+  for (const c of commits) {
+    const ids = c.subject.match(WO_ID_RE);
+    if (ids === null) continue;
+    for (const id of new Set(ids)) {
+      const prev = finishMs.get(id);
+      if (prev === undefined || c.atMs > prev) finishMs.set(id, c.atMs);
+      commitCount.set(id, (commitCount.get(id) ?? 0) + 1);
+    }
+  }
+  return { finishMs, commitCount };
+}
+
+interface EstimatedWoInput {
+  id: string;
+  startMs: number;
+  durMs: number;
+  orderById: ReadonlyMap<string, WorkOrder>;
+  attempts: number;
+}
+
+/** Build one estimated TLWorkOrder positioned at [startMs, endMs] (synthetic, clamped). */
+function estimatedWo({ id, startMs, durMs, orderById, attempts }: EstimatedWoInput): TLWorkOrder {
+  const order = orderById.get(id);
+  return {
+    id,
+    title: order?.title ?? id,
+    frd: frdSlugForWo(id, orderById),
+    state: order !== undefined ? mapOrderState(order.state) : "done",
+    startMs,
+    endMs: startMs + durMs,
+    durationMin: Math.max(1, Math.round(durMs / 60_000)),
+    attempts,
+  };
+}
+
+/** Lay WOs out sequentially (real finish order) with clamped estimated durations, grouped by FRD. */
+function layoutEstimatedWos(
+  ordered: readonly { id: string; ms: number }[],
+  orderById: ReadonlyMap<string, WorkOrder>,
+  commitCount: ReadonlyMap<string, number>,
+  buildStartMs: number,
+): { tlByFrd: Map<string, TLWorkOrder[]>; frdOrder: string[] } {
+  let cursor = buildStartMs;
+  let prevFinish: number | null = null;
+  const tlByFrd = new Map<string, TLWorkOrder[]>();
+  const frdOrder: string[] = [];
+
+  for (const { id, ms } of ordered) {
+    const gap = prevFinish === null ? GIT_DUR_DEFAULT_MS : ms - prevFinish;
+    const durMs = Math.min(GIT_DUR_MAX_MS, Math.max(GIT_DUR_MIN_MS, gap));
+    prevFinish = ms;
+    const tlWo = estimatedWo({
+      id,
+      startMs: cursor,
+      durMs,
+      orderById,
+      attempts: commitCount.get(id) ?? 1,
+    });
+    cursor = tlWo.endMs ?? cursor;
+
+    let list = tlByFrd.get(tlWo.frd);
+    if (list === undefined) {
+      list = [];
+      tlByFrd.set(tlWo.frd, list);
+      frdOrder.push(tlWo.frd);
+    }
+    list.push(tlWo);
+  }
+  return { tlByFrd, frdOrder };
+}
+
+/** Roll up a group of estimated WOs into a TLFrd (no review segment in git mode). */
+function estimatedFrd(frdId: string, wos: readonly TLWorkOrder[]): TLFrd {
+  const start = wos.reduce<number | null>((m, w) => minNullable(m, w.startMs), null);
+  const end = wos.reduce<number | null>((m, w) => maxNullable(m, w.endMs), null);
+  return {
+    id: frdId,
+    label: frdLabel(frdId),
+    startMs: start,
+    endMs: end,
+    state: rollupState(wos.map((w) => w.state)),
+    workOrders: [...wos],
+    review: null,
+  };
+}
+
+/**
+ * Reconstruct an ESTIMATED timeline from git commits (pure — testable without a repo).
+ * Real: each WO's latest commit time (finish), the build order, and its final state (from `orders`).
+ * Estimated: per-WO duration = the clamped gap to the previous WO's commit, laid out SEQUENTIALLY
+ * from the first commit (so multi-day pauses don't blow up the axis). Returns null when no
+ * WO-tagged commit is found (caller falls back to structural).
+ */
+export function deriveGitTimeline(
+  commits: readonly GitCommit[],
+  orders: readonly WorkOrder[],
+): BuildTimeline | null {
+  const orderById = new Map<string, WorkOrder>();
+  for (const o of orders) orderById.set(o.id, o);
+
+  const { finishMs, commitCount } = tallyWoCommits(commits);
+  if (finishMs.size === 0) return null;
+
+  // Order WOs by their real finish time (the real build sequence).
+  const ordered = [...finishMs.entries()]
+    .map(([id, ms]) => ({ id, ms }))
+    .sort((a, b) => (a.ms !== b.ms ? a.ms - b.ms : a.id.localeCompare(b.id)));
+
+  const buildStartMs = ordered[0]?.ms ?? null;
+  const { tlByFrd, frdOrder } = layoutEstimatedWos(
+    ordered,
+    orderById,
+    commitCount,
+    buildStartMs ?? 0,
+  );
+
+  const frds: TLFrd[] = frdOrder.map((frdId) => estimatedFrd(frdId, tlByFrd.get(frdId) ?? []));
+
+  return { frds, hasDurations: true, source: "git", estimated: true, buildStartMs };
+}
+
+/** execSync git log + derive. Returns null when git is unavailable or has no WO commits. */
+function fromGit(projectPath: string, orders: readonly WorkOrder[]): BuildTimeline | null {
+  const commits = readGitLog(projectPath);
+  if (commits.length === 0) return null;
+  return deriveGitTimeline(commits, orders);
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -488,6 +683,14 @@ export function readBuildTimeline(
     if (lines.length > 0) {
       return fromTrack(lines, orders);
     }
+  }
+
+  // No track: reconstruct an ESTIMATED timeline from git history (real order/dates/outcomes,
+  // estimated durations) so a project built before the track still shows what happened.
+  const gitTimeline =
+    projectPath && projectPath.trim() !== "" ? fromGit(projectPath, orders) : null;
+  if (gitTimeline !== null) {
+    return gitTimeline;
   }
 
   if (orders.length > 0) {
