@@ -30,7 +30,8 @@ The analytical views live in a project-level **"Observabilidad" tab** that is a 
 - **AC-12-002.3** — The Observabilidad tab SHALL provide a **Línea de tiempo ↔ DAG** toggle over the **same work-order data**, offering exactly those two views (no RPG view here).
 
 ### REQ-12-003 — Timeline view
-- **AC-12-003.1** — WHEN the **Línea de tiempo** view is selected THE system SHALL render **work orders → tasks → actions** as nested bars, each bar sized to its **duration**, with the child (task/action) bars nested under their parent work-order bar.
+- **AC-12-003.1** — WHEN the **Línea de tiempo** view is selected THE system SHALL render the build as **FRD ▸ work order (+ a per-FRD review segment)** — FRD rows at the top level, each work order nested under its FRD as a bar sized to its **real wall-clock duration**, plus the FRD's review/test phase as its own segment. Granularity is FRD▸WO+review (NOT task/action — too granular). A reopened work order shows its **last attempt** (the attempt count is surfaced as meta).
+- **AC-12-003.1a (data source + honest fallbacks)** — The timeline reads the **durable per-project log `.pandacorp/track.jsonl`** (written by the build engine: `wo_start`/`wo_end`/`review_*`/`frd_end`, DR-086). WHERE a track exists → real durations. WHERE a project has **no track** (built before the log, or never built with it) → a **structural** view (FRD▸WO with states, NO durations) under an honest banner ("histórico — estructura sin duraciones"). WHERE there is no build data at all → an **honest empty state**. The system SHALL NEVER render fabricated/placeholder duration bars.
 - **AC-12-003.2** — The timeline SHALL offer a **"saltar al primer error"** affordance that locates the first failed work order in the sequence.
 
 ### REQ-12-004 — DAG view and interactions
@@ -42,7 +43,7 @@ The analytical views live in a project-level **"Observabilidad" tab** that is a 
 - **AC-12-004.6** — Each node SHALL keep its text **inside the card**: the title wraps to ≤2 lines with ellipsis (never spilling past the card edge) and the redundant `WO-NN-MMM —` id prefix is stripped from the title (the id is shown once, in the node's mono `id · FRD` sub-line).
 
 ### REQ-12-005 — Real-time updates
-- **AC-12-005.1** — WHILE the build is running THE timeline and the DAG SHALL update **live / event-driven** as new events arrive in `~/.claude/dashboard-events.ndjson` — they are not a one-shot snapshot.
+- **AC-12-005.1** — WHILE the build is running THE views SHALL update **live / event-driven** as new events arrive in `~/.claude/dashboard-events.ndjson` — not a one-shot snapshot. The **timeline** does this by **re-reading its durable source `.pandacorp/track.jsonl` on each event** (the engine appends to it live, so a refresh shows the latest WOs/durations from the same durable record); the DAG/KPIs read the event stream directly.
 - **AC-12-005.2** — IF no new event has arrived THEN the views SHALL stay consistent with the freshness indicator of AC-12-001.2 (no fabricated progress).
 
 ## Event schema (vendor-neutral)

@@ -19,6 +19,7 @@
  * Traceability: CMP-04-workspace → REQ-04-001/002; FRD-03 (projectPane embed), WS-2/WS-3.
  */
 
+import { readBuildTimeline } from "@/lib/build-track/build-track";
 import { resolveProjectPath } from "@/lib/config/config";
 import { readActivityLog, readDecisions } from "@/lib/docs/activity";
 import { listProjectDocs, readDoc } from "@/lib/docs/tree";
@@ -175,9 +176,10 @@ export function ProjectWorkspace({
       break;
     case "observabilidad": {
       const obsOrders = listWorkOrders(projectPath);
+      const timeline = readBuildTimeline(projectPath, obsOrders);
       body = (
         <div data-testid="tab-observabilidad-body" style={{ padding: "12px 16px" }}>
-          <ObservabilidadTab workOrders={obsOrders} project={slug} />
+          <ObservabilidadTab workOrders={obsOrders} timeline={timeline} project={slug} />
         </div>
       );
       break;

@@ -7,12 +7,15 @@
  *   - A thin Panel strip: eye-search icon + "OBSERVABILIDAD · 2 vistas sobre los MISMOS
  *     work orders" eyebrow + the 2-view SubTabs toggle (Línea de tiempo ↔ DAG)
  *   - A muted hint pointing operators to Party for live agents (AC-12-002.2)
- *   - Hosts TimelineView (this WO) and WoDag stub (WO-12-006)
- *   - Live: subscribes to useLiveSnapshot (WO-01-009); derives GanttWorkOrder[] from
- *     the event stream via toTimeline(); falls back to the static WorkOrder[] list for
- *     Gantt positioning when no live data has arrived yet
+ *   - Hosts TimelineView (this WO) and WoDag (WO-12-006)
  *
- * Prototype: observabilidadBody() (~L1214) + bTimeline() (~L1156)
+ * Timeline v2: the timeline is no longer derived from the live event stream — it is
+ * read server-side from the durable `.pandacorp/track.jsonl` (BuildTimeline, passed in
+ * as the `timeline` prop). For LIVE updates (AC-12-005) we mount WoLiveRefresh: on each
+ * SSE event it calls router.refresh(), so the server re-reads the track as the engine
+ * appends to it — the timeline updates live from the same durable source. The fake
+ * equal-width 20-min placeholder is gone.
+ *
  * Design rules (FRD-13): tokens only, icon+text state, tabular-nums, data-testid.
  *
  * Traceability:
@@ -20,12 +23,10 @@
  */
 
 import { useState } from "react";
-import { toTimeline } from "@/app/_observability/selectors/timeline/timeline";
 import { SubTabs } from "@/components/core/Tabs/Tabs";
-import { useLiveSnapshot } from "@/hooks/useLiveSnapshot";
-import type { EventsSnapshot } from "@/lib/events/events";
+import type { BuildTimeline } from "@/lib/build-track/build-track";
 import type { WorkOrder } from "@/lib/work-orders/work-orders";
-import type { GanttWorkOrder } from "../TimelineView/TimelineView";
+import { WoLiveRefresh } from "../../_components/tab-work-orders/wo-live-refresh";
 import { TimelineView } from "../TimelineView/TimelineView";
 import { WoDag } from "../WoDag/WoDag";
 
@@ -34,154 +35,15 @@ import { WoDag } from "../WoDag/WoDag";
 // ---------------------------------------------------------------------------
 
 export interface ObservabilidadTabProps {
-  /** Static work orders from lib/work-orders (server-read list). */
+  /** Static work orders from lib/work-orders (server-read list) — feeds the DAG. */
   workOrders: WorkOrder[];
-  /** Project slug — scopes the useLiveSnapshot subscription. */
+  /** Durable build timeline, read server-side from `.pandacorp/track.jsonl`. */
+  timeline: BuildTimeline;
+  /** Project slug — scopes the live-refresh subscription. */
   project: string;
 }
 
 type ObsView = "timeline" | "dag";
-
-// ---------------------------------------------------------------------------
-// State → WO state mapping from event status
-// ---------------------------------------------------------------------------
-
-type WoStateGantt = GanttWorkOrder["state"];
-
-function timelineStatusToState(status: "ok" | "fail" | "running"): WoStateGantt {
-  if (status === "ok") return "done";
-  if (status === "fail") return "fail";
-  return "in_progress";
-}
-
-function workOrderStateToGantt(state: WorkOrder["state"]): WoStateGantt {
-  if (state === "done") return "done";
-  if (state === "fail") return "fail";
-  if (state === "in_progress") return "in_progress";
-  if (state === "review") return "review";
-  return "todo";
-}
-
-// ---------------------------------------------------------------------------
-// Derive GanttWorkOrder[] from live snapshot events
-// ---------------------------------------------------------------------------
-
-/**
- * Convert a live EventsSnapshot into GanttWorkOrder[] for TimelineView.
- * Uses toTimeline (VERIFIED WO-12-004) to extract WO→task rows, then
- * computes minute-offset start/dur from the ISO timestamps.
- *
- * Falls back to static WorkOrder[] when the snapshot has no events.
- */
-function deriveGanttOrders(
-  snapshot: EventsSnapshot | null,
-  staticOrders: WorkOrder[],
-): { workOrders: GanttWorkOrder[]; total: number } {
-  // With no live snapshot, derive a static Gantt from the WorkOrder list
-  // (no real start/dur data — render with equal spacing as placeholder)
-  if (snapshot === null || snapshot.events.length === 0) {
-    return deriveStaticGantt(staticOrders);
-  }
-
-  // Run the VERIFIED toTimeline selector over the live events
-  const rows = toTimeline(snapshot.events);
-
-  // Find the global build start (min start across all WO rows)
-  const woRows = rows.filter((r) => r.kind === "wo");
-  if (woRows.length === 0) {
-    return deriveStaticGantt(staticOrders);
-  }
-
-  const buildStartMs = woRows.reduce((min, r) => {
-    const t = Date.parse(r.start);
-    return Number.isFinite(t) && t < min ? t : min;
-  }, Number.POSITIVE_INFINITY);
-
-  if (!Number.isFinite(buildStartMs)) {
-    return deriveStaticGantt(staticOrders);
-  }
-
-  // Map each WO row to GanttWorkOrder (start/dur in minutes)
-  const taskRows = rows.filter((r) => r.kind === "task");
-
-  let maxEnd = buildStartMs;
-
-  const ganttOrders: GanttWorkOrder[] = woRows.map((woRow) => {
-    const woStartMs = Date.parse(woRow.start);
-    const start = Number.isFinite(woStartMs) ? Math.round((woStartMs - buildStartMs) / 60_000) : 0;
-
-    const woEndMs = woRow.end !== null ? Date.parse(woRow.end) : null;
-    const dur =
-      woEndMs !== null && Number.isFinite(woEndMs)
-        ? Math.max(1, Math.round((woEndMs - (woStartMs || buildStartMs)) / 60_000))
-        : 1;
-
-    const endMs = (Number.isFinite(woStartMs) ? woStartMs : buildStartMs) + dur * 60_000;
-    if (endMs > maxEnd) maxEnd = endMs;
-
-    // Build nested tasks from task rows that belong to this WO
-    const woTaskRows = taskRows.filter((t) => t.parentId === woRow.id);
-    const tasks = woTaskRows.map((taskRow) => {
-      const taskEndMs = taskRow.end !== null ? Date.parse(taskRow.end) : null;
-      const taskDur =
-        taskEndMs !== null && taskRow.duration !== null && Number.isFinite(taskRow.duration)
-          ? Math.max(1, Math.round(taskRow.duration / 60_000))
-          : 1;
-      return {
-        title: taskRow.label,
-        dur: taskDur,
-        state: timelineStatusToState(taskRow.status),
-      };
-    });
-
-    // Match to static WorkOrder for frd label
-    const staticWo = staticOrders.find((o) => o.id === woRow.label);
-
-    return {
-      id: woRow.label,
-      title: staticWo?.title ?? woRow.label,
-      frd: staticWo?.frd ?? "–",
-      state: timelineStatusToState(woRow.status),
-      start,
-      dur,
-      tasks,
-    };
-  });
-
-  const totalMs = maxEnd - buildStartMs;
-  const total = Math.max(1, Math.round(totalMs / 60_000));
-
-  return { workOrders: ganttOrders, total };
-}
-
-/**
- * Static Gantt fallback: spread work orders in order with equal spacing
- * so the timeline renders something meaningful before events arrive.
- */
-function deriveStaticGantt(staticOrders: WorkOrder[]): {
-  workOrders: GanttWorkOrder[];
-  total: number;
-} {
-  const SLOT_MINS = 20; // estimated per-WO slot
-  let offset = 0;
-
-  const workOrders: GanttWorkOrder[] = staticOrders.map((wo) => {
-    const dur = SLOT_MINS;
-    const g: GanttWorkOrder = {
-      id: wo.id,
-      title: wo.title,
-      frd: wo.frd,
-      state: workOrderStateToGantt(wo.state),
-      start: offset,
-      dur,
-      tasks: [],
-    };
-    offset += dur;
-    return g;
-  });
-
-  return { workOrders, total: Math.max(offset, 1) };
-}
 
 // ---------------------------------------------------------------------------
 // Tab definitions (shared SubTabs pattern — DR-062)
@@ -198,28 +60,21 @@ const OBS_TABS = [
 
 /**
  * ObservabilidadTab — the Observabilidad project sub-tab (sibling of Party).
- *
- * Prototype: observabilidadBody() (~L1214).
- * Live: subscribes to useLiveSnapshot; derives GanttWorkOrder[] from events.
+ * Live: WoLiveRefresh triggers a server re-read of the track on each SSE event.
  */
 export function ObservabilidadTab({
   workOrders: staticOrders,
+  timeline,
   project,
 }: ObservabilidadTabProps): React.JSX.Element {
   // View state: "timeline" (default) or "dag" (AC-12-002.3)
   const [view, setView] = useState<ObsView>("timeline");
 
-  // Live subscription (AC-12-005.1/.2) — WO-01-009
-  const { snapshot } = useLiveSnapshot({ project });
-
-  // Derive Gantt data from live events or static fallback
-  const { workOrders: ganttOrders, total } = deriveGanttOrders(
-    snapshot as EventsSnapshot | null,
-    staticOrders,
-  );
-
   return (
     <div data-testid="obs-shell" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+      {/* Live updater (AC-12-005): re-reads track.jsonl on each SSE event. */}
+      <WoLiveRefresh project={project} />
+
       {/* ── Header strip (prototype: panel + eyebrow + toggle) ── */}
       <div
         style={{
@@ -296,7 +151,7 @@ export function ObservabilidadTab({
       >
         {view === "timeline" ? (
           <div data-testid="obs-view-timeline">
-            <TimelineView workOrders={ganttOrders} total={total} />
+            <TimelineView timeline={timeline} />
           </div>
         ) : (
           <WoDag workOrders={staticOrders} project={project} />
