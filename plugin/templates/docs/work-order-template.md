@@ -9,6 +9,7 @@ implementation_status: PLANNED   # PLANNED | IN_PROGRESS | IN_REVIEW | VERIFIED 
 blocked_reason:           # only when BLOCKED: needs-owner | external | error
 artifacts: []             # globs of files/dirs this WO writes (DR-060). The engine keeps parallel WOs disjoint: it serializes any WOs whose artifacts overlap into different waves. List every path this WO creates/edits, incl. its own API contract docs/api/WO-NN-MMM.md if backend.
 source_requirements: []   # REQ-NN-MMM ids this WO delivers (traceability)
+dependsOn: []             # WO-NN-MMM ids this WO depends on (DR-087) — the machine-readable mirror of the Build Plan / work-orders README "Depends on" column. Real upstream WOs only (a WO can depend on several, across FRDs); [] when it has none. Consumed by Mission Control's dependency DAG; keep it in sync with the README table.
 last_updated: YYYY-MM-DD
 ---
 

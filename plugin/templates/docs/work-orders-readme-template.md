@@ -14,9 +14,13 @@
 
 ## Work orders
 
-| WO | Slug | Status | Summary |
-|---|---|---|---|
-| WO-NN-MMM | descriptive-slug | PLANNED | one line |
+| WO | Slug | Status | Depends on | Summary |
+|---|---|---|---|---|
+| WO-NN-MMM | descriptive-slug | PLANNED | WO-NN-MMM, … (or —) | one line |
+
+> **Depends on** mirrors each WO's **`dependsOn`** frontmatter (DR-087) — the machine-readable
+> source Mission Control's dependency DAG reads. Keep the two in sync. List the **real upstream WOs**
+> (a WO can depend on several, cross-FRD allowed); `—` when none. Don't fabricate a sequential chain.
 
 ## Build order
 

@@ -59,6 +59,17 @@ WOs with non-overlapping artifacts, and prefers merging genuinely-coupled siblin
 — but the engine is the backstop: an overlap left in the plan is serialized, never raced. This rule
 also nudges granularity coarser, the right way.
 
+**Declared dependencies — `dependsOn` is the machine-readable source (DR-087).** Each work order
+declares a **`dependsOn: [WO-NN-MMM]`** frontmatter field: the **real upstream work orders** it
+depends on (a WO can depend on several, across FRDs; `[]` when none). This is the canonical,
+machine-readable mirror of the Build Plan DAG and the work-orders README "Depends on" column — keep
+the three in sync. It is **honest data, never a fabricated chain**: a WO with no real predecessor
+declares `[]` (it is a root), not "the previous WO by number". **Mission Control's dependency graph
+reads `dependsOn` verbatim** (it draws an independent node for `[]`, real cross-FRD edges otherwise);
+fabricating a sequential chain to make the graph "look connected" is the defect this closes. (Wave
+serialization itself stays artifact-driven, DR-060; `dependsOn` is the dependency *truth* for
+traceability and visualization, and may inform ordering.)
+
 **Per-WO API contract (DR-060).** Each backend work order writes its own contract at
 `docs/api/<wo-id>.md` (e.g. `docs/api/WO-03-002.md`), NOT a single shared `docs/api.md`. The old
 shared file was itself an overlapping artifact: N parallel agents racing one file caused lost-update /
