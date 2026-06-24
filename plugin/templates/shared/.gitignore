@@ -22,7 +22,7 @@ playwright-report/
 test-results/
 
 # Pandacorp integration layer — gitignored parts (regenerable, owner-facing, runtime).
-# The rest of .pandacorp/ (guide.md, status.yaml, idea-origin.md, verify.sh, README.md) stays committed.
+# The rest of .pandacorp/ (guide.md, status.yaml, track.jsonl, idea-origin.md, verify.sh, README.md) stays committed.
 .pandacorp/comms/
 .pandacorp/inbox/
 .pandacorp/run/

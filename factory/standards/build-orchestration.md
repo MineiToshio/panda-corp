@@ -78,7 +78,15 @@ while sibling WOs of the same wave are still building, and the **selective `git 
 disjoint `artifacts`** can never capture a sibling's in-flight files — so there is still **no merge**
 and no per-agent worktree. `last_green_sha` is still advanced only by the **FRD gate** (the
 review-verified anchor for `safe_to_test` / the review worktree / baseline-skip); the per-WO commits
-are finer *resume* points via the frontmatter, not new *verified* points. Worktree-per-agent
+are finer *resume* points via the frontmatter, not new *verified* points.
+
+**Durable build timeline — `.pandacorp/track.jsonl` (DR-086 → FRD-12).** At the same points it already
+touches, the engine appends a per-project timing log: `wo_start` (when a work order begins building),
+`wo_end` (at its commit, with state), and `review_start`/`review_end`/`frd_end` (at the FRD gate).
+It is **committed machine-state** (like `status.yaml`; staged by the WO commit + the gate), so it is a
+**durable** record — unlike the global `~/.claude/dashboard-events.ndjson`, which rotates and feeds the
+live Party view. This track is the source Mission Control's **Observabilidad → Línea de tiempo** reads
+(FRD-12): FRD ▸ work order ▸ review, real wall-clock durations, "keep the last attempt" per WO. Worktree-per-agent
 was considered and rejected for this shape: the work is already partitioned into disjoint files, so the
 isolation a worktree buys is already achieved by construction; Claude Code's own *agent-teams* guidance
 is "partition the work so each teammate owns a different set of files" (worktrees are for independent,
