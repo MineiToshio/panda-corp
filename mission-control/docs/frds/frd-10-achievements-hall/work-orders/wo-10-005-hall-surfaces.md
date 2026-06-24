@@ -13,6 +13,7 @@ artifacts:
   - 'src/app/achievements/AlmostThere.tsx'
   - 'src/app/achievements/SecretsPanel.tsx'
 source_requirements: [AC-10-006.1, AC-10-006.2, AC-10-006.3, AC-10-006.4, AC-10-006.5, AC-10-007.1, AC-10-007.2, AC-10-007.3, AC-10-007.4, AC-10-008.1, AC-10-008.2, AC-10-008.3, AC-10-008.4, AC-10-005.2, AC-10-005.3]
+dependsOn: [WO-10-001]
 last_updated: '2026-06-21'
 ---
 # WO-10-005 — Hall surfaces: ChainCard + TrophyCard + AlmostThere + stat ledger

@@ -10,6 +10,7 @@ reopen_count: 0
 artifacts:
   - 'src/app/manual/**'
 source_requirements: [REQ-08, AC-08-001, AC-08-002, AC-08-003, AC-08-004, AC-08-005]
+dependsOn: [WO-07-005, WO-08-001]
 last_updated: '2026-06-21'
 ---
 # WO-08-002 — Documentación UI surface (re-anchor to prototype)

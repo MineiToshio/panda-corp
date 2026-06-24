@@ -7,6 +7,7 @@ status: DRAFT
 parent: FRD-06
 implementation_status: VERIFIED
 source_requirements: []
+dependsOn: [WO-06-001, WO-06-002, WO-06-003, WO-06-012]
 last_updated: '2026-06-18'
 ---
 # WO-06-005 — La Fragua tab + FraguaSnapshot (RSC, read-only)

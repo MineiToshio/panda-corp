@@ -9,6 +9,7 @@ status: DRAFT
 parent: FRD-13
 implementation_status: VERIFIED
 source_requirements: []
+dependsOn: [WO-13-002]
 last_updated: '2026-06-16'
 ---
 # WO-13-003 — tabular-nums + a11y primitives (focus ring, aria-live, keyboard nav)

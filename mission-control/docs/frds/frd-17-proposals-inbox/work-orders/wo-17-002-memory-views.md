@@ -9,6 +9,7 @@ status: DRAFT
 parent: FRD-17
 implementation_status: VERIFIED
 source_requirements: []
+dependsOn: [WO-17-001]
 last_updated: '2026-06-18'
 ---
 # WO-17-002 — `lib/memory` views: candidates / promotionQueue / prunable / memoryHealth

@@ -7,6 +7,7 @@ status: DRAFT
 parent: FRD-16
 implementation_status: VERIFIED
 source_requirements: []
+dependsOn: [WO-16-002]
 last_updated: '2026-06-17'
 ---
 # WO-16-003 — `app/api/orphans` route handler

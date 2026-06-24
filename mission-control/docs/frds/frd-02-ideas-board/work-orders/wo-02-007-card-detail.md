@@ -10,6 +10,7 @@ artifacts:
   - 'src/app/board/_components/CardDetail/**'
   - 'src/components/modules/CampaignPipeline/**'
 source_requirements: [REQ-02-004, REQ-02-008, REQ-02-009, REQ-02-010]
+dependsOn: [WO-02-003, WO-02-011]
 last_updated: '2026-06-20'
 ---
 # WO-02-007 — La Campaña card detail

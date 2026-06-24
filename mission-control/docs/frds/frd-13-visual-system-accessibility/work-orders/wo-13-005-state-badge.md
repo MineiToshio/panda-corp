@@ -7,6 +7,7 @@ status: ACTIVE
 parent: FRD-13
 implementation_status: VERIFIED
 source_requirements: []
+dependsOn: [WO-13-001]
 last_updated: '2026-06-16'
 ---
 # WO-13-005 — StateBadge (icon+shape+label, never color-only)

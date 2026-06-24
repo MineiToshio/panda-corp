@@ -9,6 +9,7 @@ status: ACTIVE
 parent: FRD-13
 implementation_status: VERIFIED
 source_requirements: []
+dependsOn: [WO-13-001]
 last_updated: '2026-06-18'
 ---
 # WO-13-002 — globals.css wiring (themes, elevation, motion, reduced-motion, focus)

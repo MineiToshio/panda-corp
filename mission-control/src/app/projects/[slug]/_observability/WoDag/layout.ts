@@ -239,24 +239,15 @@ export interface DepSource {
   dependsOn?: string[];
 }
 
-const WO_SEQ_RE = /-(\d{3,})$/;
-
-/** Extract the trailing sequence number from a WO id (e.g. WO-02-003 → 3). */
-function seqOf(id: string): number {
-  const m = WO_SEQ_RE.exec(id.trim());
-  return m?.[1] !== undefined ? Number.parseInt(m[1], 10) : Number.POSITIVE_INFINITY;
-}
-
 /**
  * Build the `dependsOn` map used to construct the DAG.
  *
- * Precedence:
- *   1. Explicit `dependsOn` on a work order is used verbatim (real data wins).
- *   2. A work order WITHOUT explicit deps falls back to a sequential chain
- *      within its FRD: it depends on the previous work order (by id sequence)
- *      in the same FRD. This is honest structure derived from the WO id scheme
- *      (`WO-NN-MMM`), not invented edges — it mirrors how the prototype's demo
- *      data chains a feature's work orders, and yields a legible layered graph.
+ * Dependencies are REAL (DR-087): each work order's `dependsOn` is read from its
+ * frontmatter — the machine-readable source of truth. We keep only entries that
+ * resolve to a known work order and drop self-references; a work order with no
+ * declared dependencies becomes an INDEPENDENT node. There is no fabricated
+ * fallback: the old "depends on the previous WO in its FRD" chain drew edges
+ * that did not exist (a linear chain that misrepresented the real graph).
  *
  * Returns a new list of `{ ...wo, dependsOn }` ready for `toDag`.
  */
@@ -265,35 +256,10 @@ export function deriveDeps<T extends DepSource>(
 ): Array<T & { dependsOn: string[] }> {
   const idSet = new Set(workOrders.map((w) => w.id.trim()));
 
-  // Order each FRD's work orders by id sequence so "previous in FRD" is stable.
-  const byFrd = new Map<string, T[]>();
-  for (const wo of workOrders) {
-    const bucket = byFrd.get(wo.frd);
-    if (bucket) bucket.push(wo);
-    else byFrd.set(wo.frd, [wo]);
-  }
-  for (const bucket of byFrd.values()) {
-    bucket.sort((a, b) => seqOf(a.id) - seqOf(b.id));
-  }
-
-  // Map each id to its predecessor in the same FRD (for the fallback chain).
-  const prevInFrd = new Map<string, string>();
-  for (const bucket of byFrd.values()) {
-    for (let i = 1; i < bucket.length; i++) {
-      const cur = bucket[i];
-      const prev = bucket[i - 1];
-      if (cur && prev) prevInFrd.set(cur.id.trim(), prev.id.trim());
-    }
-  }
-
   return workOrders.map((wo) => {
-    const explicit = (wo.dependsOn ?? [])
+    const deps = (wo.dependsOn ?? [])
       .map((d) => d.trim())
       .filter((d) => idSet.has(d) && d !== wo.id.trim());
-    if (explicit.length > 0) {
-      return { ...wo, dependsOn: explicit };
-    }
-    const prev = prevInFrd.get(wo.id.trim());
-    return { ...wo, dependsOn: prev ? [prev] : [] };
+    return { ...wo, dependsOn: [...new Set(deps)] };
   });
 }

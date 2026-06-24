@@ -41,6 +41,7 @@ The analytical views live in a project-level **"Observabilidad" tab** that is a 
 
 ### REQ-12-004 — DAG view and interactions
 - **AC-12-004.1** — WHEN the **DAG** view is selected THE system SHALL render a **work-order dependency graph** (rendered via **Dagre**, ~39KB, in the real app — NOT ELK.js unless orthogonal routing is genuinely needed).
+- **AC-12-004.1a (real dependencies — no fabrication, DR-087)** — Edges SHALL come from each work order's **`dependsOn` frontmatter** (read by `lib/work-orders`), the machine-readable source of truth. A work order with no declared dependencies is an **independent node** (no edge); cross-FRD and fan-in/fan-out edges render as-is. The system SHALL NOT fabricate edges — in particular it SHALL NOT invent a "depends on the previous work order in its FRD" sequential chain when a WO has no real dependency (that drew a linear chain that misrepresented the real graph).
 - **AC-12-004.2** — WHEN the operator hovers or selects a node THE system SHALL **highlight only that node's dependency chain** (upstream + downstream) and **dim** the rest.
 - **AC-12-004.3** — The DAG SHALL offer **"saltar al primer error"** that selects/highlights the first failed work order and its chain.
 - **AC-12-004.4** — The DAG SHALL offer a **"seguir al paso activo" follow-mode** toggle that, when ON, marks/centers the work order currently in execution.

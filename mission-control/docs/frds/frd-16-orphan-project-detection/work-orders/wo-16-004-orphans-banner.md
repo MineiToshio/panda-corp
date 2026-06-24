@@ -9,6 +9,7 @@ implementation_status: VERIFIED
 artifacts:
   - 'src/app/_components/orphans-banner/**'
 source_requirements: [REQ-16-001, REQ-16-002, REQ-16-003, REQ-16-004, REQ-16-005, REQ-16-006]
+dependsOn: [WO-16-003]
 last_updated: '2026-06-20'
 ---
 # WO-16-004 — `OrphansBanner` onto the shared `Banner` (kind="orphan")

@@ -37,9 +37,11 @@ Cada work order tiene frontmatter con su estado:
 
 ```yaml
 implementation_status: IN_REVIEW   # PLANNED | IN_PROGRESS | IN_REVIEW | VERIFIED | BLOCKED
+artifacts: [src/lib/foo.ts]        # ficheros que esta WO escribe (el motor serializa WOs con artifacts solapados, DR-060)
+dependsOn: [WO-01-000, WO-01-001]  # WOs de las que depende (DR-087) — fuente machine-readable del grafo
 ```
 
-El motor de `implement` actualiza este campo al avanzar la WO. Mission Control lo lee para el tablero Kanban.
+El motor de `implement` actualiza `implementation_status` al avanzar la WO; Mission Control lo lee para el tablero Kanban. **`dependsOn`** (DR-087) declara las dependencias reales hacia otras work orders (varias, incluso de otros FRDs; `[]` si es raíz) — es lo que lee el **grafo de dependencias (DAG)** de Observabilidad. No se fabrica una cadena lineal: una WO sin predecesor real es un nodo independiente.
 
 ## Comunicación con builds en marcha
 

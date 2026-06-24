@@ -7,6 +7,7 @@ status: DRAFT
 parent: FRD-06
 implementation_status: VERIFIED
 source_requirements: []
+dependsOn: [WO-06-012]
 last_updated: '2026-06-18'
 ---
 # WO-06-001 — Iconic event vocabulary + event view-model mapper (enriched + hand-off/contract/gate)

@@ -160,31 +160,37 @@ describe("WoDag — AC-12-004.1: renders DAG graph", () => {
 // chain within each FRD, derived from the WO-NN-MMM id sequence.
 // ---------------------------------------------------------------------------
 
-describe("WoDag — dependency derivation (no explicit dependsOn)", () => {
-  // Three work orders in ONE FRD, NONE with explicit dependsOn.
-  const SEQ_WOS: ReadonlyArray<WorkOrder> = [
+describe("WoDag — dependency derivation (DR-087: real deps, no fabrication)", () => {
+  // Work orders with NO explicit dependsOn → independent nodes, zero edges.
+  const NO_DEPS: ReadonlyArray<WorkOrder> = [
     { id: "WO-07-001", title: "Primero", frd: "FRD-07", state: "done", relPath: "a.md" },
     { id: "WO-07-002", title: "Segundo", frd: "FRD-07", state: "in_progress", relPath: "b.md" },
     { id: "WO-07-003", title: "Tercero", frd: "FRD-07", state: "todo", relPath: "c.md" },
   ];
 
-  it("derives a sequential chain within the FRD (001→002→003)", () => {
-    const { container } = render(<WoDag workOrders={[...SEQ_WOS]} project="p" />);
-    // Two edges expected: WO-07-001→WO-07-002 and WO-07-002→WO-07-003.
-    expect(container.querySelector('[data-edge="WO-07-001-WO-07-002"]')).not.toBeNull();
-    expect(container.querySelector('[data-edge="WO-07-002-WO-07-003"]')).not.toBeNull();
-    // It must NOT skip a step (no direct 001→003 edge).
-    expect(container.querySelector('[data-edge="WO-07-001-WO-07-003"]')).toBeNull();
+  it("does NOT fabricate a chain when no WO declares dependencies", () => {
+    const { container } = render(<WoDag workOrders={[...NO_DEPS]} project="p" />);
+    // No dependencies declared ⇒ zero edges (the old sequential fallback is gone).
+    expect(container.querySelector("path[data-edge]")).toBeNull();
   });
 
-  it("does not connect work orders across different FRDs by the fallback", () => {
-    const crossFrd: ReadonlyArray<WorkOrder> = [
-      { id: "WO-08-001", title: "A", frd: "FRD-08", state: "done", relPath: "a.md" },
-      { id: "WO-09-001", title: "B", frd: "FRD-09", state: "todo", relPath: "b.md" },
+  it("renders real edges from explicit dependsOn, incl. cross-FRD + fan-in", () => {
+    const wos: ReadonlyArray<WorkOrder> = [
+      { id: "WO-08-001", title: "Root", frd: "FRD-08", state: "done", relPath: "a.md" },
+      { id: "WO-07-005", title: "Mid", frd: "FRD-07", state: "done", relPath: "b.md" },
+      {
+        id: "WO-08-002",
+        title: "Leaf",
+        frd: "FRD-08",
+        state: "todo",
+        relPath: "c.md",
+        dependsOn: ["WO-07-005", "WO-08-001"], // cross-FRD + fan-in (one WO needs two)
+      },
     ];
-    const { container } = render(<WoDag workOrders={[...crossFrd]} project="p" />);
-    // No fallback edge between two single-WO FRDs.
-    expect(container.querySelector("path[data-edge]")).toBeNull();
+    const { container } = render(<WoDag workOrders={[...wos]} project="p" />);
+    expect(container.querySelector('[data-edge="WO-08-001-WO-08-002"]')).not.toBeNull();
+    // Cross-FRD dependency renders as a real edge.
+    expect(container.querySelector('[data-edge="WO-07-005-WO-08-002"]')).not.toBeNull();
   });
 });
 

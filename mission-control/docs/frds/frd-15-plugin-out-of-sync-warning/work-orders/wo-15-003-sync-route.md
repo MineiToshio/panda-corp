@@ -7,6 +7,7 @@ status: DRAFT
 parent: FRD-15
 implementation_status: VERIFIED
 source_requirements: []
+dependsOn: [WO-15-002]
 last_updated: '2026-06-17'
 ---
 # WO-15-003 — `app/api/plugin-sync` route handler

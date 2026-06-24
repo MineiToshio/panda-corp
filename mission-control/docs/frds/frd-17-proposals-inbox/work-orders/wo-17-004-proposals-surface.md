@@ -14,6 +14,7 @@ artifacts:
   - 'src/components/modules/ProposalsBadge/**'
   - 'src/components/modules/ProposalsDismiss/**'
 source_requirements: [AC-17-001.1, AC-17-001.2, AC-17-001.3, AC-17-004.1, AC-17-004.2, AC-17-004.3, AC-17-004.4, AC-17-004.5, AC-17-004.6, AC-17-005.1, AC-17-005.2, AC-17-005.3, AC-17-005.4, AC-17-005.5, AC-17-006.1, AC-17-006.2, AC-17-006.3, AC-17-006.4, AC-17-006.5, AC-17-006.6, AC-17-007.1, AC-17-007.2, AC-17-007.3, AC-17-007.4, AC-17-007.5]
+dependsOn: [WO-17-002, WO-17-003]
 last_updated: '2026-06-19'
 ---
 # WO-17-004 — Proposals surface: stream/card + promotions queue + memory health + badge/chip

@@ -12,6 +12,7 @@ artifacts:
   - 'src/components/modules/CategoryFilter/**'
   - 'src/components/modules/BoardLegend/**'
 source_requirements: [REQ-02-002, REQ-02-005, REQ-02-006, REQ-02-008, REQ-02-003, REQ-02-007]
+dependsOn: [WO-02-001, WO-02-004]
 last_updated: '2026-06-20'
 ---
 # WO-02-005 — Board surface

@@ -29,16 +29,28 @@ describe("deriveDeps", () => {
     expect(out.find((w) => w.id === "WO-01-002")?.dependsOn).toEqual(["WO-01-001"]);
   });
 
-  it("falls back to a sequential chain within the FRD when no explicit deps", () => {
+  it("does NOT fabricate a chain: WOs with no explicit deps are independent (DR-087)", () => {
     const wos: Wo[] = [
       { id: "WO-02-001", frd: "FRD-02" },
       { id: "WO-02-002", frd: "FRD-02" },
       { id: "WO-02-003", frd: "FRD-02" },
     ];
     const byId = Object.fromEntries(deriveDeps(wos).map((w) => [w.id, w.dependsOn]));
-    expect(byId["WO-02-001"]).toEqual([]); // first in FRD → no predecessor
-    expect(byId["WO-02-002"]).toEqual(["WO-02-001"]);
-    expect(byId["WO-02-003"]).toEqual(["WO-02-002"]);
+    expect(byId["WO-02-001"]).toEqual([]);
+    expect(byId["WO-02-002"]).toEqual([]); // no fabricated edge to 001
+    expect(byId["WO-02-003"]).toEqual([]);
+  });
+
+  it("keeps real cross-dependencies verbatim (fan-in + non-sequential)", () => {
+    const wos: Wo[] = [
+      { id: "WO-06-001", frd: "FRD-06", dependsOn: ["WO-06-012"] }, // dep on a LATER id
+      { id: "WO-06-012", frd: "FRD-06" },
+      { id: "WO-06-005", frd: "FRD-06", dependsOn: ["WO-06-001", "WO-06-012"] }, // fan-in
+    ];
+    const byId = Object.fromEntries(deriveDeps(wos).map((w) => [w.id, w.dependsOn]));
+    expect(byId["WO-06-001"]).toEqual(["WO-06-012"]);
+    expect(byId["WO-06-005"]?.sort()).toEqual(["WO-06-001", "WO-06-012"]);
+    expect(byId["WO-06-012"]).toEqual([]);
   });
 
   it("does not chain across different FRDs", () => {
@@ -51,14 +63,14 @@ describe("deriveDeps", () => {
     expect(byId["WO-04-001"]).toEqual([]);
   });
 
-  it("drops a dangling or self explicit dep, then falls back to the FRD chain", () => {
+  it("drops a dangling or self explicit dep (no fabricated fallback)", () => {
     const wos: Wo[] = [
       { id: "WO-05-001", frd: "FRD-05" },
-      // points at a non-existent WO and at itself → both dropped → fallback to 001
+      // points at a non-existent WO and at itself → both dropped → no deps left
       { id: "WO-05-002", frd: "FRD-05", dependsOn: ["WO-99-999", "WO-05-002"] },
     ];
     const byId = Object.fromEntries(deriveDeps(wos).map((w) => [w.id, w.dependsOn]));
-    expect(byId["WO-05-002"]).toEqual(["WO-05-001"]);
+    expect(byId["WO-05-002"]).toEqual([]); // dropped, NOT chained to 001
   });
 });
 

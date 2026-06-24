@@ -9,6 +9,7 @@ implementation_status: VERIFIED
 artifacts:
   - 'src/app/_components/plugin-sync-banner/**'
 source_requirements: [REQ-15-001, REQ-15-002, REQ-15-003, REQ-15-004, REQ-15-005]
+dependsOn: [WO-15-003]
 last_updated: '2026-06-19'
 ---
 # WO-15-004 — `PluginSyncBanner` onto the shared `Banner` (kind="drift")

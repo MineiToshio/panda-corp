@@ -31,6 +31,12 @@ export interface WorkOrder {
   relPath: string;
   /** Short description for the Summary tab (optional) */
   summary?: string;
+  /**
+   * Upstream work-order ids this WO depends on (DR-087) — read verbatim from the
+   * frontmatter `dependsOn` list, the machine-readable source of truth for the
+   * dependency graph. Absent/empty when the WO has no declared dependencies.
+   */
+  dependsOn?: string[];
 }
 
 export interface WorkOrderProgress {
@@ -115,6 +121,32 @@ function parseFrontmatterStatus(content: string): WorkOrderState | null {
   } catch {
     // Malformed YAML → fall back to legacy body marker.
     return null;
+  }
+}
+
+/** A well-formed work-order id, e.g. "WO-12-003". */
+const WO_ID_TOKEN = /^WO-\d{2,}-\d{3,}$/;
+
+/**
+ * Parse `dependsOn` from frontmatter — the work order's explicit upstream WO ids
+ * (DR-087: dependencies live in the frontmatter, the machine-readable source of
+ * truth for the dependency graph). Accepts a YAML list of strings; keeps only
+ * well-formed WO ids, de-duplicated. Returns [] when absent.
+ *
+ * Partial-tolerant: malformed YAML → [] (never throws).
+ */
+function parseFrontmatterDeps(content: string): string[] {
+  try {
+    const parsed = matter(content, { excerpt: false });
+    const raw = parsed.data.dependsOn;
+    if (!Array.isArray(raw)) return [];
+    const ids = raw
+      .filter((v): v is string => typeof v === "string")
+      .map((v) => v.trim())
+      .filter((v) => WO_ID_TOKEN.test(v));
+    return [...new Set(ids)];
+  } catch {
+    return [];
   }
 }
 
@@ -213,6 +245,7 @@ function parseWorkOrderFile(absPath: string, frdSlug: string, projectPath: strin
   const id = deriveId(title, absPath);
   const state = deriveState(content, lines);
   const summary = deriveWorkOrderSummary(content);
+  const dependsOn = parseFrontmatterDeps(content);
 
   // relPath: forward-slash relative path from project root.
   const relPath = path.relative(projectPath, absPath).split(path.sep).join("/");
@@ -224,6 +257,7 @@ function parseWorkOrderFile(absPath: string, frdSlug: string, projectPath: strin
     state,
     relPath: relPath.trim(),
     ...(summary !== undefined ? { summary } : {}),
+    ...(dependsOn.length > 0 ? { dependsOn } : {}),
   };
 }
 

@@ -7,6 +7,7 @@ status: ACTIVE
 parent: FRD-01
 implementation_status: VERIFIED
 source_requirements: []
+dependsOn: [WO-01-000]
 last_updated: '2026-06-16'
 ---
 # WO-01-004 — `readPortfolio` (markdown table parse)
