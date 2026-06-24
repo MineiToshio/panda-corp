@@ -307,7 +307,7 @@ function WoNestedRow({
   widthPct: number;
 }): React.JSX.Element {
   const color = WO_COLOR_VAR[wo.state];
-  const durLabel = wo.durationMin !== null ? ` · ${wo.durationMin}m` : "";
+  const durPrefix = wo.durationMin !== null ? `${wo.durationMin}m · ` : "";
   return (
     <div
       data-testid={`timeline-gantt-wo-${wo.id}`}
@@ -342,6 +342,7 @@ function WoNestedRow({
           />
           <span
             data-testid={`timeline-gantt-label-${wo.id}`}
+            title={wo.title}
             style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
           >
             {wo.title}
@@ -357,8 +358,8 @@ function WoNestedRow({
             paddingLeft: "16px",
           }}
         >
-          {wo.id}
-          {durLabel} · {STATE_LABEL[wo.state]}
+          {durPrefix}
+          {STATE_LABEL[wo.state]}
           {wo.attempts > 1 ? ` · ${wo.attempts} intentos` : ""}
         </div>
       </div>
@@ -451,16 +452,19 @@ function ReviewNestedRow({
 /** One collapsible FRD: a summary magnitude bar (Σ of its WOs) + nested WO bars. */
 function FrdDetails({ frd, maxAxis }: { frd: TLFrd; maxAxis: number }): React.JSX.Element {
   const total = woSum(frd);
-  const axis = Math.max(1, frdAxisTotal(frd));
-  const frdBarPct = clampPct((axis / maxAxis) * 100);
+  // ONE shared axis across all FRDs (= the largest FRD's total). The FRD's summary bar then
+  // equals exactly the sum of its work-order bars laid end-to-end, bars stay comparable across
+  // FRDs, and width stays proportional to duration — the fix for the old global-cumulative axis
+  // that squished every bar onto the same min-width.
+  const frdBarPct = clampPct((total / maxAxis) * 100);
   const name = prettyFrdName(frd.id);
 
-  // Lay the WOs out cumulatively on the FRD-local axis (width ∝ duration).
+  // Lay the WOs out cumulatively on the shared axis (width ∝ duration).
   let cursor = 0;
   const woRows = frd.workOrders.map((wo) => {
     const dur = wo.durationMin ?? 0;
-    const leftPct = clampPct((cursor / axis) * 100);
-    const widthPct = clampPct((dur / axis) * 100);
+    const leftPct = clampPct((cursor / maxAxis) * 100);
+    const widthPct = clampPct((dur / maxAxis) * 100);
     cursor += dur;
     return <WoNestedRow key={wo.id} wo={wo} leftPct={leftPct} widthPct={widthPct} />;
   });
@@ -472,8 +476,8 @@ function FrdDetails({ frd, maxAxis }: { frd: TLFrd; maxAxis: number }): React.JS
         frdId={frd.id}
         verdict={review.verdict}
         durationMin={review.durationMin}
-        leftPct={clampPct((total / axis) * 100)}
-        widthPct={clampPct((review.durationMin / axis) * 100)}
+        leftPct={clampPct((total / maxAxis) * 100)}
+        widthPct={clampPct((review.durationMin / maxAxis) * 100)}
       />
     ) : null;
 
@@ -482,13 +486,7 @@ function FrdDetails({ frd, maxAxis }: { frd: TLFrd; maxAxis: number }): React.JS
       className="tl-frd"
       open
       data-testid={`timeline-gantt-frd-${frd.id}`}
-      style={{
-        marginBottom: "10px",
-        background: "var(--color-panel)",
-        border: "0.5px solid var(--color-border)",
-        borderRadius: "var(--radius-md, 8px)",
-        padding: "10px 12px",
-      }}
+      style={{ marginBottom: "14px" }}
     >
       <summary
         style={{
