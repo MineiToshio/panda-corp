@@ -26,6 +26,8 @@ export interface DagNode {
   id: string;
   title: string;
   state: WorkOrderState;
+  /** Owning FRD slug, e.g. "frd-01-data-reading" — used to group nodes into swimlanes. */
+  frd?: string;
   /** CSS token reference for node color (from AGENT_COLOR or state-derived). */
   colorToken?: string;
 }
@@ -83,6 +85,7 @@ export function toDag(workOrders: WorkOrderWithDeps[]): DagGraph {
     id: wo.id.trim(),
     title: wo.title.trim(),
     state: wo.state,
+    frd: wo.frd.trim(),
   }));
 
   const edges: DagEdge[] = [];

@@ -37,6 +37,10 @@ export const COL_STEP = 212;
 export const ROW_STEP = 84;
 /** Canvas inner padding. */
 export const PAD = 16;
+/** Height reserved above each FRD swimlane's nodes for its label. */
+export const LANE_HEADER_H = 28;
+/** Vertical gap between FRD swimlanes. */
+export const LANE_GAP = 20;
 
 // ---------------------------------------------------------------------------
 // Positioned output
@@ -52,11 +56,26 @@ export interface PositionedNode extends DagNode {
 export interface PositionedEdge extends DagEdge {
   /** Cubic-bezier control + end points: [start, cp1, cp2, end]. */
   points: ReadonlyArray<{ x: number; y: number }>;
+  /** True when the edge connects two different FRDs (rendered as a distinct, dashed link). */
+  crossFrd?: boolean;
+}
+
+/** A horizontal FRD swimlane: a labeled band that contains that FRD's work-order nodes. */
+export interface DagLane {
+  frd: string;
+  /** Display label, e.g. "FRD-01 · Data reading". */
+  label: string;
+  /** Top y of the band (the header sits here; nodes start LANE_HEADER_H below). */
+  y: number;
+  /** Full band height (header + node grid). */
+  height: number;
 }
 
 export interface DagLayout {
   nodes: PositionedNode[];
   edges: PositionedEdge[];
+  /** FRD swimlanes (grouping bands), top-to-bottom by FRD number. */
+  lanes: DagLane[];
   width: number;
   height: number;
 }
@@ -171,39 +190,88 @@ function bezierPoints(
 // Public entry: computeLayout
 // ---------------------------------------------------------------------------
 
+/** FRD sort key: the numeric part of "frd-NN-…" (unknown/empty sorts last). */
+function frdOrderKey(frd: string): number {
+  const m = /^frd-(\d+)/i.exec(frd);
+  return m?.[1] !== undefined ? Number.parseInt(m[1], 10) : Number.POSITIVE_INFINITY;
+}
+
+/** Lane label: "frd-01-data-reading" → "FRD-01 · Data reading"; "" → "Sin FRD". */
+function laneLabel(frd: string): string {
+  if (frd === "") return "Sin FRD";
+  const num = /^(frd-\d+)/i.exec(frd);
+  const head = num?.[1] !== undefined ? num[1].toUpperCase() : frd;
+  const rest = frd
+    .replace(/^frd-\d+-?/i, "")
+    .replace(/-/g, " ")
+    .trim();
+  return rest === "" ? head : `${head} · ${rest.charAt(0).toUpperCase()}${rest.slice(1)}`;
+}
+
+/** Order FRD groups (Map frd → nodes) top-to-bottom by FRD number, then slug. */
+function orderedFrdGroups(nodes: DagNode[]): Array<[string, DagNode[]]> {
+  const groups = new Map<string, DagNode[]>();
+  for (const n of nodes) {
+    const frd = n.frd ?? "";
+    const bucket = groups.get(frd);
+    if (bucket) bucket.push(n);
+    else groups.set(frd, [n]);
+  }
+  return [...groups.entries()].sort((a, b) => {
+    const ka = frdOrderKey(a[0]);
+    const kb = frdOrderKey(b[0]);
+    return ka !== kb ? ka - kb : a[0].localeCompare(b[0]);
+  });
+}
+
 /**
- * Lay out the DAG into compact topological columns.
+ * Lay out the DAG as **FRD swimlanes** (DR-087 follow-up).
  *
- * Columns flow left-to-right by dependency depth; rows stack within a column.
- * The canvas is sized exactly to its content (capped by the node grid), so it
- * fits the tab and never produces a giant empty area.
+ * Each FRD is a labeled horizontal band; within a band, its work orders flow
+ * left-to-right by the band's INTERNAL dependency depth (only intra-FRD edges
+ * rank the columns), and rows stack within a column. Bands are ordered top-to-
+ * bottom by FRD number. This replaces the single global layered layout, whose
+ * rank-0 column piled up every dependency-free work order into one giant column.
+ *
+ * Cross-FRD edges still render (flagged `crossFrd` for a distinct style); the
+ * canvas is sized exactly to its content. Empty input → empty layout.
  */
 export function computeLayout(nodes: DagNode[], edges: DagEdge[]): DagLayout {
   if (nodes.length === 0) {
-    return { nodes: [], edges: [], width: 0, height: 0 };
+    return { nodes: [], edges: [], lanes: [], width: 0, height: 0 };
   }
 
-  const rank = assignRanks(nodes, edges);
-  const byRank = groupByRank(nodes, rank);
-  const maxRank = Math.max(...[...byRank.keys()]);
-  const maxRows = Math.max(...[...byRank.values()].map((b) => b.length));
-
   const posById = new Map<string, PositionedNode>();
-  for (const [r, bucket] of byRank) {
-    // Vertically centre each column's rows against the tallest column so the
-    // graph reads as a balanced ladder rather than top-anchored ragged rows.
-    const colHeight = bucket.length * ROW_STEP;
-    const fullHeight = maxRows * ROW_STEP;
-    const yOffset = (fullHeight - colHeight) / 2;
-    bucket.forEach((node, row) => {
-      posById.set(node.id, {
-        ...node,
-        x: PAD + r * COL_STEP,
-        y: PAD + yOffset + row * ROW_STEP,
-        width: NODE_W,
-        height: NODE_H,
+  const lanes: DagLane[] = [];
+  let cursorY = PAD;
+  let maxWidth = 0;
+
+  for (const [frd, laneNodes] of orderedFrdGroups(nodes)) {
+    const laneIds = new Set(laneNodes.map((n) => n.id));
+    // Rank by INTRA-FRD edges only — the band's internal dependency depth.
+    const intraEdges = edges.filter((e) => laneIds.has(e.from) && laneIds.has(e.to));
+    const rank = assignRanks(laneNodes, intraEdges);
+    const byRank = groupByRank(laneNodes, rank);
+    const maxRows = Math.max(...[...byRank.values()].map((b) => b.length));
+    const maxRank = Math.max(...[...byRank.keys()]);
+
+    const nodesTop = cursorY + LANE_HEADER_H;
+    for (const [r, bucket] of byRank) {
+      bucket.forEach((node, row) => {
+        posById.set(node.id, {
+          ...node,
+          x: PAD + r * COL_STEP,
+          y: nodesTop + row * ROW_STEP,
+          width: NODE_W,
+          height: NODE_H,
+        });
       });
-    });
+    }
+
+    const laneHeight = LANE_HEADER_H + (maxRows * ROW_STEP - (ROW_STEP - NODE_H));
+    lanes.push({ frd, label: laneLabel(frd), y: cursorY, height: laneHeight });
+    maxWidth = Math.max(maxWidth, PAD + maxRank * COL_STEP + NODE_W);
+    cursorY += laneHeight + LANE_GAP;
   }
 
   const positionedNodes = nodes.map((n) => posById.get(n.id)).filter(isPositioned);
@@ -213,13 +281,14 @@ export function computeLayout(nodes: DagNode[], edges: DagEdge[]): DagLayout {
     const from = posById.get(e.from);
     const to = posById.get(e.to);
     if (!from || !to) continue;
-    positionedEdges.push({ ...e, points: bezierPoints(from, to) });
+    const crossFrd = (from.frd ?? "") !== (to.frd ?? "");
+    positionedEdges.push({ ...e, points: bezierPoints(from, to), crossFrd });
   }
 
-  const width = PAD * 2 + maxRank * COL_STEP + NODE_W;
-  const height = PAD * 2 + maxRows * ROW_STEP - (ROW_STEP - NODE_H);
+  const width = maxWidth + PAD;
+  const height = cursorY - LANE_GAP + PAD;
 
-  return { nodes: positionedNodes, edges: positionedEdges, width, height };
+  return { nodes: positionedNodes, edges: positionedEdges, lanes, width, height };
 }
 
 /** Type guard: a defined PositionedNode (drops any lookup miss). */

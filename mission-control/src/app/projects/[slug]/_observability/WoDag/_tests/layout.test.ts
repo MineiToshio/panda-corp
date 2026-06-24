@@ -100,7 +100,33 @@ describe("computeLayout", () => {
   });
 
   it("returns an empty layout for no nodes (defensive)", () => {
-    expect(computeLayout([], [])).toEqual({ nodes: [], edges: [], width: 0, height: 0 });
+    expect(computeLayout([], [])).toEqual({ nodes: [], edges: [], lanes: [], width: 0, height: 0 });
+  });
+
+  it("groups nodes into FRD swimlanes, ordered by FRD number (DR-087 follow-up)", () => {
+    const nodes: DagNode[] = [
+      { id: "WO-02-001", title: "b", state: "todo", frd: "frd-02-ideas-board" },
+      { id: "WO-01-001", title: "a", state: "done", frd: "frd-01-data-reading" },
+      { id: "WO-01-002", title: "a2", state: "done", frd: "frd-01-data-reading" },
+    ];
+    const out = computeLayout(nodes, [{ from: "WO-01-001", to: "WO-01-002" }]);
+    expect(out.lanes.map((l) => l.frd)).toEqual(["frd-01-data-reading", "frd-02-ideas-board"]);
+    expect(out.lanes[0]?.label).toMatch(/FRD-01/);
+    // The frd-02 node sits in a band BELOW frd-01's nodes (swimlanes stack vertically).
+    const yOf = (id: string) => out.nodes.find((n) => n.id === id)?.y ?? -1;
+    expect(yOf("WO-02-001")).toBeGreaterThan(yOf("WO-01-001"));
+    // Within frd-01, the dependent is one column to the right of its dependency.
+    const xOf = (id: string) => out.nodes.find((n) => n.id === id)?.x ?? -1;
+    expect(xOf("WO-01-002")).toBeGreaterThan(xOf("WO-01-001"));
+  });
+
+  it("flags a cross-FRD edge as crossFrd", () => {
+    const nodes: DagNode[] = [
+      { id: "WO-01-001", title: "a", state: "done", frd: "frd-01-data-reading" },
+      { id: "WO-02-001", title: "b", state: "todo", frd: "frd-02-ideas-board" },
+    ];
+    const out = computeLayout(nodes, [{ from: "WO-01-001", to: "WO-02-001" }]);
+    expect(out.edges[0]?.crossFrd).toBe(true);
   });
 
   it("does not loop on a cyclic graph (renders a degraded layout)", () => {

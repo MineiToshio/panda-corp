@@ -32,7 +32,7 @@ import { dagChain, firstError, toDag } from "@/app/_observability/dag/dag/dag";
 import { useLiveSnapshot } from "@/hooks/useLiveSnapshot";
 import type { WorkOrder, WorkOrderState } from "@/lib/work-orders/work-orders";
 import { DagNodeGroup } from "./DagNodeGroup";
-import { computeLayout, deriveDeps, type PositionedEdge } from "./layout";
+import { computeLayout, deriveDeps, PAD, type PositionedEdge } from "./layout";
 import { useDagZoom } from "./useDagZoom";
 import { useFullscreen } from "./useFullscreen";
 import { ZoomControls } from "./ZoomControls";
@@ -185,7 +185,13 @@ export function WoDag({ workOrders, project }: WoDagProps): React.JSX.Element {
   }, [workOrders, snapshot]);
 
   const { effectiveOrders, dagNodes, dagEdges, frdById, firstErrorId, runningNode } = graph;
-  const { nodes: layoutNodes, edges: layoutEdges, width: svgW, height: svgH } = graph.layout;
+  const {
+    nodes: layoutNodes,
+    edges: layoutEdges,
+    lanes: layoutLanes,
+    width: svgW,
+    height: svgH,
+  } = graph.layout;
 
   // Zoom/pan transform for the canvas (buttons + mouse wheel + grab-to-pan)
   const { scale, containerRef, isPanning, zoomIn, zoomOut, reset, fitToView } = useDagZoom();
@@ -326,6 +332,33 @@ export function WoDag({ workOrders, project }: WoDagProps): React.JSX.Element {
               </marker>
             </defs>
 
+            {/* FRD swimlanes — labeled background bands grouping each FRD's work orders */}
+            {layoutLanes.map((lane) => (
+              <g key={lane.frd} data-testid={`dag-lane-${lane.frd}`}>
+                <rect
+                  x={PAD / 2}
+                  y={lane.y}
+                  width={Math.max(0, svgW - PAD)}
+                  height={lane.height}
+                  rx={8}
+                  fill="var(--color-panel)"
+                  opacity={0.4}
+                  stroke="var(--color-border)"
+                  strokeWidth={0.5}
+                />
+                <text
+                  x={PAD}
+                  y={lane.y + 18}
+                  fontSize={11}
+                  fontWeight={600}
+                  fill="var(--color-text2)"
+                  fontFamily="ui-monospace, monospace"
+                >
+                  {lane.label}
+                </text>
+              </g>
+            ))}
+
             {/* Edges (bezier paths) — style computed by computeEdgeStyle helper */}
             {layoutEdges.map((edge) => {
               const { strokeColor, strokeWidth, opacity, markerId, isHighlighted } =
@@ -342,7 +375,9 @@ export function WoDag({ workOrders, project }: WoDagProps): React.JSX.Element {
                   strokeWidth={strokeWidth}
                   opacity={opacity}
                   markerEnd={`url(#${markerId})`}
+                  strokeDasharray={edge.crossFrd ? "5 4" : undefined}
                   data-edge={`${edge.from}-${edge.to}`}
+                  data-cross-frd={edge.crossFrd ? "true" : "false"}
                   data-chain={isHighlighted ? "true" : "false"}
                 />
               );
