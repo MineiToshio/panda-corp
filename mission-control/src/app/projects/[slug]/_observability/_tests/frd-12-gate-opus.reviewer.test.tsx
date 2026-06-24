@@ -201,10 +201,12 @@ describe("FRD-12 gate · timeline v2 reflects the durable track", () => {
 
   it("the duration comes from the track, not a fabricated 20-min slot", () => {
     renderTab();
-    const bar = screen.getByTestId("timeline-gantt-bar-WO-01-001");
     // WO-A spans 30 minutes per the track — the old fake placeholder emitted 20m.
-    expect(bar.textContent).toMatch(/30m/);
-    expect(bar.textContent).not.toMatch(/20m/);
+    // The duration shows in the WO meta + the bar title (the nested bar itself is text-free).
+    const meta = screen.getByTestId("timeline-gantt-meta-WO-01-001");
+    expect(meta.textContent).toMatch(/30m/);
+    expect(meta.textContent).not.toMatch(/20m/);
+    expect(screen.getByTestId("timeline-gantt-bar-WO-01-001").title).toMatch(/30/);
   });
 
   it("reopen attempts are surfaced honestly (WO-B has 2 attempts)", () => {

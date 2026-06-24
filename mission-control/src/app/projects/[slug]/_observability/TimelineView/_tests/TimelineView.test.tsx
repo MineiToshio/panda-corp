@@ -172,11 +172,25 @@ describe("TimelineView — durations mode", () => {
     expect(screen.getByTestId("timeline-gantt-bar-WO-01-002")).toBeTruthy();
   });
 
-  it("shows the real duration in/near each bar (tabular-nums)", () => {
+  it("shows the real duration in the WO meta and the bar title (tabular-nums)", () => {
     render(<TimelineView timeline={DURATIONS_TIMELINE} />);
-    const bar = screen.getByTestId("timeline-gantt-bar-WO-01-001");
-    expect(bar.textContent).toMatch(/34m/);
-    expect(bar.title).toMatch(/34/);
+    expect(screen.getByTestId("timeline-gantt-meta-WO-01-001").textContent).toMatch(/34m/);
+    expect(screen.getByTestId("timeline-gantt-bar-WO-01-001").title).toMatch(/34/);
+  });
+
+  it("renders each FRD as a collapsible <details> (open by default)", () => {
+    render(<TimelineView timeline={DURATIONS_TIMELINE} />);
+    const frd = screen.getByTestId("timeline-gantt-frd-frd-01-data-reading");
+    expect(frd.tagName.toLowerCase()).toBe("details");
+    expect(frd.hasAttribute("open")).toBe(true);
+  });
+
+  it("sizes each WO bar proportionally to its duration (no equal-width floor bug)", () => {
+    render(<TimelineView timeline={DURATIONS_TIMELINE} />);
+    const p1 = Number.parseFloat(screen.getByTestId("timeline-gantt-bar-WO-01-001").style.width);
+    const p2 = Number.parseFloat(screen.getByTestId("timeline-gantt-bar-WO-01-002").style.width);
+    expect(p1).toBeGreaterThan(p2); // 34m must be wider than 28m
+    expect(Math.abs(p1 - p2)).toBeGreaterThan(1); // genuinely different, not floored to the same width
   });
 
   it("surfaces reopen attempts in the WO meta", () => {
@@ -189,12 +203,11 @@ describe("TimelineView — durations mode", () => {
     expect(screen.getByTestId("timeline-gantt-review-frd-01-data-reading")).toBeTruthy();
   });
 
-  it("renders a time axis with 0, midpoint and total", () => {
+  it("renders an FRD summary bar = the sum of its work orders", () => {
     render(<TimelineView timeline={DURATIONS_TIMELINE} />);
-    const axis = screen.getByTestId("timeline-gantt-axis");
-    // Span is 0 → 72 min (review ends at +72).
-    expect(axis.textContent).toContain("0 min");
-    expect(axis.textContent).toContain("72 min");
+    // WO durations 34 + 28 = 62 min.
+    const frdBar = screen.getByTestId("timeline-gantt-frd-bar-frd-01-data-reading");
+    expect(frdBar.textContent).toMatch(/62m/);
   });
 
   it("AC-12-003.2 — renders the jump-to-first-error note for a fail WO", () => {

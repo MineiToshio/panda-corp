@@ -6,9 +6,11 @@
  *   - empty:      no build data yet — an honest status, no fake bars.
  *   - structural: a historical build with no recorded durations — FRD rows with
  *                 their work orders as a compact state list (NO duration bars).
- *   - durations:  real wall-clock bars — FRD rows with nested WO bars positioned by
- *                 (startMs - buildStartMs) over the total span, a review segment per
- *                 FRD, and a "saltar al primer error" note (AC-12-003.2).
+ *   - durations:  FRD ▸ work order. The FRD is the top level (collapsible, with a
+ *                 summary bar = the sum of its work orders); each work order nests
+ *                 under it as a smaller, lighter bar whose WIDTH IS PROPORTIONAL to
+ *                 its duration (per-FRD local axis, so 8m and 23m differ visibly).
+ *                 The same layout serves the estimated (git-reconstructed) timeline.
  *
  * Design rules (FRD-13):
  *   - ZERO hardcoded colors — CSS custom properties only.
@@ -59,6 +61,16 @@ const STATE_LABEL: Record<TLState, string> = {
   todo: "Pendiente",
 };
 
+/** Shared two-column grid (label column · bar track) so FRD + WO bars line up vertically. */
+const ROW_GRID = "minmax(0, 240px) 1fr";
+
+/** Collapse chrome for the <details> FRD rows: hide the native marker, rotate our chevron. */
+const FRD_DETAILS_CSS =
+  ".tl-frd>summary{list-style:none;cursor:pointer}" +
+  ".tl-frd>summary::-webkit-details-marker{display:none}" +
+  ".tl-frd .tl-chevron{transition:transform .15s ease}" +
+  ".tl-frd[open]>summary .tl-chevron{transform:rotate(90deg)}";
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -68,35 +80,37 @@ function clampPct(value: number): number {
   return Math.max(0, Math.min(100, value));
 }
 
-/** Position (left %) of a moment within the build span. */
-function leftPercent(ms: number | null, buildStartMs: number | null, spanMs: number): number {
-  if (ms === null || buildStartMs === null || spanMs <= 0) return 0;
-  return clampPct(((ms - buildStartMs) / spanMs) * 100);
+/** Prettify an FRD slug into a readable name: "frd-01-data-reading" → "Data reading". */
+function prettyFrdName(slug: string): string {
+  const rest = slug
+    .replace(/^frd-\d+-?/i, "")
+    .replace(/-/g, " ")
+    .trim();
+  if (rest === "") return "";
+  return rest.charAt(0).toUpperCase() + rest.slice(1);
 }
 
-/** Width (%) of a span within the build span. */
-function widthPercent(durationMin: number | null, spanMs: number): number {
-  if (durationMin === null || spanMs <= 0) return 0;
-  return clampPct(((durationMin * 60_000) / spanMs) * 100);
+/** Sum of an FRD's work-order durations (minutes; unknown durations count as 0). */
+function woSum(frd: TLFrd): number {
+  return frd.workOrders.reduce((acc, w) => acc + (w.durationMin ?? 0), 0);
 }
 
-/** Total build span in ms (max FRD end − buildStart), ≥1. */
-function buildSpanMs(timeline: BuildTimeline): number {
-  const { buildStartMs } = timeline;
-  if (buildStartMs === null) return 1;
-  let maxEnd = buildStartMs;
+/** Total minutes laid out in an FRD row: its work orders plus the review tail. */
+function frdAxisTotal(frd: TLFrd): number {
+  return woSum(frd) + (frd.review?.durationMin ?? 0);
+}
+
+/** Find the first failed WO across all FRDs (in render order) for the jump note. */
+function findFirstError(timeline: BuildTimeline): TLWorkOrder | undefined {
   for (const frd of timeline.frds) {
-    if (frd.endMs !== null && frd.endMs > maxEnd) maxEnd = frd.endMs;
-    if (frd.review?.endMs != null && frd.review.endMs > maxEnd) maxEnd = frd.review.endMs;
-    for (const wo of frd.workOrders) {
-      if (wo.endMs !== null && wo.endMs > maxEnd) maxEnd = wo.endMs;
-    }
+    const fail = frd.workOrders.find((w) => w.state === "fail");
+    if (fail !== undefined) return fail;
   }
-  return Math.max(1, maxEnd - buildStartMs);
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------
-// Sub-views
+// Small shared pieces
 // ---------------------------------------------------------------------------
 
 function EmptyTimeline(): React.JSX.Element {
@@ -135,7 +149,67 @@ function StateChip({ state }: { state: TLState }): React.JSX.Element {
   );
 }
 
-/** Structural mode — FRD rows, WOs as a compact state list. No durations, no bars. */
+// ---------------------------------------------------------------------------
+// Structural mode — FRD rows, WOs as a compact state list. No durations, no bars.
+// ---------------------------------------------------------------------------
+
+/** FRD heading panel (label + name + rollup state) wrapping its children. */
+function FrdHeader({
+  frd,
+  children,
+}: {
+  frd: TLFrd;
+  children: React.ReactNode;
+}): React.JSX.Element {
+  const name = prettyFrdName(frd.id);
+  return (
+    <div
+      data-testid={`timeline-gantt-frd-${frd.id}`}
+      style={{
+        marginBottom: "14px",
+        background: "var(--color-panel)",
+        border: "0.5px solid var(--color-border)",
+        borderRadius: "var(--radius-md, 8px)",
+        padding: "10px 12px",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "8px",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
+          <i
+            data-testid={`timeline-gantt-frd-icon-${frd.id}`}
+            className={WO_ICON[frd.state]}
+            aria-hidden="true"
+            style={{ fontSize: "13px", color: WO_COLOR_VAR[frd.state], flexShrink: 0 }}
+          />
+          <span style={{ fontSize: "12px", fontWeight: 600, flexShrink: 0 }}>{frd.label}</span>
+          {name !== "" && (
+            <span
+              style={{
+                fontSize: "12px",
+                color: "var(--color-text2)",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              · {name}
+            </span>
+          )}
+        </div>
+        <StateChip state={frd.state} />
+      </div>
+      {children}
+    </div>
+  );
+}
+
 function StructuralTimeline({ timeline }: { timeline: BuildTimeline }): React.JSX.Element {
   return (
     <div data-testid="timeline-gantt" data-mode="structural" style={{ width: "100%" }}>
@@ -218,91 +292,37 @@ function StructuralTimeline({ timeline }: { timeline: BuildTimeline }): React.JS
   );
 }
 
-/** Shared FRD heading panel (label + rollup state) wrapping its children. */
-function FrdHeader({
-  frd,
-  children,
-}: {
-  frd: TLFrd;
-  children: React.ReactNode;
-}): React.JSX.Element {
-  return (
-    <div
-      data-testid={`timeline-gantt-frd-${frd.id}`}
-      style={{
-        marginBottom: "14px",
-        background: "var(--color-panel)",
-        border: "0.5px solid var(--color-border)",
-        borderRadius: "var(--radius-md, 8px)",
-        padding: "10px 12px",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "8px",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
-          <i
-            data-testid={`timeline-gantt-frd-icon-${frd.id}`}
-            className={WO_ICON[frd.state]}
-            aria-hidden="true"
-            style={{ fontSize: "13px", color: WO_COLOR_VAR[frd.state], flexShrink: 0 }}
-          />
-          <span style={{ fontSize: "12px", fontWeight: 600 }}>{frd.label}</span>
-          <span
-            style={{
-              fontSize: "9px",
-              color: "var(--color-text3)",
-              fontFamily: "ui-monospace, monospace",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {frd.id}
-          </span>
-        </div>
-        <StateChip state={frd.state} />
-      </div>
-      {children}
-    </div>
-  );
-}
+// ---------------------------------------------------------------------------
+// Durations / estimated mode — FRD ▸ work order, bar width ∝ duration
+// ---------------------------------------------------------------------------
 
-/** A single WO bar row positioned by real wall-clock within the build span. */
-function WoBarRow({
+/** A nested work-order row: a lighter, smaller bar positioned on the FRD-local axis. */
+function WoNestedRow({
   wo,
-  buildStartMs,
-  spanMs,
+  leftPct,
+  widthPct,
 }: {
   wo: TLWorkOrder;
-  buildStartMs: number | null;
-  spanMs: number;
+  leftPct: number;
+  widthPct: number;
 }): React.JSX.Element {
-  const left = leftPercent(wo.startMs, buildStartMs, spanMs);
-  const width = widthPercent(wo.durationMin, spanMs);
   const color = WO_COLOR_VAR[wo.state];
-
+  const durLabel = wo.durationMin !== null ? ` · ${wo.durationMin}m` : "";
   return (
     <div
       data-testid={`timeline-gantt-wo-${wo.id}`}
       style={{
         display: "grid",
-        gridTemplateColumns: "150px 1fr",
+        gridTemplateColumns: ROW_GRID,
         gap: "8px",
         alignItems: "center",
-        marginTop: "6px",
+        marginTop: "4px",
       }}
     >
-      {/* Label column */}
-      <div style={{ minWidth: 0 }}>
+      <div style={{ minWidth: 0, paddingLeft: "16px" }}>
         <div
           style={{
-            fontSize: "12px",
+            fontSize: "11px",
             display: "flex",
             alignItems: "center",
             gap: "4px",
@@ -311,11 +331,14 @@ function WoBarRow({
             whiteSpace: "nowrap",
           }}
         >
+          <span aria-hidden="true" style={{ color: "var(--color-text3)", flexShrink: 0 }}>
+            ↳
+          </span>
           <i
             data-testid={`timeline-gantt-icon-${wo.id}`}
             className={WO_ICON[wo.state]}
             aria-hidden="true"
-            style={{ fontSize: "12px", color, flexShrink: 0 }}
+            style={{ fontSize: "11px", color, flexShrink: 0 }}
           />
           <span
             data-testid={`timeline-gantt-label-${wo.id}`}
@@ -331,118 +354,29 @@ function WoBarRow({
             color: "var(--color-text3)",
             fontFamily: "ui-monospace, monospace",
             fontVariantNumeric: "tabular-nums",
+            paddingLeft: "16px",
           }}
         >
-          {wo.id} · {STATE_LABEL[wo.state]}
+          {wo.id}
+          {durLabel} · {STATE_LABEL[wo.state]}
           {wo.attempts > 1 ? ` · ${wo.attempts} intentos` : ""}
         </div>
       </div>
 
-      {/* Bar track */}
-      <div
-        style={{
-          position: "relative",
-          height: "22px",
-          background: "var(--color-card2)",
-          borderRadius: "5px",
-          border: "0.5px solid var(--color-border)",
-        }}
-      >
+      <div style={{ position: "relative", height: "12px" }}>
         <div
           data-testid={`timeline-gantt-bar-${wo.id}`}
-          title={
-            wo.durationMin !== null
-              ? `${wo.title} · ${wo.durationMin} min`
-              : `${wo.title} · ${STATE_LABEL[wo.state]}`
-          }
+          title={wo.durationMin !== null ? `${wo.title} · ${wo.durationMin} min` : wo.title}
           style={{
             position: "absolute",
             top: 0,
             bottom: 0,
-            left: `${left}%`,
-            width: `${width}%`,
-            minWidth: "34px",
+            left: `${leftPct}%`,
+            width: `${widthPct}%`,
+            minWidth: "3px",
             background: color,
-            borderRadius: "5px",
-            display: "flex",
-            alignItems: "center",
-            padding: "0 6px",
-            color: "var(--color-base)",
-            fontSize: "10px",
-            fontWeight: 600,
-            overflow: "hidden",
-            whiteSpace: "nowrap",
-            fontVariantNumeric: "tabular-nums",
-          }}
-        >
-          {wo.durationMin !== null ? `${wo.durationMin}m` : STATE_LABEL[wo.state]}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** The review segment bar for an FRD, positioned at the end of its span. */
-function ReviewBarRow({
-  frd,
-  buildStartMs,
-  spanMs,
-}: {
-  frd: TLFrd;
-  buildStartMs: number | null;
-  spanMs: number;
-}): React.JSX.Element | null {
-  const review = frd.review;
-  if (review === null || review.startMs === null) return null;
-
-  const left = leftPercent(review.startMs, buildStartMs, spanMs);
-  const width = widthPercent(review.durationMin, spanMs);
-  const verdictState: TLState = review.verdict === "reject" ? "fail" : "review";
-  const color = WO_COLOR_VAR[verdictState];
-  const verdictLabel =
-    review.verdict === "pass" ? "pass" : review.verdict === "reject" ? "reject" : "—";
-
-  return (
-    <div
-      data-testid={`timeline-gantt-review-${frd.id}`}
-      style={{
-        display: "grid",
-        gridTemplateColumns: "150px 1fr",
-        gap: "8px",
-        alignItems: "center",
-        marginTop: "6px",
-      }}
-    >
-      <div
-        style={{
-          fontSize: "11px",
-          color: "var(--color-text3)",
-          display: "flex",
-          alignItems: "center",
-          gap: "4px",
-          paddingLeft: "14px",
-        }}
-      >
-        <i className="ti ti-eye" aria-hidden="true" style={{ fontSize: "12px", color }} />
-        Revisión · {verdictLabel}
-      </div>
-      <div style={{ position: "relative", height: "14px" }}>
-        <div
-          title={
-            review.durationMin !== null
-              ? `Revisión · ${review.durationMin} min · ${verdictLabel}`
-              : `Revisión · ${verdictLabel}`
-          }
-          style={{
-            position: "absolute",
-            top: 0,
-            bottom: 0,
-            left: `${left}%`,
-            width: `${width}%`,
-            minWidth: "10px",
-            background: color,
-            opacity: 0.7,
-            borderRadius: "4px",
+            opacity: 0.55,
+            borderRadius: "3px",
           }}
         />
       </div>
@@ -450,19 +384,197 @@ function ReviewBarRow({
   );
 }
 
-/** Find the first failed WO across all FRDs (in render order) for the jump note. */
-function findFirstError(timeline: BuildTimeline): TLWorkOrder | undefined {
-  for (const frd of timeline.frds) {
-    const fail = frd.workOrders.find((w) => w.state === "fail");
-    if (fail !== undefined) return fail;
-  }
-  return undefined;
+/** The FRD's review/test phase as a nested tail segment on the local axis. */
+function ReviewNestedRow({
+  frdId,
+  verdict,
+  durationMin,
+  leftPct,
+  widthPct,
+}: {
+  frdId: string;
+  verdict: "pass" | "reject" | null;
+  durationMin: number;
+  leftPct: number;
+  widthPct: number;
+}): React.JSX.Element {
+  const verdictState: TLState = verdict === "reject" ? "fail" : "review";
+  const color = WO_COLOR_VAR[verdictState];
+  const verdictLabel = verdict === "pass" ? "pass" : verdict === "reject" ? "reject" : "—";
+  return (
+    <div
+      data-testid={`timeline-gantt-review-${frdId}`}
+      style={{
+        display: "grid",
+        gridTemplateColumns: ROW_GRID,
+        gap: "8px",
+        alignItems: "center",
+        marginTop: "4px",
+      }}
+    >
+      <div
+        style={{
+          fontSize: "10px",
+          color: "var(--color-text3)",
+          display: "flex",
+          alignItems: "center",
+          gap: "4px",
+          paddingLeft: "16px",
+        }}
+      >
+        <span aria-hidden="true" style={{ flexShrink: 0 }}>
+          ↳
+        </span>
+        <i className="ti ti-eye" aria-hidden="true" style={{ fontSize: "11px", color }} />
+        Revisión · {verdictLabel} · {durationMin}m
+      </div>
+      <div style={{ position: "relative", height: "12px" }}>
+        <div
+          title={`Revisión · ${durationMin} min · ${verdictLabel}`}
+          style={{
+            position: "absolute",
+            top: 0,
+            bottom: 0,
+            left: `${leftPct}%`,
+            width: `${widthPct}%`,
+            minWidth: "3px",
+            background: color,
+            opacity: 0.7,
+            borderRadius: "3px",
+          }}
+        />
+      </div>
+    </div>
+  );
 }
 
-/** Durations mode — FRD rows with nested WO bars + a review segment per FRD. */
+/** One collapsible FRD: a summary magnitude bar (Σ of its WOs) + nested WO bars. */
+function FrdDetails({ frd, maxAxis }: { frd: TLFrd; maxAxis: number }): React.JSX.Element {
+  const total = woSum(frd);
+  const axis = Math.max(1, frdAxisTotal(frd));
+  const frdBarPct = clampPct((axis / maxAxis) * 100);
+  const name = prettyFrdName(frd.id);
+
+  // Lay the WOs out cumulatively on the FRD-local axis (width ∝ duration).
+  let cursor = 0;
+  const woRows = frd.workOrders.map((wo) => {
+    const dur = wo.durationMin ?? 0;
+    const leftPct = clampPct((cursor / axis) * 100);
+    const widthPct = clampPct((dur / axis) * 100);
+    cursor += dur;
+    return <WoNestedRow key={wo.id} wo={wo} leftPct={leftPct} widthPct={widthPct} />;
+  });
+
+  const review = frd.review;
+  const reviewRow =
+    review !== null && review.durationMin !== null ? (
+      <ReviewNestedRow
+        frdId={frd.id}
+        verdict={review.verdict}
+        durationMin={review.durationMin}
+        leftPct={clampPct((total / axis) * 100)}
+        widthPct={clampPct((review.durationMin / axis) * 100)}
+      />
+    ) : null;
+
+  return (
+    <details
+      className="tl-frd"
+      open
+      data-testid={`timeline-gantt-frd-${frd.id}`}
+      style={{
+        marginBottom: "10px",
+        background: "var(--color-panel)",
+        border: "0.5px solid var(--color-border)",
+        borderRadius: "var(--radius-md, 8px)",
+        padding: "10px 12px",
+      }}
+    >
+      <summary
+        style={{
+          display: "grid",
+          gridTemplateColumns: ROW_GRID,
+          gap: "8px",
+          alignItems: "center",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
+          <i
+            className="ti ti-chevron-right tl-chevron"
+            aria-hidden="true"
+            style={{ fontSize: "13px", color: "var(--color-text3)", flexShrink: 0 }}
+          />
+          <i
+            data-testid={`timeline-gantt-frd-icon-${frd.id}`}
+            className={WO_ICON[frd.state]}
+            aria-hidden="true"
+            title={STATE_LABEL[frd.state]}
+            style={{ fontSize: "13px", color: WO_COLOR_VAR[frd.state], flexShrink: 0 }}
+          />
+          <span style={{ fontSize: "12px", fontWeight: 600, flexShrink: 0 }}>{frd.label}</span>
+          {name !== "" && (
+            <span
+              style={{
+                fontSize: "12px",
+                color: "var(--color-text2)",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              · {name}
+            </span>
+          )}
+        </div>
+
+        <div
+          style={{
+            position: "relative",
+            height: "20px",
+            background: "var(--color-card2)",
+            borderRadius: "5px",
+            border: "0.5px solid var(--color-border)",
+          }}
+        >
+          <div
+            data-testid={`timeline-gantt-frd-bar-${frd.id}`}
+            title={`${frd.label} · ${STATE_LABEL[frd.state]} · ${total} min en ${frd.workOrders.length} work orders`}
+            style={{
+              position: "absolute",
+              top: 0,
+              bottom: 0,
+              left: 0,
+              width: `${frdBarPct}%`,
+              minWidth: "30px",
+              background: WO_COLOR_VAR[frd.state],
+              borderRadius: "5px",
+              display: "flex",
+              alignItems: "center",
+              padding: "0 6px",
+              color: "var(--color-base)",
+              fontSize: "10px",
+              fontWeight: 600,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            {total}m
+          </div>
+        </div>
+      </summary>
+
+      <div style={{ marginTop: "8px" }}>
+        {woRows}
+        {reviewRow}
+      </div>
+    </details>
+  );
+}
+
+/** Durations / estimated mode — collapsible FRD rows with nested WO bars. */
 function DurationsTimeline({ timeline }: { timeline: BuildTimeline }): React.JSX.Element {
-  const spanMs = buildSpanMs(timeline);
-  const totalMin = Math.max(1, Math.round(spanMs / 60_000));
+  const maxAxis = Math.max(1, ...timeline.frds.map(frdAxisTotal));
   const firstErr = findFirstError(timeline);
 
   return (
@@ -471,6 +583,9 @@ function DurationsTimeline({ timeline }: { timeline: BuildTimeline }): React.JSX
       data-mode={timeline.estimated ? "estimated" : "durations"}
       style={{ width: "100%" }}
     >
+      {/* biome-ignore lint/security/noDangerouslySetInnerHtml: static constant, no user input — collapse chrome only */}
+      <style dangerouslySetInnerHTML={{ __html: FRD_DETAILS_CSS }} />
+
       {/* Estimated banner (git-reconstructed timeline — durations are approximate, AC-12-003.1a) */}
       {timeline.estimated && (
         <div
@@ -516,9 +631,9 @@ function DurationsTimeline({ timeline }: { timeline: BuildTimeline }): React.JSX
           aria-hidden="true"
           style={{ fontSize: "14px", color: "var(--color-accent-text)" }}
         />
-        {timeline.estimated
-          ? "FRDs → work orders, en su orden real. La duración de cada barra es estimada."
-          : "FRDs → work orders, por duración real del build. La barra de revisión cierra cada FRD."}
+        FRD ▸ work orders. La barra del FRD es la suma de sus work orders; el ancho de cada barra es
+        proporcional a su duración{timeline.estimated ? " (estimada)" : ""}. Clic en un FRD para
+        plegarlo.
       </div>
 
       {/* Jump-to-first-error note (AC-12-003.2) */}
@@ -541,40 +656,9 @@ function DurationsTimeline({ timeline }: { timeline: BuildTimeline }): React.JSX
         </div>
       )}
 
-      {/* Time axis */}
-      <div
-        data-testid="timeline-gantt-axis"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "150px 1fr",
-          gap: "8px",
-          marginBottom: "8px",
-        }}
-      >
-        <span />
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            fontSize: "10px",
-            color: "var(--color-text3)",
-            fontVariantNumeric: "tabular-nums",
-          }}
-        >
-          <span>0 min</span>
-          <span>{Math.round(totalMin / 2)}</span>
-          <span>{totalMin} min</span>
-        </div>
-      </div>
-
-      {/* FRD rows with nested WO bars + review segment */}
+      {/* Collapsible FRD rows with nested WO bars */}
       {timeline.frds.map((frd) => (
-        <FrdHeader key={frd.id} frd={frd}>
-          {frd.workOrders.map((wo) => (
-            <WoBarRow key={wo.id} wo={wo} buildStartMs={timeline.buildStartMs} spanMs={spanMs} />
-          ))}
-          <ReviewBarRow frd={frd} buildStartMs={timeline.buildStartMs} spanMs={spanMs} />
-        </FrdHeader>
+        <FrdDetails key={frd.id} frd={frd} maxAxis={maxAxis} />
       ))}
     </div>
   );
