@@ -208,8 +208,8 @@ function laneLabel(frd: string): string {
   return rest === "" ? head : `${head} · ${rest.charAt(0).toUpperCase()}${rest.slice(1)}`;
 }
 
-/** Order FRD groups (Map frd → nodes) top-to-bottom by FRD number, then slug. */
-function orderedFrdGroups(nodes: DagNode[]): Array<[string, DagNode[]]> {
+/** Group WO nodes by their FRD slug (first-seen order preserved within each group). */
+function groupNodesByFrd(nodes: DagNode[]): Map<string, DagNode[]> {
   const groups = new Map<string, DagNode[]>();
   for (const n of nodes) {
     const frd = n.frd ?? "";
@@ -217,11 +217,77 @@ function orderedFrdGroups(nodes: DagNode[]): Array<[string, DagNode[]]> {
     if (bucket) bucket.push(n);
     else groups.set(frd, [n]);
   }
-  return [...groups.entries()].sort((a, b) => {
-    const ka = frdOrderKey(a[0]);
-    const kb = frdOrderKey(b[0]);
-    return ka !== kb ? ka - kb : a[0].localeCompare(b[0]);
-  });
+  return groups;
+}
+
+/**
+ * FRD-level super-graph from the WO edges: a cross-FRD edge A→B ⇒ FRD(A) → FRD(B).
+ * Returns each FRD's dependents + its cross-FRD in-degree (for root detection).
+ */
+function buildFrdSuperGraph(
+  nodes: DagNode[],
+  edges: DagEdge[],
+  frds: string[],
+): { dependents: Map<string, Set<string>>; indegree: Map<string, number> } {
+  const frdOf = new Map<string, string>();
+  for (const n of nodes) frdOf.set(n.id, n.frd ?? "");
+  const dependents = new Map<string, Set<string>>();
+  const indegree = new Map<string, number>();
+  for (const frd of frds) {
+    dependents.set(frd, new Set());
+    indegree.set(frd, 0);
+  }
+  for (const e of edges) {
+    const a = frdOf.get(e.from);
+    const b = frdOf.get(e.to);
+    if (a === undefined || b === undefined || a === b) continue;
+    if (!dependents.get(a)?.has(b)) {
+      dependents.get(a)?.add(b);
+      indegree.set(b, (indegree.get(b) ?? 0) + 1);
+    }
+  }
+  return { dependents, indegree };
+}
+
+/**
+ * Order FRD groups (Map frd → nodes) so RELATED FRDs sit ADJACENT, top-to-bottom
+ * (DR-087 follow-up, red-team verdict 2026-06-24: swimlanes-ordered-by-dependency
+ * over a force-directed/Obsidian layout, which would be non-deterministic and would
+ * destroy the directional reading).
+ *
+ * Builds the FRD super-graph (a cross-FRD WO edge A→B ⇒ FRD(A) → FRD(B), i.e. "B's
+ * FRD depends on A's FRD") and emits a **DFS pre-order from the prerequisite roots**:
+ * each dependency chain is contiguous and a prerequisite FRD is immediately followed
+ * by its dependents — so e.g. FRD-18 (which depends on FRD-01) lands right under
+ * FRD-01 instead of 17 bands away, and cross-FRD edges become short + downward.
+ * Deterministic (numeric FRD tie-break everywhere) and cycle-safe (a cross-FRD cycle
+ * falls through to the numeric pass). No 2D packing, no new dependency.
+ */
+function orderedFrdGroups(nodes: DagNode[], edges: DagEdge[]): Array<[string, DagNode[]]> {
+  const groups = groupNodesByFrd(nodes);
+  const frds = [...groups.keys()];
+  const { dependents, indegree } = buildFrdSuperGraph(nodes, edges, frds);
+
+  const byNum = (x: string, y: string): number => {
+    const kx = frdOrderKey(x);
+    const ky = frdOrderKey(y);
+    return kx !== ky ? kx - ky : x.localeCompare(y);
+  };
+
+  const order: string[] = [];
+  const visited = new Set<string>();
+  const visit = (frd: string): void => {
+    if (visited.has(frd)) return;
+    visited.add(frd);
+    order.push(frd);
+    for (const dep of [...(dependents.get(frd) ?? [])].sort(byNum)) visit(dep);
+  };
+  // Prerequisite roots first (no cross-FRD dependency), in numeric order → each chain contiguous.
+  for (const frd of frds.filter((f) => (indegree.get(f) ?? 0) === 0).sort(byNum)) visit(frd);
+  // Anything left (caught in a cross-FRD cycle) → deterministic numeric fallback.
+  for (const frd of [...frds].sort(byNum)) visit(frd);
+
+  return order.map((frd) => [frd, groups.get(frd) ?? []]);
 }
 
 /**
@@ -246,7 +312,7 @@ export function computeLayout(nodes: DagNode[], edges: DagEdge[]): DagLayout {
   let cursorY = PAD;
   let maxWidth = 0;
 
-  for (const [frd, laneNodes] of orderedFrdGroups(nodes)) {
+  for (const [frd, laneNodes] of orderedFrdGroups(nodes, edges)) {
     const laneIds = new Set(laneNodes.map((n) => n.id));
     // Rank by INTRA-FRD edges only — the band's internal dependency depth.
     const intraEdges = edges.filter((e) => laneIds.has(e.from) && laneIds.has(e.to));

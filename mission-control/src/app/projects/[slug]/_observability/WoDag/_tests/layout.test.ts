@@ -129,6 +129,29 @@ describe("computeLayout", () => {
     expect(out.edges[0]?.crossFrd).toBe(true);
   });
 
+  it("orders FRD bands by dependency (prerequisite before dependent), not by number", () => {
+    const nodes: DagNode[] = [
+      { id: "WO-02-001", title: "dependent", state: "todo", frd: "frd-02-x" },
+      { id: "WO-05-001", title: "prereq", state: "done", frd: "frd-05-y" },
+    ];
+    // WO-02-001 depends on WO-05-001 ⇒ FRD-05 (prereq) must sit ABOVE FRD-02 despite its higher number.
+    const out = computeLayout(nodes, [{ from: "WO-05-001", to: "WO-02-001" }]);
+    expect(out.lanes.map((l) => l.frd)).toEqual(["frd-05-y", "frd-02-x"]);
+  });
+
+  it("places a dependent FRD adjacent to its prerequisite (DFS-contiguous chain)", () => {
+    // FRD-18 depends on FRD-01; FRD-02 + FRD-03 are unrelated. FRD-18 must land right after FRD-01.
+    const nodes: DagNode[] = [
+      { id: "WO-01-001", title: "root", state: "done", frd: "frd-01-data" },
+      { id: "WO-02-001", title: "other", state: "todo", frd: "frd-02-ideas" },
+      { id: "WO-03-001", title: "other2", state: "todo", frd: "frd-03-portfolio" },
+      { id: "WO-18-001", title: "dependent", state: "todo", frd: "frd-18-inicio" },
+    ];
+    const out = computeLayout(nodes, [{ from: "WO-01-001", to: "WO-18-001" }]);
+    const order = out.lanes.map((l) => l.frd);
+    expect(order.indexOf("frd-18-inicio")).toBe(order.indexOf("frd-01-data") + 1);
+  });
+
   it("does not loop on a cyclic graph (renders a degraded layout)", () => {
     const cyclic = [
       { from: "A", to: "B" },
