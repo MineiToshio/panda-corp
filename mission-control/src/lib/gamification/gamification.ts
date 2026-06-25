@@ -44,8 +44,10 @@ export type Rank = {
   readonly title: string;
   /** English name (for the Rangos ladder / reference). */
   readonly titleEn: string;
-  /** Tabler icon class for the rank (first-pass; custom pixel-art is a later phase). */
+  /** Tabler icon class for the rank (fallback when the sprite is unavailable). */
   readonly icon: string;
+  /** Rank-family sprite slug → /ranks/<sprite>.png (custom pixel-art emblem). */
+  readonly sprite: string;
   /** XP threshold to reach this rank (strictly increasing). */
   readonly threshold: number;
 };
@@ -114,11 +116,60 @@ function rankThreshold(level: number): number {
   return Math.round((25 * (level - 1) ** 2.3) / 5) * 5;
 }
 
+/**
+ * Rank-family sprite slug per level (1-based), → /ranks/<slug>.png. Each I·II·III
+ * family shares one emblem; the 6 standalone tops + Humano each have their own.
+ * 1 + 11×3 + 6 = 40.
+ */
+const RANK_SPRITES: readonly string[] = [
+  "human",
+  "dawn-seeker",
+  "dawn-seeker",
+  "dawn-seeker",
+  "lightbearer",
+  "lightbearer",
+  "lightbearer",
+  "oathkeeper",
+  "oathkeeper",
+  "oathkeeper",
+  "glyphwarden",
+  "glyphwarden",
+  "glyphwarden",
+  "aether-warden",
+  "aether-warden",
+  "aether-warden",
+  "shardbearer",
+  "shardbearer",
+  "shardbearer",
+  "knight-radiant",
+  "knight-radiant",
+  "knight-radiant",
+  "realmcaller",
+  "realmcaller",
+  "realmcaller",
+  "dawn-herald",
+  "dawn-herald",
+  "dawn-herald",
+  "stormlord",
+  "stormlord",
+  "stormlord",
+  "ascendant",
+  "ascendant",
+  "ascendant",
+  "phoenix-ascendant",
+  "leviathan-lord",
+  "crimson-dragonlord",
+  "celestial-warden",
+  "dawn-sovereign",
+  "eternal-oathbearer",
+];
+
 /** The guild rank ladder — one rank per level (level = rank index + 1). */
 export const RANKS: readonly Rank[] = RANK_DEFS.map((d, i) => ({
   title: d.es,
   titleEn: d.en,
   icon: d.icon,
+  sprite: RANK_SPRITES[i] ?? "human",
   threshold: rankThreshold(i + 1),
 }));
 
@@ -187,6 +238,8 @@ export type GuildLevel = {
    */
   readonly titleEn?: string;
   readonly icon?: string;
+  /** Rank-family sprite slug → /ranks/<slug>.png. */
+  readonly sprite?: string;
   /** Total accumulated XP (sum of all verifiable outcomes). */
   readonly xp: number;
   /** XP threshold required for the next rank (= current threshold if at max rank). */
@@ -270,6 +323,7 @@ export function computeGuildLevel(outcomes: GuildOutcomes): GuildLevel {
     title: currentRank.title,
     titleEn: currentRank.titleEn,
     icon: currentRank.icon,
+    sprite: currentRank.sprite,
     xp,
     next,
     pctToNext,

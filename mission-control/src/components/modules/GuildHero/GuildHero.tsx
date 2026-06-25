@@ -30,6 +30,7 @@
 
 import type { AgentRole } from "@/app/_design/tokens/tokens";
 import { Avatar } from "@/components/core/Avatar/Avatar";
+import { RankEmblem } from "@/components/core/RankEmblem/RankEmblem";
 import { Shield } from "@/components/core/Shield/Shield";
 import { XpBar } from "@/components/core/XpBar/XpBar";
 
@@ -50,6 +51,8 @@ export interface GuildHeroProps {
   nextTitle: string;
   /** Tabler icon class for the current rank (shown next to the title). */
   rankIcon?: string;
+  /** Rank-family sprite slug → /ranks/<slug>.png (the emblem next to the title). */
+  rankSprite?: string;
   /** Total feats/achievements count. */
   featsCount: number;
   /** Unlocked trophies count. */
@@ -143,6 +146,7 @@ export function GuildHero({
   pctToNext,
   nextTitle,
   rankIcon,
+  rankSprite,
   featsCount,
   trophiesCount,
   trophiesTotal,
@@ -217,13 +221,7 @@ export function GuildHero({
               color: "var(--color-text)",
             }}
           >
-            {rankIcon !== undefined && (
-              <i
-                className={`ti ${rankIcon}`}
-                aria-hidden="true"
-                style={{ fontSize: "24px", color: "var(--color-accent-text)", flexShrink: 0 }}
-              />
-            )}
+            <RankEmblem sprite={rankSprite} icon={rankIcon} size={30} />
             {title}
           </div>
 

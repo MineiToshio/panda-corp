@@ -11,6 +11,7 @@
  * Traceability: FRD-09 — guild rank ladder (40 ranks, owner-authored 2026-06-25).
  */
 
+import { RankEmblem } from "@/components/core/RankEmblem/RankEmblem";
 import type { GuildLevel } from "@/lib/gamification/gamification";
 import { RANKS } from "@/lib/gamification/gamification";
 
@@ -28,6 +29,7 @@ type RankRowProps = {
   level: number;
   name: string;
   icon: string;
+  sprite?: string;
   threshold: number;
   state: RankState;
   /** % progress to the next rank (current row only). */
@@ -39,27 +41,19 @@ type RankRowProps = {
   dim?: number;
 };
 
-/** The rank medal (icon tile). */
-function RankMedal({ icon, isCurrent }: { icon: string; isCurrent: boolean }): React.JSX.Element {
-  return (
-    <span
-      aria-hidden="true"
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: isCurrent ? "38px" : "30px",
-        height: isCurrent ? "38px" : "30px",
-        flexShrink: 0,
-        borderRadius: "9px",
-        background: isCurrent ? "var(--color-accent-bg)" : "var(--color-panel)",
-        border: `1.5px solid ${isCurrent ? "var(--color-accent)" : "var(--color-border-strong)"}`,
-        color: isCurrent ? "var(--color-accent-text)" : "var(--color-text2)",
-      }}
-    >
-      <i className={`ti ${icon}`} style={{ fontSize: isCurrent ? "20px" : "16px" }} />
-    </span>
-  );
+/** The rank medal — the self-framed emblem sprite. */
+function RankMedal({
+  sprite,
+  icon,
+  isCurrent,
+  name,
+}: {
+  sprite?: string;
+  icon: string;
+  isCurrent: boolean;
+  name: string;
+}): React.JSX.Element {
+  return <RankEmblem sprite={sprite} icon={icon} size={isCurrent ? 42 : 34} alt={name} />;
 }
 
 /** The per-state right-side marker (check / "ESTÁS AQUÍ" / lock). */
@@ -141,6 +135,7 @@ function RankRow({
   level,
   name,
   icon,
+  sprite,
   threshold,
   state,
   pctToNext = 0,
@@ -173,7 +168,7 @@ function RankRow({
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: "11px" }}>
-        <RankMedal icon={icon} isCurrent={isCurrent} />
+        <RankMedal sprite={sprite} icon={icon} isCurrent={isCurrent} name={name} />
 
         {/* Level chip */}
         <span
@@ -284,6 +279,7 @@ export function RankLadder({ level }: RankLadderProps): React.JSX.Element {
               level={lvl}
               name={rank.title}
               icon={rank.icon}
+              sprite={rank.sprite}
               threshold={rank.threshold}
               state={state}
               dim={dim}

@@ -30,6 +30,7 @@
  * Visual reference: prototype topbar() ~L646
  */
 
+import { RankEmblem } from "@/components/core/RankEmblem/RankEmblem";
 import { XpBar } from "@/components/core/XpBar/XpBar";
 import { computeGuildLevel, type GuildOutcomes, RANKS } from "@/lib/gamification/gamification";
 
@@ -88,7 +89,7 @@ const EMBEDDED_STYLE: React.CSSProperties = {
  */
 export function GuildBar({ outcomes, embedded = false }: GuildBarProps): React.JSX.Element {
   // IF-09-guild-xp: pure derivation — same outcomes always yields same result.
-  const { level, title, icon, xp, next, pctToNext } = computeGuildLevel(outcomes);
+  const { level, title, icon, sprite, xp, next, pctToNext } = computeGuildLevel(outcomes);
 
   // Determine the next rank title for the "faltan N para Nv X · <nextTitle>" line.
   // At max rank (pctToNext === 100), nextTitle mirrors current title.
@@ -144,13 +145,7 @@ export function GuildBar({ outcomes, embedded = false }: GuildBarProps): React.J
           whiteSpace: "nowrap",
         }}
       >
-        {icon !== undefined && (
-          <i
-            className={`ti ${icon}`}
-            aria-hidden="true"
-            style={{ fontSize: "13px", color: "var(--color-accent-text)", flexShrink: 0 }}
-          />
-        )}
+        <RankEmblem sprite={sprite} icon={icon} size={18} />
         {title}
       </span>
 
