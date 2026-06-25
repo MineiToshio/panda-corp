@@ -111,12 +111,12 @@ function HeroStat({ label, iconClass, value, sub, tierIndex }: HeroStatProps): R
         </span>
       )}
 
-      {/* Icon + label row */}
+      {/* Icon + label row — icon is accent-text (blue) like the radar header (prototype) */}
       <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
         <i
           className={`ti ${iconClass}`}
           aria-hidden="true"
-          style={{ fontSize: "14px", color: hasTier ? tierColor : "var(--color-text3)" }}
+          style={{ fontSize: "14px", color: "var(--color-accent-text)" }}
         />
         <span
           style={{ fontSize: "11px", color: "var(--color-text3)", fontFamily: "var(--font-pixel)" }}
@@ -175,28 +175,28 @@ function StatLedgerRow({ stat, tierIndex, iconClass }: StatLedgerRowProps): Reac
       style={{
         display: "flex",
         alignItems: "center",
-        gap: "6px",
-        padding: "5px 0",
+        gap: "10px",
+        padding: "8px 11px",
+        // The divider line between rows (prototype .ledrow border-top).
+        borderTop: "1px solid var(--color-border)",
       }}
     >
-      {/* Icon */}
+      {/* Icon — neutral gray (prototype .ledrow icon, color: text3) */}
       <i
         className={`ti ${iconClass}`}
         aria-hidden="true"
         style={{
-          fontSize: "13px",
-          color: hasTier ? tierColor : "var(--color-text3)",
+          fontSize: "15px",
+          color: "var(--color-text3)",
           flexShrink: 0,
-          width: "16px",
-          textAlign: "center",
         }}
       />
 
       {/* Label */}
       <span
         style={{
-          fontSize: "0.75rem",
-          color: "var(--color-text)",
+          fontSize: "12px",
+          color: "var(--color-text2)",
           flex: 1,
           overflow: "hidden",
           textOverflow: "ellipsis",
@@ -206,21 +206,23 @@ function StatLedgerRow({ stat, tierIndex, iconClass }: StatLedgerRowProps): Reac
         {stat.label}
       </span>
 
-      {/* Tier node pip (9px — prototype .node) */}
-      <span
-        role="img"
-        aria-label={hasTier ? `Nivel: ${tierLabel}` : "Sin nivel"}
-        title={hasTier ? tierLabel : "Sin nivel aún"}
-        style={{
-          width: "9px",
-          height: "9px",
-          borderRadius: "50%",
-          background: hasTier ? tierColor : "var(--color-border-strong)",
-          border: `1.5px solid ${hasTier ? tierColor : "var(--color-text3)"}`,
-          opacity: hasTier ? 1 : 0.3,
-          flexShrink: 0,
-        }}
-      />
+      {/* Tier node pip — 9px, tier-colored WITH glow (prototype .node box-shadow).
+          Only rendered when a tier is reached (prototype: node shown only if tier). */}
+      {hasTier && (
+        <span
+          role="img"
+          aria-label={`Nivel: ${tierLabel}`}
+          title={tierLabel}
+          style={{
+            width: "9px",
+            height: "9px",
+            borderRadius: "50%",
+            background: tierColor,
+            boxShadow: `0 0 7px -2px ${tierColor}`,
+            flexShrink: 0,
+          }}
+        />
+      )}
 
       {/* 18px pixel numeral (prototype statLedgerRow) */}
       <span
@@ -230,8 +232,8 @@ function StatLedgerRow({ stat, tierIndex, iconClass }: StatLedgerRowProps): Reac
           fontFamily: "var(--font-pixel)",
           fontSize: "18px",
           lineHeight: 1,
-          color: hasTier ? tierColor : "var(--color-text)",
-          minWidth: "28px",
+          color: "var(--color-text)",
+          minWidth: "36px",
           textAlign: "right",
           flexShrink: 0,
         }}
@@ -480,17 +482,20 @@ export function StatRadar({ axes }: StatRadarProps): React.JSX.Element {
 // ── Ledger column config ──────────────────────────────────────────────────────
 
 /** Stat keys per ledger column (matches prototype logrosStats() structure). */
-const LEDGER_COLUMNS: Array<{ title: string; keys: string[] }> = [
+const LEDGER_COLUMNS: Array<{ title: string; icon: string; keys: string[] }> = [
   {
     title: "Producción",
+    icon: "ti-hammer",
     keys: ["shipped", "workorders", "phases", "iterations"],
   },
   {
     title: "Calidad",
+    icon: "ti-shield-check",
     keys: ["flawless", "prds", "adrs"],
   },
   {
     title: "Ritmo & alcance",
+    icon: "ti-arrows-right",
     keys: ["streak", "speed", "ideas", "agents", "discarded"],
   },
 ];
@@ -574,10 +579,11 @@ export function StatsPanel({ readerData }: StatsPanelProps): React.JSX.Element {
       data-testid="stats-panel"
       data-tabular-nums="true"
       aria-label="Panel de estadísticas del gremio"
-      style={{ display: "flex", flexDirection: "column", gap: "20px" }}
+      style={{ display: "flex", flexDirection: "column", gap: "10px" }}
     >
-      {/* Top row: radar (330px) + hero stat tiles (flex-1) */}
-      <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", alignItems: "flex-start" }}>
+      {/* Top row: radar (330px) + hero stat tiles (flex-1).
+          align-items: stretch → the radar panel matches the hero stack height (prototype). */}
+      <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "stretch" }}>
         {/* StatRadar */}
         <div
           style={{
@@ -614,12 +620,14 @@ export function StatsPanel({ readerData }: StatsPanelProps): React.JSX.Element {
         </div>
       </div>
 
-      {/* Ledger grid — 3 columns (minmax 255px) */}
+      {/* Ledger grid — 3 EQUAL full-width columns. auto-fit (not auto-fill) collapses
+          empty tracks so the 3 cards stretch to fill the row (prototype logrosStats). */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(255px, 1fr))",
-          gap: "12px",
+          gridTemplateColumns: "repeat(auto-fit, minmax(255px, 1fr))",
+          gap: "10px",
+          alignItems: "start",
         }}
       >
         {LEDGER_COLUMNS.map((col) => {
@@ -636,25 +644,32 @@ export function StatsPanel({ readerData }: StatsPanelProps): React.JSX.Element {
               key={col.title}
               style={{
                 ...RPGPANEL,
-                padding: "12px",
+                padding: "5px 4px 7px",
                 display: "flex",
                 flexDirection: "column",
-                gap: "4px",
               }}
             >
-              {/* Column heading */}
-              <span
+              {/* Column heading — accent-text icon (blue, like the radar header) + label */}
+              <div
                 style={{
-                  fontSize: "10px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "9px 11px 7px",
                   fontFamily: "var(--font-pixel)",
+                  fontSize: "11px",
                   color: "var(--color-text3)",
                   textTransform: "uppercase",
                   letterSpacing: "0.05em",
-                  marginBottom: "4px",
                 }}
               >
+                <i
+                  className={`ti ${col.icon}`}
+                  aria-hidden="true"
+                  style={{ fontSize: "13px", color: "var(--color-accent-text)" }}
+                />
                 {col.title}
-              </span>
+              </div>
 
               {/* Ledger rows */}
               <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
