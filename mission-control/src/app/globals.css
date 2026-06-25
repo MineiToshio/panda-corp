@@ -65,6 +65,21 @@
   --color-tier-4: #b474f4;
   --color-tier-5: #f68c36;
 
+  /* === Trace palette (WoDag 2D DAG: distinct color per highlighted line) ===
+     A categorical, desaturated harmonious set so crossing highlighted edges stay
+     traceable. Seeded from the dag-2d prototype; dark values (light overrides
+     below darken them for AA contrast on the light canvas). */
+  --color-trace-1: #6e8bb3;
+  --color-trace-2: #7faf9b;
+  --color-trace-3: #b3897a;
+  --color-trace-4: #b38ab0;
+  --color-trace-5: #9bab6e;
+  --color-trace-6: #7badb3;
+  --color-trace-7: #b3a36e;
+  --color-trace-8: #8f96b3;
+  --color-trace-9: #a87f97;
+  --color-trace-10: #8a7bb8;
+
   /* === Per-agent / role colors (Party + FRD-12 dataviz; role identity) === */
   --color-agent-researcher: oklch(0.65 0.18 45);
   --color-agent-backend-dev: oklch(0.55 0.2 260);
@@ -193,6 +208,17 @@ h3 {
   --color-tier-3: #006eb8;
   --color-tier-4: #7c3eb3;
   --color-tier-5: #c26300;
+  /* Trace palette — darkened for AA contrast on the light canvas. */
+  --color-trace-1: #3f5e8a;
+  --color-trace-2: #3f7d68;
+  --color-trace-3: #8a5547;
+  --color-trace-4: #8a5786;
+  --color-trace-5: #67793c;
+  --color-trace-6: #3f7d85;
+  --color-trace-7: #85733c;
+  --color-trace-8: #5b6489;
+  --color-trace-9: #7c5267;
+  --color-trace-10: #57488a;
   --color-backdrop: rgba(40, 35, 28, 0.4);
   --shadow-1: 0 1px 2px rgba(40, 35, 28, 0.05), 0 8px 24px rgba(40, 35, 28, 0.07);
   --shadow-2: 0 16px 48px rgba(40, 35, 28, 0.18);
@@ -242,6 +268,17 @@ h3 {
     --color-tier-3: #006eb8;
     --color-tier-4: #7c3eb3;
     --color-tier-5: #c26300;
+    /* Trace palette — darkened for AA contrast on the light canvas. */
+    --color-trace-1: #3f5e8a;
+    --color-trace-2: #3f7d68;
+    --color-trace-3: #8a5547;
+    --color-trace-4: #8a5786;
+    --color-trace-5: #67793c;
+    --color-trace-6: #3f7d85;
+    --color-trace-7: #85733c;
+    --color-trace-8: #5b6489;
+    --color-trace-9: #7c5267;
+    --color-trace-10: #57488a;
     --color-backdrop: rgba(40, 35, 28, 0.4);
     --shadow-1: 0 1px 2px rgba(40, 35, 28, 0.05), 0 8px 24px rgba(40, 35, 28, 0.07);
     --shadow-2: 0 16px 48px rgba(40, 35, 28, 0.18);

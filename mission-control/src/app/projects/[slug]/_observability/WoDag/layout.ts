@@ -1,203 +1,129 @@
 /**
- * WoDag layout — pure, compact, layered (topological) DAG layout.
+ * WoDag layout — pure, deterministic 2D COMPOUND (cluster) layout.
  *
- * Replaces the Dagre dependency for the work-order DAG: a hand-rolled
- * longest-path layering (Kahn-style) that mirrors the prototype's static
- * `col` / `rowIn` placement (docs/design/prototype/index.html ~L1172-1177)
- * but generalised to any work-order set.
+ * Ported from the approved prototype `docs/design/prototype/dag-2d.generator.mjs`.
+ * Replaces the earlier FRD-swimlane layout with a 2D dependency map:
+ *   - Each FRD is an opaque rounded BOX (a cluster), positioned by a seeded,
+ *     deterministic force simulation over the FRD super-graph + an AABB
+ *     no-overlap pass (see ./forceLayout.ts).
+ *   - Each box holds its work-order CARDS, laid out by intra-FRD dependency rank
+ *     (longest-path columns), and is sized to fit its card grid.
+ *   - Edges at two levels: intra-FRD WO→WO lines (drawn over the boxes) and
+ *     cross-FRD lines AGGREGATED to one FRD→FRD line per directed pair (drawn
+ *     behind the opaque boxes).
  *
- * Why hand-rolled, not Dagre: in production the work orders carry NO explicit
- * `dependsOn` (lib/work-orders reads the on-disk markdown, which has no deps
- * field), so Dagre laid every node in its own rank → a sprawling, illegible
- * canvas. Here we (1) derive sensible edges when none are explicit and
- * (2) lay the graph out in tight, fixed-size topological columns so it always
- * reads as a left-to-right dependency graph and never balloons.
- *
- * Pure module: no I/O, no React, no side-effects. Never throws.
+ * PURE + DETERMINISTIC: no I/O, no React, no Date.now/Math.random. Same input →
+ * byte-identical output (the layout runs in an RSC read AND must not jitter).
+ * Layout depends on STRUCTURE ONLY (the set of WO ids + deps + frd) — never on
+ * live state. Never throws; empty input → empty layout.
  */
 
 import type { DagEdge, DagNode } from "@/app/_observability/dag/dag/dag";
+import { type ForceBox, type ForceLink, solveForceLayout } from "./forceLayout";
 
 // ---------------------------------------------------------------------------
-// Node + spacing constants
-//
-// Sized for legibility: a node fits a state icon, a 2-line wrapped title and a
-// mono id·FRD sub-line WITHOUT the text spilling past the card edge. The canvas
-// renders at natural size (no auto-shrink) and the view is zoom/pan-able, so a
-// larger node is a feature, not a cost — see WoDag's ZoomControls.
+// Card + cluster spacing constants (verbatim from the prototype generator)
 // ---------------------------------------------------------------------------
 
-/** Node width in px. */
-export const NODE_W = 170;
-/** Node height in px — room for a 2-line title + the id·FRD sub-line. */
-export const NODE_H = 62;
-/** Horizontal step between column origins (node + gap). */
-export const COL_STEP = 212;
-/** Vertical step between row origins within a column (node + gap). */
-export const ROW_STEP = 84;
-/** Canvas inner padding. */
-export const PAD = 16;
-/** Height reserved above each FRD swimlane's nodes for its label. */
-export const LANE_HEADER_H = 28;
-/** Vertical gap between FRD swimlanes. */
-export const LANE_GAP = 20;
+/** Card width in px. */
+export const CARD_W = 164;
+/** Card height in px. */
+export const CARD_H = 54;
+/** Horizontal step between card columns (intra-FRD rank). */
+export const CARD_COL_W = 182;
+/** Vertical step between card rows within a column. */
+export const CARD_ROW_H = 66;
+/** Header band height reserved at the top of each cluster box for its label. */
+export const CLUSTER_HEAD = 28;
+/** Inner padding inside a cluster box. */
+export const CLUSTER_PAD = 12;
+/** Outer canvas margin around the whole packed graph. */
+export const CANVAS_MARGIN = 80;
+/** Backwards-compatible alias (some consumers/tests import PAD). */
+export const PAD = CLUSTER_PAD;
 
 // ---------------------------------------------------------------------------
 // Positioned output
 // ---------------------------------------------------------------------------
 
-export interface PositionedNode extends DagNode {
+/** A positioned work-order card (absolute coords on the canvas). */
+export interface PositionedCard extends DagNode {
+  /** Absolute top-left x of the card. */
   x: number;
+  /** Absolute top-left y of the card. */
   y: number;
   width: number;
   height: number;
+  /** The owning FRD slug (always set; "" for the no-FRD bucket). */
+  clusterFrd: string;
 }
 
-export interface PositionedEdge extends DagEdge {
-  /** Cubic-bezier control + end points: [start, cp1, cp2, end]. */
-  points: ReadonlyArray<{ x: number; y: number }>;
-  /** True when the edge connects two different FRDs (rendered as a distinct, dashed link). */
-  crossFrd?: boolean;
-}
-
-/** A horizontal FRD swimlane: a labeled band that contains that FRD's work-order nodes. */
-export interface DagLane {
+/** A positioned FRD cluster box. */
+export interface PositionedCluster {
   frd: string;
   /** Display label, e.g. "FRD-01 · Data reading". */
   label: string;
-  /** Top y of the band (the header sits here; nodes start LANE_HEADER_H below). */
+  /** Absolute top-left x of the box. */
+  x: number;
+  /** Absolute top-left y of the box. */
   y: number;
-  /** Full band height (header + node grid). */
-  height: number;
+  w: number;
+  h: number;
+}
+
+/** An intra-FRD WO→WO edge with its cubic-bezier path points. */
+export interface IntraEdge {
+  from: string;
+  to: string;
+  /** [start, cp1, cp2, end]. */
+  points: ReadonlyArray<{ x: number; y: number }>;
+}
+
+/** An aggregated cross-FRD edge: one straight line per directed FRD pair. */
+export interface CrossEdge {
+  /** Source FRD slug. */
+  fromFrd: string;
+  /** Target FRD slug. */
+  toFrd: string;
+  /** Number of underlying WO→WO dependencies aggregated into this line. */
+  weight: number;
+  /** Stroke width derived from the weight (matches the prototype). */
+  strokeWidth: number;
+  /** Center-to-center line endpoints. */
+  start: { x: number; y: number };
+  end: { x: number; y: number };
+}
+
+/**
+ * An individual cross-FRD WO→WO dependency. The graph aggregates these into one
+ * visible line per FRD pair (CrossEdge), but each underlying WO link is kept so
+ * the render can emit a per-WO `data-edge` marker (the integration contract that
+ * every WO→WO dependency is addressable) without drawing a spiderweb.
+ */
+export interface CrossWoLink {
+  from: string;
+  to: string;
+  fromFrd: string;
+  toFrd: string;
 }
 
 export interface DagLayout {
-  nodes: PositionedNode[];
-  edges: PositionedEdge[];
-  /** FRD swimlanes (grouping bands), top-to-bottom by FRD number. */
-  lanes: DagLane[];
+  clusters: PositionedCluster[];
+  cards: PositionedCard[];
+  intraEdges: IntraEdge[];
+  crossEdges: CrossEdge[];
+  /** Per-WO cross-FRD deps (aggregated visually into crossEdges). */
+  crossWoLinks: CrossWoLink[];
   width: number;
   height: number;
 }
 
 // ---------------------------------------------------------------------------
-// Rank assignment (longest-path layering, cycle-safe)
+// Label + grouping helpers
 // ---------------------------------------------------------------------------
-
-/** Successor adjacency + in-degree for each node, ignoring edges to unknown ids. */
-function buildGraph(
-  nodes: DagNode[],
-  edges: DagEdge[],
-): { successors: Map<string, string[]>; indegree: Map<string, number> } {
-  const successors = new Map<string, string[]>();
-  const indegree = new Map<string, number>();
-  for (const n of nodes) {
-    successors.set(n.id, []);
-    indegree.set(n.id, 0);
-  }
-  for (const e of edges) {
-    if (!successors.has(e.from) || !indegree.has(e.to)) continue;
-    successors.get(e.from)?.push(e.to);
-    indegree.set(e.to, (indegree.get(e.to) ?? 0) + 1);
-  }
-  return { successors, indegree };
-}
-
-/** Mutable state threaded through the Kahn relaxation. */
-interface KahnState {
-  rank: Map<string, number>;
-  remaining: Map<string, number>;
-  queue: string[];
-}
-
-/**
- * Relax one node's outgoing edges: lift each successor's rank and enqueue it
- * once all its predecessors have been processed.
- */
-function relaxNode(id: string, successors: Map<string, string[]>, st: KahnState): void {
-  const here = st.rank.get(id) ?? 0;
-  for (const next of successors.get(id) ?? []) {
-    if (here + 1 > (st.rank.get(next) ?? 0)) st.rank.set(next, here + 1);
-    const left = (st.remaining.get(next) ?? 0) - 1;
-    st.remaining.set(next, left);
-    if (left === 0) st.queue.push(next);
-  }
-}
-
-/**
- * Assign each node a rank (column index) = longest dependency path from a root.
- *
- * Kahn's topological pass: a node's rank is one past its deepest predecessor.
- * Cycle-safe: nodes that are part of a cycle are simply never dequeued and keep
- * rank 0, so a malformed cyclic graph still renders instead of looping forever.
- */
-function assignRanks(nodes: DagNode[], edges: DagEdge[]): Map<string, number> {
-  const { successors, indegree } = buildGraph(nodes, edges);
-
-  const rank = new Map<string, number>();
-  for (const n of nodes) rank.set(n.id, 0);
-
-  const st: KahnState = {
-    rank,
-    remaining: new Map(indegree),
-    queue: nodes.filter((n) => (indegree.get(n.id) ?? 0) === 0).map((n) => n.id),
-  };
-
-  while (st.queue.length > 0) {
-    const id = st.queue.shift();
-    if (id === undefined) break;
-    relaxNode(id, successors, st);
-  }
-
-  return rank;
-}
-
-// ---------------------------------------------------------------------------
-// Position assignment
-// ---------------------------------------------------------------------------
-
-/** Group node ids by rank, preserving the incoming node order within each rank. */
-function groupByRank(nodes: DagNode[], rank: Map<string, number>): Map<number, DagNode[]> {
-  const byRank = new Map<number, DagNode[]>();
-  for (const n of nodes) {
-    const r = rank.get(n.id) ?? 0;
-    const bucket = byRank.get(r);
-    if (bucket) bucket.push(n);
-    else byRank.set(r, [n]);
-  }
-  return byRank;
-}
-
-/** Build the 4-point cubic-bezier control points for an LR edge. */
-function bezierPoints(
-  from: PositionedNode,
-  to: PositionedNode,
-): ReadonlyArray<{ x: number; y: number }> {
-  const x1 = from.x + NODE_W;
-  const y1 = from.y + NODE_H / 2;
-  const x2 = to.x;
-  const y2 = to.y + NODE_H / 2;
-  const mx = (x1 + x2) / 2;
-  return [
-    { x: x1, y: y1 },
-    { x: mx, y: y1 },
-    { x: mx, y: y2 },
-    { x: x2, y: y2 },
-  ];
-}
-
-// ---------------------------------------------------------------------------
-// Public entry: computeLayout
-// ---------------------------------------------------------------------------
-
-/** FRD sort key: the numeric part of "frd-NN-…" (unknown/empty sorts last). */
-function frdOrderKey(frd: string): number {
-  const m = /^frd-(\d+)/i.exec(frd);
-  return m?.[1] !== undefined ? Number.parseInt(m[1], 10) : Number.POSITIVE_INFINITY;
-}
 
 /** Lane label: "frd-01-data-reading" → "FRD-01 · Data reading"; "" → "Sin FRD". */
-function laneLabel(frd: string): string {
+function clusterLabel(frd: string): string {
   if (frd === "") return "Sin FRD";
   const num = /^(frd-\d+)/i.exec(frd);
   const head = num?.[1] !== undefined ? num[1].toUpperCase() : frd;
@@ -220,181 +146,347 @@ function groupNodesByFrd(nodes: DagNode[]): Map<string, DagNode[]> {
   return groups;
 }
 
-/**
- * FRD-level super-graph from the WO edges: a cross-FRD edge A→B ⇒ FRD(A) → FRD(B).
- * Returns each FRD's dependents + its cross-FRD in-degree (for root detection).
- */
-function buildFrdSuperGraph(
+// ---------------------------------------------------------------------------
+// Per-cluster internal layout (cards by intra-FRD longest-path rank)
+// ---------------------------------------------------------------------------
+
+/** A cluster before its box is positioned: its cards' offsets + computed size. */
+interface ClusterShape {
+  frd: string;
+  nodes: DagNode[];
+  /** Card-local offset (relative to the box top-left) by node id. */
+  offsets: Map<string, { dx: number; dy: number }>;
+  w: number;
+  h: number;
+}
+
+/** Intra-FRD edges of a cluster (both endpoints inside the cluster). */
+function intraEdgesOf(nodeIds: Set<string>, edges: DagEdge[]): Array<[string, string]> {
+  const out: Array<[string, string]> = [];
+  for (const e of edges) {
+    if (nodeIds.has(e.from) && nodeIds.has(e.to)) out.push([e.from, e.to]);
+  }
+  return out;
+}
+
+/** Successor adjacency + in-degree from a cluster's intra edges. */
+function intraGraph(
   nodes: DagNode[],
-  edges: DagEdge[],
-  frds: string[],
-): { dependents: Map<string, Set<string>>; indegree: Map<string, number> } {
+  intra: Array<[string, string]>,
+): { succ: Map<string, string[]>; indeg: Map<string, number> } {
+  const indeg = new Map(nodes.map((n) => [n.id, 0]));
+  const succ = new Map<string, string[]>(nodes.map((n) => [n.id, []]));
+  for (const [a, b] of intra) {
+    succ.get(a)?.push(b);
+    indeg.set(b, (indeg.get(b) ?? 0) + 1);
+  }
+  return { succ, indeg };
+}
+
+/**
+ * Longest-path rank (column index) of each card within a cluster, via a Kahn
+ * relaxation over the intra-FRD edges only. Cycle-safe (a node in a cycle keeps
+ * rank 0 rather than looping forever).
+ */
+function intraRanks(nodes: DagNode[], intra: Array<[string, string]>): Map<string, number> {
+  const rank = new Map(nodes.map((n) => [n.id, 0]));
+  const { succ, indeg } = intraGraph(nodes, intra);
+  const queue = nodes.filter((n) => (indeg.get(n.id) ?? 0) === 0).map((n) => n.id);
+  while (queue.length > 0) {
+    const n = queue.shift();
+    if (n === undefined) break;
+    const here = rank.get(n) ?? 0;
+    for (const m of succ.get(n) ?? []) {
+      if (here + 1 > (rank.get(m) ?? 0)) rank.set(m, here + 1);
+      const left = (indeg.get(m) ?? 0) - 1;
+      indeg.set(m, left);
+      if (left === 0) queue.push(m);
+    }
+  }
+  return rank;
+}
+
+/** Build one cluster's card-offset grid + box size from its nodes + edges. */
+function shapeCluster(frd: string, nodes: DagNode[], edges: DagEdge[]): ClusterShape {
+  const ids = new Set(nodes.map((n) => n.id));
+  const intra = intraEdgesOf(ids, edges);
+  const rank = intraRanks(nodes, intra);
+
+  const byRank = new Map<number, DagNode[]>();
+  for (const n of nodes) {
+    const r = rank.get(n.id) ?? 0;
+    const bucket = byRank.get(r);
+    if (bucket) bucket.push(n);
+    else byRank.set(r, [n]);
+  }
+
+  const offsets = new Map<string, { dx: number; dy: number }>();
+  let maxRows = 1;
+  let maxRank = 0;
+  for (const [r, bucket] of byRank) {
+    maxRank = Math.max(maxRank, r);
+    maxRows = Math.max(maxRows, bucket.length);
+    bucket.forEach((node, i) => {
+      offsets.set(node.id, {
+        dx: CLUSTER_PAD + r * CARD_COL_W,
+        dy: CLUSTER_HEAD + i * CARD_ROW_H,
+      });
+    });
+  }
+
+  const w = CLUSTER_PAD * 2 + maxRank * CARD_COL_W + CARD_W;
+  const h = CLUSTER_HEAD + CLUSTER_PAD + (maxRows - 1) * CARD_ROW_H + CARD_H;
+  return { frd, nodes, offsets, w, h };
+}
+
+// ---------------------------------------------------------------------------
+// FRD super-graph (cross deps aggregated to FRD level)
+// ---------------------------------------------------------------------------
+
+/** Directed FRD→FRD pair with the count of underlying WO deps. */
+interface SuperDirected {
+  a: string;
+  b: string;
+  weight: number;
+}
+
+/** Count cross-FRD WO deps per directed "A>B" FRD pair. */
+function countCrossPairs(nodes: DagNode[], edges: DagEdge[]): Map<string, number> {
   const frdOf = new Map<string, string>();
   for (const n of nodes) frdOf.set(n.id, n.frd ?? "");
-  const dependents = new Map<string, Set<string>>();
-  const indegree = new Map<string, number>();
-  for (const frd of frds) {
-    dependents.set(frd, new Set());
-    indegree.set(frd, 0);
-  }
+  const counts = new Map<string, number>();
   for (const e of edges) {
     const a = frdOf.get(e.from);
     const b = frdOf.get(e.to);
     if (a === undefined || b === undefined || a === b) continue;
-    if (!dependents.get(a)?.has(b)) {
-      dependents.get(a)?.add(b);
-      indegree.set(b, (indegree.get(b) ?? 0) + 1);
-    }
+    counts.set(`${a}>${b}`, (counts.get(`${a}>${b}`) ?? 0) + 1);
   }
-  return { dependents, indegree };
+  return counts;
 }
 
 /**
- * Order FRD groups (Map frd → nodes) so RELATED FRDs sit ADJACENT, top-to-bottom
- * (DR-087 follow-up, red-team verdict 2026-06-24: swimlanes-ordered-by-dependency
- * over a force-directed/Obsidian layout, which would be non-deterministic and would
- * destroy the directional reading).
- *
- * Builds the FRD super-graph (a cross-FRD WO edge A→B ⇒ FRD(A) → FRD(B), i.e. "B's
- * FRD depends on A's FRD") and emits a **DFS pre-order from the prerequisite roots**:
- * each dependency chain is contiguous and a prerequisite FRD is immediately followed
- * by its dependents — so e.g. FRD-18 (which depends on FRD-01) lands right under
- * FRD-01 instead of 17 bands away, and cross-FRD edges become short + downward.
- * Deterministic (numeric FRD tie-break everywhere) and cycle-safe (a cross-FRD cycle
- * falls through to the numeric pass). No 2D packing, no new dependency.
+ * Aggregate cross-FRD WO edges into the FRD super-graph: directed pairs (for the
+ * cross lines) + undirected links (for the force-sim springs).
  */
-function orderedFrdGroups(nodes: DagNode[], edges: DagEdge[]): Array<[string, DagNode[]]> {
-  const groups = groupNodesByFrd(nodes);
-  const frds = [...groups.keys()];
-  const { dependents, indegree } = buildFrdSuperGraph(nodes, edges, frds);
+function buildSuperGraph(
+  nodes: DagNode[],
+  edges: DagEdge[],
+): { directed: SuperDirected[]; links: ForceLink[] } {
+  const counts = countCrossPairs(nodes, edges);
+  const directed: SuperDirected[] = [];
+  const undirected = new Set<string>();
+  for (const [key, weight] of counts) {
+    const [a, b] = key.split(">");
+    if (a === undefined || b === undefined) continue;
+    directed.push({ a, b, weight });
+    undirected.add(a < b ? `${a}|${b}` : `${b}|${a}`);
+  }
 
-  const byNum = (x: string, y: string): number => {
-    const kx = frdOrderKey(x);
-    const ky = frdOrderKey(y);
-    return kx !== ky ? kx - ky : x.localeCompare(y);
-  };
-
-  const order: string[] = [];
-  const visited = new Set<string>();
-  const visit = (frd: string): void => {
-    if (visited.has(frd)) return;
-    visited.add(frd);
-    order.push(frd);
-    for (const dep of [...(dependents.get(frd) ?? [])].sort(byNum)) visit(dep);
-  };
-  // Prerequisite roots first (no cross-FRD dependency), in numeric order → each chain contiguous.
-  for (const frd of frds.filter((f) => (indegree.get(f) ?? 0) === 0).sort(byNum)) visit(frd);
-  // Anything left (caught in a cross-FRD cycle) → deterministic numeric fallback.
-  for (const frd of [...frds].sort(byNum)) visit(frd);
-
-  return order.map((frd) => [frd, groups.get(frd) ?? []]);
+  const links: ForceLink[] = [];
+  for (const key of undirected) {
+    const [a, b] = key.split("|");
+    if (a !== undefined && b !== undefined) links.push({ a, b });
+  }
+  return { directed, links };
 }
 
+// ---------------------------------------------------------------------------
+// Geometry helpers
+// ---------------------------------------------------------------------------
+
+/** Cubic-bezier control points for an intra LR edge between two cards. */
+function intraBezier(
+  from: PositionedCard,
+  to: PositionedCard,
+): ReadonlyArray<{ x: number; y: number }> {
+  const x1 = from.x + CARD_W;
+  const y1 = from.y + CARD_H / 2;
+  const x2 = to.x;
+  const y2 = to.y + CARD_H / 2;
+  const mx = (x1 + x2) / 2;
+  return [
+    { x: x1, y: y1 },
+    { x: mx, y: y1 },
+    { x: mx, y: y2 },
+    { x: x2, y: y2 },
+  ];
+}
+
+/** Cross-edge stroke width from its weight (matches the prototype: 1.1 + n*0.22, capped 3). */
+function crossStrokeWidth(weight: number): number {
+  return Math.min(3, 1.1 + weight * 0.22);
+}
+
+// ---------------------------------------------------------------------------
+// Public entry: computeLayout
+// ---------------------------------------------------------------------------
+
 /**
- * Lay out the DAG as **FRD swimlanes** (DR-087 follow-up).
+ * Compute the deterministic 2D compound layout for a work-order DAG.
  *
- * Each FRD is a labeled horizontal band; within a band, its work orders flow
- * left-to-right by the band's INTERNAL dependency depth (only intra-FRD edges
- * rank the columns), and rows stack within a column. Bands are ordered top-to-
- * bottom by FRD number. This replaces the single global layered layout, whose
- * rank-0 column piled up every dependency-free work order into one giant column.
- *
- * Cross-FRD edges still render (flagged `crossFrd` for a distinct style); the
- * canvas is sized exactly to its content. Empty input → empty layout.
+ * STRUCTURE-ONLY: callers must key any memo on the WO ids + deps + frd, never on
+ * live state — recomputing here on a state change would make boxes jump.
  */
 export function computeLayout(nodes: DagNode[], edges: DagEdge[]): DagLayout {
   if (nodes.length === 0) {
-    return { nodes: [], edges: [], lanes: [], width: 0, height: 0 };
+    return {
+      clusters: [],
+      cards: [],
+      intraEdges: [],
+      crossEdges: [],
+      crossWoLinks: [],
+      width: 0,
+      height: 0,
+    };
   }
 
-  const posById = new Map<string, PositionedNode>();
-  const lanes: DagLane[] = [];
-  let cursorY = PAD;
-  let maxWidth = 0;
+  const groups = groupNodesByFrd(nodes);
+  const shapes = [...groups.entries()].map(([frd, ns]) => shapeCluster(frd, ns, edges));
+  const { directed, links } = buildSuperGraph(nodes, edges);
 
-  for (const [frd, laneNodes] of orderedFrdGroups(nodes, edges)) {
-    const laneIds = new Set(laneNodes.map((n) => n.id));
-    // Rank by INTRA-FRD edges only — the band's internal dependency depth.
-    const intraEdges = edges.filter((e) => laneIds.has(e.from) && laneIds.has(e.to));
-    const rank = assignRanks(laneNodes, intraEdges);
-    const byRank = groupByRank(laneNodes, rank);
-    const maxRows = Math.max(...[...byRank.values()].map((b) => b.length));
-    const maxRank = Math.max(...[...byRank.keys()]);
+  // Solve box centers deterministically (seeded circle + force sim + AABB).
+  const boxes: ForceBox[] = shapes.map((s) => ({ frd: s.frd, w: s.w, h: s.h, x: 0, y: 0 }));
+  solveForceLayout(boxes, links);
 
-    const nodesTop = cursorY + LANE_HEADER_H;
-    for (const [r, bucket] of byRank) {
-      bucket.forEach((node, row) => {
-        posById.set(node.id, {
-          ...node,
-          x: PAD + r * COL_STEP,
-          y: nodesTop + row * ROW_STEP,
-          width: NODE_W,
-          height: NODE_H,
-        });
+  // Translate solved centers to a positive top-left coordinate space + margin.
+  const bounds = boundsOf(boxes);
+  const positioned = positionClusters(shapes, boxes, bounds);
+
+  const cards = layoutCards(shapes, positioned);
+  const cardById = new Map(cards.map((c) => [c.id, c]));
+
+  return {
+    clusters: [...positioned.values()],
+    cards,
+    intraEdges: buildIntraEdges(nodes, edges, cardById),
+    crossEdges: buildCrossEdges(directed, positioned),
+    crossWoLinks: buildCrossWoLinks(nodes, edges),
+    width: bounds.maxX - bounds.minX + CANVAS_MARGIN * 2,
+    height: bounds.maxY - bounds.minY + CANVAS_MARGIN * 2,
+  };
+}
+
+interface Bounds {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+/** AABB bounds of the solved cluster centers (center ± half-size). */
+function boundsOf(boxes: ForceBox[]): Bounds {
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const b of boxes) {
+    minX = Math.min(minX, b.x - b.w / 2);
+    minY = Math.min(minY, b.y - b.h / 2);
+    maxX = Math.max(maxX, b.x + b.w / 2);
+    maxY = Math.max(maxY, b.y + b.h / 2);
+  }
+  return { minX, minY, maxX, maxY };
+}
+
+/** Place each cluster box at its solved center, shifted into the positive canvas. */
+function positionClusters(
+  shapes: ClusterShape[],
+  boxes: ForceBox[],
+  bounds: Bounds,
+): Map<string, PositionedCluster> {
+  const byFrd = new Map(boxes.map((b) => [b.frd, b]));
+  const out = new Map<string, PositionedCluster>();
+  for (const shape of shapes) {
+    const box = byFrd.get(shape.frd);
+    if (!box) continue;
+    out.set(shape.frd, {
+      frd: shape.frd,
+      label: clusterLabel(shape.frd),
+      x: box.x - box.w / 2 - bounds.minX + CANVAS_MARGIN,
+      y: box.y - box.h / 2 - bounds.minY + CANVAS_MARGIN,
+      w: shape.w,
+      h: shape.h,
+    });
+  }
+  return out;
+}
+
+/** Resolve every card's absolute position from its cluster box + local offset. */
+function layoutCards(
+  shapes: ClusterShape[],
+  positioned: Map<string, PositionedCluster>,
+): PositionedCard[] {
+  const cards: PositionedCard[] = [];
+  for (const shape of shapes) {
+    const box = positioned.get(shape.frd);
+    if (!box) continue;
+    for (const node of shape.nodes) {
+      const off = shape.offsets.get(node.id);
+      if (!off) continue;
+      cards.push({
+        ...node,
+        x: box.x + off.dx,
+        y: box.y + off.dy,
+        width: CARD_W,
+        height: CARD_H,
+        clusterFrd: shape.frd,
       });
     }
-
-    const laneHeight = LANE_HEADER_H + (maxRows * ROW_STEP - (ROW_STEP - NODE_H));
-    lanes.push({ frd, label: laneLabel(frd), y: cursorY, height: laneHeight });
-    maxWidth = Math.max(maxWidth, PAD + maxRank * COL_STEP + NODE_W);
-    cursorY += laneHeight + LANE_GAP;
   }
+  return cards;
+}
 
-  const positionedNodes = nodes.map((n) => posById.get(n.id)).filter(isPositioned);
-
-  const positionedEdges: PositionedEdge[] = [];
+/** Build the intra-FRD WO→WO bezier edges (both endpoints in the same cluster). */
+function buildIntraEdges(
+  nodes: DagNode[],
+  edges: DagEdge[],
+  cardById: Map<string, PositionedCard>,
+): IntraEdge[] {
+  const frdOf = new Map<string, string>();
+  for (const n of nodes) frdOf.set(n.id, n.frd ?? "");
+  const out: IntraEdge[] = [];
   for (const e of edges) {
-    const from = posById.get(e.from);
-    const to = posById.get(e.to);
+    if (frdOf.get(e.from) !== frdOf.get(e.to)) continue;
+    const from = cardById.get(e.from);
+    const to = cardById.get(e.to);
     if (!from || !to) continue;
-    const crossFrd = (from.frd ?? "") !== (to.frd ?? "");
-    positionedEdges.push({ ...e, points: bezierPoints(from, to), crossFrd });
+    out.push({ from: e.from, to: e.to, points: intraBezier(from, to) });
   }
-
-  const width = maxWidth + PAD;
-  const height = cursorY - LANE_GAP + PAD;
-
-  return { nodes: positionedNodes, edges: positionedEdges, lanes, width, height };
+  return out;
 }
 
-/** Type guard: a defined PositionedNode (drops any lookup miss). */
-function isPositioned(n: PositionedNode | undefined): n is PositionedNode {
-  return n !== undefined;
+/** Build the aggregated cross-FRD lines (center-to-center per directed pair). */
+function buildCrossEdges(
+  directed: SuperDirected[],
+  positioned: Map<string, PositionedCluster>,
+): CrossEdge[] {
+  const out: CrossEdge[] = [];
+  for (const { a, b, weight } of directed) {
+    const ca = positioned.get(a);
+    const cb = positioned.get(b);
+    if (!ca || !cb) continue;
+    out.push({
+      fromFrd: a,
+      toFrd: b,
+      weight,
+      strokeWidth: crossStrokeWidth(weight),
+      start: { x: ca.x + ca.w / 2, y: ca.y + ca.h / 2 },
+      end: { x: cb.x + cb.w / 2, y: cb.y + cb.h / 2 },
+    });
+  }
+  return out;
 }
 
-// ---------------------------------------------------------------------------
-// Edge derivation — make the graph read as a dependency graph even when the
-// work orders carry no explicit `dependsOn`.
-// ---------------------------------------------------------------------------
-
-/** WorkOrder shape this module needs for edge derivation. */
-export interface DepSource {
-  id: string;
-  frd: string;
-  dependsOn?: string[];
-}
-
-/**
- * Build the `dependsOn` map used to construct the DAG.
- *
- * Dependencies are REAL (DR-087): each work order's `dependsOn` is read from its
- * frontmatter — the machine-readable source of truth. We keep only entries that
- * resolve to a known work order and drop self-references; a work order with no
- * declared dependencies becomes an INDEPENDENT node. There is no fabricated
- * fallback: the old "depends on the previous WO in its FRD" chain drew edges
- * that did not exist (a linear chain that misrepresented the real graph).
- *
- * Returns a new list of `{ ...wo, dependsOn }` ready for `toDag`.
- */
-export function deriveDeps<T extends DepSource>(
-  workOrders: readonly T[],
-): Array<T & { dependsOn: string[] }> {
-  const idSet = new Set(workOrders.map((w) => w.id.trim()));
-
-  return workOrders.map((wo) => {
-    const deps = (wo.dependsOn ?? [])
-      .map((d) => d.trim())
-      .filter((d) => idSet.has(d) && d !== wo.id.trim());
-    return { ...wo, dependsOn: [...new Set(deps)] };
-  });
+/** Collect the individual cross-FRD WO dependencies (for per-WO data markers). */
+function buildCrossWoLinks(nodes: DagNode[], edges: DagEdge[]): CrossWoLink[] {
+  const frdOf = new Map<string, string>();
+  for (const n of nodes) frdOf.set(n.id, n.frd ?? "");
+  const out: CrossWoLink[] = [];
+  for (const e of edges) {
+    const a = frdOf.get(e.from);
+    const b = frdOf.get(e.to);
+    if (a === undefined || b === undefined || a === b) continue;
+    out.push({ from: e.from, to: e.to, fromFrd: a, toFrd: b });
+  }
+  return out;
 }

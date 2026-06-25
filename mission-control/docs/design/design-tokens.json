@@ -60,6 +60,19 @@
         "tier4": "#B474F4",
         "tier5": "#F68C36"
       },
+      "trace": {
+        "$note": "Categorical, desaturated palette for the WoDag 2D DAG — one distinct color per highlighted dependency line so crossing lines stay traceable. Dark values; light overrides are darkened for AA contrast on the light canvas.",
+        "trace1": "#6E8BB3",
+        "trace2": "#7FAF9B",
+        "trace3": "#B3897A",
+        "trace4": "#B38AB0",
+        "trace5": "#9BAB6E",
+        "trace6": "#7BADB3",
+        "trace7": "#B3A36E",
+        "trace8": "#8F96B3",
+        "trace9": "#A87F97",
+        "trace10": "#8A7BB8"
+      },
       "shadows": {
         "shadow": "0 1px 2px rgba(0,0,0,.3),0 8px 28px rgba(0,0,0,.35)",
         "shadowPop": "0 18px 50px rgba(0,0,0,.5)"
@@ -115,6 +128,19 @@
         "tier3": "#006EB8",
         "tier4": "#7C3EB3",
         "tier5": "#C26300"
+      },
+      "trace": {
+        "$note": "Trace palette darkened for AA contrast on the light canvas.",
+        "trace1": "#3F5E8A",
+        "trace2": "#3F7D68",
+        "trace3": "#8A5547",
+        "trace4": "#8A5786",
+        "trace5": "#67793C",
+        "trace6": "#3F7D85",
+        "trace7": "#85733C",
+        "trace8": "#5B6489",
+        "trace9": "#7C5267",
+        "trace10": "#57488A"
       },
       "shadows": {
         "shadow": "0 1px 2px rgba(40,35,28,.05),0 8px 24px rgba(40,35,28,.07)",

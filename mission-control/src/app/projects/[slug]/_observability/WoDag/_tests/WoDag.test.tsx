@@ -1,14 +1,14 @@
 /**
- * WO-12-006 — WoDag tests (CMP-12-dag, layered layout, chain-highlight, live)
+ * WoDag tests — the 2D COMPOUND (cluster) work-order DAG (FRD-12, CMP-12-dag).
  *
- * Acceptance criteria covered:
- *   AC-12-004.1 — DAG renders the work-order dependency graph (compact layered layout)
- *   AC-12-004.2 — Hovering/selecting a node highlights dependency chain (up+down) and dims rest
- *   AC-12-004.3 — "saltar al primer error" selects/highlights the first failed WO and its chain
- *   AC-12-004.4 — "seguir al paso activo" toggle marks/centers the WO currently in execution
- *   AC-12-005.1/.2 — live/event-driven updates via useLiveSnapshot; no fabricated progress
- *   Fidelity — tokens only, bezier edges, state by icon+dot+text, motion transform/opacity only,
- *              prefers-reduced-motion honored, panel wrapper, data-testids
+ * Acceptance criteria covered (re-expressed for the 2D model):
+ *   AC-12-004.1 — renders the work-order dependency map (cluster boxes + cards + edges)
+ *   AC-12-004.2 — selecting a card pins its chain + lights its FRD neighbors, dims the rest
+ *   AC-12-004.3 — "saltar al primer error" pins the first failed WO
+ *   AC-12-004.4 — "seguir al paso activo" marks the running WO
+ *   AC-12-005.1/.2 — live/event-driven updates via useLiveSnapshot (no fabricated progress)
+ *   Fidelity — tokens only, two-level edges (intra + aggregated cross), state by
+ *              shape + text, preserved controls/zoom/fullscreen, data-testids
  */
 
 import { fireEvent, render, screen } from "@testing-library/react";
@@ -16,16 +16,12 @@ import { describe, expect, it, vi } from "vitest";
 import type { WorkOrder } from "@/lib/work-orders/work-orders";
 import { WoDag } from "../WoDag";
 
-// ---------------------------------------------------------------------------
-// Mock useLiveSnapshot — jsdom has no EventSource
-// ---------------------------------------------------------------------------
-
 vi.mock("@/hooks/useLiveSnapshot", () => ({
   useLiveSnapshot: () => ({ snapshot: null, connected: false, lastEventAt: null }),
 }));
 
 // ---------------------------------------------------------------------------
-// Fixtures
+// Fixtures — a small multi-FRD graph (one intra dep + several cross deps).
 // ---------------------------------------------------------------------------
 
 const DONE_WO: WorkOrder & { dependsOn?: string[] } = {
@@ -35,62 +31,65 @@ const DONE_WO: WorkOrder & { dependsOn?: string[] } = {
   state: "done",
   relPath: "work-orders/wo-01-001.md",
 };
-
 const FAIL_WO: WorkOrder & { dependsOn?: string[] } = {
   id: "WO-01-002",
   title: "CRUD de grupos",
   frd: "FRD-01",
   state: "fail",
   relPath: "work-orders/wo-01-002.md",
-  dependsOn: ["WO-01-001"],
+  dependsOn: ["WO-01-001"], // intra FRD-01
 };
-
 const PROGRESS_WO: WorkOrder & { dependsOn?: string[] } = {
   id: "WO-01-003",
   title: "Registrar gasto",
   frd: "FRD-02",
   state: "in_progress",
   relPath: "work-orders/wo-01-003.md",
-  dependsOn: ["WO-01-001"],
+  dependsOn: ["WO-01-001"], // cross FRD-01 → FRD-02
 };
-
 const TODO_WO: WorkOrder & { dependsOn?: string[] } = {
   id: "WO-01-004",
   title: "Cálculo de deudas",
   frd: "FRD-03",
   state: "todo",
   relPath: "work-orders/wo-01-004.md",
-  dependsOn: ["WO-01-002", "WO-01-003"],
+  dependsOn: ["WO-01-002", "WO-01-003"], // cross 01→03 and 02→03
 };
 
 const ALL_WOS = [DONE_WO, FAIL_WO, PROGRESS_WO, TODO_WO];
 
 // ---------------------------------------------------------------------------
-// AC-12-004.1 — DAG renders the work-order dependency graph (layered layout)
+// AC-12-004.1 — renders the DAG (cluster boxes + cards + edges)
 // ---------------------------------------------------------------------------
 
-describe("WoDag — AC-12-004.1: renders DAG graph", () => {
+describe("WoDag — AC-12-004.1: renders the 2D DAG", () => {
   it("renders the dag panel wrapper", () => {
-    render(<WoDag workOrders={ALL_WOS} project="test-project" />);
+    render(<WoDag workOrders={ALL_WOS} project="p" />);
     expect(screen.getByTestId("wo-dag")).toBeTruthy();
   });
 
-  it("renders a node for each work order", () => {
-    render(<WoDag workOrders={ALL_WOS} project="test-project" />);
-    expect(screen.getByTestId("dag-node-WO-01-001")).toBeTruthy();
-    expect(screen.getByTestId("dag-node-WO-01-002")).toBeTruthy();
-    expect(screen.getByTestId("dag-node-WO-01-003")).toBeTruthy();
-    expect(screen.getByTestId("dag-node-WO-01-004")).toBeTruthy();
+  it("renders an FRD cluster box per FRD", () => {
+    render(<WoDag workOrders={ALL_WOS} project="p" />);
+    expect(screen.getByTestId("dag-cluster-FRD-01")).toBeTruthy();
+    expect(screen.getByTestId("dag-cluster-FRD-02")).toBeTruthy();
+    expect(screen.getByTestId("dag-cluster-FRD-03")).toBeTruthy();
   });
 
-  it("renders the WO title in each node", () => {
-    render(<WoDag workOrders={[DONE_WO]} project="test-project" />);
+  it("renders a card for each work order", () => {
+    render(<WoDag workOrders={ALL_WOS} project="p" />);
+    for (const wo of ALL_WOS) expect(screen.getByTestId(`dag-node-${wo.id}`)).toBeTruthy();
+  });
+
+  it("renders the WO title and a mono id·FRD sub-line in each card", () => {
+    render(<WoDag workOrders={[DONE_WO]} project="p" />);
     const node = screen.getByTestId("dag-node-WO-01-001");
     expect(node.textContent).toContain("Esquema de datos");
+    const meta = screen.getByTestId("dag-node-meta-WO-01-001");
+    expect(meta.textContent).toContain("WO-01-001");
+    expect(meta.textContent).toContain("FRD-01");
   });
 
-  it("keeps the full description (wrapped, not JS-truncated) and strips a redundant WO-id title prefix", () => {
-    // A long title that ALSO repeats the id as a "WO-NN-MMM — " prefix.
+  it("strips a redundant WO-id title prefix (id shown once, in the sub-line)", () => {
     const longWo: WorkOrder = {
       id: "WO-01-009",
       title: "WO-01-009 — Implementa el pipeline completo de validación de entrada",
@@ -100,68 +99,59 @@ describe("WoDag — AC-12-004.1: renders DAG graph", () => {
     };
     render(<WoDag workOrders={[longWo]} project="p" />);
     const node = screen.getByTestId("dag-node-WO-01-009");
-    // Full description is present — the title is wrapped via CSS, never sliced to 18 chars.
     expect(node.textContent).toContain("validación de entrada");
-    // The id is shown ONCE (in the mono sub-line), stripped from the title to save room.
     const idOccurrences = (node.textContent?.match(/WO-01-009/g) ?? []).length;
     expect(idOccurrences).toBe(1);
-    expect(screen.getByTestId("dag-node-meta-WO-01-009").textContent).toContain("WO-01-009");
   });
 
-  it("renders WO id and FRD in mono sub-line per node", () => {
-    render(<WoDag workOrders={[DONE_WO]} project="test-project" />);
-    const meta = screen.getByTestId("dag-node-meta-WO-01-001");
-    expect(meta.textContent).toContain("WO-01-001");
-    expect(meta.textContent).toContain("FRD-01");
-  });
-
-  it("renders a state dot per node (not color alone)", () => {
-    render(<WoDag workOrders={[DONE_WO]} project="test-project" />);
+  it("renders a state indicator bar per card (not color alone)", () => {
+    render(<WoDag workOrders={[DONE_WO]} project="p" />);
     expect(screen.getByTestId("dag-node-dot-WO-01-001")).toBeTruthy();
   });
 
   it("renders an SVG element for the graph", () => {
-    const { container } = render(<WoDag workOrders={ALL_WOS} project="test-project" />);
-    const svg = container.querySelector("svg");
-    expect(svg).toBeTruthy();
+    const { container } = render(<WoDag workOrders={ALL_WOS} project="p" />);
+    expect(container.querySelector("svg")).toBeTruthy();
   });
 
-  it("renders bezier-curve edges (path elements with cubic bezier)", () => {
-    const { container } = render(<WoDag workOrders={ALL_WOS} project="test-project" />);
-    const paths = container.querySelectorAll("path[data-edge]");
-    // Should have at least 3 edges: WO-001→002, WO-001→003, WO-002→004, WO-003→004
-    expect(paths.length).toBeGreaterThanOrEqual(3);
+  it("renders intra WO→WO edges and addressable cross WO deps (data-edge)", () => {
+    const { container } = render(<WoDag workOrders={ALL_WOS} project="p" />);
+    // 1 intra (001→002) + 3 cross (001→003, 002→004, 003→004) = 4 addressable deps.
+    expect(
+      container.querySelectorAll("path[data-edge], line[data-edge]").length,
+    ).toBeGreaterThanOrEqual(3);
+    expect(container.querySelector('[data-edge="WO-01-001-WO-01-002"]')).not.toBeNull();
+    expect(container.querySelector('[data-edge="WO-01-001-WO-01-003"]')).not.toBeNull();
   });
 
-  it("renders empty state when no work orders are provided", () => {
-    render(<WoDag workOrders={[]} project="test-project" />);
+  it("aggregates cross deps into one visible FRD→FRD line per directed pair", () => {
+    const { container } = render(<WoDag workOrders={ALL_WOS} project="p" />);
+    // FRD-01→FRD-02, FRD-01→FRD-03, FRD-02→FRD-03 = 3 aggregated cross lines.
+    const crossLines = container.querySelectorAll("line[data-cross-frd-edge]");
+    expect(crossLines.length).toBe(3);
+  });
+
+  it("renders the empty state when no work orders are provided", () => {
+    render(<WoDag workOrders={[]} project="p" />);
     expect(screen.getByTestId("dag-empty")).toBeTruthy();
   });
 
-  it("renders the legend with binary-tree icon", () => {
-    render(<WoDag workOrders={ALL_WOS} project="test-project" />);
-    expect(screen.getByTestId("dag-legend")).toBeTruthy();
-    const legend = screen.getByTestId("dag-legend");
-    expect(legend.innerHTML).toContain("ti-binary-tree");
+  it("renders the legend with the binary-tree icon", () => {
+    render(<WoDag workOrders={ALL_WOS} project="p" />);
+    expect(screen.getByTestId("dag-legend").innerHTML).toContain("ti-binary-tree");
   });
 
-  it("uses only CSS token colors (no hardcoded hex) on nodes", () => {
-    const { container } = render(<WoDag workOrders={ALL_WOS} project="test-project" />);
-    const html = container.innerHTML;
-    // No bare hex colors
-    expect(html).not.toMatch(/#[0-9a-fA-F]{6}\b/);
+  it("uses only CSS token colors (no hardcoded hex)", () => {
+    const { container } = render(<WoDag workOrders={ALL_WOS} project="p" />);
+    expect(container.innerHTML).not.toMatch(/#[0-9a-fA-F]{6}\b/);
   });
 });
 
 // ---------------------------------------------------------------------------
-// Dependency derivation — the graph must read as a DAG even when the work
-// orders carry NO explicit dependsOn (the production case: lib/work-orders
-// reads on-disk markdown that has no deps field). Fallback: a sequential
-// chain within each FRD, derived from the WO-NN-MMM id sequence.
+// Dependency derivation — real deps, no fabrication (DR-087)
 // ---------------------------------------------------------------------------
 
 describe("WoDag — dependency derivation (DR-087: real deps, no fabrication)", () => {
-  // Work orders with NO explicit dependsOn → independent nodes, zero edges.
   const NO_DEPS: ReadonlyArray<WorkOrder> = [
     { id: "WO-07-001", title: "Primero", frd: "FRD-07", state: "done", relPath: "a.md" },
     { id: "WO-07-002", title: "Segundo", frd: "FRD-07", state: "in_progress", relPath: "b.md" },
@@ -170,8 +160,7 @@ describe("WoDag — dependency derivation (DR-087: real deps, no fabrication)", 
 
   it("does NOT fabricate a chain when no WO declares dependencies", () => {
     const { container } = render(<WoDag workOrders={[...NO_DEPS]} project="p" />);
-    // No dependencies declared ⇒ zero edges (the old sequential fallback is gone).
-    expect(container.querySelector("path[data-edge]")).toBeNull();
+    expect(container.querySelector("[data-edge]")).toBeNull();
   });
 
   it("renders real edges from explicit dependsOn, incl. cross-FRD + fan-in", () => {
@@ -184,228 +173,157 @@ describe("WoDag — dependency derivation (DR-087: real deps, no fabrication)", 
         frd: "FRD-08",
         state: "todo",
         relPath: "c.md",
-        dependsOn: ["WO-07-005", "WO-08-001"], // cross-FRD + fan-in (one WO needs two)
+        dependsOn: ["WO-07-005", "WO-08-001"],
       },
     ];
     const { container } = render(<WoDag workOrders={[...wos]} project="p" />);
     expect(container.querySelector('[data-edge="WO-08-001-WO-08-002"]')).not.toBeNull();
-    // Cross-FRD dependency renders as a real edge.
     expect(container.querySelector('[data-edge="WO-07-005-WO-08-002"]')).not.toBeNull();
   });
 });
 
 // ---------------------------------------------------------------------------
-// AC-12-004.2 — Chain-highlight on node click/hover
+// AC-12-004.2 — color-on-select (pin a card → chain + FRD neighbors light up)
 // ---------------------------------------------------------------------------
 
-describe("WoDag — AC-12-004.2: chain-highlight", () => {
-  it("clicking a node sets it as active (aria-pressed or data-active)", () => {
-    render(<WoDag workOrders={ALL_WOS} project="test-project" />);
-    const node = screen.getByTestId("dag-node-WO-01-001");
-    fireEvent.click(node);
-    // After click, the node is active — either aria-pressed=true or data-active
+describe("WoDag — AC-12-004.2: color-on-select", () => {
+  it("clicking a card pins it as active (aria-pressed + data-active)", () => {
+    render(<WoDag workOrders={ALL_WOS} project="p" />);
+    fireEvent.click(screen.getByTestId("dag-node-WO-01-001"));
     const updated = screen.getByTestId("dag-node-WO-01-001");
-    const isActive =
-      updated.getAttribute("aria-pressed") === "true" ||
-      updated.getAttribute("data-active") === "true";
-    expect(isActive).toBe(true);
+    expect(updated.getAttribute("aria-pressed")).toBe("true");
+    expect(updated.getAttribute("data-active")).toBe("true");
   });
 
-  it("non-chain nodes are dimmed when a node is selected (opacity ~0.32)", () => {
-    render(<WoDag workOrders={ALL_WOS} project="test-project" />);
-    // Click WO-01-002; WO-01-004 is downstream, WO-01-001 is upstream
-    // WO-01-003 has no path through WO-01-002's chain → should be dimmed
-    fireEvent.click(screen.getByTestId("dag-node-WO-01-002"));
-    const unrelatedNode = screen.getByTestId("dag-node-WO-01-003");
-    // The node or its wrapper should have opacity style around 0.32
-    const style = unrelatedNode.getAttribute("style") ?? "";
-    expect(style).toMatch(/opacity/);
+  it("dims cards whose FRD is neither the selected FRD nor an immediate neighbor", () => {
+    // Select WO-02-001 in an isolated FRD-02 with one unrelated FRD-09.
+    const wos: WorkOrder[] = [
+      { id: "WO-02-001", title: "a", frd: "FRD-02", state: "todo", relPath: "a.md" },
+      { id: "WO-09-001", title: "z", frd: "FRD-09", state: "todo", relPath: "z.md" },
+    ];
+    render(<WoDag workOrders={wos} project="p" />);
+    fireEvent.click(screen.getByTestId("dag-node-WO-02-001"));
+    // FRD-09 is unrelated → its card dims to 0.32.
+    expect(screen.getByTestId("dag-node-WO-09-001").style.opacity).toBe("0.32");
+    // The selected FRD's own card is not dimmed.
+    expect(screen.getByTestId("dag-node-WO-02-001").style.opacity).not.toBe("0.32");
   });
 
-  it("renders the chain-hint line when a node is active", () => {
-    render(<WoDag workOrders={ALL_WOS} project="test-project" />);
+  it("renders the chain-hint when a card is pinned and clears it via 'limpiar'", () => {
+    render(<WoDag workOrders={ALL_WOS} project="p" />);
     fireEvent.click(screen.getByTestId("dag-node-WO-01-001"));
-    expect(screen.getByTestId("dag-chain-hint")).toBeTruthy();
-    const hint = screen.getByTestId("dag-chain-hint");
-    expect(hint.textContent).toContain("WO-01-001");
-  });
-
-  it("renders a 'limpiar' clear link in the hint when a chain is active", () => {
-    render(<WoDag workOrders={ALL_WOS} project="test-project" />);
-    fireEvent.click(screen.getByTestId("dag-node-WO-01-001"));
-    const clear = screen.getByTestId("dag-chain-clear");
-    expect(clear).toBeTruthy();
-  });
-
-  it("clicking 'limpiar' clears the active node selection", () => {
-    render(<WoDag workOrders={ALL_WOS} project="test-project" />);
-    fireEvent.click(screen.getByTestId("dag-node-WO-01-001"));
-    expect(screen.getByTestId("dag-chain-hint")).toBeTruthy();
+    expect(screen.getByTestId("dag-chain-hint").textContent).toContain("WO-01-001");
     fireEvent.click(screen.getByTestId("dag-chain-clear"));
-    // After clear, no chain hint should be shown
     expect(screen.queryByTestId("dag-chain-hint")).toBeNull();
   });
 
-  it("without active node, renders default hint text (no chain)", () => {
-    render(<WoDag workOrders={ALL_WOS} project="test-project" />);
-    // No node clicked: should show the default hover invitation text
-    const hint = screen.getByTestId("dag-default-hint");
-    expect(hint).toBeTruthy();
+  it("shows the default hint when nothing is pinned", () => {
+    render(<WoDag workOrders={ALL_WOS} project="p" />);
+    expect(screen.getByTestId("dag-default-hint")).toBeTruthy();
   });
 
-  it("chain-in-focus edges use accent color token (not default border token)", () => {
-    const { container } = render(<WoDag workOrders={ALL_WOS} project="test-project" />);
-    // Click WO-01-001: edge to WO-01-002 and WO-01-003 should be highlighted
+  it("highlighted edges use a trace-palette token (distinct per line)", () => {
+    const { container } = render(<WoDag workOrders={ALL_WOS} project="p" />);
     fireEvent.click(screen.getByTestId("dag-node-WO-01-001"));
-    const accentEdges = container.querySelectorAll("path[data-edge][data-chain='true']");
-    expect(accentEdges.length).toBeGreaterThan(0);
-    for (const edge of accentEdges) {
-      const stroke = edge.getAttribute("stroke") ?? "";
-      expect(stroke).toContain("var(--");
-    }
+    const litIntra = container.querySelector("path[data-edge][data-chain='true']");
+    expect(litIntra).not.toBeNull();
+    expect(litIntra?.getAttribute("stroke")).toMatch(/var\(--color-trace-/);
   });
 });
 
 // ---------------------------------------------------------------------------
-// AC-12-004.3 — Jump to first error
+// AC-12-004.3 — jump to first error
 // ---------------------------------------------------------------------------
 
 describe("WoDag — AC-12-004.3: jump to first error", () => {
-  it("renders the 'Saltar al primer error' button when a fail WO exists", () => {
-    render(<WoDag workOrders={ALL_WOS} project="test-project" />);
+  it("renders the error button when a fail WO exists", () => {
+    render(<WoDag workOrders={ALL_WOS} project="p" />);
     expect(screen.getByTestId("dag-jump-error")).toBeTruthy();
   });
 
-  it("'Saltar al primer error' button has danger-border styling (not color alone)", () => {
-    render(<WoDag workOrders={ALL_WOS} project="test-project" />);
-    const btn = screen.getByTestId("dag-jump-error");
-    const style = btn.getAttribute("style") ?? "";
-    // Should reference the danger color token, not a hardcoded hex
+  it("the error button uses danger token border (not a hardcoded hex)", () => {
+    render(<WoDag workOrders={ALL_WOS} project="p" />);
+    const style = screen.getByTestId("dag-jump-error").getAttribute("style") ?? "";
     expect(style).toContain("var(--");
     expect(style).not.toMatch(/#[0-9a-fA-F]{3,6}/);
   });
 
-  it("clicking 'Saltar al primer error' selects the first failed WO", () => {
-    render(<WoDag workOrders={ALL_WOS} project="test-project" />);
+  it("clicking the error button pins the first failed WO", () => {
+    render(<WoDag workOrders={ALL_WOS} project="p" />);
     fireEvent.click(screen.getByTestId("dag-jump-error"));
-    // The first failed WO node should become active
-    const failNode = screen.getByTestId("dag-node-WO-01-002");
-    const isActive =
-      failNode.getAttribute("aria-pressed") === "true" ||
-      failNode.getAttribute("data-active") === "true";
-    expect(isActive).toBe(true);
+    expect(screen.getByTestId("dag-node-WO-01-002").getAttribute("data-active")).toBe("true");
   });
 
-  it("does NOT render the error button when no WOs have failed", () => {
-    render(<WoDag workOrders={[DONE_WO, PROGRESS_WO]} project="test-project" />);
+  it("does NOT render the error button when no WO has failed", () => {
+    render(<WoDag workOrders={[DONE_WO, PROGRESS_WO]} project="p" />);
     expect(screen.queryByTestId("dag-jump-error")).toBeNull();
   });
 });
 
 // ---------------------------------------------------------------------------
-// AC-12-004.4 — Follow active step toggle
+// AC-12-004.4 — follow active step
 // ---------------------------------------------------------------------------
 
 describe("WoDag — AC-12-004.4: follow active step", () => {
-  it("renders the 'Seguir al paso activo' toggle button", () => {
-    render(<WoDag workOrders={ALL_WOS} project="test-project" />);
-    expect(screen.getByTestId("dag-follow-toggle")).toBeTruthy();
+  it("renders the toggle defaulting to OFF", () => {
+    render(<WoDag workOrders={ALL_WOS} project="p" />);
+    expect(screen.getByTestId("dag-follow-toggle").textContent).toContain("OFF");
   });
 
-  it("toggle shows 'OFF' by default", () => {
-    render(<WoDag workOrders={ALL_WOS} project="test-project" />);
-    const toggle = screen.getByTestId("dag-follow-toggle");
-    expect(toggle.textContent).toContain("OFF");
-  });
-
-  it("clicking the toggle switches to ON", () => {
-    render(<WoDag workOrders={ALL_WOS} project="test-project" />);
-    fireEvent.click(screen.getByTestId("dag-follow-toggle"));
-    const toggle = screen.getByTestId("dag-follow-toggle");
-    expect(toggle.textContent).toContain("ON");
-  });
-
-  it("when follow is ON, the in-progress WO node shows '▶ paso activo' caption", () => {
-    render(<WoDag workOrders={ALL_WOS} project="test-project" />);
-    fireEvent.click(screen.getByTestId("dag-follow-toggle"));
-    // PROGRESS_WO (WO-01-003) is the running node
-    const caption = screen.getByTestId("dag-node-active-caption-WO-01-003");
-    expect(caption).toBeTruthy();
-    expect(caption.textContent).toContain("paso activo");
-  });
-
-  it("when follow is OFF, no 'paso activo' caption is shown", () => {
-    render(<WoDag workOrders={ALL_WOS} project="test-project" />);
-    // Default is OFF
+  it("clicking the toggle switches to ON and marks the running WO", () => {
+    render(<WoDag workOrders={ALL_WOS} project="p" />);
     expect(screen.queryByTestId("dag-node-active-caption-WO-01-003")).toBeNull();
-  });
-
-  it("when follow is ON, the running WO node has an accent drop-shadow filter", () => {
-    render(<WoDag workOrders={ALL_WOS} project="test-project" />);
     fireEvent.click(screen.getByTestId("dag-follow-toggle"));
-    // The running node should have a drop-shadow style
-    const runningNode = screen.getByTestId("dag-node-WO-01-003");
-    const style = runningNode.getAttribute("style") ?? "";
-    expect(style).toMatch(/filter|drop-shadow/);
+    expect(screen.getByTestId("dag-follow-toggle").textContent).toContain("ON");
+    const caption = screen.getByTestId("dag-node-active-caption-WO-01-003");
+    expect(caption.textContent).toContain("paso activo");
+    expect(screen.getByTestId("dag-node-WO-01-003").getAttribute("style")).toMatch(
+      /filter|drop-shadow/,
+    );
   });
 });
 
 // ---------------------------------------------------------------------------
-// AC-12-005.1/.2 — Live updates (no fabricated progress)
+// AC-12-005.1/.2 — live updates (no fabricated progress)
 // ---------------------------------------------------------------------------
 
 describe("WoDag — AC-12-005.1/.2: live updates", () => {
-  it("renders with snapshot=null without errors (no fabricated progress)", () => {
-    // Default mock returns snapshot=null — should render cleanly
-    expect(() => {
-      render(<WoDag workOrders={ALL_WOS} project="test-project" />);
-    }).not.toThrow();
+  it("renders with snapshot=null without errors", () => {
+    expect(() => render(<WoDag workOrders={ALL_WOS} project="p" />)).not.toThrow();
     expect(screen.getByTestId("wo-dag")).toBeTruthy();
   });
 });
 
 // ---------------------------------------------------------------------------
-// Fidelity — tokens, a11y, motion
+// Fidelity — preserved controls + a11y
 // ---------------------------------------------------------------------------
 
-describe("WoDag — fidelity: tokens, a11y, motion", () => {
-  it("nodes are interactive (focusable buttons or role=button)", () => {
-    render(<WoDag workOrders={ALL_WOS} project="test-project" />);
-    const node = screen.getByTestId("dag-node-WO-01-001");
-    // Either a native button or has role=button
-    const role = node.getAttribute("role");
-    const tag = node.tagName.toLowerCase();
-    expect(tag === "button" || role === "button").toBe(true);
+describe("WoDag — fidelity: controls, zoom, a11y", () => {
+  it("cards are interactive (role=button)", () => {
+    render(<WoDag workOrders={ALL_WOS} project="p" />);
+    expect(screen.getByTestId("dag-node-WO-01-001").getAttribute("role")).toBe("button");
   });
 
-  it("renders the controls bar (error button + follow toggle) above the SVG", () => {
-    render(<WoDag workOrders={ALL_WOS} project="test-project" />);
+  it("renders the controls bar + the scroll container", () => {
+    render(<WoDag workOrders={ALL_WOS} project="p" />);
     expect(screen.getByTestId("dag-controls")).toBeTruthy();
-  });
-
-  it("wraps the SVG in an overflow-x:auto scroll container", () => {
-    render(<WoDag workOrders={ALL_WOS} project="test-project" />);
     expect(screen.getByTestId("dag-svg-container")).toBeTruthy();
   });
 
-  it("renders the zoom toolbar (out · level · in · fit · fullscreen) defaulting to 100%", () => {
-    render(<WoDag workOrders={ALL_WOS} project="test-project" />);
+  it("renders the zoom toolbar + fullscreen toggle defaulting to 100%", () => {
+    render(<WoDag workOrders={ALL_WOS} project="p" />);
     expect(screen.getByTestId("dag-zoom")).toBeTruthy();
     expect(screen.getByTestId("dag-zoom-out")).toBeTruthy();
     expect(screen.getByTestId("dag-zoom-in")).toBeTruthy();
     expect(screen.getByTestId("dag-zoom-fit")).toBeTruthy();
     expect(screen.getByTestId("dag-zoom-level").textContent).toContain("100%");
+    expect(screen.getByTestId("dag-fullscreen").getAttribute("aria-label")).toContain(
+      "pantalla completa",
+    );
   });
 
-  it("renders a fullscreen toggle button", () => {
-    render(<WoDag workOrders={ALL_WOS} project="test-project" />);
-    const btn = screen.getByTestId("dag-fullscreen");
-    expect(btn).toBeTruthy();
-    expect(btn.getAttribute("aria-label")).toContain("pantalla completa");
-  });
-
-  it("clicking zoom-in raises the displayed zoom level above 100%", () => {
-    render(<WoDag workOrders={ALL_WOS} project="test-project" />);
+  it("clicking zoom-in raises the displayed level above 100%", () => {
+    render(<WoDag workOrders={ALL_WOS} project="p" />);
     fireEvent.click(screen.getByTestId("dag-zoom-in"));
     expect(screen.getByTestId("dag-zoom-level").textContent).not.toBe("100%");
   });
