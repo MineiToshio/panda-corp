@@ -6,12 +6,12 @@ Read [`../blueprint.md`](../blueprint.md) first.
 
 ## Work orders
 
-| WO | Title | Layer | Status | Implements |
+| WO | Title | Layer | Status | Implements | Depends on |
 |---|---|---|---|---|
-| [WO-14-001](./wo-14-001-snapshot-helpers.md) | `lib/snapshot.ts` — `buildSnapshot` + `isSnapshotStale` | lib (TDD) | VERIFIED | IF-14-snapshot |
-| [WO-14-002](./wo-14-002-snapshot-panel.md) | SnapshotPanel — último commit en verde + worktree command + building-now + staleness | UI | VERIFIED | CMP-14-snapshot-panel |
-| [WO-14-003](./wo-14-003-status-chips.md) | `CMP-14-status-chips` — decisions/bugs/rethink chips on the rail | UI | VERIFIED | CMP-14-status-chips |
-| [WO-14-004](./wo-14-004-feedback-channels-doc.md) | Manual: three feedback channels (doc) | docs | VERIFIED | REQ-14-006 |
+| [WO-14-001](./wo-14-001-snapshot-helpers.md) | `lib/snapshot.ts` — `buildSnapshot` + `isSnapshotStale` | lib (TDD) | VERIFIED | IF-14-snapshot | WO-01-005 |
+| [WO-14-002](./wo-14-002-snapshot-panel.md) | SnapshotPanel — último commit en verde + worktree command + building-now + staleness | UI | VERIFIED | CMP-14-snapshot-panel | WO-14-001, WO-13-006, WO-13-007 |
+| [WO-14-003](./wo-14-003-status-chips.md) | `CMP-14-status-chips` — decisions/bugs/rethink chips on the rail | UI | VERIFIED | CMP-14-status-chips | WO-13-007 |
+| [WO-14-004](./wo-14-004-feedback-channels-doc.md) | Manual: three feedback channels (doc) | docs | VERIFIED | REQ-14-006 | — |
 
 ## Phase 2 re-plan (2026-06-19)
 

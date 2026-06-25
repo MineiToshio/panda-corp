@@ -10,10 +10,10 @@ refactor). The gate is `.pandacorp/verify.sh` (biome → tsc → vitest).
 
 | WO | Title | Layer | Depends on |
 |---|---|---|---|
-| WO-15-001 | `lib/plugin-sync` readers (SHA, dirty) with fixtures | `lib/` | `lib/config.ts` (FRD-01, shipped) |
+| WO-15-001 | `lib/plugin-sync` readers (SHA, dirty) with fixtures | `lib/` | — |
 | WO-15-002 | `getPluginSyncState` verdict (drift/reason/detail) | `lib/` | WO-15-001 |
 | WO-15-003 | `app/api/plugin-sync` route handler | `app/api/` | WO-15-002 |
-| WO-15-004 | `PluginSyncBanner` client component (poll + self-clear) | `components/` | WO-15-003 |
+| WO-15-004 | `PluginSyncBanner` client component (poll + self-clear) | `components/` | WO-15-003, WO-13-007 |
 
 ## Parallelization
 

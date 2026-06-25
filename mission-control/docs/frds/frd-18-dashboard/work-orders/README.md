@@ -15,7 +15,7 @@ the prototype and reusing the shared primitives.
 
 | WO | Title | Layer | Depends on |
 |---|---|---|---|
-| WO-18-001 | `Inicio` real-time dashboard — all six sections + the hosted health banners | UI (real-time) | FRD-13 WO-13-006/007/008; FRD-01 WO-01-009 (`useLiveSnapshot`); FRD-15 WO-15-004, FRD-16 WO-16-004 (hosted banners); the VERIFIED `lib/**` reader layer |
+| WO-18-001 | `Inicio` real-time dashboard — all six sections + the hosted health banners | UI (real-time) | WO-01-009, WO-01-008, WO-01-007, WO-01-005, WO-01-004, WO-01-003, WO-01-002, WO-03-001, WO-05-001, WO-09-001, WO-10-001, WO-13-006, WO-13-007, WO-13-008, WO-15-004, WO-16-004, WO-17-001 |
 
 ## Parallelization
 

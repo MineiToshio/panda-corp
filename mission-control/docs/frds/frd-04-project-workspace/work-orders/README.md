@@ -6,12 +6,12 @@ Read [`../blueprint.md`](../blueprint.md) first — its **Build Plan (Phase 2)**
 
 ## Work orders
 
-| WO | Title | Layer | Status | Implements |
+| WO | Title | Layer | Status | Implements | Depends on |
 |---|---|---|---|---|
-| [WO-04-001](./wo-04-001-docs-reader.md) | `lib/docs.ts` — doc tree + raw read + comms readers | lib (TDD) | VERIFIED | IF-04-docs |
-| [WO-04-003](./wo-04-003-workspace-commands.md) | `lib/next-step.ts` — `workspaceCommands(phase)` | lib (TDD) | VERIFIED | IF-04-next-step |
-| [WO-04-004](./wo-04-004-workspace-shell.md) | Workspace shell: header + tabbar + objectives bar | UI | VERIFIED | CMP-04-workspace/header/objectives-bar/tabbar |
-| [WO-04-005](./wo-04-005-tab-summary.md) | Resumen + Documentos tabs | UI | VERIFIED (nested-button #418 fixed, gate PASS 2026-06-21) | CMP-04-tab-summary/decisions/activity-log/tab-documents |
+| [WO-04-001](./wo-04-001-docs-reader.md) | `lib/docs.ts` — doc tree + raw read + comms readers | lib (TDD) | VERIFIED | IF-04-docs | WO-01-000, WO-01-001 |
+| [WO-04-003](./wo-04-003-workspace-commands.md) | `lib/next-step.ts` — `workspaceCommands(phase)` | lib (TDD) | VERIFIED | IF-04-next-step | WO-02-003, WO-01-005 |
+| [WO-04-004](./wo-04-004-workspace-shell.md) | Workspace shell: header + tabbar + objectives bar | UI | VERIFIED | CMP-04-workspace/header/objectives-bar/tabbar | WO-04-001, WO-04-003, WO-01-005, WO-03-001, WO-13-006, WO-13-007, WO-13-008, WO-13-001, WO-13-002, WO-13-003 |
+| [WO-04-005](./wo-04-005-tab-summary.md) | Resumen + Documentos tabs | UI | VERIFIED (nested-button #418 fixed, gate PASS 2026-06-21) | CMP-04-tab-summary/decisions/activity-log/tab-documents | WO-04-001, WO-04-004, WO-02-003, WO-13-006, WO-13-007, WO-13-001, WO-13-002, WO-13-003 |
 
 ## Phase 2 re-plan (2026-06-19)
 

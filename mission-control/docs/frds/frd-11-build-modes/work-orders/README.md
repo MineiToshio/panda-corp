@@ -6,10 +6,10 @@ Read [`../blueprint.md`](../blueprint.md) first — its **Build Plan (Phase 2)**
 
 ## Work orders
 
-| WO | Title | Layer | Status | Implements |
+| WO | Title | Layer | Status | Implements | Depends on |
 |---|---|---|---|---|
-| [WO-11-001](./wo-11-001-mode-catalog.md) | `BUILD_MODES` catalog + per-project persistence | lib (TDD) | VERIFIED | IF-11-modes, IF-11-mode-store |
-| [WO-11-002](./wo-11-002-mode-selector.md) | BuildModeSelector + Comandos tab | UI | PLANNED | CMP-11-mode-selector, CMP-04-tab-commands |
+| [WO-11-001](./wo-11-001-mode-catalog.md) | `BUILD_MODES` catalog + per-project persistence | lib (TDD) | VERIFIED | IF-11-modes, IF-11-mode-store | — |
+| [WO-11-002](./wo-11-002-mode-selector.md) | BuildModeSelector + Comandos tab | UI | PLANNED | CMP-11-mode-selector, CMP-04-tab-commands | WO-11-001, WO-04-003, WO-04-004, WO-01-005, WO-13-006, WO-13-007 |
 
 ## Phase 2 re-plan (2026-06-19)
 

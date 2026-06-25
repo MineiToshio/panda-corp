@@ -27,14 +27,14 @@ See `../blueprint.md` for components (`CMP-06-*`), interfaces (`IF-06-*`) and th
 
 | WO | Title | Status | Kind | Depends on |
 |---|---|---|---|---|
-| WO-06-012 | `lib/events.ts` consumes the enriched fields (frd/phase/activity/mode + hand-off/contract) | VERIFIED | data layer | FRD-01 `lib/events` |
+| WO-06-012 | `lib/events.ts` consumes the enriched fields (frd/phase/activity/mode + hand-off/contract) | VERIFIED | data layer | WO-01-007 |
 | WO-06-001 | Iconic event vocabulary + view-model mapper (enriched, role-keyed, hand-off/contract/gate) | VERIFIED | pure logic | WO-06-012 |
-| WO-06-002 | La Fragua layout (rooms + forge/tribunal/vault slots) | VERIFIED | pure logic | FRD-11 mode enum, FRD-13 token keys |
+| WO-06-002 | La Fragua layout (rooms + forge/tribunal/vault slots) | VERIFIED | pure logic | WO-11-001, WO-13-001 |
 | WO-06-003 | Event → visual-action map (La Fragua decoupling boundary) | VERIFIED | pure logic | WO-06-001, WO-06-012 |
 | WO-06-004 | La Fragua engine (RAF loop, wave cap, rooms, parchment, gate) | VERIFIED | client logic | WO-06-002, WO-06-003 |
-| WO-06-005 | `toFraguaSnapshot` (RSC snapshot, read-only) | VERIFIED | pure logic | WO-06-001/002/003, WO-06-012 |
+| WO-06-005 | `toFraguaSnapshot` (RSC snapshot, read-only) | VERIFIED | pure logic | WO-06-001, WO-06-002, WO-06-003, WO-06-012, WO-01-007, WO-11-001 |
 | WO-06-006 | **Party foundation (FND-4)** — pixel-RPG canvas primitives | VERIFIED (delivered by WO-13-009) | client UI | WO-06-001/002/003/004/005, FRD-13, FRD-01 (live) |
-| WO-06-007 | La Fragua scene re-paint (FraguaScene + PartyScene/PartyTab shell) | VERIFIED | client UI | WO-06-006, FRD-13, FRD-04, FRD-01 (live) |
+| WO-06-007 | La Fragua scene re-paint (FraguaScene + PartyScene/PartyTab shell) | VERIFIED | client UI | WO-06-005, WO-06-004, WO-06-002, WO-06-001, WO-06-003, WO-01-009, WO-13-006, WO-13-007, WO-13-008, WO-13-009, WO-04-004, WO-11-001 |
 
 ## Phase 2 re-plan (presentational)
 

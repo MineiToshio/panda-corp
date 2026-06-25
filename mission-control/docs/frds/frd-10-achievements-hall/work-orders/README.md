@@ -33,6 +33,6 @@ WO-10-005 (Hall surfaces: ChainCard + TrophyCard + AlmostThere + stat ledger)
 ## Work orders
 | ID | Title | Deploy unit | Status | Depends on |
 |---|---|---|---|---|
-| WO-10-001 | `lib/achievements.ts` — engine (stats/chains/uniques/secrets) | `lib/achievements.ts` | VERIFIED | FRD-01/03/04/06 |
-| WO-10-005 | Hall surfaces: ChainCard + TrophyCard + AlmostThere + stat ledger | `app/achievements/{ChainCard,UniquesSection}/**`, `AlmostThere.tsx`, `SecretsPanel.tsx` | PLANNED | WO-10-001, FRD-13, FRD-09 |
+| WO-10-001 | `lib/achievements.ts` — engine (stats/chains/uniques/secrets) | `lib/achievements.ts` | VERIFIED | WO-01-003, WO-01-005, WO-01-007, WO-03-001 |
+| WO-10-005 | Hall surfaces: ChainCard + TrophyCard + AlmostThere + stat ledger | `app/achievements/{ChainCard,UniquesSection}/**`, `AlmostThere.tsx`, `SecretsPanel.tsx` | PLANNED | WO-10-001, WO-09-003, WO-13-006, WO-13-007, WO-13-008 |
 </content>

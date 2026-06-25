@@ -6,11 +6,11 @@ Read [`../blueprint.md`](../blueprint.md) first.
 
 ## Work orders
 
-| WO | Title | Layer | Implements | State |
+| WO | Title | Layer | Implements | State | Depends on |
 |---|---|---|---|---|
-| [WO-05-001](./wo-05-001-work-orders-reader.md) | `lib/work-orders.ts` — discover + parse work orders | lib (TDD) | IF-05-work-orders | VERIFIED |
-| [WO-05-002](./wo-05-002-aggregate-progress.md) | `lib/work-orders.ts` — `aggregateProgress` | lib (TDD) | IF-05-work-orders | VERIFIED |
-| [WO-05-003](./wo-05-003-wo-board-tab.md) | Work-orders tab: live kanban board + detail (re-paint) | UI (Phase 2) | CMP-05-board/column/card/frd-filter/detail/progress/empty | VERIFIED |
+| [WO-05-001](./wo-05-001-work-orders-reader.md) | `lib/work-orders.ts` — discover + parse work orders | lib (TDD) | IF-05-work-orders | VERIFIED | WO-01-000 |
+| [WO-05-002](./wo-05-002-aggregate-progress.md) | `lib/work-orders.ts` — `aggregateProgress` | lib (TDD) | IF-05-work-orders | VERIFIED | WO-05-001 |
+| [WO-05-003](./wo-05-003-wo-board-tab.md) | Work-orders tab: live kanban board + detail (re-paint) | UI (Phase 2) | CMP-05-board/column/card/frd-filter/detail/progress/empty | VERIFIED | WO-05-001, WO-05-002, WO-04-001, WO-04-004, WO-01-009, WO-13-006, WO-13-007, WO-13-008, WO-13-001, WO-13-002, WO-13-003 |
 
 ## Phase 2 re-plan (presentational)
 

@@ -24,8 +24,8 @@ See `../blueprint.md` for components (`CMP-13-*`), interfaces (`IF-13-*`) and th
 
 | WO | Title | Kind | Depends on |
 |---|---|---|---|
-| WO-13-001 | Token schema validation + agent-color/state-vocab key maps | pure logic + contract | design-tokens.json (shape) |
-| WO-13-002 | globals.css wiring (themes, elevation, motion, reduced-motion, focus) | CSS | WO-13-001, frozen tokens |
+| WO-13-001 | Token schema validation + agent-color/state-vocab key maps | pure logic + contract | — |
+| WO-13-002 | globals.css wiring (themes, elevation, motion, reduced-motion, focus) | CSS | WO-13-001 |
 | WO-13-003 | tabular-nums + a11y primitives (focus ring, aria-live, keyboard nav) | CSS/shared | WO-13-002 |
 | WO-13-004 | ThemeToggle (light/dark/high-contrast, persisted) | client UI | WO-13-002 |
 | WO-13-005 | StateBadge (icon+shape+label, never color-only) | shared UI | WO-13-001 |

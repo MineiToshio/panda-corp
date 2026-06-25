@@ -31,8 +31,8 @@ WO-07-005 (Configuración UI surface)   ← foundation-first: FRD-13 (WO-13-006/
 ## Work orders
 | ID | Title | Deploy unit | Status | Depends on |
 |---|---|---|---|---|
-| WO-07-001 | `lib/reference.ts` — read skills + agents catalogs | `lib/reference.ts` | VERIFIED | FRD-01 |
-| WO-07-003 | `lib/registry.ts` — read decision rules | `lib/registry.ts` | VERIFIED | FRD-01 |
-| WO-07-004 | `lib/standards.ts` — read standards (+ derivation fallback) | `lib/standards.ts` | VERIFIED | FRD-01 |
-| WO-07-005 | Configuración UI surface (re-anchor to prototype) | `src/app/configuration/**` | PLANNED | FRD-13, FRD-09, WO-07-001/003/004 |
+| WO-07-001 | `lib/reference.ts` — read skills + agents catalogs | `lib/reference.ts` | VERIFIED | WO-01-001 |
+| WO-07-003 | `lib/registry.ts` — read decision rules | `lib/registry.ts` | VERIFIED | WO-01-001 |
+| WO-07-004 | `lib/standards.ts` — read standards (+ derivation fallback) | `lib/standards.ts` | VERIFIED | WO-01-001 |
+| WO-07-005 | Configuración UI surface (re-anchor to prototype) | `src/app/configuration/**` | PLANNED | WO-07-001, WO-07-003, WO-07-004, WO-09-002, WO-01-007, WO-13-006, WO-13-007, WO-13-008 |
 </content>

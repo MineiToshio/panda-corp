@@ -9,10 +9,10 @@ TDD per WO (RED → GREEN → refactor). Gate: `.pandacorp/verify.sh` (biome →
 
 | WO | Title | Layer | Depends on |
 |---|---|---|---|
-| WO-16-001 | `lib/orphans` scan: projects path + bounded folder listing | `lib/` | `lib/config.ts`, `lib/profile.ts` (FRD-01) |
-| WO-16-002 | `lib/orphans` classification + `getOrphans` verdict | `lib/` | WO-16-001, `lib/portfolio.ts` (FRD-01) |
+| WO-16-001 | `lib/orphans` scan: projects path + bounded folder listing | `lib/` | WO-01-002 |
+| WO-16-002 | `lib/orphans` classification + `getOrphans` verdict | `lib/` | WO-16-001 |
 | WO-16-003 | `app/api/orphans` route handler | `app/api/` | WO-16-002 |
-| WO-16-004 | `OrphansBanner` client component (dismiss + self-clear) | `components/` | WO-16-003 |
+| WO-16-004 | `OrphansBanner` client component (dismiss + self-clear) | `components/` | WO-16-003, WO-13-007, WO-13-006 |
 
 ## Parallelization
 

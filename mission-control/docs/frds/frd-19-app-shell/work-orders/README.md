@@ -13,7 +13,7 @@ renders inside, so it is foundation-first.
 
 | WO | Title | Layer | foundation | Depends on |
 |---|---|---|---|---|
-| WO-19-001 | Global app shell — persistent topbar nav + active state + responsive drawer + gate seed | UI (foundation) | **yes** | FRD-09 `GuildBar`/`XpBar`, FRD-17 `ProposalsBadge`, FRD-13 `.tab`/`Panel` visual + tokens; the six destination routes already exist |
+| WO-19-001 | Global app shell — persistent topbar nav + active state + responsive drawer + gate seed | UI (foundation) | **yes** | WO-13-006, WO-13-008, WO-09-001, WO-17-004, WO-01-008, WO-01-007, WO-01-005, WO-01-004, WO-01-002 |
 
 ## Parallelization
 - WO-19-001 is a single cohesive unit (the shell is one assembly); no intra-FRD parallelism. It reuses

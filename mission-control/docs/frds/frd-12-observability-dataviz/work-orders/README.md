@@ -11,12 +11,12 @@ See `../blueprint.md` for components (`CMP-12-*`), interfaces (`IF-12-*`) and th
 
 | WO | Title | Status | Kind | Depends on |
 |---|---|---|---|---|
-| WO-12-001 | Top-N cap helper + freshness selector | VERIFIED | pure logic | FRD-01 `lib/events` types |
-| WO-12-002 | KPI selector (≤5, incl. failed work orders) | VERIFIED | pure logic | FRD-01 `lib/events`+`lib/status`+`lib/portfolio` |
-| WO-12-003 | Events-per-minute selector (per-agent) | VERIFIED | pure logic | FRD-01 `lib/events` |
-| WO-12-004 | Timeline selector (WO → task → action, durations) | VERIFIED | pure logic | FRD-01 `lib/events` |
-| WO-12-005 | Observabilidad tab + Timeline view (live, re-paint) | VERIFIED | client UI | WO-12-004, WO-12-006, FRD-13, FRD-04, FRD-01 (live) |
-| WO-12-006 | Work-order DAG view (Dagre, live, re-paint) | VERIFIED | client UI | `dag.ts`+`dagre` (VERIFIED), FRD-13, FRD-04, FRD-01 (live) |
+| WO-12-001 | Top-N cap helper + freshness selector | VERIFIED | pure logic | WO-01-007 |
+| WO-12-002 | KPI selector (≤5, incl. failed work orders) | VERIFIED | pure logic | WO-01-007 |
+| WO-12-003 | Events-per-minute selector (per-agent) | VERIFIED | pure logic | WO-01-007 |
+| WO-12-004 | Timeline selector (WO → task → action, durations) | VERIFIED | pure logic | WO-01-007 |
+| WO-12-005 | Observabilidad tab + Timeline view (live, re-paint) | VERIFIED | client UI | WO-12-004, WO-12-006, WO-01-009, WO-05-001, WO-13-006, WO-13-007 |
+| WO-12-006 | Work-order DAG view (Dagre, live, re-paint) | VERIFIED | client UI | WO-01-009, WO-05-001, WO-13-006, WO-13-007 |
 
 ## Gate review 2026-06-21 (FRD-12 — PASS, DR-072 split gate)
 

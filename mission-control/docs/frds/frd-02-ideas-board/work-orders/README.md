@@ -24,12 +24,12 @@ See the feature blueprint ([`../blueprint.md`](../blueprint.md)) and the platfor
 
 | WO | Status | Title | Artifact | Depends on |
 |---|---|---|---|---|
-| WO-02-001 | VERIFIED (lib) | `deriveColumn` two-axis logic | `lib/board.ts` | FRD-01 (`ideas`, `status`) |
-| WO-02-003 | VERIFIED (lib) | `nextStep` command map | `lib/next-step.ts` | FRD-01 types |
-| WO-02-004 | VERIFIED (lib) | `discardIdea` single write + Server Action | `lib/discard.ts`, `app/board/actions.ts` | FRD-01 (`config`, gray-matter) |
-| WO-02-011 | VERIFIED (lib) | `phaseFromStatus` derivation (status → active phase 0–5) | `lib/campaign.ts` | FRD-01 (`ideas`, `status` types) |
-| WO-02-005 | PLANNED (UI) | **Board surface** — columns + cards + filter + legend + intake + discard | `app/board/**`, `components/modules/{IdeaCard,CategoryFilter,BoardLegend}/**` | FRD-13, WO-02-001/004 (lib) |
-| WO-02-007 | PLANNED (UI) | **La Campaña card detail** — 3 tabs + 6-phase pipeline | `app/board/_components/CardDetail/**`, `components/modules/CampaignPipeline/**` | FRD-13, WO-02-011/003 (lib), FRD-06 |
+| WO-02-001 | VERIFIED (lib) | `deriveColumn` two-axis logic | `lib/board.ts` | WO-01-003, WO-01-005 |
+| WO-02-003 | VERIFIED (lib) | `nextStep` command map | `lib/next-step.ts` | WO-01-005 |
+| WO-02-004 | VERIFIED (lib) | `discardIdea` single write + Server Action | `lib/discard.ts`, `app/board/actions.ts` | WO-01-000 |
+| WO-02-011 | VERIFIED (lib) | `phaseFromStatus` derivation (status → active phase 0–5) | `lib/campaign.ts` | WO-01-003, WO-01-005 |
+| WO-02-005 | PLANNED (UI) | **Board surface** — columns + cards + filter + legend + intake + discard | `app/board/**`, `components/modules/{IdeaCard,CategoryFilter,BoardLegend}/**` | WO-02-001, WO-02-004, WO-01-003, WO-01-005, WO-13-006, WO-13-007, WO-13-008, WO-13-001, WO-13-002, WO-13-003 |
+| WO-02-007 | PLANNED (UI) | **La Campaña card detail** — 3 tabs + 6-phase pipeline | `app/board/_components/CardDetail/**`, `components/modules/CampaignPipeline/**` | WO-02-003, WO-02-011, WO-01-006, WO-13-006, WO-13-007, WO-13-009, WO-13-001, WO-13-002, WO-13-003, WO-06-005 |
 
 ## Ordering & parallelism (Phase 2)
 

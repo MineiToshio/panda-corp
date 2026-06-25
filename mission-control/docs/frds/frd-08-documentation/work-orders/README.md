@@ -32,6 +32,6 @@ FRD-07's readers (DR-046), so WO-08-002 builds **after** FRD-07's UI WO.
 ## Work orders
 | ID | Title | Deploy unit | Status | Depends on |
 |---|---|---|---|---|
-| WO-08-001 | `lib/manual.ts` — index authored Manual content | `lib/manual.ts` | VERIFIED | FRD-01 |
-| WO-08-002 | Documentación UI surface (re-anchor to prototype) | `src/app/manual/**` | VERIFIED | FRD-13, FRD-07 (WO-07-005), WO-08-001 |
+| WO-08-001 | `lib/manual.ts` — index authored Manual content | `lib/manual.ts` | VERIFIED | WO-01-001 |
+| WO-08-002 | Documentación UI surface (re-anchor to prototype) | `src/app/manual/**` | VERIFIED | WO-08-001, WO-07-005, WO-07-001, WO-07-003, WO-07-004, WO-13-006, WO-13-007, WO-13-008 |
 </content>

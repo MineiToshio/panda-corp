@@ -14,10 +14,10 @@ the four UI WOs (page + streams/card, memory-health panel, promotions queue, bad
 
 | WO | Title | Layer | Status | Depends on |
 |---|---|---|---|---|
-| WO-17-001 | `lib/memory` lesson reader (parse + status/promotion/evalGate) | `lib/` | VERIFIED | `lib/config.ts` (FRD-01) |
+| WO-17-001 | `lib/memory` lesson reader (parse + status/promotion/evalGate) | `lib/` | VERIFIED | — |
 | WO-17-002 | `lib/memory` views: candidates / promotionQueue / prunable / memoryHealth | `lib/` | VERIFIED | WO-17-001 |
-| WO-17-003 | `lib/self-suggest` derivations (6 kinds) | `lib/` | VERIFIED | FRD-01/02/06/07 readers |
-| WO-17-004 | Proposals surface: stream/card + promotions queue + memory health + badge/chip | `app/`, `components/` | VERIFIED (gate PASS 2026-06-21, reopen_count reset 0: the DR-057/062 reuse defect is resolved & mutation-locked — MemoryHealth reuses shared Banner+SectionHead, PromotionsQueue reuses SectionHead+Panel+Chip, ProposalsBadge reuses CountBadge; /proposals blessed) | WO-17-002, WO-17-003, FRD-13 |
+| WO-17-003 | `lib/self-suggest` derivations (6 kinds) | `lib/` | VERIFIED | WO-17-001 |
+| WO-17-004 | Proposals surface: stream/card + promotions queue + memory health + badge/chip | `app/`, `components/` | VERIFIED (gate PASS 2026-06-21, reopen_count reset 0: the DR-057/062 reuse defect is resolved & mutation-locked — MemoryHealth reuses shared Banner+SectionHead, PromotionsQueue reuses SectionHead+Panel+Chip, ProposalsBadge reuses CountBadge; /proposals blessed) | WO-17-002, WO-17-003, WO-13-006, WO-13-007 |
 
 ## Parallelization
 
