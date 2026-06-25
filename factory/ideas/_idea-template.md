@@ -3,6 +3,7 @@ title: "(short idea title)"
 project_type: web | mobile | desktop | ai | claude-code | prompt-system | automation | cli | rework | other
 origin: owner | discovery
 status: discovered
+discard_reason: ""                           # set on discard (from Mission Control): WHY it was rejected — feeds discover's rejection-pattern learning
 verdict: build | validate | integrate      # the decision: do it / validate first / fold into an existing app
 the_bet: ""                                  # one line: the crisp "why this wins" (the scannable hook)
 fold_into: ""                                # if verdict=integrate, the existing app it belongs in (else empty)
