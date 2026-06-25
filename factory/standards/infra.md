@@ -19,10 +19,12 @@ So nothing **ever** collides when several projects/worktrees run in parallel, de
 
 ## Worktrees (testing a snapshot without stopping the agent)
 
-- The agent builds in its worktree; the owner tests the **latest green commit** (`last_green_sha`) in another folder:
-  `git worktree add ../<project>-review <last_green_sha>`.
+- The agent builds in its worktree; the owner tests the **latest green commit** (`last_green_sha`) in a dedicated **review worktree** — which lives under the canonical review-worktrees root (DR-090, see below), **not** as a sibling inside `Proyectos/`:
+  `git worktree add /Users/Shared/review-worktrees/<project> <last_green_sha>`.
 - A worktree is born **without** `.env` or `node_modules`. The stack template includes a **`.worktreeinclude`** (`.gitignore` syntax) that copies `.env`/`.env.local` to each new worktree, plus a post-create step that installs deps. With **pnpm** (shared store) the install in a new worktree is almost instant.
 - Keep **ONE** review folder and refresh it to the latest green (don't accumulate worktrees). Claude Code's automatic sweep does not delete manually created worktrees.
+
+**Review-worktree root (DR-090).** Manually-created **review/test worktrees** (the "test a green build without stopping the agent" copies) live under **ONE canonical root, outside the source-projects area**: `/Users/Shared/review-worktrees/<project>/` — a sibling of `Proyectos/`, at the `Shared` level, the folder named exactly after the project (no `-review` suffix — the root already says it's for reviews). This mirrors the local-deployments root (DR-089): `Proyectos/` holds only source checkouts; derived worktrees live in their own roots (`local-deployments/` for the always-on prod deploy, `review-worktrees/` for ephemeral green-snapshot testing). They are **not** placed inside `.claude/` (tool-internal — risks the worktree being swept). Mission Control's snapshot panel (FRD-14) emits the `git worktree add /Users/Shared/review-worktrees/<project> <sha>` command for the owner to copy.
 
 ## Local deployments (always-on internal release) — DR-089
 

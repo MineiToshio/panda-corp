@@ -9,7 +9,7 @@
  *                 - A green Chip (shared primitive, data-testid="chip", tone="ok")
  *                 - The last_green_sha in a <code> element
  *                 - Muted line "commit <sha> — pasó todos los gates. Pruébalo..."
- *   AC-14-001.2 — Render `git worktree add ../<slug>-review <last_green_sha>`
+ *   AC-14-001.2 — Render `git worktree add /Users/Shared/review-worktrees/<slug> <last_green_sha>` (DR-090)
  *                 in the shared CmdRow primitive (data-testid="cmd-row").
  *   AC-14-001.3 — WHEN `last_green_sha` is absent, omit the panel entirely.
  *   AC-14-002.1 — WHEN running, show "El build sigue avanzando: <progress> ·

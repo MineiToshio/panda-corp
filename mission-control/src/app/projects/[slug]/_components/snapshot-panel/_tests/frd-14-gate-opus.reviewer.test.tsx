@@ -71,7 +71,7 @@ describe("FRD-14 opus gate — command shown is EXACTLY the helper output (no do
     // If the panel re-derived from slug+sha it could drift from the helper; pin equality.
     expect(cmdRow.textContent).toContain((snap as SnapshotInfo).worktreeCommand);
     expect((snap as SnapshotInfo).worktreeCommand).toBe(
-      "git worktree add ../mission-control-review d37fa48",
+      "git worktree add /Users/Shared/review-worktrees/mission-control d37fa48",
     );
   });
 });

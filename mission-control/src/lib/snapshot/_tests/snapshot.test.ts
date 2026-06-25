@@ -45,12 +45,12 @@ function makeStatus(overrides: Partial<ProjectStatus> = {}): Partial<ProjectStat
 // ---------------------------------------------------------------------------
 
 describe("buildSnapshot — AC-14-001.2 — worktreeCommand with slug + sha", () => {
-  it("WHEN lastGreenSha is set THEN worktreeCommand is 'git worktree add ../<slug>-review <sha>'", () => {
+  it("WHEN lastGreenSha is set THEN worktreeCommand targets the review-worktrees root (DR-090)", () => {
     const status = makeStatus({ lastGreenSha: "deadbeef" });
     const result = buildSnapshot("my-project", status);
     expect(result).not.toBeNull();
     expect((result as SnapshotInfo).worktreeCommand).toBe(
-      "git worktree add ../my-project-review deadbeef",
+      "git worktree add /Users/Shared/review-worktrees/my-project deadbeef",
     );
   });
 
@@ -59,7 +59,7 @@ describe("buildSnapshot — AC-14-001.2 — worktreeCommand with slug + sha", ()
     const result = buildSnapshot("mission-control", status);
     expect(result).not.toBeNull();
     expect((result as SnapshotInfo).worktreeCommand).toBe(
-      "git worktree add ../mission-control-review cafe5678",
+      "git worktree add /Users/Shared/review-worktrees/mission-control cafe5678",
     );
   });
 

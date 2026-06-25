@@ -61,7 +61,9 @@ describe("FRD-14 integration — buildSnapshot feeds SnapshotPanel (the page.tsx
     render(<SnapshotPanel slug="mission-control" snapshot={snap} />);
     // Command is shown inside the shared CmdRow (data-testid="cmd-row")
     const cmdRow = screen.getByTestId("cmd-row");
-    expect(cmdRow.textContent).toContain("git worktree add ../mission-control-review d150223");
+    expect(cmdRow.textContent).toContain(
+      "git worktree add /Users/Shared/review-worktrees/mission-control d150223",
+    );
   });
 
   it("running build → buildingNow set by helper → panel shows the don't-test-yet block", () => {
@@ -224,7 +226,9 @@ describe("FRD-14 robustness — sha/slug edges in the shown command", () => {
     render(<SnapshotPanel slug="a b;rm" snapshot={snap} />);
     // Command is in the shared CmdRow (data-testid="cmd-row")
     const cmdRow = screen.getByTestId("cmd-row");
-    expect(cmdRow.textContent).toContain("git worktree add ../a b;rm-review deadbee");
+    expect(cmdRow.textContent).toContain(
+      "git worktree add /Users/Shared/review-worktrees/a b;rm deadbee",
+    );
     // The cmd-row is a plain div (not an executed action)
     expect(cmdRow.tagName.toLowerCase()).toBe("div");
   });

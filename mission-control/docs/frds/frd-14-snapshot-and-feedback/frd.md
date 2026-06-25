@@ -19,7 +19,7 @@ The "green" point is the **last build commit that passed all the gates** (tests/
 ## Acceptance criteria (EARS)
 
 ### REQ-14-001 — Green snapshot panel
-- **AC-14-001.1** — FOR each project being built, Mission Control SHALL show a **snapshot panel** presenting the **last build commit that passed all gates** ("último commit en verde · seguro para probar"), the FRD it closed, and the **`git worktree add ../<project>-review <sha>` command** ready to copy. It reads `last_green_sha` and `safe_to_test` from `.pandacorp/status.yaml`.
+- **AC-14-001.1** — FOR each project being built, Mission Control SHALL show a **snapshot panel** presenting the **last build commit that passed all gates** ("último commit en verde · seguro para probar"), the FRD it closed, and the **`git worktree add /Users/Shared/review-worktrees/<project> <sha>` command** ready to copy (the review worktree lives under the canonical review-worktrees root, outside `Proyectos/` — DR-090). It reads `last_green_sha` and `safe_to_test` from `.pandacorp/status.yaml`.
 - **AC-14-001.2** — The copy SHALL state that the green commit is **safe to test in a separate git worktree while the build continues** — it SHALL NOT frame it as a local-vs-remote git matter, nor use the "punto verde" term.
 - **AC-14-001.3** — The panel SHALL distinguish **"building now"** (the work order in progress — "this is not green yet, don't test it") from the **last green commit** — they are two different things.
 

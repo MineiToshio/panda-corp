@@ -6,7 +6,7 @@
  *   REQ-14-001 (snapshot panel with last probable point + worktree command)
  *   REQ-14-002 (distinguish "building now" from "last probable point")
  *   REQ-14-003 (staleness warning when snapshot is far behind HEAD)
- *   AC-14-001.2 — worktreeCommand = `git worktree add ../<slug>-review <sha>`
+ *   AC-14-001.2 — worktreeCommand = `git worktree add /Users/Shared/review-worktrees/<slug> <sha>` (DR-090)
  *   AC-14-001.3 — absent lastGreenSha → null
  *   AC-14-002.1 — buildingNow set when running; undefined otherwise
  *   AC-14-003.1 — isSnapshotStale pure verdict against threshold
@@ -75,7 +75,7 @@ export interface SnapshotInfo {
  * Returns `null` when `lastGreenSha` is absent or empty (AC-14-001.3) — the
  * snapshot panel should be omitted entirely (nothing probable yet).
  *
- * @param slug   — the project slug used in the worktree path (e.g. "mission-control")
+ * @param slug   — the project slug = the review-worktree folder name (e.g. "mission-control")
  * @param status — a Partial<ProjectStatus> (tolerates partial; never throws)
  * @returns SnapshotInfo or null
  */
@@ -87,8 +87,9 @@ export function buildSnapshot(slug: string, status: Partial<ProjectStatus>): Sna
     return null;
   }
 
-  // AC-14-001.2 — worktree command
-  const worktreeCommand = `git worktree add ../${slug}-review ${sha}`;
+  // AC-14-001.2 — worktree command. Review worktrees live under the canonical
+  // review-worktrees root (DR-090), outside Proyectos/, named after the project.
+  const worktreeCommand = `git worktree add /Users/Shared/review-worktrees/${slug} ${sha}`;
 
   // safe_to_test — default false when absent (fail-safe: don't mislead the user)
   const safeToTest = status.safeToTest === true;

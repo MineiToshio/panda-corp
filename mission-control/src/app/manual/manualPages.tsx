@@ -496,8 +496,10 @@ function GuideProbar(): React.JSX.Element {
       steps={[
         "Mission Control te muestra la «última versión verificada · segura para probar» (el último commit del build que pasó todos los gates) en Portfolio → Resumen.",
         <>
-          Copia el comando del snapshot: crea un <Code>git worktree</Code> en otra carpeta apuntando
-          a ese commit.
+          Copia el comando del snapshot: crea un <Code>git worktree</Code> apuntando a ese commit en
+          la carpeta de revisión dedicada (
+          <Code>/Users/Shared/review-worktrees/&lt;proyecto&gt;</Code>, fuera de{" "}
+          <Code>Proyectos/</Code> — DR-090).
         </>,
         "Pruebas ahí, en paz, mientras el agente sigue en la suya. Da igual si está a medias: no tocas su carpeta.",
       ]}
