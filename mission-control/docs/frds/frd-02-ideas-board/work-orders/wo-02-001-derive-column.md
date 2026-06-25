@@ -7,6 +7,7 @@ status: ACTIVE
 parent: FRD-02
 implementation_status: VERIFIED
 source_requirements: []
+dependsOn: [WO-01-003, WO-01-005]
 last_updated: '2026-06-16'
 ---
 # WO-02-001 — `deriveColumn` two-axis logic

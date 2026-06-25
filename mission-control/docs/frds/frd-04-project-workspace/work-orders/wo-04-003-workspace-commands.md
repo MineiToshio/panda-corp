@@ -7,6 +7,7 @@ status: DRAFT
 parent: FRD-04
 implementation_status: VERIFIED
 source_requirements: []
+dependsOn: [WO-02-003, WO-01-005]
 last_updated: '2026-06-17'
 ---
 # WO-04-003 — `lib/next-step.ts`: `workspaceCommands(phase)`

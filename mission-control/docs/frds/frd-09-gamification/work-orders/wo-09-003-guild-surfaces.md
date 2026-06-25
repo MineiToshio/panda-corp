@@ -19,7 +19,7 @@ artifacts:
   - 'src/components/core/Avatar/**'
   - 'src/app/layout.tsx'
 source_requirements: [AC-09-004.1, AC-09-004.2, AC-09-004.3, AC-09-004.4, AC-09-004.5, AC-09-003.1, AC-09-003.2, AC-09-003.3, AC-09-006.1, AC-09-006.2, AC-09-006.3, AC-09-006.4, AC-09-006.5]
-dependsOn: [WO-09-001, WO-09-005]
+dependsOn: [WO-09-001, WO-09-005, WO-09-002, WO-01-007, WO-01-005, WO-03-001, WO-01-009, WO-13-006, WO-13-007, WO-13-008]
 last_updated: '2026-06-21'
 ---
 # WO-09-003 — Guild surfaces: GuildBar + GuildHero + StatRadar + CelebrationSurface

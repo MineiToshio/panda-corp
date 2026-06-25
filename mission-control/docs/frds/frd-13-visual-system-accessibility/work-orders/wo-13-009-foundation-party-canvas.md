@@ -20,6 +20,7 @@ artifacts:
   - 'src/components/modules/party/DemoControls/**'
   - 'src/components/modules/party/PowerOffOverlay/**'
 source_requirements: [REQ-06-001, REQ-06-003, REQ-06-006, REQ-06-010, REQ-06-012, REQ-06-013, REQ-06-017]
+dependsOn: [WO-13-001, WO-13-002, WO-13-003, WO-13-006, WO-13-007, WO-13-008]
 last_updated: '2026-06-20'
 ---
 # WO-13-009 — Foundation (FND-4): shared pixel-RPG Party canvas primitives (DR-057)

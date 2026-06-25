@@ -7,6 +7,7 @@ status: DRAFT
 parent: FRD-09
 implementation_status: VERIFIED
 source_requirements: []
+dependsOn: [WO-06-012]
 last_updated: '2026-06-16'
 ---
 # WO-09-005 — `lib/gamification.ts`: celebration tier classifier

@@ -11,7 +11,7 @@ artifacts:
   - 'src/app/projects/[slug]/_observability/ObservabilidadTab/**'
   - 'src/app/projects/[slug]/_observability/TimelineView/**'
 source_requirements: [REQ-12-002, REQ-12-003, REQ-12-005]
-dependsOn: [WO-12-004, WO-12-006]
+dependsOn: [WO-12-004, WO-12-006, WO-01-009, WO-05-001, WO-13-006, WO-13-007]
 last_updated: '2026-06-21'
 ---
 # WO-12-005 — Observabilidad tab + Timeline view (live, re-paint to mock)

@@ -7,6 +7,7 @@ status: DRAFT
 parent: FRD-17
 implementation_status: VERIFIED
 source_requirements: []
+dependsOn: [WO-17-001]
 last_updated: '2026-06-18'
 ---
 # WO-17-003 — `lib/self-suggest` derivations (6 kinds)

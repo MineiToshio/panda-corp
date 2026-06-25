@@ -13,6 +13,7 @@ artifacts:
   - 'src/app/projects/[slug]/_components/tabbar.tsx'
   - 'src/app/projects/[slug]/_components/objectives-bar.tsx'
 source_requirements: [REQ-04-001, REQ-04-002]
+dependsOn: [WO-04-001, WO-04-003, WO-01-005, WO-03-001, WO-13-006, WO-13-007, WO-13-008, WO-13-001, WO-13-002, WO-13-003]
 last_updated: '2026-06-20'
 ---
 # WO-04-004 — Workspace shell: header + tabbar + objectives bar

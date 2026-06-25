@@ -7,6 +7,7 @@ status: ACTIVE
 parent: FRD-02
 implementation_status: VERIFIED
 source_requirements: [REQ-02-010]
+dependsOn: [WO-01-003, WO-01-005]
 last_updated: '2026-06-18'
 ---
 # WO-02-011 — `phaseFromStatus` derivation

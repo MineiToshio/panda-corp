@@ -7,6 +7,7 @@ status: DRAFT
 parent: FRD-06
 implementation_status: VERIFIED
 source_requirements: []
+dependsOn: [WO-01-007]
 last_updated: '2026-06-18'
 ---
 # WO-06-012 — lib/events.ts consumes the enriched event fields

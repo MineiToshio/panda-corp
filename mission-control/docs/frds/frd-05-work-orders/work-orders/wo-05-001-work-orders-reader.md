@@ -7,6 +7,7 @@ status: ACTIVE
 parent: FRD-05
 implementation_status: VERIFIED
 source_requirements: []
+dependsOn: [WO-01-000]
 last_updated: '2026-06-16'
 ---
 # WO-05-001 — `lib/work-orders.ts`: discover + parse work orders

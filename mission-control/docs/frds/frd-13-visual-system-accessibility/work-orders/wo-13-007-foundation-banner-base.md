@@ -18,6 +18,7 @@ artifacts:
   - 'src/components/core/ProgressBar/**'
   - 'src/components/core/DocHeading/**'
 source_requirements: [CMP-13-banner, CMP-13-chip, CMP-13-panel, CMP-13-cmdrow]
+dependsOn: [WO-13-001, WO-13-002, WO-13-003]
 last_updated: '2026-06-19'
 ---
 # WO-13-007 — Foundation (FND-2): the one Banner + base primitives (DR-057 dup-fix)

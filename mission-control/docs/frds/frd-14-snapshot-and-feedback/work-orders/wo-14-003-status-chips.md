@@ -7,6 +7,7 @@ status: DRAFT
 parent: FRD-14
 implementation_status: VERIFIED
 source_requirements: ['REQ-14-004', 'REQ-14-005']
+dependsOn: [WO-13-007]
 last_updated: '2026-06-18'
 ---
 # WO-14-003 — `CMP-14-status-chips`: decisions/bugs/rethink chips

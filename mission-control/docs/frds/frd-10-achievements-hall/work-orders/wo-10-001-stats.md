@@ -7,6 +7,7 @@ status: DRAFT
 parent: FRD-10
 implementation_status: VERIFIED
 source_requirements: []
+dependsOn: [WO-01-003, WO-01-005, WO-01-007, WO-03-001]
 last_updated: '2026-06-18'
 ---
 # WO-10-001 — `lib/achievements.ts`: achievements engine (stats/chains/uniques/secrets)

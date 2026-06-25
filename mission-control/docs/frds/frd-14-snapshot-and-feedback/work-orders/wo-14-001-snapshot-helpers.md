@@ -7,6 +7,7 @@ status: DRAFT
 parent: FRD-14
 implementation_status: VERIFIED
 source_requirements: []
+dependsOn: [WO-01-005]
 last_updated: '2026-06-18'
 ---
 # WO-14-001 — `lib/snapshot.ts`: `buildSnapshot` + `isSnapshotStale`

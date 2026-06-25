@@ -7,6 +7,7 @@ status: ACTIVE
 parent: FRD-16
 implementation_status: VERIFIED
 source_requirements: []
+dependsOn: [WO-01-002]
 last_updated: '2026-06-17'
 ---
 # WO-16-001 — `lib/orphans` scan: projects path + bounded folder listing

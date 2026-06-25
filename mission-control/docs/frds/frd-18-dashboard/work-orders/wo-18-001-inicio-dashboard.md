@@ -14,7 +14,7 @@ artifacts:
   - 'src/components/modules/Pulso/**'
   - 'src/components/modules/Digest/**'
 source_requirements: [REQ-18-001, REQ-18-002, REQ-18-003, REQ-18-004, REQ-18-005, REQ-18-006, REQ-18-007, REQ-18-008, REQ-18-009, REQ-18-010, REQ-18-011, REQ-18-012, REQ-18-013, REQ-18-014, REQ-18-015, REQ-18-016, REQ-18-017, REQ-18-018, REQ-18-019, REQ-18-020, REQ-18-021]
-dependsOn: [WO-01-009, WO-13-006, WO-13-007, WO-13-008, WO-15-004, WO-16-004]
+dependsOn: [WO-01-009, WO-01-008, WO-01-007, WO-01-005, WO-01-004, WO-01-003, WO-01-002, WO-03-001, WO-05-001, WO-09-001, WO-10-001, WO-13-006, WO-13-007, WO-13-008, WO-15-004, WO-16-004, WO-17-001]
 last_updated: '2026-06-19'
 ---
 # WO-18-001 — `Inicio` real-time dashboard (all six sections + health banners)

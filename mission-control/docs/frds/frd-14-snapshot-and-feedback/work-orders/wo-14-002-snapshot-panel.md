@@ -11,6 +11,7 @@ artifacts:
   - 'src/app/projects/[slug]/_components/snapshot-panel/**'
   - 'src/app/preview-wo14002/page.tsx'
 source_requirements: [REQ-14-001, REQ-14-002, REQ-14-003]
+dependsOn: [WO-14-001, WO-13-006, WO-13-007]
 last_updated: '2026-06-21'
 ---
 # WO-14-002 — SnapshotPanel: último commit en verde + worktree command

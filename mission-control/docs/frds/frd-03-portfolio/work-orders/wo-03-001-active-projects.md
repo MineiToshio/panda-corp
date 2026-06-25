@@ -7,6 +7,7 @@ status: DRAFT
 parent: FRD-03
 implementation_status: VERIFIED
 source_requirements: []
+dependsOn: [WO-01-004, WO-01-005, WO-01-001]
 last_updated: '2026-06-17'
 ---
 # WO-03-001 — `activeProjects` compose helper

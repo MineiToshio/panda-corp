@@ -11,6 +11,7 @@ artifacts:
   - 'src/app/projects/[slug]/_components/mode-selector/**'
   - 'src/app/projects/[slug]/_components/tab-commands/**'
 source_requirements: [REQ-11-001, REQ-11-002, REQ-11-003]
+dependsOn: [WO-11-001, WO-04-003, WO-04-004, WO-01-005, WO-13-006, WO-13-007]
 last_updated: '2026-06-19'
 ---
 # WO-11-002 — BuildModeSelector + Comandos tab

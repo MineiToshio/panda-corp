@@ -11,6 +11,7 @@ artifacts:
   - 'src/app/projects/[slug]/_components/tab-summary/**'
   - 'src/app/projects/[slug]/_components/tab-documents/**'
 source_requirements: [REQ-04-003, REQ-04-004, REQ-04-006]
+dependsOn: [WO-04-001, WO-04-004, WO-02-003, WO-13-006, WO-13-007, WO-13-001, WO-13-002, WO-13-003]
 last_updated: '2026-06-20'
 ---
 # WO-04-005 — Resumen + Documentos tabs

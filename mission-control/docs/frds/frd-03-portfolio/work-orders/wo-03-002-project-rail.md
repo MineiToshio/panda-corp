@@ -13,7 +13,7 @@ artifacts:
   - 'src/components/modules/ProjectRow/**'
   - 'src/components/modules/PortfolioTable/**'
 source_requirements: [REQ-03-001, REQ-03-002, REQ-03-004, REQ-03-005, REQ-03-006]
-dependsOn: [WO-03-001]
+dependsOn: [WO-03-001, WO-01-004, WO-01-005, WO-01-001, WO-02-003, WO-13-006, WO-13-007, WO-13-008, WO-13-001, WO-13-002, WO-13-003, WO-04-004]
 last_updated: '2026-06-21'
 ---
 # WO-03-002 — Portfolio surface

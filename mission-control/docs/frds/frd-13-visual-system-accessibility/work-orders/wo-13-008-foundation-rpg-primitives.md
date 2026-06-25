@@ -13,6 +13,7 @@ artifacts:
   - 'src/components/core/ItemSlot/**'
   - 'src/components/core/KanbanColumn/**'
 source_requirements: [CMP-13-shield, CMP-13-tierbadge, CMP-13-itemslot, CMP-13-kanbancolumn]
+dependsOn: [WO-13-001, WO-13-002, WO-13-003]
 last_updated: '2026-06-19'
 ---
 # WO-13-008 — Foundation (FND-3): the RPG/gamification primitives (DR-057)

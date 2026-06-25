@@ -14,6 +14,7 @@ artifacts:
   - 'src/app/projects/[slug]/_components/wo-progress/**'
   - 'src/app/projects/[slug]/_components/wo-empty/**'
 source_requirements: [REQ-05-001, REQ-05-002, REQ-05-003, REQ-05-004, REQ-05-005, REQ-05-006]
+dependsOn: [WO-05-001, WO-05-002, WO-04-001, WO-04-004, WO-01-009, WO-13-006, WO-13-007, WO-13-008, WO-13-001, WO-13-002, WO-13-003]
 last_updated: '2026-06-21'
 ---
 # WO-05-003 — Work-orders tab: live kanban board + detail (re-paint to mock)

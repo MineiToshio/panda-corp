@@ -7,6 +7,7 @@ status: DRAFT
 parent: FRD-09
 implementation_status: VERIFIED
 source_requirements: []
+dependsOn: [WO-06-012]
 last_updated: '2026-06-17'
 ---
 # WO-09-002 — `lib/gamification.ts`: agent XP/level engine

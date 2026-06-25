@@ -12,6 +12,7 @@ artifacts:
   - 'src/app/projects/[slug]/_party/PartyScene/**'
   - 'src/app/projects/[slug]/_party/PartyTab/**'
 source_requirements: [REQ-06-001, REQ-06-002, REQ-06-003, REQ-06-004, REQ-06-005, REQ-06-006, REQ-06-007, REQ-06-008, REQ-06-009, REQ-06-010, REQ-06-011, REQ-06-012, REQ-06-013]
+dependsOn: [WO-06-005, WO-06-004, WO-06-002, WO-06-001, WO-06-003, WO-01-009, WO-13-006, WO-13-007, WO-13-008, WO-13-009, WO-04-004, WO-11-001]
 last_updated: '2026-06-20'
 ---
 # WO-06-007 — La Fragua scene re-paint (FraguaScene + PartyScene/PartyTab shell)

@@ -7,6 +7,7 @@ status: DRAFT
 parent: FRD-08
 implementation_status: VERIFIED
 source_requirements: []
+dependsOn: [WO-01-001]
 last_updated: '2026-06-16'
 ---
 # WO-08-001 — `lib/manual.ts`: index authored Manual content

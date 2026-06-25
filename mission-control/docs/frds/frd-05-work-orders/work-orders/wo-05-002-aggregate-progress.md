@@ -7,6 +7,7 @@ status: DRAFT
 parent: FRD-05
 implementation_status: VERIFIED
 source_requirements: []
+dependsOn: [WO-05-001]
 last_updated: '2026-06-17'
 ---
 # WO-05-002 — `lib/work-orders.ts`: `aggregateProgress`

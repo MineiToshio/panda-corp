@@ -7,6 +7,7 @@ status: DRAFT
 parent: FRD-02
 implementation_status: VERIFIED
 source_requirements: []
+dependsOn: [WO-01-005]
 last_updated: '2026-06-17'
 ---
 # WO-02-003 — `nextStep` command map

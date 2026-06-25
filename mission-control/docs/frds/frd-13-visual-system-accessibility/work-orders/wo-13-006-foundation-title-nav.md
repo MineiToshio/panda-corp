@@ -12,6 +12,7 @@ artifacts:
   - 'src/components/core/SectionHead/**'
   - 'src/components/core/Tabs/**'
 source_requirements: [CMP-13-pagetitle, CMP-13-sectionhead, CMP-13-tabs]
+dependsOn: [WO-13-001, WO-13-002, WO-13-003]
 last_updated: '2026-06-19'
 ---
 # WO-13-006 — Foundation (FND-1): the cohesion title/nav primitives (DR-062)

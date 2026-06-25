@@ -7,6 +7,7 @@ status: DRAFT
 parent: FRD-06
 implementation_status: VERIFIED
 source_requirements: []
+dependsOn: [WO-11-001, WO-13-001]
 last_updated: '2026-06-18'
 ---
 # WO-06-002 — La Fragua layout (rooms + forge/tribunal/vault slots)

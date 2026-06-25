@@ -7,6 +7,7 @@ status: DRAFT
 parent: FRD-07
 implementation_status: VERIFIED
 source_requirements: []
+dependsOn: [WO-01-001]
 last_updated: '2026-06-17'
 ---
 # WO-07-003 — `lib/registry.ts`: read decision rules

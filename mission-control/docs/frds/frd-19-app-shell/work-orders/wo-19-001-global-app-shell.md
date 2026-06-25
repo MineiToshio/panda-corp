@@ -17,6 +17,7 @@ artifacts:
   - 'e2e/shell.ts'
   - 'public/brand/pandacorp.png'
 source_requirements: [REQ-19-001, REQ-19-002, REQ-19-003, REQ-19-004]
+dependsOn: [WO-13-006, WO-13-008, WO-09-001, WO-17-004, WO-01-008, WO-01-007, WO-01-005, WO-01-004, WO-01-002]
 last_updated: '2026-06-21'
 ---
 # WO-19-001 — Global app shell (persistent topbar nav + active state + responsive drawer + gate seed)

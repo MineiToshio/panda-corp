@@ -7,6 +7,7 @@ status: ACTIVE
 parent: FRD-12
 implementation_status: VERIFIED
 source_requirements: []
+dependsOn: [WO-01-007]
 last_updated: '2026-06-16'
 ---
 # WO-12-002 — KPI selector (≤5, incl. failed work orders)

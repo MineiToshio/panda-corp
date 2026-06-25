@@ -12,6 +12,7 @@ artifacts:
   - 'src/hooks/useLiveSnapshot.ts'
   - 'src/hooks/_tests/**'
 source_requirements: [IF-01-events]
+dependsOn: [WO-01-005, WO-01-007, WO-05-001]
 last_updated: '2026-06-20'
 ---
 # WO-01-009 — Foundation (FND-5): the shared real-time wire (SSE, not polling)
