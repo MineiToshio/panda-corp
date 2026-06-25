@@ -41,4 +41,5 @@ WO-09-005 (lib/gamification: celebration tiers) ─┘
 | WO-09-002 | `lib/gamification.ts` — agent XP/level engine | `lib/gamification.ts` | VERIFIED | WO-06-012 |
 | WO-09-003 | Guild surfaces: GuildBar + GuildHero + StatRadar + CelebrationSurface | `app/achievements/page.tsx`, `components/modules/GuildBar/**`, `app/achievements/StatsPanel.tsx`, core RPG primitives | VERIFIED | WO-09-001, WO-09-005, WO-09-002, WO-01-007, WO-01-005, WO-03-001, WO-01-009, WO-13-006, WO-13-007, WO-13-008 |
 | WO-09-005 | `lib/gamification.ts` — celebration tier classifier | `lib/gamification.ts` | VERIFIED | WO-06-012 |
+| WO-09-006 | Gamification ledger: persistent XP accumulator | `lib/gamification/ledger.ts`, `app/_actions/snapshotLedger.ts`, `components/dashboard/GamificationLedgerSync/` | PLANNED | WO-09-001 |
 </content>

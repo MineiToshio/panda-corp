@@ -80,8 +80,14 @@ forbidden patterns are ABSENT): no leaderboard, no lives/death, no daily-reset s
 false-urgency timer, no XP for activity/app-open, no bar artificially stuck.
 
 ## 5. Read-only & security posture
-All XP is **derived** from read-only sources (architecture §7); nothing is written. No personal data
-beyond the local factory repo. The celebration is purely client-side visual over already-read events.
+All XP is **derived** from read-only sources (architecture §7). No personal data beyond the local
+factory repo. The celebration is purely client-side visual over already-read events.
+
+**Controlled exception — gamification ledger (WO-09-006):** `factory/gamification-ledger.json`
+(gitignored) is a local write: it persists the maximum outcomes ever seen so that deleting a project
+never decreases the guild's XP. The write is a fire-and-forget Server Action (does NOT block the
+render) called by a lightweight client component after page mount. This is the ONLY write in
+FRD-09; it is personal data (DR-033) and must stay gitignored.
 
 ## 6. Traceability (REQ → AC → CMP/IF)
 
@@ -113,14 +119,20 @@ Phase 2 re-anchors the **presentational** Guild surfaces to the owner-approved p
   WO-09-005 (celebration-tier classifier) — the pure `lib/gamification.ts` module, verified.
 - **PLANNED (Phase 2 UI):** WO-09-003 — the single coarse Guild-surfaces work order
   (`GuildBar` + `GuildHero` + `StatRadar` + `CelebrationSurface`, reusing `Shield`/`XpBar`/`Avatar`).
+- **PLANNED (Phase 3 — persistence):** WO-09-006 — gamification ledger (`lib/gamification/ledger.ts`
+  + `app/_actions/snapshotLedger.ts` + `GamificationLedgerSync` client component). Independent of
+  WO-09-003; can build in parallel or after.
 
 **Coarse DAG & parallelism:**
 
 ```
 [VERIFIED engine: WO-09-001 · WO-09-002 · WO-09-005]   [FRD-13 foundation: WO-13-006/007/008]
                  └───────────────────────────┬───────────────────────────┘
-                                              ▼
-                              WO-09-003 (Guild surfaces — UI)
+                                             ▼
+                             WO-09-003 (Guild surfaces — UI)
+
+[VERIFIED engine: WO-09-001]
+          └─── WO-09-006 (ledger persistence — independent of WO-09-003)
 ```
 
 WO-09-003 is a single sequential UI WO with no intra-FRD UI peer (nothing to parallelize within

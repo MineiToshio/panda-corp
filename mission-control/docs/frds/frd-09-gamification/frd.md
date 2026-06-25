@@ -40,5 +40,10 @@ Analogy: you belong to a **guild** (the organization) and you go out in a **part
 ## Components (see also)
 - Guild level/XP (this FRD) · Agent levels ([FRD-07](../frd-07-configuration/frd.md)) · Achievements Hall and stats ([FRD-10](../frd-10-achievements-hall/frd.md)) · Party RPG ([FRD-06](../frd-06-party/frd.md)).
 
+## Acceptance criteria — persistence (AC-09-006)
+- **AC-09-006.1** — WHEN Mission Control computes guild outcomes THEN it SHALL read the local ledger (`factory/gamification-ledger.json`, gitignored) and use `MAX(live, ledger)` for each metric (workOrdersDone, phasesCompleted, releases) so that **deleting a project NEVER decreases the guild's XP or level**.
+- **AC-09-006.2** — WHEN a live metric exceeds the stored ledger value THEN Mission Control SHALL update the ledger to record the new maximum (snapshot-on-exceed, fire-and-forget — does NOT block the render).
+- **AC-09-006.3** — `factory/gamification-ledger.json` SHALL be gitignored (personal data, DR-033). It SHALL NOT be committed to the repo.
+
 ## Future
 Full-screen level-up moment; phase transitions as a "cutscene"; meta-achievements (titled, displayable Seals); XP multiplier for weekly streak.
