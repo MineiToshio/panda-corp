@@ -4,6 +4,11 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-06-25 — Bug fix: mismo bug de path no resuelto en `layout.tsx` (`statuses` para el GuildBar)
+**What:** `layout.tsx` línea 68 tenía exactamente el mismo bug que `page.tsx` (corregido en la entrada de abajo): `portfolioEntries.map(entry => readStatus(entry.path))` sin resolver el path relativo. Consecuencia: el GuildBar del top nav (que se renderiza desde `layout.tsx`) mostraba siempre "NV 1 Aprendiz / 0%" aunque el dashboard de Inicio ya mostrara Nv 9 — dos fuentes de verdad para el mismo dato. Fix: `resolveProjectPath(entry.path)` + import de `@/lib/config/config`.
+**Why:** El fix de `page.tsx` corrigió la sección central del dashboard pero no el layout global. Ambos leen `statuses` de forma independiente; el layout no se había detectado en la primera pasada.
+**Impact:** `src/app/layout.tsx` (1 línea + import). verify.sh + visual snapshots GREEN — 14/14 visuales, 6919 unit tests.
+
 ## 2026-06-25 — FRD-09: gamification ledger (persistent XP accumulator) — WO-09-006 added
 **What:** Added WO-09-006 to FRD-09 with a new `lib/gamification/ledger.ts` module, a Server Action `snapshotLedger`, and a `GamificationLedgerSync` client component. The ledger (`factory/gamification-ledger.json`, gitignored) stores the maximum guild outcomes ever seen (workOrdersDone, phasesCompleted, releases); the dashboard merges `MAX(live, ledger)` so that deleting a project never decreases the guild's XP or level.
 **Why:** Today `deriveGuildOutcomes` derives everything from live `status.yaml` files. If a project is deleted, its contribution vanishes and the guild loses level/XP. The owner identified this as a broken invariant — achievements should be cumulative and permanent. The ledger is a "snapshot-on-exceed" pattern: whenever live > stored, MC updates the file; if a project later disappears, the historical max persists.

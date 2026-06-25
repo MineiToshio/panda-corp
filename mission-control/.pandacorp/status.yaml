@@ -13,10 +13,10 @@ run_started_at: "2026-06-21T15:53:26Z"
 repo: ""
 updated_at: "2026-06-22T05:07:15Z"
 last_event_at: "2026-06-22T05:07:15Z"
-work_orders_total: 79
+work_orders_total: 80
 work_orders_verified: 79
 work_orders_in_review: 0
-work_orders_planned: 0
+work_orders_planned: 1
 work_orders_in_progress: 0
 work_orders_blocked: 0
 work_orders_done: 79

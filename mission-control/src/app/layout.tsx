@@ -18,6 +18,7 @@ import { AppShell } from "@/components/modules/AppShell/AppShell";
 import { CelebrationWatcher } from "@/components/modules/CelebrationWatcher/CelebrationWatcher";
 import { GuildBar } from "@/components/modules/GuildBar/GuildBar";
 import { ProposalsBadge } from "@/components/modules/ProposalsBadge/ProposalsBadge";
+import { resolveProjectPath } from "@/lib/config/config";
 import { readEvents } from "@/lib/events/events";
 import { deriveGuildOutcomes } from "@/lib/gamification/gamification";
 import { readPortfolio } from "@/lib/portfolio/portfolio";
@@ -65,7 +66,7 @@ export default function RootLayout({
   // Read-only: readPortfolio, readStatus, readEvents — no writes, no Claude calls.
   // Fail-soft: absent portfolio → empty array; missing status → skipped.
   const portfolioEntries = readPortfolio();
-  const statuses = portfolioEntries.map((entry) => readStatus(entry.path));
+  const statuses = portfolioEntries.map((entry) => readStatus(resolveProjectPath(entry.path)));
   const eventsSnapshot = readEvents();
   const guildOutcomes = deriveGuildOutcomes({ statuses, eventsSnapshot });
 
