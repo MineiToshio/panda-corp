@@ -134,7 +134,9 @@ function HeroStat({ label, iconClass, value, sub, tierIndex }: HeroStatProps): R
           fontFamily: "var(--font-pixel)",
           fontSize: "40px",
           lineHeight: 1,
-          color: hasTier ? tierColor : "var(--color-text)",
+          // Always the default text color (white) — the tier is shown by the badge,
+          // not by recoloring the numeral (prototype heroStat .big has no color).
+          color: "var(--color-text)",
           letterSpacing: "-1px",
         }}
       >
@@ -516,11 +518,16 @@ const STAT_ICONS: Record<string, string> = {
   speed: "ti-bolt",
 };
 
-/** Hero stat config for the three record tiles. */
+/** Hero stat config for the three record tiles (labels + subs from prototype heroStat). */
 const HERO_STAT_KEYS: Array<{ key: string; label: string; iconClass: string; sub: string }> = [
-  { key: "shipped", label: "Lanzados", iconClass: "ti-rocket", sub: "productos en producción" },
-  { key: "streak", label: "Racha", iconClass: "ti-flame", sub: "semanas seguidas" },
-  { key: "speed", label: "Récord", iconClass: "ti-bolt", sub: "días idea→launch" },
+  {
+    key: "shipped",
+    label: "Productos lanzados",
+    iconClass: "ti-rocket",
+    sub: "tu marca del gremio",
+  },
+  { key: "streak", label: "Racha récord", iconClass: "ti-flame", sub: "semanas seguidas" },
+  { key: "speed", label: "Récord idea→launch", iconClass: "ti-bolt", sub: "días, lo más rápido" },
 ];
 
 // ── StatsPanel props ──────────────────────────────────────────────────────────
