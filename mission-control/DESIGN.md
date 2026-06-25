@@ -49,6 +49,7 @@ Three everyday elevation steps plus a fourth reserved for the pixel-art Party ca
 
 - **Categories** `cat1..cat9` — per-agent / per-domain hues.
 - **Tiers / rarity** `tier1..tier5` — gris → verde → azul → morado → naranja (the RPG rarity ramp).
+- **Trace palette** `trace1..trace10` (DR-087a, NOT from the prototype extraction) — a 10-color **desaturated, harmonious** categorical set used ONLY to recolor highlighted lines on the Observabilidad **DAG** when a work order is selected, so crossing/converging lines stay traceable (each highlighted line a distinct hue; repeats across distant ones are fine). Desaturated so it never competes with the saturated status colors; both themes verified for AA. At rest DAG edges are uniform accent — `trace*` only appears on selection.
 
 ### Radii & shadows
 
