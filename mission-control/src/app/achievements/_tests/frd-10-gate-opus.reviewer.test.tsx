@@ -70,6 +70,7 @@ function renderHall() {
       trophiesTotal={1}
       missionsActive={1}
       hero={<div data-testid="guild-hero" />}
+      level={{ level: 3, title: "Buscador del Alba II", xp: 200, next: 450, pctToNext: 30 }}
     />,
   );
 }
@@ -120,7 +121,7 @@ describe("FRD-10 GATE [opus]: the shared Tabs primitive is WIRED, not decorative
     // Roving tabindex: only the active tab is in the tab order (tabIndex 0), others -1.
     const resumenTab = screen.getByTestId("logros-tab-resumen");
     const misionesTab = screen.getByTestId("logros-tab-misiones");
-    const estadisticasTab = screen.getByTestId("logros-tab-estadisticas");
+    const rangosTab = screen.getByTestId("logros-tab-rangos"); // the LAST tab now
     expect(resumenTab.getAttribute("tabindex")).toBe("0");
     expect(misionesTab.getAttribute("tabindex")).toBe("-1");
 
@@ -135,8 +136,8 @@ describe("FRD-10 GATE [opus]: the shared Tabs primitive is WIRED, not decorative
       "ArrowRight must move focus to the next tab — proves the real shared Tabs primitive (roving tabindex), not a hand-roll",
     ).toBe(misionesTab);
 
-    // Wraps: from the last tab ArrowRight returns to the first.
-    estadisticasTab.focus();
+    // Wraps: from the last tab (rangos) ArrowRight returns to the first.
+    rangosTab.focus();
     await user.keyboard("{ArrowRight}");
     expect(document.activeElement, "ArrowRight wraps to the first tab").toBe(resumenTab);
 
@@ -144,7 +145,7 @@ describe("FRD-10 GATE [opus]: the shared Tabs primitive is WIRED, not decorative
     resumenTab.focus();
     await user.keyboard("{ArrowLeft}");
     expect(document.activeElement, "ArrowLeft from the first tab wraps to the last").toBe(
-      estadisticasTab,
+      rangosTab,
     );
   });
 });

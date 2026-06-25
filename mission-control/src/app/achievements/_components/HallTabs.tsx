@@ -29,15 +29,17 @@ import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import { Tabs } from "@/components/core/Tabs/Tabs";
 import type { ChainState, Secret, Unique } from "@/lib/achievements/achievements";
 import type { ReaderData } from "@/lib/achievements/stats";
+import type { GuildLevel } from "@/lib/gamification/gamification";
 import { AlmostThere } from "../AlmostThere";
 import { ChainCard } from "../ChainCard/ChainCard";
+import { RankLadder } from "../RankLadder/RankLadder";
 import { SecretsPanel } from "../SecretsPanel/SecretsPanel";
 import { StatsPanel } from "../StatsPanel";
 import { UniquesSection } from "../UniquesSection/UniquesSection";
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
 
-type TabId = "resumen" | "misiones" | "trofeos" | "estadisticas";
+type TabId = "resumen" | "misiones" | "trofeos" | "estadisticas" | "rangos";
 
 /** Tab metadata (id + label + icon). Counts are added at render time. */
 const TAB_META: Array<{ id: TabId; label: string; icon: string }> = [
@@ -45,6 +47,7 @@ const TAB_META: Array<{ id: TabId; label: string; icon: string }> = [
   { id: "misiones", label: "Misiones", icon: "ti-map-2" },
   { id: "trofeos", label: "Trofeos", icon: "ti-trophy" },
   { id: "estadisticas", label: "Estadísticas", icon: "ti-chart-bar" },
+  { id: "rangos", label: "Rangos", icon: "ti-stairs-up" },
 ];
 
 /** Type guard: narrow the shared Tabs onChange string back to a TabId. */
@@ -410,10 +413,12 @@ export type HallTabsProps = {
   missionsActive: number;
   /** The GuildHero element — rendered inside the Resumen tab only. */
   hero: React.ReactNode;
+  /** Guild level — drives the Rangos ladder (current rank + progress). */
+  level: GuildLevel;
 };
 
 /**
- * HallTabs — Client Component managing the 4-tab active state.
+ * HallTabs — Client Component managing the 5-tab active state.
  *
  * Receives all pre-computed data from the Server Component (page.tsx) and
  * delegates rendering to the appropriate tab body. Uses the shared Tabs/SubTabs
@@ -430,6 +435,7 @@ export function HallTabs({
   trophiesTotal,
   missionsActive,
   hero,
+  level,
 }: HallTabsProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<TabId>("resumen");
 
@@ -443,6 +449,7 @@ export function HallTabs({
     misiones: missionsActive,
     trofeos: trophiesCount,
     estadisticas: 0,
+    rangos: 0,
   };
   const tabs = TAB_META.map((t) => ({
     id: t.id,
@@ -514,6 +521,14 @@ export function HallTabs({
           hidden={activeTab !== "estadisticas"}
         >
           <StatsPanel readerData={readerData} />
+        </div>
+        <div
+          id="logros-panel-rangos"
+          role="tabpanel"
+          aria-labelledby="logros-tab-btn-rangos"
+          hidden={activeTab !== "rangos"}
+        >
+          <RankLadder level={level} />
         </div>
       </div>
     </div>

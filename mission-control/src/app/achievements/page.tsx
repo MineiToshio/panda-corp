@@ -111,6 +111,7 @@ export default async function HallPage(): Promise<React.JSX.Element> {
         trophiesCount={trophiesCount}
         trophiesTotal={trophiesTotal}
         missionsActive={missionsActive}
+        level={guildLevel}
         hero={
           <GuildHero
             level={guildLevel.level}

@@ -87,6 +87,7 @@ function renderHall() {
       trophiesTotal={1}
       missionsActive={1}
       hero={<div data-testid="guild-hero" />}
+      level={{ level: 3, title: "Buscador del Alba II", xp: 200, next: 450, pctToNext: 30 }}
     />,
   );
 }
