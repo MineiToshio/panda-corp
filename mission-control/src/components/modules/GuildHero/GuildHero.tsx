@@ -241,15 +241,48 @@ export function GuildHero({
             {" misiones en curso"}
           </div>
 
-          {/* Full-width XpBar (AC-09-004.3/4.5: real fill, reuses XpBar) */}
+          {/* XP header row (prototype logrosHero ~L425): XP left, "faltan N para Nv X ·
+              <nextTitle>" right, ABOVE the bar. The bar itself is the bare track. */}
           <div style={{ marginTop: "13px" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "baseline",
+                gap: "8px",
+                flexWrap: "wrap",
+                marginBottom: "6px",
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: "var(--font-pixel)",
+                  fontSize: "14px",
+                  color: "var(--color-text)",
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                <span data-testid="guild-hero-xp">{xp}</span>
+                {" / "}
+                {next}
+                {" XP"}
+              </span>
+              <span
+                data-testid="guild-hero-next"
+                style={{ fontSize: "11px", color: "var(--color-text3)" }}
+              >
+                {pctToNext < 100
+                  ? `faltan ${Math.max(0, next - xp)} para Nv ${level + 1} · ${nextTitle}`
+                  : nextTitle}
+              </span>
+            </div>
             <XpBar
               xp={xp}
               next={next}
               pctToNext={pctToNext}
               label={title}
               nextTitle={nextTitle}
-              size="full"
+              size="track"
             />
           </div>
         </div>
@@ -283,7 +316,18 @@ export function GuildHero({
           <ul
             data-testid="guild-hero-party"
             aria-label="Party del gremio"
-            style={{ display: "flex", gap: "5px", listStyle: "none", margin: 0, padding: 0 }}
+            style={
+              {
+                display: "flex",
+                gap: "5px",
+                listStyle: "none",
+                margin: 0,
+                padding: 0,
+                // Prototype party sprites are 38px (sm=32px reads too small); scope-override
+                // the Avatar size CSS var on the container (Avatar reads --avatar-size-sm).
+                "--avatar-size-sm": "38px",
+              } as React.CSSProperties
+            }
           >
             {partyRoster.map((role) => (
               <li key={role}>

@@ -49,6 +49,14 @@ export type XpBarProps = {
    * "compact" = 9px tall inline (GuildBar topbar); "full" = 18px tall with labels (default).
    */
   size?: XpBarSize;
+  /**
+   * Fill color (CSS token). Defaults to the rationed accent. Chain cards pass a
+   * per-tier color so the bar reads in its tier's hue (prototype TIERC), without
+   * forking the bar primitive.
+   */
+  fillColor?: string;
+  /** Track height in px for the "track" variant (default 18). Chain bars use 9–14. */
+  trackHeight?: number;
 };
 
 /**
@@ -59,10 +67,15 @@ export type XpBarProps = {
 function FullTrack({
   clampedPct,
   nextTitle,
+  fillColor = "var(--color-accent)",
+  height = 18,
 }: {
   clampedPct: number;
   nextTitle: string;
+  fillColor?: string;
+  height?: number;
 }): React.JSX.Element {
+  const isAccent = fillColor === "var(--color-accent)";
   return (
     <div
       data-testid="xp-bar-track"
@@ -73,7 +86,7 @@ function FullTrack({
       aria-label={`Progreso XP: ${clampedPct}% hacia ${nextTitle}`}
       style={{
         position: "relative",
-        height: "18px",
+        height: `${height}px`,
         borderRadius: "7px",
         border: "1px solid var(--color-border-strong)",
         background: "var(--color-base)",
@@ -82,12 +95,12 @@ function FullTrack({
     >
       <div
         data-testid="xp-bar-fill"
-        data-accent="true"
+        data-accent={isAccent ? "true" : undefined}
         style={{
           position: "absolute",
           inset: "0 auto 0 0",
           width: `${clampedPct}%`,
-          background: "var(--color-accent)",
+          background: fillColor,
           transition: "width 0.6s",
         }}
       />
@@ -123,6 +136,8 @@ export function XpBar({
   label,
   nextTitle,
   size = "full",
+  fillColor = "var(--color-accent)",
+  trackHeight = 18,
 }: XpBarProps): React.JSX.Element {
   // Clamp to [0, 100] as a safety guard — the caller should always pass a valid value
   // but defensive clamping prevents style= overflow (AC-09-004.3 negative AC).
@@ -203,7 +218,12 @@ export function XpBar({
   if (size === "track") {
     return (
       <div data-testid="xp-bar" data-size="track">
-        <FullTrack clampedPct={clampedPct} nextTitle={nextTitle} />
+        <FullTrack
+          clampedPct={clampedPct}
+          nextTitle={nextTitle}
+          fillColor={fillColor}
+          height={trackHeight}
+        />
       </div>
     );
   }

@@ -39,16 +39,17 @@ import { UniquesSection } from "../UniquesSection/UniquesSection";
 
 type TabId = "resumen" | "misiones" | "trofeos" | "estadisticas";
 
-const TABS: Array<{ id: TabId; label: string }> = [
-  { id: "resumen", label: "Resumen" },
-  { id: "misiones", label: "Misiones" },
-  { id: "trofeos", label: "Trofeos" },
-  { id: "estadisticas", label: "Estadísticas" },
+/** Tab metadata (id + label + icon). Counts are added at render time. */
+const TAB_META: Array<{ id: TabId; label: string; icon: string }> = [
+  { id: "resumen", label: "Resumen", icon: "ti-layout-dashboard" },
+  { id: "misiones", label: "Misiones", icon: "ti-map-2" },
+  { id: "trofeos", label: "Trofeos", icon: "ti-trophy" },
+  { id: "estadisticas", label: "Estadísticas", icon: "ti-chart-bar" },
 ];
 
 /** Type guard: narrow the shared Tabs onChange string back to a TabId. */
 function isTabId(id: string): id is TabId {
-  return TABS.some((t) => t.id === id);
+  return TAB_META.some((t) => t.id === id);
 }
 
 // ── RecentTrophies (Resumen tab) ──────────────────────────────────────────────
@@ -212,22 +213,10 @@ function MisionesTab({ chains }: MisionesTabProps): React.JSX.Element {
         Misiones acumulativas — cada tier alcanzado deja huella verificable en el tiempo.
       </p>
 
-      {/* Spotlight chain (spot variant) */}
+      {/* Spotlight chain (spot variant) — the "A UN PASO DE SUBIR" chip lives inside
+          the spot card itself (prototype rpgChainSpot), not as an external label. */}
       {spotlightChain !== undefined && (
         <section aria-label="Misión en destaque">
-          <div style={{ marginBottom: "8px", display: "flex", alignItems: "center", gap: "6px" }}>
-            <span
-              style={{
-                fontSize: "10px",
-                fontFamily: "var(--font-pixel)",
-                color: "var(--color-text3)",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-              }}
-            >
-              A UN PASO DE SUBIR
-            </span>
-          </div>
           <ChainCard chain={spotlightChain} variant="spot" />
         </section>
       )}
@@ -282,7 +271,9 @@ function MisionesTab({ chains }: MisionesTabProps): React.JSX.Element {
               margin: 0,
               padding: 0,
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(232px, 1fr))",
+              // 4 columns at desktop (prototype), responsive below — minmax 250px lands 4
+              // at this surface's content width without the 5th cramped column.
+              gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
               gap: "8px",
             }}
           >
@@ -386,16 +377,20 @@ function TrofeosTab({
 type ResumenTabProps = {
   chains: readonly ChainState[];
   uniques: readonly Unique[];
+  /** The GuildHero character-sheet — lives ONLY in Resumen (prototype logrosResumen). */
+  hero: React.ReactNode;
 };
 
 /**
- * Resumen tab body — prototype logrosResumen():
+ * Resumen tab body — prototype logrosResumen() = hero + questsNear + recentTrophies:
+ *   - GuildHero (character-sheet — scoped to this tab, not a persistent header)
  *   - AlmostThere (questsNear — top-3 chains by pct)
  *   - RecentTrophies (vitrina — last 4 unlocked trophies)
  */
-function ResumenTab({ chains, uniques }: ResumenTabProps): React.JSX.Element {
+function ResumenTab({ chains, uniques, hero }: ResumenTabProps): React.JSX.Element {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
+      {hero}
       <AlmostThere chains={chains} />
       <RecentTrophies uniques={uniques} />
     </div>
@@ -411,6 +406,10 @@ export type HallTabsProps = {
   readerData: ReaderData;
   trophiesCount: number;
   trophiesTotal: number;
+  /** Active missions count (chains in progress) — shown on the Misiones tab. */
+  missionsActive: number;
+  /** The GuildHero element — rendered inside the Resumen tab only. */
+  hero: React.ReactNode;
 };
 
 /**
@@ -429,12 +428,28 @@ export function HallTabs({
   readerData,
   trophiesCount,
   trophiesTotal,
+  missionsActive,
+  hero,
 }: HallTabsProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<TabId>("resumen");
 
   const handleTabChange = (id: string): void => {
     if (isTabId(id)) setActiveTab(id);
   };
+
+  // Tabs with icon + count (counts only shown when > 0, prototype logrosTabs).
+  const tabCounts: Record<TabId, number> = {
+    resumen: 0,
+    misiones: missionsActive,
+    trofeos: trophiesCount,
+    estadisticas: 0,
+  };
+  const tabs = TAB_META.map((t) => ({
+    id: t.id,
+    label: t.label,
+    icon: t.icon,
+    ...(tabCounts[t.id] > 0 ? { count: tabCounts[t.id] } : {}),
+  }));
 
   return (
     <div
@@ -455,7 +470,7 @@ export function HallTabs({
           testIdPrefix="logros-tab-"
           active={activeTab}
           onChange={handleTabChange}
-          tabs={TABS}
+          tabs={tabs}
         />
       </div>
 
@@ -469,7 +484,7 @@ export function HallTabs({
           aria-labelledby="logros-tab-btn-resumen"
           hidden={activeTab !== "resumen"}
         >
-          <ResumenTab chains={chains} uniques={uniques} />
+          <ResumenTab chains={chains} uniques={uniques} hero={hero} />
         </div>
         <div
           id="logros-panel-misiones"

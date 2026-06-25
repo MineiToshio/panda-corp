@@ -26,37 +26,16 @@
 
 import { computeChains } from "@/lib/achievements/achievements";
 import { computeStats, type ReaderData, type Stat } from "@/lib/achievements/stats";
+import { tierColor, tierRarityName } from "@/lib/achievements/tiers";
 
-// ── Tier helpers ──────────────────────────────────────────────────────────────
-
-/** Spanish tier labels (Bronze → Legend), 1-indexed. */
-const TIER_LABELS: Record<number, string> = {
-  1: "Bronce",
-  2: "Plata",
-  3: "Oro",
-  4: "Platino",
-  5: "Leyenda",
-};
+// ── Tier helpers (shared rarity names + colors — Común → Leyenda, 0-indexed) ─────
 
 function getMedalLabel(tierIndex: number): string {
-  return TIER_LABELS[tierIndex + 1] ?? "—";
+  return tierIndex < 0 ? "—" : tierRarityName(tierIndex);
 }
 
 function getMedalColor(tierIndex: number): string {
-  switch (tierIndex) {
-    case 0:
-      return "var(--color-tier-1, var(--color-agent-researcher))";
-    case 1:
-      return "var(--color-tier-2, var(--color-agent-frontend-dev))";
-    case 2:
-      return "var(--color-tier-3, var(--color-accent))";
-    case 3:
-      return "var(--color-tier-4, var(--color-agent-reviewer))";
-    case 4:
-      return "var(--color-tier-5, var(--color-agent-product-manager))";
-    default:
-      return "var(--color-text)";
-  }
+  return tierColor(tierIndex);
 }
 
 // ── RPGPanel style ────────────────────────────────────────────────────────────

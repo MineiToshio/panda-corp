@@ -85,6 +85,8 @@ function renderHall() {
       readerData={READER_DATA}
       trophiesCount={1}
       trophiesTotal={1}
+      missionsActive={1}
+      hero={<div data-testid="guild-hero" />}
     />,
   );
 }

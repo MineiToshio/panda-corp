@@ -1,23 +1,25 @@
 /**
  * CMP-10-chain-card — Cumulative chain card (WO-10-006, re-styled WO-10-005)
  *
- * Renders a single cumulative chain in three variants matching the prototype:
- *   "card"  (default) — rpgChainCard(): 42px ItemSlot + node pips + 12px xpbar + stamp
- *   "spot"             — rpgChainSpot(): 58px ItemSlot + big pixel % right + 14px xpbar
- *   "mini"             — rpgChainMini(): 34px ItemSlot + 9px compact xpbar + next-tier label
+ * Three variants faithful to the prototype rpgChainSpot / rpgChainCard / rpgChainMini:
+ *   - The prominent title is the CURRENT TIER's fun name (e.g. "Máquina de ideas");
+ *     the chain name (e.g. "Ideas capturadas") is the subtitle.
+ *   - The badge shows the tier RARITY (Común → Leyenda), tier-colored.
+ *   - A full-width node ladder (the stepped tier dots) shows progress across tiers.
+ *   - The bar is tier-colored (reuses CMP-09-xp-bar via its fillColor prop — honest,
+ *     no custom bar, AC-10-006.3) with a goal row "→ <next> · valor / umbral".
+ *   - Completed chains show "Cadena legendaria completada" + the unlock stamp.
  *
- * Visual reference: prototype rpgChainCard / rpgChainSpot / rpgChainMini functions.
+ * Visual reference: prototype rpgChainSpot / rpgChainCard / rpgChainMini functions.
  *
  * Design constraints (FRD-10, FRD-13, blueprint §4):
- *   - Tier colors via CSS custom properties only — zero hardcoded hex/rgb/hsl.
- *   - State never by color alone: badge has text label + data-tier attribute.
+ *   - Tier colors via tokens only (lib/achievements/tiers) — zero hardcoded hex/rgb/hsl.
+ *   - State never by color alone: badge has a text rarity label + data-tier attribute.
  *   - Reuses CMP-09-xp-bar — does NOT implement a custom bar (AC-10-006.3 negative AC).
- *   - No false urgency, countdowns or nagging language.
- *   - rpgpanel emboss via inline style (not a global CSS class).
  *
  * Traceability:
- *   AC-10-006.1 — current tier, bar with next tier name, tier pips
- *   AC-10-006.2 — unlock date + project per tier
+ *   AC-10-006.1 — current tier, bar with next tier name, tier nodes
+ *   AC-10-006.2 — unlock date + project per tier (incl. completed)
  *   AC-10-006.3 — honest endowed bar reusing CMP-09-xp-bar (negative AC)
  *   AC-10-006.5 — tier colors from tokens; state not color-alone
  *
@@ -30,46 +32,10 @@ import { XpBar } from "@/components/core/XpBar/XpBar";
 import type { ChainState } from "@/lib/achievements/achievements";
 import { CHAIN_DEFINITIONS } from "@/lib/achievements/definitions";
 import type { TierUnlockEvent } from "@/lib/achievements/stats";
+import { tierColor, tierRarityName } from "@/lib/achievements/tiers";
 
-// ── Tier label helpers ────────────────────────────────────────────────────────
+// ── RPGPanel inline style (design-tokens.json rpgSkin.rpgpanel) ─────────────────
 
-/** Spanish tier labels (Bronze → Legend), 1-indexed. */
-const TIER_LABELS: Record<number, string> = {
-  1: "Bronce",
-  2: "Plata",
-  3: "Oro",
-  4: "Platino",
-  5: "Leyenda",
-};
-
-/**
- * Returns the CSS color token for a given tier (1-indexed).
- * Uses --color-tier-N with fallback to known agent tokens.
- * Never a hardcoded color.
- */
-function tierColorToken(tier: number): string {
-  switch (tier) {
-    case 1:
-      return "var(--color-tier-1, var(--color-agent-researcher))";
-    case 2:
-      return "var(--color-tier-2, var(--color-agent-frontend-dev))";
-    case 3:
-      return "var(--color-tier-3, var(--color-accent))";
-    case 4:
-      return "var(--color-tier-4, var(--color-agent-reviewer))";
-    case 5:
-      return "var(--color-tier-5, var(--color-agent-product-manager))";
-    default:
-      return "var(--color-text)";
-  }
-}
-
-// ── RPGPanel inline styles ────────────────────────────────────────────────────
-
-/**
- * The rpgpanel emboss style (from design-tokens.json rpgSkin.rpgpanel).
- * Applied inline — no CSS class in globals.css.
- */
 const RPGPANEL_STYLE: React.CSSProperties = {
   background: "var(--color-card)",
   border: "1px solid var(--color-border-strong)",
@@ -79,10 +45,8 @@ const RPGPANEL_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "10px",
-  padding: "12px",
+  padding: "14px",
 };
-
-// ── Chain icon map ────────────────────────────────────────────────────────────
 
 /** Tabler icon class per statKey (matches prototype CHAINS[].ic). */
 const CHAIN_ICONS: Record<string, string> = {
@@ -100,101 +64,70 @@ const CHAIN_ICONS: Record<string, string> = {
   speed: "ti-bolt",
 };
 
-// ── TierPips — node ladder ────────────────────────────────────────────────────
+// ── Node ladder (the stepped tier dots, full-width flex — prototype .node row) ───
 
-type TierPipsProps = {
+type NodeLadderProps = {
   totalTiers: number;
   currentTierIndex: number;
-  /** Size of each pip circle in px (default 9). */
-  size?: number;
+  /** Dot diameter in px (card 10, spot 18). */
+  nodeSize?: number;
+  /** Connector line height in px (card 3, spot 4). */
+  connectorHeight?: number;
 };
 
-// ── TierPip (single pip + optional connector) ────────────────────────────────
-
-type TierPipProps = {
-  index: number;
-  currentTierIndex: number;
-  size: number;
-};
-
-/** One pip circle with an optional leading connector line. */
-function TierPip({ index, currentTierIndex, size }: TierPipProps): React.JSX.Element {
-  const filled = index <= currentTierIndex;
-  const tierNum = index + 1;
-  const pipLabel = filled
-    ? `Nivel ${TIER_LABELS[tierNum] ?? tierNum} desbloqueado`
-    : `Nivel ${TIER_LABELS[tierNum] ?? tierNum} bloqueado`;
-  const color = filled ? tierColorToken(tierNum) : "var(--color-border-strong)";
-  const connectorColor =
-    index <= currentTierIndex ? tierColorToken(index) : "var(--color-border-strong)";
-
-  return (
-    <span key={`pip-${tierNum}`} style={{ display: "flex", alignItems: "center" }}>
-      {/* Connector line between pips (not before first) */}
-      {index > 0 && (
-        <span
-          aria-hidden="true"
-          style={{
-            display: "inline-block",
-            width: "12px",
-            height: "1.5px",
-            background: connectorColor,
-            opacity: index <= currentTierIndex ? 0.6 : 0.25,
-            flexShrink: 0,
-          }}
-        />
-      )}
-      <span
-        data-testid={`chain-pip-${index}`}
-        data-filled={filled ? "true" : "false"}
-        title={pipLabel}
-        style={{
-          width: size,
-          height: size,
-          borderRadius: "50%",
-          background: filled ? color : "var(--color-base)",
-          border: `1.5px solid ${color}`,
-          opacity: filled ? 1 : 0.3,
-          flexShrink: 0,
-          display: "inline-block",
-        }}
-      />
-    </span>
-  );
-}
-
-/**
- * Renders one pip per tier connected by lines — matches prototype .node + connector.
- * State is NOT conveyed by color alone: data-filled attribute present.
- * No role="group" (not a fieldset context — plain presentational pip row).
- */
-function TierPips({ totalTiers, currentTierIndex, size = 9 }: TierPipsProps): React.JSX.Element {
-  // Build a stable array of tier indices (not generated inline to avoid index-as-key)
-  const tierIndices = Array.from({ length: totalTiers }, (_, i) => i);
+function NodeLadder({
+  totalTiers,
+  currentTierIndex,
+  nodeSize = 10,
+  connectorHeight = 3,
+}: NodeLadderProps): React.JSX.Element {
+  const indices = Array.from({ length: totalTiers }, (_, i) => i);
   return (
     <span
       role="img"
       aria-label={`${currentTierIndex + 1} de ${totalTiers} niveles`}
-      style={{
-        display: "flex",
-        gap: 0,
-        alignItems: "center",
-      }}
+      style={{ display: "flex", alignItems: "center", width: "100%" }}
     >
-      {tierIndices.map((i) => (
-        <TierPip key={`tier-pip-${i}`} index={i} currentTierIndex={currentTierIndex} size={size} />
-      ))}
+      {indices.map((i) => {
+        const filled = i <= currentTierIndex;
+        const color = filled ? tierColor(i) : "var(--color-border-strong)";
+        return (
+          <span key={`tier-node-${i}`} style={{ display: "flex", alignItems: "center", flex: 1 }}>
+            {i > 0 && (
+              <span
+                aria-hidden="true"
+                style={{
+                  flex: 1,
+                  height: `${connectorHeight}px`,
+                  borderRadius: "2px",
+                  background: filled ? color : "var(--color-border)",
+                }}
+              />
+            )}
+            <span
+              data-testid={`chain-pip-${i}`}
+              data-filled={filled ? "true" : "false"}
+              title={`${tierRarityName(i)}${filled ? "" : " · bloqueado"}`}
+              style={{
+                width: `${nodeSize}px`,
+                height: `${nodeSize}px`,
+                borderRadius: "50%",
+                background: color,
+                opacity: filled ? 1 : 0.45,
+                boxShadow: filled ? `0 0 9px -2px ${color}` : "none",
+                flexShrink: 0,
+              }}
+            />
+          </span>
+        );
+      })}
     </span>
   );
 }
 
-// ── Stamp line ────────────────────────────────────────────────────────────────
+// ── Stamp line (date + project per unlock — AC-10-006.2) ─────────────────────────
 
-type StampLineProps = {
-  unlock: TierUnlockEvent;
-};
-
-function StampLine({ unlock }: StampLineProps): React.JSX.Element {
+function StampLine({ unlock }: { unlock: TierUnlockEvent }): React.JSX.Element {
   return (
     <span
       data-testid="chain-unlock-item"
@@ -203,219 +136,402 @@ function StampLine({ unlock }: StampLineProps): React.JSX.Element {
         display: "flex",
         gap: "5px",
         alignItems: "center",
-        fontSize: "10px",
+        fontSize: "11px",
         color: "var(--color-text3)",
         lineHeight: 1.2,
       }}
     >
       <i className="ti ti-calendar" aria-hidden="true" style={{ fontSize: "11px" }} />
       <span className="tabular-nums">{unlock.date}</span>
-      <span aria-hidden="true" style={{ opacity: 0.5 }}>
-        ·
-      </span>
-      <span style={{ fontStyle: "italic", opacity: 0.85 }}>{unlock.project}</span>
+      {unlock.project && unlock.project !== "—" && (
+        <>
+          <span aria-hidden="true" style={{ opacity: 0.5 }}>
+            ·
+          </span>
+          <span style={{ fontStyle: "italic", opacity: 0.85 }}>{unlock.project}</span>
+        </>
+      )}
     </span>
   );
 }
 
-// ── ChainCard ─────────────────────────────────────────────────────────────────
+// ── Derived values ──────────────────────────────────────────────────────────────
 
 type ChainCardVariant = "card" | "spot" | "mini";
 
 export type ChainCardProps = {
   chain: ChainState;
-  /**
-   * Visual variant — matches prototype rendering functions:
-   *   "card"  (default) → rpgChainCard(): the standard grid card
-   *   "spot"             → rpgChainSpot(): full-width spotlight for the top chain
-   *   "mini"             → rpgChainMini(): compact row for common chains
-   */
+  /** "card" (grid), "spot" (full-width spotlight), "mini" (compact). */
   variant?: ChainCardVariant;
 };
 
-/** Shared derived values passed to each ChainCard variant sub-renderer. */
-type ChainCardDerived = {
-  statKey: string;
+type Derived = {
   label: string;
+  tierFunName: string;
+  rarityLabel: string;
+  hasTier: boolean;
   currentTierIndex: number;
-  currentTierName: string | null;
-  nextTier: ChainState["nextTier"];
-  unlocks: ChainState["unlocks"];
   totalTiers: number;
   tierNum: number;
-  tierLabel: string;
-  nextTierName: string;
+  tColor: string;
+  nextTier: ChainState["nextTier"];
   barPct: number;
-  tierColor: string;
+  goalText: string;
+  unlocks: ChainState["unlocks"];
   iconNode: React.ReactNode;
 };
 
-function deriveChainCard(chain: ChainState): ChainCardDerived {
+function derive(chain: ChainState): Derived {
   const { statKey, label, currentTierIndex, currentTierName, nextTier, pctToNext, unlocks } = chain;
+  const value = chain.value ?? 0;
   const chainDef = CHAIN_DEFINITIONS.find((c) => c.statKey === statKey);
   const totalTiers = chainDef?.tiers.length ?? 0;
-  const tierNum = Math.max(0, currentTierIndex + 1);
-  const tierLabel = tierNum > 0 ? (TIER_LABELS[tierNum] ?? currentTierName ?? "—") : "Sin nivel";
-  const nextTierName = nextTier?.name ?? "Máximo";
+  const hasTier = currentTierIndex >= 0;
+  const tierFunName = currentTierName ?? chainDef?.tiers[0]?.name ?? label;
+  const rarityLabel = hasTier ? tierRarityName(currentTierIndex) : "Sin tier";
+  const tColor = tierColor(currentTierIndex);
   const barPct = nextTier !== null ? pctToNext : 100;
-  const tierColor = tierNum > 0 ? tierColorToken(tierNum) : "var(--color-border-strong)";
+  const goalText = nextTier
+    ? chain.lowerIsBetter
+      ? `récord ${value}d → ≤${nextTier.threshold}d`
+      : `${value} / ${nextTier.threshold}`
+    : "";
   const iconClass = CHAIN_ICONS[statKey] ?? "ti-star";
   const iconNode = (
     <i
       data-chain-icon={statKey}
       className={`ti ${iconClass}`}
       aria-hidden="true"
-      style={{ fontSize: "1.1em", color: tierNum > 0 ? tierColor : "var(--color-text3)" }}
+      style={{ fontSize: "1.1em", color: hasTier ? tColor : "var(--color-text3)" }}
     />
   );
   return {
-    statKey,
     label,
+    tierFunName,
+    rarityLabel,
+    hasTier,
     currentTierIndex,
-    currentTierName,
-    nextTier,
-    unlocks,
     totalTiers,
-    tierNum,
-    tierLabel,
-    nextTierName,
+    tierNum: currentTierIndex + 1,
+    tColor,
+    nextTier,
     barPct,
-    tierColor,
+    goalText,
+    unlocks,
     iconNode,
   };
 }
 
-/**
- * CMP-10-chain-card — a single cumulative chain card.
- *
- * Server Component: all data is passed in from computeChains() — no I/O, no hooks.
- * Variant rendering is delegated to sub-functions to keep cognitive complexity low.
- */
-export function ChainCard({ chain, variant = "card" }: ChainCardProps): React.JSX.Element {
-  const d = deriveChainCard(chain);
-  const {
-    statKey: _statKey,
-    label,
-    currentTierIndex,
-    nextTier,
-    unlocks,
-    totalTiers,
-    tierNum,
-    tierLabel,
-    nextTierName,
-    barPct,
-    tierColor,
-    iconNode,
-  } = d;
+// ── Shared badge ────────────────────────────────────────────────────────────────
 
-  // ── Spot variant (rpgChainSpot) ─────────────────────────────────────────────
-  if (variant === "spot") {
-    return (
-      <article
-        data-testid="chain-card"
-        data-variant="spot"
-        aria-label={`Misión en destaque: ${label}`}
-        style={{
-          ...RPGPANEL_STYLE,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: "14px",
-          border: "1.5px solid var(--color-border-strong)",
-          padding: "14px 16px",
-        }}
+function TierBadge({
+  rarityLabel,
+  tierNum,
+  tColor,
+  fontSize = "9px",
+}: {
+  rarityLabel: string;
+  tierNum: number;
+  tColor: string;
+  fontSize?: string;
+}): React.JSX.Element {
+  return (
+    <span
+      data-testid="chain-tier-badge"
+      data-tier={tierNum}
+      style={{
+        fontFamily: "var(--font-pixel)",
+        fontSize,
+        background: tColor,
+        color: "var(--color-base)",
+        padding: "1px 6px",
+        borderRadius: "4px",
+        flexShrink: 0,
+        opacity: tierNum > 0 ? 1 : 0.4,
+      }}
+    >
+      {rarityLabel}
+    </span>
+  );
+}
+
+// ── Chain bar (tier-colored, reuses CMP-09-xp-bar) ──────────────────────────────
+
+function ChainBar({
+  barPct,
+  tColor,
+  nextName,
+  height,
+}: {
+  barPct: number;
+  tColor: string;
+  nextName: string;
+  height: number;
+}): React.JSX.Element {
+  return (
+    <div data-testid="chain-xp-bar-wrapper">
+      <XpBar
+        size="track"
+        fillColor={tColor}
+        trackHeight={height}
+        xp={barPct}
+        next={100}
+        pctToNext={barPct}
+        label={nextName}
+        nextTitle={nextName}
+      />
+    </div>
+  );
+}
+
+// ── Goal row "→ <next>   ·   valor / umbral" ────────────────────────────────────
+
+function GoalRow({
+  nextName,
+  goalText,
+}: {
+  nextName: string;
+  goalText: string;
+}): React.JSX.Element {
+  return (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        gap: "8px",
+        fontSize: "11px",
+        color: "var(--color-text3)",
+      }}
+    >
+      <span
+        data-testid="chain-next-tier-name"
+        style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}
       >
-        {/* Large ItemSlot (58px) */}
-        <ItemSlot icon={iconNode} size={58} tone="accent" aria-label={`Cadena: ${label}`} />
-
-        {/* Body: label + xpbar */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "8px" }}>
-          {/* Tier badge + label */}
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-            <span
-              data-testid="chain-tier-badge"
-              data-tier={tierNum}
-              style={{
-                fontFamily: "var(--font-pixel)",
-                fontSize: "9px",
-                background: tierColor,
-                color: "var(--color-base)",
-                padding: "1px 5px",
-                borderRadius: "3px",
-              }}
-            >
-              {tierLabel}
-            </span>
-            <span style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--color-text)" }}>
-              {label}
-            </span>
-          </div>
-          {/* Next tier name */}
-          {nextTier !== null && (
-            <span
-              data-testid="chain-next-tier-name"
-              style={{ fontSize: "0.75rem", color: "var(--color-text3)" }}
-            >
-              → {nextTier.name}
-            </span>
-          )}
-          {/* Xpbar 14px */}
-          <div data-testid="chain-xp-bar-wrapper">
-            <XpBar
-              xp={barPct}
-              next={100}
-              pctToNext={barPct}
-              label={tierLabel}
-              nextTitle={nextTierName}
-            />
-          </div>
-          {/* Tier pips */}
-          {totalTiers > 0 && (
-            <TierPips totalTiers={totalTiers} currentTierIndex={currentTierIndex} />
-          )}
-        </div>
-
-        {/* Big pixel % numeral (right side) */}
-        <span
+        <i
+          className="ti ti-arrow-big-right-lines"
           aria-hidden="true"
-          style={{
-            fontFamily: "var(--font-pixel)",
-            fontSize: "32px",
-            color: tierColor,
-            lineHeight: 1,
-            letterSpacing: "-1px",
-            flexShrink: 0,
-          }}
-        >
-          {barPct}
-          <span style={{ fontSize: "14px", opacity: 0.7 }}>%</span>
-        </span>
-      </article>
-    );
-  }
+          style={{ fontSize: "11px", verticalAlign: "-2px" }}
+        />{" "}
+        {nextName}
+      </span>
+      <span className="tabular-nums" style={{ flexShrink: 0 }}>
+        {goalText}
+      </span>
+    </div>
+  );
+}
 
-  // ── Mini variant (rpgChainMini) ─────────────────────────────────────────────
-  if (variant === "mini") {
-    return (
-      <article
-        data-testid="chain-card"
-        data-variant="mini"
-        aria-label={`Cadena: ${label}`}
-        style={{
-          ...RPGPANEL_STYLE,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: "8px",
-          padding: "8px 10px",
-        }}
+function CompletedLine(): React.JSX.Element {
+  return (
+    <div style={{ fontSize: "11px", color: "var(--color-ok)", display: "flex", gap: "5px" }}>
+      <i className="ti ti-crown" aria-hidden="true" style={{ fontSize: "14px" }} />
+      Cadena legendaria completada
+    </div>
+  );
+}
+
+// ── ChainCard ─────────────────────────────────────────────────────────────────
+
+export function ChainCard({ chain, variant = "card" }: ChainCardProps): React.JSX.Element {
+  const d = derive(chain);
+
+  if (variant === "spot") return <SpotCard d={d} />;
+  if (variant === "mini") return <MiniCard d={d} />;
+  return <StandardCard d={d} />;
+}
+
+// ── Spot variant (rpgChainSpot) ─────────────────────────────────────────────────
+
+function SpotCard({ d }: { d: Derived }): React.JSX.Element {
+  return (
+    <article
+      data-testid="chain-card"
+      data-variant="spot"
+      aria-label={`Misión en destaque: ${d.label}`}
+      style={{
+        ...RPGPANEL_STYLE,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: "17px",
+        flexWrap: "wrap",
+        border: "1.5px solid var(--color-accent)",
+        padding: "18px",
+      }}
+    >
+      <ItemSlot icon={d.iconNode} size={58} tone="accent" aria-label={`Cadena: ${d.label}`} />
+
+      {/* Left: chips + fun name + chain name + node ladder */}
+      <div
+        style={{ flex: 1, minWidth: "230px", display: "flex", flexDirection: "column", gap: "4px" }}
       >
-        {/* Small ItemSlot (34px) */}
-        <ItemSlot icon={iconNode} size={34} aria-label={`Cadena: ${label}`} />
-
-        {/* Body: label + compact xpbar + next-tier */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "5px", minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
           <span
             style={{
-              fontSize: "0.8rem",
+              fontFamily: "var(--font-pixel)",
+              fontSize: "10px",
+              color: "var(--color-accent-text)",
+              background: "var(--color-accent-bg)",
+              border: "1px solid var(--color-accent)",
+              padding: "2px 8px",
+              borderRadius: "5px",
+            }}
+          >
+            <i
+              className="ti ti-bolt"
+              aria-hidden="true"
+              style={{ fontSize: "11px", verticalAlign: "-1px" }}
+            />{" "}
+            A UN PASO DE SUBIR
+          </span>
+          <TierBadge
+            rarityLabel={d.rarityLabel}
+            tierNum={d.tierNum}
+            tColor={d.tColor}
+            fontSize="10px"
+          />
+        </div>
+        <div
+          style={{
+            fontFamily: "var(--font-display, var(--font-space-grotesk))",
+            fontSize: "21px",
+            lineHeight: 1.1,
+            color: "var(--color-text)",
+          }}
+        >
+          {d.tierFunName}
+        </div>
+        <span data-testid="chain-label" style={{ fontSize: "12px", color: "var(--color-text2)" }}>
+          {d.label}
+        </span>
+        {d.totalTiers > 0 && (
+          <div style={{ marginTop: "9px" }}>
+            <NodeLadder
+              totalTiers={d.totalTiers}
+              currentTierIndex={d.currentTierIndex}
+              nodeSize={18}
+              connectorHeight={4}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Right: big % + goal + bar + value/threshold */}
+      {d.nextTier !== null ? (
+        <div
+          style={{
+            flexShrink: 0,
+            minWidth: "185px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "6px",
+          }}
+        >
+          <span
+            aria-hidden="true"
+            style={{
+              fontFamily: "var(--font-pixel)",
+              fontSize: "32px",
+              color: "var(--color-accent-text)",
+              lineHeight: 1,
+              textAlign: "right",
+            }}
+          >
+            {d.barPct}
+            <span style={{ fontSize: "14px", opacity: 0.7 }}>%</span>
+          </span>
+          <span
+            data-testid="chain-next-tier-name"
+            style={{ fontSize: "12px", color: "var(--color-text2)", textAlign: "right" }}
+          >
+            <i
+              className="ti ti-arrow-big-right-lines"
+              aria-hidden="true"
+              style={{ fontSize: "12px", verticalAlign: "-2px" }}
+            />{" "}
+            {d.nextTier.name}
+          </span>
+          <ChainBar barPct={d.barPct} tColor={d.tColor} nextName={d.nextTier.name} height={14} />
+          <span
+            className="tabular-nums"
+            style={{ fontSize: "11px", color: "var(--color-text3)", textAlign: "right" }}
+          >
+            {d.goalText}
+          </span>
+        </div>
+      ) : (
+        <CompletedLine />
+      )}
+    </article>
+  );
+}
+
+// ── Standard card variant (rpgChainCard) ────────────────────────────────────────
+
+function StandardCard({ d }: { d: Derived }): React.JSX.Element {
+  return (
+    <article
+      data-testid="chain-card"
+      data-variant="card"
+      aria-label={`Cadena: ${d.label}`}
+      style={RPGPANEL_STYLE}
+    >
+      {/* Header: medal + [fun name + badge] + chain name */}
+      <div style={{ display: "flex", gap: "11px", alignItems: "center" }}>
+        <ItemSlot icon={d.iconNode} size={42} aria-label={`Cadena: ${d.label}`} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "7px", flexWrap: "wrap" }}>
+            <span style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--color-text)" }}>
+              {d.tierFunName}
+            </span>
+            <TierBadge rarityLabel={d.rarityLabel} tierNum={d.tierNum} tColor={d.tColor} />
+          </div>
+          <div data-testid="chain-label" style={{ fontSize: "11px", color: "var(--color-text2)" }}>
+            {d.label}
+          </div>
+        </div>
+      </div>
+
+      {/* Node ladder */}
+      {d.totalTiers > 0 && (
+        <div style={{ margin: "3px 3px 2px" }}>
+          <NodeLadder totalTiers={d.totalTiers} currentTierIndex={d.currentTierIndex} />
+        </div>
+      )}
+
+      {/* Goal + bar OR completed */}
+      {d.nextTier !== null ? (
+        <>
+          <GoalRow nextName={d.nextTier.name} goalText={d.goalText} />
+          <ChainBar barPct={d.barPct} tColor={d.tColor} nextName={d.nextTier.name} height={12} />
+        </>
+      ) : (
+        <CompletedLine />
+      )}
+
+      {/* Stamp lines (date + project per unlock — incl. completed) */}
+      {d.unlocks.map((unlock) => (
+        <StampLine key={`unlock-tier-${unlock.tier}`} unlock={unlock} />
+      ))}
+    </article>
+  );
+}
+
+// ── Mini card variant (rpgChainMini) ────────────────────────────────────────────
+
+function MiniCard({ d }: { d: Derived }): React.JSX.Element {
+  return (
+    <article
+      data-testid="chain-card"
+      data-variant="mini"
+      aria-label={`Cadena: ${d.label}`}
+      style={{ ...RPGPANEL_STYLE, padding: "11px 12px", gap: "9px" }}
+    >
+      <div style={{ display: "flex", gap: "9px", alignItems: "center" }}>
+        <ItemSlot icon={d.iconNode} size={34} aria-label={`Cadena: ${d.label}`} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              fontSize: "12px",
               fontWeight: 600,
               color: "var(--color-text)",
               overflow: "hidden",
@@ -423,136 +539,54 @@ export function ChainCard({ chain, variant = "card" }: ChainCardProps): React.JS
               whiteSpace: "nowrap",
             }}
           >
-            {label}
-          </span>
-          <div data-testid="chain-xp-bar-wrapper">
-            <XpBar
-              xp={barPct}
-              next={100}
-              pctToNext={barPct}
-              label={tierLabel}
-              nextTitle={nextTierName}
-              size="compact"
-            />
+            {d.tierFunName}
           </div>
-          {nextTier !== null && (
+          <div data-testid="chain-label" style={{ fontSize: "10px", color: "var(--color-text3)" }}>
+            {d.label}
+          </div>
+        </div>
+        <TierBadge rarityLabel={d.rarityLabel} tierNum={d.tierNum} tColor={d.tColor} />
+      </div>
+
+      {d.nextTier !== null ? (
+        <>
+          <ChainBar barPct={d.barPct} tColor={d.tColor} nextName={d.nextTier.name} height={9} />
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: "6px",
+              fontSize: "10px",
+              color: "var(--color-text3)",
+            }}
+          >
             <span
               data-testid="chain-next-tier-name"
-              style={{ fontSize: "10px", color: "var(--color-text3)" }}
-            >
-              {nextTier.name}
-            </span>
-          )}
-        </div>
-
-        {/* Tier badge */}
-        <span
-          data-testid="chain-tier-badge"
-          data-tier={tierNum}
-          style={{
-            fontFamily: "var(--font-pixel)",
-            fontSize: "9px",
-            background: tierColor,
-            color: "var(--color-base)",
-            padding: "1px 5px",
-            borderRadius: "3px",
-            flexShrink: 0,
-          }}
-        >
-          {tierLabel}
-        </span>
-      </article>
-    );
-  }
-
-  // ── Card variant (default, rpgChainCard) ────────────────────────────────────
-  return (
-    <article
-      data-testid="chain-card"
-      data-variant="card"
-      aria-label={`Cadena: ${label}`}
-      style={{
-        ...RPGPANEL_STYLE,
-      }}
-    >
-      {/* ── Header: ItemSlot + label + tier pips + badge ────────────────── */}
-      <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-        {/* ItemSlot (42px, tier-colored border) */}
-        <ItemSlot icon={iconNode} size={42} aria-label={`Cadena: ${label}`} />
-
-        {/* Label + tier info */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "5px", minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span
-              data-testid="chain-label"
               style={{
-                fontSize: "0.875rem",
-                fontWeight: 600,
-                color: "var(--color-text)",
-                flex: 1,
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
+                minWidth: 0,
               }}
             >
-              {label}
+              <i
+                className="ti ti-arrow-big-right-lines"
+                aria-hidden="true"
+                style={{ fontSize: "10px", verticalAlign: "-1px" }}
+              />{" "}
+              {d.nextTier.name}
             </span>
-
-            {/* Tier badge (text + data-tier — not color-alone — AC-10-006.5) */}
-            <span
-              data-testid="chain-tier-badge"
-              data-tier={tierNum}
-              style={{
-                fontFamily: "var(--font-pixel)",
-                fontSize: "9px",
-                background: tierColor,
-                color: "var(--color-base)",
-                padding: "1px 5px",
-                borderRadius: "3px",
-                flexShrink: 0,
-                opacity: tierNum > 0 ? 1 : 0.35,
-              }}
-            >
-              {tierLabel}
+            <span className="tabular-nums" style={{ flexShrink: 0 }}>
+              {d.goalText}
             </span>
           </div>
-
-          {/* Node pips ladder */}
-          {totalTiers > 0 && (
-            <TierPips totalTiers={totalTiers} currentTierIndex={currentTierIndex} />
-          )}
+        </>
+      ) : (
+        <div style={{ fontSize: "10px", color: "var(--color-ok)", display: "flex", gap: "4px" }}>
+          <i className="ti ti-crown" aria-hidden="true" style={{ fontSize: "11px" }} />
+          Completada
         </div>
-      </div>
-
-      {/* ── Progress bar (12px — CMP-09-xp-bar, AC-10-006.3) ───────────── */}
-      <div data-testid="chain-xp-bar-wrapper">
-        <XpBar
-          xp={barPct}
-          next={100}
-          pctToNext={barPct}
-          label={tierLabel}
-          nextTitle={nextTierName}
-        />
-      </div>
-
-      {/* Next tier name label (AC-10-006.1) */}
-      {nextTier !== null && (
-        <span
-          data-testid="chain-next-tier-name"
-          style={{
-            fontSize: "0.75rem",
-            color: "var(--color-text3)",
-            opacity: 0.8,
-          }}
-        >
-          Siguiente: {nextTier.name}
-        </span>
       )}
-
-      {/* ── Stamp lines (date + project per unlock — AC-10-006.2) ────────── */}
-      {unlocks.map((unlock: TierUnlockEvent) => (
-        <StampLine key={`unlock-tier-${unlock.tier}`} unlock={unlock} />
-      ))}
     </article>
   );
 }

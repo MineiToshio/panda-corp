@@ -70,6 +70,12 @@ export type ChainState = {
   readonly lowerIsBetter: boolean;
   /** Unlock records per tier (AC-10-002.2). */
   readonly unlocks: readonly TierUnlockEvent[];
+  /**
+   * Current cumulative stat value (only-grows; for the "valor / umbral" goal line).
+   * Always set by computeChains; optional so hand-built fixtures stay terse (derive
+   * falls back to 0).
+   */
+  readonly value?: number;
 };
 
 /**
@@ -122,6 +128,7 @@ export function computeChains(stats: readonly Stat[]): ChainState[] {
       pctToNext,
       lowerIsBetter,
       unlocks: unlockEvents,
+      value,
     };
   });
 }

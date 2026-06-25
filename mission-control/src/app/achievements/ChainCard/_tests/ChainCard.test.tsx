@@ -265,10 +265,11 @@ describe("AC-10-006.3 — honest endowed progress bar reusing CMP-09-xp-bar", ()
     expect(fill.getAttribute("style")).toContain("0%");
   });
 
-  it("XP bar fill is 100% when chain is maxed (pctToNext=100)", () => {
+  it("maxed chain shows the completed line, not a progress bar (prototype: crown)", () => {
     render(<ChainCard chain={mkMaxedChain()} />);
-    const fill = screen.getByTestId("xp-bar-fill");
-    expect(fill.getAttribute("style")).toContain("100%");
+    // A completed chain has no next tier → no bar, just the "completada" crown line.
+    expect(screen.queryByTestId("xp-bar-fill")).toBeNull();
+    expect(screen.getByText(/completada/i)).toBeDefined();
   });
 
   it("NEGATIVE AC — 0% pctToNext never renders fill ≥ 50% (no inflated endowed bar)", () => {
@@ -286,11 +287,10 @@ describe("AC-10-006.3 — honest endowed progress bar reusing CMP-09-xp-bar", ()
     expect(progressbar).toBeDefined();
   });
 
-  it("XP bar shows the next tier name as its label", () => {
+  it("shows the next tier name in the goal row", () => {
     render(<ChainCard chain={mkChain()} />);
-    // next tier name "Maestro de obras" should appear near the bar
-    const xpBar = screen.getByTestId("xp-bar");
-    expect(xpBar.textContent).toContain("Maestro de obras");
+    // The next tier name now lives in the goal row (chain-next-tier-name), beside the bar.
+    expect(screen.getByTestId("chain-next-tier-name").textContent).toContain("Maestro de obras");
   });
 
   it("speed (lower-is-better) chain renders XP bar correctly (pctToNext 50 → 50%)", () => {

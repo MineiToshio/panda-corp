@@ -40,12 +40,13 @@ import { getGuildState } from "@/lib/gamification/guildState";
 import { readIdeas } from "@/lib/ideas/ideas";
 import { HallTabs } from "./_components/HallTabs";
 
-// ── Party roster ─────────────────────────────────────────────────────────────
+// ── Party roster (prototype logrosHero roster — 6 agents) ──────────────────────
 const HALL_PARTY_ROLES: readonly AgentRole[] = [
-  "researcher",
+  "product-manager",
+  "architect",
   "backend-dev",
   "frontend-dev",
-  "test-writer",
+  "designer",
   "reviewer",
 ] as const;
 
@@ -85,14 +86,11 @@ export default async function HallPage(): Promise<React.JSX.Element> {
   const trophiesCount = uniques.filter((u) => u.unlocked).length;
   const trophiesTotal = uniques.length;
 
-  const featsCount = (eventsSnapshot?.events ?? []).filter(
-    (e) => e.event === "achievement" || e.event === "end",
-  ).length;
-
-  const missionsActive = statuses.filter((s) => {
-    if (!s.present || s.status === null) return false;
-    return ["implementation", "build"].includes(s.status.phase ?? "");
-  }).length;
+  // Counts (prototype logrosCounts): tiers = Σ(currentTierIndex+1) across chains;
+  // hazañas = tiers + trophies; misiones en curso = chains with a next tier.
+  const tiersReached = chains.reduce((n, c) => n + (c.currentTierIndex + 1), 0);
+  const missionsActive = chains.filter((c) => c.nextTier !== null).length;
+  const featsCount = tiersReached + trophiesCount;
 
   return (
     <PageLayout
@@ -102,25 +100,9 @@ export default async function HallPage(): Promise<React.JSX.Element> {
       tail={<Chip tone="warn">{`${featsCount} hazañas`}</Chip>}
       testId="achievements-page"
     >
-      {/* ── GuildHero character-sheet (AC-09-003.1..3, AC-09-004.1..5) ─────*/}
-      <GuildHero
-        level={guildLevel.level}
-        title={guildLevel.title}
-        xp={guildLevel.xp}
-        next={guildLevel.next}
-        pctToNext={guildLevel.pctToNext}
-        nextTitle={nextTitle}
-        featsCount={featsCount}
-        trophiesCount={trophiesCount}
-        trophiesTotal={trophiesTotal}
-        missionsActive={missionsActive}
-        partyRoster={HALL_PARTY_ROLES}
-        statsLanzados={statsLanzados}
-        statsRacha={statsRacha}
-        statsVelocidad={statsVelocidad}
-      />
-
-      {/* ── 4-tab body: Resumen · Misiones · Trofeos · Estadísticas ─────── */}
+      {/* ── 4-tab body: Resumen (hero + quests + vitrina) · Misiones · Trofeos · Estadísticas.
+          The GuildHero lives ONLY inside the Resumen tab (prototype logrosResumen); the
+          persistent guild level is the header GuildBar. ───────────────────────────── */}
       <HallTabs
         chains={chains}
         uniques={uniques}
@@ -128,6 +110,25 @@ export default async function HallPage(): Promise<React.JSX.Element> {
         readerData={readerData}
         trophiesCount={trophiesCount}
         trophiesTotal={trophiesTotal}
+        missionsActive={missionsActive}
+        hero={
+          <GuildHero
+            level={guildLevel.level}
+            title={guildLevel.title}
+            xp={guildLevel.xp}
+            next={guildLevel.next}
+            pctToNext={guildLevel.pctToNext}
+            nextTitle={nextTitle}
+            featsCount={featsCount}
+            trophiesCount={trophiesCount}
+            trophiesTotal={trophiesTotal}
+            missionsActive={missionsActive}
+            partyRoster={HALL_PARTY_ROLES}
+            statsLanzados={statsLanzados}
+            statsRacha={statsRacha}
+            statsVelocidad={statsVelocidad}
+          />
+        }
       />
     </PageLayout>
   );
