@@ -35,6 +35,7 @@ import { GuildHero } from "@/components/modules/GuildHero/GuildHero";
 import { computeChains, computeSecrets, computeUniques } from "@/lib/achievements/achievements";
 import type { ReaderData } from "@/lib/achievements/stats";
 import { computeStats } from "@/lib/achievements/stats";
+import { resolveProjectPath } from "@/lib/config/config";
 import { readEvents } from "@/lib/events/events";
 import { computeGuildLevel, deriveGuildOutcomes, RANKS } from "@/lib/gamification/gamification";
 import { readIdeas } from "@/lib/ideas/ideas";
@@ -56,7 +57,7 @@ const HALL_PARTY_ROLES: readonly AgentRole[] = [
 export default async function HallPage(): Promise<React.JSX.Element> {
   // ── Read phase (fail-soft, read-only) ────────────────────────────────────
   const portfolioEntries = readPortfolio();
-  const statuses = portfolioEntries.map((entry) => readStatus(entry.path));
+  const statuses = portfolioEntries.map((entry) => readStatus(resolveProjectPath(entry.path)));
   const eventsSnapshot = readEvents();
   const ideas = readIdeas();
 
