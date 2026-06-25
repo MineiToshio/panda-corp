@@ -208,23 +208,22 @@ function StatLedgerRow({ stat, tierIndex, iconClass }: StatLedgerRowProps): Reac
         {stat.label}
       </span>
 
-      {/* Tier node pip — 9px, tier-colored WITH glow (prototype .node box-shadow).
-          Only rendered when a tier is reached (prototype: node shown only if tier). */}
-      {hasTier && (
-        <span
-          role="img"
-          aria-label={`Nivel: ${tierLabel}`}
-          title={tierLabel}
-          style={{
-            width: "9px",
-            height: "9px",
-            borderRadius: "50%",
-            background: tierColor,
-            boxShadow: `0 0 7px -2px ${tierColor}`,
-            flexShrink: 0,
-          }}
-        />
-      )}
+      {/* Tier node pip — 9px. Tier-colored WITH glow when a tier is reached; a dim
+          neutral placeholder when not (every row carries a pip, for column consistency). */}
+      <span
+        role="img"
+        aria-label={hasTier ? `Nivel: ${tierLabel}` : "Sin nivel aún"}
+        title={hasTier ? tierLabel : "Sin nivel aún"}
+        style={{
+          width: "9px",
+          height: "9px",
+          borderRadius: "50%",
+          background: hasTier ? tierColor : "var(--color-border-strong)",
+          boxShadow: hasTier ? `0 0 7px -2px ${tierColor}` : "none",
+          opacity: hasTier ? 1 : 0.4,
+          flexShrink: 0,
+        }}
+      />
 
       {/* 18px pixel numeral (prototype statLedgerRow) */}
       <span
