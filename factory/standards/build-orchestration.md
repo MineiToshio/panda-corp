@@ -70,6 +70,19 @@ fabricating a sequential chain to make the graph "look connected" is the defect 
 serialization itself stays artifact-driven, DR-060; `dependsOn` is the dependency *truth* for
 traceability and visualization, and may inform ordering.)
 
+**What counts as a dependency — capture the architectural couplings, not just the build order (DR-087a).**
+`A depends on B` (`A.dependsOn` includes B) whenever A, to work, needs B to already exist because A:
+*reads/consumes/imports* B's output, *renders based on / is driven by* B's data or engine, *is built on*
+B's shared primitives, *extends / is conceptually part of* B, or *consumes* B's contract/data shape.
+This is broader than "what builds before what". In practice a **UI-surface** work order almost always
+depends on (1) its own lib/logic WOs, (2) the **design-system foundation** WOs it uses (the shared
+primitives — titles/nav, banners/surfaces, RPG/state components), (3) the **data-reader** WOs whose
+output it renders, and (4) any **other feature** whose data or engine it renders (e.g. a live view ←
+the build-mode catalog; an achievements/gamification surface ← the event/metrics readers; a dashboard ←
+the readers + feature surfaces it aggregates). A lib/reader WO usually depends on little. Under-capturing
+deps (listing only sequential build order) yields a sparse, misleading dependency graph — declare the
+real couplings. Don't over-connect either: only evidence-based deps (what the WO actually imports/reads).
+
 **Per-WO API contract (DR-060).** Each backend work order writes its own contract at
 `docs/api/<wo-id>.md` (e.g. `docs/api/WO-03-002.md`), NOT a single shared `docs/api.md`. The old
 shared file was itself an overlapping artifact: N parallel agents racing one file caused lost-update /

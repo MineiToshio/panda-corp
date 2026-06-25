@@ -4,6 +4,11 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-06-25 — Dependency-capture rubric in the work-orders skill (DR-087a) · v9.6.1
+**What:** Added a "what counts as a dependency" rubric to `plugin/skills/work-orders/SKILL.md` (pointing at `build-orchestration.md`): `dependsOn` must capture the **architectural couplings** (A reads/renders-based-on/is-built-on/extends B), not just sequential build order — a UI surface depends on its libs + the design-system foundations it uses + the data readers it renders + features whose data/engine it renders. Only evidence-based couplings, never speculative.
+**Why:** Auditing Mission Control's real dependency graph showed deps were under-captured (READMEs listed only partial build order → a sparse, misleading DAG). Guidance fixes it for future projects.
+**Impact:** `plugin/skills/work-orders/SKILL.md` + the canonical standard `factory/standards/build-orchestration.md`. **v9.6.0 → v9.6.1** (PATCH — guidance only, no behavior change). After committing: `claude plugin update pandacorp@panda-corp`.
+
 ## 2026-06-24 — Work-order `dependsOn` frontmatter (DR-087): real dependency DAG, no fabricated chain · v9.6.0
 **What:** Added a **`dependsOn: [WO-NN-MMM]`** field to the work-order frontmatter template, the work-orders README template ("Depends on" column ↔ frontmatter), and the `work-orders` skill (which now populates it). It is the machine-readable mirror of the Build Plan DAG / README "Depends on" column — the real upstream WOs a work order depends on (`[]` for a root, cross-FRD allowed), never a fabricated chain. Mission Control's dependency DAG (FRD-12) reads it.
 **Why:** MC's DAG showed a fake linear chain (every WO ← one other) because the deps lived only in the README prose and the DAG invented a sequential fallback. Making deps machine-readable frontmatter (like `artifacts`) is the durable fix the owner chose.
