@@ -24,18 +24,21 @@
  * Blueprint: CMP-10-stats-panel (FRD-10 blueprint §4)
  */
 
-import { computeChains } from "@/lib/achievements/achievements";
+import { computeChains, metricLevel } from "@/lib/achievements/achievements";
 import { computeStats, type ReaderData, type Stat } from "@/lib/achievements/stats";
-import { tierColor, tierRarityName } from "@/lib/achievements/tiers";
+import { tierColor } from "@/lib/achievements/tiers";
 
-// ── Tier helpers (shared rarity names + colors — Común → Leyenda, 0-indexed) ─────
+// ── Level helpers (UNBOUNDED character-sheet level — FRD-09 phase 3) ──────────────
+// The displayed value is "Nv N" with NO 5-cap; the dot keeps a 5-hue band so it
+// stays visually graded while the number climbs forever. `level` is 0 = sin nivel,
+// 1+ = the metric's level (from metricLevel).
 
-function getMedalLabel(tierIndex: number): string {
-  return tierIndex < 0 ? "—" : tierRarityName(tierIndex);
+function getMedalLabel(level: number): string {
+  return level >= 1 ? `Nv ${level}` : "—";
 }
 
-function getMedalColor(tierIndex: number): string {
-  return tierColor(tierIndex);
+function getMedalColor(level: number): string {
+  return tierColor(Math.min(Math.max(level - 1, 0), 4));
 }
 
 // ── RPGPanel style ────────────────────────────────────────────────────────────
@@ -71,7 +74,7 @@ type HeroStatProps = {
  * Tokens only. Server Component.
  */
 function HeroStat({ label, iconClass, value, sub, tierIndex }: HeroStatProps): React.JSX.Element {
-  const hasTier = tierIndex >= 0;
+  const hasTier = tierIndex >= 1; // tierIndex prop now carries the unbounded level (0 = sin nivel)
   const tierColor = getMedalColor(tierIndex);
   const tierLabel = getMedalLabel(tierIndex);
 
@@ -166,7 +169,7 @@ type StatLedgerRowProps = {
  * Tokens only. Server Component.
  */
 function StatLedgerRow({ stat, tierIndex, iconClass }: StatLedgerRowProps): React.JSX.Element {
-  const hasTier = tierIndex >= 0;
+  const hasTier = tierIndex >= 1; // tierIndex prop now carries the unbounded level (0 = sin nivel)
   const tierColor = getMedalColor(tierIndex);
   const tierLabel = getMedalLabel(tierIndex);
 
@@ -208,7 +211,23 @@ function StatLedgerRow({ stat, tierIndex, iconClass }: StatLedgerRowProps): Reac
         {stat.label}
       </span>
 
-      {/* Tier node pip — 9px. Tier-colored WITH glow when a tier is reached; a dim
+      {/* Unbounded level chip "Nv N" (FRD-09 phase 3) — only when the metric has a level. */}
+      {hasTier && (
+        <span
+          data-testid="stat-ledger-level"
+          style={{
+            fontFamily: "var(--font-pixel)",
+            fontSize: "9px",
+            color: "var(--color-accent-text)",
+            flexShrink: 0,
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          {tierLabel}
+        </span>
+      )}
+
+      {/* Tier node pip — 9px. Band-colored WITH glow when a level is reached; a dim
           neutral placeholder when not (every row carries a pip, for column consistency). */}
       <span
         role="img"
@@ -255,7 +274,7 @@ type StatItemProps = {
 function StatItem({ stat, tierIndex }: StatItemProps): React.JSX.Element {
   const medalLabel = getMedalLabel(tierIndex);
   const medalColor = getMedalColor(tierIndex);
-  const hasTier = tierIndex >= 0;
+  const hasTier = tierIndex >= 1; // tierIndex prop now carries the unbounded level (0 = sin nivel)
 
   return (
     <li
@@ -550,17 +569,20 @@ export type StatsPanelProps = {
  */
 export function StatsPanel({ readerData }: StatsPanelProps): React.JSX.Element {
   const stats = computeStats(readerData);
-  const chains = computeChains(stats);
+  const chains = computeChains(stats); // radar axes only (normalized 0–100)
 
   // Build lookups
   const statByKey = new Map<string, Stat>(stats.map((s) => [s.key, s]));
-  const tierByKey = new Map<string, number>(chains.map((c) => [c.statKey, c.currentTierIndex]));
+  // UNBOUNDED per-metric level (FRD-09 phase 3) — climbs with the value, no 5-cap.
+  const levelByKey = new Map<string, number>(
+    stats.map((s) => [s.key, metricLevel(s.key, s.value)]),
+  );
 
   // Hero stat values
   const heroStats = HERO_STAT_KEYS.map((h) => ({
     ...h,
     value: statByKey.get(h.key)?.value ?? 0,
-    tierIndex: tierByKey.get(h.key) ?? -1,
+    tierIndex: levelByKey.get(h.key) ?? 0,
   }));
 
   // Radar axes (derived from real stats, capped at 100)
@@ -638,7 +660,7 @@ export function StatsPanel({ readerData }: StatsPanelProps): React.JSX.Element {
       >
         {LEDGER_COLUMNS.map((col) => {
           const colStats = col.keys
-            .map((k) => ({ stat: statByKey.get(k), tierIndex: tierByKey.get(k) ?? -1, key: k }))
+            .map((k) => ({ stat: statByKey.get(k), tierIndex: levelByKey.get(k) ?? 0, key: k }))
             .filter(
               (x): x is { stat: Stat; tierIndex: number; key: string } => x.stat !== undefined,
             );
@@ -696,7 +718,7 @@ export function StatsPanel({ readerData }: StatsPanelProps): React.JSX.Element {
       {/* Legacy stat list (hidden visually, kept for backward compat with existing tests) */}
       <ul aria-hidden="true" style={{ listStyle: "none", margin: 0, padding: 0, display: "none" }}>
         {stats.map((stat) => {
-          const tierIndex = tierByKey.get(stat.key) ?? -1;
+          const tierIndex = levelByKey.get(stat.key) ?? 0;
           return <StatItem key={stat.key} stat={stat} tierIndex={tierIndex} />;
         })}
       </ul>

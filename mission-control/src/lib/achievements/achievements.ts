@@ -134,6 +134,45 @@ export function computeChains(stats: readonly Stat[]): ChainState[] {
 }
 
 /**
+ * UNBOUNDED metric level for the Estadísticas tab (FRD-09 phase 3): how high a
+ * single stat has climbed, with NO 5-tier cap.
+ *
+ * - Counts the metric's defined thresholds the value has crossed, then keeps
+ *   extending beyond the last one (each next milestone ≈ 1.6× the previous), so
+ *   the level keeps rising as the value grows. Higher-is-better metrics are
+ *   unbounded; lower-is-better (e.g. speed/days) stay bounded by their finite
+ *   thresholds (you can't ship in negative days).
+ * - Returns 0 when no threshold is crossed yet ("sin nivel"). Guarded so it
+ *   never loops forever.
+ *
+ * Distinct from `currentTierIndex` (the 0-based, 5-cap chain tier used by
+ * Misiones); this is the numeric character-sheet level used by Estadísticas.
+ */
+export function metricLevel(statKey: string, value: number): number {
+  const chainDef = CHAIN_DEFINITIONS.find((c) => c.statKey === statKey);
+  const tiers = chainDef?.tiers ?? [];
+  if (tiers.length === 0 || value <= 0) return 0;
+
+  if (chainDef?.lowerIsBetter === true) {
+    // Lower is better: a level per threshold the (positive) value sits at or below.
+    return tiers.filter((t) => value <= t.threshold).length;
+  }
+
+  // Higher is better: defined thresholds crossed…
+  let level = tiers.filter((t) => value >= t.threshold).length;
+  // …then keep extending beyond the last defined milestone (≈1.6× each).
+  if (level === tiers.length) {
+    let next = tiers[tiers.length - 1]?.threshold ?? 1;
+    for (let guard = 0; guard < 500; guard++) {
+      next = Math.max(next + 1, Math.round(next * 1.6));
+      if (value >= next) level++;
+      else break;
+    }
+  }
+  return level;
+}
+
+/**
  * Find the current tier index for a chain value (behavior copied verbatim from
  * the original inline loop).
  *
