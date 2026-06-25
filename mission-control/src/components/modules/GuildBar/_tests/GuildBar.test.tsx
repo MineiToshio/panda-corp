@@ -66,8 +66,8 @@ describe("AC-09-004.1 — GuildBar shows guild level, title, and XP bar", () => 
       greenTestRuns: 0,
     };
     render(<GuildBar outcomes={outcomes} />);
-    // "Aprendiz" is the rank-1 title in the RANKS ladder
-    expect(screen.getByTestId("guild-bar-title").textContent).toContain("Aprendiz");
+    // "Humano" is the rank-1 title in the RANKS ladder
+    expect(screen.getByTestId("guild-bar-title").textContent).toContain("Humano");
   });
 
   it("reflects higher outcomes in higher level/title", () => {
@@ -96,7 +96,7 @@ describe("AC-09-004.1 — GuildBar shows guild level, title, and XP bar", () => 
     expect(screen.getByTestId("xp-bar")).toBeDefined();
   });
 
-  it("shows 'Maestro del Gremio' title when at max rank", () => {
+  it("shows the top-rank title when at max rank", () => {
     const maxOutcomes: GuildOutcomes = {
       workOrdersDone: 10_000,
       phasesCompleted: 1_000,
@@ -105,7 +105,7 @@ describe("AC-09-004.1 — GuildBar shows guild level, title, and XP bar", () => 
     };
     render(<GuildBar outcomes={maxOutcomes} />);
     const title = screen.getByTestId("guild-bar-title").textContent;
-    expect(title).toContain("Maestro del Gremio");
+    expect(title).toContain("Portador del Juramento Eterno");
   });
 });
 
@@ -174,8 +174,8 @@ describe("AC-09-004.1 — faltan N para Nv X · next-title subtitle", () => {
     render(<GuildBar outcomes={outcomes} />);
     // The XpBar's next-label should contain the next rank title
     const nextLabel = screen.getByTestId("xp-bar-next-label");
-    // At level 1 (Aprendiz), next rank is Artesano (threshold 100 XP)
-    expect(nextLabel.textContent).toContain("Artesano");
+    // At level 1 (Humano), the next rank is Buscador del Alba I (threshold 25 XP)
+    expect(nextLabel.textContent).toContain("Buscador del Alba I");
   });
 
   it("at max rank, next-label shows current (top) rank title", () => {
@@ -188,7 +188,7 @@ describe("AC-09-004.1 — faltan N para Nv X · next-title subtitle", () => {
     render(<GuildBar outcomes={maxOutcomes} />);
     const nextLabel = screen.getByTestId("xp-bar-next-label");
     // At max rank the next title is the same as current (no higher rank)
-    expect(nextLabel.textContent).toContain("Maestro del Gremio");
+    expect(nextLabel.textContent).toContain("Portador del Juramento Eterno");
   });
 });
 
@@ -229,10 +229,10 @@ describe("AC-09-004.2 — numeric elements present for tabular-nums (CSS rule fr
       releases: 0,
       greenTestRuns: 0,
     };
-    // At Aprendiz (level 1), next threshold is 100 XP (Artesano)
+    // At Humano (level 1), next threshold is 25 XP (Buscador del Alba I)
     render(<GuildBar outcomes={outcomes} />);
     const nextEl = screen.getByTestId("xp-bar-next");
-    expect(nextEl.textContent).toContain("100");
+    expect(nextEl.textContent).toContain("25");
   });
 });
 

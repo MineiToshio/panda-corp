@@ -48,6 +48,8 @@ export interface GuildHeroProps {
   pctToNext: number;
   /** Next rank title for the "faltan N XP para <nextTitle>" line. */
   nextTitle: string;
+  /** Tabler icon class for the current rank (shown next to the title). */
+  rankIcon?: string;
   /** Total feats/achievements count. */
   featsCount: number;
   /** Unlocked trophies count. */
@@ -140,6 +142,7 @@ export function GuildHero({
   next,
   pctToNext,
   nextTitle,
+  rankIcon,
   featsCount,
   trophiesCount,
   trophiesTotal,
@@ -200,10 +203,13 @@ export function GuildHero({
             {" GREMIO PANDACORP"}
           </div>
 
-          {/* Guild title — display font, 27px */}
+          {/* Guild title — rank icon + display-font name, 27px */}
           <div
             data-testid="guild-hero-title"
             style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
               fontFamily: "var(--font-display, var(--font-space-grotesk))",
               fontSize: "27px",
               lineHeight: 1.12,
@@ -211,6 +217,13 @@ export function GuildHero({
               color: "var(--color-text)",
             }}
           >
+            {rankIcon !== undefined && (
+              <i
+                className={`ti ${rankIcon}`}
+                aria-hidden="true"
+                style={{ fontSize: "24px", color: "var(--color-accent-text)", flexShrink: 0 }}
+              />
+            )}
             {title}
           </div>
 

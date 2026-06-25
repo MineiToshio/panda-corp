@@ -59,7 +59,7 @@ describe("WO-09-003 — GuildBar AC-09-004.1: level + title + compact XP bar", (
   it("renders guild-bar-title with rank text", () => {
     render(<GuildBar outcomes={ZERO_OUTCOMES} />);
     const title = screen.getByTestId("guild-bar-title");
-    expect(title.textContent).toContain("Aprendiz");
+    expect(title.textContent).toContain("Humano");
   });
 
   it("renders xp-bar compact inside guild-bar", () => {

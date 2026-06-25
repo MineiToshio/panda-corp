@@ -88,7 +88,7 @@ const EMBEDDED_STYLE: React.CSSProperties = {
  */
 export function GuildBar({ outcomes, embedded = false }: GuildBarProps): React.JSX.Element {
   // IF-09-guild-xp: pure derivation — same outcomes always yields same result.
-  const { level, title, xp, next, pctToNext } = computeGuildLevel(outcomes);
+  const { level, title, icon, xp, next, pctToNext } = computeGuildLevel(outcomes);
 
   // Determine the next rank title for the "faltan N para Nv X · <nextTitle>" line.
   // At max rank (pctToNext === 100), nextTitle mirrors current title.
@@ -127,10 +127,13 @@ export function GuildBar({ outcomes, embedded = false }: GuildBarProps): React.J
         <span data-testid="guild-bar-level">{level}</span>
       </span>
 
-      {/* Guild rank title — text2, 11px (AC-09-004.1) */}
+      {/* Guild rank title — icon + name, text2, 11px (AC-09-004.1) */}
       <span
         data-testid="guild-bar-title"
         style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "4px",
           fontSize: "11px",
           color: "var(--color-text2)",
           lineHeight: 1.2,
@@ -141,6 +144,13 @@ export function GuildBar({ outcomes, embedded = false }: GuildBarProps): React.J
           whiteSpace: "nowrap",
         }}
       >
+        {icon !== undefined && (
+          <i
+            className={`ti ${icon}`}
+            aria-hidden="true"
+            style={{ fontSize: "13px", color: "var(--color-accent-text)", flexShrink: 0 }}
+          />
+        )}
         {title}
       </span>
 

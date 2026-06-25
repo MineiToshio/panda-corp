@@ -119,6 +119,7 @@ export default async function HallPage(): Promise<React.JSX.Element> {
             next={guildLevel.next}
             pctToNext={guildLevel.pctToNext}
             nextTitle={nextTitle}
+            rankIcon={guildLevel.icon}
             featsCount={featsCount}
             trophiesCount={trophiesCount}
             trophiesTotal={trophiesTotal}

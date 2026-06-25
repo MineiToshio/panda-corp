@@ -329,11 +329,11 @@ describe("FRD-09 cross-engine consistency (guild vs agent over one stream)", () 
 
 describe("FRD-09 GuildBar — max-rank boundary", () => {
   it("at the top rank the bar is full and does not invent a higher rank title", () => {
-    // Enough XP to reach the final RANKS entry.
+    // Enough XP to reach the final RANKS entry (top threshold ~111.8k XP).
     const outcomes: GuildOutcomes = {
       workOrdersDone: 0,
       phasesCompleted: 0,
-      releases: 100, // 100 * 200 = 20000 XP >> top threshold
+      releases: 1000, // 1000 * 200 = 200000 XP >> top threshold
       greenTestRuns: 0,
     };
     const guild = computeGuildLevel(outcomes);
