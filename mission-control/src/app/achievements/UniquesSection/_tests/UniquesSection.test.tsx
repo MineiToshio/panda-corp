@@ -93,108 +93,60 @@ afterEach(() => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC-10-007.1 — Groups unique achievements by category
+// AC-10-007.1 — Groups unique achievements BY STATE (Conquistados / Por conquistar),
+// category as a filter (matches the prototype logrosTrofeos — not a by-category grouping).
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("AC-10-007.1 — groups unique achievements by category", () => {
+describe("AC-10-007.1 — groups by state (Conquistados / Por conquistar), category as filter", () => {
   it("renders a root container with data-testid=uniques-section", () => {
     render(<UniquesSection uniques={ALL_CATEGORIES_MIXED} />);
     expect(screen.getByTestId("uniques-section")).toBeDefined();
   });
 
-  it("renders each present category as a group", () => {
+  it("renders a 'Conquistados' section with the unlocked uniques", () => {
     render(<UniquesSection uniques={ALL_CATEGORIES_MIXED} />);
-    // There are 5 categories present in our fixture set
-    expect(screen.getByTestId("uniques-category-Discovery")).toBeDefined();
-    expect(screen.getByTestId("uniques-category-Speed")).toBeDefined();
-    expect(screen.getByTestId("uniques-category-Quality")).toBeDefined();
-    expect(screen.getByTestId("uniques-category-Consistency")).toBeDefined();
-    expect(screen.getByTestId("uniques-category-Mastery")).toBeDefined();
+    const conquistados = screen.getByTestId("uniques-conquistados");
+    // 3 unlocked in the fixture (Discovery, Speed, Consistency)
+    expect(within(conquistados).getAllByTestId("unique-item")).toHaveLength(3);
   });
 
-  it("renders a category heading for each group", () => {
+  it("renders a 'Por conquistar' section with the locked uniques", () => {
     render(<UniquesSection uniques={ALL_CATEGORIES_MIXED} />);
-    const discoveryGroup = screen.getByTestId("uniques-category-Discovery");
-    const heading = within(discoveryGroup).getByTestId("uniques-category-heading-Discovery");
-    expect(heading).toBeDefined();
-    expect(heading.textContent?.trim()).toBeTruthy();
+    const porConquistar = screen.getByTestId("uniques-por-conquistar");
+    // 3 locked in the fixture (Discovery, Quality, Mastery)
+    expect(within(porConquistar).getAllByTestId("unique-item")).toHaveLength(3);
   });
 
-  it("renders category headings in Spanish or as category names", () => {
+  it("does NOT group by category (no uniques-category-* sections)", () => {
     render(<UniquesSection uniques={ALL_CATEGORIES_MIXED} />);
-    const headingDiscovery = screen.getByTestId("uniques-category-heading-Discovery");
-    const headingSpeed = screen.getByTestId("uniques-category-heading-Speed");
-    const headingQuality = screen.getByTestId("uniques-category-heading-Quality");
-    const headingConsistency = screen.getByTestId("uniques-category-heading-Consistency");
-    const headingMastery = screen.getByTestId("uniques-category-heading-Mastery");
-    // Each heading must be non-empty
-    for (const h of [
-      headingDiscovery,
-      headingSpeed,
-      headingQuality,
-      headingConsistency,
-      headingMastery,
-    ]) {
-      expect(h.textContent?.trim().length).toBeGreaterThan(0);
-    }
+    const section = screen.getByTestId("uniques-section");
+    expect(section.querySelectorAll("[data-testid^='uniques-category-']")).toHaveLength(0);
   });
 
-  it("places each unique achievement inside its correct category group", () => {
+  it("renders category FILTER chips for the present categories (not body sections)", () => {
     render(<UniquesSection uniques={ALL_CATEGORIES_MIXED} />);
-    // Discovery category contains BOTH discovery achievements
-    const discoveryGroup = screen.getByTestId("uniques-category-Discovery");
-    const discoveryItems = within(discoveryGroup).getAllByTestId("unique-item");
-    expect(discoveryItems).toHaveLength(2);
+    expect(screen.getByTestId("uniques-cat-chip-all")).toBeDefined();
+    expect(screen.getByTestId("uniques-cat-chip-Discovery")).toBeDefined();
+    expect(screen.getByTestId("uniques-cat-chip-Speed")).toBeDefined();
+  });
 
-    // Speed category contains 1 speed achievement
-    const speedGroup = screen.getByTestId("uniques-category-Speed");
-    const speedItems = within(speedGroup).getAllByTestId("unique-item");
-    expect(speedItems).toHaveLength(1);
+  it("omits the Conquistados section when nothing is unlocked", () => {
+    render(<UniquesSection uniques={[LOCKED_DISCOVERY, LOCKED_QUALITY]} />);
+    expect(screen.queryByTestId("uniques-conquistados")).toBeNull();
+    expect(screen.getByTestId("uniques-por-conquistar")).toBeDefined();
+  });
+
+  it("omits the Por conquistar section when everything is unlocked", () => {
+    render(<UniquesSection uniques={[UNLOCKED_DISCOVERY, UNLOCKED_SPEED]} />);
+    expect(screen.queryByTestId("uniques-por-conquistar")).toBeNull();
+    expect(screen.getByTestId("uniques-conquistados")).toBeDefined();
   });
 
   it("renders an empty state when uniques is empty", () => {
     render(<UniquesSection uniques={[]} />);
     const section = screen.getByTestId("uniques-section");
     expect(section).toBeDefined();
-    // No category groups should be present
-    expect(section.querySelectorAll("[data-testid^='uniques-category-']")).toHaveLength(0);
-  });
-
-  it("renders all 5 canonical categories when each has at least one entry", () => {
-    const all5: Unique[] = [
-      mkUnique({ name: "A", category: "Discovery", unlocked: false }),
-      mkUnique({ name: "B", category: "Speed", unlocked: false }),
-      mkUnique({ name: "C", category: "Quality", unlocked: false }),
-      mkUnique({ name: "D", category: "Consistency", unlocked: false }),
-      mkUnique({ name: "E", category: "Mastery", unlocked: false }),
-    ];
-    render(<UniquesSection uniques={all5} />);
-    for (const cat of ["Discovery", "Speed", "Quality", "Consistency", "Mastery"]) {
-      expect(screen.getByTestId(`uniques-category-${cat}`)).toBeDefined();
-    }
-  });
-
-  it("does not render a category group if no uniques for that category", () => {
-    // Only Discovery uniques
-    const onlyDiscovery = [UNLOCKED_DISCOVERY, LOCKED_DISCOVERY];
-    render(<UniquesSection uniques={onlyDiscovery} />);
-    expect(screen.getByTestId("uniques-category-Discovery")).toBeDefined();
-    expect(screen.queryByTestId("uniques-category-Speed")).toBeNull();
-    expect(screen.queryByTestId("uniques-category-Quality")).toBeNull();
-  });
-
-  it("preserves category order: Discovery, Speed, Quality, Consistency, Mastery", () => {
-    render(<UniquesSection uniques={ALL_CATEGORIES_MIXED} />);
-    const section = screen.getByTestId("uniques-section");
-    // Only pick the direct category <section> elements, not the heading children
-    const categoryGroups = section.querySelectorAll("section[data-testid^='uniques-category-']");
-    const catIds = Array.from(categoryGroups).map((el) =>
-      el.getAttribute("data-testid")?.replace("uniques-category-", ""),
-    );
-    const expectedOrder = ["Discovery", "Speed", "Quality", "Consistency", "Mastery"];
-    for (const [idx, cat] of expectedOrder.entries()) {
-      expect(catIds[idx]).toBe(cat);
-    }
+    expect(section.querySelectorAll("[data-testid='unique-item']")).toHaveLength(0);
   });
 });
 
@@ -411,11 +363,11 @@ describe("Integration — works with computeUniques output", () => {
     expect(conditions.length).toBeGreaterThan(0);
   });
 
-  it("renders all 5 categories from full UNIQUE_DEFINITIONS list", () => {
+  it("renders a category FILTER chip for each present category (from the full list)", () => {
     const uniques = computeUniques(EMPTY_READER_DATA);
     render(<UniquesSection uniques={uniques} />);
     for (const cat of ["Discovery", "Speed", "Quality", "Consistency", "Mastery"]) {
-      expect(screen.getByTestId(`uniques-category-${cat}`)).toBeDefined();
+      expect(screen.getByTestId(`uniques-cat-chip-${cat}`)).toBeDefined();
     }
   });
 });

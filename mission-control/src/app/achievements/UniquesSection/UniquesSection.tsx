@@ -290,62 +290,25 @@ function UniqueItem({ unique }: UniqueItemProps): React.JSX.Element {
   );
 }
 
-// ─── CategoryGroup ────────────────────────────────────────────────────────────
+// ─── Grids ────────────────────────────────────────────────────────────────────
 
-type CategoryGroupProps = {
-  category: UniqueCategory;
-  uniques: readonly Unique[];
-  /** When true, this group is hidden (filtered out by the active chip). */
-  hidden?: boolean;
+const BIG_GRID: React.CSSProperties = {
+  listStyle: "none",
+  margin: 0,
+  padding: 0,
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(255px, 1fr))",
+  gap: "10px",
 };
 
-/**
- * Renders a category section with heading + items grid.
- *
- * Uses data-testid="uniques-category-{category}" and
- * data-testid="uniques-category-heading-{category}" for test contract (AC-10-007.1).
- *
- * When `hidden=true`, the section is hidden from view (display:none on the wrapper)
- * but the DOM structure is preserved for testing and progressive enhancement.
- */
-function CategoryGroup({
-  category,
-  uniques,
-  hidden = false,
-}: CategoryGroupProps): React.JSX.Element {
-  return (
-    <section
-      data-testid={`uniques-category-${category}`}
-      aria-label={`Categoría ${CATEGORY_LABELS[category]}`}
-      style={hidden ? { display: "none" } : undefined}
-    >
-      {/* Category heading — THE canonical SectionHead (LOG-03): accent icon +
-          label + rule + count. Wrapped to keep the AC-10-007.1 heading testid. */}
-      <div data-testid={`uniques-category-heading-${category}`}>
-        <SectionHead
-          icon={CATEGORY_ICONS[category]}
-          label={CATEGORY_LABELS[category]}
-          count={uniques.length}
-        />
-      </div>
-
-      <ul
-        style={{
-          listStyle: "none",
-          margin: 0,
-          padding: 0,
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(255px, 1fr))",
-          gap: "8px",
-        }}
-      >
-        {uniques.map((u) => (
-          <UniqueItem key={u.name} unique={u} />
-        ))}
-      </ul>
-    </section>
-  );
-}
+const SMALL_GRID: React.CSSProperties = {
+  listStyle: "none",
+  margin: 0,
+  padding: 0,
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))",
+  gap: "8px",
+};
 
 // ─── UniquesSection ───────────────────────────────────────────────────────────
 
@@ -354,45 +317,31 @@ export type UniquesSectionProps = {
 };
 
 /**
- * CMP-10-uniques — Unique achievements with category-chip filter.
+ * CMP-10-uniques — unique achievements grouped BY STATE, matching the prototype
+ * logrosTrofeos(): "Conquistados" (unlocked, big glowwarn cards) then "Por
+ * conquistar" (locked, compact lockchips with a hover-reveal "CÓMO DESBLOQUEAR").
+ * The category chips FILTER both sections — they are NOT a second grouping axis
+ * (the previous by-category grouping made every locked card look identical and
+ * diverged from the design). Client Component for the filter state.
  *
- * Client Component: needs useState for the active category filter chip.
- *
- * All category sections are always rendered in the DOM (never unmounted).
- * The active chip controls which section is visible via display:none on hidden ones.
- * This preserves the AC-10-007.1 test contract (category sections always in DOM)
- * while providing the prototype's stab-pill filter UX.
- *
- * Category order: Discovery → Speed → Quality → Consistency → Mastery.
+ * Category order (filter chips): Discovery → Speed → Quality → Consistency → Mastery.
  */
 export function UniquesSection({ uniques }: UniquesSectionProps): React.JSX.Element {
   const [activeCategory, setActiveCategory] = useState<UniqueCategory | "all">("all");
 
-  // Group by category, preserving CATEGORY_ORDER
-  const byCategory = new Map<UniqueCategory, Unique[]>();
-  for (const cat of CATEGORY_ORDER) {
-    byCategory.set(cat, []);
-  }
-  for (const u of uniques) {
-    const arr = byCategory.get(u.category);
-    if (arr !== undefined) {
-      arr.push(u);
-    }
-  }
+  // Counts per category — for the filter chips only.
+  const countByCat = new Map<UniqueCategory, number>();
+  for (const cat of CATEGORY_ORDER) countByCat.set(cat, 0);
+  for (const u of uniques) countByCat.set(u.category, (countByCat.get(u.category) ?? 0) + 1);
+  const presentCategories = CATEGORY_ORDER.filter((cat) => (countByCat.get(cat) ?? 0) > 0);
 
-  // Only categories that have at least one achievement
-  const presentCategories = CATEGORY_ORDER.filter((cat) => (byCategory.get(cat)?.length ?? 0) > 0);
-
-  // Build the tabs list for the shared SubTabs primitive (DR-062 — the ONE tab pattern).
-  // "all" tab + one per present category. The icon and count are carried in TabDef so
-  // SubTabs renders them without bespoke buttons.
   const filterTabs = [
     { id: "all", label: "Todos", count: uniques.length },
     ...presentCategories.map((cat) => ({
       id: cat,
       label: CATEGORY_LABELS[cat],
       icon: CATEGORY_ICONS[cat],
-      count: byCategory.get(cat)?.length ?? 0,
+      count: countByCat.get(cat) ?? 0,
     })),
   ];
 
@@ -404,15 +353,20 @@ export function UniquesSection({ uniques }: UniquesSectionProps): React.JSX.Elem
     }
   };
 
+  // Filter by category, then split BY STATE (the body's grouping axis).
+  const filtered =
+    activeCategory === "all" ? uniques : uniques.filter((u) => u.category === activeCategory);
+  const unlocked = filtered.filter((u) => u.unlocked);
+  const locked = filtered.filter((u) => !u.unlocked);
+
   return (
     <section
       data-testid="uniques-section"
-      aria-label="Logros únicos por categoría"
+      aria-label="Logros únicos"
       style={{ display: "flex", flexDirection: "column", gap: "16px" }}
     >
       {/* Category chip filters — shared SubTabs primitive (DR-062, logrosTrofeos alias).
-          testIdPrefix="uniques-cat-chip-" preserves the existing AC test contracts
-          (e.g. data-testid="uniques-cat-chip-all", "uniques-cat-chip-Discovery", …). */}
+          testIdPrefix="uniques-cat-chip-" preserves the existing chip test contracts. */}
       {presentCategories.length > 1 && (
         <SubTabs
           tabs={filterTabs}
@@ -423,20 +377,40 @@ export function UniquesSection({ uniques }: UniquesSectionProps): React.JSX.Elem
         />
       )}
 
-      {/* Category sections — always in DOM; hidden attr controlled by active chip.
-          This preserves the AC-10-007.1 test contract (data-testid always present)
-          while the filter chip hides unwanted categories visually. */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-        {presentCategories.map((cat) => {
-          const catUniques = byCategory.get(cat);
-          if (!catUniques || catUniques.length === 0) return null;
-          const isHidden = activeCategory !== "all" && activeCategory !== cat;
-          return <CategoryGroup key={cat} category={cat} uniques={catUniques} hidden={isHidden} />;
-        })}
-      </div>
+      {/* Conquistados (unlocked) — big glowwarn cards. */}
+      {unlocked.length > 0 && (
+        <section data-testid="uniques-conquistados" aria-label="Trofeos conquistados">
+          <SectionHead icon="ti-trophy" label="Conquistados" count={unlocked.length} />
+          <ul style={BIG_GRID}>
+            {unlocked.map((u) => (
+              <UniqueItem key={u.name} unique={u} />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* Por conquistar (locked) — compact lockchips with hover-reveal. */}
+      {locked.length > 0 && (
+        <section data-testid="uniques-por-conquistar" aria-label="Trofeos por conquistar">
+          <SectionHead icon="ti-lock" label="Por conquistar" count={locked.length} />
+          <p style={{ fontSize: "11px", color: "var(--color-text3)", margin: "-4px 2px 9px" }}>
+            <i
+              className="ti ti-hand-finger"
+              aria-hidden="true"
+              style={{ fontSize: "11px", verticalAlign: "-1px" }}
+            />{" "}
+            pasa el cursor para ver cómo desbloquearlo
+          </p>
+          <ul style={SMALL_GRID}>
+            {locked.map((u) => (
+              <UniqueItem key={u.name} unique={u} />
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* Empty state */}
-      {presentCategories.length === 0 && (
+      {filtered.length === 0 && (
         <p style={{ fontSize: "0.875rem", color: "var(--color-text)", opacity: 0.5, margin: 0 }}>
           Sin logros disponibles.
         </p>

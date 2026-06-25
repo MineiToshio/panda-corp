@@ -191,16 +191,19 @@ type MisionesTabProps = {
  *   - "Legendarias" bigGrid for tier ≥ 3 chains
  */
 function MisionesTab({ chains }: MisionesTabProps): React.JSX.Element {
-  // Spotlight: highest pctToNext among active (non-maxed) chains
-  const activeChains = chains.filter((c) => c.nextTier !== null);
-  const spotlightChain = [...activeChains].sort((a, b) => b.pctToNext - a.pctToNext)[0];
-
-  // Tiers unlocked (ascending): "En ascenso" — chains with at least one tier
-  const risingChains = chains.filter((c) => c.currentTierIndex >= 0 && c.nextTier !== null);
-  // No tier yet: "Comunes" — chains with no tier unlocked
-  const commonChains = chains.filter((c) => c.currentTierIndex < 0);
-  // High tier (Oro+): "Legendarias"
-  const legendChains = chains.filter((c) => c.currentTierIndex >= 2);
+  // Spotlight: highest pctToNext among active (non-maxed) chains (prototype: active[0]).
+  const activeChains = [...chains.filter((c) => c.nextTier !== null)].sort(
+    (a, b) => b.pctToNext - a.pctToNext,
+  );
+  const spotlightChain = activeChains[0];
+  // The REST (prototype `active.slice(1)`) — the spotlight is NOT repeated in the grids below.
+  const rest = activeChains.slice(1);
+  // "En ascenso" — rest with at least one tier (≥ Plata): poco comunes y raras (prototype `hi`).
+  const risingChains = rest.filter((c) => c.currentTierIndex >= 1);
+  // "Comunes" — rest still at tier 0 or none (prototype `lo`).
+  const commonChains = rest.filter((c) => c.currentTierIndex < 1);
+  // "Legendarias" — completed chains (no next tier left) (prototype `done`).
+  const legendChains = chains.filter((c) => c.nextTier === null);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>

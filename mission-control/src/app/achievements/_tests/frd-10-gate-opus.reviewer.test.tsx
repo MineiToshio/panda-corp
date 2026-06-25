@@ -161,31 +161,23 @@ describe("FRD-10 GATE [opus]: UniquesSection category filter is the wired shared
     condition: "Lanza en 48 horas.",
   };
 
-  it("clicking a category chip filters to that category and hides the others (onChange wired)", async () => {
+  it("clicking a category chip filters the items to that category (onChange wired)", async () => {
     const user = userEvent.setup();
     render(<UniquesSection uniques={[DISCOVERY, SPEED]} />);
 
-    // Both category sections are always in the DOM; "all" is the default → both visible.
-    const discoverySection = screen.getByTestId("uniques-category-Discovery");
-    const speedSection = screen.getByTestId("uniques-category-Speed");
-    expect(discoverySection.style.display).not.toBe("none");
-    expect(speedSection.style.display).not.toBe("none");
+    // Both locked → both shown in "Por conquistar" under the default "Todos" filter.
+    const porConquistar = () => screen.getByTestId("uniques-por-conquistar");
+    expect(within(porConquistar()).getAllByTestId("unique-item")).toHaveLength(2);
 
     // Click the Speed chip — the shared SubTabs onChange must filter to Speed only.
     await user.click(screen.getByTestId("uniques-cat-chip-Speed"));
-    expect(
-      speedSection.style.display,
-      "Speed section stays visible when its chip is active",
-    ).not.toBe("none");
-    expect(
-      discoverySection.style.display,
-      "Discovery section hidden when the Speed chip is active — proves the shared SubTabs onChange is wired",
-    ).toBe("none");
+    const afterSpeed = within(porConquistar()).getAllByTestId("unique-item");
+    expect(afterSpeed, "only the Speed item remains when its chip is active").toHaveLength(1);
+    expect(within(porConquistar()).getByTestId("unique-name").textContent).toContain("El rápido");
 
     // Back to "Todos" reveals both again.
     await user.click(screen.getByTestId("uniques-cat-chip-all"));
-    expect(discoverySection.style.display).not.toBe("none");
-    expect(speedSection.style.display).not.toBe("none");
+    expect(within(porConquistar()).getAllByTestId("unique-item")).toHaveLength(2);
   });
 
   it("the category filter chips live inside the shared Tabs primitive (no second fork)", () => {
