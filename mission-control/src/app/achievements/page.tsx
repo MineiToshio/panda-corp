@@ -35,12 +35,9 @@ import { GuildHero } from "@/components/modules/GuildHero/GuildHero";
 import { computeChains, computeSecrets, computeUniques } from "@/lib/achievements/achievements";
 import type { ReaderData } from "@/lib/achievements/stats";
 import { computeStats } from "@/lib/achievements/stats";
-import { resolveProjectPath } from "@/lib/config/config";
-import { readEvents } from "@/lib/events/events";
-import { computeGuildLevel, deriveGuildOutcomes, RANKS } from "@/lib/gamification/gamification";
+import { RANKS } from "@/lib/gamification/gamification";
+import { getGuildState } from "@/lib/gamification/guildState";
 import { readIdeas } from "@/lib/ideas/ideas";
-import { readPortfolio } from "@/lib/portfolio/portfolio";
-import { readStatus } from "@/lib/status/status";
 import { HallTabs } from "./_components/HallTabs";
 
 // ── Party roster ─────────────────────────────────────────────────────────────
@@ -56,14 +53,10 @@ const HALL_PARTY_ROLES: readonly AgentRole[] = [
 
 export default async function HallPage(): Promise<React.JSX.Element> {
   // ── Read phase (fail-soft, read-only) ────────────────────────────────────
-  const portfolioEntries = readPortfolio();
-  const statuses = portfolioEntries.map((entry) => readStatus(resolveProjectPath(entry.path)));
-  const eventsSnapshot = readEvents();
+  // Guild state (statuses + events + level) from THE single source of truth, so the
+  // hero's level matches the header GuildBar and the Inicio dashboard exactly.
+  const { statuses, eventsSnapshot, level: guildLevel } = getGuildState();
   const ideas = readIdeas();
-
-  // ── Derive guild level (IF-09-guild-xp) ──────────────────────────────────
-  const guildOutcomes = deriveGuildOutcomes({ statuses, eventsSnapshot });
-  const guildLevel = computeGuildLevel(guildOutcomes);
 
   // ── Next rank title (for XpBar subtitle in GuildHero) ────────────────────
   const nextRankEntry = RANKS[guildLevel.level];

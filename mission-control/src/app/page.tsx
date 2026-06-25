@@ -48,24 +48,19 @@ import { Digest } from "@/components/modules/Digest/Digest";
 import { Pulso } from "@/components/modules/Pulso/Pulso";
 import { computeChains, computeUniques, type Unique } from "@/lib/achievements/achievements";
 import { computeStats, type ReaderData } from "@/lib/achievements/stats";
-import { resolveProjectPath } from "@/lib/config/config";
 import {
   FRESHNESS_THRESHOLD_MS,
   MEMORY_RAW_NOTES_THRESHOLD,
   MEMORY_STALE_DAYS_THRESHOLD,
 } from "@/lib/constants";
-import { type EventsSnapshot, readEvents } from "@/lib/events/events";
-import {
-  computeGuildLevel,
-  deriveGuildOutcomes,
-  type GuildLevel,
-} from "@/lib/gamification/gamification";
+import type { EventsSnapshot } from "@/lib/events/events";
+import { getGuildState } from "@/lib/gamification/guildState";
 import { type IdeaCard, readIdeas } from "@/lib/ideas/ideas";
 import type { MemoryHealth } from "@/lib/memory/memory-health";
 import { memoryHealth } from "@/lib/memory/memory-health";
-import { activeProjects, type ProjectListItem, readPortfolio } from "@/lib/portfolio/portfolio";
+import { activeProjects, type ProjectListItem } from "@/lib/portfolio/portfolio";
 import { readProfile } from "@/lib/profile/profile";
-import { readStatus, type StatusResult } from "@/lib/status/status";
+import type { StatusResult } from "@/lib/status/status";
 import { listWorkOrders } from "@/lib/work-orders/work-orders";
 
 // ---------------------------------------------------------------------------
@@ -242,25 +237,23 @@ function derivePulse({
   return pulse({ ideasAlive, ideasShipped, inConstructionLive, inConstructionStale, ownerWaiting });
 }
 
-/** Gamification derivation: guild level, recent achievement, next milestone. */
-function deriveGamification(
-  readerData: ReaderData,
-  statuses: readonly StatusResult[],
-  eventsSnapshot: EventsSnapshot,
-): {
-  guildLevel: GuildLevel;
+/**
+ * Achievement derivation for the dashboard: most-recent unlocked unique + the
+ * nearest next milestone. The guild LEVEL is NOT derived here — it comes from the
+ * shared getGuildState() (single source of truth), so it can't diverge from the
+ * header GuildBar or the Logros hero.
+ */
+function deriveGamification(readerData: ReaderData): {
   recentAchievement: Unique | null;
   nextMilestone: ReturnType<typeof computeChains>[number] | null;
 } {
-  const guildOutcomes = deriveGuildOutcomes({ statuses, eventsSnapshot });
-  const guildLevel = computeGuildLevel(guildOutcomes);
   const stats = computeStats(readerData);
   const uniques = computeUniques(readerData);
   const chains = computeChains(stats);
   const recentAchievement = mostRecentUnique(uniques);
   const nextMilestone =
     chains.filter((c) => c.nextTier !== null).sort((a, b) => b.pctToNext - a.pctToNext)[0] ?? null;
-  return { guildLevel, recentAchievement, nextMilestone };
+  return { recentAchievement, nextMilestone };
 }
 
 // ---------------------------------------------------------------------------
@@ -280,15 +273,15 @@ export default function HomePage(): React.JSX.Element {
 
   // ── 1. Read the live data layers (all read-only) ────────────────────────
 
-  const eventsSnapshot = readEvents();
+  // Guild state (statuses + events + level) from THE single source of truth, so the
+  // dashboard's guild level matches the header GuildBar and the Logros hero exactly.
+  const { statuses, eventsSnapshot, level: guildLevel } = getGuildState();
   // Drop infra/live-stream noise (SubagentStop/SupervisorTick/AgentWorking) so the "since last visit"
   // digest shows milestone changes, not thousands of SubagentStop rows (coherence, prototype digest).
   const events = filterDigestEvents(eventsSnapshot.events);
   const projects = activeProjects();
   const ideas = readIdeas();
   const memHealth = memoryHealth();
-  const portfolioEntries = readPortfolio();
-  const statuses = portfolioEntries.map((e) => readStatus(resolveProjectPath(e.path)));
   const profileResult = readProfile();
 
   // ── 2. Derive sections ──────────────────────────────────────────────────
@@ -304,11 +297,7 @@ export default function HomePage(): React.JSX.Element {
   const cards = projects.map((p) => deriveProjectCard(p, eventsSnapshot.byProject, nowMs));
 
   const readerData: ReaderData = { ideas, statuses, eventsSnapshot };
-  const { guildLevel, recentAchievement, nextMilestone } = deriveGamification(
-    readerData,
-    statuses,
-    eventsSnapshot,
-  );
+  const { recentAchievement, nextMilestone } = deriveGamification(readerData);
 
   // ── Tu turno count chip (right slot of SectionHead) ─────────────────────
   const turnCount = turnItems.length;

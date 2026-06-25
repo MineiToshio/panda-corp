@@ -18,13 +18,9 @@ import { AppShell } from "@/components/modules/AppShell/AppShell";
 import { CelebrationWatcher } from "@/components/modules/CelebrationWatcher/CelebrationWatcher";
 import { GuildBar } from "@/components/modules/GuildBar/GuildBar";
 import { ProposalsBadge } from "@/components/modules/ProposalsBadge/ProposalsBadge";
-import { resolveProjectPath } from "@/lib/config/config";
-import { readEvents } from "@/lib/events/events";
-import { deriveGuildOutcomes } from "@/lib/gamification/gamification";
-import { readPortfolio } from "@/lib/portfolio/portfolio";
+import { getGuildState } from "@/lib/gamification/guildState";
 import { readProfile } from "@/lib/profile/profile";
 import { countOpenProposals } from "@/lib/proposals/proposals";
-import { readStatus } from "@/lib/status/status";
 import "./globals.css";
 
 // Local always-on deploy: the production build is served as a stable snapshot via launchd, but the
@@ -62,13 +58,9 @@ export default function RootLayout({
   // Path resolved at call-time inside readProfile() so PANDACORP_FACTORY_ROOT env is respected.
   const profileResult = readProfile();
 
-  // Derive guild outcomes from real portfolio data (AC-09-004.1).
-  // Read-only: readPortfolio, readStatus, readEvents — no writes, no Claude calls.
-  // Fail-soft: absent portfolio → empty array; missing status → skipped.
-  const portfolioEntries = readPortfolio();
-  const statuses = portfolioEntries.map((entry) => readStatus(resolveProjectPath(entry.path)));
-  const eventsSnapshot = readEvents();
-  const guildOutcomes = deriveGuildOutcomes({ statuses, eventsSnapshot });
+  // Guild level from THE single source of truth (AC-09-004.1) — the same getGuildState()
+  // the Inicio dashboard and the Logros hero read, so the level never diverges across surfaces.
+  const { outcomes: guildOutcomes } = getGuildState();
 
   // Open proposal count for the top-bar guild badge (CMP-17-badge, AC-17-007.1).
   // Fail-soft: missing factory/memory → { total: 0 } → calm state.
