@@ -48,6 +48,7 @@ import { Digest } from "@/components/modules/Digest/Digest";
 import { Pulso } from "@/components/modules/Pulso/Pulso";
 import { computeChains, computeUniques, type Unique } from "@/lib/achievements/achievements";
 import { computeStats, type ReaderData } from "@/lib/achievements/stats";
+import { resolveProjectPath } from "@/lib/config/config";
 import {
   FRESHNESS_THRESHOLD_MS,
   MEMORY_RAW_NOTES_THRESHOLD,
@@ -62,7 +63,6 @@ import {
 import { type IdeaCard, readIdeas } from "@/lib/ideas/ideas";
 import type { MemoryHealth } from "@/lib/memory/memory-health";
 import { memoryHealth } from "@/lib/memory/memory-health";
-import { resolveProjectPath } from "@/lib/config/config";
 import { activeProjects, type ProjectListItem, readPortfolio } from "@/lib/portfolio/portfolio";
 import { readProfile } from "@/lib/profile/profile";
 import { readStatus, type StatusResult } from "@/lib/status/status";
