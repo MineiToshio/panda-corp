@@ -24,6 +24,16 @@ So nothing **ever** collides when several projects/worktrees run in parallel, de
 - A worktree is born **without** `.env` or `node_modules`. The stack template includes a **`.worktreeinclude`** (`.gitignore` syntax) that copies `.env`/`.env.local` to each new worktree, plus a post-create step that installs deps. With **pnpm** (shared store) the install in a new worktree is almost instant.
 - Keep **ONE** review folder and refresh it to the latest green (don't accumulate worktrees). Claude Code's automatic sweep does not delete manually created worktrees.
 
+## Local deployments (always-on internal release) — DR-089
+
+A project's **local deployment** (the built, served snapshot of an `internal` tool — `deploy_target: internal` / `return_type: personal`, e.g. Mission Control on `127.0.0.1`) lives under **ONE canonical root, outside the source-projects area**:
+
+- **Location:** `/Users/Shared/local-deployments/<project>/` — a sibling of `Proyectos/`, at the `Shared` level. Each deployment is a subfolder **named exactly after the project/repo** — **never** a `-live`/`-deploy` suffix, **never** co-located inside `Proyectos/` next to source checkouts (mixing a deployment with source projects makes it look like a separate project and confuses tooling — e.g. a visual gate with `reuseExistingServer` can reuse the stale snapshot server).
+- **It is a production build**, not dev: `next build` + `next start` (fast, stable), kept in an **isolated git worktree** so its `.next`/`node_modules` never collide with the dev checkout's builds/tests/`verify.sh`. Live gitignored factory data is read from the main checkout via `PANDACORP_FACTORY_ROOT`.
+- **Always-on** via launchd (KeepAlive) on the project's reserved port (the same `factory/ports.yaml` allocation).
+- **Redeploy** = sync the worktree to the green `HEAD` + rebuild + restart the service (don't edit the deployment in place). The dev checkout in `Proyectos/<project>` is where work happens; the deployment in `local-deployments/<project>` is the stable running copy — they are **never the same folder**.
+- Reference implementation (Mission Control): `mission-control/.pandacorp/run/serve.sh` (launchd entry) + `deploy-local.sh` (sync+build+restart), service `com.pandacorp.mission-control`, served at `127.0.0.1:1987` from `/Users/Shared/local-deployments/panda-corp`.
+
 ## State published for Mission Control (`.pandacorp/status.yaml`)
 
 The gate script (not the agent) writes at every green work-order close:

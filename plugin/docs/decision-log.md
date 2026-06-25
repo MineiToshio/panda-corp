@@ -4,6 +4,11 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-06-25 — `release`: local deployments follow the canonical-root rule (DR-089) · v9.8.1
+**What:** Added a pointer in `plugin/skills/release/SKILL.md` (internal-deploy step): if an internal project gets an **always-on local deployment**, it MUST follow **DR-089** — placed under `/Users/Shared/local-deployments/<project>/` (outside `Proyectos/`, named after the project, no `-live` suffix), as a production build in an isolated git worktree served via launchd on the reserved port. Points to `factory/standards/infra.md` (Local deployments) + Mission Control's `serve.sh`/`deploy-local.sh` as the reference implementation.
+**Why:** MC's always-on deploy had been a worktree named `panda-corp-live` mixed into `Proyectos/`, which confused the owner and poisoned the visual gate. The new factory rule (DR-089) needs a hook in the skill that actually performs releases so future internal deploys land in the right place.
+**Impact:** `plugin/skills/release/SKILL.md` (+DR-089 pointer). **PATCH (v9.8.0→v9.8.1)** — guidance only, no skill/agent behavior change. Policy/standard live in `factory/decisions/registry.yaml` (DR-089) + `factory/standards/infra.md`; migration + MC-side changes in `factory/decision-log.md` + `mission-control/docs/decision-log.md`. Manual: DR + standards catalogs auto-derive; no flow/gate changed → no narrative edit.
+
 ## 2026-06-25 — `discover` learns from discard REASONS: capture the why, kill matching rejection patterns · v9.8.0
 **What:** Closed the feedback loop so a discard *teaches* the factory, not just removes a card. Two parts:
 - **Capture (Mission Control, FRD-02):** on discard, MC now also captures **why** — a quick-tag set + free text — and writes it to the card's new `discard_reason` frontmatter field (an extension of the single allowed write, `status: discarded`). Spec'd + queued for the MC build (it's app behavior → the iterate/change flow); the field is documented in `_idea-template.md`.
