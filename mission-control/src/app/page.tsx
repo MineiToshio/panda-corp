@@ -62,6 +62,7 @@ import {
 import { type IdeaCard, readIdeas } from "@/lib/ideas/ideas";
 import type { MemoryHealth } from "@/lib/memory/memory-health";
 import { memoryHealth } from "@/lib/memory/memory-health";
+import { resolveProjectPath } from "@/lib/config/config";
 import { activeProjects, type ProjectListItem, readPortfolio } from "@/lib/portfolio/portfolio";
 import { readProfile } from "@/lib/profile/profile";
 import { readStatus, type StatusResult } from "@/lib/status/status";
@@ -287,7 +288,7 @@ export default function HomePage(): React.JSX.Element {
   const ideas = readIdeas();
   const memHealth = memoryHealth();
   const portfolioEntries = readPortfolio();
-  const statuses = portfolioEntries.map((e) => readStatus(e.path));
+  const statuses = portfolioEntries.map((e) => readStatus(resolveProjectPath(e.path)));
   const profileResult = readProfile();
 
   // ── 2. Derive sections ──────────────────────────────────────────────────
