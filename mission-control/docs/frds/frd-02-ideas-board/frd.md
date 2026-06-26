@@ -36,15 +36,21 @@ Read-only kanban of the idea base, with idea capture, a navigable detail and dis
 > §2 (the real engine phase model). These REQs **extend** the card detail of REQ-02-004; they do not
 > change the board derivation, intake, filter or discard behavior.
 
-### REQ-02-009 — Three-tab card detail (Campaña · Documentos · Comandos)
+### REQ-02-009 — Three-tab card detail (Propuesta · Documentos · Campaña)
 
-- AC-02-009.1 — WHEN the owner opens a card, THE system SHALL render the card detail with **two
-  horizontal tabs** — **Documentos · Campaña** — using the **same tab pattern** as the
-  Portfolio project pane (the `stab` selector row), and SHALL default the active tab to **Documentos**.
+- AC-02-009.1 — WHEN the owner opens a card, THE system SHALL render the card detail with **three
+  horizontal tabs** — **Propuesta · Documentos · Campaña** (in that order) — using the **same tab
+  pattern** as the Portfolio project pane (the `stab` selector row), and SHALL default the active tab
+  to **Propuesta**. (Owner decision, discover redesign 2026-06-26; the Comandos tab was folded into the
+  campaign ficha earlier.)
+- AC-02-009.5 — WHEN the **Propuesta** tab is active, THE system SHALL render the idea's **memo-pitch**
+  (the card's hot→cold body produced by `/discover`/`/new-idea`, plugin v9.9.0) natively via the
+  `IdeaPitch` component (CMP-02-idea-pitch) using the design tokens — the on-brand pitch that makes the
+  owner decide. The card `.md` is the source of truth; this is its native rendering inside the board.
 - AC-02-009.2 — WHEN the owner clicks a tab, THE system SHALL show that tab's body and mark only that
-  tab active; **Documentos** SHALL render the existing document navigator (summary + key points +
-  the idea's docs, unchanged behavior of REQ-02-004) and **Comandos** SHALL render the existing
-  next-step / iterate command panel (unchanged behavior of REQ-02-004).
+  tab active; **Propuesta** SHALL render the idea's memo-pitch (AC-02-009.5), **Documentos** SHALL
+  render the existing document navigator (summary + key points + the idea's docs, unchanged behavior of
+  REQ-02-004), and **Campaña** SHALL render La Campaña (REQ-02-010).
 - AC-02-009.3 — WHEN the owner clicks a document entry (in any tab context that exposes a document),
   THE system SHALL switch the active tab to **Documentos** and show that document, so a document
   click always lands the owner on **Documentos**.

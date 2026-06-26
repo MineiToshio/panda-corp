@@ -36,3 +36,7 @@ factory/memory/_inbox.md
 .claude/launch.json
 **/.claude/settings.local.json
 **/.claude/launch.json
+
+# Owner-facing Spanish pitches/memos (HTML) — gitignored per the committed=English rule
+docs/proposals/*.html
+factory/ideas/*.html

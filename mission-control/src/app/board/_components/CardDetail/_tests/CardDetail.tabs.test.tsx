@@ -1,9 +1,9 @@
 /**
- * WO-02-007 (reopened) — CardDetail 2-tab restructure tests
+ * CardDetail 3-tab structure tests (discover redesign — Propuesta tab)
  *
  * Traceability:
  *   CMP-02-card-detail → REQ-02-009
- *   AC-02-009.1 — 2 tabs (Campaña · Documentos); default active = Campaña.
+ *   AC-02-009.1 — 3 tabs (Propuesta · Documentos · Campaña); default active = Propuesta.
  *   AC-02-009.2 — clicking a tab activates it and shows its body.
  *   AC-02-009.3 — clicking a doc entry switches to Documentos tab.
  *   AC-02-009.4 — active tab persists across re-renders of the detail.
@@ -90,14 +90,15 @@ const WITH_DOCS: typeof MINIMAL = {
 };
 
 // ---------------------------------------------------------------------------
-// AC-02-009.1 — 2 tabs rendered; default active = Documentos
+// AC-02-009.1 — 3 tabs rendered; default active = Propuesta
 // ---------------------------------------------------------------------------
 
-describe("frd-02: AC-02-009.1 — 2-tab structure, default Documentos", () => {
-  it("frd-02: WHEN a card detail renders THEN both tab buttons are present", () => {
+describe("frd-02: AC-02-009.1 — 3-tab structure, default Propuesta", () => {
+  it("frd-02: WHEN a card detail renders THEN all three tab buttons are present", () => {
     render(<CardDetail {...MINIMAL} />);
-    expect(screen.getByTestId("card-detail-tab-campana")).toBeInTheDocument();
+    expect(screen.getByTestId("card-detail-tab-propuesta")).toBeInTheDocument();
     expect(screen.getByTestId("card-detail-tab-docs")).toBeInTheDocument();
+    expect(screen.getByTestId("card-detail-tab-campana")).toBeInTheDocument();
   });
 
   it("frd-02: WHEN a card detail renders THEN there is NO Comandos tab", () => {
@@ -105,25 +106,34 @@ describe("frd-02: AC-02-009.1 — 2-tab structure, default Documentos", () => {
     expect(screen.queryByTestId("card-detail-tab-comandos")).not.toBeInTheDocument();
   });
 
-  it("frd-02: WHEN a card detail renders THEN exactly 2 tabs are present", () => {
+  it("frd-02: WHEN a card detail renders THEN exactly 3 tabs are present", () => {
     render(<CardDetail {...MINIMAL} />);
-    expect(screen.getAllByRole("tab")).toHaveLength(2);
+    expect(screen.getAllByRole("tab")).toHaveLength(3);
   });
 
-  it("frd-02: WHEN card detail renders THEN the Documentos tab button is active by default", () => {
+  it("frd-02: WHEN card detail renders THEN the Propuesta tab button is active by default", () => {
     render(<CardDetail {...MINIMAL} />);
-    const tab = screen.getByTestId("card-detail-tab-docs");
-    expect(tab).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("card-detail-tab-propuesta")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 
-  it("frd-02: WHEN card detail renders THEN the Campaña tab is NOT active by default", () => {
+  it("frd-02: WHEN card detail renders THEN Documentos and Campaña are NOT active by default", () => {
     render(<CardDetail {...MINIMAL} />);
+    expect(screen.getByTestId("card-detail-tab-docs")).toHaveAttribute("aria-selected", "false");
     expect(screen.getByTestId("card-detail-tab-campana")).toHaveAttribute("aria-selected", "false");
+  });
+
+  it("frd-02: WHEN card detail renders THEN the Propuesta panel shows the idea's pitch (IdeaPitch)", () => {
+    render(<CardDetail {...MINIMAL} />);
+    expect(screen.getByTestId("card-detail-panel-propuesta")).toBeInTheDocument();
+    expect(screen.getByTestId("card-detail-pitch")).toBeInTheDocument();
   });
 
   it("frd-02: WHEN card detail renders THEN the CampaignPipeline is mounted (always-mounted panels)", () => {
     render(<CardDetail {...MINIMAL} />);
-    // Both panels are always mounted via the clip technique; Campaña is accessible even when hidden.
+    // All panels are always mounted via the clip technique; Campaña is accessible even when hidden.
     expect(screen.getByTestId("campaign-pipeline")).toBeInTheDocument();
   });
 
@@ -132,10 +142,11 @@ describe("frd-02: AC-02-009.1 — 2-tab structure, default Documentos", () => {
     expect(screen.getByTestId("card-detail-panel-campana")).toBeInTheDocument();
   });
 
-  it("frd-02: WHEN card detail renders THEN tab labels are in Spanish (Campaña / Documentos)", () => {
+  it("frd-02: WHEN card detail renders THEN tab labels are in Spanish (Propuesta / Documentos / Campaña)", () => {
     render(<CardDetail {...MINIMAL} />);
-    expect(screen.getByTestId("card-detail-tab-campana")).toHaveTextContent("Campaña");
+    expect(screen.getByTestId("card-detail-tab-propuesta")).toHaveTextContent("Propuesta");
     expect(screen.getByTestId("card-detail-tab-docs")).toHaveTextContent("Documentos");
+    expect(screen.getByTestId("card-detail-tab-campana")).toHaveTextContent("Campaña");
   });
 });
 
@@ -253,7 +264,7 @@ describe("frd-02: AC-02-009.4 — active tab persists across re-renders", () => 
 
   it("frd-02: WHEN Campaña tab is selected and the card re-renders THEN it stays on Campaña", () => {
     const { rerender } = render(<CardDetail {...MINIMAL} />);
-    // Documentos is the default; switch to Campaña, then re-render.
+    // Propuesta is the default; switch to Campaña, then re-render.
     fireEvent.click(screen.getByTestId("card-detail-tab-campana"));
     rerender(<CardDetail {...MINIMAL} advancePending={true} />);
     expect(screen.getByTestId("card-detail-tab-campana")).toHaveAttribute("aria-selected", "true");

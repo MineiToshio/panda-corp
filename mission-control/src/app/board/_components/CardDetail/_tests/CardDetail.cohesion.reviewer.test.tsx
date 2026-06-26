@@ -55,9 +55,9 @@ describe("FRD-02 DR-062 — the card-detail tab row IS the shared Tabs primitive
   it("CardDetail's tab row provides the SAME arrow-key navigation as the shared primitive (AC-02-009.1 / DR-062)", async () => {
     const user = userEvent.setup();
     renderDetail();
-    const campana = screen.getByTestId("card-detail-tab-campana");
-    campana.focus();
-    expect(campana).toHaveFocus();
+    const propuesta = screen.getByTestId("card-detail-tab-propuesta");
+    propuesta.focus();
+    expect(propuesta).toHaveFocus();
     await user.keyboard("{ArrowRight}");
     // If the bespoke switcher is used, focus stays put (no arrow-key handler) and this fails —
     // exactly the DR-062 divergence: a one-off tab look without the canonical keyboard contract.

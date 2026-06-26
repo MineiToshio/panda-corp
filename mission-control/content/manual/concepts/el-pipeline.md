@@ -50,6 +50,12 @@ El producto está en producción. Se monitorizan métricas reales contra la hip�
 
 Habilidad: `/pandacorp:review-launch` — lee métricas reales y recomienda kill / hold / double-down.
 
+## Antes del pipeline: descubrir y capturar ideas
+
+Antes de la fase *product*, una idea nace en el tablero. `/pandacorp:discover` sale a internet (Reddit, foros, reviews de 1-2★) a **encontrar** oportunidades, las pasa por gates de calidad (founder-fit, painkiller, fuente-de-la-verdad + riesgo legal, cubeta de construibilidad micro/pequeña/grande) y un red team, y documenta solo las supervivientes. `/pandacorp:new-idea` hace lo mismo cuando **tú** traes la idea: la documenta y propone cómo mejorarla, sin venderte nada.
+
+Cada idea que sobrevive se escribe como un **memo-pitch** ordenado *caliente → frío*: arriba el sueño (la apuesta · el problema contado · por qué tú · la visión) y abajo el criterio para decidir (mercado · distribución · gaps y riesgos · red team · el ask). En el tablero, abres la card y la tab **Propuesta** (la primera, por defecto) te muestra ese pitch renderizado con el diseño de Pandacorp.
+
 ## El estado del proyecto
 
 El fichero `.pandacorp/status.yaml` de cada proyecto registra la fase actual, la versión y el SHA del último commit verde. Mission Control lo lee para mostrar el estado en el portfolio.

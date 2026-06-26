@@ -194,6 +194,73 @@ describe("AC-02-010.3 — done / current / locked phase states", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Sprite home positions — every team size must have a formation that keeps the
+// 52×52 sprite figures from overlapping. Regression: the build phase fields 4
+// specialists, but SPRITE_HOMES only covered 1–3, so all four collapsed onto
+// the size-1 centre (stacked); then the first 4-formation still let the two rows
+// clip each other. (AC-02-010.1 liveliness.)
+// ---------------------------------------------------------------------------
+
+describe("sprite home positions — figures never overlap", () => {
+  const BUILD_ROLES = ["implementer", "reviewer", "analytics", "security-auditor"] as const;
+  /** The pixel figure is 52×52 (party.AgentSprite SIZE_NORMAL). */
+  const SPRITE_SIZE = 52;
+
+  function homesOf(roles: ReadonlyArray<string>): Array<[number, number]> {
+    return roles.map((role) => {
+      const sprite = document.querySelector<HTMLElement>(
+        `[data-testid="campaign-sprite"][data-role="${role}"]`,
+      );
+      expect(sprite, `expected a sprite for role "${role}"`).not.toBeNull();
+      return [
+        Number(sprite?.getAttribute("data-home-x")),
+        Number(sprite?.getAttribute("data-home-y")),
+      ];
+    });
+  }
+
+  /** True when two 52×52 axis-aligned boxes at [x,y] homes overlap on BOTH axes. */
+  function boxesOverlap([ax, ay]: [number, number], [bx, by]: [number, number]): boolean {
+    return (
+      ax < bx + SPRITE_SIZE &&
+      bx < ax + SPRITE_SIZE &&
+      ay < by + SPRITE_SIZE &&
+      by < ay + SPRITE_SIZE
+    );
+  }
+
+  it("build phase (4 specialists) places each sprite at a distinct home", () => {
+    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={4} />);
+    const homes = homesOf(BUILD_ROLES);
+    expect(homes).toHaveLength(4);
+    const distinct = new Set(homes.map(([x, y]) => `${x},${y}`));
+    expect(distinct.size).toBe(4);
+  });
+
+  it("build sprites are not all stacked at the size-1 centre [97,84]", () => {
+    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={4} />);
+    const atCentre = homesOf(BUILD_ROLES).filter(([x, y]) => x === 97 && y === 84);
+    expect(atCentre.length).toBeLessThanOrEqual(1);
+  });
+
+  it("no two build sprite figures overlap (52×52 boxes are mutually clear)", () => {
+    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={4} />);
+    const homes = homesOf(BUILD_ROLES);
+    const collisions: string[] = [];
+    for (let i = 0; i < homes.length; i++) {
+      for (let j = i + 1; j < homes.length; j++) {
+        const a = homes[i];
+        const b = homes[j];
+        if (a && b && boxesOverlap(a, b)) {
+          collisions.push(`${BUILD_ROLES[i]} vs ${BUILD_ROLES[j]}`);
+        }
+      }
+    }
+    expect(collisions, `overlapping sprites: ${collisions.join(", ")}`).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // AC-02-010.4 — per-phase ficha with description + LEE/ESCRIBE + WHOLE team
 // ---------------------------------------------------------------------------
 

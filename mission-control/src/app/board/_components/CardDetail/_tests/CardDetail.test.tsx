@@ -558,7 +558,8 @@ describe("frd-02: accessibility — Spanish aria-label", () => {
 
   it("frd-02: WHEN rendered THEN the title is visible as text in the component", () => {
     render(<CardDetail {...MINIMAL_CARD} />);
-    expect(screen.getByText("Minimal idea")).toBeInTheDocument();
+    // Title appears in the accessible (clipped) <h2> AND visibly in the Propuesta pitch hero.
+    expect(screen.getAllByText("Minimal idea").length).toBeGreaterThan(0);
   });
 });
 

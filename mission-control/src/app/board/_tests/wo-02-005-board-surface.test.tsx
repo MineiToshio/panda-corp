@@ -262,7 +262,8 @@ describe("BoardShell WO-02-005 — card click → detail (AC-02-004)", () => {
 
     await user.click(screen.getByTestId("idea-card"));
     const detail = screen.getByTestId("card-detail");
-    expect(within(detail).getByText("Web Idea")).toBeInTheDocument();
+    // The title shows in the accessible (clipped) <h2> AND, visibly, in the Propuesta pitch hero.
+    expect(within(detail).getAllByText("Web Idea").length).toBeGreaterThan(0);
   });
 
   it("a back/close button returns to the board view", async () => {

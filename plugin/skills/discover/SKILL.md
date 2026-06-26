@@ -1,90 +1,98 @@
 ---
-description: Searches the internet (Reddit, forums, social media, reviews, trends) for real opportunities —problems worth solving with a tech solution—, RED-TEAMS them against kill criteria, and documents only the survivors as decision-ready cards in the ideas base (a verdict + a 1-page memo each). It blends two streams —general high-return opportunities (topic-independent) and opportunities aligned with the owner's profile (their interests, assets and goals)— and detects when an idea should fold into an app the owner already has. Use when the owner asks "find opportunities", "discover ideas", "what could I build" or similar.
+description: Searches the internet (Reddit, forums, 1-2★ reviews, social media, trends) for real opportunities —problems worth solving with a tech solution—, RED-TEAMS them against kill criteria, and documents only the survivors as decision-ready cards in the ideas base. Each survivor is a memo-pitch (hot→cold) that sells the dream AND gives the criterio to decide: problem, market, market-entry/distribution, technical gaps + source-of-truth, legal risk, all red-teamed. It blends two streams —general high-return opportunities and opportunities aligned with the owner's profile— biases toward easy-to-build micro-apps, and detects when an idea is better as an extension of an app the owner already has. Use when the owner asks "find opportunities", "discover ideas", "what could I build" or similar.
 ---
 
 # /pandacorp:discover
 
-Opportunity discovery **that helps the owner decide** — not a buffet of options, a curated, red-teamed shortlist where each survivor carries an explicit verdict. `$ARGUMENTS` can narrow the niche (e.g.: "/pandacorp:discover tools for teachers"); without arguments, it explores broadly, guided by the profile.
+Opportunity discovery **that makes the owner dream AND decide** — not a buffet of options, a curated, red-teamed shortlist where each survivor is a **memo-pitch**: it sells the value like a pitch to an investor (so a builder says "this is the one") and gives the cold criterio to decide (market, distribution, gaps, risk). `$ARGUMENTS` can narrow the niche (e.g.: "/pandacorp:discover tools for teachers"); without arguments, it explores broadly, guided by the profile.
 
-**Open scope.** It is not limited to "monetizable apps": an opportunity can be solved with a web or mobile app, a Claude Code tool or tooling, a prompt or prompt system, an automation, a rework, etc. What matters is **a real problem with good return**.
+**Open scope.** Not limited to "monetizable apps": an opportunity can be a web/mobile app, a Claude Code tool, a prompt system, an automation, a rework. What matters is **a real problem with good return**.
 
-**Return is NOT just money.** The **opportunity** (reach, contacts, positioning), learning and personal value also count. A modest monetization idea can be worth a lot if it leverages an owner's lever or opens doors.
+**Return is NOT just money, and the 3 return paths are EQUAL priority (owner rule).** A hit (many users), several micro-apps (~100-200 USD/mo each that add up), and a non-monetizable app that solves the owner's own life (e.g. helps his collection) all count the same. The hero of the report is chosen by **pain strength + founder-fit + buildability**, NOT by return type.
 
-**The job is to DECIDE, not to inform.** The owner should read the output and know, at a glance, *this one yes / this one no*. Conviction comes from curation (the weak ones were killed before they reached him), an explicit verdict, and the hooks that make a builder say "this is the one": why YOU, why NOW, what winning looks like, and an honest risk the idea survived.
+**Bias to easy-to-build micro-apps (owner rule).** Prefer **micro** (a cotizapdf — one role/one flow/one feature) and **small** ideas. A **large** idea (weeks, 10-15 FRDs) is only proposed when the pain is **highly recurrent, with strong complaints, and strong odds of monetization** — otherwise re-scope it to its core or kill it.
 
-## Step 0 — Read the profile + what the owner already has
+**The job is to DECIDE, not to inform.** The owner reads the memo and knows *this one yes / this one no*. Conviction comes from curation (the weak were killed before he saw them), the hot block that makes him dream, the cold block that answers every doubt (market, distribution, source-of-truth, legal), and an explicit verdict.
 
-Read `factory/profile.md` (interests, hobbies, likes/dislikes, goals, **assets/levers** —audience, community, niche, data—, monetization appetite, project types, and the owner's **country/market** — e.g. Perú/LATAM, which the market reality check below depends on). If it doesn't exist, say so and suggest onboarding (you can still run the general stream).
+## Step 0 — Read the profile + map what the owner already has
 
-Then read **what the owner already owns**, for fold-in detection (Step 5): `factory/portfolio.md` + the owner's existing project folders (the profile's `projects_path`, default = the factory's sibling folders). Note each app's name + one-line purpose, so a new idea can be judged *standalone* vs *a feature of something he already has*.
+Read `factory/profile.md` (interests, hobbies, likes/dislikes, goals, **assets/levers** —audience, community, niche, data—, monetization appetite, project types, and the owner's **country/market** — Perú/LATAM, on which the market-reality check depends). If it doesn't exist, say so and suggest onboarding (you can still run the general stream).
 
-**Build the EXCLUSION SET (do NOT re-recommend).** Read **every existing idea card** `factory/ideas/*.md` in **ANY status** — discovered / recommended / in-pipeline / shipped / **discarded**. The `discarded` cards (the Descartado column) are the **single source of truth for rejected ideas** — there is no separate ledger; a discarded card stays put precisely so discovery remembers not to re-propose it. Collect their titles + core concepts. Discovery surfaces only **genuinely NEW** opportunities: anything already on the board in any status (including discarded) is excluded for the whole run (Step 4). This is the rule the owner cares about most — *don't show me what's already on the board or what I already discarded.*
+Then read **what the owner already owns**, for the extension/fold-in check (Step 5): `factory/portfolio.md` + the owner's existing project folders (the profile's `projects_path`, default = the factory's sibling folders). Note each app's name + one-line purpose. **Do NOT freeze their scope (owner rule):** these apps are built outside the factory; the goal is not to *subsume* near-niche ideas into them but to detect when a candidate is better delivered as a **proposed extension** of one of them.
 
-**Learn from WHY he discarded (rejection patterns).** For each `discarded` card, read its **discard reason** (frontmatter `discard_reason`, else the card body) + the profile's dislikes/anti-patterns. Distill the recurring **rejection patterns** — the *generalizable* reasons, not the specific idea (e.g. "saturated / strong-incumbent", "B2B sales-heavy", "doesn't leverage my channel", "US-only monetization", "not interested in topic X"). These feed a kill criterion in Step 3: discovery must not re-propose ideas that **fit a pattern he already rejected**, even when the idea itself is new.
+**Build the EXCLUSION SET (do NOT re-recommend).** Read **every existing idea card** `factory/ideas/*.md` in **ANY status** — discovered / recommended / in-pipeline / shipped / **discarded**. The `discarded` cards (the Descartado column) are the **single source of truth for rejected ideas**. Collect their titles + core concepts; anything already on the board in any status (including discarded) is excluded for the whole run (Step 4).
+
+**Learn from WHY he discarded (rejection patterns).** For each `discarded` card read its `discard_reason` (else the body) + the profile's dislikes/anti-patterns, and distil the recurring **rejection patterns** (the generalizable reason, e.g. "saturated/strong-incumbent", "B2B sales-heavy", "doesn't leverage my channel"). These feed kill criterion #9.
 
 ## Steps
 
-1. **Gather candidates — launch `researcher` in parallel, in TWO streams (~50/50):**
+1. **Gather candidates — launch `researcher` in parallel, in TWO streams (~50/50), evidence-first:**
 
-   **Stream A — General opportunities (topic-independent):** complaints/pain on Reddit & forums; negative reviews of existing tools (what users beg for and nobody gives); trends, "alternatives to X" / "tools for Y", gaps AI opened.
+   **Stream A — General opportunities (topic-independent):** complaints/pain on Reddit & forums; **1-2★ reviews** of existing tools (G2/Capterra/App Store/Trustpilot — people who ALREADY paid and suffer, the strongest WTP signal); "alternatives to X" / "tools for Y"; gaps AI opened.
 
-   **Stream B — Aligned with the profile:** pain in the owner's interests/niche; ideas that leverage their assets (audience/community/data) or open doors; tools that fix their own life/work.
+   **Stream B — Aligned with the profile (bias here):** pain the owner or **his collector audience already live**; ideas that leverage his assets (channel/community/data) or open doors; tools that fix his own life/collection. **Bias toward problems he or his niche actually have** (this is what makes it feel *his*).
 
-   **Give each researcher the EXCLUSION SET from Step 0** (every existing card title, any status incl. discarded) and instruct them to bring only **net-new** opportunities — not the same idea (or a thin rename) already on the board or already discarded, and to **avoid ideas that fit the owner's known rejection patterns** (Step 0: the generalizable reasons he discarded past ideas).
+   Give each researcher the EXCLUSION SET (every existing card title, any status incl. discarded), instruct them to bring only **net-new** opportunities and to **avoid ideas that fit the owner's known rejection patterns**.
 
-   Each opportunity must come with **EVIDENCE** (links to real expressions of the pain/demand), plus the inputs the red-team + scorecard need:
-   - **Similares** — the real existing products/competitors, named, one line + link each (pricing when it frames the gap); "nobody, as far as I found" is a valid *explicit* answer.
-   - **Differential / wedge** — concretely why ours would be better/different and where the value is.
-   - **Dream features** — 3-6 high-level capabilities that make it *exciting*.
-   - **Demand signal** — observable? (Reddit complaints / active searches / paid alternatives / people hiring to do it by hand). How strong.
-   - **Incumbent strength** — is a well-funded player already covering this use case?
-   - **Distribution / founder-fit** — can the owner reach the first 10 customers (their channel/niche/asset)? or is there no clear channel?
-   - **Why now** — the catalyst that makes this the right moment.
-   - **Effort** — honest weeks-to-first-usable-MVP for one person.
-   - **Market reality (owner's country)** — does the revenue rail (affiliate program, payment processor, ad network) AND the customer base actually exist and *pay* from the owner's country (e.g. Perú), or does the premise silently assume US/abroad infrastructure? (e.g. Amazon Associates excludes Perú; Japan proxies pay only store credit.) Name the in-market alternative if the default doesn't apply.
+   Each opportunity comes with **EVIDENCE** (real links to the pain/demand) + the inputs the gates need:
+   - **Prior workaround (The Mom Test — behavior over opinion):** how do people solve this TODAY (a spreadsheet, a manual process, hiring someone)? An existing workaround is the #1 predictor of willingness-to-pay; record it in `prior_workaround`. Prefer evidence of *past behavior* over hypothetical opinion.
+   - **Source the pain in the RIGHT market:** when the idea is for the owner's niche, mine the **Spanish/LATAM collector** buyer's reviews — never mine an Anglo/B2B pain and then staple a Spanish channel on it (a false demand↔distribution match).
+   - **Similares** — the real existing products/competitors, named, one line + link each.
+   - **Differential / wedge** — concretely why ours is better/different.
+   - **Dream features** — 3-6 capabilities that make it *exciting* (the prize).
+   - **Demand signal**, **incumbent strength**, **why now**.
+   - **Distribution / founder-fit** — can the owner reach the first 10 customers (his channel/niche)? or is there no clear channel?
+   - **Market reality (owner's country) — for MONETARY ideas only (owner rule):** does the revenue rail (affiliate/payment/ads) AND the customer base actually exist and *pay* from Perú/LATAM? (Amazon Associates excludes Perú; Japan proxies pay only store credit.) Name the in-market alternative. **A personal-utility idea (helps the owner's own collection) skips this check** — it's welcome even without monetization.
 
-2. **Filter (feasibility)** with Pandacorp criteria: implementable by one person in **weeks** (not months) with the golden paths or as tooling/prompt/automation; no heavy regulatory load (health, regulated finance); **clear return** (monetary OR opportunity/personal).
+2. **Feasibility filter** with Pandacorp criteria: implementable by one person in the **micro/small** band (golden paths, tooling, prompt, automation); no heavy regulatory load; **clear return** (monetary OR opportunity/personal).
 
-3. **Red team — the kill-gate (this is the curation).** Run EVERY surviving candidate through an adversarial pre-mortem ("it's 18 months later and this failed — why?") against the **kill criteria**, in order of how often they kill:
-   1. **No distribution** — can't name the channel + the concrete first customer. (the #1 killer)
-   2. **Vitamin, not painkiller** — "nice to have", not "need this week or it costs me real money/time".
-   3. **No observable demand** — no first-order evidence (complaints / searches / paid alternatives / hiring-to-do-it-by-hand).
-   4. **Strong well-funded incumbent without a defensible wedge** — a big player covers the same use case and could copy our edge in ~3 months.
-   5. **Too complex for the window** — honest MVP > ~4-6 weeks for one person, or needs data/licenses/regulation that don't exist.
-   6. **Not founder-fit** — owner doesn't live the problem and has no access to users to iterate.
-   7. **Market = "everyone"** — can't name a specific first customer (industry + size + specific problem + where they live).
-   8. **Doesn't work in the owner's market** — the revenue rail (affiliate program, payment processor, ad network) or the customer base doesn't exist / isn't accessible from the owner's country (e.g. Amazon Associates excludes Perú; Japan proxies pay only store credit; no local affiliate programs), and there's no viable local alternative. A monetization premise that silently assumes US/abroad infrastructure is a **kill-or-reframe** flag: *reframe* = build-for-others (the owner is the builder, NOT the first monetizing user — name that validation risk), or find the in-market model; *kill* only if money was the sole value and no in-market model exists.
+3. **The gates (the curation) — run BEFORE carding, in order; each renders in the memo, never a footnote.**
 
-   9. **Matches an owner rejection pattern** — fits a generalizable reason the owner already gave for discarding (Step 0's rejection patterns / profile anti-patterns), even if the specific idea is brand-new (e.g. he keeps discarding saturated B2B tools → don't bring another). Kill it and name the pattern it matched.
+   **3a. PRE-FILTER founder-fit (Paul Graham's 3 traits) — runs BEFORE scoring, hard gate.** Does this nacer from something the owner or his niche *already live*? · can Pandacorp build it? · do few see it's worth doing? A candidate that isn't *his* is dropped (or demoted) **before** spending tokens on a memo. (Kills feedback #1: "ideas don't feel aligned".)
 
-   An idea that fails a hard criterion (1-4 especially) is **KILLED** — it does NOT become a card. A *valid problem* with a *strong incumbent and no wedge*, or *no distribution*, is a **kill**, not a card. Killed ideas are listed in the report as "**descartadas y por qué**" (one line each) — that one-line honesty is what makes the survivors feel earned. Red-team auto-kills are **reported, not carded** (only the *owner* turns an idea into a `discarded` card, from Mission Control — the human gate); if a killed idea is re-found in a later run it's simply re-killed before it ever reaches the owner, so he never sees a repeat.
+   **3b. GATE painkiller / vitamin / candy** — 4 hard questions: does the pain recur (weekly / embedded in a flow)? · ROI in one sentence? · is there a prior workaround? · would they not hesitate at a monthly price? Render as an **H/M/L label with the cited evidence per question** — NEVER a meter/gauge (an agent-self-scored gauge is theater). A vitamin is not killed but its priority drops.
 
-4. **Exclude — don't re-surface** (the rule the owner cares about most). Any candidate that matches the **EXCLUSION SET** from Step 0 — an existing card in ANY status (discovered/recommended/in-pipeline/shipped/**discarded**) — is **dropped from the run entirely**: NOT presented, NOT carded. (You MAY silently append a genuinely new piece of evidence to an existing *active* card, but it still does NOT appear in the report.) **A discarded idea is never re-recommended, period** — which is why a rejected idea must stay as a `status: discarded` card (the Descartado column), never deleted: that card IS the memory. The survivors that move on must be **genuinely NEW**.
+   **3c. GATE complexity bucket** — classify **micro / small / large** (buildability, not a day count — discover never sees the code). List the **risk accelerators** that can break the estimate (auth, anti-bot scraping, third-party approval like Meta, non-existent ground-truth, PE payments). Default-acceptable = **micro + small**. A **large** only survives with a near-sure monetary case (recurrent pain + strong complaints + strong monetization); otherwise the memo PROPOSES the re-scope to its core, or kills it.
 
-5. **Verdict + scorecard + fold-in (for each survivor).** Assign:
-   - **Verdict** (asymmetric — not everything is "could work"): **🏆 build** (do it — strong, ready) · **🧪 validate** (promising but a key unknown → a concrete 7-day test first) · **🔌 integrate** (better as a feature of an app the owner already has → name it in `fold_into`). (A 4th outcome, *discard*, never becomes a card — it stayed in Step 3.)
-   - **Scorecard** — 5 axes, H/M/L (or 0-5), the lens the owner cares about: **founder-fit** (channel/asset), **wedge** (defensibility), **effort** (weeks), **demand signal**, **return type**.
-   - **La apuesta (the bet)** — one line: the crisp "why this wins".
-   - **Why now**, **founder-fit**, **#1 kill-risk** (the one that survived the red team), **7-day validation step**.
-   Check fold-in against Step 0's inventory: prefer **integrate** into an owned app over a near-duplicate standalone.
+   **3d. GATE ground-truth + legal** — when the app emits a judgment, ask the kill question **"where does the app get the truth?"** (`ground_truth_source`: API/dataset/community/owner-as-curator/**none**). With no credible source the verdict **cannot be build** (drop to validate or re-scope: e.g. "authenticator" → expert-curated "signal checklist" that educates, never dictates). **Legal risk (owner rule): HIGH → kill; LOW → present with a disclaimer.** A generic disclaimer does NOT neutralize a high risk.
 
-6. **Document the survivors as decision-ready cards** — **curate, don't buffet**: aim for **~4 total** (e.g. ~2 aligned + ~2 general, weighted toward the profile), never the old ~3-5-per-stream pile. Cards at `factory/ideas/<slug>.md` (`_idea-template.md` format, `origin: discovery`, `status: discovered`), full frontmatter incl. the decision fields (`verdict`, `the_bet`, `fold_into`, `why_now`, `kill_risk`, `validation_step`) + `project_type`/`profile_alignment`/`return_type`/`score`. Body = a **1-page memo, TL;DR-first** (Spanish headings — the body is gitignored Spanish):
-   - **Veredicto + la apuesta** at the very top (the label + the one-line bet).
-   - **De un vistazo** (decide here): Problema as *storytelling* (a concrete scene — who they are, the moment it hurts, what it costs) · Diferencial (1 line) · Por qué ahora · Por qué tú (founder-fit/canal) · Riesgo #1 · Test de 7 días · the **scorecard** (small table).
-   - **Profundizar** (read more if interested): Solución · Features (qué haría) · Similares (qué ya existe) · Comparación y valor diferencial · Retorno · Red team (full kill-risks) · Evidencia (≥2 real links) · Notas de evaluación.
+   **3e. Red-team kill-gate (pre-mortem).** Run every survivor through "it's 6 months later and this failed — why?" against the kill criteria, in order of how often they kill:
+   1. **No distribution** — can't name the channel + the concrete first customer.
+   2. **Vitamin, not painkiller** — "nice to have", not "need this week".
+   3. **No observable demand** — no first-order evidence (complaints / 1-2★ reviews / searches / paid alternatives / hiring-to-do-it).
+   4. **Strong well-funded incumbent without a defensible wedge.**
+   5. **Too complex for the window** — beyond micro/small with no near-sure monetary case, or needs data/licenses/regulation that don't exist.
+   6. **Not founder-fit** — the owner doesn't live the problem and has no access to users.
+   7. **Market = "everyone"** — can't name a specific first customer.
+   8. **Doesn't work in the owner's market** (monetary ideas) — the revenue rail / customer base doesn't exist/pay from Perú. Kill-or-reframe (build-for-others, or an in-market model); kill only if money was the sole value.
+   9. **Matches an owner rejection pattern** (Step 0). Kill it and name the pattern.
 
-7. **Report = a decision view** (not a catalog). Everything you present is **genuinely NEW** — never re-list an idea already on the board in any status (including discarded). Lead with **the hero** (the one to build) + a one-line why. Then a **scannable table** of the curated shortlist (idea · veredicto · la apuesta · fit-canal), then "**descartadas y por qué**" (the killed ones this run, one line each), then "**integrar en lo que ya tienes**" (fold-ins, naming the app). Close with a one-line "*(omití N ideas que ya están en tu base, incluidas las descartadas)*" so the curation is transparent. Verdict-first, scannable, ONE clear recommendation — never a flat buffet, never a repeat.
+   A hard failure (1-4 especially) is **KILLED** — it does NOT become a card. Killed ideas are listed in the report as "**descartadas y por qué**" (one line each). Auto-kills are reported, not carded (only the *owner* turns an idea into a `discarded` card, from Mission Control).
+
+4. **Exclude — don't re-surface.** Any candidate matching the EXCLUSION SET (an existing card in ANY status incl. discarded) is **dropped from the run entirely** — not presented, not carded. (You MAY silently append genuinely new evidence to an existing *active* card.) Survivors must be **genuinely NEW**.
+
+5. **Verdict + extension check (for each survivor).**
+   - **Verdict** (asymmetric): **🏆 build** · **🧪 validate** (a key unknown → a concrete 7-day test) · **🔌 integrate** — but per the owner rule, "integrate" means **propose it as an EXTENSION of the named owned app** (`fold_into`), framed as new value for that app, NOT a near-duplicate standalone and NOT silently dropped.
+   - **Scorecard** — 5 axes, H/M/L: **founder-fit** · **wedge** · **esfuerzo** (micro/small/large) · **demanda** · **retorno**.
+   - The conviction hooks: **why now**, **por qué tú** (anchored to his channel/niche), **#1 surviving kill-risk**, **7-day validation step**, `painkiller_class`, `ground_truth_source`, `legal_risk`, `distribution_channel` (or "none" = low priority), `prior_workaround`.
+
+6. **Audit before rendering (the anti-hype belt).** Run **SUCCESs** (Simple · Unexpected · Concrete · **Credible** —evidence with real links— · Emotional · Story) + the **YC Email Test** on the one-liner (if a smart friend can't re-explain it without a question, rewrite it). If **Credible** fails (no real evidence), do NOT show it. Persuasion goes AFTER the curation — only sell hard what passed the hard gates; the owner is an engineer and punishes hype on weak ideas with more distrust.
+
+7. **Document the survivors as decision-ready cards.** Curate, don't buffet: **~4 total** (weighted to the profile), never the old pile. Cards at `factory/ideas/<slug>.md` (`_idea-template.md` format, `origin: discovery`, `status: discovered`), full frontmatter incl. the new fields (`complexity_bucket`, `painkiller_class`, `ground_truth_source`, `legal_risk`, `prior_workaround`, `distribution_channel`) + the decision fields. Body = the **memo-pitch, hot→cold** (Spanish headings — the body is gitignored Spanish):
+   - **🔥 De un vistazo (open):** la apuesta · Problema as **PAS** (Problema→Agitar→Aliviar, with a literal real quote) · por qué ahora · **por qué tú** (anchored to @pandadcollector / collecting / One Piece) · **la visión** (dream features as the prize).
+   - **❄️ Profundizar (collapsible):** Mercado (honest SOM) · **Entrada al mercado / distribución** (channel named, or "no channel = low priority") · **Gaps y riesgos** (ground-truth + legal, each risk paired with its mitigation) · Red team / pre-mortem · El ask · Similares · Evidencia (≥2 real links) · Notas de evaluación · the scorecard table.
+
+   The card `.md` is the **source of truth** (state + reasoning). Mission Control's **Propuesta** tab renders this memo as a native React component (Atelier tokens). If an owner-facing standalone HTML memo is generated, it **derives** from this `.md` — never hand-author bespoke HTML per idea (that invites fabricated numbers).
+
+8. **Report = a decision view** (not a catalog). Everything presented is **genuinely NEW**. Lead with **the hero** (the one to build — chosen by pain + fit + buildability, NOT return type) + a one-line why. Then a **scannable table** of the curated shortlist (idea · veredicto · la apuesta · cubeta · fit-canal), then "**descartadas y por qué**" (killed this run, one line each), then "**extender lo que ya tienes**" (extension proposals, naming the app). Close with "*(omití N ideas que ya están en tu base, incluidas las descartadas)*". Verdict-first, scannable, ONE clear recommendation.
 
 ## Rules
-- **Curate, don't buffet.** ~4 survivors max; kill the rest and show why. What you DON'T show is as important as what you do — the curation is the value.
-- **Red team every idea.** A valid problem with a strong incumbent + no wedge, or no distribution, is a **discard**, not a card. Run the kill-gate BEFORE presenting, not as a footnote.
-- **Verdict is explicit and asymmetric.** Every survivor gets build / validate / integrate, up front. Say "no" with conviction where it's warranted.
-- **Never re-recommend.** An idea already a card in ANY status — including **discarded** — is excluded for the whole run (not presented, not carded). Discovery surfaces only genuinely NEW opportunities.
-- **Discarding = `status: discarded`, never delete.** The Descartado column IS the single do-not-recommend memory (one source of truth — no separate ledger). Deleting a discarded card erases that memory and the idea resurfaces, so a rejected idea stays as a `status: discarded` card (marked from Mission Control, the human gate).
-- **Learn from the discard REASON, not just the title.** Read each discarded card's `discard_reason` + the profile anti-patterns, distil the recurring **rejection patterns**, and kill candidates that fit one (kill criterion #9) — even brand-new ideas. When a pattern is durable (recurs across discards), **distil it into `factory/profile.md`** dislikes/anti-patterns (DR-053) so `recommend` and future runs weigh it too. The reason lives on the card (raw, per-idea); the generalized preference lives in the profile (durable) — same data, two granularities, no duplication.
-- **Check what he already has first.** Prefer **integrate** into an owned app over a near-duplicate standalone; name the app.
-- **Evaluate in the owner's market, never a US default.** Verify the revenue rail (affiliate/payment/ads) AND the customer base actually exist and pay from the owner's country (Perú/LATAM). A monetization premise built on US infrastructure (Amazon Associates, US-only affiliate programs) that excludes the owner's country is a **kill-or-reframe** flag — find the in-market model (local affiliates, TikTok Live, sponsorships, own store) or say plainly it only works *built-for-others*.
-- **The conviction hooks are mandatory.** Founder-fit, why-now, the #1 surviving risk, and a 7-day validation step — these are what make it a "wow", not a feature list.
-- **Problem as storytelling**; **sell the differential value**, never a me-too; **evidence first** (≥2 real links); **don't inflate** the score (70+ must be genuinely promising — rubric in `/pandacorp:new-idea`).
-- Honor the dual criterion: don't kill an aligned idea only for low monetization, nor a brilliant general one only for being off-topic.
+- **Curate, don't buffet.** ~4 survivors max; kill the rest and show why. What you DON'T show is as much of the value as what you do.
+- **Hot → cold (Klaff STRONG).** The dream first (it ilusiona), the rigor after (it gives criterio). Never open with the scorecard.
+- **The new gates are mandatory and rendered:** founder-fit pre-filter · painkiller H/M/L (no gauge) · complexity bucket (micro/small/large, no day count) · ground-truth + legal (high=kill, low=disclaimer). Each appears in the memo.
+- **3 return paths equal priority; bias to micro/small.** A `large` only with a near-sure monetary case, else re-scope or kill.
+- **Market-reality for monetary ideas only.** A personal-utility idea (helps the owner's collection) is welcome without monetization.
+- **Extension, not subsumption.** When a candidate overlaps an owned app, propose it as an **extension** of that app (don't freeze the app's scope, don't hide the idea, don't ship a near-duplicate standalone).
+- **Never re-recommend.** An idea already a card in ANY status — including **discarded** — is excluded for the whole run. Discarding = `status: discarded`, never delete (the Descartado column IS the do-not-recommend memory). Learn from the discard REASON, not just the title; distil durable patterns into `factory/profile.md` (DR-053).
+- **Evidence first** (≥2 real links, prefer 1-2★ reviews and past-behavior workarounds over opinion); **problem as PAS storytelling**; **anti-hype** (SUCCESs Credible + Email Test gate before showing); **don't inflate** the score.
 - It runs on demand today; designed to also run as a scheduled job (no human) — in that case it only reports and records.

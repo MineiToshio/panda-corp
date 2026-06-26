@@ -147,8 +147,12 @@ A phase's **ficha** (`AC-02-010.4`) is a `panel` card below the trail with:
   código → auditoría+deploy`);
 - the **whole team of that phase** — every specialist with its role and what it does, **not only the
   lead** (`AC-02-010.4`): research = `researcher`; product = `product-manager`; design = `designer` +
-  `copywriter`; architecture = `architect`; build = `implementer` ×N + `reviewer` + `analytics`;
-  release = `security-auditor` + `devops`. Each shows its sprite + role chip + one-line job.
+  `copywriter`; architecture = `architect`; build = `implementer` + `reviewer` + `analytics` +
+  `security-auditor` (4 — DR-085 moved the hardening audit into build); release = `devops`. Each shows
+  its sprite + role chip + one-line job. In the campaign rooms each team has its own **sprite
+  formation** so the 52×52 figures never overlap: 1 = centred, 2 = a horizontal pair, 3 = a triangle,
+  4 = two clear rows — a raised top pair (implementer, reviewer) above a front pair (analytics,
+  security-auditor), spaced so neither row clips the other.
 - On the **build** phase ficha only, an **"Entrar a La Fragua"** action (§7) — gated on the build
   phase being reached (`phaseState !== "locked"`).
 

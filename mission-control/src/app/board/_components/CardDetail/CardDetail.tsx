@@ -9,7 +9,8 @@
  *                summary, key points, docs navigator. The next-step command now
  *                lives in the campaign ficha (CampaignPipeline), not here.
  *   AC-02-008.1  Idea with no documents → show only the summary, no project docs, no crash.
- *   AC-02-009.1  Two horizontal tabs (Campaña · Documentos); default = Campaña.
+ *   AC-02-009.1  Three horizontal tabs (Propuesta · Documentos · Campaña); default = Propuesta.
+ *                Propuesta renders the idea's hot→cold memo natively (IdeaPitch, discover redesign).
  *   AC-02-009.2  Clicking a tab activates it and shows its body.
  *   AC-02-009.3  Clicking a document entry switches the active tab to Documentos.
  *   AC-02-009.4  Active tab persists across re-renders of the card detail.
@@ -57,12 +58,13 @@ import {
   SUMMARY_STYLE,
   TITLE_STYLE,
 } from "./CardDetail.styles";
+import { IdeaPitch } from "./IdeaPitch/IdeaPitch";
 
 // ---------------------------------------------------------------------------
 // Tab definitions (AC-02-009.1)
 // ---------------------------------------------------------------------------
 
-type TabKey = "campana" | "docs";
+type TabKey = "propuesta" | "docs" | "campana";
 
 interface TabDef {
   id: TabKey;
@@ -70,7 +72,9 @@ interface TabDef {
   icon?: string;
 }
 
+// Order (owner decision, discover redesign): Propuesta → Documentos → Campaña.
 const TABS: TabDef[] = [
+  { id: "propuesta", label: "Propuesta", icon: "ti-sparkles" },
   { id: "docs", label: "Documentos", icon: "ti-files" },
   { id: "campana", label: "Campaña", icon: "ti-map-2" },
 ];
@@ -287,15 +291,17 @@ function noop(): void {
 // ---------------------------------------------------------------------------
 
 /**
- * CardDetail — 2-tab idea card detail (Campaña · Documentos).
+ * CardDetail — 3-tab idea card detail (Propuesta · Documentos · Campaña).
  *
  * Tabs:
- *   - Campaña (default): CampaignPipeline — the 6-phase La Campaña view. Each
- *     phase's ficha carries its own "Siguiente paso" command.
+ *   - Propuesta (default): IdeaPitch — the idea's hot→cold memo rendered natively
+ *     (the /discover redesign output, plugin v9.9.0). The pitch that makes the owner decide.
  *   - Documentos: a file-browser rail (Resumen · Producto · per-FRD) + a reader.
  *     "Resumen" shows the card body; a project doc lazily loads its body.
+ *   - Campaña: CampaignPipeline — the 6-phase La Campaña view. Each phase's ficha
+ *     carries its own "Siguiente paso" command.
  *
- * Both panels are always mounted; the inactive panel is visually hidden
+ * All panels are always mounted; inactive panels are visually hidden
  * via the clip technique (PANEL_HIDDEN_STYLE) so existing getByTestId /
  * getByRole test contracts remain stable regardless of the active tab.
  *
@@ -314,8 +320,8 @@ export function CardDetail({
   isRunning,
   onEnterForge,
 }: CardDetailProps): React.JSX.Element {
-  // Active tab — defaults to Documentos (AC-02-009.1). Persists across re-renders.
-  const [activeTab, setActiveTab] = useState<TabKey>("docs");
+  // Active tab — defaults to Propuesta (AC-02-009.1, owner decision). Persists across re-renders.
+  const [activeTab, setActiveTab] = useState<TabKey>("propuesta");
 
   // Selected document in the Documentos rail — SUMMARY_KEY ("summary") or a doc relPath.
   const [selectedDocKey, setSelectedDocKey] = useState<string>(SUMMARY_KEY);
@@ -405,7 +411,17 @@ export function CardDetail({
         testIdPrefix={TAB_TEST_ID_PREFIX}
       />
 
-      {/* ---- Campaña panel (default, AC-02-009.1 / AC-02-010.1) ---- */}
+      {/* ---- Propuesta panel (default, AC-02-009.1) — the native pitch view ---- */}
+      <div
+        data-testid="card-detail-panel-propuesta"
+        role="tabpanel"
+        aria-labelledby="card-detail-tab-propuesta"
+        style={panelStyle("propuesta")}
+      >
+        <IdeaPitch title={title} body={body} resolveLink={resolveDocLink} />
+      </div>
+
+      {/* ---- Campaña panel (AC-02-010.1) ---- */}
       <div
         data-testid="card-detail-panel-campana"
         role="tabpanel"

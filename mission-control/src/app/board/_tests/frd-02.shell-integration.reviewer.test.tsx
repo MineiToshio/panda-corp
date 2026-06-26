@@ -76,14 +76,18 @@ describe("FRD-02 shell · DR-062 — card detail uses the ONE shared Tabs primit
     const tabsRoot = screen.getByTestId("tabs-root");
     expect(tabsRoot).toHaveAttribute("data-level", "sub");
 
-    // The two tabs (Documentos · Campaña) are role="tab"; the Comandos tab was removed
-    // (its command folded into the campaign ficha).
+    // The three tabs (Propuesta · Documentos · Campaña) are role="tab"; the Comandos tab
+    // was removed (its command folded into the campaign ficha).
+    expect(screen.getByTestId("card-detail-tab-propuesta")).toHaveAttribute("role", "tab");
     expect(screen.getByTestId("card-detail-tab-campana")).toHaveAttribute("role", "tab");
     expect(screen.getByTestId("card-detail-tab-docs")).toHaveAttribute("role", "tab");
     expect(screen.queryByTestId("card-detail-tab-comandos")).toBeNull();
 
-    // Default active tab is Documentos (AC-02-009.1).
-    expect(screen.getByTestId("card-detail-tab-docs")).toHaveAttribute("aria-selected", "true");
+    // Default active tab is Propuesta (AC-02-009.1).
+    expect(screen.getByTestId("card-detail-tab-propuesta")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 
   it("the shared Tabs primitive provides ArrowRight focus-cycling at the board seam (a11y contract)", async () => {
@@ -91,16 +95,18 @@ describe("FRD-02 shell · DR-062 — card detail uses the ONE shared Tabs primit
     render(<BoardShell cards={[card()]} discardAction={okDiscard} />);
     await openCard(user, "Tracker de Funkos");
 
-    const campana = screen.getByTestId("card-detail-tab-campana");
-    campana.focus();
-    expect(campana).toHaveFocus();
+    const propuesta = screen.getByTestId("card-detail-tab-propuesta");
+    propuesta.focus();
+    expect(propuesta).toHaveFocus();
 
-    // The bespoke row this WO replaced did NOT do arrow cycling; the shared Tabs does.
+    // The shared Tabs cycles focus with ArrowRight across the three tabs (Propuesta → Documentos → Campaña).
     await user.keyboard("{ArrowRight}");
     expect(screen.getByTestId("card-detail-tab-docs")).toHaveFocus();
-    // wraps back to the first (two tabs: Campaña · Documentos)
     await user.keyboard("{ArrowRight}");
-    expect(campana).toHaveFocus();
+    expect(screen.getByTestId("card-detail-tab-campana")).toHaveFocus();
+    // wraps back to the first (three tabs: Propuesta · Documentos · Campaña)
+    await user.keyboard("{ArrowRight}");
+    expect(propuesta).toHaveFocus();
   });
 });
 

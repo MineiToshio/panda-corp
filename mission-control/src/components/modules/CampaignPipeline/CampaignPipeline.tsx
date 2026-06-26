@@ -104,7 +104,13 @@ const ROOM_POS: ReadonlyArray<readonly [number, number]> = [
  */
 const PHASE_ZONE = ["research", "spec", "design", "architecture", "build", "release"] as const;
 
-/** Sprite home positions [left, top] inside a room, by team size (1,2,3 members). */
+/**
+ * Sprite home positions [left, top] inside a room, by team size.
+ * Every team size that any phase declares MUST have an entry here — a missing
+ * size collapses the whole cast onto the size-1 centre (all sprites stacked).
+ * The build phase fields 4 specialists (implementer, reviewer, analytics,
+ * security-auditor), so 4 is a real, required formation, not a fallback.
+ */
 const SPRITE_HOMES: Record<number, ReadonlyArray<readonly [number, number]>> = {
   1: [[97, 84]],
   2: [
@@ -115,6 +121,15 @@ const SPRITE_HOMES: Record<number, ReadonlyArray<readonly [number, number]>> = {
     [34, 80],
     [97, 94],
     [160, 80],
+  ],
+  // Two rows. Order is [implementer, reviewer, analytics, security-auditor]: the
+  // first pair sits RAISED at the top so their 52×52 figures + role tags clear the
+  // front pair (analytics, security-auditor) entirely — neither row overlaps the other.
+  4: [
+    [34, 36],
+    [160, 36],
+    [50, 102],
+    [144, 102],
   ],
 };
 

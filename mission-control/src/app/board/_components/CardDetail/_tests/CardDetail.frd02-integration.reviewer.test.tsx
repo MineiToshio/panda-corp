@@ -178,13 +178,15 @@ describe("FRD-02 integration — Entrar a La Fragua bubbles the slug to onEnterF
 });
 
 // ---------------------------------------------------------------------------
-// Seam 4: the tab default + Documentos coexistence (AC-02-009.x) with the REAL pipeline
+// Seam 4: the tab default (Propuesta) + tab coexistence (AC-02-009.x) with the REAL pipeline
 // ---------------------------------------------------------------------------
 
-describe("FRD-02 integration — 2 tabs coexist with the real pipeline (AC-02-009.x)", () => {
-  it("defaults to Documentos and the real pipeline is mounted (always-mounted panels)", () => {
+describe("FRD-02 integration — 3 tabs coexist with the real pipeline (AC-02-009.x)", () => {
+  it("defaults to Propuesta and the real pipeline is mounted (always-mounted panels)", () => {
     renderDetail({ status: "discovered" });
-    expect(screen.getByTestId("card-detail-tab-docs").getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByTestId("card-detail-tab-propuesta").getAttribute("aria-selected")).toBe(
+      "true",
+    );
     // The real pipeline (not a mock) is always mounted via the clip technique.
     expect(screen.getByTestId("campaign-pipeline")).toBeInTheDocument();
     expect(screen.getByText("EL VIAJE DE ESTA IDEA POR LAS 6 FASES")).toBeInTheDocument();
