@@ -38,6 +38,34 @@ describe("frd-13/wo-13-007: Button — variant rendering", () => {
   });
 });
 
+describe("Button — tone (danger palette, DR-057 reuse)", () => {
+  it("defaults tone to 'default'", () => {
+    renderButton();
+    expect(screen.getByRole("button").getAttribute("data-tone")).toBe("default");
+  });
+
+  it("emits data-tone='danger' so CSS can target the destructive hover", () => {
+    renderButton({ tone: "danger" });
+    expect(screen.getByRole("button").getAttribute("data-tone")).toBe("danger");
+  });
+
+  it("primary + danger is a FILLED danger button (solid danger background)", () => {
+    renderButton({ variant: "primary", tone: "danger" });
+    const btn = screen.getByRole("button");
+    expect(btn.style.background).toContain("--color-danger");
+    // Text uses on-accent (per-theme contrast on the saturated red), not a hardcoded colour.
+    expect(btn.style.color).toContain("--color-on-accent");
+  });
+
+  it("secondary + danger is an OUTLINE danger button (card bg, danger text + border)", () => {
+    renderButton({ variant: "secondary", tone: "danger" });
+    const btn = screen.getByRole("button");
+    expect(btn.style.color).toContain("--color-danger");
+    expect(btn.style.borderColor).toContain("--color-danger");
+    expect(btn.style.background).toContain("--color-card");
+  });
+});
+
 describe("frd-13/wo-13-007: Button — size and hit area", () => {
   it("frd-13: Button — has data-testid='button'", () => {
     renderButton();

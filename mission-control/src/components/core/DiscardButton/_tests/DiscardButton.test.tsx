@@ -263,6 +263,96 @@ describe("DiscardButton — accessibility", () => {
 // Discard reason capture (AC-02-007.2) — the owner can say WHY on confirm
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Reason capture opens in a MODAL, not an inline expand (owner rule, FRD-02)
+// ---------------------------------------------------------------------------
+
+describe("DiscardButton — confirmation opens in a modal", () => {
+  it("does NOT render the modal until the trigger is clicked", () => {
+    const action = makeAction({ ok: true });
+    render(<DiscardButton slug="idea-x" discardAction={action} />);
+    expect(screen.queryByTestId("discard-modal")).not.toBeInTheDocument();
+  });
+
+  it("opens a dialog modal (with the reason form inside) after clicking the trigger", async () => {
+    const user = userEvent.setup();
+    const action = makeAction({ ok: true });
+    render(<DiscardButton slug="idea-x" discardAction={action} />);
+
+    await user.click(screen.getByTestId("discard-button"));
+
+    const modal = screen.getByTestId("discard-modal");
+    expect(modal).toBeInTheDocument();
+    expect(modal).toHaveAttribute("role", "dialog");
+    expect(modal).toContainElement(screen.getByTestId("discard-reason-form"));
+    expect(modal).toContainElement(screen.getByTestId("discard-confirm-button"));
+  });
+
+  it("keeps the trigger button mounted while the modal is open (no layout jump)", async () => {
+    const user = userEvent.setup();
+    const action = makeAction({ ok: true });
+    render(<DiscardButton slug="idea-x" discardAction={action} />);
+
+    await user.click(screen.getByTestId("discard-button"));
+
+    expect(screen.getByTestId("discard-button")).toBeInTheDocument();
+  });
+
+  it("closes the modal and does NOT call the action when dismissed via the ✕ button", async () => {
+    const user = userEvent.setup();
+    const action = makeAction({ ok: true });
+    render(<DiscardButton slug="idea-x" discardAction={action} />);
+
+    await user.click(screen.getByTestId("discard-button"));
+    await user.click(screen.getByTestId("discard-close"));
+
+    expect(screen.queryByTestId("discard-modal")).not.toBeInTheDocument();
+    expect(action).not.toHaveBeenCalled();
+  });
+
+  it("closes the modal and does NOT call the action when the backdrop is clicked", async () => {
+    const user = userEvent.setup();
+    const action = makeAction({ ok: true });
+    render(<DiscardButton slug="idea-x" discardAction={action} />);
+
+    await user.click(screen.getByTestId("discard-button"));
+    await user.click(screen.getByTestId("discard-backdrop"));
+
+    expect(screen.queryByTestId("discard-modal")).not.toBeInTheDocument();
+    expect(action).not.toHaveBeenCalled();
+  });
+
+  it("dismissing via the ✕ clears the captured reason (re-open is clean)", async () => {
+    const user = userEvent.setup();
+    const action = makeAction({ ok: true });
+    render(<DiscardButton slug="idea-x" discardAction={action} />);
+
+    await user.click(screen.getByTestId("discard-button"));
+    await user.click(screen.getByRole("button", { name: "muy complejo" }));
+    await user.click(screen.getByTestId("discard-close"));
+    await user.click(screen.getByTestId("discard-button"));
+
+    expect(screen.getByRole("button", { name: "muy complejo" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  it("closes the modal after a successful discard", async () => {
+    const user = userEvent.setup();
+    const action = makeAction({ ok: true });
+    render(<DiscardButton slug="idea-x" discardAction={action} />);
+
+    await user.click(screen.getByTestId("discard-button"));
+    await user.click(screen.getByTestId("discard-confirm-button"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("discard-done")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("discard-modal")).not.toBeInTheDocument();
+  });
+});
+
 describe("DiscardButton — discard reason capture", () => {
   it("shows the reason form (tags + free text) in the confirmation step", async () => {
     const user = userEvent.setup();

@@ -20,10 +20,17 @@
 
 type ButtonVariant = "primary" | "secondary" | "ghost";
 type ButtonSize = "sm" | "md" | "lg";
+/** Colour intent, composed with `variant`. 'danger' recolours to the destructive palette. */
+type ButtonTone = "default" | "danger";
 
 export interface ButtonProps {
   /** Visual variant. Defaults to 'secondary'. */
   variant?: ButtonVariant;
+  /**
+   * Colour intent layered on top of `variant`. 'danger' makes a destructive button:
+   * `primary` + `danger` = filled red; `secondary` + `danger` = red outline. Defaults to 'default'.
+   */
+  tone?: ButtonTone;
   /** Size. Defaults to 'md' (≥44px hit area). */
   size?: ButtonSize;
   /** Disabled state. */
@@ -59,7 +66,36 @@ const SIZE_FONT: Record<ButtonSize, string> = {
 // Variant → token vars (no hardcoded hex)
 // ---------------------------------------------------------------------------
 
-function variantStyle(variant: ButtonVariant): React.CSSProperties {
+function variantStyle(variant: ButtonVariant, tone: ButtonTone): React.CSSProperties {
+  // Danger tone: a destructive palette layered on the variant.
+  //   primary  → filled red (solid danger bg, on-accent text — readable in both themes)
+  //   secondary → red outline (card bg, danger border + text)
+  //   ghost    → transparent with danger text
+  if (tone === "danger") {
+    switch (variant) {
+      case "primary":
+        return {
+          background: "var(--color-danger)",
+          color: "var(--color-on-accent)",
+          borderColor: "var(--color-danger)",
+        };
+      case "ghost":
+        return {
+          background: "transparent",
+          color: "var(--color-danger)",
+          borderColor: "transparent",
+          boxShadow: "none",
+        };
+      default:
+        // secondary danger = outline
+        return {
+          background: "var(--color-card)",
+          color: "var(--color-danger)",
+          borderColor: "var(--color-danger)",
+        };
+    }
+  }
+
   switch (variant) {
     case "primary":
       return {
@@ -97,6 +133,7 @@ function variantStyle(variant: ButtonVariant): React.CSSProperties {
  */
 export function Button({
   variant = "secondary",
+  tone = "default",
   size = "md",
   disabled = false,
   onClick,
@@ -125,7 +162,7 @@ export function Button({
     gap: "6px",
     whiteSpace: "nowrap" as const,
     userSelect: "none" as const,
-    ...variantStyle(variant),
+    ...variantStyle(variant, tone),
   };
 
   return (
@@ -133,6 +170,7 @@ export function Button({
       className="pc-btn"
       data-testid={testId}
       data-variant={variant}
+      data-tone={tone}
       data-size={size}
       type={type}
       disabled={disabled}

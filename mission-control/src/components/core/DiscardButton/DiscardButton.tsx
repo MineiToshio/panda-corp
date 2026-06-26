@@ -5,9 +5,12 @@
  *
  * Implements the discard flow for an idea card:
  *   1. Idle: shows "Descartar idea" trigger button.
- *   2. Confirming: shows a confirmation step that ALSO captures WHY the idea is
- *      discarded — quick-tags (multi-select) + an optional free-text reason —
- *      then confirm + cancel buttons. (Two-step safety net for a destructive action.)
+ *   2. Confirming: opens a MODAL (the shared Modal core, DR-057) that captures WHY
+ *      the idea is discarded — quick-tags (multi-select) + an optional free-text
+ *      reason — then confirm + cancel buttons. (Two-step safety net for a
+ *      destructive action.) The owner rule (FRD-02): reveal-more is a modal, never
+ *      an inline expand-that-pushes-content — so the reason capture lives in the
+ *      modal, not pushed inline below the trigger.
  *   3. Pending: confirm button is disabled while the Server Action is in-flight.
  *   4. Done: shows a "Descartada" success indicator (optimistic UI resolved).
  *   5. Error: reverts to idle and shows an error message when the action fails.
@@ -38,6 +41,8 @@
  */
 
 import { useState, useTransition } from "react";
+import { Button } from "@/components/core/Button/Button";
+import { Modal } from "@/components/core/Modal/Modal";
 import type { DiscardResult } from "@/lib/discard/discard";
 
 // ---------------------------------------------------------------------------
@@ -87,54 +92,6 @@ type UIState = "idle" | "confirming" | "pending" | "done";
 // These variables are wired by the design system (WO-13-002, globals.css).
 // ---------------------------------------------------------------------------
 
-// Mirrors the shared Button (size="sm") so the discard affordance matches the
-// "← Volver al tablero" back button beside it (prototype detailView back/discard row).
-const BASE_BTN_STYLE: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: "6px",
-  padding: "5px 10px",
-  borderRadius: "var(--radius-sm, 8px)",
-  fontSize: "12px",
-  fontWeight: 500,
-  lineHeight: 1.4,
-  fontFamily: "var(--font-display, inherit)",
-  cursor: "pointer",
-  border: "1px solid var(--color-border-strong)",
-  background: "var(--color-card)",
-  color: "var(--color-text)",
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,.05), 0 1px 0 var(--color-base)",
-  // Hover animation lives inline (like the shared Button); globals.css may only
-  // transition compositable props (AC-13-005.1).
-  transition:
-    "border-color var(--duration-fast, 150ms), box-shadow var(--duration-fast, 150ms), background var(--duration-fast, 150ms)",
-};
-
-const DISCARD_BTN_STYLE: React.CSSProperties = {
-  ...BASE_BTN_STYLE,
-  color: "var(--color-danger, currentColor)",
-  borderColor: "var(--color-danger, currentColor)",
-};
-
-const CONFIRM_BTN_STYLE: React.CSSProperties = {
-  ...BASE_BTN_STYLE,
-  background: "var(--color-danger, currentColor)",
-  color: "var(--color-on-accent, Canvas)",
-  borderColor: "var(--color-danger, currentColor)",
-  fontWeight: 700,
-};
-
-const CONFIRM_BTN_DISABLED_STYLE: React.CSSProperties = {
-  ...CONFIRM_BTN_STYLE,
-  opacity: 0.5,
-  cursor: "not-allowed",
-};
-
-const CANCEL_BTN_STYLE: React.CSSProperties = {
-  ...BASE_BTN_STYLE,
-};
-
 const DONE_STYLE: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
@@ -172,9 +129,8 @@ const WRAPPER_STYLE: React.CSSProperties = {
 const REASON_FORM_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: "6px",
+  gap: "8px",
   width: "100%",
-  maxWidth: "360px",
   border: "none",
   padding: 0,
   margin: 0,
@@ -221,11 +177,11 @@ const TAG_BTN_SELECTED_STYLE: React.CSSProperties = {
 
 const TEXTAREA_STYLE: React.CSSProperties = {
   width: "100%",
-  minHeight: "52px",
+  minHeight: "140px",
   resize: "vertical",
-  fontSize: "12px",
-  lineHeight: 1.45,
-  padding: "7px 9px",
+  fontSize: "13px",
+  lineHeight: 1.5,
+  padding: "10px 12px",
   borderRadius: "var(--radius-sm, 8px)",
   border: "1px solid var(--color-border-strong)",
   background: "var(--color-base, var(--color-card))",
@@ -278,6 +234,16 @@ export function DiscardButton({ slug, discardAction }: DiscardButtonProps): Reac
     setReasonText("");
   }
 
+  /**
+   * Modal dismissal (backdrop click, ✕ button, Escape). Inert while the action is
+   * in-flight so a destructive write can't be abandoned half-done; otherwise it
+   * cancels like the explicit "Cancelar" button.
+   */
+  function handleClose() {
+    if (isInFlight) return;
+    handleCancel();
+  }
+
   function toggleTag(tag: string) {
     setSelectedTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
@@ -320,12 +286,44 @@ export function DiscardButton({ slug, discardAction }: DiscardButtonProps): Reac
   }
 
   // ---------------------------------------------------------------------------
-  // Confirming / Pending state (reason capture + confirmation step)
+  // Idle trigger + confirm/reason MODAL
+  //
+  // The trigger button is always rendered (no layout jump). Confirming opens the
+  // shared Modal core (DR-057) — the owner rule (FRD-02): reveal-more is a modal,
+  // never an inline expand-that-pushes-content. While in-flight the modal stays
+  // open showing the disabled "Descartando…" state; backdrop/✕/Escape are inert
+  // until the action settles.
   // ---------------------------------------------------------------------------
 
-  if (uiState === "confirming" || isInFlight) {
-    return (
-      <div style={WRAPPER_STYLE}>
+  const modalOpen = uiState === "confirming" || isInFlight;
+
+  return (
+    <div style={WRAPPER_STYLE}>
+      {/* Trigger — the shared Button (DR-057), danger outline (secondary + danger tone). */}
+      <Button
+        variant="secondary"
+        tone="danger"
+        size="sm"
+        onClick={handleTrigger}
+        ariaLabel="Descartar idea"
+        data-testid="discard-button"
+      >
+        <i className="ti ti-trash" aria-hidden="true" style={{ fontSize: "14px" }} />
+        Descartar idea
+      </Button>
+      {errorMsg !== null && (
+        <p data-testid="discard-error" style={ERROR_STYLE} role="alert" aria-live="assertive">
+          {errorMsg}
+        </p>
+      )}
+
+      <Modal
+        open={modalOpen}
+        onClose={handleClose}
+        title="Descartar idea"
+        testIdBase="discard"
+        width={460}
+      >
         {/* Reason capture — optional. <fieldset> groups the prompt (Biome a11y). */}
         <fieldset
           style={REASON_FORM_STYLE}
@@ -363,69 +361,37 @@ export function DiscardButton({ slug, discardAction }: DiscardButtonProps): Reac
             value={reasonText}
             onChange={(e) => setReasonText(e.target.value)}
             disabled={isInFlight}
-            maxLength={280}
             style={TEXTAREA_STYLE}
           />
         </fieldset>
 
-        {/* Confirm / cancel */}
+        {/* Confirm / cancel — both the shared Button (DR-057): same component, different
+            styles. Confirm = filled danger (primary + danger); cancel = plain secondary. */}
         <fieldset
           style={{ ...CONFIRM_ROW_STYLE, border: "none", padding: 0, margin: 0 }}
           aria-label="Confirmar descarte de idea"
         >
-          <button
-            type="button"
-            className="pc-discard"
-            data-testid="discard-confirm-button"
-            aria-label="Confirmar descarte de idea"
+          <Button
+            variant="primary"
+            tone="danger"
             onClick={handleConfirm}
             disabled={isInFlight}
-            style={isInFlight ? CONFIRM_BTN_DISABLED_STYLE : CONFIRM_BTN_STYLE}
+            ariaLabel="Confirmar descarte de idea"
+            data-testid="discard-confirm-button"
           >
             {isInFlight ? "Descartando…" : "Sí, descartar"}
-          </button>
-          <button
-            type="button"
-            className="pc-btn"
-            data-testid="discard-cancel-button"
-            aria-label="Cancelar descarte"
+          </Button>
+          <Button
+            variant="secondary"
             onClick={handleCancel}
             disabled={isInFlight}
-            style={
-              isInFlight
-                ? { ...CANCEL_BTN_STYLE, opacity: 0.4, cursor: "not-allowed" }
-                : CANCEL_BTN_STYLE
-            }
+            ariaLabel="Cancelar descarte"
+            data-testid="discard-cancel-button"
           >
             Cancelar
-          </button>
+          </Button>
         </fieldset>
-      </div>
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Idle state (default)
-  // ---------------------------------------------------------------------------
-
-  return (
-    <div style={WRAPPER_STYLE}>
-      <button
-        type="button"
-        className="pc-discard"
-        data-testid="discard-button"
-        aria-label="Descartar idea"
-        onClick={handleTrigger}
-        style={DISCARD_BTN_STYLE}
-      >
-        <i className="ti ti-trash" aria-hidden="true" style={{ fontSize: "14px" }} />
-        Descartar idea
-      </button>
-      {errorMsg !== null && (
-        <p data-testid="discard-error" style={ERROR_STYLE} role="alert" aria-live="assertive">
-          {errorMsg}
-        </p>
-      )}
+      </Modal>
     </div>
   );
 }
