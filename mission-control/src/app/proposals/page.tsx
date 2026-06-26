@@ -146,8 +146,14 @@ export default function ProposalsPage(): React.JSX.Element {
 
         {/* Memory-loop health panel (CMP-17-health → REQ-17-005, AC-17-005.1..5).
             promotionsCount feeds the 4th dStat card "Promociones a aprobar"
-            (prototype reads BPROPOSALS.promote.length, index.html ~L1414). */}
-        <MemoryHealth health={health} promotionsCount={promotions.length} />
+            (prototype reads BPROPOSALS.promote.length, index.html ~L1414).
+            data-volatile (DR-088): its stat cards are derived from live (gitignored)
+            factory data whose values flip conditional rows, so its height drifts
+            across runs (the propuestas-mobile baseline flapped ±14px). Hidden from
+            the visual baseline like the streams below; correctness is unit-tested. */}
+        <div data-volatile style={{ display: "contents" }}>
+          <MemoryHealth health={health} promotionsCount={promotions.length} />
+        </div>
 
         {/* data-volatile: the four proposal streams + promotions queue are live
             factory data (candidate lessons, prune, promotions, self-suggestions)
