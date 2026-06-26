@@ -3,11 +3,13 @@
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!.claude", "!docs", "!public", "!.pandacorp"]
+    "includes": ["**", "!.claude", "!docs", "!public", "!.pandacorp", "!**/*.py"]
   },
   "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
   "css": { "parser": { "tailwindDirectives": true } },
-  "javascript": { "formatter": { "quoteStyle": "double", "semicolons": "always" } },
+  "javascript": {
+    "formatter": { "quoteStyle": "double", "semicolons": "always", "trailingCommas": "all" }
+  },
   "linter": {
     "enabled": true,
     "domains": {
