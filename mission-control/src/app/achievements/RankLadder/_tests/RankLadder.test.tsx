@@ -52,6 +52,19 @@ describe("RankLadder", () => {
     render(<RankLadder level={mkLevel(1)} />);
     expect(screen.getByText("Humano")).toBeDefined();
     expect(screen.getByText("Portador del Juramento Eterno")).toBeDefined();
-    expect(screen.getByText(/Nv 1–/)).toBeDefined(); // Humano's level band
+    // Humano's own band ("Nv 1–3") lives inside its row (the era header also shows a
+    // wider range, so scope the assertion to the rank row itself).
+    const humanoRow = screen
+      .getAllByTestId("rank-row")
+      .find((r) => r.getAttribute("data-rank") === "1");
+    expect(within(humanoRow as HTMLElement).getByText(/Nv 1–3/)).toBeDefined();
+  });
+
+  it("shows the era section headers and a flavor caption per rank", () => {
+    render(<RankLadder level={mkLevel(6)} />);
+    expect(screen.getByText("El despertar")).toBeDefined();
+    expect(screen.getByText("La trascendencia")).toBeDefined();
+    // The flavor caption (RPG soul that fills the row's horizontal space).
+    expect(screen.getByText(/todo gremio empieza con una sola persona/i)).toBeDefined();
   });
 });
