@@ -5,7 +5,9 @@ Design of the Achievements Hall. Each achievement stores the **date** and **proj
 ## Stats (counters that grow — "character sheet")
 Products shipped · Ideas captured · Work orders completed · Phases completed · Iterations deployed · Flawless launches (zero rejections) · Ideas discarded · PRDs written · ADRs recorded · Agents coordinated · Record streak (weeks) · Record idea→launch (days).
 
-## Cumulative chains (tier up: Bronze → Silver → Gold → Platinum → Legend)
+## Cumulative chains (tier up: Común → Poco común → Raro → Épico → Leyenda)
+> Tier rarity uses the Spanish rarity names (never metal names), reconciled 2026-06-25. These 5 tiers are the **Misiones** lens; the **Estadísticas** tab instead shows an **unbounded `Nv N`** per metric (`metricLevel`, FRD-09 phase 3 — counts the chain thresholds below crossed, then extends ≈1.6× beyond the last; higher-is-better never caps at 5, lower-is-better stays bounded). The guild's overall **rank** climbs the separate 40-rung ladder (FRD-09, the **Rangos** tab).
+
 Each one tracks a stat; crossing the threshold unlocks the tier (with date + project). Thresholds:
 
 | Chain | Stat | T1 | T2 | T3 | T4 | T5 |

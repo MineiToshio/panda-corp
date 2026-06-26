@@ -23,9 +23,10 @@ project (FRD-06). FRD-09 covers the **Guild** elements only.
 ### 1. Guild bar — level · title · XP (top of every page)
 - **Render fn:** `topbar()` (index.html ~L577). Host: the app shell header, on **every** view.
 - **Composition:** `.rpgpanel.rpggrid` container (`rpgSkin.rpgpanel` + `rpgSkin.rpggrid`) → Pandacorp
-  logo crest → app title in `typography.families.display` (`.ttl`) → a **level pill** (`NV {n}`) in
-  `typography.families.pixel` on `accent` fill → the guild **title** (e.g. "Gran maestro del gremio")
-  in `text.t2` → a compact inline **`.xpbar`** (`rpgSkin.xpbar`, 90px wide, 9px tall) to next level.
+  logo crest → app title in `typography.families.display` (`.ttl`) → a **level pill** (`NV {n}`, the
+  granular level) in `typography.families.pixel` on `accent` fill → the **rank emblem** (`RankEmblem`,
+  18px) + the rank **title** (e.g. "Portador de Luz I" — the level band, not the level) in `text.t2` →
+  a compact inline **`.xpbar`** (`rpgSkin.xpbar`, 90px wide, 9px tall) to the next level.
 - The level pill, the XP numerals and "NV" use the **pixel** family — the RPG signature numerals.
 
 ### 2. Guild hero panel (the character sheet header) — Achievements Hall + dashboard footer
@@ -43,6 +44,15 @@ project (FRD-06). FRD-09 covers the **Guild** elements only.
   base, `accent` fill with `transition: width .6s`, plus the `::after` segmented striping
   (16px transparent + 2px canvas notch). Reused by the guild bar, hero panel, "Próximas hazañas"
   cards (FRD-10) and the dashboard footer.
+
+### 4b. Rank emblems & the 40-rung ladder (`RankEmblem`) — reconciled from code 2026-06-25
+> *Reconciled from code by `/pandacorp:sync` on 2026-06-25 — describes the shipped rank system (owner-authored, phases 1–6).*
+
+The guild rank has a **custom pixel-art emblem** per family (the medal art the owner generated), rendered by the `RankEmblem` core component instead of a bare Tabler icon. Visual contract:
+- **Self-framed sprite.** `/ranks/<slug>.png` already IS the medal (its own circular frame + glow), so it renders directly — no extra bordered container. `object-fit: contain`, fixed square `size`. The Tabler `icon` is the graceful fallback when a sprite is missing (older `GuildLevel` objects / tests), mirroring the avatar `onerror` degrade.
+- **Grade badge.** When the rank is grade I·II·III, a small **roman-numeral badge** sits at the emblem's bottom-right corner (`accent` fill, `on-accent` text, pixel font, sized ∝ the emblem) so the three grades of a shared family emblem are told apart. Humano and the 6 summits carry no badge.
+- **Sizes by host.** 18px in the GuildBar (header), 32px in the GuildHero (hero), 88px (104px current / 124px summit) in the Rangos tab — the art is the hero on the ladder (FRD-10 FDD §Rangos).
+- The rank **name** always rides alongside the emblem (e.g. "Portador de Luz I"), so meaning is never carried by the emblem alone (a11y).
 
 ### 4. Tier medals & the Bronze→Legend ladder (`.itemslot` + `.node`)
 - **Tokens:** `tiers.tier1..tier5` (the rarity colors), `rpgSkin.itemslot` (the medal slot,

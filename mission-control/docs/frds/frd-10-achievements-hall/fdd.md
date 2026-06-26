@@ -10,8 +10,10 @@ A single full-width page (`.rpghall`) reached from the **Logros** tab. Layout, t
 
 1. **Hall header** — an `.itemslot` award medal (warn-bordered) + the title **"Salón del gremio"**
    (`.ttl`, 21px display) + a feats-count pill (`px` pixel font on `warn` chip).
-2. **Sub-tab bar** — four `.stab` tabs: **Resumen · Misiones · Trofeos · Estadísticas**, each with a
-   small pixel count where relevant. Active = `.stab.on` (`secondary` fill).
+2. **Sub-tab bar** — five `.stab` tabs: **Resumen · Misiones · Trofeos · Estadísticas · Rangos**, each
+   with its **icon** and a small pixel count where relevant (Misiones = chains in progress, Trofeos =
+   unlocked). Active = `.stab.on` (`secondary` fill). (Reconciled 2026-06-25: the **Rangos** tab is the
+   new guild-rank-ladder surface, FRD-09.)
 3. **Body** — switches on the active sub-tab:
    - **Resumen** (`logrosResumen`): the guild **hero panel** (`logrosHero`, shared with FRD-09) →
      **"Próximas hazañas · a un paso de caer"** (`questsNear`, the Zeigarnik "Almost there" — the
@@ -27,7 +29,20 @@ A single full-width page (`.rpghall`) reached from the **Logros** tab. Layout, t
      → "Secretos" grid (silhouette + cryptic hint).
    - **Estadísticas** (`logrosStats`): the **radar** ("Atributos del gremio", `statRadar`) + three
      `heroStat` record tiles → three ledger columns (`statLedgerRow`) grouped Producción / Calidad /
-     Ritmo & alcance, each stat carrying its tier medal pip.
+     Ritmo & alcance, each stat carrying an **unbounded `Nv N` metric level** (`metricLevel`, phase 3 —
+     a `Nv N` chip + a band-colored pip across 5 hues; `0` → "sin nivel") instead of the old
+     rarity-named tier medal. The level keeps climbing with the value, never capped at 5.
+   - **Rangos** (`RankLadder`, reconciled 2026-06-25): the **40-rung guild rank ladder** (FRD-09) as an
+     **enriched, era-sectioned vertical climb** — chosen over a card grid on UI/UX research (an ordered
+     40-tier ladder reads as a *climb*, which a grid breaks; the dead space is killed by enriching the
+     row, not by fleeing to cards). 6 named **eras** (El despertar · Los portadores · Los guardianes ·
+     Los campeones · Los ascendidos · La trascendencia), each a section header + level range. Each rank
+     row: a **large `RankEmblem`** (88px; 104px current; 124px summit) with its I·II·III grade badge,
+     the rank name, a one-line **flavor caption**, the **level band** `Nv min–max`, the **XP threshold**
+     ("Inicio" / "1.040 XP"), and a **state marker** with icon + text (`✓ Conseguido` / `ESTÁS AQUÍ` /
+     `🔒 Nv N`). The current rank glows (`accent` border + progress bar to the next rank); locked ranks
+     dim toward the summit (opacity floor 0.5 so icon+text stay legible); the summit (rank 40) gets a
+     distinct centered "LA CIMA" treatment (`warn` frame). Container max-width 860px.
 
 ## Components mapped to frozen primitives
 
@@ -43,16 +58,21 @@ A single full-width page (`.rpghall`) reached from the **Logros** tab. Layout, t
 | Ledger row | `statLedgerRow` | `.ledrow` + tier `.node` pip + pixel numeral |
 | Attributes radar | `statRadar` | SVG, `accent` polygon + glow, `bd` rings, pixel-font labels |
 | Section header | `secthead` | `rpgSkin.secthead` (trailing 1px `.ln` rule) |
-| Sub-tabs | `logrosTabs` | `.stab` / `.stab.on` |
+| Sub-tabs (5, with icons + counts) | `HallTabs` (`logrosTabs`) | `.stab` / `.stab.on` |
+| Rank ladder row / era header / summit | `RankLadder` + `ladderMeta` | `rpgpanel` + `RankEmblem` (88/104/124px) + `accent` glow (current) + `warn` frame (summit) |
+| Metric level chip + band pip (Estadísticas) | `statLedgerRow` / `heroStat` | `metricLevel` → `Nv N` chip + 5-hue pip |
 
-Tier rarity (`tiers.tier1..tier5` = Bronze→Legend) is **always** paired with the tier **name text**
-(`TIERN`) on every badge/pip — color is never the only signal (a11y rule).
+Tier rarity (`tiers.tier1..tier5` = **Común → Poco común → Raro → Épico → Leyenda**, never metal
+names) is **always** paired with the tier **name text** (`TIERN`) on every badge/pip — color is never
+the only signal (a11y rule).
 
 ## FRD acceptance criteria → visual mapping
 
 - Stats that only grow → `logrosStats` ledgers + `heroStat` records (pixel numerals, `tabular-nums`).
-- Cumulative chains tier up Bronze→Silver→Gold→Platinum→Legend with a **progress bar to next tier** +
+- Cumulative chains tier up Común→Poco común→Raro→Épico→Leyenda with a **progress bar to next tier** +
   next-tier name → `rpgChainCard` / `rpgChainMini` / `rpgChainSpot` (the `.xpbar` + "Siguiente: {tier}").
+- 40-rung **rank ladder** (Rangos tab) → `RankLadder` + `ladderMeta` (eras + flavor), big `RankEmblem`,
+  era headers, current-rank glow + progress, summit treatment (FRD-09 single source `RANKS`).
 - Each unlocked tier stores **date + project** → the `stamp` line (calendar icon) on every chain card.
 - **"Almost there"** (Zeigarnik) → `questsNear` (top-3 nearest) on Resumen + `rpgChainSpot` spotlight
   on Misiones.

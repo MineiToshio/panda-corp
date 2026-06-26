@@ -35,4 +35,5 @@ WO-10-005 (Hall surfaces: ChainCard + TrophyCard + AlmostThere + stat ledger)
 |---|---|---|---|---|
 | WO-10-001 | `lib/achievements.ts` — engine (stats/chains/uniques/secrets) | `lib/achievements.ts` | VERIFIED | WO-01-003, WO-01-005, WO-01-007, WO-03-001 |
 | WO-10-005 | Hall surfaces: ChainCard + TrophyCard + AlmostThere + stat ledger | `app/achievements/{ChainCard,UniquesSection}/**`, `AlmostThere.tsx`, `SecretsPanel.tsx` | PLANNED | WO-10-001, WO-09-003, WO-13-006, WO-13-007, WO-13-008 |
+| WO-10-006 | Rangos tab (enriched rank ladder) + unbounded Nv N metric levels (reconciled-from-code) | `app/achievements/RankLadder/**`, `_components/HallTabs.tsx`, `StatsPanel.tsx`, `lib/achievements/{achievements,tiers}.ts` | VERIFIED | WO-10-001, WO-10-005, WO-09-007 |
 </content>

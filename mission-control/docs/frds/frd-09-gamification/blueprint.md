@@ -4,7 +4,7 @@ type: blueprint
 parent: FRD-09
 status: ACTIVE
 implementation_status: VERIFIED
-last_updated: '2026-06-21'
+last_updated: '2026-06-25'
 ---
 # FRD-09 — Gamification (RPG theme) · feature blueprint
 
@@ -41,7 +41,7 @@ stored as a mutable counter the app increments on interaction:
 |---|---|---|
 | Work order closed (green) | `.pandacorp/status.yaml` `work_orders_done`; event `achievement`/`test_ok` + `work_order` | `lib/status.ts` (FRD-01), `lib/events.ts` (FRD-06/12) |
 | Phase completed | `status.yaml` `phase` transitions | `lib/status.ts` |
-| Release / launch | `phase: operation` reached | `lib/status.ts`, `portfolio` |
+| Release / launch | `phase: release` reached (DR-085: the launched/terminal phase) | `lib/status.ts`, `portfolio` |
 | Green tests | event `test_ok` | `lib/events.ts` |
 | Agent did a work order | event with `agent` + `work_order` + `status: ok` | `lib/events.ts` |
 
@@ -56,13 +56,27 @@ exist, or zero) — **never a bar stuck at 80%** and never fake progress (FRD-09
 ## 3. Components & interfaces
 
 ### Interfaces (`lib/gamification.ts`, NEW pure module — §7)
-- **`IF-09-guild-xp`** — `computeGuildLevel(outcomes): { level, title, xp, next, pctToNext }`. Title from the rank ladder (Aprendiz → … → Maestro del gremio → …, see prototype `RANKS`). Pure, fixture-tested. → top-bar AC.
+- **`IF-09-guild-xp`** — `computeGuildLevel(outcomes): { level, rankIndex, title, titleEn?, icon?, sprite?, grade?, xp, next, pctToNext }`. Derives the **granular level** from XP and the **rank** as the level band that contains it (see *Rank ladder*, §3a). `level` is the granular level; `next`/`pctToNext` target the **next level** (the bar fills toward the next level); `rankIndex`/`title`/`grade`/`sprite` describe the current rank band. Pure, fixture-tested. → top-bar AC.
 - **`IF-09-guild-state`** (`lib/gamification/guildState.ts`) — **THE single source of truth for the displayed guild level.** `getGuildState(): { statuses, eventsSnapshot, outcomes, level }` reads the live data layers once (`readPortfolio` → `readStatus(resolveProjectPath(path))` → `readEvents`), derives the outcomes and the level, and is wrapped in React `cache()` so every consumer in a request gets the identical object. **Every surface that shows the guild level MUST read it from here** — the GuildBar (`app/layout.tsx`), the Inicio dashboard (`app/page.tsx`) and the Logros hero (`app/achievements/page.tsx`) — instead of each re-deriving `deriveGuildOutcomes` + `computeGuildLevel`. (Three independent derivations is exactly how the header once showed NV3 while Logros showed NV1 — one passed an unresolved portfolio path to `readStatus`.) The uncached core `readGuildState()` is exported for tests. This is also the one place a future ledger merge — `MAX(live, ledger)`, §5 / WO-09-006 — must live so the floor applies everywhere at once.
 - **`IF-09-agent-xp`** — `computeAgentLevel(agentId, events): { level, title, xp, next, pctToNext }`. Title ladder Apprentice → Engineer → Senior → Architect (FRD-07 AC). XP only from that agent's closed work orders. Consumed by **FRD-07** (agent section/detail). Pure, fixture-tested.
 - **`IF-09-celebration`** — `classifyCelebration(event): "toast" | "phase" | "release" | "levelup" | "none"`. Maps an outcome to the celebration tier so it scales (never flat). Pure.
 
+### §3a. Rank ladder — granular level + rank-by-band (reconciled from code, 2026-06-25)
+
+> *Reconciled from code by `/pandacorp:sync` on 2026-06-25 — describes the shipped rank system (owner-authored, phases 1–6), not a forward plan. Supersedes the earlier 3-rung "Aprendiz → Maestro del gremio" ladder.*
+
+The guild climbs a **40-rung ladder** (Final Fantasy tone). The level and the rank are **two distinct axes** (decision 2026-06-25 — they are NOT 1:1):
+
+- **Level (granular).** `xpForLevel(level)` is a super-linear curve (rounded to 5) so each level costs more than the last; `levelForXp(xp)` inverts it. The level keeps climbing with XP, unbounded.
+- **Rank (a band of levels).** The 40 ranks are `RANK_DEFS` (Spanish + English names + a Tabler fallback icon). `rankBandSize(i) = 3 + ⌊i/4⌋` widens the bands toward the summit; `RANK_MIN_LEVEL[i]` is the cumulative entry level; `rankForLevel(level)` returns the last rank whose `minLevel ≤ level`. So higher ranks take more levels to earn, and the top (**Portador del Juramento Eterno**) starts at ~Nv 289 — deliberately far.
+- **Families & grades.** Most ranks come in three grades **I·II·III** (`grade ∈ {1,2,3}`, `0` for Humano + the 6 standalone summits). `RANKS` is the single exported source: `Rank = { title, titleEn, icon, sprite, minLevel, grade }`.
+- **Custom emblems.** Each family has a **pixel-art emblem** at `public/ranks/<slug>.png`; `RANK_SPRITES[40]` maps each rank to its family slug (18 sprites = 11 families × shared + 6 summits + Humano). The Tabler `icon` remains the graceful fallback when a sprite is missing.
+
+This ladder is consumed by the GuildBar (header), the GuildHero (hero), and the **Rangos tab** (FRD-10 `RankLadder`).
+
 ### Components
-- **`CMP-09-guild-bar`** — the top-bar Guild level/XP block (level, title, XP bar to next). Consumes `IF-09-guild-xp`. Cross-cutting (in `app/layout.tsx`). → AC "top bar guild level/XP". Uses the rationed accent on the XP bar (FRD-13); number with `tabular-nums`.
+- **`CMP-09-guild-bar`** — the top-bar Guild level/XP block (level pill `NV {n}`, the **rank emblem + name**, XP bar to next level). Consumes `IF-09-guild-xp` and renders `CMP-09-rank-emblem` (18px). Cross-cutting (in `AppShell`/`app/layout.tsx`). → AC "top bar guild level/XP". Uses the rationed accent on the XP bar (FRD-13); number with `tabular-nums`.
+- **`CMP-09-rank-emblem`** (`components/core/RankEmblem/RankEmblem.tsx`) — the rank's self-framed pixel-art medal: renders `/ranks/<sprite>.png` at a fixed square `size`, falls back to the rank's Tabler `icon` when the sprite is absent, and overlays a small **roman-numeral badge** (I·II·III) when `grade ∈ {1,2,3}` so the three grades of a shared family emblem are distinguishable. Reused by `CMP-09-guild-bar` (18px), `CMP-09-guild-hero` (32px) and FRD-10's `RankLadder` (88/104/124px). → AC "custom pixel-art emblem per rank".
 - **`CMP-09-xp-bar`** — reusable honest XP bar primitive (label + bar + "faltan N para Nv X · <next title>"). Reused by `CMP-09-guild-bar`, FRD-07 agent detail, FRD-10. Never renders fake fill. → AC "bar to next level".
 - **`CMP-09-celebration`** (`"use client"`) — the scaling celebration surface: toast → animation → celebration → level-up moment, driven by `IF-09-celebration` over new events. Honors `prefers-reduced-motion` (no animation), `transform`/`opacity` only, <300ms (FRD-13). → AC "celebration scales".
 - **`CMP-09-rpg-vocab`** — the shared RPG copy/flavor helpers (missions, objectives, party, guild) applied with restraint, Spanish. → AC "RPG flavor with restraint".
@@ -97,6 +111,7 @@ FRD-09 states EARS bullets (no explicit `REQ-09-MMM` ids). Work orders assign `A
 | FRD-09 EARS bullet | Component(s) / Interface(s) |
 |---|---|
 | Top bar shows guild level/XP (operator) + title + bar to next | `CMP-09-guild-bar`, `CMP-09-xp-bar`, `IF-09-guild-xp` |
+| 40-rung rank ladder; level=granular, rank=band of levels; custom emblem + I·II·III badge per rank | `IF-09-guild-xp` (§3a `RANKS`/`rankForLevel`/`xpForLevel`), `CMP-09-rank-emblem` |
 | RPG vocabulary & accents with restraint, legibility first | `CMP-09-rpg-vocab` (+ FRD-13) |
 | XP earned by RESULT (WO/phase/release closed), not activity/app-open | `IF-09-guild-xp`, `IF-09-agent-xp` (§2 honesty contract) |
 | Celebration SCALES (toast → phase → release → level-up), never flat | `CMP-09-celebration`, `IF-09-celebration` |
