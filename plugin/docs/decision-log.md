@@ -4,6 +4,11 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-06-26 — Enforcement batch: single-source state, concurrency, back-port detector (DR-092/093/094) · v9.11.0
+**What:** **DR-092** reviewer quality lens + `clean-code.md` rule: reject a second independent derivation of shared derived state (compute once in a cached resolver). **DR-093** `build-orchestration.md` concurrency section: isolate concurrent sessions (own worktree/branch), never sweep/edit another session's WIP, append-only shared logs. **DR-094** `upgrade/SKILL.md`: loud back-port detector before the gate-config overwrite.
+**Why:** Live failures this session — re-derived guild level (NV3/NV1), parallel session breaking the shared gate 4×, MC biome fix nearly reverted by upgrade.
+**Impact:** `plugin/agents/reviewer.md`, `factory/standards/{clean-code,build-orchestration}.md`, `plugin/skills/upgrade/SKILL.md`, `factory/decisions/registry.yaml`. **MINOR v9.10.0→v9.11.0**. `OVERLAY_VERSION` 8.42.2→8.42.3 (clean-code rule changed). Factory side: `factory/decision-log.md`. Proposal 17 P2.6/P2.7/P2.8.
+
 ## 2026-06-26 — Resilient visual-fidelity oracle (fallback chain) + UI-FRD oracle enforcement (DR-091) · v9.10.0
 **What:** `reviewer.md` per-route fidelity lens gets a **fallback chain** so it never silently no-ops: per-FRD `mocks/<route>` → ELSE the FRD's `visual_source` (global prototype view/shard, rendered live + A/B) → ELSE a `ui: true` FRD with no oracle is a surfaced finding (stays advisory, DR-072). `doc-lint.sh` (template) gains a UI-FRD oracle-completeness check (flags `ui:true` with no `fdd.md`, or empty `mocks/` and no `visual_source`).
 **Why:** Verified root cause (proposal 17) of MC's hand-fixed fidelity gaps: MC was never sharded, so the `mocks/`-gated per-route check skipped 17 surfaces while the gate stayed green. The fallback uses the global prototype the FRDs already declare; the doc-lint check catches the un-sharded surface.

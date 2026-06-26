@@ -651,3 +651,21 @@ positives while still auto-recovering quickly after a crash.
 lock — the next `implement` detects the stale heartbeat and resets it. If a run was interrupted
 mid-build, the frontmatter state (`implementation_status`) is still valid and the resumable engine
 picks up from where it left off without rebuilding `VERIFIED` work orders.
+
+## Concurrent sessions on one repo (DR-093)
+
+Two sessions (two agents, or two owner windows) on the **same working tree** collide: one session's
+half-built, unformatted or knip-dirty WIP REDs the other's `verify-before-stop` gate, and both need
+the same append-heavy shared files. Rules:
+
+- **Isolate by default.** A second concurrent session works in its **own git worktree** (reuse the
+  review-worktrees root pattern, DR-090) or its own branch, then merges — so neither session's
+  uncommitted WIP can break the other's gate. Sharing one tree is the exception, not the default.
+- **Never sweep another session's WIP.** Do NOT `git add -A` / `git commit -a` another session's
+  incomplete files into your commit, and do NOT edit another session's uncommitted files to force the
+  gate green — stage only your own paths.
+- **Append-only the shared logs.** `decision-log.md` (every area), `factory/decisions/registry.yaml`
+  and `plugin/.claude-plugin/plugin.json` are top-insert / append-only with a fresh dated block;
+  never rewrite an existing entry, so two sessions add adjacent blocks instead of clobbering.
+- The gate is owned by one session at a time: don't end-turn-gate against another session's in-flight
+  WIP (it will flap until they land).

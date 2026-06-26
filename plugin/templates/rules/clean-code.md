@@ -30,6 +30,10 @@ Optimized for code that is **readable, scalable, and easy for both humans and AI
 - **Check the inventory before creating any UI component.** Then, in order: **reuse** an existing component if one fits → **adapt/extend** it (add a prop/variant) if it's close — do NOT fork a near-duplicate for a small difference (a banner with the icon on the left vs. on top is a *variant*, not a second `Banner`) → **create new only if genuinely none fits**, and append it to `docs/design/components.md`.
 - **A near-duplicate component is a defect, not a feature.** A second alert/banner, card or modal that re-implements an existing primitive is rejected at review (reuse-before-create is verified at the gate). This matters most with parallel agents that never talk to each other: the shared inventory is how they stay coherent.
 
+## Single source for derived state (DR-092)
+- **Compute a shared derived value ONCE; consume it everywhere.** The data-layer analogue of reuse-before-create: a value derived from the data layer that more than one surface shows — a level, an aggregate count, a roll-up status — lives in a **single cached resolver** (a `React.cache()`/request-scoped function or one query module), and every surface reads THAT.
+- **A second independent derivation of the same value is a defect.** Re-deriving the same concept in two places drifts (a header showing `NV 3` while another panel shows `NV 1` because two call sites derived the same level separately, one with a bad input). Call the resolver; never re-implement the derivation. Verified at the review gate.
+
 ## Function signatures
 - **≤ 3 parameters**; beyond that pass a single named **options object**. (Biome: `useMaxParams`)
 - **No boolean-trap parameters** (`doThing(x, true)`): split the function or pass a named option/enum so the call site is self-documenting.
