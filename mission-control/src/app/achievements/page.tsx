@@ -35,7 +35,6 @@ import { GuildHero } from "@/components/modules/GuildHero/GuildHero";
 import { computeChains, computeSecrets, computeUniques } from "@/lib/achievements/achievements";
 import type { ReaderData } from "@/lib/achievements/stats";
 import { computeStats } from "@/lib/achievements/stats";
-import { RANKS } from "@/lib/gamification/gamification";
 import { getGuildState } from "@/lib/gamification/guildState";
 import { readIdeas } from "@/lib/ideas/ideas";
 import { HallTabs } from "./_components/HallTabs";
@@ -59,9 +58,9 @@ export default async function HallPage(): Promise<React.JSX.Element> {
   const { statuses, eventsSnapshot, level: guildLevel } = getGuildState();
   const ideas = readIdeas();
 
-  // ── Next rank title (for XpBar subtitle in GuildHero) ────────────────────
-  const nextRankEntry = RANKS[guildLevel.level];
-  const nextTitle = nextRankEntry?.title ?? guildLevel.title;
+  // The hero's XP bar reads toward the next LEVEL now (rank = a band of levels),
+  // so the subtitle is just the current rank title (aria/flavor).
+  const nextTitle = guildLevel.title;
 
   // ── Build ReaderData for the achievements engine ──────────────────────────
   const readerData: ReaderData = { ideas, statuses, eventsSnapshot };
@@ -122,6 +121,7 @@ export default async function HallPage(): Promise<React.JSX.Element> {
             nextTitle={nextTitle}
             rankIcon={guildLevel.icon}
             rankSprite={guildLevel.sprite}
+            rankGrade={guildLevel.grade}
             featsCount={featsCount}
             trophiesCount={trophiesCount}
             trophiesTotal={trophiesTotal}

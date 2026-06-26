@@ -328,22 +328,22 @@ describe("FRD-09 cross-engine consistency (guild vs agent over one stream)", () 
 // ===========================================================================
 
 describe("FRD-09 GuildBar — max-rank boundary", () => {
-  it("at the top rank the bar is full and does not invent a higher rank title", () => {
-    // Enough XP to reach the final RANKS entry (top threshold ~111.8k XP).
+  it("at extreme XP the guild sits in the TOP rank band, no higher rank invented", () => {
+    // Far past the top rank's entry level (Eternal Oathbearer ~Nv 289).
     const outcomes: GuildOutcomes = {
       workOrdersDone: 0,
       phasesCompleted: 0,
-      releases: 1000, // 1000 * 200 = 200000 XP >> top threshold
+      releases: 5000, // 5000 * 200 = 1,000,000 XP
       greenTestRuns: 0,
     };
     const guild = computeGuildLevel(outcomes);
-    expect(guild.title).toBe(RANKS.at(-1)?.title);
-    expect(guild.pctToNext).toBe(100);
+    expect(guild.title).toBe(RANKS.at(-1)?.title); // top rank, not a fabricated higher one
+    expect(guild.level).toBeGreaterThan(RANKS.length); // granular level is unbounded
+    expect(guild.pctToNext).toBeGreaterThanOrEqual(0);
+    expect(guild.pctToNext).toBeLessThanOrEqual(100);
 
     render(<GuildBar outcomes={outcomes} />);
     expect(screen.getByTestId("guild-bar-title").textContent).toBe(RANKS.at(-1)?.title);
-    const fill = screen.getByTestId("xp-bar-fill") as HTMLElement;
-    expect(fill.style.width).toBe("100%");
   });
 });
 

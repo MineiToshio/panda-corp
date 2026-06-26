@@ -42,7 +42,13 @@ import { useEffect, useState } from "react";
 import { LiveRegion } from "@/components/a11y/LiveRegion";
 import { XpBar } from "@/components/core/XpBar/XpBar";
 import type { Event } from "@/lib/events/events";
-import { type CelebrationTier, classifyCelebration, RANKS } from "@/lib/gamification/gamification";
+import {
+  type CelebrationTier,
+  classifyCelebration,
+  RANKS,
+  rankForLevel,
+  xpForLevel,
+} from "@/lib/gamification/gamification";
 
 // ── Spanish copy ──────────────────────────────────────────────────────────────
 
@@ -358,19 +364,17 @@ function LevelupContent({
   onDismiss: () => void;
   newLevel: number;
 }): React.JSX.Element {
-  // Derive the HONEST rank for `newLevel` from the same RANKS ladder the engine
-  // uses — never a hardcoded title/threshold (AC-09-004.3, FRD-09 honesty).
-  // `newLevel` is 1-based (level 1 = RANKS[0]); clamp into the valid range.
-  const rankIndex = Math.min(Math.max(0, newLevel - 1), RANKS.length - 1);
+  // Derive the HONEST rank for the granular `newLevel` from the same RANKS ladder
+  // the engine uses (the rank is the LEVEL BAND, not 1:1) — never a hardcoded
+  // title/threshold (AC-09-004.3, FRD-09 honesty).
+  const rankIndex = rankForLevel(newLevel);
   const currentRank = RANKS[rankIndex] ?? RANKS[0];
   const reachedTitle = currentRank?.title ?? "";
-  const isMaxRank = rankIndex >= RANKS.length - 1;
-  const nextRank = isMaxRank ? currentRank : RANKS[rankIndex + 1];
-  // A fresh bar at the new rank: xp sits at the rank's own threshold, reading
-  // toward the next rank's REAL threshold (0% progress into the new rank).
-  const baseXp = currentRank?.threshold ?? 0;
-  const nextThreshold = nextRank?.threshold ?? baseXp;
-  const nextTitle = nextRank?.title ?? reachedTitle;
+  // A fresh bar at the new level: xp sits at this level's XP, reading 0% toward
+  // the next granular level's REAL XP.
+  const baseXp = xpForLevel(newLevel);
+  const nextThreshold = xpForLevel(newLevel + 1);
+  const nextTitle = `Nv ${newLevel + 1}`;
 
   return (
     <>

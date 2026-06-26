@@ -48,8 +48,10 @@ export type Rank = {
   readonly icon: string;
   /** Rank-family sprite slug → /ranks/<sprite>.png (custom pixel-art emblem). */
   readonly sprite: string;
-  /** XP threshold to reach this rank (strictly increasing). */
-  readonly threshold: number;
+  /** Minimum (entry) granular LEVEL for this rank — a rank spans a band of levels. */
+  readonly minLevel: number;
+  /** Sub-grade within the family: 1/2/3 (I·II·III), or 0 for none (Humano + tops). */
+  readonly grade: number;
 };
 
 /**
@@ -107,13 +109,47 @@ const RANK_DEFS: ReadonlyArray<{ es: string; en: string; icon: string }> = [
 ];
 
 /**
- * XP needed to reach a given level (1-based). Level 1 = 0 XP; the curve is
- * super-linear (rounded to the nearest 5) so each rank costs more than the last
- * and the top (level 40) sits deliberately far away.
+ * XP needed to REACH a given granular level (1-based). Level 1 = 0 XP; the curve
+ * is super-linear (rounded to nearest 5) so each level costs more than the last —
+ * leveling gets harder the higher you climb.
  */
-function rankThreshold(level: number): number {
+export function xpForLevel(level: number): number {
   if (level <= 1) return 0;
-  return Math.round((25 * (level - 1) ** 2.3) / 5) * 5;
+  return Math.round((8 * (level - 1) ** 1.85) / 5) * 5;
+}
+
+/** The granular level for an XP total (1-based, monotonic, effectively unbounded). */
+function levelForXp(xp: number): number {
+  let level = 1;
+  while (level < 999 && xpForLevel(level + 1) <= xp) level++;
+  return level;
+}
+
+/**
+ * Band size (number of levels) for rank index i — widens toward the summit so the
+ * higher ranks take more levels to earn (the climb gets harder). 3,3,3,3,4,4,…
+ */
+function rankBandSize(i: number): number {
+  return 3 + Math.floor(i / 4);
+}
+
+/** The minimum (entry) level for each rank, cumulative from `rankBandSize`. */
+const RANK_MIN_LEVEL: readonly number[] = (() => {
+  const out: number[] = [];
+  let lvl = 1;
+  for (let i = 0; i < RANK_DEFS.length; i++) {
+    out.push(lvl);
+    lvl += rankBandSize(i);
+  }
+  return out;
+})();
+
+/** Sub-grade (1/2/3) from a rank's roman-numeral suffix; 0 when none. */
+function rankGrade(title: string): number {
+  if (title.endsWith(" III")) return 3;
+  if (title.endsWith(" II")) return 2;
+  if (title.endsWith(" I")) return 1;
+  return 0;
 }
 
 /**
@@ -164,14 +200,24 @@ const RANK_SPRITES: readonly string[] = [
   "eternal-oathbearer",
 ];
 
-/** The guild rank ladder — one rank per level (level = rank index + 1). */
+/** The guild rank ladder — each rank is a BAND of granular levels (not 1:1). */
 export const RANKS: readonly Rank[] = RANK_DEFS.map((d, i) => ({
   title: d.es,
   titleEn: d.en,
   icon: d.icon,
   sprite: RANK_SPRITES[i] ?? "human",
-  threshold: rankThreshold(i + 1),
+  minLevel: RANK_MIN_LEVEL[i] ?? 1,
+  grade: rankGrade(d.es),
 }));
+
+/** The rank index whose level-band contains the given granular level (0-based). */
+export function rankForLevel(level: number): number {
+  let idx = 0;
+  for (let i = 0; i < RANKS.length; i++) {
+    if (level >= (RANKS[i]?.minLevel ?? 1)) idx = i;
+  }
+  return idx;
+}
 
 /** Maximum weekly streak weeks counted (freeze concept — no unbounded multiplier). */
 const MAX_STREAK_WEEKS = 52;
@@ -228,8 +274,10 @@ export type GuildOutcomes = {
  * All fields are derived purely from GuildOutcomes — no I/O, no clock, no engagement bonus.
  */
 export type GuildLevel = {
-  /** Current rank index (1-based; level 1 = Humano). */
+  /** Granular guild level (1+), derived from XP — climbs faster than the rank. */
   readonly level: number;
+  /** Current rank index in RANKS (0-based; a rank spans a band of levels). */
+  readonly rankIndex?: number;
   /** Human-readable rank title (Spanish) from the RANKS ladder. */
   readonly title: string;
   /**
@@ -240,14 +288,15 @@ export type GuildLevel = {
   readonly icon?: string;
   /** Rank-family sprite slug → /ranks/<slug>.png. */
   readonly sprite?: string;
+  /** Current rank's sub-grade: 1/2/3 (I·II·III), 0 = none. */
+  readonly grade?: number;
   /** Total accumulated XP (sum of all verifiable outcomes). */
   readonly xp: number;
-  /** XP threshold required for the next rank (= current threshold if at max rank). */
+  /** XP required to reach the NEXT granular level. */
   readonly next: number;
   /**
-   * Percentage progress toward the next rank, 0–100.
+   * Percentage progress toward the next LEVEL, 0–100.
    * Exactly 0 when xp = 0 (honest zero state — never near 80% with no real work).
-   * Exactly 100 when at the top rank (full bar).
    */
   readonly pctToNext: number;
 };
@@ -283,49 +332,31 @@ export function computeGuildLevel(outcomes: GuildOutcomes): GuildLevel {
     outcomes.greenTestRuns * XP_PER_GREEN_TEST +
     cappedStreak * XP_PER_STREAK_WEEK;
 
-  // ── Rank resolution ────────────────────────────────────────────────────────
-  // Walk from the highest rank down to find the current rank.
-  // RANKS are sorted ascending; the current rank is the last one whose
-  // threshold is <= xp.
-  let rankIndex = 0;
-  for (let i = 0; i < RANKS.length; i++) {
-    const rank = RANKS[i];
-    if (rank !== undefined && xp >= rank.threshold) {
-      rankIndex = i;
-    }
-  }
-
-  // biome-ignore lint/style/noNonNullAssertion: RANKS is non-empty (length >= 4, verified by tests)
+  // ── Granular level + rank band ──────────────────────────────────────────────
+  // The level climbs with XP; the rank is the BAND the level falls into (the last
+  // rank whose minLevel ≤ level). Level ≠ rank (a rank spans several levels).
+  const level = levelForXp(xp);
+  const rankIndex = rankForLevel(level);
+  // biome-ignore lint/style/noNonNullAssertion: RANKS is non-empty (40 ranks, verified by tests)
   const currentRank = RANKS[rankIndex]!;
-  const level = rankIndex + 1; // 1-based
-  const isMaxRank = rankIndex === RANKS.length - 1;
 
-  // ── Progress bar ───────────────────────────────────────────────────────────
-  let pctToNext: number;
-  let next: number;
-
-  if (isMaxRank) {
-    // At the top rank: bar is full (100%), next = current threshold (nowhere to go).
-    pctToNext = 100;
-    next = currentRank.threshold;
-  } else {
-    // biome-ignore lint/style/noNonNullAssertion: not at max rank, so RANKS[rankIndex + 1] exists
-    const nextRank = RANKS[rankIndex + 1]!;
-    next = nextRank.threshold;
-    const span = nextRank.threshold - currentRank.threshold;
-    const progress = xp - currentRank.threshold;
-    // Guard: span > 0 is always true for valid RANKS (strictly increasing thresholds).
-    pctToNext = span > 0 ? Math.min(100, Math.floor((progress / span) * 100)) : 0;
-  }
+  // ── Progress to the NEXT granular level (the hero/header bar) ────────────────
+  const curLevelXp = xpForLevel(level);
+  const nextLevelXp = xpForLevel(level + 1);
+  const span = nextLevelXp - curLevelXp;
+  const pctToNext =
+    span > 0 ? Math.min(100, Math.max(0, Math.floor(((xp - curLevelXp) / span) * 100))) : 0;
 
   return {
     level,
+    rankIndex,
     title: currentRank.title,
     titleEn: currentRank.titleEn,
     icon: currentRank.icon,
     sprite: currentRank.sprite,
+    grade: currentRank.grade,
     xp,
-    next,
+    next: nextLevelXp,
     pctToNext,
   };
 }

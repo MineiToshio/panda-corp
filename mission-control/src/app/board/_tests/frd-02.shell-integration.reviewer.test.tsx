@@ -76,14 +76,14 @@ describe("FRD-02 shell · DR-062 — card detail uses the ONE shared Tabs primit
     const tabsRoot = screen.getByTestId("tabs-root");
     expect(tabsRoot).toHaveAttribute("data-level", "sub");
 
-    // The two tabs (Campaña · Documentos) are role="tab"; the Comandos tab was removed
+    // The two tabs (Documentos · Campaña) are role="tab"; the Comandos tab was removed
     // (its command folded into the campaign ficha).
     expect(screen.getByTestId("card-detail-tab-campana")).toHaveAttribute("role", "tab");
     expect(screen.getByTestId("card-detail-tab-docs")).toHaveAttribute("role", "tab");
     expect(screen.queryByTestId("card-detail-tab-comandos")).toBeNull();
 
-    // Default active tab is Campaña (AC-02-009.1).
-    expect(screen.getByTestId("card-detail-tab-campana")).toHaveAttribute("aria-selected", "true");
+    // Default active tab is Documentos (AC-02-009.1).
+    expect(screen.getByTestId("card-detail-tab-docs")).toHaveAttribute("aria-selected", "true");
   });
 
   it("the shared Tabs primitive provides ArrowRight focus-cycling at the board seam (a11y contract)", async () => {

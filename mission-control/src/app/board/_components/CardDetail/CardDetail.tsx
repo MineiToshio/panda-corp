@@ -71,8 +71,8 @@ interface TabDef {
 }
 
 const TABS: TabDef[] = [
-  { id: "campana", label: "Campaña", icon: "ti-map-2" },
   { id: "docs", label: "Documentos", icon: "ti-files" },
+  { id: "campana", label: "Campaña", icon: "ti-map-2" },
 ];
 
 /** Stable prefix so the shared Tabs primitive emits this screen's test ids. */
@@ -314,8 +314,8 @@ export function CardDetail({
   isRunning,
   onEnterForge,
 }: CardDetailProps): React.JSX.Element {
-  // Active tab — defaults to Campaña (AC-02-009.1). Persists across re-renders.
-  const [activeTab, setActiveTab] = useState<TabKey>("campana");
+  // Active tab — defaults to Documentos (AC-02-009.1). Persists across re-renders.
+  const [activeTab, setActiveTab] = useState<TabKey>("docs");
 
   // Selected document in the Documentos rail — SUMMARY_KEY ("summary") or a doc relPath.
   const [selectedDocKey, setSelectedDocKey] = useState<string>(SUMMARY_KEY);

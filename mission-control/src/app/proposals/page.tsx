@@ -149,26 +149,36 @@ export default function ProposalsPage(): React.JSX.Element {
             (prototype reads BPROPOSALS.promote.length, index.html ~L1414). */}
         <MemoryHealth health={health} promotionsCount={promotions.length} />
 
-        {/* Stream 1: candidate lessons (group cmd → /pandacorp:memory, AC-17-001.1/.3) */}
-        <DismissableProposalStream
-          kind="candidate-lesson"
-          lessons={candidates}
-          groupCmd={MEMORY_GROUP_CMD}
-        />
+        {/* data-volatile: the four proposal streams + promotions queue are live
+            factory data (candidate lessons, prune, promotions, self-suggestions)
+            whose lengths grow on every harvest/build, so the page height drifts
+            across runs (e.g. 9769→10203px in one session). The visual gate hides
+            this region so the baseline asserts the page CHROME (title, read-only
+            note, MemoryHealth panel), not the data-driven feed (DR-088). Stream
+            correctness is covered by the proposals unit/integration tests.
+            display:contents keeps the live layout byte-identical (no extra box). */}
+        <div data-volatile style={{ display: "contents" }}>
+          {/* Stream 1: candidate lessons (group cmd → /pandacorp:memory, AC-17-001.1/.3) */}
+          <DismissableProposalStream
+            kind="candidate-lesson"
+            lessons={candidates}
+            groupCmd={MEMORY_GROUP_CMD}
+          />
 
-        {/* Stream 2: prune proposals (adjacent to candidates, AC-17-001.3; group cmd → /pandacorp:memory) */}
-        <DismissableProposalStream kind="prune" lessons={prunables} groupCmd={MEMORY_GROUP_CMD} />
+          {/* Stream 2: prune proposals (adjacent to candidates, AC-17-001.3; group cmd → /pandacorp:memory) */}
+          <DismissableProposalStream kind="prune" lessons={prunables} groupCmd={MEMORY_GROUP_CMD} />
 
-        {/* Stream 3: promotions (each has own /pandacorp:learn <id> — no group cmd, AC-17-001.2) */}
-        <DismissableProposalStream kind="promotion" lessons={promotions} />
+          {/* Stream 3: promotions (each has own /pandacorp:learn <id> — no group cmd, AC-17-001.2) */}
+          <DismissableProposalStream kind="promotion" lessons={promotions} />
 
-        {/* Durable promotions queue (CMP-17-promoqueue → REQ-17-006):
-            the reviewable surface — target / rationale / evidence / high-risk
-            badge + copyable /pandacorp:learn command. */}
-        <PromotionsQueue lessons={promotions} />
+          {/* Durable promotions queue (CMP-17-promoqueue → REQ-17-006):
+              the reviewable surface — target / rationale / evidence / high-risk
+              badge + copyable /pandacorp:learn command. */}
+          <PromotionsQueue lessons={promotions} />
 
-        {/* Stream 4: self-suggestions (computed locally, no Claude; each has own cmd, AC-17-001.2) */}
-        <DismissableProposalStream kind="self-suggestion" suggestions={suggestions} />
+          {/* Stream 4: self-suggestions (computed locally, no Claude; each has own cmd, AC-17-001.2) */}
+          <DismissableProposalStream kind="self-suggestion" suggestions={suggestions} />
+        </div>
       </div>
     </PageLayout>
   );

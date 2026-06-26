@@ -28,9 +28,13 @@ for (const s of BLESSED) {
     //     progress.md, which grows on every build; its content is volatile, not a fixed render.
     //   - summary-text — the project summary renders the idea-card body (long prose); its line
     //     metrics reflow subtly between cold/warm dev-server renders, exceeding the pixel ratio.
+    //   - [data-volatile] — generic marker for any region whose CONTENT is live data whose
+    //     length changes the page height (the /board idea-card grid, the /proposals feed). The
+    //     baseline asserts the page chrome (layout, nav, headers, empty-state structure), never
+    //     the data-driven list whose height drifts as cards/lessons are added or removed (DR-088).
     await page.addStyleTag({
       content:
-        '[data-testid="dashboard-banners"],[data-testid="activity-log"],[data-testid="summary-text"]{display:none!important}',
+        '[data-testid="dashboard-banners"],[data-testid="activity-log"],[data-testid="summary-text"],[data-volatile]{display:none!important}',
     });
     await page.evaluate(() => document.fonts.ready);
     await expect(page).toHaveScreenshot(`${s.id}-${testInfo.project.name}.png`, { fullPage: true });

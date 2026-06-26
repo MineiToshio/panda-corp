@@ -35,9 +35,9 @@ Read-only kanban of the idea base, with idea capture, a navigable detail and dis
 
 ### REQ-02-009 — Three-tab card detail (Campaña · Documentos · Comandos)
 
-- AC-02-009.1 — WHEN the owner opens a card, THE system SHALL render the card detail with **three
-  horizontal tabs** — **Campaña · Documentos · Comandos** — using the **same tab pattern** as the
-  Portfolio project pane (the `stab` selector row), and SHALL default the active tab to **Campaña**.
+- AC-02-009.1 — WHEN the owner opens a card, THE system SHALL render the card detail with **two
+  horizontal tabs** — **Documentos · Campaña** — using the **same tab pattern** as the
+  Portfolio project pane (the `stab` selector row), and SHALL default the active tab to **Documentos**.
 - AC-02-009.2 — WHEN the owner clicks a tab, THE system SHALL show that tab's body and mark only that
   tab active; **Documentos** SHALL render the existing document navigator (summary + key points +
   the idea's docs, unchanged behavior of REQ-02-004) and **Comandos** SHALL render the existing

@@ -16,7 +16,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Event } from "@/lib/events/events";
-import { RANKS } from "@/lib/gamification/gamification";
+import { RANKS, rankForLevel, xpForLevel } from "@/lib/gamification/gamification";
 import { CelebrationSurface } from "../CelebrationSurface";
 
 afterEach(() => {
@@ -54,9 +54,9 @@ describe("CelebrationSurface levelup — honest rank (adversarial, AC-09-004.3)"
     mockMatchMedia(false);
     render(<CelebrationSurface event={levelupEvent} newLevel={2} />);
 
-    // level 2 → RANKS[1] = "Artesano". The card must name that rank, never a
-    // fabricated higher rank. (Hardcoding "Gran maestro" for any newLevel is a lie.)
-    const expectedRank = RANKS[1]?.title ?? "";
+    // Rank = the level BAND: level 2 sits in the Humano band (Nv 1–3). The card
+    // must name the REAL rank for that level, never a fabricated higher rank.
+    const expectedRank = RANKS[rankForLevel(2)]?.title ?? "";
     const card = screen.getByTestId("celebration-card");
     expect(card.textContent).toContain(expectedRank);
     expect(card.textContent).not.toContain("Gran maestro del gremio");
@@ -68,14 +68,13 @@ describe("CelebrationSurface levelup — honest rank (adversarial, AC-09-004.3)"
     expect(screen.getByTestId("celebration-level").textContent).toContain("3");
   });
 
-  it("the level-up XpBar does not invent an XP threshold absent from RANKS", () => {
+  it("the level-up XpBar reads toward the REAL next-level XP (no invented number)", () => {
     mockMatchMedia(false);
     render(<CelebrationSurface event={levelupEvent} newLevel={2} />);
 
-    // The hardcoded next=2000 is not a real RANKS threshold (100/500/1500/4000/10000).
-    // A fresh bar at a new rank should read XP toward a REAL next threshold.
-    const realThresholds = new Set(RANKS.map((r) => String(r.threshold)));
+    // A fresh bar at the new level reads toward the next granular level's REAL XP
+    // (xpForLevel(3)), never a hardcoded/fabricated number.
     const nextSpan = screen.getByTestId("xp-bar-next");
-    expect(realThresholds.has(nextSpan.textContent ?? "")).toBe(true);
+    expect(nextSpan.textContent).toBe(String(xpForLevel(3)));
   });
 });

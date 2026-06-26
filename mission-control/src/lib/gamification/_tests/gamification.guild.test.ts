@@ -432,26 +432,26 @@ describe("AC-09-001.5 — pure function", () => {
     expect(RANKS.length).toBeGreaterThanOrEqual(4);
   });
 
-  it("RANKS entries have non-empty title (string) and threshold (number) fields", () => {
+  it("RANKS entries have non-empty title (string) and minLevel (number) fields", () => {
     for (const rank of RANKS) {
       expect(typeof rank.title).toBe("string");
       expect(rank.title.length).toBeGreaterThan(0);
-      expect(typeof rank.threshold).toBe("number");
-      expect(rank.threshold).toBeGreaterThanOrEqual(0);
+      expect(typeof rank.minLevel).toBe("number");
+      expect(rank.minLevel).toBeGreaterThanOrEqual(1);
     }
   });
 
-  it("RANKS thresholds are strictly increasing", () => {
+  it("RANKS minLevels are strictly increasing (each rank a higher level band)", () => {
     for (let i = 1; i < RANKS.length; i++) {
       const curr = RANKS[i];
       const prev = RANKS[i - 1];
       // biome-ignore lint/style/noNonNullAssertion: indices are in bounds
-      expect(curr!.threshold).toBeGreaterThan(prev!.threshold);
+      expect(curr!.minLevel).toBeGreaterThan(prev!.minLevel);
     }
   });
 
-  it("first RANKS entry has threshold = 0 (starting rank requires no XP)", () => {
-    expect(RANKS[0]?.threshold).toBe(0);
+  it("first RANKS entry starts at level 1 (Humano)", () => {
+    expect(RANKS[0]?.minLevel).toBe(1);
   });
 });
 
@@ -472,38 +472,34 @@ describe("fixture: realistic guild scenarios", () => {
     expect(mature.xp).toBeGreaterThan(0);
   });
 
-  it("at the top rank pctToNext is 100 (full bar, capped)", () => {
-    // Drive XP extremely high to hit the top rank
+  it("a hugely maxed guild reaches a high level and the top rank, bar shape valid", () => {
+    // Drive XP extremely high.
     const maxed = computeGuildLevel({
-      workOrdersDone: 10_000,
-      phasesCompleted: 1_000,
-      releases: 500,
-      greenTestRuns: 50_000,
+      workOrdersDone: 100_000,
+      phasesCompleted: 10_000,
+      releases: 5_000,
+      greenTestRuns: 500_000,
       weeklyStreak: 52,
     });
-    const topLevel = RANKS.length;
-    if (maxed.level >= topLevel) {
-      // At max level, pctToNext is 100 (full bar, nowhere to go but stay)
-      expect(maxed.pctToNext).toBe(100);
-    } else {
-      // Otherwise it's somewhere in the middle — just verify shape is valid
-      expect(maxed.pctToNext).toBeGreaterThanOrEqual(0);
-      expect(maxed.pctToNext).toBeLessThanOrEqual(100);
-    }
+    // The granular level is unbounded and climbs far past the rank count.
+    expect(maxed.level).toBeGreaterThan(RANKS.length);
+    // It sits in the top rank band.
+    expect(maxed.title).toBe(RANKS[RANKS.length - 1]?.title);
+    // pctToNext (to the next LEVEL) is always a valid percentage.
+    expect(maxed.pctToNext).toBeGreaterThanOrEqual(0);
+    expect(maxed.pctToNext).toBeLessThanOrEqual(100);
   });
 
-  it("a single work order gives a predictable, honest small amount of XP", () => {
+  it("a single work order gives a small, honest amount of XP and a low level", () => {
     const result = computeGuildLevel({
       workOrdersDone: 1,
       phasesCompleted: 0,
       releases: 0,
       greenTestRuns: 0,
     });
-    // xp must be positive but small — less than the first level threshold
-    expect(result.xp).toBeGreaterThan(0);
-    // biome-ignore lint/style/noNonNullAssertion: RANKS always has at least 4 entries (tested above)
-    const firstThreshold = RANKS[1]!.threshold;
-    // Should not immediately jump to level 2 with just 1 WO
-    expect(result.xp).toBeLessThan(firstThreshold);
+    expect(result.xp).toBe(10); // 1 WO × 10 XP
+    // A low granular level + the starting rank band (Humano spans the first levels).
+    expect(result.level).toBeLessThanOrEqual(3);
+    expect(result.title).toBe(RANKS[0]?.title);
   });
 });

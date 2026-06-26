@@ -53,6 +53,8 @@ export interface GuildHeroProps {
   rankIcon?: string;
   /** Rank-family sprite slug → /ranks/<slug>.png (the emblem next to the title). */
   rankSprite?: string;
+  /** Rank sub-grade 1/2/3 (I·II·III) → roman-numeral badge on the emblem. */
+  rankGrade?: number;
   /** Total feats/achievements count. */
   featsCount: number;
   /** Unlocked trophies count. */
@@ -147,6 +149,7 @@ export function GuildHero({
   nextTitle,
   rankIcon,
   rankSprite,
+  rankGrade,
   featsCount,
   trophiesCount,
   trophiesTotal,
@@ -221,7 +224,7 @@ export function GuildHero({
               color: "var(--color-text)",
             }}
           >
-            <RankEmblem sprite={rankSprite} icon={rankIcon} size={30} />
+            <RankEmblem sprite={rankSprite} icon={rankIcon} grade={rankGrade} size={32} />
             {title}
           </div>
 

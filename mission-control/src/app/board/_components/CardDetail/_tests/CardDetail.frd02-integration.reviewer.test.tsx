@@ -182,12 +182,10 @@ describe("FRD-02 integration — Entrar a La Fragua bubbles the slug to onEnterF
 // ---------------------------------------------------------------------------
 
 describe("FRD-02 integration — 2 tabs coexist with the real pipeline (AC-02-009.x)", () => {
-  it("defaults to Campaña and the real pipeline is the active panel's content", () => {
+  it("defaults to Documentos and the real pipeline is mounted (always-mounted panels)", () => {
     renderDetail({ status: "discovered" });
-    expect(screen.getByTestId("card-detail-tab-campana").getAttribute("aria-selected")).toBe(
-      "true",
-    );
-    // The real pipeline (not a mock) is present with its labelled container.
+    expect(screen.getByTestId("card-detail-tab-docs").getAttribute("aria-selected")).toBe("true");
+    // The real pipeline (not a mock) is always mounted via the clip technique.
     expect(screen.getByTestId("campaign-pipeline")).toBeInTheDocument();
     expect(screen.getByText("EL VIAJE DE ESTA IDEA POR LAS 6 FASES")).toBeInTheDocument();
   });

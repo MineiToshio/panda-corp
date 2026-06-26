@@ -398,8 +398,13 @@ export function IdeaBoardView({
                 </span>
               </header>
 
-              {/* Cards list — no drag handles, no move controls (AC-02-002.1) */}
-              <div style={COLUMN_CARDS_STYLE}>
+              {/* Cards list — no drag handles, no move controls (AC-02-002.1).
+                  data-volatile: the card population is live factory data whose count
+                  (and therefore the column/page height) changes as ideas are added,
+                  discarded or moved. The visual gate hides it so the baseline asserts
+                  the board CHROME (columns + headers), not the data-driven list whose
+                  height drifts (DR-088). Card correctness is covered by unit tests. */}
+              <div data-volatile style={COLUMN_CARDS_STYLE}>
                 {colCards.length === 0 ? (
                   <div style={EMPTY_COLUMN_STYLE} title="Columna vacía">
                     —

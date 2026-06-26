@@ -32,7 +32,7 @@
 
 import { RankEmblem } from "@/components/core/RankEmblem/RankEmblem";
 import { XpBar } from "@/components/core/XpBar/XpBar";
-import { computeGuildLevel, type GuildOutcomes, RANKS } from "@/lib/gamification/gamification";
+import { computeGuildLevel, type GuildOutcomes } from "@/lib/gamification/gamification";
 
 export type GuildBarProps = {
   /** Verifiable outcomes that drive guild XP (from status.yaml + events — read server-side). */
@@ -89,12 +89,10 @@ const EMBEDDED_STYLE: React.CSSProperties = {
  */
 export function GuildBar({ outcomes, embedded = false }: GuildBarProps): React.JSX.Element {
   // IF-09-guild-xp: pure derivation — same outcomes always yields same result.
-  const { level, title, icon, sprite, xp, next, pctToNext } = computeGuildLevel(outcomes);
+  const { level, title, icon, sprite, grade, xp, next, pctToNext } = computeGuildLevel(outcomes);
 
-  // Determine the next rank title for the "faltan N para Nv X · <nextTitle>" line.
-  // At max rank (pctToNext === 100), nextTitle mirrors current title.
-  const nextRankEntry = RANKS[level]; // level is 1-based; RANKS is 0-based → RANKS[level] = next rank
-  const nextTitle = nextRankEntry?.title ?? title;
+  // The compact bar reads toward the next LEVEL (rank = a band of levels).
+  const nextTitle = `Nv ${level + 1}`;
 
   return (
     <div
@@ -145,7 +143,7 @@ export function GuildBar({ outcomes, embedded = false }: GuildBarProps): React.J
           whiteSpace: "nowrap",
         }}
       >
-        <RankEmblem sprite={sprite} icon={icon} size={18} />
+        <RankEmblem sprite={sprite} icon={icon} grade={grade} size={18} />
         {title}
       </span>
 

@@ -13,7 +13,7 @@
 
 import { RankEmblem } from "@/components/core/RankEmblem/RankEmblem";
 import type { GuildLevel } from "@/lib/gamification/gamification";
-import { RANKS } from "@/lib/gamification/gamification";
+import { RANKS, rankForLevel, xpForLevel } from "@/lib/gamification/gamification";
 
 const RPGPANEL: React.CSSProperties = {
   background: "var(--color-card)",
@@ -26,17 +26,20 @@ const RPGPANEL: React.CSSProperties = {
 type RankState = "done" | "current" | "locked";
 
 type RankRowProps = {
-  level: number;
+  /** Rank index (0-based) — for data-level + key. */
+  rankIndex: number;
   name: string;
   icon: string;
   sprite?: string;
-  threshold: number;
+  grade?: number;
+  /** Level band, e.g. "Nv 13–16" or "Nv 289+". */
+  rangeLabel: string;
   state: RankState;
-  /** % progress to the next rank (current row only). */
+  /** % progress to the next RANK (current row only). */
   pctToNext?: number;
   /** XP remaining to the next rank (current row only). */
-  faltan?: number;
-  nextName?: string;
+  faltanXp?: number;
+  nextRankName?: string;
   /** Far-ahead ranks fade more, to make the summit read as distant. */
   dim?: number;
 };
@@ -45,15 +48,19 @@ type RankRowProps = {
 function RankMedal({
   sprite,
   icon,
+  grade,
   isCurrent,
   name,
 }: {
   sprite?: string;
   icon: string;
+  grade?: number;
   isCurrent: boolean;
   name: string;
 }): React.JSX.Element {
-  return <RankEmblem sprite={sprite} icon={icon} size={isCurrent ? 42 : 34} alt={name} />;
+  return (
+    <RankEmblem sprite={sprite} icon={icon} grade={grade} size={isCurrent ? 42 : 34} alt={name} />
+  );
 }
 
 /** The per-state right-side marker (check / "ESTÁS AQUÍ" / lock). */
@@ -90,17 +97,15 @@ function RankMarker({ state }: { state: RankState }): React.JSX.Element | null {
   );
 }
 
-/** The current rank's progress bar + "faltan N para Nv n+1" line. */
+/** The current rank's progress bar + "faltan N XP para <next rank>" line. */
 function RankProgress({
-  level,
   pctToNext,
-  faltan,
-  nextName,
+  faltanXp,
+  nextRankName,
 }: {
-  level: number;
   pctToNext: number;
-  faltan: number;
-  nextName: string;
+  faltanXp: number;
+  nextRankName: string;
 }): React.JSX.Element {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
@@ -124,23 +129,24 @@ function RankProgress({
         />
       </div>
       <span style={{ fontSize: "11px", color: "var(--color-text3)" }}>
-        faltan <span className="tabular-nums">{faltan.toLocaleString("es")}</span> XP para Nv{" "}
-        {level + 1} · {nextName}
+        faltan <span className="tabular-nums">{faltanXp.toLocaleString("es")}</span> XP para{" "}
+        {nextRankName}
       </span>
     </div>
   );
 }
 
 function RankRow({
-  level,
+  rankIndex,
   name,
   icon,
   sprite,
-  threshold,
+  grade,
+  rangeLabel,
   state,
   pctToNext = 0,
-  faltan = 0,
-  nextName,
+  faltanXp = 0,
+  nextRankName,
   dim = 1,
 }: RankRowProps): React.JSX.Element {
   const isCurrent = state === "current";
@@ -149,7 +155,7 @@ function RankRow({
   return (
     <li
       data-testid="rank-row"
-      data-level={level}
+      data-rank={rankIndex + 1}
       data-state={state}
       aria-current={isCurrent ? "true" : undefined}
       style={{
@@ -168,60 +174,42 @@ function RankRow({
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: "11px" }}>
-        <RankMedal sprite={sprite} icon={icon} isCurrent={isCurrent} name={name} />
+        <RankMedal sprite={sprite} icon={icon} grade={grade} isCurrent={isCurrent} name={name} />
 
-        {/* Level chip */}
-        <span
-          style={{
-            fontFamily: "var(--font-pixel)",
-            fontSize: "10px",
-            color: isCurrent ? "var(--color-on-accent)" : "var(--color-text3)",
-            background: isCurrent ? "var(--color-accent)" : "var(--color-base)",
-            border: isCurrent ? "none" : "1px solid var(--color-border-strong)",
-            padding: "1px 6px",
-            borderRadius: "4px",
-            flexShrink: 0,
-            fontVariantNumeric: "tabular-nums",
-          }}
-        >
-          NV {level}
-        </span>
-
-        {/* Name */}
-        <span
-          style={{
-            flex: 1,
-            minWidth: 0,
-            fontSize: isCurrent ? "0.95rem" : "0.85rem",
-            fontWeight: isCurrent ? 700 : 500,
-            color: isLocked ? "var(--color-text2)" : "var(--color-text)",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {name}
-        </span>
-
-        {/* Right: state marker + threshold */}
-        <span style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
-          <RankMarker state={state} />
+        {/* Name + level-band */}
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: "1px" }}>
+          <span
+            style={{
+              fontSize: isCurrent ? "0.95rem" : "0.85rem",
+              fontWeight: isCurrent ? 700 : 500,
+              color: isLocked ? "var(--color-text2)" : "var(--color-text)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {name}
+          </span>
           <span
             className="tabular-nums"
             style={{
-              fontSize: "11px",
-              color: "var(--color-text3)",
-              minWidth: "62px",
-              textAlign: "right",
+              fontSize: "10px",
+              color: isCurrent ? "var(--color-accent-text)" : "var(--color-text3)",
+              fontFamily: "var(--font-pixel)",
             }}
           >
-            {threshold.toLocaleString("es")} XP
+            {rangeLabel}
           </span>
+        </div>
+
+        {/* Right: state marker */}
+        <span style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+          <RankMarker state={state} />
         </span>
       </div>
 
-      {isCurrent && nextName !== undefined && (
-        <RankProgress level={level} pctToNext={pctToNext} faltan={faltan} nextName={nextName} />
+      {isCurrent && nextRankName !== undefined && (
+        <RankProgress pctToNext={pctToNext} faltanXp={faltanXp} nextRankName={nextRankName} />
       )}
     </li>
   );
@@ -237,9 +225,20 @@ export type RankLadderProps = {
  * Server Component (pure render from the level prop).
  */
 export function RankLadder({ level }: RankLadderProps): React.JSX.Element {
-  const current = level.level;
-  const faltan = Math.max(0, level.next - level.xp);
-  const nextRank = RANKS[current]; // 0-based array, current is 1-based → RANKS[current] = next rank
+  const currentRankIndex = rankForLevel(level.level);
+  const topMinLevel = RANKS[RANKS.length - 1]?.minLevel ?? 1;
+
+  // Progress within the current rank band toward the NEXT rank (by XP).
+  const curRank = RANKS[currentRankIndex];
+  const nextRank = RANKS[currentRankIndex + 1];
+  const rankBaseXp = xpForLevel(curRank?.minLevel ?? 1);
+  const rankNextXp = nextRank ? xpForLevel(nextRank.minLevel) : rankBaseXp;
+  const rankSpan = rankNextXp - rankBaseXp;
+  const rankPct =
+    rankSpan > 0
+      ? Math.min(100, Math.max(0, Math.floor(((level.xp - rankBaseXp) / rankSpan) * 100)))
+      : 100;
+  const rankFaltan = Math.max(0, rankNextXp - level.xp);
 
   return (
     <section
@@ -253,8 +252,8 @@ export function RankLadder({ level }: RankLadderProps): React.JSX.Element {
           aria-hidden="true"
           style={{ fontSize: "13px", verticalAlign: "-2px" }}
         />{" "}
-        El escalafón del gremio — subes de rango con tu nivel. Cada peldaño cuesta más que el
-        anterior; la cima (Nv {RANKS.length}) está lejos a propósito.
+        El escalafón del gremio — tu nivel sube con XP y cada rango cubre un tramo de niveles. Cada
+        nivel cuesta más que el anterior; la cima (Nv {topMinLevel}+) está lejos a propósito.
       </p>
 
       <ol
@@ -268,26 +267,32 @@ export function RankLadder({ level }: RankLadderProps): React.JSX.Element {
         }}
       >
         {RANKS.map((rank, i) => {
-          const lvl = i + 1;
-          const state: RankState = lvl < current ? "done" : lvl === current ? "current" : "locked";
+          const state: RankState =
+            i < currentRankIndex ? "done" : i === currentRankIndex ? "current" : "locked";
+          const above = RANKS[i + 1];
+          const rangeLabel =
+            above === undefined
+              ? `Nv ${rank.minLevel}+`
+              : `Nv ${rank.minLevel}–${above.minLevel - 1}`;
           // Fade ranks further ahead more (summit reads as distant); clamp 0..1.
-          const ahead = lvl - current;
+          const ahead = i - currentRankIndex;
           const dim = state === "locked" ? Math.max(0, 1 - (ahead - 1) / 24) : 1;
           return (
             <RankRow
               key={rank.title}
-              level={lvl}
+              rankIndex={i}
               name={rank.title}
               icon={rank.icon}
               sprite={rank.sprite}
-              threshold={rank.threshold}
+              grade={rank.grade}
+              rangeLabel={rangeLabel}
               state={state}
               dim={dim}
-              {...(state === "current"
+              {...(state === "current" && nextRank
                 ? {
-                    pctToNext: level.pctToNext,
-                    faltan,
-                    nextName: nextRank?.title,
+                    pctToNext: rankPct,
+                    faltanXp: rankFaltan,
+                    nextRankName: nextRank.title,
                   }
                 : {})}
             />

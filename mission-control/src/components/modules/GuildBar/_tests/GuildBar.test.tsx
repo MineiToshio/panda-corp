@@ -163,8 +163,8 @@ describe("AC-09-004.3 — GuildBar bar fill reflects real pct from computeGuildL
 // AC-09-004.1 — "faltan N para Nv X · <next title>" subtitle
 // ---------------------------------------------------------------------------
 
-describe("AC-09-004.1 — faltan N para Nv X · next-title subtitle", () => {
-  it("renders next-label element with next XP value and next title", () => {
+describe("AC-09-004.1 — faltan N para Nv X · next-LEVEL subtitle", () => {
+  it("renders next-label element pointing to the next LEVEL (rank = a band of levels)", () => {
     const outcomes: GuildOutcomes = {
       workOrdersDone: 0,
       phasesCompleted: 0,
@@ -172,13 +172,12 @@ describe("AC-09-004.1 — faltan N para Nv X · next-title subtitle", () => {
       greenTestRuns: 0,
     };
     render(<GuildBar outcomes={outcomes} />);
-    // The XpBar's next-label should contain the next rank title
+    // At level 1 the bar reads toward the next granular level (Nv 2), not the next rank.
     const nextLabel = screen.getByTestId("xp-bar-next-label");
-    // At level 1 (Humano), the next rank is Buscador del Alba I (threshold 25 XP)
-    expect(nextLabel.textContent).toContain("Buscador del Alba I");
+    expect(nextLabel.textContent).toContain("Nv 2");
   });
 
-  it("at max rank, next-label shows current (top) rank title", () => {
+  it("a high-XP guild still reads toward its next level (the bar never caps blank)", () => {
     const maxOutcomes: GuildOutcomes = {
       workOrdersDone: 10_000,
       phasesCompleted: 1_000,
@@ -187,8 +186,7 @@ describe("AC-09-004.1 — faltan N para Nv X · next-title subtitle", () => {
     };
     render(<GuildBar outcomes={maxOutcomes} />);
     const nextLabel = screen.getByTestId("xp-bar-next-label");
-    // At max rank the next title is the same as current (no higher rank)
-    expect(nextLabel.textContent).toContain("Portador del Juramento Eterno");
+    expect(nextLabel.textContent).toMatch(/Nv \d+/);
   });
 });
 
@@ -229,10 +227,10 @@ describe("AC-09-004.2 — numeric elements present for tabular-nums (CSS rule fr
       releases: 0,
       greenTestRuns: 0,
     };
-    // At Humano (level 1), next threshold is 25 XP (Buscador del Alba I)
+    // At level 1 (0 XP), the next level's XP threshold is xpForLevel(2) = 10.
     render(<GuildBar outcomes={outcomes} />);
     const nextEl = screen.getByTestId("xp-bar-next");
-    expect(nextEl.textContent).toContain("25");
+    expect(nextEl.textContent).toContain("10");
   });
 });
 

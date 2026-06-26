@@ -90,10 +90,10 @@ const WITH_DOCS: typeof MINIMAL = {
 };
 
 // ---------------------------------------------------------------------------
-// AC-02-009.1 — 2 tabs rendered; default active = Campaña
+// AC-02-009.1 — 2 tabs rendered; default active = Documentos
 // ---------------------------------------------------------------------------
 
-describe("frd-02: AC-02-009.1 — 2-tab structure, default Campaña", () => {
+describe("frd-02: AC-02-009.1 — 2-tab structure, default Documentos", () => {
   it("frd-02: WHEN a card detail renders THEN both tab buttons are present", () => {
     render(<CardDetail {...MINIMAL} />);
     expect(screen.getByTestId("card-detail-tab-campana")).toBeInTheDocument();
@@ -110,20 +110,20 @@ describe("frd-02: AC-02-009.1 — 2-tab structure, default Campaña", () => {
     expect(screen.getAllByRole("tab")).toHaveLength(2);
   });
 
-  it("frd-02: WHEN card detail renders THEN the Campaña tab button is active by default", () => {
+  it("frd-02: WHEN card detail renders THEN the Documentos tab button is active by default", () => {
     render(<CardDetail {...MINIMAL} />);
-    const tab = screen.getByTestId("card-detail-tab-campana");
+    const tab = screen.getByTestId("card-detail-tab-docs");
     expect(tab).toHaveAttribute("aria-selected", "true");
   });
 
-  it("frd-02: WHEN card detail renders THEN the Documentos tab is NOT active by default", () => {
+  it("frd-02: WHEN card detail renders THEN the Campaña tab is NOT active by default", () => {
     render(<CardDetail {...MINIMAL} />);
-    expect(screen.getByTestId("card-detail-tab-docs")).toHaveAttribute("aria-selected", "false");
+    expect(screen.getByTestId("card-detail-tab-campana")).toHaveAttribute("aria-selected", "false");
   });
 
-  it("frd-02: WHEN card detail renders THEN the CampaignPipeline is mounted (Campaña is default)", () => {
+  it("frd-02: WHEN card detail renders THEN the CampaignPipeline is mounted (always-mounted panels)", () => {
     render(<CardDetail {...MINIMAL} />);
-    // The campaign-pipeline panel is mounted when Campaña is the default active tab.
+    // Both panels are always mounted via the clip technique; Campaña is accessible even when hidden.
     expect(screen.getByTestId("campaign-pipeline")).toBeInTheDocument();
   });
 
@@ -221,7 +221,8 @@ describe("frd-02: AC-02-009.3 — doc entry click switches to Documentos tab", (
 
   it("frd-02: WHEN a doc nav item is clicked from Campaña tab THEN Documentos tab becomes active", () => {
     render(<CardDetail {...WITH_DOCS} />);
-    // Start on Campaña (default), click a doc entry
+    // Switch to Campaña first, then click a doc entry → must switch back to Documentos.
+    fireEvent.click(screen.getByTestId("card-detail-tab-campana"));
     const [firstItem] = screen.getAllByTestId("card-detail-docs-nav-item");
     fireEvent.click(firstItem as HTMLElement);
     expect(screen.getByTestId("card-detail-tab-docs")).toHaveAttribute("aria-selected", "true");
@@ -230,8 +231,8 @@ describe("frd-02: AC-02-009.3 — doc entry click switches to Documentos tab", (
 
   it("frd-02: WHEN the Resumen rail item is clicked THEN Documentos tab becomes active", () => {
     render(<CardDetail {...WITH_DOCS} />);
-    // Start on Campaña (default); clicking the always-present Resumen item also
-    // switches to the Documentos tab (handleSelectDoc forces the docs panel).
+    // Switch to Campaña first; clicking the always-present Resumen item must switch back to Documentos.
+    fireEvent.click(screen.getByTestId("card-detail-tab-campana"));
     fireEvent.click(screen.getByTestId("card-detail-docs-nav-resumen"));
     expect(screen.getByTestId("card-detail-tab-docs")).toHaveAttribute("aria-selected", "true");
   });
@@ -252,8 +253,7 @@ describe("frd-02: AC-02-009.4 — active tab persists across re-renders", () => 
 
   it("frd-02: WHEN Campaña tab is selected and the card re-renders THEN it stays on Campaña", () => {
     const { rerender } = render(<CardDetail {...MINIMAL} />);
-    // Campaña is the default; switch to docs, back to Campaña, then re-render.
-    fireEvent.click(screen.getByTestId("card-detail-tab-docs"));
+    // Documentos is the default; switch to Campaña, then re-render.
     fireEvent.click(screen.getByTestId("card-detail-tab-campana"));
     rerender(<CardDetail {...MINIMAL} advancePending={true} />);
     expect(screen.getByTestId("card-detail-tab-campana")).toHaveAttribute("aria-selected", "true");
