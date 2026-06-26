@@ -34,13 +34,19 @@ Habilidad: `/pandacorp:blueprint`.
 
 ### 4. Build (Implement)
 
-El motor de `implement` orquesta subagentes especializados que construyen las work orders en paralelo con dependencias explícitas. Cada WO sigue TDD (RED → GREEN → refactor). El `reviewer` valida cada FRD antes de marcarlo VERIFIED. Si una WO falla la revisión, el motor **repara el fallo puntual en sitio antes de reconstruirla** y **sube el modelo a Opus** cuando la WO es difícil o ya falló (DR-073).
+El motor de `implement` orquesta subagentes especializados que construyen las work orders con TDD (RED → GREEN → refactor). El `reviewer` valida cada FRD antes de marcarlo VERIFIED. Si una WO falla la revisión, el motor **repara el fallo puntual en sitio antes de reconstruirla** y **sube el modelo a Opus** cuando la WO es difícil o ya falló (DR-073).
 
-**Build parcial (por FRD):** puedes pedir que se construya solo un subconjunto de FRDs: `/pandacorp:implement frd-05-settings`. El motor verifica primero que todas las dependencias de ese FRD ya estén VERIFIED; si no, te dice cuáles hay que implementar antes.
+El skill acepta tres modos de construcción:
 
-**Build desde la cola de changes:** si hay algo en `.pandacorp/inbox/changes/` listo para construir, `/pandacorp:implement change:add-export-button` lo procesa (crea/actualiza los FRDs y work orders correspondientes) y construye solo esos FRDs en el mismo run. La change se archiva automáticamente cuando el gate de FRD verifica.
+| Modo | Invocación | Qué construye |
+|---|---|---|
+| **Completo** | `/pandacorp:implement` | Todos los FRDs pendientes en orden de dependencias |
+| **Parcial por FRD** | `/pandacorp:implement frd-05-settings` | Solo el FRD indicado (o varios separados por espacio). Un gate bloquea si sus deps no están `VERIFIED` |
+| **Por change** | `/pandacorp:implement change:mc-fix-pagination` | Procesa la change, crea/actualiza los FRDs y WOs, y construye solo los afectados |
 
-Sin argumento, construye todo en orden de dependencias (comportamiento por defecto).
+Los identificadores se normalizan automáticamente: `frd-05-settings`, `docs/frds/frd-05-settings` y `docs/frds/frd-05-settings/frd.md` son equivalentes; igual para el nombre de una change (con o sin `.md`, con o sin ruta completa).
+
+Cuando hay dependencias sin `VERIFIED`, el motor se detiene antes de escribir código y lista exactamente qué implementar primero. Ver la guía **«Build parcial: por FRD o por change»** para el flujo detallado de cada modo.
 
 Habilidad: `/pandacorp:implement`.
 

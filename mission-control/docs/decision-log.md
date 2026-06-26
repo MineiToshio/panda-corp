@@ -4,6 +4,14 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-06-26 — Manual: guía comprehensiva del build parcial (`g-implement-parcial.md`) + tabla en `el-pipeline` (DR-046)
+**What:** Documentación completa en el Manual de los tres modos de `/pandacorp:implement`: (A) **completo** (sin argumentos), (B) **parcial por FRD** (`/pandacorp:implement frd-05-settings`) y (C) **por change de la cola** (`/pandacorp:implement change:mc-fix-pagination`). Tres artefactos nuevos/actualizados:
+- **Nueva guía `content/manual/guides/g-implement-parcial.md`** (order 4) — referencia completa: flujo paso a paso de cada modo, gate de dependencias (qué mensaje emite y cómo resolverlo), tabla de estados de la change (`draft`/`needs-owner`/`structural`/no-existe), tabla de cuándo usar cada modo, normalización de formatos de entrada, notas sobre resumibilidad y archivado automático de la change.
+- **`content/manual/concepts/el-pipeline.md` § Build** — reescrita con tabla de resumen de los tres modos + nota sobre normalización de inputs + referencia a la guía.
+- **`content/manual/guides/g-modo.md`** — añadida referencia a la guía comprehensiva al final de las secciones de build parcial (queda como cheatsheet; la guía es el deep-dive).
+**Why:** El owner pidió documentación completa del feature de build parcial introducido en v9.14.0→v9.15.0 del plugin, con ejemplos de cada caso de uso y explicación del comportamiento cuando las deps no están implementadas — para que cualquier persona que quiera usarlo pueda entenderlo sin leer el código.
+**Impact:** `content/manual/guides/g-implement-parcial.md` (nuevo), `content/manual/concepts/el-pipeline.md`, `content/manual/guides/g-modo.md`. Doc canónico del feature: `plugin/docs/decision-log.md` v9.14.0→v9.15.0 (ya actualizado con el refinamiento de normalización).
+
 ## 2026-06-26 — Descarte: reusar el Button core (variante danger) + fix de hover + textarea grande/ilimitado (FRD-02/FRD-13, DR-057)
 **What:** Tres arreglos al flujo de descarte, todos pedidos por el owner:
 - **Reuso del `Button` core (DR-057):** el `DiscardButton` se inventaba sus propios estilos de botón a mano (`BASE/DISCARD/CONFIRM/CANCEL_BTN_STYLE`). Ahora los **tres** botones (trigger, "Sí, descartar", "Cancelar") son el `Button` compartido — *el mismo componente, distintos estilos*, como pedía el owner. Se añadió al `Button` una prop **`tone` (default/danger)** que se compone con `variant`: `secondary`+`danger` = **outline rojo** (el trigger), `primary`+`danger` = **relleno rojo** (confirmar), `secondary` default = "Cancelar". El `Button` emite `data-tone` para que el CSS apunte el hover correcto.

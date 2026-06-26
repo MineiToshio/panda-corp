@@ -33,4 +33,4 @@ Si tienes algo en `.pandacorp/inbox/changes/` que quieres construir ahora sin es
 
 Cualquiera de esos formatos es válido — el motor normaliza al nombre del archivo sin extensión. Si el archivo no existe, lista los disponibles. Verifica que esté en `status: ready` (no en borrador ni bloqueado por el owner), lo procesa a través del motor de iterate/bug para crear o actualizar los FRDs y work orders correspondientes, y luego construye solo esos FRDs. Si sus dependencias no están VERIFIED, el gate de deps se dispara igual que en un build parcial por FRD.
 
-> El cuerpo paso a paso se compone en React. Este markdown respalda el índice del Manual.
+Para el flujo detallado de cada modo (gate de deps, estados de la change, cuándo usar cada uno) ver la guía **«Build parcial: por FRD o por change»**.
