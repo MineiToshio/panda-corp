@@ -15,6 +15,12 @@
 # Managed by Pandacorp — re-synced by /pandacorp:upgrade. Don't hand-edit.
 set -euo pipefail
 
+# ADVISORY CONTRACT GUARD: this script must ALWAYS exit 0 (it reports, never gates). A reader that
+# closes a pipe early (`grep -q`, `head -1`) can SIGPIPE its writer; under `pipefail`+`inherit_errexit`
+# that flakily kills the script before its final `exit 0`, RED-locking the verify gate that invokes it
+# without `|| true`. An EXIT trap makes the always-0 contract robust no matter how we terminate.
+trap 'exit 0' EXIT
+
 VERBOSE=0
 if [ "${1:-}" = "-v" ] || [ "${1:-}" = "--verbose" ]; then VERBOSE=1; fi
 
@@ -47,7 +53,10 @@ for frd in docs/frds/frd-*/frd.md; do
   if frontmatter "$frd" | grep -qE "^ui:[[:space:]]*true"; then
     dir=$(dirname "$frd")
     [ -f "$dir/fdd.md" ] || warn "$frd is ui:true but has no fdd.md (DR-056 feature design missing)"
-    real_mock=$(find "$dir/mocks" -type f \( -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.webp' -o -name '*.html' \) 2>/dev/null | head -1)
+    # `… | head -1` makes find SIGPIPE; under `set -o pipefail` that fails the assignment and (with
+    # `set -e`) would kill this ADVISORY script before its `exit 0`. Guard with `|| true` so a missing
+    # mocks/ dir stays a warning, never a gate-breaking crash (doc-lint must ALWAYS exit 0).
+    real_mock=$(find "$dir/mocks" -type f \( -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.webp' -o -name '*.html' \) 2>/dev/null | head -1 || true)
     if [ -z "$real_mock" ] && ! has_key "$frd" visual_source; then
       warn "$frd is ui:true but has NO design oracle: empty mocks/ and no visual_source (DR-091 — the per-route fidelity check will no-op; shard the prototype or generate mocks)"
     fi
