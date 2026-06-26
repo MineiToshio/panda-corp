@@ -106,6 +106,12 @@ export interface BoardCardEntry extends IdeaCardProps {
    * doc body loads lazily on select (the board ships structure only, never bodies).
    */
   docNodes?: DocNode[];
+  /**
+   * Spanish high-level spec digest (PRD + research + FRDs) from readSpecDigest in page.tsx,
+   * for in-pipeline projects past the product phase. Forwarded to CardDetail's Spec tab;
+   * absent → the tab is hidden.
+   */
+  specContent?: string;
   /** `discard_reason` (discarded cards only) — shown in the "Ver descartadas" modal + the detail. */
   discardReason?: string;
 }

@@ -439,6 +439,7 @@ export function BoardShell({
               deployTarget={openCard.deployTarget}
               body={openCard.body}
               docNodes={openCard.docNodes}
+              specContent={openCard.specContent}
               project={openCard.project}
               readDocAction={readDocAction}
               isRunning={openCard.isRunning}

@@ -59,12 +59,13 @@ import {
   TITLE_STYLE,
 } from "./CardDetail.styles";
 import { IdeaPitch } from "./IdeaPitch/IdeaPitch";
+import { SpecDigest } from "./SpecDigest/SpecDigest";
 
 // ---------------------------------------------------------------------------
 // Tab definitions (AC-02-009.1)
 // ---------------------------------------------------------------------------
 
-type TabKey = "propuesta" | "docs" | "campana";
+type TabKey = "propuesta" | "spec" | "docs" | "campana";
 
 interface TabDef {
   id: TabKey;
@@ -72,9 +73,11 @@ interface TabDef {
   icon?: string;
 }
 
-// Order (owner decision, discover redesign): Propuesta → Documentos → Campaña.
-const TABS: TabDef[] = [
+// Order: Propuesta → Spec → Documentos → Campaña. "Spec" only appears once the project
+// has a spec digest (.pandacorp/comms/spec-resumen.md); before that phase it's filtered out.
+const ALL_TABS: TabDef[] = [
   { id: "propuesta", label: "Propuesta", icon: "ti-sparkles" },
+  { id: "spec", label: "Spec", icon: "ti-list-details" },
   { id: "docs", label: "Documentos", icon: "ti-files" },
   { id: "campana", label: "Campaña", icon: "ti-map-2" },
 ];
@@ -260,6 +263,12 @@ export interface CardDetailProps {
    * Bodies are NOT included; they load lazily via `readDocAction` on select.
    */
   docNodes?: DocNode[];
+  /**
+   * Spanish high-level digest of the project's spec (PRD + research + FRDs), read from
+   * `.pandacorp/comms/spec-resumen.md` (in-pipeline projects past the product phase).
+   * Absent/empty → the "Spec" tab is hidden (the project hasn't reached that stage).
+   */
+  specContent?: string;
   /** Portfolio path of the linked project (the read action's first argument). */
   project?: string;
   /**
@@ -315,6 +324,7 @@ export function CardDetail({
   phase,
   deployTarget,
   docNodes,
+  specContent,
   project,
   readDocAction,
   isRunning,
@@ -322,6 +332,10 @@ export function CardDetail({
 }: CardDetailProps): React.JSX.Element {
   // Active tab — defaults to Propuesta (AC-02-009.1, owner decision). Persists across re-renders.
   const [activeTab, setActiveTab] = useState<TabKey>("propuesta");
+
+  // The "Spec" tab is present only when the project has a spec digest (past the product phase).
+  const hasSpec = specContent != null && specContent !== "";
+  const tabs = ALL_TABS.filter((tab) => tab.id !== "spec" || hasSpec);
 
   // Selected document in the Documentos rail — SUMMARY_KEY ("summary") or a doc relPath.
   const [selectedDocKey, setSelectedDocKey] = useState<string>(SUMMARY_KEY);
@@ -372,7 +386,7 @@ export function CardDetail({
    * id; narrow it back to the TabKey union (the ids come from our own TABS list).
    */
   const handleTabChange = (id: string) => {
-    const match = TABS.find((tab) => tab.id === id);
+    const match = tabs.find((tab) => tab.id === id);
     if (match != null) setActiveTab(match.id);
   };
 
@@ -405,7 +419,7 @@ export function CardDetail({
       <Tabs
         level="sub"
         ariaLabel="Pestañas del detalle de idea"
-        tabs={TABS}
+        tabs={tabs}
         active={activeTab}
         onChange={handleTabChange}
         testIdPrefix={TAB_TEST_ID_PREFIX}
@@ -420,6 +434,18 @@ export function CardDetail({
       >
         <IdeaPitch title={title} body={body} resolveLink={resolveDocLink} />
       </div>
+
+      {/* ---- Spec panel — the native PRD/research/FRDs digest (only when a digest exists) ---- */}
+      {specContent != null && specContent !== "" && (
+        <div
+          data-testid="card-detail-panel-spec"
+          role="tabpanel"
+          aria-labelledby="card-detail-tab-spec"
+          style={panelStyle("spec")}
+        >
+          <SpecDigest title={title} body={specContent} resolveLink={resolveDocLink} />
+        </div>
+      )}
 
       {/* ---- Campaña panel (AC-02-010.1) ---- */}
       <div

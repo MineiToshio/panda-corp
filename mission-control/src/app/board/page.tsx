@@ -27,6 +27,7 @@ import { deriveColumn } from "@/lib/board/board";
 import { resolveProjectPath } from "@/lib/config/config";
 import { type DocNode, listProjectDocs } from "@/lib/docs/tree";
 import { readIdeas } from "@/lib/ideas/ideas";
+import { readSpecDigest } from "@/lib/spec/read-spec";
 import { readStatus } from "@/lib/status/status";
 
 // ---------------------------------------------------------------------------
@@ -79,10 +80,13 @@ export default function BoardPage(): React.JSX.Element {
     let projectStatus = null;
     // Scoped doc structure for the card-detail Documentos tab (in-pipeline only).
     let docNodes: DocNode[] | undefined;
+    // Spanish spec digest for the card-detail Spec tab (in-pipeline, past product phase).
+    let specContent: string | undefined;
     if (card.status === "in-pipeline" && card.project) {
       const projectPath = resolveProjectPath(card.project);
       projectStatus = readStatus(projectPath);
       docNodes = listProjectDocs(projectPath).filter(isScopedBoardDoc);
+      specContent = readSpecDigest(projectPath) ?? undefined;
     }
 
     const boardColumn = deriveColumn(card, projectStatus);
@@ -117,6 +121,8 @@ export default function BoardPage(): React.JSX.Element {
       deployTarget: projectStatus?.present ? projectStatus.status.deployTarget : undefined,
       // Scoped doc STRUCTURE (PRD + research + FRDs); bodies load lazily on select.
       docNodes,
+      // Spanish high-level spec digest (PRD + research + FRDs) for the Spec tab.
+      specContent,
     };
   });
 

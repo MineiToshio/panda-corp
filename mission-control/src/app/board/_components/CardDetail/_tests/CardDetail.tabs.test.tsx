@@ -296,3 +296,34 @@ describe("frd-02: CampaignPipeline wiring in Campaña tab", () => {
     expect(screen.getByTestId("campaign-pipeline")).toHaveAttribute("data-active-phase", "5");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Spec tab — conditional (between Propuesta and Documentos), only when a digest exists
+// ---------------------------------------------------------------------------
+
+const SPEC_DIGEST = `---
+proyecto: "Test Idea"
+fase: producto
+---
+
+> intro
+
+## 🧩 FRDs
+
+### FRD-01 · Auth · UI
+Login y sesión.
+`;
+
+describe("frd-02: the Spec tab is conditional on a spec digest", () => {
+  it("frd-02: WHEN there is no spec digest THEN the Spec tab is absent", () => {
+    render(<CardDetail {...MINIMAL} />);
+    expect(screen.queryByTestId("card-detail-tab-spec")).toBeNull();
+  });
+
+  it("frd-02: WHEN a spec digest is provided THEN the Spec tab appears and renders the digest", () => {
+    render(<CardDetail {...WITH_DOCS} specContent={SPEC_DIGEST} />);
+    expect(screen.getByTestId("card-detail-tab-spec")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("card-detail-tab-spec"));
+    expect(screen.getByText("Auth")).toBeInTheDocument();
+  });
+});
