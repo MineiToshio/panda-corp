@@ -36,6 +36,12 @@ Habilidad: `/pandacorp:blueprint`.
 
 El motor de `implement` orquesta subagentes especializados que construyen las work orders en paralelo con dependencias explícitas. Cada WO sigue TDD (RED → GREEN → refactor). El `reviewer` valida cada FRD antes de marcarlo VERIFIED. Si una WO falla la revisión, el motor **repara el fallo puntual en sitio antes de reconstruirla** y **sube el modelo a Opus** cuando la WO es difícil o ya falló (DR-073).
 
+**Build parcial (por FRD):** puedes pedir que se construya solo un subconjunto de FRDs: `/pandacorp:implement frd-05-settings`. El motor verifica primero que todas las dependencias de ese FRD ya estén VERIFIED; si no, te dice cuáles hay que implementar antes.
+
+**Build desde la cola de changes:** si hay algo en `.pandacorp/inbox/changes/` listo para construir, `/pandacorp:implement change:add-export-button` lo procesa (crea/actualiza los FRDs y work orders correspondientes) y construye solo esos FRDs en el mismo run. La change se archiva automáticamente cuando el gate de FRD verifica.
+
+Sin argumento, construye todo en orden de dependencias (comportamiento por defecto).
+
 Habilidad: `/pandacorp:implement`.
 
 ### 5. Release

@@ -3,6 +3,7 @@ export const meta = {
   description: 'Pandacorp build engine v2 (DR-050): builds FRD by FRD using each blueprint\'s Build Plan, with state in the work-order frontmatter (implementation_status). ONE review/test gate per FRD (not per work order), hand-offs, fail-closed gates, one commit per safe point. Runs to COMPLETION by default; stops ONLY by health or budget — nothing left to build, a budget ceiling, too many blocks in a row, or work that needs the owner. It TRIES TO REPAIR before giving up; an unrecoverable stop BLOCKS with a reason (needs-owner | external | error) instead of dying. Resumable: it reads the frontmatter and NEVER rebuilds a VERIFIED work order.',
   phases: [
     { title: 'Baseline' },
+    { title: 'Process Change' },
     { title: 'Plan' },
     { title: 'Build' },
     { title: 'Review' },
@@ -12,6 +13,11 @@ export const meta = {
 // ── Input (all optional) ─────────────────────────────────────────────────────
 //   args.mode:    'pro' | 'balanced' | 'powerful' | 'deep'  (default: powerful)
 //   args.frds:    specific FRD folders to limit to           (default: all pending)
+//   args.change:  a change slug/filename from .pandacorp/inbox/changes/ to process
+//     and build in one targeted run. The engine reads the change, creates/updates
+//     its FRDs+WOs via the iterate/bug engine, then builds only those FRDs (with
+//     dep checking). Mutually exclusive with args.frds — if both are set, args.change
+//     wins (frds is derived from the change's affected FRDs). null = off.
 //   args.maxFrds:  OPT-IN cap on FRDs PROCESSED per run (built + blocked + REOPENED) — for
 //     SUPERVISED TEST runs. A reopen COUNTS toward the cap, so chained reopens can't slip
 //     past it (the 2026-06-16 overnight test caught that exact bug). For overnight runs
@@ -23,7 +29,11 @@ export const meta = {
 //     subagent work; unenforced if the supervisor dies). Secondary ceiling. null = off.
 //     (DR-050, owner decision: run to completion, stop by health/budget, not by feature count.)
 const MODE = (args && args.mode) || 'powerful'
-const ONLY = (args && args.frds) || null
+// Normalize change: accept 'slug', 'slug.md', '.pandacorp/inbox/changes/slug', '.pandacorp/inbox/changes/slug.md' → just the slug
+const CHANGE = (args && args.change) ? String(args.change).split('/').pop().replace(/\.md$/, '') : null
+// Normalize frds: accept folder name, 'docs/frds/<folder>', 'docs/frds/<folder>/frd.md' → folder name only
+const normalizeFolder = (s) => String(s).replace(/\/[^/]+\.md$/, '').replace(/\/$/, '').split('/').pop()
+let ONLY = (args && !args.change && args.frds) ? args.frds.map(normalizeFolder) : null  // frds filter (derived from CHANGE when set)
 const MAX_FRDS = (args && args.maxFrds) || Infinity   // counts features PROCESSED (built+blocked+reopened); no cap unless set
 const LOW_BUDGET = (args && args.lowBudget) || 80000  // margin to leave when budget.total IS set (a +Nk turn directive)
 const MAX_SPEND = (args && args.maxSpend) || null      // output-token ceiling via budget.spent() — UNRELIABLE alone (under-counts subagent work; unenforced if the supervisor dies). Secondary.
@@ -58,7 +68,7 @@ const COST = (m) => (m === 'opus' ? 3 : 1)
 // Workflow-tool serialization bug seen 2026-06-19), `args.maxAgents`/`mode`/`frds` all read as undefined
 // and a "bounded" overnight run silently goes UNBOUNDED in powerful mode. Surface it loudly at start.
 if (args && typeof args !== 'object') log(`⚠⚠ args arrived as a ${typeof args}, NOT an object — mode/maxAgents/maxFrds were DROPPED. This run is UNBOUNDED. Stop and relaunch passing args as a JSON object (DR-072 R2).`)
-log(`Mode ${MODE} · wave ≤${P.wave} · maxFrds ${MAX_FRDS === Infinity ? 'sin tope' : MAX_FRDS} · maxAgents ${MAX_AGENTS || 'OFF (sin freno de presupuesto!)'} · workers ${P.worker} · judge ${P.judge}`)
+log(`Mode ${MODE} · wave ≤${P.wave} · maxFrds ${MAX_FRDS === Infinity ? 'sin tope' : MAX_FRDS} · maxAgents ${MAX_AGENTS || 'OFF (sin freno de presupuesto!)'} · workers ${P.worker} · judge ${P.judge}${CHANGE ? ' · change ' + CHANGE : ONLY ? ' · frds ' + ONLY.join(',') : ''}`)
 
 // Party telemetry. `ctx` enriches the event so the Party views can be faithful to the run
 // WITHOUT inventing anything: frd (which feature), phase ('build'|'review'), activity (the
@@ -100,6 +110,17 @@ const PLAN_SCHEMA = {
   properties: {
     stack: { type: 'string', description: 'A (web) | B/C (API) | D (scraper/data)' },
     hasFrontend: { type: 'boolean' },
+    unsatisfiedDeps: {
+      type: 'array',
+      description: 'Only when args.frds is set: deps of the requested FRDs that are NOT fully VERIFIED yet. Return [] if all deps are satisfied or args.frds is not set.',
+      items: {
+        type: 'object', required: ['frd', 'dep'],
+        properties: {
+          frd: { type: 'string', description: 'the requested FRD folder that has this unmet dep' },
+          dep: { type: 'string', description: 'the dep FRD folder that is NOT fully VERIFIED yet (at least one of its WOs is not VERIFIED)' },
+        },
+      },
+    },
     frds: {
       type: 'array',
       items: {
@@ -148,6 +169,19 @@ const REPAIR_SCHEMA = {
   type: 'object', required: ['green'],
   properties: { green: { type: 'boolean' }, missingFoundation: MISSING_FOUNDATION, blocked_reason: BLOCK_REASON, failure: { type: 'string' } },
 }
+// Targeted change build: the process-change agent reads a change from the queue, creates/updates
+// its FRDs+WOs via iterate/bug logic, and returns the list of affected FRD folders so the normal
+// build loop can pick them up (with dep checking). The change is NOT archived here — the FRD gate
+// does that when the FRDs verify, same as in the normal change-drain flow.
+const PROCESS_CHANGE_SCHEMA = {
+  type: 'object', required: ['done', 'affectedFrds'],
+  properties: {
+    done: { type: 'boolean' },
+    affectedFrds: { type: 'array', items: { type: 'string' }, description: 'FRD folder names (docs/frds/<folder>) created or updated by this change' },
+    changeFile: { type: 'string', description: 'the matched change filename in .pandacorp/inbox/changes/' },
+    failure: { type: 'string' },
+  },
+}
 // DR-057 (extended) foundation-completeness gate: the foundation = the UNION of EVERY shared
 // primitive any UI surface's mock/fdd references; it must be COMPLETE + green BEFORE surfaces fan out.
 const FOUNDATION_SCHEMA = {
@@ -177,6 +211,34 @@ if (!baseline || baseline.green !== true) {
 }
 log('Baseline green — planning by FRD.')
 
+// ── Process Change (targeted change build only) ───────────────────────────────
+// When args.change is set, read the specified change from .pandacorp/inbox/changes/, integrate
+// it via the iterate/bug engine (creates/updates FRDs + WOs), and set ONLY = the affected FRDs
+// so the normal plan + dep-check + build loop handles them exactly as any targeted FRD build.
+if (CHANGE) {
+  phase('Process Change')
+  agentSpawned++
+  const proc = await agent(
+    `You are integrating a specific pending change into the project before the build starts (targeted change build).
+
+1. Find the change file .pandacorp/inbox/changes/${CHANGE}.md — the exact filename, the extension is always .md. If the file does not exist, list .pandacorp/inbox/changes/*.md and return { done: false, affectedFrds: [], failure: "no existe .pandacorp/inbox/changes/${CHANGE}.md — archivos disponibles: <list>" }.
+2. Read its frontmatter. If status is "draft", return { done: false, affectedFrds: [], failure: "la change está en borrador — márcala ready primero" }. If status is "needs-owner" or "structural", return { done: false, affectedFrds: [], failure: "esta change requiere decisión del owner antes de construirla" }. Only proceed if status is "ready".
+3. Read its type and full description.
+4. Route by type:
+   - type "bug" or "regression" → TDD fix: write a RED regression test (fails without the fix, passes with it); implement the minimum production-code fix; never weaken or skip tests. Create a WO in the affected FRD (or create a minimal FRD if none exists) and set it IN_REVIEW.
+   - type "feature" | "change" | "improvement" | "chore" → minimum FRD scope: does this fit an existing FRD? Add a WO to it with implementation_status: PLANNED. Is it genuinely new? Create a minimal new FRD folder (docs/frds/frd-NN-<slug>/) with frd.md + blueprint.md + at least one work-orders/wo-NN-001-*.md with implementation_status: PLANNED. Follow the same FRD/WO structure as existing ones in docs/frds/.
+5. Do NOT archive the change file and do NOT change its status — the FRD gate does that when the FRDs verify (same flow as normal change-drain).
+6. Return { done: true, affectedFrds: ['frd-XX-slug', ...], changeFile: '<the matched filename>' }.${NOTIFY('Procesando change ' + CHANGE + ' antes del build')}`,
+    { label: 'process-change', phase: 'Process Change', model: P.judge, agentType: 'pandacorp:implementer', schema: PROCESS_CHANGE_SCHEMA },
+  )
+  if (!proc || !proc.done || !proc.affectedFrds || !proc.affectedFrds.length) {
+    log(`⊘ No se pudo procesar la change '${CHANGE}': ${proc?.failure || 'no se encontró o no tiene FRDs afectados'}.`)
+    return { mode: MODE, builtFrds: [], blockedFrds: [], note: `change '${CHANGE}' no procesada: ${proc?.failure || 'sin FRDs'}` }
+  }
+  ONLY = proc.affectedFrds
+  log(`Change '${proc.changeFile || CHANGE}' procesada — FRDs afectados: ${ONLY.join(', ')}`)
+}
+
 // ── Plan: read FRDs, their Build Plans and the frontmatter state (no inferred "done") ──
 phase('Plan')
 agentSpawned++   // DR-070: count every spawn so the maxAgents brake is honest
@@ -187,12 +249,24 @@ const plan = await agent(
   - docs/product/architecture.md → the platform stack.
   - **FOUNDATION (DR-057, web only): read docs/design/components.md** (the shared-component inventory) and skim every FRD's \`mocks/\`/\`fdd.md\` to grasp the COMPLETE set of shared primitives the surfaces reference. The foundation work orders must build the UNION of those primitives — not a hand-picked subset (the gap that shipped flat Party surfaces: Room/AgentSprite/etc. were never in the foundation). Mark \`foundation: true\` on EVERY WO that builds a shared primitive the inventory lists, so the engine builds them all before surfaces fan out.
   Return the FRDs that still have non-VERIFIED work orders, **in cross-FRD dependency order** (from the Build Plans). For each FRD: its \`frd\` folder, its \`deps\` (FRD folders that must be VERIFIED first), and its \`workOrders\` (each with id, frontmatter \`status\`, intra-FRD \`deps\`, one-line \`summary\`, **\`difficulty\` (low|medium|high — COPY it from the WO's \`difficulty:\` frontmatter; default \`medium\` when absent — DR-073: \`high\` builds on opus a-priori)**, **\`reopen_count\` (number — COPY it from the WO's \`reopen_count:\` frontmatter; default \`0\` when absent — DR-073: \`>=1\` builds on opus empirically)**, **its \`artifacts\` = the file/dir globs it writes, COPIED FROM the WO's \`artifacts:\` frontmatter — REQUIRED so the engine keeps parallel WOs disjoint (DR-060); if a WO has none in frontmatter, infer the files it will write from its title/summary**, and **\`foundation: true\` if this WO builds a shared design-system primitive / the inventory the other WOs reuse — DR-057, it must build before they fan out**) **in the Build Plan's order**.${ONLY ? ' Limit to these FRD folders: ' + ONLY.join(', ') + '.' : ''}
-  hasFrontend=true only if the stack is web (A).`,
+  hasFrontend=true only if the stack is web (A).${ONLY ? ` TARGETED BUILD — also check cross-FRD deps of the requested FRDs: for each dep folder listed in their Build Plans, read the frontmatter \`implementation_status\` of every work-orders/wo-*.md in that dep. If ALL are VERIFIED the dep is satisfied; if ANY is not VERIFIED, include it in unsatisfiedDeps as { frd: '<requested-frd>', dep: '<the-dep-folder>' }. Return unsatisfiedDeps:[] when all deps are satisfied.` : ''}`,
   { label: 'plan', phase: 'Plan', schema: PLAN_SCHEMA, model: P.judge, agentType: 'pandacorp:architect' },
 )
 if (!plan || !plan.frds || plan.frds.length === 0) {
   log('Nothing to build: every FRD is VERIFIED.')
   return { mode: MODE, builtFrds: [], blockedFrds: [], note: 'all verified' }
+}
+
+// Dep-satisfaction gate (targeted build only) — refuse to start if the requested FRDs have deps that are not VERIFIED.
+if (ONLY && plan.unsatisfiedDeps && plan.unsatisfiedDeps.length > 0) {
+  const byFrd = {}
+  for (const { frd, dep } of plan.unsatisfiedDeps) {
+    if (!byFrd[frd]) byFrd[frd] = []
+    byFrd[frd].push(dep)
+  }
+  const detail = Object.entries(byFrd).map(([f, deps]) => `${f} requiere: ${deps.join(', ')}`).join('; ')
+  log(`⊘ Build parcial bloqueado — hay dependencias sin VERIFIED: ${detail}. Implementa primero esos FRDs (o corre /pandacorp:implement sin filtro para el orden automático).`)
+  return { mode: MODE, builtFrds: [], blockedFrds: ONLY, blockedReasons: Object.fromEntries(ONLY.map((f) => [f, 'needs-owner'])), note: `deps sin verificar — ${detail}` }
 }
 log(`${plan.frds.length} FRDs with pending work · stack ${plan.stack}${plan.hasFrontend ? ' (web)' : ''}`)
 
