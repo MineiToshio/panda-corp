@@ -31,7 +31,7 @@ Mission Control's overlay was **8.36.1 — six versions behind** (DR-072 landed 
 
 ### P1 — Bring the house up to standard
 
-- [ ] **P1.3 — Mission Control to standard:** shard the prototype into per-FRD `mocks/` (the sharding never done) + run the reviewer Visual-QA pass against them → punch-list → sweep. Converts MC's legacy fidelity debt into conformance. → `design` (shard) + `/code-review`.
+- [~] **P1.3 — Mission Control to standard:** VERIFIED 2026-06-26 — **largely already covered by P0.1 (F-A).** All 17 MC UI FRDs already declare `visual_source`, so the reviewer's fallback oracle now works for every surface; the existing per-route visual baselines are the regression anchors. A blind full prototype-shard is **redundant + risky** (the prototype is STALE on the 3 hand-evolved surfaces — logros/rank, board→IdeaPitch, proposals→MemoryHealth — so sharding it would create mocks that fight the owner-approved UI). **Residual (deferred):** refresh the prototype to the approved state for those 3 evolved surfaces (a design task), then shard them; the other surfaces are adequately covered by F-A + baselines. Optional: capture tighter per-FRD mock screenshots for the surfaces still faithful to the prototype.
 - [ ] **P1.4 — Overlay-drift banner in MC.** *Verified:* FRD-15 compares only the **plugin** version (installed vs source `plugin.json`); it does NOT warn when the project's `overlay_version` is behind `OVERLAY_VERSION` — which is why MC sat 6 versions behind silently. → `/pandacorp:iterate` (FRD-15).
 
 ### P2 — Reinforcements
