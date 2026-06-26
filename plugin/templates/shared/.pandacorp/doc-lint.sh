@@ -5,7 +5,9 @@
 # surfaces, during the gate, docs that drift from the template contract:
 #   - required frontmatter keys on FRD / work-order docs,
 #   - a PRD without a `type`,
-#   - a work order citing a REQ-NN-MMM defined in NO FRD (cross-FRD citations are fine).
+#   - a work order citing a REQ-NN-MMM defined in NO FRD (cross-FRD citations are fine),
+#   - a UI FRD (ui: true) with NO design oracle — no fdd.md, or empty mocks/ AND no visual_source
+#     (DR-091: the per-route fidelity check no-ops without an oracle — the Mission Control failure).
 # A project with no docs/ is a vacuous pass. Run from the project root; verify.sh invokes it.
 # By default it prints a one-line summary; run `.pandacorp/doc-lint.sh -v` for the per-finding list.
 # Promotion to a fail-closed gate is a future per-project opt-in (once the spine is conformant),
@@ -33,12 +35,23 @@ if [ -f docs/product/prd.md ]; then
   has_key docs/product/prd.md type || warn "docs/product/prd.md missing frontmatter key 'type'"
 fi
 
-# FRDs — required frontmatter keys.
+# FRDs — required frontmatter keys + UI-FRD design-oracle completeness (DR-091).
 for frd in docs/frds/frd-*/frd.md; do
   [ -f "$frd" ] || continue
   for k in id type status implementation_status; do
     has_key "$frd" "$k" || warn "$frd missing frontmatter key '$k'"
   done
+  # A UI FRD (ui: true) MUST have a design oracle (DR-056/091) — the thing whose absence let
+  # Mission Control ship 17 un-sharded surfaces that the per-route fidelity check then silently
+  # skipped. Require: an fdd.md (the feature design doc) AND a real per-FRD mock OR a visual_source.
+  if frontmatter "$frd" | grep -qE "^ui:[[:space:]]*true"; then
+    dir=$(dirname "$frd")
+    [ -f "$dir/fdd.md" ] || warn "$frd is ui:true but has no fdd.md (DR-056 feature design missing)"
+    real_mock=$(find "$dir/mocks" -type f \( -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.webp' -o -name '*.html' \) 2>/dev/null | head -1)
+    if [ -z "$real_mock" ] && ! has_key "$frd" visual_source; then
+      warn "$frd is ui:true but has NO design oracle: empty mocks/ and no visual_source (DR-091 — the per-route fidelity check will no-op; shard the prototype or generate mocks)"
+    fi
+  fi
 done
 
 # Work orders — required frontmatter + every cited REQ must be defined in SOME FRD (cross-FRD OK).

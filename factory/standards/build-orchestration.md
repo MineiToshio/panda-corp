@@ -211,8 +211,11 @@ The build engine reviews and tests **per FRD**, not per work order:
   biome+tsc+vitest, nothing ever opened a browser). It runs inside `verify.sh` (so the FRD gate and
   close-out enforce it automatically) and is re-run independently by the `reviewer` (generator ≠
   verifier). This moves review cost from O(work orders) to O(FRDs).
-- **Visual-fidelity gate (DR-056) — does the build MATCH the mock, not just render clean.** When the
-  feature has an approved mock (`docs/frds/<frd>/mocks/`), the smoke layer is upgraded to a real
+- **Visual-fidelity gate (DR-056) — does the build MATCH the mock, not just render clean.** The
+  per-route fidelity oracle is chosen by a **fallback chain (DR-091)**, so it never silently no-ops:
+  per-FRD `docs/frds/<frd>/mocks/` → ELSE the FRD's `visual_source` (the global prototype's matching
+  view/shard, rendered live and A/B'd) → ELSE a `ui: true` FRD with neither is a finding (and
+  `doc-lint` flags it). When an oracle exists the smoke layer is upgraded to a real
   fidelity gate, **layered** because no single tool reliably compares an arbitrary mock to a build:
   - **Layer A — deterministic visual regression (the hard block).** Playwright `toHaveScreenshot()`
     diffs each route against its own **blessed baseline**; fail-closed (a missing or over-budget
