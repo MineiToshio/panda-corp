@@ -26,16 +26,22 @@ vi.mock("@/lib/discard/discard", () => ({
   discardIdea: vi.fn(),
 }));
 
+vi.mock("@/lib/discard/restore", () => ({
+  restoreIdea: vi.fn(),
+}));
+
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
 
 import { revalidatePath } from "next/cache";
 import { discardIdea } from "@/lib/discard/discard";
+import { restoreIdea } from "@/lib/discard/restore";
 // After mocking, import the action and its dependencies.
-import { discardIdeaAction } from "../actions";
+import { discardIdeaAction, restoreIdeaAction } from "../actions";
 
 const mockDiscardIdea = vi.mocked(discardIdea);
+const mockRestoreIdea = vi.mocked(restoreIdea);
 const mockRevalidatePath = vi.mocked(revalidatePath);
 
 // ---------------------------------------------------------------------------
@@ -50,7 +56,14 @@ describe("discardIdeaAction — happy path", () => {
   it("calls discardIdea with the provided slug", async () => {
     mockDiscardIdea.mockReturnValue({ ok: true });
     await discardIdeaAction("idea-discovered");
-    expect(mockDiscardIdea).toHaveBeenCalledWith("idea-discovered");
+    // ideasDir omitted (undefined) in production; no reason given → undefined.
+    expect(mockDiscardIdea).toHaveBeenCalledWith("idea-discovered", undefined, undefined);
+  });
+
+  it("forwards the discard reason to discardIdea as the 3rd arg", async () => {
+    mockDiscardIdea.mockReturnValue({ ok: true });
+    await discardIdeaAction("idea-x", "saturado · muy complejo");
+    expect(mockDiscardIdea).toHaveBeenCalledWith("idea-x", undefined, "saturado · muy complejo");
   });
 
   it("calls discardIdea exactly once per invocation", async () => {
@@ -126,5 +139,35 @@ describe("discardIdeaAction — only write via lib/discard", () => {
     // The only write-related call is discardIdea — revalidatePath is a cache hint, not a write.
     expect(mockDiscardIdea).toHaveBeenCalledTimes(1);
     expect(mockRevalidatePath).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("restoreIdeaAction — happy path", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("delegates to restoreIdea with the slug", async () => {
+    mockRestoreIdea.mockReturnValue({ ok: true, restoredTo: "recommended" });
+    await restoreIdeaAction("idea-x");
+    expect(mockRestoreIdea).toHaveBeenCalledWith("idea-x");
+  });
+
+  it("revalidates the board path on success", async () => {
+    mockRestoreIdea.mockReturnValue({ ok: true, restoredTo: "discovered" });
+    await restoreIdeaAction("idea-x");
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/board");
+  });
+
+  it("returns the RestoreResult unchanged", async () => {
+    mockRestoreIdea.mockReturnValue({ ok: true, restoredTo: "in-pipeline" });
+    const result = await restoreIdeaAction("idea-x");
+    expect(result).toEqual({ ok: true, restoredTo: "in-pipeline" });
+  });
+
+  it("does NOT revalidate on failure", async () => {
+    mockRestoreIdea.mockReturnValue({ ok: false, reason: "not-found" });
+    await restoreIdeaAction("missing");
+    expect(mockRevalidatePath).not.toHaveBeenCalled();
   });
 });

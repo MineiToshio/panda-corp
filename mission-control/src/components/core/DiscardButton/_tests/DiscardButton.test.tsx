@@ -129,7 +129,8 @@ describe("DiscardButton — confirm and success", () => {
     await user.click(screen.getByTestId("discard-confirm-button"));
 
     await waitFor(() => {
-      expect(action).toHaveBeenCalledWith("idea-discovered");
+      // reason is the 2nd arg; empty string when the owner picks no tag/text.
+      expect(action).toHaveBeenCalledWith("idea-discovered", "");
     });
   });
 
@@ -255,5 +256,83 @@ describe("DiscardButton — accessibility", () => {
     const confirmBtn = screen.getByTestId("discard-confirm-button");
     const label = confirmBtn.getAttribute("aria-label") ?? confirmBtn.textContent ?? "";
     expect(label.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Discard reason capture (AC-02-007.2) — the owner can say WHY on confirm
+// ---------------------------------------------------------------------------
+
+describe("DiscardButton — discard reason capture", () => {
+  it("shows the reason form (tags + free text) in the confirmation step", async () => {
+    const user = userEvent.setup();
+    const action = makeAction({ ok: true });
+    render(<DiscardButton slug="idea-discovered" discardAction={action} />);
+
+    await user.click(screen.getByTestId("discard-button"));
+
+    expect(screen.getByTestId("discard-reason-form")).toBeInTheDocument();
+    expect(screen.getByTestId("discard-reason-text")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "no me interesa el tema" })).toBeInTheDocument();
+  });
+
+  it("passes the composed reason (tag + free text) to the action on confirm", async () => {
+    const user = userEvent.setup();
+    const action = makeAction({ ok: true });
+    render(<DiscardButton slug="idea-x" discardAction={action} />);
+
+    await user.click(screen.getByTestId("discard-button"));
+    await user.click(screen.getByRole("button", { name: "no me interesa el tema" }));
+    await user.type(screen.getByTestId("discard-reason-text"), "no es mi nicho");
+    await user.click(screen.getByTestId("discard-confirm-button"));
+
+    await waitFor(() => {
+      expect(action).toHaveBeenCalledWith("idea-x", "no me interesa el tema — no es mi nicho");
+    });
+  });
+
+  it("combines multiple tags with a separator", async () => {
+    const user = userEvent.setup();
+    const action = makeAction({ ok: true });
+    render(<DiscardButton slug="idea-x" discardAction={action} />);
+
+    await user.click(screen.getByTestId("discard-button"));
+    await user.click(screen.getByRole("button", { name: "muy complejo" }));
+    await user.click(screen.getByRole("button", { name: "no monetiza en Perú" }));
+    await user.click(screen.getByTestId("discard-confirm-button"));
+
+    await waitFor(() => {
+      expect(action).toHaveBeenCalledWith("idea-x", "muy complejo · no monetiza en Perú");
+    });
+  });
+
+  it("passes an empty reason when the owner confirms without choosing one", async () => {
+    const user = userEvent.setup();
+    const action = makeAction({ ok: true });
+    render(<DiscardButton slug="idea-x" discardAction={action} />);
+
+    await user.click(screen.getByTestId("discard-button"));
+    await user.click(screen.getByTestId("discard-confirm-button"));
+
+    await waitFor(() => {
+      expect(action).toHaveBeenCalledWith("idea-x", "");
+    });
+  });
+
+  it("clears the captured reason when the owner cancels", async () => {
+    const user = userEvent.setup();
+    const action = makeAction({ ok: true });
+    render(<DiscardButton slug="idea-x" discardAction={action} />);
+
+    await user.click(screen.getByTestId("discard-button"));
+    await user.click(screen.getByRole("button", { name: "muy complejo" }));
+    await user.click(screen.getByTestId("discard-cancel-button"));
+    // Re-open: the previously selected tag must not still be pressed.
+    await user.click(screen.getByTestId("discard-button"));
+
+    expect(screen.getByRole("button", { name: "muy complejo" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
   });
 });

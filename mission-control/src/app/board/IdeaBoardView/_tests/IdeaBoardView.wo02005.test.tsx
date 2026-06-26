@@ -189,14 +189,14 @@ describe("IdeaBoardView WO-02-005 — 7 columns (AC-02-002.2)", () => {
     expect(screen.getByTestId("board-column-shipped")).toBeInTheDocument();
   });
 
-  it("renders the discarded column", () => {
+  it("does NOT render a discarded column (discarded ideas live in the Ver-descartadas modal)", () => {
     render(<IdeaBoardView cards={ALL_COLUMNS_CARDS} />);
-    expect(screen.getByTestId("board-column-discarded")).toBeInTheDocument();
+    expect(screen.queryByTestId("board-column-discarded")).not.toBeInTheDocument();
   });
 
-  it("renders exactly 7 columns", () => {
+  it("renders exactly 6 columns (the pipeline phases; discarded is not a column)", () => {
     render(<IdeaBoardView cards={ALL_COLUMNS_CARDS} />);
-    // All 7 expected testids must be present
+    // The 6 pipeline columns are present…
     const expected: BoardColumn[] = [
       "discovered",
       "documented",
@@ -204,11 +204,12 @@ describe("IdeaBoardView WO-02-005 — 7 columns (AC-02-002.2)", () => {
       "architecture",
       "building",
       "shipped",
-      "discarded",
     ];
     for (const col of expected) {
       expect(screen.getByTestId(`board-column-${col}`)).toBeInTheDocument();
     }
+    // …and discarded is NOT.
+    expect(screen.queryByTestId("board-column-discarded")).not.toBeInTheDocument();
   });
 });
 
@@ -259,10 +260,10 @@ describe("IdeaBoardView WO-02-005 — cards in correct columns (two-axis routing
     expect(col).toHaveTextContent("Idea Lanzada");
   });
 
-  it("discarded card lands in discarded column", () => {
+  it("a discarded card is NOT rendered on the board (no discarded column)", () => {
     render(<IdeaBoardView cards={ALL_COLUMNS_CARDS} />);
-    const col = screen.getByTestId("board-column-discarded");
-    expect(col).toHaveTextContent("Idea Descartada");
+    expect(screen.queryByTestId("board-column-discarded")).not.toBeInTheDocument();
+    expect(screen.queryByText("Idea Descartada")).not.toBeInTheDocument();
   });
 
   it("in-pipeline card with boardColumn=shipped (phase=release) lands in shipped column (two-axis)", () => {
@@ -414,7 +415,7 @@ describe("IdeaBoardView WO-02-005 — empty state", () => {
     expect(screen.getByTestId("board-empty-state")).toBeInTheDocument();
   });
 
-  it("still shows all 7 columns when cards array is non-empty", () => {
+  it("still shows all 6 pipeline columns when cards array is non-empty", () => {
     render(<IdeaBoardView cards={[DISCOVERED_CARD]} />);
     const columns: BoardColumn[] = [
       "discovered",
@@ -423,10 +424,10 @@ describe("IdeaBoardView WO-02-005 — empty state", () => {
       "architecture",
       "building",
       "shipped",
-      "discarded",
     ];
     for (const col of columns) {
       expect(screen.getByTestId(`board-column-${col}`)).toBeInTheDocument();
     }
+    expect(screen.queryByTestId("board-column-discarded")).not.toBeInTheDocument();
   });
 });

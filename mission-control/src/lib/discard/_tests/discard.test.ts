@@ -172,13 +172,14 @@ describe("frd-02: discardIdea — happy path (AC-02-007.1)", () => {
     expect(Number.isFinite(fmAfter.score as number)).toBe(true);
   });
 
-  it("frd-02: WHEN owner discards an idea THEN no new frontmatter fields are added", () => {
+  it("frd-02: WHEN owner discards (no reason) THEN the only new frontmatter key is status_before_discard", () => {
     const dest = seedCard("idea-discovered.md");
     const keysBefore = Object.keys(readFrontmatter(dest)).sort();
     discardIdea("idea-discovered", tmpDir);
     const keysAfter = Object.keys(readFrontmatter(dest)).sort();
-    // Exactly the same keys; status is updated in-place, nothing added
-    expect(keysAfter).toEqual(keysBefore);
+    // status is updated in-place; the ONLY added key is status_before_discard (so the
+    // idea can be restored to its prior status). No discard_reason without a reason.
+    expect(keysAfter).toEqual([...keysBefore, "status_before_discard"].sort());
   });
 
   it('frd-02: WHEN owner discards a recommended card THEN returns { ok: true } and status becomes "discarded"', () => {
@@ -541,16 +542,18 @@ describe("frd-02: discardIdea — only status field mutated (mutation-killing, A
     const fmAfter = readFrontmatter(dest);
     const bodyAfter = readBody(dest);
 
-    // Only `status` may differ
+    // Only `status` may differ among pre-existing fields (status_before_discard is new).
     for (const key of Object.keys(fmBefore)) {
       if (key === "status") continue;
       expect(fmAfter[key], `Field "${key}" was mutated by discardIdea`).toEqual(fmBefore[key]);
     }
-    // No extra keys injected
+    // The only NEW key discard may inject is status_before_discard (no reason → no discard_reason).
     for (const key of Object.keys(fmAfter)) {
-      if (key === "status") continue;
+      if (key === "status" || key === "status_before_discard") continue;
       expect(Object.hasOwn(fmBefore, key), `Unexpected new key "${key}" after discard`).toBe(true);
     }
+    // status_before_discard captured the prior status so the idea can be restored.
+    expect(fmAfter.status_before_discard).toBe("discovered");
     // Body unchanged
     expect(bodyAfter).toBe(bodyBefore);
     // Status is exactly "discarded"
@@ -663,4 +666,44 @@ describe("frd-02: discardIdea — parametric frontmatter round-trip (AC-02-007.1
       }
     });
   }
+});
+
+// ---------------------------------------------------------------------------
+// AC-02-007.2 — optional discard reason → discard_reason frontmatter
+// (feeds discover's rejection-pattern learning, factory v9.8.0)
+// ---------------------------------------------------------------------------
+
+describe("frd-02: discardIdea — discard reason (AC-02-007.2)", () => {
+  it("frd-02: WHEN owner discards WITHOUT a reason THEN no discard_reason field is added", () => {
+    const dest = seedCard("idea-discovered.md");
+    discardIdea("idea-discovered", tmpDir);
+    expect(readFrontmatter(dest).discard_reason).toBeUndefined();
+  });
+
+  it("frd-02: WHEN owner discards WITH a reason THEN discard_reason is written verbatim", () => {
+    const dest = seedCard("idea-discovered.md");
+    discardIdea("idea-discovered", tmpDir, "saturado · no me interesa el tema");
+    expect(readFrontmatter(dest).discard_reason).toBe("saturado · no me interesa el tema");
+  });
+
+  it("frd-02: WHEN owner discards WITH a reason THEN status is still discarded", () => {
+    const dest = seedCard("idea-discovered.md");
+    discardIdea("idea-discovered", tmpDir, "muy complejo");
+    expect(readFrontmatter(dest).status).toBe("discarded");
+  });
+
+  it("frd-02: WHEN the reason is whitespace-only THEN no discard_reason field is added", () => {
+    const dest = seedCard("idea-discovered.md");
+    discardIdea("idea-discovered", tmpDir, "   ");
+    expect(readFrontmatter(dest).discard_reason).toBeUndefined();
+  });
+
+  it("frd-02: WHEN owner discards WITH a reason THEN other frontmatter fields stay preserved", () => {
+    const dest = seedCard("idea-discovered.md");
+    const before = readFrontmatter(dest);
+    discardIdea("idea-discovered", tmpDir, "no apalanca mi canal");
+    const after = readFrontmatter(dest);
+    expect(after.title).toBe(before.title);
+    expect(after.project_type).toBe(before.project_type);
+  });
 });

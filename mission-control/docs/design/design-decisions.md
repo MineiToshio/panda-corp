@@ -4,6 +4,22 @@ History and rationale for the design contract. The canonical token values live i
 
 ---
 
+## 2026-06-26 — Reveal-more is a modal, never inline expand-that-pushes-content
+
+**What.** Owner rule, now a design principle: a surface that reveals more detail (a rank's detail, the
+discarded-ideas list, etc.) opens in a **modal overlay** — we do **not** use the inline
+expand-that-pushes-the-page-down pattern ("se ve horrible… no hacemos nunca ese patrón salvo que
+realmente tenga sentido"). To support this consistently there is **one shared `Modal` core**
+(`components/core/Modal/Modal.tsx`, DR-057) — overlay + dimmed/blurred backdrop + centered panel +
+focus-trap + Escape + backdrop-click-closes — extracted from the intake modal and reused by it, the
+**"Ver descartadas"** modal, and any future reveal-more surface. Bespoke per-surface overlays are a defect.
+
+**Why.** The accordion-style expand reflowed the whole page and read as broken; modals keep the context
+stable and the reveal focused. One shared component keeps every modal coherent (the parallel-agent
+coherence problem) and cheap to add.
+
+---
+
 ## 2026-06-22 — Whole-app fidelity pass: design decisions (page chrome, campaign honesty, board↔campaign vocabulary)
 
 **What.** A round of owner-QA fidelity decisions against the approved prototype

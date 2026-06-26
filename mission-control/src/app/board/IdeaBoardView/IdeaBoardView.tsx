@@ -50,8 +50,9 @@ const COLUMNS: ColumnDef[] = [
   { id: "architecture", label: "4 Arquitectura" },
   { id: "building", label: "5 Construcción" },
   { id: "shipped", label: "6 Release" },
-  { id: "discarded", label: "Descartada" },
 ];
+// Discarded ideas are NOT a board column anymore — they live behind the "Ver descartadas"
+// button (DiscardedModal). BoardShell filters them out before this view ever sees them.
 
 /**
  * Legacy fallback: derive a BoardColumn from card status when no explicit
@@ -105,6 +106,8 @@ export interface BoardCardEntry extends IdeaCardProps {
    * doc body loads lazily on select (the board ships structure only, never bodies).
    */
   docNodes?: DocNode[];
+  /** `discard_reason` (discarded cards only) — shown in the "Ver descartadas" modal + the detail. */
+  discardReason?: string;
 }
 
 export interface IdeaBoardViewProps {
@@ -157,12 +160,6 @@ const COLUMN_STYLE: React.CSSProperties = {
   padding: "10px",
 };
 
-/** The "Descartada" column reads as muted/secondary (BRD-04). */
-const DISCARDED_COLUMN_STYLE: React.CSSProperties = {
-  ...COLUMN_STYLE,
-  opacity: 0.6,
-};
-
 const COLUMN_HEADER_STYLE: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
@@ -202,22 +199,6 @@ const EMPTY_COLUMN_STYLE: React.CSSProperties = {
   padding: "4px 2px",
   fontSize: "11px",
   color: "var(--color-text3, var(--color-text-muted, currentColor))",
-};
-
-/** Discarded-card title: struck-through, muted (prototype L800). */
-const DISCARDED_TITLE_STYLE: React.CSSProperties = {
-  fontSize: "13px",
-  textDecoration: "line-through",
-  color: "var(--color-text2, var(--color-text-muted, currentColor))",
-  margin: 0,
-  wordBreak: "break-word",
-};
-
-const DISCARDED_CARD_STYLE: React.CSSProperties = {
-  background: "var(--color-card)",
-  border: "1px solid var(--color-border)",
-  borderRadius: "10px",
-  padding: "10px 11px",
 };
 
 const STATE_BOX_STYLE: React.CSSProperties = {
@@ -273,9 +254,9 @@ function ErrorState({ message }: { message: string }): React.JSX.Element {
 }
 
 // ---------------------------------------------------------------------------
-// CardSlot — one card in a column. Active columns render the full IdeaCard;
-// the discarded column renders a muted, struck-through title-only card (BRD-04).
-// Both are click-wrapped in a <button> when onCardClick is provided (AC-02-004).
+// CardSlot — one card in a column. Renders the full IdeaCard, click-wrapped in a
+// <button> when onCardClick is provided (AC-02-004). (Discarded ideas never reach
+// here — they live in the DiscardedModal.)
 // ---------------------------------------------------------------------------
 
 const CARD_BUTTON_STYLE: React.CSSProperties = {
@@ -290,25 +271,11 @@ const CARD_BUTTON_STYLE: React.CSSProperties = {
 
 interface CardSlotProps {
   card: IdeaCardProps & { boardColumn?: BoardColumn };
-  discarded: boolean;
   onCardClick?: (slug: string) => void;
 }
 
-function CardSlot({ card, discarded, onCardClick }: CardSlotProps): React.JSX.Element {
-  // Discarded cards show only a struck-through title (prototype L800).
-  const inner = discarded ? (
-    <article
-      data-testid="idea-card"
-      aria-label={`Idea: ${card.title}`}
-      style={DISCARDED_CARD_STYLE}
-    >
-      <h3 data-testid="idea-card-title" style={DISCARDED_TITLE_STYLE}>
-        {card.title}
-      </h3>
-    </article>
-  ) : (
-    <IdeaCard {...card} />
-  );
+function CardSlot({ card, onCardClick }: CardSlotProps): React.JSX.Element {
+  const inner = <IdeaCard {...card} />;
 
   if (onCardClick == null) return inner;
 
@@ -380,14 +347,11 @@ export function IdeaBoardView({
             return resolved === col.id;
           });
 
-          // The "Descartada" column reads as muted, with struck-through titles (BRD-04).
-          const isDiscarded = col.id === "discarded";
-
           return (
             <section
               key={col.id}
               data-testid={`board-column-${col.id}`}
-              style={isDiscarded ? DISCARDED_COLUMN_STYLE : COLUMN_STYLE}
+              style={COLUMN_STYLE}
               aria-label={`Columna: ${col.label}`}
             >
               {/* Column header — pixel label + accent count (prototype .col) */}
@@ -411,12 +375,7 @@ export function IdeaBoardView({
                   </div>
                 ) : (
                   colCards.map((card) => (
-                    <CardSlot
-                      key={card.slug}
-                      card={card}
-                      discarded={isDiscarded}
-                      onCardClick={onCardClick}
-                    />
+                    <CardSlot key={card.slug} card={card} onCardClick={onCardClick} />
                   ))
                 )}
               </div>

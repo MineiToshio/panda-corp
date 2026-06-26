@@ -36,6 +36,7 @@
 
 import { useState } from "react";
 import { CardDetail } from "@/app/board/_components/CardDetail/CardDetail";
+import { DiscardedModal } from "@/app/board/_components/DiscardedModal/DiscardedModal";
 import { IntakeModal } from "@/app/board/_components/IntakeModal/IntakeModal";
 import type { BoardCardEntry } from "@/app/board/IdeaBoardView/IdeaBoardView";
 import { IdeaBoardView } from "@/app/board/IdeaBoardView/IdeaBoardView";
@@ -43,10 +44,12 @@ import { Button } from "@/components/core/Button/Button";
 import { Chip } from "@/components/core/Chip/Chip";
 import { DiscardButton } from "@/components/core/DiscardButton/DiscardButton";
 import { PageLayout } from "@/components/core/PageLayout/PageLayout";
+import { RestoreButton } from "@/components/core/RestoreButton/RestoreButton";
 import { BoardLegend } from "@/components/modules/BoardLegend/BoardLegend";
 import { CATEGORY_LABELS, RETURN_LABELS } from "@/components/modules/IdeaCard/IdeaCard";
 import type { BoardColumn } from "@/lib/board/board";
 import type { DiscardResult } from "@/lib/discard/discard";
+import type { RestoreResult } from "@/lib/discard/restore";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -62,7 +65,14 @@ export interface BoardShellProps {
    * Server Action for discarding an idea (the app's only write).
    * Injected so the component stays testable without Next.js infrastructure.
    */
-  discardAction: (slug: string) => Promise<DiscardResult>;
+  discardAction: (slug: string, reason?: string) => Promise<DiscardResult>;
+  /**
+   * Server Action for restoring (un-discarding) an idea — "Volver a agregar".
+   * The board's second write (ADR-002); injected like discardAction for testability.
+   * Optional (like readDocAction) so older callers/tests don't break; when absent the
+   * "Volver a agregar" affordance is simply not rendered.
+   */
+  restoreAction?: (slug: string) => Promise<RestoreResult>;
   /**
    * Read-only Server Action that returns a scoped project doc's body on demand
    * (the card-detail Documentos reader). Injected like discardAction so the
@@ -280,12 +290,18 @@ function DetailTail({ card }: { card: BoardCardEntry }): React.JSX.Element {
 export function BoardShell({
   cards,
   discardAction,
+  restoreAction,
   readDocAction,
 }: BoardShellProps): React.JSX.Element {
   const [query, setQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [intakeOpen, setIntakeOpen] = useState(false);
+  const [discardedOpen, setDiscardedOpen] = useState(false);
   const [openSlug, setOpenSlug] = useState<string | null>(null);
+
+  // Discarded ideas are NOT a board column — they live behind the "Ver descartadas"
+  // button (DiscardedModal). Split them out so the board never shows them.
+  const discardedCards = cards.filter((c) => c.status === "discarded");
 
   // Derive the unique categories from the full card list (not filtered).
   const categories = extractCategories(cards);
@@ -293,7 +309,10 @@ export function BoardShell({
   // Filtered card list for the board view (search query AND category).
   const normalizedQuery = query.trim().toLowerCase();
   const filteredCards = cards.filter(
-    (c) => matchesQuery(c, normalizedQuery) && matchesCategory(c, selectedCategory),
+    (c) =>
+      c.status !== "discarded" &&
+      matchesQuery(c, normalizedQuery) &&
+      matchesCategory(c, selectedCategory),
   );
 
   // When a card is open, locate it by slug.
@@ -311,8 +330,9 @@ export function BoardShell({
   // ----------------------------------------------------------
   function handleCardClick(slug: string): void {
     setOpenSlug(slug);
-    // Close the intake modal if open (only one overlay at a time)
+    // Close any overlay (only one at a time): intake + the discarded-ideas modal.
     setIntakeOpen(false);
+    setDiscardedOpen(false);
   }
 
   function handleClearFilters(): void {
@@ -348,6 +368,14 @@ export function BoardShell({
       {/* Intake modal — fixed overlay; board stays mounted behind (AC-02-003.3) */}
       <IntakeModal open={intakeOpen} onClose={() => setIntakeOpen(false)} />
 
+      {/* Discarded ideas modal — opened from "Ver descartadas"; a row opens that card's detail */}
+      <DiscardedModal
+        open={discardedOpen}
+        onClose={() => setDiscardedOpen(false)}
+        cards={discardedCards}
+        onSelect={handleCardClick}
+      />
+
       <div style={CONTENT_STYLE}>
         {openCard != null ? (
           /* ---- Card detail view ---- */
@@ -365,7 +393,42 @@ export function BoardShell({
               </Button>
 
               {canDiscard && <DiscardButton slug={openCard.slug} discardAction={discardAction} />}
+              {openCard.status === "discarded" && restoreAction != null && (
+                <RestoreButton slug={openCard.slug} restoreAction={restoreAction} />
+              )}
             </div>
+
+            {/* Discarded → show WHY it was discarded (the reason), above the docs. */}
+            {openCard.status === "discarded" && (
+              <div
+                data-testid="detail-discard-reason"
+                style={{
+                  display: "flex",
+                  gap: "8px",
+                  alignItems: "flex-start",
+                  padding: "10px 12px",
+                  borderRadius: "var(--radius-sm, 8px)",
+                  border: "1px solid var(--color-border)",
+                  background: "var(--color-card)",
+                  fontSize: "12px",
+                  color: "var(--color-text2)",
+                  lineHeight: 1.5,
+                }}
+              >
+                <i
+                  className="ti ti-archive"
+                  aria-hidden="true"
+                  style={{ fontSize: "14px", color: "var(--color-text3)", marginTop: "1px" }}
+                />
+                <span>
+                  <strong style={{ color: "var(--color-text)" }}>Idea descartada.</strong>{" "}
+                  {openCard.discardReason != null && openCard.discardReason !== ""
+                    ? `Motivo: ${openCard.discardReason}`
+                    : "Sin motivo registrado."}{" "}
+                  Puedes leer toda su documentación abajo o volver a agregarla.
+                </span>
+              </div>
+            )}
 
             {/* Card detail — Campaña · Documentos tabs */}
             <CardDetail
@@ -393,7 +456,7 @@ export function BoardShell({
             {/* Capture ideas button — standalone, above the filter row (prototype intakePanel).
                 Neutral (secondary) button — card bg + bd2 border + accent-glow hover, like the
                 prototype's default `button`, NOT an accent-filled primary. */}
-            <div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
               <Button
                 variant="secondary"
                 size="sm"
@@ -403,6 +466,22 @@ export function BoardShell({
               >
                 + Capturar ideas / oportunidades
               </Button>
+              {discardedCards.length > 0 && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  data-testid="discarded-trigger"
+                  onClick={() => setDiscardedOpen(true)}
+                  ariaLabel="Ver ideas descartadas"
+                >
+                  <i
+                    className="ti ti-archive"
+                    aria-hidden="true"
+                    style={{ fontSize: "13px", marginRight: "5px", verticalAlign: "-1px" }}
+                  />
+                  Ver descartadas ({discardedCards.length})
+                </Button>
+              )}
             </div>
 
             {/* Filter row: search + category SELECT + Limpiar (AC-02-006.1, BRD-01; prototype boardView) */}

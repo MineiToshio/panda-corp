@@ -20,7 +20,7 @@
  */
 
 import { BoardShell } from "@/app/board/_components/BoardShell/BoardShell";
-import { discardIdeaAction } from "@/app/board/actions/actions";
+import { discardIdeaAction, restoreIdeaAction } from "@/app/board/actions/actions";
 import { readBoardDoc } from "@/app/board/actions/read-doc";
 import type { BoardCardEntry } from "@/app/board/IdeaBoardView/IdeaBoardView";
 import { deriveColumn } from "@/lib/board/board";
@@ -104,6 +104,9 @@ export default function BoardPage(): React.JSX.Element {
       score: card.score,
       project: card.project,
       body: card.body,
+      // The discard reason (discarded cards only) — shown in the "Ver descartadas"
+      // modal and the card detail banner.
+      discardReason: card.discardReason,
       isRunning,
       boardColumn,
       // Forward the real project phase so the card detail's campaign matches the
@@ -121,6 +124,11 @@ export default function BoardPage(): React.JSX.Element {
   // and receives the discard (write) + read-doc (lazy doc body) Server Actions as
   // props (injected for testability — read stays separate from the single write).
   return (
-    <BoardShell cards={cards} discardAction={discardIdeaAction} readDocAction={readBoardDoc} />
+    <BoardShell
+      cards={cards}
+      discardAction={discardIdeaAction}
+      restoreAction={restoreIdeaAction}
+      readDocAction={readBoardDoc}
+    />
   );
 }

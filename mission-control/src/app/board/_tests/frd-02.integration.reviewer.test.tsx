@@ -204,13 +204,14 @@ describe("FRD-02 integration: board routes deriveColumn output into the right co
       architecture: 1,
       building: 1,
       shipped: 1,
-      discarded: 1,
     };
     for (const [col, n] of Object.entries(counts)) {
       const column = screen.getByTestId(`board-column-${col}`);
       // each populated column renders exactly n idea-card articles
       expect(within(column).getAllByTestId("idea-card").length).toBe(n);
     }
+    // The discarded card buckets nowhere on the board (no discarded column anymore).
+    expect(screen.queryByTestId("board-column-discarded")).not.toBeInTheDocument();
     void expectColumnHas;
   });
 

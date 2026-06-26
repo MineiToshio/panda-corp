@@ -295,7 +295,7 @@ describe("BoardShell WO-02-005 — discard button (AC-02-007)", () => {
     expect(screen.getByTestId("discard-button")).toBeInTheDocument();
   });
 
-  it("card detail does NOT show the discard button for discarded ideas", async () => {
+  it("card detail does NOT show the discard button for discarded ideas (opened via the modal)", async () => {
     const discardedCard = makeEntry({
       slug: "disc",
       title: "Discarded Idea",
@@ -305,7 +305,9 @@ describe("BoardShell WO-02-005 — discard button (AC-02-007)", () => {
     const user = userEvent.setup();
     render(<BoardShell cards={[discardedCard]} discardAction={noOpDiscard} />);
 
-    await user.click(screen.getByTestId("idea-card"));
+    // Discarded ideas aren't on the board — reach the detail via "Ver descartadas".
+    await user.click(screen.getByTestId("discarded-trigger"));
+    await user.click(screen.getByTestId("discarded-item-disc"));
     expect(screen.queryByTestId("discard-button")).not.toBeInTheDocument();
   });
 
@@ -344,5 +346,57 @@ describe("BoardShell WO-02-005 — recommended badge (AC-02-006)", () => {
     render(<BoardShell cards={[AI_CARD]} discardAction={noOpDiscard} />);
     const col = screen.getByTestId("board-column-discovered");
     expect(within(col).getByTestId("idea-card-recommended-badge")).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Discarded ideas — "Ver descartadas" modal + restore (AC-02-007.2/.3/.4)
+// ---------------------------------------------------------------------------
+
+describe("BoardShell — discarded ideas (Ver descartadas + restore)", () => {
+  const noOpRestore = vi.fn(async () => ({ ok: true as const, restoredTo: "discovered" }));
+  const discarded = makeEntry({
+    slug: "disc",
+    title: "Discarded Idea",
+    status: "discarded",
+    boardColumn: "discarded",
+    discardReason: "saturado / competencia fuerte",
+  });
+
+  it("shows the 'Ver descartadas' button only when there are discarded ideas", () => {
+    const { rerender } = render(<BoardShell cards={[WEB_CARD]} discardAction={noOpDiscard} />);
+    expect(screen.queryByTestId("discarded-trigger")).not.toBeInTheDocument();
+    rerender(<BoardShell cards={[WEB_CARD, discarded]} discardAction={noOpDiscard} />);
+    expect(screen.getByTestId("discarded-trigger")).toBeInTheDocument();
+  });
+
+  it("keeps discarded ideas off the board (reachable only via the modal)", () => {
+    render(<BoardShell cards={[discarded]} discardAction={noOpDiscard} />);
+    expect(screen.queryByText("Discarded Idea")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("board-column-discarded")).not.toBeInTheDocument();
+  });
+
+  it("opens the modal; clicking a row opens that card's detail with reason banner + restore", async () => {
+    const user = userEvent.setup();
+    render(
+      <BoardShell cards={[discarded]} discardAction={noOpDiscard} restoreAction={noOpRestore} />,
+    );
+    await user.click(screen.getByTestId("discarded-trigger"));
+    expect(screen.getByTestId("discarded-modal")).toBeInTheDocument();
+
+    await user.click(screen.getByTestId("discarded-item-disc"));
+    // Detail: discard reason banner + restore button, never the discard button.
+    expect(screen.getByTestId("detail-discard-reason")).toHaveTextContent("saturado");
+    expect(screen.getByTestId("restore-button")).toBeInTheDocument();
+    expect(screen.queryByTestId("discard-button")).not.toBeInTheDocument();
+  });
+
+  it("omits the restore affordance when no restoreAction is injected (banner still shows)", async () => {
+    const user = userEvent.setup();
+    render(<BoardShell cards={[discarded]} discardAction={noOpDiscard} />);
+    await user.click(screen.getByTestId("discarded-trigger"));
+    await user.click(screen.getByTestId("discarded-item-disc"));
+    expect(screen.getByTestId("detail-discard-reason")).toBeInTheDocument();
+    expect(screen.queryByTestId("restore-button")).not.toBeInTheDocument();
   });
 });

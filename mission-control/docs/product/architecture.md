@@ -230,19 +230,21 @@ their owning FRD's work orders.
 | `lib/gamification.ts` | Pure XP / level / celebration engine over events+status. | FRD-09 |
 | `lib/achievements.ts` | Pure stats / chains / uniques / secrets derivation. | FRD-10 |
 | `lib/self-suggest.ts` | Compose local self-suggestions (bottlenecks, nudges). | FRD-17 |
-| `lib/discard.ts` (write) | The single write: rewrite `status: discarded`, preserve body. | FRD-02 |
+| `lib/discard/discard.ts` (write) | Discard write: `status: discarded` (+ `discard_reason`, `status_before_discard`), preserve body. | FRD-02 |
+| `lib/discard/restore.ts` (write) | Restore write (inverse): `status` ← prior, clear discard bookkeeping. | FRD-02 (ADR-0002) |
 
 > Modules below `lib/reference.ts` were added during the work-order phase (the per-FRD blueprints surfaced them); they are pure derivations/composition over the readers above and add no new fs access.
 
-The single mutation (`lib/discard.ts`) is the only module allowed to write, and it writes exactly
-one frontmatter field of one idea card; everything else is read-only.
+The mutation surface is the **`lib/discard/` layer** — exactly **two** human-triggered writes, `discardIdea`
+and its inverse `restoreIdea` (ADR-0002). Each rewrites only the status (+ its discard bookkeeping) of one
+idea card and preserves the body + all other fields verbatim; everything else in the app is read-only.
 
 ---
 
 ## 7. Cross-cutting concerns
 
-- **Read-only invariant.** Enforced by isolating all writes to `lib/discard.ts`; everything else
-  is `fs.read*`. No Claude/AI client dependency exists in `package.json` (auditable). The git
+- **Read-only invariant.** Enforced by isolating all writes to the `lib/discard/` layer (the two
+  status writes: `discard` + `restore`, ADR-0002); everything else is `fs.read*`. No Claude/AI client dependency exists in `package.json` (auditable). The git
   probes (FRD-15/16) use read-only commands (`git status --porcelain`, `git log -1`).
 - **Security / data minimization.** No auth (local single operator on `127.0.0.1`). No secrets in
   code (SOPS+age does not apply — MC has no external services and no `.env` of its own beyond the

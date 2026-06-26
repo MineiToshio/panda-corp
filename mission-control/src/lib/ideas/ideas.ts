@@ -24,6 +24,8 @@ export type IdeaCard = {
   score?: number;
   project?: string;
   body: string;
+  /** `discard_reason` frontmatter — the owner's why for discarding (only on discarded cards). */
+  discardReason?: string;
 };
 
 const VALID_STATUSES: readonly IdeaStatus[] = [
@@ -54,6 +56,17 @@ function isIdeaFile(filename: string): boolean {
   return !(NON_IDEA_FILES as readonly string[]).includes(filename);
 }
 
+/** A frontmatter value as a string, or `undefined` when it isn't one. */
+function readString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+/** A frontmatter value as a non-empty string (an empty `""` is treated as absent), or `undefined`. */
+function readNonEmptyString(value: unknown): string | undefined {
+  const str = readString(value);
+  return str !== undefined && str !== "" ? str : undefined;
+}
+
 /**
  * Parse a single idea-card file into an `IdeaCard`, or `null` when it should be
  * skipped (unparseable frontmatter, or missing/invalid required fields).
@@ -73,7 +86,7 @@ function parseIdeaCard(filePath: string, slug: string): IdeaCard | null {
   const fm = parsed.data as Record<string, unknown>;
 
   // Validate required fields; skip card if title or status is missing/invalid.
-  const title = typeof fm.title === "string" ? fm.title : undefined;
+  const title = readString(fm.title);
   const status = isIdeaStatus(fm.status) ? fm.status : undefined;
 
   if (title === undefined || status === undefined) {
@@ -81,11 +94,12 @@ function parseIdeaCard(filePath: string, slug: string): IdeaCard | null {
   }
 
   // Optional fields — map from snake_case + validate.
-  const projectType = typeof fm.project_type === "string" ? fm.project_type : undefined;
+  const projectType = readString(fm.project_type);
   const returnType = isValidReturnType(fm.return_type) ? fm.return_type : undefined;
   const score = typeof fm.score === "number" ? fm.score : undefined;
-  // Treat an empty `project: ""` (non-in-pipeline ideas) as absent, not a spurious empty link target.
-  const project = typeof fm.project === "string" && fm.project !== "" ? fm.project : undefined;
+  // `project: ""` (non-in-pipeline ideas) and `discard_reason: ""` are treated as absent.
+  const project = readNonEmptyString(fm.project);
+  const discardReason = readNonEmptyString(fm.discard_reason);
 
   // gray-matter exposes the markdown body (content after the frontmatter block) as `.content`.
   const body: string = typeof parsed.content === "string" ? parsed.content : "";
@@ -97,10 +111,14 @@ function parseIdeaCard(filePath: string, slug: string): IdeaCard | null {
     body,
   };
 
-  if (projectType !== undefined) card.projectType = projectType;
-  if (returnType !== undefined) card.returnType = returnType;
-  if (score !== undefined) card.score = score;
-  if (project !== undefined) card.project = project;
+  // Assign optional fields only when present (never inject undefined-valued keys).
+  // A single loop keeps this function under the cognitive-complexity budget.
+  const optional: Partial<IdeaCard> = { projectType, returnType, score, project, discardReason };
+  for (const [key, value] of Object.entries(optional)) {
+    if (value !== undefined) {
+      (card as Record<string, unknown>)[key] = value;
+    }
+  }
 
   return card;
 }

@@ -116,9 +116,9 @@ describe("IdeaBoardView — board columns", () => {
     expect(screen.getByTestId("board-column-shipped")).toBeInTheDocument();
   });
 
-  it("renders a 'discarded' column", () => {
+  it("does NOT render a 'discarded' column (discarded ideas live in the Ver-descartadas modal)", () => {
     render(<IdeaBoardView cards={ALL_CARDS} />);
-    expect(screen.getByTestId("board-column-discarded")).toBeInTheDocument();
+    expect(screen.queryByTestId("board-column-discarded")).not.toBeInTheDocument();
   });
 });
 
@@ -151,10 +151,10 @@ describe("IdeaBoardView — cards in correct columns", () => {
     expect(col).toHaveTextContent("Idea Enviada");
   });
 
-  it("discarded card appears in the discarded column", () => {
+  it("a discarded card does NOT appear on the board (no discarded column; it's in the modal)", () => {
     render(<IdeaBoardView cards={ALL_CARDS} />);
-    const col = screen.getByTestId("board-column-discarded");
-    expect(col).toHaveTextContent("Idea Descartada");
+    expect(screen.queryByTestId("board-column-discarded")).not.toBeInTheDocument();
+    expect(screen.queryByText("Idea Descartada")).not.toBeInTheDocument();
   });
 });
 

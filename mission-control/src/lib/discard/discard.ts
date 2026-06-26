@@ -38,11 +38,15 @@ export type DiscardResult = { ok: true } | { ok: false; reason: "not-found" | "p
  *                    the ideas directory returns `{ ok: false, reason: "not-found" }`.
  * @param ideasDir  - Optional. Explicit ideas directory path (used by tests). Defaults to
  *                    `config.IDEAS_DIR` (derived from `PANDACORP_FACTORY_ROOT` at call-time).
+ * @param reason    - Optional. The owner's reason for discarding (free text, Spanish). When a
+ *                    non-empty string is given, it is written to the `discard_reason` frontmatter
+ *                    field (alongside `status: discarded`) so `/pandacorp:discover` can learn the
+ *                    rejection pattern. Empty/omitted → only `status` is written (reason optional).
  * @returns `{ ok: true }` on success (including idempotent repeat on already-discarded card).
  *          `{ ok: false, reason: "not-found" }` when the file is absent or the slug escapes the dir.
  *          `{ ok: false, reason: "parse-error" }` when the file cannot be parsed; file is left untouched.
  */
-export function discardIdea(slug: string, ideasDir?: string): DiscardResult {
+export function discardIdea(slug: string, ideasDir?: string, reason?: string): DiscardResult {
   // Resolve the ideas directory at call-time (respects PANDACORP_FACTORY_ROOT env swaps in tests).
   const dir = ideasDir ?? path.join(resolveFactoryRoot(), "factory", "ideas");
 
@@ -113,10 +117,25 @@ export function discardIdea(slug: string, ideasDir?: string): DiscardResult {
   // string (the test's readBody() asserts byte-for-byte equality on parsed.content).
   const bodyEndedWithNewline = parsed.content.endsWith("\n");
 
-  // Set the single field we are allowed to write.
+  // Remember the prior status so "Volver a agregar" (restoreIdea) can return the card
+  // to exactly where it was — not a generic "discovered". Only capture it when the card
+  // isn't ALREADY discarded, so an idempotent re-discard never overwrites the real prior.
+  const priorStatus = parsed.data.status;
+  if (typeof priorStatus === "string" && priorStatus !== "discarded") {
+    parsed.data.status_before_discard = priorStatus;
+  }
+
+  // Set the field(s) we are allowed to write on discard.
   // gray-matter.stringify preserves all other frontmatter fields and the body verbatim
   // (B1': numbers stay numbers; I2: objects stay objects; I3: arrays stay arrays).
   parsed.data.status = "discarded";
+
+  // Optionally capture WHY it was discarded (the owner's reason, Spanish free text).
+  // Written only when a non-empty reason is given, so the status-only discard stays
+  // byte-clean. This feeds /pandacorp:discover's rejection-pattern learning (DR — v9.8.0).
+  if (reason !== undefined && reason.trim() !== "") {
+    parsed.data.discard_reason = reason.trim();
+  }
 
   // Re-serialize: gray-matter.stringify(content, data) where content is the markdown body.
   let serialized: string;

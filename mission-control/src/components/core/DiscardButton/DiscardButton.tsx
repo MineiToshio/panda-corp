@@ -5,11 +5,17 @@
  *
  * Implements the discard flow for an idea card:
  *   1. Idle: shows "Descartar idea" trigger button.
- *   2. Confirming: shows a confirmation step with confirm + cancel buttons.
- *      (Two-step safety net for a destructive action.)
+ *   2. Confirming: shows a confirmation step that ALSO captures WHY the idea is
+ *      discarded — quick-tags (multi-select) + an optional free-text reason —
+ *      then confirm + cancel buttons. (Two-step safety net for a destructive action.)
  *   3. Pending: confirm button is disabled while the Server Action is in-flight.
  *   4. Done: shows a "Descartada" success indicator (optimistic UI resolved).
  *   5. Error: reverts to idle and shows an error message when the action fails.
+ *
+ * The captured reason is optional (the owner can confirm without picking anything).
+ * When given, it is sent to the Server Action and written to the card's
+ * `discard_reason` frontmatter so `/pandacorp:discover` can learn the rejection
+ * pattern and stop proposing the same kind of idea (factory v9.8.0).
  *
  * Optimistic UI: the component transitions to "done" immediately on confirm,
  * then reverts to "idle" (with an error message) if the action returns { ok: false }.
@@ -26,6 +32,8 @@
  *   CMP-02-discard-action → REQ-02-007
  *   AC-02-007.1 — WHEN the owner presses "Discard idea", the system SHALL rewrite
  *                 `status: discarded` in the `.md` frontmatter.
+ *   AC-02-007.2 — WHEN the owner confirms a discard, the system SHALL let them
+ *                 capture an optional reason and write it to `discard_reason`.
  *   Depends on WO-02-009 (discardIdeaAction, app/board/actions.ts)
  */
 
@@ -43,9 +51,26 @@ export interface DiscardButtonProps {
    * The Server Action to call on confirmation.
    * Injected as a prop so tests can pass a vi.fn() without Next.js infrastructure.
    * Production callers pass `discardIdeaAction` from `app/board/actions.ts`.
+   * The optional `reason` is the owner's why (quick-tags + free text), written to
+   * the card's `discard_reason` frontmatter.
    */
-  discardAction: (slug: string) => Promise<DiscardResult>;
+  discardAction: (slug: string, reason?: string) => Promise<DiscardResult>;
 }
+
+// ---------------------------------------------------------------------------
+// Quick-tags for the discard reason (Spanish, single operator).
+// Multi-select; combined with the optional free text into one reason string.
+// These mirror the rejection-pattern vocabulary discover learns from (v9.8.0).
+// ---------------------------------------------------------------------------
+
+const DISCARD_REASON_TAGS = [
+  "saturado / competencia fuerte",
+  "no me interesa el tema",
+  "no apalanca mi canal",
+  "muy complejo",
+  "no monetiza en Perú",
+  "otro",
+] as const;
 
 // ---------------------------------------------------------------------------
 // Internal state machine
@@ -139,20 +164,103 @@ const WRAPPER_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   alignItems: "flex-start",
-  gap: "calc(var(--spacing, 0.25rem) * 1)",
+  gap: "calc(var(--spacing, 0.25rem) * 2)",
 };
+
+// --- Reason capture (confirming step) -------------------------------------
+
+const REASON_FORM_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "6px",
+  width: "100%",
+  maxWidth: "360px",
+  border: "none",
+  padding: 0,
+  margin: 0,
+};
+
+const REASON_LABEL_STYLE: React.CSSProperties = {
+  fontSize: "12px",
+  fontWeight: 600,
+  color: "var(--color-text)",
+};
+
+const REASON_HINT_STYLE: React.CSSProperties = {
+  fontSize: "11px",
+  color: "var(--color-text3, var(--color-text-muted))",
+  fontWeight: 400,
+};
+
+const TAGS_ROW_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "5px",
+};
+
+const TAG_BTN_STYLE: React.CSSProperties = {
+  fontSize: "11px",
+  padding: "3px 9px",
+  borderRadius: "var(--radius-sm, 8px)",
+  border: "1px solid var(--color-border-strong)",
+  background: "var(--color-card)",
+  color: "var(--color-text2, var(--color-text))",
+  cursor: "pointer",
+  lineHeight: 1.4,
+  fontFamily: "var(--font-display, inherit)",
+  transition: "border-color var(--duration-fast, 150ms), background var(--duration-fast, 150ms)",
+};
+
+const TAG_BTN_SELECTED_STYLE: React.CSSProperties = {
+  ...TAG_BTN_STYLE,
+  background: "var(--color-accent-bg)",
+  color: "var(--color-accent-text)",
+  borderColor: "var(--color-accent-text, var(--color-border-strong))",
+  fontWeight: 600,
+};
+
+const TEXTAREA_STYLE: React.CSSProperties = {
+  width: "100%",
+  minHeight: "52px",
+  resize: "vertical",
+  fontSize: "12px",
+  lineHeight: 1.45,
+  padding: "7px 9px",
+  borderRadius: "var(--radius-sm, 8px)",
+  border: "1px solid var(--color-border-strong)",
+  background: "var(--color-base, var(--color-card))",
+  color: "var(--color-text)",
+  fontFamily: "var(--font-body, inherit)",
+};
+
+// ---------------------------------------------------------------------------
+// Reason composition
+// ---------------------------------------------------------------------------
+
+/** Combine the selected quick-tags + the free text into one reason string. */
+function composeReason(tags: readonly string[], text: string): string {
+  const joinedTags = tags.join(" · ");
+  const trimmed = text.trim();
+  if (joinedTags !== "" && trimmed !== "") {
+    return `${joinedTags} — ${trimmed}`;
+  }
+  return joinedTags !== "" ? joinedTags : trimmed;
+}
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 /**
- * Client component: "Descartar idea" button with a two-step confirmation flow.
+ * Client component: "Descartar idea" button with a two-step confirmation flow
+ * that captures an optional discard reason.
  * Uses useTransition for React 19 concurrent-safe pending state.
  */
 export function DiscardButton({ slug, discardAction }: DiscardButtonProps): React.JSX.Element {
   const [uiState, setUiState] = useState<UIState>("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [selectedTags, setSelectedTags] = useState<readonly string[]>([]);
+  const [reasonText, setReasonText] = useState<string>("");
   const [isPending, startTransition] = useTransition();
 
   // Derived: while useTransition is pending, treat as "pending" regardless of uiState
@@ -166,14 +274,24 @@ export function DiscardButton({ slug, discardAction }: DiscardButtonProps): Reac
   function handleCancel() {
     setUiState("idle");
     setErrorMsg(null);
+    setSelectedTags([]);
+    setReasonText("");
+  }
+
+  function toggleTag(tag: string) {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
+    );
   }
 
   function handleConfirm() {
     setUiState("pending");
     setErrorMsg(null);
 
+    const reason = composeReason(selectedTags, reasonText);
+
     startTransition(async () => {
-      const result = await discardAction(slug);
+      const result = await discardAction(slug, reason);
 
       if (result.ok) {
         setUiState("done");
@@ -202,13 +320,55 @@ export function DiscardButton({ slug, discardAction }: DiscardButtonProps): Reac
   }
 
   // ---------------------------------------------------------------------------
-  // Confirming / Pending state (confirmation step)
+  // Confirming / Pending state (reason capture + confirmation step)
   // ---------------------------------------------------------------------------
 
   if (uiState === "confirming" || isInFlight) {
     return (
       <div style={WRAPPER_STYLE}>
-        {/* <fieldset> is the semantic equivalent of role="group" for a button group (Biome a11y) */}
+        {/* Reason capture — optional. <fieldset> groups the prompt (Biome a11y). */}
+        <fieldset
+          style={REASON_FORM_STYLE}
+          aria-label="Motivo del descarte"
+          data-testid="discard-reason-form"
+        >
+          <legend style={REASON_LABEL_STYLE}>
+            ¿Por qué la descartas?{" "}
+            <span style={REASON_HINT_STYLE}>
+              (opcional — ayuda a no recomendarte cosas parecidas)
+            </span>
+          </legend>
+          <div style={TAGS_ROW_STYLE}>
+            {DISCARD_REASON_TAGS.map((tag) => {
+              const selected = selectedTags.includes(tag);
+              return (
+                <button
+                  key={tag}
+                  type="button"
+                  aria-pressed={selected}
+                  data-testid={`discard-reason-tag-${tag}`}
+                  onClick={() => toggleTag(tag)}
+                  disabled={isInFlight}
+                  style={selected ? TAG_BTN_SELECTED_STYLE : TAG_BTN_STYLE}
+                >
+                  {tag}
+                </button>
+              );
+            })}
+          </div>
+          <textarea
+            data-testid="discard-reason-text"
+            aria-label="Motivo del descarte (texto libre)"
+            placeholder="Cuéntame por qué (opcional)…"
+            value={reasonText}
+            onChange={(e) => setReasonText(e.target.value)}
+            disabled={isInFlight}
+            maxLength={280}
+            style={TEXTAREA_STYLE}
+          />
+        </fieldset>
+
+        {/* Confirm / cancel */}
         <fieldset
           style={{ ...CONFIRM_ROW_STYLE, border: "none", padding: 0, margin: 0 }}
           aria-label="Confirmar descarte de idea"
