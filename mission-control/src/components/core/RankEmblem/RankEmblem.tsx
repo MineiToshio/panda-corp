@@ -86,10 +86,10 @@ export function RankEmblem({
         aria-hidden="true"
         style={{
           position: "absolute",
-          right: "-3px",
-          bottom: "-3px",
+          right: "-4px",
+          bottom: "-4px",
           fontFamily: "var(--font-pixel)",
-          fontSize: `${Math.max(8, Math.round(size * 0.3))}px`,
+          fontSize: `${Math.max(10, Math.round(size * 0.42))}px`,
           lineHeight: 1,
           color: "var(--color-on-accent)",
           background: "var(--color-accent)",
