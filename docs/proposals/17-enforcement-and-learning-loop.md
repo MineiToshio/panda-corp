@@ -1,6 +1,6 @@
 # Proposal 17 — Enforcement & the learning loop (process hardening 2026-06-26)
 
-> Status: IN PROGRESS (owner approved "implement all", 2026-06-26).
+> Status: MOSTLY IMPLEMENTED (2026-06-26). Done: P0.1, P2.6, P2.7, P2.8 (DR-091/092/093/094, plugin v9.11.0, OVERLAY 8.42.3); P0.2 capture + P2.5 UI-oracle check partial. Remaining: P1.3 (MC sharding — large), P1.4 (MC overlay banner), P0.2 recurring-harvest cadence, P2.5 full FRD↔fdd cascade drift.
 > Origin: a forensic review of a long Mission Control session (rank system + doc-cascade sync + overlay upgrade). Every claim below was **verified against the repo**, not inferred from the conversation (the owner explicitly required verification — see "Verification" per item).
 
 ## The one insight
