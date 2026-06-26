@@ -29,9 +29,10 @@ for (const s of BLESSED) {
     //   - summary-text — the project summary renders the idea-card body (long prose); its line
     //     metrics reflow subtly between cold/warm dev-server renders, exceeding the pixel ratio.
     //   - [data-volatile] — generic marker for any region whose CONTENT is live data whose
-    //     length changes the page height (the /board idea-card grid, the /proposals feed). The
-    //     baseline asserts the page chrome (layout, nav, headers, empty-state structure), never
-    //     the data-driven list whose height drifts as cards/lessons are added or removed (DR-088).
+    //     length changes the page height (a data-driven list/feed). Mark the volatile container
+    //     in the component (`data-volatile`, ideally display:contents so live layout is unchanged)
+    //     and the baseline asserts the page chrome — layout, nav, headers, empty-state structure —
+    //     never the list whose height drifts as rows are added or removed (DR-088).
     await page.addStyleTag({
       content:
         '[data-testid="dashboard-banners"],[data-testid="activity-log"],[data-testid="summary-text"],[data-volatile]{display:none!important}',

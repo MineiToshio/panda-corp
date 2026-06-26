@@ -3,7 +3,7 @@
 project: "Pandacorp"
 phase: release
 version: v1
-overlay_version: "8.36.1"
+overlay_version: "8.42.1"
 created_with: "6.0.0"
 target_platforms: desktop
 deploy_target: internal  # internal tool (runs on 127.0.0.1) — no external host (DR-085)
@@ -11,7 +11,7 @@ deploy_url: "http://192.168.18.227:1987"  # MC's internal release on the LAN
 running: false
 run_started_at: "2026-06-21T15:53:26Z"
 repo: ""
-updated_at: "2026-06-22T05:07:15Z"
+updated_at: "2026-06-26T00:00:00Z"
 last_event_at: "2026-06-22T05:07:15Z"
 work_orders_total: 80
 work_orders_verified: 79
