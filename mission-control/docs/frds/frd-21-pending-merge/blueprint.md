@@ -3,7 +3,7 @@ id: BP-21
 type: blueprint
 title: 'Blueprint — FRD-21 Pending-merge visibility'
 status: ACTIVE
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 last_updated: '2026-06-27'
 ---
 # Blueprint — FRD-21 Pending-merge visibility

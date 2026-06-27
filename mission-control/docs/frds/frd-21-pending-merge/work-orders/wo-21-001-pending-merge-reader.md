@@ -4,7 +4,7 @@ type: work-order
 title: 'Pending-merge data reader (lib + snapshot wiring)'
 frd: FRD-21
 status: ACTIVE
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 artifacts:
   - 'src/lib/pendingMerge/**'
 dependsOn: []
