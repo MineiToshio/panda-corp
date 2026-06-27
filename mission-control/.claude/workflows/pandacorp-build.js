@@ -169,6 +169,10 @@ const REPAIR_SCHEMA = {
   type: 'object', required: ['green'],
   properties: { green: { type: 'boolean' }, missingFoundation: MISSING_FOUNDATION, blocked_reason: BLOCK_REASON, failure: { type: 'string' } },
 }
+// Targeted change build: the process-change agent reads a change from the queue, creates/updates
+// its FRDs+WOs via iterate/bug logic, and returns the list of affected FRD folders so the normal
+// build loop can pick them up (with dep checking). The change is NOT archived here — the FRD gate
+// does that when the FRDs verify, same as in the normal change-drain flow.
 const PROCESS_CHANGE_SCHEMA = {
   type: 'object', required: ['done', 'affectedFrds'],
   properties: {
@@ -208,6 +212,9 @@ if (!baseline || baseline.green !== true) {
 log('Baseline green — planning by FRD.')
 
 // ── Process Change (targeted change build only) ───────────────────────────────
+// When args.change is set, read the specified change from .pandacorp/inbox/changes/, integrate
+// it via the iterate/bug engine (creates/updates FRDs + WOs), and set ONLY = the affected FRDs
+// so the normal plan + dep-check + build loop handles them exactly as any targeted FRD build.
 if (CHANGE) {
   phase('Process Change')
   agentSpawned++
@@ -261,7 +268,6 @@ if (ONLY && plan.unsatisfiedDeps && plan.unsatisfiedDeps.length > 0) {
   log(`⊘ Build parcial bloqueado — hay dependencias sin VERIFIED: ${detail}. Implementa primero esos FRDs (o corre /pandacorp:implement sin filtro para el orden automático).`)
   return { mode: MODE, builtFrds: [], blockedFrds: ONLY, blockedReasons: Object.fromEntries(ONLY.map((f) => [f, 'needs-owner'])), note: `deps sin verificar — ${detail}` }
 }
-
 log(`${plan.frds.length} FRDs with pending work · stack ${plan.stack}${plan.hasFrontend ? ' (web)' : ''}`)
 
 // Design fidelity (DR-054/056): the engine PASSES the design references into the build prompt.

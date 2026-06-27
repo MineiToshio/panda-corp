@@ -4,6 +4,11 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-06-27 — Pandacorp overlay actualizado 8.42.1 → 8.44.0
+**What:** Se sincronizó el overlay del proyecto a la versión actual de la fábrica. Cambios: la regla de **auto-aislamiento en worktree (DR-096)** ahora vive en `.pandacorp/guide.md` (toda sesión nueva la lee); se instalaron los scripts `merge-queue.sh`, `worktree-bootstrap.sh`, `pending-work.sh`; se sincronizaron `docs/rules/styling-and-ui.md` (regla de coherencia visual al día) y la maquinaria `.claude/workflows/pandacorp-build.js`; `.pandacorp/README.md` regenerado.
+**Why:** El overlay estaba en 8.42.1 y la regla de aislamiento + los scripts viajaron en 8.43.0/8.44.0; sin el upgrade, ninguna sesión los veía (la regla no se aplicaba aunque estuviera escrita en el plugin). Conformance de gate-config (`verify.sh`/`biome.json`/`knip.json`/e2e) verificada: **sin drift** (no se sobrescribió nada); `target_platforms` ya era `desktop`. Cambio puramente del overlay/managed-layer — sin tocar código de producto.
+**Impact:** `.pandacorp/{guide.md,README.md,merge-queue.sh,worktree-bootstrap.sh,pending-work.sh,status.yaml}`, `docs/rules/styling-and-ui.md`, `.claude/workflows/pandacorp-build.js`. `overlay_version` 8.42.1→8.44.0. Gate verde (verify.sh EXIT=0). Factory: DR-048/051/096.
+
 ## 2026-06-27 — Tooltip propio del select: arriba, instantáneo, ancho acotado (AC-02-010.9)
 **What:** El tooltip del campo usaba el atributo `title` nativo → lento (delay del navegador), posicionado abajo y sin ancho máximo. Se reemplaza por un **tooltip propio** en `CmdRow`: aparece **arriba** del select, **al instante** en hover/focus (state-driven, sin delay), con **max-width ~240px** y wrap a 2-3 líneas, estilado con tokens. Se quita el `title` nativo (evita el doble tooltip) y el texto se cablea como `aria-describedby` (role="tooltip") para lectores de pantalla.
 **Why:** El owner pidió que el tooltip salga arriba, inmediato y con ancho delimitado — nada de eso es posible con el `title` nativo (el navegador lo controla). Un tooltip propio da control total de posición, timing y ancho.

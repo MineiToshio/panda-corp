@@ -15,6 +15,12 @@ source: Pandacorp standard — patterns
 - **Tokens are declared in the `@theme` block** of the global stylesheet (Tailwind v4's registry); each becomes a utility *and* a runtime CSS var. **Semantic** tokens (`--color-primary`, `bg-background text-foreground`) reference base tokens — never hardcode colors/spacing/radii, never fixed colors like `bg-white text-black`. (The design contract lives in `docs/design/design-tokens.json`.)
 - **No arbitrary values** in committed code (`w-[37px]`, `text-[#abc]`); if a value is needed twice, promote it to an `@theme` token. The only accepted exception is `calc()` referencing a theme var.
 
+## Visual coherence — one app, not a set of screens (DR-062)
+- **Every new page, section, tab or panel must be visually consistent with the ones already built** — same scale and meaning for **colors, type sizes, spacing, radii, and component styles**. The owner must never feel they jumped between different apps when switching tabs/pages. Inconsistency here is a **defect**, the same class as a near-duplicate component.
+- **Before styling a new surface, look at its siblings and reuse their values.** A title is the title size used elsewhere; a description uses the same muted-text token siblings use; a "card" (role/feature/item) reuses the established card style (padding, radius, title color); a labelled section reuses the established block tint + label color. Don't invent a parallel scale.
+- **Prefer a shared primitive/token over a copied style constant.** When two surfaces show the same kind of thing (cards, rows, badges, section headers), factor the style into a shared component or token map and have both consume it — re-deriving the same look in two `*.styles.ts` files is how they drift (a card grid that says "blue title" in one tab and "amber title" in another is the bug this prevents).
+- **Deviate only where genuinely justified** (an intentionally immersive view), and record why — never silently.
+
 ## Theming
 - **Light and dark are both first-class.** Verify appearance and contrast in both themes when you build or change UI.
 
