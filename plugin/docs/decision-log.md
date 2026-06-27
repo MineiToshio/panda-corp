@@ -4,6 +4,11 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-06-27 — Plantilla del spec-digest: orden problema-primero + reglas de autoría de cards · v9.22.1
+**What:** `templates/docs/spec-digest-template.md` actualizado para que el skill `/spec` genere un digest que rinde escaneable en el tab Spec de Mission Control: **El problema primero** (como lista de bullets, no párrafo), **Hipótesis de valor** como UN statement corto (callout), y la regla clave de las cards `- **Título** — descripción` (el paréntesis va DENTRO de la descripción, nunca entre el `**` y el `—`). Refleja la mejora del render (MC: parser tolerante + kinds `bullets`/`highlight`, alcance→checklist, fuera sin tachado).
+**Why:** Al cambiar el contenido del digest, el render quedó feo (usuarios/métricas "puro título" por un bullet mal autorado, hipótesis muro de texto, fuera tachado). Se arregló el render en MC y se ajustó la plantilla para que la PRÓXIMA pasada del skill genere directamente el formato bueno.
+**Impact:** `templates/docs/spec-digest-template.md` (contrato de render + mini-ejemplo). Lado MC: `lib/spec/spec.ts`, `SpecDigest.*`, `frd-02` AC-02-011.2 (decision-log de Mission Control). PATCH (ajuste de plantilla, sin cambiar la capacidad del skill). v9.22.0→v9.22.1.
+
 ## 2026-06-27 — El gate visual respeta target_platforms (DR-074) · v9.22.0
 **What:** `visual.spec.ts` deja de comparar una foto de ancho mobile en proyectos solo-escritorio: el test visual por superficie hace early-return (pase vacuo) para el "project" mobile de Playwright cuando `target_platforms` no incluye mobile, cableado sobre el MISMO `TARGETS_MOBILE` que ya usa `responsive.spec.ts`. Early-return y no `test.skip` (Biome `noSkippedTests`).
 **Why:** MC es solo-escritorio pero el gate visual seguía sacando fotos a 390px — el layout de escritorio aplastado, ruido que fluctuaba con el contenido/tiempo y ponía el gate en rojo una y otra vez (esta sesión incluso bloqueó un merge ajeno). La responsive ya se saltaba; ahora `target_platforms` elige los anchos para AMBOS gates y mata la clase de falsa alarma de raíz.

@@ -13,14 +13,20 @@
     containing **Research** (or "investig"), one containing **FRD**. Order them PRD → Research → FRDs.
   · PRD / Research are sets of `### subsection` blocks. The parser classifies each block BY ITS
     LABEL and renders it richly — so NAME the labels with these keywords:
-      - "Usuarios"            → role cards     → bullets `- **Rol** — descripción`
-      - "Métricas de éxito"   → green stat cards → bullets `- **Métrica** — descripción`
-      - "Alcance v1"          → solid chips    → plain bullets `- texto`
-      - "Fuera del v1"        → muted/struck chips → plain bullets `- texto`
-      - "Decisiones abiertas" → amber callout  → bullets `- **Título** — descripción`
+      - "El problema"         → bullet list    → bullets `- **Dolor** — detalle` (3-4 pains, scannable — NOT a paragraph)
+      - "Hipótesis de valor"  → highlight callout → ONE short statement, 1-2 lines (no second paragraph)
+      - "Usuarios"            → role cards      → bullets `- **Rol** — descripción`
+      - "Métricas de éxito"   → green stat cards → bullets `- **Métrica** — descripción` (EVERY one needs a `— descripción`)
+      - "Alcance v1"          → checklist       → plain bullets `- texto`
+      - "Fuera del v1"        → muted chips (NO strike) → plain bullets `- texto`
+      - "Decisiones abiertas" → amber callout   → bullets `- **Título** — descripción`
       - "Referentes"          → reference cards → bullets `- **nombre.com** — qué copiar`
-      - anything else (e.g. "Hipótesis de valor", "El problema", "El diferenciador") → prose
-        (write normal markdown; **bold** is allowed and is coloured by the renderer).
+      - anything else (e.g. "El diferenciador", "Hallazgo clave") → prose (**bold** allowed).
+    ORDER the PRD subsections so they read top-to-bottom as a story: **El problema** FIRST (the
+    starting point), then **Hipótesis de valor**, then Usuarios → Métricas → Alcance → Fuera → Decisiones.
+    CARD BULLETS (`- **Título** — descripción`): the **bold** is the card TITLE, the em-dash starts the
+    DESCRIPTION. Keep the title SHORT and put any parenthetical IN the description — NEVER between the
+    closing `**` and the `—` (that splits the title and the card loses its description). Keep it scannable.
   · The FRDs section is a set of `### FRD-NN · Título · TAG` cards (TAG = UI / Infra / CLI …).
     Each card shows a one-line summary; clicking it opens a colour-coded modal. Per FRD, write:
       a one-line summary (prose, BEFORE any `**Label:**`), then these labelled blocks (omit any
@@ -41,11 +47,13 @@ fase: producto
 
 ## 📋 PRD
 
-### Hipótesis de valor
-Si <cambio>, entonces <resultado de valor> — en una o dos frases, con **negritas** en lo clave.
-
 ### El problema
-La escena concreta del dolor (quién, el momento exacto), contada como storytelling.
+- **Dolor 1** — el síntoma concreto (quién, el momento exacto).
+- **Dolor 2** — otra arista del problema.
+- **Dolor 3** — …
+
+### Hipótesis de valor
+Si <cambio>, entonces <resultado de valor> — UNA o dos frases cortas, con **negritas** en lo clave.
 
 ### Usuarios
 - **Usuario A** — qué busca en 10s y qué lo hace contactar / cerrar la pestaña.
