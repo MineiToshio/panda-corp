@@ -43,54 +43,65 @@ describe("frd-13/wo-13-007: CmdRow — rendering", () => {
   });
 });
 
-describe("frd-02/AC-02-010.9: CmdRow — inline mode selector", () => {
-  it("frd-02: renders one pill per mode, before the copy button", () => {
-    renderCmd({ command: "/pandacorp:spec my-app", modes: SPEC_MODES });
-    expect(screen.getByRole("button", { name: "ask" })).toBeDefined();
-    expect(screen.getByRole("button", { name: "auto" })).toBeDefined();
-    expect(screen.getByRole("button", { name: "infer" })).toBeDefined();
+describe("frd-02/AC-02-010.9: CmdRow — inline mode select", () => {
+  it("frd-02: renders a select with a 'no flag' default option + one option per mode", () => {
+    renderCmd({
+      command: "/pandacorp:spec my-app",
+      modes: SPEC_MODES,
+      modeDefaultLabel: "preguntas: default",
+    });
+    const select = screen.getByRole("combobox", { name: "Modo del comando" });
+    const options = [...select.querySelectorAll("option")].map((o) => o.textContent);
+    expect(options).toEqual(["preguntas: default", "ask", "auto", "infer"]);
   });
 
-  it("frd-02: renders no pills when no modes are given", () => {
+  it("frd-02: renders no select when no modes are given", () => {
     renderCmd({ command: "/pandacorp:design" });
-    expect(screen.queryByRole("button", { name: "ask" })).toBeNull();
+    expect(screen.queryByRole("combobox")).toBeNull();
   });
 
-  it("frd-02: folds the flag into the visible command when a mode is picked", async () => {
+  it("frd-02: defaults to the 'no flag' option — command stays the base command", () => {
+    renderCmd({ command: "/pandacorp:spec my-app", modes: SPEC_MODES });
+    expect((screen.getByRole("combobox") as HTMLSelectElement).value).toBe("");
+    expect(screen.getByText("/pandacorp:spec my-app")).toBeDefined();
+  });
+
+  it("frd-02: folds the chosen flag into the visible command", async () => {
     const user = userEvent.setup();
     renderCmd({ command: "/pandacorp:spec my-app", modes: SPEC_MODES });
-    expect(screen.getByText("/pandacorp:spec my-app")).toBeDefined();
-    await user.click(screen.getByRole("button", { name: "ask" }));
+    await user.selectOptions(screen.getByRole("combobox"), "--ask");
     expect(screen.getByText("/pandacorp:spec my-app --ask")).toBeDefined();
-    expect(screen.getByRole("button", { name: "ask" }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("frd-02: copies the command WITH the selected flag", async () => {
     const user = userEvent.setup();
     renderCmd({ command: "/pandacorp:spec my-app", modes: SPEC_MODES });
-    await user.click(screen.getByRole("button", { name: "auto" }));
+    await user.selectOptions(screen.getByRole("combobox"), "--auto");
     await user.click(screen.getByTestId("copy-button"));
     await waitFor(async () => {
       expect(await navigator.clipboard.readText()).toBe("/pandacorp:spec my-app --auto");
     });
   });
 
-  it("frd-02: picking the active mode again clears the flag", async () => {
+  it("frd-02: picking the default option again clears the flag", async () => {
     const user = userEvent.setup();
-    renderCmd({ command: "/pandacorp:spec my-app", modes: SPEC_MODES });
-    const ask = screen.getByRole("button", { name: "ask" });
-    await user.click(ask);
+    renderCmd({
+      command: "/pandacorp:spec my-app",
+      modes: SPEC_MODES,
+      modeDefaultLabel: "preguntas: default",
+    });
+    const select = screen.getByRole("combobox");
+    await user.selectOptions(select, "--ask");
     expect(screen.getByText("/pandacorp:spec my-app --ask")).toBeDefined();
-    await user.click(ask);
+    await user.selectOptions(select, "");
     expect(screen.getByText("/pandacorp:spec my-app")).toBeDefined();
-    expect(ask.getAttribute("aria-pressed")).toBe("false");
   });
 
   it("frd-02: shows the fallback modeHint, then the active mode's hint", async () => {
     const user = userEvent.setup();
     renderCmd({ command: "/pandacorp:spec my-app", modes: SPEC_MODES, modeHint: "elige un modo" });
     expect(screen.getByTestId("cmd-row-hint").textContent).toBe("elige un modo");
-    await user.click(screen.getByRole("button", { name: "infer" }));
+    await user.selectOptions(screen.getByRole("combobox"), "--infer");
     expect(screen.getByTestId("cmd-row-hint").textContent).toBe("no pregunta");
   });
 });

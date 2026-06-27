@@ -479,23 +479,34 @@ describe("ficha-next-step — per-phase runnable commands", () => {
     expect(within(cmds).getAllByTestId("ficha-command").length).toBeGreaterThan(1);
   });
 
-  it("the spec command exposes inline mode pills that fold into the copy (DR-095, AC-02-010.9)", () => {
-    // research ficha → the spec row offers --ask/--auto/--infer as inline pills.
+  it("the spec command exposes an inline mode select that folds into the copy (DR-095, AC-02-010.9)", () => {
+    // research ficha → the spec row offers --ask/--auto/--infer in a compact select.
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} />);
     const cmds = screen.getByTestId("ficha-next-step");
-    expect(within(cmds).getByRole("button", { name: "ask" })).toBeInTheDocument();
-    expect(within(cmds).getByRole("button", { name: "auto" })).toBeInTheDocument();
-    expect(within(cmds).getByRole("button", { name: "infer" })).toBeInTheDocument();
+    const select = within(cmds).getByRole("combobox", { name: "Modo del comando" });
+    const options = [...select.querySelectorAll("option")].map((o) => o.textContent);
+    expect(options).toEqual(["preguntas: default", "ask", "auto", "infer"]);
     // Picking a mode folds its flag into the slug-substituted command (what gets copied).
-    fireEvent.click(within(cmds).getByRole("button", { name: "ask" }));
+    fireEvent.change(select, { target: { value: "--ask" } });
     expect(cmds).toHaveTextContent("/pandacorp:spec my-idea --ask");
   });
 
-  it("plain commands (no modes) render no mode pills", () => {
-    // design ficha → blueprint/design are plain commands, no clarification modes.
+  it("the implement command exposes the build modes (pro/powerful/deep), derived from BUILD_MODES", () => {
+    // build ficha → the implement row offers the build modes; balanced is the 'no flag' default.
+    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={4} />);
+    const cmds = screen.getByTestId("ficha-next-step");
+    const select = within(cmds).getByRole("combobox", { name: "Modo del comando" });
+    const options = [...select.querySelectorAll("option")].map((o) => o.textContent);
+    expect(options).toEqual(["modo: equilibrado", "Pro", "Potente", "Profundo"]);
+    fireEvent.change(select, { target: { value: "powerful" } });
+    expect(cmds).toHaveTextContent("/pandacorp:implement powerful");
+  });
+
+  it("plain commands (no modes) render no mode select", () => {
+    // design ficha → blueprint/design are plain commands, no modes.
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={2} />);
     const cmds = screen.getByTestId("ficha-next-step");
-    expect(within(cmds).queryByRole("button", { name: "ask" })).not.toBeInTheDocument();
+    expect(within(cmds).queryByRole("combobox")).not.toBeInTheDocument();
   });
 
   it("clicking a different phase swaps the command set (release → design)", () => {

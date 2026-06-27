@@ -96,13 +96,16 @@ Read-only kanban of the idea base, with idea capture, a navigable detail and dis
   copy-pastes directly — never a literal `<idea>` placeholder. The factory-run commands (`spec`,
   `explore`) carry the project name; the in-project commands (`design`, `blueprint`, `implement`,
   `release`, `iterate`, `bug`, `change`, `review-launch`, `new-version`, `sync`) do not. A command
-  that has **modes** (today `spec`, DR-095) SHALL render an **inline segmented selector** (the flag
-  pills `ask` / `auto` / `infer`) pinned to the right of the command, before the copy affordance:
-  picking a mode SHALL fold its flag into the displayed AND copied command (`/pandacorp:spec <slug>`
-  → `/pandacorp:spec <slug> --ask`), and picking the active mode again SHALL clear it (back to the
-  base command, where the skill applies its origin default). A one-line hint SHALL describe the
-  selected mode (or, with none selected, the default behaviour). Commands without modes render as a
-  plain row. Read-only (AC-02-010.6): showing the command is not running it.
+  that has **modes** SHALL render an inline **`<select>`** (same height as the copy button, pinned to
+  its left) whose first option is **"no flag"** (the skill's default — it names the field, e.g.
+  "preguntas: default" / "modo: equilibrado") and whose remaining options each fold their flag into
+  the displayed AND copied command (`/pandacorp:spec <slug>` → `/pandacorp:spec <slug> --ask`).
+  Choosing the default option again clears the flag. A `<select>` (not a row of pills) keeps the
+  control compact no matter how many modes a command has. A one-line hint SHALL describe the selected
+  mode (or the default behaviour). Today two commands carry modes: **`spec`** (clarification modes
+  `--ask` / `--auto` / `--infer`, DR-095) and **`implement`** (the build modes Pro / Potente /
+  Profundo, derived from the canonical `BUILD_MODES`; balanced = no flag). Commands without modes
+  render as a plain row. Read-only (AC-02-010.6): showing the command is not running it.
 - AC-02-010.5 — WHEN the owner activates the **Construcción** (build) phase's "Entrar a La Fragua"
   action, THE system SHALL **navigate the host app** to Portfolio → that project → the **Party** tab
   (FRD-06 / La Fragua) for that project, WITHOUT an inner iframe reload of the card detail.

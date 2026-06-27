@@ -750,6 +750,7 @@ function FichaContent({
               <CmdRow
                 command={cmd.command.replace(/<idea>/g, slug)}
                 modes={cmd.modes}
+                modeDefaultLabel={cmd.modeDefaultLabel}
                 modeHint={cmd.hint}
               />
               {/* With modes, CmdRow owns the hint (it tracks the selected mode); render it here only otherwise. */}

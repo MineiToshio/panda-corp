@@ -8,11 +8,12 @@
  *
  * Aliases: cmdRow, docCmd, CommandChip, CommandClip.
  *
- * Optional `modes` render an inline segmented selector (pinned right, before the
- * copy button): picking a mode folds its flag into the displayed AND copied
- * command, so the user copies `/pandacorp:spec my-app --ask` in one click. Picking
- * the active mode again clears it (back to the base command). Commands without
- * `modes` render exactly as before.
+ * Optional `modes` render an inline `<select>` (pinned right, before the copy
+ * button, same height as it): the first option is "no flag" (the skill's default),
+ * the rest each fold their flag into the displayed AND copied command — so the user
+ * copies `/pandacorp:spec my-app --ask` in one click. A `<select>` (not a row of
+ * pills) keeps the control compact no matter how many modes a command has. Commands
+ * without `modes` render exactly as before.
  *
  * Prototype reference (re-anchor, DR-054):
  *   .cmd → background:var(--canvas); border:1px solid var(--bd2); border-radius:8px
@@ -31,9 +32,9 @@ import { CopyButton } from "@/components/core/CopyButton/CopyButton";
 
 /** A selectable flag the command can carry (e.g. `/pandacorp:spec` → `--ask`). */
 export interface CmdRowMode {
-  /** Flag folded into the command when active, e.g. "--ask". */
+  /** Flag folded into the command when active, e.g. "--ask" or "powerful". */
   flag: string;
-  /** Short pill label, e.g. "ask". */
+  /** Human-readable option label, e.g. "ask" or "Potente". */
   label: string;
   /** One-line note shown below the row while this mode is selected. */
   hint?: string;
@@ -44,8 +45,10 @@ export interface CmdRowProps {
   command: string;
   /** If false, suppresses the CopyButton. Defaults to true. */
   copy?: boolean;
-  /** When provided, renders an inline mode selector before the copy button. */
+  /** When provided, renders an inline mode `<select>` before the copy button. */
   modes?: ReadonlyArray<CmdRowMode>;
+  /** Label of the first "no flag" option — names the field and means "default". */
+  modeDefaultLabel?: string;
   /** Note shown below the row when no mode is selected (only with `modes`). */
   modeHint?: string;
 }
@@ -64,7 +67,7 @@ const ROW_STYLE: React.CSSProperties = {
   padding: "9px 11px",
 };
 
-// With modes the command may wrap to a second line; pin the controls to the top.
+// With a mode select the command may wrap to a second line; pin the controls to the top.
 const ROW_MODES_STYLE: React.CSSProperties = { ...ROW_STYLE, alignItems: "flex-start" };
 
 const TEXT_BASE: React.CSSProperties = {
@@ -89,15 +92,24 @@ const TEXT_WRAP_STYLE: React.CSSProperties = {
   ...TEXT_BASE,
   whiteSpace: "normal",
   wordBreak: "break-word",
-  paddingTop: "4px",
+  paddingTop: "5px",
 };
 
-const SEGMENT_STYLE: React.CSSProperties = {
-  display: "inline-flex",
-  border: "1px solid var(--color-border)",
-  borderRadius: "999px",
-  overflow: "hidden",
+// Sized to match the CopyButton box (same border, radius, surface, height) so the row reads as one unit.
+// CopyButton is 6px+13px+6px+2px border = 27px tall; mirror that exactly with box-sizing: border-box.
+const SELECT_STYLE: React.CSSProperties = {
   flexShrink: 0,
+  boxSizing: "border-box",
+  height: "27px",
+  maxWidth: "190px",
+  padding: "0 8px",
+  fontFamily: "var(--font-mono, monospace)",
+  fontSize: "12px",
+  borderRadius: "var(--radius-sm, 8px)",
+  border: "1px solid var(--color-border-strong)",
+  background: "var(--color-card)",
+  color: "var(--color-text)",
+  cursor: "pointer",
 };
 
 const HINT_STYLE: React.CSSProperties = {
@@ -107,41 +119,31 @@ const HINT_STYLE: React.CSSProperties = {
   color: "var(--color-text3)",
 };
 
-function pillStyle(isActive: boolean, hasDivider: boolean): React.CSSProperties {
-  return {
-    fontFamily: "var(--font-mono, monospace)",
-    fontSize: "11px",
-    lineHeight: 1,
-    padding: "5px 11px",
-    border: 0,
-    borderRight: hasDivider ? "1px solid var(--color-border)" : "0",
-    background: isActive ? "var(--color-accent-bg)" : "transparent",
-    color: isActive ? "var(--color-accent-text)" : "var(--color-text3)",
-    cursor: "pointer",
-  };
-}
-
 // ---------------------------------------------------------------------------
 // CmdRow component
 // ---------------------------------------------------------------------------
 
 /**
- * CmdRow — mono command row with optional copy affordance and inline mode selector.
+ * CmdRow — mono command row with optional copy affordance and inline mode select.
  *
  * Usage:
  *   <CmdRow command="claude plugin update pandacorp@panda-corp" />
  *   <CmdRow command="/pandacorp:adopt" copy={false} />
- *   <CmdRow command="/pandacorp:spec my-app" modes={SPEC_MODES} modeHint="…" />
+ *   <CmdRow command="/pandacorp:spec my-app" modes={SPEC_MODES} modeDefaultLabel="preguntas: default" />
  */
-export function CmdRow({ command, copy = true, modes, modeHint }: CmdRowProps): React.JSX.Element {
-  const [activeFlag, setActiveFlag] = useState<string | null>(null);
+export function CmdRow({
+  command,
+  copy = true,
+  modes,
+  modeDefaultLabel,
+  modeHint,
+}: CmdRowProps): React.JSX.Element {
+  const [activeFlag, setActiveFlag] = useState<string>("");
   const hasModes = modes !== undefined && modes.length > 0;
-  const displayCommand = activeFlag !== null ? `${command} ${activeFlag}` : command;
+  const displayCommand = activeFlag !== "" ? `${command} ${activeFlag}` : command;
 
-  const handlePillClick = (event: React.MouseEvent<HTMLButtonElement>): void => {
-    const { flag } = event.currentTarget.dataset;
-    if (flag === undefined) return;
-    setActiveFlag((current) => (current === flag ? null : flag));
+  const handleModeChange = (event: React.ChangeEvent<HTMLSelectElement>): void => {
+    setActiveFlag(event.target.value);
   };
 
   const row = (
@@ -154,26 +156,19 @@ export function CmdRow({ command, copy = true, modes, modeHint }: CmdRowProps): 
       />
       <span style={hasModes ? TEXT_WRAP_STYLE : TEXT_STYLE}>{displayCommand}</span>
       {hasModes && (
-        <fieldset
+        <select
           aria-label="Modo del comando"
-          style={{ ...SEGMENT_STYLE, margin: 0, padding: 0, minInlineSize: 0 }}
+          value={activeFlag}
+          onChange={handleModeChange}
+          style={SELECT_STYLE}
         >
-          {modes.map((mode, index) => {
-            const isActive = mode.flag === activeFlag;
-            return (
-              <button
-                key={mode.flag}
-                type="button"
-                data-flag={mode.flag}
-                aria-pressed={isActive}
-                onClick={handlePillClick}
-                style={pillStyle(isActive, index < modes.length - 1)}
-              >
-                {mode.label}
-              </button>
-            );
-          })}
-        </fieldset>
+          <option value="">{modeDefaultLabel ?? "sin flag"}</option>
+          {modes.map((mode) => (
+            <option key={mode.flag} value={mode.flag}>
+              {mode.label}
+            </option>
+          ))}
+        </select>
       )}
       {copy && <CopyButton value={displayCommand} />}
     </div>
@@ -181,8 +176,7 @@ export function CmdRow({ command, copy = true, modes, modeHint }: CmdRowProps): 
 
   if (!hasModes) return row;
 
-  const activeMode =
-    activeFlag !== null ? modes.find((mode) => mode.flag === activeFlag) : undefined;
+  const activeMode = activeFlag !== "" ? modes.find((mode) => mode.flag === activeFlag) : undefined;
   const hint = activeMode?.hint ?? modeHint;
 
   return (

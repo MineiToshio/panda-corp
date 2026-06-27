@@ -13,8 +13,11 @@
  *   build         → implementer + reviewer + analytics
  *   release       → security-auditor + devops
  *
- * This module is a pure static constant — no side effects, no imports.
+ * Pure static data — no side effects. Its only import is the canonical BUILD_MODES
+ * catalog (DR-092: the implement modes are derived from it, never re-listed).
  */
+
+import { BUILD_MODES, type BuildMode, DEFAULT_BUILD_MODE } from "@/lib/constants";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -55,14 +58,16 @@ export interface PhaseDefinition {
     command: string;
     hint?: string;
     modes?: ReadonlyArray<CommandMode>;
+    /** Label of the mode select's first "no flag" option (names the field + the default). */
+    modeDefaultLabel?: string;
   }>;
 }
 
 /** A selectable flag a command can carry (e.g. `/pandacorp:spec` → `--ask`). */
 interface CommandMode {
-  /** Flag folded into the copied command when active, e.g. "--ask". */
+  /** Flag folded into the copied command when active, e.g. "--ask" or "powerful". */
   flag: string;
-  /** Short pill label, e.g. "ask". */
+  /** Human-readable option label, e.g. "ask" or "Potente". */
   label: string;
   /** One-line note shown while this mode is selected. */
   hint: string;
@@ -90,6 +95,36 @@ const SPEC_MODES: ReadonlyArray<CommandMode> = [
   },
 ];
 
+/** Spanish display labels for the build modes (the BUILD_MODES catalog stores i18n keys). */
+const BUILD_MODE_LABELS: Record<BuildMode, string> = {
+  pro: "Pro",
+  balanced: "Equilibrado",
+  powerful: "Potente",
+  deep: "Profundo",
+};
+
+/** One-line Spanish hint per build mode. */
+const BUILD_MODE_HINTS: Record<BuildMode, string> = {
+  pro: "Rápido y económico; para work orders sencillos.",
+  balanced: "El default equilibrado: sin flag, build normal.",
+  powerful: "Más razonamiento por work order; para lógica compleja.",
+  deep: "Máximo esfuerzo; para los work orders más difíciles.",
+};
+
+/**
+ * Build modes of `/pandacorp:implement`, derived from the canonical BUILD_MODES catalog (DR-092 —
+ * the ids/commands live there, never re-listed here). The default (DEFAULT_BUILD_MODE = balanced)
+ * carries no flag, so it is the select's "no flag" option, not a listed mode; each other mode
+ * appends its id (`/pandacorp:implement powerful`).
+ */
+const IMPLEMENT_MODES: ReadonlyArray<CommandMode> = BUILD_MODES.filter(
+  (mode) => mode.id !== DEFAULT_BUILD_MODE,
+).map((mode) => ({
+  flag: mode.command.replace("/pandacorp:implement ", ""),
+  label: BUILD_MODE_LABELS[mode.id],
+  hint: BUILD_MODE_HINTS[mode.id],
+}));
+
 // ---------------------------------------------------------------------------
 // Static data — index 0–5 maps to these 6 phases in order.
 // ---------------------------------------------------------------------------
@@ -109,6 +144,7 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
         command: "/pandacorp:spec <idea>",
         hint: "Elige un modo de preguntas, o déjalo así y el skill usa el default por origen.",
         modes: SPEC_MODES,
+        modeDefaultLabel: "preguntas: default",
       },
       { label: "Sigue explorando la idea en conversación", command: "/pandacorp:explore <idea>" },
     ],
@@ -133,6 +169,7 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
         label: "Pule el PRD/FRDs (re-corre el spec)",
         command: "/pandacorp:spec <idea>",
         modes: SPEC_MODES,
+        modeDefaultLabel: "preguntas: default",
       },
     ],
     team: [
@@ -175,7 +212,12 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
     reads: "Mockups, design tokens y microcopia",
     writes: "Blueprint + ADRs + Build Plan + work orders",
     commands: [
-      { label: "Construye con TDD", command: "/pandacorp:implement" },
+      {
+        label: "Construye con TDD",
+        command: "/pandacorp:implement",
+        modes: IMPLEMENT_MODES,
+        modeDefaultLabel: "modo: equilibrado",
+      },
       { label: "Ajusta la arquitectura / work orders", command: "/pandacorp:blueprint" },
     ],
     team: [
@@ -195,7 +237,12 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
     writes: "Código verificado y endurecido (GREEN) — la app lista para lanzar",
     commands: [
       { label: "Lanza (interno o externo)", command: "/pandacorp:release" },
-      { label: "Reanuda / continúa el build", command: "/pandacorp:implement" },
+      {
+        label: "Reanuda / continúa el build",
+        command: "/pandacorp:implement",
+        modes: IMPLEMENT_MODES,
+        modeDefaultLabel: "modo: equilibrado",
+      },
       { label: "Reporta un bug encontrado probando", command: "/pandacorp:bug" },
       { label: "Encola un cambio para el build", command: "/pandacorp:change" },
     ],
