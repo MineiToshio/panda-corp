@@ -95,9 +95,14 @@ Read-only kanban of the idea base, with idea capture, a navigable detail and dis
   into the `<idea>` token (e.g. `/pandacorp:spec <idea>` renders `/pandacorp:spec <slug>`) so it
   copy-pastes directly — never a literal `<idea>` placeholder. The factory-run commands (`spec`,
   `explore`) carry the project name; the in-project commands (`design`, `blueprint`, `implement`,
-  `release`, `iterate`, `bug`, `change`, `review-launch`, `new-version`, `sync`) do not. The `spec`
-  command surfaces its mode flags (`--ask` / `--auto` / `--infer`, DR-095) as a hint. Read-only
-  (AC-02-010.6): showing the command is not running it.
+  `release`, `iterate`, `bug`, `change`, `review-launch`, `new-version`, `sync`) do not. A command
+  that has **modes** (today `spec`, DR-095) SHALL render an **inline segmented selector** (the flag
+  pills `ask` / `auto` / `infer`) pinned to the right of the command, before the copy affordance:
+  picking a mode SHALL fold its flag into the displayed AND copied command (`/pandacorp:spec <slug>`
+  → `/pandacorp:spec <slug> --ask`), and picking the active mode again SHALL clear it (back to the
+  base command, where the skill applies its origin default). A one-line hint SHALL describe the
+  selected mode (or, with none selected, the default behaviour). Commands without modes render as a
+  plain row. Read-only (AC-02-010.6): showing the command is not running it.
 - AC-02-010.5 — WHEN the owner activates the **Construcción** (build) phase's "Entrar a La Fragua"
   action, THE system SHALL **navigate the host app** to Portfolio → that project → the **Party** tab
   (FRD-06 / La Fragua) for that project, WITHOUT an inner iframe reload of the card detail.
