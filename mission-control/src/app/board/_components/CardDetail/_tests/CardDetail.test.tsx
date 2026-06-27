@@ -33,7 +33,7 @@
  *   "card-detail-docs-nav-item"    — one per navigable project doc (only when docNodes has entries)
  */
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { DocNode } from "@/lib/docs/tree";
 import type { IdeaStatus } from "@/lib/ideas/ideas";
@@ -595,12 +595,18 @@ describe("frd-02: in-doc links open the linked doc in the card-detail reader", (
   const CARD = { ...IN_PIPELINE_CARD, readDocAction: linkyReadDoc };
 
   async function openPrd(): Promise<void> {
-    render(<CardDetail {...CARD} />);
-    // The first project doc in the rail is the PRD (Producto section, first item).
-    const [prdItem] = screen.getAllByTestId("card-detail-docs-nav-item");
+    // Scope to THIS render's tree (not document-wide `screen`) so a not-yet-cleaned prior
+    // render can never hand us a stale nav item — the first project doc is the PRD.
+    const { container } = render(<CardDetail {...CARD} />);
+    const prdItem = within(container).getAllByTestId("card-detail-docs-nav-item")[0];
     if (!prdItem) throw new Error("expected a PRD nav item");
     fireEvent.click(prdItem);
-    await waitFor(() => expect(screen.getByRole("button", { name: "FRD-02" })).toBeInTheDocument());
+    // Generous timeout: the PRD body is fetched + parsed async; under heavy parallel test
+    // load (the full suite) the default 1s wait was occasionally too tight → intermittent fail.
+    await waitFor(
+      () => expect(within(container).getByRole("button", { name: "FRD-02" })).toBeInTheDocument(),
+      { timeout: 4000 },
+    );
   }
 
   it("frd-02: a link to a KNOWN doc renders as a button; selecting it loads that doc", async () => {

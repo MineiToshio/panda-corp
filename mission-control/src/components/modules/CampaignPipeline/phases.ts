@@ -118,6 +118,7 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
       {
         label: "Pule el PRD/FRDs (re-corre el spec)",
         command: "/pandacorp:spec <idea>",
+        hint: "Elige un modo de preguntas, o déjalo en default y el skill decide por origen.",
         modes: SPEC_MODES,
         modeDefaultLabel: SPEC_MODE_DEFAULT_LABEL,
         modeTitle: SPEC_MODE_TITLE,
