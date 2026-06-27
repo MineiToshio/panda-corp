@@ -21,10 +21,10 @@ import { cache } from "react";
 import { resolveFactoryRoot } from "@/lib/config/config";
 
 /** Hours of inactivity after which un-merged work is flagged stale (owner-tunable, shared with the check). */
-export const PENDING_STALE_HOURS: number = Number(process.env.PANDACORP_STALE_HOURS ?? 3);
+const PENDING_STALE_HOURS: number = Number(process.env.PANDACORP_STALE_HOURS ?? 3);
 
-/** Status of a pending item — a discriminated literal so the UI switch is exhaustive (DR-ts). */
-export type PendingStatus = "in-progress" | "ready" | "stale";
+/** Status of a pending item — a discriminated literal so the UI switch is exhaustive (typescript.md). */
+type PendingStatus = "in-progress" | "ready" | "stale";
 
 export interface PendingItem {
   readonly branch: string;
