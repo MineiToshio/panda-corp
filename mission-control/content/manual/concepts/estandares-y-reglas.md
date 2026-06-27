@@ -27,7 +27,9 @@ Los estándares son versionados con la fábrica. Cambian solo por decisión expl
 
 Cuando abres **varias conversaciones en paralelo** para avanzar cosas distintas al mismo tiempo (a mano, fuera de `/implement`), cada sesión **se aísla sola** en su propio árbol de trabajo de git (un *worktree*). El motivo: el gate de calidad es de programa completo —`tsc`, `knip` y las pruebas visuales leen *todo* el árbol—, así que el trabajo a medias de una sesión haría fallar el gate de otra. Aislando, el gate de cada sesión solo ve su propio trabajo.
 
-Es transparente: tú hablas normal y dices "ejecuta"; el agente crea el worktree, trabaja, y cuando todo está verde lo **fusiona solo a la rama principal** a través de una cola serializada (un merge a la vez). Solo te enteras si hay un conflicto que no se puede resolver automáticamente. Un fallo del gate en ficheros que tu sesión no tocó es de **otra sesión**: se reporta, nunca se arregla ni se enmascara. Esto es distinto de `/implement`, que ya evita colisiones por construcción y no usa worktrees. El detalle vive en `build-orchestration.md` ("Parallel manual sessions").
+Es transparente: tú hablas normal y dices "ejecuta"; el agente crea el worktree, trabaja, y cuando todo está verde lo **fusiona solo a la rama principal** a través de una cola serializada (un merge a la vez). Solo te enteras si hay un conflicto que no se puede resolver automáticamente. Un fallo del gate en ficheros que tu sesión no tocó es de **otra sesión**: se reporta, nunca se arregla ni se enmascara. Esto es distinto de `/implement`, que ya evita colisiones por construcción y no usa worktrees.
+
+**No se pierde nada por olvido.** Como el worktree se borra solo al fusionar, un worktree que sobrevive = trabajo sin mergear. Lo ves de tres formas: el comando `pending-work.sh` (lista lo no-mergeado con su antigüedad), un indicador global "⎇ N pendientes" en la barra de Mission Control, y el detalle por proyecto en su resumen. Aunque cierres la conversación, el trabajo vive en su rama de git y se recupera. El detalle vive en `build-orchestration.md` ("Parallel manual sessions").
 
 ## El registro de decisiones
 

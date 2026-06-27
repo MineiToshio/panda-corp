@@ -794,12 +794,28 @@ never edits, nor `--update-snapshots`-masks, another session's WIP** (DR-093's n
 executable). Inside a worktree this is mostly moot (the foreign WIP isn't on disk); it is the safety net
 for the shared-tree fallback.
 
-### 7. Visibility — the active-worktree manifest
+### 7. Visibility — never silently strand a worktree
 
-A lightweight registry under `.pandacorp/run/` (gitignored) lists live worktrees — branch, port, task,
-started-at — written on entry and removed on merge. Each session reads it on start (awareness: "2 other
-sessions active, here is their scope") and Mission Control surfaces it. Turns "I have to tell each agent
-another one exists" into something automatic. (The MC surfacing is a product follow-up via `/iterate`.)
+The owner runs several conversations at once, steps away, and might forget one. Committed work is never
+*lost* (a branch persists in git independently of the conversation), but it can be *forgotten*. The
+defense rests on one **invariant**: `merge-queue.sh` removes the worktree **and** its branch ONLY on a
+successful merge, so **anything that survives = work not yet in main**. Three layers turn that invariant
+into something the owner can't miss:
+
+- **The manifest.** A gitignored registry under `.pandacorp/run/worktrees/` lists live worktrees (branch,
+  port, task, started-at), written on entry by `worktree-bootstrap.sh` and removed on merge. Each session
+  reads it on start (awareness: "2 other sessions active, here is their scope").
+- **The pending-work check — `.pandacorp/pending-work.sh`.** The bullet-proof, runnable-now query:
+  unions surviving worktrees (pending even with UNCOMMITTED work) with `git branch --no-merged <default>`
+  (the branch outlives a swept worktree). Prints a table — branch · commits-ahead · age · status
+  (🟡 in-progress · 🟢 ready-not-merged · 🔴 stale past `PANDACORP_STALE_HOURS`, default 3) — plus `--json`
+  (for Mission Control to aggregate across projects) and `--notify` (a desktop notification + non-zero
+  exit when anything is stale; drive it from a `/loop` or cron for a proactive nudge).
+- **Mission Control surfacing.** PRIMARY = a **global, ambient indicator in the persistent shell**
+  ("⎇ N pendientes", visible from every screen, alerts on stale) → opens the cross-project list; SECONDARY
+  = a per-project breakdown in the **project's summary tab**. Not buried in one tab — the owner's fear is
+  *not looking*, so the signal must be global. (The MC UI is a product feature via `/iterate`; the check +
+  manifest + `--json` are the data layer it reads.)
 
 ### 8. The propagable contract (every project declares 3 things)
 
