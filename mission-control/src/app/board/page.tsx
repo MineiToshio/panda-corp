@@ -119,6 +119,8 @@ export default function BoardPage(): React.JSX.Element {
       // Forward the deploy target (DR-085) so the campaign's Release ficha shows
       // whether the launch is internal (in-house tool) or external (Vercel/AWS).
       deployTarget: projectStatus?.present ? projectStatus.status.deployTarget : undefined,
+      // Web target platform (DR-074) — surfaced as a "qué es" tag in Propuesta + Spec.
+      targetPlatforms: projectStatus?.present ? projectStatus.status.targetPlatforms : undefined,
       // Scoped doc STRUCTURE (PRD + research + FRDs); bodies load lazily on select.
       docNodes,
       // Spanish high-level spec digest (PRD + research + FRDs) for the Spec tab.

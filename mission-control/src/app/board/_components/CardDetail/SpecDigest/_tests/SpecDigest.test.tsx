@@ -85,6 +85,28 @@ Si lo reemplazas, te contactan en vez de cerrar la pestaña.
     expect(outChip.style.textDecoration).not.toContain("line-through");
   });
 
+  it("renders the app-type + platform meta chips in the hero", () => {
+    render(
+      <SpecDigest
+        title="x"
+        body={
+          "---\nproyecto: P\nfase: producto\n---\n> i\n\n## 🧩 FRDs\n\n### FRD-01 · X · UI\nr.\n"
+        }
+        projectType="web"
+        targetPlatforms="responsive"
+      />,
+    );
+    expect(screen.getAllByTestId("spec-meta-chip").map((c) => c.textContent)).toEqual([
+      "web",
+      "Responsive",
+    ]);
+  });
+
+  it("renders no meta chips when app-type/platform are absent", () => {
+    render(<SpecDigest title="x" body={"> i\n\n## 🧩 FRDs\n\n### FRD-01 · X · UI\nr."} />);
+    expect(screen.queryByTestId("spec-meta-chip")).toBeNull();
+  });
+
   it("falls back to the card title when the digest has no `proyecto`", () => {
     render(
       <SpecDigest

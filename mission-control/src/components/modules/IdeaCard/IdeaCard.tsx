@@ -76,6 +76,37 @@ export const CATEGORY_LABELS: Record<string, readonly [string, string]> = {
   otro: ["otro", "ti-box"],
 };
 
+/** Web target platform → Spanish label + icon, for the "qué es" tags (DR-074). */
+export const PLATFORM_LABELS: Record<string, readonly [string, string]> = {
+  desktop: ["Desktop", "ti-device-desktop"],
+  mobile: ["Mobile", "ti-device-mobile"],
+  responsive: ["Responsive", "ti-devices"],
+};
+
+/** A "qué es" meta chip — what kind of app it is (and, for web, its platform). */
+export interface MetaChip {
+  label: string;
+  icon?: string;
+}
+
+/**
+ * The "qué es" chips for a card/project: its app type (web / mobile / API …) and, when
+ * known, its web target platform (desktop / mobile / responsive). Single source reused by
+ * both the Propuesta (IdeaPitch) and Spec (SpecDigest) tabs so they never drift.
+ */
+export function projectMetaChips(projectType?: string, targetPlatforms?: string): MetaChip[] {
+  const chips: MetaChip[] = [];
+  if (projectType != null && projectType !== "") {
+    const entry = CATEGORY_LABELS[projectType];
+    chips.push({ label: entry?.[0] ?? projectType, icon: entry?.[1] });
+  }
+  if (targetPlatforms != null && targetPlatforms !== "") {
+    const entry = PLATFORM_LABELS[targetPlatforms];
+    chips.push({ label: entry?.[0] ?? targetPlatforms, icon: entry?.[1] });
+  }
+  return chips;
+}
+
 /** return_type values mapped to a Spanish label + a Chip tone. */
 export type ReturnTypeKey = NonNullable<IdeaCardProps["returnType"]>;
 

@@ -11,6 +11,7 @@
  */
 
 import { type LinkResolver, Markdown } from "@/components/core/Markdown/Markdown";
+import { projectMetaChips } from "@/components/modules/IdeaCard/IdeaCard";
 import {
   type DeepSection,
   type GlanceItem,
@@ -82,6 +83,10 @@ const PREVIEW_RE = /vista previa|preview/i;
 export interface IdeaPitchProps {
   body: string;
   title: string;
+  /** App type (web / mobile / api …) — a "qué es" chip replacing the opaque verdict badge. */
+  projectType?: string;
+  /** Web target platform (desktop / mobile / responsive) — a "qué es" chip. */
+  targetPlatforms?: string;
   resolveLink?: LinkResolver;
 }
 
@@ -418,8 +423,17 @@ function Evidence({ section }: { section: DeepSection }): React.JSX.Element {
   );
 }
 
-export function IdeaPitch({ body, title, resolveLink }: IdeaPitchProps): React.JSX.Element {
+export function IdeaPitch({
+  body,
+  title,
+  projectType,
+  targetPlatforms,
+  resolveLink,
+}: IdeaPitchProps): React.JSX.Element {
   const pitch = parsePitch(body);
+  const metaChips = projectMetaChips(projectType, targetPlatforms);
+  // Drop the opaque "build" verdict badge — the "qué es" meta chips replace it (owner rule).
+  const badges = pitch.badges.filter((b) => b.tone !== "build");
   const evidence = pitch.deepDive.find((s) => EVIDENCE_RE.test(s.heading));
   const coldRows = pitch.deepDive.filter((s) => s !== evidence);
 
@@ -434,9 +448,25 @@ export function IdeaPitch({ body, title, resolveLink }: IdeaPitchProps): React.J
           <p style={EYEBROW_STYLE}>Memo-pitch de idea</p>
           <h3 style={TITLE_STYLE}>{title}</h3>
           {pitch.laApuesta != null && <p style={ONE_LINER_STYLE}>{pitch.laApuesta}</p>}
-          {pitch.badges.length > 0 && (
+          {(metaChips.length > 0 || badges.length > 0) && (
             <div style={BADGES_ROW_STYLE}>
-              {pitch.badges.map((b) => (
+              {metaChips.map((chip) => (
+                <span
+                  key={`meta-${chip.label}`}
+                  style={badgeStyle("neutral")}
+                  data-testid="pitch-meta-chip"
+                >
+                  {chip.icon != null && (
+                    <i
+                      className={`ti ${chip.icon}`}
+                      aria-hidden="true"
+                      style={{ fontSize: "12px", marginRight: "5px", verticalAlign: "-1px" }}
+                    />
+                  )}
+                  {chip.label}
+                </span>
+              ))}
+              {badges.map((b) => (
                 <span key={b.label} style={badgeStyle(b.tone)}>
                   {b.label}
                 </span>

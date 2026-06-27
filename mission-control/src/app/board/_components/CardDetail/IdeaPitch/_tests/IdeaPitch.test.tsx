@@ -65,6 +65,16 @@ describe("IdeaPitch", () => {
     expect(screen.getByText("retorno: oportunidad + personal")).toBeInTheDocument();
   });
 
+  it("shows the app-type/platform meta chips and drops the opaque 'build' verdict badge", () => {
+    render(<IdeaPitch title="X" body={MEMO} projectType="web" targetPlatforms="responsive" />);
+    expect(screen.getAllByTestId("pitch-meta-chip").map((c) => c.textContent?.trim())).toEqual([
+      "web",
+      "Responsive",
+    ]);
+    // the opaque verdict badge is replaced by the "qué es" meta chips
+    expect(screen.queryByText("🏗️ build (re-scopeado)")).toBeNull();
+  });
+
   it("renders the De un vistazo hot rows including La apuesta and El problema", () => {
     render(<IdeaPitch title="X" body={MEMO} />);
     expect(screen.getAllByTestId("pitch-glance-row").length).toBe(3);

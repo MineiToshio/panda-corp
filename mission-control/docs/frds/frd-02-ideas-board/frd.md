@@ -48,6 +48,11 @@ Read-only kanban of the idea base, with idea capture, a navigable detail and dis
   (the card's hot→cold body produced by `/discover`/`/new-idea`, plugin v9.9.0) natively via the
   `IdeaPitch` component (CMP-02-idea-pitch) using the design tokens — the on-brand pitch that makes the
   owner decide. The card `.md` is the source of truth; this is its native rendering inside the board.
+  The hero badges SHALL include **"qué es" chips** — the app type (`project_type`: web / mobile / api …)
+  and, when an in-pipeline project declares it, the web target platform (`target_platforms`: desktop /
+  mobile / responsive) — and SHALL **omit the opaque verdict ("build") badge** (it conveys the kill/build
+  decision, not what the product is). The same chips appear in the Spec hero (AC-02-011.2); both reuse a
+  single `projectMetaChips` helper so they never drift.
 - AC-02-009.2 — WHEN the owner clicks a tab, THE system SHALL show that tab's body and mark only that
   tab active; **Propuesta** SHALL render the idea's memo-pitch (AC-02-009.5), **Documentos** SHALL
   render the existing document navigator (summary + key points + the idea's docs, unchanged behavior of

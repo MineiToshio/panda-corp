@@ -14,6 +14,7 @@
 import { useState } from "react";
 import { type LinkResolver, Markdown } from "@/components/core/Markdown/Markdown";
 import { Modal } from "@/components/core/Modal/Modal";
+import { projectMetaChips } from "@/components/modules/IdeaCard/IdeaCard";
 import {
   parseSpec,
   type SpecBlock,
@@ -58,10 +59,13 @@ import {
   FRD_SUMMARY_TEXT_STYLE,
   FRD_TITLE_STYLE,
   frdTagStyle,
+  HERO_CHIPS_ROW_STYLE,
   HERO_STYLE,
   HIGHLIGHT_STYLE,
   INNER_STYLE,
   INTRO_STYLE,
+  META_CHIP_STYLE,
+  META_ICON_STYLE,
   MODAL_ACCENT,
   MODAL_INFO,
   MODAL_OK,
@@ -94,6 +98,10 @@ export interface SpecDigestProps {
   body: string;
   /** Card title (fallback when the digest has no `proyecto`). */
   title: string;
+  /** App type (web / mobile / api …) — a "qué es" chip next to the phase chip. */
+  projectType?: string;
+  /** Web target platform (desktop / mobile / responsive) — a "qué es" chip. */
+  targetPlatforms?: string;
   resolveLink?: LinkResolver;
 }
 
@@ -406,8 +414,15 @@ function FrdModal({ frd, onClose }: { frd: SpecFrd; onClose: () => void }): Reac
   );
 }
 
-export function SpecDigest({ body, title, resolveLink }: SpecDigestProps): React.JSX.Element {
+export function SpecDigest({
+  body,
+  title,
+  projectType,
+  targetPlatforms,
+  resolveLink,
+}: SpecDigestProps): React.JSX.Element {
   const spec = parseSpec(body);
+  const metaChips = projectMetaChips(projectType, targetPlatforms);
   const [openFrd, setOpenFrd] = useState<SpecFrd | null>(null);
 
   return (
@@ -417,7 +432,19 @@ export function SpecDigest({ body, title, resolveLink }: SpecDigestProps): React
           <p style={EYEBROW_STYLE}>Resumen del spec</p>
           <h3 style={TITLE_STYLE}>{spec.proyecto ?? title}</h3>
           {spec.intro != null && <p style={INTRO_STYLE}>{spec.intro}</p>}
-          {spec.fase != null && <span style={PHASE_CHIP_STYLE}>fase · {spec.fase}</span>}
+          {(spec.fase != null || metaChips.length > 0) && (
+            <div style={HERO_CHIPS_ROW_STYLE}>
+              {spec.fase != null && <span style={PHASE_CHIP_STYLE}>fase · {spec.fase}</span>}
+              {metaChips.map((chip) => (
+                <span key={chip.label} style={META_CHIP_STYLE} data-testid="spec-meta-chip">
+                  {chip.icon != null && (
+                    <i className={`ti ${chip.icon}`} aria-hidden="true" style={META_ICON_STYLE} />
+                  )}
+                  {chip.label}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </header>
 

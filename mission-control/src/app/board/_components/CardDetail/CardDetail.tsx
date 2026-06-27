@@ -255,6 +255,10 @@ export interface CardDetailProps {
   phase?: Phase;
   /** Deploy target (DR-085) — surfaced in the campaign's Release ficha (internal/external). */
   deployTarget?: DeployTarget;
+  /** App type (card `project_type`: web / mobile / api …) — a "qué es" tag in Propuesta + Spec. */
+  projectType?: string;
+  /** Web target platform (status.yaml `target_platforms`: desktop / mobile / responsive) — a "qué es" tag. */
+  targetPlatforms?: string;
   /** DR-032: whether a skill has advanced a phase and is waiting for "ok, advance". */
   advancePending?: boolean;
   /**
@@ -323,6 +327,8 @@ export function CardDetail({
   body,
   phase,
   deployTarget,
+  projectType,
+  targetPlatforms,
   docNodes,
   specContent,
   project,
@@ -432,7 +438,13 @@ export function CardDetail({
         aria-labelledby="card-detail-tab-propuesta"
         style={panelStyle("propuesta")}
       >
-        <IdeaPitch title={title} body={body} resolveLink={resolveDocLink} />
+        <IdeaPitch
+          title={title}
+          body={body}
+          projectType={projectType}
+          targetPlatforms={targetPlatforms}
+          resolveLink={resolveDocLink}
+        />
       </div>
 
       {/* ---- Spec panel — the native PRD/research/FRDs digest (only when a digest exists) ---- */}
@@ -443,7 +455,13 @@ export function CardDetail({
           aria-labelledby="card-detail-tab-spec"
           style={panelStyle("spec")}
         >
-          <SpecDigest title={title} body={specContent} resolveLink={resolveDocLink} />
+          <SpecDigest
+            title={title}
+            body={specContent}
+            projectType={projectType}
+            targetPlatforms={targetPlatforms}
+            resolveLink={resolveDocLink}
+          />
         </div>
       )}
 

@@ -41,8 +41,6 @@ export const INTRO_STYLE: React.CSSProperties = {
   color: "var(--color-text2)",
 };
 export const PHASE_CHIP_STYLE: React.CSSProperties = {
-  display: "inline-block",
-  marginTop: "16px",
   fontFamily: "var(--font-mono, ui-monospace, monospace)",
   fontSize: "12px",
   padding: "5px 12px",
@@ -51,6 +49,27 @@ export const PHASE_CHIP_STYLE: React.CSSProperties = {
   background: "var(--color-info-bg)",
   color: "var(--color-info)",
 };
+// The hero chip row: phase + the "qué es" meta chips (app type · platform), wrapping on small widths.
+export const HERO_CHIPS_ROW_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "8px",
+  marginTop: "16px",
+  alignItems: "center",
+};
+// A neutral "qué es" chip (app type / platform) — distinct from the info-toned phase chip.
+export const META_CHIP_STYLE: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "5px",
+  fontSize: "12px",
+  padding: "5px 12px",
+  borderRadius: "999px",
+  border: "1px solid var(--color-border-strong)",
+  background: "var(--color-card)",
+  color: "var(--color-text)",
+};
+export const META_ICON_STYLE: React.CSSProperties = { fontSize: "13px", lineHeight: 1 };
 
 // --- Blocks (full-bleed tinted bands) ---------------------------------------
 const PRD_TINT = "color-mix(in oklab, var(--color-info-bg) 36%, var(--color-base))";

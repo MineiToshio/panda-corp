@@ -100,6 +100,8 @@ export interface BoardCardEntry extends IdeaCardProps {
   phase?: Phase;
   /** The linked project's deploy target (DR-085) — shown in the Release ficha. */
   deployTarget?: DeployTarget;
+  /** The linked project's web target platform (DR-074) — a "qué es" tag in Propuesta + Spec. */
+  targetPlatforms?: string;
   /**
    * Scoped doc STRUCTURE (PRD + research + per-FRD docs) from listProjectDocs in
    * page.tsx, for in-pipeline cards. Forwarded to CardDetail's Documentos tab; the

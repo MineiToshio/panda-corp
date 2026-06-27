@@ -53,6 +53,9 @@ export type Phase = "product" | "design" | "architecture" | "implementation" | "
  */
 export type DeployTarget = "internal" | "external";
 
+/** Web target platform (DR-074) — drives the responsive gate and the "qué es" tags. */
+export type TargetPlatform = "desktop" | "mobile" | "responsive";
+
 export type ProjectStatus = {
   project: string;
   phase: Phase;
@@ -72,6 +75,8 @@ export type ProjectStatus = {
   updatedAt?: string;
   repo?: string;
   deployTarget?: DeployTarget;
+  /** Web target platform (DR-074): desktop | mobile | responsive. */
+  targetPlatforms?: TargetPlatform;
   /** Live URL where the release is deployed (DR-085). Absent until launched. */
   deployUrl?: string;
 };
@@ -122,6 +127,10 @@ function asPhase(raw: unknown): Phase | undefined {
 /** One of the two deploy targets (DR-085); any other value → undefined. */
 function asDeployTarget(raw: unknown): DeployTarget | undefined {
   return raw === "internal" || raw === "external" ? raw : undefined;
+}
+
+function asTargetPlatform(raw: unknown): TargetPlatform | undefined {
+  return raw === "desktop" || raw === "mobile" || raw === "responsive" ? raw : undefined;
 }
 
 /** Map the string-typed fields (snake_case → camelCase); invalid/missing omitted. */
@@ -196,6 +205,9 @@ function mapStatusFields(raw: Record<string, unknown>): Partial<ProjectStatus> {
 
   const deployTarget = asDeployTarget(raw.deploy_target);
   if (deployTarget !== undefined) status.deployTarget = deployTarget;
+
+  const targetPlatform = asTargetPlatform(raw.target_platforms);
+  if (targetPlatform !== undefined) status.targetPlatforms = targetPlatform;
 
   mapStringFields(raw, status);
   mapNumberFields(raw, status);
