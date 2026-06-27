@@ -44,8 +44,12 @@ export interface PhaseDefinition {
   writes: string;
   /** Entire specialist team for this phase (every member, AC-02-010.4). */
   team: ReadonlyArray<TeamMember>;
-  /** The command to advance from this phase to the next — shown as "Siguiente paso" in the ficha. */
-  nextStep: { label: string; command: string };
+  /**
+   * The runnable commands at this phase — shown as "Qué puedes correr" in the ficha. The FIRST is the
+   * advance / recommended step; the rest are this phase's other options. A `<idea>` token in a command
+   * is substituted with the project slug for copy-paste; an optional `hint` adds a one-line note.
+   */
+  commands: ReadonlyArray<{ label: string; command: string; hint?: string }>;
 }
 
 // ---------------------------------------------------------------------------
@@ -61,10 +65,14 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
       "Exploración del problema, del mercado y de las oportunidades. El researcher sumerge la idea en datos reales antes de tomar ninguna decisión de producto.",
     reads: "Idea inicial (card de la base de ideas)",
     writes: "research.md — hallazgos, oportunidades y restricciones",
-    nextStep: {
-      label: "Documenta el MVP (research + PRD + FRDs)",
-      command: "/pandacorp:spec <idea>",
-    },
+    commands: [
+      {
+        label: "Documenta el MVP (research + PRD + FRDs)",
+        command: "/pandacorp:spec <idea>",
+        hint: "modos: --ask (siempre pregunta · default de new-idea) · --auto (pregunta solo lo clave · default de discover) · --infer (no pregunta)",
+      },
+      { label: "Sigue explorando la idea en conversación", command: "/pandacorp:explore <idea>" },
+    ],
     team: [
       {
         role: "researcher",
@@ -80,7 +88,10 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
       "Definición del producto mínimo viable. El product manager transforma los hallazgos en requisitos EARS y criterios de aceptación medibles.",
     reads: "research.md",
     writes: "PRD + FRDs (requisitos EARS con criterios de aceptación)",
-    nextStep: { label: "Diseña la interfaz y los tokens", command: "/pandacorp:design" },
+    commands: [
+      { label: "Diseña la interfaz y los tokens", command: "/pandacorp:design" },
+      { label: "Pule el PRD/FRDs (re-corre el spec)", command: "/pandacorp:spec <idea>" },
+    ],
     team: [
       {
         role: "product-manager",
@@ -96,10 +107,10 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
       "Creación del sistema visual y la microcopia. Diseñador y copywriter colaboran para que el producto sea bello, accesible y coherente en lenguaje.",
     reads: "PRD + FRDs",
     writes: "Mockups, design tokens y microcopia",
-    nextStep: {
-      label: "Define la arquitectura y los work orders",
-      command: "/pandacorp:blueprint",
-    },
+    commands: [
+      { label: "Define la arquitectura y los work orders", command: "/pandacorp:blueprint" },
+      { label: "Itera el diseño", command: "/pandacorp:design" },
+    ],
     team: [
       {
         role: "designer",
@@ -120,7 +131,10 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
       "Diseño técnico de la solución. El arquitecto traduce los requisitos en ADRs, plano de implementación y órdenes de trabajo para el equipo de build.",
     reads: "Mockups, design tokens y microcopia",
     writes: "Blueprint + ADRs + Build Plan + work orders",
-    nextStep: { label: "Construye con TDD", command: "/pandacorp:implement" },
+    commands: [
+      { label: "Construye con TDD", command: "/pandacorp:implement" },
+      { label: "Ajusta la arquitectura / work orders", command: "/pandacorp:blueprint" },
+    ],
     team: [
       {
         role: "architect",
@@ -136,7 +150,12 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
       "Implementación con TDD (RED → GREEN → refactor) y, como último paso, el endurecimiento: el security-auditor revisa la seguridad, el reviewer cierra la calidad y analytics instrumenta las métricas. El implementer construye cada work order.",
     reads: "Blueprint + ADRs + Build Plan + work orders",
     writes: "Código verificado y endurecido (GREEN) — la app lista para lanzar",
-    nextStep: { label: "Lanza (interno o externo)", command: "/pandacorp:release" },
+    commands: [
+      { label: "Lanza (interno o externo)", command: "/pandacorp:release" },
+      { label: "Reanuda / continúa el build", command: "/pandacorp:implement" },
+      { label: "Reporta un bug encontrado probando", command: "/pandacorp:bug" },
+      { label: "Encola un cambio para el build", command: "/pandacorp:change" },
+    ],
     team: [
       {
         role: "implementer",
@@ -167,7 +186,18 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
       "El producto YA está lanzado: desplegado a un host externo (Vercel/AWS) o publicado como herramienta interna en la red. El devops orquesta el despliegue y el plan de lanzamiento; desde aquí se itera con métricas reales.",
     reads: "Código verificado y endurecido (GREEN)",
     writes: "App lanzada (interna o externa) + plan de lanzamiento",
-    nextStep: { label: "Itera o revisa el lanzamiento", command: "/pandacorp:iterate" },
+    commands: [
+      { label: "Agrega una feature o cambio", command: "/pandacorp:iterate" },
+      {
+        label: "Revisa métricas vs hipótesis (kill/hold/double-down)",
+        command: "/pandacorp:review-launch",
+      },
+      { label: "Empaqueta un hito grande (v2…)", command: "/pandacorp:new-version" },
+      {
+        label: "Reconcilia los docs desde cambios a mano en el código",
+        command: "/pandacorp:sync",
+      },
+    ],
     team: [
       {
         role: "devops",

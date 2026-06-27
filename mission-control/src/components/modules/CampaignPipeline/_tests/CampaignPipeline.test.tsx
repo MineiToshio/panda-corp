@@ -449,36 +449,41 @@ describe("AC-02-010.4 — per-phase ficha (active by default; click to switch, n
 });
 
 // ---------------------------------------------------------------------------
-// ficha "Siguiente paso" — the per-phase next-step command (replaces the old Comandos tab)
+// ficha "Qué puedes correr" — the per-phase runnable commands (slug substituted)
 // ---------------------------------------------------------------------------
 
-describe("ficha-next-step — per-phase next-step command", () => {
-  it("the open ficha shows a 'Siguiente paso' section with the next-step command", () => {
-    // build is the active phase → its ficha is open by default and shows its command.
+describe("ficha-next-step — per-phase runnable commands", () => {
+  it("the open ficha shows a 'Qué puedes correr' section with the advance command", () => {
+    // build is the active phase → its ficha is open by default and shows its commands.
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={4} />);
-    const nextStep = screen.getByTestId("ficha-next-step");
-    expect(nextStep).toBeInTheDocument();
-    expect(nextStep).toHaveTextContent(/SIGUIENTE PASO/i);
-    // build's command advances to release.
-    expect(nextStep).toHaveTextContent("/pandacorp:release");
+    const cmds = screen.getByTestId("ficha-next-step");
+    expect(cmds).toBeInTheDocument();
+    expect(cmds).toHaveTextContent(/QUÉ PUEDES CORRER/i);
+    // build's first (advance) command goes to release.
+    expect(cmds).toHaveTextContent("/pandacorp:release");
   });
 
-  it("the next-step command tracks the selected phase (research → /pandacorp:spec)", () => {
+  it("substitutes the project slug into the <idea> token for copy-paste (research → spec)", () => {
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} />);
-    expect(screen.getByTestId("ficha-next-step")).toHaveTextContent("/pandacorp:spec <idea>");
+    const cmds = screen.getByTestId("ficha-next-step");
+    // DEFAULT_PROPS.slug = "my-idea" → the placeholder is replaced, not shown literally.
+    expect(cmds).toHaveTextContent("/pandacorp:spec my-idea");
+    expect(cmds).not.toHaveTextContent("<idea>");
   });
 
-  it("the next-step section renders a copyable command row (CmdRow)", () => {
-    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} />);
-    const nextStep = screen.getByTestId("ficha-next-step");
-    expect(within(nextStep).getByTestId("cmd-row")).toBeInTheDocument();
+  it("renders one copyable command row (CmdRow) per option", () => {
+    // build phase has 4 options (release / implement / bug / change).
+    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={4} />);
+    const cmds = screen.getByTestId("ficha-next-step");
+    expect(within(cmds).getAllByTestId("cmd-row")).toHaveLength(4);
+    expect(within(cmds).getAllByTestId("ficha-command").length).toBeGreaterThan(1);
   });
 
-  it("clicking a different phase swaps the next-step command (release → /pandacorp:iterate)", () => {
-    // activePhase=5 (release) is open by default → its command is /pandacorp:iterate.
+  it("clicking a different phase swaps the command set (release → design)", () => {
+    // activePhase=5 (release) is open by default → first command is /pandacorp:iterate.
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={5} />);
     expect(screen.getByTestId("ficha-next-step")).toHaveTextContent("/pandacorp:iterate");
-    // Click the (done) design phase → its command is /pandacorp:blueprint.
+    // Click the (done) design phase → its advance command is /pandacorp:blueprint.
     fireEvent.click(screen.getByTestId("campaign-phase-design"));
     expect(screen.getByTestId("ficha-next-step")).toHaveTextContent("/pandacorp:blueprint");
   });

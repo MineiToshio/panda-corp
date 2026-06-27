@@ -89,6 +89,15 @@ Read-only kanban of the idea base, with idea capture, a navigable detail and dis
   Plan); and the **Build** ficha SHALL reflect the **v2 build flow** — foundation-first, disjoint
   waves serialized by file artifact, per-WO fidelity loop, the 4-lens + visual-judge gate and the
   Option-B wave commit (consistent with FRD-06 / La Fragua).
+- AC-02-010.9 — Each phase's ficha SHALL carry a **"Qué puedes correr"** section listing that phase's
+  **runnable commands** (the first is the advance/recommended step; the rest are the phase's other
+  options), each as a **copyable** `CmdRow`. The command text SHALL **substitute the project slug**
+  into the `<idea>` token (e.g. `/pandacorp:spec <idea>` renders `/pandacorp:spec <slug>`) so it
+  copy-pastes directly — never a literal `<idea>` placeholder. The factory-run commands (`spec`,
+  `explore`) carry the project name; the in-project commands (`design`, `blueprint`, `implement`,
+  `release`, `iterate`, `bug`, `change`, `review-launch`, `new-version`, `sync`) do not. The `spec`
+  command surfaces its mode flags (`--ask` / `--auto` / `--infer`, DR-095) as a hint. Read-only
+  (AC-02-010.6): showing the command is not running it.
 - AC-02-010.5 — WHEN the owner activates the **Construcción** (build) phase's "Entrar a La Fragua"
   action, THE system SHALL **navigate the host app** to Portfolio → that project → the **Party** tab
   (FRD-06 / La Fragua) for that project, WITHOUT an inner iframe reload of the card detail.

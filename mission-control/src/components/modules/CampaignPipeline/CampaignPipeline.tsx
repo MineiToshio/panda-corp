@@ -349,6 +349,27 @@ const FICHA_SUBSECTION_STYLE: React.CSSProperties = {
   gap: "calc(var(--spacing, 0.25rem) * 1)",
 };
 
+// "Qué puedes correr" — caption + the per-phase command options.
+const FICHA_CAPTION_STYLE: React.CSSProperties = {
+  fontSize: "0.6875rem",
+  color: "var(--color-text3, var(--color-text-muted, currentColor))",
+  lineHeight: 1.45,
+  margin: 0,
+};
+
+const FICHA_COMMANDS_LIST_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "calc(var(--spacing, 0.25rem) * 2.5)",
+  marginTop: "calc(var(--spacing, 0.25rem) * 1.5)",
+};
+
+const FICHA_COMMAND_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "calc(var(--spacing, 0.25rem) * 1)",
+};
+
 const TEAM_MEMBER_STYLE: React.CSSProperties = {
   display: "flex",
   gap: "calc(var(--spacing, 0.25rem) * 3)",
@@ -712,13 +733,24 @@ function FichaContent({
         </div>
       </div>
 
-      {/* Siguiente paso — the command to advance from this phase (replaces the old Comandos tab;
-          the owner wanted the command beside the phase info, not in a separate tab). */}
+      {/* Qué puedes correr — this phase's runnable commands, with the project slug substituted into
+          the `<idea>` token so they copy-paste directly (the owner wanted the real name, not a
+          placeholder). The first is the advance step; the rest are this phase's other options. */}
       <div data-testid="ficha-next-step" style={FICHA_SUBSECTION_STYLE}>
-        <p style={FICHA_SECTION_LABEL_STYLE}>SIGUIENTE PASO</p>
-        <p style={FICHA_SECTION_VALUE_STYLE}>{phase.nextStep.label}</p>
-        <div style={{ marginTop: "calc(var(--spacing, 0.25rem) * 1.5)" }}>
-          <CmdRow command={phase.nextStep.command} />
+        <p style={FICHA_SECTION_LABEL_STYLE}>QUÉ PUEDES CORRER</p>
+        <p style={FICHA_CAPTION_STYLE}>
+          El primero avanza de fase; los demás son opciones de esta fase. <code>spec</code> /{" "}
+          <code>explore</code> se corren desde la fábrica con el nombre del proyecto; el resto,
+          dentro de la carpeta del proyecto.
+        </p>
+        <div style={FICHA_COMMANDS_LIST_STYLE}>
+          {phase.commands.map((cmd) => (
+            <div key={cmd.command} data-testid="ficha-command" style={FICHA_COMMAND_STYLE}>
+              <p style={FICHA_SECTION_VALUE_STYLE}>{cmd.label}</p>
+              <CmdRow command={cmd.command.replace(/<idea>/g, slug)} />
+              {cmd.hint != null && <p style={FICHA_CAPTION_STYLE}>{cmd.hint}</p>}
+            </div>
+          ))}
         </div>
       </div>
 
