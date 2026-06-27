@@ -31,6 +31,8 @@ Es transparente: tú hablas normal y dices "ejecuta"; el agente crea el worktree
 
 **No se pierde nada por olvido.** Como el worktree se borra solo al fusionar, un worktree que sobrevive = trabajo sin mergear. Lo ves de tres formas: el comando `pending-work.sh` (lista lo no-mergeado con su antigüedad), un indicador global "⎇ N pendientes" en la barra de Mission Control, y el detalle por proyecto en su resumen. Aunque cierres la conversación, el trabajo vive en su rama de git y se recupera. El detalle vive en `build-orchestration.md` ("Parallel manual sessions").
 
+**Cuando terminas tú, queda en "Hecho" (DR-097).** Si implementas un cambio a mano (dentro o fuera de `/implement`), el estado del work order se mueve a donde corresponde: a **Hecho** en cuanto el gate verde (`verify.sh`) pasa — no se queda varado en "En revisión". El gate es el verificador objetivo; el agente solo registra su veredicto, no se auto-evalúa.
+
 ## El registro de decisiones
 
 `factory/decisions/registry.yaml` contiene reglas con un **valor por defecto** para decisiones recurrentes. Ejemplos:
