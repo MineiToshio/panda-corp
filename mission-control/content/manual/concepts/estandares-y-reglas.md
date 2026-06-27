@@ -23,6 +23,12 @@ Los estándares viven en `factory/standards/` y son obligatorios en todos los pr
 
 Los estándares son versionados con la fábrica. Cambian solo por decisión explícita del propietario.
 
+## Trabajar varias cosas a la vez (DR-096)
+
+Cuando abres **varias conversaciones en paralelo** para avanzar cosas distintas al mismo tiempo (a mano, fuera de `/implement`), cada sesión **se aísla sola** en su propio árbol de trabajo de git (un *worktree*). El motivo: el gate de calidad es de programa completo —`tsc`, `knip` y las pruebas visuales leen *todo* el árbol—, así que el trabajo a medias de una sesión haría fallar el gate de otra. Aislando, el gate de cada sesión solo ve su propio trabajo.
+
+Es transparente: tú hablas normal y dices "ejecuta"; el agente crea el worktree, trabaja, y cuando todo está verde lo **fusiona solo a la rama principal** a través de una cola serializada (un merge a la vez). Solo te enteras si hay un conflicto que no se puede resolver automáticamente. Un fallo del gate en ficheros que tu sesión no tocó es de **otra sesión**: se reporta, nunca se arregla ni se enmascara. Esto es distinto de `/implement`, que ya evita colisiones por construcción y no usa worktrees. El detalle vive en `build-orchestration.md` ("Parallel manual sessions").
+
 ## El registro de decisiones
 
 `factory/decisions/registry.yaml` contiene reglas con un **valor por defecto** para decisiones recurrentes. Ejemplos:

@@ -669,3 +669,149 @@ the same append-heavy shared files. Rules:
   never rewrite an existing entry, so two sessions add adjacent blocks instead of clobbering.
 - The gate is owned by one session at a time: don't end-turn-gate against another session's in-flight
   WIP (it will flap until they land).
+
+## Parallel manual sessions — worktree isolation + merge queue (DR-096)
+
+DR-093 states the *policy* (isolate or serialize); this section is the *operational standard* that
+makes it turnkey, **propagable to every project**. It targets the owner's real workflow: **N independent
+natural conversations** ("make a plan… ya, ejecuta"), each launched by hand to advance several things at
+once, **outside `/implement`**. Do not confuse the two parallelisms:
+
+| | `/implement` (DR-060/086) | Manual parallel sessions (this section) |
+|---|---|---|
+| Who coordinates | a central engine | nobody — independent conversations |
+| Isolation | by construction (disjoint `artifacts` + single-writer commit) | by **git worktree** (each session its own) |
+| Concurrency rule | **one** build at a time (§9 guard) | **N** sessions at once, each isolated |
+| Gate | engine owns it per-FRD + close-out | each session's own gate, in its own tree |
+
+`/implement` is collision-safe by construction, so it does **not** use worktrees (and §2 explains why a
+worktree would hurt the coordinated engine). The manual case is the opposite shape — uncoordinated, no
+disjoint-artifacts guarantee — so worktree isolation is exactly right (Claude Code's own *agent-teams*
+guidance: "worktrees are for independent, human-run sessions"). The two never conflict: a manual session
+in its worktree isn't touching the main checkout, and the `merge.lock` here is analogous to but separate
+from the `build.lock`.
+
+**Why isolation, not a smarter gate.** The gate is **whole-program**: `tsc --noEmit`, `knip`, `madge`
+and the Playwright visual baselines read the *entire* tree, so any in-flight WIP from any session
+contaminates everyone's gate (a parallel session's `globals.css` edit fails another session's
+`/manual` visual baseline — observed live, 2026-06-26). You cannot scope your way out in TypeScript:
+`tsc` is whole-program. **Only isolation — the other session's file not being on your disk — makes "my
+gate sees only my work" true, and is what lets each parallel session actually reach GREEN, not merely
+"be blamelessly blocked."**
+
+### 1. Self-isolation is a per-session REFLEX (no orchestrator)
+
+Isolation is **not** an upfront "launch N agents" call — it is a default behavior of any session about
+to change code, encoded as a standing rule in the **project overlay** (`CLAUDE.md`/guide/`AGENTS.md`):
+
+- **Trigger = the SAME frontier as the write-gate.** A change significant enough to route through a
+  skill (behavior, a canonical doc, state) is significant enough to isolate. Micro-edits — a typo, a
+  comment, local config, a throwaway experiment — stay in-tree. No new decision boundary; reuse the one
+  the overlay already defines.
+- **The agent enters the worktree ITSELF** the moment it transitions from planning to executing
+  ("ya, ejecuta" → isolate **first**, then edit, so no uncommitted work is stranded by the
+  branch-from-a-commit base). This is `EnterWorktree`'s sanctioned path ("project instructions direct
+  it") — never a worktree for a read/debug/answer turn.
+- **Default-on, not detect-then-isolate.** Start-time "is anyone else active?" detection is racy (two
+  sessions each see "solo", then collide). Isolating by default is deterministic and cheap (below).
+
+### 2. Bootstrap on entry — reconstitute what git doesn't carry
+
+A worktree checks out **tracked files only**; everything else must be reconstituted, cheaply:
+
+- **`pnpm install`** over the shared content-addressable store — sub-second, **hardlinks** (no
+  re-download). **Never** symlink `node_modules` across worktrees, and keep **`.next` per-worktree** (a
+  shared/symlinked one breaks Next's HMR).
+- **`launch.json` on autoPort** (below) — generated per worktree, named `*-<slug>`.
+- **Secrets** need no copy: they live **outside any repo** (SOPS+age, `~/.config/pandacorp/`,
+  `external-services.md`), so the worktree runs the same `sops exec-env` as the main checkout.
+- **External data is referenced, owned state is isolated.** Mission Control is stateless — it points
+  `PANDACORP_FACTORY_ROOT` at the real factory and reads live data (it does **not** copy it into the
+  worktree, whose `cwd/..` would be empty). A stateful project isolates its DB per worktree (§4).
+
+Cost is bounded and predictable: ~1–4 min of setup + one extra gate run per session, paid concurrently
+in each worktree — far cheaper than the **unbounded** waste of an agent flailing on a foreign red, or
+worse, "fixing"/masking another session's WIP. Practical ceiling ~4–5 concurrent sessions before
+machine/rate-limit pressure dominates.
+
+### 3. Ports — fixed for the canonical/stateful/callback, autoPort for the ephemeral
+
+`factory/ports.yaml` reserves a 10-port block per project (its offset map already anticipates worktrees:
+`+0 app agent`, `+1 app review`, `+2/3 Postgres`, `+4/5 Redis`). The rule by service kind:
+
+- **Fixed reserved port** — the **canonical/always-on** instance, stateful backing services (DB,
+  Redis), and anything an external party must reach at a known URL (OAuth callbacks, webhooks, CORS
+  allowlists). The reserved block prevents **different projects** colliding.
+- **autoPort** (`autoPort: true`, the OS assigns a free `PORT`; the app must **read `PORT`** — remove
+  any hardcoded `--port`) — every **ephemeral/parallel** copy of one project. N worktrees never collide.
+
+An internal tool with no external callbacks (e.g. Mission Control) may run even its canonical instance on
+autoPort. To preview a worktree before merge: it is already a full checkout — run *its* dev server on
+demand on its autoPort; mark a task "hold for owner" to keep the worktree on disk for review before it
+merges. No "infinite previews".
+
+### 4. Per-worktree state isolation (stateful projects)
+
+The worktree isolates files + git, **not** a database. Parallel worktrees of a DB-backed app each point
+`DATABASE_URL` at `<app>_<slug>`, cloned in sub-seconds from a connectionless `<app>_template`
+(`CREATE DATABASE … TEMPLATE` — full isolation, no migration re-run, far lighter than a container per
+worktree). Hard caveat: the template must have **zero active connections** during the clone, so
+branch-creation serializes. `testcontainers`/`pg_tmp` own the *test* layer; Neon branching is the
+CI/preview option. A stateless project (the MC case) declares "none".
+
+### 5. The serialized merge queue (`merge.lock`)
+
+Reunite branches through **one serialized writer** — the single-writer principle of §2, at *merge*
+granularity. When a session's worktree work greens (its own gate passes), it joins the queue
+**automatically**; the owner just sees "done and merged". Behind an atomic, freshness-stamped
+`.pandacorp/run/merge.lock` (atomic `mkdir`, reclaimed when stale via `-mmin`, exactly like `build.lock`):
+
+1. **Rebase** the branch onto the current `main` tip.
+2. Run the **integration gate** (`verify.sh`) on the combined result.
+3. **Fast-forward merge → `main`** if green; **remove the worktree + branch**.
+4. Release the lock.
+
+Because each merge advances `main`, the next holder rebases onto the **new** tip — the merge-queue
+invariant ("frozen + up-to-date target"). A textual conflict git's 3-way merge can't resolve (`git
+rebase`/`merge` exits non-zero, `<<<<<<<` markers) is **HANDED BACK, never auto-forced**; the agent may
+auto-resolve only when it can read both diffs/intents **and** the gate then passes.
+
+**The integration gate is the arbiter** of textual/type/test correctness — a clean *textual* merge can
+still fail to compile (the CoAgent risk), so green-on-the-merged-result is the real bar. It **cannot**
+close the **semantic-conflict** gap (two changes green alone, green merged, wrong together — CI checks
+code against *your tests*, not an independent oracle). Mitigate, don't pretend to eliminate: strong
+typing (a free fast semantic check), **seam tests on the contracts two changes share**, small/frequent
+merges, and human review of the merged diff on same-region overlaps. Auto-merge holds for disjoint+green;
+it **escalates** on same-region or gate-red. This is the same accepted limit as any merge-queue with CI.
+
+### 6. Attribute every red — "not-mine → report, don't fix"
+
+Even with isolation as the default, a session may end up in the shared tree (a micro-edit, or the owner
+working the main checkout). So: a session **stamps the gate state at start**; on a Stop-hook RED it
+attributes failures to **its own changed files vs. a foreign/pre-existing red** (the start stamp +
+`git status` ownership). A failure outside the session's scope is **reported, and the session stops — it
+never edits, nor `--update-snapshots`-masks, another session's WIP** (DR-093's no-sweep rule, made
+executable). Inside a worktree this is mostly moot (the foreign WIP isn't on disk); it is the safety net
+for the shared-tree fallback.
+
+### 7. Visibility — the active-worktree manifest
+
+A lightweight registry under `.pandacorp/run/` (gitignored) lists live worktrees — branch, port, task,
+started-at — written on entry and removed on merge. Each session reads it on start (awareness: "2 other
+sessions active, here is their scope") and Mission Control surfaces it. Turns "I have to tell each agent
+another one exists" into something automatic. (The MC surfacing is a product follow-up via `/iterate`.)
+
+### 8. The propagable contract (every project declares 3 things)
+
+A project becomes parallel-safe by declaring, in its blueprint/overlay — injected like any other
+standard, materialized at `/scaffold`/`:blueprint` which already write `ports.yaml` → `launch.json`/
+`.env`:
+
+1. **Ports** — which services are fixed-reserved vs. autoPort (§3).
+2. **A reproducible bootstrap** — one command reconstituting everything untracked (install + secrets +
+   migrate + worktree `launch.json`) (§2).
+3. **Per-worktree state isolation** — the DB strategy (§4) or "stateless, none" (the MC case).
+
+Canonical surfaces: this section; `${CLAUDE_PLUGIN_ROOT}/templates/shared/.pandacorp/merge-queue.sh`
+(the queue) + `worktree-bootstrap.sh` (the reconstitution); `plugin/scripts/verify-before-stop.sh` (red
+attribution); the project overlay (`guide.md.tpl`, the self-isolation rule); `docs/proposals/18`.

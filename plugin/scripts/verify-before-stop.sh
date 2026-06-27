@@ -37,6 +37,16 @@ if [ $? -ne 0 ]; then
   echo "Pandacorp verify gate FAILED — you can't finish with a broken project." >&2
   echo "Rule that failed: .pandacorp/verify.sh (tests + typecheck + lint must pass)." >&2
   echo "Fix the root cause; do NOT tweak the test to pass or declare it 'done'." >&2
+  # Red attribution (DR-096): a whole-program gate also fails on a PARALLEL session's in-flight WIP.
+  # Before fixing, check ownership — a failure in files THIS session did not change is a FOREIGN red:
+  # report it and stop. NEVER edit another session's files or run --update-snapshots to force green
+  # (DR-093 no-sweep). The durable fix for cross-session flap is worktree isolation (DR-096).
+  dirty=$(git -C "$cwd" status --porcelain 2>/dev/null | head -20)
+  if [ -n "$dirty" ]; then
+    echo "--- uncommitted files in the tree (may be another session's WIP — verify ownership, DR-096) ---" >&2
+    echo "$dirty" >&2
+    echo "If the failing area is NOT in files YOU changed, this is a foreign red: report it, don't fix it." >&2
+  fi
   echo "--- verify.sh output (last 30 lines) ---" >&2
   echo "$out" | tail -30 >&2
   exit 2
