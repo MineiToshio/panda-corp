@@ -31,9 +31,11 @@ import { DocHeading } from "@/components/core/DocHeading/DocHeading";
 import { Markdown } from "@/components/core/Markdown/Markdown";
 import { Panel } from "@/components/core/Panel/Panel";
 import type { ActivityLog, DecisionPoint } from "@/lib/docs/activity";
+import type { OverlayFreshnessState } from "@/lib/overlay-freshness/overlay-freshness";
 import type { SnapshotInfo } from "@/lib/snapshot/snapshot";
 import type { DeployTarget } from "@/lib/status/status";
 import { SnapshotPanel } from "../snapshot-panel/snapshot-panel";
+import { VersionFreshness } from "../version-freshness/version-freshness";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -62,6 +64,12 @@ export interface TabSummaryProps {
   deployTarget?: DeployTarget;
   /** Live URL of the deployment (DR-085). When present, a clickable "Versión desplegada" row shows. */
   deployUrl?: string;
+  /**
+   * FRD-20 overlay-freshness verdict (getOverlayFreshness). Renders a badge at the top of
+   * the tab: "behind" → upgrade prompt, "up-to-date" → quiet confirmation, "unknown" → nothing.
+   * Absent → no badge.
+   */
+  overlayFreshness?: OverlayFreshnessState;
 }
 
 // ---------------------------------------------------------------------------
@@ -573,9 +581,14 @@ export function TabSummary({
   snapshot = null,
   deployTarget,
   deployUrl,
+  overlayFreshness,
 }: TabSummaryProps): React.JSX.Element {
   return (
     <main data-testid="tab-summary" aria-label="Resumen del proyecto" style={ROOT_STYLE}>
+      {/* FRD-20 — overlay-freshness badge: "al día con la fábrica" or the /pandacorp:upgrade
+          prompt when this project's overlay is behind. Omitted entirely on the unknown verdict. */}
+      {overlayFreshness !== undefined && <VersionFreshness state={overlayFreshness} />}
+
       {/* AC-04-003.1 — summary + key points (prototype: projResumen() doc .panel).
           The summary is the idea-card markdown body (the SAME content the board card-detail
           shows in Documentos → Resumen), rendered through the shared <Markdown> renderer so

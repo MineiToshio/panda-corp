@@ -24,6 +24,7 @@ import { resolveProjectPath } from "@/lib/config/config";
 import { readActivityLog, readDecisions } from "@/lib/docs/activity";
 import { listProjectDocs, readDoc } from "@/lib/docs/tree";
 import { readIdeas } from "@/lib/ideas/ideas";
+import { getOverlayFreshness } from "@/lib/overlay-freshness/overlay-freshness";
 import type { ProjectListItem } from "@/lib/portfolio/portfolio";
 import { buildSnapshot } from "@/lib/snapshot/snapshot";
 import { type Phase, readStatus } from "@/lib/status/status";
@@ -198,6 +199,8 @@ export function ProjectWorkspace({
       // Summary = the idea-card markdown body (the SAME content the board card-detail shows),
       // not the bare project name; falls back to the title when there is no card/body.
       const summary = resolveProjectSummary(projectPath, status.project ?? slug);
+      // FRD-20 — is this project's overlay at the factory's current OVERLAY_VERSION, or behind?
+      const overlayFreshness = getOverlayFreshness(status.overlayVersion);
       body = (
         <TabSummary
           summary={summary}
@@ -209,6 +212,7 @@ export function ProjectWorkspace({
           snapshot={snapshot}
           deployTarget={deployTarget}
           deployUrl={status.deployUrl}
+          overlayFreshness={overlayFreshness}
         />
       );
     }

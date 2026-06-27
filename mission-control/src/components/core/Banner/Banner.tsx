@@ -361,6 +361,15 @@ export function Banner({
                 : `Ver ${hiddenCount} elemento${hiddenCount === 1 ? "" : "s"} más`}
             </button>
           )}
+
+          {/* Optional command row — aligned with the body content (left edge = heading, not
+              under the icon), reusing the shared CmdRow primitive (DR-057). Lives inside the
+              body column so its width tracks the message, owner request 2026-06-26. */}
+          {commandRow !== undefined && (
+            <div data-testid="banner-cmd-row" style={{ marginTop: "10px" }}>
+              <CmdRow command={commandRow} />
+            </div>
+          )}
         </div>
 
         {/* Optional dismiss button (keyboard-operable, AC-13-006.3) */}
@@ -377,14 +386,6 @@ export function Banner({
           </button>
         )}
       </div>
-
-      {/* Optional command row — full banner width below the icon/body row (prototype),
-          reusing the shared CmdRow primitive (DR-057). */}
-      {commandRow !== undefined && (
-        <div data-testid="banner-cmd-row" style={{ marginTop: "10px" }}>
-          <CmdRow command={commandRow} />
-        </div>
-      )}
     </div>
   );
 }

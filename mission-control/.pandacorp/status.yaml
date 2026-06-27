@@ -28,4 +28,4 @@ last_green_sha: "1d1d981"
 safe_to_test: true  # full verify.sh green (re-anchor Phase A: FRD-19 app shell, 79/79 WOs, 2026-06-22)
 blocked: []
 supervisor_heartbeat: ""
-pending_changes: 6
+pending_changes: 8
