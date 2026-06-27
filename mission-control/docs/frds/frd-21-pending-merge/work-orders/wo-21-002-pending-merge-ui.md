@@ -4,7 +4,7 @@ type: work-order
 title: 'UI: global shell indicator + cross-project panel + Resumen block'
 frd: FRD-21
 status: ACTIVE
-implementation_status: IN_REVIEW
+implementation_status: IN_PROGRESS
 artifacts:
   - 'src/app/**/_components/PendingMerge*/**'
   - 'src/components/modules/PendingMerge*/**'
@@ -34,15 +34,16 @@ difficulty: medium
 - Smoke (Preview gate): the shell renders the indicator across routes; the Resumen tab renders the block;
   no console error / blank render.
 
-## Status Note
-**Built (IN_REVIEW) — the global indicator only.** `PendingMergeBadge` (server-rendered shell slot, not a
-client island — no interactivity in v1) is wired into `AppShell` via an optional `pendingMergeBadge` slot
-(topbar, OUTSIDE the nav row so the DR-075 shell gate is untouched) and fed by `layout.tsx`. Calm/hidden
-when empty, `⎇ pendientes` + CountBadge default, `danger`-toned + `data-state="stale"` when stale, explicit
-error chip when git is unreadable (status by text/attr, not color alone). Tests:
-`PendingMergeBadge/_tests` (empty→null, ok→count, stale→alert, error→chip). Verified: tsc + biome + knip
-clean, unit tests green.
-**DEFERRED to a follow-up (NOT built):** the cross-project **popover panel** (the badge currently links to
-the work-orders view + carries the full list in its accessible name/title) and the **per-project
-`PendingMergeBlock` in `tab-summary`**. These are a follow-up `/iterate` — the global indicator was the
-owner's priority. Awaiting the FRD-21 review gate for VERIFIED.
+## Status Note — IN_PROGRESS (honest: one piece still blocked)
+**DONE:** (1) the **global indicator** `PendingMergeBadge` wired into `AppShell` via an optional
+`pendingMergeBadge` slot (topbar, OUTSIDE the nav row → DR-075 shell gate untouched), fed by `layout.tsx`:
+calm/hidden when empty, `⎇ pendientes` + CountBadge default, `danger`-toned `data-state="stale"` when stale,
+explicit error chip when git is unreadable. (2) the **panel** — the chip is a button that opens the shared
+**Modal** primitive (DR-057, focus-trap + Esc + backdrop) listing each item (branch · status-as-text · age ·
+the land command). Status by text, not color alone (AC-21-002). Tests: empty→null, ok→count, stale→alert,
+error→chip, click→Modal-with-rows. Verified: tsc + biome (`--error-on-warnings`) + knip clean, 5 unit tests green.
+**STILL PENDING (blocked, NOT done):** the **per-project `PendingMergeBlock` in `tab-summary`** — it edits
+`tab-summary.tsx`, which is under active uncommitted change in another session, so it is NOT touched
+(DR-093 no-sweep). It lands when that file is free. This is why the WO stays **IN_PROGRESS**, not IN_REVIEW —
+the global surface (indicator + panel, the owner's priority) is complete; this secondary per-project view is
+the only remainder. If the owner descopes it (the global indicator+panel covers the need), the WO closes.
