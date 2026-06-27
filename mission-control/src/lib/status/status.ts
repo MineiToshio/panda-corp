@@ -54,7 +54,7 @@ export type Phase = "product" | "design" | "architecture" | "implementation" | "
 export type DeployTarget = "internal" | "external";
 
 /** Web target platform (DR-074) — drives the responsive gate and the "qué es" tags. */
-export type TargetPlatform = "desktop" | "mobile" | "responsive";
+type TargetPlatform = "desktop" | "mobile" | "responsive";
 
 export type ProjectStatus = {
   project: string;

@@ -77,7 +77,7 @@ export const CATEGORY_LABELS: Record<string, readonly [string, string]> = {
 };
 
 /** Web target platform → Spanish label + icon, for the "qué es" tags (DR-074). */
-export const PLATFORM_LABELS: Record<string, readonly [string, string]> = {
+const PLATFORM_LABELS: Record<string, readonly [string, string]> = {
   desktop: ["Desktop", "ti-device-desktop"],
   mobile: ["Mobile", "ti-device-mobile"],
   responsive: ["Responsive", "ti-devices"],
