@@ -479,6 +479,25 @@ describe("ficha-next-step — per-phase runnable commands", () => {
     expect(within(cmds).getAllByTestId("ficha-command").length).toBeGreaterThan(1);
   });
 
+  it("the spec command exposes inline mode pills that fold into the copy (DR-095, AC-02-010.9)", () => {
+    // research ficha → the spec row offers --ask/--auto/--infer as inline pills.
+    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} />);
+    const cmds = screen.getByTestId("ficha-next-step");
+    expect(within(cmds).getByRole("button", { name: "ask" })).toBeInTheDocument();
+    expect(within(cmds).getByRole("button", { name: "auto" })).toBeInTheDocument();
+    expect(within(cmds).getByRole("button", { name: "infer" })).toBeInTheDocument();
+    // Picking a mode folds its flag into the slug-substituted command (what gets copied).
+    fireEvent.click(within(cmds).getByRole("button", { name: "ask" }));
+    expect(cmds).toHaveTextContent("/pandacorp:spec my-idea --ask");
+  });
+
+  it("plain commands (no modes) render no mode pills", () => {
+    // design ficha → blueprint/design are plain commands, no clarification modes.
+    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={2} />);
+    const cmds = screen.getByTestId("ficha-next-step");
+    expect(within(cmds).queryByRole("button", { name: "ask" })).not.toBeInTheDocument();
+  });
+
   it("clicking a different phase swaps the command set (release → design)", () => {
     // activePhase=5 (release) is open by default → first command is /pandacorp:iterate.
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={5} />);

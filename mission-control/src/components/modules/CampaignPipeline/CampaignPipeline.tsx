@@ -747,8 +747,15 @@ function FichaContent({
           {phase.commands.map((cmd) => (
             <div key={cmd.command} data-testid="ficha-command" style={FICHA_COMMAND_STYLE}>
               <p style={FICHA_SECTION_VALUE_STYLE}>{cmd.label}</p>
-              <CmdRow command={cmd.command.replace(/<idea>/g, slug)} />
-              {cmd.hint != null && <p style={FICHA_CAPTION_STYLE}>{cmd.hint}</p>}
+              <CmdRow
+                command={cmd.command.replace(/<idea>/g, slug)}
+                modes={cmd.modes}
+                modeHint={cmd.hint}
+              />
+              {/* With modes, CmdRow owns the hint (it tracks the selected mode); render it here only otherwise. */}
+              {cmd.hint != null && cmd.modes == null && (
+                <p style={FICHA_CAPTION_STYLE}>{cmd.hint}</p>
+              )}
             </div>
           ))}
         </div>

@@ -53,19 +53,9 @@ export interface CommandRow {
 // Construction-phase command rows (implementation)
 // ---------------------------------------------------------------------------
 
+// The /pandacorp:implement command (full + targeted variants) lives in ModeSelector
+// (CMP-11-mode-selector), not here. CommandsBox shows only the non-build commands.
 const BUILDING_ROWS: readonly CommandRow[] = [
-  {
-    command: "/pandacorp:implement",
-    when: "Construye o reanuda todos los FRDs pendientes en orden de dependencias",
-  },
-  {
-    command: "/pandacorp:implement <frd>",
-    when: "Construye solo el FRD indicado (sus deps deben estar VERIFIED; ej: frd-05-settings)",
-  },
-  {
-    command: "/pandacorp:implement change:<slug>",
-    when: "Procesa una change de la cola y construye solo los FRDs afectados (ej: change:mc-fix-pagination)",
-  },
   {
     command: "/pandacorp:release",
     when: "Cuando todos los work orders estén listos para lanzar",
@@ -80,22 +70,11 @@ const BUILDING_ROWS: readonly CommandRow[] = [
 // Launched ("release") command rows (DR-085: the old "operation" phase)
 // ---------------------------------------------------------------------------
 
+// implement variants live in ModeSelector (same as building phase).
 const RELEASE_ROWS: readonly CommandRow[] = [
   {
     command: "/pandacorp:iterate",
     when: "Itera sobre el proyecto: agrega, ajusta o corrige",
-  },
-  {
-    command: "/pandacorp:implement",
-    when: "Construye o reanuda todos los FRDs pendientes generados por un iterate",
-  },
-  {
-    command: "/pandacorp:implement <frd>",
-    when: "Construye solo el FRD indicado (sus deps deben estar VERIFIED; ej: frd-05-settings)",
-  },
-  {
-    command: "/pandacorp:implement change:<slug>",
-    when: "Procesa una change de la cola y construye solo los FRDs afectados (ej: change:mc-fix-pagination)",
   },
   {
     command: "/pandacorp:new-version",

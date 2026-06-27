@@ -119,18 +119,11 @@ describe("TabCommands — command rows (AC-04-005.1)", () => {
 // TDD case 3 — Construction phase (implementation)
 // ---------------------------------------------------------------------------
 
+// implement lives in ModeSelector; CommandsBox for implementation shows: release + iterate
 describe("TabCommands — construction phase (implementation)", () => {
   const BUILDING_PHASES: Phase[] = ["implementation"];
 
   for (const phase of BUILDING_PHASES) {
-    it(`phase='${phase}': includes /pandacorp:implement row`, () => {
-      renderCommands(phase);
-      const commands = screen
-        .getAllByTestId("command-row-command")
-        .map((el) => el.textContent ?? "");
-      expect(commands.some((c) => c.includes("/pandacorp:implement"))).toBe(true);
-    });
-
     it(`phase='${phase}': includes /pandacorp:release row`, () => {
       renderCommands(phase);
       const commands = screen
@@ -147,9 +140,17 @@ describe("TabCommands — construction phase (implementation)", () => {
       expect(commands.some((c) => c.includes("/pandacorp:iterate"))).toBe(true);
     });
 
-    it(`phase='${phase}': renders exactly 5 command rows`, () => {
+    it(`phase='${phase}': does NOT include /pandacorp:implement row (lives in ModeSelector)`, () => {
       renderCommands(phase);
-      expect(screen.getAllByTestId("command-row")).toHaveLength(5);
+      const commands = screen
+        .getAllByTestId("command-row-command")
+        .map((el) => el.textContent ?? "");
+      expect(commands.some((c) => c.startsWith("/pandacorp:implement"))).toBe(false);
+    });
+
+    it(`phase='${phase}': renders exactly 2 command rows`, () => {
+      renderCommands(phase);
+      expect(screen.getAllByTestId("command-row")).toHaveLength(2);
     });
   }
 });
@@ -158,6 +159,7 @@ describe("TabCommands — construction phase (implementation)", () => {
 // TDD case 4 — Release (launched) phase (DR-085: the old "operation" set)
 // ---------------------------------------------------------------------------
 
+// implement variants live in ModeSelector; CommandsBox for release shows: iterate + new-version
 describe("TabCommands — release (launched) phase", () => {
   it("phase='release': includes /pandacorp:iterate row", () => {
     renderCommands("release");
@@ -171,15 +173,15 @@ describe("TabCommands — release (launched) phase", () => {
     expect(commands.some((c) => c.includes("/pandacorp:new-version"))).toBe(true);
   });
 
-  it("phase='release': renders exactly 5 command rows", () => {
+  it("phase='release': renders exactly 2 command rows", () => {
     renderCommands("release");
-    expect(screen.getAllByTestId("command-row")).toHaveLength(5);
+    expect(screen.getAllByTestId("command-row")).toHaveLength(2);
   });
 
-  it("phase='release': includes /pandacorp:implement (to build WOs created by iterate)", () => {
+  it("phase='release': does NOT include /pandacorp:implement row (lives in ModeSelector)", () => {
     renderCommands("release");
     const commands = screen.getAllByTestId("command-row-command").map((el) => el.textContent ?? "");
-    expect(commands.some((c) => c.includes("/pandacorp:implement"))).toBe(true);
+    expect(commands.some((c) => c.startsWith("/pandacorp:implement"))).toBe(false);
   });
 });
 

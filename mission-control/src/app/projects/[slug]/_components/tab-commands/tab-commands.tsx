@@ -151,7 +151,7 @@ export function TabCommands({ phase, slug }: TabCommandsProps): React.JSX.Elemen
     <main data-testid="tab-commands-body" aria-label="Comandos del proyecto" style={ROOT_STYLE}>
       {/* AC-04-005.2 — FRD-11 mode selector (CMP-11-mode-selector, WO-11-002)
           Mirrors prototype buildModePanel() */}
-      <ModeSelector slug={slug} />
+      <ModeSelector slug={slug} phase={phase} />
 
       {/* AC-04-005.1 — stage-relevant command rows (mirrors prototype commandsBox()) */}
       <CommandsBox phase={phase} />

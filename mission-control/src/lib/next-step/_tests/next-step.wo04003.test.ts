@@ -43,9 +43,8 @@ import { workspaceCommands } from "../next-step";
 type CommandRow = { command: string; when: string };
 
 // All canonical commands that may appear in WorkspaceCommands output.
-const CMD_IMPLEMENT = "/pandacorp:implement";
-const CMD_IMPLEMENT_FRD = "/pandacorp:implement <frd>";
-const CMD_IMPLEMENT_CHANGE = "/pandacorp:implement change:<slug>";
+// Note: /pandacorp:implement and its targeted variants live in ModeSelector
+// (CMP-11-mode-selector), NOT in workspaceCommands() output.
 const CMD_RELEASE = "/pandacorp:release";
 const CMD_ITERATE = "/pandacorp:iterate";
 const CMD_NEW_VERSION = "/pandacorp:new-version";
@@ -68,11 +67,10 @@ function assertCommandRow(row: CommandRow): void {
 // ---------------------------------------------------------------------------
 // AC-04-005.1 — implementation (construction) phase
 //
-// WHEN phase is "implementation" THEN workspaceCommands returns the three
-// construction-phase commands in the required order:
-//   1. /pandacorp:implement  — "continue/resume the build"
-//   2. /pandacorp:release    — "when all work orders are done"
-//   3. /pandacorp:iterate    — "add an FRD, tweak or fix"
+// implement and its variants live in ModeSelector — absent from CommandsBox.
+// WHEN phase is "implementation" THEN workspaceCommands returns:
+//   1. /pandacorp:release — "when all work orders are done"
+//   2. /pandacorp:iterate — "add an FRD, tweak or fix"
 // ---------------------------------------------------------------------------
 
 describe("frd-04: workspaceCommands — AC-04-005.1 implementation phase", () => {
@@ -80,34 +78,25 @@ describe("frd-04: workspaceCommands — AC-04-005.1 implementation phase", () =>
     expect(() => workspaceCommands("implementation")).not.toThrow();
   });
 
-  it("frd-04: WHEN phase is implementation THEN returns exactly five rows", () => {
+  it("frd-04: WHEN phase is implementation THEN returns exactly two rows", () => {
     const rows: CommandRow[] = workspaceCommands("implementation");
-    expect(rows).toHaveLength(5);
+    expect(rows).toHaveLength(2);
   });
 
-  it("frd-04: WHEN phase is implementation THEN first row command is /pandacorp:implement (full build)", () => {
+  it("frd-04: WHEN phase is implementation THEN does NOT include /pandacorp:implement (lives in ModeSelector)", () => {
     const rows: CommandRow[] = workspaceCommands("implementation");
-    expect(rows[0]?.command).toBe(CMD_IMPLEMENT);
+    const commands = rows.map((r) => r.command);
+    expect(commands.some((c) => c.startsWith("/pandacorp:implement"))).toBe(false);
   });
 
-  it("frd-04: WHEN phase is implementation THEN second row command is /pandacorp:implement <frd> (partial by FRD)", () => {
+  it("frd-04: WHEN phase is implementation THEN first row command is /pandacorp:release", () => {
     const rows: CommandRow[] = workspaceCommands("implementation");
-    expect(rows[1]?.command).toBe(CMD_IMPLEMENT_FRD);
+    expect(rows[0]?.command).toBe(CMD_RELEASE);
   });
 
-  it("frd-04: WHEN phase is implementation THEN third row command is /pandacorp:implement change:<slug> (partial by change)", () => {
+  it("frd-04: WHEN phase is implementation THEN second row command is /pandacorp:iterate", () => {
     const rows: CommandRow[] = workspaceCommands("implementation");
-    expect(rows[2]?.command).toBe(CMD_IMPLEMENT_CHANGE);
-  });
-
-  it("frd-04: WHEN phase is implementation THEN fourth row command is /pandacorp:release", () => {
-    const rows: CommandRow[] = workspaceCommands("implementation");
-    expect(rows[3]?.command).toBe(CMD_RELEASE);
-  });
-
-  it("frd-04: WHEN phase is implementation THEN fifth row command is /pandacorp:iterate", () => {
-    const rows: CommandRow[] = workspaceCommands("implementation");
-    expect(rows[4]?.command).toBe(CMD_ITERATE);
+    expect(rows[1]?.command).toBe(CMD_ITERATE);
   });
 
   it("frd-04: WHEN phase is implementation THEN each row has non-empty command and when strings", () => {
@@ -122,23 +111,15 @@ describe("frd-04: workspaceCommands — AC-04-005.1 implementation phase", () =>
     expect(Array.isArray(rows)).toBe(true);
   });
 
-  it("frd-04: WHEN phase is implementation THEN 'when' for implement row describes resume/continue (not a placeholder)", () => {
-    const rows: CommandRow[] = workspaceCommands("implementation");
-    // The 'when' field must describe the resume/continue scenario, not be generic.
-    // We do NOT prescribe exact wording but require meaningful length (>5 chars).
-    const implementWhen = rows[0]?.when ?? "";
-    expect(implementWhen.length).toBeGreaterThan(5);
-  });
-
   it("frd-04: WHEN phase is implementation THEN 'when' for release row describes all-WOs-done scenario", () => {
     const rows: CommandRow[] = workspaceCommands("implementation");
-    const releaseWhen = rows[1]?.when ?? "";
+    const releaseWhen = rows[0]?.when ?? "";
     expect(releaseWhen.length).toBeGreaterThan(5);
   });
 
   it("frd-04: WHEN phase is implementation THEN 'when' for iterate row describes add/tweak/fix scenario", () => {
     const rows: CommandRow[] = workspaceCommands("implementation");
-    const iterateWhen = rows[2]?.when ?? "";
+    const iterateWhen = rows[1]?.when ?? "";
     expect(iterateWhen.length).toBeGreaterThan(5);
   });
 });
@@ -158,9 +139,15 @@ describe("frd-04: workspaceCommands — AC-04-005.1 release (launched) phase", (
     expect(() => workspaceCommands("release")).not.toThrow();
   });
 
-  it("frd-04: WHEN phase is release THEN returns exactly five rows", () => {
+  it("frd-04: WHEN phase is release THEN returns exactly two rows", () => {
     const rows: CommandRow[] = workspaceCommands("release");
-    expect(rows).toHaveLength(5);
+    expect(rows).toHaveLength(2);
+  });
+
+  it("frd-04: WHEN phase is release THEN does NOT include /pandacorp:implement (lives in ModeSelector)", () => {
+    const rows: CommandRow[] = workspaceCommands("release");
+    const commands = rows.map((r) => r.command);
+    expect(commands.some((c) => c.startsWith("/pandacorp:implement"))).toBe(false);
   });
 
   it("frd-04: WHEN phase is release THEN first row command is /pandacorp:iterate", () => {
@@ -168,24 +155,9 @@ describe("frd-04: workspaceCommands — AC-04-005.1 release (launched) phase", (
     expect(rows[0]?.command).toBe(CMD_ITERATE);
   });
 
-  it("frd-04: WHEN phase is release THEN second row is /pandacorp:implement (full build of pending FRDs)", () => {
+  it("frd-04: WHEN phase is release THEN second row command is /pandacorp:new-version", () => {
     const rows: CommandRow[] = workspaceCommands("release");
-    expect(rows[1]?.command).toBe(CMD_IMPLEMENT);
-  });
-
-  it("frd-04: WHEN phase is release THEN third row is /pandacorp:implement <frd> (partial by FRD)", () => {
-    const rows: CommandRow[] = workspaceCommands("release");
-    expect(rows[2]?.command).toBe(CMD_IMPLEMENT_FRD);
-  });
-
-  it("frd-04: WHEN phase is release THEN fourth row is /pandacorp:implement change:<slug> (partial by change)", () => {
-    const rows: CommandRow[] = workspaceCommands("release");
-    expect(rows[3]?.command).toBe(CMD_IMPLEMENT_CHANGE);
-  });
-
-  it("frd-04: WHEN phase is release THEN fifth row command is /pandacorp:new-version", () => {
-    const rows: CommandRow[] = workspaceCommands("release");
-    expect(rows[4]?.command).toBe(CMD_NEW_VERSION);
+    expect(rows[1]?.command).toBe(CMD_NEW_VERSION);
   });
 
   it("frd-04: WHEN phase is release THEN each row has non-empty command and when strings", () => {
@@ -250,7 +222,7 @@ describe("frd-04: workspaceCommands — AC-04-005.1 early-phase delegation to FR
       if (phase === "architecture") return;
       const rows: CommandRow[] = workspaceCommands(phase);
       const cmd = rows[0]?.command;
-      expect(cmd).not.toBe(CMD_IMPLEMENT);
+      expect(cmd).not.toBe("/pandacorp:implement");
       expect(cmd).not.toBe(CMD_RELEASE);
       expect(cmd).not.toBe(CMD_ITERATE);
       expect(cmd).not.toBe(CMD_NEW_VERSION);
@@ -275,7 +247,7 @@ describe("frd-04: workspaceCommands — AC-04-005.1 early-phase delegation to FR
 
   it("frd-04 delegation[architecture]: phase architecture → single command is /pandacorp:implement", () => {
     const rows: CommandRow[] = workspaceCommands("architecture");
-    expect(rows[0]?.command).toBe(CMD_IMPLEMENT);
+    expect(rows[0]?.command).toBe("/pandacorp:implement");
   });
 });
 
@@ -323,13 +295,7 @@ describe("frd-04: workspaceCommands — pure function invariants", () => {
     workspaceCommands("product");
     workspaceCommands("design");
     const impl = workspaceCommands("implementation");
-    expect(impl.map((r: CommandRow) => r.command)).toEqual([
-      CMD_IMPLEMENT,
-      CMD_IMPLEMENT_FRD,
-      CMD_IMPLEMENT_CHANGE,
-      CMD_RELEASE,
-      CMD_ITERATE,
-    ]);
+    expect(impl.map((r: CommandRow) => r.command)).toEqual([CMD_RELEASE, CMD_ITERATE]);
   });
 
   it("frd-04: WHEN called THEN every returned row's when field is distinct from its command field", () => {
@@ -346,43 +312,26 @@ describe("frd-04: workspaceCommands — pure function invariants", () => {
 // ---------------------------------------------------------------------------
 // Mapping completeness (mutation hardening)
 //
-// One assertion per mapping cell. Each test kills a distinct mutant:
-// changing one command string or one phase branch fails exactly one test.
+// One assertion per mapping cell. Each test kills a distinct mutant.
+// implement and its variants live in ModeSelector — absent here.
 // ---------------------------------------------------------------------------
 
+// implement variants live in ModeSelector — absent from workspaceCommands output.
 describe("frd-04: workspaceCommands — complete mapping table (mutation hardening)", () => {
-  // Implementation rows
-  it("frd-04 mapping[impl-0]: implementation row[0] command is /pandacorp:implement (full build)", () => {
-    expect(workspaceCommands("implementation")[0]?.command).toBe(CMD_IMPLEMENT);
+  // Implementation rows: [release, iterate]
+  it("frd-04 mapping[impl-0]: implementation row[0] command is /pandacorp:release", () => {
+    expect(workspaceCommands("implementation")[0]?.command).toBe(CMD_RELEASE);
   });
-  it("frd-04 mapping[impl-1]: implementation row[1] command is /pandacorp:implement <frd> (partial by FRD)", () => {
-    expect(workspaceCommands("implementation")[1]?.command).toBe(CMD_IMPLEMENT_FRD);
-  });
-  it("frd-04 mapping[impl-2]: implementation row[2] command is /pandacorp:implement change:<slug> (partial by change)", () => {
-    expect(workspaceCommands("implementation")[2]?.command).toBe(CMD_IMPLEMENT_CHANGE);
-  });
-  it("frd-04 mapping[impl-3]: implementation row[3] command is /pandacorp:release", () => {
-    expect(workspaceCommands("implementation")[3]?.command).toBe(CMD_RELEASE);
-  });
-  it("frd-04 mapping[impl-4]: implementation row[4] command is /pandacorp:iterate", () => {
-    expect(workspaceCommands("implementation")[4]?.command).toBe(CMD_ITERATE);
+  it("frd-04 mapping[impl-1]: implementation row[1] command is /pandacorp:iterate", () => {
+    expect(workspaceCommands("implementation")[1]?.command).toBe(CMD_ITERATE);
   });
 
-  // Release (launched) rows
+  // Release (launched) rows: [iterate, new-version]
   it("frd-04 mapping[rel-0]: release row[0] command is /pandacorp:iterate", () => {
     expect(workspaceCommands("release")[0]?.command).toBe(CMD_ITERATE);
   });
-  it("frd-04 mapping[rel-1]: release row[1] command is /pandacorp:implement (full build after iterate)", () => {
-    expect(workspaceCommands("release")[1]?.command).toBe(CMD_IMPLEMENT);
-  });
-  it("frd-04 mapping[rel-2]: release row[2] command is /pandacorp:implement <frd>", () => {
-    expect(workspaceCommands("release")[2]?.command).toBe(CMD_IMPLEMENT_FRD);
-  });
-  it("frd-04 mapping[rel-3]: release row[3] command is /pandacorp:implement change:<slug>", () => {
-    expect(workspaceCommands("release")[3]?.command).toBe(CMD_IMPLEMENT_CHANGE);
-  });
-  it("frd-04 mapping[rel-4]: release row[4] command is /pandacorp:new-version", () => {
-    expect(workspaceCommands("release")[4]?.command).toBe(CMD_NEW_VERSION);
+  it("frd-04 mapping[rel-1]: release row[1] command is /pandacorp:new-version", () => {
+    expect(workspaceCommands("release")[1]?.command).toBe(CMD_NEW_VERSION);
   });
 
   // Early-phase delegation (locks the FRD-02 delegation chain)
@@ -393,32 +342,23 @@ describe("frd-04: workspaceCommands — complete mapping table (mutation hardeni
     expect(workspaceCommands("design")[0]?.command).toBe("/pandacorp:blueprint");
   });
   it("frd-04 mapping[architecture]: architecture row[0] command is /pandacorp:implement", () => {
-    expect(workspaceCommands("architecture")[0]?.command).toBe(CMD_IMPLEMENT);
+    expect(workspaceCommands("architecture")[0]?.command).toBe("/pandacorp:implement");
   });
 
   // Count guards (kills array-truncation mutants)
-  it("frd-04 mapping counts: implementation has 5 rows, release has 5, early phases have 1", () => {
-    expect(workspaceCommands("implementation")).toHaveLength(5);
-    expect(workspaceCommands("release")).toHaveLength(5);
+  it("frd-04 mapping counts: implementation has 2 rows, release has 2, early phases have 1", () => {
+    expect(workspaceCommands("implementation")).toHaveLength(2);
+    expect(workspaceCommands("release")).toHaveLength(2);
     expect(workspaceCommands("product")).toHaveLength(1);
     expect(workspaceCommands("design")).toHaveLength(1);
     expect(workspaceCommands("architecture")).toHaveLength(1);
   });
 
-  // Row order: the three implement variants come first, then release, then iterate.
-  it("frd-04 mapping order: in implementation, /pandacorp:iterate is last (row index 4)", () => {
+  // Row order
+  it("frd-04 mapping order: in implementation, /pandacorp:iterate is last (row index 1)", () => {
     const rows = workspaceCommands("implementation");
     const iterateIndex = rows.findIndex((r: CommandRow) => r.command === CMD_ITERATE);
-    expect(iterateIndex).toBe(4);
-  });
-
-  it("frd-04 mapping order: in implementation, all three implement variants appear before /pandacorp:release", () => {
-    const rows = workspaceCommands("implementation");
-    const releaseIndex = rows.findIndex((r: CommandRow) => r.command === CMD_RELEASE);
-    const frdIndex = rows.findIndex((r: CommandRow) => r.command === CMD_IMPLEMENT_FRD);
-    const changeIndex = rows.findIndex((r: CommandRow) => r.command === CMD_IMPLEMENT_CHANGE);
-    expect(frdIndex).toBeLessThan(releaseIndex);
-    expect(changeIndex).toBeLessThan(releaseIndex);
+    expect(iterateIndex).toBe(1);
   });
 
   it("frd-04 mapping order: in release, /pandacorp:iterate is first (row index 0)", () => {
@@ -484,7 +424,7 @@ describe("frd-04: workspaceCommands — regression B1' and I3 (undefined / unkno
     // would be misleading. It should fall back to the safe pre-pipeline spec row.
     const rows = workspaceCommands("build" as never);
     const commands = rows.map((r: CommandRow) => r.command);
-    expect(commands).not.toContain(CMD_IMPLEMENT);
+    expect(commands).not.toContain("/pandacorp:implement");
     expect(commands).not.toContain(CMD_RELEASE);
   });
 

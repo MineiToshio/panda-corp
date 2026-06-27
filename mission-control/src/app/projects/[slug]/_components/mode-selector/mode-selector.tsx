@@ -39,12 +39,18 @@
  * (AC-04-005.2). The root <section> carries that testid.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 import { Panel } from "@/components/core/Panel/Panel";
 import { getRememberedMode, rememberMode } from "@/lib/build-mode-store";
-import { BUILD_MODES, type BuildMode, type BuildModeInfo } from "@/lib/constants";
+import {
+  BUILD_MODES,
+  type BuildMode,
+  type BuildModeInfo,
+  DEFAULT_BUILD_MODE,
+} from "@/lib/constants";
+import type { Phase } from "@/lib/status/status";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -55,6 +61,11 @@ export interface ModeSelectorProps {
    * The project slug — used to scope per-project mode memory (IF-11-mode-store).
    */
   slug: string;
+  /**
+   * The project phase — when implementation or release, the panel also shows
+   * the targeted build variants (implement <frd> and implement change:<slug>).
+   */
+  phase?: Phase;
 }
 
 // ---------------------------------------------------------------------------
@@ -126,9 +137,28 @@ const ACTIVE_DESC_STYLE: React.CSSProperties = {
   margin: "0 0 6px",
 };
 
+const VARIANT_DESC_STYLE: React.CSSProperties = {
+  fontSize: "0.8125rem",
+  color: "var(--color-text2)",
+  opacity: 0.8,
+  lineHeight: 1.5,
+  margin: "2px 0 0",
+  paddingLeft: "2px",
+};
+
+const VARIANT_ROW_STYLE: React.CSSProperties = {
+  marginTop: "6px",
+  display: "flex",
+  flexDirection: "column",
+  gap: "2px",
+};
+
 // ---------------------------------------------------------------------------
 // i18n copy (Spanish, DR-009)
 // ---------------------------------------------------------------------------
+
+/** Phases where targeted build variants are relevant. */
+const BUILD_PHASES: ReadonlySet<string> = new Set(["implementation", "release"]);
 
 const COPY = {
   heading: "Modo de construcción",
@@ -136,6 +166,10 @@ const COPY = {
     "Con cuánta potencia construir ESTE proyecto. Por defecto Equilibrado (Max 5x). Cambia el modo y copia el comando que toca.",
   radioGroupLabel: "Selector de modo de construcción",
   whenHint: "pégalo en la carpeta del proyecto",
+  variantFrdWhen:
+    "Construye solo el FRD indicado (sus deps deben estar VERIFIED; ej: frd-05-settings)",
+  variantChangeWhen:
+    "Procesa una change de la cola y construye solo los FRDs afectados (ej: change:mc-fix-pagination)",
   // Override labels to match prototype exactly
   modeLabels: {
     pro: "Pro / económico",
@@ -237,9 +271,16 @@ function ModeChip({ mode, isActive, groupName, onSelect }: ModeChipProps): React
  *   Panel  → the .panel wrapper (embossed RPG skin)
  *   CmdRow → the .cmd chip (mono, bd2 hairline, with CopyButton)
  */
-export function ModeSelector({ slug }: ModeSelectorProps): React.JSX.Element {
-  // Initialize from localStorage — restores remembered mode (AC-11-003.2)
-  const [activeMode, setActiveMode] = useState<BuildMode>(() => getRememberedMode(slug));
+export function ModeSelector({ slug, phase }: ModeSelectorProps): React.JSX.Element {
+  const showVariants = phase !== undefined && BUILD_PHASES.has(phase);
+  // Start with the default so SSR and first client render match (avoids hydration mismatch).
+  // After mount, restore from localStorage (AC-11-003.2).
+  const [activeMode, setActiveMode] = useState<BuildMode>(DEFAULT_BUILD_MODE);
+
+  useEffect(() => {
+    const remembered = getRememberedMode(slug);
+    if (remembered !== DEFAULT_BUILD_MODE) setActiveMode(remembered);
+  }, [slug]);
 
   // Stable radio group name scoped to slug so multiple selectors on same page don't collide
   const groupName = `build-mode-${slug}`;
@@ -299,6 +340,21 @@ export function ModeSelector({ slug }: ModeSelectorProps): React.JSX.Element {
         <div data-testid="mode-command-row">
           <CmdRow command={resolvedInfo.command} />
         </div>
+
+        {/* Targeted build variants — visible in implementation and release phases only.
+            Same implement command, different scope: by FRD or by change queue entry. */}
+        {showVariants && (
+          <>
+            <div data-testid="mode-variant-frd-row" style={VARIANT_ROW_STYLE}>
+              <CmdRow command="/pandacorp:implement <frd>" />
+              <p style={VARIANT_DESC_STYLE}>{COPY.variantFrdWhen}</p>
+            </div>
+            <div data-testid="mode-variant-change-row" style={VARIANT_ROW_STYLE}>
+              <CmdRow command="/pandacorp:implement change:<slug>" />
+              <p style={VARIANT_DESC_STYLE}>{COPY.variantChangeWhen}</p>
+            </div>
+          </>
+        )}
       </Panel>
     </section>
   );

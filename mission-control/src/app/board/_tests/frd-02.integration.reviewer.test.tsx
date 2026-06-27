@@ -244,8 +244,9 @@ describe("FRD-02 integration: CardDetail surfaces the real next-step command + c
     // The next-step command now lives in the campaign ficha (the Comandos tab was folded in).
     const nextStep = screen.getByTestId("ficha-next-step");
     expect(within(nextStep).getByText("/pandacorp:implement")).toBeTruthy();
-    // The copy affordance (WO-02-002) is wired in via CmdRow.
-    expect(within(nextStep).getByTestId("copy-button")).toBeTruthy();
+    // The copy affordance (WO-02-002) is wired in via CmdRow (≥1 copy button since
+    // each command row carries one; architecture has multiple commands).
+    expect(within(nextStep).getAllByTestId("copy-button").length).toBeGreaterThanOrEqual(1);
   });
 
   it("AC-02-008.1: a card with no docNodes shows the Resumen reader and zero project doc items", () => {
@@ -261,6 +262,7 @@ describe("FRD-02 integration: CardDetail surfaces the real next-step command + c
     expect(deriveColumn(c, null)).toBe("discovered");
     render(<CardDetail slug="n" title="N" status="discovered" body="x" />);
     const nextStep = screen.getByTestId("ficha-next-step");
-    expect(within(nextStep).getByText("/pandacorp:spec <idea>")).toBeTruthy();
+    // CampaignPipeline substitutes the slug into the command, so <idea> → "n".
+    expect(within(nextStep).getByText("/pandacorp:spec n")).toBeTruthy();
   });
 });

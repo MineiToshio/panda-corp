@@ -47,10 +47,48 @@ export interface PhaseDefinition {
   /**
    * The runnable commands at this phase — shown as "Qué puedes correr" in the ficha. The FIRST is the
    * advance / recommended step; the rest are this phase's other options. A `<idea>` token in a command
-   * is substituted with the project slug for copy-paste; an optional `hint` adds a one-line note.
+   * is substituted with the project slug for copy-paste; an optional `hint` adds a one-line note, and
+   * optional `modes` render an inline flag selector that the user folds into the copied command.
    */
-  commands: ReadonlyArray<{ label: string; command: string; hint?: string }>;
+  commands: ReadonlyArray<{
+    label: string;
+    command: string;
+    hint?: string;
+    modes?: ReadonlyArray<CommandMode>;
+  }>;
 }
+
+/** A selectable flag a command can carry (e.g. `/pandacorp:spec` → `--ask`). */
+export interface CommandMode {
+  /** Flag folded into the copied command when active, e.g. "--ask". */
+  flag: string;
+  /** Short pill label, e.g. "ask". */
+  label: string;
+  /** One-line note shown while this mode is selected. */
+  hint: string;
+}
+
+/**
+ * Clarification modes of `/pandacorp:spec` (DR-095). Shared by every phase that offers the spec
+ * command so the inline selector is identical wherever it appears.
+ */
+export const SPEC_MODES: ReadonlyArray<CommandMode> = [
+  {
+    flag: "--ask",
+    label: "ask",
+    hint: "Siempre te hace las preguntas clave antes de generar (default de new-idea).",
+  },
+  {
+    flag: "--auto",
+    label: "auto",
+    hint: "Infiere lo que pueda y solo pregunta lo crítico (default de discover).",
+  },
+  {
+    flag: "--infer",
+    label: "infer",
+    hint: "No pregunta nada: asume y marca cada supuesto como [ASSUMPTION].",
+  },
+];
 
 // ---------------------------------------------------------------------------
 // Static data — index 0–5 maps to these 6 phases in order.
@@ -69,7 +107,8 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
       {
         label: "Documenta el MVP (research + PRD + FRDs)",
         command: "/pandacorp:spec <idea>",
-        hint: "modos: --ask (siempre pregunta · default de new-idea) · --auto (pregunta solo lo clave · default de discover) · --infer (no pregunta)",
+        hint: "Elige un modo de preguntas, o déjalo así y el skill usa el default por origen.",
+        modes: SPEC_MODES,
       },
       { label: "Sigue explorando la idea en conversación", command: "/pandacorp:explore <idea>" },
     ],
@@ -90,7 +129,11 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
     writes: "PRD + FRDs (requisitos EARS con criterios de aceptación)",
     commands: [
       { label: "Diseña la interfaz y los tokens", command: "/pandacorp:design" },
-      { label: "Pule el PRD/FRDs (re-corre el spec)", command: "/pandacorp:spec <idea>" },
+      {
+        label: "Pule el PRD/FRDs (re-corre el spec)",
+        command: "/pandacorp:spec <idea>",
+        modes: SPEC_MODES,
+      },
     ],
     team: [
       {

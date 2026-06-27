@@ -95,12 +95,12 @@ describe("FRD-04 workspace page — Commands tab integration (AC-04-005.1/.2)", 
     expect(screen.getByTestId("tab-commands-body")).toBeTruthy();
     expect(screen.getByTestId("commands-list")).toBeTruthy();
 
-    // implementation phase → at least one stage command row (impl/release/iterate).
+    // implementation phase → at least one stage command row (release/iterate).
+    // implement lives in ModeSelector, not in CommandsBox command rows.
     const rows = screen.getAllByTestId("command-row");
     expect(rows.length).toBeGreaterThanOrEqual(1);
-    // The actual /pandacorp:implement command must be shown verbatim.
     const commands = screen.getAllByTestId("command-row-command").map((n) => n.textContent ?? "");
-    expect(commands.some((c) => c.includes("/pandacorp:implement"))).toBe(true);
+    expect(commands.some((c) => c.includes("/pandacorp:release"))).toBe(true);
   });
 
   it("AC-04-005.2 — Commands tab mounts the FRD-11 mode selector slot", async () => {

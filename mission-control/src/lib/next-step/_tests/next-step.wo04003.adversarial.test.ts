@@ -44,7 +44,7 @@ type Row = { command: string; when: string };
 // ---------------------------------------------------------------------------
 
 describe("frd-04 adversarial: each row's 'when' is unique within a phase", () => {
-  it("implementation: the three 'when' descriptions are all distinct", () => {
+  it("implementation: the two 'when' descriptions are distinct", () => {
     const whens = workspaceCommands("implementation").map((r: Row) => r.when);
     expect(new Set(whens).size).toBe(whens.length);
   });
@@ -139,8 +139,6 @@ describe("frd-04 adversarial: command→when pairing is pinned (mutation kill)",
   it("implementation: each command carries its OWN 'when', not another row's", () => {
     const rows = workspaceCommands("implementation");
     const byCmd = new Map(rows.map((r: Row) => [r.command, r.when]));
-    // implement's 'when' must speak to continuing the build, not releasing/iterating.
-    expect(byCmd.get("/pandacorp:implement")).toMatch(/construc|reanud/i);
     // release's 'when' must speak to launching when work orders are done.
     expect(byCmd.get("/pandacorp:release")).toMatch(/work order|lanzar/i);
     // iterate's 'when' must speak to adding/adjusting an FRD.
@@ -167,16 +165,13 @@ describe("frd-04 adversarial: command→when pairing is pinned (mutation kill)",
   });
 
   it("release phase yields DIFFERENT rows from implementation (launched ≠ construction, DR-085)", () => {
-    // DR-085: implementation is the construction set (implement/release/iterate);
-    // release is the launched set (iterate/new-version). They must NOT be equal.
+    // DR-085: implementation is [release, iterate]; release is [iterate, new-version].
+    // They must NOT be equal (implement lives in ModeSelector, not here).
     const impl = workspaceCommands("implementation");
     const rel = workspaceCommands("release");
     expect(rel).not.toEqual(impl);
     expect(rel.map((r: Row) => r.command)).toEqual([
       "/pandacorp:iterate",
-      "/pandacorp:implement",
-      "/pandacorp:implement <frd>",
-      "/pandacorp:implement change:<slug>",
       "/pandacorp:new-version",
     ]);
   });
@@ -192,7 +187,7 @@ describe("frd-04 adversarial: returned rows must not alias shared module state",
     firstRow.when = "tampered";
 
     const second = workspaceCommands("implementation");
-    expect(second[0]?.command).toBe("/pandacorp:implement");
+    expect(second[0]?.command).toBe("/pandacorp:release");
     expect(second[0]?.when).not.toBe("tampered");
   });
 

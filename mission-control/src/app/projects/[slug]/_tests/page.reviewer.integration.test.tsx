@@ -239,16 +239,13 @@ describe("FRD-04 reviewer — header + objectives numeric edges", () => {
 // ---------------------------------------------------------------------------
 
 describe("FRD-04 reviewer — Commands tab phase robustness", () => {
-  it("release phase shows iterate, implement variants and new-version (not the pure building set)", async () => {
+  it("release phase shows iterate + new-version (implement lives in ModeSelector, not CommandsBox)", async () => {
     statusState.phase = "release";
     render(await renderPage({ tab: "commands" }));
     const commands = screen.getAllByTestId("command-row-command").map((n) => n.textContent ?? "");
     expect(commands.some((c) => c.includes("/pandacorp:new-version"))).toBe(true);
     expect(commands.some((c) => c.includes("/pandacorp:iterate"))).toBe(true);
-    // implement variants appear in release so the owner can build WOs created by iterate
-    expect(commands.some((c) => c.includes("/pandacorp:implement"))).toBe(true);
-    // release command does NOT appear (project is already launched)
-    expect(commands.some((c) => c === "/pandacorp:release")).toBe(false);
+    expect(commands.some((c) => c.includes("/pandacorp:implement"))).toBe(false);
   });
 
   it("an UNKNOWN phase string survives to the Commands tab → safe fallback, never a building command", async () => {
