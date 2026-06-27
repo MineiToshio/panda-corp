@@ -48,6 +48,43 @@ describe("SpecDigest", () => {
     expect(screen.getByText("Site shell, i18n & theming")).toBeInTheDocument();
   });
 
+  it("renders the PRD lead with the scannable kinds (problem→bullets, bet→highlight, scope→checklist, out-of-scope→no strikethrough)", () => {
+    const body = `---
+proyecto: "X"
+fase: producto
+---
+> intro
+
+## 📋 PRD
+
+### El problema
+- **Sitio viejo** — diseño 2021.
+- **Blog caído** — HTTP 500.
+
+### Hipótesis de valor
+Si lo reemplazas, te contactan en vez de cerrar la pestaña.
+
+### Alcance v1
+- Site shell bilingüe
+- Blog MDX
+
+### Fuera del v1
+- Comentarios giscus
+`;
+    render(<SpecDigest title="x" body={body} />);
+    // problem → a scannable bullet list (not a paragraph)
+    expect(screen.getAllByTestId("spec-bullet")).toHaveLength(2);
+    // hypothesis → a single highlighted callout
+    expect(screen.getByTestId("spec-highlight")).toHaveTextContent(
+      "Si lo reemplazas, te contactan en vez de cerrar la pestaña.",
+    );
+    // scope → a roomy checklist (scope items, NOT cramped chips)
+    expect(screen.getAllByTestId("spec-scope-item")).toHaveLength(2);
+    // out-of-scope → a muted chip WITHOUT a strike-through (legibility fix)
+    const outChip = screen.getByText("Comentarios giscus");
+    expect(outChip.style.textDecoration).not.toContain("line-through");
+  });
+
   it("falls back to the card title when the digest has no `proyecto`", () => {
     render(
       <SpecDigest

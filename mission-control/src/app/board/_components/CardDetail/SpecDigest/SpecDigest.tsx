@@ -28,6 +28,10 @@ import {
   BLOCK_FRD_STYLE,
   BLOCK_PRD_STYLE,
   BLOCK_RESEARCH_STYLE,
+  BULLET_DOT_STYLE,
+  BULLET_ITEM_STYLE,
+  BULLET_LIST_STYLE,
+  BULLET_STRONG_STYLE,
   CARDS_GRID_STYLE,
   CHIP_MUTED_STYLE,
   CHIP_STYLE,
@@ -55,6 +59,7 @@ import {
   FRD_TITLE_STYLE,
   frdTagStyle,
   HERO_STYLE,
+  HIGHLIGHT_STYLE,
   INNER_STYLE,
   INTRO_STYLE,
   MODAL_ACCENT,
@@ -73,6 +78,10 @@ import {
   ROLE_TITLE_STYLE,
   ROW_KEY_STYLE,
   ROW_STYLE,
+  SCOPE_CHECK_STYLE,
+  SCOPE_ITEM_STYLE,
+  SCOPE_LIST_STYLE,
+  SCOPE_STRONG_STYLE,
   STAT_CARD_STYLE,
   STAT_DESC_STYLE,
   STAT_TITLE_STYLE,
@@ -96,6 +105,62 @@ function Chips({ items, muted }: { items: SpecItem[]; muted: boolean }): React.J
         <span key={it.title} style={muted ? CHIP_MUTED_STYLE : CHIP_STYLE} data-testid="spec-chip">
           {it.title}
         </span>
+      ))}
+    </div>
+  );
+}
+
+/** Highlighted callout for "Hipótesis de valor" — one short, scannable statement. */
+function Highlight({ markdown }: { markdown: string }): React.JSX.Element {
+  const text = markdown.replace(/\*\*/g, "").replace(/\s+/g, " ").trim();
+  return (
+    <p style={HIGHLIGHT_STYLE} data-testid="spec-highlight">
+      {text}
+    </p>
+  );
+}
+
+/** A `{title, desc}` item rendered as `**title** — desc`, or just the title when there's no desc. */
+function ItemText({
+  item,
+  strongStyle,
+}: {
+  item: SpecItem;
+  strongStyle: React.CSSProperties;
+}): React.JSX.Element {
+  if (item.desc === "") return <>{item.title}</>;
+  return (
+    <span>
+      <span style={strongStyle}>{item.title}</span> — {item.desc}
+    </span>
+  );
+}
+
+/** Bullet list for "El problema" — a scannable list, not a paragraph wall. */
+function BulletList({ items }: { items: SpecItem[] }): React.JSX.Element {
+  return (
+    <ul style={BULLET_LIST_STYLE}>
+      {items.map((it) => (
+        <li key={it.title} style={BULLET_ITEM_STYLE} data-testid="spec-bullet">
+          <span style={BULLET_DOT_STYLE} aria-hidden="true" />
+          <ItemText item={it} strongStyle={BULLET_STRONG_STYLE} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Roomy vertical checklist for "Alcance v1" — NOT cramped pills. */
+function ScopeList({ items }: { items: SpecItem[] }): React.JSX.Element {
+  return (
+    <div style={SCOPE_LIST_STYLE}>
+      {items.map((it) => (
+        <div key={it.title} style={SCOPE_ITEM_STYLE} data-testid="spec-scope-item">
+          <span style={SCOPE_CHECK_STYLE} aria-hidden="true">
+            ✓
+          </span>
+          <ItemText item={it} strongStyle={SCOPE_STRONG_STYLE} />
+        </div>
       ))}
     </div>
   );
@@ -172,6 +237,12 @@ function BlockRow({
 }): React.JSX.Element {
   let content: React.JSX.Element;
   switch (block.kind) {
+    case "highlight":
+      content = <Highlight markdown={block.markdown} />;
+      break;
+    case "bullets":
+      content = <BulletList items={block.items} />;
+      break;
     case "roles":
       content = <RoleCards items={block.items} />;
       break;
@@ -179,7 +250,7 @@ function BlockRow({
       content = <StatCards items={block.items} />;
       break;
     case "chips":
-      content = <Chips items={block.items} muted={false} />;
+      content = <ScopeList items={block.items} />;
       break;
     case "chips-muted":
       content = <Chips items={block.items} muted={true} />;

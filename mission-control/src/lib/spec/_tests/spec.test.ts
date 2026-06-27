@@ -15,6 +15,10 @@ fase: producto
 
 ## 📋 PRD
 
+### El problema
+- **Sitio 2021** — diseño viejo.
+- **Blog caído** — HTTP 500.
+
 ### Hipótesis de valor
 Si reemplazas el sitio viejo, **contactan** en vez de cerrar la pestaña.
 
@@ -77,7 +81,8 @@ describe("parseSpec", () => {
   it("classifies PRD subsections by label", () => {
     const blocks = parseSpec(DIGEST).prd?.blocks ?? [];
     const kindOf = (label: string) => blocks.find((b) => b.label.includes(label))?.kind;
-    expect(kindOf("Hipótesis")).toBe("prose");
+    expect(kindOf("problema")).toBe("bullets");
+    expect(kindOf("Hipótesis")).toBe("highlight");
     expect(kindOf("Usuarios")).toBe("roles");
     expect(kindOf("Métricas")).toBe("metrics");
     expect(kindOf("Alcance")).toBe("chips");

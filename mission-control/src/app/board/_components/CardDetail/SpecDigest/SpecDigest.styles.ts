@@ -114,6 +114,8 @@ export const CHIP_STYLE: React.CSSProperties = {
   background: "var(--color-card)",
   color: "var(--color-text)",
 };
+// Muted (out-of-scope) chips — dashed + dimmed to read as "not in v1", WITHOUT a strike-through
+// (the strike hurt legibility; the dashed border + muted colour already signal "excluded").
 export const CHIP_MUTED_STYLE: React.CSSProperties = {
   fontSize: "13px",
   padding: "6px 12px",
@@ -121,8 +123,74 @@ export const CHIP_MUTED_STYLE: React.CSSProperties = {
   border: "1px dashed var(--color-border)",
   background: "transparent",
   color: "var(--color-text3)",
-  textDecoration: "line-through",
-  textDecorationColor: "var(--color-border-strong)",
+};
+
+// --- Highlight callout (hipótesis / la apuesta) — one short, scannable statement ----
+export const HIGHLIGHT_STYLE: React.CSSProperties = {
+  margin: 0,
+  padding: "13px 16px",
+  background: "color-mix(in oklab, var(--color-info-bg) 45%, var(--color-card))",
+  borderLeft: "3px solid var(--color-info)",
+  borderRadius: "12px",
+  fontSize: "15px",
+  lineHeight: 1.5,
+  color: "var(--color-text)",
+};
+
+// --- Bullet list (el problema) — clean vertical list, scannable, no paragraph wall ----
+export const BULLET_LIST_STYLE: React.CSSProperties = {
+  margin: 0,
+  padding: 0,
+  listStyle: "none",
+  display: "flex",
+  flexDirection: "column",
+  gap: "9px",
+};
+export const BULLET_ITEM_STYLE: React.CSSProperties = {
+  display: "flex",
+  gap: "10px",
+  alignItems: "flex-start",
+  fontSize: "14px",
+  lineHeight: 1.5,
+  color: "var(--color-text2)",
+};
+export const BULLET_DOT_STYLE: React.CSSProperties = {
+  flexShrink: 0,
+  width: "6px",
+  height: "6px",
+  borderRadius: "50%",
+  marginTop: "8px",
+  background: "var(--color-info)",
+};
+export const BULLET_STRONG_STYLE: React.CSSProperties = {
+  fontWeight: 700,
+  color: "var(--color-text)",
+};
+
+// --- Scope checklist (alcance v1) — a roomy vertical checklist, NOT cramped pills ----
+export const SCOPE_LIST_STYLE: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+  gap: "7px 18px",
+};
+export const SCOPE_ITEM_STYLE: React.CSSProperties = {
+  display: "flex",
+  gap: "9px",
+  alignItems: "flex-start",
+  fontSize: "13.5px",
+  lineHeight: 1.4,
+  color: "var(--color-text2)",
+};
+export const SCOPE_CHECK_STYLE: React.CSSProperties = {
+  flexShrink: 0,
+  marginTop: "1px",
+  fontSize: "12px",
+  fontWeight: 700,
+  color: "var(--color-ok)",
+};
+export const SCOPE_STRONG_STYLE: React.CSSProperties = {
+  fontWeight: 700,
+  color: "var(--color-text)",
 };
 
 // --- Role cards (usuarios) --------------------------------------------------

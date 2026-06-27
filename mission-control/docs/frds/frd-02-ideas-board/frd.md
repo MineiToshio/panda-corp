@@ -168,10 +168,15 @@ campaign map) + `prototype/index.html` `detailView()`:
   stage). The reader is fail-loud (DR-078): a missing digest is the deliberate absent state, never a crash.
 - AC-02-011.2 — WHEN the **Spec** tab is active, THE system SHALL render the digest natively in three
   sections — **📋 PRD**, **🔬 Research**, **🧩 FRDs** — reusing the Propuesta tab's visual language
-  (full-bleed tinted blocks, label rows, role/stat/reference cards, chips, an amber callout for the
-  open decisions) for cross-surface coherence (DR-062). PRD/Research subsections are classified by
-  label (Usuarios → role cards, Métricas → stat cards, Alcance/Fuera → chips, Decisiones abiertas →
-  callout, Referentes → reference cards, else prose).
+  (full-bleed tinted blocks, label rows, role/stat/reference cards, an amber callout for the open
+  decisions) for cross-surface coherence (DR-062). PRD/Research subsections are classified by label and
+  rendered to be **scannable at a glance** (owner rule): **El problema** → a bullet list (not a prose
+  wall); **Hipótesis de valor** → a single short highlighted callout; **Usuarios** → title+description
+  role cards; **Métricas** → title+description stat cards; **Alcance v1** → a roomy checklist (not
+  cramped pills); **Fuera del v1** → muted chips **without a strike-through** (legibility); **Decisiones
+  abiertas** → an amber callout; **Referentes** → reference cards; else prose. Title+description cards
+  parse a `- **Title** — desc` bullet (the parser tolerates a parenthetical between the bold and the
+  dash, so a mis-authored bullet still yields a title + a description rather than a title-only card).
 - AC-02-011.3 — THE FRDs section SHALL render **one compact card per v1 FRD** (id · title · type tag ·
   one-line summary). WHEN the owner clicks an FRD card, THE system SHALL open a **modal** (not an inline
   expand — owner rule, reusing the core `Modal` with its focus-trap/Escape/return-focus a11y contract)

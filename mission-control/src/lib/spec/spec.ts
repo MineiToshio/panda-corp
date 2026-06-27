@@ -14,7 +14,16 @@
  * (server-only, imported by the board Server Component). Same split as pitch.ts vs ideas.ts.
  */
 
-type SpecBlockKind = "prose" | "roles" | "metrics" | "chips" | "chips-muted" | "decisions" | "refs";
+type SpecBlockKind =
+  | "prose"
+  | "highlight"
+  | "bullets"
+  | "roles"
+  | "metrics"
+  | "chips"
+  | "chips-muted"
+  | "decisions"
+  | "refs";
 
 export interface SpecItem {
   /** Bold lead of a `- **Title** — desc` bullet (or the whole bullet when there's no bold). */
@@ -71,7 +80,9 @@ export interface SpecData {
   hasContent: boolean;
 }
 
-const BULLET_TITLE_RE = /^[-*]\s+\*\*(.+?)\*\*\s*[—–:-]+\s*(.*)$/;
+// Title = the leading **bold**; desc = everything after it (tolerant of a parenthetical or
+// any separator between the bold and the description, e.g. `- **T** (x) — desc`).
+const BULLET_TITLE_RE = /^[-*]\s+\*\*(.+?)\*\*\s*(.*)$/;
 const BULLET_PLAIN_RE = /^[-*]\s+(.+)$/;
 const FRD_HEADING_RE = /^FRD[\s-]?\d+/i;
 
@@ -145,7 +156,12 @@ function parseItems(markdown: string): SpecItem[] {
   for (const line of markdown.split("\n")) {
     const t = line.match(BULLET_TITLE_RE);
     if (t?.[1] != null) {
-      items.push({ title: t[1].trim(), desc: (t[2] ?? "").trim() });
+      // Strip a leading em-dash/colon separator so `- **T** — desc` and `- **T** desc` both clean up.
+      const desc = (t[2] ?? "")
+        .replace(/^[\s—–:-]+/, "")
+        .replace(/\*\*/g, "")
+        .trim();
+      items.push({ title: t[1].trim(), desc });
       continue;
     }
     const p = line.match(BULLET_PLAIN_RE);
@@ -165,6 +181,9 @@ function blockKind(label: string): SpecBlockKind {
   if (/alcance|incluye|\bv1\b|scope/.test(l)) return "chips";
   if (/abiert|pendiente/.test(l)) return "decisions";
   if (/referent|inspiraci|referenc/.test(l)) return "refs";
+  // The PRD lead: the problem as a scannable bullet list, the bet as a short highlighted callout.
+  if (/problema|pain|dolor/.test(l)) return "bullets";
+  if (/hipótesis|hipotesis|apuesta|\bbet\b/.test(l)) return "highlight";
   return "prose";
 }
 
@@ -176,7 +195,8 @@ function parseSection(label: string, lines: string[]): SpecSection {
       label: s.heading,
       kind,
       markdown: s.markdown,
-      items: kind === "prose" ? [] : parseItems(s.markdown),
+      // prose + highlight render the raw markdown; every structured kind (incl. bullets) gets items.
+      items: kind === "prose" || kind === "highlight" ? [] : parseItems(s.markdown),
     };
   });
   return { label, blocks };
