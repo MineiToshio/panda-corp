@@ -30,6 +30,13 @@ The pain being solved and who has it.
 
 The bet: if we ship this, this outcome happens (monetary / opportunity / personal, per `return_type`).
 
+## Assumptions & open decisions
+
+The record of the clarification gate (DR-095). **Assumptions** = each inference made instead of asking,
+as `[ASSUMPTION: … — source]` (card / research / profile / standard) so a wrong default is visible.
+**Open decisions** = anything still awaiting the owner. Keep it short — this is the audit trail of what
+was decided vs assumed, not a discussion log.
+
 ## Scope v1 (the MINIMUM)
 
 > v1 is the **smallest** set of features that delivers the value hypothesis — **not** every feature.

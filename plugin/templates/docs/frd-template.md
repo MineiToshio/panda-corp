@@ -37,19 +37,46 @@ What this feature is, the user/business outcome it must achieve, and how it cont
 
 Representative user intentions (why the feature matters), user-centered.
 
+> **Write this FRD COMPLETE, not verbose (DR-095).** It is the build agent's contract: include the
+> fields below so the agent never guesses — but more text is NOT better (over-specification overloads
+> the agent's attention budget). Be complete on what matters, scoped, example-backed, with no
+> contradictions (a term/value/entity means the same everywhere). The PRD stays thin; depth lives here.
+
 ## Requirements & acceptance criteria
 
 Each functional requirement gets a stable id `REQ-NN-MMM` and **EARS acceptance criteria**
 `AC-NN-MMM.K` (`WHEN <trigger> THE SYSTEM SHALL <response>`), written so each is independently
 testable. These IDs are the traceability spine down to components and work orders.
 
+## Data model & entities
+
+The entities/fields this feature reads or writes (name · type · constraints · relationships), and any
+new state/status it introduces. Keep it to what THIS feature touches — not the whole schema.
+
+## Edge cases & error states
+
+The non-happy paths the build must handle: empty/zero, max/overflow, invalid input, permission denied,
+concurrent edit, offline/failed request, partial data. Each should map to an acceptance criterion above.
+
+## Worked examples
+
+For the trickiest acceptance criteria, a concrete input → expected output (or a Given/When/Then
+scenario). Examples cut hallucination far more than prose. Skip for the obvious ones.
+
+## Interface / contract sketch (where it exposes or consumes one)
+
+If this feature exposes or calls an API / server action / shared function, sketch the shape here
+(input + validation, success output + status, error cases). The full contract is materialized in the
+work order's `docs/api/<wo>.md`; this is the FRD-level intent so consumers know what to expect.
+
 ## Business rules
 
 Domain rules, invariants and policy decisions that constrain behavior.
 
-## Out of scope
+## Out of scope (non-goals)
 
-Nearby capabilities intentionally excluded from this feature.
+Nearby capabilities intentionally excluded from this feature — naming them explicitly stops scope-creep
+and stops the agent inventing them.
 
 ## Confirmed vs open questions
 
