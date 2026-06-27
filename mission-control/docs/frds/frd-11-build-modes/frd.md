@@ -13,7 +13,9 @@ visual_source: docs/design/prototype/index.html
 Lets you choose how much power each project is built with, and shows the command to run.
 
 ## Acceptance criteria (EARS)
-- EACH project SHALL offer (in its Commands tab) a **build mode** selector with four options:
+- EACH project SHALL offer (in its Commands tab) a **build mode** selector — rendered as a compact
+  inline **`<select>`** on the `/pandacorp:implement` command row (the shared `CmdRow` control; it
+  replaced the prototype's 4-chip radio panel, owner decision 2026-06-27) — with four options:
   - **Pro / economical** — 1 agent at a time, economical models (sonnet/haiku). Slower, minimal consumption. For the Pro plan.
   - **Balanced** (default) — a team of ≤3 agents; opus lead, sonnet/haiku workers. Designed for Max 5x.
   - **Powerful** — up to 5 agents in parallel, advances faster. For Max 20x.

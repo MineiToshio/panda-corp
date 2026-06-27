@@ -13,11 +13,18 @@
  *   build         → implementer + reviewer + analytics
  *   release       → security-auditor + devops
  *
- * Pure static data — no side effects. Its only import is the canonical BUILD_MODES
- * catalog (DR-092: the implement modes are derived from it, never re-listed).
+ * Pure static data — no side effects. The command modes (spec / implement) come from
+ * the shared command-modes module (DR-092: one source for both this board view and the
+ * project workspace Commands tab).
  */
 
-import { BUILD_MODES, type BuildMode, DEFAULT_BUILD_MODE } from "@/lib/constants";
+import {
+  type CommandMode,
+  IMPLEMENT_MODE_DEFAULT_LABEL,
+  IMPLEMENT_MODES,
+  SPEC_MODE_DEFAULT_LABEL,
+  SPEC_MODES,
+} from "@/lib/command-modes";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -63,68 +70,6 @@ export interface PhaseDefinition {
   }>;
 }
 
-/** A selectable flag a command can carry (e.g. `/pandacorp:spec` → `--ask`). */
-interface CommandMode {
-  /** Flag folded into the copied command when active, e.g. "--ask" or "powerful". */
-  flag: string;
-  /** Human-readable option label, e.g. "ask" or "Potente". */
-  label: string;
-  /** One-line note shown while this mode is selected. */
-  hint: string;
-}
-
-/**
- * Clarification modes of `/pandacorp:spec` (DR-095). Shared by every phase that offers the spec
- * command so the inline selector is identical wherever it appears.
- */
-const SPEC_MODES: ReadonlyArray<CommandMode> = [
-  {
-    flag: "--ask",
-    label: "ask",
-    hint: "Siempre te hace las preguntas clave antes de generar (default de new-idea).",
-  },
-  {
-    flag: "--auto",
-    label: "auto",
-    hint: "Infiere lo que pueda y solo pregunta lo crítico (default de discover).",
-  },
-  {
-    flag: "--infer",
-    label: "infer",
-    hint: "No pregunta nada: asume y marca cada supuesto como [ASSUMPTION].",
-  },
-];
-
-/** Spanish display labels for the build modes (the BUILD_MODES catalog stores i18n keys). */
-const BUILD_MODE_LABELS: Record<BuildMode, string> = {
-  pro: "Pro",
-  balanced: "Equilibrado",
-  powerful: "Potente",
-  deep: "Profundo",
-};
-
-/** One-line Spanish hint per build mode. */
-const BUILD_MODE_HINTS: Record<BuildMode, string> = {
-  pro: "Rápido y económico; para work orders sencillos.",
-  balanced: "El default equilibrado: sin flag, build normal.",
-  powerful: "Más razonamiento por work order; para lógica compleja.",
-  deep: "Máximo esfuerzo; para los work orders más difíciles.",
-};
-
-/**
- * Build modes of `/pandacorp:implement`, derived from the canonical BUILD_MODES catalog (DR-092 —
- * the ids/commands live there, never re-listed here). The default (DEFAULT_BUILD_MODE = balanced)
- * carries no flag, so it is the select's "no flag" option, not a listed mode; each other mode
- * appends its id (`/pandacorp:implement powerful`).
- */
-const IMPLEMENT_MODES: ReadonlyArray<CommandMode> = BUILD_MODES.filter(
-  (mode) => mode.id !== DEFAULT_BUILD_MODE,
-).map((mode) => ({
-  flag: mode.command.replace("/pandacorp:implement ", ""),
-  label: BUILD_MODE_LABELS[mode.id],
-  hint: BUILD_MODE_HINTS[mode.id],
-}));
-
 // ---------------------------------------------------------------------------
 // Static data — index 0–5 maps to these 6 phases in order.
 // ---------------------------------------------------------------------------
@@ -144,7 +89,7 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
         command: "/pandacorp:spec <idea>",
         hint: "Elige un modo de preguntas, o déjalo así y el skill usa el default por origen.",
         modes: SPEC_MODES,
-        modeDefaultLabel: "preguntas: default",
+        modeDefaultLabel: SPEC_MODE_DEFAULT_LABEL,
       },
       { label: "Sigue explorando la idea en conversación", command: "/pandacorp:explore <idea>" },
     ],
@@ -169,7 +114,7 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
         label: "Pule el PRD/FRDs (re-corre el spec)",
         command: "/pandacorp:spec <idea>",
         modes: SPEC_MODES,
-        modeDefaultLabel: "preguntas: default",
+        modeDefaultLabel: SPEC_MODE_DEFAULT_LABEL,
       },
     ],
     team: [
@@ -216,7 +161,7 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
         label: "Construye con TDD",
         command: "/pandacorp:implement",
         modes: IMPLEMENT_MODES,
-        modeDefaultLabel: "modo: equilibrado",
+        modeDefaultLabel: IMPLEMENT_MODE_DEFAULT_LABEL,
       },
       { label: "Ajusta la arquitectura / work orders", command: "/pandacorp:blueprint" },
     ],
@@ -241,7 +186,7 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
         label: "Reanuda / continúa el build",
         command: "/pandacorp:implement",
         modes: IMPLEMENT_MODES,
-        modeDefaultLabel: "modo: equilibrado",
+        modeDefaultLabel: IMPLEMENT_MODE_DEFAULT_LABEL,
       },
       { label: "Reporta un bug encontrado probando", command: "/pandacorp:bug" },
       { label: "Encola un cambio para el build", command: "/pandacorp:change" },

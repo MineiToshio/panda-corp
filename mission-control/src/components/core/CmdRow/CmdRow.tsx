@@ -51,6 +51,10 @@ export interface CmdRowProps {
   modeDefaultLabel?: string;
   /** Note shown below the row when no mode is selected (only with `modes`). */
   modeHint?: string;
+  /** Controlled selected flag ("" = no flag). When set, the parent owns the value (e.g. to persist it). */
+  modeValue?: string;
+  /** Called with the chosen flag when the select changes (controlled or uncontrolled). */
+  onModeChange?: (flag: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -137,13 +141,19 @@ export function CmdRow({
   modes,
   modeDefaultLabel,
   modeHint,
+  modeValue,
+  onModeChange,
 }: CmdRowProps): React.JSX.Element {
-  const [activeFlag, setActiveFlag] = useState<string>("");
+  const [internalFlag, setInternalFlag] = useState<string>("");
+  const isControlled = modeValue !== undefined;
+  const activeFlag = isControlled ? modeValue : internalFlag;
   const hasModes = modes !== undefined && modes.length > 0;
   const displayCommand = activeFlag !== "" ? `${command} ${activeFlag}` : command;
 
   const handleModeChange = (event: React.ChangeEvent<HTMLSelectElement>): void => {
-    setActiveFlag(event.target.value);
+    const next = event.target.value;
+    onModeChange?.(next);
+    if (!isControlled) setInternalFlag(next);
   };
 
   const row = (
