@@ -59,7 +59,7 @@ export interface PhaseDefinition {
 }
 
 /** A selectable flag a command can carry (e.g. `/pandacorp:spec` → `--ask`). */
-export interface CommandMode {
+interface CommandMode {
   /** Flag folded into the copied command when active, e.g. "--ask". */
   flag: string;
   /** Short pill label, e.g. "ask". */
@@ -72,7 +72,7 @@ export interface CommandMode {
  * Clarification modes of `/pandacorp:spec` (DR-095). Shared by every phase that offers the spec
  * command so the inline selector is identical wherever it appears.
  */
-export const SPEC_MODES: ReadonlyArray<CommandMode> = [
+const SPEC_MODES: ReadonlyArray<CommandMode> = [
   {
     flag: "--ask",
     label: "ask",
