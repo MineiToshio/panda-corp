@@ -17,8 +17,10 @@ import { OnboardingGate } from "@/app/_components/OnboardingGate/OnboardingGate"
 import { AppShell } from "@/components/modules/AppShell/AppShell";
 import { CelebrationWatcher } from "@/components/modules/CelebrationWatcher/CelebrationWatcher";
 import { GuildBar } from "@/components/modules/GuildBar/GuildBar";
+import { PendingMergeBadge } from "@/components/modules/PendingMergeBadge/PendingMergeBadge";
 import { ProposalsBadge } from "@/components/modules/ProposalsBadge/ProposalsBadge";
 import { getGuildState } from "@/lib/gamification/guildState";
+import { getPendingMerge } from "@/lib/pendingMerge/pendingMerge";
 import { readProfile } from "@/lib/profile/profile";
 import { countOpenProposals } from "@/lib/proposals/proposals";
 import "./globals.css";
@@ -66,6 +68,10 @@ export default function RootLayout({
   // Fail-soft: missing factory/memory → { total: 0 } → calm state.
   const proposalCounts = countOpenProposals();
 
+  // Pending-merge indicator (FRD-21): live git state of the factory repo's un-merged worktrees/branches.
+  // Read-only, fail-loud; renders nothing when there is none (calm). DR-096 visibility layer.
+  const pendingMerge = getPendingMerge();
+
   return (
     <html lang="es" className={`${pixelify.variable} ${spaceGrotesk.variable}`}>
       <head>
@@ -87,6 +93,7 @@ export default function RootLayout({
             <AppShell
               levelBar={<GuildBar outcomes={guildOutcomes} embedded />}
               proposalsBadge={<ProposalsBadge openCount={proposalCounts.total} />}
+              pendingMergeBadge={<PendingMergeBadge result={pendingMerge} />}
             >
               {children}
             </AppShell>

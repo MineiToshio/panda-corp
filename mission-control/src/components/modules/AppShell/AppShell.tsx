@@ -112,6 +112,9 @@ export interface AppShellProps {
   levelBar: React.ReactNode;
   /** The Propuestas destination — `<ProposalsBadge openCount=… />` (placed inside Nav). */
   proposalsBadge: React.ReactNode;
+  /** Global pending-merge indicator (FRD-21) — a server-rendered `<PendingMergeBadge>`, placed in the
+   * topbar OUTSIDE the nav destination row. Optional: it renders nothing when there is no un-merged work. */
+  pendingMergeBadge?: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -122,7 +125,12 @@ export interface AppShellProps {
  * toggle + `Nav` on the right) → `#main-content` wrapping the page. On an exempt drill-in: just
  * `#main-content` (no topbar).
  */
-export function AppShell({ levelBar, proposalsBadge, children }: AppShellProps): React.JSX.Element {
+export function AppShell({
+  levelBar,
+  proposalsBadge,
+  pendingMergeBadge,
+  children,
+}: AppShellProps): React.JSX.Element {
   const pathname = usePathname() ?? "";
   const [navOpen, setNavOpen] = useState(false);
   const exempt = isShellExempt(pathname);
@@ -166,8 +174,9 @@ export function AppShell({ levelBar, proposalsBadge, children }: AppShellProps):
             </div>
           </div>
 
-          {/* Right — mobile toggle + the six destinations */}
+          {/* Right — pending-merge indicator (FRD-21, outside the nav row) + mobile toggle + destinations */}
           <div style={RIGHT_GROUP_STYLE}>
+            {pendingMergeBadge}
             <button
               type="button"
               data-nav-toggle
