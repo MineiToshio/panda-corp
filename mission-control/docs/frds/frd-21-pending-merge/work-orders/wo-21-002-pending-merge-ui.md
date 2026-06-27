@@ -1,0 +1,38 @@
+---
+id: WO-21-002
+type: work-order
+title: 'UI: global shell indicator + cross-project panel + Resumen block'
+frd: FRD-21
+status: ACTIVE
+implementation_status: PLANNED
+artifacts:
+  - 'src/app/**/_components/PendingMerge*/**'
+  - 'src/components/modules/PendingMerge*/**'
+dependsOn:
+  - WO-21-001
+difficulty: medium
+---
+# WO-21-002 — Pending-merge UI
+
+## In-Scope
+- **Global indicator** in the FRD-19 `AppShell` top bar: `PendingMergeIndicator` (client island reading
+  the `getPendingMerge()` aggregate via a Server Component boundary). Calm/hidden at 0; `⎇ N pendientes`
+  default; **alert variant** when any item is stale; cap visible count at `9+`. Status by **text + icon**,
+  never color alone (REQ-21-002, `accessibility.md`).
+- **Cross-project panel** `PendingMergePanel` (popover, focus-trapped, Esc-closable): rows project ·
+  branch · task · age · status pill (icon+text), ordered stale→ready→in-progress, each with the copy-able
+  land command (`cd <worktree> && bash .pandacorp/merge-queue.sh`). Empty → *al día*; error → explicit
+  error state (REQ-21-006).
+- **Per-project block** `PendingMergeBlock` in `tab-summary`, same items filtered to the current project.
+- **Reuse before create (DR-057):** check `docs/design/components.md` for an existing chip/badge + popover
+  primitive; extend with a variant, do not fork. Tokens only, light+dark, responsive. `data-testid` on
+  indicator, panel, rows.
+
+## Tests (RED first)
+- By role/name: indicator hidden at 0, shows count, alert on stale; panel opens on click + keyboard;
+  rows render project/branch/age/status; empty vs error are distinct, distinctly rendered.
+- Smoke (Preview gate): the shell renders the indicator across routes; the Resumen tab renders the block;
+  no console error / blank render.
+
+## Status Note
+(to be filled by the implementer.)
