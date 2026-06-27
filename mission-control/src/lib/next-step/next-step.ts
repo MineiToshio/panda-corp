@@ -86,6 +86,18 @@ const RELEASE_ROWS: readonly CommandRow[] = [
     when: "Itera sobre el proyecto: agrega, ajusta o corrige",
   },
   {
+    command: "/pandacorp:implement",
+    when: "Construye o reanuda todos los FRDs pendientes generados por un iterate",
+  },
+  {
+    command: "/pandacorp:implement <frd>",
+    when: "Construye solo el FRD indicado (sus deps deben estar VERIFIED; ej: frd-05-settings)",
+  },
+  {
+    command: "/pandacorp:implement change:<slug>",
+    when: "Procesa una change de la cola y construye solo los FRDs afectados (ej: change:mc-fix-pagination)",
+  },
+  {
     command: "/pandacorp:new-version",
     when: "Comienza un nuevo hito o versión mayor del proyecto",
   },

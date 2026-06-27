@@ -174,6 +174,9 @@ describe("frd-04 adversarial: command→when pairing is pinned (mutation kill)",
     expect(rel).not.toEqual(impl);
     expect(rel.map((r: Row) => r.command)).toEqual([
       "/pandacorp:iterate",
+      "/pandacorp:implement",
+      "/pandacorp:implement <frd>",
+      "/pandacorp:implement change:<slug>",
       "/pandacorp:new-version",
     ]);
   });

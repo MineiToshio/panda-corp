@@ -158,9 +158,9 @@ describe("frd-04: workspaceCommands — AC-04-005.1 release (launched) phase", (
     expect(() => workspaceCommands("release")).not.toThrow();
   });
 
-  it("frd-04: WHEN phase is release THEN returns exactly two rows", () => {
+  it("frd-04: WHEN phase is release THEN returns exactly five rows", () => {
     const rows: CommandRow[] = workspaceCommands("release");
-    expect(rows).toHaveLength(2);
+    expect(rows).toHaveLength(5);
   });
 
   it("frd-04: WHEN phase is release THEN first row command is /pandacorp:iterate", () => {
@@ -168,9 +168,24 @@ describe("frd-04: workspaceCommands — AC-04-005.1 release (launched) phase", (
     expect(rows[0]?.command).toBe(CMD_ITERATE);
   });
 
-  it("frd-04: WHEN phase is release THEN second row command is /pandacorp:new-version", () => {
+  it("frd-04: WHEN phase is release THEN second row is /pandacorp:implement (full build of pending FRDs)", () => {
     const rows: CommandRow[] = workspaceCommands("release");
-    expect(rows[1]?.command).toBe(CMD_NEW_VERSION);
+    expect(rows[1]?.command).toBe(CMD_IMPLEMENT);
+  });
+
+  it("frd-04: WHEN phase is release THEN third row is /pandacorp:implement <frd> (partial by FRD)", () => {
+    const rows: CommandRow[] = workspaceCommands("release");
+    expect(rows[2]?.command).toBe(CMD_IMPLEMENT_FRD);
+  });
+
+  it("frd-04: WHEN phase is release THEN fourth row is /pandacorp:implement change:<slug> (partial by change)", () => {
+    const rows: CommandRow[] = workspaceCommands("release");
+    expect(rows[3]?.command).toBe(CMD_IMPLEMENT_CHANGE);
+  });
+
+  it("frd-04: WHEN phase is release THEN fifth row command is /pandacorp:new-version", () => {
+    const rows: CommandRow[] = workspaceCommands("release");
+    expect(rows[4]?.command).toBe(CMD_NEW_VERSION);
   });
 
   it("frd-04: WHEN phase is release THEN each row has non-empty command and when strings", () => {
@@ -186,12 +201,6 @@ describe("frd-04: workspaceCommands — AC-04-005.1 release (launched) phase", (
     for (const preBuilt of PRE_BUILD_COMMANDS) {
       expect(commands).not.toContain(preBuilt);
     }
-  });
-
-  it("frd-04: WHEN phase is release THEN /pandacorp:implement does not appear (launched project)", () => {
-    const rows: CommandRow[] = workspaceCommands("release");
-    const commands = rows.map((r) => r.command);
-    expect(commands).not.toContain(CMD_IMPLEMENT);
   });
 
   it("frd-04: WHEN phase is release THEN /pandacorp:release does not appear (already launched)", () => {
@@ -363,8 +372,17 @@ describe("frd-04: workspaceCommands — complete mapping table (mutation hardeni
   it("frd-04 mapping[rel-0]: release row[0] command is /pandacorp:iterate", () => {
     expect(workspaceCommands("release")[0]?.command).toBe(CMD_ITERATE);
   });
-  it("frd-04 mapping[rel-1]: release row[1] command is /pandacorp:new-version", () => {
-    expect(workspaceCommands("release")[1]?.command).toBe(CMD_NEW_VERSION);
+  it("frd-04 mapping[rel-1]: release row[1] command is /pandacorp:implement (full build after iterate)", () => {
+    expect(workspaceCommands("release")[1]?.command).toBe(CMD_IMPLEMENT);
+  });
+  it("frd-04 mapping[rel-2]: release row[2] command is /pandacorp:implement <frd>", () => {
+    expect(workspaceCommands("release")[2]?.command).toBe(CMD_IMPLEMENT_FRD);
+  });
+  it("frd-04 mapping[rel-3]: release row[3] command is /pandacorp:implement change:<slug>", () => {
+    expect(workspaceCommands("release")[3]?.command).toBe(CMD_IMPLEMENT_CHANGE);
+  });
+  it("frd-04 mapping[rel-4]: release row[4] command is /pandacorp:new-version", () => {
+    expect(workspaceCommands("release")[4]?.command).toBe(CMD_NEW_VERSION);
   });
 
   // Early-phase delegation (locks the FRD-02 delegation chain)
@@ -379,9 +397,9 @@ describe("frd-04: workspaceCommands — complete mapping table (mutation hardeni
   });
 
   // Count guards (kills array-truncation mutants)
-  it("frd-04 mapping counts: implementation has 5 rows, release has 2, early phases have 1", () => {
+  it("frd-04 mapping counts: implementation has 5 rows, release has 5, early phases have 1", () => {
     expect(workspaceCommands("implementation")).toHaveLength(5);
-    expect(workspaceCommands("release")).toHaveLength(2);
+    expect(workspaceCommands("release")).toHaveLength(5);
     expect(workspaceCommands("product")).toHaveLength(1);
     expect(workspaceCommands("design")).toHaveLength(1);
     expect(workspaceCommands("architecture")).toHaveLength(1);

@@ -171,15 +171,15 @@ describe("TabCommands — release (launched) phase", () => {
     expect(commands.some((c) => c.includes("/pandacorp:new-version"))).toBe(true);
   });
 
-  it("phase='release': renders exactly 2 command rows", () => {
+  it("phase='release': renders exactly 5 command rows", () => {
     renderCommands("release");
-    expect(screen.getAllByTestId("command-row")).toHaveLength(2);
+    expect(screen.getAllByTestId("command-row")).toHaveLength(5);
   });
 
-  it("phase='release': does NOT include /pandacorp:implement", () => {
+  it("phase='release': includes /pandacorp:implement (to build WOs created by iterate)", () => {
     renderCommands("release");
     const commands = screen.getAllByTestId("command-row-command").map((el) => el.textContent ?? "");
-    expect(commands.some((c) => c.includes("/pandacorp:implement"))).toBe(false);
+    expect(commands.some((c) => c.includes("/pandacorp:implement"))).toBe(true);
   });
 });
 
