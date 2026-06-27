@@ -47,6 +47,63 @@ Control's own identity, NOT a template** — never carry it (or any prior projec
 by default. Reusing one project's aesthetic for another is a defect, the same class as ignoring an approved
 visual (§1). (Owner rule, 2026-06-27; reinforces the §1 EXPLORE "bespoke per domain, never a house style".)
 
+## 1c. Generating with Claude Design — connection, an exhaustive brief, pull-and-review (DR-058)
+
+When the EXPLORE path uses **Claude Design** (claude.ai/design) to generate the system, the division of
+labour is fixed and the brief MUST be **exhaustive** — both learned the hard way (PersonalPage v2,
+2026-06-27): a thin brief let the canvas ship only tokens + brand and defer the whole component gallery and
+screens ("full gallery comes with the 6 screens"), with no nav menu, no avatar, no real case-study cards, no
+social links, no forms, no states — and the first system came out visually **flat** (the only transition
+defined was link-colour).
+
+**How it connects (don't repeat the wrong assumptions).** The **generative engine is the web canvas**,
+driven by the **owner** with a prompt — the agent **cannot** pilot it remotely. The agent has the
+**`DesignSync` tool**: **file sync only** (`list_projects`, `get_file`, `list_files`, `create_project`,
+`finalize_plan`, `write_files`, `delete_files`). Auth is a **one-time `/design-login`** in an interactive
+terminal (per machine/user, persists; unavailable in headless/SDK sessions). **`/design-sync` is push-only**
+(bundles existing React code → claude.ai/design), not a generator and not a pull; **`/design` may not exist**
+in a given build. **Never claim a slash command exists or not from a filesystem search** — built-in skills
+are bundled at runtime and aren't greppable; **defer to the owner's autocomplete.** Plan B when the agent
+session can't authorise: the owner generates on the canvas and uses "Send to Claude Code Web", or runs
+`/design-sync` from their terminal.
+
+**Procedure.** (1) No design-system project → `create_project`. (2) **Upload ALL context** as markdown
+(master brief + `microcopy.md` + `voice-and-tone.md` + `references.md`); keep the uploaded `BRIEF.md` in sync
+when the direction changes. (3) Hand the owner **ONE exhaustive generation prompt** built from the checklist
+below. (4) **PULL-and-REVIEW** (`list_files`/`get_file`) against the checklist, issue corrective prompts,
+*then* bring it to the owner gate. (5) Integrate (tokens→`design-tokens.json`+`DESIGN.md`,
+`_ds_manifest.json`→`components.md`, shard per FRD).
+
+**Token authorship.** On EXPLORE+Claude Design the canvas **proposes** the palette/system from the brief's
+qualitative direction (mood, dark-default + first-class light, one rationed accent, OKLCH, AA both themes);
+the agent **verifies AA and freezes** it. (On ADOPT-VISUAL the agent still **extracts** exact tokens from the
+approved visual — §1.)
+
+**The anti-omission completeness checklist** (the brief MUST require all of it; the pull-review MUST verify
+it). A design system is "complete enough to gate" only when it defines, in dark AND light:
+- **Shell & framing:** AppShell, **Nav (all top-level links + active state + mobile drawer/hamburger)**,
+  Footer, ThemeToggle, LangSwitcher (when bilingual), PageTitle block (H1 = nav label), SectionHeader, CTA
+  band, MetaRow.
+- **Media — never leave a "where does the photo go" hole:** **Avatar** and **MediaFrame** (aspect-ratio
+  image), each with **placeholder media by default** (silhouette avatar; cover with gradient + image glyph)
+  so layouts render now and the owner swaps real assets later.
+- **Cards & content:** the domain cards in full anatomy — e.g. a project/case-study **card** (cover + badge +
+  title + outcome + tags + read-link) AND its **detail header** (cover/hero + title + meta + summary + tags +
+  links), list/post cards, Tag/Chip, Prose/Article reading layout.
+- **Forms & every state:** FormField (label + input/textarea + inline error, aria-invalid) and the full state
+  set — **success, error, empty, loading, not-found/404** — plus domain ones (e.g. rate-limited).
+- **Social/links & icons:** a SocialLinks treatment **and where it lives** (e.g. footer + contact), a
+  coherent icon set.
+- **Motion & interaction (mandatory — not "sober by default" to the point of flat):** an explicit motion
+  layer — entrance/scroll-reveal with stagger, hover-depth on cards, micro-interactions, theme cross-fade, a
+  living hero — performant (`transform`/`opacity`), tasteful (no chaotic particles, no scroll-jacking), and
+  **reduced-motion-safe**. For developer/portfolio products especially, **motion is part of the proof**; a
+  system whose only transition is link-colour is a defect, not "restraint".
+- **Responsive scope = `target_platforms` (DR-074, §4b):** `desktop` → desktop designs only; `mobile` →
+  mobile only; `responsive` → **mobile (375) + tablet (~768) + desktop (~1280)**. The skill injects the right
+  breakpoints into the generation prompt — this governs what is **generated**, in addition to what the gate
+  asserts.
+
 ## 2. The frozen contract is mandatory and gated (DR-054)
 
 The design phase is **not done** — and does not advance to `architecture` even on the owner's "ok" —
