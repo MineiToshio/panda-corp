@@ -35,6 +35,18 @@ owner designated as "the look". **Detect, then confirm — never ask blind:**
   never a house style (Mission Control's pixel-RPG look is the factory's internal tool, not a product
   template).
 
+## 1b. Each project earns its OWN visual identity — never a house style (DR-098)
+
+There is **no factory-wide default aesthetic**. Every project's look is chosen **for that project** — fit
+to its **audience, use case and purpose** — not inherited from the factory or a prior project. A playful
+consumer app, a serious B2B tool, and a personal portfolio that must read as trustworthy to recruiters are
+deliberately *different* looks; the EXPLORE path (§1) researches the domain/audience and proposes directions
+FOR THAT PROJECT, and that audience constraint drives the exploration (e.g. recruiter audience → professional,
+clean, confidence-inspiring; never gamified). **Mission Control's gamified pixel-art / RPG skin is Mission
+Control's own identity, NOT a template** — never carry it (or any prior project's look) into a new project
+by default. Reusing one project's aesthetic for another is a defect, the same class as ignoring an approved
+visual (§1). (Owner rule, 2026-06-27; reinforces the §1 EXPLORE "bespoke per domain, never a house style".)
+
 ## 2. The frozen contract is mandatory and gated (DR-054)
 
 The design phase is **not done** — and does not advance to `architecture` even on the owner's "ok" —
