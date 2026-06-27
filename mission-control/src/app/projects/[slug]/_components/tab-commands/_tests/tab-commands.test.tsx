@@ -147,9 +147,9 @@ describe("TabCommands — construction phase (implementation)", () => {
       expect(commands.some((c) => c.includes("/pandacorp:iterate"))).toBe(true);
     });
 
-    it(`phase='${phase}': renders exactly 3 command rows`, () => {
+    it(`phase='${phase}': renders exactly 5 command rows`, () => {
       renderCommands(phase);
-      expect(screen.getAllByTestId("command-row")).toHaveLength(3);
+      expect(screen.getAllByTestId("command-row")).toHaveLength(5);
     });
   }
 });

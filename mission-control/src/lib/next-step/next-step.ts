@@ -56,7 +56,15 @@ export interface CommandRow {
 const BUILDING_ROWS: readonly CommandRow[] = [
   {
     command: "/pandacorp:implement",
-    when: "Continúa o reanuda la construcción del proyecto",
+    when: "Construye o reanuda todos los FRDs pendientes en orden de dependencias",
+  },
+  {
+    command: "/pandacorp:implement <frd>",
+    when: "Construye solo el FRD indicado (sus deps deben estar VERIFIED; ej: frd-05-settings)",
+  },
+  {
+    command: "/pandacorp:implement change:<slug>",
+    when: "Procesa una change de la cola y construye solo los FRDs afectados (ej: change:mc-fix-pagination)",
   },
   {
     command: "/pandacorp:release",
