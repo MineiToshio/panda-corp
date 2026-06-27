@@ -99,9 +99,12 @@ Read-only kanban of the idea base, with idea capture, a navigable detail and dis
   that has **modes** SHALL render an inline **`<select>`** (same height as the copy button, pinned to
   its left) whose first option is **`default`** — a neutral word meaning "no flag, the skill decides"
   (NOT the field name, which would read as if that value were chosen). What the field controls is
-  carried by the select's **hover tooltip** (`title`, e.g. "Cuántas preguntas te hago antes de generar
-  la documentación" / "Modo de construcción — con cuánta potencia se construye el proyecto") and by
-  the one-line hint below — keeping the option text (and so the control) narrow. The remaining options
+  carried by a **custom hover/focus tooltip** — a styled bubble that appears **above** the select
+  **immediately** (no native-`title` delay), **bounded to a max width** (~240px, wrapping to 2–3
+  lines), with a descriptive sentence (e.g. "Cuántas preguntas te hago antes de generar la
+  documentación" / "Modo de construcción — con cuánta potencia se construye el proyecto"; wired as
+  `aria-describedby` for assistive tech) — plus the one-line hint below — keeping the option text
+  (and so the control) narrow. The remaining options
   each fold their flag into the displayed AND copied command (`/pandacorp:spec <slug>` →
   `/pandacorp:spec <slug> --ask`). Choosing `default` again clears the flag. A
   `<select>` (not a row of pills) keeps the control compact no matter how many modes a command has. A

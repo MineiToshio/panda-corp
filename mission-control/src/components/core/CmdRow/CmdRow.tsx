@@ -23,7 +23,7 @@
  * Traceability: CMP-13-cmdrow, AC-13-006.x, AC-02-010.9.
  */
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { CopyButton } from "@/components/core/CopyButton/CopyButton";
 
 // ---------------------------------------------------------------------------
@@ -125,6 +125,35 @@ const HINT_STYLE: React.CSSProperties = {
   color: "var(--color-text3)",
 };
 
+// Custom tooltip — anchors the select so the tip can sit ABOVE it (vs the native `title`,
+// which is delayed, browser-positioned and unbounded in width).
+const TOOLTIP_WRAP_STYLE: React.CSSProperties = {
+  position: "relative",
+  display: "inline-flex",
+  flexShrink: 0,
+};
+
+// Above the select (bottom edge anchored to its top), right-aligned so it never overflows
+// the row's right edge; bounded width with multi-line wrap. Shown instantly on hover/focus.
+const TOOLTIP_STYLE: React.CSSProperties = {
+  position: "absolute",
+  bottom: "calc(100% + 6px)",
+  right: 0,
+  zIndex: 30,
+  width: "max-content",
+  maxWidth: "240px",
+  padding: "6px 9px",
+  borderRadius: "var(--radius-sm, 8px)",
+  border: "1px solid var(--color-border-strong)",
+  background: "var(--color-panel)",
+  color: "var(--color-text)",
+  fontSize: "11px",
+  lineHeight: 1.4,
+  whiteSpace: "normal",
+  boxShadow: "0 2px 10px rgba(0,0,0,.28)",
+  pointerEvents: "none",
+};
+
 // ---------------------------------------------------------------------------
 // CmdRow component
 // ---------------------------------------------------------------------------
@@ -148,9 +177,12 @@ export function CmdRow({
   onModeChange,
 }: CmdRowProps): React.JSX.Element {
   const [internalFlag, setInternalFlag] = useState<string>("");
+  const [tipOpen, setTipOpen] = useState(false);
+  const tipId = useId();
   const isControlled = modeValue !== undefined;
   const activeFlag = isControlled ? modeValue : internalFlag;
   const hasModes = modes !== undefined && modes.length > 0;
+  const hasTip = modeTitle !== undefined && modeTitle !== "";
   const displayCommand = activeFlag !== "" ? `${command} ${activeFlag}` : command;
 
   const handleModeChange = (event: React.ChangeEvent<HTMLSelectElement>): void => {
@@ -158,6 +190,9 @@ export function CmdRow({
     onModeChange?.(next);
     if (!isControlled) setInternalFlag(next);
   };
+
+  const handleTipShow = (): void => setTipOpen(true);
+  const handleTipHide = (): void => setTipOpen(false);
 
   const row = (
     <div data-testid="cmd-row" style={hasModes ? ROW_MODES_STYLE : ROW_STYLE}>
@@ -169,20 +204,31 @@ export function CmdRow({
       />
       <span style={hasModes ? TEXT_WRAP_STYLE : TEXT_STYLE}>{displayCommand}</span>
       {hasModes && (
-        <select
-          aria-label="Modo del comando"
-          title={modeTitle ?? "Modo del comando"}
-          value={activeFlag}
-          onChange={handleModeChange}
-          style={SELECT_STYLE}
-        >
-          <option value="">{modeDefaultLabel ?? "sin flag"}</option>
-          {modes.map((mode) => (
-            <option key={mode.flag} value={mode.flag}>
-              {mode.label}
-            </option>
-          ))}
-        </select>
+        <span style={TOOLTIP_WRAP_STYLE}>
+          <select
+            aria-label="Modo del comando"
+            aria-describedby={hasTip ? tipId : undefined}
+            value={activeFlag}
+            onChange={handleModeChange}
+            onMouseEnter={handleTipShow}
+            onMouseLeave={handleTipHide}
+            onFocus={handleTipShow}
+            onBlur={handleTipHide}
+            style={SELECT_STYLE}
+          >
+            <option value="">{modeDefaultLabel ?? "sin flag"}</option>
+            {modes.map((mode) => (
+              <option key={mode.flag} value={mode.flag}>
+                {mode.label}
+              </option>
+            ))}
+          </select>
+          {hasTip && tipOpen && (
+            <span role="tooltip" id={tipId} style={TOOLTIP_STYLE}>
+              {modeTitle}
+            </span>
+          )}
+        </span>
       )}
       {copy && <CopyButton value={displayCommand} />}
     </div>

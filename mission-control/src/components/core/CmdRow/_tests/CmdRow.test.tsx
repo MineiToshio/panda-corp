@@ -5,7 +5,7 @@
  * with a CopyButton. THE command-chip primitive.
  */
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { CmdRow, type CmdRowMode, type CmdRowProps } from "@/components/core/CmdRow/CmdRow";
@@ -60,13 +60,32 @@ describe("frd-02/AC-02-010.9: CmdRow — inline mode select", () => {
     expect(screen.queryByRole("combobox")).toBeNull();
   });
 
-  it("frd-02: the select carries a hover tooltip (title) naming the field", () => {
+  it("frd-02: shows a custom tooltip on hover naming the field (not the native title)", () => {
     renderCmd({
       command: "/pandacorp:spec my-app",
       modes: SPEC_MODES,
       modeTitle: "Modo de preguntas",
     });
-    expect(screen.getByRole("combobox").getAttribute("title")).toBe("Modo de preguntas");
+    const select = screen.getByRole("combobox");
+    // No native title (it's delayed + browser-positioned); the custom tooltip is hidden until hover.
+    expect(select.getAttribute("title")).toBeNull();
+    expect(screen.queryByRole("tooltip")).toBeNull();
+    fireEvent.mouseEnter(select);
+    expect(screen.getByRole("tooltip").textContent).toBe("Modo de preguntas");
+    fireEvent.mouseLeave(select);
+    expect(screen.queryByRole("tooltip")).toBeNull();
+  });
+
+  it("frd-02: the select is described by the tooltip for assistive tech", () => {
+    renderCmd({
+      command: "/pandacorp:spec my-app",
+      modes: SPEC_MODES,
+      modeTitle: "Modo de preguntas",
+    });
+    const select = screen.getByRole("combobox");
+    fireEvent.focus(select);
+    const tip = screen.getByRole("tooltip");
+    expect(select.getAttribute("aria-describedby")).toBe(tip.getAttribute("id"));
   });
 
   it("frd-02: defaults to the 'no flag' option — command stays the base command", () => {
