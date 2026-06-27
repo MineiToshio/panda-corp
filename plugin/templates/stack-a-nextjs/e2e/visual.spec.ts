@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { TARGETS_MOBILE } from "./_target";
-import { BLESSED } from "./routes";
+import { VISUAL_BLESSED } from "./routes";
 
 /**
  * Visual-Fidelity Gate Layer A (DR-056): each blessed surface is diffed against its own blessed
@@ -10,10 +10,10 @@ import { BLESSED } from "./routes";
  * Layer B (the VLM mock-judge) is the reviewer's runtime/visual lens, not a script.
  */
 test("visual harness present", () => {
-  expect(BLESSED.length).toBeGreaterThanOrEqual(0);
+  expect(VISUAL_BLESSED.length).toBeGreaterThanOrEqual(0);
 });
 
-for (const s of BLESSED) {
+for (const s of VISUAL_BLESSED) {
   test(`visual · ${s.id} (${s.path}) matches baseline`, async ({ page }, testInfo) => {
     // Honor target_platforms (DR-074): a desktop-only project must NOT diff a mobile-width baseline
     // it doesn't target — that snapshot is just the desktop layout squished to 390px, pure noise that

@@ -18,6 +18,14 @@ export type Surface = {
   readonly path: string;
   readonly name: string;
   readonly blessed: boolean;
+  /**
+   * Whether this surface gets a pixel-exact VISUAL baseline (default: true when blessed).
+   * Set `false` for a LIVE-DATA dashboard whose full-page height is non-deterministic (it reads
+   * mutating data, so a pixel baseline flaps and gets re-blessed forever). Such a surface still gets
+   * the smoke gate (renders) + shell gate (reachable) + its components' unit tests — it just opts OUT
+   * of the full-page screenshot diff. Don't set it on a static / mock-fidelity page (DR-074/088).
+   */
+  readonly visualBaseline?: boolean;
 };
 
 export const SURFACES: readonly Surface[] = [
@@ -26,3 +34,10 @@ export const SURFACES: readonly Surface[] = [
 ] as const;
 
 export const BLESSED: readonly Surface[] = SURFACES.filter((s) => s.blessed);
+
+/**
+ * The surfaces that get a pixel-exact VISUAL baseline: blessed AND not opted out via
+ * `visualBaseline:false` (a live-data dashboard whose full-page height is non-deterministic). Smoke
+ * and shell still gate every BLESSED surface; only the screenshot diff honors this narrower set.
+ */
+export const VISUAL_BLESSED: readonly Surface[] = BLESSED.filter((s) => s.visualBaseline !== false);
