@@ -4,6 +4,11 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-06-27 — merge-queue: limpiar el manifiesto huérfano tras fusionar (.json) · v9.22.2
+**What:** `merge-queue.sh` (plantilla + materializado MC, byte-idénticos) borraba el manifiesto del worktree como `run/worktrees/$BRANCH`, pero `worktree-bootstrap.sh` lo escribe como `$BRANCH.json` → tras cada merge quedaba un `.json` huérfano acumulándose. Corregido a `$BRANCH.json`.
+**Why:** Basura de runtime que se acumulaba. Impacto bajo: ni el indicador "⎇ pendientes" de MC ni `pending-work.sh` leen ese directorio (ambos derivan de `git worktree list` + `git branch --no-merged`), así que NO causaba fantasmas — pero la limpieza debía ser correcta. Detectado al dogfoodear la cola dos veces en una sesión (quedaron 2 `.json` huérfanos).
+**Files:** `plugin/templates/shared/.pandacorp/merge-queue.sh`, `mission-control/.pandacorp/merge-queue.sh`, `plugin/.claude-plugin/plugin.json` (v9.22.2).
+
 ## 2026-06-27 — Plantilla del spec-digest: orden problema-primero + reglas de autoría de cards · v9.22.1
 **What:** `templates/docs/spec-digest-template.md` actualizado para que el skill `/spec` genere un digest que rinde escaneable en el tab Spec de Mission Control: **El problema primero** (como lista de bullets, no párrafo), **Hipótesis de valor** como UN statement corto (callout), y la regla clave de las cards `- **Título** — descripción` (el paréntesis va DENTRO de la descripción, nunca entre el `**` y el `—`). Refleja la mejora del render (MC: parser tolerante + kinds `bullets`/`highlight`, alcance→checklist, fuera sin tachado).
 **Why:** Al cambiar el contenido del digest, el render quedó feo (usuarios/métricas "puro título" por un bullet mal autorado, hipótesis muro de texto, fuera tachado). Se arregló el render en MC y se ajustó la plantilla para que la PRÓXIMA pasada del skill genere directamente el formato bueno.

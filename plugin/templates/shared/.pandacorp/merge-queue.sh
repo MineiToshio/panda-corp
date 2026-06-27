@@ -89,7 +89,7 @@ fi
 cd "$MAIN_WT"
 git worktree remove --force "$WORKTREE" 2>/dev/null || true
 git branch -D "$BRANCH" 2>/dev/null || true
-rm -f "$MAIN_WT/.pandacorp/run/worktrees/$BRANCH" 2>/dev/null || true   # drop the manifest entry (DR-096 §7)
+rm -f "$MAIN_WT/.pandacorp/run/worktrees/$BRANCH.json" 2>/dev/null || true   # drop the manifest entry (worktree-bootstrap writes <branch>.json) (DR-096 §7)
 
 echo "merge-queue: merged $BRANCH → $DEFAULT_BRANCH and removed the worktree"
 exit 0
