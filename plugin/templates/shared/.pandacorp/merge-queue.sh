@@ -27,7 +27,16 @@ DEFAULT_BRANCH="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/d
 MAIN_WT="$(git worktree list --porcelain | awk -v b="refs/heads/$DEFAULT_BRANCH" '
   /^worktree /{wt=$2} /^branch /{if($2==b) print wt}' | head -1)"
 
-fail() { echo "merge-queue: $1" >&2; exit "$2"; }
+# Loud hand-back (DR-099, #2): a merge that can't LAND (rebase conflict 10 / red gate 11 / busy main 12)
+# must never be silent — fire a desktop notification so the owner sees it even if the message scrolls
+# past. Precondition errors (20, the caller's own setup mistake) stay quiet (the agent reads stderr).
+fail() {
+  echo "merge-queue: $1" >&2
+  if [ "$2" -ge 10 ] && [ "$2" -le 12 ] && command -v osascript >/dev/null 2>&1; then
+    osascript -e "display notification \"${1//\"/\'}\" with title \"Pandacorp: merge sin aterrizar — ${BRANCH:-?}\"" 2>/dev/null || true
+  fi
+  exit "$2"
+}
 
 [ "$BRANCH" = "$DEFAULT_BRANCH" ] && fail "run this from the WORKTREE branch, not $DEFAULT_BRANCH" 20
 [ "$WORKTREE" = "$MAIN_WT" ] && fail "this is the main checkout, not a worktree" 20

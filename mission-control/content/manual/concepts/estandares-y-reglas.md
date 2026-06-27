@@ -33,6 +33,8 @@ Es transparente: tú hablas normal y dices "ejecuta"; el agente crea el worktree
 
 **Cuando terminas tú, queda en "Hecho" (DR-097).** Si implementas un cambio a mano (dentro o fuera de `/implement`), el estado del work order se mueve a donde corresponde: a **Hecho** en cuanto el gate verde (`verify.sh`) pasa — no se queda varado en "En revisión". El gate es el verificador objetivo; el agente solo registra su veredicto, no se auto-evalúa.
 
+**Las reglas de paralelo, reforzadas (DR-099).** El aislamiento de DR-096 era una regla *blanda* que un agente podía saltarse ("el árbol está quieto") y dejar trabajo a medias que rompía el gate de otra sesión. Ahora se refuerza por tres vías: (1) al editar código de producto **directo en el checkout principal** (no en un worktree), un recordatorio en el momento de la edición empuja a aislarse primero —para que "parece quieto" no pueda volver a colar trabajo sin mergear—; (2) un merge que no puede aterrizar (conflicto, gate rojo, copia ocupada) dispara una **notificación de escritorio** — nunca es silencioso; (3) cada conversación se mantiene **aislada**: un rojo ajeno se maneja en silencio y no se te narra lo que hacen otras sesiones (eso lo ves tú en el indicador de Mission Control, nunca como ruido en el chat).
+
 ## El registro de decisiones
 
 `factory/decisions/registry.yaml` contiene reglas con un **valor por defecto** para decisiones recurrentes. Ejemplos:

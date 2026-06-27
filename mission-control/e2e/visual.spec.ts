@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { TARGETS_MOBILE } from "./_target";
 import { BLESSED } from "./routes";
 
 /**
@@ -14,6 +15,11 @@ test("visual harness present", () => {
 
 for (const s of BLESSED) {
   test(`visual · ${s.id} (${s.path}) matches baseline`, async ({ page }, testInfo) => {
+    // Honor target_platforms (DR-074): a desktop-only project must NOT diff a mobile-width baseline
+    // it doesn't target — that snapshot is just the desktop layout squished to 390px, pure noise that
+    // drifts with content. Like responsive.spec.ts the mobile run is a vacuous pass here (the platform
+    // target chooses the asserted widths for BOTH gates). Early-return, not test.skip (lint noSkippedTests).
+    if (testInfo.project.name === "mobile" && !TARGETS_MOBILE) return;
     // Block the live transport (SSE) so the screenshot is DETERMINISTIC (no streaming data shifting
     // pixels) and the page doesn't hang — a live EventSource never lets networkidle settle (DR-071).
     // The page still renders its initial server snapshot, which is what the blessed baseline captures.

@@ -828,6 +828,31 @@ standard, materialized at `/scaffold`/`:blueprint` which already write `ports.ya
    migrate + worktree `launch.json`) (§2).
 3. **Per-worktree state isolation** — the DB strategy (§4) or "stateless, none" (the MC case).
 
+### 9. Enforcement — the rule can't stay soft (DR-099)
+
+§7's self-isolation is only a *documented* rule, and a documented rule gets rationalized past ("the tree
+is quiet, I'll edit main directly") — leaving uncommitted WIP in the shared checkout that REDs another
+session's gate (the exact failure §7 exists to prevent). Worse, a rule added mid-session isn't live in an
+*already-running* session. Three mechanisms turn the rule into something an agent meets in the loop, not
+just in a doc:
+
+- **Edit-time isolation nudge (producer side).** The PreToolUse write hook
+  (`plugin/scripts/warn-adhoc-write.sh`) detects when product CODE is edited directly in the SHARED main
+  checkout (its git-dir has no `/worktrees/` segment) outside an active build, and reminds the agent to
+  isolate FIRST (`EnterWorktree` → edit → `merge-queue.sh`). Proactive + attributable (it is THIS
+  session's edit), so "looks quiet" can't silently strand WIP. **Non-blocking** — a hook can't reliably
+  tell a significant change from a micro-edit, so it nudges every shared-tree code edit rather than
+  trapping legit work; suppressed inside a worktree and during an active build (the engine edits main
+  in-place by design, DR-060).
+- **Loud merge hand-back.** `merge-queue.sh` fires a desktop notification on any merge that can't LAND
+  (rebase conflict / red gate / busy main) — a blocked merge is never silent (complements `--notify` on
+  `pending-work.sh`, which covers the *forgotten* worktree).
+- **Conversation isolation.** An agent handles a FOREIGN red silently (recognise via `git status`
+  ownership, never touch/mask — §7) and does NOT narrate to the owner what OTHER sessions are doing:
+  cross-session status is PULL (Mission Control), never noise pushed into a conversation; and never
+  reports work as "done" until it is in main.
+
 Canonical surfaces: this section; `${CLAUDE_PLUGIN_ROOT}/templates/shared/.pandacorp/merge-queue.sh`
-(the queue) + `worktree-bootstrap.sh` (the reconstitution); `plugin/scripts/verify-before-stop.sh` (red
-attribution); the project overlay (`guide.md.tpl`, the self-isolation rule); `docs/proposals/18`.
+(the queue + loud hand-back) + `worktree-bootstrap.sh` (the reconstitution); `plugin/scripts/verify-before-stop.sh`
+(foreign-red attribution) + `plugin/scripts/warn-adhoc-write.sh` (edit-time isolation nudge); the project
+overlay (`guide.md.tpl`, the self-isolation + conversation-isolation rules); `docs/proposals/18`.
