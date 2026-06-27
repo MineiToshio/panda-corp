@@ -3,10 +3,10 @@ id: FRD-21
 type: frd
 title: 'FRD-21 — Pending-merge visibility (never strand a forgotten worktree)'
 status: ACTIVE
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 ui: true
 visual_source: docs/design/prototype/index.html
-last_updated: '2026-06-26'
+last_updated: '2026-06-27'
 ---
 # FRD-21 — Pending-merge visibility
 

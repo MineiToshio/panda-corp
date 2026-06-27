@@ -4,7 +4,7 @@ type: work-order
 title: 'UI: global shell indicator + cross-project panel + Resumen block'
 frd: FRD-21
 status: ACTIVE
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 artifacts:
   - 'src/app/**/_components/PendingMerge*/**'
   - 'src/components/modules/PendingMerge*/**'
@@ -35,4 +35,14 @@ difficulty: medium
   no console error / blank render.
 
 ## Status Note
-(to be filled by the implementer.)
+**Built (IN_REVIEW) — the global indicator only.** `PendingMergeBadge` (server-rendered shell slot, not a
+client island — no interactivity in v1) is wired into `AppShell` via an optional `pendingMergeBadge` slot
+(topbar, OUTSIDE the nav row so the DR-075 shell gate is untouched) and fed by `layout.tsx`. Calm/hidden
+when empty, `⎇ pendientes` + CountBadge default, `danger`-toned + `data-state="stale"` when stale, explicit
+error chip when git is unreadable (status by text/attr, not color alone). Tests:
+`PendingMergeBadge/_tests` (empty→null, ok→count, stale→alert, error→chip). Verified: tsc + biome + knip
+clean, unit tests green.
+**DEFERRED to a follow-up (NOT built):** the cross-project **popover panel** (the badge currently links to
+the work-orders view + carries the full list in its accessible name/title) and the **per-project
+`PendingMergeBlock` in `tab-summary`**. These are a follow-up `/iterate` — the global indicator was the
+owner's priority. Awaiting the FRD-21 review gate for VERIFIED.
