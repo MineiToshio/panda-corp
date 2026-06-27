@@ -21,8 +21,10 @@
 import {
   type CommandMode,
   IMPLEMENT_MODE_DEFAULT_LABEL,
+  IMPLEMENT_MODE_TITLE,
   IMPLEMENT_MODES,
   SPEC_MODE_DEFAULT_LABEL,
+  SPEC_MODE_TITLE,
   SPEC_MODES,
 } from "@/lib/command-modes";
 
@@ -67,6 +69,8 @@ export interface PhaseDefinition {
     modes?: ReadonlyArray<CommandMode>;
     /** Label of the mode select's first "no flag" option (names the field + the default). */
     modeDefaultLabel?: string;
+    /** Hover tooltip on the mode select naming the field. */
+    modeTitle?: string;
   }>;
 }
 
@@ -90,6 +94,7 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
         hint: "Elige un modo de preguntas, o déjalo así y el skill usa el default por origen.",
         modes: SPEC_MODES,
         modeDefaultLabel: SPEC_MODE_DEFAULT_LABEL,
+        modeTitle: SPEC_MODE_TITLE,
       },
       { label: "Sigue explorando la idea en conversación", command: "/pandacorp:explore <idea>" },
     ],
@@ -115,6 +120,7 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
         command: "/pandacorp:spec <idea>",
         modes: SPEC_MODES,
         modeDefaultLabel: SPEC_MODE_DEFAULT_LABEL,
+        modeTitle: SPEC_MODE_TITLE,
       },
     ],
     team: [
@@ -162,6 +168,7 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
         command: "/pandacorp:implement",
         modes: IMPLEMENT_MODES,
         modeDefaultLabel: IMPLEMENT_MODE_DEFAULT_LABEL,
+        modeTitle: IMPLEMENT_MODE_TITLE,
       },
       { label: "Ajusta la arquitectura / work orders", command: "/pandacorp:blueprint" },
     ],
@@ -187,6 +194,7 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
         command: "/pandacorp:implement",
         modes: IMPLEMENT_MODES,
         modeDefaultLabel: IMPLEMENT_MODE_DEFAULT_LABEL,
+        modeTitle: IMPLEMENT_MODE_TITLE,
       },
       { label: "Reporta un bug encontrado probando", command: "/pandacorp:bug" },
       { label: "Encola un cambio para el build", command: "/pandacorp:change" },

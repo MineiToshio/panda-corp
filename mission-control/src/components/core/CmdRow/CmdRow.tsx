@@ -49,6 +49,8 @@ export interface CmdRowProps {
   modes?: ReadonlyArray<CmdRowMode>;
   /** Label of the first "no flag" option — names the field and means "default". */
   modeDefaultLabel?: string;
+  /** Hover tooltip on the select naming the field (e.g. "Modo de construcción"). */
+  modeTitle?: string;
   /** Note shown below the row when no mode is selected (only with `modes`). */
   modeHint?: string;
   /** Controlled selected flag ("" = no flag). When set, the parent owns the value (e.g. to persist it). */
@@ -133,13 +135,14 @@ const HINT_STYLE: React.CSSProperties = {
  * Usage:
  *   <CmdRow command="claude plugin update pandacorp@panda-corp" />
  *   <CmdRow command="/pandacorp:adopt" copy={false} />
- *   <CmdRow command="/pandacorp:spec my-app" modes={SPEC_MODES} modeDefaultLabel="preguntas: default" />
+ *   <CmdRow command="/pandacorp:spec my-app" modes={SPEC_MODES} modeDefaultLabel="preguntas" />
  */
 export function CmdRow({
   command,
   copy = true,
   modes,
   modeDefaultLabel,
+  modeTitle,
   modeHint,
   modeValue,
   onModeChange,
@@ -168,6 +171,7 @@ export function CmdRow({
       {hasModes && (
         <select
           aria-label="Modo del comando"
+          title={modeTitle ?? "Modo del comando"}
           value={activeFlag}
           onChange={handleModeChange}
           style={SELECT_STYLE}

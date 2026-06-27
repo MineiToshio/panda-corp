@@ -47,8 +47,12 @@ export const SPEC_MODES: ReadonlyArray<CommandMode> = [
   },
 ];
 
-/** First "no flag" option label for the spec select (names the field + its default). */
-export const SPEC_MODE_DEFAULT_LABEL = "preguntas: default";
+/** First "no flag" option label for the spec select — one word that names the field (it IS the
+ * default, being first; the detail lives in the hint line below, keeping the select narrow). */
+export const SPEC_MODE_DEFAULT_LABEL = "preguntas";
+
+/** Hover tooltip (and could refine the aria) naming the spec mode field. */
+export const SPEC_MODE_TITLE = "Modo de preguntas del spec";
 
 // ---------------------------------------------------------------------------
 // implement — build modes, derived from BUILD_MODES (DR-092)
@@ -100,8 +104,12 @@ export const IMPLEMENT_MODES: ReadonlyArray<CommandMode> = BUILD_MODES.filter(
   hint: BUILD_MODE_HINTS[mode.id],
 }));
 
-/** First "no flag" option label for the implement select (the default, balanced). */
-export const IMPLEMENT_MODE_DEFAULT_LABEL = "modo: equilibrado";
+/** First "no flag" option label for the implement select — the default mode's name (balanced),
+ * short and consistent with Pro/Potente/Profundo; the detail lives in the hint line below. */
+export const IMPLEMENT_MODE_DEFAULT_LABEL = "Equilibrado";
+
+/** Hover tooltip naming the implement mode field. */
+export const IMPLEMENT_MODE_TITLE = "Modo de construcción";
 
 /** The default mode's description — shown as the select's hint when no flag is chosen. */
 export const IMPLEMENT_DEFAULT_HINT = BUILD_MODE_HINTS[DEFAULT_BUILD_MODE];

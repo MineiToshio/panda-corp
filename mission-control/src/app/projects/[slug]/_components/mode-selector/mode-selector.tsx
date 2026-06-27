@@ -36,6 +36,7 @@ import {
   IMPLEMENT_BASE_COMMAND,
   IMPLEMENT_DEFAULT_HINT,
   IMPLEMENT_MODE_DEFAULT_LABEL,
+  IMPLEMENT_MODE_TITLE,
   IMPLEMENT_MODES,
 } from "@/lib/command-modes";
 import { type BuildMode, DEFAULT_BUILD_MODE } from "@/lib/constants";
@@ -157,6 +158,7 @@ export function ModeSelector({ slug, phase }: ModeSelectorProps): React.JSX.Elem
             command={IMPLEMENT_BASE_COMMAND}
             modes={IMPLEMENT_MODES}
             modeDefaultLabel={IMPLEMENT_MODE_DEFAULT_LABEL}
+            modeTitle={IMPLEMENT_MODE_TITLE}
             modeHint={IMPLEMENT_DEFAULT_HINT}
             modeValue={buildModeFlag(activeMode)}
             onModeChange={handleModeChange}

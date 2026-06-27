@@ -97,12 +97,14 @@ Read-only kanban of the idea base, with idea capture, a navigable detail and dis
   `explore`) carry the project name; the in-project commands (`design`, `blueprint`, `implement`,
   `release`, `iterate`, `bug`, `change`, `review-launch`, `new-version`, `sync`) do not. A command
   that has **modes** SHALL render an inline **`<select>`** (same height as the copy button, pinned to
-  its left) whose first option is **"no flag"** (the skill's default — it names the field, e.g.
-  "preguntas: default" / "modo: equilibrado") and whose remaining options each fold their flag into
-  the displayed AND copied command (`/pandacorp:spec <slug>` → `/pandacorp:spec <slug> --ask`).
-  Choosing the default option again clears the flag. A `<select>` (not a row of pills) keeps the
-  control compact no matter how many modes a command has. A one-line hint SHALL describe the selected
-  mode (or the default behaviour). Today two commands carry modes: **`spec`** (clarification modes
+  its left) whose first option is **"no flag"** (the skill's default). To keep the control narrow,
+  that first option is a **single short word** — it names the field, not the whole sentence (e.g.
+  `preguntas` for spec, `Equilibrado` for implement); the field's full name is the select's **hover
+  tooltip** (`title`) and the detail lives in the one-line hint below — NOT widening the option text.
+  The remaining options each fold their flag into the displayed AND copied command (`/pandacorp:spec
+  <slug>` → `/pandacorp:spec <slug> --ask`). Choosing the default option again clears the flag. A
+  `<select>` (not a row of pills) keeps the control compact no matter how many modes a command has. A
+  one-line hint SHALL describe the selected mode (or the default behaviour). Today two commands carry modes: **`spec`** (clarification modes
   `--ask` / `--auto` / `--infer`, DR-095) and **`implement`** (the build modes Pro / Potente /
   Profundo, derived from the canonical `BUILD_MODES`; balanced = no flag). Commands without modes
   render as a plain row. Read-only (AC-02-010.6): showing the command is not running it.

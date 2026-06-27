@@ -48,16 +48,25 @@ describe("frd-02/AC-02-010.9: CmdRow — inline mode select", () => {
     renderCmd({
       command: "/pandacorp:spec my-app",
       modes: SPEC_MODES,
-      modeDefaultLabel: "preguntas: default",
+      modeDefaultLabel: "preguntas",
     });
     const select = screen.getByRole("combobox", { name: "Modo del comando" });
     const options = [...select.querySelectorAll("option")].map((o) => o.textContent);
-    expect(options).toEqual(["preguntas: default", "ask", "auto", "infer"]);
+    expect(options).toEqual(["preguntas", "ask", "auto", "infer"]);
   });
 
   it("frd-02: renders no select when no modes are given", () => {
     renderCmd({ command: "/pandacorp:design" });
     expect(screen.queryByRole("combobox")).toBeNull();
+  });
+
+  it("frd-02: the select carries a hover tooltip (title) naming the field", () => {
+    renderCmd({
+      command: "/pandacorp:spec my-app",
+      modes: SPEC_MODES,
+      modeTitle: "Modo de preguntas",
+    });
+    expect(screen.getByRole("combobox").getAttribute("title")).toBe("Modo de preguntas");
   });
 
   it("frd-02: defaults to the 'no flag' option — command stays the base command", () => {
@@ -88,7 +97,7 @@ describe("frd-02/AC-02-010.9: CmdRow — inline mode select", () => {
     renderCmd({
       command: "/pandacorp:spec my-app",
       modes: SPEC_MODES,
-      modeDefaultLabel: "preguntas: default",
+      modeDefaultLabel: "preguntas",
     });
     const select = screen.getByRole("combobox");
     await user.selectOptions(select, "--ask");
