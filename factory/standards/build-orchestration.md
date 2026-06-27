@@ -851,6 +851,15 @@ just in a doc:
   ownership, never touch/mask — §7) and does NOT narrate to the owner what OTHER sessions are doing:
   cross-session status is PULL (Mission Control), never noise pushed into a conversation; and never
   reports work as "done" until it is in main.
+- **Gate-level silence on foreign reds.** Conversation isolation can't rely on the agent's goodwill —
+  the Stop gate (`verify-before-stop.sh`) itself used to DUMP the foreign red into the conversation,
+  forcing the agent to see (and relay) it. Now the gate ATTRIBUTES first: `warn-adhoc-write.sh` records
+  every edit of the session to `.pandacorp/run/sessions/<session_id>.touched` (gitignored), and on a red
+  the gate compares the dirty + blamed files (by basename) against that record. If NONE of the session's
+  edits are implicated → it ALLOWS THE STOP SILENTLY (logs to `run/foreign-red.log` for PULL, no stderr).
+  **Fail-closed:** a red touching a file the session edited, or one it can't attribute (no record), still
+  BLOCKS. Net: the owner is interrupted ONLY by their own session's reds; a foreign red never reaches the
+  chat. (The needs-a-decision case — an unresolvable conflict — is surfaced by the loud hand-back, not the gate.)
 
 Canonical surfaces: this section; `${CLAUDE_PLUGIN_ROOT}/templates/shared/.pandacorp/merge-queue.sh`
 (the queue + loud hand-back) + `worktree-bootstrap.sh` (the reconstitution); `plugin/scripts/verify-before-stop.sh`

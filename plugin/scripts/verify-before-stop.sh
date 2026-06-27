@@ -34,18 +34,45 @@ fi
 
 out=$(bash "$verify" 2>&1)
 if [ $? -ne 0 ]; then
+  # The gate is RED. Attribute BEFORE nagging (DR-099): in a SHARED checkout the whole-program gate
+  # also fails on ANOTHER session's in-flight WIP. If NONE of the files THIS session edited are
+  # implicated — neither dirty (uncommitted) nor blamed by the output — it is a FOREIGN red → allow
+  # the stop SILENTLY and do NOT narrate it (cross-session status is PULL, in Mission Control, never
+  # noise pushed into a conversation). FAIL-CLOSED: if any touched file is implicated, OR we can't
+  # attribute (no per-session edit record), BLOCK. Never silence a red that might be yours.
+  sid=$(echo "$input" | jq -r '.session_id // ""')
+  touched="$cwd/.pandacorp/run/sessions/$sid.touched"
+  dirty_raw=$(git -C "$cwd" status --porcelain 2>/dev/null)
+  foreign=0
+  if [ -n "$sid" ] && [ -s "$touched" ]; then
+    mine=$(sed 's#.*/##' "$touched" | sort -u)                                                  # basenames I edited
+    dirty=$(printf '%s\n' "$dirty_raw" | sed 's/^...//; s/.* -> //; s#.*/##' | sort -u)          # dirty basenames
+    failing=$(printf '%s\n' "$out" | grep -oE '[A-Za-z0-9_.@/-]+\.(ts|tsx|js|jsx|mjs|cjs|css|scss|md|json|ya?ml|png)' | sed 's#.*/##' | sort -u)  # blamed basenames
+    mine_dirty=$(comm -12 <(printf '%s\n' "$mine") <(printf '%s\n' "$dirty"))
+    mine_failing=$(comm -12 <(printf '%s\n' "$mine") <(printf '%s\n' "$failing"))
+    if [ -z "$mine_dirty" ] && [ -z "$mine_failing" ] && { [ -n "$dirty_raw" ] || [ -n "$failing" ]; }; then
+      foreign=1   # none of MY edits are implicated, and there IS foreign evidence to blame → foreign red
+    fi
+  fi
+  if [ "$foreign" = "1" ]; then
+    # Foreign red: allow the stop with NO stderr (silence — the owner is never nagged about it). Log it
+    # for PULL visibility only (Mission Control / pending-work surface cross-session state, not the chat).
+    mkdir -p "$cwd/.pandacorp/run" 2>/dev/null
+    printf '%s\tforeign-red: allowed stop — gate red only in files this session did not touch (session %s)\n' \
+      "$(date -u +%FT%TZ 2>/dev/null || echo now)" "$sid" >> "$cwd/.pandacorp/run/foreign-red.log" 2>/dev/null
+    exit 0
+  fi
   echo "Pandacorp verify gate FAILED — you can't finish with a broken project." >&2
   echo "Rule that failed: .pandacorp/verify.sh (tests + typecheck + lint must pass)." >&2
   echo "Fix the root cause; do NOT tweak the test to pass or declare it 'done'." >&2
-  # Red attribution (DR-096): a whole-program gate also fails on a PARALLEL session's in-flight WIP.
-  # Before fixing, check ownership — a failure in files THIS session did not change is a FOREIGN red:
-  # report it and stop. NEVER edit another session's files or run --update-snapshots to force green
-  # (DR-093 no-sweep). The durable fix for cross-session flap is worktree isolation (DR-096).
-  dirty=$(git -C "$cwd" status --porcelain 2>/dev/null | head -20)
-  if [ -n "$dirty" ]; then
-    echo "--- uncommitted files in the tree (may be another session's WIP — verify ownership, DR-096) ---" >&2
-    echo "$dirty" >&2
-    echo "If the failing area is NOT in files YOU changed, this is a foreign red: report it, don't fix it." >&2
+  # This red is attributable to THIS session (a touched file is dirty or blamed) OR could not be
+  # attributed (no per-session record) — so it is shown. Still NEVER edit another session's files or
+  # run --update-snapshots to force green (DR-093 no-sweep); fix only what YOU changed (DR-096/099).
+  dirty_show=$(printf '%s\n' "$dirty_raw" | head -20)
+  if [ -n "$dirty_show" ]; then
+    echo "--- uncommitted files in the tree (some may be another session's WIP — verify ownership, DR-096) ---" >&2
+    echo "$dirty_show" >&2
+    echo "A failure isolated to files you did NOT touch is foreign — report it, don't fix it." >&2
   fi
   echo "--- verify.sh output (last 30 lines) ---" >&2
   echo "$out" | tail -30 >&2

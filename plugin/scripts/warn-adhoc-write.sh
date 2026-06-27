@@ -17,6 +17,16 @@ allow() { exit 0; }
 # Scope: only Pandacorp projects (marker: .pandacorp/status.yaml)
 [ -f "$cwd/.pandacorp/status.yaml" ] || allow
 
+# Record this session's touched files (DR-099 attribution): the Stop gate compares the failing set
+# against THIS session's edits to tell a FOREIGN red (another session's WIP in the shared checkout)
+# from your own — so it can stay SILENT on a foreign-only red instead of nagging you. Recorded for
+# EVERY edit (before the exempt/skill early-exits below), keyed by session_id; gitignored runtime.
+sid=$(echo "$input" | jq -r '.session_id // ""')
+if [ -n "$sid" ] && [ -n "$file" ]; then
+  tdir="$cwd/.pandacorp/run/sessions"
+  mkdir -p "$tdir" 2>/dev/null && printf '%s\n' "$file" >> "$tdir/$sid.touched" 2>/dev/null
+fi
+
 # A skill is actively driving the change → no nudge (skills may touch this marker)
 [ -f "$cwd/.pandacorp/run/skill-active" ] && allow
 
