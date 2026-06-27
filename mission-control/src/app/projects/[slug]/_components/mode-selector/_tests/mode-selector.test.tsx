@@ -50,7 +50,7 @@ describe("ModeSelector — AC-11-001.1: build modes offered in order", () => {
   it("offers Balanced (default) + Pro / Potente / Profundo, in order", () => {
     renderSelector();
     const options = [...getSelect().querySelectorAll("option")].map((o) => o.textContent);
-    expect(options).toEqual(["Equilibrado", "Pro", "Potente", "Profundo"]);
+    expect(options).toEqual(["default", "Pro", "Potente", "Profundo"]);
   });
 
   it("the select has an accessible label in Spanish", () => {

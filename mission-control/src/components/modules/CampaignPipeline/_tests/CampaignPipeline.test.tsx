@@ -485,7 +485,7 @@ describe("ficha-next-step — per-phase runnable commands", () => {
     const cmds = screen.getByTestId("ficha-next-step");
     const select = within(cmds).getByRole("combobox", { name: "Modo del comando" });
     const options = [...select.querySelectorAll("option")].map((o) => o.textContent);
-    expect(options).toEqual(["preguntas", "ask", "auto", "infer"]);
+    expect(options).toEqual(["default", "ask", "auto", "infer"]);
     // Picking a mode folds its flag into the slug-substituted command (what gets copied).
     fireEvent.change(select, { target: { value: "--ask" } });
     expect(cmds).toHaveTextContent("/pandacorp:spec my-idea --ask");
@@ -497,7 +497,7 @@ describe("ficha-next-step — per-phase runnable commands", () => {
     const cmds = screen.getByTestId("ficha-next-step");
     const select = within(cmds).getByRole("combobox", { name: "Modo del comando" });
     const options = [...select.querySelectorAll("option")].map((o) => o.textContent);
-    expect(options).toEqual(["Equilibrado", "Pro", "Potente", "Profundo"]);
+    expect(options).toEqual(["default", "Pro", "Potente", "Profundo"]);
     fireEvent.change(select, { target: { value: "powerful" } });
     expect(cmds).toHaveTextContent("/pandacorp:implement powerful");
   });

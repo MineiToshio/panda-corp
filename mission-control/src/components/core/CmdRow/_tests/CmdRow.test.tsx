@@ -48,11 +48,11 @@ describe("frd-02/AC-02-010.9: CmdRow — inline mode select", () => {
     renderCmd({
       command: "/pandacorp:spec my-app",
       modes: SPEC_MODES,
-      modeDefaultLabel: "preguntas",
+      modeDefaultLabel: "default",
     });
     const select = screen.getByRole("combobox", { name: "Modo del comando" });
     const options = [...select.querySelectorAll("option")].map((o) => o.textContent);
-    expect(options).toEqual(["preguntas", "ask", "auto", "infer"]);
+    expect(options).toEqual(["default", "ask", "auto", "infer"]);
   });
 
   it("frd-02: renders no select when no modes are given", () => {
@@ -97,7 +97,7 @@ describe("frd-02/AC-02-010.9: CmdRow — inline mode select", () => {
     renderCmd({
       command: "/pandacorp:spec my-app",
       modes: SPEC_MODES,
-      modeDefaultLabel: "preguntas",
+      modeDefaultLabel: "default",
     });
     const select = screen.getByRole("combobox");
     await user.selectOptions(select, "--ask");

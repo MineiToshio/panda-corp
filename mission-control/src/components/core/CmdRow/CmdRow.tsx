@@ -135,7 +135,7 @@ const HINT_STYLE: React.CSSProperties = {
  * Usage:
  *   <CmdRow command="claude plugin update pandacorp@panda-corp" />
  *   <CmdRow command="/pandacorp:adopt" copy={false} />
- *   <CmdRow command="/pandacorp:spec my-app" modes={SPEC_MODES} modeDefaultLabel="preguntas" />
+ *   <CmdRow command="/pandacorp:spec my-app" modes={SPEC_MODES} modeDefaultLabel="default" modeTitle="…" />
  */
 export function CmdRow({
   command,
