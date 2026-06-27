@@ -32,10 +32,12 @@ import { Markdown } from "@/components/core/Markdown/Markdown";
 import { Panel } from "@/components/core/Panel/Panel";
 import type { ActivityLog, DecisionPoint } from "@/lib/docs/activity";
 import type { OverlayFreshnessState } from "@/lib/overlay-freshness/overlay-freshness";
+import type { PendingResult } from "@/lib/pendingMerge/pendingMerge";
 import type { SnapshotInfo } from "@/lib/snapshot/snapshot";
 import type { DeployTarget } from "@/lib/status/status";
 import { SnapshotPanel } from "../snapshot-panel/snapshot-panel";
 import { VersionFreshness } from "../version-freshness/version-freshness";
+import { PendingMergeBlock } from "./PendingMergeBlock";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -70,6 +72,9 @@ export interface TabSummaryProps {
    * Absent → no badge.
    */
   overlayFreshness?: OverlayFreshnessState;
+  /** FRD-21 per-project pending-merge state (readPending(projectPath)); renders a section after the
+   * decision points, or is omitted when absent. */
+  pendingMerge?: PendingResult;
 }
 
 // ---------------------------------------------------------------------------
@@ -582,6 +587,7 @@ export function TabSummary({
   deployTarget,
   deployUrl,
   overlayFreshness,
+  pendingMerge,
 }: TabSummaryProps): React.JSX.Element {
   return (
     <main data-testid="tab-summary" aria-label="Resumen del proyecto" style={ROOT_STYLE}>
@@ -623,6 +629,9 @@ export function TabSummary({
 
       {/* AC-04-003.3 + AC-04-004.1 — decision points (prototype: decisionesBox()) */}
       <DecisionsBlock decisions={decisions} pendingDecisions={pendingDecisions} />
+
+      {/* FRD-21 — pending-merge block (right after the decision point): this project's un-merged worktrees */}
+      {pendingMerge !== undefined && <PendingMergeBlock result={pendingMerge} />}
 
       {/* AC-04-003.2 — activity log (prototype: logBox()) */}
       <ActivityLogBlock activityLog={activityLog} />

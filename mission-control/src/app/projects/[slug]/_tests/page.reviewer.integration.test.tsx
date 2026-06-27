@@ -70,11 +70,13 @@ vi.mock("@/lib/status/status", () => ({
   }),
 }));
 
-vi.mock("@/lib/work-orders/work-orders", () => ({
+vi.mock("@/lib/work-orders/work-orders", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/work-orders/work-orders")>()),
   listWorkOrders: () => [],
   readWorkOrderDoc: () => null,
 }));
 
+import { ObjectivesBar } from "../_components/objectives-bar";
 // Imported AFTER the mocks above so the page picks them up.
 import ProjectWorkspacePage from "../page";
 
@@ -222,15 +224,15 @@ describe("FRD-04 reviewer — header + objectives numeric edges", () => {
     expect(screen.queryByTestId("objectives-bar")).toBeNull();
   });
 
-  it("objectives bar clamps to 100% when done > total (no >100% leak)", async () => {
-    statusState.workOrdersTotal = 4;
-    statusState.workOrdersDone = 9;
-    render(await renderPage({ tab: "commands" }));
+  it("objectives bar clamps to 100% when done > total (defensive — the page can't produce this now)", () => {
+    // The page derives done/total from aggregateProgress() where done ≤ total always, so done > total
+    // is no longer reachable through it (FRD-21). The clamp stays as a defensive guarantee in
+    // ObjectivesBar, tested here directly at the component level.
+    render(<ObjectivesBar done={9} total={4} />);
     const pct = screen.getByTestId("objectives-bar-pct").textContent ?? "";
     expect(pct).toContain("100%");
-    const bar = screen.getByTestId("objectives-bar");
     // aria-label must not claim a >100% completion
-    expect(bar.getAttribute("aria-label")).toContain("100%");
+    expect(screen.getByTestId("objectives-bar").getAttribute("aria-label")).toContain("100%");
   });
 });
 

@@ -25,10 +25,11 @@ import { readActivityLog, readDecisions } from "@/lib/docs/activity";
 import { listProjectDocs, readDoc } from "@/lib/docs/tree";
 import { readIdeas } from "@/lib/ideas/ideas";
 import { getOverlayFreshness } from "@/lib/overlay-freshness/overlay-freshness";
+import { readPending } from "@/lib/pendingMerge/pendingMerge";
 import type { ProjectListItem } from "@/lib/portfolio/portfolio";
 import { buildSnapshot } from "@/lib/snapshot/snapshot";
 import { type Phase, readStatus } from "@/lib/status/status";
-import { listWorkOrders, readWorkOrderDoc } from "@/lib/work-orders/work-orders";
+import { aggregateProgress, listWorkOrders, readWorkOrderDoc } from "@/lib/work-orders/work-orders";
 import { ObjectivesBar } from "./_components/objectives-bar";
 import { TabCommands } from "./_components/tab-commands/tab-commands";
 import { TabDocuments } from "./_components/tab-documents/tab-documents";
@@ -159,8 +160,14 @@ export function ProjectWorkspace({
       ? `${status.progress}% completado`
       : undefined;
 
-  const woDone = status.workOrdersDone ?? 0;
-  const woTotal = status.workOrdersTotal;
+  // Work-order progress DERIVED from the real work orders (DR-092 single source — the same
+  // aggregateProgress the Kanban uses), NOT the stored status.yaml counters, which drift the moment a
+  // work order is added/reopened. total = all WOs, done = VERIFIED.
+  const woProgress = aggregateProgress(listWorkOrders(projectPath));
+  const woDone = woProgress.done;
+  // undefined when there are no work orders → the objectives bar is omitted (AC-04-002.2), same as
+  // the old "no count" behavior; a number once any WO exists.
+  const woTotal = woProgress.total > 0 ? woProgress.total : undefined;
 
   // FRD-14 snapshot — null when last_green_sha is absent (AC-14-001.3). Rendered inside Summary.
   const snapshot = buildSnapshot(slug, status);
@@ -201,6 +208,8 @@ export function ProjectWorkspace({
       const summary = resolveProjectSummary(projectPath, status.project ?? slug);
       // FRD-20 — is this project's overlay at the factory's current OVERLAY_VERSION, or behind?
       const overlayFreshness = getOverlayFreshness(status.overlayVersion);
+      // FRD-21 — this project's un-merged worktrees/branches (read live from git; fail-loud).
+      const pendingMerge = readPending(projectPath);
       body = (
         <TabSummary
           summary={summary}
@@ -213,6 +222,7 @@ export function ProjectWorkspace({
           deployTarget={deployTarget}
           deployUrl={status.deployUrl}
           overlayFreshness={overlayFreshness}
+          pendingMerge={pendingMerge}
         />
       );
     }

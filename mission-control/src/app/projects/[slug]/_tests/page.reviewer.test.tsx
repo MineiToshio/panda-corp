@@ -65,7 +65,8 @@ vi.mock("@/lib/docs/activity", () => ({
   readDecisions: () => [{ title: "pick a db", resolved: false }],
 }));
 
-vi.mock("@/lib/work-orders/work-orders", () => ({
+vi.mock("@/lib/work-orders/work-orders", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/work-orders/work-orders")>()),
   listWorkOrders: () => [],
 }));
 

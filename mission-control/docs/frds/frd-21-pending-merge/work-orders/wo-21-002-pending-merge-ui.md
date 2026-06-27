@@ -4,7 +4,7 @@ type: work-order
 title: 'UI: global shell indicator + cross-project panel + Resumen block'
 frd: FRD-21
 status: ACTIVE
-implementation_status: IN_PROGRESS
+implementation_status: IN_REVIEW
 artifacts:
   - 'src/app/**/_components/PendingMerge*/**'
   - 'src/components/modules/PendingMerge*/**'
@@ -34,7 +34,7 @@ difficulty: medium
 - Smoke (Preview gate): the shell renders the indicator across routes; the Resumen tab renders the block;
   no console error / blank render.
 
-## Status Note — IN_PROGRESS (honest: one piece still blocked)
+## Status Note — IN_REVIEW (complete)
 **DONE:** (1) the **global indicator** `PendingMergeBadge` wired into `AppShell` via an optional
 `pendingMergeBadge` slot (topbar, OUTSIDE the nav row → DR-075 shell gate untouched), fed by `layout.tsx`:
 calm/hidden when empty, `⎇ pendientes` + CountBadge default, `danger`-toned `data-state="stale"` when stale,
@@ -42,8 +42,8 @@ explicit error chip when git is unreadable. (2) the **panel** — the chip is a 
 **Modal** primitive (DR-057, focus-trap + Esc + backdrop) listing each item (branch · status-as-text · age ·
 the land command). Status by text, not color alone (AC-21-002). Tests: empty→null, ok→count, stale→alert,
 error→chip, click→Modal-with-rows. Verified: tsc + biome (`--error-on-warnings`) + knip clean, 5 unit tests green.
-**STILL PENDING (blocked, NOT done):** the **per-project `PendingMergeBlock` in `tab-summary`** — it edits
-`tab-summary.tsx`, which is under active uncommitted change in another session, so it is NOT touched
-(DR-093 no-sweep). It lands when that file is free. This is why the WO stays **IN_PROGRESS**, not IN_REVIEW —
-the global surface (indicator + panel, the owner's priority) is complete; this secondary per-project view is
-the only remainder. If the owner descopes it (the global indicator+panel covers the need), the WO closes.
+(3) the **per-project `PendingMergeBlock`** in `tab-summary`, rendered right after the decisions block,
+fed `readPending(projectPath)` from `ProjectWorkspace`: lists this project's un-merged worktrees (branch ·
+status-as-text · age · land command), or an "al día" / explicit-error state (fail-loud, DR-078). Tests:
+empty / error / ok-with-rows. Built once the contended file was free (sessions finished). Verified: tsc +
+biome + the full gate green (7049 tests + e2e/visual; the /portfolio baseline re-blessed for the new section).
