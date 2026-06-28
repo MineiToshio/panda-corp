@@ -29,6 +29,12 @@ last_updated: YYYY-MM-DD
 One paragraph: the exact slice this work order covers — **one cohesive view / page / capability**,
 not a single atomic component — and the outcome it produces.
 
+> **Right-sized (DR-100): coarse, with a ceiling.** Keep it COARSE (one view/capability; when in
+> doubt, merge — DR-050) BUT split it the moment it crosses the upper bound: a WO is **too big** if it
+> can't be reviewed in one sitting, or it would push the implementer past the model's reliable context
+> zone (quality degrades well before the window fills). Mix one concern per WO — not "refactor + feature
+> + analytics" in one. The lower bound stays coarse; this only names the ceiling that was missing.
+
 ## In Scope
 
 The concrete deliverables, behaviors and surfaces this work order owns.
@@ -42,6 +48,13 @@ Adjacent work intentionally excluded from this slice, even if related.
 The FRD requirements (`REQ-NN-MMM`) and their EARS acceptance criteria (`AC-NN-MMM.K`) this work
 order must satisfy. **Copy the AC text in** so the work order is self-contained and an agent never
 has to go hunting.
+
+> **Definition of done = the AC *plus* the completeness 20% (DR-100).** Beyond the functional ACs,
+> this WO is not done until the relevant items from the FRD's completeness checklist are present:
+> **error path per failure mode**, **input validation beyond the type**, **the empty/loading/partial
+> states** of any surface, the **observability** event/log this slice owes, and any **security control**
+> on data/auth/public endpoints it touches. These are the production 20% AI builders silently drop —
+> name and meet them here, don't leave them to be "discovered" at the gate.
 
 ## Visual reference
 
@@ -75,3 +88,4 @@ parallelism live in the FRD blueprint's **Build Plan** — this is the per-WO vi
 - **Interfaces / contracts exposed:** functions, components, routes, props, events — names + signatures other work orders consume.
 - **Integration seams:** how other work orders plug into this; any gotchas.
 - **Tests:** which test files cover this slice.
+- **AC coverage (met / unmet) (DR-100):** enumerate each `AC-NN-MMM.K` this WO owns and whether it is met; flag any completeness-20% item still open. This is **surfacing for the next agent / the FRD gate, not self-certification** — the `verify.sh` gate is the independent check (constitution rule 4); you only report what's done and what isn't, never mark yourself `VERIFIED`.

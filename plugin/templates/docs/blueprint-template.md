@@ -15,6 +15,13 @@ last_updated: YYYY-MM-DD
 > This is the **per-feature** blueprint: how THIS feature is built on top of the platform. For the
 > platform itself (stack, data model, deploy, cross-cutting), reference `docs/product/architecture.md`
 > — do **not** restate it here.
+>
+> **Aim at the altitude, not the code (DR-100).** Specify the minimum that removes ambiguity. **If a
+> section reads like code (full function bodies, line-by-line pseudo-implementation), it is
+> over-specified** — drop back to the contract/shape and let the implementer write the code. Over-spec
+> overloads the build agent's attention (context rot) exactly as under-spec lets it guess. Mark any
+> open decision inline with `[NEEDS CLARIFICATION: <question>]` — the readiness gate REDs while one
+> survives (it may not reach `status: ACTIVE`).
 
 ## Purpose
 
@@ -27,7 +34,12 @@ back to a requirement `REQ-NN-MMM`. Names + responsibilities.
 
 ## Contracts
 
-The API / Server Action / data contracts specific to this feature (inputs, outputs, shapes).
+The API / Server Action / data contracts specific to this feature, each in a **fixed structure
+(DR-100)**: **input** (fields + types + validation) · **success** (output shape + status) · **errors**
+(each failure case + how it surfaces) · **invariants / pre-postconditions**. Each backend WO
+materializes its own contract at `docs/api/<wo-id>.md` (in its `artifacts`) **before any consumer WO
+builds against it** — a standardized, materialized contract is what stops separately-built slices from
+drifting on format.
 
 ## Dependencies & Risks
 
@@ -65,3 +77,14 @@ Upstream features/modules this depends on; the main technical risks or edge case
 List this FRD's work orders **in build order** (mark the parallelizable ones). Each row links to a
 coarse `wo-NN-MMM-<slug>.md`. This list + each work order's frontmatter `implementation_status` is
 what the engine walks.
+
+## Readiness check (DR-100)
+
+Before this blueprint goes `ACTIVE` and the build starts, confirm — this is the cohesion gate the
+architect runs and `implement`'s preflight re-checks (a blueprint with holes produces ambiguous work
+orders): every `REQ-NN-MMM` maps to a component/interface above; **every `AC-NN-MMM.K` of the FRD is
+covered by exactly one work order** (no gaps, no duplicates); the platform data model has no `TBD`;
+`dependsOn` across the work orders is **acyclic** and every referenced WO exists; wave-parallel WOs
+have **disjoint `artifacts`** by design; the **foundation is complete** (every shared primitive any
+mock references is a foundation WO); and **no `[NEEDS CLARIFICATION]` survives** anywhere in this
+feature's docs.

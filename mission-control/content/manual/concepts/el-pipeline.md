@@ -28,7 +28,9 @@ Habilidad: `/pandacorp:design`.
 
 ### 3. Architecture (Blueprint)
 
-Se documenta la arquitectura técnica de la plataforma (`docs/product/architecture.md`) y el blueprint de cada FRD (`docs/frds/frd-NN-<slug>/blueprint.md`). Se generan las **work orders** que dividen la construcción en rebanadas cohesivas.
+Se documenta la arquitectura técnica de la plataforma (`docs/product/architecture.md`) y el blueprint de cada FRD (`docs/frds/frd-NN-<slug>/blueprint.md`). Se generan las **work orders** que dividen la construcción en rebanadas cohesivas (COARSE, con un techo: una WO no debe ser inrevisable de una sentada ni mezclar varias preocupaciones — DR-100).
+
+Antes de pasar a construir, el blueprint cruza un **readiness gate** (DR-100): cada requisito mapea a un componente, **cada criterio de aceptación lo cubre exactamente una work order**, el modelo de datos no tiene huecos (`TBD`), el grafo de dependencias es acíclico, la foundation está completa y **no queda ninguna pregunta abierta sin resolver** (`[NEEDS CLARIFICATION]` bloquea). Un blueprint con agujeros produce work orders ambiguas, así que la cohesión se **verifica**, no se confía.
 
 Habilidad: `/pandacorp:blueprint`.
 

@@ -26,6 +26,17 @@ A UI/transport that claims to show a **live** process must prove it tells the tr
 3. **The "sin señal" path is actually exercised** — a test **stops the producer** (no more heartbeats) and asserts the UI flips to stale/sin-señal within `hard_TTL` instead of freezing on the last value. "Silence is not success" for a monitor exactly as for a build.
 4. **Real-change latency is bounded** — a real state change is reflected in the UI quickly: push/watch (fs-watch on the event stream, SSE, websocket) for near-real-time when the transport allows it at ~zero cost; poll-based fallback bounded to **≤ 30 s worst case** (never tighter than the app's performance/resource budget allows). The producer side (positive, time-driven heartbeat) is in [build-orchestration.md](build-orchestration.md) §9.
 
+## Completeness — close the production 20% (DR-100)
+The objective gates above prove the code *runs and passes its tests*; they do not prove it is
+*complete*. AI builders reliably ship the ~80% happy path and systematically drop the production 20% —
+error handling per failure mode, input validation beyond types, observability, security controls,
+edge/empty/partial states — because they optimize for "functionality + green tests" and don't
+self-impose non-functional gates. So completeness is an explicit, feature-level definition-of-done, not
+a hope: each FRD's **completeness checklist** (template) names the items that apply, each work order's
+**Status-Note AC-coverage** enumerates met/unmet, and the **`reviewer`'s correctness lens verifies the
+build against that list** — a missing item is a CORRECTION finding (it blocks), not a visual nit. Invert
+the review effort: most attention goes to what is *missing*, not to the code that is present.
+
 ## Adversarial and independent verification (DR-015)
 - The **generator and verifier cannot be the same model**: an LLM's errors cluster and its tests inherit its blind spots. The `reviewer` (opus, ideally from a different family than the generator) **re-runs** all the evidence and writes **adversarial and edge-case tests that the implementer didn't see**.
 - The tests are anchored in **human sources** —EARS criteria of the FRDs and real bugs from `.pandacorp/comms/progress.md`—, not in the model's imagination.

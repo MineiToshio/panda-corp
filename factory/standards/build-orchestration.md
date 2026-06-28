@@ -48,6 +48,14 @@ action menu"), NOT one atomic component. Enough context for an agent to build th
 small enough to review on its own. Typically a handful per FRD — not dozens of tiny ones. Atomic
 work orders multiply the per-slice overhead and were a primary cause of slow, expensive builds.
 
+**Coarse, but with a named ceiling (DR-100).** "Coarse, when in doubt merge" is the lower bound; the
+**upper bound is concrete** so a WO never grows past what an agent can build well: split a WO that is
+**too big to review in one sitting**, that would push the implementer **past the model's reliable
+context zone** (output quality degrades well before the window fills — "context rot"), or that **mixes
+more than one concern** (refactor + feature + analytics in one task is an anti-pattern — one concern per
+WO). This is the right-size middle: coarse enough to carry end-to-end context, bounded enough to stay
+in the model's competent zone. The factory's coarse policy stands — this only fixes the missing ceiling.
+
 **Disjoint artifacts within a wave — declared and ENGINE-ENFORCED (DR-060).** Work orders that build
 in parallel must NOT write the same file/module — parallel implementers collide (a real failure mode,
 not theoretical: e.g. four WOs all creating one `lib/x.ts`). Each work order therefore **declares an
@@ -173,6 +181,35 @@ other's work, so given the same need they reinvent slightly-different versions o
 - **Enforced at the gate:** the `reviewer`'s quality lens rejects a component that re-implements an
   existing primitive (two banners/cards/modals) and flags sibling components that diverge from one
   shared pattern. Reuse is verified, not assumed.
+
+## 3b. The readiness gate — cohesion before the build (DR-100)
+
+A blueprint with holes produces ambiguous work orders, and ambiguity is the #1 cause of an agent
+building the wrong thing. So between "blueprint + work orders written" and "build starts" there is an
+explicit **readiness gate** (the build-side counterpart of DR-095's clarification gate): the architect
+runs it before a blueprint goes `ACTIVE`, and `implement`'s preflight re-checks it. It asserts,
+fail-closed:
+
+1. **Requirement coverage** — every FRD `REQ-NN-MMM` maps to a component/interface (`CMP-NN-*`/`IF-NN-*`).
+2. **AC coverage, exactly one WO** — the union of all work orders' `source_requirements` equals the FRD's
+   `AC-NN-MMM.K` set: no acceptance criterion is unbuilt, none is built twice.
+3. **Data model complete** — `docs/product/architecture.md` carries no `TBD`/`TK`/`FIXME`.
+4. **Dependency graph sound** — `dependsOn` across the work orders is **acyclic** and every referenced WO
+   exists (it mirrors the Build Plan DAG, DR-087).
+5. **Disjoint by design** — wave-parallel WOs have non-overlapping `artifacts` (don't rely on the engine's
+   serialization backstop, DR-060).
+6. **Foundation complete** — every shared primitive any surface mock references is a `foundation: true`
+   WO (DR-057's completeness gate, asserted at plan time, not only at build time).
+7. **No residual ambiguity** — **no `[NEEDS CLARIFICATION]` survives** in any FRD/blueprint/work order
+   reaching `ACTIVE`. An `[ASSUMPTION: … — source]` (a decision made, visible) passes; a
+   `[NEEDS CLARIFICATION: <q>]` (a decision not made) BLOCKS until resolved or escalated.
+8. **Contracts materialized** — each backend WO's `docs/api/<wo-id>.md` exists (structured:
+   input/success/errors/invariants) **before** its consumer WO builds.
+
+The trivially-scriptable parts — a residual `[NEEDS CLARIFICATION]` in a committed doc — are cabled
+fail-closed in `verify.sh`; the coverage/graph checks live in the architect's readiness SOP (and the
+advisory `doc-lint.sh`, DR-077, which already resolves REQ→WO IDs). This is PREVENT; the per-FRD test
+gate (§5) and the bounded auto-repair (§6) are CURE.
 
 ## 4. Hand-off (`## Status Note`)
 
