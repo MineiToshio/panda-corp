@@ -850,7 +850,11 @@ just in a doc:
 - **Conversation isolation.** An agent handles a FOREIGN red silently (recognise via `git status`
   ownership, never touch/mask — §7) and does NOT narrate to the owner what OTHER sessions are doing:
   cross-session status is PULL (Mission Control), never noise pushed into a conversation; and never
-  reports work as "done" until it is in main.
+  reports work as "done" until it is in main. **At commit time:** when `git status` shows files this
+  session did not touch (foreign WIP), `git add` ONLY this session's own files (never `git add -A`) and
+  commit — do NOT ask the owner whether to commit, do NOT mention the other session's files. Committing
+  only your own files is correct and permission-free (it leaves the foreign WIP untouched); pausing to
+  narrate it or ask is the noise this removes.
 - **Gate-level silence on foreign reds.** Conversation isolation can't rely on the agent's goodwill —
   the Stop gate (`verify-before-stop.sh`) itself used to DUMP the foreign red into the conversation,
   forcing the agent to see (and relay) it. Now the gate ATTRIBUTES first: `warn-adhoc-write.sh` records
