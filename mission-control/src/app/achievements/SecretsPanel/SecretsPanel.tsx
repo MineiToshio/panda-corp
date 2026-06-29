@@ -67,6 +67,8 @@ function SecretItem({ secret }: SecretItemProps): React.JSX.Element {
         // Self-contained card (the panel is a grid now, not a stacked list).
         border: `var(--hairline) solid ${isLocked ? "var(--color-base)" : "var(--color-accent)"}`,
         opacity: isLocked ? 0.65 : 1,
+        // Fill the grid row so every card is the same height (gridAutoRows: 1fr).
+        height: "100%",
       }}
     >
       {/* ── Header row: silhouette/badge + hint ─────────────────────────────── */}
@@ -225,8 +227,10 @@ export function SecretsPanel({ secrets }: SecretsPanelProps): React.JSX.Element 
           padding: 0,
           display: "grid",
           gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+          // Equal-height rows: every card stretches to the tallest in its row,
+          // so locked silhouettes fill the same height as unlocked reveals.
+          gridAutoRows: "1fr",
           gap: "calc(var(--space-base) * 0.5)",
-          alignItems: "start",
         }}
       >
         {secrets.map((secret, idx) => (
