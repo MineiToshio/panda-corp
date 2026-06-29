@@ -5,7 +5,7 @@ slug: render-v2
 title: 'WO-10-012 — Render v2: rarity gem + NUEVO badge + new axis icons + Seals shelf + sagas'
 status: ACTIVE
 parent: FRD-10
-implementation_status: PLANNED
+implementation_status: VERIFIED
 source_requirements: []
 artifacts: [src/app/achievements/UniquesSection/**, src/app/achievements/SecretsPanel/**, src/app/achievements/ChainCard/**, src/app/achievements/_components/HallTabs.tsx, src/app/achievements/_tests/**]
 difficulty: high

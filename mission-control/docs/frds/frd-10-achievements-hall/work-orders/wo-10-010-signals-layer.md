@@ -5,7 +5,7 @@ slug: signals-layer
 title: 'WO-10-010 — Signals layer: derive real-signal counters/flags from the event stream'
 status: ACTIVE
 parent: FRD-10
-implementation_status: IN_PROGRESS
+implementation_status: VERIFIED
 source_requirements: []
 artifacts: [src/lib/achievements/signals.ts, src/lib/achievements/stats.ts, src/lib/achievements/_tests/**]
 difficulty: high

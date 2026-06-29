@@ -5,7 +5,7 @@ slug: catalogue-v2
 title: 'WO-10-011 — Catalogue v2: ~80 trophies (8 axes + rarity), ~21 chains/sagas, ~18 secrets, Seals'
 status: ACTIVE
 parent: FRD-10
-implementation_status: PLANNED
+implementation_status: VERIFIED
 source_requirements: []
 artifacts: [src/lib/achievements/definitions.ts, src/lib/achievements/predicates.ts, src/lib/achievements/tiers.ts, src/lib/achievements/achievements.ts, src/lib/achievements/_tests/**]
 difficulty: high
