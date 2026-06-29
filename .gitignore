@@ -7,6 +7,13 @@
 
 # State caches
 .pandacorp-cache/
+# Factory-root runtime state (worktree tracking, run logs). The factory itself has no
+# .pandacorp/ overlay — that folder belongs to child projects only. Any .pandacorp/ at
+# root level is stale agent runtime and must not be committed.
+.pandacorp/
+
+# Node / build artefacts (no package.json at root — any node_modules here is accidental)
+node_modules/
 
 # Owner's personal data (NOT published). The versioned seeds are
 # factory/profile.example.md and factory/portfolio.example.md; /pandacorp:onboarding
