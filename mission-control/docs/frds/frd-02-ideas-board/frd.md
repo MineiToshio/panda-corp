@@ -24,7 +24,7 @@ Read-only kanban of the idea base, with idea capture, a navigable detail and dis
 - WHEN the owner clicks a card, the system SHALL show the card: summary, key points, a navigator of the idea's documents, and the next-step command (with a copy button).
 - EACH card SHALL show two labels besides the score: **category** (`project_type`: web, mobile, desktop, ai, claude-code, prompt-system, automation, cli, rework…) and **return** (`return_type`: monetary, opportunity, personal or mixed). The board SHALL allow **filtering by category**.
 - WHILE an idea's project has `running: true` (build in progress, phase `implementation` → "building" column), the system SHALL show an indicator on its card that it is being built.
-- WHEN the owner presses "Discard idea", the system SHALL rewrite `status: discarded` in the `.md` frontmatter, preserving the rest of the file (Pandacorp's only write).
+- WHEN the owner presses "Discard idea", the system SHALL rewrite `status: discarded` in the `.md` frontmatter, preserving the rest of the file (one of the app's small, bounded set of human-triggered writes — see REQ-02-012 and architecture §7).
 - WHEN the owner presses "Discard idea", the system SHALL open a confirmation **modal** (the shared `Modal` core, DR-057) that captures an **optional reason** (quick-tags — *saturado/competencia · no me interesa el tema · no apalanca mi canal · muy complejo · no monetiza en Perú · otro* — plus free text) and SHALL write it to the `discard_reason` frontmatter field alongside `status`. The reason is optional (confirming without one writes only `status`), and the capture is part of the same write. (Owner rule: reveal-more is a modal, never an inline expand-that-pushes-content — the reason capture does **not** expand inline below the trigger. While the write is in flight the modal stays open with a disabled "Descartando…" state; backdrop/✕/Escape are inert until it settles.) This feeds `/pandacorp:discover`'s rejection-pattern learning so it stops proposing ideas the owner keeps rejecting (factory v9.8.0). On discard the system SHALL also record `status_before_discard` (the prior status) so a restore is exact.
 - The board SHALL NOT render a "Descartado" column. Discarded ideas are reached via a **"Ver descartadas" button** (beside "Capturar ideas", shown only when discarded ideas exist) that opens a **modal** listing them (title + discard reason); selecting one opens its detail. (Owner rule: no inline expand-that-pushes-content — reveal-more is a modal. The shared `Modal` core, DR-057, powers this and the intake modal.)
 - WHEN the owner opens a discarded idea's detail, the system SHALL show its **full documentation** (the Documentos tab, the default) and a banner with the **discard reason**, and SHALL offer **"Volver a agregar"** — which restores the idea to the status it had **before** being discarded (`status_before_discard`, fallback `discovered`) and clears `discard_reason` + `status_before_discard`. Restore is the board's second write (ADR-0002).
@@ -188,8 +188,33 @@ campaign map) + `prototype/index.html` `detailView()`:
   showing that FRD's detail — Overview, User stories, Reglas de negocio, Fuera de alcance and Open
   questions — colour-coded per section, consistent with the Spec page.
 
+### REQ-02-012 — Mark a card as favourite (visual highlight, any column) (CMP-02-favorite-action)
+
+> A purely **visual** affordance: the owner pins the ideas/projects they care about so they stand
+> out on the board. It does **not** change the card `status`, its board column, or any pipeline
+> flow — it just highlights. The flag lives in the card `.md` frontmatter (`favorite: true`), so it
+> persists and works for a card in **any** column (discovered … shipped, in-pipeline projects
+> included). The board's **third write** (ADR-0003), isolated to `lib/favorite/`, human-triggered.
+
+- AC-02-012.1 — WHEN the owner marks a card as favourite, THE system SHALL write `favorite: true`
+  in that card's `.md` frontmatter, preserving the body and all other fields verbatim.
+- AC-02-012.2 — WHEN the owner unmarks a favourite, THE system SHALL **remove** the `favorite`
+  field (a non-favourite card carries no `favorite` key — same discipline as the optional
+  `discard_reason`). The write SHALL never touch `status` or any other field.
+- AC-02-012.3 — THE system SHALL render a **star toggle** in the top-right corner of **every** board
+  card (in any column) and in the card-detail header; clicking it SHALL toggle the favourite flag
+  via a Server Action with **optimistic UI** (the star flips immediately and auto-reverts on
+  failure). The star SHALL be `ti-star` (outline) when not a favourite and `ti-star-filled` (gold)
+  when it is, with a Spanish `aria-label` ("Marcar como favorita" / "Quitar de favoritas") and
+  `aria-pressed` reflecting the state.
+- AC-02-012.4 — WHEN a card is a favourite, THE system SHALL highlight it with a distinct **gold
+  card background + border** (the `--color-warn` token, distinct from the teal accent used by
+  "recomendada"/"en construcción"). The highlight SHALL **not** be conveyed by colour alone — the
+  card's `aria-label` SHALL include "favorita" and carry the filled-star control (accessibility.md).
+
 ## Edge cases
 - Idea with no spec digest → the Spec tab is simply absent; the other tabs render unchanged (AC-02-011.1).
+- Favourite is orthogonal to the column: a card keeps its derived column whether or not it is a favourite; toggling the star never moves it (REQ-02-012).
 - Idea with no documents → the Documentos rail still shows **Resumen** (the reader = the summary); there
   are simply zero project-document items.
 - Category (web/mobile/desktop/AI/…), return (monetary/opportunity/personal/mixed) and score are shown with a legend explaining them.
@@ -200,6 +225,6 @@ campaign map) + `prototype/index.html` `detailView()`:
 
 ## Does NOT include
 - No live agent chat or simulation backed by real-time events in La Campaña — it is a faithful, read-only depiction of the per-phase team and the document hand-off across time (the live build animation belongs to FRD-06 / La Fragua, fed by `~/.claude/dashboard-events.ndjson`).
-- No new write: the three-tab restructure and La Campaña add **zero** mutations; the single write in the app remains discard (REQ-02-007).
+- No new write *from La Campaña*: the three-tab restructure and La Campaña add **zero** mutations. The app's writes are a small, bounded, human-triggered set — discard/restore status (REQ-02-007) and the visual favourite flag (REQ-02-012) — all isolated to `lib/discard/` + `lib/favorite/` (architecture §7, ADR-0003).
 - No mode selector / pause / reset controls in La Campaña (those are demo-only in the prototype; MC is read-only).
 - No regeneration of room art or new sprites — assets are reused/added by the design phase, not specified here.

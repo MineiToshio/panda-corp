@@ -30,6 +30,7 @@ See the feature blueprint ([`../blueprint.md`](../blueprint.md)) and the platfor
 | WO-02-011 | VERIFIED (lib) | `phaseFromStatus` derivation (status → active phase 0–5) | `lib/campaign.ts` | WO-01-003, WO-01-005 |
 | WO-02-005 | PLANNED (UI) | **Board surface** — columns + cards + filter + legend + intake + discard | `app/board/**`, `components/modules/{IdeaCard,CategoryFilter,BoardLegend}/**` | WO-02-001, WO-02-004, WO-01-003, WO-01-005, WO-13-006, WO-13-007, WO-13-008, WO-13-001, WO-13-002, WO-13-003 |
 | WO-02-007 | PLANNED (UI) | **La Campaña card detail** — 3 tabs + 6-phase pipeline | `app/board/_components/CardDetail/**`, `components/modules/CampaignPipeline/**` | WO-02-003, WO-02-011, WO-01-006, WO-13-006, WO-13-007, WO-13-009, WO-13-001, WO-13-002, WO-13-003, WO-06-005 |
+| WO-02-012 | VERIFIED | **Favourite flag** — visual highlight + star toggle (the third write) | `lib/favorite/**`, `components/core/FavoriteButton/**`, `app/board/{actions,IdeaBoardView,_components/BoardShell}/**`, `components/modules/IdeaCard/**` | WO-01-003, WO-02-004, WO-02-005 |
 
 ## Ordering & parallelism (Phase 2)
 
@@ -51,4 +52,5 @@ See the feature blueprint ([`../blueprint.md`](../blueprint.md)) and the platfor
 - Acceptance-criteria tests first (RED → GREEN → refactor) with fixtures (`PANDACORP_FACTORY_ROOT`).
 - `.pandacorp/verify.sh` green (biome + tsc + vitest).
 - `data-testid` on interactive elements; UI copy in Spanish via i18n; design tokens only.
-- **Only `lib/discard.ts` writes**; every other artifact is read-only and adds no AI dependency.
+- **Only the bounded writes touch the filesystem** — `lib/discard/` (discard + restore) and
+  `lib/favorite/` (favourite, ADR-0003); every other artifact is read-only and adds no AI dependency.

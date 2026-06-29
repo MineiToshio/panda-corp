@@ -235,6 +235,28 @@ the bridge from the per-idea journey (La Campaña) to the live build zoom (La Fr
   tokens); `tabular-nums` on any numerals. The active tab is marked with `data-active`/`aria-selected`
   **and** its label + icon, not colour position alone.
 
+## 10. Favourite highlight (REQ-02-012)
+
+A board-card visual on the frozen tokens — the owner pins the ideas/projects they care about so they
+stand out, in **any** column. Design (`docs/design/design-tokens.json`):
+
+- **Star toggle** (`FavoriteButton`, `CMP-02-favorite-action`) — a 26px icon button floated in the
+  card's **top-right corner** (an absolutely-positioned **sibling** of the card's click target, never
+  a button nested inside a button — a11y). `ti-star` (outline, `text.t3`) when not a favourite,
+  `ti-star-filled` (gold `accent.warn` = `#EBB25F`) when it is. The same control sits in the
+  card-detail header beside Discard/Restore. Toggling is **optimistic** (`useOptimistic`): the star
+  flips on click and auto-reverts on a failed write.
+- **Card highlight** — a favourite card swaps its surface to a warm gold tint: background
+  `accent.warnBg` (`#3A2E18` dark / `#FFEECD` light), border `accent.warn`, plus a soft
+  `0 0 18px -7px {warn}` glow (the `glowwarn` token family). This is **distinct from the teal accent**
+  reserved for "Recomendada" / "en construcción", so the two signals never read the same.
+- **Not colour alone** (accessibility.md) — the highlight is reinforced by the filled-star **shape**
+  + `aria-pressed` on the toggle and by the card `aria-label` ("Idea: … (favorita)"); a `data-favorite`
+  marker is exposed for tests. Gold-on-tint contrast is AA on both themes (pre-checked tokens).
+- **Orthogonal to the pipeline** — purely visual; it never changes the card status, the derived
+  column, or any flow. Works identically on a `discovered` card and an `in-pipeline` / `shipped`
+  project card.
+
 ## Traceability
 
 Maps `frd.md` REQs → this design: `REQ-02-009` (three-tab detail) → §1, §5b (Documentos rail+reader,
@@ -245,4 +267,5 @@ gated). The 2026-06-22 card-detail fidelity amendments in `frd.md` are reflected
 derivation / intake / filter / discard (REQ-02-001…008) are unchanged and out of this FDD's scope —
 **except** the board **column labels**, which now use La Campaña's numbered phase names
 (`1 Investigación … 6 Release` + `Descartada`); that is a label-only change recorded in `frd.md` and
-the blueprint, the two-axis derivation untouched.
+the blueprint, the two-axis derivation untouched. `REQ-02-012` (favourite highlight) → §10 — a
+board-card visual added here.

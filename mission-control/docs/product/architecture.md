@@ -18,8 +18,9 @@ the "party" of agents build live — wrapped in honest RPG gamification.
 
 The single golden rule that drives every architectural choice: **Mission Control NEVER calls
 Claude and NEVER executes anything.** It only *reads files* from the factory repo and the user's
-Claude install, and renders text + a "next command" to copy. The one allowed write is rewriting a
-card's `status: discarded` frontmatter (FRD-02) — a human decision, not a build step.
+Claude install, and renders text + a "next command" to copy. The only writes are a small, bounded,
+human-triggered set on one idea card's frontmatter — discard/restore `status` (FRD-02, ADR-0002) and
+the visual `favorite` flag (FRD-02 REQ-02-012, ADR-0003) — human decisions, not build steps.
 
 Consequences that ripple through the whole architecture:
 - No AI SDK, no API key, no subprocess that runs Claude, no "thinking" spinners.
@@ -93,7 +94,8 @@ flowchart LR
   class FACTORY,PROJECTS,CLAUDE src;
 ```
 
-\* The single exception write: FRD-02 discard rewrites one idea card's `status:` frontmatter.
+\* The exception writes (bounded): FRD-02 discard/restore rewrite one idea card's `status:`
+frontmatter; FRD-02 favourite (REQ-02-012) rewrites its `favorite:` flag. All in `lib/discard/` + `lib/favorite/`.
 
 **Rendering model.** **Server Components** are the default and do all filesystem reads through
 `lib/**`. Client Components (`"use client"`) are added only where interaction demands it: the
@@ -125,7 +127,8 @@ Markdown with YAML frontmatter (parsed by `gray-matter`). Fields read (FRD-01/02
 | Field | Type | Notes |
 |---|---|---|
 | `title` | string | Card title. |
-| `status` | enum | `discovered \| recommended \| in-pipeline \| shipped \| discarded`. The ONLY field MC ever writes (→ `discarded`, FRD-02). Once `in-pipeline` the card freezes as a pointer. |
+| `status` | enum | `discovered \| recommended \| in-pipeline \| shipped \| discarded`. One of the two card fields MC writes (→ `discarded`/restore, FRD-02). Once `in-pipeline` the card freezes as a pointer. |
+| `favorite` | bool | Optional. `true` ⇒ the owner pinned this card as a favourite (visual highlight, FRD-02 REQ-02-012). Written by `lib/favorite/`; absent ⇒ not a favourite. Never affects status/column. |
 | `project_type` | enum | `web \| mobile \| desktop \| ai \| claude-code \| prompt-system \| automation \| cli \| rework \| …` (category chip + board filter). |
 | `return_type` | enum | `monetary \| opportunity \| personal \| mixed` (return chip). |
 | `score` | number | Priority score. |
@@ -232,20 +235,25 @@ their owning FRD's work orders.
 | `lib/self-suggest.ts` | Compose local self-suggestions (bottlenecks, nudges). | FRD-17 |
 | `lib/discard/discard.ts` (write) | Discard write: `status: discarded` (+ `discard_reason`, `status_before_discard`), preserve body. | FRD-02 |
 | `lib/discard/restore.ts` (write) | Restore write (inverse): `status` ← prior, clear discard bookkeeping. | FRD-02 (ADR-0002) |
+| `lib/favorite/favorite.ts` (write) | Favourite write: set/clear the `favorite` flag of one card (visual-only), preserve body + other fields. | FRD-02 (REQ-02-012, ADR-0003) |
 
 > Modules below `lib/reference.ts` were added during the work-order phase (the per-FRD blueprints surfaced them); they are pure derivations/composition over the readers above and add no new fs access.
 
-The mutation surface is the **`lib/discard/` layer** — exactly **two** human-triggered writes, `discardIdea`
-and its inverse `restoreIdea` (ADR-0002). Each rewrites only the status (+ its discard bookkeeping) of one
-idea card and preserves the body + all other fields verbatim; everything else in the app is read-only.
+The mutation surface is a **small, bounded set** of human-triggered writes across two folders:
+`lib/discard/` — `discardIdea` + its inverse `restoreIdea` (ADR-0002), which rewrite the status
+(+ discard bookkeeping) — and `lib/favorite/` — `setFavorite` (ADR-0003), which rewrites the visual
+`favorite` flag. Each touches exactly one field of one idea card and preserves the body + all other
+fields verbatim; everything else in the app is read-only.
 
 ---
 
 ## 7. Cross-cutting concerns
 
-- **Read-only invariant.** Enforced by isolating all writes to the `lib/discard/` layer (the two
-  status writes: `discard` + `restore`, ADR-0002); everything else is `fs.read*`. No Claude/AI client dependency exists in `package.json` (auditable). The git
-  probes (FRD-15/16) use read-only commands (`git status --porcelain`, `git log -1`).
+- **Read-only invariant.** Enforced by isolating all writes to `lib/discard/` (the status writes:
+  `discard` + `restore`, ADR-0002) and `lib/favorite/` (the visual `favorite` flag, ADR-0003) —
+  a small bounded set, each a human-triggered Server Action touching one field of one card;
+  everything else is `fs.read*`. No Claude/AI client dependency exists in `package.json` (auditable).
+  The git probes (FRD-15/16) use read-only commands (`git status --porcelain`, `git log -1`).
 - **Security / data minimization.** No auth (local single operator on `127.0.0.1`). No secrets in
   code (SOPS+age does not apply — MC has no external services and no `.env` of its own beyond the
   optional `PANDACORP_FACTORY_ROOT` override). MC reads personal/owner data that already lives in
@@ -320,7 +328,7 @@ platform — no FRD is flagged as unbuildable.
 | FRD | Feature | Primary `lib/` modules | Primary `app/` surface |
 |---|---|---|---|
 | FRD-01 | Data reading layer | `config`, `ideas`, `profile`, `portfolio`, `status`, `events` | (cross-cutting; onboarding gate) |
-| FRD-02 | Ideas board | `ideas`, `board`, `next-step`, `discard` (write) | `app/board` + card detail |
+| FRD-02 | Ideas board | `ideas`, `board`, `next-step`, `discard` + `favorite` (writes) | `app/board` + card detail |
 | FRD-03 | Portfolio & navigation | `portfolio`, `status`, `next-step` | `app/portfolio` (rail + workspace) |
 | FRD-04 | Project workspace | `status`, `docs`, `work-orders`, `next-step` | `app/projects/[slug]` (tabs) |
 | FRD-05 | Work orders (live) | `work-orders`, `docs` | workspace → Work orders tab |

@@ -46,11 +46,14 @@ heart of the feature (`lib/board.ts`).
 | `CMP-02-go-party` | UI (client glue) | host-navigation callback (`onEnterForge(slug)` → `goToParty`) | Navigate the host app to Portfolio → that project → the Party tab (FRD-06), no inner reload. | REQ-02-010 |
 | `CMP-02-category-filter` | UI (client) | native `<select>` in `BoardShell` | Filter the board by `project_type`. **Was** a `CategoryFilter` chip component — replaced by a native `<select>` (owner) and the component **deleted** (2026-06-22). | REQ-02-006 |
 | `CMP-02-discard-action` | UI (client + Server Action) | `components/DiscardButton.tsx` + `app/board/actions.ts` | "Discard idea" → Server Action calling `lib/discard.ts`. | REQ-02-007 |
+| `CMP-02-favorite` | module (**write**) | `lib/favorite/favorite.ts` | The third write: `setFavorite(slug, favorite)` rewrites only the `favorite` frontmatter field (sets `true` / removes it), body preserved. | REQ-02-012 |
+| `CMP-02-favorite-action` | UI (client + Server Action) | `components/core/FavoriteButton/FavoriteButton.tsx` + `app/board/actions/actions.ts#toggleFavoriteAction` | Star toggle (outline ↔ filled gold) with optimistic `useOptimistic` UI; rendered as a corner overlay on every board card + in the card-detail header. | REQ-02-012 |
 | `CMP-02-copy-button` | UI (client) | `components/CopyButton.tsx` | Shared clipboard-copy affordance (introduced here; reused by FRD-01/03). | REQ-02-003, REQ-02-004 |
 | `CMP-02-legend` | UI | `components/BoardLegend.tsx` | Legend explaining category / return / score. | REQ-02-008 |
 | `IF-02-deriveColumn` | interface | `deriveColumn(card, status): BoardColumn` | The two-axis column derivation. | REQ-02-001 |
 | `IF-02-nextStep` | interface | `nextStep(input): NextStep` | status/phase → `{ command, openPath, label }`. | REQ-02-004 |
 | `IF-02-discardIdea` | interface | `discardIdea(slug): DiscardResult` | Rewrite one card's `status` to `discarded`, body preserved. | REQ-02-007 |
+| `IF-02-setFavorite` | interface | `setFavorite(slug, favorite): FavoriteResult` | Set/clear the `favorite` frontmatter field of one card, body preserved. | REQ-02-012 |
 | `IF-02-phaseFromStatus` | interface | `phaseFromStatus(input): CampaignPhase` | card status / project phase → active phase (0–5), fallback `research`. | REQ-02-010 |
 | `IF-02-goParty` | interface | `mcGoParty(slug): void` (host) | Host-navigate to Portfolio → project → Party tab. | REQ-02-010 |
 
@@ -88,19 +91,26 @@ source of truth for the phase.
 
 ---
 
-## 3. The single write (`lib/discard.ts`) — the only mutation in the app
+## 3. The bounded writes (`lib/discard/` + `lib/favorite/`) — the only mutations in the app
 
 ```ts
 type DiscardResult = { ok: true } | { ok: false; reason: "not-found" | "parse-error" };
 export function discardIdea(slug: string): DiscardResult;
+export function restoreIdea(slug: string): RestoreResult;        // inverse (ADR-0002)
+
+type FavoriteResult = { ok: true; favorite: boolean } | { ok: false; reason: "not-found" | "parse-error" };
+export function setFavorite(slug: string, favorite: boolean): FavoriteResult;  // ADR-0003
 ```
 
-- Resolve the card under `config.IDEAS_DIR`. Read with gray-matter, set frontmatter `status:
-  discarded`, re-serialize **preserving the body and all other frontmatter fields verbatim**.
-- This is the ONLY `fs.write` in the whole codebase (architecture §1/§7). It writes exactly one
-  field of one idea card. No other module writes.
-- Invoked only through the Server Action `app/board/actions.ts` (human-triggered, REQ-02-007), never
-  during a render. Optimistic UI in the client button (update + revert on failure, AGENTS.md).
+- Each resolves the card under `config.IDEAS_DIR`, reads with gray-matter, rewrites **one** field
+  (discard/restore → `status` + discard bookkeeping; favourite → `favorite`) and re-serializes
+  **preserving the body and all other frontmatter fields verbatim** (same path-traversal + symlink
+  + trailing-newline guards).
+- These are the ONLY `fs.write`s in the codebase (architecture §1/§7) — a small, bounded set, all
+  isolated to `lib/discard/` + `lib/favorite/`. No other module writes; no Claude/AI client.
+- Each is invoked only through a Server Action in `app/board/actions/actions.ts` (human-triggered),
+  never during a render. Optimistic UI in the client button (update + revert on failure, AGENTS.md).
+- **Favourite is visual-only** (REQ-02-012): it never changes `status` or the derived column.
 
 ---
 
@@ -231,6 +241,7 @@ component receives the project `slug` and the `onEnterForge(slug)` callback wire
 | REQ-02-008 | Building indicator while `running: true`; legend explaining category/return/score; card with no docs → summary only. | `CMP-02-card` (badge), `CMP-02-legend`, `CMP-02-card-detail` |
 | REQ-02-009 | Card detail = 3 tabs (Campaña · Documentos · Comandos) via shared `Tabs` (icons), default Campaña; doc click → Documentos; tab persists; Documentos = rail+reader, Comandos = `CmdRow` + (building/operation) project box. | `CMP-02-card-detail` |
 | REQ-02-010 | La Campaña: 6-phase pipeline (full-width stage, road under rooms), active phase derived from status, done/current/locked, per-phase ficha (by default + pinned) with the whole team, "en curso"/roam gated on running, build→host-navigate to Party, read-only; a locked phase's ficha shows full info (only the build action is gated). | `CMP-02-campaign-pipeline`, `CMP-02-roaming-cast`, `CMP-02-phase-from-status`, `CMP-02-go-party`, `IF-02-phaseFromStatus`, `IF-02-goParty` |
+| REQ-02-012 | Mark a card as favourite (visual-only, any column): `favorite: true` frontmatter write, star toggle (optimistic) on every card + the detail header, gold card highlight; never changes status/column. | `CMP-02-favorite`, `CMP-02-favorite-action`, `IF-02-setFavorite`, `CMP-02-card` (gold highlight) |
 
 > REQ numbering maps the FRD's EARS bullets in document order. The "recommended badge" lives inside
 > the first/sixth bullets; the "building indicator" and the legend are folded into REQ-02-008.
@@ -240,11 +251,13 @@ component receives the project `slug` and the `onEnterForge(slug)` callback wire
 
 ## 7. AC ⇄ design check
 
-- "the only write" → enforced: `lib/discard.ts` is the sole `fs.write`; all else read-only
-  (architecture §7). ✅
+- "bounded writes" → enforced: the only `fs.write`s are in `lib/discard/` (discard + restore) and
+  `lib/favorite/` (favourite); all else read-only (architecture §7, ADR-0003). ✅
+- "favourite is visual-only" → `setFavorite` writes only `favorite`, never `status`; the board
+  column derivation ignores it, so toggling never moves a card (REQ-02-012). ✅
 - Fallback-to-documented when project/status missing → handled in `deriveColumn` (consumes FRD-01
   `StatusResult` which is fail-soft). ✅
-- "board read-only, no drag" → no DnD library, no move action; only the discard Server Action. ✅
+- "board read-only, no drag" → no DnD library, no move action; only the bounded Server Actions. ✅
 - "board visible behind the modal" → modal is an overlay, board stays mounted. ✅
 - "La Campaña active phase from real status" → `phaseFromStatus` reads the same two axes as
   `deriveColumn`; fallback to `research` when status absent (FRD-01 `StatusResult` is fail-soft). ✅
