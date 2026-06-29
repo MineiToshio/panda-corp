@@ -20,7 +20,11 @@
  */
 
 import { BoardShell } from "@/app/board/_components/BoardShell/BoardShell";
-import { discardIdeaAction, restoreIdeaAction } from "@/app/board/actions/actions";
+import {
+  discardIdeaAction,
+  restoreIdeaAction,
+  toggleFavoriteAction,
+} from "@/app/board/actions/actions";
 import { readBoardDoc } from "@/app/board/actions/read-doc";
 import type { BoardCardEntry } from "@/app/board/IdeaBoardView/IdeaBoardView";
 import { deriveColumn } from "@/lib/board/board";
@@ -111,6 +115,8 @@ export default function BoardPage(): React.JSX.Element {
       // The discard reason (discarded cards only) — shown in the "Ver descartadas"
       // modal and the card detail banner.
       discardReason: card.discardReason,
+      // The favourite flag (REQ-02-012) — tints the card + drives the star toggle. Any column.
+      favorite: card.favorite,
       isRunning,
       boardColumn,
       // Forward the real project phase so the card detail's campaign matches the
@@ -137,6 +143,7 @@ export default function BoardPage(): React.JSX.Element {
       discardAction={discardIdeaAction}
       restoreAction={restoreIdeaAction}
       readDocAction={readBoardDoc}
+      favoriteAction={toggleFavoriteAction}
     />
   );
 }

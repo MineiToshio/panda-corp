@@ -53,6 +53,17 @@ export interface IdeaCardProps {
    * Set by the board view after reading readStatus. Drives the building indicator (REQ-02-008).
    */
   isRunning?: boolean;
+  /**
+   * Whether the owner pinned this card as a favourite (`favorite: true` frontmatter, REQ-02-012).
+   * Visual-only: tints the card background gold and is announced in the aria-label. Works in any
+   * column; does NOT change the status or the board column.
+   */
+  favorite?: boolean;
+  /**
+   * Whether a corner action (the favourite star) is overlaid on this card's top-right corner by the
+   * board (CardSlot). When true, the title reserves space so its text never runs under the star.
+   */
+  reserveCorner?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -135,6 +146,17 @@ const CARD_STYLE: React.CSSProperties = {
   minWidth: 0,
 };
 
+/**
+ * Favourite overlay on the base card: a gold (`--color-warn`) border + warm tint + soft glow,
+ * distinct from the teal accent (recommended / running). Merged over CARD_STYLE when favorite.
+ * The colour is reinforcement only — the accessible signal is the aria-label + the star control.
+ */
+const FAVORITE_CARD_STYLE: React.CSSProperties = {
+  background: "var(--color-warn-bg)",
+  border: "1px solid var(--color-warn)",
+  boxShadow: "0 0 18px -7px var(--color-warn)",
+};
+
 const TITLE_STYLE: React.CSSProperties = {
   fontSize: "13px",
   fontWeight: 500,
@@ -145,6 +167,12 @@ const TITLE_STYLE: React.CSSProperties = {
   alignItems: "center",
   gap: "5px",
   wordBreak: "break-word",
+};
+
+/** When a corner star is overlaid (board cards), reserve room so the title never runs under it. */
+const TITLE_RESERVE_CORNER_STYLE: React.CSSProperties = {
+  ...TITLE_STYLE,
+  paddingRight: "24px",
 };
 
 const ROW_STYLE: React.CSSProperties = {
@@ -226,8 +254,11 @@ export function IdeaCard({
   returnType,
   score,
   isRunning,
+  favorite,
+  reserveCorner,
 }: IdeaCardProps): React.JSX.Element {
   const isRecommended = status === "recommended";
+  const isFavorite = favorite === true;
   // AC-02-008.2: building indicator ONLY for in-pipeline cards (status guard).
   // A stale isRunning=true on discovered/shipped/discarded cards must not show it.
   const showBuildingIndicator = status === "in-pipeline" && isRunning === true;
@@ -241,9 +272,18 @@ export function IdeaCard({
   const returnEntry = returnType !== undefined ? RETURN_LABELS[returnType] : undefined;
 
   return (
-    <article data-testid="idea-card" aria-label={`Idea: ${title}`} style={CARD_STYLE}>
-      {/* Title — 13px, with a play icon when the project is building */}
-      <h3 data-testid="idea-card-title" style={TITLE_STYLE}>
+    <article
+      data-testid="idea-card"
+      data-favorite={isFavorite ? "true" : undefined}
+      aria-label={isFavorite ? `Idea: ${title} (favorita)` : `Idea: ${title}`}
+      style={isFavorite ? { ...CARD_STYLE, ...FAVORITE_CARD_STYLE } : CARD_STYLE}
+    >
+      {/* Title — 13px, with a play icon when the project is building.
+          Reserve right space for the corner star (board cards) so text never runs under it. */}
+      <h3
+        data-testid="idea-card-title"
+        style={reserveCorner === true ? TITLE_RESERVE_CORNER_STYLE : TITLE_STYLE}
+      >
         {title}
         {showBuildingIndicator && (
           <i

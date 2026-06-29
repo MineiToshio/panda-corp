@@ -43,6 +43,7 @@ import { IdeaBoardView } from "@/app/board/IdeaBoardView/IdeaBoardView";
 import { Button } from "@/components/core/Button/Button";
 import { Chip } from "@/components/core/Chip/Chip";
 import { DiscardButton } from "@/components/core/DiscardButton/DiscardButton";
+import { FavoriteButton } from "@/components/core/FavoriteButton/FavoriteButton";
 import { PageLayout } from "@/components/core/PageLayout/PageLayout";
 import { RestoreButton } from "@/components/core/RestoreButton/RestoreButton";
 import { BoardLegend } from "@/components/modules/BoardLegend/BoardLegend";
@@ -50,6 +51,7 @@ import { CATEGORY_LABELS, RETURN_LABELS } from "@/components/modules/IdeaCard/Id
 import type { BoardColumn } from "@/lib/board/board";
 import type { DiscardResult } from "@/lib/discard/discard";
 import type { RestoreResult } from "@/lib/discard/restore";
+import type { FavoriteResult } from "@/lib/favorite/favorite";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -79,6 +81,12 @@ export interface BoardShellProps {
    * component stays testable; optional so older callers/tests don't break.
    */
   readDocAction?: (project: string, relPath: string) => Promise<string | null>;
+  /**
+   * Server Action that marks/unmarks an idea as a favourite (the board's third write, ADR-0003).
+   * Injected like discardAction for testability; optional so older callers/tests don't break.
+   * When absent, the favourite star is simply not rendered (read-only).
+   */
+  favoriteAction?: (slug: string, favorite: boolean) => Promise<FavoriteResult>;
 }
 
 // ---------------------------------------------------------------------------
@@ -275,6 +283,44 @@ function DetailTail({ card }: { card: BoardCardEntry }): React.JSX.Element {
 }
 
 // ---------------------------------------------------------------------------
+// DetailActions — the card-detail header action cluster (favourite · discard · restore).
+// Extracted so BoardShell's render stays under the cognitive-complexity budget (clean-code).
+// ---------------------------------------------------------------------------
+
+interface DetailActionsProps {
+  card: BoardCardEntry;
+  canDiscard: boolean;
+  discardAction: (slug: string, reason?: string) => Promise<DiscardResult>;
+  restoreAction?: (slug: string) => Promise<RestoreResult>;
+  favoriteAction?: (slug: string, favorite: boolean) => Promise<FavoriteResult>;
+}
+
+function DetailActions({
+  card,
+  canDiscard,
+  discardAction,
+  restoreAction,
+  favoriteAction,
+}: DetailActionsProps): React.JSX.Element {
+  const showRestore = card.status === "discarded" && restoreAction != null;
+  return (
+    <span style={DETAIL_TAIL_STYLE}>
+      {favoriteAction != null && (
+        <FavoriteButton
+          slug={card.slug}
+          favorite={card.favorite === true}
+          favoriteAction={favoriteAction}
+        />
+      )}
+      {canDiscard && <DiscardButton slug={card.slug} discardAction={discardAction} />}
+      {showRestore && restoreAction != null && (
+        <RestoreButton slug={card.slug} restoreAction={restoreAction} />
+      )}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -292,6 +338,7 @@ export function BoardShell({
   discardAction,
   restoreAction,
   readDocAction,
+  favoriteAction,
 }: BoardShellProps): React.JSX.Element {
   const [query, setQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -392,10 +439,13 @@ export function BoardShell({
                 ← Volver al tablero
               </Button>
 
-              {canDiscard && <DiscardButton slug={openCard.slug} discardAction={discardAction} />}
-              {openCard.status === "discarded" && restoreAction != null && (
-                <RestoreButton slug={openCard.slug} restoreAction={restoreAction} />
-              )}
+              <DetailActions
+                card={openCard}
+                canDiscard={canDiscard}
+                discardAction={discardAction}
+                restoreAction={restoreAction}
+                favoriteAction={favoriteAction}
+              />
             </div>
 
             {/* Discarded → show WHY it was discarded (the reason), above the docs. */}
@@ -541,7 +591,11 @@ export function BoardShell({
             </p>
 
             {/* Kanban board: 7 columns, two-axis routing, horizontal scroll */}
-            <IdeaBoardView cards={filteredCards} onCardClick={handleCardClick} />
+            <IdeaBoardView
+              cards={filteredCards}
+              onCardClick={handleCardClick}
+              favoriteAction={favoriteAction}
+            />
 
             {/* Legend: category / return / score (AC-02-008.3) */}
             <BoardLegend />

@@ -251,3 +251,29 @@ describe("IdeaCard — minimal data (empty state)", () => {
     expect(screen.getByTestId("idea-card-title")).toHaveTextContent("AI code reviewer");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Favourite flag (REQ-02-012) — visual highlight; the accessible signal is the
+// aria-label + a data-favorite marker (never colour alone, accessibility.md).
+// ---------------------------------------------------------------------------
+
+describe("IdeaCard — favourite (REQ-02-012)", () => {
+  it("marks the article with data-favorite='true' and announces it in the aria-label", () => {
+    render(<IdeaCard {...FULL_CARD} favorite={true} />);
+    const card = screen.getByTestId("idea-card");
+    expect(card).toHaveAttribute("data-favorite", "true");
+    expect(card.getAttribute("aria-label") ?? "").toContain("favorita");
+  });
+
+  it("does not mark a non-favourite card (no data-favorite, no 'favorita' in the label)", () => {
+    render(<IdeaCard {...FULL_CARD} favorite={false} />);
+    const card = screen.getByTestId("idea-card");
+    expect(card).not.toHaveAttribute("data-favorite");
+    expect(card.getAttribute("aria-label") ?? "").not.toContain("favorita");
+  });
+
+  it("treats an absent favorite prop as not a favourite", () => {
+    render(<IdeaCard {...FULL_CARD} />);
+    expect(screen.getByTestId("idea-card")).not.toHaveAttribute("data-favorite");
+  });
+});

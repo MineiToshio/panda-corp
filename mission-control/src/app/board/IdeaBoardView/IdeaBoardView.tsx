@@ -25,10 +25,12 @@
  *   IF-02-deriveColumn (lib/board.ts, WO-02-001)
  */
 
+import { FavoriteButton } from "@/components/core/FavoriteButton/FavoriteButton";
 import type { IdeaCardProps } from "@/components/modules/IdeaCard/IdeaCard";
 import { IdeaCard } from "@/components/modules/IdeaCard/IdeaCard";
 import type { BoardColumn } from "@/lib/board/board";
 import type { DocNode } from "@/lib/docs/tree";
+import type { FavoriteResult } from "@/lib/favorite/favorite";
 import type { DeployTarget, Phase } from "@/lib/status/status";
 
 // ---------------------------------------------------------------------------
@@ -132,6 +134,12 @@ export interface IdeaBoardViewProps {
    * AC-02-004: clicking a card opens its detail.
    */
   onCardClick?: (slug: string) => void;
+  /**
+   * Server Action that marks/unmarks a card as a favourite (REQ-02-012). When provided, each
+   * card gets a star toggle in its top-right corner (any column). When absent, no toggle is
+   * rendered (read-only / backward compat for older callers and tests).
+   */
+  favoriteAction?: (slug: string, favorite: boolean) => Promise<FavoriteResult>;
 }
 
 // ---------------------------------------------------------------------------
@@ -277,27 +285,61 @@ const CARD_BUTTON_STYLE: React.CSSProperties = {
   textAlign: "left",
 };
 
+/** Relative wrapper so the favourite star can float in the card's top-right corner. */
+const CARD_WRAPPER_STYLE: React.CSSProperties = {
+  position: "relative",
+};
+
+/** The favourite star toggle — a sibling overlay of the nav button (never nested in it). */
+const FAVORITE_SLOT_STYLE: React.CSSProperties = {
+  position: "absolute",
+  top: "4px",
+  right: "4px",
+  zIndex: 1,
+};
+
 interface CardSlotProps {
   card: IdeaCardProps & { boardColumn?: BoardColumn };
   onCardClick?: (slug: string) => void;
+  favoriteAction?: (slug: string, favorite: boolean) => Promise<FavoriteResult>;
 }
 
-function CardSlot({ card, onCardClick }: CardSlotProps): React.JSX.Element {
-  const inner = <IdeaCard {...card} />;
+function CardSlot({ card, onCardClick, favoriteAction }: CardSlotProps): React.JSX.Element {
+  // Reserve title space for the corner star whenever it will be overlaid (favouriteAction present).
+  const inner = <IdeaCard {...card} reserveCorner={favoriteAction != null} />;
 
-  if (onCardClick == null) return inner;
+  // Click-wrapper: the <article> stays a semantic landmark; the button is the interactive
+  // affordance (AC-02-004: clicking a card opens its detail). When absent, the card is read-only.
+  const clickable =
+    onCardClick == null ? (
+      inner
+    ) : (
+      <button
+        type="button"
+        style={CARD_BUTTON_STYLE}
+        onClick={() => onCardClick(card.slug)}
+        aria-label={`Abrir detalle: ${card.title}`}
+      >
+        {inner}
+      </button>
+    );
 
-  /* Click-wrapper: the <article> stays a semantic landmark; the button is the
-     interactive affordance (AC-02-004: clicking a card opens its detail). */
+  // No favourite action → just the (maybe clickable) card, no positioned wrapper.
+  if (favoriteAction == null) return clickable;
+
+  /* The star is a SIBLING of the nav button (a button inside a button is invalid HTML +
+     breaks a11y), absolutely positioned over the card corner (AC-02-012.3). */
   return (
-    <button
-      type="button"
-      style={CARD_BUTTON_STYLE}
-      onClick={() => onCardClick(card.slug)}
-      aria-label={`Abrir detalle: ${card.title}`}
-    >
-      {inner}
-    </button>
+    <div style={CARD_WRAPPER_STYLE}>
+      {clickable}
+      <span style={FAVORITE_SLOT_STYLE}>
+        <FavoriteButton
+          slug={card.slug}
+          favorite={card.favorite === true}
+          favoriteAction={favoriteAction}
+        />
+      </span>
+    </div>
   );
 }
 
@@ -314,6 +356,7 @@ export function IdeaBoardView({
   isLoading = false,
   error,
   onCardClick,
+  favoriteAction,
 }: IdeaBoardViewProps): React.JSX.Element {
   // Loading state takes priority
   if (isLoading) {
@@ -383,7 +426,12 @@ export function IdeaBoardView({
                   </div>
                 ) : (
                   colCards.map((card) => (
-                    <CardSlot key={card.slug} card={card} onCardClick={onCardClick} />
+                    <CardSlot
+                      key={card.slug}
+                      card={card}
+                      onCardClick={onCardClick}
+                      favoriteAction={favoriteAction}
+                    />
                   ))
                 )}
               </div>
