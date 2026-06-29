@@ -4,6 +4,31 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-06-29 — Reconciliación de docs FRD-10 a v2 (FDD + blueprint + work orders)
+**What:** Cascada documental código→docs tras toda la sesión del Salón de Logros v2. La **FDD** y el
+**blueprint** estaban en v1/rank-reconcile (25-jun, antes del v2): se actualizaron a la realidad —
+FDD: cuerpo Misiones por **sagas** (`SagaSection`), Trofeos de **8 ejes** + rareza (`RarityTag`) +
+**Sellos** (`SealsShelf`) + NUEVO + acento tranquilo (sin glow, sin texto "Bloqueado"), secretos en
+**grid de altura uniforme**, tarjeta de cadena **estandarizada** (`ChainProgress`/`CardFooter`, barra
+siempre, nodo 0 dibuja el primer tramo), y un mapa "prototipo→componente v2". Blueprint: el módulo
+único `lib/achievements.ts` ahora es un **paquete** (`signals.ts`, `readerData.ts`, `catalogue/` por
+eje, `predicates.ts` ensamblador, `tiers.ts` con `Rarity`) + la extensión `lib/events/events.ts`
+fail-loud; nuevas interfaces `IF-10-signals`/`IF-10-seals`, `computeUniques` con `rarity`/`isNew`,
+`computeChains` con `saga`; nuevos componentes `CMP-10-seals`; trazabilidad §7 con filas de
+rareza/Sellos/NUEVO/sagas/señal-real; Build Plan con WO-10-009…013 todas VERIFIED. Se **creó el archivo
+WO-10-013** (faltaba pese a estar referenciado por el commit de misiones) cubriendo la expansión de
+misiones + la estandarización visual, y se corrigieron los estados del README (PLANNED→VERIFIED). El
+**FRD** ya estaba al día (v2); solo se bumpeó la fecha y se añadió el contrato del pie uniforme.
+**Why:** El dueño pidió actualizar "toda la documentación (FRD, blueprints, work orders, FDD)" tras
+aprobar los cambios. Regla de dos capas: el decision-log ya tenía el *why* de cada cambio, pero los
+**docs canónicos** (FDD diseño + blueprint implementación + work orders) iban por detrás de la realidad
+del código ya mergeado/pusheado. Esta entrada cierra esa brecha (reconciliación inversa, estilo
+`/pandacorp:sync`, hecha en caliente con contexto completo de la sesión).
+**Context:** Solo edición de markdown — no toca el gate (`tsc`/`knip`/visual no leen `docs/`). Hecho en
+el checkout principal tras el push + el deploy a :1987. La FRD/FDD/blueprint apuntan a `docs/achievements.md`
+v2 como tabla de datos canónica (8 ejes, rareza, sagas, secretos, mapa de señales reales).
+**Impact:** Docs: `docs/frds/frd-10-achievements-hall/{frd.md (fecha + pie uniforme), fdd.md (v2), blueprint.md (v2), work-orders/README.md (estados + WO-10-013), work-orders/wo-10-013-missions-sagas-standardize.md (NUEVO)}`. Sin cambio de código ni de AC de comportamiento.
+
 ## 2026-06-29 — Secretos de altura uniforme en la grilla (SecretsPanel, FRD-10)
 **What:** En el grid de secretos, las tarjetas **bloqueadas** (solo la pista, cortas) quedaban más bajas que las **desbloqueadas** (pista + criterio + fecha/proyecto), dejando huecos irregulares en cada fila. Ahora **todas las tarjetas miden lo mismo** = la altura de la más alta de la grilla: el `ul` usa `gridAutoRows: 1fr` (filas iguales) y cada tarjeta lleva `height: 100%` para llenar su celda. Se quitó `alignItems: start` (que las dejaba a su altura de contenido).
 **Why:** El dueño pidió que los secretos no cumplidos "ocupen todo el alto" y que todos tengan la misma altura — los cortos se veían extraños. DR-062 (coherencia visual): tarjetas del mismo tipo con alturas dispares es un defecto de render. `gridAutoRows: 1fr` en un contenedor de alto indefinido iguala todas las filas a la del contenido más alto (truco estándar de grid), sin fijar un alto mágico.

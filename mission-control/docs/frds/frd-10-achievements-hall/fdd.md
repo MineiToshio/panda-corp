@@ -19,14 +19,26 @@ A single full-width page (`.rpghall`) reached from the **Logros** tab. Layout, t
      **"Próximas hazañas · a un paso de caer"** (`questsNear`, the Zeigarnik "Almost there" — the
      top-3 chains by % to next tier) → **"Vitrina del gremio · tus últimos trofeos"**
      (`recentTrophies`, the 4 most recent unlocked one-time trophies).
-   - **Misiones** (`logrosMisiones`): the **chains** (cumulative tier ladders). One **spotlight**
-     chain (`rpgChainSpot`, "A UN PASO DE SUBIR", the highest-% active chain) → a `secthead`
-     "En ascenso" grid of big chain cards (`rpgChainCard`) → "Comunes" mini grid (`rpgChainMini`) →
-     "Legendarias" (completed) grid.
-   - **Trofeos** (`logrosTrofeos`): a conquered-count strip (`.xpbar`) → category chips
-     (Descubrimiento · Velocidad · Calidad · Consistencia · Maestría · Secreto) → "Conquistados"
-     big grid (`rpgOneCard`) → "Por conquistar" small grid (`rpgTrophyLock`, the hover/focus reveal)
-     → "Secretos" grid (silhouette + cryptic hint).
+   - **Misiones** (`logrosMisiones`, **v2 2026-06-29**): the **chains** (cumulative tier ladders),
+     **grouped by saga** (narrative section headers — La Construcción · Las Ideas · El Oficio · El
+     Gremio · El Tiempo). One **spotlight** chain (`SpotCard`, "A UN PASO DE SUBIR", the highest-%
+     active chain) sits on top; then **one `SagaSection` per saga** (header + uniform `StandardCard`
+     grid). This replaced the old bucket grouping ("En ascenso / Comunes / Legendarias"), which—with
+     low real data—dumped every chain into "Comunes" and felt empty. **All chain cards share ONE
+     standardized layout** (see *Standardized chain card* below): there is no longer a big/mini/spot
+     divergence in the body block.
+   - **Trofeos** (`logrosTrofeos`, **v2 2026-06-29**): a conquered-count strip (`.xpbar`) → the
+     **8-axis** filter chips (Descubrimiento · Velocidad · Calidad · Consistencia · Maestría ·
+     **Producción · Gremio · Temple**) → "Conquistados" grid + "Por conquistar" grid
+     (`UniquesSection`, each trophy carrying a **rarity gem + label** and a **NUEVO** badge when
+     unlocked < 7 days) → the **Sellos** shelf (`SealsShelf` — one meta-trophy per axis + the Grand
+     Seal) → "Secretos" responsive grid (`SecretsPanel`). **Calm, not glowing:** a conquered trophy is
+     the same quiet card as a locked one, distinguished by a subtle **warn left-accent** + the warm
+     trophy icon — the old full-grid `glowwarn` halo was removed (read as a wall of glow). The locked
+     trophy shows the **lock icon + `aria-label`** (no redundant "Bloqueado" text). Secrets render as
+     **autonomous cards in a responsive 2–3-per-row grid of uniform height** (`gridAutoRows:1fr` +
+     `height:100%`), each a silhouette + cryptic hint (locked) or hint + revealed criterion + date +
+     project (unlocked).
    - **Estadísticas** (`logrosStats`): the **radar** ("Atributos del gremio", `statRadar`) + three
      `heroStat` record tiles → three ledger columns (`statLedgerRow`) grouped Producción / Calidad /
      Ritmo & alcance, each stat carrying an **unbounded `Nv N` metric level** (`metricLevel`, phase 3 —
@@ -49,11 +61,12 @@ A single full-width page (`.rpghall`) reached from the **Logros** tab. Layout, t
 | Element | Render fn | Token / primitive |
 |---|---|---|
 | Hall page wrapper | `logrosView` | `.rpghall` |
-| Tier chain card (big) | `rpgChainCard` | `rpgSkin.rpgpanel` + `.itemslot` medal + `.node` ladder + `.xpbar` + `tiers.tier1..5` |
-| Tier chain spotlight | `rpgChainSpot` | `rpgpanel.spot.rpggrid` (thicker `spot` border) + big `.itemslot` |
-| Tier chain mini | `rpgChainMini` | `rpgpanel` + small `.itemslot` + slim `.xpbar` |
-| One-time trophy (unlocked) | `rpgOneCard` | `rpgpanel.glowwarn.anim` (warn glow) + `.itemslot` |
-| Trophy locked (hover-reveal) | `rpgTrophyLock` | `rpgSkin.lockchip` (`.lockslot` + `.reveal` fade-in on hover/focus-within) |
+| Standardized chain card | `ChainCard` (`SpotCard` / `StandardCard` → shared `ChainProgress` + `CardFooter`) | `rpgpanel` + `.itemslot` medal + `NodeLadder` + `.xpbar` (ALWAYS) + uniform footer + `tiers.tier1..5` |
+| Saga section (Misiones) | `SagaSection` (`HallTabs`) | `secthead` (saga icon + name) + uniform `StandardCard` grid |
+| One-time trophy (conquered) | `UniquesSection` item | `rpgpanel` + warn **left-accent** + warm `.itemslot` (no full glow) + `RarityTag` gem+label + `NuevoBadge` |
+| One-time trophy (locked) | `UniquesSection` item | `rpgpanel` + lock icon + `aria-label` (no "Bloqueado" text) + `RarityTag` |
+| Seals shelf (Trofeos) | `SealsShelf` (`HallTabs`) | 8 axis seals + Grand Seal; per-seal `earned/total` progress; unlocked = filled, locked = dim |
+| Secret card (grid) | `SecretsPanel` `SecretItem` | `rpgpanel`, `gridAutoRows:1fr` + `height:100%` (uniform height), accent border (unlocked) / base (locked) |
 | Record stat tile | `heroStat` | `rpgpanel.herostat` (40px pixel `.big` numeral) + tier badge |
 | Ledger row | `statLedgerRow` | `.ledrow` + tier `.node` pip + pixel numeral |
 | Attributes radar | `statRadar` | SVG, `accent` polygon + glow, `bd` rings, pixel-font labels |
@@ -64,24 +77,35 @@ A single full-width page (`.rpghall`) reached from the **Logros** tab. Layout, t
 
 Tier rarity (`tiers.tier1..tier5` = **Común → Poco común → Raro → Épico → Leyenda**, never metal
 names) is **always** paired with the tier **name text** (`TIERN`) on every badge/pip — color is never
-the only signal (a11y rule).
+the only signal (a11y rule). **v2 per-trophy rarity** reuses the same 5 `tiers.ts` colors as a gem +
+**text label** on each `UniquesSection` trophy (`RarityTag`, `title` = estimated-rarity blurb) — again
+color+text, never color alone.
 
 ## FRD acceptance criteria → visual mapping
 
 - Stats that only grow → `logrosStats` ledgers + `heroStat` records (pixel numerals, `tabular-nums`).
 - Cumulative chains tier up Común→Poco común→Raro→Épico→Leyenda with a **progress bar to next tier** +
-  next-tier name → `rpgChainCard` / `rpgChainMini` / `rpgChainSpot` (the `.xpbar` + "Siguiente: {tier}").
+  next-tier name → `ChainCard` (`SpotCard` for the spotlight, `StandardCard` for the rest) sharing the
+  **`ChainProgress`** block: `NodeLadder` → goal-row (or "Cadena legendaria completada" on a maxed
+  chain) → **`.xpbar` ALWAYS present** (completed = full 100% bar) → uniform `CardFooter`. The spotlight
+  is the same vertical layout (bar BELOW, never floated to the right) at a larger scale.
 - 40-rung **rank ladder** (Rangos tab) → `RankLadder` + `ladderMeta` (eras + flavor), big `RankEmblem`,
   era headers, current-rank glow + progress, summit treatment (FRD-09 single source `RANKS`).
-- Each unlocked tier stores **date + project** → the `stamp` line (calendar icon) on every chain card.
+- Each unlocked tier stores **date + project** → the uniform **`CardFooter`** on every chain card: it
+  shows the latest dated unlock (`📅 date · project`) when one exists, else an honest fallback
+  (`N acumulado` / `récord N d` / "sin récord aún") — so every card has the same footer slot, never a
+  date on one card and nothing on its neighbour.
 - **"Almost there"** (Zeigarnik) → `questsNear` (top-3 nearest) on Resumen + `rpgChainSpot` spotlight
   on Misiones.
-- Unique achievements grouped by category (Discovery/Speed/Quality/Consistency/Mastery), date+project
-  when unlocked, condition when locked → `logrosTrofeos` (category chips + `rpgOneCard` / `rpgTrophyLock`).
-- **Secret achievements** as silhouette + cryptic hint; on unlock reveal the criterion → the
-  `a.hidden` branch of `rpgOneCard` / `rpgTrophyLock` (question-mark slot + italic hint), and the
-  `.lockchip .reveal` overlay shows **"CÓMO DESBLOQUEAR"** (the criterion) on hover/focus — honest, not
-  a loot box.
+- Unique achievements grouped **by state** (Conquistados → Por conquistar), with the **8 axes**
+  (Discovery/Speed/Quality/Consistency/Mastery/Production/Guild/Resilience) as **filter chips** and a
+  per-trophy **rarity gem + label** + **NUEVO** badge → `UniquesSection`. Date+project when unlocked,
+  condition + rarity when locked.
+- **Seals** (meta-trophies, v2) — one per axis (unlocked when all its trophies are earned) + the Grand
+  Seal (all 8) → `SealsShelf`, each showing `earned/total` so partial axes read as a progress goal.
+- **Secret achievements** as silhouette + cryptic hint; on unlock reveal the criterion → `SecretsPanel`
+  (responsive uniform-height grid): locked = `?` silhouette + italic hint; unlocked = `!` + the
+  criterion + date + project — honest, not a loot box.
 - Honest endowed progress → bars start at the **real** achieved value (`chainState` computes from real
   STATS), never zeroed.
 - Names scale in grandeur by tier → carried in the `CHAINS`/`TIERN` data (`achievements.md`).
@@ -110,6 +134,20 @@ the only signal (a11y rule).
 ## Demo-only controls (DR-061)
 None. The Hall is **read-only derived data** (stats computed from reading the factory). No state
 togglers, no mode pickers — nothing to wrap in a DEMO block.
+
+## v2 implemented components (2026-06-29) — prototype fn → React component
+The prototype (`index.html`) remains the **visual source** for tokens/skin; the v2 build diverged the
+*structure* per the owner's standardization feedback. Map of what actually ships:
+- `rpgChainCard`/`rpgChainMini`/`rpgChainSpot` → **one** `ChainCard` (`SpotCard`/`StandardCard` over the
+  shared `ChainProgress` + `CardFooter`) — uniform layout, bar always present, uniform footer.
+- `logrosMisiones` bucket grouping → **`SagaSection`** grouping by saga (`HallTabs`).
+- `rpgOneCard.glowwarn` → `UniquesSection` trophy with a calm **warn left-accent** (no full glow) +
+  `RarityTag` (gem+label) + `NuevoBadge`; locked = lock icon + `aria-label` (no "Bloqueado" text).
+- NEW **`SealsShelf`** (8 axis Seals + Grand Seal) on Trofeos and the **Vitrina** on Resumen share the
+  same calm accent.
+- `logrosTrofeos` secrets list → **`SecretsPanel`** responsive **uniform-height** grid
+  (`gridAutoRows:1fr` + `height:100%`).
+The data tables (8 axes, rarity, sagas, secrets, real-signal map) live in `docs/achievements.md` v2.
 
 ## index.html render-fn pointer
 `logrosView` (~L528) and its family: `logrosResumen`/`logrosMisiones`/`logrosTrofeos`/`logrosStats`

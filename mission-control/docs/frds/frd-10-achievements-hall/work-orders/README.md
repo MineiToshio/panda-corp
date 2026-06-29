@@ -46,16 +46,23 @@ WO-10-011 (catalogue: 8 axes ~80 uniques + rarity, ~21 chains/sagas, ~18 secrets
         │
         ▼
 WO-10-012 (render: rarity gem + estimated rarity + NUEVO badge + new category icons + Seals shelf + sagas)
+        │
+        ▼
+WO-10-013 (missions abundance: 19 chains/5 sagas + standardized mission/Trofeos/secrets cards — owner feedback)
 ```
+
+All v2 work orders (WO-10-009 … WO-10-013) are **VERIFIED** (the Hall shipped 2026-06-29; visual
+baseline re-blessed). WO-10-013 captures the post-review follow-up — see the decision log (2026-06-29).
 
 ## Work orders
 | ID | Title | Deploy unit | Status | Depends on |
 |---|---|---|---|---|
 | WO-10-001 | `lib/achievements.ts` — engine (stats/chains/uniques/secrets) | `lib/achievements.ts` | VERIFIED | WO-01-003, WO-01-005, WO-01-007, WO-03-001 |
-| WO-10-005 | Hall surfaces: ChainCard + TrophyCard + AlmostThere + stat ledger | `app/achievements/{ChainCard,UniquesSection}/**`, `AlmostThere.tsx`, `SecretsPanel.tsx` | PLANNED | WO-10-001, WO-09-003, WO-13-006, WO-13-007, WO-13-008 |
+| WO-10-005 | Hall surfaces: ChainCard + TrophyCard + AlmostThere + stat ledger | `app/achievements/{ChainCard,UniquesSection}/**`, `AlmostThere.tsx`, `SecretsPanel.tsx` | VERIFIED | WO-10-001, WO-09-003, WO-13-006, WO-13-007, WO-13-008 |
 | WO-10-006 | Rangos tab (enriched rank ladder) + unbounded Nv N metric levels (reconciled-from-code) | `app/achievements/RankLadder/**`, `_components/HallTabs.tsx`, `StatsPanel.tsx`, `lib/achievements/{achievements,tiers}.ts` | VERIFIED | WO-10-001, WO-10-005, WO-09-007 |
-| WO-10-009 | Events reader extension: real enriched fields (verdict/result/reopenCount/blocking/important/agentType/effort/maxAgents/wos/reason), fail-loud, uncapped achievements read | `lib/events/events.ts` | PLANNED | — |
-| WO-10-010 | Signals layer: derive real-signal counters/flags + new chain stat keys | `lib/achievements/signals.ts`, `lib/achievements/stats.ts` | PLANNED | WO-10-009 |
-| WO-10-011 | Catalogue v2: 8 axes ~80 uniques + per-trophy rarity, ~21 chains/sagas, ~18 secrets, Seals — re-anchored to signals | `lib/achievements/{definitions,predicates,tiers,achievements}.ts` (split by axis as needed) | PLANNED | WO-10-010 |
-| WO-10-012 | Render v2: rarity gem + estimated rarity + NUEVO badge + 3 new category icons + Seals shelf + sagas grouping | `app/achievements/{UniquesSection,SecretsPanel,ChainCard,_components/HallTabs}.tsx` | PLANNED | WO-10-011 |
+| WO-10-009 | Events reader extension: real enriched fields (verdict/result/reopenCount/blocking/important/agentType/effort/maxAgents/wos/reason), fail-loud, uncapped achievements read | `lib/events/events.ts` | VERIFIED | — |
+| WO-10-010 | Signals layer: derive real-signal counters/flags + new chain stat keys | `lib/achievements/signals.ts`, `lib/achievements/stats.ts` | VERIFIED | WO-10-009 |
+| WO-10-011 | Catalogue v2: 8 axes ~80 uniques + per-trophy rarity, ~21 chains/sagas, ~18 secrets, Seals — re-anchored to signals | `lib/achievements/{definitions,predicates,tiers,achievements}.ts` (split by axis as needed) | VERIFIED | WO-10-010 |
+| WO-10-012 | Render v2: rarity gem + estimated rarity + NUEVO badge + 3 new category icons + Seals shelf + sagas grouping | `app/achievements/{UniquesSection,SecretsPanel,ChainCard,_components/HallTabs}.tsx` | VERIFIED | WO-10-011 |
+| WO-10-013 | Missions abundance: 19 chains/5 sagas + standardized mission/Trofeos/secrets cards (node-ladder fix, uniform `ChainProgress`/`CardFooter`, calm Trofeos accent, uniform-height secrets) | `lib/achievements/{definitions,stats,achievements}.ts`, `app/achievements/{ChainCard,UniquesSection,SecretsPanel,_components/HallTabs,StatsPanel}.tsx` | VERIFIED | WO-10-012 |
 </content>
