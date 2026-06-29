@@ -15,30 +15,17 @@
  * Traceability: AC-10-001.1..4.
  */
 
-import type { EventsSnapshot } from "../events/events";
-import type { IdeaCard } from "../ideas/ideas";
 import type { StatusResult } from "../status/status";
 import { CHAIN_DEFINITIONS } from "./definitions";
+import type { ReaderData } from "./readerData";
 import { deriveSignals } from "./signals";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// § 1. Input type (aggregated reader outputs — no direct fs in this module)
+// § 1. Input type — re-exported from ./readerData (broken out to avoid the
+//      stats ↔ signals import cycle; both modules depend on ReaderData).
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * All reader data consumed by this module.
- *
- * Every field is already-read data; no I/O happens inside this module.
- * Blueprint §2 honesty contract: each field maps to a verifiable source.
- */
-export type ReaderData = {
-  /** All idea cards from factory/ideas/ (FRD-01 lib/ideas.ts) */
-  readonly ideas: readonly IdeaCard[];
-  /** Status results for every portfolio project (FRD-01/03 lib/status.ts / lib/portfolio.ts) */
-  readonly statuses: readonly StatusResult[];
-  /** Event snapshot from dashboard-events.ndjson (FRD-06 lib/events.ts) */
-  readonly eventsSnapshot: EventsSnapshot | null;
-};
+export type { ReaderData };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // § 2. IF-10-stats — Stat (character-sheet counter)

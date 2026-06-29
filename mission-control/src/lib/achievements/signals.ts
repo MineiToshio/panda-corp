@@ -18,7 +18,7 @@
 
 import type { Event } from "../events/events";
 import type { StatusResult } from "../status/status";
-import type { ReaderData } from "./stats";
+import type { ReaderData } from "./readerData";
 
 /** A first-occurrence stamp: the real `at` + `project` of the earliest matching event. */
 type FirstStamp = { readonly at: string; readonly project: string } | null;
