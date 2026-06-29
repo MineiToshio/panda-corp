@@ -3,8 +3,9 @@
 /**
  * WO-02-009 — Board Server Actions (CMP-02-discard-action).
  *
- * This file is the ONLY caller of `lib/discard.ts#discardIdea`.
- * It is the single mutation surface in the entire app (architecture §1/§7).
+ * The Server Actions for the board's bounded writes: discard/restore status (`lib/discard/`) and
+ * the visual favourite flag (`lib/favorite/`, ADR-0003). This is the app's mutation surface
+ * (architecture §1/§7); everything else is read-only.
  *
  * Rule: human-triggered only (via DiscardButton client component).
  * Never called during a render pass.
@@ -19,6 +20,7 @@
 import { revalidatePath } from "next/cache";
 import { type DiscardResult, discardIdea } from "@/lib/discard/discard";
 import { type RestoreResult, restoreIdea } from "@/lib/discard/restore";
+import { type FavoriteResult, setFavorite } from "@/lib/favorite/favorite";
 
 /**
  * Discard an idea by slug.
@@ -56,6 +58,30 @@ export async function discardIdeaAction(slug: string, reason?: string): Promise<
  */
 export async function restoreIdeaAction(slug: string): Promise<RestoreResult> {
   const result = restoreIdea(slug);
+
+  if (result.ok) {
+    revalidatePath("/board");
+  }
+
+  return result;
+}
+
+/**
+ * Mark / unmark an idea as a favourite (the board's third write, ADR-0003).
+ *
+ * Delegates to `setFavorite` (which rewrites only the `favorite` frontmatter field of one
+ * card), then revalidates the board route. Visual-only: it never touches `status` or the
+ * board column — it just lets the owner highlight cards in any column (REQ-02-012). Never throws.
+ *
+ * @param slug     - The idea slug (filename without `.md`).
+ * @param favorite - The desired state (true = mark, false = unmark).
+ * @returns FavoriteResult — `{ ok: true, favorite }` on success, `{ ok: false, reason }` on failure.
+ */
+export async function toggleFavoriteAction(
+  slug: string,
+  favorite: boolean,
+): Promise<FavoriteResult> {
+  const result = setFavorite(slug, favorite);
 
   if (result.ok) {
     revalidatePath("/board");
