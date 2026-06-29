@@ -21,7 +21,7 @@ import type { StatusResult } from "../status/status";
 import type { ReaderData } from "./stats";
 
 /** A first-occurrence stamp: the real `at` + `project` of the earliest matching event. */
-export type FirstStamp = { readonly at: string; readonly project: string } | null;
+type FirstStamp = { readonly at: string; readonly project: string } | null;
 
 /**
  * All real-signal aggregates derived once from `ReaderData`.

@@ -36,13 +36,14 @@ import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import { SubTabs } from "@/components/core/Tabs/Tabs";
 import type { Unique } from "@/lib/achievements/achievements";
 import type { UniqueCategory } from "@/lib/achievements/catalogue/types";
-import { rarityColor, rarityLabel } from "@/lib/achievements/tiers";
+import { rarityBlurb, rarityColor, rarityLabel } from "@/lib/achievements/tiers";
 
 // ─── RarityTag — per-trophy rarity gem + label (FRD-10 v2; not color alone, WCAG 1.4.1) ──
 function RarityTag({ rarity }: { rarity: Unique["rarity"] }): React.JSX.Element {
   return (
     <span
       data-testid="unique-rarity"
+      title={rarityBlurb(rarity)}
       style={{
         display: "inline-flex",
         gap: "5px",
@@ -73,7 +74,6 @@ function NuevoBadge(): React.JSX.Element {
   return (
     <span
       data-testid="unique-nuevo"
-      aria-label="Nuevo"
       style={{
         fontSize: "8px",
         fontFamily: "var(--font-pixel)",

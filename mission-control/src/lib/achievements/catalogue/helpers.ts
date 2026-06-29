@@ -15,7 +15,7 @@ import type { UniqueResult } from "./types";
 export { signalsFor };
 
 /** Locked result (the common "not yet" return). */
-export const LOCKED: UniqueResult = { unlocked: false };
+const LOCKED: UniqueResult = { unlocked: false };
 
 /** Pipeline phase order → rank (product=0 … release=4). */
 const PHASE_RANK: Record<string, number> = {
@@ -27,7 +27,7 @@ const PHASE_RANK: Record<string, number> = {
 };
 
 /** Rank of a phase string (unknown → -1). */
-export function phaseRank(phase: string | undefined): number {
+function phaseRank(phase: string | undefined): number {
   if (phase === undefined) return -1;
   return PHASE_RANK[phase] ?? -1;
 }
@@ -135,7 +135,7 @@ export function unlockWhen(data: ReaderData, condition: boolean, date?: string):
 }
 
 /** Green-WO close events (`AgentDone result=green`) sorted ascending by `at`. */
-export function greenDoneSorted(data: ReaderData): Event[] {
+function greenDoneSorted(data: ReaderData): Event[] {
   const events = data.eventsSnapshot?.events ?? [];
   return events
     .filter((ev) => ev.event === "AgentDone" && ev.result === "green")

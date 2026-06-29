@@ -26,7 +26,7 @@ const TIER_RARITY_NAMES = ["Común", "Poco común", "Raro", "Épico", "Leyenda"]
 export type Rarity = "Común" | "Poco común" | "Raro" | "Épico" | "Leyenda";
 
 /** Ordered rarity grades, common → legendary (the pyramid order). */
-export const RARITY_ORDER: readonly Rarity[] = TIER_RARITY_NAMES;
+const RARITY_ORDER: readonly Rarity[] = TIER_RARITY_NAMES;
 
 /** 0-based index of a rarity grade (Común=0 … Leyenda=4). */
 function rarityIndex(rarity: Rarity): number {
