@@ -239,54 +239,54 @@ describe("computeStats — AC-10-001 — character-sheet counters", () => {
     expect(stats.find((s) => s.key === "phases")?.value).toBe(3);
   });
 
-  it("AC-10-001.1 (iterations): counts 'achievement' events scoped to an iteration", () => {
+  it("AC-10-001.1 (iterations): counts build relaunches (real signal)", () => {
     const data: ReaderData = {
       ideas: [],
       statuses: [],
       eventsSnapshot: mkEventsSnapshot([
-        mkEvent({ event: "achievement", task: "iteration", status: "ok" }),
-        mkEvent({ event: "achievement", task: "iteration", status: "ok" }),
-        mkEvent({ event: "achievement", task: "phase:design", status: "ok" }),
+        mkEvent({ event: "BuildRelaunch", project: "p" }),
+        mkEvent({ event: "BuildRelaunch", project: "p" }),
       ]),
     };
     const stats = computeStats(data);
     expect(stats.find((s) => s.key === "iterations")?.value).toBe(2);
   });
 
-  it("AC-10-001.1 (prds): counts 'achievement' events with task=prd", () => {
+  it("AC-10-001.1 (prds): counts projects at phase ≥ design (real signal)", () => {
     const data: ReaderData = {
       ideas: [],
-      statuses: [],
-      eventsSnapshot: mkEventsSnapshot([
-        mkEvent({ event: "achievement", task: "prd", status: "ok" }),
-        mkEvent({ event: "achievement", task: "prd", status: "ok" }),
-      ]),
+      statuses: [
+        mkStatus({ phase: "design", project: "a" }),
+        mkStatus({ phase: "release", project: "b" }),
+      ],
+      eventsSnapshot: mkEventsSnapshot([]),
     };
     const stats = computeStats(data);
     expect(stats.find((s) => s.key === "prds")?.value).toBe(2);
   });
 
-  it("AC-10-001.1 (adrs): counts 'achievement' events with task=adr", () => {
+  it("AC-10-001.1 (adrs): counts projects at phase ≥ architecture (real signal)", () => {
     const data: ReaderData = {
       ideas: [],
-      statuses: [],
-      eventsSnapshot: mkEventsSnapshot([
-        mkEvent({ event: "achievement", task: "adr", status: "ok" }),
-      ]),
+      statuses: [
+        mkStatus({ phase: "architecture", project: "a" }),
+        mkStatus({ phase: "design", project: "b" }),
+      ],
+      eventsSnapshot: mkEventsSnapshot([]),
     };
     const stats = computeStats(data);
     expect(stats.find((s) => s.key === "adrs")?.value).toBe(1);
   });
 
-  it("AC-10-001.1 (agents): counts distinct agent names from ok events", () => {
+  it("AC-10-001.1 (agents): counts distinct roles coordinated (real signal)", () => {
     const data: ReaderData = {
       ideas: [],
       statuses: [],
       eventsSnapshot: mkEventsSnapshot([
-        mkEvent({ event: "end", agent: "backend-dev", status: "ok" }),
-        mkEvent({ event: "end", agent: "frontend-dev", status: "ok" }),
-        mkEvent({ event: "end", agent: "backend-dev", status: "ok" }), // duplicate
-        mkEvent({ event: "end", agent: "reviewer", status: "ok" }),
+        mkEvent({ event: "AgentWorking", role: "backend-dev" }),
+        mkEvent({ event: "AgentWorking", role: "frontend-dev" }),
+        mkEvent({ event: "AgentDone", role: "backend-dev", result: "green" }), // duplicate role
+        mkEvent({ event: "AgentWorking", role: "reviewer" }),
       ]),
     };
     const stats = computeStats(data);
