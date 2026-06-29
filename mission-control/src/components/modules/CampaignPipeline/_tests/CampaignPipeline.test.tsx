@@ -322,6 +322,20 @@ describe("AC-02-010.4 — per-phase ficha (active by default; click to switch, n
     expect(header).toHaveTextContent(/EN CURSO/);
   });
 
+  // Ambient roam (amended 2026-06-29, FRD-02 REQ-02-010): the active phase's cast roams as
+  // ambient liveliness for ANY phase, but the live-work markers (the lead halo + speech-on-meet)
+  // stay gated on a genuinely running agent — so the wander never fabricates live work. The halo
+  // is the observable guardrail (the roam itself is RAF-imperative and not asserted in jsdom).
+  it("active phase shows NO lead halo when not running (ambient roam ≠ fabricated live work)", () => {
+    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={2} running={false} />);
+    expect(screen.queryAllByTestId("campaign-sprite-halo")).toHaveLength(0);
+  });
+
+  it("active phase shows the lead halo only when an agent is genuinely running", () => {
+    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={2} running={true} />);
+    expect(screen.getAllByTestId("campaign-sprite-halo").length).toBeGreaterThanOrEqual(1);
+  });
+
   // --- research team: researcher only (active by default at activePhase=0) ---
   it("research ficha shows 'researcher' team member", () => {
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} />);

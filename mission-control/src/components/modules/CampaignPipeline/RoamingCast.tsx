@@ -95,8 +95,13 @@ export function RoamingCast({
   const wrapperRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   useEffect(() => {
-    // Only the current room's cast roams, and only while an agent is genuinely running.
-    if (state !== "current" || !running) return;
+    // Ambient roam (2026-06-29): the ACTIVE room's cast wanders as visual liveliness of
+    // "where the idea is now" — for ANY phase, decoupled from `running` (which only the build
+    // sets). The live-work markers stay honest: the lead halo + speech-on-meet render only when
+    // an agent is genuinely running (gated in the JSX below and in `arrive`), so the wander is
+    // ambient but no live-work chatter is fabricated. `running` stays in the dep array so the
+    // effect re-initialises (re-queries the now-present speech spans) when an agent starts.
+    if (state !== "current") return;
     // jsdom/SSR have no matchMedia — skip the roam loop entirely there (no animation needed).
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -159,8 +164,12 @@ export function RoamingCast({
       s.dur = 900 + Math.random() * 1500;
       s.bob?.classList.remove("walking");
       if (s.meet != null) {
-        bubble(s);
-        bubble(s.meet);
+        // Speech-on-meet is a live-work signal — only when an agent is genuinely running.
+        // Ambient (not-running) wander still lets sprites cluster, but stays silent.
+        if (running) {
+          bubble(s);
+          bubble(s.meet);
+        }
         s.meet = null;
       }
     };

@@ -11,7 +11,7 @@ artifacts:
   - 'src/components/modules/CampaignPipeline/**'
 source_requirements: [REQ-02-004, REQ-02-008, REQ-02-009, REQ-02-010]
 dependsOn: [WO-02-003, WO-02-011, WO-01-006, WO-13-006, WO-13-007, WO-13-009, WO-13-001, WO-13-002, WO-13-003, WO-06-005]
-last_updated: '2026-06-20'
+last_updated: '2026-06-29'
 ---
 # WO-02-007 — La Campaña card detail
 
@@ -116,6 +116,18 @@ primitive. It rolls a **bespoke per-screen tab switcher** — `<div role="tablis
 AgentSprite composition), phase done/current/locked derivation, fichas (LEE/ESCRIBE/team),
 "Entrar a La Fragua" onEnterForge bubbling, read-only invariant — all green in the integration suite
 and the runtime smoke (route 200, 6 rooms + 5 bridges + 3 tabs rendered, zero console errors).
+
+## Status Note — reopened (2026-06-29, ambient roam — La Campaña liveliness)
+
+**What changed:** Decoupled La Campaña's cast roam from the build's `running` flag (`RoamingCast.tsx`).
+The active phase's cast now **always roams** as ambient liveliness — for ANY phase (research → release),
+not just the build (only `/pandacorp:implement` sets `running:true`, so before this only the build room
+ever animated, leaving design/spec/blueprint rooms frozen). The honest split is preserved: the lead
+**halo** and the **speech-on-meet** bubbles still render only when an agent is `running` (gated in the
+JSX + in `arrive()`), and the ficha/badge label ("fase actual" vs "● en curso") is unchanged — so the
+wander is ambient but no live-work activity is fabricated. Done rooms idle-bob; locked rooms static;
+`prefers-reduced-motion` renders all static (unchanged). Canonical: FRD-02 REQ-02-010 AC amendment
+(2026-06-29); decision-log. No skill/plugin/hook change — MC-only.
 
 ## Status Note — IN_REVIEW (2026-06-20, pass 2 — DR-062 tab fix)
 

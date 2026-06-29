@@ -156,9 +156,16 @@ campaign map) + `prototype/index.html` `detailView()`:
 - **Board columns use La Campaña's phase names** (numbered): `1 Investigación · 2 Producto · 3 Diseño ·
   4 Arquitectura · 5 Construcción · 6 Release` (+ `Descartada`). Same vocabulary as the campaign;
   the two-axis column derivation is unchanged.
-- **"en curso" is gated on a genuinely running agent** (the project `running` flag, threaded from the
-  card). The active phase reads **"fase actual" / "FASE ACTUAL"** and its cast **idle-bobs in place**
-  unless an agent is actually running; only then does it read "en curso" and the cast roams.
+- **Ambient roam, honest label (amended 2026-06-29).** The active phase's cast **always roams** —
+  sprites wander as ambient liveliness of "where the idea is now", for **any** phase (research →
+  release), **decoupled** from the build's `running` flag (which only `/pandacorp:implement` sets, so
+  previously only the build room ever animated). What stays gated on a **genuinely running agent** (the
+  project `running` flag, threaded from the card) is two things, so the wander is ambient but no
+  live-work is fabricated: (1) the **label** — the ficha/badge read **"fase actual" / "FASE ACTUAL"**
+  and only show **"en curso" / "EN CURSO"** when an agent is actually running; (2) the **live-work
+  markers** — the lead **halo** and the **speech-on-meet** bubbles render only while running. Done
+  rooms idle-bob in place; locked rooms are static; `prefers-reduced-motion` renders all static.
+  (Superseded the earlier "the active cast idle-bobs unless an agent is running; only then it roams".)
 
 ### REQ-02-011 — "Spec" tab: native high-level digest of the project's spec (CMP-02-spec-digest)
 
