@@ -214,14 +214,13 @@ describe("AC-10-006.2 — unlocked tiers show date and project", () => {
     expect(card.textContent).toContain("my-project");
   });
 
-  it("shows date+project for each unlocked tier in a multi-tier chain", () => {
+  it("shows the latest unlock stamp (date + project) in the uniform footer", () => {
     render(<ChainCard chain={mkMaxedChain()} />);
-    const card = screen.getByTestId("chain-card");
-    // At least the first and last unlocks should be visible
-    expect(card.textContent).toContain("project-a");
-    expect(card.textContent).toContain("project-e");
-    expect(card.textContent).toContain("2024-01-01");
-    expect(card.textContent).toContain("2026-01-01");
+    // v2 standardised footer: every card shows ONE milestone stamp — the most recent
+    // dated tier unlock (here project-e / 2026-01-01), not one row per tier.
+    const footer = screen.getByTestId("chain-footer");
+    expect(footer.textContent).toContain("project-e");
+    expect(footer.textContent).toContain("2026-01-01");
   });
 
   it("tier unlock list renders items with data-testid='chain-unlock-item'", () => {
@@ -265,11 +264,13 @@ describe("AC-10-006.3 — honest endowed progress bar reusing CMP-09-xp-bar", ()
     expect(fill.getAttribute("style")).toContain("0%");
   });
 
-  it("maxed chain shows the completed line, not a progress bar (prototype: crown)", () => {
+  it("maxed chain shows the completed line AND a full bar (uniform layout)", () => {
     render(<ChainCard chain={mkMaxedChain()} />);
-    // A completed chain has no next tier → no bar, just the "completada" crown line.
-    expect(screen.queryByTestId("xp-bar-fill")).toBeNull();
+    // v2 standardised layout: every card has a bar. A completed chain shows it filled
+    // to 100% PLUS the "completada" crown line (no more missing-bar inconsistency).
     expect(screen.getByText(/completada/i)).toBeDefined();
+    const fill = screen.getByTestId("xp-bar-fill");
+    expect(fill.getAttribute("style")).toContain("100%");
   });
 
   it("NEGATIVE AC — 0% pctToNext never renders fill ≥ 50% (no inflated endowed bar)", () => {

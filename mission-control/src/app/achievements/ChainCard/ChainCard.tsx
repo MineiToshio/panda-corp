@@ -31,7 +31,6 @@ import { ItemSlot } from "@/components/core/ItemSlot/ItemSlot";
 import { XpBar } from "@/components/core/XpBar/XpBar";
 import type { ChainState } from "@/lib/achievements/achievements";
 import { CHAIN_DEFINITIONS } from "@/lib/achievements/definitions";
-import type { TierUnlockEvent } from "@/lib/achievements/stats";
 import { tierColor, tierRarityName } from "@/lib/achievements/tiers";
 
 // ── RPGPanel inline style (design-tokens.json rpgSkin.rpgpanel) ─────────────────
@@ -136,36 +135,6 @@ function NodeLadder({
   );
 }
 
-// ── Stamp line (date + project per unlock — AC-10-006.2) ─────────────────────────
-
-function StampLine({ unlock }: { unlock: TierUnlockEvent }): React.JSX.Element {
-  return (
-    <span
-      data-testid="chain-unlock-item"
-      data-tier={unlock.tier + 1}
-      style={{
-        display: "flex",
-        gap: "5px",
-        alignItems: "center",
-        fontSize: "11px",
-        color: "var(--color-text3)",
-        lineHeight: 1.2,
-      }}
-    >
-      <i className="ti ti-calendar" aria-hidden="true" style={{ fontSize: "11px" }} />
-      <span className="tabular-nums">{unlock.date}</span>
-      {unlock.project && unlock.project !== "—" && (
-        <>
-          <span aria-hidden="true" style={{ opacity: 0.5 }}>
-            ·
-          </span>
-          <span style={{ fontStyle: "italic", opacity: 0.85 }}>{unlock.project}</span>
-        </>
-      )}
-    </span>
-  );
-}
-
 // ── Derived values ──────────────────────────────────────────────────────────────
 
 type ChainCardVariant = "card" | "spot" | "mini";
@@ -188,6 +157,8 @@ type Derived = {
   nextTier: ChainState["nextTier"];
   barPct: number;
   goalText: string;
+  value: number;
+  lowerIsBetter: boolean;
   unlocks: ChainState["unlocks"];
   iconNode: React.ReactNode;
 };
@@ -228,6 +199,8 @@ function derive(chain: ChainState): Derived {
     nextTier,
     barPct,
     goalText,
+    value,
+    lowerIsBetter: chain.lowerIsBetter === true,
     unlocks,
     iconNode,
   };
@@ -341,6 +314,91 @@ function CompletedLine(): React.JSX.Element {
   );
 }
 
+// ── Card footer (uniform milestone stamp on EVERY card — AC-10-006.2) ───────────
+// Standardised so no card looks "empty": when the chain has a dated tier unlock
+// (today only the shipped chain carries verifiable per-tier dates) we show the
+// latest stamp; otherwise we show the honest cumulative value — same row, same
+// styling, on every card.
+
+function CardFooter({ d }: { d: Derived }): React.JSX.Element {
+  const last = d.unlocks.length > 0 ? d.unlocks[d.unlocks.length - 1] : undefined;
+  const fallback = d.lowerIsBetter
+    ? d.value > 0
+      ? `récord ${d.value} d`
+      : "sin récord aún"
+    : `${d.value} acumulado`;
+  return (
+    <div
+      data-testid="chain-footer"
+      style={{
+        display: "flex",
+        gap: "5px",
+        alignItems: "center",
+        fontSize: "11px",
+        color: "var(--color-text3)",
+        borderTop: "1px solid var(--color-border)",
+        paddingTop: "8px",
+        minWidth: 0,
+      }}
+    >
+      <i className="ti ti-flag-checkered" aria-hidden="true" style={{ fontSize: "12px" }} />
+      {last ? (
+        <span
+          data-testid="chain-unlock-item"
+          data-tier={last.tier + 1}
+          style={{ display: "flex", gap: "5px", alignItems: "center", minWidth: 0 }}
+        >
+          <span className="tabular-nums">{last.date}</span>
+          {last.project && last.project !== "—" && (
+            <>
+              <span aria-hidden="true" style={{ opacity: 0.5 }}>
+                ·
+              </span>
+              <span
+                style={{
+                  fontStyle: "italic",
+                  opacity: 0.85,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {last.project}
+              </span>
+            </>
+          )}
+        </span>
+      ) : (
+        <span className="tabular-nums">{fallback}</span>
+      )}
+    </div>
+  );
+}
+
+// ── Chain progress (shared bottom block, identical across variants) ─────────────
+// Ladder → goal-or-completed → bar (ALWAYS, completed = full) → footer. This is
+// what makes every mission card read the same (DR-062 visual coherence).
+
+function ChainProgress({ d, barHeight }: { d: Derived; barHeight: number }): React.JSX.Element {
+  const nextName = d.nextTier?.name ?? d.tierFunName;
+  return (
+    <>
+      {d.totalTiers > 0 && (
+        <div style={{ margin: "2px 2px 0" }}>
+          <NodeLadder totalTiers={d.totalTiers} currentTierIndex={d.currentTierIndex} />
+        </div>
+      )}
+      {d.nextTier !== null ? (
+        <GoalRow nextName={d.nextTier.name} goalText={d.goalText} />
+      ) : (
+        <CompletedLine />
+      )}
+      <ChainBar barPct={d.barPct} tColor={d.tColor} nextName={nextName} height={barHeight} />
+      <CardFooter d={d} />
+    </>
+  );
+}
+
 // ── ChainCard ─────────────────────────────────────────────────────────────────
 
 export function ChainCard({ chain, variant = "card" }: ChainCardProps): React.JSX.Element {
@@ -361,117 +419,85 @@ function SpotCard({ d }: { d: Derived }): React.JSX.Element {
       aria-label={`Misión en destaque: ${d.label}`}
       style={{
         ...RPGPANEL_STYLE,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: "17px",
-        flexWrap: "wrap",
+        gap: "12px",
         border: "1.5px solid var(--color-accent)",
         padding: "18px",
       }}
     >
-      <ItemSlot icon={d.iconNode} size={58} tone="accent" aria-label={`Cadena: ${d.label}`} />
-
-      {/* Left: chips + fun name + chain name + node ladder */}
-      <div
-        style={{ flex: 1, minWidth: "230px", display: "flex", flexDirection: "column", gap: "4px" }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-          <span
-            style={{
-              fontFamily: "var(--font-pixel)",
-              fontSize: "10px",
-              color: "var(--color-accent-text)",
-              background: "var(--color-accent-bg)",
-              border: "1px solid var(--color-accent)",
-              padding: "2px 8px",
-              borderRadius: "5px",
-            }}
-          >
-            <i
-              className="ti ti-bolt"
-              aria-hidden="true"
-              style={{ fontSize: "11px", verticalAlign: "-1px" }}
-            />{" "}
-            A UN PASO DE SUBIR
-          </span>
-          <TierBadge
-            rarityLabel={d.rarityLabel}
-            tierNum={d.tierNum}
-            tColor={d.tColor}
-            fontSize="10px"
-          />
-        </div>
+      {/* Header row: icon + (chip + badge + names) + big % — same vertical card,
+          just bigger. The progress (ladder → goal → bar → footer) lives BELOW,
+          identical to every other mission card. */}
+      <div style={{ display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap" }}>
+        <ItemSlot icon={d.iconNode} size={56} tone="accent" aria-label={`Cadena: ${d.label}`} />
         <div
           style={{
-            fontFamily: "var(--font-display, var(--font-space-grotesk))",
-            fontSize: "21px",
-            lineHeight: 1.1,
-            color: "var(--color-text)",
-          }}
-        >
-          {d.tierFunName}
-        </div>
-        <span data-testid="chain-label" style={{ fontSize: "12px", color: "var(--color-text2)" }}>
-          {d.label}
-        </span>
-        {d.totalTiers > 0 && (
-          <div style={{ marginTop: "9px" }}>
-            <NodeLadder
-              totalTiers={d.totalTiers}
-              currentTierIndex={d.currentTierIndex}
-              nodeSize={18}
-              connectorHeight={4}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Right: big % + goal + bar + value/threshold */}
-      {d.nextTier !== null ? (
-        <div
-          style={{
-            flexShrink: 0,
-            minWidth: "185px",
+            flex: 1,
+            minWidth: "190px",
             display: "flex",
             flexDirection: "column",
-            gap: "6px",
+            gap: "4px",
           }}
         >
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+            {d.nextTier !== null && (
+              <span
+                style={{
+                  fontFamily: "var(--font-pixel)",
+                  fontSize: "10px",
+                  color: "var(--color-accent-text)",
+                  background: "var(--color-accent-bg)",
+                  border: "1px solid var(--color-accent)",
+                  padding: "2px 8px",
+                  borderRadius: "5px",
+                }}
+              >
+                <i
+                  className="ti ti-bolt"
+                  aria-hidden="true"
+                  style={{ fontSize: "11px", verticalAlign: "-1px" }}
+                />{" "}
+                A UN PASO DE SUBIR
+              </span>
+            )}
+            <TierBadge
+              rarityLabel={d.rarityLabel}
+              tierNum={d.tierNum}
+              tColor={d.tColor}
+              fontSize="10px"
+            />
+          </div>
+          <div
+            style={{
+              fontFamily: "var(--font-display, var(--font-space-grotesk))",
+              fontSize: "21px",
+              lineHeight: 1.1,
+              color: "var(--color-text)",
+            }}
+          >
+            {d.tierFunName}
+          </div>
+          <span data-testid="chain-label" style={{ fontSize: "12px", color: "var(--color-text2)" }}>
+            {d.label}
+          </span>
+        </div>
+        {d.nextTier !== null && (
           <span
             aria-hidden="true"
             style={{
+              flexShrink: 0,
               fontFamily: "var(--font-pixel)",
-              fontSize: "32px",
+              fontSize: "34px",
               color: "var(--color-accent-text)",
               lineHeight: 1,
-              textAlign: "right",
             }}
           >
             {d.barPct}
-            <span style={{ fontSize: "14px", opacity: 0.7 }}>%</span>
+            <span style={{ fontSize: "15px", opacity: 0.7 }}>%</span>
           </span>
-          <span
-            data-testid="chain-next-tier-name"
-            style={{ fontSize: "12px", color: "var(--color-text2)", textAlign: "right" }}
-          >
-            <i
-              className="ti ti-arrow-big-right-lines"
-              aria-hidden="true"
-              style={{ fontSize: "12px", verticalAlign: "-2px" }}
-            />{" "}
-            {d.nextTier.name}
-          </span>
-          <ChainBar barPct={d.barPct} tColor={d.tColor} nextName={d.nextTier.name} height={14} />
-          <span
-            className="tabular-nums"
-            style={{ fontSize: "11px", color: "var(--color-text3)", textAlign: "right" }}
-          >
-            {d.goalText}
-          </span>
-        </div>
-      ) : (
-        <CompletedLine />
-      )}
+        )}
+      </div>
+
+      <ChainProgress d={d} barHeight={14} />
     </article>
   );
 }
@@ -502,27 +528,9 @@ function StandardCard({ d }: { d: Derived }): React.JSX.Element {
         </div>
       </div>
 
-      {/* Node ladder */}
-      {d.totalTiers > 0 && (
-        <div style={{ margin: "3px 3px 2px" }}>
-          <NodeLadder totalTiers={d.totalTiers} currentTierIndex={d.currentTierIndex} />
-        </div>
-      )}
-
-      {/* Goal + bar OR completed */}
-      {d.nextTier !== null ? (
-        <>
-          <GoalRow nextName={d.nextTier.name} goalText={d.goalText} />
-          <ChainBar barPct={d.barPct} tColor={d.tColor} nextName={d.nextTier.name} height={12} />
-        </>
-      ) : (
-        <CompletedLine />
-      )}
-
-      {/* Stamp lines (date + project per unlock — incl. completed) */}
-      {d.unlocks.map((unlock) => (
-        <StampLine key={`unlock-tier-${unlock.tier}`} unlock={unlock} />
-      ))}
+      {/* Shared progress block (ladder → goal/completed → bar → footer) — identical
+          to the spotlight, so every mission card reads the same. */}
+      <ChainProgress d={d} barHeight={12} />
     </article>
   );
 }
