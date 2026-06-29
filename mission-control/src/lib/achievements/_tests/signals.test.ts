@@ -44,6 +44,28 @@ describe("deriveSignals — empty factory → honest zeros (AC-10-010.3)", () =>
     expect(s.earlyBird).toBe(false);
     expect(s.firstGreenDone).toBeNull();
     expect(s.firstGatePass).toBeNull();
+    expect(s.fastestBuildHours).toBe(0);
+  });
+});
+
+describe("deriveSignals — fastestBuildHours (build duration)", () => {
+  it("min hours between a BuildLaunch and a later same-project BuildComplete", () => {
+    const s = deriveSignals(
+      reader([
+        { event: "BuildLaunch", at: "2026-06-21T06:00:00Z", project: "mc" },
+        { event: "BuildComplete", at: "2026-06-21T16:00:00Z", project: "mc" }, // 10h
+        { event: "BuildLaunch", at: "2026-06-22T08:00:00Z", project: "qn" },
+        { event: "BuildComplete", at: "2026-06-22T10:00:00Z", project: "qn" }, // 2h (fastest)
+      ]),
+    );
+    expect(s.fastestBuildHours).toBe(2);
+  });
+
+  it("a complete with no prior launch for that project contributes nothing", () => {
+    const s = deriveSignals(
+      reader([{ event: "BuildComplete", at: "2026-06-21T16:00:00Z", project: "mc" }]),
+    );
+    expect(s.fastestBuildHours).toBe(0);
   });
 });
 

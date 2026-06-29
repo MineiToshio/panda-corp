@@ -35,7 +35,7 @@ import { ItemSlot } from "@/components/core/ItemSlot/ItemSlot";
 import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import { SubTabs } from "@/components/core/Tabs/Tabs";
 import type { Unique } from "@/lib/achievements/achievements";
-import type { UniqueCategory } from "@/lib/achievements/predicates";
+import type { UniqueCategory } from "@/lib/achievements/catalogue/types";
 
 // ─── Category order & Spanish display names ──────────────────────────────────
 
@@ -45,6 +45,9 @@ const CATEGORY_ORDER: readonly UniqueCategory[] = [
   "Quality",
   "Consistency",
   "Mastery",
+  "Production",
+  "Guild",
+  "Resilience",
 ] as const;
 
 const CATEGORY_LABELS: Record<UniqueCategory, string> = {
@@ -53,6 +56,9 @@ const CATEGORY_LABELS: Record<UniqueCategory, string> = {
   Quality: "Calidad",
   Consistency: "Consistencia",
   Mastery: "Maestría",
+  Production: "Producción",
+  Guild: "Gremio",
+  Resilience: "Temple",
 };
 
 const CATEGORY_ICONS: Record<UniqueCategory, string> = {
@@ -61,6 +67,9 @@ const CATEGORY_ICONS: Record<UniqueCategory, string> = {
   Quality: "ti-diamond",
   Consistency: "ti-flame",
   Mastery: "ti-crown",
+  Production: "ti-package",
+  Guild: "ti-users-group",
+  Resilience: "ti-shield-bolt",
 };
 
 // ─── RPGPanel styles ──────────────────────────────────────────────────────────

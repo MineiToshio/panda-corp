@@ -32,10 +32,11 @@
  * Thresholds/tier names from docs/achievements.md. Prototype data tables in prototype/index.html.
  */
 
+import { SECRET_DEFINITIONS } from "./catalogue/secrets";
+import type { UniqueCategory } from "./catalogue/types";
 import type { TierEntry } from "./definitions";
 import { CHAIN_DEFINITIONS } from "./definitions";
-import type { UniqueCategory } from "./predicates";
-import { SECRET_DEFINITIONS, UNIQUE_DEFINITIONS } from "./predicates";
+import { UNIQUE_DEFINITIONS } from "./predicates";
 import type { ReaderData, Stat, TierUnlockEvent } from "./stats";
 import type { Rarity } from "./tiers";
 

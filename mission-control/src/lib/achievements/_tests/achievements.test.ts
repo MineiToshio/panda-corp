@@ -32,8 +32,9 @@ import type { Event, EventsSnapshot } from "../../events/events";
 import type { IdeaCard } from "../../ideas/ideas";
 import type { StatusResult } from "../../status/status";
 import { computeChains, computeSecrets, computeUniques } from "../achievements";
+import { SECRET_DEFINITIONS } from "../catalogue/secrets";
 import { CHAIN_DEFINITIONS } from "../definitions";
-import { SECRET_DEFINITIONS, UNIQUE_DEFINITIONS } from "../predicates";
+import { UNIQUE_DEFINITIONS } from "../predicates";
 import { computeStats, type ReaderData } from "../stats";
 
 // ─── Fixture helpers ─────────────────────────────────────────────────────────
@@ -543,7 +544,16 @@ describe("computeUniques — AC-10-003 — one-time achievements by category", (
     for (const u of uniques) {
       expect(typeof u.name).toBe("string");
       expect(u.name.length).toBeGreaterThan(0);
-      expect(["Discovery", "Speed", "Quality", "Consistency", "Mastery"]).toContain(u.category);
+      expect([
+        "Discovery",
+        "Speed",
+        "Quality",
+        "Consistency",
+        "Mastery",
+        "Production",
+        "Guild",
+        "Resilience",
+      ]).toContain(u.category);
       expect(typeof u.unlocked).toBe("boolean");
       expect(typeof u.condition).toBe("string");
       expect(u.condition.length).toBeGreaterThan(0);
@@ -640,44 +650,22 @@ describe("computeUniques — AC-10-003 — one-time achievements by category", (
     expect(trilogy3?.unlocked).toBe(true);
   });
 
-  it("AC-10-003.2 (negative): Speed/Ship-it-Friday requires a Friday event", () => {
-    // Non-Friday achievement event
-    const data: ReaderData = {
+  it("AC-10-003.2 (negative): Speed/Sprint-decente requires a verifiable completed build", () => {
+    // No build events → locked (no fabricated unlock)
+    const noBuild: ReaderData = { ideas: [], statuses: [], eventsSnapshot: mkEventsSnapshot([]) };
+    const locked = computeUniques(noBuild).find((u) => u.name === "Sprint decente");
+    expect(locked?.unlocked).toBe(false);
+
+    // A real BuildComplete event → unlocked
+    const built: ReaderData = {
       ideas: [],
       statuses: [],
       eventsSnapshot: mkEventsSnapshot([
-        // 2026-06-15 is a Monday — not Friday
-        mkEvent({
-          event: "achievement",
-          task: "phase:release",
-          at: "2026-06-15T18:00:00Z",
-          status: "ok",
-        }),
+        mkEvent({ event: "BuildComplete", at: "2026-06-21T16:00:00Z", project: "p" }),
       ]),
     };
-    const uniques = computeUniques(data);
-    const shipFriday = uniques.find((u) => u.name === "Ship it Friday");
-    expect(shipFriday?.unlocked).toBe(false);
-
-    // Friday event
-    const dataFri: ReaderData = {
-      ideas: [],
-      statuses: [
-        mkStatus({ phase: "release", project: "fri-project", updatedAt: "2026-06-19T18:00:00Z" }),
-      ],
-      eventsSnapshot: mkEventsSnapshot([
-        // 2026-06-19 is a Friday
-        mkEvent({
-          event: "achievement",
-          task: "release",
-          at: "2026-06-19T18:00:00Z",
-          status: "ok",
-        }),
-      ]),
-    };
-    const uniquesFri = computeUniques(dataFri);
-    const shipFridayFri = uniquesFri.find((u) => u.name === "Ship it Friday");
-    expect(shipFridayFri?.unlocked).toBe(true);
+    const unlocked = computeUniques(built).find((u) => u.name === "Sprint decente");
+    expect(unlocked?.unlocked).toBe(true);
   });
 });
 
@@ -688,9 +676,9 @@ describe("computeSecrets — AC-10-004 — secret achievements", () => {
     expect(computeSecrets(EMPTY_DATA)).toEqual(computeSecrets(EMPTY_DATA));
   });
 
-  it("AC-10-004.1: returns all 3 secrets from docs/achievements.md", () => {
+  it("AC-10-004.1: returns all 18 secrets from docs/achievements.md (v2)", () => {
     const secrets = computeSecrets(EMPTY_DATA);
-    expect(secrets).toHaveLength(3);
+    expect(secrets).toHaveLength(18);
   });
 
   it("AC-10-004.1: each secret always has a hint (even when locked)", () => {
@@ -793,9 +781,9 @@ describe("computeSecrets — AC-10-004 — secret achievements", () => {
     }
   });
 
-  it("SECRET_DEFINITIONS: exported and has exactly 3 entries", () => {
+  it("SECRET_DEFINITIONS: exported and has exactly 18 entries (v2)", () => {
     expect(Array.isArray(SECRET_DEFINITIONS)).toBe(true);
-    expect(SECRET_DEFINITIONS).toHaveLength(3);
+    expect(SECRET_DEFINITIONS).toHaveLength(18);
   });
 
   it("SECRET_DEFINITIONS: each has id, hint, and criterion fields defined", () => {

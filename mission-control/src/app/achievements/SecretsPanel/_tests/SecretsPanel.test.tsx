@@ -366,8 +366,8 @@ describe("Integration — SecretsPanel accepts computeSecrets() output", () => {
     const panel = screen.getByTestId("secrets-panel");
     expect(panel).toBeDefined();
     const items = screen.queryAllByTestId("secret-item");
-    // All 3 secrets from SECRET_DEFINITIONS — all locked on empty data
-    expect(items.length).toBe(3);
+    // All 18 secrets from SECRET_DEFINITIONS (v2) — all locked on empty data
+    expect(items.length).toBe(18);
   });
 
   it("all items are locked when factory is empty (honest empty state)", async () => {

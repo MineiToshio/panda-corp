@@ -104,7 +104,7 @@ describe("FRD-10 [reviewer]: secret unlocks are verifiable, never fabricated (AC
       ideas: [],
       statuses: [],
       eventsSnapshot: mkSnapshot([
-        mkEvent({ event: "review", at, status: "ok", agent: "frd-gate-reviewer", project: "mc" }),
+        mkEvent({ event: "ReviewVerdict", at, verdict: "APPROVED", project: "mc" }),
       ]),
     };
     const secrets = computeSecrets(data);

@@ -14,7 +14,7 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { computeUniques, type Unique } from "@/lib/achievements/achievements";
-import type { UniqueCategory } from "@/lib/achievements/predicates";
+import type { UniqueCategory } from "@/lib/achievements/catalogue/types";
 import type { ReaderData } from "@/lib/achievements/stats";
 import { UniquesSection } from "../UniquesSection";
 

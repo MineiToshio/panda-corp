@@ -66,6 +66,8 @@ export type Signals = {
   readonly maxRelaunchThenComplete: number;
   /** Highest `reopen_count` on a gate that later/also reached PASS (0 if none). */
   readonly maxReopenThenPass: number;
+  /** Fastest build: min hours between a `BuildLaunch` and a later same-project `BuildComplete` (0 if none). */
+  readonly fastestBuildHours: number;
 
   // ── flags ──────────────────────────────────────────────────────────────────
   /** Any `SubagentStop` ran at `effort.level = "xhigh"`. */
@@ -337,6 +339,46 @@ function countEvents(events: readonly Event[]): EventCounts {
   return c;
 }
 
+/** Map each project to the epoch-ms timestamps of its `BuildLaunch` events. */
+function collectLaunches(events: readonly Event[]): Map<string, number[]> {
+  const byProject = new Map<string, number[]>();
+  for (const ev of events) {
+    if (ev.event !== "BuildLaunch") continue;
+    const t = new Date(ev.at).getTime();
+    if (!Number.isFinite(t)) continue;
+    const arr = byProject.get(ev.project ?? "") ?? [];
+    arr.push(t);
+    byProject.set(ev.project ?? "", arr);
+  }
+  return byProject;
+}
+
+/** Build span (hours) of a `BuildComplete` from its earliest prior same-project launch, or null. */
+function buildSpanHours(ev: Event, launches: Map<string, number[]>): number | null {
+  const tc = new Date(ev.at).getTime();
+  if (!Number.isFinite(tc)) return null;
+  const priors = (launches.get(ev.project ?? "") ?? []).filter((tl) => tl <= tc);
+  if (priors.length === 0) return null;
+  const span = (tc - Math.min(...priors)) / 3_600_000;
+  return span >= 0 ? span : null;
+}
+
+/**
+ * Fastest build = the smallest gap (in hours) between a `BuildLaunch` and a LATER
+ * `BuildComplete` for the SAME project. 0 when no launch→complete pair exists.
+ * Real, verifiable build duration — the honest "speed" of the factory.
+ */
+function deriveFastestBuildHours(events: readonly Event[]): number {
+  const launches = collectLaunches(events);
+  let best = 0;
+  for (const ev of events) {
+    if (ev.event !== "BuildComplete") continue;
+    const span = buildSpanHours(ev, launches);
+    if (span !== null && (best === 0 || span < best)) best = span;
+  }
+  return best;
+}
+
 /**
  * Derive every real-signal aggregate from `ReaderData` (IF-10-signals, WO-10-010).
  *
@@ -370,6 +412,7 @@ export function deriveSignals(data: ReaderData): Signals {
     maxAgentsPeak: c.maxAgentsPeak,
     maxRelaunchThenComplete: resilience.maxRelaunchThenComplete,
     maxReopenThenPass: resilience.maxReopenThenPass,
+    fastestBuildHours: deriveFastestBuildHours(events),
     hasXhighEffort: c.hasXhighEffort,
     earlyBird: time.earlyBird,
     afterMidnight: time.afterMidnight,
