@@ -5,7 +5,7 @@ slug: events-reader-extension
 title: 'WO-10-009 — Events reader extension: surface real enriched fields (fail-loud)'
 status: ACTIVE
 parent: FRD-10
-implementation_status: PLANNED
+implementation_status: IN_PROGRESS
 source_requirements: []
 artifacts: [src/lib/events/events.ts, src/lib/events/_tests/**]
 difficulty: medium

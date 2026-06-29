@@ -89,6 +89,32 @@ export type Event = {
   mode?: EventMode;
   /** Build role alias (from `AgentWorking.data.role` or top-level). Optional — WO-06-012. */
   role?: string;
+  // ── Real result-bearing enriched fields (WO-10-009, FRD-10 v2) ───────────────
+  // Surfaced from the REAL event vocabulary the factory emits so achievement
+  // unlocks anchor to verifiable signals (see docs/achievements.md §1). All
+  // optional + additive; read from the nested `data` object (real emitter shape).
+  /** Review/gate verdict: `"APPROVED"` | `"PASS"` | `"REJECT"` | … (ReviewVerdict/GateResult/GateVerdict/AgentFinding). */
+  verdict?: string;
+  /** Work-order result, e.g. `"green"` (AgentDone). */
+  result?: string;
+  /** Times a WO's gate reopened before passing (`data.reopen_count`, GateVerdict). */
+  reopenCount?: number;
+  /** Blocking-finding count (AgentFinding `data.blocking`). */
+  blocking?: number;
+  /** Important-finding count (AgentFinding `data.important`). */
+  important?: number;
+  /** Subagent kind (`data.agent_type`, SubagentStop). */
+  agentType?: string;
+  /** Effort tier of a subagent run (`data.effort.level`: low|medium|high|xhigh). */
+  effortLevel?: string;
+  /** Max agents for a build run (`data.maxAgents`, BuildLaunch/Relaunch). */
+  maxAgents?: number;
+  /** WO progress string at build completion, e.g. `"78/78"` (BuildComplete `data.wos`). */
+  wos?: string;
+  /** FRD progress string at build completion, e.g. `"18/18"` (BuildComplete `data.frds`). */
+  frds?: string;
+  /** Relaunch reason (`data.reason`, BuildRelaunch). */
+  reason?: string;
 };
 
 /**
@@ -212,6 +238,47 @@ function applyEnrichedFields(obj: Record<string, unknown>, ev: Event): void {
   if (ev.workOrder === undefined && typeof src.wo === "string") ev.workOrder = src.wo;
 }
 
+/** Read a nested `effort.level` string, or undefined if the shape doesn't match. */
+function readEffortLevel(raw: unknown): string | undefined {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
+  const level = (raw as Record<string, unknown>).level;
+  return typeof level === "string" ? level : undefined;
+}
+
+/**
+ * Apply the REAL result-bearing enriched fields (WO-10-009, FRD-10 v2) onto an
+ * in-progress `Event`, read from the nested `data` object (real emitter shape)
+ * with top-level fallback. Each field is carried through only when correctly
+ * typed; a wrong type drops just that field (the event itself is still parsed) —
+ * the same tolerant contract as the WO-06-012 fields. No throw on a bad shape.
+ *
+ * Extracted from `parseLine` to keep it within the complexity budget.
+ */
+function applyResultFields(obj: Record<string, unknown>, ev: Event): void {
+  const src = enrichedSource(obj);
+
+  if (typeof src.verdict === "string") ev.verdict = src.verdict;
+  if (typeof src.result === "string") ev.result = src.result;
+  if (typeof src.agent_type === "string") ev.agentType = src.agent_type;
+  if (typeof src.wos === "string") ev.wos = src.wos;
+  if (typeof src.frds === "string") ev.frds = src.frds;
+  if (typeof src.reason === "string") ev.reason = src.reason;
+
+  if (typeof src.reopen_count === "number" && Number.isFinite(src.reopen_count)) {
+    ev.reopenCount = src.reopen_count;
+  }
+  if (typeof src.blocking === "number" && Number.isFinite(src.blocking)) ev.blocking = src.blocking;
+  if (typeof src.important === "number" && Number.isFinite(src.important)) {
+    ev.important = src.important;
+  }
+  if (typeof src.maxAgents === "number" && Number.isFinite(src.maxAgents)) {
+    ev.maxAgents = src.maxAgents;
+  }
+
+  const effortLevel = readEffortLevel(src.effort);
+  if (effortLevel !== undefined) ev.effortLevel = effortLevel;
+}
+
 /**
  * Attempt to parse one NDJSON line into an `Event`.
  *
@@ -269,6 +336,9 @@ function parseLine(line: string): Event | undefined {
 
   // Enriched optional fields (WO-06-012): frd, phase, activity, mode, role.
   applyEnrichedFields(obj, ev);
+  // Real result-bearing fields (WO-10-009): verdict, result, reopenCount, blocking,
+  // important, agentType, effortLevel, maxAgents, wos, frds, reason.
+  applyResultFields(obj, ev);
 
   return ev;
 }
