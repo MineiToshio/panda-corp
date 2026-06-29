@@ -27,8 +27,10 @@
 import { useState } from "react";
 import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import { Tabs } from "@/components/core/Tabs/Tabs";
-import type { ChainState, Secret, Unique } from "@/lib/achievements/achievements";
+import type { ChainState, Seal, Secret, Unique } from "@/lib/achievements/achievements";
+import { computeSeals } from "@/lib/achievements/achievements";
 import type { ReaderData } from "@/lib/achievements/stats";
+import { rarityColor } from "@/lib/achievements/tiers";
 import type { GuildLevel } from "@/lib/gamification/gamification";
 import { AlmostThere } from "../AlmostThere";
 import { ChainCard } from "../ChainCard/ChainCard";
@@ -316,6 +318,72 @@ function MisionesTab({ chains }: MisionesTabProps): React.JSX.Element {
   );
 }
 
+// ── SealsShelf — meta-trophies (one per axis + Grand Seal), FRD-10 v2 ───────────
+
+function SealItem({ seal }: { seal: Seal }): React.JSX.Element {
+  const isGrand = seal.axis === "grand";
+  const accent = isGrand ? "var(--color-warn)" : rarityColor("Leyenda");
+  return (
+    <li
+      data-testid="seal-item"
+      data-unlocked={seal.unlocked}
+      aria-label={`Sello ${seal.name}: ${seal.unlocked ? "conseguido" : "bloqueado"} (${seal.earned}/${seal.total})`}
+      style={{
+        display: "flex",
+        gap: "8px",
+        alignItems: "center",
+        padding: "8px 10px",
+        borderRadius: "9px",
+        background: "var(--color-card)",
+        border: `1px solid ${seal.unlocked ? accent : "var(--color-border-strong)"}`,
+        boxShadow: seal.unlocked ? `0 0 14px -6px ${accent}` : "none",
+        opacity: seal.unlocked ? 1 : 0.62,
+      }}
+    >
+      <i
+        className={`ti ${seal.unlocked ? "ti-seeding" : "ti-lock"}`}
+        aria-hidden="true"
+        style={{ fontSize: "16px", color: seal.unlocked ? accent : "var(--color-text3)" }}
+      />
+      <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+        <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--color-text)" }}>
+          {seal.name}
+        </span>
+        <span className="tabular-nums" style={{ fontSize: "10px", color: "var(--color-text3)" }}>
+          {seal.unlocked ? "Conseguido" : `${seal.earned}/${seal.total}`}
+        </span>
+      </span>
+    </li>
+  );
+}
+
+function SealsShelf({ seals }: { seals: readonly Seal[] }): React.JSX.Element | null {
+  if (seals.length === 0) return null;
+  return (
+    <section data-testid="seals-shelf" aria-label="Sellos del gremio">
+      <SectionHead
+        icon="ti-seeding"
+        label="Sellos"
+        count={seals.filter((s) => s.unlocked).length}
+      />
+      <ul
+        style={{
+          listStyle: "none",
+          margin: 0,
+          padding: 0,
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))",
+          gap: "8px",
+        }}
+      >
+        {seals.map((seal) => (
+          <SealItem key={seal.axis} seal={seal} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 // ── TrofeosTab ─────────────────────────────────────────────────────────────────
 
 type TrofeosTabProps = {
@@ -365,6 +433,9 @@ function TrofeosTab({
           {" trofeos conquistados"}
         </span>
       </div>
+
+      {/* Seals — meta-trophies (one per axis + Grand Seal) */}
+      <SealsShelf seals={computeSeals(uniques)} />
 
       {/* Unique achievements (category-filtered grid + lockchip reveal) */}
       <UniquesSection uniques={uniques} />

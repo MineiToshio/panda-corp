@@ -36,6 +36,59 @@ import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import { SubTabs } from "@/components/core/Tabs/Tabs";
 import type { Unique } from "@/lib/achievements/achievements";
 import type { UniqueCategory } from "@/lib/achievements/catalogue/types";
+import { rarityColor, rarityLabel } from "@/lib/achievements/tiers";
+
+// ─── RarityTag — per-trophy rarity gem + label (FRD-10 v2; not color alone, WCAG 1.4.1) ──
+function RarityTag({ rarity }: { rarity: Unique["rarity"] }): React.JSX.Element {
+  return (
+    <span
+      data-testid="unique-rarity"
+      style={{
+        display: "inline-flex",
+        gap: "5px",
+        alignItems: "center",
+        fontSize: "9px",
+        fontFamily: "var(--font-pixel)",
+        letterSpacing: "0.04em",
+        color: "var(--color-text3)",
+      }}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          width: "8px",
+          height: "8px",
+          borderRadius: "2px",
+          background: rarityColor(rarity),
+          boxShadow: `0 0 6px -1px ${rarityColor(rarity)}`,
+        }}
+      />
+      {rarityLabel(rarity)}
+    </span>
+  );
+}
+
+// ─── NuevoBadge — "NUEVO" pip for a trophy unlocked within 7 days (FRD-10 v2) ──
+function NuevoBadge(): React.JSX.Element {
+  return (
+    <span
+      data-testid="unique-nuevo"
+      aria-label="Nuevo"
+      style={{
+        fontSize: "8px",
+        fontFamily: "var(--font-pixel)",
+        letterSpacing: "0.06em",
+        color: "var(--color-base)",
+        background: "var(--color-warn)",
+        borderRadius: "3px",
+        padding: "1px 4px",
+        fontWeight: 700,
+      }}
+    >
+      NUEVO
+    </span>
+  );
+}
 
 // ─── Category order & Spanish display names ──────────────────────────────────
 
@@ -169,6 +222,12 @@ function UniqueItem({ unique }: UniqueItemProps): React.JSX.Element {
             {unique.condition}
           </span>
 
+          {/* Rarity gem + NUEVO badge */}
+          <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "1px" }}>
+            <RarityTag rarity={unique.rarity} />
+            {unique.isNew === true && <NuevoBadge />}
+          </div>
+
           {/* Date + project stamp */}
           {unique.date !== undefined && (
             <div
@@ -281,6 +340,7 @@ function UniqueItem({ unique }: UniqueItemProps): React.JSX.Element {
         >
           {unique.condition}
         </span>
+        <RarityTag rarity={unique.rarity} />
       </div>
 
       {/* "Bloqueado" text label — NOT color-alone (AC-10-007.3) */}

@@ -35,6 +35,7 @@ import { GuildHero } from "@/components/modules/GuildHero/GuildHero";
 import { computeChains, computeSecrets, computeUniques } from "@/lib/achievements/achievements";
 import type { ReaderData } from "@/lib/achievements/stats";
 import { computeStats } from "@/lib/achievements/stats";
+import { readEvents } from "@/lib/events/events";
 import { getGuildState } from "@/lib/gamification/guildState";
 import { readIdeas } from "@/lib/ideas/ideas";
 import { HallTabs } from "./_components/HallTabs";
@@ -55,8 +56,11 @@ export default async function HallPage(): Promise<React.JSX.Element> {
   // ── Read phase (fail-soft, read-only) ────────────────────────────────────
   // Guild state (statuses + events + level) from THE single source of truth, so the
   // hero's level matches the header GuildBar and the Inicio dashboard exactly.
-  const { statuses, eventsSnapshot, level: guildLevel } = getGuildState();
+  const { statuses, level: guildLevel } = getGuildState();
   const ideas = readIdeas();
+  // Achievements read the FULL event stream (uncapped) so only-grow counters stay
+  // honest — the guild level keeps getGuildState's tail (FRD-09 unchanged).
+  const eventsSnapshot = readEvents({ cap: 100_000 });
 
   // The hero's XP bar reads toward the next LEVEL now (rank = a band of levels),
   // so the subtitle is just the current rank title (aria/flavor).
@@ -66,9 +70,11 @@ export default async function HallPage(): Promise<React.JSX.Element> {
   const readerData: ReaderData = { ideas, statuses, eventsSnapshot };
 
   // ── Derive all achievement data ───────────────────────────────────────────
+  // `Date.now()` is the server render clock — injected so the NUEVO badge (isNew)
+  // is derived from the real unlock date, keeping computeUniques pure.
   const statsRows = computeStats(readerData);
   const chains = computeChains(statsRows);
-  const uniques = computeUniques(readerData);
+  const uniques = computeUniques(readerData, Date.now());
   const secrets = computeSecrets(readerData);
 
   // ── GuildHero stats ───────────────────────────────────────────────────────
