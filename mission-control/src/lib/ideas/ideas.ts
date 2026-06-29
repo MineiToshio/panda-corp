@@ -26,6 +26,8 @@ export type IdeaCard = {
   body: string;
   /** `discard_reason` frontmatter — the owner's why for discarding (only on discarded cards). */
   discardReason?: string;
+  /** `favorite: true` frontmatter — the owner pinned this card as a favourite (visual-only, FRD-02). */
+  favorite?: boolean;
 };
 
 const VALID_STATUSES: readonly IdeaStatus[] = [
@@ -100,6 +102,8 @@ function parseIdeaCard(filePath: string, slug: string): IdeaCard | null {
   // `project: ""` (non-in-pipeline ideas) and `discard_reason: ""` are treated as absent.
   const project = readNonEmptyString(fm.project);
   const discardReason = readNonEmptyString(fm.discard_reason);
+  // `favorite: true` only — any other value (absent, false, non-bool) means "not a favourite".
+  const favorite = fm.favorite === true ? true : undefined;
 
   // gray-matter exposes the markdown body (content after the frontmatter block) as `.content`.
   const body: string = typeof parsed.content === "string" ? parsed.content : "";
@@ -113,7 +117,14 @@ function parseIdeaCard(filePath: string, slug: string): IdeaCard | null {
 
   // Assign optional fields only when present (never inject undefined-valued keys).
   // A single loop keeps this function under the cognitive-complexity budget.
-  const optional: Partial<IdeaCard> = { projectType, returnType, score, project, discardReason };
+  const optional: Partial<IdeaCard> = {
+    projectType,
+    returnType,
+    score,
+    project,
+    discardReason,
+    favorite,
+  };
   for (const [key, value] of Object.entries(optional)) {
     if (value !== undefined) {
       (card as Record<string, unknown>)[key] = value;

@@ -307,7 +307,11 @@ function WoNestedRow({
   widthPct: number;
 }): React.JSX.Element {
   const color = WO_COLOR_VAR[wo.state];
-  const durPrefix = wo.durationMin !== null ? `${wo.durationMin}m · ` : "";
+  const hasDur = wo.durationMin !== null;
+  // Label inside the bar when it's wide enough (≥ 18% of the FRD axis); otherwise to the right.
+  const labelInside = hasDur && widthPct >= 18;
+  const labelOutside = hasDur && widthPct < 18;
+  const durPrefix = hasDur ? `${wo.durationMin}m · ` : "";
   return (
     <div
       data-testid={`timeline-gantt-wo-${wo.id}`}
@@ -380,6 +384,46 @@ function WoNestedRow({
             borderRadius: "3px",
           }}
         />
+        {labelInside && (
+          <span
+            style={{
+              position: "absolute",
+              top: 0,
+              bottom: 0,
+              left: `${leftPct}%`,
+              width: `${widthPct}%`,
+              display: "flex",
+              alignItems: "center",
+              padding: "0 5px",
+              fontSize: "9px",
+              fontWeight: 700,
+              color: "var(--color-base)",
+              fontVariantNumeric: "tabular-nums",
+              pointerEvents: "none",
+            }}
+          >
+            {wo.durationMin}m
+          </span>
+        )}
+        {labelOutside && (
+          <span
+            style={{
+              position: "absolute",
+              top: 0,
+              bottom: 0,
+              left: `calc(${leftPct + widthPct}% + 4px)`,
+              display: "flex",
+              alignItems: "center",
+              fontSize: "9px",
+              color: "var(--color-text3)",
+              fontVariantNumeric: "tabular-nums",
+              whiteSpace: "nowrap",
+              pointerEvents: "none",
+            }}
+          >
+            {wo.durationMin}m
+          </span>
+        )}
       </div>
     </div>
   );
@@ -546,19 +590,39 @@ function FrdDetails({ frd, maxAxis }: { frd: TLFrd; maxAxis: number }): React.JS
               minWidth: "30px",
               background: WO_COLOR_VAR[frd.state],
               borderRadius: "5px",
-              display: "flex",
-              alignItems: "center",
-              padding: "0 6px",
-              color: "var(--color-base)",
+            }}
+          />
+          {/* Label inside when bar is wide enough (≥ 12%), outside to the right when narrow. */}
+          <span
+            data-testid={`timeline-gantt-frd-label-${frd.id}`}
+            style={{
+              position: "absolute",
+              top: 0,
+              bottom: 0,
+              ...(frdBarPct >= 12
+                ? {
+                    left: 0,
+                    width: `${frdBarPct}%`,
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "0 6px",
+                    color: "var(--color-base)",
+                  }
+                : {
+                    left: `calc(${frdBarPct}% + 6px)`,
+                    display: "flex",
+                    alignItems: "center",
+                    color: "var(--color-text2)",
+                  }),
               fontSize: "10px",
               fontWeight: 600,
-              whiteSpace: "nowrap",
-              overflow: "hidden",
               fontVariantNumeric: "tabular-nums",
+              whiteSpace: "nowrap",
+              pointerEvents: "none",
             }}
           >
             {total}m
-          </div>
+          </span>
         </div>
       </summary>
 

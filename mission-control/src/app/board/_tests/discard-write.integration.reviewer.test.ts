@@ -2,7 +2,7 @@
  * FRD-02 — discard write path — REVIEWER integration tests (DR-015, DR-050 gate).
  *
  * Exercises WO-02-009 (discardIdeaAction) composed with the REAL WO-02-004
- * (lib/discard.ts — the single fs.write in the app), NOT a mock. The existing
+ * (lib/discard.ts — one of the app's bounded fs.writes), NOT a mock. The existing
  * actions.test.ts mocks discardIdea; this asserts the end-to-end write contract
  * the owner actually depends on.
  *

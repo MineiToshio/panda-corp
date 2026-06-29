@@ -21,8 +21,10 @@
  * against fixture trees whose PANDACORP_FACTORY_ROOT env var sets the root.
  */
 
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { FIXTURE_FRESH, FIXTURE_FULL, withFactoryRoot } from "../../../tests/fixtures";
 
@@ -45,6 +47,7 @@ type IdeaCard = {
   score?: number;
   project?: string;
   body: string;
+  favorite?: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -453,5 +456,42 @@ describe("frd-01: readIdeas — idempotency", () => {
       const second = (readIdeas() as IdeaCard[]).map((c) => c.slug);
       expect(first).toEqual(second);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Favourite flag (REQ-02-012): `favorite: true` → favorite true; anything else → absent.
+// ---------------------------------------------------------------------------
+
+describe("frd-02: readIdeas — favourite flag (REQ-02-012)", () => {
+  let tmpDir: string;
+
+  function writeCard(name: string, frontmatter: string): void {
+    fs.writeFileSync(path.join(tmpDir, name), `---\n${frontmatter}\n---\nbody text\n`, "utf-8");
+  }
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ideas-favorite-"));
+  });
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("parses `favorite: true` into favorite === true", () => {
+    writeCard("fav.md", "title: A favourite\nstatus: discovered\nfavorite: true");
+    const card = (readIdeas(tmpDir) as IdeaCard[]).find((c) => c.slug === "fav");
+    expect(card?.favorite).toBe(true);
+  });
+
+  it("leaves favorite undefined when the field is absent", () => {
+    writeCard("plain.md", "title: Not a favourite\nstatus: discovered");
+    const card = (readIdeas(tmpDir) as IdeaCard[]).find((c) => c.slug === "plain");
+    expect(card?.favorite).toBeUndefined();
+  });
+
+  it("treats `favorite: false` as not a favourite (undefined, never the literal false)", () => {
+    writeCard("off.md", "title: Explicit false\nstatus: discovered\nfavorite: false");
+    const card = (readIdeas(tmpDir) as IdeaCard[]).find((c) => c.slug === "off");
+    expect(card?.favorite).toBeUndefined();
   });
 });

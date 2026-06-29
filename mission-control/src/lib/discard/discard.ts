@@ -1,8 +1,9 @@
 /**
  * WO-02-004 — `discardIdea` (CMP-02-discard, IF-02-discardIdea)
  *
- * The ONLY `fs.write` in the entire Mission Control codebase (architecture §1/§7).
- * Rewrites exactly one frontmatter field (`status: discarded`) of one idea card,
+ * One of Mission Control's small, bounded set of writes (architecture §1/§7): the writes live in
+ * `lib/discard/` (discard + restore status, ADR-0002) and `lib/favorite/` (the visual favourite flag,
+ * ADR-0003). Each rewrites exactly one frontmatter field of one idea card — here `status: discarded` —
  * preserving the body and all other frontmatter fields verbatim.
  *
  * Traceability:
@@ -151,7 +152,7 @@ export function discardIdea(slug: string, ideasDir?: string, reason?: string): D
     serialized = serialized.slice(0, -1);
   }
 
-  // Write — the ONLY fs.write call in the codebase. Targets exactly one file.
+  // Write — one of the bounded fs.write calls (lib/discard/ + lib/favorite/). Targets exactly one file.
   fs.writeFileSync(filePath, serialized, "utf-8");
 
   return { ok: true };

@@ -30,6 +30,10 @@ vi.mock("@/lib/discard/restore", () => ({
   restoreIdea: vi.fn(),
 }));
 
+vi.mock("@/lib/favorite/favorite", () => ({
+  setFavorite: vi.fn(),
+}));
+
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
@@ -37,11 +41,13 @@ vi.mock("next/cache", () => ({
 import { revalidatePath } from "next/cache";
 import { discardIdea } from "@/lib/discard/discard";
 import { restoreIdea } from "@/lib/discard/restore";
+import { setFavorite } from "@/lib/favorite/favorite";
 // After mocking, import the action and its dependencies.
-import { discardIdeaAction, restoreIdeaAction } from "../actions";
+import { discardIdeaAction, restoreIdeaAction, toggleFavoriteAction } from "../actions";
 
 const mockDiscardIdea = vi.mocked(discardIdea);
 const mockRestoreIdea = vi.mocked(restoreIdea);
+const mockSetFavorite = vi.mocked(setFavorite);
 const mockRevalidatePath = vi.mocked(revalidatePath);
 
 // ---------------------------------------------------------------------------
@@ -168,6 +174,37 @@ describe("restoreIdeaAction — happy path", () => {
   it("does NOT revalidate on failure", async () => {
     mockRestoreIdea.mockReturnValue({ ok: false, reason: "not-found" });
     await restoreIdeaAction("missing");
+    expect(mockRevalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe("toggleFavoriteAction — REQ-02-012", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("delegates to setFavorite with the slug and desired state (mark)", async () => {
+    mockSetFavorite.mockReturnValue({ ok: true, favorite: true });
+    await toggleFavoriteAction("idea-x", true);
+    expect(mockSetFavorite).toHaveBeenCalledWith("idea-x", true);
+  });
+
+  it("delegates to setFavorite with favorite=false (unmark)", async () => {
+    mockSetFavorite.mockReturnValue({ ok: true, favorite: false });
+    await toggleFavoriteAction("idea-x", false);
+    expect(mockSetFavorite).toHaveBeenCalledWith("idea-x", false);
+  });
+
+  it("revalidates the board path on success", async () => {
+    mockSetFavorite.mockReturnValue({ ok: true, favorite: true });
+    await toggleFavoriteAction("idea-x", true);
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/board");
+  });
+
+  it("returns the FavoriteResult unchanged and does NOT revalidate on failure", async () => {
+    mockSetFavorite.mockReturnValue({ ok: false, reason: "not-found" });
+    const result = await toggleFavoriteAction("missing", true);
+    expect(result).toEqual({ ok: false, reason: "not-found" });
     expect(mockRevalidatePath).not.toHaveBeenCalled();
   });
 });

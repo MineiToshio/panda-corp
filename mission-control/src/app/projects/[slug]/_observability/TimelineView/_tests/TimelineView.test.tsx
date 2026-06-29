@@ -205,9 +205,9 @@ describe("TimelineView — durations mode", () => {
 
   it("renders an FRD summary bar = the sum of its work orders", () => {
     render(<TimelineView timeline={DURATIONS_TIMELINE} />);
-    // WO durations 34 + 28 = 62 min.
-    const frdBar = screen.getByTestId("timeline-gantt-frd-bar-frd-01-data-reading");
-    expect(frdBar.textContent).toMatch(/62m/);
+    // WO durations 34 + 28 = 62 min. Label is now in a sibling span.
+    const frdLabel = screen.getByTestId("timeline-gantt-frd-label-frd-01-data-reading");
+    expect(frdLabel.textContent).toMatch(/62m/);
   });
 
   it("AC-12-003.2 — renders the jump-to-first-error note for a fail WO", () => {

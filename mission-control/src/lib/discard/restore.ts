@@ -1,11 +1,12 @@
 /**
  * restoreIdea — "Volver a agregar" (un-discard) write.
  *
- * The factory's board has TWO human-triggered, single-field status writes: `discardIdea`
- * (status → discarded, + discard_reason) and this one, its inverse. Both live here in the
- * discard layer and are the ONLY writes in the codebase (architecture §1/§7, extended by
- * ADR-002 — see docs/decision-log.md). Like discard, this rewrites one card's frontmatter
- * and preserves the body + all other fields verbatim.
+ * The board has two human-triggered, single-field status writes: `discardIdea`
+ * (status → discarded, + discard_reason) and this one, its inverse. Both live in the discard
+ * layer; together with `lib/favorite/setFavorite` (the visual favourite flag, ADR-0003) they are
+ * the app's small, bounded set of writes (architecture §1/§7; ADR-0002 widened the original single
+ * write — see docs/decision-log.md). Like discard, this rewrites one card's frontmatter and
+ * preserves the body + all other fields verbatim.
  *
  * Behaviour: returns the card to the status it had BEFORE it was discarded
  * (`status_before_discard`, fallback `discovered`), and clears the now-stale
