@@ -37,6 +37,7 @@ import { CHAIN_DEFINITIONS } from "./definitions";
 import type { UniqueCategory } from "./predicates";
 import { SECRET_DEFINITIONS, UNIQUE_DEFINITIONS } from "./predicates";
 import type { ReaderData, Stat, TierUnlockEvent } from "./stats";
+import type { Rarity } from "./tiers";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // § 5. IF-10-chains — computeChains
@@ -250,6 +251,8 @@ function _computeChainPct(args: {
 export type Unique = {
   readonly name: string;
   readonly category: UniqueCategory;
+  /** Per-trophy rarity grade (FRD-10 v2); "Común" when the definition omits it. */
+  readonly rarity: Rarity;
   /** True when the achievement has been earned. */
   readonly unlocked: boolean;
   /** Date when unlocked (ISO string); present only when unlocked (AC-10-003.3). */
@@ -258,7 +261,25 @@ export type Unique = {
   readonly project?: string;
   /** Shown when locked — must be non-obscure (AC-10-003.3). */
   readonly condition: string;
+  /** True when unlocked within the last 7 days of the injected `now` (FRD-10 v2 NUEVO badge). */
+  readonly isNew?: boolean;
 };
+
+/** Window for the "NUEVO" badge: 7 days after unlocking (FRD-10 v2). */
+const NEW_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Whether an unlock `date` falls within the NUEVO window of `now` (injected ms epoch).
+ * Pure: the clock is injected by the caller (no `Date.now()` here — keeps purity).
+ * Honest: derived from the real unlock date; locked/undated/no-now → not new.
+ */
+function isWithinNewWindow(date: string | undefined, now: number | undefined): boolean {
+  if (date === undefined || now === undefined) return false;
+  const t = Date.parse(date);
+  if (!Number.isFinite(t)) return false;
+  const delta = now - t;
+  return delta >= 0 && delta <= NEW_WINDOW_MS;
+}
 
 /**
  * Compute all unique achievement states (IF-10-uniques, WO-10-001).
@@ -267,22 +288,26 @@ export type Unique = {
  * Unlock state is derived from verifiable reader data (AC-10-003.2).
  * Locked uniques expose their condition (AC-10-003.3).
  */
-export function computeUniques(data: ReaderData): Unique[] {
+export function computeUniques(data: ReaderData, now?: number): Unique[] {
   return UNIQUE_DEFINITIONS.map((def) => {
+    const rarity: Rarity = def.rarity ?? "Común";
     const result = def.check(data);
     if (result.unlocked) {
       return {
         name: def.name,
         category: def.category,
+        rarity,
         unlocked: true,
         date: result.date,
         project: result.project,
         condition: def.condition,
+        isNew: isWithinNewWindow(result.date, now),
       };
     }
     return {
       name: def.name,
       category: def.category,
+      rarity,
       unlocked: false,
       condition: def.condition,
     };
@@ -341,4 +366,86 @@ export function computeSecrets(data: ReaderData): Secret[] {
       // criterion, date, project are absent (undefined) — enforced by type (AC-10-004.2)
     };
   });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// § 11. Seals — meta-trophies (FRD-10 v2, docs/achievements.md §4)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * A Seal (platinum-equivalent meta-trophy): one per axis, unlocked when EVERY trophy
+ * in that axis is earned; plus a Grand Seal when all axis Seals are held. Derived
+ * purely from the unlocked-set of `uniques` — no new signal needed.
+ */
+export type Seal = {
+  /** Axis key, or "grand" for the Grand Seal. */
+  readonly axis: UniqueCategory | "grand";
+  /** Display name (e.g. "El Cartógrafo"). */
+  readonly name: string;
+  /** True when all the axis's trophies are unlocked (or all Seals, for the Grand Seal). */
+  readonly unlocked: boolean;
+  /** Trophies in the axis (or number of axis Seals, for the Grand Seal). */
+  readonly total: number;
+  /** Trophies unlocked so far (or Seals held, for the Grand Seal). */
+  readonly earned: number;
+};
+
+/** Seal display name per axis (docs/achievements.md §4). */
+const SEAL_NAMES: Record<string, string> = {
+  Discovery: "El Cartógrafo",
+  Speed: "El Rayo",
+  Quality: "El Orfebre",
+  Consistency: "El Inquebrantable",
+  Mastery: "El Maestro de la Fábrica",
+  Production: "La Gran Máquina",
+  Guild: "El Titiritero",
+  Resilience: "El Ave Fénix",
+};
+
+/** Stable display order of the axes (docs/achievements.md §3). */
+const AXIS_ORDER: readonly string[] = [
+  "Discovery",
+  "Speed",
+  "Quality",
+  "Consistency",
+  "Mastery",
+  "Production",
+  "Guild",
+  "Resilience",
+];
+
+/**
+ * Compute the axis Seals + the Grand Seal from the unlocked-set of uniques (IF-10-seals).
+ * Pure: same input → same output. An axis with no trophies yields no Seal.
+ */
+export function computeSeals(uniques: readonly Unique[]): Seal[] {
+  const byAxis = new Map<UniqueCategory, { total: number; earned: number }>();
+  for (const u of uniques) {
+    const acc = byAxis.get(u.category) ?? { total: 0, earned: 0 };
+    acc.total += 1;
+    if (u.unlocked) acc.earned += 1;
+    byAxis.set(u.category, acc);
+  }
+
+  const axisSeals: Seal[] = [];
+  for (const [axis, { total, earned }] of byAxis) {
+    axisSeals.push({
+      axis,
+      name: SEAL_NAMES[axis] ?? `Sello de ${axis}`,
+      total,
+      earned,
+      unlocked: total > 0 && earned === total,
+    });
+  }
+  axisSeals.sort((a, b) => AXIS_ORDER.indexOf(a.axis) - AXIS_ORDER.indexOf(b.axis));
+
+  const earnedSeals = axisSeals.filter((s) => s.unlocked).length;
+  const grand: Seal = {
+    axis: "grand",
+    name: "El Gran Sello del Gremio",
+    total: axisSeals.length,
+    earned: earnedSeals,
+    unlocked: axisSeals.length > 0 && earnedSeals === axisSeals.length,
+  };
+  return [...axisSeals, grand];
 }

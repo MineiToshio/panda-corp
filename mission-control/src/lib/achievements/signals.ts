@@ -88,6 +88,22 @@ export type Signals = {
   readonly firstGatePass: FirstStamp;
 };
 
+/**
+ * Per-`ReaderData` memo of the derived signals (DR-092): the ~80 trophy predicates
+ * all read the SAME derivation instead of each re-scanning the event stream.
+ * Keyed on the (request-scoped) `ReaderData` identity, so it is naturally per-render.
+ */
+const _signalsCache = new WeakMap<ReaderData, Signals>();
+
+/** Memoized `deriveSignals` for a given `ReaderData` (single derivation per render). */
+export function signalsFor(data: ReaderData): Signals {
+  const hit = _signalsCache.get(data);
+  if (hit !== undefined) return hit;
+  const derived = deriveSignals(data);
+  _signalsCache.set(data, derived);
+  return derived;
+}
+
 /** True when an event is `AgentDone` with a green result (a work order closed). */
 function isGreenDone(ev: Event): boolean {
   return ev.event === "AgentDone" && ev.result === "green";

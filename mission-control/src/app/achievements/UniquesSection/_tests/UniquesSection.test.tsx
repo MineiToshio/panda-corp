@@ -24,6 +24,7 @@ function mkUnique(overrides: Partial<Unique> & { name: string; category: UniqueC
   return {
     name: overrides.name,
     category: overrides.category,
+    rarity: overrides.rarity ?? "Común",
     unlocked: overrides.unlocked ?? false,
     condition: overrides.condition ?? `Condition for ${overrides.name}`,
     date: overrides.date,

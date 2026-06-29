@@ -55,6 +55,7 @@ const FIXTURE_GUILD_LEVEL_ZERO: GuildLevel = {
 const FIXTURE_RECENT_ACHIEVEMENT: Unique = {
   name: "El primer ladrillo",
   category: "Mastery",
+  rarity: "Común",
   unlocked: true,
   date: "2026-06-15",
   project: "proj-a",

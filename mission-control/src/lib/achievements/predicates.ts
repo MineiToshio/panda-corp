@@ -9,6 +9,7 @@
  */
 
 import type { ReaderData } from "./stats";
+import type { Rarity } from "./tiers";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // § 1. Unique achievement data tables (from docs/achievements.md)
@@ -21,6 +22,12 @@ export type UniqueCategory = "Discovery" | "Speed" | "Quality" | "Consistency" |
 export type UniqueDefinition = {
   readonly name: string;
   readonly category: UniqueCategory;
+  /**
+   * Per-trophy rarity (FRD-10 v2, docs/achievements.md §2). Optional during the v2
+   * migration: a definition without an explicit grade surfaces as "Común" (the floor)
+   * via computeUniques. The v2 catalogue assigns every trophy an explicit grade.
+   */
+  readonly rarity?: Rarity;
   /** Human-readable condition (shown when locked — AC-10-003.3). */
   readonly condition: string;
   /**

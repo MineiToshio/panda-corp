@@ -49,6 +49,7 @@ const SHIPPED_CHAIN: ChainState = {
 const UNLOCKED_TROPHY: Unique = {
   name: "El primer ladrillo",
   category: "Discovery",
+  rarity: "Común",
   unlocked: true,
   date: "2026-01-15",
   project: "demo",
@@ -154,12 +155,14 @@ describe("FRD-10 GATE [opus]: UniquesSection category filter is the wired shared
   const DISCOVERY: Unique = {
     name: "El explorador",
     category: "Discovery",
+    rarity: "Común",
     unlocked: false,
     condition: "Crea tu primera idea.",
   };
   const SPEED: Unique = {
     name: "El rápido",
     category: "Speed",
+    rarity: "Poco común",
     unlocked: false,
     condition: "Lanza en 48 horas.",
   };

@@ -72,6 +72,7 @@ function mkUnique(overrides: Partial<Unique> = {}): Unique {
   return {
     name: "El explorador",
     category: "Discovery",
+    rarity: "Común",
     unlocked: false,
     condition: "Crea tu primera idea",
     ...overrides,

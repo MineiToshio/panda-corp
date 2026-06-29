@@ -59,6 +59,7 @@ const CHAIN: ChainState = {
 const UNIQUE: Unique = {
   name: "El primer ladrillo",
   category: "Discovery",
+  rarity: "Común",
   unlocked: true,
   date: "2026-01-15",
   project: "demo",
@@ -119,12 +120,14 @@ describe("frd-10 GATE (DR-062): the Achievements Hall sub-tab bar is the ONE Tab
 const UNIQUE_DISCOVERY: Unique = {
   name: "El explorador",
   category: "Discovery",
+  rarity: "Común",
   unlocked: false,
   condition: "Crea tu primera idea.",
 };
 const UNIQUE_SPEED: Unique = {
   name: "El rápido",
   category: "Speed",
+  rarity: "Poco común",
   unlocked: false,
   condition: "Lanza en 48 horas.",
 };
