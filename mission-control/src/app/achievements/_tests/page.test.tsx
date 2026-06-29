@@ -153,16 +153,16 @@ describe("AC-10-005.2 — stats panel with counters + tier medals", () => {
     expect(screen.getByTestId("stats-panel")).toBeDefined();
   });
 
-  it("renders 12 stat items (all stats from computeStats)", async () => {
+  it("renders 19 stat items (all stats from computeStats)", async () => {
     await renderPage();
     const items = screen.getAllByTestId("stat-item");
-    expect(items.length).toBe(12);
+    expect(items.length).toBe(19);
   });
 
   it("each stat item has a label", async () => {
     await renderPage();
     const labels = screen.getAllByTestId("stat-label");
-    expect(labels.length).toBe(12);
+    expect(labels.length).toBe(19);
     for (const el of labels) {
       expect(el.textContent?.trim().length).toBeGreaterThan(0);
     }
@@ -171,7 +171,7 @@ describe("AC-10-005.2 — stats panel with counters + tier medals", () => {
   it("each stat item has a numeric value", async () => {
     await renderPage();
     const values = screen.getAllByTestId("stat-value");
-    expect(values.length).toBe(12);
+    expect(values.length).toBe(19);
     for (const el of values) {
       const txt = el.textContent?.trim() ?? "";
       // Must be a parseable number (may be "0" on empty factory)
@@ -182,7 +182,7 @@ describe("AC-10-005.2 — stats panel with counters + tier medals", () => {
   it("each stat item has a tier-medal element", async () => {
     await renderPage();
     const medals = screen.getAllByTestId("stat-medal");
-    expect(medals.length).toBe(12);
+    expect(medals.length).toBe(19);
   });
 
   it("tier medal conveys state without color alone (has text or aria-label — AC-10-005.5)", async () => {

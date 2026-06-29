@@ -149,6 +149,14 @@ export function computeStats(data: ReaderData): Stat[] {
     { key: "agents", label: "Agentes coordinados", value: sig.distinctRoles, unlockEvents: [] },
     { key: "streak", label: "Racha récord (sem)", value: sig.weeklyStreak, unlockEvents: [] },
     { key: "speed", label: "Récord idea→launch (días)", value: 0, unlockEvents: [] },
+    // ── v2 new chains (FRD-10 §6), all from the real signal layer ──────────────
+    { key: "builds", label: "Builds completados", value: sig.builds, unlockEvents: [] },
+    { key: "subagents", label: "Subagentes coordinados", value: sig.subagents, unlockEvents: [] },
+    { key: "gates", label: "Gates verdes", value: sig.gatePasses, unlockEvents: [] },
+    { key: "reviews", label: "Reviews aprobadas", value: sig.reviewsApproved, unlockEvents: [] },
+    { key: "findings", label: "Hallazgos atendidos", value: sig.findings, unlockEvents: [] },
+    { key: "modes", label: "Modos de build usados", value: sig.distinctModes, unlockEvents: [] },
+    { key: "activedays", label: "Días activos", value: sig.activeDays, unlockEvents: [] },
   ];
 }
 

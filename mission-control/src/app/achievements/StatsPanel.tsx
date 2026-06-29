@@ -506,17 +506,17 @@ const LEDGER_COLUMNS: Array<{ title: string; icon: string; keys: string[] }> = [
   {
     title: "Producción",
     icon: "ti-hammer",
-    keys: ["shipped", "workorders", "phases", "iterations"],
+    keys: ["shipped", "workorders", "phases", "builds", "subagents"],
   },
   {
     title: "Calidad",
     icon: "ti-shield-check",
-    keys: ["flawless", "prds", "adrs"],
+    keys: ["flawless", "gates", "reviews", "findings", "prds", "adrs"],
   },
   {
     title: "Ritmo & alcance",
     icon: "ti-arrows-right",
-    keys: ["streak", "speed", "ideas", "agents", "discarded"],
+    keys: ["streak", "activedays", "speed", "ideas", "agents", "modes", "discarded", "iterations"],
   },
 ];
 
@@ -534,6 +534,14 @@ const STAT_ICONS: Record<string, string> = {
   agents: "ti-users-group",
   streak: "ti-flame",
   speed: "ti-bolt",
+  // v2 new chains (FRD-10 §6)
+  builds: "ti-building-factory-2",
+  subagents: "ti-robot",
+  gates: "ti-shield-check",
+  reviews: "ti-checks",
+  findings: "ti-bug",
+  modes: "ti-adjustments",
+  activedays: "ti-calendar-stats",
 };
 
 /** Hero stat config for the three record tiles (labels + subs from prototype heroStat). */

@@ -34,7 +34,7 @@
 
 import { SECRET_DEFINITIONS } from "./catalogue/secrets";
 import type { UniqueCategory } from "./catalogue/types";
-import type { TierEntry } from "./definitions";
+import type { Saga, TierEntry } from "./definitions";
 import { CHAIN_DEFINITIONS } from "./definitions";
 import { UNIQUE_DEFINITIONS } from "./predicates";
 import type { ReaderData, Stat, TierUnlockEvent } from "./stats";
@@ -52,6 +52,8 @@ export type ChainState = {
   readonly statKey: string;
   /** Display label for this chain. */
   readonly label: string;
+  /** Narrative saga this chain belongs to (Misiones grouping, FRD-10 v2). */
+  readonly saga?: Saga;
   /** Current tier index (0-based); -1 = no tier unlocked yet. */
   readonly currentTierIndex: number;
   /** Current tier name (null if no tier unlocked). */
@@ -124,6 +126,7 @@ export function computeChains(stats: readonly Stat[]): ChainState[] {
     return {
       statKey: chainDef.statKey,
       label: chainDef.label,
+      saga: chainDef.saga,
       currentTierIndex,
       currentTierName,
       nextTier,

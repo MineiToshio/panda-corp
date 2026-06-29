@@ -106,7 +106,7 @@ const EMPTY_DATA: ReaderData = {
 // ─── AC-10-001: computeStats ─────────────────────────────────────────────────
 
 describe("computeStats — AC-10-001 — character-sheet counters", () => {
-  it("AC-10-001.1: returns all 12 stats listed in docs/achievements.md", () => {
+  it("AC-10-001.1: returns all 19 stats listed in docs/achievements.md", () => {
     const EXPECTED_STAT_KEYS = [
       "shipped",
       "ideas",
@@ -127,7 +127,7 @@ describe("computeStats — AC-10-001 — character-sheet counters", () => {
     for (const k of EXPECTED_STAT_KEYS) {
       expect(keys).toContain(k);
     }
-    expect(stats).toHaveLength(12);
+    expect(stats).toHaveLength(19);
   });
 
   it("AC-10-001.2: each stat has a value property (only-grow counter shape)", () => {
@@ -490,7 +490,7 @@ describe("computeChains — AC-10-002 — cumulative chains with honest endowed 
     expect(shipped?.pctToNext).toBe(100);
   });
 
-  it("CHAIN_DEFINITIONS: includes all 12 chains from docs/achievements.md", () => {
+  it("CHAIN_DEFINITIONS: includes all 19 chains from docs/achievements.md", () => {
     const keys = CHAIN_DEFINITIONS.map((c) => c.statKey);
     const EXPECTED = [
       "shipped",
@@ -509,7 +509,7 @@ describe("computeChains — AC-10-002 — cumulative chains with honest endowed 
     for (const k of EXPECTED) {
       expect(keys).toContain(k);
     }
-    expect(CHAIN_DEFINITIONS).toHaveLength(12);
+    expect(CHAIN_DEFINITIONS).toHaveLength(19);
   });
 
   it("CHAIN_DEFINITIONS: speed chain is marked lower-is-better", () => {

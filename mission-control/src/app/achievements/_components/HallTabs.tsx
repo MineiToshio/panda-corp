@@ -29,6 +29,8 @@ import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import { Tabs } from "@/components/core/Tabs/Tabs";
 import type { ChainState, Seal, Secret, Unique } from "@/lib/achievements/achievements";
 import { computeSeals } from "@/lib/achievements/achievements";
+import type { Saga } from "@/lib/achievements/definitions";
+import { SAGA_ICONS, SAGA_ORDER } from "@/lib/achievements/definitions";
 import type { ReaderData } from "@/lib/achievements/stats";
 import { rarityColor } from "@/lib/achievements/tiers";
 import type { GuildLevel } from "@/lib/gamification/gamification";
@@ -189,131 +191,90 @@ type MisionesTabProps = {
   chains: readonly ChainState[];
 };
 
+/** One saga's section: a header + a grid of its chain cards (FRD-10 v2 §6). */
+function SagaSection({
+  saga,
+  chains,
+}: {
+  saga: Saga;
+  chains: readonly ChainState[];
+}): React.JSX.Element | null {
+  if (chains.length === 0) return null;
+  const legendary = chains.filter((c) => c.nextTier === null).length;
+  return (
+    <section aria-label={`Saga: ${saga}`}>
+      <SectionHead
+        icon={SAGA_ICONS[saga]}
+        label={saga}
+        rightHtml={
+          <span
+            style={{
+              fontSize: "11px",
+              color: "var(--color-text3)",
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            {chains.length} misiones
+            {legendary > 0 ? ` · ${legendary} legendaria${legendary > 1 ? "s" : ""}` : ""}
+          </span>
+        }
+      />
+      <ul
+        style={{
+          listStyle: "none",
+          margin: 0,
+          padding: 0,
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))",
+          gap: "10px",
+        }}
+      >
+        {chains.map((c) => (
+          <li key={c.statKey}>
+            <ChainCard chain={c} variant="card" />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /**
- * Misiones tab body — prototype logrosMisiones():
- *   - Spotlight (spot variant) for the highest-% active chain
- *   - "En ascenso" bigGrid for chains with currentTierIndex ≥ 0
- *   - "Comunes" miniGrid for chains with no tier yet
- *   - "Legendarias" bigGrid for tier ≥ 3 chains
+ * Misiones tab body (FRD-10 v2 §6): a spotlight on the closest-to-levelling chain, then
+ * the cumulative missions grouped into narrative **sagas** (La Construcción · Las Ideas ·
+ * El Oficio · El Gremio · El Tiempo) — so the surface reads as an organised, abundant
+ * questboard rather than one flat "Comunes" bucket.
  */
 function MisionesTab({ chains }: MisionesTabProps): React.JSX.Element {
-  // Spotlight: highest pctToNext among active (non-maxed) chains (prototype: active[0]).
+  // Spotlight: highest pctToNext among active (non-maxed) chains.
   const activeChains = [...chains.filter((c) => c.nextTier !== null)].sort(
     (a, b) => b.pctToNext - a.pctToNext,
   );
   const spotlightChain = activeChains[0];
-  // The REST (prototype `active.slice(1)`) — the spotlight is NOT repeated in the grids below.
-  const rest = activeChains.slice(1);
-  // "En ascenso" — rest with at least one tier (≥ Plata): poco comunes y raras (prototype `hi`).
-  const risingChains = rest.filter((c) => c.currentTierIndex >= 1);
-  // "Comunes" — rest still at tier 0 or none (prototype `lo`).
-  const commonChains = rest.filter((c) => c.currentTierIndex < 1);
-  // "Legendarias" — completed chains (no next tier left) (prototype `done`).
-  const legendChains = chains.filter((c) => c.nextTier === null);
+  const spotlightKey = spotlightChain?.statKey;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-      {/* Info blurb */}
       <p style={{ fontSize: "0.8rem", color: "var(--color-text3)", margin: 0 }}>
-        Misiones acumulativas — cada tier alcanzado deja huella verificable en el tiempo.
+        Misiones acumulativas, agrupadas por saga — cada tier alcanzado deja huella verificable en
+        el tiempo.
       </p>
 
-      {/* Spotlight chain (spot variant) — the "A UN PASO DE SUBIR" chip lives inside
-          the spot card itself (prototype rpgChainSpot), not as an external label. */}
+      {/* Spotlight chain (spot variant) — the "A UN PASO DE SUBIR" chip lives inside the card. */}
       {spotlightChain !== undefined && (
         <section aria-label="Misión en destaque">
           <ChainCard chain={spotlightChain} variant="spot" />
         </section>
       )}
 
-      {/* "En ascenso" — rising chains grid (bigGrid minmax 430px).
-          Canonical SectionHead (LOG-04) — prototype logrosMisiones():
-          secthead("ti-flame","En ascenso", N+" · poco comunes y raras"). */}
-      {risingChains.length > 0 && (
-        <section aria-label="Misiones en ascenso">
-          <SectionHead
-            icon="ti-flame"
-            label="En ascenso"
-            rightHtml={
-              <span
-                style={{
-                  fontSize: "11px",
-                  color: "var(--color-text3)",
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              >
-                {risingChains.length} · poco comunes y raras
-              </span>
-            }
-          />
-          <ul
-            style={{
-              listStyle: "none",
-              margin: 0,
-              padding: 0,
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(430px, 1fr))",
-              gap: "10px",
-            }}
-          >
-            {risingChains.map((c) => (
-              <li key={c.statKey}>
-                <ChainCard chain={c} variant="card" />
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {/* "Comunes" — mini grid (minmax 232px).
-          Canonical SectionHead (LOG-04) — prototype: secthead("ti-pick","Comunes",N). */}
-      {commonChains.length > 0 && (
-        <section aria-label="Misiones comunes">
-          <SectionHead icon="ti-pick" label="Comunes" count={commonChains.length} />
-          <ul
-            style={{
-              listStyle: "none",
-              margin: 0,
-              padding: 0,
-              display: "grid",
-              // 4 columns at desktop (prototype), responsive below — minmax 250px lands 4
-              // at this surface's content width without the 5th cramped column.
-              gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
-              gap: "8px",
-            }}
-          >
-            {commonChains.map((c) => (
-              <li key={c.statKey}>
-                <ChainCard chain={c} variant="mini" />
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {/* "Legendarias" — bigGrid.
-          Canonical SectionHead (LOG-04) — prototype: secthead("ti-crown","Legendarias",N). */}
-      {legendChains.length > 0 && (
-        <section aria-label="Misiones legendarias">
-          <SectionHead icon="ti-crown" label="Legendarias" count={legendChains.length} />
-          <ul
-            style={{
-              listStyle: "none",
-              margin: 0,
-              padding: 0,
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(430px, 1fr))",
-              gap: "10px",
-            }}
-          >
-            {legendChains.map((c) => (
-              <li key={c.statKey}>
-                <ChainCard chain={c} variant="card" />
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      {/* Saga sections — the spotlight chain is not repeated inside its saga grid. */}
+      {SAGA_ORDER.map((saga) => (
+        <SagaSection
+          key={saga}
+          saga={saga}
+          chains={chains.filter((c) => c.saga === saga && c.statKey !== spotlightKey)}
+        />
+      ))}
     </div>
   );
 }
