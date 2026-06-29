@@ -54,6 +54,20 @@ WO-10-013 (missions abundance: 19 chains/5 sagas + standardized mission/Trofeos/
 All v2 work orders (WO-10-009 … WO-10-013) are **VERIFIED** (the Hall shipped 2026-06-29; visual
 baseline re-blessed). WO-10-013 captures the post-review follow-up — see the decision log (2026-06-29).
 
+## v3 — "Informe operativo" (2026-06-29, PLANNED)
+
+The Estadísticas tab becomes a sober operator **report** (anchor
+`docs/design/prototype/informe-del-gremio.html`), additive over the existing radar/records/ledger — all
+figures from REAL data, honesty contract intact (DR-078: "no cableado" never a fabricated zero; the
+time-series is NOT only-grow). Two coarse WOs, the UI depends on the data layer:
+
+```
+WO-10-014 (Informe data layer: flow-series + phase-transitions + scalars + usage + funnel + lessons + rules)
+        │
+        ▼
+WO-10-015 (Informe UI: 6 bands + 8-row ledger + records 2×3)   ← WO-10-014
+```
+
 ## Work orders
 | ID | Title | Deploy unit | Status | Depends on |
 |---|---|---|---|---|
@@ -65,4 +79,6 @@ baseline re-blessed). WO-10-013 captures the post-review follow-up — see the d
 | WO-10-011 | Catalogue v2: 8 axes ~80 uniques + per-trophy rarity, ~21 chains/sagas, ~18 secrets, Seals — re-anchored to signals | `lib/achievements/{definitions,predicates,tiers,achievements}.ts` (split by axis as needed) | VERIFIED | WO-10-010 |
 | WO-10-012 | Render v2: rarity gem + estimated rarity + NUEVO badge + 3 new category icons + Seals shelf + sagas grouping | `app/achievements/{UniquesSection,SecretsPanel,ChainCard,_components/HallTabs}.tsx` | VERIFIED | WO-10-011 |
 | WO-10-013 | Missions abundance: 19 chains/5 sagas + standardized mission/Trofeos/secrets cards (node-ladder fix, uniform `ChainProgress`/`CardFooter`, calm Trofeos accent, uniform-height secrets) | `lib/achievements/{definitions,stats,achievements}.ts`, `app/achievements/{ChainCard,UniquesSection,SecretsPanel,_components/HallTabs,StatsPanel}.tsx` | VERIFIED | WO-10-012 |
+| WO-10-014 | Informe data layer: flow-series (WO-verified/wk + ideas/wk, git) + phase-transitions/project (git) + scalars (FRDs/commits/tests/DR/projects) + usage+effort + funnel/WIP/conversion + lessons + verdict/next-action rules — fail-loud, read-only | `lib/achievements/report/**` | PLANNED | — |
+| WO-10-015 | Informe UI: 6 sober bands (pulse+KPIs · time-series · usage+effort · funnel+flow · health · next-actions) + ledger to 8 rows/column + records 2×3 — DR-062 sober, "no cableado" for unwired | `app/achievements/Informe/**`, `app/achievements/{StatsPanel,_components/HallTabs}.tsx` | PLANNED | WO-10-014 |
 </content>

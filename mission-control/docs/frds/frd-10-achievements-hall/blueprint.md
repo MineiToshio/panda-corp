@@ -91,6 +91,44 @@ Plus a **reader extension** outside the package: `lib/events/events.ts` surfaces
 fields** (`verdict`, `result`, `reopenCount`, `blocking`, `important`, `agentType`, `effortLevel`,
 `maxAgents`, `wos`, `frds`, `reason`) from the nested `data`, with **fail-loud** parsing (DR-078).
 
+### v3 — "Informe operativo" report readers (WO-10-014)
+The Estadísticas tab becomes a sober operator **report** (FRD-10 v3, anchor
+`docs/design/prototype/informe-del-gremio.html`). It needs aggregates the v2 signals layer does not
+provide because they read the **committed artifacts' git history** and the **ideas/usage** sources. New
+read modules under `lib/achievements/report/` (or `lib/report/`, decided at build), each **fail-loud**
+(DR-078) and **read-only**:
+- **`IF-10-flow-series`** — WO-verified-per-week + ideas-captured-per-week. The WO series reads the **git
+  history of each `work-orders/wo-*.md`** for the commit where `implementation_status` crosses to
+  `VERIFIED`, grouped by ISO week (needs **git at read time**, via `execSync` like `build-track.ts`'s
+  `readGitLog` — reuse that fail-soft pattern; perf caveat below). The ideas series reads the `created`
+  frontmatter from `factory/ideas/*.md`. Also exposes the **peak week** (max WO count) for the records
+  grid.
+- **`IF-10-phase-transitions`** — per-project `phase` transition log read from the **git history of each
+  `.pandacorp/status.yaml`**, with the project name and a **reopen** flag when a transition moves
+  backwards in the phase order (`product<design<architecture<implementation<release`). Needs **git at
+  read time**.
+- **`IF-10-scalars`** — the scalar counts for the expanded ledger / pulse: **FRDs (21)**, **Commits
+  (823)**, **Tests passing (7134)**, **Decisions/DR (99)**, **Projects created (2)**. FRDs from
+  `docs/frds/` folder count (reuse `lib/docs`); commits from `git rev-list --count` (git at read time);
+  tests-passing and DR from their real source (DR count = `factory/decisions/registry.yaml` entries via
+  the existing registry reader; tests-passing source decided at build — if not wireable cheaply it ships
+  as **"no cableado"**, never a fabricated number).
+- **`IF-10-usage`** — most-used workflows/skills + effort mix, aggregated from the event stream
+  (`eventsSnapshot`, already read by the page) — no new fs access; pure over `ReaderData`.
+- **`IF-10-funnel`** — ideas→launched funnel + WIP (active projects) + conversion, pure over
+  `readIdeas`+`readStatus` (no new I/O).
+- **`IF-10-lessons`** — distilled-vs-captured lesson counts (**2 / 131**), from the memory reader
+  (`lib/memory`) + the inbox; renders "no cableado" if a source is absent.
+- **verdict + next-actions** — pure deterministic rule functions over the above aggregates (same inputs →
+  same output); no fabrication.
+
+**Perf caveat (git-at-read-time).** `IF-10-flow-series`, `IF-10-phase-transitions` and the commit-count
+part of `IF-10-scalars` shell out to git (`execSync`) at render time, like `build-track.ts`. Keep each
+`git log` **scoped to the relevant pathspec** (`-- <path>`) and **capped** (`-n`), reuse the fail-soft
+`try/catch → []` contract, and cache per request (`React.cache()`, DR-092) so a tab render does not
+re-run git per row. Git unavailable → the band renders its **"no cableado" / error** state, never a
+fabricated series.
+
 ## 4. Components & interfaces
 
 ### Interfaces (`lib/achievements/`, NEW pure package — §3)
@@ -117,6 +155,12 @@ fields** (`verdict`, `result`, `reopenCount`, `blocking`, `important`, `agentTyp
 - **`CMP-10-almost-there`** — top chains by % to next tier (Zeigarnik). → AC "Almost there".
 - **`CMP-10-uniques`** (`UniquesSection/`) — unique trophies grouped **by state** (Conquistados / Por conquistar), with the **8 axes** as filter chips, a per-trophy **`RarityTag`** (gem + label, `title` = rarity blurb) and a **`NuevoBadge`** (unlocked < 7 days). Conquered = calm warn **left-accent** (no full glow); locked = lock icon + `aria-label` (no "Bloqueado" text). → AC "unique achievements by state + 8 axes + rarity + NUEVO".
 - **`CMP-10-seals`** (v2, `SealsShelf` in `HallTabs`) — the meta-trophy shelf: 8 axis Seals + the Grand Seal, each with `earned/total` so partial axes read as a goal (`IF-10-seals`). → AC "Seals".
+- **`CMP-10-informe`** (v3, `app/achievements/Informe/**`) — the Estadísticas tab's sober operator
+  **report**: the six bands (pulse + KPI row · real time-series · usage+effort · funnel+per-project flow ·
+  health 2-column · next-actions) over the new report interfaces, rendered in the calm register (DR-062),
+  tokens-only, Spanish labels/aria, "no cableado" for every unwired figure. Sits **above** the existing
+  radar/records/ledger block in the Estadísticas tab (the radar + records 2×3 + 8-row ledger stay). →
+  AC-10-020.x … AC-10-027.x.
 - **`CMP-10-secrets`** (`SecretsPanel/`) — secret achievements in a **responsive uniform-height grid** (`gridAutoRows:1fr` + card `height:100%`): silhouette + cryptic hint when locked; reveal the criterion + date+project when unlocked — never an obscure loot box. → AC "secret achievements".
 
 ### Reused (no duplication)
@@ -178,6 +222,27 @@ already correct.
     standardization of the mission cards, the Trofeos tab and the secrets grid (decision-log
     2026-06-29: node-ladder fix, uniform `ChainProgress`/`CardFooter`, calm Trofeos accent,
     uniform-height secrets).
+
+**v3 — "Informe operativo" (PLANNED, 2026-06-29):** the Estadísticas tab becomes a sober operator report
+(anchor `docs/design/prototype/informe-del-gremio.html`), additive over the existing radar/records/ledger.
+Two coarse work orders, the UI depends on the data layer:
+- **WO-10-014** (PLANNED) — the report **data layer**: `IF-10-flow-series`, `IF-10-phase-transitions`,
+  `IF-10-scalars`, `IF-10-usage`, `IF-10-funnel`, `IF-10-lessons` + the verdict/next-action rule
+  functions. TDD-friendly, fail-loud (DR-078); the git-backed readers shell out at read time (perf caveat
+  in §3).
+- **WO-10-015** (PLANNED, dependsOn WO-10-014) — the report **UI** (`CMP-10-informe`): the six bands +
+  the ledger expansion to 8 rows/column + the records 2×3 grid, matching the prototype, tokens-only, a11y
+  (Spanish labels), DR-062 sober register, every unwired figure as "no cableado".
+
+```
+[VERIFIED v2 Hall]
+        │
+        ▼
+WO-10-014 (Informe data layer: flow-series + phase-transitions + scalars + usage + funnel + lessons + rules)
+        │
+        ▼
+WO-10-015 (Informe UI: 6 bands + 8-row ledger + records 2×3)   ← WO-10-014
+```
 
 **Coarse DAG & parallelism:**
 

@@ -49,11 +49,24 @@ A single full-width page (`.rpghall`) reached from the **Logros** tab. Layout, t
      **autonomous cards in a responsive 2–3-per-row grid of uniform height** (`gridAutoRows:1fr` +
      `height:100%`), each a silhouette + cryptic hint (locked) or hint + revealed criterion + date +
      project (unlocked).
-   - **Estadísticas** (`logrosStats`): the **radar** ("Atributos del gremio", `statRadar`) + three
-     `heroStat` record tiles → three ledger columns (`statLedgerRow`) grouped Producción / Calidad /
-     Ritmo & alcance, each stat carrying an **unbounded `Nv N` metric level** (`metricLevel`, phase 3 —
-     a `Nv N` chip + a band-colored pip across 5 hues; `0` → "sin nivel") instead of the old
-     rarity-named tier medal. The level keeps climbing with the value, never capped at 5.
+   - **Estadísticas** (`logrosStats` + **Informe**, **v3 2026-06-29**): a sober operator **report**
+     (`Informe`, anchor `docs/design/prototype/informe-del-gremio.html`) ABOVE the character sheet. The
+     report is six bands matching the prototype section headers — **El pulso de la fábrica** (verdict +
+     KPI row: WO verified/wk + delta · WIP · conversión · lead time "no cableado") · **En el tiempo, de
+     verdad** (WO-verified-per-week + ideas-per-week, REPLACING the old raw-event-count view) · **Cómo
+     usas la fábrica** (workflows + effort mix) · **Embudo y flujo** (funnel + per-project phase
+     transitions, reopen flagged text+icon) · **Estado y salud del proceso** (2 columns:
+     projects-by-phase + process signals) · **Qué mover ahora** (next-actions each with its command).
+     Sober register (DR-062): calm/legible, no RPG lore/levels/glow, reuses the existing tokens + card +
+     section-header style; every unwired figure renders **"—" / "no cableado"** (never a fabricated
+     zero). BELOW the report, the character sheet stays: the **radar** ("Atributos del gremio",
+     `statRadar`) + the **record tiles** — now a **2×3 grid of 6 records** (Lanzados · Racha · Récord
+     velocidad · **Peak week** · **Lessons captured** · **Subagents coordinated**) → three ledger
+     columns (`statLedgerRow`) grouped Producción / Calidad / Ritmo & alcance, now **8 rows per column**
+     (aligned, no staircase; Producción += FRDs/Commits/Projects, Calidad += Tests/DR), each stat
+     carrying an **unbounded `Nv N` metric level** (`metricLevel`, phase 3 — a `Nv N` chip + a
+     band-colored pip across 5 hues; `0` → "sin nivel") instead of the old rarity-named tier medal. The
+     level keeps climbing with the value, never capped at 5.
    - **Rangos** (`RankLadder`, reconciled 2026-06-25): the **40-rung guild rank ladder** (FRD-09) as an
      **enriched, era-sectioned vertical climb** — chosen over a card grid on UI/UX research (an ordered
      40-tier ladder reads as a *climb*, which a grid breaks; the dead space is killed by enriching the

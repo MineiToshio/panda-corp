@@ -7,6 +7,7 @@ implementation_status: VERIFIED
 last_updated: '2026-06-29'
 ui: true
 visual_source: docs/design/prototype/index.html
+visual_source_informe: docs/design/prototype/informe-del-gremio.html
 ---
 # FRD-10 — Achievements Hall
 
@@ -52,8 +53,130 @@ decision-log 2026-06-29). The full catalogue, the real-signal map and the rarity
 - The chains and progress bars SHALL apply **honest endowed progress**: start by showing the progress **already achieved** (not at zero) — it speeds up completion (Zeigarnik effect) and is honest because it corresponds to real work. No notifications or nagging reminders.
 - The names SHALL be fun and scale in grandeur by tier (e.g. Products shipped: The first brick → Master builder → The architect → The digital magnate → The factory oracle).
 
+## v3 — "Informe operativo" (the Estadísticas tab becomes a sober operator report) (2026-06-29)
+
+The **Estadísticas** tab is expanded from the character-sheet (radar + record tiles + ledger) into a
+sober **operator report** ("Informe") that answers, with REAL factory data, *how is the factory
+actually doing, and what should I move next?* This is **additive**: the radar, the record tiles and the
+per-category ledger stay; the report **adds** an executive-summary band, real time-series, usage/effort,
+a funnel & per-project flow view, a process-health band and a next-actions band, and it **replaces only**
+the old raw-event-count "en el tiempo" view (which counted raw events = noise) with a real
+WO-verified-per-week + ideas-per-week series.
+
+**Approved visual anchor (source of truth for the look):**
+[`docs/design/prototype/informe-del-gremio.html`](../../design/prototype/informe-del-gremio.html) — the
+sober six-band Informe view (the prototype's section headers: *El pulso de la fábrica · En el tiempo, de
+verdad · Cómo usas la fábrica · Embudo y flujo · Estado y salud del proceso · Qué mover ahora*). The
+owner approved this design on 2026-06-29. The `docs/design/prototype/index.html` Logros view remains the
+anchor for the other four tabs (Resumen · Misiones · Trofeos · Rangos) and for the shared RPG skin.
+
+**Honesty contract (unchanged, non-negotiable, DR-078):** every figure is **derived from a verifiable
+real source** (git history of the committed artifacts · `factory/ideas/*.md` · project `status.yaml` ·
+the real event stream `~/.claude/dashboard-events.ndjson`). A figure with **no wired source** is rendered
+as a literal **"—" with a "no cableado" label** — **never a fabricated zero** and never an invented
+value. The readers **fail loud** on an unrecognised shape (render an error state, not an empty band). The
+**only-grow** invariant applies to cumulative counters ONLY; it does **NOT** apply to the time-series
+(a week can legitimately have fewer verified WOs than the previous one).
+
+**Sober register (DR-062):** the Informe is calm and legible — no RPG lore, no levels, no glow walls; the
+gamified lore/levels stay in the Trofeos and Rangos tabs. The Informe reuses the existing tokens, type
+scale, card style and section-header style (a deviation in scale/palette is a defect, DR-062).
+
+### Sub-feature: Informe operativo
+
+The report is composed of six bands plus the expanded ledger and records grid. Numbering continues from
+the existing FRD-10 ranges; these requirements carry IDs `REQ-10-020`..`REQ-10-027` with acceptance
+criteria `AC-10-020.K`..`AC-10-027.K`.
+
+#### REQ-10-020 — "El pulso de la fábrica" (executive summary band)
+A band at the top of the Informe: a one-sentence **verdict** derived by deterministic rules from the real
+figures, plus a KPI row of FLOW metrics.
+
+- **AC-10-020.1** — WHEN the Informe renders THE system SHALL show a one-sentence **verdict** computed by
+  deterministic rules from the real figures (e.g. WO-verified trend, active-project count, conversion);
+  the rule inputs SHALL all be wired real values, and the rule SHALL be a pure function of them (same
+  inputs → same sentence) — no fabricated adjectives.
+- **AC-10-020.2** — THE KPI row SHALL show, each from its real source: **WO verified / week** (this week,
+  with the **delta** vs the previous week, from the git-derived series, `IF-10-flow-series`); **active
+  projects (WIP)** = projects whose `phase` is between `design` and `release` exclusive of terminal,
+  from `readStatus` (`IF-10-funnel`); **idea→launched conversion** = shipped ÷ total ideas, from
+  `readIdeas`+`readStatus`.
+- **AC-10-020.3** — THE **idea→release lead time** KPI SHALL render as **"—" with a "no cableado" label**
+  (NOT a zero) because `readIdeas` does not yet parse a per-idea `created` timestamp tying an idea to its
+  launch — IF and when that field is wired THEN it SHALL show real days. (Bidirectional edge: this is the
+  primary "no cableado" path of the band.)
+
+#### REQ-10-021 — "En el tiempo, de verdad" (real time-series — REPLACES the raw-event-count view)
+- **AC-10-021.1** — THE system SHALL show a **WO-verified-per-week** series grouped by **ISO week**,
+  where each WO's week is the **git commit where its `implementation_status` crosses to `VERIFIED`** (read
+  from the git history of each `work-orders/wo-*.md`, `IF-10-flow-series`), matching the verified real
+  shape **W25=78, W26=8, W27=5 (91 total)**.
+- **AC-10-021.2** — THE system SHALL show an **ideas-captured-per-week** series from the **`created`**
+  frontmatter of `factory/ideas/*.md` grouped by ISO week (`IF-10-flow-series`), matching the verified
+  real shape **W24=3, W26=15**. IF an idea card has no `created` frontmatter THEN it SHALL be excluded
+  from the per-week series (and that exclusion SHALL be observable, not silently zeroed).
+- **AC-10-021.3** — THE Informe SHALL NOT render the old raw-event-count "en el tiempo" view (raw event
+  counts are noise); this requirement REPLACES it. (Negative AC.)
+
+#### REQ-10-022 — "Cómo usas la fábrica" (usage + effort mix)
+- **AC-10-022.1** — THE system SHALL show the **most-used workflows/skills**, aggregated from the event
+  stream (`~/.claude/dashboard-events.ndjson`, `IF-10-usage`), matching the verified real shape
+  **deep-research 1494, pandacorp-build 850, audits/research ≈400** (top-N, descending).
+- **AC-10-022.2** — THE system SHALL show the **effort mix** (high / xhigh / max / medium) aggregated from
+  the event stream's `effort.level`, matching the verified real shape **high 1384, xhigh 937, max 700,
+  medium 3**.
+- **AC-10-022.3** — IF the event stream is absent or unreadable THEN the band SHALL render its **"no
+  cableado" / error state** (fail-loud), NOT an empty or zeroed band.
+
+#### REQ-10-023 — "Embudo y flujo" (funnel + per-project phase transitions)
+- **AC-10-023.1** — THE system SHALL show the **ideas → launched funnel** from `readIdeas` + `readStatus`
+  (`IF-10-funnel`): total ideas (matching the verified real shape **18: discovered 6, in-pipeline 2,
+  discarded 10**) narrowing to launched (**1**), with the conversion **≈ 6 %**.
+- **AC-10-023.2** — THE system SHALL show **phase transitions PER PROJECT** read from the **git history of
+  the `phase` field in each `.pandacorp/status.yaml`** (`IF-10-phase-transitions`), labelling each row
+  with the **project name**, matching the verified real shape for `mission-control`: **06-16
+  architecture→implementation, 06-18 implementation→release, 06-19 release→implementation (flagged as a
+  REOPEN), 06-21 implementation→release**.
+- **AC-10-023.3** — WHEN a transition goes **backwards** in the phase order (a reopen, e.g.
+  release→implementation) THE system SHALL **flag it as a reopening** (text + icon, never color alone).
+
+#### REQ-10-024 — "Estado y salud del proceso" (2-column health band)
+- **AC-10-024.1** — THE left column SHALL list **projects by phase** from `readStatus` (`IF-10-funnel`),
+  matching the verified real shape **mission-control → release, personal-page-v2 → design**.
+- **AC-10-024.2** — THE right column SHALL list **process signals** each from its real source:
+  **lessons distilled** (matching **2 / 131**, `IF-10-lessons`); **build relaunches** (from
+  `IF-10-phase-transitions` reopen count / signals); **discards without a structured reason** (idea cards
+  with `status: discarded` whose `discard_reason` is empty/freeform — itself a finding, from `readIdeas`);
+  **quality telemetry not wired** (rendered explicitly as **"no cableado"**, not a zero).
+
+#### REQ-10-025 — "Qué mover ahora" (next-best-actions)
+- **AC-10-025.1** — THE system SHALL show a short list of **next-best-actions**, each derived by a
+  deterministic rule from the real figures and each carrying **its command** (e.g.
+  `/pandacorp:memory`, `/pandacorp:release`, `/pandacorp:recommend`); each action's trigger condition
+  SHALL be a pure function of wired real values (no fabricated suggestions).
+
+#### REQ-10-026 — Ledger expanded to 8 rows per column (aligned, no staircase)
+- **AC-10-026.1** — THE per-category ledger SHALL show **exactly 8 rows in each of the three columns** so
+  the columns align (no staircase). **Producción** gains **FRDs completed (21), Commits (823), Projects
+  created (2)**; **Calidad** gains **Tests passing (7134), Decisions/DR (99)**. Each new row's value
+  SHALL come from its real source (`IF-10-scalars` for the git/doc counts; `readIdeas`/`readStatus` for
+  the rest).
+- **AC-10-026.2** — Each new ledger value SHALL be a real count (or **"—" / "no cableado"** when its
+  source is not wired) — never a fabricated number.
+
+#### REQ-10-027 — Records grid expanded to 2×3 (6 records)
+- **AC-10-027.1** — THE records block (right of Atributos) SHALL show a **2×3 grid of 6 records**, adding
+  to the existing 3: **Peak week** (the WO count of the best week, **78**, from `IF-10-flow-series`);
+  **Lessons captured** (**131**, from `IF-10-lessons`); **Subagents coordinated** (from
+  `signals.subagents`). Each record SHALL come from its real source; an unwired record SHALL render
+  **"—" / "no cableado"**, never a fabricated value.
+
 ## Detail
 Full list of stats, thresholds, tier names and unique achievements in [mission-control/docs/achievements.md](../../achievements.md).
+The Informe operativo's data sources and the new interfaces (`IF-10-flow-series`, `IF-10-phase-transitions`,
+`IF-10-scalars`, `IF-10-usage`, `IF-10-funnel`, `IF-10-lessons`) are designed in the
+[feature blueprint](blueprint.md) and built by work orders **WO-10-014** (data layer) and **WO-10-015**
+(report UI).
 
 ## Future
 Meta-achievements (Seals), the "New" badge, and per-trophy rarity are **shipped in v2** (above).

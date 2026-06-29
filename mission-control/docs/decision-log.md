@@ -4,6 +4,45 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-06-29 — FRD-10 v3: el tab Estadísticas pasa a "Informe operativo" (spec + work orders)
+**What:** Iteración aprobada del Salón de Logros (FRD-10): el tab **Estadísticas** se expande de la hoja
+de personaje (radar + récords + ledger) a un **Informe** sobrio para el operador, alimentado solo por
+datos REALES. Spec añadida (aditiva, no borra criterios): nueva sub-feature **"Informe operativo"** en el
+`frd.md` con REQ-10-020..027 y AC-10-020.K..027.K en EARS — seis bandas (1) **El pulso de la fábrica**
+(veredicto por reglas + KPIs de flujo: WO verificados/sem + delta, WIP, conversión idea→launched, y
+**lead time idea→release marcado "no cableado"** porque `readIdeas` aún no parsea `created`), (2) **En el
+tiempo, de verdad** (WO-verificados-por-semana desde el historial git de cada `wo-*.md` al cruzar a
+`VERIFIED` + ideas-por-semana desde `created`; **reemplaza** la vista de conteo crudo de eventos = ruido),
+(3) **Cómo usas la fábrica** (workflows + mezcla de esfuerzo desde el event stream), (4) **Embudo y
+flujo** (funnel ideas→launched + transiciones de fase **por proyecto** desde el historial git de cada
+`status.yaml`, con flag de **reapertura** texto+icono), (5) **Estado y salud del proceso** (2 columnas:
+proyectos por fase + señales del proceso: lecciones 2/131, relanzamientos, descartes sin razón
+estructurada, telemetría de calidad "no cableado"), (6) **Qué mover ahora** (next-actions con su comando).
+Además: ledger a **8 filas por columna** (alineado, sin escalera; Producción += FRDs/Commits/Proyectos,
+Calidad += Tests/DR) y récords a **grid 2×3** (+ Peak week, Lessons captured, Subagents). Se crearon dos
+work orders **coarse**: **WO-10-014** (capa de datos: `IF-10-flow-series`/`IF-10-phase-transitions`/
+`IF-10-scalars`/`IF-10-usage`/`IF-10-funnel`/`IF-10-lessons` + reglas veredicto/next-action; fail-loud,
+git en lectura) y **WO-10-015** (UI de las 6 bandas + ledger 8 filas + récords 2×3, dependsOn WO-10-014).
+Ancla visual aprobada: `docs/design/prototype/informe-del-gremio.html`.
+**Why:** El dueño aprobó el diseño del Informe (registro sobrio, DR-062 — la lore/niveles se quedan en
+Trofeos/Rangos). El contrato de honestidad se mantiene (DR-078: cualquier cifra sin fuente cableada se
+pinta **"—"/"no cableado"**, nunca un cero fabricado; los readers fallan en voz alta; **only-grow NO
+aplica a la serie temporal** — una semana puede bajar). Los números esperados de cada AC vienen de datos
+verificados de la fábrica (W25=78/W26=8/W27=5; ideas 18→1≈6%; workflows deep-research 1494 / build 850;
+esfuerzo high 1384/xhigh 937/max 700/medium 3; FRDs 21 / commits 823 / tests 7134 / DR 99; lecciones
+2/131; transiciones de mission-control incl. la reapertura del 06-19), no inventados.
+**Context:** Solo spec/markdown — no toca el gate (`tsc`/`knip`/visual no leen `docs/`). Las nuevas WO van
+**PLANNED**; el patrón de lectura git fail-soft se reutiliza de `lib/build-track.ts` (`readGitLog` via
+`execSync`, pathspec acotado + `-n`, cache por request) con el caveat de rendimiento anotado en el
+blueprint. El `frd.md` queda con un `[NEEDS CLARIFICATION]` cero — el único hueco real (lead time idea→
+release) está resuelto como decisión: ship "no cableado" hasta que exista el emisor (`docs/achievements.md`
+§8 pending-emitter). Cascada de docs completa: FRD (sub-feature + frontmatter `visual_source_informe`),
+blueprint (§3 readers v3 + §4 `CMP-10-informe` + Build Plan), FDD (banda Estadísticas → Informe),
+work-orders/README (sección v3 + tabla).
+**Impact:** Docs: `docs/frds/frd-10-achievements-hall/{frd.md, blueprint.md, fdd.md, work-orders/README.md,
+work-orders/wo-10-014-informe-data-layer.md (NUEVO), work-orders/wo-10-015-informe-ui.md (NUEVO)}`. Sin
+cambio de código todavía (lo construyen WO-10-014/015).
+
 ## 2026-06-29 — Reconciliación de docs FRD-10 a v2 (FDD + blueprint + work orders)
 **What:** Cascada documental código→docs tras toda la sesión del Salón de Logros v2. La **FDD** y el
 **blueprint** estaban en v1/rank-reconcile (25-jun, antes del v2): se actualizaron a la realidad —
