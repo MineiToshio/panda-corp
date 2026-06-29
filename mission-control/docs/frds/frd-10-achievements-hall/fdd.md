@@ -4,6 +4,16 @@
 > Frozen tokens: `docs/design/design-tokens.json` (Atelier — pixel-RPG / guild). This FDD scopes the
 > Hall screen onto those tokens. No hardcoded visuals.
 
+## Visual baseline provenance (DR-080)
+The blessed Playwright baseline for `/achievements` (`e2e/visual.spec.ts-snapshots/logros-desktop-*.png`)
+is diffed against an **independent oracle**, not itself:
+- **Oracle (prototype):** `docs/design/prototype/index.html` — the **Logros** view (`logrosView()`),
+  the owner-approved design.
+- **prototype_blessed_at:** `da9baae` — the commit that (re-)blessed the desktop baseline after the v2
+  Achievements Hall redesign (catalogue v2 + standardized mission/Trofeos/secrets cards).
+- **Sign-off:** owner approved the v2 look on 2026-06-29 ("me gusta cómo está quedando"); baseline
+  regenerated from the live `/achievements` render and re-blessed (decision-log 2026-06-29 "re-bless").
+
 ## Screen shape
 
 A single full-width page (`.rpghall`) reached from the **Logros** tab. Layout, top to bottom:
