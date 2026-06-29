@@ -92,7 +92,18 @@ function NodeLadder({
         const filled = i <= currentTierIndex;
         const color = filled ? tierColor(i) : "var(--color-border-strong)";
         return (
-          <span key={`tier-node-${i}`} style={{ display: "flex", alignItems: "center", flex: 1 }}>
+          <span
+            key={`tier-node-${i}`}
+            // Node 0 must NOT flex-grow: a flex:1 first node leaves empty trailing
+            // space after its dot, so the first connector (which lives in node 1)
+            // only spans half the gap → the dot0→dot1 line is visibly missing. With
+            // node 0 sized to its dot, node 1's connector fills the whole first gap.
+            style={{
+              display: "flex",
+              alignItems: "center",
+              flex: i === 0 ? "0 0 auto" : 1,
+            }}
+          >
             {i > 0 && (
               <span
                 aria-hidden="true"
