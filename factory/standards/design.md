@@ -103,6 +103,15 @@ it). A design system is "complete enough to gate" only when it defines, in dark 
   mobile only; `responsive` → **mobile (375) + tablet (~768) + desktop (~1280)**. The skill injects the right
   breakpoints into the generation prompt — this governs what is **generated**, in addition to what the gate
   asserts.
+- **Hierarchy & proportion (§9):** the brief states which element is the **primary action/conversion** on
+  each surface and that it gets prominent treatment (the shared `cta-band`, never an undersized link); no
+  context-free hero opening.
+- **Real content, never invented (§10):** the brief points the canvas at the owner's REAL sources for
+  lists/cards/stack/archive (GitHub, sibling projects, `projects.json`, the brief) with balanced lengths —
+  placeholders only where data is genuinely pending, visibly marked.
+- **The FULL screen set, enumerated (§11):** beyond the system, the brief/agent **enumerates every
+  `ui:true` FRD's screen(s)** to be generated in Stage 2 (one-by-one, pull-and-review) — the deliverable is
+  the whole set, never just the landing. Each surface carries its playbook (`references/surface-playbooks.md`).
 
 ## 2. The frozen contract is mandatory and gated (DR-054)
 
@@ -284,6 +293,7 @@ The whole app must feel like **ONE application**, not a set of screens each desi
   - **The page chrome lives in a layout, not per-screen markup.** The persistent header/nav lives in the app shell, and the page title + body are rendered through **one shared page-layout component** (e.g. `PageLayout` = the page's single `<main>` + the title block + the body slot) that **every** page wraps its body in — so the title's *placement and the title→body spacing* are enforced from one place, not re-implemented (and drifting) per screen. A page that hand-rolls its own `<main>`/title wrapper with bespoke padding/background is a **cohesion defect** (it was the Mission Control bug: the Board nested its title in a bespoke full-height wrapper with extra padding, so it sat in a different place from every sibling). Conditional titles (a detail view) and dynamic title tails (a live count) are passed as props to the same layout, not a reason to fork it. Genuinely different layout patterns (a full-height two-pane "app view", a shell-exempt drill-in with its own chrome) are the only justified exceptions, and they're recorded.
 - **Section headers, tabs, chips/badges, panels/cards, command affordances, empty states, spacing rhythm** — each is **ONE canonical pattern reused everywhere**. A surface that invents its own variant of an existing pattern is a **cohesion defect**, the same class of bug as a near-duplicate component.
 - **Coherence is at the VALUE level too, not only the structural pattern (DR-062).** Sibling surfaces must share the same **scale and meaning for colors, type sizes, spacing and radii** — a title is the title size used elsewhere; a description uses the same muted-text token siblings use; a card (role/feature/item) reuses the established card style (padding, radius, title colour); a labelled block reuses the established tint + label colour. **Before styling a NEW page/section/tab, read its siblings and reuse their values** — never invent a parallel scale. **Prefer a shared primitive/token map over a copied `*.styles.ts` constant**, so two surfaces can't drift (the Mission Control incident: the new "Spec" tab and the existing "Propuesta" tab diverged in title size, description colour, block tints and card title colour — two separate style files re-deriving the same look; the owner saw a visible jump switching tabs).
+- **ONE shared closing `cta-band`, reused on every page (DR-101).** The page-closing call-to-action is a **single, prominent, shared `cta-band` component** (e.g. "Let's work together" → Contact) reused identically across surfaces — a first-class entry in `docs/design/components.md`, not per-page ad-hoc markup. A tiny per-page "let's talk" text link is **both a hierarchy defect** (the conversion rendered undersized, §9) **and a cohesion defect** (each page inventing its own closing). Same for the other recurring frames: ONE page-title block, ONE section-header, ONE empty-state language. (`personal-page-v2`, 2026-06-28: the contact CTA shipped as a one-line link when it is THE conversion, and About/Now each closed differently — fixed by a single shared cta-band on every page.)
 - **Deviations only where genuinely justified** (e.g. an intentionally immersive view); the justification is recorded, never silent.
 
 Enforced two ways: the design phase **defines these framing patterns in the system** (the Claude Design system / `docs/design/components.md`, where titles/section-headers/tabs are first-class shared primitives, not per-screen ad-hoc markup), and the **`reviewer`'s runtime/visual lens checks cross-surface consistency** — a screen that looks like a *different app* from its siblings is rejected, exactly like a duplicate component. The owner must never feel they jumped between different apps when switching tabs.
@@ -313,7 +323,84 @@ leaves functional divergence is **not done**. This is the functional analogue of
 complete-extraction rule (§5): extraction captures every visual layer; reconciliation captures every
 behavioural one.
 
-## 9. Where this is wired
+## 9. Visual hierarchy & proportion — weight matches importance (DR-101)
+
+A screen can use every frozen token, reproduce the structure, and still be **wrong** because the
+*emphasis* is off — the thing that matters most renders small, and a secondary thing dominates. Visual
+weight (size, prominence, position) must track **importance**:
+
+- **The surface's primary action / conversion gets a prominent treatment** — the shared `cta-band`
+  (§7), never an undersized one-line link. The single biggest hierarchy defect in `personal-page-v2`
+  was the contact CTA — THE conversion — shipping as a tiny text link.
+- **Primary > secondary > tertiary**, and the rule is enforced both ways: don't let a key element render
+  tiny, and don't let a decorative or secondary element (a cover image, a divider, a demo control)
+  out-shout the primary content.
+- **Don't open a page with a context-free hero image.** A reader (especially a recruiter, who skims in
+  <60s) needs to know *what this is* before they see a pretty picture. Lead with **title + context +
+  at-a-glance facts**; imagery is **contained and secondary** (a two-column header beats a full-bleed
+  cover with no context). Detailed per-surface guidance: `references/surface-playbooks.md` (case study).
+- The `reviewer`'s runtime/visual lens checks proportion as part of fidelity — a screen whose emphasis
+  contradicts the mock's intent is a fidelity miss, not just a token question.
+
+## 10. Real content, never invented (DR-101)
+
+Lists, cards, archives, stacks and metrics are derived from the owner's **REAL** sources — their
+GitHub repos, local sibling projects, a live site's `projects.json`, the brief — **not invented filler**
+(filler is the content analogue of lorem ipsum: it makes a screen *look* done while being wrong, and it
+silently ships into the build). When the design phase generates a content surface:
+
+- **Pull the real items** (real project names/descriptions, real tools the owner has actually used,
+  real post tags) and condense rather than fabricate. Exclude things the owner hasn't used (no
+  aspirational stack).
+- **Balance description lengths** so cards in a grid align (equal-height cards, short balanced copy) —
+  ragged lengths are a visible defect.
+- A surface that needs data the owner hasn't provided gets a **placeholder clearly marked as such**
+  (and added to the open-questions list), never plausible-looking invented data that reads as real.
+- This pairs with the image-placeholder rule (§1c): structure renders now, real assets/content slot in
+  later — but a placeholder is *visibly* a placeholder, not fabricated truth.
+
+## 11. Generate the FULL screen set, in two stages, with explicit prompts (DR-101)
+
+On the EXPLORE + Claude Design path, generation is an explicit **two-stage cadence**, and the agent
+**never stops at the landing**:
+
+1. **Stage 1 — the design SYSTEM** (tokens / brand / the full component gallery + states + motion, per
+   the §1c checklist). Owner approves the system.
+2. **Stage 2 — ALL the screens.** The agent **enumerates the full screen set from the FRDs** (every FRD
+   with `ui:true` → its screen(s); see each FRD's screen→mock mapping) and drives generation **one
+   screen at a time, each with pull-and-review** (§1c) against its playbook (`references/surface-playbooks.md`)
+   and the rubric (§12). The owner must **never have to ask "where are the other pages?"** — the
+   landing alone is not a delivered design (`personal-page-v2`, 2026-06-28: only the landing generated
+   until the owner asked page-by-page).
+
+**Prompts are EXPLICIT and unambiguous.** A canvas prompt names the element and states exactly what
+changes and what stays — *"Delete the ENTIRE element including its text and its link; replace it with
+nothing"*, not a vague *"remove the note"* (which left stray text). State the target, the action, and
+what must remain untouched.
+
+## 12. The per-screen review rubric (DR-101)
+
+Before the owner gate, the agent **pulls each generated screen** (`DesignSync get_file`) and reviews it
+against the FRDs and these standards — **from the actual current file, never from memory or an old
+screenshot** (the pull-and-review discipline of §1c, applied per screen). Each screen must pass:
+
+| # | Check | Reference |
+|---|---|---|
+| 1 | **Hierarchy / proportion** — weight matches importance; primary action prominent; no context-free hero | §9 |
+| 2 | **Cohesion** — shared framing patterns (one page-title, one section-header, ONE closing `cta-band`); not a different-app look | §7 |
+| 3 | **Real content** — derived from real sources, balanced lengths, no invented filler | §10 |
+| 4 | **All states** — success / error / empty / loading / 404 + domain states present | §1c |
+| 5 | **Responsive** — designed at the breakpoints implied by `target_platforms` | §1c, §4b |
+| 6 | **Accessibility** — AA contrast both themes, labelled controls, focus states | §1c |
+| 7 | **Motion** — the mandatory motion layer present (not flat), reduced-motion-safe | §1c |
+| 8 | **No dead / placeholder where a real value or route exists** — links route to real destinations; placeholders only where data is genuinely pending | §10 |
+| 9 | **`@dsCard` present** on every screen/component → `_ds_manifest.json` → `docs/design/components.md` | DR-057 |
+| 10 | **Surface playbook** followed for the matching surface (case study / Now / blog / contact / archive / stack) | `references/surface-playbooks.md` |
+
+A screen that fails any check gets a corrective prompt **before** the owner gate — the gate sees a
+reviewed screen, not a first draft.
+
+## 13. Where this is wired
 
 | Concern | File |
 |---|---|
@@ -329,4 +416,6 @@ behavioural one.
 | Target platform + responsive gate (DR-074) | `plugin/templates/stack-a-nextjs/e2e/{responsive.spec.ts,_responsive-helper.ts}`, `plugin/templates/stack-a-nextjs/STACK.md`, `plugin/templates/shared/.pandacorp/status.yaml.tpl` (`target_platforms`), `plugin/skills/{spec,blueprint,upgrade,adopt}/SKILL.md`, `factory/standards/quality.md` |
 | Demo-only controls marked in prototypes (DR-061) | `plugin/skills/design/SKILL.md`, `plugin/agents/designer.md` |
 | One cohesive app — cross-surface consistency (DR-062) | `plugin/skills/design/SKILL.md`, `plugin/agents/designer.md`, `plugin/agents/reviewer.md` |
+| Hierarchy/proportion, real content, full-screen-set cadence, per-screen rubric (DR-101 §9–§12) | `plugin/skills/design/SKILL.md` (EXPLORE path), `factory/standards/design.md` §9–§12, `plugin/agents/reviewer.md` |
+| Per-surface playbooks (case study / Now / blog / contact / archive / stack) (DR-101) | `plugin/skills/design/references/surface-playbooks.md` |
 | Functional reconciliation prototype ↔ FRD, bidirectional (DR-064) | `plugin/skills/design/SKILL.md`, `plugin/skills/adopt/SKILL.md`, `plugin/agents/designer.md` |
