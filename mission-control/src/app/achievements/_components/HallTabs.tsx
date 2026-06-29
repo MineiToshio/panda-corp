@@ -120,8 +120,12 @@ function RecentTrophies({ uniques }: RecentTrophiesProps): React.JSX.Element | n
             style={{
               background: "var(--color-card)",
               border: "1px solid var(--color-border-strong)",
+              // Calm warn LEFT accent instead of the big yellow glow (owner feedback) —
+              // consistent with the conquered-trophy cards in UniquesSection.
+              borderLeft: "3px solid var(--color-warn)",
               borderRadius: "10px",
-              boxShadow: "inset 0 1px 0 rgba(255,255,255,.05), 0 0 18px -7px var(--color-warn)",
+              boxShadow:
+                "inset 0 1px 0 rgba(255,255,255,.05), inset 0 -2px 0 rgba(0,0,0,.22), 0 2px 0 var(--color-base)",
               display: "flex",
               gap: "10px",
               alignItems: "center",

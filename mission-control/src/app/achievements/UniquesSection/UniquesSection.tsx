@@ -135,9 +135,12 @@ const RPGPANEL: React.CSSProperties = {
     "inset 0 1px 0 rgba(255,255,255,.05), inset 0 -2px 0 rgba(0,0,0,.22), 0 2px 0 var(--color-base)",
 };
 
+// Unlocked trophies: the SAME calm card as locked, distinguished by a subtle warn
+// LEFT accent (the warn trophy icon + the accent say "conquered") instead of the big
+// yellow glow that made the whole grid look shiny (owner feedback, 2026-06-29).
 const RPGPANEL_GLOWWARN: React.CSSProperties = {
   ...RPGPANEL,
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,.05), 0 0 18px -7px var(--color-warn)",
+  borderLeft: "3px solid var(--color-warn)",
 };
 
 // ─── Date formatting ──────────────────────────────────────────────────────────
@@ -342,19 +345,8 @@ function UniqueItem({ unique }: UniqueItemProps): React.JSX.Element {
         </span>
         <RarityTag rarity={unique.rarity} />
       </div>
-
-      {/* "Bloqueado" text label — NOT color-alone (AC-10-007.3) */}
-      <span
-        style={{
-          fontSize: "9px",
-          fontFamily: "var(--font-pixel)",
-          color: "var(--color-text3)",
-          flexShrink: 0,
-          opacity: 0.6,
-        }}
-      >
-        Bloqueado
-      </span>
+      {/* No visible "Bloqueado" text — redundant with the lock icon (which carries the
+          aria-label "Bloqueado" for AC-10-007.3, the non-color signal). Owner feedback. */}
     </li>
   );
 }

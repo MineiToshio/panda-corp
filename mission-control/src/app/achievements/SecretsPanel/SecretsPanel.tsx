@@ -64,7 +64,8 @@ function SecretItem({ secret }: SecretItemProps): React.JSX.Element {
         borderRadius: "var(--radius)",
         background: "var(--color-surface)",
         boxShadow: "var(--shadow-1)",
-        borderBottom: "var(--hairline) solid var(--color-base)",
+        // Self-contained card (the panel is a grid now, not a stacked list).
+        border: `var(--hairline) solid ${isLocked ? "var(--color-base)" : "var(--color-accent)"}`,
         opacity: isLocked ? 0.65 : 1,
       }}
     >
@@ -216,19 +217,16 @@ export function SecretsPanel({ secrets }: SecretsPanelProps): React.JSX.Element 
         <SectionHead icon="ti-help" label="Secretos" count={secrets.length} />
       </h2>
 
-      {/* Secret items list */}
+      {/* Secret items — a responsive grid (2–3 per row), not a full-width stacked list. */}
       <ul
         style={{
           listStyle: "none",
           margin: 0,
           padding: 0,
-          display: "flex",
-          flexDirection: "column",
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
           gap: "calc(var(--space-base) * 0.5)",
-          borderRadius: "var(--radius)",
-          overflow: "hidden",
-          border: `var(--hairline) solid var(--color-base)`,
-          boxShadow: "var(--shadow-1)",
+          alignItems: "start",
         }}
       >
         {secrets.map((secret, idx) => (
