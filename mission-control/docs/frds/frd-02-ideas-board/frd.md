@@ -253,6 +253,11 @@ campaign map) + `prototype/index.html` `detailView()`:
 - AC-02-013.5 — THE **per-FRD** cards SHALL render one card per FRD (id · title · WO count · blueprint
   one-liner); clicking a card SHALL open a **modal** with that FRD's blueprint summary + its work-orders
   list — consistent with the Spec tab's FRD-card→modal pattern (owner rule: heavy detail in a modal).
+- AC-02-013.6 — WHEN an FRD's modal is open AND that FRD has **more than one** live work order, THE
+  system SHALL render, at the end of the modal, a **scoped dependency DAG** (the same `WoDag` reused by
+  the main Plan de implementación) showing ONLY that FRD's work orders and their intra-FRD dependencies
+  /parallelism. WHEN the FRD has a single work order, THE system SHALL NOT render the DAG (there is no
+  dependency/parallelism to show).
 
 ## Edge cases
 - Idea with no architecture digest → the Arquitectura tab is simply absent; the other tabs render unchanged (AC-02-013.1).

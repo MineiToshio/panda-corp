@@ -257,6 +257,18 @@ function AdrModal({
 
 // --- Per-FRD cards + modal --------------------------------------------------
 
+/** The 2-digit FRD number from a digest id ("FRD-01") or a live WO slug ("frd-01-site-shell"). */
+function frdKey(value: string): string {
+  const m = value.match(/frd[\s-]?(\d+)/i);
+  return m?.[1] != null ? m[1].padStart(2, "0") : value.toLowerCase();
+}
+
+/** The live work orders that belong to a digest FRD, matched by FRD number. */
+function workOrdersForFrd(frd: ArchFrd, workOrders: WorkOrder[]): WorkOrder[] {
+  const key = frdKey(frd.id);
+  return workOrders.filter((wo) => frdKey(wo.frd) === key);
+}
+
 function FrdCard({ frd, onOpen }: { frd: ArchFrd; onOpen: (frd: ArchFrd) => void }) {
   return (
     <button
@@ -282,7 +294,21 @@ function FrdCard({ frd, onOpen }: { frd: ArchFrd; onOpen: (frd: ArchFrd) => void
   );
 }
 
-function FrdModal({ frd, onClose }: { frd: ArchFrd; onClose: () => void }) {
+function FrdModal({
+  frd,
+  liveWorkOrders,
+  project,
+  onClose,
+}: {
+  frd: ArchFrd;
+  /** The live work orders of THIS FRD (for the scoped dependency DAG). */
+  liveWorkOrders: WorkOrder[];
+  project?: string;
+  onClose: () => void;
+}) {
+  // The scoped DAG only earns its place when there's parallelism/dependencies to show —
+  // i.e. the FRD has more than one work order (a single-WO FRD has nothing to graph).
+  const showDag = liveWorkOrders.length > 1;
   return (
     <Modal
       open
@@ -304,6 +330,12 @@ function FrdModal({ frd, onClose }: { frd: ArchFrd; onClose: () => void }) {
             ))}
           </div>
         </>
+      )}
+      {showDag && (
+        <div data-testid="arch-frd-dag">
+          <p style={FRD_MODAL_WO_LABEL_STYLE}>Dependencias y paralelismo</p>
+          <WoDag workOrders={liveWorkOrders} project={project} />
+        </div>
       )}
     </Modal>
   );
@@ -479,7 +511,14 @@ export function ArchitectureDigest({
       {openAdr != null && (
         <AdrModal adr={openAdr} onClose={() => setOpenAdr(null)} resolveLink={resolveLink} />
       )}
-      {openFrd != null && <FrdModal frd={openFrd} onClose={() => setOpenFrd(null)} />}
+      {openFrd != null && (
+        <FrdModal
+          frd={openFrd}
+          liveWorkOrders={workOrdersForFrd(openFrd, wos)}
+          project={project}
+          onClose={() => setOpenFrd(null)}
+        />
+      )}
     </article>
   );
 }

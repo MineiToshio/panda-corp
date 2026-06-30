@@ -5,7 +5,7 @@
  * so these tests stay fast and deterministic. Queries by role/name per the testing discipline.
  */
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 // Mock the live DAG — its rendering (dagre/SVG/live snapshot) is exercised in WoDag's own tests.
@@ -117,5 +117,64 @@ describe("ArchitectureDigest", () => {
     fireEvent.click(screen.getByRole("button", { name: /FRD-01 Site shell/ }));
     expect(screen.getByText("WO-00-001")).toBeInTheDocument();
     expect(screen.getByText(/design system/)).toBeInTheDocument();
+  });
+});
+
+// --- Per-FRD dependency DAG inside the FRD modal (only when > 1 work order) ---
+
+const DIGEST_TWO_FRDS = `---
+proyecto: "p"
+fase: arquitectura
+---
+
+## 🧩 Por FRD
+
+### FRD-01 · Site shell
+**Blueprint:** la fundación.
+- **WO-01-001** — shell.
+
+### FRD-02 · Home
+**Blueprint:** la home.
+- **WO-02-001** — home.
+`;
+
+// FRD-01 has TWO live work orders (→ a scoped DAG); FRD-02 has ONE (→ no DAG).
+const LIVE_WOS = [
+  {
+    id: "WO-01-001",
+    title: "Shell",
+    frd: "frd-01-site-shell",
+    state: "todo" as const,
+    relPath: "a.md",
+  },
+  {
+    id: "WO-01-002",
+    title: "i18n",
+    frd: "frd-01-site-shell",
+    state: "todo" as const,
+    relPath: "b.md",
+    dependsOn: ["WO-01-001"],
+  },
+  { id: "WO-02-001", title: "Home", frd: "frd-02-home", state: "todo" as const, relPath: "c.md" },
+];
+
+describe("ArchitectureDigest — per-FRD dependency DAG", () => {
+  function renderTwoFrds() {
+    render(<ArchitectureDigest body={DIGEST_TWO_FRDS} title="p" workOrders={LIVE_WOS} />);
+  }
+
+  it("shows the scoped DAG in the modal of an FRD with more than one work order", () => {
+    renderTwoFrds();
+    fireEvent.click(screen.getByRole("button", { name: /FRD-01 Site shell/ }));
+    const dag = screen.getByTestId("arch-frd-dag");
+    expect(dag).toBeInTheDocument();
+    // The scoped DAG only receives THIS FRD's two work orders (not the other FRD's).
+    expect(within(dag).getByTestId("wo-dag-mock")).toHaveTextContent("2 WOs");
+  });
+
+  it("does NOT show the scoped DAG in the modal of an FRD with a single work order", () => {
+    renderTwoFrds();
+    fireEvent.click(screen.getByRole("button", { name: /FRD-02 Home/ }));
+    expect(screen.queryByTestId("arch-frd-dag")).not.toBeInTheDocument();
   });
 });

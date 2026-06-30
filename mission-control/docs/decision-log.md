@@ -4,6 +4,22 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-06-30 — DAG de dependencias por-FRD dentro del modal de cada FRD (Arquitectura tab, AC-02-013.6)
+**What:** En el tab Arquitectura, al abrir el modal de un FRD, ahora se muestra al final un **DAG acotado a
+ese FRD** —reutilizando el mismo `WoDag` del Plan de implementación— con solo las work orders de ese FRD y
+sus dependencias/paralelismo intra-FRD. Solo aparece cuando el FRD tiene **más de una** work order (con una
+sola no hay nada que graficar, así que se omite). Las WOs por FRD se cruzan con las live `workOrders`
+(`listWorkOrders`) por número de FRD (`workOrdersForFrd` + `frdKey`: "FRD-01" ↔ "frd-01-…"); el DAG dropea
+las deps cross-FRD (esos nodos no están en el subconjunto), mostrando la cadena interna del FRD.
+**Why:** Pedido del dueño: ver dependencias y paralelismo de cada FRD sin tener que escanear el DAG global;
+y que no aparezca para FRDs de una sola WO. Reutiliza el componente existente (cero librería nueva, DR-062).
+**Context:** Verificado contra `personal-page-v2`: FRD-01 (4 WOs) muestra el DAG con su cadena
+WO-01-001→…; los FRDs de 1 WO (Home, Contact, …) no lo muestran. Tests: `ArchitectureDigest.test.tsx`
+(gating >1 vs 1 WO, DAG acotado a las WOs del FRD).
+**Impact:** Código: `src/app/board/_components/CardDetail/ArchitectureDigest/ArchitectureDigest.tsx`
+(`workOrdersForFrd`/`frdKey` + `FrdModal` con DAG condicional). Doc canónico: `frd-02-ideas-board/frd.md`
+(AC-02-013.6). Extiende REQ-02-013. Sin cambio de plugin (solo MC).
+
 ## 2026-06-30 — Overlay → 8.50.0: DR-079 gate canary installed (`.pandacorp/canary.sh`)
 **What:** Installed the newly-built DR-079 gate canary into MC's overlay (factory-side in `plugin/docs/decision-log.md` v9.33.0): `.pandacorp/canary.sh` — run by `verify.sh --canary` (only via `/pandacorp:upgrade`, never on a normal build) to prove each fail-closed gate still goes RED on a deliberately-broken input. Bumped `overlay_version` to 8.50.0.
 **Why:** Keep MC's overlay in lock-step with the factory templates (DR-059/DR-076); MC is the project the canary was validated against.
