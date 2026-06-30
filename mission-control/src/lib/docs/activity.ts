@@ -31,10 +31,13 @@ export interface ActivityLog {
 /**
  * A single decision block parsed from `.pandacorp/inbox/decisions.md`.
  *
- * `title`          — the text after "OPEN:" or "CLOSED:" in the heading (trimmed).
- * `recommendation` — text after a `- **Recommendation:**` line in the block, or
- *                    `undefined` when the block has no such line.
- * `resolved`       — `true` for CLOSED blocks, `false` for OPEN blocks.
+ * `title`          — the heading text with the date/status prefix stripped (trimmed).
+ * `recommendation` — text after a `- **Recommendation:**` / `- **Recomendación:**`
+ *                    line in the block, or `undefined` when the block has none.
+ * `resolved`       — `true` once the block's status resolves to "done" (CLOSED/RESOLVED/
+ *                    RESUELTO/SUPERSEDIDO/CERRADO), `false` otherwise (OPEN/PENDIENTE/
+ *                    NECESITA DECISIÓN, or no status signal found — DR-078: when in
+ *                    doubt, surface as pending rather than silently hide it).
  */
 export interface DecisionPoint {
   title: string;
@@ -102,10 +105,20 @@ export function readActivityLog(projectPath: string): ActivityLog {
 /**
  * Parse `.pandacorp/inbox/decisions.md` into an array of DecisionPoint objects.
  *
- * The file is expected to contain `## OPEN: <title>` or `## CLOSED: <title>` (or
- * `## RESOLVED: <title>`) section headings. Each heading opens a new block; lines
- * within the block are scanned for an optional
- * `- **Recommendation:** <text>` line.
+ * Supports two heading conventions, both seen in real `.pandacorp/inbox/decisions.md`
+ * files (DR-078 — parse the actual shape met in production, not just the documented one):
+ *   - **Legacy explicit-status**: `## OPEN: <title>` / `## CLOSED: <title>` / `## RESOLVED: <title>`.
+ *   - **Date-prefixed** (the `/pandacorp:decide` template + what agents write in practice):
+ *     `## YYYY-MM-DD (<status phrase>) — <title>` or `## YYYY-MM-DD — <title>`. The status
+ *     phrase is free Spanish text (e.g. "NECESITA DECISIÓN DEL OWNER", "RESUELTO por el
+ *     owner") matched against resolved/pending keyword sets. An explicit body line
+ *     `- **Estado:** PENDIENTE` / `RESUELTO: …` (the template's machine field) takes
+ *     priority over the heading phrase when present.
+ * A `##` heading that matches neither convention is not a decision block — other headings
+ * in the file are ignored, never invented as a phantom decision.
+ *
+ * Within a block, an optional recommendation line is captured: `- **Recommendation:**` or
+ * the Spanish `**Recomendación…:**` (with or without the leading `- `, as written in practice).
  *
  * Fail-soft tolerance:
  *   - Absent file → `[]` (no throw; AC-04-003.3 empty state).
@@ -141,22 +154,8 @@ export function readDecisions(projectPath: string): DecisionPoint[] {
   const result: DecisionPoint[] = [];
 
   let current: DecisionBlock | null = null;
-
   for (const line of content.split("\n")) {
-    const headingMatch = BLOCK_HEADING.exec(line);
-    if (headingMatch) {
-      // Flush the previous block before starting a new one.
-      _pushDecision(result, current);
-      current = { status: headingMatch[1] ?? null, title: (headingMatch[2] ?? "").trim() };
-      continue;
-    }
-
-    if (current !== null) {
-      const recommendation = _parseRecommendation(line);
-      if (recommendation !== undefined) {
-        current.recommendation = recommendation;
-      }
-    }
+    current = _consumeLine(result, current, line);
   }
 
   // Flush the last block.
@@ -165,41 +164,141 @@ export function readDecisions(projectPath: string): DecisionPoint[] {
   return result;
 }
 
-// Pattern for OPEN / CLOSED / RESOLVED headings at H2 level.
-// The status word is captured in group 1; the title text in group 2.
-const BLOCK_HEADING = /^##\s+(OPEN|CLOSED|RESOLVED):\s*(.+)/i;
-// Pattern for a recommendation bullet: "- **Recommendation:** <text>"
-// Both bold styles: **Recommendation:** or *Recommendation:*
-const RECOMMENDATION_LINE = /^-\s+\*{1,2}Recommendation:\*{1,2}\s*(.+)/i;
+/**
+ * Process one line of `decisions.md`: a heading flushes the previous block (pushed into
+ * `result`) and opens a new one; any other line is scanned for the current block's
+ * optional recommendation/estado fields. Returns the (possibly new) current block.
+ */
+function _consumeLine(
+  result: DecisionPoint[],
+  current: DecisionBlock | null,
+  line: string,
+): DecisionBlock | null {
+  const heading = _parseHeading(line);
+  if (heading !== null) {
+    _pushDecision(result, current);
+    return { title: heading.title, statusPhrase: heading.statusPhrase, estado: null };
+  }
+
+  if (current === null) return current;
+
+  const recommendation = _parseRecommendation(line);
+  if (recommendation !== undefined) {
+    current.recommendation = recommendation;
+  }
+  const estado = _parseEstado(line);
+  if (estado !== undefined) {
+    current.estado = estado;
+  }
+  return current;
+}
+
+/**
+ * Count pending (unresolved) decisions for a project — the single live count every
+ * owner-facing surface should show (DR-092 single source). Equivalent to
+ * `readDecisions(projectPath).filter(d => !d.resolved).length`, exposed as its own
+ * function so call sites don't re-derive the filter independently.
+ *
+ * @param projectPath - Absolute path to the project root.
+ * @returns A genuine finite integer ≥ 0. Never throws (inherits readDecisions' fail-soft tolerance).
+ */
+export function countPendingDecisions(projectPath: string): number {
+  return readDecisions(projectPath).filter((d) => !d.resolved).length;
+}
+
+// Legacy explicit-status heading: "## OPEN: <title>" / "## CLOSED: <title>" / "## RESOLVED: <title>".
+const LEGACY_HEADING = /^##\s+(OPEN|CLOSED|RESOLVED):\s*(.+)/i;
+// Date-prefixed heading: "## YYYY-MM-DD (<status phrase>) — <title>" or "## YYYY-MM-DD — <title>"
+// or "## YYYY-MM-DD <title>" (no separator). Group 1 = optional status phrase, group 2 = title.
+const DATED_HEADING = /^##\s+\d{4}-\d{2}-\d{2}\s*(?:\(([^)]*)\)\s*)?(?:[—-]\s*)?(.+)$/;
+// Recommendation bullet: "- **Recommendation:** <text>" (both bold styles, "- " optional).
+const RECOMMENDATION_LINE = /^-?\s*\*{1,2}Recommendation:\*{1,2}\s*(.+)/i;
+// Spanish variant: "**Recomendación:**" / "**Recomendación (del agente):**" / "**Recomendación del X:**".
+const RECOMENDACION_LINE = /^-?\s*\*{1,2}Recomendaci[oó]n[^:*]*:\*{1,2}\s*(.+)/i;
+// The template's machine field: "- **Estado:** PENDIENTE" / "- **Estado:** RESUELTO: …".
+const ESTADO_LINE = /^-?\s*\*{1,2}Estado:?\*{1,2}\s*(PENDIENTE|RESUELTO)/i;
+// "Resolved" / "pending" keyword sets for a heading's status phrase — covers both the legacy
+// English single-word phrase (CLOSED/RESOLVED/OPEN) and the Spanish free-text phrase.
+const RESOLVED_KEYWORDS = /^CLOSED$|^RESOLVED$|RESUELT|SUPERSEDID|CERRAD/;
+const PENDING_KEYWORDS = /^OPEN$|NECESITA|PENDIENT|ABIERT/;
+
+/** A heading parse result: the block's title and an optional raw status phrase. */
+interface ParsedHeading {
+  title: string;
+  statusPhrase: string | null;
+}
 
 /** Mutable accumulator for the decision block currently being parsed. */
 type DecisionBlock = {
-  status: string | null;
   title: string;
+  statusPhrase: string | null;
+  estado: "pending" | "resolved" | null;
   recommendation?: string;
 };
 
 /**
- * Extract the recommendation text from a line, or `undefined` when the line is
- * not a (non-empty) recommendation bullet. Behavior copied verbatim from the
- * original inline match.
+ * Parse a `##` heading line into a title + optional status phrase, trying the legacy
+ * convention first (preserves exact historical behavior), then the date-prefixed one.
+ * Returns `null` for any other `##` heading (not a decision block).
+ */
+function _parseHeading(line: string): ParsedHeading | null {
+  const legacy = LEGACY_HEADING.exec(line);
+  if (legacy) {
+    const title = (legacy[2] ?? "").trim();
+    return title === "" ? null : { title, statusPhrase: (legacy[1] ?? "").toUpperCase() };
+  }
+  const dated = DATED_HEADING.exec(line);
+  if (dated) {
+    const title = (dated[2] ?? "").trim();
+    return title === "" ? null : { title, statusPhrase: dated[1]?.trim() ?? null };
+  }
+  return null;
+}
+
+/**
+ * Extract the recommendation text from a line (English or Spanish bold-prefixed bullet),
+ * or `undefined` when the line is not a (non-empty) recommendation line.
  */
 function _parseRecommendation(line: string): string | undefined {
-  const recMatch = RECOMMENDATION_LINE.exec(line);
+  const recMatch = RECOMMENDATION_LINE.exec(line) ?? RECOMENDACION_LINE.exec(line);
   if (!recMatch) return undefined;
   const text = (recMatch[1] ?? "").trim();
   return text.length > 0 ? text : undefined;
 }
 
+/** Extract the template's explicit `- **Estado:**` machine field, or `undefined` if absent. */
+function _parseEstado(line: string): "pending" | "resolved" | undefined {
+  const m = ESTADO_LINE.exec(line);
+  if (!m) return undefined;
+  return (m[1] ?? "").toUpperCase() === "RESUELTO" ? "resolved" : "pending";
+}
+
 /**
- * Append a parsed block as a DecisionPoint when it is complete (non-empty title
- * + a status). Behavior copied verbatim from the original `flush` closure.
+ * Resolve a block's `resolved` flag: an explicit `- **Estado:**` body line wins; otherwise
+ * the heading's status phrase is matched against known resolved/pending keywords (covers
+ * both the legacy single-word phrase and the date-prefixed free-text phrase uniformly);
+ * with no signal at all, default to unresolved — surface as pending rather than silently
+ * hide it (DR-078 fail-loud spirit).
+ */
+function _resolveStatus(
+  statusPhrase: string | null,
+  estado: "pending" | "resolved" | null,
+): boolean {
+  if (estado !== null) return estado === "resolved";
+  if (statusPhrase === null) return false;
+  if (RESOLVED_KEYWORDS.test(statusPhrase)) return true;
+  if (PENDING_KEYWORDS.test(statusPhrase)) return false;
+  return false;
+}
+
+/**
+ * Append a parsed block as a DecisionPoint when it has a non-empty title.
  */
 function _pushDecision(result: DecisionPoint[], block: DecisionBlock | null): void {
-  if (block === null || block.title.trim().length === 0 || block.status === null) {
+  if (block === null || block.title.trim().length === 0) {
     return;
   }
-  const resolved = block.status.toUpperCase() !== "OPEN";
+  const resolved = _resolveStatus(block.statusPhrase, block.estado);
   const dp: DecisionPoint = { title: block.title, resolved };
   if (block.recommendation !== undefined) {
     dp.recommendation = block.recommendation;

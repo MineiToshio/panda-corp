@@ -12,7 +12,7 @@
  * traversal runs once per request and every consumer in that request gets the
  * exact same object.
  *
- * Read-only: `readPortfolio` + `readStatus` + `readEvents` — no writes, no Claude.
+ * Read-only: `readPortfolio` + `readStatusWithLiveDecisions` + `readEvents` — no writes, no Claude.
  *
  * Traceability: FRD-09 (gamification) — CMP-09-guild-state.
  */
@@ -21,7 +21,7 @@ import { cache } from "react";
 import { resolveProjectPath } from "@/lib/config/config";
 import { type EventsSnapshot, readEvents } from "@/lib/events/events";
 import { readPortfolio } from "@/lib/portfolio/portfolio";
-import { readStatus, type StatusResult } from "@/lib/status/status";
+import { readStatusWithLiveDecisions, type StatusResult } from "@/lib/status/status";
 import {
   computeGuildLevel,
   deriveGuildOutcomes,
@@ -67,7 +67,9 @@ export type GuildState = {
 export function readGuildState(): GuildState {
   // The portfolio path is factory-root-relative (e.g. "mission-control"); it MUST
   // be resolved before readStatus, or every project reads ABSENT (the original bug).
-  const statuses = readPortfolio().map((entry) => readStatus(resolveProjectPath(entry.path)));
+  const statuses = readPortfolio().map((entry) =>
+    readStatusWithLiveDecisions(resolveProjectPath(entry.path)),
+  );
   const eventsSnapshot = readEvents();
 
   // Live outcomes from the current portfolio state.

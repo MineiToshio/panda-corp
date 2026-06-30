@@ -9,7 +9,7 @@ implementation_status: VERIFIED
 reopen_count: 0
 source_requirements: [AC-09-006.1, AC-09-006.2, AC-09-006.3]
 dependsOn: [WO-09-001]
-last_updated: '2026-06-29'
+last_updated: '2026-06-30'
 ---
 # WO-09-006 — Gamification ledger: persistent XP accumulator
 
@@ -165,3 +165,22 @@ export type GuildState = {
 - `src/components/dashboard/GamificationLedgerSync/_tests/GamificationLedgerSync.test.tsx` — 7 component tests (renders null; calls action once; passes liveOutcomes; cold start; no re-call on re-render; no interactive elements; survives action rejection)
 
 **Gate verdict (2026-06-29, DR-073 patch-in-place):** A reviewer RED test (`src/app/achievements/_tests/page.ledger-hermeticity.reviewer.test.tsx`) proved the achievements page render was non-hermetic: `getGuildState()`'s `readLedger()` (guildState.ts:79) hit the real on-disk `factory/gamification-ledger.json` (workOrdersDone:91), so `mergeLedgerOutcomes(emptyLive, realLedger)` floored the empty-factory outcomes and the honest-zero XP bar rendered a fabricated ~66% fill (violating FRD-09 honest-zero + AC-10-005.3). Fix (test-only, no production-behavior change): `src/app/achievements/_tests/page.test.tsx` now mocks `@/lib/gamification/ledger`'s `readLedger` to zero-totals, neutralizing the ledger floor while keeping the real `mergeLedgerOutcomes` MAX semantics under test. Whole-project gate clean (vitest 359 files / 7180+2xfail, tsc 0, knip 0, biome 0). WO promoted to VERIFIED, reopen_count reset to 0.
+
+## Status Note — 2026-06-30 addendum: `readGuildState`'s per-project status read is now live-decisions-aware (DR-092)
+
+**Bug found by the owner:** `readGuildState()` (`guildState.ts`) builds `state.statuses` via
+`readPortfolio().map(entry => readStatus(...))` — every consumer of `state.statuses[i].pendingDecisions`
+(the "Tu turno" pending-decisions sum on the Inicio dashboard, `app/page.tsx::deriveTurnItems`) was
+reading the same stale `pending_decisions` YAML counter as the portfolio rail badge (WO-03-001).
+
+**Fix:** swapped `readStatus` → `readStatusWithLiveDecisions` (WO-01-005) at this one call site.
+No other `GuildState` field changed; `readStatus()` itself untouched.
+
+**New test:** `readGuildState — single source of truth` gained
+`"pendingDecisions is the live decisions.md count, not the stale status.yaml counter (DR-092)"` in
+`guildState.test.ts` — same stale-counter-vs-live-count pattern as WO-03-001's regression test.
+`src/app/achievements/_tests/page.test.tsx`'s `@/lib/status/status` mock updated to also stub
+`readStatusWithLiveDecisions` (it previously only stubbed `readStatus`, which this call site no
+longer calls).
+
+**verify.sh at this addendum:** GREEN (same run as WO-04-001's addendum).

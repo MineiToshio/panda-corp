@@ -43,7 +43,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { FIXTURE_FULL } from "@/tests/fixtures";
-import { readStatus } from "../status";
+import { readStatus, readStatusWithLiveDecisions } from "../status";
 
 // ---------------------------------------------------------------------------
 // Types (mirror the contract in wo-01-005-read-status.md and blueprint §2).
@@ -937,5 +937,57 @@ describe("frd-01: readStatus — snake_case → camelCase mapping exhaustive swe
     const result = readStatus(tempProject) as StatusResult;
     if (!result.present) throw new Error("Expected present: true");
     expect((result.status as Record<string, unknown>)[field]).toBe(expected);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// readStatusWithLiveDecisions — DR-092 single-source override of pendingDecisions
+// ---------------------------------------------------------------------------
+
+describe("frd-01: readStatusWithLiveDecisions — pendingDecisions overridden by the live decisions.md count", () => {
+  it("overrides a stale status.yaml pending_decisions with the live count from decisions.md", () => {
+    const dir = makeTempProject(["phase: implementation", "pending_decisions: 99"].join("\n"));
+    try {
+      fs.mkdirSync(path.join(dir, ".pandacorp", "inbox"), { recursive: true });
+      fs.writeFileSync(
+        path.join(dir, ".pandacorp", "inbox", "decisions.md"),
+        "## 2026-06-21 (NECESITA DECISIÓN DEL OWNER) — Solo una pendiente\n",
+        "utf-8",
+      );
+
+      const result = readStatusWithLiveDecisions(dir) as StatusResult;
+      if (!result.present) throw new Error("Expected present: true");
+      expect(result.status.pendingDecisions).toBe(1);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("WHEN decisions.md is absent THEN pendingDecisions is 0, leaving every other field untouched", () => {
+    const dir = makeTempProject(
+      ["phase: release", "pending_decisions: 5", "running: true"].join("\n"),
+    );
+    try {
+      const plain = readStatus(dir) as StatusResult;
+      const withLive = readStatusWithLiveDecisions(dir) as StatusResult;
+      if (!plain.present || !withLive.present) throw new Error("Expected present: true");
+
+      expect(withLive.status.pendingDecisions).toBe(0);
+      expect(withLive.status.phase).toBe(plain.status.phase);
+      expect(withLive.status.running).toBe(plain.status.running);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("WHEN status.yaml is absent THEN returns present:false, same as readStatus, no throw", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-status-live-decisions-absent-"));
+    try {
+      expect(() => readStatusWithLiveDecisions(dir)).not.toThrow();
+      const result = readStatusWithLiveDecisions(dir) as StatusResult;
+      expect(result.present).toBe(false);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

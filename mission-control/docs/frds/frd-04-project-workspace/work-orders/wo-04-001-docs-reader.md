@@ -8,7 +8,7 @@ parent: FRD-04
 implementation_status: VERIFIED
 source_requirements: []
 dependsOn: [WO-01-000, WO-01-001]
-last_updated: '2026-06-17'
+last_updated: '2026-06-30'
 ---
 # WO-04-001 — `lib/docs.ts`: doc tree + raw read + comms readers
 
@@ -103,3 +103,27 @@ Also exports `readProjectDocs` (IF-01, FRD-01 origin) and `FrdModule`/`ProjectDo
 - `lib/docs.wo04002.reviewer.test.ts` — 24 tests: adversarial (CRLF line endings, non-dash bullets, empty/whitespace titles, recommendation bleed, heading robustness — H3/glued/lowercase, verbatim fidelity, symlinked comms read-only).
 
 **verify.sh at commit:** GREEN — 3381 tests pass, 118 files, biome clean, tsc clean.
+
+## Status Note — 2026-06-30 addendum: `readDecisions` real-world heading format (bug fix)
+
+**Bug found by the owner:** the Summary tab's "Puntos de decisión" section (CMP-04-decisions) was
+always empty, regardless of `.pandacorp/inbox/decisions.md`'s real content — `readDecisions` only
+recognized `## OPEN:|CLOSED:|RESOLVED:` H2 blocks (a documented-but-never-actually-written format).
+Every real `decisions.md` (including this very project's) uses the date-prefixed convention agents
+write in practice: `## YYYY-MM-DD (<status phrase>) — <title>`.
+
+**Fix:** `readDecisions` now supports BOTH conventions — the original legacy `OPEN/CLOSED/RESOLVED`
+form (all 87 pre-existing tests still pass unchanged) AND the date-prefixed real-world form, with the
+status phrase matched against resolved/pending Spanish+English keyword sets; an explicit body line
+`- **Estado:** PENDIENTE/RESUELTO` (the `/pandacorp:decide` template's machine field) takes priority
+when present. New export `countPendingDecisions(projectPath)` — the single derived resolver other
+modules now call instead of re-deriving the `filter(!resolved).length` pattern themselves (DR-092).
+
+**New tests:** 10 cases added in `docs.wo04002.test.ts` group "date-prefixed heading format" +
+"countPendingDecisions" (mixed legacy/dated headings in one file, Estado-line override, Spanish
+recommendation line without leading `- `, multi-entry real-MC-shape fixture, fail-loud default for
+an ambiguous heading). `_pushDecision`'s per-line logic extracted into `_consumeLine` to stay under
+Biome's cognitive-complexity cap after the new branching.
+
+**verify.sh at this addendum:** GREEN — 7333 unit tests pass (2 expected-fail unrelated), 66/66 e2e
+pass, tsc/biome/knip clean.

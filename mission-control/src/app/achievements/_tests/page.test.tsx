@@ -25,6 +25,10 @@ vi.mock("@/lib/portfolio/portfolio", () => ({
 
 vi.mock("@/lib/status/status", () => ({
   readStatus: vi.fn().mockReturnValue({ present: false, malformed: false, status: null }),
+  // guildState.ts reads pendingDecisions through this wrapper (DR-092 single source) — see status.ts.
+  readStatusWithLiveDecisions: vi
+    .fn()
+    .mockReturnValue({ present: false, malformed: false, status: null }),
 }));
 
 vi.mock("@/lib/events/events", () => ({
@@ -321,12 +325,12 @@ describe("AC-10-005.5 — design tokens, a11y, keyboard navigation", () => {
 describe("Integration — stats derived from real reader data", () => {
   it("shows non-zero shipped count when portfolio has a release-phase (launched) project", async () => {
     const { readPortfolio } = await import("@/lib/portfolio/portfolio");
-    const { readStatus } = await import("@/lib/status/status");
+    const { readStatusWithLiveDecisions } = await import("@/lib/status/status");
 
     vi.mocked(readPortfolio).mockReturnValueOnce([
       { path: "/fake/project", name: "my-proj" },
     ] as ReturnType<typeof readPortfolio>);
-    vi.mocked(readStatus).mockReturnValueOnce({
+    vi.mocked(readStatusWithLiveDecisions).mockReturnValueOnce({
       present: true,
       malformed: false,
       status: {

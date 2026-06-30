@@ -37,6 +37,7 @@
 import fs from "node:fs";
 import { parse as parseYaml } from "yaml";
 import { projectStatusPath } from "../config/config";
+import { countPendingDecisions } from "../docs/activity";
 import { pathExists } from "../fs-utils/fs-utils";
 
 // ---------------------------------------------------------------------------
@@ -283,4 +284,31 @@ export function readStatus(projectPath: string): StatusResult {
   const status = mapStatusFields(parsed as Record<string, unknown>);
 
   return { present: true, malformed: false, status };
+}
+
+/**
+ * `readStatus` with `pendingDecisions` overridden by the live count from
+ * `.pandacorp/inbox/decisions.md` (`countPendingDecisions`), instead of the stored
+ * `pending_decisions` YAML counter.
+ *
+ * The YAML field is maintenance-only (written by skills as a side effect) and drifts
+ * the moment a decision is resolved without that write happening — every owner-facing
+ * surface must read the SAME live count the Summary tab's decision list reads, never a
+ * second independent derivation (DR-092 single source for derived state).
+ *
+ * `readStatus()` itself is unchanged — still a pure YAML parser; use this wrapper at
+ * any call site that displays `pendingDecisions` to the owner.
+ *
+ * @param projectPath - Absolute path to the project root.
+ * @returns The same `StatusResult` as `readStatus`, with `pendingDecisions` live when present.
+ */
+export function readStatusWithLiveDecisions(projectPath: string): StatusResult {
+  const result = readStatus(projectPath);
+  if (!result.present || result.status === null) {
+    return result;
+  }
+  return {
+    ...result,
+    status: { ...result.status, pendingDecisions: countPendingDecisions(projectPath) },
+  };
 }

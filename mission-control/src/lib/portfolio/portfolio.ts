@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { resolveFactoryRoot, resolveProjectPath } from "../config/config";
 import { pathExists } from "../fs-utils/fs-utils";
-import { type Phase, readStatus, type StatusResult } from "../status/status";
+import { type Phase, readStatusWithLiveDecisions, type StatusResult } from "../status/status";
 
 /**
  * Data-reading module for the portfolio table (FRD-01, CMP-01-portfolio).
@@ -276,7 +276,7 @@ export type ProjectListItem = {
   /** Raw path cell from the portfolio row (verbatim; may be relative or nonexistent). */
   path: string;
   repo?: string;
-  /** Raw StatusResult from readStatus(resolvedPath). */
+  /** Raw StatusResult from readStatusWithLiveDecisions(resolvedPath) — pendingDecisions is live (DR-092). */
   status: StatusResult;
   /** True when the resolved path exists on disk. False for not-found rows (badge-ready). */
   exists: boolean;
@@ -399,7 +399,7 @@ function resolveSnapshot(entry: PortfolioEntry, stage: Phase): ProjectListItem["
  */
 function enrichEntry(entry: PortfolioEntry): ProjectListItem | null {
   const resolvedPath = resolveProjectPath(entry.path);
-  const statusResult = readStatus(resolvedPath);
+  const statusResult = readStatusWithLiveDecisions(resolvedPath);
   const exists = pathExists(resolvedPath);
 
   const stage = resolveStage(entry, statusResult);

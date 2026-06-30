@@ -92,4 +92,25 @@ describe("readGuildState — single source of truth", () => {
     expect(state.statuses).toHaveLength(0);
     expect(state.level).toEqual(computeGuildLevel(state.outcomes));
   });
+
+  it("pendingDecisions is the live decisions.md count, not the stale status.yaml counter (DR-092)", () => {
+    process.env.PANDACORP_FACTORY_ROOT = tmpRoot;
+    writePortfolio("demo");
+    // Deliberately stale/mismatched counter — the bug this regression catches: the
+    // "Tu turno" pending-decisions sum on Inicio must not trust this stored field.
+    writeStatus("demo", ["phase: release", "pending_decisions: 99"].join("\n"));
+    fs.mkdirSync(path.join(tmpRoot, "demo", ".pandacorp", "inbox"), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpRoot, "demo", ".pandacorp", "inbox", "decisions.md"),
+      "## 2026-06-21 (NECESITA DECISIÓN DEL OWNER) — Solo una pendiente\n" +
+        "## 2026-06-20 (RESUELTO por el owner) — Ya resuelta\n",
+      "utf-8",
+    );
+
+    const state = readGuildState();
+
+    expect(state.statuses).toHaveLength(1);
+    expect(state.statuses[0]?.present).toBe(true);
+    expect(state.statuses[0]?.status?.pendingDecisions).toBe(1);
+  });
 });

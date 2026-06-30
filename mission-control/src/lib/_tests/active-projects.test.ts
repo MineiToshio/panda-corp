@@ -39,6 +39,9 @@
  * No mocks — activeProjects() is pure-ish (reads only).
  */
 
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { FIXTURE_FRESH, FIXTURE_FULL, withFactoryRoot } from "../../tests/fixtures";
@@ -590,5 +593,53 @@ describe("frd-03: activeProjects — path field verbatim (REQ-01-010 through com
       // Either form is acceptable; it must contain "proj-a".
       expect(item?.path).toMatch(/proj-a/);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// pendingDecisions is the LIVE count from decisions.md, not the stored YAML
+// counter (DR-092 single source). Regression for the bug where the portfolio
+// rail's badge showed a stale `pending_decisions` value that drifted from the
+// real `.pandacorp/inbox/decisions.md` content the moment a decision was
+// resolved without a write to status.yaml.
+// ---------------------------------------------------------------------------
+
+describe("frd-03: activeProjects — pendingDecisions is the live decisions.md count (DR-092)", () => {
+  it("frd-03: WHEN status.yaml's pending_decisions is stale THEN the item's pendingDecisions reflects the real decisions.md count instead", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-active-projects-pending-"));
+    try {
+      fs.mkdirSync(path.join(dir, ".pandacorp", "inbox"), { recursive: true });
+      // Deliberately stale/mismatched counter — the bug this regression catches.
+      fs.writeFileSync(
+        path.join(dir, ".pandacorp", "status.yaml"),
+        "phase: implementation\npending_decisions: 99\n",
+      );
+      fs.writeFileSync(
+        path.join(dir, ".pandacorp", "inbox", "decisions.md"),
+        "## 2026-06-21 (NECESITA DECISIÓN DEL OWNER) — Solo una pendiente\n" +
+          "## 2026-06-20 (RESUELTO por el owner) — Ya resuelta\n",
+      );
+
+      const content = [
+        "| Name | Path | Repo | Origin idea | Phase | Users | Return metric | Verdict | Last sync |",
+        "|---|---|---|---|---|---|---|---|---|",
+        `| stale-decisions-proj | ${dir} | — | An idea | implementation | — | — | — | 2026-06-15 |`,
+      ].join("\n");
+
+      const result = (
+        activeProjects as (content?: string) => Array<{
+          name: string;
+          status: { present: boolean; status: { pendingDecisions?: number } | null };
+        }>
+      )(content);
+      const item = result.find((p) => p.name === "stale-decisions-proj");
+
+      expect(item).toBeDefined();
+      expect(item?.status.present).toBe(true);
+      // Live count (1 unresolved), NOT the stale YAML counter (99).
+      expect(item?.status.status?.pendingDecisions).toBe(1);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

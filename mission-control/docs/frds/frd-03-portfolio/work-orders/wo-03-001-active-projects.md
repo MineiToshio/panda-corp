@@ -8,7 +8,7 @@ parent: FRD-03
 implementation_status: VERIFIED
 source_requirements: []
 dependsOn: [WO-01-004, WO-01-005, WO-01-001]
-last_updated: '2026-06-17'
+last_updated: '2026-06-30'
 ---
 # WO-03-001 — `activeProjects` compose helper
 
@@ -93,3 +93,20 @@ export function activeProjects(content?: string): ProjectListItem[];
 - `lib/active-projects.test.ts` — 46 acceptance tests (RED phase, TDD-verified)
 - `lib/active-projects.adversarial.test.ts` — 10 adversarial tests (DR-015 reviewer, Opus 4.8)
 - Total: 56 tests, all passing. `bash .pandacorp/verify.sh` → 113 files, 3269 tests pass, biome + tsc clean (2026-06-17).
+
+## Status Note — 2026-06-30 addendum: pendingDecisions now live (DR-092), not the stored YAML field
+
+**Bug found by the owner:** `enrichEntry()` built each `ProjectListItem.status` straight from
+`readStatus(resolvedPath)` — the portfolio rail's "Decisiones pendientes" badge therefore showed the
+maintenance-only `pending_decisions` YAML counter, which can drift from the real
+`.pandacorp/inbox/decisions.md` content.
+
+**Fix:** `enrichEntry()` now calls `readStatusWithLiveDecisions(resolvedPath)` (WO-01-005) instead of
+`readStatus` — `pendingDecisions` is the live count, the same one the project workspace's Summary tab
+already showed correctly (it already called `readDecisions` directly). No other field changed.
+
+**New test:** `frd-03: activeProjects — pendingDecisions is the live decisions.md count (DR-092)` in
+`active-projects.test.ts` — a temp project with a deliberately stale `pending_decisions: 99` proves
+the returned item reflects the real 1-unresolved count instead.
+
+**verify.sh at this addendum:** GREEN (same run as WO-04-001's addendum).

@@ -61,7 +61,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { FIXTURE_FULL } from "@/tests/fixtures";
-import { readActivityLog, readDecisions } from "../activity";
+import { countPendingDecisions, readActivityLog, readDecisions } from "../activity";
 
 // ---------------------------------------------------------------------------
 // Local type mirrors — mirror the IF-04-docs contract.
@@ -917,6 +917,207 @@ describe("frd-04: regression B1' — readActivityLog + readDecisions counts must
       const result = readDecisions(dir) as DecisionPoint[];
       expect(Number.isFinite(result.length)).toBe(true);
       expect(result.length).toBe(0);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Real-world date-prefixed heading format — the actual shape `/pandacorp:decide`
+// and agents write in practice (DR-078: parse the real shape, not just the
+// documented one). Fixed bug: this format previously matched nothing, so the
+// Decisions section was always empty regardless of file content.
+// ---------------------------------------------------------------------------
+
+describe("frd-04: readDecisions — AC-04-003.3 date-prefixed heading format (real-world shape)", () => {
+  it("frd-04: AC-04-003.3 — a 'NECESITA DECISIÓN DEL OWNER' dated heading is unresolved", () => {
+    const dir = makeTempProject((root) => {
+      fs.mkdirSync(path.join(root, ".pandacorp", "inbox"), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, ".pandacorp", "inbox", "decisions.md"),
+        "# Decisiones pendientes\n\n" +
+          "## 2026-06-21 (NECESITA DECISIÓN DEL OWNER) — FRD-03 (Portfolio) · WO-03-002 parada\n" +
+          "Texto del bloque.\n",
+      );
+    });
+    try {
+      const result = readDecisions(dir) as DecisionPoint[];
+      expect(result).toHaveLength(1);
+      expect(result[0]?.title).toBe("FRD-03 (Portfolio) · WO-03-002 parada");
+      expect(result[0]?.resolved).toBe(false);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("frd-04: AC-04-003.3 — a 'RESUELTO por el owner' dated heading is resolved", () => {
+    const dir = makeTempProject((root) => {
+      fs.mkdirSync(path.join(root, ".pandacorp", "inbox"), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, ".pandacorp", "inbox", "decisions.md"),
+        "# Decisiones pendientes\n\n" +
+          "## 2026-06-21 (RESUELTO por el owner) — WO-03-002 → OPCIÓN A\n" +
+          "Detalle de la resolución.\n",
+      );
+    });
+    try {
+      const result = readDecisions(dir) as DecisionPoint[];
+      expect(result).toHaveLength(1);
+      expect(result[0]?.title).toBe("WO-03-002 → OPCIÓN A");
+      expect(result[0]?.resolved).toBe(true);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("frd-04: AC-04-003.3 — a 'SUPERSEDIDO' dated heading is resolved", () => {
+    const dir = makeTempProject((root) => {
+      fs.mkdirSync(path.join(root, ".pandacorp", "inbox"), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, ".pandacorp", "inbox", "decisions.md"),
+        "## 2026-06-18 (SUPERSEDIDO) — el freeze de FRD-06 ya NO aplica\n",
+      );
+    });
+    try {
+      const result = readDecisions(dir) as DecisionPoint[];
+      expect(result).toHaveLength(1);
+      expect(result[0]?.resolved).toBe(true);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("frd-04: AC-04-003.3 — the canonical template heading (no status phrase) with an explicit '- **Estado:** PENDIENTE' body line is unresolved", () => {
+    const dir = makeTempProject((root) => {
+      fs.mkdirSync(path.join(root, ".pandacorp", "inbox"), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, ".pandacorp", "inbox", "decisions.md"),
+        "## 2026-06-21 — Título corto de la decisión\n" +
+          "- **Qué decidir:** algo.\n" +
+          "- **Estado:** PENDIENTE\n",
+      );
+    });
+    try {
+      const result = readDecisions(dir) as DecisionPoint[];
+      expect(result).toHaveLength(1);
+      expect(result[0]?.title).toBe("Título corto de la decisión");
+      expect(result[0]?.resolved).toBe(false);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("frd-04: AC-04-003.3 — a template heading with '- **Estado:** RESUELTO: …' overrides an absent/ambiguous phrase as resolved", () => {
+    const dir = makeTempProject((root) => {
+      fs.mkdirSync(path.join(root, ".pandacorp", "inbox"), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, ".pandacorp", "inbox", "decisions.md"),
+        "## 2026-06-21 — Título corto de la decisión\n" +
+          "- **Estado:** RESUELTO: Opción A (2026-06-21)\n",
+      );
+    });
+    try {
+      const result = readDecisions(dir) as DecisionPoint[];
+      expect(result).toHaveLength(1);
+      expect(result[0]?.resolved).toBe(true);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("frd-04: AC-04-003.3 — a Spanish '**Recomendación (del agente):**' line (no leading '- ') is captured as recommendation", () => {
+    const dir = makeTempProject((root) => {
+      fs.mkdirSync(path.join(root, ".pandacorp", "inbox"), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, ".pandacorp", "inbox", "decisions.md"),
+        "## 2026-06-21 (NECESITA DECISIÓN DEL OWNER) — Elegir A o B\n" +
+          "**Recomendación (del agente):** opción A, por X razón.\n",
+      );
+    });
+    try {
+      const result = readDecisions(dir) as DecisionPoint[];
+      expect(result).toHaveLength(1);
+      expect(result[0]?.recommendation).toBe("opción A, por X razón.");
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("frd-04: AC-04-003.3 — a multi-entry file mixes dated and legacy headings correctly (real MC shape: most-recent-on-top, '---' separators)", () => {
+    const dir = makeTempProject((root) => {
+      fs.mkdirSync(path.join(root, ".pandacorp", "inbox"), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, ".pandacorp", "inbox", "decisions.md"),
+        "# Decisiones pendientes\n\n" +
+          "## 2026-06-21 (RESUELTO por el owner) — WO-03-002 → OPCIÓN A\n" +
+          "Resuelto.\n\n" +
+          "---\n\n" +
+          "## 2026-06-18 (NECESITA DECISIÓN DEL OWNER) — FRD-06 congelado\n" +
+          "Pendiente.\n\n" +
+          "---\n\n" +
+          "## CLOSED: legacy block still works\n" +
+          "- Done.\n",
+      );
+    });
+    try {
+      const result = readDecisions(dir) as DecisionPoint[];
+      expect(result).toHaveLength(3);
+      const pending = result.filter((d) => !d.resolved);
+      expect(pending).toHaveLength(1);
+      expect(pending[0]?.title).toBe("FRD-06 congelado");
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("frd-04: AC-04-003.3 — a dated heading with no status phrase and no Estado line defaults to unresolved (fail-loud: surface, don't hide)", () => {
+    const dir = makeTempProject((root) => {
+      fs.mkdirSync(path.join(root, ".pandacorp", "inbox"), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, ".pandacorp", "inbox", "decisions.md"),
+        "## 2026-06-18 — FRD-06 bloqueado por una regresión de color (token `--x`) — CERRADO arriba\n",
+      );
+    });
+    try {
+      const result = readDecisions(dir) as DecisionPoint[];
+      expect(result).toHaveLength(1);
+      // No parenthetical status phrase right after the date → no signal → default unresolved.
+      expect(result[0]?.resolved).toBe(false);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// countPendingDecisions — the single derived resolver (DR-092)
+// ---------------------------------------------------------------------------
+
+describe("frd-04: countPendingDecisions — DR-092 single derived count", () => {
+  it("frd-04: countPendingDecisions equals readDecisions(...).filter(!resolved).length", () => {
+    const dir = makeTempProject((root) => {
+      fs.mkdirSync(path.join(root, ".pandacorp", "inbox"), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, ".pandacorp", "inbox", "decisions.md"),
+        "## 2026-06-21 (NECESITA DECISIÓN DEL OWNER) — Uno pendiente\n" +
+          "## 2026-06-20 (RESUELTO por el owner) — Uno resuelto\n",
+      );
+    });
+    try {
+      const result = readDecisions(dir) as DecisionPoint[];
+      expect(countPendingDecisions(dir)).toBe(result.filter((d) => !d.resolved).length);
+      expect(countPendingDecisions(dir)).toBe(1);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("frd-04: countPendingDecisions — WHEN decisions.md is absent THEN returns 0, never throws", () => {
+    const dir = makeTempProject();
+    try {
+      expect(() => countPendingDecisions(dir)).not.toThrow();
+      expect(countPendingDecisions(dir)).toBe(0);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
