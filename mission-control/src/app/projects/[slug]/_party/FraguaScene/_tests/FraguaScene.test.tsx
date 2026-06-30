@@ -130,7 +130,25 @@ describe("FraguaScene — one sprite per running WO (AC-06-001.1)", () => {
 
   it("frd-06: WHEN no WOs are running THEN no fragua-wo sprite is rendered", () => {
     render(<FraguaScene snapshot={snap({ running: [] })} />);
-    // There should be no sprites in the forge
+    // No running WOs → no sprite wrappers anywhere on the stage.
+    const stage = screen.getByTestId("fragua-stage");
+    expect(stage.querySelector("[data-testid^='fragua-wo-']")).toBeNull();
+  });
+
+  it("frd-06: WHEN a WO is running THEN its sprite wrapper lives at the stage level, NOT inside a room", () => {
+    // The moving WO sprites are a stage-level layer (driven imperatively by the
+    // engine) so they can walk BETWEEN rooms; they must not be a room child.
+    render(
+      <FraguaScene
+        snapshot={snap({
+          running: [{ wo: "WO-06-001", title: "Walker", state: "building" }],
+        })}
+      />,
+    );
+    const sprite = screen.getByTestId("fragua-wo-WO-06-001");
+    // Direct child of the stage, not nested inside the forge/tribunal room.
+    const stage = screen.getByTestId("fragua-stage");
+    expect(sprite.parentElement).toBe(stage);
     const forgeRoom = screen.getByTestId("fragua-room-forge");
     expect(forgeRoom.querySelector("[data-testid^='fragua-wo-']")).toBeNull();
   });

@@ -62,7 +62,7 @@
  *                  REQ-06-005, REQ-06-006, REQ-06-007, REQ-06-009
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import { AgentSprite } from "@/components/modules/party/AgentSprite/AgentSprite";
 import { JudgeSprite } from "@/components/modules/party/JudgeSprite/JudgeSprite";
@@ -71,9 +71,8 @@ import { Room } from "@/components/modules/party/Room/Room";
 import { StoneBridge } from "@/components/modules/party/StoneBridge/StoneBridge";
 
 import { DeepRelay } from "../DeepRelay/DeepRelay";
-import type { FraguaEngine } from "../engine/engine";
-import { createFraguaEngine } from "../engine/engine";
 import type { FraguaSnapshot } from "../fragua-snapshot/fragua-snapshot";
+import { useFraguaSprites } from "./useFraguaSprites";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -121,22 +120,6 @@ const DEEP_SLOTS: ReadonlyArray<readonly [number, number]> = [
   [320, 255],
   [140, 360],
   [320, 360],
-] as const;
-
-// Tribunal review slots (12, for reviewer WO sprites during review)
-const REVIEW_SLOTS: ReadonlyArray<readonly [number, number]> = [
-  [538, 190],
-  [628, 190],
-  [718, 190],
-  [808, 190],
-  [538, 275],
-  [628, 275],
-  [718, 275],
-  [808, 275],
-  [538, 360],
-  [628, 360],
-  [718, 360],
-  [808, 360],
 ] as const;
 
 // Reviewer / judge home position in the tribunal
@@ -372,53 +355,23 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
   });
 
   // -------------------------------------------------------------------------
-  // Engine lifecycle + RAF loop
+  // Engine lifecycle + RAF loop — drives the stage-level sprite layer.
+  // React owns the sprite LIST (from `running`); the RAF loop owns their
+  // POSITIONS, read from `engine.wos()` and written imperatively each frame so
+  // a WO actually WALKS between rooms along the bridges (AC-06-003.2).
   // -------------------------------------------------------------------------
-  const engineRef = useRef<FraguaEngine | null>(null);
-  const runIdRef = useRef<number>(0);
-
-  useEffect(() => {
-    const engine = createFraguaEngine({ mode, wave: snapshot.wave });
-
-    for (const { wo, state } of running) {
-      engine.setWo(wo, state);
-    }
-    for (const { wo: twoId } of trophies) {
-      engine.verifyWo(twoId);
-    }
-    if (gate.open) engine.openGate();
-
-    engineRef.current = engine;
-
-    if (reducedMotion) {
-      return () => {
-        runIdRef.current++;
-        engineRef.current = null;
-      };
-    }
-
-    const myRunId = ++runIdRef.current;
-
-    function tick(): void {
-      if (runIdRef.current !== myRunId) return;
-      if (typeof document !== "undefined" && document.hidden) {
-        requestAnimationFrame(tick);
-        return;
-      }
-      engineRef.current?.tick(performance.now());
-      requestAnimationFrame(tick);
-    }
-
-    requestAnimationFrame(tick);
-
-    return () => {
-      runIdRef.current++;
-      engineRef.current = null;
-    };
-  }, [mode, snapshot.wave, running, trophies, gate.open, reducedMotion]);
+  const { registerSprite } = useFraguaSprites({
+    running,
+    trophies,
+    gate,
+    mode,
+    wave: snapshot.wave,
+    reducedMotion,
+  });
 
   // -------------------------------------------------------------------------
-  // Compute sprite slots per mode
+  // Compute sprite slots per mode (used only for the first-paint static fallback;
+  // the engine drives the live positions through `registerSprite`).
   // -------------------------------------------------------------------------
   const forgeSlots = mode === "deep" ? DEEP_SLOTS : FORGE_SLOTS;
 
@@ -537,45 +490,10 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
               height: `${FORGE_RECT.height}px`,
             }}
           >
-            {/* Running WO sprites — one AgentSprite per WO ≤ wave */}
-            {running.map(({ wo, title, relay }, idx) => {
-              const slot = forgeSlots[idx] ?? forgeSlots[0];
-              // Position relative to stage origin → relative to room origin
-              const relX = (slot?.[0] ?? 0) - FORGE_RECT.left - SPRITE_HALF;
-              const relY = (slot?.[1] ?? 0) - FORGE_RECT.top - SPRITE_HALF;
-
-              return mode === "deep" ? (
-                <div
-                  key={wo}
-                  data-testid={`fragua-wo-${wo}`}
-                  data-wo={wo}
-                  title={`${wo} — ${title}`}
-                  style={{ position: "absolute", left: relX, top: relY }}
-                >
-                  <DeepRelay
-                    wo={wo}
-                    relay={relay ?? { step: "test", contractPublished: false }}
-                    hasFrontend={relay !== undefined}
-                  />
-                </div>
-              ) : (
-                <div
-                  key={wo}
-                  data-testid={`fragua-wo-${wo}`}
-                  data-wo={wo}
-                  title={`${wo} — ${title}`}
-                  style={{ position: "absolute", left: relX, top: relY }}
-                >
-                  <AgentSprite
-                    agentRole="implementer"
-                    state={woStateToSpriteState(
-                      snapshot.running.find((r) => r.wo === wo)?.state ?? "building",
-                    )}
-                    woId={wo}
-                  />
-                </div>
-              );
-            })}
+            {/* Running WO sprites are NOT rendered here anymore: they live in
+                the stage-level sprite layer (below the rooms in this file) so the
+                engine can WALK them between rooms along the bridges (AC-06-003.2).
+                The forge Room stays as a background layer. */}
 
             {/* "+N en cola" badge (AC-06-001.3) */}
             {queuedCount > 0 && (
@@ -651,24 +569,9 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
                 </div>
               )}
 
-              {/* WOs in review — positioned in the tribunal review slots */}
-              {running
-                .filter((r) => r.state === "in_review")
-                .map(({ wo, title }, idx) => {
-                  const slot = REVIEW_SLOTS[idx] ?? REVIEW_SLOTS[0];
-                  const relX = (slot?.[0] ?? 0) - TRIBUNAL_RECT.left - SPRITE_HALF;
-                  const relY = (slot?.[1] ?? 0) - TRIBUNAL_RECT.top - SPRITE_HALF;
-                  return (
-                    <div
-                      key={wo}
-                      data-wo={wo}
-                      title={`${wo} — ${title}`}
-                      style={{ position: "absolute", left: relX, top: relY }}
-                    >
-                      <AgentSprite agentRole="implementer" state="review" woId={wo} />
-                    </div>
-                  );
-                })}
+              {/* WOs in review are NOT rendered here anymore: an in_review WO is
+                  a moving sprite that WALKS forge→tribunal, so it lives in the
+                  stage-level sprite layer (AC-06-003.2), not as a static slot. */}
             </div>
           </Room>
         </div>
@@ -723,6 +626,51 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
             )}
           </Room>
         </div>
+
+        {/* ================================================================
+            STAGE-LEVEL SPRITE LAYER — the MOVING WO sprites (forge + tribunal).
+            One wrapper per running WO, positioned in STAGE coordinates and
+            driven imperatively from `engine.wos()` every frame (see
+            useFraguaSprites) so a WO WALKS between rooms (AC-06-003.2).
+            Verified trophies stay in the vault Room above (static, they don't move).
+            ================================================================ */}
+        {running.map(({ wo, title, state, relay }, idx) => {
+          // First-paint static fallback (SSR-stable): the engine takes over once
+          // mounted, writing left/top from its animated positions.
+          const slot = forgeSlots[idx] ?? forgeSlots[0];
+          const initLeft = (slot?.[0] ?? 0) - SPRITE_HALF;
+          const initTop = (slot?.[1] ?? 0) - SPRITE_HALF;
+
+          return (
+            <div
+              key={wo}
+              ref={registerSprite(wo)}
+              data-testid={`fragua-wo-${wo}`}
+              data-wo={wo}
+              title={`${wo} — ${title}`}
+              style={{
+                position: "absolute",
+                left: `${initLeft}px`,
+                top: `${initTop}px`,
+                zIndex: 6,
+              }}
+            >
+              {mode === "deep" ? (
+                <DeepRelay
+                  wo={wo}
+                  relay={relay ?? { step: "test", contractPublished: false }}
+                  hasFrontend={relay !== undefined}
+                />
+              ) : (
+                <AgentSprite
+                  agentRole="implementer"
+                  state={woStateToSpriteState(state)}
+                  woId={wo}
+                />
+              )}
+            </div>
+          );
+        })}
       </div>
     </section>
   );
