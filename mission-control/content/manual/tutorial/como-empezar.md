@@ -57,7 +57,7 @@ Luego, dentro del proyecto:
 ```
 cd <ruta-del-proyecto>
 /pandacorp:design
-/pandacorp:blueprint
+/pandacorp:architecture
 /pandacorp:implement
 ```
 

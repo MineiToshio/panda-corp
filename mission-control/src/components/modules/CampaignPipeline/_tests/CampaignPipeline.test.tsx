@@ -527,9 +527,9 @@ describe("ficha-next-step — per-phase runnable commands", () => {
     // activePhase=5 (release) is open by default → first command is /pandacorp:iterate.
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={5} />);
     expect(screen.getByTestId("ficha-next-step")).toHaveTextContent("/pandacorp:iterate");
-    // Click the (done) design phase → its advance command is /pandacorp:blueprint.
+    // Click the (done) design phase → its advance command is /pandacorp:architecture.
     fireEvent.click(screen.getByTestId("campaign-phase-design"));
-    expect(screen.getByTestId("ficha-next-step")).toHaveTextContent("/pandacorp:blueprint");
+    expect(screen.getByTestId("ficha-next-step")).toHaveTextContent("/pandacorp:architecture");
   });
 });
 

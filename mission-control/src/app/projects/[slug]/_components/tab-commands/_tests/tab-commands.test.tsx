@@ -205,10 +205,10 @@ describe("TabCommands — early phases", () => {
     expect(commands.some((c) => c.includes("/pandacorp:design"))).toBe(true);
   });
 
-  it("phase='design': command contains /pandacorp:blueprint", () => {
+  it("phase='design': command contains /pandacorp:architecture", () => {
     renderCommands("design");
     const commands = screen.getAllByTestId("command-row-command").map((el) => el.textContent ?? "");
-    expect(commands.some((c) => c.includes("/pandacorp:blueprint"))).toBe(true);
+    expect(commands.some((c) => c.includes("/pandacorp:architecture"))).toBe(true);
   });
 
   it("phase='architecture': command contains /pandacorp:implement", () => {

@@ -36,7 +36,7 @@ Las habilidades principales del ciclo de vida:
 | `/pandacorp:new-idea` | Cristalizar una idea en una tarjeta |
 | `/pandacorp:spec` | Crear el proyecto y documentar el MVP |
 | `/pandacorp:design` | Mockups y sistema de diseño |
-| `/pandacorp:blueprint` | Arquitectura + work orders |
+| `/pandacorp:architecture` | Arquitectura + work orders |
 | `/pandacorp:implement` | Construcción autónoma |
 | `/pandacorp:iterate` | Añadir features o cambiar comportamientos |
 | `/pandacorp:release` | Auditoría + plan de lanzamiento |

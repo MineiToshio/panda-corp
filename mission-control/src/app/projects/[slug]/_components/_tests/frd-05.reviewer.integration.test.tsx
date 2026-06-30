@@ -286,7 +286,7 @@ describe("FRD-05 integration: empty project (AC-05-006.1)", () => {
       render(<TabWorkOrders orders={orders} />);
       expect(screen.getByTestId("wo-empty")).toBeInTheDocument();
       // The command appears both in the body copy and the CopyButton label.
-      expect(screen.getAllByText(/pandacorp:blueprint/).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText(/pandacorp:architecture/).length).toBeGreaterThanOrEqual(1);
       // No board, no progress bar when empty.
       expect(screen.queryByTestId("wo-board")).toBeNull();
       expect(screen.queryByTestId("wo-progress")).toBeNull();

@@ -1,6 +1,6 @@
 # Stack A — Full-stack web app (Next.js) · default suggestion
 
-Installation guide for `/pandacorp:blueprint`, full-stack web case. It's the **recommended starting point** (`factory/standards/stack.md`), NOT a mandate: the `architect` can propose better alternatives and the owner approves in the blueprint. **Always use the latest stable versions** for a new project (`@latest`); an older/brownfield project installs only versions **compatible with its framework major** (DR-052). Recommended stack: Next.js + React + TypeScript + Tailwind + **Prisma** + **Better Auth** + **next-intl** + **PostHog** + **Sentry** + Vitest + Playwright + **Biome** (the single format+lint tool — no Prettier, no ESLint) + **npm**, `src/` structure with the data layer in `queries/`.
+Installation guide for `/pandacorp:architecture`, full-stack web case. It's the **recommended starting point** (`factory/standards/stack.md`), NOT a mandate: the `architect` can propose better alternatives and the owner approves in the blueprint. **Always use the latest stable versions** for a new project (`@latest`); an older/brownfield project installs only versions **compatible with its framework major** (DR-052). Recommended stack: Next.js + React + TypeScript + Tailwind + **Prisma** + **Better Auth** + **next-intl** + **PostHog** + **Sentry** + Vitest + Playwright + **Biome** (the single format+lint tool — no Prettier, no ESLint) + **npm**, `src/` structure with the data layer in `queries/`.
 
 ## Canonical config files (installed VERBATIM, conformance-checked — DR-059)
 

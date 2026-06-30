@@ -28,10 +28,13 @@
 import { FavoriteButton } from "@/components/core/FavoriteButton/FavoriteButton";
 import type { IdeaCardProps } from "@/components/modules/IdeaCard/IdeaCard";
 import { IdeaCard } from "@/components/modules/IdeaCard/IdeaCard";
+import type { Adr } from "@/lib/architecture/adr";
+import type { EnvVar } from "@/lib/architecture/env";
 import type { BoardColumn } from "@/lib/board/board";
 import type { DocNode } from "@/lib/docs/tree";
 import type { FavoriteResult } from "@/lib/favorite/favorite";
 import type { DeployTarget, Phase } from "@/lib/status/status";
+import type { WorkOrder } from "@/lib/work-orders/work-orders";
 
 // ---------------------------------------------------------------------------
 // Column definitions — the 7 canonical columns (FRD-02, blueprint §2)
@@ -116,6 +119,17 @@ export interface BoardCardEntry extends IdeaCardProps {
    * absent → the tab is hidden.
    */
   specContent?: string;
+  /**
+   * Spanish high-level architecture digest from readArchitectureDigest in page.tsx, for in-pipeline
+   * projects past the design phase. Forwarded to CardDetail's Arquitectura tab; absent → tab hidden.
+   */
+  architectureContent?: string;
+  /** Live work orders (listWorkOrders) for the Arquitectura tab's implementation-plan DAG. */
+  workOrders?: WorkOrder[];
+  /** Live env vars (`.env.example`) for the Arquitectura tab. */
+  envVars?: EnvVar[];
+  /** Live ADRs (`docs/adr/*`) for the Arquitectura tab. */
+  adrs?: Adr[];
   /** `discard_reason` (discarded cards only) — shown in the "Ver descartadas" modal + the detail. */
   discardReason?: string;
 }

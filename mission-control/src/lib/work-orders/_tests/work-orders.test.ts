@@ -658,7 +658,7 @@ describe("frd-05: relPath correctness — points to the actual wo-*.md file", ()
 // ---------------------------------------------------------------------------
 // AC-05-006.1 — Project with no work orders at all → empty result
 // Traceability: AC-05-006.1 "WHEN a project has no work orders, the view SHALL
-// show a message that they are generated in /pandacorp:blueprint"
+// show a message that they are generated in /pandacorp:architecture"
 // (the lib layer returns []; the UI layer CMP-05-empty renders the message)
 // ---------------------------------------------------------------------------
 

@@ -27,12 +27,16 @@ import {
 } from "@/app/board/actions/actions";
 import { readBoardDoc } from "@/app/board/actions/read-doc";
 import type { BoardCardEntry } from "@/app/board/IdeaBoardView/IdeaBoardView";
+import { readAdrs } from "@/lib/architecture/adr";
+import { readEnvExample } from "@/lib/architecture/env";
+import { readArchitectureDigest } from "@/lib/architecture/read-architecture";
 import { deriveColumn } from "@/lib/board/board";
 import { resolveProjectPath } from "@/lib/config/config";
 import { type DocNode, listProjectDocs } from "@/lib/docs/tree";
 import { readIdeas } from "@/lib/ideas/ideas";
 import { readSpecDigest } from "@/lib/spec/read-spec";
 import { readStatus } from "@/lib/status/status";
+import { listWorkOrders, type WorkOrder } from "@/lib/work-orders/work-orders";
 
 // ---------------------------------------------------------------------------
 // Scoped doc set (DR-046 / FRD-02): the Documentos tab surfaces ONLY the
@@ -86,11 +90,26 @@ export default function BoardPage(): React.JSX.Element {
     let docNodes: DocNode[] | undefined;
     // Spanish spec digest for the card-detail Spec tab (in-pipeline, past product phase).
     let specContent: string | undefined;
+    // Architecture digest + its live artifacts for the card-detail Arquitectura tab
+    // (in-pipeline, past the design phase). The DAG/ADRs/env are read live from the real
+    // artifacts so they never drift; the narrative comes from the digest.
+    let architectureContent: string | undefined;
+    let workOrders: WorkOrder[] | undefined;
+    let envVars: ReturnType<typeof readEnvExample> | undefined;
+    let adrs: ReturnType<typeof readAdrs> | undefined;
     if (card.status === "in-pipeline" && card.project) {
       const projectPath = resolveProjectPath(card.project);
       projectStatus = readStatus(projectPath);
       docNodes = listProjectDocs(projectPath).filter(isScopedBoardDoc);
       specContent = readSpecDigest(projectPath) ?? undefined;
+      architectureContent = readArchitectureDigest(projectPath) ?? undefined;
+      // Only read the (heavier) live architecture artifacts once the digest exists — i.e. the
+      // project reached the architecture phase and the tab will actually render them.
+      if (architectureContent != null) {
+        workOrders = listWorkOrders(projectPath);
+        envVars = readEnvExample(projectPath);
+        adrs = readAdrs(projectPath);
+      }
     }
 
     const boardColumn = deriveColumn(card, projectStatus);
@@ -131,6 +150,11 @@ export default function BoardPage(): React.JSX.Element {
       docNodes,
       // Spanish high-level spec digest (PRD + research + FRDs) for the Spec tab.
       specContent,
+      // Spanish high-level architecture digest + its live artifacts for the Arquitectura tab.
+      architectureContent,
+      workOrders,
+      envVars,
+      adrs,
     };
   });
 

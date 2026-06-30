@@ -99,7 +99,7 @@ last_updated: '2026-06-19'
 ## 4. States (empty / loading / error)
 
 - **Empty:** no work orders → Observabilidad shows the WO-board empty line ("Los work orders se generan
-  en /pandacorp:blueprint"); the timeline/DAG render their frame with no rows rather than blank. No
+  en /pandacorp:architecture"); the timeline/DAG render their frame with no rows rather than blank. No
   projects → cartera shows the empty card with `/pandacorp:spec`. No 24h activity → digest shows "Sin
   actividad en las últimas 24 h." KPI tiles show `0` (pixel, `tabular-nums`), never blank.
 - **Loading:** server-delivered KPIs/timeline/DAG render directly (no skeleton, Next.js rule).

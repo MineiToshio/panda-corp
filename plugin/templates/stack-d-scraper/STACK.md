@@ -1,6 +1,6 @@
 # Stack D — Data collection / scraping / notifications (Python)
 
-Installation guide for `/pandacorp:blueprint`. Use case: scrapers, real-time trackers, monitors with alerts (e.g.: Funko catalog).
+Installation guide for `/pandacorp:architecture`. Use case: scrapers, real-time trackers, monitors with alerts (e.g.: Funko catalog).
 
 ## Installation
 

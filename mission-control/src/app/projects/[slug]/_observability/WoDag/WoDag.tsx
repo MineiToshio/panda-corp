@@ -160,7 +160,7 @@ export function WoDag({ workOrders, project }: WoDagProps): React.JSX.Element {
             textAlign: "center",
           }}
         >
-          Los work orders se generan en /pandacorp:blueprint
+          Los work orders se generan en /pandacorp:architecture
         </div>
       </div>
     );

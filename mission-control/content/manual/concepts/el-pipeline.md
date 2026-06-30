@@ -32,7 +32,7 @@ Se documenta la arquitectura técnica de la plataforma (`docs/product/architectu
 
 Antes de pasar a construir, el blueprint cruza un **readiness gate** (DR-100): cada requisito mapea a un componente, **cada criterio de aceptación lo cubre exactamente una work order**, el modelo de datos no tiene huecos (`TBD`), el grafo de dependencias es acíclico, la foundation está completa y **no queda ninguna pregunta abierta sin resolver** (`[NEEDS CLARIFICATION]` bloquea). Un blueprint con agujeros produce work orders ambiguas, así que la cohesión se **verifica**, no se confía.
 
-Habilidad: `/pandacorp:blueprint`.
+Habilidad: `/pandacorp:architecture`.
 
 ### 4. Build (Implement)
 

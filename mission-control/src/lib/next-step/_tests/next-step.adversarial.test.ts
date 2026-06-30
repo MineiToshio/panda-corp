@@ -28,7 +28,7 @@ import { type NextStep, nextStep } from "../next-step";
 const PIPELINE_COMMANDS = [
   "/pandacorp:spec <idea>",
   "/pandacorp:design",
-  "/pandacorp:blueprint",
+  "/pandacorp:architecture",
   "/pandacorp:implement",
   "/pandacorp:release",
 ];
@@ -218,6 +218,6 @@ describe("frd-02 adversarial: input integrity with extra keys", () => {
     } as never;
     expect(() => nextStep(input)).not.toThrow();
     const result = nextStep(input);
-    expect(result.command).toBe("/pandacorp:blueprint");
+    expect(result.command).toBe("/pandacorp:architecture");
   });
 });

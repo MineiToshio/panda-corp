@@ -22,4 +22,4 @@ Read-only kanban of the work orders' state, with their FRD and reading the full 
 - **Real-time / event-driven**: the work-order board SHALL update LIVE as the agents change work-order state — when a work order moves column (e.g. into Review, Fail or Done) the board SHALL reflect it without the owner reloading the page.
 
 ## Edge cases
-- Project with no work orders yet → message indicating they are generated in `/pandacorp:blueprint`.
+- Project with no work orders yet → message indicating they are generated in `/pandacorp:architecture`.

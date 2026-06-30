@@ -1,6 +1,6 @@
 #!/bin/bash
 # Pandacorp Stop gate: prevents declaring "done" with a broken project.
-# Runs the project's own .pandacorp/verify.sh if it exists (created by /pandacorp:blueprint).
+# Runs the project's own .pandacorp/verify.sh if it exists (created by /pandacorp:architecture).
 # Exit 2 = keep working (stderr shown to the model). Exit 0 = allow stop.
 #
 # PHASE-AWARE (DR-063): the strict whole-project suite must NOT run as the gate of EVERY Stop

@@ -4,6 +4,36 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-06-29 — Nueva pestaña "Arquitectura" en el detalle de proyecto del tablero (REQ-02-013)
+**What:** Se añadió una pestaña **Arquitectura** al detalle de tarjeta (`Propuesta · Spec · Arquitectura ·
+Documentos · Campaña`), visible solo cuando el proyecto tiene digest de arquitectura
+(`.pandacorp/comms/arquitectura-resumen.md`), igual que la pestaña Spec depende de su digest. Renderiza UNA
+pantalla escaneable replicando el lenguaje visual del tab Spec (DR-062): hero (stack + chips host·coste·fase),
+tabla **Stack & tecnologías**, **Modelo de datos** CONDICIONAL (rama "Sin BD — contenido como código" con
+entidades de contenido, o las tablas de BD), **Comunicación & servicios** + **Variables de entorno**,
+**Decisiones (ADRs)** y el **Plan de implementación** (el centro). El Plan REUTILIZA `WoDag`/`DagCanvas`
+(dagre+SVG, sin librería nueva): nodos = work orders por FRD, aristas = `dependsOn`, estado =
+`implementation_status`. La NARRATIVA viene del digest (`parseArchitecture`, espejo de `parseSpec`); el DAG,
+los ADRs y las env vars se leen EN VIVO de los artefactos reales (`docs/frds/*/work-orders/*.md` ya soportado
+por `listWorkOrders` DR-049; `docs/adr/*`; `.env.example`) para que no driften. ADRs y fichas por-FRD abren
+en Modal. Cero colores hardcodeados; reutiliza primitivos core (Modal/Chip/Markdown) + las constantes de
+estilo de `SpecDigest.styles` (DR-062).
+**Why:** Paridad con el tab Spec para que el dueño vea la arquitectura nativamente en el tablero (DR-046,
+contraparte MC del renombrado `/blueprint`→`/architecture` y su nuevo digest en la fábrica). Énfasis del
+dueño: una sola pantalla, muy fácil de escanear.
+**Context:** Probado contra el proyecto real `personal-page-v2` (fase de arquitectura completa): renderiza el
+stack real, "Sin BD" (rama condicional), los 5 ADRs, las 4 env vars y el DAG de las 11 work orders en 3 olas.
+Fail-loud (DR-078): los lectores nuevos distinguen "ausente" de "no parseable" y se testean contra fixture
+real + malformado. `verify.sh` verde completo (biome/tsc/knip/madge/vitest + 56 e2e). Las baselines visuales
+de las 4 rutas no cambian (el detalle de tarjeta se abre al click, no está en el snapshot de ruta).
+**Impact:** Código NUEVO: `src/lib/architecture/{architecture.ts,read-architecture.ts,env.ts,adr.ts}`,
+`src/app/board/_components/CardDetail/ArchitectureDigest/{ArchitectureDigest.tsx,ArchitectureDigest.styles.ts}`.
+Código modificado: `src/app/board/page.tsx` (lee digest/WOs/env/ADRs server-side), `…/CardDetail/CardDetail.tsx`
+(pestaña + panel), `…/IdeaBoardView/IdeaBoardView.tsx` (BoardCardEntry), `…/BoardShell/BoardShell.tsx` (props).
+Tests NUEVOS: `src/lib/architecture/_tests/*` (parser + 3 lectores) + `…/ArchitectureDigest/_tests/*`
+(componente + integración real con WoDag). Doc canónico: `docs/frds/frd-02-ideas-board/frd.md` (REQ-02-013 +
+nota en REQ-02-009). Reutiliza `WoDag` (FRD-12) verbatim.
+
 ## 2026-06-29 — Fix: el deep-link `/projects/[slug]` daba 404 para TODOS los proyectos
 **What:** La página de workspace resolvía el proyecto con `activeProjects().find((p) => p.name === slug)` —
 contra el nombre CRUDO ("Pandacorp (Mission Control)")—, pero el dashboard/portafolio (Cartera) generan el

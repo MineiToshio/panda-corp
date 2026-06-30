@@ -1,6 +1,6 @@
 # Stack B — Backend API/service (TypeScript + Hono)
 
-Installation guide for `/pandacorp:blueprint`. Use case: stateless APIs, webhooks, gateways, edge services.
+Installation guide for `/pandacorp:architecture`. Use case: stateless APIs, webhooks, gateways, edge services.
 
 ## Installation
 

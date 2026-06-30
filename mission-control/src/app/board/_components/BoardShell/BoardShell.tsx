@@ -492,6 +492,10 @@ export function BoardShell({
               body={openCard.body}
               docNodes={openCard.docNodes}
               specContent={openCard.specContent}
+              architectureContent={openCard.architectureContent}
+              workOrders={openCard.workOrders}
+              envVars={openCard.envVars}
+              adrs={openCard.adrs}
               project={openCard.project}
               readDocAction={readDocAction}
               isRunning={openCard.isRunning}

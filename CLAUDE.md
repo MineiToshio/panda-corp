@@ -33,7 +33,7 @@ This repo is **the factory**: the company's know-how. Product code NEVER lives h
 
 The other phases are run **inside the project folder**, without a name:
 - `/pandacorp:design` — mockups and design system (iterate in the conversation).
-- `/pandacorp:blueprint` — creates the blueprint **+ work orders**.
+- `/pandacorp:architecture` — creates the blueprint **+ work orders**.
 - `/pandacorp:implement` — kicks off construction with a dynamic workflow (Dynamic Workflows) that orchestrates the subagents, followed in Mission Control. Its **last step is the hardening pass** — security audit + quality close-out + telemetry/metrics — that used to live in `release` (DR-085).
 - `/pandacorp:release` — deploy/launch the product, **internal or external** (`deploy_target`), with the return-aware launch plan + the human gate for an external production deploy; sets `phase: release`, the launched/terminal phase (DR-085). The audit is no longer here — it's the last step of construction.
 - `/pandacorp:review-launch` — after launch, reads real metrics vs the value hypothesis and recommends kill / hold / double-down (DR-043); runs on demand or as a `/loop` job.

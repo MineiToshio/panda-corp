@@ -159,7 +159,7 @@ function inferRunsIn(description: string, body: string): RunsIn {
 //
 // An internal skill is one normally invoked by ANOTHER skill, not run directly
 // by the owner. The plugin descriptions state this consistently ("invoked by
-// /pandacorp:spec", "created by /pandacorp:blueprint together with…", "use …
+// /pandacorp:spec", "created by /pandacorp:architecture together with…", "use …
 // separately only to…"). Derived from the description — never a hand-copied list
 // (DR-046).
 // ---------------------------------------------------------------------------

@@ -383,7 +383,7 @@ describe("frd-02 AC-02-003/004: click during confirmation window (pendingRef sti
   it("frd-02: clicking while 'copiado' is shown (within 2 000 ms window) does not call writeText again", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     installClipboard(writeText);
-    render(<CopyButton value="/pandacorp:blueprint" />);
+    render(<CopyButton value="/pandacorp:architecture" />);
     const btn = screen.getByTestId("copy-button");
 
     fireEvent.click(btn);

@@ -56,7 +56,7 @@ FRD-05's acceptance criteria.
 | Back button | `Button` | "← Work orders" |
 | Detail subtab switcher | `SubTabs` (`.stab`) | Resumen / Documento completo |
 | Rendered full document | `DocView` (`.panel.doc`) | markdown work order |
-| Empty board / no work orders | text empty-state | "Los work orders se generan en /pandacorp:blueprint." |
+| Empty board / no work orders | text empty-state | "Los work orders se generan en /pandacorp:architecture." |
 
 All reuse shared primitives. `WorkOrderCard` is the `.card` primitive with a `fail` (danger) variant —
 **not** a second card component. `KanbanColumn` is the `.col` primitive.
@@ -64,7 +64,7 @@ All reuse shared primitives. `WorkOrderCard` is the `.card` primitive with a `fa
 ## 3. States
 
 - **Empty (no work orders)** — a `.panel` message: "Los work orders se generan en
-  `/pandacorp:blueprint`." (FRD-05 edge case). Never blank.
+  `/pandacorp:architecture`." (FRD-05 edge case). Never blank.
 - **Loading** — the Next.js build streams the board; it reads the per-feature
   `docs/frds/frd-NN-<slug>/work-orders/` state under the subtab's boundary. No skeleton for content the
   server already delivers.

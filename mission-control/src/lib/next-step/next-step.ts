@@ -10,7 +10,7 @@
  * Pipeline command strings (canonical source: CLAUDE.md operation table):
  *   discovered / recommended (not in-pipeline) → /pandacorp:spec <idea>
  *   in-pipeline + product              → /pandacorp:design
- *   in-pipeline + design               → /pandacorp:blueprint
+ *   in-pipeline + design               → /pandacorp:architecture
  *   in-pipeline + architecture         → /pandacorp:implement
  *   in-pipeline + implementation       → /pandacorp:release   (construction done → launch)
  *   in-pipeline + release              → /pandacorp:iterate   (launched → iterate/review, DR-085)
@@ -89,7 +89,7 @@ const RELEASE_ROWS: readonly CommandRow[] = [
 /** Labels describing when to use each early-phase command (Spanish). */
 const EARLY_PHASE_WHEN: Readonly<Record<Phase, string>> = {
   product: "Ejecuta el diseño del producto",
-  design: "Crea el blueprint de arquitectura",
+  design: "Define la arquitectura del proyecto",
   architecture: "Inicia la implementación del proyecto",
   // Construction / launched phases are NOT in this delegation path.
   // These entries are present only to satisfy the Record<Phase, …> constraint;
@@ -175,7 +175,7 @@ export type NextStepInput = {
 
 const CMD_SPEC = "/pandacorp:spec <idea>";
 const CMD_DESIGN = "/pandacorp:design";
-const CMD_BLUEPRINT = "/pandacorp:blueprint";
+const CMD_ARCHITECTURE = "/pandacorp:architecture";
 const CMD_IMPLEMENT = "/pandacorp:implement";
 const CMD_RELEASE = "/pandacorp:release";
 const CMD_ITERATE = "/pandacorp:iterate";
@@ -186,7 +186,7 @@ const CMD_ITERATE = "/pandacorp:iterate";
 
 const PHASE_COMMANDS: Readonly<Record<Phase, string>> = {
   product: CMD_DESIGN,
-  design: CMD_BLUEPRINT,
+  design: CMD_ARCHITECTURE,
   architecture: CMD_IMPLEMENT,
   implementation: CMD_RELEASE,
   // release = launched (DR-085): iterate / review-launch, what the old "operation" gave.
@@ -195,7 +195,7 @@ const PHASE_COMMANDS: Readonly<Record<Phase, string>> = {
 
 const PHASE_LABELS: Readonly<Record<Phase, string>> = {
   product: "Ejecutar diseño",
-  design: "Crear blueprint",
+  design: "Definir arquitectura",
   architecture: "Iniciar implementación",
   implementation: "Lanzar release",
   release: "Iterar o revisar lanzamiento",

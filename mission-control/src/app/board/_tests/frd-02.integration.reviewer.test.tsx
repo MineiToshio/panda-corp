@@ -78,7 +78,7 @@ describe("FRD-02 integration: board column and next-step command are coherent", 
     command: string;
   }> = [
     { phase: "product", column: "documented", command: "/pandacorp:design" },
-    { phase: "design", column: "design", command: "/pandacorp:blueprint" },
+    { phase: "design", column: "design", command: "/pandacorp:architecture" },
     { phase: "architecture", column: "architecture", command: "/pandacorp:implement" },
     { phase: "implementation", column: "building", command: "/pandacorp:release" },
     // DR-085: release is the launched/shipped phase (folds in the old "operation").

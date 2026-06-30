@@ -3,7 +3,7 @@ import { BLESSED } from "./routes";
 
 /**
  * Preview Smoke Gate (DR-055): every blessed surface renders real content with no console
- * error / pageerror / non-2xx. VERBATIM stack template (DR-059) — propagated by /pandacorp:blueprint
+ * error / pageerror / non-2xx. VERBATIM stack template (DR-059) — propagated by /pandacorp:architecture
  * and conformance-checked by /pandacorp:upgrade so a project's gate can't silently fall behind.
  * Fail-closed: the harness is always present; the sentinel keeps the suite non-empty while no
  * surface is blessed yet (a route becomes REAL once its FRD gate flips `blessed: true` in routes.ts).

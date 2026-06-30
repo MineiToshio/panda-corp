@@ -66,7 +66,7 @@ export interface TabWorkOrdersProps {
  *
  * AC-05-005.1: WoLiveRefresh subscribes to SSE and calls router.refresh() on
  *   new events, causing the Server Component tree to re-run and re-read files.
- * AC-05-006.1: empty state with /pandacorp:blueprint command + copy button.
+ * AC-05-006.1: empty state with /pandacorp:architecture command + copy button.
  */
 export function TabWorkOrders({ orders, project }: TabWorkOrdersProps): React.JSX.Element {
   if (orders.length === 0) {

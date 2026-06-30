@@ -3,7 +3,7 @@
  *
  * Traceability:
  *   AC-05-006.1  WHEN a project has no work orders, the view SHALL show a message
- *               that they are generated in /pandacorp:blueprint.
+ *               that they are generated in /pandacorp:architecture.
  *
  * Note (#22): the per-tab progress bar was removed (it duplicated the project
  * header's canonical objectives bar). The tab now renders the kanban board only;
@@ -79,14 +79,14 @@ describe("frd-05: AC-05-006.1 — TabWorkOrders renders empty state when no orde
 });
 
 // ---------------------------------------------------------------------------
-// AC-05-006.1 — TDD case 3: empty state references /pandacorp:blueprint + copy button
+// AC-05-006.1 — TDD case 3: empty state references /pandacorp:architecture + copy button
 // ---------------------------------------------------------------------------
 
 describe("frd-05: AC-05-006.1 — TabWorkOrders empty state content", () => {
-  it("frd-05: AC-05-006.1 — WHEN no orders THEN empty state references /pandacorp:blueprint", () => {
+  it("frd-05: AC-05-006.1 — WHEN no orders THEN empty state references /pandacorp:architecture", () => {
     render(<TabWorkOrders orders={ORDERS_EMPTY} />);
     const empty = screen.getByTestId("wo-empty");
-    expect(empty.textContent).toContain("/pandacorp:blueprint");
+    expect(empty.textContent).toContain("/pandacorp:architecture");
   });
 
   it("frd-05: AC-05-006.1 — WHEN no orders THEN empty state has a copy button for the command", () => {

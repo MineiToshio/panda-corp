@@ -13,7 +13,7 @@
  * Pipeline command strings (canonical source: CLAUDE.md operation table):
  *   discovered / recommended (not in-pipeline) → /pandacorp:spec <idea>
  *   in-pipeline + product              → /pandacorp:design
- *   in-pipeline + design               → /pandacorp:blueprint
+ *   in-pipeline + design               → /pandacorp:architecture
  *   in-pipeline + architecture         → /pandacorp:implement
  *   in-pipeline + implementation       → /pandacorp:release   (construction done → launch)
  *   in-pipeline + release              → /pandacorp:iterate   (launched → iterate/review, DR-085)
@@ -122,13 +122,13 @@ describe("frd-02: nextStep — AC-02-004.1 in-pipeline + product phase", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-02-004.1 — in-pipeline + design → /pandacorp:blueprint
+// AC-02-004.1 — in-pipeline + design → /pandacorp:architecture
 // ---------------------------------------------------------------------------
 
 describe("frd-02: nextStep — AC-02-004.1 in-pipeline + design phase", () => {
-  it("frd-02: WHEN cardStatus is in-pipeline AND phase is design THEN command is /pandacorp:blueprint", () => {
+  it("frd-02: WHEN cardStatus is in-pipeline AND phase is design THEN command is /pandacorp:architecture", () => {
     const result: NextStep = nextStep(makeInput({ cardStatus: "in-pipeline", phase: "design" }));
-    expect(result.command).toBe("/pandacorp:blueprint");
+    expect(result.command).toBe("/pandacorp:architecture");
   });
 
   it("frd-02: WHEN cardStatus is in-pipeline AND phase is design THEN result has a non-empty label", () => {
@@ -301,7 +301,7 @@ describe("frd-02: nextStep — terminal statuses (shipped / discarded)", () => {
     // The command must not be one of the build-pipeline commands.
     expect(result.command).not.toBe("/pandacorp:spec <idea>");
     expect(result.command).not.toBe("/pandacorp:design");
-    expect(result.command).not.toBe("/pandacorp:blueprint");
+    expect(result.command).not.toBe("/pandacorp:architecture");
     expect(result.command).not.toBe("/pandacorp:implement");
     expect(result.command).not.toBe("/pandacorp:release");
   });
@@ -326,7 +326,7 @@ describe("frd-02: nextStep — terminal statuses (shipped / discarded)", () => {
     const result: NextStep = nextStep(makeInput({ cardStatus: "discarded" }));
     expect(result.command).not.toBe("/pandacorp:spec <idea>");
     expect(result.command).not.toBe("/pandacorp:design");
-    expect(result.command).not.toBe("/pandacorp:blueprint");
+    expect(result.command).not.toBe("/pandacorp:architecture");
     expect(result.command).not.toBe("/pandacorp:implement");
     expect(result.command).not.toBe("/pandacorp:release");
   });
@@ -368,7 +368,7 @@ describe("frd-02: nextStep — edge cases and missing inputs", () => {
     // Regression I3 + B1' context: undefined phase must produce a safe, deterministic fallback.
     // It MUST NOT silently map to a wrong phase command.
     const result: NextStep = nextStep(makeInput({ cardStatus: "in-pipeline" }));
-    expect(result.command).not.toBe("/pandacorp:blueprint");
+    expect(result.command).not.toBe("/pandacorp:architecture");
     expect(result.command).not.toBe("/pandacorp:implement");
     expect(result.command).not.toBe("/pandacorp:release");
     expect(result.command).not.toBe("/pandacorp:iterate");
@@ -418,10 +418,10 @@ describe("frd-02: nextStep — complete mapping table (lock against mutation)", 
     );
   });
 
-  // Row 4: in-pipeline + design → /pandacorp:blueprint
-  it("frd-02 mapping[4]: in-pipeline + design → command is /pandacorp:blueprint", () => {
+  // Row 4: in-pipeline + design → /pandacorp:architecture
+  it("frd-02 mapping[4]: in-pipeline + design → command is /pandacorp:architecture", () => {
     expect(nextStep({ cardStatus: "in-pipeline", phase: "design" }).command).toBe(
-      "/pandacorp:blueprint",
+      "/pandacorp:architecture",
     );
   });
 
@@ -580,7 +580,7 @@ describe("frd-02: nextStep — regression B1' and I3", () => {
     // With phase: undefined the function must fall back to a safe value, not /pandacorp:implement
     // or any other phase-specific command that would mislead the owner.
     const result = nextStep({ cardStatus: "in-pipeline", phase: undefined });
-    expect(result.command).not.toBe("/pandacorp:blueprint");
+    expect(result.command).not.toBe("/pandacorp:architecture");
     expect(result.command).not.toBe("/pandacorp:implement");
     expect(result.command).not.toBe("/pandacorp:release");
     expect(result.command).not.toBe("/pandacorp:iterate");

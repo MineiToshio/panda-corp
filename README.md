@@ -53,7 +53,7 @@ generic factory into *your* factory.
 
 `/pandacorp:spec <idea>` is the **handoff**: it creates the project folder/repo (a sibling of the factory)
 and documents the MVP. The following phases are run **inside the project folder**:
-`/pandacorp:design` → `/pandacorp:blueprint` → `/pandacorp:implement` → `/pandacorp:release`, and
+`/pandacorp:design` → `/pandacorp:architecture` → `/pandacorp:implement` → `/pandacorp:release`, and
 `/pandacorp:iterate` for changes at any time.
 
 The full flow and the rules are in [CLAUDE.md](CLAUDE.md).

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Canonical MAXIMUM fail-closed gate (DR-059) for the Next.js stack.
-# Installed VERBATIM into projects by /pandacorp:blueprint; re-synced + conformance-checked
+# Installed VERBATIM into projects by /pandacorp:architecture; re-synced + conformance-checked
 # (drift => regenerate/fail) by /pandacorp:upgrade. Do NOT hand-edit per project — drift is RED.
 # Every gate is fail-closed: a missing harness (smoke/visual) is RED, never a skip (DR-019/055/056).
 # This script is ALWAYS strict — it never softens itself. The build engine drives it (`--since`

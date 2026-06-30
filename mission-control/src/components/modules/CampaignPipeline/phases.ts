@@ -140,7 +140,7 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
     reads: "PRD + FRDs",
     writes: "Mockups, design tokens y microcopia",
     commands: [
-      { label: "Define la arquitectura y los work orders", command: "/pandacorp:blueprint" },
+      { label: "Define la arquitectura y los work orders", command: "/pandacorp:architecture" },
       { label: "Itera el diseño", command: "/pandacorp:design" },
     ],
     team: [
@@ -171,7 +171,7 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
         modeDefaultLabel: IMPLEMENT_MODE_DEFAULT_LABEL,
         modeTitle: IMPLEMENT_MODE_TITLE,
       },
-      { label: "Ajusta la arquitectura / work orders", command: "/pandacorp:blueprint" },
+      { label: "Ajusta la arquitectura / work orders", command: "/pandacorp:architecture" },
     ],
     team: [
       {

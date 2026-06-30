@@ -50,7 +50,7 @@ const PHASES: readonly Phase[] = [
     name: "Arquitectura",
     color: "var(--color-cat-8)",
     body: "El architect propone el stack (lo apruebas), diseña y genera las work orders.",
-    cmd: "/pandacorp:blueprint",
+    cmd: "/pandacorp:architecture",
   },
   {
     name: "En construcción",

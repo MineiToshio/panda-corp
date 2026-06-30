@@ -14,7 +14,7 @@ So nothing **ever** collides when several projects/worktrees run in parallel, de
 
 - **One block per project, 10 ports wide from base 4000** (project 1 → `4000–4009`, project 2 → `4010–4019`, …). `/pandacorp:scaffold` reserves the next free block (`next_block`), records `slug → base` in the ledger and writes `dev_port_base` into the project's `.pandacorp/status.yaml`. A project **keeps its block forever**, so re-runs always reuse the same ports and a new project always gets a fresh, disjoint block — **zero collisions, by construction**.
 - **Offsets within the block** (so the agent's build and the owner's review worktree don't step on each other): `+0` app (agent worktree) · `+1` app (review worktree) · `+2`/`+3` Postgres (agent/review) · `+4`/`+5` Redis (agent/review) · `+6..+9` spare for extra services.
-- **Materialized at blueprint** (when the stack and the dev command exist): `/pandacorp:blueprint` writes the app port (`base+0`) into `.claude/launch.json` (so the dev/preview server starts straight from Claude Code) and the app/DB/service ports into the worktree's `.env`. In Docker, map ports via `.env` and use a different Compose project name per worktree.
+- **Materialized at blueprint** (when the stack and the dev command exist): `/pandacorp:architecture` writes the app port (`base+0`) into `.claude/launch.json` (so the dev/preview server starts straight from Claude Code) and the app/DB/service ports into the worktree's `.env`. In Docker, map ports via `.env` and use a different Compose project name per worktree.
 - Mission Control shows the port ("test at `localhost:XXXX`").
 
 ## Worktrees (testing a snapshot without stopping the agent)

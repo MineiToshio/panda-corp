@@ -56,7 +56,7 @@ completo), aggregated progress and the empty state — all live off the real eve
   `tabular-nums`; the same numbers the FRD-04 Mission Objectives bar reads (never drift).
   `src/app/projects/[slug]/_components/wo-progress/**`.
 - **`WoEmpty`** — when there are no work orders, the `Panel` message
-  "Los work orders se generan en `/pandacorp:blueprint`." with a copy button; never blank.
+  "Los work orders se generan en `/pandacorp:architecture`." with a copy button; never blank.
   `src/app/projects/[slug]/_components/wo-empty/**`.
 - **Live**: subscribe to the work-orders slice of `useLiveSnapshot` (WO-01-009, SSE) so column moves,
   fail transitions and progress update in place — event-driven, **not** polling.
@@ -77,7 +77,7 @@ completo), aggregated progress and the empty state — all live off the real eve
 - **AC-05-003.1/.2** Clicking a work order opens the detail with **Resumen** and **Documento completo**
   tabs; the full-document tab renders the entire `wo-*.md`; back returns to the board.
 - **AC-05-004.1** Aggregated `done / total · pct%` is shown, summing every feature's `work-orders/`.
-- **AC-05-006.1** No work orders → the `/pandacorp:blueprint` empty message, never a zeroed bar or blank.
+- **AC-05-006.1** No work orders → the `/pandacorp:architecture` empty message, never a zeroed bar or blank.
 - **AC-05-005.1 (live)** The board updates LIVE off the event stream as agents change WO state — no reload.
 - **Fidelity** Matches the prototype `projWO()` on the frozen tokens (in-loop visual-fidelity gate);
   tokens only, zero hardcoded values; reuses the FRD-13 primitives per `docs/design/components.md`.
@@ -123,7 +123,7 @@ and the **Work orders** subtab active. See `../fdd.md` and `mocks/README.md`. Fi
 - `src/app/projects/[slug]/_components/wo-frd-filter/wo-frd-filter.tsx` — `WoFrdFilter` ("use client"; filter pills are `<Chip>` inside transparent `<button>` shells — DR-057). Exported: `WoFrdFilter({ frds, selected, onSelect })`.
 - `src/app/projects/[slug]/_components/wo-frd-filtered-board/wo-frd-filtered-board.tsx` — `WoFrdFilteredBoard` ("use client"; owns `selectedFrd` state, composes `WoFrdFilter` + `WorkOrderBoard`). Exported: `WoFrdFilteredBoard({ orders })`.
 - `src/app/projects/[slug]/_components/wo-progress/wo-progress.tsx` — `WorkOrderProgressBar` (Server Component; renders `aggregateProgress` result as `done/total · pct%`). Exported: `WorkOrderProgressBar({ progress: WorkOrderProgress })`.
-- `src/app/projects/[slug]/_components/wo-empty/wo-empty.tsx` — `WorkOrderEmpty` (Server Component; Panel message + copy button for `/pandacorp:blueprint`). Exported: `WorkOrderEmpty()`.
+- `src/app/projects/[slug]/_components/wo-empty/wo-empty.tsx` — `WorkOrderEmpty` (Server Component; Panel message + copy button for `/pandacorp:architecture`). Exported: `WorkOrderEmpty()`.
 - `src/app/projects/[slug]/_components/tab-work-orders/tab-work-orders.tsx` — `TabWorkOrders({ orders, project? })` routes to empty or progress+board; mounts `WoLiveRefresh` when `project` provided.
 - `src/app/projects/[slug]/_components/tab-work-orders/wo-live-refresh.tsx` — `WoLiveRefresh({ project: string })` (thin "use client" SSE connector — fires `router.refresh()` on new `lastEventAt`). AC-05-005.1.
 - `src/app/projects/[slug]/page.tsx` — `renderWorkOrdersTab(projectPath, slug, woParam, woTabParam)` passes `project={slug}` to `TabWorkOrders`; routes to `WorkOrderDetail` when `?wo=<id>`.

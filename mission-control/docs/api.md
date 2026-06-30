@@ -1318,7 +1318,7 @@ export function workspaceCommands(phase: Phase): CommandRow[];
 | `"release"` | `/pandacorp:implement`, `/pandacorp:release`, `/pandacorp:iterate` | 3 |
 | `"operation"` | `/pandacorp:iterate`, `/pandacorp:new-version` | 2 |
 | `"product"` | delegates to FRD-02: `/pandacorp:design` | 1 |
-| `"design"` | delegates to FRD-02: `/pandacorp:blueprint` | 1 |
+| `"design"` | delegates to FRD-02: `/pandacorp:architecture` | 1 |
 | `"architecture"` | delegates to FRD-02: `/pandacorp:implement` | 1 |
 | `undefined` / unknown | safe fallback: `/pandacorp:spec <idea>` | 1 |
 
@@ -1351,7 +1351,7 @@ Notes on the mapping:
 | `phase === "release"` | 3-row array identical to `"implementation"` |
 | `phase === "operation"` | 2-row array: iterate → new-version |
 | `phase === "product"` | 1-row array: `/pandacorp:design` (FRD-02 delegation) |
-| `phase === "design"` | 1-row array: `/pandacorp:blueprint` (FRD-02 delegation) |
+| `phase === "design"` | 1-row array: `/pandacorp:architecture` (FRD-02 delegation) |
 | `phase === "architecture"` | 1-row array: `/pandacorp:implement` (FRD-02 delegation) |
 | `phase === undefined` (B1' regression) | 1-row array: fallback `/pandacorp:spec <idea>` — does not throw |
 | `phase` is an unrecognised string (I3 regression) | 1-row array: fallback `/pandacorp:spec <idea>` — no building command |
@@ -2202,7 +2202,7 @@ export function nextStep(input: NextStepInput): NextStep;
 | `discovered` | — | — | `/pandacorp:spec <idea>` |
 | `recommended` | — | — | `/pandacorp:spec <idea>` |
 | `in-pipeline` | `product` | `false` / `undefined` | `/pandacorp:design` |
-| `in-pipeline` | `design` | `false` / `undefined` | `/pandacorp:blueprint` |
+| `in-pipeline` | `design` | `false` / `undefined` | `/pandacorp:architecture` |
 | `in-pipeline` | `architecture` | `false` / `undefined` | `/pandacorp:implement` |
 | `in-pipeline` | `implementation` | `false` / `undefined` | `/pandacorp:release` |
 | `in-pipeline` | `release` | `false` / `undefined` | `/pandacorp:release` |
@@ -2234,7 +2234,7 @@ not change — only the `label` differs, which is sufficient to satisfy the DR-0
 - **Pure:** no I/O, no writes, no network, no Claude calls, no side effects.
 - **Never throws** — all input combinations produce a valid `NextStep` object.
 - **No pipeline command for terminal states** — `shipped` and `discarded` never produce
-  `/pandacorp:spec <idea>`, `/pandacorp:design`, `/pandacorp:blueprint`,
+  `/pandacorp:spec <idea>`, `/pandacorp:design`, `/pandacorp:architecture`,
   `/pandacorp:implement`, or `/pandacorp:release`.
 - **`implementation` and `release` share the same command** (`/pandacorp:release`) per spec.
 - **`discovered` and `recommended` share the same command** (`/pandacorp:spec <idea>`).

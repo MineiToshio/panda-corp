@@ -1,6 +1,6 @@
 # Stack C — Backend API/service (Python + FastAPI)
 
-Installation guide for `/pandacorp:blueprint`. Use case: Python APIs, ML-adjacent services, data pipelines.
+Installation guide for `/pandacorp:architecture`. Use case: Python APIs, ML-adjacent services, data pipelines.
 
 ## Installation
 

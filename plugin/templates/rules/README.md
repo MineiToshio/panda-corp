@@ -1,6 +1,6 @@
 # Engineering rules — injectable library
 
-Canonical, **project-injectable** engineering rules, split by purpose and technology (Cursor-`.mdc`-style). This folder is the **source**: `/pandacorp:scaffold` and `/pandacorp:blueprint` copy the relevant files into a project's `docs/rules/`, and `/pandacorp:upgrade` keeps that copy in sync. They live in `docs/` (not `.pandacorp/`) on purpose — they are good practices any agent should follow, **whether or not the project is built with Pandacorp**.
+Canonical, **project-injectable** engineering rules, split by purpose and technology (Cursor-`.mdc`-style). This folder is the **source**: `/pandacorp:scaffold` and `/pandacorp:architecture` copy the relevant files into a project's `docs/rules/`, and `/pandacorp:upgrade` keeps that copy in sync. They live in `docs/` (not `.pandacorp/`) on purpose — they are good practices any agent should follow, **whether or not the project is built with Pandacorp**.
 
 These are the operative, portable form of the factory's `factory/standards/` (the long-form policy + rationale + verification). When a project-facing standard changes, its rule file here changes **in the same edit**, and `OVERLAY_VERSION` is bumped so every project picks it up (see the propagation contract: `factory/standards/README.md` + `DR-051`).
 

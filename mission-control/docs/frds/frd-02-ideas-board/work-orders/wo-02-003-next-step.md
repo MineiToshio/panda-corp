@@ -34,7 +34,7 @@ export function nextStep(input: {
 - Command strings follow the pipeline (CLAUDE.md operation table), e.g.:
   - `discovered`/`recommended` (not handed off) → `/pandacorp:spec <idea>`.
   - `in-pipeline` + `phase: product` → `/pandacorp:design`.
-  - `in-pipeline` + `phase: design` → `/pandacorp:blueprint`.
+  - `in-pipeline` + `phase: design` → `/pandacorp:architecture`.
   - `in-pipeline` + `phase: architecture` → `/pandacorp:implement`.
   - `in-pipeline` + `phase: implementation`/`release` → `/pandacorp:release`.
   - `in-pipeline` + `phase: operation` → `/pandacorp:iterate` (or `:review-launch`).
@@ -87,7 +87,7 @@ export function workspaceCommands(phase: Phase): CommandRow[];
 |---|---|---|
 | `discovered` / `recommended` | — | `/pandacorp:spec <idea>` |
 | `in-pipeline` | `product` | `/pandacorp:design` |
-| `in-pipeline` | `design` | `/pandacorp:blueprint` |
+| `in-pipeline` | `design` | `/pandacorp:architecture` |
 | `in-pipeline` | `architecture` | `/pandacorp:implement` |
 | `in-pipeline` | `implementation` / `release` | `/pandacorp:release` |
 | `in-pipeline` | `operation` | `/pandacorp:iterate` |

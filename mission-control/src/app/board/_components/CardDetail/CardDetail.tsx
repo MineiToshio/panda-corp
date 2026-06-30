@@ -42,11 +42,15 @@ import { useState, useTransition } from "react";
 import { type LinkResolver, Markdown } from "@/components/core/Markdown/Markdown";
 import { Tabs } from "@/components/core/Tabs/Tabs";
 import { CampaignPipeline } from "@/components/modules/CampaignPipeline/CampaignPipeline";
+import type { Adr } from "@/lib/architecture/adr";
+import type { EnvVar } from "@/lib/architecture/env";
 import { phaseFromStatus } from "@/lib/campaign/campaign";
 import { classifyDocLink } from "@/lib/docs/links";
 import type { DocNode } from "@/lib/docs/tree";
 import type { IdeaStatus } from "@/lib/ideas/ideas";
 import type { DeployTarget, Phase } from "@/lib/status/status";
+import type { WorkOrder } from "@/lib/work-orders/work-orders";
+import { ArchitectureDigest } from "./ArchitectureDigest/ArchitectureDigest";
 import {
   DOCS_NAV_HEADING_STYLE,
   DOCS_READER_STYLE,
@@ -65,7 +69,7 @@ import { SpecDigest } from "./SpecDigest/SpecDigest";
 // Tab definitions (AC-02-009.1)
 // ---------------------------------------------------------------------------
 
-type TabKey = "propuesta" | "spec" | "docs" | "campana";
+type TabKey = "propuesta" | "spec" | "arquitectura" | "docs" | "campana";
 
 interface TabDef {
   id: TabKey;
@@ -73,11 +77,13 @@ interface TabDef {
   icon?: string;
 }
 
-// Order: Propuesta → Spec → Documentos → Campaña. "Spec" only appears once the project
-// has a spec digest (.pandacorp/comms/spec-resumen.md); before that phase it's filtered out.
+// Order: Propuesta → Spec → Arquitectura → Documentos → Campaña. "Spec" appears once the project
+// has a spec digest (.pandacorp/comms/spec-resumen.md); "Arquitectura" once it has an architecture
+// digest (.pandacorp/comms/arquitectura-resumen.md). Before those phases they're filtered out.
 const ALL_TABS: TabDef[] = [
   { id: "propuesta", label: "Propuesta", icon: "ti-sparkles" },
   { id: "spec", label: "Spec", icon: "ti-list-details" },
+  { id: "arquitectura", label: "Arquitectura", icon: "ti-affiliate" },
   { id: "docs", label: "Documentos", icon: "ti-files" },
   { id: "campana", label: "Campaña", icon: "ti-map-2" },
 ];
@@ -273,6 +279,18 @@ export interface CardDetailProps {
    * Absent/empty → the "Spec" tab is hidden (the project hasn't reached that stage).
    */
   specContent?: string;
+  /**
+   * Spanish high-level digest of the project's architecture (stack, data model, services, per-FRD),
+   * read from `.pandacorp/comms/arquitectura-resumen.md` (in-pipeline projects past the design phase).
+   * Absent/empty → the "Arquitectura" tab is hidden (the project hasn't reached that stage).
+   */
+  architectureContent?: string;
+  /** Live work orders (listWorkOrders) — the architecture tab's implementation-plan DAG. */
+  workOrders?: WorkOrder[];
+  /** Live env vars (`.env.example`) — the architecture tab's "Variables de entorno" block. */
+  envVars?: EnvVar[];
+  /** Live ADRs (`docs/adr/*`) — the architecture tab's "Decisiones" block. */
+  adrs?: Adr[];
   /** Portfolio path of the linked project (the read action's first argument). */
   project?: string;
   /**
@@ -331,6 +349,10 @@ export function CardDetail({
   targetPlatforms,
   docNodes,
   specContent,
+  architectureContent,
+  workOrders,
+  envVars,
+  adrs,
   project,
   readDocAction,
   isRunning,
@@ -339,9 +361,13 @@ export function CardDetail({
   // Active tab — defaults to Propuesta (AC-02-009.1, owner decision). Persists across re-renders.
   const [activeTab, setActiveTab] = useState<TabKey>("propuesta");
 
-  // The "Spec" tab is present only when the project has a spec digest (past the product phase).
+  // "Spec" appears once the project has a spec digest; "Arquitectura" once it has an architecture
+  // digest — each tab is filtered out before its phase produces the digest.
   const hasSpec = specContent != null && specContent !== "";
-  const tabs = ALL_TABS.filter((tab) => tab.id !== "spec" || hasSpec);
+  const hasArchitecture = architectureContent != null && architectureContent !== "";
+  const tabs = ALL_TABS.filter(
+    (tab) => (tab.id !== "spec" || hasSpec) && (tab.id !== "arquitectura" || hasArchitecture),
+  );
 
   // Selected document in the Documentos rail — SUMMARY_KEY ("summary") or a doc relPath.
   const [selectedDocKey, setSelectedDocKey] = useState<string>(SUMMARY_KEY);
@@ -460,6 +486,29 @@ export function CardDetail({
             body={specContent}
             projectType={projectType}
             targetPlatforms={targetPlatforms}
+            resolveLink={resolveDocLink}
+          />
+        </div>
+      )}
+
+      {/* ---- Arquitectura panel — the native stack/data-model/services/ADR/DAG/per-FRD digest
+              (only when an architecture digest exists) ---- */}
+      {architectureContent != null && architectureContent !== "" && (
+        <div
+          data-testid="card-detail-panel-arquitectura"
+          role="tabpanel"
+          aria-labelledby="card-detail-tab-arquitectura"
+          style={panelStyle("arquitectura")}
+        >
+          <ArchitectureDigest
+            title={title}
+            body={architectureContent}
+            projectType={projectType}
+            targetPlatforms={targetPlatforms}
+            workOrders={workOrders}
+            envVars={envVars}
+            adrs={adrs}
+            project={project}
             resolveLink={resolveDocLink}
           />
         </div>

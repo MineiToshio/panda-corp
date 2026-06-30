@@ -32,7 +32,7 @@ document.
 | REQ-05-003 | WHEN the owner clicks a work order, it SHALL show a **Summary** tab and a **Full document** tab rendering the entire work order. |
 | REQ-05-004 | It SHALL show the project's progress (work orders done / total and %), aggregated across every feature's `work-orders/`. |
 | REQ-05-005 | The kanban SHALL reflect the live state (written by the agents per feature); the owner does NOT edit it. |
-| REQ-05-006 | (Edge) Project with no work orders yet → message indicating they are generated in `/pandacorp:blueprint`. |
+| REQ-05-006 | (Edge) Project with no work orders yet → message indicating they are generated in `/pandacorp:architecture`. |
 
 ### Acceptance criteria (EARS, expanded)
 
@@ -44,7 +44,7 @@ document.
 - **AC-05-003.2** The Full document tab SHALL render the entire work order markdown (acceptance criteria, scope, definition of done, evidence).
 - **AC-05-004.1** The view SHALL show aggregated progress `done / total` and `%`, summing every feature's `work-orders/`.
 - **AC-05-005.1** The kanban SHALL be read-only — no drag, no manual move; state comes from the files written by the agents.
-- **AC-05-006.1** WHEN a project has no work orders, the view SHALL show a message that they are generated in `/pandacorp:blueprint`.
+- **AC-05-006.1** WHEN a project has no work orders, the view SHALL show a message that they are generated in `/pandacorp:architecture`.
 
 ## 2. Interfaces (`lib/**`)
 
@@ -94,7 +94,7 @@ route; `CMP-04-workspace` mounts `CMP-05-board`.
 | `CMP-05-frd-filter` | Client | Group/filter the kanban by FRD. | REQ-05-002 |
 | `CMP-05-detail` | Server | Work order detail with Summary / Full document tabs. | REQ-05-003 |
 | `CMP-05-progress` | Server | Aggregated done/total/% (shares the prototype `woProgress` shape; the workspace header bar reuses these numbers). | REQ-05-004 |
-| `CMP-05-empty` | Server | "Work orders are generated in `/pandacorp:blueprint`" empty state. | REQ-05-006 |
+| `CMP-05-empty` | Server | "Work orders are generated in `/pandacorp:architecture`" empty state. | REQ-05-006 |
 | `IF-05-work-orders` | lib | `lib/work-orders.ts` readers above. | all |
 
 ## 4. Cross-cutting

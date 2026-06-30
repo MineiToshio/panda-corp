@@ -50,7 +50,11 @@ const CMD_ITERATE = "/pandacorp:iterate";
 const CMD_NEW_VERSION = "/pandacorp:new-version";
 
 // Commands that MUST NOT appear for launched ("release") rows (pre-build commands).
-const PRE_BUILD_COMMANDS = ["/pandacorp:spec <idea>", "/pandacorp:design", "/pandacorp:blueprint"];
+const PRE_BUILD_COMMANDS = [
+  "/pandacorp:spec <idea>",
+  "/pandacorp:design",
+  "/pandacorp:architecture",
+];
 
 // ---------------------------------------------------------------------------
 // Helper
@@ -240,9 +244,9 @@ describe("frd-04: workspaceCommands — AC-04-005.1 early-phase delegation to FR
     expect(rows[0]?.command).toBe("/pandacorp:design");
   });
 
-  it("frd-04 delegation[design]: phase design → single command is /pandacorp:blueprint", () => {
+  it("frd-04 delegation[design]: phase design → single command is /pandacorp:architecture", () => {
     const rows: CommandRow[] = workspaceCommands("design");
-    expect(rows[0]?.command).toBe("/pandacorp:blueprint");
+    expect(rows[0]?.command).toBe("/pandacorp:architecture");
   });
 
   it("frd-04 delegation[architecture]: phase architecture → single command is /pandacorp:implement", () => {
@@ -338,8 +342,8 @@ describe("frd-04: workspaceCommands — complete mapping table (mutation hardeni
   it("frd-04 mapping[product]: product row[0] command is /pandacorp:design", () => {
     expect(workspaceCommands("product")[0]?.command).toBe("/pandacorp:design");
   });
-  it("frd-04 mapping[design]: design row[0] command is /pandacorp:blueprint", () => {
-    expect(workspaceCommands("design")[0]?.command).toBe("/pandacorp:blueprint");
+  it("frd-04 mapping[design]: design row[0] command is /pandacorp:architecture", () => {
+    expect(workspaceCommands("design")[0]?.command).toBe("/pandacorp:architecture");
   });
   it("frd-04 mapping[architecture]: architecture row[0] command is /pandacorp:implement", () => {
     expect(workspaceCommands("architecture")[0]?.command).toBe("/pandacorp:implement");

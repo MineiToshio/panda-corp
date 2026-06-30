@@ -158,7 +158,7 @@ const CMD_REVIEW_LAUNCH = "/pandacorp:review-launch";
  */
 const PHASE_TO_COMMAND: Readonly<Record<Phase, string>> = {
   product: "/pandacorp:design",
-  design: "/pandacorp:blueprint",
+  design: "/pandacorp:architecture",
   architecture: "/pandacorp:implement",
   implementation: "/pandacorp:release",
   release: CMD_REVIEW_LAUNCH,

@@ -1,5 +1,5 @@
 ---
-description: Starts and runs the build of a Pandacorp project. Launches a dynamic workflow that builds FEATURE BY FEATURE (FRD), reading state from the work-order frontmatter (implementation_status) and each blueprint's Build Plan, with one review/test gate per FRD. ALWAYS launched together with a live supervisor that watches the build and notifies the owner (phone) on stalls/errors/end. Runs in the background, resumable. Use inside the project after /pandacorp:blueprint.
+description: Starts and runs the build of a Pandacorp project. Launches a dynamic workflow that builds FEATURE BY FEATURE (FRD), reading state from the work-order frontmatter (implementation_status) and each blueprint's Build Plan, with one review/test gate per FRD. ALWAYS launched together with a live supervisor that watches the build and notifies the owner (phone) on stalls/errors/end. Runs in the background, resumable. Use inside the project after /pandacorp:architecture.
 ---
 
 # /pandacorp:implement
