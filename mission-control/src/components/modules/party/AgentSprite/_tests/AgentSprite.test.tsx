@@ -3,7 +3,7 @@
  *
  * The 52px pixel implementer sprite (one per running WO).
  * States: work / carry / vault / say-on
- * Features: halo, progress bar, WO-id tag
+ * Features: halo (warm ember in the forge), forge hammer, WO-id tag
  */
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -42,17 +42,38 @@ describe("AgentSprite", () => {
     expect(screen.getByTestId("agent-sprite-halo")).toBeInTheDocument();
   });
 
-  it("renders progress bar in work state", () => {
-    render(<AgentSprite agentRole="implementer" state="work" woId="WO-06-001" progress={0.6} />);
-    const prog = screen.getByTestId("agent-sprite-progress");
-    expect(prog).toBeInTheDocument();
-    expect(prog).toHaveAttribute("data-visible", "true");
+  it("shows the forge hammer in work state", () => {
+    render(<AgentSprite agentRole="implementer" state="work" woId="WO-06-001" />);
+    const hammer = screen.getByTestId("agent-sprite-hammer");
+    expect(hammer).toBeInTheDocument();
+    expect(hammer).toHaveAttribute("data-visible", "true");
+    expect(hammer).toHaveClass("fragua-hammer");
   });
 
-  it("hides progress bar when not in work state", () => {
-    render(<AgentSprite agentRole="implementer" state="vault" woId="WO-06-001" />);
-    const prog = screen.getByTestId("agent-sprite-progress");
-    expect(prog).toHaveAttribute("data-visible", "false");
+  it("hides the forge hammer when not in work state", () => {
+    const states = ["vault", "idle", "review"] as const;
+    for (const state of states) {
+      const { unmount } = render(
+        <AgentSprite agentRole="implementer" state={state} woId="WO-06-001" />,
+      );
+      expect(screen.getByTestId("agent-sprite-hammer")).toHaveAttribute("data-visible", "false");
+      unmount();
+    }
+  });
+
+  it("uses the warm ember halo in the forge and cat-7 in the tribunal", () => {
+    const { unmount } = render(
+      <AgentSprite agentRole="implementer" state="work" woId="WO-06-001" />,
+    );
+    expect(screen.getByTestId("agent-sprite-halo")).toHaveStyle({
+      background: "var(--color-warn)",
+    });
+    unmount();
+
+    render(<AgentSprite agentRole="reviewer" state="review" woId="WO-13-006" />);
+    expect(screen.getByTestId("agent-sprite-halo")).toHaveStyle({
+      background: "var(--color-cat-7)",
+    });
   });
 
   it("shows scroll icon in carry state", () => {
@@ -146,23 +167,5 @@ describe("AgentSprite", () => {
   it("stays still as a vault trophy (no bob)", () => {
     render(<AgentSprite agentRole="implementer" state="vault" woId="WO-06-001" />);
     expect(screen.getByTestId("agent-sprite-root")).not.toHaveClass("fragua-sprite-bob");
-  });
-
-  it("shows an indeterminate working bar when no real progress is fed", () => {
-    render(<AgentSprite agentRole="implementer" state="work" woId="WO-06-001" />);
-    expect(screen.getByTestId("agent-sprite-progress")).toHaveAttribute(
-      "data-indeterminate",
-      "true",
-    );
-    expect(screen.getByTestId("agent-sprite-progress-sweep")).toHaveClass("fragua-bar-sweep");
-  });
-
-  it("shows a determinate fill when a real progress value exists", () => {
-    render(<AgentSprite agentRole="implementer" state="work" woId="WO-06-001" progress={0.6} />);
-    expect(screen.getByTestId("agent-sprite-progress")).toHaveAttribute(
-      "data-indeterminate",
-      "false",
-    );
-    expect(screen.queryByTestId("agent-sprite-progress-sweep")).toBeNull();
   });
 });

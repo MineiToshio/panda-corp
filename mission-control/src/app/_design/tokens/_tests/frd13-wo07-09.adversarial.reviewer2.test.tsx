@@ -372,27 +372,20 @@ describe("frd-13 reviewer2 (WO-13-007): Chip — all tones + label/children", ()
 // ──────────────────────────────────────────────────────────────────────────────
 
 describe("frd-13 reviewer2 (WO-13-009): AgentSprite — edge cases", () => {
-  // Mutation target: progress > 1 must be clamped to 100% (not >100% fill)
-  it("progress=2.0 (overflow): fill width clamped to 100%", () => {
-    render(<AgentSprite agentRole="implementer" state="work" woId="WO-06-001" progress={2.0} />);
-    const prog = screen.getByTestId("agent-sprite-progress");
-    const fill = prog.querySelector("i");
-    if (!fill) throw new Error("No fill element");
-    const style = (fill as HTMLElement).getAttribute("style") ?? "";
-    // width: 100% — clamped, not 200%
-    expect(style).toContain("width: 100%");
-    expect(style).not.toContain("width: 200%");
+  // The forge "forging" indicator is a hammer (eye-candy), shown ONLY in work.
+  it("work state: shows the forge hammer (animated), never a progress bar", () => {
+    render(<AgentSprite agentRole="implementer" state="work" woId="WO-06-001" />);
+    const hammer = screen.getByTestId("agent-sprite-hammer");
+    expect(hammer).toHaveAttribute("data-visible", "true");
+    expect(hammer).toHaveClass("fragua-hammer");
+    // The forge indicator is decorative, not a percentage → no progress bar.
+    expect(screen.queryByTestId("agent-sprite-progress")).toBeNull();
   });
 
-  // progress=0 (no real progress fed) shows an honest indeterminate "working"
-  // sweep — NOT a frozen 0% fill, which read as "not working" (WO-06 liveness).
-  it("progress=0: shows an indeterminate working bar, not a static 0% fill", () => {
-    render(<AgentSprite agentRole="implementer" state="work" woId="WO-06-001" progress={0} />);
-    const prog = screen.getByTestId("agent-sprite-progress");
-    expect(prog).toHaveAttribute("data-indeterminate", "true");
-    // No determinate <i> fill — the bar is a sweeping activity signal.
-    expect(prog.querySelector("i")).toBeNull();
-    expect(screen.getByTestId("agent-sprite-progress-sweep")).toBeInTheDocument();
+  // Outside the forge the hammer is hidden (kept in the DOM, data-visible=false).
+  it("non-work state: the forge hammer is hidden", () => {
+    render(<AgentSprite agentRole="implementer" state="review" woId="WO-13-007" />);
+    expect(screen.getByTestId("agent-sprite-hammer")).toHaveAttribute("data-visible", "false");
   });
 
   // Mutation target: say-on state shows neither carry nor vault indicators
@@ -402,12 +395,12 @@ describe("frd-13 reviewer2 (WO-13-009): AgentSprite — edge cases", () => {
     expect(screen.getByTestId("agent-sprite-medal")).toHaveAttribute("data-visible", "false");
   });
 
-  // Mutation target: idle state shows no carry, no medal, no progress bar active
-  it("idle state: carry=false, medal=false, progress=false", () => {
+  // Mutation target: idle state shows no carry, no medal, no forge hammer
+  it("idle state: carry=false, medal=false, hammer=false", () => {
     render(<AgentSprite agentRole="reviewer" state="idle" woId="WO-13-001" />);
     expect(screen.getByTestId("agent-sprite-carry")).toHaveAttribute("data-visible", "false");
     expect(screen.getByTestId("agent-sprite-medal")).toHaveAttribute("data-visible", "false");
-    expect(screen.getByTestId("agent-sprite-progress")).toHaveAttribute("data-visible", "false");
+    expect(screen.getByTestId("agent-sprite-hammer")).toHaveAttribute("data-visible", "false");
   });
 
   // Mutation target: all 13 canonical roles must resolve a sprite src (no undefined)
@@ -720,7 +713,7 @@ describe("frd-13 reviewer2: INTEGRATION — WO-13-007 + WO-13-009 rendered toget
           {/* WO-13-009 */}
           <div style={{ position: "relative", width: 920, height: 560 }}>
             <Room zone="tribunal" label="Tribunal" state="hot" count={1}>
-              <AgentSprite agentRole="reviewer" state="work" woId="WO-13-007" progress={0.3} />
+              <AgentSprite agentRole="reviewer" state="work" woId="WO-13-007" />
             </Room>
           </div>
         </div>,
@@ -738,8 +731,8 @@ describe("frd-13 reviewer2: INTEGRATION — WO-13-007 + WO-13-009 rendered toget
   it("AgentSprite inside Room: both testids are present and Room is the semantic parent", () => {
     render(
       <Room zone="forge" label="Forja" state="hot" count={2}>
-        <AgentSprite agentRole="frontend-dev" state="work" woId="WO-02-001" progress={0.5} />
-        <AgentSprite agentRole="backend-dev" state="work" woId="WO-02-002" progress={0.8} />
+        <AgentSprite agentRole="frontend-dev" state="work" woId="WO-02-001" />
+        <AgentSprite agentRole="backend-dev" state="work" woId="WO-02-002" />
       </Room>,
     );
     const room = screen.getByTestId("room-root");

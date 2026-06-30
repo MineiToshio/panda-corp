@@ -516,31 +516,20 @@ describe("frd-13 reviewer (WO-13-009): Room — adversarial edge cases", () => {
 });
 
 describe("frd-13 reviewer (WO-13-009): AgentSprite — adversarial edge cases", () => {
-  // Mutation target: progress > 1.0 — the fill width must clamp to ≤100%
-  it("progress=2.0 (out of range) renders fill width ≤ 100%, never >100%", () => {
-    const { container } = render(
-      <AgentSprite agentRole="implementer" state="work" woId="WO-06-001" progress={2.0} />,
-    );
-    const fill = container.querySelector("i[aria-hidden]") as HTMLElement | null;
-    if (fill) {
-      const style = fill.getAttribute("style") ?? "";
-      const widthMatch = style.match(/width:\s*([\d.]+)%/);
-      if (widthMatch) {
-        expect(Number(widthMatch[1])).toBeLessThanOrEqual(100);
-      }
-    }
+  // The forge "forging" indicator is the hammer — present and animated in work,
+  // and NEVER a progress bar (the owner rejected a progress value here).
+  it("work state shows the animated forge hammer and no progress bar", () => {
+    render(<AgentSprite agentRole="implementer" state="work" woId="WO-06-001" />);
+    const hammer = screen.getByTestId("agent-sprite-hammer");
+    expect(hammer).toHaveAttribute("data-visible", "true");
+    expect(hammer).toHaveClass("fragua-hammer");
+    expect(screen.queryByTestId("agent-sprite-progress")).toBeNull();
   });
 
-  // Mutation target: progress=0 must show a 0% fill, not undefined
-  it("progress=0 renders a 0% fill in work state (not broken/absent)", () => {
-    const { container } = render(
-      <AgentSprite agentRole="implementer" state="work" woId="WO-06-001" progress={0} />,
-    );
-    const fill = container.querySelector("i[aria-hidden]") as HTMLElement | null;
-    if (fill) {
-      const style = fill.getAttribute("style") ?? "";
-      expect(style).toMatch(/width:\s*0%/);
-    }
+  // The hammer is decorative → aria-hidden, so it adds no noise to the a11y tree.
+  it("the forge hammer is decorative (aria-hidden)", () => {
+    render(<AgentSprite agentRole="implementer" state="work" woId="WO-06-001" />);
+    expect(screen.getByTestId("agent-sprite-hammer")).toHaveAttribute("aria-hidden", "true");
   });
 
   // Mutation target: aria-label must include role, woId AND state — three distinct data points
@@ -747,7 +736,7 @@ describe("frd-13 reviewer: DR-062 cross-WO integration (all four foundation WOs 
           effort="pro"
         />
         <Room zone="forge" label="Forja" state="hot">
-          <AgentSprite agentRole="implementer" state="work" woId="WO-06-001" progress={0.6} />
+          <AgentSprite agentRole="implementer" state="work" woId="WO-06-001" />
         </Room>
       </div>,
     );

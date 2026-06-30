@@ -1,14 +1,17 @@
 /**
  * CMP-13-party-agent-sprite — Shared pixel-RPG AgentSprite (WO-13-009, FND-4)
  *
- * 52px pixel implementer figure: halo + progress + WO-id tag.
+ * 52px pixel implementer figure: halo + WO-id tag, plus a forge "forging" treatment.
  * States: work / carry / vault / say-on / idle / split / review
  *
  * Design contract (party mocks / la-fragua.html .ag):
  *   - .ag: 52×52, will-change:transform, z-index 5, cursor pointer
  *   - img: 52×52 (42×42 in vault), image-rendering:pixelated
- *   - .halo: under-sprite glow ellipse; opacity .55 + animation in work/review
- *   - .prog: top:-9px bar (cat7 fill), visible only in work state
+ *   - .halo: under-sprite glow ellipse; opacity .55 + animation in work/review.
+ *     Warm ember (--color-warn) in the forge (work); tribunal cat-7 in review.
+ *   - .hammer: a striking hammer above the head, ONLY in the work/forge state —
+ *     pure "it's forging" eye-candy, NOT a progress value (the room/walk conveys
+ *     real progress; the owner explicitly rejected a progress bar).
  *   - .tag: WO id below sprite, ok-colored in vault
  *   - .scrollicon: shown in carry state (📜)
  *   - .medal: shown in vault state (🏅)
@@ -49,8 +52,6 @@ export interface AgentSpriteProps {
   state: AgentSpriteState;
   /** WO id shown in the tag below the sprite. */
   woId: string;
-  /** Progress [0–1] shown in the progress bar (only when state=work). */
-  progress?: number;
   /** Inline style for absolute positioning on the stage. */
   style?: CSSProperties;
 }
@@ -91,17 +92,15 @@ const SIZE_VAULT = 42; // smaller in vault per mock
  * Pixel-art agent sprite (one per running WO).
  * Presentational — positioned on the stage via `style` prop.
  *
- * @param props.role     - agent role (determines sprite image)
- * @param props.state    - visual state (work/carry/vault/say-on/idle/split/review)
- * @param props.woId     - WO id shown in tag below the sprite
- * @param props.progress - progress [0–1] for work state bar
- * @param props.style    - absolute positioning on stage
+ * @param props.role  - agent role (determines sprite image)
+ * @param props.state - visual state (work/carry/vault/say-on/idle/split/review)
+ * @param props.woId  - WO id shown in tag below the sprite
+ * @param props.style - absolute positioning on stage
  */
 export function AgentSprite({
   agentRole,
   state,
   woId,
-  progress = 0,
   style,
 }: AgentSpriteProps): React.JSX.Element {
   const isWork = state === "work";
@@ -114,9 +113,6 @@ export function AgentSprite({
   // when no new event has arrived (the event stream is sparse mid-WO). Trophies
   // (vault) and idle sprites stay still. Auto-disabled under reduced-motion.
   const isActive = isWork || state === "review";
-  // Indeterminate when working without a real progress value: show an honest
-  // "working" sweep rather than fabricating a percentage (none is fed today).
-  const isIndeterminate = isWork && progress <= 0;
 
   const rootStyle: CSSProperties = {
     position: "absolute",
@@ -146,31 +142,23 @@ export function AgentSprite({
     opacity: isWork || state === "review" ? 0.55 : 0,
     transition: "opacity 0.3s",
     zIndex: -1,
-    background: "var(--color-cat-7)",
+    // Warm ember in the forge (work), tribunal cat-7 in review.
+    background: isWork ? "var(--color-warn)" : "var(--color-cat-7)",
   };
 
-  const progBarStyle: CSSProperties = {
-    // Only the work state shows the progress bar — idle/campaign sprites must not
-    // render an empty bar above them (kept in the DOM via data-visible for tests).
+  const hammerStyle: CSSProperties = {
+    // Forge-only "forging" eye-candy: a hammer striking above the head. Kept in
+    // the DOM (gated via data-visible) so tests can assert its presence/absence,
+    // and hidden everywhere but the work state. NOT a progress value.
     display: isWork ? "block" : "none",
     position: "absolute",
-    top: "-9px",
-    left: "8px",
-    width: "36px",
-    height: "5px",
-    borderRadius: "3px",
-    background: "var(--color-base)",
-    border: "1px solid var(--color-border-strong)",
-    overflow: "hidden",
-  };
-
-  const progFillStyle: CSSProperties = {
-    display: "block",
-    height: "100%",
-    width: `${Math.min(100, Math.round(progress * 100))}%`,
-    borderRadius: "3px",
-    background: "var(--color-cat-7)",
-    transition: "width 0.2s linear",
+    top: "-2px",
+    left: "-4px",
+    fontSize: "17px",
+    lineHeight: 1,
+    transformOrigin: "80% 80%",
+    zIndex: 7,
+    pointerEvents: "none",
   };
 
   const tagStyle: CSSProperties = {
@@ -237,28 +225,18 @@ export function AgentSprite({
         style={haloStyle}
       />
 
-      {/* Progress bar (visible in work state). Indeterminate "working" sweep when
-          no real progress value is fed (honest activity, not a fake percentage);
-          determinate fill when a progress value exists. */}
-      <div
-        data-testid="agent-sprite-progress"
+      {/* Forge hammer — strikes above the head ONLY in the work state. Pure
+          "it's forging" eye-candy, not a progress value (the room/walk conveys
+          real progress). Decorative → aria-hidden. */}
+      <span
+        data-testid="agent-sprite-hammer"
         data-visible={String(isWork)}
-        data-indeterminate={String(isIndeterminate)}
-        style={progBarStyle}
+        aria-hidden="true"
+        className="fragua-hammer"
+        style={hammerStyle}
       >
-        {isIndeterminate ? (
-          <>
-            <span aria-hidden="true" className="fragua-bar-base" />
-            <span
-              data-testid="agent-sprite-progress-sweep"
-              aria-hidden="true"
-              className="fragua-bar-sweep"
-            />
-          </>
-        ) : (
-          <i aria-hidden="true" style={progFillStyle} />
-        )}
-      </div>
+        🔨
+      </span>
 
       {/* Carry scroll icon */}
       <span

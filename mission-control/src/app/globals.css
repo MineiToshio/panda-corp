@@ -514,34 +514,33 @@ h3 {
   animation: fragua-halo 1.6s ease-in-out infinite;
 }
 
-/* Indeterminate "working" sweep for the WO progress bar — an honest activity
-   signal, NOT a fabricated percentage. A brighter band sweeps over a dim full
-   base; frame 0 (reduced-motion rest) keeps the band at the left edge, visibly
-   "active". The dim base communicates "in progress, amount unknown". */
-@keyframes fragua-bar-sweep {
+/* Forge hammer strike — the working sprite swings a hammer above its head, so
+   the forge reads as actively "forging" (eye-candy, NOT a progress value). The
+   hammer rises, then snaps down to the strike with a brief hold, on a loop.
+   Frame 0 is the resting RAISED pose (rotate(-12deg)) so under reduced-motion
+   (the global rule zeroes the duration) users see a static raised hammer, not a
+   frame caught mid-swing. transform-origin is set inline (80% 80%) so it pivots
+   from its lower-right, like a real strike. */
+@keyframes fragua-hammer-swing {
   0% {
-    transform: translateX(-40%);
+    transform: rotate(-12deg);
+  }
+  35% {
+    transform: rotate(-18deg);
+  }
+  60% {
+    transform: rotate(22deg);
+  }
+  72% {
+    transform: rotate(22deg);
   }
   100% {
-    transform: translateX(220%);
+    transform: rotate(-12deg);
   }
 }
-.fragua-bar-base {
-  position: absolute;
-  inset: 0;
-  border-radius: 3px;
-  background: var(--color-cat-7);
-  opacity: 0.28;
-}
-.fragua-bar-sweep {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 42%;
-  border-radius: 3px;
-  background: var(--color-cat-7);
-  animation: fragua-bar-sweep 1.2s ease-in-out infinite;
+.fragua-hammer {
+  animation: fragua-hammer-swing 0.7s ease-in-out infinite;
+  transform-origin: 80% 80%;
 }
 
 /* Global "build alive" heartbeat dot (PartyScene header). Frame 0 = solid dot. */
