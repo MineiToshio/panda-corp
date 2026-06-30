@@ -38,23 +38,55 @@ const LOG_WITH_ENTRIES: ActivityLog = {
 const EMPTY_DECISIONS: DecisionPoint[] = [];
 
 const TWO_OPEN_DECISIONS: DecisionPoint[] = [
-  { id: "2026-06-15-1", title: "¿Usar Playwright para e2e?", resolved: false },
+  {
+    id: "2026-06-15-1",
+    title: "¿Usar Playwright para e2e?",
+    date: "2026-06-15",
+    status: "pending",
+    resolved: false,
+  },
   {
     id: "2026-06-15-2",
     title: "Límite de eventos para readEvents",
+    date: "2026-06-15",
+    status: "pending",
     resolved: false,
     recommendation: "Usar 500 como límite por defecto.",
   },
 ];
 
 const MIXED_DECISIONS: DecisionPoint[] = [
-  { id: "2026-06-15-1", title: "Elegir base de datos", resolved: true },
-  { id: "2026-06-15-2", title: "Estrategia de testing", resolved: false },
+  {
+    id: "2026-06-15-1",
+    title: "Elegir base de datos",
+    date: "2026-06-15",
+    status: "resolved",
+    resolved: true,
+  },
+  {
+    id: "2026-06-15-2",
+    title: "Estrategia de testing",
+    date: "2026-06-15",
+    status: "pending",
+    resolved: false,
+  },
 ];
 
 const ALL_RESOLVED: DecisionPoint[] = [
-  { id: "2026-06-15-1", title: "Auth library", resolved: true },
-  { id: "2026-06-15-2", title: "Deploy target", resolved: true },
+  {
+    id: "2026-06-15-1",
+    title: "Auth library",
+    date: "2026-06-15",
+    status: "resolved",
+    resolved: true,
+  },
+  {
+    id: "2026-06-15-2",
+    title: "Deploy target",
+    date: "2026-06-15",
+    status: "resolved",
+    resolved: true,
+  },
 ];
 
 const SAMPLE_SUMMARY = "Este proyecto implementa el panel de control de la fábrica.";

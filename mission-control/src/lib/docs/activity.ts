@@ -42,17 +42,26 @@ export interface ActivityLog {
  *                    documented for `/pandacorp:decide` to compute by eye, so an id copied
  *                    from Mission Control always resolves to the same block from the skill.
  * `title`          — the heading text with the date/status prefix stripped (trimmed).
+ * `date`           — the heading's `YYYY-MM-DD` prefix, or `null` for a legacy heading
+ *                    (no date). Feeds an "hace N días" age display — never invented.
  * `recommendation` — text after a `- **Recommendation:**` / `- **Recomendación:**`
  *                    line in the block, or `undefined` when the block has none.
- * `resolved`       — `true` once the block's status resolves to "done" (CLOSED/RESOLVED/
- *                    RESUELTO/SUPERSEDIDO/CERRADO), `false` otherwise (OPEN/PENDIENTE/
- *                    NECESITA DECISIÓN, or no status signal found — DR-078: when in
- *                    doubt, surface as pending rather than silently hide it).
+ * `status`         — `"pending"` (still needs the owner's answer) | `"resolved"` (the
+ *                    owner answered — CLOSED/RESOLVED/RESUELTO/CERRADO) | `"obsolete"`
+ *                    (SUPERSEDIDO/OBSOLETO — the codebase moved on, no answer was given;
+ *                    a distinct terminal state from "resolved" so the history is honest
+ *                    about WHICH decisions were actually decided vs dropped). No status
+ *                    signal at all → `"pending"` (DR-078: surface, don't silently hide).
+ * `resolved`       — derived convenience: `status !== "pending"`. Kept so existing
+ *                    pending-count consumers (`countPendingDecisions`, the badge) don't
+ *                    need to know about the 3-way status.
  */
 export interface DecisionPoint {
   id: string;
   title: string;
+  date: string | null;
   recommendation?: string;
+  status: "pending" | "resolved" | "obsolete";
   resolved: boolean;
 }
 
@@ -197,6 +206,7 @@ function _consumeLine(
     return {
       id: _nextId(heading, idCounters),
       title: heading.title,
+      date: heading.date,
       statusPhrase: heading.statusPhrase,
       estado: null,
     };
@@ -252,16 +262,20 @@ const DATED_HEADING = /^##\s+(\d{4}-\d{2}-\d{2})\s*(?:\(([^)]*)\)\s*)?(?:[—-]\
 const RECOMMENDATION_LINE = /^-?\s*\*{1,2}Recommendation:\*{1,2}\s*(.+)/i;
 // Spanish variant: "**Recomendación:**" / "**Recomendación (del agente):**" / "**Recomendación del X:**".
 const RECOMENDACION_LINE = /^-?\s*\*{1,2}Recomendaci[oó]n[^:*]*:\*{1,2}\s*(.+)/i;
-// The template's machine field: "- **Estado:** PENDIENTE" / "- **Estado:** RESUELTO: …".
-const ESTADO_LINE = /^-?\s*\*{1,2}Estado:?\*{1,2}\s*(PENDIENTE|RESUELTO)/i;
-// "Resolved" / "pending" keyword sets for a heading's status phrase — covers both the legacy
-// English single-word phrase (CLOSED/RESOLVED/OPEN) and the Spanish free-text phrase.
-const RESOLVED_KEYWORDS = /^CLOSED$|^RESOLVED$|RESUELT|SUPERSEDID|CERRAD/;
+// The template's machine field: "- **Estado:** PENDIENTE" / "RESUELTO: …" / "OBSOLETO: …".
+const ESTADO_LINE = /^-?\s*\*{1,2}Estado:?\*{1,2}\s*(PENDIENTE|RESUELTO|OBSOLETO|OBSOLETA)/i;
+// "Resolved" / "pending" / "obsolete" keyword sets for a heading's status phrase — covers both the
+// legacy English single-word phrase (CLOSED/RESOLVED/OPEN) and the Spanish free-text phrase.
+// Obsolete is its OWN status (the codebase moved on, no answer was given) — NOT folded into
+// resolved, so the history stays honest about which decisions were actually answered.
+const RESOLVED_KEYWORDS = /^CLOSED$|^RESOLVED$|RESUELT|CERRAD/;
+const OBSOLETE_KEYWORDS = /SUPERSEDID|OBSOLET/;
 const PENDING_KEYWORDS = /^OPEN$|NECESITA|PENDIENT|ABIERT/;
 
 /**
  * A heading parse result: the block's title, an optional raw status phrase, and its date
- * (`null` for a legacy heading) — `date` feeds the id derivation (`_nextId`).
+ * (`null` for a legacy heading) — `date` feeds the id derivation (`_nextId`) and the
+ * owner-facing age display.
  */
 interface ParsedHeading {
   title: string;
@@ -273,8 +287,9 @@ interface ParsedHeading {
 type DecisionBlock = {
   id: string;
   title: string;
+  date: string | null;
   statusPhrase: string | null;
-  estado: "pending" | "resolved" | null;
+  estado: "pending" | "resolved" | "obsolete" | null;
   recommendation?: string;
 };
 
@@ -313,28 +328,32 @@ function _parseRecommendation(line: string): string | undefined {
 }
 
 /** Extract the template's explicit `- **Estado:**` machine field, or `undefined` if absent. */
-function _parseEstado(line: string): "pending" | "resolved" | undefined {
+function _parseEstado(line: string): "pending" | "resolved" | "obsolete" | undefined {
   const m = ESTADO_LINE.exec(line);
   if (!m) return undefined;
-  return (m[1] ?? "").toUpperCase() === "RESUELTO" ? "resolved" : "pending";
+  const word = (m[1] ?? "").toUpperCase();
+  if (word === "RESUELTO") return "resolved";
+  if (word === "OBSOLETO" || word === "OBSOLETA") return "obsolete";
+  return "pending";
 }
 
 /**
- * Resolve a block's `resolved` flag: an explicit `- **Estado:**` body line wins; otherwise
- * the heading's status phrase is matched against known resolved/pending keywords (covers
- * both the legacy single-word phrase and the date-prefixed free-text phrase uniformly);
- * with no signal at all, default to unresolved — surface as pending rather than silently
+ * Resolve a block's status: an explicit `- **Estado:**` body line wins; otherwise the
+ * heading's status phrase is matched against known resolved/obsolete/pending keywords
+ * (covers both the legacy single-word phrase and the date-prefixed free-text phrase
+ * uniformly); with no signal at all, default to pending — surface rather than silently
  * hide it (DR-078 fail-loud spirit).
  */
 function _resolveStatus(
   statusPhrase: string | null,
-  estado: "pending" | "resolved" | null,
-): boolean {
-  if (estado !== null) return estado === "resolved";
-  if (statusPhrase === null) return false;
-  if (RESOLVED_KEYWORDS.test(statusPhrase)) return true;
-  if (PENDING_KEYWORDS.test(statusPhrase)) return false;
-  return false;
+  estado: "pending" | "resolved" | "obsolete" | null,
+): "pending" | "resolved" | "obsolete" {
+  if (estado !== null) return estado;
+  if (statusPhrase === null) return "pending";
+  if (OBSOLETE_KEYWORDS.test(statusPhrase)) return "obsolete";
+  if (RESOLVED_KEYWORDS.test(statusPhrase)) return "resolved";
+  if (PENDING_KEYWORDS.test(statusPhrase)) return "pending";
+  return "pending";
 }
 
 /**
@@ -344,8 +363,14 @@ function _pushDecision(result: DecisionPoint[], block: DecisionBlock | null): vo
   if (block === null || block.title.trim().length === 0) {
     return;
   }
-  const resolved = _resolveStatus(block.statusPhrase, block.estado);
-  const dp: DecisionPoint = { id: block.id, title: block.title, resolved };
+  const status = _resolveStatus(block.statusPhrase, block.estado);
+  const dp: DecisionPoint = {
+    id: block.id,
+    title: block.title,
+    date: block.date,
+    status,
+    resolved: status !== "pending",
+  };
   if (block.recommendation !== undefined) {
     dp.recommendation = block.recommendation;
   }

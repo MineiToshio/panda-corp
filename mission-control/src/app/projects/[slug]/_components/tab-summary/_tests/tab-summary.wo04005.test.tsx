@@ -4,19 +4,18 @@
  * These tests verify the additional acceptance criteria introduced by the
  * WO-04-005 re-paint:
  *
- *   AC-WO-04-005-A   WHEN a pending decision has a recommendation, the
- *                    "Aprobar la recomendación" button SHALL be present
- *                    (data-testid="approve-btn").
- *   AC-WO-04-005-B   The approve button SHALL render the /pandacorp:decide command
- *                    row via CmdRow (data-testid="cmd-row") so the copy can work.
- *   AC-WO-04-005-C   A pending decision WITHOUT a recommendation SHALL NOT show
- *                    the approve button (copy only applies when there is a rec).
+ *   AC-WO-04-005-B   Each pending decision SHALL render the /pandacorp:decide <id>
+ *                    command row via CmdRow (data-testid="cmd-row") so the copy can
+ *                    work — scoped to that one decision, never the bare un-scoped form.
  *   AC-WO-04-005-D   The decisions section uses Panel primitive for warn-bg container
  *                    (data-testid="decision-warn-panel" on each card).
  *   AC-WO-04-005-E   The summary section uses Panel primitive
  *                    (data-testid="panel" at the section level).
- *   AC-WO-04-005-F   The "Aprobar" command is the full string
- *                    `/pandacorp:decide "Aprobado: <recommendation>"`.
+ *
+ * The "Aprobar la recomendación" one-click affordance was REMOVED (owner decision,
+ * 2026-06-30): a pre-baked approve button let the owner record an answer without the
+ * context a real /pandacorp:decide <id> conversation provides. The recommendation
+ * TEXT still renders as context; there is no longer a one-click command for it.
  *
  * Stack: Vitest + @testing-library/react + jsdom.
  * This file tests rendering contracts only — I/O is tested in lib/docs tests.
@@ -37,107 +36,18 @@ const EMPTY_LOG: ActivityLog = { entries: [] };
 const DECISION_WITH_REC: DecisionPoint = {
   id: "2026-06-15-1",
   title: "¿Usar Playwright para e2e?",
+  date: "2026-06-15",
+  status: "pending",
   resolved: false,
   recommendation: "Usar Playwright con fixtures para e2e.",
 };
 
-const DECISION_WITHOUT_REC: DecisionPoint = {
-  id: "2026-06-15-1",
-  title: "Elegir base de datos",
-  resolved: false,
-};
-
-const RESOLVED_DECISION: DecisionPoint = {
-  id: "2026-06-15-1",
-  title: "Deploy target",
-  resolved: true,
-  recommendation: "Usar Vercel",
-};
-
 // ---------------------------------------------------------------------------
-// AC-WO-04-005-A  Approve button present when recommendation exists
+// AC-WO-04-005-B  CmdRow present for the /pandacorp:decide <id> command
 // ---------------------------------------------------------------------------
 
-describe("WO-04-005: TabSummary re-paint — approve button", () => {
-  it("AC-WO-04-005-A: WHEN a pending decision has a recommendation THEN approve-btn is rendered", () => {
-    render(
-      <TabSummary
-        summary="Proyecto de prueba"
-        keyPoints={[]}
-        activityLog={EMPTY_LOG}
-        decisions={[DECISION_WITH_REC]}
-        pendingDecisions={1}
-      />,
-    );
-    expect(screen.getByTestId("approve-btn")).toBeDefined();
-  });
-
-  it("AC-WO-04-005-A: WHEN multiple pending decisions have recommendations THEN approve-btn appears for each", () => {
-    const decisions: DecisionPoint[] = [
-      { id: "2026-06-15-1", title: "D1", resolved: false, recommendation: "Rec1" },
-      { id: "2026-06-15-2", title: "D2", resolved: false, recommendation: "Rec2" },
-    ];
-    render(
-      <TabSummary
-        summary="Proyecto"
-        keyPoints={[]}
-        activityLog={EMPTY_LOG}
-        decisions={decisions}
-        pendingDecisions={2}
-      />,
-    );
-    const btns = screen.getAllByTestId("approve-btn");
-    expect(btns.length).toBe(2);
-  });
-
-  it("AC-WO-04-005-C: WHEN a pending decision has NO recommendation THEN approve-btn is NOT rendered", () => {
-    render(
-      <TabSummary
-        summary="Proyecto"
-        keyPoints={[]}
-        activityLog={EMPTY_LOG}
-        decisions={[DECISION_WITHOUT_REC]}
-        pendingDecisions={1}
-      />,
-    );
-    expect(screen.queryByTestId("approve-btn")).toBeNull();
-  });
-
-  it("AC-WO-04-005-C: WHEN a RESOLVED decision has a recommendation THEN approve-btn is NOT rendered for it", () => {
-    render(
-      <TabSummary
-        summary="Proyecto"
-        keyPoints={[]}
-        activityLog={EMPTY_LOG}
-        decisions={[RESOLVED_DECISION]}
-        pendingDecisions={0}
-      />,
-    );
-    expect(screen.queryByTestId("approve-btn")).toBeNull();
-  });
-
-  it("AC-WO-04-005-C: WHEN mixed decisions (one with rec, one without) THEN only one approve-btn appears", () => {
-    const decisions: DecisionPoint[] = [DECISION_WITH_REC, DECISION_WITHOUT_REC];
-    render(
-      <TabSummary
-        summary="Proyecto"
-        keyPoints={[]}
-        activityLog={EMPTY_LOG}
-        decisions={decisions}
-        pendingDecisions={2}
-      />,
-    );
-    const btns = screen.getAllByTestId("approve-btn");
-    expect(btns.length).toBe(1);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// AC-WO-04-005-B  CmdRow present for the approve command
-// ---------------------------------------------------------------------------
-
-describe("WO-04-005: TabSummary re-paint — CmdRow for /pandacorp:decide", () => {
-  it("AC-WO-04-005-B: WHEN pending decisions exist THEN cmd-row is rendered (for /pandacorp:decide)", () => {
+describe("WO-04-005: TabSummary re-paint — CmdRow for /pandacorp:decide <id>", () => {
+  it("AC-WO-04-005-B: WHEN pending decisions exist THEN cmd-row is rendered (for /pandacorp:decide <id>)", () => {
     render(
       <TabSummary
         summary="Proyecto"
@@ -151,7 +61,7 @@ describe("WO-04-005: TabSummary re-paint — CmdRow for /pandacorp:decide", () =
     expect(screen.getByTestId("cmd-row")).toBeDefined();
   });
 
-  it("AC-WO-04-005-B: cmd-row displays the /pandacorp:decide command", () => {
+  it("AC-WO-04-005-B: cmd-row displays the /pandacorp:decide <id> command, scoped to this decision", () => {
     render(
       <TabSummary
         summary="Proyecto"
@@ -162,16 +72,10 @@ describe("WO-04-005: TabSummary re-paint — CmdRow for /pandacorp:decide", () =
       />,
     );
     const cmdRow = screen.getByTestId("cmd-row");
-    expect(cmdRow.textContent).toContain("/pandacorp:decide");
+    expect(cmdRow.textContent).toContain("/pandacorp:decide 2026-06-15-1");
   });
-});
 
-// ---------------------------------------------------------------------------
-// AC-WO-04-005-F  Approve command text is the full command string
-// ---------------------------------------------------------------------------
-
-describe("WO-04-005: TabSummary re-paint — approve command text", () => {
-  it('AC-WO-04-005-F: approve-btn contains text with "Aprobar"', () => {
+  it("AC-WO-04-005-B / owner decision: no approve-btn exists anywhere (the one-click affordance was removed)", () => {
     render(
       <TabSummary
         summary="Proyecto"
@@ -181,24 +85,9 @@ describe("WO-04-005: TabSummary re-paint — approve command text", () => {
         pendingDecisions={1}
       />,
     );
-    const btn = screen.getByTestId("approve-btn");
-    expect(btn.textContent).toContain("Aprobar");
-  });
-
-  it("AC-WO-04-005-F: approve-btn has aria-label referencing /pandacorp:decide", () => {
-    render(
-      <TabSummary
-        summary="Proyecto"
-        keyPoints={[]}
-        activityLog={EMPTY_LOG}
-        decisions={[DECISION_WITH_REC]}
-        pendingDecisions={1}
-      />,
-    );
-    const btn = screen.getByTestId("approve-btn");
-    // The aria-label or button text should reference the action
-    const text = (btn.textContent ?? "") + (btn.getAttribute("aria-label") ?? "");
-    expect(text.length).toBeGreaterThan(0);
+    expect(screen.queryByTestId("approve-btn")).not.toBeInTheDocument();
+    // The recommendation TEXT still renders as context.
+    expect(screen.getByText(/Usar Playwright con fixtures para e2e\./)).toBeInTheDocument();
   });
 });
 

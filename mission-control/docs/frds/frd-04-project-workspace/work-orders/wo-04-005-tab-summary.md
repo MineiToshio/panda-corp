@@ -175,3 +175,34 @@ existing exact-command assertions (the EXACT `/pandacorp:decide "Aprobado: …"`
 
 **verify.sh at this addendum:** GREEN — 382 files, 7340 tests pass (2 expected-fail unrelated), 66/66
 e2e, tsc/biome clean.
+
+## Status Note — 2026-06-30 second addendum: approve one-click removed, age hint + Obsoleta tag added
+
+**Owner feedback:** "esa parte de abajo de aprobar recomendación hay que quitarlo" — the owner found
+the one-click "Aprobar la recomendación" confusing/risky: it let them pre-approve an AI suggestion
+without the context a real `/pandacorp:decide <id>` conversation provides. Removed entirely:
+`ApproveButton` component, its styles (`APPROVE_BTN_STYLE`/`APPROVE_COMMAND_STYLE`), and the
+now-unused `CopyButton` import. The recommendation TEXT still renders as context above the action
+block — only the one-click copy command is gone.
+
+**Added (same owner request — obsolescence handling):**
+- **Age hint** (`decisionAgeLabel`, "hoy" / "hace N días") next to a pending card's id, derived from
+  `DecisionPoint.date` (WO-04-001). `null` for a legacy decision (no date) → no hint rendered, never
+  a fabricated age.
+- **"Obsoleta" tag** (`data-testid="decision-obsolete-tag"`) on a resolved-row card whose `status`
+  is `"obsolete"` — visually distinct from a genuinely answered decision, same muted-row treatment.
+
+**Counterpart (plugin, separate commit):** `/pandacorp:decide`'s SKILL.md taught a 7-day staleness
+check (flags an old decision and asks if it still applies BEFORE asking for an answer) + how to
+record `OBSOLETO`. See `plugin/docs/decision-log.md` (v9.37.0).
+
+**New tests:** `tab-summary.wo04005.test.tsx`'s approve-button describe block REPLACED (the feature
+no longer exists) with assertions that no `approve-btn` exists anywhere and the recommendation
+renders as plain text; `frd-04-gate-opus.reviewer.test.tsx` and `tab-summary.reviewer.test.tsx`
+updated the same way (the React #418 nested-button regression test is generalized — kept as a
+standing guard on the decision card, since the specific nesting it caught is now structurally
+impossible); 3 new age-hint tests (today, N-days-ago via a relative-date helper so the test is
+deterministic regardless of when it runs, legacy-no-date) + 1 Obsoleta-tag test.
+
+**verify.sh at this addendum:** GREEN — 383 files, 7360 tests pass (2 expected-fail unrelated),
+66/66 e2e, tsc/biome clean.

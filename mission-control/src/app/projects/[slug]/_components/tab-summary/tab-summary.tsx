@@ -8,16 +8,17 @@
  *   Panel      → section containers (glow="warn" variant for decisions)
  *   CountBadge → pending-decisions pill (tabular-nums, warn tone)
  *   DocHeading → section titles (accent ledge)
- *   CmdRow     → /pandacorp:decide command row + "Aprobar" copy button
- *   CopyButton → "Aprobar la recomendación" action (copy-only, never calls Claude)
+ *   CmdRow     → /pandacorp:decide <id> command row (copy-only, never calls Claude)
  *
  * Acceptance criteria:
  *   AC-04-003.1 Summary tab SHALL render the project summary and key points.
  *   AC-04-003.2 It SHALL render the activity log from .pandacorp/comms/progress.md.
- *   AC-04-003.3 It SHALL render decision points with a total count badge.
+ *   AC-04-003.3 It SHALL render decision points with a total count badge, each labeled with
+ *         its stable id and a `/pandacorp:decide <id>` command scoped to that decision.
  *   AC-04-004.1 WHEN pending_decisions > 0 → warn treatment (icon + label, not color alone).
- *   WHERE a decision has a recommendation → "Aprobar la recomendación" button copies
- *         `/pandacorp:decide "Aprobado: <recommendation>"` (copy only, no write/Claude).
+ *   No one-click "approve" affordance — answering goes through the real `/pandacorp:decide
+ *         <id>` conversation, which shows full context before recording an answer (owner
+ *         decision: a pre-baked approve button skips that context).
  *
  * Prototype reference: projResumen() + decisionesBox() + logBox() in prototype/index.html.
  * Traceability: CMP-04-tab-summary → REQ-04-003, REQ-04-004.
@@ -25,7 +26,6 @@
 
 import { Chip } from "@/components/core/Chip/Chip";
 import { CmdRow } from "@/components/core/CmdRow/CmdRow";
-import { CopyButton } from "@/components/core/CopyButton/CopyButton";
 import { CountBadge } from "@/components/core/CountBadge/CountBadge";
 import { DocHeading } from "@/components/core/DocHeading/DocHeading";
 import { Markdown } from "@/components/core/Markdown/Markdown";
@@ -222,6 +222,22 @@ const DECISION_ID_STYLE: React.CSSProperties = {
   fontWeight: 400,
 };
 
+/** "hace N días" age hint next to a pending decision's id — same muted token, prose (not mono). */
+const DECISION_AGE_STYLE: React.CSSProperties = {
+  fontSize: "11px",
+  color: "var(--color-text3, var(--color-text-muted, var(--color-text)))",
+};
+
+/** "Obsoleta" tag on a resolved-row decision whose status is "obsolete" (not actually answered). */
+const DECISION_OBSOLETE_TAG_STYLE: React.CSSProperties = {
+  fontSize: "11px",
+  color: "var(--color-text3, var(--color-text-muted, var(--color-text)))",
+  border: "0.5px solid var(--color-border)",
+  borderRadius: "4px",
+  padding: "0 4px",
+  marginRight: "6px",
+};
+
 const DECISION_ACTIONS_STYLE: React.CSSProperties = {
   marginTop: "9px",
   paddingTop: "9px",
@@ -236,21 +252,6 @@ const DECISION_ACTION_LABEL_STYLE: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   gap: "4px",
-};
-
-const APPROVE_BTN_STYLE: React.CSSProperties = {
-  marginTop: "8px",
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "8px",
-  color: "var(--color-warn, var(--color-status-warn, #ebb25f))",
-};
-
-const APPROVE_COMMAND_STYLE: React.CSSProperties = {
-  fontFamily: "var(--font-mono, monospace)",
-  fontSize: "11px",
-  userSelect: "all" as const,
-  color: "var(--color-warn, var(--color-status-warn, #ebb25f))",
 };
 
 // Activity log
@@ -380,7 +381,8 @@ function DecisionsBlock({
             // biome-ignore lint/suspicious/noArrayIndexKey: stable derived index; no reordering
             <li key={idx} data-testid="decision-item">
               {dp.resolved ? (
-                // Resolved decision: subdued, no warn styling
+                // Resolved or obsolete decision: subdued, no warn styling. The status
+                // label distinguishes "actually decided" from "dropped, no answer given".
                 <div
                   style={{
                     padding: "7px 0",
@@ -393,6 +395,11 @@ function DecisionsBlock({
                   >
                     {dp.id}
                   </span>
+                  {dp.status === "obsolete" && (
+                    <span data-testid="decision-obsolete-tag" style={DECISION_OBSOLETE_TAG_STYLE}>
+                      Obsoleta
+                    </span>
+                  )}
                   <span
                     style={{
                       fontSize: "13px",
@@ -417,6 +424,12 @@ function DecisionsBlock({
                       <span data-testid="decision-id" style={DECISION_ID_STYLE}>
                         {dp.id}
                       </span>
+                      {decisionAgeLabel(dp.date) !== null && (
+                        <span data-testid="decision-age" style={DECISION_AGE_STYLE}>
+                          {" "}
+                          · {decisionAgeLabel(dp.date)}
+                        </span>
+                      )}
                       <p style={DECISION_TITLE_STYLE}>{dp.title}</p>
                       {dp.recommendation !== undefined && (
                         <p style={DECISION_REC_STYLE}>
@@ -427,7 +440,7 @@ function DecisionsBlock({
                     </div>
                   </div>
 
-                  {/* Actions block — /pandacorp:decide <id> command + optional approve button */}
+                  {/* Actions block — /pandacorp:decide <id> command */}
                   <div style={DECISION_ACTIONS_STYLE}>
                     <p style={DECISION_ACTION_LABEL_STYLE}>
                       <span
@@ -439,9 +452,6 @@ function DecisionsBlock({
                       corre:
                     </p>
                     <CmdRow command={`/pandacorp:decide ${dp.id}`} />
-                    {dp.recommendation !== undefined && (
-                      <ApproveButton id={dp.id} recommendation={dp.recommendation} />
-                    )}
                   </div>
                 </div>
               )}
@@ -454,37 +464,20 @@ function DecisionsBlock({
 }
 
 /**
- * "Aprobar la recomendación" one-click copy button.
- *
- * Copies `/pandacorp:decide <id> "Aprobado: <recommendation>"` to clipboard — the `<id>`
- * scopes `/pandacorp:decide` directly to THIS decision instead of walking every pending
- * one (the decision's stable `DecisionPoint.id`, see activity.ts).
- * Copy-only: the app never writes or calls Claude (FRD-04 AC / FRD-13 DR-061).
- *
- * This is a separate component because CopyButton is "use client" — placing it
- * here allows TabSummary to remain a Server Component while the copy affordance
- * is correctly client-rendered.
+ * "hace N días" age label derived from a decision's `date` (the heading's `YYYY-MM-DD`
+ * prefix) — pure presentational hint so the owner can judge whether an old pending
+ * decision is still relevant before answering it. Returns `null` for a legacy decision
+ * (no date), an unparseable date, or a future date (never invents an age).
  */
-function ApproveButton({
-  id,
-  recommendation,
-}: {
-  id: string;
-  recommendation: string;
-}): React.JSX.Element {
-  const command = `/pandacorp:decide ${id} "Aprobado: ${recommendation}"`;
-  // Single interactive control: the approve affordance IS the CopyButton (one
-  // <button>), never a <button> wrapping another <button> (HTML validity + a11y +
-  // React #418). The exact command is rendered as visible, copy-selectable text
-  // alongside the button so it is present in the DOM and the AC behavior survives.
-  return (
-    <div data-testid="approve-btn" style={APPROVE_BTN_STYLE}>
-      <span aria-hidden="true" style={APPROVE_COMMAND_STYLE}>
-        {command}
-      </span>
-      <CopyButton value={command} label="Aprobar la recomendación" />
-    </div>
-  );
+function decisionAgeLabel(date: string | null): string | null {
+  if (date === null) return null;
+  const then = Date.parse(date);
+  if (!Number.isFinite(then)) return null;
+  const days = Math.floor((Date.now() - then) / 86_400_000);
+  if (days < 0) return null;
+  if (days === 0) return "hoy";
+  if (days === 1) return "hace 1 día";
+  return `hace ${days} días`;
 }
 
 /**

@@ -152,3 +152,26 @@ independent per-date counters, legacy counter, global uniqueness across a mixed-
 
 **verify.sh at this addendum:** GREEN — 382 files, 7340 tests pass (2 expected-fail unrelated),
 66/66 e2e, tsc/biome clean.
+
+## Status Note — 2026-06-30 third addendum: `DecisionPoint.date` + 3-way `status` (owner request)
+
+**Owner request:** old pending decisions might no longer reflect the current codebase; the owner
+asked for a way to see a decision's age and for a path to drop one that's gone stale without
+inventing a fake answer for it.
+
+**Fix:** `DecisionPoint` gains `date: string | null` (the heading's `YYYY-MM-DD` prefix, `null` for
+a legacy heading) — exposed purely for the owner-facing "hace N días" age display, never used in
+parsing logic itself. `DecisionPoint.resolved: boolean` is now a derived convenience over a new
+`status: "pending" | "resolved" | "obsolete"` field — `OBSOLETO`/`SUPERSEDIDO` resolve to their OWN
+`"obsolete"` status (a new `OBSOLETE_KEYWORDS` regex split out from `RESOLVED_KEYWORDS`, which used
+to fold `SUPERSEDID` into "resolved"), distinct from a genuinely answered `"resolved"` decision —
+the history stays honest about which decisions were actually decided vs dropped. `_parseEstado` and
+`ESTADO_LINE` recognize `OBSOLETO`/`OBSOLETA` in the template's `- **Estado:**` machine field too.
+`countPendingDecisions` is unaffected (`resolved !== "pending"` already excludes obsolete).
+
+**New tests:** 8 cases in `docs.wo04002.test.ts` — `date` exposed/null, `OBSOLETO`/`SUPERSEDIDO`
+heading phrases resolve to `status: "obsolete"` (not `"resolved"`), the Estado-line override,
+`RESUELTO` unaffected by the split, obsolete excluded from `countPendingDecisions`, plain pending.
+
+**verify.sh at this addendum:** GREEN — 383 files, 7360 tests pass (2 expected-fail unrelated),
+66/66 e2e, tsc/biome clean.

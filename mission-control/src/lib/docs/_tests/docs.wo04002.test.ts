@@ -70,7 +70,14 @@ import { countPendingDecisions, readActivityLog, readDecisions } from "../activi
 // ---------------------------------------------------------------------------
 
 type ActivityLog = { entries: string[] };
-type DecisionPoint = { id: string; title: string; recommendation?: string; resolved: boolean };
+type DecisionPoint = {
+  id: string;
+  title: string;
+  date: string | null;
+  recommendation?: string;
+  status: "pending" | "resolved" | "obsolete";
+  resolved: boolean;
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1239,6 +1246,144 @@ describe("frd-04: readDecisions — DecisionPoint.id (stable <date>-<n> / legacy
       const result = readDecisions(dir) as DecisionPoint[];
       const ids = result.map((d) => d.id);
       expect(new Set(ids).size).toBe(ids.length);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DecisionPoint.date — exposed for the owner-facing age display.
+// DecisionPoint.status — 3-way pending/resolved/obsolete (owner request).
+// ---------------------------------------------------------------------------
+
+describe("frd-04: readDecisions — DecisionPoint.date (exposed for age display)", () => {
+  it("frd-04: a dated heading exposes its date verbatim", () => {
+    const dir = makeTempProject((root) => {
+      fs.mkdirSync(path.join(root, ".pandacorp", "inbox"), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, ".pandacorp", "inbox", "decisions.md"),
+        "## 2026-06-21 (NECESITA DECISIÓN DEL OWNER) — Algo\n",
+      );
+    });
+    try {
+      const result = readDecisions(dir) as DecisionPoint[];
+      expect(result[0]?.date).toBe("2026-06-21");
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("frd-04: a legacy heading (no date) exposes date: null", () => {
+    const dir = makeTempProject((root) => {
+      fs.mkdirSync(path.join(root, ".pandacorp", "inbox"), { recursive: true });
+      fs.writeFileSync(path.join(root, ".pandacorp", "inbox", "decisions.md"), "## OPEN: Algo\n");
+    });
+    try {
+      const result = readDecisions(dir) as DecisionPoint[];
+      expect(result[0]?.date).toBeNull();
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("frd-04: readDecisions — DecisionPoint.status (3-way pending/resolved/obsolete)", () => {
+  it("frd-04: 'OBSOLETO' in the heading's status phrase is its own status, not 'resolved'", () => {
+    const dir = makeTempProject((root) => {
+      fs.mkdirSync(path.join(root, ".pandacorp", "inbox"), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, ".pandacorp", "inbox", "decisions.md"),
+        "## 2026-06-21 (OBSOLETO) — Ya no aplica\n",
+      );
+    });
+    try {
+      const result = readDecisions(dir) as DecisionPoint[];
+      expect(result[0]?.status).toBe("obsolete");
+      // resolved stays the convenience-derived "not pending" — an obsolete decision is
+      // also out of the pending count, but the UI must be able to tell the two apart.
+      expect(result[0]?.resolved).toBe(true);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("frd-04: 'SUPERSEDIDO' resolves to status 'obsolete' (not 'resolved')", () => {
+    const dir = makeTempProject((root) => {
+      fs.mkdirSync(path.join(root, ".pandacorp", "inbox"), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, ".pandacorp", "inbox", "decisions.md"),
+        "## 2026-06-18 (SUPERSEDIDO) — el freeze ya no aplica\n",
+      );
+    });
+    try {
+      const result = readDecisions(dir) as DecisionPoint[];
+      expect(result[0]?.status).toBe("obsolete");
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("frd-04: an explicit '- **Estado:** OBSOLETO: …' body line overrides an ambiguous heading", () => {
+    const dir = makeTempProject((root) => {
+      fs.mkdirSync(path.join(root, ".pandacorp", "inbox"), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, ".pandacorp", "inbox", "decisions.md"),
+        "## 2026-06-21 — Título corto\n" + "- **Estado:** OBSOLETO: el codebase ya cambió\n",
+      );
+    });
+    try {
+      const result = readDecisions(dir) as DecisionPoint[];
+      expect(result[0]?.status).toBe("obsolete");
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("frd-04: 'RESUELTO' still resolves to status 'resolved' (unaffected by the obsolete split)", () => {
+    const dir = makeTempProject((root) => {
+      fs.mkdirSync(path.join(root, ".pandacorp", "inbox"), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, ".pandacorp", "inbox", "decisions.md"),
+        "## 2026-06-21 (RESUELTO por el owner) — Decidido\n",
+      );
+    });
+    try {
+      const result = readDecisions(dir) as DecisionPoint[];
+      expect(result[0]?.status).toBe("resolved");
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("frd-04: an obsolete decision does NOT count toward countPendingDecisions", () => {
+    const dir = makeTempProject((root) => {
+      fs.mkdirSync(path.join(root, ".pandacorp", "inbox"), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, ".pandacorp", "inbox", "decisions.md"),
+        "## 2026-06-21 (OBSOLETO) — Ya no aplica\n" +
+          "## 2026-06-20 (NECESITA DECISIÓN DEL OWNER) — Sigue pendiente\n",
+      );
+    });
+    try {
+      expect(countPendingDecisions(dir)).toBe(1);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("frd-04: a plain pending decision still has status 'pending'", () => {
+    const dir = makeTempProject((root) => {
+      fs.mkdirSync(path.join(root, ".pandacorp", "inbox"), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, ".pandacorp", "inbox", "decisions.md"),
+        "## 2026-06-21 (NECESITA DECISIÓN DEL OWNER) — Algo\n",
+      );
+    });
+    try {
+      const result = readDecisions(dir) as DecisionPoint[];
+      expect(result[0]?.status).toBe("pending");
+      expect(result[0]?.resolved).toBe(false);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
