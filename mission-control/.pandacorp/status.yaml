@@ -3,7 +3,7 @@
 project: "Pandacorp"
 phase: release
 version: v1
-overlay_version: "8.49.0"
+overlay_version: "8.50.0"
 created_with: "6.0.0"
 target_platforms: desktop
 deploy_target: internal  # internal tool (runs on 127.0.0.1) — no external host (DR-085)

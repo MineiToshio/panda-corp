@@ -2,6 +2,11 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-06-30 — Gate canary built (DR-079 amended) — the anti-cheat assertion is no longer vacuous
+**What:** Acted on the owner's go-ahead to build the DR-079 gate canary (the P1-6 backlog item). A real harness now ships and is wired into the flow; the standard + registry are updated to match. Details + versions in `plugin/docs/decision-log.md` (v9.33.0, OVERLAY 8.50.0). Canonical doctrine updated here: `factory/decisions/registry.yaml` (DR-079 amended — BUILT) and `factory/standards/quality.md` (the advisory list now says the canary ships as a real harness covering biome / structure-guard / DR-100, with tsc/vitest/knip/Playwright as the documented next additions).
+**Why:** Conformance (DR-059/076) proves a gate's config FILE matches the template; it never proved the gate still FAILS on bad input (a rule can be present but disabled, an exit code swallowed). The canary closes that meta-gap (constitution principle 24: "every gate is periodically proven to still go RED on a deliberately broken input").
+**Impact:** `factory/decisions/registry.yaml` (DR-079), `factory/standards/quality.md` (advisory gates list). Implementation (the harness + skill wiring + plugin/overlay bumps) is logged in `plugin/docs/decision-log.md`. Validated by running it against Mission Control (3/3 gates rejected broken input). The greenfield-only fail-closed doc-lint remains the one open P1-6 backlog item.
+
 ## 2026-06-30 — Owner directives on audit follow-ups: doc-lint proactive, responsive two-tier, write-gate stays a nudge
 **What:** Three owner decisions on the factory-flow audit's open items:
 - **doc-lint: loud + proactive, still non-blocking (DR-077 amended).** Keep `doc-lint.sh` advisory (never blocks — no red-lock), but surface findings PROMINENTLY and FIX them proactively in the same pass when touching docs, rather than merely reporting. Recorded in `quality.md` (advisory list) + registry DR-077.
