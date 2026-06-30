@@ -245,7 +245,7 @@ export function PartyTab({
               PartyScene (the outer chrome: MissionBar + FlowStrip + stage) lives inside.
               Observation-only: no mode selector, no pause/reset (AC-06-009.1, DR-061). */}
           <div style={SCENE_WRAPPER_STYLE}>
-            <PartyLiveShell initialSnapshot={snapshot} />
+            <PartyLiveShell initialSnapshot={snapshot} running={running} />
           </div>
 
           {/* CMP-06-feed — the capped event log alongside the scene. */}

@@ -4,6 +4,11 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-06-30 — Party factory-off survives the SSE replay (PartyLiveShell, AC-06-013.4 follow-up)
+**What:** Follow-up to the same-day factory-off fix. The server (`PartyTab`) correctly rendered the powered-off scene from `status.yaml running:false`, but AFTER hydration the scene re-activated: `PartyLiveShell` re-derives the snapshot from each SSE frame via `toFraguaSnapshot`, and `/api/live` emits the current event tail on connect even when the build is OFF → `liveFrame` becomes non-null with the STALE tail → the re-derive ran WITHOUT `running` → `active:true` again (phantom WO + lit beat returned). Fix: thread `running` into `PartyLiveShell`; in the re-derive, a frame whose `lastEventAt` is NOT newer than the page-load snapshot is treated as a mere replay and keeps `running:false` (powered-off); a genuinely newer event (ISO-8601 `>`) reactivates (the build resumed, AC-06-013.3). `PartyTab` passes `running` to `PartyLiveShell`.
+**Why:** Verified on `:1987` after the first fix: SSR HTML showed 0 running sprites (off, correct) but the hydrated client showed `runningSprites:1` + `litBeats:2` — the SSE replay undid the server's factory-off. The initial fix only covered the RSC snapshot, not the live re-derive. Caught by a browser check, not the unit gate (the unit test exercised the pure snapshot, not the SSE path). Added a `PartyLiveShell` test that mocks `useLiveSnapshot` with a stale replay vs a fresher event.
+**Impact:** Code: `…/_party/PartyTab/PartyLiveShell.tsx` (+`running` prop, replay-vs-fresher logic), `…/_party/PartyTab/PartyTab.tsx` (pass `running`). Tests: `PartyLiveShell.factoryoff.test.tsx` (NEW). Same AC-06-013.4 contract; no new doc surface.
+
 ## 2026-06-30 — DAG de dependencias por-FRD dentro del modal de cada FRD (Arquitectura tab, AC-02-013.6)
 **What:** En el tab Arquitectura, al abrir el modal de un FRD, ahora se muestra al final un **DAG acotado a
 ese FRD** —reutilizando el mismo `WoDag` del Plan de implementación— con solo las work orders de ese FRD y

@@ -52,6 +52,14 @@ export interface PartyLiveShellProps {
    * Updated live once SSE delivers a frame.
    */
   project?: string;
+  /**
+   * The project's authoritative build flag from `status.yaml` (`running`).
+   * The SSE emits the current event tail on connect even when the build is OFF,
+   * so a live frame that merely REPLAYS the stale tail must not re-activate the
+   * scene — `running` keeps it powered-off (AC-06-013) unless a genuinely newer
+   * event arrives (the build resumed).
+   */
+  running?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -68,6 +76,7 @@ export interface PartyLiveShellProps {
 export function PartyLiveShell({
   initialSnapshot,
   project,
+  running,
 }: PartyLiveShellProps): React.JSX.Element {
   // Subscribe to the live SSE transport
   const { snapshot: liveFrame, connected } = useLiveSnapshot({ project });
@@ -79,10 +88,20 @@ export function PartyLiveShell({
 
     // Re-derive from the live event array
     const events = (liveFrame.events ?? []) as DashboardEvent[];
+    const liveAt = liveFrame.lastEventAt ?? null;
+    // The SSE emits the current tail on connect even when the build is OFF, so a
+    // frame that only REPLAYS the stale tail (no event newer than page-load) must
+    // not re-activate the scene — keep the authoritative `running:false` powered
+    // off. A genuinely NEWER event (the build resumed) reactivates (AC-06-013.3).
+    // ISO-8601 timestamps compare chronologically, so `>` detects a fresher event.
+    const hasFresherEvent =
+      liveAt !== null &&
+      (initialSnapshot.lastEventAt === null || liveAt > initialSnapshot.lastEventAt);
     return toFraguaSnapshot(events, {
-      lastEventAt: liveFrame.lastEventAt ?? null,
+      lastEventAt: liveAt,
+      running: hasFresherEvent ? undefined : running,
     });
-  }, [liveFrame, initialSnapshot]);
+  }, [liveFrame, initialSnapshot, running]);
 
   // Compute the most recent event VM for the achievement toast
   const latestEventVM = useMemo(() => {
