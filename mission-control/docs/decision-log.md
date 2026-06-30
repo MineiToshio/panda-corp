@@ -4,6 +4,22 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-06-29 — Fix: el deep-link `/projects/[slug]` daba 404 para TODOS los proyectos
+**What:** La página de workspace resolvía el proyecto con `activeProjects().find((p) => p.name === slug)` —
+contra el nombre CRUDO ("Pandacorp (Mission Control)")—, pero el dashboard/portafolio (Cartera) generan el
+href con un slug **kebab** (`nameToSlug` → "pandacorp-mission-control"). Nunca coincidían → **404 en todo el
+workspace de proyecto** (Party, Observabilidad, Documentos, etc.). Se extrajo `nameToSlug` a un helper
+compartido (`src/lib/slug.ts`, un solo origen — DR-092) y la página ahora resuelve por slug
+(`nameToSlug(p.name) === slug`), tolerando además el nombre crudo para enlaces directos antiguos.
+**Why:** Bug descubierto al intentar mostrar el Party: el deep-link estaba roto en main (el dueño veía una
+pestaña vieja en caché; un refresh daba 404). El generador de enlaces y el resolutor deben compartir la
+MISMA transformación nombre→slug o todo deep-link 404ea. Hueco de cobertura: el Preview Smoke Gate cubre
+`/board`, `/portfolio`, `/achievements`, `/manual` pero **no** `/projects/[slug]` con un slug real, por eso
+pasó todos los gates estáticos con la pantalla en 404.
+**Context:** Test unitario de `nameToSlug` (incluye el caso exacto que rompía). Fix de correctitud, separado
+de la animación del Party (REQ-06-018). Pendiente sugerido: añadir el deep-link de proyecto al smoke gate.
+**Impact:** Código: `src/lib/slug.ts` (NUEVO), `src/app/projects/[slug]/page.tsx`. Tests: `src/lib/_tests/slug.test.ts` (NUEVO).
+
 ## 2026-06-29 — Party (La Fragua): liveness continua — la escena se ve VIVA entre eventos (REQ-06-018)
 **What:** Nueva REQ-06-018 + implementación. El Party se veía **estático/muerto** durante builds reales: se
 alimenta solo del stream de eventos de Claude Code y solo se movía en las *transiciones* entre eventos, así que

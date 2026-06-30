@@ -12,6 +12,7 @@
 
 import { notFound } from "next/navigation";
 import { activeProjects } from "@/lib/portfolio/portfolio";
+import { nameToSlug } from "@/lib/slug";
 import { ProjectWorkspace, resolveWorkspaceTab, type WorkspaceSelection } from "./ProjectWorkspace";
 
 interface PageProps {
@@ -27,7 +28,10 @@ export default async function ProjectWorkspacePage({
   const sp = await searchParams;
 
   // Resolve the project from the portfolio (selection.ts pattern). 404 when unknown.
-  const item = activeProjects().find((p) => p.name === slug);
+  // The dashboard/portfolio links route to a kebab slug (nameToSlug), so match on
+  // that; tolerate a raw-name slug too for older/direct links. (Without the slug
+  // match, every project deep-link 404s — the links are kebab, names are not.)
+  const item = activeProjects().find((p) => nameToSlug(p.name) === slug || p.name === slug);
   if (item === undefined) {
     notFound();
   }
