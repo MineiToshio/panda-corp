@@ -4,6 +4,37 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-06-29 — Party (La Fragua): liveness continua — la escena se ve VIVA entre eventos (REQ-06-018)
+**What:** Nueva REQ-06-018 + implementación. El Party se veía **estático/muerto** durante builds reales: se
+alimenta solo del stream de eventos de Claude Code y solo se movía en las *transiciones* entre eventos, así que
+con un agente moliendo una sola WO ~9 min sin eventos el muñequito llegaba a su hueco y se congelaba. Diagnóstico
+a nivel de código: los sprites se renderizan estáticos desde el snapshot en posiciones fijas y el motor RAF
+(`engine.tick`) se ejecutaba pero **su salida nunca se volcaba al DOM** → nada animaba; además el "halo pulsante"
+del contrato de diseño de `AgentSprite` **nunca se implementó** (solo opacidad fija) y la barra recibía `progress=0`
+sin fuente. Se añadió **animación ambiente continua por CSS** (no dependiente de eventos): bob + halo pulsante en
+sprites en estado `work`/`review` (reusa el keyframe `campaign-idle-bob`), barra **indeterminada honesta** (sweep,
+sin inventar %), **latido global "forjando en vivo / sin señal reciente / en espera"** derivado de `active` +
+frescura real de `lastEventAt` (umbral 4 min), y un **pulso suave en el beat activo** de la FlowStrip. Todo se
+auto-desactiva con `prefers-reduced-motion` (regla global de `globals.css`) cayendo a un estado estático visible
+(coherente con AC-06-014.1). **No** se inventa progreso ni datos (DR-078/087): la barra indeterminada es una señal
+de actividad, no un porcentaje.
+**Why:** El dueño reportó (dos veces, mirando `:1987`) que "no se mueve nada, se ve súper estático": muñequitos
+quietos, barra que nunca sube, y un sprite que aparecía/desaparecía. La causa raíz es de diseño (visualización
+100% event-driven sin señal de vida ambiente) + dos defectos (halo no implementado, barra sin fuente). Una vista
+de "vida" no puede depender solo de eventos discretos. Construido directo (el dueño eligió "arreglarlo ya"),
+aislado en worktree para no chocar con el build de FRD-09/10 en curso (DR-096).
+**Context:** TDD — tests de las clases de animación (AgentSprite, FlowStrip), `deriveHeartbeat` como función pura,
+y la transición vivo→stale con fake timers; se actualizó el test adversarial `frd13-wo07-09.reviewer2` que
+codificaba el comportamiento viejo (progress=0 → fill 0%) al nuevo (indeterminado). Gate completo verde
+(vitest 7147 + tsc/knip/biome + e2e/visual 56). Queda **pendiente** (capturado en la change-card
+`mc-party-liveness-heartbeat.md`): arreglar de raíz el **parpadeo** aparecer/desaparecer (la presencia del sprite
+debe gobernarla `wo_start`/`wo_end` de `.pandacorp/track.jsonl`, no `AgentWorking`/`SubagentStop`) y leer el pulso
+real del build — es un cambio de la derivación (`fragua-snapshot.ts`) con mayor radio de tests, separado de este.
+**Impact:** Código: `src/app/globals.css` (keyframes + clases liveness), `components/modules/party/AgentSprite/AgentSprite.tsx`,
+`components/modules/party/FlowStrip/FlowStrip.tsx`, `app/projects/[slug]/_party/PartyScene/PartyScene.tsx` (+ `deriveHeartbeat`).
+Docs: `docs/frds/frd-06-party/frd.md` (REQ-06-018). Tests: AgentSprite, FlowStrip, PartyScene.heartbeat (nuevo),
+frd13-wo07-09.reviewer2 (actualizado). Sin tocar el motor de derivación (parpadeo/pulso real = follow-up).
+
 ## 2026-06-29 — WO-09-006: gamification ledger — persistent XP accumulator
 **What:** Implemented the gamification ledger (`factory/gamification-ledger.json`, gitignored) that
 records the historical maximum guild outcomes (workOrdersDone, phasesCompleted, releases) so that

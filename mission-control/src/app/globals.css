@@ -483,6 +483,102 @@ h3 {
 }
 
 /* ---------------------------------------------------------------------------
+ * Fragua liveness (WO-06 liveness pass) — continuous ambient animation so an
+ * active build READS as alive even between discrete events. The event stream
+ * only moves on transitions; a single agent grinding one WO emits nothing for
+ * minutes, which left the scene frozen. These animations are time-driven, not
+ * event-driven, so the forge always breathes while work is happening.
+ * All are auto-disabled under prefers-reduced-motion by the global rule above
+ * (animation-duration: 0ms), which freezes each at frame 0 — every keyframe's
+ * 0% is a deliberate, sensible static state (visible, never empty/off-screen).
+ * Reuses campaign-idle-bob for the sprite bob (no near-duplicate keyframe).
+ * --------------------------------------------------------------------------- */
+
+/* Working/review sprite gently bobs up-down (reuses the campaign idle-bob keyframe). */
+.fragua-sprite-bob {
+  animation: campaign-idle-bob 2.6s ease-in-out infinite;
+}
+
+/* Under-sprite halo breathes. Opacity-only (position is set inline on the halo span,
+   so animating transform here would shift it). Frame 0 = the resting 0.55 opacity. */
+@keyframes fragua-halo {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+.fragua-halo-pulse {
+  animation: fragua-halo 1.6s ease-in-out infinite;
+}
+
+/* Indeterminate "working" sweep for the WO progress bar — an honest activity
+   signal, NOT a fabricated percentage. A brighter band sweeps over a dim full
+   base; frame 0 (reduced-motion rest) keeps the band at the left edge, visibly
+   "active". The dim base communicates "in progress, amount unknown". */
+@keyframes fragua-bar-sweep {
+  0% {
+    transform: translateX(-40%);
+  }
+  100% {
+    transform: translateX(220%);
+  }
+}
+.fragua-bar-base {
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  background: var(--color-cat-7);
+  opacity: 0.28;
+}
+.fragua-bar-sweep {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 42%;
+  border-radius: 3px;
+  background: var(--color-cat-7);
+  animation: fragua-bar-sweep 1.2s ease-in-out infinite;
+}
+
+/* Global "build alive" heartbeat dot (PartyScene header). Frame 0 = solid dot. */
+@keyframes fragua-heartbeat {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 0.5;
+  }
+}
+.fragua-heartbeat {
+  animation: fragua-heartbeat 1.4s ease-in-out infinite;
+}
+.fragua-heartbeat-stale {
+  animation: fragua-heartbeat 3s ease-in-out infinite;
+}
+
+/* Active FlowStrip beat softly glows so the top pipeline strip reads as live.
+   Frame 0 = the resting accent border (no glow), matching the inline style. */
+@keyframes fragua-beat-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow: 0 0 10px -2px var(--color-accent);
+  }
+}
+.fragua-beat-active {
+  animation: fragua-beat-glow 2s ease-in-out infinite;
+}
+
+/* ---------------------------------------------------------------------------
  * Card detail · Documentos tab — two-pane rail + reader (prototype docsBody).
  * 210px rail + reader on desktop; stacks to one column on narrow viewports.
  * --------------------------------------------------------------------------- */

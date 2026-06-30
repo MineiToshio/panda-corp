@@ -384,14 +384,15 @@ describe("frd-13 reviewer2 (WO-13-009): AgentSprite — edge cases", () => {
     expect(style).not.toContain("width: 200%");
   });
 
-  // Mutation target: progress=0 (no progress at all) renders 0% fill
-  it("progress=0: fill width is 0%", () => {
+  // progress=0 (no real progress fed) shows an honest indeterminate "working"
+  // sweep — NOT a frozen 0% fill, which read as "not working" (WO-06 liveness).
+  it("progress=0: shows an indeterminate working bar, not a static 0% fill", () => {
     render(<AgentSprite agentRole="implementer" state="work" woId="WO-06-001" progress={0} />);
     const prog = screen.getByTestId("agent-sprite-progress");
-    const fill = prog.querySelector("i");
-    if (!fill) throw new Error("No fill element");
-    const style = (fill as HTMLElement).getAttribute("style") ?? "";
-    expect(style).toContain("width: 0%");
+    expect(prog).toHaveAttribute("data-indeterminate", "true");
+    // No determinate <i> fill — the bar is a sweeping activity signal.
+    expect(prog.querySelector("i")).toBeNull();
+    expect(screen.getByTestId("agent-sprite-progress-sweep")).toBeInTheDocument();
   });
 
   // Mutation target: say-on state shows neither carry nor vault indicators

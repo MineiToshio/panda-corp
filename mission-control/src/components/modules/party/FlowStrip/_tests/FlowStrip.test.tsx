@@ -40,6 +40,12 @@ describe("FlowStrip", () => {
     expect(screen.getByTestId("flow-beat-build")).toHaveAttribute("data-active", "true");
   });
 
+  it("glows the active beat so the top strip reads as live, not the inactive ones", () => {
+    render(<FlowStrip beats={EIGHT_BEATS} activeKeys={["build"]} />);
+    expect(screen.getByTestId("flow-beat-build")).toHaveClass("fragua-beat-active");
+    expect(screen.getByTestId("flow-beat-product")).not.toHaveClass("fragua-beat-active");
+  });
+
   it("marks inactive beats with data-active=false", () => {
     render(<FlowStrip beats={EIGHT_BEATS} activeKeys={["build"]} />);
     expect(screen.getByTestId("flow-beat-product")).toHaveAttribute("data-active", "false");

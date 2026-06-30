@@ -173,6 +173,7 @@ export function FlowStrip({ beats, activeKeys }: FlowStripProps): React.JSX.Elem
               data-testid={`flow-beat-${beat.key}`}
               data-active={String(active)}
               data-beat-key={beat.key}
+              className={active ? "fragua-beat-active" : undefined}
               style={stepStyle(active)}
             >
               {/* Hover tooltip (CSS display:none; shown via :hover in globals.css or inline group) */}

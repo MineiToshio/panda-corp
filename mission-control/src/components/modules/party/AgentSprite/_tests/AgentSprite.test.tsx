@@ -127,4 +127,42 @@ describe("AgentSprite", () => {
     const img = screen.getByTestId("agent-sprite-img");
     expect(img).toHaveStyle({ width: "42px", height: "42px" });
   });
+
+  // -------------------------------------------------------------------------
+  // Liveness (WO-06 liveness pass) — continuous ambient motion + honest bar
+  // -------------------------------------------------------------------------
+
+  it("bobs and pulses its halo while working (alive without new events)", () => {
+    render(<AgentSprite agentRole="implementer" state="work" woId="WO-06-001" />);
+    expect(screen.getByTestId("agent-sprite-root")).toHaveClass("fragua-sprite-bob");
+    expect(screen.getByTestId("agent-sprite-halo")).toHaveClass("fragua-halo-pulse");
+  });
+
+  it("also animates while in review (the tribunal is active work too)", () => {
+    render(<AgentSprite agentRole="implementer" state="review" woId="WO-06-001" />);
+    expect(screen.getByTestId("agent-sprite-root")).toHaveClass("fragua-sprite-bob");
+  });
+
+  it("stays still as a vault trophy (no bob)", () => {
+    render(<AgentSprite agentRole="implementer" state="vault" woId="WO-06-001" />);
+    expect(screen.getByTestId("agent-sprite-root")).not.toHaveClass("fragua-sprite-bob");
+  });
+
+  it("shows an indeterminate working bar when no real progress is fed", () => {
+    render(<AgentSprite agentRole="implementer" state="work" woId="WO-06-001" />);
+    expect(screen.getByTestId("agent-sprite-progress")).toHaveAttribute(
+      "data-indeterminate",
+      "true",
+    );
+    expect(screen.getByTestId("agent-sprite-progress-sweep")).toHaveClass("fragua-bar-sweep");
+  });
+
+  it("shows a determinate fill when a real progress value exists", () => {
+    render(<AgentSprite agentRole="implementer" state="work" woId="WO-06-001" progress={0.6} />);
+    expect(screen.getByTestId("agent-sprite-progress")).toHaveAttribute(
+      "data-indeterminate",
+      "false",
+    );
+    expect(screen.queryByTestId("agent-sprite-progress-sweep")).toBeNull();
+  });
 });

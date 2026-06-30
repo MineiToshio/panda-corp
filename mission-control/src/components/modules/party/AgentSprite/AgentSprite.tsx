@@ -109,6 +109,15 @@ export function AgentSprite({
   const isVault = state === "vault";
   const spriteSize = isVault ? SIZE_VAULT : SIZE_NORMAL;
 
+  // Liveness (WO-06 liveness pass): a working/reviewing sprite bobs + its halo
+  // breathes continuously, so an actively-building agent reads as alive even
+  // when no new event has arrived (the event stream is sparse mid-WO). Trophies
+  // (vault) and idle sprites stay still. Auto-disabled under reduced-motion.
+  const isActive = isWork || state === "review";
+  // Indeterminate when working without a real progress value: show an honest
+  // "working" sweep rather than fabricating a percentage (none is fed today).
+  const isIndeterminate = isWork && progress <= 0;
+
   const rootStyle: CSSProperties = {
     position: "absolute",
     width: `${SIZE_NORMAL}px`,
@@ -215,16 +224,40 @@ export function AgentSprite({
       data-testid="agent-sprite-root"
       data-role={agentRole}
       data-state={state}
+      className={isActive ? "fragua-sprite-bob" : undefined}
       role="img"
       aria-label={`Agente ${agentRole} · orden ${woId} · estado ${state}`}
       style={rootStyle}
     >
-      {/* Halo glow (under-sprite) */}
-      <span data-testid="agent-sprite-halo" aria-hidden="true" style={haloStyle} />
+      {/* Halo glow (under-sprite) — breathes while active */}
+      <span
+        data-testid="agent-sprite-halo"
+        className={isActive ? "fragua-halo-pulse" : undefined}
+        aria-hidden="true"
+        style={haloStyle}
+      />
 
-      {/* Progress bar (visible in work state) */}
-      <div data-testid="agent-sprite-progress" data-visible={String(isWork)} style={progBarStyle}>
-        <i aria-hidden="true" style={progFillStyle} />
+      {/* Progress bar (visible in work state). Indeterminate "working" sweep when
+          no real progress value is fed (honest activity, not a fake percentage);
+          determinate fill when a progress value exists. */}
+      <div
+        data-testid="agent-sprite-progress"
+        data-visible={String(isWork)}
+        data-indeterminate={String(isIndeterminate)}
+        style={progBarStyle}
+      >
+        {isIndeterminate ? (
+          <>
+            <span aria-hidden="true" className="fragua-bar-base" />
+            <span
+              data-testid="agent-sprite-progress-sweep"
+              aria-hidden="true"
+              className="fragua-bar-sweep"
+            />
+          </>
+        ) : (
+          <i aria-hidden="true" style={progFillStyle} />
+        )}
       </div>
 
       {/* Carry scroll icon */}

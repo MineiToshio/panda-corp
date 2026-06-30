@@ -112,6 +112,14 @@ orders. The blueprint maps each REQ to a component/interface.
 ### REQ-06-017 — Presentational layer (sprite movement, speech bubbles)
 - AC-06-017.1: THE judge sprite movement, the agent **speech bubbles**, and the stone-bridge connectors between rooms SHALL be treated as **presentational** — they decorate the real engine events and SHALL NOT imply any engine behavior (live chat, control, or hand-off) that the engine does not perform.
 
+### REQ-06-018 — Continuous liveness (the scene reads as alive between events)
+The event stream only moves on transitions; a single agent grinding one work order legitimately emits nothing for minutes, which previously left the scene frozen (static sprite, empty bar). The scene SHALL convey ongoing activity from **time**, not only from discrete events.
+- AC-06-018.1: WHILE a work order is building or in review, THE system SHALL animate its sprite with a continuous ambient motion (a gentle bob + a breathing halo) so an actively-working agent reads as alive even when no new event has arrived; verified (`VERIFIED`) trophy sprites and idle sprites SHALL stay still.
+- AC-06-018.2: WHILE a work order is building without a real progress value, THE system SHALL show an **indeterminate** "working" progress indicator (a sweeping activity band over a dim base), NOT a fabricated percentage and NOT a frozen 0% fill. WHEN a real progress value exists, THE system SHALL show a determinate fill.
+- AC-06-018.3: THE system SHALL show a **build-alive heartbeat** derived from real state: a pulsing "forjando en vivo" while the build is active and the last event is recent; a slower "sin señal reciente" once no event has arrived for over 4 minutes; and a still "en espera" when the build is not active. The state SHALL be conveyed by text + a pulse, never by color alone.
+- AC-06-018.4: THE always-visible flow strip SHALL softly pulse its **active** beat(s) so the top pipeline reads as live.
+- AC-06-018.5: WHEN `prefers-reduced-motion` is set, ALL of the above liveness animations SHALL be disabled (consistent with AC-06-014.1), each falling back to a sensible **static** state that still communicates "active" (a steady halo, a visible band, a solid heartbeat dot) — liveness is softened, never reduced to a dead/blank scene.
+
 ## Edge cases
 - A FRD with a single work order: forge shows 1 sprite, `+0 en cola`; the gate opens as soon as that one WO is `IN_REVIEW`.
 - The foundation WO of an FRD: it forges the shared primitives **alone** while the feature WOs wait in "+N en cola" until it closes (AC-06-001.4).
