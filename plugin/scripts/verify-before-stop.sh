@@ -43,11 +43,30 @@ if [ $? -ne 0 ]; then
   sid=$(echo "$input" | jq -r '.session_id // ""')
   touched="$cwd/.pandacorp/run/sessions/$sid.touched"
   dirty_raw=$(git -C "$cwd" status --porcelain 2>/dev/null)
+  repo_root=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)
+  prefix=$(git -C "$cwd" rev-parse --show-prefix 2>/dev/null)   # cwd relative to repo root, e.g. "mission-control/"
   foreign=0
-  if [ -n "$sid" ] && [ -s "$touched" ]; then
-    mine=$(sed 's#.*/##' "$touched" | sort -u)                                                  # basenames I edited
-    dirty=$(printf '%s\n' "$dirty_raw" | sed 's/^...//; s/.* -> //; s#.*/##' | sort -u)          # dirty basenames
-    failing=$(printf '%s\n' "$out" | grep -oE '[A-Za-z0-9_.@/-]+\.(ts|tsx|js|jsx|mjs|cjs|css|scss|md|json|ya?ml|png)' | sed 's#.*/##' | sort -u)  # blamed basenames
+  # Attribute by NORMALIZED repo-relative paths, not basenames (DR-099 hardening): two files sharing
+  # a basename in different folders must not cross-attribute (the old basename match could silence an
+  # owned failure or block on a foreign one). git porcelain is already repo-root-relative; `.touched`
+  # paths are absolute; verify.sh output is cwd-relative (the tools run from the project dir) — so all
+  # three are reduced to the repo-root frame before intersecting. Fail-closed: with no git root we
+  # cannot attribute → leave foreign=0 (block, show the red), never a silent allow.
+  if [ -n "$sid" ] && [ -s "$touched" ] && [ -n "$repo_root" ]; then
+    mine=$(sed "s#^${repo_root}/##" "$touched" | sort -u)                                       # repo-relative files I edited
+    dirty=$(printf '%s\n' "$dirty_raw" | sed 's/^...//; s/.* -> //' | sort -u)                   # repo-relative dirty paths
+    # File-like tokens from the gate output: absolute → strip repo root; relative → also emit the
+    # cwd-prefixed form (src/x.ts → mission-control/src/x.ts) so it matches `mine`/`dirty`. Emitting
+    # the extra repo-relative candidate only biases toward BLOCK (safe), never toward silencing own red.
+    failing=$(printf '%s\n' "$out" \
+      | grep -oE '(/?[A-Za-z0-9_.@-]+/)*[A-Za-z0-9_.@-]+\.(ts|tsx|js|jsx|mjs|cjs|css|scss|md|json|ya?ml|png)' \
+      | while IFS= read -r p; do
+          if [ "${p#/}" != "$p" ]; then
+            printf '%s\n' "${p#$repo_root/}"          # absolute → strip repo root
+          else
+            printf '%s\n' "$p" "${prefix}${p}"        # relative → keep + cwd-prefixed candidate
+          fi
+        done | sort -u)
     mine_dirty=$(comm -12 <(printf '%s\n' "$mine") <(printf '%s\n' "$dirty"))
     mine_failing=$(comm -12 <(printf '%s\n' "$mine") <(printf '%s\n' "$failing"))
     if [ -z "$mine_dirty" ] && [ -z "$mine_failing" ] && { [ -n "$dirty_raw" ] || [ -n "$failing" ]; }; then

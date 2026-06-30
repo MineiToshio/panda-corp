@@ -183,8 +183,8 @@ ESCRIBE row already includes `components.md` and the per-FRD `mocks/fdd`, matchi
   (zero project-document items, no crash — `AC-02-008.1`).
 - **Comandos = the shared `CmdRow` + a project-command box.** The next step is a **"Siguiente paso ·
   avanzar"** section using the shared **`CmdRow`** (terminal glyph + copy) with the lifecycle command
-  from `nextStep`. **Building / operation cards** (project phase `implementation` / `release` /
-  `operation`) additionally render a **project-command box** (`workspaceCommands`) — the prototype
+  from `nextStep`. **Building / release cards** (project phase `implementation` /
+  `release`) additionally render a **project-command box** (`workspaceCommands`) — the prototype
   `commandsBox` — so an in-flight project surfaces its day-to-day commands, each a `CmdRow`.
 
 ## 6. Demo-only controls (DR-061)

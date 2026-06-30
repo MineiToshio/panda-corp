@@ -24,7 +24,7 @@ last_updated: '2026-06-17'
   (`commandsBox`):
   - `implementation`/building → `/pandacorp:implement` ("continue/resume the build"),
     `/pandacorp:release` ("when all work orders are done"), `/pandacorp:iterate` ("add an FRD, tweak or fix").
-  - `operation`/shipped → `/pandacorp:iterate`, `/pandacorp:new-version` (optional milestone).
+  - `release`/launched → `/pandacorp:iterate`, `/pandacorp:new-version` (optional milestone).
   - earlier phases → the single "next step" command (delegates to the existing FRD-02 base map).
 - `CommandRow = { command: string; when: string }`.
 - **Out of scope:** the copy button (component, shared `CopyButton`), the build mode selector
@@ -37,7 +37,7 @@ last_updated: '2026-06-17'
 ## TDD (RED → GREEN → refactor)
 `lib/next-step.test.ts`:
 1. `workspaceCommands("implementation")` returns the three building commands in order (AC-04-005.1).
-2. `workspaceCommands("operation")` returns iterate + new-version.
+2. `workspaceCommands("release")` returns iterate + new-version.
 3. An early phase returns the FRD-02 next-step command (delegation, no duplication).
 4. Pure: same input → same output, no fs/IO.
 
@@ -56,8 +56,8 @@ last_updated: '2026-06-17'
 export interface CommandRow { command: string; when: string; }
 export function workspaceCommands(phase: Phase): CommandRow[];
 ```
-- `implementation` | `release` → 3 rows: `/pandacorp:implement`, `/pandacorp:release`, `/pandacorp:iterate` (building set, deep-copied to prevent caller mutation of module constants)
-- `operation` → 2 rows: `/pandacorp:iterate`, `/pandacorp:new-version` (deep-copied)
+- `implementation` → 3 rows: `/pandacorp:implement`, `/pandacorp:release`, `/pandacorp:iterate` (building set, deep-copied to prevent caller mutation of module constants)
+- `release` → 2 rows: `/pandacorp:iterate`, `/pandacorp:new-version` (deep-copied)
 - `product` | `design` | `architecture` → 1 row delegating to FRD-02 `PHASE_COMMANDS` map (no duplication)
 - unknown / undefined / null phase → 1 safe fallback row (`/pandacorp:spec <idea>`) — never throws, never returns empty array (regressions B1', I3)
 
@@ -66,6 +66,6 @@ export function workspaceCommands(phase: Phase): CommandRow[];
 - `CommandRow` type is also available for `CMP-11-mode-selector` context if needed.
 
 **Test files:**
-- `lib/next-step.wo04003.test.ts` — 69 tests (AC-04-005.1 coverage: implementation/release/operation phases, early-phase delegation, pure-function invariants, mapping completeness, regression B1'/I3)
+- `lib/next-step.wo04003.test.ts` — 69 tests (AC-04-005.1 coverage: implementation/release phases, early-phase delegation, pure-function invariants, mapping completeness, regression B1'/I3)
 - `lib/next-step.wo04003.adversarial.test.ts` — 19 tests (shared-mutable-state / deep-copy isolation, `when` uniqueness per phase, context-specific iterate `when`, hostile/malformed phase strings, command→when pairing pins)
 - **Total: 88/88 GREEN** — `bash .pandacorp/verify.sh` green (3381 pass + 2 expected-fail + 5 skipped; biome clean; tsc clean)

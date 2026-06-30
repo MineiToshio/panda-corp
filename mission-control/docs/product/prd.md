@@ -9,7 +9,7 @@ Living index of the FRDs (feature-centric docs, DR-049). Each FRD is a self-cont
 | ID | Feature | What it does |
 |---|---|---|
 | [FRD-01](../frds/frd-01-data-reading/frd.md) | Data reading layer | Reads the factory's and each project's state from disk, read-only, never calling Claude. |
-| [FRD-02](../frds/frd-02-ideas-board/frd.md) | Ideas board | The ideas kanban; derives each card's column and handles the only write (discard). |
+| [FRD-02](../frds/frd-02-ideas-board/frd.md) | Ideas board | The ideas kanban; derives each card's column and handles the only bounded writes (discard / restore `status`, and the visual `favorite` flag). |
 | [FRD-03](../frds/frd-03-portfolio/frd.md) | Portfolio and project navigation | Lists created projects with their state and links into each project's workspace. |
 | [FRD-04](../frds/frd-04-project-workspace/frd.md) | Project workspace | Per-project view with docs, commands and the build-mode selector. |
 | [FRD-05](../frds/frd-05-work-orders/frd.md) | Work orders (live view) | Read-only kanban of a project's work orders, grouped by FRD, with the full document. |
@@ -38,7 +38,7 @@ The owner (sole operator, Spanish-speaking). Weak at UX → the tool must **guid
 A read-only view that shows state + documentation + the next command, wrapped in an **honest** RPG layer (XP, levels and achievements that reflect real work), reduces friction and makes operating the factory daily pleasant — **without burning the subscription** (it never calls Claude) and **without falling into toxic gamification**.
 
 ## Principles and constraints
-- **Read-only**: it never calls Claude or executes anything. The only write: marking an idea as `discarded`.
+- **Read-only**: it never calls Claude or executes anything. The only writes are a small, bounded, human-triggered set on one idea card's frontmatter: discard / restore its `status` ([FRD-02](../frds/frd-02-ideas-board/frd.md), ADR-0002) and toggle the visual `favorite` flag ([FRD-02](../frds/frd-02-ideas-board/frd.md) REQ-02-012, ADR-0003).
 - **Reads files**: idea base and portfolio in the factory; documentation and state of each project in its folder.
 - **Local**: listens on `127.0.0.1`. No auth, no deploy.
 - **Honest gamification**: it represents real work (XP for results, not for volume or for opening the app). No leaderboards, lives/death, daily streaks or false urgency (see [FRD-09](../frds/frd-09-gamification/frd.md)).

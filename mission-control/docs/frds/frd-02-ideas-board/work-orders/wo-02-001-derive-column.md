@@ -23,7 +23,7 @@ last_updated: '2026-06-16'
   `status` + project `phase`), NOT from the card `status` alone.
 - AC-02-001.2 — `discovered`/`recommended` → **discovered** (recommended shows a badge).
 - AC-02-001.3 — `in-pipeline` → column from project `phase`: `product`→documented, `design`→design,
-  `architecture`→architecture, `implementation`/`release`→building, `operation`→shipped.
+  `architecture`→architecture, `implementation`→building, `release`→shipped.
 - AC-02-001.4 — `shipped` → shipped; `discarded` → discarded.
 - AC-02-001.5 — The board SHALL NOT expect `design`/`architecture`/`building` as a card `status`.
 - AC-02-001.6 — IF an in-pipeline card's project or `status.yaml` is missing, THEN it SHALL fall

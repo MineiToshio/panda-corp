@@ -56,7 +56,6 @@ internal read-only tool. The full justification and the discarded alternatives a
 - **No Docker / no t3-app generator** — an internal local tool; `create-next-app` (or the
   hand-assembled equivalent) is enough.
 - **No Claude SDK / no subprocess execution** — the golden rule (§1).
-- **No Playwright / e2e** in v1 — optional later for critical flows; the gate is biome+tsc+vitest.
 - **No payments / storage / email / analytics external services** — nothing leaves the machine.
   (`factory/standards/external-services.md` does not apply: MC touches no external service and
   no personal data beyond what already lives in the local factory repo.)
@@ -144,7 +143,7 @@ A table of created projects → each row yields a **project path** and optional 
 
 ### 4.4 Per-project state — `<projectPath>/.pandacorp/status.yaml`
 Machine state (English), parsed by `yaml`. Fields read (FRD-01/02/03/04/14):
-`project`, `phase` (`product \| design \| architecture \| implementation \| release \| operation`),
+`project`, `phase` (`product \| design \| architecture \| implementation \| release` — DR-085: the old `operation` phase was folded into `release`, the launched/terminal phase),
 `version`, `running`, `progress`, `work_orders_total`, `work_orders_done`, `pending_decisions`,
 `pending_bugs`, `rethink_pending`, `advance_pending`, `last_green_sha`, `safe_to_test`,
 `overlay_version`, `created_with`, `updated_at`. Absent/malformed → render partial, never break
@@ -168,7 +167,7 @@ Read for the workspace, work-orders and documentation views (FRD-04/05/08):
 ### 4.7 User Claude install — `~/.claude/`
 - `dashboard-events.ndjson` — the **event stream** (Party FRD-06, observability FRD-12, dashboard digest FRD-18). Read as a **tail**, capped. Schema in §5.
 - `tasks/<team>/` — task state for Party (tolerate absence = "no active team").
-- `plugins/installed_plugins.json` — `gitCommitSha` of `pandacorp@panda-corp` for the FRD-15 drift check (compare against `git log -1 --format=%H -- plugin/`; NEVER compare the semver `version`).
+- `plugins/installed_plugins.json` — installed semver `version` of `pandacorp@panda-corp` for the FRD-15 drift check (compared against the source `version` in `plugin/.claude-plugin/plugin.json` — the signal `claude plugin update` itself uses; FRD-15 amended 2026-06-22). The old git-commit-SHA / dirty-state model is abandoned: a frozen installed SHA produced false alarms.
 
 ### 4.8 Client-local UI state (NOT a factory/project write)
 - `visto_hasta` digest marker (FRD-18) and theme/mode preference → `localStorage`. Survives
@@ -253,7 +252,9 @@ fields verbatim; everything else in the app is read-only.
   `discard` + `restore`, ADR-0002) and `lib/favorite/` (the visual `favorite` flag, ADR-0003) —
   a small bounded set, each a human-triggered Server Action touching one field of one card;
   everything else is `fs.read*`. No Claude/AI client dependency exists in `package.json` (auditable).
-  The git probes (FRD-15/16) use read-only commands (`git status --porcelain`, `git log -1`).
+  FRD-15 plugin-sync is a pure read of `installed_plugins.json` vs `plugin/.claude-plugin/plugin.json`
+  (semver compare, no git). Any remaining git probe uses read-only commands only (`git status
+  --porcelain`, `git log -1`).
 - **Security / data minimization.** No auth (local single operator on `127.0.0.1`). No secrets in
   code (SOPS+age does not apply — MC has no external services and no `.env` of its own beyond the
   optional `PANDACORP_FACTORY_ROOT` override). MC reads personal/owner data that already lives in
@@ -303,9 +304,16 @@ detection).
   discard flow, banners) — colocated `*.test.tsx`.
 - **Fixtures**, not the live factory, for `lib/` tests (deterministic; use `PANDACORP_FACTORY_ROOT`
   to point a reader at a fixture tree).
-- **Gate** (`.pandacorp/verify.sh`, DR-019, fail-closed): `pnpm biome check .` → `pnpm tsc
-  --noEmit` → `pnpm vitest run`. Nothing is "done" with any gate red.
-- **e2e (Playwright)** is out of scope for v1 (optional later on critical flows only).
+- **Gate** (`.pandacorp/verify.sh`, DR-019, fail-closed): `pnpm biome check . --error-on-warnings`
+  → `pnpm tsc --noEmit` → `pnpm knip` (dead code) → `pnpm madge --circular` → `pnpm vitest run` →
+  the browser gates. Nothing is "done" with any gate red.
+- **e2e / browser gates (Playwright)** are part of the gate, fail-closed (a missing harness is RED,
+  never a skip). One Playwright invocation (`pnpm exec playwright test e2e/`) boots one webServer and
+  runs four spec gates the run discovers in `e2e/`: **smoke** (`e2e/smoke.spec.ts`, every route renders
+  clean in a browser — DR-055), **visual-fidelity** (`e2e/visual.spec.ts`, diff each route vs its
+  blessed baseline — DR-056), **responsive** (`e2e/responsive.spec.ts` — DR-074) and **shell-presence**
+  (`e2e/shell.spec.ts`, the app shell / global nav vs the prototype — DR-075). The specs live in
+  `mission-control/e2e/`; `@axe-core/playwright` covers accessibility checks.
 
 ---
 

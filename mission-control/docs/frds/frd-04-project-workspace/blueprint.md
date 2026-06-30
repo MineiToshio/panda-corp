@@ -104,7 +104,7 @@ no new fields are added by FRD-04. Header/objectives read these. Partial-toleran
 
 ### IF-04-next-step — `lib/next-step.ts` (EXTENDS FRD-02 base)
 Pure map `phase → { commands: CommandRow[] }`. FRD-02 ships the base for pre-project statuses;
-FRD-04 adds the **building/release/operation** command sets used by the Commands tab.
+FRD-04 adds the **building/release** command sets used by the Commands tab.
 
 ```ts
 export interface CommandRow { command: string; when: string; } // "/pandacorp:implement", "continue/resume the build"

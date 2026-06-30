@@ -44,6 +44,23 @@ if [ -f .pandacorp/doc-lint.sh ]; then
   bash .pandacorp/doc-lint.sh
 fi
 
+# --- Residual-ambiguity gate (DR-100) — a [NEEDS CLARIFICATION] marker must never reach an ACTIVE doc ---
+# Spec/blueprint authors mark an unresolved, build-changing question inline with `[NEEDS CLARIFICATION: …]`
+# (distinct from a resolved `[ASSUMPTION: …]`). The readiness gate forbids it surviving into a live doc:
+# if any file under docs/ carries the marker AND its frontmatter is `status: ACTIVE`, a question shipped
+# into the build → RED. A DRAFT doc may still carry it (spec is still resolving it); no docs/ ⇒ vacuous pass.
+if [ -d docs ]; then
+  flagged=""
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    if head -n 25 "$f" | grep -Eq '^status:[[:space:]]*ACTIVE'; then flagged="$flagged  $f"$'\n'; fi
+  done < <(grep -rIl 'NEEDS CLARIFICATION' docs 2>/dev/null || true)
+  if [ -n "$flagged" ]; then
+    echo "✗ DR-100 readiness: unresolved [NEEDS CLARIFICATION] in ACTIVE docs (resolve → AC / business rule / [ASSUMPTION], or escalate):"
+    printf '%s' "$flagged"; exit 1
+  fi
+fi
+
 # --- Lint + format (every warn is a hard gate; --error-on-warnings) ------------
 pnpm biome check . --error-on-warnings
 

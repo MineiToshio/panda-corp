@@ -83,4 +83,4 @@ Docs are **feature-centric** (DR-049): a thin **product layer** under `docs/prod
 
 ## Current phase
 
-See `.pandacorp/status.yaml`. Pipeline: product → design → architecture → build → release → operation.
+See `.pandacorp/status.yaml`. Pipeline: product → design → architecture → build → release (launched/terminal; DR-085 folded the old `operation` phase into `release`).

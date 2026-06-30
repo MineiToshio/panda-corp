@@ -63,14 +63,32 @@ print_rows() { [ -n "$ROWS" ] && printf '%s' "$ROWS" | sed '/^$/d'; }
 
 case "$MODE" in
   --json)
-    printf '{"default":"%s","total":%d,"stale":%d,"items":[' "$DEFAULT_BRANCH" "$TOTAL" "$STALE"
-    first=1
-    while IFS='|' read -r br wt ahead age st; do
-      [ -z "$br" ] && continue
-      [ $first -eq 1 ] || printf ','; first=0
-      printf '{"branch":"%s","worktree":"%s","ahead":"%s","age":"%s","status":"%s"}' "$br" "$wt" "$ahead" "$age" "$st"
-    done <<< "$(print_rows)"
-    printf ']}\n' ;;
+    # Emit valid JSON even for unusual branch/worktree names (spaces, quotes, backslashes). Prefer jq
+    # (the factory's hooks already require it) for correct escaping; fall back to a manual emitter that
+    # still escapes the JSON-breaking characters (backslash + double-quote) so the output never corrupts.
+    if command -v jq >/dev/null 2>&1; then
+      items="[]"
+      if [ -n "$ROWS" ]; then
+        items=$(print_rows | while IFS='|' read -r br wt ahead age st; do
+          [ -z "$br" ] && continue
+          jq -nc --arg branch "$br" --arg worktree "$wt" --arg ahead "$ahead" --arg age "$age" --arg status "$st" \
+            '{branch:$branch,worktree:$worktree,ahead:$ahead,age:$age,status:$status}'
+        done | jq -sc '.')
+      fi
+      jq -nc --arg default "$DEFAULT_BRANCH" --argjson total "$TOTAL" --argjson stale "$STALE" --argjson items "$items" \
+        '{default:$default,total:$total,stale:$stale,items:$items}'
+    else
+      esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+      printf '{"default":"%s","total":%d,"stale":%d,"items":[' "$(esc "$DEFAULT_BRANCH")" "$TOTAL" "$STALE"
+      first=1
+      while IFS='|' read -r br wt ahead age st; do
+        [ -z "$br" ] && continue
+        [ $first -eq 1 ] || printf ','; first=0
+        printf '{"branch":"%s","worktree":"%s","ahead":"%s","age":"%s","status":"%s"}' \
+          "$(esc "$br")" "$(esc "$wt")" "$(esc "$ahead")" "$(esc "$age")" "$(esc "$st")"
+      done <<< "$(print_rows)"
+      printf ']}\n'
+    fi ;;
   --notify)
     if [ "$STALE" -gt 0 ]; then
       msg="$STALE worktree(s) sin mergear llevan >${STALE_HOURS}h. Revísalos antes de perderlos."

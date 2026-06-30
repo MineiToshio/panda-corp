@@ -16,7 +16,7 @@ Read-only kanban of the idea base, with idea capture, a navigable detail and dis
 ## Acceptance criteria (EARS)
 - The board SHALL place each idea into one of the columns `discovered → documented → design → architecture → building → shipped` (plus a `discarded` column) by **deriving the column from two axes** (the card `status` and, once handed off, the project `phase` — see FRD-01), NOT from the card `status` alone:
   - card `status: discovered` or `recommended` (not handed off yet) → **discovered** column (a `recommended` card SHALL show a "recommended" badge).
-  - card `status: in-pipeline` → the column comes from the linked project's `.pandacorp/status.yaml` **phase**: `product`→documented, `design`→design, `architecture`→architecture, `implementation`/`release`→building, `operation`→shipped.
+  - card `status: in-pipeline` → the column comes from the linked project's `.pandacorp/status.yaml` **phase**: `product`→documented, `design`→design, `architecture`→architecture, `implementation`→building, `release`→shipped.
   - card `status: shipped` → **shipped** column; card `status: discarded` → **discarded** column.
   - The board SHALL NOT expect `design`/`architecture`/`building` to ever appear as a card `status` (those columns only come from the project phase). IF an `in-pipeline` card's project or `status.yaml` is missing, THEN it SHALL fall back to the **documented** column without breaking.
 - The board SHALL NOT allow moving cards by hand (drag or arrows): the transitions are written by the skills. The columns SHALL have the same width, be **wide** (not tiny) and have **horizontal scroll** when they don't fit; the text SHALL wrap onto several lines if it doesn't fit.
@@ -150,7 +150,7 @@ campaign map) + `prototype/index.html` `detailView()`:
 - **AC-02-009.2/.3 Documentos** is a **rail (210px) + reader**: the rail always lists **Resumen** (the
   summary reader) plus one item per project document; selecting an item shows it in the reader (a board
   card defers the full document read to the project workspace). **Comandos** uses the shared `CmdRow`,
-  and building/operation cards add a project-command box (`workspaceCommands`).
+  and building/release cards add a project-command box (`workspaceCommands`).
 - **AC-02-009.4 In-document links open in the reader** — a relative link inside a document to another
   document the reader surfaces (e.g. the PRD linking an FRD) SHALL open that document in the SAME
   card-detail reader (it selects it in the rail — client-state navigation, not a page nav); an off-app

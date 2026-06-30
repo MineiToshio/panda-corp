@@ -86,7 +86,7 @@ export function computeAgentLevel(agentId: string, events: readonly Event[]): Ag
 **Integration seams:**
 - Consumer of `computeGuildLevel`: `CMP-09-guild-bar` (WO-09-003, top-bar guild XP block). Import: `import { computeGuildLevel, type GuildLevel, type GuildOutcomes, RANKS } from "@/lib/gamification"`.
 - Consumer of `computeAgentLevel`: FRD-07 agent section/detail (WO-09-002 scope).
-- Inputs come from `lib/status.ts` (`workOrdersDone`, `phasesCompleted`) and `lib/events.ts` (`greenTestRuns` via `test_ok` events, `releases` via portfolio `phase: operation`).
+- Inputs come from `lib/status.ts` (`workOrdersDone`, `phasesCompleted`) and `lib/events.ts` (`greenTestRuns` via `test_ok` events, `releases` via portfolio `phase: release`).
 
 **Test files:**
 - `lib/gamification.guild.test.ts` — 34 tests for WO-09-001 (AC-09-001.1–5, all negative ACs)

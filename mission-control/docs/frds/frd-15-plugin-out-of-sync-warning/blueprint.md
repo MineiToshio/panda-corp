@@ -15,77 +15,81 @@ last_updated: '2026-06-17'
 
 ## 1. Summary
 
-Detect the most common factory slip — editing `plugin/` and forgetting to commit / run
-`claude plugin update` — and surface a **persistent, read-only drift banner** with the exact
-recovery command. Two independent drift sources, both local: (a) **uncommitted changes** under
-`plugin/`, and (b) **installed SHA behind** the last commit that touched `plugin/`.
+Detect the most common factory slip — the factory `plugin/` advanced but the **installed** copy is
+an older version, so newly added/edited skills don't take effect until `claude plugin update` — and
+surface a **persistent, read-only drift banner** with the exact recovery command. A single local
+drift source: the **installed semver `version` is behind the source `version`**.
 
-The drift truth is computed on the **server** (it needs git + fs access), exposed via a small
-**route handler** ([architecture §3, §8](../../product/architecture.md)), and rendered by a client
-banner that polls so it can **disappear on its own** when sync is restored (REQ-15-004).
+The drift truth is computed on the **server** (it needs fs access to read two JSON files), exposed
+via a small **route handler** ([architecture §3, §8](../../product/architecture.md)), and rendered
+by a client banner that polls so it can **disappear on its own** when sync is restored (REQ-15-004).
 
-Critical invariant (from the FRD's implementation note and architecture §4.7): the drift check
-compares the installed **`gitCommitSha`** against `git log -1 --format=%H -- plugin/` — **never the
-semver `version`** (the version can match while the SHA is behind).
+Critical invariant (amended 2026-06-22 — version-based; from the FRD and `lib/plugin-sync`): the
+drift check compares the installed **semver `version`** (`~/.claude/plugins/installed_plugins.json`)
+against the **source `version`** (`plugin/.claude-plugin/plugin.json`) — the SAME signal
+`claude plugin update` uses. The banner fires ONLY when the installed version is strictly behind the
+source version. (Previously this compared git **commit SHAs** + an uncommitted-changes check; that
+was abandoned because `installed_plugins.json.gitCommitSha` is frozen at install time and never
+advances, producing a permanent false "behind" alarm — see the FRD's amendment note.)
 
 ## 2. Platform references
 
-- **Data sources** (architecture §4.7): `~/.claude/plugins/installed_plugins.json` (the
-  `gitCommitSha` of `pandacorp@panda-corp`, user scope); the factory git repo for
-  `git log -1 --format=%H -- plugin/` and `git status --porcelain -- plugin/`.
-- **`lib/plugin-sync.ts`** (architecture §6): owns all the fs + git reads for this feature. New module.
-- **Read-only invariant** (architecture §7): git is invoked with **read-only** commands only
-  (`git status --porcelain`, `git log -1`). No write, no Claude, no execution of the update command.
+- **Data sources** (architecture §4.7): `~/.claude/plugins/installed_plugins.json` (the semver
+  `version` of `pandacorp@panda-corp`, user scope — the version `claude plugin update` maintains);
+  `plugin/.claude-plugin/plugin.json` (the source `version`, the authoritative "latest published").
+- **`lib/plugin-sync/plugin-sync.ts`** (architecture §6): owns the two fs reads + the semver
+  comparison for this feature. New module.
+- **Read-only invariant** (architecture §7): only two file reads. No git, no write, no Claude, no
+  execution of the update command.
 - **Surface** (architecture §11): dashboard banner + route handler `app/api/plugin-sync/`.
 
 ## 3. Components & interfaces
 
 ### Interfaces (`lib/**`)
 
-**`IF-15-sync` — `lib/plugin-sync.ts`** (new module, architecture §6).
+**`IF-15-sync` — `lib/plugin-sync/plugin-sync.ts`** (new module, architecture §6).
 Pure-ish readers (paths/root in → typed data out), unit-tested with fixtures.
 
 ```ts
-// All paths resolved via lib/config.ts (resolveFactoryRoot / PANDACORP_FACTORY_ROOT).
+// All paths resolved via lib/config.ts (resolveFactoryRoot / PANDACORP_FACTORY_ROOT) + ~/.claude.
 type PluginSyncState = {
-  installedSha: string | null;   // gitCommitSha of pandacorp@panda-corp, or null if not installed/unreadable
-  pluginHeadSha: string | null;  // git log -1 --format=%H -- plugin/  (null if git/path unreadable)
-  dirty: boolean;                 // git status --porcelain -- plugin/ is non-empty
-  drift: boolean;                 // dirty || (installedSha && pluginHeadSha && installedSha !== pluginHeadSha)
-  reason: "uncommitted" | "behind" | "both" | "in-sync" | "unknown";
-  detail: string;                 // human (Spanish) one-liner for the banner, e.g. "instalado 18a9389 · hay cambios sin commitear"
+  installedVersion: string | null;  // semver `version` of pandacorp@panda-corp, or null if not installed/unreadable
+  sourceVersion: string | null;     // semver `version` from plugin/.claude-plugin/plugin.json, or null if unreadable
+  drift: boolean;                    // true ONLY when installedVersion is strictly behind sourceVersion
+  reason: "behind" | "in-sync" | "unknown";
+  detail: string;                    // human (Spanish) one-liner for the banner, always non-empty
 };
 
-readInstalledSha(claudeHome: string): string | null;     // parse installed_plugins.json defensively
-readPluginHeadSha(factoryRoot: string): string | null;   // git log -1 --format=%H -- plugin/
-readPluginDirty(factoryRoot: string): boolean;           // git status --porcelain -- plugin/ non-empty
-getPluginSyncState(): PluginSyncState;                    // composes the three above into the verdict
+readInstalledVersion(claudeHome: string): string | null;      // parse installed_plugins.json → version, defensively
+readPluginSourceVersion(factoryRoot: string): string | null;  // parse plugin/.claude-plugin/plugin.json → version
+getPluginSyncState(): PluginSyncState;                         // composes the two reads + semver comparison into the verdict
 ```
 
-Defensive contract: any unreadable/missing input (no `installed_plugins.json`, plugin not listed,
-git not available, not a repo) → that field is `null`/`false` and `reason` degrades to `"unknown"`,
-never throws. `drift` is only `true` on a **positive** signal (dirty, or two known SHAs that differ);
-an `unknown` state does NOT raise the alarm (no false positives — REQ-15-005 read-only/honest).
+Defensive contract: any unreadable/missing/unparseable input (no `installed_plugins.json`, plugin
+not listed, missing/empty `version`) → that field is `null` and `reason` degrades to `"unknown"`,
+never throws. `drift` is only `true` on a **positive** signal (installed semver strictly older than
+source semver); an `unknown` or `in-sync` state does NOT raise the alarm (no false positives —
+REQ-15-005 read-only/honest).
 
 ### Route handler
 
 **`CMP-15-route` — `app/api/plugin-sync/route.ts`** (Server, Node runtime).
-`GET` → `getPluginSyncState()` as JSON. Exists because the git probe needs Node/`child_process`
-outside a Server Component render and the banner polls it (architecture §3, §8). `export const
-runtime = "nodejs"` and `dynamic = "force-dynamic"` (never cached — drift is live state).
+`GET` → `getPluginSyncState()` as JSON. Exists because the file reads need Node outside a Server
+Component render and the banner polls it (architecture §3, §8). `export const runtime = "nodejs"`
+and `dynamic = "force-dynamic"` (never cached — drift is live state).
 
 ### UI components
 
 **`CMP-15-banner` — `components/plugin-sync-banner.tsx`** (`"use client"`).
 Polls `IF-15-sync` via `CMP-15-route` on mount + on an interval; renders the warning **only when
-`drift === true`**; otherwise renders nothing (self-clearing, REQ-15-004). Shows the reason copy and
-the **command to copy** through the shared **`CopyButton`** (FRD-02 component). Visual reference:
-`prototype/index.html` `pluginBanner()` (lines 563–567) — amber `--warn` panel, alert-triangle icon,
-the three-step recall (commit → run → restart), command row.
+`drift === true`** (reason `behind`); otherwise renders nothing (self-clearing, REQ-15-004). Shows the
+"installed behind" copy and the **command to copy** through the shared **`CopyButton`** (FRD-02
+component). Visual reference: `prototype/index.html` `pluginBanner()` — amber `--warn` panel,
+alert-triangle icon, the recall steps (run command → restart session), command row.
 
 **`CMP-15-recall` — the recovery copy** (inside `CMP-15-banner`): command
-`claude plugin update pandacorp@panda-corp` + the sequence text (commit if dirty → run command →
-restart the Claude Code session). REQ-15-003.
+`claude plugin update pandacorp@panda-corp` + the sequence text (run command → restart the Claude
+Code session). REQ-15-003.
 
 The banner is mounted by the dashboard (FRD-18 composes the health banners); FRD-15 owns the
 component and its data, FRD-18 places it.
@@ -94,37 +98,45 @@ component and its data, FRD-18 places it.
 
 | Trigger | `reason` | Banner copy (Spanish, summarized) |
 |---|---|---|
-| `git status --porcelain -- plugin/` non-empty | `uncommitted` / `both` | "Plugin desincronizado — hay cambios sin commitear" + 3-step recall |
-| installed SHA ≠ plugin HEAD SHA (clean tree) | `behind` | "El plugin instalado está atrás" |
-| clean + SHAs equal | `in-sync` | (no banner) |
-| any input unreadable | `unknown` | (no banner — never a false alarm) |
+| installed `version` strictly behind source `version` | `behind` | "El plugin instalado está atrás" + recall (run → restart) |
+| installed `version` equals or newer than source | `in-sync` | (no banner) |
+| either version missing/unparseable | `unknown` | (no banner — never a false alarm) |
 
-The command is **always** `claude plugin update pandacorp@panda-corp`; when `dirty`, the recall
-prefixes "1) commitea los cambios". The banner never executes anything (REQ-15-005).
+The command is **always** `claude plugin update pandacorp@panda-corp`; the recall is "run the command →
+restart the session". The banner never executes anything (REQ-15-005). (Uncommitted-in-`plugin/` is
+deliberately NOT a trigger — owner decision 2026-06-22; in the factory the owner edits `plugin/`
+constantly, so only a genuinely older *installed version* warrants the banner.)
 
 ## 5. Traceability (`REQ-15-MMM` → AC → components)
 
-The FRD lists acceptance criteria as bullets; IDs assigned here (`REQ-15-001..005`), one per bullet,
-in order. Restated in the work orders as `AC-15-MMM.K`.
+IDs follow the FRD's acceptance criteria. Restated in the work orders as `AC-15-MMM.K`.
 
 | REQ | Acceptance criterion (EARS) | Satisfied by |
 |---|---|---|
-| REQ-15-001 | Uncommitted changes under `plugin/` → persistent warning "uncommitted changes" | `IF-15-sync` (`readPluginDirty`, `reason`), `CMP-15-banner` |
-| REQ-15-002 | Installed SHA ≠ last commit touching `plugin/` → "installed plugin is behind" | `IF-15-sync` (`readInstalledSha`, `readPluginHeadSha`, `drift`), `CMP-15-banner` |
-| REQ-15-003 | Show copyable `claude plugin update …` command + the commit→run→restart sequence | `CMP-15-recall`, `CopyButton` |
-| REQ-15-004 | Warning disappears on its own once back in sync | `CMP-15-banner` (poll + render-only-on-drift), `IF-15-sync` (`in-sync`) |
-| REQ-15-005 | Read-only: shows the command, never executes | `IF-15-sync` (read-only git), `CMP-15-route`, architecture §7 |
+| REQ-15-002 | Installed `version` strictly behind source `version` (semver) → "installed plugin is behind"; equal/newer → nothing; missing/unparseable → `unknown`, nothing | `IF-15-sync` (`readInstalledVersion`, `readPluginSourceVersion`, semver `drift`), `CMP-15-banner` |
+| REQ-15-004 | Warning disappears on its own once the installed version catches up | `CMP-15-banner` (poll + render-only-on-drift), `IF-15-sync` (`in-sync`) |
+| REQ-15-005 | Read-only: shows the copyable `claude plugin update …` command, never executes; unreadable input → `unknown`, never throws | `IF-15-sync` (two file reads only), `CMP-15-recall`, `CMP-15-route`, architecture §7 |
 
-All five REQ map to concrete components. No criterion is unsatisfiable on the platform.
+> **Retired:** REQ-15-001 (uncommitted-changes warning) and REQ-15-003 (separate command-copy REQ) no
+> longer exist after the 2026-06-22 version-based amendment. Uncommitted `plugin/` edits are no longer a
+> trigger; the copyable command is folded into AC-15-004.1 of REQ-15-002. The version-drift case is now
+> the **single** drift reason.
+
+All live REQ map to concrete components. No criterion is unsatisfiable on the platform.
 
 ## 6. Notes / risks
 
 - **`installed_plugins.json` shape** can vary by Claude version; parse defensively (locate the
-  `pandacorp@panda-corp` entry, read `gitCommitSha`), tolerate absence → `null`/`unknown`.
-- **Short vs full SHA.** Compare by normalizing (the installed value may be abbreviated); equality is
-  prefix-safe (one is a prefix of the other) — captured as an AC in WO-15-002.
-- **No `simple-git` dependency** — two `execFileSync('git', …)` read-only calls are enough; avoids a
-  dependency for two commands (consistent with the trimmed stack, architecture §2).
+  `pandacorp@panda-corp` entry, read its semver `version`; tolerate both the canonical array-of-entries
+  form and a single-object form), tolerate absence/empty → `null`/`unknown`.
+- **Semver comparison.** Parse `MAJOR.MINOR.PATCH` numerically (strip an optional leading `v` and any
+  pre-release/build suffix); `behind` only when the installed tuple is strictly less than the source
+  tuple, `in-sync` when equal or ahead, `unknown` when either is unparseable — captured as ACs in WO-15-002.
+- **No `simple-git` / no git dependency** — the verdict is two JSON file reads + a numeric semver
+  compare; no `child_process`, no git probe (consistent with the trimmed stack, architecture §2).
+- **Historical:** an earlier design compared the installed `gitCommitSha` against `git log -1 -- plugin/`
+  plus a `git status --porcelain` dirty check. Abandoned 2026-06-22 because the installed `gitCommitSha`
+  is frozen at install time and never advances → a permanent false "behind" alarm.
 
 ## Build Plan (Phase 2)
 
@@ -135,8 +147,8 @@ route layer is **VERIFIED and untouched** — only the UI banner is re-planned.
 
 | WO | Status | Layer | Artifacts (disjoint) |
 |---|---|---|---|
-| WO-15-001 `sync-readers` | **VERIFIED** (kept) | lib | `src/lib/plugin-sync.ts` (readers) |
-| WO-15-002 `sync-verdict` | **VERIFIED** (kept) | lib | `src/lib/plugin-sync.ts` (verdict) |
+| WO-15-001 `sync-readers` | **VERIFIED** (kept) | lib | `src/lib/plugin-sync/plugin-sync.ts` (version readers) |
+| WO-15-002 `sync-verdict` | **VERIFIED** (kept) | lib | `src/lib/plugin-sync/plugin-sync.ts` (semver verdict) |
 | WO-15-003 `sync-route` | **VERIFIED** (kept) | route | `src/app/api/plugin-sync/**` |
 | WO-15-004 `sync-banner` | **PLANNED** (re-plan) | UI | `src/app/_components/plugin-sync-banner/**` |
 

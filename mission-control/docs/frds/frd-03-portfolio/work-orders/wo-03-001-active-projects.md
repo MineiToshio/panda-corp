@@ -34,11 +34,11 @@ export function activeProjects(): ProjectListItem[];
 ```
 
 - `readPortfolio()` → for each entry: `readStatus(entry.path)`, `pathExists(entry.path)`.
-- Keep entries whose **phase** is `architecture` | `implementation` | `release` | `operation` (the
+- Keep entries whose **phase** is `architecture` | `implementation` | `release` (the
   active set). Phase from `status.status.phase`; if status absent/malformed, fall back to the
   portfolio `phase` cell (advisory) and still classify.
 - `stage` = the phase; `running` = `status.status.running`; `snapshot` populated from the portfolio
-  row's business columns only for the shipped/`operation` set.
+  row's business columns only for the launched/`release` set.
 - Pure-ish (only reads); never throws (fail-soft via the FRD-01 readers).
 
 ## Definition of done
@@ -63,7 +63,7 @@ Evidence:
 
 ## Status Note
 
-**What was built:** `activeProjects()` compose helper in `lib/portfolio.ts` (CMP-03-active-projects, IF-03-activeProjects). Reads the factory portfolio table via `readPortfolio()`, enriches each entry with `readStatus(resolvedPath)` and `pathExists(resolvedPath)`, and filters to the active phase set (`architecture` | `implementation` | `release` | `operation`). Phase resolution is authoritative-from-status-yaml with advisory-portfolio-cell fallback. Snapshot is gated on the resolved `stage === "operation"` (authoritative, not the portfolio cell). Entries with missing paths are included with `exists: false` (badge-ready). Never throws (fail-soft throughout).
+**What was built:** `activeProjects()` compose helper in `lib/portfolio.ts` (CMP-03-active-projects, IF-03-activeProjects). Reads the factory portfolio table via `readPortfolio()`, enriches each entry with `readStatus(resolvedPath)` and `pathExists(resolvedPath)`, and filters to the active phase set (`architecture` | `implementation` | `release`). Phase resolution is authoritative-from-status-yaml with advisory-portfolio-cell fallback. Snapshot is gated on the resolved `stage === "release"` (authoritative, not the portfolio cell). Entries with missing paths are included with `exists: false` (badge-ready). Never throws (fail-soft throughout).
 
 **Interfaces/contracts exposed:**
 
@@ -77,7 +77,7 @@ export type ProjectListItem = {
   exists: boolean;       // from pathExists(resolvedPath)
   stage?: Phase;         // authoritative phase; advisory fallback if status absent/malformed
   running?: boolean;     // strict boolean (never NaN/null-coerced — regression B1')
-  snapshot?: { users?: string; returnMetric?: string; verdict?: string }; // operation only
+  snapshot?: { users?: string; returnMetric?: string; verdict?: string }; // release only
 };
 
 // Overload: accepts optional raw markdown content for inline tests

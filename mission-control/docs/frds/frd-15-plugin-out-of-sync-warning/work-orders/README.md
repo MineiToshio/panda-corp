@@ -10,10 +10,15 @@ refactor). The gate is `.pandacorp/verify.sh` (biome → tsc → vitest).
 
 | WO | Title | Layer | Depends on |
 |---|---|---|---|
-| WO-15-001 | `lib/plugin-sync` readers (SHA, dirty) with fixtures | `lib/` | — |
-| WO-15-002 | `getPluginSyncState` verdict (drift/reason/detail) | `lib/` | WO-15-001 |
+| WO-15-001 | `lib/plugin-sync` version readers (installed + source) with fixtures | `lib/` | — |
+| WO-15-002 | `getPluginSyncState` semver verdict (drift/reason/detail) | `lib/` | WO-15-001 |
 | WO-15-003 | `app/api/plugin-sync` route handler | `app/api/` | WO-15-002 |
 | WO-15-004 | `PluginSyncBanner` client component (poll + self-clear) | `components/` | WO-15-003, WO-13-007 |
+
+> **Amended 2026-06-22 (version-based).** WO-15-001/002 originally read git **commit SHAs** + an
+> uncommitted-changes check; the shipped behaviour compares the installed semver `version` against the
+> source `version` (the signal `claude plugin update` uses). The SHA model is historical — see the FRD
+> amendment and `docs/decision-log.md`.
 
 ## Parallelization
 

@@ -8,7 +8,7 @@ parent: FRD-15
 implementation_status: VERIFIED
 artifacts:
   - 'src/app/_components/plugin-sync-banner/**'
-source_requirements: [REQ-15-001, REQ-15-002, REQ-15-003, REQ-15-004, REQ-15-005]
+source_requirements: [REQ-15-002, REQ-15-004, REQ-15-005]
 dependsOn: [WO-15-003, WO-13-007]
 last_updated: '2026-06-19'
 ---
@@ -23,10 +23,11 @@ last_updated: '2026-06-19'
 ## Goal
 Re-implement the read-only plugin-drift banner as the **`kind="drift"` consumer of the ONE shared
 `Banner`** primitive — NOT a second banner with its own style block. It polls `/api/plugin-sync`
-(VERIFIED lib + route), renders ONLY on `drift === true`, shows the reason-appropriate heading + recall
-steps + copyable recovery command, and self-clears when sync is restored. This is the **DR-057
-duplicate-banner dup-fix consumer**: the current `BANNER_STYLE`/`ICON_STYLE`/`CMD_ROW_STYLE`/
-`RECALL_STYLE` blocks in `plugin-sync-banner.tsx` are deleted and replaced by the shared `Banner`.
+(VERIFIED lib + route), renders ONLY on `drift === true` (the single `behind` reason), shows the
+"installed behind" heading + recall steps + copyable recovery command, and self-clears when sync is
+restored. This is the **DR-057 duplicate-banner dup-fix consumer**: the current `BANNER_STYLE`/
+`ICON_STYLE`/`CMD_ROW_STYLE`/`RECALL_STYLE` blocks in `plugin-sync-banner.tsx` are deleted and replaced
+by the shared `Banner`.
 
 ## Scope
 - Refactor `src/app/_components/plugin-sync-banner/plugin-sync-banner.tsx` (`"use client"`) to render
@@ -36,22 +37,24 @@ duplicate-banner dup-fix consumer**: the current `BANNER_STYLE`/`ICON_STYLE`/`CM
   shared `Banner`. The component contributes only the drift-specific body (heading + the 3-reason recall
   copy) and the polling loop.
 - Keep the existing poll behavior: fetch `/api/plugin-sync` on mount + on an interval; render `null`
-  unless `drift === true`; self-clear on the next poll that returns `drift === false` / `reason ===
-  "unknown"`.
-- The **3 drift-reason variants** map to `Banner` body content (`DRIFT_REASONS`): `uncommitted` ("Sin
-  commitear" → commit → run → restart), `behind` ("Instalado atrasado" → run → restart), `both` (combined
-  → commit → run → restart). The command is always `claude plugin update pandacorp@panda-corp`, shown via
-  the shared `Banner` command row (which reuses `CmdRow` + `CopyButton`).
+  unless `drift === true`; self-clear on the next poll that returns `drift === false` (`in-sync` /
+  `unknown`).
+- The **single drift reason** maps to `Banner` body content: `behind` ("El plugin instalado está atrás"
+  → run command → restart session). The command is always `claude plugin update pandacorp@panda-corp`,
+  shown via the shared `Banner` command row (which reuses `CmdRow` + `CopyButton`). (The earlier
+  `uncommitted`/`both` variants were retired in the 2026-06-22 version-based amendment — uncommitted
+  `plugin/` edits are no longer a trigger.)
 - **No demo toggler in the app** (DR-061): the reason is real read-only data from `getPluginSyncState()`;
   the prototype's reason-cycle toggler does not ship.
 
 ## Acceptance criteria
-- **AC-15-004.1** (REQ-15-001/002) WHEN the probe returns `drift === true`, the banner renders **through
-  the shared `Banner`** (`kind="drift"`) with reason-appropriate copy (uncommitted vs behind vs both).
+- **AC-15-004.1** (REQ-15-002) WHEN the probe returns `drift === true` (reason `behind`), the banner
+  renders **through the shared `Banner`** (`kind="drift"`) with the "installed behind" copy.
 - **AC-15-004.2** (REQ-15-004) WHEN the probe returns `drift === false` (or `unknown`), the banner renders
   nothing; a re-poll that flips to `false` removes a previously shown banner (self-clear).
-- **AC-15-004.3** (REQ-15-003) The command `claude plugin update pandacorp@panda-corp` is shown via the
-  shared `Banner` command row; clicking copies it to the clipboard.
+- **AC-15-004.3** (REQ-15-002 / AC-15-004.1) The command `claude plugin update pandacorp@panda-corp` is
+  shown via the shared `Banner` command row; clicking copies it to the clipboard. (The separate command-
+  copy REQ-15-003 was folded into REQ-15-002 in the 2026-06-22 amendment.)
 - **AC-15-004.4** (REQ-15-005) The banner has NO action that executes anything — only copy + navigate;
   no fetch with a non-GET method.
 - **AC-15-004.5** (DR-057) The component declares **no `BANNER_STYLE`/`ICON_STYLE`/`CMD_ROW_STYLE`/

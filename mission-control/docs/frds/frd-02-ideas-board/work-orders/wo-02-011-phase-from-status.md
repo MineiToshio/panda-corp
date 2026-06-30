@@ -41,8 +41,8 @@ Pure function (no fs). Reads the **same two axes** as `deriveColumn` (WO-02-001)
 | `in-pipeline` | `product` | `1` |
 | `in-pipeline` | `design` | `2` |
 | `in-pipeline` | `architecture` | `3` |
-| `in-pipeline` | `implementation` / `release` | `4` |
-| `in-pipeline` | `operation` | `5` |
+| `in-pipeline` | `implementation` | `4` |
+| `in-pipeline` | `release` | `5` |
 | `shipped` | — | `5` |
 | absent / unrecognized | — | `0` (fallback) |
 

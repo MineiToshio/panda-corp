@@ -467,7 +467,20 @@ async function ensureFoundationComplete() {
   if (foundationEscalated) return false
   while (true) {
     const fc = await foundationCompletenessGate()
-    if (!fc || fc.complete === true) { foundationVerified = true; return true }
+    // FAIL-CLOSED (audit P1): only an EXPLICIT `complete === true` verdict lets surfaces fan out. A
+    // null/missing/garbled gate result (the agent died or returned nothing) is NOT proof of completeness
+    // — reading it as "complete" would ship surfaces against an unverified foundation. So a no-verdict
+    // is a BOUNDED retry, then escalate; it is never silently treated as green.
+    if (fc && fc.complete === true) { foundationVerified = true; return true }
+    if (!fc) {
+      foundationRepairs++   // count the failed attempt against the cap so a dead gate can't loop forever
+      if (foundationRepairs >= FOUNDATION_REPAIR_CAP) {
+        log('⊘ Foundation-completeness gate produced no verdict (agent died/invalid) after retries — escalating to the owner (fail-closed)')
+        foundationEscalated = true; return false
+      }
+      log('⚠ Foundation-completeness gate returned no verdict — NOT treating as complete; re-running (fail-closed)')
+      continue
+    }
     log(`⚠ Foundation INCOMPLETE: ${(fc.missing || []).map((m) => m.name).join(', ') || 'unknown primitives'}`)
     if (foundationRepairs >= FOUNDATION_REPAIR_CAP) {
       log(`⊘ Foundation still incomplete after ${foundationRepairs} auto-repair(s) — escalating to the owner`)
@@ -513,7 +526,11 @@ const globsOverlap = (x, y) => {
 }
 const artifactsOverlap = (a, b) => {
   const A = a.artifacts || [], B = b.artifacts || []
-  if (!A.length || !B.length) return false   // undeclared → can't prove overlap → prior behavior (back-compat)
+  // FAIL-SAFE (audit P1): a WO with UNDECLARED artifacts can't be proven disjoint, so assume it MAY
+  // collide and force serialization (correctness over parallelism) instead of reading "no globs" as
+  // "no overlap" (the old back-compat path that let un-migrated WOs race on a shared file). The planner
+  // is instructed to infer artifacts (DR-060), so this only bites old/un-migrated WOs — they serialize.
+  if (!A.length || !B.length) return true
   return A.some((x) => B.some((y) => globsOverlap(x, y)))
 }
 const pickDisjointWave = (ready, max) => {
@@ -560,10 +577,16 @@ for (const f of plan.frds) {
     if (capHit()) { log(`⛔ Agent ceiling (${agentSpawned} ≥ maxAgents ${MAX_AGENTS}) reached mid-FRD — stopping at the wave boundary (DR-070)`); stopReason = 'agents'; break }
     const ready = [...queue.values()].filter((w) => (w.deps || []).every((d) => doneIds.has(d) || !queue.has(d)))
     if (ready.length === 0) { log(`⚠ ${f.frd}: ${queue.size} work orders with unresolved/circular deps`); frdFailed = true; break }
+    const undeclared = ready.filter((w) => !(w.artifacts && w.artifacts.length))
+    if (undeclared.length) log(`⚠ ${f.frd}: ${undeclared.length} ready WO(s) declare no artifacts — serializing them (can't prove disjoint, DR-060 fail-safe): ${undeclared.map((w) => w.id).join(', ')}`)
     // DR-057 foundation-first, ENGINE-ENFORCED (not prose): while any foundation WO is still pending,
     // the wave is foundation-only — the shared primitives/inventory build BEFORE features fan out.
     const foundationReady = ready.filter((w) => w.foundation)
-    const wave = pickDisjointWave(foundationReady.length ? foundationReady : ready, P.wave)   // DR-060: never co-schedule WOs whose artifacts overlap
+    // DR-070 (audit P1): never START more WOs in a wave than the agent budget allows. capHit() guards the
+    // wave boundary, but a full P.wave fan-out could overshoot maxAgents mid-wave by (wave-1); cap the
+    // wave width to the remaining agent budget so the in-engine brake holds even if the supervisor is dead.
+    const waveMax = MAX_AGENTS ? Math.min(P.wave, Math.max(1, MAX_AGENTS - agentSpawned)) : P.wave
+    const wave = pickDisjointWave(foundationReady.length ? foundationReady : ready, waveMax)   // DR-060: never co-schedule WOs whose artifacts overlap
     const results = await parallel(wave.map((w) => () => buildWO(w, f.frd)))
     for (let i = 0; i < wave.length; i++) { queue.delete(wave[i].id); if (results[i]) doneIds.add(wave[i].id); else frdFailed = true }
     // Option B (DR-060) + finer save points (DR-086): each GREEN work order was ALREADY committed the

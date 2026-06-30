@@ -1,7 +1,7 @@
 # Machine-readable project status for {{PROJECT_NAME}} — read by the Pandacorp factory and Mission Control (live).
 # Human-readable Spanish narrative (summary, pending items) lives in .pandacorp/comms/summary.md (gitignored, owner-facing).
 project: "{{PROJECT_NAME}}"
-phase: product   # product | design | architecture | implementation | release | operation
+phase: product   # product | design | architecture | implementation | release  (release = launched/terminal; DR-085 folded the old 'operation' phase into it)
 version: v1
 target_platforms: responsive  # desktop | mobile | responsive — the gate asserts mobile widths only when this includes mobile (DR-074)
 overlay_version: "{{OVERLAY_VERSION}}"  # Pandacorp overlay version this project carries; /pandacorp:upgrade bumps it

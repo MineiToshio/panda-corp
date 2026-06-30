@@ -1314,29 +1314,31 @@ export function workspaceCommands(phase: Phase): CommandRow[];
 
 | `phase` | Result rows (in order) | Row count |
 |---|---|---|
-| `"implementation"` | `/pandacorp:implement`, `/pandacorp:release`, `/pandacorp:iterate` | 3 |
-| `"release"` | `/pandacorp:implement`, `/pandacorp:release`, `/pandacorp:iterate` | 3 |
-| `"operation"` | `/pandacorp:iterate`, `/pandacorp:new-version` | 2 |
+| `"implementation"` | `/pandacorp:release`, `/pandacorp:iterate` | 2 |
+| `"release"` | `/pandacorp:iterate`, `/pandacorp:new-version` | 2 |
 | `"product"` | delegates to FRD-02: `/pandacorp:design` | 1 |
 | `"design"` | delegates to FRD-02: `/pandacorp:architecture` | 1 |
 | `"architecture"` | delegates to FRD-02: `/pandacorp:implement` | 1 |
 | `undefined` / unknown | safe fallback: `/pandacorp:spec <idea>` | 1 |
 
-Notes on the mapping:
-- `implementation` and `release` share the same 3-row set (both are mid-build phases where the owner can resume, launch, or iterate).
-- `iterate` is always the **last** row in building phases and the **first** row in operation (shipped project's primary action).
+Notes on the mapping (DR-085: there is no `operation` phase — `release` is the launched/terminal phase; the old `operation` rows fold into it):
+- `implementation` is the construction phase (resume the build via `/pandacorp:implement` in `CMP-11-mode-selector`, launch, or iterate); `release` is the launched/terminal phase and gets the iterate → new-version set the old `operation` phase used to carry.
+- `iterate` is always the **last** row in the construction phase and the **first** row in the launched (`release`) phase (shipped project's primary action).
 - The early-phase delegation (product/design/architecture) reuses `PHASE_COMMANDS` from the FRD-02 base — no duplication of the mapping.
 - The unknown/undefined fallback returns `/pandacorp:spec <idea>` — a safe pre-pipeline command that is never a building-phase command (never misleading for an unrecognised phase).
 
-### Building-phase rows detail
+### Construction-phase (`implementation`) rows detail
+
+The `/pandacorp:implement` command (full + targeted variants) lives in `CMP-11-mode-selector`, not in these rows.
 
 | Row index | `command` | `when` (Spanish) |
 |---|---|---|
-| 0 | `/pandacorp:implement` | `"Continúa o reanuda la construcción del proyecto"` |
-| 1 | `/pandacorp:release` | `"Cuando todos los work orders estén listos para lanzar"` |
-| 2 | `/pandacorp:iterate` | `"Agrega un FRD, ajusta o corrige algo en el proyecto"` |
+| 0 | `/pandacorp:release` | `"Cuando todos los work orders estén listos para lanzar"` |
+| 1 | `/pandacorp:iterate` | `"Agrega un FRD, ajusta o corrige algo en el proyecto"` |
 
-### Operation-phase rows detail
+### Launched-phase (`release`) rows detail
+
+DR-085: `release` is the launched/terminal phase; these are the rows the old `operation` phase used to carry.
 
 | Row index | `command` | `when` (Spanish) |
 |---|---|---|
@@ -1347,9 +1349,8 @@ Notes on the mapping:
 
 | Input condition | Result |
 |---|---|
-| `phase === "implementation"` | 3-row array: implement → release → iterate |
-| `phase === "release"` | 3-row array identical to `"implementation"` |
-| `phase === "operation"` | 2-row array: iterate → new-version |
+| `phase === "implementation"` | 2-row array: release → iterate |
+| `phase === "release"` | 2-row array: iterate → new-version (DR-085: launched/terminal phase; old `operation` rows) |
 | `phase === "product"` | 1-row array: `/pandacorp:design` (FRD-02 delegation) |
 | `phase === "design"` | 1-row array: `/pandacorp:architecture` (FRD-02 delegation) |
 | `phase === "architecture"` | 1-row array: `/pandacorp:implement` (FRD-02 delegation) |
@@ -1367,7 +1368,7 @@ Notes on the mapping:
 - **FRD-02 delegation — no duplication:** early phases delegate to the existing `PHASE_COMMANDS` record from the FRD-02 base — the phase→command mapping lives in one place.
 - **`when` !== `command`:** the description field is always distinct from the command string (not a copy of it).
 - **Genuinely typed:** no `any`, no `@ts-ignore`. Strict TypeScript. `CommandRow[]` is a genuine `Array` (`Array.isArray()` is true — regression I3).
-- **No cross-contamination:** operation phase never includes implement/release; early phases never include building-phase commands.
+- **No cross-contamination:** the launched (`release`) phase never includes implement; early phases never include construction/launched-phase commands.
 
 ### Regression anchors
 
@@ -1387,11 +1388,10 @@ Notes on the mapping:
 
 | Group | ACs / invariants covered |
 |---|---|
-| implementation phase (AC-04-005.1) | Does not throw; 3 rows; row[0]=implement; row[1]=release; row[2]=iterate; all rows non-empty; genuine Array (I3); `when` fields non-empty and describe correct scenario |
-| release phase (AC-04-005.1) | Does not throw; 3 rows; same row commands as implementation; parity assertion (mutation hardening) |
-| operation phase (AC-04-005.1) | Does not throw; 2 rows; row[0]=iterate; row[1]=new-version; all rows non-empty; no pre-build or building commands appear |
-| early-phase delegation to FRD-02 | Does not throw (product/design/architecture); 1 row each; non-empty row; no building-phase commands for product/design; specific delegation: product→design, design→blueprint, architecture→implement |
-| Pure function invariants | Deterministic (same phase → same commands); all valid phases non-null/non-undefined/genuine Array; at least 1 row for every phase (regression B2); idempotent across repeated calls; `when !== command` for all building/operation phases |
+| implementation phase (AC-04-005.1) | Does not throw; 2 rows; row[0]=release; row[1]=iterate; all rows non-empty; genuine Array (I3); `when` fields non-empty and describe correct scenario |
+| release phase (AC-04-005.1) | Does not throw; 2 rows; row[0]=iterate; row[1]=new-version; all rows non-empty; no pre-build commands appear (DR-085: launched/terminal phase, old `operation` rows) |
+| early-phase delegation to FRD-02 | Does not throw (product/design/architecture); 1 row each; non-empty row; no construction/launched-phase commands for product/design; specific delegation: product→design, design→architecture, architecture→implement |
+| Pure function invariants | Deterministic (same phase → same commands); all valid phases non-null/non-undefined/genuine Array; at least 1 row for every phase (regression B2); idempotent across repeated calls; `when !== command` for all construction/launched phases |
 | Complete mapping table (mutation hardening) | One assertion per (phase, row-index, field) cell; count guards; order guards |
 | Regression B1' + I3 (undefined / unknown phase) | Does not throw; Array result; at least 1 row; each row valid; deterministic; unrecognised string → no building commands returned |
 
@@ -1527,24 +1527,74 @@ export function listProjectFolders(projectsPath: string, factoryRoot?: string): 
 
 ---
 
-## WO-15-001: `lib/plugin-sync.ts` — installed SHA, plugin HEAD SHA, dirty readers
-
-> ⚠ **SUPERSEDED 2026-06-22 — FRD-15 is now version-based (no SHA, no git, no dirty).** The
-> SHA/dirty readers below (`readInstalledSha` / `readPluginHeadSha` / `readPluginDirty` / `shaEqual`)
-> were **removed**; drift is now `readInstalledVersion` (installed_plugins.json `version`) vs
-> `readPluginSourceVersion` (plugin.json `version`), strictly-behind only. The interface below is kept
-> only as a historical record. See the [decision log](decision-log.md) and the
-> [FRD-15 amendment](frds/frd-15-plugin-out-of-sync-warning/frd.md).
+## WO-15-001: `lib/plugin-sync.ts` — version-based plugin-sync readers (IF-15-sync)
 
 **Module:** `lib/plugin-sync.ts`
-**Traces:** IF-15-sync; REQ-15-001 (uncommitted changes), REQ-15-002 (installed SHA behind), REQ-15-005 (read-only invariant); AC-15-001.1..5
+**Traces:** IF-15-sync; REQ-15-002 (installed version behind), REQ-15-005 (read-only invariant); AC-15-001.1..5
 **Dependencies:** `lib/config.ts` (FRD-01, shipped — `PANDACORP_FACTORY_ROOT`, `resolveFactoryRoot`)
-**Consumed by:** WO-15-002 (`getPluginSyncState` verdict), WO-15-003 (route handler)
+**Consumed by:** WO-15-002 (`getPluginSyncState` verdict), WO-15-003 (route handler), WO-15-004 (banner)
 
-### IF-15-sync — `lib/plugin-sync.ts`
+### Current contract — semver comparison (FRD-15, amended 2026-06-22)
+
+Drift is determined by comparing the **installed semver `version`** against the **source semver `version`** — NOT git commit SHAs and NOT dirty/uncommitted state. The banner shows **only** when the installed version is strictly behind the source version.
 
 ```ts
 // lib/plugin-sync.ts
+
+/**
+ * Read the installed plugin's semver `version` from
+ * <claudeHome>/plugins/installed_plugins.json (the pandacorp@panda-corp entry).
+ *
+ * @returns the `version` string, or null if the file is missing, invalid JSON,
+ *   has no pandacorp@panda-corp entry, or no non-empty `version`. Never throws.
+ */
+export function readInstalledVersion(claudeHome: string): string | null;
+
+/**
+ * Read the source `version` from <factoryRoot>/plugin/.claude-plugin/plugin.json
+ * — the authoritative "latest published" version.
+ *
+ * @returns the `version` string, or null if the manifest is missing/invalid or
+ *   has no non-empty `version`. Never throws.
+ */
+export function readPluginSourceVersion(factoryRoot: string): string | null;
+
+/** The computed drift verdict for FRD-15's banner. Version-based. */
+export type PluginSyncState = {
+  installedVersion: string | null;   // installed semver, or null if not installed/unreadable
+  sourceVersion: string | null;      // source semver, or null if unreadable
+  drift: boolean;                    // true ONLY when installed is strictly behind source
+  reason: "behind" | "in-sync" | "unknown"; // only "behind" raises the banner
+  detail: string;                    // Spanish one-liner for the banner, always non-empty
+};
+
+/** Compose the readers into the version-based drift verdict (WO-15-002). */
+export function getPluginSyncState(): PluginSyncState;
+```
+
+| `reason` | Meaning | Banner |
+|---|---|---|
+| `"behind"` | Installed version strictly older than source → an update is genuinely needed | Shown |
+| `"in-sync"` | Installed equals OR is newer than source → no update needed | Hidden |
+| `"unknown"` | Either version is missing/unparseable → no false alarm | Hidden |
+
+**Defensive contract (REQ-15-005):** any unreadable/unparseable input → `reason: "unknown"`, `drift: false` (never a false alarm). Read-only — no git invocation, no writes; only the two JSON manifests are read. Never throws.
+
+---
+
+> ⚠ **SUPERSEDED 2026-06-22 — the SHA/git/dirty design below is HISTORY, not current behavior.** The
+> SHA/dirty readers (`readInstalledSha` / `readPluginHeadSha` / `readPluginDirty` / `shaEqual`)
+> were **removed** and replaced by the version-based contract above (`readInstalledVersion` vs
+> `readPluginSourceVersion`, strictly-behind only). They produced permanent false "behind" alarms.
+> The interface below is kept only as a historical record. See the [decision log](decision-log.md)
+> and the [FRD-15 amendment](frds/frd-15-plugin-out-of-sync-warning/frd.md).
+
+### IF-15-sync — historical SHA/dirty interface (removed 2026-06-22)
+
+_The readers below no longer exist; they are documented only as history. The live module is the version-based contract above._
+
+```ts
+// lib/plugin-sync.ts (HISTORICAL — removed)
 
 /**
  * Parse <claudeHome>/plugins/installed_plugins.json and return the gitCommitSha
@@ -1823,7 +1873,7 @@ export type ProjectListItem = {
   exists: boolean;
   /**
    * Phase for display: authoritative from status.yaml; fallback to portfolio advisory cell
-   * (with "shipped" → "operation", "building" → "implementation" mapping).
+   * (with "shipped" → "release", "building" → "implementation" mapping; DR-085: no `operation` phase).
    * Undefined only when neither source can supply a valid phase.
    */
   stage?: Phase;
@@ -1834,9 +1884,9 @@ export type ProjectListItem = {
    */
   running?: boolean;
   /**
-   * Populated ONLY for operation (shipped) phase from the portfolio row's Users /
-   * Return metric / Verdict columns. Undefined for non-operation entries, or when
-   * all snapshot cells are placeholders.
+   * Populated ONLY for the launched ("release") phase from the portfolio row's Users /
+   * Return metric / Verdict columns. Undefined for non-release entries, or when
+   * all snapshot cells are placeholders. (DR-085: the old `operation` phase folded into `release`.)
    */
   snapshot?: {
     users?: string;
@@ -1849,7 +1899,7 @@ export type ProjectListItem = {
  * Compose helper: read the portfolio, enrich each entry with its status and
  * existence flag, return only active-phase entries.
  *
- * Active set: architecture | implementation | release | operation.
+ * Active set: architecture | implementation | release (DR-085: `operation` folded into `release`).
  *
  * @param content - Optional raw portfolio markdown content (inline fixture tests).
  *   When omitted, reads from config.PORTFOLIO (at call-time, env-aware).
@@ -1870,11 +1920,10 @@ export function activeProjects(content?: string): ProjectListItem[];
 | `implementation` | `implementation` |
 | `building` | `implementation` |
 | `release` | `release` |
-| `operation` | `operation` |
-| `shipped` | `operation` |
+| `shipped` / `lanzada` / `launched` | `release` (DR-085: launched aliases for the terminal phase) |
 | anything else | — (row excluded) |
 
-4. **Active filter:** keep only entries whose resolved phase is in `{ architecture, implementation, release, operation }`.
+4. **Active filter:** keep only entries whose resolved phase is in `{ architecture, implementation, release }` (DR-085: no `operation` phase).
 
 ### Path resolution
 
@@ -1884,7 +1933,7 @@ export function activeProjects(content?: string): ProjectListItem[];
 
 ### Snapshot population rule (AC-03-003.1)
 
-`snapshot` is set only when `stage === "operation"`. The object is populated from the portfolio row's `users`, `returnMetric`, and `verdict` fields (already normalized by `readPortfolio` — placeholders are `undefined`). If all three are `undefined`, `snapshot` is `undefined` (omit silently, not an empty object).
+`snapshot` is set only when `stage === "release"` (DR-085: the launched/terminal phase; the old `operation` phase folded into it). The object is populated from the portfolio row's `users`, `returnMetric`, and `verdict` fields (already normalized by `readPortfolio` — placeholders are `undefined`). If all three are `undefined`, `snapshot` is `undefined` (omit silently, not an empty object).
 
 ### Field invariants
 
@@ -1896,7 +1945,7 @@ export function activeProjects(content?: string): ProjectListItem[];
 | `exists` | Strict `boolean`; never null/undefined |
 | `stage` | Valid `Phase` literal or `undefined`; never an array (regression I3) |
 | `running` | Strict `boolean` or `undefined`; never NaN/null/number (regression B1') |
-| `snapshot` | Only on `operation` entries; `undefined` otherwise |
+| `snapshot` | Only on `release` (launched) entries; `undefined` otherwise (DR-085) |
 
 ### Tolerance rules (blueprint §3)
 
@@ -1939,10 +1988,10 @@ export function activeProjects(content?: string): ProjectListItem[];
 
 | Group | Coverage |
 |---|---|
-| AC-03-001.1 active phase inclusion | Includes architecture/implementation/release/operation; excludes product/design |
+| AC-03-001.1 active phase inclusion | Includes architecture/implementation/release; excludes product/design (DR-085: no `operation` phase) |
 | AC-03-006.x missing path | `exists: false` when path not found; row still listed; repo preserved |
 | AC-03-002.1 stage and running | Correct stage per phase; `running` strict boolean; all-items invariant |
-| AC-03-003.1 snapshot | Populated for operation only; absent/placeholder → undefined |
+| AC-03-003.1 snapshot | Populated for release (launched) only; absent/placeholder → undefined (DR-085) |
 | Malformed status fallback | No throw on malformed YAML; excluded when advisory phase is non-active; included when advisory phase is shipped |
 | Read-only + fail-soft | Empty portfolio → `[]`; nonexistent factory root → `[]`; never throws |
 | ProjectListItem field invariants | name/path non-empty strings; status object; exists boolean on every item |
@@ -2109,8 +2158,7 @@ export function deriveColumn(card: IdeaCard, projectStatus: StatusResult | null)
 | `in-pipeline` | `design` | `design` |
 | `in-pipeline` | `architecture` | `architecture` |
 | `in-pipeline` | `implementation` | `building` |
-| `in-pipeline` | `release` | `building` |
-| `in-pipeline` | `operation` | `shipped` |
+| `in-pipeline` | `release` | `shipped` (DR-085: `release` is the launched/terminal phase — labelled "6 Release"; the old `operation` phase folded into it) |
 | `in-pipeline` | missing / absent / malformed / undefined | `documented` (fallback, AC-02-001.6) |
 | `shipped` | — | `shipped` |
 | `discarded` | — | `discarded` |
@@ -2195,7 +2243,7 @@ export type NextStepInput = {
 export function nextStep(input: NextStepInput): NextStep;
 ```
 
-### Mapping table (AC-02-004.1, canonical source: CLAUDE.md operation table)
+### Mapping table (AC-02-004.1, canonical source: CLAUDE.md command-routing table)
 
 | `cardStatus` | `phase` | `advancePending` | `command` |
 |---|---|---|---|
@@ -2205,8 +2253,7 @@ export function nextStep(input: NextStepInput): NextStep;
 | `in-pipeline` | `design` | `false` / `undefined` | `/pandacorp:architecture` |
 | `in-pipeline` | `architecture` | `false` / `undefined` | `/pandacorp:implement` |
 | `in-pipeline` | `implementation` | `false` / `undefined` | `/pandacorp:release` |
-| `in-pipeline` | `release` | `false` / `undefined` | `/pandacorp:release` |
-| `in-pipeline` | `operation` | `false` / `undefined` | `/pandacorp:iterate` |
+| `in-pipeline` | `release` | `false` / `undefined` | `/pandacorp:iterate` (DR-085: `release` is the launched/terminal phase — iterate/review, what the old `operation` phase gave) |
 | `in-pipeline` | `product` | `true` | `/pandacorp:design` (label carries advance hint) |
 | `in-pipeline` | any | `true` | same command; `label` adds `" — escribe «ok, advance» para continuar"` |
 | `in-pipeline` | `undefined` | — | `/pandacorp:spec <idea>` (safe fallback, see regressions) |
@@ -2236,12 +2283,12 @@ not change — only the `label` differs, which is sufficient to satisfy the DR-0
 - **No pipeline command for terminal states** — `shipped` and `discarded` never produce
   `/pandacorp:spec <idea>`, `/pandacorp:design`, `/pandacorp:architecture`,
   `/pandacorp:implement`, or `/pandacorp:release`.
-- **`implementation` and `release` share the same command** (`/pandacorp:release`) per spec.
+- **`implementation` → `/pandacorp:release`; `release` → `/pandacorp:iterate`** (DR-085: `release` is the launched/terminal phase, so its next step is iterate/review — there is no `operation` phase).
 - **`discovered` and `recommended` share the same command** (`/pandacorp:spec <idea>`).
 - **`openPath` is either a `string` or `undefined`** — never `null`, never a number.
 - **Deterministic:** same inputs always produce the same output (no randomness, no date math).
 - **Input objects are never mutated.**
-- **All commands are distinct per phase** except the two documented aliases above.
+- **All commands are distinct per phase** except the documented `discovered`/`recommended` alias above.
 
 ### Consumption (downstream features)
 
@@ -2251,9 +2298,9 @@ not change — only the `label` differs, which is sufficient to satisfy the DR-0
 ### Test coverage
 
 `lib/next-step.test.ts` — 57 tests across 8 groups (vitest, pure — no fs, no mocks):
-`discovered`/`recommended` → spec, `in-pipeline` + each of 6 phases, DR-032 `advancePending` flag
+`discovered`/`recommended` → spec, `in-pipeline` + each of the 5 phases (DR-085: no `operation`), DR-032 `advancePending` flag
 (pending vs non-pending label divergence), terminal statuses, edge cases + missing inputs,
-complete mutation-killing mapping table (10 rows), pure-function invariants, regression B1' + I3.
+complete mutation-killing mapping table, pure-function invariants, regression B1' + I3.
 
 ---
 
@@ -2434,7 +2481,7 @@ export function readPortfolio(arg?: string): PortfolioEntry[];
 // Placeholder cells ("—", "-", "") → undefined. Column order is name-based, not position-based.
 
 // lib/status.ts
-type Phase = "product" | "design" | "architecture" | "implementation" | "release" | "operation";
+type Phase = "product" | "design" | "architecture" | "implementation" | "release"; // DR-085: no "operation" — "release" is the launched/terminal phase
 type ProjectStatus = {
   project: string; phase: Phase; version: string; running: boolean;
   progress?: number; workOrdersTotal: number; workOrdersDone: number;
@@ -3365,7 +3412,7 @@ export function deriveKpis(events: Event[], projects: { stage?: string }[]): Kpi
 
 | Index | `key` | `label` | Derivation |
 |---|---|---|---|
-| 0 | `active-projects` | `Proyectos activos` | Count of projects whose `stage` is in `{architecture, implementation, release, operation}` |
+| 0 | `active-projects` | `Proyectos activos` | Count of projects whose `stage` is in `{architecture, implementation, release}` (DR-085: no `operation` phase) |
 | 1 | `agents-working` | `Agentes trabajando` | Count of distinct `agent` string values from `AgentWorking` events |
 | 2 | `xp-today` | `XP del día` | Count of `XpAwarded` events in the tail |
 | 3 | `builds-queued` | `Builds en cola` | Count of `BuildQueued` events in the tail |
@@ -3381,7 +3428,7 @@ export function deriveKpis(events: Event[], projects: { stage?: string }[]): Kpi
 
 ### Active phases for `active-projects`
 
-`architecture`, `implementation`, `release`, `operation`.
+`architecture`, `implementation`, `release` (DR-085: the old `operation` phase folded into `release`; mirrors `ACTIVE_PHASES` in `lib/portfolio.ts`).
 
 Note: this is a **scalar count** (not a ranking), so it is NOT capped at 5 (REQ-12-004 applies
 to rankings/groupings, not to this aggregated scalar). A factory with 10 active projects yields

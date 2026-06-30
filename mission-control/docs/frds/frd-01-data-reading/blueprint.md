@@ -106,7 +106,7 @@ type PortfolioEntry = {
 };
 
 // lib/status.ts
-type Phase = "product" | "design" | "architecture" | "implementation" | "release" | "operation";
+type Phase = "product" | "design" | "architecture" | "implementation" | "release";
 type ProjectStatus = {
   project: string; phase: Phase; version: string; running: boolean;
   progress?: number; workOrdersTotal: number; workOrdersDone: number;

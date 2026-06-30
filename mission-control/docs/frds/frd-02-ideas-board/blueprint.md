@@ -39,7 +39,7 @@ heart of the feature (`lib/board.ts`).
 | `CMP-02-board-view` | UI (Server) | `app/board/page.tsx` | Render the kanban columns + cards from `readIdeas` + `readStatus` + `lib/board`. | REQ-02-001, REQ-02-002, REQ-02-005 |
 | `CMP-02-card` | UI (Server) | `components/IdeaCard.tsx` | One card: title, score, category + return chips, recommended/building badges. | REQ-02-005, REQ-02-006 |
 | `CMP-02-intake-modal` | UI (client) | `components/IntakeModal.tsx` | Modal overlay (backdrop + blur) with the 4 intake commands. | REQ-02-003 |
-| `CMP-02-card-detail` | UI (client) | `app/board/_components/CardDetail/CardDetail.tsx` (+ `CardDetail.styles.ts`) | The **tabbed card-detail container** (Campaña · Documentos · Comandos) via the shared `Tabs` primitive (icons, `level="sub"`); default tab Campaña; tab state persists. Root is transparent layout (each tab's own content is the bordered panel below the bare pills). Documentos = rail (Resumen + project docs) + reader; Comandos = `CmdRow` next-step + (building/operation) `workspaceCommands` box. Threads `isRunning` → `CampaignPipeline.running`. | REQ-02-004, REQ-02-008, REQ-02-009 |
+| `CMP-02-card-detail` | UI (client) | `app/board/_components/CardDetail/CardDetail.tsx` (+ `CardDetail.styles.ts`) | The **tabbed card-detail container** (Campaña · Documentos · Comandos) via the shared `Tabs` primitive (icons, `level="sub"`); default tab Campaña; tab state persists. Root is transparent layout (each tab's own content is the bordered panel below the bare pills). Documentos = rail (Resumen + project docs) + reader; Comandos = `CmdRow` next-step + (building/release) `workspaceCommands` box. Threads `isRunning` → `CampaignPipeline.running`. | REQ-02-004, REQ-02-008, REQ-02-009 |
 | `CMP-02-campaign-pipeline` | UI (client) | `components/modules/CampaignPipeline/CampaignPipeline.tsx` (+ `phases.ts`, `RoamingCast.tsx`) | **La Campaña** view: the 6-phase pipeline (full-width stage, rooms centred in an inner layer), derived active phase, road connectors **under** the rooms, per-phase ficha (header `{n · name} — state` + description + reads/writes + the WHOLE team) shown **by default + pinned**, "en curso"/roam gated on `running`, Construcción → host-navigate to Party, read-only. `PHASE_META` (emoji · short deliverable · accent) feeds rooms + connectors. | REQ-02-010 |
 | `CMP-02-roaming-cast` | UI (client) | `components/modules/CampaignPipeline/RoamingCast.tsx` | The active room's cast: a `requestAnimationFrame` roam loop (walk/idle bob, lead halo, speech-on-meet) that runs **only when `state==="current" && running`**; done → idle-bob in place; locked → static + dimmed. Honors `prefers-reduced-motion` (and jsdom/SSR — no `matchMedia` → static). | REQ-02-010 |
 | `CMP-02-phase-from-status` | module | `lib/campaign/campaign.ts` | Pure `phaseFromStatus(input)` derivation: card status / project phase → active phase index (0–5), with a safe fallback to `research`. | REQ-02-010 |
@@ -79,8 +79,8 @@ Rules (REQ-02-001, exactly the FRD's mapping):
 | `in-pipeline` | `product` | `documented` |
 | `in-pipeline` | `design` | `design` |
 | `in-pipeline` | `architecture` | `architecture` |
-| `in-pipeline` | `implementation` or `release` | `building` |
-| `in-pipeline` | `operation` | `shipped` |
+| `in-pipeline` | `implementation` | `building` |
+| `in-pipeline` | `release` | `shipped` |
 | `in-pipeline` | **missing project / status absent / malformed** | `documented` (fallback, no break) |
 | `shipped` | — | `shipped` |
 | `discarded` | — | `discarded` |
@@ -145,7 +145,7 @@ the body reads as the bordered container *below* the pills) — `PANEL_STYLE` pa
   project document (`buildNavEntries` over `ProjectDocsIndex`). For a board card the reader shows the
   summary in full and, for a project doc, a short "open it in the project workspace" pointer.
 - **Comandos** → the shared **`CmdRow`** "Siguiente paso · avanzar" (from `nextStep`) plus, for
-  building/operation cards (phase `implementation`/`release`/`operation`), a **project-command box**
+  building/release cards (phase `implementation`/`release`), a **project-command box**
   from `workspaceCommands(phase)` (the prototype `commandsBox`).
 - Tab state is local client state on the open card and **persists across re-renders** (AC-02-009.4);
   a separate `selectedDocKey` drives the Documentos rail/reader.
@@ -165,8 +165,8 @@ export function phaseFromStatus(input: { cardStatus?: IdeaStatus; phase?: Phase 
 | `in-pipeline` | `product` | `1` product |
 | `in-pipeline` | `design` | `2` design |
 | `in-pipeline` | `architecture` | `3` architecture |
-| `in-pipeline` | `implementation` / `release` | `4` build |
-| `in-pipeline` | `operation` | `5` release |
+| `in-pipeline` | `implementation` | `4` build |
+| `in-pipeline` | `release` | `5` release |
 | `shipped` | — | `5` release |
 | **absent / unrecognized** | — | `0` research (fallback, no break — AC-02-010.2) |
 
@@ -239,7 +239,7 @@ component receives the project `slug` and the `onEnterForge(slug)` callback wire
 | REQ-02-006 | Filter by category; recommended card shows a "recommended" badge. | `CMP-02-category-filter`, `CMP-02-card` |
 | REQ-02-007 | Discard → rewrite `status: discarded`, preserving the rest of the file (the only write). | `CMP-02-discard`, `CMP-02-discard-action`, `IF-02-discardIdea` |
 | REQ-02-008 | Building indicator while `running: true`; legend explaining category/return/score; card with no docs → summary only. | `CMP-02-card` (badge), `CMP-02-legend`, `CMP-02-card-detail` |
-| REQ-02-009 | Card detail = 3 tabs (Campaña · Documentos · Comandos) via shared `Tabs` (icons), default Campaña; doc click → Documentos; tab persists; Documentos = rail+reader, Comandos = `CmdRow` + (building/operation) project box. | `CMP-02-card-detail` |
+| REQ-02-009 | Card detail = 3 tabs (Campaña · Documentos · Comandos) via shared `Tabs` (icons), default Campaña; doc click → Documentos; tab persists; Documentos = rail+reader, Comandos = `CmdRow` + (building/release) project box. | `CMP-02-card-detail` |
 | REQ-02-010 | La Campaña: 6-phase pipeline (full-width stage, road under rooms), active phase derived from status, done/current/locked, per-phase ficha (by default + pinned) with the whole team, "en curso"/roam gated on running, build→host-navigate to Party, read-only; a locked phase's ficha shows full info (only the build action is gated). | `CMP-02-campaign-pipeline`, `CMP-02-roaming-cast`, `CMP-02-phase-from-status`, `CMP-02-go-party`, `IF-02-phaseFromStatus`, `IF-02-goParty` |
 | REQ-02-012 | Mark a card as favourite (visual-only, any column): `favorite: true` frontmatter write, star toggle (optimistic) on every card + the detail header, gold card highlight; never changes status/column. | `CMP-02-favorite`, `CMP-02-favorite-action`, `IF-02-setFavorite`, `CMP-02-card` (gold highlight) |
 

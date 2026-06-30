@@ -36,8 +36,8 @@ export function nextStep(input: {
   - `in-pipeline` + `phase: product` → `/pandacorp:design`.
   - `in-pipeline` + `phase: design` → `/pandacorp:architecture`.
   - `in-pipeline` + `phase: architecture` → `/pandacorp:implement`.
-  - `in-pipeline` + `phase: implementation`/`release` → `/pandacorp:release`.
-  - `in-pipeline` + `phase: operation` → `/pandacorp:iterate` (or `:review-launch`).
+  - `in-pipeline` + `phase: implementation` → `/pandacorp:release`.
+  - `in-pipeline` + `phase: release` → `/pandacorp:iterate` (or `:review-launch`).
   - `advancePending: true` → an "ok, advance" hint (DR-032).
   - The exact mapping table is enumerated and locked in the test.
 
@@ -89,8 +89,8 @@ export function workspaceCommands(phase: Phase): CommandRow[];
 | `in-pipeline` | `product` | `/pandacorp:design` |
 | `in-pipeline` | `design` | `/pandacorp:architecture` |
 | `in-pipeline` | `architecture` | `/pandacorp:implement` |
-| `in-pipeline` | `implementation` / `release` | `/pandacorp:release` |
-| `in-pipeline` | `operation` | `/pandacorp:iterate` |
+| `in-pipeline` | `implementation` | `/pandacorp:release` |
+| `in-pipeline` | `release` | `/pandacorp:iterate` |
 | `in-pipeline` | undefined (upstream rejection) | `/pandacorp:spec <idea>` (safe fallback) |
 | `shipped` | — | `/pandacorp:review-launch` |
 | `discarded` | — | `/pandacorp:recommend` |

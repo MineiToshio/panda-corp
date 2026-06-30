@@ -35,7 +35,7 @@ states and the slot that hosts the workspace.
 
 | ID | Kind | Artifact | Responsibility | Traces |
 |---|---|---|---|---|
-| `CMP-03-active-projects` | module (compose) | `lib/portfolio.ts` helper `activeProjects()` (or in the page) | Filter portfolio entries to phases `architecture`/`implementation`(building)/`operation`(shipped) using `readStatus`. | REQ-03-001 |
+| `CMP-03-active-projects` | module (compose) | `lib/portfolio.ts` helper `activeProjects()` (or in the page) | Filter portfolio entries to phases `architecture`/`implementation`(building)/`release`(shipped) using `readStatus`. | REQ-03-001 |
 | `CMP-03-rail` | UI (Server) | `app/portfolio/page.tsx` + `components/ProjectRail.tsx` | Vertical list of active projects: title, stage, indicator, snapshot, not-found badge. | REQ-03-001, REQ-03-002, REQ-03-003 |
 | `CMP-03-row` | UI | `components/ProjectRow.tsx` | One project row: building/stopped indicator + ⚠️ not-found badge + recovery. | REQ-03-002, REQ-03-006 |
 | `CMP-03-snapshot` | UI | `components/BusinessSnapshot.tsx` | Shipped project's users / return / verdict chips from the portfolio row. | REQ-03-003 |
@@ -59,7 +59,7 @@ type ProjectListItem = {
 ## 2. Active-set & ordering (REQ-03-001)
 
 The rail lists projects whose **phase** (from `status.yaml`, authoritative) is `architecture`,
-`implementation` or `release` ("building"), or `operation` ("shipped"). Phase is read via FRD-01
+`implementation` ("building"), or `release` ("shipped"). Phase is read via FRD-01
 `readStatus(entry.path)`; when status is absent/malformed, fall back to the portfolio table's `phase`
 cell (advisory). Stage label per row: architecture / building / shipped (mapped from phase, same map
 as FRD-02 columns).

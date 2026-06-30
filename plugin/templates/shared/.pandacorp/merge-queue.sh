@@ -64,6 +64,16 @@ release() { rm -rf "$LOCK"; }
 trap release EXIT
 acquire
 
+# ── Preflight: is the main checkout quiescent? (fast early hand-back, DR-096) ──────────────────────
+# The ff-merge at the very end fails when the main checkout has conflicting uncommitted WIP (another
+# session). Detecting that NOW — before the multi-minute rebase + integration gate — avoids burning all
+# that work only to fail at the last step. This is an EARLY hand-back; the authoritative check is still
+# the `git merge --ff-only` below (state can change between here and there), so the recheck is never
+# skipped. Same exit 12 ("busy main") — the work is preserved on the branch, nothing is lost.
+if [ -n "$(git -C "$MAIN_WT" status --porcelain 2>/dev/null)" ]; then
+  fail "the $DEFAULT_BRANCH checkout has uncommitted changes (busy) — land when quiescent [preflight, re-checked at merge]" 12
+fi
+
 # ── Rebase onto the CURRENT main tip (the merge-queue invariant: frozen + up-to-date target) ───────
 git fetch --quiet "$MAIN_WT" "$DEFAULT_BRANCH" 2>/dev/null || true
 if ! git rebase "$DEFAULT_BRANCH"; then
