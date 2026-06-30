@@ -42,6 +42,7 @@ import { Chip } from "@/components/core/Chip/Chip";
 import { PageLayout } from "@/components/core/PageLayout/PageLayout";
 import { Cartera } from "@/components/dashboard/Cartera/Cartera";
 import { DashboardLiveWatcher } from "@/components/dashboard/DashboardLiveWatcher/DashboardLiveWatcher";
+import { FactoryWorktrees } from "@/components/dashboard/FactoryWorktrees/FactoryWorktrees";
 import { GamificationLedgerSync } from "@/components/dashboard/GamificationLedgerSync/GamificationLedgerSync";
 import { Progreso } from "@/components/dashboard/Progreso/Progreso";
 import { TuTurno } from "@/components/dashboard/TuTurno/TuTurno";
@@ -59,6 +60,7 @@ import { getGuildState } from "@/lib/gamification/guildState";
 import { type IdeaCard, readIdeas } from "@/lib/ideas/ideas";
 import type { MemoryHealth } from "@/lib/memory/memory-health";
 import { memoryHealth } from "@/lib/memory/memory-health";
+import { getPendingMerge } from "@/lib/pendingMerge/pendingMerge";
 import { activeProjects, type ProjectListItem } from "@/lib/portfolio/portfolio";
 import { readProfile } from "@/lib/profile/profile";
 import type { StatusResult } from "@/lib/status/status";
@@ -286,6 +288,8 @@ export default function HomePage(): React.JSX.Element {
   const ideas = readIdeas();
   const memHealth = memoryHealth();
   const profileResult = readProfile();
+  // Factory worktrees — same cached source as the shell badge (DR-092, single source).
+  const factoryWorktrees = getPendingMerge();
 
   // ── 2. Derive sections ──────────────────────────────────────────────────
 
@@ -350,6 +354,9 @@ export default function HomePage(): React.JSX.Element {
 
         {/* ── Section 5: Construcción y cartera (project cards, AC-18-001.7) ── */}
         <Cartera cards={cards} />
+
+        {/* ── Section 5b: Árboles de trabajo de la fábrica (factory worktrees, DR-096 §7) ── */}
+        <FactoryWorktrees result={factoryWorktrees} />
 
         {/* ── Section 6: Tu progreso (gamification strip, AC-18-001.8) ── */}
         <Progreso
