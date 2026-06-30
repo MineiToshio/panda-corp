@@ -1,4 +1,5 @@
 ---
+user-invocable: false
 description: Groups a large batch of changes into a formal milestone (v2, v3…) of a shipped project, with its own mini-PRD. OPTIONAL — for the day-to-day (adding a feature or an adjustment) use /pandacorp:iterate. Use new-version only for redesigns or large packages that justify a new PRD.
 ---
 
