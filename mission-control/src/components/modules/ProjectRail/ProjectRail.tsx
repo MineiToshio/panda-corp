@@ -283,7 +283,7 @@ const SELECTABLE_ROW_STYLE: React.CSSProperties = {
 const SELECTABLE_ROW_SELECTED_STYLE: React.CSSProperties = {
   ...SELECTABLE_ROW_STYLE,
   background: "var(--color-accent-bg, currentColor)",
-  borderColor: "var(--color-accent, currentColor)",
+  border: "0.5px solid var(--color-accent, currentColor)",
   boxShadow: "inset 0 0 0 1px var(--color-accent, currentColor)",
 };
 

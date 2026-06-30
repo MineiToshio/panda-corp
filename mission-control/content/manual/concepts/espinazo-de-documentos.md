@@ -50,3 +50,9 @@ Documentar un cambio son **dos cosas, siempre**:
 El documento canónico responde *"¿qué es verdad ahora?"*; el decision-log, *"¿cómo llegamos aquí y por qué?"*. Hacen falta los dos: el FRD solo pierde el porqué; el log solo deja el FRD mintiendo. Un cambio de comportamiento **no está hecho** sin su FRD actualizado **y** su entrada de decision-log.
 
 > La estructura es **feature-céntrica** (DR-049): una capa fina de producto en `docs/product/` + un módulo autocontenido por feature en `docs/frds/frd-NN-<slug>/`. Las carpetas aparecen **bajo demanda** — una feature nueva es solo una carpeta nueva. El Manual de Mission Control refleja esta misma disciplina (DR-046).
+
+## Patrón prohibido — `docs/proposals/` en un proyecto
+
+Un proyecto **nunca** tiene una carpeta `docs/proposals/`. Ese patrón solo existe en el repo de la fábrica (`panda-corp/docs/proposals/`) para RFCs de la propia fábrica.
+
+Un cambio pendiente siempre va a **`.pandacorp/inbox/changes/`** (vía `/pandacorp:change`). Un archivo en `docs/proposals/` es invisible para el motor de build y para la cola de cambios de Mission Control: nunca se va a procesar. Si tienes una idea o cambio para un proyecto, usa `/pandacorp:change` — no crees un doc de propuesta dentro de `docs/`.
