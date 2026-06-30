@@ -38,8 +38,9 @@ const LOG_WITH_ENTRIES: ActivityLog = {
 const EMPTY_DECISIONS: DecisionPoint[] = [];
 
 const TWO_OPEN_DECISIONS: DecisionPoint[] = [
-  { title: "¿Usar Playwright para e2e?", resolved: false },
+  { id: "2026-06-15-1", title: "¿Usar Playwright para e2e?", resolved: false },
   {
+    id: "2026-06-15-2",
     title: "Límite de eventos para readEvents",
     resolved: false,
     recommendation: "Usar 500 como límite por defecto.",
@@ -47,13 +48,13 @@ const TWO_OPEN_DECISIONS: DecisionPoint[] = [
 ];
 
 const MIXED_DECISIONS: DecisionPoint[] = [
-  { title: "Elegir base de datos", resolved: true },
-  { title: "Estrategia de testing", resolved: false },
+  { id: "2026-06-15-1", title: "Elegir base de datos", resolved: true },
+  { id: "2026-06-15-2", title: "Estrategia de testing", resolved: false },
 ];
 
 const ALL_RESOLVED: DecisionPoint[] = [
-  { title: "Auth library", resolved: true },
-  { title: "Deploy target", resolved: true },
+  { id: "2026-06-15-1", title: "Auth library", resolved: true },
+  { id: "2026-06-15-2", title: "Deploy target", resolved: true },
 ];
 
 const SAMPLE_SUMMARY = "Este proyecto implementa el panel de control de la fábrica.";

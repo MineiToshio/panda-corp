@@ -6,7 +6,7 @@
  * anchored to the FRD's EARS acceptance criteria:
  *
  *  - AC-04-003.3 / AC-04-004.1 / "Aprobar la recomendación":
- *      the approve one-click copies EXACTLY `/pandacorp:decide "Aprobado: <rec>"`
+ *      the approve one-click copies EXACTLY `/pandacorp:decide <id> "Aprobado: <rec>"`
  *      and is a SINGLE interactive control (no <button>-in-<button> → React #418,
  *      the defect this WO was reopened for). Verified across MULTIPLE pending
  *      decisions, and with a recommendation that itself contains a double quote
@@ -62,19 +62,32 @@ function assertNoNestedButtons(): void {
 describe("FRD-04 gate (opus) — Resumen approve affordance", () => {
   it("renders a single interactive control per approve affordance across MULTIPLE pending decisions (no nested <button>)", () => {
     const decisions: DecisionPoint[] = [
-      { title: "¿Subir el límite de gasto?", recommendation: "Usar 500 €/mes", resolved: false },
-      { title: "¿Qué proveedor de email?", recommendation: "Resend", resolved: false },
+      {
+        id: "2026-06-15-1",
+        title: "¿Subir el límite de gasto?",
+        recommendation: "Usar 500 €/mes",
+        resolved: false,
+      },
+      {
+        id: "2026-06-15-2",
+        title: "¿Qué proveedor de email?",
+        recommendation: "Resend",
+        resolved: false,
+      },
     ];
     renderSummary(decisions, 2);
     assertNoNestedButtons();
   });
 
-  it("copies the EXACT /pandacorp:decide command, preserving a recommendation that contains a double quote", () => {
+  it("copies the EXACT /pandacorp:decide <id> command, preserving a recommendation that contains a double quote", () => {
     // Real comms edge: a recommendation with an embedded double quote. The copied
     // command must reproduce it verbatim (no escaping/truncation drift).
     const rec = 'Plan "Pro"';
-    renderSummary([{ title: "Plan?", recommendation: rec, resolved: false }], 1);
-    const expected = `/pandacorp:decide "Aprobado: ${rec}"`;
+    renderSummary(
+      [{ id: "2026-06-15-1", title: "Plan?", recommendation: rec, resolved: false }],
+      1,
+    );
+    const expected = `/pandacorp:decide 2026-06-15-1 "Aprobado: ${rec}"`;
     expect(document.body.innerHTML).toContain(expected);
     // The copy affordance carries the exact value (the CopyButton's value === command).
     const approve = screen.getByTestId("approve-btn");
@@ -82,7 +95,7 @@ describe("FRD-04 gate (opus) — Resumen approve affordance", () => {
   });
 
   it("does NOT render an approve affordance for a pending decision that carries NO recommendation (the WHERE clause)", () => {
-    renderSummary([{ title: "Algo sin recomendación", resolved: false }], 1);
+    renderSummary([{ id: "2026-06-15-1", title: "Algo sin recomendación", resolved: false }], 1);
     // The decision card is shown (it is pending)...
     expect(screen.getByTestId("decision-warn-panel")).toBeInTheDocument();
     // ...but with no recommendation there is nothing to approve.
@@ -90,8 +103,19 @@ describe("FRD-04 gate (opus) — Resumen approve affordance", () => {
     expect(document.body.innerHTML).not.toContain("Aprobado:");
   });
 
+  it("the bare /pandacorp:decide command (no recommendation) still embeds this decision's id, never a bare un-scoped command", () => {
+    renderSummary([{ id: "2026-06-15-1", title: "Algo sin recomendación", resolved: false }], 1);
+    expect(screen.getByTestId("decision-id")).toHaveTextContent("2026-06-15-1");
+    expect(document.body.innerHTML).toContain("/pandacorp:decide 2026-06-15-1");
+    // Never the old un-scoped form (no trailing id), which would walk every pending decision.
+    expect(document.body.innerHTML).not.toMatch(/\/pandacorp:decide<\/code>/);
+  });
+
   it("a resolved decision shows no warn card and no approve affordance", () => {
-    renderSummary([{ title: "Ya decidido", recommendation: "X", resolved: true }], 0);
+    renderSummary(
+      [{ id: "2026-06-15-1", title: "Ya decidido", recommendation: "X", resolved: true }],
+      0,
+    );
     expect(screen.queryByTestId("decision-warn-panel")).not.toBeInTheDocument();
     expect(screen.queryByTestId("approve-btn")).not.toBeInTheDocument();
   });
@@ -133,7 +157,7 @@ describe("FRD-04 gate (opus) — Documentos nav + body integration", () => {
 describe("FRD-04 gate (opus) — read-only invariant (DR-061)", () => {
   it("the Resumen tab renders no <form> and its only buttons are copy affordances", () => {
     const decisions: DecisionPoint[] = [
-      { title: "¿Subir gasto?", recommendation: "500 €/mes", resolved: false },
+      { id: "2026-06-15-1", title: "¿Subir gasto?", recommendation: "500 €/mes", resolved: false },
     ];
     const { container } = renderSummary(decisions, 1);
     expect(container.querySelector("form")).toBeNull();

@@ -35,17 +35,20 @@ import { TabSummary } from "../tab-summary";
 const EMPTY_LOG: ActivityLog = { entries: [] };
 
 const DECISION_WITH_REC: DecisionPoint = {
+  id: "2026-06-15-1",
   title: "¿Usar Playwright para e2e?",
   resolved: false,
   recommendation: "Usar Playwright con fixtures para e2e.",
 };
 
 const DECISION_WITHOUT_REC: DecisionPoint = {
+  id: "2026-06-15-1",
   title: "Elegir base de datos",
   resolved: false,
 };
 
 const RESOLVED_DECISION: DecisionPoint = {
+  id: "2026-06-15-1",
   title: "Deploy target",
   resolved: true,
   recommendation: "Usar Vercel",
@@ -71,8 +74,8 @@ describe("WO-04-005: TabSummary re-paint — approve button", () => {
 
   it("AC-WO-04-005-A: WHEN multiple pending decisions have recommendations THEN approve-btn appears for each", () => {
     const decisions: DecisionPoint[] = [
-      { title: "D1", resolved: false, recommendation: "Rec1" },
-      { title: "D2", resolved: false, recommendation: "Rec2" },
+      { id: "2026-06-15-1", title: "D1", resolved: false, recommendation: "Rec1" },
+      { id: "2026-06-15-2", title: "D2", resolved: false, recommendation: "Rec2" },
     ];
     render(
       <TabSummary

@@ -31,6 +31,16 @@ export interface ActivityLog {
 /**
  * A single decision block parsed from `.pandacorp/inbox/decisions.md`.
  *
+ * `id`             — a stable, human-typeable reference for this exact block, derived
+ *                    from the heading (never invented, never reused): `<YYYY-MM-DD>-<n>`
+ *                    for a date-prefixed heading, where `n` is the 1-based count of
+ *                    date-prefixed blocks sharing that EXACT date, in file order, counting
+ *                    pending AND resolved blocks (so an id never shifts when a sibling
+ *                    changes status); `legacy-<n>` for an `OPEN:/CLOSED:/RESOLVED:` heading
+ *                    (no date), `n` = its 1-based position among legacy headings only. The
+ *                    SAME derivation (date/position, top-to-bottom, all blocks counted) is
+ *                    documented for `/pandacorp:decide` to compute by eye, so an id copied
+ *                    from Mission Control always resolves to the same block from the skill.
  * `title`          — the heading text with the date/status prefix stripped (trimmed).
  * `recommendation` — text after a `- **Recommendation:**` / `- **Recomendación:**`
  *                    line in the block, or `undefined` when the block has none.
@@ -40,6 +50,7 @@ export interface ActivityLog {
  *                    doubt, surface as pending rather than silently hide it).
  */
 export interface DecisionPoint {
+  id: string;
   title: string;
   recommendation?: string;
   resolved: boolean;
@@ -154,8 +165,9 @@ export function readDecisions(projectPath: string): DecisionPoint[] {
   const result: DecisionPoint[] = [];
 
   let current: DecisionBlock | null = null;
+  const idCounters: IdCounters = { byDate: new Map(), legacy: 0 };
   for (const line of content.split("\n")) {
-    current = _consumeLine(result, current, line);
+    current = _consumeLine(result, current, line, idCounters);
   }
 
   // Flush the last block.
@@ -164,20 +176,30 @@ export function readDecisions(projectPath: string): DecisionPoint[] {
   return result;
 }
 
+/** Mutable counters used to assign each heading a stable, never-reused id (see DecisionPoint.id). */
+type IdCounters = { byDate: Map<string, number>; legacy: number };
+
 /**
  * Process one line of `decisions.md`: a heading flushes the previous block (pushed into
- * `result`) and opens a new one; any other line is scanned for the current block's
- * optional recommendation/estado fields. Returns the (possibly new) current block.
+ * `result`) and opens a new one (assigning it a stable id via `idCounters`); any other
+ * line is scanned for the current block's optional recommendation/estado fields. Returns
+ * the (possibly new) current block.
  */
 function _consumeLine(
   result: DecisionPoint[],
   current: DecisionBlock | null,
   line: string,
+  idCounters: IdCounters,
 ): DecisionBlock | null {
   const heading = _parseHeading(line);
   if (heading !== null) {
     _pushDecision(result, current);
-    return { title: heading.title, statusPhrase: heading.statusPhrase, estado: null };
+    return {
+      id: _nextId(heading, idCounters),
+      title: heading.title,
+      statusPhrase: heading.statusPhrase,
+      estado: null,
+    };
   }
 
   if (current === null) return current;
@@ -191,6 +213,21 @@ function _consumeLine(
     current.estado = estado;
   }
   return current;
+}
+
+/**
+ * Assign the next stable id for a freshly-parsed heading and advance its counter.
+ * `<date>-<n>` for a dated heading (n = 1-based count of blocks sharing that exact date,
+ * pending + resolved, file order); `legacy-<n>` for an OPEN/CLOSED/RESOLVED heading.
+ */
+function _nextId(heading: ParsedHeading, idCounters: IdCounters): string {
+  if (heading.date === null) {
+    idCounters.legacy += 1;
+    return `legacy-${idCounters.legacy}`;
+  }
+  const n = (idCounters.byDate.get(heading.date) ?? 0) + 1;
+  idCounters.byDate.set(heading.date, n);
+  return `${heading.date}-${n}`;
 }
 
 /**
@@ -209,8 +246,8 @@ export function countPendingDecisions(projectPath: string): number {
 // Legacy explicit-status heading: "## OPEN: <title>" / "## CLOSED: <title>" / "## RESOLVED: <title>".
 const LEGACY_HEADING = /^##\s+(OPEN|CLOSED|RESOLVED):\s*(.+)/i;
 // Date-prefixed heading: "## YYYY-MM-DD (<status phrase>) — <title>" or "## YYYY-MM-DD — <title>"
-// or "## YYYY-MM-DD <title>" (no separator). Group 1 = optional status phrase, group 2 = title.
-const DATED_HEADING = /^##\s+\d{4}-\d{2}-\d{2}\s*(?:\(([^)]*)\)\s*)?(?:[—-]\s*)?(.+)$/;
+// or "## YYYY-MM-DD <title>" (no separator). Group 1 = date, group 2 = optional status phrase, group 3 = title.
+const DATED_HEADING = /^##\s+(\d{4}-\d{2}-\d{2})\s*(?:\(([^)]*)\)\s*)?(?:[—-]\s*)?(.+)$/;
 // Recommendation bullet: "- **Recommendation:** <text>" (both bold styles, "- " optional).
 const RECOMMENDATION_LINE = /^-?\s*\*{1,2}Recommendation:\*{1,2}\s*(.+)/i;
 // Spanish variant: "**Recomendación:**" / "**Recomendación (del agente):**" / "**Recomendación del X:**".
@@ -222,14 +259,19 @@ const ESTADO_LINE = /^-?\s*\*{1,2}Estado:?\*{1,2}\s*(PENDIENTE|RESUELTO)/i;
 const RESOLVED_KEYWORDS = /^CLOSED$|^RESOLVED$|RESUELT|SUPERSEDID|CERRAD/;
 const PENDING_KEYWORDS = /^OPEN$|NECESITA|PENDIENT|ABIERT/;
 
-/** A heading parse result: the block's title and an optional raw status phrase. */
+/**
+ * A heading parse result: the block's title, an optional raw status phrase, and its date
+ * (`null` for a legacy heading) — `date` feeds the id derivation (`_nextId`).
+ */
 interface ParsedHeading {
   title: string;
   statusPhrase: string | null;
+  date: string | null;
 }
 
 /** Mutable accumulator for the decision block currently being parsed. */
 type DecisionBlock = {
+  id: string;
   title: string;
   statusPhrase: string | null;
   estado: "pending" | "resolved" | null;
@@ -237,20 +279,24 @@ type DecisionBlock = {
 };
 
 /**
- * Parse a `##` heading line into a title + optional status phrase, trying the legacy
- * convention first (preserves exact historical behavior), then the date-prefixed one.
- * Returns `null` for any other `##` heading (not a decision block).
+ * Parse a `##` heading line into a title + optional status phrase + date, trying the
+ * legacy convention first (preserves exact historical behavior), then the date-prefixed
+ * one. Returns `null` for any other `##` heading (not a decision block).
  */
 function _parseHeading(line: string): ParsedHeading | null {
   const legacy = LEGACY_HEADING.exec(line);
   if (legacy) {
     const title = (legacy[2] ?? "").trim();
-    return title === "" ? null : { title, statusPhrase: (legacy[1] ?? "").toUpperCase() };
+    return title === ""
+      ? null
+      : { title, statusPhrase: (legacy[1] ?? "").toUpperCase(), date: null };
   }
   const dated = DATED_HEADING.exec(line);
   if (dated) {
-    const title = (dated[2] ?? "").trim();
-    return title === "" ? null : { title, statusPhrase: dated[1]?.trim() ?? null };
+    const title = (dated[3] ?? "").trim();
+    return title === ""
+      ? null
+      : { title, statusPhrase: dated[2]?.trim() ?? null, date: dated[1] ?? null };
   }
   return null;
 }
@@ -299,7 +345,7 @@ function _pushDecision(result: DecisionPoint[], block: DecisionBlock | null): vo
     return;
   }
   const resolved = _resolveStatus(block.statusPhrase, block.estado);
-  const dp: DecisionPoint = { title: block.title, resolved };
+  const dp: DecisionPoint = { id: block.id, title: block.title, resolved };
   if (block.recommendation !== undefined) {
     dp.recommendation = block.recommendation;
   }

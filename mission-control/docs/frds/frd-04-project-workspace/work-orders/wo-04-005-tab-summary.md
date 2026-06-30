@@ -12,7 +12,7 @@ artifacts:
   - 'src/app/projects/[slug]/_components/tab-documents/**'
 source_requirements: [REQ-04-003, REQ-04-004, REQ-04-006]
 dependsOn: [WO-04-001, WO-04-004, WO-02-003, WO-13-006, WO-13-007, WO-13-001, WO-13-002, WO-13-003]
-last_updated: '2026-06-20'
+last_updated: '2026-06-30'
 ---
 # WO-04-005 — Resumen + Documentos tabs
 
@@ -147,3 +147,31 @@ interface TabDocumentsProps {
 - Preview route: `src/app/preview-wo04005/page.tsx` (fidelity check only)
 
 Full suite: 320 test files, 6968 tests passing (+ 2 expected failures). TypeCheck: clean. Biome: clean (1 info).
+
+## Status Note — 2026-06-30 addendum: per-decision `/pandacorp:decide <id>` (owner request)
+
+**Owner observation:** the Resumen tab told the owner to run `/pandacorp:decide` but gave no way to
+tell `/pandacorp:decide` WHICH pending decision to act on — invoking it cold walks every pending
+decision one by one (confirmed against the skill's own SKILL.md). With several decisions open at
+once this felt like "a giant list" instead of acting on the one card the owner was reading.
+
+**Fix:** every decision card now shows its stable `DecisionPoint.id` (WO-04-001 derives it —
+`<date>-<n>` / `legacy-<n>`) right next to the title (`data-testid="decision-id"`, both the pending
+warn-card and the resolved subdued row), and embeds it in BOTH copy commands:
+- The bare command (no recommendation): `CmdRow command={`/pandacorp:decide ${dp.id}`}`.
+- `ApproveButton` (with recommendation): `/pandacorp:decide ${id} "Aprobado: ${recommendation}"`.
+The section subtitle copy was updated to say "cada tarjeta trae su propio comando" instead of the
+generic, un-scoped one. New style `DECISION_ID_STYLE` (small muted monospace label, reuses the
+existing muted-text token — no new color).
+
+**Counterpart (plugin, separate commit):** `/pandacorp:decide`'s SKILL.md taught the SAME id
+derivation + a leading-id-token scoping rule, so an id copied from Mission Control resolves to
+the exact same block when pasted into the skill. See `plugin/docs/decision-log.md`.
+
+**New tests:** 1 new case directly asserting the bare-command id (`frd-04-gate-opus.reviewer.test.tsx`);
+existing exact-command assertions (the EXACT `/pandacorp:decide "Aprobado: …"` regression tests in
+`frd-04-gate-opus.reviewer.test.tsx` and `tab-summary.reviewer.test.tsx`) updated to the new
+`/pandacorp:decide <id> "Aprobado: …"` form — same mutation-killing rigor, new contract.
+
+**verify.sh at this addendum:** GREEN — 382 files, 7340 tests pass (2 expected-fail unrelated), 66/66
+e2e, tsc/biome clean.

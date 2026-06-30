@@ -35,7 +35,12 @@ const EMPTY_LOG: ActivityLog = { entries: [] };
 
 function pendingWithRecommendation(): DecisionPoint[] {
   return [
-    { title: "¿Subir el límite de gasto?", recommendation: "Usar 500 €/mes", resolved: false },
+    {
+      id: "2026-06-15-1",
+      title: "¿Subir el límite de gasto?",
+      recommendation: "Usar 500 €/mes",
+      resolved: false,
+    },
   ];
 }
 
@@ -77,7 +82,7 @@ describe("TabSummary — gate: approve affordance must not nest interactive cont
     );
 
     // The exact command must be present as the copy value somewhere in the approve UI.
-    const expected = '/pandacorp:decide "Aprobado: Usar 500 €/mes"';
+    const expected = '/pandacorp:decide 2026-06-15-1 "Aprobado: Usar 500 €/mes"';
     const html = document.body.innerHTML;
     expect(html).toContain(expected);
   });

@@ -127,3 +127,28 @@ Biome's cognitive-complexity cap after the new branching.
 
 **verify.sh at this addendum:** GREEN — 7333 unit tests pass (2 expected-fail unrelated), 66/66 e2e
 pass, tsc/biome/knip clean.
+
+## Status Note — 2026-06-30 second addendum: `DecisionPoint.id` (owner request, scopes `/pandacorp:decide`)
+
+**Owner request:** after the parser fix above, the owner asked how to make `/pandacorp:decide`
+target ONE specific pending decision instead of walking every pending one — invoking it bare
+($ARGUMENTS empty) lists all of them, per the skill's own contract.
+
+**Fix:** `DecisionPoint` gained a new `id: string` field, derived (never invented, never reused)
+purely from the heading already being parsed — no template/write-side change needed:
+- Date-prefixed heading → `<YYYY-MM-DD>-<n>`, `n` = 1-based count of blocks sharing that EXACT
+  date, file order, counting pending AND resolved blocks (so an id never shifts when a sibling's
+  status changes).
+- Legacy `OPEN:/CLOSED:/RESOLVED:` heading (no date) → `legacy-<n>`, its own counter.
+New helpers `_nextId`/`IdCounters` thread a mutable per-call counter through `_consumeLine`.
+
+**Counterpart (Mission Control UI, plugin):** WO-04-005 shows the id on every card and embeds it
+in the copied command; `/pandacorp:decide`'s SKILL.md (plugin) was taught the identical derivation
++ a leading-id-token scoping rule, so an id copied from here always resolves to the same block.
+
+**New tests:** 7 cases in `docs.wo04002.test.ts` group "DecisionPoint.id" — single dated heading,
+same-date sequential numbering + file order, id stability across resolved/pending siblings,
+independent per-date counters, legacy counter, global uniqueness across a mixed-format file.
+
+**verify.sh at this addendum:** GREEN — 382 files, 7340 tests pass (2 expected-fail unrelated),
+66/66 e2e, tsc/biome clean.

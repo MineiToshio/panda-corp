@@ -70,7 +70,7 @@ import { countPendingDecisions, readActivityLog, readDecisions } from "../activi
 // ---------------------------------------------------------------------------
 
 type ActivityLog = { entries: string[] };
-type DecisionPoint = { title: string; recommendation?: string; resolved: boolean };
+type DecisionPoint = { id: string; title: string; recommendation?: string; resolved: boolean };
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1118,6 +1118,127 @@ describe("frd-04: countPendingDecisions — DR-092 single derived count", () => 
     try {
       expect(() => countPendingDecisions(dir)).not.toThrow();
       expect(countPendingDecisions(dir)).toBe(0);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DecisionPoint.id — stable, derivable reference so /pandacorp:decide <id> can
+// scope to one specific decision instead of walking every pending one.
+// ---------------------------------------------------------------------------
+
+describe("frd-04: readDecisions — DecisionPoint.id (stable <date>-<n> / legacy-<n> reference)", () => {
+  it("frd-04: a single dated heading gets id '<date>-1'", () => {
+    const dir = makeTempProject((root) => {
+      fs.mkdirSync(path.join(root, ".pandacorp", "inbox"), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, ".pandacorp", "inbox", "decisions.md"),
+        "## 2026-06-21 (NECESITA DECISIÓN DEL OWNER) — Elegir A o B\n",
+      );
+    });
+    try {
+      const result = readDecisions(dir) as DecisionPoint[];
+      expect(result[0]?.id).toBe("2026-06-21-1");
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("frd-04: two blocks sharing the same exact date get '<date>-1' and '<date>-2', in file order", () => {
+    const dir = makeTempProject((root) => {
+      fs.mkdirSync(path.join(root, ".pandacorp", "inbox"), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, ".pandacorp", "inbox", "decisions.md"),
+        "## 2026-06-21 (NECESITA DECISIÓN DEL OWNER) — Primera del día\n" +
+          "## 2026-06-21 (NECESITA DECISIÓN DEL OWNER) — Segunda del día\n",
+      );
+    });
+    try {
+      const result = readDecisions(dir) as DecisionPoint[];
+      expect(result).toHaveLength(2);
+      expect(result[0]?.id).toBe("2026-06-21-1");
+      expect(result[0]?.title).toBe("Primera del día");
+      expect(result[1]?.id).toBe("2026-06-21-2");
+      expect(result[1]?.title).toBe("Segunda del día");
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("frd-04: a sibling's id never shifts when an EARLIER same-date block changes resolved status (pending + resolved both count)", () => {
+    const dir = makeTempProject((root) => {
+      fs.mkdirSync(path.join(root, ".pandacorp", "inbox"), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, ".pandacorp", "inbox", "decisions.md"),
+        "## 2026-06-21 (RESUELTO por el owner) — Ya resuelta\n" +
+          "## 2026-06-21 (NECESITA DECISIÓN DEL OWNER) — Todavía pendiente\n",
+      );
+    });
+    try {
+      const result = readDecisions(dir) as DecisionPoint[];
+      // The resolved block still counts toward the index, so the pending one stays "-2".
+      expect(result[0]?.id).toBe("2026-06-21-1");
+      expect(result[0]?.resolved).toBe(true);
+      expect(result[1]?.id).toBe("2026-06-21-2");
+      expect(result[1]?.resolved).toBe(false);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("frd-04: different dates each start their own '-1' counter", () => {
+    const dir = makeTempProject((root) => {
+      fs.mkdirSync(path.join(root, ".pandacorp", "inbox"), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, ".pandacorp", "inbox", "decisions.md"),
+        "## 2026-06-21 (NECESITA DECISIÓN DEL OWNER) — Del 21\n" +
+          "## 2026-06-18 (NECESITA DECISIÓN DEL OWNER) — Del 18\n",
+      );
+    });
+    try {
+      const result = readDecisions(dir) as DecisionPoint[];
+      expect(result[0]?.id).toBe("2026-06-21-1");
+      expect(result[1]?.id).toBe("2026-06-18-1");
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("frd-04: a legacy OPEN/CLOSED/RESOLVED heading (no date) gets 'legacy-<n>'", () => {
+    const dir = makeTempProject((root) => {
+      fs.mkdirSync(path.join(root, ".pandacorp", "inbox"), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, ".pandacorp", "inbox", "decisions.md"),
+        "## OPEN: Primera legacy\n## CLOSED: Segunda legacy\n",
+      );
+    });
+    try {
+      const result = readDecisions(dir) as DecisionPoint[];
+      expect(result[0]?.id).toBe("legacy-1");
+      expect(result[1]?.id).toBe("legacy-2");
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("frd-04: every id in a file is unique", () => {
+    const dir = makeTempProject((root) => {
+      fs.mkdirSync(path.join(root, ".pandacorp", "inbox"), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, ".pandacorp", "inbox", "decisions.md"),
+        "## 2026-06-21 (NECESITA DECISIÓN DEL OWNER) — A\n" +
+          "## 2026-06-21 (RESUELTO por el owner) — B\n" +
+          "## 2026-06-20 (NECESITA DECISIÓN DEL OWNER) — C\n" +
+          "## OPEN: D\n" +
+          "## CLOSED: E\n",
+      );
+    });
+    try {
+      const result = readDecisions(dir) as DecisionPoint[];
+      const ids = result.map((d) => d.id);
+      expect(new Set(ids).size).toBe(ids.length);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

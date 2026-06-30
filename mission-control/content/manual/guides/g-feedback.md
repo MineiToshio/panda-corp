@@ -12,7 +12,7 @@ La puerta única para pedir un cambio es **`/pandacorp:change`** (ver *Cómo ped
 
 - **Algo está roto** → `/pandacorp:bug`. Deja un fichero en la cola; la construcción lo recoge en el siguiente safe point y le crea un test de regresión antes del fix.
 - **Un cambio o módulo nuevo** → `/pandacorp:iterate`. El PM triagea: un ajuste chico se encola, un cambio fuerte te muestra el impacto y pide pausar.
-- **Responder algo que te preguntó** → `/pandacorp:decide`. Te muestra la decisión con su recomendación, la registra en `decisions.md` y desbloquea el frente.
+- **Responder algo que te preguntó** → `/pandacorp:decide`. Te muestra la decisión con su recomendación, la registra en `decisions.md` y desbloquea el frente. Si hay varias pendientes, cada tarjeta del Resumen trae su propio comando `/pandacorp:decide <id>` que apunta a ESA decisión (sin el id, te las muestra todas una por una).
 
 El estado (`status.yaml`) lo escribe el **gate**, no el agente: el motor lee los canales y recoge tu feedback entre work orders (gate-driven).
 

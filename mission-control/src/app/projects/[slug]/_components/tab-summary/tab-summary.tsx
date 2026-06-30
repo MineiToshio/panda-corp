@@ -214,6 +214,14 @@ const DECISION_REC_LABEL_STYLE: React.CSSProperties = {
   fontWeight: 500,
 };
 
+/** Small monospace id label so the owner can SEE which decision a copied command targets. */
+const DECISION_ID_STYLE: React.CSSProperties = {
+  fontFamily: "var(--font-mono, monospace)",
+  fontSize: "11px",
+  color: "var(--color-text3, var(--color-text-muted, var(--color-text)))",
+  fontWeight: 400,
+};
+
 const DECISION_ACTIONS_STYLE: React.CSSProperties = {
   marginTop: "9px",
   paddingTop: "9px",
@@ -347,7 +355,7 @@ function DecisionsBlock({
 
         {hasPending && (
           <p style={DECISIONS_SUBTITLE_STYLE}>
-            La IA necesita que decidas esto. Respondes con{" "}
+            La IA necesita que decidas esto. Cada tarjeta trae su propio comando{" "}
             <code
               style={{
                 fontFamily: "var(--font-mono, monospace)",
@@ -356,9 +364,9 @@ function DecisionsBlock({
                 borderRadius: "4px",
               }}
             >
-              /pandacorp:decide
+              /pandacorp:decide &lt;id&gt;
             </code>{" "}
-            en la carpeta del proyecto.
+            — corre ESE comando en la carpeta del proyecto y responde solo sobre esa decisión.
           </p>
         )}
 
@@ -380,6 +388,12 @@ function DecisionsBlock({
                   }}
                 >
                   <span
+                    data-testid="decision-id"
+                    style={{ ...DECISION_ID_STYLE, marginRight: "6px" }}
+                  >
+                    {dp.id}
+                  </span>
+                  <span
                     style={{
                       fontSize: "13px",
                       color: "var(--color-text2, var(--color-text-secondary, var(--color-text)))",
@@ -400,6 +414,9 @@ function DecisionsBlock({
                       className="ti ti-alert-triangle"
                     />
                     <div style={DECISION_CONTENT_STYLE}>
+                      <span data-testid="decision-id" style={DECISION_ID_STYLE}>
+                        {dp.id}
+                      </span>
                       <p style={DECISION_TITLE_STYLE}>{dp.title}</p>
                       {dp.recommendation !== undefined && (
                         <p style={DECISION_REC_STYLE}>
@@ -410,7 +427,7 @@ function DecisionsBlock({
                     </div>
                   </div>
 
-                  {/* Actions block — /pandacorp:decide command + optional approve button */}
+                  {/* Actions block — /pandacorp:decide <id> command + optional approve button */}
                   <div style={DECISION_ACTIONS_STYLE}>
                     <p style={DECISION_ACTION_LABEL_STYLE}>
                       <span
@@ -418,11 +435,12 @@ function DecisionsBlock({
                         className="ti ti-arrow-back-up"
                         style={{ fontSize: "12px" }}
                       />
-                      Para responder, abre Claude Code en la carpeta del proyecto y corre:
+                      Para responder a ESTA decisión, abre Claude Code en la carpeta del proyecto y
+                      corre:
                     </p>
-                    <CmdRow command="/pandacorp:decide" />
+                    <CmdRow command={`/pandacorp:decide ${dp.id}`} />
                     {dp.recommendation !== undefined && (
-                      <ApproveButton recommendation={dp.recommendation} />
+                      <ApproveButton id={dp.id} recommendation={dp.recommendation} />
                     )}
                   </div>
                 </div>
@@ -438,15 +456,23 @@ function DecisionsBlock({
 /**
  * "Aprobar la recomendación" one-click copy button.
  *
- * Copies `/pandacorp:decide "Aprobado: <recommendation>"` to clipboard.
+ * Copies `/pandacorp:decide <id> "Aprobado: <recommendation>"` to clipboard — the `<id>`
+ * scopes `/pandacorp:decide` directly to THIS decision instead of walking every pending
+ * one (the decision's stable `DecisionPoint.id`, see activity.ts).
  * Copy-only: the app never writes or calls Claude (FRD-04 AC / FRD-13 DR-061).
  *
  * This is a separate component because CopyButton is "use client" — placing it
  * here allows TabSummary to remain a Server Component while the copy affordance
  * is correctly client-rendered.
  */
-function ApproveButton({ recommendation }: { recommendation: string }): React.JSX.Element {
-  const command = `/pandacorp:decide "Aprobado: ${recommendation}"`;
+function ApproveButton({
+  id,
+  recommendation,
+}: {
+  id: string;
+  recommendation: string;
+}): React.JSX.Element {
+  const command = `/pandacorp:decide ${id} "Aprobado: ${recommendation}"`;
   // Single interactive control: the approve affordance IS the CopyButton (one
   // <button>), never a <button> wrapping another <button> (HTML validity + a11y +
   // React #418). The exact command is rendered as visible, copy-selectable text
