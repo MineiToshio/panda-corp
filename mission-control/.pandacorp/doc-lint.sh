@@ -27,8 +27,10 @@ if [ "${1:-}" = "-v" ] || [ "${1:-}" = "--verbose" ]; then VERBOSE=1; fi
 [ -d docs ] || exit 0
 
 count=0
+findings=""
 warn() {
   count=$((count + 1))
+  findings="${findings}  • $1"$'\n'
   if [ "$VERBOSE" = 1 ]; then echo "⚠ doc-lint: $1"; fi
 }
 
@@ -76,7 +78,18 @@ for wo in docs/frds/frd-*/work-orders/wo-*.md; do
   done
 done
 
-if [ "$count" -gt 0 ] && [ "$VERBOSE" != 1 ]; then
-  echo "⚠ doc-lint: $count advisory finding(s) — frontmatter / REQ-ID-spine drift (run .pandacorp/doc-lint.sh -v for detail). Advisory only; not a gate."
+# Loud, ACTIONABLE report (owner directive 2026-06-30): advisory findings are surfaced PROMINENTLY and
+# the agent is told to FIX them proactively in this same pass — not merely note them — while the gate
+# still NEVER blocks on them (exit 0). "Don't just mention it; if it's broken, fix it" — but stay
+# non-blocking so doc drift can't red-lock a build.
+if [ "$count" -gt 0 ]; then
+  if [ "$VERBOSE" != 1 ]; then printf '%s' "$findings"; fi   # in -v mode each line was already printed
+  echo "════════════════════════════════════════════════════════════════════════"
+  echo "⚠️  DOC-LINT: $count advisory finding(s) — frontmatter / REQ-ID-spine drift."
+  echo "    ADVISORY (this does NOT block the gate), but BE PROACTIVE: if you are"
+  echo "    touching docs, FIX these now in the same pass — correct the missing"
+  echo "    frontmatter keys / broken REQ→WO links. Don't just report them; doc"
+  echo "    drift is a defect (owner directive 2026-06-30)."
+  echo "════════════════════════════════════════════════════════════════════════"
 fi
 exit 0

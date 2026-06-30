@@ -184,8 +184,7 @@ fixed bar (WCAG 2.4.11). The gate is SMART, not naïve: a **legitimate horizonta
 kanban board, a dependency DAG, a wide data table that scrolls by design) marks itself
 `data-scroll-x="intentional"` ONCE — that author-declared signal is how the gate tells a real overflow
 defect from a designed scroll region (never a heuristic, never wrapping content in `overflow:hidden` to
-silence a false red, which would itself create a clip bug). For a `desktop`-only / API / scraper project
-the responsive checks are a vacuous pass. Wiring: the VERBATIM templates
+silence a false red, which would itself create a clip bug). **Off the targeted platform the gate is no longer a full skip (DR-074 amended 2026-06-30):** a `desktop`-only app is still checked at the mobile width (and a `mobile`-only app at a desktop width) for the **FUNCTIONAL "nothing breaks / everything reachable"** subset only — content **clipped off-canvas** and **`<main>` occluded** (a feature you cannot reach) — as an **ADVISORY** report that surfaces loudly but **never fails the gate** (cosmetic imperfection off-target is acceptable and low-priority; a real break must never hide functionality). The cosmetic checks (overflow-that-scrolls, tap-size) and the BLOCKING behavior apply only at the targeted platform. An API / scraper project with no UI routes is still a vacuous pass. Wiring: the VERBATIM templates
 `plugin/templates/stack-a-nextjs/e2e/{responsive.spec.ts,_responsive-helper.ts}` +
 `plugin/templates/stack-a-nextjs/STACK.md` (Responsive Gate), propagated by `blueprint` and
 conformance-checked by `upgrade` (DR-059).
