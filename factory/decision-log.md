@@ -2,6 +2,11 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-06-30 — Back-port: stack-a-nextjs biome.json → biome 2.5.1 form (OVERLAY 8.52.0)
+**What:** Fixed `plugin/templates/stack-a-nextjs/biome.json` to `"$schema": .../2.5.1/...` + `"preset": "recommended"` (was the stale 2.5.0 schema + deprecated `"recommended": true`). Bumped `OVERLAY_VERSION` 8.51.0→8.52.0 and plugin 9.36.0→9.36.1.
+**Why:** During personal-page-v2's overlay upgrade, the DR-059 conformance overwrite reverted the project's correct biome-2.5.1 config to the stale template form; biome 2.5.1 ERRORS on it under `--error-on-warnings`, red-locking the project's whole-project baseline gate on resume (the build blocked with `baseline:error`). DR-076 back-port so `/upgrade` stops shipping the broken form to every Next project. Captured as `factory/memory/LESSON-0004` (+ proposed upgrade-skill hardening: run the gate after conformance; detect project-config-newer-than-template).
+**Impact:** `plugin/templates/stack-a-nextjs/biome.json`, `plugin/templates/OVERLAY_VERSION`, `plugin/.claude-plugin/plugin.json`, `factory/memory/LESSON-0004-*.md`. Project unblocked in-tree (personal-page-v2 commit 34934fc, last_green updated). Activation: `claude plugin update pandacorp@panda-corp` + projects' next `/upgrade`.
+
 ## 2026-06-30 — Gate canary now covers EVERY fail-closed gate (DR-079 extended)
 **What:** On the owner's go-ahead ("cover everything"), extended the DR-079 canary from three checks to all eight fail-closed gates — biome, structure-guard, DR-100, tsc, madge, vitest, knip, and Playwright spec discovery. A full Playwright browser run and the advisory `doc-lint.sh` are intentionally out of scope (rationale in the registry/standard). Coverage is now complete for what's sensible to canary. Implementation + versions in `plugin/docs/decision-log.md` (v9.34.0, OVERLAY 8.51.0); doctrine updated here: `factory/decisions/registry.yaml` (DR-079) and `factory/standards/quality.md` (advisory list + the canary is no longer a backlog item).
 **Why:** Conformance proves a gate's config matches the template; only the canary proves the gate still FAILS on bad input. Extending it to every gate closes that meta-gap across the board (constitution principle 24).
