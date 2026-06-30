@@ -28,6 +28,16 @@ Cada proyecto tiene una página con tabs:
 - **Observabilidad** — **grafo de dependencias entre WOs en 2D** (cada FRD es una caja con sus work orders dentro, ubicadas en 2D; deps internas WO→WO y deps entre FRDs agregadas a una línea FRD→FRD; al hacer clic en un WO se resaltan sus relaciones con colores), freshness badge, y **línea de tiempo de la construcción** (FRD ▸ work order + revisión, con duraciones reales del track durable `.pandacorp/track.jsonl`; si el proyecto no tiene track, se reconstruye del historial de git con duraciones **estimadas** bajo bandera honesta, y si tampoco hay commits de build, una vista estructural sin duraciones).
 - **Documentos** — navegador de los docs del proyecto (`docs/frds/`, `docs/product/`).
 
+## La card de una idea (en el tablero)
+
+Al hacer clic en una idea del tablero se abre su detalle, también con tabs. Las dos primeras son nativas (renderizadas con el diseño de Pandacorp, no un visor de markdown) y aparecen **según la fase** del proyecto:
+
+- **Propuesta** — el memo-pitch *caliente → frío* de la idea (por defecto).
+- **Spec** — resumen visual del PRD + research + FRDs; aparece cuando existe `.pandacorp/comms/spec-resumen.md` (fase product en adelante).
+- **Arquitectura** — resumen visual de la arquitectura; aparece cuando existe `.pandacorp/comms/arquitectura-resumen.md` (fase architecture en adelante). Una sola pantalla: stack, modelo de datos (con la rama "Sin BD"), comunicación/servicios, **variables de entorno** y **ADRs** (en vivo de `.env.example` y `docs/adr/*`), el **plan de implementación** como grafo DAG de las work orders (reutiliza el mismo DAG de Observabilidad), y una ficha por FRD con su blueprint, sus WOs y —si tiene más de una— su sub-DAG de dependencias.
+- **Documentos** — navegador de los docs del proyecto.
+- **Campaña** — la vista "La Campaña" con la fase activa y el siguiente comando.
+
 ## Cómo lee los datos
 
 Mission Control lee el sistema de ficheros de la fábrica directamente — no tiene base de datos propia. Los módulos de lectura viven en `lib/`:
@@ -37,6 +47,7 @@ Mission Control lee el sistema de ficheros de la fábrica directamente — no ti
 | `lib/projects.ts` | `factory/portfolio.md` + `.pandacorp/status.yaml` de cada proyecto |
 | `lib/ideas.ts` | `factory/ideas/*.md` |
 | `lib/work-orders.ts` | `docs/frds/*/work-orders/*.md` del proyecto |
+| `lib/architecture/*` | `.pandacorp/comms/arquitectura-resumen.md` + `docs/adr/*` + `.env.example` (pestaña Arquitectura) |
 | `lib/events.ts` | `~/.claude/dashboard-events.ndjson` |
 | `lib/reference.ts` | `plugin/skills/*/SKILL.md` + `plugin/agents/*.md` |
 | `lib/registry.ts` | `factory/decisions/registry.yaml` |

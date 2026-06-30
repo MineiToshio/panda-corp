@@ -13,13 +13,15 @@ given, so a fat template yields padded, low-signal docs (DR-077).
 | `prd-template.md` | `docs/product/prd.md` | `spec` |
 | `frd-template.md` | `docs/frds/frd-NN-<slug>/frd.md` | `spec` · `iterate` |
 | `fdd-template.md` | `docs/frds/frd-NN-<slug>/fdd.md` (UI features only) | `design` |
-| `blueprint-template.md` | `docs/frds/frd-NN-<slug>/blueprint.md` | `blueprint` |
-| `work-order-template.md` | `docs/frds/frd-NN-<slug>/work-orders/wo-NN-MMM-<slug>.md` | `blueprint` · `work-orders` |
+| `blueprint-template.md` | `docs/frds/frd-NN-<slug>/blueprint.md` | `architecture` |
+| `work-order-template.md` | `docs/frds/frd-NN-<slug>/work-orders/wo-NN-MMM-<slug>.md` | `architecture` · `work-orders` |
 | `work-orders-readme-template.md` | `docs/frds/frd-NN-<slug>/work-orders/README.md` | `work-orders` |
-| `architecture-template.md` | `docs/product/architecture.md` (platform) | `blueprint` |
-| `adr-template.md` | `docs/adr/adr-NNNN-<slug>.md` | `blueprint` |
+| `architecture-template.md` | `docs/product/architecture.md` (platform) | `architecture` |
+| `adr-template.md` | `docs/adr/adr-NNNN-<slug>.md` | `architecture` |
 | `research-template.md` | `docs/product/research.md` | `spec` |
-| `events-template.md` | `docs/analytics/events.md` | `blueprint` · `analytics` |
+| `events-template.md` | `docs/analytics/events.md` | `architecture` · `analytics` |
+| `spec-digest-template.md` | `.pandacorp/comms/spec-resumen.md` (owner-facing, powers MC's Spec tab) | `spec` |
+| `architecture-digest-template.md` | `.pandacorp/comms/arquitectura-resumen.md` (owner-facing, powers MC's Arquitectura tab) | `architecture` |
 | `design-system-template.md` | root `DESIGN.md` (the design system / PDD) | `design` |
 | `change-request-template.md` | `.pandacorp/inbox/changes/<slug>.md` (owner channel) | `change` · `bug` · `iterate` |
 | `api-contract-template.md` | `docs/api/<wo-id>.md` (per backend WO, DR-060) | **`backend-dev`** (agent, not a skill) |

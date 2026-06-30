@@ -26,11 +26,15 @@ Se crean mockups navegables con identidad visual bespoke para el dominio. El sis
 
 Habilidad: `/pandacorp:design`.
 
-### 3. Architecture (Blueprint)
+### 3. Architecture
 
 Se documenta la arquitectura técnica de la plataforma (`docs/product/architecture.md`) y el blueprint de cada FRD (`docs/frds/frd-NN-<slug>/blueprint.md`). Se generan las **work orders** que dividen la construcción en rebanadas cohesivas (COARSE, con un techo: una WO no debe ser inrevisable de una sentada ni mezclar varias preocupaciones — DR-100).
 
 Antes de pasar a construir, el blueprint cruza un **readiness gate** (DR-100): cada requisito mapea a un componente, **cada criterio de aceptación lo cubre exactamente una work order**, el modelo de datos no tiene huecos (`TBD`), el grafo de dependencias es acíclico, la foundation está completa y **no queda ninguna pregunta abierta sin resolver** (`[NEEDS CLARIFICATION]` bloquea). Un blueprint con agujeros produce work orders ambiguas, así que la cohesión se **verifica**, no se confía.
+
+Al cerrar la fase, el skill emite `.pandacorp/comms/arquitectura-resumen.md` (español, owner-facing) que Mission Control renderiza nativamente en la pestaña **Arquitectura** de la card (el análogo de arquitectura a las pestañas Propuesta y Spec): el stack, el modelo de datos (con la rama condicional "Sin BD — contenido como código"), comunicación y servicios, los **ADRs** y las **variables de entorno** (leídos en vivo de `docs/adr/*` y `.env.example`), y el **plan de implementación** como grafo DAG de las work orders. Cada FRD abre un modal con su blueprint y sus WOs, y —si tiene más de una— su propio sub-DAG de dependencias y paralelismo.
+
+> El nombre del skill cambió de `/pandacorp:blueprint` a **`/pandacorp:architecture`** (la fase produce la arquitectura completa, no solo un blueprint). El artefacto `blueprint.md` por-FRD **conserva su nombre** — sigue siendo la capa de diseño de implementación de cada feature.
 
 Habilidad: `/pandacorp:architecture`.
 
