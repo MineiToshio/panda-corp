@@ -350,6 +350,68 @@ describe("frd-06: toFraguaSnapshot — FRD-level wo ids are excluded", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Per-WO state reconciled from authoritative frontmatter (AC-06-001.6)
+// ---------------------------------------------------------------------------
+
+describe("frd-06: toFraguaSnapshot — per-WO state from woStates (AC-06-001.6)", () => {
+  const buildEvents = () => [
+    {
+      event: "AgentWorking" as const,
+      at: "2026-06-30T10:00:00Z",
+      frd: "frd-02-home-positioning",
+      workOrder: "WO-02-001",
+      mode: "powerful" as const,
+    },
+  ];
+
+  it("frd-06: WHEN no woStates THEN a running WO keeps the building default", () => {
+    const snap = toFraguaSnapshot(buildEvents(), { lastEventAt: null });
+    expect(snap.running.find((r) => r.wo === "WO-02-001")?.state).toBe("building");
+  });
+
+  it("frd-06: WHEN woStates marks the WO in_review THEN the running WO state is in_review", () => {
+    const snap = toFraguaSnapshot(buildEvents(), {
+      lastEventAt: null,
+      woStates: { "WO-02-001": "in_review" },
+    });
+    expect(snap.running.find((r) => r.wo === "WO-02-001")?.state).toBe("in_review");
+  });
+
+  it("frd-06: WHEN woStates marks the WO blocked THEN the running WO state is blocked", () => {
+    const snap = toFraguaSnapshot(buildEvents(), {
+      lastEventAt: null,
+      woStates: { "WO-02-001": "blocked" },
+    });
+    expect(snap.running.find((r) => r.wo === "WO-02-001")?.state).toBe("blocked");
+  });
+
+  it("frd-06: WHEN woStates marks the WO verified THEN the running WO state is verified", () => {
+    const snap = toFraguaSnapshot(buildEvents(), {
+      lastEventAt: null,
+      woStates: { "WO-02-001": "verified" },
+    });
+    expect(snap.running.find((r) => r.wo === "WO-02-001")?.state).toBe("verified");
+  });
+
+  it("frd-06: WHEN woStates has no entry for a running WO THEN it falls back to building", () => {
+    const snap = toFraguaSnapshot(buildEvents(), {
+      lastEventAt: null,
+      woStates: { "WO-09-999": "in_review" },
+    });
+    expect(snap.running.find((r) => r.wo === "WO-02-001")?.state).toBe("building");
+  });
+
+  it("frd-06: WHEN the build is OFF (running:false) THEN woStates does not resurrect a sprite", () => {
+    const snap = toFraguaSnapshot(buildEvents(), {
+      lastEventAt: null,
+      running: false,
+      woStates: { "WO-02-001": "in_review" },
+    });
+    expect(snap.running).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Never imports a Claude/AI client (auditable — AC-06-008.1)
 // ---------------------------------------------------------------------------
 

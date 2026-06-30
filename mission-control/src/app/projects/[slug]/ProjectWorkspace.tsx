@@ -39,6 +39,7 @@ import { TabBar, type TabId } from "./_components/tabbar";
 import { type WoDetailTab, WorkOrderDetail } from "./_components/wo-detail/wo-detail";
 import { WorkspaceHeader } from "./_components/workspace-header";
 import { ObservabilidadTab } from "./_observability/ObservabilidadTab/ObservabilidadTab";
+import { toWoStates } from "./_party/fragua-snapshot/wo-states";
 import { PartyTab } from "./_party/PartyTab/PartyTab";
 
 // ---------------------------------------------------------------------------
@@ -183,7 +184,10 @@ export function ProjectWorkspace({
       // Pass the authoritative build flag so the scene shows the powered-off state
       // when the build is off, instead of a frozen active scene from a stale event
       // tail (AC-06-013). `running` is derived above from status.yaml / the portfolio.
-      body = <PartyTab running={running} />;
+      // `woStates` reconciles each running sprite's room with the Work Orders board's
+      // authoritative `implementation_status` (DR-092) — same `listWorkOrders` source
+      // the objectives bar uses above (internally cached, so no extra read).
+      body = <PartyTab running={running} woStates={toWoStates(listWorkOrders(projectPath))} />;
       break;
     case "observabilidad": {
       const obsOrders = listWorkOrders(projectPath);

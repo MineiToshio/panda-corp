@@ -36,6 +36,7 @@ import { toEventVM } from "../event-vm/event-vm";
 import type { FraguaSnapshot } from "../fragua-snapshot/fragua-snapshot";
 import { toFraguaSnapshot } from "../fragua-snapshot/fragua-snapshot";
 import { PartyScene } from "../PartyScene/PartyScene";
+import type { WoState } from "../state-map/state-map";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -60,6 +61,14 @@ export interface PartyLiveShellProps {
    * event arrives (the build resumed).
    */
   running?: boolean;
+  /**
+   * Authoritative per-WO visual state (id → WoState) from the work-order
+   * frontmatter (DR-092), captured by the RSC at render time. Applied to the
+   * live re-derive so an SSE event frame — which only carries events — does not
+   * revert a WO the board shows as `in_review` back to the forge `building`.
+   * Refreshes whenever the Party tab re-renders (tab switch / reload).
+   */
+  woStates?: Readonly<Record<string, WoState>>;
 }
 
 // ---------------------------------------------------------------------------
@@ -77,6 +86,7 @@ export function PartyLiveShell({
   initialSnapshot,
   project,
   running,
+  woStates,
 }: PartyLiveShellProps): React.JSX.Element {
   // Subscribe to the live SSE transport
   const { snapshot: liveFrame, connected } = useLiveSnapshot({ project });
@@ -100,8 +110,9 @@ export function PartyLiveShell({
     return toFraguaSnapshot(events, {
       lastEventAt: liveAt,
       running: hasFresherEvent ? undefined : running,
+      woStates,
     });
-  }, [liveFrame, initialSnapshot, running]);
+  }, [liveFrame, initialSnapshot, running, woStates]);
 
   // Compute the most recent event VM for the achievement toast
   const latestEventVM = useMemo(() => {

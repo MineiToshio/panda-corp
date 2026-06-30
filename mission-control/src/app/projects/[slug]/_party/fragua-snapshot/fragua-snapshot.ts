@@ -124,6 +124,17 @@ export interface ToFraguaSnapshotOpts {
    * `undefined`/`true` keeps the event-derived behavior.
    */
   running?: boolean;
+  /**
+   * Authoritative per-WO visual state, keyed by work-order id, derived from the
+   * work-order frontmatter `implementation_status` (the SAME source the Work
+   * Orders tab reads — DR-092 single source). When present, it overrides the
+   * event-derived state of each running WO so the Party agrees with the board:
+   * a WO that frontmatter says is `in_review` walks to the Tribunal instead of
+   * staying in the forge as `building`. A WO absent from the map (or no map at
+   * all) keeps the event-derived `building` default. The event stream still
+   * drives liveness/animation; the frontmatter decides which room.
+   */
+  woStates?: Readonly<Record<string, WoState>>;
 }
 
 // ---------------------------------------------------------------------------
@@ -405,7 +416,9 @@ export function toFraguaSnapshot(
     : scan.runningWos.map((wo) => ({
         wo,
         title: wo,
-        state: "building" as WoState,
+        // Authoritative frontmatter state (DR-092) decides the room; the
+        // event-derived default is `building` (forge).
+        state: opts.woStates?.[wo] ?? ("building" as WoState),
       }));
 
   // The project counter is global/cross-FRD (AC-06-002.2): done counts every

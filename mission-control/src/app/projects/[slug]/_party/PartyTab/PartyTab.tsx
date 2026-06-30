@@ -42,6 +42,7 @@ import { EventFeed } from "../EventFeed/EventFeed";
 import { toEventVM } from "../event-vm/event-vm";
 import { toFraguaSnapshot } from "../fragua-snapshot/fragua-snapshot";
 import { PartyEmptyState } from "../PartyEmptyState/PartyEmptyState";
+import type { WoState } from "../state-map/state-map";
 import { PartyLiveShell } from "./PartyLiveShell";
 
 // ---------------------------------------------------------------------------
@@ -74,6 +75,15 @@ export interface PartyTabProps {
    * (AC-06-013). `undefined` keeps the event-derived behavior.
    */
   running?: boolean;
+  /**
+   * Authoritative per-WO visual state (id → WoState) derived from the work-order
+   * frontmatter `implementation_status` — the SAME source the Work Orders tab
+   * reads (DR-092). Reconciles the Party sprite's room with the board: a WO the
+   * board shows as `IN_REVIEW` walks to the Tribunal instead of staying in the
+   * forge as `building`. Captured at render time; carried into the live re-derive
+   * so SSE event frames don't revert it to `building`.
+   */
+  woStates?: Readonly<Record<string, WoState>>;
 }
 
 // ---------------------------------------------------------------------------
@@ -182,6 +192,7 @@ export function PartyTab({
   eventsPath,
   cap = DEFAULT_CAP,
   running,
+  woStates,
 }: PartyTabProps): React.JSX.Element {
   // Read the capped tail of the event stream (read-only, never throws).
   const { events, lastEventAt } = readEvents({ path: eventsPath, cap });
@@ -189,7 +200,8 @@ export function PartyTab({
   // Derive the FraguaSnapshot from the enriched event tail (IF-06-fragua-snapshot).
   // Pure function: no DOM, no I/O, no side-effects. `running` (status.yaml) forces
   // the powered-off state when the build is off, overriding a stale event tail.
-  const snapshot = toFraguaSnapshot(events, { lastEventAt, running });
+  // `woStates` (frontmatter) reconciles each running WO's room with the board (DR-092).
+  const snapshot = toFraguaSnapshot(events, { lastEventAt, running, woStates });
 
   // Map raw events to view-models for the feed.
   const eventVMs = events.map(toEventVM);
@@ -245,7 +257,7 @@ export function PartyTab({
               PartyScene (the outer chrome: MissionBar + FlowStrip + stage) lives inside.
               Observation-only: no mode selector, no pause/reset (AC-06-009.1, DR-061). */}
           <div style={SCENE_WRAPPER_STYLE}>
-            <PartyLiveShell initialSnapshot={snapshot} running={running} />
+            <PartyLiveShell initialSnapshot={snapshot} running={running} woStates={woStates} />
           </div>
 
           {/* CMP-06-feed — the capped event log alongside the scene. */}

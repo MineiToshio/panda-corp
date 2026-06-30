@@ -86,10 +86,16 @@ export function useFraguaSprites(input: UseFraguaSpritesInput): UseFraguaSprites
   useEffect(() => {
     const engine = createFraguaEngine({ mode, wave });
 
+    const runningIds = new Set<string>();
     for (const { wo, state } of running) {
       engine.setWo(wo, state);
+      runningIds.add(wo);
     }
     for (const { wo: twoId } of trophies) {
+      // A running WO whose authoritative state is `verified` is already turned
+      // into a trophy by setWo above; seeding it again here would double-count it
+      // in the engine's verified list. Skip any trophy already handled as a sprite.
+      if (runningIds.has(twoId)) continue;
       engine.verifyWo(twoId);
     }
     if (gate.open) engine.openGate();
