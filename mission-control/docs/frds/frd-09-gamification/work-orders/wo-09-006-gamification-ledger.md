@@ -5,7 +5,7 @@ slug: gamification-ledger
 title: 'WO-09-006 — Gamification ledger: persistent XP accumulator'
 status: DRAFT
 parent: FRD-09
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: [AC-09-006.1, AC-09-006.2, AC-09-006.3]
 dependsOn: [WO-09-001]
 last_updated: '2026-06-25'
@@ -88,3 +88,77 @@ The ledger fixes this by "burning in" the historical maximum: once earned, XP is
 | ID | Title | Status |
 |---|---|---|
 | WO-09-001 | Guild XP engine (`deriveGuildOutcomes`) | VERIFIED |
+
+## Status Note
+
+**What was built:**
+
+Three new artifacts implementing the persistent XP accumulator (AC-09-006.1–3):
+
+1. **`src/lib/gamification/ledger.ts`** — pure module (no I/O side effects):
+   - `GamificationLedger` type: `{ version: 1, updatedAt: string, totals: { workOrdersDone, phasesCompleted, releases } }`
+   - `readLedger(ledgerPath?: string): GamificationLedger` — reads + coerces JSON; returns zero-totals on absent/malformed/wrong-shape (DR-078 — never throws, never returns null)
+   - `mergeLedgerOutcomes(live, ledger): GuildOutcomes` — MAX per metric; preserves `greenTestRuns`/`weeklyStreak` from live; pure
+   - `needsSnapshot(live, ledger): boolean` — true when any live metric > ledger; avoids unnecessary writes; pure
+
+2. **`src/app/_actions/snapshotLedger.ts`** — Server Action `"use server"`:
+   - `snapshotGamificationLedger(live: GuildOutcomes): Promise<void>`
+   - Resolves ledger path via `resolveFactoryRoot()` + `"factory/gamification-ledger.json"`
+   - Read → compare via `needsSnapshot` → write MAX-merged ledger only when needed
+   - Fire-and-forget: resolves `void`; silently swallows I/O errors
+
+3. **`src/components/dashboard/GamificationLedgerSync/GamificationLedgerSync.tsx`** — `"use client"` invisible component:
+   - Props: `{ liveOutcomes: GuildOutcomes }`
+   - `useEffect([liveOutcomes])`: calls `snapshotGamificationLedger(liveOutcomes)` once after hydration; errors silently swallowed
+   - Returns `null` — no visible UI, no loading state
+
+**Integration decisions made:**
+
+- **Ledger merge in `guildState.ts`, not `page.tsx`**: The WO spec mentioned `page.tsx` but `guildState.ts` is the single source of truth (blueprint §3 `IF-09-guild-state`). Integrating there ensures all three surfaces (GuildBar, dashboard, Logros hero) pick up the ledger floor at once, preventing divergence. This is explicitly called out in the blueprint: "This is also the one place a future ledger merge — MAX(live, ledger) — must live."
+- **`GuildState` now exposes `liveOutcomes`** (pre-merge, for the snapshot action) in addition to `outcomes` (post-merge, feeds `level`). The snapshot action must receive the raw live values — passing already-merged outcomes would cause `needsSnapshot` to never fire after the first write.
+- **`GamificationLedgerSync` dep array is `[liveOutcomes]`**: Biome enforced this. Since `liveOutcomes` arrives from a Server Component (stable reference per page load), this behaves identically to mount-once in production.
+- **Cold start / zero-outcomes**: `needsSnapshot` returns `false` when all live metrics are 0, so the ledger file is NOT created on a fresh factory with no work done. The file is only created after real outcomes exist.
+- **Ledger schema**: `version: 1`, `updatedAt` ISO string, `totals` with the three metrics. `greenTestRuns` and `weeklyStreak` are intentionally omitted from the ledger (ephemeral signals, not historical maximums).
+
+**Interfaces/contracts exposed:**
+
+```ts
+// src/lib/gamification/ledger.ts
+export type GamificationLedger = {
+  readonly version: 1;
+  readonly updatedAt: string;
+  readonly totals: {
+    readonly workOrdersDone: number;
+    readonly phasesCompleted: number;
+    readonly releases: number;
+  };
+};
+
+export function readLedger(ledgerPath?: string): GamificationLedger;
+export function mergeLedgerOutcomes(live: GuildOutcomes, ledger: GamificationLedger): GuildOutcomes;
+export function needsSnapshot(live: GuildOutcomes, ledger: GamificationLedger): boolean;
+
+// src/app/_actions/snapshotLedger.ts
+export async function snapshotGamificationLedger(live: GuildOutcomes): Promise<void>;
+
+// src/components/dashboard/GamificationLedgerSync/GamificationLedgerSync.tsx
+export function GamificationLedgerSync({ liveOutcomes }: { liveOutcomes: GuildOutcomes }): null;
+
+// src/lib/gamification/guildState.ts (updated)
+export type GuildState = {
+  readonly statuses: readonly StatusResult[];
+  readonly eventsSnapshot: EventsSnapshot;
+  readonly liveOutcomes: GuildOutcomes;  // NEW: pre-ledger-merge (for snapshot action)
+  readonly outcomes: GuildOutcomes;       // ledger-merged MAX(live, ledger)
+  readonly level: GuildLevel;
+};
+```
+
+**Integration seam for consumers:** Any Server Component that calls `getGuildState()` now automatically gets ledger-merged outcomes in `outcomes`/`level`. To pass to `GamificationLedgerSync`, destructure `liveOutcomes` from `getGuildState()`. The `page.tsx` dashboard is the only mount point — no other route needs it since `guildState.ts` applies the floor server-side.
+
+**`.gitignore` change:** `factory/gamification-ledger.json` added to the factory root `.gitignore` (AC-09-006.3, DR-033 personal data).
+
+**Test files:**
+- `src/lib/gamification/_tests/ledger.test.ts` — 26 unit tests (readLedger: absent/real/malformed fixtures; mergeLedgerOutcomes: MAX semantics + purity + no mutation; needsSnapshot: all branches)
+- `src/app/_tests/wo-09-006-snapshotLedger.test.ts` — 7 integration tests (writes on first snapshot; ISO date; no-write on zero; no-write when already above; updates on exceed; MAX invariant; void return)
+- `src/components/dashboard/GamificationLedgerSync/_tests/GamificationLedgerSync.test.tsx` — 7 component tests (renders null; calls action once; passes liveOutcomes; cold start; no re-call on re-render; no interactive elements; survives action rejection)
