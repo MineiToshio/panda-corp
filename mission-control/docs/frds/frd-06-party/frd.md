@@ -98,6 +98,7 @@ orders. The blueprint maps each REQ to a component/interface.
 - AC-06-013.1: WHILE **no build is running** (no active work orders / no agents working, derived from real state), THE system SHALL render a **factory-off state** with the agents **desaturated and tidied into their rooms**, never a blank screen or a crash.
 - AC-06-013.2: THE factory-off state SHALL be **derived from real state**, NOT toggled by any control, and its overlay copy SHALL state that the factory is started by **launching `/pandacorp:implement`** (not "press play").
 - AC-06-013.3: WHEN a build becomes active again (events resume), THE system SHALL leave the factory-off state and resaturate the scene automatically.
+- AC-06-013.4: THE "is a build running" signal SHALL be the project's **authoritative `running` flag from `status.yaml`**, NOT mere presence of events. The event ndjson retains the LAST build's events indefinitely, so when `running` is `false` THE system SHALL render the powered-off state (no running-WO sprite, no lit flow-strip beat) even though a stale event tail is present — events alone cannot distinguish "building now" from "finished long ago". A build that EXISTS but is off SHALL still render the scene in its powered-off state (the grey factory-off design), NOT the never-built empty state (AC-06-010.1).
 
 ### REQ-06-014 — Reduced motion & multi-project color
 - AC-06-014.1: WHEN `prefers-reduced-motion` is set, THE system SHALL disable ALL Party animation (sprites static, no RAF loop, no judge sprite movement, no parchment travel) while keeping the scene readable.

@@ -2,7 +2,8 @@
  * CMP-13-party-stone-bridge — Shared pixel-RPG StoneBridge connector (WO-13-009, FND-4)
  *
  * PNG stone connector between rooms (bridge-h.png / bridge-v.png).
- * Sits above room backgrounds (z-index 2), below crossing sprites (z-index 5).
+ * Sits BELOW the rooms (z-index 0): its endpoints overlap the room rectangles, so
+ * the room art must occlude it (owner-requested). Above only the stage grid.
  * Presentational: orientation + flow state → image, no interactivity.
  *
  * Deliverable label (CMP-02 / party-pipeline.html conn() ~L238): when a label is
@@ -11,7 +12,7 @@
  * the prototype `.conn .doc` (mono 10px, dark chip, ok-tinted while flowing).
  *
  * Design contract (party mocks / la-fragua.html):
- *   - .bridge: position absolute, z-index 2, pointer-events none
+ *   - .bridge: position absolute, z-index 0 (below the rooms), pointer-events none
  *   - bridge-h.png for horizontal (forge → tribunal)
  *   - bridge-v.png for vertical  (tribunal → vault)
  *   - image-rendering:pixelated on the img
@@ -156,7 +157,11 @@ export function StoneBridge({
 }: StoneBridgeProps): React.JSX.Element {
   const rootStyle: CSSProperties = {
     position: "absolute",
-    zIndex: 2,
+    // BELOW the rooms (z-index 1) and crossing sprites (z-index 5): the bridge
+    // endpoints overlap the room rectangles, so a higher bridge would visibly sit
+    // ON TOP of the room art. The stage grid (z-index 0, rendered earlier in the
+    // DOM) still shows through. (Owner-requested: bridges under the room images.)
+    zIndex: 0,
     pointerEvents: "none",
     ...style,
   };

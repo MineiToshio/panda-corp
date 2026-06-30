@@ -495,8 +495,8 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
         </div>
 
         {/* ----------------------------------------------------------------
-            Stone bridges — sit above room backgrounds (z-index 2),
-            below sprites (z-index 5).
+            Stone bridges — sit BELOW the rooms (z-index 0): their endpoints
+            overlap the room rectangles, so the room art occludes them.
             bridge-h: forge → tribunal (horizontal)
             bridge-v: tribunal → vault (vertical)
             ---------------------------------------------------------------- */}

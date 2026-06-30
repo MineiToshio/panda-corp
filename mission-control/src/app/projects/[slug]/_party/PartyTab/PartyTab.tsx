@@ -66,6 +66,14 @@ export interface PartyTabProps {
    * Default: 200 (AC-06-014.1).
    */
   cap?: number;
+  /**
+   * The project's authoritative build flag from `status.yaml` (`running`).
+   * When `false`, the scene renders the powered-off state regardless of the
+   * (possibly stale) event tail — the ndjson keeps the last build's events
+   * forever, so events alone can't tell "off" from "finished long ago"
+   * (AC-06-013). `undefined` keeps the event-derived behavior.
+   */
+  running?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -170,13 +178,18 @@ const FEED_WRAPPER_STYLE: React.CSSProperties = {
  *
  * No `fs` ever reaches the client — only the serialized FraguaSnapshot.
  */
-export function PartyTab({ eventsPath, cap = DEFAULT_CAP }: PartyTabProps): React.JSX.Element {
+export function PartyTab({
+  eventsPath,
+  cap = DEFAULT_CAP,
+  running,
+}: PartyTabProps): React.JSX.Element {
   // Read the capped tail of the event stream (read-only, never throws).
   const { events, lastEventAt } = readEvents({ path: eventsPath, cap });
 
   // Derive the FraguaSnapshot from the enriched event tail (IF-06-fragua-snapshot).
-  // Pure function: no DOM, no I/O, no side-effects.
-  const snapshot = toFraguaSnapshot(events, { lastEventAt });
+  // Pure function: no DOM, no I/O, no side-effects. `running` (status.yaml) forces
+  // the powered-off state when the build is off, overriding a stale event tail.
+  const snapshot = toFraguaSnapshot(events, { lastEventAt, running });
 
   // Map raw events to view-models for the feed.
   const eventVMs = events.map(toEventVM);
@@ -185,6 +198,12 @@ export function PartyTab({ eventsPath, cap = DEFAULT_CAP }: PartyTabProps): Reac
   const latestEvent = eventVMs.length > 0 ? eventVMs[eventVMs.length - 1] : undefined;
 
   const { active } = snapshot;
+  // A build EXISTS (current or recently finished) iff a FRD was detected. That, not
+  // `active`, gates scene-vs-empty: when the build is OFF (active false) but a FRD is
+  // present, we still render the scene so it can show the powered-off state (the grey
+  // factory-off design, AC-06-013) — the empty state (AC-06-010.1) is only for "no
+  // build data at all". `active` then drives the power-off overlay inside the scene.
+  const hasBuild = snapshot.frd !== null;
 
   return (
     <section data-testid="party-tab" aria-label="Panel del equipo de agentes" style={TAB_STYLE}>
@@ -215,8 +234,10 @@ export function PartyTab({ eventsPath, cap = DEFAULT_CAP }: PartyTabProps): Reac
         )}
       </header>
 
-      {/* Body: La Fragua scene (via PartyLiveShell) + feed, or empty state (AC-06-010.1) */}
-      {active ? (
+      {/* Body: La Fragua scene (via PartyLiveShell) + feed, or empty state (AC-06-010.1).
+          Gated on hasBuild (a FRD exists), NOT active — so an OFF build still shows the
+          scene's powered-off state (AC-06-013) instead of the never-built empty state. */}
+      {hasBuild ? (
         <div style={BODY_STYLE}>
           {/* CMP-06-scene — PartyLiveShell: client boundary that subscribes to
               useLiveSnapshot (SSE) and re-derives FraguaSnapshot on every frame.

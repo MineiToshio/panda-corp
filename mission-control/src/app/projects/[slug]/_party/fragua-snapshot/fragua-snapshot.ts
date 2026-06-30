@@ -114,6 +114,16 @@ export interface ToFraguaSnapshotOpts {
    * the event-derived count.
    */
   projectTotals?: { done: number; total: number };
+  /**
+   * The project's authoritative build flag from `status.yaml` (`running`).
+   * The event ndjson keeps the LAST build's events forever, so events alone
+   * cannot tell "building now" from "finished long ago" — a stale tail would
+   * render a frozen active scene + a phantom running WO. When `running` is
+   * explicitly `false`, the snapshot is forced to the factory-off state
+   * (`active: false`, no running WOs) regardless of the event tail (AC-06-013).
+   * `undefined`/`true` keeps the event-derived behavior.
+   */
+  running?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -362,13 +372,21 @@ export function toFraguaSnapshot(
   const ctx: FrdContext = { currentFrdId, wave };
   const scan = scanFrdData(events, ctx);
 
+  // Factory-off: status.yaml's `running:false` is the authoritative "build is off"
+  // signal. Event-freshness alone can't tell a finished build from a long, quiet
+  // WO, so when the build is OFF we drop the running WOs (no phantom sprite) and
+  // mark the snapshot inactive so the scene shows the powered-off state (AC-06-013).
+  const isFactoryOff = opts.running === false;
+
   const displayedTrophies = scan.trophyWoIds.slice(0, MAX_TROPHIES);
   const archivedCount = Math.max(0, scan.trophyWoIds.length - MAX_TROPHIES);
-  const running = scan.runningWos.map((wo) => ({
-    wo,
-    title: wo,
-    state: "building" as WoState,
-  }));
+  const running = isFactoryOff
+    ? []
+    : scan.runningWos.map((wo) => ({
+        wo,
+        title: wo,
+        state: "building" as WoState,
+      }));
 
   // The project counter is global/cross-FRD (AC-06-002.2): done counts every
   // unique achievement WO, decoupled from the per-FRD Bóveda shelf.
@@ -387,12 +405,12 @@ export function toFraguaSnapshot(
     wave,
     running,
     queuedCount,
-    gate: { open: scan.gateOpen },
+    gate: { open: isFactoryOff ? false : scan.gateOpen },
     trophies: displayedTrophies.map((wo) => ({ wo })),
     archivedCount,
     project: projectTotals,
     events: eventVMs,
-    active: true,
+    active: !isFactoryOff,
     lastEventAt: opts.lastEventAt,
   };
 }

@@ -180,7 +180,10 @@ export function ProjectWorkspace({
       body = renderWorkOrdersTab(projectPath, slug, woParam, woTabParam);
       break;
     case "party":
-      body = <PartyTab />;
+      // Pass the authoritative build flag so the scene shows the powered-off state
+      // when the build is off, instead of a frozen active scene from a stale event
+      // tail (AC-06-013). `running` is derived above from status.yaml / the portfolio.
+      body = <PartyTab running={running} />;
       break;
     case "observabilidad": {
       const obsOrders = listWorkOrders(projectPath);

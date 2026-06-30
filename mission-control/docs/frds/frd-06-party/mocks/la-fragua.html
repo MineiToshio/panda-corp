@@ -89,7 +89,7 @@ body.off .poweroff{display:flex}
   background-image:linear-gradient(#1d2629 .5px,transparent .5px),linear-gradient(90deg,#1d2629 .5px,transparent .5px);
   background-size:30px 30px;opacity:.45;pointer-events:none}
 /* stone bridges between rooms (generated PNGs): sit above the room backgrounds, below the sprites that cross them */
-.bridge{position:absolute;z-index:2;pointer-events:none}
+.bridge{position:absolute;z-index:0;pointer-events:none}
 
 .room{position:absolute;border-radius:12px;overflow:hidden;border:1px solid var(--bd2);z-index:1;transition:box-shadow .4s,filter .4s}
 .room .bg{position:absolute;inset:0;background-size:cover;background-position:center;image-rendering:pixelated;transition:filter .5s,opacity .5s}

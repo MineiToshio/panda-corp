@@ -302,7 +302,9 @@ export function PartyScene({ snapshot }: PartySceneProps): React.JSX.Element {
   // Derive FRD pips — one pip per FRD in the project (simplified: just the current FRD)
   const frdPips = frd ? [{ id: frd.id, state: "current" as const }] : [];
 
-  const activeKeys = activeFlowBeats(snapshot);
+  // When the factory is off (active false), no flow-strip beat is lit — otherwise a
+  // stale "Oleada" keeps glowing as if a wave were running (AC-06-013).
+  const activeKeys = active ? activeFlowBeats(snapshot) : [];
 
   return (
     <section

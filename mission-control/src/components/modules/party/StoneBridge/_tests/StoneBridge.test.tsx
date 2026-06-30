@@ -65,4 +65,10 @@ describe("StoneBridge", () => {
     const root = screen.getByTestId("stone-bridge-root");
     expect(root).toHaveStyle({ left: "415px", top: "140px" });
   });
+
+  it("sits BELOW the rooms (z-index 0) so the room art occludes its overlapping ends", () => {
+    render(<StoneBridge orientation="h" flow={false} />);
+    // Room root is z-index 1; the bridge must be below it (owner-requested).
+    expect(screen.getByTestId("stone-bridge-root")).toHaveStyle({ zIndex: 0 });
+  });
 });
