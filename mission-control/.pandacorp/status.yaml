@@ -11,21 +11,21 @@ deploy_url: "http://192.168.18.227:1987"  # MC's internal release on the LAN
 running: true
 run_started_at: "2026-06-29T23:57:36Z"
 repo: ""
-updated_at: "2026-06-30T00:36:28Z"
-last_event_at: "2026-06-30T00:36:28Z"
+updated_at: "2026-06-30T01:53:59Z"
+last_event_at: "2026-06-30T01:53:59Z"
 work_orders_total: 94
-work_orders_verified: 92
+work_orders_verified: 94
 work_orders_in_review: 0
-work_orders_planned: 2
+work_orders_planned: 0
 work_orders_in_progress: 0
 work_orders_blocked: 0
-work_orders_done: 92
+work_orders_done: 94
 pending_decisions: 1
 pending_bugs: 0
 rethink_pending: false
 advance_pending: false
-last_green_sha: "de77842"
-safe_to_test: true  # whole-project gate green (vitest 359 files/7180+2xfail, tsc/knip/biome clean) — WO-09-006 ledger hermeticity (DR-073), 2026-06-29
+last_green_sha: "abd92e9"
+safe_to_test: true  # FRD-10 Informe operativo gate GREEN (WO-10-014 data layer + WO-10-015 UI VERIFIED) — vitest 743/63 files, tsc/knip/biome/madge clean, smoke+shell+visual e2e green; honesty contract verified against live factory data (DR-078), 2026-06-30
 blocked: []
-supervisor_heartbeat: "2026-06-29T23:57:36Z"
+supervisor_heartbeat: "2026-06-30T01:33:47Z"
 pending_changes: 9

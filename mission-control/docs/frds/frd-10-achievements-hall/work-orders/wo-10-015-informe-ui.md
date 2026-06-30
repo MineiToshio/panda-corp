@@ -5,7 +5,8 @@ slug: informe-ui
 title: 'WO-10-015 — Informe operativo UI: 6 bands + 8-row ledger + records 2×3 (sober register)'
 status: ACTIVE
 parent: FRD-10
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
+reopen_count: 0
 source_requirements: [REQ-10-020, REQ-10-021, REQ-10-022, REQ-10-023, REQ-10-024, REQ-10-025, REQ-10-026, REQ-10-027]
 artifacts: [src/app/achievements/Informe/**, src/app/achievements/StatsPanel.tsx, src/app/achievements/_components/HallTabs.tsx, src/app/achievements/_tests/**]
 difficulty: high

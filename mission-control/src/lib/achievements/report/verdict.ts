@@ -26,8 +26,9 @@ export type ReportMetrics = {
   readonly peakWeek: number;
 };
 
-/** A factory command a next-action routes the owner to. */
-export type ActionCommand = "/pandacorp:memory" | "/pandacorp:release" | "/pandacorp:recommend";
+/** A factory command a next-action routes the owner to.
+ *  Module-private: only `NextAction.command` references it (consumers read the string). */
+type ActionCommand = "/pandacorp:memory" | "/pandacorp:release" | "/pandacorp:recommend";
 
 /** A single recommended next action, each carrying its command. */
 export type NextAction = {

@@ -31,8 +31,9 @@ const PHASE_RANK: Readonly<Record<Phase, number>> = {
   release: 4,
 };
 
-/** A chronological phase observation (oldest first) for one project. */
-export type PhaseObservation = {
+/** A chronological phase observation (oldest first) for one project.
+ *  Module-private: only `PhaseHistory` composes it (consumers pass a `PhaseHistory`). */
+type PhaseObservation = {
   /** ISO date (YYYY-MM-DD) of the commit. */
   readonly date: string;
   /** The `phase:` value at that commit (validated against the pipeline vocabulary). */

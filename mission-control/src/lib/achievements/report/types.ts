@@ -26,8 +26,9 @@ export type ReportResult<T> =
   | { readonly ok: true; readonly value: T }
   | { readonly ok: false; readonly reason: ReportAbsenceReason };
 
-/** Why a git-backed aggregate is absent (mapped to the UI's error / "no cableado" state). */
-export type ReportAbsenceReason =
+/** Why a git-backed aggregate is absent (mapped to the UI's error / "no cableado" state).
+ *  Module-private: only `ReportResult` references it (the UI branches on `ok`, not the reason). */
+type ReportAbsenceReason =
   /** `git` binary or repo not available at read time. */
   | "git-unavailable"
   /** The source was readable but its shape could not be interpreted. */

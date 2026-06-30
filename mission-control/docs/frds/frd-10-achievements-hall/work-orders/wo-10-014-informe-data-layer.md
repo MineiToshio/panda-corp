@@ -5,7 +5,8 @@ slug: informe-data-layer
 title: 'WO-10-014 — Informe data layer: flow-series + phase-transitions + scalars + usage + funnel + lessons + rules'
 status: ACTIVE
 parent: FRD-10
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
+reopen_count: 0
 source_requirements: [REQ-10-020, REQ-10-021, REQ-10-022, REQ-10-023, REQ-10-024, REQ-10-025, REQ-10-026, REQ-10-027]
 artifacts: [src/lib/achievements/report/**, src/lib/achievements/report/_tests/**]
 difficulty: high

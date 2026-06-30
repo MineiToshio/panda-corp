@@ -8,3 +8,6 @@
 {"kind":"wo_start","frd":"frd-10-achievements-hall","wo":"WO-10-015","at":"2026-06-30T01:02:40Z"}
 {"kind":"wo_review","frd":"frd-10-achievements-hall","wo":"WO-10-015","at":"2026-06-30T01:38:49Z"}
 {"kind":"wo_end","frd":"frd-10-achievements-hall","wo":"WO-10-015","state":"in_review","at":"2026-06-30T01:40:09Z"}
+{"kind":"review_start","frd":"frd-10-achievements-hall","at":"2026-06-30T01:41:12Z"}
+{"kind":"review_end","frd":"frd-10-achievements-hall","verdict":"pass","at":"2026-06-30T01:54:18Z"}
+{"kind":"frd_end","frd":"frd-10-achievements-hall","at":"2026-06-30T01:54:18Z"}

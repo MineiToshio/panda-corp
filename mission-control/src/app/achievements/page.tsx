@@ -33,12 +33,20 @@ import { Chip } from "@/components/core/Chip/Chip";
 import { PageLayout } from "@/components/core/PageLayout/PageLayout";
 import { GuildHero } from "@/components/modules/GuildHero/GuildHero";
 import { computeChains, computeSecrets, computeUniques } from "@/lib/achievements/achievements";
+import { weeklyFlow } from "@/lib/achievements/report/flowSeries";
+import { funnelAndFlow } from "@/lib/achievements/report/funnel";
+import { lessonCounts } from "@/lib/achievements/report/lessons";
+import { phaseTransitions } from "@/lib/achievements/report/phaseTransitions";
+import { reportScalars } from "@/lib/achievements/report/scalars";
+import { usageMix } from "@/lib/achievements/report/usage";
+import { signalsFor } from "@/lib/achievements/signals";
 import type { ReaderData } from "@/lib/achievements/stats";
 import { computeStats } from "@/lib/achievements/stats";
 import { readEvents } from "@/lib/events/events";
 import { getGuildState } from "@/lib/gamification/guildState";
 import { readIdeas } from "@/lib/ideas/ideas";
 import { HallTabs } from "./_components/HallTabs";
+import { buildInformeData } from "./Informe/informeData";
 
 // ── Party roster (prototype logrosHero roster — 6 agents) ──────────────────────
 const HALL_PARTY_ROLES: readonly AgentRole[] = [
@@ -68,6 +76,33 @@ export default async function HallPage(): Promise<React.JSX.Element> {
 
   // ── Build ReaderData for the achievements engine ──────────────────────────
   const readerData: ReaderData = { ideas, statuses, eventsSnapshot };
+
+  // ── Informe operativo report data (WO-10-015 consumes WO-10-014 readers) ───
+  // Mission Control's own repo is the project whose git history backs the series;
+  // it lives at the process cwd (it shares the factory .git one level up — see CLAUDE.md).
+  const projectPath = process.cwd();
+  const reportSignals = signalsFor(readerData);
+  const reportScalarsValue = reportScalars(projectPath);
+  const lessons = lessonCounts();
+  // Fail-loud usage band (AC-10-015.3): an absent event stream → "no cableado".
+  const usageResult: ReturnType<typeof buildInformeData>["usage"] =
+    eventsSnapshot.events.length === 0 && eventsSnapshot.lastEventAt === null
+      ? { ok: false, reason: "git-unavailable" }
+      : { ok: true, value: usageMix(readerData) };
+  const informeData = buildInformeData({
+    weeklyFlow: weeklyFlow(projectPath),
+    usage: usageResult,
+    funnel: funnelAndFlow(ideas, statuses),
+    transitions: phaseTransitions(),
+    statuses,
+    lessons,
+    relaunches: reportSignals.relaunches,
+  });
+  const statsRecords = {
+    peakWeek: informeData.weeklyFlow.ok ? informeData.weeklyFlow.value.peakWeek : 0,
+    capturedLessons: lessons?.captured ?? 0,
+    subagents: reportSignals.subagents,
+  };
 
   // ── Derive all achievement data ───────────────────────────────────────────
   // `Date.now()` is the server render clock — injected so the NUEVO badge (isNew)
@@ -113,6 +148,9 @@ export default async function HallPage(): Promise<React.JSX.Element> {
         uniques={uniques}
         secrets={secrets}
         readerData={readerData}
+        informeData={informeData}
+        statsScalars={reportScalarsValue}
+        statsRecords={statsRecords}
         trophiesCount={trophiesCount}
         trophiesTotal={trophiesTotal}
         missionsActive={missionsActive}
