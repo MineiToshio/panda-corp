@@ -52,9 +52,14 @@ has to go hunting.
 > **Definition of done = the AC *plus* the completeness 20% (DR-100).** Beyond the functional ACs,
 > this WO is not done until the relevant items from the FRD's completeness checklist are present:
 > **error path per failure mode**, **input validation beyond the type**, **the empty/loading/partial
-> states** of any surface, the **observability** event/log this slice owes, and any **security control**
-> on data/auth/public endpoints it touches. These are the production 20% AI builders silently drop —
-> name and meet them here, don't leave them to be "discovered" at the gate.
+> states** of any surface, the **observability** event/log this slice owes, and the **non-functional
+> requirements (NFRs) this slice owes — name them EXPLICITLY, never leave them implicit (DR-102)**:
+> the **security control** on any data/auth/public endpoint it touches, the **performance** budget it
+> must hold (e.g. Core Web Vitals / LCP for a UI slice), and for a UI slice **accessibility** (keyboard,
+> focus, semantics, contrast) and **reduced-motion** support. NFRs are the most systematically dropped
+> class in AI builds (agents optimize for "it works" over quality attributes unless told) — these are
+> the production 20% AI builders silently drop; name and meet them here, don't leave them to be
+> "discovered" at the gate.
 
 ## Visual reference
 
