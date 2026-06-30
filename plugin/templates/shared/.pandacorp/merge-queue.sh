@@ -30,6 +30,7 @@ MAIN_WT="$(git worktree list --porcelain | awk -v b="refs/heads/$DEFAULT_BRANCH"
 # Loud hand-back (DR-099, #2): a merge that can't LAND (rebase conflict 10 / red gate 11 / busy main 12)
 # must never be silent — fire a desktop notification so the owner sees it even if the message scrolls
 # past. Precondition errors (20, the caller's own setup mistake) stay quiet (the agent reads stderr).
+# The AGENT must ALSO surface the hand-back IN THE CONVERSATION (a desktop notification is easily missed).
 fail() {
   echo "merge-queue: $1" >&2
   if [ "$2" -ge 10 ] && [ "$2" -le 12 ] && command -v osascript >/dev/null 2>&1; then

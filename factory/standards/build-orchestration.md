@@ -881,9 +881,20 @@ just in a doc:
   tell a significant change from a micro-edit, so it nudges every shared-tree code edit rather than
   trapping legit work; suppressed inside a worktree and during an active build (the engine edits main
   in-place by design, DR-060).
-- **Loud merge hand-back.** `merge-queue.sh` fires a desktop notification on any merge that can't LAND
-  (rebase conflict / red gate / busy main) — a blocked merge is never silent (complements `--notify` on
-  `pending-work.sh`, which covers the *forgotten* worktree).
+- **Loud merge hand-back — to the OWNER, in the conversation.** A merge that can't LAND is the session's
+  OWN finished work stuck outside `main`: if the owner never hears, the work is silently lost when the
+  conversation ends. So the hand-back is loud on **two** channels: (a) `merge-queue.sh` fires a desktop
+  notification on any non-precondition hand-back (rebase conflict 10 / red gate 11 / busy main 12) so it
+  survives a scrolled-past message; and (b) **the agent MUST surface it IN THE CONVERSATION immediately** —
+  a desktop notification is easily missed. On any hand-back the agent stops and tells the owner, in plain
+  language: *what* is blocked, *why* (the real reason — a foreign red on the build's files, a conflict, a
+  busy main), that **the work is preserved** on its branch/worktree (nothing is lost), and what's needed
+  (the owner's decision, or the condition to retry — e.g. "main goes green"). This is the owner's
+  call to make; the agent does **not** go off doing silent workarounds (deploying elsewhere, sitting on it,
+  or quietly retrying forever) without first telling the owner the merge is blocked. **This is NOT the
+  cross-session noise the conversation-isolation rule below suppresses** — that rule silences OTHER
+  sessions' reds; a blocked merge is THIS session's own deliverable and the owner must know. (Complements
+  `--notify` on `pending-work.sh`, which covers the *forgotten* worktree.)
 - **Conversation isolation.** An agent handles a FOREIGN red silently (recognise via `git status`
   ownership, never touch/mask — §7) and does NOT narrate to the owner what OTHER sessions are doing:
   cross-session status is PULL (Mission Control), never noise pushed into a conversation; and never

@@ -1,18 +1,18 @@
 # Machine-readable status for Pandacorp (the factory dashboard) — read by the factory and the dashboard itself.
 # Human-readable Spanish narrative lives in .pandacorp/comms/summary.md (gitignored).
 project: "Pandacorp"
-phase: implementation
+phase: release
 version: v1
 overlay_version: "8.44.0"
 created_with: "6.0.0"
 target_platforms: desktop
 deploy_target: internal  # internal tool (runs on 127.0.0.1) — no external host (DR-085)
 deploy_url: "http://192.168.18.227:1987"  # MC's internal release on the LAN
-running: true
+running: false
 run_started_at: "2026-06-29T23:57:36Z"
 repo: ""
-updated_at: "2026-06-30T02:06:21Z"
-last_event_at: "2026-06-30T02:06:21Z"
+updated_at: "2026-06-30T02:14:17Z"
+last_event_at: "2026-06-30T02:14:17Z"
 work_orders_total: 94
 work_orders_verified: 94
 work_orders_in_review: 0
@@ -24,8 +24,8 @@ pending_decisions: 1
 pending_bugs: 0
 rethink_pending: false
 advance_pending: false
-last_green_sha: "3dab564"
-safe_to_test: true  # FRD-10 Informe operativo gate GREEN (WO-10-014 data layer + WO-10-015 UI VERIFIED) — vitest 743/63 files, tsc/knip/biome/madge clean, smoke+shell+visual e2e green; honesty contract verified against live factory data (DR-078), 2026-06-30
+last_green_sha: "4734fbe"
+safe_to_test: true  # Cross-feature integration review GREEN (DR-060): all 94 WOs VERIFIED, every producer/consumer seam agrees (guild-level single source DR-092, events stream, fail-loud ReportResult, shell badges), no duplicate components (DR-057). Full verify.sh clean from clean: vitest 370 files 7247 passed +2 expected-fail, tsc/knip/biome/madge clean, smoke+visual+shell+responsive e2e 56/56 green (ran against this repo on port 3100, not the stale :3000 snapshot). 2026-06-30
 blocked: []
 supervisor_heartbeat: "2026-06-30T01:33:47Z"
 pending_changes: 9
