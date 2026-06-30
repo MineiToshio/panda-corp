@@ -5,7 +5,7 @@ slug: informe-data-layer
 title: 'WO-10-014 — Informe data layer: flow-series + phase-transitions + scalars + usage + funnel + lessons + rules'
 status: ACTIVE
 parent: FRD-10
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: [REQ-10-020, REQ-10-021, REQ-10-022, REQ-10-023, REQ-10-024, REQ-10-025, REQ-10-026, REQ-10-027]
 artifacts: [src/lib/achievements/report/**, src/lib/achievements/report/_tests/**]
 difficulty: high
@@ -132,3 +132,59 @@ git readers; files ≤500 lines.
 ## Definition of done
 `pnpm vitest run lib/achievements` green incl. new + existing; tsc + biome clean; pure derivation, no new
 writes; no `any`; `.pandacorp/verify.sh` passes.
+
+## Status Note
+**Built (WO-10-014 — the Informe data layer).** Seven read modules under
+`src/lib/achievements/report/` (one concern per file, all ≤ size limit), each fail-loud (DR-078) and
+read-only. Covered by `src/lib/achievements/report/_tests/*.test.ts` (31 tests) + the events-reader
+extension test in `src/lib/events/_tests/events.achievements.test.ts`. Self-test green: report+events
+vitest (161), `tsc --noEmit` 0, biome clean, madge no cycles.
+
+**Interfaces exposed (what WO-10-015 consumes — signatures + shapes in `report/types.ts`):**
+- `weeklyFlow(projectPath: string): ReportResult<WeeklyFlow>` (`flowSeries.ts`, React-`cache`d) — WO-verified
+  per ISO week (from the git crossing-to-`VERIFIED` commit of each `wo-*.md`) + ideas-per-week (from the
+  `created` frontmatter) + `peakWeek` + `ideasWithoutCreated`. Also exports the **pure** `deriveWeeklyFlow(input | null)`
+  and `isoWeekKey(d)`. Live shape confirmed: peak=78, 3 wo-weeks, 0 excluded.
+- `phaseTransitions(): ReportResult<PhaseTransition[]>` (`phaseTransitions.ts`, React-`cache`d) — per-project
+  `{project,date,from,to,isReopen}` from each `.pandacorp/status.yaml` git history; pure core
+  `derivePhaseTransitions(history | null)`. Live shape confirmed: the 4 expected mission-control transitions
+  incl. the 06-19 reopen (plus the real in-flight 06-29 reopen — honest, not fabricated).
+- `reportScalars(projectPath: string): ReportScalars` (`scalars.ts`, React-`cache`d) — `{frds, commits, decisions,
+  projects, testsPassing}`; pure core `deriveScalars(sources)`. **`testsPassing` is `null` ("no cableado")** — no
+  cheap real source today (pending-emitter, `docs/achievements.md §8`); never fabricated. Live: frds 21, commits
+  827, decisions 98, projects 2, testsPassing null.
+- `usageMix(data: ReaderData): UsageMix` (`usage.ts`, **pure, no new fs**) — top workflows (descending) + effort
+  mix (descending), from the already-read `eventsSnapshot`.
+- `funnelAndFlow(ideas, statuses): FunnelFlow` (`funnel.ts`, **pure**) — totalIdeas, byStatus (every bucket present),
+  launched, conversionPct, wip (design/architecture/implementation), discardsWithoutReason.
+- `lessonCounts(): LessonCounts | null` (`lessons.ts`) — `{distilled, captured}` or `null` ("no cableado") when the
+  memory dir is absent; pure core `deriveLessonCounts(sources)`. Live: distilled 1, captured 101.
+- `factoryVerdict(m: ReportMetrics): string` + `nextActions(m: ReportMetrics): NextAction[]` (`verdict.ts`) — pure
+  deterministic rules; each action carries its `command` (`/pandacorp:memory|/pandacorp:release|/pandacorp:recommend`).
+
+**Decisions & assumptions the consumer inherits:**
+- **Fail-loud contract:** the three git-backed readers return a discriminated `ReportResult<T> = {ok:true; value} |
+  {ok:false; reason:"git-unavailable"|"unparseable"}` (NOT a bare `[]`/`null`). The UI MUST branch on `.ok` and render
+  an error / "no cableado" band on `false` — an empty `value` (e.g. `woVerified: []`) is a **real zero**, not absence.
+  `reportScalars.testsPassing` and `lessonCounts()` use `null` for "no cableado".
+- **ISO week key** is `"YYYY-WW"` Monday-based, identical to `signals.ts`/`stats.ts` (one bucketing convention,
+  DR-092) — exported as `isoWeekKey`; reuse it, don't re-derive.
+- **Phase order** for the reopen flag: `product<design<architecture<implementation<release`; `isReopen` = `to` ranks
+  below `from`.
+- **WIP** = phase ∈ {design, architecture, implementation}; **launched** = phase=release; **conversionPct** =
+  `round(launched/totalIdeas*100)`, 0 when no ideas.
+- **`distilled`** = `factory/memory/LESSON-*.md` count (via `readLessons`); **`captured`** = `_inbox.md` non-empty lines.
+  A present-but-empty memory dir → real `{0,0}`, not `null`.
+- **Workflow names** were not on `Event` — `events.ts` was extended (additive, backward-compatible, same nested-`data`
+  pattern as WO-10-009) with `Event.workflows?: string[]` read from `data.background_tasks[].name`. `usageMix` reads that.
+  Malformed `background_tasks` drops the field (never throws).
+- **Mission-Control-in-factory git quirk:** `git show <sha>:<path>` resolves against the repo root, but MC shares the
+  factory `.git` (its status.yaml is `mission-control/.pandacorp/status.yaml`). The phase reader prepends
+  `git rev-parse --show-prefix` so the blob read resolves — handled inside the reader; consumers need not care.
+- Per-request caching (`React.cache`) wraps the git readers (`weeklyFlow`/`phaseTransitions`/`reportScalars`) so a tab
+  render runs git once, not per row; the **pure** `derive*` cores are unwrapped and unit-tested directly.
+- **Files & scope:** `report/{types,flowSeries,phaseTransitions,scalars,usage,funnel,lessons,verdict}.ts` + their
+  `_tests/`; plus the additive `Event.workflows` field in `src/lib/events/events.ts`. No rendering (WO-10-015 owns the
+  six bands). No mutation (read-only invariant). The report public entrypoints are currently unused exports — that is
+  expected (their consumer WO-10-015 `dependsOn: [WO-10-014]` is built next); whole-project `knip` greens once it wires
+  them.

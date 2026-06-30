@@ -115,6 +115,12 @@ export type Event = {
   frds?: string;
   /** Relaunch reason (`data.reason`, BuildRelaunch). */
   reason?: string;
+  /**
+   * Workflow/skill names this event ran (from `data.background_tasks[].name`, SubagentStop) —
+   * the real source of the "most-used workflows" usage mix (FRD-10 v3, WO-10-014). Optional +
+   * additive; absent when the event carries no background tasks. Empty/malformed entries dropped.
+   */
+  workflows?: string[];
 };
 
 /**
@@ -246,6 +252,21 @@ function readEffortLevel(raw: unknown): string | undefined {
 }
 
 /**
+ * Read the workflow/skill names from a `background_tasks` array (`[].name`), dropping
+ * malformed/empty entries. Returns undefined when the shape isn't an array or yields no name.
+ */
+function readWorkflowNames(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const names: string[] = [];
+  for (const task of raw) {
+    if (typeof task !== "object" || task === null || Array.isArray(task)) continue;
+    const name = (task as Record<string, unknown>).name;
+    if (typeof name === "string" && name.trim() !== "") names.push(name);
+  }
+  return names.length > 0 ? names : undefined;
+}
+
+/**
  * Apply the REAL result-bearing enriched fields (WO-10-009, FRD-10 v2) onto an
  * in-progress `Event`, read from the nested `data` object (real emitter shape)
  * with top-level fallback. Each field is carried through only when correctly
@@ -254,16 +275,8 @@ function readEffortLevel(raw: unknown): string | undefined {
  *
  * Extracted from `parseLine` to keep it within the complexity budget.
  */
-function applyResultFields(obj: Record<string, unknown>, ev: Event): void {
-  const src = enrichedSource(obj);
-
-  if (typeof src.verdict === "string") ev.verdict = src.verdict;
-  if (typeof src.result === "string") ev.result = src.result;
-  if (typeof src.agent_type === "string") ev.agentType = src.agent_type;
-  if (typeof src.wos === "string") ev.wos = src.wos;
-  if (typeof src.frds === "string") ev.frds = src.frds;
-  if (typeof src.reason === "string") ev.reason = src.reason;
-
+/** Apply the finite-number result fields (reopen_count, blocking, important, maxAgents). */
+function applyResultNumberFields(src: Record<string, unknown>, ev: Event): void {
   if (typeof src.reopen_count === "number" && Number.isFinite(src.reopen_count)) {
     ev.reopenCount = src.reopen_count;
   }
@@ -274,9 +287,25 @@ function applyResultFields(obj: Record<string, unknown>, ev: Event): void {
   if (typeof src.maxAgents === "number" && Number.isFinite(src.maxAgents)) {
     ev.maxAgents = src.maxAgents;
   }
+}
+
+function applyResultFields(obj: Record<string, unknown>, ev: Event): void {
+  const src = enrichedSource(obj);
+
+  if (typeof src.verdict === "string") ev.verdict = src.verdict;
+  if (typeof src.result === "string") ev.result = src.result;
+  if (typeof src.agent_type === "string") ev.agentType = src.agent_type;
+  if (typeof src.wos === "string") ev.wos = src.wos;
+  if (typeof src.frds === "string") ev.frds = src.frds;
+  if (typeof src.reason === "string") ev.reason = src.reason;
+
+  applyResultNumberFields(src, ev);
 
   const effortLevel = readEffortLevel(src.effort);
   if (effortLevel !== undefined) ev.effortLevel = effortLevel;
+
+  const workflows = readWorkflowNames(src.background_tasks);
+  if (workflows !== undefined) ev.workflows = workflows;
 }
 
 /**

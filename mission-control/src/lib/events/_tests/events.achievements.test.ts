@@ -175,6 +175,24 @@ describe("wo-10-009: real enriched fields surfaced from data.*", () => {
     expect(ev.agentType).toBe("workflow-subagent");
     expect(ev.effortLevel).toBe("xhigh");
   });
+
+  it("SubagentStop exposes workflow names from data.background_tasks[].name (WO-10-014)", () => {
+    const p = writeLines([
+      JSON.stringify({
+        event: "SubagentStop",
+        at: "2026-06-13T17:10:11Z",
+        data: {
+          effort: { level: "high" },
+          background_tasks: [
+            { id: "w1", type: "workflow", status: "running", name: "deep-research" },
+            { id: "w2", type: "workflow", status: "running", name: "pandacorp-build" },
+          ],
+        },
+      }),
+    ]);
+    const ev = readEvents({ path: p }).events[0] as Event;
+    expect(ev.workflows).toEqual(["deep-research", "pandacorp-build"]);
+  });
 });
 
 describe("wo-10-009: wrong-typed fields drop individually; never throw", () => {
@@ -214,6 +232,26 @@ describe("wo-10-009: wrong-typed fields drop individually; never throw", () => {
     ]);
     expect(() => readEvents({ path: p })).not.toThrow();
     expect(readEvents({ path: p }).events[0]?.effortLevel).toBeUndefined();
+  });
+
+  it("malformed background_tasks (not an array / no usable name) drops workflows without throwing", () => {
+    const p = writeLines([
+      JSON.stringify({
+        event: "SubagentStop",
+        at: "2026-06-13T17:10:11Z",
+        data: { background_tasks: { name: "deep-research" } },
+      }),
+      JSON.stringify({
+        event: "SubagentStop",
+        at: "2026-06-13T17:11:11Z",
+        data: { background_tasks: [{ id: "x" }, { name: 5 }, { name: "" }] },
+      }),
+    ]);
+    const snap = readEvents({ path: p });
+    expect(() => readEvents({ path: p })).not.toThrow();
+    expect(snap.events).toHaveLength(2);
+    expect(snap.events[0]?.workflows).toBeUndefined();
+    expect(snap.events[1]?.workflows).toBeUndefined();
   });
 
   it("a legacy event without any of the new fields leaves them undefined", () => {
