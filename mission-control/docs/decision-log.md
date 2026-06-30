@@ -4,6 +4,26 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-06-29 — WO-09-006: gamification ledger — persistent XP accumulator
+**What:** Implemented the gamification ledger (`factory/gamification-ledger.json`, gitignored) that
+records the historical maximum guild outcomes (workOrdersDone, phasesCompleted, releases) so that
+deleting a project NEVER decreases the guild's XP or level. Three new artifacts: (1)
+`lib/gamification/ledger.ts` — pure module with `readLedger` (DR-078 compliant: never throws,
+zero-totals on absent/malformed), `mergeLedgerOutcomes` (MAX(live, ledger) per metric), and
+`needsSnapshot` (detects when a write is needed); (2) `app/_actions/snapshotLedger.ts` — Server
+Action that reads, compares, and writes the ledger only when needsSnapshot is true (fire-and-forget,
+never blocks render); (3) `GamificationLedgerSync` client component (renders null) mounted in
+`app/page.tsx` — calls the action once after hydration. Integration: the ledger merge now happens
+inside `readGuildState()` in `lib/gamification/guildState.ts` (the single source of truth) so all
+three surfaces (GuildBar, dashboard, Logros hero) pick up the ledger floor at once. `GuildState`
+exposes both `liveOutcomes` (pre-merge, for the snapshot action) and `outcomes` (post-merge, for the
+level computation). `factory/gamification-ledger.json` added to the factory root `.gitignore`.
+**Why:** AC-09-006.1–3 (FRD-09). Ensures historical XP is never lost when a project is deleted.
+The write is fire-and-forget (never blocks TTFB). Personal data — gitignored (DR-033).
+**Impact:** `docs/frds/frd-09-gamification/frd.md` (AC-09-006 already present); `docs/design/components.md`
+(new `GamificationLedgerSync` row); `.gitignore` (ledger entry); `lib/gamification/guildState.ts`
+(ledger merge integrated into single source of truth).
+
 ## 2026-06-29 — FRD-10 v3: el tab Estadísticas pasa a "Informe operativo" (spec + work orders)
 **What:** Iteración aprobada del Salón de Logros (FRD-10): el tab **Estadísticas** se expande de la hoja
 de personaje (radar + récords + ledger) a un **Informe** sobrio para el operador, alimentado solo por

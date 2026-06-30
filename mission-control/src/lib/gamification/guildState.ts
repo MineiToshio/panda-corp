@@ -28,6 +28,7 @@ import {
   type GuildLevel,
   type GuildOutcomes,
 } from "./gamification";
+import { mergeLedgerOutcomes, readLedger } from "./ledger";
 
 /**
  * Everything the guild surfaces need, derived once from the live data layers.
@@ -38,7 +39,19 @@ export type GuildState = {
   readonly statuses: readonly StatusResult[];
   /** The dashboard-events snapshot (shared so consumers don't re-read it). */
   readonly eventsSnapshot: EventsSnapshot;
-  /** The guild outcomes feeding the level (products shipped, work orders, …). */
+  /**
+   * The raw live outcomes derived from the current portfolio state, BEFORE the
+   * ledger merge. Exposed so `GamificationLedgerSync` can pass them to the
+   * snapshot action — which itself applies MAX(live, ledger) and writes only when
+   * the live value genuinely exceeds the stored maximum (AC-09-006.2).
+   * Passing the pre-merged outcomes to the action would cause `needsSnapshot` to
+   * never fire (it would see ledger values as "live"), breaking the snapshot logic.
+   */
+  readonly liveOutcomes: GuildOutcomes;
+  /**
+   * The ledger-merged outcomes: MAX(live, ledger) for each metric (AC-09-006.1).
+   * This is what feeds `level` — deleting a project never decreases XP/level.
+   */
   readonly outcomes: GuildOutcomes;
   /** The single guild level / rank / XP shown across the whole app. */
   readonly level: GuildLevel;
@@ -56,9 +69,18 @@ export function readGuildState(): GuildState {
   // be resolved before readStatus, or every project reads ABSENT (the original bug).
   const statuses = readPortfolio().map((entry) => readStatus(resolveProjectPath(entry.path)));
   const eventsSnapshot = readEvents();
-  const outcomes = deriveGuildOutcomes({ statuses, eventsSnapshot });
+
+  // Live outcomes from the current portfolio state.
+  const liveOutcomes = deriveGuildOutcomes({ statuses, eventsSnapshot });
+
+  // WO-09-006 — ledger merge: MAX(live, ledger) so deleting a project NEVER
+  // decreases the guild's XP or level (AC-09-006.1).
+  // readLedger returns zero-totals if the file is absent or malformed (AC-09-006.3).
+  const ledger = readLedger();
+  const outcomes = mergeLedgerOutcomes(liveOutcomes, ledger);
+
   const level = computeGuildLevel(outcomes);
-  return { statuses, eventsSnapshot, outcomes, level };
+  return { statuses, eventsSnapshot, liveOutcomes, outcomes, level };
 }
 
 /**

@@ -49,6 +49,24 @@ vi.mock("@/lib/gamification/gamification", async (importOriginal) => {
   };
 });
 
+// Neutralize the persistent ledger floor so the empty-factory render is hermetic
+// (WO-09-006 / DR-073). getGuildState() merges MAX(live, ledger); the live readers
+// above are mocked to an EMPTY factory, but the ledger read hits the real on-disk
+// factory/gamification-ledger.json (gitignored) and would floor the outcomes to its
+// historical maximum — fabricating the honest-zero XP bar (FRD-09, AC-10-005.3).
+// Mocking only readLedger keeps the real mergeLedgerOutcomes MAX semantics under test.
+vi.mock("@/lib/gamification/ledger", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/gamification/ledger")>();
+  return {
+    ...actual,
+    readLedger: vi.fn().mockReturnValue({
+      version: 1 as const,
+      updatedAt: new Date(0).toISOString(),
+      totals: { workOrdersDone: 0, phasesCompleted: 0, releases: 0 },
+    }),
+  };
+});
+
 // ── The page is a Server Component (async function) ───────────────────────────
 // In Vitest + jsdom we await the default export, which returns a JSX element.
 // We can import and render it as a plain async function.

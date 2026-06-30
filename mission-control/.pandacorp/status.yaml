@@ -11,21 +11,21 @@ deploy_url: "http://192.168.18.227:1987"  # MC's internal release on the LAN
 running: true
 run_started_at: "2026-06-29T23:57:36Z"
 repo: ""
-updated_at: "2026-06-29T00:00:00Z"
-last_event_at: "2026-06-29T00:00:00Z"
+updated_at: "2026-06-30T00:36:28Z"
+last_event_at: "2026-06-30T00:36:28Z"
 work_orders_total: 94
-work_orders_verified: 91
+work_orders_verified: 92
 work_orders_in_review: 0
-work_orders_planned: 3
+work_orders_planned: 2
 work_orders_in_progress: 0
 work_orders_blocked: 0
-work_orders_done: 91
+work_orders_done: 92
 pending_decisions: 1
 pending_bugs: 0
 rethink_pending: false
 advance_pending: false
-last_green_sha: "1d1d981"
-safe_to_test: true  # full verify.sh green (re-anchor Phase A: FRD-19 app shell, 79/79 WOs, 2026-06-22)
+last_green_sha: "de77842"
+safe_to_test: true  # whole-project gate green (vitest 359 files/7180+2xfail, tsc/knip/biome clean) — WO-09-006 ledger hermeticity (DR-073), 2026-06-29
 blocked: []
 supervisor_heartbeat: "2026-06-29T23:57:36Z"
-pending_changes: 8
+pending_changes: 9
