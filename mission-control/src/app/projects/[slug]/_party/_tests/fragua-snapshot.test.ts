@@ -288,6 +288,68 @@ describe("frd-06: toFraguaSnapshot — backward compat / missing fields (AC-06-0
 });
 
 // ---------------------------------------------------------------------------
+// FRD-level `wo` ids are not work orders (no phantom avatar, no inflated count)
+// ---------------------------------------------------------------------------
+
+describe("frd-06: toFraguaSnapshot — FRD-level wo ids are excluded", () => {
+  it("frd-06: WHEN an AgentWorking event carries the FRD id in wo THEN it is not a running WO", () => {
+    const events = [
+      {
+        event: "AgentWorking" as const,
+        at: "2026-06-30T10:00:00Z",
+        frd: "frd-02-home-positioning",
+        workOrder: "frd-02-home-positioning",
+        mode: "powerful" as const,
+      },
+      {
+        event: "AgentWorking" as const,
+        at: "2026-06-30T10:01:00Z",
+        frd: "frd-02-home-positioning",
+        workOrder: "WO-02-001",
+        mode: "powerful" as const,
+      },
+    ];
+    const snap = toFraguaSnapshot(events, { lastEventAt: null });
+    expect(snap.running.map((r) => r.wo)).toEqual(["WO-02-001"]);
+  });
+
+  it("frd-06: WHEN the FRD id appears in wo THEN it does not inflate the WO total", () => {
+    const events = [
+      {
+        event: "AgentWorking" as const,
+        at: "2026-06-30T10:00:00Z",
+        frd: "frd-02-home-positioning",
+        workOrder: "frd-02-home-positioning",
+        mode: "powerful" as const,
+      },
+      {
+        event: "AgentWorking" as const,
+        at: "2026-06-30T10:01:00Z",
+        frd: "frd-02-home-positioning",
+        workOrder: "WO-02-001",
+        mode: "powerful" as const,
+      },
+    ];
+    const snap = toFraguaSnapshot(events, { lastEventAt: null });
+    expect(snap.project.total).toBe(1);
+  });
+
+  it("frd-06: WHEN an achievement carries the FRD id in wo THEN it is not counted as done", () => {
+    const events = [
+      {
+        event: "achievement" as const,
+        at: "2026-06-30T10:00:00Z",
+        frd: "frd-02-home-positioning",
+        workOrder: "frd-02-home-positioning",
+      },
+    ];
+    const snap = toFraguaSnapshot(events, { lastEventAt: null });
+    expect(snap.project.done).toBe(0);
+    expect(snap.trophies).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Never imports a Claude/AI client (auditable — AC-06-008.1)
 // ---------------------------------------------------------------------------
 

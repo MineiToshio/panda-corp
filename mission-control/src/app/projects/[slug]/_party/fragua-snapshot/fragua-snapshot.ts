@@ -197,6 +197,18 @@ function detectModeAndFrd(events: readonly DashboardEvent[]): {
 // Pass 2 helpers: process individual event types
 // ---------------------------------------------------------------------------
 
+/**
+ * An event's `wo` field can carry a real work-order id (`WO-02-001`),
+ * `foundation`, OR — for FRD-level activity (an agent working the FRD as a
+ * whole, before/between its work orders) — the FRD id itself (`frd-02-home`).
+ * Only real work orders are sprites/counted in the scene; an FRD id arriving in
+ * `wo` is NOT a work order and must never spawn a phantom avatar or inflate the
+ * WO count.
+ */
+function isFrdLevelWoId(wo: string): boolean {
+  return /^frd-/i.test(wo);
+}
+
 /** Mutable running-WO tracking sets shared across pass-2 event processors. */
 interface RunningTracking {
   readonly seenWoIds: Set<string>;
@@ -219,6 +231,7 @@ function processAgentWorking(
     typeof ev.workOrder !== "string"
   )
     return;
+  if (isFrdLevelWoId(ev.workOrder)) return;
 
   scan.allWoIds.add(ev.workOrder);
   if (!tracking.seenWoIds.has(ev.workOrder) && !tracking.stoppedWoIds.has(ev.workOrder)) {
@@ -245,6 +258,7 @@ function processSubagentStop(
     typeof ev.workOrder !== "string"
   )
     return;
+  if (isFrdLevelWoId(ev.workOrder)) return;
 
   stoppedWoIds.add(ev.workOrder);
   const idx = scan.runningWos.indexOf(ev.workOrder);
@@ -268,6 +282,7 @@ function processAchievement(
   scan: FrdScan,
 ): void {
   if (ev.event !== "achievement" || typeof ev.workOrder !== "string") return;
+  if (isFrdLevelWoId(ev.workOrder)) return;
 
   // Global counter: every unique achievement WO, regardless of FRD.
   scan.globalDoneWoIds.add(ev.workOrder);
@@ -307,8 +322,13 @@ function scanFrdData(events: readonly DashboardEvent[], ctx: FrdContext): FrdSca
   const tracking: RunningTracking = { seenWoIds, stoppedWoIds };
 
   for (const ev of events) {
-    // Track all WOs for this FRD across all event types.
-    if (ev.frd === ctx.currentFrdId && typeof ev.workOrder === "string") {
+    // Track all WOs for this FRD across all event types (FRD-level wo ids,
+    // which carry the FRD id itself, are not work orders — excluded).
+    if (
+      ev.frd === ctx.currentFrdId &&
+      typeof ev.workOrder === "string" &&
+      !isFrdLevelWoId(ev.workOrder)
+    ) {
       scan.allWoIds.add(ev.workOrder);
     }
 
