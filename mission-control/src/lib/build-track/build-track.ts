@@ -331,8 +331,11 @@ function applyLine(map: Map<string, FrdAccumulator>, line: TrackLine): void {
 
 /** Resolve a WO accumulator's final state, cross-referencing the orders list. */
 function resolveWoState(wo: WoAccumulator, orderState: TLState | undefined): TLState {
-  // A start with no matching end ⇒ in progress.
+  // An open attempt always wins — the WO is actively running right now.
   if (wo.lastStart !== null && wo.lastEnd === null) return "in_progress";
+  // Frontmatter "done" is authoritative: the track may carry a stale intermediate state
+  // (e.g. "review") when the build was interrupted before its final event was written.
+  if (orderState === "done") return "done";
   if (wo.lastEndState !== null) return wo.lastEndState;
   if (orderState !== undefined) return orderState;
   return "todo";
@@ -350,9 +353,50 @@ function buildReview(frd: FrdAccumulator): TLReview | null {
   };
 }
 
+/** Index orders by their FRD slug for O(1) lookup in fromTrack. */
+function groupOrdersByFrd(orders: readonly WorkOrder[]): Map<string, WorkOrder[]> {
+  const byFrd = new Map<string, WorkOrder[]>();
+  for (const o of orders) {
+    let list = byFrd.get(o.frd);
+    if (list === undefined) {
+      list = [];
+      byFrd.set(o.frd, list);
+    }
+    list.push(o);
+  }
+  return byFrd;
+}
+
+/**
+ * Append WOs that belong to `frdId` in the orders list but have no track events
+ * (built before track.jsonl existed, or in an interrupted run).
+ */
+function supplementMissingWos(
+  tlWos: TLWorkOrder[],
+  frdId: string,
+  ordersByFrd: ReadonlyMap<string, WorkOrder[]>,
+): void {
+  const trackedWoIds = new Set(tlWos.map((w) => w.id));
+  for (const order of ordersByFrd.get(frdId) ?? []) {
+    if (!trackedWoIds.has(order.id)) {
+      tlWos.push({
+        id: order.id,
+        title: order.title,
+        frd: frdId,
+        state: mapOrderState(order.state),
+        startMs: null,
+        endMs: null,
+        durationMin: null,
+        attempts: 0,
+      });
+    }
+  }
+}
+
 function fromTrack(lines: readonly TrackLine[], orders: readonly WorkOrder[]): BuildTimeline {
   const orderById = new Map<string, WorkOrder>();
   for (const o of orders) orderById.set(o.id, o);
+  const ordersByFrd = groupOrdersByFrd(orders);
 
   const acc = new Map<string, FrdAccumulator>();
   for (const line of lines) applyLine(acc, line);
@@ -388,6 +432,8 @@ function fromTrack(lines: readonly TrackLine[], orders: readonly WorkOrder[]): B
       frdEndFromWos = maxNullable(frdEndFromWos, wo.lastEnd);
       buildStartMs = minNullable(buildStartMs, wo.lastStart);
     }
+
+    supplementMissingWos(tlWos, frdAcc.id, ordersByFrd);
 
     tlWos.sort((a, b) => compareByStartThenId(a.startMs, a.id, b.startMs, b.id));
 
@@ -681,7 +727,19 @@ export function readBuildTimeline(
   if (projectPath && projectPath.trim() !== "") {
     const lines = readTrackLines(projectPath);
     if (lines.length > 0) {
-      return fromTrack(lines, orders);
+      const trackResult = fromTrack(lines, orders);
+      // Supplement with structural FRDs for FRDs present in orders but absent from the
+      // track (built before track.jsonl existed, or the run was interrupted early).
+      const trackedIds = new Set(trackResult.frds.map((f) => f.id));
+      const untrackedOrders = orders.filter((o) => !trackedIds.has(o.frd));
+      if (untrackedOrders.length > 0) {
+        const supplement = fromStructural(untrackedOrders);
+        const allFrds = [...supplement.frds, ...trackResult.frds].sort((a, b) =>
+          a.id.localeCompare(b.id),
+        );
+        return { ...trackResult, frds: allFrds };
+      }
+      return trackResult;
     }
   }
 

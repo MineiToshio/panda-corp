@@ -313,6 +313,109 @@ describe("readBuildTimeline — malformed input is fail-soft", () => {
 });
 
 // ---------------------------------------------------------------------------
+// (g) Partial track — cumulative supplement for missing FRDs and WOs
+// ---------------------------------------------------------------------------
+
+describe("readBuildTimeline — partial track supplements with structural data", () => {
+  it("shows all FRDs when only some are tracked (the pre-track FRDs come from orders)", () => {
+    // Track only covers frd-09; frd-01 through frd-08 were built before track.jsonl existed.
+    const projectPath = writeTrack([
+      line({
+        kind: "wo_start",
+        frd: "frd-09-gamification",
+        wo: "WO-09-006",
+        at: "2026-06-30T00:05:00Z",
+      }),
+      line({
+        kind: "wo_end",
+        frd: "frd-09-gamification",
+        wo: "WO-09-006",
+        state: "in_review",
+        at: "2026-06-30T00:20:00Z",
+      }),
+    ]);
+    const orders: WorkOrder[] = [
+      makeOrder({ id: "WO-01-001", frd: "frd-01-data-reading", state: "done" }),
+      makeOrder({ id: "WO-09-006", frd: "frd-09-gamification", state: "done" }),
+    ];
+
+    const tl = readBuildTimeline(projectPath, orders);
+
+    expect(tl.source).toBe("track");
+    const ids = tl.frds.map((f) => f.id);
+    expect(ids).toContain("frd-01-data-reading");
+    expect(ids).toContain("frd-09-gamification");
+    // FRDs ordered by id (frd-01 < frd-09)
+    expect(ids.indexOf("frd-01-data-reading")).toBeLessThan(ids.indexOf("frd-09-gamification"));
+
+    // Structural supplement: no timing
+    const frd01 = tl.frds.find((f) => f.id === "frd-01-data-reading");
+    expect(frd01?.state).toBe("done");
+    expect(frd01?.startMs).toBeNull();
+  });
+
+  it("defers to frontmatter 'done' when the track has a stale intermediate state", () => {
+    // Track records wo_end with in_review, but the WO is now VERIFIED (done) in frontmatter.
+    const projectPath = writeTrack([
+      line({ kind: "wo_start", frd: "frd-01-x", wo: "WO-01-001", at: "2026-06-30T00:00:00Z" }),
+      line({
+        kind: "wo_end",
+        frd: "frd-01-x",
+        wo: "WO-01-001",
+        state: "in_review",
+        at: "2026-06-30T00:10:00Z",
+      }),
+    ]);
+    const orders: WorkOrder[] = [makeOrder({ id: "WO-01-001", frd: "frd-01-x", state: "done" })];
+
+    const tl = readBuildTimeline(projectPath, orders);
+
+    expect(tl.source).toBe("track");
+    expect(tl.frds[0]?.workOrders[0]?.state).toBe("done");
+    expect(tl.frds[0]?.state).toBe("done");
+    // Timing from the track is still preserved
+    expect(tl.frds[0]?.workOrders[0]?.startMs).not.toBeNull();
+    expect(tl.frds[0]?.workOrders[0]?.durationMin).toBe(10);
+  });
+
+  it("adds WOs not in the track but in orders for the same tracked FRD", () => {
+    // Track only saw WO-01-002; WO-01-001 and WO-01-003 were built earlier.
+    const projectPath = writeTrack([
+      line({ kind: "wo_start", frd: "frd-01-x", wo: "WO-01-002", at: "2026-06-30T00:00:00Z" }),
+      line({
+        kind: "wo_end",
+        frd: "frd-01-x",
+        wo: "WO-01-002",
+        state: "verified",
+        at: "2026-06-30T00:10:00Z",
+      }),
+    ]);
+    const orders: WorkOrder[] = [
+      makeOrder({ id: "WO-01-001", frd: "frd-01-x", title: "First", state: "done" }),
+      makeOrder({ id: "WO-01-002", frd: "frd-01-x", title: "Second", state: "done" }),
+      makeOrder({ id: "WO-01-003", frd: "frd-01-x", title: "Third", state: "done" }),
+    ];
+
+    const tl = readBuildTimeline(projectPath, orders);
+
+    expect(tl.frds).toHaveLength(1);
+    const woIds = tl.frds[0]?.workOrders.map((w) => w.id).sort();
+    expect(woIds).toEqual(["WO-01-001", "WO-01-002", "WO-01-003"]);
+
+    // WO-01-001 has no track data → structural state from frontmatter
+    const wo01 = tl.frds[0]?.workOrders.find((w) => w.id === "WO-01-001");
+    expect(wo01?.state).toBe("done");
+    expect(wo01?.startMs).toBeNull();
+    expect(wo01?.attempts).toBe(0);
+
+    // WO-01-002 has real track timing
+    const wo02 = tl.frds[0]?.workOrders.find((w) => w.id === "WO-01-002");
+    expect(wo02?.startMs).not.toBeNull();
+    expect(wo02?.durationMin).toBe(10);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // (f) Git fallback — estimated reconstruction from commit history (pure)
 // ---------------------------------------------------------------------------
 
