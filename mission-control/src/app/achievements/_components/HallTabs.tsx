@@ -31,14 +31,17 @@ import type { ChainState, Seal, Secret, Unique } from "@/lib/achievements/achiev
 import { computeSeals } from "@/lib/achievements/achievements";
 import type { Saga } from "@/lib/achievements/definitions";
 import { SAGA_ICONS, SAGA_ORDER } from "@/lib/achievements/definitions";
+import type { ReportScalars } from "@/lib/achievements/report/types";
 import type { ReaderData } from "@/lib/achievements/stats";
 import { rarityColor } from "@/lib/achievements/tiers";
 import type { GuildLevel } from "@/lib/gamification/gamification";
 import { AlmostThere } from "../AlmostThere";
 import { ChainCard } from "../ChainCard/ChainCard";
+import { InformeBands, InformePulse } from "../Informe/Informe";
+import type { InformeData } from "../Informe/informeData";
 import { RankLadder } from "../RankLadder/RankLadder";
 import { SecretsPanel } from "../SecretsPanel/SecretsPanel";
-import { StatsPanel } from "../StatsPanel";
+import { StatsPanel, type StatsRecords } from "../StatsPanel";
 import { UniquesSection } from "../UniquesSection/UniquesSection";
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
@@ -411,6 +414,58 @@ function TrofeosTab({
   );
 }
 
+// ── EstadisticasTab ─────────────────────────────────────────────────────────────
+
+type EstadisticasTabProps = {
+  readerData: ReaderData;
+  informeData?: InformeData;
+  statsScalars?: ReportScalars;
+  statsRecords?: StatsRecords;
+};
+
+/**
+ * Estadísticas tab body — the sober operator "Informe operativo" (WO-10-015).
+ *
+ * Interleaved layout matching the approved prototype:
+ *   1. "— RESUMEN EJECUTIVO —" divider
+ *   2. Pulse band (verdict + KPI row)            → <InformePulse>
+ *   3. Radar + 2×3 records grid + 8-row ledger   → <StatsPanel> (the existing character sheet)
+ *   4. Bands 2-6 (time, usage, funnel, health, actions) → <InformeBands>
+ *
+ * When `informeData` is absent (a minimal HallTabs mount, e.g. the DR-062 tab-primitive
+ * gate that renders only the shell), it degrades to the plain StatsPanel — no report.
+ */
+function EstadisticasTab({
+  readerData,
+  informeData,
+  statsScalars,
+  statsRecords,
+}: EstadisticasTabProps): React.JSX.Element {
+  if (informeData === undefined) {
+    return <StatsPanel readerData={readerData} />;
+  }
+  return (
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "10px", margin: "4px 2px 12px" }}>
+        <span
+          style={{
+            fontFamily: "var(--font-pixel)",
+            fontSize: "11px",
+            color: "var(--color-accent-text)",
+            letterSpacing: ".06em",
+          }}
+        >
+          — RESUMEN EJECUTIVO —
+        </span>
+        <div style={{ flex: 1, height: "1px", background: "var(--color-border)" }} />
+      </div>
+      <InformePulse data={informeData} />
+      <StatsPanel readerData={readerData} scalars={statsScalars} records={statsRecords} />
+      <InformeBands data={informeData} />
+    </div>
+  );
+}
+
 // ── ResumenTab ─────────────────────────────────────────────────────────────────
 
 type ResumenTabProps = {
@@ -451,6 +506,14 @@ export type HallTabsProps = {
   hero: React.ReactNode;
   /** Guild level — drives the Rangos ladder (current rank + progress). */
   level: GuildLevel;
+  /** Pre-assembled Informe operativo data (WO-10-015) — the Estadísticas tab report.
+   *  Optional so a minimal HallTabs render (e.g. the DR-062 tab-primitive gate) still
+   *  mounts; when absent the Estadísticas tab falls back to the plain StatsPanel. */
+  informeData?: InformeData;
+  /** Wired scalar counts for the expanded 8-row ledger (WO-10-015). */
+  statsScalars?: ReportScalars;
+  /** The 3 extra record tiles for the 2×3 records grid (WO-10-015). */
+  statsRecords?: StatsRecords;
 };
 
 /**
@@ -472,6 +535,9 @@ export function HallTabs({
   missionsActive,
   hero,
   level,
+  informeData,
+  statsScalars,
+  statsRecords,
 }: HallTabsProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<TabId>("resumen");
 
@@ -556,7 +622,12 @@ export function HallTabs({
           aria-labelledby="logros-tab-btn-estadisticas"
           hidden={activeTab !== "estadisticas"}
         >
-          <StatsPanel readerData={readerData} />
+          <EstadisticasTab
+            readerData={readerData}
+            informeData={informeData}
+            statsScalars={statsScalars}
+            statsRecords={statsRecords}
+          />
         </div>
         <div
           id="logros-panel-rangos"

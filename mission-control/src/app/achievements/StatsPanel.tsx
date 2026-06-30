@@ -25,8 +25,12 @@
  */
 
 import { computeChains, metricLevel } from "@/lib/achievements/achievements";
+import type { ReportScalars } from "@/lib/achievements/report/types";
 import { computeStats, type ReaderData, type Stat } from "@/lib/achievements/stats";
 import { tierColor } from "@/lib/achievements/tiers";
+
+/** A "no cableado" placeholder for a ledger value with no wired source (honesty contract). */
+const NO_CABLEADO_LABEL = "no cableado";
 
 // ── Level helpers (UNBOUNDED character-sheet level — FRD-09 phase 3) ──────────────
 // The displayed value is "Nv N" with NO 5-cap; the dot keeps a 5-hue band so it
@@ -259,6 +263,71 @@ function StatLedgerRow({ stat, tierIndex, iconClass }: StatLedgerRowProps): Reac
         }}
       >
         {stat.value}
+      </span>
+    </li>
+  );
+}
+
+// ── StaticLedgerRow (scalar rows: FRDs, Commits, Tests… — no per-metric level) ──
+
+type StaticLedgerRowProps = {
+  label: string;
+  iconClass: string;
+  /** The numeric value, or null → "no cableado" (honesty contract, AC-10-015.7). */
+  value: number | null;
+};
+
+/**
+ * StaticLedgerRow — a ledger row for a wired scalar (FRDs/Commits/Projects/Tests/DR).
+ *
+ * Same shape as StatLedgerRow but with no tier node (these are factory totals, not
+ * levelled metrics). A `null` value renders "no cableado" instead of a fabricated 0.
+ * Tokens only. Server Component.
+ */
+function StaticLedgerRow({ label, iconClass, value }: StaticLedgerRowProps): React.JSX.Element {
+  const wired = value !== null;
+  return (
+    <li
+      data-testid="stat-ledger-row"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "10px",
+        padding: "8px 11px",
+        borderTop: "1px solid var(--color-border)",
+      }}
+    >
+      <i
+        className={`ti ${iconClass}`}
+        aria-hidden="true"
+        style={{ fontSize: "15px", color: "var(--color-text3)", flexShrink: 0 }}
+      />
+      <span
+        style={{
+          fontSize: "12px",
+          color: "var(--color-text2)",
+          flex: 1,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {label}
+      </span>
+      <span
+        data-testid="stat-ledger-value"
+        className={wired ? "tabular-nums" : undefined}
+        style={{
+          fontFamily: "var(--font-pixel)",
+          fontSize: wired ? "18px" : "11px",
+          lineHeight: 1,
+          color: wired ? "var(--color-text)" : "var(--color-text3)",
+          minWidth: "36px",
+          textAlign: "right",
+          flexShrink: 0,
+        }}
+      >
+        {wired ? value : NO_CABLEADO_LABEL}
       </span>
     </li>
   );
@@ -556,10 +625,58 @@ const HERO_STAT_KEYS: Array<{ key: string; label: string; iconClass: string; sub
   { key: "speed", label: "Récord idea→launch", iconClass: "ti-bolt", sub: "días, lo más rápido" },
 ];
 
+/**
+ * The wired scalar rows appended to each ledger column so all three columns end at
+ * exactly 8 rows (AC-10-015.7 — aligned, no staircase). `scalarKey` picks the value
+ * from `ReportScalars` (`null` testsPassing → "no cableado"). Producción += 3, Calidad
+ * += 2; Ritmo & alcance already supplies 8 keys so it has no scalar extras.
+ */
+const LEDGER_SCALAR_ROWS: Record<
+  string,
+  Array<{ label: string; iconClass: string; scalarKey: keyof ReportScalars }>
+> = {
+  Producción: [
+    { label: "FRDs completados", iconClass: "ti-file-text", scalarKey: "frds" },
+    { label: "Commits", iconClass: "ti-git-commit", scalarKey: "commits" },
+    { label: "Proyectos creados", iconClass: "ti-folder", scalarKey: "projects" },
+  ],
+  Calidad: [
+    { label: "Tests en verde", iconClass: "ti-test-pipe", scalarKey: "testsPassing" },
+    { label: "Decisiones / DR", iconClass: "ti-gavel", scalarKey: "decisions" },
+  ],
+};
+
+/** The three extra record tiles (2×3 grid) added by WO-10-015 (REQ-10-027). */
+const EXTRA_RECORD_TILES: Array<{
+  label: string;
+  iconClass: string;
+  sub: string;
+  tierIndex: number;
+}> = [
+  { label: "Pico semanal", iconClass: "ti-trophy", sub: "WO en la mejor semana", tierIndex: 4 },
+  { label: "Lecciones", iconClass: "ti-book-2", sub: "capturadas en memoria", tierIndex: 4 },
+  { label: "Subagentes", iconClass: "ti-users-group", sub: "coordinados en total", tierIndex: 5 },
+];
+
 // ── StatsPanel props ──────────────────────────────────────────────────────────
+
+/** The extra record-tile values (2×3 grid) — REQ-10-027. */
+export type StatsRecords = {
+  /** Peak WO-verified week count. */
+  readonly peakWeek: number;
+  /** Captured lessons in memory. */
+  readonly capturedLessons: number;
+  /** Subagents coordinated in total. */
+  readonly subagents: number;
+};
 
 export type StatsPanelProps = {
   readerData: ReaderData;
+  /** Wired scalar counts for the expanded 8-row ledger (WO-10-015). Optional → ledger
+   *  shows only the levelled-metric rows (backward-compatible with WO-10-005 callers). */
+  scalars?: ReportScalars;
+  /** The three extra record tiles for the 2×3 grid (WO-10-015). Optional → 3 records. */
+  records?: StatsRecords;
 };
 
 // ── StatsPanel ────────────────────────────────────────────────────────────────
@@ -575,7 +692,7 @@ export type StatsPanelProps = {
  * Server Component: receives pre-read ReaderData and renders purely.
  * No I/O, no state, no client hooks.
  */
-export function StatsPanel({ readerData }: StatsPanelProps): React.JSX.Element {
+export function StatsPanel({ readerData, scalars, records }: StatsPanelProps): React.JSX.Element {
   const stats = computeStats(readerData);
   const chains = computeChains(stats); // radar axes only (normalized 0–100)
 
@@ -586,12 +703,22 @@ export function StatsPanel({ readerData }: StatsPanelProps): React.JSX.Element {
     stats.map((s) => [s.key, metricLevel(s.key, s.value)]),
   );
 
-  // Hero stat values
-  const heroStats = HERO_STAT_KEYS.map((h) => ({
+  // Hero stat values (the 3 base record tiles)
+  const baseHeroStats = HERO_STAT_KEYS.map((h) => ({
     ...h,
     value: statByKey.get(h.key)?.value ?? 0,
     tierIndex: levelByKey.get(h.key) ?? 0,
   }));
+
+  // The 2×3 records grid (WO-10-015): the 3 base tiles + Peak week / Lessons / Subagents.
+  // When `records` is absent (WO-10-005 caller), only the 3 base tiles render.
+  const extraValues =
+    records === undefined ? [] : [records.peakWeek, records.capturedLessons, records.subagents];
+  const extraHeroStats = EXTRA_RECORD_TILES.slice(0, extraValues.length).map((tile, i) => ({
+    ...tile,
+    value: extraValues[i] ?? 0,
+  }));
+  const heroStats = [...baseHeroStats, ...extraHeroStats];
 
   // Radar axes (derived from real stats, capped at 100)
   const shippedVal = statByKey.get("shipped")?.value ?? 0;
@@ -633,19 +760,20 @@ export function StatsPanel({ readerData }: StatsPanelProps): React.JSX.Element {
           <StatRadar axes={radarAxes} />
         </div>
 
-        {/* HeroStat tiles — flex column */}
+        {/* HeroStat tiles — a 2×3 grid when the 6 records are wired (WO-10-015),
+            else the legacy 3-tile flex column (WO-10-005 callers). */}
         <div
           style={{
             flex: 1,
             minWidth: "220px",
-            display: "flex",
-            flexDirection: "column",
+            display: "grid",
+            gridTemplateColumns: records === undefined ? "1fr" : "1fr 1fr",
             gap: "10px",
           }}
         >
           {heroStats.map((h) => (
             <HeroStat
-              key={h.key}
+              key={h.label}
               label={h.label}
               iconClass={h.iconClass}
               value={h.value}
@@ -673,11 +801,16 @@ export function StatsPanel({ readerData }: StatsPanelProps): React.JSX.Element {
               (x): x is { stat: Stat; tierIndex: number; key: string } => x.stat !== undefined,
             );
 
-          if (colStats.length === 0) return null;
+          // Wired scalar rows appended so all 3 columns end at exactly 8 rows
+          // (AC-10-015.7). Only when `scalars` is provided (WO-10-015 caller).
+          const scalarRows = scalars === undefined ? [] : (LEDGER_SCALAR_ROWS[col.title] ?? []);
+
+          if (colStats.length === 0 && scalarRows.length === 0) return null;
 
           return (
             <div
               key={col.title}
+              data-testid="stat-ledger-column"
               style={{
                 ...RPGPANEL,
                 padding: "5px 4px 7px",
@@ -707,7 +840,7 @@ export function StatsPanel({ readerData }: StatsPanelProps): React.JSX.Element {
                 {col.title}
               </div>
 
-              {/* Ledger rows */}
+              {/* Ledger rows — levelled metrics, then the wired scalar rows (8 total). */}
               <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
                 {colStats.map(({ stat, tierIndex, key }) => (
                   <StatLedgerRow
@@ -715,6 +848,14 @@ export function StatsPanel({ readerData }: StatsPanelProps): React.JSX.Element {
                     stat={stat}
                     tierIndex={tierIndex}
                     iconClass={STAT_ICONS[key] ?? "ti-star"}
+                  />
+                ))}
+                {scalarRows.map((row) => (
+                  <StaticLedgerRow
+                    key={row.scalarKey}
+                    label={row.label}
+                    iconClass={row.iconClass}
+                    value={scalars === undefined ? null : scalars[row.scalarKey]}
                   />
                 ))}
               </ul>

@@ -5,7 +5,7 @@ slug: informe-ui
 title: 'WO-10-015 — Informe operativo UI: 6 bands + 8-row ledger + records 2×3 (sober register)'
 status: ACTIVE
 parent: FRD-10
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 source_requirements: [REQ-10-020, REQ-10-021, REQ-10-022, REQ-10-023, REQ-10-024, REQ-10-025, REQ-10-026, REQ-10-027]
 artifacts: [src/app/achievements/Informe/**, src/app/achievements/StatsPanel.tsx, src/app/achievements/_components/HallTabs.tsx, src/app/achievements/_tests/**]
 difficulty: high
@@ -121,3 +121,65 @@ Server Component.
 ## Definition of done
 `pnpm vitest run app/achievements` green incl. new + existing; tsc + biome clean; no `any`; tokens-only;
 Preview Smoke Gate green on `/achievements`; `.pandacorp/verify.sh` passes.
+
+## Status Note
+**Built (WO-10-015 — the Informe operativo UI).** The Estadísticas tab is now the sober six-band
+operator report, additive ABOVE the existing radar/records/ledger (which stay). Full `.pandacorp/verify.sh`
+green (exit 0): whole unit suite 369 files / 7242 tests, `tsc --noEmit` 0, biome clean, knip clean, madge
+no cycles, smoke + visual (incl. the blessed `/achievements` baseline — **unchanged**, see below) + shell +
+responsive e2e all green.
+
+**What it built (route-local, under `src/app/achievements/Informe/`):**
+- `Informe.tsx` — `CMP-10-informe`, pure Server Component. Exports `<Informe>` (whole report, used by tests),
+  `<InformePulse>` (band 1 alone) and `<InformeBands>` (bands 2-6) so the Estadísticas tab interleaves
+  pulse → StatsPanel (radar/records/ledger) → bands 2-6 exactly like the approved prototype. Six bands:
+  pulse (verdict + 4 KPIs incl. lead-time "—"/"no cableado"), time-series (two bar charts), usage
+  (workflows + effort bars), funnel+transitions (reopen row flagged by a `ti-rotate-2` icon WITH the word
+  "Reapertura", WCAG 1.4.1), health (projects-by-phase + 4 process signals incl. quality telemetry "no
+  cableado"), next-actions (each with its command pill).
+- `informeData.ts` — `buildInformeData(inputs): InformeData` (PURE assembly over the WO-10-014 readers) +
+  the `InformeData`/`InformePulse`/`InformeSignals`/`ProjectPhase`/`InformeInputs` shapes. Carries every
+  unwired figure as `null` (`leadTime`, `qualityTelemetry`, `lessons` when absent) — never a fabricated zero.
+- `StatsPanel.tsx` (extended, backward-compatible): two NEW **optional** props `scalars?: ReportScalars` and
+  `records?: StatsRecords` (`{peakWeek, capturedLessons, subagents}`). When given → the ledger expands to
+  **exactly 8 rows × 3 columns** (Producción += FRDs/Commits/Proyectos via new `StaticLedgerRow`; Calidad +=
+  Tests/DR; `null` testsPassing → "no cableado") with `data-testid="stat-ledger-column"`, and the records
+  grid becomes a **2×3 grid of 6 tiles**. When absent → the legacy WO-10-005 3-tile / metric-only ledger
+  (so the existing reviewer suite + WO-10-005 callers keep passing unchanged).
+- `HallTabs.tsx` — new `EstadisticasTab` body composing the interleaved layout; three NEW **optional** props
+  `informeData?`/`statsScalars?`/`statsRecords?` (optional so the DR-062 tab-primitive reviewer gate that
+  mounts a bare HallTabs still renders — it degrades to the plain StatsPanel when `informeData` is absent).
+- `page.tsx` — wires the readers in the Server Component: `weeklyFlow(cwd)`, `phaseTransitions()`,
+  `reportScalars(cwd)`, `funnelAndFlow(ideas, statuses)`, `usageMix(readerData)`, `lessonCounts()`,
+  `signalsFor(readerData)` → `buildInformeData(...)`, passed as props into `HallTabs`.
+
+**Tests covering it:** `src/app/achievements/Informe/_tests/Informe.test.tsx` (17 — the six bands + every
+"no cableado"/fail-loud path + reopen icon+word + sober-register no-RPG-lore), `…/_tests/informeData.test.ts`
+(7 — pure assembly + null honesty), `src/app/achievements/_tests/wo-10-015-stats-panel-expansion.test.tsx`
+(5 — 8×3 ledger, 2×3 records, wired scalars, testsPassing null).
+
+**Decisions & assumptions the consumer/reviewer inherits:**
+- **Project path = `process.cwd()`** for the git-backed readers (MC's own repo; it shares the factory `.git`
+  one level up — the readers handle the `--show-prefix` quirk internally, see WO-10-014).
+- **Fail-loud usage band (AC-10-015.3):** `usageMix` returns a plain `UsageMix`, so the PAGE wraps it in the
+  discriminated `{ok}` shape — `ok:false` ("no cableado" error band) when the event snapshot is empty AND
+  `lastEventAt === null` (an absent/unreadable stream), else `ok:true`. The git-backed series
+  (`weeklyFlow`/`phaseTransitions`) already carry their own `ReportResult`; the UI branches on `.ok` and
+  renders the error band on `false` (an empty `value` is a real zero, not absence).
+- **Records mapping:** `peakWeek` from `weeklyFlow.value.peakWeek` (0 when absent), `capturedLessons` from
+  `lessonCounts()?.captured ?? 0`, `subagents` from `signalsFor(readerData).subagents`.
+- **8-row alignment:** Producción = 5 metric keys + 3 scalars; Calidad = 6 keys + 2 scalars; Ritmo & alcance
+  = 8 keys (no scalars) — all three end at 8, no staircase.
+- **Reopen flag:** rendered as a `ti-rotate-2` icon (`role="img"` + `aria-label="Reapertura"`) AND a visible
+  "Reapertura" badge — the meaning survives without color (WCAG 1.4.1). Forward transitions render plain.
+- **Spanish month abbreviations** for transition dates (`19 jun`), `font-mono` project names, `font-pixel`
+  numerals — matching the prototype; tokens only (inline `var(--…)`, the established surface pattern).
+- **Knip/scope:** to green the whole-project gate (anticipated by WO-10-014's note), three now-internal types
+  lost their `export` keyword — `ReportAbsenceReason` (report/types.ts), `ActionCommand` (verdict.ts),
+  `PhaseObservation` (phaseTransitions.ts) — each only referenced inside its own module; behavior unchanged.
+- **Blessed `/achievements` visual baseline is UNCHANGED** (not re-blessed): the visual gate screenshots the
+  DEFAULT (Resumen) tab; all WO-10-015 changes live in the hidden Estadísticas panel, so the baseline still
+  matches. In-loop fidelity check done (DR-072): rendered the Estadísticas tab, screenshotted it, confirmed a
+  faithful match to `prototype/informe-del-gremio.html` (right layout/structure/components/density).
+- **NOT mine in `git status`:** `src/components/modules/ProjectRail/ProjectRail.tsx` and `.pandacorp/status.yaml`
+  carry another session's WIP (DR-099) — left untouched.
