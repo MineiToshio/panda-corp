@@ -1,10 +1,11 @@
 ---
-id: WO-NN-MMM            # NN = owning FRD number, MMM = work-order number within the FRD
+id: WO-NN-MMM            # NN = owning FRD number, MMM = correlative within that FRD. FOUNDATION/cross-cutting WOs use their OWNING FRD's number too (e.g. the platform-foundation feature is usually FRD-01 → WO-01-001, WO-01-002, …) and set `foundation: true` below — NEVER a fake `00` FRD; foundation status lives in `foundation`/the Build Plan, not the id.
 type: work-order
 slug: descriptive-slug
 title: Replace with a one-line title
 status: DRAFT             # DRAFT | ACTIVE | BLOCKED | SUPERSEDED   (document lifecycle)
 parent: FRD-NN            # the owning FRD
+foundation: false         # true = a Wave-0 foundation/shared-substrate WO (DR-057), built before any feature WO. This marks the wave, NOT the id (the id still uses the owning FRD's number — no `00` FRD).
 implementation_status: PLANNED   # PLANNED | IN_PROGRESS | IN_REVIEW | VERIFIED | BLOCKED
 blocked_reason:           # only when BLOCKED: needs-owner | external | error
 artifacts: []             # globs of files/dirs this WO writes (DR-060). The engine keeps parallel WOs disjoint: it serializes any WOs whose artifacts overlap into different waves. List every path this WO creates/edits, incl. its own API contract docs/api/WO-NN-MMM.md if backend.
