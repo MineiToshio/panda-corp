@@ -3,7 +3,7 @@ id: FRD-10
 type: frd
 title: FRD-10 — Achievements Hall
 status: ACTIVE
-implementation_status: VERIFIED
+implementation_status: PLANNED
 last_updated: '2026-06-29'
 ui: true
 visual_source: docs/design/prototype/index.html
