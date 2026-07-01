@@ -2,6 +2,27 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-01 — Full end-to-end factory process audit (proposal 20)
+
+**What:** Owner-requested audit of the ENTIRE factory process (Mission Control excluded) — funnel
+(discover→recommend), spec→design→architecture, the build engine + change flows, release + post-launch +
+self-learning, the doctrine layer (constitution/17 standards/100-DR registry/rules/stacks), and the
+end-to-end state machine. Six parallel read-only auditors, deduped against proposal 19 + BL-0001..0013 +
+the 2026-06-14/22 audits; top claims re-verified directly. Written up as
+`docs/proposals/20-factory-process-audit-2026-07-01.md` (plane 2, DR-103).
+**Why:** The owner asked for the complete map of weak spots before planning the next improvement round.
+Headline: the recurring disease is **promise-without-mechanism** — canonical docs assert enforcement that
+no code implements (implement's claimed DR-100/102 preflight re-check doesn't exist; DR-069's drain is
+zero-implemented in the engine and `/bug` files an undrainable `status: pending`; a second hardening-free
+path to `phase: release` beyond BL-0012; `/upgrade` can rewrite the engine mid-build; the prod-deploy gate
+is prose-only vs infra.md's deny-rule claim; review-launch has never run; memory RETRIEVE is wired to 1 of
+8 agents). Plus live store breakage: duplicate backlog ids (2×BL-0010, 2×BL-0011) with MC's fail-loud
+reader consuming them. Four P0s, ~20 P1s, a long P2 tail, 6 contradictions needing owner decisions, and a
+4-phase improvement plan with ~18 candidate BL items — all in the proposal.
+**Impact:** NEW `docs/proposals/20-factory-process-audit-2026-07-01.md`. No behavior changed (read-only
+audit; one micro-fix: stray tool-call tags removed from the tail of the gitignored `factory/profile.md`).
+Actionable findings route to `factory/backlog/` BL items when the owner approves the plan (DR-103).
+
 ## 2026-07-01 — validate-memory.sh now enforces LESSON id uniqueness (BL-0013 fixed)
 
 **What:** Added an id-uniqueness gate + a filename-number↔`id` consistency check to
