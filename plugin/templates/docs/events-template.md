@@ -29,6 +29,12 @@ Keep names and properties consistent across the app (a constants module owns the
 | Event | Fires when | Properties |
 |---|---|---|
 
+## Activation milestone (DR-043)
+
+The ONE event (from the catalog above) that means "value delivered" — the PRD's activation milestone,
+named here so `/pandacorp:review-launch` can read it mechanically: `<event_name>` + the threshold that
+counts as activated. Keep it in sync with the PRD's "Activation milestone & kill-signals" section.
+
 ## Identification
 
 How users/groups are identified (anonymous → identified transition), and what is deliberately **not**

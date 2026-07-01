@@ -19,7 +19,14 @@ Cite sources.
 
 ## Market & competitors
 
-Who already serves this, how, and at what price. Where the gap / wedge is.
+Who already serves this, how, and at what price. Where the gap / wedge is. For monetary/mixed: the
+**price anchor** (what live paying competitors charge) that feeds the PRD's unit-economics block.
+
+## Launch market & language (DR-041)
+
+Which market/country to launch in first and in which language(s) — single vs multi from the MVP —
+weighing market size/competition, acquisition ease, ROI and the owner's country/language (from
+`factory/profile.md`). Put the variables on the table and RECOMMEND; the owner approves in the PRD.
 
 ## Existing solutions & alternatives
 

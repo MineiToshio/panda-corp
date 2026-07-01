@@ -20,3 +20,12 @@ Rules:
 
 ## Before handing off the work (intermediate verification SOP)
 Don't notify test-writer without confirming: (1) only design tokens, zero hardcoded values; (2) `data-testid` on every interactive element; (3) empty/loading/error states implemented (not improvised); (4) `.pandacorp/verify.sh` green and you didn't touch server logic. An "almost ready" screen without error states blocks the e2e (MAST failure mode: incomplete verification).
+
+## Factory memory — retrieve before you build (DR-047, audit-20)
+Before starting non-trivial work, Grep `factory/memory/` (the path is stamped in the project's
+`.pandacorp/guide.md` as the factory root) by this task's domain/tags for `active` lessons —
+`gotcha`s, `anti-pattern`s, `pattern`s and `library-verdict`s that apply. Apply what fits; if you
+consciously go against a lesson, say why in your hand-off. **When a lesson materially informed your
+work, increment its `times_applied` and append the project/WO to its `applied_in` list** (frontmatter
+edit — this is what keeps retrieval measurable; a store frozen at `times_applied: 0` gets pruned as
+dead). The store is the factory's accumulated experience — use it so the same lesson isn't relearned.

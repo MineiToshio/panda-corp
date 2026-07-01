@@ -19,3 +19,12 @@ Rules:
 
 ## Before handing off the work (intermediate verification SOP)
 Don't notify frontend or mark anything done without confirming yourself: (1) tests RED→GREEN and `.pandacorp/verify.sh` green; (2) your `docs/api/<wo-id>.md` complete and typed (no "to be defined" endpoints); (3) all input validated and no secrets in code; (4) you didn't touch UI or files outside the work order. Handing off half-done work propagates errors downstream (MAST failure mode).
+
+## Factory memory — retrieve before you build (DR-047, audit-20)
+Before starting non-trivial work, Grep `factory/memory/` (the path is stamped in the project's
+`.pandacorp/guide.md` as the factory root) by this task's domain/tags for `active` lessons —
+`gotcha`s, `anti-pattern`s, `pattern`s and `library-verdict`s that apply. Apply what fits; if you
+consciously go against a lesson, say why in your hand-off. **When a lesson materially informed your
+work, increment its `times_applied` and append the project/WO to its `applied_in` list** (frontmatter
+edit — this is what keeps retrieval measurable; a store frozen at `times_applied: 0` gets pruned as
+dead). The store is the factory's accumulated experience — use it so the same lesson isn't relearned.

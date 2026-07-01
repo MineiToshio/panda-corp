@@ -22,7 +22,7 @@ The self-learning loop's operator surface. Runs IN panda-corp. It accumulates du
 
 ## Mode: status — `/pandacorp:memory status`
 
-7. Summarize the store: counts by `type` and `status`; **the promotions queue** — every lesson with **`promotion: proposed`** (the rules awaiting your approval, with their target + rationale), so you can review the full list and decide whenever; the most-applied lessons; the oldest never-retrieved; and the pending `candidate`s awaiting corroboration.
+7. Summarize the store: counts by `type` and `status`; **the promotions queue** — every lesson with **`promotion: proposed`** (the rules awaiting your approval, with their target + rationale), so you can review the full list and decide whenever; the most-applied lessons; the oldest never-retrieved; and the pending `candidate`s awaiting corroboration. **Also report the factory backlog's health** (run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/validate-backlog.sh"`): open/doing/done counts + the top 3 oldest OPEN `BL-*` items, one line each — the plane-3 queue drains through visibility (audit-20; DR-103 built the queue, this surfaces it).
 
 ## Rules
 - **Memory is not an action queue (DR-103).** A defect/change to the factory's own tooling is an actionable,

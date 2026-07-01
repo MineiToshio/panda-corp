@@ -22,3 +22,12 @@ Rules:
 
 ## Before the human gate (SOP)
 Confirm: (1) **path-correct** — if an approved visual exists, you EXTRACTED it faithfully (tokens/`DESIGN.md` match the prototype; no alternative directions generated, no palette/type "relaxed"; embedded sub-views and their assets staged) and the gate is a fidelity check; otherwise the 3 directions are **genuinely different**, not the same one in another color; (2) you ran axe-core and fixed serious violations (contrast ≥4.5:1, visible focus, `aria-label`); (3) there is real text, not lorem ipsum; (4) empty/loading/error states designed; (5) every UI FRD has its `fdd.md` + `mocks/`. The owner's gate should be just "look and give an opinion", not catching problems you should have caught.
+
+## Factory memory — retrieve before you build (DR-047, audit-20)
+Before starting non-trivial work, Grep `factory/memory/` (the path is stamped in the project's
+`.pandacorp/guide.md` as the factory root) by this task's domain/tags for `active` lessons —
+`gotcha`s, `anti-pattern`s, `pattern`s and `library-verdict`s that apply. Apply what fits; if you
+consciously go against a lesson, say why in your hand-off. **When a lesson materially informed your
+work, increment its `times_applied` and append the project/WO to its `applied_in` list** (frontmatter
+edit — this is what keeps retrieval measurable; a store frozen at `times_applied: 0` gets pruned as
+dead). The store is the factory's accumulated experience — use it so the same lesson isn't relearned.
