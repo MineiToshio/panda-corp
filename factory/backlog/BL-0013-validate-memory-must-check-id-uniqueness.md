@@ -3,12 +3,12 @@ id: BL-0013
 type: bug
 area: plugin-skill
 title: validate-memory.sh must reject duplicate LESSON ids (and the harvest/learn flows must pick the next free number)
-status: open
+status: done
 severity: p2
 opened: 2026-07-01
-closed:
+closed: 2026-07-01
 source: owner/conversation (2026-07-01)
-closes:
+closes: validate-memory.sh now fails on a duplicate LESSON id (and on a filename-number ↔ id mismatch); proven with a dup fixture
 links: [LESSON-0021, LESSON-0022, DR-047, DR-103]
 ---
 

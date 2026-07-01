@@ -22,6 +22,7 @@ PROMO  = %w[none proposed approved rejected]
 REQ    = %w[id type domain tags context source provenance created status promotion confidence times_applied links]
 errors = []
 counts = Hash.new(0)
+ids    = Hash.new { |h, k| h[k] = [] }   # id => [files] — for the uniqueness check (BL-0013)
 files  = Dir.glob(File.join(dir, 'LESSON-*.md')).sort
 files.each do |f|
   base = File.basename(f)
@@ -40,11 +41,17 @@ files.each do |f|
   errors << "#{base}: invalid provenance '#{fm['provenance']}'" unless PROV.include?(fm['provenance'])
   errors << "#{base}: invalid promotion '#{fm['promotion']}'" unless PROMO.include?(fm['promotion'])
   errors << "#{base}: id must match LESSON-NNNN"                unless fm['id'].to_s =~ /\ALESSON-\d+\z/
+  ids[fm['id'].to_s] << base if fm['id']
+  fn = base[/\ALESSON-(\d+)/, 1]
+  idn = fm['id'].to_s[/\ALESSON-(\d+)\z/, 1]
+  errors << "#{base}: filename number #{fn} != id #{fm['id']}" if fn && idn && fn != idn
   errors << "#{base}: empty context (retrieval anchor)"         if fm['context'].to_s.strip.empty?
   errors << "#{base}: empty source (evidence anchor, LESSON-0001)" if fm['source'].to_s.strip.empty?
   counts[fm['type']] += 1            if TYPES.include?(fm['type'])
   counts["status:#{fm['status']}"] += 1 if STATUS.include?(fm['status'])
 end
+# id uniqueness across the store (BL-0013) — a keyed store must reject collisions
+ids.each { |id, fs| errors << "duplicate id #{id} in: #{fs.sort.join(', ')}" if fs.size > 1 }
 puts "Checked #{files.size} lesson(s) in #{dir}"
 puts("By type/status: " + counts.sort.map { |k, v| "#{k}=#{v}" }.join(', ')) unless counts.empty?
 if errors.empty?
