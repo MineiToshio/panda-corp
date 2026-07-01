@@ -42,7 +42,7 @@ import {
   STREAM_META,
   type StreamKind,
   suggestionProposalId,
-} from "../ProposalStream/streamMeta";
+} from "../streamMeta";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -109,31 +109,28 @@ const EMPTY_STYLE: React.CSSProperties = {
   padding: "0.75rem 2px",
 };
 
+// The card fills the row; the dismiss ✕ is overlaid subtly in its top-right corner
+// (position:relative anchor) instead of a text+border pill hanging off to the side.
 const ROW_STYLE: React.CSSProperties = {
-  display: "flex",
-  alignItems: "flex-start",
-  gap: "8px",
-};
-
-const CARD_WRAP_STYLE: React.CSSProperties = {
-  flex: 1,
-  minWidth: 0,
+  position: "relative",
 };
 
 const DISMISS_BUTTON_STYLE: React.CSSProperties = {
-  flexShrink: 0,
+  position: "absolute",
+  top: "8px",
+  right: "8px",
   display: "inline-flex",
   alignItems: "center",
-  gap: "4px",
-  padding: "4px 8px",
-  fontSize: "11px",
-  fontWeight: 500,
+  justifyContent: "center",
+  width: "26px",
+  height: "26px",
+  padding: 0,
+  lineHeight: 1,
   cursor: "pointer",
   borderRadius: "var(--radius-sm, 8px)",
-  border: "1px solid var(--color-border)",
+  border: "none",
   background: "transparent",
   color: "var(--color-text3)",
-  marginTop: "4px",
 };
 
 const GROUP_CMD_WRAP_STYLE: React.CSSProperties = {
@@ -276,16 +273,16 @@ function DismissRow({
 
   return (
     <div style={ROW_STYLE}>
-      <div style={CARD_WRAP_STYLE}>{proposal.node}</div>
+      {proposal.node}
       <button
         type="button"
         data-testid="proposal-dismiss-button"
         style={DISMISS_BUTTON_STYLE}
         onClick={handleClick}
+        title="Descartar"
         aria-label={`Descartar propuesta: ${proposal.id}`}
       >
-        <i className="ti ti-x" style={{ fontSize: "11px" }} aria-hidden="true" />
-        Descartar
+        <i className="ti ti-x" style={{ fontSize: "14px" }} aria-hidden="true" />
       </button>
     </div>
   );

@@ -182,7 +182,7 @@ describe("REQ-17-001 / AC-17-001.2 — per-item command only when group differs"
     expect(within(card).queryByTestId("proposal-card-command")).toBeNull();
   });
 
-  it("promotion cards carry a per-card /pandacorp:learn command (each differs)", async () => {
+  it("each promotion in the queue carries its own /pandacorp:learn command", async () => {
     const { memory, selfSuggest } = await importMocks();
     vi.mocked(memory.candidateLessons).mockReturnValue([]);
     vi.mocked(memory.promotionQueue).mockReturnValue([PROMOTION]);
@@ -192,12 +192,11 @@ describe("REQ-17-001 / AC-17-001.2 — per-item command only when group differs"
     const ProposalsPage = await importPage();
     render(<ProposalsPage />);
 
-    const promotionStream = screen.getByTestId("proposal-stream-promotion");
-    const card = within(promotionStream).getByTestId("proposal-card");
-    // Each promotion has its own /pandacorp:learn <id> — must show per-card command
-    const cardCmd = within(card).getByTestId("proposal-card-command");
-    expect(cardCmd).toBeInTheDocument();
-    expect(cardCmd.textContent).toContain("/pandacorp:learn");
+    // Promotions are the durable PromotionsQueue now (DR-103 dedup) — each entry
+    // carries its own /pandacorp:learn <id> command.
+    const queue = screen.getByTestId("promotions-queue");
+    const cmd = within(queue).getByTestId("promotion-learn-command");
+    expect(cmd.textContent).toContain("/pandacorp:learn");
   });
 
   it("self-suggestion cards carry a per-card command (each differs)", async () => {
@@ -216,7 +215,7 @@ describe("REQ-17-001 / AC-17-001.2 — per-item command only when group differs"
     expect(cardCmd).toBeInTheDocument();
   });
 
-  it("promotion stream has NO group-level command (each promotion is its own /pandacorp:learn)", async () => {
+  it("promotions queue has NO group-level command (each promotion is its own /pandacorp:learn)", async () => {
     const { memory, selfSuggest } = await importMocks();
     vi.mocked(memory.candidateLessons).mockReturnValue([]);
     vi.mocked(memory.promotionQueue).mockReturnValue([PROMOTION]);
@@ -226,8 +225,8 @@ describe("REQ-17-001 / AC-17-001.2 — per-item command only when group differs"
     const ProposalsPage = await importPage();
     render(<ProposalsPage />);
 
-    const promotionStream = screen.getByTestId("proposal-stream-promotion");
-    expect(within(promotionStream).queryByTestId("group-level-command")).toBeNull();
+    const queue = screen.getByTestId("promotions-queue");
+    expect(within(queue).queryByTestId("group-level-command")).toBeNull();
   });
 
   it("self-suggestion stream has NO group-level command", async () => {
@@ -268,7 +267,7 @@ describe("REQ-17-001 / AC-17-001.3 — lesson groups adjacent, candidates before
     expect(pos & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("prune stream appears before promotion stream in the document", async () => {
+  it("prune stream appears before the promotions queue in the document", async () => {
     const { memory, selfSuggest } = await importMocks();
     vi.mocked(memory.candidateLessons).mockReturnValue([CANDIDATE]);
     vi.mocked(memory.promotionQueue).mockReturnValue([PROMOTION]);
@@ -279,13 +278,13 @@ describe("REQ-17-001 / AC-17-001.3 — lesson groups adjacent, candidates before
     render(<ProposalsPage />);
 
     const pruneEl = screen.getByTestId("proposal-stream-prune");
-    const promotionEl = screen.getByTestId("proposal-stream-promotion");
+    const queueEl = screen.getByTestId("promotions-queue");
 
-    const pos = pruneEl.compareDocumentPosition(promotionEl);
+    const pos = pruneEl.compareDocumentPosition(queueEl);
     expect(pos & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("promotion stream appears before self-suggestion stream in the document", async () => {
+  it("promotions queue appears before self-suggestion stream in the document", async () => {
     const { memory, selfSuggest } = await importMocks();
     vi.mocked(memory.candidateLessons).mockReturnValue([CANDIDATE]);
     vi.mocked(memory.promotionQueue).mockReturnValue([PROMOTION]);
@@ -295,10 +294,10 @@ describe("REQ-17-001 / AC-17-001.3 — lesson groups adjacent, candidates before
     const ProposalsPage = await importPage();
     render(<ProposalsPage />);
 
-    const promotionEl = screen.getByTestId("proposal-stream-promotion");
+    const queueEl = screen.getByTestId("promotions-queue");
     const selfEl = screen.getByTestId("proposal-stream-self-suggestion");
 
-    const pos = promotionEl.compareDocumentPosition(selfEl);
+    const pos = queueEl.compareDocumentPosition(selfEl);
     expect(pos & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

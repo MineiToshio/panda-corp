@@ -27,7 +27,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { candidateLessons, promotionQueue, prunable, readLessons } from "@/lib/memory/memory";
 import { computeSuggestions } from "@/lib/self-suggest/self-suggest";
 import { withFactoryRoot } from "@/tests/fixtures";
-import { ProposalStream } from "../_components/ProposalStream/ProposalStream";
+import { DismissableProposalStream } from "../_components/DismissableProposalStream/DismissableProposalStream";
 
 // ---------------------------------------------------------------------------
 // Temp factory/memory builder
@@ -309,7 +309,7 @@ describe("FRD-17 INTEGRATION: real reader output renders honestly through the st
     const promotions = await withFactoryRoot(root, () => promotionQueue());
     expect(promotions).toHaveLength(1);
 
-    render(<ProposalStream kind="promotion" lessons={promotions} />);
+    render(<DismissableProposalStream kind="promotion" lessons={promotions} />);
 
     // The exact command is shown and copyable…
     expect(screen.getByTestId("proposal-card-command")).toHaveTextContent(
@@ -335,9 +335,9 @@ describe("FRD-17 INTEGRATION: real reader output renders honestly through the st
 
     render(
       <>
-        <ProposalStream kind="candidate-lesson" lessons={candidates} />
-        <ProposalStream kind="promotion" lessons={promo} />
-        <ProposalStream kind="prune" lessons={prune} />
+        <DismissableProposalStream kind="candidate-lesson" lessons={candidates} />
+        <DismissableProposalStream kind="promotion" lessons={promo} />
+        <DismissableProposalStream kind="prune" lessons={prune} />
       </>,
     );
 

@@ -236,11 +236,15 @@ function deriveUnusedCapability(
 
   const suggestions: Suggestion[] = [];
   for (const cap of capabilities) {
+    // Only SKILLS are invocable as `/pandacorp:<id>`. Agents (librarian, reviewer,
+    // …) are NOT slash-runnable, so `/pandacorp:<agent>` would be a non-existent
+    // command — skip them (a self-suggestion's whole value is a runnable command).
+    if (cap.kind !== "skill") continue;
     if (seenIds.has(cap.id)) continue;
     suggestions.push({
       kind: "unused-capability",
-      title: `La ${cap.kind === "agent" ? "agente" : "habilidad"} "${cap.id}" no tiene uso registrado`,
-      evidence: `${cap.kind === "agent" ? "Agente" : "Habilidad"} "${cap.id}": sin eventos de uso en las últimas ${events.length} entradas del registro`,
+      title: `La habilidad "${cap.id}" no tiene uso registrado`,
+      evidence: `Habilidad "${cap.id}": sin eventos de uso en las últimas ${events.length} entradas del registro`,
       command: `/pandacorp:${cap.id}`,
       target: cap.id,
       severity: "info",

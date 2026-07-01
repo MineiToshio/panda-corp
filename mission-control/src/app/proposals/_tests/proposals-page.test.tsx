@@ -157,9 +157,12 @@ describe("ProposalsPage — four streams", () => {
     render(<ProposalsPage />);
 
     expect(screen.getByTestId("proposal-stream-candidate-lesson")).toBeInTheDocument();
-    expect(screen.getByTestId("proposal-stream-promotion")).toBeInTheDocument();
     expect(screen.getByTestId("proposal-stream-prune")).toBeInTheDocument();
     expect(screen.getByTestId("proposal-stream-self-suggestion")).toBeInTheDocument();
+    // Promotions are the durable PromotionsQueue (single surface after the DR-103
+    // dedup) — no separate dismissable promotion stream.
+    expect(screen.getByTestId("promotions-queue")).toBeInTheDocument();
+    expect(screen.queryByTestId("proposal-stream-promotion")).not.toBeInTheDocument();
   });
 
   it("AC-17-004.1: page has a main heading / page title (guild crónica theme)", async () => {
@@ -194,8 +197,10 @@ describe("ProposalsPage — four streams", () => {
     render(<ProposalsPage />);
 
     const allCards = screen.getAllByTestId("proposal-card");
-    // 2 candidates + 1 promotion + 0 prune + 2 suggestions = 5
-    expect(allCards).toHaveLength(5);
+    // 2 candidates + 0 prune + 2 suggestions = 4 (the promotion renders in the
+    // PromotionsQueue as a promotion-entry, not a proposal-card — DR-103 dedup).
+    expect(allCards).toHaveLength(4);
+    expect(screen.getByTestId("promotion-entry-LESSON-0003")).toBeInTheDocument();
   });
 });
 
@@ -210,8 +215,11 @@ describe("ProposalsPage — empty state", () => {
     const ProposalsPage = await importPage();
     render(<ProposalsPage />);
 
+    // 3 dismissable streams (candidate, prune, self-suggestion) show a calm empty
+    // state; the promotions surface is the PromotionsQueue with its own empty state.
     const emptyStates = screen.getAllByTestId("proposal-stream-empty");
-    expect(emptyStates.length).toBeGreaterThanOrEqual(4);
+    expect(emptyStates.length).toBeGreaterThanOrEqual(3);
+    expect(screen.getByTestId("promotions-queue-empty")).toBeInTheDocument();
 
     for (const emptyState of emptyStates) {
       expect(emptyState.textContent?.trim().length).toBeGreaterThan(0);

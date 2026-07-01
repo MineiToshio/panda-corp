@@ -163,10 +163,10 @@ export default function ProposalsPage(): React.JSX.Element {
       {/* Stream 2: prune proposals (adjacent to candidates, AC-17-001.3; group cmd → /pandacorp:memory) */}
       <DismissableProposalStream kind="prune" lessons={prunables} groupCmd={MEMORY_GROUP_CMD} />
 
-      {/* Stream 3: promotions (each has own /pandacorp:learn <id> — no group cmd, AC-17-001.2) */}
-      <DismissableProposalStream kind="promotion" lessons={promotions} />
-
-      {/* Durable promotions queue (CMP-17-promoqueue → REQ-17-006). */}
+      {/* Promotions: ONE surface — the durable PromotionsQueue (CMP-17-promoqueue → REQ-17-006).
+          The redundant dismissable promotion stream was removed (DR-103 cleanup): promotions are
+          "approve me" items, not noise to dismiss, and the queue already carries the /pandacorp:learn
+          command + target/rationale/evidence + high-risk badge. */}
       <PromotionsQueue lessons={promotions} />
 
       {/* Stream 4: self-suggestions (computed locally, no Claude; each has own cmd, AC-17-001.2) */}
