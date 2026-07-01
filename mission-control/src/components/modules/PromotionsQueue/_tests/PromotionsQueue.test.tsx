@@ -17,7 +17,8 @@
  */
 
 import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { userEvent } from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Lesson } from "@/lib/memory/memory";
 import { PromotionsQueue } from "../PromotionsQueue";
 
@@ -143,6 +144,18 @@ describe("wo-17-006: AC-17-006.2 — each entry shows target, rationale, and evi
     render(<PromotionsQueue lessons={[lesson]} />);
     const entry = screen.getByTestId(`promotion-entry-${lesson.id}`);
     expect(within(entry).getByTestId("promotion-target")).toBeDefined();
+  });
+
+  it("GIVEN a proposed lesson THEN the rationale is the clean context summary, NOT raw markdown", () => {
+    const lesson = makeProposed({
+      context: "no confundir dos causas de fallo",
+      body: "**Situation:** the gate broke.\n\n**Lesson:** split the fallback.",
+    });
+    render(<PromotionsQueue lessons={[lesson]} />);
+    const rationale = screen.getByTestId("promotion-rationale");
+    expect(rationale).toHaveTextContent("no confundir dos causas de fallo");
+    // No leaked markdown markers on the card.
+    expect(rationale.textContent).not.toContain("**");
   });
 });
 
@@ -323,11 +336,12 @@ describe("wo-17-006: container structure and a11y", () => {
     expect(heading !== null || hasAriaLabel).toBe(true);
   });
 
-  it("GIVEN lessons THEN the queue has a section heading in Spanish", () => {
+  it("GIVEN lessons THEN the queue has a visible section label in Spanish", () => {
     render(<PromotionsQueue lessons={[makeProposed()]} />);
-    // There should be a heading describing the queue
-    const headings = screen.queryAllByRole("heading");
-    expect(headings.length).toBeGreaterThan(0);
+    // The queue title is the shared SectionHead label (a div, DR-062 — not an <h*>);
+    // the region itself is also labelled via aria-label on the <section>.
+    expect(screen.getByText("Cola de promociones")).toBeDefined();
+    expect(screen.getByLabelText("Cola de promociones")).toBeDefined();
   });
 
   it("GIVEN proposed and rejected lessons THEN each entry type is visually distinguishable via test attribute", () => {
@@ -340,5 +354,53 @@ describe("wo-17-006: container structure and a11y", () => {
 
     expect(proposedEntry).toHaveAttribute("data-promotion-state", "proposed");
     expect(rejectedEntry).toHaveAttribute("data-promotion-state", "rejected");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC-17-006.7 — a card opens the formatted detail (onSelectLesson callback)
+// ---------------------------------------------------------------------------
+
+describe("wo-17-006: AC-17-006.7 — clickable card → detail", () => {
+  it("WITHOUT onSelectLesson the card content is not a button (static render)", () => {
+    const lesson = makeProposed({ id: "LESSON-0010" });
+    render(<PromotionsQueue lessons={[lesson]} />);
+    expect(screen.queryByTestId("promotion-open-LESSON-0010")).toBeNull();
+    // The content (target/rationale/command) still renders.
+    expect(screen.getByTestId("promotion-target")).toBeDefined();
+    expect(screen.getByTestId("promotion-learn-command")).toBeDefined();
+  });
+
+  it("WITH onSelectLesson clicking a proposed card calls it with the lesson", async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    const lesson = makeProposed({ id: "LESSON-0010" });
+    render(<PromotionsQueue lessons={[lesson]} onSelectLesson={onSelect} />);
+
+    await user.click(
+      screen.getByRole("button", { name: /ver detalle de la promoción LESSON-0010/i }),
+    );
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledWith(lesson);
+  });
+
+  it("WITH onSelectLesson clicking a rejected card also opens the detail", async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    const lesson = makeRejected({ id: "LESSON-0011" });
+    render(<PromotionsQueue lessons={[lesson]} onSelectLesson={onSelect} />);
+
+    await user.click(
+      screen.getByRole("button", { name: /ver detalle de la promoción LESSON-0011/i }),
+    );
+    expect(onSelect).toHaveBeenCalledWith(lesson);
+  });
+
+  it("the copy-command control is a SIBLING of the open button (no nested interactive)", () => {
+    const lesson = makeProposed({ id: "LESSON-0010" });
+    render(<PromotionsQueue lessons={[lesson]} onSelectLesson={vi.fn()} />);
+    const openButton = screen.getByTestId("promotion-open-LESSON-0010");
+    // The CopyButton must NOT live inside the open button.
+    expect(within(openButton).queryByTestId("copy-button")).toBeNull();
   });
 });

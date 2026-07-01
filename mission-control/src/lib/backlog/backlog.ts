@@ -203,15 +203,28 @@ export function readBacklog(): BacklogReadResult {
 
   const items: BacklogItem[] = [];
   const errors: BacklogReadError[] = [];
+  // id → the first filename that defined it. A second file with the same id is a
+  // data-integrity defect (BL-0013): surface it fail-loud (DR-078) and keep only the
+  // first, so the UI never renders duplicate React keys or a misleading second copy.
+  const seenIds = new Map<string, string>();
 
   for (const filename of entries) {
     if (!isBacklogFile(filename)) continue;
     const outcome = parseBacklogFile(path.join(dir, filename));
-    if ("item" in outcome) {
-      items.push(outcome.item);
-    } else {
+    if (!("item" in outcome)) {
       errors.push({ file: filename, reason: outcome.error });
+      continue;
     }
+    const priorFile = seenIds.get(outcome.item.id);
+    if (priorFile !== undefined) {
+      errors.push({
+        file: filename,
+        reason: `duplicate id ${outcome.item.id} (already defined in ${priorFile})`,
+      });
+      continue;
+    }
+    seenIds.set(outcome.item.id, filename);
+    items.push(outcome.item);
   }
 
   return { items, errors };

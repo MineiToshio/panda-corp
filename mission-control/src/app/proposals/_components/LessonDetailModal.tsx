@@ -16,9 +16,12 @@ import { LessonDetail } from "./LessonDetail";
 export function LessonDetailModal({
   lesson,
   onClose,
+  command,
 }: {
   lesson: Lesson | null;
   onClose: () => void;
+  /** Optional copyable command shown in the detail (the promotions queue passes it). */
+  command?: string;
 }): React.JSX.Element {
   return (
     <Modal
@@ -29,7 +32,7 @@ export function LessonDetailModal({
       badge={lesson != null ? <Chip tone="accent">{lesson.type}</Chip> : undefined}
       width={620}
     >
-      {lesson != null && <LessonDetail lesson={lesson} />}
+      {lesson != null && <LessonDetail lesson={lesson} command={command} />}
     </Modal>
   );
 }

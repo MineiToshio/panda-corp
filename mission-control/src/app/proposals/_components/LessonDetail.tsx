@@ -6,10 +6,15 @@
  * `SectionedMarkdown` primitive. Lesson bodies use bold inline labels
  * (`**Situation:** …`, `**Lesson:** …`, `**Apply next time:** …`, `**Why it
  * matters:** …`) which `SectionedMarkdown` turns into real section headers, so the
- * parts are easy to distinguish instead of one wall of bold-prefixed text. Read-only.
+ * parts are easy to distinguish instead of one wall of bold-prefixed text.
+ *
+ * Read-only. An optional `command` renders a copyable command row at the bottom — the
+ * promotions queue passes the `/pandacorp:learn` command so the owner can approve the
+ * promotion straight from the detail (candidate/prune modals omit it).
  */
 
 import { Chip, type ChipTone } from "@/components/core/Chip/Chip";
+import { CopyButton } from "@/components/core/CopyButton/CopyButton";
 import type { Lesson } from "@/lib/memory/memory";
 import { SectionedMarkdown } from "./SectionedMarkdown/SectionedMarkdown";
 
@@ -49,11 +54,50 @@ function MetaLine({ label, value }: { label: string; value: string }): React.JSX
   );
 }
 
+const COMMAND_LABEL_STYLE: React.CSSProperties = {
+  fontSize: "11px",
+  color: "var(--color-text2)",
+  margin: "0 0 5px",
+};
+
+const COMMAND_CODE_STYLE: React.CSSProperties = {
+  fontFamily: "var(--font-mono, monospace)",
+  fontSize: "12px",
+  padding: "0.2em 0.5em",
+  borderRadius: "var(--radius-sm, 8px)",
+  background: "var(--color-panel)",
+  color: "var(--color-text)",
+  wordBreak: "break-all",
+};
+
+/** Copyable "run this to approve" row (promotions only). */
+function CommandRow({ command }: { command: string }): React.JSX.Element {
+  return (
+    <div
+      data-testid="lesson-detail-command"
+      style={{ borderTop: "1px solid var(--color-border)", paddingTop: "12px" }}
+    >
+      <p style={COMMAND_LABEL_STYLE}>Para promover, corre en la fábrica:</p>
+      <div style={{ display: "flex", alignItems: "center", gap: "7px", flexWrap: "wrap" }}>
+        <code style={COMMAND_CODE_STYLE}>{command}</code>
+        <CopyButton value={command} label="Copiar comando" />
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // LessonDetail
 // ---------------------------------------------------------------------------
 
-export function LessonDetail({ lesson }: { lesson: Lesson }): React.JSX.Element {
+export function LessonDetail({
+  lesson,
+  command,
+}: {
+  lesson: Lesson;
+  /** Optional copyable command (the promotions queue passes /pandacorp:learn). */
+  command?: string;
+}): React.JSX.Element {
   const statusMeta = STATUS_META[lesson.status];
   const promotionMeta = PROMOTION_META[lesson.promotion];
 
@@ -84,6 +128,9 @@ export function LessonDetail({ lesson }: { lesson: Lesson }): React.JSX.Element 
 
       {/* Body — titled colour-coded sections (Situation / Lesson / Apply / Why) */}
       <SectionedMarkdown data-testid="lesson-detail-body" body={lesson.body} />
+
+      {/* Optional approve-command row (promotions) */}
+      {command != null && command !== "" && <CommandRow command={command} />}
     </div>
   );
 }

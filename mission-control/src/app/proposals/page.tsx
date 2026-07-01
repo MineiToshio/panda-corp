@@ -52,7 +52,6 @@ import type { Metadata } from "next";
 import { Chip } from "@/components/core/Chip/Chip";
 import { PageLayout } from "@/components/core/PageLayout/PageLayout";
 import { MemoryHealth } from "@/components/modules/MemoryHealth/MemoryHealth";
-import { PromotionsQueue } from "@/components/modules/PromotionsQueue/PromotionsQueue";
 import { readBacklog } from "@/lib/backlog/backlog";
 import { candidateLessons, promotionQueue, prunable } from "@/lib/memory/memory";
 import { memoryHealth } from "@/lib/memory/memory-health";
@@ -60,6 +59,7 @@ import { gatherSuggestionsInput } from "@/lib/self-suggest/gather";
 import { computeSuggestions } from "@/lib/self-suggest/self-suggest";
 import { BacklogPanel } from "./_components/BacklogPanel/BacklogPanel";
 import { DismissableProposalStream } from "./_components/DismissableProposalStream/DismissableProposalStream";
+import { PromotionsQueuePanel } from "./_components/PromotionsQueuePanel/PromotionsQueuePanel";
 import { ProposalsTabs } from "./_components/ProposalsTabs/ProposalsTabs";
 
 // ---------------------------------------------------------------------------
@@ -168,8 +168,9 @@ export default function ProposalsPage(): React.JSX.Element {
       {/* Promotions: ONE surface — the durable PromotionsQueue (CMP-17-promoqueue → REQ-17-006).
           The redundant dismissable promotion stream was removed (DR-103 cleanup): promotions are
           "approve me" items, not noise to dismiss, and the queue already carries the /pandacorp:learn
-          command + target/rationale/evidence + high-risk badge. */}
-      <PromotionsQueue lessons={promotions} />
+          command + target/rationale/evidence + high-risk badge. A card opens the shared
+          formatted detail modal (AC-17-006.7) — the panel holds that modal state. */}
+      <PromotionsQueuePanel lessons={promotions} />
 
       {/* Stream 4: self-suggestions (computed locally, no Claude; each has own cmd, AC-17-001.2) */}
       <DismissableProposalStream kind="self-suggestion" suggestions={suggestions} />

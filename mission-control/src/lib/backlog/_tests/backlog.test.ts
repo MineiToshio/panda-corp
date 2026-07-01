@@ -156,4 +156,21 @@ body
     expect(items).toEqual([]);
     expect(errors[0]?.reason).toMatch(/type/i);
   });
+
+  it("surfaces a duplicate id fail-loud and keeps only the first (BL-0013, DR-078)", () => {
+    // Two different files claiming the same id is a data-integrity defect: the second
+    // must NOT produce a second item (which would render duplicate React keys) — it is
+    // reported in errors[], naming the file that first defined the id.
+    writeItem("BL-0010-a.md", VALID_ITEM.replace("BL-0001", "BL-0010"));
+    writeItem("BL-0010-b.md", VALID_ITEM.replace("BL-0001", "BL-0010"));
+    const { items, errors } = readBacklog();
+    // Exactly one item with that id (unique keys guaranteed for the UI).
+    expect(items.filter((i) => i.id === "BL-0010")).toHaveLength(1);
+    // The other file is surfaced fail-loud, naming the file that first defined the id
+    // (order-independent: whichever readdir yields second is the reported duplicate).
+    const dupError = errors.find((e) => e.reason.includes("duplicate id BL-0010"));
+    expect(dupError).toBeDefined();
+    expect(dupError?.file).toMatch(/^BL-0010-[ab]\.md$/);
+    expect(dupError?.reason).toMatch(/already defined in BL-0010-[ab]\.md/);
+  });
 });

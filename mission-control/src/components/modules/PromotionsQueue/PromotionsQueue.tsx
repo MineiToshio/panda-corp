@@ -1,10 +1,16 @@
+"use client";
+
 /**
  * CMP-17-promoqueue — Promotions queue (WO-17-006, FRD-17, REQ-17-006).
  *
  * The durable, reviewable list of factory/memory lessons with promotion: "proposed"
- * or promotion: "rejected". Shows each lesson's target (type/domain), rationale
- * (body), evidence (lesson id + source + links), and the /pandacorp:learn command
- * for the owner to copy and run.
+ * or promotion: "rejected". Each card shows a clean one-line summary (the lesson's
+ * `context`, NOT raw markdown), its target (type/domain), evidence (lesson id +
+ * source + links), and the /pandacorp:learn command for the owner to copy and run.
+ *
+ * Each card's content is a clickable control: with `onSelectLesson` set, clicking it
+ * opens the shared lesson-detail modal (a route-local wrapper holds the state and
+ * renders `LessonDetailModal`, keeping this module free of a route-local import).
  *
  * Read-only: MC never promotes. The approve affordance is the copyable command only.
  * Rejected lessons are shown as state (no write affordance).
@@ -14,15 +20,15 @@
  *   - Zero hardcoded colors — only CSS custom properties from @theme.
  *   - Spanish user-facing copy (honest, no urgency per REQ-17-007/FRD-09).
  *   - data-testid on every interactive/testable element.
- *   - Server Component compatible (no "use client" — props are pre-fetched).
  *
  * Traceability:
  *   AC-17-006.1  queue lists exactly promotion: proposed/rejected lessons
- *   AC-17-006.2  each entry shows target, rationale, and evidence
+ *   AC-17-006.2  each entry shows target, rationale (clean summary), and evidence
  *   AC-17-006.3  CopyButton with /pandacorp:learn command (MC never promotes)
  *   AC-17-006.4  rejected state shown as badge only (no write)
  *   AC-17-006.5  high-risk targets (DR-*, must-* domain) display-only with badge
  *   AC-17-006.6  empty queue → calm al día state, Spanish + a11y
+ *   AC-17-006.7  a card opens a formatted detail modal (parity with the lesson/backlog detail)
  */
 
 import { Chip } from "@/components/core/Chip/Chip";
@@ -42,6 +48,11 @@ export type PromotionsQueueProps = {
    * filtered out (AC-17-006.1: queue shows only proposed/rejected).
    */
   lessons: Lesson[];
+  /**
+   * Called when the owner clicks a card's content to see its formatted detail. When
+   * omitted the cards render as static (still shows summary/evidence/command).
+   */
+  onSelectLesson?: (lesson: Lesson) => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -65,9 +76,27 @@ function isHighRisk(lesson: Lesson): boolean {
 /**
  * Build the /pandacorp:learn command string for a proposed lesson.
  * The command is what the owner copies and runs to promote the lesson.
+ * Exported so the route-local detail modal shows the SAME command (single source).
  */
-function buildLearnCommand(lesson: Lesson): string {
+export function buildLearnCommand(lesson: Lesson): string {
   return `/pandacorp:learn ${lesson.id}`;
+}
+
+/**
+ * A clean, one-line human summary for a card — the lesson's `context` when present,
+ * else the first non-empty body line with markdown markers stripped (so a card never
+ * shows raw `**Label:**`/`##` syntax). Truncated for the card.
+ */
+function rationaleSummary(lesson: Lesson): string {
+  const ctx = lesson.context.trim();
+  if (ctx !== "") return ctx;
+  const firstLine = lesson.body
+    .split("\n")
+    .map((line) => line.trim())
+    .find((line) => line !== "");
+  if (firstLine == null) return "";
+  const clean = firstLine.replace(/[*_`#>]/g, "").trim();
+  return clean.length > 160 ? `${clean.slice(0, 160)}…` : clean;
 }
 
 // ---------------------------------------------------------------------------
@@ -89,22 +118,52 @@ const ENTRY_HEADER_STYLE: React.CSSProperties = {
 
 const ENTRY_TARGET_STYLE: React.CSSProperties = {
   margin: 0,
-  fontSize: "0.875rem",
+  fontSize: "0.72rem",
   fontWeight: 600,
-  color: "var(--color-text)",
+  letterSpacing: "0.02em",
+  color: "var(--color-text2)",
 };
 
 const ENTRY_TARGET_MUTED_STYLE: React.CSSProperties = {
   ...ENTRY_TARGET_STYLE,
+  color: "var(--color-text3)",
+};
+
+/** The prominent, clean one-line summary (the card's readable title). */
+const ENTRY_SUMMARY_STYLE: React.CSSProperties = {
+  margin: 0,
+  fontSize: "0.9rem",
+  fontWeight: 600,
+  color: "var(--color-text)",
+  wordBreak: "break-word",
+};
+
+const ENTRY_SUMMARY_MUTED_STYLE: React.CSSProperties = {
+  ...ENTRY_SUMMARY_STYLE,
+  fontWeight: 500,
   color: "var(--color-text2)",
 };
 
-const ENTRY_RATIONALE_STYLE: React.CSSProperties = {
+/** Clickable content region: a reset <button> (opens the detail) — no nested control. */
+const OPEN_BUTTON_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "calc(var(--space-base) * 0.5)",
+  width: "100%",
+  textAlign: "left",
+  background: "transparent",
+  border: "none",
+  padding: 0,
   margin: 0,
-  fontSize: "0.8rem",
-  color: "var(--color-text)",
-  whiteSpace: "pre-wrap",
-  wordBreak: "break-word",
+  color: "inherit",
+  font: "inherit",
+  cursor: "pointer",
+};
+
+const OPEN_STATIC_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "calc(var(--space-base) * 0.5)",
 };
 
 const ENTRY_ACTIONS_STYLE: React.CSSProperties = {
@@ -159,10 +218,47 @@ function EvidenceBlock({ lesson }: { lesson: Lesson }): React.JSX.Element {
   );
 }
 
-/** Proposed entry: shows target, rationale, evidence, and copyable /pandacorp:learn command. */
-function ProposedEntry({ lesson }: { lesson: Lesson }): React.JSX.Element {
+/**
+ * The clickable content region of a card. When `onSelect` is set it renders a reset
+ * <button> that opens the detail; otherwise a plain <div> (static). The copyable
+ * command stays OUTSIDE this region so no interactive control nests in the button.
+ */
+function EntryOpenRegion({
+  lesson,
+  onSelect,
+  children,
+}: {
+  lesson: Lesson;
+  onSelect?: (lesson: Lesson) => void;
+  children: React.ReactNode;
+}): React.JSX.Element {
+  if (onSelect == null) {
+    return <div style={OPEN_STATIC_STYLE}>{children}</div>;
+  }
+  return (
+    <button
+      type="button"
+      data-testid={`promotion-open-${lesson.id}`}
+      aria-label={`Ver detalle de la promoción ${lesson.id}`}
+      onClick={() => onSelect(lesson)}
+      style={OPEN_BUTTON_STYLE}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Proposed entry: clean summary, target, evidence + copyable /pandacorp:learn command. */
+function ProposedEntry({
+  lesson,
+  onSelect,
+}: {
+  lesson: Lesson;
+  onSelect?: (lesson: Lesson) => void;
+}): React.JSX.Element {
   const highRisk = isHighRisk(lesson);
   const command = buildLearnCommand(lesson);
+  const summary = rationaleSummary(lesson);
 
   return (
     <Panel variant="rpgpanel">
@@ -172,31 +268,32 @@ function ProposedEntry({ lesson }: { lesson: Lesson }): React.JSX.Element {
         aria-label={`Propuesta de promoción ${lesson.id}`}
         style={ENTRY_BODY_STYLE}
       >
-        {/* Header row: target + high-risk badge */}
-        <div style={ENTRY_HEADER_STYLE}>
-          <h3 data-testid="promotion-target" style={ENTRY_TARGET_STYLE}>
-            {lesson.type} · {lesson.domain}
-          </h3>
-          {highRisk && (
-            <span
-              data-testid="promotion-high-risk-badge"
-              title="Objetivo de alto riesgo — ejecutar el comando en el skill correspondiente"
-            >
-              <Chip tone="accent">Alto riesgo</Chip>
+        <EntryOpenRegion lesson={lesson} onSelect={onSelect}>
+          {/* Header row: target + high-risk badge */}
+          <div style={ENTRY_HEADER_STYLE}>
+            <span data-testid="promotion-target" style={ENTRY_TARGET_STYLE}>
+              {lesson.type} · {lesson.domain}
             </span>
+            {highRisk && (
+              <span
+                data-testid="promotion-high-risk-badge"
+                title="Objetivo de alto riesgo — ejecutar el comando en el skill correspondiente"
+              >
+                <Chip tone="accent">Alto riesgo</Chip>
+              </span>
+            )}
+          </div>
+
+          {/* Clean one-line summary (the readable rationale — no raw markdown) */}
+          {summary !== "" && (
+            <p data-testid="promotion-rationale" style={ENTRY_SUMMARY_STYLE}>
+              {summary}
+            </p>
           )}
-        </div>
 
-        {/* Rationale (body excerpt) */}
-        {lesson.body && (
-          <p data-testid="promotion-rationale" style={ENTRY_RATIONALE_STYLE}>
-            {lesson.body.slice(0, 300)}
-            {lesson.body.length > 300 ? "…" : ""}
-          </p>
-        )}
-
-        {/* Evidence */}
-        <EvidenceBlock lesson={lesson} />
+          {/* Evidence */}
+          <EvidenceBlock lesson={lesson} />
+        </EntryOpenRegion>
 
         {/* Approve affordance: copyable /pandacorp:learn command (AC-17-006.3) */}
         <div style={ENTRY_ACTIONS_STYLE}>
@@ -210,8 +307,16 @@ function ProposedEntry({ lesson }: { lesson: Lesson }): React.JSX.Element {
   );
 }
 
-/** Rejected entry: shows lesson info + rejected badge, no write affordance (AC-17-006.4). */
-function RejectedEntry({ lesson }: { lesson: Lesson }): React.JSX.Element {
+/** Rejected entry: clean summary + rejected badge, no write affordance (AC-17-006.4). */
+function RejectedEntry({
+  lesson,
+  onSelect,
+}: {
+  lesson: Lesson;
+  onSelect?: (lesson: Lesson) => void;
+}): React.JSX.Element {
+  const summary = rationaleSummary(lesson);
+
   return (
     <Panel variant="rpgpanel">
       <article
@@ -220,18 +325,27 @@ function RejectedEntry({ lesson }: { lesson: Lesson }): React.JSX.Element {
         aria-label={`Promoción rechazada ${lesson.id}`}
         style={{ ...ENTRY_BODY_STYLE, opacity: 0.7 }}
       >
-        {/* Header row: target + rejected badge */}
-        <div style={ENTRY_HEADER_STYLE}>
-          <h3 data-testid="promotion-target" style={ENTRY_TARGET_MUTED_STYLE}>
-            {lesson.type} · {lesson.domain}
-          </h3>
-          <span data-testid="promotion-rejected-badge">
-            <Chip tone="secondary">Rechazada</Chip>
-          </span>
-        </div>
+        <EntryOpenRegion lesson={lesson} onSelect={onSelect}>
+          {/* Header row: target + rejected badge */}
+          <div style={ENTRY_HEADER_STYLE}>
+            <span data-testid="promotion-target" style={ENTRY_TARGET_MUTED_STYLE}>
+              {lesson.type} · {lesson.domain}
+            </span>
+            <span data-testid="promotion-rejected-badge">
+              <Chip tone="secondary">Rechazada</Chip>
+            </span>
+          </div>
 
-        {/* Evidence (read-only, informational) */}
-        <EvidenceBlock lesson={lesson} />
+          {/* Clean one-line summary */}
+          {summary !== "" && (
+            <p data-testid="promotion-rationale" style={ENTRY_SUMMARY_MUTED_STYLE}>
+              {summary}
+            </p>
+          )}
+
+          {/* Evidence (read-only, informational) */}
+          <EvidenceBlock lesson={lesson} />
+        </EntryOpenRegion>
       </article>
     </Panel>
   );
@@ -278,7 +392,10 @@ function EmptyState(): React.JSX.Element {
  * @param lessons - All lessons to consider. Those with promotion other than
  *                  "proposed" or "rejected" are silently filtered out.
  */
-export function PromotionsQueue({ lessons }: PromotionsQueueProps): React.JSX.Element {
+export function PromotionsQueue({
+  lessons,
+  onSelectLesson,
+}: PromotionsQueueProps): React.JSX.Element {
   // Filter to only proposed and rejected lessons (AC-17-006.1).
   const queueLessons = lessons.filter(
     (l) => l.promotion === "proposed" || l.promotion === "rejected",
@@ -320,9 +437,9 @@ export function PromotionsQueue({ lessons }: PromotionsQueueProps): React.JSX.El
         >
           {queueLessons.map((lesson) =>
             lesson.promotion === "proposed" ? (
-              <ProposedEntry key={lesson.id} lesson={lesson} />
+              <ProposedEntry key={lesson.id} lesson={lesson} onSelect={onSelectLesson} />
             ) : (
-              <RejectedEntry key={lesson.id} lesson={lesson} />
+              <RejectedEntry key={lesson.id} lesson={lesson} onSelect={onSelectLesson} />
             ),
           )}
         </div>
