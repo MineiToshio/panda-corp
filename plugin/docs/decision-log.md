@@ -4,6 +4,43 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-07-01 — Audit-20 execution: the full end-to-end process-audit fix batch · v9.39.0 (OVERLAY 8.52.1→8.53.0)
+**What:** The owner approved 100% of `docs/proposals/20-factory-process-audit-2026-07-01.md`; this is the
+plugin side of the whole batch (commits `1ba9f5c`, `edc2614`, `186298f`, `9e82425`, `470a861` + this bump).
+**Engine** (`pandacorp-build.js`, OVERLAY-bumping): a fail-closed **Hardening phase** (security-auditor +
+analytics with evidence artifacts) gates `phase: release` in BOTH close-out paths (BL-0012; the fail-safe
+close never touches `phase`); an **in-engine DR-069 safe-point check at every FRD boundary** (rethink stop,
+ready-queue drain via a reusable `processChange` + re-plan of new FRDs into the running loop, answered
+decisions flip BLOCKED→PLANNED); a **close-out archive step** (DR-069 §7 done+`shipped_sha`+move to
+`done/`); the patcher no longer self-certifies — a **`verifyPatched` independent reviewer** is the only
+stamper of VERIFIED/`last_green_sha` (DR-073 amend); baseline clears `rethink_pending`; every judge-model
+spawn is COST-weighted. **Skills:** `/bug` files `status: ready` (was un-drainable `pending`) + archives as
+`done` + redirects to `/change`; `/upgrade` gains a HARD active-build guard and `change`/`bug`/`iterate`
+preflights defer it mid-build; `/implement` preflight now REALLY re-checks the gates (asserts the new
+`readiness_gate`/`grounding_gate` frontmatter stamps + a marker grep); `architecture` runs DR-100 via a
+FRESH agent and owns the DRAFT→ACTIVE flip (new step 9b2, stamps); `spec` owns the PRD/FRD flip at the
+owner's ok + records the demand signal durably; `work-orders` no longer auto-advances `phase`; `/decide`
+unblocks WOs mechanically; `learn`/`memory` gain the backlog next-free-id + drain ritual. **Templates:**
+`status.yaml.tpl` `pending_changes` (dead `pending_bugs` removed); `guide.md.tpl`/`AGENTS.md.tpl` route the
+owner via `/change`; PRD/events/research templates gain the DR-035/041/042/043/074 sections review-launch
+reads; WO template gains `difficulty`/`reopen_count`; blueprint template gains the gate stamps;
+components-inventory gains the DR-075 nav-contract slot; `decision-log.md.tpl` drops `operation`; stacks
+B/C/D carry the DR-105 PROVISIONAL banner; stack-a fixed (pnpm/Prisma/DR-090/DR-040/canary+DR-100 prose).
+**Agents:** DR-047 RETRIEVE + `times_applied` wired into all 7 builder agents; `analytics`/`devops`
+frontmatter `:blueprint`→`:architecture` (the Manual derives from it); architect's readiness-gate section
+rewritten. **Hooks/scripts:** `block-dangerous.sh` — hard-reset allowlisted only for an explicit hex SHA
+(DR-104) + mechanical DR-004 production-deploy gate (vercel --prod/flyctl/railway/wrangler), 6-case test
+matrix green; NEW `validate-backlog.sh` (id-uniqueness + next-free-id, mirror of `validate-memory.sh`);
+`scan-ideas.sh` Englished. Rules re-mirrored (quality gains 4 HARD gates + numeric bars; typescript
+ESLint→Biome; web-security hstspreload owner gate).
+**Why:** audit-20's headline was promise-without-mechanism — canonical docs asserting enforcement no code
+implements. This batch makes each promise either real (cabled) or corrected (the claim removed).
+**Version:** MINOR v9.38.2→**v9.39.0** (new capabilities: hardening phase, safe-point drain, independent
+patch verify, validators, mechanical gates). **OVERLAY 8.52.1→8.53.0** (engine + status.yaml.tpl +
+guide/AGENTS tpls + decision-log tpl changed — projects pick it up on their next `/pandacorp:upgrade`).
+Factory-side story: `factory/decision-log.md` (2026-07-01). Activation: commit +
+`claude plugin update pandacorp@panda-corp` + restart.
+
 ## 2026-06-30 — `worktree-bootstrap.sh` step 3 no-op fixed: `PANDACORP_FACTORY_ROOT` now actually written · v9.38.2 (OVERLAY 8.52.0→8.52.1)
 **What:** Step 3 ("Secrets & data are REFERENCED, not copied") had a bare `:` no-op guarded by an MC/factory-worktree detection condition, with a comment claiming "the runner exports `PANDACORP_FACTORY_ROOT`" — nothing actually did. `config.ts::resolveFactoryRoot()` falls back to `path.resolve(cwd, "..")` when the env var is unset, which in a fresh Mission Control worktree resolves to that worktree's own near-empty `factory/` (git only checks out tracked files — `factory/profile.md`/`portfolio.md` are gitignored and never copied), tripping the onboarding gate (`OnboardingGate.tsx`) on every fresh `next dev` spawn and reding the whole e2e suite (every route fails "no visible app shell"). Fixed: step 3 now writes a worktree-local, gitignored `.env.local` (`PANDACORP_FACTORY_ROOT=$MAIN_WT`) next to whichever app's `package.json` it finds (`$WORKTREE/mission-control` first, else `$WORKTREE` itself), mirroring the pattern already used for `launch.json` in step 2.
 **Why:** Discovered and only worked around (not fixed) in a same-day session — a worktree-local `.env.local` was hand-created to get `verify.sh`'s e2e suite green, then deleted before merging so it wouldn't leak into other runs. That meant the workaround had to be repeated by hand, by whoever noticed, every time — exactly the footgun DR-096 (worktree self-isolation) exists to prevent.

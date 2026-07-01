@@ -2,6 +2,41 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-01 — Audit-20 EXECUTED in full: the owner approved 100% and the whole plan shipped (DR-104/DR-105 + 10 DR amendments)
+
+**What:** The owner approved the complete audit-20 plan ("quiero solucionar todo, el 100%") and it was
+executed in five groups, all landed on `main`: **G0** backlog id collision fixed (BL-0010b→BL-0014,
+BL-0011b→BL-0015) + NEW `validate-backlog.sh` (id-uniqueness, next-free-id) + `/bug` drainable + `/upgrade`
+active-build guard + dead card enums; **G1** release gated on hardening EVIDENCE in both engine paths
+(closes BL-0012) + the DR-069 drain/decide-unblock/archive triangle cabled IN-ENGINE at every FRD boundary
++ templates born post-DR-069 (closes BL-0007; BL-0004/0005 closed as already-fixed-in-code); **G2** honest
+gates — DR-100 by a fresh agent, gate stamps (`readiness_gate`/`grounding_gate`) + a REAL `/implement`
+preflight re-check, the DRAFT→ACTIVE flip owned (spec/architecture), mechanical DR-004 prod-deploy gate +
+hard-reset SHA allowlist (NEW **DR-104**), independent post-patch verification (DR-073 amend), `difficulty`
+into the WO template; **G3** loops closed — PRD/events/research templates gain the DR-035/041/042/043/074
+anchors, DR-047 RETRIEVE + `times_applied` wired into all 7 builder agents, weekly scheduled tasks created
+(review-launch Mondays, memory review Thursdays), backlog drain ritual; **G4** sweeps + doctrine —
+blueprint→architecture / DR-085 / DR-052 / DR-090 / DR-069-vocab sweeps (constitution §23 included),
+build-orchestration §8/§9 duplicates renumbered (→§10/§11, cross-refs updated), registry hygiene (DR-011
+propose-only discard, DR-020 supersession, DR-082..084 tombstones, DR-092/057 pointers, fencing-token claim
+removed, NEW `factory/decisions/README.md` index), rules↔standards re-mirrored + NEW
+`factory/standards/accessibility.md` (24px gated floor / 44px design target), coverage gaps (backup/restore,
+incident response, cost monitoring, data migrations), stacks B/C/D declared PROVISIONAL (NEW **DR-105**, NEW
+BL-0016 for the harness on first use), funnel P2 tail (`score_rationale`, selection verb `/spec`, adopt
+ports+telemetry, anonymized example card), 12 orphan worktree manifests removed.
+**Why:** The audit's headline — promise-without-mechanism — meant each fix either CABLES the promise
+(engine/hook/validator/scheduled task) or corrects the claim. Six owner decisions resolved in the batch:
+(1) hard-reset → SHA allowlist; (2) patch → independent verify; (3) pnpm; (4) DR-011 → propose-only;
+(5) stacks B/C/D → declared provisional + BL-0016; (6) 24px gated floor / 44px design target.
+**Impact:** ~90 files across plugin/factory (commits `1ba9f5c`..`470a861` + the version bump). Plugin
+v9.38.2→**v9.39.0** (MINOR), OVERLAY 8.52.1→**8.53.0** (engine + shared templates — projects upgrade on
+their next `/pandacorp:upgrade`). Backlog: 5 done / 11 open (validator green, next free BL-0017). Registry:
+105 ids (100 real + 3 tombstones + DR-104/105). Detail: `plugin/docs/decision-log.md` (2026-07-01).
+**Follow-ups (open, not lost):** the MC Manual hand-authored narrative pages (DR-046) need a sync pass for
+the changed flows (hardening-gated release, in-engine drain, gate stamps, /change-only routing) — MC is a
+product project, routed via its own change queue; the remaining open BL items (BL-0001/0002/0003/0006/
+0008/0009/0010/0011/0013§2/0014/0015/0016) drain via the new ritual.
+
 ## 2026-07-01 — Full end-to-end factory process audit (proposal 20)
 
 **What:** Owner-requested audit of the ENTIRE factory process (Mission Control excluded) — funnel
