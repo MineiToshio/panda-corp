@@ -25,6 +25,7 @@ const PROMOTION_LESSON: Lesson = {
   id: "LESSON-0003",
   type: "library-verdict",
   domain: "testing",
+  context: "resumen de una línea de la lección",
   status: "active",
   promotion: "proposed",
   source: "proj-alpha (WO-02-001), proj-beta (WO-03-002)",

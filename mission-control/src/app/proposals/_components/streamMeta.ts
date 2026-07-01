@@ -39,7 +39,8 @@ export const STREAM_META: Record<StreamKind, StreamMeta> = {
   },
   prune: {
     label: "Lecciones obsoletas / para podar",
-    description: "Lecciones marcadas para reconciliar o archivar por `/pandacorp:memory review`.",
+    description:
+      "Lecciones que /pandacorp:memory review marcó como obsoletas (status: deprecated) — nunca recuperadas y viejas, o contradichas por evidencia más nueva. No se borran, se deprecan.",
     emptyMessage: "La biblioteca del gremio está limpia — no hay lecciones para depurar.",
   },
   "self-suggestion": {

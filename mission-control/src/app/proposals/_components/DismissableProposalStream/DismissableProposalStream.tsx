@@ -110,6 +110,13 @@ const EMPTY_STYLE: React.CSSProperties = {
   padding: "0.75rem 2px",
 };
 
+const DESC_STYLE: React.CSSProperties = {
+  fontSize: "12px",
+  color: "var(--color-text3)",
+  margin: "0 2px 9px",
+  lineHeight: 1.5,
+};
+
 // The card fills the row; the dismiss ✕ is overlaid subtly in its top-right corner
 // (position:relative anchor) instead of a text+border pill hanging off to the side.
 const ROW_STYLE: React.CSSProperties = {
@@ -235,6 +242,9 @@ export function DismissableProposalStream(
           label={meta.label}
           count={visible.length > 0 ? visible.length : undefined}
         />
+
+        {/* One-line explainer of what this list is (e.g. how "obsoletas" is determined). */}
+        <p style={DESC_STYLE}>{meta.description}</p>
 
         {/* Group-level command row — once under the title (REQ-17-001 / AC-17-001.1) */}
         {groupCmd && !isEmpty && (

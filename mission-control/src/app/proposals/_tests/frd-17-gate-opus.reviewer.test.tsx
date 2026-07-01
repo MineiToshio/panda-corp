@@ -44,6 +44,7 @@ function lesson(overrides: Partial<Lesson> = {}): Lesson {
     id: "LESSON-0099",
     type: "pattern",
     domain: "nextjs",
+    context: "resumen de una línea de la lección",
     status: "active",
     promotion: "proposed",
     source: "proj-x (WO-01-001)",

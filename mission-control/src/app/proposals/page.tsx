@@ -76,8 +76,10 @@ export const metadata: Metadata = {
 // Constants — group-level commands (REQ-17-001)
 // ---------------------------------------------------------------------------
 
-/** The single activating command for candidate-lesson and prune groups. */
-const MEMORY_GROUP_CMD = "/pandacorp:memory";
+/** The single activating command for candidate-lesson and prune groups:
+ * `/pandacorp:memory review` is the mode that acts on these lists (corroborates /
+ * activates candidates, proposes pruning obsolete ones) — not the bare command. */
+const MEMORY_GROUP_CMD = "/pandacorp:memory review";
 
 // ---------------------------------------------------------------------------
 // Styles — CSS custom properties only, zero hardcoded colors

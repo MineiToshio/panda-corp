@@ -32,6 +32,7 @@ const CANDIDATE_LESSON: Lesson = {
   id: "LESSON-0009",
   type: "gotcha",
   domain: "testing",
+  context: "resumen de una línea de la lección",
   status: "candidate",
   promotion: "none",
   source: "proj-alpha (WO-01-001)",

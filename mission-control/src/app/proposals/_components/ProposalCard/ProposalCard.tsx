@@ -103,41 +103,6 @@ function lessonTitle(kind: "candidate-lesson" | "promotion" | "prune"): string {
   return "Revisar lección candidata";
 }
 
-/** Max length of the derived lesson title before ellipsis (word-boundary safe). */
-const LESSON_TITLE_MAX = 120;
-
-/**
- * Derive a clean, human-readable TITLE from a lesson body (PROP-04/05).
- *
- * Lesson bodies are markdown that open with `**Situation:** …` / `**Lesson:** …`
- * sections. The actionable takeaway is the `**Lesson:**` sentence; we prefer it,
- * fall back to the first sentence, strip markdown emphasis markers, collapse
- * whitespace and truncate on a word boundary — never a raw mid-word `.slice()`.
- */
-function deriveLessonTitle(body: string): string | null {
-  const normalized = body.replace(/\s+/g, " ").trim();
-  if (normalized === "") return null;
-
-  // Prefer the "Lesson:" takeaway; else the first sentence of the body.
-  const lessonMatch = normalized.match(/\*\*\s*Lesson\s*:?\s*\*\*\s*(.+?)(?:\*\*|$)/i);
-  const raw = (lessonMatch?.[1] ?? normalized)
-    // Strip markdown emphasis/inline-code markers, keep the words.
-    .replace(/\*\*|__|`/g, "")
-    // Drop a leading "Label:" prefix (e.g. "Situation:") if one survived.
-    .replace(/^[A-Za-zÁÉÍÓÚáéíóúñ ]{3,20}:\s*/, "")
-    .trim();
-
-  // First sentence only (up to the first sentence terminator).
-  const firstSentence = raw.split(/(?<=[.!?])\s/)[0]?.trim() ?? raw;
-  if (firstSentence === "") return null;
-
-  if (firstSentence.length <= LESSON_TITLE_MAX) return firstSentence;
-  // Truncate on a word boundary, never mid-word.
-  const cut = firstSentence.slice(0, LESSON_TITLE_MAX);
-  const lastSpace = cut.lastIndexOf(" ");
-  return `${(lastSpace > 40 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`;
-}
-
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
@@ -255,8 +220,9 @@ function LessonCard({
   onSelect?: (lesson: Lesson) => void;
 }): React.JSX.Element {
   const command = lessonCommand(kind, lesson.id);
-  // PROP-04/05: show the lesson's TITLE (clean takeaway), not a raw body slice.
-  const title = deriveLessonTitle(lesson.body) ?? lessonTitle(kind);
+  // Title = the lesson's `context:` (a clean, human-written one-liner). Fall back to
+  // a generic per-kind label only if a lesson somehow has no context field.
+  const title = lesson.context !== "" ? lesson.context : lessonTitle(kind);
   const meta = KIND_META[kind];
 
   const card = (

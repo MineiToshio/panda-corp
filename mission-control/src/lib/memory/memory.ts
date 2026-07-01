@@ -32,6 +32,8 @@ export type Lesson = {
   id: string;
   type: string;
   domain: string;
+  /** One-line human-written summary (frontmatter `context:`) — the card title. */
+  context: string;
   status: LessonStatus;
   promotion: PromotionState;
   source: string;
@@ -271,6 +273,8 @@ function parseLessonFile(filePath: string): Lesson | null {
   const source = coerceSource(fm.source);
   const links = coerceLinks(fm.links);
 
+  // context: the one-line human summary (the card title). Optional → "".
+  const context = typeof fm.context === "string" ? fm.context.trim() : "";
   // body: gray-matter exposes content after the frontmatter as `.content`.
   const body: string = typeof parsed.content === "string" ? parsed.content.trim() : "";
 
@@ -283,6 +287,7 @@ function parseLessonFile(filePath: string): Lesson | null {
     id,
     type,
     domain,
+    context,
     status,
     promotion,
     source,

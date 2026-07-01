@@ -61,6 +61,7 @@ const PROPOSED_LESSON: Lesson = {
   id: "LESSON-0031",
   type: "pattern",
   domain: "web-performance",
+  context: "resumen de una línea de la lección",
   status: "active",
   promotion: "proposed",
   source: "quick-notes · Pandacorp · recipe-keeper",

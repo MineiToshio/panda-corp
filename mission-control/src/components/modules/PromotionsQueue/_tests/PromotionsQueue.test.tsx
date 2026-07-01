@@ -35,6 +35,7 @@ function makeProposed(overrides: Partial<Lesson> = {}): Lesson {
     id: "LESSON-0010",
     type: "problem-solution",
     domain: "engineering",
+    context: "resumen de una línea de la lección",
     status: "active",
     promotion: "proposed",
     source: "proj-alpha (WO-01-001 review)",

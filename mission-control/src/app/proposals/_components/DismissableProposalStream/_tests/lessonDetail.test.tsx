@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import type { Lesson } from "@/lib/memory/memory";
@@ -9,13 +9,14 @@ function makeLesson(over: Partial<Lesson>): Lesson {
     id: "LESSON-0002",
     type: "anti-pattern",
     domain: "factory-engineering",
+    context: "resumen de una línea de la lección",
     status: "candidate",
     promotion: "none",
     source: "project personal-page-v2",
     links: [],
     projects: [],
     evalGate: "awaiting-2nd",
-    body: "**Situation:** the gate broke.\n\n## Lesson\nDo not conflate two failure causes.",
+    body: "**Situation:** the gate broke.\n\n**Lesson:** Do not conflate two failure causes.\n\n**Apply next time:** split the fallback.",
     ...over,
   };
 }
@@ -42,9 +43,11 @@ describe("DismissableProposalStream — lesson detail (FRD-17)", () => {
     expect(screen.getByTestId("lesson-detail-body")).toHaveTextContent(
       "Do not conflate two failure causes",
     );
-    // Markdown rendered the "## Lesson" section as a real heading, not raw '##'
-    // (exact name so it doesn't also match the modal title "LESSON-0042").
-    expect(screen.getByRole("heading", { name: "Lesson" })).toBeInTheDocument();
+    // The bold `**Label:**` prose is parsed into distinct titled sections.
+    const body = screen.getByTestId("lesson-detail-body");
+    for (const label of ["Situation", "Lesson", "Apply next time"]) {
+      expect(within(body).getByText(label)).toBeInTheDocument();
+    }
   });
 
   it("closes the detail modal on Escape", async () => {

@@ -31,6 +31,7 @@ function makeLesson(overrides: Partial<Lesson> = {}): Lesson {
     id: "LESSON-0001",
     type: "gotcha",
     domain: "nextjs",
+    context: "resumen de una línea de la lección",
     status: "candidate",
     promotion: "none",
     source: "proj-alpha (WO-01-001 review)",
