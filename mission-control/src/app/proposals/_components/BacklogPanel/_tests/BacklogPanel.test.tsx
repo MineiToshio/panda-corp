@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import type { BacklogItem, BacklogReadResult } from "@/lib/backlog/backlog";
@@ -86,13 +86,15 @@ describe("BacklogPanel", () => {
 
     await user.click(screen.getByRole("button", { name: /ver detalle del item BL-0042/i }));
 
-    // Modal open with the item id as title + the markdown body rendered.
+    // Modal open with the item id as title + the body rendered.
     expect(screen.getByTestId("backlog-detail")).toBeInTheDocument();
     expect(screen.getByRole("dialog")).toHaveTextContent("BL-0042");
-    expect(screen.getByTestId("backlog-detail-body")).toHaveTextContent("The widget explodes.");
-    // Markdown rendered the section headings as real headings (not raw '##').
-    expect(screen.getByRole("heading", { name: /problem/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /fix plan/i })).toBeInTheDocument();
+    const body = screen.getByTestId("backlog-detail-body");
+    expect(body).toHaveTextContent("The widget explodes.");
+    // The `## Heading` sections become distinct titled section headers (not raw '##').
+    for (const label of ["Problem", "Fix plan"]) {
+      expect(within(body).getByText(label)).toBeInTheDocument();
+    }
   });
 
   it("closes the detail modal on Escape", async () => {

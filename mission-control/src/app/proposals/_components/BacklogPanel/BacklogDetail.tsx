@@ -2,13 +2,15 @@
  * BacklogDetail — the body of a backlog item's detail modal (CMP-22-detail, FRD-22).
  *
  * A metadata strip (type·area, severity, status, source, links, dates) + the item's
- * markdown body rendered with the shared `Markdown` primitive — the same nicely
- * formatted rendering used for FRD/spec/doc detail across the app. Read-only.
+ * body rendered as **titled, colour-coded sections** via the shared
+ * `SectionedMarkdown` primitive — the same treatment the memory-lesson detail uses.
+ * Backlog bodies use `## Heading` sections (Problem / Root cause / Fix plan / Tests /
+ * Done when / Out of scope). Read-only.
  */
 
 import { Chip, type ChipTone } from "@/components/core/Chip/Chip";
-import { Markdown } from "@/components/core/Markdown/Markdown";
 import type { BacklogItem, BacklogSeverity, BacklogStatus } from "@/lib/backlog/backlog";
+import { SectionedMarkdown } from "../SectionedMarkdown/SectionedMarkdown";
 
 const SEVERITY_TONE: Record<BacklogSeverity, ChipTone> = {
   p0: "danger",
@@ -69,8 +71,8 @@ export function BacklogDetail({ item }: { item: BacklogItem }): React.JSX.Elemen
         {item.closes !== "" && <MetaLine label="Cierra" value={item.closes} />}
       </div>
 
-      {/* The markdown body — Problem / Root cause / Fix plan / Tests / Done when */}
-      <Markdown data-testid="backlog-detail-body">{item.body}</Markdown>
+      {/* Body — titled colour-coded sections (Problem / Root cause / Fix plan / …) */}
+      <SectionedMarkdown data-testid="backlog-detail-body" body={item.body} />
     </div>
   );
 }
