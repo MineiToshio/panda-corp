@@ -28,8 +28,7 @@ Changes to this project go through the `/pandacorp:*` skills, not ad-hoc free-ch
 
 | What the owner asks | Skill |
 |---|---|
-| "add this feature" / "change this behavior" | `/pandacorp:iterate` |
-| "I found this bug while testing" | `/pandacorp:bug` |
+| "add this feature" / "change this behavior" / "I found this bug" | **`/pandacorp:change`** — the single front door (DR-069): it classifies feature-vs-bug, assigns the class of service and files it in the queue `.pandacorp/inbox/changes/`; the build drains it at its next safe point. `iterate`/`bug` are its internal engines — never route the owner to them directly (a direct `iterate` edits FRDs/WOs immediately, the exact concurrent-doc-edit hazard the queue removes) |
 | "I decide X" (on a pending point) | `/pandacorp:decide` |
 | big package / redesign | `/pandacorp:new-version` |
 
@@ -64,7 +63,7 @@ Docs are **feature-centric** (DR-049): a thin **product layer** under `docs/prod
 | **Decision log** (decisions + why, history) | `docs/decision-log.md` |
 | Machine state (phase, version, overlay_version) | `.pandacorp/status.yaml` |
 | **Owner-facing narrative** (Spanish, gitignored) | `.pandacorp/comms/` (`summary.md`, `iteration.md`, `progress.md`) |
-| **Owner↔skills inbox** (Spanish, gitignored) | `.pandacorp/inbox/` (`bugs/`, `decisions.md`) |
+| **Owner↔skills inbox** (Spanish, gitignored) | `.pandacorp/inbox/` (`changes/` — the unified queue, DR-069 — and `decisions.md`) |
 | **Self-learning capture** (provisional lesson notes, gitignored) | `.pandacorp/run/lessons.md` |
 
 ## Project rules

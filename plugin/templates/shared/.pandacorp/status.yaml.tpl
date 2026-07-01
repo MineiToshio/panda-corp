@@ -16,7 +16,7 @@ updated_at: "{{DATE}}"
 work_orders_total: 0
 work_orders_done: 0
 pending_decisions: 0   # number of open entries in .pandacorp/inbox/decisions.md (Mission Control highlights them)
-pending_bugs: 0        # number of bugs in the .pandacorp/inbox/bugs/ inbox awaiting processing
+pending_changes: 0     # number of items (features/changes/bugs) in the unified queue .pandacorp/inbox/changes/ awaiting the build (DR-069; incremented by /change and /bug, decremented when the engine archives to changes/done/)
 rethink_pending: false # true if /iterate asked to pause the build for a major change
 advance_pending: false # true when the current phase produced output and awaits your "ok, advance" (meanwhile, re-running the phase = iterate in place, DR-032)
 last_green_sha: ""     # commit of the last work order closed green (written by the gate, not the agent)

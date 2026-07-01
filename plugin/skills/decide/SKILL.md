@@ -28,7 +28,10 @@ The mechanism for **the owner to answer the decision points** the AI left pendin
    - **Obsolete** (owner confirmed it no longer applies, no answer was given): `- **Estado:** OBSOLETO: <brief reason — what changed> (YYYY-MM-DD)`. This is a DIFFERENT terminal state from RESUELTO — it means the question was dropped, not answered; never use RESUELTO for this.
    - If you find a decision that a NEWER sibling entry already resolved (someone answered it in conversation or a repair pass, but never went back to mark the original) — don't ask the owner again: close the original with the SAME outcome the sibling entry documents, referencing it.
 5. **If it was answered (not marked obsolete) and it is architectural**, also create/update the ADR in `docs/adr/` (what was decided and the trade-off).
-6. **Unblock**: if the decision (answered OR marked obsolete) was unblocking a work order or a front, say so and update `.pandacorp/status.yaml` (`pending_decisions`). If `/pandacorp:implement` is running, it picks it up on its own at its next safe point (it checks `.pandacorp/inbox/decisions.md`); if there is no active build, offer to continue with `/pandacorp:implement`.
+6. **Unblock — MECHANICALLY, not just narratively.** If the decision (answered OR marked obsolete) was blocking work, do THREE things:
+   - **Flip the blocked work order(s)**: find every WO the decision names (the "Bloquea" field / the referenced `wo-NN-MMM`) whose frontmatter is `implementation_status: BLOCKED` + `blocked_reason: needs-owner`, and set it back to `implementation_status: PLANNED` (clearing `blocked_reason`). Changing the frontmatter state IS the instruction to the engine (DR-050) — an answered decision that leaves its WO `BLOCKED` stays stranded forever (the engine's planner skips BLOCKED; audit-20 P1-4).
+   - Update `.pandacorp/status.yaml` (`pending_decisions` count).
+   - Say what you unblocked. If a build is running, the engine's safe-point check ALSO does this sweep at each FRD boundary (belt and suspenders); if there is no active build, offer to continue with `/pandacorp:implement`.
 
 ## Rules
 

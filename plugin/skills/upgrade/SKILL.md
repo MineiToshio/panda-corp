@@ -31,7 +31,7 @@ Brings this project's Pandacorp overlay up to the factory's current version. The
 2. **Overlay-relocation migration (pre-6.0.0 → 6.0.0+).** If the project still has the OLD layout, move the integration layer into `.pandacorp/` (use `git mv` where tracked to preserve history):
    - `docs/status.yaml` → `.pandacorp/status.yaml`
    - `docs/iteration.md` → `.pandacorp/comms/iteration.md`; `docs/summary.md` → `.pandacorp/comms/summary.md`; `docs/progress.md` → `.pandacorp/comms/progress.md`; `docs/activity.md` → `.pandacorp/comms/activity.md`
-   - `docs/decisions.md` → `.pandacorp/inbox/decisions.md`; `docs/bugs/` → `.pandacorp/inbox/bugs/`
+   - `docs/decisions.md` → `.pandacorp/inbox/decisions.md`; `docs/bugs/` → `.pandacorp/inbox/changes/` (each old bug file becomes a `type: bug` item in the unified queue — DR-069; an old `.pandacorp/inbox/bugs/` from a 6.x overlay migrates the same way)
    - `docs/idea-origin.md` → `.pandacorp/idea-origin.md`
    - **STAY in `docs/` (product)**: `decision-log.md`, `prd.md`, `frds/`, `blueprint.md`, `adr/`, `work-orders/`, `design/`, `reviews/`, `product-research.md` (the feature-centric migration in step 2b then reshapes these).
    - Update the project's `.gitignore`: add `.pandacorp/comms/`, `.pandacorp/inbox/`, `.pandacorp/run/`; drop the old `docs/{summary,progress,decisions,iteration,activity}.md` ignores.

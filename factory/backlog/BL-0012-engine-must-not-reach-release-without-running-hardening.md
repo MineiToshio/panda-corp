@@ -3,10 +3,10 @@ id: BL-0012
 type: bug
 area: build-engine
 title: "Engine must not set phase:release without running the DR-085 hardening (security-auditor + analytics)"
-status: open
+status: done
 severity: p1
 opened: 2026-07-01
-closed:
+closed: 2026-07-01
 source: "LESSON-0022"
 closes:
 links: [LESSON-0022, DR-085, DR-017]
@@ -66,3 +66,15 @@ Then set LESSON-0022 `promotion: approved` and back-link.
 ## Out of scope
 The content/quality of the audits themselves (what the security-auditor/analytics agents check — that is
 their own definition); changing WHAT DR-085 requires — this item only enforces that it RUNS before release.
+
+## Resolution (2026-07-01, audit-20 group 1)
+Cabled in `pandacorp-build.js`: a new **`Hardening` phase** runs on the all-VERIFIED path — the
+`security-auditor` agent (OWASP + ASI01–ASI10, fixes Critical/High, writes `docs/reviews/security-<date>.md`)
+and the `analytics` agent (event-fires verification → `## Verification` section in `docs/analytics/events.md`).
+The close-out **asserts both evidence artifacts exist** before it may set `phase: release`; if hardening
+fails, a `close-needs-hardening` step keeps `phase: implementation`, files a needs-owner decision and
+notifies. The **fail-safe close no longer touches `phase` at all** (it fires when a close-out agent died —
+nothing is verified there; this covers the second hardening-free path audit-20 found beyond this item).
+Docs: `factory/standards/build-orchestration.md` §5 + the `/implement` SKILL hardening/close-out sections
+updated. Accepted residue: no engine unit-test harness exists (proven by inspection + syntax check); the
+plugin/OVERLAY bumps land with the audit-20 batch. LESSON-0022 `promotion` updated by the same batch.

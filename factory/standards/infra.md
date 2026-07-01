@@ -41,7 +41,7 @@ A project's **local deployment** (the built, served snapshot of an `internal` to
 The gate script (not the agent) writes at every green work-order close:
 - `last_green_sha`: commit of the last work order closed green.
 - `safe_to_test: true/false`: `true` only when `HEAD == last_green_sha` (no uncommitted work).
-Plus: `pending_bugs` (the `.pandacorp/inbox/bugs/` tray), `pending_decisions` (.pandacorp/inbox/decisions.md), `rethink_pending` (iterate asked to pause).
+Plus: `pending_changes` (the unified change queue `.pandacorp/inbox/changes/`, DR-069), `pending_decisions` (.pandacorp/inbox/decisions.md), `rethink_pending` (iterate asked to pause).
 
 ## Human gates as hard rules
 

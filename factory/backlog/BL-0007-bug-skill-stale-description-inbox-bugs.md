@@ -3,10 +3,10 @@ id: BL-0007
 type: bug
 area: plugin-skill
 title: "/pandacorp:bug frontmatter description still says .pandacorp/inbox/bugs/ (body uses inbox/changes/)"
-status: open
+status: done
 severity: p2
 opened: 2026-06-30
-closed:
+closed: 2026-07-01
 source: "docs/proposals/19-factory-flow-audit-2026-06-30.md (P1 — /change front door; /bug stale description)"
 closes:
 links: [DR-069]
@@ -43,3 +43,12 @@ references (historical mentions preserved); plugin PATCH bump.
 ## Out of scope
 The `/change` / `/bug` routing behavior itself (already unified under DR-069) — this is a description-text
 correction only.
+
+## Resolution (2026-07-01)
+The `/bug` `description:` was already fixed (it references `.pandacorp/inbox/changes/`). The audit-20 sweep
+closed the REST of the current-state `inbox/bugs` references this item's canary grep catches: constitution
+§23, `infra.md` (`pending_bugs` → `pending_changes`), `scaffold`/`spec`/`adopt` skeleton steps,
+`status.yaml.tpl` (the dead `pending_bugs` field replaced by `pending_changes`), `guide.md.tpl`'s inbox map,
+`librarian.md` + `memory` harvest paths, and `upgrade`'s migration mapping (old bug trays → the unified
+queue). Registry DR-020's default text is corrected in the same audit-20 registry pass. Canary grep now
+returns only historical/"former" framings.

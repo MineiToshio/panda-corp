@@ -307,10 +307,15 @@ The project lifecycle (the `phase` in `.pandacorp/status.yaml`) has **six phases
 Control's six rooms: **research** (pre-project) → `product` → `design` → `architecture` →
 `implementation` → `release`. Two changes over the old model:
 
-- **Construction (`implementation`) owns the hardening.** The security audit, quality close-out and
-  telemetry/metrics verification are the **last step of construction** (see §6 "Nothing is left"), not a
-  separate release activity. The build leaves the project audited, quality-gated and instrumented before
-  it sets `phase: release`.
+- **Construction (`implementation`) owns the hardening — and the engine ENFORCES it (BL-0012, fail-closed).**
+  The security audit, quality close-out and telemetry/metrics verification are the **last step of
+  construction** (see §6 "Nothing is left"), not a separate release activity — and this is cabled, not
+  prose: `pandacorp-build.js` runs a `Hardening` phase (security-auditor + analytics agents) once every FRD
+  is `VERIFIED`, and the close-out **asserts the hardening evidence exists** (`docs/reviews/security-*.md`
+  dated this run + the `## Verification` section in `docs/analytics/events.md`) **before it may set
+  `phase: release`**. If a hardening stage fails, the engine keeps `phase: implementation`, files a
+  needs-owner decision and notifies; the fail-safe close (fired when a close-out agent dies) NEVER touches
+  `phase`. There is no path to `release` on the FRD loop alone.
 - **`release` is the terminal phase = launched.** It means the product is **deployed / launched** (internal
   or external) and from there it is iterated (`/pandacorp:iterate`) and its results read
   (`/pandacorp:review-launch`). The old `operation` phase is **folded into `release`** — there is no
