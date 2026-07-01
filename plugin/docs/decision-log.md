@@ -4,6 +4,32 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-07-01 — Implement-speed audit phases 3+4: builder context packs + cheap mechanical tier (DR-108) + Party events (BL-0020, BL-0002) · v9.41.0 (OVERLAY 8.54.0→8.55.0)
+
+**What:** The remaining two phases of the owner-approved implement-speed plan. **Phase 3 (DR-108, engine):**
+the planner returns per WO its `path` + `acText` (the verbatim EARS AC lines that WO owns) and `woCtx()`
+injects them into every builder/test-writer prompt — one reader hands off to N builders (they got only a
+one-line `wo.summary` before, re-read the same docs N times, and still missed AC scope the gate caught
+late); the solo builder now runs its OWN self-test + Status Note via the shared `SELFTEST` contract (one
+spawn per WO instead of two — the trust boundary is the FRD gate, never the self-test; split mode keeps a
+separate closer); mechanical steps (`commit:*`, the new `dispatch:*`, `safe-point`, `sync-rollups`,
+`archive-changes`, `notify-end`, `ensure-stopped`) run on the `MECH` tier (default haiku,
+`args.mechModel` overrides). **Phase 4 (engine → Party):** the engine now emits the two event types
+Mission Control's FRD-06 always consumed but never received (0 in a 13MB stream): `achievement` (one line
+per WO set VERIFIED, from BOTH stampers — the FRD gate and `verifyPatched`) and `gate` (at gate open, with
+top-level `frd`) — closes BL-0020's producer side; the MC-side trophy fallback (derive from `woStates`
+when no events) is filed `ready` in MC's own queue (`mc-party-trophies-frontmatter-fallback.md`). BL-0002
+closed: the ENGINE stamps `IN_PROGRESS` on the whole wave at dispatch (cheap tier), so the board never
+shows "En progreso: 0" over a busy build (LESSON-0003 promoted, like LESSON-0002 in phase 2).
+**Why:** phase-3 evidence — every WO paid two same-model spawns + a sonnet commit agent, and the
+subagent-prompt audit showed builders constructing from a one-liner while ~15-25k input tokens per wave
+went to redundant re-reads; phase-4 evidence — the Party consumed `achievement`/`gate` that no producer
+ever wrote, which is exactly the "no conecta" the owner saw (the live snapshot was NOT stale).
+**Impact:** DR-108 in the registry; BL-0002/BL-0019/BL-0020 closed; LESSON-0003 promoted;
+`build-orchestration.md` §5+§6 + `implement` SKILL.md + Manual `el-pipeline` synced (DR-046). MINOR;
+OVERLAY 8.54.0→8.55.0 (engine changed). Model policy unchanged where it matters: sonnet floor + opus
+escalation for real work; haiku only executes scripts.
+
 ## 2026-07-01 — Implement-speed audit phases 1+2: scoped e2e gate (DR-106) + reject-cycle convergence budget (DR-107) · v9.40.0 (OVERLAY 8.53.0→8.54.0)
 
 **What:** The owner-approved fix batch for "the build is too slow and it deletes whole work orders instead of

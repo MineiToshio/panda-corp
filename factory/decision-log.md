@@ -2,6 +2,20 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-01 — Implement-speed audit, phases 3+4: builder context packs + cheap mechanical tier (DR-108) + Party producer events (closes BL-0002/0019/0020)
+
+**What:** Phase 3 — DR-108: the build planner extracts per-WO context packs (WO file path + verbatim EARS
+AC lines) that the engine injects into every builder prompt; the solo builder folds its self-test +
+Status Note into one spawn (the FRD gate remains the trust boundary); mechanical steps (per-WO commit,
+wave dispatch stamp, safe-point, rollup sync, archive, notify) run on the cheap `MECH` tier (haiku).
+Phase 4 — the engine emits the `achievement`/`gate` Party events FRD-06 always expected (BL-0020), stamps
+`IN_PROGRESS` at wave dispatch (BL-0002, LESSON-0003 promoted), and the MC-side trophy fallback is queued
+in Mission Control's own change queue. **Why:** two same-model spawns per WO + one-line builder scope were
+the token sink and the first-attempt-failure cause; the Party "no conecta" was a pure producer gap (0
+achievement/gate events in 13MB). **Impact:** registry (+DR-108), `build-orchestration.md` §5+§6,
+`quality`/skills/agents untouched beyond phase 1+2, Manual `el-pipeline` synced, backlog BL-0002/0019/0020
+closed, LESSON-0003 promoted. Plugin v9.41.0, OVERLAY 8.55.0.
+
 ## 2026-07-01 — Implement-speed audit, phases 1+2: scoped e2e gate (DR-106) + reject-cycle convergence budget (DR-107, closes BL-0001/0017/0018)
 
 **What:** The owner audited why the personal-page-v2 build took ~14h45m and ~20% of a Max plan, and approved

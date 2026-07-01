@@ -8,7 +8,7 @@ source: project personal-page-v2, build run wf_b01c0efe-146 — WO-03-001 and al
 provenance: agent-inferred
 created: 2026-06-30
 status: active
-promotion: none
+promotion: approved   # 2026-07-01 — codified as engine-owned IN_PROGRESS at wave dispatch (BL-0002 closed, plugin v9.41.0)
 confidence: high
 times_applied: 0
 links: [BL-0002, DR-097, DR-050, LESSON-0002]

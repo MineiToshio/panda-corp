@@ -94,6 +94,21 @@ const EMIT = (role, wo, ctx = {}) =>
 const TRACK = (kind, fields = '') =>
   ` Also append ONE line to .pandacorp/track.jsonl for the durable build timeline (fire-and-forget): printf '{"kind":"${kind}"${fields},"at":"%s"}\\n' "$(date -u +%FT%TZ)" >> .pandacorp/track.jsonl.`
 
+// Party contract completion (BL-0020): Mission Control's FRD-06 Party tab derives the Bóveda trophy
+// shelf + the unlock toast from `achievement` events and the tribunal's open state from `gate` events
+// — the engine NEVER emitted either (0 in a 13MB stream), so the shelf stayed empty and the tribunal
+// never lit while frontmatter said VERIFIED. The stampers (the FRD gate and the post-patch verifier —
+// the only two agents allowed to set VERIFIED) now emit achievement; the gate emits gate at open.
+const GATE_EVENT = (frd) =>
+  ` Also append the Party gate-open event (fire-and-forget — the tribunal lights up, BL-0020): printf '{"event":"gate","at":"%s","project":"%s","frd":"${frd}"}\\n' "$(date -u +%FT%TZ)" "$(basename "$PWD")" >> ~/.claude/dashboard-events.ndjson.`
+const ACHIEVEMENT = (frd) =>
+  ` For EACH work order you just set VERIFIED, ALSO append its Party achievement event (one line per WO, fire-and-forget — the Bóveda trophy shelf + unlock toast read exactly this event, BL-0020): printf '{"event":"achievement","at":"%s","project":"%s","workOrder":"%s","wo":"%s","frd":"${frd}"}\\n' "$(date -u +%FT%TZ)" "$(basename "$PWD")" "<the-wo-id>" "<the-wo-id>" >> ~/.claude/dashboard-events.ndjson.`
+
+// DR-108: mechanical steps — a serialized git commit, a frontmatter stamp, a rollup sync, an archive
+// move, a run-summary write — don't need the worker model; they run on the cheap tier. The trust
+// boundary is never these steps (the FRD gate re-verifies everything); they just execute a script.
+const MECH = (args && args.mechModel) || 'haiku'
+
 // Owner notification — macOS desktop only (osascript). Fire-and-forget; never blocks the
 // build. (Phone push, when Remote Control is on, is sent by the supervising agent via
 // PushNotification — see the implement skill. No third-party push app: owner decision 2026-06-16.)
@@ -136,6 +151,8 @@ const PLAN_SCHEMA = {
               properties: {
                 id: { type: 'string' },
                 status: { type: 'string', description: 'implementation_status from the WO frontmatter' },
+                path: { type: 'string', description: 'repo-relative path of this work-order markdown file, e.g. docs/frds/frd-03-x/work-orders/wo-03-001-y.md — injected into the builder prompt so the agent opens THE file instead of hunting for it (DR-108)' },
+                acText: { type: 'string', description: "DR-108 context pack: the FRD's EARS acceptance-criteria lines that THIS work order must satisfy, copied VERBATIM from frd.md (only the ACs this WO owns per the Build Plan — bounded, not the whole FRD). Injected into the builder + test-writer prompts so the first attempt builds against the REAL AC scope instead of a one-line summary (first-attempt gate failures were the top rework cause)." },
                 difficulty: { type: 'string', description: 'low|medium|high from the WO frontmatter (default medium). high → built on opus a-priori (DR-073 HYBRID)' },
                 reopen_count: { type: 'number', description: 'from the WO frontmatter (default 0) — empirical escalation signal (a WO that already failed once is built on opus, DR-073)' },
                 deps: { type: 'array', items: { type: 'string' }, description: 'intra-FRD WO ids that must be built first' },
@@ -280,7 +297,7 @@ const plan = await agent(
   - For each work order, the **frontmatter \`implementation_status\` is the source of truth**: PLANNED/IN_PROGRESS = pending; IN_REVIEW = built, awaiting its FRD gate; VERIFIED = done (NEVER rebuild); BLOCKED = skip.
   - docs/product/architecture.md → the platform stack.
   - **FOUNDATION (DR-057, web only): read docs/design/components.md** (the shared-component inventory) and skim every FRD's \`mocks/\`/\`fdd.md\` to grasp the COMPLETE set of shared primitives the surfaces reference. The foundation work orders must build the UNION of those primitives — not a hand-picked subset (the gap that shipped flat Party surfaces: Room/AgentSprite/etc. were never in the foundation). Mark \`foundation: true\` on EVERY WO that builds a shared primitive the inventory lists, so the engine builds them all before surfaces fan out.
-  Return the FRDs that still have non-VERIFIED work orders, **in cross-FRD dependency order** (from the Build Plans). For each FRD: its \`frd\` folder, its \`deps\` (FRD folders that must be VERIFIED first), and its \`workOrders\` (each with id, frontmatter \`status\`, intra-FRD \`deps\`, one-line \`summary\`, **\`difficulty\` (low|medium|high — COPY it from the WO's \`difficulty:\` frontmatter; default \`medium\` when absent — DR-073: \`high\` builds on opus a-priori)**, **\`reopen_count\` (number — COPY it from the WO's \`reopen_count:\` frontmatter; default \`0\` when absent — DR-073: \`>=1\` builds on opus empirically)**, **its \`artifacts\` = the file/dir globs it writes, COPIED FROM the WO's \`artifacts:\` frontmatter — REQUIRED so the engine keeps parallel WOs disjoint (DR-060); if a WO has none in frontmatter, infer the files it will write from its title/summary**, and **\`foundation: true\` if this WO builds a shared design-system primitive / the inventory the other WOs reuse — DR-057, it must build before they fan out**) **in the Build Plan's order**.${ONLY ? ' Limit to these FRD folders: ' + ONLY.join(', ') + '.' : ''}
+  Return the FRDs that still have non-VERIFIED work orders, **in cross-FRD dependency order** (from the Build Plans). For each FRD: its \`frd\` folder, its \`deps\` (FRD folders that must be VERIFIED first), and its \`workOrders\` (each with id, frontmatter \`status\`, **\`path\` (the WO file's repo-relative path — DR-108, the builder opens THE file instead of hunting)**, **\`acText\` (DR-108 CONTEXT PACK — copy VERBATIM from frd.md the EARS acceptance-criteria lines THIS work order owns per the Build Plan; bounded to its own ACs, never the whole FRD. You are the ONLY agent that reads frd.md in full — this hand-off is what lets each builder construct against the real AC scope on the FIRST attempt instead of a one-line summary)**, intra-FRD \`deps\`, one-line \`summary\`, **\`difficulty\` (low|medium|high — COPY it from the WO's \`difficulty:\` frontmatter; default \`medium\` when absent — DR-073: \`high\` builds on opus a-priori)**, **\`reopen_count\` (number — COPY it from the WO's \`reopen_count:\` frontmatter; default \`0\` when absent — DR-073: \`>=1\` builds on opus empirically)**, **its \`artifacts\` = the file/dir globs it writes, COPIED FROM the WO's \`artifacts:\` frontmatter — REQUIRED so the engine keeps parallel WOs disjoint (DR-060); if a WO has none in frontmatter, infer the files it will write from its title/summary**, and **\`foundation: true\` if this WO builds a shared design-system primitive / the inventory the other WOs reuse — DR-057, it must build before they fan out**) **in the Build Plan's order**.${ONLY ? ' Limit to these FRD folders: ' + ONLY.join(', ') + '.' : ''}
   hasFrontend=true only if the stack is web (A).${ONLY ? ` TARGETED BUILD — also check cross-FRD deps of the requested FRDs: for each dep folder listed in their Build Plans, read the frontmatter \`implementation_status\` of every work-orders/wo-*.md in that dep. If ALL are VERIFIED the dep is satisfied; if ANY is not VERIFIED, include it in unsatisfiedDeps as { frd: '<requested-frd>', dep: '<the-dep-folder>' }. Return unsatisfiedDeps:[] when all deps are satisfied.` : ''}`,
   { label: 'plan', phase: 'Plan', schema: PLAN_SCHEMA, model: P.judge, agentType: 'pandacorp:architect' },
 )
@@ -322,7 +339,7 @@ const reuseRef = (frd) => plan.hasFrontend
 // manual edit BEFORE building, so the document never lies about progress. One cheap pass, frontmatter only.
 agentSpawned++
 await agent(`Sync DERIVED rollup state, frontmatter ONLY — NEVER change a work order's state (work orders are the source of truth; you only recompute the FRD/blueprint that rolls up from them). For EVERY docs/frds/*/ folder: read \`implementation_status\` of all its work-orders/wo-*.md and compute the FRD rollup — **VERIFIED** iff ALL are VERIFIED; else **BLOCKED** if any is BLOCKED; else **PLANNED** if any is PLANNED; else **IN_PROGRESS** if any is IN_PROGRESS; else **IN_REVIEW**. Write it into that FRD's frd.md AND blueprint.md \`implementation_status\` ONLY if it differs from the computed value. Refresh .pandacorp/status.yaml per-status work-order counts AND advance \`last_event_at\` + \`updated_at\` to now (ISO 8601, the DR-066 producer freshness stamp — a monitor reads liveness as running AND fresh, so this timestamp must never be left frozen while the build advances). Commit only if something changed (Conventional Commits, scope). Return { corrected: <count> }.`,
-  { label: 'sync-rollups', phase: 'Plan', model: P.worker, agentType: 'pandacorp:implementer' })
+  { label: 'sync-rollups', phase: 'Plan', model: MECH, agentType: 'pandacorp:implementer' })
 
 // ── Adaptive model selection (DR-073) — escalate to opus within the mode, never below the floor ──
 // The mode's P.worker is the FLOOR. Escalate to opus when the WO is genuinely hard (HYBRID a-priori,
@@ -349,7 +366,7 @@ async function commitWOGreen(wo, frd) {
   const link = commitChain.then(() =>
     agent(
       `You are the SOLE git writer at this instant (serialized — no other commit runs concurrently, so there is NO index.lock race), committing work order ${wo.id} now that its self-test is green and its frontmatter is IN_REVIEW.${TRACK('wo_end', `,"frd":"${frd}","wo":"${wo.id}","state":"in_review"`)} Then make exactly ONE commit (Conventional Commits, with scope) staging ONLY this work order's own files: its declared artifacts ${wo.artifacts && wo.artifacts.length ? '(' + wo.artifacts.join(' ') + ')' : "(use `git status` to identify THIS wo's files)"} AND its own work-order markdown under \`docs/frds/${frd}/work-orders/\` (the IN_REVIEW frontmatter + ## Status Note) AND \`.pandacorp/track.jsonl\` (the durable timeline lines for THIS wo — the wo_start the builder appended + the wo_end you just appended). Sibling work orders of the same wave may be MID-BUILD — do NOT stage or touch their files; if \`git status\` shows changes outside this WO's files (other than track.jsonl, which is append-only and shared), leave them untouched. Do NOT advance last_green_sha (that is the FRD gate's job — this WO is self-test-green, not yet review-verified). Return { committed: 1 }.`,
-      { label: `commit:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:implementer' },
+      { label: `commit:${wo.id}`, phase: 'Build', model: MECH, agentType: 'pandacorp:implementer' },
     ),
   )
   commitChain = link.catch(() => {}) // keep the chain alive even if one commit errors
@@ -357,26 +374,41 @@ async function commitWOGreen(wo, frd) {
 }
 
 // ── Build ONE work order: implement → fast self-test → IN_REVIEW + hand-off → commit-when-green ──
+// DR-108 context pack: the planner (the ONE agent that reads frd.md in full) hands each builder its
+// WO file path + the verbatim AC lines it owns, injected into the prompt — instead of N builders each
+// re-hunting the docs and still constructing against a one-line summary (first-attempt gate failures
+// were the top rework cost of the personal-page-v2 run). The builder still reads its own WO body.
+const woCtx = (wo, frd) =>
+  `${wo.path ? ` Your work-order file: \`${wo.path}\` — open it and follow it in full.` : ''}${wo.acText ? ` The EARS acceptance criteria THIS work order must satisfy (verbatim from FRD ${frd} — the gate will assert exactly these):\n  ${wo.acText}\n ` : ''}`
+
+// The SELF-TEST + hand-off contract, shared by both branches (solo: folded into the builder — DR-108;
+// split: a separate closer agent, since three hands built the slice and one must close it coherently).
+const SELFTEST = (woId) => ` THEN run your fast SELECTIVE self-test (NOT the whole suite): \`pnpm biome check .\`, \`pnpm tsc --noEmit\`, and \`pnpm vitest run\` limited to THIS work order's own test files. If green: set the WO's frontmatter **\`implementation_status: IN_REVIEW\`** and fill its **\`## Status Note\`** hand-off (what it built; the interfaces/contracts exposed with signatures; the integration seams; **the implicit DECISIONS & ASSUMPTIONS you made — naming, data shapes, formats, units, error/empty conventions — so the consumer inherits them instead of re-deciding incompatibly**; which test files cover it). **Do NOT call git — the engine commits THIS work order the INSTANT your self-test passes, via a serialized single writer (Option B, DR-060), so there is no index.lock race.** Return green=true. If red after honest attempts, return green=false with the reason.`
+
 async function buildWO(wo, frd) {
   const woModel = pickWorkerModel(wo)   // DR-073: opus floor-escalation, a-priori (difficulty=high) or empirical (reopen_count>=1)
   if (woModel !== P.worker) log(`⤴ opus: ${wo.id} (${wo.difficulty === 'high' ? 'difficulty=high' : 'reopen=' + (wo.reopen_count || 0)})`)
-  // DR-073: cost-weight the build agent(s) by model (opus≈3 cost-units) so the maxAgents brake is a
-  // token-proxy; the test-writer + self-test stay at P.worker (mechanical) and contribute +1 each.
-  agentSpawned += ((P.split && plan.hasFrontend) ? 3 : 1) * COST(woModel) + 1
+  let v
   if (P.split && plan.hasFrontend) {
-    await agent(`${EMIT('test-writer', wo.id, { frd, activity: 'test' })}${TRACK('wo_start', `,"frd":"${frd}","wo":"${wo.id}"`)} Write the acceptance tests (RED) for work order ${wo.id} from the EARS criteria of FRD ${frd}: ${wo.summary || ''}. No production code.`,
+    // DR-073 cost-weighting: 3 build agents at woModel + 1 worker-model closer (self-test).
+    agentSpawned += 3 * COST(woModel) + 1
+    await agent(`${EMIT('test-writer', wo.id, { frd, activity: 'test' })}${TRACK('wo_start', `,"frd":"${frd}","wo":"${wo.id}"`)} Write the acceptance tests (RED) for work order ${wo.id} from the EARS criteria of FRD ${frd}: ${wo.summary || ''}.${woCtx(wo, frd)} No production code.`,
       { label: `test:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:test-writer' })
-    await agent(`${EMIT('backend-dev', wo.id, { frd, activity: 'backend' })}First read the \`## Status Note\` of the work orders ${wo.id} depends on (their exposed interfaces). Then implement the backend of ${wo.id} (TDD until green): ${wo.summary || ''}. Publish YOUR API contract at docs/api/${wo.id}.md (your own per-WO file — DR-060: never a shared docs/api.md, which races across parallel WOs). Do NOT call git — you never commit; the engine commits this work order (serialized single writer) when it greens (Option B).`,
+    await agent(`${EMIT('backend-dev', wo.id, { frd, activity: 'backend' })}First read the \`## Status Note\` of the work orders ${wo.id} depends on (their exposed interfaces). Then implement the backend of ${wo.id} (TDD until green): ${wo.summary || ''}.${woCtx(wo, frd)} Publish YOUR API contract at docs/api/${wo.id}.md (your own per-WO file — DR-060: never a shared docs/api.md, which races across parallel WOs). Do NOT call git — you never commit; the engine commits this work order (serialized single writer) when it greens (Option B).`,
       { label: `be:${wo.id}`, phase: 'Build', model: woModel, effort: woModel === 'opus' ? 'high' : undefined, agentType: 'pandacorp:backend-dev' })
-    await agent(`${EMIT('frontend-dev', wo.id, { frd, activity: 'frontend' })}Implement the UI of ${wo.id} using ONLY design tokens and the provider WO's contract at docs/api/<the-backend-WO-in-your-Dependencies>.md (DR-060: read that specific per-WO file, never a shared docs/api.md): ${wo.summary || ''}.${designRef(frd)}${reuseRef(frd)} Do NOT call git — you never commit; the engine commits this work order when it greens (Option B).`,
+    await agent(`${EMIT('frontend-dev', wo.id, { frd, activity: 'frontend' })}Implement the UI of ${wo.id} using ONLY design tokens and the provider WO's contract at docs/api/<the-backend-WO-in-your-Dependencies>.md (DR-060: read that specific per-WO file, never a shared docs/api.md): ${wo.summary || ''}.${woCtx(wo, frd)}${designRef(frd)}${reuseRef(frd)} Do NOT call git — you never commit; the engine commits this work order when it greens (Option B).`,
       { label: `fe:${wo.id}`, phase: 'Build', model: woModel, effort: woModel === 'opus' ? 'high' : undefined, agentType: 'pandacorp:frontend-dev' })
+    v = await agent(`${EMIT('implementer', wo.id, { frd, activity: 'selftest' })}Close work order ${wo.id} (built by the split team this wave).${SELFTEST(wo.id)} These are file edits to THIS WO's own files only.`,
+      { label: `selftest:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:implementer', schema: VERIFY_SCHEMA })
   } else {
-    await agent(`${EMIT('implementer', wo.id, { frd, activity: 'implement' })}First set ${wo.id}'s frontmatter \`implementation_status: IN_PROGRESS\`.${TRACK('wo_start', `,"frd":"${frd}","wo":"${wo.id}"`)} Then fully implement it with TDD (RED→GREEN→refactor), anchored in the EARS criteria of FRD ${frd} and in bugs from .pandacorp/comms/progress.md: ${wo.summary || ''}. This is a COARSE slice (a whole view/capability) — build it end-to-end. First read the \`## Status Note\` of the work orders ${wo.id} depends on (their exposed interfaces) and integrate against those, not a guess. If \`.pandacorp/run/preserved-tests/${wo.id}/\` exists, RESTORE those test files into the tree first — they are proven coverage a previous revert preserved (DR-107): they are your RED baseline, make them pass.${designRef(frd)}${reuseRef(frd)} Do NOT call git — you never commit; the engine commits this work order (serialized single writer) the moment its self-test greens (Option B, DR-060).`,
-      { label: `build:${wo.id}`, phase: 'Build', model: woModel, effort: woModel === 'opus' ? 'high' : undefined, agentType: 'pandacorp:implementer' })
+    // DR-108: the solo builder runs its OWN self-test + hand-off — the separate selftest agent was a
+    // second same-model spawn per WO that re-read everything; the trust boundary was never the
+    // self-test, it is the independent FRD gate (reviewer, different model), which re-verifies all of
+    // it. One spawn per WO instead of two. (IN_PROGRESS is stamped by the engine at dispatch — BL-0002.)
+    agentSpawned += COST(woModel)
+    v = await agent(`${EMIT('implementer', wo.id, { frd, activity: 'implement' })}${TRACK('wo_start', `,"frd":"${frd}","wo":"${wo.id}"`)} Fully implement work order ${wo.id} with TDD (RED→GREEN→refactor), anchored in the EARS criteria of FRD ${frd} and in bugs from .pandacorp/comms/progress.md: ${wo.summary || ''}.${woCtx(wo, frd)} This is a COARSE slice (a whole view/capability) — build it end-to-end. First read the \`## Status Note\` of the work orders ${wo.id} depends on (their exposed interfaces) and integrate against those, not a guess. If \`.pandacorp/run/preserved-tests/${wo.id}/\` exists, RESTORE those test files into the tree first — they are proven coverage a previous revert preserved (DR-107): they are your RED baseline, make them pass.${designRef(frd)}${reuseRef(frd)}${SELFTEST(wo.id)}`,
+      { label: `build:${wo.id}`, phase: 'Build', model: woModel, effort: woModel === 'opus' ? 'high' : undefined, agentType: 'pandacorp:implementer', schema: VERIFY_SCHEMA })
   }
-  // Fast SELECTIVE self-test (NOT the whole suite) → IN_REVIEW + hand-off.
-  const v = await agent(`${EMIT('implementer', wo.id, { frd, activity: 'selftest' })}Fast self-test for work order ${wo.id}: run \`pnpm biome check .\`, \`pnpm tsc --noEmit\`, and \`pnpm vitest run\` limited to THIS work order's own test files (not the whole suite). If green: set the WO's frontmatter **\`implementation_status: IN_REVIEW\`** and fill its **\`## Status Note\`** hand-off (what it built; the interfaces/contracts exposed with signatures; the integration seams; **the implicit DECISIONS & ASSUMPTIONS you made — naming, data shapes, formats, units, error/empty conventions — so the consumer inherits them instead of re-deciding incompatibly**; which test files cover it). **Do NOT call git — the engine commits THIS work order the INSTANT your self-test passes, via a serialized single writer (Option B, DR-060), so there is no index.lock race.** Return green=true. If red, return green=false with the reason. These are file edits to THIS WO's own files only.`,
-    { label: `selftest:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:implementer', schema: VERIFY_SCHEMA })
   const green = Boolean(v && v.green === true)
   // Finer save points (DR-086): commit THIS WO the instant it is green — serialized single writer —
   // so a mid-wave interruption keeps it (committed → IN_REVIEW → skipped on resume) instead of losing
@@ -388,7 +420,7 @@ async function buildWO(wo, frd) {
 // ── FRD gate: ONE review + integration test over the whole feature ──
 async function frdGate(frd, reviewIds) {
   agentSpawned += COST(P.judge)   // DR-073: the gate runs on the judge model — weight it honestly
-  return await agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'gate' })}${TRACK('review_start', `,"frd":"${frd}"`)} FRD review + integration gate for ${frd}. Review the work orders built/changed THIS cycle: ${reviewIds.join(', ')} (all IN_REVIEW). This FRD MAY already have OTHER work orders VERIFIED from a previous run — treat those as a stable foundation: exercise them in integration, but do NOT re-review them and NEVER change their state.
+  return await agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'gate' })}${TRACK('review_start', `,"frd":"${frd}"`)}${GATE_EVENT(frd)} FRD review + integration gate for ${frd}. Review the work orders built/changed THIS cycle: ${reviewIds.join(', ')} (all IN_REVIEW). This FRD MAY already have OTHER work orders VERIFIED from a previous run — treat those as a stable foundation: exercise them in integration, but do NOT re-review them and NEVER change their state.
 
   **THE GATE IS SPLIT (DR-072) — this is what makes the build converge instead of churning. Two categories with DIFFERENT consequences:**
   • **CORRECTION (BLOCKING — your hard gate):** correctness, **requirements/acceptance criteria met** (the EARS AC of FRD ${frd} — the required behavior/sections/elements EXIST and work), security, no genuine DUPLICATE of an existing shared primitive (DR-057), and **GROSS visual-structural mismatch** (the surface is not RECOGNIZABLY the designed thing — e.g. a flat text list where the mock shows a multi-panel/pixel-art layout; a section missing entirely). These BLOCK.
@@ -397,7 +429,7 @@ async function frdGate(frd, reviewIds) {
   1) Review the changed work orders for CORRECTION (the blocking lenses above) and write adversarial tests the implementers did not see (anchored in EARS + real bugs), exercising them TOGETHER with the rest of the feature (real integration, not isolated).
   2) Run the FOCUSED gate \`bash .pandacorp/verify.sh --since <last_green_sha>\` (read last_green_sha from .pandacorp/status.yaml) — biome + tsc run globally, but only the TESTS affected since the last green (fast and scales; the full suite runs once at close-out). It must pass clean.
 
-  **If CORRECTION passes (visual nits, if any, go to the punch-list — they do NOT block):** set the reviewed work orders (${reviewIds.join(', ')}) to **\`implementation_status: VERIFIED\`** and **reset their \`reopen_count: 0\`** (the non-progress counter measures CONSECUTIVE unresolved reopens — clearing it on success so a future unrelated change/iterate starts fresh, not pre-capped, DR-072 C2), then **recompute the FRD's frd.md + blueprint.md \`implementation_status\` rollup from ALL its work orders** and persist it (VERIFIED iff all are; else BLOCKED if any blocked; else PLANNED if any planned; else IN_PROGRESS if any in progress; else IN_REVIEW) — the FRD status is DERIVED, never left stale; update .pandacorp/status.yaml (per-status counts + last_green_sha + safe_to_test:true + **advance \`last_event_at\` and \`updated_at\` to now, ISO 8601 — the DR-066 producer freshness stamp**).${TRACK('review_end', `,"frd":"${frd}","verdict":"pass"`)}${TRACK('frd_end', `,"frd":"${frd}"`)} Stage \`.pandacorp/track.jsonl\` too (its review_start/review_end/frd_end lines for this FRD), and commit. Return { green: true }.
+  **If CORRECTION passes (visual nits, if any, go to the punch-list — they do NOT block):** set the reviewed work orders (${reviewIds.join(', ')}) to **\`implementation_status: VERIFIED\`** and **reset their \`reopen_count: 0\`** (the non-progress counter measures CONSECUTIVE unresolved reopens — clearing it on success so a future unrelated change/iterate starts fresh, not pre-capped, DR-072 C2), then **recompute the FRD's frd.md + blueprint.md \`implementation_status\` rollup from ALL its work orders** and persist it (VERIFIED iff all are; else BLOCKED if any blocked; else PLANNED if any planned; else IN_PROGRESS if any in progress; else IN_REVIEW) — the FRD status is DERIVED, never left stale; update .pandacorp/status.yaml (per-status counts + last_green_sha + safe_to_test:true + **advance \`last_event_at\` and \`updated_at\` to now, ISO 8601 — the DR-066 producer freshness stamp**).${TRACK('review_end', `,"frd":"${frd}","verdict":"pass"`)}${TRACK('frd_end', `,"frd":"${frd}"`)}${ACHIEVEMENT(frd)} Stage \`.pandacorp/track.jsonl\` too (its review_start/review_end/frd_end lines for this FRD), and commit. Return { green: true }.
 
   **If a SPECIFIC reviewed work order fails CORRECTION (a real bug / missing requirement / gross-structural miss):** check that WO's frontmatter \`reopen_count\` (default 0). **DR-072 NON-PROGRESS STOP — if it is already ≥ ${MAX_REOPENS}, do NOT reopen again** (the same fault is not resolving autonomously): set it \`implementation_status: BLOCKED\` + \`blocked_reason: needs-owner\`, append to .pandacorp/inbox/decisions.md (what the gate keeps rejecting, your diagnosis, your recommendation), and return { green: false, reopen: [], blocked_reason: 'needs-owner', failure: 'reopened ${MAX_REOPENS}x, gate not satisfiable autonomously' }. **Otherwise — DR-073 PATCH-FIRST: do NOT revert, do NOT change the WO's \`implementation_status\` (leave it IN_REVIEW), do NOT touch \`reopen_count\`, do NOT \`git checkout\`/\`git rm\` anything, do NOT commit a revert.** The build is ~correct except a bounded fault — the engine will attempt an in-place PATCH on the existing build BEFORE any revert. Your job here is to REPORT the fixable fault(s) precisely: for EACH failing reviewed WO, write the specific finding (with file:line) and a RED-PROVEN failing test (a test you wrote that fails WITHOUT the fix and will pass WITH it — give its path / describe-it / a snippet) and the file(s) the fix should touch. Return { green: false, reopen: [those ids], findings: [{ wo, finding, failingTest, files }], failure }. The engine patches those findings in place; only if the patch can't green it whole-project does it then revert + reopen for a clean rebuild (DR-070, the fallback).
   **DR-065 — missing foundation primitive:** if a surface looks FLAT / structurally wrong because a SHARED design-system primitive it needs is NOT built (it isn't in src/components nor docs/design/components.md — e.g. the mock shows a Room/AgentSprite/StoneBridge the foundation never built), do NOT block and do NOT just reopen — return { green: false, missingFoundation: [the primitive names], failure }. The engine auto-repairs the foundation and rebuilds the surfaces against it.
@@ -473,7 +505,7 @@ async function repairGateTest(frd, defectiveTests, reviewIds) {
 async function verifyPatched(frd, reviewIds) {
   agentSpawned++
   return await agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'verify-patch' })}INDEPENDENT post-patch verification for ${frd} (constitution rule 4: the patch agent may not certify its own fix). Re-run the objective gate yourself — trust nothing the patcher reported: the FULL FRD test files for ${frd} (\`pnpm vitest run\` on them) AND whole-project \`pnpm knip\` + \`pnpm biome check .\` + \`pnpm tsc --noEmit\`.
-  **If everything is clean:** set the patched work orders (${(reviewIds || []).join(', ')}) \`implementation_status: VERIFIED\` and **reset their \`reopen_count: 0\`**; recompute + persist the FRD's frd.md + blueprint.md \`implementation_status\` rollup from ALL its work orders (VERIFIED iff all are; else BLOCKED if any blocked; else PLANNED if any planned; else IN_PROGRESS if any in progress; else IN_REVIEW); advance .pandacorp/status.yaml exactly as the gate does (per-status counts + last_green_sha + safe_to_test:true + last_event_at + updated_at to now, ISO 8601); commit (Conventional Commits, scope). Return { green: true }.
+  **If everything is clean:** set the patched work orders (${(reviewIds || []).join(', ')}) \`implementation_status: VERIFIED\` and **reset their \`reopen_count: 0\`**; recompute + persist the FRD's frd.md + blueprint.md \`implementation_status\` rollup from ALL its work orders (VERIFIED iff all are; else BLOCKED if any blocked; else PLANNED if any planned; else IN_PROGRESS if any in progress; else IN_REVIEW); advance .pandacorp/status.yaml exactly as the gate does (per-status counts + last_green_sha + safe_to_test:true + last_event_at + updated_at to now, ISO 8601).${ACHIEVEMENT(frd)} Commit (Conventional Commits, scope). Return { green: true }.
   **If anything is red:** change NOTHING (no status edits, no commit) and return { green: false, failure: <what failed> } — the engine reverts + reopens.`,
     { label: `verify-patch:${frd}`, phase: 'Review', model: P.worker, agentType: 'pandacorp:reviewer', schema: REPAIR_SCHEMA })
 }
@@ -635,7 +667,7 @@ for (const f of plan.frds) {
     2) List .pandacorp/inbox/changes/*.md (IGNORE the done/ subfolder): collect the slugs whose frontmatter \`status\` is "ready" — \`class: expedite\` FIRST, then standard FIFO by date. Skip draft/done.
     3) Read .pandacorp/inbox/decisions.md: for each decision the owner ANSWERED (via /pandacorp:decide) that resolves blocked work, find the work orders with \`implementation_status: BLOCKED\` + \`blocked_reason: needs-owner\` that the answer unblocks, set each back to \`implementation_status: PLANNED\` (the DR-050 frontmatter signal), and update \`pending_decisions\` in status.yaml to the count still unanswered. Commit those frontmatter edits if you made any.
     Return { stop: false, ready: [...slugs, expedite first], unblocked: [...wo ids] } (empty arrays when there is nothing).`,
-    { label: 'safe-point', phase: 'Build', model: P.worker, agentType: 'pandacorp:implementer', schema: SAFE_POINT_SCHEMA },
+    { label: 'safe-point', phase: 'Build', model: MECH, agentType: 'pandacorp:implementer', schema: SAFE_POINT_SCHEMA },
   )
   if (sp && sp.stop === true) { stopReason = 'rethink'; log('⏸ rethink_pending — el owner re-planificó; el motor para en este safe point (la próxima corrida retoma con el plan nuevo)'); break }
   if (sp && sp.unblocked && sp.unblocked.length) log(`✓ Decisiones respondidas → WOs desbloqueados a PLANNED: ${sp.unblocked.join(', ')} (su FRD los construye en la próxima pasada)`)
@@ -654,7 +686,7 @@ for (const f of plan.frds) {
       if (newFolders.length) {
         agentSpawned += COST(P.judge)
         const extra = await agent(
-          `Re-plan ONLY these FRD folders (they were just created/updated by a drained change): ${newFolders.join(', ')}. Same contract as the main build planner: read each folder's frd.md + blueprint.md Build Plan + the frontmatter ONLY of every work-orders/wo-*.md, and return { frds: [{ frd, deps, workOrders: [{ id, status, difficulty, reopen_count, deps, artifacts, foundation, summary }] }] } in Build Plan order. Read-only.`,
+          `Re-plan ONLY these FRD folders (they were just created/updated by a drained change): ${newFolders.join(', ')}. Same contract as the main build planner: read each folder's frd.md + blueprint.md Build Plan + the frontmatter ONLY of every work-orders/wo-*.md, and return { frds: [{ frd, deps, workOrders: [{ id, status, path, acText (the EARS AC lines this WO owns, verbatim from frd.md — DR-108), difficulty, reopen_count, deps, artifacts, foundation, summary }] }] } in Build Plan order. Read-only.`,
           { label: `plan-drained:${slug}`, phase: 'Build', model: P.judge, agentType: 'pandacorp:architect', schema: PLAN_SCHEMA },
         )
         if (extra && extra.frds && extra.frds.length) { for (const nf of extra.frds) plan.frds.push(nf); log(`＋ FRDs de la change añadidos a esta corrida: ${extra.frds.map((x) => x.frd).join(', ')}`) }
@@ -699,6 +731,13 @@ for (const f of plan.frds) {
     // wave width to the remaining agent budget so the in-engine brake holds even if the supervisor is dead.
     const waveMax = MAX_AGENTS ? Math.min(P.wave, Math.max(1, MAX_AGENTS - agentSpawned)) : P.wave
     const wave = pickDisjointWave(foundationReady.length ? foundationReady : ready, waveMax)   // DR-060: never co-schedule WOs whose artifacts overlap
+    // BL-0002: the ENGINE owns the PLANNED→IN_PROGRESS transition, stamped at dispatch — atomic and
+    // independent of when each builder actually starts. Parallel waves used to leave five actively-
+    // building WOs reading PLANNED (the builder's "first action" never ran first), so Mission Control
+    // showed "En progreso: 0" over a busy build (LESSON-0003). Cheap tier; frontmatter only; no commit.
+    agentSpawned++
+    await agent(`Stamp \`implementation_status: IN_PROGRESS\` in the frontmatter of EACH of these work-order files (a frontmatter-only edit — change nothing else, do NOT commit; skip any already IN_PROGRESS): ${wave.map((w) => w.path || `docs/frds/${f.frd}/work-orders/${w.id}`).join(', ')}. Return when all are stamped.`,
+      { label: `dispatch:${f.frd}`, phase: 'Build', model: MECH, agentType: 'pandacorp:implementer' })
     const results = await parallel(wave.map((w) => () => buildWO(w, f.frd)))
     for (let i = 0; i < wave.length; i++) { queue.delete(wave[i].id); if (results[i]) doneIds.add(wave[i].id); else frdFailed = true }
     // Option B (DR-060) + finer save points (DR-086): each GREEN work order was ALREADY committed the
@@ -848,7 +887,7 @@ if (landedChanges.length) {
   3) MOVE the file to .pandacorp/inbox/changes/done/ (a move, never a delete — the folder is gitignored, a delete is irreversible). Update its row in the queue index README.md.
   4) Decrement \`pending_changes\` in .pandacorp/status.yaml by the number archived.
   Return { done: true }.`,
-    { label: 'archive-changes', phase: 'Review', model: P.worker, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
+    { label: 'archive-changes', phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
   log(`✓ ${landedChanges.length} change(s) archivadas a done/ (DR-069 §7)`)
 } else if (integratedChanges.length) {
   log(`↷ ${integratedChanges.length} change(s) integradas pero sus FRDs no verificaron todos este run — siguen ready y se archivan cuando verifiquen`)
@@ -895,14 +934,14 @@ if (allDone) {
     ? `Termine lo que se podia. ${needsOwner.length} FRD(s) te esperan a ti: ${needsOwner.slice(0, 6).join(', ')}`
     : `Tramo: ${builtFrds.length} FRDs ok, ${blockedFrds.length} bloqueados, ${reopenedFrds.length} a reintentar`
   closed = await agent(`The build run ended.${why} Verified this run: ${builtFrds.length}. Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Of those, NEEDS-OWNER (a human must act): ${needsOwner.join(', ') || 'none'}. FIRST run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since) to confirm this pass left no global regression — note the result. Then write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and the reason, the full-suite result, and exactly what needs the owner's action/decision for the needs-owner ones). Set .pandacorp/status.yaml running: false. Return done:true once status.yaml is written.${NOTIFY(ownerMsg)}`,
-    { label: 'notify-end', phase: 'Review', model: P.worker, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
+    { label: 'notify-end', phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
   log(`Run ended: ${builtFrds.length} verified, ${reopenedFrds.length} reopened, ${blockedFrds.length} blocked${stopReason ? ' · stop=' + stopReason : ''}.`)
 }
 // Fail-safe: never leave Mission Control showing a phantom running build.
 if (!closed || closed.done !== true) {
   agentSpawned++
   await agent(`Fail-safe close: ensure .pandacorp/status.yaml has running:false written. Do NOT touch \`phase\` — NEVER set phase: release here (BL-0012 fail-closed: the release transition happens ONLY in the hardening-gated close-out; this branch fires precisely when a close-out agent died, so nothing here is verified). Confirm done:true.`,
-    { label: 'ensure-stopped', phase: 'Review', model: P.worker, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
+    { label: 'ensure-stopped', phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
 }
 
 return { mode: MODE, builtFrds, blockedFrds, reopenedFrds, blockedReasons, stopReason }

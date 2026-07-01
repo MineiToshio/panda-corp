@@ -221,7 +221,16 @@ it. The next agent reads the hand-off instead of re-reading all the prior code.
 
 The build engine reviews and tests **per FRD**, not per work order:
 
-- Building a work order runs only **its own fast self-test** (its tests + tsc) → marks it `IN_REVIEW`.
+- Building a work order runs only **its own fast self-test** (its tests + tsc) → marks it `IN_REVIEW`. In
+  solo mode the **builder itself runs the self-test and writes the `## Status Note` hand-off** (DR-108 — the
+  separate selftest agent was a second same-model spawn per WO; the trust boundary is the FRD gate, never the
+  self-test); split mode keeps a separate closer agent. The **PLANNED→IN_PROGRESS transition is stamped by
+  the ENGINE at wave dispatch** (BL-0002/DR-097 enforcement — atomic, independent of the builder's first
+  action, so the board never shows "En progreso: 0" over a busy wave), on the cheap tier.
+- Each builder receives a **context pack (DR-108)** injected into its prompt: its WO file's path + the EARS
+  acceptance-criteria lines that WO owns, copied verbatim by the planner (the one agent that reads every
+  frd.md in full). One reader hands off to N builders — instead of N builders re-reading the same docs and
+  still constructing against a one-line summary, which made gates catch missing-AC work late.
 - When all of an FRD's work orders are `IN_REVIEW`, run **one review + test pass over the whole FRD**,
   which also exercises the work orders **together** (real integration). The gate's tests are **focused**:
   `verify.sh --since <last_green>` runs biome + tsc globally but only the vitest tests **affected since the
@@ -433,7 +442,11 @@ red-team-B fix):** `maxAgents` counts AGENTS, not tokens, so an opus escalation 
 budget while the counter reads low — so `agentSpawned` is **weighted by model cost** (opus ≈ 3 cost-units), making
 `maxAgents` brake on a token-proxy. Every escalation is logged (`⤴ opus: <wo> (difficulty=high | reopen=N)`) so
 spend is visible. A-priori difficulty is a *prior*; `reopen_count` is the *empirical* correction, so a
-mis-estimated `medium` WO still escalates once it actually fails.
+mis-estimated `medium` WO still escalates once it actually fails. **Mechanical steps run on the cheap tier
+(DR-108):** the serialized per-WO commit, the per-wave IN_PROGRESS dispatch stamp, the per-FRD safe-point
+check, the rollup sync, the change archive and the end-of-run notify run on `MECH` (default haiku,
+`args.mechModel` overrides) — they execute a script, they exercise no judgement; real build/review/repair
+work keeps the sonnet floor + opus escalation.
 
 **Repair before block (the owner's rule).** When a work order or the FRD gate fails, the engine first
 runs a **repair pass** (a strong-model agent diagnoses and tries to fix, re-verifying with

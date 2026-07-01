@@ -3,13 +3,13 @@ id: BL-0002
 type: bug
 area: build-engine
 title: "Engine must write IN_PROGRESS at WO dispatch (parallel waves skip it → board under-reports)"
-status: open
+status: done
 severity: p1
 opened: 2026-06-30
-closed:
+closed: 2026-07-01
 source: "LESSON-0003"
-closes:
-links: [LESSON-0003, DR-097, DR-050]
+closes: "engine-owned IN_PROGRESS at wave dispatch (DR-097 enforcement in pandacorp-build.js)"
+links: [LESSON-0003, DR-097, DR-050, DR-108]
 ---
 
 ## Problem
@@ -60,3 +60,11 @@ and back-link this item.
 ## Out of scope
 Any change to how the board *derives* its column from `implementation_status` — the fix is to make the status
 truthful, not to reinterpret it. The IN_REVIEW→VERIFIED transitions are unchanged.
+
+## Closed 2026-07-01 (implement-speed audit batch, plugin v9.41.0 / OVERLAY 8.55.0)
+Shipped fix-plan §1: the engine stamps `implementation_status: IN_PROGRESS` on every wave's WOs via a
+cheap-tier `dispatch:<frd>` agent BEFORE the parallel fan-out (`pandacorp-build.js`, wave loop) — atomic,
+independent of each builder's first action; the builder prompt no longer carries the flip. §2 kept
+(implementer.md unchanged as belt-and-suspenders via its general status discipline). **Accepted residue:**
+§3 (drift hint) not built; the unit tests are proven by inspection — no engine test harness (BL-0004
+residue). LESSON-0003 `promotion: approved` + back-linked.
