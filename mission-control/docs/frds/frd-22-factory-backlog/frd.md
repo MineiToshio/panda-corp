@@ -32,6 +32,11 @@ Surfaces the factory's **actionable work queue** — `factory/backlog/BL-*` (DR-
 - **AC-22-004.1** — The backlog reader SHALL distinguish "the backlog is empty" from "an item could not be interpreted": a malformed `BL-*.md` (unparseable YAML, missing a required field, or an out-of-range enum) SHALL be surfaced in an `errors` collection, never silently dropped. A missing `factory/backlog/` directory is a legitimately-empty backlog, not an error.
 - **AC-22-004.2** — WHEN the reader reports one or more errors, the Backlog panel SHALL render an error banner (`role="alert"`) naming the offending file(s) and reason(s), while still rendering the items it could parse.
 
+### REQ-22-005 — Item detail (click a card → formatted detail)
+- **AC-22-005.1** — Each backlog card SHALL be an accessible control (a `<button>`, keyboard-operable, with an `aria-label` naming the item) that opens a **detail modal** for that item. The detail opens in the shared `Modal` primitive (focus-trapped, Escape-closes, backdrop-click-closes) — never an inline expand (the app's modal-for-detail rule).
+- **AC-22-005.2** — The backlog reader SHALL expose each item's markdown **body** (everything after the frontmatter), and the detail SHALL render it with the shared `Markdown` primitive — the same nicely-formatted rendering used for FRD/spec/doc detail (real headings for Problem / Root cause / Fix plan / Tests / Done when, lists, code, tables), NOT a raw string.
+- **AC-22-005.3** — The detail SHALL show the item's metadata (id as the title, a `type` badge, and `type·area` / severity / status chips + source / links / dates) above the rendered body. Read-only: the detail has no write/close-item affordance (working an item is done by an agent, AC per Non-goals).
+
 ## Non-goals
 - Mission Control does NOT write to `factory/backlog/`, create/close/edit items, or run any skill (read-only, like FRD-17). Working an item is done by an agent, outside this UI.
 - No Claude calls — the surface is derived purely from the on-disk `BL-*` files (FRD-01).

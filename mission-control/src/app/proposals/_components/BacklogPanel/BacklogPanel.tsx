@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * BacklogPanel — the factory backlog surface (CMP-22-panel, FRD-22, DR-103).
  *
@@ -8,16 +10,22 @@
  * Fail-loud (DR-078): if the reader could not interpret one or more BL files, an
  * error banner names them — the panel never renders a misleadingly-empty backlog.
  *
- * Server Component: pure display of the passed BacklogReadResult (page reads it).
+ * Client Component: clicking a card opens a detail Modal (the shared `Modal` +
+ * `Markdown` primitives) showing the item's full, formatted body (REQ-22-005).
+ * The passed BacklogReadResult (incl. each item's markdown `body`) is read server-side.
  *
  * Traceability:
  *   CMP-22-panel → REQ-22-001 (grouped items), REQ-22-003 (read-only note),
- *                  REQ-22-004 (fail-loud error state)
+ *                  REQ-22-004 (fail-loud error state), REQ-22-005 (detail modal)
  */
 
+import { useState } from "react";
+import { Chip } from "@/components/core/Chip/Chip";
+import { Modal } from "@/components/core/Modal/Modal";
 import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import type { BacklogItem, BacklogReadResult, BacklogStatus } from "@/lib/backlog/backlog";
 import { BacklogCard } from "./BacklogCard";
+import { BacklogDetail } from "./BacklogDetail";
 
 // ---------------------------------------------------------------------------
 // Status groups (order + labels + icons)
@@ -75,6 +83,9 @@ export function BacklogPanel({ result }: { result: BacklogReadResult }): React.J
   const { items, errors } = result;
   const hasItems = items.length > 0;
 
+  // Selected item → detail modal (null = closed).
+  const [selected, setSelected] = useState<BacklogItem | null>(null);
+
   return (
     <section data-testid="backlog-panel" aria-label="Backlog de la fábrica">
       {/* Read-only note — how these get worked (REQ-22-003) */}
@@ -107,13 +118,25 @@ export function BacklogPanel({ result }: { result: BacklogReadResult }): React.J
               <SectionHead icon={icon} label={label} count={group.length} />
               <div style={CARDS_STYLE}>
                 {group.map((item) => (
-                  <BacklogCard key={item.id} item={item} />
+                  <BacklogCard key={item.id} item={item} onSelect={setSelected} />
                 ))}
               </div>
             </div>
           );
         })
       )}
+
+      {/* Detail modal — the shared Modal + Markdown primitives (REQ-22-005). */}
+      <Modal
+        open={selected !== null}
+        onClose={() => setSelected(null)}
+        title={selected?.id ?? ""}
+        testIdBase="backlog-detail"
+        badge={selected != null ? <Chip tone="accent">{selected.type}</Chip> : undefined}
+        width={620}
+      >
+        {selected != null && <BacklogDetail item={selected} />}
+      </Modal>
     </section>
   );
 }

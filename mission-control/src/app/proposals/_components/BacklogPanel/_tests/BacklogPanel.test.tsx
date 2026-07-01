@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import type { BacklogItem, BacklogReadResult } from "@/lib/backlog/backlog";
 import { BacklogPanel } from "../BacklogPanel";
@@ -16,6 +17,7 @@ function makeItem(over: Partial<BacklogItem>): BacklogItem {
     links: [],
     opened: "2026-06-30",
     closed: null,
+    body: "## Problem\nSomething is wrong.",
     ...over,
   };
 }
@@ -61,5 +63,44 @@ describe("BacklogPanel", () => {
   it("renders an empty state when there are no items and no errors", () => {
     render(<BacklogPanel result={result({})} />);
     expect(screen.getByTestId("backlog-empty")).toBeInTheDocument();
+  });
+
+  it("opens a detail modal with the item's rendered body when a card is clicked (REQ-22-005)", async () => {
+    const user = userEvent.setup();
+    render(
+      <BacklogPanel
+        result={result({
+          items: [
+            makeItem({
+              id: "BL-0042",
+              title: "Fix the thing",
+              body: "## Problem\nThe widget explodes.\n\n## Fix plan\nStop the explosion.",
+            }),
+          ],
+        })}
+      />,
+    );
+
+    // Closed by default.
+    expect(screen.queryByTestId("backlog-detail")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /ver detalle del item BL-0042/i }));
+
+    // Modal open with the item id as title + the markdown body rendered.
+    expect(screen.getByTestId("backlog-detail")).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toHaveTextContent("BL-0042");
+    expect(screen.getByTestId("backlog-detail-body")).toHaveTextContent("The widget explodes.");
+    // Markdown rendered the section headings as real headings (not raw '##').
+    expect(screen.getByRole("heading", { name: /problem/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /fix plan/i })).toBeInTheDocument();
+  });
+
+  it("closes the detail modal on Escape", async () => {
+    const user = userEvent.setup();
+    render(<BacklogPanel result={result({ items: [makeItem({ id: "BL-0007" })] })} />);
+    await user.click(screen.getByRole("button", { name: /ver detalle del item BL-0007/i }));
+    expect(screen.getByTestId("backlog-detail")).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByTestId("backlog-detail")).not.toBeInTheDocument();
   });
 });

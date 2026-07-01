@@ -40,6 +40,8 @@ export type BacklogItem = {
   links: string[];
   opened: string;
   closed: string | null;
+  /** The markdown body (everything after the frontmatter) — rendered in the detail view. */
+  body: string;
 };
 
 /** A file that could not be interpreted as a backlog item (fail-loud, DR-078). */
@@ -173,6 +175,7 @@ function parseBacklogFile(filePath: string): ParseOutcome {
       links: coerceLinks(fm.links),
       opened: coerceDate(fm.opened) ?? "",
       closed: coerceDate(fm.closed),
+      body: typeof parsed.content === "string" ? parsed.content.trim() : "",
     },
   };
 }

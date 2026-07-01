@@ -70,11 +70,18 @@ function evidenceText(item: BacklogItem): string {
   return parts.join(" · ");
 }
 
-export function BacklogCard({ item }: { item: BacklogItem }): React.JSX.Element {
+/** When `onSelect` is provided the whole card is a button that opens the detail. */
+export function BacklogCard({
+  item,
+  onSelect,
+}: {
+  item: BacklogItem;
+  onSelect?: (item: BacklogItem) => void;
+}): React.JSX.Element {
   const meta = TYPE_META[item.type];
   const evidence = evidenceText(item);
 
-  return (
+  const card = (
     <Panel variant="rpgpanel">
       <article
         data-testid="backlog-card"
@@ -143,5 +150,31 @@ export function BacklogCard({ item }: { item: BacklogItem }): React.JSX.Element 
         </div>
       </article>
     </Panel>
+  );
+
+  // Display-only when no handler; a full-card button (accessible click + keyboard)
+  // that opens the detail modal when onSelect is provided.
+  if (onSelect === undefined) return card;
+  return (
+    <button
+      type="button"
+      data-testid="backlog-card-button"
+      onClick={() => onSelect(item)}
+      aria-label={`Ver detalle del item ${item.id}: ${item.title}`}
+      style={{
+        display: "block",
+        width: "100%",
+        padding: 0,
+        border: "none",
+        background: "none",
+        font: "inherit",
+        color: "inherit",
+        textAlign: "left",
+        cursor: "pointer",
+        borderRadius: "var(--radius-md, 12px)",
+      }}
+    >
+      {card}
+    </button>
   );
 }
