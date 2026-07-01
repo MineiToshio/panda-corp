@@ -12,7 +12,7 @@ New iteration of an existing project. Runs IN the project. `$ARGUMENTS`: what th
 ## Steps
 
 1. **Context**: read `.pandacorp/status.yaml` (a shipped project sits at `phase: release`, DR-085), `docs/product/prd.md` (vision + the living feature-landscape backlog of future versions), accumulated feedback / post-launch results (from `/pandacorp:review-launch`) and the existing FRD modules under `docs/frds/`.
-2. **Define the version**: with the `product-manager` agent, turn the goal into concrete scope — which new FRDs, which existing FRDs change, what is left out (DR-012). Increment `version:` in `.pandacorp/status.yaml`.
+2. **Define the version**: with the `product-manager` agent, turn the goal into concrete scope — which new FRDs, which existing FRDs change, what is left out (DR-012). Increment `version:` in `.pandacorp/status.yaml` — this formal-milestone bump (plus the mini-PRD) is what distinguishes `new-version` from day-to-day `/pandacorp:iterate`, which never touches `version:` (there, `release` just derives the semver tag automatically from the conventional commits).
 3. **Re-enter the pipeline, only what changes** (feature-centric, DR-049 — a new feature is a new `docs/frds/frd-NN-<slug>/` module, nothing else moves):
    - New FRD → new `docs/frds/frd-NN-<slug>/frd.md` module (numbering continues); modified FRD → edit its existing module
    - New screens or visual changes? → mini design phase (mockup of the new stuff in the FRD's `mocks/` + its `fdd.md`, same frozen global design system in `docs/design/`; visual gate only if the visual language changes)

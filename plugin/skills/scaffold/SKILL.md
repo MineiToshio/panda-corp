@@ -30,7 +30,7 @@ Creates the project for the idea indicated in `$ARGUMENTS` (card name or slug).
 8. **Initial commit** in the project: `chore: scaffold project from pandacorp factory`.
 9. Report: created path, what was configured and the next step — open a session in the project and run `/pandacorp:spec`.
 
-## Generating `docs/rules/README.md` (canonical — also used by `blueprint`, `upgrade`, `adopt`)
+## Generating `docs/rules/README.md` (canonical — also used by `architecture`, `upgrade`, `adopt`)
 
 After copying rule files into `docs/rules/`, (re)generate `docs/rules/README.md` so it is the loadable index of exactly the files present. It must:
 1. Open with a one-line directive: **"Engineering rules for this project — read and follow every file listed here before writing or changing code."**

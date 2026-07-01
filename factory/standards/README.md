@@ -15,13 +15,14 @@ A standard that isn't injected is dead on arrival (Mission Control once violated
 1. **Durable conventions — MANDATORY and identical across all projects**: structure, naming, quality, patterns, testing. They live here and are not negotiated per project.
 2. **Technology stack — DEFAULT SUGGESTION**: there is a recommended stack ([stack.md](stack.md)), always on the **latest stable versions**. It is NOT mandatory: the `architect` agent **proposes it in the blueprint**, may suggest better technologies if they fit the project, and **the owner approves it** there (lightweight human gate, recorded as an ADR).
 
-## Categories (8 domains) + index
+## Categories (10 domains) + index
 
 | Domain | Standards |
 |---|---|
 | **Programming / Conventions** | [conventions.md](conventions.md) · [api-design.md](api-design.md) |
 | **Architecture / Structure** | [structure.md](structure.md) · [patterns.md](patterns.md) |
 | **Design / Design system** | [patterns.md](patterns.md) (tokens, theme, a11y); the design system is generated per project in `/pandacorp:design` |
+| **Accessibility** | [accessibility.md](accessibility.md) (WCAG 2.2 AA, tap-target tiers, focus, motion — canonical behind `rules/accessibility.md`) |
 | **Technology / Stack** | [stack.md](stack.md) (golden paths A/B/C/D) |
 | **Quality / Testing** | [quality.md](quality.md) · [performance.md](performance.md) · [build-orchestration.md](build-orchestration.md) (how a build is planned/run — DR-050) |
 | **Security** | [web-security.md](web-security.md) (+ constitution §12, DR-017, `security-auditor` agent) |
@@ -37,10 +38,5 @@ A standard that isn't injected is dead on arrival (Mission Control once violated
 ## Shape of a standard ("executable standard")
 
 Each file separates, without mixing: **Rule** (taxative, what gets injected into the agent) · **How it is verified** (binary check pluggable into `verify.sh`/CI) · **Why** (rationale/trade-offs, for humans and ADRs). The goal is that every rule has a verifier, not just prose.
-
-## Two levels of obligation
-
-1. **Durable conventions — MANDATORY** and identical in every project (structure, naming, quality, patterns, testing, security, privacy…).
-2. **Technology stack — SUGGESTION** by default ([stack.md](stack.md), latest stable versions): the `architect` proposes it in the blueprint, may suggest better ones, and **the owner approves** (lightweight gate, ADR).
 
 The structure/patterns conventions are written for the default web stack (TypeScript/Next.js). For other stacks (Python/scraping) the **spirit** applies (separated layers, isolated data layer, colocated tests, strict typing), adapted to the language. To add a new standard, rule or skill: `/pandacorp:learn`.

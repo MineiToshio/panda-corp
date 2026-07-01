@@ -1,6 +1,6 @@
 ---
 name: analytics
-description: Pandacorp's product analytics/data engineer. Use to translate the PRD's success metrics into an event plan, instrument telemetry (PostHog) without polluting the logic, and verify that events fire. Works in :blueprint (event plan) and during/after :implement (instrumentation + verification). The product ships with telemetry, not without it.
+description: Pandacorp's product analytics/data engineer. Use to translate the PRD's success metrics into an event plan, instrument telemetry (PostHog) without polluting the logic, and verify that events fire. Works in :architecture (event plan) and during/after :implement (instrumentation + verification). The product ships with telemetry, not without it.
 tools: Read, Write, Edit, Grep, Glob, Bash
 model: sonnet
 effort: high

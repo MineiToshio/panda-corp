@@ -26,7 +26,7 @@ verify="$cwd/.pandacorp/verify.sh"
 # The supervisor (the agent running /pandacorp:implement) touches .pandacorp/run/build.lock at
 # launch and on every ~2-min heartbeat; `find -mmin -10` treats a lock untouched for ≥10 min as
 # stale (supervisor died) and ignores it, so the gate auto-re-engages — same TTL as the
-# concurrent-run guard (DR-050 §9). The folder .pandacorp/run/ is gitignored runtime state.
+# concurrent-run guard (DR-050 §11). The folder .pandacorp/run/ is gitignored runtime state.
 lock="$cwd/.pandacorp/run/build.lock"
 if [ -f "$lock" ] && [ -n "$(find "$lock" -mmin -10 2>/dev/null)" ]; then
   exit 0   # active build → delegate the gate to the engine (per-FRD + close-out)

@@ -7,9 +7,10 @@
 
 # State caches
 .pandacorp-cache/
-# Factory-root runtime state (worktree tracking, run logs). The factory itself has no
-# .pandacorp/ overlay — that folder belongs to child projects only. Any .pandacorp/ at
-# root level is stale agent runtime and must not be committed.
+# Factory-root runtime state — LIVE machinery, not stale (audit-20): DR-099's per-session
+# touched-file records (.pandacorp/run/sessions/) and worktree manifests (.pandacorp/run/worktrees/)
+# actively live here. The factory has no .pandacorp/ OVERLAY (no status.yaml — it is not a product
+# project; the DR-062 marker still discriminates), but its runtime dir is real. Never committed.
 .pandacorp/
 
 # Node / build artefacts (no package.json at root — any node_modules here is accidental)

@@ -50,6 +50,9 @@ generic factory into *your* factory.
 | Search the internet for monetizable pains | `/pandacorp:discover` |
 | Ask for an idea ranking/recommendation | `/pandacorp:recommend` |
 | Create the project and document the MVP (handoff) | `/pandacorp:spec <idea>` |
+| Adopt an EXISTING external project (brownfield) — run inside it | `/pandacorp:adopt` |
+| Ask a project for ANY change — feature, adjustment or bug (single front door) | `/pandacorp:change` |
+| Sync the portfolio and detect moved cards | `/pandacorp:sync-portfolio` |
 
 `/pandacorp:spec <idea>` is the **handoff**: it creates the project folder/repo (a sibling of the factory)
 and documents the MVP. The following phases are run **inside the project folder**:
@@ -73,6 +76,8 @@ panda-corp/
 │   ├── constitution.md            non-negotiable principles
 │   ├── standards/                engineering injected into every project
 │   ├── decisions/registry.yaml   recurring rules with pre-approved defaults
+│   ├── memory/                    durable cross-project engineering lessons (DR-047)
+│   ├── backlog/                   the factory's own actionable work queue (DR-103)
 │   ├── ideas/                     idea base (your cards are personal/gitignored)
 │   ├── profile.example.md          seed for your profile → /onboarding creates profile.md
 │   └── portfolio.example.md       seed for the portfolio → /onboarding creates portfolio.md

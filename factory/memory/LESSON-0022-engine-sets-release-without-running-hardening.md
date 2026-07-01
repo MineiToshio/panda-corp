@@ -8,9 +8,10 @@ source: project personal-page-v2 (pass-3, run wf_978129ab-eca) — agent-type ce
 provenance: agent-inferred
 created: 2026-07-01
 status: active
-promotion: proposed
+promotion: approved
 confidence: high
-times_applied: 0
+times_applied: 1
+applied_in: [pandacorp-build.js Hardening phase (audit-20, 2026-07-01)]
 links: [BL-0012, DR-085, DR-017]
 ---
 

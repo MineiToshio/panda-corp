@@ -15,4 +15,4 @@ History of the project's decisions and changes, with the **why**. Most recent on
 
 ## {{DATE}} — Project created
 **What:** Project scaffolded from the Pandacorp factory.
-**Why:** Kicks off the lifecycle: product → design → architecture → build → release → operation.
+**Why:** Kicks off the lifecycle: product → design → architecture → implementation → release (terminal — DR-085).

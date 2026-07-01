@@ -17,25 +17,25 @@ for f in "$IDEAS_DIR"/*.md; do
   [ -e "$f" ] || continue
   base=$(basename "$f")
   case "$base" in _*|decision-log.md) continue;; esac
-  estado=$(awk '/^---$/{n++; next} n==1 && /^status:/{sub(/^status:[[:space:]]*/,""); print; exit}' "$f")
-  echo "$base|$estado"
+  status=$(awk '/^---$/{n++; next} n==1 && /^status:/{sub(/^status:[[:space:]]*/,""); print; exit}' "$f")
+  echo "$base|$status"
 done | sort > "$current"
 
 if [ -f "$SNAPSHOT" ]; then
   changes=0
-  while IFS='|' read -r file estado; do
+  while IFS='|' read -r file status; do
     old=$(grep -F "$file|" "$SNAPSHOT" | cut -d'|' -f2)
     if [ -z "$old" ]; then
-      echo "NEW: $file (estado: $estado)"
+      echo "NEW: $file (status: $status)"
       changes=1
-    elif [ "$old" != "$estado" ]; then
-      echo "CHANGED: $file ($old -> $estado)"
+    elif [ "$old" != "$status" ]; then
+      echo "CHANGED: $file ($old -> $status)"
       changes=1
     fi
   done < "$current"
   # Deleted files
-  while IFS='|' read -r file estado; do
-    grep -qF "$file|" "$current" || { echo "REMOVED: $file (was: $estado)"; changes=1; }
+  while IFS='|' read -r file status; do
+    grep -qF "$file|" "$current" || { echo "REMOVED: $file (was: $status)"; changes=1; }
   done < "$SNAPSHOT"
   [ "$changes" -eq 0 ] && echo "No changes."
 else

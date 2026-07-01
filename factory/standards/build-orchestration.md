@@ -284,7 +284,7 @@ The build engine reviews and tests **per FRD**, not per work order:
   occluded by a fixed bar (WCAG 2.4.11) — catching exactly the desktop-first overflow a baseline-match
   visual gate blesses. SMART, not naïve: a legit horizontal-scroll region (kanban/DAG/wide table) marks
   itself `data-scroll-x="intentional"` once. For a `desktop`-only / API / scraper project it is a vacuous
-  pass. Ships VERBATIM (`e2e/responsive.spec.ts` + `e2e/_responsive-helper.ts`, propagated by `blueprint`,
+  pass. Ships VERBATIM (`e2e/responsive.spec.ts` + `e2e/_responsive-helper.ts`, propagated by `architecture`,
   conformance-checked by `upgrade`); canonical in `factory/standards/design.md` §4b + `quality.md`.
 - **Shell-Presence gate (DR-075) — does the build have the prototype's global shell / nav.** Part of
   both the per-FRD gate and close-out (runs inside `verify.sh`, fail-closed). The visual gate proves
@@ -297,7 +297,7 @@ The build engine reviews and tests **per FRD**, not per work order:
   (not `BLESSED` — the MC failure is a route that shipped *blessed* without the shell). An app with no
   persistent shell (empty contract) ⇒ a vacuous pass. The reviewer's whole-app fidelity check is the
   advisory companion (shell *resemblance* is a punch-list nit, never a block — DR-072 preserved); the
-  **deterministic gate is the block**. Ships VERBATIM (`e2e/shell.spec.ts`, propagated by `blueprint`,
+  **deterministic gate is the block**. Ships VERBATIM (`e2e/shell.spec.ts`, propagated by `architecture`,
   conformance-checked by `upgrade`; `e2e/shell.ts` is the per-project seed); canonical in
   `factory/standards/design.md` §5b + `quality.md`.
 
@@ -483,8 +483,8 @@ tokens. The supervisor:
   count (a spend proxy). It emits on: an FRD verified, **frozen** (~15 min no activity), a new block,
   pace below target, or run end. It covers the failure signatures, not just success — "silence is not success".
 - **Heartbeats VISIBLY** — a message to the owner every ~20–30 min even with NO anomaly. The Monitor only
-  wakes on events, so the latido is scheduled separately (a `ScheduleWakeup` timer): WOs done/total, the FRD
-  in progress, rough spend, "all green". Silence reads as "stuck" to the owner — the periodic latido is what
+  wakes on events, so the heartbeat is scheduled separately (a `ScheduleWakeup` timer): WOs done/total, the FRD
+  in progress, rough spend, "all green". Silence reads as "stuck" to the owner — the periodic heartbeat is what
   tells them it's alive.
 - **Reacts**: a stall → unstick it; a block → the engine already attempted a repair; if the run is wedged
   or over budget → **stop it and notify**. Notifications: the engine fires a macOS desktop notification
@@ -541,11 +541,13 @@ queue — it never edits the build's docs/work-orders/code and **has no build-de
 mis-detection of "is a build running?" **cannot corrupt anything**: the change waits durably in the queue until the
 build itself pulls it. This is the fix for the owner's real fear — there is no "if no build, edit docs directly"
 branch to get wrong. The ONLY place that decides "is a build running?" is `implement`'s concurrent-run guard
-(DR-050 §9), a **lease + heartbeat + TTL** check with a **fencing token** (the run-id) so a zombie run can't write
-stale state; and even that decision is safe-when-wrong (a wrong launch aborts on the guard; a missed launch just
-leaves the change queued).
+(DR-050 §11), a **lease + heartbeat + 10-min-TTL** check (no fencing token exists — that claim was corrected
+2026-07-01, audit-20; the TTL + the engine's single-writer commit chain are the actual mechanism); and even that
+decision is safe-when-wrong (a wrong launch aborts on the guard; a missed launch just leaves the change queued).
 
-**The consumer — the supervisor drains + routes at each safe point** (and before every relaunch). It takes **only
+**The consumer — THE ENGINE ITSELF drains + routes at every safe point** (a safe-point check at each FRD boundary
+in `pandacorp-build.js` reads `rethink_pending` + the ready queue + answered decisions — cabled 2026-07-01,
+audit-20 P0-3; the supervisor only monitors/notifies, and before every relaunch re-checks the stop signal). It takes **only
 `status: ready` items and skips `draft`** (see the readiness gate above). For each `ready` queued
 change it decides, **work-conserving** (never stall the whole build for one item):
 - `expedite` → handle at the next safe point, ahead of `standard`.
@@ -632,14 +634,14 @@ hands-off, accept-on-trust product (no agent system reliably does that at 2026 S
 build's job is to converge to that draft or STOP cleanly with a reason, never to burn the night looping on a gate.
 Canonical: `pandacorp-build.js` (split `frdGate`, the Visual QA phase, `MAX_REOPENS`, `effort`), `plugin/agents/reviewer.md`.
 
-## 8. Templates
+## 10. Templates
 
 The standard is embodied in `${CLAUDE_PLUGIN_ROOT}/templates/docs/`: `prd-template.md`,
 `frd-template.md`, `blueprint-template.md` (with the Build Plan), `work-order-template.md` (with the
-Status Note). The product-phase skills (`spec`/`blueprint`/`work-orders`) generate from these; the
+Status Note). The product-phase skills (`spec`/`architecture`/`work-orders`) generate from these; the
 build engine (`implement`) consumes them; `iterate`/`new-version` reopen work orders through them.
 
-## 9. Concurrent-run guard (heartbeat-based lock)
+## 11. Concurrent-run guard (heartbeat-based lock)
 
 Only ONE build may run on a project at a time. A second `/pandacorp:implement` on the same project
 while one is already active would cause race conditions on the frontmatter (double-pickup of the same
@@ -862,7 +864,7 @@ into something the owner can't miss:
 ### 8. The propagable contract (every project declares 3 things)
 
 A project becomes parallel-safe by declaring, in its blueprint/overlay — injected like any other
-standard, materialized at `/scaffold`/`:blueprint` which already write `ports.yaml` → `launch.json`/
+standard, materialized at `/scaffold`/`:architecture` which already write `ports.yaml` → `launch.json`/
 `.env`:
 
 1. **Ports** — which services are fixed-reserved vs. autoPort (§3).

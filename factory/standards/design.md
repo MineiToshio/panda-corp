@@ -186,7 +186,7 @@ kanban board, a dependency DAG, a wide data table that scrolls by design) marks 
 defect from a designed scroll region (never a heuristic, never wrapping content in `overflow:hidden` to
 silence a false red, which would itself create a clip bug). **Off the targeted platform the gate is no longer a full skip (DR-074 amended 2026-06-30):** a `desktop`-only app is still checked at the mobile width (and a `mobile`-only app at a desktop width) for the **FUNCTIONAL "nothing breaks / everything reachable"** subset only — content **clipped off-canvas** and **`<main>` occluded** (a feature you cannot reach) — as an **ADVISORY** report that surfaces loudly but **never fails the gate** (cosmetic imperfection off-target is acceptable and low-priority; a real break must never hide functionality). The cosmetic checks (overflow-that-scrolls, tap-size) and the BLOCKING behavior apply only at the targeted platform. An API / scraper project with no UI routes is still a vacuous pass. Wiring: the VERBATIM templates
 `plugin/templates/stack-a-nextjs/e2e/{responsive.spec.ts,_responsive-helper.ts}` +
-`plugin/templates/stack-a-nextjs/STACK.md` (Responsive Gate), propagated by `blueprint` and
+`plugin/templates/stack-a-nextjs/STACK.md` (Responsive Gate), propagated by `architecture` and
 conformance-checked by `upgrade` (DR-059).
 
 ## 5. Guaranteeing 100% fidelity when AI agents implement (DR-056)
@@ -229,7 +229,7 @@ navigation menu at all**, and the visual gate — which proves *consistency* wit
 
 1. **Capture the shell as a FOUNDATION concern, before sharding.** When the prototype has persistent
    chrome, the design phase registers it as the `AppShell`/`Nav` foundation component in
-   `docs/design/components.md` (`artifacts` include `app/layout.tsx` + the nav). `blueprint` schedules it
+   `docs/design/components.md` (`artifacts` include `app/layout.tsx` + the nav). `architecture` schedules it
    in the **foundation wave** (DR-057) so it is built FIRST and every surface route mounts into it; its
    work order(s) are **`foundation: true`** (build-first ordering). **Don't AUTO-EMIT an orphan
    `frd-NN-app-shell` at greenfield shard time** — it would have no `REQ-NN-MMM` in any PRD and the engine
@@ -405,14 +405,14 @@ reviewed screen, not a first draft.
 |---|---|
 | Design phase (two paths, frozen contract, deliverable gate) | `plugin/skills/design/SKILL.md`, `plugin/agents/designer.md` |
 | Brownfield design adoption (detect + migrate an existing visual) | `plugin/skills/adopt/SKILL.md` |
-| Fidelity downstream (templates + skills + dev agents) | `plugin/templates/docs/{frd,blueprint,work-order}-template.md`, `plugin/skills/{spec,blueprint,work-orders}/SKILL.md`, `plugin/agents/{implementer,frontend-dev}.md` |
+| Fidelity downstream (templates + skills + dev agents) | `plugin/templates/docs/{frd,blueprint,work-order}-template.md`, `plugin/skills/{spec,architecture,work-orders}/SKILL.md`, `plugin/agents/{implementer,frontend-dev}.md` |
 | Shard the prototype per-FRD + prototype home (DR-056 §1) | `plugin/skills/design/SKILL.md` (Step 8), `plugin/agents/designer.md`, `plugin/skills/adopt/SKILL.md` (step 6) |
-| App shell = captured foundation + Shell-Presence Gate (DR-075 §5b) | `plugin/templates/stack-a-nextjs/e2e/{shell.spec.ts,shell.ts}`, `plugin/templates/stack-a-nextjs/{verify.sh,STACK.md}`, `plugin/skills/design/SKILL.md` (Step 8a), `plugin/skills/{blueprint,upgrade,adopt}/SKILL.md`, `plugin/agents/{designer,reviewer}.md`, `factory/standards/{build-orchestration,quality}.md` |
+| App shell = captured foundation + Shell-Presence Gate (DR-075 §5b) | `plugin/templates/stack-a-nextjs/e2e/{shell.spec.ts,shell.ts}`, `plugin/templates/stack-a-nextjs/{verify.sh,STACK.md}`, `plugin/skills/design/SKILL.md` (Step 8a), `plugin/skills/{architecture,upgrade,adopt}/SKILL.md`, `plugin/agents/{designer,reviewer}.md`, `factory/standards/{build-orchestration,quality}.md` |
 | Engine injects design refs into the build prompt (DR-056 §2) | `plugin/templates/shared/.claude/workflows/pandacorp-build.js` (`designRef`) |
 | In-loop render→compare→correct (DR-056 §3) | `plugin/agents/{implementer,frontend-dev}.md` |
 | Two-layer visual-fidelity gate (DR-056 §4) | `plugin/agents/reviewer.md`, `factory/standards/build-orchestration.md` §5, `plugin/templates/stack-a-nextjs/STACK.md` |
 | Runtime/visual verification (smoke) | `plugin/agents/reviewer.md`, `factory/standards/build-orchestration.md` §5, `plugin/templates/stack-a-nextjs/STACK.md`, `plugin/templates/rules/quality-and-testing.md` |
-| Target platform + responsive gate (DR-074) | `plugin/templates/stack-a-nextjs/e2e/{responsive.spec.ts,_responsive-helper.ts}`, `plugin/templates/stack-a-nextjs/STACK.md`, `plugin/templates/shared/.pandacorp/status.yaml.tpl` (`target_platforms`), `plugin/skills/{spec,blueprint,upgrade,adopt}/SKILL.md`, `factory/standards/quality.md` |
+| Target platform + responsive gate (DR-074) | `plugin/templates/stack-a-nextjs/e2e/{responsive.spec.ts,_responsive-helper.ts}`, `plugin/templates/stack-a-nextjs/STACK.md`, `plugin/templates/shared/.pandacorp/status.yaml.tpl` (`target_platforms`), `plugin/skills/{spec,architecture,upgrade,adopt}/SKILL.md`, `factory/standards/quality.md` |
 | Demo-only controls marked in prototypes (DR-061) | `plugin/skills/design/SKILL.md`, `plugin/agents/designer.md` |
 | One cohesive app — cross-surface consistency (DR-062) | `plugin/skills/design/SKILL.md`, `plugin/agents/designer.md`, `plugin/agents/reviewer.md` |
 | Hierarchy/proportion, real content, full-screen-set cadence, per-screen rubric (DR-101 §9–§12) | `plugin/skills/design/SKILL.md` (EXPLORE path), `factory/standards/design.md` §9–§12, `plugin/agents/reviewer.md` |

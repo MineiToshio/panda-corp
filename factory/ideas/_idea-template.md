@@ -3,7 +3,8 @@ title: "(short idea title)"
 project_type: web | mobile | desktop | ai | claude-code | prompt-system | automation | cli | rework | other
 origin: owner | discovery
 status: discovered
-discard_reason: ""                           # set on discard (from Mission Control): WHY it was rejected — feeds discover's rejection-pattern learning
+status_before_discard: ""                    # written by Mission Control on discard: the status the card had before, so a restore can undo the discard
+discard_reason: ""                           # written by Mission Control on discard: WHY it was rejected — feeds discover's rejection-pattern learning
 verdict: build | validate | integrate      # the decision: do it / validate first / fold into an existing app
 the_bet: ""                                  # one line: the crisp "why this wins" (the scannable hook)
 fold_into: ""                                # if verdict=integrate, the existing app it belongs in (else empty)
@@ -11,6 +12,7 @@ why_now: ""                                  # the catalyst that makes this the 
 kill_risk: ""                                # the #1 risk that survived the red team
 validation_step: ""                          # a concrete 7-day test that would give go/kill evidence
 score: 0
+score_rationale: ""                          # one line: the weighted breakdown behind `score`, same rubric across the funnel (e.g. "pain 8×0.3 + ease 7×0.25 + return 6×0.25 + fit 7×0.2 = 71") — written by new-idea/discover
 complexity_bucket: micro | small | large     # buildability: micro (a cotizapdf — one role/one flow/one feature, no external data source, no payments, ~2-3 días) / small (~1-2 weeks) / large (weeks, 10-15 FRDs — only with a near-sure monetary case)
 painkiller_class: painkiller | vitamin | candy  # how acute the pain is (with the evidence that classifies it, in the body)
 ground_truth_source: ""                      # where the app gets "the truth" (API / dataset / community / the owner-as-curator / "n/a") — empty/"none" forbids verdict:build for truth-claiming ideas
@@ -22,7 +24,7 @@ profile_alignment: low | medium | high
 return_type: monetary | opportunity | personal | mixed
 likely_stack: [A, D]
 evidence: []
-created: YYYY-MM-DD
+created: YYYY-MM-DD                          # skills write the date; Mission Control may write a full ISO timestamp — both are valid
 project: ""
 ---
 

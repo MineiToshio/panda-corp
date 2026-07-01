@@ -5,9 +5,9 @@ Everything the factory **stamps into a project** lives here. Four kinds:
 | Folder | What | How it lands in a project |
 |---|---|---|
 | `docs/` | **Document templates** — the base format for every recurring doc (PRD, FRD, FDD, architecture, blueprint, ADR, work-order + README, events, research, design-system, API contract, component inventory, change-request, decisions/changes indexes). | A skill/agent **reads the template and generates the doc** (the template is an in-band prompt). Index + policy: [`docs/README.md`](docs/README.md). |
-| `rules/` | **Engineering rules** (tech-gated: react, nextjs, prisma, …). | **Copied verbatim** into a project's `docs/rules/` by `scaffold`/`blueprint` (the applicable ones). Index: [`rules/README.md`](rules/README.md). |
+| `rules/` | **Engineering rules** (tech-gated: react, nextjs, prisma, …). | **Copied verbatim** into a project's `docs/rules/` by `scaffold`/`architecture` (the applicable ones). Index: [`rules/README.md`](rules/README.md). |
 | `shared/` | The **`.pandacorp/` overlay + repo files** (`.tpl`): `guide`, `status.yaml`, `README`, `comms/iteration`, `CLAUDE`/`AGENTS`, `doc-lint.sh`, `docs/decision-log.md.tpl`, `.claude/` settings + the build workflow. | **Copied wholesale** at `scaffold`; `.tpl` placeholders processed (e.g. `{{OVERLAY_VERSION}}`); re-synced + conformance-checked by `upgrade`. |
-| `stack-*/` | **Per-stack** install guide (`STACK.md`) + the verbatim gate set (`verify.sh`, `biome.json`, `knip.json`, `e2e/*`). | Installed verbatim by `blueprint`; byte-diff conformance-checked by `upgrade` (DR-059). |
+| `stack-*/` | **Per-stack** install guide (`STACK.md`) + the verbatim gate set (`verify.sh`, `biome.json`, `knip.json`, `e2e/*`). | Installed verbatim by `architecture`; byte-diff conformance-checked by `upgrade` (DR-059). |
 
 `OVERLAY_VERSION` versions the **whole template set** collectively (DR-077) — there is no per-document version. Bump it when `shared/`/`stack-*`/the overlay changes; bump the plugin `version` (DR-034) on any `plugin/` change.
 

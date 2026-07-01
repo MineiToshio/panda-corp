@@ -17,6 +17,7 @@ source: Pandacorp standard — web-security
 
 ## Security headers (set them, with safe defaults)
 - `Strict-Transport-Security` (HSTS, with preload once verified), `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`.
+- **Human gate: the submit to hstspreload.org is durable and hard to revert → the OWNER approves it, never the agent.**
 - Remove framework/server version banners.
 - A **Content-Security-Policy** with nonce/hash (start in report-only, then enforce).
 - Verify headers in CI (a header-scan that fails closed).

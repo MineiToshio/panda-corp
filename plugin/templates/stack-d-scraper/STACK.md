@@ -1,5 +1,7 @@
 # Stack D — Data collection / scraping / notifications (Python)
 
+> **PROVISIONAL STACK — no canonical gate harness yet (audit-20, owner decision 2026-07-01).** Unlike stack A, this guide ships no canonical `verify.sh`/lint config/e2e set, so the DR-059/DR-076 conformance ("installed byte-for-byte, upgrade diffs against the template") CANNOT protect a project born from it — its gates would be hand-rolled, the exact failure mode DR-059 closes. Before building the first real project on this stack, build its canonical gate harness first (tracked as a factory-backlog item). The browser gates (smoke/visual/responsive/shell) are N/A for a headless stack — that opt-out is DECLARED here (DR-059: an opt-out is a decision, not an omission).
+
 Installation guide for `/pandacorp:architecture`. Use case: scrapers, real-time trackers, monitors with alerts (e.g.: Funko catalog).
 
 ## Installation
@@ -23,15 +25,17 @@ uv run playwright install chromium   # if applicable
 
 ## `.pandacorp/verify.sh`
 
+Interim snippet (until the canonical harness exists — see the banner above):
+
 ```bash
 #!/bin/bash
-set -e
+set -euo pipefail
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy .
 uv run pytest -q
 ```
 
-## CI / Deploy
+## CI / Deploy (CI is an optional external-governance layer — DR-040)
 
-GitHub Actions: ruff + mypy + pytest on PR. Deploy: Docker (API + worker as separate services) on Railway/Fly.io + Redis (Upstash) + Postgres (Neon/Supabase).
+**The primary quality gate is LOCAL** (`.pandacorp/verify.sh`); the solo operator pushes to `main` directly. GitHub Actions (ruff + mypy + pytest) is an **optional** layer for projects with an external remote/collaborators — it re-runs the same gate, never replaces it. Deploy: Docker (API + worker as separate services) on Railway/Fly.io + Redis (Upstash) + Postgres (Neon — Supabase was evaluated and rejected, see `external-services.md`).

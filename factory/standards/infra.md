@@ -5,7 +5,7 @@ Conventions for how a project runs in **development** (the factory injects them 
 ## Database and services in dev → Docker
 
 - **Dev**: each project brings up its DB and services (Postgres, Redis if applicable) with **Docker Compose**, defined in the repo (`docker-compose.yml`). Reproducible, isolated, and the agent brings it up deterministically. Sole machine requirement: Docker Desktop installed.
-- **Staging / production**: NO Docker — managed DB of the golden path (Neon / Supabase). Docker is for local only. (This applies to an **external** deploy — `deploy_target: external`, DR-085. An **internal** release runs the app as-is for the owner, e.g. on `127.0.0.1`, with no external host; see `build-orchestration.md` §5b.)
+- **Staging / production**: NO Docker — managed DB of the golden path (Neon — Supabase was evaluated and rejected, see `external-services.md`). Docker is for local only. (This applies to an **external** deploy — `deploy_target: external`, DR-085. An **internal** release runs the app as-is for the owner, e.g. on `127.0.0.1`, with no external host; see `build-orchestration.md` §5b.)
 - Each **worktree** uses its own instance/DB (or a different Compose project name, `docker compose -p <worktree>`) so that the owner's test and the agent's don't step on each other.
 
 ## Port convention (several projects / worktrees at once)
@@ -46,3 +46,21 @@ Plus: `pending_changes` (the unified change queue `.pandacorp/inbox/changes/`, D
 ## Human gates as hard rules
 
 The constitution's gates (production, spending money, deleting data, external communications, access changes) are applied as **`deny` rules in `.claude/settings.json`** + the `block-dangerous.sh` hook, NOT as limits stated in the conversation (context compaction can lose them). Claude Code's "auto mode" is NOT a security shield — deny rules always win.
+
+## Backup & restore (launched products)
+
+What must be true for a **released** product (`phase: release`):
+
+- **DB**: Neon's PITR/branching is the baseline recovery mechanism; add a periodic `pg_dump` (scheduled, stored outside Neon) so a terminal decommission — or Neon itself failing — still leaves a portable copy.
+- **R2 / asset buckets**: versioned, or the contents demonstrably re-derivable from source data.
+- **Secrets**: the age-key backup is already covered in `external-services.md`.
+- **Restore is TESTED once before an external release** — an untested backup is a hope, not a backup.
+
+## Incident response (launched products)
+
+When Sentry or an uptime check fires:
+
+1. **Classify severity**: *down* (product unusable) / *degraded* (a flow broken, rest works) / *cosmetic*.
+2. **First move = rollback** to the last green deploy (the deploy platform's previous build) — restore service first, diagnose after.
+3. **Notify the owner** (push) for anything user-facing (down/degraded).
+4. **Close the loop**: postmortem → a durable lesson in `factory/memory/` (DR-047) + the fix filed via `/pandacorp:change` in the project's queue.

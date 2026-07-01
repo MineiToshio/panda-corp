@@ -7,9 +7,9 @@
 ### Full-stack web (default)
 - **Next.js** (App Router) + **React** + **TypeScript** (strict)
 - **Tailwind CSS** + custom components (`core`/`modules`); `cn()` (clsx + tailwind-merge)
-- **Prisma** + **PostgreSQL** (Neon/Supabase); data layer in `queries/`
+- **Prisma** + **PostgreSQL** (Neon — Supabase was evaluated and rejected, see `external-services.md`); data layer in `queries/`
 - **Better Auth** (email + OAuth)
-- **next-intl** (i18n, Spanish by default)
+- **next-intl** (i18n; launch locale from the market research — DR-041, never automatically Spanish)
 - **Zod** (validation)
 - **PostHog** (analytics) + **Sentry** (errors)
 - **Cloudflare R2** (file/photo storage, S3 SDK) — bucket per app
@@ -17,7 +17,7 @@
 - **Polar** (payments, Merchant of Record — works from Peru/global) when the version charges
 - **Vitest** (unit/integration) + **Playwright** (e2e)
 - **Biome** — the single standard for **both formatting and linting** (replaces Prettier *and* ESLint); Tailwind class sorting via Biome `useSortedClasses`. **Do not add Prettier or ESLint** except as a documented escape hatch for a rule Biome lacks (Testing-Library-specific lint, full `eslint-plugin-next` parity) — and never re-add Prettier.
-- Package manager: **npm**. Deploy: Vercel (web) / container on Railway or Fly.io (services)
+- Package manager: **pnpm** (shared content-addressable store, DR-096; the repo-wide standard). Deploy: Vercel (web) / container on Railway or Fly.io (services)
 
 > Account model, secrets (SOPS+age) and provisioning of these external services: `external-services.md`. The service stack validated in production is PandaTrack's.
 

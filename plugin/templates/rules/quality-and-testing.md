@@ -14,9 +14,20 @@ Nothing is "done" until **all** of these are green (enforced by `verify.sh` / CI
 - **Lint & format** report no errors.
 - **Build is clean.**
 - **No dead code** (a `knip` pass finds no new unused files/exports/deps) — see `clean-code`.
+- **No circular dependencies** (`madge --circular` finds none; Biome `noImportCycles` is the linter layer).
 - **Preview Smoke Gate green (any UI change) — the app actually renders.** A browser smoke (Playwright) loads each affected route and the change is **not done** if a route throws a console error / uncaught exception, returns non-2xx, or renders blank / an error boundary. **Fail-closed: a missing smoke harness is a RED gate, not a skip** — static checks (lint/type/unit) passing while the page is broken is the failure this closes. (DR-055)
+- **Visual-Fidelity Gate green (UI with approved mocks)** — Playwright `toHaveScreenshot` against the blessed baseline; any drift is RED. A missing `test:visual` harness is RED; a missing baseline on a genuinely-new route is "bless at the FRD gate", not a failure. (DR-056)
+- **Responsive Gate green** — at the mobile viewport (when `target_platforms` includes mobile): no horizontal overflow / silent off-canvas clip (escape hatch: `data-scroll-x="intentional"`), tap targets ≥ 24px (axe `target-size`, WCAG 2.2 SC 2.5.8), `<main>` not occluded by a fixed bar. Missing harness = RED. (DR-074)
+- **Shell-Presence Gate green** — every non-exempt route shows the persistent shell and every prototype-declared nav destination is a visible, resolving in-shell link (anchored to the prototype contract `e2e/shell.ts`, never derived from the app's own routes). (DR-075)
+- **No residual ambiguity** — a `[NEEDS CLARIFICATION]` marker in a `status: ACTIVE` doc is RED. (DR-100)
 
 A change with red tests, type errors, lint errors **or a route that errors/blank-renders in the browser** is **not done**, no exceptions.
+
+## Numeric bars & test ownership
+- **Mutation score ≥ 60%** on new business logic (Stryker/mutmut) — run at each FRD milestone close and toward main, not at every gate (expensive). If mutating the code breaks no test, the test proves nothing.
+- **Branch coverage ≥ 80%** on new business-logic code (coverage by risk, not blanket %).
+- **Max 3 repair attempts** per subtask, then escalate — never loop on a red gate.
+- **The implementer may NOT edit blessed baselines or the reviewer-authored acceptance suite (DR-080)** — the agent that writes the code cannot shape the test that judges it. Baselines are blessed by the reviewer at the FRD gate, with their oracle recorded.
 
 ## Fail-loud read boundaries (DR-078)
 A reader/parser of an internal artifact (a markdown table, `status.yaml`, an ndjson event stream, a config/portfolio file) MUST distinguish **"the source is empty"** from **"I could not interpret the source"** — returning `[]`/`null` on a shape it doesn't recognise is a silent failure that passes every gate while half the UI renders dark.

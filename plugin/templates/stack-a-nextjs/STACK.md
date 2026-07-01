@@ -1,6 +1,6 @@
 # Stack A — Full-stack web app (Next.js) · default suggestion
 
-Installation guide for `/pandacorp:architecture`, full-stack web case. It's the **recommended starting point** (`factory/standards/stack.md`), NOT a mandate: the `architect` can propose better alternatives and the owner approves in the blueprint. **Always use the latest stable versions** for a new project (`@latest`); an older/brownfield project installs only versions **compatible with its framework major** (DR-052). Recommended stack: Next.js + React + TypeScript + Tailwind + **Prisma** + **Better Auth** + **next-intl** + **PostHog** + **Sentry** + Vitest + Playwright + **Biome** (the single format+lint tool — no Prettier, no ESLint) + **npm**, `src/` structure with the data layer in `queries/`.
+Installation guide for `/pandacorp:architecture`, full-stack web case. It's the **recommended starting point** (`factory/standards/stack.md`), NOT a mandate: the `architect` can propose better alternatives and the owner approves in the blueprint. **Always use the latest stable versions** for a new project (`@latest`); an older/brownfield project installs only versions **compatible with its framework major** (DR-052). Recommended stack: Next.js + React + TypeScript + Tailwind + **Prisma** + **Better Auth** + **next-intl** + **PostHog** + **Sentry** + Vitest + Playwright + **Biome** (the single format+lint tool — no Prettier, no ESLint) + **pnpm** (shared content-addressable store, DR-096; the repo-wide standard), `src/` structure with the data layer in `queries/`.
 
 ## Canonical config files (installed VERBATIM, conformance-checked — DR-059)
 
@@ -18,7 +18,7 @@ The sections below explain *why* each is configured the way it is; they are the 
 ```bash
 # Official scaffolder (choose based on the blueprint: tRPC or default options)
 pnpm create t3-app@latest . --noGit   # the Pandacorp scaffold already has git
-# Options: TypeScript, Tailwind, Drizzle, App Router; auth per the blueprint (Better Auth post-install or NextAuth)
+# Options: TypeScript, Tailwind, Prisma, App Router; auth per the blueprint (Better Auth post-install or NextAuth)
 ```
 
 ## Standard Pandacorp configuration (after the scaffolder)
@@ -31,7 +31,7 @@ pnpm create t3-app@latest . --noGit   # the Pandacorp scaffold already has git
    **Do NOT run `biome init` and hand-tune it.** Install the **canonical `biome.json`** (`${CLAUDE_PLUGIN_ROOT}/templates/stack-a-nextjs/biome.json`) **VERBATIM** — it is the MAXIMUM fail-closed config (DR-059), conformance-checked by `/pandacorp:upgrade`. It enables the **domains** (`react`, `next`, `test`) and the **`a11y`** group, and promotes the hard-enforcement rules to **error**. **Correction:** Biome *detects the presence* of a domain from `package.json`, but **the domain's rules are NOT auto-activated** — you must enable each domain (and `useSortedClasses`, a nursery rule) **explicitly** in `biome.json`, which the canonical file does. Tailwind class ordering = Biome's `useSortedClasses` (replaces `prettier-plugin-tailwindcss`). Biome formats AND lints; do not add Prettier or ESLint. **Escape hatch only if needed**: a minimal ESLint config running *only* `eslint-plugin-testing-library` (and/or `eslint-config-next`) for the few rules Biome lacks — never re-add Prettier.
 3. **Testing + dead-code gate**: `pnpm add -D vitest @testing-library/react @testing-library/jest-dom jsdom @playwright/test knip madge` — then install the canonical **`knip.json`** (`${CLAUDE_PLUGIN_ROOT}/templates/stack-a-nextjs/knip.json`) VERBATIM (DR-059).
 4. **shadcn/ui**: `pnpm dlx shadcn@latest init` — use the preset/tokens from `docs/design/design-tokens.json`.
-5. **DB**: **dev → Postgres in Docker** (see below); **staging/prod → managed** (Neon/Supabase). Connection string only in `.env` (DR-021).
+5. **DB**: **dev → Postgres in Docker** (see below); **staging/prod → managed** (Neon — Supabase was evaluated and rejected, see `external-services.md`). Connection string only in `.env` (DR-021).
 6. **Structure**: features in folders (`src/features/<feature>/`), shared in `src/lib/`, components one file + colocated test.
 
 ## Database in dev (Docker) + worktrees (DR-021/022/023)
@@ -56,7 +56,7 @@ volumes: { pgdata: {} }
 .env.local
 ```
 
-Test the last green without stopping the agent: `git worktree add ../<project>-review <last_green_sha>` → in that folder, `pnpm install` (fast with the pnpm store), adjust `DB_PORT` in its `.env`, `docker compose -p <project>-review up -d`, and run the dev server. A single review folder, refreshed to the last green.
+Test the last green without stopping the agent: `git worktree add /Users/Shared/review-worktrees/<project> <last_green_sha>` (the canonical review-worktrees root, DR-090 — never a sibling inside the projects area, no `-review` suffix) → in that folder, `pnpm install` (fast with the pnpm store), adjust `DB_PORT` in its `.env`, `docker compose -p <project>-review up -d`, and run the dev server. A single review folder, refreshed to the last green.
 
 ## Hard enforcement (lint rules — make the rule library fail the gate, not just live in prose)
 
@@ -185,11 +185,11 @@ The full gate is expensive to run on every FRD. `verify.sh` accepts an optional 
 
 ## `.pandacorp/verify.sh` — canonical, installed VERBATIM (DR-059)
 
-The gate is **not** hand-rolled per project. Install `${CLAUDE_PLUGIN_ROOT}/templates/stack-a-nextjs/verify.sh` **VERBATIM** as `.pandacorp/verify.sh` (alongside `biome.json` and `knip.json`); `/pandacorp:upgrade` **conformance-checks** it against this template and regenerates on drift, so a project's enforcement can never silently fall behind the standard. It is MAXIMUM fail-closed — `set -euo pipefail` + `inherit_errexit`, every Biome warn promoted to a hard gate (`--error-on-warnings`), and a **missing** smoke/visual harness is RED, never a skip. The gate runs, in order: structure guard (no loose `*.test.ts(x)`) → doc-lint (DR-077) → `biome check` → `tsc --noEmit` → `knip` (dead code) → `madge --circular` → `vitest run` → the **browser gates in ONE `playwright test e2e/` invocation** (smoke DR-055 + visual DR-056 + responsive DR-074 + shell DR-075 — one webServer boot, fail-closed on each missing spec file, DR-076). The canonical file is the source of truth — read it there, don't duplicate it here.
+The gate is **not** hand-rolled per project. Install `${CLAUDE_PLUGIN_ROOT}/templates/stack-a-nextjs/verify.sh` **VERBATIM** as `.pandacorp/verify.sh` (alongside `biome.json` and `knip.json`); `/pandacorp:upgrade` **conformance-checks** it against this template and regenerates on drift, so a project's enforcement can never silently fall behind the standard. It is MAXIMUM fail-closed — `set -euo pipefail` + `inherit_errexit`, every Biome warn promoted to a hard gate (`--error-on-warnings`), and a **missing** smoke/visual harness is RED, never a skip. The gate runs, in order: structure guard (no loose `*.test.ts(x)`) → doc-lint (DR-077) → the **DR-100 residual-ambiguity gate** (`[NEEDS CLARIFICATION]` in a `status: ACTIVE` doc → RED) → `biome check` → `tsc --noEmit` → `knip` (dead code) → `madge --circular` → `vitest run` → the **browser gates in ONE `playwright test e2e/` invocation** (smoke DR-055 + visual DR-056 + responsive DR-074 + shell DR-075 — one webServer boot, fail-closed on each missing spec file, DR-076). It also supports **`verify.sh --canary`** (DR-079; `canary.sh` ships in this folder): generates a deliberately-broken input per gate and REDs if a gate that should reject stays green — invoked only by `/pandacorp:upgrade`, never on a normal build. The canonical file is the source of truth — read it there, don't duplicate it here.
 
-## CI (`.github/workflows/ci.yml`)
+## CI (optional external-governance layer — DR-040)
 
-Parallel jobs on PR: `lint` (biome check), `typecheck` (tsc --noEmit), `test` (vitest run). E2E (`playwright test`) on PRs to main. pnpm cache.
+**The primary quality gate is LOCAL** (`.pandacorp/verify.sh`, run by the build engine per-FRD and at close-out); the solo operator commits and pushes to `main` **directly** — PRs are not the default. **GitHub Actions / PRs / protected branches are an OPTIONAL layer**, enabled when the project has an external remote/collaborators or the owner wants belt-and-suspenders: `.github/workflows/ci.yml` then re-runs the same checks in parallel jobs — `lint` (biome check), `typecheck` (tsc --noEmit), `test` (vitest run), plus E2E (`playwright test`) toward main. pnpm cache. It never replaces the local gate.
 
 ## Library conventions (apply only when the project uses the library)
 

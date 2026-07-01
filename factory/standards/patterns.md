@@ -23,11 +23,11 @@
 
 ## Semantic HTML and accessibility
 - `<button>` for actions, `<a>` for navigation, `<nav>/<main>/<section>/<header>` as appropriate. No `<div onClick>`.
-- Touch targets ≥44px, WCAG AA contrast, visible focus states. Verify with axe-core.
+- Touch targets: 44px design target; 24px is the fail-closed gate floor (WCAG 2.2 SC 2.5.8 — see [accessibility.md](accessibility.md)). WCAG AA contrast, visible focus states. Verify with axe-core.
 
 ## Theme and styles
 - **Light and dark always**: use semantic color variables, never hardcoded colors (`bg-background text-foreground`, not `bg-white text-black`).
-- Tailwind with the `cn()` helper (clsx + tailwind-merge). Ordered classes (prettier-plugin-tailwindcss or equivalent).
+- Tailwind with the `cn()` helper (clsx + tailwind-merge). Ordered classes (Biome `useSortedClasses` — DR-052; never re-add Prettier).
 - Visual values come from the **design tokens** defined in the design phase (`docs/design/design-tokens.json`).
 
 ## States and data
