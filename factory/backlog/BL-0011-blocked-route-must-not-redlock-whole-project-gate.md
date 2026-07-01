@@ -7,9 +7,9 @@ status: open
 severity: p2
 opened: 2026-07-01
 closed:
-source: LESSON-0005
+source: LESSON-0021
 closes:
-links: [LESSON-0005, DR-085, DR-075, DR-055]
+links: [LESSON-0021, DR-085, DR-075, DR-055]
 ---
 
 **Problem:** The whole-project gates assert over EVERY nav route — `shell.spec.ts` (Shell-Presence,
@@ -40,4 +40,4 @@ Evidence: runs `wf_9e98acaf-92e` / `wf_978129ab-eca`.
 **Done when:** a build with one `BLOCKED: needs-owner` route reaches a green baseline + closes every
 independent FRD (the blocked route stays quarantined, surfaced as the owner TODO), verified on a repro; the
 skip is fail-closed (only needs-owner-blocked routes, logged); `build-orchestration.md` updated; then set
-LESSON-0005 `promotion: approved` and back-link.
+LESSON-0021 `promotion: approved` and back-link.

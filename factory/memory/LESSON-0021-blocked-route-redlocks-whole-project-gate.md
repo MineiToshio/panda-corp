@@ -1,5 +1,5 @@
 ---
-id: LESSON-0005
+id: LESSON-0021
 type: anti-pattern
 domain: factory-engineering
 tags: [build-engine, gate, dr-075, dr-085, needs-owner, coupling, red-lock, whole-project-gate]

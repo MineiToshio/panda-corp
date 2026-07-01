@@ -1,5 +1,5 @@
 ---
-id: LESSON-0006
+id: LESSON-0022
 type: anti-pattern
 domain: factory-engineering
 tags: [build-engine, dr-085, hardening, security-audit, telemetry, release-gate, false-done]

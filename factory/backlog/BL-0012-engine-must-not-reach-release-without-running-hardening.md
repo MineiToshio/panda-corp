@@ -7,9 +7,9 @@ status: open
 severity: p1
 opened: 2026-07-01
 closed:
-source: LESSON-0006
+source: LESSON-0022
 closes:
-links: [LESSON-0006, DR-085, DR-017]
+links: [LESSON-0022, DR-085, DR-017]
 ---
 
 **Problem:** The `pandacorp-build` engine set `phase: release` + `running: false` after verifying all FRDs
@@ -41,4 +41,4 @@ etc.). All would have shipped if `phase: release` had been trusted as "done". Ev
 
 **Done when:** the engine cannot reach `phase: release` without a security-audit + telemetry-verification
 stage having run and left evidence (verified on a repro where the audit is forced to run); plugin MINOR +
-`OVERLAY_VERSION` bump (engine changed); then set LESSON-0006 `promotion: approved` and back-link.
+`OVERLAY_VERSION` bump (engine changed); then set LESSON-0022 `promotion: approved` and back-link.
