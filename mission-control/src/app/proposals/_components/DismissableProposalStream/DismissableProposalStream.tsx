@@ -36,6 +36,7 @@ import {
 } from "@/components/modules/ProposalsDismiss/proposalsDismissStore";
 import type { Lesson } from "@/lib/memory/memory";
 import type { Suggestion } from "@/lib/self-suggest/self-suggest";
+import { LessonDetailModal } from "../LessonDetailModal";
 import { ProposalCard } from "../ProposalCard/ProposalCard";
 import {
   lessonProposalId,
@@ -155,6 +156,7 @@ type RenderableProposal = {
 function toRenderable(
   props: DismissableProposalStreamProps,
   withCommand: boolean,
+  onSelect?: (lesson: Lesson) => void,
 ): RenderableProposal[] {
   if (props.kind === "self-suggestion") {
     return props.suggestions.map((suggestion) => ({
@@ -166,7 +168,14 @@ function toRenderable(
   }
   return props.lessons.map((lesson) => ({
     id: lessonProposalId(lesson),
-    node: <ProposalCard kind={props.kind} lesson={lesson} withCommand={withCommand} />,
+    node: (
+      <ProposalCard
+        kind={props.kind}
+        lesson={lesson}
+        withCommand={withCommand}
+        onSelect={onSelect}
+      />
+    ),
   }));
 }
 
@@ -199,6 +208,10 @@ export function DismissableProposalStream(
   // Initialise from the store so an already-dismissed proposal never flashes in.
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => new Set(getDismissedIds()));
 
+  // Lesson streams (candidate/prune) open a detail modal on card click; self-suggestions don't.
+  const isLessonStream = props.kind !== "self-suggestion";
+  const [selected, setSelected] = useState<Lesson | null>(null);
+
   const handleDismiss = useCallback((id: string) => {
     dismissProposal(id);
     setDismissedIds((prev) => {
@@ -208,40 +221,45 @@ export function DismissableProposalStream(
     });
   }, []);
 
-  const visible = toRenderable(props, withCommand).filter((p) => !dismissedIds.has(p.id));
+  const visible = toRenderable(props, withCommand, isLessonStream ? setSelected : undefined).filter(
+    (p) => !dismissedIds.has(p.id),
+  );
   const isEmpty = visible.length === 0;
 
   return (
-    <section data-testid={testId} style={SECTION_STYLE} aria-labelledby={`${testId}-heading`}>
-      {/* THE one SectionHead — DR-062, no bespoke per-screen section header */}
-      <SectionHead
-        icon={SECTION_ICON[props.kind]}
-        label={meta.label}
-        count={visible.length > 0 ? visible.length : undefined}
-      />
+    <>
+      <section data-testid={testId} style={SECTION_STYLE} aria-labelledby={`${testId}-heading`}>
+        {/* THE one SectionHead — DR-062, no bespoke per-screen section header */}
+        <SectionHead
+          icon={SECTION_ICON[props.kind]}
+          label={meta.label}
+          count={visible.length > 0 ? visible.length : undefined}
+        />
 
-      {/* Group-level command row — once under the title (REQ-17-001 / AC-17-001.1) */}
-      {groupCmd && !isEmpty && (
-        <div style={GROUP_CMD_WRAP_STYLE}>
-          <p style={GROUP_CMD_LABEL_STYLE}>Para revisar/activar toda esta lista, corre:</p>
-          <div data-testid="group-level-command">
-            <CmdRow command={groupCmd} />
+        {/* Group-level command row — once under the title (REQ-17-001 / AC-17-001.1) */}
+        {groupCmd && !isEmpty && (
+          <div style={GROUP_CMD_WRAP_STYLE}>
+            <p style={GROUP_CMD_LABEL_STYLE}>Para revisar/activar toda esta lista, corre:</p>
+            <div data-testid="group-level-command">
+              <CmdRow command={groupCmd} />
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {isEmpty ? (
-        <p data-testid="proposal-stream-empty" style={EMPTY_STYLE}>
-          {meta.emptyMessage}
-        </p>
-      ) : (
-        <div style={CARDS_STYLE}>
-          {visible.map((proposal) => (
-            <DismissRow key={proposal.id} proposal={proposal} onDismiss={handleDismiss} />
-          ))}
-        </div>
-      )}
-    </section>
+        {isEmpty ? (
+          <p data-testid="proposal-stream-empty" style={EMPTY_STYLE}>
+            {meta.emptyMessage}
+          </p>
+        ) : (
+          <div style={CARDS_STYLE}>
+            {visible.map((proposal) => (
+              <DismissRow key={proposal.id} proposal={proposal} onDismiss={handleDismiss} />
+            ))}
+          </div>
+        )}
+      </section>
+      {isLessonStream && <LessonDetailModal lesson={selected} onClose={() => setSelected(null)} />}
+    </>
   );
 }
 

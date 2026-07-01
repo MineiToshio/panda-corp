@@ -47,6 +47,8 @@ type CandidateLessonCardProps = {
   suggestion?: never;
   /** When false, the card defers to the group-level command (REQ-17-001). */
   withCommand?: boolean;
+  /** When provided (and no per-card command), the card is a button opening the detail. */
+  onSelect?: (lesson: Lesson) => void;
 };
 
 type PromotionCardProps = {
@@ -55,6 +57,8 @@ type PromotionCardProps = {
   suggestion?: never;
   /** Promotions always carry their own /pandacorp:learn <id> (REQ-17-001). */
   withCommand?: boolean;
+  /** When provided (and no per-card command), the card is a button opening the detail. */
+  onSelect?: (lesson: Lesson) => void;
 };
 
 type PruneCardProps = {
@@ -63,6 +67,8 @@ type PruneCardProps = {
   suggestion?: never;
   /** When false, the card defers to the group-level command (REQ-17-001). */
   withCommand?: boolean;
+  /** When provided (and no per-card command), the card is a button opening the detail. */
+  onSelect?: (lesson: Lesson) => void;
 };
 
 type SelfSuggestionCardProps = {
@@ -228,6 +234,7 @@ export function ProposalCard(props: ProposalCardProps): React.JSX.Element {
       kind={props.kind}
       lesson={props.lesson}
       withCommand={props.withCommand ?? props.kind === "promotion"}
+      onSelect={props.onSelect}
     />
   );
 }
@@ -240,17 +247,19 @@ function LessonCard({
   kind,
   lesson,
   withCommand,
+  onSelect,
 }: {
   kind: "candidate-lesson" | "promotion" | "prune";
   lesson: Lesson;
   withCommand: boolean;
+  onSelect?: (lesson: Lesson) => void;
 }): React.JSX.Element {
   const command = lessonCommand(kind, lesson.id);
   // PROP-04/05: show the lesson's TITLE (clean takeaway), not a raw body slice.
   const title = deriveLessonTitle(lesson.body) ?? lessonTitle(kind);
   const meta = KIND_META[kind];
 
-  return (
+  const card = (
     <Panel variant="rpgpanel">
       <article
         data-testid="proposal-card"
@@ -337,6 +346,32 @@ function LessonCard({
         </div>
       </article>
     </Panel>
+  );
+
+  // Clickable → opens the detail modal. Only when there is NO per-card command
+  // inside (a CmdRow's CopyButton must not nest inside a button — invalid HTML).
+  if (onSelect === undefined || withCommand) return card;
+  return (
+    <button
+      type="button"
+      data-testid="proposal-card-button"
+      onClick={() => onSelect(lesson)}
+      aria-label={`Ver detalle de la lección ${lesson.id}`}
+      style={{
+        display: "block",
+        width: "100%",
+        padding: 0,
+        border: "none",
+        background: "none",
+        font: "inherit",
+        color: "inherit",
+        textAlign: "left",
+        cursor: "pointer",
+        borderRadius: "var(--radius-md, 12px)",
+      }}
+    >
+      {card}
+    </button>
   );
 }
 
