@@ -20,7 +20,7 @@ work_orders_planned: 0
 work_orders_in_progress: 0
 work_orders_blocked: 0
 work_orders_done: 94
-pending_decisions: 1
+pending_decisions: 0
 pending_bugs: 0
 rethink_pending: false
 advance_pending: false
