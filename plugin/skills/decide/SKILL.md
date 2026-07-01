@@ -23,9 +23,10 @@ The mechanism for **the owner to answer the decision points** the AI left pendin
    - **No arguments at all**: present every pending decision (with its id) and its recommendation, and ask what they decide for each. The owner can say "your recommendation" to accept the suggested one.
    - The owner can also say a decision is obsolete at this step (not just at step 2) — treat it the same as step 2's obsolete path.
    - Never decide yourself: if the owner doesn't answer something, it stays pending.
-4. **Record the outcome** in `.pandacorp/inbox/decisions.md` — never delete a block, only mark it:
+4. **Record the outcome** in `.pandacorp/inbox/decisions.md` — never delete a block, only mark it. "Mark it" means **edit that decision's OWN block in place** (its heading's status word + a `- **Estado:**` line) — never just append a new sibling entry narrating the resolution while leaving the original heading untouched (that's exactly how a decision ends up mechanically "pending" forever even after it's clearly been answered — a real incident, 2026-06-30). A new entry with more context is welcome IN ADDITION, never INSTEAD:
    - **Answered**: `- **Estado:** RESUELTO: <the owner's verbatim decision> (YYYY-MM-DD)`, plus the rationale if they gave one.
    - **Obsolete** (owner confirmed it no longer applies, no answer was given): `- **Estado:** OBSOLETO: <brief reason — what changed> (YYYY-MM-DD)`. This is a DIFFERENT terminal state from RESUELTO — it means the question was dropped, not answered; never use RESUELTO for this.
+   - If you find a decision that a NEWER sibling entry already resolved (someone answered it in conversation or a repair pass, but never went back to mark the original) — don't ask the owner again: close the original with the SAME outcome the sibling entry documents, referencing it.
 5. **If it was answered (not marked obsolete) and it is architectural**, also create/update the ADR in `docs/adr/` (what was decided and the trade-off).
 6. **Unblock**: if the decision (answered OR marked obsolete) was unblocking a work order or a front, say so and update `.pandacorp/status.yaml` (`pending_decisions`). If `/pandacorp:implement` is running, it picks it up on its own at its next safe point (it checks `.pandacorp/inbox/decisions.md`); if there is no active build, offer to continue with `/pandacorp:implement`.
 
