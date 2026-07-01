@@ -225,8 +225,14 @@ The build engine reviews and tests **per FRD**, not per work order:
 - When all of an FRD's work orders are `IN_REVIEW`, run **one review + test pass over the whole FRD**,
   which also exercises the work orders **together** (real integration). The gate's tests are **focused**:
   `verify.sh --since <last_green>` runs biome + tsc globally but only the vitest tests **affected since the
-  last green** (fast, and scales as the suite grows — it does NOT re-run the whole suite every gate). The
-  **full** suite runs once at **close-out**. On pass → every work order + the FRD become `VERIFIED`.
+  last green** (fast, and scales as the suite grows — it does NOT re-run the whole suite every gate), and
+  **scopes the browser layer the same way (DR-106)**: in `--since` mode only `smoke` + `shell` run — the e2e
+  face of the DR-072 BLOCKING lenses (every route renders clean; the app shell is present) — while `visual` +
+  `responsive` belong to the **full** unscoped run (fidelity is ADVISORY at the gate and may never block, so
+  paying the whole serialized Playwright suite per FRD bought nothing but wall-clock: 11 gates ran it in
+  the personal-page-v2 build). The **full** suite runs once at **close-out**; the intermediate re-verifiers
+  (Visual QA after its fixes, the hardening security pass) also run `--since`, never a second full suite.
+  On pass → every work order + the FRD become `VERIFIED`.
   These two — the per-FRD `--since` gate and the close-out full suite — are where strict whole-project
   enforcement lives **during a build**. The per-turn `Stop` hook (`verify-before-stop.sh`) deliberately
   **stands aside while a build is active** (DR-063): mid-build the tree is legitimately red between safe
@@ -377,20 +383,46 @@ patched the one bug). So the default is **patch-first**:
 - The reviewer does NOT revert on a localized reject; it **reports the fixable fault(s)** — `findings: [{ wo,
   finding (file:line), failingTest (a RED-proven test that fails without the fix), files }]` — and leaves the
   WO `IN_REVIEW` (no `reopen_count` change yet).
-- The engine attempts **exactly ONE in-place patch** (`attemptPatch`, opus + `xhigh`): fix only the named
+- The engine attempts **one in-place patch** (`attemptPatch`, opus + `xhigh`): fix only the named
   finding on the EXISTING build, make the RED-proven test pass, then **re-gate WHOLE-PROJECT** — the full FRD
   adversarial + integration pass AND a whole-project `knip` + `biome` + `tsc` (NOT `verify.sh --since`: a dead
-  export the patch leaves must not slip to a sibling FRD's global gate — the red-team-A fix). It commits + sets
-  the WOs `VERIFIED` (and resets their `reopen_count: 0`) **only on whole-project-clean**; the patch runs
-  **synchronously inside this FRD's gate step**, so a sibling never sees broken committed code — DR-070's true
-  invariant ("never broken-committed whole-project") is preserved without a revert.
-- **Only if the patch can't green it whole-project** does the engine fall back to `revertAndReopen` (the DR-070
-  path): set the WO `PLANNED`, **increment `reopen_count`**, and revert its files to `last_green_sha` — surgical
-  `git checkout <sha> -- <files>` + `git rm` for newly-created files, **never a whole-tree hard reset** (that
-  would discard verified siblings) — committed with the status change, so the next pass rebuilds it from a clean
-  green base. **One unified budget:** `reopen_count` is the single counter (the in-place patch is a sub-step of
-  one reject cycle, NOT a second axis — this avoids the nesting/non-termination the red team flagged); at
-  `MAX_REOPENS` (default 3) the gate BLOCKs `needs-owner` instead of grinding.
+  export the patch leaves must not slip to a sibling FRD's global gate — the red-team-A fix). It commits
+  **only on whole-project-clean** (an independent verifier then stamps `VERIFIED` — the patcher never
+  certifies itself, constitution rule 4); the patch runs **synchronously inside this FRD's gate step**, so a
+  sibling never sees broken committed code — DR-070's true invariant ("never broken-committed whole-project")
+  is preserved without a revert.
+- **Self-repair budget (DR-107).** A red the patch's OWN edits introduced (a type/lint error in a file the
+  patcher just created or touched — e.g. a TS2345 in its own new test) does NOT end the patch: the patcher
+  fixes it and re-gates, up to **2 internal cycles**, before giving up. The personal-page-v2 incident this
+  encodes: a 1-line i18n fix was discarded — and its whole 1,397-line work order reverted and rebuilt from
+  scratch — because the old "one shot, change NOTHING" contract forbade fixing a trivial type error in the
+  patch's own new a11y spec.
+- **Two-cause give-up verdict (BL-0001).** A failed patch returns `cause: 'code'` (the build is genuinely
+  wrong) or `cause: 'gate-test-defective'` (a reviewer adversarial test is internally inconsistent /
+  unsatisfiable by ANY correct implementation — e.g. asserting desktop-only nav visibility without forcing a
+  viewport under a dual desktop+mobile Playwright config). The integrity rule stands — the patcher NEVER edits
+  the reviewer's test — but it now has a valve: on `gate-test-defective` the engine routes to a
+  **gate-test repair** (`repairGateTest`, an independent reviewer-role agent that judges the claim and, if the
+  test is genuinely defective, repairs the TEST to assert the FRD's real acceptance criterion — never deleting
+  coverage; if the test is upheld, the flow falls back to the normal revert). One fallback for two causes was
+  rebuilding correct work in loops a defective test could never let converge (LESSON-0002). On give-up the
+  patcher UNDOES its own edits, so the engine can still revert cleanly.
+- **Only when the patch (and, if flagged, the gate-test repair) can't green it whole-project** does the engine
+  fall back to `revertAndReopen` (the DR-070 path): set the WO `PLANNED`, **increment `reopen_count`**, and
+  revert its files to `last_green_sha` — surgical `git checkout <sha> -- <files>` + `git rm` for newly-created
+  files, **never a whole-tree hard reset** (that would discard verified siblings) — committed with the status
+  change. **The revert preserves test evidence (DR-107):** a newly-created TEST file the reviewer authored or a
+  `## Status Note` references is coverage, not rejected code — it MOVES to `.pandacorp/run/preserved-tests/<wo>/`
+  instead of being deleted, and the rebuild restores it as its RED baseline (a green 6/6 a11y spec was deleted
+  by a revert on personal-page-v2 and had to be re-authored blind a pass later).
+- **In-run retry (DR-107).** After the revert, the engine retries the reopened WOs **once, in the SAME run**,
+  from the clean green base (on opus — `reopen_count >= 1`), then re-gates. Deferring every reopen to the next
+  pass re-paid the whole fixed overhead (baseline + full re-plan + rollup sync + safe-points) per reopened WO.
+  Bounded: one in-run retry per FRD per run; skipped at the agent ceiling or when a reopened WO already hit the
+  reopen cap; if the retry's gate rejects again there is NO second patch cycle — revert + defer to the next
+  pass exactly as before. **One unified budget:** `reopen_count` is the single counter (the in-place patch is a
+  sub-step of one reject cycle, NOT a second axis — this avoids the nesting/non-termination the red team
+  flagged); at `MAX_REOPENS` (default 3) the gate BLOCKs `needs-owner` instead of grinding.
 
 **Model selection — adaptive escalation within the mode (DR-073).** The mode's `P.worker` is the **floor**, never
 downgraded. `pickWorkerModel(wo)` escalates a work order's build to **opus** when **either** it is a-priori hard

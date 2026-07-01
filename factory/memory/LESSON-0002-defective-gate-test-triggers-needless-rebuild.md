@@ -8,7 +8,7 @@ source: project personal-page-v2, build run wf_b01c0efe-146 (FRD-01 gate); revie
 provenance: agent-inferred
 created: 2026-06-30
 status: active
-promotion: none
+promotion: approved   # 2026-07-01 — codified as the DR-073 two-cause fallback (registry amend + DR-107) via BL-0001; reviewer.md + quality.md carry the satisfiable-test convention
 confidence: high
 times_applied: 0
 links: [BL-0001, DR-073, DR-074, DR-070, DR-072, DR-015, LESSON-0001]

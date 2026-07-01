@@ -182,7 +182,15 @@ const FRD_GATE_SCHEMA = {
 }
 const REPAIR_SCHEMA = {
   type: 'object', required: ['green'],
-  properties: { green: { type: 'boolean' }, missingFoundation: MISSING_FOUNDATION, blocked_reason: BLOCK_REASON, failure: { type: 'string' } },
+  properties: {
+    green: { type: 'boolean' }, missingFoundation: MISSING_FOUNDATION, blocked_reason: BLOCK_REASON, failure: { type: 'string' },
+    // BL-0001 (DR-107): a green:false patch verdict is DISCRIMINATED — 'code' (the build is wrong;
+    // the engine reverts + retries) vs 'gate-test-defective' (the reviewer's adversarial test is
+    // internally inconsistent / unsatisfiable; the engine repairs the TEST, it does NOT discard a
+    // correct build). One fallback for two causes was rebuilding correct work in unwinnable loops.
+    cause: { type: 'string', enum: ['code', 'gate-test-defective'], description: "why the patch could not green: 'code' = the build genuinely fails → revert+retry; 'gate-test-defective' = a reviewer test is internally inconsistent/unsatisfiable by ANY correct implementation → the engine routes to gate-test repair (BL-0001), never a rebuild" },
+    defectiveTests: { type: 'array', description: 'BL-0001: the reviewer test(s) judged defective, with evidence — only when cause is gate-test-defective', items: { type: 'object', required: ['path', 'why'], properties: { path: { type: 'string' }, why: { type: 'string', description: 'the internal inconsistency, e.g. "asserts desktop-only nav visibility but the Playwright config runs desktop+mobile and no viewport is forced"' } } } },
+  },
 }
 // Targeted change build: the process-change agent reads a change from the queue, creates/updates
 // its FRDs+WOs via iterate/bug logic, and returns the list of affected FRD folders so the normal
@@ -363,7 +371,7 @@ async function buildWO(wo, frd) {
     await agent(`${EMIT('frontend-dev', wo.id, { frd, activity: 'frontend' })}Implement the UI of ${wo.id} using ONLY design tokens and the provider WO's contract at docs/api/<the-backend-WO-in-your-Dependencies>.md (DR-060: read that specific per-WO file, never a shared docs/api.md): ${wo.summary || ''}.${designRef(frd)}${reuseRef(frd)} Do NOT call git — you never commit; the engine commits this work order when it greens (Option B).`,
       { label: `fe:${wo.id}`, phase: 'Build', model: woModel, effort: woModel === 'opus' ? 'high' : undefined, agentType: 'pandacorp:frontend-dev' })
   } else {
-    await agent(`${EMIT('implementer', wo.id, { frd, activity: 'implement' })}First set ${wo.id}'s frontmatter \`implementation_status: IN_PROGRESS\`.${TRACK('wo_start', `,"frd":"${frd}","wo":"${wo.id}"`)} Then fully implement it with TDD (RED→GREEN→refactor), anchored in the EARS criteria of FRD ${frd} and in bugs from .pandacorp/comms/progress.md: ${wo.summary || ''}. This is a COARSE slice (a whole view/capability) — build it end-to-end. First read the \`## Status Note\` of the work orders ${wo.id} depends on (their exposed interfaces) and integrate against those, not a guess.${designRef(frd)}${reuseRef(frd)} Do NOT call git — you never commit; the engine commits this work order (serialized single writer) the moment its self-test greens (Option B, DR-060).`,
+    await agent(`${EMIT('implementer', wo.id, { frd, activity: 'implement' })}First set ${wo.id}'s frontmatter \`implementation_status: IN_PROGRESS\`.${TRACK('wo_start', `,"frd":"${frd}","wo":"${wo.id}"`)} Then fully implement it with TDD (RED→GREEN→refactor), anchored in the EARS criteria of FRD ${frd} and in bugs from .pandacorp/comms/progress.md: ${wo.summary || ''}. This is a COARSE slice (a whole view/capability) — build it end-to-end. First read the \`## Status Note\` of the work orders ${wo.id} depends on (their exposed interfaces) and integrate against those, not a guess. If \`.pandacorp/run/preserved-tests/${wo.id}/\` exists, RESTORE those test files into the tree first — they are proven coverage a previous revert preserved (DR-107): they are your RED baseline, make them pass.${designRef(frd)}${reuseRef(frd)} Do NOT call git — you never commit; the engine commits this work order (serialized single writer) the moment its self-test greens (Option B, DR-060).`,
       { label: `build:${wo.id}`, phase: 'Build', model: woModel, effort: woModel === 'opus' ? 'high' : undefined, agentType: 'pandacorp:implementer' })
   }
   // Fast SELECTIVE self-test (NOT the whole suite) → IN_REVIEW + hand-off.
@@ -415,11 +423,17 @@ async function attemptRepair(frd, context) {
 // ── DR-073 in-place PATCH: fix the specific finding(s) on the EXISTING build, don't rebuild ──────
 // On a localized gate reject the build is ~correct except a bounded fault. Discarding a ~99%-correct
 // build and rebuilding from scratch wastes a full multi-agent pass AND re-introduces a new micro-bug
-// (the WO-07-005 4-cycle non-convergence). So FIRST attempt exactly ONE in-place patch (a sub-step of
+// (the WO-07-005 4-cycle non-convergence). So FIRST attempt one in-place patch (a sub-step of
 // this reject cycle — NOT a second counter axis; reopen_count is the single budget). The patch agent
 // re-gates with the FULL FRD adversarial+integration pass AND a WHOLE-PROJECT knip+biome+tsc (red-team-A:
-// a dead export must NOT slip to a sibling FRD; `--since` would have let it). Commit + VERIFY only on
-// whole-project-clean; otherwise change NOTHING and let the engine revert (revertAndReopen).
+// a dead export must NOT slip to a sibling FRD; `--since` would have let it).
+// DR-107 (personal-page-v2 incident): the old "one shot, then change NOTHING" contract threw away a
+// 1-line i18n fix — and with it the whole WO — because the patch's OWN new test file had a trivial
+// TS2345. So the patch now carries a SELF-REPAIR budget (fix failures its own edits introduced, up
+// to 2 internal cycles) and a DISCRIMINATED give-up verdict (BL-0001): 'code' → the engine reverts;
+// 'gate-test-defective' → the engine repairs the reviewer's TEST instead of discarding a correct build.
+// Commit + hand to the independent verifier only on whole-project-clean; on give-up it UNDOES its own
+// edits so the engine can still revert cleanly.
 async function attemptPatch(frd, findings, reviewIds) {
   agentSpawned += COST('opus')
   const list = (findings || []).map((x) => `• ${x.wo}: ${x.finding}${x.failingTest ? ` — failing test: ${x.failingTest}` : ''}${x.files && x.files.length ? ` — file(s): ${x.files.join(', ')}` : ''}`).join('\n  ') || '(see the gate output)'
@@ -427,9 +441,30 @@ async function attemptPatch(frd, findings, reviewIds) {
   ${list}
   Patch ONLY these on the EXISTING build — do NOT revert, do NOT rebuild from scratch, do NOT touch unrelated files. For each finding, make the RED-proven failing test PASS (production code, never weaken/skip a test). Reviewed work orders this cycle: ${(reviewIds || []).join(', ')}.
   THEN RE-GATE (this is the safety invariant — a focused gate is NOT enough, red-team-A): run the FULL FRD adversarial + integration tests for ${frd} AND a WHOLE-PROJECT \`pnpm knip\` + \`pnpm biome check .\` + \`pnpm tsc --noEmit\` (NOT \`verify.sh --since\` — a dead export left by the patch must not slip to a sibling FRD's global gate). Everything must be whole-project-clean.
+  **SELF-REPAIR BUDGET (DR-107) — a red introduced by YOUR OWN edits does not end the patch:** if the re-gate fails on something YOUR patch just added or touched (a type/lint error in a file you created or edited — e.g. a TS2345 in your own new test file), FIX that and re-gate. You may spend up to 2 such internal fix-and-re-gate cycles. (The real incident this exists for: a 1-line i18n patch was discarded — and its whole work order rebuilt from scratch — because its own new a11y spec had a trivial type error the old contract forbade fixing.)
   **If whole-project-clean:** COMMIT the patch (Conventional Commits, scope) — but do NOT set any WO \`VERIFIED\`, do NOT touch \`reopen_count\`, do NOT advance \`last_green_sha\`/status.yaml: you patched it, so you may not certify it (constitution rule 4, generator ≠ verifier — audit-20). An INDEPENDENT verifier re-runs the gate and stamps. Return { green: true }.
-  **If you CANNOT green it in place** (the patch fails, surfaces a new finding, or is not whole-project-clean): change NOTHING — leave the build exactly as it is (do NOT commit, do NOT revert; the engine will revert it cleanly) — and return { green: false, failure: <why> }.`,
+  **If the blocker is a DEFECTIVE reviewer test (BL-0001):** you conclude a blocking adversarial test is INTERNALLY INCONSISTENT or unsatisfiable by ANY correct implementation (e.g. it asserts desktop-only nav visibility without forcing a viewport while the Playwright config runs desktop+mobile) — do NOT edit that test (the patcher never rewrites the reviewer's tests) and do NOT keep bending production code to satisfy it: UNDO all your own edits (restore files you modified, delete files you created — \`git status\` must read as you found it) and return { green: false, cause: 'gate-test-defective', defectiveTests: [{ path, why }], failure }. The engine routes it to an independent gate-test repair — not to a revert of the build.
+  **If you CANNOT green it in place** (the ORIGINAL build genuinely fails beyond the findings, or your self-repair budget is spent): UNDO all your own edits the same way — leave the tree exactly as you found it (do NOT commit, do NOT revert the WO; the engine reverts cleanly) — and return { green: false, cause: 'code', failure: <why> }.`,
     { label: `patch:${frd}`, phase: 'Review', model: 'opus', effort: 'xhigh', agentType: 'pandacorp:implementer', schema: REPAIR_SCHEMA })
+}
+
+// ── BL-0001 gate-test repair: when the GATE's own test is the defect, fix the TEST, not the build ──
+// The patcher flagged reviewer adversarial test(s) as internally inconsistent. An independent
+// reviewer-role agent judges each claim: a genuinely defective test is REPAIRED (the assertion/setup
+// corrected to test the FRD's REAL acceptance criterion — coverage is never deleted); an upheld test
+// sends the flow back to the normal revert fallback. This is the second exit DR-073 lacked — one
+// fallback for two causes meant a defective test could grind a correct build through rebuild loops
+// that could never converge (LESSON-0002).
+async function repairGateTest(frd, defectiveTests, reviewIds) {
+  agentSpawned += COST(P.judge)
+  const list = (defectiveTests || []).map((t) => `• ${t.path}: ${t.why}`).join('\n  ') || '(see the patch output)'
+  return await agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'gate-test-repair' })}GATE-TEST REPAIR (BL-0001) for ${frd}. The patch agent flagged these reviewer adversarial test(s) as DEFECTIVE — internally inconsistent or unsatisfiable by ANY correct implementation:
+  ${list}
+  You are an INDEPENDENT reviewer (you own the gate's tests; the patcher may not touch them). For EACH flagged test, judge the claim on the evidence — do not take the patcher's word:
+  - **Genuinely defective** (the assertion contradicts its own setup/config, or no correct implementation of the FRD's acceptance criteria could satisfy it): REPAIR the test so it correctly asserts the FRD's REAL acceptance criterion (fix the assertion/setup — e.g. force the viewport it assumed; NEVER delete the coverage or weaken what the AC requires).
+  - **Actually right** (the build really violates it): change NOTHING and return { green: false, cause: 'code', failure: 'test upheld: <why the build is wrong>' } — the engine falls back to the normal revert.
+  After repairing: re-run the repaired test file(s) + the FULL FRD test files for ${frd} AND whole-project \`pnpm biome check .\` + \`pnpm tsc --noEmit\` against the EXISTING build (work orders this cycle: ${(reviewIds || []).join(', ')}). If everything is clean, COMMIT only the test repair(s) (Conventional Commits, scope; note WHY each test was defective in the commit body) and return { green: true } — an independent verifier still re-runs the objective gate and stamps. If red remains, change nothing further and return { green: false, cause: 'code', failure }.`,
+    { label: `gate-test-repair:${frd}`, phase: 'Review', model: P.judge, effort: 'xhigh', agentType: 'pandacorp:reviewer', schema: REPAIR_SCHEMA })
 }
 
 // ── Independent post-patch verification (constitution rule 4 — the patcher never certifies itself) ──
@@ -443,19 +478,23 @@ async function verifyPatched(frd, reviewIds) {
     { label: `verify-patch:${frd}`, phase: 'Review', model: P.worker, agentType: 'pandacorp:reviewer', schema: REPAIR_SCHEMA })
 }
 
-// ── DR-073 fallback: revert + reopen for a clean rebuild next run (the old DR-070 revert logic) ──
+// ── DR-073 fallback: revert + reopen for a clean rebuild (the old DR-070 revert logic) ──
 // Runs ONLY when the in-place patch could not green the build. For each reopened WO: set it PLANNED,
 // INCREMENT reopen_count (so the non-progress cap can fire), and discard its committed-but-rejected
 // code so it does NOT pollute sibling FRDs' WHOLE-PROJECT gate (DR-070) — surgical `git checkout
 // <last_green_sha> -- <its files that existed at last green>` + `git rm` newly-created files, NEVER a
 // whole-tree hard reset (it would discard verified siblings). Commit the status change + the revert
-// together. The next pass rebuilds the reopened WO from a clean green base (on opus — reopen_count>=1).
+// together. Reviewer-authored / Status-Note-referenced TEST files are PRESERVED, not deleted (the
+// personal-page-v2 revert deleted a green a11y spec the hand-off cited; the reviewer had to re-author
+// it blind a pass later). The rebuild happens on opus (reopen_count>=1) — first via the DR-107 in-run
+// retry in this same run, else on the next pass.
 async function revertAndReopen(frd, reopenIds) {
   agentSpawned += COST(P.judge)
-  return await agent(`${EMIT('implementer', frd, { frd, phase: 'review', activity: 'revert' })}DR-073 fallback — the in-place patch could NOT green ${frd}, so revert + reopen for a clean rebuild next run. Read last_green_sha from .pandacorp/status.yaml. For EACH of these reopened work orders: ${(reopenIds || []).join(', ')}
+  return await agent(`${EMIT('implementer', frd, { frd, phase: 'review', activity: 'revert' })}DR-073 fallback — the in-place patch could NOT green ${frd}, so revert + reopen for a clean rebuild. Read last_green_sha from .pandacorp/status.yaml. For EACH of these reopened work orders: ${(reopenIds || []).join(', ')}
   1) Set its frontmatter \`implementation_status: PLANNED\` and **INCREMENT its \`reopen_count\`** (the non-progress cap, DR-072 — so a WO that keeps failing eventually BLOCKS needs-owner instead of grinding).
   2) DR-070 — discard its committed-but-rejected code so it does not pollute sibling FRDs' WHOLE-PROJECT gate: \`git checkout <last_green_sha> -- <its files that existed at last green>\` and \`git rm\` any files it newly created. **NEVER a hard reset of the whole tree** (that would discard verified siblings). Leave every other WO (IN_REVIEW or VERIFIED) untouched.
-  3) Recompute + persist the FRD's frd.md + blueprint.md \`implementation_status\` rollup from ALL its work orders; advance .pandacorp/status.yaml (per-status counts + last_event_at + updated_at to now, ISO 8601). Commit the status change + the revert together (Conventional Commits, scope). Return { green: false } (the engine logs this FRD as reopened — retried next run, from a clean green base).`,
+     **EXCEPTION — preserve test evidence (DR-107):** a newly-created TEST file that the reviewer authored or that a \`## Status Note\` references (an adversarial spec, an e2e spec like \`a11y.spec.ts\`) is COVERAGE, not rejected code — do not destroy it. MOVE it to \`.pandacorp/run/preserved-tests/<wo-id>/\` (mkdir -p; gitignored runtime state) instead of \`git rm\`, so the rebuild restores it as its RED baseline instead of losing it (the personal-page-v2 incident: a green 6/6 a11y spec was deleted by a revert and had to be re-authored blind a pass later).
+  3) Recompute + persist the FRD's frd.md + blueprint.md \`implementation_status\` rollup from ALL its work orders; advance .pandacorp/status.yaml (per-status counts + last_event_at + updated_at to now, ISO 8601). Commit the status change + the revert together (Conventional Commits, scope). Return { green: false } (the engine retries the reopened WOs — in-run first (DR-107), else next pass — from a clean green base).`,
     { label: `revert:${frd}`, phase: 'Review', model: P.judge, agentType: 'pandacorp:implementer', schema: REPAIR_SCHEMA })
 }
 
@@ -691,21 +730,52 @@ for (const f of plan.frds) {
   // DR-073 PATCH-FIRST: a localized reject defaults to an in-place patch on the EXISTING build (inject
   // the finding + the RED-proven failing test), re-gated WHOLE-PROJECT — NOT a revert-and-rebuild. The
   // patch runs SYNCHRONOUSLY inside this FRD's gate step (before the loop moves to sibling FRDs), and it
-  // VERIFIES only on whole-project-clean, so a sibling never sees broken committed code. Only if the
-  // patch can't green it whole-project does the engine fall back to revert+reopen (DR-070) for a clean
-  // rebuild next run. reopen_count is the single budget: the patch doesn't touch it; the revert increments it.
+  // VERIFIES only on whole-project-clean, so a sibling never sees broken committed code. Three exits:
+  // (1) patch greens → independent verify stamps; (2) the patch flags the GATE's own test as defective →
+  // gate-test repair (BL-0001), never a rebuild of correct work; (3) genuine code fault → revert+reopen
+  // (DR-070) and then the DR-107 IN-RUN RETRY: rebuild the reopened WOs NOW from the clean base (opus —
+  // reopen_count>=1) instead of deferring to the next pass, which re-pays the whole fixed overhead
+  // (baseline + full re-plan + sync + safe-points). reopen_count stays the single budget: the patch
+  // doesn't touch it; each revert increments it; the reopen cap still ends the grind.
   if (gate && gate.reopen && gate.reopen.length) {
+    let patchFailNote = ''
     const patched = await attemptPatch(f.frd, gate.findings || [], reviewIds)
     if (patched && patched.green === true) {
       // Constitution rule 4 (audit-20): the patcher claimed green — an INDEPENDENT agent re-runs the
       // gate and is the only one allowed to stamp VERIFIED + advance last_green_sha.
       const iv = await verifyPatched(f.frd, reviewIds)
       if (iv && iv.green === true) { log(`✓ ${f.frd} VERIFIED (patched in place, independently verified)`); builtFrds.push(f.frd); consecutiveBlocks = 0; continue }
-      log(`↻ ${f.frd}: patch claimed green but the independent verification FAILED (${iv?.failure || 'red'}) — reverting + reopening`)
-      await revertAndReopen(f.frd, gate.reopen); reopenedFrds.push(f.frd); continue
+      patchFailNote = `patch claimed green but the independent verification FAILED (${iv?.failure || 'red'})`
+    } else if (patched && patched.cause === 'gate-test-defective' && (patched.defectiveTests || []).length) {
+      // BL-0001 second fallback: the gate's own adversarial test is the defect — repair the TEST,
+      // never discard a correct build over an unsatisfiable assertion (LESSON-0002).
+      log(`⚖ ${f.frd}: patch flagged defective gate test(s) (${patched.defectiveTests.map((t) => t.path).join(', ')}) — repairing the TEST, not rebuilding (BL-0001)`)
+      const tr = await repairGateTest(f.frd, patched.defectiveTests, reviewIds)
+      if (tr && tr.green === true) {
+        const iv2 = await verifyPatched(f.frd, reviewIds)
+        if (iv2 && iv2.green === true) { log(`✓ ${f.frd} VERIFIED (defective gate test repaired, independently verified)`); builtFrds.push(f.frd); consecutiveBlocks = 0; continue }
+        patchFailNote = `gate-test repair greened but the independent verification failed (${iv2?.failure || 'red'})`
+      } else patchFailNote = `gate-test claim not upheld (${tr?.failure || 'test was right — the build is wrong'})`
+    } else {
+      patchFailNote = `in-place patch did not green (${patched?.failure || 'no verdict'})`
     }
-    log(`↻ ${f.frd}: in-place patch did not green — reverting + reopening for a clean rebuild next run`)
-    await revertAndReopen(f.frd, gate.reopen); reopenedFrds.push(f.frd); continue   // reopen is deferred work, not progress — leave the health breaker untouched
+    log(`↻ ${f.frd}: ${patchFailNote} — reverting + reopening`)
+    await revertAndReopen(f.frd, gate.reopen)
+    // DR-107 IN-RUN RETRY (bounded): one rebuild attempt NOW, from the clean green base, on opus.
+    // Skipped at the agent ceiling or when any reopened WO already hit the reopen cap (the gate
+    // would BLOCK it needs-owner anyway). If the retry's gate rejects again, no second patch cycle:
+    // revert + defer to the next pass exactly as before. Reopen is still deferred work, not progress
+    // — the health breaker is untouched either way.
+    const retryWos = f.workOrders.filter((w) => gate.reopen.includes(w.id)).map((w) => ({ ...w, reopen_count: (w.reopen_count || 0) + 1 }))
+    const canRetry = !capHit() && retryWos.length > 0 && retryWos.every((w) => w.reopen_count < MAX_REOPENS)
+    if (!canRetry) { reopenedFrds.push(f.frd); continue }
+    log(`↻ ${f.frd}: in-run retry (DR-107) — rebuilding ${retryWos.map((w) => w.id).join(', ')} from the clean base now (opus) instead of paying a whole extra pass`)
+    for (const w of retryWos) await buildWO(w, f.frd)
+    const regate = await frdGate(f.frd, reviewIds)
+    if (regate && regate.green === true) { log(`✓ ${f.frd} VERIFIED (in-run retry)`); builtFrds.push(f.frd); consecutiveBlocks = 0; continue }
+    if (regate && regate.reopen && regate.reopen.length) await revertAndReopen(f.frd, regate.reopen)
+    log(`↻ ${f.frd}: in-run retry did not converge — deferred to the next pass`)
+    reopenedFrds.push(f.frd); continue
   }
 
   // DR-065 CURE: the surface failed because a shared primitive it needs isn't in the foundation —
@@ -759,7 +829,7 @@ if (plan.hasFrontend && builtFrds.length) {
   1) Render the route (start the dev server if needed) and screenshot it; open the BINDING mock (docs/frds/<frd>/mocks/ — screenshot AND source), fdd.md, docs/design/design-tokens.json, DESIGN.md.
   2) Compare SEMANTICALLY (does the build look like the design?): layout, structure, spacing, sizing, colors/tokens, component reuse, density. Write every divergence to \`.pandacorp/comms/visual-punch-list.md\` (merge + dedupe with what the per-FRD gates already appended), one line each: \`- [ ] <frd> · <route> · <gap> · <file:line if known>\`.
   3) FIX the cheap, unambiguous ones DIRECTLY (a token/size/spacing/color/class correction against the EXISTING design docs — the doc already specified it, the build implemented it wrong; NO doc change). Check them off. Leave ambiguous/large gaps UNCHECKED for the owner. Bound your fixes (don't grind to perfection — the owner does the final polish).
-  4) After fixing, run the FULL \`bash .pandacorp/verify.sh\` to confirm no regression; if a fix broke a test, revert THAT one fix (keep the rest) and re-run. Commit (e.g. \`style(visual-qa): sweep punch-list for ${builtFrds.slice(0, 3).join(', ')}\`). Advance status.yaml last_event_at + updated_at + kill any dev server with TaskStop.
+  4) After fixing, run the FOCUSED \`bash .pandacorp/verify.sh --since <last_green_sha from .pandacorp/status.yaml>\` to confirm your fixes regressed nothing (DR-106 — the close-out/notify-end step right after runs the FULL suite once; don't pay it twice here); if a fix broke a test, revert THAT one fix (keep the rest) and re-run. Commit (e.g. \`style(visual-qa): sweep punch-list for ${builtFrds.slice(0, 3).join(', ')}\`). Advance status.yaml last_event_at + updated_at + kill any dev server with TaskStop.
   Return { done: true } once the punch-list is written, safe fixes committed, and verify is green.${NOTIFY('QA Visual: punch-list generado + arreglos seguros aplicados', 'Glass')}`,
     { label: 'visual-qa', phase: 'Review', model: P.judge, effort: 'high', agentType: 'pandacorp:reviewer', schema: { type: 'object', required: ['done'], properties: { done: { type: 'boolean' } } } })
   log(`Visual QA pass done over ${builtFrds.length} FRD(s) — see .pandacorp/comms/visual-punch-list.md`)
@@ -796,7 +866,7 @@ if (allDone) {
   // never-firing events, run wf_978129ab-eca / LESSON-0022).
   phase('Hardening')
   agentSpawned += COST(P.judge)
-  const sec = await agent(`DR-085 HARDENING 1/2 — the security audit, construction's last step (BL-0012). Audit the WHOLE project: OWASP Top-10 for this stack, secrets in code/config/history, security headers + CSP (e.g. next.config), auth/authz on every mutating route, dependency risk; if the product has an agentic/LLM component, also ASI01–ASI10 (e.g. path traversal via model-chosen paths). FIX every Critical/High finding directly (production code, TDD — never weaken a test) and re-run \`bash .pandacorp/verify.sh\` until green. Write the durable evidence report to docs/reviews/security-<YYYY-MM-DD>.md: each finding, severity, fixed|accepted-with-reason, and the final verify result. Commit (Conventional Commits). Return { done: true } ONLY when no Critical/High remains open AND the report file exists; otherwise { done: false, failure }.`,
+  const sec = await agent(`DR-085 HARDENING 1/2 — the security audit, construction's last step (BL-0012). Audit the WHOLE project: OWASP Top-10 for this stack, secrets in code/config/history, security headers + CSP (e.g. next.config), auth/authz on every mutating route, dependency risk; if the product has an agentic/LLM component, also ASI01–ASI10 (e.g. path traversal via model-chosen paths). FIX every Critical/High finding directly (production code, TDD — never weaken a test) and re-run the FOCUSED \`bash .pandacorp/verify.sh --since <last_green_sha from .pandacorp/status.yaml>\` until green (DR-106 — the close-out right after runs the FULL suite once; don't pay it twice here). Write the durable evidence report to docs/reviews/security-<YYYY-MM-DD>.md: each finding, severity, fixed|accepted-with-reason, and the final verify result. Commit (Conventional Commits). Return { done: true } ONLY when no Critical/High remains open AND the report file exists; otherwise { done: false, failure }.`,
     { label: 'hardening:security', phase: 'Hardening', model: P.judge, effort: 'high', agentType: 'pandacorp:security-auditor', schema: STOP_SCHEMA })
   agentSpawned++
   const telem = await agent(`DR-085 HARDENING 2/2 — telemetry verification (BL-0012). Read docs/analytics/events.md (the event plan). VERIFY each planned event actually FIRES (exercise the flows via the tests/dev server; check the PostHog/analytics wiring is present and env-keyed). Fix trivial instrumentation gaps (a missing capture call) with TDD. Append a "## Verification <YYYY-MM-DD>" section to docs/analytics/events.md recording event-by-event: fires|gap-fixed|not-applicable. If the project has NO event plan and needs none (internal/personal return_type — check the PRD), record exactly that in the section instead. Commit. Return { done: true } (the verification section exists) or { done: false, failure }.`,

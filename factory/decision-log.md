@@ -2,6 +2,33 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-01 — Implement-speed audit, phases 1+2: scoped e2e gate (DR-106) + reject-cycle convergence budget (DR-107, closes BL-0001/0017/0018)
+
+**What:** The owner audited why the personal-page-v2 build took ~14h45m and ~20% of a Max plan, and approved
+a 4-phase improvement plan; phases 1+2 shipped now. **Phase 1 — wall-clock (DR-106):** `verify.sh --since`
+(the per-FRD gate) now also scopes the BROWSER layer — only `smoke` + `shell` run (the e2e face of the
+DR-072 blocking lenses); `visual` + `responsive` moved to the FULL unscoped run (close-out), and the
+intermediate re-verifiers (Visual QA after its fixes, the hardening security stage) run `--since` instead of
+a second/third full suite. Evidence: 11 FRD gates each paid the whole `workers:1`-serialized Playwright
+suite. **Phase 2 — convergence (DR-107 + BL-0001):** the DR-073 patch gains a SELF-REPAIR budget (a red its
+own edits introduced is fixed in place, ≤2 internal cycles — the incident: a 1-line i18n fix was discarded,
+and its 1,397-line WO rebuilt, over a trivial TS2345 in the patch's own new test); a failed patch returns a
+DISCRIMINATED cause — `gate-test-defective` routes to a new `repairGateTest` (an independent reviewer fixes
+the defective TEST, never discarding a correct build — LESSON-0002 `promotion: approved`); the revert
+PRESERVES reviewer-authored / Status-Note-referenced test files (`.pandacorp/run/preserved-tests/`); and
+reopened WOs get ONE IN-RUN RETRY from the clean base before deferring to the next pass (a deferral re-paid
+baseline + full re-plan + sync + safe-points). The satisfiable-adversarial-test convention (viewport rules)
+landed in `reviewer.md` + `quality.md`.
+**Why:** Both reverts of WO-01-004 were procedurally correct under the old contracts and still wasted
+~2-2.5h + a large token share — the contracts, not the agents, were the defect. `reopen_count` stays the
+single budget; DR-072's split gate is untouched.
+**Impact:** `factory/standards/build-orchestration.md` §5+§6, `factory/standards/quality.md` (DR-015),
+`factory/decisions/registry.yaml` (DR-106, DR-107, DR-073 refined-by), `factory/backlog/` (BL-0001 done,
+BL-0017/BL-0018 filed+done), `factory/memory/LESSON-0002` (promotion approved), plugin engine + verify.sh
+template + `implement` SKILL.md + `reviewer.md`, Manual `concepts/el-pipeline.md` (DR-046 sync). Plugin
+v9.39.0→v9.40.0 (MINOR), OVERLAY 8.53.0→8.54.0. Phases 3 (context packs + cheap-model mechanical steps) and
+4 (Party events) follow.
+
 ## 2026-07-01 — Audit-20 EXECUTED in full: the owner approved 100% and the whole plan shipped (DR-104/DR-105 + 10 DR amendments)
 
 **What:** The owner approved the complete audit-20 plan ("quiero solucionar todo, el 100%") and it was

@@ -40,7 +40,7 @@ Habilidad: `/pandacorp:architecture`.
 
 ### 4. Build (Implement)
 
-El motor de `implement` orquesta subagentes especializados que construyen las work orders con TDD (RED → GREEN → refactor). El `reviewer` valida cada FRD antes de marcarlo VERIFIED. Si una WO falla la revisión, el motor **repara el fallo puntual en sitio antes de reconstruirla** y **sube el modelo a Opus** cuando la WO es difícil o ya falló (DR-073).
+El motor de `implement` orquesta subagentes especializados que construyen las work orders con TDD (RED → GREEN → refactor). El `reviewer` valida cada FRD antes de marcarlo VERIFIED. Si una WO falla la revisión, el motor **repara el fallo puntual en sitio antes de reconstruirla** y **sube el modelo a Opus** cuando la WO es difícil o ya falló (DR-073). El ciclo de rechazo tiene además un **presupuesto de convergencia (DR-107)**: el parche puede corregir los fallos que sus propios edits introdujeron (hasta 2 ciclos internos); si el bloqueador es un **test adversarial defectuoso del reviewer** (imposible de satisfacer por una implementación correcta), un agente independiente repara el TEST — nunca se descarta un build correcto (BL-0001); y si aun así hay que revertir, los tests con evidencia se preservan y la WO se **reintenta una vez en la misma corrida** desde base limpia antes de diferirse a la siguiente pasada. El gate por FRD corre una verificación **acotada** (DR-106): vitest solo de lo afectado y, del navegador, solo smoke + shell — la suite e2e completa (visual + responsive) corre una sola vez al cierre.
 
 El skill acepta tres modos de construcción:
 

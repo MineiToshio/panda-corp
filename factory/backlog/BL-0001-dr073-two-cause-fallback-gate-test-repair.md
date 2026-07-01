@@ -3,13 +3,13 @@ id: BL-0001
 type: bug
 area: build-engine
 title: "DR-073 fallback conflates code-wrong vs defective-gate-test → rebuilds correct work"
-status: open
+status: done
 severity: p1
 opened: 2026-06-30
-closed:
+closed: 2026-07-01
 source: "LESSON-0002"
-closes:
-links: [LESSON-0002, DR-073, DR-015]
+closes: "DR-073 two-cause fallback (registry amend + DR-107) + reviewer/quality satisfiable-test convention"
+links: [LESSON-0002, DR-073, DR-107, DR-015, BL-0017]
 ---
 
 ## Problem
@@ -70,3 +70,15 @@ run under both projects pass. Then set LESSON-0002 `promotion: approved` and bac
 ## Out of scope
 The reviewer's judgement quality (which assertions to write) beyond the viewport-convention rule; a general
 "the engine may edit reviewer tests" relaxation — the integrity rule stays, only the escalation valve is added.
+
+## Closed 2026-07-01 (implement-speed audit batch, plugin v9.40.0 / OVERLAY 8.54.0)
+Shipped: (1) reviewer viewport convention → `plugin/agents/reviewer.md` (adversarial tests, point 2) +
+`factory/standards/quality.md` (DR-015 section, satisfiable-test rule); (2) the two-cause verdict → the
+engine's `REPAIR_SCHEMA` gains `cause: 'code' | 'gate-test-defective'` + `defectiveTests`, `attemptPatch`
+flags with evidence (never edits the test), and the new `repairGateTest` (independent reviewer-role agent)
+judges the claim and repairs the TEST — an upheld test falls back to the normal revert; (3) the valve is
+documented in `factory/standards/build-orchestration.md` §6 and DR-073's registry entry (refined-by
+DR-107). **Accepted residue (documented, honest):** the doc-lint canary guard for defective-viewport specs
+(fix-plan step 1, "optionally") was NOT built; verdict routing is proven by inspection — there is still no
+engine unit-test harness (the BL-0004 accepted residue applies here too); the live dual-project Playwright
+proof happens on the next real build. LESSON-0002 `promotion: approved` + back-linked.

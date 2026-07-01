@@ -4,6 +4,38 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-07-01 — Implement-speed audit phases 1+2: scoped e2e gate (DR-106) + reject-cycle convergence budget (DR-107) · v9.40.0 (OVERLAY 8.53.0→8.54.0)
+
+**What:** The owner-approved fix batch for "the build is too slow and it deletes whole work orders instead of
+patching" (evidence: personal-page-v2, ~14h45m, 11 full serialized Playwright runs at the gates, WO-01-004
+discarded twice — once 1,397 lines over a one-shot patch failure, once a 1-LINE fix over a trivial TS2345 in
+the patch's OWN new test file). **Engine (`pandacorp-build.js`, OVERLAY-bumping):** `attemptPatch` gains a
+self-repair budget (fix reds its own edits introduced, ≤2 internal cycles) + a discriminated give-up verdict
+(`cause: 'code' | 'gate-test-defective'` + `defectiveTests` in `REPAIR_SCHEMA`) with the undo-own-edits
+contract; NEW `repairGateTest` (independent reviewer-role, judge model) repairs a genuinely-defective
+reviewer test instead of discarding a correct build (BL-0001/LESSON-0002) — an upheld test falls back to the
+normal revert; `revertAndReopen` preserves reviewer-authored / Status-Note-referenced test files to
+`.pandacorp/run/preserved-tests/<wo>/` (the builder prompt restores them as the rebuild's RED baseline); the
+gate-reject routing gains ONE bounded IN-RUN RETRY (rebuild reopened WOs from the clean base on opus + one
+re-gate, in the same run — skipped at the agent ceiling / reopen cap, no second patch cycle); the Visual QA
+pass and the hardening security stage re-verify with `--since` (the one FULL suite per pass stays at
+close-out / notify-end). **Template (`stack-a-nextjs/verify.sh`, OVERLAY-bumping):** `--since` mode now runs
+only `e2e/smoke.spec.ts` + `e2e/shell.spec.ts` (the browser face of the DR-072 blocking lenses); the full
+`e2e/` run (visual + responsive) stays unscoped-mode only; fail-closed spec-presence checks hold in both
+modes (DR-106). **Agents/skills:** `reviewer.md` adversarial tests must be satisfiable (viewport
+conventions; the `gate-test-defective` handback documented); `implement/SKILL.md` per-FRD loop rewritten for
+the new flow. `reopen_count` remains the single budget; DR-072's split gate untouched.
+**Why:** Both personal-page-v2 reverts were procedurally correct under the old contracts — the contracts were
+the defect: a one-shot all-or-nothing patch, a revert that destroyed test evidence, and a next-pass-only
+retry that re-paid the run's fixed overhead per reopened WO.
+**Impact:** DR-106 + DR-107 added and DR-073 marked refined-by in `factory/decisions/registry.yaml`;
+`factory/standards/build-orchestration.md` §5+§6 + `factory/standards/quality.md` (DR-015) updated; BL-0001
+closed, BL-0017/BL-0018 filed and closed; LESSON-0002 `promotion: approved`; Manual narrative
+`concepts/el-pipeline.md` synced (DR-046). MINOR (engine/template behavior change, backward-compatible);
+OVERLAY 8.53.0→8.54.0 (engine + verify.sh are overlay files — projects pick it up via `/pandacorp:upgrade`).
+Phases 3 (builder context packs + cheap-model mechanical steps) and 4 (Party `achievement`/`gate` events)
+follow in the same audit plan.
+
 ## 2026-07-01 — Audit-20 execution: the full end-to-end process-audit fix batch · v9.39.0 (OVERLAY 8.52.1→8.53.0)
 **What:** The owner approved 100% of `docs/proposals/20-factory-process-audit-2026-07-01.md`; this is the
 plugin side of the whole batch (commits `1ba9f5c`, `edc2614`, `186298f`, `9e82425`, `470a861` + this bump).
