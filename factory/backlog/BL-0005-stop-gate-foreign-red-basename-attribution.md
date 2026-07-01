@@ -3,10 +3,10 @@ id: BL-0005
 type: bug
 area: hooks
 title: "Stop-gate foreign-red attribution uses basenames (same-name files in different folders collide)"
-status: open
+status: done
 severity: p1
 opened: 2026-06-30
-closed:
+closed: 2026-07-01
 source: "docs/proposals/19-factory-flow-audit-2026-06-30.md (P1 — Stop-Gate Foreign-Red Attribution)"
 closes:
 links: [DR-099, DR-096]
@@ -48,3 +48,11 @@ script fixture passes.
 ## Out of scope
 Broadening isolation beyond file attribution (e.g. content-level ownership across a rename) unless the snapshot
 record already makes it free; `warn-adhoc-write.sh` is touched only if the record format changes.
+
+## Resolution (2026-07-01)
+Already fixed in `plugin/scripts/verify-before-stop.sh` and verified by inspection during the 2026-07-01
+process audit (`docs/proposals/20`): attribution now keys on **normalized repo-relative paths** (`:49-60`
+— "Attribute by NORMALIZED repo-relative paths, not basenames (DR-099 hardening)"), with the touched-record
+storing full relative paths and ambiguity biasing toward BLOCK (safe). Registry DR-099's nota still said
+"by basename" — corrected as part of the audit-20 sweep. **Accepted residue:** the bats-style fixture pair
+was not written; behavior proven by inspection of the matcher.

@@ -4,7 +4,7 @@ description: Performs and executes the release of a Pandacorp project — deploy
 
 # /pandacorp:release
 
-**Release = the product is LAUNCHED / live** — internal or external (DR-085). It is no longer "audit + deploy"; the audit/security/quality/metrics hardening is now the **last step of construction** (`/pandacorp:implement`), already done when this skill runs. This skill performs the **deploy/launch** (internal or external) + the launch plan, sets `phase: release` and the idea's card → `lanzada`. From here the product is iterated (`/pandacorp:iterate`) and its real results are read (`/pandacorp:review-launch`). Runs IN the project.
+**Release = the product is LAUNCHED / live** — internal or external (DR-085). It is no longer "audit + deploy"; the audit/security/quality/metrics hardening is now the **last step of construction** (`/pandacorp:implement`), already done when this skill runs. This skill performs the **deploy/launch** (internal or external) + the launch plan, sets `phase: release` and the idea's card → `status: shipped`. From here the product is iterated (`/pandacorp:iterate`) and its real results are read (`/pandacorp:review-launch`). Runs IN the project.
 
 > **Internal vs external — same release, tracked by `deploy_target` (DR-085).** Both are a real release of a software product; the only difference is where it runs, recorded as a **status field `deploy_target: internal | external`** in `.pandacorp/status.yaml` (NOT a phase):
 > - **internal** — an in-house tool used as-is, with no external host (e.g. Mission Control runs on `127.0.0.1`). "Launch" = it runs locally for the owner; no external deploy, no production gate, no landing/GTM.

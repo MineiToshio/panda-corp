@@ -3,10 +3,10 @@ id: BL-0004
 type: bug
 area: build-engine
 title: "Build workflow has fail-open edges (foundation completeness, maxAgents, missing artifacts)"
-status: open
+status: done
 severity: p1
 opened: 2026-06-30
-closed:
+closed: 2026-07-01
 source: "docs/proposals/19-factory-flow-audit-2026-06-30.md (P1 — Build Workflow Has Fail-Open Edges)"
 closes:
 links: [DR-050, DR-060]
@@ -53,3 +53,13 @@ bumped (engine is an overlay file).
 ## Out of scope
 Re-architecting the wave scheduler or the supervisor protocol — this item only closes the three permissive-on-
 absent-data branches.
+
+## Resolution (2026-07-01)
+All three edges were already fixed in the engine and verified by direct inspection during the 2026-07-01
+process audit (`docs/proposals/20`): foundation completeness fails closed on missing/invalid data
+(`pandacorp-build.js:470` — "FAIL-CLOSED (audit P1): only an EXPLICIT complete === true verdict lets
+surfaces fan out"), undeclared `artifacts` forces serialization (`:529` — "FAIL-SAFE (audit P1)"), and the
+wave width is capped to the remaining agent budget before scheduling, supervisor-independent (`:585-589`,
+`waveMax`). **Accepted residue:** the engine has no unit-test harness, so the TDD tests in this item were
+not written — the fixes are proven by code inspection + the DR-079 gate canary; an engine test harness is a
+separate infrastructure decision, not re-opened here.

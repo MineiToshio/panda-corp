@@ -54,6 +54,14 @@ plane-3 home for its *own* tooling — this is that home. (Note: the factory bac
 One item per file: `BL-NNNN-<short-kebab-slug>.md` (`BL` = backlog item; monotonic, zero-padded). Copy
 `_item-template.md`. Committed English (like standards/proposals — company know-how, not owner data).
 
+**Id allocation (MANDATORY — the 2026-07-01 collision rule).** Before filing, run
+`bash plugin/scripts/validate-backlog.sh` — it validates the store AND prints the **next free id**; use
+that id. Never infer the next number from memory or from the last item you happen to know: two parallel
+sessions doing that is exactly how BL-0010/BL-0011 collided (the same class BL-0013 fixed for LESSONs).
+The validator also fail-closes on duplicate ids, filename↔id mismatches and bad enums, so run it again
+after filing. Mission Control's backlog reader is fail-loud on duplicates — a collision breaks the owner's
+surface, not just the store.
+
 ```yaml
 ---
 id: BL-NNNN

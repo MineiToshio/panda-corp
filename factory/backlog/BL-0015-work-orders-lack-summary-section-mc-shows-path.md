@@ -1,5 +1,5 @@
 ---
-id: BL-0011
+id: BL-0015
 type: change
 area: plugin-skill
 title: "Work orders lack a `## Summary` section, so Mission Control shows the file path as the WO summary"

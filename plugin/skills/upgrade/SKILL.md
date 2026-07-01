@@ -7,6 +7,16 @@ description: Upgrades a Pandacorp project's overlay (the .pandacorp/ integration
 
 Brings this project's Pandacorp overlay up to the factory's current version. The `/pandacorp:*` skills always run against the **latest** plugin, so a project born on an older overlay can drift; this closes the gap. Runs IN the project. It touches only the overlay/integration layer — never product code or `docs/`.
 
+> **Active-build guard (HARD, runs before anything else).** Read `running`, `supervisor_heartbeat` and
+> `run_started_at` from `.pandacorp/status.yaml`. If `running: true` AND the heartbeat is **less than 10
+> minutes old**, **ABORT — do not upgrade**: this skill regenerates `.claude/workflows/pandacorp-build.js`,
+> overwrites the conformance-managed gate files (`verify.sh`, `biome.json`, e2e specs) and **commits on its
+> own** — doing that under a live build races the engine's single-git-writer chain (DR-086) and can change
+> gate semantics between a WO's self-test and its FRD gate. Tell the owner (in Spanish) that the upgrade is
+> deferred until the build stops, and let the CALLING skill proceed on the current overlay (capture-only
+> skills like `change`/`bug` work fine on an older overlay). A stale heartbeat (≥ 10 min) means the
+> supervisor died — treat as not running (same TTL rule as `/pandacorp:implement`'s concurrent-run guard).
+
 ## How it decides
 
 - **Project version**: `overlay_version` in `.pandacorp/status.yaml`. A pre-6.0.0 project has no `.pandacorp/` and no `overlay_version` → treat it as the oldest (it needs the overlay-relocation migration). A pre-DR-049 project (overlay ≥ 6.0.0 but with the old **by-type** `docs/` layout — flat `docs/frds/frd-NN.md`, global `docs/blueprint.md`, global `docs/work-orders/`, `docs/prd.md` at the root of `docs/`) additionally needs the **feature-centric docs migration** (step 2b).
