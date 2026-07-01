@@ -48,10 +48,19 @@ fi
 # ── 3. Secrets & data are REFERENCED, not copied ────────────────────────────────────────────────────
 # Secrets: SOPS+age lives outside any repo (~/.config/pandacorp/) — the worktree runs the same
 #   `sops exec-env ...` as the main checkout; nothing to bootstrap here.
-# Mission Control (stateless): point at the real factory so reads hit live data, not the empty cwd/..
+# Mission Control (stateless): config.ts::resolveFactoryRoot() falls back to cwd/.. when
+#   PANDACORP_FACTORY_ROOT is unset, which in a fresh worktree resolves to this worktree's own
+#   near-empty factory/ (gitignored files like profile.md/portfolio.md aren't checked out) and trips
+#   the onboarding gate. Write a worktree-local .env.local pointing at the main checkout instead.
 if grep -q '"name": *"pandacorp"' "$WORKTREE/package.json" 2>/dev/null \
    || [ -d "$WORKTREE/../factory" ] || [ -d "$WORKTREE/factory" ]; then
-  : # MC/factory worktree — the runner exports PANDACORP_FACTORY_ROOT; see the project overlay.
+  for APP_DIR in "$WORKTREE/mission-control" "$WORKTREE"; do
+    if [ -f "$APP_DIR/package.json" ]; then
+      echo "  • PANDACORP_FACTORY_ROOT → $MAIN_WT ($APP_DIR/.env.local, gitignored)"
+      echo "PANDACORP_FACTORY_ROOT=$MAIN_WT" > "$APP_DIR/.env.local"
+      break
+    fi
+  done
 fi
 
 # ── 4. Per-project hook — stateful projects clone their DB here (CREATE DATABASE ... TEMPLATE, §4) ───
