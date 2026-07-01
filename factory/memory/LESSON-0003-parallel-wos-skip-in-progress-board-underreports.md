@@ -8,10 +8,10 @@ source: project personal-page-v2, build run wf_b01c0efe-146 — WO-03-001 and al
 provenance: agent-inferred
 created: 2026-06-30
 status: active
-promotion: proposed
+promotion: none
 confidence: high
 times_applied: 0
-links: [DR-097, DR-050, LESSON-0002]
+links: [BL-0002, DR-097, DR-050, LESSON-0002]
 ---
 
 **Situation:** The owner, watching Mission Control's Work-Orders board mid-build, saw "EN PROGRESO 0"
@@ -34,30 +34,16 @@ to self-report its own start is fragile: under a wide parallel fan-out the flip 
 exists on disk but not in the frontmatter is exactly the kind of silent drift the status field is meant
 to prevent.
 
-**Apply next time (concrete implementation plan — owner-directed 2026-06-30, document well to fix well
-later):**
+**Apply next time (the durable principle):** State that exists on disk but not in the frontmatter is silent
+drift — exactly what a status field is meant to prevent. Do not rely on a worker agent to self-report its
+own *start*: under a wide parallel fan-out the flip lags or is skipped, so the transition that drives an
+observability surface (a board column, a rollup) must be owned by the **orchestrator at dispatch**, written
+atomically and independent of the worker, not left to the worker's first action. "Emit the state change at
+the control point that owns the timing" generalizes beyond this one field.
 
-1. **The ENGINE owns the IN_PROGRESS transition, atomically at dispatch — not the agent.** When the build
-   engine dispatches a WO to an implementer (each wave slot), it MUST write
-   `implementation_status: IN_PROGRESS` + `last_updated: <now>` to that WO's frontmatter BEFORE/independent
-   of the agent starting, and only the engine flips it onward to IN_REVIEW on the agent's clean self-test.
-   This makes the board reflect in-flight work regardless of agent compliance. Implement in
-   `plugin/templates/shared/.claude/workflows/pandacorp-build.js` (the per-wave WO dispatch loop — set
-   IN_PROGRESS where it spawns the implementer, symmetric to where it already sets IN_REVIEW).
-
-2. **Keep the agent-side instruction as belt-and-suspenders, but do not depend on it.** `plugin/agents/
-   implementer.md` should still flip IN_PROGRESS as its first action, but §1 (engine-owned) is the
-   reliable fix because the engine controls dispatch ordering and timing.
-
-3. **Add a drift sanity check (optional, cheap).** A WO whose declared `implementation_status: PLANNED`
-   but whose `artifacts` globs already match files on disk is a detectable inconsistency — surface it
-   (a doc-lint/observability warning, or a Mission Control "stale state" hint) so this class of
-   under-reporting is caught instead of silently misleading the owner.
-
-4. **When implemented:** note it as an enforcement fix of DR-097 (the rule already exists; the parallel
-   path didn't honor it) in `factory/standards/build-orchestration.md` (the per-FRD/per-wave loop),
-   bump `plugin/.claude-plugin/plugin.json` (MINOR) + `plugin/templates/OVERLAY_VERSION` (the engine is
-   an overlay file), validate with the gate canary, and back-link this lesson (`promotion: approved`).
+> The concrete engine fix (write IN_PROGRESS at dispatch in `pandacorp-build.js`, the belt-and-suspenders
+> agent flip, the optional drift check) is an **actionable defect** — an enforcement fix of DR-097 — tracked
+> as **BL-0002** in `factory/backlog/`, not part of this durable lesson (DR-103).
 
 **Why it matters:** the board is the owner's primary live view of a long, unattended build. If it shows
 "To Do / 0 in progress" while five WOs are being built in parallel, the owner reads a healthy,

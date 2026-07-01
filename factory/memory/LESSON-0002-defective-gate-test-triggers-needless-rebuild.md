@@ -8,10 +8,10 @@ source: project personal-page-v2, build run wf_b01c0efe-146 (FRD-01 gate); revie
 provenance: agent-inferred
 created: 2026-06-30
 status: active
-promotion: proposed
+promotion: none
 confidence: high
 times_applied: 0
-links: [DR-073, DR-074, DR-070, DR-072, DR-015, LESSON-0001]
+links: [BL-0001, DR-073, DR-074, DR-070, DR-072, DR-015, LESSON-0001]
 ---
 
 **Situation:** During personal-page-v2's FRD-01 gate, the reviewer found ONE real, bounded CORRECTION
@@ -45,41 +45,19 @@ test") is correct in general but, with no escape valve, it converts a defective-
 needless full rebuild. Net waste: a ~correct patch + a whole work order, rebuilt to (re)generate the
 test that was the actual fault.
 
-**Apply next time (concrete implementation plan — defer to a deliberate change, owner-directed
-2026-06-30, "documentar bien para implementarlo muy bien luego"):**
+**Apply next time (the durable principle):** A fail-closed gate needs to distinguish TWO failure causes,
+not collapse them into one remedy: *the production code is wrong* (patch/rebuild is right) vs *the
+verifier's own gate test is defective / unsatisfiable-by-correct-code* (rebuild is the WRONG remedy — it
+discards correct work and cannot fix a bad test). Two recurring traps sit under this: (a) a reviewer
+adversarial spec that asserts desktop-only structural visibility WITHOUT forcing a width, run under a dual
+desktop+mobile Playwright config, is internally inconsistent with correct responsive design — a structural
+visibility check must force `DESKTOP_WIDTH` or open the mobile toggle, never assert desktop-only visibility
+on the `mobile` project; (b) an integrity rule ("an agent never edits the reviewer's gate test") needs an
+escape valve (flag-and-escalate), or it converts a defective-test situation into a needless full rebuild.
 
-1. **Reviewer adversarial tests MUST inherit the canonical specs' viewport conventions (a new
-   standard).** A structural visibility check (nav links, shell landmarks, anything that legitimately
-   collapses responsively) MUST either force `DESKTOP_WIDTH` (as `shell.spec.ts` does) or open the
-   mobile toggle (as `a11y.spec.ts` does) — it must NEVER assert desktop-only visibility on the `mobile`
-   Playwright project. Implement in `plugin/agents/reviewer.md` (the adversarial-test authoring section,
-   DR-015) + a rule in `factory/standards/quality.md`; consider a cheap guard in `doc-lint.sh`/a lint
-   that flags an e2e spec asserting `.nav`/nav-link `.toBeVisible()` with neither a `setViewportSize`
-   nor a toggle-open. This single fix would have let the patch green cleanly here.
-
-2. **DR-073 needs a SECOND exit when `green:false` is caused by a defective gate test, not bad code.**
-   The patch agent must return a discriminated verdict, not just a boolean: e.g.
-   `{ green:false, cause: "code-wrong" | "gate-test-defective", evidence }`. On `gate-test-defective`
-   (the patch made the cited RED-proven finding pass, but the whole-project re-gate fails ONLY on a
-   reviewer-authored test that is internally inconsistent / unsatisfiable by correct code) the engine
-   routes to a **gate-test-repair** path — hand the test back to the reviewer to fix its OWN test (and
-   re-gate) — instead of `revertAndReopen`. A rebuild must never be the remedy for a bad test. Implement
-   in `plugin/templates/shared/.claude/workflows/pandacorp-build.js` (`attemptPatch` return shape +
-   the FRD-gate branch that today always calls `revertAndReopen`) + `plugin/agents/implementer.md` (the
-   patch agent's allowed verdicts) + `plugin/agents/reviewer.md` (the test-repair handback).
-
-3. **Give the integrity rule a valve.** Keep "the patch agent never edits/weakens the reviewer's test",
-   but allow it to **FLAG the test as suspected-defective and escalate** (with evidence), rather than
-   being forced into a dead end that degrades to rebuild. This is the mechanism that carries cause
-   `gate-test-defective` from §2 to the reviewer. Document in
-   `factory/standards/build-orchestration.md` §6 alongside the DR-073 gate-reject flow.
-
-4. **When implemented:** amend DR-073 in `factory/decisions/registry.yaml` (add the two-cause fallback +
-   the reviewer-test viewport standard pointer), bump `plugin/.claude-plugin/plugin.json` (MINOR) and
-   `plugin/templates/OVERLAY_VERSION` (the engine is an overlay file), update
-   `factory/standards/{build-orchestration.md,quality.md}`, and back-link this lesson
-   (`promotion: approved`). Validate with the gate canary + a live Playwright run of a structural spec
-   under both projects.
+> The concrete engine/agent/registry fix (the discriminated `gate-test-defective` verdict, the
+> gate-test-repair path, the reviewer viewport standard, the DR-073 amendment) is an **actionable defect**,
+> tracked as **BL-0001** in `factory/backlog/` — not part of this durable lesson (DR-103).
 
 **Why it matters:** this is the same class as DR-073's own origin ("no tiene sentido descartar todo por
 un 1% que falla") — but one level deeper: here the discarded work was already a CORRECT patch, and the

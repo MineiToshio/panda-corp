@@ -8,10 +8,10 @@ source: project personal-page-v2 — overlay upgrade 8.47.0→8.51.0 overwrote b
 provenance: agent-inferred
 created: 2026-06-30
 status: active
-promotion: proposed
+promotion: none
 confidence: high
 times_applied: 0
-links: [DR-076, DR-059, DR-048, LESSON-0002]
+links: [BL-0003, DR-076, DR-059, DR-048, LESSON-0002]
 ---
 
 **Situation:** /pandacorp:upgrade ran as the implement preflight (8.47.0→8.51.0). Its DR-059 conformance
@@ -36,31 +36,20 @@ upgrade reverted a newer-than-template config; (2) the at-upgrade "functionally 
 rule behavior, not the config file passing its own gate (`--error-on-warnings`). A conformance overwrite
 must not be trusted as safe just because the two files lint the same code the same way.
 
-**Apply next time (concrete, owner-directed 2026-06-30 — document well to fix well later):**
+**Apply next time (the durable principle):** "The template is never behind a project" is an ASSUMPTION, not
+an invariant — a project can legitimately run ahead when a pinned tool ships a config-format change before
+the template catches up. A blind conformance overwrite that trusts that assumption can REVERT a real fix and
+red-lock the very gate it protects. Two compounding traps: an automated overwrite must **detect
+newer-than-source before clobbering** (compare tool/schema versions, back-port up, never silently
+downgrade); and an "these two configs are equivalent" claim must be proven by running the **FULL gate**
+(incl. `--error-on-warnings`) on both forms, not a hand sample of rule behavior. General shape: a
+"single-source-of-truth sync" must verify the source really is ahead, and re-run the real gate after
+syncing — never assume the sync is safe.
 
-1. **Upgrade must run the gate AFTER re-syncing conformance files, on the project (DR-079 canary is not
-   enough).** After the DR-059 overwrite, /pandacorp:upgrade should run `verify.sh` (or at least
-   `biome check --error-on-warnings` + `knip` + `tsc`) on the project and FAIL LOUD if the freshly-synced
-   config red-locks the gate — instead of leaving a broken baseline for the next build to discover. The
-   canary proves gates still bite on a broken fixture; it does NOT prove the project itself still passes
-   after the overwrite. Implement in `plugin/skills/upgrade/SKILL.md` (a post-conformance project gate
-   run) + note in `factory/standards/build-orchestration.md`.
-
-2. **Detect "project config newer than template" before overwriting (DR-076 amendment).** When a canonical
-   gate file diverges, the loud back-port detector should compare tool/schema versions (e.g. biome
-   `$schema` URL vs the installed tool version in package.json): if the PROJECT's is newer/correct for the
-   installed tool, the resolution is to back-port the project's version to the template FIRST, then
-   overwrite (no-op) — never silently downgrade the project to a stale template. Strengthen the back-port
-   detector in `plugin/skills/upgrade/SKILL.md`.
-
-3. **When an agent claims two config forms are "functionally identical", the proof must include the FULL
-   gate, not a hand sample.** Run `verify.sh` (or the exact gate command incl. `--error-on-warnings`) on
-   BOTH forms before overwriting — never conclude equivalence from a partial check.
-
-4. **Back-port already applied this session:** `plugin/templates/stack-a-nextjs/biome.json` → schema 2.5.1
-   + preset; `OVERLAY_VERSION` 8.51.0→8.52.0; plugin 9.36.0→9.36.1. The project was unblocked in-tree
-   (committed `34934fc`, `last_green_sha` updated). Activation for other projects: `claude plugin update
-   pandacorp@panda-corp` + their next `/upgrade`.
+> The concrete guard (post-conformance project gate run in `/upgrade`, the newer-than-template detector, the
+> DR-076 amendment) is an **actionable defect**, tracked as **BL-0003** in `factory/backlog/`, not part of
+> this durable lesson (DR-103). The one-off biome 2.5.1 back-port already shipped (OVERLAY 8.52.0, plugin
+> 9.36.1); BL-0003 is the systemic guard so the class can't recur.
 
 **Why it matters:** the upgrade is supposed to make the gate runnable, not break it. A conformance step
 that can silently downgrade a correct config and red-lock the baseline undermines the whole fail-closed

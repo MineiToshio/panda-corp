@@ -21,6 +21,25 @@ Policy: **DR-047** (`factory/decisions/registry.yaml`). History: `factory/decisi
   - a recurring capability gap → a new `plugin/skills/` skill (via `learn` + `skill-creator`).
   Memory is where know-how *incubates*; standards/registry/skills are where it *graduates*.
 
+## What this is NOT — it is not an action queue (DR-103)
+
+A lesson is **durable, retrievable knowledge** — read again before building something similar, forever.
+It is **not** an actionable to-fix item. A **defect in the factory's own tooling** (a bug in the build
+engine, a skill, a template) or a **change to make** is a *closeable* item that belongs in the factory's
+actionable queue — **`factory/backlog/`** (see its README + DR-103) — not here. This is the same line
+mature practice draws (Google SRE: the durable *lesson learned* vs the closeable *action item*; ITIL: the
+Known-Error DB vs the Problem Record) and the agent-memory literature confirms: piling resolved/one-off
+action items into a learning store degrades retrieval and re-surfaces stale actions ("temporal memory
+contamination"). Keep memory pure so retrieval stays sharp.
+
+**Routing rule (one question):** *would a future agent RETRIEVE this before building something similar?*
+→ memory (here). *Does someone have to DO something and then CLOSE it?* → `factory/backlog/`. *A research
+doc decided once?* → `docs/proposals/`. **BOTH a durable lesson AND a required fix?** → **split it**: the
+actionable defect → `factory/backlog/` (a `BL-*` item); only the **generalizable** lesson (the durable
+"why", stripped of the file-by-file fix plan) stays here, linked to the backlog id. The lesson survives
+after the fix ships; the item closes. (The `librarian` applies this rule when it refines the raw inbox: a
+`gap ·`/defect note routes to the backlog, only durable knowledge lands here.)
+
 ## Lesson types
 
 | Type | Captures | Example trigger |
