@@ -1,10 +1,14 @@
 /**
  * WO-17-004 — Proposals page (CMP-17-page, Server Component).
  *
- * The owner-facing surface of the factory's self-learning loop (DR-047) and the
- * place where Mission Control suggests improvements on its own. Composes the
- * memory-health panel, the four proposal streams (candidate lessons, prune,
- * promotions, self-suggestions) and the durable promotions queue.
+ * The owner-facing surface for "proposals to change the factory" (DR-103), split
+ * into two sub-tabs (FRD-22) via the client ProposalsTabs wrapper:
+ *   - Memoria: the self-learning loop (DR-047) — memory-health panel, the four
+ *     proposal streams (candidate lessons, prune, promotions, self-suggestions)
+ *     and the durable promotions queue.
+ *   - Backlog: the factory's actionable work queue (factory/backlog/BL-*), the
+ *     plane-3 counterpart, grouped by status and read fail-loud (DR-078).
+ * The page (Server Component) reads both datasets and passes each panel as a slot.
  *
  * Group ordering per REQ-17-001 / AC-17-001.3 (prototype propuestasView(), ~L1420):
  *   1. Lecciones candidatas   (group cmd: /pandacorp:memory)
@@ -49,11 +53,14 @@ import { Chip } from "@/components/core/Chip/Chip";
 import { PageLayout } from "@/components/core/PageLayout/PageLayout";
 import { MemoryHealth } from "@/components/modules/MemoryHealth/MemoryHealth";
 import { PromotionsQueue } from "@/components/modules/PromotionsQueue/PromotionsQueue";
+import { readBacklog } from "@/lib/backlog/backlog";
 import { candidateLessons, promotionQueue, prunable } from "@/lib/memory/memory";
 import { memoryHealth } from "@/lib/memory/memory-health";
 import { gatherSuggestionsInput } from "@/lib/self-suggest/gather";
 import { computeSuggestions } from "@/lib/self-suggest/self-suggest";
+import { BacklogPanel } from "./_components/BacklogPanel/BacklogPanel";
 import { DismissableProposalStream } from "./_components/DismissableProposalStream/DismissableProposalStream";
+import { ProposalsTabs } from "./_components/ProposalsTabs/ProposalsTabs";
 
 // ---------------------------------------------------------------------------
 // Page metadata
@@ -118,7 +125,11 @@ export default function ProposalsPage(): React.JSX.Element {
   // no Claude (architecture §7); each reader is fail-soft.
   const suggestions = computeSuggestions(gatherSuggestionsInput());
 
-  // Compute open count for the tail pill (all four streams)
+  // The factory backlog (plane-3, DR-103): actionable BL-* items, read fail-loud.
+  const backlog = readBacklog();
+  const backlogOpenCount = backlog.items.filter((item) => item.status === "open").length;
+
+  // Compute open count for the tail pill (the four memory streams → the Memoria tab)
   const openCount = candidates.length + prunables.length + promotions.length + suggestions.length;
 
   // Open-count tail pill for the PageTitle (prototype tabProp badge, ~L652)
@@ -129,63 +140,57 @@ export default function ProposalsPage(): React.JSX.Element {
       </Chip>
     ) : null;
 
+  // The Memoria tab: the self-learning surface (health + streams + promotions queue).
+  // Passed as a slot to the client ProposalsTabs so its data reads stay server-side.
+  const memoryPanel = (
+    <div style={CONTENT_STYLE}>
+      {/* Read-only notice */}
+      <p style={READONLY_NOTE_STYLE}>
+        Solo-lectura — tú apruebas corriendo el comando; Mission Control nunca cosecha, promueve ni
+        poda.
+      </p>
+
+      {/* Memory-loop health panel (CMP-17-health → REQ-17-005, AC-17-005.1..5). */}
+      <MemoryHealth health={health} promotionsCount={promotions.length} />
+
+      {/* Stream 1: candidate lessons (group cmd → /pandacorp:memory, AC-17-001.1/.3) */}
+      <DismissableProposalStream
+        kind="candidate-lesson"
+        lessons={candidates}
+        groupCmd={MEMORY_GROUP_CMD}
+      />
+
+      {/* Stream 2: prune proposals (adjacent to candidates, AC-17-001.3; group cmd → /pandacorp:memory) */}
+      <DismissableProposalStream kind="prune" lessons={prunables} groupCmd={MEMORY_GROUP_CMD} />
+
+      {/* Stream 3: promotions (each has own /pandacorp:learn <id> — no group cmd, AC-17-001.2) */}
+      <DismissableProposalStream kind="promotion" lessons={promotions} />
+
+      {/* Durable promotions queue (CMP-17-promoqueue → REQ-17-006). */}
+      <PromotionsQueue lessons={promotions} />
+
+      {/* Stream 4: self-suggestions (computed locally, no Claude; each has own cmd, AC-17-001.2) */}
+      <DismissableProposalStream kind="self-suggestion" suggestions={suggestions} />
+    </div>
+  );
+
   return (
     <PageLayout
       icon="ti-mail-opened"
       title="Propuestas"
-      subtitle="La bandeja del gremio: lo que la fábrica aprendió y te propone (lecciones, promociones, poda, auto-sugerencias)."
+      subtitle="Lo que la fábrica te propone cambiar: la memoria (lecciones, promociones, poda) y el backlog accionable de su propio tooling."
       tail={openCountTail}
       testId="proposals-page"
     >
-      <div style={CONTENT_STYLE}>
-        {/* Read-only notice */}
-        <p style={READONLY_NOTE_STYLE}>
-          Solo-lectura — tú apruebas corriendo el comando; Mission Control nunca cosecha, promueve
-          ni poda.
-        </p>
-
-        {/* Memory-loop health panel (CMP-17-health → REQ-17-005, AC-17-005.1..5).
-            promotionsCount feeds the 4th dStat card "Promociones a aprobar"
-            (prototype reads BPROPOSALS.promote.length, index.html ~L1414).
-            data-volatile (DR-088): its stat cards are derived from live (gitignored)
-            factory data whose values flip conditional rows, so its height drifts
-            across runs (the propuestas-mobile baseline flapped ±14px). Hidden from
-            the visual baseline like the streams below; correctness is unit-tested. */}
-        <div data-volatile style={{ display: "contents" }}>
-          <MemoryHealth health={health} promotionsCount={promotions.length} />
-        </div>
-
-        {/* data-volatile: the four proposal streams + promotions queue are live
-            factory data (candidate lessons, prune, promotions, self-suggestions)
-            whose lengths grow on every harvest/build, so the page height drifts
-            across runs (e.g. 9769→10203px in one session). The visual gate hides
-            this region so the baseline asserts the page CHROME (title, read-only
-            note, MemoryHealth panel), not the data-driven feed (DR-088). Stream
-            correctness is covered by the proposals unit/integration tests.
-            display:contents keeps the live layout byte-identical (no extra box). */}
-        <div data-volatile style={{ display: "contents" }}>
-          {/* Stream 1: candidate lessons (group cmd → /pandacorp:memory, AC-17-001.1/.3) */}
-          <DismissableProposalStream
-            kind="candidate-lesson"
-            lessons={candidates}
-            groupCmd={MEMORY_GROUP_CMD}
-          />
-
-          {/* Stream 2: prune proposals (adjacent to candidates, AC-17-001.3; group cmd → /pandacorp:memory) */}
-          <DismissableProposalStream kind="prune" lessons={prunables} groupCmd={MEMORY_GROUP_CMD} />
-
-          {/* Stream 3: promotions (each has own /pandacorp:learn <id> — no group cmd, AC-17-001.2) */}
-          <DismissableProposalStream kind="promotion" lessons={promotions} />
-
-          {/* Durable promotions queue (CMP-17-promoqueue → REQ-17-006):
-              the reviewable surface — target / rationale / evidence / high-risk
-              badge + copyable /pandacorp:learn command. */}
-          <PromotionsQueue lessons={promotions} />
-
-          {/* Stream 4: self-suggestions (computed locally, no Claude; each has own cmd, AC-17-001.2) */}
-          <DismissableProposalStream kind="self-suggestion" suggestions={suggestions} />
-        </div>
-      </div>
+      {/* Memoria | Backlog sub-tabs (FRD-22, DR-103). Both are "proposals to change
+          the factory": the self-learning memory (plane 1) and the actionable backlog
+          (plane 3). The panels carry data-volatile inside ProposalsTabs so the visual
+          baseline masks their live, length-varying factory data (DR-088). */}
+      <ProposalsTabs
+        memoryPanel={memoryPanel}
+        backlogPanel={<BacklogPanel result={backlog} />}
+        backlogOpenCount={backlogOpenCount}
+      />
     </PageLayout>
   );
 }
