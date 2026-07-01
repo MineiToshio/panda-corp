@@ -3,9 +3,11 @@ id: BP-NN                 # per-FRD blueprint (NN = owning FRD number)
 type: blueprint
 slug: descriptive-slug
 title: Replace with the feature title
-status: DRAFT             # DRAFT | ACTIVE | BLOCKED | SUPERSEDED
+status: DRAFT             # DRAFT | ACTIVE | BLOCKED | SUPERSEDED — flips to ACTIVE ONLY in architecture step 9b2, after BOTH gates below pass (audit-20 P1-3: the flip has one owner)
 parent: FRD-NN
 implementation_status: PLANNED   # rolls up from this FRD's work orders (worst non-VERIFIED state)
+readiness_gate:           # "passed YYYY-MM-DD" — stamped by the FRESH-agent readiness gate (DR-100); /implement's preflight REFUSES an ACTIVE blueprint without it
+grounding_gate:           # "passed YYYY-MM-DD" — stamped by the repo-grounding validation (DR-102 step 9b); same preflight assertion
 last_updated: YYYY-MM-DD
 ---
 

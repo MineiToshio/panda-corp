@@ -427,9 +427,20 @@ async function attemptPatch(frd, findings, reviewIds) {
   ${list}
   Patch ONLY these on the EXISTING build — do NOT revert, do NOT rebuild from scratch, do NOT touch unrelated files. For each finding, make the RED-proven failing test PASS (production code, never weaken/skip a test). Reviewed work orders this cycle: ${(reviewIds || []).join(', ')}.
   THEN RE-GATE (this is the safety invariant — a focused gate is NOT enough, red-team-A): run the FULL FRD adversarial + integration tests for ${frd} AND a WHOLE-PROJECT \`pnpm knip\` + \`pnpm biome check .\` + \`pnpm tsc --noEmit\` (NOT \`verify.sh --since\` — a dead export left by the patch must not slip to a sibling FRD's global gate). Everything must be whole-project-clean.
-  **If whole-project-clean:** set the patched work orders (${(reviewIds || []).join(', ')}) \`implementation_status: VERIFIED\` and **reset their \`reopen_count: 0\`**; recompute + persist the FRD's frd.md + blueprint.md \`implementation_status\` rollup from ALL its work orders (VERIFIED iff all are; else BLOCKED if any blocked; else PLANNED if any planned; else IN_PROGRESS if any in progress; else IN_REVIEW); advance .pandacorp/status.yaml exactly as the gate does (per-status counts + last_green_sha + safe_to_test:true + last_event_at + updated_at to now, ISO 8601); commit (Conventional Commits, scope). Return { green: true }.
+  **If whole-project-clean:** COMMIT the patch (Conventional Commits, scope) — but do NOT set any WO \`VERIFIED\`, do NOT touch \`reopen_count\`, do NOT advance \`last_green_sha\`/status.yaml: you patched it, so you may not certify it (constitution rule 4, generator ≠ verifier — audit-20). An INDEPENDENT verifier re-runs the gate and stamps. Return { green: true }.
   **If you CANNOT green it in place** (the patch fails, surfaces a new finding, or is not whole-project-clean): change NOTHING — leave the build exactly as it is (do NOT commit, do NOT revert; the engine will revert it cleanly) — and return { green: false, failure: <why> }.`,
     { label: `patch:${frd}`, phase: 'Review', model: 'opus', effort: 'xhigh', agentType: 'pandacorp:implementer', schema: REPAIR_SCHEMA })
+}
+
+// ── Independent post-patch verification (constitution rule 4 — the patcher never certifies itself) ──
+// A DIFFERENT agent re-runs the objective gate over the patched build and only IT may stamp VERIFIED +
+// advance last_green_sha. Mechanical re-run (the scripts are the oracle), so a worker-model agent suffices.
+async function verifyPatched(frd, reviewIds) {
+  agentSpawned++
+  return await agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'verify-patch' })}INDEPENDENT post-patch verification for ${frd} (constitution rule 4: the patch agent may not certify its own fix). Re-run the objective gate yourself — trust nothing the patcher reported: the FULL FRD test files for ${frd} (\`pnpm vitest run\` on them) AND whole-project \`pnpm knip\` + \`pnpm biome check .\` + \`pnpm tsc --noEmit\`.
+  **If everything is clean:** set the patched work orders (${(reviewIds || []).join(', ')}) \`implementation_status: VERIFIED\` and **reset their \`reopen_count: 0\`**; recompute + persist the FRD's frd.md + blueprint.md \`implementation_status\` rollup from ALL its work orders (VERIFIED iff all are; else BLOCKED if any blocked; else PLANNED if any planned; else IN_PROGRESS if any in progress; else IN_REVIEW); advance .pandacorp/status.yaml exactly as the gate does (per-status counts + last_green_sha + safe_to_test:true + last_event_at + updated_at to now, ISO 8601); commit (Conventional Commits, scope). Return { green: true }.
+  **If anything is red:** change NOTHING (no status edits, no commit) and return { green: false, failure: <what failed> } — the engine reverts + reopens.`,
+    { label: `verify-patch:${frd}`, phase: 'Review', model: P.worker, agentType: 'pandacorp:reviewer', schema: REPAIR_SCHEMA })
 }
 
 // ── DR-073 fallback: revert + reopen for a clean rebuild next run (the old DR-070 revert logic) ──
@@ -685,7 +696,14 @@ for (const f of plan.frds) {
   // rebuild next run. reopen_count is the single budget: the patch doesn't touch it; the revert increments it.
   if (gate && gate.reopen && gate.reopen.length) {
     const patched = await attemptPatch(f.frd, gate.findings || [], reviewIds)
-    if (patched && patched.green === true) { log(`✓ ${f.frd} VERIFIED (patched in place)`); builtFrds.push(f.frd); consecutiveBlocks = 0; continue }
+    if (patched && patched.green === true) {
+      // Constitution rule 4 (audit-20): the patcher claimed green — an INDEPENDENT agent re-runs the
+      // gate and is the only one allowed to stamp VERIFIED + advance last_green_sha.
+      const iv = await verifyPatched(f.frd, reviewIds)
+      if (iv && iv.green === true) { log(`✓ ${f.frd} VERIFIED (patched in place, independently verified)`); builtFrds.push(f.frd); consecutiveBlocks = 0; continue }
+      log(`↻ ${f.frd}: patch claimed green but the independent verification FAILED (${iv?.failure || 'red'}) — reverting + reopening`)
+      await revertAndReopen(f.frd, gate.reopen); reopenedFrds.push(f.frd); continue
+    }
     log(`↻ ${f.frd}: in-place patch did not green — reverting + reopening for a clean rebuild next run`)
     await revertAndReopen(f.frd, gate.reopen); reopenedFrds.push(f.frd); continue   // reopen is deferred work, not progress — leave the health breaker untouched
   }

@@ -21,18 +21,24 @@ Rules:
 8. **Consult the factory memory first** (`factory/memory/`, DR-047): before choosing the stack or a library, Grep the store by domain/tags for `active` `library-verdict`s (prefer what worked, avoid what failed — cite the `LESSON-NNNN` in the ADR) and for `gotcha`s/`anti-pattern`s in this domain. If you choose against a verdict, justify it in the ADR. The store is the factory's accumulated experience — use it so you don't relearn the same lesson.
 
 ## The readiness gate — before the blueprint goes ACTIVE (DR-100)
-A blueprint with holes produces ambiguous work orders, so run an explicit cohesion gate (the
-build-side counterpart of DR-095's clarification gate; `implement`'s preflight re-checks it). Confirm,
-fail-closed: **(1)** every FRD's `REQ-NN-MMM` maps to concrete components (`CMP-NN-*`/`IF-NN-*`) in its
-`blueprint.md`; **(2)** **every `AC-NN-MMM.K` of the FRD is covered by exactly one work order** — no
-gaps, no duplicates (cross-check the WOs' `source_requirements` union against the FRD's ACs); **(3)**
-the data model in `docs/product/architecture.md` is complete — **no `TBD`/`TK`/`FIXME`**; **(4)** the
-`dependsOn` across the work orders is **acyclic** and every referenced WO exists; **(5)** wave-parallel
-WOs have **disjoint `artifacts`** by design (don't lean on the engine's serialization backstop);
-**(6)** the **foundation is complete** — every shared primitive any mock references is a `foundation:
-true` WO; **(7)** **no `[NEEDS CLARIFICATION]` survives** in any of this feature's docs (resolve →
-AC/rule/`[ASSUMPTION]`, or escalate); and **(8)** each backend WO's `docs/api/<wo-id>.md` contract is
-materialized (structured: input/success/errors/invariants) before its consumer WO.
+A blueprint with holes produces ambiguous work orders, so an explicit cohesion gate runs — **by a FRESH
+agent, never you the author** (constitution rule 4: an author grading its own plan is self-certification;
+same independence DR-102's grounding gate already demands — audit-20 P1-2). The architecture skill spawns
+that reviewer; on pass it stamps `readiness_gate: passed <date>` into the blueprint frontmatter and flips
+DRAFT→ACTIVE (step 9b2), and **`/implement`'s preflight asserts the stamp exists** (that assertion is the
+"re-check" — a stamp-less ACTIVE blueprint is refused). The gate confirms, fail-closed: **(1)** every
+FRD's `REQ-NN-MMM` maps to concrete components (`CMP-NN-*`/`IF-NN-*`) in its `blueprint.md`; **(2)**
+**every `AC-NN-MMM.K` of the FRD is covered by exactly one work order** — no gaps, no duplicates
+(cross-check the WOs' `source_requirements` union against the FRD's ACs); **(3)** the data model in
+`docs/product/architecture.md` is complete — **no `TBD`/`TK`/`FIXME`**; **(4)** the `dependsOn` across
+the work orders is **acyclic** and every referenced WO exists; **(5)** wave-parallel WOs have **disjoint
+`artifacts`** by design (don't lean on the engine's serialization backstop); **(6)** the **foundation is
+complete** — every shared primitive any mock references is a `foundation: true` WO; **(7)** **no
+`[NEEDS CLARIFICATION]` survives** in any of this feature's docs (resolve → AC/rule/`[ASSUMPTION]`, or
+escalate); and **(8)** each backend WO's `docs/api/<wo-id>.md` contract **has an assigned owner in the
+plan** — the WO that will author it lists it in its `artifacts` and its consumer depends on that WO
+(the contract FILE is written at build time by that WO, DR-060; the gate checks the assignment, not a
+file that cannot exist yet).
 
 ## Before closing the architecture (intermediate verification SOP)
 Confirm, beyond the readiness gate above: (1) the `.pandacorp/verify.sh` was created with fail-closed gates and actionable messages (DR-019), including a **`--since <ref>` mode** that runs biome+tsc globally but only the vitest tests affected since `<ref>` (`vitest run --changed <ref>`) — this keeps the per-FRD gate fast as the suite grows; the no-arg call runs the full suite (used at close-out); (2) the stack was approved by the owner and recorded as an ADR (DR-002); (3) no section of any blueprint **reads like code** (over-specification — DR-100): specify contracts/shapes at the right altitude, not line-by-line implementations.
