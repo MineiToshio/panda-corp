@@ -78,7 +78,9 @@ screens, tracker-driven (§11); (5) the **closing sweep** (below); (6) integrate
 
 **Relay mechanics (DR-109) — automate the messages, never the decisions.** *Outbound* (prompt →
 canvas), best available transport: the owner's browser via **claude-in-chrome** (agent pastes +
-submits in the logged-in canvas chat) when connected and allowed; else **clipboard** (`pbcopy` — the
+submits in the logged-in canvas chat) when connected and allowed — **VERIFIED working end-to-end
+2026-07-01** (opened the PersonalPage v2 project, submitted a prompt, read the reply; needs an
+interactive session with the extension connected); else **clipboard** (`pbcopy` — the
 owner's whole job per round is one Cmd+V); else manual. Every prompt is ALSO written to
 `docs/design/canvas/prompts/NNN-<slug>.md` (provenance). *Inbound* (canvas → agent): the agent
 **POLLS `DesignSync list_files` until the file set stabilizes** and auto-runs the pull-and-review —

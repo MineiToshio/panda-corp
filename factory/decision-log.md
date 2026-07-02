@@ -19,9 +19,11 @@ round" over a many-round canvas reality; the DR-058/DR-101 content fixes were al
 MECHANICS (relay, completeness state, journaling, routing) were not — and the old mega-paragraph procedure
 was Opus-shaped (Sonnet would drop items; the tracker externalizes the state). **Impact:** registry
 (+DR-109), `factory/standards/design.md` §1c/§11/§12/§13, `plugin/skills/design/` (SKILL.md + new
-`references/canvas-procedure.md`), MC Manual `el-pipeline`. Plugin v9.43.0; no OVERLAY change. Pending:
-phase C (claude-in-chrome autopilot spike — outcome to be recorded in DR-109's nota), phase E (Opus+Sonnet
-validation on the next UI project).
+`references/canvas-procedure.md`), MC Manual `el-pipeline`. Plugin v9.43.0; no OVERLAY change. **Phase C spike
+VERIFIED same day:** via claude-in-chrome the agent opened the PersonalPage v2 project on claude.ai/design
+in the owner's logged-in browser, submitted a test prompt into the canvas chat and read the reply — the
+browser transport (relay rung 1) works end-to-end (recorded in DR-109's nota + `standards/design.md` §1c).
+Pending: phase E (Opus+Sonnet validation on the next UI project).
 
 ## 2026-07-01 — Implement-speed audit, phases 3+4: builder context packs + cheap mechanical tier (DR-108) + Party producer events (closes BL-0002/0019/0020)
 
