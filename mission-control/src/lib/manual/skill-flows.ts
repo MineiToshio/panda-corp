@@ -219,9 +219,7 @@ const FLOWS: SkillFlow[] = [
         detail:
           "Un researcher por lente, minando solo las fuentes verificadas del playbook (CWS 1★, Ask HN, Canny, AlternativeTo, Microns…). Cada candidato = apuesta en una línea + la evidencia más fuerte + cubeta estimada. Triage barato: dedup vs tablero, anti-picks, patrones de rechazo.",
         parallel: true,
-        calls: [
-          { ref: "researcher", as: "agent", note: "un researcher por lente, teaser-cheap" },
-        ],
+        calls: [{ ref: "researcher", as: "agent", note: "un researcher por lente, teaser-cheap" }],
       },
       {
         title: "Tú eliges (el gate de gusto)",

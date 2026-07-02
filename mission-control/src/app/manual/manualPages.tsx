@@ -1821,21 +1821,20 @@ function ConceptTuPerfil(): React.JSX.Element {
 
       <DocH title="Lentes rotativos y dos fases en discover" />
       <Lead>
-        <Code>/pandacorp:discover</Code> no busca a ciegas ni te entrega memos que no pediste:
-        caza con 2-3 lentes rotativos y tu gusto entra ANTES del gasto (DR-039, rediseño
-        2026-07-01).
+        <Code>/pandacorp:discover</Code> no busca a ciegas ni te entrega memos que no pediste: caza
+        con 2-3 lentes rotativos y tu gusto entra ANTES del gasto (DR-039, rediseño 2026-07-01).
       </Lead>
       <Panel>
         <KvRow label="Fase 1" isFirst>
           <B weight={500}>Barrido teaser</B> (barato y ancho): lentes de caza — app-enhancement
-          (quejas de apps conocidas → extensiones), tus otras identidades, own-itch/QoL,
-          challenger de incumbentes (rebuild AI-first / unbundling 80-20) — y 8-12 teasers de una
-          línea con evidencia de fuentes verificadas (playbook sources.md).
+          (quejas de apps conocidas → extensiones), tus otras identidades, own-itch/QoL, challenger
+          de incumbentes (rebuild AI-first / unbundling 80-20) — y 8-12 teasers de una línea con
+          evidencia de fuentes verificadas (playbook sources.md).
         </KvRow>
         <KvRow label="Fase 2" isFirst={false}>
-          <B weight={500}>Deep-dive</B> (caro y estrecho): tú eliges los 2-3 que te chispean y
-          solo esos pasan por los gates duros y el memo-pitch. Tus reacciones al resto se
-          destilan como patrones de atracción/rechazo en tu perfil (DR-053).
+          <B weight={500}>Deep-dive</B> (caro y estrecho): tú eliges los 2-3 que te chispean y solo
+          esos pasan por los gates duros y el memo-pitch. Tus reacciones al resto se destilan como
+          patrones de atracción/rechazo en tu perfil (DR-053).
         </KvRow>
       </Panel>
       <NotePanel icon="ti-scale">
