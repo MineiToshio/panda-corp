@@ -380,3 +380,35 @@ describe("FraguaScene — a completed FRD is a champion, a loose WO a statuette"
     expect(loose.textContent).not.toContain("🏆");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Campamento (Fase 3): pending-merge worktrees camped outside main — real git
+// state (FRD-21), occupied-only like the enfermería.
+// ---------------------------------------------------------------------------
+
+describe("FraguaScene — campamento (Fase 3)", () => {
+  it("renders NO camp when nothing is pending (occupied-only)", () => {
+    render(<FraguaScene snapshot={snap({ tents: [] })} />);
+    expect(screen.queryByTestId("fragua-camp")).not.toBeInTheDocument();
+  });
+
+  it("pending branches pitch tents (≤3 + '+N'), each carrying its real status", () => {
+    render(
+      <FraguaScene
+        snapshot={snap({
+          tents: [
+            { branch: "wt-a", status: "ready" },
+            { branch: "wt-b", status: "in-progress" },
+            { branch: "wt-c", status: "stale" },
+            { branch: "wt-d", status: "ready" },
+          ],
+        })}
+      />,
+    );
+    const camp = screen.getByTestId("fragua-camp");
+    expect(camp).toBeInTheDocument();
+    expect(screen.getByTestId("fragua-tent-wt-a")).toHaveAttribute("data-status", "ready");
+    expect(screen.queryByTestId("fragua-tent-wt-d")).not.toBeInTheDocument();
+    expect(camp.textContent).toContain("+1");
+  });
+});

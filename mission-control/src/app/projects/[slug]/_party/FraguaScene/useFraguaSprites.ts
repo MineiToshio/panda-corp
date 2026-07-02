@@ -152,8 +152,9 @@ export function useFraguaSprites(input: UseFraguaSpritesInput): UseFraguaSprites
     for (const sprite of engine.wos()) {
       const el = spriteEls.current.get(sprite.wo);
       if (el === undefined) continue;
-      el.style.left = `${sprite.px - SPRITE_HALF}px`;
-      el.style.top = `${sprite.py - SPRITE_HALF}px`;
+      // transform, not left/top: a translate write stays on the compositor (no
+      // layout pass per frame) — the Fase 3 perf budget (<2ms/frame main thread).
+      el.style.transform = `translate(${sprite.px - SPRITE_HALF}px, ${sprite.py - SPRITE_HALF}px)`;
     }
   }, []);
 

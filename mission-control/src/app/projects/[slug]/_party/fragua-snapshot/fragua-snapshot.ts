@@ -119,6 +119,11 @@ export type FraguaSnapshot = {
   infirmary?: { wo: string; frd?: string; colorKey?: string }[];
   /** The freshest per-WO green commit (engine `wo_commit`) — the courier flight. */
   lastCommit?: { wo: string; at: string };
+  /**
+   * Pending-merge worktrees/branches (FRD-21 `readPending` — real git state): the
+   * CAMPAMENTO's tents. Occupied-only, like the enfermería (Fase 3).
+   */
+  tents?: { branch: string; status: "in-progress" | "ready" | "stale" }[];
   /** Capped event tail mapped to view-models (for EventFeed). */
   events: EventVM[];
   /** True when there is a FRD currently in build with visible events. */
@@ -181,6 +186,8 @@ export interface ToFraguaSnapshotOpts {
    * a fabricated progress value. Absent entries simply render no elapsed time.
    */
   woStarts?: Readonly<Record<string, number>>;
+  /** Pending-merge items (FRD-21) — the campamento tents; passed through verbatim. */
+  tents?: { branch: string; status: "in-progress" | "ready" | "stale" }[];
   /**
    * Optional mode override (e.g. from a project status.yaml).
    * When provided, takes precedence over any mode field in the events.
@@ -785,6 +792,7 @@ export function toFraguaSnapshot(
     // state awaiting the owner, not live activity (unlike running sprites).
     infirmary: fromFm?.infirmary,
     lastCommit: lastCommitEvent(events),
+    tents: opts.tents,
     events: eventVMs,
     active: !isFactoryOff,
     lastEventAt: opts.lastEventAt,

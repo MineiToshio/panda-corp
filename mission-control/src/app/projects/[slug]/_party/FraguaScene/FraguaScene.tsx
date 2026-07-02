@@ -407,7 +407,13 @@ function RunningSprite({
       data-wo={item.wo}
       data-frd={item.frd}
       title={`${item.wo} — ${item.title}${item.frd !== undefined ? ` · ${item.frd}` : ""}`}
-      style={{ position: "absolute", left: `${initLeft}px`, top: `${initTop}px`, zIndex: 6 }}
+      style={{
+        position: "absolute",
+        left: 0,
+        top: 0,
+        transform: `translate(${initLeft}px, ${initTop}px)`,
+        zIndex: 6,
+      }}
     >
       {mode === "deep" ? (
         <DeepRelay
@@ -538,6 +544,79 @@ function InfirmaryCorner({
           }}
         >
           +{beds.length - shown.length}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** Tents shown before compacting to "+N". */
+const MAX_CAMP_TENTS = 3;
+
+/** The campamento — pending-merge worktrees camped OUTSIDE main (FRD-21 readPending,
+ * real git state; Fase 3). Occupied-only, same doctrine as the enfermería: a corner
+ * patch appears WITH its data and overlays nothing. Owner art: zones/camp.png. */
+function CampCorner({
+  tents,
+}: {
+  tents: NonNullable<FraguaSnapshot["tents"]>;
+}): React.JSX.Element | null {
+  if (tents.length === 0) return null;
+  const shown = tents.slice(0, MAX_CAMP_TENTS);
+  const names = tents.map((t) => t.branch).join(" · ");
+  return (
+    <div
+      data-testid="fragua-camp"
+      role="img"
+      aria-label={`Campamento: ${tents.length} rama(s)/worktree(s) pendientes de merge`}
+      title={`Pendientes de merge: ${names}`}
+      style={{
+        position: "absolute",
+        left: `${TRIBUNAL_RECT.left + TRIBUNAL_RECT.width - 132}px`,
+        top: `${TRIBUNAL_RECT.top + TRIBUNAL_RECT.height - 78}px`,
+        display: "flex",
+        alignItems: "flex-end",
+        gap: "4px",
+        padding: "4px 8px",
+        minHeight: "44px",
+        borderRadius: "var(--radius, 0.5rem)",
+        border: "var(--hairline, 1px) dashed var(--color-border-strong, currentColor)",
+        // The camp pixel-art, dimmed so the tents read on top.
+        background:
+          "linear-gradient(oklch(0.16 0.03 250 / 0.55), oklch(0.16 0.03 250 / 0.55)), url(/prototype/assets/zones/camp.png) center / cover",
+        zIndex: 5,
+      }}
+    >
+      <span
+        style={{
+          fontSize: "11px",
+          fontFamily: "var(--font-display, system-ui)",
+          color: "var(--color-text-muted, currentColor)",
+          paddingBottom: "2px",
+        }}
+      >
+        ⎇
+      </span>
+      {shown.map((tent) => (
+        <span
+          key={tent.branch}
+          data-testid={`fragua-tent-${tent.branch}`}
+          data-status={tent.status}
+          title={`${tent.branch} — ${tent.status}`}
+          style={{ fontSize: "16px", filter: "drop-shadow(0 1px 1px oklch(0 0 0 / 0.6))" }}
+        >
+          ⛺
+        </span>
+      ))}
+      {tents.length > shown.length && (
+        <span
+          style={{
+            fontSize: "10px",
+            fontFamily: "var(--font-display, system-ui)",
+            color: "var(--color-text-muted, currentColor)",
+          }}
+        >
+          +{tents.length - shown.length}
         </span>
       )}
     </div>
@@ -943,6 +1022,9 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
 
         {/* Enfermería — real BLOCKED WOs resting until the owner acts (Fase 2). */}
         <InfirmaryCorner beds={snapshot.infirmary ?? []} />
+
+        {/* Campamento — pending-merge worktrees camped outside main (Fase 3). */}
+        <CampCorner tents={snapshot.tents ?? []} />
 
         {/* Courier flight — fires on a REAL wo_commit event: the courier runs
             forge → tribunal (decorative cue anchored to the engine's commit).

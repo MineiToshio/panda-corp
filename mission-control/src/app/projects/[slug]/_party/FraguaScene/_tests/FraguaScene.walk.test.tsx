@@ -95,6 +95,12 @@ function px(value: string | undefined): number {
   return Number.parseFloat(value ?? "NaN");
 }
 
+/** Read the translate() X of a sprite wrapper (Fase 3: the engine writes transform, not left). */
+function translateX(el: HTMLElement): number {
+  const m = /translate\((-?[\d.]+)px/.exec(el.style.transform);
+  return m?.[1] !== undefined ? Number.parseFloat(m[1]) : Number.NaN;
+}
+
 describe("FraguaScene — engine drives the stage-level sprite layer (AC-06-003.2)", () => {
   it("frd-06: WHEN a WO is in_review THEN ticking walks its sprite toward the tribunal (right)", () => {
     render(
@@ -109,12 +115,12 @@ describe("FraguaScene — engine drives the stage-level sprite layer (AC-06-003.
     // The engine starts the sprite at the forge slot, targeting a tribunal slot
     // (which is to the RIGHT). After one paint, read the starting left.
     runFrames(1);
-    const startLeft = px(sprite.style.left);
+    const startLeft = translateX(sprite);
 
     // Advance several frames: the walk moves the sprite to the right (toward the
     // tribunal review slot at a higher x than the forge slot).
     runFrames(20);
-    const laterLeft = px(sprite.style.left);
+    const laterLeft = translateX(sprite);
 
     expect(Number.isNaN(startLeft)).toBe(false);
     expect(Number.isNaN(laterLeft)).toBe(false);
@@ -131,9 +137,9 @@ describe("FraguaScene — engine drives the stage-level sprite layer (AC-06-003.
     );
     const sprite = screen.getByTestId("fragua-wo-WO-06-001");
     runFrames(1);
-    const startLeft = px(sprite.style.left);
+    const startLeft = translateX(sprite);
     runFrames(20);
-    const laterLeft = px(sprite.style.left);
+    const laterLeft = translateX(sprite);
     // A building WO is already at its forge target; no walk.
     expect(laterLeft).toBeCloseTo(startLeft, 1);
   });
@@ -162,7 +168,7 @@ describe("FraguaScene — engine drives the stage-level sprite layer (AC-06-003.
     expect(rafCallbacks.length).toBe(0);
     const sprite = screen.getByTestId("fragua-wo-WO-06-001");
     // The effect paints once at the engine's target → a real px coordinate.
-    expect(Number.isNaN(px(sprite.style.left))).toBe(false);
+    expect(Number.isNaN(translateX(sprite))).toBe(false);
     expect(Number.isNaN(px(sprite.style.top))).toBe(false);
   });
 });

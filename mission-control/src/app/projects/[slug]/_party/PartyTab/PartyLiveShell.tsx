@@ -88,6 +88,8 @@ export interface PartyLiveShellProps {
    * own freshness instead of passing old data off as current.
    */
   supervisorHeartbeat?: string;
+  /** Pending-merge items (FRD-21) — carried into the live re-derive (Fase 3 campamento). */
+  tents?: { branch: string; status: "in-progress" | "ready" | "stale" }[];
 }
 
 // ---------------------------------------------------------------------------
@@ -135,6 +137,7 @@ export function PartyLiveShell({
   workOrders,
   woStarts,
   supervisorHeartbeat,
+  tents,
 }: PartyLiveShellProps): React.JSX.Element {
   // Subscribe to the live SSE transport, scoped to this project.
   const { snapshot: liveFrame, connected } = useLiveSnapshot({ project });
@@ -183,8 +186,9 @@ export function PartyLiveShell({
       running: fresher ? undefined : running,
       workOrders,
       woStarts,
+      tents,
     });
-  }, [liveFrame, initialSnapshot, running, workOrders, woStarts]);
+  }, [liveFrame, initialSnapshot, running, workOrders, woStarts, tents]);
 
   // Freshest producer signal for the badge: the heartbeat (status.yaml) vs the
   // latest event — ISO-8601 strings compare chronologically.

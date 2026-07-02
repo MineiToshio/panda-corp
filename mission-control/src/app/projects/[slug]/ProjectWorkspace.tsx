@@ -153,6 +153,12 @@ function renderPartyTab(
       if (tlWo.startMs !== null) woStarts[tlWo.id] = tlWo.startMs;
     }
   }
+  // Campamento (Fase 3): pending-merge worktrees/branches — the SAME readPending the
+  // summary tab and the "⎇ pendientes" chip use (DR-092). On a read error the camp
+  // simply doesn't render; the Summary tab is the surface that reports the error.
+  const pending = readPending(projectPath);
+  const tents =
+    pending.kind === "ok" ? pending.items.map((i) => ({ branch: i.branch, status: i.status })) : [];
   return (
     <PartyTab
       running={running}
@@ -160,6 +166,7 @@ function renderPartyTab(
       workOrders={partyOrders}
       woStarts={woStarts}
       supervisorHeartbeat={supervisorHeartbeat}
+      tents={tents}
     />
   );
 }

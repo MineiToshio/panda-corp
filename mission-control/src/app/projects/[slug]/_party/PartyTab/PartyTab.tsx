@@ -98,6 +98,8 @@ export interface PartyTabProps {
   woStarts?: Readonly<Record<string, number>>;
   /** Supervisor heartbeat ISO stamp from status.yaml (DR-066) — feeds the freshness badge. */
   supervisorHeartbeat?: string;
+  /** Pending-merge items (FRD-21 readPending) — the campamento tents (Fase 3). */
+  tents?: { branch: string; status: "in-progress" | "ready" | "stale" }[];
 }
 
 // ---------------------------------------------------------------------------
@@ -193,6 +195,7 @@ export function PartyTab({
   workOrders,
   woStarts,
   supervisorHeartbeat,
+  tents,
 }: PartyTabProps): React.JSX.Element {
   // Read the capped tail of the event stream (read-only, never throws).
   // The project filter runs BEFORE the cap so other sessions' noise cannot
@@ -203,7 +206,7 @@ export function PartyTab({
   // no I/O, no side-effects. `running` (status.yaml) forces the powered-off
   // state when the build is off; `workOrders` (frontmatter, DR-092) decides the
   // scene structure while events only drive liveness.
-  const snapshot = toFraguaSnapshot(events, { lastEventAt, running, workOrders, woStarts });
+  const snapshot = toFraguaSnapshot(events, { lastEventAt, running, workOrders, woStarts, tents });
 
   // Map the feed-relevant events to view-models for the bitácora (REQ-06-015):
   // session noise (SupervisorTick, hook SubagentStop) is filtered out;
@@ -247,6 +250,7 @@ export function PartyTab({
               workOrders={workOrders}
               woStarts={woStarts}
               supervisorHeartbeat={supervisorHeartbeat}
+              tents={tents}
             />
           </div>
 
