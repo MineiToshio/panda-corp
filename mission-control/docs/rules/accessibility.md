@@ -9,7 +9,7 @@ source: Pandacorp standard — patterns (a11y)
 
 ## Semantic HTML & contrast
 - Use semantic elements (`<button>` for actions, `<a>`/`<nav>` for navigation, `<main>`/`<section>`/`<header>`/`<article>`). **No `<div onClick>`.** Provide `type`, `aria-*` where needed.
-- WCAG **AA contrast**; visible focus states; touch targets ≥ 44px. Verify with axe-core.
+- WCAG **AA contrast**; visible focus states; touch targets: **44px design target, 24px gated floor** (WCAG 2.2 SC 2.5.8, fail-closed in the Responsive Gate — DR-074). Verify with axe-core.
 - **Never convey meaning by color/shape/position alone** (required fields, status pills, chart series, errors) — add text or an icon.
 
 ## Keyboard & focus

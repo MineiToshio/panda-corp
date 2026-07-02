@@ -4,6 +4,25 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-01 — Pandacorp overlay upgraded 8.51.1 → 8.55.1
+
+**What:** Overlay re-synced to the factory's current version as `/pandacorp:implement` preflight (DR-048).
+Gate-config conformance (DR-059) found and re-aligned drift: `.pandacorp/verify.sh` (gains the DR-106
+scoped browser layer — `--since` mode runs smoke+shell only; visual+responsive stay in the full close-out
+suite), `biome.json` (schema 2.5.1, `"preset": "recommended"`), `knip.json` (adds `src/proxy.ts` entry).
+Toolchain: `@biomejs/biome` bumped 2.5.0 → 2.5.2 so the new config format is runnable. Rules re-synced
+(DR-051): `accessibility.md` (24px gated tap-target floor), `quality-and-testing.md` (circular-deps,
+visual/responsive/shell gates, DR-100, numeric bars + DR-080), `typescript.md` (Biome lint pointers),
+`documentation-and-decisions.md`. Managed layer regenerated: `.pandacorp/guide.md` (DR-069 `change`
+front-door routing, unified queue), `AGENTS.md` managed lines reconciled. Canary green 8/8 (DR-079).
+
+**Why:** The project's enforcement and machinery must match the factory standard before a build runs.
+
+**Back-port (DR-076/DR-094):** MC's `docs/rules/documentation-and-decisions.md` carried an in-project
+section ("Forbidden pattern — `docs/proposals/`", commit a497af0) missing from the plugin template — it
+is generic, so it was back-ported to `plugin/templates/rules/documentation-and-decisions.md` (overlay
+8.55.1, plugin 9.46.1) instead of being clobbered by the verbatim overwrite.
+
 ## 2026-07-01 — La Fragua v2 Fase 1 (REQ-06-019): GLOBAL scene — the wave, the tribunal queue, the Campaña
 
 **What:** With the global-wave engine (BL-0021) several FRDs genuinely build at once, so the Party

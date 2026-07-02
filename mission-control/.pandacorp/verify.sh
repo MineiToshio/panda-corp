@@ -12,7 +12,12 @@ shopt -s inherit_errexit 2>/dev/null || true  # bash 4.4+; no-op on macOS' bash 
 
 # --- Optional scope: `verify.sh --since <sha>` (the fast per-FRD gate) ----------
 # Runs only the vitest tests CHANGED since <sha>; biome/tsc/knip/madge stay global
-# (fast enough, and they scale). The FULL unscoped suite runs at close-out (no --since).
+# (fast enough, and they scale). ALSO scopes the browser layer (DR-106): in --since mode
+# only smoke + shell run (correctness + gross structure — exactly what the DR-072 gate may
+# block on); visual + responsive belong to the FULL unscoped suite at close-out + the
+# end-of-build Visual QA pass (fidelity is ADVISORY at the per-FRD gate, never a block).
+# Before DR-106 every FRD gate ran the WHOLE serialized e2e suite (workers:1) — the single
+# biggest wall-clock cost of a build (11 gates x full Playwright in the personal-page-v2 run).
 SINCE=""
 if [ "${1:-}" = "--since" ] && [ -n "${2:-}" ]; then SINCE="$2"; fi
 
@@ -94,7 +99,15 @@ pnpm vitest run --reporter=dot ${SINCE:+--changed "$SINCE"}
 [ -f e2e/visual.spec.ts ]     || { echo "✗ Visual-Fidelity Gate missing (DR-056): add e2e/visual.spec.ts — diff each route against its blessed baseline."; exit 1; }
 [ -f e2e/responsive.spec.ts ] || { echo "✗ Responsive Gate missing (DR-074): add e2e/responsive.spec.ts + e2e/_responsive-helper.ts + e2e/_target.ts."; exit 1; }
 [ -f e2e/shell.spec.ts ]      || { echo "✗ Shell-Presence Gate missing (DR-075): add e2e/shell.spec.ts + e2e/shell.ts — assert the app shell / global nav vs the prototype."; exit 1; }
-pnpm exec playwright test e2e/
+# DR-106 scope: the per-FRD gate (--since) runs smoke + shell only — the browser layer of the
+# DR-072 BLOCKING lenses (routes render clean + the app shell is present). Visual + responsive
+# stay in the FULL run (close-out / Visual QA): fine fidelity is advisory at the gate and may
+# never block, so paying the whole serialized suite per FRD bought nothing but wall-clock.
+if [ -n "$SINCE" ]; then
+  pnpm exec playwright test e2e/smoke.spec.ts e2e/shell.spec.ts
+else
+  pnpm exec playwright test e2e/
+fi
 
 # --- Bless-provenance advisory (DR-080) — non-blocking -------------------------
 # A blessed visual baseline with no recorded ORACLE (the prototype path/shard + sign-off + a

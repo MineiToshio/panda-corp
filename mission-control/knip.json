@@ -4,6 +4,7 @@
     "src/app/**/{page,layout,loading,error,not-found,global-error,route,template,default}.{ts,tsx}",
     "src/app/**/{sitemap,robots,manifest,opengraph-image,icon,apple-icon}.{ts,tsx}",
     "src/middleware.ts",
+    "src/proxy.ts",
     "src/instrumentation.ts",
     "next.config.{js,mjs,ts}",
     "e2e/**/*.spec.ts",
