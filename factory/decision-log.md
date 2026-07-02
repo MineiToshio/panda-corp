@@ -2,6 +2,28 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-02 — Auditoría del loop de autoaprendizaje (DR-047) + plan v2 propuesto
+
+**Qué:** auditoría exhaustiva del flujo de mejora continua (memory/learn/librarian) pedida por el
+owner ("tengo que correr /memory y /learn a mano; ¿cómo lo mejoramos y validamos?"), cruzada con
+research externo (Letta sleep-time, Mem0 A.U.D.N., Devin suggested-knowledge, EDV, ReasoningBank,
+ACE, Voyager). Diagnóstico medido: la captura funciona (22 lecciones, ruteo DR-103 ok) pero TODO lo
+posterior es prosa sin mecanismo — recuperación jamás demostrada (`times_applied: 0` en las 22),
+cero jobs programados pese al "SWEEP ACTIVATED" de DR-047, cosecha de close-out documentada pero no
+invocada, cola de promoción sin superficie (FRD-17 parcial), poda que condenaría todo el store, y
+`validate-backlog.sh` inexistente con colisiones vivas (BL-0010/0011 duplicados). Plan de 4 fases en
+`docs/proposals/23-self-learning-loop-v2.md`: (1) motor — cosecha ejecutable al close-out + barrido
+programado + captura por corrección via hook; (2) recuperación — INDEX.md inyectado al overlay +
+`trigger:` + medición determinista por citas; (3) validez — default-reject, corroboración cruzada,
+lecciones de fracaso por contraste; (4) escalera — promoción por uso + cerrar FRD-17 + tier medio
+real. Sustrato se mantiene (markdown+git validado por la literatura); el hueco es cableado.
+
+**Por qué:** el dolor del owner es exactamente la mitad ausente del loop (el motor); la literatura
+(EDV: 10% de memorias erróneas degrada el rendimiento medible) exige además validación antes de que
+la recuperación se cablee en serio. **Impacto:** `docs/proposals/23-self-learning-loop-v2.md`
+(PROPOSED, pendiente de ok del owner; nada implementado). Confirma y absorbe proposal 17 P0.2 y
+proposal 20 P1-6/P1-7.
+
 ## 2026-07-02 — DR-096 recalibrado: el merge NO borra el worktree de la sesión viva (BL-0023)
 
 **Qué:** el invariante de visibilidad de DR-096 cambia: ya no es "worktree sobreviviente = trabajo
