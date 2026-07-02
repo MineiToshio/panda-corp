@@ -43,6 +43,7 @@ import { FlowStrip } from "@/components/modules/party/FlowStrip/FlowStrip";
 import { MissionBar } from "@/components/modules/party/MissionBar/MissionBar";
 import { PowerOffOverlay } from "@/components/modules/party/PowerOffOverlay/PowerOffOverlay";
 
+import { CampaignStrip } from "../CampaignStrip/CampaignStrip";
 import { FraguaScene } from "../FraguaScene/FraguaScene";
 import type { FraguaSnapshot } from "../fragua-snapshot/fragua-snapshot";
 
@@ -322,6 +323,11 @@ export function PartyScene({ snapshot }: PartySceneProps): React.JSX.Element {
 
       {/* === FlowStrip — always-visible 8-beat pipeline row (AC-06-010) === */}
       <FlowStrip beats={FLOW_BEATS} activeKeys={activeKeys} />
+
+      {/* === La Campaña — every FRD's real state at a glance (REQ-06-019) === */}
+      {snapshot.campaign !== undefined && snapshot.campaign.length > 0 && (
+        <CampaignStrip campaign={snapshot.campaign} judging={snapshot.gate.judging} />
+      )}
 
       {/* === Scene title === */}
       <div style={TITLE_STYLE}>

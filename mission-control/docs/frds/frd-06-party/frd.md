@@ -125,6 +125,24 @@ The event stream only moves on transitions; a single agent grinding one work ord
 - AC-06-018.4: THE always-visible flow strip SHALL softly pulse its **active** beat(s) so the top pipeline reads as live.
 - AC-06-018.5: WHEN `prefers-reduced-motion` is set, ALL of the above liveness animations SHALL be disabled (consistent with AC-06-014.1), each falling back to a sensible **static** state that still communicates "active" (a steady halo, a visible band, a solid heartbeat dot) — liveness is softened, never reduced to a dead/blank scene.
 
+### REQ-06-019 — v2 GLOBAL scene: the wave, the tribunal queue and the Campaña (BL-0021)
+With the global-wave engine (BL-0021) several FRDs genuinely build at once, so the scene is no longer
+"the single FRD in build" (AC-06-002.1 superseded) — it is the WHOLE factory. **(IMPLEMENTED, 2026-07-01 — Fase 1)**
+- AC-06-019.1: THE forge SHALL show the CURRENT WAVE — one sprite per `in_progress` work order across
+  **all** FRDs (≤ the mode's wave), each carrying its FRD's **stable palette color** (a small banner
+  under the sprite; the frd id also travels in `data-frd` + the tooltip — never color alone).
+- AC-06-019.2: THE tribunal SHALL model the SERIALIZED gate queue: every `review` WO stands in the
+  room (≤12 slots); the FRDs whose WOs are ALL at review/done form the **line** — the head (or the
+  freshest engine `gate` event's FRD) is **"en sesión"**, the rest render as waiting chips.
+- AC-06-019.3: THE system SHALL render **La Campaña** above the scene — one chip per FRD with its
+  REAL state from the frontmatter (`pending / building / in_review / verified / blocked`, with
+  done/total), in file order, each with its stable FRD color; the chip under judgment is emphasized.
+- AC-06-019.4: Trophies on the Bóveda SHALL be the LATEST `done` WOs across the project (≤9, rest
+  archived), each with its FRD color plaque; the scene focus (`snapshot.frd`, MissionBar) SHALL be
+  the FRD under judgment, else the first one building, else the freshest event FRD.
+- AC-06-019.5: THE sprite engine SHALL persist across the whole build (one instance per scene, not
+  per FRD) so a change of the judged/focused FRD never resets in-flight walks.
+
 ## Edge cases
 - A FRD with a single work order: forge shows 1 sprite, `+0 en cola`; the gate opens as soon as that one WO is `IN_REVIEW`.
 - The foundation WO of an FRD: it forges the shared primitives **alone** while the feature WOs wait in "+N en cola" until it closes (AC-06-001.4).

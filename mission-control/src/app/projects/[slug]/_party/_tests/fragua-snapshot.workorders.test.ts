@@ -40,10 +40,12 @@ describe("frd-06: toFraguaSnapshot — structure from work orders (DR-092)", () 
         wo("WO-03-003", "todo"),
       ],
     });
-    expect(snapshot.running).toEqual([
-      { wo: "WO-03-001", title: "WO-03-001", state: "building" },
-      { wo: "WO-03-002", title: "WO-03-002", state: "in_review" },
+    // v2 global scene: each entry also carries its FRD + stable palette color.
+    expect(snapshot.running).toMatchObject([
+      { wo: "WO-03-001", state: "building", frd: FRD },
+      { wo: "WO-03-002", state: "in_review", frd: FRD },
     ]);
+    expect(snapshot.running[0]?.colorKey).toMatch(/^--color-agent-/);
   });
 
   it("frd-06: todo + fail count as the queue; building overflow beyond the wave queues too", () => {
@@ -68,7 +70,72 @@ describe("frd-06: toFraguaSnapshot — structure from work orders (DR-092)", () 
         wo("WO-03-003", "in_progress"),
       ],
     });
-    expect(snapshot.trophies).toEqual([{ wo: "WO-03-001" }, { wo: "WO-03-002" }]);
+    // v2: trophies carry their FRD + color for the vault plaques.
+    expect(snapshot.trophies).toMatchObject([
+      { wo: "WO-03-001", frd: FRD },
+      { wo: "WO-03-002", frd: FRD },
+    ]);
+  });
+
+  it("frd-06 v2: the campaign lists every FRD with its real state, and the tribunal is a QUEUE", () => {
+    const snapshot = toFraguaSnapshot(events, {
+      lastEventAt: null,
+      workOrders: [
+        wo("WO-01-001", "done", "frd-01-core"),
+        wo("WO-02-001", "review", "frd-02-a"),
+        wo("WO-03-001", "review", "frd-03-b"),
+        wo("WO-04-001", "in_progress", "frd-04-c"),
+        wo("WO-05-001", "todo", "frd-05-d"),
+        wo("WO-06-001", "fail", "frd-06-e"),
+      ],
+    });
+    expect(snapshot.campaign?.map((c) => [c.frd, c.state])).toEqual([
+      ["frd-01-core", "verified"],
+      ["frd-02-a", "in_review"],
+      ["frd-03-b", "in_review"],
+      ["frd-04-c", "building"],
+      ["frd-05-d", "pending"],
+      ["frd-06-e", "blocked"],
+    ]);
+    // Gates are serialized (BL-0021): first in line is in session, the rest wait.
+    expect(snapshot.gate).toMatchObject({
+      open: true,
+      judging: "frd-02-a",
+      queue: ["frd-02-a", "frd-03-b"],
+    });
+    // The scene focus is the FRD under judgment.
+    expect(snapshot.frd?.id).toBe("frd-02-a");
+  });
+
+  it("frd-06 v2: a fresh engine `gate` event picks WHICH queued FRD is in session", () => {
+    const snapshot = toFraguaSnapshot(
+      [
+        agentWorking("2026-07-01T10:00:00Z", "frd-02-a", "WO-02-001"),
+        { event: "gate", at: "2026-07-01T10:05:00Z", frd: "frd-03-b" },
+      ],
+      {
+        lastEventAt: "2026-07-01T10:05:00Z",
+        workOrders: [
+          wo("WO-02-001", "review", "frd-02-a"),
+          wo("WO-03-001", "review", "frd-03-b"),
+        ],
+      },
+    );
+    expect(snapshot.gate.judging).toBe("frd-03-b");
+  });
+
+  it("frd-06 v2: the forge wave spans FRDs (running mixes features, each with its color)", () => {
+    const snapshot = toFraguaSnapshot(events, {
+      lastEventAt: null,
+      workOrders: [
+        wo("WO-01-001", "in_progress", "frd-01-core"),
+        wo("WO-02-001", "in_progress", "frd-02-a"),
+        wo("WO-03-001", "in_progress", "frd-03-b"),
+      ],
+    });
+    expect(snapshot.running.map((r) => r.frd)).toEqual(["frd-01-core", "frd-02-a", "frd-03-b"]);
+    const colors = new Set(snapshot.running.map((r) => r.colorKey));
+    expect(colors.size).toBe(3);
   });
 
   it("frd-06: the global counter reads done/total from the whole project's frontmatter", () => {

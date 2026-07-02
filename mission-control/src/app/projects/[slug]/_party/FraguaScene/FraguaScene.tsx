@@ -361,7 +361,10 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
   // a WO actually WALKS between rooms along the bridges (AC-06-003.2).
   // -------------------------------------------------------------------------
   const { registerSprite } = useFraguaSprites({
-    frdId: frd?.id ?? null,
+    // v2 global scene: the engine persists across the WHOLE build — sprites of
+    // every FRD share the stage, so a change of the judged/focused FRD must
+    // NOT reset in-flight walks (the diff effect retires departed WOs).
+    frdId: "fragua-global",
     running,
     trophies,
     gate,
@@ -573,6 +576,60 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
               {/* WOs in review are NOT rendered here anymore: an in_review WO is
                   a moving sprite that WALKS forge→tribunal, so it lives in the
                   stage-level sprite layer (AC-06-003.2), not as a static slot. */}
+
+              {/* Tribunal line (v2, BL-0021): gates are SERIALIZED — one FRD in
+                  session, the rest waiting. Real queue from the frontmatter. */}
+              {(gate.judging != null || (gate.queue !== undefined && gate.queue.length > 0)) && (
+                <div
+                  data-testid="fragua-tribunal-line"
+                  style={{
+                    position: "absolute",
+                    left: "12px",
+                    bottom: "8px",
+                    right: "12px",
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: "6px",
+                    alignItems: "center",
+                    fontSize: "10px",
+                    fontFamily: "var(--font-display, system-ui)",
+                    zIndex: 4,
+                  }}
+                >
+                  {gate.judging != null && (
+                    <span
+                      data-testid="fragua-tribunal-judging"
+                      title={`${gate.judging} — en sesión ante el juez`}
+                      style={{
+                        padding: "2px 8px",
+                        borderRadius: "var(--radius, 0.5rem)",
+                        background: "var(--color-warn-bg, oklch(0.35 0.08 80 / 0.35))",
+                        color: "var(--color-warn, currentColor)",
+                        border: "var(--hairline, 1px) solid var(--color-warn, currentColor)",
+                      }}
+                    >
+                      ⚖️ en sesión: {gate.judging}
+                    </span>
+                  )}
+                  {(gate.queue ?? [])
+                    .filter((q) => q !== gate.judging)
+                    .map((q) => (
+                      <span
+                        key={q}
+                        data-testid={`fragua-tribunal-queued-${q}`}
+                        title={`${q} — esperando su juicio (los gates corren de a uno)`}
+                        style={{
+                          padding: "2px 8px",
+                          borderRadius: "var(--radius, 0.5rem)",
+                          border: "var(--hairline, 1px) solid var(--color-border, currentColor)",
+                          color: "var(--color-text-muted, currentColor)",
+                        }}
+                      >
+                        {q}
+                      </span>
+                    ))}
+                </div>
+              )}
             </div>
           </Room>
         </div>
@@ -594,19 +651,35 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
             }}
           >
             {/* Trophy sprites — AgentSprite with state=vault (AC-06-005.1) */}
-            {shownTrophies.map(({ wo: twoId }, idx) => {
+            {shownTrophies.map(({ wo: twoId, frd: trophyFrd, colorKey: trophyColor }, idx) => {
               const vaultX = VAULT_X0 + idx * VAULT_DX - VAULT_RECT.left;
               const vaultY = VAULT_Y - VAULT_RECT.top - SPRITE_HALF;
               return (
                 <div
                   key={twoId}
                   data-testid={`fragua-trophy-${twoId}`}
-                  title={twoId}
+                  data-frd={trophyFrd}
+                  title={`${twoId}${trophyFrd !== undefined ? ` · ${trophyFrd}` : ""}`}
                   role="img"
                   aria-label={`Trofeo: ${twoId} verificado`}
                   style={{ position: "absolute", left: vaultX, top: vaultY }}
                 >
                   <AgentSprite agentRole="implementer" state="vault" woId={twoId} />
+                  {trophyColor !== undefined && (
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        position: "absolute",
+                        left: "50%",
+                        transform: "translateX(-50%)",
+                        bottom: "-5px",
+                        width: "28px",
+                        height: "3px",
+                        borderRadius: "2px",
+                        background: `var(${trophyColor})`,
+                      }}
+                    />
+                  )}
                 </div>
               );
             })}
@@ -635,7 +708,7 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
             useFraguaSprites) so a WO WALKS between rooms (AC-06-003.2).
             Verified trophies stay in the vault Room above (static, they don't move).
             ================================================================ */}
-        {running.map(({ wo, title, state, relay }, idx) => {
+        {running.map(({ wo, title, state, frd: woFrd, colorKey, relay }, idx) => {
           // First-paint static fallback (SSR-stable): the engine takes over once
           // mounted, writing left/top from its animated positions.
           const slot = forgeSlots[idx] ?? forgeSlots[0];
@@ -648,7 +721,8 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
               ref={registerSprite(wo)}
               data-testid={`fragua-wo-${wo}`}
               data-wo={wo}
-              title={`${wo} — ${title}`}
+              data-frd={woFrd}
+              title={`${wo} — ${title}${woFrd !== undefined ? ` · ${woFrd}` : ""}`}
               style={{
                 position: "absolute",
                 left: `${initLeft}px`,
@@ -667,6 +741,25 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
                   agentRole="implementer"
                   state={woStateToSpriteState(state)}
                   woId={wo}
+                />
+              )}
+              {/* FRD standard (v2 global scene): a small colored banner under the
+                  sprite so a multi-FRD wave reads at a glance. Decorative — the
+                  frd id itself travels in data-frd + the tooltip, never color alone. */}
+              {colorKey !== undefined && (
+                <span
+                  data-testid={`fragua-wo-banner-${wo}`}
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    bottom: "-6px",
+                    width: "34px",
+                    height: "4px",
+                    borderRadius: "2px",
+                    background: `var(${colorKey})`,
+                  }}
                 />
               )}
             </div>

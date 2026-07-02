@@ -4,6 +4,29 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-01 — La Fragua v2 Fase 1 (REQ-06-019): GLOBAL scene — the wave, the tribunal queue, the Campaña
+
+**What:** With the global-wave engine (BL-0021) several FRDs genuinely build at once, so the Party
+scene stops being "the single FRD in build" and becomes the whole factory: `toFraguaSnapshot` now
+derives a GLOBAL structure from the work-order frontmatter — `campaign[]` (one entry per FRD with its
+real state pending/building/in_review/verified/blocked + done/total + a stable palette color from the
+13 agent tokens), `running[]` spanning every FRD (forge = the actual wave, ≤ mode cap; tribunal = every
+`review` WO, ≤12) with `frd`+`colorKey` per sprite, and `gate` modeling the SERIALIZED tribunal
+(`judging` — head of line or the freshest engine `gate` event — + `queue`). New `CampaignStrip`
+component above the scene; FRD color banners under sprites and vault trophies; tribunal renders the
+"en sesión"/waiting line chips; the sprite engine persists across the whole build (scene key no longer
+per-FRD, so a judged-FRD change never resets walks). Scene focus (header/MissionBar) = judging →
+first building → freshest event FRD.
+
+**Why:** The owner approved the Fragua v2 proposal ("toda la fábrica en una escena") after BL-0021
+made multi-FRD waves the engine's real behavior — a per-FRD zoom would now hide most of the build.
+The tribunal-as-queue is exact: gates run one at a time at wave boundaries.
+
+**Impact:** FRD-06 (`frd.md` REQ-06-019, AC-06-002.1 superseded), `fragua-snapshot.ts` (global
+derivation), `CampaignStrip/`, `FraguaScene.tsx`, `PartyScene.tsx`. Tests: workorders suite reworked +
+3 new v2 cases (campaign states, gate-event session pick, cross-FRD wave colors); 573 green. Fases
+2–3 (vida + pulso) follow in this same change series.
+
 ## 2026-07-01 — Party (FRD-06) P0+P1 rework: per-project events, frontmatter-derived scene, live refresh, bitácora below with real vocabulary
 
 **What:** Owner-audited rework of the Party tab ("no refleja lo real, los muñequitos no se mueven, el log roto"), P0+P1 of the approved plan. (1) **Per-project events**: `readEvents` gains a `project` filter applied BEFORE the tail cap (FRD-01) and `/api/live` uses it; `PartyTab` receives `project` (the FOLDER name = the emitters' `basename $PWD`) and passes it to the SSE — previously the scene/feed derived from the UNFILTERED global tail, so any project's Party could show another project's FRD and 182/200 tail rows were session noise. (2) **Frontmatter decides the structure** (DR-092): `toFraguaSnapshot` takes `workOrders` (`listWorkOrders`) and derives sprites/rooms/queue/trophies/global counter/gate from it; events only drive the FRD focus, mode, liveness and the bitácora; empty-string `frd` (visual-qa) ignored; `wo-states.ts` deleted (subsumed). Fixes the fabricated `0/1 WO` counter, the always-empty Bóveda and the never-lit tribunal. (3) **Live movement**: `PartyLiveShell` triggers a throttled `router.refresh()` on genuinely-fresher SSE events (fresh frontmatter mid-session — closes the AC-06-001.6 "next render" bound), and `useFraguaSprites` keeps ONE persistent engine per scene with a diff effect (it was recreated on every SSE frame, resetting walks). (4) **Bitácora**: below the scene at full width (owner decision — the row layout squeezed it against the 920px stage), emoji glyphs actually rendered (Lucide identifier strings printed literally before), real event vocabulary (AgentWorking by phase/activity, Build*, verdicts, `wo_commit`), `isFeedEvent` noise filter with failures always passing.

@@ -31,6 +31,7 @@
  *                           REQ-06-008, REQ-06-009, REQ-06-010
  */
 
+import { AGENT_COLOR } from "@/app/_design/tokens/tokens";
 import type { BuildMode } from "@/lib/constants";
 import type { Event as DashboardEvent } from "@/lib/events/events";
 import type { WorkOrder } from "@/lib/work-orders/work-orders";
@@ -50,30 +51,59 @@ export type RelayState = {
   contractPublished: boolean;
 };
 
+/** One FRD's real state on the Campaña strip (v2 global scene, REQ-06-019). */
+export type CampaignFrd = {
+  frd: string;
+  title: string;
+  state: "pending" | "building" | "in_review" | "verified" | "blocked";
+  done: number;
+  total: number;
+  /** Stable per-FRD color (a CSS custom-property name from the agent palette). */
+  colorKey: string;
+};
+
 /**
  * Server-derived snapshot passed to the client scene.
  * All fields are serializable — no `fs`, no class instances.
  * Null `frd` means no active build; `active: false` → empty state.
+ *
+ * v2 (2026-07-01, global-wave engine): the scene is GLOBAL — `running` spans
+ * every FRD (each entry carries its `frd` + `colorKey`), `campaign` lists all
+ * FRDs with their real state, and `gate` models the serialized tribunal queue
+ * (one FRD judged at a time, the rest waiting in line — exactly the engine).
  */
 export type FraguaSnapshot = {
-  /** The FRD currently in build (per-FRD scene), or null if none. */
+  /** The FRD in focus (the one being judged, else the first building), or null. */
   frd: { id: string; title: string } | null;
   /** Mode read from state; default 'powerful' (AC-06-009.1). */
   mode: BuildMode;
   /** Wave size cap on concurrently-rendered WOs (mode → wave, blueprint §3). */
   wave: number;
-  /** Running WOs (≤ wave, already capped). */
-  running: { wo: string; title: string; state: WoState; relay?: RelayState }[];
-  /** "+N en cola" count of queued/non-running WOs. */
+  /** Running WOs across ALL FRDs (forge ≤ wave; tribunal ≤ 12). */
+  running: {
+    wo: string;
+    title: string;
+    state: WoState;
+    frd?: string;
+    colorKey?: string;
+    relay?: RelayState;
+  }[];
+  /** "+N en cola" count of queued/non-running WOs (across FRDs). */
   queuedCount: number;
-  /** Reviewer gate state: open iff all FRD WOs are IN_REVIEW. */
-  gate: { open: boolean };
-  /** VERIFIED WOs on the Bóveda shelf (≤9 shown; remainder in archivedCount). */
-  trophies: { wo: string }[];
+  /**
+   * The tribunal: `open` while any FRD is under judgment (back-compat);
+   * `judging` = the FRD in session; `queue` = FRDs waiting in line (serialized
+   * gates, BL-0021).
+   */
+  gate: { open: boolean; judging?: string | null; queue?: string[] };
+  /** Most recent VERIFIED WOs on the Bóveda shelf (≤9; remainder archived). */
+  trophies: { wo: string; frd?: string; colorKey?: string }[];
   /** Number of VERIFIED WOs beyond the shelf capacity (AC-06-005.2). */
   archivedCount: number;
   /** Global project WO counter (AC-06-002.2). */
   project: { done: number; total: number };
+  /** All FRDs with their real state, in file order (the Campaña, REQ-06-019). */
+  campaign?: CampaignFrd[];
   /** Capped event tail mapped to view-models (for EventFeed). */
   events: EventVM[];
   /** True when there is a FRD currently in build with visible events. */
@@ -102,6 +132,9 @@ const DEFAULT_MODE: BuildMode = "powerful";
 
 /** Maximum trophies displayed on the Bóveda shelf (AC-06-005.2). */
 const MAX_TROPHIES = 9;
+
+/** Tribunal slots (4×3, AC-06-004.4) — cap on in_review sprites in the room. */
+const MAX_TRIBUNAL_SPRITES = 12;
 
 /** Valid BuildMode values for enum-guarded parsing. */
 const VALID_MODES = new Set<string>(["pro", "balanced", "powerful", "deep"]);
@@ -400,54 +433,115 @@ function scanFrdData(events: readonly DashboardEvent[], ctx: FrdContext): FrdSca
 // Frontmatter-derived scene structure (DR-092 — the board's source decides)
 // ---------------------------------------------------------------------------
 
-/** Scene structure derived from the authoritative work-order frontmatter. */
+/** Global scene structure derived from the authoritative work-order frontmatter. */
 interface SceneStructure {
   running: FraguaSnapshot["running"];
   queuedCount: number;
-  trophyWoIds: string[];
-  gateOpenFromState: boolean;
+  trophies: { wo: string; frd: string; colorKey: string }[];
+  campaign: CampaignFrd[];
+  /** FRDs whose WOs all sit at review/done (≥1 review) — the tribunal line, in order. */
+  gateQueue: string[];
   totals: { done: number; total: number };
 }
 
+/** Stable per-FRD palette: the 13 agent color tokens, assigned by FRD file order. */
+const FRD_COLOR_KEYS: readonly string[] = Object.freeze(Object.values(AGENT_COLOR));
+
+/** One FRD's campaign state from its work orders (blocked > verified > in_review > pending > building). */
+function campaignState(wos: readonly SceneWorkOrder[]): CampaignFrd["state"] {
+  if (wos.some((w) => w.state === "fail")) return "blocked";
+  if (wos.every((w) => w.state === "done")) return "verified";
+  if (wos.some((w) => w.state === "review") && wos.every((w) => w.state === "review" || w.state === "done"))
+    return "in_review";
+  if (wos.every((w) => w.state === "todo")) return "pending";
+  return "building";
+}
+
 /**
- * Derive the scene structure for the current FRD from the work-order
- * frontmatter: `in_progress` → forge sprite (≤ wave; overflow queues),
- * `review` → tribunal sprite, `done` → trophy, `todo`/`fail` → "+N en cola".
- * The gate reads open when every FRD WO sits at `review`/`done` with at least
- * one still under review (AC-06-004.2), even before the engine's `gate` event.
+ * Derive the GLOBAL scene from the work-order frontmatter (v2, global-wave
+ * engine): the forge shows `in_progress` WOs of EVERY FRD (≤ wave — the real
+ * wave), the tribunal line is the FRDs whose WOs all reached review/done, the
+ * Campaña lists every FRD with its real state, and trophies are the latest
+ * `done` WOs across the project (each carrying its FRD color).
  */
 function structureFromWorkOrders(
   workOrders: readonly SceneWorkOrder[],
-  frdId: string,
   wave: number,
 ): SceneStructure {
-  const frdWos = workOrders.filter((w) => w.frd === frdId);
-  const building = frdWos.filter((w) => w.state === "in_progress");
-  const inReview = frdWos.filter((w) => w.state === "review");
-  const waiting = frdWos.filter((w) => w.state === "todo" || w.state === "fail");
+  // Group by FRD in file order; assign each FRD its stable palette color.
+  const byFrd = new Map<string, SceneWorkOrder[]>();
+  for (const w of workOrders) {
+    const list = byFrd.get(w.frd);
+    if (list) list.push(w);
+    else byFrd.set(w.frd, [w]);
+  }
+  const colorOf = new Map<string, string>();
+  const campaign: CampaignFrd[] = [];
+  let idx = 0;
+  for (const [frd, wos] of byFrd) {
+    const colorKey = FRD_COLOR_KEYS[idx % FRD_COLOR_KEYS.length] ?? "--color-agent-unknown";
+    colorOf.set(frd, colorKey);
+    idx++;
+    campaign.push({
+      frd,
+      title: deriveFrdTitle(frd),
+      state: campaignState(wos),
+      done: wos.filter((w) => w.state === "done").length,
+      total: wos.length,
+      colorKey,
+    });
+  }
 
+  const gateQueue = campaign.filter((c) => c.state === "in_review").map((c) => c.frd);
+
+  // Forge: every in_progress WO across FRDs (the actual global wave), ≤ wave.
+  const building = workOrders.filter((w) => w.state === "in_progress");
   const forgeSprites = building.slice(0, wave);
+  // Tribunal sprites: EVERY review WO stands at the tribunal (it already walked
+  // there — committed, awaiting its FRD's gate), even while its FRD still forges
+  // siblings; the LINE chips below list only the gate-READY FRDs.
+  const inReview = workOrders
+    .filter((w) => w.state === "review")
+    .slice(0, MAX_TRIBUNAL_SPRITES);
+
+  const woEntry = (w: SceneWorkOrder, state: WoState) => ({
+    wo: w.id,
+    title: w.id,
+    state,
+    frd: w.frd,
+    colorKey: colorOf.get(w.frd) ?? "--color-agent-unknown",
+  });
   const running: FraguaSnapshot["running"] = [
-    ...forgeSprites.map((w) => ({ wo: w.id, title: w.id, state: "building" as WoState })),
-    ...inReview.map((w) => ({ wo: w.id, title: w.id, state: "in_review" as WoState })),
+    ...forgeSprites.map((w) => woEntry(w, "building")),
+    ...inReview.map((w) => woEntry(w, "in_review")),
   ];
 
-  const trophyWoIds = frdWos.filter((w) => w.state === "done").map((w) => w.id);
-  const gateOpenFromState =
-    frdWos.length > 0 &&
-    inReview.length > 0 &&
-    frdWos.every((w) => w.state === "review" || w.state === "done");
+  // Bóveda: the LATEST done WOs across the project (file order ≈ build order,
+  // so the tail is the freshest work), each with its FRD color.
+  const done = workOrders.filter((w) => w.state === "done");
+  const trophies = done
+    .slice(Math.max(0, done.length - MAX_TROPHIES))
+    .map((w) => ({ wo: w.id, frd: w.frd, colorKey: colorOf.get(w.frd) ?? "--color-agent-unknown" }));
+
+  const waiting = workOrders.filter((w) => w.state === "todo" || w.state === "fail");
 
   return {
     running,
     queuedCount: waiting.length + (building.length - forgeSprites.length),
-    trophyWoIds,
-    gateOpenFromState,
-    totals: {
-      done: workOrders.filter((w) => w.state === "done").length,
-      total: workOrders.length,
-    },
+    trophies,
+    campaign,
+    gateQueue,
+    totals: { done: done.length, total: workOrders.length },
   };
+}
+
+/** The freshest engine `gate` event's FRD — the tribunal-in-session hint. */
+function lastGateEventFrd(events: readonly DashboardEvent[]): string | null {
+  let last: string | null = null;
+  for (const ev of events) {
+    if (ev.event === "gate" && typeof ev.frd === "string" && ev.frd.trim() !== "") last = ev.frd;
+  }
+  return last;
 }
 
 // ---------------------------------------------------------------------------
@@ -489,12 +583,30 @@ export function toFraguaSnapshot(
   const wave = WAVE[mode];
   const eventVMs = events.map(toEventVM);
 
-  // FRD focus: the freshest event frd wins; the frontmatter's in-flight FRD is
-  // the fallback (an active build whose events rotated away still renders).
-  const currentFrdId = eventFrdId ?? frdFromWorkOrders(opts.workOrders);
+  // Structure: frontmatter when available (DR-092) — the GLOBAL scene; event-
+  // derived single-FRD fallback for legacy callers/tests without workOrders.
+  const fromFm =
+    opts.workOrders !== undefined && opts.workOrders.length > 0
+      ? structureFromWorkOrders(opts.workOrders, wave)
+      : null;
+
+  // Tribunal in session: the freshest engine `gate` event picks WHICH queued
+  // FRD is being judged; the head of the line is the honest default (gates are
+  // serialized, BL-0021 — at most one is genuinely in session).
+  const gateHint = lastGateEventFrd(events);
+  const judging =
+    fromFm !== null
+      ? (gateHint !== null && fromFm.gateQueue.includes(gateHint) ? gateHint : (fromFm.gateQueue[0] ?? null))
+      : null;
+
+  // FRD focus (header/MissionBar): the FRD under judgment, else the first one
+  // building, else the freshest event frd (a finished build still renders its
+  // last scene, powered off), else the frontmatter's in-flight FRD.
+  const firstBuilding = fromFm?.campaign.find((c) => c.state === "building")?.frd ?? null;
+  const currentFrdId = judging ?? firstBuilding ?? eventFrdId ?? frdFromWorkOrders(opts.workOrders);
 
   if (currentFrdId === null) {
-    return { ...emptySnapshot, mode, wave, events: eventVMs };
+    return { ...emptySnapshot, mode, wave, events: eventVMs, campaign: fromFm?.campaign };
   }
 
   const ctx: FrdContext = { currentFrdId, wave };
@@ -506,24 +618,14 @@ export function toFraguaSnapshot(
   // mark the snapshot inactive so the scene shows the powered-off state (AC-06-013).
   const isFactoryOff = opts.running === false;
 
-  // Structure: frontmatter when available (DR-092); event-derived fallback.
-  const fromFm =
-    opts.workOrders !== undefined
-      ? structureFromWorkOrders(opts.workOrders, currentFrdId, wave)
-      : null;
-
-  // Trophies: frontmatter `done` WOs first (stable file order), then any
-  // achievement-event trophies not already present (legacy emitters).
-  const trophyWoIds =
+  // Trophies: frontmatter `done` WOs (with FRD colors); achievement-event
+  // trophies only as the legacy fallback when no frontmatter is available.
+  const trophies =
+    fromFm !== null ? fromFm.trophies : scan.trophyWoIds.slice(0, MAX_TROPHIES).map((wo) => ({ wo }));
+  const archivedCount =
     fromFm !== null
-      ? [
-          ...fromFm.trophyWoIds,
-          ...scan.trophyWoIds.filter((id) => !fromFm.trophyWoIds.includes(id)),
-        ]
-      : scan.trophyWoIds;
-
-  const displayedTrophies = trophyWoIds.slice(0, MAX_TROPHIES);
-  const archivedCount = Math.max(0, trophyWoIds.length - MAX_TROPHIES);
+      ? Math.max(0, fromFm.totals.done - fromFm.trophies.length)
+      : Math.max(0, scan.trophyWoIds.length - MAX_TROPHIES);
 
   const eventRunning = scan.runningWos.map((wo) => ({
     wo,
@@ -542,12 +644,14 @@ export function toFraguaSnapshot(
       total: Math.max(scan.allWoIds.size, scan.globalDoneWoIds.size),
     };
 
-  // The queue is per-FRD: only current-FRD trophies count as already done.
   const queuedCount =
     fromFm?.queuedCount ??
     Math.max(0, scan.allWoIds.size - running.length - scan.trophyWoIds.length);
 
-  const gateOpen = scan.gateOpen || (fromFm?.gateOpenFromState ?? false);
+  const gateOpen = fromFm !== null ? judging !== null : scan.gateOpen;
+  const gate = isFactoryOff
+    ? { open: false, judging: null, queue: fromFm?.gateQueue ?? [] }
+    : { open: gateOpen, judging: judging ?? null, queue: fromFm?.gateQueue ?? [] };
 
   return {
     frd: { id: currentFrdId, title: deriveFrdTitle(currentFrdId) },
@@ -555,10 +659,11 @@ export function toFraguaSnapshot(
     wave,
     running,
     queuedCount,
-    gate: { open: isFactoryOff ? false : gateOpen },
-    trophies: displayedTrophies.map((wo) => ({ wo })),
+    gate,
+    trophies,
     archivedCount,
     project: projectTotals,
+    campaign: fromFm?.campaign,
     events: eventVMs,
     active: !isFactoryOff,
     lastEventAt: opts.lastEventAt,
