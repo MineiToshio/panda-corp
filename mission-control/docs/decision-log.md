@@ -4,6 +4,24 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-02 — PendingMergeBadge marked `data-volatile`; logros baseline re-blessed after live-data drift
+
+**What:** The header's "⎇ pendientes" chip (`PendingMergeBadge`) now carries `data-volatile`
+(DR-088), so the Visual-Fidelity Gate hides it before the screenshot — it renders LIVE git state
+(pending worktrees appear/disappear as sessions work), which is repo activity, not page chrome.
+The `/achievements` baseline (`logros-desktop`) was re-blessed once: the merge gate for La Fragua
+v2 Fase 2 went RED on it with a diff that was 100% data (guild level 12→13, XP bar, achievement
+dates, trophy counts — all earned by the real build that had just completed) while the branch
+touched no achievements code. Oracle recorded: `git diff` of the branch shows zero changes under
+`src/app/achievements/`; the pixel diff shows only data regions. Not a blind `-u` — the other
+blessed baselines were untouched by the re-bless run.
+
+**Why:** The e2e webServer runs against the LIVE factory tree, so pages that render earned/derived
+data (the achievements character sheet) drift with every completed build and RED any unrelated
+merge. The durable fix — a deterministic fixture factory root for the e2e server — is filed in the
+project change queue; until it lands, a data-drift re-bless must record its oracle here. Impact:
+`PendingMergeBadge.tsx`, `e2e/visual.spec.ts-snapshots/logros-desktop-desktop-darwin.png`.
+
 ## 2026-07-02 — "Siguiente paso" panel interpolates the real idea name (bug, WO-02-013)
 
 **What:** Integrated change `mc-nextstep-real-idea-name.md` (type `bug`) into the build as

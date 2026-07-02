@@ -93,6 +93,10 @@ function PendingRow({ item }: { item: PendingItem }): React.JSX.Element {
  * PendingMergeBadge — the shell's un-merged-work indicator. Renders nothing when there is none, an
  * alert-toned count when anything is stale, an explicit error chip when git can't be read, and a Modal
  * with the full list on click.
+ *
+ * Both chip variants carry `data-volatile` (DR-088): the badge renders LIVE git state (pending
+ * worktrees appear/disappear as sessions work), so the visual gate hides it — otherwise every
+ * blessed page's baseline would drift with repo activity.
  */
 export function PendingMergeBadge({ result }: PendingMergeBadgeProps): React.JSX.Element | null {
   const [open, setOpen] = useState(false);
@@ -104,6 +108,7 @@ export function PendingMergeBadge({ result }: PendingMergeBadgeProps): React.JSX
       <span
         data-testid="pending-merge-badge"
         data-state="error"
+        data-volatile=""
         title="No se pudo leer el estado de merges pendientes"
         style={navTabStyle(false)}
       >
@@ -123,6 +128,7 @@ export function PendingMergeBadge({ result }: PendingMergeBadgeProps): React.JSX
         type="button"
         data-testid="pending-merge-badge"
         data-state={hasStale ? "stale" : "pending"}
+        data-volatile=""
         aria-label={accessibleName}
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}
