@@ -177,12 +177,9 @@ function rowStyle(vm: EventVM): React.CSSProperties {
     color: vm.isFailure ? "var(--color-failure-text, var(--color-text, currentColor))" : "inherit",
   };
 
-  // Multi-project: project-color left border + role-color second (via outline-offset trick)
-  if (vm.projectColorKey && vm.roleColorKey) {
-    base.outline = `2px solid var(${vm.roleColorKey}, var(--color-accent, currentColor))`;
-    base.outlineOffset = "-2px";
-  }
-
+  // The single 3px left stripe is the ONLY color the row carries (owner, 2026-07-02):
+  // the old full-row role-color outline turned the feed into saturated boxes that
+  // clashed with the app palette. Project vs role still resolves in the stripe order.
   return base;
 }
 
@@ -218,9 +215,11 @@ const PIN_STYLE: React.CSSProperties = {
   bottom: "calc(var(--spacing, 0.25rem) * 3)",
   right: "calc(var(--spacing, 0.25rem) * 3)",
   padding: "calc(var(--spacing, 0.25rem) * 2) calc(var(--spacing, 0.25rem) * 3)",
-  background: "var(--color-accent, oklch(0.65 0.18 260))",
-  color: "var(--color-accent-text, Canvas)",
-  border: "none",
+  // --color-accent-text is the "accent-colored text on a NORMAL surface" token — on an
+  // accent background it was unreadable (owner, 2026-07-02). Neutral readable chip instead.
+  background: "var(--color-card, Canvas)",
+  color: "var(--color-text, CanvasText)",
+  border: "var(--hairline, 1px) solid var(--color-border-strong, currentColor)",
   borderRadius: "var(--radius, 0.5rem)",
   cursor: "pointer",
   fontSize: "0.75rem",

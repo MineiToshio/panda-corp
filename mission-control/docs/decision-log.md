@@ -4,6 +4,26 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-02 — Party polish: vault groups completed FRDs; the scene chrome drops the candy palette
+
+**What:** Owner-directed polish pass (direct drain, DR-097). (1) **Vault FRD grouping
+(AC-06-019.8)**: a fully-VERIFIED FRD collapses into ONE stacked trophy labelled `FRD-NN` (two
+ghost sprites + tooltip with the WO count); loose verified WOs of in-progress FRDs keep their
+statuette; "+N arch." now counts REPRESENTED WOs (a group stands for all of its FRD's orders).
+(2) **Quiet palette**: Campaña chips lose the 21-hue saturated borders (identity = small dot only;
+"en sesión" = app accent), feed rows lose the full role-color outline (one 3px left stripe), the
+"Ir al último" pin becomes a neutral readable chip (it used `--color-accent-text` ON an accent
+background — the token means "accent text on a normal surface"), and the per-sprite FRD bar becomes
+a 6px dot (the bar read as a loader) — removed entirely in the vault. (3) **Bug found on the way**:
+with EVERY WO done and no event tail, focus resolved to null and the snapshot early-returned EMPTY —
+the finished build's vault vanished; `frdFromWorkOrders` now falls back to the last FRD.
+
+**Why:** Owner: the strip and feed colors were "chillones", misaligned with the app; the bar looked
+like a loader and meant nothing in the vault; a completed FRD should read as one achievement.
+Enfermería stays event-honest (only renders with real BLOCKED WOs); the Campamento remains Fase 3.
+Impact: `fragua-snapshot.ts` (trophies `group`, focus fallback), `FraguaScene.tsx` (VaultRoom
+stacks, dot marker), `CampaignStrip.tsx`, `EventFeed.tsx`; +2 grouping tests; 576 Party tests green.
+
 ## 2026-07-02 — La Fragua documented end-to-end: as-built blueprint §7 + Manual page (DR-046)
 
 **What:** The v2 Party/La Fragua pipeline is now fully documented for any agent or human:

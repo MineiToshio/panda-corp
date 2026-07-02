@@ -465,8 +465,9 @@ function RunningSprite({
           woId={item.wo}
         />
       )}
-      {/* FRD standard (v2 global scene): decorative — the frd id itself travels
-          in data-frd + the tooltip, never color alone. */}
+      {/* FRD marker (v2 global scene): a small dot, not a bar — the bar read as a
+          loader (owner, 2026-07-02). Decorative: the frd id itself travels in
+          data-frd + the tooltip, never color alone. */}
       {item.colorKey !== undefined && (
         <span
           data-testid={`fragua-wo-banner-${item.wo}`}
@@ -475,11 +476,12 @@ function RunningSprite({
             position: "absolute",
             left: "50%",
             transform: "translateX(-50%)",
-            bottom: "-6px",
-            width: "34px",
-            height: "4px",
-            borderRadius: "2px",
+            bottom: "-7px",
+            width: "6px",
+            height: "6px",
+            borderRadius: "50%",
             background: `var(${item.colorKey})`,
+            opacity: 0.9,
           }}
         />
       )}
@@ -556,9 +558,17 @@ function InfirmaryCorner({
   );
 }
 
+/** "frd-02-ideas-board" → "FRD-02" (the stacked-trophy tag). */
+function frdShortLabel(frdId: string): string {
+  const m = /^frd-(\d+)/.exec(frdId);
+  return m ? `FRD-${m[1]}` : frdId;
+}
+
 /**
  * Vault room — the verified-WO trophy shelf (AC-06-005.1) plus the compact
- * "+N arch." indicator (AC-06-005.2). Trophies come pre-capped at MAX_VAULT.
+ * "+N arch." indicator (AC-06-005.2). A fully-verified FRD arrives as ONE
+ * `group` entry and renders as a stacked trophy. Trophies come pre-capped at
+ * MAX_VAULT.
  */
 function VaultRoom({
   trophies,
@@ -581,36 +591,67 @@ function VaultRoom({
           height: `${VAULT_RECT.height}px`,
         }}
       >
-        {/* Trophy sprites — AgentSprite with state=vault (AC-06-005.1) */}
-        {trophies.map(({ wo: twoId, frd: trophyFrd, colorKey: trophyColor }, idx) => {
+        {/* Trophy sprites (AC-06-005.1). A COMPLETED FRD collapses into ONE stacked
+            trophy labelled FRD-NN (owner, 2026-07-02) — two ghost sprites behind the
+            front one suggest the pile; a loose verified WO keeps its single statuette.
+            No color bands here: identity lives in the tooltip/label, and a finished
+            shelf needs no "loader" marks. */}
+        {trophies.map((t, idx) => {
           const vaultX = VAULT_X0 + idx * VAULT_DX - VAULT_RECT.left;
           const vaultY = VAULT_Y - VAULT_RECT.top - SPRITE_HALF;
+          const isGroup = t.group !== undefined;
+          const label = isGroup ? frdShortLabel(t.wo) : t.wo;
+          const title = isGroup
+            ? `${t.wo} — FRD completo · ${t.group?.count} WO verificados`
+            : `${t.wo}${t.frd !== undefined ? ` · ${t.frd}` : ""}`;
           return (
             <div
-              key={twoId}
-              data-testid={`fragua-trophy-${twoId}`}
-              data-frd={trophyFrd}
-              title={`${twoId}${trophyFrd !== undefined ? ` · ${trophyFrd}` : ""}`}
+              key={t.wo}
+              data-testid={`fragua-trophy-${t.wo}`}
+              data-frd={t.frd}
+              data-group={isGroup ? "true" : undefined}
+              title={title}
               role="img"
-              aria-label={`Trofeo: ${twoId} verificado`}
+              aria-label={
+                isGroup
+                  ? `Trofeo: ${label} completo (${t.group?.count} órdenes verificadas)`
+                  : `Trofeo: ${t.wo} verificado`
+              }
               style={{ position: "absolute", left: vaultX, top: vaultY }}
             >
-              <AgentSprite agentRole="implementer" state="vault" woId={twoId} />
-              {trophyColor !== undefined && (
-                <span
-                  aria-hidden="true"
-                  style={{
-                    position: "absolute",
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    bottom: "-5px",
-                    width: "28px",
-                    height: "3px",
-                    borderRadius: "2px",
-                    background: `var(${trophyColor})`,
-                  }}
-                />
+              {isGroup && (
+                <>
+                  {/* biome-ignore lint/performance/noImgElement: pixel-art ghost of the stack (image-rendering:pixelated) — same rationale as AgentSprite. */}
+                  <img
+                    src="/prototype/assets/agents/backend-dev.png"
+                    alt=""
+                    width={26}
+                    height={26}
+                    style={{
+                      imageRendering: "pixelated",
+                      position: "absolute",
+                      left: "14px",
+                      top: "-6px",
+                      opacity: 0.35,
+                    }}
+                  />
+                  {/* biome-ignore lint/performance/noImgElement: pixel-art ghost of the stack — same rationale as above. */}
+                  <img
+                    src="/prototype/assets/agents/backend-dev.png"
+                    alt=""
+                    width={30}
+                    height={30}
+                    style={{
+                      imageRendering: "pixelated",
+                      position: "absolute",
+                      left: "8px",
+                      top: "-3px",
+                      opacity: 0.6,
+                    }}
+                  />
+                </>
               )}
+              <AgentSprite agentRole="implementer" state="vault" woId={label} />
             </div>
           );
         })}

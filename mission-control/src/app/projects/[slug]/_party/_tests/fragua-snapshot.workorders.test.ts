@@ -214,3 +214,46 @@ describe("frd-06: toFraguaSnapshot — structure from work orders (DR-092)", () 
     expect(snapshot.gate.open).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Vault FRD grouping (owner, 2026-07-02): a FULLY-verified FRD collapses into
+// ONE stacked trophy; loose verified WOs of in-progress FRDs stay individual.
+// ---------------------------------------------------------------------------
+
+describe("frd-06 v2: vault groups a completed FRD into one trophy", () => {
+  const wo = (
+    id: string,
+    state: "todo" | "in_progress" | "review" | "done" | "fail",
+    frd: string,
+  ) => ({ id, frd, state });
+
+  it("a FRD with EVERY wo done → one group entry (wo = the frd id, count = its WOs)", () => {
+    const snapshot = toFraguaSnapshot([], {
+      lastEventAt: null,
+      workOrders: [
+        wo("WO-01-001", "done", "frd-01-core"),
+        wo("WO-01-002", "done", "frd-01-core"),
+        wo("WO-02-001", "done", "frd-02-a"),
+        wo("WO-02-002", "in_progress", "frd-02-a"),
+      ],
+    });
+    // frd-01 completed → group; frd-02 in progress → its done WO stays loose.
+    expect(snapshot.trophies).toMatchObject([
+      { wo: "frd-01-core", frd: "frd-01-core", group: { count: 2 } },
+      { wo: "WO-02-001", frd: "frd-02-a" },
+    ]);
+    expect(snapshot.trophies[1]?.group).toBeUndefined();
+  });
+
+  it("archivedCount counts REPRESENTED WOs — a shelf of groups archives nothing it shows", () => {
+    // 12 FRDs × 1 done WO each, all complete → 12 groups, shelf caps at 9,
+    // 3 groups (3 WOs) fall to the archive.
+    const workOrders = Array.from({ length: 12 }, (_, i) =>
+      wo(`WO-${i + 1}-001`, "done" as const, `frd-${String(i + 1).padStart(2, "0")}-x`),
+    );
+    const snapshot = toFraguaSnapshot([], { lastEventAt: null, workOrders });
+    expect(snapshot.trophies).toHaveLength(9);
+    expect(snapshot.trophies.every((t) => t.group?.count === 1)).toBe(true);
+    expect(snapshot.archivedCount).toBe(3);
+  });
+});

@@ -98,8 +98,14 @@ export type FraguaSnapshot = {
    * gates, BL-0021).
    */
   gate: { open: boolean; judging?: string | null; queue?: string[] };
-  /** Most recent VERIFIED WOs on the Bóveda shelf (≤9; remainder archived). */
-  trophies: { wo: string; frd?: string; colorKey?: string }[];
+  /**
+   * The Bóveda shelf (≤9 entries; remainder archived). An entry is either ONE
+   * verified WO, or — when EVERY work order of a FRD is VERIFIED — that whole
+   * FRD collapsed into a single stacked trophy (`group` present; `wo` then
+   * carries the FRD id so keys stay unique). Owner, 2026-07-02: a finished FRD
+   * reads as one achievement, not N repeated statuettes.
+   */
+  trophies: { wo: string; frd?: string; colorKey?: string; group?: { count: number } }[];
   /** Number of VERIFIED WOs beyond the shelf capacity (AC-06-005.2). */
   archivedCount: number;
   /** Global project WO counter (AC-06-002.2). */
@@ -290,7 +296,13 @@ function detectModeAndFrd(events: readonly DashboardEvent[]): {
 function frdFromWorkOrders(workOrders: readonly SceneWorkOrder[] | undefined): string | null {
   if (workOrders === undefined) return null;
   const inFlight = workOrders.find((w) => w.state === "in_progress" || w.state === "review");
-  return inFlight !== undefined ? inFlight.frd : null;
+  if (inFlight !== undefined) return inFlight.frd;
+  // A FINISHED build (every WO done, no event tail) still renders its scene —
+  // powered off, trophies on the shelf. Focus falls to the LAST FRD (the freshest
+  // completed work); without this the all-done case early-returned an empty
+  // snapshot and the vault vanished (found adding the FRD-group shelf, 2026-07-02).
+  const last = workOrders[workOrders.length - 1];
+  return last !== undefined ? last.frd : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -452,7 +464,7 @@ function scanFrdData(events: readonly DashboardEvent[], ctx: FrdContext): FrdSca
 interface SceneStructure {
   running: FraguaSnapshot["running"];
   queuedCount: number;
-  trophies: { wo: string; frd: string; colorKey: string }[];
+  trophies: { wo: string; frd: string; colorKey: string; group?: { count: number } }[];
   campaign: CampaignFrd[];
   /** FRDs whose WOs all sit at review/done (≥1 review) — the tribunal line, in order. */
   gateQueue: string[];
@@ -534,14 +546,30 @@ function structureFromWorkOrders(
     ...inReview.map((w) => woEntry(w, "in_review")),
   ];
 
-  // Bóveda: the LATEST done WOs across the project (file order ≈ build order,
-  // so the tail is the freshest work), each with its FRD color.
+  // Bóveda: a FULLY-verified FRD collapses into ONE stacked trophy (its WOs read
+  // as one achievement); loose verified WOs of FRDs still in progress keep their
+  // individual statuette. Shelf capped at MAX_TROPHIES keeping the tail (the
+  // loose entries are the freshest work). Everything not represented is archived.
   const done = workOrders.filter((w) => w.state === "done");
-  const trophies = done.slice(Math.max(0, done.length - MAX_TROPHIES)).map((w) => ({
-    wo: w.id,
-    frd: w.frd,
-    colorKey: colorOf.get(w.frd) ?? "--color-agent-unknown",
-  }));
+  const completedFrds = new Set(campaign.filter((c) => c.state === "verified").map((c) => c.frd));
+  const groupEntries = campaign
+    .filter((c) => c.state === "verified")
+    .map((c) => ({
+      wo: c.frd,
+      frd: c.frd,
+      colorKey: c.colorKey,
+      group: { count: c.total },
+    }));
+  const looseEntries = done
+    .filter((w) => !completedFrds.has(w.frd))
+    .map((w) => ({
+      wo: w.id,
+      frd: w.frd,
+      colorKey: colorOf.get(w.frd) ?? "--color-agent-unknown",
+    }));
+  const trophies: SceneStructure["trophies"] = [...groupEntries, ...looseEntries].slice(
+    -MAX_TROPHIES,
+  );
 
   const waiting = workOrders.filter((w) => w.state === "todo");
   // Failure is a first-class state (AC-06-015.1): a BLOCKED WO gets a bed in the
@@ -615,9 +643,11 @@ function composeTrophies(
   scan: FrdScan,
 ): { trophies: FraguaSnapshot["trophies"]; archivedCount: number } {
   if (fromFm !== null) {
+    // A group entry represents ALL its FRD's WOs — archived = done not on the shelf.
+    const represented = fromFm.trophies.reduce((sum, t) => sum + (t.group?.count ?? 1), 0);
     return {
       trophies: fromFm.trophies,
-      archivedCount: Math.max(0, fromFm.totals.done - fromFm.trophies.length),
+      archivedCount: Math.max(0, fromFm.totals.done - represented),
     };
   }
   return {

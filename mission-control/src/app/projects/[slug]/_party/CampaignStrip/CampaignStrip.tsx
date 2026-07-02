@@ -93,12 +93,19 @@ export function CampaignStrip({ campaign, judging }: CampaignStripProps): React.
             title={`${c.title} — ${badge.label}${inSession ? " (en sesión)" : ""} · ${c.done}/${c.total} WO`}
             style={{
               ...CHIP_BASE,
-              borderColor: dim ? undefined : `var(${c.colorKey})`,
+              // Neutral chrome (owner, 2026-07-02): 21 FRDs × a saturated border each read
+              // as a candy strip, misaligned with the app. Identity stays in the DOT only;
+              // "en sesión" emphasis uses the app accent, never the FRD hue.
               opacity: dim ? 0.55 : 1,
-              boxShadow: inSession ? `inset 0 0 0 1px var(${c.colorKey})` : undefined,
+              boxShadow: inSession
+                ? "inset 0 0 0 1px var(--color-accent, currentColor)"
+                : undefined,
             }}
           >
-            <span aria-hidden="true" style={{ color: `var(${c.colorKey})` }}>
+            <span
+              aria-hidden="true"
+              style={{ color: `var(${c.colorKey})`, fontSize: "0.5625rem", opacity: 0.85 }}
+            >
               ●
             </span>
             {shortFrdId(c.frd)}

@@ -155,6 +155,16 @@ With the global-wave engine (BL-0021) several FRDs genuinely build at once, so t
   the courier flight uses the courier sprite, the enfermería strip sits on the dimmed infirmary room
   art, and the panda mascot strolls the stage bottom on a long pure-CSS loop — hidden under
   reduced-motion.)**
+- AC-06-019.8 (vault grouping + quiet palette, owner 2026-07-02): WHEN every work order of a FRD
+  is VERIFIED, THE Bóveda SHALL show that FRD as ONE stacked trophy labelled `FRD-NN` (ghost
+  sprites suggest the pile; tooltip carries the WO count) instead of N individual statuettes;
+  loose verified WOs of in-progress FRDs keep their own statuette, and "+N arch." counts the
+  REPRESENTED work orders. AND the Party's chrome SHALL stay aligned with the app palette: the
+  Campaña chips carry neutral borders (FRD identity ONLY as a small dot; "en sesión" = app
+  accent), the feed rows carry a single 3px left stripe (never a full colored outline), the
+  feed's "Ir al último" pin is a neutral readable chip, and the per-sprite FRD marker is a
+  small dot, not a bar (it read as a loader) — removed entirely in the vault. A finished build
+  (all WOs done, no event tail) still renders its scene and shelf.
 - AC-06-019.7 (DR-066 consumer): THE Party surface SHALL declare its own freshness with a graded
   badge — "en vivo" (signal < 3·T), "datos de hace N min" (< 10-min TTL), "sin señal" (≥ TTL or no
   signal) — fed by the freshest of the supervisor heartbeat (`status.yaml`) and the latest event;
