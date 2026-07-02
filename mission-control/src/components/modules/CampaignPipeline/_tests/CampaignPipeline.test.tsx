@@ -485,6 +485,18 @@ describe("ficha-next-step — per-phase runnable commands", () => {
     expect(cmds).not.toHaveTextContent("<idea>");
   });
 
+  it("offers /pandacorp:explore as the optional refine step at research only (AC-02-010.10)", () => {
+    // Research (a discovered/recommended card, still under investigation) → explore is
+    // offered alongside spec, with the real slug interpolated.
+    const { unmount } = render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} />);
+    expect(screen.getByTestId("ficha-next-step")).toHaveTextContent("/pandacorp:explore my-idea");
+    unmount();
+
+    // An in-pipeline phase (build) must NOT offer explore — the idea is past investigation.
+    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={4} />);
+    expect(screen.getByTestId("ficha-next-step")).not.toHaveTextContent("/pandacorp:explore");
+  });
+
   it("renders one copyable command row (CmdRow) per option", () => {
     // build phase has 4 options (release / implement / bug / change).
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={4} />);

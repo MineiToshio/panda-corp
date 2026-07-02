@@ -130,6 +130,12 @@ Read-only kanban of the idea base, with idea capture, a navigable detail and dis
   readable regardless of progress (owner, 2026-06-22); the header label ("en espera") signals it is a
   future phase. Only the build phase's "Entrar a La Fragua" **action** is withheld until the build is
   reached. (Superseded the earlier locked/empty placeholder, which hid the phase info.)
+- AC-02-010.10 — WHILE the idea is still under investigation (a pre-pipeline `discovered` /
+  `recommended` card → the **research** ficha), THE "Qué puedes correr" section SHALL offer
+  **`/pandacorp:explore <idea>`** (slug interpolated) as the optional refine step alongside `spec` —
+  the visible path to evolve the idea conversationally BEFORE documenting the MVP. Explore is an
+  option, never the advance step (spec remains first). No later (in-pipeline / shipped) phase's ficha
+  SHALL offer explore. (Change `mc-nextstep-offer-explore`, 2026-07-02.)
 
 ### Card-detail fidelity pass (amendment, 2026-06-22)
 A visual-fidelity reconciliation of the card detail against `prototype/party-pipeline.html` (the

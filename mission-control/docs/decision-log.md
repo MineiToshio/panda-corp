@@ -4,6 +4,21 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-02 — Explore offered at the research ficha (AC-02-010.10) — change closed as already-built, now locked
+
+**What:** Closed change `mc-nextstep-offer-explore` (owner-approved DIRECT drain, token-saving mode,
+DR-097 discipline by hand). Verification showed the behavior already shipped with the Campaña
+redesign: `phases.ts` research phase offers `/pandacorp:explore <idea>` ("Sigue explorando la idea en
+conversación") alongside spec, the slug interpolates (WO-02-013), and no in-pipeline/shipped phase
+offers explore (`phaseFromStatus`: discovered/recommended → research). What was missing was the
+contract: added **AC-02-010.10** to FRD-02 and an anchor test in `CampaignPipeline.test.tsx`
+(research ficha shows `/pandacorp:explore my-idea`; the build ficha must not).
+
+**Why:** A change satisfied by construction still needs its acceptance locked — without the AC and
+the test, a future `phases.ts` edit could silently drop the explore path the owner asked for.
+Impact: `docs/frds/frd-02-ideas-board/frd.md` (AC-02-010.10), `CampaignPipeline.test.tsx` (+1 test),
+change queue README (done).
+
 ## 2026-07-02 — PendingMergeBadge marked `data-volatile`; logros baseline re-blessed after live-data drift
 
 **What:** The header's "⎇ pendientes" chip (`PendingMergeBadge`) now carries `data-volatile`
