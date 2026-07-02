@@ -484,12 +484,14 @@ function InfirmaryCorner({
         padding: "4px 8px",
         borderRadius: "var(--radius, 0.5rem)",
         border: empty
-          ? "var(--hairline, 1px) dashed var(--color-border, currentColor)"
+          ? "var(--hairline, 1px) dashed var(--color-border-strong, currentColor)"
           : "var(--hairline, 1px) dashed var(--color-danger, currentColor)",
         // The infirmary pixel-art room, dimmed so the resting sprites read on top.
         background:
           "linear-gradient(oklch(0.18 0.05 25 / 0.6), oklch(0.18 0.05 25 / 0.6)), url(/prototype/assets/zones/infirmary.png) center / cover",
-        opacity: empty ? 0.55 : 1,
+        minWidth: "112px",
+        minHeight: "44px",
+        opacity: empty ? 0.85 : 1,
         transition: "opacity 0.4s ease, border-color 0.4s ease",
         zIndex: 5,
       }}
@@ -508,7 +510,7 @@ function InfirmaryCorner({
       {empty && (
         <span
           style={{
-            fontSize: "9px",
+            fontSize: "11px",
             fontFamily: "var(--font-display, system-ui)",
             color: "var(--color-text-muted, currentColor)",
             paddingBottom: "2px",
@@ -616,27 +618,35 @@ function VaultRoom({
                   <img
                     src="/prototype/assets/agents/backend-dev.png"
                     alt=""
-                    width={30}
-                    height={30}
+                    width={42}
+                    height={42}
                     style={{
+                      // Tailwind preflight sets img{max-width:100%}: inside this zero-width
+                      // absolute wrapper that collapses the pile to 0 — undo it explicitly.
+                      width: "42px",
+                      height: "42px",
+                      maxWidth: "none",
                       imageRendering: "pixelated",
                       position: "absolute",
-                      left: "9px",
-                      top: "-8px",
-                      opacity: 0.8,
+                      left: "26px",
+                      top: "-18px",
+                      opacity: 0.75,
                     }}
                   />
                   {/* biome-ignore lint/performance/noImgElement: pixel-art pile member — same rationale as above. */}
                   <img
                     src="/prototype/assets/agents/backend-dev.png"
                     alt=""
-                    width={32}
-                    height={32}
+                    width={42}
+                    height={42}
                     style={{
+                      width: "42px",
+                      height: "42px",
+                      maxWidth: "none",
                       imageRendering: "pixelated",
                       position: "absolute",
-                      left: "5px",
-                      top: "-4px",
+                      left: "13px",
+                      top: "-9px",
                       opacity: 0.9,
                     }}
                   />

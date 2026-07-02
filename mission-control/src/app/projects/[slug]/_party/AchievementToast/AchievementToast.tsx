@@ -31,6 +31,11 @@ import type { EventVM } from "../event-vm/event-vm";
 /** Duration in ms before the toast auto-dismisses. */
 const DISMISS_TIMEOUT_MS = 3500;
 
+/** Only an achievement FRESHER than this fires the toast — a stale tail replay is
+ * history (the feed already shows it), not news (owner, 2026-07-02: an hours-old
+ * "¡Logro desbloqueado!" greeted every page visit and read as stuck). */
+const FRESH_WINDOW_MS = 3 * 60_000;
+
 /** The event type that triggers the achievement toast. */
 const ACHIEVEMENT_EVENT_TYPE = "achievement";
 
@@ -158,9 +163,11 @@ export function AchievementToast({ latestEvent }: AchievementToastProps): React.
     setAnimated(!detectReducedMotion());
   }, []);
 
-  // React to new achievement events.
+  // React to new achievement events — FRESH ones only (stale tail = history).
   useEffect(() => {
     if (!isAchievement(latestEvent)) return;
+    const ageMs = Date.now() - Date.parse(latestEvent.at);
+    if (!Number.isFinite(ageMs) || ageMs > FRESH_WINDOW_MS) return;
 
     const key = eventKey(latestEvent);
     // Avoid re-firing the toast for the same event on re-renders.
@@ -192,6 +199,14 @@ export function AchievementToast({ latestEvent }: AchievementToastProps): React.
     };
   }, []);
 
+  const handleDismiss = () => {
+    if (dismissTimerRef.current !== null) {
+      clearTimeout(dismissTimerRef.current);
+      dismissTimerRef.current = null;
+    }
+    setVisible(false);
+  };
+
   // Render nothing when no achievement has arrived yet, or once dismissed.
   if (currentVM === null || !visible) {
     // biome-ignore lint/complexity/noUselessFragments: returning null from a JSX.Element function requires a fragment
@@ -222,6 +237,26 @@ export function AchievementToast({ latestEvent }: AchievementToastProps): React.
           </span>
         )}
       </div>
+
+      {/* Manual dismiss — the auto-timer covers the happy path; the ✕ guarantees
+          the owner is never stuck looking at a toast (owner, 2026-07-02). */}
+      <button
+        type="button"
+        data-testid="achievement-toast-dismiss"
+        aria-label="Cerrar el aviso de logro"
+        onClick={handleDismiss}
+        style={{
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          color: "var(--color-text-muted, currentColor)",
+          fontSize: "0.875rem",
+          lineHeight: 1,
+          padding: "2px 4px",
+        }}
+      >
+        ✕
+      </button>
     </div>
   );
 }

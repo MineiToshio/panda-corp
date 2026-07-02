@@ -349,3 +349,33 @@ describe("FraguaScene — container and accessibility", () => {
     expect(screen.queryByTestId("fragua-frd-tracker")).not.toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Vault pile visibility (owner, 2026-07-02): Tailwind preflight img{max-width:100%}
+// collapsed the pile imgs to 0 inside the zero-width trophy wrapper.
+// ---------------------------------------------------------------------------
+
+describe("FraguaScene — the FRD pile is actually visible", () => {
+  it("a group trophy renders 2 back sprites with explicit width and max-width:none", () => {
+    const snapshot = snap({
+      trophies: [
+        {
+          wo: "frd-01-x",
+          frd: "frd-01-x",
+          colorKey: "--color-agent-implementer",
+          group: { count: 4 },
+        },
+      ],
+    });
+    render(<FraguaScene snapshot={snapshot} />);
+    const trophy = screen.getByTestId("fragua-trophy-frd-01-x");
+    const backs = [...trophy.querySelectorAll("img")].filter(
+      (img) => img.getAttribute("alt") === "",
+    );
+    expect(backs.length).toBeGreaterThanOrEqual(2);
+    for (const img of backs.slice(0, 2)) {
+      expect(img.style.width).toBe("42px");
+      expect(img.style.maxWidth).toBe("none");
+    }
+  });
+});

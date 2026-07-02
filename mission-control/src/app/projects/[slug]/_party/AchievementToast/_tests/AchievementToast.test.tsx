@@ -27,7 +27,7 @@
  *   IF-13-tokens (tokens.ts, WO-13-001) — motion tokens
  */
 
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { EventVM } from "../../event-vm/event-vm";
 import { AchievementToast } from "../AchievementToast";
@@ -36,12 +36,13 @@ import { AchievementToast } from "../AchievementToast";
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** A FRESH achievement (now) — the toast only fires inside the freshness window. */
 function makeAchievementVM(workOrder?: string): EventVM {
   return {
     icon: "trophy",
     isFailure: false,
     label: "¡Logro desbloqueado!",
-    at: "2026-06-17T12:00:00Z",
+    at: new Date().toISOString(),
     workOrder,
   };
 }
@@ -51,7 +52,7 @@ function makeNonAchievementVM(): EventVM {
     icon: "file-pen",
     isFailure: false,
     label: "Escritura",
-    at: "2026-06-17T12:00:00Z",
+    at: new Date().toISOString(),
   };
 }
 
@@ -269,5 +270,28 @@ describe("frd-06: AchievementToast — motion constraints (FRD-13)", () => {
       const ms = Number.parseFloat(match);
       expect(ms).toBeLessThan(300);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Freshness gate + manual dismiss (owner, 2026-07-02): a stale tail replay is
+// history, not news — and the ✕ guarantees no toast is ever stuck.
+// ---------------------------------------------------------------------------
+
+describe("frd-06: AchievementToast — stale events never fire; ✕ dismisses", () => {
+  it("an achievement OLDER than the freshness window does NOT show the toast", () => {
+    const stale: EventVM = {
+      ...makeAchievementVM("WO-06-099"),
+      at: new Date(Date.now() - 60 * 60_000).toISOString(),
+    };
+    render(<AchievementToast latestEvent={stale} />);
+    expect(screen.queryByTestId("achievement-toast")).not.toBeInTheDocument();
+  });
+
+  it("clicking ✕ hides the toast immediately", () => {
+    render(<AchievementToast latestEvent={makeAchievementVM("WO-06-100")} />);
+    expect(screen.getByTestId("achievement-toast")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("achievement-toast-dismiss"));
+    expect(screen.queryByTestId("achievement-toast")).not.toBeInTheDocument();
   });
 });

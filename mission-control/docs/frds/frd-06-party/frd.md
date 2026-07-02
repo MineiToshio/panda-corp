@@ -155,6 +155,14 @@ With the global-wave engine (BL-0021) several FRDs genuinely build at once, so t
   the courier flight uses the courier sprite, the enfermería strip sits on the dimmed infirmary room
   art, and the panda mascot strolls the stage bottom on a long pure-CSS loop — hidden under
   reduced-motion.)**
+- AC-06-019.10 (fit & finish, owner 2026-07-02): THE achievement toast SHALL fire only for an
+  achievement FRESHER than 3 minutes (a stale tail replay is history — the feed shows it) AND
+  SHALL carry a manual ✕ dismiss, so it can never greet a page visit hours later nor get stuck;
+  THE Misión strip SHALL show the campaign summary ("N/M FRDs") where the pips were (the strip
+  read as empty); THE FRD pile in the vault SHALL be visibly stacked (backs peek diagonally
+  up-right with explicit sizes — Tailwind preflight's `img{max-width:100%}` collapsed them to 0
+  inside the zero-width wrapper, regression-tested); THE empty enfermería SHALL be legible
+  (opacity 0.85, strong border, readable "sin heridos").
 - AC-06-019.9 (one voice per datum + growing vault, owner 2026-07-02): EVERY datum SHALL appear
   ONCE on the Party screen — the Misión strip carries the global WO counter and the effort
   (now with the wave size, "potente · 8 paralelos") and NO single-FRD chip (a mono-FRD relic);

@@ -4,6 +4,26 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-02 — Party fit & finish: fresh-only toast + ✕, Misión summary, the pile actually shows (AC-06-019.10)
+
+**What:** Four owner-reported nits closed. (1) **Toast**: `AchievementToast` fired for the latest
+achievement in the TAIL — an hours-old "¡Logro desbloqueado!" greeted every page visit and read as
+stuck. It now fires only inside a 3-minute freshness window (stale tail = history; the feed shows
+it) and carries a manual ✕. (2) **Misión summary**: the strip looked empty after dropping the
+mono-FRD chip — `MissionBar` gains an optional `summary` ("18/21 FRDs" from the campaign).
+(3) **The pile was invisible**: Tailwind preflight (`img { max-width: 100% }`) collapsed the two
+back sprites to 0×0 inside the zero-width trophy wrapper — found probing the DOM
+(`getBoundingClientRect` w:0). Fixed with explicit style width + `max-width: none`, offsets widened
+(13px/26px right, 9px/18px up) so the diagonal queue reads clearly; regression test added.
+(4) **Enfermería legibility**: opacity 0.85 + strong border + 11px "sin heridos" (it rendered but
+was nearly invisible over the dark art).
+
+**Why:** Owner: "de verdad hay muñequitos detrás? no lo noto"; "sigue diciendo misión y no hay nada
+escrito"; "el logro se quedó pegado, no hay forma de borrarlo"; "sigo sin ver la enfermería".
+Impact: `AchievementToast.tsx` (+ tests: stale-never-fires, ✕ dismisses), `MissionBar.tsx`
+(`summary` prop), `PartyScene.tsx` (missionSummary), `FraguaScene.tsx` (pile sizes/offsets,
+infirmary legibility) + the max-width regression test. 692 tests green.
+
 ## 2026-07-02 — Party consistency pass: one voice per datum, growing vault, permanent enfermería (AC-06-019.9)
 
 **What:** Owner-reported inconsistencies fixed in one pass. (1) **Dedup**: the Misión strip drops

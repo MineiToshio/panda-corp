@@ -187,6 +187,13 @@ const STAGE_WRAPPER_STYLE: React.CSSProperties = {
   position: "relative",
 };
 
+/** "18/21 FRDs" — completed vs total, from the campaign (empty → undefined). */
+function missionSummary(campaign: PartySceneProps["snapshot"]["campaign"]): string | undefined {
+  if (campaign === undefined || campaign.length === 0) return undefined;
+  const donefrds = campaign.filter((c) => c.state === "verified").length;
+  return `${donefrds}/${campaign.length} FRDs`;
+}
+
 // ---------------------------------------------------------------------------
 // PartyScene component
 // ---------------------------------------------------------------------------
@@ -224,6 +231,7 @@ export function PartyScene({ snapshot }: PartySceneProps): React.JSX.Element {
         done={project.done}
         total={project.total}
         effort={`${effortLabel(mode)} · ${snapshot.wave} paralelos`}
+        summary={missionSummary(snapshot.campaign)}
       />
 
       {/* === FlowStrip — always-visible 8-beat pipeline row (AC-06-010) === */}

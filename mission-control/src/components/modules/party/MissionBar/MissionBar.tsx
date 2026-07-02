@@ -32,6 +32,8 @@ interface FrdPip {
 }
 
 export interface MissionBarProps {
+  /** Plain summary shown after the label when there are no pips (e.g. "18/21 FRDs"). */
+  summary?: string;
   /** FRD pipeline pips (done / current / pending). */
   frdPips: readonly FrdPip[];
   /** WOs completed globally (tabular-nums counter). */
@@ -156,13 +158,30 @@ const EFFORT_STYLE: CSSProperties = {
  * @param props.total   - total WO count
  * @param props.effort  - build effort label (read-only)
  */
-export function MissionBar({ frdPips, done, total, effort }: MissionBarProps): React.JSX.Element {
+export function MissionBar({
+  frdPips,
+  done,
+  total,
+  effort,
+  summary,
+}: MissionBarProps): React.JSX.Element {
   return (
     <div data-testid="mission-bar-root" style={ROOT_STYLE}>
       {/* Misión label */}
       <span data-testid="mission-bar-label" style={LABEL_STYLE}>
         Misión
       </span>
+
+      {/* Global-wave summary (v2): plain read-only text — the per-FRD detail lives
+          in the Campaña strip below (owner, 2026-07-02: the strip looked empty). */}
+      {summary !== undefined && frdPips.length === 0 && (
+        <span
+          data-testid="mission-bar-summary"
+          style={{ color: "var(--color-text-muted, currentColor)", fontSize: "12px" }}
+        >
+          {summary}
+        </span>
+      )}
 
       {/* FRD pips with arrow separators */}
       {frdPips.map((pip, i) => (
