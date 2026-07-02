@@ -37,10 +37,10 @@ describe("frd-06 REVIEWER (fragua): Party tab mounts the La Fragua scene", () =>
     expect(screen.queryByTestId("fragua-room-vault")).not.toBeNull();
   });
 
-  it("frd-06: WHEN active THEN the FRD tracker is visible (AC-06-002.1)", () => {
+  it("frd-06: WHEN active THEN the single MissionBar header is visible (no in-scene tracker — owner, 2026-07-02)", () => {
     render(<PartyTab eventsPath={FIXTURE_EVENTS_ENRICHED_NDJSON} />);
-    // FRD id must appear in the scene.
-    expect(screen.queryByTestId("fragua-frd-id")).not.toBeNull();
+    expect(screen.getByTestId("mission-bar-root")).toBeInTheDocument();
+    expect(screen.queryByTestId("fragua-frd-tracker")).not.toBeInTheDocument();
   });
 
   it("frd-06: WHEN active THEN the EventFeed renders alongside the scene (AC-06-008.1)", () => {
@@ -52,12 +52,9 @@ describe("frd-06 REVIEWER (fragua): Party tab mounts the La Fragua scene", () =>
 describe("frd-06 REVIEWER (fragua): Production is read-only — no control affordances (AC-06-009.1)", () => {
   it("frd-06: WHEN active THEN NO mode selector reaches the DOM", () => {
     render(<PartyTab eventsPath={FIXTURE_EVENTS_ENRICHED_NDJSON} />);
-    // Mode is shown as read-only data (fragua-mode-display), never as a selector.
-    expect(screen.queryByTestId("mode-selector")).toBeNull();
-    expect(screen.queryByTestId("fragua-mode-selector")).toBeNull();
-    expect(screen.queryByRole("radiogroup")).toBeNull();
-    // The mode display element IS present (read-only data).
-    expect(screen.queryByTestId("fragua-mode-display")).not.toBeNull();
+    // The mode travels as read-only TEXT in the MissionBar; never a control.
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("fragua-mode-display")).not.toBeInTheDocument();
   });
 
   it("frd-06: WHEN active THEN NO pause button reaches the DOM", () => {

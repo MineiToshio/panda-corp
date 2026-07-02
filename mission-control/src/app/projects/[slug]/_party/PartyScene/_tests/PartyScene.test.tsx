@@ -84,9 +84,9 @@ describe("frd-06: PartyScene shell — MissionBar and FlowStrip (AC-06-009/010)"
     expect(beats).toHaveLength(8);
   });
 
-  it("frd-06: WHEN rendered THEN scene title contains 'La Fragua'", () => {
+  it("frd-06: WHEN rendered THEN the shell carries the La Fragua aria-label (no duplicated title row — owner, 2026-07-02)", () => {
     render(<PartyScene {...makeProps()} />);
-    expect(screen.getAllByText(/La Fragua/i).length).toBeGreaterThan(0);
+    expect(screen.getByLabelText(/La Fragua — sala de construcción/i)).toBeInTheDocument();
   });
 
   it("frd-06: WHEN rendered THEN MissionBar effort is read-only text (no button)", () => {

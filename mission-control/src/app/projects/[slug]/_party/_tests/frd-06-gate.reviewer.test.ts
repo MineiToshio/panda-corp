@@ -98,15 +98,21 @@ describe("frd-06 gate: global done counter is cross-FRD, decoupled from the shel
   });
 });
 
-describe("frd-06 gate: >9 verified trophies compact to +N archivados (AC-06-005.2)", () => {
-  it("frd-06 gate: 13 current-FRD achievements → 9 trophies shown + archivedCount === 4", () => {
+describe("frd-06 gate: the shelf grows rows; only past 45 entries does +N más compact (AC-06-005.2)", () => {
+  it("frd-06 gate: 13 current-FRD achievements → all 13 on the shelf, none archived", () => {
     const built = wos("WO-06", 13).map((wo) => working(wo, FRD, "powerful"));
     const verified = wos("WO-06", 13).map((wo) => achievement(wo, FRD));
     const snap = toFraguaSnapshot([...built, ...verified], OPTS);
-    expect(snap.trophies.length).toBe(9);
-    expect(snap.archivedCount).toBe(4);
-    // Shown + archived must reconstruct the full verified set (no trophy dropped).
-    expect(snap.trophies.length + snap.archivedCount).toBe(13);
+    expect(snap.trophies.length).toBe(13);
+    expect(snap.archivedCount).toBe(0);
+  });
+
+  it("frd-06 gate: 50 achievements → 45 shown + 5 archived (shown + archived = all)", () => {
+    const verified = wos("WO-06", 50).map((wo) => achievement(wo, FRD));
+    const snap = toFraguaSnapshot(verified, OPTS);
+    expect(snap.trophies.length).toBe(45);
+    expect(snap.archivedCount).toBe(5);
+    expect(snap.trophies.length + snap.archivedCount).toBe(50);
   });
 
   it("frd-06 gate: exactly 9 trophies → archivedCount === 0 (boundary, no off-by-one)", () => {

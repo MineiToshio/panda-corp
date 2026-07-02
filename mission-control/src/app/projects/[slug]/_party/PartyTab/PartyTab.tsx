@@ -128,30 +128,6 @@ const HEADING_STYLE: React.CSSProperties = {
   color: "var(--color-text, currentColor)",
 };
 
-const LIVE_BADGE_STYLE: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "calc(var(--spacing, 0.25rem) * 1)",
-  padding: "calc(var(--spacing, 0.25rem) * 0.5) calc(var(--spacing, 0.25rem) * 2)",
-  borderRadius: "var(--radius, 0.5rem)",
-  fontSize: "0.6875rem",
-  fontWeight: 600,
-  fontVariantNumeric: "tabular-nums",
-};
-
-const LIVE_STYLE: React.CSSProperties = {
-  ...LIVE_BADGE_STYLE,
-  background: "var(--color-live-bg, oklch(0.3 0.08 145 / 0.2))",
-  color: "var(--color-live, oklch(0.65 0.18 145))",
-};
-
-const NO_SIGNAL_STYLE: React.CSSProperties = {
-  ...LIVE_BADGE_STYLE,
-  background: "var(--color-no-signal-bg, oklch(0.3 0.02 0 / 0.15))",
-  color: "var(--color-text-muted, currentColor)",
-  opacity: 0.7,
-};
-
 const EMPTY_WRAPPER_STYLE: React.CSSProperties = {
   flex: 1,
   display: "flex",
@@ -237,7 +213,6 @@ export function PartyTab({
   // The most recent event view-model — drives the achievement toast (CMP-06-achievement).
   const latestEvent = eventVMs.length > 0 ? eventVMs[eventVMs.length - 1] : undefined;
 
-  const { active } = snapshot;
   // A build EXISTS (current or recently finished) iff a FRD was detected. That, not
   // `active`, gates scene-vs-empty: when the build is OFF (active false) but a FRD is
   // present, we still render the scene so it can show the powered-off state (the grey
@@ -250,28 +225,8 @@ export function PartyTab({
       {/* Header: title + Live/No-signal indicator */}
       <header style={HEADER_STYLE}>
         <h2 style={HEADING_STYLE}>La Fragua</h2>
-        {active && lastEventAt !== null ? (
-          <span
-            data-testid="party-tab-live-indicator"
-            style={LIVE_STYLE}
-            title="En vivo — hay actividad reciente"
-            role="status"
-          >
-            <span aria-hidden="true">●</span>
-            <time dateTime={lastEventAt} style={{ fontVariantNumeric: "tabular-nums" }}>
-              {lastEventAt.replace("T", " ").replace("Z", "")}
-            </time>
-          </span>
-        ) : (
-          <span
-            data-testid="party-tab-no-signal"
-            style={NO_SIGNAL_STYLE}
-            title="Sin señal — no hay construcción activa"
-            role="status"
-          >
-            Sin señal
-          </span>
-        )}
+        {/* No signal chip here (owner, 2026-07-02): freshness has ONE voice — the
+            DR-066 FreshnessBadge rendered by the live shell right below. */}
       </header>
 
       {/* Body: La Fragua scene (via PartyLiveShell) + feed, or empty state (AC-06-010.1).

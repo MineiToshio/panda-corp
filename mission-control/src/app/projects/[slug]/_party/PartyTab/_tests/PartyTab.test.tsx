@@ -103,20 +103,16 @@ describe("frd-06: PartyTab — event cap (WO-06-005 scope)", () => {
 // lastEventAt — Live / No-signal indicator (AC-06-008.1)
 // ---------------------------------------------------------------------------
 
-describe("frd-06: PartyTab — lastEventAt indicator", () => {
-  it("frd-06: WHEN enriched events present THEN renders the Live indicator", () => {
+describe("frd-06: PartyTab — the header carries no signal chip (single voice, owner 2026-07-02)", () => {
+  it("frd-06: WHEN enriched events present THEN no live/no-signal chip renders (the FreshnessBadge is the voice)", () => {
     render(<PartyTab eventsPath={FIXTURE_EVENTS_ENRICHED_NDJSON} />);
-    expect(screen.getByTestId("party-tab-live-indicator")).toBeDefined();
+    expect(screen.queryByTestId("party-tab-live-indicator")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("party-tab-no-signal")).not.toBeInTheDocument();
   });
 
-  it("frd-06: WHEN no events THEN renders the No-signal indicator", () => {
+  it("frd-06: WHEN no events THEN still no chip — freshness is declared once, by the badge", () => {
     render(<PartyTab eventsPath={FIXTURE_EVENTS_EMPTY_NDJSON} />);
-    expect(screen.getByTestId("party-tab-no-signal")).toBeDefined();
-  });
-
-  it("frd-06: WHEN events have no frd field THEN renders the No-signal indicator", () => {
-    render(<PartyTab eventsPath={FIXTURE_EVENTS_NDJSON} />);
-    expect(screen.getByTestId("party-tab-no-signal")).toBeDefined();
+    expect(screen.queryByTestId("party-tab-no-signal")).not.toBeInTheDocument();
   });
 });
 

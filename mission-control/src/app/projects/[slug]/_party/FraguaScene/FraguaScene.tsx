@@ -140,18 +140,17 @@ const PARCHMENT_START = [430, 155] as const;
 const SPRITE_HALF = 26;
 
 // Max vault trophies shown before "+N archivados"
-const MAX_VAULT = 9;
+const MAX_VAULT = 45;
+
+/** Trophies per vault row; the shelf GROWS a row instead of hiding work (owner, 2026-07-02). */
+const VAULT_PER_ROW = 9;
+
+/** Vertical distance between vault rows (sprite + tag + breathing room). */
+const VAULT_ROW_H = 64;
 
 // ---------------------------------------------------------------------------
 // Mode-display label map (Spanish, from mocks)
 // ---------------------------------------------------------------------------
-
-const MODE_LABEL: Record<string, string> = {
-  pro: "Pro · 2 paralelos",
-  balanced: "Equilibrado · 4 paralelos",
-  powerful: "Potente · 8 paralelos",
-  deep: "Profundo · 6 WO · relevo · Opus",
-};
 
 // ---------------------------------------------------------------------------
 // WoState → AgentSpriteState mapper
@@ -194,49 +193,6 @@ const SCENE_WRAPPER_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "calc(var(--spacing, 0.25rem) * 3)",
-};
-
-const HEADER_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 1.5)",
-};
-
-const FRD_TRACKER_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 0.5)",
-};
-
-const FRD_ID_STYLE: React.CSSProperties = {
-  fontSize: "0.6875rem",
-  fontWeight: 600,
-  letterSpacing: "0.06em",
-  textTransform: "uppercase",
-  color: "var(--color-text-muted, currentColor)",
-  opacity: 0.7,
-};
-
-const FRD_TITLE_STYLE: React.CSSProperties = {
-  fontSize: "0.875rem",
-  fontWeight: 700,
-  color: "var(--color-text, currentColor)",
-  margin: 0,
-};
-
-const COUNTER_STYLE: React.CSSProperties = {
-  fontSize: "0.75rem",
-  fontVariantNumeric: "tabular-nums",
-  color: "var(--color-text-muted, currentColor)",
-};
-
-const MODE_STYLE: React.CSSProperties = {
-  fontSize: "0.6875rem",
-  fontWeight: 500,
-  color: "var(--color-text-muted, currentColor)",
-  display: "flex",
-  alignItems: "center",
-  gap: "calc(var(--spacing, 0.25rem) * 1)",
 };
 
 // The 920×560 bounded stage
@@ -497,19 +453,27 @@ function RunningSprite({
 /** Beds shown before compacting to "+N". */
 const MAX_INFIRMARY_BEDS = 3;
 
-/** The enfermería: real `fail` work orders resting until the owner unblocks them. */
+/** The enfermería annex — PERMANENT structure (owner, 2026-07-02: a room that pops
+ * in and out of existence reads as a glitch). The ROOM is always there, tucked in
+ * the forge corner, overlaying nothing (no bridge, no vault push); its OCCUPANCY is
+ * the data: empty → dimmed "sin heridos"; blocked WOs → danger border + beds. */
 function InfirmaryCorner({
   beds,
 }: {
   beds: NonNullable<FraguaSnapshot["infirmary"]>;
-}): React.JSX.Element | null {
-  if (beds.length === 0) return null;
+}): React.JSX.Element {
+  const empty = beds.length === 0;
   const shown = beds.slice(0, MAX_INFIRMARY_BEDS);
   return (
     <div
       data-testid="fragua-infirmary"
+      data-empty={empty ? "true" : undefined}
       role="img"
-      aria-label={`Enfermería: ${beds.length} orden(es) bloqueada(s) esperando al owner`}
+      aria-label={
+        empty
+          ? "Enfermería vacía — ninguna orden bloqueada"
+          : `Enfermería: ${beds.length} orden(es) bloqueada(s) esperando al owner`
+      }
       style={{
         position: "absolute",
         left: `${FORGE_RECT.left + 10}px`,
@@ -519,10 +483,14 @@ function InfirmaryCorner({
         gap: "4px",
         padding: "4px 8px",
         borderRadius: "var(--radius, 0.5rem)",
-        border: "var(--hairline, 1px) dashed var(--color-danger, currentColor)",
+        border: empty
+          ? "var(--hairline, 1px) dashed var(--color-border, currentColor)"
+          : "var(--hairline, 1px) dashed var(--color-danger, currentColor)",
         // The infirmary pixel-art room, dimmed so the resting sprites read on top.
         background:
           "linear-gradient(oklch(0.18 0.05 25 / 0.6), oklch(0.18 0.05 25 / 0.6)), url(/prototype/assets/zones/infirmary.png) center / cover",
+        opacity: empty ? 0.55 : 1,
+        transition: "opacity 0.4s ease, border-color 0.4s ease",
         zIndex: 5,
       }}
     >
@@ -530,11 +498,25 @@ function InfirmaryCorner({
         style={{
           fontSize: "10px",
           fontFamily: "var(--font-display, system-ui)",
-          color: "var(--color-danger, currentColor)",
+          color: empty
+            ? "var(--color-text-muted, currentColor)"
+            : "var(--color-danger, currentColor)",
         }}
       >
         🏥
       </span>
+      {empty && (
+        <span
+          style={{
+            fontSize: "9px",
+            fontFamily: "var(--font-display, system-ui)",
+            color: "var(--color-text-muted, currentColor)",
+            paddingBottom: "2px",
+          }}
+        >
+          sin heridos
+        </span>
+      )}
       {shown.map((bed) => (
         <span
           key={bed.wo}
@@ -573,22 +555,25 @@ function frdShortLabel(frdId: string): string {
 function VaultRoom({
   trophies,
   archivedCount,
+  extraHeight,
 }: {
   trophies: FraguaSnapshot["trophies"];
   archivedCount: number;
+  extraHeight: number;
 }): React.JSX.Element {
   return (
     <div data-testid="fragua-room-vault" style={{ display: "contents" }}>
       <Room
         zone="vault"
-        label="🏆 Bóveda · trofeos del FRD"
+        label="🏆 Bóveda · trofeos"
         state={trophies.length > 0 ? "active" : "cool"}
-        count={trophies.length || undefined}
+        count={trophies.length + archivedCount || undefined}
         style={{
           left: `${VAULT_RECT.left}px`,
           top: `${VAULT_RECT.top}px`,
           width: `${VAULT_RECT.width}px`,
-          height: `${VAULT_RECT.height}px`,
+          height: `${VAULT_RECT.height + extraHeight}px`,
+          transition: "height 0.5s ease",
         }}
       >
         {/* Trophy sprites (AC-06-005.1). A COMPLETED FRD collapses into ONE stacked
@@ -597,8 +582,9 @@ function VaultRoom({
             No color bands here: identity lives in the tooltip/label, and a finished
             shelf needs no "loader" marks. */}
         {trophies.map((t, idx) => {
-          const vaultX = VAULT_X0 + idx * VAULT_DX - VAULT_RECT.left;
-          const vaultY = VAULT_Y - VAULT_RECT.top - SPRITE_HALF;
+          const vaultX = VAULT_X0 + (idx % VAULT_PER_ROW) * VAULT_DX - VAULT_RECT.left;
+          const vaultY =
+            VAULT_Y - VAULT_RECT.top - SPRITE_HALF + Math.floor(idx / VAULT_PER_ROW) * VAULT_ROW_H;
           const isGroup = t.group !== undefined;
           const label = isGroup ? frdShortLabel(t.wo) : t.wo;
           const title = isGroup
@@ -617,25 +603,16 @@ function VaultRoom({
                   ? `Trofeo: ${label} completo (${t.group?.count} órdenes verificadas)`
                   : `Trofeo: ${t.wo} verificado`
               }
-              style={{ position: "absolute", left: vaultX, top: vaultY }}
+              style={{
+                position: "absolute",
+                left: vaultX,
+                top: vaultY,
+                transition: "left 0.5s ease, top 0.5s ease",
+              }}
             >
               {isGroup && (
                 <>
-                  {/* biome-ignore lint/performance/noImgElement: pixel-art ghost of the stack (image-rendering:pixelated) — same rationale as AgentSprite. */}
-                  <img
-                    src="/prototype/assets/agents/backend-dev.png"
-                    alt=""
-                    width={26}
-                    height={26}
-                    style={{
-                      imageRendering: "pixelated",
-                      position: "absolute",
-                      left: "14px",
-                      top: "-6px",
-                      opacity: 0.35,
-                    }}
-                  />
-                  {/* biome-ignore lint/performance/noImgElement: pixel-art ghost of the stack — same rationale as above. */}
+                  {/* biome-ignore lint/performance/noImgElement: pixel-art pile member (image-rendering:pixelated) — same rationale as AgentSprite. */}
                   <img
                     src="/prototype/assets/agents/backend-dev.png"
                     alt=""
@@ -644,9 +621,23 @@ function VaultRoom({
                     style={{
                       imageRendering: "pixelated",
                       position: "absolute",
-                      left: "8px",
-                      top: "-3px",
-                      opacity: 0.6,
+                      left: "9px",
+                      top: "-8px",
+                      opacity: 0.8,
+                    }}
+                  />
+                  {/* biome-ignore lint/performance/noImgElement: pixel-art pile member — same rationale as above. */}
+                  <img
+                    src="/prototype/assets/agents/backend-dev.png"
+                    alt=""
+                    width={32}
+                    height={32}
+                    style={{
+                      imageRendering: "pixelated",
+                      position: "absolute",
+                      left: "5px",
+                      top: "-4px",
+                      opacity: 0.9,
                     }}
                   />
                 </>
@@ -665,9 +656,9 @@ function VaultRoom({
               right: `${VAULT_RECT.width - VAULT_MORE_POS[0] + VAULT_RECT.left}px`,
               top: `${VAULT_MORE_POS[1] - VAULT_RECT.top}px`,
             }}
-            title={`${archivedCount} órdenes verificadas archivadas`}
+            title={`${archivedCount} trofeos más allá de la vitrina (5 filas)`}
           >
-            +{archivedCount} arch.
+            +{archivedCount} más
           </span>
         )}
       </Room>
@@ -688,7 +679,7 @@ function VaultRoom({
  * @param props.snapshot - The FraguaSnapshot from the RSC PartyTab.
  */
 export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
-  const { frd, mode, running, queuedCount, gate, trophies, archivedCount, project } = snapshot;
+  const { mode, running, queuedCount, gate, trophies, archivedCount } = snapshot;
 
   // -------------------------------------------------------------------------
   // Reduced-motion detection (FRD-13, AC-06-010.2)
@@ -734,8 +725,12 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
   // Determine flow: bridges flow when WOs are running
   const hasRunning = running.length > 0;
 
-  // Vault trophies to render (capped at MAX_VAULT)
+  // Vault trophies to render (capped at MAX_VAULT = 5 rows; beyond that "+N más")
   const shownTrophies = trophies.slice(0, MAX_VAULT);
+  // The shelf grows a row per 9 entries instead of hiding finished work behind a
+  // counter (owner, 2026-07-02); the stage grows with it (smooth height transition).
+  const vaultRows = Math.max(1, Math.ceil(shownTrophies.length / VAULT_PER_ROW));
+  const vaultExtraH = (vaultRows - 1) * VAULT_ROW_H;
 
   // -------------------------------------------------------------------------
   // Render
@@ -748,41 +743,21 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
       data-reduced-motion={reducedMotion ? "true" : undefined}
       style={SCENE_WRAPPER_STYLE}
     >
-      {/* Header: FRD tracker + global counter + mode display */}
-      <div style={HEADER_STYLE}>
-        {frd !== null && (
-          <div data-testid="fragua-frd-tracker" style={FRD_TRACKER_STYLE}>
-            <span data-testid="fragua-frd-id" style={FRD_ID_STYLE}>
-              {frd.id}
-            </span>
-            <h3 data-testid="fragua-frd-title" style={FRD_TITLE_STYLE}>
-              {frd.title}
-            </h3>
-          </div>
-        )}
-
-        <div
-          data-testid="fragua-project-counter"
-          style={COUNTER_STYLE}
-          title={`${project.done} de ${project.total} órdenes de trabajo completadas`}
-        >
-          <span data-testid="fragua-counter-done">{project.done}</span>
-          {" / "}
-          <span data-testid="fragua-counter-total">{project.total}</span>
-          {" WO"}
-        </div>
-
-        {/* Mode display — read-only data, never a selector (AC-06-009.1) */}
-        <div data-testid="fragua-mode-display" style={MODE_STYLE}>
-          <span aria-hidden="true">⚙</span>
-          <span data-testid="fragua-mode-value">{MODE_LABEL[mode] ?? mode}</span>
-        </div>
-      </div>
+      {/* No header here (owner, 2026-07-02): the FRD focus, the global counter and
+          the mode all live ONCE in the MissionBar/Campaña above — the scene starts
+          at the stage. */}
 
       {/* =====================================================================
           920×560 bounded stage — all rooms, bridges, sprites positioned here
           ===================================================================== */}
-      <div data-testid="fragua-stage" style={STAGE_STYLE}>
+      <div
+        data-testid="fragua-stage"
+        style={{
+          ...STAGE_STYLE,
+          height: `${STAGE_H + vaultExtraH}px`,
+          transition: "height 0.5s ease",
+        }}
+      >
         {/* Grid overlay — 30px dot grid per mock */}
         <div aria-hidden="true" style={STAGE_GRID_STYLE} />
 
@@ -939,7 +914,11 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
         {/* ================================================================
             VAULT — Bóveda (verified trophies)
             ================================================================ */}
-        <VaultRoom trophies={shownTrophies} archivedCount={archivedCount} />
+        <VaultRoom
+          trophies={shownTrophies}
+          archivedCount={archivedCount}
+          extraHeight={vaultExtraH}
+        />
 
         {/* ================================================================
             STAGE-LEVEL SPRITE LAYER — the MOVING WO sprites (forge + tribunal).

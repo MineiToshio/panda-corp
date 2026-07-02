@@ -39,9 +39,9 @@ describe("frd-06: PartyTab (fragua) — no frd events → empty state (AC-06-010
     expect(screen.queryByTestId("event-feed")).toBeNull();
   });
 
-  it("frd-06: WHEN events have no frd field THEN renders the no-signal indicator", () => {
+  it("frd-06: WHEN events have no frd field THEN no header chip renders (badge is the voice)", () => {
     render(<PartyTab eventsPath={FIXTURE_EVENTS_NDJSON} />);
-    expect(screen.getByTestId("party-tab-no-signal")).toBeDefined();
+    expect(screen.queryByTestId("party-tab-no-signal")).not.toBeInTheDocument();
   });
 
   it("frd-06: WHEN no events THEN renders empty state", () => {
@@ -87,14 +87,14 @@ describe("frd-06: PartyTab (fragua) — container renders regardless of state", 
 // ---------------------------------------------------------------------------
 
 describe("frd-06: PartyTab (fragua) — lastEventAt is newest event timestamp", () => {
-  it("frd-06: WHEN enriched events present THEN live indicator shown (lastEventAt not null)", () => {
+  it("frd-06: WHEN enriched events present THEN no header chip renders even with fresh events", () => {
     render(<PartyTab eventsPath={FIXTURE_EVENTS_ENRICHED_NDJSON} />);
-    expect(screen.getByTestId("party-tab-live-indicator")).toBeDefined();
+    expect(screen.queryByTestId("party-tab-live-indicator")).not.toBeInTheDocument();
   });
 
-  it("frd-06: WHEN no events THEN no-signal indicator shown (lastEventAt null)", () => {
+  it("frd-06: WHEN no events THEN no header chip renders with an empty stream", () => {
     render(<PartyTab eventsPath={FIXTURE_EVENTS_EMPTY_NDJSON} />);
-    expect(screen.getByTestId("party-tab-no-signal")).toBeDefined();
+    expect(screen.queryByTestId("party-tab-no-signal")).not.toBeInTheDocument();
   });
 });
 

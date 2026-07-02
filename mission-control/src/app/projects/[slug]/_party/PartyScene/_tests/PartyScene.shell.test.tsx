@@ -135,10 +135,9 @@ describe("frd-06: PartyScene shell — PowerOffOverlay primitive (AC-06-013)", (
 // ---------------------------------------------------------------------------
 
 describe("frd-06: PartyScene shell — container and accessibility", () => {
-  it("frd-06: WHEN rendered THEN there is a scene title with 'La Fragua'", () => {
+  it("frd-06: WHEN rendered THEN the shell is the labelled La Fragua region (title row removed — owner, 2026-07-02)", () => {
     render(<PartyScene snapshot={snap()} />);
-    const titles = screen.getAllByText(/La Fragua/i);
-    expect(titles.length).toBeGreaterThan(0);
+    expect(screen.getByLabelText(/La Fragua — sala de construcción/i)).toBeInTheDocument();
   });
 
   it("frd-06: WHEN rendered THEN there are NO button elements (observation-only)", () => {

@@ -164,17 +164,17 @@ describe("frd-06: toFraguaSnapshot — trophies and archivedCount", () => {
     expect(snap.archivedCount).toBe(0);
   });
 
-  it("frd-06: WHEN more than 9 achievement events exist THEN trophies.length is 9 and archivedCount > 0", () => {
-    // Build a synthetic event list with 11 VERIFIED WOs
-    const events = Array.from({ length: 11 }, (_, i) => ({
-      event: "achievement" as const,
-      at: `2026-06-18T10:${String(i).padStart(2, "0")}:00Z`,
-      frd: "frd-06-party",
-      workOrder: `WO-06-0${String(i + 1).padStart(2, "0")}`,
+  it("frd-06: WHEN more entries than the 45-entry shelf cap exist THEN the excess is archived", () => {
+    // 50 achievements → 45 on the (growing, 5-row) shelf, 5 archived as "+N más".
+    const events = Array.from({ length: 50 }, (_, i) => ({
+      event: "achievement",
+      at: `2026-07-01T10:${String(i % 60).padStart(2, "0")}:00Z`,
+      workOrder: `WO-07-${String(i + 1).padStart(3, "0")}`,
+      frd: "frd-07-demo",
     }));
-    const snap = toFraguaSnapshot(events, { lastEventAt: null });
-    expect(snap.trophies.length).toBe(9);
-    expect(snap.archivedCount).toBe(2);
+    const snapshot = toFraguaSnapshot(events, { lastEventAt: null });
+    expect(snapshot.trophies).toHaveLength(45);
+    expect(snapshot.archivedCount).toBe(5);
   });
 });
 

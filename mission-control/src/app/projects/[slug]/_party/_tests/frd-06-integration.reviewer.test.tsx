@@ -148,8 +148,8 @@ describe("frd-06 gate: a mid-stream FRD switch re-targets the scene (AC-06-002.1
 // AC-06-005.2 — Bóveda compacts to "+N archivados" beyond 9, end-to-end
 // ---------------------------------------------------------------------------
 
-describe("frd-06 gate: the Bóveda compacts beyond 9 trophies (AC-06-005.2)", () => {
-  it("12 verified WOs → 9 trophies rendered + a '+3 archivados' indicator", () => {
+describe("frd-06 gate: the Bóveda grows rows; 12 trophies all fit (AC-06-005.2)", () => {
+  it("12 verified WOs → 12 trophies rendered, nothing archived", () => {
     const lines: string[] = [];
     let t = 0;
     // one active WO so the scene is live + 12 achievements on the current FRD
@@ -161,15 +161,15 @@ describe("frd-06 gate: the Bóveda compacts beyond 9 trophies (AC-06-005.2)", ()
     const { events, lastEventAt } = readEvents({ path: p });
     const snap = toFraguaSnapshot(events, { lastEventAt });
 
-    expect(snap.trophies.length).toBe(9);
-    expect(snap.archivedCount).toBe(3);
+    expect(snap.trophies.length).toBe(12);
+    expect(snap.archivedCount).toBe(0);
 
     render(<FraguaScene snapshot={snap} />);
     // `fragua-trophy-shelf` is the container — match only `fragua-trophy-<id>`.
     const trophies = screen.queryAllByTestId(/^fragua-trophy-WO-/);
-    expect(trophies.length).toBe(9);
-    const archived = screen.getByTestId("fragua-archived");
-    expect(archived.textContent).toContain("3");
+    expect(trophies.length).toBe(12);
+    // Nothing archived → no "+N más" indicator; the shelf grew a second row instead.
+    expect(screen.queryByTestId("fragua-archived")).not.toBeInTheDocument();
   });
 });
 
@@ -213,8 +213,9 @@ describe("frd-06 gate: a stream with events but no FRD degrades to the empty sta
 
     expect(screen.getByTestId("party-tab-empty")).toBeInTheDocument();
     expect(screen.queryByTestId("fragua-scene")).not.toBeInTheDocument();
-    // The "Sin señal" badge must show, never a crash or blank.
-    expect(screen.getByTestId("party-tab-no-signal")).toBeInTheDocument();
+    // The header carries NO signal chip anymore — the DR-066 FreshnessBadge (live
+    // shell) is the single freshness voice (owner, 2026-07-02).
+    expect(screen.queryByTestId("party-tab-no-signal")).not.toBeInTheDocument();
   });
 });
 

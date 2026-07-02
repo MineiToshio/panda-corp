@@ -245,15 +245,19 @@ describe("frd-06 v2: vault groups a completed FRD into one trophy", () => {
     expect(snapshot.trophies[1]?.group).toBeUndefined();
   });
 
-  it("archivedCount counts REPRESENTED WOs — a shelf of groups archives nothing it shows", () => {
-    // 12 FRDs × 1 done WO each, all complete → 12 groups, shelf caps at 9,
-    // 3 groups (3 WOs) fall to the archive.
-    const workOrders = Array.from({ length: 12 }, (_, i) =>
-      wo(`WO-${i + 1}-001`, "done" as const, `frd-${String(i + 1).padStart(2, "0")}-x`),
-    );
+  it("archivedCount counts shelf ENTRIES beyond the 45 cap — a completed FRD is ONE entry", () => {
+    // 50 FRDs × 2 done WOs each, all complete → 50 group entries (100 WOs); the shelf
+    // keeps 45 ENTRIES and archives 5 ENTRIES — never "+90 WOs" noise.
+    const workOrders = Array.from({ length: 50 }, (_, i) => {
+      const frd = `frd-${String(i + 1).padStart(2, "0")}-x`;
+      return [
+        wo(`WO-${i + 1}-001`, "done" as const, frd),
+        wo(`WO-${i + 1}-002`, "done" as const, frd),
+      ];
+    }).flat();
     const snapshot = toFraguaSnapshot([], { lastEventAt: null, workOrders });
-    expect(snapshot.trophies).toHaveLength(9);
-    expect(snapshot.trophies.every((t) => t.group?.count === 1)).toBe(true);
-    expect(snapshot.archivedCount).toBe(3);
+    expect(snapshot.trophies).toHaveLength(45);
+    expect(snapshot.trophies.every((t) => t.group?.count === 2)).toBe(true);
+    expect(snapshot.archivedCount).toBe(5);
   });
 });

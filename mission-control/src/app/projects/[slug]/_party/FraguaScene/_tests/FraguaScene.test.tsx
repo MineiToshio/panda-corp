@@ -196,22 +196,12 @@ describe("FraguaScene — +N en cola badge (AC-06-001.3)", () => {
 // Suite 4: FRD tracker (AC-06-002.1)
 // ---------------------------------------------------------------------------
 
-describe("FraguaScene — FRD tracker (AC-06-002.1)", () => {
-  it("frd-06: WHEN a FRD is in build THEN the FRD tracker is present", () => {
+describe("FraguaScene — no duplicated header (owner, 2026-07-02)", () => {
+  it("the scene renders NO FRD tracker / counter / mode header — that data lives once in MissionBar/Campaña", () => {
     render(<FraguaScene snapshot={snap()} />);
-    expect(screen.getByTestId("fragua-frd-tracker")).toBeInTheDocument();
-  });
-
-  it("frd-06: WHEN a FRD is in build THEN the tracker shows the FRD title", () => {
-    render(<FraguaScene snapshot={snap({ frd: { id: "frd-06-party", title: "FRD-06 Party" } })} />);
-    expect(screen.getByTestId("fragua-frd-tracker")).toHaveTextContent("FRD-06 Party");
-  });
-
-  it("frd-06: WHEN a FRD is in build THEN the global project counter is present", () => {
-    render(<FraguaScene snapshot={snap({ project: { done: 7, total: 20 } })} />);
-    expect(screen.getByTestId("fragua-project-counter")).toBeInTheDocument();
-    expect(screen.getByTestId("fragua-project-counter")).toHaveTextContent("7");
-    expect(screen.getByTestId("fragua-project-counter")).toHaveTextContent("20");
+    expect(screen.queryByTestId("fragua-frd-tracker")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("fragua-project-counter")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("fragua-mode-display")).not.toBeInTheDocument();
   });
 });
 

@@ -155,6 +155,18 @@ With the global-wave engine (BL-0021) several FRDs genuinely build at once, so t
   the courier flight uses the courier sprite, the enfermería strip sits on the dimmed infirmary room
   art, and the panda mascot strolls the stage bottom on a long pure-CSS loop — hidden under
   reduced-motion.)**
+- AC-06-019.9 (one voice per datum + growing vault, owner 2026-07-02): EVERY datum SHALL appear
+  ONCE on the Party screen — the Misión strip carries the global WO counter and the effort
+  (now with the wave size, "potente · 8 paralelos") and NO single-FRD chip (a mono-FRD relic);
+  the scene renders NO internal header (the old FRD tracker / duplicate counter / duplicate mode
+  display are removed); the tab header carries NO signal chip and the scene no heartbeat chip —
+  the DR-066 FreshnessBadge is the single liveness voice (supersedes the AC-06-018 heartbeat chip
+  and the header live/no-signal chips). THE Bóveda SHALL grow a row per 9 shelf entries (smooth
+  height/position transitions) instead of hiding finished work behind a counter; its corner count
+  is the TOTAL entries; "+N más" appears only past the 45-entry (5-row) ceiling and counts shelf
+  ENTRIES (a completed FRD = one entry), never the WOs inside groups. THE enfermería is PERMANENT
+  structure (a corner annex, overlaying nothing): empty → dimmed "sin heridos"; occupied → danger
+  border + beds (amends AC-06-019.6 — the room no longer pops in/out with its data).
 - AC-06-019.8 (vault grouping + quiet palette, owner 2026-07-02): WHEN every work order of a FRD
   is VERIFIED, THE Bóveda SHALL show that FRD as ONE stacked trophy labelled `FRD-NN` (ghost
   sprites suggest the pile; tooltip carries the WO count) instead of N individual statuettes;

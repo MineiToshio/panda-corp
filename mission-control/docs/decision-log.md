@@ -4,6 +4,31 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-02 — Party consistency pass: one voice per datum, growing vault, permanent enfermería (AC-06-019.9)
+
+**What:** Owner-reported inconsistencies fixed in one pass. (1) **Dedup**: the Misión strip drops
+the single-FRD chip (mono-FRD relic; the Campaña carries every FRD) and gains the wave size
+("potente · 8 paralelos"); the scene's internal header (FRD tracker + duplicate 95/95 counter +
+duplicate mode) is REMOVED; the tab-header live/no-signal chips and the scene-title heartbeat chip
+are REMOVED — the DR-066 FreshnessBadge is the single liveness voice; the duplicated "⚒️ La Fragua"
+title row is gone (the tab header titles the page). (2) **Growing vault**: the Bóveda adds a row per
+9 entries (smooth transitions) instead of "+64 arch." — with 21 completed FRDs all 21 stacked
+trophies are visible in 3 rows; the corner count is the TOTAL (21); "+N más" only past 45 entries
+and it counts shelf ENTRIES, never WOs inside groups (the old counter mixed units and read as
+noise). Stacks are now clearly diagonal piles (crisper back sprites, 4-5px steps). (3) **Permanent
+enfermería**: the annex no longer pops in/out with its data — empty renders dimmed "sin heridos"
+(neutral border), occupied turns danger + beds; it overlays the forge corner and never pushes the
+vault or needs a bridge. Deferred to Fase 3: the walk-into-the-pile animation when a FRD completes
+(needs the sprite-engine diffing).
+
+**Why:** Owner: "+64 arch." made no sense with grouping (21 FRDs ≠ 64 of anything visible), the
+same data appeared 2-3 times (FRD-02 chip + title twice, counter twice, mode twice, three liveness
+chips), a room appearing from nowhere reads as a glitch, and hidden finished work should simply be
+SHOWN. Impact: `fragua-snapshot.ts` (cap 45, `shelfArchived` entry semantics), `FraguaScene.tsx`
+(header removed, multi-row vault, visible piles, permanent infirmary), `PartyScene.tsx` (title row +
+heartbeat machinery removed, no FRD pip, wave in effort), `PartyTab.tsx` (signal chips removed);
+tests updated to the new contract (567 green); FRD-06 AC-06-019.9.
+
 ## 2026-07-02 — Party polish: vault groups completed FRDs; the scene chrome drops the candy palette
 
 **What:** Owner-directed polish pass (direct drain, DR-097). (1) **Vault FRD grouping

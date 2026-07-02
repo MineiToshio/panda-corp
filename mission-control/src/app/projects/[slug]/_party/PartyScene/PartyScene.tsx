@@ -36,8 +36,6 @@
  *   power-off-overlay-root    — PowerOffOverlay FND-4 primitive
  */
 
-import { useEffect, useState } from "react";
-
 import type { FlowBeat } from "@/components/modules/party/FlowStrip/FlowStrip";
 import { FlowStrip } from "@/components/modules/party/FlowStrip/FlowStrip";
 import { MissionBar } from "@/components/modules/party/MissionBar/MissionBar";
@@ -185,91 +183,9 @@ const ROOT_STYLE: React.CSSProperties = {
   color: "var(--color-text, currentColor)",
 };
 
-const TITLE_STYLE: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "calc(var(--spacing, 0.25rem) * 2)",
-  fontFamily: "var(--font-pixel)",
-  fontSize: "16px",
-  color: "var(--color-text, currentColor)",
-  margin: 0,
-};
-
-const TITLE_CHIP_STYLE: React.CSSProperties = {
-  fontFamily: "var(--font-mono)",
-  fontSize: "11px",
-  color: "var(--color-accent-text, var(--color-text))",
-  background: "var(--color-accent-bg, transparent)",
-  border: "1px solid var(--color-accent, var(--color-border))",
-  borderRadius: "7px",
-  padding: "2px 9px",
-};
-
 const STAGE_WRAPPER_STYLE: React.CSSProperties = {
   position: "relative",
 };
-
-// After this long without a fresh event, an active build is shown as
-// "sin señal reciente" (amber, slow heartbeat) rather than "forjando en vivo".
-// A single agent grinding one WO legitimately emits nothing for a few minutes,
-// so the threshold sits well above that to avoid false "stale" flicker.
-const STALE_AFTER_MS = 4 * 60 * 1000;
-// How often the client re-checks freshness against the wall clock.
-const FRESHNESS_TICK_MS = 30 * 1000;
-
-const HEARTBEAT_STYLE: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "calc(var(--spacing, 0.25rem) * 1.5)",
-  fontFamily: "var(--font-mono)",
-  fontSize: "11px",
-  marginLeft: "auto",
-};
-
-const HEARTBEAT_DOT_STYLE: React.CSSProperties = {
-  width: "9px",
-  height: "9px",
-  borderRadius: "50%",
-};
-
-interface Heartbeat {
-  dotClass: string | undefined;
-  color: string;
-  label: string;
-  state: "live" | "stale" | "off";
-}
-
-/** Derive the build-alive heartbeat from real state (active + event freshness). */
-export function deriveHeartbeat(
-  active: boolean,
-  lastEventAt: string | null,
-  now: number,
-): Heartbeat {
-  if (!active) {
-    return {
-      dotClass: undefined,
-      color: "var(--color-text-muted)",
-      label: "En espera",
-      state: "off",
-    };
-  }
-  const lastMs = lastEventAt !== null ? Date.parse(lastEventAt) : Number.NaN;
-  const isStale = !Number.isNaN(lastMs) && now - lastMs > STALE_AFTER_MS;
-  if (isStale) {
-    return {
-      dotClass: "fragua-heartbeat-stale",
-      color: "var(--color-warn)",
-      label: "Sin señal reciente",
-      state: "stale",
-    };
-  }
-  return {
-    dotClass: "fragua-heartbeat",
-    color: "var(--color-ok)",
-    label: "Forjando en vivo",
-    state: "live",
-  };
-}
 
 // ---------------------------------------------------------------------------
 // PartyScene component
@@ -286,22 +202,11 @@ export function deriveHeartbeat(
  * @param props.snapshot - The FraguaSnapshot from the RSC PartyTab.
  */
 export function PartyScene({ snapshot }: PartySceneProps): React.JSX.Element {
-  const { project, mode, frd, active, lastEventAt } = snapshot;
+  const { project, mode, active } = snapshot;
 
-  // Wall-clock tick so the "forjando en vivo" → "sin señal reciente" transition
-  // happens without a new event. Starts at 0 (server + first client render agree,
-  // so no hydration mismatch) and updates once mounted, then on an interval.
-  const [now, setNow] = useState<number>(0);
-  useEffect(() => {
-    setNow(Date.now());
-    const id = setInterval(() => setNow(Date.now()), FRESHNESS_TICK_MS);
-    return () => clearInterval(id);
-  }, []);
-
-  const heartbeat = deriveHeartbeat(active, lastEventAt, now);
-
-  // Derive FRD pips — one pip per FRD in the project (simplified: just the current FRD)
-  const frdPips = frd ? [{ id: frd.id, state: "current" as const }] : [];
+  // v2 global waves: no single-FRD pip in the Misión strip (that was the mono-FRD
+  // world; the Campaña below carries every FRD's state — owner, 2026-07-02).
+  const frdPips: { id: string; state: "current" }[] = [];
 
   // When the factory is off (active false), no flow-strip beat is lit — otherwise a
   // stale "Oleada" keeps glowing as if a wave were running (AC-06-013).
@@ -318,7 +223,7 @@ export function PartyScene({ snapshot }: PartySceneProps): React.JSX.Element {
         frdPips={frdPips}
         done={project.done}
         total={project.total}
-        effort={effortLabel(mode)}
+        effort={`${effortLabel(mode)} · ${snapshot.wave} paralelos`}
       />
 
       {/* === FlowStrip — always-visible 8-beat pipeline row (AC-06-010) === */}
@@ -329,41 +234,8 @@ export function PartyScene({ snapshot }: PartySceneProps): React.JSX.Element {
         <CampaignStrip campaign={snapshot.campaign} judging={snapshot.gate.judging} />
       )}
 
-      {/* === Scene title === */}
-      <div style={TITLE_STYLE}>
-        <span>⚒️ La Fragua</span>
-        {frd && <span style={TITLE_CHIP_STYLE}>{frd.id}</span>}
-        {frd && (
-          <span
-            style={{
-              color: "var(--color-text-muted, currentColor)",
-              fontWeight: 400,
-              fontFamily: "var(--font-display, system-ui)",
-              fontSize: "13px",
-            }}
-          >
-            {frd.title}
-          </span>
-        )}
-
-        {/* Build-alive heartbeat — derived from real state (active + freshness).
-            Pulses while forging; slows + turns amber when no recent event; off
-            label when the factory is idle. Conveys liveness, not just color. */}
-        <span
-          data-testid="party-heartbeat"
-          data-state={heartbeat.state}
-          role="status"
-          aria-label={`Estado de construcción: ${heartbeat.label}`}
-          style={{ ...HEARTBEAT_STYLE, color: heartbeat.color }}
-        >
-          <span
-            aria-hidden="true"
-            className={heartbeat.dotClass}
-            style={{ ...HEARTBEAT_DOT_STYLE, background: heartbeat.color }}
-          />
-          {heartbeat.label}
-        </span>
-      </div>
+      {/* No scene-title row (owner, 2026-07-02): the tab header already titles La
+          Fragua, and liveness has ONE voice — the DR-066 FreshnessBadge above. */}
 
       {/* === Stage wrapper — contains the living map + power-off overlay === */}
       <div style={STAGE_WRAPPER_STYLE}>

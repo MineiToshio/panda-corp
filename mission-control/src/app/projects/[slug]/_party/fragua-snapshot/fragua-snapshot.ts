@@ -145,8 +145,8 @@ const WAVE: Readonly<Record<BuildMode, number>> = Object.freeze({
 /** Default mode when none is present in the event stream (AC-06-009.1). */
 const DEFAULT_MODE: BuildMode = "powerful";
 
-/** Maximum trophies displayed on the Bóveda shelf (AC-06-005.2). */
-const MAX_TROPHIES = 9;
+/** Max shelf ENTRIES (5 rows × 9) — the vault grows rows; beyond this, "+N más". */
+const MAX_TROPHIES = 45;
 
 /** Tribunal slots (4×3, AC-06-004.4) — cap on in_review sprites in the room. */
 const MAX_TRIBUNAL_SPRITES = 12;
@@ -465,6 +465,8 @@ interface SceneStructure {
   running: FraguaSnapshot["running"];
   queuedCount: number;
   trophies: { wo: string; frd: string; colorKey: string; group?: { count: number } }[];
+  /** Shelf ENTRIES (FRD groups / loose WOs) beyond the cap — what "+N más" shows. */
+  shelfArchived: number;
   campaign: CampaignFrd[];
   /** FRDs whose WOs all sit at review/done (≥1 review) — the tribunal line, in order. */
   gateQueue: string[];
@@ -567,9 +569,9 @@ function structureFromWorkOrders(
       frd: w.frd,
       colorKey: colorOf.get(w.frd) ?? "--color-agent-unknown",
     }));
-  const trophies: SceneStructure["trophies"] = [...groupEntries, ...looseEntries].slice(
-    -MAX_TROPHIES,
-  );
+  const shelfEntries: SceneStructure["trophies"] = [...groupEntries, ...looseEntries];
+  const trophies = shelfEntries.slice(-MAX_TROPHIES);
+  const shelfArchived = shelfEntries.length - trophies.length;
 
   const waiting = workOrders.filter((w) => w.state === "todo");
   // Failure is a first-class state (AC-06-015.1): a BLOCKED WO gets a bed in the
@@ -586,6 +588,7 @@ function structureFromWorkOrders(
     running,
     queuedCount: waiting.length + (building.length - forgeSprites.length),
     trophies,
+    shelfArchived,
     campaign,
     gateQueue,
     infirmary,
@@ -643,11 +646,11 @@ function composeTrophies(
   scan: FrdScan,
 ): { trophies: FraguaSnapshot["trophies"]; archivedCount: number } {
   if (fromFm !== null) {
-    // A group entry represents ALL its FRD's WOs — archived = done not on the shelf.
-    const represented = fromFm.trophies.reduce((sum, t) => sum + (t.group?.count ?? 1), 0);
+    // "+N más" counts shelf ENTRIES (a completed FRD is ONE trophy), never the raw
+    // WOs inside groups (owner, 2026-07-02 — "+64 arch." for 21 FRDs read as noise).
     return {
       trophies: fromFm.trophies,
-      archivedCount: Math.max(0, fromFm.totals.done - represented),
+      archivedCount: fromFm.shelfArchived,
     };
   }
   return {
