@@ -149,8 +149,12 @@ With the global-wave engine (BL-0021) several FRDs genuinely build at once, so t
   engine `wo_commit` event SHALL cue the **courier** — the parchment runs forge → tribunal (a
   decorative cue anchored to the real per-WO green commit); ambient chimney smoke is pure-CSS
   decoration. All of it disabled/softened under `prefers-reduced-motion`. **(IMPLEMENTED, 2026-07-01
-  — Fase 2; pixel-art assets for enfermería/campamento/courier/mascot pending from the owner, wired
-  when delivered.)**
+  — Fase 2. Pixel-art assets delivered by the owner 2026-07-02 (one 2×2 sheet, cropped/keyed in):
+  `zones/infirmary.png` + `zones/camp.png` (627×627, camp staged for Fase 3's worktree tents) and
+  `agents/courier.png` + `agents/panda-mascot.png` (341×341, edge flood-fill transparency). Wired:
+  the courier flight uses the courier sprite, the enfermería strip sits on the dimmed infirmary room
+  art, and the panda mascot strolls the stage bottom on a long pure-CSS loop — hidden under
+  reduced-motion.)**
 
 ## Edge cases
 - A FRD with a single work order: forge shows 1 sprite, `+0 en cola`; the gate opens as soon as that one WO is `IN_REVIEW`.

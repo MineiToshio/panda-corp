@@ -518,7 +518,9 @@ function InfirmaryCorner({
         padding: "4px 8px",
         borderRadius: "var(--radius, 0.5rem)",
         border: "var(--hairline, 1px) dashed var(--color-danger, currentColor)",
-        background: "var(--color-danger-bg, oklch(0.3 0.09 25 / 0.25))",
+        // The infirmary pixel-art room, dimmed so the resting sprites read on top.
+        background:
+          "linear-gradient(oklch(0.18 0.05 25 / 0.6), oklch(0.18 0.05 25 / 0.6)), url(/prototype/assets/zones/infirmary.png) center / cover",
         zIndex: 5,
       }}
     >
@@ -904,8 +906,10 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
         {/* Enfermería — real BLOCKED WOs resting until the owner acts (Fase 2). */}
         <InfirmaryCorner beds={snapshot.infirmary ?? []} />
 
-        {/* Courier flight — fires on a REAL wo_commit event: the parchment runs
-            forge → tribunal (decorative cue anchored to the engine's commit). */}
+        {/* Courier flight — fires on a REAL wo_commit event: the courier runs
+            forge → tribunal (decorative cue anchored to the engine's commit).
+            Pixel art requires <img> with image-rendering:pixelated (same as
+            AgentSprite), not next/image. */}
         {life.courierVisible && (
           <div
             data-testid="fragua-courier"
@@ -918,9 +922,40 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
               zIndex: 7,
             }}
           >
-            <Parchment from="forge" to="tribunal" />
+            {/* biome-ignore lint/performance/noImgElement: pixel-art sprite needs image-rendering:pixelated (next/image re-encodes) — same rationale as AgentSprite. */}
+            <img
+              src="/prototype/assets/agents/courier.png"
+              alt=""
+              width={52}
+              height={52}
+              style={{ imageRendering: "pixelated" }}
+            />
           </div>
         )}
+
+        {/* Panda mascot — pure ambient decoration: strolls across the stage
+            bottom on a long CSS loop; hidden under prefers-reduced-motion. */}
+        <div
+          data-testid="fragua-panda"
+          aria-hidden="true"
+          className="fragua-panda-walk"
+          style={{
+            position: "absolute",
+            bottom: "2px",
+            left: "-56px",
+            zIndex: 8,
+            pointerEvents: "none",
+          }}
+        >
+          {/* biome-ignore lint/performance/noImgElement: pixel-art sprite needs image-rendering:pixelated (next/image re-encodes) — same rationale as AgentSprite. */}
+          <img
+            src="/prototype/assets/agents/panda-mascot.png"
+            alt=""
+            width={44}
+            height={44}
+            style={{ imageRendering: "pixelated" }}
+          />
+        </div>
 
         {/* Ambient chimney smoke over the forge — pure-CSS decoration. */}
         <div

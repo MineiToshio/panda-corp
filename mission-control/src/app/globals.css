@@ -927,3 +927,25 @@ h3 {
     opacity: 0.2;
   }
 }
+/* Panda mascot ambient stroll: crosses the 920px stage in ~9s, then rests
+   off-stage for the remainder of the long loop (pure decoration). */
+@keyframes fragua-panda {
+  0% {
+    transform: translateX(0);
+  }
+  18% {
+    transform: translateX(1040px);
+  }
+  100% {
+    transform: translateX(1040px);
+  }
+}
+.fragua-panda-walk {
+  animation: fragua-panda 50s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fragua-panda-walk {
+    animation: none;
+    visibility: hidden;
+  }
+}
