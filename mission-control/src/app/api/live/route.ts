@@ -180,7 +180,10 @@ export function GET(request: Request): Response {
       function emitSnapshot(): void {
         if (destroyed) return;
 
-        const snapshot = readEvents({ path: eventsFilePath });
+        // Project filter runs INSIDE readEvents (before the tail cap) so other
+        // projects'/sessions' noise can't crowd a build's events out of the tail;
+        // filterSnapshot keeps the kind filter + re-derives the aggregates.
+        const snapshot = readEvents({ path: eventsFilePath, project: projectFilter });
         const frame = filterSnapshot(snapshot, projectFilter, kindsFilter);
 
         // Only emit if there is content (avoids useless empty frames on boot)

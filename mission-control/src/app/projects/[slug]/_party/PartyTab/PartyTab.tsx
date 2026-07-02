@@ -39,10 +39,10 @@
 import { readEvents } from "@/lib/events/events";
 import { AchievementToast } from "../AchievementToast/AchievementToast";
 import { EventFeed } from "../EventFeed/EventFeed";
-import { toEventVM } from "../event-vm/event-vm";
+import { isFeedEvent, toEventVM } from "../event-vm/event-vm";
+import type { SceneWorkOrder } from "../fragua-snapshot/fragua-snapshot";
 import { toFraguaSnapshot } from "../fragua-snapshot/fragua-snapshot";
 import { PartyEmptyState } from "../PartyEmptyState/PartyEmptyState";
-import type { WoState } from "../state-map/state-map";
 import { PartyLiveShell } from "./PartyLiveShell";
 
 // ---------------------------------------------------------------------------
@@ -76,14 +76,21 @@ export interface PartyTabProps {
    */
   running?: boolean;
   /**
-   * Authoritative per-WO visual state (id → WoState) derived from the work-order
-   * frontmatter `implementation_status` — the SAME source the Work Orders tab
-   * reads (DR-092). Reconciles the Party sprite's room with the board: a WO the
-   * board shows as `IN_REVIEW` walks to the Tribunal instead of staying in the
-   * forge as `building`. Captured at render time; carried into the live re-derive
-   * so SSE event frames don't revert it to `building`.
+   * Project key for event filtering — the emitter's `basename $PWD` (the
+   * project FOLDER name, not the portfolio display name). Applied INSIDE
+   * `readEvents` before the tail cap, and passed to the SSE subscription, so
+   * another project's build (or any session's hook noise) can neither crowd
+   * this project's events out of the tail nor leak into its scene/feed.
    */
-  woStates?: Readonly<Record<string, WoState>>;
+  project?: string;
+  /**
+   * The project's authoritative work orders (id + frd + state) from
+   * `listWorkOrders` — the SAME source the Work Orders board reads (DR-092).
+   * Decides the scene structure (sprites/rooms/queue/trophies/counter/gate);
+   * events only drive liveness. Refreshed on every RSC render (the live shell
+   * triggers one when a fresher event arrives).
+   */
+  workOrders?: readonly SceneWorkOrder[];
 }
 
 // ---------------------------------------------------------------------------
@@ -144,12 +151,18 @@ const EMPTY_WRAPPER_STYLE: React.CSSProperties = {
   flexDirection: "column",
 };
 
+/** Fixed height of the bitácora block below the scene (px). */
+const FEED_HEIGHT_PX = 320;
+
+// Scene on top, bitácora BELOW at full width (owner decision 2026-07-01): the
+// previous side-by-side row squeezed the feed against the fixed 920px stage on
+// common viewports. The body scrolls vertically; the feed scrolls internally.
 const BODY_STYLE: React.CSSProperties = {
   flex: 1,
   display: "flex",
-  flexDirection: "row",
+  flexDirection: "column",
   minHeight: 0,
-  overflow: "hidden",
+  overflow: "auto",
   gap: "calc(var(--spacing, 0.25rem) * 3)",
   padding: "calc(var(--spacing, 0.25rem) * 3)",
 };
@@ -163,7 +176,8 @@ const SCENE_WRAPPER_STYLE: React.CSSProperties = {
 };
 
 const FEED_WRAPPER_STYLE: React.CSSProperties = {
-  flex: 1,
+  flexShrink: 0,
+  height: `${FEED_HEIGHT_PX}px`,
   minWidth: 0,
   overflow: "hidden",
   display: "flex",
@@ -192,19 +206,24 @@ export function PartyTab({
   eventsPath,
   cap = DEFAULT_CAP,
   running,
-  woStates,
+  project,
+  workOrders,
 }: PartyTabProps): React.JSX.Element {
   // Read the capped tail of the event stream (read-only, never throws).
-  const { events, lastEventAt } = readEvents({ path: eventsPath, cap });
+  // The project filter runs BEFORE the cap so other sessions' noise cannot
+  // crowd this project's build events out of the tail.
+  const { events, lastEventAt } = readEvents({ path: eventsPath, cap, project });
 
-  // Derive the FraguaSnapshot from the enriched event tail (IF-06-fragua-snapshot).
-  // Pure function: no DOM, no I/O, no side-effects. `running` (status.yaml) forces
-  // the powered-off state when the build is off, overriding a stale event tail.
-  // `woStates` (frontmatter) reconciles each running WO's room with the board (DR-092).
-  const snapshot = toFraguaSnapshot(events, { lastEventAt, running, woStates });
+  // Derive the FraguaSnapshot (IF-06-fragua-snapshot). Pure function: no DOM,
+  // no I/O, no side-effects. `running` (status.yaml) forces the powered-off
+  // state when the build is off; `workOrders` (frontmatter, DR-092) decides the
+  // scene structure while events only drive liveness.
+  const snapshot = toFraguaSnapshot(events, { lastEventAt, running, workOrders });
 
-  // Map raw events to view-models for the feed.
-  const eventVMs = events.map(toEventVM);
+  // Map the feed-relevant events to view-models for the bitácora (REQ-06-015):
+  // session noise (SupervisorTick, hook SubagentStop) is filtered out;
+  // failures always pass (first-class, AC-06-015.1).
+  const eventVMs = events.filter(isFeedEvent).map(toEventVM);
 
   // The most recent event view-model — drives the achievement toast (CMP-06-achievement).
   const latestEvent = eventVMs.length > 0 ? eventVMs[eventVMs.length - 1] : undefined;
@@ -257,10 +276,15 @@ export function PartyTab({
               PartyScene (the outer chrome: MissionBar + FlowStrip + stage) lives inside.
               Observation-only: no mode selector, no pause/reset (AC-06-009.1, DR-061). */}
           <div style={SCENE_WRAPPER_STYLE}>
-            <PartyLiveShell initialSnapshot={snapshot} running={running} woStates={woStates} />
+            <PartyLiveShell
+              initialSnapshot={snapshot}
+              project={project}
+              running={running}
+              workOrders={workOrders}
+            />
           </div>
 
-          {/* CMP-06-feed — the capped event log alongside the scene. */}
+          {/* CMP-06-feed — the bitácora BELOW the scene, full width (REQ-06-015). */}
           <div style={FEED_WRAPPER_STYLE}>
             <EventFeed events={eventVMs} cap={cap} />
           </div>

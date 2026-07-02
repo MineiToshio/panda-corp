@@ -6,13 +6,17 @@
  * Client component that:
  *   1. Accepts an `initialSnapshot` (from the RSC PartyTab — the server-derived
  *      static snapshot pre-rendered for instant paint and used as the SSR baseline).
- *   2. Subscribes to `useLiveSnapshot` (WO-01-009, SSE) for live event frames.
- *   3. Re-derives `FraguaSnapshot` via `toFraguaSnapshot` on every live frame.
+ *   2. Subscribes to `useLiveSnapshot` (WO-01-009, SSE) for live event frames,
+ *      scoped to this project.
+ *   3. Re-derives `FraguaSnapshot` via `toFraguaSnapshot` on every live frame,
+ *      carrying the authoritative `workOrders` structure (DR-092).
  *   4. Passes the live (or initial) snapshot to `PartyScene` (the outer chrome shell).
- *
- * This boundary keeps the RSC PartyTab free of client hooks while making the
- * scene fully live — every new event triggers a re-derive + re-render without
- * a page reload (AC-06-008 live requirement).
+ *   5. When a frame carries a GENUINELY newer event, triggers a throttled
+ *      `router.refresh()` so the RSC re-reads the work-order frontmatter and
+ *      status.yaml — that is how a sprite WALKS to its new room mid-session
+ *      (AC-06-001.6 live follow-up, 2026-07-01): the engine's emitters append an
+ *      event at each state transition, the SSE frame arrives, the refresh pulls
+ *      the fresh frontmatter, and the scene re-derives with the WO's new room.
  *
  * Read-only invariant (DR-061, AC-06-009.1):
  *   - NO mode selector, NO pause/reset. Everything is derived from real state.
@@ -27,16 +31,26 @@
  *   party-live-connected      — present when SSE is connected
  */
 
-import { useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef } from "react";
 
 import { useLiveSnapshot } from "@/hooks/useLiveSnapshot";
 import type { Event as DashboardEvent } from "@/lib/events/events";
 
-import { toEventVM } from "../event-vm/event-vm";
-import type { FraguaSnapshot } from "../fragua-snapshot/fragua-snapshot";
+import type { FraguaSnapshot, SceneWorkOrder } from "../fragua-snapshot/fragua-snapshot";
 import { toFraguaSnapshot } from "../fragua-snapshot/fragua-snapshot";
 import { PartyScene } from "../PartyScene/PartyScene";
-import type { WoState } from "../state-map/state-map";
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/**
+ * Minimum ms between frontmatter refreshes. Events can burst (a wave of agents
+ * starting together); one refresh per window is enough — the RSC re-reads ALL
+ * the frontmatter each time, so the last refresh always lands the final state.
+ */
+const REFRESH_THROTTLE_MS = 5_000;
 
 // ---------------------------------------------------------------------------
 // Props
@@ -48,10 +62,7 @@ export interface PartyLiveShellProps {
    * fallback when SSE has not yet delivered a frame.
    */
   initialSnapshot: FraguaSnapshot;
-  /**
-   * Initial event view-models for the feed (from the RSC).
-   * Updated live once SSE delivers a frame.
-   */
+  /** Project key for the SSE subscription (the emitter's `basename $PWD`). */
   project?: string;
   /**
    * The project's authoritative build flag from `status.yaml` (`running`).
@@ -62,34 +73,57 @@ export interface PartyLiveShellProps {
    */
   running?: boolean;
   /**
-   * Authoritative per-WO visual state (id → WoState) from the work-order
-   * frontmatter (DR-092), captured by the RSC at render time. Applied to the
-   * live re-derive so an SSE event frame — which only carries events — does not
-   * revert a WO the board shows as `in_review` back to the forge `building`.
-   * Refreshes whenever the Party tab re-renders (tab switch / reload).
+   * Authoritative work orders (id + frd + state) from the RSC (DR-092). Carried
+   * into the live re-derive so an SSE event frame — which only carries events —
+   * keeps the frontmatter-decided structure. Refreshed via `router.refresh()`
+   * whenever a fresher event arrives (throttled).
    */
-  woStates?: Readonly<Record<string, WoState>>;
+  workOrders?: readonly SceneWorkOrder[];
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
+/** Is the frame's latest event newer than what the RSC render already saw? */
+function hasFresherEvent(liveAt: string | null, initialAt: string | null): boolean {
+  // ISO-8601 timestamps compare chronologically as strings.
+  return liveAt !== null && (initialAt === null || liveAt > initialAt);
+}
+
 /**
  * Client boundary that wires the live SSE transport into PartyScene.
  * Falls back to the server-derived `initialSnapshot` until the first SSE frame.
  *
  * @param props.initialSnapshot - Server-derived snapshot for instant paint.
- * @param props.project         - Optional project slug for SSE filtering.
+ * @param props.project         - Project key for SSE filtering.
+ * @param props.running         - Authoritative build flag from status.yaml.
+ * @param props.workOrders      - Authoritative work-order structure (DR-092).
  */
 export function PartyLiveShell({
   initialSnapshot,
   project,
   running,
-  woStates,
+  workOrders,
 }: PartyLiveShellProps): React.JSX.Element {
-  // Subscribe to the live SSE transport
+  // Subscribe to the live SSE transport, scoped to this project.
   const { snapshot: liveFrame, connected } = useLiveSnapshot({ project });
+
+  const router = useRouter();
+  const lastRefreshAtRef = useRef(0);
+
+  // A fresher event means the build advanced → pull fresh frontmatter (the
+  // room/queue/trophy truth) through a throttled RSC refresh. The refresh
+  // updates `initialSnapshot`/`workOrders`/`running` via new props, so the
+  // fresher-check self-resets and this cannot loop while the stream is quiet.
+  useEffect(() => {
+    if (liveFrame === null) return;
+    if (!hasFresherEvent(liveFrame.lastEventAt ?? null, initialSnapshot.lastEventAt)) return;
+    const now = Date.now();
+    if (now - lastRefreshAtRef.current < REFRESH_THROTTLE_MS) return;
+    lastRefreshAtRef.current = now;
+    router.refresh();
+  }, [liveFrame, initialSnapshot.lastEventAt, router]);
 
   // Derive FraguaSnapshot from the live frame when available; otherwise use
   // the initial server snapshot (pre-computed by the RSC at request time).
@@ -103,27 +137,13 @@ export function PartyLiveShell({
     // frame that only REPLAYS the stale tail (no event newer than page-load) must
     // not re-activate the scene — keep the authoritative `running:false` powered
     // off. A genuinely NEWER event (the build resumed) reactivates (AC-06-013.3).
-    // ISO-8601 timestamps compare chronologically, so `>` detects a fresher event.
-    const hasFresherEvent =
-      liveAt !== null &&
-      (initialSnapshot.lastEventAt === null || liveAt > initialSnapshot.lastEventAt);
+    const fresher = hasFresherEvent(liveAt, initialSnapshot.lastEventAt);
     return toFraguaSnapshot(events, {
       lastEventAt: liveAt,
-      running: hasFresherEvent ? undefined : running,
-      woStates,
+      running: fresher ? undefined : running,
+      workOrders,
     });
-  }, [liveFrame, initialSnapshot, running, woStates]);
-
-  // Compute the most recent event VM for the achievement toast
-  const latestEventVM = useMemo(() => {
-    if (liveFrame === null) return undefined;
-    const events = (liveFrame.events ?? []) as DashboardEvent[];
-    if (events.length === 0) return undefined;
-    const lastEvent = events[events.length - 1];
-    return lastEvent !== undefined ? toEventVM(lastEvent) : undefined;
-  }, [liveFrame]);
-
-  void latestEventVM; // consumed by AchievementToast in the parent (PartyTab)
+  }, [liveFrame, initialSnapshot, running, workOrders]);
 
   return (
     <div data-testid="party-live-shell">

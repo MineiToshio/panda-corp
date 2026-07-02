@@ -361,6 +361,7 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
   // a WO actually WALKS between rooms along the bridges (AC-06-003.2).
   // -------------------------------------------------------------------------
   const { registerSprite } = useFraguaSprites({
+    frdId: frd?.id ?? null,
     running,
     trophies,
     gate,

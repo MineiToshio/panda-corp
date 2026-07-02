@@ -1,16 +1,29 @@
 /**
  * WO-06-005 — toFraguaSnapshot (IF-06-fragua-snapshot)
  *
- * Pure function: enriched event tail → serializable `FraguaSnapshot`.
- * No DOM, no I/O, no side-effects. Never imports Claude/AI clients.
+ * Pure function: enriched event tail (+ authoritative work orders) →
+ * serializable `FraguaSnapshot`. No DOM, no I/O, no side-effects.
+ *
+ * Source-of-truth split (DR-092, 2026-07-01 rework):
+ *   - The work-order FRONTMATTER (`opts.workOrders`, the same `listWorkOrders`
+ *     source the Work Orders board reads) decides scene STRUCTURE: which WOs
+ *     are sprites and in which room, the queue, the trophies, the global
+ *     counter, and the gate. It cannot fabricate — a WO the board shows as
+ *     `review` is in the Tribunal here too.
+ *   - The EVENT stream decides LIVENESS only: the current FRD focus, the mode,
+ *     `lastEventAt` (heartbeat) and the feed. When `opts.workOrders` is absent
+ *     (legacy callers/tests), the event-derived structure is kept as fallback.
  *
  * Responsibilities (blueprint §3, FRD-06 REQ-06-001/002/004/005/008/009):
- *   - Detect the current FRD in build (most recent event with `frd` field).
+ *   - Detect the current FRD in build (most recent event with a non-empty
+ *     `frd` field; frontmatter in-flight WOs as fallback).
  *   - Read mode from the event stream; default `'powerful'` when absent (REQ-06-009).
- *   - Cap running WOs at the wave size for the mode (REQ-06-001 AC-06-001.2).
- *   - Count VERIFIED trophies (achievement events); compact beyond 9 (REQ-06-005).
- *   - Gate open when a `gate` event appears for the current FRD (REQ-06-004).
- *   - Count global done/total from achievement events (REQ-06-002 AC-06-002.2).
+ *   - Cap forge sprites at the wave size for the mode (REQ-06-001 AC-06-001.2).
+ *   - Trophies: frontmatter `done` WOs of the FRD ∪ achievement events; compact
+ *     beyond 9 (REQ-06-005).
+ *   - Gate open when a `gate` event appears for the current FRD OR the
+ *     frontmatter shows every FRD WO at `review`/`done` (REQ-06-004).
+ *   - Global done/total from the frontmatter (falls back to achievement events).
  *   - Tolerate missing optional fields; never throw (REQ-06-008 AC-06-008.2).
  *
  * Traceability:
@@ -20,6 +33,7 @@
 
 import type { BuildMode } from "@/lib/constants";
 import type { Event as DashboardEvent } from "@/lib/events/events";
+import type { WorkOrder } from "@/lib/work-orders/work-orders";
 import type { EventVM } from "../event-vm/event-vm";
 import { toEventVM } from "../event-vm/event-vm";
 
@@ -96,12 +110,23 @@ const VALID_MODES = new Set<string>(["pro", "balanced", "powerful", "deep"]);
 // Options
 // ---------------------------------------------------------------------------
 
+/** The minimal authoritative work-order shape the snapshot needs (serializable). */
+export type SceneWorkOrder = Pick<WorkOrder, "id" | "frd" | "state">;
+
 export interface ToFraguaSnapshotOpts {
   /**
    * The lastEventAt value from readEvents (ISO 8601 or null).
    * Passed through to the snapshot so callers don't have to re-derive it.
    */
   lastEventAt: string | null;
+  /**
+   * The project's authoritative work orders (id + frd + frontmatter state) —
+   * the SAME `listWorkOrders` source the Work Orders board reads (DR-092).
+   * When present, the scene STRUCTURE (sprites, rooms, queue, trophies, global
+   * counter, gate) is derived from here, and events only drive liveness.
+   * When absent, the legacy event-derived structure is used.
+   */
+  workOrders?: readonly SceneWorkOrder[];
   /**
    * Optional mode override (e.g. from a project status.yaml).
    * When provided, takes precedence over any mode field in the events.
@@ -196,12 +221,28 @@ function detectModeAndFrd(events: readonly DashboardEvent[]): {
     if (typeof ev.mode === "string" && VALID_MODES.has(ev.mode)) {
       detectedMode = ev.mode as BuildMode;
     }
-    if (typeof ev.frd === "string") {
+    // Empty/whitespace frd is FRD-less activity (e.g. the visual-qa pass emits
+    // frd:"") — it must never become the scene's FRD id.
+    if (typeof ev.frd === "string" && ev.frd.trim() !== "") {
       currentFrdId = ev.frd;
     }
   }
 
   return { detectedMode, currentFrdId };
+}
+
+/**
+ * Frontmatter fallback for the FRD focus: when the event tail carries no frd
+ * (rotated file, engine that predates enrichment), a feature with in-flight
+ * work orders (`in_progress`/`review`) is still honestly "the FRD in build".
+ * Picks the FIRST such FRD in work-order file order (the engine builds FRD by
+ * FRD, so at most one FRD is genuinely mid-flight; stragglers from interrupted
+ * runs resolve to the earliest, which is the one the next run resumes first).
+ */
+function frdFromWorkOrders(workOrders: readonly SceneWorkOrder[] | undefined): string | null {
+  if (workOrders === undefined) return null;
+  const inFlight = workOrders.find((w) => w.state === "in_progress" || w.state === "review");
+  return inFlight !== undefined ? inFlight.frd : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -356,6 +397,60 @@ function scanFrdData(events: readonly DashboardEvent[], ctx: FrdContext): FrdSca
 }
 
 // ---------------------------------------------------------------------------
+// Frontmatter-derived scene structure (DR-092 — the board's source decides)
+// ---------------------------------------------------------------------------
+
+/** Scene structure derived from the authoritative work-order frontmatter. */
+interface SceneStructure {
+  running: FraguaSnapshot["running"];
+  queuedCount: number;
+  trophyWoIds: string[];
+  gateOpenFromState: boolean;
+  totals: { done: number; total: number };
+}
+
+/**
+ * Derive the scene structure for the current FRD from the work-order
+ * frontmatter: `in_progress` → forge sprite (≤ wave; overflow queues),
+ * `review` → tribunal sprite, `done` → trophy, `todo`/`fail` → "+N en cola".
+ * The gate reads open when every FRD WO sits at `review`/`done` with at least
+ * one still under review (AC-06-004.2), even before the engine's `gate` event.
+ */
+function structureFromWorkOrders(
+  workOrders: readonly SceneWorkOrder[],
+  frdId: string,
+  wave: number,
+): SceneStructure {
+  const frdWos = workOrders.filter((w) => w.frd === frdId);
+  const building = frdWos.filter((w) => w.state === "in_progress");
+  const inReview = frdWos.filter((w) => w.state === "review");
+  const waiting = frdWos.filter((w) => w.state === "todo" || w.state === "fail");
+
+  const forgeSprites = building.slice(0, wave);
+  const running: FraguaSnapshot["running"] = [
+    ...forgeSprites.map((w) => ({ wo: w.id, title: w.id, state: "building" as WoState })),
+    ...inReview.map((w) => ({ wo: w.id, title: w.id, state: "in_review" as WoState })),
+  ];
+
+  const trophyWoIds = frdWos.filter((w) => w.state === "done").map((w) => w.id);
+  const gateOpenFromState =
+    frdWos.length > 0 &&
+    inReview.length > 0 &&
+    frdWos.every((w) => w.state === "review" || w.state === "done");
+
+  return {
+    running,
+    queuedCount: waiting.length + (building.length - forgeSprites.length),
+    trophyWoIds,
+    gateOpenFromState,
+    totals: {
+      done: workOrders.filter((w) => w.state === "done").length,
+      total: workOrders.length,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // toFraguaSnapshot — the pure derivation function (IF-06-fragua-snapshot)
 // ---------------------------------------------------------------------------
 
@@ -385,9 +480,7 @@ export function toFraguaSnapshot(
     lastEventAt: opts.lastEventAt,
   };
 
-  if (events.length === 0) return emptySnapshot;
-
-  const { detectedMode, currentFrdId } = detectModeAndFrd(events);
+  const { detectedMode, currentFrdId: eventFrdId } = detectModeAndFrd(events);
 
   // Mode precedence: modeOverride > stream detection > default.
   const mode: BuildMode =
@@ -395,6 +488,10 @@ export function toFraguaSnapshot(
 
   const wave = WAVE[mode];
   const eventVMs = events.map(toEventVM);
+
+  // FRD focus: the freshest event frd wins; the frontmatter's in-flight FRD is
+  // the fallback (an active build whose events rotated away still renders).
+  const currentFrdId = eventFrdId ?? frdFromWorkOrders(opts.workOrders);
 
   if (currentFrdId === null) {
     return { ...emptySnapshot, mode, wave, events: eventVMs };
@@ -409,28 +506,48 @@ export function toFraguaSnapshot(
   // mark the snapshot inactive so the scene shows the powered-off state (AC-06-013).
   const isFactoryOff = opts.running === false;
 
-  const displayedTrophies = scan.trophyWoIds.slice(0, MAX_TROPHIES);
-  const archivedCount = Math.max(0, scan.trophyWoIds.length - MAX_TROPHIES);
-  const running = isFactoryOff
-    ? []
-    : scan.runningWos.map((wo) => ({
-        wo,
-        title: wo,
-        // Authoritative frontmatter state (DR-092) decides the room; the
-        // event-derived default is `building` (forge).
-        state: opts.woStates?.[wo] ?? ("building" as WoState),
-      }));
+  // Structure: frontmatter when available (DR-092); event-derived fallback.
+  const fromFm =
+    opts.workOrders !== undefined
+      ? structureFromWorkOrders(opts.workOrders, currentFrdId, wave)
+      : null;
 
-  // The project counter is global/cross-FRD (AC-06-002.2): done counts every
-  // unique achievement WO, decoupled from the per-FRD Bóveda shelf.
-  const globalDone = scan.globalDoneWoIds.size;
-  const projectTotals = opts.projectTotals ?? {
-    done: globalDone,
-    total: Math.max(scan.allWoIds.size, globalDone),
-  };
+  // Trophies: frontmatter `done` WOs first (stable file order), then any
+  // achievement-event trophies not already present (legacy emitters).
+  const trophyWoIds =
+    fromFm !== null
+      ? [
+          ...fromFm.trophyWoIds,
+          ...scan.trophyWoIds.filter((id) => !fromFm.trophyWoIds.includes(id)),
+        ]
+      : scan.trophyWoIds;
+
+  const displayedTrophies = trophyWoIds.slice(0, MAX_TROPHIES);
+  const archivedCount = Math.max(0, trophyWoIds.length - MAX_TROPHIES);
+
+  const eventRunning = scan.runningWos.map((wo) => ({
+    wo,
+    title: wo,
+    // Authoritative frontmatter state (DR-092) decides the room; the
+    // event-derived default is `building` (forge).
+    state: opts.woStates?.[wo] ?? ("building" as WoState),
+  }));
+  const running = isFactoryOff ? [] : (fromFm?.running ?? eventRunning);
+
+  // Global project counter (AC-06-002.2): frontmatter totals when available;
+  // explicit override wins; achievement-event count as last resort.
+  const projectTotals = opts.projectTotals ??
+    fromFm?.totals ?? {
+      done: scan.globalDoneWoIds.size,
+      total: Math.max(scan.allWoIds.size, scan.globalDoneWoIds.size),
+    };
 
   // The queue is per-FRD: only current-FRD trophies count as already done.
-  const queuedCount = Math.max(0, scan.allWoIds.size - running.length - scan.trophyWoIds.length);
+  const queuedCount =
+    fromFm?.queuedCount ??
+    Math.max(0, scan.allWoIds.size - running.length - scan.trophyWoIds.length);
+
+  const gateOpen = scan.gateOpen || (fromFm?.gateOpenFromState ?? false);
 
   return {
     frd: { id: currentFrdId, title: deriveFrdTitle(currentFrdId) },
@@ -438,7 +555,7 @@ export function toFraguaSnapshot(
     wave,
     running,
     queuedCount,
-    gate: { open: isFactoryOff ? false : scan.gateOpen },
+    gate: { open: isFactoryOff ? false : gateOpen },
     trophies: displayedTrophies.map((wo) => ({ wo })),
     archivedCount,
     project: projectTotals,

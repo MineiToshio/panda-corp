@@ -1,0 +1,9 @@
+{"event":"AgentWorking","at":"2026-07-01T10:00:00Z","frd":"frd-01-core","wo":"WO-01-001","phase":"build","activity":"implement","mode":"powerful","role":"implementer","project":"alpha"}
+{"event":"AgentWorking","at":"2026-07-01T10:01:00Z","frd":"frd-01-core","wo":"WO-01-002","phase":"build","activity":"implement","mode":"powerful","role":"implementer","project":"alpha"}
+{"event":"achievement","at":"2026-07-01T10:02:00Z","frd":"frd-01-core","wo":"WO-01-001","work_order":"WO-01-001","project":"alpha"}
+{"event":"SubagentStop","at":"2026-07-01T10:03:00Z","project":"beta"}
+{"event":"SupervisorTick","at":"2026-07-01T10:04:00Z","project":"beta"}
+{"event":"SubagentStop","at":"2026-07-01T10:05:00Z","project":"beta"}
+{"event":"SupervisorTick","at":"2026-07-01T10:06:00Z","project":"beta"}
+{"event":"SubagentStop","at":"2026-07-01T10:07:00Z","project":"beta"}
+{"event":"AgentWorking","at":"2026-07-01T10:08:00Z","frd":"frd-09-other","wo":"WO-09-001","phase":"build","activity":"implement","mode":"pro","role":"implementer","project":"beta"}

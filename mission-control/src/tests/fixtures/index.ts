@@ -72,6 +72,16 @@ export const FIXTURE_EVENTS_ENRICHED_NDJSON: string = path.join(
 );
 
 /**
+ * NDJSON mixing one project's build events ("alpha", 3 events, earliest) with
+ * another project's session noise ("beta", 6 later events). Pins the
+ * readEvents project filter running BEFORE the tail cap (FRD-01, 2026-07-01).
+ */
+export const FIXTURE_EVENTS_MULTIPROJECT_NOISE_NDJSON: string = path.join(
+  FIXTURE_EVENTS_DIR,
+  "dashboard-events-multiproject-noise.ndjson",
+);
+
+/**
  * Sets `PANDACORP_FACTORY_ROOT` to `fixturePath`, runs `fn`, then restores
  * the prior value (or deletes the var if it was not set).
  *

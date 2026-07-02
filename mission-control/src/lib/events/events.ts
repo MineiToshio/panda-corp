@@ -423,19 +423,29 @@ function deriveByProject(events: readonly Event[]): Record<string, { lastEventAt
  * Behaviour (blueprint §3 tolerance rules):
  * - Missing file → `{ events: [], lastEventAt: null, byProject: {} }` (no throw).
  * - One JSON object per line; malformed lines are skipped, valid lines kept.
+ * - `project` filter (when set) is applied BEFORE the cap: the global stream is
+ *   dominated by other sessions' events (SubagentStop/SupervisorTick from every
+ *   Claude conversation), so capping first lets noise push a build's own events
+ *   out of the tail. Events with no `project` field are kept (legacy/global).
  * - Tail is capped at `cap` (default 200) — the LAST `cap` lines after filtering.
  * - `lastEventAt` = max `at` across retained events (null if none).
  * - `byProject`: per-project last `at`; events without `project` go to `__global__`.
  * - `work_order` in the raw JSON is mapped to `workOrder` in the output type.
  *
- * @param opts.path - Path to the NDJSON file. Defaults to `~/.claude/dashboard-events.ndjson`.
- * @param opts.cap  - Maximum number of events to retain (tail semantics). Default 200.
- *                    NaN/Infinity fall back to 200; negatives clamp to 0.
+ * @param opts.path    - Path to the NDJSON file. Defaults to `~/.claude/dashboard-events.ndjson`.
+ * @param opts.cap     - Maximum number of events to retain (tail semantics). Default 200.
+ *                       NaN/Infinity fall back to 200; negatives clamp to 0.
+ * @param opts.project - Project key to filter by (the emitter's `basename $PWD`).
  * @returns A fully-typed, serializable `EventsSnapshot`. Never throws.
  */
-export function readEvents(opts?: { path?: string; cap?: number }): EventsSnapshot {
+export function readEvents(opts?: {
+  path?: string;
+  cap?: number;
+  project?: string;
+}): EventsSnapshot {
   const filePath = opts?.path ?? defaultEventsPath();
   const cap = resolveCapFromOpts(opts?.cap);
+  const project = opts?.project;
 
   // Missing or unreadable file → empty snapshot (fail-soft, blueprint §3).
   if (!fs.existsSync(filePath)) {
@@ -449,7 +459,13 @@ export function readEvents(opts?: { path?: string; cap?: number }): EventsSnapsh
     return { ...EMPTY_SNAPSHOT, byProject: {} };
   }
 
-  const validEvents = parseLines(raw);
+  const parsed = parseLines(raw);
+
+  // Project filter BEFORE the cap (legacy events without a project field pass).
+  const validEvents =
+    project === undefined
+      ? parsed
+      : parsed.filter((ev) => ev.project === undefined || ev.project === project);
 
   // Apply tail cap: take the LAST `cap` events.
   const retained =

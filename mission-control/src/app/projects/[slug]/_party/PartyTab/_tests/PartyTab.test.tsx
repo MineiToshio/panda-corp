@@ -89,11 +89,13 @@ describe("frd-06: PartyTab — event cap (WO-06-005 scope)", () => {
     expect(rows).toHaveLength(3);
   });
 
-  it("frd-06: WHEN cap is not set THEN all fixture events render (enriched fixture has 9 events)", () => {
+  it("frd-06: WHEN cap is not set THEN all feed-relevant fixture events render", () => {
     render(<PartyTab eventsPath={FIXTURE_EVENTS_ENRICHED_NDJSON} />);
     const rows = screen.getAllByTestId("event-feed-row");
-    // Enriched fixture has 9 valid events (1 malformed line is skipped)
-    expect(rows).toHaveLength(9);
+    // Enriched fixture has 9 valid events (1 malformed line is skipped); the
+    // non-failing SubagentStop is session noise filtered from the bitácora
+    // (isFeedEvent, REQ-06-015) → 8 rows.
+    expect(rows).toHaveLength(8);
   });
 });
 

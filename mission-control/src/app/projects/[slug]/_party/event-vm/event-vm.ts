@@ -1,18 +1,28 @@
 /**
  * WO-06-001 — Iconic event vocabulary + event view-model mapper (IF-06-icon-map, IF-06-event-vm)
  *
+ * Wave 3 (bitácora rework, 2026-07-01):
+ *   - Icons are EMOJI GLYPHS rendered as text (the previous values were Lucide
+ *     identifier strings that no consumer ever resolved — the feed printed
+ *     "circle-dashed" literally; lucide is not a dependency of this project).
+ *   - The vocabulary now covers the REAL engine/hook event names (AgentWorking,
+ *     BuildLaunch/Relaunch, ReviewVerdict/GateVerdict, wo_commit, …) mapped into
+ *     the bounded EventType set — previously every real event fell through to
+ *     the "Evento" fallback and the feed carried no information.
+ *   - `isFeedEvent` filters session noise (SupervisorTick, hook SubagentStop)
+ *     out of the bitácora; failures always pass (first-class, AC-06-015.1).
+ *
  * Wave 2 (La Fragua redesign, 2026-06-18):
  *   - Added `contract` and `gate` to EventType and EVENT_ICON.
  *   - Renamed `agentColorKey → roleColorKey` (now derived from `event.role`, not `event.agent`).
  *   - Added `wo` and `frd` fields to EventVM (surfacing the enriched lib/events fields).
- *   - Updated Spanish labels for `handoff` / `contract` / `gate` per WO-06-001 scope.
  *
  * Pure module — no I/O, no DOM, no side-effects.
  * Consumed by: CMP-06-feed (EventFeed), CMP-06-party-tab (PartyTab)
  *
  * Traceability:
  *   IF-06-icon-map → REQ-06-011, REQ-06-010 (bounded iconic vocabulary)
- *   IF-06-event-vm → REQ-06-011, REQ-06-010 (event view-model for the bitácora)
+ *   IF-06-event-vm → REQ-06-011, REQ-06-010, REQ-06-015 (bitácora view-model)
  *   Depends on: IF-01-readEvents (lib/events.ts) — the DashboardEvent type
  *               IF-13-agent-colors (app/_design/tokens.ts) — AGENT_COLOR
  */
@@ -26,9 +36,9 @@ import type { Event as DashboardEvent } from "@/lib/events/events";
 // ---------------------------------------------------------------------------
 
 /**
- * The canonical bounded event types (architecture §5, WO-06-001 Wave 2).
- * Includes the new engine lines: `contract` (docs/api.md hand-off) and `gate`
- * (review tribunal). The old `review` type is retained for backward-compat.
+ * The canonical bounded event types (architecture §5, WO-06-001 Wave 2/3).
+ * `launch` and `commit` cover the real engine lines (BuildLaunch/Relaunch and
+ * the per-WO green commit). The old `review` type is retained for backward-compat.
  */
 export type EventType =
   | "read"
@@ -44,31 +54,60 @@ export type EventType =
   | "gate"
   | "blocked"
   | "review"
-  | "achievement";
+  | "achievement"
+  | "launch"
+  | "commit";
 
 /**
- * Fixed bounded vocabulary: event type → Lucide icon identifier (AC-06-011.1).
- * Single source of truth — no consumer may define its own event→icon mapping.
+ * Fixed bounded vocabulary: event type → emoji glyph rendered as text
+ * (AC-06-011.1). Single source of truth — no consumer may define its own
+ * event→icon mapping. Emoji (not an icon library): zero dependencies, renders
+ * identically in the RSC HTML and the client, and matches the RPG prototype.
  */
 export const EVENT_ICON: Record<EventType, string> = {
-  read: "file-search",
-  write: "file-pen",
-  edit: "pencil",
-  test_ok: "circle-check",
-  test_fail: "circle-x",
-  message: "message-square",
-  start: "play-circle",
-  end: "flag",
-  handoff: "arrow-right-circle",
-  contract: "file-text",
-  gate: "gavel",
-  blocked: "ban",
-  review: "eye",
-  achievement: "trophy",
+  read: "📖",
+  write: "✍️",
+  edit: "✏️",
+  test_ok: "✅",
+  test_fail: "❌",
+  message: "💬",
+  start: "⚒️",
+  end: "🏁",
+  handoff: "📜",
+  contract: "📄",
+  gate: "⚖️",
+  blocked: "⛔",
+  review: "👁️",
+  achievement: "🏆",
+  launch: "🚀",
+  commit: "🔨",
 };
 
 /** Fallback icon for event types outside the canonical vocabulary. */
-const FALLBACK_ICON = "circle-dashed";
+const FALLBACK_ICON = "·";
+
+/**
+ * Raw event names (as the engine/plugin emitters write them) → bounded
+ * EventType. Names not listed here fall back to FALLBACK_ICON/FALLBACK_LABEL.
+ */
+const RAW_EVENT_TYPE: Record<string, EventType> = {
+  AgentWorking: "start",
+  AgentDone: "test_ok",
+  HandoffWritten: "handoff",
+  ContractPublished: "contract",
+  BuildLaunch: "launch",
+  BuildRelaunch: "launch",
+  BuildComplete: "end",
+  ReviewVerdict: "review",
+  GateVerdict: "review",
+  ReviewDone: "review",
+  wo_commit: "commit",
+};
+
+/** Resolve a raw event name to its bounded EventType key (or itself if already one). */
+function resolveEventType(rawEvent: string): string {
+  return RAW_EVENT_TYPE[rawEvent] ?? rawEvent;
+}
 
 // ---------------------------------------------------------------------------
 // Event label map — Spanish labels for the feed (AGENTS.md: UI in Spanish)
@@ -78,39 +117,84 @@ const EVENT_LABEL: Record<EventType, string> = {
   read: "Lectura",
   write: "Escritura",
   edit: "Edición",
-  test_ok: "Tests pasados",
+  test_ok: "WO en verde",
   test_fail: "Tests fallidos",
   message: "Mensaje",
-  start: "Inicio",
-  end: "Fin",
+  start: "Agente en marcha",
+  end: "Build completo",
   /** WO-06-001: "📜 nota de estado entregada" */
-  handoff: "📜 nota de estado entregada",
+  handoff: "nota de estado entregada",
   /** WO-06-001: "📄 contrato docs/api.md publicado" */
-  contract: "📄 contrato docs/api.md publicado",
+  contract: "contrato docs/api.md publicado",
   /** WO-06-001: "tribunal del juez abierto" */
   gate: "tribunal del juez abierto",
   blocked: "Bloqueado",
   review: "Revisión",
   achievement: "¡Logro desbloqueado!",
+  launch: "Build lanzado",
+  commit: "Forjado en verde · committeado",
 };
 
 const FALLBACK_LABEL = "Evento";
+
+/**
+ * Label refinements for real AgentWorking lines: the engine enriches them with
+ * `phase`/`activity`, which carry more meaning than the generic type label.
+ */
+const AGENT_WORKING_LABEL: Record<string, string> = {
+  "review/gate": "Tribunal en sesión — 4 lentes",
+  "review/patch": "Parche en el tribunal",
+  "review/visual-qa": "QA visual del cierre",
+  "build/implement": "Forjando",
+  "build/test": "Relevo: tests (RED)",
+  "build/backend": "Relevo: backend",
+  "build/frontend": "Relevo: frontend",
+  "build/selftest": "Auto-test del WO",
+};
+
+/** Derive the Spanish label for a raw event, refining AgentWorking by phase/activity. */
+function deriveLabel(event: DashboardEvent, typeKey: string): string {
+  if (event.event === "AgentWorking") {
+    const phase = event.phase ?? "build";
+    const refined = AGENT_WORKING_LABEL[`${phase}/${event.activity ?? "implement"}`];
+    if (refined !== undefined) return refined;
+    return phase === "review" ? "Revisión en curso" : "Forjando";
+  }
+  if ((event.event === "ReviewVerdict" || event.event === "GateVerdict") && event.verdict) {
+    return `Veredicto: ${event.verdict}`;
+  }
+  if (event.event === "BuildRelaunch") return "Build relanzado";
+  return resolveLabel(typeKey);
+}
+
+/**
+ * Feed relevance filter (REQ-06-015). The global stream mixes the build's own
+ * lines with every Claude session's hook noise (SupervisorTick heartbeats,
+ * SubagentStop from arbitrary conversations) — those drown the bitácora in
+ * "Evento" rows. Only the bounded build vocabulary passes; a FAILURE always
+ * passes regardless of type (first-class state, never hidden — AC-06-015.1).
+ */
+export function isFeedEvent(event: DashboardEvent): boolean {
+  if (event.status === "fail" || event.event === "test_fail") return true;
+  const typeKey = resolveEventType(event.event);
+  return Object.hasOwn(EVENT_ICON, typeKey);
+}
 
 // ---------------------------------------------------------------------------
 // Tool icon map — extra icon per tool name (AC-06-012.1: tool = extra icon)
 // ---------------------------------------------------------------------------
 
 const TOOL_ICON: Record<string, string> = {
-  Read: "book-open",
-  Write: "file-pen",
-  Edit: "pencil",
-  Bash: "terminal",
-  ToolSearch: "search",
-  WebSearch: "globe",
-  Task: "list-todo",
+  Read: "📖",
+  Write: "✍️",
+  Edit: "✏️",
+  Bash: "💻",
+  ToolSearch: "🔎",
+  WebSearch: "🌐",
+  Task: "🗒️",
 };
 
-const FALLBACK_TOOL_ICON = "wrench";
+const FALLBACK_TOOL_ICON = "🔧";
 
 // ---------------------------------------------------------------------------
 // IF-06-event-vm — the view-model type
@@ -204,8 +288,9 @@ function resolveRoleColorKey(role: string | undefined): string | undefined {
  * - project:      pass-through when present.
  */
 export function toEventVM(event: DashboardEvent): EventVM {
-  const icon = resolveIcon(event.event);
-  const label = resolveLabel(event.event);
+  const typeKey = resolveEventType(event.event);
+  const icon = resolveIcon(typeKey);
+  const label = deriveLabel(event, typeKey);
   const toolIcon = resolveToolIcon(event.tool);
   const roleColorKey = resolveRoleColorKey(event.role);
   const projColorKey =
