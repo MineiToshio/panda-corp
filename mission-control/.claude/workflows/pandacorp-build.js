@@ -1,6 +1,6 @@
 export const meta = {
   name: 'pandacorp-build',
-  description: 'Pandacorp build engine v2 (DR-050): builds FRD by FRD using each blueprint\'s Build Plan, with state in the work-order frontmatter (implementation_status). ONE review/test gate per FRD (not per work order), hand-offs, fail-closed gates, one commit per safe point. Runs to COMPLETION by default; stops ONLY by health or budget — nothing left to build, a budget ceiling, too many blocks in a row, or work that needs the owner. It TRIES TO REPAIR before giving up; an unrecoverable stop BLOCKS with a reason (needs-owner | external | error) instead of dying. Resumable: it reads the frontmatter and NEVER rebuilds a VERIFIED work order.',
+  description: 'Pandacorp build engine v2 (DR-050 + BL-0021): builds in GLOBAL WAVES — every wave takes the ready work orders of ALL FRDs (dependsOn satisfied, artifacts disjoint per DR-060, capped at the mode\'s wave) so independent features build in parallel; the per-FRD review/test gates run SERIALIZED at wave boundaries (quiet tree). State lives in the work-order frontmatter (implementation_status). Runs to COMPLETION by default; stops ONLY by health or budget — nothing left to build, a budget ceiling, too many blocks in a row, or work that needs the owner. It TRIES TO REPAIR before giving up; an unrecoverable stop BLOCKS with a reason (needs-owner | external | error) instead of dying. Resumable: it reads the frontmatter and NEVER rebuilds a VERIFIED work order.',
   phases: [
     { title: 'Baseline' },
     { title: 'Process Change' },
@@ -655,17 +655,13 @@ const pickDisjointWave = (ready, max) => {
   return picked
 }
 
-for (const f of plan.frds) {
-  if (f.deps && f.deps.some((d) => blockedFrds.includes(d))) { log(`⊘ ${f.frd} skipped (depends on a blocked FRD)`); blockFrd(f.frd, 'needs-owner'); continue }
-  if (budget.total && budget.remaining() < LOW_BUDGET) { stopReason = 'budget'; log('Circuit breaker: budget ceiling reached — stopping at a safe point'); break }
-  if (MAX_AGENTS && agentSpawned >= MAX_AGENTS) { stopReason = 'agents'; log(`Agent ceiling reached (${agentSpawned} ≥ maxAgents ${MAX_AGENTS}) — stopping at a safe point`); break }
-  if (MAX_SPEND && budget.spent() >= MAX_SPEND) { stopReason = 'budget'; log(`Spend ceiling reached (${Math.round(budget.spent() / 1000)}k ≥ maxSpend ${Math.round(MAX_SPEND / 1000)}k) — stopping at a safe point`); break }
-  if ((builtFrds.length + blockedFrds.length + reopenedFrds.length) >= MAX_FRDS) { stopReason = 'maxFrds'; log(`Reached the test cap maxFrds=${MAX_FRDS} (built+blocked+reopened) — stopping at a safe point`); break }
-
-  // ── DR-069 SAFE-POINT (in-engine, audit-20 P0-3): every FRD boundary IS a safe point. The ENGINE
-  // itself checks the owner's signals here — the change queue, answered decisions, the rethink stop —
-  // instead of leaving the drain to supervisor prose (a supervisor may not exist, and its own safe
-  // points are only between passes; an expedite change used to wait a whole multi-hour pass).
+// ── DR-069 SAFE-POINT (in-engine, audit-20 P0-3): every WAVE/GATE boundary IS a safe point (BL-0021:
+// was every FRD boundary — same cadence, the scheduler unit changed). The ENGINE itself checks the
+// owner's signals here — the change queue, answered decisions, the rethink stop — instead of leaving
+// the drain to supervisor prose (a supervisor may not exist, and its own safe points are only between
+// passes; an expedite change used to wait a whole multi-hour pass).
+// Returns 'stop' when the owner re-planned (rethink_pending), else null.
+async function safePoint() {
   agentSpawned++
   const sp = await agent(
     `Safe-point check (DR-069) — read the owner's signals; change ONLY what is specified:
@@ -675,7 +671,7 @@ for (const f of plan.frds) {
     Return { stop: false, ready: [...slugs, expedite first], unblocked: [...wo ids] } (empty arrays when there is nothing).`,
     { label: 'safe-point', phase: 'Build', model: MECH, agentType: 'pandacorp:implementer', schema: SAFE_POINT_SCHEMA },
   )
-  if (sp && sp.stop === true) { stopReason = 'rethink'; log('⏸ rethink_pending — el owner re-planificó; el motor para en este safe point (la próxima corrida retoma con el plan nuevo)'); break }
+  if (sp && sp.stop === true) { log('⏸ rethink_pending — el owner re-planificó; el motor para en este safe point (la próxima corrida retoma con el plan nuevo)'); return 'stop' }
   if (sp && sp.unblocked && sp.unblocked.length) log(`✓ Decisiones respondidas → WOs desbloqueados a PLANNED: ${sp.unblocked.join(', ')} (su FRD los construye en la próxima pasada)`)
   if (sp && sp.ready && sp.ready.length) {
     log(`⇩ Drenando ${sp.ready.length} change(s) ready de la cola (DR-069): ${sp.ready.join(', ')}`)
@@ -683,7 +679,7 @@ for (const f of plan.frds) {
       if (capHit()) { log('⛔ Techo de agentes — el resto de la cola espera a la próxima corrida'); break }
       const proc = await processChange(slug, 'Build')
       if (!proc || proc.done !== true || !proc.affectedFrds || !proc.affectedFrds.length) { log(`⊘ Change '${slug}' no drenada: ${proc?.failure || 'sin FRDs afectados'}`); continue }
-      // Append NEW FRD folders to THIS run's loop (a for..of over an array visits pushed items).
+      // NEW FRD folders join THIS run's schedule (the global scheduler picks their WOs up next wave).
       // An affected FRD already in the plan builds its new WOs on the NEXT run (its plan entry
       // predates the drain) — honest and bounded, logged so nothing lands silently.
       const newFolders = proc.affectedFrds.filter((x) => !plan.frds.some((pf) => pf.frd === x))
@@ -695,83 +691,21 @@ for (const f of plan.frds) {
           `Re-plan ONLY these FRD folders (they were just created/updated by a drained change): ${newFolders.join(', ')}. Same contract as the main build planner: read each folder's frd.md + blueprint.md Build Plan + the frontmatter ONLY of every work-orders/wo-*.md, and return { frds: [{ frd, deps, workOrders: [{ id, status, path, acText (the EARS AC lines this WO owns, verbatim from frd.md — DR-108), difficulty, reopen_count, deps, artifacts, foundation, summary }] }] } in Build Plan order. Read-only.`,
           { label: `plan-drained:${slug}`, phase: 'Build', model: P.judge, agentType: 'pandacorp:architect', schema: PLAN_SCHEMA },
         )
-        if (extra && extra.frds && extra.frds.length) { for (const nf of extra.frds) plan.frds.push(nf); log(`＋ FRDs de la change añadidos a esta corrida: ${extra.frds.map((x) => x.frd).join(', ')}`) }
+        if (extra && extra.frds && extra.frds.length) { for (const nf of extra.frds) { plan.frds.push(nf); enrollFrd(nf) } log(`＋ FRDs de la change añadidos a esta corrida: ${extra.frds.map((x) => x.frd).join(', ')}`) }
       }
     }
   }
+  return null
+}
 
-  // DR-057 (extended) PREVENT: before fanning out ANY surface (a non-foundation UI WO), the foundation
-  // must be COMPLETE + green. The gate runs once; an incomplete foundation auto-repairs (bounded,
-  // DR-065) before surfaces build flat against missing primitives. If it can't, surfaces wait on the owner.
-  const hasSurfaceWork = f.workOrders.some((w) => w.status !== 'VERIFIED' && w.status !== 'BLOCKED' && !w.foundation)
-  if (plan.hasFrontend && hasSurfaceWork && !foundationVerified) {
-    const ok = await ensureFoundationComplete()
-    if (!ok) {
-      log(`⊘ ${f.frd}: foundation incomplete and it needs the owner — holding surface work`)
-      blockFrd(f.frd, 'needs-owner')
-      if (consecutiveBlocks >= MAX_CONSECUTIVE_BLOCKS) { stopReason = 'blocks'; break }
-      continue
-    }
-  }
-
-  phase('Build')
-  const pending = f.workOrders.filter((w) => w.status !== 'VERIFIED' && w.status !== 'BLOCKED')
-  const reviewIds = pending.map((w) => w.id)   // all non-VERIFIED/non-BLOCKED reach the gate; already-VERIFIED WOs are a stable foundation, never re-touched
-  const toBuild = pending.filter((w) => w.status !== 'IN_REVIEW')   // IN_REVIEW = already built (self-test green) by a prior interrupted run → straight to the gate, don't rebuild
-  log(`▶ ${f.frd}: ${toBuild.length} to build${pending.length - toBuild.length ? ` · ${pending.length - toBuild.length} already in review` : ''}`)
-  const doneIds = new Set(f.workOrders.filter((w) => w.status === 'VERIFIED' || w.status === 'IN_REVIEW').map((w) => w.id))
-  const queue = new Map(toBuild.map((w) => [w.id, w]))
-  let frdFailed = false
-  // Build in waves honoring the Build Plan's intra-FRD dependencies.
-  while (queue.size > 0) {
-    if (capHit()) { log(`⛔ Agent ceiling (${agentSpawned} ≥ maxAgents ${MAX_AGENTS}) reached mid-FRD — stopping at the wave boundary (DR-070)`); stopReason = 'agents'; break }
-    const ready = [...queue.values()].filter((w) => (w.deps || []).every((d) => doneIds.has(d) || !queue.has(d)))
-    if (ready.length === 0) { log(`⚠ ${f.frd}: ${queue.size} work orders with unresolved/circular deps`); frdFailed = true; break }
-    const undeclared = ready.filter((w) => !(w.artifacts && w.artifacts.length))
-    if (undeclared.length) log(`⚠ ${f.frd}: ${undeclared.length} ready WO(s) declare no artifacts — serializing them (can't prove disjoint, DR-060 fail-safe): ${undeclared.map((w) => w.id).join(', ')}`)
-    // DR-057 foundation-first, ENGINE-ENFORCED (not prose): while any foundation WO is still pending,
-    // the wave is foundation-only — the shared primitives/inventory build BEFORE features fan out.
-    const foundationReady = ready.filter((w) => w.foundation)
-    // DR-070 (audit P1): never START more WOs in a wave than the agent budget allows. capHit() guards the
-    // wave boundary, but a full P.wave fan-out could overshoot maxAgents mid-wave by (wave-1); cap the
-    // wave width to the remaining agent budget so the in-engine brake holds even if the supervisor is dead.
-    const waveMax = MAX_AGENTS ? Math.min(P.wave, Math.max(1, MAX_AGENTS - agentSpawned)) : P.wave
-    const wave = pickDisjointWave(foundationReady.length ? foundationReady : ready, waveMax)   // DR-060: never co-schedule WOs whose artifacts overlap
-    // BL-0002: the ENGINE owns the PLANNED→IN_PROGRESS transition, stamped at dispatch — atomic and
-    // independent of when each builder actually starts. Parallel waves used to leave five actively-
-    // building WOs reading PLANNED (the builder's "first action" never ran first), so Mission Control
-    // showed "En progreso: 0" over a busy build (LESSON-0003). Cheap tier; frontmatter only; no commit.
-    agentSpawned++
-    await agent(`Stamp \`implementation_status: IN_PROGRESS\` in the frontmatter of EACH of these work-order files (a frontmatter-only edit — change nothing else, do NOT commit; skip any already IN_PROGRESS): ${wave.map((w) => w.path || `docs/frds/${f.frd}/work-orders/${w.id}`).join(', ')}. Return when all are stamped.`,
-      { label: `dispatch:${f.frd}`, phase: 'Build', model: MECH, agentType: 'pandacorp:implementer' })
-    const results = await parallel(wave.map((w) => () => buildWO(w, f.frd)))
-    for (let i = 0; i < wave.length; i++) { queue.delete(wave[i].id); if (results[i]) doneIds.add(wave[i].id); else frdFailed = true }
-    // Option B (DR-060) + finer save points (DR-086): each GREEN work order was ALREADY committed the
-    // instant its self-test passed (commitWOGreen — one serialized git writer, selective `git add` of
-    // its disjoint artifacts), so there is no batched after-wave commit. A mid-wave interruption keeps
-    // every WO that already greened (committed → IN_REVIEW → skipped on resume) and only the
-    // still-building (uncommitted) WOs rebuild. No index.lock race: the writer is serialized.
-    if (frdFailed) break
-  }
-  if (stopReason === 'agents') break   // DR-070: mid-FRD ceiling hit → leave this FRD's built WOs IN_REVIEW (resumable), skip its gate, go to close-out
-
-  // A work order failed its self-test → TRY TO REPAIR before blocking (owner's rule).
-  if (frdFailed) {
-    log(`! ${f.frd}: a work order failed — attempting repair before giving up`)
-    const fix = await attemptRepair(f.frd, 'a work order failed its self-test during the build wave')
-    if (!fix || fix.green !== true) {
-      const reason = (fix && fix.blocked_reason) || 'error'
-      log(`⊘ ${f.frd}: could not repair (${reason}) — BLOCKED, continuing with independent FRDs`)
-      blockFrd(f.frd, reason)
-      if (consecutiveBlocks >= MAX_CONSECUTIVE_BLOCKS) { stopReason = 'blocks'; break }
-      continue
-    }
-    log(`✓ ${f.frd}: repaired — proceeding to the gate`)
-  }
-
+// ── FRD gate + convergence (DR-072/073/107, BL-0001) — one FRD, run on a QUIET tree ──────────────
+// Extracted verbatim from the old per-FRD loop (BL-0021): the global scheduler calls this serially at
+// wave boundaries, so the gate's whole-project checks never see another FRD's in-flight work.
+// Returns 'built' | 'reopened' | 'blocked'; updates builtFrds/blockedFrds/reopenedFrds/consecutiveBlocks.
+async function gateAndConverge(f, reviewIds) {
   phase('Review')
   let gate = await frdGate(f.frd, reviewIds)
-  if (gate && gate.green === true) { log(`✓ ${f.frd} VERIFIED`); builtFrds.push(f.frd); consecutiveBlocks = 0; continue }
+  if (gate && gate.green === true) { log(`✓ ${f.frd} VERIFIED`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
   // DR-073 PATCH-FIRST: a localized reject defaults to an in-place patch on the EXISTING build (inject
   // the finding + the RED-proven failing test), re-gated WHOLE-PROJECT — NOT a revert-and-rebuild. The
   // patch runs SYNCHRONOUSLY inside this FRD's gate step (before the loop moves to sibling FRDs), and it
@@ -789,7 +723,7 @@ for (const f of plan.frds) {
       // Constitution rule 4 (audit-20): the patcher claimed green — an INDEPENDENT agent re-runs the
       // gate and is the only one allowed to stamp VERIFIED + advance last_green_sha.
       const iv = await verifyPatched(f.frd, reviewIds)
-      if (iv && iv.green === true) { log(`✓ ${f.frd} VERIFIED (patched in place, independently verified)`); builtFrds.push(f.frd); consecutiveBlocks = 0; continue }
+      if (iv && iv.green === true) { log(`✓ ${f.frd} VERIFIED (patched in place, independently verified)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
       patchFailNote = `patch claimed green but the independent verification FAILED (${iv?.failure || 'red'})`
     } else if (patched && patched.cause === 'gate-test-defective' && (patched.defectiveTests || []).length) {
       // BL-0001 second fallback: the gate's own adversarial test is the defect — repair the TEST,
@@ -798,7 +732,7 @@ for (const f of plan.frds) {
       const tr = await repairGateTest(f.frd, patched.defectiveTests, reviewIds)
       if (tr && tr.green === true) {
         const iv2 = await verifyPatched(f.frd, reviewIds)
-        if (iv2 && iv2.green === true) { log(`✓ ${f.frd} VERIFIED (defective gate test repaired, independently verified)`); builtFrds.push(f.frd); consecutiveBlocks = 0; continue }
+        if (iv2 && iv2.green === true) { log(`✓ ${f.frd} VERIFIED (defective gate test repaired, independently verified)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
         patchFailNote = `gate-test repair greened but the independent verification failed (${iv2?.failure || 'red'})`
       } else patchFailNote = `gate-test claim not upheld (${tr?.failure || 'test was right — the build is wrong'})`
     } else {
@@ -813,14 +747,14 @@ for (const f of plan.frds) {
     // — the health breaker is untouched either way.
     const retryWos = f.workOrders.filter((w) => gate.reopen.includes(w.id)).map((w) => ({ ...w, reopen_count: (w.reopen_count || 0) + 1 }))
     const canRetry = !capHit() && retryWos.length > 0 && retryWos.every((w) => w.reopen_count < MAX_REOPENS)
-    if (!canRetry) { reopenedFrds.push(f.frd); continue }
+    if (!canRetry) { reopenedFrds.push(f.frd); return 'reopened' }
     log(`↻ ${f.frd}: in-run retry (DR-107) — rebuilding ${retryWos.map((w) => w.id).join(', ')} from the clean base now (opus) instead of paying a whole extra pass`)
     for (const w of retryWos) await buildWO(w, f.frd)
     const regate = await frdGate(f.frd, reviewIds)
-    if (regate && regate.green === true) { log(`✓ ${f.frd} VERIFIED (in-run retry)`); builtFrds.push(f.frd); consecutiveBlocks = 0; continue }
+    if (regate && regate.green === true) { log(`✓ ${f.frd} VERIFIED (in-run retry)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
     if (regate && regate.reopen && regate.reopen.length) await revertAndReopen(f.frd, regate.reopen)
     log(`↻ ${f.frd}: in-run retry did not converge — deferred to the next pass`)
-    reopenedFrds.push(f.frd); continue
+    reopenedFrds.push(f.frd); return 'reopened'
   }
 
   // DR-065 CURE: the surface failed because a shared primitive it needs isn't in the foundation —
@@ -833,7 +767,7 @@ for (const f of plan.frds) {
     if (fr && fr.green === true) {
       foundationVerified = false   // re-confirm completeness before the next surface fans out
       log(`✓ ${f.frd}: foundation repaired — its surfaces rebuild against real primitives next pass`)
-      reopenedFrds.push(f.frd); continue   // the repair reset surfaces to the last green (→ PLANNED); next pass rebuilds them
+      reopenedFrds.push(f.frd); return 'reopened'   // the repair reset surfaces to the last green (→ PLANNED); next pass rebuilds them
     }
     log(`⊘ ${f.frd}: foundation auto-repair failed — falling through to block`)
   }
@@ -845,8 +779,7 @@ for (const f of plan.frds) {
   if (gate && (gate.blocked_reason === 'needs-owner' || gate.blocked_reason === 'external')) {
     log(`⊘ ${f.frd}: gate classified ${gate.blocked_reason}${gate.failure ? ' — ' + gate.failure : ''} — blocking (no repair)`)
     blockFrd(f.frd, gate.blocked_reason)
-    if (consecutiveBlocks >= MAX_CONSECUTIVE_BLOCKS) { stopReason = 'blocks'; break }
-    continue
+    return 'blocked'
   }
 
   // Gate failed with no specific reopen → TRY TO REPAIR, then re-gate ONCE (fail-closed).
@@ -854,12 +787,173 @@ for (const f of plan.frds) {
   const fix = await attemptRepair(f.frd, 'the FRD review/integration gate failed: ' + (gate?.failure || 'unknown'))
   if (fix && fix.green === true) {
     gate = await frdGate(f.frd, reviewIds)
-    if (gate && gate.green === true) { log(`✓ ${f.frd} VERIFIED (after repair)`); builtFrds.push(f.frd); consecutiveBlocks = 0; continue }
+    if (gate && gate.green === true) { log(`✓ ${f.frd} VERIFIED (after repair)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
   }
   const reason = (fix && fix.blocked_reason) || (gate && gate.blocked_reason) || 'error'
   log(`⊘ ${f.frd}: BLOCKED (${reason})`)
   blockFrd(f.frd, reason)
+  return 'blocked'
+}
+
+// ── BL-0021 GLOBAL WAVE SCHEDULER ─────────────────────────────────────────────
+// The engine used to build strictly FRD by FRD (a sequential for-loop): the wave parallelism only
+// existed INSIDE one feature, so six independent 1-WO FRDs built single-file for ~4.5h in `powerful`
+// mode (personal-page-v2, 2026-06-30 — the mode's wave of 8 was theoretical). Now each wave is picked
+// from the READY WOs of ALL FRDs (dependsOn satisfied + artifacts disjoint across the whole wave,
+// DR-060) and the per-FRD gates run SERIALIZED at wave boundaries — waves are synchronous barriers,
+// so a gate's whole-project checks always see a QUIET tree (the trust boundary is unchanged).
+// Every prior invariant holds: foundation-first (DR-057), Option B single commit writer, maxAgents/
+// budget brakes at every boundary, DR-069 safe-points, the blocks health breaker, DR-107 in-run retry.
+
+// Per-FRD tracking, seeded from the plan; drained changes enroll later via enrollFrd().
+const frdState = new Map()   // frd -> { f, reviewIds, toBuildIds:Set, failed:false, enqueued:false }
+const globalQueue = new Map() // woId -> { wo, frd }
+const doneIds = new Set()     // committed (IN_REVIEW) or VERIFIED wo ids — satisfies dependsOn
+const gateQueue = []          // FRD folders whose build WOs are all committed — gates run FIFO, serialized
+function enqueueGateIfComplete(frd) {
+  const st = frdState.get(frd)
+  if (!st || st.enqueued || st.failed) return
+  if (st.toBuildIds.size === 0 && st.reviewIds.length > 0) { st.enqueued = true; gateQueue.push(frd) }
+}
+function enrollFrd(f) {
+  if (frdState.has(f.frd)) return
+  const pending = f.workOrders.filter((w) => w.status !== 'VERIFIED' && w.status !== 'BLOCKED')
+  const toBuild = pending.filter((w) => w.status !== 'IN_REVIEW')   // IN_REVIEW = built by a prior interrupted run → straight to the gate, don't rebuild
+  for (const w of f.workOrders) if (w.status === 'VERIFIED' || w.status === 'IN_REVIEW') doneIds.add(w.id)
+  for (const w of toBuild) globalQueue.set(w.id, { wo: w, frd: f.frd })
+  frdState.set(f.frd, { f, reviewIds: pending.map((w) => w.id), toBuildIds: new Set(toBuild.map((w) => w.id)), failed: false, enqueued: false })
+  log(`▶ ${f.frd}: ${toBuild.length} to build${pending.length - toBuild.length ? ` · ${pending.length - toBuild.length} already in review` : ''}`)
+  enqueueGateIfComplete(f.frd)   // resume / drained bug-fix: an all-IN_REVIEW FRD goes straight to the gate
+}
+for (const f of plan.frds) enrollFrd(f)
+
+// Block an FRD before its gate: drop its unbuilt WOs from the schedule (built/IN_REVIEW ones stay
+// committed — the next run resumes them) and record the reason.
+function blockFrdInSchedule(frd, reason) {
+  const st = frdState.get(frd)
+  if (st) { st.failed = true; for (const id of st.toBuildIds) globalQueue.delete(id) }
+  blockFrd(frd, reason)
+}
+
+// FRD-level deps (a WO is schedulable only if its FRD doesn't depend on a blocked FRD).
+function frdDepsBlocked(frd) {
+  const st = frdState.get(frd)
+  return Boolean(st && st.f.deps && st.f.deps.some((d) => blockedFrds.includes(d)))
+}
+
+while (true) {
+  // ── Brakes at every wave/gate boundary (same checks the per-FRD loop ran) ──
+  if (budget.total && budget.remaining() < LOW_BUDGET) { stopReason = 'budget'; log('Circuit breaker: budget ceiling reached — stopping at a safe point'); break }
+  if (MAX_AGENTS && agentSpawned >= MAX_AGENTS) { stopReason = 'agents'; log(`Agent ceiling reached (${agentSpawned} ≥ maxAgents ${MAX_AGENTS}) — stopping at a safe point`); break }
+  if (MAX_SPEND && budget.spent() >= MAX_SPEND) { stopReason = 'budget'; log(`Spend ceiling reached (${Math.round(budget.spent() / 1000)}k ≥ maxSpend ${Math.round(MAX_SPEND / 1000)}k) — stopping at a safe point`); break }
+  if ((builtFrds.length + blockedFrds.length + reopenedFrds.length) >= MAX_FRDS) { stopReason = 'maxFrds'; log(`Reached the test cap maxFrds=${MAX_FRDS} (built+blocked+reopened) — stopping at a safe point`); break }
   if (consecutiveBlocks >= MAX_CONSECUTIVE_BLOCKS) { stopReason = 'blocks'; break }
+
+  // ── DR-069 safe point (owner signals; may enroll drained-change FRDs into this run) ──
+  if ((await safePoint()) === 'stop') { stopReason = 'rethink'; break }
+
+  // ── Gates first (tree is quiet right after a wave barrier): one per iteration ──
+  const gateFrd = gateQueue.shift()
+  if (gateFrd) {
+    const st = frdState.get(gateFrd)
+    await gateAndConverge(st.f, st.reviewIds)
+    continue
+  }
+
+  // Skip FRDs whose FRD-level deps blocked (the old loop's skip, evaluated lazily).
+  for (const [frd, st] of frdState) {
+    if (!st.failed && !st.enqueued && frdDepsBlocked(frd) && [...st.toBuildIds].some((id) => globalQueue.has(id))) {
+      log(`⊘ ${frd} skipped (depends on a blocked FRD)`)
+      blockFrdInSchedule(frd, 'needs-owner')
+    }
+  }
+  if (consecutiveBlocks >= MAX_CONSECUTIVE_BLOCKS) { stopReason = 'blocks'; break }
+
+  if (globalQueue.size === 0) break   // nothing left to build and no gate queued → done
+
+  // ── Ready set across ALL FRDs: dependsOn satisfied (a dep outside the schedule counts as
+  // satisfied — it belongs to a fully-VERIFIED FRD the planner omitted, mirroring the old
+  // `!queue.has(d)` rule extended globally). ──
+  const ready = [...globalQueue.values()]
+    .filter(({ wo }) => (wo.deps || []).every((d) => doneIds.has(d) || !globalQueue.has(d)))
+    .map(({ wo, frd }) => ({ ...wo, _frd: frd }))
+
+  if (ready.length === 0) {
+    const stuck = [...new Set([...globalQueue.values()].map((x) => x.frd))]
+    log(`⚠ ${globalQueue.size} work orders with unresolved/circular deps (${stuck.join(', ')}) — blocking those FRDs`)
+    for (const frd of stuck) blockFrdInSchedule(frd, 'error')
+    continue
+  }
+
+  // ── DR-057 foundation-first, ENGINE-ENFORCED: while any foundation WO is pending, the wave is
+  // foundation-only; before any SURFACE fans out the foundation must be COMPLETE (bounded auto-repair).
+  const foundationReady = ready.filter((w) => w.foundation)
+  let candidates = ready
+  if (foundationReady.length) {
+    candidates = foundationReady
+  } else if (plan.hasFrontend && !foundationVerified && ready.some((w) => !w.foundation)) {
+    const ok = await ensureFoundationComplete()
+    if (!ok) {
+      const surfaceFrds = [...new Set(ready.filter((w) => !w.foundation).map((w) => w._frd))]
+      log(`⊘ foundation incomplete and it needs the owner — holding surface work (${surfaceFrds.join(', ')})`)
+      for (const frd of surfaceFrds) blockFrdInSchedule(frd, 'needs-owner')
+      continue
+    }
+  }
+
+  phase('Build')
+  const undeclared = candidates.filter((w) => !(w.artifacts && w.artifacts.length))
+  if (undeclared.length) log(`⚠ ${undeclared.length} ready WO(s) declare no artifacts — serializing them (can't prove disjoint, DR-060 fail-safe): ${undeclared.map((w) => w.id).join(', ')}`)
+  // DR-070 (audit P1): never START more WOs in a wave than the agent budget allows. capHit() guards the
+  // wave boundary, but a full P.wave fan-out could overshoot maxAgents mid-wave by (wave-1); cap the
+  // wave width to the remaining agent budget so the in-engine brake holds even if the supervisor is dead.
+  const waveMax = MAX_AGENTS ? Math.min(P.wave, Math.max(1, MAX_AGENTS - agentSpawned)) : P.wave
+  const wave = pickDisjointWave(candidates, waveMax)   // DR-060: never co-schedule WOs whose artifacts overlap — now across FRDs
+  const waveFrds = [...new Set(wave.map((w) => w._frd))]
+  log(`⚒ wave: ${wave.length} WO(s) across ${waveFrds.length} FRD(s) — ${wave.map((w) => w.id).join(', ')}`)
+
+  // BL-0002: the ENGINE owns the PLANNED→IN_PROGRESS transition, stamped at dispatch — atomic and
+  // independent of when each builder actually starts. Parallel waves used to leave five actively-
+  // building WOs reading PLANNED (the builder's "first action" never ran first), so Mission Control
+  // showed "En progreso: 0" over a busy build (LESSON-0003). Cheap tier; frontmatter only; no commit.
+  agentSpawned++
+  await agent(`Stamp \`implementation_status: IN_PROGRESS\` in the frontmatter of EACH of these work-order files (a frontmatter-only edit — change nothing else, do NOT commit; skip any already IN_PROGRESS): ${wave.map((w) => w.path || `docs/frds/${w._frd}/work-orders/${w.id}`).join(', ')}. Return when all are stamped.`,
+    { label: `dispatch:${waveFrds.join('+')}`, phase: 'Build', model: MECH, agentType: 'pandacorp:implementer' })
+  const results = await parallel(wave.map((w) => () => buildWO(w, w._frd)))
+  // Option B (DR-060) + finer save points (DR-086): each GREEN work order was ALREADY committed the
+  // instant its self-test passed (commitWOGreen — one serialized git writer, selective `git add` of
+  // its disjoint artifacts), so there is no batched after-wave commit. A mid-wave interruption keeps
+  // every WO that already greened (committed → IN_REVIEW → skipped on resume) and only the
+  // still-building (uncommitted) WOs rebuild. No index.lock race: the writer is serialized.
+  for (let i = 0; i < wave.length; i++) {
+    const w = wave[i]
+    globalQueue.delete(w.id)
+    const st = frdState.get(w._frd)
+    if (st) st.toBuildIds.delete(w.id)
+    if (results[i]) doneIds.add(w.id)
+    else if (st) st.failed = true
+  }
+
+  // A work order failed its self-test → TRY TO REPAIR that FRD before blocking (owner's rule).
+  // Runs after the wave barrier (quiet tree), one FRD at a time.
+  for (const frd of waveFrds) {
+    const st = frdState.get(frd)
+    if (!st || !st.failed) continue
+    log(`! ${frd}: a work order failed — attempting repair before giving up`)
+    const fix = await attemptRepair(frd, 'a work order failed its self-test during the build wave')
+    if (fix && fix.green === true) {
+      log(`✓ ${frd}: repaired — proceeding to the gate`)
+      st.failed = false
+      for (const id of [...st.toBuildIds]) if (!globalQueue.has(id)) { st.toBuildIds.delete(id); doneIds.add(id) }
+    } else {
+      const reason = (fix && fix.blocked_reason) || 'error'
+      log(`⊘ ${frd}: could not repair (${reason}) — BLOCKED, continuing with independent FRDs`)
+      blockFrdInSchedule(frd, reason)
+    }
+  }
+
+  // FRDs whose build WOs all committed → queue their gate (runs next iteration, tree quiet).
+  for (const frd of waveFrds) enqueueGateIfComplete(frd)
 }
 
 // ── End-of-build VISUAL QA pass (DR-072) ──────────────────────────────────────

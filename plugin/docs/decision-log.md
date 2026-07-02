@@ -4,6 +4,37 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-07-01 — Engine: GLOBAL WAVE scheduler — cross-FRD parallel builds, gates serialized at wave boundaries (BL-0021) · v9.45.0
+
+**What:** The build engine's main loop is no longer a sequential `for (const f of plan.frds)`. Each
+wave is now picked from the READY work orders of **all** FRDs — `dependsOn` satisfied (dep committed →
+`IN_REVIEW`/`VERIFIED`; a dep outside the schedule counts as satisfied, mirroring the old intra-FRD
+rule), artifacts disjoint per DR-060 **checked across the whole wave** (cross-FRD overlaps serialize),
+capped at the mode's wave size and the remaining agent budget (DR-070). The per-FRD gates queue when a
+feature's build WOs are all committed and run **serialized at wave boundaries** — waves are synchronous
+barriers, so a gate's whole-project checks always see a QUIET tree. Every prior invariant preserved:
+foundation-first waves + completeness gate (DR-057/065), Option B single serialized commit writer,
+DR-069 safe-points (now at every wave/gate boundary — same cadence), budget/agents/maxFrds brakes,
+blocks health breaker, the full DR-072/073/107 + BL-0001 convergence flow (extracted verbatim into
+`gateAndConverge`), and resume semantics (an all-IN_REVIEW FRD gates first; drained-change FRDs enroll
+into the RUNNING schedule).
+
+**Why:** Owner-confirmed 2026-07-01 (BL-0021): after personal-page-v2's foundation verified, SIX
+independent 1-WO FRDs were simultaneously ready and the engine built them single-file — ~4.5h of
+queue in `powerful` mode (wave 8). DR-100 right-sizing produces small FRDs, which had turned the
+intra-FRD wave into a no-op: the mode's parallelism was theoretical. Estimated saving on that run's
+mid-section: ~4.5h → ~2h.
+
+**Verification:** simulation harness (stubbed agent/parallel runtime) over 4 fixtures — `parallel`
+(ppv2 shape: wave 2 carries 6 WOs of 6 FRDs concurrently, 7 gates serialized, 0 gates with builds in
+flight), `overlap` (cross-FRD artifact collision → different waves), `resume` (all-IN_REVIEW FRD gates
+first), `reopen` (gate reject → patch → independent verify → dependent WO still builds). All GREEN.
+
+**Impact:** `plugin/templates/shared/.claude/workflows/pandacorp-build.js` (scheduler rework),
+`plugin/skills/implement/SKILL.md`, `factory/standards/build-orchestration.md` (§2 global waves),
+`factory/decisions/registry.yaml` (DR-050 amended), Mission Control overlay copy re-synced +
+`content/manual/concepts/construccion-desatendida.md` (Paralelismo — oleadas globales), BL-0021 → done.
+
 ## 2026-07-01 — Engine: per-WO `wo_commit` Party event at the green commit · v9.44.0
 
 **What:** `commitWOGreen` (the serialized mech git writer) now also appends a `wo_commit` line

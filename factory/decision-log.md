@@ -2,6 +2,24 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-01 — Build orchestration: GLOBAL WAVES replace the strictly-sequential FRD-by-FRD loop (BL-0021, DR-050 amended)
+
+**What:** The build standard now schedules each wave from the READY work orders of ALL FRDs
+(`dependsOn` satisfied + artifacts disjoint across the wave, DR-060) instead of finishing one feature
+before starting the next; the per-FRD review gates queue and run SERIALIZED at wave boundaries so
+their whole-project checks always see a quiet tree. The trust boundary (one gate per FRD, quiet-tree
+whole-project verification, Option B single commit writer) is unchanged — only the scheduling unit
+moved from "feature" to "ready set".
+
+**Why:** Owner-confirmed with evidence (2026-07-01): personal-page-v2's `track.jsonl` shows six
+independent 1-WO FRDs building single-file for ~4.5h after the foundation verified, in `powerful`
+mode (wave 8) — DR-100 right-sizing produces small FRDs, which had made the intra-FRD wave a no-op.
+
+**Impact:** `factory/standards/build-orchestration.md` (§2 "Global waves"), DR-050 in
+`factory/decisions/registry.yaml`, engine rework in the plugin (v9.45.0 — see
+`plugin/docs/decision-log.md` for the verification evidence), `factory/backlog/BL-0021` → done,
+Manual narrative `construccion-desatendida.md` (Paralelismo — oleadas globales).
+
 ## 2026-07-01 — Design-skill audit, phases A+B+D: canvas relay automation + on-disk tracker + canvas journal + closing sweep + engine routing (DR-109)
 
 **What:** The owner audited the design phase after `personal-page-v2` (`docs/proposals/22-design-skill-audit-2026-07-01.md`)

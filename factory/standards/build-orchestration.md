@@ -56,16 +56,27 @@ more than one concern** (refactor + feature + analytics in one task is an anti-p
 WO). This is the right-size middle: coarse enough to carry end-to-end context, bounded enough to stay
 in the model's competent zone. The factory's coarse policy stands — this only fixes the missing ceiling.
 
+**Global waves — the wave crosses FRD boundaries (BL-0021, 2026-07-01).** The engine schedules each
+wave from the READY work orders of **ALL FRDs**, not one feature at a time: a WO is ready when its
+`dependsOn` are satisfied (dep committed → `IN_REVIEW`/`VERIFIED`) and its artifacts are disjoint from
+the rest of the wave; the wave is capped at the mode's size. The old strictly-sequential per-FRD loop
+made the mode's parallelism theoretical for right-sized (small) FRDs — the personal-page-v2 run built
+six INDEPENDENT 1-WO features single-file for ~4.5h in `powerful` (wave 8). The per-FRD **gates queue
+and run SERIALIZED at wave boundaries** (waves are synchronous barriers), so a gate's whole-project
+checks always see a **quiet tree** — the trust boundary is unchanged; only the scheduling unit moved
+from "feature" to "ready set".
+
 **Disjoint artifacts within a wave — declared and ENGINE-ENFORCED (DR-060).** Work orders that build
 in parallel must NOT write the same file/module — parallel implementers collide (a real failure mode,
 not theoretical: e.g. four WOs all creating one `lib/x.ts`). Each work order therefore **declares an
 `artifacts: [globs]` frontmatter field** — the files/dirs it writes. The **engine enforces
-disjointness from that field**: when it builds a wave it computes the artifact sets and **serializes
-any WOs whose `artifacts` overlap into different waves** (the overlapping WO waits a wave instead of
-racing). The Build Plan should still be **disjoint by design** — the architect designs wave-parallel
-WOs with non-overlapping artifacts, and prefers merging genuinely-coupled siblings into one coarse WO
-— but the engine is the backstop: an overlap left in the plan is serialized, never raced. This rule
-also nudges granularity coarser, the right way.
+disjointness from that field**: when it builds a wave it computes the artifact sets **across every FRD
+in the wave** (BL-0021 — cross-FRD overlaps serialize too) and **serializes any WOs whose `artifacts`
+overlap into different waves** (the overlapping WO waits a wave instead of racing). The Build Plan
+should still be **disjoint by design** — the architect designs wave-parallel WOs with non-overlapping
+artifacts, and prefers merging genuinely-coupled siblings into one coarse WO — but the engine is the
+backstop: an overlap left in the plan is serialized, never raced. This rule also nudges granularity
+coarser, the right way.
 
 **Declared dependencies — `dependsOn` is the machine-readable source (DR-087).** Each work order
 declares a **`dependsOn: [WO-NN-MMM]`** frontmatter field: the **real upstream work orders** it

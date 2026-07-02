@@ -3,12 +3,12 @@ id: BL-0021
 type: change
 area: build-engine
 title: "Global wave scheduler: build ready WOs across ALL FRDs in parallel; gates serialized at wave boundaries"
-status: open
+status: done
 severity: p1
 opened: 2026-07-01
-closed:
+closed: 2026-07-01
 source: "owner/conversation 2026-07-01 (Party audit session) — confirmed against personal-page-v2 track.jsonl"
-closes:
+closes: "DR-050 amended (global waves) + factory/standards/build-orchestration.md §2 + engine v9.45.0"
 links: [DR-050, DR-060, DR-100, DR-108, BL-0019]
 ---
 

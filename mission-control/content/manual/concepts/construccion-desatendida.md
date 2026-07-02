@@ -37,17 +37,19 @@ El propietario nunca interrumpe al agente directamente. La comunicación es **as
 
 El motor revisa estos canales en cada safe-point (al terminar una WO). Nunca a mitad de trabajo.
 
-## Paralelismo
+## Paralelismo — oleadas globales
 
-El motor ejecuta hasta 3 subagentes en paralelo cuando sus work orders no tienen dependencias entre sí. Las dependencias son explícitas en el código del workflow — no se infieren.
+El motor construye en **oleadas globales** (BL-0021): cada oleada toma las work orders **listas de TODOS los FRDs** — dependencias (`dependsOn`) satisfechas y artefactos disjuntos (DR-060) — hasta el tope del modo (potente = 8 en paralelo). Ya no se espera a que termine un FRD para empezar el siguiente: seis features independientes construyen a la vez. Las dependencias son explícitas en el frontmatter de cada work order — no se infieren.
 
 ```
-WO-02 (backend) ──┐
-                   ├── ambas en paralelo, sin dependencia
-WO-03 (frontend) ─┘
-
-WO-04 depende de WO-02 → espera a que WO-02 termine
+Oleada 1:  WO-01-001 (fundación, sola)
+Oleada 2:  WO-02-001 ─┐
+           WO-03-001 ─┼── FRDs independientes, todos a la vez
+           WO-05-001 ─┘
+Gates:     frd-02 → frd-03 → frd-05  (serializados, árbol quieto)
 ```
+
+Los **gates de review siguen siendo uno por FRD** y corren **serializados en las fronteras de oleada** — nunca mientras hay builders en vuelo, así su suite whole-project siempre ve un árbol quieto. La frontera de confianza no cambió; solo el scheduling.
 
 ## Monitorización en Mission Control
 
