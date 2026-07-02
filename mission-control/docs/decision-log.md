@@ -4,6 +4,24 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-02 — Vault aesthetics settled: FRD = champion (bigger + 🏆), not a pile; enfermería back to occupied-only
+
+**What:** Owner iterated on the vault look. The 3-sprite diagonal pile — even once visible — read
+"tosco"; his real requirement was always *distinguish WO vs FRD at a glance and look good*. New
+treatment: a completed FRD renders as ONE **champion** — the same sprite scaled 1.18
+(bottom-anchored) with a 🏆 mark over the shoulder and the `FRD-NN` tag — while a loose WO keeps
+its normal-size statuette. Row pitch grew to 78px (+18px bottom clearance) so champions never
+invade the next row and the last row's tags don't clip at the stage edge. The **enfermería
+reverts to occupied-only**: being a corner patch inside the forge (not a full room), the
+permanent empty hut looked stranger than the pop-in — and it overlays nothing, so appearing
+never pushes the vault or breaks a bridge. Verified by preview iteration (3 screenshot rounds).
+
+**Why:** Owner: "se ve horrible con los muñequitos... lo único que quiero es diferenciar a simple
+vista cuál es work order y cuál es FRD, y que se vea bien"; "la enfermería es una esquinita — que
+salga solo cuando hay heridos". Impact: `FraguaScene.tsx` (champion wrapper, VAULT_ROW_H 78,
+clearance, InfirmaryCorner occupied-only), regression test updated to the champion contract;
+FRD-06 AC-06-019.9/.10 amended.
+
 ## 2026-07-02 — Party fit & finish: fresh-only toast + ✕, Misión summary, the pile actually shows (AC-06-019.10)
 
 **What:** Four owner-reported nits closed. (1) **Toast**: `AchievementToast` fired for the latest

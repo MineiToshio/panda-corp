@@ -159,10 +159,12 @@ With the global-wave engine (BL-0021) several FRDs genuinely build at once, so t
   achievement FRESHER than 3 minutes (a stale tail replay is history — the feed shows it) AND
   SHALL carry a manual ✕ dismiss, so it can never greet a page visit hours later nor get stuck;
   THE Misión strip SHALL show the campaign summary ("N/M FRDs") where the pips were (the strip
-  read as empty); THE FRD pile in the vault SHALL be visibly stacked (backs peek diagonally
-  up-right with explicit sizes — Tailwind preflight's `img{max-width:100%}` collapsed them to 0
-  inside the zero-width wrapper, regression-tested); THE empty enfermería SHALL be legible
-  (opacity 0.85, strong border, readable "sin heridos").
+  read as empty); THE completed-FRD trophy SHALL read BIGGER, not
+  busier: ONE champion sprite (scaled ~1.18, bottom-anchored) with a 🏆 mark over the shoulder and
+  the `FRD-NN` tag — instantly distinguishable at a glance from a loose WO's normal statuette
+  (owner iterated away the stacked-pile idea: three offset sprites read clunky). Vault rows carry
+  78px pitch + bottom clearance so a scaled champion never invades the next row nor clips its tag
+  at the stage edge.
 - AC-06-019.9 (one voice per datum + growing vault, owner 2026-07-02): EVERY datum SHALL appear
   ONCE on the Party screen — the Misión strip carries the global WO counter and the effort
   (now with the wave size, "potente · 8 paralelos") and NO single-FRD chip (a mono-FRD relic);
@@ -172,9 +174,10 @@ With the global-wave engine (BL-0021) several FRDs genuinely build at once, so t
   and the header live/no-signal chips). THE Bóveda SHALL grow a row per 9 shelf entries (smooth
   height/position transitions) instead of hiding finished work behind a counter; its corner count
   is the TOTAL entries; "+N más" appears only past the 45-entry (5-row) ceiling and counts shelf
-  ENTRIES (a completed FRD = one entry), never the WOs inside groups. THE enfermería is PERMANENT
-  structure (a corner annex, overlaying nothing): empty → dimmed "sin heridos"; occupied → danger
-  border + beds (amends AC-06-019.6 — the room no longer pops in/out with its data).
+  ENTRIES (a completed FRD = one entry), never the WOs inside groups. THE enfermería — a corner
+  patch inside the forge, not a full room — renders ONLY while a blocked WO occupies a bed
+  (owner reverted the brief permanent-empty variant the same day: an always-there empty hut read
+  stranger than the pop-in; it overlays nothing, so appearing never pushes the vault).
 - AC-06-019.8 (vault grouping + quiet palette, owner 2026-07-02): WHEN every work order of a FRD
   is VERIFIED, THE Bóveda SHALL show that FRD as ONE stacked trophy labelled `FRD-NN` (ghost
   sprites suggest the pile; tooltip carries the WO count) instead of N individual statuettes;

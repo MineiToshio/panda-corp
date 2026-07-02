@@ -351,12 +351,12 @@ describe("FraguaScene — container and accessibility", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Vault pile visibility (owner, 2026-07-02): Tailwind preflight img{max-width:100%}
-// collapsed the pile imgs to 0 inside the zero-width trophy wrapper.
+// Vault FRD champion (owner, 2026-07-02 v2): a completed FRD reads BIGGER, not
+// busier — one scaled sprite + a 🏆 mark; a loose WO keeps the normal statuette.
 // ---------------------------------------------------------------------------
 
-describe("FraguaScene — the FRD pile is actually visible", () => {
-  it("a group trophy renders 2 back sprites with explicit width and max-width:none", () => {
+describe("FraguaScene — a completed FRD is a champion, a loose WO a statuette", () => {
+  it("a group trophy renders the scaled champion wrapper with the 🏆 mark and NO pile imgs", () => {
     const snapshot = snap({
       trophies: [
         {
@@ -365,17 +365,18 @@ describe("FraguaScene — the FRD pile is actually visible", () => {
           colorKey: "--color-agent-implementer",
           group: { count: 4 },
         },
+        { wo: "WO-02-001", frd: "frd-02-y", colorKey: "--color-agent-reviewer" },
       ],
     });
     render(<FraguaScene snapshot={snapshot} />);
-    const trophy = screen.getByTestId("fragua-trophy-frd-01-x");
-    const backs = [...trophy.querySelectorAll("img")].filter(
-      (img) => img.getAttribute("alt") === "",
-    );
-    expect(backs.length).toBeGreaterThanOrEqual(2);
-    for (const img of backs.slice(0, 2)) {
-      expect(img.style.width).toBe("42px");
-      expect(img.style.maxWidth).toBe("none");
-    }
+    const champion = screen.getByTestId("fragua-trophy-frd-01-x");
+    expect(champion.getAttribute("data-group")).toBe("true");
+    expect(champion.textContent).toContain("🏆");
+    expect(champion.textContent).toContain("FRD-01");
+    // No pile: the only <img> inside is the AgentSprite's own.
+    expect(champion.querySelectorAll("img").length).toBe(1);
+    const loose = screen.getByTestId("fragua-trophy-WO-02-001");
+    expect(loose.getAttribute("data-group")).toBeNull();
+    expect(loose.textContent).not.toContain("🏆");
   });
 });

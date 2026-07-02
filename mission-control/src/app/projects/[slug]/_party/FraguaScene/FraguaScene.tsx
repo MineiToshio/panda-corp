@@ -145,8 +145,9 @@ const MAX_VAULT = 45;
 /** Trophies per vault row; the shelf GROWS a row instead of hiding work (owner, 2026-07-02). */
 const VAULT_PER_ROW = 9;
 
-/** Vertical distance between vault rows (sprite + tag + breathing room). */
-const VAULT_ROW_H = 64;
+/** Vertical distance between vault rows (sprite + tag + breathing room — sized so a
+ * scaled FRD champion never invades the row below). */
+const VAULT_ROW_H = 78;
 
 // ---------------------------------------------------------------------------
 // Mode-display label map (Spanish, from mocks)
@@ -453,16 +454,17 @@ function RunningSprite({
 /** Beds shown before compacting to "+N". */
 const MAX_INFIRMARY_BEDS = 3;
 
-/** The enfermería annex — PERMANENT structure (owner, 2026-07-02: a room that pops
- * in and out of existence reads as a glitch). The ROOM is always there, tucked in
- * the forge corner, overlaying nothing (no bridge, no vault push); its OCCUPANCY is
- * the data: empty → dimmed "sin heridos"; blocked WOs → danger border + beds. */
+/** The enfermería — a small corner patch inside the forge, shown ONLY when a
+ * blocked WO occupies a bed (owner, 2026-07-02 v2: being a corner sticker and not
+ * a full room, a permanent empty hut read stranger than the pop-in; it overlays
+ * nothing, so appearing never pushes the vault or breaks a bridge). */
 function InfirmaryCorner({
   beds,
 }: {
   beds: NonNullable<FraguaSnapshot["infirmary"]>;
-}): React.JSX.Element {
-  const empty = beds.length === 0;
+}): React.JSX.Element | null {
+  if (beds.length === 0) return null;
+  const empty = false;
   const shown = beds.slice(0, MAX_INFIRMARY_BEDS);
   return (
     <div
@@ -612,47 +614,36 @@ function VaultRoom({
                 transition: "left 0.5s ease, top 0.5s ease",
               }}
             >
-              {isGroup && (
-                <>
-                  {/* biome-ignore lint/performance/noImgElement: pixel-art pile member (image-rendering:pixelated) — same rationale as AgentSprite. */}
-                  <img
-                    src="/prototype/assets/agents/backend-dev.png"
-                    alt=""
-                    width={42}
-                    height={42}
+              {/* A completed FRD reads bigger, not busier (owner, 2026-07-02): ONE
+                  champion sprite scaled up + a 🏆 mark — instantly distinguishable
+                  from a normal-size loose WO without pile clutter. */}
+              {isGroup ? (
+                <span
+                  style={{
+                    display: "inline-block",
+                    transform: "scale(1.18)",
+                    transformOrigin: "bottom center",
+                    position: "relative",
+                  }}
+                >
+                  <span
+                    aria-hidden="true"
                     style={{
-                      // Tailwind preflight sets img{max-width:100%}: inside this zero-width
-                      // absolute wrapper that collapses the pile to 0 — undo it explicitly.
-                      width: "42px",
-                      height: "42px",
-                      maxWidth: "none",
-                      imageRendering: "pixelated",
                       position: "absolute",
-                      left: "26px",
-                      top: "-18px",
-                      opacity: 0.75,
+                      top: "-8px",
+                      left: "-4px",
+                      fontSize: "12px",
+                      zIndex: 1,
+                      filter: "drop-shadow(0 1px 1px oklch(0 0 0 / 0.6))",
                     }}
-                  />
-                  {/* biome-ignore lint/performance/noImgElement: pixel-art pile member — same rationale as above. */}
-                  <img
-                    src="/prototype/assets/agents/backend-dev.png"
-                    alt=""
-                    width={42}
-                    height={42}
-                    style={{
-                      width: "42px",
-                      height: "42px",
-                      maxWidth: "none",
-                      imageRendering: "pixelated",
-                      position: "absolute",
-                      left: "13px",
-                      top: "-9px",
-                      opacity: 0.9,
-                    }}
-                  />
-                </>
+                  >
+                    🏆
+                  </span>
+                  <AgentSprite agentRole="implementer" state="vault" woId={label} />
+                </span>
+              ) : (
+                <AgentSprite agentRole="implementer" state="vault" woId={label} />
               )}
-              <AgentSprite agentRole="implementer" state="vault" woId={label} />
             </div>
           );
         })}
@@ -740,7 +731,8 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
   // The shelf grows a row per 9 entries instead of hiding finished work behind a
   // counter (owner, 2026-07-02); the stage grows with it (smooth height transition).
   const vaultRows = Math.max(1, Math.ceil(shownTrophies.length / VAULT_PER_ROW));
-  const vaultExtraH = (vaultRows - 1) * VAULT_ROW_H;
+  // +18px once multi-row: the LAST row's name tags need clearance from the stage edge.
+  const vaultExtraH = (vaultRows - 1) * VAULT_ROW_H + (vaultRows > 1 ? 18 : 0);
 
   // -------------------------------------------------------------------------
   // Render
