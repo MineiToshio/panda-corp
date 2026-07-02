@@ -2,6 +2,24 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-02 — Observability standard gains the build telemetry producer map
+
+**Qué:** `factory/standards/observability.md` suma la sección **"The build telemetry pipeline —
+producer map"**: la tabla única de los 4 canales de señal del build — `dashboard-events.ndjson`
+(liveness/narrativa; emisores EMIT/GATE_EVENT/ACHIEVEMENT/WO_COMMIT + SupervisorTick + hooks),
+`track.jsonl` (duraciones reales, DR-086), `status.yaml` (`running` + `supervisor_heartbeat`,
+cruce DR-066) y el frontmatter de WOs (LA estructura, DR-050/DR-087/DR-092) — con el contrato de
+consumidor en una línea ("estructura del frontmatter, vida de eventos+heartbeat, duraciones del
+track, honestidad del cruce"). Contraparte navegable: página nueva del Manual de Mission Control
+(`la-fragua.md`) + blueprint §7 del FRD-06 (DR-046, mismo change).
+
+**Por qué:** pedido del owner (2026-07-02): documentar el Party/La Fragua de punta a punta para
+que cualquier agente entienda quién escribe cada señal y qué puede leer de dónde, sin
+redescubrir el flujo. El conocimiento estaba disperso (motor, FRDs, contexto de sesión); el
+estándar es la casa del lado productor. **Impacto:** `factory/standards/observability.md`;
+Mission Control `docs/frds/frd-06-party/blueprint.md` + `content/manual/concepts/la-fragua.md` +
+su `docs/decision-log.md`.
+
 ## 2026-07-01 — Granularity calibrated with real-build numbers: DR-100 gains a floor + concrete ceiling; DR-073 gains the fix-forward mandate
 
 **What:** The owner-approved close of the granularity audit (evidence mined from the

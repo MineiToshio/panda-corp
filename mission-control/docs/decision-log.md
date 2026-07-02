@@ -4,6 +4,24 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-02 — La Fragua documented end-to-end: as-built blueprint §7 + Manual page (DR-046)
+
+**What:** The v2 Party/La Fragua pipeline is now fully documented for any agent or human:
+(1) `docs/frds/frd-06-party/blueprint.md` **§7 "As-built — the v2 GLOBAL scene pipeline"** — the
+honesty rule (decoration never fakes measurement), the data-source map (WO frontmatter = structure;
+events = liveness/focus/feed; track.jsonl = real durations; status.yaml + heartbeat = powered/fresh;
+wo_commit = courier cue; SSE stateVersion = state-driven refresh), the RSC→SSE→scene render loop,
+the performance budget and the DR-066 freshness contract. (2) NEW Manual concept page
+**`content/manual/concepts/la-fragua.md`** ("La Fragua (el Party)") — the owner-facing Spanish
+explanation: what each element means, its real source, the freshness badge bands and why the scene
+never freezes falsely. The factory side landed in `factory/standards/observability.md` (producer
+map — see the factory decision log).
+
+**Why:** Owner ask (2026-07-02): "cualquier agente o persona que quiera entender lo que sucede en
+el Party debe poder" — the knowledge lived across FRD ACs, code comments and session context;
+this consolidates it into the canonical doc (blueprint) + the navigable face (Manual, DR-046).
+Impact: blueprint §7, `la-fragua.md` (order 19), no code.
+
 ## 2026-07-02 — Honest consumer observability (DR-066): liveness = running AND fresh, graded freshness, state-driven SSE
 
 **What:** Closed change `mc-observability-consumer-dr066` (owner-approved DIRECT drain) — the four

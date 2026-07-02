@@ -206,3 +206,59 @@ already built (FRD-13, `src/components/modules/party/**`).
 
 **Cross-FRD deps:** `frd-13` (foundation **incl. the Party canvas WO-13-009 — VERIFIED first**),
 `frd-04` (the workspace Tabbar the scene mounts into), `frd-01` (live — `useLiveSnapshot`, WO-01-009).
+
+## 7. As-built — the v2 GLOBAL scene pipeline (2026-07-02)
+
+> The definitive map of what feeds every pixel of La Fragua. Written so any agent (or human)
+> can extend the scene without re-discovering the data flow. Requirement side: REQ-06-019
+> (AC-06-019.1–.7) in `frd.md`.
+
+### 7.1 The one honesty rule
+
+**Decoration never fakes measurement.** Every element is either (a) anchored to a REAL signal
+(named below), or (b) pure ambient decoration that encodes NOTHING (chimney smoke, the strolling
+panda mascot). There is no third category: an element that LOOKS like data must BE data
+(DR-087 "read real or empty-honest"; DR-061 read-only).
+
+### 7.2 Data sources — who feeds what
+
+| Source | Read by | Drives | Never drives |
+|---|---|---|---|
+| **WO frontmatter** (`docs/frds/*/work-orders/*.md`, `implementation_status`, `dependsOn`) | `listWorkOrders` → `structureFromWorkOrders` | THE STRUCTURE: forge sprites (`IN_PROGRESS` ≤ wave cap), tribunal occupants (`IN_REVIEW`), gate queue (FRDs fully in review), enfermería beds (`fail`/BLOCKED), trophies (`VERIFIED`, last 9 + `+N arch.`), the Campaña strip per-FRD states, the done/total counter | liveness (a stale file still renders; the badge says how fresh) |
+| **Event stream** (`~/.claude/dashboard-events.ndjson`, project-filtered BEFORE the tail cap; env override `PANDACORP_EVENTS_FILE`) | `readEvents` → `toFraguaSnapshot` opts + `EventFeed` | LIVENESS + FOCUS: which FRD is highlighted, the bitácora feed, gate open/judging emphasis, achievement toasts | structure (an event can NEVER conjure a sprite the frontmatter doesn't back — DR-092) |
+| **`track.jsonl`** (durable per-project timeline, DR-086) | `readBuildTimeline` → `woStarts` map | REAL elapsed time in speech bubbles ("N min al fuego / ante el juez") | anything fabricated — a WO without a `wo_start` line simply shows no time |
+| **`status.yaml`** (`running`, `supervisor_heartbeat`) | `readStatus` → `isLive`/`freshnessBand` (`lib/status/liveness`, the single DR-092 derivation) | powered-off vs active scene (AC-06-013), the freshness badge bands | "running" alone is NEVER proof of life (DR-066: live ⇔ running AND fresh) |
+| **`wo_commit` engine event** (v9.44+) | `useSceneLife` (lastCommitAt diff) | the courier flight forge → tribunal — a decorative CUE anchored to a real per-WO green commit; stale-tail replays never launch it | any state |
+| **SSE `stateVersion`** (max mtime of status.yaml + WO files, stamped by `/api/live?project=`) | `PartyLiveShell` | a throttled `router.refresh()` when the machine state moves WITHOUT an event (cold start, long gate) — the scene can't look dead while the state file advances (DR-066 fix 3) | rendering directly (it only triggers the RSC re-read) |
+
+### 7.3 The render loop (server → client)
+
+1. **RSC pass** (`ProjectWorkspace` → `renderPartyTab`): reads work orders + timeline + status,
+   derives `woStarts`, passes `project` (the emitters' `basename $PWD`), `running`,
+   `supervisorHeartbeat` and the authoritative `workOrders` into `PartyTab`, which reads the
+   event tail and derives the initial `FraguaSnapshot` via `toFraguaSnapshot` (pure).
+2. **Client live shell** (`PartyLiveShell`): subscribes to `GET /api/live?project=` (SSE). Each
+   frame re-derives the snapshot from the live events — but ALWAYS carrying the RSC's
+   `workOrders` structure (events only modulate liveness/focus). Two refresh triggers share one
+   throttled path (5 s): a genuinely fresher event, or a moved `stateVersion`.
+3. **Scene** (`FraguaScene`): one persistent sprite engine for the whole build
+   (`frdId: "fragua-global"` — a focus change must NOT reset in-flight walks; the diff effect
+   retires departed WOs). `useSceneLife` is the single low-frequency clock (6 s tick) driving
+   bubble rotation, the elapsed-time clock and the courier cue. Ambient motion is pure CSS
+   (smoke, panda, courier keyframes in `globals.css`), all under `prefers-reduced-motion`.
+
+### 7.4 Performance budget
+
+No per-frame React state: the 6 s `useSceneLife` tick is the only interval; sprite positions are
+written imperatively by the RAF engine (`useFraguaSprites`), never through setState; ambient
+loops are CSS-only. SSE frames are throttled server-side (200 ms) and the RSC refresh
+client-side (5 s). Target: the scene stays under ~2 ms/frame of main-thread work on an M-class
+laptop and degrades gracefully anywhere else.
+
+### 7.5 Freshness is declared, never implied (DR-066)
+
+The `FreshnessBadge` (shared module, `data-volatile`) grades the freshest of
+{supervisor heartbeat, latest event} into "en vivo" (< 3·T), "datos de hace N min" (< 10-min
+TTL) and "sin señal" (≥ TTL). The producer side of this contract (who advances the heartbeat
+and when) lives in `factory/standards/observability.md`; the consumer derivation is
+`lib/status/liveness.ts` and is the ONLY place the bands are computed.

@@ -28,6 +28,26 @@ Three rules, applied to BOTH sides of the wire (the **producer** of the state an
 
 **Why.** A monitoring UI exists to be trusted in the one moment it matters — when something is wrong. The most dangerous failure of a monitor is a confident lie: showing a dead/hung process as "running" because a flag said so. Crossing the flag with recency, declaring freshness, and emitting a real heartbeat make the UI fail *honest* (it says "sin señal" when it can't see) instead of fail *silent*.
 
+## The build telemetry pipeline — producer map (what feeds Mission Control)
+
+> The single reference for WHO writes each build signal and WHERE, so any agent extending the
+> engine, the supervisor or a consumer (Mission Control's Party/Observabilidad, a future monitor)
+> knows the contract without re-discovering it. Consumer-side design: Mission Control
+> `docs/frds/frd-06-party/blueprint.md` §7 (the Party) and `frd-12` (Observabilidad).
+
+Four channels, each with ONE owner and ONE purpose — never repurpose one for another's job:
+
+| Channel | Written by | When | Consumed for |
+|---|---|---|---|
+| **`~/.claude/dashboard-events.ndjson`** (global, rotates; env override `PANDACORP_EVENTS_FILE` on the consumer) | The engine's emitters (`EMIT`/`GATE_EVENT`/`ACHIEVEMENT`/`WO_COMMIT_EVENT` in `pandacorp-build.js`), the supervisor (`SupervisorTick`), Claude hooks (`SubagentStop`) | Every state transition + a time-driven tick | **Liveness, focus, narrative**: the Party's live pulses, the bitácora feed, achievement toasts. Events carry `project` (the emitters stamp `basename $PWD` — BL-0022 will make it explicit) |
+| **`<project>/.pandacorp/track.jsonl`** (durable, committed, per-project — DR-086) | The engine's `TRACK` at `wo_start`/`wo_end`/`review_start`/`review_end` (with verdict on EVERY exit, v9.46) /`wo_reopen`/`frd_end` | At each safe point | **Real durations**: the DR-100 calibration evidence, Observabilidad's timeline, the Party's "N min al fuego" bubbles |
+| **`<project>/.pandacorp/status.yaml`** (committed machine state) | The skills + the supervisor (`running`, `supervisor_heartbeat`, `run_started_at`, `last_green_sha`, rollup counters) | `running` at run start/stop; the heartbeat every tick (time-driven, rule c above) | **Liveness crossing** (rule a): a consumer derives live ⇔ `running` AND fresh heartbeat — never the flag alone |
+| **WO frontmatter** (`docs/frds/*/work-orders/*.md`, `implementation_status` + `dependsOn` — DR-050/DR-087) | The engine (and any direct change, DR-097) at every WO transition | Source of truth, updated before/at commits | **STRUCTURE**: everything a consumer renders as fact (Kanban columns, the Party's rooms/queue/trophies/enfermería, progress counters). Events may NEVER conjure structure the frontmatter doesn't back (DR-092 single source) |
+
+**The consumer contract in one line:** structure from the frontmatter, liveness from events +
+heartbeat, durations from track.jsonl, honesty from crossing them (DR-066) — and decoration that
+encodes nothing is the only thing allowed to be fake.
+
 ## How it is verified
 - Checklist in `/pandacorp:implement`'s final hardening step (DR-085): structured logs? Sentry connected? `service.name` correct? events fire in the critical flow? (`/pandacorp:release` only confirms it's live.)
 - **Observability-fidelity (DR-066)**: for any dashboard/monitor surface — does liveness cross `running` with heartbeat recency (never the flag alone)? Does the UI declare its own freshness (en vivo / datos de hace X / sin señal)? Does the producer emit a positive, time-driven heartbeat? Is the "sin señal" path actually exercised by a test (stop the producer → UI goes stale)? (The gate lives in `quality.md` + `build-orchestration.md` §9.)
