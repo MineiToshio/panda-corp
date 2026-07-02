@@ -630,7 +630,7 @@ function blockFrd(frd, reason) {
 // other's concrete representative path (handles `**`, `*`, and extension globs like `Banner.*`).
 const globToRe = (g) => new RegExp('^' + String(g)
   .replace(/[.+^${}()|[\]\\]/g, '\\$&')   // escape regex metachars (keep * )
-  .replace(/\*\*/g, ' ').replace(/\*/g, '[^/]*').replace(/ /g, '.*') + '$')
+  .replace(/\*\*/g, '\u0000').replace(/\*/g, '[^/]*').replace(/\u0000/g, '.*') + '$')
 const globLiteral = (g) => String(g).replace(/\*\*\/?/g, '').replace(/\*/g, '') || '/'  // representative concrete-ish path
 const globsOverlap = (x, y) => {
   if (x === y) return true

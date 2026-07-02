@@ -3,13 +3,13 @@
 project: "Pandacorp"
 phase: release
 version: v1
-overlay_version: "8.55.1"
+overlay_version: "8.55.2"
 created_with: "6.0.0"
 target_platforms: desktop
 deploy_target: internal  # internal tool (runs on 127.0.0.1) — no external host (DR-085)
 deploy_url: "http://192.168.18.227:1987"  # MC's internal release on the LAN
-running: false
-run_started_at: "2026-06-29T23:57:36Z"
+running: true
+run_started_at: "2026-07-02T04:47:19Z"
 repo: ""
 updated_at: "2026-06-30T02:14:17Z"
 last_event_at: "2026-06-30T02:14:17Z"
@@ -27,5 +27,4 @@ advance_pending: false
 last_green_sha: "4734fbe"
 safe_to_test: true  # Cross-feature integration review GREEN (DR-060): all 94 WOs VERIFIED, every producer/consumer seam agrees (guild-level single source DR-092, events stream, fail-loud ReportResult, shell badges), no duplicate components (DR-057). Full verify.sh clean from clean: vitest 370 files 7247 passed +2 expected-fail, tsc/knip/biome/madge clean, smoke+visual+shell+responsive e2e 56/56 green (ran against this repo on port 3100, not the stale :3000 snapshot). 2026-06-30
 blocked: []
-supervisor_heartbeat: "2026-06-30T01:33:47Z"
 pending_changes: 8

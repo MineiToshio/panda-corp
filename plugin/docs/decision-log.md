@@ -4,6 +4,19 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-07-01 — Build engine: literal NUL bytes in globToRe made the Workflow tool unlaunchable · v9.46.2 · overlay 8.55.2
+
+**What:** `templates/shared/.claude/workflows/pandacorp-build.js` used two **literal NUL bytes**
+(`\x00`) as the sentinel in its glob→regex helper (`globToRe`: `**` → NUL → `.*`). Claude Code's
+Workflow permission dialog rejects any script containing hidden control characters, so EVERY
+`/pandacorp:implement` launch failed with "script contains control characters" (hit on Mission
+Control, 2026-07-01). Replaced the raw bytes with the 6-char escape sequence `\u0000` — byte-clean
+source, identical runtime semantics (verified: `**` still crosses `/`, single `*` doesn't).
+
+**Why:** Fix-forward at the source (DR-076): the engine template must be launchable through the
+approval dialog; a raw control byte in committed source is also invisible to review. Overlay bumped
+so every project's `.claude/workflows/pandacorp-build.js` regenerates on next upgrade.
+
 ## 2026-07-01 — Back-port: "Forbidden pattern — docs/proposals/" section into the documentation rule template · v9.46.1 · overlay 8.55.1
 
 **What:** `templates/rules/documentation-and-decisions.md` gains the "Forbidden pattern —
