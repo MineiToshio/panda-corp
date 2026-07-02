@@ -4,6 +4,38 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-07-01 — `/discover` v2: verified-source playbook + rotating lenses + two-phase funnel (DR-039 reworked) · v9.42.0
+
+**What:** Full rework of `plugin/skills/discover/SKILL.md` after the owner rejected/shrugged at every
+recommendation to date. (1) **Sources:** new `plugin/skills/discover/sources.md` — a live access-tested
+mining playbook (2026-07-01): G2/Trustpilot (403), X-search (402), Google Play (JS) and trend listicles
+are OUT as generators; IN (all verified fetchable): Chrome Web Store 1★ reviews, Ask HN via the Algolia
+API, public Canny boards (vote counts), AlternativeTo, Microns.io as the willingness-to-pay oracle,
+Apple App Store reviews+charts, Google product forums, pain-point-SEO autocomplete gaps; Reddit only via
+WebSearch with tested query mechanics. Includes the platform-hostility map (never WhatsApp/LinkedIn/
+Spotify-API/YouTube-ads) and the verified Perú payments table (Polar/Paddle/Gumroad yes; Stripe/
+ExtensionPay no). (2) **Lenses replace the A/B 50/50 streams:** app-enhancement (extensions from
+mainstream-app complaints) · owner identities beyond the saturated collector niche · own-itch/QoL
+(seeded by owner-pasted TikTok themes — the highest-signal source the agent can't read) · incumbent
+challenger (AI-first rebuild of ONE workflow and/or 80/20 unbundling; structural wedge only); the
+collector lens is DORMANT (board-saturated). (3) **Two-phase funnel:** Phase 1 = 8-12 cheap one-line
+teasers (persisted to `factory/ideas/_drafts/discover-<date>.md`), the owner picks 2-3; Phase 2 =
+deep-dive + the hard gates + memo-pitch cards ONLY for the picks; reactions to passed-over teasers are
+distilled into profile attraction/rejection patterns (DR-053). Unattended runs stop at the sheet.
+`researcher.md` gains rule 8 (playbook-only mining + teaser-vs-deep-dive depth scoping). Gates 3.0-3e
+kept; 3a is now lens-aware (challenger fit = "can he reach the first 10 users") and 3d counts
+platform-ToS hostility.
+**Why:** Board evidence: every general-stream card was discarded as `profile_alignment: low` generic
+B2B (the sources were B2B directories — two not even fetchable), and the profile stream had drained the
+collector niche into duplicates ("es lo mismo que PandaTrack"). The June memo-pitch redesign fixed
+presentation, not generation; and the owner's taste entered only AFTER the full spend. Diagnosis + live
+source audit + extension/challenger research in `docs/proposals/21` (owner approved 2026-07-01).
+**Impact:** `plugin/skills/discover/{SKILL.md,sources.md}`, `plugin/agents/researcher.md`,
+`factory/decisions/registry.yaml` (DR-039 default reworked in place), `factory/profile.md` (attraction
+patterns + lens state), Manual synced (DR-046): `content/manual/concepts/{tu-perfil,el-pipeline}.md`,
+`src/lib/manual/skill-flows.ts` (discover flow), `src/app/manual/manualPages.tsx`. MINOR (behavior
+change, compatible). Cross-ref: `factory/ideas/decision-log.md` (same date).
+
 ## 2026-07-01 — Implement-speed audit phases 3+4: builder context packs + cheap mechanical tier (DR-108) + Party events (BL-0020, BL-0002) · v9.41.0 (OVERLAY 8.54.0→8.55.0)
 
 **What:** The remaining two phases of the owner-approved implement-speed plan. **Phase 3 (DR-108, engine):**

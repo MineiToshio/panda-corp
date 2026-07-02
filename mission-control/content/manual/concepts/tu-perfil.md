@@ -12,12 +12,14 @@ La fábrica se personaliza para ti. Un perfil tuyo —tus intereses, activos y a
 
 `/pandacorp:onboarding` es el primer paso al clonar la fábrica. Te entrevista a fondo —nombre, objetivos, intereses, hobbies, gustos, **activos/palancas**, apetito de monetización, tipos de proyecto y cómo trabajas— y guarda el perfil en `factory/profile.md`. (Puede arrancarlo desde tus conversaciones pasadas antes de entrevistarte.) Nunca inventa datos: lo que no digas, lo deja vacío.
 
-## Dos corrientes en discover (~50/50)
+## Lentes rotativos y dos fases en discover
 
-`/pandacorp:discover` no busca a ciegas: lanza al `researcher` en **dos corrientes en paralelo, apuntando a ~50/50** (DR-039):
+`/pandacorp:discover` no busca a ciegas ni te entrega memos que no pediste. Funciona en **dos fases** (DR-039, rediseño 2026-07-01):
 
-- **Corriente A — Oportunidades generales** (independientes del tema): lo mejor del momento por valor/facilidad/retorno, te gusten o no (quejas en Reddit/foros, reviews negativas de apps, tendencias y huecos que abrió la IA).
-- **Corriente B — Alineadas al perfil**: ideas que encajan con tus intereses/objetivos **o que apalancan tus activos / te abren puertas**, aunque el retorno monetario sea menor.
+1. **Barrido teaser (barato y ancho):** elige 2-3 **lentes de caza** por corrida — *app-enhancement* (quejas de apps conocidas → extensiones), *tus otras identidades* (creador, dev+IA, peruano, gamer), *own-itch / calidad de vida*, y *challenger de incumbentes* (rebuild AI-first de UN workflow o unbundling 80/20 de una suite exitosa) — y te presenta **8-12 teasers de una línea**, cada uno con su evidencia. Solo mina fuentes verificadas (el playbook `sources.md` del plugin); las listas de tendencias nunca generan ideas.
+2. **Deep-dive (caro y estrecho):** **tú eliges los 2-3 que te chispean** y solo esos pasan por los gates duros y el memo-pitch completo. Tu gusto entra ANTES del gasto, no después.
+
+Cada elección enseña: las reacciones a los teasers que dejas pasar se destilan como **patrones de atracción/rechazo** en tu perfil (DR-053). Un lente cuyo dolor tu propio tablero ya saturó (hoy: el coleccionista) queda **en descanso**. Y tus comentarios/DMs de TikTok son la fuente #1 que el agente no puede leer — cuando pegas temas recurrentes, entran como semillas.
 
 El criterio dual se honra: no descarta una idea alineada por monetizar poco, ni una idea general brillante por no ser "tu tema".
 

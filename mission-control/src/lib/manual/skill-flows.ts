@@ -198,43 +198,48 @@ const FLOWS: SkillFlow[] = [
   {
     slug: "discover",
     explainer:
-      "Busca en internet (Reddit, foros, reseñas, tendencias) oportunidades reales y las documenta como tarjetas. Mezcla DOS corrientes a ~50/50: oportunidades generales de alto retorno y oportunidades alineadas con tu perfil. El retorno no es solo dinero: la oportunidad (alcance, contactos) y el valor personal también cuentan.",
+      "Busca oportunidades reales en internet en DOS FASES: un barrido barato por lentes de caza rotativos (extensiones sobre quejas de apps conocidas, tus otras identidades, own-itch, challengers AI-first/unbundling de SaaS exitosos) que te presenta 8-12 teasers de una línea; tú eliges los que te chispean, y solo esos pasan por los gates duros y se documentan como memo-pitch. Solo mina fuentes verificadas (playbook sources.md). El retorno no es solo dinero: la oportunidad y el valor personal cuentan igual.",
     runsIn: "factory",
     steps: [
       {
-        title: "Leer el perfil",
+        title: "Leer el perfil + el tablero",
         kind: "action",
         detail:
-          "Lee factory/profile.md (intereses, activos, metas, apetito de monetización). Si no existe, lo dice y sugiere onboarding; puede seguir solo con la corriente general.",
+          "Lee factory/profile.md (intereses, activos, patrones de atracción/rechazo) y TODAS las tarjetas (cualquier status, incl. descartadas) para el set de exclusión — nunca re-recomienda un dolor que ya está en tu base.",
       },
       {
-        title: "Buscar en dos corrientes",
+        title: "Elegir 2-3 lentes de caza",
         kind: "action",
         detail:
-          "Lanza al researcher en paralelo: A) oportunidades generales (quejas, reseñas negativas, tendencias); B) alineadas a tu perfil (que apalancan tus activos). Cada agente trae evidencia con links, no opiniones.",
+          "App-enhancement (quejas de apps mainstream tolerantes → extensiones) · tus otras identidades · own-itch/QoL (con los temas que pegues de tu TikTok) · challenger de incumbentes (rebuild AI-first de UN workflow / unbundling 80-20). Un lente saturado en tu tablero descansa.",
+      },
+      {
+        title: "Barrido teaser (fase 1)",
+        kind: "action",
+        detail:
+          "Un researcher por lente, minando solo las fuentes verificadas del playbook (CWS 1★, Ask HN, Canny, AlternativeTo, Microns…). Cada candidato = apuesta en una línea + la evidencia más fuerte + cubeta estimada. Triage barato: dedup vs tablero, anti-picks, patrones de rechazo.",
         parallel: true,
         calls: [
-          { ref: "researcher", as: "agent", note: "Corriente A — generales, con evidencia" },
-          { ref: "researcher", as: "agent", note: "Corriente B — alineadas a tu perfil" },
+          { ref: "researcher", as: "agent", note: "un researcher por lente, teaser-cheap" },
         ],
       },
       {
-        title: "Filtrar + deduplicar",
+        title: "Tú eliges (el gate de gusto)",
+        kind: "gate",
+        detail:
+          "Te presenta la hoja de 8-12 teasers numerados (persistida en factory/ideas/_drafts/) y eliges los 2-3 que te chispean; tus reacciones a los demás se destilan como patrones en tu perfil. Una corrida desatendida se detiene aquí.",
+      },
+      {
+        title: "Deep-dive + gates (fase 2)",
         kind: "action",
         detail:
-          "Implementable por una persona en semanas, sin regulación pesada, con retorno claro; si la oportunidad ya existe en la base, añade la evidencia a esa tarjeta en vez de duplicar.",
+          "Solo los elegidos: evidencia completa (Mom Test, mercado real desde Perú, similares, wedge, oráculo de willingness-to-pay) + los gates duros (dedup, founder-fit, painkiller, cubeta, fuente-de-la-verdad + legal, red team). Tu elección compra la investigación, no un pase libre.",
       },
       {
-        title: "Documentar las mejores",
+        title: "Documentar + reportar",
         kind: "safe",
         detail:
-          "Crea ~3-5 tarjetas por corriente (status: discovered) con puntuación y razonamiento; los descartes interesantes solo se listan.",
-      },
-      {
-        title: "Reportar en dos bloques",
-        kind: "io",
-        detail:
-          "«General» y «Alineadas contigo», cada una con su tabla (título, tipo, puntuación, retorno, dificultad); en las alineadas explica por qué encajan.",
+          "Los supervivientes (1-3) se escriben como memo-pitch caliente→frío (tarjetas status: discovered que la tab Propuesta renderiza); el reporte lidera con el héroe y lista qué murió en el deep-dive y por qué.",
       },
     ],
   },

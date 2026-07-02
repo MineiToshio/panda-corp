@@ -1819,23 +1819,27 @@ function ConceptTuPerfil(): React.JSX.Element {
         inventa datos: lo que no digas, lo deja vacío.
       </Body>
 
-      <DocH title="Dos corrientes en discover (~50/50)" />
+      <DocH title="Lentes rotativos y dos fases en discover" />
       <Lead>
-        <Code>/pandacorp:discover</Code> no busca a ciegas: lanza al <Code>researcher</Code> en dos
-        corrientes en paralelo, apuntando a ~50/50 (DR-039).
+        <Code>/pandacorp:discover</Code> no busca a ciegas ni te entrega memos que no pediste:
+        caza con 2-3 lentes rotativos y tu gusto entra ANTES del gasto (DR-039, rediseño
+        2026-07-01).
       </Lead>
       <Panel>
-        <KvRow label="Corriente A" isFirst>
-          <B weight={500}>Oportunidades generales</B> (independientes del tema): lo mejor del
-          momento por valor/facilidad/retorno, te gusten o no (Reddit, foros, reviews negativas,
-          tendencias).
+        <KvRow label="Fase 1" isFirst>
+          <B weight={500}>Barrido teaser</B> (barato y ancho): lentes de caza — app-enhancement
+          (quejas de apps conocidas → extensiones), tus otras identidades, own-itch/QoL,
+          challenger de incumbentes (rebuild AI-first / unbundling 80-20) — y 8-12 teasers de una
+          línea con evidencia de fuentes verificadas (playbook sources.md).
         </KvRow>
-        <KvRow label="Corriente B" isFirst={false}>
-          <B weight={500}>Alineadas al perfil</B>: ideas que encajan con tus intereses/objetivos o
-          que apalancan tus activos / te abren puertas, aunque el retorno monetario sea menor.
+        <KvRow label="Fase 2" isFirst={false}>
+          <B weight={500}>Deep-dive</B> (caro y estrecho): tú eliges los 2-3 que te chispean y
+          solo esos pasan por los gates duros y el memo-pitch. Tus reacciones al resto se
+          destilan como patrones de atracción/rechazo en tu perfil (DR-053).
         </KvRow>
       </Panel>
       <NotePanel icon="ti-scale">
+        Un lente cuyo dolor tu propio tablero ya saturó (hoy: el coleccionista) queda en descanso.
         El criterio dual se honra: no descarta una idea alineada por monetizar poco, ni una idea
         general brillante por no ser «tu tema».
       </NotePanel>
