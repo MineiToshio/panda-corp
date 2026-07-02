@@ -24,7 +24,8 @@ pending_decisions: 0
 pending_bugs: 0
 rethink_pending: false
 advance_pending: false
-last_green_sha: "4734fbe"
+last_green_sha: "17937f1"
 safe_to_test: true  # Cross-feature integration review GREEN (DR-060): all 94 WOs VERIFIED, every producer/consumer seam agrees (guild-level single source DR-092, events stream, fail-loud ReportResult, shell badges), no duplicate components (DR-057). Full verify.sh clean from clean: vitest 370 files 7247 passed +2 expected-fail, tsc/knip/biome/madge clean, smoke+visual+shell+responsive e2e 56/56 green (ran against this repo on port 3100, not the stale :3000 snapshot). 2026-06-30
 blocked: []
 pending_changes: 8
+supervisor_heartbeat: "2026-07-02T04:57:32Z"
