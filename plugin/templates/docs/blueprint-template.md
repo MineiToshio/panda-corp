@@ -51,7 +51,16 @@ Upstream features/modules this depends on; the main technical risks or edge case
 
 > **The build engine READS this — it does not infer dependencies.** This is the DAG of THIS FRD's
 > work orders. Write it once, here, at architecture time. Keep work orders **coarse** (one
-> view/capability each), so the plan stays small and an agent builds each slice end-to-end.
+> view/capability each, inside the DR-100 calibrated band: ~25–50 min / ~1.5–4k LOC), so the plan
+> stays small and an agent builds each slice end-to-end.
+
+**The DAG table is MANDATORY** (2026-07-01 — the planner parses this structure; free-prose-only plans
+made it re-infer). One row per work order, matching each WO's frontmatter exactly:
+
+| WO | Depends on | Artifacts (globs) | Foundation | Parallel with |
+|---|---|---|---|---|
+| WO-NN-001 | — | `src/lib/x/**`, `docs/api/WO-NN-001.md` | true | — |
+| WO-NN-002 | WO-NN-001 | `src/app/x/**` | false | WO-NN-003 |
 
 - **Order & parallelism:** which work order must come first; which depend on earlier slices; which
   can run **in parallel** once a prerequisite is `VERIFIED`.

@@ -48,13 +48,25 @@ action menu"), NOT one atomic component. Enough context for an agent to build th
 small enough to review on its own. Typically a handful per FRD — not dozens of tiny ones. Atomic
 work orders multiply the per-slice overhead and were a primary cause of slow, expensive builds.
 
-**Coarse, but with a named ceiling (DR-100).** "Coarse, when in doubt merge" is the lower bound; the
-**upper bound is concrete** so a WO never grows past what an agent can build well: split a WO that is
-**too big to review in one sitting**, that would push the implementer **past the model's reliable
-context zone** (output quality degrades well before the window fills — "context rot"), or that **mixes
-more than one concern** (refactor + feature + analytics in one task is an anti-pattern — one concern per
-WO). This is the right-size middle: coarse enough to carry end-to-end context, bounded enough to stay
-in the model's competent zone. The factory's coarse policy stands — this only fixes the missing ceiling.
+**Coarse, with a CALIBRATED ceiling AND floor (DR-100, empirically calibrated 2026-07-01).** The
+sweet spot, measured on two real builds (personal-page-v2 + Mission Control):
+- **Target: ~25–50 min of build / ~1.5–4k LOC of artifacts per WO.** In that band, ppv2 WOs passed
+  their gate first-try or needed one ≤6-min fix; none exceeded 1 reopen.
+- **Ceiling — split above ~4k LOC / ~45 min; hard evidence:** Mission Control WOs above 6k LOC
+  averaged **3.0 gate rejects** vs 0.8 below 3k; the worst ("the whole Configuración surface in one
+  WO", ~7k LOC) took **5 gate attempts and 20h wall-clock**, each gate uncovering the next layer. A
+  whole settings/manual surface is NOT one WO. The qualitative triggers still apply: too big to
+  review in one sitting, past the model's reliable context zone ("context rot"), or mixing more than
+  one concern (one concern per WO).
+- **Floor — the gate has a FIXED cost (~9 min, range 4–13, project-independent), so tiny slices pay
+  disproportionate overhead:** ppv2's FRD-08 paid 12 min of gate for a 9.5-min build (**127%
+  overhead**) vs 18% for a 47-min WO. **Do not emit an FRD whose only work order builds in under
+  ~20 min** — the PM merges it into the feature it extends (at spec time) or the architect folds it
+  into a sibling WO (at plan time). A 1-AC cosmetic change is a change-queue item or a WO inside an
+  existing FRD, never its own feature.
+The factory's coarse policy stands — this pins BOTH bounds with numbers instead of adjectives. (With
+the global-wave scheduler (BL-0021) small FRDs no longer cost parallelism; the floor exists purely for
+gate economics.)
 
 **Global waves — the wave crosses FRD boundaries (BL-0021, 2026-07-01).** The engine schedules each
 wave from the READY work orders of **ALL FRDs**, not one feature at a time: a WO is ready when its

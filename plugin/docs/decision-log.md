@@ -4,6 +4,39 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-07-01 — Granularity calibration from real-build evidence: DR-100 floor+ceiling with numbers, artifacts completeness, mandatory Build Plan table, fix-forward mandate, track.jsonl gap fixes · v9.46.0
+
+**What:** The owner-approved Fase-3 of the granularity audit (two mining passes over the
+personal-page-v2 + Mission Control builds; findings quoted in the amended docs). Five levers:
+(1) **DR-100 calibrated bounds** — target ~25–50 min / ~1.5–4k LOC per WO; ceiling ~4k LOC (MC WOs
+>6k LOC averaged 3.0 gate rejects vs 0.8 below 3k; the 7k-LOC one took 5 gate attempts / 20h); floor
+~20 min (the gate costs a FIXED ~9 min, so ppv2's FRD-08 paid 127% overhead) — in
+`build-orchestration.md` §2, DR-100, `architect.md` (rule 7 + readiness gate check 9),
+`product-manager.md` (FRD floor: a tiny feature merges into the one it extends; built product → the
+change queue). (2) **Artifacts completeness** — readiness gate check 5b: each WO's `artifacts` globs
+must cover EVERY file it will write, not merely be disjoint (an undeclared output is invisible to
+DR-060 and can collide ACROSS FRDs under global waves); also DR-100 (3b). (3) **Mandatory Build Plan
+DAG table** in `blueprint-template.md` (WO · deps · artifacts · foundation · parallel-with) — the
+planner parses structure, not free prose. (4) **Fix-forward mandate (DR-073)** — a bounded fault
+nameable at file:line with a ≤~30-line fix MUST take the findings/patch exit, never a bare failure or
+blocked_reason 'error' (80% of ppv2's first-gate fails had ≤6-min fixes; the revert path cost ~1.5h
+of 2.2h rework) — in the gate prompt + DR-073. (5) **track.jsonl instrumentation** — the gate now
+appends `review_end` with its verdict on EVERY exit (reopen/blocked/fail, not only pass — failed
+reviews were invisible in the durable timeline); `verifyPatched` appends `review_end pass` + `frd_end`
+(it is the certifying stamp of the patched path); `revertAndReopen` appends one `wo_reopen` line per
+WO (reopen_count resets on pass — DR-072 C2 — so the timeline under-reported rework). Scheduler
+harness re-run after the prompt edits: 4/4 fixtures green.
+
+**Why:** calibrate the spec→architecture→implement chain with measured numbers instead of adjectives,
+so the autonomous build converges faster without weakening any gate. The floor exists for gate
+economics only — with global waves (BL-0021) small FRDs no longer cost parallelism.
+
+**Impact:** `factory/standards/build-orchestration.md`, `factory/decisions/registry.yaml`
+(DR-100, DR-073), `plugin/agents/{architect,product-manager}.md`,
+`plugin/templates/docs/blueprint-template.md`, `plugin/templates/shared/.claude/workflows/
+pandacorp-build.js` (+ MC overlay re-sync), Manual `el-pipeline.md`. Validation: next real build's
+track.jsonl vs the ppv2 baseline (first-pass rate, rework share, review_end coverage).
+
 ## 2026-07-01 — Engine: GLOBAL WAVE scheduler — cross-FRD parallel builds, gates serialized at wave boundaries (BL-0021) · v9.45.0
 
 **What:** The build engine's main loop is no longer a sequential `for (const f of plan.frds)`. Each

@@ -2,6 +2,29 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-01 — Granularity calibrated with real-build numbers: DR-100 gains a floor + concrete ceiling; DR-073 gains the fix-forward mandate
+
+**What:** The owner-approved close of the granularity audit (evidence mined from the
+personal-page-v2 and Mission Control builds). `build-orchestration.md` §2 now pins the WO size band
+with MEASURED numbers — target ~25–50 min / ~1.5–4k LOC; ceiling ~4k LOC (rejects escalate
+superlinearly above it: 3.0 vs 0.8 average rejects); floor ~20 min (the per-FRD gate costs a fixed
+~9 min → a tiny feature pays >100% overhead; the PM merges it or it goes to the change queue).
+DR-100 amended accordingly + a new readiness-gate assertion: declared `artifacts` must be COMPLETE,
+not merely disjoint (under global waves an undeclared output can collide across FRDs). DR-073 gains
+the FIX-FORWARD MANDATE: a bounded ≤~30-line fault must exit as findings→patch, never a bare
+failure (80% of real first-gate fails had ≤6-min fixes; the revert path cost ~1.5h of a run's 2.2h
+rework). The blueprint template's Build Plan now REQUIRES the DAG table; the engine records
+`review_end` on every gate exit and `wo_reopen` per revert so the durable timeline stops
+under-reporting rework.
+
+**Why:** replace adjectives ("coarse", "small enough") with the empirical sweet spot, and make the
+convergence path prefer the cheap fix over the expensive revert — without weakening any gate.
+
+**Impact:** `factory/standards/build-orchestration.md` §2, `factory/decisions/registry.yaml`
+(DR-100, DR-073), plugin v9.46.0 (agents, blueprint template, engine — see
+`plugin/docs/decision-log.md`), Manual `el-pipeline.md`. Baseline for validation: the ppv2 run's
+metrics (first-pass 3/8, rework ~30% of wall-clock).
+
 ## 2026-07-01 — Build orchestration: GLOBAL WAVES replace the strictly-sequential FRD-by-FRD loop (BL-0021, DR-050 amended)
 
 **What:** The build standard now schedules each wave from the READY work orders of ALL FRDs
