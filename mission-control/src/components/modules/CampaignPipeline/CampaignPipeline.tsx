@@ -748,7 +748,7 @@ function FichaContent({
             <div key={cmd.command} data-testid="ficha-command" style={FICHA_COMMAND_STYLE}>
               <p style={FICHA_SECTION_VALUE_STYLE}>{cmd.label}</p>
               <CmdRow
-                command={cmd.command.replace(/<idea>/g, slug)}
+                command={cmd.command.replace(/<idea>/g, () => slug)}
                 modes={cmd.modes}
                 modeDefaultLabel={cmd.modeDefaultLabel}
                 modeTitle={cmd.modeTitle}
