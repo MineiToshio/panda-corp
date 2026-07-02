@@ -4,6 +4,23 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-02 — "Siguiente paso" panel interpolates the real idea name (bug, WO-02-013)
+
+**What:** Integrated change `mc-nextstep-real-idea-name.md` (type `bug`) into the build as
+**WO-02-013** in FRD-02. The "Siguiente paso" (`ficha-next-step`) panel of the Campaña tab renders
+every next-step command with the `<idea>` token replaced by the card's real slug
+(`/pandacorp:spec panda-script`), never the literal placeholder. The fix lives in the presentational
+consumer `CampaignPipeline.tsx` (`cmd.command.replace(/<idea>/g, slug)`), so the pure `phases.ts` /
+`lib/next-step` map keeps the canonical `<idea>` token. Regression coverage:
+`CampaignPipeline.test.tsx` (asserts `/pandacorp:spec my-idea` + no literal `<idea>`) and
+`frd-02.integration.reviewer.test.tsx` (renders `CardDetail slug="n"` → `/pandacorp:spec n`).
+
+**Why:** The owner could not copy/paste a runnable command — the placeholder was identical for every
+card. The token belongs in the pure map (reusable, testable); only the UI resolves it to the real
+name. The literal `<idea>` remains legitimate only in the empty-portfolio first-action card
+(`Cartera.tsx` `FIRST_ACTION_COMMAND`), where no idea exists yet. Impact: FRD-02 work orders README
+(WO-02-013 row) + `CampaignPipeline.tsx`.
+
 ## 2026-07-01 — Pandacorp overlay upgraded 8.51.1 → 8.55.1
 
 **What:** Overlay re-synced to the factory's current version as `/pandacorp:implement` preflight (DR-048).
