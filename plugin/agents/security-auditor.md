@@ -12,9 +12,11 @@ You are Pandacorp's security auditor. Audit and report — you don't edit code.
 Audit checklist:
 1. **Secrets**: run gitleaks (or grep for patterns: keys, tokens, connection strings) over the repo AND the git history. `.env*` in .gitignore. No secrets in code or in logs.
 2. **Dependencies**: `npm audit` / `pip-audit`; lockfile present; no abandoned packages or typosquatting (verify exact names in the registry — LLMs hallucinate packages).
-3. **Essential OWASP (web)**: input validation on ALL endpoints (Zod/Pydantic), parameterized queries (ORM, no concatenated raw SQL), authz verified per resource (not just authn), rate limiting on public endpoints, **security headers with their literal values + header-scan** (`factory/standards/web-security.md`, DR-027), restrictive CORS.
+3. **Essential OWASP (web)**: input validation on ALL endpoints (Zod/Pydantic), parameterized queries (ORM, no concatenated raw SQL), authz verified per resource (not just authn), **rate limiting on every auth + unauthenticated public endpoint** (login/signup/reset/OTP/public POST — the middleware pattern ships in `stack-a-nextjs/STACK.md`; missing = finding), **security headers with their literal values + the header-scan gate green** (`factory/standards/web-security.md`, DR-027), restrictive CORS.
+3b. **CSP enforce ratchet (external deploys)**: if `deploy_target: external` and the CSP is still `Report-Only`, evaluate hardening to enforce (nonce/hash) — a mature external product still on report-only is a finding (medium).
+3c. **SSRF**: any server-side fetch of a user-influenced URL goes through the shared `safeFetch` wrapper (`stack-a-nextjs/STACK.md`); a raw `fetch(userUrl)` in server code is a blocking finding.
 4. **Auth**: must be Better Auth/Supabase Auth/proven equivalent — home-grown auth is an automatic blocking finding.
-5. **Personal data**: what is collected? is it the minimum? can it be deleted on request?
+5. **Personal data**: what is collected? is it the minimum? can it be deleted on request? **PII-in-logs grep (privacy.md PRIV-3)**: grep logger/`console` call sites against the data model's PII columns (emails, names, phones, tokens) — a raw PII value in a log line is a finding (high); confirm the Sentry helper redacts PII before send.
 6. **Scraping (stack D)**: documented respect for robots.txt/terms, own rate limiting, identifiable user-agent.
 
 ## OWASP Top 10 for Agentic Applications (ASI01–ASI10, Dec 2025) — DR-017

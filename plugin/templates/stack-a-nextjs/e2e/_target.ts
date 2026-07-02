@@ -32,6 +32,28 @@ export function readTargetPlatform(): TargetPlatform {
 
 export const TARGET_PLATFORM: TargetPlatform = readTargetPlatform();
 
+/**
+ * The project's declared deploy target (DR-085): `external` = publicly reachable production,
+ * `internal` = owner-only (127.0.0.1 / LAN). Read the same way as target_platforms; missing /
+ * unreadable → `internal` (conservative — the header-scan gate stays ADVISORY, never a surprise RED).
+ */
+export type DeployTarget = "internal" | "external";
+
+const DEPLOY_RE = /^\s*deploy_target:\s*([a-z]+)/m;
+
+export function readDeployTarget(): DeployTarget {
+  try {
+    const raw = readFileSync(STATUS_PATH, "utf8");
+    const value = DEPLOY_RE.exec(raw)?.[1];
+    if (value === "external") return "external";
+  } catch {
+    // status.yaml absent/unreadable → conservative default below
+  }
+  return "internal";
+}
+
+export const DEPLOY_TARGET: DeployTarget = readDeployTarget();
+
 /** The responsive (mobile-width) checks apply only when the target includes mobile. */
 export const TARGETS_MOBILE: boolean =
   TARGET_PLATFORM === "mobile" || TARGET_PLATFORM === "responsive";

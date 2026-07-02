@@ -1,5 +1,7 @@
 # Project structure
 
+> Domain: Architecture/Structure · Severity: **MUST** (src/, isolated data layer, `_tests/` placement, docs skeleton) / **SHOULD** (promotion timing) · Enforcement: lint (structure guard in `verify.sh`, knip) + doc-lint (advisory) + `reviewer`. Operative form: `rules/project-structure.md` (DR-051). See DR-049/DR-077.
+
 Reference structure for the default web stack (Next.js App Router). Other stacks apply the spirit: separated layers, isolated data layer, code by domain, tests grouped in `_tests/` folders (never loose beside implementation files). **All application code lives under `src/` (mandatory whenever the stack supports it)** — config/tooling and non-code assets (`public/`, `content/`, `docs/`) stay at the repo root; the `@/*` alias points at `src/`.
 
 ```
@@ -101,6 +103,16 @@ Same shape always; create folders **on demand**, never pre-stub. Weekend MVP (3 
 
 ### Extensible base skeleton (a skeleton, not a cage)
 The named parts are a **contract** the skills and Mission Control rely on (`product/`, `design/`, `frds/frd-NN/`, the ID convention, the source-of-truth hierarchy). A project **may add its own folders** on a real need (`runbooks/`, `db/`, `security/`, a feature's `references/`). The rule is additive: **extend the skeleton, don't rename or relocate the contract parts.** Folders that recur across projects are candidates to graduate into this standard via `/pandacorp:learn`.
+
+## How it is verified
+- **Test placement (`_tests/` only)**: structure guard in `verify.sh` (fail-closed).
+- **Dead/orphan files**: `knip` in `verify.sh`.
+- **Data-layer isolation (`queries/` only)**: fail-closed grep gate in `verify.sh` (stack A) — `new PrismaClient(`/the prisma singleton imported outside `src/queries/` (or `src/lib/prisma.ts`) is RED; type-only imports stay free. Canaried (DR-079).
+- **Docs skeleton + stable IDs**: `.pandacorp/doc-lint.sh` (advisory, DR-077) + `reviewer`.
+- **Folder conventions, promotion rule**: `reviewer` quality lens (review-only).
+
+## Why
+Predictability is the multiplier: agents (and the owner) navigate every project the same way, reuse lands where the next feature will look for it, and the isolated data layer is what keeps business logic testable and migrations tractable. The docs skeleton is the same idea applied to knowledge — feature-centric, additive growth, no restructures.
 
 ### Document templates (the base format) — DR-077
 Every recurring doc above is generated from a **thin base template** in `plugin/templates/docs/` (PRD, FRD, FDD, architecture, blueprint, ADR, work-order + its README, events, research, design-system, change-request — indexed by that folder's `README.md`). The template is the **single structural contract**: the generating skill follows it and does not re-derive sections. Templates stay thin with explicitly-optional sections (an LLM fills every mandatory section into noise). The template *set* is versioned collectively under `OVERLAY_VERSION` — there is **no per-document version stamp** (provenance lives in `.pandacorp/status.yaml` `created_with`/`overlay_version`). To bring an old doc onto an improved template, **regenerate** it via its owning skill from the still-true upstream — there is **no migration engine**; reserve in-place edits for the rare doc carrying irreplaceable hand-edits. Drift is surfaced by `.pandacorp/doc-lint.sh` (run from `verify.sh`) — **advisory** (it reports missing frontmatter keys + unresolved `REQ→AC→WO` IDs, never blocks, so it can't red-lock an adopted/partial-spine project; fail-closed promotion is a future per-project opt-in).

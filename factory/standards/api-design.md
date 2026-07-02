@@ -12,7 +12,9 @@
 - **Validation at the boundary before the logic** (Zod / pydantic), which generates these error bodies consistently. (Reuses the boundary-validation convention from `conventions.md`, defining its output.)
 
 ## How it is verified
-- `verify.sh` / lint asserts the `application/problem+json` content type and the presence of the required members in error responses.
+- **verify.sh gate (stack A)**: a route handler returning 4xx/5xx without the shared `problem()` helper is RED (fail-closed grep gate; vacuous without API routes). The helper (`src/lib/problem.ts`) ships as a canonical snippet in `stack-a-nextjs/STACK.md`. Canaried by `canary.sh` (DR-079).
+- **REST conventions (resources, `/v1`, pagination, codes)**: `reviewer` correctness lens (review-only).
+- Contract-level assertions (required members present, content type) live in the FRD's integration tests when the feature IS an API (`test-writer` generates them from the EARS criteria).
 
 ## Why
 A standard, machine-readable error contract makes clients (and other agents) handle errors uniformly, instead of ad-hoc strings per endpoint.

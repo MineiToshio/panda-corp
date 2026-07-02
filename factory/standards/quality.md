@@ -1,5 +1,7 @@
 # Quality and testing
 
+> Domain: Quality/Testing · Severity: **MUST** · Enforcement: CI gate (`verify.sh`, fail-closed) + `reviewer` (FRD gate). Operative form: `rules/quality-and-testing.md` + the verbatim gate config `verify.sh`/`biome.json`/`knip.json` (DR-051/DR-059).
+
 ## Gates (verified by scripts/CI, never by the agent's self-report)
 Validation order before considering something done:
 1. **Tests** (unit + integration) green.
@@ -61,6 +63,9 @@ A reader/parser of an internal artifact MUST tell **"the source is empty"** apar
 
 ## Gate canary — prove the gates still bite (DR-079)
 Constitution §24 corollary: a check that cannot fail proves nothing. The factory keeps a small fixture set of **deliberately-broken** inputs (a console-erroring route, a malformed data fixture, a contrast/token violation, a removed nav destination) that each gate (smoke / reader-conformance / a11y / shell) MUST reject. `verify.sh --canary` runs them on each `/pandacorp:upgrade`: a gate that should RED but stays GREEN on its broken fixture **has rotted** (a renamed selector, a disabled rule, a swallowed exit code) → that is a RED. Canary fixtures live OUTSIDE `src/` and run only in canary mode, so they never red-lock a normal build. Complements DR-059/076 (which prove the gate FILES propagate, NOT that they still functionally reject).
+
+## How it is verified
+This standard is its own verification map: the **HARD vs ADVISORY** section above names every gate and its mechanism (`verify.sh` fail-closed suite, the browser gates, the canary, doc-lint). The process rules (TDD per WO, adversarial review, builder-blind suite, migration review) are enforced by the **build engine + the `reviewer`'s FRD gate** (manual, named steps in `build-orchestration.md`). Mutation/property-based run at FRD close + CI toward main.
 
 ## Testing strategy (by risk, not by blind %)
 - **Unit**: business logic, calculations, validation, parsers.

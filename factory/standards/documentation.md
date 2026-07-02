@@ -1,5 +1,7 @@
 # Living documentation — canonical doc + decision log
 
+> Domain: Product/Documentation · Severity: **MUST** · Enforcement: checklist (`reviewer` FRD gate + phase gates) + doc-lint (advisory, DR-077). Operative form: `rules/documentation-and-decisions.md` (DR-051). See DR-018/DR-049.
+
 How a Pandacorp project is documented so that the documentation **never lies** and **the why is never lost**. Applies to EVERY project, in every phase (building and shipped).
 
 ## Rule

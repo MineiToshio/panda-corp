@@ -25,24 +25,26 @@ type Stack = {
 const STACKS: readonly Stack[] = [
   {
     key: "A",
-    name: "Web full-stack",
-    stack: "Next.js + React + TS + Tailwind/shadcn + Prisma + Postgres + Better Auth",
+    name: "Web full-stack (validado en producción)",
+    stack: "Next.js + React + TS + Tailwind/shadcn + Prisma + Postgres (Neon) + Better Auth",
     deploy: "Vercel",
   },
-  { key: "B", name: "API TypeScript", stack: "Hono + Drizzle + Zod", deploy: "Railway / Fly" },
   {
-    key: "C",
-    name: "API Python",
-    stack: "FastAPI + Pydantic + SQLAlchemy",
+    key: "B",
+    name: "API / servicio TypeScript",
+    stack: "Hono + Zod (+ OpenAPI derivado) + Drizzle + Postgres",
     deploy: "Railway / Fly",
   },
   {
-    key: "D",
-    name: "Scraping / datos / notificaciones",
-    stack: "Python + Playwright + ARQ/Redis + Postgres",
-    deploy: "Docker",
+    key: "C",
+    name: "Datos / scraping / APIs Python (absorbe el viejo D)",
+    stack: "FastAPI + Pydantic + SQLAlchemy + httpx/Playwright + ARQ/Redis",
+    deploy: "Railway / Fly (Docker)",
   },
 ] as const;
+
+const STARTING_POINTS =
+  "Puntos de partida (aún sin validar en producción): CLI (Commander/Typer) · extensión de navegador (WXT) · sitio estático (Astro) · app de agentes IA (Claude Agent SDK / Vercel AI SDK).";
 
 export function StacksTable(): React.JSX.Element {
   return (
@@ -81,6 +83,9 @@ export function StacksTable(): React.JSX.Element {
           </Panel>
         </div>
       ))}
+      <div style={{ fontSize: "11px", color: "var(--color-text3)", lineHeight: 1.6 }}>
+        {STARTING_POINTS}
+      </div>
     </div>
   );
 }

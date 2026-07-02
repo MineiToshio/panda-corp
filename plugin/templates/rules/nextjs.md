@@ -19,12 +19,18 @@ source: Pandacorp standard — patterns
 - Update the client immediately; revert if the server fails. Prefer React 19 **`useOptimistic`** (auto-reverts on error) over a manual mirror-and-rollback (see `react.md`).
 - Close modals/sheets **synchronously** on submit — don't await the server response before dismissing.
 
+## Forms
+- Forms post to a **Server Action via `<form action={...}>`**; pending/error/result flow through `useActionState` + `useFormStatus` (see react rules) — never hand-managed loading state.
+- **Progressive enhancement**: the form works before hydration — don't reimplement with `onSubmit` + `preventDefault` + client fetch what `action` gives for free.
+- Validation failures return as **typed state rendered inline** next to the fields, never thrown (see error-handling).
+
 ## Caching & revalidation (Next 15+: opt-in)
 - **`fetch` is uncached by default.** Cache **explicitly** (`fetch(url, { next: { revalidate: N } })` or `use cache`) and set `revalidate` just above the real freshness need — never cache by reflex, never leave it implicit.
-- **After a mutating Server Action, invalidate** with `revalidateTag` / `revalidatePath`; tag cached reads so the action can target them. Don't serve stale reads.
+- **Tag cached reads** (`next: { tags: [...] }`) and **dedupe shared server reads within a request via `React.cache()`** — one resolver, every consumer reads it (see web-performance).
+- **After a mutating Server Action, always invalidate**: **`revalidateTag` for data** shared across routes (the default); **`revalidatePath` only when one route's full rendered output must refresh**. Don't serve stale reads after a mutation.
 
 ## Streaming
-- Wrap each independently-slow async Server Component in its **own `<Suspense>`** and push data access down to the smallest component that needs it; use route `loading.tsx` only for the whole-segment fallback.
+- Wrap each independently-slow async Server Component in its **own `<Suspense>`** and push data access down to the smallest component that needs it; use route `loading.tsx` only for the whole-segment fallback. One giant boundary around the whole page is as bad as none; don't wrap fast, always-available UI (fallback flash).
 - Keep `generateMetadata` **Server-only and fast** — a slow async metadata call blocks the route's stream; fetch heavy data in the page (under Suspense), not in metadata.
 
 ## States & rendering

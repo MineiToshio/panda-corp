@@ -6,26 +6,38 @@ order: 9
 
 # Stacks (golden paths)
 
-Un "golden path" es el stack tecnológico por defecto aprobado para un tipo de proyecto. La fábrica tiene golden paths pre-aprobados que aceleran el arranque — el arquitecto los propone en el blueprint y el propietario los aprueba en ese momento (ADR ligero).
+Un "golden path" es el stack tecnológico por defecto aprobado para un tipo de proyecto. La fábrica tiene **3 golden paths documentados** (el viejo D —scraping— se plegó en C: era el mismo stack Python) más una lista de **puntos de partida** para casos nuevos. El arquitecto los propone en el blueprint y el propietario los aprueba en ese momento (ADR ligero).
 
-## El stack por defecto (web)
+## A — Web full-stack (el default, validado en producción)
 
 Definido en `factory/standards/stack.md`. Siempre en las últimas versiones estables:
 
 | Capa | Tecnología |
 |---|---|
-| Framework | Next.js (App Router) |
+| Framework | Next.js (App Router) + React |
 | Lenguaje | TypeScript strict |
-| Estilos | CSS variables + design tokens (shadcn/ui como base de componentes) |
-| Base de datos | Postgres (via Supabase o Neon) |
-| Auth | Better Auth o Supabase Auth |
-| ORM | Drizzle ORM |
+| Estilos | Tailwind + design tokens (shadcn/ui como base de componentes) |
+| Base de datos | Postgres en **Neon** (Supabase evaluado y rechazado) |
+| Auth | Better Auth |
+| ORM | **Prisma** (data layer en `queries/`) |
 | Tests | Vitest + Testing Library + Playwright (e2e) |
 | Lint/Format | Biome |
 | Despliegue | Vercel (web) |
 | Secretos | SOPS + age |
 | Pagos | Polar |
-| Analítica | PostHog |
+| Analítica | PostHog + Sentry |
+
+## B — API / servicio TypeScript
+
+**Hono** (corre en Node/Bun/Workers) + Zod en cada boundary + OpenAPI **derivado de los schemas** + Drizzle + Postgres (Neon). Deploy: contenedor en Railway/Fly. Solo para servicios *headless* (webhooks, gateways, APIs para clientes externos) — la API de una web app vive en los route handlers del path A.
+
+## C — Datos / scraping / APIs Python (absorbe el viejo D)
+
+Python 3.12 + **uv** + ruff + mypy strict + **FastAPI** + Pydantic v2 + SQLAlchemy/Alembic. Scraping: httpx + parsel (Playwright **solo** para páginas con JS), cola ARQ/Redis, scraping responsable obligatorio (robots.txt, rate limiting propio, user-agent identificable).
+
+## Puntos de partida (aún sin validar en producción)
+
+Para casos que todavía no han construido un proyecto real: **CLI** (Commander/Typer), **extensión de navegador** (WXT), **sitio estático** (Astro), **app de agentes IA** (Claude Agent SDK para agentes autónomos; Vercel AI SDK para features de IA dentro de una web). El primer build real los endurece a golden path completo.
 
 ## Cómo se elige el stack
 

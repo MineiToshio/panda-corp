@@ -1,5 +1,7 @@
 # Build orchestration standard (DR-050)
 
+> Domain: Quality/Process · Severity: **MUST** · Enforcement: the build engine itself (state machine, FRD gates, heartbeat locks) + `verify.sh` — **factory-internal (process): not injected** as a rule file; projects meet it through the engine and the `.pandacorp/` overlay.
+
 How the factory plans, tracks and runs a build. The orchestration is **driven by the documents** —
 state and plans live in structured data the build engine reads, not in the engine's runtime
 inference, not in git, not in body prose. Recovered and systematized from PandaTrack; see

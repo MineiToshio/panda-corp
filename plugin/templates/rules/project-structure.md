@@ -7,44 +7,35 @@ source: Pandacorp standard — structure
 
 # Project structure
 
-Organize code by **reusability** and **scope**: app-wide vs feature-specific vs single-use. Put each thing in the **smallest scope that fits its current usage**, and promote it only when reuse actually appears. (File/function **size limits** live in `clean-code.md`.)
+Put each thing in the **smallest scope that fits its current usage**; promote only when reuse actually appears. (Size limits → `clean-code`.)
+
+Mechanical placement rules (loose `*.test.ts(x)` outside `_tests/`, data-layer isolation) are enforced by `verify.sh`'s structure guard — not repeated here; fix the gate's message, don't argue with it.
 
 ## Source root — `src/` is mandatory
-- **All application code lives under `src/`** (`src/app/`, `src/components/`, `src/lib/`, `src/hooks/`, …) whenever the stack supports it (Next.js, Vite, Node/TS, and the equivalent source layout in other languages — e.g. a Python package dir). The `@/*` alias points at `src/` (`@/* → ./src/*`).
-- **Config and tooling stay at the repo root** (`package.json`, `next.config.*`, `tsconfig.json`, `.env*`, CI). **Non-code assets/data stay at the root too** (`public/`, `content/`, `docs/`) — `src/` is for code, not data.
-- **Why mandatory**: a clean separation between real code and configuration, an uncluttered root, and a predictable place every agent looks first. Not a per-project choice.
-- Only skip `src/` when the technology genuinely doesn't allow it (then apply the spirit: one clear source root, separated from config).
+- All app code under `src/` (`src/app/`, `src/components/`, `src/lib/`, `src/hooks/`); alias `@/* → ./src/*`.
+- Repo root keeps config/tooling (`package.json`, `next.config.*`, `tsconfig.json`, `.env*`, CI) and non-code assets (`public/`, `content/`, `docs/`) — `src/` is for code, not data.
+- Skip `src/` only when the technology genuinely doesn't allow it; keep the spirit (one clear source root, separate from config).
 
 ## Components — two layers
-- **`components/core/`** — essential, simple, **highly reusable primitives** (`Button`, `Input`, `Modal`, `Typography`, icons). If it's not a React component, it doesn't belong here.
-- **`components/modules/`** — **composed, reusable** components built from primitives (a `Toolbar`, a `DataTable`, a `JobCard`), not tied to one page.
-- **Route-local components** — used by a single route/feature → live in that route's `_components/` (see feature-first), **not** in the global folders.
+- `components/core/` — simple, highly reusable primitives (`Button`, `Input`, `Modal`, icons). React components only.
+- `components/modules/` — composed reusables built from primitives (`Toolbar`, `DataTable`), not tied to one page.
+- Used by a single route → that route's `_components/`, never the global folders.
 
-## Component folder convention (single-file vs multi-file) — applies in core/, modules/ and `_components/`
-- **Single-file component**: put the file directly in the parent folder (`core/Button.tsx`). **Don't** create a folder that would hold just one file.
-- **Multi-file component**: use a folder named after the component; the main file has the **same name as the folder** (`Button/Button.tsx`) — **never** `index.tsx`. Component-scoped siblings go inside: `types.ts`, `utils.ts`, `*.styles.ts`, `use*.ts` hooks, subcomponents used only here, and **`_tests/`**.
-- A component **becomes multi-file the moment it has any scoped sibling — including a test**. So a component that gets a test moves into its own folder with the test under `_tests/`. If a folder ends up with only one file, flatten it back.
-- If a helper/subcomponent starts being used outside the component, it's no longer component-scoped — move it up (page → app) per the promotion rule.
-
-## Test placement (definitive — no loose test siblings)
-- **Unit/component tests live in a `_tests/` folder** inside the component/feature folder (`Button/_tests/Button.test.tsx`). **Never** leave `*.test.ts(x)` loose at the same level as implementation files — it's visual noise and makes the tree hard to scan.
-- **Shared test infra** (render helpers, fixtures, factories, mocks) → `src/test/`.
-- **E2E** (Playwright) → top-level `e2e/`, split by domain (`auth.spec.ts`, `dashboard.spec.ts`).
+## Component folders (single-file vs multi-file)
+- One file → directly in the parent (`core/Button.tsx`); never a folder holding just one file.
+- Multi-file → folder named after the component; main file has the **same name as the folder** — **never** `index.tsx`. Scoped siblings inside: `types.ts`, `utils.ts`, `*.styles.ts`, `use*.ts`, subcomponents, `_tests/`.
+- The first scoped sibling — **including a test** — makes it multi-file; a folder that shrinks to one file is flattened back.
+- A helper used outside the component is no longer scoped — move it up (page → app) per the promotion rule.
 
 ## Reuse before creating (promotion rule)
-Before creating a new component, check and reuse in this order: **`components/core` → `components/modules` → the parent route's `_components/` → the route itself.** Only create if none fits. When something starts being used in several places, **move it to the smallest scope that now fits** in the same change (component → page → app); don't pre-promote on speculation.
+- Check in order: `components/core` → `components/modules` → the parent route's `_components/` → the route. Create only if none fits.
+- When something starts being used in several places, move it to the smallest scope that now fits **in the same change**; don't pre-promote on speculation.
 
-## Feature-first code & page-level folders
-Co-locate everything a route owns in `_`-prefixed sibling folders (the `_` keeps them out of the URL):
-```
-app/<feature>/
-  ├── _components/   ├── _hooks/    ├── _actions/
-  ├── _schemas/      ├── _types/    └── _utils/
-```
-**Scope by segment first**: files used only by a child segment (`stores/new/…`) go in that child's folders, not the parent. Prefer the smallest valid scope. Global, cross-feature code lives in shared roots: `lib/`, `hooks/`, `types/`. Use **route groups** `(group)/` to organize routes by section or to scope a `layout.tsx`/`loading.tsx` to a subset without affecting the URL.
+## Feature-first code
+- Co-locate what a route owns in `_`-prefixed folders (kept out of the URL): `_components/ _hooks/ _actions/ _schemas/ _types/ _utils/`.
+- Scope by segment first: files used only by a child segment go in the child. Global cross-feature code → `lib/`, `hooks/`, `types/`. Route groups `(group)/` organize sections or scope a `layout.tsx` without affecting the URL.
+- `src/lib/` groups by purpose (one file per service or classification: `mapbox.ts`, `formatting.ts`); when a second file of a clear concern appears, promote both to a domain subfolder (`lib/auth/`) in the same change — never one at the root and one nested.
 
-## `src/lib/` organization
-Group by **purpose**: one file per library/service (`mapbox.ts`, `prisma.ts`) or per classification (`formatting.ts`, `cookies.ts`, `constants.ts`). When a **second** file of a clear concern appears, promote it to a domain subfolder **in the same change** (`lib/auth/`, `lib/analytics/`) and move both — never leave one at the root and one nested.
-
-## Isolated data layer
-All database/persistence access lives in a dedicated data layer (`queries/`, one file per model) — **never** call the ORM/DB directly from components, pages, layouts, server actions, route handlers or hooks. (Library-specific data-layer rules ship separately when the stack defines an ORM.)
+## Tests & data layer
+- Unit/component tests → `_tests/` inside the component/feature folder; shared test infra → `src/test/`; E2E (Playwright) → top-level `e2e/`, split by domain.
+- All DB/persistence access lives in the data layer (`queries/`, one file per model) — never call the ORM/DB from components, pages, layouts, server actions, route handlers or hooks.

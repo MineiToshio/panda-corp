@@ -9,7 +9,7 @@ This stack ships **three canonical config files** next to this guide; they are i
 - **`biome.json`** → project root — MAXIMUM fail-closed lint+format (domains `react`/`next`/`test`, the `a11y` group, hard-enforcement rules promoted to **error**, `noExcessiveCognitiveComplexity: "error"`, `useSortedClasses`). Carries `css.parser.tailwindDirectives: true` (or biome PARSE-ERRORS on `@theme`/`@apply` in `globals.css`), ignores `.pandacorp/` (the overlay isn't product code), and keeps `complexity.noImportantStyles: "off"` (the `prefers-reduced-motion` WCAG reset needs `!important`) — DR-076.
 - **`verify.sh`** → `.pandacorp/verify.sh` — the fail-closed gate (structure guard, doc-lint, `biome --error-on-warnings`, `tsc`, `knip`, `madge --circular`, `vitest`, then ONE playwright run over `e2e/` — smoke + visual + responsive + shell in a single webServer boot, DR-076).
 - **`knip.json`** → project root — the dead-code config (`knip@6` schema; entry = app routes + next config + `e2e/*.spec.ts`; project = `src/**`; `ignoreDependencies: ["tailwindcss", "@axe-core/playwright"]` — both are used outside the graph knip traces, DR-076).
-- **`e2e/{smoke,visual,responsive,shell}.spec.ts` + `e2e/_responsive-helper.ts` + `playwright.config.ts`** → `e2e/` and project root — the gate **machinery** (DR-055/056/074/075), installed VERBATIM and conformance-checked, exactly like the config files above. **`e2e/routes.ts`, `e2e/_target.ts` and `e2e/shell.ts` are PER-PROJECT seeds** (the surface manifest + the platform read + the app-shell nav contract) — created only if missing, NEVER byte-diffed/overwritten.
+- **`e2e/{smoke,visual,responsive,shell,headers}.spec.ts` + `e2e/_responsive-helper.ts` + `playwright.config.ts`** → `e2e/` and project root — the gate **machinery** (DR-055/056/074/075 + the header-scan gate, `web-security.md`), installed VERBATIM and conformance-checked, exactly like the config files above. **`e2e/routes.ts`, `e2e/_target.ts` and `e2e/shell.ts` are PER-PROJECT seeds** (the surface manifest + the platform/deploy-target read + the app-shell nav contract) — created only if missing, NEVER byte-diffed/overwritten. *(Exception: `_target.ts` gained `readDeployTarget()` — on upgrade, a seed missing that export is regenerated preserving nothing project-specific beyond the standard reads.)*
 
 The sections below explain *why* each is configured the way it is; they are the rationale, not a second source to hand-tune.
 
@@ -179,13 +179,52 @@ The visual gate (`toHaveScreenshot`) is a SELF-baseline regression guard: it pro
 - **`e2e/shell.spec.ts`** (VERBATIM) iterates `SURFACES` **minus `SHELL_EXEMPT`** (NOT `BLESSED` — the MC failure is a route that shipped *blessed* with no shell, so gating on `blessed` would inherit the blind spot), settle-first exactly like the responsive helper (abort the live transport → `domcontentloaded` → `fonts.ready` → `<main>` visible), then asserts: the shell landmark is **visible** on every non-exempt route; every `NAV_DESTINATION` is a **visible link inside the shell** whose `href` equals its path; each destination **2xx-resolves**; and on mobile (`target_platforms` includes mobile) the nav is reachable (visible or via the declared toggle). Add `"test:shell": "playwright test e2e/shell.spec.ts"` to `package.json`.
 - **The contract is anchored to the PROTOTYPE, not the app** — that is what makes it a *fidelity* check, not another *consistency* check: a build that drops a destination cannot make itself green by trimming its own routes, because the expected nav comes from the frozen prototype contract (it drifts only when the prototype itself changes, like a blessed baseline). Pairs with the responsive gate: once the shell exists it is one more route the responsive gate covers; this gate adds the **nav-reachability** check the responsive gate does not do.
 
+## Header-Scan Gate (`web-security.md`) — security headers, tiered by deploy target
+
+`e2e/headers.spec.ts` (VERBATIM) asserts the pre-approved security headers (HSTS, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, clickjacking defense, a CSP present — report-only is the sanctioned v1 state — and no `X-Powered-By`). **Tiered by `deploy_target`** (read from `.pandacorp/status.yaml` via `e2e/_target.ts`, the DR-074 pattern): `external` → **hard, fail-closed**; `internal`/undeclared → **advisory** (reports loudly, never blocks — HSTS on 127.0.0.1 is meaningless and a retrofit must not red-lock an internal tool). The canonical `headers()` config to satisfy it:
+
+```ts
+// next.config.ts — the pre-approved literal values (web-security.md)
+const securityHeaders = [
+  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "Permissions-Policy", value: "geolocation=(), camera=(), microphone=()" },
+  { key: "Content-Security-Policy-Report-Only", value: "default-src 'self'; frame-ancestors 'none'" }, // harden → enforce at maturity (security-auditor ratchet)
+];
+const nextConfig = {
+  poweredByHeader: false,
+  async headers() { return [{ source: "/(.*)", headers: securityHeaders }]; },
+};
+```
+
+## Canonical helpers (security & API contract) — ship the safe path
+
+These helpers make the standard the path of least resistance; the grep gates in `verify.sh` (data-layer isolation, API error contract) point at them when they fail.
+
+**`src/lib/problem.ts` — the RFC 9457 error contract (`api-design.md`).** Every route handler that returns 4xx/5xx uses it (the verify.sh gate REDs a route with error statuses and no `problem`):
+
+```ts
+export function problem(status: number, title: string, opts?: { detail?: string; type?: string; instance?: string; errors?: Array<{ detail: string; pointer: string }> }) {
+  return Response.json(
+    { type: opts?.type ?? "about:blank", title, status, ...opts },
+    { status, headers: { "Content-Type": "application/problem+json" } },
+  );
+}
+```
+
+**`src/lib/safe-fetch.ts` — SSRF-safe outbound fetch (`web-security.md`).** ANY server-side fetch of a user-influenced URL goes through it (never raw `fetch(userUrl)`): allow-list hosts, force https, reject credentials/`@` userinfo, block private/loopback/link-local ranges + cloud metadata (`169.254.169.254`), re-validate on every redirect hop (`redirect: "manual"` + loop). Presence is checked by the `security-auditor` at hardening when the blueprint declares user-influenced outbound fetches.
+
+**Rate limiting (`web-security.md`).** Auth + unauthenticated public endpoints (login, signup, reset, OTP, token issuance, public POST APIs) get a sliding-window limiter from day 1 — in-memory LRU per instance is the accepted single-instance default (Vercel/serverless → Upstash Ratelimit when state must be shared); per-account failure counting with progressive backoff (no lockout-DoS). Wire it in `middleware.ts` or at the top of the action/handler; verified by the `security-auditor` hardening checklist.
+
 ### Scoped gate — `verify.sh --since <sha>` (fast per-FRD pass)
 
 The full gate is expensive to run on every FRD. `verify.sh` accepts an optional `--since <sha>` that **scopes vitest to the changed tests** for the fast per-FRD gate — `vitest run --changed <sha>` (only specs affected since `<sha>`). The static gates stay **global** (cheap and catch cross-cutting breakage): `biome check` and `tsc --noEmit` always run over the whole tree. Without `--since`, `verify.sh` runs everything. **At close-out** the full suite runs unscoped — `vitest run` over all tests **plus every visual baseline** (all routes, all viewports) — so nothing ships on a partial pass. Per-FRD = scoped + fast; close-out = full + complete.
 
 ## `.pandacorp/verify.sh` — canonical, installed VERBATIM (DR-059)
 
-The gate is **not** hand-rolled per project. Install `${CLAUDE_PLUGIN_ROOT}/templates/stack-a-nextjs/verify.sh` **VERBATIM** as `.pandacorp/verify.sh` (alongside `biome.json` and `knip.json`); `/pandacorp:upgrade` **conformance-checks** it against this template and regenerates on drift, so a project's enforcement can never silently fall behind the standard. It is MAXIMUM fail-closed — `set -euo pipefail` + `inherit_errexit`, every Biome warn promoted to a hard gate (`--error-on-warnings`), and a **missing** smoke/visual harness is RED, never a skip. The gate runs, in order: structure guard (no loose `*.test.ts(x)`) → doc-lint (DR-077) → the **DR-100 residual-ambiguity gate** (`[NEEDS CLARIFICATION]` in a `status: ACTIVE` doc → RED) → `biome check` → `tsc --noEmit` → `knip` (dead code) → `madge --circular` → `vitest run` → the **browser gates in ONE `playwright test e2e/` invocation** (smoke DR-055 + visual DR-056 + responsive DR-074 + shell DR-075 — one webServer boot, fail-closed on each missing spec file, DR-076). It also supports **`verify.sh --canary`** (DR-079; `canary.sh` ships in this folder): generates a deliberately-broken input per gate and REDs if a gate that should reject stays green — invoked only by `/pandacorp:upgrade`, never on a normal build. The canonical file is the source of truth — read it there, don't duplicate it here.
+The gate is **not** hand-rolled per project. Install `${CLAUDE_PLUGIN_ROOT}/templates/stack-a-nextjs/verify.sh` **VERBATIM** as `.pandacorp/verify.sh` (alongside `biome.json` and `knip.json`); `/pandacorp:upgrade` **conformance-checks** it against this template and regenerates on drift, so a project's enforcement can never silently fall behind the standard. It is MAXIMUM fail-closed — `set -euo pipefail` + `inherit_errexit`, every Biome warn promoted to a hard gate (`--error-on-warnings`), and a **missing** smoke/visual harness is RED, never a skip. The gate runs, in order: structure guard (no loose `*.test.ts(x)`) → **data-layer isolation** (STRUCT-2 — ORM access only in `src/queries/`; vacuous without Prisma) → **API error contract** (API-1 — 4xx/5xx without `problem()` is RED; vacuous without API routes) → doc-lint (DR-077) → the **DR-100 residual-ambiguity gate** (`[NEEDS CLARIFICATION]` in a `status: ACTIVE` doc → RED) → `biome check` → `tsc --noEmit` → `knip` (dead code) → `madge --circular` → `vitest run` → the **browser gates in ONE `playwright test e2e/` invocation** (smoke DR-055 + visual DR-056 + responsive DR-074 + shell DR-075 + header-scan — one webServer boot, fail-closed on each missing spec file, DR-076). It also supports **`verify.sh --canary`** (DR-079; `canary.sh` ships in this folder): generates a deliberately-broken input per gate and REDs if a gate that should reject stays green — invoked only by `/pandacorp:upgrade`, never on a normal build. The canonical file is the source of truth — read it there, don't duplicate it here.
 
 ## CI (optional external-governance layer — DR-040)
 

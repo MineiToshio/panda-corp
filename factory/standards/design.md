@@ -1,5 +1,7 @@
 # Design standard (DR-054, DR-055, DR-064)
 
+> Domain: Design · Severity: **MUST** · Enforcement: CI gate (design-token gate DR-056, prototype-fidelity + shell-presence gates DR-074/075) + human gate (owner's visual gate) — **factory-internal (process)**: the process itself doesn't ship; its project-facing parts ship via `rules/styling-and-ui.md` + `rules/accessibility.md` and the verbatim e2e gate specs (DR-051/DR-059).
+
 How the factory produces a project's look, freezes it as a contract, and **guarantees the build
 reproduces it**. Born from a failure: Mission Control was adopted with an owner-approved prototype
 (`prototype/index.html` + embedded party views) that was the agreed 100% visual target, yet the

@@ -15,7 +15,8 @@ Set in `next.config` `headers()` or middleware:
 - **CSP with nonce/hash, without `unsafe-inline`** is the goal, but **in v1 it goes in `report-only`** (non-blocking): the per-request nonce breaks with PostHog/Sentry/Stripe (all in the stack). It is hardened as the project matures.
 
 ## How it is verified
-- **Header-scan test in CI** (turns the decorative "security headers" into something fail-closed): asserts that each header is present with its value.
+- **Header-Scan Gate** (`e2e/headers.spec.ts`, ships VERBATIM in stack A, runs inside `verify.sh`): asserts each header present with its value + a CSP present (report-only counts in v1) + no `X-Powered-By`. **Tiered by `deploy_target`** (DR-074 pattern): `external` → fail-closed; `internal`/undeclared → advisory (never red-locks an internal tool). Spec discovery is canaried (DR-079).
+- **CSP enforce ratchet**: moving from report-only to enforce is a named `security-auditor` step at hardening/release for external deploys (checklist).
 - The **submit to hstspreload.org is durable and hard to revert → the owner approves it**, not the agent.
 
 ## Why
@@ -25,7 +26,9 @@ Sources: owasp HTTP_Headers_Cheat_Sheet · owasp Content_Security_Policy_Cheat_S
 
 ## Supply chain, SSRF & abuse (canonical for rules/web-security.md)
 
-> Severity: **MUST** (web). Enforcement: lockfile/`.npmrc` config + CI gate (gitleaks, audit) + code review. The per-project HOW lives in `plugin/templates/rules/web-security.md`; this section is the canonical WHY+WHAT.
+> Severity: **MUST** (web). Enforcement: lockfile/`.npmrc` config + CI gate (gitleaks, audit) + named `security-auditor`/`architect` checks. The per-project HOW lives in `plugin/templates/rules/web-security.md` + the canonical helper snippets in `stack-a-nextjs/STACK.md` (safeFetch, rate limiting); this section is the canonical WHY+WHAT.
+>
+> Named checks for the non-lintable rules: **cooldown** → the `architect`'s install step checks the release date before `pnpm add` (plus `.npmrc` `minimum-release-age` where the package manager supports it); **safeFetch** → `security-auditor` hardening check whenever the blueprint declares user-influenced outbound fetches (the helper ships as a snippet); **rate limiting** → `security-auditor` hardening checklist over every auth/public endpoint (the middleware pattern ships as a snippet).
 
 - **Pin exact dependency versions** (no `^`/`~`) and install from the committed lockfile with immutable installs. **New-release cooldown ~7 days**: never install/auto-bump a version published less than a week ago (compromised releases are usually caught within days). This **composes with DR-052's "`@latest` at install time"**: latest-at-adoption (a new project takes the newest *stable, cooled-down* version), **pinned-thereafter** (no drift until a deliberate upgrade).
 - **Disable install lifecycle scripts** by default (`ignore-scripts` / pnpm's script gating); allow-list only trusted packages — install-time scripts are the top supply-chain execution vector.

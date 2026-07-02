@@ -19,24 +19,33 @@ A standard that isn't injected is dead on arrival (Mission Control once violated
 
 | Domain | Standards |
 |---|---|
-| **Programming / Conventions** | [conventions.md](conventions.md) · [api-design.md](api-design.md) |
+| **Programming / Conventions** | [conventions.md](conventions.md) · [api-design.md](api-design.md) · [error-handling.md](error-handling.md) · [ai-implementation.md](ai-implementation.md) (how AI agents write code here) |
 | **Architecture / Structure** | [structure.md](structure.md) · [patterns.md](patterns.md) |
 | **Design / Design system** | [patterns.md](patterns.md) (tokens, theme, a11y); the design system is generated per project in `/pandacorp:design` |
 | **Accessibility** | [accessibility.md](accessibility.md) (WCAG 2.2 AA, tap-target tiers, focus, motion — canonical behind `rules/accessibility.md`) |
 | **Technology / Stack** | [stack.md](stack.md) (golden paths A/B/C/D) |
 | **Quality / Testing** | [quality.md](quality.md) · [performance.md](performance.md) · [build-orchestration.md](build-orchestration.md) (how a build is planned/run — DR-050) |
-| **Security** | [web-security.md](web-security.md) (+ constitution §12, DR-017, `security-auditor` agent) |
-| **Operation / Observability** | [infra.md](infra.md) (local dev) · [observability.md](observability.md) (production) · [external-services.md](external-services.md) (accounts, secrets, payments, provisioning — DR-035..038) |
-| **Data / Privacy** | [privacy.md](privacy.md) |
-| **Product / Documentation** | [documentation.md](documentation.md) (canonical doc + decision log) · [seo-i18n.md](seo-i18n.md) (+ living docs: constitution §20, DR-018) |
+| **Security** | [web-security.md](web-security.md) (+ constitution §12, DR-017, `security-auditor` agent) · [auth.md](auth.md) (RBAC, sessions, resource-level authz) · [dependency-lifecycle.md](dependency-lifecycle.md) (update cadence, audit, licenses) |
+| **Operation / Observability** | [infra.md](infra.md) (local dev, backup/restore, incidents) · [observability.md](observability.md) (production) · [resilience.md](resilience.md) (timeouts, retries, bulkheads) · [background-jobs.md](background-jobs.md) · [external-services.md](external-services.md) (accounts, secrets, payments, provisioning — DR-035..038) |
+| **Data / Privacy** | [privacy.md](privacy.md) · [data-modeling.md](data-modeling.md) (entities, deletion policy, N+1, seeds) |
+| **Product / Documentation** | [documentation.md](documentation.md) (canonical doc + decision log) · [feature-flags.md](feature-flags.md) (no flags at MVP; PostHog when earned) · [seo-i18n.md](seo-i18n.md) (+ living docs: constitution §20, DR-018) |
 
 ## Two cross-cutting axes (by rule, not by file)
 
 - **Severity (RFC 2119)**: each rule is `MUST` (mandatory — violating it is a hard failure), `SHOULD` (recommended — relaxable by recording an ADR) or `MAY` (optional). The agent **only escalates to the owner if it is going to break a `MUST`**; a `SHOULD` it decides with an ADR. The entire stack is `SHOULD` (golden path).
 - **Enforcement (how it is verified)**: `lint` · `CI gate` · `checklist` · `human gate / deny rule`. Makes visible what a script validates (automatic green/red) vs. what is the owner's decision (rule 4: the model never marks its own checks).
 
-## Shape of a standard ("executable standard")
+## Shape of a standard ("executable standard") — the template
 
-Each file separates, without mixing: **Rule** (taxative, what gets injected into the agent) · **How it is verified** (binary check pluggable into `verify.sh`/CI) · **Why** (rationale/trade-offs, for humans and ADRs). The goal is that every rule has a verifier, not just prose.
+Every standard file follows this shape (validated by `check-standards.sh`, see below):
 
-The structure/patterns conventions are written for the default web stack (TypeScript/Next.js). For other stacks (Python/scraping) the **spirit** applies (separated layers, isolated data layer, colocated tests, strict typing), adapted to the language. To add a new standard, rule or skill: `/pandacorp:learn`.
+1. **Preamble** (first content line, blockquote): `> Domain: X · Severity: MUST|SHOULD|MAY (scope) · Enforcement: lint | CI gate | checklist | human gate`. Factory-internal process standards (build orchestration, design process) carry the preamble too, marked `factory-internal — not injected`.
+2. **Rule** (one or more `## Rule — <topic>` sections): taxative, imperative bullets — what gets injected into the agent.
+3. **How it is verified**: every bullet NAMES its concrete check — a Biome rule, a `verify.sh` gate, an e2e spec, a hook, a skill's checklist step, a human gate — or is explicitly tagged **`review-only`** (= known weak point, a candidate to wire). "It is verified" without a named mechanism is not allowed: that is how promise-without-mechanism rules slip in.
+4. **Why**: 1–3 lines of rationale/trade-offs, for humans and ADRs.
+5. **Example** *(optional)*: one short good/bad pair where it clarifies more than prose — agents follow examples better than paragraphs.
+6. **Exceptions** *(optional)*: when deviating is legitimate and how it is recorded (ADR).
+
+Playbook-style standards (`external-services.md`) keep their procedural body but still carry the preamble and a "How it is verified" section. The **rule registry** ([rule-registry.md](rule-registry.md)) indexes every rule with its enforcement status (`wired` / `manual` / `aspirational`) — the catalog's health metric is the % of rules with a named automated check; every `aspirational` MUST is a defect to burn down.
+
+The structure/patterns conventions are written for the default web stack (TypeScript/Next.js). For other stacks (Python/scraping) the **spirit** applies (separated layers, isolated data layer, colocated tests, strict typing), adapted to the language. To add a new standard, rule or skill: `/pandacorp:learn` (which enforces the DR-051 propagation contract and a registry row for every new rule).

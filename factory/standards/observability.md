@@ -1,6 +1,6 @@
 # Observability (telemetry / production)
 
-> Severity: **MUST** for the baseline; the rest staged. Enforcement: checklist + CI. Complements `infra.md` (which covers only local dev).
+> Domain: Operation/Observability · Severity: **MUST** for the baseline; the rest staged. Enforcement: checklist + CI. Complements `infra.md` (which covers only local dev).
 >
 > **When it's added (DR-085):** observability/telemetry is instrumented **during construction** (`/pandacorp:implement`), as part of the final hardening step — not as a post-launch concern. The product ships from construction already instrumented; the `release` phase only verifies it's live, and `/pandacorp:review-launch` *reads* what construction wired.
 

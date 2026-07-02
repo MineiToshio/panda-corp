@@ -2,6 +2,36 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-02 — Upgrade completo del catálogo de estándares (proposal 24, plugin v9.50.0)
+
+**Qué:** el owner aprobó el plan completo de `docs/proposals/24-standards-catalog-audit-2026-07-02.md`
+(auditoría de 3 agentes: contenido + inyección E2E verificada + research del estado del arte) y las 4
+fases quedaron implementadas el mismo día, en orden 1→2→4→3. **(F1) Plantilla + registro:** el
+"estándar ejecutable" es ahora formal (preámmbulo `Dominio · Severidad · Enforcement` + Regla + "cómo
+se verifica" con el check NOMBRADO — una regla sin mecanismo nombrado no se admite + Por qué), los
+17 archivos existentes migrados; nace `factory/standards/rule-registry.md` (~116 reglas con estado
+`wired`/`manual`/`aspirational`) y `check-standards.sh` que valida la plantilla, el contrato
+standards↔rules (DR-051) y avisa si reaparece un MUST aspiracional. **(F2) Cero MUSTs
+aspiracionales:** los 6 detectados (API-1 contrato RFC 9457, STRUCT-2 aislamiento de capa de datos,
+SEC-2 CSP, SEC-7 safeFetch, SEC-8 rate limiting, PRIV-3 PII en logs) quedaron cableados como gates
+fail-closed con canario (los 3 primeros — incluido el Header-Scan Gate que `web-security.md`
+prometía y NUNCA existió en el template) o con checks manuales NOMBRADOS + helpers canónicos (los
+demás). Hooks nuevos evaluados y descartados: el Stop-gate + verify.sh ya cubren los invariantes.
+**(F4) Inyección afinada:** capa always-loaded podada ~236→169 líneas (presupuesto de contexto —
+lo que Biome/tsc ya enforcean sale de la prosa), canario post-upgrade BLOQUEANTE, vigilancia de
+drift de overlay en `sync-portfolio`, auditor standards↔rules en el checker. **(F3) Catálogo
+ampliado:** 8 estándares nuevos (error-handling, data-modeling, auth, resilience, background-jobs,
+dependency-lifecycle, feature-flags, **ai-implementation** — disciplina de código escrito por IA:
+comentarios que no narran, sin árboles de docs paralelos, verificar contra la versión instalada,
+citar LESSON-NNNN), `patterns.md` profundizado como respaldo canónico React/Next (caching/tags,
+forms, Suspense, client-state), 6 reglas inyectables nuevas, y `stack.md` con golden paths B (Hono)
+y C (FastAPI, absorbe el viejo D) reales + puntos de partida (CLI, WXT, Astro, agentes IA).
+**Por qué:** la auditoría encontró el meta-patrón promesa-sin-mecanismo en la capa de estándares
+(~18 MUSTs sin gate), 3 estándares raquíticos, ~18 dominios ausentes y la capa siempre-cargada
+sobre el presupuesto que degrada el cumplimiento de los agentes. **Impacto:** `factory/standards/*`
+(25 archivos), `plugin/` v9.50.0 / OVERLAY 8.56.0 (detalle en `plugin/docs/decision-log.md`),
+Manual de MC actualizado (páginas `estandares-y-reglas` y `stacks-golden-paths`, TSX + md, DR-046).
+
 ## 2026-07-02 — Loop de autoaprendizaje v2 IMPLEMENTADO completo (proposal 23, plugin v9.49.0)
 
 **Qué:** el owner aprobó el plan completo de `docs/proposals/23-self-learning-loop-v2.md` y las 4

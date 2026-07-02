@@ -10,18 +10,11 @@ La fábrica opera con dos capas de normas que se complementan: los **estándares
 
 ## Estándares de ingeniería
 
-Los estándares viven en `factory/standards/` y son obligatorios en todos los proyectos. Cubren:
+Los estándares viven en `factory/standards/` (25 archivos, 8 dominios) y son obligatorios en todos los proyectos. Además de los clásicos (convenciones, estructura, patrones, calidad, stack, seguridad, documentación, orquestación del build), desde 2026-07 el catálogo cubre: **manejo de errores** (`error-handling.md`), **modelado de datos** (`data-modeling.md`), **auth/authz** (`auth.md`), **resiliencia** (`resilience.md`), **jobs en background** (`background-jobs.md`), **ciclo de vida de dependencias** (`dependency-lifecycle.md`), **feature flags** (`feature-flags.md`) y **disciplina de implementación con IA** (`ai-implementation.md` — comentarios que no narran, sin árboles de docs paralelos, verificar contra la versión instalada).
 
-- **Convenciones** (`conventions.md`) — nomenclatura, idioma de los artefactos, commits.
-- **Estructura** (`structure.md`) — organización de carpetas, capas de datos, co-localización de tests.
-- **Patrones** (`patterns.md`) — Server Components por defecto, Server Actions, optimistic UI.
-- **Calidad** (`quality.md`) — strict typing, linter, formatter, cero `any` ni `@ts-ignore`.
-- **Stack** (`stack.md`) — tecnologías por defecto aprobadas por el propietario.
-- **Seguridad** (`web-security.md`) — OWASP Top 10, sin auth casera, secretos en env.
-- **Orquestación del build** (`build-orchestration.md`) — estados de WO, gate por FRD, freeze-on-red.
-- **Documentación** (`documentation.md`) — dos capas (doc canónica + decision log), feature-centric.
+**La plantilla ejecutable.** Cada estándar sigue la misma forma (validada por `check-standards.sh`): preámbulo (`Dominio · Severidad · Enforcement`) + **Regla** + **cómo se verifica con el check NOMBRADO** (una regla "verificada" sin mecanismo nombrado no se admite) + **por qué**. El **registro de reglas** (`rule-registry.md`) indexa las ~116 reglas con su estado real: `wired` (un script/gate la verifica solo), `manual` (un paso humano nombrado) o `aspirational` (nada la verifica — un MUST aspiracional es un defecto; hoy hay **cero**).
 
-Los estándares son versionados con la fábrica. Cambian solo por decisión explícita del propietario.
+Los estándares son versionados con la fábrica. Cambian solo por decisión explícita del propietario (`/pandacorp:learn`), que exige actualizar la regla inyectable + el registro en el mismo cambio (DR-051).
 
 ## Trabajar varias cosas a la vez (DR-096)
 

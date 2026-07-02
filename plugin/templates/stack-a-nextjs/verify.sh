@@ -39,6 +39,36 @@ if [ -n "$stray" ]; then
   echo "✗ tests must live in a _tests/ folder, not beside source:"; echo "$stray"; exit 1
 fi
 
+# --- Data-layer isolation (structure.md STRUCT-2) — DB access only in src/queries/ -------
+# The ORM client is created once (src/lib/prisma.ts) and consumed ONLY by the data layer.
+# Type-only imports of @prisma/client are fine anywhere. Vacuous without Prisma.
+if [ -d src ] && grep -q '"@prisma/client"' package.json 2>/dev/null; then
+  leak=$(grep -rEl "new PrismaClient\(|from ['\"]@/lib/prisma['\"]" src --include='*.ts' --include='*.tsx' 2>/dev/null \
+    | grep -v '^src/queries/' | grep -v '^src/lib/prisma\.ts$' || true)
+  # value-imports of @prisma/client (not `import type`) outside the sanctioned locations
+  leak2=$(grep -rE "^import \{[^}]*\} from ['\"]@prisma/client['\"]" src --include='*.ts' --include='*.tsx' -l 2>/dev/null \
+    | grep -v '^src/queries/' | grep -v '^src/lib/prisma\.ts$' || true)
+  if [ -n "$leak$leak2" ]; then
+    echo "✗ Data-layer isolation (STRUCT-2): DB access outside src/queries/ (components/actions call queries/, never the ORM):"
+    printf '%s\n%s\n' "$leak" "$leak2" | sort -u | sed '/^$/d'; exit 1
+  fi
+fi
+
+# --- API error contract (api-design.md API-1, RFC 9457) ----------------------------------
+# A route handler that returns 4xx/5xx must use the shared problem() helper
+# (application/problem+json), never an ad-hoc error body. Vacuous without API routes.
+if [ -d src/app/api ]; then
+  bad=""
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    if grep -Eq 'status: *(4|5)[0-9][0-9]' "$f" && ! grep -q 'problem' "$f"; then bad="$bad  $f"$'\n'; fi
+  done < <(find src/app/api -name 'route.ts' 2>/dev/null)
+  if [ -n "$bad" ]; then
+    echo "✗ API error contract (RFC 9457): route handlers return 4xx/5xx without the shared problem() helper (see STACK.md — API error contract):"
+    printf '%s' "$bad"; exit 1
+  fi
+fi
+
 # --- Doc-structure lint (DR-077) — frontmatter + stable-ID spine; vacuous if no docs ----
 # Validates generated docs (FRD/PRD/work-orders) carry required frontmatter and that REQ->WO IDs
 # resolve. ADVISORY — it reports drift and NEVER fails the gate (so it can't red-lock an adopted /
@@ -99,6 +129,7 @@ pnpm vitest run --reporter=dot ${SINCE:+--changed "$SINCE"}
 [ -f e2e/visual.spec.ts ]     || { echo "✗ Visual-Fidelity Gate missing (DR-056): add e2e/visual.spec.ts — diff each route against its blessed baseline."; exit 1; }
 [ -f e2e/responsive.spec.ts ] || { echo "✗ Responsive Gate missing (DR-074): add e2e/responsive.spec.ts + e2e/_responsive-helper.ts + e2e/_target.ts."; exit 1; }
 [ -f e2e/shell.spec.ts ]      || { echo "✗ Shell-Presence Gate missing (DR-075): add e2e/shell.spec.ts + e2e/shell.ts — assert the app shell / global nav vs the prototype."; exit 1; }
+[ -f e2e/headers.spec.ts ]    || { echo "✗ Header-Scan Gate missing (web-security.md): add e2e/headers.spec.ts — security headers, tiered by deploy_target."; exit 1; }
 # DR-106 scope: the per-FRD gate (--since) runs smoke + shell only — the browser layer of the
 # DR-072 BLOCKING lenses (routes render clean + the app shell is present). Visual + responsive
 # stay in the FULL run (close-out / Visual QA): fine fidelity is advisory at the gate and may

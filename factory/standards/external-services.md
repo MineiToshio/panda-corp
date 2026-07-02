@@ -1,5 +1,7 @@
 # External services, accounts and secrets
 
+> Domain: Operation · Severity: **MUST** (account model, secrets, ToS rule, human gates) / **SHOULD** (service choices) · Enforcement: checklist (provisioning playbook) + human gate (DR-004/005/007/008/035/038) + gitleaks. Playbook-style standard — procedural body. See DR-035..DR-038.
+
 How the factory manages external SaaS services (storage, DB, email, payments, analytics), the **account model**, **secrets** and **provisioning**. Complements `stack.md` (which services) and `infra.md` (local dev). Decisions: DR-035..DR-038. Base stack validated in production by **PandaTrack**.
 
 ## 1. Standard service stack (proven)
@@ -117,6 +119,16 @@ Verified as of **2026-06**; free tiers change — re-verify before treating them
 - **PostHog**: Free = **1M events/month + 1 project per organization**; billing is **per organization** → several orgs (one login) = several free tiers. That is why "1 org per app" instead of paying for extra projects.
 - **Multi-account with `+alias`** to dodge free-tier caps = **violates the ToS** (Vercel, Supabase) → forbidden (≠ using orgs/projects that the provider does offer as a legitimate feature).
 - **Payments from Peru**: Stripe direct does not operate in Peru (it would require a U.S. LLC) → **Merchant of Record**. **Polar** supports payout to Peru (Stripe Connect Express), fees ~4% + USD 0.40; backup Lemon Squeezy.
+
+## How it is verified
+- **Secrets never in the repo**: gitleaks (pre-commit + push protection); the SOPS store lives outside any repo by construction (§4).
+- **Provisioning playbook followed / naming convention**: checklist in the provisioning steps (§8) — review-only.
+- **Human gates (card, signup/2FA, deletion, production)**: deny rules in `.claude/settings.json` + push notification (DR-038) — hard gates.
+- **Vercel commercial-use warning**: fired at PRD/blueprint/release checkpoints (skill checklists) — warn, never blocking (DR-035).
+- **Free-tier ceilings**: monthly cost check by `/pandacorp:review-launch` (script + owner decision, DR-005).
+
+## Why
+One shared account per service with the provider's native isolation primitive gives real per-app silos without multi-account ToS risk; API-first provisioning is what makes unattended operation possible; and the SOPS+age machine store is the honest trade-off that lets the agent operate without the owner present while keeping secrets out of git and blast radius scoped.
 
 ---
 

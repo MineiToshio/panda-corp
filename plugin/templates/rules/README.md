@@ -18,6 +18,7 @@ Each rule file declares in its frontmatter **`applies_when`** — a single token
 | `tailwind` | the stack includes Tailwind |
 | `public-web` | a publicly reachable web app |
 | `prisma` | the data layer uses Prisma |
+| `better-auth` | the auth layer uses Better Auth (the golden path; `auth.md` also ships via `also_applies_when` when the project has any auth or is public-web) |
 | `next-intl` | i18n via next-intl |
 | `posthog` | analytics via PostHog |
 | `sentry` | error tracking via Sentry |
@@ -33,14 +34,20 @@ The copying skill reads the project's chosen stack (from `docs/product/architect
 | `project-structure.md` | `always` | Mandatory `src/`, `core/`+`modules/`, single/multi-file folders, `_tests/`, feature-first, promotion |
 | `quality-and-testing.md` | `always` | Green gates, TDD, risk-based coverage, test discipline (getByRole, isolation, no hard waits) |
 | `documentation-and-decisions.md` | `always` | Canonical doc + decision log discipline, two-layer docs |
+| `error-handling.md` | `always` | Expected vs unexpected taxonomy, typed results, never swallow, honest failure |
+| `resilience.md` | `always` | Timeouts everywhere, single-layer retries, honest fallbacks, bulkheads, background jobs |
+| `ai-implementation.md` | `always` | Comments discipline, no parallel doc trees, no dead code, installed-version grounding, lesson citations |
 | `typescript.md` | `typescript` | `import type`, `satisfies`, discriminated unions + exhaustive switch, no unsafe `as`, const maps, `readonly` |
 | `react.md` | `react` | Composition, prop-drilling limit, list keys, derive-don't-sync, React 19 primitives |
-| `nextjs.md` | `nextjs` | Server Components, Server Actions + authz, optimistic UI, caching/revalidation, streaming, error net |
+| `nextjs.md` | `nextjs` | Server Components, Server Actions + authz, optimistic UI, forms, caching/revalidation, streaming, error net |
+| `api-design.md` | `nextjs` (+ `hono`/`fastapi`/`api`) | RFC 9457 `problem()` error contract, REST conventions, boundary validation, idempotency keys |
 | `styling-and-ui.md` | `tailwind` | `cn()`, `@theme` tokens (no arbitrary values), light/dark, responsive |
 | `accessibility.md` | `web-ui` | Semantic HTML, keyboard/focus, forms, motion, landmarks, WCAG 2.2 |
 | `web-performance.md` | `web-ui` | Core Web Vitals, no waterfalls/dedup, runtime (long tasks, layout thrash, debounce, virtualization) |
 | `web-security.md` | `public-web` | Authz, secrets, headers/CSP, injection (SSRF/XSS), rate-limit, supply-chain |
 | `prisma.md` | `prisma` | Queries in the data layer, naming, DI of the client, transactions |
+| `data-modeling.md` | `prisma` | Model naming, timestamps, deletion policy, enums, N+1 discipline, denormalization, seeds |
+| `auth.md` | `better-auth` | RBAC from the data model, resource-level authz, cookie sessions, minimal scopes, erasure |
 | `i18n-next-intl.md` | `next-intl` | Hooks in components, server helpers only outside React |
 | `analytics-and-errors.md` | `posthog` / `sentry` | Centralized PostHog events; Sentry only for unexpected errors, PII-redacted |
 

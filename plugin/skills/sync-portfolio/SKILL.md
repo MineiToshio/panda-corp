@@ -26,6 +26,7 @@ Factory ↔ projects synchronization. Runs IN panda-corp.
    - If there is **no `repo:`** → warn: *"The folder was deleted and there is no registered remote. Check a local backup or recreate the project with `/pandacorp:spec`."*
    Do NOT attempt to clone or write anything automatically.
 5. Consistency: if a project is `shipped` but its idea card is not, fix the card (and vice versa, report the discrepancy).
+5b. **Overlay-drift watch (DR-048 companion)**: while reading each `status.yaml`, compare its `overlay_version` against the factory's `plugin/templates/OVERLAY_VERSION`. A lagging project is a **drift finding in the report** ("`<project>` on 8.51.0, factory at 8.55.4 — will auto-upgrade on its next skill run; run `/pandacorp:upgrade` there to close it now"). This closes the quiet-project hole: upgrade only fires on skill invocation, so a project nobody touches drifts silently unless THIS periodic job surfaces it.
 
 ## Part 3 — Report
 

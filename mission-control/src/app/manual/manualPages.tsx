@@ -657,11 +657,13 @@ function ConceptEstandares(): React.JSX.Element {
     <>
       <DocH title="Estándares y reglas" level={1} />
       <Lead>
-        El know-how de cómo se construye se inyecta en cada proyecto. Está en{" "}
-        <B weight={600}>8 dominios</B>, cada regla con su severidad y cómo se verifica. Y las{" "}
-        <B weight={600}>reglas de decisión</B> son los defaults pre-aprobados para que la IA no te
-        pregunte cada vez. Todo el detalle en <B weight={600}>Referencia → Estándares</B> y{" "}
-        <B weight={600}>Reglas de decisión</B>.
+        El know-how de cómo se construye se inyecta en cada proyecto. Son <B weight={600}>25</B>{" "}
+        estándares en <B weight={600}>8 dominios</B> — desde convenciones y arquitectura hasta
+        manejo de errores, resiliencia, auth, modelado de datos y disciplina de implementación con
+        IA. Cada uno sigue la <B weight={600}>plantilla ejecutable</B>: Regla + «cómo se verifica»
+        con su check NOMBRADO + por qué. Y las <B weight={600}>reglas de decisión</B> son los
+        defaults pre-aprobados para que la IA no te pregunte cada vez. Todo el detalle en{" "}
+        <B weight={600}>Referencia → Estándares</B> y <B weight={600}>Reglas de decisión</B>.
       </Lead>
       <Panel>
         <div
@@ -695,6 +697,15 @@ function ConceptEstandares(): React.JSX.Element {
           <B weight={500}>Severidad:</B> <Chip tone="danger">MUST</Chip> obligatorio ·{" "}
           <Chip tone="warn">SHOULD</Chip> recomendado · <Chip tone="secondary">MAY</Chip> opcional.
           La IA solo te escala si va a romper un MUST.
+        </div>
+        <Divider />
+        <div style={{ fontSize: "12px", color: "var(--color-text2)", lineHeight: 1.6 }}>
+          <B weight={500}>El registro de reglas</B> (<Code>rule-registry.md</Code>) indexa las ~116
+          reglas con su estado real de enforcement: <Chip tone="ok">wired</Chip> un script/gate la
+          verifica solo · <Chip tone="warn">manual</Chip> un paso humano NOMBRADO ·{" "}
+          <Chip tone="danger">aspirational</Chip> nada la verifica (un MUST aspiracional es un
+          defecto — hoy hay <B weight={600}>cero</B>). <Code>check-standards.sh</Code> valida la
+          plantilla y avisa si reaparece uno.
         </div>
       </Panel>
     </>
@@ -803,9 +814,11 @@ function ConceptStacks(): React.JSX.Element {
     <>
       <DocH title="Stacks · golden paths" level={1} />
       <Lead>
-        4 arquetipos probados. El <B weight={600}>architect</B> elige el que encaja (lo apruebas en
-        el blueprint) y puede proponer algo mejor con trade-offs. Son combinables — el caso Funkos =
-        D para recolectar + A para mostrar.
+        3 golden paths documentados (el viejo D —scraping— se plegó en C: era el mismo stack) más
+        una lista de <B weight={600}>puntos de partida</B> para casos nuevos. El{" "}
+        <B weight={600}>architect</B> elige el que encaja (lo apruebas en el blueprint) y puede
+        proponer algo mejor con trade-offs. Son combinables — el caso Funkos = C para recolectar + A
+        para mostrar.
       </Lead>
       <StacksTable />
     </>

@@ -1,5 +1,7 @@
 # Infrastructure and local operation
 
+> Domain: Operation · Severity: **MUST** (Docker dev, port ledger, human-gate deny rules, tested restore) / **SHOULD** (worktree hygiene) · Enforcement: checklist + human gate (deny rules in `.claude/settings.json`) + skill automation (scaffold/architecture write the ledger). Playbook-style standard.
+
 Conventions for how a project runs in **development** (the factory injects them into every project). Detail of the unattended-build model in [docs/proposals/07-unattended-build.md](../../docs/proposals/07-unattended-build.md).
 
 ## Database and services in dev → Docker
@@ -51,16 +53,26 @@ The constitution's gates (production, spending money, deleting data, external co
 
 What must be true for a **released** product (`phase: release`):
 
-- **DB**: Neon's PITR/branching is the baseline recovery mechanism; add a periodic `pg_dump` (scheduled, stored outside Neon) so a terminal decommission — or Neon itself failing — still leaves a portable copy.
+- **DB**: Neon's PITR/branching is the baseline recovery mechanism; add a scheduled `pg_dump` stored outside Neon so a terminal decommission — or Neon itself failing — still leaves a portable copy. **Schedule + retention**: nightly for products with real user data, weekly for low-write internal tools; keep 7 dailies + 4 weeklies (~a month back).
 - **R2 / asset buckets**: versioned, or the contents demonstrably re-derivable from source data.
 - **Secrets**: the age-key backup is already covered in `external-services.md`.
-- **Restore is TESTED once before an external release** — an untested backup is a hope, not a backup.
+- **Restore is TESTED** — an untested backup is a hope, not a backup. Cadence: **once before an external release, and again after any major schema change** (restore the latest dump into a scratch Neon branch and run the smoke suite against it).
+
+## How it is verified
+- **Human gates**: deny rules in `.claude/settings.json` + `block-dangerous.sh` hook (hard, deterministic).
+- **Port ledger**: written by `scaffold`/`architecture` automation (never guessed); collisions are prevented by construction.
+- **Docker dev, worktree hygiene, local-deployment layout**: review-only (conventions applied by the skills; `reviewer` on deviation).
+- **Backup/restore**: release checklist — restore must be TESTED once before an external release (manual, named step).
+- **Incident response**: runbook below (manual).
 
 ## Incident response (launched products)
 
 When Sentry or an uptime check fires:
 
-1. **Classify severity**: *down* (product unusable) / *degraded* (a flow broken, rest works) / *cosmetic*.
-2. **First move = rollback** to the last green deploy (the deploy platform's previous build) — restore service first, diagnose after.
-3. **Notify the owner** (push) for anything user-facing (down/degraded).
+1. **Classify severity** — each class gets its response:
+   - **down** (product unusable): act immediately — rollback now, diagnose after; push the owner NOW.
+   - **degraded** (a flow broken, rest works): rollback or fix the same day; push the owner.
+   - **cosmetic**: file it via `/pandacorp:change` in the project's queue; no interruption, no rollback.
+2. **First move = rollback** to the last green deploy (the deploy platform's previous build) — restore service first, diagnose after. Fix-forward only when there is nothing green to roll back to.
+3. **Notify the owner** (push) for anything user-facing (down/degraded): what broke, what was done, current state.
 4. **Close the loop**: postmortem → a durable lesson in `factory/memory/` (DR-047) + the fix filed via `/pandacorp:change` in the project's queue.

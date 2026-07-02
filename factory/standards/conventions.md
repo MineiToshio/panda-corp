@@ -1,6 +1,8 @@
 # Code conventions
 
-## Language — rule: committed = English / gitignored = Spanish
+> Domain: Programming · Severity: **MUST** · Enforcement: lint (Biome/tsc) + CI gate (gitleaks) + `reviewer`; the language rule is review-only. Operative form: `rules/code-conventions.md` (DR-051). See DR-009 (language).
+
+## Rule — language: committed = English / gitignored = Spanish
 
 **The state in git decides the language of the text.** This way anyone who clones the repo sees everything in English, and the owner operates Pandacorp in Spanish. Each artifact is born already in its correct language: there is no on-the-fly translation layer.
 
@@ -15,7 +17,7 @@
 
 > **Resuming on another machine:** what is committed (FRD/PRD/work orders/`status.yaml`) is the truth for resuming; the Spanish layer is a local view that regenerates. That is why you close/advance a phase before jumping machines: the in-flight feedback in `.pandacorp/comms/iteration.md` is local and, on advancing, its conclusions land in the committed English doc.
 
-## Naming
+## Rule — naming
 | Element | Convention | Example |
 |---|---|---|
 | Files and folders | camelCase | `userProfile.tsx`, `lib/auth/` |
@@ -27,28 +29,38 @@
 | Hooks | `use*` | `useUser()` |
 | Booleans | `is/has/can*` | `isOpen`, `hasError` |
 
-## Typing
+## Rule — typing
 - Strict typing ALWAYS (`tsconfig` with `strict: true`; in Python `mypy --strict`).
 - Prefer `unknown` over `any`. `any` and `@ts-ignore` forbidden.
 - Explicit return types on public functions. Non-null assertion (`!`) as a last resort.
 
-## Constants and no magic values
+## Rule — constants and no magic values
 - No repeated inline magic strings/numbers. Extract to `src/lib/constants.ts` (`ROUTES`, `APP_NAME`, analytics events, etc.).
 - **Not magic numbers** (no constant needed): Tailwind utility values (`w-[360px]`, `gap-2`) and literals passed to clearly-named props (`size={20}`, `maxLength={50}`) — they are self-describing in place.
 
-## Environment variables
+## Rule — environment variables
 - Keep `.env.example` in sync **in the same change** that introduces a new variable, grouped by section with a short comment on what it is for and how to obtain it. Never commit real values (secrets → SOPS/`.env`, DR-037).
 
-## Boundary validation
+## Rule — boundary validation
 - Validate all external input (Server Actions, route handlers, APIs) with schemas (Zod or equivalent). Centralize the schemas, not inline.
 
-## Imports
+## Rule — imports
 - Absolute alias `@/*` → `./src/*`. Avoid relative imports more than one level deep (`../../..`).
 
-## Handlers
+## Rule — handlers
 - No inline logic in JSX: use named handlers (`const handleClick = () => {...}`).
 
-## Comments and commits
+## Rule — comments and commits
 - Comments explain **why/what**, not references to tickets/issues/epics in the code.
 - **Conventional Commits** with scope, in English: `feat(orders): add table selection`, `fix(api): handle null response`.
 - **Direct push to `main` is allowed** (solo operator): no mandatory feature-branch/PR — the quality gate is the `implement` reviewer + `.pandacorp/verify.sh`, not human review. **Never force-push**; use a throwaway branch only for big/risky changes you may want to abort wholesale.
+
+## How it is verified
+- **Typing**: `tsc --noEmit` with `strict: true` (`verify.sh` gate, fail-closed); `any`/`@ts-ignore` → Biome `noExplicitAny` as error. `mypy --strict` on Python stacks.
+- **Imports**: Biome organize-imports + the `@/*` alias in `tsconfig` (toolchain conformance check on `/pandacorp:upgrade`); deep-relative imports → review-only.
+- **Secrets**: gitleaks (pre-commit hook + platform push protection); `.env.example` sync → review-only (reviewer checklist).
+- **Naming, handlers, constants, boundary validation**: review-only (`reviewer` quality lens); boundary validation is also exercised indirectly by the adversarial/malformed-input tests (DR-015/DR-078, `quality.md`).
+- **Language (committed=English), Conventional Commits, no force-push**: review-only.
+
+## Why
+Uniform conventions let any agent (or the owner) drop into any project cold: naming carries intent, strict typing turns a class of runtime bugs into compile errors, and the language rule keeps the public repo professional while the owner operates in Spanish. What a linter can hold, the linter holds; the rest is cheap for a reviewer to spot and expensive to leave inconsistent.
