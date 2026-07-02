@@ -556,6 +556,84 @@ function InfirmaryCorner({
   );
 }
 
+/**
+ * Vault room — the verified-WO trophy shelf (AC-06-005.1) plus the compact
+ * "+N arch." indicator (AC-06-005.2). Trophies come pre-capped at MAX_VAULT.
+ */
+function VaultRoom({
+  trophies,
+  archivedCount,
+}: {
+  trophies: FraguaSnapshot["trophies"];
+  archivedCount: number;
+}): React.JSX.Element {
+  return (
+    <div data-testid="fragua-room-vault" style={{ display: "contents" }}>
+      <Room
+        zone="vault"
+        label="🏆 Bóveda · trofeos del FRD"
+        state={trophies.length > 0 ? "active" : "cool"}
+        count={trophies.length || undefined}
+        style={{
+          left: `${VAULT_RECT.left}px`,
+          top: `${VAULT_RECT.top}px`,
+          width: `${VAULT_RECT.width}px`,
+          height: `${VAULT_RECT.height}px`,
+        }}
+      >
+        {/* Trophy sprites — AgentSprite with state=vault (AC-06-005.1) */}
+        {trophies.map(({ wo: twoId, frd: trophyFrd, colorKey: trophyColor }, idx) => {
+          const vaultX = VAULT_X0 + idx * VAULT_DX - VAULT_RECT.left;
+          const vaultY = VAULT_Y - VAULT_RECT.top - SPRITE_HALF;
+          return (
+            <div
+              key={twoId}
+              data-testid={`fragua-trophy-${twoId}`}
+              data-frd={trophyFrd}
+              title={`${twoId}${trophyFrd !== undefined ? ` · ${trophyFrd}` : ""}`}
+              role="img"
+              aria-label={`Trofeo: ${twoId} verificado`}
+              style={{ position: "absolute", left: vaultX, top: vaultY }}
+            >
+              <AgentSprite agentRole="implementer" state="vault" woId={twoId} />
+              {trophyColor !== undefined && (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    bottom: "-5px",
+                    width: "28px",
+                    height: "3px",
+                    borderRadius: "2px",
+                    background: `var(${trophyColor})`,
+                  }}
+                />
+              )}
+            </div>
+          );
+        })}
+
+        {/* "+N archivados" compact indicator (AC-06-005.2) */}
+        {archivedCount > 0 && (
+          <span
+            data-testid="fragua-archived"
+            style={{
+              ...ARCHIVED_STYLE,
+              right: `${VAULT_RECT.width - VAULT_MORE_POS[0] + VAULT_RECT.left}px`,
+              top: `${VAULT_MORE_POS[1] - VAULT_RECT.top}px`,
+            }}
+            title={`${archivedCount} órdenes verificadas archivadas`}
+          >
+            +{archivedCount} arch.
+          </span>
+        )}
+      </Room>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // FraguaScene component
 // ---------------------------------------------------------------------------
@@ -820,69 +898,7 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
         {/* ================================================================
             VAULT — Bóveda (verified trophies)
             ================================================================ */}
-        <div data-testid="fragua-room-vault" style={{ display: "contents" }}>
-          <Room
-            zone="vault"
-            label="🏆 Bóveda · trofeos del FRD"
-            state={shownTrophies.length > 0 ? "active" : "cool"}
-            count={shownTrophies.length || undefined}
-            style={{
-              left: `${VAULT_RECT.left}px`,
-              top: `${VAULT_RECT.top}px`,
-              width: `${VAULT_RECT.width}px`,
-              height: `${VAULT_RECT.height}px`,
-            }}
-          >
-            {/* Trophy sprites — AgentSprite with state=vault (AC-06-005.1) */}
-            {shownTrophies.map(({ wo: twoId, frd: trophyFrd, colorKey: trophyColor }, idx) => {
-              const vaultX = VAULT_X0 + idx * VAULT_DX - VAULT_RECT.left;
-              const vaultY = VAULT_Y - VAULT_RECT.top - SPRITE_HALF;
-              return (
-                <div
-                  key={twoId}
-                  data-testid={`fragua-trophy-${twoId}`}
-                  data-frd={trophyFrd}
-                  title={`${twoId}${trophyFrd !== undefined ? ` · ${trophyFrd}` : ""}`}
-                  role="img"
-                  aria-label={`Trofeo: ${twoId} verificado`}
-                  style={{ position: "absolute", left: vaultX, top: vaultY }}
-                >
-                  <AgentSprite agentRole="implementer" state="vault" woId={twoId} />
-                  {trophyColor !== undefined && (
-                    <span
-                      aria-hidden="true"
-                      style={{
-                        position: "absolute",
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        bottom: "-5px",
-                        width: "28px",
-                        height: "3px",
-                        borderRadius: "2px",
-                        background: `var(${trophyColor})`,
-                      }}
-                    />
-                  )}
-                </div>
-              );
-            })}
-
-            {/* "+N archivados" compact indicator (AC-06-005.2) */}
-            {archivedCount > 0 && (
-              <span
-                data-testid="fragua-archived"
-                style={{
-                  ...ARCHIVED_STYLE,
-                  right: `${VAULT_RECT.width - VAULT_MORE_POS[0] + VAULT_RECT.left}px`,
-                  top: `${VAULT_MORE_POS[1] - VAULT_RECT.top}px`,
-                }}
-                title={`${archivedCount} órdenes verificadas archivadas`}
-              >
-                +{archivedCount} arch.
-              </span>
-            )}
-          </Room>
-        </div>
+        <VaultRoom trophies={shownTrophies} archivedCount={archivedCount} />
 
         {/* ================================================================
             STAGE-LEVEL SPRITE LAYER — the MOVING WO sprites (forge + tribunal).

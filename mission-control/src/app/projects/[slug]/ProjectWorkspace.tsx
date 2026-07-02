@@ -30,7 +30,7 @@ import { getOverlayFreshness } from "@/lib/overlay-freshness/overlay-freshness";
 import { readPending } from "@/lib/pendingMerge/pendingMerge";
 import type { ProjectListItem } from "@/lib/portfolio/portfolio";
 import { buildSnapshot } from "@/lib/snapshot/snapshot";
-import { type Phase, readStatus } from "@/lib/status/status";
+import { type Phase, type ProjectStatus, readStatus } from "@/lib/status/status";
 import { aggregateProgress, listWorkOrders, readWorkOrderDoc } from "@/lib/work-orders/work-orders";
 import { ObjectivesBar } from "./_components/objectives-bar";
 import { TabCommands } from "./_components/tab-commands/tab-commands";
@@ -133,6 +133,69 @@ function renderDocumentsTab(
   return <TabDocuments nodes={nodes} selectedId={selectedId} content={content} project={slug} />;
 }
 
+/**
+ * Party tab body. `project` is the FOLDER name — the emitters stamp `basename $PWD`, not the
+ * portfolio display name — and scopes both the event tail and the SSE stream. `workOrders`
+ * (same `listWorkOrders` source the objectives bar uses, DR-092) decides the scene structure:
+ * sprites/rooms/queue/trophies/counter/gate. `woStarts` (track.jsonl, same reader as
+ * Observabilidad) powers the REAL "N min al fuego" bubbles — never a fabricated progress value.
+ */
+function renderPartyTab(projectPath: string, running: boolean): React.JSX.Element {
+  const partyOrders = listWorkOrders(projectPath);
+  const partyTimeline = readBuildTimeline(projectPath, partyOrders);
+  const woStarts: Record<string, number> = {};
+  for (const tlFrd of partyTimeline.frds) {
+    for (const tlWo of tlFrd.workOrders) {
+      if (tlWo.startMs !== null) woStarts[tlWo.id] = tlWo.startMs;
+    }
+  }
+  return (
+    <PartyTab
+      running={running}
+      project={path.basename(projectPath)}
+      workOrders={partyOrders}
+      woStarts={woStarts}
+    />
+  );
+}
+
+/**
+ * Summary tab body (WS-2, prototype projResumen). The summary text is the idea-card markdown
+ * body — the SAME content the board card-detail shows — falling back to the title when there
+ * is no card/body.
+ */
+function renderSummaryTab(options: {
+  projectPath: string;
+  slug: string;
+  status: Partial<ProjectStatus>;
+  snapshot: React.ComponentProps<typeof TabSummary>["snapshot"];
+}): React.JSX.Element {
+  const { projectPath, slug, status, snapshot } = options;
+  const activityLog = readActivityLog(projectPath);
+  const decisions = readDecisions(projectPath);
+  const pendingDecisions = decisions.filter((dp) => !dp.resolved).length;
+  const summary = resolveProjectSummary(projectPath, status.project ?? slug);
+  // FRD-20 — is this project's overlay at the factory's current OVERLAY_VERSION, or behind?
+  const overlayFreshness = getOverlayFreshness(status.overlayVersion);
+  // FRD-21 — this project's un-merged worktrees/branches (read live from git; fail-loud).
+  const pendingMerge = readPending(projectPath);
+  return (
+    <TabSummary
+      summary={summary}
+      keyPoints={[]}
+      activityLog={activityLog}
+      decisions={decisions}
+      pendingDecisions={pendingDecisions}
+      slug={slug}
+      snapshot={snapshot}
+      deployTarget={status.deployTarget}
+      deployUrl={status.deployUrl}
+      overlayFreshness={overlayFreshness}
+      pendingMerge={pendingMerge}
+    />
+  );
+}
+
 // ---------------------------------------------------------------------------
 // ProjectWorkspace
 // ---------------------------------------------------------------------------
@@ -181,34 +244,12 @@ export function ProjectWorkspace({
     case "work-orders":
       body = renderWorkOrdersTab(projectPath, slug, woParam, woTabParam);
       break;
-    case "party": {
+    case "party":
       // Pass the authoritative build flag so the scene shows the powered-off state
       // when the build is off, instead of a frozen active scene from a stale event
       // tail (AC-06-013). `running` is derived above from status.yaml / the portfolio.
-      // `project` is the FOLDER name — the emitters stamp `basename $PWD`, not the
-      // portfolio display name — and scopes both the event tail and the SSE stream.
-      // `workOrders` (same `listWorkOrders` source the objectives bar uses, DR-092)
-      // decides the scene structure: sprites/rooms/queue/trophies/counter/gate.
-      // `woStarts` (track.jsonl, same reader as Observabilidad) powers the REAL
-      // "N min al fuego" bubbles — never a fabricated progress value.
-      const partyOrders = listWorkOrders(projectPath);
-      const partyTimeline = readBuildTimeline(projectPath, partyOrders);
-      const woStarts: Record<string, number> = {};
-      for (const tlFrd of partyTimeline.frds) {
-        for (const tlWo of tlFrd.workOrders) {
-          if (tlWo.startMs !== null) woStarts[tlWo.id] = tlWo.startMs;
-        }
-      }
-      body = (
-        <PartyTab
-          running={running}
-          project={path.basename(projectPath)}
-          workOrders={partyOrders}
-          woStarts={woStarts}
-        />
-      );
+      body = renderPartyTab(projectPath, running);
       break;
-    }
     case "observabilidad": {
       const obsOrders = listWorkOrders(projectPath);
       const timeline = readBuildTimeline(projectPath, obsOrders);
@@ -225,34 +266,8 @@ export function ProjectWorkspace({
     case "commands":
       body = <TabCommands phase={stage} slug={slug} />;
       break;
-    default: {
-      // summary — snapshot panel lives inside the tab (WS-2, prototype projResumen)
-      const activityLog = readActivityLog(projectPath);
-      const decisions = readDecisions(projectPath);
-      const pendingDecisions = decisions.filter((dp) => !dp.resolved).length;
-      // Summary = the idea-card markdown body (the SAME content the board card-detail shows),
-      // not the bare project name; falls back to the title when there is no card/body.
-      const summary = resolveProjectSummary(projectPath, status.project ?? slug);
-      // FRD-20 — is this project's overlay at the factory's current OVERLAY_VERSION, or behind?
-      const overlayFreshness = getOverlayFreshness(status.overlayVersion);
-      // FRD-21 — this project's un-merged worktrees/branches (read live from git; fail-loud).
-      const pendingMerge = readPending(projectPath);
-      body = (
-        <TabSummary
-          summary={summary}
-          keyPoints={[]}
-          activityLog={activityLog}
-          decisions={decisions}
-          pendingDecisions={pendingDecisions}
-          slug={slug}
-          snapshot={snapshot}
-          deployTarget={deployTarget}
-          deployUrl={status.deployUrl}
-          overlayFreshness={overlayFreshness}
-          pendingMerge={pendingMerge}
-        />
-      );
-    }
+    default:
+      body = renderSummaryTab({ projectPath, slug, status, snapshot });
   }
 
   return (
