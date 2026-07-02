@@ -4,6 +4,25 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-02 — Manual: the self-learning concept page teaches loop v2 with the vertical 6-step diagram
+
+**What:** `SelfLearningLoop` (CMP-08-diagrams) is redrawn as a vertical 6-step flow with an
+automatic-vs-owner legend — five automatic steps (same-turn capture + re-scan backstop; close-out
+harvest + daily threshold sweep; default-reject/cross-corroboration filter; citation-measured
+retrieval; the >=3-projects promotion escalator) and ONE owner step (approve with
+`/pandacorp:learn`) — replacing the v1 two-row Capturar→Refinar→Cuaderno→Recuperar graphic.
+`ConceptAutoaprendizaje` narrative updated to match (you no longer run harvest/review; corroboration
+is cross-project; usage is script-counted with the prune freeze; the Propuestas inbox EXISTS — not
+"mañana"). The authored markdown (`content/manual/concepts/autoaprendizaje.md`) was already
+loop-v2-aligned; this brings the RENDERED page (the TSX component registry overrides the markdown)
+to the same truth.
+
+**Why:** DR-046 — the Manual must mirror the factory's operable surface; the loop v2 shipped today
+(plugin v9.49.x) and the owner asked for the chat widget's clarity ("automático vs tu único paso")
+to live in the Manual permanently. **Impact:** `components/modules/manual-diagrams/SelfLearningLoop.tsx`,
+`app/manual/manualPages.tsx` (ConceptAutoaprendizaje). Content/diagram alignment pass — no behavior
+change, no new WO (precedent: the Fragua docs-alignment passes).
+
 ## 2026-07-02 — FRD-17 reads the self-learning loop v2 (WO-17-005): trigger/applied_in + real sweep + harvest orphans
 
 **What:** The factory's self-learning loop v2 (panda-corp proposal 23, plugin v9.49.0) extended the

@@ -1001,8 +1001,9 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
                 }}
               >
                 <B weight={500}>harvest</B> llena el cuaderno · <B weight={500}>review</B> lo limpia
-                y propone ascensos · <B weight={500}>status</B> te muestra la cola. Nunca asciende
-                nada por sí solo.
+                y propone ascensos · <B weight={500}>status</B> te muestra la cola. Desde el loop v2
+                ya no lo corres tú: el cierre de cada build y la rutina diaria lo invocan solos.
+                Nunca asciende nada por sí solo.
               </div>
             </div>
           </div>
@@ -1046,9 +1047,12 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
       >
         No depende de construir software: en{" "}
         <B weight={600}>cualquier skill o incluso conversando</B>, si aparece algo durable (un
-        arreglo, un veredicto, un truco) se apunta solo a una bandeja. Una regla en{" "}
-        <Code>.pandacorp/guide.md</Code> y en el <Code>CLAUDE.md</Code> de la fábrica lo dispara;
-        luego el cronista lo pule. Tres niveles:
+        arreglo, un veredicto, un truco) se apunta solo a una bandeja —{" "}
+        <B weight={600}>en el mismo turno en que ocurre</B>, nunca "al final de la sesión" (loop v2:
+        diferir la captura es perderla). Una regla en <Code>.pandacorp/guide.md</Code> y en el{" "}
+        <Code>CLAUDE.md</Code> de la fábrica lo dispara; un hook de cierre re-escanea la
+        conversación como red de seguridad por si algo se escapó; luego el cronista lo pule. Tres
+        niveles:
       </p>
       <Panel>
         <ChipFlow>
@@ -1072,11 +1076,21 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
             por CI &gt; el agente). Lo que infirió el agente necesita corroborarse antes de valer.
           </li>
           <li>
-            <B weight={500}>Candidata → activa:</B> nace como candidata y solo se da por buena si se
-            corrobora (vista ≥2 veces o confirmada por un resultado real).
+            <B weight={500}>Candidata → activa:</B> nace como candidata y solo se da por buena con
+            corroboración <B weight={500}>cruzada</B> (loop v2): la confirma un proyecto DISTINTO
+            del que la produjo, o la dijiste tú / la verificó un script. Una lección auto-inferida
+            de una sola experiencia jamás se auto-activa.
           </li>
           <li>
-            <B weight={500}>Gate humano:</B> convertir una lección en regla siempre es tu decisión.
+            <B weight={500}>Uso medido, no prometido:</B> los agentes citan la lección (LESSON-NNNN)
+            en el documento que escriben y un script cuenta esas citas — los contadores nunca se
+            editan a mano. La poda por "nunca usada" está congelada hasta que haya medición real de
+            ≥3 proyectos.
+          </li>
+          <li>
+            <B weight={500}>Gate humano:</B> convertir una lección en regla siempre es tu decisión
+            (con una sola excepción acotada: un estándar suave que llega con su verificador
+            automático puede aplicarse solo, avisándote).
           </li>
         </Ul>
         <Divider />
@@ -1101,11 +1115,12 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
           lineHeight: 1.6,
         }}
       >
-        Cuando <Code>review</Code> cree que una lección merece ser regla, la marca{" "}
-        <Code>promotion: proposed</Code> — queda guardada en su propio archivo, no en la
-        conversación. La revisas con <Code>/pandacorp:memory status</Code> (la lista completa) el
-        día que quieras, sin presión. Apruebas → <Code>/learn</Code> la asciende; rechazas → sigue
-        siendo lección útil, solo que no regla.
+        Cuando <Code>review</Code> cree que una lección merece ser regla — o cuando{" "}
+        <B weight={600}>3 proyectos la citaron</B> (el escalador automático del loop v2) — se marca{" "}
+        <Code>promotion: proposed</Code> y queda guardada en su propio archivo, no en la
+        conversación. La ves en el <B weight={500}>buzón de Propuestas</B> de Mission Control o en
+        el reporte de la rutina diaria, el día que quieras, sin presión. Apruebas →{" "}
+        <Code>/learn</Code> la asciende; rechazas → sigue siendo lección útil, solo que no regla.
       </p>
       <Panel>
         <ChipFlow>
@@ -1136,9 +1151,11 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
         </div>
       </Panel>
       <NotePanel icon="ti-eye" iconColor="var(--color-accent)">
-        <B weight={500}>Dónde lo ves:</B> hoy con <Code>/pandacorp:memory status</Code>; mañana, en
-        el <B weight={500}>buzón de Propuestas</B> de Mission Control (FRD-17), que mostrará la cola
-        de ascensos, las autosugerencias de la app y un recordatorio de cuándo correr memory.
+        <B weight={500}>Dónde lo ves:</B> en el <B weight={500}>buzón de Propuestas</B> de Mission
+        Control (FRD-17): la cola de ascensos con su comando listo para copiar, las autosugerencias
+        de la app y el panel de salud de la memoria (notas pendientes, último barrido diario y
+        builds que cerraron sin cosechar). <Code>/pandacorp:memory status</Code> sigue disponible si
+        prefieres la terminal.
       </NotePanel>
     </>
   );
