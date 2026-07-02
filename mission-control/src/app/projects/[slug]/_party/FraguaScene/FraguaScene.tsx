@@ -331,6 +331,74 @@ const VISUAL_JUDGE_STYLE: React.CSSProperties = {
 };
 
 // ---------------------------------------------------------------------------
+// TribunalLine — the serialized gate queue chips (v2, BL-0021)
+// ---------------------------------------------------------------------------
+
+const TRIBUNAL_LINE_STYLE: React.CSSProperties = {
+  position: "absolute",
+  left: "12px",
+  bottom: "8px",
+  right: "12px",
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "6px",
+  alignItems: "center",
+  fontSize: "10px",
+  fontFamily: "var(--font-display, system-ui)",
+  zIndex: 4,
+};
+
+const TRIBUNAL_JUDGING_STYLE: React.CSSProperties = {
+  padding: "2px 8px",
+  borderRadius: "var(--radius, 0.5rem)",
+  background: "var(--color-warn-bg, oklch(0.35 0.08 80 / 0.35))",
+  color: "var(--color-warn, currentColor)",
+  border: "var(--hairline, 1px) solid var(--color-warn, currentColor)",
+};
+
+const TRIBUNAL_QUEUED_STYLE: React.CSSProperties = {
+  padding: "2px 8px",
+  borderRadius: "var(--radius, 0.5rem)",
+  border: "var(--hairline, 1px) solid var(--color-border, currentColor)",
+  color: "var(--color-text-muted, currentColor)",
+};
+
+/** Gates run one at a time (BL-0021): the FRD in session + the FRDs waiting in line. */
+function TribunalLine({
+  judging,
+  queue,
+}: {
+  judging: string | null;
+  queue: readonly string[];
+}): React.JSX.Element | null {
+  const waiting = queue.filter((q) => q !== judging);
+  if (judging === null && waiting.length === 0) return null;
+  return (
+    <div data-testid="fragua-tribunal-line" style={TRIBUNAL_LINE_STYLE}>
+      {judging !== null && (
+        <span
+          data-testid="fragua-tribunal-judging"
+          title={`${judging} — en sesión ante el juez`}
+          style={TRIBUNAL_JUDGING_STYLE}
+        >
+          ⚖️ en sesión: {judging}
+        </span>
+      )}
+      {waiting.map((q) => (
+        <span
+          key={q}
+          data-testid={`fragua-tribunal-queued-${q}`}
+          title={`${q} — esperando su juicio (los gates corren de a uno)`}
+          style={TRIBUNAL_QUEUED_STYLE}
+        >
+          {q}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // FraguaScene component
 // ---------------------------------------------------------------------------
 
@@ -579,57 +647,7 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
 
               {/* Tribunal line (v2, BL-0021): gates are SERIALIZED — one FRD in
                   session, the rest waiting. Real queue from the frontmatter. */}
-              {(gate.judging != null || (gate.queue !== undefined && gate.queue.length > 0)) && (
-                <div
-                  data-testid="fragua-tribunal-line"
-                  style={{
-                    position: "absolute",
-                    left: "12px",
-                    bottom: "8px",
-                    right: "12px",
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "6px",
-                    alignItems: "center",
-                    fontSize: "10px",
-                    fontFamily: "var(--font-display, system-ui)",
-                    zIndex: 4,
-                  }}
-                >
-                  {gate.judging != null && (
-                    <span
-                      data-testid="fragua-tribunal-judging"
-                      title={`${gate.judging} — en sesión ante el juez`}
-                      style={{
-                        padding: "2px 8px",
-                        borderRadius: "var(--radius, 0.5rem)",
-                        background: "var(--color-warn-bg, oklch(0.35 0.08 80 / 0.35))",
-                        color: "var(--color-warn, currentColor)",
-                        border: "var(--hairline, 1px) solid var(--color-warn, currentColor)",
-                      }}
-                    >
-                      ⚖️ en sesión: {gate.judging}
-                    </span>
-                  )}
-                  {(gate.queue ?? [])
-                    .filter((q) => q !== gate.judging)
-                    .map((q) => (
-                      <span
-                        key={q}
-                        data-testid={`fragua-tribunal-queued-${q}`}
-                        title={`${q} — esperando su juicio (los gates corren de a uno)`}
-                        style={{
-                          padding: "2px 8px",
-                          borderRadius: "var(--radius, 0.5rem)",
-                          border: "var(--hairline, 1px) solid var(--color-border, currentColor)",
-                          color: "var(--color-text-muted, currentColor)",
-                        }}
-                      >
-                        {q}
-                      </span>
-                    ))}
-                </div>
-              )}
+              <TribunalLine judging={gate.judging ?? null} queue={gate.queue ?? []} />
             </div>
           </Room>
         </div>

@@ -115,10 +115,7 @@ describe("frd-06: toFraguaSnapshot — structure from work orders (DR-092)", () 
       ],
       {
         lastEventAt: "2026-07-01T10:05:00Z",
-        workOrders: [
-          wo("WO-02-001", "review", "frd-02-a"),
-          wo("WO-03-001", "review", "frd-03-b"),
-        ],
+        workOrders: [wo("WO-02-001", "review", "frd-02-a"), wo("WO-03-001", "review", "frd-03-b")],
       },
     );
     expect(snapshot.gate.judging).toBe("frd-03-b");

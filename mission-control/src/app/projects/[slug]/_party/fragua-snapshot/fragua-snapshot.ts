@@ -451,7 +451,10 @@ const FRD_COLOR_KEYS: readonly string[] = Object.freeze(Object.values(AGENT_COLO
 function campaignState(wos: readonly SceneWorkOrder[]): CampaignFrd["state"] {
   if (wos.some((w) => w.state === "fail")) return "blocked";
   if (wos.every((w) => w.state === "done")) return "verified";
-  if (wos.some((w) => w.state === "review") && wos.every((w) => w.state === "review" || w.state === "done"))
+  if (
+    wos.some((w) => w.state === "review") &&
+    wos.every((w) => w.state === "review" || w.state === "done")
+  )
     return "in_review";
   if (wos.every((w) => w.state === "todo")) return "pending";
   return "building";
@@ -500,9 +503,7 @@ function structureFromWorkOrders(
   // Tribunal sprites: EVERY review WO stands at the tribunal (it already walked
   // there — committed, awaiting its FRD's gate), even while its FRD still forges
   // siblings; the LINE chips below list only the gate-READY FRDs.
-  const inReview = workOrders
-    .filter((w) => w.state === "review")
-    .slice(0, MAX_TRIBUNAL_SPRITES);
+  const inReview = workOrders.filter((w) => w.state === "review").slice(0, MAX_TRIBUNAL_SPRITES);
 
   const woEntry = (w: SceneWorkOrder, state: WoState) => ({
     wo: w.id,
@@ -519,9 +520,11 @@ function structureFromWorkOrders(
   // Bóveda: the LATEST done WOs across the project (file order ≈ build order,
   // so the tail is the freshest work), each with its FRD color.
   const done = workOrders.filter((w) => w.state === "done");
-  const trophies = done
-    .slice(Math.max(0, done.length - MAX_TROPHIES))
-    .map((w) => ({ wo: w.id, frd: w.frd, colorKey: colorOf.get(w.frd) ?? "--color-agent-unknown" }));
+  const trophies = done.slice(Math.max(0, done.length - MAX_TROPHIES)).map((w) => ({
+    wo: w.id,
+    frd: w.frd,
+    colorKey: colorOf.get(w.frd) ?? "--color-agent-unknown",
+  }));
 
   const waiting = workOrders.filter((w) => w.state === "todo" || w.state === "fail");
 
@@ -542,6 +545,58 @@ function lastGateEventFrd(events: readonly DashboardEvent[]): string | null {
     if (ev.event === "gate" && typeof ev.frd === "string" && ev.frd.trim() !== "") last = ev.frd;
   }
   return last;
+}
+
+// ---------------------------------------------------------------------------
+// Compose helpers (extracted to keep toFraguaSnapshot within the complexity budget)
+// ---------------------------------------------------------------------------
+
+/**
+ * Tribunal in session: the freshest engine `gate` event picks WHICH queued FRD
+ * is being judged; the head of the line is the honest default (gates are
+ * serialized, BL-0021 — at most one is genuinely in session).
+ */
+function resolveJudging(
+  fromFm: SceneStructure | null,
+  events: readonly DashboardEvent[],
+): string | null {
+  if (fromFm === null) return null;
+  const gateHint = lastGateEventFrd(events);
+  if (gateHint !== null && fromFm.gateQueue.includes(gateHint)) return gateHint;
+  return fromFm.gateQueue[0] ?? null;
+}
+
+/**
+ * Trophies + archived count: frontmatter `done` WOs (with FRD colors);
+ * achievement-event trophies only as the legacy fallback.
+ */
+function composeTrophies(
+  fromFm: SceneStructure | null,
+  scan: FrdScan,
+): { trophies: FraguaSnapshot["trophies"]; archivedCount: number } {
+  if (fromFm !== null) {
+    return {
+      trophies: fromFm.trophies,
+      archivedCount: Math.max(0, fromFm.totals.done - fromFm.trophies.length),
+    };
+  }
+  return {
+    trophies: scan.trophyWoIds.slice(0, MAX_TROPHIES).map((wo) => ({ wo })),
+    archivedCount: Math.max(0, scan.trophyWoIds.length - MAX_TROPHIES),
+  };
+}
+
+/** The tribunal state: closed when the factory is off; queue always real. */
+function composeGate(
+  fromFm: SceneStructure | null,
+  scan: FrdScan,
+  judging: string | null,
+  isFactoryOff: boolean,
+): FraguaSnapshot["gate"] {
+  const queue = fromFm?.gateQueue ?? [];
+  if (isFactoryOff) return { open: false, judging: null, queue };
+  const open = fromFm !== null ? judging !== null : scan.gateOpen;
+  return { open, judging, queue };
 }
 
 // ---------------------------------------------------------------------------
@@ -590,14 +645,7 @@ export function toFraguaSnapshot(
       ? structureFromWorkOrders(opts.workOrders, wave)
       : null;
 
-  // Tribunal in session: the freshest engine `gate` event picks WHICH queued
-  // FRD is being judged; the head of the line is the honest default (gates are
-  // serialized, BL-0021 — at most one is genuinely in session).
-  const gateHint = lastGateEventFrd(events);
-  const judging =
-    fromFm !== null
-      ? (gateHint !== null && fromFm.gateQueue.includes(gateHint) ? gateHint : (fromFm.gateQueue[0] ?? null))
-      : null;
+  const judging = resolveJudging(fromFm, events);
 
   // FRD focus (header/MissionBar): the FRD under judgment, else the first one
   // building, else the freshest event frd (a finished build still renders its
@@ -618,14 +666,7 @@ export function toFraguaSnapshot(
   // mark the snapshot inactive so the scene shows the powered-off state (AC-06-013).
   const isFactoryOff = opts.running === false;
 
-  // Trophies: frontmatter `done` WOs (with FRD colors); achievement-event
-  // trophies only as the legacy fallback when no frontmatter is available.
-  const trophies =
-    fromFm !== null ? fromFm.trophies : scan.trophyWoIds.slice(0, MAX_TROPHIES).map((wo) => ({ wo }));
-  const archivedCount =
-    fromFm !== null
-      ? Math.max(0, fromFm.totals.done - fromFm.trophies.length)
-      : Math.max(0, scan.trophyWoIds.length - MAX_TROPHIES);
+  const { trophies, archivedCount } = composeTrophies(fromFm, scan);
 
   const eventRunning = scan.runningWos.map((wo) => ({
     wo,
@@ -648,10 +689,7 @@ export function toFraguaSnapshot(
     fromFm?.queuedCount ??
     Math.max(0, scan.allWoIds.size - running.length - scan.trophyWoIds.length);
 
-  const gateOpen = fromFm !== null ? judging !== null : scan.gateOpen;
-  const gate = isFactoryOff
-    ? { open: false, judging: null, queue: fromFm?.gateQueue ?? [] }
-    : { open: gateOpen, judging: judging ?? null, queue: fromFm?.gateQueue ?? [] };
+  const gate = composeGate(fromFm, scan, judging, isFactoryOff);
 
   return {
     frd: { id: currentFrdId, title: deriveFrdTitle(currentFrdId) },

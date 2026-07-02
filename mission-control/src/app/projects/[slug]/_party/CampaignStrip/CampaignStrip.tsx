@@ -74,16 +74,19 @@ export interface CampaignStripProps {
  */
 export function CampaignStrip({ campaign, judging }: CampaignStripProps): React.JSX.Element {
   return (
-    <div data-testid="campaign-strip" role="list" aria-label="La Campaña — estado de cada feature" style={STRIP_STYLE}>
+    <ul
+      data-testid="campaign-strip"
+      aria-label="La Campaña — estado de cada feature"
+      style={{ ...STRIP_STYLE, listStyle: "none", margin: 0 }}
+    >
       <span style={LABEL_STYLE}>Campaña</span>
       {campaign.map((c) => {
         const badge = STATE_BADGE[c.state];
         const inSession = judging === c.frd;
         const dim = c.state === "pending";
         return (
-          <span
+          <li
             key={c.frd}
-            role="listitem"
             data-testid={`campaign-chip-${c.frd}`}
             data-state={c.state}
             data-judging={inSession ? "true" : undefined}
@@ -95,15 +98,17 @@ export function CampaignStrip({ campaign, judging }: CampaignStripProps): React.
               boxShadow: inSession ? `inset 0 0 0 1px var(${c.colorKey})` : undefined,
             }}
           >
-            <span aria-hidden="true" style={{ color: `var(${c.colorKey})` }}>●</span>
+            <span aria-hidden="true" style={{ color: `var(${c.colorKey})` }}>
+              ●
+            </span>
             {shortFrdId(c.frd)}
             <span aria-hidden="true">{badge.glyph}</span>
             <span style={{ color: "var(--color-text-muted, currentColor)" }}>
               {c.done}/{c.total}
             </span>
-          </span>
+          </li>
         );
       })}
-    </div>
+    </ul>
   );
 }
