@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 
 /**
@@ -10,9 +12,26 @@ import { defineConfig, devices } from "@playwright/test";
  *
  * The dev server runs on the project's reserved dev port (factory/standards/infra.md). Adjust PORT
  * to this project's `dev_port_base` if it differs from the default below.
+ *
+ * Deterministic data sources (OPTIONAL): a project-local `e2e/server-env.json` — never part of the
+ * template, never overwritten by /pandacorp:upgrade — is injected into the webServer environment.
+ * It is the hook for pinning the app's data sources to frozen fixtures so LIVE data can never move
+ * gate pixels. Values starting with "." resolve against the project root; a `PORT` entry moves the
+ * e2e server to its own port. When the file is present the server is NEVER reused — an
+ * already-running dev server would read live data instead of the pinned fixture.
  */
 const isCI = Boolean(process.env.CI);
-const PORT = Number(process.env.PORT) || 3000;
+
+const SERVER_ENV_FILE = path.resolve("e2e", "server-env.json");
+const serverEnv: Record<string, string> = fs.existsSync(SERVER_ENV_FILE)
+  ? Object.fromEntries(
+      Object.entries(
+        JSON.parse(fs.readFileSync(SERVER_ENV_FILE, "utf8")) as Record<string, string>,
+      ).map(([key, value]) => [key, value.startsWith(".") ? path.resolve(value) : value]),
+    )
+  : {};
+
+const PORT = Number(serverEnv.PORT ?? process.env.PORT) || 3000;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 
 export default defineConfig({
@@ -45,7 +64,8 @@ export default defineConfig({
   webServer: {
     command: `next dev --hostname 127.0.0.1 --port ${PORT}`,
     url: BASE_URL,
-    reuseExistingServer: !isCI,
+    reuseExistingServer: !isCI && Object.keys(serverEnv).length === 0,
     timeout: 180_000,
+    env: serverEnv,
   },
 });

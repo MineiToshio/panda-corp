@@ -1,0 +1,7 @@
+{"kind":"wo_start","frd":"frd-01-x","wo":"WO-01-001","at":"2026-06-14T10:00:00Z"}
+{"kind":"wo_end","frd":"frd-01-x","wo":"WO-01-001","state":"in_review","at":"2026-06-14T10:35:00Z"}
+{"kind":"wo_start","frd":"frd-01-x","wo":"WO-01-002","at":"2026-06-14T10:40:00Z"}
+{"kind":"wo_end","frd":"frd-01-x","wo":"WO-01-002","state":"in_review","at":"2026-06-14T11:20:00Z"}
+{"kind":"review_start","frd":"frd-01-x","at":"2026-06-14T11:25:00Z"}
+{"kind":"review_end","frd":"frd-01-x","verdict":"pass","at":"2026-06-14T11:40:00Z"}
+{"kind":"wo_start","frd":"frd-01-x","wo":"WO-01-003","at":"2026-06-14T11:45:00Z"}

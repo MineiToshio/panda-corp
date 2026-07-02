@@ -55,8 +55,13 @@ const EMIT_THROTTLE_MS = 200;
 /** Inactivity keep-alive: send a comment every N ms to prevent proxy timeouts. */
 const KEEPALIVE_MS = 15_000;
 
-/** Default path to the events NDJSON file. */
+/** Default path to the events NDJSON file — `PANDACORP_EVENTS_FILE` env override first
+ * (e2e runs tail a frozen fixture), else `~/.claude/dashboard-events.ndjson`. */
 function defaultEventsPath(): string {
+  const override = process.env.PANDACORP_EVENTS_FILE;
+  if (override !== undefined && override.length > 0) {
+    return override;
+  }
   const home = process.env.HOME ?? process.env.USERPROFILE ?? os.homedir();
   return path.join(home, ".claude", "dashboard-events.ndjson");
 }

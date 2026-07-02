@@ -4,6 +4,33 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-02 — e2e runs against a frozen fixture factory root — live data can no longer move gate pixels
+
+**What:** Closed change `mc-e2e-fixture-factory-root` (owner-approved DIRECT drain). The Playwright
+webServer now reads a **deterministic fixture factory** instead of the live one: NEW
+`e2e/fixtures/factory-root/` (ideas across all columns, portfolio → a synthetic `mission-control`
+project with DR-050-shaped work orders + track.jsonl, memory lessons, backlog items, standards,
+the decision registry, a plugin skills/agents subtree, and a frozen `events.ndjson`) — composed
+from the existing unit-test fixtures (`factory-full`, `events`, `plugin-reference`), reuse before
+create. Wiring: the stack template `playwright.config.ts` gains a GENERIC hook — an optional,
+never-overwritten project-local **`e2e/server-env.json`** whose entries are injected into the
+webServer env (relative values resolve against the project root; a `PORT` entry moves the e2e
+server to its own port; when present the server is never reused, since a live dev server would
+read live data). Back-ported to `plugin/templates/stack-a-nextjs/e2e/playwright.config.ts` in the
+SAME change (DR-076) — project copy and template stay byte-identical. MC's `server-env.json` pins
+`PANDACORP_FACTORY_ROOT`, the new **`PANDACORP_EVENTS_FILE`** override (added to
+`lib/events/events.ts` + `app/api/live/route.ts`, unit-tested) and PORT 3900. Baselines re-blessed
+once against the fixture; full e2e suite 66/66 green; re-run without `-u` clean.
+
+**Why:** The 2026-07-02 incident — the Fase 2 merge gate went RED on `/achievements` because the
+live build had just earned XP/level — is structural: baselines coupled to live data drift with
+every completed build and RED unrelated merges. Frozen fixture ⇒ any future visual RED is CODE.
+The `server-env.json` indirection keeps the canonical config verbatim-conformant (DR-059/DR-076)
+while letting each project pin its own data sources. Impact: `playwright.config.ts` (+ template),
+`e2e/server-env.json`, `e2e/fixtures/factory-root/`, `lib/events/events.ts`, `api/live/route.ts`,
+`.env.example`, events unit test; change queue README (done). Plugin template touched → version
+bump on the factory side accompanies this change.
+
 ## 2026-07-02 — Explore offered at the research ficha (AC-02-010.10) — change closed as already-built, now locked
 
 **What:** Closed change `mc-nextstep-offer-explore` (owner-approved DIRECT drain, token-saving mode,

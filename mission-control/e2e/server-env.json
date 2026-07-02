@@ -1,0 +1,5 @@
+{
+  "PORT": "3900",
+  "PANDACORP_FACTORY_ROOT": "./e2e/fixtures/factory-root",
+  "PANDACORP_EVENTS_FILE": "./e2e/fixtures/factory-root/events.ndjson"
+}

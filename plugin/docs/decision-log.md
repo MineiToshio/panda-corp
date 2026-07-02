@@ -4,6 +4,21 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-07-02 — v9.47.0: e2e template gains the `server-env.json` deterministic-data hook
+
+**What:** `templates/stack-a-nextjs/e2e/playwright.config.ts` now injects an OPTIONAL project-local
+`e2e/server-env.json` into the webServer environment (relative values resolve against the project
+root; a `PORT` entry moves the e2e server to its own port; when the file exists the server is never
+reused). MINOR: new compatible capability — projects can pin their data sources (fixture roots,
+frozen event files) so live data never moves gate pixels. First consumer: Mission Control
+(`mc-e2e-fixture-factory-root`, after the 2026-07-02 incident where a completed build's earned
+XP/level REDDED an unrelated merge's visual gate). Without the file the config behaves exactly as
+before.
+
+**Why:** Visual baselines coupled to live data drift with every real build — the gate must compare
+against frozen inputs so any RED is code. The indirection keeps the canonical config verbatim
+(DR-059/DR-076) while the per-project data pinning lives in a never-overwritten sidecar.
+
 ## 2026-07-01 — Build engine: literal NUL bytes in globToRe made the Workflow tool unlaunchable · v9.46.2 · overlay 8.55.2
 
 **What:** `templates/shared/.claude/workflows/pandacorp-build.js` used two **literal NUL bytes**

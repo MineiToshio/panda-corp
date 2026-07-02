@@ -1,0 +1,16 @@
+project: "Mission Control"
+phase: implementation
+version: v1
+overlay_version: "8.55.1"
+created_with: "8.0.0"
+running: false
+repo: "https://github.com/example/mission-control"
+updated_at: "2026-06-15"
+work_orders_total: 4
+work_orders_done: 2
+pending_decisions: 1
+pending_bugs: 0
+rethink_pending: false
+advance_pending: false
+last_green_sha: "abc1234def5678"
+safe_to_test: true

@@ -1,0 +1,10 @@
+{"event":"AgentWorking","at":"2026-06-18T10:00:00Z","agent":"implementer","frd":"frd-06-party","wo":"WO-06-001","phase":"build","activity":"implement","mode":"powerful","role":"implementer","project":"mission-control"}
+{"event":"AgentWorking","at":"2026-06-18T10:05:00Z","agent":"implementer","frd":"frd-06-party","wo":"WO-06-002","phase":"build","activity":"implement","mode":"powerful","role":"implementer","project":"mission-control"}
+{"event":"AgentWorking","at":"2026-06-18T10:10:00Z","agent":"implementer","frd":"frd-06-party","wo":"WO-06-003","phase":"build","activity":"implement","mode":"powerful","role":"implementer","project":"mission-control"}
+{"event":"SubagentStop","at":"2026-06-18T10:15:00Z","agent":"implementer","frd":"frd-06-party","wo":"WO-06-001","status":"ok","project":"mission-control"}
+{"event":"achievement","at":"2026-06-18T10:20:00Z","agent":"implementer","frd":"frd-06-party","wo":"WO-06-001","project":"mission-control","work_order":"WO-06-001"}
+{"event":"AgentWorking","at":"2026-06-18T10:25:00Z","agent":"implementer","frd":"frd-06-party","wo":"WO-06-004","phase":"build","activity":"implement","mode":"powerful","role":"implementer","project":"mission-control"}
+{"event":"achievement","at":"2026-06-18T10:30:00Z","agent":"implementer","frd":"frd-06-party","wo":"WO-06-002","project":"mission-control","work_order":"WO-06-002"}
+THIS IS NOT VALID JSON - malformed line that must be skipped gracefully
+{"event":"AgentWorking","at":"2026-06-18T10:35:00Z","agent":"implementer","frd":"frd-06-party","wo":"WO-06-005","phase":"build","activity":"implement","mode":"powerful","role":"implementer","project":"mission-control"}
+{"event":"AgentWorking","at":"2026-06-18T10:40:00Z","agent":"implementer","frd":"frd-06-party","wo":"WO-06-006","phase":"build","activity":"implement","mode":"powerful","role":"implementer","project":"mission-control"}

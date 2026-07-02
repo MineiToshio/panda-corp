@@ -430,6 +430,28 @@ describe("frd-01: readEvents — missing file → empty snapshot (AC-01-008.1 ed
 });
 
 // ---------------------------------------------------------------------------
+// PANDACORP_EVENTS_FILE — env override of the default NDJSON path. The e2e
+// fixture root pins it so a live build's events never move gate pixels
+// (change mc-e2e-fixture-factory-root).
+// ---------------------------------------------------------------------------
+
+describe("readEvents — PANDACORP_EVENTS_FILE overrides the default path", () => {
+  it("WHEN the env var is set THEN readEvents without an explicit path reads THAT file", () => {
+    const prior = process.env.PANDACORP_EVENTS_FILE;
+    process.env.PANDACORP_EVENTS_FILE = FIXTURE_EVENTS_NDJSON;
+    try {
+      const snap = readEvents() as EventsSnapshot;
+      const explicit = readEvents({ path: FIXTURE_EVENTS_NDJSON }) as EventsSnapshot;
+      expect(snap.events.length).toBeGreaterThan(0);
+      expect(snap.events).toEqual(explicit.events);
+    } finally {
+      if (prior === undefined) delete process.env.PANDACORP_EVENTS_FILE;
+      else process.env.PANDACORP_EVENTS_FILE = prior;
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // AC-01-008.1 — malformed lines are skipped; valid lines survive (fail-soft)
 // Anchors the per-line catch pattern from the gray-matter-batch-abort incident.
 // ---------------------------------------------------------------------------

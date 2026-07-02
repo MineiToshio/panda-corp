@@ -146,11 +146,17 @@ const EMPTY_SNAPSHOT: EventsSnapshot = {
 };
 
 /**
- * Resolve the default NDJSON path: `~/.claude/dashboard-events.ndjson`.
+ * Resolve the default NDJSON path: the `PANDACORP_EVENTS_FILE` env override
+ * when set (e2e runs point it at a frozen fixture so a live build's events
+ * never move baseline pixels), else `~/.claude/dashboard-events.ndjson`.
  * Mirrors `EVENTS_NDJSON` in `lib/config.ts` but reproduced locally so this
  * module is self-contained and testable without importing config.
  */
 function defaultEventsPath(): string {
+  const override = process.env.PANDACORP_EVENTS_FILE;
+  if (override !== undefined && override.length > 0) {
+    return override;
+  }
   const home = process.env.HOME ?? process.env.USERPROFILE ?? os.homedir();
   return path.join(home, ".claude", "dashboard-events.ndjson");
 }
