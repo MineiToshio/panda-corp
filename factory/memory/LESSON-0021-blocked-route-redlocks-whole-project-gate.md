@@ -4,6 +4,7 @@ type: anti-pattern
 domain: factory-engineering
 tags: [build-engine, gate, dr-075, dr-085, needs-owner, coupling, red-lock, whole-project-gate]
 context: a route/work-order legitimately BLOCKED on an owner action (a missing env var) red-locks the WHOLE-project gate, because the shell-presence + baseline gates assert every nav route renders — so one blocked node couples unrelated FRDs and the baseline/close-out to it
+trigger: use this when a whole-project gate that asserts over all routes/units goes red because one unit is legitimately BLOCKED on an owner action
 source: project personal-page-v2 (runs wf_9e98acaf-92e / wf_978129ab-eca) — FRD-07 contact BLOCKED needs-owner (NEXT_PUBLIC_WEB3FORMS_KEY unset → /contact fails-loud); shell.spec.ts + the baseline verify.sh test /contact → whole-project gate RED, which also blocked FRD-01's close-out and the baseline self-heal, none related to contact
 provenance: agent-inferred
 created: 2026-07-01

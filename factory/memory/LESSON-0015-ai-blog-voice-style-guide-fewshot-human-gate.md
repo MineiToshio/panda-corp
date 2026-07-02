@@ -4,6 +4,7 @@ type: pattern
 domain: content-generation
 tags: [ai-writing, blog, style-guide, few-shot, human-gate]
 context: generating blog posts with an AI that need to sound like the author's own voice, not generic AI prose
+trigger: use this when generating AI-written blog or content that must sound like a specific author's own voice
 source: factory/memory/_inbox.md (2026-06-2x)
 provenance: agent-inferred
 created: 2026-06-30

@@ -4,6 +4,7 @@ type: pattern
 domain: react
 tags: [react, animation, requestAnimationFrame, performance, refs]
 context: building a 60fps animation loop (sprite movement, canvas-like scenes) in React without frame drops
+trigger: use this when building a 60fps or real-time animation loop (sprites, live visualization) inside a React component
 source: mission-control lessons.md — Party/La Fragua animation engine (2026-06-17)
 provenance: agent-inferred
 created: 2026-06-30

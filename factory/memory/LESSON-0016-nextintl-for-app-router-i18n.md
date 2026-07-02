@@ -4,6 +4,7 @@ type: library-verdict
 domain: nextjs
 tags: [i18n, next-intl, app-router, nextjs, seo, hreflang]
 context: choosing an i18n library for a Next.js App Router project
+trigger: use this when adding i18n or multi-locale routing to a Next.js App Router project
 source: factory/memory/_inbox.md (2026-06-2x)
 provenance: agent-inferred
 created: 2026-06-30

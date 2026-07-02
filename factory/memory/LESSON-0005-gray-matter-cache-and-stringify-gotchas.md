@@ -4,6 +4,7 @@ type: gotcha
 domain: nodejs
 tags: [gray-matter, yaml, frontmatter, cache, parsing, node]
 context: reading/writing markdown frontmatter with gray-matter@4 in a build engine or a Mission-Control-style reader
+trigger: use this when parsing or writing markdown frontmatter with gray-matter@4 in Node
 source: factory/memory/_inbox.md (2026-06-16, factory validate-memory.sh authoring); mission-control lessons.md (2026-06-16, lib/memory.ts status parsing + lib/reference.ts; WO-05-001 frontmatter extension) — corroborated across 2 projects, 4+ independent hits
 provenance: agent-inferred
 created: 2026-06-30

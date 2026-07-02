@@ -4,6 +4,7 @@ type: library-verdict
 domain: content-cms
 tags: [blog, cms, mdx, velite, next-mdx, contentlayer, seo, static-generation]
 context: choosing a content/blog architecture for a developer blog that needs SEO and a static build
+trigger: use this when choosing a blog/content architecture for a developer site that needs SEO and a static build
 source: "factory/memory/_inbox.md (2026-06-2x) — real-world failure observed: toshiominei.com returns HTTP 500 opening a post on a client-rendered/server-backed blog"
 provenance: agent-inferred
 created: 2026-06-30

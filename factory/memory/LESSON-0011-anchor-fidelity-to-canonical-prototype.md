@@ -4,6 +4,7 @@ type: gotcha
 domain: design-fidelity
 tags: [prototype, fidelity, design, mocks, canonical-source]
 context: when multiple prototype mocks exist for the same screen/feature (an older one and a newer canonical one), a build anchors fidelity to the wrong one
+trigger: use this when building or reviewing fidelity against a prototype mock and more than one mock file exists for the same screen
 source: mission-control lessons.md — CampaignPipeline built faithful to la-campana.html (stone-bridge PNGs, no roam) when the current canonical prototype was party-pipeline.html (CSS roads, roaming cast), 2026-06-2x
 provenance: agent-inferred
 created: 2026-06-30

@@ -2,6 +2,34 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-02 — Loop de autoaprendizaje v2 IMPLEMENTADO completo (proposal 23, plugin v9.49.0)
+
+**Qué:** el owner aprobó el plan completo de `docs/proposals/23-self-learning-loop-v2.md` y las 4
+fases quedaron implementadas el mismo día. (F1) El motor: cosecha OBLIGATORIA al close-out de
+`implement` con stamp `last_harvest` en status.yaml; la rutina programada `pandacorp-memory-review`
+pasó de semanal a **diaria con umbrales** (trabaja solo con ≥20 notas / ≥7 días / proyecto en release
+sin cosechar; silenciosa si no hay nada); hook de Stop `capture-lessons-reminder.sh` (una vez por
+sesión: "¿te corrigieron? ¿algo falló y se arregló?" — la corrección es el evento de captura). (F2)
+Recuperación medida: `factory/memory/INDEX.md` (1 línea por lección activa con su `trigger:` "úsala
+cuando…", ediciones delta), campo `trigger:` requerido por el validador y backfilled en las 22
+lecciones; los 7 agentes builder + `guide.md.tpl` leen INDEX primero y CITAN `LESSON-NNNN` en el
+artefacto durable; `count-lesson-citations.sh` cuenta las citas y actualiza
+`times_applied`/`applied_in` determinísticamente (probado: idempotente). (F3) Validez:
+default-reject en el refinado, `candidate → active` exige corroboración de OTRO build (o provenance
+owner/CI), lecciones de fracaso por contraste, y la poda por "nunca usada" CONGELADA hasta medir ≥3
+proyectos. (F4) La escalera: ≥3 proyectos citando → `promotion: proposed` automático; gate de
+`learn` explícitamente tierado (SHOULD+verificador auto con aviso; MUST/DR/skill siempre owner);
+pase de reflexión; el cierre de FRD-17 (Propuestas + memory-health) quedó como change en la cola de
+Mission Control (`mc-frd17-propuestas-memory-health-loop-v2`).
+
+**Por qué:** dos auditorías consecutivas (2026-06-22 y 2026-07-01) encontraron el loop "prescrito
+pero sin cablear" (22 lecciones con `times_applied: 0`, cero jobs, cosecha en prosa); el dolor del
+owner era exactamente el motor ausente. Base externa: Letta sleep-time, Mem0, Devin, EDV,
+ReasoningBank, ACE, Voyager. **Impacto:** DR-047 reescrito en `factory/decisions/registry.yaml`;
+`factory/memory/{README,INDEX,_lesson-template,LESSON-*}`; plugin v9.49.0 (OVERLAY 8.55.3) — detalle
+en `plugin/docs/decision-log.md`; Manual `concepts/autoaprendizaje.md` actualizado (DR-046);
+proposal 23 → IMPLEMENTED.
+
 ## 2026-07-02 — Auditoría del loop de autoaprendizaje (DR-047) + plan v2 propuesto
 
 **Qué:** auditoría exhaustiva del flujo de mejora continua (memory/learn/librarian) pedida por el

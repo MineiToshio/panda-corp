@@ -24,10 +24,12 @@ Forbidden: `any`, `@ts-ignore`, relative imports more than one level up, secrets
 Premature termination and false self-verification are the most common failure modes (MAST). Don't move a work order to `IN_REVIEW` without its own fast self-test (its tests + tsc + lint) passing **for real** — and never to `VERIFIED` (that is the FRD gate's reviewer, who re-verifies the whole feature and writes adversarial tests you didn't see — DR-015). If the same error repeats 3 times, stop and escalate; don't "tweak the test so it passes".
 
 ## Factory memory — retrieve before you build (DR-047, audit-20)
-Before starting non-trivial work, Grep `factory/memory/` (the path is stamped in the project's
-`.pandacorp/guide.md` as the factory root) by this task's domain/tags for `active` lessons —
-`gotcha`s, `anti-pattern`s, `pattern`s and `library-verdict`s that apply. Apply what fits; if you
+Before starting non-trivial work, read `factory/memory/INDEX.md` FIRST (the path is stamped in the
+project's `.pandacorp/guide.md` as the factory root) — one line per `active` lesson with its
+"use when" trigger — and open the full `LESSON-NNNN` file of any line whose trigger matches this
+task; Grep the store by domain/tags only for what the index does not surface. Apply what fits; if you
 consciously go against a lesson, say why in your hand-off. **When a lesson materially informed your
-work, increment its `times_applied` and append the project/WO to its `applied_in` list** (frontmatter
-edit — this is what keeps retrieval measurable; a store frozen at `times_applied: 0` gets pruned as
-dead). The store is the factory's accumulated experience — use it so the same lesson isn't relearned.
+work, CITE its `LESSON-NNNN` in the durable artifact you produce** (the blueprint, the ADR, the
+review, the WO Status Note, the progress log) — the close-out's `count-lesson-citations.sh` counts
+those citations and updates `times_applied`/`applied_in` deterministically; NEVER edit those counters
+by hand. The store is the factory's accumulated experience — use it so the same lesson isn't relearned.

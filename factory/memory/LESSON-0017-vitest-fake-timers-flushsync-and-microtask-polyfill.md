@@ -4,6 +4,7 @@ type: gotcha
 domain: testing
 tags: [vitest, react, fake-timers, flushSync, act, testing-library]
 context: testing a React component that reverts state via setTimeout (e.g. a copy-confirmation flash), using vitest fake timers
+trigger: use this when testing a React component with a setTimeout-driven state revert under vitest fake timers
 source: mission-control lessons.md (2026-06-16) — WO building the CopyButton/copy-confirmation component
 provenance: agent-inferred
 created: 2026-06-30

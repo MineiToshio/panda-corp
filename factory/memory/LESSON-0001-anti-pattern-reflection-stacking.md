@@ -4,6 +4,7 @@ type: anti-pattern
 domain: factory-engineering
 tags: [self-learning, memory, harvesting, governance, poisoning]
 context: harvesting lessons by stacking reflections-on-reflections instead of anchoring to concrete evidence
+trigger: use this when designing or running the lesson harvester and deciding whether a reflection-style insight qualifies as a storable lesson
 source: docs/proposals/09-self-learning-factory.md (deep-research 2026-06-15; ExpeL, arXiv:2308.10144)
 provenance: agent-inferred
 created: 2026-06-15

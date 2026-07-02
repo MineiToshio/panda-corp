@@ -4,6 +4,7 @@ type: anti-pattern
 domain: factory-engineering
 tags: [build-engine, dr-073, reviewer, adversarial-tests, patch-first, playwright, responsive, viewport, integrity-rule]
 context: the FRD gate's DR-073 patch-first fallback discards a CORRECT in-place patch and rebuilds a whole work order from scratch when the blocker is a DEFECTIVE reviewer-authored gate test (not bad production code), because (a) the reviewer's adversarial test was internally inconsistent with the dual desktop+mobile Playwright config, and (b) the integrity rule forbids the patch agent from touching that test, leaving rebuild as the only exit
+trigger: use this when an FRD gate fails after a patch and you must decide between rebuilding the work order or suspecting the reviewer's own gate test is defective (e.g. a Playwright spec asserting desktop-only visibility without forcing a viewport)
 source: project personal-page-v2, build run wf_b01c0efe-146 (FRD-01 gate); reviewer agent a2f87cf6, patch agent a1578dc; commits fe81a4c (build) → e4aa8ce (revert "DR-073 fallback") → e2ea84f (rebuild)
 provenance: agent-inferred
 created: 2026-06-30

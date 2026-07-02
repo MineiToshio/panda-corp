@@ -4,6 +4,7 @@ type: gotcha
 domain: factory-engineering
 tags: [agents, tools, researcher, spec, discover, delegation]
 context: instructing the researcher sub-agent to write a file directly during /spec or /discover
+trigger: use this when writing or editing a skill that instructs the researcher (or any sub-agent without Write) to persist a file to disk
 source: factory/memory/_inbox.md (2026-06-28)
 provenance: agent-inferred
 created: 2026-06-30

@@ -4,6 +4,36 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-07-02 — v9.49.0: self-learning loop v2 — the loop turns by itself, retrieval is measured, lessons are validated (proposal 23)
+
+**What:** the full loop-v2 plan (owner-approved, `docs/proposals/23-self-learning-loop-v2.md`) lands in one
+release. **F1 the motor:** `implement`'s close-out harvest is now a REQUIRED 3-sub-step (harvest →
+`count-lesson-citations.sh` → `last_harvest:` stamp in `status.yaml`; no stamp = incomplete close-out); the
+`pandacorp-memory-review` scheduled task became a DAILY threshold sweep (works only when ≥20 pending notes /
+≥7 days / an un-harvested `release` project — silent otherwise; marker `factory/memory/_last-sweep`,
+gitignored); NEW Stop hook `capture-lessons-reminder.sh` (once per session, Pandacorp contexts only, ≥6 user
+turns) forces the did-anything-durable-happen ask before finishing. **F2 measured retrieval:** NEW
+`factory/memory/INDEX.md` (one line per active lesson + `trigger:` "use this when …"; librarian delta-edits
+only — ACE), `trigger:` required by `validate-memory.sh` and backfilled on all 22 lessons; all 7 builder
+agents + `guide.md.tpl` switch from "Grep the store (and hand-edit counters)" to "read INDEX first + CITE
+`LESSON-NNNN` in the durable artifact"; NEW `count-lesson-citations.sh` greps citations per project and
+updates `times_applied`/`applied_in` deterministically (tested: idempotent, validator-clean). **F3
+validity:** librarian gets DEFAULT-REJECT (no evidence anchor → discard) + failure-lessons-by-contrast;
+`candidate → active` now requires CROSS-corroboration (a different build, or owner/CI provenance); prune's
+"never retrieved" criterion FROZEN until ≥3 projects measured. **F4 the ladder:** ≥3 citing projects
+auto-queue `promotion: proposed` (the escalator); `learn`'s gate made explicitly tiered (SHOULD + deterministic
+verifier auto-applies with notification; MUST/DR/skill always owner); reflection pass (≥3 same-domain lessons →
+one synthesized pattern, never reflections-on-reflections). FRD-17's close (Propuestas + memory-health) filed
+in Mission Control's change queue. **Why:** two consecutive audits (2026-06-22, 2026-07-01) found the loop
+"prescribed but not wired" — all 22 lessons at `times_applied: 0`, zero scheduled jobs, close-out harvest
+prose-only; the owner's pain ("I must run /memory and /learn by hand") was the missing motor. Grounded in
+Letta sleep-time compute, Mem0, Devin suggested-knowledge, EDV (10% polluted memories measurably hurt),
+ReasoningBank, ACE, Voyager. **Impact:** `skills/{memory,learn,implement}/SKILL.md`, `agents/librarian.md` +
+7 builder agents, `scripts/{count-lesson-citations.sh,capture-lessons-reminder.sh,validate-memory.sh}`,
+`hooks/hooks.json`, `templates/shared/.pandacorp/guide.md.tpl` (OVERLAY 8.55.2 → 8.55.3),
+`factory/memory/{README.md,_lesson-template.md,INDEX.md,LESSON-*}`, `factory/decisions/registry.yaml`
+(DR-047 rewritten), MC Manual `concepts/autoaprendizaje.md`, scheduled task updated (machine-local). MINOR.
+
 ## 2026-07-02 — v9.48.0: merge-queue keeps the worktree — removal belongs to ExitWorktree (BL-0023)
 
 **What:** `templates/shared/.pandacorp/merge-queue.sh` no longer deletes the worktree/branch after a

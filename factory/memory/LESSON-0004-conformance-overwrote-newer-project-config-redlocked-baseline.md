@@ -4,6 +4,7 @@ type: anti-pattern
 domain: factory-engineering
 tags: [upgrade, conformance, dr-059, dr-076, biome, gate-config, schema-version, red-lock, verification]
 context: the /pandacorp:upgrade conformance check overwrote a project's canonical gate file (biome.json) that was NEWER and more correct than the stale plugin template, reverting a legitimate tool-version adaptation and red-locking the whole-project baseline gate on the next build resume
+trigger: use this when an automated conformance/sync step is about to overwrite a project config from a template or other single-source-of-truth copy
 source: project personal-page-v2 — overlay upgrade 8.47.0→8.51.0 overwrote biome.json (project had schema 2.5.1 + preset:recommended for biome 2.5.1) with the template's stale schema 2.5.0 + deprecated recommended:true; biome 2.5.1 errors on that under --error-on-warnings, so the pass-2 baseline self-heal went RED and blocked the build (builtFrds:[], blockedReasons:{baseline:error})
 provenance: agent-inferred
 created: 2026-06-30

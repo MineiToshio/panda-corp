@@ -59,16 +59,23 @@ type: problem-solution | library-verdict | pattern | gotcha | anti-pattern
 domain: <area>            # e.g. auth, payments, nextjs, data-modeling, factory-engineering
 tags: [<kw>, <kw>]        # for retrieval
 context: <one line>       # what this lesson is about — used to match it at retrieval time
+trigger: <"use this when …">   # the one-line retrieval condition (loop v2) — shown in INDEX.md
 source: <project + capture point or doc reference>
 provenance: owner-stated | ci-verified | agent-inferred   # trust source (owner > CI > agent); gates promotion
 created: YYYY-MM-DD
 status: candidate | active | deprecated
 promotion: none | proposed | approved | rejected   # rule-promotion track; `proposed` = pending your approval (review anytime via /pandacorp:memory status)
 confidence: low | medium | high
-times_applied: 0          # incremented when an agent retrieves+uses it (drives pruning)
+times_applied: 0          # = length of applied_in — updated ONLY by count-lesson-citations.sh, never by hand
+applied_in: []            # distinct projects whose artifacts cite this LESSON-NNNN (script-maintained)
 links: [LESSON-XXXX, DR-XXX, standards/<file>.md]
 ---
 ```
+
+**`INDEX.md`** is the store's always-loaded face: one line per **`active`** lesson
+(`- LESSON-NNNN · use when <trigger> · <one-line insight>`, ≤150 lines). Build agents read it FIRST
+and open only the matching full lessons. The librarian maintains it with **delta edits only** —
+never regenerate it wholesale (ACE: full rewrites erode hard-won detail).
 
 ## Capture → refine (the hybrid flow)
 
@@ -80,21 +87,29 @@ Lessons are **captured always-on**: in any skill or plain conversation, a one-li
    candidate is *never* treated as confirmed truth (anti-poisoning; the ExpeL finding that
    reflections-on-reflections poison insight extraction).
 2. **Eval-gate → `active`.** A candidate becomes `active` (low-risk, auto) when it is schema-valid
-   **and** corroborated (seen ≥2× OR confirmed by a real outcome) **and** does not contradict a
-   higher-confidence lesson. Everything else escalates to the owner (Mission Control Propuestas
-   inbox, FRD-17).
-3. **Retrieve.** Agents query this store by `domain`/`tags` before `design`/`blueprint`/`implement`
-   and pull the relevant lessons into context. Retrieval is the whole point — a lesson nobody recalls
-   is a graveyard, not a memory.
-4. **Promote.** When `review` judges a lesson rule-worthy it sets **`promotion: proposed`** (durable —
+   **and cross-corroborated** — confirmed by a DIFFERENT build/project than the one that produced it,
+   OR `provenance: owner-stated`/`ci-verified` — **and** does not contradict a higher-confidence
+   lesson. A single-trajectory `agent-inferred` lesson never self-activates (loop v2, EDV
+   anti-poisoning). Everything else escalates to the owner (Mission Control Propuestas inbox, FRD-17).
+3. **Retrieve — measured (loop v2).** Agents read `INDEX.md` first, open the lessons whose `trigger`
+   matches, and **cite `LESSON-NNNN` in the durable artifact they write** (blueprint, ADR, review,
+   Status Note). At build close-out, `count-lesson-citations.sh` greps those citations and updates
+   `times_applied`/`applied_in` deterministically — retrieval is the whole point, and it is measured
+   by script, never by agent self-report.
+4. **Promote.** When `review` judges a lesson rule-worthy — or when ≥3 distinct projects have cited it
+   (the auto-escalator in `count-lesson-citations.sh`) — it sets **`promotion: proposed`** (durable —
    it sits in the lesson file, reviewable anytime via `/pandacorp:memory status` or the Mission Control
    proposals page, FRD-17; you are never forced to decide in the moment). On your approval, `learn`
    promotes it to a standard/DR/skill (verifier/benchmark eval-gate) and sets `promotion: approved` +
    back-links; if you reject, `promotion: rejected` (it stays a useful lesson, just not a rule).
-   High-risk promotions always pass the owner.
+   High-risk promotions always pass the owner; a SHOULD-standard shipping with its deterministic
+   verifier may auto-apply with notification (the medium tier, DR-047).
 5. **Prune → `deprecated`.** The prune job (Phase 4) proposes deprecating lessons never retrieved in
-   N months or contradicted by newer evidence. **Never delete** — deprecate (DR-011/DR-007). A
-   `library-verdict` that failed once but is fixed later is *reconciled*, not erased.
+   N months or contradicted by newer evidence. **PRUNE FREEZE (loop v2):** the never-retrieved
+   criterion is frozen until ≥3 distinct projects appear across `applied_in` — before that,
+   `times_applied: 0` means "unmeasured", not "useless". **Never delete** — deprecate
+   (DR-011/DR-007). A `library-verdict` that failed once but is fixed later is *reconciled*, not
+   erased.
 
 ## Worked example — `library-verdict`
 

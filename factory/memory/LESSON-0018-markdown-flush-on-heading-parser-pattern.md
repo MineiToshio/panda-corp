@@ -4,6 +4,7 @@ type: pattern
 domain: parsing
 tags: [markdown, parser, algorithm, flush-on-heading]
 context: parsing a markdown file with an unknown number of delimited blocks (e.g. open/closed sections) into structured data, in one pass
+trigger: use this when parsing an unknown number of heading-delimited blocks out of a markdown file into structured data
 source: mission-control lessons.md (2026-06-16) — parsing Spanish owner-facing comms files
 provenance: agent-inferred
 created: 2026-06-30

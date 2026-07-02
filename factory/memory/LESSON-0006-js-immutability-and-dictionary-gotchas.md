@@ -4,6 +4,7 @@ type: gotcha
 domain: javascript
 tags: [javascript, immutability, object-freeze, prototype-pollution, dictionary, shallow-copy, gotcha]
 context: hand-rolled immutability and dictionary patterns in TypeScript/JavaScript that look safe but are not, caught by mutation/adversarial testing during Mission Control's build
+trigger: use this when returning a constant catalog/array of objects to callers or building a plain-object dictionary keyed by user-supplied strings in JS/TS
 source: mission-control lessons.md — WO-04-003 (2026-06-16, BUILDING_ROWS shallow copy), WO-12-003 (2026-06-16, dictionary keyed by user strings), BUILD_MODES catalog freeze (2026-06-16)
 provenance: agent-inferred
 created: 2026-06-30

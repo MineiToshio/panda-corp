@@ -4,6 +4,7 @@ type: anti-pattern
 domain: factory-engineering
 tags: [build-engine, observability, mission-control, kanban, implementation-status, dr-097, parallel-waves, frontmatter-lag]
 context: during a parallel build wave, work orders are actively built (artifact files exist on disk) while their implementation_status frontmatter still says PLANNED, so the Mission Control board shows them in To Do / En Progreso 0 — under-reporting in-flight work because the IN_PROGRESS transition is not reliably written at dispatch
+trigger: use this when a board/rollup derives live state from worker-written frontmatter during a parallel build wave and shows less in-flight work than exists on disk
 source: project personal-page-v2, build run wf_b01c0efe-146 — WO-03-001 and all of Wave-1 have built artifacts (src/app/[locale]/ projects|about|now|blog|contact created ~3h into the build) while their WO frontmatter is still implementation_status=PLANNED, last_updated=2026-06-29; board EN PROGRESO shows 0
 provenance: agent-inferred
 created: 2026-06-30

@@ -4,6 +4,7 @@ type: pattern
 domain: web-performance
 tags: [responsive, canvas, pixel-art, mobile, ux-pattern]
 context: adapting a fixed-size pixel-art canvas scene to mobile viewports without breaking the pixel-art rendering or losing at-a-glance information
+trigger: use this when adapting a fixed-size pixel-art or canvas scene to mobile viewports
 source: mission-control lessons.md — Party/La Fragua pixel-art scene mobile adaptation (2026-06-2x)
 provenance: agent-inferred
 created: 2026-06-30

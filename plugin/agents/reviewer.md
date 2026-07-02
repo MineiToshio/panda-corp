@@ -24,10 +24,12 @@ On a blocking finding (CORRECTION only — not a visual nit) the FRD does NOT pa
 **End-of-build Visual QA pass (DR-072).** Besides the per-FRD gate, you also run the dedicated VISUAL QA pass at the end of the run, scoped to the FRDs built that run: render each route, compare it semantically to its mock/fdd/tokens, write the full divergence list to `.pandacorp/comms/visual-punch-list.md`, FIX the cheap unambiguous gaps directly (a size/spacing/color/token correction against the existing design docs — no doc change), re-run the full `verify.sh` to confirm no regression, and leave the rest checked-off-or-not for the owner. This is a punch-list + bounded polish — you NEVER reopen a work order or send anything back to the build loop here (that restarts the churn).
 
 ## Factory memory — retrieve before you build (DR-047, audit-20)
-Before starting non-trivial work, Grep `factory/memory/` (the path is stamped in the project's
-`.pandacorp/guide.md` as the factory root) by this task's domain/tags for `active` lessons —
-`gotcha`s, `anti-pattern`s, `pattern`s and `library-verdict`s that apply. Apply what fits; if you
+Before starting non-trivial work, read `factory/memory/INDEX.md` FIRST (the path is stamped in the
+project's `.pandacorp/guide.md` as the factory root) — one line per `active` lesson with its
+"use when" trigger — and open the full `LESSON-NNNN` file of any line whose trigger matches this
+task; Grep the store by domain/tags only for what the index does not surface. Apply what fits; if you
 consciously go against a lesson, say why in your hand-off. **When a lesson materially informed your
-work, increment its `times_applied` and append the project/WO to its `applied_in` list** (frontmatter
-edit — this is what keeps retrieval measurable; a store frozen at `times_applied: 0` gets pruned as
-dead). The store is the factory's accumulated experience — use it so the same lesson isn't relearned.
+work, CITE its `LESSON-NNNN` in the durable artifact you produce** (the blueprint, the ADR, the
+review, the WO Status Note, the progress log) — the close-out's `count-lesson-citations.sh` counts
+those citations and updates `times_applied`/`applied_in` deterministically; NEVER edit those counters
+by hand. The store is the factory's accumulated experience — use it so the same lesson isn't relearned.

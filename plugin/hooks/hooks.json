@@ -44,6 +44,12 @@
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/verify-before-stop.sh\"",
             "timeout": 300,
             "statusMessage": "Pandacorp verify gate"
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/capture-lessons-reminder.sh\"",
+            "timeout": 15,
+            "statusMessage": "Pandacorp capture check"
           }
         ]
       }

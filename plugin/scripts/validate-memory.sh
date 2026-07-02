@@ -19,7 +19,7 @@ STATUS = %w[candidate active deprecated]
 CONF   = %w[low medium high]
 PROV   = %w[owner-stated ci-verified agent-inferred]
 PROMO  = %w[none proposed approved rejected]
-REQ    = %w[id type domain tags context source provenance created status promotion confidence times_applied links]
+REQ    = %w[id type domain tags context trigger source provenance created status promotion confidence times_applied links]
 errors = []
 counts = Hash.new(0)
 ids    = Hash.new { |h, k| h[k] = [] }   # id => [files] — for the uniqueness check (BL-0013)
@@ -46,6 +46,7 @@ files.each do |f|
   idn = fm['id'].to_s[/\ALESSON-(\d+)\z/, 1]
   errors << "#{base}: filename number #{fn} != id #{fm['id']}" if fn && idn && fn != idn
   errors << "#{base}: empty context (retrieval anchor)"         if fm['context'].to_s.strip.empty?
+  errors << "#{base}: empty trigger ('use this when …' retrieval condition, loop v2)" if fm['trigger'].to_s.strip.empty?
   errors << "#{base}: empty source (evidence anchor, LESSON-0001)" if fm['source'].to_s.strip.empty?
   counts[fm['type']] += 1            if TYPES.include?(fm['type'])
   counts["status:#{fm['status']}"] += 1 if STATUS.include?(fm['status'])

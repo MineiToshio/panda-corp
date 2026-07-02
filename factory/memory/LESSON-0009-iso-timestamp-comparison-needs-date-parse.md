@@ -4,6 +4,7 @@ type: gotcha
 domain: javascript
 tags: [timestamps, iso8601, date-parse, timezone, gotcha]
 context: comparing ISO 8601 timestamp strings to find the most-recent one, in a reader/selector over event or status data
+trigger: use this when selecting the most-recent ISO 8601 timestamp among strings that may come from more than one producer or offset
 source: mission-control lessons.md — WO-12-001 freshness.ts (2026-06-16)
 provenance: agent-inferred
 created: 2026-06-30

@@ -1,6 +1,6 @@
 # Proposal 23 — Self-learning loop v2: close the loop, automate the turn, validate the lessons (2026-07-02)
 
-> Status: PROPOSED (pending owner ok).
+> Status: IMPLEMENTED (2026-07-02, all 4 fases — owner approved the full plan the same day; plugin v9.49.0, OVERLAY 8.55.3, DR-047 rewritten). F1.4 (validate-backlog.sh) had already shipped in a parallel session. FRD-17's close (4.2) is filed in Mission Control's change queue (`mc-frd17-propuestas-memory-health-loop-v2`) — the only piece pending build. The scheduled sweep became a DAILY threshold routine (machine-local `pandacorp-memory-review`).
 > Origin: owner ask 2026-07-02 — "review the whole continuous-improvement flow (memory, learn, auto-recommendations); today I have to run /memory and /learn by hand per project; compare with other systems and give me an improvement plan."
 > Method: exhaustive repo audit (memory store, skills, agents, governance, backlog, scheduling — all counts measured 2026-07-02) + external research sweep (agent-memory systems, self-improving-agent literature 2023–2026, validation patterns). Every internal claim below was verified against the repo, not inferred.
 > Related: proposal 09 (the original design), proposal 17 P0.2 (still open), proposal 20 P1-6/P1-7 (confirmed here), DR-047, DR-103.

@@ -4,6 +4,7 @@ type: pattern
 domain: react
 tags: [biome, a11y, react, aria, role, semantic-html]
 context: recurring Biome accessibility-lint traps hit repeatedly while building Mission Control's UI (React + Tailwind, biome 2.5)
+trigger: use this when adding ARIA roles or labels to non-semantic elements in a React project linted by Biome's a11y rules
 source: mission-control lessons.md — WO-01-003, WO-12-004, WO-18-003, WO-02-007, WO-09-006, WO-06-... (2026-06-16 through 2026-06-18); the same trap recurred at least 5 times across different components/work orders
 provenance: agent-inferred
 created: 2026-06-30

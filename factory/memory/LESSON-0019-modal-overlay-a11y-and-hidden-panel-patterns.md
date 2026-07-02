@@ -4,6 +4,7 @@ type: pattern
 domain: react
 tags: [a11y, modal, tabs, testing-library, biome, accessibility]
 context: implementing accessible modal overlays and tabbed panels (visually-hidden-but-mounted) in React while satisfying both Biome's a11y lint and Testing-Library query contracts
+trigger: use this when implementing a modal overlay or always-mounted tab panels in React under Biome a11y lint and Testing-Library role queries
 source: mission-control lessons.md — WO-02-006 (modal overlay, 2026-06-16), WO-02-007 (tabbed shell restructure, 2026-06-18)
 provenance: agent-inferred
 created: 2026-06-30

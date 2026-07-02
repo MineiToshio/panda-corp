@@ -4,6 +4,7 @@ type: anti-pattern
 domain: factory-engineering
 tags: [build-engine, dr-085, hardening, security-audit, telemetry, release-gate, false-done]
 context: the build engine set phase:release after the FRD loop WITHOUT running the DR-085 hardening (the security-auditor + analytics agents never spawned), declaring "done" over an un-audited, under-instrumented build — a supervising pass then found 1 CRITICAL + 1 HIGH security bug that would otherwise have shipped
+trigger: use this when an engine or orchestrator is about to set a done/release phase transition whose definition of done includes distinct mandated stages (security audit, telemetry)
 source: project personal-page-v2 (pass-3, run wf_978129ab-eca) — agent-type census showed only architect/implementer/reviewer ran; status.yaml phase:release was set with NO security-auditor and NO analytics agent; the follow-up manual hardening found CRITICAL (no security headers/CSP) + HIGH (ASI01 path-traversal in the blog-generator) + 3 telemetry gaps
 provenance: agent-inferred
 created: 2026-07-01

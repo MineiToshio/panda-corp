@@ -35,6 +35,8 @@ mission-control/.pandacorp/run/
 
 # Factory self-learning raw capture inbox (provisional notes; the librarian refines them into committed factory/memory/LESSON-*.md)
 factory/memory/_inbox.md
+# Sweep marker written by the scheduled memory routine (machine-local state, loop v2)
+factory/memory/_last-sweep
 
 # Gamification ledger — personal data (DR-033, AC-09-006.3). Records the historical
 # maximum guild outcomes so deleting a project never decreases XP/level (WO-09-006).

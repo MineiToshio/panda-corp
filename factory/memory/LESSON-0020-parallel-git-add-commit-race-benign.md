@@ -4,6 +4,7 @@ type: gotcha
 domain: factory-engineering
 tags: [git, parallel-agents, race-condition, diagnosis]
 context: two parallel build agents both stage+commit at nearly the same time; the first agent sees a non-zero exit code and could misdiagnose it as a lost commit
+trigger: use this when a parallel agent's git commit exits non-zero right after a sibling agent staged and committed at the same time
 source: mission-control lessons.md — WO-14-003 (2026-06-17)
 provenance: agent-inferred
 created: 2026-06-30

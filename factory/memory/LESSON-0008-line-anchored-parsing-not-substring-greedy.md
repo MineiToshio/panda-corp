@@ -4,6 +4,7 @@ type: anti-pattern
 domain: parsing
 tags: [regex, parsing, markdown, frontmatter, gotcha]
 context: a regex/marker parser over markdown or source text matches the FIRST substring occurrence anywhere in the file instead of a specific anchored location, silently misparsing real content
+trigger: use this when writing a regex/marker parser (status fields, delimited lists) over markdown or freeform text
 source: mission-control lessons.md — WO-05-001 work-orders.ts STATUS_RE (2026-06-16/17, committed WO-01-003/WO-01-005 misparsed done→todo); WO-17-001 parseProjects over-count (2026-06-16, comma-split before stripping parentheticals)
 provenance: agent-inferred
 created: 2026-06-30
