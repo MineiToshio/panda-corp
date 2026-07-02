@@ -23,17 +23,22 @@ No existe una tercera categoría. Si algo parece información, **es** informaci�
 emitió la señal, la escena muestra el vacío honesto (una sala fría, una banca vacía), nunca un
 valor inventado.
 
+Y una segunda regla, hermana de la primera: **una voz por dato**. Cada dato aparece UNA sola vez
+en la pantalla — el contador global y el esfuerzo viven en la barra de Misión, el estado por FRD
+en la cinta de Campaña, y la frescura en el badge (en vivo / hace N min / sin señal). Nada se
+repite en dos lugares.
+
 ## Qué ves y de dónde sale
 
 | Elemento | Qué significa | Fuente real |
 |---|---|---|
 | **Herreros en la Sala de Forja** | Órdenes de trabajo construyéndose AHORA (la oleada activa, puede mezclar varios FRDs a la vez) | El frontmatter de las work orders (`implementation_status: IN_PROGRESS`) |
-| **Banda de color bajo cada sprite** | A qué FRD pertenece esa orden | El `parent` de la work order (paleta fija de 13 colores) |
+| **Puntito de color bajo cada sprite** | A qué FRD pertenece esa orden | El `parent` de la work order (paleta fija de 13 colores) |
 | **Burbuja de diálogo** | La orden "habla" cada ~6 s: su id y su tiempo real al fuego ("12 min al fuego") | `track.jsonl` — el registro durable de tiempos del build |
 | **Tribunal del Juez** | Órdenes esperando o pasando revisión; la cola de gates (los gates corren de a UNO, serializados) | Frontmatter `IN_REVIEW` + eventos de gate del motor |
 | **El mensajero (pergamino volador)** | Una orden acaba de quedar VERDE y committeada — el pergamino corre de la forja al tribunal | El evento real `wo_commit` del motor (nunca un replay viejo) |
-| **Enfermería** | Órdenes BLOQUEADAS descansando hasta que decidas algo | Frontmatter `fail`/BLOCKED — el fallo es visible, nunca escondido en un "+N en cola" |
-| **Bóveda de trofeos** | Las últimas órdenes VERIFICADAS (y "+N arch." para las anteriores) | Frontmatter `VERIFIED` |
+| **Enfermería** | Órdenes BLOQUEADAS descansando hasta que decidas algo. Es un parche de esquina en la forja: **aparece solo cuando hay heridos** | Frontmatter `fail`/BLOCKED — el fallo es visible, nunca escondido en un "+N en cola" |
+| **Bóveda de trofeos** | El trabajo VERIFICADO. Un **FRD completo** es un **campeón**: un muñequito más grande con 🏆 al hombro y etiqueta `FRD-NN`; una orden suelta (de un FRD a medias) es una estatuilla normal con su `WO-…`. La vitrina **crece filas** para mostrarlo todo; el número de la esquina es el total real | Frontmatter `VERIFIED` (agrupado por FRD) |
 | **Cinta de Campaña (arriba)** | Todos los FRDs del build con su estado: 🔥 forjando · ⚖️ en tribunal · 🏆 completo · ⛔ bloqueado | Derivado de TODAS las work orders del proyecto |
 | **Contador global** | Órdenes hechas / totales | El mismo derivador que usa el Kanban (una sola fuente, nunca dos cuentas distintas) |
 | **El campamento (tiendas ⛺)** | Trabajo terminado en otras conversaciones que aún no llega a main (worktrees/ramas pendientes de merge) — aparece solo cuando existe | El mismo dato del chip "⎇ pendientes" (git real) |

@@ -4,6 +4,23 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-02 — Docs alignment pass: every Fragua description now matches the shipped v2 final state
+
+**What:** The blueprint §7 and the Manual page were authored EARLY on 2026-07-02, before the same
+day's consistency/aesthetics/Fase-3 iterations — this pass re-aligns every canonical description
+to what actually shipped: Manual `la-fragua.md` (vault = FRD champions + growing rows, dot instead
+of color band, enfermería occupied-only, the "una voz por dato" principle added); blueprint §7.2
+(trophies row = grouped champions, growing shelf, "+N más" past 45); FRD-06 legacy clauses
+explicitly superseded in place — AC-06-005.2 (the old 9-cap "+N archivados"), AC-06-018.3 (the
+bespoke heartbeat chip → FreshnessBadge), the REQ-06-005 summary row and the 100+ WO edge case
+(scale by grouping, not hiding). Content tests 142 green; doc-lint findings are pre-existing
+drift in OTHER FRDs (advisory, DR-077 — not introduced here).
+
+**Why:** Owner: "que toda la documentación esté alineada — los archivos internos y el Manual". A
+canonical doc that describes a superseded design is a lie by omission; superseding IN PLACE (with
+the pointer to the new AC) keeps the history readable without letting the old text stand as truth.
+Impact: `content/manual/concepts/la-fragua.md`, `docs/frds/frd-06-party/{frd.md,blueprint.md}`.
+
 ## 2026-07-02 — La Fragua v2 Fase 3 cerrada: campamento real, sprites por transform, perf medida (AC-06-019.11)
 
 **What:** Fase 3 delivered, adapted to the doctrines the owner set this same day. (1) **Campamento**

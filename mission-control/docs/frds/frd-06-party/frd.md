@@ -61,7 +61,10 @@ orders. The blueprint maps each REQ to a component/interface.
 
 ### REQ-06-005 — The Bóveda compacts so it never saturates
 - AC-06-005.1: WHEN a work order reaches `VERIFIED`, THE system SHALL place it as a **trophy** on the Bóveda shelf for the current FRD. **(IMPLEMENTED, 2026-07-01)** — trophies derive from the frontmatter (`done` WOs of the FRD), with achievement events merged on top; ZERO achievement events (the pre-v9.41 engine emitted none in a 5,000-line stream) no longer leaves the shelf empty. Closes the queued change `mc-party-trophies-frontmatter-fallback`.
-- AC-06-005.2: IF the FRD's verified trophies exceed the shelf capacity (9), THEN THE system SHALL compact the overflow into a **"+N archivados"** indicator instead of rendering every trophy, so the scene scales to 100+ WO projects (the scene being per-FRD).
+- AC-06-005.2 *(superseded 2026-07-02 by AC-06-019.9/.10 — the v2 GLOBAL shelf)*: the Bóveda now
+  GROWS a row per 9 entries and shows everything; a fully-verified FRD collapses into ONE champion
+  entry, so scale comes from grouping, not hiding. A "+N más" indicator appears only past the
+  45-entry (5-row) ceiling and counts shelf ENTRIES.
 
 ### REQ-06-006 — The parchment is the real Status Note hand-off (interfaces + decisions)
 - AC-06-006.1: WHEN a work order closes and writes its `## Status Note`, THE system SHALL render a **parchment** travelling from that work order to a **dependent** work order's station (the Build Plan dependency), representing the document hand-off — asynchronous, via artifact, **not** a live chat.
@@ -121,7 +124,10 @@ orders. The blueprint maps each REQ to a component/interface.
 The event stream only moves on transitions; a single agent grinding one work order legitimately emits nothing for minutes, which previously left the scene frozen (static sprite, empty bar). The scene SHALL convey ongoing activity from **time**, not only from discrete events.
 - AC-06-018.1: WHILE a work order is building or in review, THE system SHALL animate its sprite with a continuous ambient motion (a gentle bob + a breathing halo) so an actively-working agent reads as alive even when no new event has arrived; verified (`VERIFIED`) trophy sprites and idle sprites SHALL stay still.
 - AC-06-018.2: WHILE a work order is in the forge (sprite state `work`), THE system SHALL show a **forge "forging" indicator** on its sprite — a hammer striking above the head plus a warm ember glow (the under-sprite halo tinted `--color-warn`) — as decorative "it's being forged" eye-candy, NOT a progress value (no bar, no percentage, no fabricated fill). The real progress is conveyed by the room/walk (AC-06-003.2 / AC-06-013), not here. The hammer SHALL appear ONLY in the `work` state (hidden in vault/idle/review/etc.); under `prefers-reduced-motion` it SHALL fall back to a static raised hammer (AC-06-018.5).
-- AC-06-018.3: THE system SHALL show a **build-alive heartbeat** derived from real state: a pulsing "forjando en vivo" while the build is active and the last event is recent; a slower "sin señal reciente" once no event has arrived for over 4 minutes; and a still "en espera" when the build is not active. The state SHALL be conveyed by text + a pulse, never by color alone.
+- AC-06-018.3 *(superseded 2026-07-02 by AC-06-019.7/.9)*: the bespoke heartbeat chip gave way to
+  the DR-066 **FreshnessBadge** — the single liveness voice, with three graded bands (en vivo /
+  datos de hace N min / sin señal) fed by the freshest of the supervisor heartbeat and the latest
+  event. Text + symbol, never color alone (unchanged principle).
 - AC-06-018.4: THE always-visible flow strip SHALL softly pulse its **active** beat(s) so the top pipeline reads as live.
 - AC-06-018.5: WHEN `prefers-reduced-motion` is set, ALL of the above liveness animations SHALL be disabled (consistent with AC-06-014.1), each falling back to a sensible **static** state that still communicates "active" (a steady halo, a visible band, a solid heartbeat dot) — liveness is softened, never reduced to a dead/blank scene.
 
@@ -217,7 +223,7 @@ With the global-wave engine (BL-0021) several FRDs genuinely build at once, so t
 - More running WOs than wave size cannot occur (the engine caps at the wave); the view must never render more sprites than the mode's wave even if the event stream is noisy/duplicated.
 - Deep mode where **no** WO in the FRD has a frontend: every WO is a single `implementer`, no relays appear at all.
 - A WO blocked (`BLOCKED`) mid-build: it is counted in "+N en cola" (not a forge sprite) and its failure surfaces in the feed as a first-class state.
-- 100+ WO project: the global counter keeps climbing while each per-FRD scene stays small; the Bóveda compacts to "+N archivados" beyond 9.
+- 100+ WO project: grouping keeps the shelf small (a finished FRD = one champion however many WOs it had); the multi-row growth + the 45-entry ceiling cover the extreme tail.
 - Events arriving out of order or with a stale/empty latest bucket: the view degrades to the **factory-off state** (REQ-06-013) rather than mis-rendering.
 - A hand-off event whose dependent WO is not currently in the scene (already verified, or in a later FRD): the parchment animates to the forge edge / queue without targeting a missing sprite.
 - Mode field absent from state: fall back to the default mode (`powerful`) for the wave/relay rendering and the Misión-bar effort label without crashing.
