@@ -4,6 +4,31 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-07-01 — `design` skill: canvas loop driven by a stateful procedure — relay automation, on-disk tracker, canvas journal, closing sweep, engine routing (DR-109) · v9.43.0
+
+**What:** Phases A+B+D of the design-skill audit (`docs/proposals/22-design-skill-audit-2026-07-01.md`).
+**NEW** `plugin/skills/design/references/canvas-procedure.md` — the numbered, stateful algorithm that now
+drives the whole EXPLORE+Claude-Design path (the ~700-word Step-0 mega-paragraph is condensed to a summary +
+pointer): outbound prompts by the best transport (claude-in-chrome browser → `pbcopy` clipboard, one Cmd+V
+per round → manual) with every prompt persisted to `docs/design/canvas/prompts/`; **inbound by POLLING**
+`DesignSync list_files` until stabilization (never ask the owner "¿ya generó?"); an on-disk
+`docs/design/canvas/tracker.md` (system + every `ui:true` screen enumerated up front + the closing sweep)
+that the **Step-9 advance gate now checks** — a skipped screen is structurally impossible on any model
+(Sonnet-safe: state in files, not attention); per-round journaling (`canvas/log.md` + `iteration.md`,
+DR-032 extended to external rounds); a **closing bidirectional component-reconciliation sweep** before the
+manifest bridges to `components.md`; and the **engine routing table** in Step 0 (Claude Design default on
+greenfield EXPLORE; HTML fallback; extract on ADOPT-VISUAL; in-repo on brownfield/post-freeze). **Why:** on
+personal-page-v2 the owner was the message bus in both directions, screens were skipped until asked
+page-by-page, components used by pages never entered the system gallery, and the canvas rounds left no
+journal trace ("1 clean round" over a many-round reality). **Impact:** `plugin/skills/design/SKILL.md`
+(Step 0 routing + procedure pointer, Rules condensed, Step-9 tracker check), **NEW**
+`plugin/skills/design/references/canvas-procedure.md`, `factory/standards/design.md` (§1c relay/tracker/
+sweep/routing, §11, §12, §13), `factory/decisions/registry.yaml` (+DR-109), MC Manual `el-pipeline`
+narrative. No rule-library/OVERLAY change (factory-internal design guidance, like DR-058/DR-101). Phase C
+(claude-in-chrome autopilot spike) runs next in an interactive session; phase E validation rides the next
+UI project (once Opus, once Sonnet). Plugin v9.42.0→**v9.43.0** (MINOR). Activation: commit +
+`claude plugin update pandacorp@panda-corp` + restart.
+
 ## 2026-07-01 — `/discover` v2: verified-source playbook + rotating lenses + two-phase funnel (DR-039 reworked) · v9.42.0
 
 **What:** Full rework of `plugin/skills/discover/SKILL.md` after the owner rejected/shrugged at every

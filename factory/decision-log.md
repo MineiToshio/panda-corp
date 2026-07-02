@@ -2,6 +2,27 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-01 — Design-skill audit, phases A+B+D: canvas relay automation + on-disk tracker + canvas journal + closing sweep + engine routing (DR-109)
+
+**What:** The owner audited the design phase after `personal-page-v2` (`docs/proposals/22-design-skill-audit-2026-07-01.md`)
+and approved phases A+B+D. New DR-109: the EXPLORE+Claude-Design path is driven by a numbered stateful
+algorithm (`plugin/skills/design/references/canvas-procedure.md`) — outbound prompts by the best transport
+(claude-in-chrome browser / `pbcopy` clipboard: one Cmd+V per round / manual) with every prompt persisted;
+inbound POLLED via `DesignSync list_files` (the agent never asks "¿ya generó?"); an on-disk
+`docs/design/canvas/tracker.md` (every `ui:true` screen enumerated up front) checked by the design advance
+gate; per-round journaling into `canvas/log.md` + `iteration.md` (DR-032 now explicitly covers external-tool
+rounds); a closing bidirectional component-reconciliation sweep; and an engine routing table (Claude Design
+default on greenfield EXPLORE / HTML fallback / extract on ADOPT-VISUAL / in-repo on brownfield+post-freeze).
+**Why:** on personal-page-v2 the owner was the message bus both directions, screens were skipped until asked
+page-by-page, page-level components never entered the system gallery, and `iteration.md` recorded "1 clean
+round" over a many-round canvas reality; the DR-058/DR-101 content fixes were already in place but the
+MECHANICS (relay, completeness state, journaling, routing) were not — and the old mega-paragraph procedure
+was Opus-shaped (Sonnet would drop items; the tracker externalizes the state). **Impact:** registry
+(+DR-109), `factory/standards/design.md` §1c/§11/§12/§13, `plugin/skills/design/` (SKILL.md + new
+`references/canvas-procedure.md`), MC Manual `el-pipeline`. Plugin v9.43.0; no OVERLAY change. Pending:
+phase C (claude-in-chrome autopilot spike — outcome to be recorded in DR-109's nota), phase E (Opus+Sonnet
+validation on the next UI project).
+
 ## 2026-07-01 — Implement-speed audit, phases 3+4: builder context packs + cheap mechanical tier (DR-108) + Party producer events (closes BL-0002/0019/0020)
 
 **What:** Phase 3 — DR-108: the build planner extracts per-WO context packs (WO file path + verbatim EARS

@@ -67,12 +67,53 @@ are bundled at runtime and aren't greppable; **defer to the owner's autocomplete
 session can't authorise: the owner generates on the canvas and uses "Send to Claude Code Web", or runs
 `/design-sync` from their terminal.
 
-**Procedure.** (1) No design-system project → `create_project`. (2) **Upload ALL context** as markdown
-(master brief + `microcopy.md` + `voice-and-tone.md` + `references.md`); keep the uploaded `BRIEF.md` in sync
-when the direction changes. (3) Hand the owner **ONE exhaustive generation prompt** built from the checklist
-below. (4) **PULL-and-REVIEW** (`list_files`/`get_file`) against the checklist, issue corrective prompts,
-*then* bring it to the owner gate. (5) Integrate (tokens→`design-tokens.json`+`DESIGN.md`,
-`_ds_manifest.json`→`components.md`, shard per FRD).
+**Procedure — driven by `plugin/skills/design/references/canvas-procedure.md` (DR-109), the numbered
+stateful algorithm.** In outline: (1) setup (project + the on-disk state under `docs/design/canvas/`);
+(2) **upload ALL context** as markdown (master brief + `microcopy.md` + `voice-and-tone.md` +
+`references.md` + the surface playbooks); keep the uploaded brief in sync when the direction changes;
+(3) Stage 1 — **ONE exhaustive generation prompt** built from the checklist below → **PULL-and-REVIEW**
+(`list_files`/`get_file`) against it, corrective prompts, *then* the owner gate; (4) Stage 2 — ALL the
+screens, tracker-driven (§11); (5) the **closing sweep** (below); (6) integrate
+(tokens→`design-tokens.json`+`DESIGN.md`, `_ds_manifest.json`→`components.md`, shard per FRD).
+
+**Relay mechanics (DR-109) — automate the messages, never the decisions.** *Outbound* (prompt →
+canvas), best available transport: the owner's browser via **claude-in-chrome** (agent pastes +
+submits in the logged-in canvas chat) when connected and allowed; else **clipboard** (`pbcopy` — the
+owner's whole job per round is one Cmd+V); else manual. Every prompt is ALSO written to
+`docs/design/canvas/prompts/NNN-<slug>.md` (provenance). *Inbound* (canvas → agent): the agent
+**POLLS `DesignSync list_files` until the file set stabilizes** and auto-runs the pull-and-review —
+it never asks the owner "¿ya generó?"; the owner only ever receives decisions (approve / correct /
+defer). *Journal:* every round appends to `docs/design/canvas/log.md` + the essence to
+`.pandacorp/comms/iteration.md` — **DR-032 applies to external-tool rounds too** (personal-page-v2's
+journal read "1 clean round" over a many-round canvas reality; that false history is a defect).
+
+**On-disk completeness state (DR-109).** `docs/design/canvas/tracker.md` — one row per deliverable
+(row 0 the design system; one row per `ui:true` FRD screen, **enumerated up front from the FRDs**;
+the last row the closing sweep), statuses `pending → generated → reviewed → corrected →
+owner-approved` / `deferred(owner)`. The design advance gate refuses to advance while any row is
+neither `owner-approved` nor `deferred(owner)` — a skipped screen is structurally impossible on any
+model (externalized state, not attention — the same mechanism class as work-order frontmatter).
+
+**Closing sweep — bidirectional component reconciliation (DR-109).** After the last screen: diff the
+union of components/patterns actually used across ALL generated screens against the Stage-1 gallery +
+`_ds_manifest.json`, both directions — used-but-not-in-system → back-port to the gallery (or a
+recorded exception); in-system-but-unused → confirm intentional or prune. Only then bridge the
+manifest → `components.md`. This closes "components appeared in screens but never in the design
+system" (personal-page-v2: the project card + CTAs).
+
+**Engine routing (DR-109) — pick the engine by situation, never by improvisation:**
+
+| Situation | Engine |
+|---|---|
+| Greenfield EXPLORE, canvas auth available | **Claude Design** (default, DR-058) |
+| EXPLORE, no canvas access / headless session | Hand-authored HTML directions |
+| ADOPT-VISUAL (approved visual exists) | Neither generates — extract faithfully (§1); optional push UP |
+| Brownfield with substantial built UI | Iterate in-repo on the frozen system; canvas only for genuinely NEW surfaces |
+| Post-freeze per-FRD tweak | In-repo on the frozen tokens; on CD provenance offer the re-sync mirror (DR-081), never auto-push |
+
+Rationale for the default: implementation fidelity from Claude Design output has been HIGH
+(token-clean, coherent library + manifest) while hand-authored HTML historically diverged at build
+time (Mission Control). Beta + the owner's login; offer, don't force.
 
 **Token authorship.** On EXPLORE+Claude Design the canvas **proposes** the palette/system from the brief's
 qualitative direction (mood, dark-default + first-class light, one rationed accent, OKLCH, AA both themes);
@@ -366,11 +407,13 @@ On the EXPLORE + Claude Design path, generation is an explicit **two-stage caden
 1. **Stage 1 — the design SYSTEM** (tokens / brand / the full component gallery + states + motion, per
    the §1c checklist). Owner approves the system.
 2. **Stage 2 — ALL the screens.** The agent **enumerates the full screen set from the FRDs** (every FRD
-   with `ui:true` → its screen(s); see each FRD's screen→mock mapping) and drives generation **one
-   screen at a time, each with pull-and-review** (§1c) against its playbook (`references/surface-playbooks.md`)
-   and the rubric (§12). The owner must **never have to ask "where are the other pages?"** — the
-   landing alone is not a delivered design (`personal-page-v2`, 2026-06-28: only the landing generated
-   until the owner asked page-by-page).
+   with `ui:true` → its screen(s); see each FRD's screen→mock mapping) **up front into
+   `docs/design/canvas/tracker.md` (DR-109)** and drives generation **one screen at a time, each with
+   pull-and-review** (§1c) against its playbook (`references/surface-playbooks.md`)
+   and the rubric (§12). The owner must **never have to ask "where are the other pages?"** — a
+   `pending` tracker row is the agent's queue, and the advance gate blocks on an incomplete tracker
+   (the landing alone is not a delivered design; `personal-page-v2`, 2026-06-28: only the landing
+   generated until the owner asked page-by-page).
 
 **Prompts are EXPLICIT and unambiguous.** A canvas prompt names the element and states exactly what
 changes and what stays — *"Delete the ENTIRE element including its text and its link; replace it with
@@ -397,7 +440,9 @@ screenshot** (the pull-and-review discipline of §1c, applied per screen). Each 
 | 10 | **Surface playbook** followed for the matching surface (case study / Now / blog / contact / archive / stack) | `references/surface-playbooks.md` |
 
 A screen that fails any check gets a corrective prompt **before** the owner gate — the gate sees a
-reviewed screen, not a first draft.
+reviewed screen, not a first draft. Each screen's verdict is recorded in its `tracker.md` row
+(DR-109); after the LAST screen, the **closing sweep** (§1c) reconciles components used-in-screens ↔
+the system gallery before the manifest is bridged to `components.md`.
 
 ## 13. Where this is wired
 
@@ -417,4 +462,5 @@ reviewed screen, not a first draft.
 | One cohesive app — cross-surface consistency (DR-062) | `plugin/skills/design/SKILL.md`, `plugin/agents/designer.md`, `plugin/agents/reviewer.md` |
 | Hierarchy/proportion, real content, full-screen-set cadence, per-screen rubric (DR-101 §9–§12) | `plugin/skills/design/SKILL.md` (EXPLORE path), `factory/standards/design.md` §9–§12, `plugin/agents/reviewer.md` |
 | Per-surface playbooks (case study / Now / blog / contact / archive / stack) (DR-101) | `plugin/skills/design/references/surface-playbooks.md` |
+| Canvas procedure — relay (poll/clipboard/browser), tracker, canvas journal, closing sweep, engine routing (DR-109) | `plugin/skills/design/references/canvas-procedure.md`, `plugin/skills/design/SKILL.md` (Step 0 + Step 9 gate), this file §1c/§11/§12 |
 | Functional reconciliation prototype ↔ FRD, bidirectional (DR-064) | `plugin/skills/design/SKILL.md`, `plugin/skills/adopt/SKILL.md`, `plugin/agents/designer.md` |

@@ -24,6 +24,8 @@ Habilidades: `/pandacorp:spec`, `/pandacorp:explore`, `/pandacorp:new-idea`.
 
 Se crean mockups navegables con identidad visual bespoke para el dominio. El sistema de diseño produce tokens (colores, espaciado, tipografía, radio) que son la única fuente de valores visuales en el código — nunca valores hardcodeados.
 
+El motor de generación se elige por situación con una tabla de ruteo (DR-109): en un proyecto nuevo (camino EXPLORE) con acceso al canvas, el motor por defecto es **Claude Design** (claude.ai/design); sin acceso, direcciones HTML hechas a mano; con un visual ya aprobado se extrae fielmente (ADOPT-VISUAL); en brownfield con UI construida se itera en el repo. Con Claude Design, el loop lo conduce el agente con estado en disco (DR-109): un **tracker** enumera desde los FRDs todas las pantallas a generar (saltarse una página es imposible — el gate de avance lo verifica), los prompts viajan por el mejor transporte disponible (navegador vía claude-in-chrome, o portapapeles — tu único trabajo por ronda es un Cmd+V), el agente **detecta solo** cuándo el canvas terminó (polling) y revisa cada pantalla contra una rúbrica antes de mostrártela, y cada ronda queda registrada en el journal. Al cierre, un barrido reconcilia los componentes usados en las pantallas contra la galería del sistema. Tú solo tomas decisiones (aprobar / corregir / diferir), nunca haces de mensajero.
+
 Habilidad: `/pandacorp:design`.
 
 ### 3. Architecture
