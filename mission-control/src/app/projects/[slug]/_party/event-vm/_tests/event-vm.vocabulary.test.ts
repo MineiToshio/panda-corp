@@ -21,9 +21,10 @@ describe("frd-06 Wave 3: real event names map into the bounded vocabulary", () =
     expect(vm.label).toBe("Forjando");
   });
 
-  it("frd-06: AgentWorking (review, no activity) → generic review label", () => {
+  it("frd-06: AgentWorking (review, no activity) → generic review label + review glyph", () => {
     const vm = toEventVM(ev({ event: "AgentWorking", phase: "review" }));
     expect(vm.label).toBe("Revisión en curso");
+    expect(vm.icon).toBe(EVENT_ICON.review);
   });
 
   it("frd-06: BuildLaunch → launch glyph + Spanish label", () => {

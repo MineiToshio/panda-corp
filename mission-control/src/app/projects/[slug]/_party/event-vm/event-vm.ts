@@ -288,7 +288,11 @@ function resolveRoleColorKey(role: string | undefined): string | undefined {
  * - project:      pass-through when present.
  */
 export function toEventVM(event: DashboardEvent): EventVM {
-  const typeKey = resolveEventType(event.event);
+  // A review-phase AgentWorking is tribunal activity — review glyph, not forge.
+  const typeKey =
+    event.event === "AgentWorking" && event.phase === "review"
+      ? "review"
+      : resolveEventType(event.event);
   const icon = resolveIcon(typeKey);
   const label = deriveLabel(event, typeKey);
   const toolIcon = resolveToolIcon(event.tool);
