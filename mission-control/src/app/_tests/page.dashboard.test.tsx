@@ -44,6 +44,8 @@ const HEALTHY_MEMORY = {
   candidates: 0,
   lastMemoryRunAt: new Date().toISOString(),
   staleDays: 0,
+  lastSweepAt: null,
+  harvestOrphans: [],
 };
 
 const GUILD_LEVEL: GuildLevel = {

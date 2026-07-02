@@ -42,6 +42,8 @@ const FIXTURE_CANDIDATE: Lesson = {
   links: ["DR-047"],
   projects: ["proj-alpha"],
   body: "Never add 'use server' to page.tsx with non-async default exports.",
+  trigger: "",
+  appliedIn: [],
   evalGate: "awaiting-2nd",
 };
 
@@ -49,6 +51,8 @@ const FIXTURE_CANDIDATE_CORROBORATED: Lesson = {
   ...FIXTURE_CANDIDATE,
   id: "LESSON-0002",
   projects: ["proj-alpha", "proj-beta"],
+  trigger: "",
+  appliedIn: [],
   evalGate: "corroborated",
 };
 
@@ -63,6 +67,8 @@ const FIXTURE_PROMOTION: Lesson = {
   links: ["DR-047"],
   projects: ["proj-alpha", "proj-beta"],
   body: "Use gray-matter with { excerpt: false } to bypass cache.",
+  trigger: "",
+  appliedIn: [],
   evalGate: "corroborated",
 };
 
@@ -77,6 +83,8 @@ const FIXTURE_PRUNE: Lesson = {
   links: [],
   projects: ["proj-alpha"],
   body: "Deprecated anti-pattern.",
+  trigger: "",
+  appliedIn: [],
   evalGate: "corroborated",
 };
 
@@ -118,6 +126,8 @@ vi.mock("@/lib/memory/memory-health", () => ({
     candidates: 0,
     lastMemoryRunAt: null,
     staleDays: null,
+    lastSweepAt: null,
+    harvestOrphans: [],
   })),
 }));
 

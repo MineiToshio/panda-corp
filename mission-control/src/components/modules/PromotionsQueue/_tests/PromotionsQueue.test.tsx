@@ -43,6 +43,8 @@ function makeProposed(overrides: Partial<Lesson> = {}): Lesson {
     links: ["DR-001"],
     projects: ["proj-alpha"],
     body: "Situation: ...\n\nLesson: use X\n\nApply next time: always X.",
+    trigger: "",
+    appliedIn: [],
     evalGate: "corroborated",
     ...overrides,
   };

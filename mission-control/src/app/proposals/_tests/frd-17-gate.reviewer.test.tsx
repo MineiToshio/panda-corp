@@ -158,6 +158,8 @@ const DISMISSABLE_LESSON: Lesson = {
   links: [],
   projects: ["proj-alpha"],
   body: "**Situation:** S.\n\n**Lesson:** L.\n\n**Apply next time:** A.",
+  trigger: "",
+  appliedIn: [],
   evalGate: "awaiting-2nd",
 };
 

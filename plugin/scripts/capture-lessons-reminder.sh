@@ -1,10 +1,12 @@
 #!/bin/bash
-# Pandacorp lesson-capture reminder (DR-047 loop v2, Fase 1.3 — the Devin/CodeRabbit
-# pattern: a correction is a capture event, and agents forget rule 8).
-# Fires ONCE per session, on Stop, only in a Pandacorp context (the factory or a
-# project), only for substantive sessions, and only if the raw inbox wasn't already
-# written recently. It does not detect corrections itself (that judgment is the
-# model's); it forces the model to ASK ITSELF the question once before finishing.
+# Pandacorp lesson-capture BACKSTOP (DR-047 loop v2, Fase 1.3).
+# The PRIMARY capture is in-the-moment (rule 8): the instant the owner corrects
+# something, a fix lands after a failure, or a library verdict emerges, the agent
+# jots the one-liner IN THAT SAME TURN. This hook is only the safety net for what
+# slipped through: it fires ONCE per session, on Stop, and tells the agent to
+# RE-SCAN the conversation it just had — the full transcript is in its context,
+# so this is a read-back, never a memory quiz (the owner shouldn't have to
+# remember anything; neither should the agent guess).
 # Exit 2 = one-time nudge (stderr shown to the model). Exit 0 = allow stop.
 
 input=$(cat)
@@ -28,7 +30,8 @@ else
   exit 0
 fi
 
-# If the inbox was already written in the last hour, capture is alive — stay silent.
+# If the inbox was already written in the last hour, in-the-moment capture is
+# alive (rule 8 working as designed) — stay silent, the backstop isn't needed.
 if [ -f "$inbox" ] && [ -n "$(find "$inbox" -mmin -60 2>/dev/null)" ]; then
   touch "$marker"; exit 0
 fi
@@ -42,13 +45,17 @@ fi
 
 touch "$marker"
 cat >&2 <<EOF
-Pandacorp capture check (DR-047, once per session): before finishing, ask yourself —
-did the owner CORRECT you, did something fail and then get FIXED, did a library/tool
-prove itself or fail, did you hit a non-obvious gotcha? Each of those is a capture
-event. If ANY apply, jot one-line candidates NOW to: $inbox
+Pandacorp capture backstop (DR-047, once per session): the raw inbox has no recent
+notes, so before finishing RE-SCAN THIS CONVERSATION — it is fully in your context;
+do not rely on recall or ask the owner to remember. Walk it turn by turn and pull
+out every capture event you did not jot at the moment it happened: an owner
+correction ("no, hazlo asi", "esto esta mal", "por que lo hiciste asi?"), a
+failure you later fixed, a library/tool that proved itself or failed, a non-obvious
+gotcha. Write ONE line each to: $inbox
 (prefix: gap · = a defect to fix -> routes to the backlog | gotcha ·/verdict ·/pattern ·
 = durable knowledge -> routes to memory; tag (owner-stated) if the owner said it, else
-(agent-inferred)). Do NOT polish — one line each; the librarian refines later.
-If nothing durable happened, just finish — this reminder will not fire again this session.
+(agent-inferred)). Reminder for next time: rule 8 says capture IN THE SAME TURN the
+event happens — this backstop existing is not a license to defer. If the re-scan
+finds nothing durable, just finish; this will not fire again this session.
 EOF
 exit 2

@@ -106,9 +106,11 @@ export const SELF_SUGGEST_EVENT_CAP = 200;
 /**
  * Minimum raw-notes count that triggers the memory-health staleness nudge.
  * Below this, no nudge is shown (REQ-17-008: no nagging).
+ * Matches the loop v2 daily-sweep threshold (DR-047: >=20 pending notes), so the
+ * panel ambers exactly when the scheduled sweep would fire (WO-17-005).
  * (blueprint §3 CMP-17-health, AC-17-005.2)
  */
-export const MEMORY_RAW_NOTES_THRESHOLD = 10;
+export const MEMORY_RAW_NOTES_THRESHOLD = 20;
 
 /**
  * Minimum stale days count that triggers the memory-health staleness nudge.

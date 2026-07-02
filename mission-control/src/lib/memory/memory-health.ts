@@ -38,6 +38,18 @@ export type MemoryHealth = {
    * Null when lastMemoryRunAt is null.
    */
   staleDays: number | null;
+  /**
+   * ISO timestamp written by the scheduled daily sweep to `factory/memory/_last-sweep`
+   * (loop v2, WO-17-005) — the REAL "last full sweep" signal, unlike the mtime proxy.
+   * Null when the marker is absent or its content is not a parseable date (honest empty).
+   */
+  lastSweepAt: string | null;
+  /**
+   * Portfolio project names whose `.pandacorp/status.yaml` says `phase: release` but has
+   * NO `last_harvest:` stamp — a build that closed without harvesting its lessons
+   * (loop v2, WO-17-005). Empty when none (honest empty, never fabricated).
+   */
+  harvestOrphans: string[];
 };
 
 // ---------------------------------------------------------------------------
@@ -132,17 +144,20 @@ function resolvePortfolioPath(rawPath: string, factoryRoot: string): string | nu
   return path.isAbsolute(normalizedPath) ? normalizedPath : path.join(factoryRoot, normalizedPath);
 }
 
+/** A portfolio row reduced to what memory-health needs. */
+type PortfolioProject = { name: string; projectPath: string };
+
 /**
- * Extract project paths from a raw portfolio markdown string.
+ * Extract project entries (name + absolute path) from a raw portfolio markdown string.
  *
- * Parses the GFM table to pull the second column (Path). Relative paths are
- * resolved against factoryRoot; absolute paths are used verbatim.
+ * Parses the GFM table to pull the first column (Name) and second column (Path).
+ * Relative paths are resolved against factoryRoot; absolute paths are used verbatim.
  *
  * Kept inside lib/memory to avoid a circular-import risk with lib/portfolio.
  * Fail-soft: malformed rows are skipped.
  */
-function extractProjectPaths(portfolioContent: string, factoryRoot: string): string[] {
-  const paths: string[] = [];
+function extractProjectEntries(portfolioContent: string, factoryRoot: string): PortfolioProject[] {
+  const entries: PortfolioProject[] = [];
   let hasHeader = false;
 
   for (const line of portfolioContent.split("\n")) {
@@ -158,21 +173,57 @@ function extractProjectPaths(portfolioContent: string, factoryRoot: string): str
     if (!hasHeader) continue;
 
     const resolved = resolvePortfolioPath(cells[1] ?? "", factoryRoot);
-    if (resolved !== null) paths.push(resolved);
+    const name = (cells[0] ?? "").trim();
+    if (resolved !== null && name !== "") entries.push({ name, projectPath: resolved });
   }
 
-  return paths;
+  return entries;
 }
 
-/** Read the portfolio and return absolute project paths; [] when absent/unreadable. */
-function resolvePortfolioProjectPaths(factoryRoot: string): string[] {
+/** Read the portfolio and return its project entries; [] when absent/unreadable. */
+function resolvePortfolioProjects(factoryRoot: string): PortfolioProject[] {
   try {
     const portfolioPath = path.join(factoryRoot, "factory", "portfolio.md");
     const portfolioMd = fs.readFileSync(portfolioPath, "utf-8");
-    return extractProjectPaths(portfolioMd, factoryRoot);
+    return extractProjectEntries(portfolioMd, factoryRoot);
   } catch {
     return [];
   }
+}
+
+/**
+ * Read the daily sweep marker (`factory/memory/_last-sweep`, loop v2) and return its
+ * ISO timestamp, or null when absent/unparseable (fail-soft, honest empty).
+ */
+function readLastSweep(dir: string): string | null {
+  let raw: string;
+  try {
+    raw = fs.readFileSync(path.join(dir, "_last-sweep"), "utf-8");
+  } catch {
+    return null;
+  }
+  const trimmed = raw.trim();
+  if (trimmed === "" || Number.isNaN(new Date(trimmed).getTime())) return null;
+  return trimmed;
+}
+
+/**
+ * True when a project's `.pandacorp/status.yaml` says `phase: release` but carries
+ * NO `last_harvest:` stamp — the build closed without harvesting (loop v2).
+ * Line-anchored matching (LESSON-0008: parse lines, never greedy substrings);
+ * a missing/unreadable status.yaml is NOT an orphan (fail-soft).
+ */
+function isHarvestOrphan(projectPath: string): boolean {
+  let raw: string;
+  try {
+    raw = fs.readFileSync(path.join(projectPath, ".pandacorp", "status.yaml"), "utf-8");
+  } catch {
+    return false;
+  }
+  const lines = raw.split("\n").map((l) => l.trim());
+  const isRelease = lines.some((l) => /^phase:\s*['"]?release['"]?\s*$/.test(l));
+  const hasHarvest = lines.some((l) => /^last_harvest:\s*\S/.test(l));
+  return isRelease && !hasHarvest;
 }
 
 // ---------------------------------------------------------------------------
@@ -198,10 +249,11 @@ export function memoryHealth(): MemoryHealth {
   const factoryRoot = resolveFactoryRoot();
   const dir = path.join(factoryRoot, "factory", "memory");
   const inboxPath = path.join(dir, "_inbox.md");
+  const projects = resolvePortfolioProjects(factoryRoot);
 
   // rawNotes = inbox lines + per-project run/lessons.md lines.
   let rawNotes = countNonEmptyLines(inboxPath);
-  for (const projectPath of resolvePortfolioProjectPaths(factoryRoot)) {
+  for (const { projectPath } of projects) {
     rawNotes += countNonEmptyLines(path.join(projectPath, ".pandacorp", "run", "lessons.md"));
   }
 
@@ -210,5 +262,9 @@ export function memoryHealth(): MemoryHealth {
     mostRecentMtime(collectMtimePaths(dir, inboxPath)),
   );
 
-  return { rawNotes, candidates, lastMemoryRunAt, staleDays };
+  // Loop v2 signals (WO-17-005): the real sweep marker + release-without-harvest projects.
+  const lastSweepAt = readLastSweep(dir);
+  const harvestOrphans = projects.filter((p) => isHarvestOrphan(p.projectPath)).map((p) => p.name);
+
+  return { rawNotes, candidates, lastMemoryRunAt, staleDays, lastSweepAt, harvestOrphans };
 }

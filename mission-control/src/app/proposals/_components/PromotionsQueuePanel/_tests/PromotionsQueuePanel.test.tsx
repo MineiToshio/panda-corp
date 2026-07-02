@@ -16,6 +16,8 @@ function makeLesson(over: Partial<Lesson>): Lesson {
     links: ["DR-001"],
     projects: ["proj-alpha"],
     body: "**Situation:** the gate broke.\n\n**Lesson:** split the fallback.\n\n**Apply next time:** guard both causes.",
+    trigger: "",
+    appliedIn: [],
     evalGate: "corroborated",
     ...over,
   };

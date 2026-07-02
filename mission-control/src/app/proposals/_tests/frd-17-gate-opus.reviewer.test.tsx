@@ -51,6 +51,8 @@ function lesson(overrides: Partial<Lesson> = {}): Lesson {
     links: [],
     projects: ["proj-x", "proj-y"],
     body: "A reusable lesson body.",
+    trigger: "",
+    appliedIn: [],
     evalGate: "corroborated",
     ...overrides,
   };

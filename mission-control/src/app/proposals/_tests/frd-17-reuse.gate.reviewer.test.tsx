@@ -55,6 +55,8 @@ const STALE_HEALTH: MemoryHealthData = {
   candidates: 3,
   lastMemoryRunAt: "2026-05-01T10:00:00Z",
   staleDays: 51,
+  lastSweepAt: null,
+  harvestOrphans: [],
 };
 
 const PROPOSED_LESSON: Lesson = {
@@ -68,6 +70,8 @@ const PROPOSED_LESSON: Lesson = {
   links: ["DR-052"],
   projects: ["quick-notes", "Pandacorp", "recipe-keeper"],
   body: "**Situation:** next/font avoids CLS.\n\n**Lesson:** fix it as a standard.",
+  trigger: "",
+  appliedIn: [],
   evalGate: "corroborated",
 };
 

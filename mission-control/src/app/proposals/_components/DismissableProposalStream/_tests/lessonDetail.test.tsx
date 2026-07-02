@@ -15,6 +15,8 @@ function makeLesson(over: Partial<Lesson>): Lesson {
     source: "project personal-page-v2",
     links: [],
     projects: [],
+    trigger: "",
+    appliedIn: [],
     evalGate: "awaiting-2nd",
     body: "**Situation:** the gate broke.\n\n**Lesson:** Do not conflate two failure causes.\n\n**Apply next time:** split the fallback.",
     ...over,

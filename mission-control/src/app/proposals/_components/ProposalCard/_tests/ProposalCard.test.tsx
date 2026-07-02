@@ -38,6 +38,8 @@ function makeLesson(overrides: Partial<Lesson> = {}): Lesson {
     links: ["DR-047"],
     projects: ["proj-alpha"],
     body: "Never add 'use server' to page.tsx files that export non-async default exports.",
+    trigger: "",
+    appliedIn: [],
     evalGate: "awaiting-2nd",
     ...overrides,
   };
@@ -160,6 +162,8 @@ describe("ProposalCard — promotion variant", () => {
       id: "LESSON-0042",
       status: "active",
       promotion: "proposed",
+      trigger: "",
+      appliedIn: [],
       evalGate: "corroborated",
     });
     render(<ProposalCard kind="promotion" lesson={lesson} />);
@@ -193,6 +197,8 @@ describe("ProposalCard — prune variant", () => {
     const lesson = makeLesson({
       id: "LESSON-0007",
       status: "deprecated",
+      trigger: "",
+      appliedIn: [],
       evalGate: "corroborated",
     });
     render(<ProposalCard kind="prune" lesson={lesson} />);

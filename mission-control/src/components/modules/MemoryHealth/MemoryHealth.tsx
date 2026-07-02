@@ -211,6 +211,25 @@ function staleLabel(staleDays: number | null): string {
 }
 
 /**
+ * "Última cosecha" sub-line. When the daily sweep marker exists (loop v2,
+ * `_last-sweep`) it shows the REAL sweep timestamp — the "(aprox.)" mtime proxy
+ * is only the fallback for stores the sweep has never touched (AC-17-005.4).
+ */
+function harvestSubLabel({
+  isFreshFactory,
+  lastMemoryRunAt,
+  lastSweepAt,
+}: {
+  isFreshFactory: boolean;
+  lastMemoryRunAt: string | null;
+  lastSweepAt: string | null;
+}): string {
+  if (lastSweepAt !== null) return `barrido diario · ${formatDate(lastSweepAt)}`;
+  if (isFreshFactory) return "/pandacorp:memory · aún sin correr";
+  return `/pandacorp:memory · ${formatDate(lastMemoryRunAt ?? "")} (aprox.)`;
+}
+
+/**
  * "Última cosecha" card value (AC-17-005.1/.5). For a fresh factory it reads
  * "nunca"; otherwise it pairs a history icon (the a11y stale icon — text + icon,
  * never color alone) with the "hace Nd" delta. Carries the testids the suite
@@ -253,7 +272,7 @@ export function MemoryHealth({
   health,
   promotionsCount = 0,
 }: MemoryHealthProps): React.JSX.Element {
-  const { rawNotes, candidates, lastMemoryRunAt, staleDays } = health;
+  const { rawNotes, candidates, lastMemoryRunAt, staleDays, lastSweepAt, harvestOrphans } = health;
 
   // Threshold checks (AC-17-005.2).
   const isRawNotesAbove = rawNotes >= MEMORY_RAW_NOTES_THRESHOLD;
@@ -307,11 +326,7 @@ export function MemoryHealth({
         <DStat
           label="Última cosecha"
           value={<HarvestRecencyValue isFreshFactory={isFreshFactory} staleDays={staleDays} />}
-          sub={
-            isFreshFactory
-              ? "/pandacorp:memory · aún sin correr"
-              : `/pandacorp:memory · ${formatDate(lastMemoryRunAt ?? "")} (aprox.)`
-          }
+          sub={harvestSubLabel({ isFreshFactory, lastMemoryRunAt, lastSweepAt })}
           icon={<i className="ti ti-history" style={{ fontSize: "14px" }} aria-hidden="true" />}
           accent={harvestAccent}
           valueTestId="memory-health-last-run-value"
@@ -372,6 +387,29 @@ export function MemoryHealth({
           </BDemo>
         </div>
       )}
+
+      <OrphansBanner orphans={harvestOrphans} />
     </section>
+  );
+}
+
+/**
+ * Harvest orphans — a build reached `phase: release` WITHOUT its close-out harvest
+ * (no `last_harvest` stamp, loop v2 / WO-17-005). Danger: the loop loses that build's
+ * lessons until someone harvests. The shared Banner (DR-057), real data only —
+ * renders nothing when there are no orphans (honest empty).
+ */
+function OrphansBanner({ orphans }: { orphans: string[] }): React.JSX.Element | null {
+  if (orphans.length === 0) return null;
+  return (
+    <div data-testid="memory-health-orphans">
+      <Banner
+        tone="danger"
+        kind="inline"
+        heading={`${orphans.length} build${orphans.length === 1 ? "" : "s"} sin cosechar: ${orphans.join(", ")}`}
+        detail="Cerraron en release sin sello last_harvest — sus lecciones aún no entraron a la memoria. Cosecha ahora:"
+        commandRow={`${CMD_HARVEST} ${orphans[0] ?? ""}`.trim()}
+      />
+    </div>
   );
 }

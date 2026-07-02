@@ -59,6 +59,8 @@ It extends FRD-14's chips/feedback channels with a third stream and consumes FRD
 
 **`IF-17-memory` — `lib/memory.ts`** (new module, architecture §6).
 
+> **Loop v2 (WO-17-005, 2026-07-02):** `Lesson` gained `trigger: string` ("use this when …", `""` pre-v2) and `appliedIn: string[]` (`applied_in:`, the script-maintained usage signal — distinct from `projects`, the corroboration signal derived from `source`). `MemoryHealth` gained `lastSweepAt: string | null` (ISO content of `factory/memory/_last-sweep`, the daily sweep marker; null honest) and `harvestOrphans: string[]` (portfolio projects with `phase: release` and no `last_harvest:` stamp in their `status.yaml`; line-anchored parse, fail-soft). `MEMORY_RAW_NOTES_THRESHOLD` moved 10 → 20 to match the loop-v2 sweep threshold (DR-047).
+
 ```ts
 type PromotionState = "none" | "proposed" | "approved" | "rejected";
 type LessonStatus = "candidate" | "active" | "deprecated";

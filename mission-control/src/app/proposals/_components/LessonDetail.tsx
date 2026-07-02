@@ -120,8 +120,15 @@ export function LessonDetail({
         {promotionMeta != null && <Chip tone={promotionMeta.tone}>{promotionMeta.label}</Chip>}
       </div>
 
-      {/* Provenance */}
+      {/* Provenance + loop v2 retrieval fields (trigger / applied_in, WO-17-005) */}
       <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+        {lesson.trigger !== "" && <MetaLine label="Úsala cuando" value={lesson.trigger} />}
+        {lesson.appliedIn.length > 0 && (
+          <MetaLine
+            label={`Aplicada en ${lesson.appliedIn.length} proyecto${lesson.appliedIn.length === 1 ? "" : "s"}`}
+            value={lesson.appliedIn.join(", ")}
+          />
+        )}
         {lesson.source !== "" && <MetaLine label="Origen" value={lesson.source} />}
         {lesson.links.length > 0 && <MetaLine label="Vínculos" value={lesson.links.join(", ")} />}
       </div>

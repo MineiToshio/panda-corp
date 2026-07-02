@@ -32,6 +32,8 @@ const PROMOTION_LESSON: Lesson = {
   links: ["DR-047"],
   projects: ["proj-alpha", "proj-beta"],
   body: "Use gray-matter with { excerpt: false } to bypass cache.",
+  trigger: "",
+  appliedIn: [],
   evalGate: "corroborated",
 };
 
@@ -47,6 +49,8 @@ vi.mock("@/lib/memory/memory-health", () => ({
     candidates: 1,
     lastMemoryRunAt: "2026-06-10T00:00:00.000Z",
     staleDays: 8,
+    lastSweepAt: null,
+    harvestOrphans: [],
   })),
 }));
 

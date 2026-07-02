@@ -39,6 +39,8 @@ const CANDIDATE_LESSON: Lesson = {
   links: [],
   projects: ["proj-alpha"],
   body: "**Situation:** S.\n\n**Lesson:** L.\n\n**Apply next time:** A.",
+  trigger: "",
+  appliedIn: [],
   evalGate: "awaiting-2nd",
 };
 
@@ -54,6 +56,8 @@ vi.mock("@/lib/memory/memory-health", () => ({
     candidates: 1,
     lastMemoryRunAt: "2026-06-17T00:00:00.000Z",
     staleDays: 1,
+    lastSweepAt: null,
+    harvestOrphans: [],
   })),
 }));
 

@@ -4,6 +4,21 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-07-02 — v9.49.1: capture is in-the-moment; the Stop hook is a context RE-SCAN backstop, never a memory quiz
+
+**What:** owner feedback on v9.49.0's capture hook ("no me gusta que pregunte al final si me
+acuerdo — la conversación pasa en tiempos distintos y no me voy a acordar; el agente debe capturar
+en el momento en que le voy diciendo las cosas"). Two changes: (1) rule 8 (factory `CLAUDE.md` +
+project `guide.md.tpl`, OVERLAY 8.55.3 → 8.55.4) now mandates capture **IN THE SAME TURN** the
+event happens (an owner correction, a fix-after-failure, a library verdict, a gotcha) — deferring to
+session end is explicitly forbidden ("deferred capture is lost capture"); (2)
+`capture-lessons-reminder.sh` is reframed as the BACKSTOP: when it fires (once per session, only if
+the inbox has no recent notes) it instructs the agent to **re-scan the full conversation in its
+context, turn by turn** — a read-back of what slipped, never "try to remember" and never a question
+to the owner. **Why:** the owner's memory must never be a dependency of the loop; the agent's
+context holds the whole conversation, so the honest mechanism is same-turn capture + a mechanical
+re-scan net. PATCH.
+
 ## 2026-07-02 — v9.49.0: self-learning loop v2 — the loop turns by itself, retrieval is measured, lessons are validated (proposal 23)
 
 **What:** the full loop-v2 plan (owner-approved, `docs/proposals/23-self-learning-loop-v2.md`) lands in one

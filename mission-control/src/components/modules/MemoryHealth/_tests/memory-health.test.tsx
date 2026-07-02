@@ -31,14 +31,18 @@ const BELOW_THRESHOLD: MemoryHealthData = {
   candidates: 1,
   lastMemoryRunAt: "2026-06-18T10:00:00.000Z",
   staleDays: 3,
+  lastSweepAt: null,
+  harvestOrphans: [],
 };
 
 /** Above-threshold rawNotes: nudge should appear. */
 const ABOVE_RAW_NOTES: MemoryHealthData = {
-  rawNotes: 15,
+  rawNotes: 25,
   candidates: 1,
   lastMemoryRunAt: "2026-06-18T10:00:00.000Z",
   staleDays: 3,
+  lastSweepAt: null,
+  harvestOrphans: [],
 };
 
 /** Above-threshold staleDays: nudge should appear. */
@@ -47,6 +51,8 @@ const ABOVE_STALE_DAYS: MemoryHealthData = {
   candidates: 1,
   lastMemoryRunAt: "2026-06-01T10:00:00.000Z",
   staleDays: 20,
+  lastSweepAt: null,
+  harvestOrphans: [],
 };
 
 /** Both above threshold. */
@@ -55,6 +61,8 @@ const BOTH_ABOVE: MemoryHealthData = {
   candidates: 5,
   lastMemoryRunAt: "2026-05-01T10:00:00.000Z",
   staleDays: 30,
+  lastSweepAt: null,
+  harvestOrphans: [],
 };
 
 /** Fresh factory — no memory yet (null signals). */
@@ -63,6 +71,8 @@ const FRESH_FACTORY: MemoryHealthData = {
   candidates: 0,
   lastMemoryRunAt: null,
   staleDays: null,
+  lastSweepAt: null,
+  harvestOrphans: [],
 };
 
 // ---------------------------------------------------------------------------

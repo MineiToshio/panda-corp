@@ -34,11 +34,15 @@ export type Lesson = {
   domain: string;
   /** One-line human-written summary (frontmatter `context:`) — the card title. */
   context: string;
+  /** "use this when …" retrieval condition (loop v2 `trigger:`); "" on pre-v2 lessons. */
+  trigger: string;
   status: LessonStatus;
   promotion: PromotionState;
   source: string;
   links: string[];
   projects: string[];
+  /** Projects whose artifacts CITED this lesson (loop v2 `applied_in:`, script-maintained USAGE signal — distinct from `projects`, the corroboration signal derived from `source`). [] on pre-v2 lessons. */
+  appliedIn: string[];
   body: string;
   evalGate: EvalGate;
 };
@@ -275,6 +279,10 @@ function parseLessonFile(filePath: string): Lesson | null {
 
   // context: the one-line human summary (the card title). Optional → "".
   const context = typeof fm.context === "string" ? fm.context.trim() : "";
+  // trigger: "use this when …" retrieval condition (loop v2). Optional → "" (pre-v2 lessons, fail-soft).
+  const trigger = typeof fm.trigger === "string" ? fm.trigger.trim() : "";
+  // applied_in: citing projects (loop v2, script-maintained). Optional/malformed → [] (same coercion as links).
+  const appliedIn = coerceLinks(fm.applied_in);
   // body: gray-matter exposes content after the frontmatter as `.content`.
   const body: string = typeof parsed.content === "string" ? parsed.content.trim() : "";
 
@@ -288,11 +296,13 @@ function parseLessonFile(filePath: string): Lesson | null {
     type,
     domain,
     context,
+    trigger,
     status,
     promotion,
     source,
     links,
     projects,
+    appliedIn,
     body,
     evalGate,
   };

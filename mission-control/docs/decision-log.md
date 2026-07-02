@@ -4,6 +4,29 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-02 — FRD-17 reads the self-learning loop v2 (WO-17-005): trigger/applied_in + real sweep + harvest orphans
+
+**What:** The factory's self-learning loop v2 (panda-corp proposal 23, plugin v9.49.0) extended the
+lesson schema and the loop's health signals; FRD-17's surfaces now read them. `lib/memory` parses
+`trigger:` ("use this when …") and `applied_in:` (citing projects) fail-soft per lesson; the
+lesson/promotion detail shows "Úsala cuando" + "Aplicada en N proyectos". `memoryHealth()` adds
+`lastSweepAt` (the daily sweep marker `_last-sweep` — the panel shows the REAL "barrido diario"
+timestamp instead of the "(aprox.)" mtime proxy when present) and `harvestOrphans` (a `phase:
+release` project with no `last_harvest:` stamp — a build that closed without harvesting — surfaced
+as a danger banner with the harvest command). `MEMORY_RAW_NOTES_THRESHOLD` 10 → 20 (the loop-v2
+sweep threshold, DR-047). Owner-ordered direct implementation (DR-097: WO-17-005 tracked
+IN_PROGRESS → VERIFIED on the green gate); drains the queued change
+`mc-frd17-propuestas-memory-health-loop-v2`.
+
+**Why:** Without this, the Propuestas surface renders the pre-v2 store only: the promotion queue
+can't show WHY a lesson is proposed (its usage count), the "last harvest" is a lying mtime proxy
+once the daily sweep exists, and a build that skipped its close-out harvest is invisible — exactly
+the "MC must always show the real state" mandate (owner, 2026-07-02). **Impact:** FRD-17 `frd.md`
+(REQ-17-009 + AC-17-006.*) + `blueprint.md` (IF-17-memory v2 note) + `work-orders/wo-17-005`;
+`src/lib/memory/{memory,memory-health}.ts`, `MemoryHealth`, `LessonDetail`, `lib/constants.ts` +
+tests (fixtures mechanically extended with the new required fields; ABOVE_RAW_NOTES recalibrated
+15 → 25 to stay above the new threshold — intent preserved).
+
 ## 2026-07-02 — Docs alignment pass: every Fragua description now matches the shipped v2 final state
 
 **What:** The blueprint §7 and the Manual page were authored EARLY on 2026-07-02, before the same

@@ -35,6 +35,8 @@ const CANDIDATE: Lesson = {
   links: [],
   projects: ["proj-alpha"],
   body: "Candidate body.",
+  trigger: "",
+  appliedIn: [],
   evalGate: "awaiting-2nd",
 };
 
@@ -49,6 +51,8 @@ const PRUNE: Lesson = {
   links: [],
   projects: ["proj-alpha"],
   body: "Deprecated.",
+  trigger: "",
+  appliedIn: [],
   evalGate: "corroborated",
 };
 
@@ -63,6 +67,8 @@ const PROMOTION: Lesson = {
   links: [],
   projects: ["proj-alpha", "proj-beta"],
   body: "next/font prevents CLS.",
+  trigger: "",
+  appliedIn: [],
   evalGate: "corroborated",
 };
 
@@ -92,6 +98,8 @@ vi.mock("@/lib/memory/memory-health", () => ({
     candidates: 0,
     lastMemoryRunAt: null,
     staleDays: null,
+    lastSweepAt: null,
+    harvestOrphans: [],
   })),
 }));
 
