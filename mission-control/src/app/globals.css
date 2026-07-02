@@ -874,3 +874,56 @@ h3 {
     gap: 6px !important;
   }
 }
+
+/* ── La Fragua v2 Fase 2 — vida: courier flight + ambient chimney smoke ── */
+/* The courier fires on a REAL engine wo_commit event (forge → tribunal). */
+@keyframes fragua-courier {
+  0% {
+    transform: translate(0, 0);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(150px, 34px);
+    opacity: 0;
+  }
+}
+.fragua-courier-flight {
+  animation: fragua-courier 2.4s ease-in-out forwards;
+}
+/* Pure-decoration chimney smoke: two staggered puffs rising over the forge. */
+@keyframes fragua-smoke {
+  0% {
+    transform: translateY(0) scale(0.6);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.35;
+  }
+  100% {
+    transform: translateY(-26px) scale(1.15);
+    opacity: 0;
+  }
+}
+.fragua-smoke {
+  animation: fragua-smoke 3.6s ease-out infinite;
+}
+.fragua-smoke-late {
+  animation: fragua-smoke 3.6s ease-out 1.8s infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fragua-courier-flight {
+    animation: none;
+    opacity: 0;
+  }
+  .fragua-smoke,
+  .fragua-smoke-late {
+    animation: none;
+    opacity: 0.2;
+  }
+}

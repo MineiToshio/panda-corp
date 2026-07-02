@@ -181,7 +181,7 @@ export function ProjectWorkspace({
     case "work-orders":
       body = renderWorkOrdersTab(projectPath, slug, woParam, woTabParam);
       break;
-    case "party":
+    case "party": {
       // Pass the authoritative build flag so the scene shows the powered-off state
       // when the build is off, instead of a frozen active scene from a stale event
       // tail (AC-06-013). `running` is derived above from status.yaml / the portfolio.
@@ -189,14 +189,26 @@ export function ProjectWorkspace({
       // portfolio display name — and scopes both the event tail and the SSE stream.
       // `workOrders` (same `listWorkOrders` source the objectives bar uses, DR-092)
       // decides the scene structure: sprites/rooms/queue/trophies/counter/gate.
+      // `woStarts` (track.jsonl, same reader as Observabilidad) powers the REAL
+      // "N min al fuego" bubbles — never a fabricated progress value.
+      const partyOrders = listWorkOrders(projectPath);
+      const partyTimeline = readBuildTimeline(projectPath, partyOrders);
+      const woStarts: Record<string, number> = {};
+      for (const tlFrd of partyTimeline.frds) {
+        for (const tlWo of tlFrd.workOrders) {
+          if (tlWo.startMs !== null) woStarts[tlWo.id] = tlWo.startMs;
+        }
+      }
       body = (
         <PartyTab
           running={running}
           project={path.basename(projectPath)}
-          workOrders={listWorkOrders(projectPath)}
+          workOrders={partyOrders}
+          woStarts={woStarts}
         />
       );
       break;
+    }
     case "observabilidad": {
       const obsOrders = listWorkOrders(projectPath);
       const timeline = readBuildTimeline(projectPath, obsOrders);

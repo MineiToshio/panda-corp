@@ -21,6 +21,28 @@ name. The literal `<idea>` remains legitimate only in the empty-portfolio first-
 (`Cartera.tsx` `FIRST_ACTION_COMMAND`), where no idea exists yet. Impact: FRD-02 work orders README
 (WO-02-013 row) + `CampaignPipeline.tsx`.
 
+## 2026-07-01 — La Fragua v2 Fase 2 (AC-06-019.6): vida con datos reales — burbujas, enfermería, mensajero, humo
+
+**What:** The scene now converses with REAL data: a rotating speech bubble (one sprite every ~6s,
+single low-frequency interval) shows each WO's id + real elapsed time ("N min al fuego") from
+track.jsonl `wo_start` (`woStarts` plumbed RSC → snapshot → live shell — same `readBuildTimeline`
+reader as Observabilidad, DR-092); BLOCKED (`fail`) work orders moved OUT of the "+N en cola" count
+into a visible **enfermería** bed strip (failure first-class, AC-06-015.1); a fresh engine `wo_commit`
+event cues the **courier** — the parchment flies forge → tribunal (decorative cue anchored to the real
+per-WO green commit; stale-tail replays never launch it); ambient chimney smoke in pure CSS. All under
+`prefers-reduced-motion` guards. New `useSceneLife` hook (one interval drives bubble + clock + courier)
+and `RunningSprite`/`InfirmaryCorner` module components keep FraguaScene inside the complexity budget.
+
+**Why:** owner-approved Fragua v2 plan — "que se sienta vivo pero que refleje la realidad": every
+moving thing is anchored to a real signal (track.jsonl, wo_commit, frontmatter fail); only the smoke
+is pure decoration and encodes nothing. Perf: no per-frame React state (6s tick), CSS-only ambient.
+
+**Impact:** FRD-06 AC-06-019.6; `fragua-snapshot.ts` (startedAtMs/infirmary/lastCommit + woStarts
+opt), `ProjectWorkspace` (woStarts from readBuildTimeline), `PartyTab`/`PartyLiveShell` plumbing,
+`FraguaScene` (+`useSceneLife`), `globals.css` (courier/smoke keyframes). Tests: 574 green (queue vs
+infirmary expectation updated + 1 new case). Pixel-art assets (enfermería/campamento/courier/mascot)
+pending from the owner — wired when delivered.
+
 ## 2026-07-01 — Pandacorp overlay upgraded 8.51.1 → 8.55.1
 
 **What:** Overlay re-synced to the factory's current version as `/pandacorp:implement` preflight (DR-048).

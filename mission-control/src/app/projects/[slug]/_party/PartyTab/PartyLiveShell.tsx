@@ -79,6 +79,8 @@ export interface PartyLiveShellProps {
    * whenever a fresher event arrives (throttled).
    */
   workOrders?: readonly SceneWorkOrder[];
+  /** Real per-WO build starts (track.jsonl) — carried into the live re-derive. */
+  woStarts?: Readonly<Record<string, number>>;
 }
 
 // ---------------------------------------------------------------------------
@@ -105,6 +107,7 @@ export function PartyLiveShell({
   project,
   running,
   workOrders,
+  woStarts,
 }: PartyLiveShellProps): React.JSX.Element {
   // Subscribe to the live SSE transport, scoped to this project.
   const { snapshot: liveFrame, connected } = useLiveSnapshot({ project });
@@ -142,8 +145,9 @@ export function PartyLiveShell({
       lastEventAt: liveAt,
       running: fresher ? undefined : running,
       workOrders,
+      woStarts,
     });
-  }, [liveFrame, initialSnapshot, running, workOrders]);
+  }, [liveFrame, initialSnapshot, running, workOrders, woStarts]);
 
   return (
     <div data-testid="party-live-shell">

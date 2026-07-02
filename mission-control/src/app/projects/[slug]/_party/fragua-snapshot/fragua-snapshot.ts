@@ -86,6 +86,8 @@ export type FraguaSnapshot = {
     state: WoState;
     frd?: string;
     colorKey?: string;
+    /** Real wall-clock start (epoch ms, from track.jsonl) — "N min al fuego". */
+    startedAtMs?: number;
     relay?: RelayState;
   }[];
   /** "+N en cola" count of queued/non-running WOs (across FRDs). */
@@ -104,6 +106,13 @@ export type FraguaSnapshot = {
   project: { done: number; total: number };
   /** All FRDs with their real state, in file order (the Campaña, REQ-06-019). */
   campaign?: CampaignFrd[];
+  /**
+   * BLOCKED work orders — the enfermería (failure as a first-class state,
+   * AC-06-015.1): real `fail` frontmatter, never hidden inside a queue count.
+   */
+  infirmary?: { wo: string; frd?: string; colorKey?: string }[];
+  /** The freshest per-WO green commit (engine `wo_commit`) — the courier flight. */
+  lastCommit?: { wo: string; at: string };
   /** Capped event tail mapped to view-models (for EventFeed). */
   events: EventVM[];
   /** True when there is a FRD currently in build with visible events. */
@@ -160,6 +169,12 @@ export interface ToFraguaSnapshotOpts {
    * When absent, the legacy event-derived structure is used.
    */
   workOrders?: readonly SceneWorkOrder[];
+  /**
+   * Real per-WO build starts (wo id → epoch ms) from the durable track.jsonl
+   * timeline — powers the "N min al fuego" speech bubbles with REAL time, never
+   * a fabricated progress value. Absent entries simply render no elapsed time.
+   */
+  woStarts?: Readonly<Record<string, number>>;
   /**
    * Optional mode override (e.g. from a project status.yaml).
    * When provided, takes precedence over any mode field in the events.
@@ -441,6 +456,8 @@ interface SceneStructure {
   campaign: CampaignFrd[];
   /** FRDs whose WOs all sit at review/done (≥1 review) — the tribunal line, in order. */
   gateQueue: string[];
+  /** BLOCKED (`fail`) work orders — the enfermería, never hidden (AC-06-015.1). */
+  infirmary: { wo: string; frd: string; colorKey: string }[];
   totals: { done: number; total: number };
 }
 
@@ -526,7 +543,16 @@ function structureFromWorkOrders(
     colorKey: colorOf.get(w.frd) ?? "--color-agent-unknown",
   }));
 
-  const waiting = workOrders.filter((w) => w.state === "todo" || w.state === "fail");
+  const waiting = workOrders.filter((w) => w.state === "todo");
+  // Failure is a first-class state (AC-06-015.1): a BLOCKED WO gets a bed in the
+  // enfermería, never a silent slot inside the "+N en cola" count.
+  const infirmary = workOrders
+    .filter((w) => w.state === "fail")
+    .map((w) => ({
+      wo: w.id,
+      frd: w.frd,
+      colorKey: colorOf.get(w.frd) ?? "--color-agent-unknown",
+    }));
 
   return {
     running,
@@ -534,8 +560,22 @@ function structureFromWorkOrders(
     trophies,
     campaign,
     gateQueue,
+    infirmary,
     totals: { done: done.length, total: workOrders.length },
   };
+}
+
+/** The freshest per-WO green commit (engine `wo_commit`) — the courier's cue. */
+function lastCommitEvent(
+  events: readonly DashboardEvent[],
+): { wo: string; at: string } | undefined {
+  let last: { wo: string; at: string } | undefined;
+  for (const ev of events) {
+    if (ev.event === "wo_commit" && typeof ev.workOrder === "string") {
+      last = { wo: ev.workOrder, at: ev.at };
+    }
+  }
+  return last;
 }
 
 /** The freshest engine `gate` event's FRD — the tribunal-in-session hint. */
@@ -675,7 +715,13 @@ export function toFraguaSnapshot(
     // event-derived default is `building` (forge).
     state: opts.woStates?.[wo] ?? ("building" as WoState),
   }));
-  const running = isFactoryOff ? [] : (fromFm?.running ?? eventRunning);
+  // Real per-WO start times (track.jsonl) ride along for "N min al fuego".
+  const running = isFactoryOff
+    ? []
+    : (fromFm?.running ?? eventRunning).map((r) => {
+        const startedAtMs = opts.woStarts?.[r.wo];
+        return startedAtMs !== undefined ? { ...r, startedAtMs } : r;
+      });
 
   // Global project counter (AC-06-002.2): frontmatter totals when available;
   // explicit override wins; achievement-event count as last resort.
@@ -702,6 +748,10 @@ export function toFraguaSnapshot(
     archivedCount,
     project: projectTotals,
     campaign: fromFm?.campaign,
+    // The enfermería stays visible even powered-off — a BLOCKED WO is parked
+    // state awaiting the owner, not live activity (unlike running sprites).
+    infirmary: fromFm?.infirmary,
+    lastCommit: lastCommitEvent(events),
     events: eventVMs,
     active: !isFactoryOff,
     lastEventAt: opts.lastEventAt,

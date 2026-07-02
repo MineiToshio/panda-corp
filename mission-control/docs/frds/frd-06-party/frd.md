@@ -142,6 +142,15 @@ With the global-wave engine (BL-0021) several FRDs genuinely build at once, so t
   the FRD under judgment, else the first one building, else the freshest event FRD.
 - AC-06-019.5: THE sprite engine SHALL persist across the whole build (one instance per scene, not
   per FRD) so a change of the judged/focused FRD never resets in-flight walks.
+- AC-06-019.6 (Fase 2 — vida): THE scene SHALL converse with REAL data: one rotating speech bubble
+  (every ~6s, one sprite at a time) showing the WO id + its real elapsed time ("N min al fuego",
+  from track.jsonl `wo_start` — never a fabricated progress value); a BLOCKED (`fail`) work order
+  SHALL rest in the **enfermería** (a visible bed strip, never a hidden "+N en cola" slot); a fresh
+  engine `wo_commit` event SHALL cue the **courier** — the parchment runs forge → tribunal (a
+  decorative cue anchored to the real per-WO green commit); ambient chimney smoke is pure-CSS
+  decoration. All of it disabled/softened under `prefers-reduced-motion`. **(IMPLEMENTED, 2026-07-01
+  — Fase 2; pixel-art assets for enfermería/campamento/courier/mascot pending from the owner, wired
+  when delivered.)**
 
 ## Edge cases
 - A FRD with a single work order: forge shows 1 sprite, `+0 en cola`; the gate opens as soon as that one WO is `IN_REVIEW`.

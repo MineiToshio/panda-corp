@@ -48,7 +48,7 @@ describe("frd-06: toFraguaSnapshot — structure from work orders (DR-092)", () 
     expect(snapshot.running[0]?.colorKey).toMatch(/^--color-agent-/);
   });
 
-  it("frd-06: todo + fail count as the queue; building overflow beyond the wave queues too", () => {
+  it("frd-06: todo counts as the queue; building overflow queues; fail goes to the infirmary", () => {
     const building = Array.from({ length: 10 }, (_, i) =>
       wo(`WO-03-1${i.toString().padStart(2, "0")}`, "in_progress"),
     );
@@ -56,9 +56,28 @@ describe("frd-06: toFraguaSnapshot — structure from work orders (DR-092)", () 
       lastEventAt: null,
       workOrders: [...building, wo("WO-03-201", "todo"), wo("WO-03-202", "fail")],
     });
-    // powerful wave = 8 forge sprites; 2 building overflow + 1 todo + 1 fail queue.
+    // powerful wave = 8 forge sprites; 2 building overflow + 1 todo queue.
+    // The fail WO gets a BED in the enfermería (Fase 2), never a hidden queue slot.
     expect(snapshot.running).toHaveLength(8);
-    expect(snapshot.queuedCount).toBe(4);
+    expect(snapshot.queuedCount).toBe(3);
+    expect(snapshot.infirmary).toMatchObject([{ wo: "WO-03-202", frd: FRD }]);
+  });
+
+  it("frd-06 v2: real wo_start times ride along for the bubbles; wo_commit cues the courier", () => {
+    const snapshot = toFraguaSnapshot(
+      [
+        agentWorking("2026-07-01T10:00:00Z", FRD, "WO-03-001"),
+        { event: "wo_commit", at: "2026-07-01T10:30:00Z", workOrder: "WO-03-001", frd: FRD },
+      ],
+      {
+        lastEventAt: "2026-07-01T10:30:00Z",
+        workOrders: [wo("WO-03-001", "review"), wo("WO-03-002", "in_progress")],
+        woStarts: { "WO-03-002": 1_751_364_000_000 },
+      },
+    );
+    const forging = snapshot.running.find((r) => r.wo === "WO-03-002");
+    expect(forging?.startedAtMs).toBe(1_751_364_000_000);
+    expect(snapshot.lastCommit).toEqual({ wo: "WO-03-001", at: "2026-07-01T10:30:00Z" });
   });
 
   it("frd-06: done WOs are trophies even with ZERO achievement events (frontmatter is the source)", () => {

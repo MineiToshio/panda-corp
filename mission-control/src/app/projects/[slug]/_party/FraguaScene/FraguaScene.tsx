@@ -68,11 +68,13 @@ import { AgentSprite } from "@/components/modules/party/AgentSprite/AgentSprite"
 import { JudgeSprite } from "@/components/modules/party/JudgeSprite/JudgeSprite";
 import { Parchment } from "@/components/modules/party/Parchment/Parchment";
 import { Room } from "@/components/modules/party/Room/Room";
+import { SpeechBubble } from "@/components/modules/party/SpeechBubble/SpeechBubble";
 import { StoneBridge } from "@/components/modules/party/StoneBridge/StoneBridge";
 
 import { DeepRelay } from "../DeepRelay/DeepRelay";
 import type { FraguaSnapshot } from "../fragua-snapshot/fragua-snapshot";
 import { useFraguaSprites } from "./useFraguaSprites";
+import { useSceneLife } from "./useSceneLife";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -330,6 +332,16 @@ const VISUAL_JUDGE_STYLE: React.CSSProperties = {
   color: "var(--color-accent-text)",
 };
 
+/** One ambient smoke puff over the forge chimney (animated by .fragua-smoke). */
+const SMOKE_PUFF_STYLE: React.CSSProperties = {
+  position: "absolute",
+  width: "10px",
+  height: "10px",
+  borderRadius: "50%",
+  background: "var(--color-text-muted, currentColor)",
+  opacity: 0,
+};
+
 // ---------------------------------------------------------------------------
 // TribunalLine — the serialized gate queue chips (v2, BL-0021)
 // ---------------------------------------------------------------------------
@@ -399,6 +411,150 @@ function TribunalLine({
 }
 
 // ---------------------------------------------------------------------------
+// RunningSprite — one moving WO on the stage (sprite + FRD banner + bubble)
+// ---------------------------------------------------------------------------
+
+/** Real elapsed-time bubble copy — never a fabricated progress value. */
+function bubbleText(item: FraguaSnapshot["running"][number], nowMs: number): string {
+  const place = item.state === "in_review" ? "ante el juez" : "al fuego";
+  if (item.startedAtMs !== undefined && nowMs > item.startedAtMs) {
+    const mins = Math.max(1, Math.round((nowMs - item.startedAtMs) / 60_000));
+    return `${item.wo} · ${mins} min ${place}`;
+  }
+  return `${item.wo} · ${place}`;
+}
+
+/** One running WO: the walking sprite, its FRD color banner and (when its turn
+ * comes) the conversational bubble with REAL elapsed time (Fase 2). */
+function RunningSprite({
+  item,
+  slot,
+  mode,
+  speaking,
+  nowMs,
+  refCb,
+}: {
+  item: FraguaSnapshot["running"][number];
+  slot: readonly [number, number] | undefined;
+  mode: FraguaSnapshot["mode"];
+  speaking: boolean;
+  nowMs: number;
+  refCb: (el: HTMLDivElement | null) => void;
+}): React.JSX.Element {
+  const initLeft = (slot?.[0] ?? 0) - SPRITE_HALF;
+  const initTop = (slot?.[1] ?? 0) - SPRITE_HALF;
+  return (
+    <div
+      ref={refCb}
+      data-testid={`fragua-wo-${item.wo}`}
+      data-wo={item.wo}
+      data-frd={item.frd}
+      title={`${item.wo} — ${item.title}${item.frd !== undefined ? ` · ${item.frd}` : ""}`}
+      style={{ position: "absolute", left: `${initLeft}px`, top: `${initTop}px`, zIndex: 6 }}
+    >
+      {mode === "deep" ? (
+        <DeepRelay
+          wo={item.wo}
+          relay={item.relay ?? { step: "test", contractPublished: false }}
+          hasFrontend={item.relay !== undefined}
+        />
+      ) : (
+        <AgentSprite
+          agentRole="implementer"
+          state={woStateToSpriteState(item.state)}
+          woId={item.wo}
+        />
+      )}
+      {/* FRD standard (v2 global scene): decorative — the frd id itself travels
+          in data-frd + the tooltip, never color alone. */}
+      {item.colorKey !== undefined && (
+        <span
+          data-testid={`fragua-wo-banner-${item.wo}`}
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            left: "50%",
+            transform: "translateX(-50%)",
+            bottom: "-6px",
+            width: "34px",
+            height: "4px",
+            borderRadius: "2px",
+            background: `var(${item.colorKey})`,
+          }}
+        />
+      )}
+      {speaking && <SpeechBubble text={bubbleText(item, nowMs)} />}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// InfirmaryCorner — BLOCKED WOs get a bed, never a hidden queue slot (Fase 2)
+// ---------------------------------------------------------------------------
+
+/** Beds shown before compacting to "+N". */
+const MAX_INFIRMARY_BEDS = 3;
+
+/** The enfermería: real `fail` work orders resting until the owner unblocks them. */
+function InfirmaryCorner({
+  beds,
+}: {
+  beds: NonNullable<FraguaSnapshot["infirmary"]>;
+}): React.JSX.Element | null {
+  if (beds.length === 0) return null;
+  const shown = beds.slice(0, MAX_INFIRMARY_BEDS);
+  return (
+    <div
+      data-testid="fragua-infirmary"
+      role="img"
+      aria-label={`Enfermería: ${beds.length} orden(es) bloqueada(s) esperando al owner`}
+      style={{
+        position: "absolute",
+        left: `${FORGE_RECT.left + 10}px`,
+        top: `${FORGE_RECT.top + FORGE_RECT.height - 78}px`,
+        display: "flex",
+        alignItems: "flex-end",
+        gap: "4px",
+        padding: "4px 8px",
+        borderRadius: "var(--radius, 0.5rem)",
+        border: "var(--hairline, 1px) dashed var(--color-danger, currentColor)",
+        background: "var(--color-danger-bg, oklch(0.3 0.09 25 / 0.25))",
+        zIndex: 5,
+      }}
+    >
+      <span
+        style={{
+          fontSize: "10px",
+          fontFamily: "var(--font-display, system-ui)",
+          color: "var(--color-danger, currentColor)",
+        }}
+      >
+        🏥
+      </span>
+      {shown.map((bed) => (
+        <span
+          key={bed.wo}
+          title={`${bed.wo}${bed.frd !== undefined ? ` · ${bed.frd}` : ""} — bloqueado (te espera)`}
+        >
+          <AgentSprite agentRole="implementer" state="idle" woId={bed.wo} />
+        </span>
+      ))}
+      {beds.length > shown.length && (
+        <span
+          style={{
+            fontSize: "10px",
+            fontFamily: "var(--font-display, system-ui)",
+            color: "var(--color-danger, currentColor)",
+          }}
+        >
+          +{beds.length - shown.length}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // FraguaScene component
 // ---------------------------------------------------------------------------
 
@@ -438,6 +594,13 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
     gate,
     mode,
     wave: snapshot.wave,
+    reducedMotion,
+  });
+
+  // Fase-2 "vida": bubble rotation + real-elapsed clock + courier cue.
+  const life = useSceneLife({
+    runningCount: running.length,
+    lastCommitAt: snapshot.lastCommit?.at,
     reducedMotion,
   });
 
@@ -726,63 +889,52 @@ export function FraguaScene({ snapshot }: FraguaSceneProps): React.JSX.Element {
             useFraguaSprites) so a WO WALKS between rooms (AC-06-003.2).
             Verified trophies stay in the vault Room above (static, they don't move).
             ================================================================ */}
-        {running.map(({ wo, title, state, frd: woFrd, colorKey, relay }, idx) => {
-          // First-paint static fallback (SSR-stable): the engine takes over once
-          // mounted, writing left/top from its animated positions.
-          const slot = forgeSlots[idx] ?? forgeSlots[0];
-          const initLeft = (slot?.[0] ?? 0) - SPRITE_HALF;
-          const initTop = (slot?.[1] ?? 0) - SPRITE_HALF;
+        {running.map((item, idx) => (
+          <RunningSprite
+            key={item.wo}
+            item={item}
+            slot={forgeSlots[idx] ?? forgeSlots[0]}
+            mode={mode}
+            speaking={idx === life.bubbleIndex}
+            nowMs={life.nowMs}
+            refCb={registerSprite(item.wo)}
+          />
+        ))}
 
-          return (
-            <div
-              key={wo}
-              ref={registerSprite(wo)}
-              data-testid={`fragua-wo-${wo}`}
-              data-wo={wo}
-              data-frd={woFrd}
-              title={`${wo} — ${title}${woFrd !== undefined ? ` · ${woFrd}` : ""}`}
-              style={{
-                position: "absolute",
-                left: `${initLeft}px`,
-                top: `${initTop}px`,
-                zIndex: 6,
-              }}
-            >
-              {mode === "deep" ? (
-                <DeepRelay
-                  wo={wo}
-                  relay={relay ?? { step: "test", contractPublished: false }}
-                  hasFrontend={relay !== undefined}
-                />
-              ) : (
-                <AgentSprite
-                  agentRole="implementer"
-                  state={woStateToSpriteState(state)}
-                  woId={wo}
-                />
-              )}
-              {/* FRD standard (v2 global scene): a small colored banner under the
-                  sprite so a multi-FRD wave reads at a glance. Decorative — the
-                  frd id itself travels in data-frd + the tooltip, never color alone. */}
-              {colorKey !== undefined && (
-                <span
-                  data-testid={`fragua-wo-banner-${wo}`}
-                  aria-hidden="true"
-                  style={{
-                    position: "absolute",
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    bottom: "-6px",
-                    width: "34px",
-                    height: "4px",
-                    borderRadius: "2px",
-                    background: `var(${colorKey})`,
-                  }}
-                />
-              )}
-            </div>
-          );
-        })}
+        {/* Enfermería — real BLOCKED WOs resting until the owner acts (Fase 2). */}
+        <InfirmaryCorner beds={snapshot.infirmary ?? []} />
+
+        {/* Courier flight — fires on a REAL wo_commit event: the parchment runs
+            forge → tribunal (decorative cue anchored to the engine's commit). */}
+        {life.courierVisible && (
+          <div
+            data-testid="fragua-courier"
+            aria-hidden="true"
+            className="fragua-courier-flight"
+            style={{
+              position: "absolute",
+              left: `${PARCHMENT_START[0]}px`,
+              top: `${PARCHMENT_START[1]}px`,
+              zIndex: 7,
+            }}
+          >
+            <Parchment from="forge" to="tribunal" />
+          </div>
+        )}
+
+        {/* Ambient chimney smoke over the forge — pure-CSS decoration. */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            left: `${FORGE_RECT.left + 96}px`,
+            top: `${FORGE_RECT.top + 16}px`,
+            zIndex: 3,
+          }}
+        >
+          <span className="fragua-smoke" style={SMOKE_PUFF_STYLE} />
+          <span className="fragua-smoke-late" style={{ ...SMOKE_PUFF_STYLE, left: "12px" }} />
+        </div>
       </div>
     </section>
   );

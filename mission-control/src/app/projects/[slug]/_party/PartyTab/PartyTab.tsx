@@ -91,6 +91,11 @@ export interface PartyTabProps {
    * triggers one when a fresher event arrives).
    */
   workOrders?: readonly SceneWorkOrder[];
+  /**
+   * Real per-WO build starts (wo id → epoch ms) from track.jsonl — powers the
+   * "N min al fuego" bubbles with real elapsed time (Fase 2, REQ-06-019).
+   */
+  woStarts?: Readonly<Record<string, number>>;
 }
 
 // ---------------------------------------------------------------------------
@@ -208,6 +213,7 @@ export function PartyTab({
   running,
   project,
   workOrders,
+  woStarts,
 }: PartyTabProps): React.JSX.Element {
   // Read the capped tail of the event stream (read-only, never throws).
   // The project filter runs BEFORE the cap so other sessions' noise cannot
@@ -218,7 +224,7 @@ export function PartyTab({
   // no I/O, no side-effects. `running` (status.yaml) forces the powered-off
   // state when the build is off; `workOrders` (frontmatter, DR-092) decides the
   // scene structure while events only drive liveness.
-  const snapshot = toFraguaSnapshot(events, { lastEventAt, running, workOrders });
+  const snapshot = toFraguaSnapshot(events, { lastEventAt, running, workOrders, woStarts });
 
   // Map the feed-relevant events to view-models for the bitácora (REQ-06-015):
   // session noise (SupervisorTick, hook SubagentStop) is filtered out;
@@ -281,6 +287,7 @@ export function PartyTab({
               project={project}
               running={running}
               workOrders={workOrders}
+              woStarts={woStarts}
             />
           </div>
 
