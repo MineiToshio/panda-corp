@@ -4,6 +4,18 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-07-01 — Back-port: "Forbidden pattern — docs/proposals/" section into the documentation rule template · v9.46.1 · overlay 8.55.1
+
+**What:** `templates/rules/documentation-and-decisions.md` gains the "Forbidden pattern —
+`docs/proposals/` in a project" section (a pending change always goes to `.pandacorp/inbox/changes/`;
+a project-level `docs/proposals/` file is invisible to the build engine and never gets picked up).
+Overlay bumped 8.55.0 → 8.55.1 so the rule re-syncs to every project on its next upgrade (DR-051).
+
+**Why:** DR-094's loud back-port detector fired during Mission Control's overlay upgrade (8.51.1 →
+8.55.1): MC's copy carried this section in-project (commit a497af0) while the template lacked it — the
+verbatim conformance overwrite would have silently clobbered it. The content is generic to all
+projects, so per DR-076 the fix belongs at the source (the template), not in-place.
+
 ## 2026-07-01 — Granularity calibration from real-build evidence: DR-100 floor+ceiling with numbers, artifacts completeness, mandatory Build Plan table, fix-forward mandate, track.jsonl gap fixes · v9.46.0
 
 **What:** The owner-approved Fase-3 of the granularity audit (two mining passes over the

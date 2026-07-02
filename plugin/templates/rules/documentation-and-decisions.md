@@ -26,6 +26,12 @@ The canonical doc answers *"what is true now?"*; the decision log answers *"how 
 
 A behavior change is **not done** without its updated FRD **and** its decision-log entry.
 
+## Forbidden pattern — `docs/proposals/` in a project
+
+This project **never** has a `docs/proposals/` folder. That pattern exists only in the factory repo (`panda-corp/docs/proposals/`) for factory-level RFCs.
+
+A pending change always goes to **`.pandacorp/inbox/changes/`** (via `/pandacorp:change`). A file in `docs/proposals/` is invisible to the build engine and to Mission Control's change queue — it will never be picked up and never be implemented. The table above covers every legitimate destination; if something doesn't fit there, it belongs in the decision log, an ADR, or the inbox.
+
 ## Two-layer, feature-centric docs
 - A thin **product layer** (`docs/product/`: `prd.md`, `architecture.md`, `research.md`).
 - One **self-contained module per feature** (`docs/frds/frd-NN-<slug>/`: `frd.md`, optional `fdd.md`+`mocks/`, `blueprint.md`, `work-orders/`).
