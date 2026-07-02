@@ -103,6 +103,12 @@ const GATE_EVENT = (frd) =>
   ` Also append the Party gate-open event (fire-and-forget — the tribunal lights up, BL-0020): printf '{"event":"gate","at":"%s","project":"%s","frd":"${frd}"}\\n' "$(date -u +%FT%TZ)" "$(basename "$PWD")" >> ~/.claude/dashboard-events.ndjson.`
 const ACHIEVEMENT = (frd) =>
   ` For EACH work order you just set VERIFIED, ALSO append its Party achievement event (one line per WO, fire-and-forget — the Bóveda trophy shelf + unlock toast read exactly this event, BL-0020): printf '{"event":"achievement","at":"%s","project":"%s","workOrder":"%s","wo":"%s","frd":"${frd}"}\\n' "$(date -u +%FT%TZ)" "$(basename "$PWD")" "<the-wo-id>" "<the-wo-id>" >> ~/.claude/dashboard-events.ndjson.`
+// Per-WO commit event (2026-07-01): Mission Control's Party refreshes its frontmatter read when a
+// FRESHER dashboard event arrives — the IN_REVIEW stamp alone appends nothing, so without this line
+// a WO finishing mid-session never walked forge→tribunal until a manual reload. The mech commit
+// writer appends it right after the commit (fire-and-forget; also a bitácora line, "wo_commit").
+const WO_COMMIT_EVENT = (frd, woId) =>
+  ` Then append the Party per-WO commit event (fire-and-forget): printf '{"event":"wo_commit","at":"%s","project":"%s","frd":"${frd}","wo":"${woId}","state":"IN_REVIEW"}\\n' "$(date -u +%FT%TZ)" "$(basename "$PWD")" >> ~/.claude/dashboard-events.ndjson.`
 
 // DR-108: mechanical steps — a serialized git commit, a frontmatter stamp, a rollup sync, an archive
 // move, a run-summary write — don't need the worker model; they run on the cheap tier. The trust
@@ -365,7 +371,7 @@ async function commitWOGreen(wo, frd) {
   agentSpawned++
   const link = commitChain.then(() =>
     agent(
-      `You are the SOLE git writer at this instant (serialized — no other commit runs concurrently, so there is NO index.lock race), committing work order ${wo.id} now that its self-test is green and its frontmatter is IN_REVIEW.${TRACK('wo_end', `,"frd":"${frd}","wo":"${wo.id}","state":"in_review"`)} Then make exactly ONE commit (Conventional Commits, with scope) staging ONLY this work order's own files: its declared artifacts ${wo.artifacts && wo.artifacts.length ? '(' + wo.artifacts.join(' ') + ')' : "(use `git status` to identify THIS wo's files)"} AND its own work-order markdown under \`docs/frds/${frd}/work-orders/\` (the IN_REVIEW frontmatter + ## Status Note) AND \`.pandacorp/track.jsonl\` (the durable timeline lines for THIS wo — the wo_start the builder appended + the wo_end you just appended). Sibling work orders of the same wave may be MID-BUILD — do NOT stage or touch their files; if \`git status\` shows changes outside this WO's files (other than track.jsonl, which is append-only and shared), leave them untouched. Do NOT advance last_green_sha (that is the FRD gate's job — this WO is self-test-green, not yet review-verified). Return { committed: 1 }.`,
+      `You are the SOLE git writer at this instant (serialized — no other commit runs concurrently, so there is NO index.lock race), committing work order ${wo.id} now that its self-test is green and its frontmatter is IN_REVIEW.${TRACK('wo_end', `,"frd":"${frd}","wo":"${wo.id}","state":"in_review"`)} Then make exactly ONE commit (Conventional Commits, with scope) staging ONLY this work order's own files: its declared artifacts ${wo.artifacts && wo.artifacts.length ? '(' + wo.artifacts.join(' ') + ')' : "(use `git status` to identify THIS wo's files)"} AND its own work-order markdown under \`docs/frds/${frd}/work-orders/\` (the IN_REVIEW frontmatter + ## Status Note) AND \`.pandacorp/track.jsonl\` (the durable timeline lines for THIS wo — the wo_start the builder appended + the wo_end you just appended). Sibling work orders of the same wave may be MID-BUILD — do NOT stage or touch their files; if \`git status\` shows changes outside this WO's files (other than track.jsonl, which is append-only and shared), leave them untouched. Do NOT advance last_green_sha (that is the FRD gate's job — this WO is self-test-green, not yet review-verified).${WO_COMMIT_EVENT(frd, wo.id)} Return { committed: 1 }.`,
       { label: `commit:${wo.id}`, phase: 'Build', model: MECH, agentType: 'pandacorp:implementer' },
     ),
   )

@@ -4,6 +4,26 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-07-01 — Engine: per-WO `wo_commit` Party event at the green commit · v9.44.0
+
+**What:** `commitWOGreen` (the serialized mech git writer) now also appends a `wo_commit` line
+(`{event, at, project, frd, wo, state:"IN_REVIEW"}`) to `~/.claude/dashboard-events.ndjson`, next to
+the `wo_end` it already writes to `.pandacorp/track.jsonl`. Completes the Party producer contract
+(BL-0020 added `gate` + `achievement` in v9.41.0): every WO **state transition** now lands one
+dashboard event. Mission Control's own overlay copy (`mission-control/.claude/workflows/`) re-synced
+from the template (it was ~260 lines behind — pre-BL-0020, so a MC build would have emitted none of
+the Party events).
+
+**Why:** Mission Control's Party (FRD-06, reworked today) derives the scene STRUCTURE from the
+work-order frontmatter and uses a fresher-event signal to refresh that read mid-session
+(`router.refresh`). The IN_REVIEW stamp alone appends no event, so a WO finishing while the owner
+watched never walked forge→tribunal until a manual reload — the "muñequitos no se mueven" half of the
+owner's Party audit. Fire-and-forget printf, same pattern as the BL-0020 emitters.
+
+**Impact:** `plugin/templates/shared/.claude/workflows/pandacorp-build.js` (WO_COMMIT_EVENT +
+commitWOGreen), `mission-control/.claude/workflows/pandacorp-build.js` (overlay re-sync). Consumer
+side documented in Mission Control FRD-06/FRD-01 + its `docs/decision-log.md` (same change).
+
 ## 2026-07-01 — `design` skill: canvas loop driven by a stateful procedure — relay automation, on-disk tracker, canvas journal, closing sweep, engine routing (DR-109) · v9.43.0
 
 **What:** Phases A+B+D of the design-skill audit (`docs/proposals/22-design-skill-audit-2026-07-01.md`).
