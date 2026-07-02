@@ -95,12 +95,17 @@ if ! git -C "$MAIN_WT" merge --ff-only "$BRANCH" 2>/dev/null; then
   fail "the $DEFAULT_BRANCH checkout is busy (uncommitted changes block the ff-merge) — land when quiescent" 12
 fi
 
-# Remove the worktree + its branch. We must leave the worktree dir before git can prune it; the calling
-# agent should ExitWorktree first, but we self-heal: cd to the main checkout, then prune.
-cd "$MAIN_WT"
-git worktree remove --force "$WORKTREE" 2>/dev/null || true
-git branch -D "$BRANCH" 2>/dev/null || true
+# The worktree is deliberately NOT removed here. The session that invoked this script is
+# standing INSIDE it: deleting the directory under a live Claude session leaves its cwd
+# dangling — the next user message fails with "Path ... does not exist" and every background
+# task dies with the forced session restart (owner-reported, recurring, 2026-07-02). A `cd`
+# here only moves THIS script's cwd, never the session's. Removal belongs to the harness,
+# which also restores the session cwd: the agent calls ExitWorktree(action: "remove") right
+# after this script succeeds. If ExitWorktree no-ops (the session restarted and lost the
+# worktree binding), clean from OUTSIDE the worktree instead:
+#   cd "$MAIN_WT" && git worktree remove --force "$WORKTREE" && git branch -D "$BRANCH"
 rm -f "$MAIN_WT/.pandacorp/run/worktrees/$BRANCH.json" 2>/dev/null || true   # drop the manifest entry (worktree-bootstrap writes <branch>.json) (DR-096 §7)
 
-echo "merge-queue: merged $BRANCH → $DEFAULT_BRANCH and removed the worktree"
+echo "merge-queue: merged $BRANCH → $DEFAULT_BRANCH"
+echo "merge-queue: worktree KEPT (your session is inside it) — call ExitWorktree(action: remove) now to clean it AND restore the session cwd; if that no-ops, run: cd $MAIN_WT && git worktree remove --force $WORKTREE && git branch -D $BRANCH"
 exit 0

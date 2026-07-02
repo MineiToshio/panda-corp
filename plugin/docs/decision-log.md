@@ -4,6 +4,21 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-07-02 — v9.48.0: merge-queue keeps the worktree — removal belongs to ExitWorktree (BL-0023)
+
+**What:** `templates/shared/.pandacorp/merge-queue.sh` no longer deletes the worktree/branch after a
+successful merge — the invoking Claude session STANDS inside that directory, and deleting a live
+session's cwd dangles it (next message dies with "Path … does not exist"; every background task is
+killed with the forced restart — owner-reported, recurring). New contract printed by the script:
+call `ExitWorktree(action: remove)` (harness-level — cleans AND restores the session cwd), outside
+`git worktree remove` as fallback. `pending-work.sh` recalibrated: merged+clean survivors are "♻
+removable" session shells, never pending (no false "⎇ pendientes"). Docs re-worded: DR-096 registry
+default, build-orchestration.md "Parallel manual sessions", guide.md.tpl. MINOR (contract change of
+a shared tooling script).
+
+**Why:** removal was owned by the wrong layer — only the harness knows the session's cwd binding.
+Full analysis: `factory/backlog/BL-0023-merge-queue-deletes-live-session-cwd.md`.
+
 ## 2026-07-02 — v9.47.0: e2e template gains the `server-env.json` deterministic-data hook
 
 **What:** `templates/stack-a-nextjs/e2e/playwright.config.ts` now injects an OPTIONAL project-local

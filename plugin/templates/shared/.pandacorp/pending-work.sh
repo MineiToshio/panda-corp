@@ -1,9 +1,12 @@
 #!/bin/bash
 # Pandacorp pending-work check (DR-096) — "did I leave a worktree un-merged?"
 #
-# The invariant: merge-queue.sh removes the worktree AND its branch only on a SUCCESSFUL merge, so
-# anything that survives = work NOT yet in main. This surfaces it so a forgotten parallel session can't
-# silently strand its progress. Two signals, unioned:
+# The invariant (2026-07-02): a surviving worktree with an UNMERGED branch (or dirty tree) = pending
+# work. A surviving worktree that is fully MERGED + clean is a session shell merge-queue deliberately
+# KEPT (deleting the dir under a live session dangles its cwd — the session's next message dies with
+# "Path does not exist"); it is listed apart as removable, never as pending. Removal belongs to
+# ExitWorktree (which also restores the session cwd) or to an outside `git worktree remove`.
+# Two pending signals, unioned:
 #   1. surviving worktrees (other than the main checkout) — pending even if their work is UNCOMMITTED;
 #   2. unmerged branches whose worktree is already gone — `git branch --no-merged` (the branch outlives
 #      the worktree, which Claude Code may sweep).
@@ -23,6 +26,7 @@ NOW=$(date +%s)
 
 mtime() { stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || echo "$NOW"; }
 ROWS=""   # newline-joined "branch|worktree|ahead|ageH|status" (string, not array — bash 3.2 safe)
+LEFTOVERS=""  # merged+clean worktrees a session kept for cwd safety — removable, never pending
 TOTAL=0; STALE=0
 
 emit() {  # branch worktree ahead lastTs
@@ -42,9 +46,17 @@ while IFS= read -r line; do
     "") if [ -n "${wt:-}" ] && [ "$wt" != "$MAIN_WT" ] && [ -n "${br:-}" ]; then
           ahead=$(git rev-list --count "$DEFAULT_BRANCH..$br" 2>/dev/null || echo 0)
           dirty=$([ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ] && echo 1 || echo 0)
-          last=$(git log -1 --format=%ct "$br" 2>/dev/null || echo "$NOW"); dm=$(mtime "$wt")
-          [ "$dm" -gt "$last" ] && last="$dm"
-          emit "$br" "$wt" "$ahead" "$last" "$dirty"; SEEN="${SEEN}${br} "
+          if [ "$ahead" = "0" ] && [ "$dirty" = "0" ]; then
+            # Fully merged + clean: a session shell merge-queue deliberately KEPT (deleting the
+            # dir under a live session dangles its cwd). Nothing pending — every commit is in
+            # main. Listed apart as removable, never counted as pending work.
+            LEFTOVERS="${LEFTOVERS}${br}|${wt}"$'\n'
+          else
+            last=$(git log -1 --format=%ct "$br" 2>/dev/null || echo "$NOW"); dm=$(mtime "$wt")
+            [ "$dm" -gt "$last" ] && last="$dm"
+            emit "$br" "$wt" "$ahead" "$last" "$dirty"
+          fi
+          SEEN="${SEEN}${br} "
         fi; wt=""; br="";;
   esac
 done < <(git worktree list --porcelain; echo)
@@ -96,7 +108,16 @@ case "$MODE" in
       echo "$msg" >&2; exit 1
     fi ;;
   *)
-    if [ "$TOTAL" -eq 0 ]; then echo "✓ Sin trabajo pendiente: todo está en $DEFAULT_BRANCH."; exit 0; fi
+    if [ "$TOTAL" -eq 0 ]; then
+      echo "✓ Sin trabajo pendiente: todo está en $DEFAULT_BRANCH."
+      if [ -n "$LEFTOVERS" ]; then
+        echo "  ♻ Worktrees ya mergeados (seguro de borrar desde fuera):"
+        printf '%s' "$LEFTOVERS" | sed '/^$/d' | while IFS='|' read -r br wt; do
+          echo "    git worktree remove --force $wt && git branch -D $br"
+        done
+      fi
+      exit 0
+    fi
     echo "⎇ $TOTAL rama(s)/worktree(s) SIN MERGEAR a $DEFAULT_BRANCH ($STALE estancada/s >${STALE_HOURS}h):"; echo
     printf '  %-34s %-7s %-6s %-13s %s\n' "RAMA" "COMMITS" "EDAD" "ESTADO" "WORKTREE"
     while IFS='|' read -r br wt ahead age st; do
@@ -104,5 +125,11 @@ case "$MODE" in
       case "$st" in stale) i="🔴";; in-progress) i="🟡";; *) i="🟢";; esac
       printf '  %-34s %-7s %-6s %s %-10s %s\n' "$br" "+$ahead" "$age" "$i" "$st" "$wt"
     done <<< "$(print_rows)"
-    echo; echo "  🔴 estancado  🟡 en curso  🟢 listo (sin mergear). Mergea: cd <worktree> && bash .pandacorp/merge-queue.sh" ;;
+    echo; echo "  🔴 estancado  🟡 en curso  🟢 listo (sin mergear). Mergea: cd <worktree> && bash .pandacorp/merge-queue.sh"
+    if [ -n "$LEFTOVERS" ]; then
+      echo; echo "  ♻ Worktrees ya MERGEADOS (cascarón de sesión, seguro de borrar desde fuera):"
+      printf '%s' "$LEFTOVERS" | sed '/^$/d' | while IFS='|' read -r br wt; do
+        echo "    git worktree remove --force $wt && git branch -D $br"
+      done
+    fi ;;
 esac

@@ -2,6 +2,22 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-02 — DR-096 recalibrado: el merge NO borra el worktree de la sesión viva (BL-0023)
+
+**Qué:** el invariante de visibilidad de DR-096 cambia: ya no es "worktree sobreviviente = trabajo
+sin mergear" sino "worktree con rama SIN mergear o árbol sucio = pendiente; sobreviviente mergeado y
+limpio = cascarón de sesión removible". Causa: `merge-queue.sh` borraba el directorio DONDE ESTÁ
+PARADA la sesión que lo invocó — el cwd de la sesión quedaba colgando, el siguiente mensaje moría
+con "Path … does not exist" y todo proceso en segundo plano se cancelaba con el reinicio forzado
+(recurrente, 3× solo el 2026-07-02). El borrado pasa a `ExitWorktree` (el harness, que además
+restaura el cwd); fallback: `git worktree remove` desde fuera. `pending-work.sh` lista los
+cascarones aparte ("♻ removible") sin contarlos como pendientes.
+
+**Por qué:** el borrado vivía en la capa equivocada — un script jamás puede mover el cwd de la
+sesión. **Impacto:** `plugin/templates/shared/.pandacorp/{merge-queue.sh,pending-work.sh,guide.md.tpl}`
+(v9.48.0), overlay de Mission Control sincronizado, `factory/standards/build-orchestration.md`,
+`factory/decisions/registry.yaml` (DR-096), `factory/backlog/BL-0023` (done).
+
 ## 2026-07-02 — Observability standard gains the build telemetry producer map
 
 **Qué:** `factory/standards/observability.md` suma la sección **"The build telemetry pipeline —

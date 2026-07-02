@@ -910,8 +910,16 @@ for the shared-tree fallback.
 
 The owner runs several conversations at once, steps away, and might forget one. Committed work is never
 *lost* (a branch persists in git independently of the conversation), but it can be *forgotten*. The
-defense rests on one **invariant**: `merge-queue.sh` removes the worktree **and** its branch ONLY on a
-successful merge, so **anything that survives = work not yet in main**. Three layers turn that invariant
+defense rests on one **invariant** (recalibrated 2026-07-02): **a surviving worktree with an UNMERGED
+branch or a dirty tree = work not yet in main**. `merge-queue.sh` deliberately does NOT delete the
+worktree it merges — the invoking session is standing INSIDE it, and deleting a live session's cwd
+dangles it (the next message dies with "Path … does not exist" and every background task is killed with
+the forced restart; owner-reported, recurring). After a successful merge the script instructs the agent
+to call `ExitWorktree(action: remove)` — the harness-level cleanup that ALSO restores the session cwd;
+if that no-ops (a restarted session lost the binding), the fallback is an outside
+`git worktree remove --force <wt> && git branch -D <branch>`. A fully-merged, clean leftover is
+therefore a harmless session shell: `pending-work.sh` lists it apart as removable and never counts it
+as pending. Three layers turn the invariant
 into something the owner can't miss:
 
 - **The manifest.** A gitignored registry under `.pandacorp/run/worktrees/` lists live worktrees (branch,
