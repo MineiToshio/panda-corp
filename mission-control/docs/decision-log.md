@@ -4,6 +4,25 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-02 — La Fragua v2 Fase 3 cerrada: campamento real, sprites por transform, perf medida (AC-06-019.11)
+
+**What:** Fase 3 delivered, adapted to the doctrines the owner set this same day. (1) **Campamento**
+(`zones/camp.png`, the owner's art): a tribunal corner patch, occupied-only (enfermería doctrine) —
+one ⛺ per pending-merge worktree/branch from the SAME `readPending` as FRD-21's chip (DR-092); read
+error → no camp (the Summary tab owns the error). Verified live in preview: committing this very
+branch pitched its tent. (2) **Sprites via `transform`**: the RAF paint writes
+`translate(x, y)` instead of `left/top` — no per-frame layout. Measured via CDP on the idle scene:
+**0.163 ms/frame** total main-thread, layout 0.0 ms (budget was <2 ms). (3) **Adaptations**: the
+ticker was dropped (it would duplicate the feed — the one-voice rule, AC-06-019.9); the
+walk-into-the-pile animation died with the pile (champion design, AC-06-019.10). Manual page +
+blueprint §7 updated. **This closes La Fragua v2 (Fases 1–3).** Remaining outside scope: the live
+validation with a real build (the standing bonus).
+
+**Why:** Owner: "implementemos la fase 3... quiero dejar la Fragua completa y lista". Impact:
+`FraguaScene.tsx` (CampCorner), `fragua-snapshot.ts` (`tents` pass-through), `PartyTab`/
+`PartyLiveShell`/`ProjectWorkspace` plumbing, `useFraguaSprites.ts` (transform paint), walk tests
+adapted, camp tests added; FRD-06 AC-06-019.11, blueprint §7.2/7.4, Manual `la-fragua.md`.
+
 ## 2026-07-02 — Vault aesthetics settled: FRD = champion (bigger + 🏆), not a pile; enfermería back to occupied-only
 
 **What:** Owner iterated on the vault look. The 3-sprite diagonal pile — even once visible — read

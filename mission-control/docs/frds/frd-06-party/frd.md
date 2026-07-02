@@ -155,6 +155,16 @@ With the global-wave engine (BL-0021) several FRDs genuinely build at once, so t
   the courier flight uses the courier sprite, the enfermería strip sits on the dimmed infirmary room
   art, and the panda mascot strolls the stage bottom on a long pure-CSS loop — hidden under
   reduced-motion.)**
+- AC-06-019.11 (Fase 3 — pulso y cierre, 2026-07-02): THE **campamento** (owner art
+  `zones/camp.png`) SHALL render as a corner patch in the tribunal, OCCUPIED-ONLY (same doctrine
+  as the enfermería): one ⛺ per pending-merge worktree/branch (≤3 + "+N"), fed by the SAME
+  `readPending` the Summary tab and the "⎇ pendientes" chip use (FRD-21, DR-092) — on a read
+  error the camp simply doesn't render (the Summary tab owns the error surface). THE sprite
+  engine SHALL position sprites via `transform: translate(...)`, never per-frame `left/top`
+  (no layout pass — measured 0.163 ms/frame total main-thread on the idle scene, layout 0.0 ms,
+  against the <2 ms budget). The Fase-3 ticker was consciously DROPPED: it would duplicate the
+  feed's voice (AC-06-019.9 one-voice rule); the walk-into-the-pile animation died with the pile
+  (AC-06-019.10 champion). This closes La Fragua v2 — Fases 1, 2 and 3 delivered.
 - AC-06-019.10 (fit & finish, owner 2026-07-02): THE achievement toast SHALL fire only for an
   achievement FRESHER than 3 minutes (a stale tail replay is history — the feed shows it) AND
   SHALL carry a manual ✕ dismiss, so it can never greet a page visit hours later nor get stuck;

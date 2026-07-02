@@ -36,6 +36,7 @@ valor inventado.
 | **Bóveda de trofeos** | Las últimas órdenes VERIFICADAS (y "+N arch." para las anteriores) | Frontmatter `VERIFIED` |
 | **Cinta de Campaña (arriba)** | Todos los FRDs del build con su estado: 🔥 forjando · ⚖️ en tribunal · 🏆 completo · ⛔ bloqueado | Derivado de TODAS las work orders del proyecto |
 | **Contador global** | Órdenes hechas / totales | El mismo derivador que usa el Kanban (una sola fuente, nunca dos cuentas distintas) |
+| **El campamento (tiendas ⛺)** | Trabajo terminado en otras conversaciones que aún no llega a main (worktrees/ramas pendientes de merge) — aparece solo cuando existe | El mismo dato del chip "⎇ pendientes" (git real) |
 | **La bitácora (abajo)** | El relato de eventos del build, filtrado a ESTE proyecto | `~/.claude/dashboard-events.ndjson` (los emisores del motor y los hooks) |
 
 ## El badge de frescura: en vivo, hace N min, sin señal

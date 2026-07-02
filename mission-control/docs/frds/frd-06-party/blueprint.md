@@ -229,6 +229,7 @@ panda mascot). There is no third category: an element that LOOKS like data must 
 | **`track.jsonl`** (durable per-project timeline, DR-086) | `readBuildTimeline` → `woStarts` map | REAL elapsed time in speech bubbles ("N min al fuego / ante el juez") | anything fabricated — a WO without a `wo_start` line simply shows no time |
 | **`status.yaml`** (`running`, `supervisor_heartbeat`) | `readStatus` → `isLive`/`freshnessBand` (`lib/status/liveness`, the single DR-092 derivation) | powered-off vs active scene (AC-06-013), the freshness badge bands | "running" alone is NEVER proof of life (DR-066: live ⇔ running AND fresh) |
 | **`wo_commit` engine event** (v9.44+) | `useSceneLife` (lastCommitAt diff) | the courier flight forge → tribunal — a decorative CUE anchored to a real per-WO green commit; stale-tail replays never launch it | any state |
+| **`readPending`** (FRD-21 — real git worktrees/branches not merged) | RSC `renderPartyTab` → `tents` pass-through | THE CAMPAMENTO: one ⛺ per pending-merge branch (occupied-only corner patch, `zones/camp.png`) | anything build-related (it is repo state, not build state) |
 | **SSE `stateVersion`** (max mtime of status.yaml + WO files, stamped by `/api/live?project=`) | `PartyLiveShell` | a throttled `router.refresh()` when the machine state moves WITHOUT an event (cold start, long gate) — the scene can't look dead while the state file advances (DR-066 fix 3) | rendering directly (it only triggers the RSC re-read) |
 
 ### 7.3 The render loop (server → client)
@@ -247,13 +248,15 @@ panda mascot). There is no third category: an element that LOOKS like data must 
    bubble rotation, the elapsed-time clock and the courier cue. Ambient motion is pure CSS
    (smoke, panda, courier keyframes in `globals.css`), all under `prefers-reduced-motion`.
 
-### 7.4 Performance budget
+### 7.4 Performance budget (measured)
 
 No per-frame React state: the 6 s `useSceneLife` tick is the only interval; sprite positions are
 written imperatively by the RAF engine (`useFraguaSprites`), never through setState; ambient
 loops are CSS-only. SSE frames are throttled server-side (200 ms) and the RSC refresh
-client-side (5 s). Target: the scene stays under ~2 ms/frame of main-thread work on an M-class
-laptop and degrades gracefully anywhere else.
+client-side (5 s). Sprites are positioned via `transform: translate(...)` (Fase 3), never per-frame
+`left/top`, so the RAF write never triggers layout. Measured (CDP, 6 s idle scene, 2026-07-02):
+**0.163 ms/frame** total main-thread (script+layout+recalc), layout **0.0 ms** — an order of
+magnitude under the 2 ms budget.
 
 ### 7.5 Freshness is declared, never implied (DR-066)
 
