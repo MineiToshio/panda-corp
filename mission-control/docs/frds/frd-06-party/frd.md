@@ -155,6 +155,18 @@ With the global-wave engine (BL-0021) several FRDs genuinely build at once, so t
   the courier flight uses the courier sprite, the enfermería strip sits on the dimmed infirmary room
   art, and the panda mascot strolls the stage bottom on a long pure-CSS loop — hidden under
   reduced-motion.)**
+- AC-06-019.7 (DR-066 consumer): THE Party surface SHALL declare its own freshness with a graded
+  badge — "en vivo" (signal < 3·T), "datos de hace N min" (< 10-min TTL), "sin señal" (≥ TTL or no
+  signal) — fed by the freshest of the supervisor heartbeat (`status.yaml`) and the latest event;
+  AND the live shell SHALL refresh its RSC-derived structure when the SSE frame's `stateVersion`
+  moves (a build advancing state without emitting an event must not read as dead). The badge is
+  `data-volatile` (DR-088). (Change `mc-observability-consumer-dr066`, 2026-07-02.)
+- AC-06-019.7 (DR-066 consumer): THE Party surface SHALL declare its own freshness with a graded
+  badge — "en vivo" (signal < 3·T), "datos de hace N min" (< 10-min TTL), "sin señal" (≥ TTL or no
+  signal) — fed by the freshest of the supervisor heartbeat (`status.yaml`) and the latest event;
+  AND the live shell SHALL refresh its RSC-derived structure when the SSE frame's `stateVersion`
+  moves (a build advancing state without emitting an event must not read as dead). The badge is
+  `data-volatile` (DR-088). (Change `mc-observability-consumer-dr066`, 2026-07-02.)
 
 ## Edge cases
 - A FRD with a single work order: forge shows 1 sprite, `+0 en cola`; the gate opens as soon as that one WO is `IN_REVIEW`.

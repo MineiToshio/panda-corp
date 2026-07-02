@@ -39,7 +39,10 @@ describe("FRD-14 gate — staleness Banner is gated, never unconditional (DR-016
   });
 
   it("a running-but-fresh snapshot renders building-now but still NO Banner", () => {
-    const snap = buildSnapshot("proj", status({ running: true, progress: 40 }));
+    const snap = buildSnapshot(
+      "proj",
+      status({ running: true, supervisorHeartbeat: new Date().toISOString(), progress: 40 }),
+    );
     render(<SnapshotPanel slug="proj" snapshot={snap} />);
     expect(screen.getByTestId("snapshot-panel-building-now")).toBeTruthy();
     expect(screen.queryByTestId("banner")).toBeNull();
@@ -48,7 +51,10 @@ describe("FRD-14 gate — staleness Banner is gated, never unconditional (DR-016
 
 describe("FRD-14 gate — anti-conflation: green claim ≠ building-now warning (REQ-14-002)", () => {
   it("'safe to test' green claim and 'don't test yet' warning are in DISTINCT subtrees", () => {
-    const snap = buildSnapshot("proj", status({ running: true, progress: 55 }));
+    const snap = buildSnapshot(
+      "proj",
+      status({ running: true, supervisorHeartbeat: new Date().toISOString(), progress: 55 }),
+    );
     render(<SnapshotPanel slug="proj" snapshot={snap} />);
     const green = screen.getByTestId("snapshot-panel-green-section");
     const building = screen.getByTestId("snapshot-panel-building-now");
@@ -73,7 +79,10 @@ describe("FRD-14 gate — independent gating of the three signals", () => {
 
 describe("FRD-14 gate — canonical-copy guard (AC-14-001.2): no banned jargon", () => {
   it("panel copy never uses 'punto verde' nor a local-vs-remote framing", () => {
-    const snap = buildSnapshot("proj", status({ running: true, progress: 67 }));
+    const snap = buildSnapshot(
+      "proj",
+      status({ running: true, supervisorHeartbeat: new Date().toISOString(), progress: 67 }),
+    );
     render(<SnapshotPanel slug="proj" snapshot={{ ...(snap as SnapshotInfo), stale: true }} />);
     const text = (screen.getByTestId("snapshot-panel").textContent ?? "").toLowerCase();
     expect(text).not.toContain("punto verde");

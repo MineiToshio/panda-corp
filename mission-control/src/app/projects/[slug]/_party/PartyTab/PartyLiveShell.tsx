@@ -34,6 +34,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef } from "react";
 
+import { FreshnessBadge } from "@/components/modules/FreshnessBadge/FreshnessBadge";
 import { useLiveSnapshot } from "@/hooks/useLiveSnapshot";
 import type { Event as DashboardEvent } from "@/lib/events/events";
 
@@ -81,6 +82,12 @@ export interface PartyLiveShellProps {
   workOrders?: readonly SceneWorkOrder[];
   /** Real per-WO build starts (track.jsonl) — carried into the live re-derive. */
   woStarts?: Readonly<Record<string, number>>;
+  /**
+   * Supervisor heartbeat ISO stamp from `status.yaml` (DR-066). Combined with the
+   * live frame's `lastEventAt` into the freshness badge — the surface declares its
+   * own freshness instead of passing old data off as current.
+   */
+  supervisorHeartbeat?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -91,6 +98,25 @@ export interface PartyLiveShellProps {
 function hasFresherEvent(liveAt: string | null, initialAt: string | null): boolean {
   // ISO-8601 timestamps compare chronologically as strings.
   return liveAt !== null && (initialAt === null || liveAt > initialAt);
+}
+
+/**
+ * Did the machine-state version move past the last one seen? The FIRST observed
+ * version only sets the baseline (the RSC render already saw that state) and does
+ * not count as movement. Mutates the ref.
+ */
+function stateVersionMoved(
+  stateVersion: number | undefined,
+  lastSeenRef: { current: number | null },
+): boolean {
+  if (stateVersion === undefined) return false;
+  if (lastSeenRef.current === null) {
+    lastSeenRef.current = stateVersion;
+    return false;
+  }
+  if (stateVersion <= lastSeenRef.current) return false;
+  lastSeenRef.current = stateVersion;
+  return true;
 }
 
 /**
@@ -108,20 +134,31 @@ export function PartyLiveShell({
   running,
   workOrders,
   woStarts,
+  supervisorHeartbeat,
 }: PartyLiveShellProps): React.JSX.Element {
   // Subscribe to the live SSE transport, scoped to this project.
   const { snapshot: liveFrame, connected } = useLiveSnapshot({ project });
 
   const router = useRouter();
   const lastRefreshAtRef = useRef(0);
+  const lastStateVersionRef = useRef<number | null>(null);
 
-  // A fresher event means the build advanced → pull fresh frontmatter (the
-  // room/queue/trophy truth) through a throttled RSC refresh. The refresh
-  // updates `initialSnapshot`/`workOrders`/`running` via new props, so the
-  // fresher-check self-resets and this cannot loop while the stream is quiet.
+  // Two refresh triggers, one throttled path (DR-066 fix 3): a fresher EVENT, or a
+  // moved machine-STATE version (a build can rewrite status.yaml / WO frontmatter
+  // without emitting an event — cold start, a long gate). The refresh updates
+  // `initialSnapshot`/`workOrders`/`running` via new props, so the fresher-check
+  // self-resets and this cannot loop while the stream is quiet. The first frame's
+  // stateVersion only sets the baseline (the RSC render already saw that state).
   useEffect(() => {
     if (liveFrame === null) return;
-    if (!hasFresherEvent(liveFrame.lastEventAt ?? null, initialSnapshot.lastEventAt)) return;
+
+    const fresherEvent = hasFresherEvent(
+      liveFrame.lastEventAt ?? null,
+      initialSnapshot.lastEventAt,
+    );
+    const stateMoved = stateVersionMoved(liveFrame.stateVersion, lastStateVersionRef);
+
+    if (!fresherEvent && !stateMoved) return;
     const now = Date.now();
     if (now - lastRefreshAtRef.current < REFRESH_THROTTLE_MS) return;
     lastRefreshAtRef.current = now;
@@ -149,10 +186,23 @@ export function PartyLiveShell({
     });
   }, [liveFrame, initialSnapshot, running, workOrders, woStarts]);
 
+  // Freshest producer signal for the badge: the heartbeat (status.yaml) vs the
+  // latest event — ISO-8601 strings compare chronologically.
+  const liveAt = liveFrame?.lastEventAt ?? initialSnapshot.lastEventAt;
+  const lastSignalAt =
+    supervisorHeartbeat !== undefined && (liveAt === null || supervisorHeartbeat > liveAt)
+      ? supervisorHeartbeat
+      : liveAt;
+
   return (
     <div data-testid="party-live-shell">
       {/* Live connection indicator (for tests + debug) */}
       {connected && <span data-testid="party-live-connected" aria-hidden="true" />}
+
+      {/* DR-066 rule (b): the surface declares its own freshness. */}
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "6px" }}>
+        <FreshnessBadge lastSignalAt={lastSignalAt} />
+      </div>
 
       {/* PartyScene: the outer chrome shell (MissionBar + FlowStrip + FraguaScene) */}
       <PartyScene snapshot={snapshot} />

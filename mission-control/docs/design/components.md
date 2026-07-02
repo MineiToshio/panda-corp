@@ -202,6 +202,7 @@ internal-tool identity — it is NOT a template for product apps.**
 | `AchievementToast` | "¡Logro desbloqueado!" toast on WO close (Party-scoped), reduced-motion variant | `src/app/projects/[slug]/_party/AchievementToast/AchievementToast.tsx` | `wo`, reduced-motion; distinct from core `Toast` | **real** |
 | `FraguaScene` | The La Fragua living-map scene composition (stage + rooms + bridges + sprites) | `src/app/projects/[slug]/_party/FraguaScene/FraguaScene.tsx` | `snapshot` (derived from events) | **real** |
 | `PartyScene` / `PartyTab` | Party tab shell + scene host | `src/app/projects/[slug]/_party/{PartyScene,PartyTab}/*.tsx` | — | **real** |
+| `FreshnessBadge` | DR-066 graded freshness chip for live surfaces (en vivo · datos de hace N min · sin señal); self re-grades every 30s; `data-volatile` (DR-088) | `src/components/modules/FreshnessBadge/FreshnessBadge.tsx` | `lastSignalAt: string \| null` | **real** |
 
 ### FRD-13 a11y primitives (also listed in Core §1, repeated here as the cross-cutting set)
 

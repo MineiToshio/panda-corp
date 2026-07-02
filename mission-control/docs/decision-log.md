@@ -4,6 +4,31 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-02 — Honest consumer observability (DR-066): liveness = running AND fresh, graded freshness, state-driven SSE
+
+**What:** Closed change `mc-observability-consumer-dr066` (owner-approved DIRECT drain) — the four
+consumer-side fixes deferred since 2026-06-20. (1) NEW `lib/status/liveness.ts` — the single
+derivation (DR-092): `freshnessBand()` (bands off the supervisor tick T=60s: live < 3·T, aging
+< 10-min TTL, no-signal ≥ TTL/absent) and `isLive()` (running AND fresh, never the flag alone).
+(2) `readStatus` exposes `supervisorHeartbeat` + `runStartedAt`. (3) The SSE (`/api/live?project=`)
+now also WATCHES the project's machine state (`.pandacorp/` + `docs/frds/`, recursive) and stamps
+each frame with `stateVersion` (max mtime of status.yaml + WO frontmatter); `PartyLiveShell`
+refreshes on a moved `stateVersion` through the same throttled path — a build that advances state
+without emitting an event no longer reads as dead. (4) NEW `FreshnessBadge` module (inventory row
+added): the Party declares its own freshness ("en vivo" / "datos de hace N min" / "sin señal") off
+the freshest of heartbeat vs latest event; `data-volatile` (DR-088). `buildSnapshot` crosses
+`running` with the heartbeat: "building now" only when LIVE, else a `noSignal` "sin señal" note in
+the SnapshotPanel (AC-14-002.2) — a frozen `running: true` is never dressed as a live build.
+
+**Why:** DR-066's producer side shipped 2026-06-20; MC's consumer side was deferred (the build
+window owned the tree). Without it, MC presented a self-reported flag as proof of life — the exact
+failure the standard forbids. Existing snapshot tests that meant "genuinely live" gained a fresh
+heartbeat in their fixtures (the old naive contract was the bug). Impact: FRD-14 (AC-14-002.2),
+FRD-01 (stateVersion + events-file override), FRD-06 (AC-06-019.7), `docs/design/components.md`;
+libs `status/liveness`, `status/state-version`, `snapshot`, `events`; `api/live`, `useLiveSnapshot`,
+`PartyLiveShell`/`PartyTab`/`ProjectWorkspace`, `snapshot-panel`; tests for every new unit; change
+queue README (done).
+
 ## 2026-07-02 — e2e runs against a frozen fixture factory root — live data can no longer move gate pixels
 
 **What:** Closed change `mc-e2e-fixture-factory-root` (owner-approved DIRECT drain). The Playwright

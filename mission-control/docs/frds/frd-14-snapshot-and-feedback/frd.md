@@ -25,6 +25,11 @@ The "green" point is the **last build commit that passed all the gates** (tests/
 
 ### REQ-14-002 — Staleness warning
 - **AC-14-002.1** — IF the last green commit (`last_green_sha`) is **far behind the build's current HEAD** (many commits/hours), THEN Mission Control SHALL warn that the green commit has fallen behind the build, and that testing it no longer reflects the build's current state.
+- **AC-14-002.2** — WHILE `status.yaml` claims `running: true`, THE panel SHALL show "building
+  now" ONLY when the claim is LIVE — `running` crossed with the supervisor heartbeat's recency
+  (DR-066: liveness = running AND fresh, never the flag alone). WHEN the heartbeat is stale
+  (≥ the 10-min TTL) or absent, THE panel SHALL show a "sin señal" note instead — the flag is
+  never dressed up as a live build. (Change `mc-observability-consumer-dr066`, 2026-07-02.)
 
 ### REQ-14-003 — Portfolio chips & feedback channels
 - **AC-14-003.1** — EACH project in the portfolio rail SHALL show **chips** with the number of **pending decisions** (amber) and **bugs in the inbox** (red), read from `pending_decisions` and `pending_bugs`.

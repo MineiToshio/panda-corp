@@ -96,6 +96,8 @@ export interface PartyTabProps {
    * "N min al fuego" bubbles with real elapsed time (Fase 2, REQ-06-019).
    */
   woStarts?: Readonly<Record<string, number>>;
+  /** Supervisor heartbeat ISO stamp from status.yaml (DR-066) — feeds the freshness badge. */
+  supervisorHeartbeat?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -214,6 +216,7 @@ export function PartyTab({
   project,
   workOrders,
   woStarts,
+  supervisorHeartbeat,
 }: PartyTabProps): React.JSX.Element {
   // Read the capped tail of the event stream (read-only, never throws).
   // The project filter runs BEFORE the cap so other sessions' noise cannot
@@ -288,6 +291,7 @@ export function PartyTab({
               running={running}
               workOrders={workOrders}
               woStarts={woStarts}
+              supervisorHeartbeat={supervisorHeartbeat}
             />
           </div>
 

@@ -216,7 +216,7 @@ export function SnapshotPanel({ snapshot }: SnapshotPanelProps): React.JSX.Eleme
               — pasó todos los gates. Pruébalo en un worktree aparte sin parar el build.
             </p>
 
-            {/* Building-now block (AC-14-002.1) — only when running */}
+            {/* Building-now block (AC-14-002.1) — only when LIVE (running AND fresh, DR-066) */}
             {buildingNow !== undefined && (
               <div data-testid="snapshot-panel-building-now" style={BUILDING_NOW_STYLE}>
                 {/* ti-hammer in var(--color-accent) — visually distinct from the green section */}
@@ -225,6 +225,16 @@ export function SnapshotPanel({ snapshot }: SnapshotPanelProps): React.JSX.Eleme
                 El build sigue avanzando: <b style={{ fontWeight: 500 }}>{buildingNow}</b>
                 {" · "}
                 eso aún no está verificado, no lo pruebes
+              </div>
+            )}
+
+            {/* No-signal block (AC-14-002.2, DR-066): running claimed, recency doesn't back it —
+                never dress the flag up as "building now". */}
+            {snapshot.noSignal === true && (
+              <div data-testid="snapshot-panel-no-signal" style={BUILDING_NOW_STYLE}>
+                <i className="ti ti-antenna-off" style={HAMMER_ICON_STYLE} aria-hidden="true" />
+                El build dice estar corriendo, pero <b style={{ fontWeight: 500 }}>sin señal</b> del
+                supervisor — revisa si sigue vivo antes de confiar en ese estado
               </div>
             )}
           </div>

@@ -31,3 +31,8 @@ test-results/
 
 # OS / editor
 .DS_Store
+
+# The e2e fixture factory root is FROZEN source data, but the app (Server Action
+# snapshotLedger, AC-09-006.3) writes its runtime gamification ledger inside it on
+# first render — runtime data, gitignored exactly like the real factory ledger.
+e2e/fixtures/factory-root/factory/gamification-ledger.json

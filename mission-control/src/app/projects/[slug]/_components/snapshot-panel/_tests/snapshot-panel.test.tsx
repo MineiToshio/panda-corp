@@ -298,3 +298,24 @@ describe("SnapshotPanel — a11y + design contract", () => {
     expect(() => render(<SnapshotPanel slug="proj" snapshot={snapshot} />)).not.toThrow();
   });
 });
+
+// ---------------------------------------------------------------------------
+// DR-066 — "sin señal" block when running is claimed but recency doesn't back it
+// (change mc-observability-consumer-dr066, AC-14-002.2).
+// ---------------------------------------------------------------------------
+
+describe("snapshot-panel — no-signal (DR-066)", () => {
+  it("noSignal:true renders the sin-señal block and NOT the building-now block", () => {
+    const snapshot = makeSnapshot({ buildingNow: undefined, noSignal: true });
+    render(<SnapshotPanel slug="proj" snapshot={snapshot} />);
+    expect(screen.getByTestId("snapshot-panel-no-signal")).toHaveTextContent("sin señal");
+    expect(screen.queryByTestId("snapshot-panel-building-now")).not.toBeInTheDocument();
+  });
+
+  it("live build (buildingNow set) renders building-now and NOT the sin-señal block", () => {
+    const snapshot = makeSnapshot({ buildingNow: "building now: 40%" });
+    render(<SnapshotPanel slug="proj" snapshot={snapshot} />);
+    expect(screen.getByTestId("snapshot-panel-building-now")).toBeInTheDocument();
+    expect(screen.queryByTestId("snapshot-panel-no-signal")).not.toBeInTheDocument();
+  });
+});

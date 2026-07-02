@@ -80,6 +80,10 @@ export type ProjectStatus = {
   targetPlatforms?: TargetPlatform;
   /** Live URL where the release is deployed (DR-085). Absent until launched. */
   deployUrl?: string;
+  /** Supervisor's time-driven heartbeat ISO stamp (DR-066). Consumers cross it with `running`. */
+  supervisorHeartbeat?: string;
+  /** ISO stamp of the current/last run's start (DR-066). */
+  runStartedAt?: string;
 };
 
 export type StatusResult =
@@ -159,6 +163,15 @@ function mapStringFields(raw: Record<string, unknown>, status: Partial<ProjectSt
 
   const deployUrl = asString(raw.deploy_url);
   if (deployUrl !== undefined) status.deployUrl = deployUrl;
+
+  // DR-066 consumer signals: the supervisor's time-driven heartbeat + run start.
+  // Exposed so consumers can cross `running` with RECENCY (liveness = running AND
+  // fresh) instead of trusting the self-reported flag alone.
+  const supervisorHeartbeat = asString(raw.supervisor_heartbeat);
+  if (supervisorHeartbeat !== undefined) status.supervisorHeartbeat = supervisorHeartbeat;
+
+  const runStartedAt = asString(raw.run_started_at);
+  if (runStartedAt !== undefined) status.runStartedAt = runStartedAt;
 }
 
 /** Map the finite-number fields; invalid/NaN/missing omitted (regression B1'). */

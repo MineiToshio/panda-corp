@@ -19,6 +19,7 @@
  * They are exported so callers can reference the documented limit, not a magic number.
  */
 
+import { isLive } from "../status/liveness";
 import type { ProjectStatus } from "../status/status";
 
 // ---------------------------------------------------------------------------
@@ -50,11 +51,17 @@ export interface SnapshotInfo {
   /** Ready-to-copy git worktree command (AC-14-001.2). */
   worktreeCommand: string;
   /**
-   * Set when running=true; contains a human-readable progress string
-   * ("building now: <progress>%") so the UI can show it without re-deriving (AC-14-002.1).
-   * Undefined when not running.
+   * Set when the build is LIVE (running AND fresh heartbeat, DR-066); contains a
+   * human-readable progress string ("building now: <progress>%") so the UI can show it
+   * without re-deriving (AC-14-002.1). Undefined when not running or not fresh.
    */
   buildingNow?: string;
+  /**
+   * Set when `running: true` but the heartbeat is stale/absent (DR-066): the flag
+   * claims a build, recency does not back it. The panel renders "sin señal", never
+   * "building now" (AC-14-002.2).
+   */
+  noSignal?: true;
   /**
    * Staleness verdict — true when the snapshot is far behind HEAD.
    * Defaults to false; the caller (WO-14-002 route handler) re-derives this after
@@ -79,7 +86,11 @@ export interface SnapshotInfo {
  * @param status — a Partial<ProjectStatus> (tolerates partial; never throws)
  * @returns SnapshotInfo or null
  */
-export function buildSnapshot(slug: string, status: Partial<ProjectStatus>): SnapshotInfo | null {
+export function buildSnapshot(
+  slug: string,
+  status: Partial<ProjectStatus>,
+  nowMs?: number,
+): SnapshotInfo | null {
   const sha = status.lastGreenSha;
 
   // AC-14-001.3 — absent or empty sha → return null, no broken command.
@@ -94,14 +105,22 @@ export function buildSnapshot(slug: string, status: Partial<ProjectStatus>): Sna
   // safe_to_test — default false when absent (fail-safe: don't mislead the user)
   const safeToTest = status.safeToTest === true;
 
-  // AC-14-002.1 — buildingNow only when running
+  // AC-14-002.1 + DR-066 rule (a): buildingNow only when LIVE — `running` crossed with
+  // heartbeat recency, never the self-reported flag alone. A frozen running:true with a
+  // stale/absent heartbeat is `noSignal`, not "building now".
+  const now = nowMs ?? Date.now();
   let buildingNow: string | undefined;
+  let noSignal: true | undefined;
   if (status.running === true) {
-    const progress = status.progress;
-    if (typeof progress === "number" && Number.isFinite(progress)) {
-      buildingNow = `building now: ${progress}%`;
+    if (isLive(status, now)) {
+      const progress = status.progress;
+      if (typeof progress === "number" && Number.isFinite(progress)) {
+        buildingNow = `building now: ${progress}%`;
+      } else {
+        buildingNow = "building now";
+      }
     } else {
-      buildingNow = "building now";
+      noSignal = true;
     }
   }
 
@@ -110,6 +129,7 @@ export function buildSnapshot(slug: string, status: Partial<ProjectStatus>): Sna
     safeToTest,
     worktreeCommand,
     buildingNow,
+    noSignal,
     stale: false, // default; caller sets true after git probe (WO-14-002)
   };
 }

@@ -32,7 +32,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { resolveProjectPath } from "@/lib/config/config";
 import { type EventsSnapshot, readEvents } from "@/lib/events/events";
+import { readPortfolio } from "@/lib/portfolio/portfolio";
+import { stateVersion } from "@/lib/status/state-version";
 
 /**
  * Use the Node.js runtime so `fs.watch` and `fs.readFileSync` are available.
@@ -72,9 +75,30 @@ function defaultEventsPath(): string {
 
 /**
  * The SSE frame payload pushed to every subscriber.
- * Matches EventsSnapshot so consumers can type it directly.
+ * Matches EventsSnapshot so consumers can type it directly, plus `stateVersion` —
+ * the max mtime of the project's machine state (status.yaml + WO frontmatter), so a
+ * build that advances STATE without emitting an EVENT still signals clients to
+ * re-read (DR-066 fix 3). Absent when no ?project= is given or the dir is unknown.
  */
-export type LiveFrame = EventsSnapshot;
+export type LiveFrame = EventsSnapshot & { stateVersion?: number };
+
+/**
+ * Resolve the ?project= key (the emitters' `basename $PWD`) to the project's
+ * absolute root via the portfolio — never trusts a client-supplied path (the
+ * watch targets stay inside known project roots).
+ */
+function resolveProjectDir(project: string | undefined): string | undefined {
+  if (project === undefined || project.trim() === "") return undefined;
+  try {
+    for (const row of readPortfolio()) {
+      const resolved = resolveProjectPath(row.path);
+      if (path.basename(resolved) === project) return resolved;
+    }
+  } catch {
+    // Portfolio unreadable → no state watching; the event stream still works.
+  }
+  return undefined;
+}
 
 // ---------------------------------------------------------------------------
 // Filtering helpers
@@ -171,9 +195,12 @@ export function GET(request: Request): Response {
       : undefined;
 
   const eventsFilePath = defaultEventsPath();
+  // Project root for state watching + stateVersion stamping (DR-066 fix 3).
+  const projectDir = resolveProjectDir(projectFilter);
 
   const encoder = new TextEncoder();
   let watcher: fs.FSWatcher | null = null;
+  const stateWatchers: fs.FSWatcher[] = [];
   let keepAliveTimer: ReturnType<typeof setInterval> | null = null;
   let lastEmitAt = 0;
   let emitThrottleTimer: ReturnType<typeof setTimeout> | null = null;
@@ -189,7 +216,12 @@ export function GET(request: Request): Response {
         // projects'/sessions' noise can't crowd a build's events out of the tail;
         // filterSnapshot keeps the kind filter + re-derives the aggregates.
         const snapshot = readEvents({ path: eventsFilePath, project: projectFilter });
-        const frame = filterSnapshot(snapshot, projectFilter, kindsFilter);
+        const frame: LiveFrame = filterSnapshot(snapshot, projectFilter, kindsFilter);
+        // Stamp the machine-state version so a state-only advance (no event) still
+        // signals the client to re-read the frontmatter (DR-066 fix 3).
+        if (projectDir !== undefined) {
+          frame.stateVersion = stateVersion(projectDir);
+        }
 
         // Only emit if there is content (avoids useless empty frames on boot)
         // but we DO emit the initial snapshot unconditionally so the client
@@ -240,6 +272,29 @@ export function GET(request: Request): Response {
         watcher = null;
       }
 
+      // ---- Watch the project's MACHINE STATE too (DR-066 fix 3) -----------
+      // A build can advance status.yaml / WO frontmatter without emitting an
+      // event (cold start, a long gate); watching only the event stream would
+      // read as "dead". Each state change re-emits a frame whose stateVersion
+      // moves, so the client refreshes its RSC-derived structure.
+      if (projectDir !== undefined) {
+        const stateTargets = [
+          path.join(projectDir, ".pandacorp"),
+          path.join(projectDir, "docs", "frds"),
+        ];
+        for (const target of stateTargets) {
+          try {
+            stateWatchers.push(
+              fs.watch(target, { persistent: false, recursive: true }, () => {
+                scheduleEmit();
+              }),
+            );
+          } catch {
+            // Missing dir / unsupported recursive watch → skip; events still flow.
+          }
+        }
+      }
+
       // ---- Keep-alive to prevent proxy / CDN timeouts ---------------------
       keepAliveTimer = setInterval(() => {
         if (destroyed) return;
@@ -263,6 +318,13 @@ export function GET(request: Request): Response {
 
   /** Close the fs.FSWatcher if active. Swallows already-closed errors. */
   function closeWatcher(): void {
+    for (const stateWatcher of stateWatchers.splice(0)) {
+      try {
+        stateWatcher.close();
+      } catch {
+        // Already closed — ignore.
+      }
+    }
     if (watcher === null) return;
     try {
       watcher.close();

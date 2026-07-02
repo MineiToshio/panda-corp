@@ -140,7 +140,11 @@ function renderDocumentsTab(
  * sprites/rooms/queue/trophies/counter/gate. `woStarts` (track.jsonl, same reader as
  * Observabilidad) powers the REAL "N min al fuego" bubbles — never a fabricated progress value.
  */
-function renderPartyTab(projectPath: string, running: boolean): React.JSX.Element {
+function renderPartyTab(
+  projectPath: string,
+  running: boolean,
+  supervisorHeartbeat?: string,
+): React.JSX.Element {
   const partyOrders = listWorkOrders(projectPath);
   const partyTimeline = readBuildTimeline(projectPath, partyOrders);
   const woStarts: Record<string, number> = {};
@@ -155,6 +159,7 @@ function renderPartyTab(projectPath: string, running: boolean): React.JSX.Elemen
       project={path.basename(projectPath)}
       workOrders={partyOrders}
       woStarts={woStarts}
+      supervisorHeartbeat={supervisorHeartbeat}
     />
   );
 }
@@ -235,7 +240,7 @@ export function ProjectWorkspace({
   const woTotal = woProgress.total > 0 ? woProgress.total : undefined;
 
   // FRD-14 snapshot — null when last_green_sha is absent (AC-14-001.3). Rendered inside Summary.
-  const snapshot = buildSnapshot(slug, status);
+  const snapshot = buildSnapshot(slug, status, Date.now());
 
   const { activeTab, docParam, woParam, woTabParam } = selection;
 
@@ -248,7 +253,7 @@ export function ProjectWorkspace({
       // Pass the authoritative build flag so the scene shows the powered-off state
       // when the build is off, instead of a frozen active scene from a stale event
       // tail (AC-06-013). `running` is derived above from status.yaml / the portfolio.
-      body = renderPartyTab(projectPath, running);
+      body = renderPartyTab(projectPath, running, status.supervisorHeartbeat);
       break;
     case "observabilidad": {
       const obsOrders = listWorkOrders(projectPath);

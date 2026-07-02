@@ -67,7 +67,10 @@ describe("FRD-14 integration — buildSnapshot feeds SnapshotPanel (the page.tsx
   });
 
   it("running build → buildingNow set by helper → panel shows the don't-test-yet block", () => {
-    const snap = buildSnapshot("proj", status({ running: true, progress: 73 }));
+    const snap = buildSnapshot(
+      "proj",
+      status({ running: true, supervisorHeartbeat: new Date().toISOString(), progress: 73 }),
+    );
     render(<SnapshotPanel slug="proj" snapshot={snap} />);
     const block = screen.getByTestId("snapshot-panel-building-now");
     expect(block.textContent).toContain("73");
@@ -140,13 +143,23 @@ describe("FRD-14 progress edges — buildingNow copy stays sane", () => {
     [150, "150"],
     [0, "0"],
   ])("running with progress=%s renders it verbatim in the block", (progress, shown) => {
-    const snap = buildSnapshot("proj", status({ running: true, progress }));
+    const snap = buildSnapshot(
+      "proj",
+      status({ running: true, supervisorHeartbeat: new Date().toISOString(), progress }),
+    );
     render(<SnapshotPanel slug="proj" snapshot={snap} />);
     expect(screen.getByTestId("snapshot-panel-building-now").textContent).toContain(shown);
   });
 
   it("running with NaN progress → no crash, building-now still rendered (running alone)", () => {
-    const snap = buildSnapshot("proj", status({ running: true, progress: Number.NaN }));
+    const snap = buildSnapshot(
+      "proj",
+      status({
+        running: true,
+        supervisorHeartbeat: new Date().toISOString(),
+        progress: Number.NaN,
+      }),
+    );
     // NaN is not Number.isFinite → falls back to plain 'building now'
     expect(snap?.buildingNow).toBeDefined();
     expect(snap?.buildingNow).not.toContain("NaN");
@@ -155,7 +168,10 @@ describe("FRD-14 progress edges — buildingNow copy stays sane", () => {
   });
 
   it("running with fractional progress is preserved (no rounding surprise)", () => {
-    const snap = buildSnapshot("proj", status({ running: true, progress: 33.3 }));
+    const snap = buildSnapshot(
+      "proj",
+      status({ running: true, supervisorHeartbeat: new Date().toISOString(), progress: 33.3 }),
+    );
     expect(snap?.buildingNow).toContain("33.3");
   });
 });

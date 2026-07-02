@@ -40,8 +40,9 @@ import type { EventsSnapshot } from "@/lib/events/events";
 // Types
 // ---------------------------------------------------------------------------
 
-/** The shape pushed over SSE — same as EventsSnapshot from the server. */
-type LiveFrame = EventsSnapshot;
+/** The shape pushed over SSE — EventsSnapshot plus the machine-state version stamp
+ * (max mtime of status.yaml + WO frontmatter, DR-066 fix 3). */
+type LiveFrame = EventsSnapshot & { stateVersion?: number };
 
 /** Options accepted by the hook. */
 export interface UseLiveSnapshotOptions {

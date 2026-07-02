@@ -120,7 +120,12 @@ describe("buildSnapshot — AC-14-001.3 — absent lastGreenSha returns null", (
 
 describe("buildSnapshot — AC-14-002.1 — buildingNow from running + progress", () => {
   it("WHEN running=true and progress is set THEN buildingNow is defined and contains progress", () => {
-    const status = makeStatus({ running: true, progress: 42, lastGreenSha: "abc" });
+    const status = makeStatus({
+      running: true,
+      supervisorHeartbeat: new Date().toISOString(),
+      progress: 42,
+      lastGreenSha: "abc",
+    });
     const result = buildSnapshot("proj", status);
     expect(result).not.toBeNull();
     const info = result as SnapshotInfo;
@@ -129,14 +134,23 @@ describe("buildSnapshot — AC-14-002.1 — buildingNow from running + progress"
   });
 
   it("WHEN running=true and progress is 0 THEN buildingNow contains '0'", () => {
-    const status = makeStatus({ running: true, progress: 0, lastGreenSha: "abc" });
+    const status = makeStatus({
+      running: true,
+      supervisorHeartbeat: new Date().toISOString(),
+      progress: 0,
+      lastGreenSha: "abc",
+    });
     const result = buildSnapshot("proj", status);
     expect(result).not.toBeNull();
     expect((result as SnapshotInfo).buildingNow).toContain("0");
   });
 
   it("WHEN running=true and progress is absent THEN buildingNow is still defined (running alone)", () => {
-    const status = makeStatus({ running: true, lastGreenSha: "abc" });
+    const status = makeStatus({
+      running: true,
+      supervisorHeartbeat: new Date().toISOString(),
+      lastGreenSha: "abc",
+    });
     delete (status as Partial<ProjectStatus>).progress;
     const result = buildSnapshot("proj", status);
     expect(result).not.toBeNull();
@@ -229,7 +243,12 @@ describe("isSnapshotStale — AC-14-003.1 — threshold verdicts", () => {
 
 describe("buildSnapshot + isSnapshotStale — purity", () => {
   it("buildSnapshot: same input → same output", () => {
-    const status = makeStatus({ lastGreenSha: "abc", running: true, progress: 10 });
+    const status = makeStatus({
+      lastGreenSha: "abc",
+      running: true,
+      supervisorHeartbeat: new Date().toISOString(),
+      progress: 10,
+    });
     const r1 = buildSnapshot("proj", status);
     const r2 = buildSnapshot("proj", status);
     expect(r1).toEqual(r2);
@@ -262,5 +281,55 @@ describe("threshold constants are exported from lib/snapshot.ts", () => {
   it("SNAPSHOT_STALE_HOURS_THRESHOLD is a positive number", () => {
     expect(typeof SNAPSHOT_STALE_HOURS_THRESHOLD).toBe("number");
     expect(SNAPSHOT_STALE_HOURS_THRESHOLD).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DR-066 rule (a) — buildingNow requires LIVE (running AND fresh), never the
+// flag alone (change mc-observability-consumer-dr066, AC-14-002.2).
+// ---------------------------------------------------------------------------
+
+describe("buildSnapshot — liveness crossing (DR-066)", () => {
+  const NOW = Date.parse("2026-07-02T12:00:00Z");
+
+  it("frozen running:true with a stale heartbeat (≥ TTL) → noSignal, no buildingNow", () => {
+    const snap = buildSnapshot(
+      "proj",
+      {
+        lastGreenSha: "abc1234",
+        running: true,
+        supervisorHeartbeat: new Date(NOW - 11 * 60_000).toISOString(),
+      },
+      NOW,
+    );
+    expect(snap?.buildingNow).toBeUndefined();
+    expect(snap?.noSignal).toBe(true);
+  });
+
+  it("running:true with NO heartbeat at all → noSignal (the flag alone is never proof)", () => {
+    const snap = buildSnapshot("proj", { lastGreenSha: "abc1234", running: true }, NOW);
+    expect(snap?.buildingNow).toBeUndefined();
+    expect(snap?.noSignal).toBe(true);
+  });
+
+  it("running:true with a fresh heartbeat → buildingNow set, no noSignal", () => {
+    const snap = buildSnapshot(
+      "proj",
+      {
+        lastGreenSha: "abc1234",
+        running: true,
+        supervisorHeartbeat: new Date(NOW - 30_000).toISOString(),
+        progress: 40,
+      },
+      NOW,
+    );
+    expect(snap?.buildingNow).toBe("building now: 40%");
+    expect(snap?.noSignal).toBeUndefined();
+  });
+
+  it("running:false → neither buildingNow nor noSignal", () => {
+    const snap = buildSnapshot("proj", { lastGreenSha: "abc1234", running: false }, NOW);
+    expect(snap?.buildingNow).toBeUndefined();
+    expect(snap?.noSignal).toBeUndefined();
   });
 });

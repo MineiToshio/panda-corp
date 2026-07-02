@@ -97,7 +97,12 @@ describe("FRD-14 opus gate — current-MC integration: safeToTest=false + runnin
     // This is exactly the live status.yaml shape that caused the reopen.
     const snap = buildSnapshot(
       "mission-control",
-      status({ safeToTest: false, running: true, progress: 88 }),
+      status({
+        safeToTest: false,
+        running: true,
+        supervisorHeartbeat: new Date().toISOString(),
+        progress: 88,
+      }),
     );
     render(<SnapshotPanel slug="mission-control" snapshot={snap} />);
     const panel = screen.getByTestId("snapshot-panel");
