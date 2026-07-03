@@ -3,12 +3,12 @@ id: BL-0014
 type: change
 area: build-engine
 title: "Owner activity feed logs raw gate-tool exit lines, not milestones"
-status: open
+status: done
 severity: p2
 opened: 2026-07-01
-closed:
+closed: 2026-07-03
 source: "owner/conversation 2026-07-01 (memory harvest); evidence mission-control/.pandacorp/comms/progress.md:24-30"
-closes:
+closes: "progress.md writer contract (milestones, not gate-tool exit lines) documented in factory/standards/build-orchestration.md §7 + plugin/skills/implement/SKILL.md + plugin/agents/reviewer.md; noise-canary + milestone-positive proof green; plugin v9.56.0"
 links: []
 ---
 
