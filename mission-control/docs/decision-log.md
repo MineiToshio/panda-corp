@@ -4,6 +4,27 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-03 — Factory Backlog tab: discard an item + priority ordering (FRD-22, REQ-22-007/008)
+
+**What:** Two additions to the Propuestas → Backlog tab, mirroring the Cambios tab's discard
+pattern (FRD-04, REQ-04-008) and a new sort invariant:
+1. **Discard.** An open/doing item's detail modal now offers a "Descartar" action (inline confirm,
+   no nested modal — `DiscardBacklogButton.tsx`) that rewrites `status: discarded` +
+   `status_before_discard` via the new `discardBacklogItem` write (`lib/backlog/discard-backlog.ts`,
+   mirrors `lib/changes/discard-change.ts` exactly, except the target file is located by filename
+   prefix — `<id>-<slug>.md` — instead of direct construction, since a backlog filename isn't the
+   bare id). Discarded items move into a new **Descartados** group, hidden by default behind its
+   own toggle alongside **Hechos** (`BacklogPanel.tsx`'s `TOGGLEABLE_GROUPS` now holds both).
+2. **Priority ordering.** `readBacklog()` now sorts its `items` by `severity` (P0 → P1 → P2 → none)
+   then by `id` ascending — an invariant of the reader, not a per-view sort, so every consumer sees
+   the same order.
+
+**Why:** The owner asked for both in one request: the ability to discard a backlog item (same
+"declutter over months" concern REQ-22-006 already addressed for done items) and a stable,
+priority-first reading order so the most urgent open work always sorts to the top of its group.
+**Impact:** `docs/frds/frd-22-factory-backlog/frd.md` (REQ-22-007, REQ-22-008, AC-22-001.1/.2,
+REQ-22-003 updated, Non-goals updated).
+
 ## 2026-07-03 — Factory Backlog tab: default-hide Hechos behind a toggle (FRD-22, REQ-22-006)
 
 **What:** The Propuestas → Backlog tab now shows only **Abiertos** and **En curso** by default;

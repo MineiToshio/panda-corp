@@ -15,8 +15,8 @@ Surfaces the factory's **actionable work queue** — `factory/backlog/BL-*` (DR-
 ## Acceptance criteria (EARS)
 
 ### REQ-22-001 — Read and group the backlog
-- **AC-22-001.1** — Mission Control SHALL read every `factory/backlog/BL-*.md` item (skipping `README.md` and `_item-template.md`) into a typed model (`id`, `type` bug|change, `area`, `title`, `status` open|doing|done, `severity`, `source`, `closes`, `links`, `opened`, `closed`).
-- **AC-22-001.2** — The Backlog panel SHALL group items by `status`; **Abiertos** (open) and **En curso** (doing) render by default, in that order, each a section with its count. **Hechos** (done) does NOT render by default — see REQ-22-006. An empty backlog SHALL show an explicit empty state.
+- **AC-22-001.1** — Mission Control SHALL read every `factory/backlog/BL-*.md` item (skipping `README.md` and `_item-template.md`) into a typed model (`id`, `type` bug|change, `area`, `title`, `status` open|doing|done|discarded, `severity`, `source`, `closes`, `links`, `opened`, `closed`).
+- **AC-22-001.2** — The Backlog panel SHALL group items by `status`; **Abiertos** (open) and **En curso** (doing) render by default, in that order, each a section with its count, its items ordered by priority then id (see REQ-22-008). **Hechos** (done) and **Descartados** (discarded) do NOT render by default — see REQ-22-006, REQ-22-007. An empty backlog SHALL show an explicit empty state.
 - **AC-22-001.3** — Each item SHALL render as a card visually consistent with the memory ProposalCard (DR-062): mono `id`, a `type · area` chip, a severity chip (text + tone, never colour alone), the title, and an evidence line (`source` + `links`).
 
 ### REQ-22-002 — In-page sub-tabs (Memoria | Backlog)
@@ -25,8 +25,8 @@ Surfaces the factory's **actionable work queue** — `factory/backlog/BL-*` (DR-
 - **AC-22-002.3** — The **Backlog** tab SHALL show a count badge of `open` items when greater than zero.
 - **AC-22-002.4** — Both panels SHALL stay mounted (toggled with `hidden`) so the memory streams' local dismiss state survives a tab switch, and SHALL carry `data-volatile` (DR-088) so the visual baseline masks their live, length-varying data.
 
-### REQ-22-003 — Read-only, how-to-work note
-- **AC-22-003.1** — The Backlog panel SHALL show a short read-only note explaining these are actionable items worked by asking an agent (e.g. «implementa BL-0007»), and that Mission Control only displays them — it never edits `factory/backlog/` (consistent with the FRD-17 read-only boundary).
+### REQ-22-003 — Read-mostly, how-to-work note
+- **AC-22-003.1** — The Backlog panel SHALL show a short note explaining these are actionable items worked by asking an agent (e.g. «implementa BL-0007»), and that Mission Control only displays and (per REQ-22-007) lets the owner discard them — it never creates, closes or edits the content of a `factory/backlog/` item (consistent with the FRD-17 read-only boundary, minus the one bounded discard write).
 
 ### REQ-22-004 — Fail-loud read boundary (DR-078)
 - **AC-22-004.1** — The backlog reader SHALL distinguish "the backlog is empty" from "an item could not be interpreted": a malformed `BL-*.md` (unparseable YAML, missing a required field, or an out-of-range enum) SHALL be surfaced in an `errors` collection, never silently dropped. A missing `factory/backlog/` directory is a legitimately-empty backlog, not an error.
@@ -43,8 +43,16 @@ Surfaces the factory's **actionable work queue** — `factory/backlog/BL-*` (DR-
 - **AC-22-006.2** — Clicking the toggle SHALL reveal the **Hechos** section (same card list as the other groups); the button label SHALL flip to "Ocultar hechos (N)". Clicking it again SHALL hide the section and flip the label back.
 - **AC-22-006.3** — This mirrors the same default-hide pattern used by the project-level Cambios tab (Mission Control FRD-04, REQ-04-009) — so the closed-item history of neither queue clutters its actionable view as it accumulates over months.
 
+### REQ-22-007 — Discard a backlog item (bounded write)
+- **AC-22-007.1** — WHEN a backlog item is `open` or `doing`, its detail modal SHALL offer a **"Descartar"** action (inline confirm, no nested modal) that rewrites `status: discarded` (ADR-0002 pattern) and closes the modal on success; never offered for `done` or already-`discarded` items.
+- **AC-22-007.2** — Confirming SHALL call the `discardBacklogItem` write, which rewrites `status: discarded` and records `status_before_discard` (the prior value), preserving the body and every other frontmatter field verbatim (the same bounded-write pattern as `discardIdea`/`discardChange`) — never touching any sibling file.
+- **AC-22-007.3** — A discarded item moves out of the default Abiertos/En curso view into a new **Descartados** group, hidden by default behind its own "Ver descartados (N)" toggle — the same default-hide mechanism as REQ-22-006, mirroring the project-level Cambios tab (FRD-04, REQ-04-008/009).
+
+### REQ-22-008 — Priority ordering (severity, then id)
+- **AC-22-008.1** — WITHIN each status group, items SHALL be ordered by `severity` first (P0 before P1 before P2), then by `id` ascending; an item with no `severity` SHALL sort after all severities. This is an invariant of the reader (`readBacklog`), not a per-view sort — every consumer of the read result sees the same order.
+
 ## Non-goals
-- Mission Control does NOT write to `factory/backlog/`, create/close/edit items, or run any skill (read-only, like FRD-17). Working an item is done by an agent, outside this UI.
+- Beyond the one bounded discard write (REQ-22-007), Mission Control does NOT create, edit or close `factory/backlog/` items, or run any skill (read-only-plus-discard, like FRD-02's idea board). Working an item is done by an agent, outside this UI.
 - No Claude calls — the surface is derived purely from the on-disk `BL-*` files (FRD-01).
 - The memory-tab cleanup (deduping the promotions surfaces, the dismiss-button redesign, the count/dismissal reconciliation, dead-code removal) is a **separate** follow-up (tracked; not part of this FRD).
 

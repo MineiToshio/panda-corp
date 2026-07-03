@@ -4,22 +4,25 @@
  * BacklogPanel — the factory backlog surface (CMP-22-panel, FRD-22, DR-103).
  *
  * Renders the factory's actionable work queue (`factory/backlog/BL-*`) grouped by
- * status: Abiertos (open) → En curso (doing) always visible; Hechos (done) hidden
- * behind a "Ver hechos (N)" toggle (REQ-22-006) so the closed-item history doesn't
- * clutter the actionable view as the backlog accumulates over months. Read-only:
- * these are closeable items worked by asking an agent, not from this UI.
+ * status: Abiertos (open) → En curso (doing) always visible, ordered by priority then
+ * id (REQ-22-008, an invariant of `readBacklog`'s sort — see `lib/backlog/backlog.ts`).
+ * Hechos (done) and Descartados (discarded) are hidden behind "Ver hechos (N)" /
+ * "Ver descartados (N)" toggles (REQ-22-006, REQ-22-007) so the closed-item history
+ * doesn't clutter the actionable view as the backlog accumulates over months.
  *
  * Fail-loud (DR-078): if the reader could not interpret one or more BL files, an
  * error banner names them — the panel never renders a misleadingly-empty backlog.
  *
  * Client Component: clicking a card opens a detail Modal (the shared `Modal` +
- * `Markdown` primitives) showing the item's full, formatted body (REQ-22-005).
- * The passed BacklogReadResult (incl. each item's markdown `body`) is read server-side.
+ * `Markdown` primitives) showing the item's full, formatted body (REQ-22-005) and,
+ * for open/doing items, a discard action (REQ-22-007). The passed BacklogReadResult
+ * (incl. each item's markdown `body`) is read server-side.
  *
  * Traceability:
  *   CMP-22-panel → REQ-22-001 (grouped items), REQ-22-003 (read-only note),
  *                  REQ-22-004 (fail-loud error state), REQ-22-005 (detail modal),
- *                  REQ-22-006 (default-hidden Hechos)
+ *                  REQ-22-006 (default-hidden Hechos), REQ-22-007 (discard),
+ *                  REQ-22-008 (priority ordering)
  */
 
 import { useState } from "react";
@@ -39,7 +42,15 @@ const DEFAULT_GROUPS: readonly { status: BacklogStatus; label: string; icon: str
   { status: "doing", label: "En curso", icon: "ti-progress" },
 ];
 
-const DONE_GROUP = { status: "done" as const, label: "Hechos", icon: "ti-circle-check" };
+const TOGGLEABLE_GROUPS: readonly {
+  status: BacklogStatus;
+  label: string;
+  icon: string;
+  toggleLabel: string;
+}[] = [
+  { status: "done", label: "Hechos", icon: "ti-circle-check", toggleLabel: "hechos" },
+  { status: "discarded", label: "Descartados", icon: "ti-trash", toggleLabel: "descartados" },
+];
 
 // ---------------------------------------------------------------------------
 // Styles — CSS custom properties only
@@ -74,7 +85,10 @@ const ERROR_BANNER_STYLE: React.CSSProperties = {
   margin: "0 2px 14px",
 };
 
-const TOGGLE_ROW_STYLE: React.CSSProperties = {
+const TOGGLES_ROW_STYLE: React.CSSProperties = {
+  display: "flex",
+  gap: "8px",
+  flexWrap: "wrap",
   margin: "14px 2px 14px",
 };
 
@@ -104,11 +118,22 @@ export function BacklogPanel({ result }: { result: BacklogReadResult }): React.J
 
   // Selected item → detail modal (null = closed).
   const [selected, setSelected] = useState<BacklogItem | null>(null);
-  // Hechos hidden by default (REQ-22-006) so closed-item history doesn't clutter
-  // the actionable view as the backlog accumulates over months.
-  const [showDone, setShowDone] = useState(false);
+  // Toggleable groups (Hechos, Descartados) — hidden by default (REQ-22-006, REQ-22-007)
+  // so the active backlog doesn't grow unboundedly cluttered as the factory ages.
+  const [openToggles, setOpenToggles] = useState<ReadonlySet<BacklogStatus>>(new Set());
 
-  const doneItems = byStatus(items, "done");
+  function toggleGroup(status: BacklogStatus): void {
+    setOpenToggles((prev) => {
+      const next = new Set(prev);
+      if (next.has(status)) next.delete(status);
+      else next.add(status);
+      return next;
+    });
+  }
+
+  function handleDiscarded(): void {
+    setSelected(null);
+  }
 
   return (
     <section data-testid="backlog-panel" aria-label="Backlog de la fábrica">
@@ -150,35 +175,44 @@ export function BacklogPanel({ result }: { result: BacklogReadResult }): React.J
             );
           })}
 
-          {/* Hechos toggle (REQ-22-006) — hidden by default, opt-in reveal. */}
-          {doneItems.length > 0 && (
-            <div style={TOGGLE_ROW_STYLE}>
-              <button
-                type="button"
-                data-testid="backlog-toggle-done"
-                onClick={() => setShowDone((prev) => !prev)}
-                aria-pressed={showDone}
-                style={TOGGLE_BTN_STYLE}
-              >
-                {showDone ? "Ocultar" : "Ver"} hechos ({doneItems.length})
-              </button>
-            </div>
-          )}
+          {/* Toggle row — Hechos/Descartados stay hidden until asked for (REQ-22-006,
+              REQ-22-007), so the backlog's history doesn't clutter the default view
+              over months. */}
+          <div style={TOGGLES_ROW_STYLE}>
+            {TOGGLEABLE_GROUPS.map(({ status, toggleLabel }) => {
+              const count = byStatus(items, status).length;
+              if (count === 0) return null;
+              const open = openToggles.has(status);
+              return (
+                <button
+                  key={status}
+                  type="button"
+                  data-testid={`backlog-toggle-${status}`}
+                  onClick={() => toggleGroup(status)}
+                  aria-pressed={open}
+                  style={TOGGLE_BTN_STYLE}
+                >
+                  {open ? "Ocultar" : "Ver"} {toggleLabel} ({count})
+                </button>
+              );
+            })}
+          </div>
 
-          {showDone && doneItems.length > 0 && (
-            <div data-testid={`backlog-group-${DONE_GROUP.status}`}>
-              <SectionHead
-                icon={DONE_GROUP.icon}
-                label={DONE_GROUP.label}
-                count={doneItems.length}
-              />
-              <div style={CARDS_STYLE}>
-                {doneItems.map((item) => (
-                  <BacklogCard key={item.id} item={item} onSelect={setSelected} />
-                ))}
+          {TOGGLEABLE_GROUPS.map(({ status, label, icon }) => {
+            if (!openToggles.has(status)) return null;
+            const group = byStatus(items, status);
+            if (group.length === 0) return null;
+            return (
+              <div key={status} data-testid={`backlog-group-${status}`}>
+                <SectionHead icon={icon} label={label} count={group.length} />
+                <div style={CARDS_STYLE}>
+                  {group.map((item) => (
+                    <BacklogCard key={item.id} item={item} onSelect={setSelected} />
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })}
         </>
       )}
 
@@ -191,7 +225,7 @@ export function BacklogPanel({ result }: { result: BacklogReadResult }): React.J
         badge={selected != null ? <Chip tone="accent">{selected.type}</Chip> : undefined}
         width={620}
       >
-        {selected != null && <BacklogDetail item={selected} />}
+        {selected != null && <BacklogDetail item={selected} onDiscarded={handleDiscarded} />}
       </Modal>
     </section>
   );

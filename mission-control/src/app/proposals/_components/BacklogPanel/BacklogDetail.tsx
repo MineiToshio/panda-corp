@@ -5,12 +5,15 @@
  * body rendered as **titled, colour-coded sections** via the shared
  * `SectionedMarkdown` primitive — the same treatment the memory-lesson detail uses.
  * Backlog bodies use `## Heading` sections (Problem / Root cause / Fix plan / Tests /
- * Done when / Out of scope). Read-only.
+ * Done when / Out of scope). Read-only, except a discard action for open/doing items
+ * (REQ-22-007).
  */
 
 import { Chip, type ChipTone } from "@/components/core/Chip/Chip";
 import { SectionedMarkdown } from "@/components/modules/SectionedMarkdown/SectionedMarkdown";
 import type { BacklogItem, BacklogSeverity, BacklogStatus } from "@/lib/backlog/backlog";
+import { discardBacklogAction } from "../../_actions/discard-backlog";
+import { DiscardBacklogButton } from "./DiscardBacklogButton";
 
 const SEVERITY_TONE: Record<BacklogSeverity, ChipTone> = {
   p0: "danger",
@@ -22,7 +25,11 @@ const STATUS_META: Record<BacklogStatus, { label: string; tone: ChipTone }> = {
   open: { label: "Abierto", tone: "info" },
   doing: { label: "En curso", tone: "warn" },
   done: { label: "Hecho", tone: "ok" },
+  discarded: { label: "Descartado", tone: "secondary" },
 } as const;
+
+/** Only an open/doing item can be discarded (REQ-22-007) — done/discarded items never show the button. */
+const DISCARDABLE_STATUSES: ReadonlySet<BacklogStatus> = new Set(["open", "doing"]);
 
 const META_ROW_STYLE: React.CSSProperties = {
   fontSize: "11px",
@@ -43,7 +50,13 @@ function MetaLine({ label, value }: { label: string; value: string }): React.JSX
   );
 }
 
-export function BacklogDetail({ item }: { item: BacklogItem }): React.JSX.Element {
+export interface BacklogDetailProps {
+  item: BacklogItem;
+  /** Called after a successful discard (the caller closes the detail modal). */
+  onDiscarded?: () => void;
+}
+
+export function BacklogDetail({ item, onDiscarded }: BacklogDetailProps): React.JSX.Element {
   const statusMeta = STATUS_META[item.status];
 
   return (
@@ -73,6 +86,16 @@ export function BacklogDetail({ item }: { item: BacklogItem }): React.JSX.Elemen
 
       {/* Body — titled colour-coded sections (Problem / Root cause / Fix plan / …) */}
       <SectionedMarkdown data-testid="backlog-detail-body" body={item.body} />
+
+      {/* Discard action — only offered for open/doing items (REQ-22-007); a done or
+          already-discarded item never shows it. */}
+      {DISCARDABLE_STATUSES.has(item.status) && (
+        <DiscardBacklogButton
+          id={item.id}
+          discardAction={discardBacklogAction}
+          onDiscarded={onDiscarded}
+        />
+      )}
     </div>
   );
 }

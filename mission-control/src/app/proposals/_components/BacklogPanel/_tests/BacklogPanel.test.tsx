@@ -90,6 +90,59 @@ describe("BacklogPanel", () => {
     expect(screen.queryByTestId("backlog-toggle-done")).not.toBeInTheDocument();
   });
 
+  it("hides Descartados by default even when it has items, and reveals it via its own toggle (REQ-22-007)", async () => {
+    const user = userEvent.setup();
+    render(
+      <BacklogPanel
+        result={result({
+          items: [
+            makeItem({ id: "BL-0001", title: "Open one", status: "open" }),
+            makeItem({ id: "BL-0009", title: "Discarded one", status: "discarded" }),
+          ],
+        })}
+      />,
+    );
+    expect(screen.queryByText("Descartados")).not.toBeInTheDocument();
+    expect(screen.getByTestId("backlog-toggle-discarded")).toHaveTextContent("Ver descartados (1)");
+
+    await user.click(screen.getByTestId("backlog-toggle-discarded"));
+    expect(screen.getByText("Descartados")).toBeInTheDocument();
+    expect(screen.getByText("Discarded one")).toBeInTheDocument();
+  });
+
+  it("omits the Descartados toggle when there are no discarded items", () => {
+    render(
+      <BacklogPanel
+        result={result({
+          items: [makeItem({ id: "BL-0001", title: "Open one", status: "open" })],
+        })}
+      />,
+    );
+    expect(screen.queryByTestId("backlog-toggle-discarded")).not.toBeInTheDocument();
+  });
+
+  it("shows the discard button in the detail modal for an open item, but not for a done item", async () => {
+    const user = userEvent.setup();
+    render(
+      <BacklogPanel
+        result={result({
+          items: [
+            makeItem({ id: "BL-0001", title: "Open one", status: "open" }),
+            makeItem({ id: "BL-0002", title: "Done one", status: "done" }),
+          ],
+        })}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /ver detalle del item BL-0001/i }));
+    expect(screen.getByTestId("discard-backlog-button")).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+
+    await user.click(screen.getByTestId("backlog-toggle-done"));
+    await user.click(screen.getByRole("button", { name: /ver detalle del item BL-0002/i }));
+    expect(screen.queryByTestId("discard-backlog-button")).not.toBeInTheDocument();
+  });
+
   it("renders a fail-loud error banner when the reader reports errors (DR-078)", () => {
     render(
       <BacklogPanel

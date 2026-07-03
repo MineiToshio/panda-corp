@@ -25,7 +25,7 @@ import { resolveFactoryRoot } from "../config/config";
 // ---------------------------------------------------------------------------
 
 type BacklogType = "bug" | "change";
-export type BacklogStatus = "open" | "doing" | "done";
+export type BacklogStatus = "open" | "doing" | "done" | "discarded";
 export type BacklogSeverity = "p0" | "p1" | "p2";
 
 export type BacklogItem = {
@@ -62,8 +62,11 @@ export type BacklogReadResult = {
 // ---------------------------------------------------------------------------
 
 const VALID_TYPES: readonly BacklogType[] = ["bug", "change"];
-const VALID_STATUSES: readonly BacklogStatus[] = ["open", "doing", "done"];
+const VALID_STATUSES: readonly BacklogStatus[] = ["open", "doing", "done", "discarded"];
 const VALID_SEVERITIES: readonly BacklogSeverity[] = ["p0", "p1", "p2"];
+
+/** Severity → sort rank; items with no severity sort last (REQ-22-008). */
+const SEVERITY_RANK: Record<BacklogSeverity, number> = { p0: 0, p1: 1, p2: 2 };
 
 /** Files inside factory/backlog/ that are never backlog items. */
 const SKIP_FILES: readonly string[] = ["README.md", "_item-template.md"];
@@ -106,6 +109,18 @@ function coerceDate(value: unknown): string | null {
 function coerceLinks(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === "string");
+}
+
+// ---------------------------------------------------------------------------
+// Ordering (REQ-22-008) — priority first (p0 → p1 → p2 → none), then id ascending
+// ---------------------------------------------------------------------------
+
+/** Compare two items: severity rank first (no-severity sorts last), then id. */
+function compareByPriorityThenId(a: BacklogItem, b: BacklogItem): number {
+  const rankA = a.severity !== null ? SEVERITY_RANK[a.severity] : Number.POSITIVE_INFINITY;
+  const rankB = b.severity !== null ? SEVERITY_RANK[b.severity] : Number.POSITIVE_INFINITY;
+  if (rankA !== rankB) return rankA - rankB;
+  return a.id.localeCompare(b.id);
 }
 
 // ---------------------------------------------------------------------------
@@ -226,6 +241,8 @@ export function readBacklog(): BacklogReadResult {
     seenIds.set(outcome.item.id, filename);
     items.push(outcome.item);
   }
+
+  items.sort(compareByPriorityThenId);
 
   return { items, errors };
 }

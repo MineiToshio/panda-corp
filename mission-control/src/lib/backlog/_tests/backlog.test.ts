@@ -106,6 +106,74 @@ body
     expect(items).toEqual([]);
     expect(errors).toEqual([]);
   });
+
+  it("accepts the discarded status (REQ-22-007)", () => {
+    writeItem(
+      "BL-0005-discarded.md",
+      `---
+id: BL-0005
+type: bug
+area: hooks
+title: A discarded item
+status: discarded
+status_before_discard: open
+---
+body
+`,
+    );
+    const { items, errors } = readBacklog();
+    expect(errors).toEqual([]);
+    expect(items[0]?.status).toBe("discarded");
+  });
+});
+
+describe("readBacklog — ordering (REQ-22-008: priority, then id)", () => {
+  it("sorts by severity (p0 before p1 before p2 before none), then by id ascending", () => {
+    writeItem("BL-0005-b.md", VALID_ITEM.replace("BL-0001", "BL-0005").replace("p1", "p1"));
+    writeItem(
+      "BL-0002-a.md",
+      `---
+id: BL-0002
+type: bug
+area: hooks
+title: p0 higher id
+status: open
+severity: p0
+---
+body
+`,
+    );
+    writeItem(
+      "BL-0010-c.md",
+      `---
+id: BL-0010
+type: bug
+area: hooks
+title: p0 lower id
+status: open
+severity: p0
+---
+body
+`,
+    );
+    writeItem(
+      "BL-0001-noseverity.md",
+      `---
+id: BL-0001
+type: change
+area: hooks
+title: no severity at all
+status: open
+---
+body
+`,
+    );
+    const { items, errors } = readBacklog();
+    expect(errors).toEqual([]);
+    // p0 group first (BL-0002 before BL-0010, both p0, ordered by id), then p1
+    // (BL-0005), then the no-severity item last.
+    expect(items.map((i) => i.id)).toEqual(["BL-0002", "BL-0010", "BL-0005", "BL-0001"]);
+  });
 });
 
 describe("readBacklog — fail-loud on malformed items (DR-078)", () => {
