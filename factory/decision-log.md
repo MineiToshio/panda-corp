@@ -2,6 +2,32 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-03 — doc-lint fail-closed para greenfield, advisory se mantiene en brownfield (BL-0009, DR-077 enmendado, plugin v9.60.0)
+
+**Qué:** cerrado `factory/backlog/BL-0009`. `doc-lint.sh` (el lint de estructura de docs, DR-077) ahora
+separa sus hallazgos en dos subconjuntos: **HARD-ELIGIBLE** (claves de frontmatter faltantes en FRD /
+work-order / PRD — determinístico, estructural) y **SOFT** (citas cruzadas REQ→WO sin FRD dueño, una
+FRD `ui: true` sin oráculo de diseño DR-091, y el check de reintroducción del vocabulario retirado
+`operation` de BL-0008 — heurístico, más propenso a falso positivo). Se agregó un
+campo de procedencia nuevo e inmutable en `.pandacorp/status.yaml`: `created_via: scaffold | adopt`
+(lo escriben `/pandacorp:scaffold` y `/pandacorp:adopt` al nacer el proyecto; `/pandacorp:upgrade`
+JAMÁS lo retro-llena a `scaffold` en un proyecto existente). Con `created_via: scaffold`, un hallazgo
+HARD-ELIGIBLE ahora hace que `doc-lint.sh` salga con código distinto de cero — y el `set -e` de
+`verify.sh` falla el gate completo. Con `created_via: adopt`, o el campo AUSENTE (overlay viejo,
+cualquier ambigüedad de lectura), el script se queda 100% advisory como siempre (exit 0 garantizado
+por el trap EXIT) — la ambigüedad nunca se auto-promueve a estricta (mismo patrón que el retro-llenado
+`desktop` de `target_platforms`, DR-074). Los hallazgos SOFT quedan advisory siempre, en cualquier
+proyecto — son juicios de valor, no estructura verificable. Probado con un par de fixtures
+greenfield/brownfield con la MISMA FRD deliberadamente rota (falta `implementation_status`): RED en
+greenfield (exit 1), GREEN en brownfield y sin procedencia (exit 0); un fixture greenfield con spine
+completo queda GREEN (happy path). **Impacto:** `plugin/templates/shared/.pandacorp/{doc-lint.sh,
+status.yaml.tpl}`, `plugin/templates/stack-a-nextjs/verify.sh` (comentario), `plugin/skills/
+{scaffold,adopt,upgrade}/SKILL.md`, `factory/standards/quality.md` (lista HARD vs ADVISORY),
+`factory/decisions/registry.yaml` (DR-077 enmendado). `plugin/templates/OVERLAY_VERSION` → 8.60.0
+(apilado sobre el bump de BL-0008 a 8.59.0 del mismo día, ambas ramas partieron de la misma base).
+`plugin/.claude-plugin/plugin.json` v9.60.0 (MINOR), apilado sobre el v9.59.0 del mismo día (más abajo)
+porque ambas ramas partieron de la misma base. Ver `plugin/docs/decision-log.md`.
+
 ## 2026-07-03 — BL-0003: `/upgrade` ya no puede degradar en silencio un gate-config más nuevo que el template (enmienda DR-076, plugin v9.59.0)
 
 **Qué:** se cerró el ítem de backlog BL-0003 (fuente LESSON-0004). El paso de conformance DR-059 de `/pandacorp:upgrade`

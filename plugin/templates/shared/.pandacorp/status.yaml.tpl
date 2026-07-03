@@ -6,6 +6,7 @@ version: v1
 target_platforms: responsive  # desktop | mobile | responsive — the gate asserts mobile widths only when this includes mobile (DR-074)
 overlay_version: "{{OVERLAY_VERSION}}"  # Pandacorp overlay version this project carries; /pandacorp:upgrade bumps it
 created_with: "{{OVERLAY_VERSION}}"     # overlay version the project was born/adopted with (immutable)
+created_via: "{{CREATED_VIA}}"          # scaffold | adopt — immutable provenance (DR-077 amendment/BL-0009); scaffold = greenfield born with a complete doc spine → doc-lint.sh's fail-closed subset applies; adopt = brownfield/partial-spine → stays advisory. Absent/unrecognized on read = treated as advisory (never promoted to fail-closed by a missing field)
 running: false    # true while /pandacorp:implement is actively building. OBSERVABILITY FIDELITY (DR-066): NEVER read `running` alone as proof of life — a consumer (Mission Control / any monitor) must cross it with heartbeat recency: live ⇔ running AND (now − supervisor_heartbeat) < ~3·tick; show "datos de hace X" past that and "sin señal" at ≥10 min. A frozen `running:true` is NOT live.
 run_started_at: ""        # ISO timestamp set once when the build launches (concurrent-run guard, DR-050 §11)
 supervisor_heartbeat: ""  # ISO timestamp advanced every ~2 min by the supervisor — liveness of the WATCHER (DR-066/DR-050 §11). Stale ≥10 min ⇒ supervisor dead.

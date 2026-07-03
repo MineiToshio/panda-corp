@@ -3,12 +3,12 @@ id: BL-0009
 type: change
 area: templates
 title: "Make selected doc-lint checks fail-closed for greenfield projects (advisory stays for brownfield)"
-status: open
+status: done
 severity: p2
 opened: 2026-06-30
-closed:
+closed: 2026-07-03
 source: "docs/proposals/19-factory-flow-audit-2026-06-30.md (P1 — Some Gates Are Advisory) + factory/decision-log 2026-06-30"
-closes:
+closes: "amended DR-077 — doc-lint.sh splits HARD-ELIGIBLE (frontmatter-key presence, PRD type) vs SOFT (REQ cross-ref, UI design-oracle) findings; HARD-ELIGIBLE is fail-closed for greenfield projects (created_via: scaffold, new immutable status.yaml field) and stays advisory for brownfield/adopted or no-provenance; SOFT stays advisory everywhere; proven by a greenfield-vs-brownfield fixture pair"
 links: [DR-077, DR-079]
 ---
 

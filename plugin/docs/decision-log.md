@@ -4,6 +4,35 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-07-03 — v9.60.0: greenfield fail-closed doc-lint subset (BL-0009, amends DR-077)
+
+**What:** `plugin/templates/shared/.pandacorp/doc-lint.sh` (DR-077) now SPLITS its findings into a
+HARD-ELIGIBLE subset (missing required frontmatter keys on FRD/work-order/PRD docs — deterministic,
+structural) and a SOFT subset (REQ→WO cross-reference gaps, UI design-oracle completeness DR-091,
+and the BL-0008 retired-`operation`-vocabulary reintroduction check — heuristic, judgment-laden). A
+new immutable provenance field `.pandacorp/status.yaml` `created_via: scaffold | adopt` (added to
+`status.yaml.tpl`, set once at birth by `/pandacorp:scaffold` / `/pandacorp:adopt`;
+`/pandacorp:upgrade` never back-fills it to `scaffold` on an existing project) lets the script tell
+greenfield from brownfield: on `created_via: scaffold`, a HARD-ELIGIBLE finding now makes
+`doc-lint.sh` exit non-zero, and `verify.sh`'s `set -e` legitimately fails the whole gate; on
+`created_via: adopt`, or the field ABSENT (an older overlay, or any read ambiguity), the script
+stays fully advisory (exit 0 always, EXIT-trap guaranteed) — ambiguity never promotes itself to
+strict, mirroring the `target_platforms` desktop back-fill (DR-074). SOFT findings stay advisory on
+every project, unconditionally — they're too noisy/judgment-laden to gate. Proven by a
+greenfield-vs-brownfield fixture pair carrying the IDENTICAL deliberately-broken FRD (missing
+`implementation_status`): RED on greenfield (exit 1), GREEN on brownfield and on no-provenance (exit
+0); a complete-spine greenfield fixture stays GREEN (happy path). Closes `factory/backlog/BL-0009`.
+**Impact:** `plugin/templates/shared/.pandacorp/{doc-lint.sh,status.yaml.tpl}` (canonical),
+`plugin/templates/stack-a-nextjs/verify.sh` (comment only, behavior already correct via `set -e`),
+`plugin/skills/{scaffold,adopt}/SKILL.md` (set `created_via` at birth), `plugin/skills/upgrade/SKILL.md`
+(explicit never-back-fill-to-scaffold rule), `factory/standards/quality.md` (HARD vs ADVISORY list),
+`factory/decisions/registry.yaml` (DR-077 amended). `plugin/templates/OVERLAY_VERSION` → **8.60.0**
+(shared templates changed — stacked on top of the same-day BL-0008 bump to 8.59.0, since both
+branched from the same base). `plugin/.claude-plugin/plugin.json` **v9.60.0** (MINOR — new gate
+capability), bumped on top of the same-day v9.59.0 (below) since both branched from the same base.
+See `factory/decision-log.md`. Activation: commit + `claude plugin update pandacorp@panda-corp` +
+restart.
+
 ## 2026-07-03 — v9.59.0: /upgrade can't silently downgrade a newer-than-template gate config (BL-0003, DR-076 amendment)
 
 **What:** two guards added to `/pandacorp:upgrade`'s DR-059 conformance step so the unconditional gate-config overwrite can no longer silently DOWNGRADE a project that legitimately raced ahead of the template (the personal-page-v2 red-lock class — LESSON-0004). (1) NEW `plugin/scripts/detect-gate-config-newer.sh` — run BEFORE overwriting, it compares the project's config version against the installed tool (biome `$schema` semver vs `@biomejs/biome` in `package.json`) and classifies each canonical file `project-newer | template-current | unknown` (exit 1 if any is project-newer); on `project-newer` the SKILL now instructs back-porting the project's version UP to the template FIRST, so the overwrite is a no-op — never a downgrade. (2) NEW step 3b in `plugin/skills/upgrade/SKILL.md` — after conformance + the DR-079 canary, `/upgrade` runs the FULL project gate (`verify.sh` baseline, not `--since`) and FAILS LOUD, BLOCKING the upgrade, if the freshly-synced config red-locks the gate; it never stamps `overlay_version` over a broken baseline. Proven by NEW `plugin/scripts/test-detect-gate-config-newer.sh` (8/8: project-newer→exit 1 back-port, project-older→exit 0 overwrite, equal→template-current, real-template sanity). Consistent with DR-076 red-team B's rejection of "diff-and-flag-on-ahead": the overwrite stays unconditional and binary — the version compare only redirects the back-port UP, and the post-overwrite project gate is a separate proof from the canary (canary = gates bite a broken fixture; this = the real project still passes). Also amended `factory/decisions/registry.yaml` (DR-076) and `factory/standards/build-orchestration.md` (§5). **Why:** BL-0003 — the systemic guard so the silent-downgrade class can't recur (the one-off biome 2.5.1 back-port already shipped at 9.36.1/OVERLAY 8.52.0). MINOR (new detector capability + new upgrade gate step); no OVERLAY bump (no template file changed — the guards live in the skill + a script), bumped on top of the same-day v9.58.0 (below) since both branched from the same base. See `factory/decision-log.md`.
