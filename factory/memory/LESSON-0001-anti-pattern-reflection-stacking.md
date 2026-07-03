@@ -11,8 +11,8 @@ created: 2026-06-15
 status: active
 promotion: none
 confidence: high
-times_applied: 1
-applied_in: [mission-control]
+times_applied: 2
+applied_in: [mission-control, personal-page-v2]
 links: [DR-047, DR-017]
 ---
 
