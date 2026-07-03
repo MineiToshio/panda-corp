@@ -92,7 +92,7 @@ const TOGGLES_ROW_STYLE: React.CSSProperties = {
   display: "flex",
   gap: "8px",
   flexWrap: "wrap",
-  margin: "0 2px 14px",
+  margin: "14px 2px 14px",
 };
 
 const TOGGLE_BTN_STYLE: React.CSSProperties = {
