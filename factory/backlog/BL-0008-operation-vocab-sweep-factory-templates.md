@@ -3,12 +3,12 @@ id: BL-0008
 type: bug
 area: templates
 title: "Old `operation` lifecycle vocabulary still in factory templates (DR-085 removed the phase)"
-status: open
+status: done
 severity: p1
 opened: 2026-06-30
-closed:
+closed: 2026-07-03
 source: "docs/proposals/19-factory-flow-audit-2026-06-30.md (P0 — Lifecycle Vocabulary Drift: operation)"
-closes:
+closes: "verified the operation-vocab sweep was already clean (0fc6e22, 2026-06-30) via scoped grep across plugin/templates/ + factory/standards/ (excluding decision logs); added the missing doc-lint reintroduction guard (plugin/templates/shared/.pandacorp/doc-lint.sh) that flags phase: operation or operation in the pipeline enum outside decision-log/reviews, proved RED->GREEN with fixtures; OVERLAY 8.58.0->8.59.0, plugin v9.52.1->v9.57.0"
 links: [DR-085]
 ---
 

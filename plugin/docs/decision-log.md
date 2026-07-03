@@ -4,6 +4,35 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-07-03 — v9.57.0: doc-lint reintroduction guard for the retired `operation` phase (BL-0008)
+
+**What:** closes `factory/backlog/BL-0008`. The sweep itself (Fix plan step 1) turned out to already be
+done — `0fc6e22` (2026-06-30, same day the audit that filed BL-0008 landed) had already rewritten
+`plugin/templates/shared/.pandacorp/status.yaml.tpl`'s phase comment and `factory/standards/build-orchestration.md`'s
+prose to narrate `operation` only as history ("DR-085 folded the old `operation` phase into `release`");
+BL-0008 was simply never marked done. Verified with a scoped grep across `plugin/templates/` +
+`factory/standards/` (excluding decision logs): zero hits where `operation` appears as a live phase
+value — every remaining mention is historical/explanatory prose. What was genuinely missing (Fix plan
+step 2) is a **doc-lint rule** so the class can't silently recur: `plugin/templates/shared/.pandacorp/doc-lint.sh`
+now flags a doc under `docs/` that reintroduces `phase: operation` (literal YAML) or lists `operation`
+inside the `product|design|architecture|implementation|release` pipeline enum — ADVISORY, like every
+other doc-lint finding (never blocks the gate). Decision-log and `docs/reviews/` files are exempted (they
+legitimately narrate the retired phase or discuss old code/mutants as history — BL-0008's own scope
+note). Proved RED→GREEN with throwaway fixtures (not committed — doc-lint has no persisted fixture set):
+a `phase: operation` fixture and a `... | release | operation` pipeline-enum fixture both fire; a
+compliant fixture, a historical-prose fixture outside decision-log/reviews, and the two exemption
+fixtures all stay clean. Also smoke-tested against the real repo (`mission-control/docs`) which
+surfaced one true historical mention in `docs/reviews/wo-03-001-review.md` — exactly the case the
+reviews exemption is for. `verify.sh --canary`/DR-079 is **not** the proof mechanism: DR-079 explicitly
+excludes `doc-lint.sh` from the canary harness (it is ADVISORY and always exits 0, so "still goes RED"
+doesn't apply to it) — BL-0008's Tests section named `verify.sh --canary` loosely; the actual proof is
+the fixture RED→GREEN behavior described above, consistent with how doc-lint's other rules are verified.
+OVERLAY 8.58.0 → 8.59.0 (new advisory rule in a `templates/shared/.pandacorp/` file, DR-051 propagation).
+MINOR (new doc-lint capability, no existing behavior changed), bumped on top of the same-day v9.56.0
+(below) since both branched from the same base. **Why:** the 2026-06-30 factory-flow audit
+(P0) flagged stale `operation` vocabulary as a class that could re-enter new projects with no guard
+against recurrence; the sweep alone doesn't prevent a future regression. See `factory/decision-log.md`.
+
 ## 2026-07-03 — v9.56.0: `progress.md` writer contract — milestones, not gate-tool noise (BL-0014)
 
 **What:** defined and documented the writer contract for `.pandacorp/comms/progress.md` — the owner-facing
