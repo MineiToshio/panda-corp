@@ -2,6 +2,34 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-03 — BL-0022: el motor de build deriva la identidad del proyecto de forma EXPLÍCITA, no del cwd (plugin v9.53.0)
+
+**Qué:** el motor de build (`plugin/templates/shared/.claude/workflows/pandacorp-build.js`) ya no identifica el
+proyecto implícitamente por el directorio de trabajo. Ahora recibe dos args opcionales — `args.projectDir` (raíz
+absoluta del proyecto) y `args.project` (la clave de evento = basename de la carpeta) — que `implement` resuelve al
+lanzar (la ruta absoluta donde el preflight encontró `.pandacorp/status.yaml`, y su basename) y pasa a cada
+`Workflow({ name: 'pandacorp-build', args })`. El motor sella cada evento (`AgentWorking`/`gate`/`achievement`/
+`wo_commit`) con el `project` literal, escribe `track.jsonl` bajo el `projectDir` absoluto, antepone a CADA prompt de
+subagente un preámbulo `cd` a `projectDir` (en un solo sitio, re-envolviendo el global `agent`), y su primer paso
+(Baseline) **verifica fuerte que `projectDir/.pandacorp/status.yaml` existe** y para en seco si no (nunca planificar
+contra el árbol equivocado). Se conserva el fallback `$(basename "$PWD")` + `track.jsonl` relativo para
+retrocompat. **Por qué:** incidente en vivo 2026-07-02 — un build de mission-control lanzado desde una conversación
+abierta en la RAÍZ DE LA FÁBRICA (mission-control es subcarpeta) hizo que los subagentes del motor heredaran el cwd
+de la fábrica: 18+ eventos etiquetados `"panda-corp"` (invisibles a los filtros por-proyecto de Party) y un
+`panda-corp/.pandacorp/track.jsonl` fantasma mientras la línea de tiempo del proyecto quedaba congelada; hubo que
+parar y relanzar desde la carpeta del proyecto. La identidad era una propiedad ambiental (cwd) en vez de un
+parámetro explícito. **Prueba:** harness de simulación (`scratchpad/engine-sim/harness.mjs`) evalúa el motor en un
+sandbox `vm` bajo ambos casos — CASO A (args puestos): todo prompt lleva el preámbulo, el guard de baseline chequea
+`${projectDir}/.pandacorp/status.yaml`, y EMIT/TRACK/GATE/ACHIEVEMENT/WO_COMMIT llevan el project literal + track
+absoluto; CASO B (args ausentes): forma legacy `$(basename "$PWD")` + ruta relativa + preámbulo vacío
+(byte-a-byte). Todo verde; compila limpio. La validación de relanzar un build real desde la raíz de la fábrica queda
+pendiente (no hay build en vivo en esta sesión) — el harness scriptado es el mecanismo de prueba primario del propio
+item. **Impacto:** `plugin/templates/shared/.claude/workflows/pandacorp-build.js`, `plugin/skills/implement/SKILL.md`,
+`plugin/templates/OVERLAY_VERSION` (8.58.0→**8.59.0**), `plugin/.claude-plugin/plugin.json` (**v9.53.0**, MINOR —
+capacidad aditiva y retrocompatible). Doctrina canónica: `factory/standards/build-orchestration.md` (§2, nota
+"Project identity is EXPLICIT"). Item `factory/backlog/BL-0022-engine-project-identity-not-cwd.md` → `status: done`.
+Ver `plugin/docs/decision-log.md` para la entrada de área.
+
 ## 2026-07-02 — Nueva regla propagada: cálculo de tier de modelo al delegar subagentes (CONV-12, DR-111, plugin v9.52.0)
 
 **Qué:** a pedido del owner, se codificó una regla nueva (CONV-12) en `factory/standards/conventions.md` — junto

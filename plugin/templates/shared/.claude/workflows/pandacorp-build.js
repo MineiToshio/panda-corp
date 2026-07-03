@@ -42,6 +42,26 @@ const MAX_AGENTS = (args && args.maxAgents) || null     // hard cap on subagents
 const MAX_CONSECUTIVE_BLOCKS = (args && args.maxConsecutiveBlocks) || 3   // health breaker: N non-external blocks in a row → stop (something is systemically wrong)
 const FOUNDATION_REPAIR_CAP = (args && args.foundationRepairCap) || 2   // DR-065: bounded auto-repair of an incomplete foundation — after N failed auto-repairs of the SAME class, escalate to the owner instead of looping/burning budget
 const MAX_REOPENS = (args && args.maxReopens) || 3   // DR-072 NON-PROGRESS STOP: a WO reopened this many times across runs (same gate fault not resolving) → BLOCK needs-owner instead of grinding forever. "Refuse to treat repeated failure as progress" — the gate can't be satisfied autonomously, the owner must look.
+
+// ── BL-0022: EXPLICIT project identity + root, end to end (never derive from cwd) ──────────────────
+// The engine used to identify the project IMPLICITLY from the working directory: events stamped
+// "project":"$(basename \"$PWD\")" and TRACK appended to the RELATIVE ".pandacorp/track.jsonl".
+// Workflow subagents inherit the SESSION's cwd — so a build launched from a conversation opened at the
+// factory root (with the project as a subfolder) mislabelled every engine event and scattered a stray
+// track.jsonl at the wrong tree (the 2026-07-02 mission-control incident: 18+ events tagged
+// "panda-corp", a stray panda-corp/.pandacorp/track.jsonl, the run invisible to its own dashboard).
+// Now the implement skill resolves both at launch (it already knows the project root — where it found
+// status.yaml) and passes them in. When ABSENT we keep the legacy $PWD form so an old launcher / a
+// bare relaunch from the project folder still works (back-compat). PROJECT is a literal (no shell
+// substitution when provided); PROJECT_DIR is the absolute root every relative path / event anchors to.
+const PROJECT = (args && args.project) || '$(basename "$PWD")'   // event key — the folder basename; literal when provided, shell fallback otherwise
+const PROJECT_DIR = (args && args.projectDir) || '.'              // absolute project root; '.' = session cwd (back-compat)
+const TRACK_PATH = PROJECT_DIR === '.' ? '.pandacorp/track.jsonl' : `${PROJECT_DIR}/.pandacorp/track.jsonl`   // absolute when PROJECT_DIR is set, else the legacy relative path
+// One-line preamble prepended to EVERY agent prompt (a small helper — the `agent` wrapper below, NOT N
+// hand edits) so each subagent works from the project root regardless of the session cwd. Empty in the
+// back-compat case (cwd == project root already), so the legacy behaviour is byte-for-byte unchanged.
+const WORK_FROM = PROJECT_DIR === '.' ? '' : `Work from the project root ${PROJECT_DIR} — cd there FIRST; every relative path below is relative to it.\n`
+
 let agentSpawned = 0   // running count of subagents spawned (the maxAgents brake)
 let foundationRepairs = 0   // DR-065: how many foundation auto-repairs we've spent this run (capped by FOUNDATION_REPAIR_CAP)
 // DR-070: the maxAgents brake, checked at EVERY safe point (FRD boundary AND each build-wave boundary)
@@ -83,7 +103,7 @@ log(`Mode ${MODE} · wave ≤${P.wave} · maxFrds ${MAX_FRDS === Infinity ? 'sin
 // safe-point agents below (sync-rollups + the FRD gate), never left frozen while the build advances.
 const EMIT = (role, wo, ctx = {}) =>
   `Before you start, record your activity for Party (one append, fire-and-forget):\n` +
-  `  printf '{"event":"AgentWorking","at":"%s","project":"%s","data":{"role":"${role}","wo":"${wo}","frd":"${ctx.frd || ''}","phase":"${ctx.phase || 'build'}","activity":"${ctx.activity || ''}","mode":"${MODE}"}}\\n' "$(date -u +%FT%TZ)" "$(basename "$PWD")" >> ~/.claude/dashboard-events.ndjson\n`
+  `  printf '{"event":"AgentWorking","at":"%s","project":"%s","data":{"role":"${role}","wo":"${wo}","frd":"${ctx.frd || ''}","phase":"${ctx.phase || 'build'}","activity":"${ctx.activity || ''}","mode":"${MODE}"}}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson\n`
 
 // DURABLE per-project build timeline (DR-086 → Observabilidad timeline). The global event stream
 // (dashboard-events.ndjson) ROTATES, so the engine ALSO appends timing to `.pandacorp/track.jsonl`
@@ -92,7 +112,7 @@ const EMIT = (role, wo, ctx = {}) =>
 // commit writer (commitWOGreen) and the FRD gate STAGE track.jsonl so it travels with the build.
 // `fields` is a JSON fragment of extra keys, e.g. `,"frd":"...","wo":"...","state":"..."`.
 const TRACK = (kind, fields = '') =>
-  ` Also append ONE line to .pandacorp/track.jsonl for the durable build timeline (fire-and-forget): printf '{"kind":"${kind}"${fields},"at":"%s"}\\n' "$(date -u +%FT%TZ)" >> .pandacorp/track.jsonl.`
+  ` Also append ONE line to ${TRACK_PATH} for the durable build timeline (fire-and-forget): printf '{"kind":"${kind}"${fields},"at":"%s"}\\n' "$(date -u +%FT%TZ)" >> ${TRACK_PATH}.`
 
 // Party contract completion (BL-0020): Mission Control's FRD-06 Party tab derives the Bóveda trophy
 // shelf + the unlock toast from `achievement` events and the tribunal's open state from `gate` events
@@ -100,15 +120,15 @@ const TRACK = (kind, fields = '') =>
 // never lit while frontmatter said VERIFIED. The stampers (the FRD gate and the post-patch verifier —
 // the only two agents allowed to set VERIFIED) now emit achievement; the gate emits gate at open.
 const GATE_EVENT = (frd) =>
-  ` Also append the Party gate-open event (fire-and-forget — the tribunal lights up, BL-0020): printf '{"event":"gate","at":"%s","project":"%s","frd":"${frd}"}\\n' "$(date -u +%FT%TZ)" "$(basename "$PWD")" >> ~/.claude/dashboard-events.ndjson.`
+  ` Also append the Party gate-open event (fire-and-forget — the tribunal lights up, BL-0020): printf '{"event":"gate","at":"%s","project":"%s","frd":"${frd}"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson.`
 const ACHIEVEMENT = (frd) =>
-  ` For EACH work order you just set VERIFIED, ALSO append its Party achievement event (one line per WO, fire-and-forget — the Bóveda trophy shelf + unlock toast read exactly this event, BL-0020): printf '{"event":"achievement","at":"%s","project":"%s","workOrder":"%s","wo":"%s","frd":"${frd}"}\\n' "$(date -u +%FT%TZ)" "$(basename "$PWD")" "<the-wo-id>" "<the-wo-id>" >> ~/.claude/dashboard-events.ndjson.`
+  ` For EACH work order you just set VERIFIED, ALSO append its Party achievement event (one line per WO, fire-and-forget — the Bóveda trophy shelf + unlock toast read exactly this event, BL-0020): printf '{"event":"achievement","at":"%s","project":"%s","workOrder":"%s","wo":"%s","frd":"${frd}"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" "<the-wo-id>" "<the-wo-id>" >> ~/.claude/dashboard-events.ndjson.`
 // Per-WO commit event (2026-07-01): Mission Control's Party refreshes its frontmatter read when a
 // FRESHER dashboard event arrives — the IN_REVIEW stamp alone appends nothing, so without this line
 // a WO finishing mid-session never walked forge→tribunal until a manual reload. The mech commit
 // writer appends it right after the commit (fire-and-forget; also a bitácora line, "wo_commit").
 const WO_COMMIT_EVENT = (frd, woId) =>
-  ` Then append the Party per-WO commit event (fire-and-forget): printf '{"event":"wo_commit","at":"%s","project":"%s","frd":"${frd}","wo":"${woId}","state":"IN_REVIEW"}\\n' "$(date -u +%FT%TZ)" "$(basename "$PWD")" >> ~/.claude/dashboard-events.ndjson.`
+  ` Then append the Party per-WO commit event (fire-and-forget): printf '{"event":"wo_commit","at":"%s","project":"%s","frd":"${frd}","wo":"${woId}","state":"IN_REVIEW"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson.`
 
 // DR-108: mechanical steps — a serialized git commit, a frontmatter stamp, a rollup sync, an archive
 // move, a run-summary write — don't need the worker model; they run on the cheap tier. The trust
@@ -121,6 +141,16 @@ const MECH = (args && args.mechModel) || 'haiku'
 const NOTIFY = (msg, sound) =>
   ` Notify the owner (run via Bash, fire-and-forget): ` +
   `osascript -e 'display notification "${msg}" with title "Pandacorp build" sound name "${sound || 'Basso'}"' 2>/dev/null || true.`
+
+// ── BL-0022: prepend the WORK_FROM preamble to EVERY agent prompt, in ONE place ────────────────────
+// Every subagent inherits the session cwd (which may be the factory root, not the project root). So we
+// wrap the provided `agent` global once: it prepends the WORK_FROM directive (`cd` to PROJECT_DIR
+// first) to the prompt string of every call site — no N hand edits, no call site forgotten. When
+// PROJECT_DIR is unset (back-compat), WORK_FROM is '' and the prompt is passed through byte-for-byte.
+// The provided `agent` is an injected global (like log/phase/parallel/budget), so rebinding it here
+// re-points every later `agent(...)` call through the wrapper; the raw impl is captured first.
+const __rawAgent = agent
+agent = (prompt, opts) => __rawAgent(typeof prompt === 'string' && WORK_FROM ? WORK_FROM + prompt : prompt, opts)
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
 const VERIFY_SCHEMA = {
@@ -245,7 +275,9 @@ const FOUNDATION_SCHEMA = {
 phase('Baseline')
 agentSpawned += COST(P.judge)   // DR-070/DR-073: weight EVERY spawn by model cost so the maxAgents brake is a token-proxy
 const baseline = await agent(
-  `You are the Pandacorp baseline-repair engineer. FIRST: if .pandacorp/status.yaml has \`rethink_pending: true\`, set it to \`false\` (this run STARTS from the re-planned docs, so the stop signal is consumed — DR-069; commit that one-line change, or fold it into your repair commit). THEN: if \`git rev-parse --short HEAD\` equals \`last_green_sha\` in .pandacorp/status.yaml, the tree is already known-green → return { green: true } immediately and do NOT run verify.sh (skip the cold-start cost). Otherwise run \`bash .pandacorp/verify.sh\`:
+  `You are the Pandacorp baseline-repair engineer.
+  **STEP 0 — FAIL-LOUD project-root guard (BL-0022, do this FIRST, before anything else):** assert the project root exists and is the right tree: check that \`${PROJECT_DIR}/.pandacorp/status.yaml\` exists (\`test -f ${PROJECT_DIR}/.pandacorp/status.yaml\`). If it does NOT exist, STOP IMMEDIATELY — do NOT run verify.sh, do NOT plan against the wrong tree — and return { green: false, failure: "BL-0022: ${PROJECT_DIR}/.pandacorp/status.yaml no existe — el motor se lanzó apuntando al árbol equivocado (¿cwd = raíz de la fábrica en vez de la carpeta del proyecto?). Relanza pasando args.projectDir/args.project apuntando a la carpeta del proyecto." }.
+  THEN: if ${PROJECT_DIR}/.pandacorp/status.yaml has \`rethink_pending: true\`, set it to \`false\` (this run STARTS from the re-planned docs, so the stop signal is consumed — DR-069; commit that one-line change, or fold it into your repair commit). THEN: if \`git rev-parse --short HEAD\` equals \`last_green_sha\` in ${PROJECT_DIR}/.pandacorp/status.yaml, the tree is already known-green → return { green: true } immediately and do NOT run verify.sh (skip the cold-start cost). Otherwise run \`bash ${PROJECT_DIR}/.pandacorp/verify.sh\`:
   - GREEN → return { green: true }, change nothing.
   - RED → fix the PRODUCTION code (never weaken/skip tests) until it passes end-to-end, commit (Conventional Commits with scope), return { green: true }.
   If you genuinely can't, return { green: false, failure } describing what remains.${NOTIFY('Baseline roto y no se pudo reparar — necesita tu intervencion')}`,
