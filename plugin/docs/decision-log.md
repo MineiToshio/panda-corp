@@ -4,6 +4,34 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-07-03 — v9.53.0: doc-lint reintroduction guard for the retired `operation` phase (BL-0008)
+
+**What:** closes `factory/backlog/BL-0008`. The sweep itself (Fix plan step 1) turned out to already be
+done — `0fc6e22` (2026-06-30, same day the audit that filed BL-0008 landed) had already rewritten
+`plugin/templates/shared/.pandacorp/status.yaml.tpl`'s phase comment and `factory/standards/build-orchestration.md`'s
+prose to narrate `operation` only as history ("DR-085 folded the old `operation` phase into `release`");
+BL-0008 was simply never marked done. Verified with a scoped grep across `plugin/templates/` +
+`factory/standards/` (excluding decision logs): zero hits where `operation` appears as a live phase
+value — every remaining mention is historical/explanatory prose. What was genuinely missing (Fix plan
+step 2) is a **doc-lint rule** so the class can't silently recur: `plugin/templates/shared/.pandacorp/doc-lint.sh`
+now flags a doc under `docs/` that reintroduces `phase: operation` (literal YAML) or lists `operation`
+inside the `product|design|architecture|implementation|release` pipeline enum — ADVISORY, like every
+other doc-lint finding (never blocks the gate). Decision-log and `docs/reviews/` files are exempted (they
+legitimately narrate the retired phase or discuss old code/mutants as history — BL-0008's own scope
+note). Proved RED→GREEN with throwaway fixtures (not committed — doc-lint has no persisted fixture set):
+a `phase: operation` fixture and a `... | release | operation` pipeline-enum fixture both fire; a
+compliant fixture, a historical-prose fixture outside decision-log/reviews, and the two exemption
+fixtures all stay clean. Also smoke-tested against the real repo (`mission-control/docs`) which
+surfaced one true historical mention in `docs/reviews/wo-03-001-review.md` — exactly the case the
+reviews exemption is for. `verify.sh --canary`/DR-079 is **not** the proof mechanism: DR-079 explicitly
+excludes `doc-lint.sh` from the canary harness (it is ADVISORY and always exits 0, so "still goes RED"
+doesn't apply to it) — BL-0008's Tests section named `verify.sh --canary` loosely; the actual proof is
+the fixture RED→GREEN behavior described above, consistent with how doc-lint's other rules are verified.
+OVERLAY 8.58.0 → 8.59.0 (new advisory rule in a `templates/shared/.pandacorp/` file, DR-051 propagation).
+MINOR (new doc-lint capability, no existing behavior changed). **Why:** the 2026-06-30 factory-flow audit
+(P0) flagged stale `operation` vocabulary as a class that could re-enter new projects with no guard
+against recurrence; the sweep alone doesn't prevent a future regression. See `factory/decision-log.md`.
+
 ## 2026-07-02 — v9.52.0: subagent model-tier selection rule (CONV-12, DR-111)
 
 **What:** a new propagated rule governing how the LEAD agent picks a subagent's model when it delegates WITHOUT specifying one — sibling to the language rule (CONV-1/DR-009) and the interaction-style rule (CONV-11/DR-110), same DR-051 propagation channel. Scoped to ad-hoc delegation only (the generic `Agent` tool, or a `Workflow`'s `agent()` outside the build engine): calculate the model tier from the SUBTASK's complexity (haiku/mechanical, sonnet/default floor, opus/high-complexity-judgment) instead of silently inheriting the parent conversation's tier. Explicitly does NOT reopen Pandacorp's own named agents (`plugin/agents/*.md` already pin `model:` in frontmatter) nor the build engine's own escalation (`pickWorkerModel`, DR-073/DR-108) — both already correct. **Fable is excluded from the automatic calculation entirely** — never auto-selected, only used on the owner's explicit request or after asking for confirmation first (owner correction during planning). Added to `factory/standards/conventions.md` ("Rule — subagent model selection", SHOULD/manual) and `factory/standards/rule-registry.md` (CONV-12 row, counts bumped to 117/86 manual). Concise pointers duplicated in `plugin/templates/shared/AGENTS.md.tpl` and `plugin/templates/shared/.pandacorp/guide.md.tpl` (new rule 11) — both regenerated non-destructively by `/pandacorp:upgrade`. Also added directly to panda-corp's own root `CLAUDE.md` (rule 11) for immediate effect in factory sessions. Registered as `DR-111`. **Why:** the owner reported deep-research-style fan-outs (and other ad-hoc delegations) burning the token budget by running every subagent at the parent session's own (sometimes Opus/Fable) tier, with no complexity-based calculation. MINOR + OVERLAY 8.57.0 → 8.58.0. See `factory/decision-log.md`.

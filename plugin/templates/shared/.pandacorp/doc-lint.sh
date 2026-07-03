@@ -8,6 +8,9 @@
 #   - a work order citing a REQ-NN-MMM defined in NO FRD (cross-FRD citations are fine),
 #   - a UI FRD (ui: true) with NO design oracle — no fdd.md, or empty mocks/ AND no visual_source
 #     (DR-091: the per-route fidelity check no-ops without an oracle — the Mission Control failure).
+#   - retired lifecycle vocabulary — `phase: operation` (or `operation` named as a lifecycle phase)
+#     outside a decision log: DR-085 folded the old `operation` phase into `release` (BL-0008); a doc
+#     that reintroduces it as a current phase has drifted from the DR-085 lifecycle.
 # A project with no docs/ is a vacuous pass. Run from the project root; verify.sh invokes it.
 # By default it prints a one-line summary; run `.pandacorp/doc-lint.sh -v` for the per-finding list.
 # Promotion to a fail-closed gate is a future per-project opt-in (once the spine is conformant),
@@ -77,6 +80,22 @@ for wo in docs/frds/frd-*/work-orders/wo-*.md; do
     printf '%s\n' "$all_reqs" | grep -qx "$req" || warn "$wo cites $req, defined in no FRD"
   done
 done
+
+# Retired lifecycle vocabulary (DR-085/BL-0008) — `operation` reintroduced as a CURRENT phase value,
+# outside a decision log / review (decision logs and reviews legitimately narrate the RETIRED phase or
+# discuss old code/mutants as history — e.g. "the old `operation` phase is folded into `release`" or a
+# mutation-test review quoting a stale `stage === "operation"` — so both are excluded, not scanned as
+# drift). Two concrete drift shapes: (1) `phase: operation` as a literal frontmatter/YAML value, and
+# (2) `operation` still listed as a value in the product|design|architecture|implementation|release
+# pipeline enum. Scoped to docs/ (this lint's whole domain); decision-log.md and docs/reviews/ are skipped.
+while IFS= read -r -d '' f; do
+  case "$f" in */decision-log.md|*/reviews/*) continue ;; esac
+  if grep -qE '^[[:space:]]*phase:[[:space:]]*"?operation"?([[:space:]]|$)' "$f" \
+    || grep -qE '(product|design|architecture|implementation|release)([[:space:]]*\|[[:space:]]*(product|design|architecture|implementation|release|operation)){1,}[[:space:]]*\|[[:space:]]*operation\b' "$f" \
+    || grep -qE '\boperation[[:space:]]*\|[[:space:]]*(product|design|architecture|implementation|release)\b' "$f"; then
+    warn "$f reintroduces retired lifecycle vocabulary: \`operation\` as a phase (DR-085 folded it into \`release\`; BL-0008)"
+  fi
+done < <(find docs -type f -name '*.md' -print0 2>/dev/null)
 
 # Loud, ACTIONABLE report (owner directive 2026-06-30): advisory findings are surfaced PROMINENTLY and
 # the agent is told to FIX them proactively in this same pass — not merely note them — while the gate
