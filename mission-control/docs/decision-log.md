@@ -4,6 +4,24 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-03 — Factory Backlog tab: ready-to-copy `implement-backlog` commands (FRD-22, REQ-22-009)
+
+**What:** the Backlog panel now renders two `CmdRow`s (the same copy-to-clipboard primitive used
+elsewhere, e.g. the Cambios tab's `implement change:<id>`): a **generic** one,
+`/pandacorp:implement-backlog`, below the item list whenever at least one `open`/`doing` item
+exists — drains the whole queue; and a **targeted** one, `/pandacorp:implement-backlog <id>`, in
+an open/doing item's own detail modal (same actionable set REQ-22-007 already uses for the discard
+button) — solves just that item. Mission Control itself still never executes anything (FRD-01's
+golden rule) — these are plain copy-to-clipboard text, run by the owner or an agent they invoke.
+Backs the new plugin skill `plugin/skills/implement-backlog/SKILL.md` (v9.53.0, see
+`plugin/docs/decision-log.md`), which is the mechanism these commands actually invoke.
+**Why:** the owner asked how backlog items get implemented in practice, confirmed no skill existed
+for it, and — after the plugin-side skill was built — wanted the same one-click-to-copy affordance
+Mission Control already gives every other `/pandacorp:*` command, both for the whole queue and for
+one item at a time. **Impact:** `docs/frds/frd-22-factory-backlog/frd.md` (REQ-22-009,
+Non-goals updated), `content/manual/concepts/autoaprendizaje.md` (one sentence on how a filed
+backlog item is worked).
+
 ## 2026-07-03 — Factory Backlog tab: discard an item + priority ordering (FRD-22, REQ-22-007/008)
 
 **What:** Two additions to the Propuestas → Backlog tab, mirroring the Cambios tab's discard

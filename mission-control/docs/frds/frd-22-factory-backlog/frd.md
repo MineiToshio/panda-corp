@@ -51,8 +51,12 @@ Surfaces the factory's **actionable work queue** — `factory/backlog/BL-*` (DR-
 ### REQ-22-008 — Priority ordering (severity, then id)
 - **AC-22-008.1** — WITHIN each status group, items SHALL be ordered by `severity` first (P0 before P1 before P2), then by `id` ascending; an item with no `severity` SHALL sort after all severities. This is an invariant of the reader (`readBacklog`), not a per-view sort — every consumer of the read result sees the same order.
 
+### REQ-22-009 — Ready-to-copy `implement-backlog` commands
+- **AC-22-009.1** — WHEN the backlog has at least one `open`/`doing` item, the Backlog panel SHALL render a `CmdRow` below the list with the generic command `/pandacorp:implement-backlog` (no id) — the same copy-to-clipboard affordance used elsewhere in Mission Control (never executed by the app itself, FRD-01's golden rule). Omitted entirely when there are zero actionable items.
+- **AC-22-009.2** — An `open`/`doing` item's detail modal SHALL render a `CmdRow` with the item's own targeted command, `/pandacorp:implement-backlog <id>`; a `done` or `discarded` item never shows it (the same actionable set REQ-22-007 uses for the discard action).
+
 ## Non-goals
-- Beyond the one bounded discard write (REQ-22-007), Mission Control does NOT create, edit or close `factory/backlog/` items, or run any skill (read-only-plus-discard, like FRD-02's idea board). Working an item is done by an agent, outside this UI.
+- Beyond the one bounded discard write (REQ-22-007), Mission Control does NOT create, edit or close `factory/backlog/` items, and never executes a skill itself (FRD-01's golden rule) — REQ-22-009's commands are copy-to-clipboard text, run by the owner (or an agent they invoke) outside this UI.
 - No Claude calls — the surface is derived purely from the on-disk `BL-*` files (FRD-01).
 - The memory-tab cleanup (deduping the promotions surfaces, the dismiss-button redesign, the count/dismissal reconciliation, dead-code removal) is a **separate** follow-up (tracked; not part of this FRD).
 

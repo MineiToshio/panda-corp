@@ -44,7 +44,7 @@ Cuando un agente encuentra algo durable — un bug resuelto, una librería que f
 
 ### 2. Cosecha (librarian, automática)
 
-Dos motores, ninguno depende de la memoria del dueño: el **close-out de `/pandacorp:implement`** corre la cosecha como paso obligatorio (y estampa `last_harvest` en `status.yaml` — sin stamp el cierre está incompleto), y el **barrido diario programado** drena los inboxes cuando hay trabajo (umbral: ≥20 notas o ≥7 días o un proyecto en release sin cosechar), en silencio si no hay nada. El librarian aplica **default-reject** (sin ancla de evidencia → descarte), ruteo DR-103 (defecto accionable → backlog, no memoria), dedup A.U.D.N. y destila las lecciones de fracaso **por contraste** (el diff entre el intento fallido y el fix).
+Dos motores, ninguno depende de la memoria del dueño: el **close-out de `/pandacorp:implement`** corre la cosecha como paso obligatorio (y estampa `last_harvest` en `status.yaml` — sin stamp el cierre está incompleto), y el **barrido diario programado** drena los inboxes cuando hay trabajo (umbral: ≥20 notas o ≥7 días o un proyecto en release sin cosechar), en silencio si no hay nada. El librarian aplica **default-reject** (sin ancla de evidencia → descarte), ruteo DR-103 (defecto accionable → backlog, no memoria), dedup A.U.D.N. y destila las lecciones de fracaso **por contraste** (el diff entre el intento fallido y el fix). Un item ya filed en `factory/backlog/` se trabaja con **`/pandacorp:implement-backlog`** — un id resuelve solo ese item; sin argumento drena toda la cola abierta/en curso, un subagente por item (tier de modelo por CONV-12/DR-111), fusionados de a uno.
 
 ### 3. Validez (eval-gate anti-superstición)
 

@@ -143,6 +143,58 @@ describe("BacklogPanel", () => {
     expect(screen.queryByTestId("discard-backlog-button")).not.toBeInTheDocument();
   });
 
+  it("shows the generic implement-backlog command below the list when there is at least one actionable item (REQ-22-009)", () => {
+    render(
+      <BacklogPanel
+        result={result({
+          items: [makeItem({ id: "BL-0001", title: "Open one", status: "open" })],
+        })}
+      />,
+    );
+    const rows = screen.getAllByTestId("cmd-row");
+    expect(rows.some((row) => row.textContent?.includes("/pandacorp:implement-backlog"))).toBe(
+      true,
+    );
+  });
+
+  it("omits the generic implement-backlog command when there are no open/doing items", () => {
+    render(
+      <BacklogPanel
+        result={result({
+          items: [makeItem({ id: "BL-0003", title: "Done one", status: "done" })],
+        })}
+      />,
+    );
+    const rows = screen.queryAllByTestId("cmd-row");
+    expect(rows.some((row) => row.textContent?.includes("/pandacorp:implement-backlog"))).toBe(
+      false,
+    );
+  });
+
+  it("shows the targeted implement-backlog command in the detail modal for an open item, but not for a done item", async () => {
+    const user = userEvent.setup();
+    render(
+      <BacklogPanel
+        result={result({
+          items: [
+            makeItem({ id: "BL-0005", title: "Open one", status: "open" }),
+            makeItem({ id: "BL-0006", title: "Done one", status: "done" }),
+          ],
+        })}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /ver detalle del item BL-0005/i }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("/pandacorp:implement-backlog BL-0005")).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+
+    await user.click(screen.getByTestId("backlog-toggle-done"));
+    await user.click(screen.getByRole("button", { name: /ver detalle del item BL-0006/i }));
+    const dialog2 = screen.getByRole("dialog");
+    expect(within(dialog2).queryByText(/\/pandacorp:implement-backlog/)).not.toBeInTheDocument();
+  });
+
   it("renders a fail-loud error banner when the reader reports errors (DR-078)", () => {
     render(
       <BacklogPanel

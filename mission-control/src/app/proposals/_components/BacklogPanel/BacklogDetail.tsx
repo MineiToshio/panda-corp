@@ -5,11 +5,13 @@
  * body rendered as **titled, colour-coded sections** via the shared
  * `SectionedMarkdown` primitive — the same treatment the memory-lesson detail uses.
  * Backlog bodies use `## Heading` sections (Problem / Root cause / Fix plan / Tests /
- * Done when / Out of scope). Read-only, except a discard action for open/doing items
+ * Done when / Out of scope). Read-only, except for open/doing items: a targeted
+ * `/pandacorp:implement-backlog <id>` `CmdRow` (REQ-22-009) and a discard action
  * (REQ-22-007).
  */
 
 import { Chip, type ChipTone } from "@/components/core/Chip/Chip";
+import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 import { SectionedMarkdown } from "@/components/modules/SectionedMarkdown/SectionedMarkdown";
 import type { BacklogItem, BacklogSeverity, BacklogStatus } from "@/lib/backlog/backlog";
 import { discardBacklogAction } from "../../_actions/discard-backlog";
@@ -28,8 +30,12 @@ const STATUS_META: Record<BacklogStatus, { label: string; tone: ChipTone }> = {
   discarded: { label: "Descartado", tone: "secondary" },
 } as const;
 
-/** Only an open/doing item can be discarded (REQ-22-007) — done/discarded items never show the button. */
-const DISCARDABLE_STATUSES: ReadonlySet<BacklogStatus> = new Set(["open", "doing"]);
+/**
+ * open/doing is the actionable set: only these items can be discarded (REQ-22-007) or
+ * re-implemented via the targeted command (REQ-22-009) — a done or already-discarded
+ * item never shows either affordance.
+ */
+const ACTIONABLE_STATUSES: ReadonlySet<BacklogStatus> = new Set(["open", "doing"]);
 
 const META_ROW_STYLE: React.CSSProperties = {
   fontSize: "11px",
@@ -87,9 +93,15 @@ export function BacklogDetail({ item, onDiscarded }: BacklogDetailProps): React.
       {/* Body — titled colour-coded sections (Problem / Root cause / Fix plan / …) */}
       <SectionedMarkdown data-testid="backlog-detail-body" body={item.body} />
 
+      {/* Targeted implement-backlog command — only for open/doing items (REQ-22-009);
+          a done or already-discarded item never shows it. */}
+      {ACTIONABLE_STATUSES.has(item.status) && (
+        <CmdRow command={`/pandacorp:implement-backlog ${item.id}`} />
+      )}
+
       {/* Discard action — only offered for open/doing items (REQ-22-007); a done or
           already-discarded item never shows it. */}
-      {DISCARDABLE_STATUSES.has(item.status) && (
+      {ACTIONABLE_STATUSES.has(item.status) && (
         <DiscardBacklogButton
           id={item.id}
           discardAction={discardBacklogAction}
