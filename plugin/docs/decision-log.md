@@ -4,6 +4,21 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-07-03 — v9.54.0: `/pandacorp:memory` invocation ergonomics (BL-0010)
+
+**What:** two small UX fixes to `plugin/skills/memory/SKILL.md`, owner-raised (BL-0010). (1) **In-project
+harvest default:** `harvest` step 1 now resolves the target as explicit `<project>` arg wins → else, if the
+cwd is itself a Pandacorp project (`is-pandacorp-project.sh` against `.`), default to **the current
+project** → else (running from the factory root), offer recent/just-shipped projects from
+`factory/portfolio.md` as before. The factory-run sweep, an explicit `harvest <project>` from anywhere, and
+the `/loop` portfolio sweep (always explicit targets) are unchanged — only the no-argument, in-project case
+gained a default. (2) **Bare invocation no longer auto-harvests:** the `$ARGUMENTS` line now reads `status`
+(default, read-only) · `harvest [<project>]` · `review` — a mode-less `/pandacorp:memory` lands on `status`
+(step 11, already read-only) instead of silently firing `harvest` (a write). **Why:** harvest is the action
+that WRITES; the owner found it one accidental keystroke away from a bare invocation, and the natural
+in-project gesture ("harvest THIS project") required naming the project explicitly. MINOR (skill-invocation
+behavior change), bumped on top of the same-day v9.53.0 (below) since both branched from the same base. BL-0010 closed. See `factory/backlog/BL-0010-memory-skill-invocation-ergonomics.md`.
+
 ## 2026-07-03 — v9.53.0: new skill `/pandacorp:implement-backlog` — works and closes `factory/backlog/` items
 
 **What:** a new user-invocable skill, `plugin/skills/implement-backlog/SKILL.md`. It is the mechanism the backlog's own read-only note already referenced ("pídeselo a un agente, p. ej. «implementa BL-0007»") and the one Mission Control's Backlog tab now links to (see the same-day mission-control entry). Two modes: **one id** (`/pandacorp:implement-backlog BL-0007`) implements just that item directly, in the running conversation; **no argument** drains the WHOLE `open`/`doing` queue by dispatching **one subagent per item** (`Agent` tool, `isolation: "worktree"`, all in one message so they run in parallel), each subagent's model **sized to that item's complexity per CONV-12/DR-111** (never inherited from the parent conversation's tier — haiku for a one-line/mechanical fix, sonnet the default floor, opus for architectural/high-judgment items, Fable never automatic). Once every subagent returns, the orchestrating agent merges their branches into `main` **serialized, one at a time** (never in parallel — that avoids the exact collision the serialization exists to prevent), re-running `bash plugin/scripts/validate-backlog.sh` after each merge to catch an id/frontmatter collision immediately. Closing an item follows the item's own template contract: `status: done` + `closed:` + `closes:`, a `plugin/` semver bump + `claude plugin validate` when `plugin/` changed, a `factory/decision-log.md` entry when a standard/registry/constitution changed. `factory/backlog/` has no filing skill on the change-owner side (unlike a project's `/pandacorp:change`) — items are already filed by the librarian's routing, an audit, or hand-authored; this skill only works and closes them. **Why:** the owner asked how backlog items actually get implemented, confirmed there was no skill for it, and — after weighing "just do it directly" vs. a skill — chose the skill for the same reason CONV-11/CONV-12 exist: a mechanical rule enforced every time (the close-out checklist, the model-tier calculation) beats prose the agent might forget on a given pass, especially since a future agent with zero context from this conversation may run it. MINOR bump (new capability, no behavior change to existing skills). No OVERLAY_VERSION change — this skill is factory-internal (operates on `factory/backlog/`, which only exists in this repo), not injected into product projects.
