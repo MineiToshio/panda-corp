@@ -4,6 +4,35 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-07-03 — v9.55.0: work orders now carry a required `## Summary` (BL-0015)
+
+**What:** the `work-orders` skill (`plugin/skills/work-orders/SKILL.md`, step 2) now explicitly
+requires a **filled `## Summary`** in every generated work order — one/two lines of "what this WO
+delivers," not the template placeholder — pointing out that Mission Control's board
+(`deriveWorkOrderSummary()`) reads exactly this section for the WO card, and falls back to the raw
+file path when it's missing. `iterate`'s impact-triage steps (both the "small adjustment/fix" reopen
+path and the "new feature/module" path) now call out keeping `## Summary` current when a WO is
+reopened, created, or widened. `plugin/templates/docs/work-order-template.md`'s `## Summary` section
+gained a callout explaining it is MC's read target, not filler. **Language decision: EN-doc route
+(minimal), not the ES-comms replica.** The item's recommended alternative — a Spanish summary replica
+under `.pandacorp/comms/` read by a new MC reader — would require a Mission Control source change
+(a new comms reader wired into the WO summary field), which is out of scope for a plugin-only backlog
+item; the committed WO doc is already English per the language rule (DR-009), and MC's existing
+`deriveWorkOrderSummary()` already renders it with zero MC changes. **Follow-on filed, not built
+here:** if the owner wants the Spanish-replica UX for WO summaries, it needs its own
+`/pandacorp:change` inside `mission-control/` (new comms reader + wiring into the `summary` field) —
+not done in this change. **Backfill: fix-forward, not applied.** ~118 existing work orders across
+`mission-control/docs/frds/**/work-orders/` (the project that surfaced this bug) lack `## Summary`
+today; backfilling them is a separate, larger undertaking (arguably MC's own project-level change) and
+is explicitly optional per the backlog item — newly generated/edited WOs get it going forward.
+**Proof:** MC's `deriveWorkOrderSummary()` regex was replicated verbatim against the updated WO
+template — parses a real, non-placeholder paragraph (GREEN) and still returns `undefined` for a body
+with no `## Summary` heading (RED control, the pre-fix state); MC's own existing reader unit tests
+(`mission-control/src/lib/work-orders/_tests/work-orders.test.ts`, WITH/WITHOUT `## Summary` cases)
+were read and confirmed to already cover this — untouched, since no MC source changed. MINOR, bumped
+on top of the same-day v9.54.0 (below) since both branched from the same base. See
+`factory/backlog/BL-0015-work-orders-lack-summary-section-mc-shows-path.md`.
+
 ## 2026-07-03 — v9.54.0: `/pandacorp:memory` invocation ergonomics (BL-0010)
 
 **What:** two small UX fixes to `plugin/skills/memory/SKILL.md`, owner-raised (BL-0010). (1) **In-project
