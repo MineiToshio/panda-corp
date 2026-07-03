@@ -69,12 +69,17 @@ if [ -d src/app/api ]; then
   fi
 fi
 
-# --- Doc-structure lint (DR-077) — frontmatter + stable-ID spine; vacuous if no docs ----
+# --- Doc-structure lint (DR-077, greenfield fail-closed subset BL-0009) — frontmatter + stable-ID
+# spine; vacuous if no docs ----
 # Validates generated docs (FRD/PRD/work-orders) carry required frontmatter and that REQ->WO IDs
-# resolve. ADVISORY — it reports drift and NEVER fails the gate (so it can't red-lock an adopted /
-# partial-spine project); a project with no docs/ passes. The harness is new, so a missing script is
-# a no-op (older overlays); /pandacorp:upgrade installs it. Drift is surfaced here, NOT tracked by a
-# per-doc version stamp (DR-077).
+# resolve. ADVISORY on brownfield/adopted (created_via: adopt, or no provenance recorded) — reports
+# drift and NEVER fails the gate, so it can't red-lock an adopted/partial-spine project. FAIL-CLOSED
+# on greenfield (created_via: scaffold, set by /pandacorp:scaffold) for the structural subset only
+# (missing frontmatter keys, a PRD without `type`) — a project born via scaffold is expected to carry
+# a complete spine, so doc-lint.sh itself now exits non-zero and this `bash` call (under this script's
+# `set -e`) legitimately fails the gate. A project with no docs/ passes. The harness is new, so a
+# missing script is a no-op (older overlays); /pandacorp:upgrade installs it. Drift is surfaced here,
+# NOT tracked by a per-doc version stamp (DR-077).
 if [ -f .pandacorp/doc-lint.sh ]; then
   bash .pandacorp/doc-lint.sh
 fi

@@ -4,6 +4,32 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-07-03 — v9.53.0: greenfield fail-closed doc-lint subset (BL-0009, amends DR-077)
+
+**What:** `plugin/templates/shared/.pandacorp/doc-lint.sh` (DR-077) now SPLITS its findings into a
+HARD-ELIGIBLE subset (missing required frontmatter keys on FRD/work-order/PRD docs — deterministic,
+structural) and a SOFT subset (REQ→WO cross-reference gaps, UI design-oracle completeness DR-091 —
+heuristic, judgment-laden). A new immutable provenance field `.pandacorp/status.yaml` `created_via:
+scaffold | adopt` (added to `status.yaml.tpl`, set once at birth by `/pandacorp:scaffold` /
+`/pandacorp:adopt`; `/pandacorp:upgrade` never back-fills it to `scaffold` on an existing project)
+lets the script tell greenfield from brownfield: on `created_via: scaffold`, a HARD-ELIGIBLE finding
+now makes `doc-lint.sh` exit non-zero, and `verify.sh`'s `set -e` legitimately fails the whole gate;
+on `created_via: adopt`, or the field ABSENT (an older overlay, or any read ambiguity), the script
+stays fully advisory (exit 0 always, EXIT-trap guaranteed) — ambiguity never promotes itself to
+strict, mirroring the `target_platforms` desktop back-fill (DR-074). SOFT findings stay advisory on
+every project, unconditionally — they're too noisy/judgment-laden to gate. Proven by a
+greenfield-vs-brownfield fixture pair carrying the IDENTICAL deliberately-broken FRD (missing
+`implementation_status`): RED on greenfield (exit 1), GREEN on brownfield and on no-provenance (exit
+0); a complete-spine greenfield fixture stays GREEN (happy path). Closes `factory/backlog/BL-0009`.
+**Impact:** `plugin/templates/shared/.pandacorp/{doc-lint.sh,status.yaml.tpl}` (canonical),
+`plugin/templates/stack-a-nextjs/verify.sh` (comment only, behavior already correct via `set -e`),
+`plugin/skills/{scaffold,adopt}/SKILL.md` (set `created_via` at birth), `plugin/skills/upgrade/SKILL.md`
+(explicit never-back-fill-to-scaffold rule), `factory/standards/quality.md` (HARD vs ADVISORY list),
+`factory/decisions/registry.yaml` (DR-077 amended). `plugin/templates/OVERLAY_VERSION` 8.58.0 →
+**8.59.0** (shared templates changed). `plugin/.claude-plugin/plugin.json` **v9.53.0** (MINOR — new
+gate capability). See `factory/decision-log.md`. Activation: commit + `claude plugin update
+pandacorp@panda-corp` + restart.
+
 ## 2026-07-02 — v9.52.0: subagent model-tier selection rule (CONV-12, DR-111)
 
 **What:** a new propagated rule governing how the LEAD agent picks a subagent's model when it delegates WITHOUT specifying one — sibling to the language rule (CONV-1/DR-009) and the interaction-style rule (CONV-11/DR-110), same DR-051 propagation channel. Scoped to ad-hoc delegation only (the generic `Agent` tool, or a `Workflow`'s `agent()` outside the build engine): calculate the model tier from the SUBTASK's complexity (haiku/mechanical, sonnet/default floor, opus/high-complexity-judgment) instead of silently inheriting the parent conversation's tier. Explicitly does NOT reopen Pandacorp's own named agents (`plugin/agents/*.md` already pin `model:` in frontmatter) nor the build engine's own escalation (`pickWorkerModel`, DR-073/DR-108) — both already correct. **Fable is excluded from the automatic calculation entirely** — never auto-selected, only used on the owner's explicit request or after asking for confirmation first (owner correction during planning). Added to `factory/standards/conventions.md` ("Rule — subagent model selection", SHOULD/manual) and `factory/standards/rule-registry.md` (CONV-12 row, counts bumped to 117/86 manual). Concise pointers duplicated in `plugin/templates/shared/AGENTS.md.tpl` and `plugin/templates/shared/.pandacorp/guide.md.tpl` (new rule 11) — both regenerated non-destructively by `/pandacorp:upgrade`. Also added directly to panda-corp's own root `CLAUDE.md` (rule 11) for immediate effect in factory sessions. Registered as `DR-111`. **Why:** the owner reported deep-research-style fan-outs (and other ad-hoc delegations) burning the token budget by running every subagent at the parent session's own (sometimes Opus/Fable) tier, with no complexity-based calculation. MINOR + OVERLAY 8.57.0 → 8.58.0. See `factory/decision-log.md`.
