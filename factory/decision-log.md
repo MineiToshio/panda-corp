@@ -2,6 +2,51 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-03 — BL-0011: una ruta BLOCKED needs-owner ya no red-lockea el gate whole-project (quarantine, DR-085)
+
+**Qué:** se cerró el ítem de backlog **BL-0011** (fuente LESSON-0021). Los gates whole-project de e2e
+(smoke/visual/responsive/shell — DR-055/056/074/075) afirman sobre **todas** las rutas declaradas, y las
+invocaciones **whole-project** de `verify.sh` (baseline self-heal al retomar, close-out, notify-end) corren
+esa suite completa. El acoplamiento tenía un filo: cuando **una** ruta cuyo work order está legítimamente
+`BLOCKED: needs-owner` (una ruta que solo el owner puede desbloquear — un secreto/env var faltante, una cuenta
+externa; el caso real: `/contact` de personal-page-v2 fallando en duro sin `NEXT_PUBLIC_WEB3FORMS_KEY`) ponía
+en **RED todo** el gate, lo que a su vez bloqueaba FRDs no relacionados y el baseline al retomar — un env var de
+un formulario paraba un build por lo demás terminable (runs `wf_9e98acaf-92e`/`wf_978129ab-eca`). El gate por-FRD
+`--since` no lo veía (no corre `shell`/`smoke` sobre una ruta hermana), así que el acoplamiento solo mordía en el
+gate COMPLETO. **La regla nueva — "un nodo bloqueado se pone en cuarentena, no se acopla":** un nodo
+`BLOCKED: needs-owner` es un TODO del owner rastreado, no un defecto de código; el gate whole-project debe
+**apartarlo**, nunca fallar todo el conjunto por él. Implementación por **cuarentena fail-closed**: antes de
+cualquier `verify.sh` whole-project, el motor deriva del frontmatter de las WO las rutas cuyo WO es
+**demostrablemente** `implementation_status: BLOCKED` **y** `blocked_reason: needs-owner`, y las exporta como
+`PANDACORP_GATE_SKIP_ROUTES`; las specs e2e leen esa env var (nuevo `e2e/_skip.ts`) y omiten exactamente las
+aserciones deterministas de esas rutas. **Fail-closed por construcción:** la env var va **sin setear** en toda
+corrida normal y en el gate `--since` (cero cuarentena por defecto), **solo** entra una ruta probada
+`needs-owner`, y una ruta que falla por **cualquier otra** razón (regresión real, `error`, `external`) sigue
+poniendo el gate en RED; la cuarentena se **loguea en voz alta** en ambos extremos. Así el build termina cada
+feature independiente y alcanza un baseline verde testeable mientras el nodo owner-gated espera. **Fuera de
+alcance** (respetado): rutas bloqueadas por razones distintas a needs-owner siguen en RED; no hay relajación
+general del gate.
+
+**Pruebas:** (1) **cuarentena (integración Playwright con fixture):** RED sin la env var (`/contact` roto
+red-lockea el gate) → GREEN con `PANDACORP_GATE_SKIP_ROUTES=/contact` (9 passed, ruta apartada, cada ruta
+independiente sigue afirmada); (2) **fail-closed (unit + integración):** solo la ruta listada se salta, una
+ruta hermana rota por razón no-owner sigue en RED, cero cuarentena con env vacío, skip logueado; (3) **canary
+sanity:** el canary DR-079 de MC pasa 8/8 (spec discovery intacto — el helper no neutralizó ningún gate).
+`_skip.ts` + las 4 specs tipan estricto y pasan biome contra el toolchain de MC.
+
+**Impact:** canonical `factory/standards/build-orchestration.md` §6 (regla "blocked node quarantined, not
+coupled", referencia DR-085). Motor + templates: `plugin/templates/shared/.claude/workflows/pandacorp-build.js`
+(helper `GATE_SKIP` + threading en baseline/close-out/notify-end whole-project), nuevo
+`plugin/templates/stack-a-nextjs/e2e/_skip.ts` (VERBATIM/byte-diffed) + `e2e/{smoke,visual,responsive,shell}.spec.ts`
+(consumen `notSkipped`/`isSkipped`). Backlog: `factory/backlog/BL-0011-*.md` → `status: done`. Memoria:
+`factory/memory/LESSON-0021-*.md` → `promotion: approved` + back-link. `plugin/templates/OVERLAY_VERSION`
+(8.58.0→**8.59.0** — engine + specs e2e son overlay/propagados; los proyectos lo toman en el próximo
+`/pandacorp:upgrade`), `plugin/.claude-plugin/plugin.json` (**v9.52.1→v9.53.0**, MINOR — nueva capacidad de gate
+compatible). **Manual (DR-046):** la Reference de estándares auto-deriva; es un matiz de comportamiento del gate
+(un canal de cuarentena dentro del gate whole-project ya existente), no un flujo/concepto nuevo → sin edición de
+narrativa (precedente DR-091/DR-088). Ver `plugin/docs/decision-log.md`. Activación: commit +
+`claude plugin update pandacorp@panda-corp` + restart.
+
 ## 2026-07-02 — Nueva regla propagada: cálculo de tier de modelo al delegar subagentes (CONV-12, DR-111, plugin v9.52.0)
 
 **Qué:** a pedido del owner, se codificó una regla nueva (CONV-12) en `factory/standards/conventions.md` — junto

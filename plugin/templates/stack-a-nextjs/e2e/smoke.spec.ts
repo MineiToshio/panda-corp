@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { notSkipped } from "./_skip";
 import { BLESSED } from "./routes";
 
 /**
@@ -7,12 +8,15 @@ import { BLESSED } from "./routes";
  * and conformance-checked by /pandacorp:upgrade so a project's gate can't silently fall behind.
  * Fail-closed: the harness is always present; the sentinel keeps the suite non-empty while no
  * surface is blessed yet (a route becomes REAL once its FRD gate flips `blessed: true` in routes.ts).
+ *
+ * Quarantine (BL-0011): a route whose work order is `BLOCKED: needs-owner` is held ASIDE via
+ * `notSkipped` (engine-driven `PANDACORP_GATE_SKIP_ROUTES`, empty on a normal run — fail-closed).
  */
 test("smoke harness present", () => {
   expect(BLESSED.length).toBeGreaterThanOrEqual(0);
 });
 
-for (const s of BLESSED) {
+for (const s of notSkipped(BLESSED)) {
   test(`smoke · ${s.id} (${s.path}) renders`, async ({ page }) => {
     const errors: string[] = [];
     page.on("console", (m) => {

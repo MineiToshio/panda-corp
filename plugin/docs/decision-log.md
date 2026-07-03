@@ -4,6 +4,40 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-07-03 — v9.53.0: whole-project gate quarantines a needs-owner-BLOCKED route (BL-0011, DR-085)
+
+**What:** closed backlog item **BL-0011** (source LESSON-0021). The whole-project e2e gates
+(smoke/visual/responsive/shell — DR-055/056/074/075) assert over **every** declared route, and the
+whole-project `verify.sh` invocations (baseline self-heal on resume, close-out, notify-end) run that full
+suite. When ONE route's owning work order was legitimately `BLOCKED: needs-owner` (a route only the owner can
+unblock — a missing secret/env var, an external account; the real case: personal-page-v2's `/contact` failing
+loud without `NEXT_PUBLIC_WEB3FORMS_KEY`), that single node turned the **whole** gate RED, which then blocked
+unrelated FRDs from closing and blocked the baseline on resume — a one-form env var stalled an otherwise
+finishable build. New rule: **a blocked node is quarantined, not coupled** — a `BLOCKED: needs-owner` node is a
+tracked owner TODO, and the whole-project gate holds it ASIDE rather than failing the whole set on it.
+**Implementation — quarantine, fail-closed:** the engine (`plugin/templates/shared/.claude/workflows/pandacorp-build.js`)
+gained a `GATE_SKIP` prompt fragment threaded into the **whole-project** verify steps only (baseline,
+close-out, notify-end): it derives, from the WO frontmatter, the routes whose WO is **provably**
+`implementation_status: BLOCKED` **and** `blocked_reason: needs-owner`, exports them as
+`PANDACORP_GATE_SKIP_ROUTES`, and logs the quarantine loudly. A new VERBATIM/byte-diffed helper
+`plugin/templates/stack-a-nextjs/e2e/_skip.ts` reads that env var and exposes `isSkipped`/`notSkipped`; the
+four gate specs (`smoke/visual/responsive/shell.spec.ts`) consume it to omit exactly those routes. **Fail-closed
+by construction:** the env var is UNSET on every normal run and on the per-FRD `--since` gate (zero quarantine
+— full surface set is the default), ONLY a proven `needs-owner`-blocked route may be listed, and a route that
+fails for ANY OTHER reason (a real regression, `error`, `external`) still reds the gate. **Proof:** a Playwright
+fixture went RED without the env var (`/contact` red-locks the gate) → GREEN with `PANDACORP_GATE_SKIP_ROUTES=/contact`
+(9 passed, blocked route held aside, every independent route still asserted); a fail-closed integration run kept
+a NON-quarantined broken route RED; a unit test proved the skip-list matching (exact + locale-tolerant + logged,
+empty-env = zero skip); MC's DR-079 canary passed 8/8 (spec discovery intact). All five e2e files typecheck strict
++ pass biome against MC's toolchain. **Why:** the owner read "whole build stopped for one form's env var" as the
+engine over-coupling — it eroded trust in the build's autonomy; the fix lets a build keep finishing every
+independent feature while a single owner-gated node waits. **MINOR** (new compatible gate capability, no behavior
+change to any existing skill/agent). **OVERLAY 8.58.0 → 8.59.0** (the engine + the e2e specs are overlay/propagated
+files — projects pick it up on the next `/pandacorp:upgrade`). Canonical: `factory/standards/build-orchestration.md`
+§6. **Manual (DR-046):** the standards Reference auto-derives; a gate-behavior nuance (a quarantine channel inside
+the existing whole-project gate), not a new flow/concept → no narrative edit (precedent DR-091/DR-088). See
+`factory/decision-log.md`.
+
 ## 2026-07-02 — v9.52.0: subagent model-tier selection rule (CONV-12, DR-111)
 
 **What:** a new propagated rule governing how the LEAD agent picks a subagent's model when it delegates WITHOUT specifying one — sibling to the language rule (CONV-1/DR-009) and the interaction-style rule (CONV-11/DR-110), same DR-051 propagation channel. Scoped to ad-hoc delegation only (the generic `Agent` tool, or a `Workflow`'s `agent()` outside the build engine): calculate the model tier from the SUBTASK's complexity (haiku/mechanical, sonnet/default floor, opus/high-complexity-judgment) instead of silently inheriting the parent conversation's tier. Explicitly does NOT reopen Pandacorp's own named agents (`plugin/agents/*.md` already pin `model:` in frontmatter) nor the build engine's own escalation (`pickWorkerModel`, DR-073/DR-108) — both already correct. **Fable is excluded from the automatic calculation entirely** — never auto-selected, only used on the owner's explicit request or after asking for confirmation first (owner correction during planning). Added to `factory/standards/conventions.md` ("Rule — subagent model selection", SHOULD/manual) and `factory/standards/rule-registry.md` (CONV-12 row, counts bumped to 117/86 manual). Concise pointers duplicated in `plugin/templates/shared/AGENTS.md.tpl` and `plugin/templates/shared/.pandacorp/guide.md.tpl` (new rule 11) — both regenerated non-destructively by `/pandacorp:upgrade`. Also added directly to panda-corp's own root `CLAUDE.md` (rule 11) for immediate effect in factory sessions. Registered as `DR-111`. **Why:** the owner reported deep-research-style fan-outs (and other ad-hoc delegations) burning the token budget by running every subagent at the parent session's own (sometimes Opus/Fable) tier, with no complexity-based calculation. MINOR + OVERLAY 8.57.0 → 8.58.0. See `factory/decision-log.md`.
