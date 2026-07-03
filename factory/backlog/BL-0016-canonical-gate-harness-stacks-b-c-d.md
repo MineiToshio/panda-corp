@@ -3,12 +3,12 @@ id: BL-0016
 type: change
 area: templates
 title: "Build the canonical gate harness for stacks B (Hono) / C (FastAPI) / D (scraper) before their first real project"
-status: open
+status: done
 severity: p1
 opened: 2026-07-01
-closed:
+closed: 2026-07-03
 source: "docs/proposals/20-factory-process-audit-2026-07-01.md (P1-12) + owner decision 5 (DR-105)"
-closes:
+closes: "Wired the BL-0016 trigger into architecture SKILL.md step 6: a CANONICAL-HARNESS TRIGGER GATE that detects the missing-harness case (absent verify.sh, corroborated by the PROVISIONAL banner) for the resolved chosen stack and forces building THAT ONE stack's canonical harness first (mirroring stack A: verify.sh + canary.sh + lint/type config + DR-079 broken fixtures + declared browser-gate opt-out, proven via verify.sh --canary) — or escalating to the owner — instead of silently hand-rolling a verify.sh (the DR-059 pre-audit failure mode). Does NOT build B/C/D harnesses speculatively (out of scope per DR-105 — build ON FIRST USE). Handles stack D as a pointer stub that resolves to stack C."
 links: [DR-105, DR-059, DR-076, DR-079]
 ---
 
