@@ -63,7 +63,7 @@ const TOGGLEABLE_GROUPS: readonly {
 const NOTE_STYLE: React.CSSProperties = {
   fontSize: "13px",
   color: "var(--color-text2)",
-  margin: "0 2px 18px",
+  margin: "14px 2px 18px",
 };
 
 const CARDS_STYLE: React.CSSProperties = {
