@@ -4,6 +4,14 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-03 — Root README backfilled (DOC-3, DR-112)
+
+**What:** added the repo's root `README.md` (didn't exist before). Mission Control predates the new factory-wide standard requiring every project to carry a populated root README (what it does + how to run it) — since it's already `phase: release`, there's no `spec`/`architecture` re-run to populate it through the normal skill flow, so it was backfilled directly from the existing PRD (`docs/product/prd.md`) and architecture (`docs/product/architecture.md` §2/§10), following the factory's new `plugin/templates/docs/readme-template.md`.
+
+**Why:** the owner asked for an example of the new README standard, and Mission Control — a real, finished project living in this same repo — was the natural one to demonstrate it on.
+
+**Impact:** `mission-control/README.md` (new).
+
 ## 2026-07-03 — Factory Backlog tab: ready-to-copy `implement-backlog` commands (FRD-22, REQ-22-009)
 
 **What:** the Backlog panel now renders two `CmdRow`s (the same copy-to-clipboard primitive used

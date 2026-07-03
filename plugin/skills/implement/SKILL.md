@@ -93,7 +93,7 @@ Construction's **last step**, once every FRD is `VERIFIED`, is the hardening pas
 
 1. **Security audit** (`security-auditor` agent, spawned by the engine): essential web OWASP + **OWASP Top 10 for Agentic Applications** (ASI01–ASI10, DR-017) if the product has agents/LLMs with tools. Critical/high findings are fixed **before construction is declared complete** — never deferred to release. Evidence: `docs/reviews/security-<date>.md`.
 2. **Telemetry / metrics verification** (`analytics` agent, spawned by the engine): verify the events in `docs/analytics/events.md` actually fire in the critical flow (evidence, not "they should"). Evidence: the `## Verification <date>` section in `events.md`. The product is instrumented as part of the build (DR-085).
-3. **Quality close-out**: the full suite + e2e green, lint + typecheck clean, the responsive / shell-presence / visual gates green (the per-FRD gates already enforced them; this is the whole-project confirmation) + the cross-feature integration review.
+3. **Quality close-out**: the full suite + e2e green, lint + typecheck clean, the responsive / shell-presence / visual gates green (the per-FRD gates already enforced them; this is the whole-project confirmation) + the cross-feature integration review. **README drift check (DR-112/DOC-3, advisory):** work orders can add env vars or change scripts mid-build — confirm the root README's "Getting started" commands and env-var pointer still match the current `package.json` scripts and `.env.example`; fix inline if they drifted. Never blocks the gate on its own.
 
 Only when this hardening is green — evidence on disk, asserted by the close-out — is construction complete.
 

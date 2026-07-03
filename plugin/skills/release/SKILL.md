@@ -24,7 +24,7 @@ description: Performs and executes the release of a Pandacorp project — deploy
    - Full suite + e2e green; lint and typecheck clean
    - Environment variables documented in `.env.example`; secrets ONLY in the deploy environment
    - DB migrations tested (up and down) in a clean environment
-   - README with what it is, how to run locally and (for external) how to deploy
+   - README with what it is, how to run locally and (for external) how to deploy — this should already be populated by `spec`/`architecture` (DR-112/DOC-3); this is the final human-facing confirmation, not the first pass
    - Errors monitored (Sentry or the blueprint's equivalent) and health check active (instrumented in construction)
 4. **Deploy / launch — branch on `deploy_target`:**
    - **internal** → there is no external host: confirm the app runs locally for the owner (the dev/preview server on its assigned port — `127.0.0.1`), smoke the critical flows against the local URL, and record `deploy_target: internal`. No staging, no production gate. **If the project gets an always-on local deployment** (a built, served snapshot kept running for the owner), it MUST follow **DR-089**: place it under `/Users/Shared/local-deployments/<project>/` (outside `Proyectos/`, named after the project — never a `-live` suffix), as a **production build** (`next build` + `next start`) in an isolated git worktree, served via launchd on the reserved port; redeploy = sync the worktree to green HEAD + rebuild + restart. See `factory/standards/infra.md` (Local deployments). Reference: Mission Control's `.pandacorp/run/serve.sh` + `deploy-local.sh`.

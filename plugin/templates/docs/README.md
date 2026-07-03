@@ -19,6 +19,7 @@ given, so a fat template yields padded, low-signal docs (DR-077).
 | `architecture-template.md` | `docs/product/architecture.md` (platform) | `architecture` |
 | `adr-template.md` | `docs/adr/adr-NNNN-<slug>.md` | `architecture` |
 | `research-template.md` | `docs/product/research.md` | `spec` |
+| `readme-template.md` | root `README.md` (the repo's front door — DR-112) | `spec` (what it does) · `architecture` (getting started) |
 | `events-template.md` | `docs/analytics/events.md` | `architecture` · `analytics` |
 | `spec-digest-template.md` | `.pandacorp/comms/spec-resumen.md` (owner-facing, powers MC's Spec tab) | `spec` |
 | `architecture-digest-template.md` | `.pandacorp/comms/arquitectura-resumen.md` (owner-facing, powers MC's Arquitectura tab) | `architecture` |

@@ -4,6 +4,14 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-07-03 — v9.63.0: root README is now a propagated, progressively-populated artifact (DOC-3, DR-112)
+
+**What:** new standard (`factory/standards/documentation.md`, DOC-3 in `rule-registry.md`) requiring every project to reach a human with a populated root `README.md` — what it does + how to run it — never the raw scaffold placeholder. No skill produced one before this change (the `release` pre-release checklist already asked for it, but nothing wrote it). Multi-touchpoint by design: `scaffold`/`spec` seed a placeholder (new `templates/shared/README.md.tpl`, carrying a `PANDACORP-README-PLACEHOLDER` marker); `spec` (step 7b) fills "what it does" from the PRD once it exists and removes the marker; `architecture` (step 6) fills "getting started" once the stack/`.env.example`/`launch.json` are real; `implement`'s hardening close-out (step 3) re-checks the commands haven't drifted (advisory); `release`'s existing checklist line is now the final human-facing confirmation, not the first pass. New thin template `templates/docs/readme-template.md`. Verifier: `.pandacorp/doc-lint.sh` — root README must exist, and (HARD-ELIGIBLE, greenfield only, mirrors BL-0009) once `docs/product/prd.md` exists the placeholder marker must be gone. `rules/documentation-and-decisions.md` carries the operative pointer (new table row + a "keep it truthful" rule, `globs` extended to include `README.md`).
+
+**Why:** the owner asked that every Pandacorp-generated project reach GitHub documented (what it does, how to run it) — a repo with no README is illegible to a human or a future adopting agent without reverse-engineering intent from code. Started `SHOULD` (learn's own rule: a new MUST that could break in-flight projects starts as SHOULD/warning) since existing projects predate this and shouldn't retroactively fail a gate.
+
+**Impact:** `plugin/.claude-plugin/plugin.json` (9.63.0), `templates/OVERLAY_VERSION` (8.63.0), `factory/standards/documentation.md`, `factory/standards/rule-registry.md` (DOC-3 + counts), `factory/decisions/registry.yaml` (DR-112), `plugin/templates/rules/documentation-and-decisions.md`, `plugin/templates/docs/readme-template.md` (new) + `README.md` (index), `plugin/templates/shared/README.md.tpl` (new), `plugin/templates/shared/.pandacorp/doc-lint.sh`, `plugin/skills/{scaffold,spec,architecture,implement,release}/SKILL.md`, `mission-control/content/manual/concepts/estandares-y-reglas.md`. Factory-wide: see `factory/decision-log.md` (same date). Activation: commit + `claude plugin update pandacorp@panda-corp` + restart.
+
 ## 2026-07-03 — v9.62.0: whole-project gate quarantines a needs-owner-BLOCKED route (BL-0011, DR-085)
 
 **What:** closed backlog item **BL-0011** (source LESSON-0021). The whole-project e2e gates

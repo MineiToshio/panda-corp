@@ -1,7 +1,7 @@
 ---
 description: Documentation discipline — keep the canonical doc current AND log the decision with its why.
 applies_when: always
-globs: ["docs/**"]
+globs: ["docs/**", "README.md"]
 source: Pandacorp standard — documentation
 ---
 
@@ -22,6 +22,10 @@ The doc alone loses the why; the log alone leaves the doc lying. A behavior chan
 | Platform-wide architecture / stack / data model | `docs/product/architecture.md` + an ADR |
 | Product scope / goals / metrics | `docs/product/prd.md` |
 | Visual design, tokens, components | `DESIGN.md` / design tokens |
+| External-facing overview (what it does, how to run it) | root `README.md` |
+
+## Root README — keep it truthful (DR-112)
+The root `README.md` is this repo's front door — never let it drift. If a change alters the install/dev/test commands, or adds/removes a required env var, **update the README's Getting Started section in the same change** (mirrors the `.env.example` sync rule in `code-conventions.md`). It stays thin — point to `docs/` for depth, never copy the PRD/blueprint into it.
 
 ## Forbidden pattern — `docs/proposals/` in a project
 - This project **never** has `docs/proposals/` (that pattern exists only in the factory repo). A file there is invisible to the build engine and to Mission Control's change queue — it will never be implemented.

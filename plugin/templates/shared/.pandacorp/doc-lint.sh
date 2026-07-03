@@ -71,6 +71,17 @@ if [ -f docs/product/prd.md ]; then
   has_key docs/product/prd.md type || warn_hard "docs/product/prd.md missing frontmatter key 'type'"
 fi
 
+# Root README (DR-112/DOC-3) — must exist; once the PRD exists, `spec` is expected to have replaced
+# the scaffold placeholder with real content. HARD-ELIGIBLE: both checks are deterministic presence/
+# marker checks, no judgment involved.
+if [ -f README.md ]; then
+  if [ -f docs/product/prd.md ] && grep -q 'PANDACORP-README-PLACEHOLDER' README.md 2>/dev/null; then
+    warn_hard "README.md still carries the scaffold placeholder (PANDACORP-README-PLACEHOLDER) even though docs/product/prd.md exists — /pandacorp:spec should have populated it (DR-112)"
+  fi
+else
+  warn_hard "README.md is missing at the project root (DR-112 — every project needs a populated root README)"
+fi
+
 # FRDs — required frontmatter keys (HARD-ELIGIBLE) + UI-FRD design-oracle completeness (SOFT, DR-091).
 for frd in docs/frds/frd-*/frd.md; do
   [ -f "$frd" ] || continue

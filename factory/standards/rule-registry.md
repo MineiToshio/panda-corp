@@ -83,6 +83,7 @@ Maintained by hand; `check-standards.sh` validates the template shape and that e
 | SEO-3 | hreflang/canonical per locale | SHOULD | seo-i18n.md | release checklist | manual |
 | DOC-1 | Two layers always: canonical doc + decision log | MUST | documentation.md | reviewer FRD gate + phase gates | manual |
 | DOC-2 | Source-of-truth hierarchy respected upstream | MUST | documentation.md | doc-lint (advisory) + reviewer | manual |
+| DOC-3 | Root README populated (what it does + how to run), never left the scaffold placeholder | SHOULD | documentation.md | doc-lint (greenfield hard-eligible: placeholder gone once PRD exists) + release pre-release checklist | manual |
 | STACK-1 | Golden path by default, latest stable | SHOULD | stack.md | blueprint ADR (owner approves) | manual |
 | STACK-2 | Version policy (latest new / stay in-flight / compatible brownfield) | MUST | stack.md | review-only | manual |
 | STACK-3 | Never homemade auth | MUST | stack.md / constitution §12 | blueprint review | manual |
@@ -135,4 +136,4 @@ Maintained by hand; `check-standards.sh` validates the template shape and that e
 
 ## Counts (2026-07-02, post Phase 2 + catalog expansion)
 
-117 rules → **30 wired · 86 manual · 1 aspirational (SHOULD)** · **0 aspirational MUST**. CONV-12 (subagent model selection, DR-111) added 2026-07-02. The 2026-07-02 catalog expansion (error-handling, data-modeling, auth, resilience, background-jobs, dependency-lifecycle, feature-flags, ai-implementation + PAT-10/11) added 32 rows, honestly registered: mostly `manual` with NAMED steps (reviewer lenses, blueprint readiness gate, security-auditor/hardening checklists, human gates) — each is a wiring candidate where a lint/gate can hold it. Health metric: wired share should only go up; the aspirational-MUST list stays at zero — `check-standards.sh` warns if one reappears.
+118 rules → **30 wired · 87 manual · 1 aspirational (SHOULD)** · **0 aspirational MUST**. DOC-3 (root README populated, DR-112) added 2026-07-03. CONV-12 (subagent model selection, DR-111) added 2026-07-02. The 2026-07-02 catalog expansion (error-handling, data-modeling, auth, resilience, background-jobs, dependency-lifecycle, feature-flags, ai-implementation + PAT-10/11) added 32 rows, honestly registered: mostly `manual` with NAMED steps (reviewer lenses, blueprint readiness gate, security-auditor/hardening checklists, human gates) — each is a wiring candidate where a lint/gate can hold it. Health metric: wired share should only go up; the aspirational-MUST list stays at zero — `check-standards.sh` warns if one reappears.

@@ -2,6 +2,14 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-03 — Nuevo estándar: README raíz poblado en todo proyecto (DOC-3, DR-112)
+
+**Qué:** todo proyecto generado por Pandacorp debe llegar a un humano (GitHub, un adopt brownfield) con un `README.md` raíz **poblado** — qué hace la app + cómo levantarla — nunca el placeholder de scaffold. Hoy no existía ningún productor: el checklist de `release` ya lo pedía (`plugin/skills/release/SKILL.md`), pero nadie lo escribía. Se resolvió como un estándar de varios puntos de contacto, no un único skill dueño: `scaffold`/`spec` siembran un placeholder (nuevo `templates/shared/README.md.tpl` con marca `PANDACORP-README-PLACEHOLDER`); `spec` (una vez existe el PRD) llena "qué hace" y quita la marca; `architecture` (una vez instalado el stack + `.env.example`/`launch.json`) llena "cómo levantarlo" con los comandos REALES; el hardening de `implement` reverifica que no haya quedado desactualizado (advisory); el checklist de `release` (ya existente) es la confirmación final. Verificador: `.pandacorp/doc-lint.sh` (existencia + ausencia de la marca placeholder una vez existe el PRD — HARD-ELIGIBLE solo en greenfield, patrón BL-0009). Nueva regla DOC-3 en `factory/standards/rule-registry.md` + entrada DR-112 en `factory/decisions/registry.yaml`. Severidad `SHOULD` (no `MUST`) para no romper proyectos ya en vuelo.
+
+**Por qué:** el propietario pidió que todo proyecto generado llegue documentado — un repo sin README es ilegible para un humano o un agente que lo adopte después sin tener que re-derivar la intención desde el código.
+
+**Impacto:** `factory/standards/documentation.md`, `factory/standards/rule-registry.md`, `factory/decisions/registry.yaml` (DR-112). Plugin: ver `plugin/docs/decision-log.md` (misma fecha, v9.63.0/overlay 8.63.0).
+
 ## 2026-07-03 — BL-0011: una ruta BLOCKED needs-owner ya no red-lockea el gate whole-project (quarantine, DR-085)
 
 **Qué:** se cerró el ítem de backlog **BL-0011** (fuente LESSON-0021). Los gates whole-project de e2e
