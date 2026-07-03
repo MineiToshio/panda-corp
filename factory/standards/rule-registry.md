@@ -20,6 +20,7 @@ Maintained by hand; `check-standards.sh` validates the template shape and that e
 | CONV-8 | Absolute `@/*` imports; no deep relatives | SHOULD | conventions.md | tsconfig alias + Biome organize-imports; depth review-only | wired |
 | CONV-9 | Named handlers; no inline JSX logic | SHOULD | conventions.md | reviewer | manual |
 | CONV-10 | Conventional Commits; never force-push | MUST | conventions.md | review-only | manual |
+| CONV-11 | Owner-facing interaction style (mark answer start, concise/scannable, storytelling, visualize flows, red-team judgment calls) — chat only, not product copy | SHOULD | conventions.md | agent self-check + owner spot-check | manual |
 | API-1 | RFC 9457 error contract (`application/problem+json`) | MUST | api-design.md | verify.sh grep gate (4xx/5xx without `problem()` = RED) + snippet; canaried | wired |
 | API-2 | REST: resources, `/v1`, pagination, standard codes | MUST | api-design.md | reviewer | manual |
 | STRUCT-1 | `src/` mandatory; reference layout | MUST | structure.md | reviewer + knip (orphans only) | manual |

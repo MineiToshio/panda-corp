@@ -2,6 +2,10 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-02 — Nueva regla propagada: estilo de interacción del agente con el owner (CONV-11, DR-110, plugin v9.51.0)
+
+**Qué:** a pedido del owner, se codificó una regla nueva (CONV-11) en `factory/standards/conventions.md` — junto a la regla de idioma (CONV-1) — que gobierna cómo el agente principal le responde al owner en el chat: marcar dónde empieza la respuesta real tras la narración de progreso (`---` + etiqueta en negrita), default conciso/escaneable/alto nivel (técnico solo si se pide o el tema lo exige — seguridad, dinero, pérdida de datos, acciones irreversibles), storytelling sobre jerga, visualizar flujos/algoritmos complejos con un widget/diagrama en vez de prosa, y red-team a propuestas que requieren juicio (nunca *rubber-stamp*) salvo saludos/preguntas simples. Severidad **SHOULD**, enforcement **manual** (no aspiracional — consistente con el catálogo de 0 MUSTs sin mecanismo). Se propagó por el mismo canal que ya usa la regla de idioma (DR-051): `conventions.md` → resumen en `AGENTS.md.tpl` + `.pandacorp/guide.md.tpl` (regla 10) → `CLAUDE.md` raíz de la fábrica (regla 10, efecto inmediato en esta sesión). Registrada como `DR-110` en `factory/decisions/registry.yaml`. **Alcance explícito, acotado dos veces a pedido del owner durante la planificación:** NO toca copy/microcopy de ninguna app (sigue siendo del agente `copywriter` + i18n), y NO toca la comunicación interna orquestador↔subagentes (`Agent`/`Task`), que se queda como esté. **Por qué:** el owner se desenganchaba de las conversaciones porque no distinguía la narración de progreso de la respuesta real, y las respuestas eran muy verbosas/técnicas/condescendientes por defecto con sus propuestas. MINOR + OVERLAY 8.56.0 → 8.57.0. Ver `plugin/docs/decision-log.md`.
+
 ## 2026-07-02 — Upgrade completo del catálogo de estándares (proposal 24, plugin v9.50.0)
 
 **Qué:** el owner aprobó el plan completo de `docs/proposals/24-standards-catalog-audit-2026-07-02.md`

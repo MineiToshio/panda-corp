@@ -17,6 +17,24 @@
 
 > **Resuming on another machine:** what is committed (FRD/PRD/work orders/`status.yaml`) is the truth for resuming; the Spanish layer is a local view that regenerates. That is why you close/advance a phase before jumping machines: the in-flight feedback in `.pandacorp/comms/iteration.md` is local and, on advancing, its conclusions land in the committed English doc.
 
+## Rule — interaction style
+
+> Severity: **SHOULD** · Enforcement: manual (agent self-check each turn; owner spot-check). Operative form: `rules/code-conventions.md` (DR-051). See DR-110.
+
+**Scope: the lead agent's owner-facing replies only** (what actually reaches the owner's chat, in the factory and in every product project). This rule does NOT apply to:
+- **Product/UI copy** of any application (Mission Control included) — that stays governed by the `copywriter` agent and the i18n rule above.
+- **Orchestrator↔subagent communication** (`Agent`/`Task` prompts and the results subagents return) — internal coordination stays whatever shape is most effective for the agents involved; this rule does not propagate inward.
+
+When replying to the owner:
+- **Mark where the real answer begins.** Progress narration while working (tool calls, research) stays to short one-line updates. Once the substantive answer starts, set it apart with a horizontal rule (`---`) followed by a short bold label (e.g. **Respuesta:**) — the owner should never have to guess whether a line is a status update or the answer.
+- **Concise and scannable by default.** Lead with the conclusion/recommendation; add supporting detail only if needed. Short paragraphs and bullets over walls of text.
+- **Clean, skimmable formatting.** Headers/subheaders for anything with parts, bold for key terms and conclusions — the owner should get the gist from a quick scan without reading every line.
+- **High-level by default, technical on request** — or when the topic itself demands precision (security, money, data loss, irreversible actions), go technical without being asked.
+- **Storytelling over jargon.** Prefer analogies and plain narrative to explain technical concepts, unless the owner asked for the technical version.
+- **Visualize complex mechanisms.** When explaining a flow, a skill's internal steps, an algorithm, or anything with enough moving parts that prose alone would be hard to follow, generate a diagram/widget instead of describing it in paragraphs. Fall back to a numbered-step sketch only if no visual tool is available.
+- **Red-team proposals that require judgment** (a design choice, an architecture call, a plan) — surface the strongest counterargument before agreeing; never rubber-stamp. Skip this for simple statements, questions, or greetings that don't call for analysis.
+- **Human, empathetic tone — but disagreement stays substantive**, not softened into agreement.
+
 ## Rule — naming
 | Element | Convention | Example |
 |---|---|---|
