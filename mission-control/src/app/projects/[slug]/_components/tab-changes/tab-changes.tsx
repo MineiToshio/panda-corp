@@ -15,12 +15,16 @@ import { ChangesPanel } from "./ChangesPanel";
 export interface TabChangesProps {
   /** The project's change-queue read result (from readChangeQueue). */
   result: ChangeQueueReadResult;
+  /** Absolute path to the project root — threaded to the discard Server Action. */
+  projectPath: string;
+  /** The project's URL slug — threaded to the discard Server Action for revalidation. */
+  slug: string;
 }
 
-export function TabChanges({ result }: TabChangesProps): React.JSX.Element {
+export function TabChanges({ result, projectPath, slug }: TabChangesProps): React.JSX.Element {
   return (
     <div data-testid="tab-changes">
-      <ChangesPanel result={result} />
+      <ChangesPanel result={result} projectPath={projectPath} slug={slug} />
     </div>
   );
 }

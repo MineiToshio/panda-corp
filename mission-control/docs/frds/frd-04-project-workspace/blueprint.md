@@ -42,6 +42,8 @@ mode selector is FRD-11's component slotted in).
 | REQ-04-005 | The **Commands** tab SHALL show the stage-relevant commands (continue `implement`, `release`, `iterate`, with when to use each) and the **build mode selector** (FRD-11). |
 | REQ-04-006 | The **Documents** tab SHALL allow navigating and reading the project's documents rendered. |
 | REQ-04-007 | The **Changes** tab SHALL list the project's change queue (`.pandacorp/inbox/changes/` + archived `done/`), grouped by status, with a detail modal per item carrying a targeted `implement change:<id>` command. |
+| REQ-04-008 | WHEN a Changes-tab item is ready/draft, its detail modal SHALL offer a **"Descartar"** action that rewrites `status: discarded` (ADR-0002 pattern) and closes the modal on success; never offered for done/already-discarded items. |
+| REQ-04-009 | The Changes tab SHALL show Listos/Borradores by default and hide Hechos/Descartados behind "Ver hechos (N)" / "Ver descartados (N)" toggles. |
 
 ### Acceptance criteria (EARS, expanded)
 
@@ -69,9 +71,16 @@ mode selector is FRD-11's component slotted in).
 - **AC-04-006.3** WHEN the project has no readable documents, the Documents tab SHALL show a graceful empty state.
 - **AC-04-006.4** Every Documents-tab navigation link (doc tree AND in-document links) SHALL preserve the embedding context — carry `?project` and `tab=documents` — so selecting a document never drops to the Summary tab; the document body SHALL render at the **full width** of the reader pane (no fixed measure cap).
 - **AC-04-006.5** WHEN a document body contains a link, the reader SHALL resolve it: a relative path to a document the tree surfaces → opens in the **same reader** (`?project&tab=documents&doc=<id>`); an off-app URL (http/https/mailto) → new tab; any other relative path → **plain, non-clickable text** (no 404).
-- **AC-04-007.1** The Changes tab SHALL group change-queue items by status — **ready · draft · done** — rendering a section (with count) per non-empty group; a project with no queue items SHALL show a graceful empty state.
+- **AC-04-007.1** The Changes tab SHALL group change-queue items by status — **ready · draft · done · discarded** — rendering a section (with count) per non-empty group; a project with no queue items SHALL show a graceful empty state.
 - **AC-04-007.2** WHEN the reader cannot interpret one or more files (invalid/missing `type` or `status`, or a body with no H1 title), the tab SHALL render a fail-loud error banner naming the offending file(s) (DR-078) — never a misleadingly-empty list.
 - **AC-04-007.3** Clicking a card SHALL open a detail modal showing type, urgency (`expedite` only), status, date, affected FRD, dependencies, a warning when `rebuilds_verified`, the body as titled colour-coded sections, and a copyable `/pandacorp:implement change:<id>` command scoped to that item's real id.
+- **AC-04-008.1** WHEN the selected item's status is `ready` or `draft`, the detail modal SHALL render a "Descartar" button; a `done` or `discarded` item SHALL never show it.
+- **AC-04-008.2** Clicking "Descartar" SHALL show an INLINE confirm step ("¿Descartar este cambio?" + Sí/No) — never a second `Modal` nested inside the detail modal already open.
+- **AC-04-008.3** Confirming SHALL call the `discardChange` write, which rewrites `status: discarded` and records `status_before_discard` (the prior value), preserving the body and every other frontmatter field verbatim (the same bounded-write pattern as `discardIdea`, ADR-0002) — never touching any sibling file.
+- **AC-04-008.4** WHEN the write succeeds, the detail modal SHALL close and the change-queue list SHALL refresh (via `revalidatePath`) so the item disappears from the default Listos/Borradores view.
+- **AC-04-008.5** WHEN the write fails (`not-found` / `parse-error` / `not-discardable`), the button SHALL revert to idle and show a Spanish error message; the modal SHALL stay open.
+- **AC-04-009.1** GIVEN the Changes tab has any items, ONLY the **Listos** and **Borradores** groups SHALL render by default; **Hechos** and **Descartados** SHALL be hidden.
+- **AC-04-009.2** A "Ver hechos (N)" / "Ver descartados (N)" toggle button SHALL render for each of those two buckets **only when it has at least one item**; clicking it SHALL reveal that bucket's section (button label flips to "Ocultar …") and clicking again SHALL hide it.
 
 ## 2. Interfaces (`lib/**`)
 
@@ -121,7 +130,7 @@ another surface (Mission Control's own factory-level backlog reader, `lib/backlo
 different, unrelated data source: `factory/backlog/` vs. this project's `.pandacorp/inbox/changes/`).
 
 ```ts
-export type ChangeQueueStatus = "ready" | "draft" | "done";
+export type ChangeQueueStatus = "ready" | "draft" | "done" | "discarded";
 export interface ChangeQueueItem {
   id: string;               // filename stem — the same slug `implement change:<id>` expects
   type: "bug" | "feature" | "change";
@@ -141,6 +150,23 @@ export function readChangeQueue(projectPath: string): ChangeQueueReadResult;
 > `_*` templates. A missing/invalid `type` or `status`, or a body with no H1 title, surfaces in
 > `errors[]` — never silently dropped. Read-only; never writes.
 
+### IF-04-discard-change — `lib/changes/discard-change.ts` (NEW, owned here)
+The Changes tab's one write (REQ-04-008) — mirrors `lib/discard/discard.ts` (the idea-card discard
+write, ADR-0002) exactly, scoped to a project's active `.pandacorp/inbox/changes/` instead of
+`factory/ideas/`. Rewrites `status` in place (no file move — unlike `done/`, DR-069's archival move).
+
+```ts
+export type DiscardChangeResult =
+  | { ok: true }
+  | { ok: false; reason: "not-found" | "parse-error" | "not-discardable" };
+export function discardChange(projectPath: string, id: string): DiscardChangeResult;
+```
+
+> Only `status: ready` or `status: draft` items are discardable — `done` and already-`discarded`
+> items return `not-discardable` (file untouched). On success, sets `status: discarded` and records
+> `status_before_discard` (the prior value, for a future restore), preserving the body and every
+> other frontmatter field verbatim. Path-traversal + symlink guards match `discardIdea`.
+
 ## 3. Components (`CMP-04-*`) and app surface
 
 App surface (architecture §11): `app/projects/[slug]` is the workspace, reached from the FRD-03
@@ -159,11 +185,14 @@ portfolio rail. In the prototype this is `projectPane`; here it is decomposed in
 | `CMP-04-tab-documents` | Server | Doc nav (`DocNode[]`) + rendered markdown body. | REQ-04-006 |
 | `CMP-04-tab-commands` | Server | Stage command rows + slot for `CMP-11-mode-selector`. | REQ-04-005 |
 | `CMP-04-tab-changes` | Server | Reads the queue via `IF-04-changes`, hands it to the client panel. | REQ-04-007 |
-| `CMP-04-changes-panel` | Client | Groups items by status, fail-loud error banner, empty state, detail modal. | REQ-04-007 |
+| `CMP-04-changes-panel` | Client | Groups items by status (Listos/Borradores always visible; Hechos/Descartados behind a toggle), fail-loud error banner, empty state, detail modal. | REQ-04-007, REQ-04-009 |
 | `CMP-04-change-card` | Client | One queue item: type icon, id, urgency chip (expedite only), title, date · FRD. Imported by the client panel (no own `"use client"` needed, same pattern as `CMP-22-card`). | REQ-04-007 |
-| `CMP-04-change-detail` | Client | Modal body: chips, meta-lines, rebuilds-verified warning, `SectionedMarkdown`, targeted `implement change:<id>` command. | REQ-04-007 |
+| `CMP-04-change-detail` | Client | Modal body: chips, meta-lines, rebuilds-verified warning, `SectionedMarkdown`, targeted `implement change:<id>` command, discard button (ready/draft only). | REQ-04-007, REQ-04-008 |
+| `CMP-04-discard-change` | Client | "Descartar" button with an INLINE confirm step (no nested modal); `useTransition`, prop-injected Server Action, idle/confirming/pending/done/error states. | REQ-04-008 |
+| `CMP-04-discard-change-action` | Server Action | Delegates to `IF-04-discard-change`, revalidates `/projects/<slug>` + `/portfolio` on success. | REQ-04-008 |
 | `IF-04-docs` | lib | The `docs.ts` readers above. | REQ-04-003, REQ-04-006 |
 | `IF-04-changes` | lib | The `changes.ts` reader above. | REQ-04-007 |
+| `IF-04-discard-change` | lib | The `discard-change.ts` write above. | REQ-04-008 |
 
 **Mounted, not owned:** the Work orders tab renders `CMP-05-board`; the Party tab renders
 `CMP-06-*`; the Commands tab slots `CMP-11-mode-selector`. The workspace passes `projectPath`/slug
@@ -191,6 +220,8 @@ down; it does not implement those panels.
 | REQ-04-005 | AC-04-005.1/.2 | CMP-04-tab-commands (FRD-11) | IF-04-next-step |
 | REQ-04-006 | AC-04-006.1/.2/.3 | CMP-04-tab-documents | IF-04-docs |
 | REQ-04-007 | AC-04-007.1/.2/.3 | CMP-04-tab-changes, CMP-04-changes-panel, CMP-04-change-card, CMP-04-change-detail | IF-04-changes |
+| REQ-04-008 | AC-04-008.1/.2/.3/.4/.5 | CMP-04-change-detail, CMP-04-discard-change, CMP-04-discard-change-action | IF-04-discard-change |
+| REQ-04-009 | AC-04-009.1/.2 | CMP-04-changes-panel | IF-04-changes |
 
 ## 6. Build Plan (Phase 2)
 

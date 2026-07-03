@@ -4,19 +4,24 @@
  * ChangesPanel — the project's change-queue surface (CMP-04-changes-panel, FRD-04).
  *
  * Renders a project's `.pandacorp/inbox/changes/` (+ archived `done/`), grouped by
- * status: Listos (ready) → Borradores (draft) → Hechos (done). "Listo" heads the
- * list because it's the most actionable right now — the build drains it next.
+ * status. Only **Listos (ready)** and **Borradores (draft)** show by default — Hechos
+ * and Descartados are hidden behind "Ver hechos (N)" / "Ver descartados (N)" toggles
+ * (REQ-04-009), so a project's history doesn't clutter the actionable view as it grows
+ * over months. "Listo" heads the default view because it's the most actionable right
+ * now — the build drains it next.
  *
  * Fail-loud (DR-078): if the reader could not interpret one or more files, an error
  * banner names them — the panel never renders a misleadingly-empty queue.
  *
  * Client Component: clicking a card opens a detail Modal (shared `Modal` primitive)
  * showing the item's full body + the targeted `/pandacorp:implement change:<id>`
- * command. The passed ChangeQueueReadResult is read server-side.
+ * command + (for ready/draft items) a discard action. The passed ChangeQueueReadResult
+ * is read server-side.
  *
  * Traceability:
  *   CMP-04-changes-panel → REQ-04-006 (grouped items), REQ-04-007 (fail-loud error state),
- *                          REQ-04-008 (detail modal + targeted command)
+ *                          REQ-04-008 (detail modal + targeted command + discard),
+ *                          REQ-04-009 (default-hidden Hechos/Descartados)
  */
 
 import { useState } from "react";
@@ -32,13 +37,22 @@ import { ChangeCard } from "./ChangeCard";
 import { ChangeDetail } from "./ChangeDetail";
 
 // ---------------------------------------------------------------------------
-// Status groups (order + labels + icons)
+// Status groups — always-visible (default view) vs toggleable (opt-in reveal)
 // ---------------------------------------------------------------------------
 
-const STATUS_GROUPS: readonly { status: ChangeQueueStatus; label: string; icon: string }[] = [
+const DEFAULT_GROUPS: readonly { status: ChangeQueueStatus; label: string; icon: string }[] = [
   { status: "ready", label: "Listos", icon: "ti-circle-check" },
   { status: "draft", label: "Borradores", icon: "ti-file-dots" },
-  { status: "done", label: "Hechos", icon: "ti-archive" },
+];
+
+const TOGGLEABLE_GROUPS: readonly {
+  status: ChangeQueueStatus;
+  label: string;
+  icon: string;
+  toggleLabel: string;
+}[] = [
+  { status: "done", label: "Hechos", icon: "ti-archive", toggleLabel: "hechos" },
+  { status: "discarded", label: "Descartados", icon: "ti-trash", toggleLabel: "descartados" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -74,6 +88,24 @@ const ERROR_BANNER_STYLE: React.CSSProperties = {
   margin: "0 2px 14px",
 };
 
+const TOGGLES_ROW_STYLE: React.CSSProperties = {
+  display: "flex",
+  gap: "8px",
+  flexWrap: "wrap",
+  margin: "0 2px 14px",
+};
+
+const TOGGLE_BTN_STYLE: React.CSSProperties = {
+  fontSize: "11px",
+  padding: "4px 10px",
+  borderRadius: "var(--radius-sm, 8px)",
+  border: "1px solid var(--color-border-strong)",
+  background: "var(--color-card)",
+  color: "var(--color-text2)",
+  cursor: "pointer",
+  fontFamily: "var(--font-display, inherit)",
+};
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -83,12 +115,36 @@ function byStatus(items: ChangeQueueItem[], status: ChangeQueueStatus): ChangeQu
   return items.filter((item) => item.status === status);
 }
 
-export function ChangesPanel({ result }: { result: ChangeQueueReadResult }): React.JSX.Element {
+export interface ChangesPanelProps {
+  result: ChangeQueueReadResult;
+  /** Absolute path to the project root — threaded to the discard Server Action. */
+  projectPath: string;
+  /** The project's URL slug — threaded to the discard Server Action for revalidation. */
+  slug: string;
+}
+
+export function ChangesPanel({ result, projectPath, slug }: ChangesPanelProps): React.JSX.Element {
   const { items, errors } = result;
   const hasItems = items.length > 0;
 
   // Selected item → detail modal (null = closed).
   const [selected, setSelected] = useState<ChangeQueueItem | null>(null);
+  // Toggleable groups (Hechos, Descartados) — hidden by default (REQ-04-009) so the
+  // active queue doesn't grow unboundedly cluttered as a project ages.
+  const [openToggles, setOpenToggles] = useState<ReadonlySet<ChangeQueueStatus>>(new Set());
+
+  function toggleGroup(status: ChangeQueueStatus): void {
+    setOpenToggles((prev) => {
+      const next = new Set(prev);
+      if (next.has(status)) next.delete(status);
+      else next.add(status);
+      return next;
+    });
+  }
+
+  function handleDiscarded(): void {
+    setSelected(null);
+  }
 
   return (
     <section data-testid="changes-panel" aria-label="Cola de cambios del proyecto">
@@ -112,20 +168,60 @@ export function ChangesPanel({ result }: { result: ChangeQueueReadResult }): Rea
           reportes un bug), aparecerá aquí.
         </p>
       ) : (
-        STATUS_GROUPS.map(({ status, label, icon }) => {
-          const group = byStatus(items, status);
-          if (group.length === 0) return null;
-          return (
-            <div key={status} data-testid={`changes-group-${status}`}>
-              <SectionHead icon={icon} label={label} count={group.length} />
-              <div style={CARDS_STYLE}>
-                {group.map((item) => (
-                  <ChangeCard key={item.id} item={item} onSelect={setSelected} />
-                ))}
+        <>
+          {DEFAULT_GROUPS.map(({ status, label, icon }) => {
+            const group = byStatus(items, status);
+            if (group.length === 0) return null;
+            return (
+              <div key={status} data-testid={`changes-group-${status}`}>
+                <SectionHead icon={icon} label={label} count={group.length} />
+                <div style={CARDS_STYLE}>
+                  {group.map((item) => (
+                    <ChangeCard key={item.id} item={item} onSelect={setSelected} />
+                  ))}
+                </div>
               </div>
-            </div>
-          );
-        })
+            );
+          })}
+
+          {/* Toggle row — Hechos/Descartados stay hidden until asked for (REQ-04-009),
+              so a project's history doesn't clutter the default view over months. */}
+          <div style={TOGGLES_ROW_STYLE}>
+            {TOGGLEABLE_GROUPS.map(({ status, toggleLabel }) => {
+              const count = byStatus(items, status).length;
+              if (count === 0) return null;
+              const open = openToggles.has(status);
+              return (
+                <button
+                  key={status}
+                  type="button"
+                  data-testid={`changes-toggle-${status}`}
+                  onClick={() => toggleGroup(status)}
+                  aria-pressed={open}
+                  style={TOGGLE_BTN_STYLE}
+                >
+                  {open ? "Ocultar" : "Ver"} {toggleLabel} ({count})
+                </button>
+              );
+            })}
+          </div>
+
+          {TOGGLEABLE_GROUPS.map(({ status, label, icon }) => {
+            if (!openToggles.has(status)) return null;
+            const group = byStatus(items, status);
+            if (group.length === 0) return null;
+            return (
+              <div key={status} data-testid={`changes-group-${status}`}>
+                <SectionHead icon={icon} label={label} count={group.length} />
+                <div style={CARDS_STYLE}>
+                  {group.map((item) => (
+                    <ChangeCard key={item.id} item={item} onSelect={setSelected} />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </>
       )}
 
       {/* Detail modal — the shared Modal primitive + ChangeDetail. */}
@@ -137,7 +233,14 @@ export function ChangesPanel({ result }: { result: ChangeQueueReadResult }): Rea
         badge={selected != null ? <Chip tone="accent">{selected.id}</Chip> : undefined}
         width={620}
       >
-        {selected != null && <ChangeDetail item={selected} />}
+        {selected != null && (
+          <ChangeDetail
+            item={selected}
+            projectPath={projectPath}
+            slug={slug}
+            onDiscarded={handleDiscarded}
+          />
+        )}
       </Modal>
     </section>
   );

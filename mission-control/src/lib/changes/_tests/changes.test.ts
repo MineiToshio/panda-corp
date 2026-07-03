@@ -104,6 +104,31 @@ No pagina.
     expect(items[0]).toMatchObject({ id: "mc-old-fix", status: "done", type: "bug" });
   });
 
+  it("parses a discarded item (status flipped in place by Mission Control's discard action)", () => {
+    writeChange(
+      "mc-rejected-idea.md",
+      `---
+type: change
+class: standard
+status: discarded
+status_before_discard: ready
+date: 2026-07-02
+frd:
+rebuilds_verified: false
+depends_on:
+---
+
+# Un cambio que el owner descartó
+
+## Qué se quiere
+Algo que ya no se va a hacer.
+`,
+    );
+    const { items, errors } = readChangeQueue(projectPath);
+    expect(errors).toEqual([]);
+    expect(items[0]).toMatchObject({ id: "mc-rejected-idea", status: "discarded" });
+  });
+
   it("defaults class to standard when absent", () => {
     writeChange(
       "mc-no-class.md",

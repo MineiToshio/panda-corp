@@ -13,12 +13,18 @@ import { Chip, type ChipTone } from "@/components/core/Chip/Chip";
 import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 import { SectionedMarkdown } from "@/components/modules/SectionedMarkdown/SectionedMarkdown";
 import type { ChangeQueueItem, ChangeQueueStatus } from "@/lib/changes/changes";
+import { discardChangeAction } from "../../_actions/discard-change";
+import { DiscardChangeButton } from "./DiscardChangeButton";
 
 const STATUS_META: Record<ChangeQueueStatus, { label: string; tone: ChipTone }> = {
   ready: { label: "Listo", tone: "ok" },
   draft: { label: "Borrador", tone: "secondary" },
   done: { label: "Hecho", tone: "info" },
+  discarded: { label: "Descartado", tone: "secondary" },
 } as const;
+
+/** Only a ready/draft item can be discarded (REQ-04-008) — done/discarded items never show the button. */
+const DISCARDABLE_STATUSES: ReadonlySet<ChangeQueueStatus> = new Set(["ready", "draft"]);
 
 const META_ROW_STYLE: React.CSSProperties = {
   fontSize: "11px",
@@ -57,7 +63,22 @@ function MetaLine({ label, value }: { label: string; value: string }): React.JSX
   );
 }
 
-export function ChangeDetail({ item }: { item: ChangeQueueItem }): React.JSX.Element {
+export interface ChangeDetailProps {
+  item: ChangeQueueItem;
+  /** Absolute path to the project root — threaded to the discard Server Action. */
+  projectPath: string;
+  /** The project's URL slug — threaded to the discard Server Action for revalidation. */
+  slug: string;
+  /** Called after a successful discard (the caller closes the detail modal). */
+  onDiscarded?: () => void;
+}
+
+export function ChangeDetail({
+  item,
+  projectPath,
+  slug,
+  onDiscarded,
+}: ChangeDetailProps): React.JSX.Element {
   const statusMeta = STATUS_META[item.status];
 
   return (
@@ -99,6 +120,18 @@ export function ChangeDetail({ item }: { item: ChangeQueueItem }): React.JSX.Ele
           Construye este cambio específico en la próxima corrida del build.
         </p>
       </div>
+
+      {/* Discard action — only offered for ready/draft items (REQ-04-008); a done or
+          already-discarded item never shows it. */}
+      {DISCARDABLE_STATUSES.has(item.status) && (
+        <DiscardChangeButton
+          projectPath={projectPath}
+          id={item.id}
+          slug={slug}
+          discardAction={discardChangeAction}
+          onDiscarded={onDiscarded}
+        />
+      )}
     </div>
   );
 }

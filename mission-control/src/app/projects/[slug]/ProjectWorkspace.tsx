@@ -260,7 +260,9 @@ export function ProjectWorkspace({
       body = renderWorkOrdersTab(projectPath, slug, woParam, woTabParam);
       break;
     case "changes":
-      body = <TabChanges result={readChangeQueue(projectPath)} />;
+      body = (
+        <TabChanges result={readChangeQueue(projectPath)} projectPath={projectPath} slug={slug} />
+      );
       break;
     case "party":
       // Pass the authoritative build flag so the scene shows the powered-off state

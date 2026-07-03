@@ -4,6 +4,33 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-03 — Cambios tab: discard a change (4th status) + default-hide Hechos/Descartados (FRD-04, REQ-04-008/009)
+
+**What:** The Cambios tab's detail modal now offers a **"Descartar"** action for any `ready`/`draft`
+item (never for `done` or already-discarded). Confirming rewrites `status: discarded` in place
+(no file move — unlike the build's `done/` archival) and records `status_before_discard`, preserving
+the body and every other field verbatim: `lib/changes/discard-change.ts` mirrors `lib/discard/discard.ts`
+(the idea-card discard write) exactly, extended with a `not-discardable` guard so a `done`/already-
+`discarded` item is refused rather than silently no-op'd. `ChangeQueueStatus` gains a 4th value,
+`"discarded"`. The confirm step is **inline** ("¿Seguro? Sí / No"), not a second `Modal` — `ChangeDetail`
+already renders inside `ChangesPanel`'s modal, so nesting a second one would be confusing. On success
+the parent modal closes and `revalidatePath` refreshes both `/projects/<slug>` and `/portfolio`.
+
+Separately, the Cambios tab's default view now shows **only Listos and Borradores** — Hechos and
+Descartados are hidden behind "Ver hechos (N)" / "Ver descartados (N)" toggle buttons (each omitted
+when empty), so the queue's history doesn't clutter the actionable view as a project accumulates
+months of shipped/discarded items.
+
+**Why:** The owner asked to discard changes they've decided not to build, with the discarded ones
+routed out of the main list (not deleted) — and separately flagged that an unbounded "Hechos" list
+would become unmanageable over time. The write mirrors the app's ONE existing precedent for a
+bounded, human-triggered write (idea-card discard/restore, ADR-0002) rather than inventing a new
+mechanism (e.g. moving the file to a `discarded/` folder) — same rule, new artifact type. No new ADR
+needed; ADR-0002's boundary ("all writes are human-triggered Server Actions that set one bounded
+field of one artifact") already covers this. **Impact:** `lib/changes/changes.ts` (4th status),
+`lib/changes/discard-change.ts` (new), `_actions/discard-change.ts` (new Server Action),
+`DiscardChangeButton.tsx` (new), `ChangeDetail.tsx`/`ChangesPanel.tsx` (wired), `docs/frds/frd-04-project-workspace/frd.md` + `blueprint.md` (REQ-04-008, REQ-04-009).
+
 ## 2026-07-03 — New "Cambios" tab surfaces a project's change queue (FRD-04, REQ-04-007)
 
 **What:** A seventh workspace tab, **Cambios**, inserted right after Work orders (before Party),

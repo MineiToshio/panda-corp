@@ -25,7 +25,7 @@ import matter from "gray-matter";
 
 type ChangeType = "bug" | "feature" | "change";
 type ChangeClass = "expedite" | "standard" | "intangible" | "fixed-date";
-export type ChangeQueueStatus = "ready" | "draft" | "done";
+export type ChangeQueueStatus = "ready" | "draft" | "done" | "discarded";
 
 export type ChangeQueueItem = {
   /** Filename stem (no `.md`) — the same slug `/pandacorp:implement change:<id>` expects. */
@@ -57,7 +57,7 @@ export type ChangeQueueReadResult = {
 
 const VALID_TYPES: readonly ChangeType[] = ["bug", "feature", "change"];
 const VALID_CLASSES: readonly ChangeClass[] = ["expedite", "standard", "intangible", "fixed-date"];
-const VALID_STATUSES: readonly ChangeQueueStatus[] = ["ready", "draft", "done"];
+const VALID_STATUSES: readonly ChangeQueueStatus[] = ["ready", "draft", "done", "discarded"];
 
 /** Files inside .pandacorp/inbox/changes/ that are never change items. */
 const SKIP_FILES: readonly string[] = ["README.md"];
@@ -164,7 +164,7 @@ function parseChangeFile(filePath: string, id: string): ParseOutcome {
     return { error: `${id}: invalid or missing type (bug|feature|change)` };
   }
   if (!isChangeQueueStatus(fm.status)) {
-    return { error: `${id}: invalid or missing status (ready|draft|done)` };
+    return { error: `${id}: invalid or missing status (ready|draft|done|discarded)` };
   }
 
   const extracted = extractTitle(typeof parsed.content === "string" ? parsed.content : "");
