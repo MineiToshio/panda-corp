@@ -152,6 +152,20 @@ human-run sessions, not a coordinated engine); and for Next.js+pnpm a worktree f
 HMR. A worktree flow also ends in a merge, and a textual merge can pass while the code fails to compile
 (CoAgent). "Keep writes single-threaded" (Cognition) is honored natively by the single-writer commit.
 
+**Project identity is EXPLICIT, never derived from cwd (BL-0022).** The engine must be told WHICH project
+it builds and WHERE its root is — it never infers it from the working directory. `implement` resolves and
+passes `args.projectDir` (the absolute project root, where the preflight found `.pandacorp/status.yaml`)
+and `args.project` (the event key = folder basename); the engine stamps every event (`AgentWorking`,
+`gate`, `achievement`, `wo_commit`) with the literal `project`, appends `track.jsonl` under the absolute
+`projectDir`, prepends every subagent prompt with a `cd` to `projectDir`, and its first (Baseline) step
+**asserts `projectDir/.pandacorp/status.yaml` exists and stops loud** if it doesn't (never plan against
+the wrong tree). Rationale: Workflow subagents inherit the SESSION's cwd, so a build launched from a
+conversation opened at the factory root (with the project as a subfolder) used to mislabel every engine
+event as the factory and scatter a stray `track.jsonl` at the wrong tree — invisible to the project's own
+dashboard (live incident 2026-07-02, mission-control). A `$(basename "$PWD")` + relative-`track.jsonl`
+fallback is kept for back-compat when a launcher omits the args (correct only when cwd already IS the
+project root). Consequence: **launching a build from any cwd is safe.**
+
 ## 3. The Build Plan lives in the blueprint (per FRD)
 
 Each per-FRD `blueprint.md` MUST include a **Build Plan**: the DAG of that FRD's work orders — order,

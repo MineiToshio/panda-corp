@@ -3,12 +3,12 @@ id: BL-0022
 type: bug
 area: build-engine
 title: "Engine derives project identity from cwd (basename $PWD) — a root-launched session mislabels events and strays track.jsonl"
-status: open
+status: done
 severity: p1
 opened: 2026-07-02
-closed:
+closed: 2026-07-03
 source: "owner/conversation 2026-07-02 — live incident during the first global-wave build of mission-control"
-closes:
+closes: "Engine now takes EXPLICIT args.projectDir/args.project: EMIT/GATE/ACHIEVEMENT/WO_COMMIT stamp the literal project, TRACK writes the absolute projectDir/.pandacorp/track.jsonl, every agent prompt is prefixed (one place, via an agent-global wrapper) with a cd-to-projectDir preamble, and the Baseline step fail-loud-asserts projectDir/.pandacorp/status.yaml exists; $(basename \"$PWD\") + relative-track fallback preserved for back-compat. implement/SKILL.md threads both args into every Workflow launch/relaunch/example. Proven by scratchpad/engine-sim/harness.mjs (vm-sandbox sim). plugin v9.61.0, OVERLAY 8.61.0."
 links: [BL-0021, BL-0020, DR-066, DR-086]
 ---
 
