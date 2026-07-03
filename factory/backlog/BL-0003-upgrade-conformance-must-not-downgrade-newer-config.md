@@ -3,12 +3,12 @@ id: BL-0003
 type: bug
 area: plugin-skill
 title: "/upgrade conformance overwrote a newer-than-template gate config and red-locked the baseline"
-status: open
+status: done
 severity: p1
 opened: 2026-06-30
-closed:
+closed: 2026-07-03
 source: "LESSON-0004"
-closes:
+closes: "DR-076 amendment (registry) + plugin/scripts/detect-gate-config-newer.sh + /upgrade step 3b (post-conformance project gate) + build-orchestration.md §5; plugin v9.59.0"
 links: [LESSON-0004, DR-076, DR-059, DR-048]
 ---
 

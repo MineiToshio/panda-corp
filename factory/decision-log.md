@@ -2,6 +2,30 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-03 — BL-0003: `/upgrade` ya no puede degradar en silencio un gate-config más nuevo que el template (enmienda DR-076, plugin v9.59.0)
+
+**Qué:** se cerró el ítem de backlog BL-0003 (fuente LESSON-0004). El paso de conformance DR-059 de `/pandacorp:upgrade`
+sobrescribe el gate-config canónico (`biome.json`/`knip.json`/`verify.sh`/e2e) VERBATIM desde el template, sobre la
+doctrina DR-076 de que "el template nunca va por detrás de un proyecto". Esa doctrina es una SUPOSICIÓN, no un invariante:
+un proyecto puede legítimamente ir por delante cuando una herramienta pineada cambia el formato del config antes de que el
+template lo alcance (personal-page-v2: biome 2.5.1 necesitaba schema 2.5.1 + `preset:recommended`; el template obsoleto 2.5.0
++ `recommended:true` deprecado lo sobrescribió y RED-LOCKEÓ el baseline bajo `--error-on-warnings`). Dos guardas nuevas,
+ambas en `plugin/skills/upgrade/SKILL.md`: (1) un detector de versión ANTES de sobrescribir (`plugin/scripts/detect-gate-config-newer.sh`)
+que compara la versión del config del proyecto contra la herramienta instalada (semver del `$schema` de biome vs
+`@biomejs/biome` en `package.json`) y clasifica cada archivo `project-newer | template-current | unknown` — en `project-newer`
+se BACK-PORTEA la versión del proyecto AL template PRIMERO, así la sobrescritura es un no-op y nunca degrada; (2) un paso 3b
+nuevo que, tras conformance + el canary DR-079, corre el gate COMPLETO del proyecto (`verify.sh` baseline, no `--since`) y
+FALLA FUERTE — BLOQUEA el upgrade — si el config recién sincronizado red-lockea el gate, sin nunca estampar `overlay_version`
+sobre un baseline roto. **Por qué / consistencia:** la sobrescritura sigue siendo INCONDICIONAL y binaria (se preserva la
+garantía DR-059; NO se reabre el "diff-and-flag-on-ahead" que el red-team B de DR-076 rechazó) — la comparación de versión solo
+redirige el back-port hacia arriba, y la corrida del gate post-sobrescritura es una prueba distinta del canary (canary = los
+gates muerden un fixture roto; esto = el proyecto real sigue pasando). Es el backstop "template-never-behind-a-project" que
+DR-076 dejó DIFERIDO. **Impacto (docs tocadas):** `factory/decisions/registry.yaml` (enmienda a DR-076), `factory/standards/build-orchestration.md`
+(§5), `plugin/skills/upgrade/SKILL.md` (pasos 3/3b + Rules), nuevos `plugin/scripts/detect-gate-config-newer.sh` +
+`plugin/scripts/test-detect-gate-config-newer.sh` (8/8 verde), plugin 9.52.1 → 9.59.0 (MINOR — capacidad nueva; sin bump de OVERLAY,
+ningún archivo de template cambió, apilado sobre el v9.58.0 del mismo día porque ambas ramas partieron de la misma base). Se marcó
+LESSON-0004 `promotion: approved` y se cerró BL-0003 (`status: done`). Ver `plugin/docs/decision-log.md` (2026-07-03).
+
 ## 2026-07-03 — BL-0016 cerrado: cableado el disparador del harness canónico para stacks provisionales B/C/D (DR-105, plugin v9.58.0)
 
 **Qué:** se cerró el item de backlog BL-0016 cableando el **disparador** (no construyendo los tres harnesses especulativamente — eso es fuera-de-alcance por DR-105, cada uno se construye EN PRIMER USO). El paso 6 de `plugin/skills/architecture/SKILL.md` ahora lleva una **CANONICAL-HARNESS TRIGGER GATE** que corre ANTES de la copia VERBATIM (DR-059): resuelve el stack elegido y comprueba si existe su `verify.sh` canónico. Stack A lo tiene → sigue el camino VERBATIM sin cambios. Los stacks provisionales B (Hono) / C (FastAPI) no lo tienen (STACK.md solo-prosa con banner PROVISIONAL) → el gate DISPARA: la skill debe construir el harness canónico de ESE stack primero, replicando la forma de stack A (`verify.sh`+`canary.sh` fail-closed, config de lint/tipos, fixtures rotas DR-079, opt-out de gates de navegador DECLARADO como vacuous-pass para stack headless), probarlo con `verify.sh --canary`, o si es demasiado grande para hacerlo inline, DETENERSE y escalar al owner — **nunca** hand-rollear un `verify.sh` en silencio (el modo de fallo pre-auditoría que cerró DR-059). Stack D se maneja como stub-puntero que resuelve a stack C. Se marcó `BL-0016` como `done` y se actualizó la `nota` de DR-105 registrando que el disparador ya está cableado. **Por qué:** era la deuda diferida de la decisión del owner (audit-20, DR-105). Sin esto, el `/pandacorp:architecture` del primer proyecto no-Next intentaría copiar una plantilla inexistente y degradaría en silencio a un gate hand-rolled. Probado con un check scripteado (verify.sh solo en stack A; condición de disparo se cumple en B/C; D reconocido como redirect a C). Solo-skill → MINOR, sin bump de OVERLAY, apilado sobre el v9.57.0 del mismo día (más abajo) porque ambas ramas partieron de la misma base. Impacto (docs canónicos): `plugin/skills/architecture/SKILL.md`, `factory/decisions/registry.yaml` (nota DR-105), `factory/backlog/BL-0016-*.md`, `plugin/.claude-plugin/plugin.json` (v9.58.0), `plugin/docs/decision-log.md`.

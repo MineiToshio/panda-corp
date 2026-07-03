@@ -9,7 +9,7 @@ source: project personal-page-v2 — overlay upgrade 8.47.0→8.51.0 overwrote b
 provenance: agent-inferred
 created: 2026-06-30
 status: active
-promotion: none
+promotion: approved
 confidence: high
 times_applied: 0
 links: [BL-0003, DR-076, DR-059, DR-048, LESSON-0002]
