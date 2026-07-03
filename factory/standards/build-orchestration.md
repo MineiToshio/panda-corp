@@ -340,6 +340,22 @@ The build engine reviews and tests **per FRD**, not per work order:
   **deterministic gate is the block**. Ships VERBATIM (`e2e/shell.spec.ts`, propagated by `architecture`,
   conformance-checked by `upgrade`; `e2e/shell.ts` is the per-project seed); canonical in
   `factory/standards/design.md` §5b + `quality.md`.
+- **The conformance overwrite must not red-lock the gate it re-syncs (DR-076 amendment, BL-0003).** `upgrade`'s
+  DR-059 conformance step overwrites the canonical gate config (`verify.sh`/`biome.json`/`knip.json`/the e2e
+  set) VERBATIM from the plugin template, on DR-076's doctrine that the template is never behind a project.
+  That doctrine is an ASSUMPTION, not an invariant: a project can legitimately race ahead when a pinned tool
+  ships a config-format change before the template catches up (personal-page-v2's biome `2.5.1` needed schema
+  `2.5.1` + `preset: recommended`; the stale template `2.5.0` + deprecated `recommended: true` overwrote it and
+  **red-locked the whole-project baseline** under `--error-on-warnings`). Two guards, both in
+  `plugin/skills/upgrade/SKILL.md`: (1) BEFORE overwriting, a **version-compare detector**
+  (`scripts/detect-gate-config-newer.sh`) flags "project config newer than template" (schema version vs the
+  installed tool) and **back-ports the project's version up to the template FIRST** so the overwrite is a
+  no-op — never a silent downgrade; (2) AFTER conformance + the DR-079 canary, `upgrade` runs the **FULL
+  project gate on the project** (`verify.sh`, a full baseline — not `--since`, which lints only changed files
+  and hid the red-lock until pass-2) and **fails loud — BLOCKING the upgrade — if the freshly-synced config
+  red-locks the gate**, so a broken baseline is never left for the next build to discover (`builtFrds:[]`,
+  `blockedReasons:{baseline:error}`). The canary proves the gates still bite on a broken fixture; this run
+  proves the REAL project still passes after the overwrite.
 
 ## 5b. The phase model & `deploy_target` (DR-085)
 

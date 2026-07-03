@@ -2,6 +2,30 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-03 — BL-0003: `/upgrade` ya no puede degradar en silencio un gate-config más nuevo que el template (enmienda DR-076, plugin v9.53.0)
+
+**Qué:** se cerró el ítem de backlog BL-0003 (fuente LESSON-0004). El paso de conformance DR-059 de `/pandacorp:upgrade`
+sobrescribe el gate-config canónico (`biome.json`/`knip.json`/`verify.sh`/e2e) VERBATIM desde el template, sobre la
+doctrina DR-076 de que "el template nunca va por detrás de un proyecto". Esa doctrina es una SUPOSICIÓN, no un invariante:
+un proyecto puede legítimamente ir por delante cuando una herramienta pineada cambia el formato del config antes de que el
+template lo alcance (personal-page-v2: biome 2.5.1 necesitaba schema 2.5.1 + `preset:recommended`; el template obsoleto 2.5.0
++ `recommended:true` deprecado lo sobrescribió y RED-LOCKEÓ el baseline bajo `--error-on-warnings`). Dos guardas nuevas,
+ambas en `plugin/skills/upgrade/SKILL.md`: (1) un detector de versión ANTES de sobrescribir (`plugin/scripts/detect-gate-config-newer.sh`)
+que compara la versión del config del proyecto contra la herramienta instalada (semver del `$schema` de biome vs
+`@biomejs/biome` en `package.json`) y clasifica cada archivo `project-newer | template-current | unknown` — en `project-newer`
+se BACK-PORTEA la versión del proyecto AL template PRIMERO, así la sobrescritura es un no-op y nunca degrada; (2) un paso 3b
+nuevo que, tras conformance + el canary DR-079, corre el gate COMPLETO del proyecto (`verify.sh` baseline, no `--since`) y
+FALLA FUERTE — BLOQUEA el upgrade — si el config recién sincronizado red-lockea el gate, sin nunca estampar `overlay_version`
+sobre un baseline roto. **Por qué / consistencia:** la sobrescritura sigue siendo INCONDICIONAL y binaria (se preserva la
+garantía DR-059; NO se reabre el "diff-and-flag-on-ahead" que el red-team B de DR-076 rechazó) — la comparación de versión solo
+redirige el back-port hacia arriba, y la corrida del gate post-sobrescritura es una prueba distinta del canary (canary = los
+gates muerden un fixture roto; esto = el proyecto real sigue pasando). Es el backstop "template-never-behind-a-project" que
+DR-076 dejó DIFERIDO. **Impacto (docs tocadas):** `factory/decisions/registry.yaml` (enmienda a DR-076), `factory/standards/build-orchestration.md`
+(§5), `plugin/skills/upgrade/SKILL.md` (pasos 3/3b + Rules), nuevos `plugin/scripts/detect-gate-config-newer.sh` +
+`plugin/scripts/test-detect-gate-config-newer.sh` (8/8 verde), plugin 9.52.1 → 9.53.0 (MINOR — capacidad nueva; sin bump de OVERLAY,
+ningún archivo de template cambió). Se marcó LESSON-0004 `promotion: approved` y se cerró BL-0003 (`status: done`). Ver
+`plugin/docs/decision-log.md` (2026-07-03).
+
 ## 2026-07-02 — Nueva regla propagada: cálculo de tier de modelo al delegar subagentes (CONV-12, DR-111, plugin v9.52.0)
 
 **Qué:** a pedido del owner, se codificó una regla nueva (CONV-12) en `factory/standards/conventions.md` — junto
