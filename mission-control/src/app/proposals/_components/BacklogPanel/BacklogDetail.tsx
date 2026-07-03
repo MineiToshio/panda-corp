@@ -9,8 +9,8 @@
  */
 
 import { Chip, type ChipTone } from "@/components/core/Chip/Chip";
+import { SectionedMarkdown } from "@/components/modules/SectionedMarkdown/SectionedMarkdown";
 import type { BacklogItem, BacklogSeverity, BacklogStatus } from "@/lib/backlog/backlog";
-import { SectionedMarkdown } from "../SectionedMarkdown/SectionedMarkdown";
 
 const SEVERITY_TONE: Record<BacklogSeverity, ChipTone> = {
   p0: "danger",

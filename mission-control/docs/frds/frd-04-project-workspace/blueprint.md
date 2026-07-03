@@ -4,7 +4,7 @@ type: blueprint
 parent: FRD-04
 status: ACTIVE
 implementation_status: VERIFIED
-last_updated: '2026-06-18'
+last_updated: '2026-07-03'
 ---
 # FRD-04 — Project workspace · feature blueprint
 
@@ -27,25 +27,26 @@ only **mounted** here:
 - **Party** tab → [FRD-06](../frd-06-party/frd.md) (`CMP-06-*`).
 - The **build mode selector** inside the Commands tab → [FRD-11](../frd-11-build-modes/blueprint.md) (`CMP-11-*`).
 
-FRD-04 owns the **workspace chrome** (tab bar, header, "Mission Objectives" bar) and the three tabs
-it implements directly: **Summary**, **Documents**, **Commands** (the command list; the mode
-selector is FRD-11's component slotted in).
+FRD-04 owns the **workspace chrome** (tab bar, header, "Mission Objectives" bar) and the tabs it
+implements directly: **Summary**, **Changes**, **Documents**, **Commands** (the command list; the
+mode selector is FRD-11's component slotted in).
 
 ## 1. Requirements (derived IDs)
 
 | REQ | EARS (from `frd.md`) |
 |---|---|
-| REQ-04-001 | The workspace SHALL offer tabs in order **Summary · Work orders · Party · Documents · Commands**. |
+| REQ-04-001 | The workspace SHALL offer tabs in order **Summary · Work orders · Changes · Party · Observability · Documents · Commands**. |
 | REQ-04-002 | The header SHALL show title, stage, version, the `progress` line and a **"Mission Objectives"** bar (% of work orders completed), visible on all tabs. |
 | REQ-04-003 | The **Summary** tab SHALL show summary, key points, **decision points** (highlighted, with a count) and a high-level **activity log**, read from `.pandacorp/inbox/decisions.md` and `.pandacorp/comms/progress.md`. |
 | REQ-04-004 | WHEN there are pending decisions, the workspace SHALL highlight them. |
 | REQ-04-005 | The **Commands** tab SHALL show the stage-relevant commands (continue `implement`, `release`, `iterate`, with when to use each) and the **build mode selector** (FRD-11). |
 | REQ-04-006 | The **Documents** tab SHALL allow navigating and reading the project's documents rendered. |
+| REQ-04-007 | The **Changes** tab SHALL list the project's change queue (`.pandacorp/inbox/changes/` + archived `done/`), grouped by status, with a detail modal per item carrying a targeted `implement change:<id>` command. |
 
 ### Acceptance criteria (EARS, expanded)
 
-- **AC-04-001.1** GIVEN a selected project, the workspace SHALL render exactly five tabs in the
-  order Summary, Work orders, Party, Documents, Commands.
+- **AC-04-001.1** GIVEN a selected project, the workspace SHALL render exactly seven tabs in the
+  order Summary, Work orders, Changes, Party, Observability, Documents, Commands.
 - **AC-04-001.2** WHEN no tab is explicitly selected, the workspace SHALL default to **Summary**.
 - **AC-04-002.1** The header SHALL render `title`, the stage label (from `phase`), `version` and the
   `progress` string when present; when `progress` is absent the line is omitted (no empty line).
@@ -68,6 +69,9 @@ selector is FRD-11's component slotted in).
 - **AC-04-006.3** WHEN the project has no readable documents, the Documents tab SHALL show a graceful empty state.
 - **AC-04-006.4** Every Documents-tab navigation link (doc tree AND in-document links) SHALL preserve the embedding context — carry `?project` and `tab=documents` — so selecting a document never drops to the Summary tab; the document body SHALL render at the **full width** of the reader pane (no fixed measure cap).
 - **AC-04-006.5** WHEN a document body contains a link, the reader SHALL resolve it: a relative path to a document the tree surfaces → opens in the **same reader** (`?project&tab=documents&doc=<id>`); an off-app URL (http/https/mailto) → new tab; any other relative path → **plain, non-clickable text** (no 404).
+- **AC-04-007.1** The Changes tab SHALL group change-queue items by status — **ready · draft · done** — rendering a section (with count) per non-empty group; a project with no queue items SHALL show a graceful empty state.
+- **AC-04-007.2** WHEN the reader cannot interpret one or more files (invalid/missing `type` or `status`, or a body with no H1 title), the tab SHALL render a fail-loud error banner naming the offending file(s) (DR-078) — never a misleadingly-empty list.
+- **AC-04-007.3** Clicking a card SHALL open a detail modal showing type, urgency (`expedite` only), status, date, affected FRD, dependencies, a warning when `rebuilds_verified`, the body as titled colour-coded sections, and a copyable `/pandacorp:implement change:<id>` command scoped to that item's real id.
 
 ## 2. Interfaces (`lib/**`)
 
@@ -111,6 +115,32 @@ export interface CommandRow { command: string; when: string; } // "/pandacorp:im
 export function workspaceCommands(phase: Phase): CommandRow[];  // pure; no fs
 ```
 
+### IF-04-changes — `lib/changes.ts` (NEW, owned here)
+Pure reader over a project's change queue. Read-only, fail-loud (DR-078) — never re-implemented by
+another surface (Mission Control's own factory-level backlog reader, `lib/backlog.ts`, is a
+different, unrelated data source: `factory/backlog/` vs. this project's `.pandacorp/inbox/changes/`).
+
+```ts
+export type ChangeQueueStatus = "ready" | "draft" | "done";
+export interface ChangeQueueItem {
+  id: string;               // filename stem — the same slug `implement change:<id>` expects
+  type: "bug" | "feature" | "change";
+  cls: "expedite" | "standard" | "intangible" | "fixed-date"; // defaults to "standard"
+  status: ChangeQueueStatus;
+  date: string; frd: string; rebuildsVerified: boolean; dependsOn: string;
+  title: string; body: string; // title = body's first H1; body = the rest
+}
+export interface ChangeQueueReadResult {
+  items: ChangeQueueItem[];
+  errors: { file: string; reason: string }[]; // fail-loud, DR-078 — never silently empty
+}
+export function readChangeQueue(projectPath: string): ChangeQueueReadResult;
+```
+
+> Scans `.pandacorp/inbox/changes/*.md` + archived `.../changes/done/*.md`; skips `README.md` and
+> `_*` templates. A missing/invalid `type` or `status`, or a body with no H1 title, surfaces in
+> `errors[]` — never silently dropped. Read-only; never writes.
+
 ## 3. Components (`CMP-04-*`) and app surface
 
 App surface (architecture §11): `app/projects/[slug]` is the workspace, reached from the FRD-03
@@ -128,7 +158,12 @@ portfolio rail. In the prototype this is `projectPane`; here it is decomposed in
 | `CMP-04-activity-log` | Server | High-level activity log list. | REQ-04-003 |
 | `CMP-04-tab-documents` | Server | Doc nav (`DocNode[]`) + rendered markdown body. | REQ-04-006 |
 | `CMP-04-tab-commands` | Server | Stage command rows + slot for `CMP-11-mode-selector`. | REQ-04-005 |
+| `CMP-04-tab-changes` | Server | Reads the queue via `IF-04-changes`, hands it to the client panel. | REQ-04-007 |
+| `CMP-04-changes-panel` | Client | Groups items by status, fail-loud error banner, empty state, detail modal. | REQ-04-007 |
+| `CMP-04-change-card` | Client | One queue item: type icon, id, urgency chip (expedite only), title, date · FRD. Imported by the client panel (no own `"use client"` needed, same pattern as `CMP-22-card`). | REQ-04-007 |
+| `CMP-04-change-detail` | Client | Modal body: chips, meta-lines, rebuilds-verified warning, `SectionedMarkdown`, targeted `implement change:<id>` command. | REQ-04-007 |
 | `IF-04-docs` | lib | The `docs.ts` readers above. | REQ-04-003, REQ-04-006 |
+| `IF-04-changes` | lib | The `changes.ts` reader above. | REQ-04-007 |
 
 **Mounted, not owned:** the Work orders tab renders `CMP-05-board`; the Party tab renders
 `CMP-06-*`; the Commands tab slots `CMP-11-mode-selector`. The workspace passes `projectPath`/slug
@@ -155,6 +190,7 @@ down; it does not implement those panels.
 | REQ-04-004 | AC-04-004.1 | CMP-04-decisions | IF-04-status, IF-04-docs |
 | REQ-04-005 | AC-04-005.1/.2 | CMP-04-tab-commands (FRD-11) | IF-04-next-step |
 | REQ-04-006 | AC-04-006.1/.2/.3 | CMP-04-tab-documents | IF-04-docs |
+| REQ-04-007 | AC-04-007.1/.2/.3 | CMP-04-tab-changes, CMP-04-changes-panel, CMP-04-change-card, CMP-04-change-detail | IF-04-changes |
 
 ## 6. Build Plan (Phase 2)
 

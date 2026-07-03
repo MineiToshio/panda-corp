@@ -5,8 +5,8 @@
  * RED → GREEN → refactor.
  *
  * Acceptance criteria covered:
- *   AC-04-001.1 — exactly SIX tabs in order: Resumen, Work orders, Party,
- *                 Observabilidad, Documentos, Comandos
+ *   AC-04-001.1 — exactly SEVEN tabs in order: Resumen, Work orders, Cambios,
+ *                 Party, Observabilidad, Documentos, Comandos
  *   AC-04-001.2 — defaults to Resumen/summary when ?tab= is absent; reflects
  *                 ?tab=documents when present
  *   AC-04-002.1 — header shows title/stage/version/progress; omits progress
@@ -150,33 +150,36 @@ describe("ObjectivesBar (CMP-04-objectives-bar)", () => {
 
 // ---------------------------------------------------------------------------
 // CMP-04-tabbar ("use client")
-// AC-04-001.1 — exactly SIX tabs in order (WO-04-004 re-anchor adds Observabilidad)
+// AC-04-001.1 — exactly SEVEN tabs in order (WO-04-004 re-anchor adds Observabilidad
+// and Cambios adds the change-queue tab, FRD-04)
 // ---------------------------------------------------------------------------
 
 describe("TabBar (CMP-04-tabbar)", () => {
-  // Six tabs in the exact order from the prototype projectPane() — WO-04-004
+  // Seven tabs in the exact order from the prototype projectPane() — WO-04-004 — plus Cambios
   const TAB_ORDER = [
     "summary",
     "work-orders",
+    "changes",
     "party",
     "observabilidad",
     "documents",
     "commands",
   ] as const;
 
-  it("AC-04-001.1 — renders exactly six tabs (WO-04-004: Observabilidad added)", () => {
+  it("AC-04-001.1 — renders exactly seven tabs (WO-04-004: Observabilidad added; Cambios added)", () => {
     render(<TabBar activeTab="summary" />);
     const tabs = screen.getAllByRole("tab");
-    expect(tabs).toHaveLength(6);
+    expect(tabs).toHaveLength(7);
   });
 
-  it("AC-04-001.1 — tabs are in exact order: Resumen, Work orders, Party, Observabilidad, Documentos, Comandos", () => {
+  it("AC-04-001.1 — tabs are in exact order: Resumen, Work orders, Cambios, Party, Observabilidad, Documentos, Comandos", () => {
     render(<TabBar activeTab="summary" />);
     const tabs = screen.getAllByRole("tab");
     const ids = tabs.map((t) => t.getAttribute("data-tab") ?? t.getAttribute("data-testid"));
     expect(ids).toEqual([
       "tab-summary",
       "tab-work-orders",
+      "tab-changes",
       "tab-party",
       "tab-observabilidad",
       "tab-documents",
@@ -195,9 +198,16 @@ describe("TabBar (CMP-04-tabbar)", () => {
     expect(summaryTab.getAttribute("aria-selected")).toBe("true");
   });
 
-  it("AC-04-001.2 — other five tabs are NOT aria-selected when summary is active", () => {
+  it("AC-04-001.2 — other six tabs are NOT aria-selected when summary is active", () => {
     render(<TabBar activeTab="summary" />);
-    const nonActive = ["work-orders", "party", "observabilidad", "documents", "commands"];
+    const nonActive = [
+      "work-orders",
+      "changes",
+      "party",
+      "observabilidad",
+      "documents",
+      "commands",
+    ];
     for (const id of nonActive) {
       const tab = screen.getByTestId(`tab-${id}`);
       expect(tab.getAttribute("aria-selected")).toBe("false");
@@ -219,6 +229,11 @@ describe("TabBar (CMP-04-tabbar)", () => {
   it("AC-04-001.2 — reflects activeTab='work-orders'", () => {
     render(<TabBar activeTab="work-orders" />);
     expect(screen.getByTestId("tab-work-orders").getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("AC-04-001.2 — reflects activeTab='changes'", () => {
+    render(<TabBar activeTab="changes" />);
+    expect(screen.getByTestId("tab-changes").getAttribute("aria-selected")).toBe("true");
   });
 
   it("AC-04-001.2 — reflects activeTab='party'", () => {
@@ -268,6 +283,7 @@ describe("AC-04-002.3 — header + objectives bar visible on all tabs", () => {
   const TABS = [
     "summary",
     "work-orders",
+    "changes",
     "party",
     "observabilidad",
     "documents",

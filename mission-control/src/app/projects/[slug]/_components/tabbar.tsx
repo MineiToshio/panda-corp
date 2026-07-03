@@ -4,8 +4,9 @@
  * WO-04-004 — TabBar (CMP-04-tabbar)
  *
  * Client Component ("use client"): tab selection for the project workspace.
- *   - Six tabs in exact order: Resumen · Work orders · Party · Observabilidad ·
- *     Documentos · Comandos (AC-04-001.1, WO-04-004 re-anchor).
+ *   - Seven tabs in exact order: Resumen · Work orders · Cambios · Party ·
+ *     Observabilidad · Documentos · Comandos (AC-04-001.1, WO-04-004 re-anchor;
+ *     Cambios added to surface the project's `.pandacorp/inbox/changes/` queue).
  *   - URL-driven selection: receives activeTab prop (derived from ?tab= search
  *     param by page.tsx). On change, pushes the new ?tab= to the URL.
  *   - Built on the shared SubTabs primitive (DR-062 / WO-13-006) — no ad-hoc
@@ -19,7 +20,7 @@
  *
  * Traceability:
  *   CMP-04-tabbar → REQ-04-001
- *   AC-04-001.1 — exactly six tabs in order (WO-04-004: Observabilidad added)
+ *   AC-04-001.1 — exactly seven tabs in order (WO-04-004: Observabilidad added; Cambios added)
  *   AC-04-001.2 — default Summary; reflects ?tab= param
  */
 
@@ -27,13 +28,15 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { SubTabs } from "@/components/core/Tabs/Tabs";
 
 // ---------------------------------------------------------------------------
-// Tab definitions (AC-04-001.1 — six tabs in exact order per prototype
-// projectPane() line 897 of docs/design/prototype/index.html)
+// Tab definitions (AC-04-001.1 — seven tabs in exact order; Resumen · Work orders ·
+// Party · Observabilidad · Documentos · Comandos per prototype projectPane() line 897
+// of docs/design/prototype/index.html, plus Cambios (FRD-04, the change-queue tab))
 // ---------------------------------------------------------------------------
 
 export type TabId =
   | "summary"
   | "work-orders"
+  | "changes"
   | "party"
   | "observabilidad"
   | "documents"
@@ -43,6 +46,7 @@ export type TabId =
 const WORKSPACE_TABS = [
   { id: "summary", label: "Resumen" },
   { id: "work-orders", label: "Work orders" },
+  { id: "changes", label: "Cambios" },
   { id: "party", label: "Party" },
   { id: "observabilidad", label: "Observabilidad" },
   { id: "documents", label: "Documentos" },

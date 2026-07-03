@@ -4,6 +4,29 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-03 — New "Cambios" tab surfaces a project's change queue (FRD-04, REQ-04-007)
+
+**What:** A seventh workspace tab, **Cambios**, inserted right after Work orders (before Party),
+lists every item in `.pandacorp/inbox/changes/` (+ archived `done/`) grouped by status — Listos ·
+Borradores · Hechos — mirroring the existing `BacklogPanel` list+modal pattern (`Panel`, `Chip`,
+`SectionHead`, `Modal`). Clicking a card opens a detail modal with type/urgency/status chips,
+date/FRD/depends-on meta-lines, a warning when `rebuilds_verified`, the body as titled
+colour-coded sections (`SectionedMarkdown`), and a **concrete, ready-to-copy**
+`/pandacorp:implement change:<id>` command — the existing targeted-build mechanism from FRD-11's
+`ModeSelector` (previously shown only as a `<slug>` placeholder), now pointed at a real item.
+New reader `lib/changes/changes.ts` (fail-loud, DR-078, scoped per-project like `work-orders.ts`).
+`SectionedMarkdown` was promoted from `app/proposals/_components/` to
+`components/modules/SectionedMarkdown/` — a third cross-route consumer appeared (`BacklogDetail`,
+`LessonDetail`, now `ChangeDetail`), triggering the project-structure promotion rule.
+
+**Why:** The change queue had zero visibility in Mission Control — an item filed via
+`/pandacorp:change` or `/pandacorp:bug` could be forgotten between build runs. The owner asked for
+a tab listing it with the same scannable card+modal UX already proven for the factory backlog, plus
+a one-click path to build a specific item. **Impact:** `docs/frds/frd-04-project-workspace/frd.md`
+(AC-04-001.1 → seven tabs, new Changes bullet), `.../blueprint.md` (REQ-04-007, IF-04-changes,
+CMP-04-tab-changes/-changes-panel/-change-card/-change-detail), `docs/design/components.md`
+(`SectionedMarkdown` row, new path).
+
 ## 2026-07-02 — Manual: the self-learning concept page teaches loop v2 with the vertical 6-step diagram
 
 **What:** `SelfLearningLoop` (CMP-08-diagrams) is redrawn as a vertical 6-step flow with an

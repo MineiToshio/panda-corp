@@ -15,8 +15,8 @@
 
 import { Chip, type ChipTone } from "@/components/core/Chip/Chip";
 import { CopyButton } from "@/components/core/CopyButton/CopyButton";
+import { SectionedMarkdown } from "@/components/modules/SectionedMarkdown/SectionedMarkdown";
 import type { Lesson } from "@/lib/memory/memory";
-import { SectionedMarkdown } from "./SectionedMarkdown/SectionedMarkdown";
 
 // ---------------------------------------------------------------------------
 // Status / promotion chips

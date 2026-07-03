@@ -22,6 +22,7 @@
 import path from "node:path";
 
 import { readBuildTimeline } from "@/lib/build-track/build-track";
+import { readChangeQueue } from "@/lib/changes/changes";
 import { resolveProjectPath } from "@/lib/config/config";
 import { readActivityLog, readDecisions } from "@/lib/docs/activity";
 import { listProjectDocs, readDoc } from "@/lib/docs/tree";
@@ -33,6 +34,7 @@ import { buildSnapshot } from "@/lib/snapshot/snapshot";
 import { type Phase, type ProjectStatus, readStatus } from "@/lib/status/status";
 import { aggregateProgress, listWorkOrders, readWorkOrderDoc } from "@/lib/work-orders/work-orders";
 import { ObjectivesBar } from "./_components/objectives-bar";
+import { TabChanges } from "./_components/tab-changes/tab-changes";
 import { TabCommands } from "./_components/tab-commands/tab-commands";
 import { TabDocuments } from "./_components/tab-documents/tab-documents";
 import { TabSummary } from "./_components/tab-summary/tab-summary";
@@ -57,6 +59,7 @@ export interface WorkspaceSelection {
 const VALID_TABS = new Set<string>([
   "summary",
   "work-orders",
+  "changes",
   "party",
   "observabilidad",
   "documents",
@@ -255,6 +258,9 @@ export function ProjectWorkspace({
   switch (activeTab) {
     case "work-orders":
       body = renderWorkOrdersTab(projectPath, slug, woParam, woTabParam);
+      break;
+    case "changes":
+      body = <TabChanges result={readChangeQueue(projectPath)} />;
       break;
     case "party":
       // Pass the authoritative build flag so the scene shows the powered-off state
