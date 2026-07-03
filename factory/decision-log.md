@@ -2,6 +2,28 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-03 — Contrato de escritura de `progress.md`: hitos, no ruido de gate-tools (BL-0014, plugin v9.53.0)
+
+**Qué:** se definió y documentó en `factory/standards/build-orchestration.md` §7 ("The build supervisor") el
+**contrato de escritura** de `.pandacorp/comms/progress.md` — el feed de hitos de cara al propietario que
+Mission Control renderiza en su pestaña Resumen (`readActivityLog`). El contrato: cada entrada debe ser un
+hito (un FRD/WO construido o cambiado, una decisión tomada, un bloqueo que necesita al propietario, una
+desviación del plan), **nunca** la salida cruda de una herramienta de gate. Se prohíbe explícitamente el
+patrón `**Biome:** limpio. Exit 0.` y equivalentes (`tsc`, `knip`, `madge`, `Vitest`, `Smoke`, `Visual`) — el
+resultado de cada gate es evidencia interna del reviewer/motor para decidir PASS/FAIL, no narrativa para el
+propietario. El contrato se propagó a `plugin/skills/implement/SKILL.md` ("Real-time documentation") y a
+`plugin/agents/reviewer.md` (paso "Verdict per FRD"), y se corrigió una afirmación obsoleta en el Manual de
+Mission Control (`content/manual/concepts/estado-y-archivos.md`) que decía que MC no lee `progress.md` —
+sí lo lee, vía `readActivityLog`. Probado con un canario de ruido (grep del patrón prohibido: coincide en un
+fixture al estilo antiguo — RED — y no coincide en un fixture escrito bajo el nuevo contrato — GREEN) más una
+comprobación positiva de hito (referencia a un id de FRD o a una decisión presente). **Fuera de alcance:** el
+renderizado/filtrado propio de `readActivityLog` en Mission Control — la corrección es enteramente del lado
+del escritor (factory/plugin), no del lector (MC). **Por qué:** el owner detectó (harvest de memoria
+2026-07-01) que el feed de actividad de cara al propietario leía como un log de CI (evidencia:
+`mission-control/.pandacorp/comms/progress.md:24-30` durante un build real) en vez de una narrativa de avance,
+enterrando la señal (decisiones, bloqueos) que el propietario realmente necesita. Plugin v9.53.0 (MINOR, DR-034).
+Ver `plugin/docs/decision-log.md`.
+
 ## 2026-07-02 — Nueva regla propagada: cálculo de tier de modelo al delegar subagentes (CONV-12, DR-111, plugin v9.52.0)
 
 **Qué:** a pedido del owner, se codificó una regla nueva (CONV-12) en `factory/standards/conventions.md` — junto

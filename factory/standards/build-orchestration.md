@@ -578,8 +578,30 @@ tokens. The supervisor:
   the build session's own Preview tool **cannot** point at an external worktree. No permanent dev server
   (Next's file watcher is flaky across `git checkout`).
 
-The operable detail lives in the `implement` skill ("Unattended operation — the build supervisor"); this
-section is the canonical statement that the supervisor is **mandatory**, not optional.
+**The `progress.md` writer contract (BL-0014) — milestones, never gate-tool exit lines.**
+`.pandacorp/comms/progress.md` is the OWNER-facing milestone feed (Spanish, gitignored) that Mission Control's
+Summary tab renders (`readActivityLog`, AC-04-003.2). It is NOT a CI log. Every entry the engine, the supervisor
+or an agent appends there MUST be a milestone the owner cares about — an FRD/WO built or changed, a decision
+taken, an item blocked needing the owner, a deviation from plan — never a verbatim tool-run recap. Concretely:
+- **Banned**: a line that is just a gate tool's name + pass/fail + exit code, e.g. `**Biome:** limpio. Exit 0.`,
+  `**tsc:** limpio. Exit 0.`, `**knip:** limpio. Exit 0.`, `**madge:** sin dependencias circulares. Exit 0.`,
+  `**Vitest:** 327 ficheros / 7060 tests pasados. Exit 0.`, `**Smoke (Playwright):** 14/14 pasados. Exit 0.`,
+  `**Visual (Playwright):** 14/14 baselines coincidentes. Exit 0.` — `verify.sh`'s per-tool exit status is
+  evidence for the reviewer/engine, not owner narrative; if it must be kept anywhere, it goes to a technical
+  run log under gitignored `.pandacorp/run/` (out of scope to add one here — BL-0014 only removes the leak),
+  never to `progress.md`.
+- **Required**: when a FRD gate passes, the entry names the FRD/WO and what it does ("FRD-05 Settings verified
+  — WOs 01–04 built the preferences panel + persistence"), not the tool checklist that proved it. A blocked WO
+  names the reason (`needs-owner` / `external` / `error`) and what's needed. A decision taken names the choice
+  and the why.
+- **Who writes it**: the engine's per-FRD/per-safe-point summary, the supervisor's heartbeats/milestone
+  announcements, and any agent noting a deviation or a notable problem (`backend-dev`, `frontend-dev`,
+  `implementer`, `reviewer`, `designer` — DR-047 capture points) all follow this same contract; a gate tool's
+  raw output is consumed internally to decide PASS/FAIL, never transcribed into this file.
+
+The operable detail lives in the `implement` skill ("Unattended operation — the build supervisor" and "Real-time
+documentation"); this section is the canonical statement that the supervisor is **mandatory**, not optional, and
+that `progress.md` carries milestones, not gate-tool noise.
 
 ## 8. The change queue — talking to a running build (DR-069)
 

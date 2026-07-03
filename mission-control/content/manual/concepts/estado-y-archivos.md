@@ -55,7 +55,7 @@ Fichero gitignoreado. Las decisiones pendientes se listan aquí. `/pandacorp:dec
 
 ### `.pandacorp/comms/progress.md`
 
-Log gitignoreado de avance en español. Los implementers escriben aquí su handoff al terminar cada WO. Mission Control no lo lee (es para el propietario).
+Log gitignoreado de avance en español — el **feed de hitos** que Mission Control renderiza en la pestaña Resumen (`readActivityLog`). No es un log de CI: cada entrada es un hito que le importa al propietario (un FRD/WO construido o cambiado, una decisión tomada, un bloqueo que necesita al propietario), nunca la salida cruda de una herramienta de gate (`**Biome:** limpio. Exit 0.` y similares están prohibidas — BL-0014). El resultado de cada gate es evidencia interna del reviewer/motor, no narrativa; si hiciera falta conservarlo, va a un log técnico gitignoreado bajo `.pandacorp/run/`, nunca aquí. Contrato completo en `factory/standards/build-orchestration.md` §7.
 
 ### `.pandacorp/comms/iteration.md`
 

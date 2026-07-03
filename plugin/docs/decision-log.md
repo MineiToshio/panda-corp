@@ -4,6 +4,29 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-07-03 — v9.53.0: `progress.md` writer contract — milestones, not gate-tool noise (BL-0014)
+
+**What:** defined and documented the writer contract for `.pandacorp/comms/progress.md` — the owner-facing
+milestone feed Mission Control's Summary tab renders (`readActivityLog`). It records what *advanced* (an
+FRD/WO built or changed, a decision taken, an item blocked needing the owner) and explicitly BANS raw
+gate-tool exit lines (`**Biome:** limpio. Exit 0.`, `**tsc:**`, `**knip:**`, `**madge:**`, `**Vitest:**`,
+`**Smoke (Playwright):**`, `**Visual (Playwright):**` — the `verify.sh` recap shape). Landed in three places:
+(1) `factory/standards/build-orchestration.md` §7 ("The build supervisor") — the canonical statement of the
+contract, with the banned-pattern list and the required milestone shape; (2) `plugin/skills/implement/SKILL.md`
+("Real-time documentation") — the writer-facing instruction for the engine/supervisor; (3)
+`plugin/agents/reviewer.md` (verdict-per-FRD step) — the reviewer no longer transcribes the tool checklist into
+`progress.md`, only a one-line milestone. Also corrected a stale claim in Mission Control's Manual
+(`content/manual/concepts/estado-y-archivos.md`) that said MC doesn't read `progress.md` — it does, via
+`readActivityLog`; the page now states the milestone contract. Proven with a noise-canary grep
+(`^- \*\*(Biome|tsc|knip|madge|Vitest|Smoke|Visual)\b.*Exit`) that matches the old-style fixture (RED) and
+does not match a fixture written under the new contract (GREEN), plus a milestone-positive check (an FRD id /
+decision reference is present). **Out of scope:** Mission Control's own `readActivityLog` rendering/filtering
+(a separate MC change if any residual noise ever slips through) — the fix is entirely on the writer side.
+**Why:** the owner-facing "what happened" surface was reading like a CI log (evidence:
+`mission-control/.pandacorp/comms/progress.md:24-30` during a real build) instead of a progress narrative,
+burying the signal (decisions, blocks) the owner actually needs. MINOR (changed skill/agent behavior, DR-034).
+See `factory/decision-log.md`.
+
 ## 2026-07-02 — v9.52.0: subagent model-tier selection rule (CONV-12, DR-111)
 
 **What:** a new propagated rule governing how the LEAD agent picks a subagent's model when it delegates WITHOUT specifying one — sibling to the language rule (CONV-1/DR-009) and the interaction-style rule (CONV-11/DR-110), same DR-051 propagation channel. Scoped to ad-hoc delegation only (the generic `Agent` tool, or a `Workflow`'s `agent()` outside the build engine): calculate the model tier from the SUBTASK's complexity (haiku/mechanical, sonnet/default floor, opus/high-complexity-judgment) instead of silently inheriting the parent conversation's tier. Explicitly does NOT reopen Pandacorp's own named agents (`plugin/agents/*.md` already pin `model:` in frontmatter) nor the build engine's own escalation (`pickWorkerModel`, DR-073/DR-108) — both already correct. **Fable is excluded from the automatic calculation entirely** — never auto-selected, only used on the owner's explicit request or after asking for confirmation first (owner correction during planning). Added to `factory/standards/conventions.md` ("Rule — subagent model selection", SHOULD/manual) and `factory/standards/rule-registry.md` (CONV-12 row, counts bumped to 117/86 manual). Concise pointers duplicated in `plugin/templates/shared/AGENTS.md.tpl` and `plugin/templates/shared/.pandacorp/guide.md.tpl` (new rule 11) — both regenerated non-destructively by `/pandacorp:upgrade`. Also added directly to panda-corp's own root `CLAUDE.md` (rule 11) for immediate effect in factory sessions. Registered as `DR-111`. **Why:** the owner reported deep-research-style fan-outs (and other ad-hoc delegations) burning the token budget by running every subagent at the parent session's own (sometimes Opus/Fable) tier, with no complexity-based calculation. MINOR + OVERLAY 8.57.0 → 8.58.0. See `factory/decision-log.md`.
