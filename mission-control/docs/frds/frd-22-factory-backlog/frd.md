@@ -6,7 +6,7 @@ status: ACTIVE
 implementation_status: PLANNED
 ui: true
 visual_source: docs/design/prototype/index.html
-last_updated: '2026-07-01'
+last_updated: '2026-07-03'
 ---
 # FRD-22 — Factory backlog surface (Propuestas · Backlog tab)
 
@@ -16,7 +16,7 @@ Surfaces the factory's **actionable work queue** — `factory/backlog/BL-*` (DR-
 
 ### REQ-22-001 — Read and group the backlog
 - **AC-22-001.1** — Mission Control SHALL read every `factory/backlog/BL-*.md` item (skipping `README.md` and `_item-template.md`) into a typed model (`id`, `type` bug|change, `area`, `title`, `status` open|doing|done, `severity`, `source`, `closes`, `links`, `opened`, `closed`).
-- **AC-22-001.2** — The Backlog panel SHALL group items by `status` in the order **Abiertos** (open) → **En curso** (doing) → **Hechos** (done), rendering a section per non-empty group with its count; an empty backlog SHALL show an explicit empty state.
+- **AC-22-001.2** — The Backlog panel SHALL group items by `status`; **Abiertos** (open) and **En curso** (doing) render by default, in that order, each a section with its count. **Hechos** (done) does NOT render by default — see REQ-22-006. An empty backlog SHALL show an explicit empty state.
 - **AC-22-001.3** — Each item SHALL render as a card visually consistent with the memory ProposalCard (DR-062): mono `id`, a `type · area` chip, a severity chip (text + tone, never colour alone), the title, and an evidence line (`source` + `links`).
 
 ### REQ-22-002 — In-page sub-tabs (Memoria | Backlog)
@@ -37,6 +37,11 @@ Surfaces the factory's **actionable work queue** — `factory/backlog/BL-*` (DR-
 - **AC-22-005.1** — Each backlog card SHALL be an accessible control (a `<button>`, keyboard-operable, with an `aria-label` naming the item) that opens a **detail modal** for that item. The detail opens in the shared `Modal` primitive (focus-trapped, Escape-closes, backdrop-click-closes) — never an inline expand (the app's modal-for-detail rule).
 - **AC-22-005.2** — The backlog reader SHALL expose each item's markdown **body** (everything after the frontmatter), and the detail SHALL render it as **titled, colour-coded sections** via the shared `SectionedMarkdown` primitive — each `## Heading` (Problem / Root cause / Fix plan / Tests / Done when / Out of scope) becomes a real section header (icon + coloured label) with its content rendered as markdown (lists, code, tables), NOT one wall of text or a raw string. This is the same `SectionedMarkdown` primitive the memory-lesson detail uses (it auto-detects `## Heading` vs `**Label:**` sections), so both detail modals share one look (DR-062).
 - **AC-22-005.3** — The detail SHALL show the item's metadata (id as the title, a `type` badge, and `type·area` / severity / status chips + source / links / dates) above the rendered body. Read-only: the detail has no write/close-item affordance (working an item is done by an agent, AC per Non-goals).
+
+### REQ-22-006 — Default-hidden Hechos (opt-in reveal)
+- **AC-22-006.1** — GIVEN the backlog has any `done` items, a "Ver hechos (N)" toggle button SHALL render below the always-visible groups, naming the hidden count; the toggle SHALL be omitted entirely when there are zero `done` items.
+- **AC-22-006.2** — Clicking the toggle SHALL reveal the **Hechos** section (same card list as the other groups); the button label SHALL flip to "Ocultar hechos (N)". Clicking it again SHALL hide the section and flip the label back.
+- **AC-22-006.3** — This mirrors the same default-hide pattern used by the project-level Cambios tab (Mission Control FRD-04, REQ-04-009) — so the closed-item history of neither queue clutters its actionable view as it accumulates over months.
 
 ## Non-goals
 - Mission Control does NOT write to `factory/backlog/`, create/close/edit items, or run any skill (read-only, like FRD-17). Working an item is done by an agent, outside this UI.

@@ -27,7 +27,7 @@ function result(over: Partial<BacklogReadResult>): BacklogReadResult {
 }
 
 describe("BacklogPanel", () => {
-  it("groups items by status with a section per non-empty group", () => {
+  it("groups open/doing items by status with a section per non-empty group", () => {
     render(
       <BacklogPanel
         result={result({
@@ -40,10 +40,54 @@ describe("BacklogPanel", () => {
     );
     expect(screen.getByText("Abiertos")).toBeInTheDocument();
     expect(screen.getByText("En curso")).toBeInTheDocument();
-    // No "done" items → no "Hechos" group rendered.
-    expect(screen.queryByText("Hechos")).not.toBeInTheDocument();
     expect(screen.getByText("Open one")).toBeInTheDocument();
     expect(screen.getByText("Doing one")).toBeInTheDocument();
+  });
+
+  it("hides Hechos by default even when it has items", () => {
+    render(
+      <BacklogPanel
+        result={result({
+          items: [
+            makeItem({ id: "BL-0001", title: "Open one", status: "open" }),
+            makeItem({ id: "BL-0003", title: "Done one", status: "done" }),
+          ],
+        })}
+      />,
+    );
+    expect(screen.queryByText("Hechos")).not.toBeInTheDocument();
+    expect(screen.queryByText("Done one")).not.toBeInTheDocument();
+    expect(screen.getByTestId("backlog-toggle-done")).toHaveTextContent("Ver hechos (1)");
+  });
+
+  it("reveals Hechos after clicking its toggle, and hides it again on a second click", async () => {
+    const user = userEvent.setup();
+    render(
+      <BacklogPanel
+        result={result({
+          items: [makeItem({ id: "BL-0003", title: "Done one", status: "done" })],
+        })}
+      />,
+    );
+
+    await user.click(screen.getByTestId("backlog-toggle-done"));
+    expect(screen.getByText("Hechos")).toBeInTheDocument();
+    expect(screen.getByText("Done one")).toBeInTheDocument();
+    expect(screen.getByTestId("backlog-toggle-done")).toHaveTextContent("Ocultar hechos (1)");
+
+    await user.click(screen.getByTestId("backlog-toggle-done"));
+    expect(screen.queryByText("Done one")).not.toBeInTheDocument();
+  });
+
+  it("omits the toggle button entirely when there are no done items", () => {
+    render(
+      <BacklogPanel
+        result={result({
+          items: [makeItem({ id: "BL-0001", title: "Open one", status: "open" })],
+        })}
+      />,
+    );
+    expect(screen.queryByTestId("backlog-toggle-done")).not.toBeInTheDocument();
   });
 
   it("renders a fail-loud error banner when the reader reports errors (DR-078)", () => {

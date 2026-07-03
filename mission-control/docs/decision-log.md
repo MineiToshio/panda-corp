@@ -4,6 +4,19 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-03 — Factory Backlog tab: default-hide Hechos behind a toggle (FRD-22, REQ-22-006)
+
+**What:** The Propuestas → Backlog tab now shows only **Abiertos** and **En curso** by default;
+**Hechos** is hidden behind a "Ver hechos (N)" toggle (omitted entirely when there are zero done
+items), mirroring the exact same pattern just shipped for the project-level Cambios tab (FRD-04,
+REQ-04-009): `BacklogPanel.tsx` splits `STATUS_GROUPS` into `DEFAULT_GROUPS` (open/doing, always
+rendered) + a separate `DONE_GROUP` gated by local `showDone` state.
+
+**Why:** The owner asked to apply the Cambios tab's "don't let Hechos grow unbounded" fix to the
+factory's own backlog too, since it has the identical shape (an actionable queue whose closed
+items accumulate over time). Same fix, second queue — no new pattern invented.
+**Impact:** `docs/frds/frd-22-factory-backlog/frd.md` (REQ-22-006, AC-22-001.2 updated).
+
 ## 2026-07-02 — `serve.sh` fails loud when `PANDACORP_FACTORY_ROOT` doesn't resolve to real idea data
 
 **What:** The always-on local service (`mission-control/.pandacorp/run/serve.sh`, machine-local,
