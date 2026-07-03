@@ -3,12 +3,12 @@ id: BL-0011
 type: bug
 area: build-engine
 title: "A needs-owner-BLOCKED route must not red-lock the whole-project gate (baseline/close-out/sibling FRDs)"
-status: open
+status: done
 severity: p2
 opened: 2026-07-01
-closed:
+closed: 2026-07-03
 source: "LESSON-0021"
-closes:
+closes: "Whole-project gate now quarantines a BLOCKED: needs-owner route (fail-closed): the engine derives the needs-owner-blocked route set from WO frontmatter and exports PANDACORP_GATE_SKIP_ROUTES into the whole-project verify.sh steps (baseline/close-out/notify-end); a new VERBATIM e2e/_skip.ts + the smoke/visual/responsive/shell specs hold those routes aside. Only proven needs-owner routes skip; any other failure still reds; skip logged loudly. Proven: Playwright fixture RED→GREEN, fail-closed integration, unit skip-list test, DR-079 canary 8/8. Standard build-orchestration.md §6 updated (ref DR-085); plugin v9.62.0 + OVERLAY 8.62.0."
 links: [LESSON-0021, DR-085, DR-075, DR-055]
 ---
 

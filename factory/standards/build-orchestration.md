@@ -521,6 +521,29 @@ A blocked FRD never halts the whole build unless it's a dependency of everything
 breaker trips. Notifications are macOS-desktop (`osascript`) from the engine plus a phone
 `PushNotification` from the supervising agent when Remote Control is on (no third-party push app).
 
+**A blocked node is quarantined, not coupled — the whole-project gate holds it aside (BL-0011, DR-085).**
+The whole-project e2e gates (smoke/visual/responsive/shell, DR-055/056/074/075) assert over **every**
+declared route, and the **whole-project** `verify.sh` runs — the baseline self-heal on resume, the
+close-out, the end-of-run notify — invoke that full suite. That coupling had a sharp edge: when **one**
+route's owning work order is legitimately `BLOCKED: needs-owner` (a route the owner must unblock — a missing
+secret, an external account; e.g. personal-page-v2's `/contact` fails-loud without `NEXT_PUBLIC_WEB3FORMS_KEY`),
+that single node turned the **entire** gate RED, which then blocked unrelated FRDs from closing and blocked
+the baseline on resume — a one-form env var stalled an otherwise-finishable build (LESSON-0021). The per-FRD
+`--since` gate never saw it (it doesn't run `shell`/`smoke` on a sibling route), so the coupling bit **only**
+at the FULL gate. The rule: **a `BLOCKED: needs-owner` node is a tracked owner TODO, not a code defect — the
+whole-project gate must hold it ASIDE, never fail the whole set on it.** The engine implements this by
+**quarantine, fail-closed**: before any whole-project `verify.sh`, it derives — from the work-order
+frontmatter — the routes whose WO is **provably** `implementation_status: BLOCKED` **and** `blocked_reason:
+needs-owner`, and exports them as `PANDACORP_GATE_SKIP_ROUTES` (comma-separated). The e2e specs read that
+env var (`e2e/_skip.ts`) and omit exactly those routes' deterministic assertions; the quarantine is **logged
+loudly** at both ends. It is **fail-closed by construction**: the env var is **unset** on every normal run
+and on the per-FRD `--since` gate (zero quarantine — the default is the full surface set), **only** a route
+proven `needs-owner`-blocked may be listed, and a route that fails for **any other** reason (a real
+regression, `error`, `external`) still reds the gate. So the build keeps finishing every independent feature
+and reaches a testable green baseline while a single owner-gated node waits — instead of stalling the whole
+build on one missing secret. (Out of scope: routes blocked for reasons **other** than needs-owner still red;
+this quarantines only an owner-gated, accepted incompleteness — never a general relaxation of the gate.)
+
 **Bounded auto-repair — resolve the known fix, don't stop to ask (DR-065).** Repair-before-block is a
 general diagnose-and-fix pass. On top of it the engine has a **specific autonomy rule** for one
 **high-confidence, recoverable, BOUNDED class**: *"a surface failed (looks flat / fails fidelity)

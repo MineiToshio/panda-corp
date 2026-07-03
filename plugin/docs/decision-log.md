@@ -4,6 +4,44 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-07-03 — v9.62.0: whole-project gate quarantines a needs-owner-BLOCKED route (BL-0011, DR-085)
+
+**What:** closed backlog item **BL-0011** (source LESSON-0021). The whole-project e2e gates
+(smoke/visual/responsive/shell — DR-055/056/074/075) assert over **every** declared route, and the
+whole-project `verify.sh` invocations (baseline self-heal on resume, close-out, notify-end) run that full
+suite. When ONE route's owning work order was legitimately `BLOCKED: needs-owner` (a route only the owner can
+unblock — a missing secret/env var, an external account; the real case: personal-page-v2's `/contact` failing
+loud without `NEXT_PUBLIC_WEB3FORMS_KEY`), that single node turned the **whole** gate RED, which then blocked
+unrelated FRDs from closing and blocked the baseline on resume — a one-form env var stalled an otherwise
+finishable build. New rule: **a blocked node is quarantined, not coupled** — a `BLOCKED: needs-owner` node is a
+tracked owner TODO, and the whole-project gate holds it ASIDE rather than failing the whole set on it.
+**Implementation — quarantine, fail-closed:** the engine (`plugin/templates/shared/.claude/workflows/pandacorp-build.js`)
+gained a `GATE_SKIP` prompt fragment threaded into the **whole-project** verify steps only (baseline,
+close-out, notify-end): it derives, from the WO frontmatter, the routes whose WO is **provably**
+`implementation_status: BLOCKED` **and** `blocked_reason: needs-owner`, exports them as
+`PANDACORP_GATE_SKIP_ROUTES`, and logs the quarantine loudly. A new VERBATIM/byte-diffed helper
+`plugin/templates/stack-a-nextjs/e2e/_skip.ts` reads that env var and exposes `isSkipped`/`notSkipped`; the
+four gate specs (`smoke/visual/responsive/shell.spec.ts`) consume it to omit exactly those routes. **Fail-closed
+by construction:** the env var is UNSET on every normal run and on the per-FRD `--since` gate (zero quarantine
+— full surface set is the default), ONLY a proven `needs-owner`-blocked route may be listed, and a route that
+fails for ANY OTHER reason (a real regression, `error`, `external`) still reds the gate. **Proof:** a Playwright
+fixture went RED without the env var (`/contact` red-locks the gate) → GREEN with `PANDACORP_GATE_SKIP_ROUTES=/contact`
+(9 passed, blocked route held aside, every independent route still asserted); a fail-closed integration run kept
+a NON-quarantined broken route RED; a unit test proved the skip-list matching (exact + locale-tolerant + logged,
+empty-env = zero skip); MC's DR-079 canary passed 8/8 (spec discovery intact). All five e2e files typecheck strict
++ pass biome against MC's toolchain. **Why:** the owner read "whole build stopped for one form's env var" as the
+engine over-coupling — it eroded trust in the build's autonomy; the fix lets a build keep finishing every
+independent feature while a single owner-gated node waits. **MINOR** (new compatible gate capability, no behavior
+change to any existing skill/agent), bumped on top of the same-day v9.61.0 (below) since both branched from the
+same base — the merge hand-combined both changes into the engine file (BL-0022's `agent`-wrapper +
+project-identity threading, and this item's `GATE_SKIP` quarantine, are independent additions; the baseline
+step's prompt now carries both the STEP 0 project-root guard AND the quarantine derivation). **OVERLAY 8.62.0**
+(the engine + the e2e specs are overlay/propagated files — projects pick it up on the next `/pandacorp:upgrade`;
+stacked on top of BL-0022's same-day 8.61.0 bump). Canonical: `factory/standards/build-orchestration.md`
+§6. **Manual (DR-046):** the standards Reference auto-derives; a gate-behavior nuance (a quarantine channel inside
+the existing whole-project gate), not a new flow/concept → no narrative edit (precedent DR-091/DR-088). See
+`factory/decision-log.md`.
+
 ## 2026-07-03 — v9.61.0: build engine derives project identity EXPLICITLY, not from cwd (BL-0022)
 
 **What:** the build engine (`plugin/templates/shared/.claude/workflows/pandacorp-build.js`) no longer identifies the project IMPLICITLY from the working directory. It now reads two new optional args — `args.projectDir` (absolute project root) and `args.project` (the event key = folder basename) — resolved once from the constants `PROJECT`, `PROJECT_DIR`, `TRACK_PATH`, `WORK_FROM`. `EMIT`/`GATE_EVENT`/`ACHIEVEMENT`/`WO_COMMIT_EVENT` now stamp the LITERAL `${PROJECT}` (no `$(basename "$PWD")` shell substitution when provided); `TRACK` appends to the absolute `${PROJECT_DIR}/.pandacorp/track.jsonl`; every agent prompt is prefixed — in ONE place, by rebinding the injected `agent` global to a wrapper — with a `Work from the project root ${PROJECT_DIR} — cd there FIRST` preamble; and the Baseline step gained a **fail-loud guard** that asserts `${PROJECT_DIR}/.pandacorp/status.yaml` exists and stops immediately (never planning against the wrong tree) if it doesn't. **The `$(basename "$PWD")` + relative-`track.jsonl` fallback is preserved** for back-compat: with the args absent, `WORK_FROM` is `''` and every template is byte-for-byte the legacy form. `plugin/skills/implement/SKILL.md` now resolves both at launch (the absolute path where the preflight found `.pandacorp/status.yaml`, its basename) and threads them into every `Workflow({ name: 'pandacorp-build', args })` call — including the supervisor's relaunch and both targeted examples. **Why:** live incident 2026-07-02 — a mission-control build launched from a conversation opened at the FACTORY ROOT (mission-control is a subfolder) had its engine subagents inherit the factory cwd: 18+ events got tagged `"panda-corp"` (invisible to Mission Control's per-project Party filters) and a stray `panda-corp/.pandacorp/track.jsonl` collected the run's timing while the project's own timeline stayed frozen; the run had to be stopped and relaunched from the project folder. Project identity was an ambient property (cwd) instead of an explicit parameter. **Proof:** simulation harness (`scratchpad/engine-sim/harness.mjs`) evaluates the engine in a `vm` sandbox under both configs — CASE A (args set) asserts every prompt carries the WORK_FROM preamble, the baseline guard checks `${projectDir}/.pandacorp/status.yaml`, and EMIT/TRACK/GATE/ACHIEVEMENT/WO_COMMIT carry the literal project + absolute track path; CASE B (args absent) asserts the legacy `$(basename "$PWD")` + relative path + empty preamble (byte-for-byte legacy). All checks pass; `node --check`-equivalent `vm.Script` compile is clean. The real-build relaunch-from-factory-root validation is deferred (no live build in this session) — the scripted harness is the item's own primary proof mechanism. **Impact:** `plugin/templates/shared/.claude/workflows/pandacorp-build.js` (engine), `plugin/skills/implement/SKILL.md` (launch/relaunch/examples), `plugin/templates/OVERLAY_VERSION` (→**8.61.0** — overlay engine file changed, stacked on top of the same-day BL-0009 bump to 8.60.0 since both branched from the same base; projects re-sync via `/upgrade`), `plugin/.claude-plugin/plugin.json` (**v9.61.0**, MINOR — additive, back-compat build-engine capability, stacked on top of the same-day v9.60.0 below since both branched from the same base). Canonical doctrine: `factory/standards/build-orchestration.md` (project-identity note). Backlog item `factory/backlog/BL-0022-engine-project-identity-not-cwd.md` → `status: done`. DR-046: this hardens an existing flow's plumbing (no new gate/concept/skill surface); the skills Reference auto-derives — no Manual narrative edit. Activation: commit + `claude plugin update pandacorp@panda-corp` + restart.

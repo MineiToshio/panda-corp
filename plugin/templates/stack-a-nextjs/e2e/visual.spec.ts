@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { notSkipped } from "./_skip";
 import { TARGETS_MOBILE } from "./_target";
 import { VISUAL_BLESSED } from "./routes";
 
@@ -8,12 +9,15 @@ import { VISUAL_BLESSED } from "./routes";
  * template (DR-059) — propagated by /pandacorp:architecture, conformance-checked by /pandacorp:upgrade.
  * Fail-closed; the sentinel keeps the suite non-empty while no surface is blessed yet.
  * Layer B (the VLM mock-judge) is the reviewer's runtime/visual lens, not a script.
+ *
+ * Quarantine (BL-0011): a route whose work order is `BLOCKED: needs-owner` is held ASIDE via
+ * `notSkipped` (engine-driven `PANDACORP_GATE_SKIP_ROUTES`, empty on a normal run — fail-closed).
  */
 test("visual harness present", () => {
   expect(VISUAL_BLESSED.length).toBeGreaterThanOrEqual(0);
 });
 
-for (const s of VISUAL_BLESSED) {
+for (const s of notSkipped(VISUAL_BLESSED)) {
   test(`visual · ${s.id} (${s.path}) matches baseline`, async ({ page }, testInfo) => {
     // Honor target_platforms (DR-074): a desktop-only project must NOT diff a mobile-width baseline
     // it doesn't target — that snapshot is just the desktop layout squished to 390px, pure noise that

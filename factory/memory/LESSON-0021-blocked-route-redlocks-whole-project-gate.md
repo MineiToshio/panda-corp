@@ -9,9 +9,9 @@ source: project personal-page-v2 (runs wf_9e98acaf-92e / wf_978129ab-eca) — FR
 provenance: agent-inferred
 created: 2026-07-01
 status: active
-promotion: proposed
+promotion: approved
 confidence: high
-times_applied: 0
+times_applied: 1
 links: [BL-0011, DR-085, DR-075, DR-055, LESSON-0002]
 ---
 
@@ -39,8 +39,11 @@ unrelated units to it. Generalizes beyond routes: any shared gate over N units n
 deliberately-blocked unit rather than fail the whole set.
 
 > The concrete engine fix (make the shell/baseline gate skip or soft-fail a `needs-owner`-blocked route's
-> assertions until unblocked) is an **actionable defect**, tracked as **BL-0011** in `factory/backlog/`
-> (DR-103) — not part of this durable lesson.
+> assertions until unblocked) was an **actionable defect**, tracked as **BL-0011** in `factory/backlog/`
+> (DR-103) — **SHIPPED & closed 2026-07-03** (plugin v9.53.0 / OVERLAY 8.59.0): the engine derives the
+> needs-owner-blocked route set from WO frontmatter and exports `PANDACORP_GATE_SKIP_ROUTES` into the
+> whole-project `verify.sh` steps; the e2e specs (`e2e/_skip.ts` + smoke/visual/responsive/shell) hold those
+> routes aside, fail-closed. The durable principle below is the lesson; the engine wiring is BL-0011.
 
 **Why it matters:** the owner reads "whole build stopped" as the engine over-coupling, and they're right —
 it erodes trust in the build's autonomy. The fix lets a build keep finishing every independent feature and
