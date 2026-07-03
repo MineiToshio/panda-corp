@@ -32,6 +32,11 @@ last_updated: YYYY-MM-DD
 One paragraph: the exact slice this work order covers — **one cohesive view / page / capability**,
 not a single atomic component — and the outcome it produces.
 
+> **Required, not a placeholder (BL-0015).** This is the ONE section Mission Control's board reads
+> for the WO card (`deriveWorkOrderSummary`, first non-empty paragraph under this heading) — a
+> generic or unfilled `## Summary` shows up verbatim to the owner, and a missing one falls back to
+> the raw file path. Write the real one/two-line "what this builds," not filler.
+
 > **Right-sized (DR-100): coarse, with a ceiling.** Keep it COARSE (one view/capability; when in
 > doubt, merge — DR-050) BUT split it the moment it crosses the upper bound: a WO is **too big** if it
 > can't be reviewed in one sitting, or it would push the implementer past the model's reliable context

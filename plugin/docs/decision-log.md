@@ -4,6 +4,34 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-07-03 — v9.53.0: work orders now carry a required `## Summary` (BL-0015)
+
+**What:** the `work-orders` skill (`plugin/skills/work-orders/SKILL.md`, step 2) now explicitly
+requires a **filled `## Summary`** in every generated work order — one/two lines of "what this WO
+delivers," not the template placeholder — pointing out that Mission Control's board
+(`deriveWorkOrderSummary()`) reads exactly this section for the WO card, and falls back to the raw
+file path when it's missing. `iterate`'s impact-triage steps (both the "small adjustment/fix" reopen
+path and the "new feature/module" path) now call out keeping `## Summary` current when a WO is
+reopened, created, or widened. `plugin/templates/docs/work-order-template.md`'s `## Summary` section
+gained a callout explaining it is MC's read target, not filler. **Language decision: EN-doc route
+(minimal), not the ES-comms replica.** The item's recommended alternative — a Spanish summary replica
+under `.pandacorp/comms/` read by a new MC reader — would require a Mission Control source change
+(a new comms reader wired into the WO summary field), which is out of scope for a plugin-only backlog
+item; the committed WO doc is already English per the language rule (DR-009), and MC's existing
+`deriveWorkOrderSummary()` already renders it with zero MC changes. **Follow-on filed, not built
+here:** if the owner wants the Spanish-replica UX for WO summaries, it needs its own
+`/pandacorp:change` inside `mission-control/` (new comms reader + wiring into the `summary` field) —
+not done in this change. **Backfill: fix-forward, not applied.** ~118 existing work orders across
+`mission-control/docs/frds/**/work-orders/` (the project that surfaced this bug) lack `## Summary`
+today; backfilling them is a separate, larger undertaking (arguably MC's own project-level change) and
+is explicitly optional per the backlog item — newly generated/edited WOs get it going forward.
+**Proof:** MC's `deriveWorkOrderSummary()` regex was replicated verbatim against the updated WO
+template — parses a real, non-placeholder paragraph (GREEN) and still returns `undefined` for a body
+with no `## Summary` heading (RED control, the pre-fix state); MC's own existing reader unit tests
+(`mission-control/src/lib/work-orders/_tests/work-orders.test.ts`, WITH/WITHOUT `## Summary` cases)
+were read and confirmed to already cover this — untouched, since no MC source changed. MINOR. See
+`factory/backlog/BL-0015-work-orders-lack-summary-section-mc-shows-path.md`.
+
 ## 2026-07-02 — v9.52.0: subagent model-tier selection rule (CONV-12, DR-111)
 
 **What:** a new propagated rule governing how the LEAD agent picks a subagent's model when it delegates WITHOUT specifying one — sibling to the language rule (CONV-1/DR-009) and the interaction-style rule (CONV-11/DR-110), same DR-051 propagation channel. Scoped to ad-hoc delegation only (the generic `Agent` tool, or a `Workflow`'s `agent()` outside the build engine): calculate the model tier from the SUBTASK's complexity (haiku/mechanical, sonnet/default floor, opus/high-complexity-judgment) instead of silently inheriting the parent conversation's tier. Explicitly does NOT reopen Pandacorp's own named agents (`plugin/agents/*.md` already pin `model:` in frontmatter) nor the build engine's own escalation (`pickWorkerModel`, DR-073/DR-108) — both already correct. **Fable is excluded from the automatic calculation entirely** — never auto-selected, only used on the owner's explicit request or after asking for confirmation first (owner correction during planning). Added to `factory/standards/conventions.md` ("Rule — subagent model selection", SHOULD/manual) and `factory/standards/rule-registry.md` (CONV-12 row, counts bumped to 117/86 manual). Concise pointers duplicated in `plugin/templates/shared/AGENTS.md.tpl` and `plugin/templates/shared/.pandacorp/guide.md.tpl` (new rule 11) — both regenerated non-destructively by `/pandacorp:upgrade`. Also added directly to panda-corp's own root `CLAUDE.md` (rule 11) for immediate effect in factory sessions. Registered as `DR-111`. **Why:** the owner reported deep-research-style fan-outs (and other ad-hoc delegations) burning the token budget by running every subagent at the parent session's own (sometimes Opus/Fable) tier, with no complexity-based calculation. MINOR + OVERLAY 8.57.0 → 8.58.0. See `factory/decision-log.md`.

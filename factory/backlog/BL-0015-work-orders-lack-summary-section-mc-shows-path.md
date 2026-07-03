@@ -3,12 +3,12 @@ id: BL-0015
 type: change
 area: plugin-skill
 title: "Work orders lack a `## Summary` section, so Mission Control shows the file path as the WO summary"
-status: open
+status: done
 severity: p2
 opened: 2026-07-01
-closed:
+closed: 2026-07-03
 source: "owner/conversation 2026-07-01 (memory harvest); evidence mission-control/src/lib/work-orders/work-orders.ts:219"
-closes:
+closes: "work-orders skill + WO template now require a filled ## Summary in every generated WO (plugin/skills/work-orders/SKILL.md, plugin/templates/docs/work-order-template.md); iterate's reopen/new-WO/new-feature paths keep it current (plugin/skills/iterate/SKILL.md); EN-doc language route chosen (recorded in plugin/docs/decision-log.md); MC's existing deriveWorkOrderSummary() reader + its unit tests already render/cover this with zero MC changes; fix-forward (no backfill of the ~118 existing WOs); plugin v9.53.0"
 links: []
 ---
 
