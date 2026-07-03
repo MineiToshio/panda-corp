@@ -11,7 +11,8 @@ created: 2026-06-30
 status: candidate
 promotion: none
 confidence: medium
-times_applied: 0
+times_applied: 1
+applied_in: [mission-control]
 links: []
 ---
 
