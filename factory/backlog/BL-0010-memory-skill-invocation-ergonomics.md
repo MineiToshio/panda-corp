@@ -3,12 +3,12 @@ id: BL-0010
 type: change
 area: plugin-skill
 title: "/memory ergonomics — harvest THIS project when run inside one; bare /memory shouldn't default to harvest"
-status: open
+status: done
 severity: p2
 opened: 2026-06-30
-closed:
+closed: 2026-07-03
 source: "owner/conversation 2026-06-30"
-closes:
+closes: "plugin/skills/memory/SKILL.md — harvest step 1 now defaults the target to the current project when invoked with no <project> arg from inside a Pandacorp project (is-pandacorp-project.sh); the $ARGUMENTS line now defaults a mode-less /pandacorp:memory to status (read-only) instead of harvest. Factory-run, explicit harvest <project>, and /loop sweep paths unchanged. Plugin v9.53.0."
 links: [DR-047]
 ---
 

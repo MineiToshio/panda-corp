@@ -4,6 +4,21 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## 2026-07-03 — v9.53.0: `/pandacorp:memory` invocation ergonomics (BL-0010)
+
+**What:** two small UX fixes to `plugin/skills/memory/SKILL.md`, owner-raised (BL-0010). (1) **In-project
+harvest default:** `harvest` step 1 now resolves the target as explicit `<project>` arg wins → else, if the
+cwd is itself a Pandacorp project (`is-pandacorp-project.sh` against `.`), default to **the current
+project** → else (running from the factory root), offer recent/just-shipped projects from
+`factory/portfolio.md` as before. The factory-run sweep, an explicit `harvest <project>` from anywhere, and
+the `/loop` portfolio sweep (always explicit targets) are unchanged — only the no-argument, in-project case
+gained a default. (2) **Bare invocation no longer auto-harvests:** the `$ARGUMENTS` line now reads `status`
+(default, read-only) · `harvest [<project>]` · `review` — a mode-less `/pandacorp:memory` lands on `status`
+(step 11, already read-only) instead of silently firing `harvest` (a write). **Why:** harvest is the action
+that WRITES; the owner found it one accidental keystroke away from a bare invocation, and the natural
+in-project gesture ("harvest THIS project") required naming the project explicitly. MINOR (skill-invocation
+behavior change). BL-0010 closed. See `factory/backlog/BL-0010-memory-skill-invocation-ergonomics.md`.
+
 ## 2026-07-02 — v9.52.0: subagent model-tier selection rule (CONV-12, DR-111)
 
 **What:** a new propagated rule governing how the LEAD agent picks a subagent's model when it delegates WITHOUT specifying one — sibling to the language rule (CONV-1/DR-009) and the interaction-style rule (CONV-11/DR-110), same DR-051 propagation channel. Scoped to ad-hoc delegation only (the generic `Agent` tool, or a `Workflow`'s `agent()` outside the build engine): calculate the model tier from the SUBTASK's complexity (haiku/mechanical, sonnet/default floor, opus/high-complexity-judgment) instead of silently inheriting the parent conversation's tier. Explicitly does NOT reopen Pandacorp's own named agents (`plugin/agents/*.md` already pin `model:` in frontmatter) nor the build engine's own escalation (`pickWorkerModel`, DR-073/DR-108) — both already correct. **Fable is excluded from the automatic calculation entirely** — never auto-selected, only used on the owner's explicit request or after asking for confirmation first (owner correction during planning). Added to `factory/standards/conventions.md` ("Rule — subagent model selection", SHOULD/manual) and `factory/standards/rule-registry.md` (CONV-12 row, counts bumped to 117/86 manual). Concise pointers duplicated in `plugin/templates/shared/AGENTS.md.tpl` and `plugin/templates/shared/.pandacorp/guide.md.tpl` (new rule 11) — both regenerated non-destructively by `/pandacorp:upgrade`. Also added directly to panda-corp's own root `CLAUDE.md` (rule 11) for immediate effect in factory sessions. Registered as `DR-111`. **Why:** the owner reported deep-research-style fan-outs (and other ad-hoc delegations) burning the token budget by running every subagent at the parent session's own (sometimes Opus/Fable) tier, with no complexity-based calculation. MINOR + OVERLAY 8.57.0 → 8.58.0. See `factory/decision-log.md`.
