@@ -4,6 +4,34 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-02 — `serve.sh` fails loud when `PANDACORP_FACTORY_ROOT` doesn't resolve to real idea data
+
+**What:** The always-on local service (`mission-control/.pandacorp/run/serve.sh`, machine-local,
+gitignored) now counts real idea cards under `$PANDACORP_FACTORY_ROOT/factory/ideas/` (excluding
+`_idea-template.md`/`decision-log.md`) before starting `next start`. Zero cards → the script prints
+a `FATAL` message and exits 1 instead of booting; launchd's `KeepAlive` then crash-loops the service,
+which is loud (the board goes down), rather than quietly serving an empty board.
+
+**Why:** The owner reported a favorite they set once had disappeared. Investigation traced it to the
+live service's deploy topology: MC's always-on instance runs from an isolated git worktree
+(`/Users/Shared/local-deployments/panda-corp`) whose own `factory/ideas/` is empty (the real data is
+gitignored, so `git worktree` never copies it); `serve.sh` overrides `PANDACORP_FACTORY_ROOT` to
+point back at the main checkout so reads/writes land on the real data. That override lives in an
+untracked script with no git history — if it's ever regenerated without the export (as plausibly
+happened during the 2026-06-21/22 worktree-architecture rebuild, see `.pandacorp/comms/deploy-local.md`),
+`resolveFactoryRoot()` silently falls back to `cwd/..`, which — for this deploy topology — is the
+worktree's own empty ideas dir. The app has no bug: `readIdeas()`'s "missing/empty directory → `[]`"
+behavior (`src/lib/ideas/ideas.ts:161-163`) is an intentional graceful-empty design for a genuinely
+fresh install (blueprint §3) — the defect is entirely in the deploy script having no way to tell
+"legitimately empty" from "pointed at the wrong copy." Fixing it at `readIdeas()` would risk breaking
+that legitimate empty-state UX; the guard belongs at the one place that already knows which directory
+*should* be authoritative. Verified live: reproduced the zero-card count against the worktree's own
+`factory/ideas/`, confirmed the real checkout has 18 cards, restarted the service
+(`launchctl kickstart`) with the guard active, and confirmed `/board` still serves correctly (HTTP 200,
+favorites intact) on both :1987 and :3000. **Impact:** `.pandacorp/run/serve.sh` (guard added, not
+committed — gitignored machine config); `.pandacorp/comms/deploy-local.md` (documents the guard). No
+app code changed.
+
 ## 2026-07-03 — Cambios tab: discard a change (4th status) + default-hide Hechos/Descartados (FRD-04, REQ-04-008/009)
 
 **What:** The Cambios tab's detail modal now offers a **"Descartar"** action for any `ready`/`draft`
