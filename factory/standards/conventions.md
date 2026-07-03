@@ -35,6 +35,22 @@ When replying to the owner:
 - **Red-team proposals that require judgment** (a design choice, an architecture call, a plan) — surface the strongest counterargument before agreeing; never rubber-stamp. Skip this for simple statements, questions, or greetings that don't call for analysis.
 - **Human, empathetic tone — but disagreement stays substantive**, not softened into agreement.
 
+## Rule — subagent model selection
+
+> Severity: **SHOULD** · Enforcement: manual (agent self-check before each ad-hoc delegation; owner spot-check). Operative form: `rules/code-conventions.md` (DR-051). See DR-111.
+
+**Scope: any delegation to a subagent (the `Agent` tool, or `agent()`/`pipeline()`/`parallel()` inside a `Workflow` script) where the model is NOT already pinned by the subagent's own definition.** This rule does NOT reopen what's already solved:
+- Pandacorp's own named agents (`plugin/agents/*.md`) already declare a static `model:` in their frontmatter (e.g. architect/designer/reviewer/product-manager/copywriter → `opus`; implementer/backend-dev/frontend-dev/test-writer/researcher/security-auditor/librarian/analytics/devops → `sonnet`) — invoking one by its `subagent_type` needs no extra calculation.
+- The build engine's own adaptive escalation inside `/pandacorp:implement` (`pickWorkerModel`, DR-073, sonnet floor + opus escalation on `difficulty: high`/`reopen_count >= 1`; mechanical steps on the cheap tier, DR-108) is already the correct, calibrated instance of this same principle for work-order execution.
+
+**The rule:** when delegating without an explicit model, calculate the tier from the SUBTASK's complexity — never default to matching the parent conversation's own tier (a session running on Opus or Fable must not silently fan out subagents at that same expensive tier for work that doesn't need it):
+1. **haiku** — zero-judgment, mechanical, short output: a commit message, a rename, a one-line text/copy tweak, a lookup/grep-and-report, formatting.
+2. **sonnet** — the default floor for real work: implementation, research/summarization fan-out (e.g. each leg of a deep-research), most subagent execution, medium analysis.
+3. **opus** — genuine judgment/high complexity: architecture/blueprint decisions, adversarial review, open-ended synthesis, red-teaming a proposal, anything where a wrong call is expensive to unwind.
+4. **fable** — NEVER chosen automatically. Only used when the owner explicitly asks for it, or when the agent sees a genuine benefit and asks the owner for confirmation BEFORE launching it — never a silent default, never "just in case."
+
+Escalate upward, never downward, if a first attempt at a lower tier comes back inadequate (same empirical spirit as DR-073's `reopen_count` escalation, generalized outside the build engine).
+
 ## Rule — naming
 | Element | Convention | Example |
 |---|---|---|

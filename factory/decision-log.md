@@ -2,6 +2,33 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-02 — Nueva regla propagada: cálculo de tier de modelo al delegar subagentes (CONV-12, DR-111, plugin v9.52.0)
+
+**Qué:** a pedido del owner, se codificó una regla nueva (CONV-12) en `factory/standards/conventions.md` — junto
+a la de idioma (CONV-1) y la de estilo de interacción (CONV-11) — que gobierna cómo el agente principal (en la
+fábrica, en Mission Control y en cualquier proyecto construido con Pandacorp) elige el modelo de un subagente
+cuando lo delega SIN especificarlo. Hoy, si no se especifica, el subagente hereda el modelo de la conversación
+padre (Sonnet/Opus/Fable) — el problema concreto que reportó el owner: sesiones en Opus/Fable que lanzan fan-outs
+de investigación tipo deep-research a ese mismo tier caro, agotando el presupuesto de tokens. La regla, en cambio,
+exige **calcular el tier por la complejidad de la SUBTAREA**: haiku para trabajo mecánico/sin juicio (un commit,
+un rename, un ajuste de texto de una línea), sonnet como piso por defecto (implementación, investigación en
+fan-out, la mayoría de la ejecución de subagentes), opus para juicio genuino/alta complejidad (arquitectura,
+revisión adversarial, red-team de una propuesta). **Fable queda explícitamente excluido del cálculo automático**
+— nunca se elige solo; solo entra si el owner lo pide explícitamente, o si el agente ve un beneficio real y pide
+confirmación antes de lanzarlo (corrección del owner durante la planificación). Escala hacia arriba, nunca hacia
+abajo, si un tier menor resulta insuficiente (mismo espíritu empírico que el `reopen_count` de DR-073).
+**Alcance, acotado dos veces igual que CONV-11:** NO reabre los agentes propios de Pandacorp (`plugin/agents/*.md`,
+que ya fijan su `model:` estático en frontmatter) ni el escalado del motor de build (`pickWorkerModel`, DR-073/
+DR-108, ya calibrado para las work orders) — cubre exclusivamente la delegación ad-hoc (tipos genéricos del
+`Agent` tool, o un `Workflow` escrito fuera del motor de build). Severidad **SHOULD**, enforcement **manual**
+(autocheck del agente antes de cada delegación sin modelo + spot-check del owner) — consistente con el catálogo
+de cero MUSTs aspiracionales (es un juicio cualitativo, no lintable). Se propagó por el mismo canal DR-051 que
+CONV-11: `conventions.md` → resumen en `AGENTS.md.tpl` + `.pandacorp/guide.md.tpl` (regla 11) → `CLAUDE.md` raíz
+de la fábrica (regla 11, efecto inmediato en esta sesión). Registrada como `DR-111` en
+`factory/decisions/registry.yaml`. **Por qué:** el owner agotaba presupuesto de tokens cuando un deep-research
+(u otra delegación ad-hoc) corría todos sus subagentes al mismo tier caro que la conversación padre, sin ningún
+cálculo de por medio. MINOR + OVERLAY 8.57.0 → 8.58.0. Ver `plugin/docs/decision-log.md`.
+
 ## 2026-07-02 — Nueva regla propagada: estilo de interacción del agente con el owner (CONV-11, DR-110, plugin v9.51.0)
 
 **Qué:** a pedido del owner, se codificó una regla nueva (CONV-11) en `factory/standards/conventions.md` — junto a la regla de idioma (CONV-1) — que gobierna cómo el agente principal le responde al owner en el chat: marcar dónde empieza la respuesta real tras la narración de progreso (`---` + etiqueta en negrita), default conciso/escaneable/alto nivel (técnico solo si se pide o el tema lo exige — seguridad, dinero, pérdida de datos, acciones irreversibles), storytelling sobre jerga, visualizar flujos/algoritmos complejos con un widget/diagrama en vez de prosa, y red-team a propuestas que requieren juicio (nunca *rubber-stamp*) salvo saludos/preguntas simples. Severidad **SHOULD**, enforcement **manual** (no aspiracional — consistente con el catálogo de 0 MUSTs sin mecanismo). Se propagó por el mismo canal que ya usa la regla de idioma (DR-051): `conventions.md` → resumen en `AGENTS.md.tpl` + `.pandacorp/guide.md.tpl` (regla 10) → `CLAUDE.md` raíz de la fábrica (regla 10, efecto inmediato en esta sesión). Registrada como `DR-110` en `factory/decisions/registry.yaml`. **Alcance explícito, acotado dos veces a pedido del owner durante la planificación:** NO toca copy/microcopy de ninguna app (sigue siendo del agente `copywriter` + i18n), y NO toca la comunicación interna orquestador↔subagentes (`Agent`/`Task`), que se queda como esté. **Por qué:** el owner se desenganchaba de las conversaciones porque no distinguía la narración de progreso de la respuesta real, y las respuestas eran muy verbosas/técnicas/condescendientes por defecto con sus propuestas. MINOR + OVERLAY 8.56.0 → 8.57.0. Ver `plugin/docs/decision-log.md`.

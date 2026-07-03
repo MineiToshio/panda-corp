@@ -21,6 +21,7 @@ Maintained by hand; `check-standards.sh` validates the template shape and that e
 | CONV-9 | Named handlers; no inline JSX logic | SHOULD | conventions.md | reviewer | manual |
 | CONV-10 | Conventional Commits; never force-push | MUST | conventions.md | review-only | manual |
 | CONV-11 | Owner-facing interaction style (mark answer start, concise/scannable, storytelling, visualize flows, red-team judgment calls) — chat only, not product copy | SHOULD | conventions.md | agent self-check + owner spot-check | manual |
+| CONV-12 | Subagent model selection: calculate the tier by subtask complexity (haiku/sonnet/opus) when not already pinned; never inherit the parent conversation's tier; Fable never automatic | SHOULD | conventions.md | agent self-check before ad-hoc delegation + owner spot-check | manual |
 | API-1 | RFC 9457 error contract (`application/problem+json`) | MUST | api-design.md | verify.sh grep gate (4xx/5xx without `problem()` = RED) + snippet; canaried | wired |
 | API-2 | REST: resources, `/v1`, pagination, standard codes | MUST | api-design.md | reviewer | manual |
 | STRUCT-1 | `src/` mandatory; reference layout | MUST | structure.md | reviewer + knip (orphans only) | manual |
@@ -134,4 +135,4 @@ Maintained by hand; `check-standards.sh` validates the template shape and that e
 
 ## Counts (2026-07-02, post Phase 2 + catalog expansion)
 
-116 rules → **30 wired · 85 manual · 1 aspirational (SHOULD)** · **0 aspirational MUST**. The 2026-07-02 catalog expansion (error-handling, data-modeling, auth, resilience, background-jobs, dependency-lifecycle, feature-flags, ai-implementation + PAT-10/11) added 32 rows, honestly registered: mostly `manual` with NAMED steps (reviewer lenses, blueprint readiness gate, security-auditor/hardening checklists, human gates) — each is a wiring candidate where a lint/gate can hold it. Health metric: wired share should only go up; the aspirational-MUST list stays at zero — `check-standards.sh` warns if one reappears.
+117 rules → **30 wired · 86 manual · 1 aspirational (SHOULD)** · **0 aspirational MUST**. CONV-12 (subagent model selection, DR-111) added 2026-07-02. The 2026-07-02 catalog expansion (error-handling, data-modeling, auth, resilience, background-jobs, dependency-lifecycle, feature-flags, ai-implementation + PAT-10/11) added 32 rows, honestly registered: mostly `manual` with NAMED steps (reviewer lenses, blueprint readiness gate, security-auditor/hardening checklists, human gates) — each is a wiring candidate where a lint/gate can hold it. Health metric: wired share should only go up; the aspirational-MUST list stays at zero — `check-standards.sh` warns if one reappears.

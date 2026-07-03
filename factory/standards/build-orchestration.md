@@ -458,7 +458,10 @@ patched the one bug). So the default is **patch-first**:
   sub-step of one reject cycle, NOT a second axis — this avoids the nesting/non-termination the red team
   flagged); at `MAX_REOPENS` (default 3) the gate BLOCKs `needs-owner` instead of grinding.
 
-**Model selection — adaptive escalation within the mode (DR-073).** The mode's `P.worker` is the **floor**, never
+**Model selection — adaptive escalation within the mode (DR-073).** This is the build engine's own calibrated
+instance of the general subagent-model-selection principle (CONV-12/DR-111 — calculate the tier by task
+complexity, never inherit the caller's tier); it is not reopened by that broader rule. The mode's `P.worker` is
+the **floor**, never
 downgraded. `pickWorkerModel(wo)` escalates a work order's build to **opus** when **either** it is a-priori hard
 — `difficulty: high` in the WO frontmatter (HYBRID, owner decision; the rubric is in `work-orders`) — **or** it
 has already failed once — `reopen_count >= 1` (empirical: a sonnet build that didn't pass is unlikely to pass
