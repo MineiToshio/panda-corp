@@ -3,12 +3,12 @@ id: BL-0006
 type: bug
 area: templates
 title: "pending-work.sh builds JSON unescaped; merge-queue.sh checks ff only after rebase+verify"
-status: open
+status: done
 severity: p2
 opened: 2026-06-30
-closed:
+closed: 2026-07-03
 source: "docs/proposals/19-factory-flow-audit-2026-06-30.md (P2 — Merge/Pending Work Scripts Robustness)"
-closes:
+closes: "Duplicate of a fix already shipped in commit 0fc6e22 (2026-06-30, plugin v9.30.0, OVERLAY_VERSION 8.47.0→8.48.0), which resolved this exact P2-14 finding from the same audit doc before this item was actioned. pending-work.sh --json already emits via jq (with an escaping fallback) and merge-queue.sh already preflights main-checkout cleanliness before rebase (exit 12). Re-verified on 2026-07-03 with script assertions: a branch name containing a double-quote + a worktree path containing a space round-trip through `jq .` cleanly, and merge-queue.sh exits 12 at the preflight (before rebase) when main is dirty. No code change was needed; OVERLAY_VERSION is already well past the required bump (currently 8.58.0)."
 links: [DR-096]
 ---
 
