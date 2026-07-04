@@ -1,4 +1,5 @@
 ---
+name: review-launch
 description: Closes the post-launch loop of a Pandacorp project — reads the real product metrics (the PostHog event plan) against the PRD's value hypothesis and kill-signals, and gives the owner a kill / hold / double-down verdict. Runs IN a launched project (phase release). Designed to also run as a /loop self-paced job over the portfolio. It does NOT kill anything on its own — killing/archiving is the owner's decision.
 ---
 

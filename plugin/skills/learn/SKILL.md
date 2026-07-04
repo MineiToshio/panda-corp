@@ -1,4 +1,5 @@
 ---
+name: learn
 description: Incorporates durable know-how into the Pandacorp factory — an engineering standard, a decision rule, or a new plugin skill (the skill's authoring and evaluation are delegated to the native skill-creator skill). Use when the owner wants to add/adjust a convention, a pre-approved default, or a new capability that will be injected into projects. Runs IN the factory (panda-corp).
 ---
 

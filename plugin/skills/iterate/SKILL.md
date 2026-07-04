@@ -1,4 +1,5 @@
 ---
+name: iterate
 user-invocable: false
 description: Adds a feature or a change to a Pandacorp project at any time (building or shipped). You describe the change and the PM decides the minimum scope (one work order, a new FRD, or a mini design step) and puts it into the build queue. It is the day-to-day iteration mechanism.
 ---

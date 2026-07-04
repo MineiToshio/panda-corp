@@ -1,4 +1,5 @@
 ---
+name: change
 description: The SINGLE front door to ask a Pandacorp project for ANY change — a new feature, an adjustment, or a bug. You describe it in plain language; the skill classifies it (feature/change vs bug) and gives it a class of service (urgent vs normal), then files it in the project's change queue (.pandacorp/inbox/changes/) for the build to pick up at its next safe point. It only captures + classifies — it NEVER edits the project's docs or code, and it does NOT need to know whether a build is running. Runs INSIDE the project.
 ---
 

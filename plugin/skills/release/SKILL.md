@@ -1,4 +1,5 @@
 ---
+name: release
 description: Performs and executes the release of a Pandacorp project — deploys/launches it (internal OR external), with the deploy strategy, the pre-release checklist, the launch plan and the human gate for an external production deploy. Sets phase release + the idea to launched. The security/quality/metrics hardening (audit) is NOT here anymore — it is the last step of construction (/pandacorp:implement). Use inside the project once construction is complete (phase release).
 ---
 

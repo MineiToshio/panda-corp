@@ -1,4 +1,5 @@
 ---
+name: adopt
 description: Adopts an EXISTING project that was NOT born from the Pandacorp handoff (a brownfield / external project) into the factory. Injects the overlay without clobbering, infers the real phase from the code, reconstructs minimal as-built docs, registers it (a retroactive idea card so it shows on Mission Control's board, plus a portfolio row once the build has started), and hands off to the normal skills. Runs INSIDE the existing project. The brownfield counterpart of /pandacorp:scaffold.
 ---
 

@@ -1,4 +1,5 @@
 ---
+name: implement-backlog
 description: Implements factory/backlog/BL-* items — the factory's own actionable defects/changes (plugin, build engine, templates, standards machinery, hooks; DR-103). Two modes — give it one id (e.g. "implementa BL-0007" / `/pandacorp:implement-backlog BL-0007`) and it fixes just that item, directly, in this conversation; call it with no argument and it drains the WHOLE open/doing backlog, dispatching one subagent per item (model tier sized to each item's complexity, CONV-12/DR-111), each isolated in its own git worktree, merged back one at a time. Runs IN the factory (panda-corp). Never touches a product project's own defects (those go through /pandacorp:change).
 ---
 

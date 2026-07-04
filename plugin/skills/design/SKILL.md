@@ -1,4 +1,5 @@
 ---
+name: design
 description: UX/UI design phase of a Pandacorp project - visual research, design system, 3 navigable HTML mockups with accessibility verification, and the owner's visual gate. Use inside the project after /pandacorp:spec.
 ---
 

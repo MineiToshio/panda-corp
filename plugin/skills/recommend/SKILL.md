@@ -1,4 +1,5 @@
 ---
+name: recommend
 description: Analyzes the Pandacorp ideas base and recommends to the owner which ones to advance, with a justified ranking aligned to their profile (interests, assets, goals) and to the dual value (monetary or opportunity return). Use when the owner asks "which ones do you recommend?", "what do we build?", or wants to review the state of their ideas.
 ---
 

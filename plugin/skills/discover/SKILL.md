@@ -1,4 +1,5 @@
 ---
+name: discover
 description: "Two-phase opportunity discovery. Phase 1 sweeps WIDE and cheap across rotating hunting lenses (app-enhancement extensions, the owner's identities, own-itch/QoL, incumbent challengers — AI-first rebuilds and 80/20 unbundles) using a live-verified source playbook (sources.md), and presents 8-12 one-line TEASERS; the owner picks what sparks. Phase 2 deep-dives ONLY the picked ones: full evidence, RED-TEAM kill gates, and decision-ready memo-pitch cards in the ideas base (problem, market, distribution, gaps + source-of-truth, legal — all red-teamed). Biases toward easy-to-build micro-apps; detects when an idea is better as an extension of an app the owner already has; learns the owner's taste from every pick and pass. Use when the owner asks \"find opportunities\", \"discover ideas\", \"what could I build\" or similar."
 ---
 

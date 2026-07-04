@@ -1,0 +1,18 @@
+{
+  "name": "pandacorp",
+  "version": "9.64.0",
+  "description": "100% AI software factory: idea discovery, PRD/FRDs, UX/UI design, architecture blueprint, work orders, implementation, release and post-launch review.",
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json",
+  "author": {
+    "name": "Pandacorp"
+  },
+  "license": "proprietary",
+  "keywords": [
+    "factory",
+    "discovery",
+    "spec",
+    "design",
+    "scaffold"
+  ]
+}

@@ -1,4 +1,5 @@
 ---
+name: bug
 user-invocable: false
 description: Reports a bug found while testing a Pandacorp project. You describe the bug in plain language and the skill documents it in the project's unified change queue .pandacorp/inbox/changes/ (as type bug); the build in progress (/pandacorp:implement) picks it up at its next safe point. It fixes nothing — it only documents. Reachable through the single front door /pandacorp:change, which classifies bug vs feature for you. Runs INSIDE the project.
 ---

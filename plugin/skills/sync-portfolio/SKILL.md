@@ -1,4 +1,5 @@
 ---
+name: sync-portfolio
 description: Syncs the Pandacorp portfolio - detects cards moved on the ideas kanban (status changes in frontmatter) and refreshes each project's state by reading its status.yaml. Use in panda-corp, on demand or as a periodic job.
 ---
 

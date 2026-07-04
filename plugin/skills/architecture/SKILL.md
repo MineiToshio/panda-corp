@@ -1,4 +1,5 @@
 ---
+name: architecture
 description: Architecture phase of a Pandacorp project - technical blueprint + work orders, golden path choice, data model, ADRs and stack installation. Generates BOTH documents (blueprint and work orders). Use inside the project after /pandacorp:design. It is the design → architecture step.
 ---
 

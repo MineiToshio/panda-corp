@@ -1,4 +1,5 @@
 ---
+name: spec
 description: Pandacorp's handoff + product phase. Creates an idea's project (folder/repo) and generates research + PRD + FRDs for the MVP. Runs FROM the factory with the idea's name. It is the discovery → documented step.
 ---
 

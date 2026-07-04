@@ -1,4 +1,5 @@
 ---
+name: decide
 description: Resolves the pending decision points of a Pandacorp project. When an agent hits something only the owner can decide (product scope, spending money, something irreversible), it leaves it as pending in .pandacorp/inbox/decisions.md and Mission Control highlights it; this skill is how the owner gives their answer. Runs INSIDE the project.
 ---
 

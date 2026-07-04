@@ -1,4 +1,5 @@
 ---
+name: scaffold
 user-invocable: false
 description: Creates the folder/repo of a Pandacorp project from an idea (mechanical step of the handoff). In the normal flow it is invoked by /pandacorp:spec; use it separately only to create the project without documenting yet.
 ---

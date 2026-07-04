@@ -1,4 +1,5 @@
 ---
+name: work-orders
 user-invocable: false
 description: Generates or regenerates a Pandacorp project's work orders from the FRDs and the blueprint. In the normal flow the work orders are created by /pandacorp:architecture together with the blueprint; use this skill separately only to regenerate or adjust them.
 ---

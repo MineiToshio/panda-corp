@@ -20,3 +20,12 @@ WITH the pandacorp plugin, changes that touch app behavior, a canonical doc (PRD
 
 ## This project's stack
 Defined in `docs/product/architecture.md` (the platform architecture, chosen and approved in the architecture phase). See concrete versions and services there; per-feature implementation design lives in each `docs/frds/frd-NN-<slug>/blueprint.md`.
+
+## Other runtimes (Codex, Cursor, OpenCode…)
+
+This file is the canonical instruction set for ANY coding agent. Claude Code reads it through `CLAUDE.md`'s import and adds the `/pandacorp:*` skills; Codex, Cursor and OpenCode read it natively. If you are NOT Claude Code:
+
+- The factory (skills, standards, decision registry) lives at the path stamped in `.pandacorp/guide.md`. To run a lifecycle phase, read `<factory>/plugin/skills/<slug>/SKILL.md` and follow it, applying the runtime translation rules in `<factory>/factory/standards/agent-portability.md` (tool equivalences, model tiers, degradation).
+- The background build engine and its supervisor are Claude-Code-only. Under any other runtime, run the ATTENDED build loop defined in that standard: the same file-state machine (work-order frontmatter, `.pandacorp/status.yaml`), sequential, owner present; never rebuild `VERIFIED` work; respect the single-build lock (`running` + heartbeat in `status.yaml`).
+- The change queue (`.pandacorp/inbox/changes/`) and the decisions inbox are plain files: any runtime files changes by following their templates — never edit product behavior ad hoc.
+- Every rule in this file (language, gates, documentation discipline) is runtime-independent and never degrades.
