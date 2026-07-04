@@ -1,0 +1,39 @@
+<svg width="680" height="405" viewBox="0 0 680 405" role="img" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, sans-serif">
+<title>Two doors, one core</title>
+<desc>Claude Code and Codex enter through different thin layers but operate the same portable core: manual, skills and file state.</desc>
+<rect x="60" y="20" width="240" height="48" rx="4" fill="#dbeafe" stroke="#3b82f6"/>
+<text x="180" y="40" text-anchor="middle" font-size="14" font-weight="600" fill="#1e3a5f">Claude Code</text>
+<text x="180" y="58" text-anchor="middle" font-size="12" fill="#1e3a5f">session with the installed plugin</text>
+<rect x="380" y="20" width="240" height="48" rx="4" fill="#ccfbf1" stroke="#14b8a6"/>
+<text x="500" y="40" text-anchor="middle" font-size="14" font-weight="600" fill="#134e4a">Codex app / CLI</text>
+<text x="500" y="58" text-anchor="middle" font-size="12" fill="#134e4a">also Cursor · OpenCode</text>
+<line x1="180" y1="68" x2="180" y2="92" stroke="#64748b" stroke-width="1.5"/>
+<path d="M 175 92 L 185 92 L 180 100 Z" fill="#64748b"/>
+<line x1="500" y1="68" x2="500" y2="92" stroke="#64748b" stroke-width="1.5"/>
+<path d="M 495 92 L 505 92 L 500 100 Z" fill="#64748b"/>
+<rect x="60" y="102" width="240" height="108" rx="4" fill="#dbeafe" stroke="#3b82f6"/>
+<text x="74" y="124" font-size="14" font-weight="600" fill="#1e3a5f">Claude Code layer</text>
+<text x="74" y="146" font-size="12" fill="#1e3a5f">CLAUDE.md → imports AGENTS.md</text>
+<text x="74" y="166" font-size="12" fill="#1e3a5f">plugin: /pandacorp:* + hooks</text>
+<text x="74" y="186" font-size="12" fill="#1e3a5f">background engine + supervisor</text>
+<rect x="380" y="102" width="240" height="108" rx="4" fill="#ccfbf1" stroke="#14b8a6"/>
+<text x="394" y="124" font-size="14" font-weight="600" fill="#134e4a">Codex layer (generated)</text>
+<text x="394" y="146" font-size="12" fill="#134e4a">reads AGENTS.md directly</text>
+<text x="394" y="166" font-size="12" fill="#134e4a">.agents/skills (symlink)</text>
+<text x="394" y="186" font-size="12" fill="#134e4a">.codex/agents/*.toml (17)</text>
+<line x1="180" y1="210" x2="180" y2="230" stroke="#64748b" stroke-width="1.5"/>
+<path d="M 175 230 L 185 230 L 180 238 Z" fill="#64748b"/>
+<line x1="500" y1="210" x2="500" y2="230" stroke="#64748b" stroke-width="1.5"/>
+<path d="M 495 230 L 505 230 L 500 238 Z" fill="#64748b"/>
+<rect x="40" y="242" width="600" height="143" rx="4" fill="none" stroke="#475569" stroke-width="1.5"/>
+<text x="56" y="268" font-size="14" font-weight="600" fill="#1f2937">Shared portable core — one know-how, zero duplication</text>
+<rect x="52" y="282" width="184" height="88" rx="4" fill="#f8fafc" stroke="#94a3b8"/>
+<text x="66" y="306" font-size="14" fill="#1f2937">AGENTS.md · factory/</text>
+<text x="66" y="326" font-size="12" fill="#64748b">canonical manual + standards</text>
+<rect x="248" y="282" width="184" height="88" rx="4" fill="#f8fafc" stroke="#94a3b8"/>
+<text x="262" y="306" font-size="14" fill="#1f2937">plugin/skills/ (25)</text>
+<text x="262" y="326" font-size="12" fill="#64748b">the same SKILL.md files</text>
+<rect x="444" y="282" width="184" height="88" rx="4" fill="#f8fafc" stroke="#94a3b8"/>
+<text x="458" y="306" font-size="14" fill="#1f2937">State in files</text>
+<text x="458" y="326" font-size="12" fill="#64748b">status.yaml, WOs, inbox</text>
+</svg>

@@ -45,6 +45,8 @@
 
 **Principle: one portable core (documents + file-state + skills), thin per-runtime adapters (discovery + translation + degradation). Never duplicate know-how; generate or link.**
 
+![Two doors, one core](../assets/multi-runtime-two-doors.svg)
+
 ### D1 — Invert the factory root to AGENTS.md-canonical (mirror the product-overlay pattern)
 
 - **`AGENTS.md` (new, factory root)** becomes the canonical, tool-agnostic operating manual: what the repo is, the planes (DR-033/DR-103), language rules (DR-009 — including *"the interaction with the owner is always in Spanish"*), the decision-log discipline, how the factory is operated phase by phase, the **runtime capability matrix + tool translation table** (D5), and the **skill invocation protocol for non-Claude runtimes** (D3).

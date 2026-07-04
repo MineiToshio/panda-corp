@@ -82,6 +82,7 @@ Under any runtime other than Claude Code, `/pandacorp:implement` degrades to the
 4. **Per work order** (one at a time): stamp `IN_PROGRESS` → implement with TDD per the WO's EARS acceptance criteria → run the WO's own fast self-test → stamp `IN_REVIEW` + write the `## Status Note` hand-off → commit (one commit per WO, conventional message).
 5. **Per-FRD gate** (when all its WOs are `IN_REVIEW`): re-read the feature with fresh eyes (correctness, security, quality, runtime lenses), write at least one adversarial test the implementation didn't anticipate, run `verify.sh` (or `verify.sh --since <last_green>` if available). Green → stamp every WO + the FRD `VERIFIED`, commit, update `status.yaml` (`progress`, `last_green_sha`). Red → fix in place; if genuinely stuck → `BLOCKED` + `blocked_reason` (`needs-owner` | `external` | `error`), log it to `.pandacorp/inbox/decisions.md` when the owner must act, and continue with an independent FRD.
 6. **Safe point** (after each FRD gate): drain `status: ready` items from `.pandacorp/inbox/changes/` (route via the `iterate`/`bug` engine; `draft` is SKIPPED, DR-069); apply answered `decisions.md` entries (flip their BLOCKED WOs back to `PLANNED`); honor `rethink_pending: true` (stop cleanly + tell the owner); append a milestone line to `.pandacorp/comms/progress.md` (what shipped, in owner language — never raw tool output, BL-0014).
+6b. **Feed the live dashboard (best effort, fire-and-forget).** Mission Control's Party reads a plain NDJSON stream any runtime can append to. At each WO start and each FRD gate, append one line to `~/.claude/dashboard-events.ndjson` (schema: `{"event":"<name>","at":"<ISO-UTC>","project":"<project folder basename>","data":{…}}`): `AgentWorking` with `data:{role:"<agent role>",wo:"<WO id>"}` at WO start; `gate` with `data:{frd:"<frd id>",result:"verified"|"reopened"}` at each gate. Never block or fail the build on a write error here — observability is best effort, the file state is the truth.
 7. **Close-out** (all FRDs `VERIFIED`): the hardening pass per DR-085 — security audit (evidence: `docs/reviews/security-<date>.md`), telemetry verification (evidence: `## Verification` in `docs/analytics/events.md`), full quality suite — BEFORE setting `phase: release`; if hardening can't run in this runtime session, say so explicitly and leave `phase: implementation` (never self-declare release without the evidence). Remind the owner to run the lesson harvest from the factory.
 
 These have no cross-runtime analogue and remain Claude-side; the **rules they enforce still bind every runtime as instructions** (stated in AGENTS.md), so governance is never lost — only the automated enforcement mechanism is.
@@ -104,9 +105,30 @@ These have no cross-runtime analogue and remain Claude-side; the **rules they en
 
 The standards landscape converged on two open standards we already fit — **AGENTS.md** (cross-tool instructions, our product overlay is already AGENTS.md-canonical) and **Agent Skills / SKILL.md** (open, unknown frontmatter fields ignored). Because every durable state the factory owns is a file, any AGENTS.md/Skills-compliant agent can drive the state machine; only the execution vehicle is Claude-bound. Making the tiers neutral and the tool translation explicit lets the owner operate dual-channel — talk to the factory from Claude Code *and* Codex, cross-checking each other's work — without forking the know-how or maintaining two divergent instruction files (the trap every team that copied CLAUDE.md↔AGENTS.md fell into). Degradation is honest: where a mechanism can't port, the governance (gates, language, doc discipline) still binds as instructions, so a weaker runtime is slower and more manual, never less correct.
 
-## Maintenance
+## Maintenance — the single-source-of-truth map
 
-Part of the plugin-maintenance ritual (same place the version bump lives):
-- **`plugin/.codex-plugin/plugin.json`** (Codex plugin manifest) stays **version-synced** with `plugin/.claude-plugin/plugin.json` (name/version/description mirrored).
-- **`.codex/agents/*.toml`** are **generated**, not hand-edited — `plugin/agents/*.md` stay canonical. Regenerate with `plugin/scripts/generate-codex-agents.mjs` whenever any `plugin/agents/*.md` changes (frontmatter or body), and re-emit the three generic tier workers (`tier-mech`, `tier-standard`, `tier-judge`).
-- Both regenerations are cheap to script-check later for drift against their sources.
+Diagram: `docs/assets/multi-runtime-two-doors.svg` (two doors, one core).
+
+Every piece has exactly ONE source of truth; the "other side" is a link, an import, or a generated artifact — never a hand-maintained copy. **Only one derived copy exists in the whole layer** (the Codex agent TOMLs), and it is script-generated:
+
+| Piece | Single source | The other side is… |
+|---|---|---|
+| The 25 skills | `plugin/skills/*/SKILL.md` | **symlink** (`.agents/skills → plugin/skills`) — same physical files |
+| The operating manual | `AGENTS.md` (repo root) | **import** (`CLAUDE.md` references it via `@AGENTS.md`; adds the Claude-only layer) |
+| Standards, registry, factory docs | `factory/…` | shared as-is (every runtime reads the same file) |
+| The 14 team agents | `plugin/agents/*.md` | **generated** — `.codex/agents/*.toml` via `plugin/scripts/generate-codex-agents.mjs` (provenance header, never hand-edited) |
+| Plugin manifests | `plugin/.claude-plugin/plugin.json` | minimal mirror (`plugin/.codex-plugin/plugin.json`), version-synced by ritual |
+
+**When an agent modifies X, it must also… (the cross-runtime modification guide):**
+
+| You change… | Also do |
+|---|---|
+| A skill (`plugin/skills/*/SKILL.md`) | Nothing for Codex (symlink). For Claude: the normal plugin ritual (`claude plugin update`). Keep `name:` = the directory slug (spec requirement) |
+| An agent (`plugin/agents/*.md`) | `node plugin/scripts/generate-codex-agents.mjs` (regenerates the 14 mirrors + 3 tier workers) |
+| Root `AGENTS.md` | Keep it self-contained (no `@imports` — Codex doesn't expand them) and under ~32 KB (`project_doc_max_bytes`); anything Claude-only goes to `CLAUDE.md` instead |
+| Root `CLAUDE.md` | Nothing — no other runtime reads it |
+| The plugin version | Bump BOTH manifests to the same version |
+| `plugin/hooks/` or scripts | Remember other runtimes get no enforcement (PORT-6) — if the rule matters cross-runtime, state it in AGENTS.md too (and see BL-0030 for the Codex hook port) |
+| The overlay templates (`plugin/templates/`) | OVERLAY_VERSION bump, as always; the AGENTS.md.tpl "Other runtimes" section is part of the managed layer |
+
+Both derived artifacts (TOMLs, manifest mirror) are cheap to script-check for drift against their sources.

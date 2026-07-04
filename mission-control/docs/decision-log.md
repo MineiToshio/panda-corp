@@ -4,6 +4,11 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-04 — Manual: dedicated multi-runtime concept page (DR-113)
+
+**What:** new authored Manual page `content/manual/concepts/multi-runtime.md` (Conceptos, order 20) — the two-doors model (Claude Code vs Codex layers over one shared core), the single-source-of-truth map (what is symlink/import/generated), the cross-runtime modification guide, what degrades under Codex (attended build, best-effort Fragua feed, no hooks enforcement yet) and how to test. `estandares-y-reglas.md` links to it from its DR-113 section. The bespoke two-doors diagram (manual-diagrams TSX component, visual source `docs/assets/multi-runtime-two-doors.svg` in the factory repo) is filed as a change in the queue (`manual-multi-runtime-diagram`) — authored markdown can't embed raw SVG (react-markdown without rehype-raw).
+**Why:** DR-046 — the Manual is the navigable face of the factory; the multi-runtime layer (factory DR-113) is a new operating concept the owner asked to see fully documented, diagram included.
+
 ## 2026-07-03 — Root README backfilled (DOC-3, DR-112)
 
 **What:** added the repo's root `README.md` (didn't exist before). Mission Control predates the new factory-wide standard requiring every project to carry a populated root README (what it does + how to run it) — since it's already `phase: release`, there's no `spec`/`architecture` re-run to populate it through the normal skill flow, so it was backfilled directly from the existing PRD (`docs/product/prd.md`) and architecture (`docs/product/architecture.md` §2/§10), following the factory's new `plugin/templates/docs/readme-template.md`.
