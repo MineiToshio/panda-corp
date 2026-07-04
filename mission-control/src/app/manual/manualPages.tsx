@@ -28,6 +28,8 @@ import { ChannelsDiagram } from "@/components/modules/manual-diagrams/ChannelsDi
 import { CockpitDataDiagram } from "@/components/modules/manual-diagrams/CockpitDataDiagram";
 import { DocH } from "@/components/modules/manual-diagrams/DocH";
 import { HooksDiagram } from "@/components/modules/manual-diagrams/HooksDiagram";
+import { ModificationGuide } from "@/components/modules/manual-diagrams/ModificationGuide";
+import { MultiRuntimeDiagram } from "@/components/modules/manual-diagrams/MultiRuntimeDiagram";
 import { PipelineDiagram } from "@/components/modules/manual-diagrams/PipelineDiagram";
 import {
   B,
@@ -39,8 +41,10 @@ import {
   NotePanel,
   Ul,
 } from "@/components/modules/manual-diagrams/prose";
+import { RuntimeComparison } from "@/components/modules/manual-diagrams/RuntimeComparison";
 import { SelfLearningLoop } from "@/components/modules/manual-diagrams/SelfLearningLoop";
 import { SnapshotMini } from "@/components/modules/manual-diagrams/SnapshotMini";
+import { SourceOfTruthMap } from "@/components/modules/manual-diagrams/SourceOfTruthMap";
 import { StacksTable } from "@/components/modules/manual-diagrams/StacksTable";
 import { StateTable } from "@/components/modules/manual-diagrams/StateTable";
 import { TeamDiagram } from "@/components/modules/manual-diagrams/TeamDiagram";
@@ -1898,6 +1902,115 @@ function ConceptTuPerfil(): React.JSX.Element {
 }
 
 // ---------------------------------------------------------------------------
+// CONCEPT: Operar desde cualquier agente (multi-runtime)
+// ---------------------------------------------------------------------------
+
+function ConceptMultiRuntime(): React.JSX.Element {
+  return (
+    <>
+      <DocH title="Operar desde cualquier agente" level={1} />
+      <Lead>
+        Desde 2026-07-04 (DR-113) la fábrica no vive casada con Claude Code: puedes abrir panda-corp
+        —o cualquier proyecto— en la app de <B weight={600}>Codex</B> (o su CLI, Cursor, OpenCode) y
+        operar con las mismas reglas, los mismos skills y el mismo estado. Nadie elige runtime con
+        un switch:{" "}
+        <B weight={600}>cada herramienta se auto-selecciona por lo que es capaz de leer</B>.
+      </Lead>
+
+      <DocH title="Dos puertas, un núcleo" />
+      <Lead>
+        Piensa en un edificio con dos puertas que llevan al mismo taller. Cada puerta tiene su capa
+        propia; ambas abren al mismo conjunto de ficheros.
+      </Lead>
+      <Panel>
+        <MultiRuntimeDiagram />
+      </Panel>
+      <NotePanel icon="ti-lock" iconColor="var(--color-accent)">
+        <B weight={600}>Resume cruzado + el candado de DR-050.</B> Todo el estado durable vive en
+        ficheros (frontmatter de work orders, <Code>status.yaml</Code>, colas de inbox), nunca en la
+        sesión. Por eso un runtime puede <B weight={500}>retomar el build que dejó el otro</B>: la
+        verdad está en disco. Y el candado de build único (<Code>status.yaml</Code>, DR-050 §11) es
+        por fichero, así que un build atendido de Codex y uno de fondo de Claude{" "}
+        <B weight={500}>no pueden correr a la vez</B> sobre el mismo proyecto.
+      </NotePanel>
+
+      <DocH title="Qué funciona igual y qué degrada" />
+      <Lead>
+        La regla es honesta: donde un mecanismo no porta, la gobernanza sigue vinculando como
+        instrucción. Un runtime más débil es más lento y más manual,{" "}
+        <B weight={600}>nunca menos correcto</B>. El detalle completo vive en el estándar{" "}
+        <Code>factory/standards/agent-portability.md</Code> (reglas PORT-1…6).
+      </Lead>
+      <Panel>
+        <div style={{ overflowX: "auto" }}>
+          <RuntimeComparison />
+        </div>
+      </Panel>
+
+      <DocH title="Single source of truth · qué es enlace, qué es generado" />
+      <Lead>
+        Una sola fuente por cosa; lo demás es symlink, import o artefacto generado.{" "}
+        <B weight={600}>Solo existe UNA copia derivada</B> —los agentes Codex— y está automatizada.
+      </Lead>
+      <Panel>
+        <div style={{ overflowX: "auto" }}>
+          <SourceOfTruthMap />
+        </div>
+      </Panel>
+
+      <DocH title="Si modificas algo, ¿qué debes tocar?" />
+      <Lead>
+        Para que un cambio funcione en ambas puertas, esto es lo mínimo que hay que hacer en cada
+        caso.
+      </Lead>
+      <Panel>
+        <ModificationGuide />
+      </Panel>
+      <NotePanel icon="ti-shield-x" iconColor="var(--color-warn)">
+        <B weight={600}>Enforcement en Codex son instrucciones, no hooks.</B> El bloqueo de comandos
+        peligrosos y el gate de verificación al parar son automáticos en Claude; en Codex se aplican
+        como instrucciones en AGENTS.md. Portarlos a hooks reales es el backlog <Code>BL-0030</Code>
+        .
+      </NotePanel>
+
+      <DocH title="Cómo probar que funciona" />
+      <NumberedTrail
+        steps={[
+          {
+            title: <>Codex, en frío</>,
+            body: (
+              <>
+                Abre panda-corp en la app de Codex → debe hablarte en <B weight={500}>español</B> y
+                listar los 25 skills (<Code>/skills</Code>).
+              </>
+            ),
+          },
+          {
+            title: <>Codex, un ciclo real</>,
+            body: (
+              <>
+                Registra un microcambio con <Code>change</Code> en un proyecto y pídele a Codex
+                ejecutar el build atendido (PORT-5) para ese cambio: verás los mismos{" "}
+                <B weight={500}>commits, frontmatter y gates</B> que haría Claude.
+              </>
+            ),
+          },
+          {
+            title: <>Claude, intacto</>,
+            body: (
+              <>
+                La misma prueba vía <Code>/pandacorp:implement</Code> — motor background, supervisor
+                y Fragua completa, como siempre.
+              </>
+            ),
+          },
+        ]}
+      />
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // GUIDE: Adoptar un proyecto que ya tienes
 // ---------------------------------------------------------------------------
 
@@ -2200,6 +2313,7 @@ const MANUAL_PAGE_COMPONENTS: Record<string, () => React.JSX.Element> = {
   "los-gates-humanos": ConceptGatesHumanos,
   "espinazo-de-documentos": ConceptEspinazoDocs,
   "tu-perfil": ConceptTuPerfil,
+  "multi-runtime": ConceptMultiRuntime,
 };
 
 /**

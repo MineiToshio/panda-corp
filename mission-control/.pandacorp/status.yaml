@@ -28,5 +28,5 @@ advance_pending: false
 last_green_sha: "43e490a"
 safe_to_test: true  # FRD-02 gate GREEN (DR-050): WO-02-013 patched in place (String.replace regex-special-char abuse, $&) and independently re-verified — vitest CampaignPipeline + frd-02 integration suites (12 files, 283 tests) green, whole-project tsc/biome/knip/madge clean, e2e smoke+shell 42/42 green (desktop+mobile, against the live :3100 server). FRD-02 all 8 WOs now VERIFIED; frd.md + blueprint.md rolled up to VERIFIED. 2026-07-02
 blocked: []
-pending_changes: 10
+pending_changes: 2
 supervisor_heartbeat: "2026-07-02T05:28:13Z"
