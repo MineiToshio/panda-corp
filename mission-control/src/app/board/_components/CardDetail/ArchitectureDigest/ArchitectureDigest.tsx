@@ -269,7 +269,26 @@ function workOrdersForFrd(frd: ArchFrd, workOrders: WorkOrder[]): WorkOrder[] {
   return workOrders.filter((wo) => frdKey(wo.frd) === key);
 }
 
-function FrdCard({ frd, onOpen }: { frd: ArchFrd; onOpen: (frd: ArchFrd) => void }) {
+/**
+ * The FRD card's "N WOs" badge is derived LIVE from disk (`workOrdersForFrd` over the
+ * live `listWorkOrders` result) — never from `frd.workOrders.length`, which is parsed
+ * from the gitignored digest PROSE (`.pandacorp/comms/arquitectura-resumen.md`). The
+ * DAG/modal of this same card already reads the disk count (line ~517); the badge used
+ * to disagree with them the moment the digest listed a WO that doesn't exist on disk
+ * (or omitted one that does). Disk is the truth here; the digest stays narrative only
+ * (blueprint summary, DR-092/DR-115).
+ */
+function FrdCard({
+  frd,
+  liveWorkOrders,
+  onOpen,
+}: {
+  frd: ArchFrd;
+  /** This FRD's live work orders (`workOrdersForFrd(frd, listWorkOrders(...))`) — the disk truth. */
+  liveWorkOrders: WorkOrder[];
+  onOpen: (frd: ArchFrd) => void;
+}) {
+  const woCount = liveWorkOrders.length;
   return (
     <button
       type="button"
@@ -281,9 +300,9 @@ function FrdCard({ frd, onOpen }: { frd: ArchFrd; onOpen: (frd: ArchFrd) => void
     >
       <div style={FRD_HEAD_STYLE}>
         <span style={FRD_ID_STYLE}>{frd.id}</span>
-        {frd.workOrders.length > 0 && (
+        {woCount > 0 && (
           <span style={WO_COUNT_STYLE}>
-            {frd.workOrders.length} WO{frd.workOrders.length === 1 ? "" : "s"}
+            {woCount} WO{woCount === 1 ? "" : "s"}
           </span>
         )}
       </div>
@@ -501,7 +520,12 @@ export function ArchitectureDigest({
             <p style={BLABEL_FRD_STYLE}>🧩 Por FRD ({arch.frds.length})</p>
             <div style={FRD_GRID_STYLE}>
               {arch.frds.map((frd) => (
-                <FrdCard key={frd.id} frd={frd} onOpen={setOpenFrd} />
+                <FrdCard
+                  key={frd.id}
+                  frd={frd}
+                  liveWorkOrders={workOrdersForFrd(frd, wos)}
+                  onOpen={setOpenFrd}
+                />
               ))}
             </div>
           </div>

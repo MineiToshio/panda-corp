@@ -32,7 +32,7 @@ import { readEnvExample } from "@/lib/architecture/env";
 import { readArchitectureDigest } from "@/lib/architecture/read-architecture";
 import { deriveColumn } from "@/lib/board/board";
 import { resolveProjectPath } from "@/lib/config/config";
-import { type DocNode, listProjectDocs } from "@/lib/docs/tree";
+import { countFrdFolders, type DocNode, listProjectDocs } from "@/lib/docs/tree";
 import { readIdeas } from "@/lib/ideas/ideas";
 import { readSpecDigest } from "@/lib/spec/read-spec";
 import { readStatus } from "@/lib/status/status";
@@ -88,6 +88,9 @@ export default function BoardPage(): React.JSX.Element {
     let projectStatus = null;
     // Scoped doc structure for the card-detail Documentos tab (in-pipeline only).
     let docNodes: DocNode[] | undefined;
+    // Real on-disk FRD folder count (docs/frds/frd-*) for the Spec tab's "N FRDs" badge —
+    // derived LIVE from disk (DR-092/DR-115), never from the spec digest's prose count.
+    let frdCount: number | undefined;
     // Spanish spec digest for the card-detail Spec tab (in-pipeline, past product phase).
     let specContent: string | undefined;
     // Architecture digest + its live artifacts for the card-detail Arquitectura tab
@@ -100,7 +103,9 @@ export default function BoardPage(): React.JSX.Element {
     if (card.status === "in-pipeline" && card.project) {
       const projectPath = resolveProjectPath(card.project);
       projectStatus = readStatus(projectPath);
-      docNodes = listProjectDocs(projectPath).filter(isScopedBoardDoc);
+      const allDocNodes = listProjectDocs(projectPath);
+      docNodes = allDocNodes.filter(isScopedBoardDoc);
+      frdCount = countFrdFolders(allDocNodes);
       specContent = readSpecDigest(projectPath) ?? undefined;
       architectureContent = readArchitectureDigest(projectPath) ?? undefined;
       // Only read the (heavier) live architecture artifacts once the digest exists — i.e. the
@@ -148,6 +153,8 @@ export default function BoardPage(): React.JSX.Element {
       targetPlatforms: projectStatus?.present ? projectStatus.status.targetPlatforms : undefined,
       // Scoped doc STRUCTURE (PRD + research + FRDs); bodies load lazily on select.
       docNodes,
+      // Real on-disk FRD folder count — the Spec tab's "N FRDs" badge (DR-092/DR-115).
+      frdCount,
       // Spanish high-level spec digest (PRD + research + FRDs) for the Spec tab.
       specContent,
       // Spanish high-level architecture digest + its live artifacts for the Arquitectura tab.

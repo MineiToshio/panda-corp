@@ -274,6 +274,12 @@ export interface CardDetailProps {
    */
   docNodes?: DocNode[];
   /**
+   * Real on-disk FRD folder count (from `countFrdFolders`/`listProjectDocs` in page.tsx) —
+   * the Spec tab's "N FRDs" badge. Derived LIVE from disk, never from the spec digest's
+   * prose count (DR-092/DR-115).
+   */
+  frdCount?: number;
+  /**
    * Spanish high-level digest of the project's spec (PRD + research + FRDs), read from
    * `.pandacorp/comms/spec-resumen.md` (in-pipeline projects past the product phase).
    * Absent/empty → the "Spec" tab is hidden (the project hasn't reached that stage).
@@ -348,6 +354,7 @@ export function CardDetail({
   projectType,
   targetPlatforms,
   docNodes,
+  frdCount,
   specContent,
   architectureContent,
   workOrders,
@@ -486,6 +493,7 @@ export function CardDetail({
             body={specContent}
             projectType={projectType}
             targetPlatforms={targetPlatforms}
+            frdCount={frdCount}
             resolveLink={resolveDocLink}
           />
         </div>

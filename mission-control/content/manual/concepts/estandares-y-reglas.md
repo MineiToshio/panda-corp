@@ -16,6 +16,10 @@ Los estándares viven en `factory/standards/` (27 archivos, 9 dominios) y son ob
 
 Los estándares son versionados con la fábrica. Cambian solo por decisión explícita del propietario (`/pandacorp:learn`), que exige actualizar la regla inyectable + el registro en el mismo cambio (DR-051).
 
+## Fuente única de verdad (DR-115)
+
+Desde 2026-07-05, principio de primera clase (constitución §25 + `single-source-of-truth.md`): **cada hecho tiene un solo escritor; los lectores derivan, nunca duplican**. Un dato que consumen varias superficies toma una de dos formas — derivar-en-lectura a través de UN resolver compartido (el default), o un **cache honesto** (escritor único nombrado, re-derivado de la fuente atómica en puntos seguros, documentado como réplica, y que ninguna superficie de display lee si existe el resolver vivo). Prohibido: una segunda derivación independiente de un valor que ya tiene resolver, contadores mantenidos a base de `+1/-1` repartidos, campos muertos que un lector sigue mostrando como verdad, y docs que declaran una fuente distinta de la que el código lee. El enforcement más fuerte es **por construcción** (retirar el campo legible del tipo del lector), más la lente del `reviewer` y el chequeo de drift de esquema del doc-lint. Federa las instancias que ya existían: DR-092 (resolver de UI), DR-050 §1 (el work order es la verdad atómica), DR-087 (`dependsOn` es la fuente del DAG), DR-066 (liveness = cruce, no la flag), DR-078 (lecturas fail-loud). Nació de la auditoría del 2026-07-05 en la que Mission Control mostraba hasta tres conteos distintos de work orders para el mismo proyecto (proposal 29).
+
 ## Operar la fábrica desde cualquier agente (DR-113)
 
 > Página dedicada: **Operar desde cualquier agente** (en esta misma sección de Conceptos), con el mapa single-source-of-truth y la guía de modificación cruzada.

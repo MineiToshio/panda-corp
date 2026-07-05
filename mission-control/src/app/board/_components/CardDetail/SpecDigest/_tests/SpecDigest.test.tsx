@@ -140,4 +140,18 @@ Si lo reemplazas, te contactan en vez de cerrar la pestaña.
     fireEvent.click(screen.getByRole("button", { name: "Cerrar modal" }));
     expect(screen.queryByRole("dialog")).toBeNull();
   });
+
+  it("the 'N FRDs' badge uses the live frdCount prop, not the digest's parsed FRD count", () => {
+    // DIGEST's prose lists exactly one FRD ("FRD-01 · Site shell…"), but the real on-disk
+    // folder count (frdCount, from countFrdFolders/listProjectDocs) says 3 — the badge must
+    // show the disk truth, never the prose-parsed count (DR-092/DR-115).
+    render(<SpecDigest title="fallback" body={DIGEST} frdCount={3} />);
+    expect(screen.getByText(/FRDs · las piezas del v1 \(3\)/)).toBeInTheDocument();
+  });
+
+  it("shows NO count when frdCount is not supplied — never falls back to the prose count (DR-115)", () => {
+    render(<SpecDigest title="fallback" body={DIGEST} />);
+    const label = screen.getByText(/FRDs · las piezas del v1/);
+    expect(label.textContent).not.toMatch(/\(\d+\)/);
+  });
 });

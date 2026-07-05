@@ -26,8 +26,12 @@ function normalize(e: RawEvent): import("../../events/events").Event {
   return e as import("../../events/events").Event;
 }
 
-function reader(events: RawEvent[], statuses: ReaderData["statuses"] = []): ReaderData {
-  return { ideas: [], statuses, eventsSnapshot: snapshot(events) };
+function reader(
+  events: RawEvent[],
+  statuses: ReaderData["statuses"] = [],
+  workOrdersDoneLive?: number,
+): ReaderData {
+  return { ideas: [], statuses, eventsSnapshot: snapshot(events), workOrdersDoneLive };
 }
 
 const EMPTY: ReaderData = { ideas: [], statuses: [], eventsSnapshot: null };
@@ -70,18 +74,14 @@ describe("deriveSignals — fastestBuildHours (build duration)", () => {
 });
 
 describe("deriveSignals — counts from the real vocabulary (AC-10-010.1)", () => {
-  it("woClosed = Σ statuses.workOrdersDone (uncapped cumulative floor)", () => {
-    const s = deriveSignals(
-      reader(
-        [],
-        [
-          { present: true, malformed: false, status: { workOrdersDone: 30 } },
-          { present: true, malformed: false, status: { workOrdersDone: 48 } },
-          { present: false, malformed: false, status: null },
-        ],
-      ),
-    );
+  it("woClosed = the live workOrdersDoneLive total, verbatim (DR-092/DR-115, uncapped)", () => {
+    const s = deriveSignals(reader([], [{ present: false, malformed: false, status: null }], 78));
     expect(s.woClosed).toBe(78);
+  });
+
+  it("woClosed is 0 when workOrdersDoneLive is omitted/non-finite (honest zero, never NaN)", () => {
+    expect(deriveSignals(reader([])).woClosed).toBe(0);
+    expect(deriveSignals(reader([], [], Number.NaN)).woClosed).toBe(0);
   });
 
   it("counts builds, launches, relaunches, subagents, reviews, findings", () => {

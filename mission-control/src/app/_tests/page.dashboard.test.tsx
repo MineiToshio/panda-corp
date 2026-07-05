@@ -69,9 +69,13 @@ vi.mock("@/lib/portfolio/portfolio", () => ({
   activeProjects: vi.fn(() => []),
 }));
 
-vi.mock("@/lib/ideas/ideas", () => ({
-  readIdeas: vi.fn(() => []),
-}));
+vi.mock("@/lib/ideas/ideas", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/ideas/ideas")>();
+  return {
+    ...actual,
+    readIdeas: vi.fn(() => []),
+  };
+});
 
 vi.mock("@/lib/status/status", () => ({
   readStatus: vi.fn(() => ({ present: false as const, malformed: false as const, status: null })),

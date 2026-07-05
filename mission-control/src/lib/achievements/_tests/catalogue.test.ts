@@ -48,8 +48,11 @@ describe("catalogue v2 — shape", () => {
 });
 
 describe("catalogue v2 — representative unlocks per axis", () => {
-  it("Production · Capataz novato ← Σ statuses.workOrdersDone ≥ 10", () => {
-    const data = reader({ statuses: [status({ phase: "release", workOrdersDone: 12 })] });
+  it("Production · Capataz novato ← live workOrdersDoneLive ≥ 10 (DR-092/DR-115)", () => {
+    const data = reader({
+      statuses: [status({ phase: "release" })],
+      workOrdersDoneLive: 12,
+    });
     expect(uniq(data, "Capataz novato")?.unlocked).toBe(true);
     expect(uniq(EMPTY, "Capataz novato")?.unlocked).toBe(false);
   });

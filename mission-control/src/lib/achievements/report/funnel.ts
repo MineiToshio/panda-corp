@@ -8,30 +8,12 @@
  * Traceability: AC-10-014.4.
  */
 
-import type { IdeaCard, IdeaStatus } from "../../ideas/ideas";
+import { countIdeas, countLaunched, type IdeaCard } from "../../ideas/ideas";
 import type { StatusResult } from "../../status/status";
 import type { FunnelFlow } from "./types";
 
-/** Every idea status, so the breakdown always has every bucket (never a missing key). */
-const ALL_STATUSES: readonly IdeaStatus[] = [
-  "discovered",
-  "recommended",
-  "in-pipeline",
-  "shipped",
-  "discarded",
-];
-
 /** Phases that count as work-in-progress (active project, not yet launched, past product). */
 const WIP_PHASES: ReadonlySet<string> = new Set(["design", "architecture", "implementation"]);
-
-/** Count present projects at phase === release (launched). */
-function countLaunched(statuses: readonly StatusResult[]): number {
-  let n = 0;
-  for (const sr of statuses) {
-    if (sr.present && sr.status !== null && sr.status.phase === "release") n += 1;
-  }
-  return n;
-}
 
 /** Count present projects whose phase is an active WIP phase. */
 function countWip(statuses: readonly StatusResult[]): number {
@@ -42,16 +24,6 @@ function countWip(statuses: readonly StatusResult[]): number {
     }
   }
   return n;
-}
-
-/** Tally idea cards by status (every bucket present, even at 0). */
-function tallyByStatus(ideas: readonly IdeaCard[]): Record<IdeaStatus, number> {
-  const byStatus = Object.fromEntries(ALL_STATUSES.map((s) => [s, 0])) as Record<
-    IdeaStatus,
-    number
-  >;
-  for (const idea of ideas) byStatus[idea.status] += 1;
-  return byStatus;
 }
 
 /** Discarded cards with no structured `discard_reason` (empty/absent) — a hygiene signal. */
@@ -66,7 +38,11 @@ function countDiscardsWithoutReason(ideas: readonly IdeaCard[]): number {
 /**
  * Derive the funnel/flow aggregates from idea cards + project statuses (IF-10-funnel).
  *
- * Pure: no I/O, no clock, no mutation. Same inputs → same result.
+ * Pure: no I/O, no clock, no mutation. Same inputs → same result. Idea counts
+ * (`totalIdeas`, `byStatus`) come from THE single resolver (`countIdeas`, DR-092/
+ * DR-115); the launched count comes from THE single bridge resolver (`countLaunched`,
+ * `lib/ideas/ideas.ts`, DR-085/DR-115) — never a local status filter/tally, or this
+ * drifts from the dashboard's Pulso count the moment either side's filter changes.
  *
  * @param ideas    - All idea cards (`readIdeas`).
  * @param statuses - Status results for every portfolio project (`readStatus`).
@@ -76,13 +52,13 @@ export function funnelAndFlow(
   ideas: readonly IdeaCard[],
   statuses: readonly StatusResult[],
 ): FunnelFlow {
-  const totalIdeas = ideas.length;
-  const launched = countLaunched(statuses);
+  const { totalIdeas, byStatus } = countIdeas(ideas);
+  const launched = countLaunched(ideas, statuses);
   const conversionPct = totalIdeas === 0 ? 0 : Math.round((launched / totalIdeas) * 100);
 
   return {
     totalIdeas,
-    byStatus: tallyByStatus(ideas),
+    byStatus,
     launched,
     conversionPct,
     wip: countWip(statuses),

@@ -42,7 +42,6 @@ import { computeStats, type ReaderData } from "../stats";
 function mkStatus(
   overrides: Partial<{
     phase: string;
-    workOrdersDone: number;
     project: string;
     updatedAt: string;
   }>,
@@ -61,8 +60,6 @@ function mkStatus(
               : never
             : never
         : never,
-      workOrdersDone: overrides.workOrdersDone ?? 0,
-      workOrdersTotal: 10,
       pendingDecisions: 0,
       pendingBugs: 0,
       running: false,
@@ -160,8 +157,9 @@ describe("computeStats — AC-10-001 — character-sheet counters", () => {
   it("AC-10-001.4 (purity): same input always returns equal output", () => {
     const data: ReaderData = {
       ideas: [mkIdea("discovered"), mkIdea("discarded", "idea-2")],
-      statuses: [mkStatus({ phase: "release", workOrdersDone: 5 })],
+      statuses: [mkStatus({ phase: "release" })],
       eventsSnapshot: mkEventsSnapshot([]),
+      workOrdersDoneLive: 5,
     };
     const a = computeStats(data);
     const b = computeStats(data);
@@ -209,15 +207,14 @@ describe("computeStats — AC-10-001 — character-sheet counters", () => {
     expect(stats.find((s) => s.key === "discarded")?.value).toBe(2);
   });
 
-  it("AC-10-001.1 (workorders): sums workOrdersDone across all projects", () => {
+  it("AC-10-001.1 (workorders): reports the LIVE portfolio-wide total verbatim (DR-092/DR-115)", () => {
+    // workorders is no longer summed from per-project statuses — it is the caller-supplied
+    // live total (getGuildState().liveOutcomes.workOrdersDone, derived from listWorkOrders).
     const data: ReaderData = {
       ideas: [],
-      statuses: [
-        mkStatus({ workOrdersDone: 10 }),
-        mkStatus({ workOrdersDone: 5, project: "p2" }),
-        mkStatus({ workOrdersDone: 3, project: "p3" }),
-      ],
+      statuses: [mkStatus({}), mkStatus({ project: "p2" }), mkStatus({ project: "p3" })],
       eventsSnapshot: mkEventsSnapshot([]),
+      workOrdersDoneLive: 18,
     };
     const stats = computeStats(data);
     expect(stats.find((s) => s.key === "workorders")?.value).toBe(18);
@@ -293,13 +290,14 @@ describe("computeStats — AC-10-001 — character-sheet counters", () => {
     expect(stats.find((s) => s.key === "agents")?.value).toBe(3);
   });
 
-  it("AC-10-001.2 (negative): workorders counter is derived from status, not app-incremented", () => {
-    // Counter must come from real data, not from any stored accumulator
-    // Calling computeStats twice must produce identical results (no side effects)
+  it("AC-10-001.2 (negative): workorders counter is derived from the live input, not app-incremented", () => {
+    // Counter must come from the caller-supplied live total, not from any stored
+    // accumulator. Calling computeStats twice must produce identical results (no side effects).
     const data: ReaderData = {
       ideas: [],
-      statuses: [mkStatus({ workOrdersDone: 7 })],
+      statuses: [mkStatus({})],
       eventsSnapshot: mkEventsSnapshot([]),
+      workOrdersDoneLive: 7,
     };
     const first = computeStats(data);
     const second = computeStats(data);

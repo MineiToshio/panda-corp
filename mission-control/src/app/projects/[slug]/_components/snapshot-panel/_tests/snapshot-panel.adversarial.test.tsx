@@ -6,7 +6,8 @@
  * shapes the FRD-04 page derives. These probe edges the implementer tests did not:
  *   - buildSnapshot → SnapshotPanel end-to-end (not the panel in isolation).
  *   - staleness wiring: isSnapshotStale verdict actually drives the Banner warning.
- *   - progress edges (negative / NaN / >100 / fractional) that reach the UI copy.
+ *   - buildingNow copy stays the plain "building now" string (the old `progress`
+ *     status.yaml field had no writer anywhere and was removed, DR-092/DR-115).
  *   - safeToTest=false while the panel still shows the green Chip.
  *   - whitespace-only sha, slug with shell metacharacters in the shown command.
  *
@@ -17,8 +18,7 @@
  *   - Green signal → data-testid="chip"      (Chip tone="ok", not a bespoke badge)
  *
  * These tests are NOT decorative: each would fail against a plausible naive
- * implementation (e.g. one that fires the warning unconditionally, or that
- * crashes on NaN progress).
+ * implementation (e.g. one that fires the warning unconditionally).
  */
 
 import { render, screen } from "@testing-library/react";
@@ -69,15 +69,15 @@ describe("FRD-14 integration — buildSnapshot feeds SnapshotPanel (the page.tsx
   it("running build → buildingNow set by helper → panel shows the don't-test-yet block", () => {
     const snap = buildSnapshot(
       "proj",
-      status({ running: true, supervisorHeartbeat: new Date().toISOString(), progress: 73 }),
+      status({ running: true, supervisorHeartbeat: new Date().toISOString() }),
     );
     render(<SnapshotPanel slug="proj" snapshot={snap} />);
     const block = screen.getByTestId("snapshot-panel-building-now");
-    expect(block.textContent).toContain("73");
+    expect(block.textContent).toContain("building now");
   });
 
   it("stopped build → no buildingNow → panel omits the building-now block", () => {
-    const snap = buildSnapshot("proj", status({ running: false, progress: 73 }));
+    const snap = buildSnapshot("proj", status({ running: false }));
     render(<SnapshotPanel slug="proj" snapshot={snap} />);
     expect(screen.queryByTestId("snapshot-panel-building-now")).toBeNull();
   });
@@ -134,45 +134,21 @@ describe("FRD-14 staleness — isSnapshotStale verdict drives the Banner warning
 });
 
 // ---------------------------------------------------------------------------
-// progress edges that reach the UI copy via buildingNow.
+// buildingNow copy stays sane — status.yaml's `progress` field had no writer
+// anywhere and was removed (DR-092/DR-115 dead-field cleanup); buildingNow is
+// always the plain "building now" string now, regardless of what other numeric
+// noise might appear on the status object.
 // ---------------------------------------------------------------------------
 
-describe("FRD-14 progress edges — buildingNow copy stays sane", () => {
-  it.each([
-    [-5, "-5"],
-    [150, "150"],
-    [0, "0"],
-  ])("running with progress=%s renders it verbatim in the block", (progress, shown) => {
+describe("FRD-14 buildingNow — always the plain 'building now' string (no fabricated percentage)", () => {
+  it("running with a fresh heartbeat → buildingNow is exactly 'building now'", () => {
     const snap = buildSnapshot(
       "proj",
-      status({ running: true, supervisorHeartbeat: new Date().toISOString(), progress }),
+      status({ running: true, supervisorHeartbeat: new Date().toISOString() }),
     );
-    render(<SnapshotPanel slug="proj" snapshot={snap} />);
-    expect(screen.getByTestId("snapshot-panel-building-now").textContent).toContain(shown);
-  });
-
-  it("running with NaN progress → no crash, building-now still rendered (running alone)", () => {
-    const snap = buildSnapshot(
-      "proj",
-      status({
-        running: true,
-        supervisorHeartbeat: new Date().toISOString(),
-        progress: Number.NaN,
-      }),
-    );
-    // NaN is not Number.isFinite → falls back to plain 'building now'
-    expect(snap?.buildingNow).toBeDefined();
-    expect(snap?.buildingNow).not.toContain("NaN");
+    expect(snap?.buildingNow).toBe("building now");
     render(<SnapshotPanel slug="proj" snapshot={snap} />);
     expect(screen.getByTestId("snapshot-panel-building-now")).toBeTruthy();
-  });
-
-  it("running with fractional progress is preserved (no rounding surprise)", () => {
-    const snap = buildSnapshot(
-      "proj",
-      status({ running: true, supervisorHeartbeat: new Date().toISOString(), progress: 33.3 }),
-    );
-    expect(snap?.buildingNow).toContain("33.3");
   });
 });
 

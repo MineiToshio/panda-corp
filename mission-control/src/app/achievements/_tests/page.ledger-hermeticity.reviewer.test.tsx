@@ -50,9 +50,13 @@ vi.mock("@/lib/status/status", () => ({
 vi.mock("@/lib/events/events", () => ({
   readEvents: vi.fn().mockReturnValue({ events: [], lastEventAt: null, byProject: {} }),
 }));
-vi.mock("@/lib/ideas/ideas", () => ({
-  readIdeas: vi.fn().mockReturnValue([]),
-}));
+vi.mock("@/lib/ideas/ideas", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/ideas/ideas")>();
+  return {
+    ...actual,
+    readIdeas: vi.fn().mockReturnValue([]),
+  };
+});
 vi.mock("@/lib/gamification/gamification", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/gamification/gamification")>();
   return {

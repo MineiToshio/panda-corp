@@ -33,7 +33,12 @@
 export type PulseInput = {
   /** Total ideas in play: discovered + recommended + in-pipeline (non-shipped, non-discarded). */
   ideasAlive: number;
-  /** Ideas that have reached the launched/shipped state. */
+  /**
+   * Launched count (internal or external), from `countLaunched` (`lib/ideas/ideas.ts`,
+   * DR-085/DR-115 bridge) — shipped cards plus portfolio projects at `phase: "release"`,
+   * de-duplicated. NOT a local re-filter of ideas by `status: "shipped"` alone, or this
+   * drifts from the Logros Informe's launched count (DR-115).
+   */
   ideasShipped: number;
   /**
    * In-construction builds whose last event is within the freshness threshold
@@ -62,7 +67,7 @@ export type PulseInput = {
 export type PulseResult = {
   /** Pass-through: ideas in the funnel. */
   ideasAlive: number;
-  /** Pass-through: shipped ideas. */
+  /** Pass-through: launched count (internal or external) — see `PulseInput.ideasShipped`. */
   ideasShipped: number;
   /**
    * Live in-construction count (FRD-12 "En vivo", AC-18-003.2).

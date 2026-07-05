@@ -51,9 +51,11 @@ export interface SnapshotInfo {
   /** Ready-to-copy git worktree command (AC-14-001.2). */
   worktreeCommand: string;
   /**
-   * Set when the build is LIVE (running AND fresh heartbeat, DR-066); contains a
-   * human-readable progress string ("building now: <progress>%") so the UI can show it
-   * without re-deriving (AC-14-002.1). Undefined when not running or not fresh.
+   * Set to "building now" when the build is LIVE (running AND fresh heartbeat,
+   * DR-066) so the UI can show it without re-deriving (AC-14-002.1). Undefined when
+   * not running or not fresh. No percentage is shown — `status.yaml`'s `progress`
+   * field had no writer anywhere (DR-092/DR-115 dead-field removal) and was
+   * therefore never anything but a fabricated number; removed rather than kept.
    */
   buildingNow?: string;
   /**
@@ -113,12 +115,7 @@ export function buildSnapshot(
   let noSignal: true | undefined;
   if (status.running === true) {
     if (isLive(status, now)) {
-      const progress = status.progress;
-      if (typeof progress === "number" && Number.isFinite(progress)) {
-        buildingNow = `building now: ${progress}%`;
-      } else {
-        buildingNow = "building now";
-      }
+      buildingNow = "building now";
     } else {
       noSignal = true;
     }

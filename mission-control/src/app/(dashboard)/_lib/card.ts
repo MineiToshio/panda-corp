@@ -48,9 +48,9 @@ export type CardInput = {
   version: string;
   /** True when the build engine is actively running for this project. */
   running: boolean;
-  /** Count of work orders in done/review state. */
+  /** Count of work orders in "done" state. Caller derives this LIVE via aggregateProgress(listWorkOrders(path)) — DR-092/DR-115, never status.yaml's cached counter. */
   workOrdersDone: number;
-  /** Total work order count. */
+  /** Total work order count. Caller derives this LIVE via aggregateProgress(listWorkOrders(path)) — DR-092/DR-115, never status.yaml's cached counter. */
   workOrdersTotal: number;
   /**
    * ISO 8601 timestamp when the project entered its current phase.

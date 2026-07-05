@@ -9,8 +9,8 @@
  *                 Party, Observabilidad, Documentos, Comandos
  *   AC-04-001.2 — defaults to Resumen/summary when ?tab= is absent; reflects
  *                 ?tab=documents when present
- *   AC-04-002.1 — header shows title/stage/version/progress; omits progress
- *                 line when absent
+ *   AC-04-002.1 — header shows title/stage/version (the status.yaml `progress`
+ *                 line was removed — dead field, no writer; DR-092/DR-115)
  *   AC-04-002.2 — objectives bar shows "2 / 7 · 29%" for those counts;
  *                 omitted when total is 0 or absent
  *   AC-04-002.3 — header + objectives bar present on every tab
@@ -41,29 +41,6 @@ describe("WorkspaceHeader (CMP-04-header)", () => {
     // Stage label is shown in Spanish (architecture §7) — "Implementación"
     expect(screen.getByTestId("workspace-header-stage").textContent).toMatch(/implementaci/i);
     expect(screen.getByTestId("workspace-header-version").textContent).toMatch(/1\.2\.0/);
-  });
-
-  it("AC-04-002.1 — renders progress line when present", () => {
-    render(
-      <WorkspaceHeader
-        title="My Project"
-        stage="release"
-        version="0.9.0"
-        progress="75% done — 3 WOs remaining"
-      />,
-    );
-    const progressEl = screen.getByTestId("workspace-header-progress");
-    expect(progressEl.textContent).toContain("75% done");
-  });
-
-  it("AC-04-002.1 — omits progress line when absent", () => {
-    render(<WorkspaceHeader title="My Project" stage="architecture" version="0.1.0" />);
-    expect(screen.queryByTestId("workspace-header-progress")).toBeNull();
-  });
-
-  it("AC-04-002.1 — omits progress line when empty string", () => {
-    render(<WorkspaceHeader title="My Project" stage="architecture" version="0.1.0" progress="" />);
-    expect(screen.queryByTestId("workspace-header-progress")).toBeNull();
   });
 
   it("AC-04-002.1 — title is visible regardless of stage", () => {

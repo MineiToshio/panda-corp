@@ -235,10 +235,6 @@ export function ProjectWorkspace({
   const deployTarget = status.deployTarget;
   const version = status.version ?? "0.0.0";
   const running = item.running === true || status.running === true;
-  const progress =
-    typeof status.progress === "number" && Number.isFinite(status.progress)
-      ? `${status.progress}% completado`
-      : undefined;
 
   // Work-order progress DERIVED from the real work orders (DR-092 single source — the same
   // aggregateProgress the Kanban uses), NOT the stored status.yaml counters, which drift the moment a
@@ -299,7 +295,6 @@ export function ProjectWorkspace({
         stage={stage}
         deployTarget={deployTarget}
         version={version}
-        progress={progress}
         running={running}
         headingLevel={headingLevel}
       >

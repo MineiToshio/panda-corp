@@ -2,8 +2,11 @@
  * WO-01-005 — `readStatus` (yaml, partial-tolerant) — CMP-01-status, IF-01-readStatus
  *
  * Traceability:
- *   REQ-01-005 (read phase, version, running, progress, work order counts,
- *               pending_decisions, pending_bugs, last_green_sha, safe_to_test)
+ *   REQ-01-005 (read phase, version, running, pending_decisions, pending_bugs,
+ *               last_green_sha, safe_to_test — work order counts and `progress` are
+ *               DEAD status.yaml fields, DR-092/DR-115: display consumers derive
+ *               work-order counts live via listWorkOrders/aggregateProgress, never
+ *               this cache; see readStatusWithLiveInboxCounts for pending_decisions/bugs)
  *   REQ-01-006 (supplies `phase` — single source of truth for in-pipeline column)
  *   REQ-01-010 (project path missing → mark not-found; don't break the view)
  *   REQ-01-011 (read-only invariant: never writes, never calls Claude)
@@ -36,6 +39,7 @@
 
 import fs from "node:fs";
 import { parse as parseYaml } from "yaml";
+import { countPendingBugs } from "../changes/changes";
 import { projectStatusPath } from "../config/config";
 import { countPendingDecisions } from "../docs/activity";
 import { pathExists } from "../fs-utils/fs-utils";
@@ -62,10 +66,17 @@ export type ProjectStatus = {
   phase: Phase;
   version: string;
   running: boolean;
-  progress?: number;
-  workOrdersTotal: number;
-  workOrdersDone: number;
+  /**
+   * LIVE — populated ONLY by `readStatusWithLiveInboxCounts` from
+   * `countPendingDecisions` (`.pandacorp/inbox/decisions.md`), never from a
+   * status.yaml counter (DR-092). `readStatus()` alone never sets this field.
+   */
   pendingDecisions: number;
+  /**
+   * LIVE — populated ONLY by `readStatusWithLiveInboxCounts` from
+   * `countPendingBugs` (`.pandacorp/inbox/changes/`, open bug items), never from a
+   * status.yaml counter (DR-115). `readStatus()` alone never sets this field.
+   */
   pendingBugs: number;
   rethinkPending: boolean;
   advancePending: boolean;
@@ -109,11 +120,6 @@ const VALID_PHASES: ReadonlyArray<Phase> = [
 /** A non-empty string passes; any other type → undefined. */
 function asString(raw: unknown): string | undefined {
   return typeof raw === "string" ? raw : undefined;
-}
-
-/** A finite number passes; NaN/Infinity/non-number → undefined (regression B1'). */
-function asFiniteNumber(raw: unknown): number | undefined {
-  return typeof raw === "number" && Number.isFinite(raw) ? raw : undefined;
 }
 
 /** Strict boolean only: 1/0/NaN/"true" rejected (regression B1'). */
@@ -174,24 +180,6 @@ function mapStringFields(raw: Record<string, unknown>, status: Partial<ProjectSt
   if (runStartedAt !== undefined) status.runStartedAt = runStartedAt;
 }
 
-/** Map the finite-number fields; invalid/NaN/missing omitted (regression B1'). */
-function mapNumberFields(raw: Record<string, unknown>, status: Partial<ProjectStatus>): void {
-  const progress = asFiniteNumber(raw.progress);
-  if (progress !== undefined) status.progress = progress;
-
-  const workOrdersTotal = asFiniteNumber(raw.work_orders_total);
-  if (workOrdersTotal !== undefined) status.workOrdersTotal = workOrdersTotal;
-
-  const workOrdersDone = asFiniteNumber(raw.work_orders_done);
-  if (workOrdersDone !== undefined) status.workOrdersDone = workOrdersDone;
-
-  const pendingDecisions = asFiniteNumber(raw.pending_decisions);
-  if (pendingDecisions !== undefined) status.pendingDecisions = pendingDecisions;
-
-  const pendingBugs = asFiniteNumber(raw.pending_bugs);
-  if (pendingBugs !== undefined) status.pendingBugs = pendingBugs;
-}
-
 /** Map the strict-boolean fields; non-boolean/missing omitted (regression B1'). */
 function mapBooleanFields(raw: Record<string, unknown>, status: Partial<ProjectStatus>): void {
   const running = asStrictBoolean(raw.running);
@@ -224,7 +212,6 @@ function mapStatusFields(raw: Record<string, unknown>): Partial<ProjectStatus> {
   if (targetPlatform !== undefined) status.targetPlatforms = targetPlatform;
 
   mapStringFields(raw, status);
-  mapNumberFields(raw, status);
   mapBooleanFields(raw, status);
 
   return status;
@@ -300,28 +287,36 @@ export function readStatus(projectPath: string): StatusResult {
 }
 
 /**
- * `readStatus` with `pendingDecisions` overridden by the live count from
- * `.pandacorp/inbox/decisions.md` (`countPendingDecisions`), instead of the stored
- * `pending_decisions` YAML counter.
+ * `readStatus` with `pendingDecisions` AND `pendingBugs` overridden by their live
+ * counts, instead of any stored YAML counter:
+ *   - `pendingDecisions` ← `countPendingDecisions` (`.pandacorp/inbox/decisions.md`)
+ *   - `pendingBugs`      ← `countPendingBugs` (`.pandacorp/inbox/changes/`, open bug items)
  *
- * The YAML field is maintenance-only (written by skills as a side effect) and drifts
- * the moment a decision is resolved without that write happening — every owner-facing
- * surface must read the SAME live count the Summary tab's decision list reads, never a
- * second independent derivation (DR-092 single source for derived state).
+ * Neither field is populated by `readStatus()`/`mapNumberFields` from a YAML counter
+ * (both `pending_decisions` and `pending_bugs` mappings were removed there) — THIS
+ * wrapper is the only writer of `pendingDecisions`/`pendingBugs` on the returned
+ * `ProjectStatus`. A stored counter drifts the moment a decision/bug is
+ * resolved without that write happening — every owner-facing surface must read the
+ * SAME live count the Summary/Changes tabs read, never a second independent
+ * derivation (DR-092/DR-115 single source for derived state).
  *
  * `readStatus()` itself is unchanged — still a pure YAML parser; use this wrapper at
- * any call site that displays `pendingDecisions` to the owner.
+ * any call site that displays `pendingDecisions` or `pendingBugs` to the owner.
  *
  * @param projectPath - Absolute path to the project root.
- * @returns The same `StatusResult` as `readStatus`, with `pendingDecisions` live when present.
+ * @returns The same `StatusResult` as `readStatus`, with `pendingDecisions`/`pendingBugs` live when present.
  */
-export function readStatusWithLiveDecisions(projectPath: string): StatusResult {
+export function readStatusWithLiveInboxCounts(projectPath: string): StatusResult {
   const result = readStatus(projectPath);
   if (!result.present || result.status === null) {
     return result;
   }
   return {
     ...result,
-    status: { ...result.status, pendingDecisions: countPendingDecisions(projectPath) },
+    status: {
+      ...result.status,
+      pendingDecisions: countPendingDecisions(projectPath),
+      pendingBugs: countPendingBugs(projectPath),
+    },
   };
 }

@@ -8,16 +8,19 @@
  *   - running pip: ti-player-play icon in var(--color-ok) when running
  *   - stage Chip (accent tone, reusing shared Chip primitive, WO-13-007)
  *   - version string at 12px/text2 (AC-04-002.1)
- *   - optional progress line; omitted when absent or empty (AC-04-002.1)
  *   - visible regardless of the active tab (AC-04-002.3) — structural invariant
  *     enforced by page.tsx, not this component
+ *
+ * The prototype's compactProjectHeader() also had a numeric "progreso" line fed by
+ * status.yaml's `progress` field; that field had no writer anywhere and was removed
+ * (DR-092/DR-115 dead-field cleanup) — the objectives bar (children) is the live,
+ * derived progress signal now.
  *
  * Prototype reference: compactProjectHeader() in docs/design/prototype/index.html
  *   .panel { padding: 10px 14px }
  *   title: font-size:16px; font-weight:500
  *   chip2(status): the shared Chip at accent/ok/warn tone
  *   version: font-size:12px; color:var(--text2)
- *   progreso: font-size:12px; color:var(--text2); margin-top:4px
  *
  * Design rules (AGENTS.md / FRD-13):
  *   - ZERO hardcoded colors — CSS custom properties only.
@@ -46,8 +49,6 @@ export interface WorkspaceHeaderProps {
   deployTarget?: DeployTarget;
   /** Version string, e.g. "1.2.0". */
   version: string;
-  /** Optional progress string from status.yaml; omitted when absent/empty. */
-  progress?: string;
   /** Whether the project build is currently running (shows ti-player-play pip). */
   running?: boolean;
   /**
@@ -133,12 +134,6 @@ const VERSION_STYLE: React.CSSProperties = {
   fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, monospace)",
 };
 
-const PROGRESS_STYLE: React.CSSProperties = {
-  fontSize: "12px",
-  color: "var(--color-text2, currentColor)",
-  margin: "4px 0 0",
-};
-
 // ---------------------------------------------------------------------------
 // WorkspaceHeader component
 // ---------------------------------------------------------------------------
@@ -158,13 +153,11 @@ export function WorkspaceHeader({
   stage,
   deployTarget,
   version,
-  progress,
   running = false,
   headingLevel = 1,
   children,
 }: WorkspaceHeaderProps): React.JSX.Element {
   const stageLabel = STAGE_LABELS[stage] ?? stage;
-  const hasProgress = progress !== undefined && progress.trim().length > 0;
   const TitleTag = headingLevel === 2 ? "h2" : "h1";
 
   return (
@@ -206,18 +199,6 @@ export function WorkspaceHeader({
         {/* Objectives bar — pinned to the right of the title (owner request: justify-between). */}
         {children !== undefined && <div style={OBJECTIVES_RIGHT_STYLE}>{children}</div>}
       </div>
-
-      {/* Optional progress line (AC-04-002.1 — omitted when absent/empty) */}
-      {hasProgress && (
-        <p data-testid="workspace-header-progress" style={PROGRESS_STYLE}>
-          <i
-            className="ti ti-hammer"
-            style={{ fontSize: "12px", verticalAlign: "-1px", color: "var(--color-accent)" }}
-            aria-hidden="true"
-          />{" "}
-          {progress}
-        </p>
-      )}
     </header>
   );
 }

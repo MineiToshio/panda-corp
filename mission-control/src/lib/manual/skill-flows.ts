@@ -747,7 +747,7 @@ const FLOWS: SkillFlow[] = [
         title: "Escribir la change-request en la cola",
         kind: "io",
         detail:
-          "Crea .pandacorp/inbox/changes/<slug>.md (frontmatter máquina en inglés: type/class/status draft|ready; cuerpo en español) e incrementa pending_changes.",
+          "Crea .pandacorp/inbox/changes/<slug>.md (frontmatter máquina en inglés: type/class/status draft|ready; cuerpo en español) — la cola en disco ES el estado; no hay contador que mantener (DR-115).",
         note: "status «ready» = el build lo construye; «draft» = aparcado, el build lo SALTA hasta promoverlo",
       },
       {
@@ -786,7 +786,7 @@ const FLOWS: SkillFlow[] = [
         title: "Escribir el parte de bug",
         kind: "io",
         detail:
-          "Crea .pandacorp/inbox/changes/<slug>.md (type: bug, class expedite si bloquea un flujo; cuerpo en español con pasos/esperado/actual) y sube pending_changes.",
+          "Crea .pandacorp/inbox/changes/<slug>.md (type: bug, class expedite si bloquea un flujo; cuerpo en español con pasos/esperado/actual) — la cola en disco ES el estado; no hay contador que mantener (DR-115).",
       },
       {
         title: "Confirmar al owner",

@@ -114,6 +114,13 @@ export interface BoardCardEntry extends IdeaCardProps {
    */
   docNodes?: DocNode[];
   /**
+   * Real on-disk FRD folder count (`countFrdFolders` over `listProjectDocs` in page.tsx) —
+   * the Spec tab's "N FRDs" badge. Derived LIVE from disk, never from the spec digest's
+   * prose count (DR-092/DR-115): if the digest lists an FRD that doesn't exist on disk (or
+   * omits one that does), the badge still shows the real folder count.
+   */
+  frdCount?: number;
+  /**
    * Spanish high-level spec digest (PRD + research + FRDs) from readSpecDigest in page.tsx,
    * for in-pipeline projects past the product phase. Forwarded to CardDetail's Spec tab;
    * absent → the tab is hidden.

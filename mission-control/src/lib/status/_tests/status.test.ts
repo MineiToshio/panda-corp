@@ -6,8 +6,13 @@
  *
  * Traceability:
  *   AC-01-005.1  WHEN a project has `.pandacorp/status.yaml`, the system SHALL read phase,
- *                version, running, progress, work order count, `pending_decisions`,
- *                `pending_bugs`, `last_green_sha` and `safe_to_test`.
+ *                version, running, `last_green_sha` and `safe_to_test`. `progress`,
+ *                `work_orders_total`/`work_orders_done` and `pending_decisions`/`pending_bugs`
+ *                are DEAD/replica status.yaml fields (DR-092/DR-115): `readStatus` no longer
+ *                maps them at all — `pendingDecisions`/`pendingBugs` are populated ONLY by
+ *                `readStatusWithLiveInboxCounts` (see the dedicated describe block below);
+ *                work-order counts and `progress` have no live-derivation reader in status.ts
+ *                (work-order counts are derived elsewhere via listWorkOrders/aggregateProgress).
  *   AC-01-006.1  WHEN a card is `in-pipeline`, its column comes from the linked project's
  *                `phase`; the project's `status.yaml` is the single source of truth for
  *                the phase. (This WO exposes the `phase`; the column map is FRD-02.)
@@ -20,9 +25,11 @@
  *
  * Regression anchors from .pandacorp/comms/progress.md (real incidents → regression tests):
  *   B1' (2026-06-16): `typeof NaN === "number"` passes numeric type guards. The boolean
- *     fields `running` and `safe_to_test` must not be satisfied by NaN coercion; the
- *     numeric fields `workOrdersTotal` must reject NaN. Tests below cover these paths
- *     via inline temporary status files.
+ *     fields `running` and `safe_to_test` must not be satisfied by NaN coercion. Tests
+ *     below cover these paths via inline temporary status files. (The original NaN-guard
+ *     anchor field, `work_orders_total`, is no longer mapped by readStatus at all —
+ *     DR-092/DR-115 dead-field removal — so its NaN case is now moot; the boolean guards
+ *     remain the live regression surface.)
  *   I2 (2026-06-16): empty-object / empty-array inputs pass collection guards vacuously.
  *     An empty `status.yaml` (`{}`) must return `{ malformed: false, status: {} }` with
  *     all fields undefined — not a partial that invents defaults.
@@ -43,7 +50,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { FIXTURE_FULL } from "@/tests/fixtures";
-import { readStatus, readStatusWithLiveDecisions } from "../status";
+import { readStatus, readStatusWithLiveInboxCounts } from "../status";
 
 // ---------------------------------------------------------------------------
 // Types (mirror the contract in wo-01-005-read-status.md and blueprint §2).
@@ -59,9 +66,6 @@ type ProjectStatus = {
   phase: Phase;
   version: string;
   running: boolean;
-  progress?: number;
-  workOrdersTotal: number;
-  workOrdersDone: number;
   pendingDecisions: number;
   pendingBugs: number;
   rethinkPending: boolean;
@@ -165,40 +169,27 @@ describe("frd-01: readStatus — AC-01-005.1 happy path (proj-a complete status.
     expect(typeof result.status.running).toBe("boolean");
   });
 
-  // --- work order counts ---
+  // --- work order counts: DEAD fields, no longer mapped by readStatus (DR-092/DR-115) ---
 
-  it("frd-01: WHEN status.yaml is present THEN work_orders_total maps to workOrdersTotal (snake→camel, AC-01-005.1)", () => {
+  it("frd-01: WHEN status.yaml has work_orders_total/work_orders_done THEN readStatus does NOT map them (dead fields, DR-115)", () => {
     const result = readStatus(PROJ_A_PATH) as StatusResult;
     if (!result.present) throw new Error("Expected present: true");
-    // fixture: work_orders_total: 28
-    expect(result.status.workOrdersTotal).toBe(28);
-    expect(typeof result.status.workOrdersTotal).toBe("number");
+    // fixture has work_orders_total: 28 / work_orders_done: 7 — but readStatus never maps them;
+    // work-order counts are derived live via listWorkOrders/aggregateProgress elsewhere.
+    expect((result.status as Record<string, unknown>).workOrdersTotal).toBeUndefined();
+    expect((result.status as Record<string, unknown>).workOrdersDone).toBeUndefined();
   });
 
-  it("frd-01: WHEN status.yaml is present THEN work_orders_done maps to workOrdersDone (snake→camel, AC-01-005.1)", () => {
+  // --- decisions and bugs: NOT mapped by plain readStatus (DR-092/DR-115) ---
+  // Both fields are populated ONLY by readStatusWithLiveInboxCounts — see the dedicated
+  // describe block further below. A bare readStatus() call must leave them undefined even
+  // though the fixture sets pending_decisions/pending_bugs.
+
+  it("frd-01: WHEN status.yaml has pending_decisions/pending_bugs THEN plain readStatus does NOT map them (DR-092/DR-115)", () => {
     const result = readStatus(PROJ_A_PATH) as StatusResult;
     if (!result.present) throw new Error("Expected present: true");
-    // fixture: work_orders_done: 7
-    expect(result.status.workOrdersDone).toBe(7);
-    expect(typeof result.status.workOrdersDone).toBe("number");
-  });
-
-  // --- decisions and bugs ---
-
-  it("frd-01: WHEN status.yaml is present THEN pending_decisions maps to pendingDecisions (snake→camel, AC-01-005.1)", () => {
-    const result = readStatus(PROJ_A_PATH) as StatusResult;
-    if (!result.present) throw new Error("Expected present: true");
-    // fixture: pending_decisions: 2
-    expect(result.status.pendingDecisions).toBe(2);
-    expect(typeof result.status.pendingDecisions).toBe("number");
-  });
-
-  it("frd-01: WHEN status.yaml is present THEN pending_bugs maps to pendingBugs (snake→camel, AC-01-005.1)", () => {
-    const result = readStatus(PROJ_A_PATH) as StatusResult;
-    if (!result.present) throw new Error("Expected present: true");
-    // fixture: pending_bugs: 1
-    expect(result.status.pendingBugs).toBe(1);
-    expect(typeof result.status.pendingBugs).toBe("number");
+    expect(result.status.pendingDecisions).toBeUndefined();
+    expect(result.status.pendingBugs).toBeUndefined();
   });
 
   // --- rethink_pending / advance_pending ---
@@ -439,8 +430,6 @@ describe("frd-01: readStatus — edge case: empty status.yaml", () => {
     expect(result.status.phase).toBeUndefined();
     expect(result.status.version).toBeUndefined();
     expect(result.status.running).toBeUndefined();
-    expect(result.status.workOrdersTotal).toBeUndefined();
-    expect(result.status.workOrdersDone).toBeUndefined();
     expect(result.status.pendingDecisions).toBeUndefined();
     expect(result.status.pendingBugs).toBeUndefined();
     expect(result.status.lastGreenSha).toBeUndefined();
@@ -478,30 +467,21 @@ describe("frd-01: readStatus — edge case: partial status.yaml (only phase + ru
     tempProject = makeTempProject("phase: design\nrunning: false\n");
     const result = readStatus(tempProject) as StatusResult;
     if (!result.present) throw new Error("Expected present: true");
-    // Absent numeric fields must be undefined, not 0-coerced.
-    expect(result.status.workOrdersTotal).toBeUndefined();
-    expect(result.status.workOrdersDone).toBeUndefined();
+    // Absent fields must be undefined, not 0/null-coerced.
     expect(result.status.pendingDecisions).toBeUndefined();
     expect(result.status.pendingBugs).toBeUndefined();
     expect(result.status.lastGreenSha).toBeUndefined();
     expect(result.status.safeToTest).toBeUndefined();
   });
 
-  it("frd-01: WHEN status.yaml has only some work-order keys THEN readStatus does NOT throw", () => {
-    tempProject = makeTempProject(
-      "phase: architecture\nwork_orders_total: 10\nwork_orders_done: 3\n",
-    );
-    expect(() => readStatus(tempProject)).not.toThrow();
-  });
-
-  it("frd-01: WHEN status.yaml has work_orders_total and work_orders_done THEN they map correctly", () => {
+  it("frd-01: WHEN status.yaml has work_orders_total/work_orders_done THEN readStatus does NOT throw and does NOT map them (dead fields, DR-115)", () => {
     tempProject = makeTempProject(
       "phase: architecture\nwork_orders_total: 10\nwork_orders_done: 3\n",
     );
     const result = readStatus(tempProject) as StatusResult;
     if (!result.present) throw new Error("Expected present: true");
-    expect(result.status.workOrdersTotal).toBe(10);
-    expect(result.status.workOrdersDone).toBe(3);
+    expect((result.status as Record<string, unknown>).workOrdersTotal).toBeUndefined();
+    expect((result.status as Record<string, unknown>).workOrdersDone).toBeUndefined();
   });
 });
 
@@ -636,17 +616,14 @@ describe("frd-01: readStatus — regression B1': NaN must not be accepted as a n
     if (tempProject) fs.rmSync(tempProject, { recursive: true, force: true });
   });
 
-  it("frd-01: WHEN work_orders_total parses as a non-finite number THEN workOrdersTotal is undefined (not NaN)", () => {
+  it("frd-01: WHEN work_orders_total parses as a non-finite number THEN readStatus still doesn't map it (dead field, DR-115)", () => {
     // YAML does not have a native NaN literal; however a string ".NaN" is parsed
-    // by some YAML parsers as a float NaN. We verify the reader sanitizes it.
+    // by some YAML parsers as a float NaN. work_orders_total is no longer mapped at
+    // all, so a NaN value can't leak through regardless — verify that directly.
     tempProject = makeTempProject("phase: implementation\nwork_orders_total: .NaN\n");
     const result = readStatus(tempProject) as StatusResult;
     if (!result.present) throw new Error("Expected present: true");
-    // Must not propagate NaN into the typed data.
-    const val = result.status.workOrdersTotal;
-    if (val !== undefined) {
-      expect(Number.isFinite(val)).toBe(true);
-    }
+    expect((result.status as Record<string, unknown>).workOrdersTotal).toBeUndefined();
   });
 
   it("frd-01: WHEN pending_decisions is a string in the yaml THEN pendingDecisions is undefined (type-safe)", () => {
@@ -696,8 +673,6 @@ describe("frd-01: readStatus — regression I2: empty yaml map → all-undefined
     expect(result.present).toBe(true);
     if (!result.present) return;
     // All fields must be absent — zero-defaults would be an invention.
-    expect(result.status.workOrdersTotal).toBeUndefined();
-    expect(result.status.workOrdersDone).toBeUndefined();
     expect(result.status.pendingDecisions).toBeUndefined();
     expect(result.status.pendingBugs).toBeUndefined();
     expect(result.status.lastGreenSha).toBeUndefined();
@@ -853,30 +828,6 @@ const SNAKE_TO_CAMEL_CASES: Array<{
   expected: unknown;
 }> = [
   {
-    description: "work_orders_total → workOrdersTotal",
-    yaml: "phase: product\nwork_orders_total: 42\n",
-    field: "workOrdersTotal",
-    expected: 42,
-  },
-  {
-    description: "work_orders_done → workOrdersDone",
-    yaml: "phase: product\nwork_orders_done: 17\n",
-    field: "workOrdersDone",
-    expected: 17,
-  },
-  {
-    description: "pending_decisions → pendingDecisions",
-    yaml: "phase: product\npending_decisions: 5\n",
-    field: "pendingDecisions",
-    expected: 5,
-  },
-  {
-    description: "pending_bugs → pendingBugs",
-    yaml: "phase: product\npending_bugs: 3\n",
-    field: "pendingBugs",
-    expected: 3,
-  },
-  {
     description: "rethink_pending → rethinkPending",
     yaml: "phase: product\nrethink_pending: true\n",
     field: "rethinkPending",
@@ -941,10 +892,11 @@ describe("frd-01: readStatus — snake_case → camelCase mapping exhaustive swe
 });
 
 // ---------------------------------------------------------------------------
-// readStatusWithLiveDecisions — DR-092 single-source override of pendingDecisions
+// readStatusWithLiveInboxCounts — DR-092/DR-115 single-source override of
+// pendingDecisions AND pendingBugs (renamed from readStatusWithLiveDecisions).
 // ---------------------------------------------------------------------------
 
-describe("frd-01: readStatusWithLiveDecisions — pendingDecisions overridden by the live decisions.md count", () => {
+describe("frd-01: readStatusWithLiveInboxCounts — pendingDecisions overridden by the live decisions.md count", () => {
   it("overrides a stale status.yaml pending_decisions with the live count from decisions.md", () => {
     const dir = makeTempProject(["phase: implementation", "pending_decisions: 99"].join("\n"));
     try {
@@ -955,7 +907,7 @@ describe("frd-01: readStatusWithLiveDecisions — pendingDecisions overridden by
         "utf-8",
       );
 
-      const result = readStatusWithLiveDecisions(dir) as StatusResult;
+      const result = readStatusWithLiveInboxCounts(dir) as StatusResult;
       if (!result.present) throw new Error("Expected present: true");
       expect(result.status.pendingDecisions).toBe(1);
     } finally {
@@ -969,7 +921,7 @@ describe("frd-01: readStatusWithLiveDecisions — pendingDecisions overridden by
     );
     try {
       const plain = readStatus(dir) as StatusResult;
-      const withLive = readStatusWithLiveDecisions(dir) as StatusResult;
+      const withLive = readStatusWithLiveInboxCounts(dir) as StatusResult;
       if (!plain.present || !withLive.present) throw new Error("Expected present: true");
 
       expect(withLive.status.pendingDecisions).toBe(0);
@@ -983,9 +935,52 @@ describe("frd-01: readStatusWithLiveDecisions — pendingDecisions overridden by
   it("WHEN status.yaml is absent THEN returns present:false, same as readStatus, no throw", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-status-live-decisions-absent-"));
     try {
-      expect(() => readStatusWithLiveDecisions(dir)).not.toThrow();
-      const result = readStatusWithLiveDecisions(dir) as StatusResult;
+      expect(() => readStatusWithLiveInboxCounts(dir)).not.toThrow();
+      const result = readStatusWithLiveInboxCounts(dir) as StatusResult;
       expect(result.present).toBe(false);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("frd-01: readStatusWithLiveInboxCounts — pendingBugs overridden by the live open-bug count (DR-115)", () => {
+  it("overrides a stale/absent status.yaml with the live open-bug count from the change queue", () => {
+    const dir = makeTempProject(["phase: implementation"].join("\n"));
+    try {
+      const changesDir = path.join(dir, ".pandacorp", "inbox", "changes");
+      fs.mkdirSync(changesDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(changesDir, "mc-bug-open.md"),
+        [
+          "---",
+          "type: bug",
+          "class: standard",
+          "status: ready",
+          "date: 2026-07-05",
+          "frd:",
+          "rebuilds_verified: false",
+          "depends_on:",
+          "---",
+          "",
+          "# Un bug abierto",
+        ].join("\n"),
+      );
+
+      const result = readStatusWithLiveInboxCounts(dir) as StatusResult;
+      if (!result.present) throw new Error("Expected present: true");
+      expect(result.status.pendingBugs).toBe(1);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("WHEN the change queue is absent THEN pendingBugs is 0 (not undefined)", () => {
+    const dir = makeTempProject(["phase: release", "running: true"].join("\n"));
+    try {
+      const result = readStatusWithLiveInboxCounts(dir) as StatusResult;
+      if (!result.present) throw new Error("Expected present: true");
+      expect(result.status.pendingBugs).toBe(0);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

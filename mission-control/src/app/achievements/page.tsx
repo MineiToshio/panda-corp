@@ -64,7 +64,7 @@ export default async function HallPage(): Promise<React.JSX.Element> {
   // ── Read phase (fail-soft, read-only) ────────────────────────────────────
   // Guild state (statuses + events + level) from THE single source of truth, so the
   // hero's level matches the header GuildBar and the Inicio dashboard exactly.
-  const { statuses, level: guildLevel } = getGuildState();
+  const { statuses, level: guildLevel, liveOutcomes } = getGuildState();
   const ideas = readIdeas();
   // Achievements read the FULL event stream (uncapped) so only-grow counters stay
   // honest — the guild level keeps getGuildState's tail (FRD-09 unchanged).
@@ -75,7 +75,12 @@ export default async function HallPage(): Promise<React.JSX.Element> {
   const nextTitle = guildLevel.title;
 
   // ── Build ReaderData for the achievements engine ──────────────────────────
-  const readerData: ReaderData = { ideas, statuses, eventsSnapshot };
+  const readerData: ReaderData = {
+    ideas,
+    statuses,
+    eventsSnapshot,
+    workOrdersDoneLive: liveOutcomes.workOrdersDone,
+  };
 
   // ── Informe operativo report data (WO-10-015 consumes WO-10-014 readers) ───
   // Mission Control's own repo is the project whose git history backs the series;

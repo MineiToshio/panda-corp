@@ -14,7 +14,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { WorkOrder } from "@/lib/work-orders/work-orders";
+import { listWorkOrders, type WorkOrder } from "@/lib/work-orders/work-orders";
 import { deriveGitTimeline, readBuildTimeline } from "../build-track";
 
 // ---------------------------------------------------------------------------
@@ -412,6 +412,89 @@ describe("readBuildTimeline — partial track supplements with structural data",
     const wo02 = tl.frds[0]?.workOrders.find((w) => w.id === "WO-01-002");
     expect(wo02?.startMs).not.toBeNull();
     expect(wo02?.durationMin).toBe(10);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// (e2) DR-092/DR-115 guard — timeline WO-id set ⊇ listWorkOrders(), and
+// frontmatter is authoritative over a stale track state. Exercised against the
+// REAL listWorkOrders() reader (real wo-*.md files on disk), not a hand-built
+// WorkOrder[] fixture — this is the single-source-of-truth invariant the
+// display surfaces (Work Orders tab, ObjectivesBar, Observability DAG) depend
+// on: whatever listWorkOrders() reports MUST all be present in the timeline.
+// ---------------------------------------------------------------------------
+
+/** Write a real work-order markdown file with DR-050 frontmatter under tmpRoot. */
+function writeWorkOrderFile(
+  frd: string,
+  woId: string,
+  implementationStatus: string,
+  title = woId,
+): void {
+  const dir = path.join(tmpRoot, "docs", "frds", frd, "work-orders");
+  fs.mkdirSync(dir, { recursive: true });
+  const filename = `${woId.toLowerCase()}-${title.toLowerCase().replace(/\s+/g, "-")}.md`;
+  fs.writeFileSync(
+    path.join(dir, filename),
+    `---\nimplementation_status: ${implementationStatus}\n---\n\n# ${woId} ${title}\n`,
+    "utf-8",
+  );
+}
+
+describe("readBuildTimeline — DR-092/DR-115: timeline id set ⊇ listWorkOrders(), frontmatter authoritative", () => {
+  it("with a track present + real WO files on disk, the timeline includes EVERY id listWorkOrders() reports", () => {
+    // Track only saw WO-01-002; WO-01-001 and WO-01-003 exist on disk but never hit the track.
+    writeWorkOrderFile("frd-01-x", "WO-01-001", "verified", "first");
+    writeWorkOrderFile("frd-01-x", "WO-01-002", "verified", "second");
+    writeWorkOrderFile("frd-01-x", "WO-01-003", "in_progress", "third");
+
+    writeTrack([
+      line({ kind: "wo_start", frd: "frd-01-x", wo: "WO-01-002", at: "2026-06-30T00:00:00Z" }),
+      line({
+        kind: "wo_end",
+        frd: "frd-01-x",
+        wo: "WO-01-002",
+        state: "verified",
+        at: "2026-06-30T00:10:00Z",
+      }),
+    ]);
+
+    const orders = listWorkOrders(tmpRoot);
+    expect(orders.map((o) => o.id).sort()).toEqual(["WO-01-001", "WO-01-002", "WO-01-003"]);
+
+    const tl = readBuildTimeline(tmpRoot, orders);
+    const timelineIds = tl.frds.flatMap((f) => f.workOrders.map((w) => w.id));
+
+    // Every id listWorkOrders() reports MUST appear somewhere in the timeline
+    // (supplementMissingWos fills in the untracked ones structurally).
+    for (const order of orders) {
+      expect(timelineIds).toContain(order.id);
+    }
+  });
+
+  it("a WO with frontmatter 'done' (VERIFIED) shows done in the timeline even when the track's last event says otherwise", () => {
+    writeWorkOrderFile("frd-02-y", "WO-02-001", "verified", "done-one");
+
+    writeTrack([
+      line({ kind: "wo_start", frd: "frd-02-y", wo: "WO-02-001", at: "2026-06-30T00:00:00Z" }),
+      // The track's last recorded event is a stale "in_review" — an interrupted run before
+      // the final wo_end was appended — but the frontmatter has since moved to VERIFIED.
+      line({
+        kind: "wo_end",
+        frd: "frd-02-y",
+        wo: "WO-02-001",
+        state: "in_review",
+        at: "2026-06-30T00:05:00Z",
+      }),
+    ]);
+
+    const orders = listWorkOrders(tmpRoot);
+    expect(orders[0]?.state).toBe("done"); // frontmatter parsed as VERIFIED → "done"
+
+    const tl = readBuildTimeline(tmpRoot, orders);
+    const wo = tl.frds.flatMap((f) => f.workOrders).find((w) => w.id === "WO-02-001");
+    // resolveWoState: frontmatter "done" wins over the track's stale "review" state.
+    expect(wo?.state).toBe("done");
   });
 });
 

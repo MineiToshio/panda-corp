@@ -102,6 +102,16 @@ export interface SpecDigestProps {
   projectType?: string;
   /** Web target platform (desktop / mobile / responsive) — a "qué es" chip. */
   targetPlatforms?: string;
+  /**
+   * Real on-disk FRD folder count (`countFrdFolders` over `listProjectDocs`, page.tsx) —
+   * drives the "N FRDs" badge. Derived LIVE from disk, never from `spec.frds.length` (parsed
+   * from the gitignored digest PROSE `.pandacorp/comms/spec-resumen.md`): if the digest lists
+   * an FRD that doesn't exist on disk (or omits one that does), the badge shows the real
+   * folder count while the cards below still render whatever the digest describes (narrative
+   * only, DR-092/DR-115). Absent → the badge shows NO count (honest unknown) — it never
+   * falls back to counting the prose (DR-115 forbidden pattern: silent stale fallback).
+   */
+  frdCount?: number;
   resolveLink?: LinkResolver;
 }
 
@@ -419,11 +429,17 @@ export function SpecDigest({
   title,
   projectType,
   targetPlatforms,
+  frdCount,
   resolveLink,
 }: SpecDigestProps): React.JSX.Element {
   const spec = parseSpec(body);
   const metaChips = projectMetaChips(projectType, targetPlatforms);
   const [openFrd, setOpenFrd] = useState<SpecFrd | null>(null);
+  // The badge count is the real on-disk FRD folder count (derived live from disk —
+  // DR-092/DR-115); the digest prose is narrative only. No caller-supplied live count
+  // → no count shown: falling back to the parsed prose would silently resurrect the
+  // second derivation this badge just retired (DR-115 forbidden pattern).
+  const frdBadgeCount = frdCount;
 
   return (
     <article data-testid="card-detail-spec" style={CONTAINER_STYLE} aria-label="Resumen del spec">
@@ -471,7 +487,9 @@ export function SpecDigest({
       {spec.frds.length > 0 && (
         <section className="spec-block" style={BLOCK_FRD_STYLE}>
           <div style={INNER_STYLE}>
-            <p style={BLABEL_FRD_STYLE}>🧩 FRDs · las piezas del v1 ({spec.frds.length})</p>
+            <p style={BLABEL_FRD_STYLE}>
+              🧩 FRDs · las piezas del v1{frdBadgeCount !== undefined ? ` (${frdBadgeCount})` : ""}
+            </p>
             <div style={FRD_GRID_STYLE}>
               {spec.frds.map((frd) => (
                 <FrdCard key={frd.id} frd={frd} onOpen={setOpenFrd} />

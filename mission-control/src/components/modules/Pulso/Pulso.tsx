@@ -224,7 +224,7 @@ export function Pulso({ pulse: p }: PulsoProps): React.JSX.Element {
           labelTestId="pulso-ideas-shipped-label"
           value={p.ideasShipped}
           label="Lanzados"
-          sub="en producción"
+          sub="internos + externos"
           icon="ti-rocket"
         />
         <Stat

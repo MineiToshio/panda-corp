@@ -56,29 +56,37 @@ function withStat(data: ReaderData, key: string, value: number) {
 // ─── AC-10-001.2/.3 — malformed/partial reader data is honest, never NaN ──────
 
 describe("FRD-10 [reviewer]: stats survive malformed/partial status without NaN or fabrication", () => {
-  it("a malformed status with NaN/missing workOrdersDone does not poison the counter", () => {
+  it("a NaN workOrdersDoneLive does not poison the counter (honest 0, DR-092/DR-115)", () => {
+    // workorders is now the LIVE portfolio-wide total supplied by the caller
+    // (getGuildState().liveOutcomes.workOrdersDone), never summed from statuses.
+    // A malformed/NaN live input must clamp to 0, never propagate NaN.
     const data: ReaderData = {
       ideas: [],
-      statuses: [
-        // malformed partial: workOrdersDone is NaN (a real parse hazard)
-        { present: true, malformed: true, status: { workOrdersDone: Number.NaN } },
-        // valid status contributing 7
-        mkStatus({ phase: "implementation", workOrdersDone: 7 }),
-        // partial with no workOrdersDone at all
-        mkStatus({ phase: "design" }),
-      ],
+      statuses: [mkStatus({ phase: "implementation" }), mkStatus({ phase: "design" })],
       eventsSnapshot: mkSnapshot([]),
+      workOrdersDoneLive: Number.NaN,
     };
     const stats = computeStats(data);
     const wo = stats.find((s) => s.key === "workorders");
-    // Honest: only the verifiable 7 counts; NaN/missing contribute 0, never NaN.
-    expect(wo?.value).toBe(7);
+    expect(wo?.value).toBe(0);
     expect(Number.isNaN(wo?.value)).toBe(false);
     // Every counter is a finite, non-negative integer (only-grow invariant).
     for (const s of stats) {
       expect(Number.isFinite(s.value)).toBe(true);
       expect(s.value).toBeGreaterThanOrEqual(0);
     }
+  });
+
+  it("a valid workOrdersDoneLive is reported verbatim (clamped non-negative, truncated)", () => {
+    const data: ReaderData = {
+      ideas: [],
+      statuses: [mkStatus({ phase: "implementation" })],
+      eventsSnapshot: mkSnapshot([]),
+      workOrdersDoneLive: 7,
+    };
+    const stats = computeStats(data);
+    const wo = stats.find((s) => s.key === "workorders");
+    expect(wo?.value).toBe(7);
   });
 
   it("an absent (present:false) status contributes nothing — no fabricated trophies", () => {

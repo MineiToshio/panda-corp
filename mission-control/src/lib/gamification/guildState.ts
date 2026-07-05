@@ -12,7 +12,8 @@
  * traversal runs once per request and every consumer in that request gets the
  * exact same object.
  *
- * Read-only: `readPortfolio` + `readStatusWithLiveDecisions` + `readEvents` — no writes, no Claude.
+ * Read-only: `readPortfolio` + `readStatusWithLiveInboxCounts` + `readEvents` +
+ * `listWorkOrders` (for the live workOrdersDone total, DR-115) — no writes, no Claude.
  *
  * Traceability: FRD-09 (gamification) — CMP-09-guild-state.
  */
@@ -21,7 +22,8 @@ import { cache } from "react";
 import { resolveProjectPath } from "@/lib/config/config";
 import { type EventsSnapshot, readEvents } from "@/lib/events/events";
 import { readPortfolio } from "@/lib/portfolio/portfolio";
-import { readStatusWithLiveDecisions, type StatusResult } from "@/lib/status/status";
+import { readStatusWithLiveInboxCounts, type StatusResult } from "@/lib/status/status";
+import { listWorkOrders } from "@/lib/work-orders/work-orders";
 import {
   computeGuildLevel,
   deriveGuildOutcomes,
@@ -67,13 +69,20 @@ export type GuildState = {
 export function readGuildState(): GuildState {
   // The portfolio path is factory-root-relative (e.g. "mission-control"); it MUST
   // be resolved before readStatus, or every project reads ABSENT (the original bug).
-  const statuses = readPortfolio().map((entry) =>
-    readStatusWithLiveDecisions(resolveProjectPath(entry.path)),
-  );
+  const portfolioPaths = readPortfolio().map((entry) => resolveProjectPath(entry.path));
+  const statuses = portfolioPaths.map((absPath) => readStatusWithLiveInboxCounts(absPath));
   const eventsSnapshot = readEvents();
 
+  // workOrdersDone: LIVE count of WOs in state "done", summed across the whole portfolio
+  // (DR-092/DR-115) — never status.yaml's cached work_orders_done counter, which drifts
+  // the moment a WO is added/reopened/closed without a build-engine write happening.
+  const workOrdersDoneLive = portfolioPaths.reduce(
+    (sum, absPath) => sum + listWorkOrders(absPath).filter((wo) => wo.state === "done").length,
+    0,
+  );
+
   // Live outcomes from the current portfolio state.
-  const liveOutcomes = deriveGuildOutcomes({ statuses, eventsSnapshot });
+  const liveOutcomes = deriveGuildOutcomes({ statuses, eventsSnapshot, workOrdersDoneLive });
 
   // WO-09-006 — ledger merge: MAX(live, ledger) so deleting a project NEVER
   // decreases the guild's XP or level (AC-09-006.1).

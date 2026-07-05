@@ -147,6 +147,27 @@ function _collectGlobalDocs(projectPath: string, nodes: DocNode[]): void {
 }
 
 /**
+ * Count the distinct FRD folders present in a document tree (the number of
+ * `Feature: frd-NN-<slug>` groups) — the canonical, on-disk FRD count.
+ *
+ * Use this wherever a UI needs "how many FRDs does this project have" instead of
+ * trusting a count parsed from narrative prose (a digest, a summary doc): a folder
+ * under `docs/frds/frd-*` is the ground truth, prose is just a description of it
+ * that can list a stale/renamed/removed FRD without anyone noticing (DR-092/DR-115).
+ *
+ * @param nodes - The result of `listProjectDocs` (or any subset that preserves
+ *   the `Feature:`-prefixed groups, e.g. the board's scoped doc filter).
+ * @returns The number of distinct FRD folders represented in `nodes`.
+ */
+export function countFrdFolders(nodes: readonly DocNode[]): number {
+  const groups = new Set<string>();
+  for (const node of nodes) {
+    if (node.group.startsWith("Feature:")) groups.add(node.group);
+  }
+  return groups.size;
+}
+
+/**
  * Return the raw markdown content of a document identified by its relative path,
  * but ONLY if that relPath is one that `listProjectDocs` would surface.
  *

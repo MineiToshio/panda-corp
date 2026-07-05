@@ -120,6 +120,50 @@ describe("ArchitectureDigest", () => {
   });
 });
 
+// --- FRD card "N WOs" badge — derived from disk (workOrdersForFrd), not digest prose ---
+
+describe("ArchitectureDigest — FRD card WO-count badge derives from disk", () => {
+  it("shows 0 (no badge) when the digest lists a WO the disk doesn't have (workOrders=[])", () => {
+    renderDigest();
+    // DIGEST's FRD-01 prose lists "WO-00-001", but the live `workOrders` prop is [] —
+    // the badge must NOT show "1 WO" from the prose; it shows nothing (disk truth: 0).
+    const card = screen.getByRole("button", { name: /FRD-01 Site shell/ });
+    expect(within(card).queryByText(/WO$/)).not.toBeInTheDocument();
+    expect(within(card).queryByText(/WOs$/)).not.toBeInTheDocument();
+  });
+
+  it("shows the REAL disk count even when it differs from the digest prose's single WO", () => {
+    const liveWos = [
+      {
+        id: "WO-01-001",
+        title: "a",
+        frd: "frd-01-site-shell",
+        state: "todo" as const,
+        relPath: "a.md",
+      },
+      {
+        id: "WO-01-002",
+        title: "b",
+        frd: "frd-01-site-shell",
+        state: "todo" as const,
+        relPath: "b.md",
+      },
+    ];
+    render(
+      <ArchitectureDigest
+        body={DIGEST}
+        title="personal-page-v2"
+        workOrders={liveWos}
+        envVars={ENV}
+        adrs={ADRS}
+      />,
+    );
+    const card = screen.getByRole("button", { name: /FRD-01 Site shell/ });
+    // Disk has 2 WOs for frd-01 even though the prose only lists one ("WO-00-001").
+    expect(within(card).getByText("2 WOs")).toBeInTheDocument();
+  });
+});
+
 // --- Per-FRD dependency DAG inside the FRD modal (only when > 1 work order) ---
 
 const DIGEST_TWO_FRDS = `---

@@ -713,6 +713,17 @@ function ConceptEstandares(): React.JSX.Element {
           defecto — hoy hay <B weight={600}>cero</B>). <Code>check-standards.sh</Code> valida la
           plantilla y avisa si reaparece uno.
         </div>
+        <Divider />
+        <div style={{ fontSize: "12px", color: "var(--color-text2)", lineHeight: 1.6 }}>
+          <B weight={500}>Fuente única de verdad (DR-115, 2026-07-05):</B> cada hecho (un conteo, un
+          estado, un nivel) tiene <B weight={600}>un solo escritor</B>; todo lo demás{" "}
+          <B weight={600}>deriva</B> a través de un único resolver — nunca duplica. Un valor
+          derivado solo puede almacenarse como <B weight={600}>cache honesto</B> (escritor único
+          nombrado + re-derivación en puntos seguros + documentado como réplica), y ninguna
+          superficie de display lo lee si existe un resolver vivo. Una segunda derivación
+          independiente del mismo hecho es un defecto que el reviewer rechaza. Canónico:{" "}
+          <Code>single-source-of-truth.md</Code>.
+        </div>
       </Panel>
     </>
   );

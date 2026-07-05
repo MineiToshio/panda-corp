@@ -13,8 +13,11 @@
  * real fs reads in temp dirs; no mocks, no writes to the factory.
  *
  * Traceability:
- *   AC-01-005.1  read phase, version, running, PROGRESS, work order count,
- *                pending_decisions, pending_bugs, last_green_sha, safe_to_test.
+ *   AC-01-005.1  read phase, version, running, last_green_sha, safe_to_test. `progress`,
+ *                work-order counts and `pending_decisions`/`pending_bugs` are DEAD/replica
+ *                status.yaml fields (DR-092/DR-115) — readStatus no longer maps any of
+ *                them; pendingDecisions/pendingBugs are populated ONLY by
+ *                readStatusWithLiveInboxCounts (status.test.ts).
  *   (Edge)       absent / malformed / partial → render partial, never throw.
  *   REQ-01-011   read-only invariant (never writes, never calls Claude).
  *   B1'/I2/I3    regression anchors from .pandacorp/comms/progress.md (WO-13-001 incident).
@@ -32,9 +35,6 @@ type ProjectStatus = {
   phase: Phase;
   version: string;
   running: boolean;
-  progress?: number;
-  workOrdersTotal: number;
-  workOrdersDone: number;
   pendingDecisions: number;
   pendingBugs: number;
   rethinkPending: boolean;
@@ -59,50 +59,23 @@ function makeTempProject(yamlContent: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// GAP 1 — `progress` is named in AC-01-005.1 but status.test.ts never tests it.
+// GAP 1 — `progress` was named in AC-01-005.1 but had NO writer anywhere; it was
+// removed from ProjectStatus entirely (DR-092/DR-115 dead-field cleanup). readStatus
+// no longer maps it under any circumstance — verify that directly instead of
+// exercising a coercion path that no longer exists.
 // ---------------------------------------------------------------------------
 
-describe("frd-01 adversarial: progress field (named in AC-01-005.1, untested by implementer)", () => {
+describe("frd-01 adversarial: progress field removed (dead field, no writer, DR-092/DR-115)", () => {
   let tempProject: string;
   afterEach(() => {
     if (tempProject) fs.rmSync(tempProject, { recursive: true, force: true });
   });
 
-  it("frd-01: WHEN progress is a finite integer THEN it is read into status.progress", () => {
+  it("frd-01: WHEN status.yaml sets progress THEN readStatus does NOT map it onto the result", () => {
     tempProject = makeTempProject("phase: implementation\nprogress: 42\n");
     const result = readStatus(tempProject) as StatusResult;
     if (!result.present) throw new Error("Expected present: true");
-    expect(result.status.progress).toBe(42);
-  });
-
-  it("frd-01: WHEN progress is a finite float THEN it is read faithfully (not floored)", () => {
-    tempProject = makeTempProject("phase: implementation\nprogress: 33.5\n");
-    const result = readStatus(tempProject) as StatusResult;
-    if (!result.present) throw new Error("Expected present: true");
-    expect(result.status.progress).toBe(33.5);
-  });
-
-  it("frd-01: WHEN progress is the string 'NaN' (.NaN yaml float) THEN progress is undefined (B1')", () => {
-    tempProject = makeTempProject("phase: implementation\nprogress: .NaN\n");
-    const result = readStatus(tempProject) as StatusResult;
-    if (!result.present) throw new Error("Expected present: true");
-    const v = result.status.progress;
-    if (v !== undefined) expect(Number.isFinite(v)).toBe(true);
-    expect(result.status.progress).toBeUndefined();
-  });
-
-  it("frd-01: WHEN progress is a YAML infinity (.inf) THEN progress is undefined (non-finite rejected)", () => {
-    tempProject = makeTempProject("phase: implementation\nprogress: .inf\n");
-    const result = readStatus(tempProject) as StatusResult;
-    if (!result.present) throw new Error("Expected present: true");
-    expect(result.status.progress).toBeUndefined();
-  });
-
-  it("frd-01: WHEN progress is a string THEN progress is undefined (no coercion)", () => {
-    tempProject = makeTempProject('phase: design\nprogress: "50%"\n');
-    const result = readStatus(tempProject) as StatusResult;
-    if (!result.present) throw new Error("Expected present: true");
-    expect(result.status.progress).toBeUndefined();
+    expect((result.status as Record<string, unknown>).progress).toBeUndefined();
   });
 });
 
@@ -279,23 +252,14 @@ describe("frd-01 adversarial: boolean/number coercion hardening", () => {
     }
   });
 
-  it("frd-01: WHEN work_orders_total is a negative number THEN it is read as-is (validation is a downstream concern, but it must stay a number)", () => {
-    // readStatus is a tolerant reader, not a validator; negatives are not its job
-    // to clamp, but they must never become NaN or a string.
+  it("frd-01: WHEN work_orders_total is set (any shape) THEN it is never mapped (dead field, DR-092/DR-115)", () => {
+    // readStatus no longer maps work_orders_total under any circumstance — it is a
+    // dead/replica status.yaml field; work-order counts are derived live elsewhere
+    // via listWorkOrders/aggregateProgress.
     tempProject = makeTempProject("work_orders_total: -5\n");
     const result = readStatus(tempProject) as StatusResult;
     if (!result.present) throw new Error("Expected present: true");
-    if (result.status.workOrdersTotal !== undefined) {
-      expect(typeof result.status.workOrdersTotal).toBe("number");
-      expect(Number.isFinite(result.status.workOrdersTotal)).toBe(true);
-    }
-  });
-
-  it("frd-01: WHEN work_orders_total is an empty object {} THEN it is undefined (I2 vacuous-truth)", () => {
-    tempProject = makeTempProject("work_orders_total: {}\n");
-    const result = readStatus(tempProject) as StatusResult;
-    if (!result.present) throw new Error("Expected present: true");
-    expect(result.status.workOrdersTotal).toBeUndefined();
+    expect((result.status as Record<string, unknown>).workOrdersTotal).toBeUndefined();
   });
 });
 
@@ -455,10 +419,6 @@ describe("frd-01 adversarial: result is JSON-serializable (RSC boundary safety)"
         "phase: implementation",
         "version: v2",
         "running: true",
-        "work_orders_total: 10",
-        "work_orders_done: 4",
-        "pending_decisions: 1",
-        "pending_bugs: 0",
         "last_green_sha: abc123",
         "safe_to_test: false",
         "",
@@ -468,9 +428,8 @@ describe("frd-01 adversarial: result is JSON-serializable (RSC boundary safety)"
     if (!result.present) throw new Error("Expected present: true");
     const round = JSON.parse(JSON.stringify(result)) as StatusResult;
     if (!round.present) throw new Error("Expected present after round-trip");
-    expect(round.status.workOrdersTotal).toBe(10);
-    expect(round.status.workOrdersDone).toBe(4);
+    expect(round.status.phase).toBe("implementation");
     expect(round.status.safeToTest).toBe(false);
-    expect(round.status.pendingBugs).toBe(0);
+    expect(round.status.lastGreenSha).toBe("abc123");
   });
 });

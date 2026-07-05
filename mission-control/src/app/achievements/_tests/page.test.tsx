@@ -26,7 +26,7 @@ vi.mock("@/lib/portfolio/portfolio", () => ({
 vi.mock("@/lib/status/status", () => ({
   readStatus: vi.fn().mockReturnValue({ present: false, malformed: false, status: null }),
   // guildState.ts reads pendingDecisions through this wrapper (DR-092 single source) — see status.ts.
-  readStatusWithLiveDecisions: vi
+  readStatusWithLiveInboxCounts: vi
     .fn()
     .mockReturnValue({ present: false, malformed: false, status: null }),
 }));
@@ -35,9 +35,13 @@ vi.mock("@/lib/events/events", () => ({
   readEvents: vi.fn().mockReturnValue({ events: [], lastEventAt: null, byProject: {} }),
 }));
 
-vi.mock("@/lib/ideas/ideas", () => ({
-  readIdeas: vi.fn().mockReturnValue([]),
-}));
+vi.mock("@/lib/ideas/ideas", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/ideas/ideas")>();
+  return {
+    ...actual,
+    readIdeas: vi.fn().mockReturnValue([]),
+  };
+});
 
 vi.mock("@/lib/gamification/gamification", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/gamification/gamification")>();
@@ -325,19 +329,17 @@ describe("AC-10-005.5 — design tokens, a11y, keyboard navigation", () => {
 describe("Integration — stats derived from real reader data", () => {
   it("shows non-zero shipped count when portfolio has a release-phase (launched) project", async () => {
     const { readPortfolio } = await import("@/lib/portfolio/portfolio");
-    const { readStatusWithLiveDecisions } = await import("@/lib/status/status");
+    const { readStatusWithLiveInboxCounts } = await import("@/lib/status/status");
 
     vi.mocked(readPortfolio).mockReturnValueOnce([
       { path: "/fake/project", name: "my-proj" },
     ] as ReturnType<typeof readPortfolio>);
-    vi.mocked(readStatusWithLiveDecisions).mockReturnValueOnce({
+    vi.mocked(readStatusWithLiveInboxCounts).mockReturnValueOnce({
       present: true,
       malformed: false,
       status: {
         project: "my-proj",
         phase: "release",
-        workOrdersDone: 5,
-        workOrdersTotal: 5,
         pendingDecisions: 0,
         pendingBugs: 0,
         running: false,

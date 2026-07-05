@@ -36,9 +36,9 @@
 // ---------------------------------------------------------------------------
 
 export interface ObjectivesBarProps {
-  /** work_orders_done from status.yaml. */
+  /** Derived live from listWorkOrders (aggregateProgress) — DR-092/DR-115, never status.yaml. */
   done: number;
-  /** work_orders_total from status.yaml; when 0 or undefined the bar is omitted. */
+  /** Derived live from listWorkOrders (aggregateProgress) — DR-092/DR-115, never status.yaml; when 0 or undefined the bar is omitted. */
   total: number | undefined;
 }
 

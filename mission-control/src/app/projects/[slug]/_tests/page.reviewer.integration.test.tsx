@@ -12,8 +12,8 @@
  *   - `?doc=` traversal / unlisted path through the page must NOT leak file
  *     content (security boundary of readDoc, surfaced end-to-end).
  *   - `?doc=` to a node that exists in the tree but is a SYMLINK must not be read.
- *   - progress = 0 must still render ("0% completado"), not be dropped as falsy.
- *   - objectives bar omitted when total absent; rendered + clamped when done>total.
+ *   - objectives bar omitted when listWorkOrders() is empty (no live WOs); rendered
+ *     + clamped when done>total.
  *   - all-resolved decisions (pendingDecisions === 0) → no warning treatment.
  *   - unknown phase string survives to the Commands tab without throwing and
  *     yields the safe fallback command, never a misleading building command.
@@ -46,10 +46,11 @@ const statusState = {
   project: "Fixture",
   phase: "implementation" as string,
   version: "1.0.0",
-  progress: 0 as number | undefined,
-  workOrdersTotal: 4 as number | undefined,
-  workOrdersDone: 2,
 };
+
+/** Work orders returned by the mocked listWorkOrders() — objectives-bar source (DR-092/DR-115). */
+let mockWorkOrders: { id: string; title: string; frd: string; state: string; relPath: string }[] =
+  [];
 
 vi.mock("@/lib/portfolio/portfolio", () => ({
   activeProjects: () => [{ name: "demo", path: fixtureRoot, stage: "implementation" }],
@@ -63,18 +64,30 @@ vi.mock("@/lib/status/status", () => ({
       project: statusState.project,
       phase: statusState.phase,
       version: statusState.version,
-      progress: statusState.progress,
-      workOrdersTotal: statusState.workOrdersTotal,
-      workOrdersDone: statusState.workOrdersDone,
     },
   }),
 }));
 
 vi.mock("@/lib/work-orders/work-orders", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/work-orders/work-orders")>()),
-  listWorkOrders: () => [],
+  listWorkOrders: () => mockWorkOrders,
   readWorkOrderDoc: () => null,
 }));
+
+/** Build N "done" + M "todo" work orders for the objectives-bar edge-case tests. */
+function buildWorkOrders(done: number, total: number) {
+  const orders: { id: string; title: string; frd: string; state: string; relPath: string }[] = [];
+  for (let i = 0; i < total; i++) {
+    orders.push({
+      id: `WO-01-${String(i).padStart(3, "0")}`,
+      title: `WO ${i}`,
+      frd: "frd-01-x",
+      state: i < done ? "done" : "todo",
+      relPath: `docs/frds/frd-01-x/work-orders/wo-01-${String(i).padStart(3, "0")}.md`,
+    });
+  }
+  return orders;
+}
 
 import { ObjectivesBar } from "../_components/objectives-bar";
 // Imported AFTER the mocks above so the page picks them up.
@@ -117,9 +130,7 @@ beforeEach(() => {
   statusState.project = "Fixture";
   statusState.phase = "implementation";
   statusState.version = "1.0.0";
-  statusState.progress = 0;
-  statusState.workOrdersTotal = 4;
-  statusState.workOrdersDone = 2;
+  mockWorkOrders = buildWorkOrders(2, 4);
 });
 
 function renderPage(searchParams: Record<string, string> = {}) {
@@ -212,14 +223,8 @@ describe("FRD-04 reviewer — Summary tab real comms integration", () => {
 // ---------------------------------------------------------------------------
 
 describe("FRD-04 reviewer — header + objectives numeric edges", () => {
-  it("progress = 0 still renders '0% completado' (0 is finite, not dropped as falsy)", async () => {
-    statusState.progress = 0;
-    render(await renderPage({ tab: "commands" }));
-    expect(screen.getByTestId("workspace-header-progress").textContent).toContain("0%");
-  });
-
-  it("objectives bar is OMITTED when total is absent (AC-04-002.2)", async () => {
-    statusState.workOrdersTotal = undefined;
+  it("objectives bar is OMITTED when listWorkOrders() returns none (AC-04-002.2)", async () => {
+    mockWorkOrders = [];
     render(await renderPage({ tab: "commands" }));
     expect(screen.queryByTestId("objectives-bar")).toBeNull();
   });

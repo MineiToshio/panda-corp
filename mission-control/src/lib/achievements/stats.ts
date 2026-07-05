@@ -90,7 +90,7 @@ function countAtMinPhase(statuses: readonly StatusResult[], minRank: number): nu
  * |------------|-----------------------------------------------------------------|
  * | shipped    | projects at phase=release (statuses)                            |
  * | ideas      | all idea cards (any status)                                     |
- * | workorders | Σ statuses.workOrdersDone (signals.woClosed)                    |
+ * | workorders | live portfolio-wide WO "done" total (signals.woClosed, DR-115)  |
  * | phases     | projects advanced past product (statuses)                       |
  * | iterations | build relaunches (signals.relaunches)                           |
  * | flawless   | gates passed with reopen 0 (signals.flawlessGates)              |

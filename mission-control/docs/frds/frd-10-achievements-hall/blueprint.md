@@ -51,7 +51,7 @@ app-incremented counter:
 
 | Stat / achievement input | Source | Reader |
 |---|---|---|
-| products shipped | projects at `phase: release` (DR-085: launched/terminal) | `lib/status.ts`, `lib/portfolio.ts` (FRD-01/03) |
+| products shipped ("launched" — the Informe's `funnel.launched`, the dashboard Pulso's `ideasShipped`) | shipped idea cards ∪ projects at `phase: release` (DR-085: launched/terminal), de-duplicated | `countLaunched` in `lib/ideas/ideas.ts` (DR-085/DR-115 single bridge resolver — never re-derived locally) |
 | ideas captured / discarded | `factory/ideas/*.md` (`status`) | `lib/ideas.ts` (FRD-01) |
 | work orders completed | `status.yaml` `work_orders_done` + `achievement` events | `lib/status.ts`, `lib/events.ts` |
 | phases completed | `status.yaml` `phase` history | `lib/status.ts` |
@@ -116,7 +116,9 @@ read modules under `lib/achievements/report/` (or `lib/report/`, decided at buil
 - **`IF-10-usage`** — most-used workflows/skills + effort mix, aggregated from the event stream
   (`eventsSnapshot`, already read by the page) — no new fs access; pure over `ReaderData`.
 - **`IF-10-funnel`** — ideas→launched funnel + WIP (active projects) + conversion, pure over
-  `readIdeas`+`readStatus` (no new I/O).
+  `readIdeas`+`readStatus` (no new I/O). The `launched` count itself delegates to `countLaunched`
+  (`lib/ideas/ideas.ts`, DR-085/DR-115) — the same resolver the dashboard Pulso KPI calls, so the two
+  surfaces can never independently drift on "how many launches" again.
 - **`IF-10-lessons`** — distilled-vs-captured lesson counts (**2 / 131**), from the memory reader
   (`lib/memory`) + the inbox; renders "no cableado" if a source is absent.
 - **verdict + next-actions** — pure deterministic rule functions over the above aggregates (same inputs →

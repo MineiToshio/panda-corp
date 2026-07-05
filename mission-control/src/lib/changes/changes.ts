@@ -246,3 +246,26 @@ export function readChangeQueue(projectPath: string): ChangeQueueReadResult {
 
   return { items, errors };
 }
+
+/** The statuses ChangesPanel shows by default ("open" — ready + draft; DR-092/DR-115). */
+const OPEN_STATUSES: ReadonlySet<ChangeQueueStatus> = new Set(["ready", "draft"]);
+
+/**
+ * Count the OPEN bugs in a project's change queue (DR-092/DR-115 live derivation).
+ *
+ * "Open" mirrors ChangesPanel's default-visible groups: `status` is `"ready"` or
+ * `"draft"` (NOT `"done"` — archived/resolved — and NOT `"discarded"`) and `type`
+ * is `"bug"`. Reuses `readChangeQueue` — no independent parsing — so a bug moved to
+ * `done/` (or flipped to `discarded` in place) stops inflating the badge.
+ * Malformed queue files are already surfaced via `errors[]` by `readChangeQueue`;
+ * this helper only tallies successfully-parsed items.
+ *
+ * A missing/empty queue directory is a legitimately-empty count → 0 (never throws).
+ *
+ * @param projectPath - Absolute path to the project root.
+ * @returns The number of open (ready/draft) bug items.
+ */
+export function countPendingBugs(projectPath: string): number {
+  const { items } = readChangeQueue(projectPath);
+  return items.filter((item) => item.type === "bug" && OPEN_STATUSES.has(item.status)).length;
+}

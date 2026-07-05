@@ -57,14 +57,14 @@ import {
 } from "@/lib/constants";
 import type { EventsSnapshot } from "@/lib/events/events";
 import { getGuildState } from "@/lib/gamification/guildState";
-import { type IdeaCard, readIdeas } from "@/lib/ideas/ideas";
+import { countIdeas, countLaunched, type IdeaCard, readIdeas } from "@/lib/ideas/ideas";
 import type { MemoryHealth } from "@/lib/memory/memory-health";
 import { memoryHealth } from "@/lib/memory/memory-health";
 import { getPendingMerge } from "@/lib/pendingMerge/pendingMerge";
 import { activeProjects, type ProjectListItem } from "@/lib/portfolio/portfolio";
 import { readProfile } from "@/lib/profile/profile";
 import type { StatusResult } from "@/lib/status/status";
-import { listWorkOrders } from "@/lib/work-orders/work-orders";
+import { aggregateProgress, listWorkOrders } from "@/lib/work-orders/work-orders";
 
 // ---------------------------------------------------------------------------
 // Page layout styles (CSS custom properties only — FRD-13)
@@ -121,7 +121,12 @@ function countConstructionSplit(
 
 /**
  * Derive one CardData from a ProjectListItem + event snapshot (IF-18-card).
- * Fail-soft: listWorkOrders errors are swallowed; no blocker reason reported.
+ * Fail-soft: listWorkOrders errors are swallowed; no blocker reason reported and
+ * WO progress falls back to zero/zero (AC-18-001.7).
+ *
+ * Work-order counts are derived LIVE from `listWorkOrders` + `aggregateProgress`
+ * (DR-092/DR-115) — never from the status.yaml cache, which drifts the moment a
+ * work order is added/reopened without a build-engine write happening.
  */
 function deriveProjectCard(
   p: ProjectListItem,
@@ -131,13 +136,18 @@ function deriveProjectCard(
   const lastEventAt = byProject[p.name]?.lastEventAt ?? null;
 
   let failedWoReason: string | undefined;
+  let workOrdersDone = 0;
+  let workOrdersTotal = 0;
   if (p.exists && p.path) {
     try {
       const wos = listWorkOrders(p.path);
       const failed = wos.find((wo) => wo.state === "fail");
       failedWoReason = failed?.title ?? undefined;
+      const progress = aggregateProgress(wos);
+      workOrdersDone = progress.done;
+      workOrdersTotal = progress.total;
     } catch {
-      // Read failure — no blocker reason available (fail-soft)
+      // Read failure — no blocker reason available, WO progress stays 0/0 (fail-soft)
     }
   }
 
@@ -152,8 +162,8 @@ function deriveProjectCard(
     phase: p.stage ?? "product",
     version: statusData?.version ?? "v1",
     running: p.running ?? false,
-    workOrdersDone: statusData?.workOrdersDone ?? 0,
-    workOrdersTotal: statusData?.workOrdersTotal ?? 0,
+    workOrdersDone,
+    workOrdersTotal,
     phaseStartedAt,
     lastEventAt,
     failedWoReason,
@@ -216,22 +226,30 @@ function deriveTurnItems(
 /** Input bundle for {@link derivePulse}. */
 interface DerivePulseInput {
   ideas: readonly IdeaCard[];
+  statuses: readonly StatusResult[];
   projects: readonly ProjectListItem[];
   byProject: EventsSnapshot["byProject"];
   ownerWaiting: number;
   nowMs: number;
 }
 
-/** IF-18-pulse derivation from live data. */
+/**
+ * IF-18-pulse derivation from live data. `ideasAlive` comes from THE single
+ * resolver (`countIdeas`, DR-092/DR-115); the launched count comes from THE
+ * single bridge resolver (`countLaunched`, DR-085/DR-115) — never a local
+ * status filter, or this drifts from the Logros Informe's independent count
+ * the moment either side's filter changes.
+ */
 function derivePulse({
   ideas,
+  statuses,
   projects,
   byProject,
   ownerWaiting,
   nowMs,
 }: DerivePulseInput): PulseResult {
-  const ideasAlive = ideas.filter((i) => i.status !== "discarded" && i.status !== "shipped").length;
-  const ideasShipped = ideas.filter((i) => i.status === "shipped").length;
+  const { ideasAlive } = countIdeas(ideas);
+  const ideasShipped = countLaunched(ideas, statuses);
   const { live: inConstructionLive, stale: inConstructionStale } = countConstructionSplit(
     projects,
     byProject,
@@ -296,6 +314,7 @@ export default function HomePage(): React.JSX.Element {
   const turnItems = deriveTurnItems(statuses, projects, ideas, memHealth);
   const pulseResult = derivePulse({
     ideas,
+    statuses,
     projects,
     byProject: eventsSnapshot.byProject,
     ownerWaiting: turnItems.length,
@@ -303,7 +322,12 @@ export default function HomePage(): React.JSX.Element {
   });
   const cards = projects.map((p) => deriveProjectCard(p, eventsSnapshot.byProject, nowMs));
 
-  const readerData: ReaderData = { ideas, statuses, eventsSnapshot };
+  const readerData: ReaderData = {
+    ideas,
+    statuses,
+    eventsSnapshot,
+    workOrdersDoneLive: liveOutcomes.workOrdersDone,
+  };
   const { recentAchievement, nextMilestone } = deriveGamification(readerData);
 
   // ── Tu turno count chip (right slot of SectionHead) ─────────────────────

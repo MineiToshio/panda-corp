@@ -1,7 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
+import { cache } from "react";
 import { NON_IDEA_FILES, resolveFactoryRoot } from "../config/config";
+import type { StatusResult } from "../status/status";
 
 /**
  * Data-reading module for idea cards (FRD-01, CMP-01-ideas).
@@ -187,4 +189,138 @@ export function readIdeas(ideasDir?: string): IdeaCard[] {
   cards.sort((a, b) => a.slug.localeCompare(b.slug));
 
   return cards;
+}
+
+// =============================================================================
+// THE single source of truth for idea counts (DR-092/DR-115).
+//
+// Before this resolver, `page.tsx` (Pulso) and `funnel.ts` each re-filtered
+// `readIdeas()` by status independently — two legitimate but INDEPENDENT
+// derivations of "how many ideas". Re-deriving the same concept in two places
+// is how it drifts (DR-092: a value derived from the data layer that more than
+// one surface shows belongs in ONE resolver, consumed everywhere).
+//
+// `countIdeas` is the pure derivation (no I/O) — call it when you already hold
+// an `IdeaCard[]` (e.g. `funnelAndFlow`, which is itself pure over its inputs).
+// `getIdeaCounts` is the request-cached resolver — call it from a Server
+// Component that doesn't already have the ideas array in scope.
+// =============================================================================
+
+/** Named idea-count facts — every consumer reads from here, never re-filters `IdeaCard[]` itself. */
+export type IdeaCounts = {
+  /** Every idea card ever created, regardless of status (the historical total). */
+  readonly totalIdeas: number;
+  /** Ideas still "in the funnel" — excludes `shipped` and `discarded` (the launched/dead ends). */
+  readonly ideasAlive: number;
+  /** Ideas that reached `shipped` (launched). */
+  readonly ideasShipped: number;
+  /** Ideas that reached `discarded` (killed). */
+  readonly ideasDiscarded: number;
+  /** Every status bucket, always present (even at 0) — the full breakdown `funnelAndFlow` needs. */
+  readonly byStatus: Readonly<Record<IdeaStatus, number>>;
+};
+
+/** Every idea status, so `byStatus` always has every bucket (never a missing key). */
+const ALL_IDEA_STATUSES: readonly IdeaStatus[] = [
+  "discovered",
+  "recommended",
+  "in-pipeline",
+  "shipped",
+  "discarded",
+];
+
+/**
+ * Derive the named idea-count facts from an already-read `IdeaCard[]` (pure, no I/O).
+ * Use this when the caller already holds the ideas array (e.g. `funnelAndFlow`); use
+ * {@link getIdeaCounts} when it doesn't.
+ */
+export function countIdeas(ideas: readonly IdeaCard[]): IdeaCounts {
+  const byStatus = Object.fromEntries(ALL_IDEA_STATUSES.map((s) => [s, 0])) as Record<
+    IdeaStatus,
+    number
+  >;
+  for (const idea of ideas) byStatus[idea.status] += 1;
+
+  return {
+    totalIdeas: ideas.length,
+    ideasAlive: ideas.length - byStatus.shipped - byStatus.discarded,
+    ideasShipped: byStatus.shipped,
+    ideasDiscarded: byStatus.discarded,
+    byStatus,
+  };
+}
+
+/**
+ * Request-cached idea-counts resolver — call this from a Server Component that
+ * doesn't already hold the ideas array. Wraps `readIdeas()` + `countIdeas()` in
+ * React's `cache()` so the read+derive runs once per request (same pattern as
+ * `getGuildState` in `lib/gamification/guildState.ts`).
+ */
+export const getIdeaCounts = cache((): IdeaCounts => countIdeas(readIdeas()));
+
+// =============================================================================
+// THE single source of truth for "how many launches" (DR-085/DR-115 bridge).
+//
+// Before this resolver, `pulse.ts` (Inicio's "Lanzados" KPI) counted ONLY idea
+// cards with `status: "shipped"`, while `funnel.ts`'s local `countLaunched`
+// counted ONLY portfolio projects with `phase: "release"` — two independent
+// derivations of the same underlying fact ("how many things did we launch"),
+// which is exactly how Inicio showed "Lanzados 0" while Logros showed
+// "Lanzados 2" for the identical factory state (DR-115).
+//
+// DR-085's actual lifecycle: once a card goes `in-pipeline` it freezes as a
+// pointer forever (it never flips back to `status: "shipped"`) — the project's
+// OWN `.pandacorp/status.yaml` `phase` becomes the source of truth for that
+// launch instead. So a launch is either:
+//   (a) a legacy/pre-project idea hand-marked `status: "shipped"` (no linked
+//       project — nothing in `statuses` could possibly represent it), or
+//   (b) a portfolio project whose `status.yaml` reports `phase: "release"`.
+//
+// No-double-count rule: a shipped card that DOES carry a `project` pointer is
+// excluded from the ideas-side count — DR-085 says that project's phase (the
+// `statuses` side) is the authoritative record of that launch. This is a
+// structural rule over data the `IdeaCard` itself already carries (`project`
+// present/absent) — never a fuzzy match of `IdeaCard.project` against
+// `StatusResult.project` (those are three incompatible namespaces in practice:
+// an absolute path, a bare slug, or a human display name — see
+// `personal-page-v2` vs `mission-control`'s card/status pair — so string-matching
+// them would silently misclassify the moment one project's `project:` format
+// changes).
+// =============================================================================
+
+/**
+ * Count "launched" (DR-085: internal or external) as a single honest fact —
+ * the bridge between the ideas plane and the portfolio-status plane.
+ *
+ * `launched = (shipped cards with NO linked project) + (portfolio projects at phase "release")`.
+ *
+ * Every surface that shows "how many launches" (Inicio's Pulso KPI, Logros'
+ * Informe funnel) MUST call this — never re-derive it locally, or it drifts
+ * the moment either side's filter changes (DR-115).
+ *
+ * Pure: no I/O. Callers that already hold both arrays (Server Components) pass
+ * them straight through; nothing here re-reads the filesystem.
+ *
+ * @param ideas    - All idea cards (`readIdeas()`).
+ * @param statuses - Status results for every active portfolio project (e.g. `getGuildState().statuses`).
+ * @returns The de-duplicated launched count. Never throws.
+ */
+export function countLaunched(
+  ideas: readonly IdeaCard[],
+  statuses: readonly StatusResult[],
+): number {
+  // (a) Shipped cards with no linked project — the only ideas-side cases that
+  // cannot ALSO be represented on the statuses side (DR-085: a card with a
+  // project pointer is superseded by that project's own status.yaml phase).
+  const shippedWithoutProject = ideas.filter(
+    (idea) => idea.status === "shipped" && idea.project === undefined,
+  ).length;
+
+  // (b) Portfolio projects that have reached the launched/terminal phase.
+  let releasedProjects = 0;
+  for (const sr of statuses) {
+    if (sr.present && sr.status !== null && sr.status.phase === "release") releasedProjects += 1;
+  }
+
+  return shippedWithoutProject + releasedProjects;
 }

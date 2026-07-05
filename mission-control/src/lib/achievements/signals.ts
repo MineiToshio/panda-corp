@@ -17,7 +17,6 @@
  */
 
 import type { Event } from "../events/events";
-import type { StatusResult } from "../status/status";
 import type { ReaderData } from "./readerData";
 
 /** A first-occurrence stamp: the real `at` + `project` of the earliest matching event. */
@@ -30,7 +29,10 @@ type FirstStamp = { readonly at: string; readonly project: string } | null;
  */
 export type Signals = {
   // ── cumulative counts ──────────────────────────────────────────────────────
-  /** Work orders closed green — honest cumulative floor = Σ statuses.workOrdersDone. */
+  /**
+   * Work orders closed green — the LIVE portfolio-wide "done" total
+   * (`ReaderData.workOrdersDoneLive`, DR-092/DR-115), never a status.yaml counter.
+   */
   readonly woClosed: number;
   /** `AgentDone result=green` events in the window (used for time-of-day / marathon signals). */
   readonly greenDoneEvents: number;
@@ -109,17 +111,6 @@ export function signalsFor(data: ReaderData): Signals {
 /** True when an event is `AgentDone` with a green result (a work order closed). */
 function isGreenDone(ev: Event): boolean {
   return ev.event === "AgentDone" && ev.result === "green";
-}
-
-/** Sum of `workOrdersDone` across present statuses — the honest cumulative WO floor. */
-function sumWorkOrdersDone(statuses: readonly StatusResult[]): number {
-  let total = 0;
-  for (const sr of statuses) {
-    if (!sr.present || sr.status === null) continue;
-    const wo = sr.status.workOrdersDone;
-    if (typeof wo === "number" && Number.isFinite(wo)) total += Math.max(0, Math.trunc(wo));
-  }
-  return total;
 }
 
 /** First stamp (earliest by `at`) over events passing the predicate, or null. */
@@ -394,8 +385,14 @@ export function deriveSignals(data: ReaderData): Signals {
   const c = countEvents(events);
   const resilience = deriveResilience(events);
 
+  const woClosedLive = data.workOrdersDoneLive;
+  const woClosed =
+    typeof woClosedLive === "number" && Number.isFinite(woClosedLive)
+      ? Math.max(0, Math.trunc(woClosedLive))
+      : 0;
+
   return {
-    woClosed: sumWorkOrdersDone(data.statuses),
+    woClosed,
     greenDoneEvents: greenDoneList.length,
     builds: c.builds,
     buildLaunches: c.buildLaunches,

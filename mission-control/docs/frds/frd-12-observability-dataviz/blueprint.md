@@ -102,7 +102,10 @@ Phase 2 re-paints the project **Observabilidad** tab presentation to the approve
 **pure selector layer is VERIFIED** — `topn`/`freshness` (WO-12-001), `kpis` (WO-12-002), `rate`
 (WO-12-003), `timeline` (WO-12-004) — as are the pure `dag.ts` (`toDag`/`dagChain`/`firstError`) and the
 `dagre` dependency; none are re-planned. The two coarse UI WOs consume them. The global dashboard
-`KpiHeader`/`FreshnessBadge` (FRD-18 surface) stay real/VERIFIED and are out of this Phase-2 re-paint.
+`FreshnessBadge` (FRD-18 surface) stays real/VERIFIED and is out of this Phase-2 re-paint. `KpiHeader`/
+`deriveKpis` (`IF-12-kpis`, `CMP-12-kpi-header`) were removed 2026-07-05 (DR-092/DR-115): the component
+was never mounted (superseded by `Pulso`/FRD-18's dashboard pulse section) and its "failed work
+orders" mechanism diverged from `WorkOrder.state` — orphaned dead code, deleted rather than fixed.
 
 **Coarse DAG:**
 

@@ -95,13 +95,14 @@ describe("FRD-14 opus gate — contextual a11y label tracks safety (AC-14-001.2)
 describe("FRD-14 opus gate — current-MC integration: safeToTest=false + running (the reopen target)", () => {
   it("today's real state (HEAD moved past green, build running) shows the don't-test warning and NEVER 'segura para probar'", () => {
     // This is exactly the live status.yaml shape that caused the reopen.
+    // (status.yaml's `progress` field had no writer anywhere and was removed —
+    // DR-092/DR-115 — so buildingNow is now the plain "building now", no percentage.)
     const snap = buildSnapshot(
       "mission-control",
       status({
         safeToTest: false,
         running: true,
         supervisorHeartbeat: new Date().toISOString(),
-        progress: 88,
       }),
     );
     render(<SnapshotPanel slug="mission-control" snapshot={snap} />);
@@ -111,7 +112,6 @@ describe("FRD-14 opus gate — current-MC integration: safeToTest=false + runnin
     // The building-now warning IS present and carries the don't-test wording.
     const building = screen.getByTestId("snapshot-panel-building-now");
     expect(building.textContent).toMatch(/no lo pruebes/i);
-    expect(building.textContent).toContain("88");
     // The green section's chip warns rather than greenlights.
     const chip = within(screen.getByTestId("snapshot-panel-green-section")).getByTestId("chip");
     expect(chip.getAttribute("data-tone")).not.toBe("ok");

@@ -32,7 +32,7 @@ The "green" point is the **last build commit that passed all the gates** (tests/
   never dressed up as a live build. (Change `mc-observability-consumer-dr066`, 2026-07-02.)
 
 ### REQ-14-003 — Portfolio chips & feedback channels
-- **AC-14-003.1** — EACH project in the portfolio rail SHALL show **chips** with the number of **pending decisions** (amber) and **bugs in the inbox** (red), read from `pending_decisions` and `pending_bugs`.
+- **AC-14-003.1** — EACH project in the portfolio rail SHALL show **chips** with the number of **pending decisions** (amber) and **bugs in the inbox** (red), derived live from the project's inbox (`readStatusWithLiveInboxCounts` — DR-092/DR-115), never a status.yaml counter.
 - **AC-14-003.2** — IF a project has `rethink_pending: true`, it SHALL indicate it (the build is going to pause for a major change).
 - **AC-14-003.3** — Mission Control's documentation SHALL explain the **three feedback channels** to an in-progress build: `/pandacorp:bug`, `/pandacorp:iterate`, `/pandacorp:decide` (all via files, picked up at the next safe point).
 

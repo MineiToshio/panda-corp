@@ -23,4 +23,12 @@ export type ReaderData = {
   readonly statuses: readonly StatusResult[];
   /** Event snapshot from dashboard-events.ndjson (FRD-06 lib/events.ts) */
   readonly eventsSnapshot: EventsSnapshot | null;
+  /**
+   * LIVE total of work orders in state "done", summed across the whole portfolio
+   * (DR-092/DR-115: `getGuildState().liveOutcomes.workOrdersDone`, itself derived from
+   * `listWorkOrders`/`aggregateProgress` — never `status.yaml`'s cached counter, which
+   * was removed from `ProjectStatus`). Optional/omitted → 0 (honest zero, fail-soft
+   * for test fixtures that don't exercise this signal).
+   */
+  readonly workOrdersDoneLive?: number;
 };

@@ -477,7 +477,7 @@ function _classifyPhaseScoped(task: unknown): CelebrationTier {
  * and the events snapshot (for green test runs).
  */
 export type GuildOutcomesInput = {
-  /** StatusResult for each portfolio project (read via readStatus). */
+  /** StatusResult for each portfolio project (read via readStatus) — used for phase/release only. */
   statuses: readonly StatusResult[];
   /**
    * Events snapshot from readEvents() (for greenTestRuns count).
@@ -489,13 +489,22 @@ export type GuildOutcomesInput = {
    * Optional — 0 when not tracked yet.
    */
   weeklyStreak?: number;
+  /**
+   * LIVE total of work orders in state "done", summed across the whole portfolio
+   * (DR-092/DR-115: derived by the caller from `listWorkOrders(path).filter(state === "done")`,
+   * never from the stale `status.yaml:work_orders_done` cache). Omitted/non-finite → 0
+   * (honest zero, same guard as the removed per-status tally).
+   */
+  workOrdersDoneLive?: number;
 };
 
 /**
  * Derive GuildOutcomes from the portfolio's real data (WO-09-004, AC-09-004.1).
  *
  * Honesty contract (blueprint §2):
- *   - workOrdersDone  = sum of status.workOrdersDone across all projects (present + valid)
+ *   - workOrdersDone  = workOrdersDoneLive, the LIVE count of WOs in state "done" across the
+ *                       portfolio (caller-derived from listWorkOrders — DR-092/DR-115); the
+ *                       cached status.yaml work_orders_done counter is never read here
  *   - phasesCompleted = count of projects whose phase is in { design, architecture, implementation,
  *                       release } (each project that advanced past product = 1 phase)
  *   - releases        = count of projects in the launched "release" phase (reached launch)
@@ -507,18 +516,25 @@ export type GuildOutcomesInput = {
  * Pure function: no I/O, no side-effects, same input → same output.
  */
 export function deriveGuildOutcomes(input: GuildOutcomesInput): GuildOutcomes {
-  const { statuses, eventsSnapshot, weeklyStreak } = input;
+  const { statuses, eventsSnapshot, weeklyStreak, workOrdersDoneLive } = input;
 
-  let workOrdersDone = 0;
   let phasesCompleted = 0;
   let releases = 0;
 
   for (const sr of statuses) {
     const tally = _tallyStatus(sr);
-    workOrdersDone += tally.workOrdersDone;
     phasesCompleted += tally.phasesCompleted;
     releases += tally.releases;
   }
+
+  // workOrdersDone: LIVE count supplied by the caller (readGuildState sums
+  // listWorkOrders(project).filter(state === "done") across the portfolio — DR-115),
+  // never the stale status.yaml cache. Same guard shape as the old per-status tally
+  // (finite, non-negative, truncated) so a malformed caller input can't poison XP.
+  const workOrdersDone =
+    typeof workOrdersDoneLive === "number" && Number.isFinite(workOrdersDoneLive)
+      ? Math.max(0, Math.trunc(workOrdersDoneLive))
+      : 0;
 
   return {
     workOrdersDone,
@@ -533,24 +549,18 @@ export function deriveGuildOutcomes(input: GuildOutcomesInput): GuildOutcomes {
 const COMPLETED_PHASES = new Set(["design", "architecture", "implementation", "release"]);
 
 /**
- * Per-project contribution to the guild outcomes. Behavior copied verbatim from
+ * Per-project phase/release contribution to the guild outcomes (workOrdersDone is no
+ * longer tallied per-status — see deriveGuildOutcomes). Behavior copied verbatim from
  * the original inline loop body (fail-soft: absent/null status → all zeros).
  */
 function _tallyStatus(sr: StatusResult): {
-  workOrdersDone: number;
   phasesCompleted: number;
   releases: number;
 } {
   if (!sr.present || sr.status === null) {
-    return { workOrdersDone: 0, phasesCompleted: 0, releases: 0 };
+    return { phasesCompleted: 0, releases: 0 };
   }
   const st = sr.status;
-
-  // workOrdersDone: accumulate per-project WOs closed
-  const workOrdersDone =
-    typeof st.workOrdersDone === "number" && Number.isFinite(st.workOrdersDone)
-      ? Math.max(0, Math.trunc(st.workOrdersDone))
-      : 0;
 
   // phasesCompleted: project advanced beyond "product" phase
   const phasesCompleted = typeof st.phase === "string" && COMPLETED_PHASES.has(st.phase) ? 1 : 0;
@@ -558,7 +568,7 @@ function _tallyStatus(sr: StatusResult): {
   // releases: project reached the launched "release" phase (DR-085)
   const releases = st.phase === "release" ? 1 : 0;
 
-  return { workOrdersDone, phasesCompleted, releases };
+  return { phasesCompleted, releases };
 }
 
 /** Count "test_ok" events in the snapshot (0 when absent). Behavior copied verbatim. */

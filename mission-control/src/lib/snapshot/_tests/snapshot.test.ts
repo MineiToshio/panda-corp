@@ -4,13 +4,15 @@
  * Traceability:
  *   AC-14-001.2 — worktreeCommand = `git worktree add ../<slug>-review <sha>`
  *   AC-14-001.3 — absent lastGreenSha → null (panel omitted)
- *   AC-14-002.1 — running + progress → buildingNow set; not running → undefined
+ *   AC-14-002.1 — running (+ live heartbeat) → buildingNow = "building now"; not running →
+ *                 undefined. (status.yaml's `progress` field had no writer anywhere and was
+ *                 removed — DR-092/DR-115 — so buildingNow no longer carries a percentage.)
  *   AC-14-003.1 — isSnapshotStale: true past threshold, false within
  *
  * TDD anchors (WO-14-001 §TDD):
  *   1. buildSnapshot builds the worktree command with slug + sha (AC-14-001.2)
  *   2. Absent lastGreenSha → null (AC-14-001.3)
- *   3. running with progress → buildingNow set; not running → undefined (AC-14-002.1)
+ *   3. running (+ live heartbeat) → buildingNow = "building now"; not running → undefined (AC-14-002.1)
  *   4. isSnapshotStale true past threshold, false within (AC-14-003.1)
  *   5. Pure: same input → same output, no fs
  */
@@ -115,51 +117,24 @@ describe("buildSnapshot — AC-14-001.3 — absent lastGreenSha returns null", (
 });
 
 // ---------------------------------------------------------------------------
-// AC-14-002.1 — running + progress → buildingNow set; not running → undefined
+// AC-14-002.1 — running (+ live heartbeat) → buildingNow set; not running → undefined
 // ---------------------------------------------------------------------------
 
-describe("buildSnapshot — AC-14-002.1 — buildingNow from running + progress", () => {
-  it("WHEN running=true and progress is set THEN buildingNow is defined and contains progress", () => {
+describe("buildSnapshot — AC-14-002.1 — buildingNow from running + live heartbeat", () => {
+  it("WHEN running=true with a fresh heartbeat THEN buildingNow is 'building now'", () => {
     const status = makeStatus({
       running: true,
       supervisorHeartbeat: new Date().toISOString(),
-      progress: 42,
       lastGreenSha: "abc",
     });
     const result = buildSnapshot("proj", status);
     expect(result).not.toBeNull();
     const info = result as SnapshotInfo;
-    expect(info.buildingNow).toBeDefined();
-    expect(info.buildingNow).toContain("42");
-  });
-
-  it("WHEN running=true and progress is 0 THEN buildingNow contains '0'", () => {
-    const status = makeStatus({
-      running: true,
-      supervisorHeartbeat: new Date().toISOString(),
-      progress: 0,
-      lastGreenSha: "abc",
-    });
-    const result = buildSnapshot("proj", status);
-    expect(result).not.toBeNull();
-    expect((result as SnapshotInfo).buildingNow).toContain("0");
-  });
-
-  it("WHEN running=true and progress is absent THEN buildingNow is still defined (running alone)", () => {
-    const status = makeStatus({
-      running: true,
-      supervisorHeartbeat: new Date().toISOString(),
-      lastGreenSha: "abc",
-    });
-    delete (status as Partial<ProjectStatus>).progress;
-    const result = buildSnapshot("proj", status);
-    expect(result).not.toBeNull();
-    // buildingNow should be defined when running (even with no numeric progress)
-    expect((result as SnapshotInfo).buildingNow).toBeDefined();
+    expect(info.buildingNow).toBe("building now");
   });
 
   it("WHEN running=false THEN buildingNow is undefined", () => {
-    const status = makeStatus({ running: false, progress: 50, lastGreenSha: "abc" });
+    const status = makeStatus({ running: false, lastGreenSha: "abc" });
     const result = buildSnapshot("proj", status);
     expect(result).not.toBeNull();
     expect((result as SnapshotInfo).buildingNow).toBeUndefined();
@@ -247,7 +222,6 @@ describe("buildSnapshot + isSnapshotStale — purity", () => {
       lastGreenSha: "abc",
       running: true,
       supervisorHeartbeat: new Date().toISOString(),
-      progress: 10,
     });
     const r1 = buildSnapshot("proj", status);
     const r2 = buildSnapshot("proj", status);
@@ -319,11 +293,10 @@ describe("buildSnapshot — liveness crossing (DR-066)", () => {
         lastGreenSha: "abc1234",
         running: true,
         supervisorHeartbeat: new Date(NOW - 30_000).toISOString(),
-        progress: 40,
       },
       NOW,
     );
-    expect(snap?.buildingNow).toBe("building now: 40%");
+    expect(snap?.buildingNow).toBe("building now");
     expect(snap?.noSignal).toBeUndefined();
   });
 

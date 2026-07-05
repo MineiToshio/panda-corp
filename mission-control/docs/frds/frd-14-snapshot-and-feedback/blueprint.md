@@ -24,9 +24,12 @@ FRD-14 is **read-only** and renders three things from `.pandacorp/status.yaml`:
 3. A **documentation note** about the three feedback channels (`bug`/`iterate`/`decide`).
 
 Per architecture §11 FRD-14 uses only `lib/status.ts` (read). It introduces **no new `lib/` module**
-— it reads fields FRD-01 already defines (`last_green_sha`, `safe_to_test`, `pending_decisions`,
-`pending_bugs`, `rethink_pending`, `running`, `progress`) and derives the worktree command + the
-staleness warning with **pure helpers** added to `lib/snapshot.ts` (see §2).
+— it reads fields FRD-01 already defines (`last_green_sha`, `safe_to_test`, `rethink_pending`,
+`running`) and derives the worktree command + the staleness warning with **pure helpers** added to
+`lib/snapshot.ts` (see §2). `pending_decisions`/`pending_bugs` are populated live by
+`readStatusWithLiveInboxCounts` (DR-092/DR-115), never a status.yaml counter. The old `progress`
+status.yaml field had no writer anywhere and was removed (dead field) — `buildingNow` is now the
+plain "building now" string, no percentage.
 
 ## 1. Requirements (derived IDs)
 
@@ -35,7 +38,7 @@ staleness warning with **pure helpers** added to `lib/snapshot.ts` (see §2).
 | REQ-14-001 | FOR each project being built, MC SHALL show a snapshot panel with the last probable point (FRD closed green + `last_green_sha`), a "green" badge, and the `git worktree add ../<project>-review <sha>` command ready to copy. Reads `last_green_sha` and `safe_to_test`. |
 | REQ-14-002 | The panel SHALL distinguish "building now" (work order in progress, "don't test this yet") from the "last probable point". |
 | REQ-14-003 | IF `last_green_sha` is far behind HEAD (many commits/hours), it SHALL warn that the probable snapshot is getting stale. |
-| REQ-14-004 | EACH project in the portfolio rail SHALL show chips with the number of pending decisions (amber) and bugs in the inbox (red), from `pending_decisions` and `pending_bugs`. |
+| REQ-14-004 | EACH project in the portfolio rail SHALL show chips with the number of pending decisions (amber) and bugs in the inbox (red), derived live from the project's inbox (`readStatusWithLiveInboxCounts` — DR-092/DR-115), never a status.yaml counter. |
 | REQ-14-005 | IF a project has `rethink_pending: true`, it SHALL indicate it (the build is going to pause for a major change). |
 | REQ-14-006 | MC's documentation SHALL explain the three feedback channels to an in-progress build: `/pandacorp:bug`, `/pandacorp:iterate`, `/pandacorp:decide` (all via files, picked up at the next safe point). |
 
@@ -45,7 +48,7 @@ staleness warning with **pure helpers** added to `lib/snapshot.ts` (see §2).
   point label (closed-green FRD) + a "green" badge + `last_green_sha`.
 - **AC-14-001.2** The panel SHALL render `git worktree add ../<slug>-review <last_green_sha>` with a copy button.
 - **AC-14-001.3** WHEN `last_green_sha` is absent, the panel SHALL be omitted (nothing probable yet) — no broken command.
-- **AC-14-002.1** WHEN `running` and a work order is in progress, the panel SHALL show "building now: <progress> · don't test this yet", visually distinct from the probable point.
+- **AC-14-002.1** WHEN `running` AND the heartbeat is live (DR-066), the panel SHALL show "building now · don't test this yet", visually distinct from the probable point. (No percentage — the old `progress` status.yaml field had no writer anywhere and was removed, DR-092/DR-115.)
 - **AC-14-003.1** WHEN `last_green_sha` is far behind HEAD (staleness threshold by commits/hours), the panel SHALL show a "snapshot getting stale" warning.
 - **AC-14-004.1** EACH portfolio rail row SHALL show an amber chip with `pending_decisions` when `> 0`.
 - **AC-14-004.2** EACH portfolio rail row SHALL show a red chip with `pending_bugs` when `> 0`.
@@ -65,7 +68,7 @@ export interface SnapshotInfo {
   sha: string;                 // last_green_sha
   safeToTest: boolean;         // safe_to_test
   worktreeCommand: string;     // git worktree add ../<slug>-review <sha>
-  buildingNow?: string;        // progress string when running
+  buildingNow?: string;        // "building now" when running + live heartbeat (no percentage, DR-092/DR-115)
   stale: boolean;              // staleness verdict
 }
 // Pure: derives the command + buildingNow from already-read status fields.

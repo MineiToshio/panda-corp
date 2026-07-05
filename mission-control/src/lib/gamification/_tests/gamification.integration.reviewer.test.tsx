@@ -59,7 +59,7 @@ beforeEach(() => {
 // Helpers — build the real reader-shaped inputs the layout would feed.
 // ---------------------------------------------------------------------------
 
-function statusPresent(partial: { phase?: string; workOrdersDone?: number }): StatusResult {
+function statusPresent(partial: { phase?: string }): StatusResult {
   return {
     present: true,
     malformed: false,
@@ -129,25 +129,30 @@ describe("FRD-09 honesty pipeline — empty factory never shows a fake bar", () 
 });
 
 // ===========================================================================
-// 2. deriveGuildOutcomes ABUSE — negative / NaN / huge work-order counts.
-//    The aggregator clamps with Math.max(0, trunc); a poisoned status.yaml
-//    must not produce negative XP or NaN that would crash the bar render.
+// 2. deriveGuildOutcomes ABUSE — negative / NaN / huge workOrdersDoneLive.
+//    workOrdersDone is now the LIVE portfolio-wide total the caller supplies
+//    (DR-092/DR-115: readGuildState sums listWorkOrders(path).filter("done") —
+//    never a per-status status.yaml counter). The aggregator still clamps with
+//    Math.max(0, trunc); a poisoned live input must not produce negative XP or
+//    NaN that would crash the bar render.
 // ===========================================================================
 
-describe("FRD-09 deriveGuildOutcomes — abusive status values", () => {
-  it("negative workOrdersDone is floored to 0 (no negative XP)", () => {
+describe("FRD-09 deriveGuildOutcomes — abusive workOrdersDoneLive values", () => {
+  it("negative workOrdersDoneLive is floored to 0 (no negative XP)", () => {
     const outcomes = deriveGuildOutcomes({
-      statuses: [statusPresent({ workOrdersDone: -999 })],
+      statuses: [statusPresent({})],
       eventsSnapshot: null,
+      workOrdersDoneLive: -999,
     });
     expect(outcomes.workOrdersDone).toBe(0);
     expect(computeGuildLevel(outcomes).xp).toBe(0);
   });
 
-  it("NaN workOrdersDone is rejected (Number.isFinite guard), bar stays renderable", () => {
+  it("NaN workOrdersDoneLive is rejected (Number.isFinite guard), bar stays renderable", () => {
     const outcomes = deriveGuildOutcomes({
-      statuses: [statusPresent({ workOrdersDone: Number.NaN })],
+      statuses: [statusPresent({})],
       eventsSnapshot: null,
+      workOrdersDoneLive: Number.NaN,
     });
     expect(outcomes.workOrdersDone).toBe(0);
     const guild = computeGuildLevel(outcomes);
@@ -157,18 +162,20 @@ describe("FRD-09 deriveGuildOutcomes — abusive status values", () => {
     expect(fill.style.width).toBe("0%");
   });
 
-  it("fractional workOrdersDone is truncated, not rounded up (honest, no free XP)", () => {
+  it("fractional workOrdersDoneLive is truncated, not rounded up (honest, no free XP)", () => {
     const outcomes = deriveGuildOutcomes({
-      statuses: [statusPresent({ workOrdersDone: 3.9 })],
+      statuses: [statusPresent({})],
       eventsSnapshot: null,
+      workOrdersDoneLive: 3.9,
     });
     expect(outcomes.workOrdersDone).toBe(3);
   });
 
   it("a project in 'release' (launched) counts as both a completed phase AND a release", () => {
     const outcomes = deriveGuildOutcomes({
-      statuses: [statusPresent({ phase: "release", workOrdersDone: 0 })],
+      statuses: [statusPresent({ phase: "release" })],
       eventsSnapshot: null,
+      workOrdersDoneLive: 0,
     });
     // Documented design: release (launched) ⇒ phasesCompleted +1 and releases +1.
     expect(outcomes.phasesCompleted).toBe(1);

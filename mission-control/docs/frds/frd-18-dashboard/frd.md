@@ -42,6 +42,7 @@ It composes existing layers — honest gamification ([FRD-09](../frd-09-gamifica
 
 ### Pulso de la fábrica (the pulse)
 - The pulse SHALL present a small funnel (ideas alive → in construction → shipped) plus the count of items awaiting the owner, and SHALL surface the **one metric that matters**: the idea→shipped conversion. It composes FRD-12 and SHALL keep to ≤5 signals.
+- **"Shipped" means launched, internal or external (DR-085).** A launch is either a legacy idea card hand-marked `status: "shipped"` with no linked project, or a portfolio project whose `.pandacorp/status.yaml` reports `phase: "release"` — an `in-pipeline` card's project reaching `release` counts as a launch even though the card itself stays `in-pipeline` (it freezes as a pointer, DR-085). The count SHALL come from THE single bridge resolver (`countLaunched`, `lib/ideas/ideas.ts`, DR-115) — the same one the Logros Informe funnel uses — never a local re-filter of ideas by `status: "shipped"` alone, or the two surfaces silently disagree on the same fact.
 - The "in construction" signal SHALL distinguish live builds from stale ones via the honest live / no-signal indicator (FRD-12).
 
 ### Construcción y cartera (build & portfolio)

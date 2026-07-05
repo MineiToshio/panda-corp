@@ -491,6 +491,7 @@ export function BoardShell({
               targetPlatforms={openCard.targetPlatforms}
               body={openCard.body}
               docNodes={openCard.docNodes}
+              frdCount={openCard.frdCount}
               specContent={openCard.specContent}
               architectureContent={openCard.architectureContent}
               workOrders={openCard.workOrders}

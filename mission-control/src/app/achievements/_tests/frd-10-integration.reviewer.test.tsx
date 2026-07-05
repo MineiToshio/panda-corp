@@ -49,8 +49,6 @@ function mkStatus(phase: string, project: string, updatedAt: string): StatusResu
       project,
       // biome-ignore lint/suspicious/noExplicitAny: test fixture narrows the phase enum
       phase: phase as any,
-      workOrdersDone: 0,
-      workOrdersTotal: 10,
       pendingDecisions: 0,
       pendingBugs: 0,
       running: false,

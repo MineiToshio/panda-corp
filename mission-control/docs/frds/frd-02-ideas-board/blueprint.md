@@ -225,6 +225,22 @@ component receives the project `slug` and the `onEnterForge(slug)` callback wire
   "← Volver al tablero" back button) + a **danger** hover (`.pc-discard`: red border + danger-bg tint
   + danger glow, transition inline per AC-13-005.1) + the `ti-trash` icon, using `--color-danger`.
 
+**Spec/Arquitectura badges derive from disk, not digest prose (DR-092/DR-115, 2026-07-05).** Beyond
+the tabs described above, `CardDetail` also renders a **Spec** tab (`SpecDigest`) and an **Arquitectura**
+tab (`ArchitectureDigest`) once the linked project's Spanish digests exist — each a high-level summary
+parsed from `.pandacorp/comms/{spec,arquitectura}-resumen.md`. Both surface a count badge, and both
+badges are **derived live from disk**, never from the digest's parsed prose (the digest is a gitignored
+narrative snapshot that can drift from what actually exists on disk):
+- **`SpecDigest`'s "N FRDs" badge** — sourced from `frdCount`, a prop computed in `page.tsx` via
+  `countFrdFolders(listProjectDocs(projectPath))` (`src/lib/docs/tree.ts`): the number of distinct
+  `docs/frds/frd-*` folders on disk. Falls back to `spec.frds.length` (the parsed digest count) only
+  when the caller doesn't supply `frdCount` (older callers/tests). The FRD cards themselves still
+  render from the digest's prose (narrative only) — only the badge count is disk-derived.
+- **`ArchitectureDigest`'s per-FRD "N WOs" badge** — sourced from `workOrdersForFrd(frd, liveWorkOrders)`
+  (the same live `listWorkOrders()` result the FRD's dependency DAG/modal already use), never from
+  `frd.workOrders.length` (parsed from the digest prose). If the digest lists a work order that
+  doesn't exist on disk (or omits one that does), the badge shows the real disk count.
+
 ---
 
 ## 6. Requirement → component traceability (REQ-02-MMM)

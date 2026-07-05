@@ -50,10 +50,11 @@ mode selector is FRD-11's component slotted in).
 - **AC-04-001.1** GIVEN a selected project, the workspace SHALL render exactly seven tabs in the
   order Summary, Work orders, Changes, Party, Observability, Documents, Commands.
 - **AC-04-001.2** WHEN no tab is explicitly selected, the workspace SHALL default to **Summary**.
-- **AC-04-002.1** The header SHALL render `title`, the stage label (from `phase`), `version` and the
-  `progress` string when present; when `progress` is absent the line is omitted (no empty line).
-- **AC-04-002.2** The Mission Objectives bar SHALL show `work_orders_done / work_orders_total` and the
-  percentage; WHEN `work_orders_total` is 0 or absent the bar is omitted.
+- **AC-04-002.1** The header SHALL render `title`, the stage label (from `phase`) and `version`. (The
+  old `progress` status.yaml line was removed — dead field, no writer anywhere — DR-092/DR-115.)
+- **AC-04-002.2** The Mission Objectives bar SHALL show `done / total` work orders and the percentage,
+  derived live from work-order files via `listWorkOrders`/`aggregateProgress` (never a status.yaml
+  cache — DR-092/DR-115); WHEN `total` is 0 or absent the bar is omitted.
 - **AC-04-002.3** The header and Mission Objectives bar SHALL be visible regardless of the active tab.
 - **AC-04-003.1** The Summary tab SHALL render the project summary and key points.
 - **AC-04-003.2** The Summary tab SHALL render the activity log read from `.pandacorp/comms/progress.md`;
@@ -111,9 +112,11 @@ export function readDecisions(projectPath: string): DecisionPoint[];  // from .p
 > the `relPath` is validated against the discovered set). Read-only; never writes.
 
 ### IF-04-status — `lib/status.ts` (EXTENDS FRD-01 base)
-FRD-01 ships the base parser. FRD-04 relies on the already-defined fields
-(`phase`, `version`, `progress`, `work_orders_total`, `work_orders_done`, `pending_decisions`) —
-no new fields are added by FRD-04. Header/objectives read these. Partial-tolerant (architecture §4.4).
+FRD-01 ships the base parser. FRD-04 relies on the already-defined fields (`phase`, `version`,
+`pendingDecisions` — the last populated live by `readStatusWithLiveInboxCounts`, never a status.yaml
+counter, DR-092) — no new fields are added by FRD-04. `progress`/`work_orders_total`/`work_orders_done`
+are dead status.yaml fields with no reader (DR-092/DR-115); the objectives bar derives its done/total
+live via `listWorkOrders`/`aggregateProgress` instead. Partial-tolerant (architecture §4.4).
 
 ### IF-04-next-step — `lib/next-step.ts` (EXTENDS FRD-02 base)
 Pure map `phase → { commands: CommandRow[] }`. FRD-02 ships the base for pre-project statuses;

@@ -39,7 +39,7 @@ stored as a mutable counter the app increments on interaction:
 
 | Outcome (verifiable) | Source | Reader |
 |---|---|---|
-| Work order closed (green) | `.pandacorp/status.yaml` `work_orders_done`; event `achievement`/`test_ok` + `work_order` | `lib/status.ts` (FRD-01), `lib/events.ts` (FRD-06/12) |
+| Work order closed (green) | derived live from work-order files via `listWorkOrders` (DR-092/DR-115, never `status.yaml`'s cached counter); event `achievement`/`test_ok` + `work_order` | `lib/work-orders.ts` (FRD-05), `guildState.ts` (FRD-09), `lib/events.ts` (FRD-06/12) |
 | Phase completed | `status.yaml` `phase` transitions | `lib/status.ts` |
 | Release / launch | `phase: release` reached (DR-085: the launched/terminal phase) | `lib/status.ts`, `portfolio` |
 | Green tests | event `test_ok` | `lib/events.ts` |
