@@ -1,6 +1,6 @@
 # 29 — Single Source of Truth: inventory, Mission Control fixes, factory law
 
-**Status:** APPROVED-PENDING — inventory complete; implementation checklist below is the resumable execution state.
+**Status:** DONE (2026-07-05) — implemented, verified E2E in the browser, landed on main (`c29066d` MC + `d81d822` law), plugin v9.71.0 installed. Deferred leftovers listed at the bottom.
 **Date:** 2026-07-05
 **Origin:** owner mission — the same fact (e.g. the work-order count) shows different values across Mission Control views; root cause is more than one source of truth per fact. Goal: fix every divergence, then elevate "single source of truth" to a first-class, enforced Pandacorp principle propagated to every product project.
 
@@ -86,25 +86,30 @@ Classification: **(a)** OK-single-derivation · **(b)** honest cache · **(c) DE
 
 **Phase A — Mission Control fixes** (worktree per DR-096; land via `mission-control/.pandacorp/merge-queue.sh`; update owning FRDs + `mission-control/docs/decision-log.md` in the same change):
 
-- [ ] A1 · MC-1: Inicio card live WO counts + drop `workOrdersTotal/Done` from `status.ts`/`ProjectStatus` (files: `src/app/page.tsx`, `src/app/(dashboard)/_lib/card.ts`, `src/lib/status/status.ts`, tests) — owning doc: FRD-01/FRD-04
-- [ ] A2 · MC-2: gamification live WO input (files: `src/lib/gamification/{guildState,gamification}.ts`, tests) — FRD-09
-- [ ] A3 · MC-3: live `pendingBugs` wrapper + remove yaml mapping (files: `src/lib/changes/changes.ts`, `src/lib/status/status.ts`, `status-chips.tsx`, `ProjectRail.tsx`, tests) — FRD-01/FRD-04
-- [ ] A4 · MC-4: ideas-funnel single resolver (files: `src/lib/ideas/*`, `src/app/_lib/pulse.ts`, `src/app/page.tsx`, `src/lib/achievements/report/funnel.ts`, tests) — FRD-03/FRD-10
-- [ ] A5 · MC-5 + MC-6: board badges derive from disk (files: `ArchitectureDigest.tsx`, `SpecDigest.tsx`, shared helper, tests) — FRD-11
-- [ ] A6 · MC-7 + MC-8 + MC-9: dead `progress` mapping out; orphan KpiHeader deleted; timeline set assertion; docstring fixes — FRD-01/FRD-13
-- [ ] A7 · MC-10: end-to-end WO-creation proof with preview evidence (screenshots; all surfaces equal)
-- [ ] A8 · Final Fable consistency review of the whole diff (no second derivation reintroduced); `verify.sh` green; merge-queue land; decision-log entry in `mission-control/docs/decision-log.md`
+- [x] A1 · MC-1: Inicio card live WO counts + drop `workOrdersTotal/Done` from `status.ts`/`ProjectStatus` (files: `src/app/page.tsx`, `src/app/(dashboard)/_lib/card.ts`, `src/lib/status/status.ts`, tests) — owning doc: FRD-01/FRD-04
+- [x] A2 · MC-2: gamification live WO input (files: `src/lib/gamification/{guildState,gamification}.ts`, tests) — FRD-09
+- [x] A3 · MC-3: live `pendingBugs` wrapper + remove yaml mapping (files: `src/lib/changes/changes.ts`, `src/lib/status/status.ts`, `status-chips.tsx`, `ProjectRail.tsx`, tests) — FRD-01/FRD-04
+- [x] A4 · MC-4: ideas-funnel single resolver (files: `src/lib/ideas/*`, `src/app/_lib/pulse.ts`, `src/app/page.tsx`, `src/lib/achievements/report/funnel.ts`, tests) — FRD-03/FRD-10
+- [x] A5 · MC-5 + MC-6: board badges derive from disk (files: `ArchitectureDigest.tsx`, `SpecDigest.tsx`, shared helper, tests) — FRD-11
+- [x] A6 · MC-7 + MC-8 + MC-9: dead `progress` mapping out; orphan KpiHeader deleted; timeline set assertion; docstring fixes — FRD-01/FRD-13
+- [x] A7 · MC-10: end-to-end WO-creation proof with preview evidence (screenshots; all surfaces equal)
+- [x] A8 · Final Fable consistency review of the whole diff (no second derivation reintroduced); `verify.sh` green; merge-queue land; decision-log entry in `mission-control/docs/decision-log.md`
 
 **Phase B — Factory law:**
 
-- [ ] B1 · New standard `factory/standards/single-source-of-truth.md` (the law of §1, both shapes, forbidden patterns, enforcement map)
-- [ ] B2 · Registry: add **DR-115** (general law; cross-references DR-092/050/087/066/078); DR-092 stays as the UI-resolver instance, its `nota` pointing up to DR-115
-- [ ] B3 · Propagation to products: extend `plugin/templates/rules/clean-code.md` DR-092 section into the generalized rule (single writer per fact; honest-cache conditions; forbidden patterns)
-- [ ] B4 · Reviewer gate: strengthen `plugin/agents/reviewer.md` quality lens with the explicit SSOT checklist (new count/aggregate ⇒ must call the existing resolver; stored counter ⇒ named writer + re-derivation point or REJECT)
-- [ ] B5 · Automated check: doc-lint SOFT check — status.yaml keys not present in the template schema (catches D11-class drift); note: the primary code-level enforcement is BY CONSTRUCTION (A1/A3/A7 removed the readable stale fields) + the reviewer gate
-- [ ] B6 · Template changes: FA-1 (`pending_changes` removal from tpl + `change`/`bug` skills + engine close-out) and FA-2 (`last_harvest` in tpl); template comment on `work_orders_*` ("engine-maintained replica — display consumers derive")
-- [ ] B7 · Constitution: add the SSOT principle (one line under Technical principles) — **owner-gated**, approved with this plan
-- [ ] B8 · Manual (DR-046): Reference auto-derives DR-115 from the registry; check `mission-control/content/manual/concepts/` for the hand-authored page that explains state/observability and add the SSOT concept
-- [ ] B9 · Plugin version bump MINOR (9.70.1 → 9.71.0), regenerate Codex mirrors (`node plugin/scripts/generate-codex-agents.mjs` — reviewer.md changed), `claude plugin validate plugin/`; decision-log entries: `plugin/docs/decision-log.md` + `factory/decision-log.md`; lessons to `factory/memory/_inbox.md`
+- [x] B1 · New standard `factory/standards/single-source-of-truth.md` (the law of §1, both shapes, forbidden patterns, enforcement map)
+- [x] B2 · Registry: add **DR-115** (general law; cross-references DR-092/050/087/066/078); DR-092 stays as the UI-resolver instance, its `nota` pointing up to DR-115
+- [x] B3 · Propagation to products: extend `plugin/templates/rules/clean-code.md` DR-092 section into the generalized rule (single writer per fact; honest-cache conditions; forbidden patterns)
+- [x] B4 · Reviewer gate: strengthen `plugin/agents/reviewer.md` quality lens with the explicit SSOT checklist (new count/aggregate ⇒ must call the existing resolver; stored counter ⇒ named writer + re-derivation point or REJECT)
+- [x] B5 · Automated check: doc-lint SOFT check — status.yaml keys not present in the template schema (catches D11-class drift); note: the primary code-level enforcement is BY CONSTRUCTION (A1/A3/A7 removed the readable stale fields) + the reviewer gate
+- [x] B6 · Template changes: FA-1 (`pending_changes` removal from tpl + `change`/`bug` skills + engine close-out) and FA-2 (`last_harvest` in tpl); template comment on `work_orders_*` ("engine-maintained replica — display consumers derive")
+- [x] B7 · Constitution: add the SSOT principle (one line under Technical principles) — **owner-gated**, approved with this plan
+- [x] B8 · Manual (DR-046): Reference auto-derives DR-115 from the registry; check `mission-control/content/manual/concepts/` for the hand-authored page that explains state/observability and add the SSOT concept
+- [x] B9 · Plugin version bump MINOR (9.70.1 → 9.71.0), regenerate Codex mirrors (`node plugin/scripts/generate-codex-agents.mjs` — reviewer.md changed), `claude plugin validate plugin/`; decision-log entries: `plugin/docs/decision-log.md` + `factory/decision-log.md`; lessons to `factory/memory/_inbox.md`
 
-**Deferred (explicitly, not silent):** none yet — anything cut during execution must be listed here.
+**Extra fix landed during A7 (not in the original inventory):** the Inicio Pulso "Lanzados" KPI counted idea cards at `status: shipped` only, ignoring the DR-085 bridge (in-pipeline card + project `phase: release` = launched) — showed 0 while Logros showed 2. Fixed with the shared bridge resolver `countLaunched(ideas, statuses)` in `lib/ideas/ideas.ts`; both surfaces now show the same number (verified live: 2 / 2, conversion 22%).
+
+**Deferred (explicitly, not silent):**
+- FRD-02 §4b tab prose is stale vs the actual 5-tab CardDetail UI (pre-existing drift, found while documenting A5) — a `/pandacorp:sync` reconciliation job, queued separately.
+- The Spec/Arquitectura badge fixes (A5/MC-6) could not be exercised in the live preview (Mission Control's own gitignored digests don't exist), so they are verified by the unit tests added in the same change (mismatch fixtures: digest lists a WO the disk lacks → disk count wins; no live count supplied → no count shown, never prose).
+- `status.yaml`'s `pending_decisions` remains a skill-written maintenance counter (documented as such in the template); Mission Control ignores it entirely (live wrapper). Removing the writes, like `pending_changes`, is possible but touches more skills for zero reader benefit today.
