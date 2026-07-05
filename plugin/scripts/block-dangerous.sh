@@ -20,6 +20,17 @@ case "$cmd" in
   *"rm -rf /"*|*"rm -rf ~"*|*"rm -rf .."*) block "broad recursive delete" ;;
 esac
 
+# Protected state paths (BL-0035, incident 2026-07-04: mission-control/.pandacorp wiped, the
+# gitignored inbox lost for good — no git history by design). A recursive delete or an
+# ignored-files clean aimed at the owner/state layer is NEVER routine: these paths are
+# append-only/managed (archive to done/, never rm). If genuinely needed, the OWNER runs it.
+if echo "$cmd" | grep -Eq '(^|[[:space:];&|])rm[[:space:]]+(-[a-zA-Z]*r[a-zA-Z]*[[:space:]]+)+[^;&|]*(\.pandacorp|factory/(ideas|memory|profile|portfolio))'; then
+  block "recursive delete on a protected Pandacorp state path (.pandacorp/, factory/{ideas,memory,profile,portfolio}) — this layer has no git history; archive/move instead, or ask the owner (BL-0035)"
+fi
+if echo "$cmd" | grep -Eq '(^|[[:space:];&|])git[[:space:]]+clean[[:space:]][^;&|]*-[a-zA-Z]*x'; then
+  block "git clean -x removes gitignored files — the .pandacorp state layer (inbox/comms) would be lost with no git history; use plain 'git clean -fd' (keeps ignored) or ask the owner (BL-0035)"
+fi
+
 echo "$cmd" | grep -Eq 'git push.*(--force|-f)([^-]|$)' && block "force push (constitution §11)"
 echo "$cmd" | grep -Eq 'git (branch|push).*(-D|--delete).*(main|master)' && block "deleting main branch"
 echo "$cmd" | grep -Eq '(^|[[:space:];&|])gh repo delete' && block "repo deletion requires the owner (DR-007)"
