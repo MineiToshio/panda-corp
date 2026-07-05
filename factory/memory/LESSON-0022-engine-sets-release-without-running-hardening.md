@@ -11,8 +11,8 @@ created: 2026-07-01
 status: active
 promotion: approved
 confidence: high
-times_applied: 1
-applied_in: [pandacorp-build.js Hardening phase (audit-20, 2026-07-01)]
+times_applied: 3
+applied_in: [pandacorp-build.js Hardening phase (audit-20, 2026-07-01), panda-corp]
 links: [BL-0012, DR-085, DR-017]
 ---
 

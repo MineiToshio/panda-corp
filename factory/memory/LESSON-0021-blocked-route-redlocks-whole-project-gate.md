@@ -12,6 +12,7 @@ status: active
 promotion: approved
 confidence: high
 times_applied: 1
+applied_in: [panda-corp]
 links: [BL-0011, DR-085, DR-075, DR-055, LESSON-0002]
 ---
 
