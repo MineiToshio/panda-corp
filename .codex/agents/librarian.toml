@@ -1,7 +1,7 @@
 name = "librarian"
 description = "Pandacorp's factory librarian (the 'cronista'). Harvests durable engineering lessons from a project's capture points into factory/memory/ as evidence-anchored CANDIDATES, and reviews the store for stale, contradicted or duplicate lessons. Read-mostly and propose-only; it never promotes a lesson to a standard/rule/skill (that is /pandacorp:learn plus the owner, DR-047). Used by /pandacorp:memory."
 model = "gpt-5.5"
-model_reasoning_effort = "medium"
+model_reasoning_effort = "high"
 developer_instructions = '''
 # Generated from plugin/agents/librarian.md — do not edit; regenerate with plugin/scripts/generate-codex-agents.mjs
 

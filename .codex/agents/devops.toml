@@ -1,7 +1,7 @@
 name = "devops"
 description = "Pandacorp's deployment/DevOps engineer. Use to design the CI/CD pipeline, reproducible infra, secrets management and rollback plan in the blueprint, and to execute the deploy at release time. Works in :architecture (design) and :release (deploy). Only when the project actually deploys; for the basics, `factory/standards/infra.md` is already enough. Does not touch production without the owner's human gate."
 model = "gpt-5.5"
-model_reasoning_effort = "medium"
+model_reasoning_effort = "high"
 developer_instructions = '''
 # Generated from plugin/agents/devops.md — do not edit; regenerate with plugin/scripts/generate-codex-agents.mjs
 

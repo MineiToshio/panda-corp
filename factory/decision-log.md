@@ -2,6 +2,14 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-04 — Sprint Fable WS1: la auditoría-20 verificada como EJECUTADA + los dos huecos residuales cableados
+
+**Qué:** cuatro verificadores de contexto fresco contrastaron cada hallazgo de la auditoría del proceso (proposals/20, 2026-07-01) contra el código vivo en HEAD (plugin v9.65.0): los 4 P0, los P1-1..15/17..20 y las 6 decisiones del owner están ARREGLADOS con mecanismo verificado y DR registrado (aterrizaron entre el 1 y el 3 de julio, v9.39.0+). Un pase canary adversarial (constitución §24) probó que los mecanismos MUERDEN: matriz de 27 casos sobre `block-dangerous.sh` (verde), self-tests de gates, `check-standards.sh` (26 ficheros conformes). Los dos huecos residuales se cablearon en esta pasada (plugin v9.66.0): el gate de deriva de artefactos derivados (única rebanada mecanizable de P1-16) y el scoping del aviso de aislamiento (BL-0033, cerrado) — incluida la corrección de CLAUDE.md, que prometía una merge queue en la raíz de la fábrica que no existe (el protocolo real: rama de worktree → merge directo a main). El residuo de P1-16 (enforcement del bump de versión al cambiar plugin/) queda en BL-0025 con razón documentada: exige semántica de merge-time que pertenece al flujo de implement-backlog, no a un hook.
+
+**Por qué:** el brief del sprint (proposals/26 §WS1) exige mecanismos aterrizados, no diagnóstico; y la lección LESSON-0027 exige verificar el estado vivo antes de decidir alcance — la verificación evitó re-implementar tres días de trabajo ya hecho.
+
+**Impacto:** plugin v9.66.0 (ver su decision-log), `factory/standards/{agent-portability,rule-registry}.md`, `factory/decisions/registry.yaml` (DR-099), `CLAUDE.md`, `factory/backlog/BL-0033` (done), Manual de MC (2 páginas), `docs/proposals/20` (nota de resolución en cabecera).
+
 ## 2026-07-04 — BL-0035 cerrado: incidente del borrado de mission-control/.pandacorp — auditoría + blindaje
 
 **Qué:** investigación forense del borrado (11 ficheros versionados restaurados de git; el contenido gitignored del inbox perdido sin recuperación — sin snapshots APFS). Auditoría genuina: merge-queue/worktree-bootstrap/canary limpios, sin worktrees MC ese día, sin comandos destructivos en los transcripts de sesiones Claude; sospechoso principal NO confirmado: la corrida de verificación de Codex (runtime externo con escritura y CERO hooks — el hueco PORT-6). Blindaje desplegado en 4 frentes: backup automático fuera del repo de toda la capa gitignored (SessionStart, fábrica + plugin, retención 30 días — primer snapshot verificado), `block-dangerous.sh` endurecido (rutas protegidas + `git clean -x`, 11 tests), deny-rules `rm -rf`/force-push en el `.claude/settings.json` del root de la fábrica, y regla "PROTECTED STATE PATHS" en AGENTS.md para runtimes sin hooks.

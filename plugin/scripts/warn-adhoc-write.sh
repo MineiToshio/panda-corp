@@ -61,18 +61,33 @@ fi
 
 # Isolation reminder (DR-096/099, producer side): editing code directly in the SHARED main checkout
 # (not a worktree) leaves uncommitted WIP that REDs OTHER parallel sessions' gates.
-# Applies to BOTH projects AND the factory — parallel sessions collide the same way in both.
+# Applies to projects AND the factory's GATED surfaces — but NOT to factory-only prose (BL-0033):
+# the factory repo runs no whole-program gate over factory/ or plugin/**/*.md prose, so a doc/
+# standard/skill-text edit there carries no cross-session-red risk and the nudge would only train
+# the operator to rationalize past it. Factory paths that DO ship to projects or execute (scripts,
+# hooks, templates, the build engine, mission-control/) still warrant the nudge.
 # The build engine legitimately edits main in-place (DR-060), so suppress during an active build.
 # A linked worktree's git-dir contains "/worktrees/"; the main checkout's does not.
+skip_isolation=0
+if [ "$is_factory" = "1" ] && [ "$is_project" = "0" ]; then
+  case "$file" in
+    */plugin/scripts/*|*/plugin/hooks/*|*/plugin/templates/*|*/mission-control/*) : ;; # gated/shipped → keep nudge
+    */factory/*|*/docs/*|*/plugin/*|*/.claude/*|*.md|*.base|*/ideas.base) skip_isolation=1 ;;    # factory prose/config → no nudge
+  esac
+fi
 git_dir=$(cd "$cwd" 2>/dev/null && git rev-parse --git-dir 2>/dev/null || echo "")
 lock="$cwd/.pandacorp/run/build.lock"
 build_active=$([ -f "$lock" ] && [ -n "$(find "$lock" -mmin -10 2>/dev/null)" ] && echo 1 || echo 0)
+# Landing instruction differs by repo: projects land via the merge queue; the factory has NO
+# merge queue (direct-to-main is the protocol, constitution §11) — merge the worktree branch back.
+land_hint="land it with \`bash .pandacorp/merge-queue.sh\` when green"
+[ "$is_project" = "0" ] && land_hint="merge the worktree branch back to main when green (the factory has no merge queue; direct-to-main, constitution §11)"
 case "$git_dir" in
   */worktrees/*) : ;;   # already isolated in a worktree → no reminder
   "") : ;;              # not a git repo → skip
   *)
-    if [ "$build_active" = "0" ]; then
-      isolation_msg="Isolation reminder (DR-096): you are editing in the SHARED main checkout (not a worktree), outside a build. For a NON-TRIVIAL change, isolate FIRST — call EnterWorktree, edit there, and land it with \`bash .pandacorp/merge-queue.sh\` when green. Uncommitted WIP left in the shared checkout REDs other parallel sessions' gates (this is exactly the failure that blocked a merge in a sibling session). Micro-edits (typo/comment/local config) may stay in-tree."
+    if [ "$build_active" = "0" ] && [ "$skip_isolation" = "0" ]; then
+      isolation_msg="Isolation reminder (DR-096): you are editing in the SHARED main checkout (not a worktree), outside a build. For a NON-TRIVIAL change, isolate FIRST — call EnterWorktree, edit there, and $land_hint. Uncommitted WIP left in the shared checkout REDs other parallel sessions' gates (this is exactly the failure that blocked a merge in a sibling session). Micro-edits (typo/comment/local config) may stay in-tree."
       if [ -n "$msg" ]; then
         msg="$msg
 

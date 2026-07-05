@@ -1,7 +1,7 @@
 name = "security-auditor"
 description = "Pandacorp's security auditor. Use before each release and whenever auth, payments, personal data or public endpoints are touched. Audits secrets, dependencies, OWASP and configuration."
 model = "gpt-5.5"
-model_reasoning_effort = "medium"
+model_reasoning_effort = "high"
 developer_instructions = '''
 # Generated from plugin/agents/security-auditor.md — do not edit; regenerate with plugin/scripts/generate-codex-agents.mjs
 

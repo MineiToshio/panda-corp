@@ -48,6 +48,13 @@ El implementer nunca verifica su propio trabajo — esa es la invariante de este
 
 Si `verify.sh` falla, el motor se congela. Máximo 3 intentos de reparación por fallo; si el mismo error se repite, se escala al propietario. No hay "bypass" — un agente que saltara este gate violaría la constitución.
 
+## Gates de la propia fábrica
+
+El repo de la fábrica también tiene sus gates automáticos:
+
+- **Deriva de artefactos generados** (`check-derived-drift.sh`, hook de Stop): los espejos Codex (`.codex/agents/*.toml`), el manifest espejo del plugin y el symlink `.agents/skills` se verifican contra sus fuentes únicas en cada sesión. Deriva detectada = la sesión no puede cerrar hasta regenerar (DR-113).
+- **Aviso de aislamiento con alcance real** (BL-0033): el recordatorio de worktree (DR-096) ya no salta al editar prosa de la fábrica (estándares, docs, texto de skills — superficies sin gate de programa completo); sigue saltando para lo que se ejecuta o se despliega a proyectos (`plugin/scripts`, `plugin/hooks`, `plugin/templates`, `mission-control/`). En la fábrica se aterriza directo a `main` — la merge queue existe solo en los proyectos.
+
 ## Seguridad de las operaciones agénticas
 
 La fábrica sigue OWASP Top 10 para aplicaciones agénticas (ASI01–ASI10):

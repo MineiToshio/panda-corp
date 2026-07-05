@@ -111,15 +111,21 @@ const MODEL_TIER_MAP = {
  *   sonnet -> gpt-5.5 / medium
  *   opus   -> gpt-5.5 / high
  *   missing model -> sonnet mapping
- * If the source frontmatter explicitly says `effort: xhigh`, that overrides
- * the tier's default effort (kept as "xhigh").
+ * An explicit `effort:` pin in the source frontmatter overrides the tier's
+ * default, but only UPWARD (AGENTS.md rule 11: escalate upward, never
+ * downward) — `sonnet + effort: high` must stay `high` on Codex, not fall
+ * back to the tier's `medium` (the silent downgrade hit security-auditor,
+ * analytics, devops and librarian — Fable-audit 2026-07-04 #5).
  */
+const EFFORT_RANK = { minimal: 0, low: 1, medium: 2, high: 3, xhigh: 4 };
+
 function mapModelTier(claudeModel, explicitEffort) {
   const key = (claudeModel || "sonnet").trim().toLowerCase();
   const mapped = MODEL_TIER_MAP[key] || MODEL_TIER_MAP.sonnet;
   let effort = mapped.effort;
-  if (explicitEffort && explicitEffort.trim().toLowerCase() === "xhigh") {
-    effort = "xhigh";
+  const pinned = explicitEffort ? explicitEffort.trim().toLowerCase() : "";
+  if (pinned in EFFORT_RANK && EFFORT_RANK[pinned] > EFFORT_RANK[effort]) {
+    effort = pinned;
   }
   return { model: mapped.model, effort };
 }

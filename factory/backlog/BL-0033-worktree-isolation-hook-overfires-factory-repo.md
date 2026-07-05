@@ -3,10 +3,10 @@ id: BL-0033
 type: bug
 area: hooks
 title: "Scope the DR-096 worktree-isolation PreToolUse hook away from factory-only doc/plugin edits"
-status: open
+status: done
 severity: p2
 opened: 2026-07-04
-closed:
+closed: 2026-07-04
 source: "factory/memory/_inbox.md harvest 2026-07-04 (agent-inferred note, 2026-07-03)"
 closes:
 links: [DR-096]

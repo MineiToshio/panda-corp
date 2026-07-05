@@ -1,7 +1,7 @@
 name = "analytics"
 description = "Pandacorp's product analytics/data engineer. Use to translate the PRD's success metrics into an event plan, instrument telemetry (PostHog) without polluting the logic, and verify that events fire. Works in :architecture (event plan) and during/after :implement (instrumentation + verification). The product ships with telemetry, not without it."
 model = "gpt-5.5"
-model_reasoning_effort = "medium"
+model_reasoning_effort = "high"
 developer_instructions = '''
 # Generated from plugin/agents/analytics.md — do not edit; regenerate with plugin/scripts/generate-codex-agents.mjs
 

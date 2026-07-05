@@ -131,4 +131,4 @@ Every piece has exactly ONE source of truth; the "other side" is a link, an impo
 | `plugin/hooks/` or scripts | Remember other runtimes get no enforcement (PORT-6) — if the rule matters cross-runtime, state it in AGENTS.md too (and see BL-0030 for the Codex hook port) |
 | The overlay templates (`plugin/templates/`) | OVERLAY_VERSION bump, as always; the AGENTS.md.tpl "Other runtimes" section is part of the managed layer |
 
-Both derived artifacts (TOMLs, manifest mirror) are cheap to script-check for drift against their sources.
+Both derived artifacts (TOMLs, manifest mirror) — plus the `.agents/skills` symlink — are **script-checked for drift**: `plugin/scripts/check-derived-drift.sh` (fail-closed; wired as a Stop hook in the factory repo, self-tested by `test-check-derived-drift.sh`). A stale TOML, a diverged manifest version, or a dangling skills symlink blocks the session from declaring done until regenerated/re-synced.

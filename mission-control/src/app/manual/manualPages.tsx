@@ -809,6 +809,27 @@ function ConceptHooks(): React.JSX.Element {
         aplican como <B weight={500}>reglas deny duras</B> en settings.json, no como límites dichos
         en la conversación.
       </NotePanel>
+      <DocH title="Blindaje del estado sin historia git (BL-0035)" />
+      <Lead>
+        La capa gitignored (<Code>.pandacorp/inbox</Code>, <Code>comms</Code>, ideas, perfil,
+        portfolio, ledgers) no tiene historia git por diseño: un borrado ahí es pérdida permanente.
+        Tras el incidente de 2026-07-04 tiene doble blindaje:
+      </Lead>
+      <NotePanel icon="ti-database-export" iconColor="var(--color-accent)">
+        <B weight={600}>Backup automático en cada SessionStart</B> a{" "}
+        <Code>~/.pandacorp-backups/</Code> (una carpeta por día, 30 días de retención). Es{" "}
+        <B weight={500}>aditivo dentro del día</B> — un borrado parcial en el origen nunca encoge el
+        snapshot — y emite una línea-resumen visible (nº de ficheros + fallos), para que un backup
+        roto no se disfrace de backup sano.
+      </NotePanel>
+      <NotePanel icon="ti-shield-lock" iconColor="var(--color-warn)">
+        <B weight={600}>Rutas protegidas en el gate de comandos.</B> <Code>block-dangerous.sh</Code>{" "}
+        bloquea el borrado recursivo que ALCANCE una ruta protegida — también el borrado del{" "}
+        <B weight={500}>directorio padre</B> (<Code>rm -rf mi-app</Code> contiene su{" "}
+        <Code>.pandacorp</Code> sin nombrarlo), el flag al final (<Code>rm ruta -r</Code>) y{" "}
+        <Code>find … -delete</Code> — y es fail-closed si su propio parser (jq) falta. Probado por
+        una matriz canary de 36 casos (<Code>test-block-dangerous.sh</Code>).
+      </NotePanel>
     </>
   );
 }
@@ -1957,6 +1978,13 @@ function ConceptMultiRuntime(): React.JSX.Element {
           <SourceOfTruthMap />
         </div>
       </Panel>
+      <NotePanel icon="ti-git-compare" iconColor="var(--color-accent)">
+        <B weight={600}>La capa derivada ya no depende del ritual.</B> Desde 2026-07-04 el gate{" "}
+        <Code>check-derived-drift.sh</Code> (hook de Stop en el repo de la fábrica) verifica en cada
+        sesión que los TOML generados coinciden con sus fuentes, que ambos manifests del plugin
+        llevan la misma versión y que el symlink <Code>.agents/skills</Code> resuelve. Deriva
+        detectada = la sesión no puede declararse terminada hasta regenerar.
+      </NotePanel>
 
       <DocH title="Si modificas algo, ¿qué debes tocar?" />
       <Lead>

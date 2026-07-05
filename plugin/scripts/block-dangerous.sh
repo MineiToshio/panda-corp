@@ -2,14 +2,25 @@
 # Pandacorp PreToolUse gate: blocks dangerous bash commands in Pandacorp projects.
 # Exit 2 = block (stderr shown to the model). Exit 0 = allow.
 
+# FAIL-CLOSED on our own plumbing (Fable-audit 2026-07-04 #9): a gate that silently allows
+# everything when jq is missing is worse than no gate — it looks armed while disarmed.
+command -v jq >/dev/null 2>&1 || { echo "BLOCKED: Pandacorp safety gate cannot parse its input (jq missing) — fix the environment before running Bash" >&2; exit 2; }
+
 input=$(cat)
 cwd=$(echo "$input" | jq -r '.cwd // "."')
 cmd=$(echo "$input" | jq -r '.tool_input.command // ""')
 
-# Scope: act in Pandacorp folders — a project (.pandacorp/status.yaml, incl. adopted ones) OR the factory (Pandacorp in CLAUDE.md)
-if [ ! -f "$cwd/.pandacorp/status.yaml" ] && ! grep -qs "Pandacorp" "$cwd/CLAUDE.md" 2>/dev/null; then
-  exit 0
-fi
+# Scope: act in Pandacorp folders — a project (.pandacorp/status.yaml, incl. adopted ones) OR the
+# factory (Pandacorp in CLAUDE.md). Resolve from the REPO ROOT, not just the hook cwd: a session
+# parked in a subdirectory (mission-control/src/…) is still inside a Pandacorp repo and must not
+# disarm the gate (Fable-audit 2026-07-04 #9).
+scope_root=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || echo "$cwd")
+in_scope=0
+for d in "$cwd" "$scope_root"; do
+  [ -f "$d/.pandacorp/status.yaml" ] && in_scope=1
+  grep -qs "Pandacorp" "$d/CLAUDE.md" 2>/dev/null && in_scope=1
+done
+[ "$in_scope" = "1" ] || exit 0
 
 block() {
   echo "BLOCKED by Pandacorp policy: $1" >&2
@@ -24,8 +35,54 @@ esac
 # gitignored inbox lost for good — no git history by design). A recursive delete or an
 # ignored-files clean aimed at the owner/state layer is NEVER routine: these paths are
 # append-only/managed (archive to done/, never rm). If genuinely needed, the OWNER runs it.
-if echo "$cmd" | grep -Eq '(^|[[:space:];&|])rm[[:space:]]+(-[a-zA-Z]*r[a-zA-Z]*[[:space:]]+)+[^;&|]*(\.pandacorp|factory/(ideas|memory|profile|portfolio))'; then
-  block "recursive delete on a protected Pandacorp state path (.pandacorp/, factory/{ideas,memory,profile,portfolio}) — this layer has no git history; archive/move instead, or ask the owner (BL-0035)"
+#
+# Hardened per Fable-audit 2026-07-04 #1 — the original pattern missed the incident's own vectors:
+#   (a) flag order: GNU `rm path -r` (trailing flags) as well as `rm -r path`;
+#   (b) PARENT-DIRECTORY deletes: `rm -rf mission-control` contains .pandacorp without naming it —
+#       so any `rm -r` whose path operand resolves (relative to cwd) to a dir that CONTAINS a
+#       protected path is blocked too;
+#   (c) non-rm deleters: `find <protected> -delete`.
+_protected_under() { # $1 = a path operand; returns 0 if it IS/CONTAINS/IS-INSIDE a protected path
+  local p="$1" abs
+  case "$p" in -*) return 1 ;; ""|"/"|"~") return 0 ;; esac   # bare /, ~ handled by the broad rule above
+  case "$p" in /*) abs="$p" ;; "~/"*) abs="$HOME/${p#\~/}" ;; *) abs="$cwd/$p" ;; esac
+  abs="${abs%/}"
+  # Direct mention or inside a protected subtree
+  case "$abs" in
+    *"/.pandacorp"|*"/.pandacorp/"*) return 0 ;;
+    */factory/ideas|*/factory/ideas/*|*/factory/memory|*/factory/memory/*) return 0 ;;
+    */factory/profile.md|*/factory/portfolio.md) return 0 ;;
+  esac
+  # Parent-directory delete: the target exists and CONTAINS a protected dir/file
+  if [ -d "$abs" ]; then
+    [ -e "$abs/.pandacorp" ] && return 0
+    find "$abs" -maxdepth 3 -name ".pandacorp" -print -quit 2>/dev/null | grep -q . && return 0
+    case "$abs" in *"/factory") return 0 ;; esac
+    [ -d "$abs/factory/ideas" ] || [ -d "$abs/factory/memory" ] && return 0
+  fi
+  return 1
+}
+
+# rm with a recursive flag anywhere (before OR after the paths): inspect every path operand.
+if echo "$cmd" | grep -Eq '(^|[[:space:];&|])rm[[:space:]]' && echo "$cmd" | grep -Eq '(^|[[:space:]])-[a-zA-Z]*r|--recursive'; then
+  # Extract the rm invocation's operands (up to a separator), drop flags, test each path.
+  rm_args=$(printf '%s' "$cmd" | sed -E 's/.*(^|[;&|])[[:space:]]*rm[[:space:]]+//; s/[;&|].*$//')
+  for tok in $rm_args; do
+    tok="${tok%\"}"; tok="${tok#\"}"; tok="${tok%\'}"; tok="${tok#\'}"
+    if _protected_under "$tok"; then
+      block "recursive delete reaching a protected Pandacorp state path (.pandacorp/, factory/{ideas,memory,profile,portfolio} — directly or inside '$tok') — this layer has no git history; archive/move instead, or ask the owner (BL-0035)"
+    fi
+  done
+fi
+# find … -delete / -exec rm aimed at a protected path
+if echo "$cmd" | grep -Eq '(^|[[:space:];&|])find[[:space:]]' && echo "$cmd" | grep -Eq '\-delete|\-exec[[:space:]]+rm'; then
+  find_args=$(printf '%s' "$cmd" | sed -E 's/.*(^|[;&|])[[:space:]]*find[[:space:]]+//; s/[;&|].*$//')
+  for tok in $find_args; do
+    case "$tok" in -*) break ;; esac   # first flag ends the path list
+    if _protected_under "$tok"; then
+      block "find -delete/-exec rm on a protected Pandacorp state path ('$tok') — this layer has no git history; archive/move instead, or ask the owner (BL-0035)"
+    fi
+  done
 fi
 if echo "$cmd" | grep -Eq '(^|[[:space:];&|])git[[:space:]]+clean[[:space:]][^;&|]*-[a-zA-Z]*x'; then
   block "git clean -x removes gitignored files — the .pandacorp state layer (inbox/comms) would be lost with no git history; use plain 'git clean -fd' (keeps ignored) or ask the owner (BL-0035)"

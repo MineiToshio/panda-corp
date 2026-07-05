@@ -1,7 +1,8 @@
 ---
 title: Pandacorp factory process audit — end-to-end
 date: 2026-07-01
-status: audit
+status: audit — EXECUTED & VERIFIED CLOSED 2026-07-04
+resolution: Fable sprint WS1 (proposal 26) — 4 fresh-context verifiers confirmed at HEAD (v9.65.0) that every P0 (P0-1..4), the P1s and all 6 owner decisions landed with real mechanisms + DR ids between 2026-07-01/03 (largely v9.39.0+). A 27-case adversarial canary proved the landed gates bite. Residual gaps wired in plugin v9.66.0 (derived-copy drift Stop gate; BL-0033 isolation-nudge scoping). Last residue — version-bump-on-change enforcement — deferred to BL-0025 (merge-time semantics belong to implement-backlog's serialized merge, not a hook).
 scope: the factory process end-to-end (discover → spec → design → architecture → implement → release → post-launch → self-learning), plugin skills/agents/templates/hooks, standards/constitution/registry, the state machine. Mission Control app excluded by owner request.
 ---
 

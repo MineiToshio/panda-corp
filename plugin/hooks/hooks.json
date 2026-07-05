@@ -62,6 +62,12 @@
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/capture-lessons-reminder.sh\"",
             "timeout": 15,
             "statusMessage": "Pandacorp capture check"
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/check-derived-drift.sh\"",
+            "timeout": 30,
+            "statusMessage": "Pandacorp derived-drift gate"
           }
         ]
       }

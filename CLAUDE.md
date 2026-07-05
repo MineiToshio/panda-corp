@@ -30,4 +30,4 @@ Mission Control **warns about drift** (FRD-15): uncommitted changes in `plugin/`
 
 - `~/.claude/dashboard-events.ndjson` — the event stream Mission Control's live telemetry reads (engine + hooks append to it).
 - `.claude/settings.json` / `.claude/hooks/` (repo root) — session hooks (decision-log reminder) and permissions for factory sessions; `.claude/launch.json` — Preview dev-server configs.
-- Worktree isolation (DR-096) and the merge queue (`.pandacorp/merge-queue.sh`) use the `EnterWorktree`/`ExitWorktree` tools.
+- Worktree isolation (DR-096) uses the `EnterWorktree`/`ExitWorktree` tools. **Landing differs by repo:** product projects land via their own `.pandacorp/merge-queue.sh`; the factory repo has NO merge queue — factory worktree branches merge directly back to `main` (solo operator, constitution §11). Factory-only prose edits (standards, docs, skill text) are exempt from the isolation nudge (BL-0033).

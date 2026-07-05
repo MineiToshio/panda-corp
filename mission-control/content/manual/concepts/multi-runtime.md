@@ -32,6 +32,8 @@ Regla: una sola fuente por cosa; lo demás es symlink, import o artefacto genera
 | Los 14 agentes del equipo | `plugin/agents/*.md` | **generado** (`.codex/agents/*.toml`, script `generate-codex-agents.mjs`; cabecera "do not edit") |
 | Manifests del plugin | `.claude-plugin/plugin.json` | espejo mínimo (`.codex-plugin/plugin.json`), misma versión por ritual |
 
+Desde 2026-07-04 esta capa derivada ya no depende solo del ritual: el gate `check-derived-drift.sh` (hook de Stop en el repo de la fábrica) verifica en cada sesión que los TOML generados coinciden con sus fuentes, que ambos manifests llevan la misma versión y que el symlink `.agents/skills` resuelve — si algo derivó, la sesión no puede declararse terminada hasta regenerar/re-sincronizar.
+
 ## Si modificas algo, ¿qué debes tocar para que funcione en ambos?
 
 | Cambias… | Qué más hacer |
