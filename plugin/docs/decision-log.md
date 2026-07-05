@@ -4,6 +4,18 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.70.0 — 2026-07-05 (MINOR): prompt recalibration completed — remaining agents + skills swept (DR-114) — Fable sprint II WS-B2
+
+**What:** the DR-114 recalibration Sprint I began (4 high-judgment agents + 15 skills) is now COMPLETE — the remaining 10 agents and the untouched skills were independently audited against `prompting-conventions.md` and recalibrated ONLY where the form genuinely fought Opus 4.8/Sonnet (audit-then-recalibrate, not churn). Four parallel Fable sub-agents did the surgery; an independent PROMPT-6 fresh-context pass verified every normative element survived (0 findings, frontmatter byte-identical on all files).
+- **Agents CHANGED (4):** `implementer` (steps 6/7 mega-paragraphs → labeled sub-bullets; a drifted inline grep-first memory-retrieve reduced to a pointer at the canonical INDEX-first SOP — PROMPT-3 one-home), `frontend-dev` (rules 2/3 split; DR-057 "check before you create" block **converged byte-identical** with implementer's — it had drifted, a PROMPT-7 fix), `backend-dev` (rule-8 memory pointer only), `researcher` (SOP de-duplicated, rule-8 split, country/language weighing de-repeated). Every DR-057/060/056/078 governance line + the state-machine contracts survived verbatim.
+- **Agents LEFT UNCHANGED (6), with per-rule evidence (Sprint I's "already conformed" claim TESTED adversarially and upheld):** `test-writer`, `security-auditor`, `librarian`, `analytics`, `devops`, `copywriter`. Their enumerated steps are order-normative or parallel-gate content (PROMPT-1 permits), emphasis is load-bearing, and much of their body IS PROMPT-4 never-degrade material (the devops production human gate, the librarian memory state-machine + promotion gate) — a "cleanup" would be a governance change.
+- **Skills:** `iterate` + `scaffold` lightly recalibrated (fused rules split, verbatim; a stale "below" deixis re-anchored to "(step 2)"); 8 untouched skills audited and left with evidence. **Nit fixed:** `implement/SKILL.md` said the reviewer applies "the 3 lenses" — `reviewer.md` now enumerates FOUR (correctness/security/quality/runtime-visual); corrected to "4 lenses" (factual drift).
+- Codex mirrors regenerated (4 TOMLs: implementer/backend-dev/frontend-dev/researcher); both manifests → 9.70.0.
+
+**Why:** completes WS3 of the Fable sprint so the WHOLE prompt surface (14 agents + 25 skills) is calibrated for the models in use, with the never-degrade governance frozen and independently verified. The valuable non-churn outcome: Sprint I's rapid "already conformed" judgment for the 10 was largely CORRECT (6 truly conformed), and the audit found + fixed two real latent issues it missed — a drifted DR-057 block between two build agents (PROMPT-7) and a grep-first/INDEX-first memory-retrieve contradiction (PROMPT-3). Fable sprint II WS-B2 (proposal 27).
+
+**Impact:** `plugin/agents/{implementer,backend-dev,frontend-dev,researcher}.md`, `plugin/skills/{implement,iterate,scaffold}/SKILL.md`, `.codex/agents/{implementer,backend-dev,frontend-dev,researcher}.toml` (regenerated), both manifests → 9.70.0. DR-046: form-only prompt recalibration — no flow/gate/concept changed, so no Manual narrative edit (the standards/agents Reference auto-derives). No overlay/template change. Activation: `claude plugin update pandacorp@panda-corp` + restart.
+
 ## v9.69.0 — 2026-07-05 (MINOR): build-engine deep hardening — Fable sprint II WS-B1
 
 **What:** the 3 confirmed latent defects WS-A's independent oracle found in `pandacorp-build.js`, each fixed WITH a counterfactual scenario (the suite grows 11→14, all green):
