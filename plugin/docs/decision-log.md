@@ -4,6 +4,14 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.70.1 — 2026-07-05 (PATCH): WS-B1 addendum — D1 gets its structural test + docs/surfaces reconciled
+
+**What:** the B1 fresh-context verifier (docs/proposals/28) confirmed D1/D2/D3 fixes correct and 2c/7 genuine counterfactuals, but flagged that D1 (durable change archival) had NO test and that its new `status: building` change-state was un-propagated. This addendum: (1) adds engine scenario 9 — a targeted change build asserting the durable D1 contract structurally (processChange stamps `status: building` + `affected_frds`; the safe-point drain skips `building`; the close-out sweep scans the queue for `building` changes whose `affected_frds` are all VERIFIED). It is a genuine counterfactual (fails on the pre-D1 engine, whose prompts said "do NOT change its status"). Suite 14→15. (2) documents the engine-managed transient `building`/`done` states in `plugin/skills/change/SKILL.md` (the owner sets only draft/ready; the engine manages the rest) — a doc-truth fix (constitution principle 20). (3) files **BL-0046** (p1) for the surfaces the new state still breaks: Mission Control's `ChangeQueueStatus` union rejects `building` as an invalid-status read error during a build (fail-loud, needs to learn the value), plus the `bug` skill enum + the D1 archive-strand residual (archive-agent-death + subsequent empty run).
+
+**Why:** closes the honesty gap in the B1 claim (D1 was said to be "proven structurally" — now it actually is) and reconciles the single-source-of-truth propagation the new status value skipped.
+
+**Impact:** `plugin/scripts/test-pandacorp-build.mjs` (scenario 9), `plugin/skills/change/SKILL.md` (doc), `factory/standards/build-orchestration.md` §10b (15 scenarios), `factory/backlog/BL-0046` (new), both manifests → 9.70.1. No engine (`pandacorp-build.js`) change — the D1 fix itself landed in v9.69.0; no overlay bump. DR-046: the substantive Manual/MC mirror of the `building` state is tracked in BL-0046; the skill-doc clarification changes no owner flow.
+
 ## v9.70.0 — 2026-07-05 (MINOR): prompt recalibration completed — remaining agents + skills swept (DR-114) — Fable sprint II WS-B2
 
 **What:** the DR-114 recalibration Sprint I began (4 high-judgment agents + 15 skills) is now COMPLETE — the remaining 10 agents and the untouched skills were independently audited against `prompting-conventions.md` and recalibrated ONLY where the form genuinely fought Opus 4.8/Sonnet (audit-then-recalibrate, not churn). Four parallel Fable sub-agents did the surgery; an independent PROMPT-6 fresh-context pass verified every normative element survived (0 findings, frontmatter byte-identical on all files).

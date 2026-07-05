@@ -513,6 +513,38 @@ SCENARIOS.push({
   },
 })
 
+// ── 9. WS-A/D1 — durable change archival is disk-driven, not in-session ───────
+// A targeted change build: processChange must STAMP the change file `status: building` + `affected_frds`
+// (so it survives across runs and is not re-drained), the safe-point drain must SKIP `building`, and the
+// close-out archive sweep must scan the queue for `building` changes (disk-driven) — never rely on an
+// in-session list. This is a STRUCTURAL test (the prompts carry the durable contract; the agents' real
+// file effects are stubbed) — full cross-run fidelity needs a live multi-run build.
+SCENARIOS.push({
+  name: '9. durable change archival — building-stamp + disk-driven sweep, no in-session ledger (WS-A/D1)',
+  args: { mode: 'pro', change: 'my-change' },
+  plan: mkPlan([{
+    frd: 'frd-09-chg',
+    deps: [],
+    workOrders: [mkWo('wo-09-001', 'PLANNED', { frd: 'frd-09-chg', artifacts: ['src/chg/**'] })],
+  }]),
+  responses: [
+    { label: /^process-change:/, response: { done: true, affectedFrds: ['frd-09-chg'], changeFile: 'my-change.md' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const proc = byLabel(run, /^process-change:/)[0]
+    t.ok(proc && /status: building/.test(proc.prompt), 'processChange stamps the change file status: building (durable, not re-drained)')
+    t.ok(proc && /affected_frds/.test(proc.prompt), 'processChange records affected_frds on the change file (the durable ledger)')
+    const sp = byLabel(run, 'safe-point')[0]
+    t.ok(sp && /building/.test(sp.prompt), 'the safe-point drain skips already-in-flight building changes')
+    const arch = byLabel(run, 'archive-changes')[0]
+    t.ok(arch, 'the archive sweep ran at close-out (this run verified an FRD)')
+    t.ok(arch && /status.{0,3}is.{0,3}"building"|status\W+building|"building"/.test(arch.prompt), 'the archive sweep scans the queue for building changes (disk-driven)')
+    t.ok(arch && /affected_frds/.test(arch.prompt) && /VERIFIED/.test(arch.prompt), 'the sweep archives a change only when all its affected_frds are VERIFIED (read from disk, cross-run)')
+    t.ok(run.result && run.result.builtFrds.includes('frd-09-chg'), 'the change FRD built and verified')
+  },
+})
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────

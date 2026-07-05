@@ -820,9 +820,12 @@ engine's orchestration contracts, per scenario:
 - **Durable change archival (DR-069 §7 / WS-A/D1)** — an integrated change is stamped `status: building`
   + `affected_frds` in its OWN file (never an in-session list), so the verify-then-archive sweep is
   disk-driven and a change whose FRDs finish verifying on a LATER run is still archived to `done/`
-  (state lives in files — the PORT-5 cross-runtime-resume contract).
+  (state lives in files — the PORT-5 cross-runtime-resume contract). Scenario 9 asserts the durable
+  contract structurally (the stamp, the safe-point skip, the disk-driven sweep); the cross-RUN behavior
+  needs a live multi-run build for full fidelity, and the known residual (a strand if the verifying run's
+  archive agent dies and the next run has nothing to build) is tracked in BL-0046.
 
-Run it with `node plugin/scripts/test-pandacorp-build.mjs` (exit 0 = green; 14 scenarios). Any change to
+Run it with `node plugin/scripts/test-pandacorp-build.mjs` (exit 0 = green; 15 scenarios). Any change to
 the engine MUST keep this suite green and SHOULD extend it with a scenario for the changed behavior — the
 suite is the engine's regression net; before it existed the 1,100-line engine had zero automated tests.
 A new scenario should be a genuine COUNTERFACTUAL (it fails on the pre-fix engine), not a tautology that
