@@ -7,7 +7,7 @@ ui: true
 visual_source: docs/design/prototype/party-proposal.html
 mock: docs/frds/frd-06-party/mocks/la-fragua.html
 status: ACTIVE
-last_updated: '2026-06-19'
+last_updated: '2026-07-05'
 ---
 # FDD-06 — Party · La Fragua (feature design)
 
@@ -22,10 +22,12 @@ from `docs/design/prototype/assets/`, not duplicated).
 > spec) is the global PDD — it is NOT redefined here. This FDD only assembles La Fragua's screen on
 > top of it. Where a value is named below it comes from a token, never a hardcoded literal.
 
+> **⚠️ Reconciled from code 2026-07-05 — this FDD (last authored 2026-06-19) predates the "La Fragua v2" global-scene rework (2026-07-01/02, REQ-06-013…019 in `frd.md`, `blueprint.md §7` As-built).** The shipped scene is now a **global multi-FRD** scene, not the single-FRD-only model §1 below describes, and it ships components this FDD does not cover: **`CampaignStrip`** (the La Campaña strip), **`InfirmaryCorner`** (enfermería / blocked WOs), **`CampCorner`** (campamento/tents), the **courier flight** (`useSceneLife`), the **panda mascot**, **`FreshnessBadge`**, and the serialized **`TribunalLine`** queue. The `MissionBar` no longer renders per-FRD pips (`frdPips=[]`, owner 2026-07-02) — it shows a `summary` string. `AgentSprite` states map from `WoState` (`building | in_review | verified | blocked`) via `woStateToSpriteState`. Treat §1/§5 below as the historical single-FRD design; the canonical current contract is `frd.md` REQ-06-019, `blueprint.md §7`, and the code (`fragua-snapshot.ts`, `FraguaScene.tsx`).
+
 ## 1. Scene & layout
 
-La Fragua is **one living map**, not a 3-column kanban. The scene is always the **single FRD
-currently in build** (`AC-06-002.1`); the whole project shows as a counter, not as more rooms.
+La Fragua is **one living map**, not a 3-column kanban. **(Superseded — reconciled 2026-07-05:** the scene is now the **global multi-FRD** build, not the single FRD; forge sprites span all FRDs and the campaign strip shows every FRD. Historical text follows.**)** ~~The scene is always the **single FRD
+currently in build** (`AC-06-002.1`); the whole project shows as a counter, not as more rooms.~~
 
 - **Stage** — a `920×560` (`party.roomSizes_px.fraguaStage`) bounded canvas, `max-width:100%`,
   `radius lg`, `1px {borders.bd}`, on the dark Party map background (`partyStructural.sceneFillRadialC`

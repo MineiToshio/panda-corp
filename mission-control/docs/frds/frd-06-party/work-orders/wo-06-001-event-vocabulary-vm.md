@@ -65,7 +65,7 @@ export type EventType =
   "read" | "write" | "edit" | "test_ok" | "test_fail" | "message" | "start" | "end" |
   "handoff" | "contract" | "gate" | "blocked" | "review" | "achievement";
 
-export const EVENT_ICON: Record<EventType, string>  // 14-entry centralized vocabulary
+export const EVENT_ICON: Record<EventType, string>  // 14-entry centralized vocabulary (reconciled 2026-07-05: now 16 in code — +launch/+commit, Wave 3 2026-07-01)
 
 export type EventVM = {
   icon: string;

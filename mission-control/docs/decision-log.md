@@ -4,6 +4,20 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-05 — Docs reconciled from code (`/pandacorp:sync`, cold audit) — part 2: FRD-06 La Fragua v2
+
+**What:** the cold-audit fan-out surfaced **FRD-06 (Party / La Fragua) as the most drifted area** — its `fdd.md` (authored 2026-06-19) and `blueprint.md` §2/§3 froze at the pre-v2 *single-FRD* design, while the shipped scene is the *global multi-FRD* "La Fragua v2" rework (2026-07-01/02, `frd.md` REQ-06-013…019, `blueprint.md §7` As-built). Reconciled (marked *reconciled-from-code*):
+- `fdd.md` — added a v2 reconciliation banner at the top of §Scene (the shipped scene is global multi-FRD and ships `CampaignStrip`/`InfirmaryCorner`/`CampCorner`/courier/panda/`FreshnessBadge`/`TribunalLine`, `MissionBar` pips emptied to `frdPips=[]`, `AgentSprite` states from `WoState`); marked §1's "single FRD" claim superseded. Frontmatter `last_updated` → 2026-07-05.
+- `frd.md` — removed a **verbatim-duplicated AC-06-019.7** (authoring bug); annotated **AC-06-001.4** ("⛏️ Fundación" foundation-tag) as **PENDING / not built** (DOC-AHEAD-unbuilt: no field in `FraguaSnapshot`, no render — the "+N en cola" hold IS built; only the distinct tag is missing; tracked in `wo-06-007`).
+- `blueprint.md` — event vocabulary "~12" → **16** (`launch`/`commit` added 2026-07-01); frontmatter `last_updated` → 2026-07-05.
+- `wo-06-001` — `EventType` "14 types" annotated as now 16 in code.
+
+**Why:** same `/pandacorp:sync` cold audit as part 1; direction confirmed at the intent gate (code-ahead → document; the one unbuilt item marked pending, not routed as a bug). No spec degraded; no code bug found (the code is well-tested and internally consistent — the gap was pure documentation lag).
+
+**Deferred (honest residue, not silent):** finer FRD-06 WO-note details left for a follow-up pass — `blueprint.md §3`'s formal `FraguaSnapshot` type snippet still shows the pre-v2 shape (the As-built §7 narrates the new fields in prose), `wo-06-005`/`wo-06-002` status notes predate the DR-092 snapshot rewrite / the `vaultSlots` dead-code move, `work-orders/README.md` lacks a row for WO-06-013 (DeepRelay), and `frd.md`'s AC-06-019.x are numerically out of order. None change behaviour; all are documentation tidiness.
+
+**Impact:** docs-only, gate-neutral. Files: `frd-06-party/{frd,fdd,blueprint}.md`, `wo-06-001`; this entry.
+
 ## 2026-07-05 — Docs reconciled from code (`/pandacorp:sync`, cold audit) — part 1: SSOT propagation + card-detail tabs + removed KPI header
 
 **What:** a cold `/pandacorp:sync` audit (code is the oracle) found documentation that lagged behind the shipped code. This entry covers three families reconciled (all marked *reconciled-from-code*; no spec was degraded, no bug found):

@@ -4,7 +4,7 @@ type: blueprint
 parent: FRD-06
 status: ACTIVE
 implementation_status: VERIFIED
-last_updated: '2026-06-18'
+last_updated: '2026-07-05'
 ---
 # FRD-06 — Party · La Fragua (live build view) — feature blueprint
 
@@ -71,7 +71,7 @@ event stream** from `lib/events`.
 | IF-06-fragua-layout | interface | `forgeSlots(mode)`, `deepSlots()`, `reviewSlots()`, `vaultSlots()`, room rects | Pure station/room layout: forge slots per mode (8 normal / 6 deep wider), 12 tribunal slots (4×3), 9 vault slots + "+N", the room rectangles and the connecting paths (forge→tribunal→vault). | — | REQ-06-001, REQ-06-003, REQ-06-004, REQ-06-005, REQ-06-007 |
 | IF-06-fragua-snapshot | interface | `toFraguaSnapshot(events, opts) → FraguaSnapshot` | Pure: enriched event tail → the server snapshot: current `frd` (+title), `mode`, running WOs (≤ wave), `queuedCount`, gate state, trophies (+ archivedCount), `{done,total}` global counter. Tolerant of missing optional fields (REQ-06-008). | `lib/events` types, `IF-06-state-map` | REQ-06-001, REQ-06-002, REQ-06-004, REQ-06-005, REQ-06-008 |
 | IF-06-event-vm | interface | `toEventVM(event) → EventVM` | Pure mapper: raw `Event` → `{ icon, toolIcon?, roleColorKey, projectColorKey?, isFailure, label(es), at, wo?, frd?, project? }`. | `lib/events` types, `IF-06-icon-map` | REQ-06-011, REQ-06-010 |
-| IF-06-icon-map | interface | `EVENT_ICON: Record<EventType, Icon>` | The fixed bounded vocabulary (~12) event→icon + tool→extra-icon, plus the new `handoff`/`contract`/`gate` lines. Centralized constant. | — | REQ-06-011 |
+| IF-06-icon-map | interface | `EVENT_ICON: Record<EventType, Icon>` | The fixed bounded vocabulary (**16** as of 2026-07-01, reconciled 2026-07-05: `read,write,edit,test_ok,test_fail,message,start,end,handoff,contract,gate,blocked,review,achievement,launch,commit`) event→icon + tool→extra-icon. Centralized constant. | — | REQ-06-011 |
 | IF-06-state-map | interface | `eventToVisual(event) → VisualAction` | Pure map: enriched event → engine action (`setWo`, `enqueue`, `startHandoff`, `advanceRelay`, `openGate`, `fireAchievement`, `downSprite`, `noop`). The decoupling boundary. | `lib/events` types | REQ-06-001, REQ-06-003, REQ-06-006, REQ-06-007, REQ-06-012 |
 | IF-06-role-color | interface | `roleColor(role) → tokenVar` | Pure: build role (`implementer`/`reviewer`/`test-writer`/`backend-dev`/`frontend-dev`) → its fixed CSS color token (FRD-13). The single source the sprite, relay, feed and trophies all read. | FRD-13 tokens | REQ-06-010, REQ-06-011 |
 
