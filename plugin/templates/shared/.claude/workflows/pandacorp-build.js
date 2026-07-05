@@ -331,7 +331,7 @@ async function processChange(slug, phaseTitle) {
 4. Route by type:
    - type "bug" or "regression" → TDD fix: write a RED regression test (fails without the fix, passes with it); implement the minimum production-code fix; never weaken or skip tests. Create a WO in the affected FRD (or create a minimal FRD if none exists) and set it IN_REVIEW.
    - type "feature" | "change" | "improvement" | "chore" → minimum FRD scope: does this fit an existing FRD? Add a WO to it with implementation_status: PLANNED. Is it genuinely new? Create a minimal new FRD folder (docs/frds/frd-NN-<slug>/) with frd.md + blueprint.md + at least one work-orders/wo-NN-001-*.md with implementation_status: PLANNED. Follow the same FRD/WO structure as existing ones in docs/frds/.
-5. Do NOT archive the change file and do NOT change its status — the ENGINE archives it at close-out once its affected FRDs verify (DR-069 §7).
+5. Mark the change IN-FLIGHT so it is (a) not re-drained by a later safe point and (b) archivable ACROSS runs: set its frontmatter \`status: building\` and \`affected_frds: [the FRD folders you created/updated above]\`. Do NOT archive it and do NOT set it done — the ENGINE moves it to done/ once ALL its \`affected_frds\` are VERIFIED, reading that from the FRD rollups on disk at close-out (DR-069 §7). This durable stamp is what lets a change whose FRDs finish verifying on a LATER run still get archived (WS-A/D1 — the old in-session ledger silently lost those). Commit this frontmatter edit.
 6. Return { done: true, affectedFrds: ['frd-XX-slug', ...], changeFile: '<the matched filename>' }.${NOTIFY('Procesando change ' + slug)}`,
     { label: `process-change:${slug}`, phase: phaseTitle, model: P.judge, agentType: 'pandacorp:implementer', schema: PROCESS_CHANGE_SCHEMA },
   )
@@ -681,8 +681,10 @@ function blockFrd(frd, reason) {
 
 // DR-060: keep wave-parallel work orders DISJOINT. Each WO declares `artifacts` (globs it writes); the
 // engine serializes any whose artifacts overlap into different waves, so two agents never race on one
-// file (the generalized banner-collision fix). Undeclared artifacts → fall back to prior behavior
-// (trust the Build Plan) for back-compat with WOs authored before the field existed.
+// file (the generalized banner-collision fix). Undeclared artifacts → FAIL-SAFE: a WO that cannot be
+// PROVEN disjoint is serialized (never co-scheduled), so an un-migrated WO is correct-but-slower, never
+// racy (see artifactsOverlap below, which returns true on an empty artifact set — WS-A/D6 corrected the
+// stale "trust the Build Plan" note that once described the opposite, fail-open, behavior).
 // Real glob overlap (not a crude prefix match): two globs overlap if one's pattern can match the
 // other's concrete representative path (handles `**`, `*`, and extension globs like `Banner.*`).
 const globToRe = (g) => new RegExp('^' + String(g)
@@ -702,14 +704,29 @@ const artifactsOverlap = (a, b) => {
   if (!A.length || !B.length) return true
   return A.some((x) => B.some((y) => globsOverlap(x, y)))
 }
-const pickDisjointWave = (ready, max) => {
+// DR-073 cost-weighting (WS-A F1/D2): the wave must respect the COST budget, not a raw WO count —
+// each WO spawns COST(model)+1 agents (build + its serialized commit; 3×COST+2 in the split relay),
+// so a full opus fan-out used to overshoot maxAgents by ~4× mid-wave (a 6-cap run reached 13). The
+// picker stops when EITHER the count cap (P.wave) OR the projected cost budget is reached, but always
+// admits at least one WO (progress guarantee — a lone opus WO may exceed a tiny remaining budget; the
+// loop-top brake then stops cleanly at the next boundary). costBudget=Infinity ⇒ pure count cap.
+const pickDisjointWave = (ready, max, costBudget = Infinity, costOf = () => 1) => {
   const picked = []
+  let cost = 1   // the shared dispatch stamp spawns one MECH agent for the whole wave
   for (const w of ready) {
     if (picked.length >= max) break
     if (picked.some((p) => artifactsOverlap(p, w))) continue   // overlaps a picked WO → defer to a later wave
+    if (picked.length > 0 && cost + costOf(w) > costBudget) break   // would breach the agent budget → next wave
     picked.push(w)
+    cost += costOf(w)
   }
   return picked
+}
+// Projected agent cost of building ONE work order this wave (mirrors the agentSpawned increments in
+// buildWO): solo = COST(worker)+commit; split web relay = 3×COST(worker)+closer+commit.
+const woWaveCost = (w) => {
+  const m = pickWorkerModel(w)
+  return (P.split && plan.hasFrontend) ? 3 * COST(m) + 2 : COST(m) + 1
 }
 
 // ── DR-069 SAFE-POINT (in-engine, audit-20 P0-3): every WAVE/GATE boundary IS a safe point (BL-0021:
@@ -723,7 +740,7 @@ async function safePoint() {
   const sp = await agent(
     `Safe-point check (DR-069) — read the owner's signals; change ONLY what is specified:
     1) Read .pandacorp/status.yaml → if \`rethink_pending: true\`, return { stop: true } immediately (the owner re-planned mid-run; the engine stops at this safe point and the next run resumes on the new plan).
-    2) List .pandacorp/inbox/changes/*.md (IGNORE the done/ subfolder): collect the slugs whose frontmatter \`status\` is "ready" — \`class: expedite\` FIRST, then standard FIFO by date. Skip draft/done.
+    2) List .pandacorp/inbox/changes/*.md (IGNORE the done/ subfolder): collect the slugs whose frontmatter \`status\` is "ready" — \`class: expedite\` FIRST, then standard FIFO by date. Skip draft/done/building (a \`building\` change is already integrated and in flight — never re-drain it, WS-A/D1).
     3) Read .pandacorp/inbox/decisions.md: for each decision the owner ANSWERED (via /pandacorp:decide) that resolves blocked work, find the work orders with \`implementation_status: BLOCKED\` + \`blocked_reason: needs-owner\` that the answer unblocks, set each back to \`implementation_status: PLANNED\` (the DR-050 frontmatter signal), and update \`pending_decisions\` in status.yaml to the count still unanswered. Commit those frontmatter edits if you made any.
     Return { stop: false, ready: [...slugs, expedite first], unblocked: [...wo ids] } (empty arrays when there is nothing).`,
     { label: 'safe-point', phase: 'Build', model: MECH, agentType: 'pandacorp:implementer', schema: SAFE_POINT_SCHEMA },
@@ -866,6 +883,10 @@ async function gateAndConverge(f, reviewIds) {
 const frdState = new Map()   // frd -> { f, reviewIds, toBuildIds:Set, failed:false, enqueued:false }
 const globalQueue = new Map() // woId -> { wo, frd }
 const doneIds = new Set()     // committed (IN_REVIEW) or VERIFIED wo ids — satisfies dependsOn
+// WS-A/D3: BLOCKED wo ids — a BLOCKED WO is neither in globalQueue nor doneIds, so the ready filter's
+// `!globalQueue.has(d)` (meant for a VERIFIED-and-omitted dep) used to read it as SATISFIED and build a
+// WO whose dependency is blocked (fail-open). Tracked here so a dep on a blocked WO fails CLOSED.
+const blockedIds = new Set()
 const gateQueue = []          // FRD folders whose build WOs are all committed — gates run FIFO, serialized
 function enqueueGateIfComplete(frd) {
   const st = frdState.get(frd)
@@ -877,6 +898,7 @@ function enrollFrd(f) {
   const pending = f.workOrders.filter((w) => w.status !== 'VERIFIED' && w.status !== 'BLOCKED')
   const toBuild = pending.filter((w) => w.status !== 'IN_REVIEW')   // IN_REVIEW = built by a prior interrupted run → straight to the gate, don't rebuild
   for (const w of f.workOrders) if (w.status === 'VERIFIED' || w.status === 'IN_REVIEW') doneIds.add(w.id)
+  for (const w of f.workOrders) if (w.status === 'BLOCKED') blockedIds.add(w.id)   // WS-A/D3: a dep on this fails closed
   for (const w of toBuild) globalQueue.set(w.id, { wo: w, frd: f.frd })
   frdState.set(f.frd, { f, reviewIds: pending.map((w) => w.id), toBuildIds: new Set(toBuild.map((w) => w.id)), failed: false, enqueued: false })
   log(`▶ ${f.frd}: ${toBuild.length} to build${pending.length - toBuild.length ? ` · ${pending.length - toBuild.length} already in review` : ''}`)
@@ -888,7 +910,7 @@ for (const f of plan.frds) enrollFrd(f)
 // committed — the next run resumes them) and record the reason.
 function blockFrdInSchedule(frd, reason) {
   const st = frdState.get(frd)
-  if (st) { st.failed = true; for (const id of st.toBuildIds) globalQueue.delete(id) }
+  if (st) { st.failed = true; for (const id of st.toBuildIds) { globalQueue.delete(id); blockedIds.add(id) } }   // WS-A/D3: dropped WOs are now BLOCKED — a dep on them fails closed
   blockFrd(frd, reason)
 }
 
@@ -931,14 +953,21 @@ while (true) {
   // ── Ready set across ALL FRDs: dependsOn satisfied (a dep outside the schedule counts as
   // satisfied — it belongs to a fully-VERIFIED FRD the planner omitted, mirroring the old
   // `!queue.has(d)` rule extended globally). ──
+  // A dep is satisfied iff it is done (VERIFIED/IN_REVIEW) OR it is outside the schedule AND not
+  // BLOCKED — the `!globalQueue.has(d)` clause covers a dep in a fully-VERIFIED FRD the planner omitted,
+  // but a BLOCKED dep is ALSO outside the queue and must NOT count as satisfied (WS-A/D3 fail-closed).
   const ready = [...globalQueue.values()]
-    .filter(({ wo }) => (wo.deps || []).every((d) => doneIds.has(d) || !globalQueue.has(d)))
+    .filter(({ wo }) => (wo.deps || []).every((d) => doneIds.has(d) || (!globalQueue.has(d) && !blockedIds.has(d))))
     .map(({ wo, frd }) => ({ ...wo, _frd: frd }))
 
   if (ready.length === 0) {
     const stuck = [...new Set([...globalQueue.values()].map((x) => x.frd))]
-    log(`⚠ ${globalQueue.size} work orders with unresolved/circular deps (${stuck.join(', ')}) — blocking those FRDs`)
-    for (const frd of stuck) blockFrdInSchedule(frd, 'error')
+    // WS-A/D3: classify — a WO stuck on a BLOCKED dep is needs-owner (the owner must clear the block),
+    // not a code 'error' the way a genuine circular/unresolvable dep is.
+    const onBlockedDep = [...globalQueue.values()].some(({ wo }) => (wo.deps || []).some((d) => blockedIds.has(d)))
+    const reason = onBlockedDep ? 'needs-owner' : 'error'
+    log(`⚠ ${globalQueue.size} work order(s) can't proceed — ${onBlockedDep ? 'a dependency is BLOCKED' : 'unresolved/circular deps'} (${stuck.join(', ')}) — blocking those FRDs (${reason})`)
+    for (const frd of stuck) blockFrdInSchedule(frd, reason)
     continue
   }
 
@@ -961,11 +990,13 @@ while (true) {
   phase('Build')
   const undeclared = candidates.filter((w) => !(w.artifacts && w.artifacts.length))
   if (undeclared.length) log(`⚠ ${undeclared.length} ready WO(s) declare no artifacts — serializing them (can't prove disjoint, DR-060 fail-safe): ${undeclared.map((w) => w.id).join(', ')}`)
-  // DR-070 (audit P1): never START more WOs in a wave than the agent budget allows. capHit() guards the
-  // wave boundary, but a full P.wave fan-out could overshoot maxAgents mid-wave by (wave-1); cap the
-  // wave width to the remaining agent budget so the in-engine brake holds even if the supervisor is dead.
-  const waveMax = MAX_AGENTS ? Math.min(P.wave, Math.max(1, MAX_AGENTS - agentSpawned)) : P.wave
-  const wave = pickDisjointWave(candidates, waveMax)   // DR-060: never co-schedule WOs whose artifacts overlap — now across FRDs
+  // DR-070 (audit P1) + WS-A/D2: never START a wave whose PROJECTED cost overshoots the agent budget.
+  // capHit() guards the wave boundary, but a full P.wave fan-out could overshoot maxAgents mid-wave;
+  // the old cap counted raw WOs (1 each) while an opus WO costs COST+1 (≈4), so an opus wave blew the
+  // cap ~4× (a 6-cap run reached 13). Now the picker is COST-aware: count cap P.wave AND a cost budget
+  // = the remaining agent allowance, so the in-engine brake holds even if the supervisor is dead.
+  const remainingAgents = MAX_AGENTS ? Math.max(1, MAX_AGENTS - agentSpawned) : Infinity
+  const wave = pickDisjointWave(candidates, P.wave, remainingAgents, woWaveCost)   // DR-060: never co-schedule overlapping artifacts — now across FRDs; DR-073/D2: cost-budgeted width
   const waveFrds = [...new Set(wave.map((w) => w._frd))]
   log(`⚒ wave: ${wave.length} WO(s) across ${waveFrds.length} FRD(s) — ${wave.map((w) => w.id).join(', ')}`)
 
@@ -1031,23 +1062,25 @@ if (plan.hasFrontend && builtFrds.length) {
   log(`Visual QA pass done over ${builtFrds.length} FRD(s) — see .pandacorp/comms/visual-punch-list.md`)
 }
 
-// ── DR-069 §7 verify-then-archive: changes whose affected FRDs ALL verified this run ─────────────
-// (audit-20 P0-3.3: the old flow deferred archiving to "the FRD gate", whose prompt never did it —
-// a built change stayed `ready` forever, got re-processed every run, and pending_changes never fell.)
-const landedChanges = integratedChanges.filter((c) => c.frds.every((x) => builtFrds.includes(x)))
-if (landedChanges.length) {
+// ── DR-069 §7 verify-then-archive — DURABLE + cross-run (WS-A/D1) ─────────────────────────────────
+// (audit-20 P0-3.3: the old flow deferred archiving to "the FRD gate", whose prompt never did it — a
+// built change stayed `ready` forever and pending_changes never fell. WS-A/D1: the follow-on fix threaded
+// the "which changes landed" ledger through an IN-SESSION array — so a change whose FRDs verified on a
+// LATER run was never archivable and got re-drained. Now the state lives in the change file itself
+// (`status: building` + `affected_frds`, stamped by processChange), so the sweep is disk-driven and works
+// across runs. Run it whenever THIS run verified anything — a prior run's building change may now be done.)
+if (builtFrds.length) {
   phase('Review')
   agentSpawned++
-  await agent(`Archive ${landedChanges.length} landed change(s) — the DR-069 §7 verify-then-archive protocol. For EACH of: ${landedChanges.map((c) => c.file).join(', ')} in .pandacorp/inbox/changes/:
-  1) Verify its durable record exists (the run's commits touched the canonical docs/FRDs it names).
-  2) Stamp its frontmatter \`status: done\` + \`shipped_sha\` (current \`git rev-parse --short HEAD\`) + \`shipped_at\` (ISO now).
-  3) MOVE the file to .pandacorp/inbox/changes/done/ (a move, never a delete — the folder is gitignored, a delete is irreversible). Update its row in the queue index README.md.
-  4) Decrement \`pending_changes\` in .pandacorp/status.yaml by the number archived.
+  await agent(`Archive landed changes — the DR-069 §7 verify-then-archive protocol (durable, cross-run).
+  1) List .pandacorp/inbox/changes/*.md (IGNORE the done/ subfolder). For EACH whose frontmatter \`status\` is "building": read its \`affected_frds\` and check each of those FRD folders' rolled-up frd.md \`implementation_status\`. The change has LANDED iff ALL its affected_frds are VERIFIED (read the rollups from disk — this is what makes it work even when the verifying run is a LATER one).
+  2) For EACH landed change: verify its durable record exists (the canonical docs/FRDs it names were touched); stamp \`status: done\` + \`shipped_sha\` (current \`git rev-parse --short HEAD\`) + \`shipped_at\` (ISO now); MOVE the file to .pandacorp/inbox/changes/done/ (a move, NEVER a delete — the folder is gitignored, a delete is irreversible); update its row in the queue index README.md; decrement \`pending_changes\` in .pandacorp/status.yaml by the number archived.
+  3) Leave every still-building change in place (its affected_frds will verify on a later run). Commit the archive moves + status edits (Conventional Commits, scope). If NO building change has fully landed, change nothing and return { done: true }.
   Return { done: true }.`,
     { label: 'archive-changes', phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
-  log(`✓ ${landedChanges.length} change(s) archivadas a done/ (DR-069 §7)`)
+  log('✓ DR-069 §7 verify-then-archive sweep (building changes whose affected_frds all VERIFIED → done/)')
 } else if (integratedChanges.length) {
-  log(`↷ ${integratedChanges.length} change(s) integradas pero sus FRDs no verificaron todos este run — siguen ready y se archivan cuando verifiquen`)
+  log(`↷ ${integratedChanges.length} change(s) integradas pero este run no verificó FRDs — siguen 'building' y se archivan en la corrida que verifique sus FRDs (DR-069 §7, durable cross-run)`)
 }
 
 // ── Close-out + ALWAYS notify the owner how this run ended ────────────────────
@@ -1073,7 +1106,11 @@ if (allDone) {
     agentSpawned += COST(P.judge)
     closed = await agent(`All FRDs are VERIFIED and the DR-085 hardening left its evidence — now the CROSS-FEATURE INTEGRATION REVIEW (DR-060): the seam check the per-FRD gates CANNOT do (each only sees its own feature). The dominant failure of parallel builds is at the seams BETWEEN features — every component correct in isolation, broken together. Trace the data flow ACROSS feature boundaries and verify every producer/consumer pair actually AGREES: each consumer's expectations vs its provider's \`docs/api/<wo-id>.md\` contract (field names, data shapes, formats, units, status codes, routes), shared types/enums used consistently across features, and NO two features that shipped duplicate or divergent versions of the same component/util (cross-check \`docs/design/components.md\`).${GATE_SKIP} THEN run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since — includes the smoke + visual gates) and kill any test dev servers with TaskStop. FINALLY assert the hardening evidence EXISTS before you may declare release (BL-0012 fail-closed): a docs/reviews/security-*.md dated this run AND the "## Verification" section in docs/analytics/events.md — if either is missing, do NOT set phase: release; return done:false with what is missing. If a cross-feature seam is wrong, reopen the offending work order (set it \`implementation_status: PLANNED\`) and return done:false with the finding. If everything integrates AND the full suite is green AND both hardening artifacts exist: set .pandacorp/status.yaml phase: release and running: false. Return done:true once status.yaml is written.${NOTIFY('Build COMPLETO: FRDs verificados + hardening + integracion cross-feature OK', 'Glass')}`,
       { label: 'close-out', phase: 'Review', model: P.judge, effort: 'xhigh', agentType: 'pandacorp:reviewer', schema: STOP_SCHEMA })
-    log('Run ended: all FRDs verified + hardened.')
+    // WS-A/D5: don't assert success the close-out did not confirm — a dead close-out returns done:false
+    // (the fail-safe below then guarantees running:false); log honestly instead of a blanket "verified".
+    log(closed && closed.done === true
+      ? 'Run ended: all FRDs verified + hardened.'
+      : 'Run ended: all FRDs verified + hardened, but the close-out agent did not confirm release — the fail-safe will ensure running:false (phase stays implementation).')
   } else {
     agentSpawned++
     closed = await agent(`Every FRD is VERIFIED but the DR-085 hardening did NOT complete (security: ${sec && sec.done === true ? 'ok' : 'INCOMPLETE — ' + ((sec && sec.failure) || 'failed')}; telemetry: ${telem && telem.done === true ? 'ok' : 'INCOMPLETE — ' + ((telem && telem.failure) || 'failed')}). The project must NOT be declared released (BL-0012 fail-closed — release requires the hardening evidence). 1) Append the hardening failure + your recommendation to .pandacorp/inbox/decisions.md (needs-owner). 2) Write a short Spanish summary to .pandacorp/comms/progress.md (todo verificado, hardening incompleto, qué falta). 3) Set .pandacorp/status.yaml running: false and KEEP phase: implementation. Return done:true once status.yaml is written.${NOTIFY('Build verificado pero hardening INCOMPLETO — NO se declara release; necesita tu decision')}`,
@@ -1090,6 +1127,7 @@ if (allDone) {
   const ownerMsg = needsOwner.length
     ? `Termine lo que se podia. ${needsOwner.length} FRD(s) te esperan a ti: ${needsOwner.slice(0, 6).join(', ')}`
     : `Tramo: ${builtFrds.length} FRDs ok, ${blockedFrds.length} bloqueados, ${reopenedFrds.length} a reintentar`
+  agentSpawned++   // WS-A/D4: honest counter — every spawn site increments (DR-070); notify-end was the one omission
   closed = await agent(`The build run ended.${why} Verified this run: ${builtFrds.length}. Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Of those, NEEDS-OWNER (a human must act): ${needsOwner.join(', ') || 'none'}.${GATE_SKIP} FIRST run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since) to confirm this pass left no global regression — note the result (a needs-owner-quarantined route is held aside, so its blocked state must NOT red this full-suite check; that is the whole point — the independent features still reach a green baseline while the blocked route waits on the owner, BL-0011). Then write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and the reason, the full-suite result, and exactly what needs the owner's action/decision for the needs-owner ones). Set .pandacorp/status.yaml running: false. Return done:true once status.yaml is written.${NOTIFY(ownerMsg)}`,
     { label: 'notify-end', phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
   log(`Run ended: ${builtFrds.length} verified, ${reopenedFrds.length} reopened, ${blockedFrds.length} blocked${stopReason ? ' · stop=' + stopReason : ''}.`)

@@ -208,14 +208,17 @@ SCENARIOS.push({
 })
 
 // ── 2. Budget brake — MAX_AGENTS, COST-weighted ─────────────────────────────
-// 2a: mode 'pro' (judge=sonnet, COST 1 each). Pre-loop spawns: baseline(1) +
-// plan(1) + sync-rollups(1) = 3. maxAgents=6 → iteration 1 passes the brake
-// (3<6), safe-point(+1)=4, waveMax=min(2, 6-4)=2 → dispatch(+1)=5, builds
-// wo-1+wo-2 (+2)=7, commits (+2)=9. Iteration 2 top: 9 ≥ 6 → STOP. wo-3/wo-4
-// must never be dispatched.
+// 2a: mode 'pro' (judge=sonnet, COST 1; solo build). Pre-loop spawns: baseline(1) +
+// plan(1) + sync-rollups(1) = 3. maxAgents=9 → iteration 1 passes the brake (3<9),
+// safe-point(+1)=4. The wave picker is COST-aware (WS-A/D2): remainingAgents=9-4=5,
+// each sonnet WO costs COST(sonnet)+1=2, plus the shared dispatch(1) — so it admits
+// wo-1 (cost 1+2=3) and wo-2 (5), but wo-3 would be 7>5 → deferred. Wave=[wo-1,wo-2].
+// dispatch(+1)=5, builds wo-1+wo-2 (+2)=7, commits (+2)=9. Iteration 2 top: 9 ≥ 9 →
+// STOP, exactly at the cap (no overshoot). wo-3/wo-4 must never be dispatched. (Before
+// the D2 fix the width was counted raw, so an opus wave overshot the cap ~4× — see 2c.)
 SCENARIOS.push({
-  name: '2a. maxAgents brake — stops dispatching new waves once the cap is reached',
-  args: { mode: 'pro', maxAgents: 6 },
+  name: '2a. maxAgents brake — cost-aware wave stops dispatching once the cap is reached',
+  args: { mode: 'pro', maxAgents: 9 },
   plan: mkPlan([{
     frd: 'frd-01-alpha',
     deps: [],
@@ -229,10 +232,10 @@ SCENARIOS.push({
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error}`)
     t.ok(run.result && run.result.stopReason === 'agents', `stopReason is 'agents' (got ${run.result && run.result.stopReason})`)
-    t.ok(hasLog(run, /Agent ceiling reached \(\d+ ≥ maxAgents 6\)/), 'the brake logs "Agent ceiling reached (N ≥ maxAgents 6)"')
+    t.ok(hasLog(run, /Agent ceiling reached \(9 ≥ maxAgents 9\)/), 'the brake logs "Agent ceiling reached (9 ≥ maxAgents 9)" — exactly at the cap, no overshoot')
     const built = byLabel(run, /^build:/).map((c) => c.label)
     t.ok(built.length === 2 && built.includes('build:wo-01-001') && built.includes('build:wo-01-002'),
-      `only the first wave (wo-01-001, wo-01-002) was built — got [${built.join(', ')}]`)
+      `only the first cost-budgeted wave (wo-01-001, wo-01-002) was built — got [${built.join(', ')}]`)
     t.ok(byLabel(run, 'build:wo-01-003').length === 0 && byLabel(run, 'build:wo-01-004').length === 0,
       'wo-01-003/wo-01-004 were never dispatched after the cap')
     t.ok(byLabel(run, /^gate:/).length === 0, 'no FRD gate ran (the FRD still had unbuilt WOs)')
@@ -259,6 +262,35 @@ SCENARIOS.push({
       'counter reads exactly 7 = COST(opus baseline 3) + COST(opus plan 3) + sync 1 — the opus weighting is live')
     t.ok(byLabel(run, 'safe-point').length === 0, 'brake trips BEFORE the first safe point')
     t.ok(byLabel(run, /^(dispatch|build):/).length === 0, 'no wave was dispatched at all')
+  },
+})
+// 2c: WS-A/D2 — an OPUS-escalated wave must NOT overshoot maxAgents by counting WOs raw. mode 'pro'
+// (worker=sonnet floor), all WOs difficulty:high → escalate to opus (woWaveCost = COST(opus)+1 = 4).
+// Pre-loop: baseline(1)+plan(1)+sync(1)=3. safe-point→4. remainingAgents=10-4=6; the cost-aware picker
+// admits wo-1 (dispatch 1 + 4 = 5) but wo-2 would be 9>6 → wave width = 1. BEFORE the fix the width was
+// counted raw (min(P.wave 2, 6)=2), so TWO opus WOs launched and the wave overshot the cap ~2× in one go.
+SCENARIOS.push({
+  name: '2c. maxAgents brake is COST-aware for the WAVE WIDTH (opus wave does not overshoot) — WS-A/D2',
+  args: { mode: 'pro', maxAgents: 10 },
+  plan: mkPlan([{
+    frd: 'frd-01-alpha',
+    deps: [],
+    workOrders: [
+      mkWo('wo-01-001', 'PLANNED', { frd: 'frd-01-alpha', artifacts: ['src/a/**'], difficulty: 'high' }),
+      mkWo('wo-01-002', 'PLANNED', { frd: 'frd-01-alpha', artifacts: ['src/b/**'], difficulty: 'high' }),
+      mkWo('wo-01-003', 'PLANNED', { frd: 'frd-01-alpha', artifacts: ['src/c/**'], difficulty: 'high' }),
+    ],
+  }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const waves = run.logs.filter((l) => l.startsWith('⚒ wave:'))
+    t.ok(waves.length >= 1, 'at least one wave ran')
+    t.ok(waves[0] && waves[0].includes('wo-01-001') && !waves[0].includes('wo-01-002'),
+      `the first opus wave is cost-limited to ONE WO (would be two if width were counted raw) — got: ${waves[0]}`)
+    t.ok(waves.every((w) => !(w.includes('wo-01-001') && w.includes('wo-01-002')) && !(w.includes('wo-01-002') && w.includes('wo-01-003'))),
+      'no wave ever co-schedules two opus WOs (each opus wave stays within the cost budget)')
+    t.ok(hasLog(run, /⤴ opus: wo-01-001 \(difficulty=high\)/), 'the WO escalated to opus a-priori (difficulty=high, DR-073)')
+    t.ok(run.result && run.result.stopReason === 'agents', `the run still stops at the agent ceiling (got ${run.result && run.result.stopReason})`)
   },
 })
 
@@ -425,6 +457,59 @@ SCENARIOS.push({
     t.ok(byLabel(run, /^(dispatch|build|gate):/).length === 0, 'nothing was built or gated after the rethink stop')
     t.ok(hasLog(run, /rethink_pending/), 'the stop is logged with its reason')
     t.ok(byLabel(run, 'notify-end').length === 1, 'the run still closes out (notify-end) so status.yaml gets running:false')
+  },
+})
+
+// ── 7. WS-A/D3 — a WO whose dep is BLOCKED must NOT build (fail-closed) ───────
+// wo-07-001 is BLOCKED; wo-07-002 depends on it. A BLOCKED WO is neither in doneIds nor globalQueue,
+// so the ready filter's `!globalQueue.has(d)` clause used to read it as SATISFIED and build wo-07-002
+// against a blocked dependency (fail-OPEN). With blockedIds the dep fails CLOSED: wo-07-002 never
+// builds and its FRD blocks needs-owner (the owner must clear the block).
+SCENARIOS.push({
+  name: '7. blocked-dependency fail-closed — a WO whose dep is BLOCKED is never built (WS-A/D3)',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-07-blockdep',
+    deps: [],
+    workOrders: [
+      mkWo('wo-07-001', 'BLOCKED', { frd: 'frd-07-blockdep', artifacts: ['src/blk/**'] }),
+      mkWo('wo-07-002', 'PLANNED', { frd: 'frd-07-blockdep', artifacts: ['src/dep/**'], deps: ['wo-07-001'] }),
+    ],
+  }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'build:wo-07-002').length === 0, 'wo-07-002 was NEVER built (its dependency wo-07-001 is BLOCKED) — the fail-open would have built it')
+    t.ok(run.result && run.result.blockedFrds.includes('frd-07-blockdep'), 'the FRD is blocked, not built')
+    t.ok(run.result && run.result.blockedReasons['frd-07-blockdep'] === 'needs-owner', `blocked as needs-owner (the owner must clear the block) — got ${run.result && run.result.blockedReasons['frd-07-blockdep']}`)
+    t.ok(!run.result || !run.result.builtFrds.includes('frd-07-blockdep'), 'the FRD is not in builtFrds')
+    t.ok(hasLog(run, /a dependency is BLOCKED/), 'the stop is logged as a blocked dependency, not a generic circular-dep error')
+  },
+})
+
+// ── 8. WS-A (V1b#2) — all FRDs verified but hardening FAILS → NOT released ────
+// The branch BL-0012's real incident came through, previously untested: security hardening returns
+// done:false, so the run must take close-needs-hardening (KEEP phase: implementation), NOT close-out
+// (which is the only path allowed to set phase: release).
+SCENARIOS.push({
+  name: '8. hardening-failure close — verified but hardening incomplete keeps phase: implementation (BL-0012)',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-08-harden',
+    deps: [],
+    workOrders: [mkWo('wo-08-001', 'PLANNED', { frd: 'frd-08-harden', artifacts: ['src/h/**'] })],
+  }]),
+  responses: [
+    { label: 'hardening:security', response: { done: false, failure: 'simulated Critical finding left open' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(run.result && run.result.builtFrds.includes('frd-08-harden'), 'the FRD did verify (build + gate green)')
+    t.ok(byLabel(run, 'hardening:security').length === 1 && byLabel(run, 'hardening:telemetry').length === 1, 'both DR-085 hardening steps ran')
+    t.ok(byLabel(run, 'close-needs-hardening').length === 1, 'the hardening-failure close ran (close-needs-hardening)')
+    t.ok(byLabel(run, 'close-out').length === 0, 'the release close-out (the only phase: release writer) did NOT run')
+    const c = byLabel(run, 'close-needs-hardening')[0]
+    t.ok(c && /KEEP phase: implementation/.test(c.prompt), 'the close keeps phase: implementation (BL-0012 fail-closed — no release without hardening evidence)')
+    t.ok(c && /running: false/.test(c.prompt), 'the close still writes running: false so Mission Control shows no phantom build')
   },
 })
 

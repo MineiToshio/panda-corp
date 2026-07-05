@@ -801,21 +801,36 @@ engine's orchestration contracts, per scenario:
 - **DR-072 R2 / BL-0024** — a dropped `args` (undefined OR string-serialized) fires the loud UNBOUNDED
   warning; a proper object stays silent.
 - **The budget brake** — `maxAgents` trips at wave boundaries on the COST-weighted counter (opus = 3
-  cost-units), never the raw agent count; `stopReason: 'agents'`.
+  cost-units), never the raw agent count; `stopReason: 'agents'`. The WAVE WIDTH is also cost-budgeted
+  (WS-A/D2): the picker admits WOs only while the projected cost (`COST(model)+1` each, +1 shared
+  dispatch) fits the remaining allowance, so an opus wave can no longer overshoot the cap ~4× by
+  counting WOs raw — it always admits at least one WO for progress, then the loop-top brake stops.
 - **DR-086 resume** — `VERIFIED` work is never re-dispatched; `IN_REVIEW` goes straight to the gate.
 - **DR-060 waves** — overlapping (or undeclared) `artifacts` are never co-scheduled; the engine
   serializes them (the disjointness logic is engine JS: `globsOverlap`/`pickDisjointWave`).
+- **Dependency fail-closed (WS-A/D3)** — a WO whose `deps` include a **BLOCKED** WO is never built
+  (a BLOCKED dep is outside both `doneIds` and the queue, so `blockedIds` keeps the ready filter from
+  reading it as "satisfied-and-omitted"); the FRD blocks `needs-owner`, not a generic circular-dep error.
 - **Fail-safe close (BL-0012)** — a failed close-out triggers `ensure-stopped`, which may never touch
-  `phase`; the only path that sets `phase: release` is gated on hardening evidence.
+  `phase`; the only path that sets `phase: release` is gated on hardening evidence. The hardening-FAILURE
+  branch is also covered (WS-A): all FRDs VERIFIED but security/telemetry incomplete → `close-needs-hardening`
+  KEEPS `phase: implementation` (the branch BL-0012's real incident came through).
 - **Safe-point cadence (DR-069)** — the inbox/decisions/rethink sweep runs at every wave/gate boundary;
   `rethink_pending` stops the run cleanly with `running: false` still written.
+- **Durable change archival (DR-069 §7 / WS-A/D1)** — an integrated change is stamped `status: building`
+  + `affected_frds` in its OWN file (never an in-session list), so the verify-then-archive sweep is
+  disk-driven and a change whose FRDs finish verifying on a LATER run is still archived to `done/`
+  (state lives in files — the PORT-5 cross-runtime-resume contract).
 
-Run it with `node plugin/scripts/test-pandacorp-build.mjs` (exit 0 = green). Any change to the engine
-MUST keep this suite green and SHOULD extend it with a scenario for the changed behavior — the suite is
-the engine's regression net; before it existed the 1,100-line engine had zero automated tests. Limitation
+Run it with `node plugin/scripts/test-pandacorp-build.mjs` (exit 0 = green; 14 scenarios). Any change to
+the engine MUST keep this suite green and SHOULD extend it with a scenario for the changed behavior — the
+suite is the engine's regression net; before it existed the 1,100-line engine had zero automated tests.
+A new scenario should be a genuine COUNTERFACTUAL (it fails on the pre-fix engine), not a tautology that
+re-asserts what the code trivially does (WS-A method note: characterization-green ≠ correct). Limitation
 to keep honest: it verifies orchestration (dispatch order, brakes, prompt contracts, state sequencing) —
 agents' real file/git effects are stubbed, so file-level outcomes are covered by the per-project
-`verify.sh` gates, not here.
+`verify.sh` gates, not here; the cross-RUN behaviors (D1 durable archival) are proven structurally here
+and need a live multi-run build for full fidelity.
 
 ## 11. Concurrent-run guard (heartbeat-based lock)
 
