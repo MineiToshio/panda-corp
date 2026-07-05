@@ -13,10 +13,7 @@ propose ideas well aligned with you** (not generic).
 Runs IN the factory root. It is **idempotent**: re-running it updates the profile
 (it reads what's already there and only asks for what's missing or what you want to change).
 
-The profile is a **living document** (DR-053): onboarding *bootstraps* it from the owner's
-past conversations, and from then on it grows continuously as the owner talks to the factory
-(the capture rule lives in panda-corp's `CLAUDE.md` and in every product project's
-`.pandacorp/guide.md`). So the interview is a head start with context, not an interrogation from zero.
+Onboarding *bootstraps* the profile from the owner's past conversations; from then on it keeps growing on its own (DR-053 — see Rules). So the interview is a head start with context, not an interrogation from zero.
 
 ## Steps
 
@@ -83,7 +80,7 @@ past conversations, and from then on it grows continuously as the owner talks to
    doesn't exist) and fill it in: complete the frontmatter (`name`, `github`, `country`, `projects_path`,
    `technical_level`, `language`, `goals`, `interests`, `hobbies`, `likes`, `dislikes`,
    `assets`, `monetization_appetite`, `project_types`) and the prose sections with what was
-   discussed. **Never invent data**: whatever they haven't said, leave empty and say so.
+   discussed. Don't invent — leave empty what wasn't said, and say so (see Rules).
    `factory/profile.md` is personal (gitignored) — it is not uploaded.
 
 5. **Portfolio bootstrap**: if `factory/portfolio.md` doesn't exist, create it by copying

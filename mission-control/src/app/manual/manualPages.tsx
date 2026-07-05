@@ -661,12 +661,14 @@ function ConceptEstandares(): React.JSX.Element {
     <>
       <DocH title="Estándares y reglas" level={1} />
       <Lead>
-        El know-how de cómo se construye se inyecta en cada proyecto. Son <B weight={600}>25</B>{" "}
-        estándares en <B weight={600}>8 dominios</B> — desde convenciones y arquitectura hasta
-        manejo de errores, resiliencia, auth, modelado de datos y disciplina de implementación con
-        IA. Cada uno sigue la <B weight={600}>plantilla ejecutable</B>: Regla + «cómo se verifica»
-        con su check NOMBRADO + por qué. Y las <B weight={600}>reglas de decisión</B> son los
-        defaults pre-aprobados para que la IA no te pregunte cada vez. Todo el detalle en{" "}
+        El know-how de cómo se construye se inyecta en cada proyecto. Son <B weight={600}>27</B>{" "}
+        estándares en <B weight={600}>9 dominios</B> — desde convenciones y arquitectura hasta
+        manejo de errores, resiliencia, auth, modelado de datos, disciplina de implementación con IA
+        y las convenciones de prompting de la propia fábrica (DR-114: la forma se recalibra para los
+        modelos en uso, el contenido se verifica, la gobernanza es intocable). Cada uno sigue la{" "}
+        <B weight={600}>plantilla ejecutable</B>: Regla + «cómo se verifica» con su check NOMBRADO +
+        por qué. Y las <B weight={600}>reglas de decisión</B> son los defaults pre-aprobados para
+        que la IA no te pregunte cada vez. Todo el detalle en{" "}
         <B weight={600}>Referencia → Estándares</B> y <B weight={600}>Reglas de decisión</B>.
       </Lead>
       <Panel>
@@ -704,7 +706,7 @@ function ConceptEstandares(): React.JSX.Element {
         </div>
         <Divider />
         <div style={{ fontSize: "12px", color: "var(--color-text2)", lineHeight: 1.6 }}>
-          <B weight={500}>El registro de reglas</B> (<Code>rule-registry.md</Code>) indexa las ~116
+          <B weight={500}>El registro de reglas</B> (<Code>rule-registry.md</Code>) indexa las ~131
           reglas con su estado real de enforcement: <Chip tone="ok">wired</Chip> un script/gate la
           verifica solo · <Chip tone="warn">manual</Chip> un paso humano NOMBRADO ·{" "}
           <Chip tone="danger">aspirational</Chip> nada la verifica (un MUST aspiracional es un
