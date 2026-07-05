@@ -1,5 +1,7 @@
 # 22 — Design skill audit & upgrade plan (2026-07-01)
 
+**Status:** SHIPPED 2026-07-01 except phase E (plugin v9.43.0, DR-109 — canvas procedure + on-disk tracker + journal + closing sweep + engine routing; the phase-C browser-relay spike VERIFIED same day). **Phase E (validation) remains genuinely open by design:** it requires the NEXT real UI project to run the design phase once on Opus and once on Sonnet, with "fixed" = a Sonnet run completing the tracker with zero owner where-is-my-page interventions — not executable from inside the factory repo (deferred with reason, Fable sprint WS4 2026-07-04; see registry DR-109 nota).
+
 **Trigger:** owner request after the `personal-page-v2` (Personal Page B2B) design phase, which used
 Claude Design and required heavy manual iteration: a flat/boring first system, missing components in
 the design system, skipped screens the owner had to ask for one by one, and a copy-paste relay loop

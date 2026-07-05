@@ -1,6 +1,6 @@
 # Proposal 21 — /discover upgrade: verified sources, rotating lenses, two-phase funnel
 
-**Date:** 2026-07-01 · **Status:** proposed (pending owner ok) · **Area:** plugin (`/pandacorp:discover`, `researcher`)
+**Date:** 2026-07-01 · **Status:** SHIPPED 2026-07-01 (plugin v9.42.0, DR-039 reworked — verified-source playbook `discover/sources.md`, rotating lenses with the collector lens dormant, two-phase teaser funnel; see plugin decision-log v9.42.0. Status header reconciled 2026-07-04, Fable sprint WS4) · **Area:** plugin (`/pandacorp:discover`, `researcher`)
 
 ## Problem
 
