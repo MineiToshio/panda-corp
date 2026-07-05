@@ -789,6 +789,34 @@ The standard is embodied in `${CLAUDE_PLUGIN_ROOT}/templates/docs/`: `prd-templa
 Status Note). The product-phase skills (`spec`/`architecture`/`work-orders`) generate from these; the
 build engine (`implement`) consumes them; `iterate`/`new-version` reopen work orders through them.
 
+## 10b. The engine simulation suite — how the engine itself is tested (Fable sprint WS2, 2026-07-04)
+
+The engine (`pandacorp-build.js`) is a Dynamic Workflows script whose ONLY side-effect channels are the
+injected `agent()`/`log()` calls — which makes it fully simulable: `plugin/scripts/test-pandacorp-build.mjs`
+executes the real engine source with stubbed injected globals (`agent` is a scripted double that records
+every call and answers schema-conformant fixtures matched by `opts.label`; `log`/`budget`/`args` are
+captured/configurable), turning a whole build into a deterministic in-memory run. The suite asserts the
+engine's orchestration contracts, per scenario:
+
+- **DR-072 R2 / BL-0024** — a dropped `args` (undefined OR string-serialized) fires the loud UNBOUNDED
+  warning; a proper object stays silent.
+- **The budget brake** — `maxAgents` trips at wave boundaries on the COST-weighted counter (opus = 3
+  cost-units), never the raw agent count; `stopReason: 'agents'`.
+- **DR-086 resume** — `VERIFIED` work is never re-dispatched; `IN_REVIEW` goes straight to the gate.
+- **DR-060 waves** — overlapping (or undeclared) `artifacts` are never co-scheduled; the engine
+  serializes them (the disjointness logic is engine JS: `globsOverlap`/`pickDisjointWave`).
+- **Fail-safe close (BL-0012)** — a failed close-out triggers `ensure-stopped`, which may never touch
+  `phase`; the only path that sets `phase: release` is gated on hardening evidence.
+- **Safe-point cadence (DR-069)** — the inbox/decisions/rethink sweep runs at every wave/gate boundary;
+  `rethink_pending` stops the run cleanly with `running: false` still written.
+
+Run it with `node plugin/scripts/test-pandacorp-build.mjs` (exit 0 = green). Any change to the engine
+MUST keep this suite green and SHOULD extend it with a scenario for the changed behavior — the suite is
+the engine's regression net; before it existed the 1,100-line engine had zero automated tests. Limitation
+to keep honest: it verifies orchestration (dispatch order, brakes, prompt contracts, state sequencing) —
+agents' real file/git effects are stubbed, so file-level outcomes are covered by the per-project
+`verify.sh` gates, not here.
+
 ## 11. Concurrent-run guard (heartbeat-based lock)
 
 Only ONE build may run on a project at a time. A second `/pandacorp:implement` on the same project

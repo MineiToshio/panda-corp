@@ -85,10 +85,18 @@ const P = PROFILES[MODE] || PROFILES.balanced
 // WEIGHT each spawn by model cost (opus ≈ 3 cost-units) so maxAgents brakes on a token-proxy, not a
 // raw agent count. Every model-spawn site below adds COST(model) instead of a bare ++.
 const COST = (m) => (m === 'opus' ? 3 : 1)
-// DR-072 R2 — make a silently-dropped `args` VISIBLE: if the launcher passed args as a STRING (the
-// Workflow-tool serialization bug seen 2026-06-19), `args.maxAgents`/`mode`/`frds` all read as undefined
-// and a "bounded" overnight run silently goes UNBOUNDED in powerful mode. Surface it loudly at start.
-if (args && typeof args !== 'object') log(`⚠⚠ args arrived as a ${typeof args}, NOT an object — mode/maxAgents/maxFrds were DROPPED. This run is UNBOUNDED. Stop and relaunch passing args as a JSON object (DR-072 R2).`)
+// DR-072 R2 — make a silently-dropped `args` VISIBLE. Two failure modes, both loud (BL-0024):
+// (a) args passed as a STRING (the Workflow-tool serialization bug seen 2026-06-19);
+// (b) args arriving UNDEFINED entirely (the 2026-07-02 permission-handler drop) — the old
+//     `args && …` guard short-circuited on exactly that case and a change:-scoped run silently
+//     degraded to an unbounded plan pass. `undefined` is only OK when the launcher truly passed
+//     no args; a bounded/overnight/change run ALWAYS passes them, so surface it and let the
+//     supervisor (which knows what was passed) decide whether to kill.
+if (args === undefined || args === null) {
+  log(`⚠⚠ args arrived ${args === null ? 'null' : 'undefined'} — if you launched this run WITH args (mode/maxAgents/maxFrds/change), they were DROPPED (DR-072 R2 / BL-0024) and this run is UNBOUNDED in powerful mode. Supervisor: verify against what you passed; if args were intended, TaskStop and relaunch.`)
+} else if (typeof args !== 'object') {
+  log(`⚠⚠ args arrived as a ${typeof args}, NOT an object — mode/maxAgents/maxFrds were DROPPED. This run is UNBOUNDED. Stop and relaunch passing args as a JSON object (DR-072 R2).`)
+}
 log(`Mode ${MODE} · wave ≤${P.wave} · maxFrds ${MAX_FRDS === Infinity ? 'sin tope' : MAX_FRDS} · maxAgents ${MAX_AGENTS || 'OFF (sin freno de presupuesto!)'} · workers ${P.worker} · judge ${P.judge}${CHANGE ? ' · change ' + CHANGE : ONLY ? ' · frds ' + ONLY.join(',') : ''}`)
 
 // Party telemetry. `ctx` enriches the event so the Party views can be faithful to the run

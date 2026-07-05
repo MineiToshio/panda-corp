@@ -104,7 +104,7 @@ Maintained by hand; `check-standards.sh` validates the template shape and that e
 | DES-1 | Design tokens are a frozen contract | MUST | design.md | design-token/visual gates (DR-056) | wired |
 | DES-2 | Prototype fidelity: responsive + shell-presence gates | MUST | design.md / quality.md | verify.sh e2e (DR-074/075) | wired |
 | DES-3 | Owner's visual gate before build | MUST | design.md | human gate (design phase) | manual |
-| BUILD-1 | Doc-driven orchestration: state machine, per-FRD gates, heartbeat, change queue | MUST | build-orchestration.md | the build engine + verify.sh (DR-050) | wired |
+| BUILD-1 | Doc-driven orchestration: state machine, per-FRD gates, heartbeat, change queue | MUST | build-orchestration.md | the build engine + verify.sh (DR-050) + engine simulation suite (`plugin/scripts/test-pandacorp-build.mjs`: brakes, DR-060 waves, DR-086 resume, fail-safe, safe points) | wired |
 | ERR-1 | Taxonomy: expected = typed control flow / unexpected = boundary + Sentry; never swallow an error | MUST | error-handling.md | reviewer correctness lens + DR-078 malformed-fixture tests (QUAL-9) | manual |
 | ERR-2 | Server Actions return typed results; route handlers use `problem()` | MUST | error-handling.md | route side: verify.sh problem() gate (API-1, wired); action side: reviewer correctness lens | manual |
 | ERR-3 | UI error state renders the domain error, never a raw exception; error net present | MUST | error-handling.md | error-net file presence (PAT-8, wired) + reviewer | manual |

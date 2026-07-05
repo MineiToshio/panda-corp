@@ -3,10 +3,10 @@ id: BL-0024
 type: bug
 area: build-engine
 title: "DR-072 R2's args-drop warning never fires when args is undefined, only when it is a non-object string"
-status: open
+status: done
 severity: p1
 opened: 2026-07-03
-closed:
+closed: 2026-07-04
 source: "factory/memory/_inbox.md 2026-07-02 note — Workflow tool run 2026-07-02 degraded to plan mode with 'all verified' after args was silently dropped as undefined"
 closes:
 links: [DR-072]
