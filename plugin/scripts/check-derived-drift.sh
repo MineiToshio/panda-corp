@@ -29,6 +29,12 @@ else
   ROOT="$PWD"
 fi
 
+# Resolve from the git toplevel so a Stop from a session parked in a repo SUBDIR (plugin/,
+# mission-control/) does not DISARM the gate — real drift would close the session silently.
+# This is the identical cwd-vs-toplevel fix block-dangerous.sh got this sprint, propagated to the
+# sibling gate (WS-A F12). Fall back to ROOT when it is not a git repo.
+ROOT=$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null || echo "$ROOT")
+
 CLAUDE_MANIFEST="$ROOT/plugin/.claude-plugin/plugin.json"
 CODEX_MANIFEST="$ROOT/plugin/.codex-plugin/plugin.json"
 

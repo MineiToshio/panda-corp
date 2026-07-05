@@ -21,11 +21,17 @@ file=$(echo "$input" | jq -r '.tool_input.file_path // .tool_input.path // ""')
 
 allow() { exit 0; }
 
+# Resolve the repo root from the git toplevel so a session parked in a SUBDIR (mission-control/,
+# plugin/) is still recognized as its Pandacorp repo — a non-blocking guard that never fires from a
+# subdir trains nobody (WS-A F11; the blocking gates got the same cwd-vs-toplevel fix). All repo
+# markers + the runtime-state paths below anchor to $root, never the raw cwd.
+root=$(cd "$cwd" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null || echo "$cwd")
+
 # Detect scope: project, factory, or neither
 is_project=0
 is_factory=0
-[ -f "$cwd/.pandacorp/status.yaml" ] && is_project=1
-[ -f "$cwd/factory/constitution.md" ] && is_factory=1
+[ -f "$root/.pandacorp/status.yaml" ] && is_project=1
+[ -f "$root/factory/constitution.md" ] && is_factory=1
 
 # Not a Pandacorp-managed repo at all → nothing to do
 [ "$is_project" = "1" ] || [ "$is_factory" = "1" ] || allow
@@ -36,12 +42,12 @@ is_factory=0
 # EVERY edit (before the exempt/skill early-exits below), keyed by session_id; gitignored runtime.
 sid=$(echo "$input" | jq -r '.session_id // ""')
 if [ -n "$sid" ] && [ -n "$file" ]; then
-  tdir="$cwd/.pandacorp/run/sessions"
+  tdir="$root/.pandacorp/run/sessions"
   mkdir -p "$tdir" 2>/dev/null && printf '%s\n' "$file" >> "$tdir/$sid.touched" 2>/dev/null
 fi
 
 # A skill is actively driving the change → no nudge (skills may touch this marker)
-[ -f "$cwd/.pandacorp/run/skill-active" ] && allow
+[ -f "$root/.pandacorp/run/skill-active" ] && allow
 
 # Nothing to judge
 [ -n "$file" ] || allow
@@ -75,8 +81,8 @@ if [ "$is_factory" = "1" ] && [ "$is_project" = "0" ]; then
     */factory/*|*/docs/*|*/plugin/*|*/.claude/*|*.md|*.base|*/ideas.base) skip_isolation=1 ;;    # factory prose/config → no nudge
   esac
 fi
-git_dir=$(cd "$cwd" 2>/dev/null && git rev-parse --git-dir 2>/dev/null || echo "")
-lock="$cwd/.pandacorp/run/build.lock"
+git_dir=$(cd "$root" 2>/dev/null && git rev-parse --git-dir 2>/dev/null || echo "")
+lock="$root/.pandacorp/run/build.lock"
 build_active=$([ -f "$lock" ] && [ -n "$(find "$lock" -mmin -10 2>/dev/null)" ] && echo 1 || echo 0)
 # Landing instruction differs by repo: projects land via the merge queue; the factory has NO
 # merge queue (direct-to-main is the protocol, constitution §11) — merge the worktree branch back.

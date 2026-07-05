@@ -27,9 +27,14 @@ block() {
   exit 2
 }
 
-case "$cmd" in
-  *"rm -rf /"*|*"rm -rf ~"*|*"rm -rf .."*) block "broad recursive delete" ;;
-esac
+# Broad recursive delete of a filesystem-root-ish target (/, ~, ..), ANY flag order/casing.
+# BSD/macOS `rm` treats -R as the canonical recursive flag, so the match must be case-insensitive
+# on the flag (WS-A F1 — `rm -Rf /` used to sail past the lowercase-only literal).
+if echo "$cmd" | grep -Eq '(^|[[:space:];&|])rm[[:space:]]' \
+   && echo "$cmd" | grep -Eq '(^|[[:space:]])-[a-zA-Z]*[rR]|--recursive' \
+   && echo "$cmd" | grep -Eq '[[:space:]](/|~|\.\.)([[:space:]]|$)'; then
+  block "broad recursive delete (rm -r of /, ~ or ..)"
+fi
 
 # Protected state paths (BL-0035, incident 2026-07-04: mission-control/.pandacorp wiped, the
 # gitignored inbox lost for good — no git history by design). A recursive delete or an
@@ -64,7 +69,7 @@ _protected_under() { # $1 = a path operand; returns 0 if it IS/CONTAINS/IS-INSID
 }
 
 # rm with a recursive flag anywhere (before OR after the paths): inspect every path operand.
-if echo "$cmd" | grep -Eq '(^|[[:space:];&|])rm[[:space:]]' && echo "$cmd" | grep -Eq '(^|[[:space:]])-[a-zA-Z]*r|--recursive'; then
+if echo "$cmd" | grep -Eq '(^|[[:space:];&|])rm[[:space:]]' && echo "$cmd" | grep -Eq '(^|[[:space:]])-[a-zA-Z]*[rR]|--recursive'; then
   # Extract the rm invocation's operands (up to a separator), drop flags, test each path.
   rm_args=$(printf '%s' "$cmd" | sed -E 's/.*(^|[;&|])[[:space:]]*rm[[:space:]]+//; s/[;&|].*$//')
   for tok in $rm_args; do
@@ -84,9 +89,25 @@ if echo "$cmd" | grep -Eq '(^|[[:space:];&|])find[[:space:]]' && echo "$cmd" | g
     fi
   done
 fi
-if echo "$cmd" | grep -Eq '(^|[[:space:];&|])git[[:space:]]+clean[[:space:]][^;&|]*-[a-zA-Z]*x'; then
-  block "git clean -x removes gitignored files — the .pandacorp state layer (inbox/comms) would be lost with no git history; use plain 'git clean -fd' (keeps ignored) or ask the owner (BL-0035)"
+# git clean with an ignored-files flag, either case: -x (ignored + untracked) OR -X (ignored ONLY,
+# which targets PRECISELY the gitignored .pandacorp layer). Case-insensitive per WS-A F2.
+if echo "$cmd" | grep -Eq '(^|[[:space:];&|])git[[:space:]]+clean[[:space:]][^;&|]*-[a-zA-Z]*[xX]'; then
+  block "git clean -x/-X removes gitignored files — the .pandacorp state layer (inbox/comms) would be lost with no git history; use plain 'git clean -fd' (keeps ignored) or ask the owner (BL-0035)"
 fi
+
+# Redirect-truncation of a protected state file (`: > f`, `cat /dev/null > f`, `cmd > f`): a single
+# `>` (not `>>`) truncates an append-only, historyless owner-state file to zero — the same BL-0035
+# loss class as a delete (WS-A F3). Test each single-`>` redirect target against the protected set.
+redirs=$(printf '%s' "$cmd" | grep -oE '[^>]>[[:space:]]*[^[:space:]<>|;&]+' | sed -E 's/^[^>]>[[:space:]]*//')
+for tok in $redirs; do
+  tok="${tok%\"}"; tok="${tok#\"}"; tok="${tok%\'}"; tok="${tok#\'}"
+  if _protected_under "$tok"; then
+    block "redirect '> $tok' truncates a protected Pandacorp state path to zero — this append-only layer has no git history; never reset it in place, archive/move instead or ask the owner (BL-0035)"
+  fi
+done
+
+# git stash drop/clear is unrecoverable (dropped stashes have no reflog entry).
+echo "$cmd" | grep -Eq '(^|[[:space:];&|])git[[:space:]]+stash[[:space:]]+(drop|clear)' && block "git stash drop/clear is unrecoverable — confirm with the owner before discarding a stash"
 
 echo "$cmd" | grep -Eq 'git push.*(--force|-f)([^-]|$)' && block "force push (constitution §11)"
 echo "$cmd" | grep -Eq 'git (branch|push).*(-D|--delete).*(main|master)' && block "deleting main branch"

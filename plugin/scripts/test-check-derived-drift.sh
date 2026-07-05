@@ -70,7 +70,19 @@ check "dangling .agents/skills symlink goes RED" 2 "$fx"
 # 6. Recovered fixture → GREEN again
 rm "$fx/.agents/skills"; ln -s ../plugin/skills "$fx/.agents/skills"
 check "recovered tree passes again" 0 "$fx"
-
 rm -rf "$fx"
+
+# 7. WS-A F12: from a repo SUBDIR the gate must still ARM (git-toplevel resolution).
+# The fixture must be a real git repo so `rev-parse --show-toplevel` resolves the root.
+gx=$(make_fixture)
+( cd "$gx" && git init -q )
+mkdir -p "$gx/plugin/deep"
+jq '.version = "0.0.1-drift"' "$gx/plugin/.codex-plugin/plugin.json" > "$gx/tmp.json" \
+  && mv "$gx/tmp.json" "$gx/plugin/.codex-plugin/plugin.json"
+check "F12 drift caught from repo ROOT"            2 "$gx"
+check "F12 drift caught from plugin/ subdir"       2 "$gx/plugin"
+check "F12 drift caught from a deep subdir"        2 "$gx/plugin/deep"
+rm -rf "$gx"
+
 echo "RESULT: $pass passed, $fail failed"
 [ "$fail" = "0" ]

@@ -37,6 +37,9 @@ expect "docs proposal → NO nudge"                  0 "$(run_hook "$fx" "$fx/do
 expect "plugin/scripts (executes) → nudge"         1 "$(run_hook "$fx" "$fx/plugin/scripts/foo.sh")"
 expect "plugin/templates (ships) → nudge"          1 "$(run_hook "$fx" "$fx/plugin/templates/shared/x.tpl")"
 expect "mission-control code → nudge"              1 "$(run_hook "$fx" "$fx/mission-control/src/app.tsx")"
+# WS-A F11: cwd parked in a factory SUBDIR must still resolve to the repo root and nudge.
+expect "F11 mission-control code, cwd=SUBDIR → nudge" 1 "$(run_hook "$fx/mission-control/src" "$fx/mission-control/src/app.tsx")"
+expect "F11 factory prose, cwd=SUBDIR → still NO nudge" 0 "$(run_hook "$fx/factory/standards" "$fx/factory/standards/quality.md")"
 
 # The factory landing hint must NOT name the merge queue (it doesn't exist there)
 out=$(run_hook "$fx" "$fx/plugin/scripts/foo.sh")
@@ -54,6 +57,7 @@ touch "$px/.pandacorp/status.yaml"
 
 pout=$(run_hook "$px" "$px/src/app.ts")
 expect "project src code → nudge"                  1 "$pout"
+expect "F11 project code, cwd=SUBDIR → nudge"      1 "$(run_hook "$px/src" "$px/src/app.ts")"
 if printf '%s' "$pout" | grep -q "merge-queue.sh"; then
   echo "  ✓ project hint names the merge queue"; pass=$((pass+1))
 else
