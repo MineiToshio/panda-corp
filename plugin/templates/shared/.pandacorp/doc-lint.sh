@@ -13,6 +13,8 @@
 #     outside a decision log: DR-085 folded the old `operation` phase into `release` (BL-0008); a doc
 #     that reintroduces it as a current phase has drifted from the DR-085 lifecycle. [SOFT — always
 #     advisory, not eligible for greenfield fail-closed]
+#   - status.yaml keys not declared by the canonical template  [SOFT — DR-115 schema drift: a fact
+#     with a writer but no schema home, the `last_harvest` class]
 # GREENFIELD FAIL-CLOSED (BL-0009): a project born via `/pandacorp:scaffold` (`.pandacorp/status.yaml`
 # `created_via: scaffold`) is expected to carry a COMPLETE doc spine from birth, so the HARD-ELIGIBLE
 # findings above become fail-closed for it — a missing frontmatter key is a real defect, not drift to
@@ -135,6 +137,24 @@ while IFS= read -r -d '' f; do
     warn "$f reintroduces retired lifecycle vocabulary: \`operation\` as a phase (DR-085 folded it into \`release\`; BL-0008)"
   fi
 done < <(find docs -type f -name '*.md' -print0 2>/dev/null)
+
+# status.yaml schema drift (DR-115 single-source-of-truth, SOFT — always advisory). A key written to
+# status.yaml that the canonical template doesn't declare is a fact with a writer but no schema home
+# (the `last_harvest` class of drift): skills write/read it while the contract pretends it doesn't
+# exist. KNOWN_KEYS is an HONEST CACHE of plugin/templates/shared/.pandacorp/status.yaml.tpl (plus the
+# optional launch-time keys `deploy_target`/`deploy_url` that /pandacorp:release adds, DR-085): both
+# files ship from the same template dir and are re-synced TOGETHER by /pandacorp:upgrade — update the
+# list when the template changes.
+KNOWN_KEYS="project phase version target_platforms overlay_version created_with created_via running run_started_at supervisor_heartbeat last_event_at repo dev_port_base updated_at work_orders_total work_orders_done pending_decisions rethink_pending advance_pending last_green_sha safe_to_test last_harvest deploy_target deploy_url"
+if [ -f .pandacorp/status.yaml ]; then
+  status_keys=$(grep -oE '^[a-z_]+:' .pandacorp/status.yaml 2>/dev/null | sed 's/:$//' | sort -u || true)
+  for sk in $status_keys; do
+    case " $KNOWN_KEYS " in
+      *" $sk "*) ;;
+      *) warn ".pandacorp/status.yaml carries key '$sk' not declared by the canonical template — a fact with a writer but no schema home; declare it in status.yaml.tpl (+ this list) or stop writing it (DR-115 schema drift)" ;;
+    esac
+  done
+fi
 
 # Loud, ACTIONABLE report (owner directive 2026-06-30): findings are surfaced PROMINENTLY and the
 # agent is told to FIX them proactively in this same pass — not merely note them. On brownfield/

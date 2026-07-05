@@ -24,9 +24,12 @@ Small, single-purpose, predictable units that fit in one mental (or context) win
 - Check the component inventory `docs/design/components.md` before creating ANY UI component: **reuse** → **adapt/extend** (a small difference is a variant/prop, not a fork) → **create new only if none fits**, then append its row.
 - A near-duplicate component is a defect, rejected at review — the shared inventory is how parallel agents stay coherent.
 
-## Single source for derived state (DR-092)
-- Compute a shared derived value ONCE — one cached resolver (`React.cache()`/request-scoped function or one query module) — and every surface reads THAT.
-- A second independent derivation of the same value is a defect (the copies drift). Verified at review.
+## Single source of truth — one writer per fact (DR-115; UI instance DR-092)
+- Every fact (a count, a status, a level, a rollup, a config value) has ONE authoritative home and ONE writer; everyone else DERIVES. Applies to code, DB schemas, JSON/YAML artifacts, documents and UI alike.
+- Compute a shared derived value ONCE — one cached resolver (`React.cache()`/request-scoped function or one query module) — and every surface reads THAT. A second independent derivation of the same value is a defect (the copies drift). Verified at review.
+- A STORED derived value is legitimate only as an **honest cache**: single named writer, re-derived from the atomic source at defined safe points (never maintained by scattered `+1/-1` writes), documented as a replica at the field itself, and never read by a display surface while a live resolver exists.
+- Forbidden: increment-maintained counters; reader mappings of fields nothing writes (dead fields rendered as truth); docs/docstrings claiming a different source than the code reads; silent fallback from the live source to a stale copy.
+- When retiring a stale copy, also REMOVE the field from reader types/mappings — enforcement by construction beats a lint rule.
 
 ## Purity & boundaries
 - No commented-out code — delete it; git is the history.

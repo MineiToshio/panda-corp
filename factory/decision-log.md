@@ -2,6 +2,14 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-05 — DR-115: single source of truth elevated to factory law (constitution §25 + dedicated standard)
+
+**What:** the owner's SSOT mission (docs/proposals/29, commit 97c13fd carries the full divergence inventory). "One writer per fact; readers derive, never duplicate" is now a first-class principle: **constitution §25**, the new umbrella standard **`factory/standards/single-source-of-truth.md`** (derive-on-read default; honest-cache conditions — single named writer, safe-point re-derivation, documented replica, never read by display surfaces; forbidden patterns — second derivations, increment-maintained counters, dead-field mappings, source-lying docs; enforcement-by-construction doctrine), and **DR-115** in the registry federating the existing instances (DR-092 UI resolvers, DR-050 §1 WO-atomic truth, DR-087 dependsOn, DR-066 liveness crossing, DR-078 fail-loud reads). DR-092 stays as the UI instance, its nota pointing up.
+
+**Why:** the principle existed only as scattered instances and was neither consistently applied nor enforced — Mission Control showed up to three different work-order counts for the same project (live wo-*.md files vs the stale status.yaml replica vs the track.jsonl reconstruction), XP fed on the stale cache, and a pending-bugs badge read a field nothing writes. Per-surface gates can't catch this class (constitution §24: green that only proves self-consistency), so the law + review lens + by-construction removal are the durable fix.
+
+**Impact:** constitution §25; `factory/standards/single-source-of-truth.md` (new); registry DR-115 + DR-092 nota; plugin enforcement layers + template changes in plugin v9.71.0 (see plugin/docs/decision-log.md 2026-07-05); Mission Control fixes + its decision log in the same change. Manual concept page updated (DR-046).
+
 ## 2026-07-05 — Sprint II: cierre en el límite A+B; C/D/E diferidos a sesión dedicada
 
 **Qué:** el Sprint II (proposals/27) se cerró tras aterrizar y verificar completamente los workstreams A y B (A verificación adversarial + guards; B1 hardening del motor; B2 recalibración de prompts; addendum D1; B3 cierre de planes). WS-C (dry-run E2E en vivo hasta `implement`), WS-D y WS-E (stretch) NO se iniciaron.

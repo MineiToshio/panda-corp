@@ -14,11 +14,11 @@ last_event_at: ""         # ISO timestamp advanced by the PRODUCER (build engine
 repo: ""          # GitHub repo URL once it exists
 dev_port_base: 0  # base of this project's 10-wide dev-port block, reserved from the factory ledger (factory/ports.yaml) by /scaffold; 0 = not yet allocated. app=base+0 (.claude/launch.json), review app=+1, Postgres +2/+3, Redis +4/+5. See factory/standards/infra.md
 updated_at: "{{DATE}}"
-work_orders_total: 0
-work_orders_done: 0
-pending_decisions: 0   # number of open entries in .pandacorp/inbox/decisions.md (Mission Control highlights them)
-pending_changes: 0     # number of items (features/changes/bugs) in the unified queue .pandacorp/inbox/changes/ awaiting the build (DR-069; incremented by /change and /bug, decremented when the engine archives to changes/done/)
+work_orders_total: 0   # HONEST CACHE (DR-115/DR-050): written ONLY by the build engine, re-derived from the wo-*.md frontmatter at each safe point — a glance value for humans/other runtimes. Display consumers (Mission Control, any UI) must DERIVE from the work-order files, never read these.
+work_orders_done: 0    # see work_orders_total — same single writer, same rule
+pending_decisions: 0   # maintenance counter written by skills; display consumers derive the live count from .pandacorp/inbox/decisions.md (DR-092/DR-115)
 rethink_pending: false # true if /iterate asked to pause the build for a major change
 advance_pending: false # true when the current phase produced output and awaits your "ok, advance" (meanwhile, re-running the phase = iterate in place, DR-032)
 last_green_sha: ""     # commit of the last work order closed green (written by the gate, not the agent)
 safe_to_test: false    # true only when HEAD == last_green_sha (nothing uncommitted) → "testable point"
+last_harvest: ""       # ISO timestamp of the last factory-memory lesson harvest for this project — written by /pandacorp:implement's close-out and /pandacorp:memory (DR-047/DR-103); read by the recurring memory sweep
