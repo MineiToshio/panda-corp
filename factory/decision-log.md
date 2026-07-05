@@ -2,6 +2,14 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-05 — Sprint II: cierre en el límite A+B; C/D/E diferidos a sesión dedicada
+
+**Qué:** el Sprint II (proposals/27) se cerró tras aterrizar y verificar completamente los workstreams A y B (A verificación adversarial + guards; B1 hardening del motor; B2 recalibración de prompts; addendum D1; B3 cierre de planes). WS-C (dry-run E2E en vivo hasta `implement`), WS-D y WS-E (stretch) NO se iniciaron.
+
+**Por qué:** el brief prioriza explícitamente "fewer workstreams fully done and merged over all five touched shallowly" y "stop at a clean workstream boundary" al agotar ventana. La aceptación de WS-C es "the pipeline was actually executed to implement" — una ejecución multi-hora, multi-agente, que crea un repo hermano real; no es completable limpiamente en el presupuesto restante de esta sesión, y arrancarla y abandonarla a mitad de pipeline sería precisamente el estado medio-construido que el brief prohíbe. Saltar C para hacer D/E violaría el orden A→B→C→D→E ("land completely in order"). Por eso se paró en el límite limpio A+B, con todo verificado y merged. WS-C/D/E quedan recomendados para una sesión dedicada (C especialmente es una corrida de pipeline larga, mejor en su propia ventana).
+
+**Impacto:** 6 commits en main (577f14a WS-A · e32211b WS-B1 · b0c6750 WS-B2 · 3ba30b6 addendum · 3e3894e WS-B3 · + este cierre). Plugin 9.68.0→9.70.1. Estado verde: engine 15/15, guards 54/10/13/8, drift gate rc=0, plugin validate ✓, validadores backlog+memory OK. BL nuevos: BL-0043/0044/0045 (guards diferidos), BL-0046 (estado `building` + strand D1). Nada requiere decisión del owner salvo elegir cuándo correr C/D/E.
+
 ## 2026-07-05 — Sprint II WS-B3: proposals 21/22/25 re-verificadas cerradas (sin residuo ejecutable)
 
 **Qué:** verificación independiente de que las tres "planes pendientes" están válidamente cerradas, escaneando cada proposal contra sus PROPIOS criterios de aceptación (no solo el header que WS4 ya reconcilió). Resultado: **21** (/discover v2) SHIPPED v9.42.0 — su único residuo es la vista teaser+captura-de-reacción en MC, marcada EXPLÍCITAMENTE como opcional ("optional later: FRD-02 follow-up"), no parte de la aceptación → cerrada. **22** (skill design) SHIPPED v9.43.0 fases A-D; la fase E (validación) exige por diseño un proyecto UI real con corrida dual Opus+Sonnet (criterio: una corrida Sonnet completa el tracker con cero intervenciones "where-is-my-page") — no ejecutable desde el repo de la fábrica → cerrada excepto E, que sigue diferida con razón (WS-C podría dar un primer punto de dato pero no cierra su criterio dual). **25** (multi-runtime) IMPLEMENTED & VALIDATED (2 rondas Codex); su V2 vive como BL-0030/0031/0032 → cerrada.
