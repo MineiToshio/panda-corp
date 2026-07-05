@@ -30,3 +30,14 @@ That always-on scan is gone. If the same need ever returns, prefer the on-demand
 > The original requirement/EARS text and implementation design live in this folder's other files
 > (`blueprint.md`, `fdd.md`, `work-orders/`) and in git history; they describe code that no longer
 > exists and are retained only as a historical record.
+
+## Historical requirements (REMOVED — traceability only)
+
+These REQ ids named the (now-deleted) behaviour and are still cited by this folder's historical work orders. They are retained purely so the traceability spine resolves; none describes shipped behaviour.
+
+- **REQ-16-001** — scan the projects path for `.pandacorp/`-marked sibling folders (bounded, read-only).
+- **REQ-16-002** — classify each as **orphan** (never handed off) vs **unlisted** (lost portfolio row).
+- **REQ-16-003** — expose the scan verdict via `GET /api/orphans`.
+- **REQ-16-004** — surface it as a dismissible `OrphansBanner` on the dashboard.
+- **REQ-16-005** — offer the on-demand recovery command (`/pandacorp:adopt` / `/pandacorp:sync-portfolio`).
+- **REQ-16-006** — remain strictly read-only (never clone, write the portfolio, or call Claude).

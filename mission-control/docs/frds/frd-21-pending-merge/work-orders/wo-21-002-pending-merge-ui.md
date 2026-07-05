@@ -1,6 +1,7 @@
 ---
 id: WO-21-002
 type: work-order
+parent: FRD-21
 title: 'UI: global shell indicator + cross-project panel + Resumen block'
 frd: FRD-21
 status: ACTIVE

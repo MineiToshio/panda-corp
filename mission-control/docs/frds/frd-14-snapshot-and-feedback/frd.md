@@ -36,6 +36,14 @@ The "green" point is the **last build commit that passed all the gates** (tests/
 - **AC-14-003.2** — IF a project has `rethink_pending: true`, it SHALL indicate it (the build is going to pause for a major change).
 - **AC-14-003.3** — Mission Control's documentation SHALL explain the **three feedback channels** to an in-progress build: `/pandacorp:bug`, `/pandacorp:iterate`, `/pandacorp:decide` (all via files, picked up at the next safe point).
 
+### REQ-14-004 — Portfolio-rail decision/bug chips (traceability)
+> Reconciled 2026-07-05 — the blueprint and `wo-14-003` track the portfolio-rail chips under this id; it is the same behaviour as AC-14-003.1, given its own REQ anchor so the spine resolves.
+- **AC-14-004.1** — EACH portfolio-rail row SHALL show an amber **pending-decisions** chip when `> 0` and a red **pending-bugs** chip when `> 0`, both derived live from the project's inbox (`readStatusWithLiveInboxCounts`, DR-092/DR-115), never a status.yaml counter.
+
+### REQ-14-005 — Rethink indicator + feedback channels (traceability)
+> Reconciled 2026-07-05 — same behaviour as AC-14-003.2/.3, anchored so `wo-14-003`'s citation resolves.
+- **AC-14-005.1** — IF a project has `rethink_pending: true`, the rail SHALL indicate it; AND the documentation SHALL explain the three feedback channels (`/pandacorp:bug`, `/pandacorp:iterate`, `/pandacorp:decide`).
+
 ## Non-goals
 - Mission Control does NOT run `git worktree` nor start the dev server: it shows the command for the owner to run (read-only). In the future there could be a button that assembles it, but it remains the operator's action.
 

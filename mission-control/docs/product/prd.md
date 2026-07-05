@@ -1,3 +1,7 @@
+---
+type: prd
+status: ACTIVE
+---
 # PRD — Pandacorp (the factory dashboard)
 
 ## Vision

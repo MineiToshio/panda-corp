@@ -4,6 +4,17 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-05 — Docs reconciled from code (`/pandacorp:sync`, cold audit) — part 3: doc-lint spine + frontmatter cleanup (0 findings)
+
+**What:** cleared **all 63** advisory `doc-lint.sh` findings (pre-existing REQ-ID-spine + frontmatter drift, unrelated to parts 1–2). Now `doc-lint.sh` → 0 findings, `verify.sh`/tests green (7435).
+- **Broken REQ→WO spine (the bulk).** Many FRDs described their early requirements as bullet EARS **without** the `REQ-NN-MMM` id token, while their work orders cite those ids in `source_requirements` — so every citation resolved to "defined in no FRD". Anchored the ids to the requirements they name (semantic + positional map, cross-checked against each WO's citations): **frd-02** (002/003/005/006/008), **frd-03** (001–006), **frd-04** (001–006), **frd-05** (001–006), **frd-11** (001–004), **frd-18** (001–021). **frd-14**: added REQ-14-004 (rail chips) + REQ-14-005 (rethink/feedback) that the blueprint & `wo-14-003` already referenced. **frd-16** (REMOVED feature): added a "Historical requirements (REMOVED — traceability only)" block for REQ-16-001…006 so its historical WOs resolve. **frd-12**: `wo-12-006` cited a non-existent REQ-12-006 → trimmed to the real REQ-12-004/005 (the DAG).
+- **Missing frontmatter keys.** `docs/product/prd.md` (added `type: prd`), `wo-17-005` (`type`/`parent`), `wo-21-001`/`wo-21-002` (`parent`).
+- **ui:true FRDs missing an fdd (DR-056).** Created minimal reconciled-from-code `fdd.md` for **frd-20/21/22** (overlay-freshness, pending-merge, factory-backlog) — banner/indicator features whose design oracle is the shared component inventory + prototype (no bespoke mock; reuse-first, DR-057).
+
+**Why:** the owner directed fixing the doc-lint backlog directly (not queuing it). The REQ anchors were reconstructed, never fabricated — each id names a requirement that already existed as an EARS bullet; the WO citations disambiguated the numbering.
+
+**Impact:** docs-only, gate-neutral (7435 tests green, doc-lint 0). Files across frd-02/03/04/05/11/12/14/16/17/18/21 + prd.md + new fdd.md for frd-20/21/22; this entry.
+
 ## 2026-07-05 — Docs reconciled from code (`/pandacorp:sync`, cold audit) — part 2: FRD-06 La Fragua v2
 
 **What:** the cold-audit fan-out surfaced **FRD-06 (Party / La Fragua) as the most drifted area** — its `fdd.md` (authored 2026-06-19) and `blueprint.md` §2/§3 froze at the pre-v2 *single-FRD* design, while the shipped scene is the *global multi-FRD* "La Fragua v2" rework (2026-07-01/02, `frd.md` REQ-06-013…019, `blueprint.md §7` As-built). Reconciled (marked *reconciled-from-code*):

@@ -1,6 +1,7 @@
 ---
 id: WO-21-001
 type: work-order
+parent: FRD-21
 title: 'Pending-merge data reader (lib + snapshot wiring)'
 frd: FRD-21
 status: ACTIVE

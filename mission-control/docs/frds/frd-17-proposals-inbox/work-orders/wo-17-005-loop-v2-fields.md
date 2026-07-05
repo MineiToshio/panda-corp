@@ -1,5 +1,7 @@
 ---
 id: WO-17-005
+type: work-order
+parent: FRD-17
 title: 'WO-17-005 — Loop v2 fields & signals: trigger/applied_in in the reader, real sweep + harvest orphans in memory-health'
 implementation_status: VERIFIED
 reopen_count: 0
