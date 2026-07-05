@@ -7,12 +7,11 @@ source: Pandacorp stack — TypeScript
 
 # TypeScript
 
-(Strict mode, `unknown` over `any`, no `@ts-ignore`, explicit return types — see `code-conventions`. This file is the idiom layer on top.)
+(Strict mode, `unknown` over `any`, explicit return types — see `code-conventions`. Mechanical rules — `noExplicitAny`, `useImportType`, tsc strict — are enforced by the canonical `biome.json` + `tsc`; fix the gate's message, don't argue with it.)
 
-- **Type-only imports/exports** use `import type` / `export type` (no accidental runtime import; required by `verbatimModuleSyntax`). (lint: Biome `useImportType`, error in the canonical `biome.json`; autofix)
-- **`satisfies` over annotation/`as`** for config objects, token maps and lookup tables — you get type-checking *and* preserved literal inference.
-- **Model exclusive states as discriminated unions** (tagged by a literal `kind`/`status`) and make switches **exhaustive** with a `never` default (`const _exhaustive: never = x`). Makes illegal states unrepresentable — pairs with React's "derive, don't sync". (lint: Biome's exhaustive-switch rule, `useExhaustiveSwitchCases` — nursery in Biome 2.x, not yet in the canonical `biome.json`; the `never` default covers it via `tsc` meanwhile)
+- **`satisfies` over annotation/`as`** for config objects, token maps and lookup tables — type-checking *and* preserved literal inference.
+- **Model exclusive states as discriminated unions** (literal `kind`/`status` tag); make switches **exhaustive** with a `never` default (`const _exhaustive: never = x`). Illegal states unrepresentable — pairs with React's "derive, don't sync".
 - **Avoid type assertions (`as`)** except at trust boundaries (parsed JSON, narrowing `unknown`); **never `as any`, never double-assert**. Coerce `unknown` with a type guard or schema (Zod), not a cast.
-- **Prefer `as const` object maps over `enum`** (enums emit runtime code and have iteration/nominal quirks; const maps + a derived union are tree-shakeable and literal-precise). String enums are tolerated where a nominal type is genuinely needed.
+- **Prefer `as const` object maps over `enum`** (enums emit runtime code; const maps + a derived union are tree-shakeable and literal-precise). String enums only where a nominal type is genuinely needed.
 - **Mark intent-immutable data `readonly`** (`readonly T[]`, readonly props, frozen config).
-- **Parse, don't validate at read boundaries (DR-078).** A function that reads an external/internal artifact returns a typed value or an **explicit error** (a thrown error or a `Result`/discriminated union) — **never a silent `[]`/`null` on an unrecognised shape** (that dark-renders the UI while passing every gate). Model a never-empty collection as a `NonEmpty` type so "empty" is a deliberate, separate state, and unit-test the reader against both a real and a malformed fixture.
+- **Parse, don't validate at read boundaries (DR-078)**: a reader returns a typed value or an **explicit error** (throw or `Result`/discriminated union) — never a silent `[]`/`null` on an unrecognised shape. Model never-empty collections as `NonEmpty`; test readers against a real AND a malformed fixture.

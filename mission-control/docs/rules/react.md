@@ -24,6 +24,10 @@ source: Pandacorp standard — patterns
 - **Optimistic UI → `useOptimistic`**: it auto-reverts to the real state on settle/error — don't manually mirror-and-rollback with `useState`.
 - **Read a promise/context in render → the `use` hook** (e.g. unwrap a promise passed from a Server Component) rather than `useEffect`+`useState` client fetching.
 
+## Client-state discipline
+- **URL as state for shareable views**: filters, tabs, pagination, search live in the URL (search params), not `useState` — survives reload, back button works, the server can read it.
+- **Context only for genuinely cross-cutting concerns** (theme, session, a compound-component family) — never as a general store. **No global state library by default**; adding one is an ADR decision.
+
 ## Performance hygiene
 - `useMemo`/`useCallback` only for genuinely expensive work or a stable identity a dependency array needs — **not by default**. If the React Compiler is enabled, prefer removing manual memoization it already handles.
 - Extract event logic into named handlers (see `code-conventions`).

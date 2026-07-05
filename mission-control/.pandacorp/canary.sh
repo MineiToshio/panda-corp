@@ -16,9 +16,10 @@
 # set, so they stay aligned across projects).
 #
 # COVERAGE — every fail-closed gate verify.sh runs:
-#   biome (lint+format) · test-placement structure guard · DR-100 readiness · tsc (types) ·
+#   biome (lint+format) · test-placement structure guard · data-layer isolation (STRUCT-2, if Prisma) ·
+#   api-error-contract (API-1, if API routes) · DR-100 readiness · tsc (types) ·
 #   madge (circular deps) · vitest (tests) · knip (dead code) · Playwright spec DISCOVERY
-#   (smoke/visual/responsive/shell — proves the config still finds the specs so the e2e layer can't
+#   (smoke/visual/responsive/shell/headers — proves the config still finds the specs so the e2e layer can't
 #   pass vacuously, the DR-075 rot; a full browser run is intentionally NOT canaried — too slow/flaky
 #   for an on-demand check, and the discovery + presence + conformance checks cover the rot modes).
 # `doc-lint.sh` is NOT canaried — it is ADVISORY (always exits 0 by design), so "still goes RED" does
@@ -57,6 +58,28 @@ printf 'export const canary = 1;\n' > "$SBX_SRC/stray.test.ts"
 stray=$(find src -name '*.test.ts' -o -name '*.test.tsx' 2>/dev/null | grep -v '/_tests/' || true)
 if [ -n "$stray" ]; then pass "structure-guard (stray test outside _tests/)"; else rot "structure-guard (stray test outside _tests/)"; fi
 rm -f "$SBX_SRC/stray.test.ts"
+
+# --- 2b) Data-layer isolation gate (mirrors verify.sh, STRUCT-2) — only when Prisma is present -----
+if grep -q '"@prisma/client"' package.json 2>/dev/null; then
+  printf 'import { prisma } from "@/lib/prisma";\nexport const canaryLeak = prisma;\n' > "$SBX_SRC/db_leak.ts"
+  leak=$(grep -rEl "new PrismaClient\(|from ['\"]@/lib/prisma['\"]" src --include='*.ts' --include='*.tsx' 2>/dev/null \
+    | grep -v '^src/queries/' | grep -v '^src/lib/prisma\.ts$' || true)
+  if [ -n "$leak" ]; then pass "data-layer isolation (ORM import outside queries/)"; else rot "data-layer isolation (ORM import outside queries/)"; fi
+  rm -f "$SBX_SRC/db_leak.ts"
+fi
+
+# --- 2c) API error-contract gate (mirrors verify.sh, API-1) — only when API routes exist -----------
+if [ -d src/app/api ]; then
+  mkdir -p src/app/api/__canary__
+  printf 'export function GET() { return Response.json({ error: "x" }, { status: 500 }); }\n' > src/app/api/__canary__/route.ts
+  apibad=""
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    if grep -Eq 'status: *(4|5)[0-9][0-9]' "$f" && ! grep -q 'problem' "$f"; then apibad="found"; fi
+  done < <(find src/app/api -name 'route.ts' 2>/dev/null)
+  if [ -n "$apibad" ]; then pass "api-error-contract (4xx/5xx without problem())"; else rot "api-error-contract (4xx/5xx without problem())"; fi
+  rm -rf src/app/api/__canary__
+fi
 
 # --- 3) DR-100 residual-ambiguity gate (mirrors verify.sh) -----------------------------------------
 # verify.sh REDs a [NEEDS CLARIFICATION] marker in a `status: ACTIVE` doc. Plant one and run the check.
@@ -125,11 +148,11 @@ rm -f "$SBX_SRC/orphan.ts"
 if [ -f playwright.config.ts ]; then
   listing=$(pnpm exec playwright test e2e/ --list 2>/dev/null || true)
   missing=""
-  for spec in smoke visual responsive shell; do
+  for spec in smoke visual responsive shell headers; do
     printf '%s' "$listing" | grep -q "${spec}.spec.ts" || missing="$missing $spec"
   done
   if [ -z "$missing" ]; then
-    pass "playwright (spec discovery: smoke/visual/responsive/shell)"
+    pass "playwright (spec discovery: smoke/visual/responsive/shell/headers)"
   else
     rot "playwright (specs NOT discovered:$missing — config testDir/glob rotted → the e2e gate would pass vacuously)"
   fi

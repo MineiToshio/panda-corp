@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { isSkipped, notSkipped } from "./_skip";
 import { MOBILE_WIDTH, TARGETS_MOBILE } from "./_target";
 import { SURFACES } from "./routes";
 import { HAS_SHELL, NAV_DESTINATIONS, NAV_TOGGLE, SHELL_EXEMPT, SHELL_SELECTOR } from "./shell";
@@ -15,6 +16,12 @@ import { HAS_SHELL, NAV_DESTINATIONS, NAV_TOGGLE, SHELL_EXEMPT, SHELL_SELECTOR }
  * It iterates SURFACES (every declared route minus the author-declared SHELL_EXEMPT), NOT BLESSED:
  * the MC failure is a route that shipped BLESSED while the shell was absent, so gating on `blessed`
  * would inherit the same blind spot. Empty NAV_DESTINATIONS ⇒ no shell ⇒ vacuous pass.
+ *
+ * Quarantine (BL-0011): a route whose work order is `BLOCKED: needs-owner` is held ASIDE via
+ * `isSkipped`/`notSkipped` (engine-driven `PANDACORP_GATE_SKIP_ROUTES`, empty on a normal run —
+ * fail-closed). This is the exact coupling LESSON-0021 caught: one blocked node (/contact without its
+ * secret) red-locked the whole-project shell gate and the baseline/close-out that runs it. A blocked
+ * route is a tracked owner TODO, not a shell regression; ONLY needs-owner-blocked routes are excluded.
  *
  * Settle-first (mirror _responsive-helper, DR-071): abort the live transport (an open SSE never lets
  * networkidle settle) → domcontentloaded → fonts.ready → <main> visible → THEN web-first
@@ -48,8 +55,12 @@ test("shell harness present", () => {
 });
 
 if (HAS_SHELL) {
-  const [firstDest] = NAV_DESTINATIONS;
-  const gated = SURFACES.filter((s) => !matchesExempt(s.path));
+  // A needs-owner-quarantined route (BL-0011) is dropped from the shell-presence checks — its owning
+  // WO is BLOCKED on the owner, so its page legitimately can't render yet (a tracked TODO, not a
+  // regression). Nav destinations are likewise filtered so a quarantined destination isn't asserted.
+  const gatedDestinations = NAV_DESTINATIONS.filter((d) => !isSkipped(d.path));
+  const [firstDest] = gatedDestinations;
+  const gated = notSkipped(SURFACES.filter((s) => !matchesExempt(s.path)));
 
   // (1) The persistent shell landmark is VISIBLE on every non-exempt route — catches "shell missing
   //     on a page" (visible, not merely attached: a display:none / off-canvas nav is not a shell).
@@ -72,7 +83,7 @@ if (HAS_SHELL) {
     await settle(page, firstDest.path);
     const shell = page.locator(SHELL_SELECTOR).first();
     await expect(shell, `no visible app shell (${SHELL_SELECTOR})`).toBeVisible();
-    for (const d of NAV_DESTINATIONS) {
+    for (const d of gatedDestinations) {
       const link = shell.getByRole("link", { name: d.label, exact: true });
       await expect(link, `nav link "${d.label}" missing/invisible inside the shell`).toBeVisible();
       const href = await link.getAttribute("href");
@@ -85,7 +96,7 @@ if (HAS_SHELL) {
   //     not-yet-built target doesn't red the gate mid-build; at close-out (all blessed) they are all
   //     checked. (Tests 1+2 above — the shell-presence fidelity check — use the full SURFACES set.)
   const blessedPaths = new Set(SURFACES.filter((s) => s.blessed).map((s) => s.path));
-  for (const d of NAV_DESTINATIONS.filter((dest) => blessedPaths.has(dest.path))) {
+  for (const d of gatedDestinations.filter((dest) => blessedPaths.has(dest.path))) {
     test(`shell · destination ${d.path} resolves`, async ({ page }) => {
       await page.route(LIVE_ENDPOINT_GLOB, (r) => r.abort());
       const res = await page.goto(d.path, { waitUntil: "domcontentloaded" });

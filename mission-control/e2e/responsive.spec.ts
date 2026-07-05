@@ -1,5 +1,6 @@
 import { test } from "@playwright/test";
 import { assertResponsive, reportBreakageOnly } from "./_responsive-helper";
+import { notSkipped } from "./_skip";
 import { MOBILE_WIDTH, TARGET_PLATFORM, TARGETS_MOBILE } from "./_target";
 import { BLESSED } from "./routes";
 
@@ -19,10 +20,16 @@ import { BLESSED } from "./routes";
  *     where you cannot reach a feature is surfaced loudly without red-locking commits (DR-074 §5).
  *
  * `_target.ts` is PER-PROJECT (not byte-synced), so the desktop width lives HERE (a synced file).
+ *
+ * Quarantine (BL-0011): a route whose work order is `BLOCKED: needs-owner` is held ASIDE via
+ * `notSkipped` (engine-driven `PANDACORP_GATE_SKIP_ROUTES`, empty on a normal run — fail-closed).
  */
 
 /** Width used for the OFF-TARGET desktop advisory pass (mobile-only projects on desktop). */
 const DESKTOP_WIDTH = 1280;
+
+/** Blessed surfaces minus any BLOCKED: needs-owner route the engine quarantined (BL-0011). */
+const GATED = notSkipped(BLESSED);
 
 test("responsive harness present", () => {
   // Fail-closed sentinel: the harness is always present even before any surface is blessed.
@@ -30,7 +37,7 @@ test("responsive harness present", () => {
 
 if (TARGETS_MOBILE) {
   // The project targets mobile (mobile | responsive): full, blocking checks at the mobile width.
-  for (const s of BLESSED) {
+  for (const s of GATED) {
     test(`responsive · ${s.id} (${s.path}) @${MOBILE_WIDTH}px`, async ({ page }) => {
       await assertResponsive(page, s.path, { mobileWidth: MOBILE_WIDTH });
     });
@@ -38,7 +45,7 @@ if (TARGETS_MOBILE) {
 } else {
   // Desktop-only: mobile polish is low-priority, but functionality must still be reachable on a phone.
   // ADVISORY no-break check (never fails the gate) — surfaces hidden/unreachable content loudly.
-  for (const s of BLESSED) {
+  for (const s of GATED) {
     test(`responsive · ${s.id} (${s.path}) @${MOBILE_WIDTH}px — no-break advisory (${TARGET_PLATFORM})`, async ({
       page,
     }, testInfo) => {
@@ -49,7 +56,7 @@ if (TARGETS_MOBILE) {
 
 if (TARGET_PLATFORM === "mobile") {
   // Mobile-only: it must also not BREAK on a desktop width — ADVISORY no-break check (never blocks).
-  for (const s of BLESSED) {
+  for (const s of GATED) {
     test(`responsive · ${s.id} (${s.path}) @${DESKTOP_WIDTH}px — no-break advisory (desktop)`, async ({
       page,
     }, testInfo) => {
