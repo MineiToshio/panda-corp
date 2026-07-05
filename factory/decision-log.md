@@ -2,6 +2,14 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-05 — Sprint II WS-B3: proposals 21/22/25 re-verificadas cerradas (sin residuo ejecutable)
+
+**Qué:** verificación independiente de que las tres "planes pendientes" están válidamente cerradas, escaneando cada proposal contra sus PROPIOS criterios de aceptación (no solo el header que WS4 ya reconcilió). Resultado: **21** (/discover v2) SHIPPED v9.42.0 — su único residuo es la vista teaser+captura-de-reacción en MC, marcada EXPLÍCITAMENTE como opcional ("optional later: FRD-02 follow-up"), no parte de la aceptación → cerrada. **22** (skill design) SHIPPED v9.43.0 fases A-D; la fase E (validación) exige por diseño un proyecto UI real con corrida dual Opus+Sonnet (criterio: una corrida Sonnet completa el tracker con cero intervenciones "where-is-my-page") — no ejecutable desde el repo de la fábrica → cerrada excepto E, que sigue diferida con razón (WS-C podría dar un primer punto de dato pero no cierra su criterio dual). **25** (multi-runtime) IMPLEMENTED & VALIDATED (2 rondas Codex); su V2 vive como BL-0030/0031/0032 → cerrada.
+
+**Por qué:** el brief pide ejecutar por criterios de aceptación O marcar closed-without-build con razón — nunca forzar. Ninguna de las tres tiene residuo ejecutable factory-side; construir el extra opcional de 21 (feature de producto de MC) violaría el criterio de selección del brief (Opus lo hace igual de bien). Esto confirma independientemente la reconciliación de WS4 (Sprint I) y añade el escaneo de aceptación que aquélla no documentó explícitamente.
+
+**Impacto:** ningún cambio de código (cierre-sin-construir, correcto). Registro de cierre aquí; los residuos siguen en sus homes (opcional-FRD-02 de 21 en la cola de features de MC; fase E de 22 en el próximo proyecto UI; V2 de 25 en BL-0030/0031/0032).
+
 ## 2026-07-05 — Sprint II WS-B2: recalibración de prompts COMPLETADA (agentes restantes + skills, DR-114)
 
 **Qué:** se terminó la recalibración DR-114 que el Sprint I empezó. Los 10 agentes restantes + los skills no tocados se auditaron independientemente contra `prompting-conventions.md` y se recalibraron SOLO donde la forma peleaba con Opus 4.8/Sonnet (auditar-luego-recalibrar, no churn). Cuatro sub-agentes Fable en paralelo hicieron la cirugía; un pase PROMPT-6 de contexto fresco verificó que TODO elemento normativo sobrevivió (0 hallazgos, frontmatter byte-idéntico). **Cambiados:** implementer, frontend-dev, backend-dev, researcher (agentes) + iterate, scaffold (skills) + nit "3 lenses"→"4 lenses" en implement/SKILL.md. **Intactos con evidencia por-regla** (la afirmación "ya conformaban" del Sprint I se probó adversarialmente y se sostuvo): test-writer, security-auditor, librarian, analytics, devops, copywriter + 8 skills. Detalle plugin en su decision-log v9.70.0.
