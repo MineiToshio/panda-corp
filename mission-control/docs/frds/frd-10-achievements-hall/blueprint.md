@@ -53,7 +53,7 @@ app-incremented counter:
 |---|---|---|
 | products shipped ("launched" — the Informe's `funnel.launched`, the dashboard Pulso's `ideasShipped`) | shipped idea cards ∪ projects at `phase: release` (DR-085: launched/terminal), de-duplicated | `countLaunched` in `lib/ideas/ideas.ts` (DR-085/DR-115 single bridge resolver — never re-derived locally) |
 | ideas captured / discarded | `factory/ideas/*.md` (`status`) | `lib/ideas.ts` (FRD-01) |
-| work orders completed | `status.yaml` `work_orders_done` + `achievement` events | `lib/status.ts`, `lib/events.ts` |
+| work orders completed | live `listWorkOrders(path).state === "done"` summed across the portfolio (`workOrdersDoneLive`, DR-092/DR-115 — never `status.yaml`'s cached counter) + `achievement` events | `lib/work-orders.ts`, `guildState.ts`, `lib/events.ts` |
 | phases completed | `status.yaml` `phase` history | `lib/status.ts` |
 | iterations, flawless launches, PRDs, ADRs, agents coordinated | docs presence + events | `lib/docs.ts`, `lib/events.ts`, `lib/status.ts` |
 | record streak (weekly), record idea→launch | timestamps from events/status | `lib/events.ts`, `lib/status.ts` |

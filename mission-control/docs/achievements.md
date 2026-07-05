@@ -26,7 +26,7 @@ only exist if it can be computed from these:
 | **ideas[]** | `status` | discovered · recommended · in-pipeline · shipped · discarded |
 | | `score`, `favorite`, `slug`, `title` | idea quality / pin / identity (no date field — never fabricate a date) |
 | **statuses[]** (per project) | `phase` | product · design · architecture · implementation · release |
-| | `workOrdersDone` / `workOrdersTotal` | build volume per project |
+| **work-order files** (per project) | `listWorkOrders(path)` (live) | build volume — derived live from the `wo-*.md` files (DR-092/DR-115), never `status.yaml`'s cached `workOrdersDone`/`Total` (dead fields) |
 | | `deployTarget`, `deployUrl`, `targetPlatforms`, `version`, `updatedAt`, `repo` | launch facts |
 | **events[]** `AgentDone` | `data.role`, `data.wo`, `data.result:"green"` | a work order closed green, by which role |
 | `AgentWorking` | `data.role`, `data.wo` | which roles/agents are active on which WOs |

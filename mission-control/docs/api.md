@@ -2484,17 +2484,21 @@ export function readPortfolio(arg?: string): PortfolioEntry[];
 type Phase = "product" | "design" | "architecture" | "implementation" | "release"; // DR-085: no "operation" — "release" is the launched/terminal phase
 type ProjectStatus = {
   project: string; phase: Phase; version: string; running: boolean;
-  progress?: number; workOrdersTotal: number; workOrdersDone: number;
   pendingDecisions: number; pendingBugs: number; rethinkPending: boolean;
   advancePending: boolean; lastGreenSha: string; safeToTest: boolean;
   overlayVersion?: string; createdWith?: string; updatedAt?: string; repo?: string;
 };
+// Reconciled from code 2026-07-05 (DR-092/DR-115): `progress`, `workOrdersTotal` and
+// `workOrdersDone` were REMOVED from ProjectStatus — they were dead status.yaml replica
+// fields with no display reader. Work-order counts derive live from `listWorkOrders`/
+// `aggregateProgress`; `pendingDecisions`/`pendingBugs` are populated live by
+// `readStatusWithLiveInboxCounts`, never from the raw YAML counters.
 type StatusResult =
   | { present: false; malformed: false; status: null }
   | { present: true; malformed: boolean; status: Partial<ProjectStatus> };
 export function readStatus(projectPath: string): StatusResult;
 // Tolerance: absent → { present: false }; malformed YAML → { present: true, malformed: true, status: {} }.
-// YAML snake_case → camelCase: work_orders_total → workOrdersTotal, etc.
+// YAML snake_case → camelCase: last_green_sha → lastGreenSha, etc.
 
 // lib/events.ts
 type Event = {
@@ -3368,7 +3372,9 @@ Kills: inverted-guard mutant, always-gate mutant, always-children mutant.
 
 ## WO-12-002: `deriveKpis` — ≤5 critical KPI selector (incl. failed work orders)
 
-**Module:** `app/_observability/selectors/kpis.ts`
+> **REMOVED (reconciled from code 2026-07-05, DR-092/DR-115).** `deriveKpis`/`KpiHeader` (`app/_observability/selectors/kpis.ts`, `app/_observability/KpiHeader/`) were **deleted** — the header was never mounted in production, the operative pulse is `Pulso` (FRD-18), and the "failed work orders" KPI derived state through a mechanism divergent from `WorkOrder.state`. AC-12-001.1's header KPIs are superseded by the Inicio Pulso. The interface below is kept for historical traceability only; it describes code that no longer exists.
+
+**Module:** `app/_observability/selectors/kpis.ts` *(removed)*
 **Traces:** IF-12-kpis; REQ-12-001, REQ-12-007; AC-12-001.1, AC-12-007.1
 **Dependencies:** WO-01-007 (`Event` type from `lib/events.ts`), WO-03-001 (`ProjectListItem` from `lib/portfolio.ts`)
 

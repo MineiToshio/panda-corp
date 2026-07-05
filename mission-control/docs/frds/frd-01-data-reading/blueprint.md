@@ -108,8 +108,10 @@ type PortfolioEntry = {
 // lib/status.ts
 type Phase = "product" | "design" | "architecture" | "implementation" | "release";
 type ProjectStatus = {
+  // Reconciled from code 2026-07-05 (DR-092/DR-115): `progress`/`workOrdersTotal`/
+  // `workOrdersDone` removed — dead status.yaml replica fields with no display reader.
+  // WO counts derive live via listWorkOrders/aggregateProgress.
   project: string; phase: Phase; version: string; running: boolean;
-  progress?: number; workOrdersTotal: number; workOrdersDone: number;
   pendingDecisions: number; pendingBugs: number; rethinkPending: boolean;
   advancePending: boolean; lastGreenSha: string; safeToTest: boolean;
   overlayVersion?: string; createdWith?: string; updatedAt?: string; repo?: string;
@@ -188,7 +190,7 @@ The FRD lists its acceptance criteria as EARS bullets; numbered here in order fo
 | REQ-01-002 | `profile.md` present → read it to personalize. | `CMP-01-profile`, `IF-01-readProfile` |
 | REQ-01-003 | Read all `factory/ideas/*.md` (skip template/log) + frontmatter. | `CMP-01-ideas`, `IF-01-readIdeas` |
 | REQ-01-004 | Read `factory/portfolio.md` → projects + paths. | `CMP-01-portfolio`, `IF-01-readPortfolio` |
-| REQ-01-005 | Read each project's `status.yaml` (phase, version, running, progress, WO counts, decisions, bugs, last_green_sha, safe_to_test). | `CMP-01-status`, `IF-01-readStatus` |
+| REQ-01-005 | Read each project's `status.yaml` (phase, version, running, last_green_sha, safe_to_test). WO counts derive live from the work-order files (`listWorkOrders`), decisions/bugs from the live inbox (`readStatusWithLiveInboxCounts`) — never the status.yaml counters (DR-092/DR-115). | `CMP-01-status`, `IF-01-readStatus` |
 | REQ-01-006 | In-pipeline card → column from project `phase` (status.yaml is the single source). | `CMP-01-status` (provides phase; column derivation = FRD-02 `lib/board.ts`) |
 | REQ-01-007 | Read per-project feature-centric `docs/` + `.pandacorp/` comms. | `CMP-01-docs`, `IF-01-readProjectDocs` |
 | REQ-01-008 | Read event stream → diffs, live/no-signal, age-in-stage. (`visto_hasta` = client-local, FRD-18.) | `CMP-01-events`, `IF-01-readEvents` |

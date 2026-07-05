@@ -144,9 +144,8 @@ A table of created projects → each row yields a **project path** and optional 
 ### 4.4 Per-project state — `<projectPath>/.pandacorp/status.yaml`
 Machine state (English), parsed by `yaml`. Fields read (FRD-01/02/03/04/14):
 `project`, `phase` (`product \| design \| architecture \| implementation \| release` — DR-085: the old `operation` phase was folded into `release`, the launched/terminal phase),
-`version`, `running`, `progress`, `work_orders_total`, `work_orders_done`, `pending_decisions`,
-`pending_bugs`, `rethink_pending`, `advance_pending`, `last_green_sha`, `safe_to_test`,
-`overlay_version`, `created_with`, `updated_at`. Absent/malformed → render partial, never break
+`version`, `running`, `rethink_pending`, `advance_pending`, `last_green_sha`, `safe_to_test`,
+`overlay_version`, `created_with`, `updated_at`. **Single source of truth (DR-092/DR-115):** work-order counts are NOT read from `status.yaml` — they are derived live from the work-order files via `listWorkOrders`/`aggregateProgress`; `pending_decisions`/`pending_bugs` are overridden with a live count from the project's inbox (`readStatusWithLiveInboxCounts`). The old `progress`/`work_orders_total`/`work_orders_done` fields have **no reader** (dead replica fields written by the build engine only; a display surface must never read them). Absent/malformed → render partial, never break
 (FRD-01 edge case); for an `in-pipeline` card with no status → fall back to the **documented**
 column (FRD-02). `phase` is the **single source of truth** for the board column of in-pipeline
 cards (the card `status` is just a pointer).

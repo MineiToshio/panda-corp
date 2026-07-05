@@ -72,6 +72,7 @@ the design decision-log discipline; the behavioural contract lives in the FRDs a
   alerts became rounded `Banner` cards + an icon `CopyButton` + the shared `CmdRow` (terminal glyph);
   the card-detail Documentos tab became a rail + reader and Comandos a `CmdRow` + project-command box
   (both formerly bespoke). All fixed at the *primitive* level (DR-057 single-source), not per consumer.
+  *(Superseded later: the card-detail **Comandos** tab was folded into La Campaña's ficha, and Propuesta/Spec/Arquitectura tabs were added — see `frd-02/frd.md` REQ-02-009, reconciled 2026-07-05.)*
 
 **Why.** Repeated "it's done" had been false because surfaces were never browser-verified against the
 prototype, and the visual gate proves *consistency with its own baseline*, not *fidelity to the

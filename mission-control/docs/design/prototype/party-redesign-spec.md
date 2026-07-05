@@ -82,7 +82,7 @@ A winding **campaign trail** of the 6 phases, each a room with its specialists. 
 
 Three zoom levels, each in the surface whose nature matches:
 
-- **Tablero** (board) → click a card → its detail opens with **horizontal tabs** (same pattern as the Portfolio project pane): **Campaña · Documentos · Comandos**.
+- **Tablero** (board) → click a card → its detail opens with **horizontal tabs** (same pattern as the Portfolio project pane): **Campaña · Documentos · Comandos**. *(SUPERSEDED — this reflects the 2026-06 proposal; the shipped card detail is up to 5 tabs **Propuesta · Spec? · Arquitectura? · Documentos · Campaña**, default Propuesta, with Comandos folded into La Campaña. See `frd-02/frd.md` REQ-02-009 and `CardDetail.tsx`.)*
   - **Campaña** (default) = La Campaña (the idea's journey through the 6 phases). → **extends FRD-02** (the card detail).
   - Documentos = the existing doc navigator. Comandos = the next-step / iterate commands.
 - **Portfolio** → project → tab **Party** = **La Fragua** (the live build, FRD by FRD). → **FRD-06**.

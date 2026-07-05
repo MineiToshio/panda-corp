@@ -19,27 +19,29 @@ the prototype renders it, mapped to the frozen design system and the FRD-02 acce
 `mocks/la-campana.html` (self-contained; shared pixel-art assets referenced from
 `docs/design/prototype/assets/`, not duplicated).
 
-> This FDD covers the card detail (the three tabs + La Campaña + Documentos + Comandos). The board
+> This FDD covers the card detail (its tabs + La Campaña + Documentos). The board
 > derivation, intake modal, category filter and discard (REQ-02-001…008) keep their behaviour and are
 > out of scope here (the 2026-06-22 board-content fidelity pass — column labels, the category
 > `<select>`, the intake modal, the legend — is recorded in `frd.md`, the blueprint and the decision
 > log). The global PDD (palette, typography, surfaces, the app-wide RPG skin, the Party pixel-art
 > spec) is not redefined here; La Campaña is assembled on top of it.
 
-## 1. Placement — the three-tab card detail
+## 1. Placement — the card-detail tabs
 
-Clicking a card opens its detail with **three horizontal tabs** — **Campaña · Documentos · Comandos**
+> **Reconciled from code 2026-07-05** — describes existing behaviour, not the pre-2026-06-26 plan. The card detail is no longer three tabs; "Comandos" was folded into La Campaña's ficha and **Propuesta**, then **Spec** and **Arquitectura**, were added (REQ-02-009/011/013).
+
+Clicking a card opens its detail with up to **five horizontal tabs** — **Propuesta · Spec · Arquitectura · Documentos · Campaña** (`CardDetail.tsx`)
 — rendered by the **shared `Tabs` primitive** (`level="sub"`, the same `.stab` pattern as the
-Portfolio project pane, `AC-02-009.1`), default **Campaña**. Each tab carries its **icon**
-(`ti-map-2 · ti-files · ti-wand`) — the `Tabs` primitive already supports `icon`
-(amendment, 2026-06-22). The active tab persists across re-renders of the detail (`AC-02-009.4`); a
+Portfolio project pane, `AC-02-009.1`), default **Propuesta**. Each tab carries its **icon**
+(`ti-sparkles · ti-list-details · ti-affiliate · ti-files · ti-map-2`) — the `Tabs` primitive already supports `icon`
+(amendment, 2026-06-22). **Spec** is present only when the project has a spec digest and **Arquitectura** only with an architecture digest (REQ-02-011/013); absent each digest, that tab is not rendered. The active tab persists across re-renders of the detail (`AC-02-009.4`); a
 document click anywhere switches to **Documentos** (`AC-02-009.3`).
 
 **The tabs are bare pills above a bordered body panel** (amendment, 2026-06-22). The card-detail
 **root is transparent layout only** (a flex column with a 14px gap, no outer border/background); the
 tab pills sit on top, and **each tab's own content is the bordered container below them** — the
 prototype `detailView` shape (bare `.stab` pills above, the body panel below). The Campaña body is
-that bordered panel (see §2); Documentos and Comandos render their own bordered panels too. La
+that bordered panel (see §2); Propuesta, Spec, Arquitectura and Documentos render their own bordered panels too. La
 Campaña is wrapped in a **labelled container** — *"EL VIAJE DE ESTA IDEA POR LAS 6 FASES"* — the
 consistent embed-container standard.
 
@@ -168,9 +170,9 @@ The ficha reflects the **real engine phase model**: specialization lives **per p
 the build; the team works in sequence and communicates by documents across time (the design phase's
 ESCRIBE row already includes `components.md` and the per-FRD `mocks/fdd`, matching DR-057/058).
 
-## 5b. Documentos & Comandos tabs (the other two tab bodies)
+## 5b. Documentos tab (the doc-navigator body)
 
-> **Reworked 2026-06-22** — these were previously described as "unchanged" (§1 supersession note).
+> **Reworked 2026-06-22; reconciled 2026-07-05** — originally "Documentos & Comandos"; the Comandos tab was folded into La Campaña's ficha, so the card detail no longer has a Comandos body. Documentos is described here; Propuesta/Spec/Arquitectura bodies are the digest/pitch panels (REQ-02-009/011/013).
 
 - **Documentos = a rail (210px) + reader** (prototype `docsBody`). The left rail always lists
   **Resumen** first (the summary reader — the card body's summary + key points) plus **one item per

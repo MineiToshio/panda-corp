@@ -31,8 +31,9 @@ last_updated: '2026-06-30'
 ```ts
 type Phase = "product" | "design" | "architecture" | "implementation" | "release";
 type ProjectStatus = {
+  // Reconciled from code 2026-07-05 (DR-092/DR-115): `progress`/`workOrdersTotal`/
+  // `workOrdersDone` were later REMOVED (dead status.yaml replica fields, no display reader).
   project: string; phase: Phase; version: string; running: boolean;
-  progress?: number; workOrdersTotal: number; workOrdersDone: number;
   pendingDecisions: number; pendingBugs: number; rethinkPending: boolean;
   advancePending: boolean; lastGreenSha: string; safeToTest: boolean;
   overlayVersion?: string; createdWith?: string; updatedAt?: string; repo?: string;
@@ -47,14 +48,15 @@ export function readStatus(projectPath: string): StatusResult;  // uses config.p
 - Resolve `<projectPath>/.pandacorp/status.yaml` via `config.projectStatusPath`.
 - Absent (use `pathExists`) → `{ present: false, malformed: false, status: null }`.
 - Parse with `yaml`. Malformed → `{ present: true, malformed: true, status: {} }` (never throw).
-- Map snake_case → camelCase (`work_orders_total`→`workOrdersTotal`, `last_green_sha`→`lastGreenSha`,
+- Map snake_case → camelCase (`last_green_sha`→`lastGreenSha`,
   `safe_to_test`→`safeToTest`, etc.). Missing keys stay `undefined`/omitted (partial-tolerant).
+  *(Reconciled 2026-07-05: `work_orders_total/done` and `progress` are no longer mapped — the fields were removed, DR-092/DR-115.)*
 
 ## Definition of done
 
 - [x] `lib/status.test.ts` (RED first):
   - [x] `proj-a` → `present: true, malformed: false`, with `phase`, `version`, `running`,
-    `workOrdersTotal/Done`, `pendingDecisions`, `pendingBugs`, `lastGreenSha`, `safeToTest` mapped.
+    `pendingDecisions`, `pendingBugs`, `lastGreenSha`, `safeToTest` mapped. *(Originally also asserted `workOrdersTotal/Done`; those fields were removed 2026-07-05, DR-092/DR-115.)*
   - [x] `proj-b` (malformed yaml) → `present: true, malformed: true, status: {}` (no throw).
   - [x] non-existent project path → `present: false`.
 - [x] No write; fail-soft per blueprint §3.

@@ -4,6 +4,17 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-05 — Docs reconciled from code (`/pandacorp:sync`, cold audit) — part 1: SSOT propagation + card-detail tabs + removed KPI header
+
+**What:** a cold `/pandacorp:sync` audit (code is the oracle) found documentation that lagged behind the shipped code. This entry covers three families reconciled (all marked *reconciled-from-code*; no spec was degraded, no bug found):
+- **SSOT propagation (DR-092/DR-115).** The just-landed single-source change was documented in the owning FRDs (frd-01 frd.md, frd-04/09/14/18) but not in secondary docs. Reconciled the stale ones to the live reality (WO counts derive from `listWorkOrders`; `progress`/`workOrdersTotal`/`workOrdersDone` removed from `ProjectStatus`; gamification input is `workOrdersDoneLive`; `deriveKpis`/`KpiHeader` deleted): `docs/product/architecture.md` (§4.4 field list), `docs/api.md` (`ProjectStatus` type + snake→camel note + the removed `deriveKpis`/WO-12-002 section), `docs/achievements.md` (build-volume source), `frd-01/blueprint.md` (type + REQ-01-005) + `wo-01-005`, `frd-09/wo-09-001` (input source), `frd-10/blueprint.md` (WO-completed source), `frd-04/wo-04-004` (objectives-bar + header progress dropped).
+- **Card-detail tabs (FRD-02).** Reality is up to 5 tabs `Propuesta · Spec? · Arquitectura? · Documentos · Campaña` (default Propuesta); docs still said "3 tabs / Campaña · Documentos · **Comandos**" (Comandos folded into La Campaña; Spec/Arquitectura added). Reconciled `frd-02/frd.md` (REQ-02-009 title), `fdd.md` (§1 placement, §5b, scope note), `blueprint.md` (REQ-02-009 row + DAG), `wo-02-007` (title + goal), `work-orders/README.md`, `design/components.md` (CardDetail row). Historical snapshots annotated *superseded* (owner's choice): `design/prototype/party-redesign-spec.md`, `design/design-decisions.md`, `prototype/index.html`, `prototype/dag-2d.html`.
+- **FRD-12 KPI header superseded.** AC-12-001.1 (observability header ≤5 KPIs incl. "failed work orders") describes the removed `KpiHeader`; marked SUPERSEDED by the Inicio `Pulso` (FRD-18).
+
+**Why:** the owner asked to enforce a single source of truth everywhere (DR-115) and ran `/pandacorp:sync` to catch every docs↔code gap. Behind the sync intent gate the owner confirmed direction (all cases were code-ahead / superseded — document; none were bugs). FRD-06 (La Fragua v2) reconciliation is **part 2** (a separate commit — its `fdd.md`/`blueprint.md` froze at the pre-v2 mono-FRD design).
+
+**Impact:** docs-only, gate-neutral (no `src/` change). Files above; `docs/decision-log.md` (this entry). Reconciled from code, not authored intent.
+
 ## 2026-07-05 — Single source of truth: display surfaces stop reading status.yaml cached counts (DR-092/DR-115)
 
 **What:** eliminated every display-surface read of cached counts in `.pandacorp/status.yaml` — work-order counts, pending-bugs, and two genuinely dead fields:

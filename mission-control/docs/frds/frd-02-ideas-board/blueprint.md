@@ -255,7 +255,7 @@ narrative snapshot that can drift from what actually exists on disk):
 | REQ-02-006 | Filter by category; recommended card shows a "recommended" badge. | `CMP-02-category-filter`, `CMP-02-card` |
 | REQ-02-007 | Discard → rewrite `status: discarded`, preserving the rest of the file (the only write). | `CMP-02-discard`, `CMP-02-discard-action`, `IF-02-discardIdea` |
 | REQ-02-008 | Building indicator while `running: true`; legend explaining category/return/score; card with no docs → summary only. | `CMP-02-card` (badge), `CMP-02-legend`, `CMP-02-card-detail` |
-| REQ-02-009 | Card detail = 3 tabs (Campaña · Documentos · Comandos) via shared `Tabs` (icons), default Campaña; doc click → Documentos; tab persists; Documentos = rail+reader, Comandos = `CmdRow` + (building/release) project box. | `CMP-02-card-detail` |
+| REQ-02-009 | Card detail = up to 5 tabs (Propuesta · Spec? · Arquitectura? · Documentos · Campaña) via shared `Tabs` (icons), default Propuesta; Spec/Arquitectura shown only with their digest (REQ-02-011/013); Comandos folded into La Campaña ficha; doc click → Documentos; tab persists; Documentos = rail+reader. *(Reconciled 2026-07-05.)* | `CMP-02-card-detail` |
 | REQ-02-010 | La Campaña: 6-phase pipeline (full-width stage, road under rooms), active phase derived from status, done/current/locked, per-phase ficha (by default + pinned) with the whole team, "en curso"/roam gated on running, build→host-navigate to Party, read-only; a locked phase's ficha shows full info (only the build action is gated). | `CMP-02-campaign-pipeline`, `CMP-02-roaming-cast`, `CMP-02-phase-from-status`, `CMP-02-go-party`, `IF-02-phaseFromStatus`, `IF-02-goParty` |
 | REQ-02-012 | Mark a card as favourite (visual-only, any column): `favorite: true` frontmatter write, star toggle (optimistic) on every card + the detail header, gold card highlight; never changes status/column. | `CMP-02-favorite`, `CMP-02-favorite-action`, `IF-02-setFavorite`, `CMP-02-card` (gold highlight) |
 
@@ -320,7 +320,7 @@ frd-13 (foundation, VERIFIED)
         │              intake + discard)
         │
         └─ WO-02-007  La Campaña card detail artifacts: app/board/_components/CardDetail/**,
-                      (3 tabs + 6-phase                  components/modules/CampaignPipeline/**
+                      (5 tabs + 6-phase                  components/modules/CampaignPipeline/**
                        pipeline)
 ```
 

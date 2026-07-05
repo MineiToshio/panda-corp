@@ -2,7 +2,7 @@
 id: WO-02-007
 type: work-order
 slug: card-detail
-title: 'WO-02-007 — La Campaña card detail (3 tabs + 6-phase pipeline)'
+title: 'WO-02-007 — La Campaña card detail (tabbed + 6-phase pipeline)'
 status: DRAFT
 parent: FRD-02
 implementation_status: VERIFIED
@@ -17,10 +17,11 @@ last_updated: '2026-06-29'
 
 ## Goal
 
-Re-paint the board **card detail** to match the approved prototype: a three-tab container
-(**Campaña · Documentos · Comandos**, default Campaña) hosting **La Campaña** — the 6-phase pipeline
+Re-paint the board **card detail** to match the approved prototype: a tabbed container hosting **La Campaña** — the 6-phase pipeline
 trail with per-phase fichas. The `lib/campaign.ts` `phaseFromStatus` derivation is VERIFIED and
 consumed as-is; this WO is presentational.
+
+> **Reconciled from code 2026-07-05.** The container originally shipped as three tabs (Campaña · Documentos · Comandos, default Campaña); it since became up to **5 tabs** — **Propuesta · Spec? · Arquitectura? · Documentos · Campaña** (default Propuesta), with Comandos folded into La Campaña's ficha and Spec/Arquitectura added (REQ-02-009/011/013). See `CardDetail.tsx`.
 
 ## Scope (components from `docs/design/components.md`)
 

@@ -44,7 +44,7 @@ tokens, reusing the FRD-13 foundation primitives instead of bespoke markup.
   default Resumen, selection URL-driven (`?tab=`) so Server Component bodies render.
 - **`CMP-04-objectives-bar` / `ObjectivesBar`** (`objectives-bar.tsx`, Server) — the **"Objetivos de la
   misión"** bar, a **consumer of the shared `ProgressBar`** primitive (accent fill, `var(--ok)` at
-  100%, `done / tot · pct%`, `tabular-nums`). Omitted when `work_orders_total` is 0/absent.
+  100%, `done / tot · pct%`, `tabular-nums`). Counts derive live from `aggregateProgress(listWorkOrders(path))` (DR-092/DR-115), never `status.yaml`; omitted when the live total is 0/absent.
 - Tab bodies are **mounted, not owned** here: Resumen/Documentos → WO-04-005; Comandos → FRD-11;
   Work orders → FRD-05; Party → FRD-06; Observabilidad → FRD-12. The shell renders the slot.
 - **Reuse before create** (`docs/design/components.md`): use `Tabs`, `ProgressBar`, `Chip`, `ItemSlot`
@@ -54,11 +54,11 @@ tokens, reusing the FRD-13 foundation primitives instead of bespoke markup.
 - **AC-04-001.1** GIVEN a selected project, the workspace SHALL render exactly six tabs in order
   Resumen, Work orders, Party, Observabilidad, Documentos, Comandos.
 - **AC-04-001.2** WHEN no tab is explicitly selected, the workspace SHALL default to **Resumen**.
-- **AC-04-002.1** The header SHALL render the project name as the H1, the stage label (from `phase`),
-  `version` and the `progress` string when present; the progress line is omitted when absent. The
-  header is a **compact light** block (DR-062), not a heavy panel.
+- **AC-04-002.1** The header SHALL render the project name as the H1, the stage label (from `phase`)
+  and `version`. The
+  header is a **compact light** block (DR-062), not a heavy panel. *(Reconciled 2026-07-05, DR-092/DR-115: the header no longer renders a `progress` string — the `progress` status.yaml field was removed and the header prop dropped; the live done/total lives in the objectives bar below via `listWorkOrders`.)*
 - **AC-04-002.2** The objectives bar (`ProgressBar` consumer) SHALL show
-  `work_orders_done / work_orders_total` + the percentage; omitted when total is 0/absent.
+  `done / total` + the percentage, derived live via `aggregateProgress(listWorkOrders(path))` (DR-092/DR-115, never `status.yaml`); omitted when the live total is 0/absent.
 - **AC-04-002.3** The header and objectives bar SHALL be visible regardless of the active tab.
 - Rendered output matches `projectPane()` on the frozen tokens; no hardcoded colors; the browser
   fidelity/smoke gate is clean.

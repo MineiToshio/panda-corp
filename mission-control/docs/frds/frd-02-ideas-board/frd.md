@@ -36,7 +36,7 @@ Read-only kanban of the idea base, with idea capture, a navigable detail and dis
 > §2 (the real engine phase model). These REQs **extend** the card detail of REQ-02-004; they do not
 > change the board derivation, intake, filter or discard behavior.
 
-### REQ-02-009 — Three-tab card detail (Propuesta · Documentos · Campaña)
+### REQ-02-009 — Card-detail tabs (Propuesta · Spec? · Arquitectura? · Documentos · Campaña)
 
 - AC-02-009.1 — WHEN the owner opens a card, THE system SHALL render the card detail with **three
   horizontal tabs** — **Propuesta · Documentos · Campaña** (in that order) — using the **same tab

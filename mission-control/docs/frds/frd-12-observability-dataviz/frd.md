@@ -19,7 +19,7 @@ The analytical views live in a project-level **"Observabilidad" tab** that is a 
 ## Acceptance criteria (EARS)
 
 ### REQ-12-001 — Header KPIs and freshness
-- **AC-12-001.1** — The header SHALL show **≤5 critical KPIs** (e.g. active projects, agents working, XP of the day, builds queued, **failed work orders**), top-left; the detail goes in collapsible sections.
+- **AC-12-001.1** — ~~The header SHALL show **≤5 critical KPIs** (e.g. active projects, agents working, XP of the day, builds queued, **failed work orders**), top-left~~; the detail goes in collapsible sections. **SUPERSEDED (reconciled from code 2026-07-05):** the standalone observability KPI header (`KpiHeader`/`deriveKpis`) was never mounted in production and was **removed** (DR-092/DR-115 — its "failed work orders" metric derived state through a mechanism divergent from `WorkOrder.state`). The operative factory pulse is the Inicio **`Pulso`** section (FRD-18), which is the single source for those cross-cutting signals. This AC no longer describes shipped behaviour.
 - **AC-12-001.2** — The view SHALL show a **Live / No signal** indicator with the **timestamp of the last event** read from `~/.claude/dashboard-events.ndjson` (data freshness), so the operator knows whether they're seeing something current or frozen.
 - **AC-12-001.3** — ANY grouping or ranking (agents, events, metrics) SHALL be limited to the **top-5** so as not to overwhelm the operator.
 - **AC-12-001.4** — The honest metrics (tasks done vs failed, time per work order, events per minute) SHALL be derived from the same event file, with no extra instrumentation.
