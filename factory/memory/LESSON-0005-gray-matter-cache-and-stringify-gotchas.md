@@ -9,7 +9,7 @@ source: factory/memory/_inbox.md (2026-06-16, factory validate-memory.sh authori
 provenance: agent-inferred
 created: 2026-06-30
 status: active
-promotion: none
+promotion: proposed
 confidence: high
 times_applied: 0
 links: []
@@ -38,5 +38,10 @@ independently, across two different projects, over two weeks.
 **Apply next time:** Any new markdown-frontmatter reader/writer in the plugin or a project — always call
 `matter(content, { excerpt: false })`, never bare `matter(content)`; when re-parsing written output for a
 round-trip check, normalize trailing newlines first. This pattern is now the de-facto standard for every
-plugin/memory file reader in Mission Control (`lib/memory.ts`, `lib/reference.ts`) — worth promoting to a
-`factory/standards/` note if a third independent project hits it (candidate for `promotion: proposed`).
+plugin/memory file reader in Mission Control (`lib/memory.ts`, `lib/reference.ts`).
+
+**Promotion rationale (librarian, 2026-07-04):** corroborated across 2 distinct projects (factory
+`validate-memory.sh` + Mission Control's `lib/memory.ts`/`lib/reference.ts`/WO-05-001) with 4+ independent
+hits, `confidence: high`, no contradicting evidence — propose promoting to a `factory/standards/` note
+(a Node/gray-matter frontmatter-parsing convention) so every future project gets the `{ excerpt: false }`
+call and the trailing-newline normalization for free instead of rediscovering both traps.

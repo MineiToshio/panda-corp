@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0033, LESSON-0034, LESSON-0039, LESSON-0041]
+links: [LESSON-0033, LESSON-0034, LESSON-0039, LESSON-0041, LESSON-0069]
 ---
 
 **Situation:** across two projects, four *different* root causes each produced a misleading result from
