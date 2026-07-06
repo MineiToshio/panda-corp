@@ -1,9 +1,12 @@
 #!/bin/bash
 # Pandacorp pending-work check (DR-096) — "did I leave a worktree un-merged?"
 #
-# The invariant: merge-queue.sh removes the worktree AND its branch only on a SUCCESSFUL merge, so
-# anything that survives = work NOT yet in main. This surfaces it so a forgotten parallel session can't
-# silently strand its progress. Two signals, unioned:
+# The invariant (2026-07-02): a surviving worktree with an UNMERGED branch (or dirty tree) = pending
+# work. A surviving worktree that is fully MERGED + clean is a session shell merge-queue deliberately
+# KEPT (deleting the dir under a live session dangles its cwd — the session's next message dies with
+# "Path does not exist"); it is listed apart as removable, never as pending. Removal belongs to
+# ExitWorktree (which also restores the session cwd) or to an outside `git worktree remove`.
+# Two pending signals, unioned:
 #   1. surviving worktrees (other than the main checkout) — pending even if their work is UNCOMMITTED;
 #   2. unmerged branches whose worktree is already gone — `git branch --no-merged` (the branch outlives
 #      the worktree, which Claude Code may sweep).
