@@ -5,7 +5,7 @@ slug: informe-wiring-fallback
 title: 'WO-23-003 — Wire the Informe to read the portada first, fall back to live git'
 status: ACTIVE
 parent: FRD-23
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 reopen_count: 0
 source_requirements: [REQ-23-001, REQ-23-005]
 artifacts: [src/lib/achievements/report/**, src/app/**]

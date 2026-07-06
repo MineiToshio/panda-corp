@@ -5,8 +5,8 @@ slug: aggregate-regen-backfill
 title: 'WO-23-004 — Aggregate index + Stop/post-commit regeneration + one-shot backfill'
 status: ACTIVE
 parent: FRD-23
-implementation_status: IN_REVIEW
-reopen_count: 1
+implementation_status: VERIFIED
+reopen_count: 0
 source_requirements: [REQ-23-003, REQ-23-004]
 artifacts: [src/lib/achievements/read-model/**, src/app/achievements/page.tsx, scripts/**, vitest.config.ts]
 difficulty: high

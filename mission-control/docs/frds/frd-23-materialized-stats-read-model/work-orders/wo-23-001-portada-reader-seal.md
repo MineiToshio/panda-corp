@@ -5,7 +5,7 @@ slug: portada-reader-seal
 title: 'WO-23-001 — Portada reader + freshness seal + fail-loud fixtures'
 status: ACTIVE
 parent: FRD-23
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 reopen_count: 0
 source_requirements: [REQ-23-001]
 artifacts: [src/lib/achievements/read-model/**, src/lib/achievements/read-model/_tests/**]

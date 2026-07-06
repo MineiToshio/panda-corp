@@ -12,21 +12,21 @@ deploy_url: "http://192.168.18.227:1987"  # MC's internal release on the LAN
 running: true
 run_started_at: "2026-07-06T21:55:51Z"
 repo: ""
-updated_at: "2026-07-06T23:12:56Z"
-last_event_at: "2026-07-06T23:12:56Z"
+updated_at: "2026-07-06T23:59:00Z"
+last_event_at: "2026-07-06T23:59:00Z"
 work_orders_total: 102
-work_orders_verified: 98
-work_orders_in_review: 3
-work_orders_planned: 1
+work_orders_verified: 102
+work_orders_in_review: 0
+work_orders_planned: 0
 work_orders_in_progress: 0
 work_orders_blocked: 0
-work_orders_done: 98
+work_orders_done: 102
 pending_decisions: 0
 pending_bugs: 0
 rethink_pending: false
 advance_pending: false
-last_green_sha: "e3de49a7"
-safe_to_test: true  # FRD-23 (materialized stats read-model) IN PROGRESS after a DR-073 revert of WO-23-004. The in-place patch could NOT green WO-23-004 (aggregate index + Stop/post-commit regeneration + one-shot backfill): the reviewer's adversarial suite (aggregateWiring.reviewer.test.ts) proved AC-23-003.1 unwired, and the fix would not settle. Per DR-073 the committed-but-rejected WO-23-004 code was reverted to last_green_sha (e3de49a7): aggregate.ts/backfill.ts/regen.ts, scripts/read-model/*, its own tests and the package.json stats:* scripts removed; package.json restored to green; its reopen_count → 1 and status → PLANNED for a clean rebuild. Its sibling WOs stay IN_REVIEW and untouched — WO-23-001 (portada reader + freshness seal + fail-loud schema, incl. StatsAggregate/parseStatsAggregate/readStatsAggregate seam), WO-23-002 (single-writer portada writer, DR-115), WO-23-003 (informe wiring + live-git fallback). The reviewer's adversarial spec was PRESERVED (DR-107) at .pandacorp/run/preserved-tests/WO-23-004/aggregateWiring.reviewer.test.ts to restore as the RED baseline on rebuild. Counts: 98 VERIFIED (other FRDs) + 3 IN_REVIEW (WO-23-001/002/003) + 1 PLANNED (WO-23-004 reopened). Engine will retry the reopened WO from this clean green base. 2026-07-06
+last_green_sha: "a52e86e2"
+safe_to_test: true  # FRD-23 (materialized stats read-model) VERIFIED at the split-gate CLOSE. WO-23-004 (aggregate index + Stop/post-commit regeneration + one-shot backfill) — reverted last run for AC-23-003.1 being unwired — was REBUILT and is now wired end-to-end: page.tsx reads the O(1) aggregate (readStatsAggregate + resolvePortadaFromAggregate), the sync-portfolio skill (step 5c) invokes `pnpm stats:sync-aggregate`, and the stats:regen/stats:sync-aggregate/stats:backfill scripts + scripts/read-model/*.mjs exist. The preserved reviewer adversarial spec (aggregateWiring.reviewer.test.ts, the RED baseline that forced the revert) now passes GREEN and was restored into the tree as a permanent gate + a new reviewer integration spec (aggregateChain.reviewer.test.ts) proves the honest-fallback chain never fabricates a zero (DR-078). Full suite 7538 tests GREEN, tsc + biome clean. The Playwright layer hit a transient orphaned-dev-server port/lock (LESSON-0040 / BL-0049, another session's PID) — /achievements verified live at HTTP 200; FRD-23 is ui:false. All 102 WOs VERIFIED. NOTE (owner, not a WO defect): the approved per-project portada embeds factory-wide facts (phaseTransitions/scalars.projects/scalars.decisions/lessons) that a per-project seal can't validate — a latent SSOT concern in the FRD/ADR design itself, logged to inbox/decisions.md. 2026-07-06
 blocked: []
 pending_changes: 0
 supervisor_heartbeat: "2026-07-06T21:55:51Z"
