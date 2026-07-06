@@ -12,8 +12,8 @@ deploy_url: "http://192.168.18.227:1987"  # MC's internal release on the LAN
 running: true
 run_started_at: "2026-07-05T23:59:19Z"
 repo: ""
-updated_at: "2026-07-06T00:38:40Z"
-last_event_at: "2026-07-06T00:38:40Z"
+updated_at: "2026-07-06T00:56:10Z"
+last_event_at: "2026-07-06T00:56:10Z"
 work_orders_total: 98
 work_orders_verified: 97
 work_orders_in_review: 0
@@ -29,4 +29,4 @@ last_green_sha: "31c095f9"
 safe_to_test: true  # FRD-17 gate GREEN (DR-050): WO-17-006 (remove obsolete "SOLO DEMO" demo frame from MemoryHealth) VERIFIED — bDemo wrapper + 4 B_DEMO_* styles removed, staleness nudge + first-harvest invite render the shared Banner directly (DR-057 reuse-proof, stamps data-testid="banner"); no logic change. Reviewer authored an adversarial structural/reuse suite (RED-proven against the pre-change bDemo component); 43 MemoryHealth tests + full suite green (206 files, 3424 tests), whole-project tsc/biome/knip/madge clean, e2e smoke+shell 42/42 (desktop+mobile). FRD-17 rollup = PLANNED (WO-17-007 stream "ver más" still PLANNED, not yet built). 2026-07-05
 blocked: []
 pending_changes: 2
-supervisor_heartbeat: "2026-07-06T00:39:46Z"
+supervisor_heartbeat: "2026-07-06T00:55:47Z"
