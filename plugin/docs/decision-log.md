@@ -4,6 +4,14 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.79.0 — 2026-07-06 (MINOR): document the two Dynamic Workflow engines (proposal 31 docs follow-up)
+
+**What:** proposal 31 (T0/T1.1/T1.2) shipped both dynamic-workflow engines (`pandacorp-build`'s `reviewSplit` gate, the new `pandacorp-backlog` drain engine, and the `.claude/engines/` menu-hiding move) without a matching prose explainer — this closes that gap. `plugin/skills/implement/SKILL.md` gains a consolidated `## The dynamic workflow (pandacorp-build)` section (native JS engine in `.claude/engines/`, global-wave orchestration, the `reviewSplit` four-lens gate, frontmatter-driven resume, supervisor relaunch), linking to `factory/standards/build-orchestration.md` for the full spec. `plugin/skills/implement-backlog/SKILL.md` gains `### The dynamic workflow (pandacorp-backlog)` in its whole-backlog mode section, disambiguating it as a DIFFERENT engine from `pandacorp-build` and noting the `ANCHOR`-preamble + worktree-ownership hardening lesson. New `plugin/docs/dynamic-workflows.md` ties both together: what a dynamic workflow is vs a skill, where each engine is launched, the `.claude/engines/` menu-hiding rationale, the `args`-as-JSON-string shim, and pointers to the two offline test harnesses (`test-build-engine.mjs`, `test-pandacorp-build.mjs`, 19 scenarios).
+
+**Why:** the engines' mechanics were fully documented in `factory/standards/build-orchestration.md` and the engine source comments, but neither owner-facing skill doc explained WHAT was running under the hood or WHY it's split across two separate scripts — an implementer reading only the skill docs had no on-ramp to the dynamic-workflow concept.
+
+**Impact:** `plugin/skills/implement/SKILL.md`, `plugin/skills/implement-backlog/SKILL.md`, new `plugin/docs/dynamic-workflows.md`, `plugin/.claude-plugin/plugin.json` + `plugin/.codex-plugin/plugin.json` (→ **v9.79.0**, MINOR — new doc capability, no engine/template behavior change, `OVERLAY_VERSION` untouched). No `plugin/agents/*.md` changed → no Codex mirror regen. Prose-only: no Manual narrative page touched in this change (handled separately, Part A of the same proposal-31 follow-up).
+
 ## v9.78.1 — 2026-07-06 — legacy engine harness migrated to the T0 engines path + shim-era args scenarios
 
 `plugin/scripts/test-pandacorp-build.mjs` still loaded the engine from the pre-T0 `.claude/workflows/` path (ENOENT — a T0 straggler outside the T0 grep sweep) and scenario 1b asserted the OLD string-args warning that the T0 normalization shim intentionally replaced. Fixed the ENGINE_PATH, rewrote 1b to assert the new contract (parseable JSON-string args = normalized, bounded, no warning) and added 1d (unparseable string = FATAL + throw). 19/19 scenarios green against the 9.78.0 engine. (Proposal 31 close-out.)
