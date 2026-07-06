@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * DismissableProposalStream — CMP-17-stream with dismiss + group-level command
- * (WO-17-004, REQ-17-008, REQ-17-001 / AC-17-007.3, AC-17-001.1/.2).
+ * DismissableProposalStream — CMP-17-stream with dismiss + group-level command + collapse toggle
+ * (WO-17-004, WO-17-007 / REQ-17-008, REQ-17-010, REQ-17-001).
  *
  * The client boundary for the proposals page. Each card can be dismissed
  * (localStorage, no factory write — White-Hat FRD-09). When `groupCmd` is
@@ -12,10 +12,14 @@
  * `groupCmd` is absent (promotions / self-suggestions), each card renders its
  * own `CmdRow` (`withCommand=true`).
  *
+ * Long streams (>6 undismissed cards) are collapsed by default to the first 6,
+ * with a "ver más" toggle to expand in-place (WO-17-007 / AC-17-010).
+ *
  * Visual structure (DR-062):
  *   - Section header → shared `SectionHead` (one per group, no bespoke header)
  *   - Group command   → shared `CmdRow` with data-testid="group-level-command"
- *   - Cards           → `ProposalCard` with `withCommand` flag
+ *   - Cards           → `ProposalCard` with `withCommand` flag (up to 6 visible)
+ *   - Toggle          → "ver más" button if >6 cards (shows hidden count)
  *   - Dismiss button  → per-row ✕ accessible button
  *
  * Read-only over the factory: dismissing touches localStorage ONLY (architecture
@@ -25,6 +29,7 @@
  *   CMP-17-stream + CMP-17-dismiss → REQ-17-008, AC-17-007.3
  *   REQ-17-001 → AC-17-001.1 (groupCmd rendered once)
  *   REQ-17-001 → AC-17-001.2 (withCommand=false when groupCmd present)
+ *   REQ-17-010 → AC-17-010.1/.2/.3/.4 (collapse/expand toggle, uniform across kinds)
  */
 
 import { useCallback, useState } from "react";
@@ -44,6 +49,12 @@ import {
   type StreamKind,
   suggestionProposalId,
 } from "../streamMeta";
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const STREAM_COLLAPSE_THRESHOLD = 6;
 
 // ---------------------------------------------------------------------------
 // Props
@@ -151,6 +162,27 @@ const GROUP_CMD_LABEL_STYLE: React.CSSProperties = {
   marginBottom: "4px",
 };
 
+const SHOW_MORE_BUTTON_STYLE: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "4px",
+  padding: "0",
+  border: "none",
+  background: "transparent",
+  color: "var(--color-accent-text)",
+  cursor: "pointer",
+  font: "inherit",
+  fontSize: "12px",
+  fontWeight: 500,
+  lineHeight: 1.5,
+};
+
+const SHOW_MORE_WRAP_STYLE: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "center",
+  padding: "9px 0",
+};
+
 // ---------------------------------------------------------------------------
 // Internal proposal model — uniform { id, node } for both lessons and suggestions
 // ---------------------------------------------------------------------------
@@ -191,7 +223,7 @@ function toRenderable(
 // ---------------------------------------------------------------------------
 
 /**
- * DismissableProposalStream — a proposal stream whose cards can be dismissed.
+ * DismissableProposalStream — a proposal stream whose cards can be dismissed and collapsed.
  *
  * When `groupCmd` is present (candidates, prune):
  *   - A CmdRow with `data-testid="group-level-command"` is shown once under
@@ -201,6 +233,12 @@ function toRenderable(
  * When `groupCmd` is absent (promotions, self-suggestions):
  *   - No group command row
  *   - Individual cards are rendered with `withCommand=true` (per-card cmd)
+ *
+ * Collapse behavior (AC-17-010):
+ *   - Streams with ≤ 6 undismissed cards: all cards shown, no toggle
+ *   - Streams with > 6 undismissed cards: first 6 shown + "ver más" toggle
+ *   - Toggle expands in-place to show all cards; clicking again collapses
+ *   - Dismissing cards updates the visible/hidden count and hides the toggle if <= 6 remain
  */
 export function DismissableProposalStream(
   props: DismissableProposalStreamProps,
@@ -219,6 +257,9 @@ export function DismissableProposalStream(
   const isLessonStream = props.kind !== "self-suggestion";
   const [selected, setSelected] = useState<Lesson | null>(null);
 
+  // Collapse toggle state for long streams (AC-17-010)
+  const [isExpanded, setIsExpanded] = useState(false);
+
   const handleDismiss = useCallback((id: string) => {
     dismissProposal(id);
     setDismissedIds((prev) => {
@@ -232,6 +273,11 @@ export function DismissableProposalStream(
     (p) => !dismissedIds.has(p.id),
   );
   const isEmpty = visible.length === 0;
+
+  // AC-17-010: show first N cards; show toggle if > N cards
+  const shouldShowToggle = visible.length > STREAM_COLLAPSE_THRESHOLD;
+  const visibleCards = isExpanded ? visible : visible.slice(0, STREAM_COLLAPSE_THRESHOLD);
+  const hiddenCount = visible.length - STREAM_COLLAPSE_THRESHOLD;
 
   return (
     <>
@@ -261,11 +307,38 @@ export function DismissableProposalStream(
             {meta.emptyMessage}
           </p>
         ) : (
-          <div style={CARDS_STYLE}>
-            {visible.map((proposal) => (
-              <DismissRow key={proposal.id} proposal={proposal} onDismiss={handleDismiss} />
-            ))}
-          </div>
+          <>
+            <div style={CARDS_STYLE}>
+              {visibleCards.map((proposal) => (
+                <DismissRow key={proposal.id} proposal={proposal} onDismiss={handleDismiss} />
+              ))}
+            </div>
+
+            {/* AC-17-010: Show "ver más" toggle if stream has >6 undismissed cards */}
+            {shouldShowToggle && (
+              <div style={SHOW_MORE_WRAP_STYLE}>
+                <button
+                  type="button"
+                  data-testid="stream-show-more"
+                  style={SHOW_MORE_BUTTON_STYLE}
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  aria-expanded={isExpanded}
+                  aria-label={
+                    isExpanded
+                      ? `Colapsar ${hiddenCount} propuestas ocultas`
+                      : `Ver ${hiddenCount} propuestas más`
+                  }
+                >
+                  <span>{isExpanded ? "Ver menos" : `Ver ${hiddenCount} más`}</span>
+                  <i
+                    className={`ti ${isExpanded ? "ti-chevron-up" : "ti-chevron-down"}`}
+                    aria-hidden="true"
+                    style={{ fontSize: "12px" }}
+                  />
+                </button>
+              </div>
+            )}
+          </>
         )}
       </section>
       {isLessonStream && <LessonDetailModal lesson={selected} onClose={() => setSelected(null)} />}
