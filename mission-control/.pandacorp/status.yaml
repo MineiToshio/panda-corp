@@ -9,18 +9,18 @@ created_with: "6.0.0"
 target_platforms: desktop
 deploy_target: internal  # internal tool (runs on 127.0.0.1) — no external host (DR-085)
 deploy_url: "http://192.168.18.227:1987"  # MC's internal release on the LAN
-running: false
-run_started_at: "2026-07-02T04:47:19Z"
+running: true
+run_started_at: "2026-07-05T23:59:19Z"
 repo: ""
-updated_at: "2026-07-02T05:29:40Z"
-last_event_at: "2026-07-02T05:29:40Z"
-work_orders_total: 95
-work_orders_verified: 95
-work_orders_in_review: 0
+updated_at: "2026-07-06T00:26:02Z"
+last_event_at: "2026-07-06T00:26:02Z"
+work_orders_total: 97
+work_orders_verified: 96
+work_orders_in_review: 1
 work_orders_planned: 0
 work_orders_in_progress: 0
 work_orders_blocked: 0
-work_orders_done: 95
+work_orders_done: 96
 pending_decisions: 0
 pending_bugs: 0
 rethink_pending: false
@@ -29,4 +29,4 @@ last_green_sha: "43e490a"
 safe_to_test: true  # FRD-02 gate GREEN (DR-050): WO-02-013 patched in place (String.replace regex-special-char abuse, $&) and independently re-verified — vitest CampaignPipeline + frd-02 integration suites (12 files, 283 tests) green, whole-project tsc/biome/knip/madge clean, e2e smoke+shell 42/42 green (desktop+mobile, against the live :3100 server). FRD-02 all 8 WOs now VERIFIED; frd.md + blueprint.md rolled up to VERIFIED. 2026-07-02
 blocked: []
 pending_changes: 2
-supervisor_heartbeat: "2026-07-02T05:28:13Z"
+supervisor_heartbeat: "2026-07-06T00:25:45Z"

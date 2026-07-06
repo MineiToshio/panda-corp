@@ -3,7 +3,7 @@ id: FRD-17-blueprint
 type: blueprint
 parent: FRD-17
 status: ACTIVE
-implementation_status: VERIFIED
+implementation_status: IN_REVIEW
 last_updated: '2026-06-21'
 ---
 # Feature blueprint — FRD-17 Proposals inbox (self-learning gate + self-suggestion)

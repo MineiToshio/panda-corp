@@ -3,7 +3,7 @@ id: FRD-16
 type: frd
 title: FRD-16 — Orphan project detection (REMOVED)
 status: REMOVED
-implementation_status: REMOVED
+implementation_status: VERIFIED
 removed: '2026-06-22'
 ui: false
 last_updated: '2026-06-22'
