@@ -536,12 +536,93 @@ SCENARIOS.push({
     t.ok(proc && /status: building/.test(proc.prompt), 'processChange stamps the change file status: building (durable, not re-drained)')
     t.ok(proc && /affected_frds/.test(proc.prompt), 'processChange records affected_frds on the change file (the durable ledger)')
     const sp = byLabel(run, 'safe-point')[0]
-    t.ok(sp && /building/.test(sp.prompt), 'the safe-point drain skips already-in-flight building changes')
+    // This is a TARGETED change build (change: 'my-change') → the safe point no longer scans the queue
+    // (DR-069 targeted-build scope, 2026-07-06). The "skip already-in-flight building changes" coverage
+    // for a BARE drain now lives in scenario 10c.
+    t.ok(sp && /TARGETED BUILD/.test(sp.prompt), 'a targeted change build does NOT scan the queue at the safe point (only its own change is built)')
     const arch = byLabel(run, 'archive-changes')[0]
     t.ok(arch, 'the archive sweep ran at close-out (this run verified an FRD)')
     t.ok(arch && /status.{0,3}is.{0,3}"building"|status\W+building|"building"/.test(arch.prompt), 'the archive sweep scans the queue for building changes (disk-driven)')
     t.ok(arch && /affected_frds/.test(arch.prompt) && /VERIFIED/.test(arch.prompt), 'the sweep archives a change only when all its affected_frds are VERIFIED (read from disk, cross-run)')
     t.ok(run.result && run.result.builtFrds.includes('frd-09-chg'), 'the change FRD built and verified')
+  },
+})
+
+// ── 10. DR-069 TARGETED-BUILD SCOPE (owner incident 2026-07-06) ──────────────
+// A build launched with a specific `change` OR `frds` implements ONLY that target
+// and must NOT drain OTHER `ready` changes sitting in the queue. Only a bare
+// `/implement` (no change, no frds) drains everything. The JS guard in safePoint()
+// is the hard enforcement — proven here by FORCING the safe-point response to leak
+// a ready item and asserting it is never processed.
+SCENARIOS.push({
+  name: '10a. targeted frds build does NOT drain other ready changes (JS guard holds even if a ready item leaks)',
+  args: { mode: 'pro', frds: ['frd-10-tgt'] },
+  plan: mkPlan([{
+    frd: 'frd-10-tgt',
+    deps: [],
+    workOrders: [mkWo('wo-10-001', 'PLANNED', { frd: 'frd-10-tgt', artifacts: ['src/tgt/**'] })],
+  }]),
+  responses: [
+    // simulate a ready change sitting in the queue — the guard must refuse to drain it
+    { label: 'safe-point', response: { stop: false, ready: ['other-queued-change'], unblocked: [] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const sp = byLabel(run, 'safe-point')[0]
+    t.ok(sp && /TARGETED BUILD/.test(sp.prompt), 'the safe-point prompt tells the agent this is a TARGETED build (do not scan the queue)')
+    t.ok(byLabel(run, /^process-change:/).length === 0, 'NO other queued change is processed (frds build never drains the queue)')
+    t.ok(byLabel(run, /^plan-drained:/).length === 0, 'no drained-change re-plan happened')
+    t.ok(hasLog(run, /Build dirigido.*NO se drenan/), 'the guard logs that the ready change was intentionally left in the queue')
+    t.ok(!hasLog(run, /Drenando \d+ change/), 'the drain path never ran')
+    t.ok(run.result && run.result.builtFrds.includes('frd-10-tgt'), 'only the targeted FRD built')
+  },
+})
+SCENARIOS.push({
+  name: '10b. targeted change build does NOT drain a DIFFERENT ready change (the exact incident)',
+  args: { mode: 'pro', change: 'my-target-change' },
+  plan: mkPlan([{
+    frd: 'frd-10-chg',
+    deps: [],
+    workOrders: [mkWo('wo-10-101', 'PLANNED', { frd: 'frd-10-chg', artifacts: ['src/chg/**'] })],
+  }]),
+  responses: [
+    { label: 'process-change:my-target-change', response: { done: true, affectedFrds: ['frd-10-chg'], changeFile: 'my-target-change.md' } },
+    // a DIFFERENT change is ready in the queue — must NOT be swept into this targeted run
+    { label: 'safe-point', response: { stop: false, ready: ['other-queued-change'], unblocked: [] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const procs = byLabel(run, /^process-change:/)
+    t.ok(procs.length === 1, `exactly one change is processed — the target (got ${procs.length})`)
+    t.ok(procs[0] && procs[0].label === 'process-change:my-target-change', 'the one processed change is the target')
+    t.ok(!procs.some((c) => /other-queued-change/.test(c.label)), 'the DIFFERENT ready change is never processed')
+    t.ok(hasLog(run, /Build dirigido.*NO se drenan.*other-queued-change/), 'the guard names the deferred change in the log')
+    t.ok(!hasLog(run, /Drenando \d+ change/), 'the drain path never ran')
+    t.ok(run.result && run.result.builtFrds.includes('frd-10-chg'), 'only the target change FRD built')
+  },
+})
+SCENARIOS.push({
+  name: '10c. bare /implement STILL drains the ready queue (no regression to DR-069)',
+  args: { mode: 'pro' }, // no change, no frds → TARGETED === false
+  plan: mkPlan([{
+    frd: 'frd-10-bare',
+    deps: [],
+    workOrders: [mkWo('wo-10-201', 'PLANNED', { frd: 'frd-10-bare', artifacts: ['src/bare/**'] })],
+  }]),
+  responses: [
+    { label: 'safe-point', times: 1, response: { stop: false, ready: ['queued-change'], unblocked: [] } },
+    { label: 'process-change:queued-change', response: { done: true, affectedFrds: [] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const sp = byLabel(run, 'safe-point')[0]
+    t.ok(sp && /List .pandacorp\/inbox\/changes/.test(sp.prompt), 'a bare build uses the normal drain prompt (scans the queue)')
+    t.ok(!/TARGETED BUILD/.test(sp.prompt), 'the bare build safe-point prompt is NOT the targeted variant')
+    t.ok(/Skip draft\/done\/building/.test(sp.prompt), 'the bare drain skips already-in-flight building changes (WS-A/D1)')
+    t.ok(hasLog(run, /Drenando \d+ change/), 'the drain path runs on a bare build')
+    t.ok(byLabel(run, 'process-change:queued-change').length === 1, 'the queued change IS processed (drained)')
+    t.ok(!hasLog(run, /Build dirigido.*NO se drenan/), 'the targeted-scope guard never fires on a bare build')
+    t.ok(run.result && run.result.builtFrds.includes('frd-10-bare'), 'the bare build still builds its own FRD')
   },
 })
 
