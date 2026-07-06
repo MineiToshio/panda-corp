@@ -42,11 +42,16 @@ is_disposable() {
 }
 
 # Backed up: covered by backup-pandacorp-state.sh's rsync manifest (KEEP IN SYNC with that script).
-# The whole .pandacorp/run/ dir is treated as covered: its precious parts (*.sh, lessons.md) are in
-# the manifest; the rest (logs, build.lock) is disposable.
+# Inside .pandacorp/run/ ONLY what the backup script actually rsyncs is covered — run/*.sh
+# (backup-pandacorp-state.sh:79-80) and run/lessons.md (backup-pandacorp-state.sh:74). Everything
+# else in run/ (*.log, build.lock) is disposable and falls through to is_disposable; a FUTURE
+# precious non-.sh file dropped in run/ is NEITHER, so it is correctly flagged UNBACKED (the BL-0045
+# failure mode: blessing all of run/ would have hidden it). Do NOT re-broaden to */.pandacorp/run/*.
 is_backed_up() {
   case "$1" in
-    */.pandacorp/inbox/*|*/.pandacorp/comms/*|*/.pandacorp/run/*) return 0 ;;
+    */.pandacorp/inbox/*|*/.pandacorp/comms/*) return 0 ;;
+    */.pandacorp/run/*.sh|*/.pandacorp/run/lessons.md) return 0 ;;
+    */.pandacorp/status.yaml) return 0 ;;                              # backup-pandacorp-state.sh:82
     factory/profile.md|factory/portfolio.md|factory/ports.yaml|factory/gamification-ledger.json) return 0 ;;
     factory/memory/_inbox.md|factory/memory/_last-sweep|factory/ideas/*) return 0 ;;
     *) return 1 ;;
@@ -60,7 +65,11 @@ while IFS= read -r entry; do
   is_backed_up "$entry" && continue
   echo "  ⚠ precious & only-gitignored (not in backup manifest): $entry" >&2
   hits=$((hits+1))
-done < <(git -C "$ROOT" ls-files --others --ignored --exclude-standard --directory 2>/dev/null)
+# NO --directory: it collapses a wholly-ignored tree (a project's whole .pandacorp/ overlay, run/)
+# to a single trailing-slash entry, which (a) matches none of the per-file rules above and (b) hides
+# any precious non-.sh file nested inside run/ — the BK2/BK3 masking. Listing every file makes each
+# classified on its own merits.
+done < <(git -C "$ROOT" ls-files --others --ignored --exclude-standard 2>/dev/null)
 
 if [ "$hits" -gt 0 ]; then
   echo "Pandacorp precious-file check: $hits gitignored path(s) are neither disposable nor backed up." >&2
