@@ -91,7 +91,7 @@ function defaultResponse(label) {
   if (label.startsWith('gate:')) return { green: true }                 // FRD_GATE_SCHEMA
   if (/^(repair|patch|gate-test-repair|verify-patch|revert|foundation-repair):/.test(label)) return { green: true } // REPAIR_SCHEMA
   if (/^(process-change|plan-drained):/.test(label)) return { done: true, affectedFrds: [], frds: [] }
-  if (/^(hardening:security|hardening:telemetry|close-out|close-needs-hardening|notify-end|ensure-stopped|archive-changes)$/.test(label)) return { done: true } // STOP_SCHEMA
+  if (/^(hardening:security-audit|hardening:security-fix|hardening:telemetry|close-out|close-needs-hardening|notify-end|ensure-stopped|archive-changes)$/.test(label)) return { done: true } // STOP_SCHEMA
   return null // unmatched — recorded loudly
 }
 
@@ -391,8 +391,8 @@ SCENARIOS.push({
   ],
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error}`)
-    t.ok(byLabel(run, 'hardening:security').length === 1 && byLabel(run, 'hardening:telemetry').length === 1,
-      'the all-done path ran both DR-085 hardening steps before close-out')
+    t.ok(byLabel(run, 'hardening:security-audit').length === 1 && byLabel(run, 'hardening:security-fix').length === 1 && byLabel(run, 'hardening:telemetry').length === 1,
+      'the all-done path ran the audit-then-fix security split + telemetry before close-out (RFC-30 N4)')
     const failsafe = byLabel(run, 'ensure-stopped')
     t.ok(failsafe.length === 1, 'the fail-safe close fired after the close-out returned done:false')
     t.ok(failsafe[0] && /Do NOT touch `phase`/.test(failsafe[0].prompt), 'the fail-safe prompt forbids touching `phase`')
@@ -501,12 +501,14 @@ SCENARIOS.push({
     workOrders: [mkWo('wo-08-001', 'PLANNED', { frd: 'frd-08-harden', artifacts: ['src/h/**'] })],
   }]),
   responses: [
-    { label: 'hardening:security', response: { done: false, failure: 'simulated Critical finding left open' } },
+    // RFC-30 N4: the read-only auditor completes (writes the report); the FIX spawn fails to clear a
+    // Critical → hardening incomplete, so no release.
+    { label: 'hardening:security-fix', response: { done: false, failure: 'simulated Critical finding left open' } },
   ],
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error}`)
     t.ok(run.result && run.result.builtFrds.includes('frd-08-harden'), 'the FRD did verify (build + gate green)')
-    t.ok(byLabel(run, 'hardening:security').length === 1 && byLabel(run, 'hardening:telemetry').length === 1, 'both DR-085 hardening steps ran')
+    t.ok(byLabel(run, 'hardening:security-audit').length === 1 && byLabel(run, 'hardening:security-fix').length === 1 && byLabel(run, 'hardening:telemetry').length === 1, 'the audit-then-fix security split + telemetry all ran')
     t.ok(byLabel(run, 'close-needs-hardening').length === 1, 'the hardening-failure close ran (close-needs-hardening)')
     t.ok(byLabel(run, 'close-out').length === 0, 'the release close-out (the only phase: release writer) did NOT run')
     const c = byLabel(run, 'close-needs-hardening')[0]

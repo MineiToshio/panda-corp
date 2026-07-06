@@ -4,6 +4,12 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-06 — Manual guide `g-adoptar` + `GuideAdoptar` synced to the corrected `adopt` portfolio rule (RFC-30 N1)
+
+**What:** `plugin/skills/adopt/SKILL.md` no longer gates the `factory/portfolio.md` row on "once building" — it now adds the row at adoption time for any inferred phase (matching `scaffold`/`spec`). Synced the same correction into this project's hand-authored Manual narrative: `content/manual/guides/g-adoptar.md` and the `GuideAdoptar` TSX component in `src/app/manual/manualPages.tsx` (the slug is TSX-registered per LESSON-0028, so the `.md` alone would not have surfaced in the live Manual).
+
+**Why:** DR-046 requires the Manual to reflect the factory's operable surface; the guide previously repeated the now-superseded "portfolio row once building" claim. See `plugin/docs/decision-log.md` v9.75.0 for the full gap-fix round.
+
 ## 2026-07-06 — Build engine synced to overlay 8.66.1 (targeted-build queue-drain fix) + Manual guide note
 
 **What:** hand-synced the fixed build engine (`.claude/workflows/pandacorp-build.js`) from the factory template (plugin v9.72.1 / overlay **8.66.1**) and bumped `overlay_version` 8.66.0 → 8.66.1. The delta is a single overlay file — the DR-069 **targeted-build scope fix**: a build launched with a specific `change` or `frds` now builds ONLY its target and no longer drains other `ready` changes from the queue (only a bare `/implement` drains the whole queue). Also added the targeted-scope note to the Manual guide `content/manual/guides/g-implement-parcial.md`.

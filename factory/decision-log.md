@@ -2,6 +2,12 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-06 — Constitution §12 auth clause: closed N2 survivor (docs/proposals/30)
+
+**What:** `factory/constitution.md` §12 still read "Never homemade auth: Better Auth / Supabase Auth" — two co-equal defaults — missed by the earlier sweep commit (which only touched §6/§16). Corrected to "Better Auth is the golden path (a different provider is a blueprint ADR)", matching `factory/standards/auth.md` and the Supabase-rejected stack decision.
+
+**Why:** completeness-critic follow-up on the 2026-07-05 sweep (docs/proposals/30 §2.5/§3, item N2) found this survivor. See `plugin/docs/decision-log.md` v9.75.0 (same date) for the full gap-fix round this belongs to.
+
 ## 2026-07-05 — Factory-wide contradiction sweep: standards + AGENTS.md reconciliation (docs/proposals/30)
 
 **What:** the "authoritative rule contradicted by an un-updated sibling doc" root pattern (the same bug that made the build engine build two changes for one, fixed in plugin v9.72.1) was swept factory-wide by a 6-reviewer audit (proposal `docs/proposals/30-factory-contradiction-sweep.md`). Factory-side reconciliations, all mechanical (no behavior change):

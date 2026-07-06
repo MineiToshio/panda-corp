@@ -4,6 +4,18 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.75.0 — 2026-07-06 (MINOR): contradiction-sweep gap-fix round (RFC-30 N1/N2/N4, B1/C4 survivor)
+
+**What:** a completeness-critic follow-up on the v9.74.0 contradiction sweep found four more survivors/net-new gaps (docs/proposals/30 §2.5/§3):
+- **N4 (net-new, engine deadlock):** the build engine ordered the READ-ONLY `security-auditor` (disallowedTools: Write, Edit) to FIX Critical/High findings and return `done:true` — unreachable, so the first real finding would deadlock Hardening and `phase: release` would never be set (latent, LESSON-0022). Fixed by splitting Hardening 1 into an **audit-then-fix pair**: the read-only auditor audits and writes `docs/reviews/security-<date>.md` (always returns `done:true` once the report exists); a Write/Edit-capable `implementer` then applies every Critical/High fix and re-runs `verify.sh --since`. `pandacorp-build.js` (labels `hardening:security-audit`/`hardening:security-fix`), `implement/SKILL.md` step 1, `test-pandacorp-build.mjs` (18/18 green) updated.
+- **N2:** `constitution.md` §12 named two co-equal auth defaults ("Better Auth / Supabase Auth"), contradicting `auth.md`'s golden-path framing and the Supabase-rejected stack decision. Reworded to "Better Auth is the golden path (a different provider is a blueprint ADR)".
+- **N1:** `adopt`'s portfolio-registration rule gated the `factory/portfolio.md` row on "once building", contradicting `scaffold`/`spec` (row added at birth, any phase) and the live `factory/portfolio.md` header (no build-status qualifier). `adopt/SKILL.md` step 7 now adds the row at adoption time for any inferred phase; synced the Manual guide `g-adoptar.md` and its TSX component `GuideAdoptar` in `manualPages.tsx` (LESSON-0028: TSX-registered pages need their own edit).
+- **B1/C4 half-fixed survivor:** `change/SKILL.md:40` still called `/pandacorp:bug`/`/pandacorp:iterate` "direct aliases for anyone who prefers them", contradicting their own `user-invocable: false` status (already fixed in `iterate`/`bug` SKILL.md) and the sentence's own "one door for the owner" claim. Reworded to state both are internal engines reached only through `/pandacorp:change`.
+
+**Why:** each is the same root pattern as the original build-engine bug — an authoritative rule silently contradicted by a sibling doc not updated in step. N4 was the most severe: a latent, unhit deadlock in construction's mandatory last step.
+
+**Impact:** `plugin/templates/shared/.claude/workflows/pandacorp-build.js`, `plugin/skills/{implement,adopt,change}/SKILL.md`, `plugin/scripts/test-pandacorp-build.mjs`, `factory/constitution.md` §12, `mission-control/content/manual/guides/g-adoptar.md`, `mission-control/src/app/manual/manualPages.tsx`. No `plugin/agents/*.md` changed → no Codex mirror regen. Guard: `test-pandacorp-build.mjs` 18/18; `claude plugin validate plugin/` passed.
+
 ## v9.74.0 — 2026-07-05 (MINOR): factory-wide contradiction sweep + preventive document-consistency gate
 
 **What:** a build engine that built TWO changes for ONE targeted request (already fixed in v9.72.1) shared its root pattern — *a contract declared with authority in one doc, silently contradicted by a sibling doc not updated in step* — with ~21 more contradictions found by a 6-reviewer parallel audit (docs/proposals/30). This sweep remediates the plugin-side findings and adds the preventive gate.
