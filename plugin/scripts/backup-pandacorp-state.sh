@@ -33,7 +33,16 @@ else
 fi
 [ -d "$ROOT" ] || exit 0
 REPO="$(basename "$ROOT")"
-DEST_BASE="$HOME/.pandacorp-backups/$REPO"
+# Backups live in the `pandacorp-vault` sibling of the repo — the dedicated out-of-project state
+# folder (overlay + backups) that sits next to the source checkout in Proyectos/ (factory/standards/
+# infra.md → "pandacorp-vault"). Auto-detected relative to the repo (no machine-specific path baked
+# into this committed script); falls back to the legacy ~/.pandacorp-backups when there is no vault.
+VAULT="$(dirname "$ROOT")/pandacorp-vault"
+if [ -d "$VAULT" ]; then
+  DEST_BASE="$VAULT/backups/$REPO"
+else
+  DEST_BASE="$HOME/.pandacorp-backups/$REPO"
+fi
 DAY="$(date +%F)"
 DEST="$DEST_BASE/$DAY"
 RETENTION_DAYS=30
