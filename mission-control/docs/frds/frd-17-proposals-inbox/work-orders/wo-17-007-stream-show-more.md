@@ -5,7 +5,7 @@ slug: stream-show-more
 title: 'WO-17-007 — Collapse long proposal streams with a "ver más" toggle'
 status: DRAFT
 parent: FRD-17
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 reopen_count: 0
 artifacts:
   - 'src/app/proposals/_components/DismissableProposalStream/**'
@@ -74,4 +74,32 @@ expanded/collapsed states at the FRD gate.
 
 ## Status Note
 
-_(To be filled by the implementer when this WO moves to IN_REVIEW.)_
+**Built**: WO-17-007 fully implements AC-17-010.1/.2/.3/.4 (REQ-17-010).
+
+**Interfaces exposed**:
+- `STREAM_COLLAPSE_THRESHOLD` constant (6) — no public export, internal to the component
+- `DismissableProposalStream` now stateless-extends (internal `isExpanded` state manages toggle)
+- No new props, no changes to component signature (AC-17-010.4 requires uniform behavior)
+
+**Integration seams**:
+- The toggle renders as a semantic `<button type="button">` with `data-testid="stream-show-more"`, `aria-expanded`, and Spanish `aria-label` — ready for E2E selection
+- The toggle sits **inside** the `CARDS_STYLE` wrapper, after the card list (visual structure: cards → toggle → end, no separate section)
+- Chevron icon changes (ti-chevron-down collapsed, ti-chevron-up expanded) to indicate state (not color-only per FRD-13)
+- No animation; state is instantaneous (owner preference)
+
+**Implicit decisions & assumptions**:
+- **Collapse threshold**: hardcoded to 6 (per AC-17-010.1/.3); not configurable per-stream (uniform per AC-17-010.4)
+- **Toggle styling**: uses inline `SHOW_MORE_BUTTON_STYLE` (CSS props) with `--color-accent-text` token, consistent with existing text controls (no new Tailwind class patterns) — reuses the semantic button pattern from `DismissRow` dismiss button
+- **State management**: local `useState(false)` for `isExpanded`; no Context/Redux (simple, scoped to this component) — survives remounts (per test fixture isolation)
+- **Dismissal interaction**: dismissing cards instantly updates the visible/hidden count and hides the toggle if ≤6 remain (no debounce, no lazy state update; the test confirms this)
+- **Stream kind uniformity**: same toggle logic applies to `candidate-lesson`, `prune`, `self-suggestion` — verified by AC-17-010.4 test that checks all three kinds share one code path (no fork per kind)
+
+**Test coverage** (7 new tests):
+- AC-17-010.1: >6 cards → first 6 visible + toggle with hidden count
+- AC-17-010.2: expand/collapse toggle works; aria-expanded reflects state; chevron changes
+- AC-17-010.3: ≤6 cards → no toggle; dismissing below threshold hides toggle
+- AC-17-010.4: candidate-lesson, prune, self-suggestion all apply collapse uniformly
+- Bonus: semantic a11y (aria-expanded, aria-label tested), keyboard-operable (userEvent.click test)
+- Bonus: dismiss behavior unchanged (can dismiss in both collapsed and expanded views)
+
+All 7 new tests + 3 existing tests pass (10 total component tests, 408 files, 7454 tests project-wide). No type errors, lint/format clean.
