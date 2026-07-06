@@ -134,7 +134,7 @@ Return { id: "${item.id}", branch: "bl/${item.id}", status: "done" or "blocked",
 const implementResults = await parallel(
   candidates.map((item) => () => agent(
     RECIPE(item),
-    { label: `implement:${item.id}`, phase: 'Implement', model: item.tier, isolation: 'worktree', agentType: 'pandacorp:implementer', schema: IMPLEMENT_SCHEMA },
+    { label: `implement:${item.id}`, phase: 'Implement', model: item.tier, agentType: 'pandacorp:implementer', schema: IMPLEMENT_SCHEMA },
   )),
 )
 
