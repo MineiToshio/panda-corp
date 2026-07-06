@@ -3,7 +3,7 @@ id: WO-17-006
 type: work-order
 parent: FRD-17
 title: 'WO-17-006 — MemoryHealth: remove the obsolete "SOLO DEMO" demo frame'
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 reopen_count: 0
 dependsOn: [WO-17-005]
 difficulty: trivial

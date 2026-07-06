@@ -15,3 +15,6 @@
 {"kind":"review_end","frd":"frd-02-ideas-board","verdict":"reopen","at":"2026-07-02T05:19:27Z"}
 {"kind":"review_end","frd":"frd-02-ideas-board","verdict":"pass","at":"2026-07-02T05:26:40Z"}
 {"kind":"frd_end","frd":"frd-02-ideas-board","at":"2026-07-02T05:26:40Z"}
+{"kind":"review_start","frd":"frd-17-proposals-inbox","at":"2026-07-06T00:30:05Z"}
+{"kind":"review_end","frd":"frd-17-proposals-inbox","verdict":"pass","at":"2026-07-06T00:39:20Z"}
+{"kind":"frd_end","frd":"frd-17-proposals-inbox","at":"2026-07-06T00:39:20Z"}
