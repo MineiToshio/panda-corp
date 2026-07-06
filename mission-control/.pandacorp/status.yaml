@@ -12,8 +12,8 @@ deploy_url: "http://192.168.18.227:1987"  # MC's internal release on the LAN
 running: true
 run_started_at: "2026-07-06T21:55:51Z"
 repo: ""
-updated_at: "2026-07-06T23:59:00Z"
-last_event_at: "2026-07-06T23:59:00Z"
+updated_at: "2026-07-06T23:59:30Z"
+last_event_at: "2026-07-06T23:59:30Z"
 work_orders_total: 102
 work_orders_verified: 102
 work_orders_in_review: 0
