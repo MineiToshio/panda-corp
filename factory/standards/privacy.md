@@ -9,7 +9,7 @@
   - Pseudonymization where viable.
 - **Data subject rights** (Chap. III, not Art. 25): the model must allow **export** (access/portability, Arts. 15/20) and **delete** (erasure, Art. 17) of a person's data.
 - **Never log PII or secrets.** Retention with a defined period by default.
-- **Encryption at-rest and in-transit (Art. 32):** provided by the golden path's managed DB (Neon/Supabase); the real work is in export/delete and minimization.
+- **Encryption at-rest and in-transit (Art. 32):** provided by the golden path's managed DB (Neon — Supabase was evaluated and rejected, see `external-services.md`); the real work is in export/delete and minimization.
 
 ## How it is verified
 - PII gate-checklist in construction's hardening step (`/pandacorp:implement`, DR-085): what PII is collected? Is it the minimum? Is there export/delete? Logs without PII? `/pandacorp:release` only ships a hardened build.

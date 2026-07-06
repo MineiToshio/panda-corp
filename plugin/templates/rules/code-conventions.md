@@ -40,6 +40,6 @@ Exception: framework-reserved filenames (`page.tsx`, `route.ts`) follow the fram
 - Comments explain **why**, not what; no ticket/issue references in code. Conventional Commits with scope, in English (`feat(orders): add table selection`); small single-purpose commits; never force-push a shared branch; never commit secrets or build artifacts.
 
 ## Dependencies
-- Versions (DR-052): new project → latest stable (`@latest`); in-flight → don't churn mid-build; brownfield → latest still compatible with its framework major (check before adding).
+- Versions (DR-052): new project → latest stable (`@latest`); in-flight → don't churn mid-build; brownfield → latest still compatible with its framework major (check before adding). This governs which version to ADD; independently, **pin it exact in the lockfile (no `^`/`~`)** — same discipline as `web-security.md`'s Supply chain section, not limited to public-web projects: selecting `@latest` and pinning it exactly are not in tension.
 - Pin the package manager (`packageManager` field + corepack); declare `engines`; one package manager / one lockfile per repo.
 - Justify every new dependency (maintenance health, footprint, license, bundle size); prefer the standard library/platform; remove it the moment it's no longer imported.

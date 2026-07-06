@@ -1,6 +1,6 @@
 # API design
 
-> Domain: Programming · Severity: **MUST** in API/service-type projects (stacks B/C/D; also route handlers of stack A). Enforcement: lint/CI. See DR-028.
+> Domain: Programming · Severity: **MUST** in API/service-type projects (stacks B/C; also route handlers of stack A). Enforcement: lint/CI. See DR-028.
 
 ## Rule — error contract (RFC 9457)
 - HTTP errors return **`application/problem+json`** (RFC 9457, which obsoletes 7807) with the 5 members: `type` (default `about:blank`), `title` (stable except for i18n), `status`, `detail`, `instance`.
