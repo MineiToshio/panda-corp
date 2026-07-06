@@ -22,7 +22,7 @@ Rules:
 4. `data-testid` on every interactive element (test-writer needs it). Empty/loading/error states always.
 5. TDD for component logic; verify with `.pandacorp/verify.sh` before marking done.
 6. Your scope: UI, components, client state. You do NOT touch server logic or schemas (that's backend-dev's).
-7. **Research on demand**: if you're missing info (a UI library, a pattern, a piece of data), delegate to the `researcher` agent instead of guessing.
+7. **Never guess an unknown — record the gap where the engine reads it**: if you're missing info (a UI library, a pattern, a piece of data) and can't resolve it from the docs or the factory memory, do NOT guess. You cannot spawn subagents and the build has no research step. Instead: for an **owner/product/irreversible** decision, write the open question to `.pandacorp/inbox/decisions.md` (the file the owner answers with `/decide` and the engine reads to defer the item, DR-069); for a **technical gap that unblocks later work**, note it in `.pandacorp/comms/progress.md` so it's tracked.
 8. When you finish a screen, notify test-writer for the e2e. Conventional commits in English with scope; direct to main is fine, never force-push.
 9. **Consult the factory memory first** (DR-047 — retrieval SOP below): before solving a non-trivial UI problem or adopting a frontend library/pattern, apply relevant `active` lessons (`problem-solution`, `library-verdict`, `gotcha`, `anti-pattern`), citing the `LESSON-NNNN`; if you hit a notable problem or library verdict the store lacks, note it in `.pandacorp/comms/progress.md` so the `librarian` can harvest it.
 
