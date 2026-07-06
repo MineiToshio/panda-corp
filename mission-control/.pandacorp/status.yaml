@@ -25,7 +25,7 @@ pending_decisions: 0
 pending_bugs: 0
 rethink_pending: false
 advance_pending: false
-last_green_sha: "6bbacd18"
+last_green_sha: "e3de49a7"
 safe_to_test: true  # BUILD COMPLETE (DR-050/DR-060/BL-0012): FRD-17 rollup VERIFIED — WO-17-007 ("ver más" collapse toggle on the shared DismissableProposalStream) passed the FRD gate. Reviewer (Opus, ≠ builder — DR-015) authored a 10-test adversarial acceptance suite (streamShowMore.reviewer.test.tsx): off-by-one boundaries (exactly 6 → no toggle, exactly 7 → "Ver 1 más"), hidden cards genuinely absent from DOM, the `promotion` kind (omitted from AC-17-010.4) also collapses via the one shared code path, dismiss-while-expanded recompute, keyboard (Enter/Space) + Spanish aria-label. All 98 WOs VERIFIED. Cross-feature integration (DR-060) clean: single-source resolvers (getGuildState level/XP — GuildBar re-derives from the SAME outcomes via the pure computeGuildLevel, not the NV-drift; getPendingMerge, getIdeaCounts), no duplicate primitives (component inventory 137 rows intact). Full whole-project verify.sh (no --since) EXIT 0: 7462 unit + 68 e2e (smoke+shell+visual+responsive, desktop+mobile); /proposals visual baseline held. Hardening (BL-0012): security-2026-07-05.md (no Critical/High) + events.md "## Verification 2026-07-05" (telemetry N/A, internal tool) both present. Phase → release. 2026-07-06
 blocked: []
 pending_changes: 2
