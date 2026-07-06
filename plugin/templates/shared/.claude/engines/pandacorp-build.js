@@ -92,11 +92,17 @@ const capHit = () => Boolean(MAX_AGENTS && agentSpawned >= MAX_AGENTS)
 // pro, the cheapest mode, runs an OPUS judge over its sonnet worker: pro economizes on throughput
 // (fewer waves, no split, one full-stack worker), NOT on the trust boundary. The judge is ONE
 // weighted spawn per FRD gate (not per WO), so the diversity costs ~2 extra cost-units per gate.
+// `reviewSplit` (proposal 31 T1.2) is INDEPENDENT of `split` (worker-team split, above). When true, the
+// per-FRD gate fans out into 4 parallel finder lenses + adversarial verification before the judge closes;
+// when false, today's single serial `frdGate()` reviewer runs byte-for-byte unchanged. On for the
+// higher-return modes (powerful/deep) where the diverse-lenses+verify quality pattern earns its cost;
+// off for pro/balanced. The engine also falls back to the serial gate if the split's projected cost
+// doesn't fit the remaining maxAgents budget (see gateAndConverge).
 const PROFILES = {
-  pro:      { wave: 2, worker: 'sonnet', judge: 'opus',   split: false },
-  balanced: { wave: 4, worker: 'sonnet', judge: 'opus',   split: false },
-  powerful: { wave: 8, worker: 'sonnet', judge: 'opus',   split: false },
-  deep:     { wave: 6, worker: 'opus',   judge: 'opus',   split: true  },
+  pro:      { wave: 2, worker: 'sonnet', judge: 'opus',   split: false, reviewSplit: false },
+  balanced: { wave: 4, worker: 'sonnet', judge: 'opus',   split: false, reviewSplit: false },
+  powerful: { wave: 8, worker: 'sonnet', judge: 'opus',   split: false, reviewSplit: true  },
+  deep:     { wave: 6, worker: 'opus',   judge: 'opus',   split: true,  reviewSplit: true  },
 }
 const P = PROFILES[MODE] || PROFILES.balanced
 // DR-073: opus costs ~3x sonnet in tokens, but the maxAgents brake counts AGENTS not TOKENS — so an
@@ -276,6 +282,36 @@ const FINDINGS = { type: 'array', description: 'DR-073: the specific fixable fau
 const FRD_GATE_SCHEMA = {
   type: 'object', required: ['green'],
   properties: { green: { type: 'boolean' }, reopen: { type: 'array', items: { type: 'string' } }, findings: FINDINGS, missingFoundation: MISSING_FOUNDATION, blocked_reason: BLOCK_REASON, failure: { type: 'string' } },
+}
+// ── Split-gate schemas (proposal 31 T1.2) ────────────────────────────────────
+// The FIND stage's finders each report a flat list of {file, claim, evidence, severity}. `severity`
+// discriminates a blocking CORRECTION from an advisory nit (only corrections reach the adversarial
+// VERIFY stage; nits are advisory and pass straight to the closer). Read-only: findings only, no fixes.
+const FINDER_SCHEMA = {
+  type: 'object', required: ['findings'],
+  properties: {
+    findings: {
+      type: 'array',
+      items: {
+        type: 'object', required: ['file', 'claim', 'severity', 'evidence'],
+        properties: {
+          file: { type: 'string', description: 'the file (path, ideally with a line) the finding is anchored to' },
+          claim: { type: 'string', description: 'the specific defect claimed, one sentence' },
+          severity: { type: 'string', enum: ['correction', 'nit'], description: "'correction' = a blocking defect (correctness/security/SSOT/render) that must be verified and, if confirmed, fixed; 'nit' = advisory polish that never blocks" },
+          evidence: { type: 'string', description: 'the concrete evidence for the claim (the code/behavior observed) — grounds it so the skeptic can try to refute it' },
+        },
+      },
+    },
+  },
+}
+// The VERIFY stage's skeptic returns whether it REFUTED the correction. Default-refuted if it cannot
+// reproduce/anchor the finding against the real code (an unreproducible claim is noise, not a defect).
+const VERIFY_FINDING_SCHEMA = {
+  type: 'object', required: ['refuted'],
+  properties: {
+    refuted: { type: 'boolean', description: 'true iff the skeptic could NOT anchor/reproduce the finding against the actual code (the finding dies); false iff it stands (a real defect the closer must act on)' },
+    reason: { type: 'string', description: 'why refuted or upheld, with the evidence checked' },
+  },
 }
 const REPAIR_SCHEMA = {
   type: 'object', required: ['green'],
@@ -499,8 +535,28 @@ async function buildWO(wo, frd) {
   return green
 }
 
-// ── FRD gate: ONE review + integration test over the whole feature ──
+// ── FRD gate: dispatch split (proposal 31 T1.2) vs serial ──
+// gateAndConverge() and every convergence path call frdGate() and get the SAME FRD_GATE_SCHEMA back
+// whichever branch runs — the dispatch is INSIDE frdGate so the callers stay byte-for-byte unchanged.
+// SPLIT runs only when the mode enables it (P.reviewSplit) AND its estimated cost fits the remaining
+// maxAgents budget — the brake check happens BEFORE any spawn (contract 5). If the split's finders all
+// die mid-run it returns a sentinel and we fall back to the serial gate — the gate is NEVER skipped
+// (contract 4). reviewSplit:false ⇒ this branch is never taken and frdGateSerial runs unchanged.
 async function frdGate(frd, reviewIds) {
+  if (P.reviewSplit) {
+    const remaining = MAX_AGENTS ? MAX_AGENTS - agentSpawned : Infinity
+    if (remaining >= splitGateEstimatedCost()) {
+      const split = await frdGateSplit(frd, reviewIds)
+      if (!split || !split.__splitFailed) return split   // sentinel __splitFailed → all finders died → fall to serial
+    } else {
+      log(`↩ ${frd}: reviewSplit on but the split's estimated cost (${splitGateEstimatedCost()}) exceeds the remaining agent budget (${remaining}) — using the serial gate instead (contract 5)`)
+    }
+  }
+  return await frdGateSerial(frd, reviewIds)
+}
+
+// ── FRD gate (serial): ONE review + integration test over the whole feature ──
+async function frdGateSerial(frd, reviewIds) {
   agentSpawned += COST(P.judge)   // DR-073: the gate runs on the judge model — weight it honestly
   return await agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'gate' })}${TRACK('review_start', `,"frd":"${frd}"`)}${GATE_EVENT(frd)} FRD review + integration gate for ${frd}. Review the work orders built/changed THIS cycle: ${reviewIds.join(', ')} (all IN_REVIEW). This FRD MAY already have OTHER work orders VERIFIED from a previous run — treat those as a stable foundation: exercise them in integration, but do NOT re-review them and NEVER change their state.
 
@@ -515,6 +571,118 @@ async function frdGate(frd, reviewIds) {
 
   **If a SPECIFIC reviewed work order fails CORRECTION (a real bug / missing requirement / gross-structural miss):** check that WO's frontmatter \`reopen_count\` (default 0). **DR-072 NON-PROGRESS STOP — if it is already ≥ ${MAX_REOPENS}, do NOT reopen again** (the same fault is not resolving autonomously): set it \`implementation_status: BLOCKED\` + \`blocked_reason: needs-owner\`, append to .pandacorp/inbox/decisions.md (what the gate keeps rejecting, your diagnosis, your recommendation),${TRACK('review_end', `,"frd":"${frd}","verdict":"blocked"`)} and return { green: false, reopen: [], blocked_reason: 'needs-owner', failure: 'reopened ${MAX_REOPENS}x, gate not satisfiable autonomously' }. **Otherwise — DR-073 PATCH-FIRST: do NOT revert, do NOT change the WO's \`implementation_status\` (leave it IN_REVIEW), do NOT touch \`reopen_count\`, do NOT \`git checkout\`/\`git rm\` anything, do NOT commit a revert.** The build is ~correct except a bounded fault — the engine will attempt an in-place PATCH on the existing build BEFORE any revert. **FIX-FORWARD MANDATE (DR-073, calibrated 2026-07-01): a BOUNDED fault you can name at file:line with an estimated fix of ≤ ~30 lines (a hardcoded string, a missing null-guard, a clipped breakpoint, a missing escape) MUST take this findings exit — never a bare failure, never blocked_reason 'error' (80% of real first-gate fails had ≤6-min fixes; routing them to revert cost ~1.5h of a run's 2.2h rework).** Your job here is to REPORT the fixable fault(s) precisely: for EACH failing reviewed WO, write the specific finding (with file:line) and a RED-PROVEN failing test (a test you wrote that fails WITHOUT the fix and will pass WITH it — give its path / describe-it / a snippet) and the file(s) the fix should touch.${TRACK('review_end', `,"frd":"${frd}","verdict":"reopen"`)} Return { green: false, reopen: [those ids], findings: [{ wo, finding, failingTest, files }], failure }. The engine patches those findings in place; only if the patch can't green it whole-project does it then revert + reopen for a clean rebuild (DR-070, the fallback).
   **DR-065 — missing foundation primitive:** if a surface looks FLAT / structurally wrong because a SHARED design-system primitive it needs is NOT built (it isn't in src/components nor docs/design/components.md — e.g. the mock shows a Room/AgentSprite/StoneBridge the foundation never built), do NOT block and do NOT just reopen — return { green: false, missingFoundation: [the primitive names], failure }. The engine auto-repairs the foundation and rebuilds the surfaces against it.
+  If it's broken and you can't pinpoint specific WOs,${TRACK('review_end', `,"frd":"${frd}","verdict":"fail"`)} return { green: false, failure, blocked_reason } (classify: 'needs-owner' if a human must act, 'external' if it's a transient outside failure, else 'error').${NOTIFY('FRD ' + frd + ' no paso la revision (correccion) — necesita tu atencion')}`,
+    { label: `gate:${frd}`, phase: 'Review', model: P.judge, effort: 'xhigh', agentType: 'pandacorp:reviewer', schema: FRD_GATE_SCHEMA })
+}
+
+// ── FRD gate SPLIT (proposal 31 T1.2): parallel finder lenses → dedup → adversarial verify → close ──
+// Used INSTEAD of the single frdGate() reviewer spawn when P.reviewSplit AND the split fits the maxAgents
+// budget (the choice is made in gateAndConverge, which pre-checks the brake). It returns the SAME
+// FRD_GATE_SCHEMA as frdGate(), so every downstream convergence path (patch/verify/revert/repair) is
+// untouched. The four stages decompose the ONE serial reviewer into diverse lenses + per-finding
+// adversarial refutation — the canonical quality pattern (a generator's blind spots differ per lens; a
+// skeptic kills the noise before the closer pays to act on it). The CLOSE stage still does everything the
+// serial gate does (adversarial tests, verify.sh --since, DR-072 split verdict, punch-list) — it only
+// skips re-hunting from scratch (the finders already swept), and still independently confirms each
+// correction it acts on (generator ≠ verifier). Fail-safe: dead finders/verifiers degrade, never a
+// silent skip of the gate; all four finders dead → the caller falls back to serial frdGate().
+const VERIFY_CAP = 8   // max adversarial verifiers spawned per gate; overflow corrections pass through UNVERIFIED (labeled)
+// The four read-only finder lenses (one agent each). `key` labels the spawn; `lens` is the prompt focus.
+const FINDER_LENSES = [
+  { key: 'correctness', lens: 'CORRECTNESS vs the FRD\'s acceptance criteria — read the EARS AC of this FRD and assert the required behavior/sections/elements EXIST and work; every AC this feature owns is met. Report each unmet/incorrect AC.' },
+  { key: 'security', lens: 'SECURITY — OWASP-class defects for this stack: missing authz on a mutating route/action, injection, unsafe input at a boundary, secrets in code, missing/incorrect validation. Report each concrete exposure.' },
+  { key: 'quality', lens: 'QUALITY — a near-DUPLICATE of an existing shared component/primitive (DR-057; cross-check docs/design/components.md + src/components), a SINGLE-SOURCE-OF-TRUTH violation (DR-115: a fact with two writers, an increment-maintained counter, a second independent derivation of the same value), and a DEAD/STALE reader mapping (a field read that nothing writes, a stale replica rendered as truth). Report each.' },
+  { key: 'runtime', lens: 'RUNTIME/VISUAL — does the feature actually RENDER/RUN? You MAY run the existing browser gates READ-ONLY (render the routes, screenshot) but write no tests and change nothing. Report a route that errors, a blank/error render, an uncaught console error, or a GROSS structural mismatch vs the binding mock (a flat list where the mock is a rich layout, a missing section). Advisory nits (exact px/shade/spacing) → severity nit.' },
+]
+// Estimated agent-cost of the split BEFORE we know how many corrections survive dedup (contract 5): the
+// 4 finders + the expected verifiers (bounded at VERIFY_CAP — we can't know the real correction count
+// until the finders run, so the pre-check assumes the worst case, a full cap of verifies) + the closer,
+// all on their real models. Used to pre-check the maxAgents brake in gateAndConverge so the split-vs-serial
+// choice happens BEFORE any spawn (contract: the brake check runs first).
+const splitGateEstimatedCost = () => 4 * COST('sonnet') + Math.min(VERIFY_CAP, VERIFY_CAP) * COST('sonnet') + COST(P.judge)   // Math.min(expectedVerifies, VERIFY_CAP) with expectedVerifies=VERIFY_CAP (worst case) per contract 6
+// Normalized merge key so the same defect reported by two lenses dedups to one (DEDUP stage).
+const findingKey = (find) => `${String(find.file || '').trim().toLowerCase()}::${String(find.claim || '').trim().toLowerCase().replace(/\s+/g, ' ')}`
+
+async function frdGateSplit(frd, reviewIds) {
+  // ── FIND (parallel): 4 read-only finder lenses ──
+  agentSpawned += 4 * COST('sonnet')   // weight every spawn (DR-070/DR-073) — the finders are the FIND stage's cost
+  const finderResults = await parallel(FINDER_LENSES.map((L) => () =>
+    agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'find' })}FRD split-gate FIND stage — the ${L.key} lens for ${frd} (proposal 31 T1.2). You are ONE of four parallel read-only finders. Review the work orders built/changed THIS cycle: ${reviewIds.join(', ')} (all IN_REVIEW), exercising them together with the rest of the feature. This FRD MAY have OTHER work orders VERIFIED from a previous run — treat those as a stable foundation; do NOT re-review or change them.
+    Your lens: ${L.lens}
+    **READ-ONLY — findings ONLY:** do NOT write or modify tests, do NOT fix anything, do NOT run \`verify.sh\`, do NOT change any file or frontmatter. Just report. For each defect return { file (with a line if you can), claim (one sentence), severity ('correction' for a blocking defect in your lens; 'nit' for advisory polish), evidence (the concrete code/behavior you observed, so a skeptic can try to refute it) }. If your lens finds nothing, return { findings: [] }.`,
+      { label: `find:${L.key}:${frd}`, phase: 'Review', model: 'sonnet', agentType: 'pandacorp:reviewer', schema: FINDER_SCHEMA }),
+  ))
+  const liveFinders = finderResults.filter((r) => r && Array.isArray(r.findings))
+  const deadFinders = FINDER_LENSES.filter((_, i) => !finderResults[i] || !Array.isArray(finderResults[i].findings))
+  if (deadFinders.length) log(`⚠ ${frd}: ${deadFinders.length}/4 finder lens(es) returned no verdict — proceeding with the other lenses (fail-safe)`)
+  // Fail-safe (contract 4): ALL four finders null → the split produced nothing; the caller falls back to
+  // the serial gate (the gate itself may NEVER be skipped). Signalled by a sentinel the caller checks.
+  if (liveFinders.length === 0) { log(`⚠ ${frd}: all four finder lenses died — falling back to the serial frdGate() (the gate is never skipped)`); return { __splitFailed: true } }
+
+  // ── DEDUP (plain code): merge by normalized file+claim key ──
+  const byKey = new Map()
+  for (const r of liveFinders) for (const f of r.findings) {
+    if (!f || !f.claim) continue
+    const k = findingKey(f)
+    if (!byKey.has(k)) byKey.set(k, f)
+  }
+  const deduped = [...byKey.values()]
+  const corrections = deduped.filter((f) => f.severity === 'correction')
+  const nits = deduped.filter((f) => f.severity !== 'correction')
+  log(`⚑ ${frd}: finders → ${deduped.length} deduped finding(s) (${corrections.length} correction(s), ${nits.length} nit(s))`)
+
+  // ── VERIFY (parallel, adversarial): one skeptic per CORRECTION, capped at VERIFY_CAP ──
+  // Overflow corrections (beyond the cap) pass through UNVERIFIED but LABELED (never silently dropped).
+  const toVerify = corrections.slice(0, VERIFY_CAP)
+  const overflow = corrections.slice(VERIFY_CAP)
+  if (overflow.length) log(`⚠ ${frd}: ${overflow.length} correction(s) exceed the verify cap of ${VERIFY_CAP} — passing them through UNVERIFIED (labeled) to the closer`)
+  let survivingCorrections = [...overflow.map((f) => ({ ...f, verification: 'unverified-overflow' }))]
+  if (toVerify.length) {
+    agentSpawned += toVerify.length * COST('sonnet')
+    const verdicts = await parallel(toVerify.map((f) => () =>
+      agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'verify-finding' })}FRD split-gate VERIFY stage — adversarial skeptic for ONE finding on ${frd} (proposal 31 T1.2). A finder lens claimed this defect:
+      • file: ${f.file}
+      • claim: ${f.claim}
+      • evidence given: ${f.evidence || '(none)'}
+      Your job is to try to REFUTE it against the ACTUAL code — read the file, reproduce the claim, check the evidence holds. Be a skeptic: **default to refuted if you cannot reproduce or anchor the finding** in the real code (an unreproducible claim is noise, not a defect). Return { refuted: true, reason } if it does not hold; { refuted: false, reason } only if the defect genuinely stands. READ-ONLY: change nothing.`,
+        { label: `verify-finding:${frd}`, phase: 'Review', model: 'sonnet', agentType: 'pandacorp:reviewer', schema: VERIFY_FINDING_SCHEMA }),
+    ))
+    for (let i = 0; i < toVerify.length; i++) {
+      const v = verdicts[i]
+      // Fail-safe (contract 4): a null verifier → the finding stays ALIVE but labeled unverified — never
+      // silently drop a correction because the SKEPTIC died. Only an explicit refuted:true kills it.
+      if (!v) { survivingCorrections.push({ ...toVerify[i], verification: 'unverified-dead-skeptic' }); log(`⚠ ${frd}: a verifier returned no verdict — keeping its finding ALIVE (unverified, never drop a correction on a dead skeptic)`); continue }
+      if (v.refuted === true) continue   // refuted findings die
+      survivingCorrections.push({ ...toVerify[i], verification: 'confirmed', verifyReason: v.reason })
+    }
+    log(`⚖ ${frd}: verify → ${survivingCorrections.length} correction(s) survive (of ${corrections.length}; ${corrections.length - survivingCorrections.length} refuted or died)`)
+  }
+
+  // ── CLOSE (one judge-model reviewer): act on the survivors, return the SAME FRD_GATE_SCHEMA ──
+  const survList = survivingCorrections.length
+    ? survivingCorrections.map((f) => `• [${f.verification}] ${f.file} — ${f.claim}${f.evidence ? ` (evidence: ${f.evidence})` : ''}`).join('\n  ')
+    : '(none — the finder sweep + adversarial verify surfaced no surviving blocking correction)'
+  const nitList = nits.length ? nits.map((f) => `• ${f.file} — ${f.claim}`).join('\n  ') : '(none)'
+  agentSpawned += COST(P.judge)   // the closer runs on the judge model — weight it honestly
+  return await agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'gate' })}${TRACK('review_start', `,"frd":"${frd}"`)}${GATE_EVENT(frd)} FRD review + integration gate for ${frd} — the CLOSE stage of the split gate (proposal 31 T1.2). A parallel finder sweep (4 diverse lenses) + per-finding adversarial verification ALREADY RAN — so you do NOT re-hunt findings from scratch; you act on the survivors below. Review the work orders built/changed THIS cycle: ${reviewIds.join(', ')} (all IN_REVIEW). This FRD MAY already have OTHER work orders VERIFIED from a previous run — treat those as a stable foundation: exercise them in integration, but do NOT re-review them and NEVER change their state.
+
+  **SURVIVING BLOCKING CORRECTIONS (the finder sweep confirmed these — you must independently CONFIRM each one you act on; generator ≠ verifier, do not take the sweep's word):**
+  ${survList}
+
+  **ADVISORY NITS (from the finders — punch-list only, NEVER block or reopen on these):**
+  ${nitList}
+
+  **THE GATE IS SPLIT (DR-072) — two categories with DIFFERENT consequences:**
+  • **CORRECTION (BLOCKING — your hard gate):** correctness, **requirements/acceptance criteria met** (the EARS AC of FRD ${frd}), security, no genuine DUPLICATE of an existing shared primitive (DR-057), and **GROSS visual-structural mismatch**. These BLOCK. The survivors above are your starting set — CONFIRM each independently against the code before you act; you may also add a blocking correction the sweep missed if you find one exercising the feature (the sweep is a head-start, not a ceiling).
+  • **VISUAL-FIDELITY NITS (ADVISORY — do NOT block, do NOT reopen):** sizing, spacing, exact color/shade, minor polish. **NEVER reopen a WO for a nit.** APPEND each nit (the ones above + any you find) to \`.pandacorp/comms/visual-punch-list.md\` (one line: \`- [ ] ${frd} · <route> · <the gap> · <file:approx-line if known>\`). The end-of-build Visual QA pass + the owner sweep these; they never gate VERIFIED.
+
+  1) Independently CONFIRM the surviving corrections and write adversarial tests the implementers did not see (anchored in EARS + real bugs), exercising the work orders TOGETHER with the rest of the feature (real integration, not isolated).
+  2) Run the FOCUSED gate \`bash .pandacorp/verify.sh --since <last_green_sha>\` (read last_green_sha from .pandacorp/status.yaml) — biome + tsc run globally, but only the TESTS affected since the last green. It must pass clean.
+
+  **If CORRECTION passes (nits, if any, go to the punch-list — they do NOT block):** set the reviewed work orders (${reviewIds.join(', ')}) to **\`implementation_status: VERIFIED\`** and **reset their \`reopen_count: 0\`** (DR-072 C2), then **recompute the FRD's frd.md + blueprint.md \`implementation_status\` rollup from ALL its work orders** and persist it (VERIFIED iff all are; else BLOCKED if any blocked; else PLANNED if any planned; else IN_PROGRESS if any in progress; else IN_REVIEW) — the FRD status is DERIVED, never left stale; update .pandacorp/status.yaml (per-status counts + last_green_sha + safe_to_test:true + **advance \`last_event_at\` and \`updated_at\` to now, ISO 8601, the DR-066 producer freshness stamp**).${TRACK('review_end', `,"frd":"${frd}","verdict":"pass"`)}${TRACK('frd_end', `,"frd":"${frd}"`)}${ACHIEVEMENT(frd)} Stage \`.pandacorp/track.jsonl\` too (its review_start/review_end/frd_end lines for this FRD), and commit. Return { green: true }.
+
+  **If a SPECIFIC reviewed work order fails CORRECTION (a confirmed real bug / missing requirement / gross-structural miss):** check that WO's frontmatter \`reopen_count\` (default 0). **DR-072 NON-PROGRESS STOP — if it is already ≥ ${MAX_REOPENS}, do NOT reopen again:** set it \`implementation_status: BLOCKED\` + \`blocked_reason: needs-owner\`, append to .pandacorp/inbox/decisions.md (what the gate keeps rejecting, your diagnosis, your recommendation),${TRACK('review_end', `,"frd":"${frd}","verdict":"blocked"`)} and return { green: false, reopen: [], blocked_reason: 'needs-owner', failure: 'reopened ${MAX_REOPENS}x, gate not satisfiable autonomously' }. **Otherwise — DR-073 PATCH-FIRST: do NOT revert, do NOT change the WO's \`implementation_status\` (leave it IN_REVIEW), do NOT touch \`reopen_count\`, do NOT \`git checkout\`/\`git rm\` anything, do NOT commit a revert.** The build is ~correct except a bounded fault — the engine will attempt an in-place PATCH BEFORE any revert. **FIX-FORWARD MANDATE (DR-073): a BOUNDED fault you can name at file:line with a fix of ≤ ~30 lines MUST take this findings exit.** For EACH failing reviewed WO, write the specific finding (with file:line) and a RED-PROVEN failing test (fails WITHOUT the fix, passes WITH it — give its path / describe-it / a snippet) and the file(s) the fix should touch.${TRACK('review_end', `,"frd":"${frd}","verdict":"reopen"`)} Return { green: false, reopen: [those ids], findings: [{ wo, finding, failingTest, files }], failure }.
+  **DR-065 — missing foundation primitive:** if a surface looks FLAT / structurally wrong because a SHARED design-system primitive it needs is NOT built, do NOT block and do NOT just reopen — return { green: false, missingFoundation: [the primitive names], failure }. The engine auto-repairs the foundation and rebuilds the surfaces against it.
   If it's broken and you can't pinpoint specific WOs,${TRACK('review_end', `,"frd":"${frd}","verdict":"fail"`)} return { green: false, failure, blocked_reason } (classify: 'needs-owner' if a human must act, 'external' if it's a transient outside failure, else 'error').${NOTIFY('FRD ' + frd + ' no paso la revision (correccion) — necesita tu atencion')}`,
     { label: `gate:${frd}`, phase: 'Review', model: P.judge, effort: 'xhigh', agentType: 'pandacorp:reviewer', schema: FRD_GATE_SCHEMA })
 }

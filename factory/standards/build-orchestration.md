@@ -288,6 +288,28 @@ The build engine reviews and tests **per FRD**, not per work order:
   parked at that `cwd`). The supervisor keeps a freshness-stamped lock at `.pandacorp/run/build.lock`; the
   Stop hook no-ops while it's fresh and re-engages strictly when the build ends. The engine owns the gate
   during a build; the Stop hook owns it at rest. See `quality.md` (Gates).
+- **Split review gate (proposal 31 T1.2) — behind the `reviewSplit` profile flag.** The FRD gate can run
+  as ONE serial reviewer (the default) OR as a four-stage split: **find → dedup → verify → close**. The
+  flag lives in the engine's `PROFILES`: `reviewSplit: true` for `powerful`/`deep`, `false` for
+  `pro`/`balanced`. When it is **false** the serial gate runs unchanged — the split is purely additive,
+  the cheaper modes pay nothing. When **true** and the split's estimated agent-cost fits the remaining
+  `maxAgents` budget (the brake is pre-checked BEFORE choosing, so the split can never overshoot), the gate
+  fans out: **(1) FIND** — four parallel read-only `sonnet` finders, one lens each (correctness vs the
+  FRD's EARS AC · security · quality: near-duplicate components + single-source-of-truth/DR-115 violations
+  + dead/stale reader mappings · runtime/visual: does it render/run) reporting `{file, claim, severity,
+  evidence}` findings only (no fixes, no test writing); **(2) DEDUP** in plain code by a normalized
+  `file+claim` key; **(3) VERIFY** — one parallel `sonnet` skeptic per `correction` (capped at 8; overflow
+  passes through UNVERIFIED-but-labeled), each trying to REFUTE the finding against the real code and
+  defaulting to refuted when it cannot reproduce it, so noise dies before the closer pays to act on it;
+  **(4) CLOSE** — one `judge`-model reviewer that receives the surviving confirmed corrections + all nits
+  and does everything the serial gate does (independently confirms each correction it acts on — generator ≠
+  verifier — writes the adversarial tests, runs `verify.sh --since`, applies the DR-072 CORRECTION-vs-NITS
+  verdict, appends the punch-list) EXCEPT re-hunting from scratch, and returns the **same gate verdict
+  schema** so every downstream convergence path (patch-first, gate-test repair, revert+reopen, repair)
+  is untouched. **Fail-safe:** a dead finder proceeds with the other lenses; a dead skeptic keeps its
+  finding ALIVE (a correction is never dropped because the skeptic died); all four finders dead → the gate
+  falls back to the serial reviewer. The gate itself is **never skipped** — a missing/degraded split always
+  degrades to the serial gate, never to no gate.
 - **Three test layers** at the FRD gate: (1) unit/component (per WO during build); (2) integration +
   adversarial review across the feature; (3) **functional/browser — the Preview Smoke Gate (DR-055)**.
   This layer is **mandatory and fail-closed for any FRD that has UI routes** (default ON for web
