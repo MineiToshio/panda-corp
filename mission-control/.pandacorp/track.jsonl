@@ -26,3 +26,6 @@
 {"kind":"wo_end","frd":"frd-23-materialized-stats-read-model","wo":"WO-23-003","state":"in_review","at":"2026-07-06T22:25:40Z"}
 {"kind":"wo_done","frd":"frd-23-materialized-stats-read-model","wo":"WO-23-002","status":"IN_REVIEW","at":"2026-07-06T22:26:04Z"}
 {"kind":"wo_end","frd":"frd-23-materialized-stats-read-model","wo":"WO-23-002","state":"in_review","at":"2026-07-06T22:27:21Z"}
+{"kind":"wo_start","frd":"frd-23-materialized-stats-read-model","wo":"WO-23-004","at":"2026-07-06T22:28:15Z"}
+{"kind":"wo_end","frd":"frd-23-materialized-stats-read-model","wo":"WO-23-004","at":"2026-07-06T22:42:14Z","result":"in_review"}
+{"kind":"wo_end","frd":"frd-23-materialized-stats-read-model","wo":"WO-23-004","state":"in_review","at":"2026-07-06T22:42:51Z"}
