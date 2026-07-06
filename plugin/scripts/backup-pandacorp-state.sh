@@ -17,7 +17,20 @@
 # session refreshes the day's snapshot. Manual run: bash plugin/scripts/backup-pandacorp-state.sh [repo-root]
 set -u
 
-ROOT="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd -P)}"
+# Resolve the CANONICAL main working tree even when invoked from a git worktree (BL-0045 F14):
+# git worktrees don't carry the gitignored owner state (it lives in the MAIN checkout), and
+# --show-toplevel would key the backup under the worktree's basename → a near-empty snapshot in
+# the wrong folder. --git-common-dir points at the main repo's .git from anywhere; its parent is
+# the real working tree, so a session living in worktrees still refreshes the true repo snapshot.
+ARG_ROOT="${1:-$(pwd -P)}"
+COMMON_DIR="$(git -C "$ARG_ROOT" rev-parse --git-common-dir 2>/dev/null)"
+if [ -n "$COMMON_DIR" ]; then
+  case "$COMMON_DIR" in /*) : ;; *) COMMON_DIR="$ARG_ROOT/$COMMON_DIR" ;; esac  # make absolute
+  COMMON_DIR="$(cd "$COMMON_DIR" 2>/dev/null && pwd -P)"
+  ROOT="$(dirname "$COMMON_DIR")"   # parent of the shared .git = the main working tree
+else
+  ROOT="$ARG_ROOT"                  # not a git repo (e.g. a raw path) — back up as-is
+fi
 [ -d "$ROOT" ] || exit 0
 REPO="$(basename "$ROOT")"
 DEST_BASE="$HOME/.pandacorp-backups/$REPO"
@@ -38,18 +51,27 @@ try_to() { # try_to <dest-file-or-dir> <rsync args...>
   try "$@" "$dest"
 }
 
-# 1. Every project .pandacorp state layer in the repo (root project and one level down: the
-#    factory holds mission-control/.pandacorp; a normal project holds ./.pandacorp).
-#    ADDITIVE (no --delete): a partial wipe between sessions must not shrink today's snapshot.
-for PD in "$ROOT/.pandacorp" "$ROOT"/*/.pandacorp; do
+# 1. Every project .pandacorp state layer in the repo. Scan up to 3 levels deep (BL-0045 F13:
+#    the old one-level glob missed a nested project like packages/app/.pandacorp), pruning the
+#    heavy/irrelevant trees. ADDITIVE (no --delete): a partial wipe between sessions must not
+#    shrink today's snapshot.
+while IFS= read -r PD; do
   [ -d "$PD" ] || continue
   REL="${PD#"$ROOT"/}"
   for SUB in inbox comms; do
     [ -d "$PD/$SUB" ] && try_to "$DEST/$REL/$SUB/" rsync -a "$PD/$SUB/"
   done
   [ -f "$PD/run/lessons.md" ] && try_to "$DEST/$REL/run/lessons.md" rsync -a "$PD/run/lessons.md"
+  # run/*.sh — the machine-specific deploy machinery (serve.sh/deploy-local.sh, DR-089). It is
+  # gitignored (encodes THIS machine's paths/port) and precious: losing it took Mission Control's
+  # always-on deploy down (BL-0035 follow-up). The reproducible KNOW-HOW lives in infra.md DR-089;
+  # this backs up the machine-specific INSTANCE so a sweep no longer loses it.
+  for SH in "$PD"/run/*.sh; do
+    [ -f "$SH" ] && try_to "$DEST/$REL/run/$(basename "$SH")" rsync -a "$SH"
+  done
   [ -f "$PD/status.yaml" ] && try_to "$DEST/$REL/status.yaml" rsync -a "$PD/status.yaml"
-done
+done < <(find "$ROOT" -maxdepth 3 -type d -name .pandacorp \
+           -not -path '*/node_modules/*' -not -path '*/.git/*' 2>/dev/null)
 
 # 2. The factory's personal, gitignored data (DR-033): idea cards, profile, portfolio, memory
 #    inbox — plus the other unrecoverable gitignored owner state the first version missed
@@ -76,5 +98,10 @@ if [ "$failures" -gt 0 ]; then
 else
   echo "Pandacorp backup: $count files → $DEST"
 fi
+
+# 5. Advisory: warn if any gitignored path is precious yet neither disposable nor in the manifest
+#    above (the enforceable form of "nothing precious lives only-gitignored"). Never fails us.
+CHECK="$(dirname "$0")/check-unbacked-precious.sh"
+[ -f "$CHECK" ] && bash "$CHECK" "$ROOT" || true
 
 exit 0

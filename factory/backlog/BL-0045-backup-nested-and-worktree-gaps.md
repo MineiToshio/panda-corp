@@ -3,10 +3,11 @@ id: BL-0045
 type: bug
 area: hooks
 title: "backup-pandacorp-state.sh misses nested projects (>1 level) and is defeated by git worktrees (basename keying)"
-status: open
+status: done
 severity: p2
 opened: 2026-07-05
-closed:
+closed: 2026-07-05
+resolution: "Fixed in plugin v9.72.0. F14: backup keys to the canonical repo via `git rev-parse --git-common-dir` (worktree runs no longer mis-key to the worktree basename). F13: nested projects scanned via `find -maxdepth 3 -name .pandacorp`. Proven by test-backup-and-precious.sh (6/6). Same change added run/*.sh backup + check-unbacked-precious.sh."
 source: "Fable hardening sprint II WS-A adversarial guard-bypass hunt (docs/proposals/28), findings F13/F14"
 closes:
 links: [BL-0035]
