@@ -4,6 +4,12 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-06 — Pandacorp overlay upgraded `8.66.1` → `8.69.0`
+
+**What:** `/pandacorp:upgrade` preflight for the materialized-stats build. Regenerated the build engine (`.claude/engines/pandacorp-build.js`, verbatim from the canonical template — 1162 → 1344 lines), re-synced the two drifted engineering-rules files (`docs/rules/README.md`, `docs/rules/code-conventions.md`) and the managed `.pandacorp/guide.md` (self-learning "same-turn capture" + retrieve-before-build + the DR-110/DR-111 interaction/model-selection rules), bumped `overlay_version`. Gate-config conformance was already in sync (`verify.sh`, `canary.sh`, `biome.json`, `knip.json`, the 7 verbatim e2e specs all identical to the templates — nothing overwritten there).
+
+**Why:** compatible (same-major) bump, applied silently per DR-048. None of the regenerated files are scanned by `verify.sh` (the engine lives in `.claude/engines/`, the rest are markdown docs), so the green baseline from earlier this session is unaffected; the engine JS is valid by construction (byte-identical to the template every project runs — `node --check` flags its Workflow-harness top-level `return` as a false positive). Precondition to launch the `materialized-stats-read-model` build on the current engine/structure.
+
 ## 2026-07-06 — Perf: /achievements git readers now one subprocess each, not one per row (~2.5 s → ~0.45 s)
 
 **What:** rewrote the two git-backed report readers behind the Logros page to gather their whole input in a **single `git log --reverse -p` pass** instead of spawning a subprocess per row. `IF-10-phase-transitions` (`observationsForStatusFile`) was doing a `git show` per commit (up to 400) of each project's `status.yaml`; `IF-10-flow-series` (`verifiedIsoByWo`, was `verifiedAtForWo`) was pickaxing `git log -G"…VERIFIED"` once per `wo-*.md` (98 files). Both now parse the NUL-marked per-commit date (`--format=%x00%cI`) + the `+…` added diff lines (phase change points / VERIFIED crossings) from one pass. Removed the now-dead `gitRootRelPath` helper and the per-file `GIT_LOG_CAP`; the combined flow-series pass is intentionally un-`-n`-capped so the oldest VERIFIED crossings aren't dropped. Blueprint §3 perf caveat updated.
