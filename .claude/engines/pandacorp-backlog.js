@@ -117,7 +117,7 @@ phase('Implement')
 
 const RECIPE = (item) => `Implement and close factory backlog item ${item.id} (proposal 31 T1.1 — dispatched by the pandacorp-backlog engine, replacing a hand-run subagent).
 
-1. Isolate FIRST: from the MAIN checkout, create a fresh worktree anchored at the factory root: \`git -C ${FACTORY_ROOT} worktree add ${FACTORY_ROOT}/.claude/worktrees/bl-${item.id} -b bl/${item.id}\`. Do ALL work inside that worktree directory from here on — never touch the main checkout's working tree.
+1. Isolate FIRST: create a fresh worktree anchored at the factory root: \`git -C ${FACTORY_ROOT} worktree add ${FACTORY_ROOT}/.claude/worktrees/bl-${item.id} -b bl/${item.id}\`. The \`-C ${FACTORY_ROOT}\` decides WHICH repo owns the worktree — NEVER run worktree add without it (your cwd may be a different repo). Then VERIFY ownership before any work: \`git -C ${FACTORY_ROOT}/.claude/worktrees/bl-${item.id} rev-parse --git-common-dir\` must resolve inside ${FACTORY_ROOT} — if it does not, remove that worktree immediately and return status: "blocked" with reason "worktree anchored to wrong repo". Do ALL work inside that worktree directory from here on — never touch the main checkout's working tree.
 2. Read the item whole at ${item.path} (already known to you: title "${item.title}"): its Problem (+ Root cause if a bug), Fix plan, Tests, Done when, Out of scope.
 3. Implement EXACTLY the Fix plan — nothing broader, nothing past Out of scope. No drive-by refactors.
 4. Prove it with the item's own Tests section: a unit test, a verify.sh --canary gate canary, a script/CLI assertion, or a documented manual repro when automation is genuinely infeasible. Never skip proof.
