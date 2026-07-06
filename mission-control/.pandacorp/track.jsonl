@@ -32,3 +32,6 @@
 {"kind":"review_start","frd":"frd-23-materialized-stats-read-model","at":"2026-07-06T22:51:01Z"}
 {"kind":"review_end","frd":"frd-23-materialized-stats-read-model","verdict":"reopen","at":"2026-07-06T22:57:14Z"}
 {"kind":"wo_reopen","frd":"frd-23-materialized-stats-read-model","wo":"WO-23-004","at":"2026-07-06T23:12:24Z"}
+{"kind":"wo_start","frd":"frd-23-materialized-stats-read-model","wo":"WO-23-004","at":"2026-07-06T23:14:48Z"}
+{"kind":"wo_done","frd":"frd-23-materialized-stats-read-model","wo":"WO-23-004","status":"IN_REVIEW","at":"2026-07-06T23:29:22Z"}
+{"kind":"wo_end","frd":"frd-23-materialized-stats-read-model","wo":"WO-23-004","state":"in_review","at":"2026-07-06T23:30:22Z"}

@@ -19,7 +19,10 @@
     "test:shell": "playwright test e2e/shell.spec.ts",
     "verify": "bash .pandacorp/verify.sh",
     "lint:eslint": "eslint .",
-    "lint:cycles": "madge --circular --extensions ts,tsx --ts-config tsconfig.json src"
+    "lint:cycles": "madge --circular --extensions ts,tsx --ts-config tsconfig.json src",
+    "stats:regen": "node --loader ./scripts/read-model/ts-loader.mjs scripts/read-model/regen.mjs",
+    "stats:sync-aggregate": "node --loader ./scripts/read-model/ts-loader.mjs scripts/read-model/sync-aggregate.mjs",
+    "stats:backfill": "node --loader ./scripts/read-model/ts-loader.mjs scripts/read-model/backfill.mjs"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",

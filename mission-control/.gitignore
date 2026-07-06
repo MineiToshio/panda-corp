@@ -28,6 +28,9 @@ test-results/
 .pandacorp/comms/
 .pandacorp/inbox/
 .pandacorp/run/
+# Materialized stats read-model (FRD-23) — re-derivable runtime caches, never committed.
+.pandacorp/stats.json
+.pandacorp/stats-aggregate.json
 
 # OS / editor
 .DS_Store

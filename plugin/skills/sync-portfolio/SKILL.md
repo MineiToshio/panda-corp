@@ -28,6 +28,11 @@ Factory ↔ projects synchronization. Runs IN panda-corp.
    Do NOT attempt to clone or write anything automatically.
 5. Consistency: if a project is `shipped` but its idea card is not, fix the card (and vice versa, report the discrepancy).
 5b. **Overlay-drift watch (DR-048 companion)**: while reading each `status.yaml`, compare its `overlay_version` against the factory's `plugin/templates/OVERLAY_VERSION`. A lagging project is a **drift finding in the report** ("`<project>` on 8.51.0, factory at 8.55.4 — will auto-upgrade on its next skill run; run `/pandacorp:upgrade` there to close it now"). This closes the quiet-project hole: upgrade only fires on skill invocation, so a project nobody touches drifts silently unless THIS periodic job surfaces it.
+5c. **Materialized stats — join the aggregate index (FRD-23, AC-23-003.1)**: after the portfolio walk, join every project's materialized portada (`.pandacorp/stats.json`) into the O(1) aggregate index Mission Control reads (`<factory-root>/.pandacorp/stats-aggregate.json`). From the `mission-control/` repo root run:
+   ```bash
+   pnpm stats:sync-aggregate   # → scripts/read-model/sync-aggregate.mjs → stats-aggregate.json
+   ```
+   A missing/corrupt project portada is reported and skipped (fail-loud, DR-078) — never a silent empty; MC's per-project seal validation + live-git fallback covers a skipped project. This is why the Informe's cost stays independent of the number of projects.
 
 ## Part 3 — Report
 

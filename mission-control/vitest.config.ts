@@ -8,7 +8,17 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
     include: ["**/*.{test,spec}.{ts,tsx}"],
-    exclude: ["**/node_modules/**", ".next", "prototype", "e2e/**", "**/.claude/worktrees/**"],
+    // `.pandacorp/run/` is gitignored runtime scratch (incl. DR-107 preserved-test archives) — those
+    // are staged into `src/**/_tests/` by the FRD gate, never collected from their archive location
+    // (where their relative repo-root resolution is wrong). Excluding it keeps discovery to real tests.
+    exclude: [
+      "**/node_modules/**",
+      ".next",
+      "prototype",
+      "e2e/**",
+      "**/.claude/worktrees/**",
+      ".pandacorp/run/**",
+    ],
     // Raised from the default 5 000 ms to accommodate:
     //   - WO-13-003 large-list keyboard-nav stress test (1 100 fireEvent × 1 000 items in jsdom)
     //   - WO-13-002 adversarial tests that invoke npx @tailwindcss/cli (cold-cache download)

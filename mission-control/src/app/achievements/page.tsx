@@ -28,13 +28,16 @@
  * Source-of-truth hierarchy: FRD > FDD > design-tokens > blueprint > work order
  */
 
+import path from "node:path";
 import type { AgentRole } from "@/app/_design/tokens/tokens";
 import { Chip } from "@/components/core/Chip/Chip";
 import { PageLayout } from "@/components/core/PageLayout/PageLayout";
 import { GuildHero } from "@/components/modules/GuildHero/GuildHero";
 import { computeChains, computeSecrets, computeUniques } from "@/lib/achievements/achievements";
+import { STATS_AGGREGATE_FILENAME } from "@/lib/achievements/read-model/aggregate";
+import { resolvePortadaFromAggregate } from "@/lib/achievements/read-model/aggregateConsumer";
 import { resolveInformeSources } from "@/lib/achievements/read-model/informeResolver";
-import { readStatsPortada } from "@/lib/achievements/read-model/statsReader";
+import { readStatsAggregate } from "@/lib/achievements/read-model/statsReader";
 import { weeklyFlow } from "@/lib/achievements/report/flowSeries";
 import { funnelAndFlow } from "@/lib/achievements/report/funnel";
 import { lessonCounts } from "@/lib/achievements/report/lessons";
@@ -44,6 +47,7 @@ import { usageMix } from "@/lib/achievements/report/usage";
 import { signalsFor } from "@/lib/achievements/signals";
 import type { ReaderData } from "@/lib/achievements/stats";
 import { computeStats } from "@/lib/achievements/stats";
+import { resolveFactoryRoot } from "@/lib/config/config";
 import { readEvents } from "@/lib/events/events";
 import { getGuildState } from "@/lib/gamification/guildState";
 import { readIdeas } from "@/lib/ideas/ideas";
@@ -89,10 +93,20 @@ export default async function HallPage(): Promise<React.JSX.Element> {
   // it lives at the process cwd (it shares the factory .git one level up — see CLAUDE.md).
   const projectPath = process.cwd();
   const reportSignals = signalsFor(readerData);
-  // FRD-23/WO-23-003: try the materialized portada first, fall back to the live git readers
-  // (WO-10-014, unchanged) on ANY non-`ok` result — missing / stale / corrupt all fall back
-  // (REQ-23-001). `getPendingMerge` is a separate module and stays live (AC-23-005.1, untouched).
-  const informeSources = resolveInformeSources(readStatsPortada(projectPath), {
+  // FRD-23: read the Informe numbers from the O(1) AGGREGATE index first (AC-23-003.1 clause b) —
+  // one file read of `<factory-root>/.pandacorp/stats-aggregate.json`, independent of N projects.
+  // `readPortadaViaAggregate` seal-validates the current project's entry and falls back to the
+  // per-project portada (WO-23-003) on any non-usable outcome; `resolveInformeSources` then falls
+  // back to the live git readers (WO-10-014, unchanged) on ANY non-`ok` result — missing / stale /
+  // corrupt all fall back (REQ-23-001). MC's project key is its portfolio path cell ("mission-control").
+  // `getPendingMerge` is a separate module and stays live (AC-23-005.1, untouched).
+  const aggregatePath = path.join(resolveFactoryRoot(), ".pandacorp", STATS_AGGREGATE_FILENAME);
+  const portadaResult = resolvePortadaFromAggregate(
+    readStatsAggregate(aggregatePath),
+    "mission-control",
+    projectPath,
+  );
+  const informeSources = resolveInformeSources(portadaResult, {
     weeklyFlow: () => weeklyFlow(projectPath),
     phaseTransitions: () => phaseTransitions(),
     scalars: () => reportScalars(projectPath),
