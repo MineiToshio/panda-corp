@@ -727,22 +727,23 @@ function ConceptEstandares(): React.JSX.Element {
         </div>
         <Divider />
         <div style={{ fontSize: "12px", color: "var(--color-text2)", lineHeight: 1.6 }}>
-          <B weight={500}>Consistencia documental — el gate de supersesión completa (DR-116,
-          2026-07-05):</B> ninguna regla puede sobrevivir en las sombras. Si cambias una regla en un
-          doc pero su enunciado viejo sigue vivo en otro, dos agentes leen dos verdades y se
-          desvían — el patrón raíz de las ~21 contradicciones que encontró la auditoría (el motor
-          construyó DOS cambios cuando pediste UNO). El gate <B weight={600}>nunca bloquea el
-          cambio</B>, solo su propagación INCOMPLETA. Dos casos: un{" "}
-          <B weight={600}>set recién generado</B> (PRD+FRDs de <Code>spec</Code>, blueprint+WOs de{" "}
-          <Code>architecture</Code>) lo revisa un verificador FRESCO — una contradicción interna
-          dura <B weight={600}>bloquea el cierre de la fase</B> (como un{" "}
-          <Code>[NEEDS CLARIFICATION]</Code> pendiente); una <B weight={600}>edición al corpus
-          existente</B> (<Code>change</Code>/<Code>iterate</Code>/<Code>learn</Code>) exige que la
-          supersesión sea COMPLETA — declaras qué regla vieja reemplazas y el verificador confirma
-          que ningún doc la sigue afirmando y que el porqué quedó registrado (las dos escrituras).
-          Un <B weight={500}>barrido advisory semanal</B> caza la deriva que se cuele — reporta y
-          ficha como <Code>BL-*</Code>, nunca edita ni bloquea. Canónico:{" "}
-          <Code>document-consistency.md</Code>.
+          <B weight={500}>
+            Consistencia documental — el gate de supersesión completa (DR-116, 2026-07-05):
+          </B>{" "}
+          ninguna regla puede sobrevivir en las sombras. Si cambias una regla en un doc pero su
+          enunciado viejo sigue vivo en otro, dos agentes leen dos verdades y se desvían — el patrón
+          raíz de las ~21 contradicciones que encontró la auditoría (el motor construyó DOS cambios
+          cuando pediste UNO). El gate <B weight={600}>nunca bloquea el cambio</B>, solo su
+          propagación INCOMPLETA. Dos casos: un <B weight={600}>set recién generado</B> (PRD+FRDs de{" "}
+          <Code>spec</Code>, blueprint+WOs de <Code>architecture</Code>) lo revisa un verificador
+          FRESCO — una contradicción interna dura <B weight={600}>bloquea el cierre de la fase</B>{" "}
+          (como un <Code>[NEEDS CLARIFICATION]</Code> pendiente); una{" "}
+          <B weight={600}>edición al corpus existente</B> (<Code>change</Code>/<Code>iterate</Code>/
+          <Code>learn</Code>) exige que la supersesión sea COMPLETA — declaras qué regla vieja
+          reemplazas y el verificador confirma que ningún doc la sigue afirmando y que el porqué
+          quedó registrado (las dos escrituras). Un <B weight={500}>barrido advisory semanal</B>{" "}
+          caza la deriva que se cuele — reporta y ficha como <Code>BL-*</Code>, nunca edita ni
+          bloquea. Canónico: <Code>document-consistency.md</Code>.
         </div>
       </Panel>
     </>
@@ -2345,9 +2346,9 @@ function GuideAdoptar(): React.JSX.Element {
                 <Code>factory/ideas/&lt;slug&gt;.md</Code>, <Code>status: in-pipeline</Code>) y la
                 copia a <Code>.pandacorp/idea-origin.md</Code> — esa ficha es lo que hace que el
                 proyecto salga en el <B weight={500}>Tablero</B>. Añade también la fila a{" "}
-                <Code>factory/portfolio.md</Code> <B weight={500}>en el momento de adoptar</B>,
-                sea cual sea la fase inferida — igual que <Code>scaffold</Code>/<Code>spec</Code>{" "}
-                la registran al nacer.
+                <Code>factory/portfolio.md</Code> <B weight={500}>en el momento de adoptar</B>, sea
+                cual sea la fase inferida — igual que <Code>scaffold</Code>/<Code>spec</Code> la
+                registran al nacer.
               </>
             ),
           },
@@ -2363,9 +2364,9 @@ function GuideAdoptar(): React.JSX.Element {
         ]}
       />
       <NotePanel icon="ti-plug-connected" iconColor="var(--color-accent)">
-        Tras adoptar, el proyecto aparece de inmediato en el <B weight={600}>Tablero</B> de
-        Mission Control (por su ficha) y también en el <B weight={600}>Portfolio</B> (por su
-        fila), con su fase inferida, igual que un proyecto nacido del handoff.
+        Tras adoptar, el proyecto aparece de inmediato en el <B weight={600}>Tablero</B> de Mission
+        Control (por su ficha) y también en el <B weight={600}>Portfolio</B> (por su fila), con su
+        fase inferida, igual que un proyecto nacido del handoff.
       </NotePanel>
     </>
   );
