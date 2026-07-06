@@ -1,3 +1,4 @@
+"use client";
 /**
  * app/manual/manualPages.tsx — FRD-08 Manual page registry (the faithful readers)
  *
@@ -27,6 +28,7 @@ import { DownArrow, IconRow } from "@/components/modules/manual-diagrams/atoms";
 import { ChannelsDiagram } from "@/components/modules/manual-diagrams/ChannelsDiagram";
 import { CockpitDataDiagram } from "@/components/modules/manual-diagrams/CockpitDataDiagram";
 import { DocH } from "@/components/modules/manual-diagrams/DocH";
+import { FlowGraph } from "@/components/modules/manual-diagrams/FlowGraph";
 import { HooksDiagram } from "@/components/modules/manual-diagrams/HooksDiagram";
 import { ModificationGuide } from "@/components/modules/manual-diagrams/ModificationGuide";
 import { MultiRuntimeDiagram } from "@/components/modules/manual-diagrams/MultiRuntimeDiagram";
@@ -49,6 +51,9 @@ import { StacksTable } from "@/components/modules/manual-diagrams/StacksTable";
 import { StateTable } from "@/components/modules/manual-diagrams/StateTable";
 import { TeamDiagram } from "@/components/modules/manual-diagrams/TeamDiagram";
 import { VaultDiagram } from "@/components/modules/manual-diagrams/VaultDiagram";
+import { WorkflowShapeDiagram } from "@/components/modules/manual-diagrams/WorkflowShapeDiagram";
+import { backlogFlow, buildFlow } from "@/lib/manual/workflow-flows";
+import { useManualNav } from "./ManualNavContext";
 
 // ---------------------------------------------------------------------------
 // Shared building blocks for the page bodies
@@ -1094,6 +1099,7 @@ function ConceptStacks(): React.JSX.Element {
 }
 
 function ConceptDesatendida(): React.JSX.Element {
+  const nav = useManualNav();
   return (
     <>
       <DocH title="Construcción desatendida · técnico" level={1} />
@@ -1143,6 +1149,26 @@ function ConceptDesatendida(): React.JSX.Element {
       <Panel>
         <SnapshotMini />
       </Panel>
+      <NotePanel icon="ti-route" iconColor="var(--color-accent)">
+        El mecanismo del motor (oleadas globales, gate en abanico, supervisor) está detallado en{" "}
+        <button
+          type="button"
+          onClick={() => nav.goToManual("workflows", "wf-pandacorp-build")}
+          style={{
+            background: "none",
+            border: "none",
+            padding: 0,
+            margin: 0,
+            font: "inherit",
+            color: "var(--color-accent-text)",
+            textDecoration: "underline",
+            cursor: "pointer",
+          }}
+        >
+          Dynamic Workflows → pandacorp-build
+        </button>
+        .
+      </NotePanel>
     </>
   );
 }
@@ -2541,6 +2567,375 @@ function GuideCambio(): React.JSX.Element {
 }
 
 // ---------------------------------------------------------------------------
+// WORKFLOWS: Qué es un Dynamic Workflow (overview)
+// ---------------------------------------------------------------------------
+
+const SKILL_TABLE_TH_STYLE: React.CSSProperties = {
+  textAlign: "left",
+  padding: "6px 8px",
+  borderBottom: "1px solid var(--color-border)",
+  color: "var(--color-text2)",
+  fontWeight: 500,
+};
+
+const SKILL_TABLE_TD_STYLE: React.CSSProperties = {
+  padding: "6px 8px",
+  borderBottom: "1px solid var(--color-border)",
+  verticalAlign: "top",
+};
+
+const SKILL_VS_WORKFLOW_ROWS: ReadonlyArray<{
+  label: string;
+  skill: string;
+  workflow: string;
+}> = [
+  {
+    label: "Qué es",
+    skill: "Instrucciones que el modelo lee e interpreta",
+    workflow: "Un guion JS que ejecuta pasos fijos",
+  },
+  {
+    label: "Orquestación",
+    skill: "La improvisa el modelo cada vez",
+    workflow: "Determinista: paralelo/gates/topes en código",
+  },
+  {
+    label: "Cuándo brilla",
+    skill: "Trabajo conversacional, con matices, único",
+    workflow: "Fan-out repetitivo + checkpoints + reanudable",
+  },
+  {
+    label: 'En el menú "/"',
+    skill: "Sí (aparece como comando)",
+    workflow: "No — vive en .claude/engines/, lo lanza un skill",
+  },
+] as const;
+
+/** One engine card in the overview's "Los motores que existen hoy" section — links to its sub-page. */
+function EngineCard({
+  icon,
+  title,
+  body,
+  group,
+  slug,
+}: {
+  icon: string;
+  title: React.ReactNode;
+  body: React.ReactNode;
+  group: string;
+  slug: string;
+}): React.JSX.Element {
+  const nav = useManualNav();
+  return (
+    <button
+      type="button"
+      onClick={() => nav.goToManual(group, slug)}
+      style={{
+        display: "block",
+        width: "100%",
+        textAlign: "left",
+        background: "none",
+        border: "none",
+        padding: 0,
+        cursor: "pointer",
+        fontFamily: "inherit",
+        marginBottom: "8px",
+      }}
+    >
+      <Panel variant="rpgpanel">
+        <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+          <i
+            className={`ti ${icon}`}
+            aria-hidden="true"
+            style={{ fontSize: "18px", color: "var(--color-accent)", marginTop: "1px" }}
+          />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--color-text)" }}>
+              {title}
+            </div>
+            <div
+              style={{
+                fontSize: "12px",
+                color: "var(--color-text2)",
+                marginTop: "3px",
+                lineHeight: 1.5,
+              }}
+            >
+              {body}
+            </div>
+          </div>
+          <i
+            className="ti ti-chevron-right"
+            aria-hidden="true"
+            style={{ fontSize: "16px", color: "var(--color-text3)", flex: "0 0 auto" }}
+          />
+        </div>
+      </Panel>
+    </button>
+  );
+}
+
+function WorkflowsOverview(): React.JSX.Element {
+  return (
+    <>
+      <DocH title="Dynamic Workflows" level={1} />
+      <Lead>
+        Un <B weight={600}>Dynamic Workflow</B> es un guion de JavaScript que orquesta subagentes de
+        forma <B weight={600}>determinista</B>: decide en código qué corre en paralelo, qué espera a
+        qué, dónde hay un control de calidad, cuántos agentes como mucho y cómo retomar si algo se
+        corta. No es un agente que improvisa — es una cinta de montaje con estaciones fijas.
+      </Lead>
+
+      <NotePanel icon="ti-tools" iconColor="var(--color-accent)">
+        Piensa en la diferencia entre un <B weight={600}>cocinero</B> y una{" "}
+        <B weight={600}>cadena de montaje</B>.
+        <Ul>
+          <li>
+            Un <B weight={500}>skill</B> es el cocinero: lee la receta y se organiza de cabeza. Es
+            flexible y conversa contigo, pero cada vez lo hace un poco distinto.
+          </li>
+          <li>
+            Un <B weight={500}>dynamic workflow</B> es la cadena de montaje: la cinta y las
+            estaciones están soldadas en su sitio. Procesa cien piezas iguales sin cansarse, cada
+            una pasa por los mismos controles, y si se va la luz, al volver sigue por donde iba — no
+            reempieza.
+          </li>
+        </Ul>
+        Cuando hay MUCHAS piezas iguales y controles estrictos, quieres la cadena, no al cocinero
+        improvisando.
+      </NotePanel>
+
+      <DocH title="Skill vs Workflow" />
+      <Panel>
+        <div style={{ overflowX: "auto" }}>
+          <table
+            data-testid="workflows-skill-vs-workflow-table"
+            style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}
+          >
+            <thead>
+              <tr>
+                <th style={SKILL_TABLE_TH_STYLE} />
+                <th style={SKILL_TABLE_TH_STYLE}>Skill</th>
+                <th style={SKILL_TABLE_TH_STYLE}>Dynamic Workflow</th>
+              </tr>
+            </thead>
+            <tbody>
+              {SKILL_VS_WORKFLOW_ROWS.map((row) => (
+                <tr key={row.label}>
+                  <td style={{ ...SKILL_TABLE_TD_STYLE, color: "var(--color-text2)" }}>
+                    {row.label}
+                  </td>
+                  <td style={{ ...SKILL_TABLE_TD_STYLE, color: "var(--color-text3)" }}>
+                    {row.skill}
+                  </td>
+                  <td style={{ ...SKILL_TABLE_TD_STYLE, color: "var(--color-text)" }}>
+                    {row.workflow}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
+
+      <DocH title="La forma que se repite: fan-out → compuerta" />
+      <Body>
+        Casi todos los workflows tienen la misma silueta: <B weight={500}>se abren en abanico</B>{" "}
+        (muchos subagentes trabajando a la vez) y luego <B weight={500}>embudo</B> por una compuerta
+        que verifica antes de dejar pasar. Es como un periódico: muchos reporteros escriben
+        secciones en paralelo, pero todo pasa por la mesa del editor antes de imprimir. Si la
+        compuerta es "split", en vez de un editor hay cuatro especialistas (hechos, legal, estilo,
+        maqueta) leyendo a la vez, y un jefe de redacción firma solo lo que sobrevive.
+      </Body>
+      <Panel>
+        <WorkflowShapeDiagram />
+      </Panel>
+
+      <DocH title="Por qué determinista (y no dejar que el modelo improvise)" />
+      <Panel>
+        <Ul>
+          <li>
+            <B weight={500}>Fiabilidad</B>: el merge se hace de uno en uno, siempre; nunca dos a la
+            vez pisándose.
+          </li>
+          <li>
+            <B weight={500}>Velocidad</B>: lo independiente corre de verdad en paralelo, no en fila.
+          </li>
+          <li>
+            <B weight={500}>Reanudable</B>: el estado vive en disco (el frontmatter de cada work
+            order), así que relanzar = leer dónde te quedaste. Nunca se rehace algo ya verificado.
+          </li>
+        </Ul>
+      </Panel>
+
+      <DocH title="Los motores que existen hoy" />
+      <EngineCard
+        icon="ti-building-factory-2"
+        title="pandacorp-build — el motor de construcción"
+        body={
+          <>
+            Levanta un proyecto entero, feature por feature, en oleadas. Lo lanza{" "}
+            <Code>/pandacorp:implement</Code>.
+          </>
+        }
+        group="workflows"
+        slug="wf-pandacorp-build"
+      />
+      <EngineCard
+        icon="ti-git-merge"
+        title="pandacorp-backlog — el motor de drenado del backlog"
+        body={
+          <>
+            Resuelve los BL-* en paralelo y los mergea de uno en uno. Lo lanza{" "}
+            <Code>/pandacorp:implement-backlog</Code> (sin argumentos).
+          </>
+        }
+        group="workflows"
+        slug="wf-pandacorp-backlog"
+      />
+
+      <NotePanel icon="ti-eye-off" iconColor="var(--color-text2)">
+        Los dos viven en <Code>.claude/engines/</Code> — una carpeta que el menú "/" NO escanea,
+        para que estos motores internos no aparezcan como comandos sueltos. Los invoca siempre un
+        skill, nunca tú a mano.
+      </NotePanel>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// WORKFLOWS: pandacorp-build — el motor de construcción
+// ---------------------------------------------------------------------------
+
+function WorkflowBuild(): React.JSX.Element {
+  return (
+    <>
+      <DocH title="pandacorp-build — el motor de construcción" level={1} />
+      <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "10px" }}>
+        <Chip tone="accent">
+          <Code>/pandacorp:implement</Code>
+        </Chip>
+        <Chip tone="secondary">corre en el proyecto</Chip>
+        <Chip tone="ok">segundo plano · reanudable</Chip>
+      </div>
+      <Lead>
+        Es la joya de la corona: construye un proyecto entero leyendo las FRDs y sus work orders, y
+        no para hasta terminar (o hasta que topa con presupuesto, salud, o algo que solo tú puedes
+        decidir). Construye en <B weight={600}>oleadas globales</B>: cada oleada agarra los work
+        orders LISTOS de TODAS las features a la vez (los que tienen sus dependencias hechas y no
+        chocan de archivos), así las features independientes avanzan en paralelo.
+      </Lead>
+
+      <NotePanel icon="ti-building-skyscraper" iconColor="var(--color-accent)">
+        Como levantar un edificio: no puedes construir el piso 3 antes del 2, pero dentro de un piso
+        hay muchos obreros a la vez, y cada piso se inspecciona antes de subir al siguiente. La
+        inspección es la compuerta de revisión — y esa inspección ahora la hacen varios
+        especialistas en paralelo.
+      </NotePanel>
+
+      <Panel>
+        <FlowGraph flow={buildFlow} />
+      </Panel>
+
+      <DocH title="El gate de revisión, ahora en abanico (reviewSplit)" />
+      <Body>
+        Al cerrar cada feature, antes se pasaba por UN revisor en serie. Ahora, en los modos
+        potentes (powerful/deep), la revisión se{" "}
+        <B weight={500}>abre en cuatro lentes en paralelo</B> — corrección, seguridad, calidad y
+        runtime/visual — se deduplican los hallazgos, cada hallazgo se{" "}
+        <B weight={500}>verifica de forma adversarial</B> (un escéptico intenta refutarlo; si no
+        puede anclarlo, muere), y un revisor de cierre (Opus) firma solo lo confirmado. Si no cabe
+        en el tope de agentes, cae con elegancia al revisor en serie de siempre. En los modos
+        ligeros (pro/balanced) sigue siendo el revisor en serie, idéntico a antes.
+      </Body>
+
+      <DocH title="Cómo retoma si se corta" />
+      <Body>
+        El estado vive en el frontmatter de cada work order (<Code>implementation_status</Code>).
+        Relanzar el motor = volver a leer el disco: nunca reconstruye un work order VERIFIED, y uno
+        que quedó IN_REVIEW pasa directo a su gate. No hay "run id" mágico — la memoria es el árbol
+        de archivos.
+      </Body>
+
+      <DocH title="El supervisor" />
+      <Body margin="0">
+        Nunca se lanza solo: junto al motor va un supervisor (Monitor + ScheduleWakeup +
+        PushNotification) que vigila el latido, te avisa al móvil si se atasca o termina, y relanza
+        el motor pasada tras pasada hasta que no queda nada. Por eso puedes lanzarlo de noche y
+        desentenderte.
+      </Body>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// WORKFLOWS: pandacorp-backlog — el motor de drenado del backlog
+// ---------------------------------------------------------------------------
+
+function WorkflowBacklog(): React.JSX.Element {
+  return (
+    <>
+      <DocH title="pandacorp-backlog — el motor de drenado del backlog" level={1} />
+      <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "10px" }}>
+        <Chip tone="accent">
+          <Code>/pandacorp:implement-backlog</Code> (sin argumentos)
+        </Chip>
+        <Chip tone="secondary">corre en la fábrica</Chip>
+        <Chip tone="ok">reanudable</Chip>
+      </div>
+      <Lead>
+        Drena el backlog de la fábrica (<Code>factory/backlog/BL-*.md</Code>) de forma determinista:
+        mide cada ítem, lanza un subagente por ítem EN PARALELO (cada uno aislado en su propio
+        worktree), y luego los mergea a main <B weight={600}>de uno en uno</B>, con un validador
+        entre cada merge. Antes esto lo improvisaba el skill a mano; ahora es una cinta.
+      </Lead>
+
+      <NotePanel icon="ti-car-garage" iconColor="var(--color-accent)">
+        Como un taller de reparación: cada coche averiado entra a su propia bahía (worktree) con un
+        mecánico del tamaño del trabajo (haiku para lo trivial, sonnet lo normal, opus lo difícil),
+        y todos trabajan a la vez. Pero por la única puerta de salida sale UN coche cada vez (merge
+        serializado), y se vuelve a inspeccionar antes de dejar salir al siguiente. Si uno no pasa
+        la inspección, se devuelve a la bahía y sale el resto.
+      </NotePanel>
+
+      <Panel>
+        <FlowGraph flow={backlogFlow} />
+      </Panel>
+
+      <DocH title="Por qué el merge es de uno en uno" />
+      <Body>
+        El fan-out del trabajo es paralelo, pero el merge NO: dos merges a la vez se pisarían justo
+        en los sitios calientes (la versión del plugin, el decision-log, el contador del README).
+        Serializar el merge y correr el validador entre cada uno es exactamente lo que un modelo
+        improvisa mal — por eso está soldado en código.
+      </Body>
+
+      <DocH title="Modo un-ítem vs drenar-todo" />
+      <Body>
+        Con un id (<Code>/pandacorp:implement-backlog BL-0007</Code>) el skill arregla ESE ítem
+        directo, en la conversación, sin workflow. Sin argumentos, lanza este motor y drena todo el
+        backlog abierto.
+      </Body>
+
+      <DocH title="Cómo retoma" />
+      <Body>
+        Natural: el estado es el <Code>status</Code> del frontmatter de cada BL. Relanzar
+        re-escanea; los <Code>done</Code> ya no entran. Un ítem que se atasca queda{" "}
+        <Code>doing</Code> con su razón, nunca se pierde.
+      </Body>
+
+      <NotePanel icon="ti-alert-triangle" iconColor="var(--color-warn)">
+        <B weight={600}>Nota de ingeniería.</B> Al validar este motor se aprendió algo: los agentes
+        de tier bajo (haiku) tienden a "derivar" al repositorio de su directorio de sesión aunque el
+        prompt lleve rutas absolutas. La solución fue un preámbulo ANCHOR en TODOS los prompts
+        (mismo patrón que el motor de build) + verificar la propiedad del worktree tras crearlo.
+        Determinismo también es blindar al agente contra su propio contexto.
+      </NotePanel>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Registry: slug → render function
 // ---------------------------------------------------------------------------
 
@@ -2586,6 +2981,10 @@ const MANUAL_PAGE_COMPONENTS: Record<string, () => React.JSX.Element> = {
   "tu-perfil": ConceptTuPerfil,
   "multi-runtime": ConceptMultiRuntime,
   "vault-y-respaldos": ConceptVault,
+  // Workflows
+  "que-es-un-workflow": WorkflowsOverview,
+  "wf-pandacorp-build": WorkflowBuild,
+  "wf-pandacorp-backlog": WorkflowBacklog,
 };
 
 /**

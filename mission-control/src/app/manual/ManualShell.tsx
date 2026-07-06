@@ -203,6 +203,11 @@ export function ManualShell({
         setRefAgent(id);
         setRefSkill(null);
       },
+      goToManual: (group: string, slug: string): void => {
+        setActivePage({ type: "authored", group, slug });
+        setRefSkill(null);
+        setRefAgent(null);
+      },
     }),
     [],
   );

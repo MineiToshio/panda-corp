@@ -14,10 +14,12 @@
 
 import type React from "react";
 import type { AgentRole } from "@/app/_design/tokens/tokens";
+import { useManualNav } from "@/app/manual/ManualNavContext";
 import { Chip } from "@/components/core/Chip/Chip";
 import { CopyButton } from "@/components/core/CopyButton/CopyButton";
 import { Markdown } from "@/components/core/Markdown/Markdown";
 import { FlowGraph } from "@/components/modules/manual-diagrams/FlowGraph";
+import { NotePanel } from "@/components/modules/manual-diagrams/prose";
 import { getSkillFlow } from "@/lib/manual/skill-flows";
 import type { RunsIn, SkillRef } from "@/lib/reference/reference";
 import { FlowDiagram } from "./FlowDiagram";
@@ -26,6 +28,15 @@ const RUNS_IN_LABEL: Record<RunsIn, string> = {
   factory: "En la fábrica",
   project: "En el proyecto",
   unknown: "Contexto no especificado",
+};
+
+/**
+ * Skills whose implementation is a Dynamic Workflow engine (not the skill's own
+ * improvised orchestration) → the matching Workflows sub-page (content/manual/workflows/).
+ */
+const WORKFLOW_ENGINE_PAGE: Partial<Record<string, { slug: string; engineName: string }>> = {
+  implement: { slug: "wf-pandacorp-build", engineName: "pandacorp-build" },
+  "implement-backlog": { slug: "wf-pandacorp-backlog", engineName: "pandacorp-backlog" },
 };
 
 // ---------------------------------------------------------------------------
@@ -142,11 +153,13 @@ export interface SkillDetailProps {
 }
 
 export function SkillDetail({ skill, onBack, onAgentClick }: SkillDetailProps): React.JSX.Element {
+  const nav = useManualNav();
   const skillName = `/pandacorp:${skill.slug}`;
   const flow = getSkillFlow(skill.slug);
   // Curated Spanish explainer wins over the (English) frontmatter description (DR-046 derive note).
   const explainer = flow?.explainer ?? skill.description;
   const runsInLabel = RUNS_IN_LABEL[flow?.runsIn ?? skill.runsIn];
+  const workflowPage = WORKFLOW_ENGINE_PAGE[skill.slug];
 
   return (
     <div data-testid="skill-detail" style={DETAIL_STYLE}>
@@ -212,6 +225,31 @@ export function SkillDetail({ skill, onBack, onAgentClick }: SkillDetailProps): 
           </>
         )}
       </div>
+
+      {workflowPage !== undefined && (
+        <NotePanel icon="ti-route" iconColor="var(--color-accent)">
+          Lo que construye/corre aquí es un <b>Dynamic Workflow</b> — un motor determinista, no el
+          skill improvisando. Detalle mecánico:{" "}
+          <button
+            type="button"
+            data-testid="skill-detail-workflow-link"
+            onClick={() => nav.goToManual("workflows", workflowPage.slug)}
+            style={{
+              background: "none",
+              border: "none",
+              padding: 0,
+              margin: 0,
+              font: "inherit",
+              color: "var(--color-accent-text)",
+              textDecoration: "underline",
+              cursor: "pointer",
+            }}
+          >
+            Dynamic Workflows → {workflowPage.engineName}
+          </button>
+          .
+        </NotePanel>
+      )}
 
       <hr style={DIVIDER_STYLE} />
 

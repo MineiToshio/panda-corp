@@ -2,11 +2,13 @@
 /**
  * app/manual/DocNav.tsx — WO-08-002 (CMP-08-doc-nav)
  *
- * The side menu for the Manual. Groups pages by the four Diátaxis quadrants:
+ * The side menu for the Manual. Groups pages by the Diátaxis quadrants plus the
+ * Workflows and Reference groups:
  *   - Empezar aquí (tutorial)
  *   - Guías (guides)
- *   - Referencia (reference, derived from IF-07-reference/registry/standards)
  *   - Conceptos (concepts)
+ *   - Workflows (workflows — Dynamic Workflows: the deterministic JS engines)
+ *   - Referencia (reference, derived from IF-07-reference/registry/standards)
  *
  * Visual design matches prototype `manualView()` nav:
  *   - Group headers: 10px pixel font, var(--color-accent-text), uppercase, letter-spacing .08em
@@ -60,13 +62,14 @@ export interface DocNavProps {
 // ---------------------------------------------------------------------------
 
 const DIATAXIS_GROUPS: ReadonlyArray<{
-  key: "tutorial" | "guides" | "concepts";
+  key: "tutorial" | "guides" | "concepts" | "workflows";
   label: string;
   defaultIcon: string;
 }> = [
   { key: "tutorial", label: "Empezar aquí", defaultIcon: "ti-player-play" },
   { key: "guides", label: "Guías", defaultIcon: "ti-map-2" },
   { key: "concepts", label: "Conceptos", defaultIcon: "ti-brain" },
+  { key: "workflows", label: "Workflows", defaultIcon: "ti-route" },
 ] as const;
 
 /** The four sub-catalog entries in the Reference group (AC-08-002.2). */

@@ -7,6 +7,7 @@
 
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import type { ManualNav } from "@/app/manual/ManualNavContext";
 import { ManualNavProvider } from "@/app/manual/ManualNavContext";
 import type { SkillFlow } from "@/lib/manual/skill-flows";
 import { FlowGraph } from "../FlowGraph";
@@ -37,9 +38,9 @@ const SAMPLE: SkillFlow = {
   loop: "repeats per FRD",
 };
 
-function renderWithNav(nav: { goToSkill: () => void; goToAgent: () => void }) {
+function renderWithNav(nav: Pick<ManualNav, "goToSkill" | "goToAgent">) {
   return render(
-    <ManualNavProvider value={nav}>
+    <ManualNavProvider value={{ ...nav, goToManual: vi.fn() }}>
       <FlowGraph flow={SAMPLE} />
     </ManualNavProvider>,
   );
