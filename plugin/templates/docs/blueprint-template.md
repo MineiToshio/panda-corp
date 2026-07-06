@@ -8,6 +8,7 @@ parent: FRD-NN
 implementation_status: PLANNED   # rolls up from this FRD's work orders (worst non-VERIFIED state)
 readiness_gate:           # "passed YYYY-MM-DD" — stamped by the FRESH-agent readiness gate (DR-100); /implement's preflight REFUSES an ACTIVE blueprint without it
 grounding_gate:           # "passed YYYY-MM-DD" — stamped by the repo-grounding validation (DR-102 step 9b); same preflight assertion
+consistency_gate:         # "passed YYYY-MM-DD" — stamped by the fresh-set contradiction gate (DR-116 step 9b-consistency); same preflight assertion
 last_updated: YYYY-MM-DD
 ---
 

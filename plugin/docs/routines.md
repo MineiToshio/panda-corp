@@ -60,3 +60,38 @@ Si un proyecto no tiene datos (sin eventos instrumentados, deploy interno sin an
 
 Al final entrega un resumen corto: proyecto · veredicto · señal clave · acción recomendada.
 ```
+
+## 3. `pandacorp-consistency-sweep` — the advisory document-consistency sweep (DR-116)
+
+> The lightweight, recurring version of the 2026-07-05 contradiction audit
+> (`docs/proposals/30-factory-contradiction-sweep.md`). It is the **advisory** third layer of the
+> supersession-completeness gate (`factory/standards/document-consistency.md`): the fresh-set
+> verifier (spec/architecture) and the completeness check (change/iterate/learn) block at the moment
+> of change; this catches drift that slips through **between** changes. It NEVER edits and NEVER
+> blocks — it files what it confirms as a `BL-*` item for a fixer to close through the gate. It may
+> also be run on demand as a `/loop` job, or folded into `pandacorp-memory-review`.
+
+- **Cron:** `0 9 * * 1` (Mondays, 9:00 local — weekly, alongside the review-launch loop)
+- **Description:** Semanal advisory — barrido de consistencia documental DR-116: fan-out de
+  revisores sobre slices del corpus buscando contradicciones accidentales (una regla superada en un
+  doc, su enunciado viejo vivo en otro); reporta y archiva como BL-*, nunca edita ni bloquea.
+- **Prompt (canonical):**
+
+```
+Trabaja en /Users/Shared/Proyectos/panda-corp (la fábrica PandaCorp). Habla al owner SIEMPRE en español. Eres el barrido advisory de consistencia documental (DR-116, factory/standards/document-consistency.md). NO editas nada y NO bloqueas nada — solo detectas, deduplicas y archivas.
+
+DEFINICIÓN de contradicción (vinculante): dos enunciados autoritativos, ACTUALES y mutuamente excluyentes sobre el mismo hecho. NO es contradicción: distinciones soft/hard, patrones "default salvo X", texto marcado como superado/tombstoned, ni un registro histórico fechado (una entrada de decision-log — era cierta cuando se escribió, es append-only). Ignora esos.
+
+PASO 1 — Fan-out sobre slices del corpus. Reparte el corpus en 4 slices y revisa cada uno buscando pares de enunciados que se contradigan (el mismo hecho/regla/contrato afirmado de dos formas incompatibles en docs distintos):
+  (a) factory/standards/ + factory/constitution.md
+  (b) plugin/skills/*/SKILL.md + plugin/agents/*.md
+  (c) AGENTS.md + CLAUDE.md + factory/decisions/registry.yaml
+  (d) docs/ (proposals, product) + plugin/docs/
+Para cada slice: lista los enunciados load-bearing (reglas, defaults, contratos, límites, nombres de modelo/stack) y contrasta con los demás slices donde el mismo hecho aparezca. Usa la tabla canonical-doc de AGENTS.md para saber qué doc OWNS cada hecho.
+
+PASO 2 — Deduplica y verifica (critic). Junta los candidatos, quita duplicados, y para cada superviviente CONFIRMA que son de verdad dos enunciados actuales y mutuamente excluyentes (no un caso de la lista de exclusiones de arriba). Descarta los que no.
+
+PASO 3 — Archiva, no edites. Por cada contradicción CONFIRMADA, fíchala en factory/backlog/ como un BL-* (copia factory/backlog/_item-template.md; id con `bash "${CLAUDE_PLUGIN_ROOT}/scripts/validate-backlog.sh"` que imprime el siguiente id libre; type: bug, status: open, source: pandacorp-consistency-sweep) describiendo los dos docs:línea y cuál parece el enunciado viejo. El fixer la cerrará luego pasando por el gate de completitud (change/iterate/learn). NUNCA edites los docs tú.
+
+PASO 4 — Reporte corto al owner en español: cuántas contradicciones confirmadas, cuáles se ficharon como BL-*, una línea cada una. Si no hay ninguna, dilo en una línea y termina (un barrido limpio es buena noticia pero breve).
+```

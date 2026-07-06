@@ -29,6 +29,8 @@ The canonical doc answers *"what is true now?"*; the decision log, *"how did we 
 
 **Do not log** trivial changes already evident in the commit (renaming a variable, formatting). **Do log** every decision or change of behavior, scope, technical, or design.
 
+> **Completeness of a supersession (`document-consistency.md`, DR-116).** The two layers above keep *this* doc true and record its why — but a rule change also has to reach EVERY doc that stated the old rule, or the corpus develops two truths. When you change a rule, propagate it completely: no doc still asserts the old claim, and the why is recorded. `change`/`iterate`/`learn` enforce this as the **supersession-completeness gate**; a freshly generated PRD+FRD or blueprint+WO set is additionally checked for internal contradiction before its phase closes. See [document-consistency.md](document-consistency.md).
+
 ### Source-of-truth hierarchy (which doc wins on conflict)
 When two docs disagree, the higher one wins and the lower one is corrected: **`FRD > FDD > design-tokens > blueprint > work order`**. Discoveries during build propagate **upstream** in that order — a behavior change updates the FRD, a visual/copy change the FDD, an architecture change the blueprint, a scope/paths change the WO — never only the lower doc. Every `blueprint.md` and work order restates this hierarchy in its header so the implementer never has to guess.
 

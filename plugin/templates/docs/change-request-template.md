@@ -13,6 +13,7 @@ date: YYYY-MM-DD
 frd:                     # affected feature/screen if known (frd-NN-<slug>), else blank
 rebuilds_verified: false # true if this redoes already-VERIFIED work (the build flags & guides first)
 depends_on:              # optional: another change/WO that must land first
+supersedes:              # optional (DR-116): the old rule/claim this change REPLACES — iterate then verifies no doc still asserts it. Blank for adding-only changes.
 ---
 
 # Replace with a one-line title (español)
