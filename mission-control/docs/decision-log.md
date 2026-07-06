@@ -4,6 +4,12 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-06 — Test env: polyfill Web Storage in `vitest.setup.ts` (Node 25 broke the jsdom `localStorage` gate)
+
+**What:** added a spec-faithful in-memory `Storage` polyfill to `vitest.setup.ts`, installed only when the ambient `localStorage`/`sessionStorage` is non-functional. Restores a working ambient store for every test that uses it (build-mode FRD-11, digest, theme) — 139 tests across 13 files that had gone red.
+
+**Why:** not a code regression — an **environment** one. Node 20.9+ (unflagged from ~Node 24) exposes a built-in global `localStorage` that is a method-less husk unless launched with a valid `--localstorage-file` (its `clear`/`getItem` are `undefined` and throw). Vitest's jsdom environment overlays a window key onto the global only when it isn't already present there OR is in its hard-coded allow-list — which whitelists `Storage` but **not** `localStorage` — so once the machine moved to Node 25 the broken Node built-in shadowed jsdom's working `localStorage`, and `localStorage.clear is not a function` failed the gate. `engines` only pins `>=20.9.0` and there's no `.nvmrc`, so nothing held Node back. The polyfill is node-version-independent and leaves older Node / a real jsdom `Storage` untouched; a `configurable` descriptor keeps per-file `Object.defineProperty(window, "localStorage", …)` overrides working. Full gate green (7462 unit + 68 browser). Reviewer-authored test files untouched — the fix is purely the shared environment setup.
+
 ## 2026-07-06 — Manual guide `g-adoptar` + `GuideAdoptar` synced to the corrected `adopt` portfolio rule (RFC-30 N1)
 
 **What:** `plugin/skills/adopt/SKILL.md` no longer gates the `factory/portfolio.md` row on "once building" — it now adds the row at adoption time for any inferred phase (matching `scaffold`/`spec`). Synced the same correction into this project's hand-authored Manual narrative: `content/manual/guides/g-adoptar.md` and the `GuideAdoptar` TSX component in `src/app/manual/manualPages.tsx` (the slug is TSX-registered per LESSON-0028, so the `.md` alone would not have surfaced in the live Manual).

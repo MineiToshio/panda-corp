@@ -4,6 +4,60 @@ import { vi } from "vitest";
 import "vitest";
 
 /**
+ * Web Storage polyfill for the jsdom test environment.
+ *
+ * Node 20.9+ (unflagged from Node ~24) exposes a built-in global `localStorage`
+ * that is a non-functional husk unless the process is launched with a valid
+ * `--localstorage-file`: its methods are `undefined` and calling them throws.
+ * Vitest's jsdom environment only overlays window keys it does NOT already see
+ * on the global, and its allow-list whitelists `Storage` but not `localStorage`
+ * — so the broken Node built-in shadows jsdom's working `localStorage`, and
+ * every test that uses the ambient store (build-mode, digest, theme) fails with
+ * "localStorage.clear is not a function". Install a spec-faithful in-memory
+ * Storage ONLY when the ambient one is non-functional, so older Node / a real
+ * jsdom Storage is left untouched. A `configurable` descriptor keeps per-file
+ * `Object.defineProperty(window, "localStorage", …)` overrides working.
+ */
+class MemoryStorage implements Storage {
+  private readonly store = new Map<string, string>();
+  [name: string]: unknown;
+
+  get length(): number {
+    return this.store.size;
+  }
+  clear(): void {
+    this.store.clear();
+  }
+  getItem(key: string): string | null {
+    return this.store.has(key) ? (this.store.get(key) as string) : null;
+  }
+  key(index: number): string | null {
+    return Array.from(this.store.keys())[index] ?? null;
+  }
+  removeItem(key: string): void {
+    this.store.delete(key);
+  }
+  setItem(key: string, value: string): void {
+    this.store.set(String(key), String(value));
+  }
+}
+
+function ensureFunctionalStorage(name: "localStorage" | "sessionStorage"): void {
+  const current = (globalThis as Record<string, unknown>)[name] as Storage | undefined;
+  const isFunctional =
+    typeof current?.clear === "function" && typeof current?.getItem === "function";
+  if (isFunctional) return;
+  Object.defineProperty(globalThis, name, {
+    value: new MemoryStorage(),
+    writable: true,
+    configurable: true,
+  });
+}
+
+ensureFunctionalStorage("localStorage");
+ensureFunctionalStorage("sessionStorage");
+
+/**
  * Mock next/font/google (DR-054 font wiring): in jsdom the real loader is a
  * build-time network fetch and isn't a callable at test time. Any font import
  * (Pixelify_Sans, Space_Grotesk, …) returns a stub with the CSS-variable shape
