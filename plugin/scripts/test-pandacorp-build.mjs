@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // ─────────────────────────────────────────────────────────────────────────────
 // test-pandacorp-build.mjs — the FIRST automated test harness for the Pandacorp
-// build engine (plugin/templates/shared/.claude/workflows/pandacorp-build.js).
+// build engine (plugin/templates/shared/.claude/engines/pandacorp-build.js).
 //
 // HOW THE SIMULATION WORKS
 // ────────────────────────
@@ -62,7 +62,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const ENGINE_PATH = path.resolve(__dirname, '../templates/shared/.claude/workflows/pandacorp-build.js')
+const ENGINE_PATH = path.resolve(__dirname, '../templates/shared/.claude/engines/pandacorp-build.js')
 
 let source = readFileSync(ENGINE_PATH, 'utf8')
 // The only ESM syntax in the file is the meta export; neutralize it so the
@@ -186,15 +186,23 @@ SCENARIOS.push({
   },
 })
 SCENARIOS.push({
-  name: '1b. args guard — args as a JSON STRING fires the string warning',
+  // Proposal 31 T0: scriptPath launches deliver args as a JSON STRING; the engine now
+  // NORMALIZES it (JSON.parse shim) instead of warning-and-running-unbounded. A parseable
+  // string must behave exactly like the object case.
+  name: '1b. args guard — a parseable JSON-STRING args is normalized, no warning, run stays bounded',
   args: '{"mode":"pro","maxAgents":10}',
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error}`)
-    const warn = run.logs.find((l) => l.includes('⚠⚠'))
-    t.ok(Boolean(warn), 'a ⚠⚠ warning log line fires when args is a string')
-    t.ok(warn && /NOT an object/.test(warn), 'the warning says args is NOT an object')
-    t.ok(warn && /string/.test(warn), 'the warning names the actual typeof (string)')
-    t.ok(warn && /UNBOUNDED/.test(warn), 'the warning says the run is UNBOUNDED')
+    t.ok(!run.logs.some((l) => l.includes('⚠⚠')), 'no ⚠⚠ warning — the string was parsed into a proper object')
+    t.ok(!run.logs.some((l) => /UNBOUNDED/.test(l)), 'run is NOT unbounded — maxAgents came through the parse')
+  },
+})
+SCENARIOS.push({
+  name: '1d. args guard — an UNPARSEABLE string fails LOUD (never runs misconfigured)',
+  args: '{not json',
+  assert(t, run) {
+    t.ok(Boolean(run.error), 'engine throws on an unparseable args string')
+    t.ok(run.logs.some((l) => /FATAL/.test(l) && /unparseable/.test(l)), 'a FATAL log names the unparseable-args cause')
   },
 })
 SCENARIOS.push({

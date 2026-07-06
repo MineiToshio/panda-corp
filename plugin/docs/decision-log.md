@@ -4,6 +4,10 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.78.1 — 2026-07-06 — legacy engine harness migrated to the T0 engines path + shim-era args scenarios
+
+`plugin/scripts/test-pandacorp-build.mjs` still loaded the engine from the pre-T0 `.claude/workflows/` path (ENOENT — a T0 straggler outside the T0 grep sweep) and scenario 1b asserted the OLD string-args warning that the T0 normalization shim intentionally replaced. Fixed the ENGINE_PATH, rewrote 1b to assert the new contract (parseable JSON-string args = normalized, bounded, no warning) and added 1d (unparseable string = FATAL + throw). 19/19 scenarios green against the 9.78.0 engine. (Proposal 31 close-out.)
+
 ## v9.78.0 — 2026-07-06 (MINOR): split the FRD review gate — parallel finder lenses + adversarial verify behind `reviewSplit` (proposal 31 T1.2)
 
 **What:** the build engine's per-FRD review gate can now run as a FOUR-STAGE split instead of one serial Opus reviewer, gated by a new `reviewSplit` flag in `PROFILES` (`true` for `powerful`/`deep`, `false` for `pro`/`balanced`). When `reviewSplit` is false nothing changes — `pro`/`balanced` run the exact serial `frdGateSerial()` (the old `frdGate` body, renamed) byte-for-byte. When true and the split's estimated agent-cost fits the remaining `maxAgents` budget, `frdGate()` dispatches to `frdGateSplit()`:
