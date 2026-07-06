@@ -725,6 +725,25 @@ function ConceptEstandares(): React.JSX.Element {
           independiente del mismo hecho es un defecto que el reviewer rechaza. Canónico:{" "}
           <Code>single-source-of-truth.md</Code>.
         </div>
+        <Divider />
+        <div style={{ fontSize: "12px", color: "var(--color-text2)", lineHeight: 1.6 }}>
+          <B weight={500}>Consistencia documental — el gate de supersesión completa (DR-116,
+          2026-07-05):</B> ninguna regla puede sobrevivir en las sombras. Si cambias una regla en un
+          doc pero su enunciado viejo sigue vivo en otro, dos agentes leen dos verdades y se
+          desvían — el patrón raíz de las ~21 contradicciones que encontró la auditoría (el motor
+          construyó DOS cambios cuando pediste UNO). El gate <B weight={600}>nunca bloquea el
+          cambio</B>, solo su propagación INCOMPLETA. Dos casos: un{" "}
+          <B weight={600}>set recién generado</B> (PRD+FRDs de <Code>spec</Code>, blueprint+WOs de{" "}
+          <Code>architecture</Code>) lo revisa un verificador FRESCO — una contradicción interna
+          dura <B weight={600}>bloquea el cierre de la fase</B> (como un{" "}
+          <Code>[NEEDS CLARIFICATION]</Code> pendiente); una <B weight={600}>edición al corpus
+          existente</B> (<Code>change</Code>/<Code>iterate</Code>/<Code>learn</Code>) exige que la
+          supersesión sea COMPLETA — declaras qué regla vieja reemplazas y el verificador confirma
+          que ningún doc la sigue afirmando y que el porqué quedó registrado (las dos escrituras).
+          Un <B weight={500}>barrido advisory semanal</B> caza la deriva que se cuele — reporta y
+          ficha como <Code>BL-*</Code>, nunca edita ni bloquea. Canónico:{" "}
+          <Code>document-consistency.md</Code>.
+        </div>
       </Panel>
     </>
   );
@@ -1739,8 +1758,8 @@ function ConceptDespuesDeLanzar(): React.JSX.Element {
       <DocH title="Los tres veredictos" />
       <Panel>
         <ChipDefRow chip="DOUBLE DOWN" tone="ok" isFirst>
-          La hipótesis se sostuvo (o va bien): recomienda el siguiente paso (iterar una feature con{" "}
-          <Code>/pandacorp:iterate</Code>, o empujar la distribución de{" "}
+          La hipótesis se sostuvo (o va bien): recomienda el siguiente paso (encolar la próxima
+          feature por la puerta única <Code>/pandacorp:change</Code>, o empujar la distribución de{" "}
           <Code>docs/launch-plan.md</Code>).
         </ChipDefRow>
         <ChipDefRow chip="HOLD" tone="warn" isFirst={false}>

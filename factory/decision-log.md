@@ -2,6 +2,45 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-05 — Factory-wide contradiction sweep: standards + AGENTS.md reconciliation (docs/proposals/30)
+
+**What:** the "authoritative rule contradicted by an un-updated sibling doc" root pattern (the same bug that made the build engine build two changes for one, fixed in plugin v9.72.1) was swept factory-wide by a 6-reviewer audit (proposal `docs/proposals/30-factory-contradiction-sweep.md`). Factory-side reconciliations, all mechanical (no behavior change):
+- **B5** — `build-orchestration.md` DR-074 responsive-gate line said "both the per-FRD gate and close-out"; corrected to the full-run/close-out only scope the engine actually implements (per-FRD `--since` runs smoke+shell only), cross-referencing DR-106.
+- **B6** — `infra.md` listed `pending_changes` among the fields the gate writes into `status.yaml`; removed — it is derived live from `.pandacorp/inbox/changes/`, never stored (single-source-of-truth.md / DR-115).
+- **B7** — `agent-portability.md` per-FRD gate step wrote a bare `progress` field into `status.yaml`; renamed to "per-status work-order counts + `last_green_sha`" matching the engine's actual naming (bare `progress` is a dead field with no writer per DR-115).
+- **C9** — `privacy.md` said "managed DB (Neon/Supabase)"; corrected to Neon-only (Supabase evaluated and rejected, per external-services.md / the stack golden path).
+- **BK1** — `infra.md` stale "`run/*.sh` machinery has no backup" claim corrected — `backup-pandacorp-state.sh` has covered `run/*.sh` + `run/lessons.md` since v9.72.0 (guidance to reconstruct-not-delete the dir preserved).
+- **Cos1** — `README.md` "golden paths A/B/C/D" → A/B/C and `api-design.md` "stacks B/C/D" → B/C (D was folded into C per stack.md). The Manual concept `stacks-golden-paths.md` already stated 3 paths — no edit needed.
+
+**Why:** each divergence was an authoritative contract silently contradicted by a sibling that lagged a prior decision (DR-106, DR-115, the stack merge). Aligning them removes the ambiguity that breaks autonomy and trust in the rules.
+
+**Docs touched:** `factory/standards/{build-orchestration.md, infra.md, agent-portability.md, privacy.md, README.md, api-design.md}`; `AGENTS.md` rule 11 (Codex tier mapping "gpt-5.5-high" → "gpt-5.5 (high effort)", matching its cited authority agent-portability.md's PORT-2 table where STANDARD and JUDGE share model id `gpt-5.5`, differentiated only by effort — finding N3); `plugin/templates/rules/code-conventions.md` (C1, logged plugin-side).
+
+## 2026-07-05 — Document consistency becomes a supersession-completeness gate (DR-116, new standard)
+
+**What:** new standard `factory/standards/document-consistency.md` + registry DR-116 codify the preventive half of the contradiction sweep. Two cases: an *accidental* contradiction must be CAUGHT; an *intentional* supersession must NEVER block the change but must PROPAGATE completely. Mechanisms: a FRESH-SET blocking verifier (generator != verifier) that blocks phase close on a hard internal contradiction (spec: PRD+FRDs; architecture: blueprint+WOs — analogous to the readiness/grounding gates); a SUPERSESSION-COMPLETENESS check for corpus edits (the author declares the superseded claim; a verifier confirms no doc still asserts the old claim + the two-writes record — blocking only INCOMPLETE PROPAGATION, never the rule change); a bounded semantic detection mechanism (seed with the declared list → derive the owning-doc set via the AGENTS.md canonical-doc table + standards registry → grep old-claim key terms for candidates → a subagent reads only candidates); and an advisory periodic sweep filing confirmed contradictions as `BL-*` items (DR-103). Human-gate posture (DR-116): advisory sweep = no gate; fresh-set hard contradiction = blocks phase close (fail-closed); incomplete supersession = reported back, never vetoed.
+
+**Why:** the trigger bug + 21 audited accidental contradictions all shared one root — a rule superseded in one doc, its old statement left standing elsewhere (e.g. DR-115 deleted `pending_changes` but left `infra.md` asserting it). A completeness gate makes the second, stale assertion a caught defect instead of a latent contradiction.
+
+**Docs touched:** `factory/standards/document-consistency.md` (new), `factory/standards/{README.md, documentation.md}`, `factory/decisions/registry.yaml` (DR-116); skill wiring logged plugin-side.
+
+## 2026-07-05 — Constitution §6 amended: human gates are TWO tiers, not one (contradiction remediation C7)
+
+**What:** Reformulated constitution.md principle 6 from a single flat list of gates applied "only as hard deny-rules, never conversational" into two explicit tiers. Tier (a) HARD-DENY (irreversible/money/trust): production release, spending money, external comms, data deletion, access changes (registry DR-004/005/007/008/025 + data-deletion class of DR-011) — enforced as deny-rules in .claude/settings.json + hooks, never merely conversational. Tier (b) LIGHTWEIGHT approval points (reversible owner choices resolved in conversation): idea selection, design choice, and other requiere_humano: true judgments (stack DR-002, phase advance DR-032, launch market DR-041, kill/double-down DR-043, design fidelity DR-054/058/064, reverse-sync DR-081) that live as owner decisions inside the relevant skill and need not be hard deny-rules. Recorded the supersession in registry DR-002's nota (the canonical tier-(b) example).
+
+**Why:** The old flat §6 list contradicted ~10 registry DRs carrying requiere_humano: true that have always lived as in-conversation approvals in skills (never as deny-rules) — the same "authoritative rule contradicted by an un-updated sibling" root pattern under factory-wide remediation. The old list also mislabeled idea selection and design choice as hard gates when the registry (DR-011 propose-only, DR-002 "lightweight gate") always treated them as reversible. Hard gates stay non-negotiable; only the missing distinction was added. Owner-authorized.
+
+**Docs touched:** factory/constitution.md §6; factory/decisions/registry.yaml (DR-002 nota).
+**Manual follow-up:** mission-control/content/manual/concepts/los-gates-humanos.md should reflect the two-tier distinction (check manualPages.tsx TSX rendering per LESSON-0028).
+
+## 2026-07-05 — Constitution §16 amended: component/design strategy is per-project, not a shadcn mandate (contradiction remediation C6)
+
+**What:** Amended constitution.md principle 16 (Reinforced UX/UI). Removed the hard-coded "on top of shadcn/ui as the accessible component base" clause and replaced it with the current per-project truth: bespoke visual identity per project (DR-098, no factory house style), design system generated per project via the EXPLORE path (Claude Design when available, hand-authored HTML fallback — DR-058; ADOPT-VISUAL extracts an approved visual faithfully — DR-054), built on design tokens, with accessibility (WCAG AA both themes, labelled/reachable controls, axe-core before the human gate) as a first-class requirement. shadcn is now framed as the standard component base of golden-path A in factory/standards/stack.md that the architect may adapt per project.
+
+**Why:** The constitution's shadcn mandate contradicted the shipped design rules (design.md, stack.md, DR-058/098) which govern per-project, bespoke design-system generation on top of (not mandating) the golden-path component base. Aligned the highest-authority document to the rules already in force. Accessibility requirement preserved. Owner-authorized. (Per the C6 verifier note, this is an alignment/omission fix, not a claim that shadcn is wrong — it remains golden-path A's base.)
+
+**Docs touched:** factory/constitution.md §16.
+
 ## 2026-07-05 — pandacorp-vault: the factory's out-of-repo state gets one discoverable home
 
 **What:** the factory's personal, machine-local state that must not live inside the `panda-corp/` repo — previously scattered as loose HOME dirs (`~/.pandacorp-personal.git`, `~/.pandacorp-backups`) the owner didn't even know existed — is consolidated into **`/Users/Shared/Proyectos/pandacorp-vault/`**, a sibling of `panda-corp/` holding `personal.git/` (the overlay that versions the factory's gitignored personal files) + `backups/` (the daily state backups), with a `README.md` signpost. Secrets/keys deliberately do NOT move here — the SOPS age key stays in `~/.config/pandacorp/`. Documented in `factory/standards/infra.md` (new "pandacorp-vault" paragraph in the roots section) and surfaced to agents in `AGENTS.md` (PROTECTED STATE PATHS bullet); `backup-pandacorp-state.sh` auto-detects the vault (plugin v9.72.2).

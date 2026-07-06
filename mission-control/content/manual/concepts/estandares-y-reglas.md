@@ -65,3 +65,13 @@ El flujo de autoaprendizaje (DR-047) captura lecciones candidatas en el inbox. S
 3. Una nueva habilidad en el plugin.
 
 La habilidad `/pandacorp:learn` (skill `learn`) facilita la promoción con el propietario como gate final.
+
+## Consistencia documental — el gate de supersesión completa (DR-116)
+
+Ninguna regla puede sobrevivir en las sombras. Si cambias una regla en un doc pero su enunciado viejo sigue vivo en otro, dos agentes leen dos verdades y se desvían — el patrón raíz de las ~21 contradicciones que encontró la auditoría del 2026-07-05. El gate **nunca bloquea el cambio**, solo su propagación INCOMPLETA:
+
+- **Set recién generado** (PRD+FRDs de `spec`, blueprint+WOs de `architecture`): un verificador fresco lo lee entero; una contradicción interna dura **bloquea el cierre de la fase**, como un `[NEEDS CLARIFICATION]` pendiente.
+- **Edición al corpus existente** (`change`/`iterate`/`learn`): declaras qué regla vieja reemplazas y el verificador confirma que ningún doc la sigue afirmando y que el porqué quedó registrado (las dos escrituras: doc canónico + decision log).
+- **Barrido advisory semanal** (`pandacorp-consistency-sweep`): caza la deriva que se cuele — reporta y ficha como `BL-*`, nunca edita ni bloquea.
+
+Canónico: `factory/standards/document-consistency.md`.

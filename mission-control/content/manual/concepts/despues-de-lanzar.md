@@ -30,7 +30,7 @@ product → design → architecture → build → release → operation
 
 ## Los tres veredictos
 
-- **DOUBLE DOWN** — la hipótesis se sostuvo (o va bien): recomienda el siguiente paso (iterar una feature con `/pandacorp:iterate`, o empujar la distribución de `docs/launch-plan.md`).
+- **DOUBLE DOWN** — la hipótesis se sostuvo (o va bien): recomienda el siguiente paso (encolar la próxima feature por la puerta única `/pandacorp:change`, o empujar la distribución de `docs/launch-plan.md`).
 - **HOLD** — no concluyente / demasiado pronto: seguir midiendo; fija la próxima fecha de revisión.
 - **KILL / ARCHIVE** — saltó un kill-signal (monetary: por debajo del umbral de usuarios/ingresos en la ventana, o CAC > LTV; opportunity: la métrica está plana; personal: el dueño dejó de usarla): recomienda archivar y liberar el foco.
 
