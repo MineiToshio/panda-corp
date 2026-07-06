@@ -28,7 +28,7 @@ The owner has a project they built by hand (or cloned) and wants the factory to 
    - **CLAUDE.md**: if the project HAS one, do NOT replace it — APPEND the import lines (`@AGENTS.md`, `@docs/rules/README.md`, `@.pandacorp/guide.md`) and leave its own content untouched; if it has none, use the thin template. **AGENTS.md**: if absent, add the factory-conventions one (with the `docs/rules/` pointer); if present, merge the write-gate bullet + the `docs/rules/` pointer without disturbing its rules.
    - **.gitignore present**: MERGE the integration-layer ignores (`.pandacorp/comms/`, `.pandacorp/inbox/`, `.pandacorp/run/`), without duplicating.
    - **.claude/settings.json present**: merge the `permissions.deny` entries.
-   - Always bring `.claude/workflows/pandacorp-build.js` (the build engine `implement` launches). The marker that makes the factory recognize the project is `.pandacorp/status.yaml` (written in step 5).
+   - Always bring `.claude/engines/pandacorp-build.js` (the build engine `implement` launches — it lives in `.claude/engines/`, NOT `.claude/workflows/`, so it stays out of the owner's `/` menu). The marker that makes the factory recognize the project is `.pandacorp/status.yaml` (written in step 5).
 
 5. **Create the structure + state** (feature-centric, DR-049).
 

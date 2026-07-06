@@ -10,7 +10,7 @@ Brings this project's Pandacorp overlay up to the factory's current version. The
 
 > **Active-build guard (HARD, runs before anything else).** Read `running`, `supervisor_heartbeat` and
 > `run_started_at` from `.pandacorp/status.yaml`. If `running: true` AND the heartbeat is **less than 10
-> minutes old**, **ABORT — do not upgrade**: this skill regenerates `.claude/workflows/pandacorp-build.js`,
+> minutes old**, **ABORT — do not upgrade**: this skill regenerates `.claude/engines/pandacorp-build.js`,
 > overwrites the conformance-managed gate files (`verify.sh`, `biome.json`, e2e specs) and **commits on its
 > own** — doing that under a live build races the engine's single-git-writer chain (DR-086) and can change
 > gate semantics between a WO's self-test and its FRD gate. Tell the owner (in Spanish) that the upgrade is
@@ -47,7 +47,7 @@ Brings this project's Pandacorp overlay up to the factory's current version. The
 
 3. **Regenerate the managed layer (non-destructive).**
    - **`.pandacorp/guide.md` and `.pandacorp/README.md`**: regenerate ENTIRELY from the current template (fully managed — no merge), substituting the template vars from `.pandacorp/status.yaml` + factory paths.
-   - **Machinery** (`.claude/workflows/pandacorp-build.js` and any factory script the overlay ships): regenerate from the template.
+   - **Machinery** (`.claude/engines/pandacorp-build.js` and any factory script the overlay ships): regenerate from the template. **Migrate the engine's home (proposal 31 T0):** the engine moved from `.claude/workflows/` (auto-exposed in the `/` menu) to the unscanned `.claude/engines/`. After regenerating into `.claude/engines/pandacorp-build.js`, **if a leftover `pandacorp-build.js` still sits under `.claude/workflows/`, DELETE that stale copy** (and remove the now-empty `.claude/workflows/` dir) — otherwise the old menu entry keeps polluting the owner's `/` menu.
    - **`CLAUDE.md`**: ensure it imports `@AGENTS.md`, `@docs/rules/README.md` and `@.pandacorp/guide.md`. If the project still has the old fat `CLAUDE.md`, replace the managed sections with the thin import header but **keep everything the owner wrote below the managed line**. Never touch the owner's notes.
    - **`AGENTS.md`**: reconcile the managed block (priority order, the `docs/rules/` pointer, language & interaction, write-gate, stack pointer) with the template; keep project-specific additions. A project on an older overlay that still inlines the long durable-conventions block: replace that block with the `docs/rules/` pointer (the rules now live as files in `docs/rules/`, synced just below) — don't leave two copies.
    - **`docs/rules/` (engineering rules re-sync)**: this is how rule changes reach every project. Read the project's stack from `docs/product/architecture.md`. For each file in `${CLAUDE_PLUGIN_ROOT}/templates/rules/`: if its `applies_when`/`also_applies_when` is `always` or matches a technology the project uses, **copy it in verbatim, overwriting the project's copy** (the plugin is the source of truth for these files); if it no longer applies (a technology was dropped), remove the stale project copy. Leave untouched any file the owner added that has no counterpart in the plugin (project-specific rules). Then **regenerate `docs/rules/README.md`** (canonical spec in the `scaffold` skill). For a pre-rules project (no `docs/rules/`), create it now with the applicable set (first-time adoption). Bumping `OVERLAY_VERSION` whenever a rule file changes is what triggers this on the next skill run (DR-051).

@@ -11,6 +11,13 @@ export const meta = {
   ],
 }
 
+// scriptPath launches deliver `args` as a JSON STRING (name launches delivered an object) —
+// normalize before ANY read, or every args.* below silently falls to its legacy default (BL-0022 class).
+// Verified empirically 2026-07-06 (proposal 31 T0). Unparseable string = fail LOUD, never run misconfigured.
+if (typeof args === 'string') {
+  try { args = JSON.parse(args) } catch (e) { log('FATAL: args arrived as an unparseable string: ' + e.message); throw e }
+}
+
 // ── Input (all optional) ─────────────────────────────────────────────────────
 //   args.mode:    'pro' | 'balanced' | 'powerful' | 'deep'  (default: powerful)
 //   args.frds:    specific FRD folders to limit to           (default: all pending)

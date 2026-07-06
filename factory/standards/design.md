@@ -457,7 +457,7 @@ the system gallery before the manifest is bridged to `components.md`.
 | Fidelity downstream (templates + skills + dev agents) | `plugin/templates/docs/{frd,blueprint,work-order}-template.md`, `plugin/skills/{spec,architecture,work-orders}/SKILL.md`, `plugin/agents/{implementer,frontend-dev}.md` |
 | Shard the prototype per-FRD + prototype home (DR-056 §1) | `plugin/skills/design/SKILL.md` (Step 8), `plugin/agents/designer.md`, `plugin/skills/adopt/SKILL.md` (step 6) |
 | App shell = captured foundation + Shell-Presence Gate (DR-075 §5b) | `plugin/templates/stack-a-nextjs/e2e/{shell.spec.ts,shell.ts}`, `plugin/templates/stack-a-nextjs/{verify.sh,STACK.md}`, `plugin/skills/design/SKILL.md` (Step 8a), `plugin/skills/{architecture,upgrade,adopt}/SKILL.md`, `plugin/agents/{designer,reviewer}.md`, `factory/standards/{build-orchestration,quality}.md` |
-| Engine injects design refs into the build prompt (DR-056 §2) | `plugin/templates/shared/.claude/workflows/pandacorp-build.js` (`designRef`) |
+| Engine injects design refs into the build prompt (DR-056 §2) | `plugin/templates/shared/.claude/engines/pandacorp-build.js` (`designRef`) |
 | In-loop render→compare→correct (DR-056 §3) | `plugin/agents/{implementer,frontend-dev}.md` |
 | Two-layer visual-fidelity gate (DR-056 §4) | `plugin/agents/reviewer.md`, `factory/standards/build-orchestration.md` §5, `plugin/templates/stack-a-nextjs/STACK.md` |
 | Runtime/visual verification (smoke) | `plugin/agents/reviewer.md`, `factory/standards/build-orchestration.md` §5, `plugin/templates/stack-a-nextjs/STACK.md`, `plugin/templates/rules/quality-and-testing.md` |
