@@ -138,6 +138,14 @@ per-commit date — output-identical to the per-row scan (equivalence verified),
 combined `flow-series` pass is deliberately **un-`-n`-capped**: `-n N --reverse` keeps the N *newest*
 commits, which would drop the oldest VERIFIED crossings across the whole tree.
 
+> **Superseded (2026-07-06, FRD-23 + ADR-0004).** The git-at-read-time contract above stays as the
+> **fallback** path only. It no longer scales past a handful of projects (O(N): ~1.4 s at 30, ~4.7 s at
+> 100). The Informe now reads a **materialized read-model** (`.pandacorp/stats.json`, an honest cache
+> with a self-validating freshness seal), falling back to these live git readers only when the snapshot
+> is missing / stale / corrupt (fail-loud, DR-078). See
+> [`FRD-23`](../frd-23-materialized-stats-read-model/frd.md) and
+> [`ADR-0004`](../../adr/ADR-0004-materialized-stats-read-model.md).
+
 ## 4. Components & interfaces
 
 ### Interfaces (`lib/achievements/`, NEW pure package — §3)

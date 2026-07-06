@@ -31,6 +31,7 @@ Living index of the FRDs (feature-centric docs, DR-049). Each FRD is a self-cont
 | [FRD-17](../frds/frd-17-proposals-inbox/frd.md) | Proposals inbox | The self-learning gate + self-suggestion stream (promotions, bottlenecks, nudges). |
 | [FRD-18](../frds/frd-18-dashboard/frd.md) | Dashboard ("Inicio") | The landing command center: since-last-visit digest, human-gate queue, factory pulse. |
 | [FRD-19](../frds/frd-19-app-shell/frd.md) | Global app shell | The persistent top-navigation shell: brand + guild identity + the six top-level destinations, active-aware and responsive. |
+| [FRD-23](../frds/frd-23-materialized-stats-read-model/frd.md) | Materialized stats read-model | The Informe reads a materialized `.pandacorp/stats.json` (honest cache + freshness seal) instead of deriving git on every render, falling back to live git when the snapshot is missing/stale/corrupt. |
 
 ## Problem
 Operating the factory from the terminal alone is dry: there is no view of the overall state, you have to open files by hand, it's not obvious which skill is next, and nothing sustains the motivation of the solo operator day to day.
