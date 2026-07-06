@@ -20,6 +20,7 @@ the four UI WOs (page + streams/card, memory-health panel, promotions queue, bad
 | WO-17-005 | Loop v2 fields & signals: trigger/applied_in in the reader; lastSweepAt + harvestOrphans in memory-health; detail rows + threshold 20 | `lib/`, `components/`, `app/` | VERIFIED (gate green 2026-07-02, direct implementation DR-097 — drains change mc-frd17-propuestas-memory-health-loop-v2) | WO-17-001, WO-17-002, WO-17-004 |
 | WO-17-004 | Proposals surface: stream/card + promotions queue + memory health + badge/chip | `app/`, `components/` | VERIFIED (gate PASS 2026-06-21, reopen_count reset 0: the DR-057/062 reuse defect is resolved & mutation-locked — MemoryHealth reuses shared Banner+SectionHead, PromotionsQueue reuses SectionHead+Panel+Chip, ProposalsBadge reuses CountBadge; /proposals blessed) | WO-17-002, WO-17-003, WO-13-006, WO-13-007 |
 | WO-17-006 | MemoryHealth: remove the obsolete "SOLO DEMO" demo frame (drains change mc-memory-health-remove-solo-demo-frame — the trigger is real, so the wrapper misled) | `components/` | IN_REVIEW | WO-17-005 |
+| WO-17-007 | Collapse long proposal streams with a "ver más" toggle: first 6 cards + in-place expand in the shared `DismissableProposalStream` (drains change mc-proposal-stream-show-more, DR-069) | `app/` | PLANNED | WO-17-004 |
 
 ## Parallelization
 

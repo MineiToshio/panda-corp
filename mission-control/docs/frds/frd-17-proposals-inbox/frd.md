@@ -6,7 +6,7 @@ status: ACTIVE
 implementation_status: IN_REVIEW
 ui: true
 visual_source: docs/design/prototype/index.html
-last_updated: '2026-07-02'
+last_updated: '2026-07-05'
 ---
 # FRD-17 — Proposals inbox (self-learning gate + self-suggestion)
 
@@ -30,6 +30,12 @@ The owner-facing surface of the factory's self-learning loop (DR-047) and the pl
 - Candidate lessons SHALL be visually distinct from `active` ones, and the eval-gate state (corroborated / awaiting a 2nd occurrence) SHALL be shown, so the owner sees why something is auto-active vs pending (DR-047).
 - Proposals SHALL be **honest and dismissible** (White-Hat, [FRD-09](../frd-09-gamification/frd.md)): no false urgency, no nagging, no streaks; a proposal is a suggestion the owner can dismiss, and dismissing it is remembered. Framed in the guild theme (the `librarian` is the guild's cronista), never as pressure.
 - High-risk proposals (promote to a MUST standard, create/edit a skill/agent, change a DR, delete) SHALL only ever be **displayed**; approval routes to the owner running the relevant skill — Mission Control never applies them itself (DR-047 human gate).
+
+### REQ-17-010 — Collapse long proposal streams with a "ver más" toggle
+- **AC-17-010.1** — WHERE a proposal stream has **more than the collapse threshold (6)** undismissed cards, the shared `DismissableProposalStream` (`CMP-17-stream`) SHALL render only the first 6 and a **"ver más"** toggle labelled with the hidden count; the remaining cards SHALL NOT be in the rendered list until expanded.
+- **AC-17-010.2** — WHEN the owner activates the toggle, the rest of the **already-loaded** cards SHALL appear **in-place** (no additional fetch, pagination or navigation) and the toggle SHALL become **"ver menos"**; activating it again collapses back to the first 6.
+- **AC-17-010.3** — WHERE a stream has **≤ 6** undismissed cards, **no toggle** SHALL be shown and every card SHALL render (unchanged behavior); the cut is over the undismissed list, so dismissing below the threshold hides the toggle.
+- **AC-17-010.4** — The collapse cut SHALL live in the **single shared** stream component and apply **uniformly to every stream kind** it serves (candidate-lesson, prune, self-suggestion) — one code path, not a per-kind fork (DR-057). Existing dismiss / detail-modal / group-level-command behavior SHALL be unchanged; the toggle is a semantic `<button>` with `aria-expanded`, keyboard-operable, Spanish copy, state not by color alone (FRD-13). Added 2026-07-05 (drains change `mc-proposal-stream-show-more`, DR-069).
 
 ### REQ-17-001 — Group-level command + lesson grouping
 - **AC-17-001.1** — WHERE a proposal group shares a single activating command (e.g. candidate lessons and prunable/obsolete lessons both act through `/pandacorp:memory`), the command SHALL be shown **once at the group level**, under the group title — NOT as a per-item copy button.
