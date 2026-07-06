@@ -2,8 +2,8 @@
 id: FRD-17
 type: frd
 title: FRD-17 — Proposals inbox (self-learning gate + self-suggestion)
-status: ACTIVE
-implementation_status: PLANNED
+status: VERIFIED
+implementation_status: VERIFIED
 ui: true
 visual_source: docs/design/prototype/index.html
 last_updated: '2026-07-05'

@@ -5,7 +5,7 @@ slug: stream-show-more
 title: 'WO-17-007 — Collapse long proposal streams with a "ver más" toggle'
 status: DRAFT
 parent: FRD-17
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 reopen_count: 0
 artifacts:
   - 'src/app/proposals/_components/DismissableProposalStream/**'
@@ -103,3 +103,22 @@ expanded/collapsed states at the FRD gate.
 - Bonus: dismiss behavior unchanged (can dismiss in both collapsed and expanded views)
 
 All 7 new tests + 3 existing tests pass (10 total component tests, 408 files, 7454 tests project-wide). No type errors, lint/format clean.
+
+## Review verdict — VERIFIED (FRD-17 gate + cross-feature integration, DR-050/DR-060)
+
+**Reviewer:** Opus (different model from the sonnet/haiku builders — DR-015 bias break). Reviewed FRD-17 as a whole with WO-17-007 exercised together with the already-VERIFIED foundation (WO-17-001..006).
+
+**Adversarial acceptance suite authored (DR-080)** — `_tests/streamShowMore.reviewer.test.tsx`, 10 tests the builder did not write, covering the edges it missed:
+- Off-by-one boundaries: EXACTLY 6 → no toggle; EXACTLY 7 → toggle "Ver 1 más" + expands to 7 (the builder tested 5 and 10, never the boundary).
+- Hidden cards genuinely ABSENT from the DOM (not `display:none`) — 6 dismiss buttons mounted while collapsed, LESSON-0009 card not queryable.
+- The `promotion` stream kind — omitted from AC-17-010.4's uniformity list — ALSO collapses via the one shared code path (verified by rendered `proposal-card` count; promotion cards are non-clickable `<article>` with per-card command).
+- Dismiss-WHILE-EXPANDED recomputes and drops the toggle at exactly 6 undismissed.
+- Keyboard operability (Enter + Space toggle, not just mouse); Spanish `aria-label` announces the hidden count / "ocultas" (state not by color alone, FRD-13).
+- Self-suggestion collapse uniform AND the per-card `withCommand` survives the cut.
+All 18 tests in the folder green.
+
+**Correctness / completeness (DR-100):** AC-17-010.1/.2/.3/.4 all met. `STREAM_COLLAPSE_THRESHOLD = 6` (named constant, no magic number). Toggle is a semantic `<button type="button">` with `aria-expanded`, `data-testid="stream-show-more"`, chevron icon flip. Reuse-before-create honored (DR-057): a bounded extension of the shared `DismissableProposalStream`, not a new component and not a per-kind fork — one code path serves every stream kind.
+
+**Cross-feature integration (DR-060):** no duplicate primitives introduced (single `Banner` in core, correctly reused by `MemoryHealth`; component inventory intact, 137 rows). Shared cross-feature resolvers verified single-source: `getGuildState` (level/XP — the NV-drift guard: `GuildBar` re-derives via the pure `computeGuildLevel` from the SAME `getGuildState().outcomes`, deterministically consistent, not a second independent derivation), `getPendingMerge`, `getIdeaCounts` — every consumer reads the one resolver.
+
+**Runtime/visual (DR-055):** full `verify.sh` (no `--since`) EXIT 0 — 7462 unit tests + 68 e2e (smoke + shell + visual + responsive) at desktop + mobile. `/proposals` visual baseline held (the bounded collapse change did not regress the blessed baseline, as WO-17-007 predicted). No console errors, no blank/error-boundary renders.
