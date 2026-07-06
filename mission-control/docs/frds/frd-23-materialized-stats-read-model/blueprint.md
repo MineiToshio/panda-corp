@@ -3,7 +3,7 @@ id: FRD-23-blueprint
 type: blueprint
 parent: FRD-23
 status: ACTIVE
-implementation_status: PLANNED
+implementation_status: IN_PROGRESS
 last_updated: '2026-07-06'
 ---
 # Feature blueprint — FRD-23 Materialized stats read-model

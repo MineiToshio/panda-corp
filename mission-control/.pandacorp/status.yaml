@@ -1,7 +1,7 @@
 # Machine-readable status for Pandacorp (the factory dashboard) — read by the factory and the dashboard itself.
 # Human-readable Spanish narrative lives in .pandacorp/comms/summary.md (gitignored).
 project: "Pandacorp"
-phase: release
+phase: implementation
 last_harvest: "2026-07-06T02:00:00Z"
 version: v1
 overlay_version: "8.69.0"
@@ -9,15 +9,15 @@ created_with: "6.0.0"
 target_platforms: desktop
 deploy_target: internal  # internal tool (runs on 127.0.0.1) — no external host (DR-085)
 deploy_url: "http://192.168.18.227:1987"  # MC's internal release on the LAN
-running: false
-run_started_at: "2026-07-05T23:59:19Z"
+running: true
+run_started_at: "2026-07-06T21:55:51Z"
 repo: ""
-updated_at: "2026-07-06T01:20:00Z"
-last_event_at: "2026-07-06T01:20:00Z"
-work_orders_total: 98
+updated_at: "2026-07-06T23:12:56Z"
+last_event_at: "2026-07-06T23:12:56Z"
+work_orders_total: 102
 work_orders_verified: 98
-work_orders_in_review: 0
-work_orders_planned: 0
+work_orders_in_review: 3
+work_orders_planned: 1
 work_orders_in_progress: 0
 work_orders_blocked: 0
 work_orders_done: 98
@@ -26,7 +26,7 @@ pending_bugs: 0
 rethink_pending: false
 advance_pending: false
 last_green_sha: "e3de49a7"
-safe_to_test: true  # BUILD COMPLETE (DR-050/DR-060/BL-0012): FRD-17 rollup VERIFIED — WO-17-007 ("ver más" collapse toggle on the shared DismissableProposalStream) passed the FRD gate. Reviewer (Opus, ≠ builder — DR-015) authored a 10-test adversarial acceptance suite (streamShowMore.reviewer.test.tsx): off-by-one boundaries (exactly 6 → no toggle, exactly 7 → "Ver 1 más"), hidden cards genuinely absent from DOM, the `promotion` kind (omitted from AC-17-010.4) also collapses via the one shared code path, dismiss-while-expanded recompute, keyboard (Enter/Space) + Spanish aria-label. All 98 WOs VERIFIED. Cross-feature integration (DR-060) clean: single-source resolvers (getGuildState level/XP — GuildBar re-derives from the SAME outcomes via the pure computeGuildLevel, not the NV-drift; getPendingMerge, getIdeaCounts), no duplicate primitives (component inventory 137 rows intact). Full whole-project verify.sh (no --since) EXIT 0: 7462 unit + 68 e2e (smoke+shell+visual+responsive, desktop+mobile); /proposals visual baseline held. Hardening (BL-0012): security-2026-07-05.md (no Critical/High) + events.md "## Verification 2026-07-05" (telemetry N/A, internal tool) both present. Phase → release. 2026-07-06
+safe_to_test: true  # FRD-23 (materialized stats read-model) IN PROGRESS after a DR-073 revert of WO-23-004. The in-place patch could NOT green WO-23-004 (aggregate index + Stop/post-commit regeneration + one-shot backfill): the reviewer's adversarial suite (aggregateWiring.reviewer.test.ts) proved AC-23-003.1 unwired, and the fix would not settle. Per DR-073 the committed-but-rejected WO-23-004 code was reverted to last_green_sha (e3de49a7): aggregate.ts/backfill.ts/regen.ts, scripts/read-model/*, its own tests and the package.json stats:* scripts removed; package.json restored to green; its reopen_count → 1 and status → PLANNED for a clean rebuild. Its sibling WOs stay IN_REVIEW and untouched — WO-23-001 (portada reader + freshness seal + fail-loud schema, incl. StatsAggregate/parseStatsAggregate/readStatsAggregate seam), WO-23-002 (single-writer portada writer, DR-115), WO-23-003 (informe wiring + live-git fallback). The reviewer's adversarial spec was PRESERVED (DR-107) at .pandacorp/run/preserved-tests/WO-23-004/aggregateWiring.reviewer.test.ts to restore as the RED baseline on rebuild. Counts: 98 VERIFIED (other FRDs) + 3 IN_REVIEW (WO-23-001/002/003) + 1 PLANNED (WO-23-004 reopened). Engine will retry the reopened WO from this clean green base. 2026-07-06
 blocked: []
 pending_changes: 0
-supervisor_heartbeat: "2026-07-06T01:17:48Z"
+supervisor_heartbeat: "2026-07-06T21:55:51Z"
