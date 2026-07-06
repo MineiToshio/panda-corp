@@ -8,7 +8,7 @@
 
 ### Full-stack web (default) — golden path A
 - **Next.js** (App Router) + **React** + **TypeScript** (strict)
-- **Tailwind CSS** + custom components (`core`/`modules`); `cn()` (clsx + tailwind-merge)
+- **Tailwind CSS** + **shadcn/ui** as the accessible component base (restyled per project's design tokens); custom components (`core`/`modules`); `cn()` (clsx + tailwind-merge)
 - **Prisma** + **PostgreSQL** (Neon — Supabase was evaluated and rejected, see `external-services.md`); data layer in `queries/`
 - **Better Auth** (email + OAuth)
 - **next-intl** (i18n; launch locale from the market research — DR-041, never automatically Spanish)

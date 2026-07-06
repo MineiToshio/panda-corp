@@ -2,6 +2,12 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-06 — stack.md golden-path A now names shadcn/ui explicitly (docs/proposals/30)
+
+**What:** `factory/constitution.md` §16 was reframed (commit `e08c868b`) to defer the component-base authority to `factory/standards/stack.md`, but stack.md's golden-path A line still only said "Tailwind CSS + custom components" — it never named shadcn/ui, so the constitution's reference pointed at a doc that didn't carry the claim. Every other site (`plugin/templates/stack-a-nextjs/STACK.md`, `plugin/agents/frontend-dev.md`, `plugin/agents/designer.md`, `plugin/templates/docs/design-system-template.md`, `plugin/skills/design/SKILL.md`) already named shadcn/ui as the accessible base. Corrected stack.md line 11 to "Tailwind CSS + shadcn/ui as the accessible component base (restyled per project's design tokens); custom components (`core`/`modules`)".
+
+**Why:** completeness-critic round 2 of the 2026-07-05 contradiction sweep (docs/proposals/30, Cos1/C6 residual) found this survivor — the RFC had planned this exact edit and it wasn't done in the original sweep commit. Prose-only, no behavior change.
+
 ## 2026-07-06 — Constitution §12 auth clause: closed N2 survivor (docs/proposals/30)
 
 **What:** `factory/constitution.md` §12 still read "Never homemade auth: Better Auth / Supabase Auth" — two co-equal defaults — missed by the earlier sweep commit (which only touched §6/§16). Corrected to "Better Auth is the golden path (a different provider is a blueprint ADR)", matching `factory/standards/auth.md` and the Supabase-rejected stack decision.
