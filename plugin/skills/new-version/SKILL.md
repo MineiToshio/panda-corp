@@ -1,19 +1,19 @@
 ---
 name: new-version
 user-invocable: false
-description: Groups a large batch of changes into a formal milestone (v2, v3…) of a shipped project, with its own mini-PRD. OPTIONAL — for the day-to-day (adding a feature or an adjustment) use /pandacorp:iterate. Use new-version only for redesigns or large packages that justify a new PRD.
+description: Internal engine that groups a large batch of changes into a formal milestone (v2, v3…) of a shipped project, with its own mini-PRD. Reached through the single front door /pandacorp:change (which routes a large redesign / package that justifies a new PRD here); the day-to-day (adding a feature or an adjustment) is the same /pandacorp:change routed to the iterate engine instead.
 ---
 
 # /pandacorp:new-version
 
-New iteration of an existing project. Runs IN the project. `$ARGUMENTS`: what the owner wants to achieve with this version (or ask them).
+New iteration of an existing project. Runs IN the project. This is an **internal engine**, not an owner command: the owner reaches it through the single front door **`/pandacorp:change`**, which routes a large redesign / batch that justifies its own mini-PRD here (the day-to-day is the same `/pandacorp:change` routed to the `iterate` engine). `$ARGUMENTS`: what the milestone should achieve.
 
 > **Preflight (DR-045) — is this a Pandacorp project?** This skill mutates the project, so first confirm the Pandacorp marker: `.pandacorp/status.yaml` exists. If it's missing, STOP and tell the owner (in Spanish) that this folder isn't a factory project yet — `/pandacorp:adopt` brings an existing project in, `/pandacorp:spec` creates a new one. Then, if `overlay_version` in `.pandacorp/status.yaml` is behind the plugin's `OVERLAY_VERSION`, run `/pandacorp:upgrade` first (silent for compatible bumps, DR-048) so this skill runs against the current structure. Don't proceed or invent docs over a missing structure.
 
 ## Steps
 
 1. **Context**: read `.pandacorp/status.yaml` (a shipped project sits at `phase: release`, DR-085), `docs/product/prd.md` (vision + the living feature-landscape backlog of future versions), accumulated feedback / post-launch results (from `/pandacorp:review-launch`) and the existing FRD modules under `docs/frds/`.
-2. **Define the version**: with the `product-manager` agent, turn the goal into concrete scope — which new FRDs, which existing FRDs change, what is left out (DR-012). Increment `version:` in `.pandacorp/status.yaml` — this formal-milestone bump (plus the mini-PRD) is what distinguishes `new-version` from day-to-day `/pandacorp:iterate`, which never touches `version:` (there, `release` just derives the semver tag automatically from the conventional commits).
+2. **Define the version**: with the `product-manager` agent, turn the goal into concrete scope — which new FRDs, which existing FRDs change, what is left out (DR-012). Increment `version:` in `.pandacorp/status.yaml` — this formal-milestone bump (plus the mini-PRD) is what distinguishes the `new-version` engine from the day-to-day `iterate` engine, which never touches `version:` (there, `release` just derives the semver tag automatically from the conventional commits).
 3. **Re-enter the pipeline, only what changes** (feature-centric, DR-049 — a new feature is a new `docs/frds/frd-NN-<slug>/` module, nothing else moves):
    - New FRD → new `docs/frds/frd-NN-<slug>/frd.md` module (numbering continues); modified FRD → edit its existing module
    - New screens or visual changes? → mini design phase (mockup of the new stuff in the FRD's `mocks/` + its `fdd.md`, same frozen global design system in `docs/design/`; visual gate only if the visual language changes)

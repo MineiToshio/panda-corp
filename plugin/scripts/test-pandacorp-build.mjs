@@ -208,17 +208,18 @@ SCENARIOS.push({
 })
 
 // ── 2. Budget brake — MAX_AGENTS, COST-weighted ─────────────────────────────
-// 2a: mode 'pro' (judge=sonnet, COST 1; solo build). Pre-loop spawns: baseline(1) +
-// plan(1) + sync-rollups(1) = 3. maxAgents=9 → iteration 1 passes the brake (3<9),
-// safe-point(+1)=4. The wave picker is COST-aware (WS-A/D2): remainingAgents=9-4=5,
-// each sonnet WO costs COST(sonnet)+1=2, plus the shared dispatch(1) — so it admits
-// wo-1 (cost 1+2=3) and wo-2 (5), but wo-3 would be 7>5 → deferred. Wave=[wo-1,wo-2].
-// dispatch(+1)=5, builds wo-1+wo-2 (+2)=7, commits (+2)=9. Iteration 2 top: 9 ≥ 9 →
-// STOP, exactly at the cap (no overshoot). wo-3/wo-4 must never be dispatched. (Before
-// the D2 fix the width was counted raw, so an opus wave overshot the cap ~4× — see 2c.)
+// 2a: mode 'pro' (worker=sonnet COST 1; judge=opus COST 3, DR-015 — the judge is ALWAYS a
+// different model from the worker, even in pro; solo build). Pre-loop spawns: baseline(judge,3) +
+// plan(judge,3) + sync-rollups(MECH,1) = 7. maxAgents=13 → iteration 1 passes the brake (7<13),
+// safe-point(+1)=8. The count cap P.wave=2 admits at most two WOs; the COST-aware picker (WS-A/D2)
+// confirms it: remainingAgents=13-8=5, each sonnet WO costs COST(sonnet)+1=2 plus the shared
+// dispatch(1) — wo-1 (cost 1+2=3) and wo-2 (5) fit; wo-3 is deferred (count cap). Wave=[wo-1,wo-2].
+// dispatch(+1)=9, builds wo-1+wo-2 (+2)=11, commits (+2)=13. Iteration 2 top: 13 ≥ 13 → STOP,
+// exactly at the cap (no overshoot). wo-3/wo-4 must never be dispatched. (Before the D2 fix the
+// width was counted raw, so an opus wave overshot the cap ~4× — see 2c.)
 SCENARIOS.push({
   name: '2a. maxAgents brake — cost-aware wave stops dispatching once the cap is reached',
-  args: { mode: 'pro', maxAgents: 9 },
+  args: { mode: 'pro', maxAgents: 13 },
   plan: mkPlan([{
     frd: 'frd-01-alpha',
     deps: [],
@@ -232,7 +233,7 @@ SCENARIOS.push({
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error}`)
     t.ok(run.result && run.result.stopReason === 'agents', `stopReason is 'agents' (got ${run.result && run.result.stopReason})`)
-    t.ok(hasLog(run, /Agent ceiling reached \(9 ≥ maxAgents 9\)/), 'the brake logs "Agent ceiling reached (9 ≥ maxAgents 9)" — exactly at the cap, no overshoot')
+    t.ok(hasLog(run, /Agent ceiling reached \(13 ≥ maxAgents 13\)/), 'the brake logs "Agent ceiling reached (13 ≥ maxAgents 13)" — exactly at the cap, no overshoot')
     const built = byLabel(run, /^build:/).map((c) => c.label)
     t.ok(built.length === 2 && built.includes('build:wo-01-001') && built.includes('build:wo-01-002'),
       `only the first cost-budgeted wave (wo-01-001, wo-01-002) was built — got [${built.join(', ')}]`)
@@ -265,10 +266,11 @@ SCENARIOS.push({
   },
 })
 // 2c: WS-A/D2 — an OPUS-escalated wave must NOT overshoot maxAgents by counting WOs raw. mode 'pro'
-// (worker=sonnet floor), all WOs difficulty:high → escalate to opus (woWaveCost = COST(opus)+1 = 4).
-// Pre-loop: baseline(1)+plan(1)+sync(1)=3. safe-point→4. remainingAgents=10-4=6; the cost-aware picker
-// admits wo-1 (dispatch 1 + 4 = 5) but wo-2 would be 9>6 → wave width = 1. BEFORE the fix the width was
-// counted raw (min(P.wave 2, 6)=2), so TWO opus WOs launched and the wave overshot the cap ~2× in one go.
+// (worker=sonnet floor, judge=opus per DR-015), all WOs difficulty:high → escalate to opus
+// (woWaveCost = COST(opus)+1 = 4). Pre-loop: baseline(judge opus,3)+plan(judge opus,3)+sync(1)=7.
+// safe-point→8. remainingAgents=10-8=2; the cost-aware picker admits wo-1 (dispatch 1 + 4 = 5, the
+// ≥1 progress guarantee) but wo-2 would breach the budget → wave width = 1. BEFORE the fix the width
+// was counted raw (min(P.wave 2, …)=2), so TWO opus WOs launched and the wave overshot the cap.
 SCENARIOS.push({
   name: '2c. maxAgents brake is COST-aware for the WAVE WIDTH (opus wave does not overshoot) — WS-A/D2',
   args: { mode: 'pro', maxAgents: 10 },

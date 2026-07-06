@@ -18,7 +18,7 @@ The back half of the economic arc (DR-043), the **post-launch iteration loop UND
    - **personal** → is the owner actually using it (a minimal usage signal)?
    Use the PostHog MCP if available; otherwise leave the queries documented for the owner to run and read what they paste back. **No invented numbers** — if the data isn't there, say so.
 3. **Compare vs the hypothesis + kill-signals** and produce a **verdict**:
-   - **DOUBLE DOWN** — the hypothesis held (or trends well): recommend the next move (iterate a feature via `/pandacorp:iterate`, or push distribution from `docs/launch-plan.md`).
+   - **DOUBLE DOWN** — the hypothesis held (or trends well): recommend the next move (file the next feature through the single front door `/pandacorp:change`, or push distribution from `docs/launch-plan.md`).
    - **HOLD** — inconclusive / too early: keep measuring; set the next review date.
    - **KILL / ARCHIVE** — a kill-signal tripped (monetary: under the user/revenue threshold at the window, or CAC > LTV; opportunity: the metric is flat; personal: the owner stopped using it): recommend archiving and freeing the focus.
 4. **Update the portfolio business columns** (`factory/portfolio.md`): active users / return metric / last verdict + review date, so the owner sees winners vs zombies across the whole portfolio. Feed it back: a killed idea informs `recommend` (don't re-propose the same dead bet).

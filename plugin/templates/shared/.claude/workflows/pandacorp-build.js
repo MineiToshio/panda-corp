@@ -80,8 +80,13 @@ const capHit = () => Boolean(MAX_AGENTS && agentSpawned >= MAX_AGENTS)
 // Concurrency/models per mode (DR-014). `wave` = work orders built in parallel within
 // an FRD. `split` runs test→backend→frontend; otherwise one full-stack implementer
 // builds the coarse slice end-to-end (faster).
+// The JUDGE is ALWAYS a different model from the worker (DR-015, constitution §22 — the
+// generator can never judge itself; a same-model judge shares its training blind spot). So even
+// pro, the cheapest mode, runs an OPUS judge over its sonnet worker: pro economizes on throughput
+// (fewer waves, no split, one full-stack worker), NOT on the trust boundary. The judge is ONE
+// weighted spawn per FRD gate (not per WO), so the diversity costs ~2 extra cost-units per gate.
 const PROFILES = {
-  pro:      { wave: 2, worker: 'sonnet', judge: 'sonnet', split: false },
+  pro:      { wave: 2, worker: 'sonnet', judge: 'opus',   split: false },
   balanced: { wave: 4, worker: 'sonnet', judge: 'opus',   split: false },
   powerful: { wave: 8, worker: 'sonnet', judge: 'opus',   split: false },
   deep:     { wave: 6, worker: 'opus',   judge: 'opus',   split: true  },
