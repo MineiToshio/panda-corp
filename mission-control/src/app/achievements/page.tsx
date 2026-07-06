@@ -33,6 +33,8 @@ import { Chip } from "@/components/core/Chip/Chip";
 import { PageLayout } from "@/components/core/PageLayout/PageLayout";
 import { GuildHero } from "@/components/modules/GuildHero/GuildHero";
 import { computeChains, computeSecrets, computeUniques } from "@/lib/achievements/achievements";
+import { resolveInformeSources } from "@/lib/achievements/read-model/informeResolver";
+import { readStatsPortada } from "@/lib/achievements/read-model/statsReader";
 import { weeklyFlow } from "@/lib/achievements/report/flowSeries";
 import { funnelAndFlow } from "@/lib/achievements/report/funnel";
 import { lessonCounts } from "@/lib/achievements/report/lessons";
@@ -87,18 +89,29 @@ export default async function HallPage(): Promise<React.JSX.Element> {
   // it lives at the process cwd (it shares the factory .git one level up — see CLAUDE.md).
   const projectPath = process.cwd();
   const reportSignals = signalsFor(readerData);
-  const reportScalarsValue = reportScalars(projectPath);
-  const lessons = lessonCounts();
-  // Fail-loud usage band (AC-10-015.3): an absent event stream → "no cableado".
+  // FRD-23/WO-23-003: try the materialized portada first, fall back to the live git readers
+  // (WO-10-014, unchanged) on ANY non-`ok` result — missing / stale / corrupt all fall back
+  // (REQ-23-001). `getPendingMerge` is a separate module and stays live (AC-23-005.1, untouched).
+  const informeSources = resolveInformeSources(readStatsPortada(projectPath), {
+    weeklyFlow: () => weeklyFlow(projectPath),
+    phaseTransitions: () => phaseTransitions(),
+    scalars: () => reportScalars(projectPath),
+    lessons: () => lessonCounts(),
+    funnel: () => funnelAndFlow(ideas, statuses),
+  });
+  const reportScalarsValue = informeSources.scalars;
+  const lessons = informeSources.lessons;
+  // Fail-loud usage band (AC-10-015.3): an absent event stream → "no cableado". Usage is not
+  // part of the materialized portada (blueprint §4) — it stays on its own live derivation.
   const usageResult: ReturnType<typeof buildInformeData>["usage"] =
     eventsSnapshot.events.length === 0 && eventsSnapshot.lastEventAt === null
       ? { ok: false, reason: "git-unavailable" }
       : { ok: true, value: usageMix(readerData) };
   const informeData = buildInformeData({
-    weeklyFlow: weeklyFlow(projectPath),
+    weeklyFlow: informeSources.weeklyFlow,
     usage: usageResult,
-    funnel: funnelAndFlow(ideas, statuses),
-    transitions: phaseTransitions(),
+    funnel: informeSources.funnel,
+    transitions: informeSources.phaseTransitions,
     statuses,
     lessons,
     relaunches: reportSignals.relaunches,
