@@ -80,9 +80,9 @@ T0 (Opus implementer) → T1.1 (Sonnet) → T1.2 (Opus implementer + separate ve
 
 | Item | Status | Commit | Notes |
 |---|---|---|---|
-| Plan written | DONE | — | this file |
-| T0 hidden engines | PENDING | — | next: dispatch Opus implementer |
-| T1.1 pandacorp-backlog | PENDING | — | after T0 |
-| T1.2 reviewSplit gate | PENDING | — | after T1.1 |
+| Plan written | DONE | 75a16e3d | this file |
+| T0 hidden engines | DONE | b9106894 | plugin 9.76.0 / overlay 8.68.0, installed-plugin updated; verified independently (greps 0, shim L18 both copies, validate ✔). Extra: args arrive as JSON STRING on scriptPath launches (3 live runs) → normalization shim added to engine. MC's engine copy renamed but still overlay 8.66.1 content (regens on next upgrade). Residual: `/` menu absence = owner's next session. |
+| T1.1 pandacorp-backlog | PENDING | — | next: dispatch Sonnet implementer per contract |
+| T1.2 reviewSplit gate | PENDING | — | after T1.1; contract note: finder/verify shims must account for scriptPath string-args (already normalized engine-side) |
 
 **Handoff note for a fresh session:** verdicts + contracts above are owner-approved and closed; execute per contract, update this table after each landed item. Known foreign RED in mission-control (`frd-11-gate` tests, `localStorage.clear`) predates this mission — do not touch (DR-099).
