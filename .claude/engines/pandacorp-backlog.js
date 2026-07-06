@@ -26,6 +26,13 @@ const FACTORY_ROOT = (args && args.factoryRoot) || '/Users/Shared/Proyectos/pand
 const ITEMS_FILTER = (args && args.items) || null
 const MAX_ITEMS = (args && args.maxItems) || Infinity
 
+// BL-0022 discipline, same as pandacorp-build's WORK_FROM: subagents inherit the SESSION's cwd,
+// which may be a DIFFERENT repo than FACTORY_ROOT (harness runs point at a fixture). Without this
+// preamble on EVERY prompt, weaker-tier agents drift to the repo their cwd suggests — observed
+// live 2026-07-06: a haiku implementer reasoned against the real factory's backlog during a
+// fixture run, twice, despite absolute paths in the prompt body.
+const ANCHOR = `ANCHOR — target repo: ${FACTORY_ROOT}. cd ${FACTORY_ROOT} FIRST. Your session cwd may point at a DIFFERENT repo — ignore it completely. Never read, edit, or run git/scripts against any repo other than ${FACTORY_ROOT} (and its own worktrees under ${FACTORY_ROOT}/.claude/worktrees/).\n\n`
+
 const SCAN_SCHEMA = {
   type: 'object',
   required: ['items'],
@@ -76,7 +83,7 @@ phase('Scan')
 const tierRubric = 'CONV-12/DR-111 (factory/standards/conventions.md): a one-line doc/prose/copy tweak or a mechanical rename -> haiku; the common case (a skill/script/template change with real logic, a routine build-engine adjustment) -> sonnet (the default floor); a change to the build engine\'s own core orchestration, a cross-cutting standard, or anything genuinely architectural/high-judgment -> opus. Fable is never chosen automatically.'
 
 const scan = await agent(
-  `Read every file matching \`${FACTORY_ROOT}/factory/backlog/BL-*.md\` (skip \`_item-template.md\` and \`README.md\`). For each, parse its YAML frontmatter and return {id, path, title, status, tier} where \`path\` is the file's ABSOLUTE path (anchored at ${FACTORY_ROOT}, never a relative/cwd-derived path) and \`status\` is the frontmatter's own \`status\` field verbatim. Compute \`tier\` per this rubric — ${tierRubric} — by reading the item's own \`severity\` field and how much its \`## Fix plan\` section actually touches (read the file body, not just the frontmatter, to judge this). Return ALL items regardless of status (open, doing, AND done) — the caller filters; do not pre-filter yourself. Return { items: [] } if the directory has no BL-*.md files (an honest empty list, never an error for a genuinely empty backlog).`,
+  `${ANCHOR}Read every file matching \`${FACTORY_ROOT}/factory/backlog/BL-*.md\` (skip \`_item-template.md\` and \`README.md\`). For each, parse its YAML frontmatter and return {id, path, title, status, tier} where \`path\` is the file's ABSOLUTE path (anchored at ${FACTORY_ROOT}, never a relative/cwd-derived path) and \`status\` is the frontmatter's own \`status\` field verbatim. Compute \`tier\` per this rubric — ${tierRubric} — by reading the item's own \`severity\` field and how much its \`## Fix plan\` section actually touches (read the file body, not just the frontmatter, to judge this). Return ALL items regardless of status (open, doing, AND done) — the caller filters; do not pre-filter yourself. Return { items: [] } if the directory has no BL-*.md files (an honest empty list, never an error for a genuinely empty backlog).`,
   { label: 'scan', phase: 'Scan', model: 'haiku', agentType: 'pandacorp:implementer', schema: SCAN_SCHEMA },
 )
 
@@ -115,7 +122,7 @@ if (candidates.length === 0) {
 // ── Implement (parallel, one isolated worktree per item) ───────────────────
 phase('Implement')
 
-const RECIPE = (item) => `Implement and close factory backlog item ${item.id} (proposal 31 T1.1 — dispatched by the pandacorp-backlog engine, replacing a hand-run subagent).
+const RECIPE = (item) => `${ANCHOR}Implement and close factory backlog item ${item.id} (proposal 31 T1.1 — dispatched by the pandacorp-backlog engine, replacing a hand-run subagent).
 
 1. Isolate FIRST: create a fresh worktree anchored at the factory root: \`git -C ${FACTORY_ROOT} worktree add ${FACTORY_ROOT}/.claude/worktrees/bl-${item.id} -b bl/${item.id}\`. The \`-C ${FACTORY_ROOT}\` decides WHICH repo owns the worktree — NEVER run worktree add without it (your cwd may be a different repo). Then VERIFY ownership before any work: \`git -C ${FACTORY_ROOT}/.claude/worktrees/bl-${item.id} rev-parse --git-common-dir\` must resolve inside ${FACTORY_ROOT} — if it does not, remove that worktree immediately and return status: "blocked" with reason "worktree anchored to wrong repo". Do ALL work inside that worktree directory from here on — never touch the main checkout's working tree.
 2. Read the item whole at ${item.path} (already known to you: title "${item.title}"): its Problem (+ Root cause if a bug), Fix plan, Tests, Done when, Out of scope.
@@ -160,7 +167,7 @@ const blockedFromMerge = []
 
 for (const item of succeeded) {
   const mergeResult = await agent(
-    `From the MAIN checkout at ${FACTORY_ROOT} (never a worktree), land backlog item ${item.id}'s branch \`${item.branch}\`.
+    `${ANCHOR}From the MAIN checkout at ${FACTORY_ROOT} (never a worktree), land backlog item ${item.id}'s branch \`${item.branch}\`.
 
 1. Same repo, local branch — no fetch needed, just proceed.
 2. Rebase the branch onto current main first if it is behind: from the item's OWN worktree at ${FACTORY_ROOT}/.claude/worktrees/bl-${item.id}, run \`git -C ${FACTORY_ROOT}/.claude/worktrees/bl-${item.id} rebase main\` (or skip if already up to date).
