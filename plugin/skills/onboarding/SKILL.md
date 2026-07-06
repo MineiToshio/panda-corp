@@ -86,7 +86,13 @@ Onboarding *bootstraps* the profile from the owner's past conversations; from th
 5. **Portfolio bootstrap**: if `factory/portfolio.md` doesn't exist, create it by copying
    `factory/portfolio.example.md`.
 
-6. **Close with the next steps**, personalized to the profile:
+6. **Set up the `pandacorp-vault`** (protect the personal data — `factory/standards/infra.md` → "pandacorp-vault"). The owner's gitignored personal state (profile, portfolio, ideas, ports, ledger, memory) has NO git history in the main repo; the vault gives it a versioned, out-of-repo home so a machine loss doesn't erase it. If `<projects_path>/pandacorp-vault/` doesn't exist yet:
+   - create it as a **sibling of the factory repo** (NOT inside it) with a `README.md` (see infra.md);
+   - initialize the **overlay** — `git init --bare <projects_path>/pandacorp-vault/personal.git`, then commit the personal files into it (`git --git-dir=…/personal.git --work-tree=<factory-repo> add -f factory/profile.md factory/portfolio.md factory/ports.yaml factory/gamification-ledger.json factory/memory/_inbox.md factory/ideas/*.md`);
+   - **offer** (human gate — the owner's account) to create a **private remote** and push: `gh repo create pandacorp-vault --private` → `remote add origin` (HTTPS) → `push -u origin main`. Once the remote exists, the SessionStart auto-sync (`vault-overlay-sync.sh`) commits+pushes changes automatically.
+   - Secrets/keys are NOT part of the vault — they stay in `~/.config/pandacorp/` (per XDG; `/Users/Shared/` is multi-user on macOS).
+
+7. **Close with the next steps**, personalized to the profile:
    - For the factory to go look for ideas aligned with you: `/pandacorp:discover`.
    - To capture an idea of your own: `/pandacorp:new-idea` (or `/pandacorp:explore` if it's fuzzy).
    - To ask for a ranking: `/pandacorp:recommend`.

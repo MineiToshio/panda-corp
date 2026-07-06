@@ -22,6 +22,12 @@
             "command": "bash \"$CLAUDE_PROJECT_DIR/plugin/scripts/backup-pandacorp-state.sh\" \"$CLAUDE_PROJECT_DIR\"",
             "timeout": 30,
             "statusMessage": "Pandacorp state backup"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/plugin/scripts/vault-overlay-sync.sh\" \"$CLAUDE_PROJECT_DIR\"",
+            "timeout": 30,
+            "statusMessage": "Pandacorp vault · overlay sync"
           }
         ]
       }

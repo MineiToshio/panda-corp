@@ -4,6 +4,12 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.73.0 — 2026-07-05 (MINOR): vault overlay auto-sync + onboarding sets the vault up
+
+**What:** new `scripts/vault-overlay-sync.sh` — commits the factory's gitignored personal files (profile, portfolio, ports, ledger, memory inbox, idea cards) into the `pandacorp-vault/personal.git` overlay and pushes to its private remote, every SessionStart (wired in the factory's `.claude/settings.json` next to the state backup). It re-adds the personal globs each run so NEW idea cards are captured, commits only on a real diff, and is best-effort (commits locally + defers the push when offline; never fails the session). `onboarding` gained **step 6** (set up the vault on a fresh machine: create the sibling folder + README, init the overlay, offer to create the private remote + push — human gate). `backup-pandacorp-state.sh` header updated to name the vault; `test-backup-and-precious.sh` grew a vault-detection case (**8/8**).
+
+**Why:** the vault (v9.72.2) was local-only; the owner wanted the personal data actually protected against machine loss and the commit+push automatic. The private remote lives at `github.com/MineiToshio/pandacorp-vault`; canonical convention + the new-machine restore drill are in `factory/standards/infra.md`, owner decision in `factory/decision-log.md`.
+
 ## v9.72.2 — 2026-07-05 (PATCH): state backup auto-detects the `pandacorp-vault` sibling
 
 **What:** `backup-pandacorp-state.sh` now writes to `<repo-parent>/pandacorp-vault/backups/<repo>` when that vault sibling exists, else falls back to the legacy `~/.pandacorp-backups`. The location is derived **relative to the repo** (`$(dirname "$ROOT")/pandacorp-vault`) — no machine-specific path baked into the committed script (same discipline as the DR-089 deploy machinery). Part of consolidating the factory's scattered out-of-repo state (`~/.pandacorp-personal.git`, `~/.pandacorp-backups`) into one discoverable `pandacorp-vault/` sibling of `panda-corp/` — canonical convention in `factory/standards/infra.md` ("pandacorp-vault"), owner decision recorded in `factory/decision-log.md` (2026-07-05). `test-backup-and-precious.sh` still 6/6.

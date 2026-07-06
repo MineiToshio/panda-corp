@@ -64,5 +64,13 @@ if [ -f "$TMP/home2/.pandacorp-backups/canonrepo/$DAY/mission-control/.pandacorp
   ok "step2: run/serve.sh machinery backed up"
 else bad "step2: run/*.sh NOT backed up"; fi
 
+# ── Test E: a pandacorp-vault sibling is auto-detected → backup writes THERE, not HOME ──
+mkdir -p "$TMP/pandacorp-vault"                       # sibling of canonrepo
+HOME="$TMP/home3" bash "$BACKUP" "$REPO" >/dev/null 2>&1
+if [ -f "$TMP/pandacorp-vault/backups/canonrepo/$DAY/factory/profile.md" ]; then
+  ok "vault: backup auto-detected the sibling vault"
+else bad "vault: backup did NOT write to the sibling vault"; fi
+if [ ! -d "$TMP/home3/.pandacorp-backups" ]; then ok "vault: HOME fallback NOT used when vault present"; else bad "vault: wrote to HOME even though vault exists"; fi
+
 echo "── $pass passed, $fail failed ──"
 [ "$fail" -eq 0 ]

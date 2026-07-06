@@ -6,7 +6,8 @@
 # (DR-033/DR-069). The 2026-07-04 incident (mission-control/.pandacorp wiped by an unknown process;
 # the gitignored inbox contents were lost for good) proved that layer needs an out-of-repo backstop.
 #
-# This script rsyncs that layer to ~/.pandacorp-backups/<repo>/<YYYY-MM-DD>/ (one folder per day,
+# This script rsyncs that layer to the pandacorp-vault sibling (`<Proyectos>/pandacorp-vault/backups/
+# <repo>/<YYYY-MM-DD>/`, auto-detected; legacy fallback ~/.pandacorp-backups) — one folder per day,
 # ADDITIVE within the day — never --delete: a file wiped from the source between sessions must
 # survive in the day's snapshot, or the backup destroys its freshest copy on exactly the event it
 # exists for — Fable-audit 2026-07-04 #3) and prunes folders older than RETENTION_DAYS.
