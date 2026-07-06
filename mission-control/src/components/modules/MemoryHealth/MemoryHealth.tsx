@@ -17,10 +17,11 @@ import type { MemoryHealth as MemoryHealthData } from "@/lib/memory/memory-healt
  * Plus a staleness nudge WHEN rawNotes >= threshold OR staleDays >= threshold,
  * and a first-harvest invite WHEN lastMemoryRunAt === null (fresh factory).
  *
- * The staleness nudge is wrapped in the prototype's "SOLO DEMO" dashed frame
- * (`bDemo`, index.html ~L563): a dashed border, a warn "SOLO DEMO" pill, and a
- * note explaining how the real trigger is computed — around the shared `Banner`
- * (the real, copyable affordance, kept intact per DR-057 reuse-gate).
+ * The staleness nudge and the first-harvest invite render the shared `Banner`
+ * directly (the real, copyable affordance, DR-057 reuse-gate): the prototype's
+ * "SOLO DEMO" wrapper was dropped because the trigger is now real — `shouldNudge`
+ * is computed from real thresholds over real `health` data (AC-17-005.2), so a
+ * "solo demo" frame would misrepresent a genuine signal as simulated.
  *
  * Doubles as the on-demand refine-trigger surface: the owner runs the refinement
  * when the panel says there is something to consolidate (REQ-17-005).
@@ -154,53 +155,6 @@ export interface MemoryHealthProps {
    * index.html ~L1414). Defaults to 0 so the panel renders standalone in tests.
    */
   promotionsCount?: number;
-}
-
-// ---------------------------------------------------------------------------
-// bDemo frame (prototype index.html ~L563) — dashed border + "SOLO DEMO" pill
-// + a note on how the real trigger is computed, wrapping the real affordance.
-// ---------------------------------------------------------------------------
-
-const B_DEMO_FRAME_STYLE: React.CSSProperties = {
-  border: "1.5px dashed var(--color-border-strong)",
-  borderRadius: "var(--radius-md, 12px)",
-  padding: "10px 12px",
-  marginTop: "10px",
-};
-
-const B_DEMO_HEAD_STYLE: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "7px",
-  marginBottom: "7px",
-};
-
-const B_DEMO_PILL_STYLE: React.CSSProperties = {
-  fontFamily: "var(--font-mono, monospace)",
-  fontSize: "9px",
-  letterSpacing: "0.06em",
-  color: "var(--color-base)",
-  background: "var(--color-warn)",
-  padding: "1px 7px",
-  borderRadius: "var(--radius-sm, 8px)",
-};
-
-const B_DEMO_NOTE_STYLE: React.CSSProperties = {
-  fontSize: "11px",
-  color: "var(--color-text3)",
-};
-
-/** bDemo — the "SOLO DEMO" dashed frame wrapping a real inner affordance. */
-function BDemo({ note, children }: { note: string; children: React.ReactNode }): React.JSX.Element {
-  return (
-    <div style={B_DEMO_FRAME_STYLE}>
-      <div style={B_DEMO_HEAD_STYLE}>
-        <span style={B_DEMO_PILL_STYLE}>SOLO DEMO</span>
-        <span style={B_DEMO_NOTE_STYLE}>{note}</span>
-      </div>
-      {children}
-    </div>
-  );
 }
 
 /** Human "hace Nd" label for the staleness day-delta (or em-dash when unknown). */
@@ -352,39 +306,35 @@ export function MemoryHealth({
       )}
 
       {/* First-harvest invite — fresh factory (AC-17-005.3).
-          The ONE shared Banner primitive (DR-057), wrapped in the bDemo frame. */}
+          The ONE shared Banner primitive (DR-057), rendered directly. */}
       {isFreshFactory && (
-        <div data-testid="memory-health-first-harvest">
-          <BDemo note="En la app real esto aparece hasta la primera corrida de /pandacorp:memory.">
-            <Banner
-              tone="info"
-              kind="inline"
-              heading="Sin memoria aún"
-              detail="Comienza la primera cosecha para iniciar el bucle de aprendizaje del gremio:"
-              commandRow={CMD_HARVEST}
-            />
-          </BDemo>
+        <div data-testid="memory-health-first-harvest" style={{ marginTop: "10px" }}>
+          <Banner
+            tone="info"
+            kind="inline"
+            heading="Sin memoria aún"
+            detail="Comienza la primera cosecha para iniciar el bucle de aprendizaje del gremio:"
+            commandRow={CMD_HARVEST}
+          />
         </div>
       )}
 
       {/* Staleness nudge — above threshold (AC-17-005.2, REQ-17-008: no nagging).
-          The shared Banner (DR-057), wrapped in the prototype "SOLO DEMO" bDemo frame
-          (PROP-02): dashed border + warn pill + a note on the real trigger. */}
+          The shared Banner (DR-057), rendered directly: the trigger is real
+          (`shouldNudge` over real thresholds), so no "SOLO DEMO" wrapper. */}
       {shouldNudge && !isFreshFactory && (
-        <div data-testid="memory-health-nudge">
-          <BDemo note="En la app real el aviso lo decide el tamaño del backlog + días desde la última corrida de /pandacorp:memory.">
-            <Banner
-              tone="warn"
-              kind="inline"
-              heading={
-                isStaleDaysAbove
-                  ? `La memoria lleva ${staleDays} día${staleDays === 1 ? "" : "s"} sin refinar`
-                  : `Hay ${rawNotes} notas pendientes de cosechar`
-              }
-              detail={isStaleDaysAbove ? "Ejecuta una revisión:" : "Ejecuta una cosecha:"}
-              commandRow={nudgeCommand}
-            />
-          </BDemo>
+        <div data-testid="memory-health-nudge" style={{ marginTop: "10px" }}>
+          <Banner
+            tone="warn"
+            kind="inline"
+            heading={
+              isStaleDaysAbove
+                ? `La memoria lleva ${staleDays} día${staleDays === 1 ? "" : "s"} sin refinar`
+                : `Hay ${rawNotes} notas pendientes de cosechar`
+            }
+            detail={isStaleDaysAbove ? "Ejecuta una revisión:" : "Ejecuta una cosecha:"}
+            commandRow={nudgeCommand}
+          />
         </div>
       )}
 

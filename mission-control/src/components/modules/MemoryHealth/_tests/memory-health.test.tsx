@@ -376,3 +376,41 @@ describe("wo-17-005: structural invariants", () => {
     expect(invite).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// WO-17-006 — remove the obsolete "SOLO DEMO" demo frame (change
+// mc-memory-health-remove-solo-demo-frame). The trigger logic is REAL now
+// (shouldNudge over real thresholds/health data), so the demo wrapper is
+// obsolete and misleading — the real Banner must stand alone.
+// ---------------------------------------------------------------------------
+
+describe("wo-17-006: the obsolete SOLO DEMO demo frame is removed", () => {
+  it("wo-17-006: GIVEN the nudge is shown WHEN rendered THEN no 'SOLO DEMO' pill is present", () => {
+    render(<MemoryHealth health={ABOVE_RAW_NOTES} />);
+
+    expect(screen.queryByText("SOLO DEMO")).toBeNull();
+  });
+
+  it("wo-17-006: GIVEN the nudge is shown WHEN rendered THEN no demo 'en la app real' note is present", () => {
+    render(<MemoryHealth health={ABOVE_STALE_DAYS} />);
+
+    const nudge = screen.getByTestId("memory-health-nudge");
+    expect(nudge.textContent ?? "").not.toContain("En la app real");
+  });
+
+  it("wo-17-006: GIVEN the fresh-factory invite is shown WHEN rendered THEN no 'SOLO DEMO' pill or demo note", () => {
+    render(<MemoryHealth health={FRESH_FACTORY} />);
+
+    const invite = screen.getByTestId("memory-health-first-harvest");
+    expect(within(invite).queryByText("SOLO DEMO")).toBeNull();
+    expect(invite.textContent ?? "").not.toContain("En la app real");
+  });
+
+  it("wo-17-006: GIVEN the nudge is shown WHEN rendered THEN the real Banner (with its command) still stands", () => {
+    render(<MemoryHealth health={ABOVE_RAW_NOTES} />);
+
+    const nudge = screen.getByTestId("memory-health-nudge");
+    expect(nudge.textContent ?? "").toContain("/pandacorp:memory");
+    expect(within(nudge).getByTestId("copy-button")).toBeDefined();
+  });
+});
