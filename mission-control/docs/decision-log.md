@@ -22,6 +22,18 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 - **Proof:** `.pandacorp/verify.sh --canary` → 9/9 gates proven still-RED on broken fixtures. Full `.pandacorp/verify.sh` baseline (after clearing a stray orphaned `next dev` process that was blocking Playwright's webServer) → 406 test files / 7435 tests green, 68/68 e2e (smoke+visual+responsive+shell+headers, desktop+mobile) green; only advisory findings (header-scan — this is an internal/`deploy_target: internal` tool, so missing security headers are non-blocking; a few off-target-width @390px content-clipping notes on a `target_platforms: desktop` project).
 - **Why:** `/pandacorp:implement` for `mc-memory-health-remove-solo-demo-frame` found the project's `overlay_version` (8.55.2) behind the plugin's current `OVERLAY_VERSION` (8.66.0) at preflight — the skill requires the upgrade before building. Rule-file edits are prose/config sync (not app behavior), so this ran in the shared main checkout per BL-0033 (Mission Control lives inside the factory repo).
 
+## 2026-07-05 — Manual: new Concept page "El vault · tu estado personal" (FRD-08 / DR-046)
+
+**What:** added a hand-authored Concept page to the Manual documenting the **pandacorp-vault** — where the factory's personal/out-of-repo state lives, how it's backed up, and how to restore everything on a new machine.
+- New nav entry via `content/manual/concepts/vault-y-respaldos.md` (frontmatter `title`/`group: concepts`/`order: 21`) — the `.md` drives the sidebar nav; the body renders from the registered TSX component (LESSON-0028: the TSX is the source, not the markdown).
+- New page component `ConceptVault` in `src/app/manual/manualPages.tsx`, registered under slug `vault-y-respaldos` in `MANUAL_PAGE_COMPONENTS`. Sections (Spanish, storytelling): the problem → the sibling folder + contents table + "por qué al lado y no adentro" → "una carpeta, dos repos" (diagram + the two-librarians analogy + the "no es doble fuente de verdad" reassurance, tied to DR-115) → "dos tipos de pérdida, dos protecciones" (backups=sweep-undo/local/all-projects vs overlay private remote=laptop-loss/offsite; the local-backups gap flagged as the open follow-up) → the 5-step new-machine restore drill → secrets stay in `~/.config/pandacorp/`.
+- New SVG diagram component `src/components/modules/manual-diagrams/VaultDiagram.tsx` — one folder / three bands (code+framework · personal data · ephemeral), two git stores on the left, two remotes on the right, a labelled colour legend, responsive `viewBox`. Tokens only, light+dark first-class, no emoji (manual-diagram conventions).
+- Updated the backup mention in `ConceptHooks`: `~/.pandacorp-backups/` → `pandacorp-vault/backups/`, plus a one-line cross-link to the new vault page.
+
+**Why:** the factory's operable surface now includes the vault (personal-state root + backup/restore drill, `factory/standards/infra.md`); DR-046 requires that surface to be reflected in the Manual. The page mirrors `infra.md`'s "pandacorp-vault" paragraph and 5-step restore drill faithfully.
+
+**Impact:** docs-only (Manual content), gate-neutral — `tsc --noEmit` clean, biome clean, knip clean, 129 manual tests green; the page and its SVG diagram render error-free in the browser (no console errors). Files: new `vault-y-respaldos.md`, new `VaultDiagram.tsx`, `manualPages.tsx` (+`ConceptVault`, map entry, import, `ConceptHooks` edit); this entry.
+
 ## 2026-07-05 — Docs reconciled from code (`/pandacorp:sync`, cold audit) — part 3: doc-lint spine + frontmatter cleanup (0 findings)
 
 **What:** cleared **all 63** advisory `doc-lint.sh` findings (pre-existing REQ-ID-spine + frontmatter drift, unrelated to parts 1–2). Now `doc-lint.sh` → 0 findings, `verify.sh`/tests green (7435).

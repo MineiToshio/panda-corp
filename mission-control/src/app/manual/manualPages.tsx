@@ -48,6 +48,7 @@ import { SourceOfTruthMap } from "@/components/modules/manual-diagrams/SourceOfT
 import { StacksTable } from "@/components/modules/manual-diagrams/StacksTable";
 import { StateTable } from "@/components/modules/manual-diagrams/StateTable";
 import { TeamDiagram } from "@/components/modules/manual-diagrams/TeamDiagram";
+import { VaultDiagram } from "@/components/modules/manual-diagrams/VaultDiagram";
 
 // ---------------------------------------------------------------------------
 // Shared building blocks for the page bodies
@@ -830,10 +831,11 @@ function ConceptHooks(): React.JSX.Element {
       </Lead>
       <NotePanel icon="ti-database-export" iconColor="var(--color-accent)">
         <B weight={600}>Backup automático en cada SessionStart</B> a{" "}
-        <Code>~/.pandacorp-backups/</Code> (una carpeta por día, 30 días de retención). Es{" "}
+        <Code>pandacorp-vault/backups/</Code> (una carpeta por día, 30 días de retención). Es{" "}
         <B weight={500}>aditivo dentro del día</B> — un borrado parcial en el origen nunca encoge el
         snapshot — y emite una línea-resumen visible (nº de ficheros + fallos), para que un backup
-        roto no se disfrace de backup sano.
+        roto no se disfrace de backup sano. Dónde vive todo este estado personal y cómo restaurarlo
+        en una máquina nueva: ver <B weight={500}>«El vault · tu estado personal»</B>.
       </NotePanel>
       <NotePanel icon="ti-shield-lock" iconColor="var(--color-warn)">
         <B weight={600}>Rutas protegidas en el gate de comandos.</B> <Code>block-dangerous.sh</Code>{" "}
@@ -842,6 +844,214 @@ function ConceptHooks(): React.JSX.Element {
         <Code>.pandacorp</Code> sin nombrarlo), el flag al final (<Code>rm ruta -r</Code>) y{" "}
         <Code>find … -delete</Code> — y es fail-closed si su propio parser (jq) falta. Probado por
         una matriz canary de 36 casos (<Code>test-block-dangerous.sh</Code>).
+      </NotePanel>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// CONCEPT: El vault · tu estado personal
+// ---------------------------------------------------------------------------
+
+/** What lives inside the pandacorp-vault sibling folder. */
+const VAULT_CONTENTS: readonly {
+  readonly name: string;
+  readonly what: React.ReactNode;
+}[] = [
+  {
+    name: "personal.git/",
+    what: (
+      <>
+        el <B weight={600}>overlay</B>: un repo git <i>bare</i> que versiona SOLO tus archivos
+        personales (ideas, perfil, portfolio, ports, ledger, memoria). Tiene remoto privado en
+        GitHub y se auto-commitea y sube en cada arranque de sesión.
+      </>
+    ),
+  },
+  {
+    name: "backups/",
+    what: (
+      <>
+        los <B weight={600}>respaldos diarios</B> de toda la capa gitignoreada (una carpeta por día,
+        30 días de retención). Escritos automáticamente en cada arranque de sesión.
+      </>
+    ),
+  },
+  {
+    name: "README.md",
+    what: "una nota que describe qué es la carpeta, por si la encuentras suelta un día.",
+  },
+] as const;
+
+/** The 5-step new-machine restore drill (mirrors infra.md). */
+const RESTORE_STEPS: readonly {
+  readonly key: string;
+  readonly title: React.ReactNode;
+  readonly body: React.ReactNode;
+  readonly cmd?: string;
+}[] = [
+  {
+    key: "toolchain",
+    title: "El toolchain",
+    body: (
+      <>
+        Instala el runtime (fnm + node, pnpm), Claude Code y el plugin <Code>pandacorp</Code>. Sin
+        esto no arranca nada.
+      </>
+    ),
+  },
+  {
+    key: "factory-repo",
+    title: "El repo de la fábrica",
+    body: (
+      <>
+        Clona <Code>panda-corp</Code> (código y framework). Ojo: los archivos personales están
+        gitignoreados, así que <B weight={600}>vuelven vacíos</B> aquí — los rellena el paso 3.
+      </>
+    ),
+    cmd: "git clone <panda-corp> ~/Proyectos/panda-corp",
+  },
+  {
+    key: "vault-overlay",
+    title: "El overlay del vault",
+    body: (
+      <>
+        Clona el repo privado como repo <i>bare</i> y hazle <Code>checkout</Code> sobre el árbol de
+        la fábrica: tus archivos personales <B weight={600}>reaparecen en su sitio</B>.
+      </>
+    ),
+    cmd: "git clone --bare <vault> pandacorp-vault/personal.git && git --git-dir=…/personal.git --work-tree=…/panda-corp checkout",
+  },
+  {
+    key: "sibling-projects",
+    title: "Cada proyecto hermano",
+    body: (
+      <>
+        Clona el repo propio de cada producto. Su estado de propietario en <Code>.pandacorp/</Code>{" "}
+        (inbox, comms) se recupera restaurando <Code>backups/</Code> desde la nube y copiándolo de
+        vuelta a cada proyecto.
+      </>
+    ),
+  },
+  {
+    key: "deps-deploy-key",
+    title: "Deps, deploy y la llave",
+    body: (
+      <>
+        <Code>pnpm install</Code>; re-lanza el deploy local (<Code>deploy-local.sh</Code> /
+        launchd); y restaura la llave <Code>age</Code> en <Code>~/.config/pandacorp/</Code> desde tu
+        gestor de contraseñas (no está en ningún repo ni en el vault, a propósito).
+      </>
+    ),
+  },
+] as const;
+
+function ConceptVault(): React.JSX.Element {
+  return (
+    <>
+      <DocH title="El vault · tu estado personal" level={1} />
+      <Lead>
+        Tus ideas, tu perfil, tu portfolio no viven en el repo — son personales y están{" "}
+        <B weight={600}>gitignoreados</B>. ¿Dónde viven entonces, y cómo no perderlos? En una
+        carpeta hermana: el <B weight={600}>vault</B>.
+      </Lead>
+
+      <DocH title="El vault: una carpeta hermana" />
+      <Body>
+        <Code>pandacorp-vault/</Code> es una carpeta que vive <B weight={600}>al lado</B> de{" "}
+        <Code>panda-corp/</Code>, dentro de <Code>Proyectos/</Code>. Guarda todo el estado personal
+        y local de la máquina que no puede vivir dentro del repo. Dentro hay tres cosas:
+      </Body>
+      <Panel>
+        {VAULT_CONTENTS.map((row, i) => (
+          <KvRow key={row.name} label={<Code>{row.name}</Code>} isFirst={i === 0}>
+            {row.what}
+          </KvRow>
+        ))}
+      </Panel>
+      <NotePanel icon="ti-info-circle" iconColor="var(--color-info)">
+        <B weight={600}>¿Por qué al lado y no fuera, como los deployments?</B> La regla de «mantener
+        cosas fuera de <Code>Proyectos/</Code>» existe para que una herramienta no confunda un{" "}
+        <B weight={500}>servidor que corre</B> (un deployment) con código fuente — es sobre cosas
+        que <i>se ejecutan</i>. El vault no ejecuta nada (git estático + respaldos), así que se
+        queda junto al código para que lo encuentres fácil. Lo que sí corre —{" "}
+        <Code>local-deployments/</Code> — se queda fuera.
+      </NotePanel>
+
+      <DocH title="Una carpeta, dos repos" />
+      <Lead>
+        El modelo mental clave: es <B weight={600}>una sola carpeta en disco</B>, con{" "}
+        <B weight={600}>dos repos git</B> que trackean conjuntos de archivos{" "}
+        <B weight={600}>distintos</B>. Ningún archivo está en los dos.
+      </Lead>
+      <Panel>
+        <div style={{ overflowX: "auto" }}>
+          <VaultDiagram />
+        </div>
+      </Panel>
+      <Body margin="12px 0 12px">
+        La analogía que funciona:{" "}
+        <B weight={600}>
+          dos bibliotecarios catalogando estanterías distintas de la MISMA biblioteca
+        </B>
+        . Los libros nunca se mueven, y no hay una segunda biblioteca. El <i>work-tree</i> del
+        overlay <B weight={600}>no es una copia</B> de <Code>panda-corp/</Code>: ambos repos «miran»
+        la misma carpeta. Por eso el <Code>.git</Code> del overlay es diminuto (~232 KB, solo la
+        historia de unos archivos de texto), no un duplicado del proyecto.
+      </Body>
+      <NotePanel icon="ti-check" iconColor="var(--color-ok)">
+        <B weight={600}>No es una segunda fuente de verdad.</B> Cada archivo tiene exactamente una
+        copia física y un repo que lo trackea (conjuntos disjuntos) → cero duplicación, cero deriva.
+        Es la misma ley de fuente única de verdad (DR-115) que rige el resto de la fábrica, aplicada
+        al almacenamiento.
+      </NotePanel>
+
+      <DocH title="Dos tipos de pérdida, dos protecciones" />
+      <Body>
+        Hay dos formas de perder tu trabajo, y cada una tiene su red de seguridad. No son
+        intercambiables:
+      </Body>
+      <NotePanel icon="ti-history" iconColor="var(--color-accent)">
+        <B weight={600}>Los backups → contra un borrado accidental.</B> Si alguien barre o borra una
+        carpeta <Code>.pandacorp/</Code> del estado gitignoreado, el snapshot del día lo deshace.
+        Cubren <B weight={500}>TODO</B>: el estado de propietario de cada proyecto (inbox/comms){" "}
+        <B weight={500}>y</B> los archivos personales de la fábrica. Pero son{" "}
+        <B weight={600}>locales</B> (viven en el vault) → no te salvan si pierdes el portátil.
+      </NotePanel>
+      <NotePanel icon="ti-cloud-lock" iconColor="var(--color-warn)">
+        <B weight={600}>El remoto privado del overlay → contra la pérdida del portátil.</B> Los
+        datos personales de la fábrica (ideas, perfil) están <B weight={500}>offsite</B> en un
+        GitHub privado. Si el disco muere, tus ideas siguen ahí.
+      </NotePanel>
+      <NotePanel icon="ti-alert-triangle" iconColor="var(--color-warn)">
+        <B weight={600}>Pendiente (recuperación ante desastre real):</B> hoy los backups son SOLO
+        locales. Para sobrevivir a la pérdida del equipo necesitan una{" "}
+        <B weight={600}>copia en la nube</B> — mientras no la haya, solo el overlay está a salvo
+        offsite, no el estado de los proyectos hermanos.
+      </NotePanel>
+
+      <DocH title="Traer todo a una máquina nueva" />
+      <Lead>
+        El estado completo vive en unas pocas fuentes disjuntas. Para reconstruir la fábrica desde
+        cero, en orden:
+      </Lead>
+      {RESTORE_STEPS.map((step, i) => (
+        <QuickStep key={step.key} n={i + 1} title={step.title} body={step.body} cmd={step.cmd} />
+      ))}
+      <NotePanel icon="ti-cloud" iconColor="var(--color-accent-text)">
+        Las <B weight={600}>dos fuentes que deben estar vivas FUERA del equipo</B> para que esto
+        funcione: el <B weight={500}>remoto privado del overlay</B> (paso 3) y una{" "}
+        <B weight={500}>copia offsite de los backups</B> (paso 4). El vault en disco es local — y
+        muere con el disco.
+      </NotePanel>
+
+      <DocH title="Y las llaves, ¿dónde?" />
+      <NotePanel icon="ti-key" iconColor="var(--color-warn)">
+        <B weight={600}>Los secretos NO van en el vault.</B> La llave <Code>age</Code> de SOPS vive
+        en <Code>~/.config/pandacorp/</Code> — tu carpeta de usuario, privada — por dos razones:{" "}
+        <Code>/Users/Shared/</Code> es multi-usuario en macOS (lugar equivocado para una llave
+        privada), y <Code>~/.config/</Code> es donde las herramientas la buscan por defecto (XDG).
+        Se restaura desde tu gestor de contraseñas, nunca desde un repo.
       </NotePanel>
     </>
   );
@@ -2355,6 +2565,7 @@ const MANUAL_PAGE_COMPONENTS: Record<string, () => React.JSX.Element> = {
   "espinazo-de-documentos": ConceptEspinazoDocs,
   "tu-perfil": ConceptTuPerfil,
   "multi-runtime": ConceptMultiRuntime,
+  "vault-y-respaldos": ConceptVault,
 };
 
 /**
