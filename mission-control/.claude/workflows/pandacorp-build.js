@@ -35,6 +35,13 @@ const CHANGE = (args && args.change) ? String(args.change).split('/').pop().repl
 // Normalize frds: accept folder name, 'docs/frds/<folder>', 'docs/frds/<folder>/frd.md' → folder name only
 const normalizeFolder = (s) => String(s).replace(/\/[^/]+\.md$/, '').replace(/\/$/, '').split('/').pop()
 let ONLY = (args && !args.change && args.frds) ? args.frds.map(normalizeFolder) : null  // frds filter (derived from CHANGE when set)
+// DR-069 TARGETED-BUILD SCOPE (owner incident 2026-07-06): when the owner launches a TARGETED build —
+// a specific `change` OR explicit `frds` — the safe-point queue drain MUST NOT pull in OTHER `ready`
+// changes sitting in the queue. "Implement only X" means only X; the rest of the queue waits for a
+// bare `/implement`. ONLY a bare launch (no change, no frds) drains the whole ready queue. Computed from
+// the LAUNCH args (immutable — ONLY gets reassigned to the change's affected FRDs at line ~351, so we
+// can't derive intent from ONLY later; this const captures "was this launched as targeted" up front).
+const TARGETED = Boolean(CHANGE) || Boolean(args && args.frds)
 const MAX_FRDS = (args && args.maxFrds) || Infinity   // counts features PROCESSED (built+blocked+reopened); no cap unless set
 const LOW_BUDGET = (args && args.lowBudget) || 80000  // margin to leave when budget.total IS set (a +Nk turn directive)
 const MAX_SPEND = (args && args.maxSpend) || null      // output-token ceiling via budget.spent() — UNRELIABLE alone (under-counts subagent work; unenforced if the supervisor dies). Secondary.
@@ -740,14 +747,20 @@ async function safePoint() {
   const sp = await agent(
     `Safe-point check (DR-069) — read the owner's signals; change ONLY what is specified:
     1) Read .pandacorp/status.yaml → if \`rethink_pending: true\`, return { stop: true } immediately (the owner re-planned mid-run; the engine stops at this safe point and the next run resumes on the new plan).
-    2) List .pandacorp/inbox/changes/*.md (IGNORE the done/ subfolder): collect the slugs whose frontmatter \`status\` is "ready" — \`class: expedite\` FIRST, then standard FIFO by date. Skip draft/done/building (a \`building\` change is already integrated and in flight — never re-drain it, WS-A/D1).
+    2) ${TARGETED ? 'TARGETED BUILD (the owner launched with a specific `change`/`frds` — build ONLY that): do NOT scan the queue for ready changes. Return `ready: []`. Other queued changes are intentionally left for a later bare `/implement`.' : 'List .pandacorp/inbox/changes/*.md (IGNORE the done/ subfolder): collect the slugs whose frontmatter `status` is "ready" — `class: expedite` FIRST, then standard FIFO by date. Skip draft/done/building (a `building` change is already integrated and in flight — never re-drain it, WS-A/D1).'}
     3) Read .pandacorp/inbox/decisions.md: for each decision the owner ANSWERED (via /pandacorp:decide) that resolves blocked work, find the work orders with \`implementation_status: BLOCKED\` + \`blocked_reason: needs-owner\` that the answer unblocks, set each back to \`implementation_status: PLANNED\` (the DR-050 frontmatter signal), and update \`pending_decisions\` in status.yaml to the count still unanswered. Commit those frontmatter edits if you made any.
     Return { stop: false, ready: [...slugs, expedite first], unblocked: [...wo ids] } (empty arrays when there is nothing).`,
     { label: 'safe-point', phase: 'Build', model: MECH, agentType: 'pandacorp:implementer', schema: SAFE_POINT_SCHEMA },
   )
   if (sp && sp.stop === true) { log('⏸ rethink_pending — el owner re-planificó; el motor para en este safe point (la próxima corrida retoma con el plan nuevo)'); return 'stop' }
   if (sp && sp.unblocked && sp.unblocked.length) log(`✓ Decisiones respondidas → WOs desbloqueados a PLANNED: ${sp.unblocked.join(', ')} (su FRD los construye en la próxima pasada)`)
-  if (sp && sp.ready && sp.ready.length) {
+  // DR-069 TARGETED-BUILD SCOPE (owner incident 2026-07-06): a build launched with a specific change/frds
+  // implements ONLY its target — the HARD JS guard here is the real enforcement (the prompt already asks
+  // the agent to return []; this guarantees it even if a ready item leaks through). Other queued changes
+  // wait for a bare `/implement`. Only a bare launch (TARGETED === false) drains the whole ready queue.
+  if (TARGETED && sp && sp.ready && sp.ready.length) {
+    log(`⊘ Build dirigido — ${sp.ready.length} change(s) ready en cola NO se drenan (solo el objetivo); esperan a un /implement sin objetivo: ${sp.ready.join(', ')}`)
+  } else if (!TARGETED && sp && sp.ready && sp.ready.length) {
     log(`⇩ Drenando ${sp.ready.length} change(s) ready de la cola (DR-069): ${sp.ready.join(', ')}`)
     for (const slug of sp.ready) {
       if (capHit()) { log('⛔ Techo de agentes — el resto de la cola espera a la próxima corrida'); break }

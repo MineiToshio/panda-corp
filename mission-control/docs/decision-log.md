@@ -4,6 +4,12 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-06 — Build engine synced to overlay 8.66.1 (targeted-build queue-drain fix) + Manual guide note
+
+**What:** hand-synced the fixed build engine (`.claude/workflows/pandacorp-build.js`) from the factory template (plugin v9.72.1 / overlay **8.66.1**) and bumped `overlay_version` 8.66.0 → 8.66.1. The delta is a single overlay file — the DR-069 **targeted-build scope fix**: a build launched with a specific `change` or `frds` now builds ONLY its target and no longer drains other `ready` changes from the queue (only a bare `/implement` drains the whole queue). Also added the targeted-scope note to the Manual guide `content/manual/guides/g-implement-parcial.md`.
+
+**Why:** THIS project's build exposed the bug — `/implement change:mc-memory-health-remove-solo-demo-frame` (one change) also built the unrelated queued change `mc-proposal-stream-show-more` because the safe-point drain was unconditional. The engine fix + its proof (test-pandacorp-build scenarios 10a/10b/10c, 18/18 green) live in the factory; see `plugin/docs/decision-log.md` v9.72.1 (same date). Since only the engine workflow script changed (not a gate config), no re-canary was needed; the full baseline gate was already green from the same-session 8.55.2 → 8.66.0 upgrade.
+
 ## 2026-07-05 — MemoryHealth: removed the obsolete "SOLO DEMO" demo frame (WO-17-006, FRD-17)
 
 **What:** dropped the `bDemo` wrapper (dashed border + warn "SOLO DEMO" pill + a "en la app real…" note) that surrounded the staleness nudge and the first-harvest invite in `src/components/modules/MemoryHealth/MemoryHealth.tsx`, plus its four `B_DEMO_*` style constants and the JSDoc documenting it. Both surfaces now render the shared `Banner` primitive directly (DR-057), keeping the `10px` top spacing the frame provided. No change to `shouldNudge`/threshold logic or to any `data-testid`. New WO-17-006 (`docs/frds/frd-17-proposals-inbox/work-orders/wo-17-006-remove-solo-demo-frame.md`, IN_REVIEW) drains the queued change `mc-memory-health-remove-solo-demo-frame`.

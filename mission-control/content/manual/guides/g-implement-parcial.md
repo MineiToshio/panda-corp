@@ -107,6 +107,7 @@ El identificador es el **nombre del archivo** en `.pandacorp/inbox/changes/` (si
 ## Notas importantes
 
 - **`change` gana sobre `frds`**: si pasas ambos por alguna razón, `change` tiene prioridad y `frds` se ignora.
+- **Un build dirigido construye SOLO su objetivo (DR-069)**: si lanzas por `change` o por `frds`, el motor **no** drena otros cambios `ready` que haya en la cola — construye únicamente lo que le pediste. Los demás cambios esperan a un `/pandacorp:implement` **sin objetivo** (bare), que es el único que vacía la cola entera. "Implementa solo este cambio" significa exactamente eso.
 - **El motor es resumible**: si el build se interrumpe (por error o por timeout), correr el mismo comando de nuevo retoma desde donde quedó — los WOs ya `VERIFIED` no se rehacen.
 - **La change no desaparece hasta que el FRD verifica**: el archivado ocurre en el gate del reviewer, no en el paso Process Change. Si el build falla a mitad, la change sigue en la cola para el próximo intento.
 - **El gate de deps siempre aplica**: ya sea que pases un FRD o una change, el motor siempre chequea que las dependencias estén satisfechas antes de empezar a construir.
