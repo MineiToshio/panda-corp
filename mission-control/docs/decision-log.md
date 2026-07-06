@@ -4,6 +4,12 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-06 — Manual: new "Workflows" section documenting the Dynamic Workflow engines
+
+**What:** added a 4th Diátaxis nav group **Workflows** to the Manual (`DocNav.tsx`) with three pages — an overview ("Qué es un Dynamic Workflow", concept + cocinero-vs-cadena-de-montaje analogy + a new `WorkflowShapeDiagram` fan-out→gate visual) and one sub-page per engine (`pandacorp-build`, `pandacorp-backlog`), each rendering the existing generic `FlowGraph` fed a curated flow from the new `src/lib/manual/workflow-flows.ts`. Cross-links: the overview's two engine cards → their sub-pages (new `goToManual(group, slug)` on `ManualNavContext`), `SkillDetail` for `implement`/`implement-backlog` → the matching workflow page, and `ConceptDesatendida` → `pandacorp-build`.
+
+**Why:** proposal 31 made Dynamic Workflows a first-class, owner-visible concept (hidden `.claude/engines/`, a second `pandacorp-backlog` engine, the split review gate) but the Manual had no home for it — the closest page, "Construcción desatendida", is scoped to unattended-build behavior, not the workflow-engine concept. Mirrors the Reference→Comandos skill-detail pattern (curated flow + FlowGraph) so the two engines are explained the same way skills are. Content is Spanish (user-facing); the flow data mirrors the real engine steps (`factory/standards/build-orchestration.md` + the engine scripts), nothing invented. Typecheck clean, 180 manual-scoped tests green.
+
 ## 2026-07-06 — Test env: polyfill Web Storage in `vitest.setup.ts` (Node 25 broke the jsdom `localStorage` gate)
 
 **What:** added a spec-faithful in-memory `Storage` polyfill to `vitest.setup.ts`, installed only when the ambient `localStorage`/`sessionStorage` is non-functional. Restores a working ambient store for every test that uses it (build-mode FRD-11, digest, theme) — 139 tests across 13 files that had gone red.
