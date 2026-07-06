@@ -18,3 +18,6 @@
 {"kind":"review_start","frd":"frd-17-proposals-inbox","at":"2026-07-06T00:30:05Z"}
 {"kind":"review_end","frd":"frd-17-proposals-inbox","verdict":"pass","at":"2026-07-06T00:39:20Z"}
 {"kind":"frd_end","frd":"frd-17-proposals-inbox","at":"2026-07-06T00:39:20Z"}
+{"kind":"wo_start","frd":"frd-23-materialized-stats-read-model","wo":"WO-23-001","at":"2026-07-06T22:11:17Z"}
+{"kind":"wo_done","frd":"frd-23-materialized-stats-read-model","wo":"WO-23-001","status":"IN_REVIEW","at":"2026-07-06T22:18:14Z"}
+{"kind":"wo_end","frd":"frd-23-materialized-stats-read-model","wo":"WO-23-001","state":"in_review","at":"2026-07-06T22:18:46Z"}
