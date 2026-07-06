@@ -126,10 +126,17 @@ read modules under `lib/achievements/report/` (or `lib/report/`, decided at buil
 
 **Perf caveat (git-at-read-time).** `IF-10-flow-series`, `IF-10-phase-transitions` and the commit-count
 part of `IF-10-scalars` shell out to git (`execSync`) at render time, like `build-track.ts`. Keep each
-`git log` **scoped to the relevant pathspec** (`-- <path>`) and **capped** (`-n`), reuse the fail-soft
-`try/catch → []` contract, and cache per request (`React.cache()`, DR-092) so a tab render does not
-re-run git per row. Git unavailable → the band renders its **"no cableado" / error** state, never a
-fabricated series.
+`git log` **scoped to the relevant pathspec** (`-- <path>`), reuse the fail-soft `try/catch → []`
+contract, and cache per request (`React.cache()`, DR-092) so a tab render does not re-run git per row.
+Git unavailable → the band renders its **"no cableado" / error** state, never a fabricated series.
+**One subprocess per interface, never per row (2026-07-06).** The first cut spawned one git process
+**per commit** (`phase-transitions` did a `git show` for each of up to 400 commits) and one **per wo
+file** (`flow-series` pickaxed `git log -G` across all 98 `wo-*.md`), making the /achievements render
+~2.5 s. Both now gather their whole input in a **single `git log --reverse -p` pass** over the relevant
+pathspec, parsing the `+…` added diff lines (change points / VERIFIED crossings) and the NUL-marked
+per-commit date — output-identical to the per-row scan (equivalence verified), ~150 ms each. The
+combined `flow-series` pass is deliberately **un-`-n`-capped**: `-n N --reverse` keeps the N *newest*
+commits, which would drop the oldest VERIFIED crossings across the whole tree.
 
 ## 4. Components & interfaces
 

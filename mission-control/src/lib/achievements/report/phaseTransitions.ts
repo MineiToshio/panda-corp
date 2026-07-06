@@ -108,41 +108,23 @@ function extractPhase(blob: string): string | null {
 }
 
 /**
- * The path of `repoRoot/relPath` RELATIVE TO THE GIT REPO ROOT.
- *
- * `git show <sha>:<path>` resolves `<path>` against the repo root, not cwd. When a project
- * shares a parent repo's `.git` (Mission Control lives INSIDE the factory repo — its status.yaml
- * is `mission-control/.pandacorp/status.yaml` in git), the cwd-relative `relPath` would not
- * resolve. `git rev-parse --show-prefix` gives the cwd's offset from the repo root; we prepend it.
- * Empty string when git is unavailable.
- */
-function gitRootRelPath(repoRoot: string, relPath: string): string {
-  let prefix = "";
-  try {
-    prefix = execSync("git rev-parse --show-prefix", {
-      cwd: repoRoot,
-      encoding: "utf-8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
-  } catch {
-    return relPath;
-  }
-  return prefix === "" ? relPath : `${prefix}${relPath}`;
-}
-
-/**
  * Read the chronological phase observations for one project from the git history of its
- * `.pandacorp/status.yaml`: walk the commits (oldest→newest, `-n`-capped, scoped pathspec),
- * read the `phase:` line at each, and keep one observation per commit. Empty / git-unavailable → [].
+ * `.pandacorp/status.yaml`, in a SINGLE `git log -p` pass (oldest→newest, `-n`-capped, scoped
+ * pathspec). Each commit is prefixed by a NUL-marked ISO-date line (`--format=%x00%cI`); the
+ * `+phase:` lines in the unified diff are exactly the phase CHANGE points (a commit that did not
+ * touch the phase line contributes none). Since the downstream `transitionsForProject` only
+ * consumes change points, these observations are equivalent to reading the phase at every commit —
+ * at the cost of ONE subprocess instead of one `git show` per commit (the /achievements render was
+ * spawning up to `GIT_LOG_CAP` processes per project; DR-092 perf, LESSON on subprocess fan-out).
+ * Empty / git-unavailable → []. An unrecognised phase value is still surfaced (fail loud downstream).
  */
 function observationsForStatusFile(repoRoot: string, relPath: string): PhaseObservation[] {
-  const rootRelPath = gitRootRelPath(repoRoot, relPath);
-  let shas = "";
+  let log = "";
   try {
-    shas = execSync(`git log -n ${GIT_LOG_CAP} --reverse --format=%H%x09%cI -- "${relPath}"`, {
+    log = execSync(`git log -n ${GIT_LOG_CAP} --reverse --format=%x00%cI -p -- "${relPath}"`, {
       cwd: repoRoot,
       encoding: "utf-8",
-      maxBuffer: 8 * 1024 * 1024,
+      maxBuffer: 32 * 1024 * 1024,
       stdio: ["ignore", "pipe", "ignore"],
     });
   } catch {
@@ -150,25 +132,15 @@ function observationsForStatusFile(repoRoot: string, relPath: string): PhaseObse
   }
 
   const observations: PhaseObservation[] = [];
-  for (const line of shas.split("\n")) {
-    const tab = line.indexOf("\t");
-    if (tab < 0) continue;
-    const sha = line.slice(0, tab);
-    const iso = line.slice(tab + 1);
-    const date = iso.slice(0, 10);
-    let blob = "";
-    try {
-      blob = execSync(`git show "${sha}:${rootRelPath}"`, {
-        cwd: repoRoot,
-        encoding: "utf-8",
-        maxBuffer: 8 * 1024 * 1024,
-        stdio: ["ignore", "pipe", "ignore"],
-      });
-    } catch {
+  let currentDate = "";
+  for (const line of log.split("\n")) {
+    if (line.startsWith("\0")) {
+      currentDate = line.slice(1, 11); // YYYY-MM-DD from the NUL-marked ISO commit date
       continue;
     }
-    const phase = extractPhase(blob);
-    if (phase !== null) observations.push({ date, phase });
+    if (!line.startsWith("+")) continue; // only ADDED diff lines are phase change points
+    const phase = extractPhase(line.slice(1)); // strip the leading '+' before matching
+    if (phase !== null && currentDate !== "") observations.push({ date: currentDate, phase });
   }
   return observations;
 }

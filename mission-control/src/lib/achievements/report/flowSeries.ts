@@ -21,9 +21,6 @@ import { cache } from "react";
 import { resolveFactoryRoot } from "../../config/config";
 import type { ReportResult, WeeklyBucket, WeeklyFlow } from "./types";
 
-/** Cap on the git-log scan per pathspec (perf caveat, blueprint §3). */
-const GIT_LOG_CAP = 200;
-
 /**
  * ISO week key "YYYY-WW" (Monday-based) for a date. Matches signals.ts / stats.ts so the
  * three weekly series share one bucketing convention (DR-092).
@@ -103,28 +100,63 @@ export function deriveWeeklyFlow(input: FlowInput | null): ReportResult<WeeklyFl
 // ---------------------------------------------------------------------------
 
 /**
- * The earliest commit time (ISO) at which `implementation_status: VERIFIED` appears in a wo
- * file, scoped to that file's pathspec and `-n`-capped. `-G` finds commits whose diff adds/removes
- * that line; `--reverse` + first row gives the crossing-to-VERIFIED commit. Null when never verified
- * or git is unavailable; throws nothing (fail-soft, like build-track.ts's readGitLog).
+ * The earliest commit time (ISO) at which `implementation_status: VERIFIED` is ADDED to each
+ * `wo-*.md`, gathered in a SINGLE `git log -p` pass over the whole `docs/frds` pathspec. Each
+ * commit is prefixed by a NUL-marked ISO date (`--format=%x00%cI`); each diff's `+++ b/<path>`
+ * header names the file, and the first `+…implementation_status: VERIFIED` added line per file
+ * marks its crossing (first one wins, oldest→newest via `--reverse`). Keyed by the repo-root-
+ * relative path git emits. `{}` when git is unavailable (fail-soft).
+ *
+ * NOT `-n`-capped: the combined pathspec has far more commits than any single wo, and a cap
+ * (`-n N --reverse` keeps the N NEWEST) would drop the oldest crossings. This replaces one
+ * `git log -G` pickaxe subprocess PER wo file (98 files ⇒ ~2s of process-spawn on the
+ * /achievements render) with one subprocess for the whole tree (~150ms), output-identical to
+ * the per-file scan (equivalence verified, DR-092 perf).
  */
-function verifiedAtForWo(repoRoot: string, relPath: string): string | null {
-  let out = "";
+function verifiedIsoByWo(repoRoot: string): Map<string, string> {
+  const firstByPath = new Map<string, string>();
+  let log = "";
   try {
-    out = execSync(
-      `git log -n ${GIT_LOG_CAP} --reverse --format=%cI -G"implementation_status: VERIFIED" -- "${relPath}"`,
-      {
-        cwd: repoRoot,
-        encoding: "utf-8",
-        maxBuffer: 8 * 1024 * 1024,
-        stdio: ["ignore", "pipe", "ignore"],
-      },
-    );
+    log = execSync('git log --reverse --format=%x00%cI -p -- "docs/frds"', {
+      cwd: repoRoot,
+      encoding: "utf-8",
+      maxBuffer: 256 * 1024 * 1024,
+      stdio: ["ignore", "pipe", "ignore"],
+    });
   } catch {
-    return null;
+    return firstByPath;
   }
-  const first = out.split("\n").find((l) => l.trim() !== "");
-  return first ?? null;
+  let currentIso = "";
+  let currentFile = "";
+  for (const line of log.split("\n")) {
+    if (line.startsWith("\0")) {
+      currentIso = line.slice(1);
+      continue;
+    }
+    if (line.startsWith("+++ b/")) {
+      currentFile = line.slice(6);
+      continue;
+    }
+    if (currentFile !== "" && /^\+.*implementation_status:\s*VERIFIED/.test(line)) {
+      if (!firstByPath.has(currentFile)) firstByPath.set(currentFile, currentIso);
+    }
+  }
+  return firstByPath;
+}
+
+/**
+ * Resolve one wo file's VERIFIED ISO from the combined map. The map is keyed by the repo-root-
+ * relative path git emits (`+++ b/<root-rel>`); `relPath` is project-root-relative, so when a
+ * project shares a parent repo's `.git` (Mission Control lives INSIDE the factory repo) the key
+ * is a suffix of the project path. Match exact-or-suffix. Null when the wo never crossed VERIFIED.
+ */
+function lookupVerified(map: ReadonlyMap<string, string>, relPath: string): string | null {
+  const direct = map.get(relPath);
+  if (direct !== undefined) return direct;
+  for (const [key, iso] of map) {
+    if (key.endsWith(`/${relPath}`)) return iso;
+  }
+  return null;
 }
 
 /** True when git is usable in `repoRoot` (a single cheap probe so absence is detectable). */
@@ -208,7 +240,8 @@ function readWeeklyFlow(projectPath: string): ReportResult<WeeklyFlow> {
     return { ok: false, reason: "git-unavailable" };
   }
   const woFiles = collectWoFiles(projectPath);
-  const verifiedAt = woFiles.map((rel) => verifiedAtForWo(projectPath, rel));
+  const verifiedIso = verifiedIsoByWo(projectPath);
+  const verifiedAt = woFiles.map((rel) => lookupVerified(verifiedIso, rel));
   const ideasCreated = readIdeaCreatedDates(resolveFactoryRoot());
   return deriveWeeklyFlow({ verifiedAt, ideasCreated });
 }
