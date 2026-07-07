@@ -270,6 +270,19 @@ fields verbatim; everything else in the app is read-only.
 - **Error/empty/loading states.** Every reader tolerates missing/malformed inputs and the UI
   renders graceful empty states (fresh factory, no projects, no events) — never a blank or a crash
   (FRD-01/03/18 edge cases).
+- **Materialized read-model for git-derived stats (FRD-23).** Readers that would otherwise shell
+  out to git *at render time on every request* (the Achievements Hall Informe: WO-verified-per-week,
+  phase transitions, commit/decision/lesson counts) read a **materialized read-model** instead —
+  an honest cache (DR-115) with a **self-validating freshness seal** (`git log -1 --format=%H` over
+  the paths that feed it). Two scopes, two seals: a **per-project portada** (`<project>/.pandacorp/
+  stats.json`) holds per-project facts (weeklyFlow, per-project scalars, funnel), and a **factory-
+  scoped store** (`<factory-root>/.pandacorp/stats-factory.json`) holds factory-wide facts
+  (phaseTransitions, scalars.projects/decisions, lessons) — each seal validates exactly what its
+  store contains (the SSOT invariant a single per-project seal could not; see ADR-0004). On any
+  seal mismatch / missing / corrupt entry the reader **falls back to the live git readers verbatim**
+  (fail-loud, DR-078 — never a fabricated zero). Written once at a safe point (single writer, atomic
+  tmp+rename; `sync-portfolio` joins the O(1) aggregate index), never maintained incrementally.
+  Detail: [FRD-23](../frds/frd-23-materialized-stats-read-model/frd.md) + ADR-0004.
 
 ---
 

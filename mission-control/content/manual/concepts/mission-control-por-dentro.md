@@ -56,6 +56,19 @@ Mission Control lee el sistema de ficheros de la fábrica directamente — no ti
 
 Todo son lecturas puras — `fs.readFileSync`, sin escrituras, sin llamadas a la API de Claude.
 
+### El Informe de Logros y el read-model materializado
+
+El **Informe** (pestaña Estadísticas de Logros) muestra métricas históricas — work-orders verificados por semana, transiciones de fase, commits, decisiones, lecciones. Ese histórico no está en ninguna base de datos: la única fuente del *cuándo* es la **historia de git**. Antes, MC la derivaba **leyendo git en cada carga** de la página, lo cual no escala (O(nº proyectos), lento con muchos proyectos).
+
+Ahora usa un **read-model materializado** (FRD-23): un archivo con los números ya calculados que MC solo **lee**, en lugar de re-recorrer git en cada navegación. Dos ámbitos, cada uno con su **sello de frescura** (el hash del último commit que toca sus fuentes):
+
+- **Portada por proyecto** (`<proyecto>/.pandacorp/stats.json`) — los hechos de *ese* proyecto (weeklyFlow, sus scalars, funnel), validados por el sello del proyecto.
+- **Store de la fábrica** (`<raíz>/.pandacorp/stats-factory.json`) — los hechos de *toda* la fábrica (transiciones de fase de todos los proyectos, nº de proyectos, decisiones, lecciones), con su propio sello factory-wide.
+
+Cada sello valida **exactamente** lo que su archivo contiene. Si el sello no coincide (o el archivo falta/está corrupto), MC **cae al lector de git en vivo** para ese dato — nunca inventa un cero (contrato *fail-loud*, DR-078). El archivo se genera **una vez, en un punto seguro** (un solo escritor, escritura atómica), nunca con sumas incrementales. Así el coste de git se paga cuando un proyecto cambia, no en cada clic tuyo.
+
+> Hoy corre en el camino en vivo (~0.45 s, va perfecto con pocos proyectos); la materialización se **activa** cuando se genera el archivo por primera vez (`pnpm stats:backfill`). Detalle técnico: `docs/frds/frd-23-materialized-stats-read-model/` + ADR-0004.
+
 ## El Party panel
 
 El Party panel muestra los agentes del equipo con avatares pixel-art animados. Los eventos llegan desde `~/.claude/dashboard-events.ndjson` (fichero NDJSON al que los agentes escriben con `printf`). El panel usa un loop de animación RAF para:
