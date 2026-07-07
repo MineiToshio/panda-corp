@@ -92,6 +92,8 @@ function defaultResponse(label) {
   if (label.startsWith('commit:')) return { committed: 1 }
   if (/^(build|test|be|fe|selftest):/.test(label)) return { green: true } // VERIFY_SCHEMA
   if (label.startsWith('gate:')) return { green: true }                 // FRD_GATE_SCHEMA
+  if (label.startsWith('diagnose:')) return { classification: 'point', repeatsPrior: false, recommendation: 'patch', confidence: 'medium' } // DIAGNOSE_SCHEMA (A2) — benign default (only the recovery-ladder scenarios reach it)
+  if (label.startsWith('block-needs-owner:')) return { green: false, blocked_reason: 'needs-owner' } // A3 early-block spawn (REPAIR_SCHEMA)
   if (/^(repair|patch|gate-test-repair|verify-patch|revert|foundation-repair):/.test(label)) return { green: true } // REPAIR_SCHEMA
   if (/^(process-change|plan-drained):/.test(label)) return { done: true, affectedFrds: [], frds: [] }
   if (/^(hardening:security-audit|hardening:security-fix|hardening:telemetry|close-out|close-needs-hardening|notify-end|ensure-stopped|archive-changes)$/.test(label)) return { done: true } // STOP_SCHEMA
@@ -798,6 +800,121 @@ SCENARIOS.push({
     t.ok(close.length === 1, 'the split CLOSE stage ran (label gate:<frd>)')
     t.ok(close[0] && close[0].opts.effort === 'high', 'the split closer drops to effort high (C1d — the finders already hunted)')
     t.ok(run.result && run.result.builtFrds.includes('frd-18-split'), 'the FRD verifies through the split gate')
+  },
+})
+
+// ── 19. A3 recovery ladder — patch-1 code-fail → diagnose(point,fresh) → PATCH-2 diagnosis-guided ────
+// The new progressive-learning ladder: a localized reject whose patch-1 fails on real code no longer
+// reverts blindly — it DIAGNOSES, and a fresh 'point' diagnosis buys ONE more diagnosis-guided patch
+// (patch-2) before any revert. Proven by spawn labels: diagnose spawns once, patch spawns twice, and
+// the 2nd patch carries the diagnosis text.
+SCENARIOS.push({
+  name: '19. A3 recovery — patch-1 code-fail → diagnose(point,fresh) → patch-2 spawns with the diagnosis injected',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-19-recovery',
+    deps: [],
+    workOrders: [mkWo('wo-19-001', 'PLANNED', { frd: 'frd-19-recovery', artifacts: ['src/r/**'] })],
+  }]),
+  responses: [
+    { label: 'gate:frd-19-recovery', times: 1, response: { green: false, reopen: ['wo-19-001'], findings: [{ wo: 'wo-19-001', finding: 'off-by-one at src/r/a.ts:12', failingTest: 'a.spec.ts', files: ['src/r/a.ts'] }] } },
+    { label: 'patch:frd-19-recovery', response: { green: false, cause: 'code', failure: 'still red' } }, // both patch-1 AND patch-2 fail on code
+    { label: 'diagnose:frd-19-recovery', response: { classification: 'point', repeatsPrior: false, recommendation: 'patch', confidence: 'medium', seam: { files: ['src/r/a.ts'], symbol: 'foo', why: 'off-by-one', cleanlySeparable: true } } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^diagnose:/).length === 1, `the diagnoser spawned exactly once after patch-1's code-fail (got ${byLabel(run, /^diagnose:/).length})`)
+    const patches = byLabel(run, /^patch:/)
+    t.ok(patches.length === 2, `patch spawned TWICE — patch-1 + the diagnosis-guided patch-2 (got ${patches.length})`)
+    t.ok(patches[1] && /DIAGNOSIS OF WHY PATCH-1 FAILED/.test(patches[1].prompt), 'patch-2 carries the injected diagnosis (A3)')
+    t.ok(patches[1] && /SECOND diagnosis-guided attempt/.test(patches[1].prompt), 'patch-2 is labelled the SECOND diagnosis-guided attempt')
+    t.ok(byLabel(run, /^block-needs-owner:/).length === 0, 'a fresh point diagnosis does NOT early-block')
+    t.ok(hasLog(run, /patch-2 \(2\/2\), diagnosis-guided/), 'the ladder logs the patch-2 step (2/2, PATCH_ATTEMPT_CAP)')
+    t.ok(run.result && run.result.builtFrds.includes('frd-19-recovery'), 'the FRD converges (the in-run retry re-gate greens)')
+  },
+})
+
+// ── 20. A3 recovery — diagnose(point, repeats, cleanly separable) → PARTIAL revert (seam files only) ──
+SCENARIOS.push({
+  name: '20. A3 recovery — repeats-prior + cleanly-separable → PARTIAL revert restricted to the seam + retry',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-20-seam',
+    deps: [],
+    workOrders: [mkWo('wo-20-001', 'PLANNED', { frd: 'frd-20-seam', artifacts: ['src/s/**'] })],
+  }]),
+  responses: [
+    { label: 'gate:frd-20-seam', times: 1, response: { green: false, reopen: ['wo-20-001'], findings: [{ wo: 'wo-20-001', finding: 'recurring null-guard at src/s/seam.ts:8', failingTest: 'seam.spec.ts', files: ['src/s/seam.ts'] }] } },
+    { label: 'patch:frd-20-seam', response: { green: false, cause: 'code', failure: 'still red' } },
+    { label: 'diagnose:frd-20-seam', response: { classification: 'point', repeatsPrior: true, recommendation: 'partial-revert', confidence: 'medium', seam: { files: ['src/s/seam.ts'], symbol: 'guard', why: 'missing null-guard', cleanlySeparable: true } } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^diagnose:/).length === 1, 'the diagnoser spawned once')
+    t.ok(byLabel(run, /^patch:/).length === 1, 'NO patch-2 — a repeats-prior diagnosis does not re-patch, it reverts')
+    const reverts = byLabel(run, /^revert:/)
+    t.ok(reverts.length >= 1, `a revert ran (got ${reverts.length})`)
+    t.ok(reverts[0] && /src\/s\/seam\.ts/.test(reverts[0].prompt), 'the revert prompt names the seam file (src/s/seam.ts)')
+    t.ok(reverts[0] && /PARTIAL revert/.test(reverts[0].prompt) && /restricted to the diagnosed seam/.test(reverts[0].prompt), 'the revert is a PARTIAL, seam-restricted revert (A3)')
+    t.ok(reverts[0] && /the diagnosis proved the fault is confined to the seam/.test(reverts[0].prompt), 'COMMIT 2 discards ONLY the seam files, leaving other touched files in place')
+    t.ok(hasLog(run, /PARTIAL revert restricted to the seam/), 'the ladder logs the partial-revert choice')
+    t.ok(run.result && run.result.builtFrds.includes('frd-20-seam'), 'the FRD converges after the seam retry')
+  },
+})
+
+// ── 21. A3 recovery — diagnose(architectural, high) → EARLY BLOCK needs-owner (no patch-2, no retry) ──
+SCENARIOS.push({
+  name: '21. A3 recovery — architectural (confidence high) → early BLOCK needs-owner, no patch-2/retry',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-21-arch',
+    deps: [],
+    workOrders: [mkWo('wo-21-001', 'PLANNED', { frd: 'frd-21-arch', artifacts: ['src/arch/**'] })],
+  }]),
+  responses: [
+    { label: 'gate:frd-21-arch', times: 1, response: { green: false, reopen: ['wo-21-001'], findings: [{ wo: 'wo-21-001', finding: 'AC unsatisfiable against the blueprint', files: ['src/arch/a.ts', 'src/arch/b.ts', 'src/arch/c.ts', 'src/arch/d.ts'] }] } },
+    { label: 'patch:frd-21-arch', response: { green: false, cause: 'code', failure: 'cannot satisfy the AC' } },
+    { label: 'diagnose:frd-21-arch', response: { classification: 'architectural', repeatsPrior: true, recommendation: 'block-needs-owner', confidence: 'high', decisionRecord: 'El AC no es satisfacible contra el blueprint — decisión del owner.' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^diagnose:/).length === 1, 'the diagnoser spawned once')
+    t.ok(byLabel(run, /^patch:/).length === 1, 'only patch-1 ran — an architectural diagnosis does NOT get a patch-2')
+    const block = byLabel(run, /^block-needs-owner:/)
+    t.ok(block.length === 1, `the early-block spawn ran exactly once (got ${block.length})`)
+    t.ok(block[0] && /inbox\/decisions\.md/.test(block[0].prompt), 'the block appends the decision record to .pandacorp/inbox/decisions.md')
+    t.ok(block[0] && /BLOCKED/.test(block[0].prompt) && /needs-owner/.test(block[0].prompt), 'the block sets the WOs BLOCKED needs-owner')
+    t.ok(byLabel(run, /^revert:/).length === 0, 'NO standalone revert spawn — the block does its own revert (no wasted reopen)')
+    t.ok(byLabel(run, /^build:/).length === 1, 'NO in-run retry rebuild — only the original build ran')
+    t.ok(run.result && run.result.blockedReasons && run.result.blockedReasons['frd-21-arch'] === 'needs-owner', `the FRD is blocked needs-owner (got ${run.result && run.result.blockedReasons && run.result.blockedReasons['frd-21-arch']})`)
+    t.ok(!run.result || !run.result.builtFrds.includes('frd-21-arch'), 'the FRD is NOT built')
+    t.ok(hasLog(run, /early BLOCK needs-owner, NOT burning the remaining reopens/), 'the ladder logs the early-block rationale')
+  },
+})
+
+// ── 22. A3 honest degrade — at the agent ceiling, patch-1 code-fail does NOT diagnose (legacy revert) ──
+// maxAgents=16 (mode pro): the loop-top brake passes at the gate iteration (12<16), but the serial gate
+// (+3) and patch-1 (+3, opus) push agentSpawned to 18 ≥ 16, so capHit() is true when the ladder decides.
+// The diagnose spawn is skipped (it would cost another COST(judge)); the legacy revert path runs instead.
+SCENARIOS.push({
+  name: '22. A3 honest degrade — capHit at patch-1 code-fail skips the diagnosis (legacy revert path)',
+  args: { mode: 'pro', maxAgents: 16 },
+  plan: mkPlan([{
+    frd: 'frd-22-cap',
+    deps: [],
+    workOrders: [mkWo('wo-22-001', 'PLANNED', { frd: 'frd-22-cap', artifacts: ['src/cap/**'] })],
+  }]),
+  responses: [
+    { label: 'gate:frd-22-cap', times: 1, response: { green: false, reopen: ['wo-22-001'], findings: [{ wo: 'wo-22-001', finding: 'x', files: ['src/cap/a.ts'] }] } },
+    { label: 'patch:frd-22-cap', response: { green: false, cause: 'code', failure: 'still red' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^diagnose:/).length === 0, 'the diagnoser NEVER spawned — capHit() is true, so the A3 ladder honest-degrades to the legacy revert')
+    t.ok(byLabel(run, /^patch:/).length === 1, 'only patch-1 ran (no patch-2 without a diagnosis)')
+    t.ok(byLabel(run, /^revert:/).length === 1, 'the legacy revert path ran (revert spawn)')
+    t.ok(hasLog(run, /agent ceiling reached — skipping the A3 diagnosis/), 'the honest-degrade reason is logged')
+    t.ok(run.result && run.result.stopReason === 'agents', `the run stops at the agent ceiling (got ${run.result && run.result.stopReason})`)
   },
 })
 
