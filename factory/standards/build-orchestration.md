@@ -292,8 +292,14 @@ The build engine reviews and tests **per FRD**, not per work order:
   as ONE serial reviewer (the default) OR as a four-stage split: **find → dedup → verify → close**. The
   flag lives in the engine's `PROFILES`: `reviewSplit: true` for `powerful`/`deep`, `false` for
   `pro`/`balanced`. When it is **false** the serial gate runs unchanged — the split is purely additive,
-  the cheaper modes pay nothing. When **true** and the split's estimated agent-cost fits the remaining
-  `maxAgents` budget (the brake is pre-checked BEFORE choosing, so the split can never overshoot), the gate
+  the cheaper modes pay nothing. **SERIAL-FIRST (DR-100, proposal 31 pkg C1a): even with `reviewSplit` on, the
+  FIRST gate of an FRD this run runs SERIAL** — the split engages only on a **re-gate** (`gateAttempts >= 1`)
+  OR when any reviewed WO already carries `reopen_count >= 1` (a prior-run reopen). Rationale from the DR-100
+  data: **~80% of first gates pass or need a ≤6-min fix**, so paying four finder lenses + per-finding skeptics
+  on every first look bought wall-clock, not quality; the diverse-lens spend is reserved for the gate that
+  already failed once (where a generator's per-lens blind spots actually differ). When the split DOES engage —
+  and the split's estimated agent-cost fits the remaining `maxAgents` budget (the brake is pre-checked BEFORE
+  choosing, so the split can never overshoot) — the gate
   fans out: **(1) FIND** — four parallel read-only `sonnet` finders, one lens each (correctness vs the
   FRD's EARS AC · security · quality: near-duplicate components + single-source-of-truth/DR-115 violations
   + dead/stale reader mappings · runtime/visual: does it render/run) reporting `{file, claim, severity,
@@ -394,6 +400,40 @@ The build engine reviews and tests **per FRD**, not per work order:
   `blockedReasons:{baseline:error}`). The canary proves the gates still bite on a broken fixture; this run
   proves the REAL project still passes after the overwrite.
 
+## 5a. Concurrent gates — build and review finally overlap (DR-118)
+
+The per-FRD gate runs a whole-project `verify.sh` (biome/tsc/knip + the browser layer), which needs a **quiet
+tree** — so historically each gate was a synchronous barrier: the whole pipeline stalled while one FRD was
+reviewed. But the tree only has to be quiet **for the gate**, not for the whole engine. So gates now run as
+**background promises against a persistent detached worktree** (`.pandacorp/run/gate-worktree`, gitignored
+run-state) **pinned at the FRD's enqueue SHA** — the boundary HEAD right after the FRD's last wave committed, a
+moment with no half-committed sibling. **Snapshot the tree instead of freezing the pipeline:** while a gate
+reviews a frozen checkout, the main loop keeps dispatching build waves.
+
+- **Bounded concurrency.** `MAX_CONCURRENT_GATES` (default 2, `args.maxConcurrentGates`) caps the gate promises
+  in flight; they still **serialize on the single worktree** (one checkout at a time, via a promise chain) — the
+  cap bounds the backlog, not true review parallelism.
+- **One writer to main — the serialized apply-gate (MECH).** A gate running in the worktree is **REVIEW-ONLY**:
+  it sets nothing `VERIFIED`, advances no `last_green_sha`, commits nothing. When it PASSES, a single serialized
+  **`applyGate`** MECH step is the **ONLY main-tree writer**: it ports the reviewer's new test files to main,
+  stamps the WOs `VERIFIED` + `reopen_count: 0`, recomputes the FRD/blueprint rollups, updates `status.yaml`,
+  and advances `last_green_sha` on the **shared commit chain** (serialized with the per-WO commit writer — no
+  interleaved `index.lock` race).
+- **REJECT → quiesce → the ladder runs on main, unchanged.** A non-pass verdict is queued; because waves are
+  synchronous barriers, the engine **quiesces** (awaits every in-flight gate to settle, so no wave is building),
+  then runs the DR-072/073/**117** recovery ladder on the **main** tree exactly as before — the convergence
+  semantics are byte-for-byte the pre-C2 path.
+- **Fail-safe topology.** The first gate **probes** the worktree synchronously: success → concurrent for the
+  whole run; **worktree failure → the LEGACY synchronous gate** (one gate inline per iteration, on the quiet
+  main tree) for the rest of the run — a real, tested fallback, never "no gate". The **baseline pre-check removes
+  a stale gate worktree** left by a crashed prior run before anything starts.
+- **HONEST LIMITS (stated plainly).** Gate reviews **serialize with each other** (one worktree). And `applyGate`
+  **trusts the worktree gate's green without a main-side re-run** — so the integration window `[pin, apply]`
+  (main advanced while the gate reviewed the older pin) is NOT re-verified at apply time. That window is covered
+  by **subsequent gates' whole-project checks** (every later gate re-runs biome/tsc/knip over the then-current
+  main) and by the **close-out FULL suite** (`verify.sh`, no `--since`) — the backstop that must be green before
+  `phase: release`. This is a deliberate, bounded trust trade, not an oversight.
+
 ## 5b. The phase model & `deploy_target` (DR-085)
 
 The project lifecycle (the `phase` in `.pandacorp/status.yaml`) has **six phases**, matching Mission
@@ -404,8 +444,11 @@ Control's six rooms: **research** (pre-project) → `product` → `design` → `
   The security audit, quality close-out and telemetry/metrics verification are the **last step of
   construction** (see §6 "Nothing is left"), not a separate release activity — and this is cabled, not
   prose: `pandacorp-build.js` runs a `Hardening` phase (security-auditor + analytics agents) once every FRD
-  is `VERIFIED`, and the close-out **asserts the hardening evidence exists** (`docs/reviews/security-*.md`
-  dated this run + the `## Verification` section in `docs/analytics/events.md`) **before it may set
+  is `VERIFIED`, and the close-out **asserts the hardening evidence exists — and is FRESH, DETERMINISTICALLY**:
+  the dated report `docs/reviews/security-<TODAY>.md` (TODAY = `date -u +%F`) exists **AND its mtime is newer
+  than `status.yaml`'s `run_started_at`** (compare epochs — a STALE same-day report left by a *previous* run
+  fails this assert, closing the "yesterday's audit passes today" hole), plus the `## Verification` section in
+  `docs/analytics/events.md`, **before it may set
   `phase: release`**. If a hardening stage fails, the engine keeps `phase: implementation`, files a
   needs-owner decision and notifies; the fail-safe close (fired when a close-out agent dies) NEVER touches
   `phase`. There is no path to `release` on the FRD loop alone.
@@ -494,22 +537,67 @@ patched the one bug). So the default is **patch-first**:
   coverage; if the test is upheld, the flow falls back to the normal revert). One fallback for two causes was
   rebuilding correct work in loops a defective test could never let converge (LESSON-0002). On give-up the
   patcher UNDOES its own edits, so the engine can still revert cleanly.
+- **Progressive-learning recovery ladder — DIAGNOSE before reverting (DR-117).** When patch-1 fails with
+  `cause: 'code'` **and** the agent budget permits (`capHit()` false), the engine no longer jumps straight to
+  revert-and-rebuild; it spends ONE read-only `diagnoseFailure` spawn (judge model, `effort: high`) to
+  **classify** the failure and pick the CHEAPEST safe recovery. The classification can only stop *earlier* than
+  the reopen cap on a doomed spec, never later — `reopen_count`/`MAX_REOPENS` stay the hard bound. Four classes,
+  each with an **auditable signal** (a weak, `confidence: low` diagnosis with no `file:line` anchor defaults to
+  `point` and can never justify a block):
+  - **`point`** — a bounded, cleanly-fixable fault → if the finding CHANGED (not `repeatsPrior`), an **informed
+    patch-2** (`attemptPatch` fed the diagnosis, capped at `PATCH_ATTEMPT_CAP` = 2 patches per gate cycle);
+    else if it repeats a prior fault AND the diagnosed `seam` is `cleanlySeparable`, a **partial SEAM revert**
+    (`git checkout <last_green> -- <seam.files>` only, never the whole WO) + in-run retry; else a **full revert
+    + in-run retry** with the diagnosis threaded into the rebuild.
+  - **`architectural`** — the auditable signals: findings **spread over > `FINDING_SPREAD_THRESHOLD` (3) files**,
+    OR the same `findingKey` recurring **across ≥ 2 attempts** (read from the journal, after purging priors the
+    diagnoser can no longer reproduce), OR an acceptance criterion **unsatisfiable** against the blueprint. At
+    `confidence: medium|high` → **EARLY BLOCK needs-owner** (`blockEarlyNeedsOwner`): full revert, set the WOs
+    `BLOCKED: needs-owner`, file the Spanish `decisionRecord` in `inbox/decisions.md` **with the journal digest
+    inlined** — don't burn the remaining reopens on a spec only the owner can fix.
+  - **`deadlocked-contract`** — a blessed/preserved test asserts a contract a `dependsOn` sibling WO
+    intentionally derogates (LESSON-0104; the record recommends folding the derogation + re-bless into ONE WO).
+    Same early-block routing as `architectural` at `medium|high`.
+  - **`gate-test-defective`** — routes to the existing `repairGateTest` valve (BL-0001), never a rebuild of
+    correct work.
+  A partial or full revert still **increments `reopen_count`** (the non-progress cap is untouched); a weak
+  diagnosis or `architectural`/`deadlocked` at `confidence: low` falls through and is treated as `point`. **At
+  the agent ceiling** (`capHit()`) the engine **degrades honestly to the legacy path** — no diagnosis spawn,
+  straight revert + in-run retry — so the ladder never *adds* cost when there's no budget for it.
 - **Only when the patch (and, if flagged, the gate-test repair) can't green it whole-project** does the engine
   fall back to `revertAndReopen` (the DR-070 path): set the WO `PLANNED`, **increment `reopen_count`**, and
   revert its files to `last_green_sha` — surgical `git checkout <sha> -- <files>` + `git rm` for newly-created
-  files, **never a whole-tree hard reset** (that would discard verified siblings) — committed with the status
-  change. **The revert preserves test evidence (DR-107):** a newly-created TEST file the reviewer authored or a
-  `## Status Note` references is coverage, not rejected code — it MOVES to `.pandacorp/run/preserved-tests/<wo>/`
-  instead of being deleted, and the rebuild restores it as its RED baseline (a green 6/6 a11y spec was deleted
-  by a revert on personal-page-v2 and had to be re-authored blind a pass later).
+  files (a **PARTIAL** revert restricts the `git checkout` to the diagnosed `seam.files` when the diagnosis said
+  `cleanlySeparable`), **never a whole-tree hard reset** (that would discard verified siblings) — committed with
+  the status change. **The revert preserves test evidence (DR-107):** a newly-created TEST file the reviewer
+  authored or a `## Status Note` references is coverage, not rejected code — it MOVES to
+  `.pandacorp/run/preserved-tests/<wo>/` instead of being deleted, and the rebuild restores it as its RED
+  baseline (a green 6/6 a11y spec was deleted by a revert on personal-page-v2 and had to be re-authored blind a
+  pass later).
 - **In-run retry (DR-107).** After the revert, the engine retries the reopened WOs **once, in the SAME run**,
-  from the clean green base (on opus — `reopen_count >= 1`), then re-gates. Deferring every reopen to the next
-  pass re-paid the whole fixed overhead (baseline + full re-plan + rollup sync + safe-points) per reopened WO.
-  Bounded: one in-run retry per FRD per run; skipped at the agent ceiling or when a reopened WO already hit the
-  reopen cap; if the retry's gate rejects again there is NO second patch cycle — revert + defer to the next
-  pass exactly as before. **One unified budget:** `reopen_count` is the single counter (the in-place patch is a
-  sub-step of one reject cycle, NOT a second axis — this avoids the nesting/non-termination the red team
-  flagged); at `MAX_REOPENS` (default 3) the gate BLOCKs `needs-owner` instead of grinding.
+  from the clean green base (on opus — `reopen_count >= 1`), threading the diagnosis into the rebuild, then
+  re-gates. Deferring every reopen to the next pass re-paid the whole fixed overhead (baseline + full re-plan +
+  rollup sync + safe-points) per reopened WO. Bounded: one in-run retry per FRD per run; skipped at the agent
+  ceiling or when a reopened WO already hit the reopen cap; if the retry's gate rejects again there is NO second
+  patch cycle — revert + defer to the next pass exactly as before. **One unified budget:** `reopen_count` is the
+  single counter (the in-place patch is a sub-step of one reject cycle, NOT a second axis — this avoids the
+  nesting/non-termination the red team flagged); at `MAX_REOPENS` (default 3) the gate BLOCKs `needs-owner`
+  instead of grinding.
+
+**The build journal — `.pandacorp/build-journal.jsonl` (DR-117, committed, append-only, role-signed).** The
+progressive-learning ladder is only "learning" if attempts leave a durable trail the next attempt can read. The
+engine keeps a **committed** (like `track.jsonl` — staged by the WO commit / gate / block, so it survives across
+runs and across runtimes) **append-only** journal, one JSON line per attempt, **role-signed** so generator ≠
+verifier holds in the record too: **builders** write `kind: attempt`, **gates** write `kind: verdict`, the
+**diagnoser** writes `kind: diagnosis`, the **verifier/applier** writes `kind: resolution`. Each line carries the
+wo id, `attempt`, `reopen_count`, the `rung` (`build|patch|diagnose|verify|revert|gate|retry`), `classification`,
+`seam`, `findingKey`, and a one-line `tried`/`why`/`confidence`. The **planner injects `priorAttempts`** — a
+bounded digest (last 2) of what earlier attempts on each WO tried and why they didn't hold — into the builder's
+context pack **as HYPOTHESES to verify against the current code, never gospel** (the diagnoser adversarially
+self-purges priors it can no longer reproduce, so a stale poison hypothesis dies). At **close-out** the engine
+distills the journal's **GOLD** — any WO that reached `reopen_count ≥ 2` before resolving, and every
+`architectural`/`deadlocked-contract` entry — into one-line lessons appended to the DR-047 capture inbox
+(`.pandacorp/run/lessons.md`, `(agent-inferred)`).
 
 **Model selection — adaptive escalation within the mode (DR-073).** This is the build engine's own calibrated
 instance of the general subagent-model-selection principle (CONV-12/DR-111 — calculate the tier by task
@@ -579,7 +667,11 @@ primitive(s) to the foundation** on the frozen tokens per their mock spec, appen
 `components.md`, rebuilds + re-verifies, and lets the surfaces rebuild against the real primitives —
 **capped at `foundationRepairCap` (default 2) auto-repairs per run**. It escalates to the owner ONLY
 when: confidence is low, the gap is genuinely a human/design/product decision, or the cap is reached
-after N failed auto-repairs. The signal is structured: the FRD gate returns `missingFoundation: [names]`
+after N failed auto-repairs. **A NULL/garbled completeness-gate verdict (a dead gate agent) is counted on its
+OWN separate cap — `FOUNDATION_GATE_NULL_CAP` (2 transient nulls tolerated, escalate on the next), NOT against
+`foundationRepairCap`** — so a couple of dead gate agents no longer eat the *repair* budget, and a run that
+legitimately needs 2 repairs isn't pre-capped by an earlier dead gate. Fail-closed throughout: only an explicit
+`complete === true` verdict lets surfaces fan out (a no-verdict is a bounded retry, never read as green). The signal is structured: the FRD gate returns `missingFoundation: [names]`
 when it sees this class, and the engine routes it to the bounded foundation auto-repair instead of a
 `needs-owner` block. This is the balance the owner asked for — **autonomy without loops or burning the
 budget**. (PREVENT is §3's foundation-completeness gate; CURE is this bounded auto-repair — same root
@@ -595,7 +687,12 @@ now explicit, because a build went off-script and violated them — costing ~1h:
   in `Button.tsx`, 130 gate errors, build wedged). The **only** safe recovery from a dirty/conflicted tree
   is to **restore it to `last_green_sha`** (a clean reset to the green commit); never hand-resolve a
   stash-pop. On startup the engine **drops stale build stashes and clears leftover temp `preview-wo*`
-  pages** (baseline self-heal) — they're stale, the work is resumable.
+  pages** (baseline self-heal) — they're stale, the work is resumable. **The baseline is a TWO-STEP
+  (WS-D/D10): a cheap MECH pre-check** does the BL-0022 project-root guard, the stale gate-worktree removal, the
+  `rethink_pending` consume, the `.pandacorp/run/stop` owner-signal check, and a **clean-tree fast path** (tree
+  clean AND HEAD == `last_green_sha` → known-green, skip `verify.sh` entirely); **only if it escalates** (dirty
+  tree or HEAD off green) does the expensive **judge baseline** run the DR-067 reconciliation + `verify.sh`. So
+  a warm resume pays nothing, while a dirty/off-green tree still gets the full reconcile-then-verify.
 - **The supervisor watches the tree's git health as a first-class signal**, not just `status.yaml` +
   liveness. The Monitor checks `git status --porcelain` each tick — any `UU`/unmerged path or conflict
   marker is a **broken tree** and emits an alarm, routed to the bounded auto-repair (restore to last green).
@@ -606,8 +703,12 @@ now explicit, because a build went off-script and violated them — costing ~1h:
 
 **Build-lifecycle honesty — `running:false` on every exit + stop-the-LOOP, never a lying flag (DR-068).**
 The engine already cleans up on a NORMAL end (its close-out sets `running:false`, plus a fail-safe agent
-"never leave a phantom running build"). Two gaps remained, exposed when a build sat dead ~1h with
-`running:true` and a stuck spinner:
+"never leave a phantom running build"). **On the engine side this is now centralized in a single
+`ensureStopped()` helper invoked at EVERY early-return exit** (owner stop signal, change-not-processed,
+baseline red, planner failed, nothing to build, unsatisfied deps) plus a crash `try/catch` around the whole
+scheduler loop that guarantees `running:false` before rethrowing — **no exit path leaves a phantom
+`running:true`** (and none of these paths ever touches `phase`, since nothing is verified). Two gaps remained
+on the *supervisor* side, exposed when a build sat dead ~1h with `running:true` and a stuck spinner:
 - **A KILLED/stopped run never reaches the engine close-out**, so clearing state is the **supervisor's**
   job — and it must be its **guaranteed LAST act on EVERY exit** (clean end, budget/health/needs-owner
   stop, owner stop signal, or being interrupted): write `running:false` + `rm -f .pandacorp/run/build.lock`.
@@ -720,8 +821,11 @@ branch to get wrong. The ONLY place that decides "is a build running?" is `imple
 2026-07-01, audit-20; the TTL + the engine's single-writer commit chain are the actual mechanism); and even that
 decision is safe-when-wrong (a wrong launch aborts on the guard; a missed launch just leaves the change queued).
 
-**The consumer — THE ENGINE ITSELF drains + routes at every safe point** (a safe-point check at each FRD boundary
-in `pandacorp-build.js` reads `rethink_pending` + the ready queue + answered decisions — cabled 2026-07-01,
+**The consumer — THE ENGINE ITSELF drains + routes at every safe point** (a safe-point check runs **before every
+build wave** — the BL-0021 scheduler unit is the wave, not the FRD — plus a **bounded idle-wait** sweep while
+gates run concurrently with nothing left to build (C2), and it is **SKIPPED on pure gate-drain iterations** so it
+doesn't spawn a check per spin; the initial owner-signal check runs pre-loop in the baseline pre-check. It reads
+`rethink_pending` + the ready queue + answered decisions — cabled 2026-07-01,
 audit-20 P0-3; the supervisor only monitors/notifies, and before every relaunch re-checks the stop signal). It takes **only
 `status: ready` items and skips `draft`** (see the readiness gate above). For each `ready` queued
 change it decides, **work-conserving** (never stall the whole build for one item):
@@ -752,6 +856,14 @@ for the documentation discipline). This is the industry-standard *commit-before-
 trackers archive-not-delete; event-sourcing append-only; durable queues delete only after the durable write is
 confirmed): the changes/ file is a transient intake artifact, but it is retired into an archive, **never destroyed**,
 and **never auto-deleted** — any later prune of `done/` is a separate, owner-gated, reversible action.
+
+**Orphaned `building` change → reset to `ready` (WS-D/D16).** A change stamped `status: building` whose
+`affected_frds` include an FRD that ended the run **`BLOCKED`** (not merely un-VERIFIED) can never finish on
+its own — left alone it would strand as a phantom `building` item nobody re-drains. So the close-out archival
+sweep **sets it back to `status: ready`** with a one-line `note:` saying why (e.g. "re-opened: FRD … quedó
+BLOCKED needs-owner"), so it re-surfaces at the next run's drain once the owner clears the block. Only a
+`building` change ALL of whose `affected_frds` VERIFIED is archived to `done/`; one whose FRDs are still
+merely building stays in place for a later run.
 
 **Why this doesn't overload the build.** The build stays an **orchestrator of specialized subagents over
 deterministic control flow** (DR-013): docs → PM/architect, code → implementer, review → reviewer (a different
@@ -852,7 +964,9 @@ engine's orchestration contracts, per scenario:
   needs a live multi-run build for full fidelity, and the known residual (a strand if the verifying run's
   archive agent dies and the next run has nothing to build) is tracked in BL-0046.
 
-Run it with `node plugin/scripts/test-pandacorp-build.mjs` (exit 0 = green; 15 scenarios). Any change to
+Run it with `node plugin/scripts/test-pandacorp-build.mjs` (exit 0 = green; 54 scenarios — grown to cover the
+progressive-learning recovery ladder (DR-117), the serial-first split gate and the concurrent-gate topology
+(DR-118)). Any change to
 the engine MUST keep this suite green and SHOULD extend it with a scenario for the changed behavior — the
 suite is the engine's regression net; before it existed the 1,100-line engine had zero automated tests.
 A new scenario should be a genuine COUNTERFACTUAL (it fails on the pre-fix engine), not a tautology that
@@ -861,6 +975,27 @@ to keep honest: it verifies orchestration (dispatch order, brakes, prompt contra
 agents' real file/git effects are stubbed, so file-level outcomes are covered by the per-project
 `verify.sh` gates, not here; the cross-RUN behaviors (D1 durable archival) are proven structurally here
 and need a live multi-run build for full fidelity.
+
+## 10c. Engine invocation mechanics — how the workflow is launched
+
+The engine is a **Dynamic Workflows** script. Two mechanics matter and were previously undocumented:
+
+- **It lives in `.claude/engines/`, not `.claude/workflows/`.** Claude Code auto-exposes every file under
+  `.claude/workflows/` on the owner's `/` menu; the build engine is internal machinery, not an owner command, so
+  it lives in `.claude/engines/pandacorp-build.js` (off the menu) and is launched by **`scriptPath`** — `implement`
+  calls `Workflow({ scriptPath: '<projectDir>/.claude/engines/pandacorp-build.js', args })` rather than by
+  workflow `name`.
+- **A `scriptPath` launch delivers `args` as a JSON STRING** (a `name` launch delivered an object). So the engine's
+  **top-of-file shim** `JSON.parse`s it **fail-loud** before any read: `if (typeof args === 'string') { try {
+  args = JSON.parse(args) } catch (e) { log('FATAL: …'); throw e } }`. Without it every `args.*` would silently
+  fall to its legacy default — the BL-0022 failure class (an unparseable string throws rather than running
+  misconfigured).
+- **Project identity is EXPLICIT (BL-0022).** `implement` resolves and passes `args.projectDir` (the absolute
+  root where the preflight found `.pandacorp/status.yaml`) and `args.project` (the event key = folder basename);
+  the engine never derives them from cwd. It **arg-echoes** them at launch so a mislaunch (cwd = factory root
+  with the project as a subfolder) is caught immediately, and the Baseline step asserts
+  `projectDir/.pandacorp/status.yaml` exists and stops loud if not (never plans against the wrong tree). The
+  `$(basename "$PWD")` + relative-`track.jsonl` fallback is kept for back-compat when a launcher omits the args.
 
 ## 11. Concurrent-run guard (heartbeat-based lock)
 
@@ -888,7 +1023,13 @@ A frozen `running: true` is not proof of life; the audit found exactly that (`ru
 timestamp while the build was advancing). So:
 - **The producer emits a positive, time-driven heartbeat.** The engine appends an `AgentWorking` event to
   the event stream as each agent starts (`~/.claude/dashboard-events.ndjson`) AND **advances `last_event_at`
-  in `status.yaml` at every safe point** (each FRD gate, sync, close-out). The supervisor's tick is
+  in `status.yaml` at every safe point** (each FRD gate, sync, close-out). Alongside `AgentWorking` the run
+  emits a **structured event vocabulary** the live Party view reads: `BuildLaunch` (once, at start) ·
+  `GateVerdict` (per gate, carrying the reviewed `wos` count + the 1-based `attempt`) · `wo_reopen` (with the
+  new `reopen_count`) · `PatchResult` · `PreviewSmoke` (UI FRDs, real route pass/fail counts) · `Hardening`
+  (per stage: security/telemetry/integration) · `BuildComplete` (terminal `released`/`partial` verdict + wos/
+  frds). All are fire-and-forget single ndjson lines at a **single timestamp precision** (mixing precisions
+  breaks lexicographic ordering in a shared stream). The supervisor's tick is
   **time-driven** (a `ScheduleWakeup` timer, not only the event-driven `Monitor`) and on every tick it BOTH
   advances `supervisor_heartbeat` AND appends a positive `SupervisorTick` heartbeat event — so "sin señal"
   (no events at all) genuinely means *hung*, not merely *quiet between long agents*.
@@ -900,17 +1041,23 @@ timestamp while the build was advancing). So:
   reflected in the UI quickly — push/watch for near-real-time when cheap, polling **≤ 30 s** worst case — and
   (2) "sin señal" engages when the heartbeat stops. See [quality.md](quality.md) "Observability-fidelity gate".
 
-The **`implement` preflight** checks, after confirming `status.yaml` exists:
+The **`implement` preflight** checks, after confirming `status.yaml` exists. **Liveness is
+`max(supervisor_heartbeat, last_event_at)`, not the supervisor's clock alone (DR-066):** either stamp being
+fresh means alive, so the lock is stale only when **BOTH** are ≥ 10 min old. Reading only
+`supervisor_heartbeat` would steamroll a **healthy-but-quiet** build whose supervisor tick lagged while the
+engine (the producer) was advancing `last_event_at` at every safe point. This is what the preflight script
+(`plugin/scripts/preflight-implement.sh`) implements — it computes freshness from both epochs:
 
-| `running` | `supervisor_heartbeat` age | Action |
+| `running` | liveness = max(`supervisor_heartbeat`, `last_event_at`) age | Action |
 |---|---|---|
 | `false` (or absent) | — | proceed normally |
-| `true` | < 10 min | **ABORT**: tell the owner (in Spanish) there is already an active build; include `run_started_at` so they know when it started. Don't launch. |
-| `true` | ≥ 10 min (or field missing) | **Stale lock**: supervisor died (internet cut, crash, etc.). Warn the owner, reset `running: false` + clear `supervisor_heartbeat`, then proceed. |
+| `true` | either stamp < 10 min | **ABORT**: tell the owner (in Spanish) there is already an active build; include `run_started_at` so they know when it started. Don't launch. |
+| `true` | **BOTH** stamps ≥ 10 min (or both missing) | **Stale lock**: supervisor died (internet cut, crash, etc.). Warn the owner, reset `running: false` + clear `supervisor_heartbeat`, then proceed. |
 
-**Why 10 minutes?** The supervisor heartbeats every ~2 min. Five missed heartbeats (10 min of
-silence) is a conservative signal that it is genuinely dead, not just slow. This avoids false
-positives while still auto-recovering quickly after a crash.
+**Why 10 minutes?** The supervisor heartbeats every ~2 min AND the engine advances `last_event_at` at every
+safe point. Five missed beats on **both** clocks (10 min of total silence) is a conservative signal that the
+run is genuinely dead, not just slow or between long agents. This avoids false positives while still
+auto-recovering quickly after a crash.
 
 **Zombie recovery is automatic.** The owner never needs to hand-edit `status.yaml` to clear a stale
 lock — the next `implement` detects the stale heartbeat and resets it. If a run was interrupted

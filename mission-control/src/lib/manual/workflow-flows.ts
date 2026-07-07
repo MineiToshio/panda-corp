@@ -54,7 +54,7 @@ export const buildFlow: SkillFlow = {
       title: "Gate por feature",
       kind: "gate",
       detail:
-        "Al cerrar cada FRD, revisión serializada. En powerful/deep se abre en 4 lentes en paralelo + verificación adversarial + cierre Opus (reviewSplit); en pro/balanced, un revisor en serie.",
+        "Al cerrar cada FRD, revisión. En powerful/deep se abre en 4 lentes en paralelo + verificación adversarial + cierre Opus (reviewSplit); en pro/balanced, un revisor en serie. El gate corre en un worktree congelado (anclado al commit verde) MIENTRAS el build sigue forjando otras features; al aprobar, sella VERIFIED en main de forma serializada.",
       parallel: true,
       calls: [{ ref: "reviewer", as: "agent" }],
     },
@@ -62,7 +62,7 @@ export const buildFlow: SkillFlow = {
       title: "Convergencia",
       kind: "loop",
       detail:
-        "Si el gate encuentra fallos: parchea, repara el test, re-verifica; si no converge, revierte y reabre el work order. Nunca trata un fallo repetido como progreso.",
+        "Si el gate encuentra fallos, sube una escalera de recuperación: diagnostica primero (puntual · arquitectónico · gate-test-defectuoso · punto muerto), parchea informado (≤2 intentos), y si no converge revierte SOLO la costura tocada y reabre el work order. Cada paso queda en un diario durable (build-journal.jsonl). Solo bloquea (con motivo) si de verdad necesita al owner; nunca trata un fallo repetido como progreso.",
     },
     {
       title: "Hardening",

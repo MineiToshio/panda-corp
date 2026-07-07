@@ -145,6 +145,13 @@ foundation + live ────────┘
   `WoFrdFilteredBoard`, `WoDetail` (Resumen / Documento completo via `Tabs` + `DocView`), `WoProgress`
   and `WoEmpty`, faithful to `projWO()`. **Real-time**: consumes `useLiveSnapshot` (WO-01-009) for its
   work-orders slice — event-driven, not polling.
+  **(reconciled from code 2026-07-07)** — `WoLiveRefresh` triggers a throttled `router.refresh()` on
+  EITHER a genuinely fresher event OR a moved SSE `stateVersion` (via the shared
+  `lib/status/state-version-moved.ts`, the same detector `PartyLiveShell` uses). The `stateVersion`
+  path is what reflects a **backward** WO transition — a gate reopen (`IN_REVIEW → PLANNED`) rewrites
+  only the frontmatter and emits no event, so an event-only refresh would leave the board stale. The
+  open **WO detail pane** also mounts `WoLiveRefresh` (`ProjectWorkspace.renderWorkOrdersTab`), so a
+  reopened WO's detail badge updates live on the same transport (no second SSE subscription).
 
 **Parallelism.** WO-05-003 has no intra-FRD UI sibling — it is one unit. Across FRDs it is
 **disjoint** from FRD-06 (`_party/**`) and FRD-12 (`_observability/**`): its artifacts live only under

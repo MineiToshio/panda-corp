@@ -1115,9 +1115,12 @@ function ConceptDesatendida(): React.JSX.Element {
               solo para cuando necesita al owner o alcanza un freno de salud/presupuesto.
             </li>
             <li>
-              <B weight={500}>Repara antes de bloquear</B>: si un WO o el gate de revisión falla, un
-              agente diagnostica y arregla. Solo si no puede, marca BLOCKED con motivo (needs-owner
-              | external | error) y sigue con features independientes.
+              <B weight={500}>Repara antes de bloquear</B>: si un WO o el gate de revisión falla, el
+              motor sube una escalera — diagnostica primero (puntual · arquitectónico ·
+              gate-test-defectuoso · punto muerto), parchea informado, y si no converge revierte
+              solo la costura tocada. Cada paso queda en un diario durable (
+              <Code>build-journal.jsonl</Code>). Solo si de verdad necesita al owner marca BLOCKED
+              con motivo (needs-owner | external | error) y sigue con features independientes.
             </li>
             <li>
               <B weight={500}>Frenos de salud/presupuesto</B>: tope de presupuesto, demasiados
@@ -2847,6 +2850,65 @@ function WorkflowBuild(): React.JSX.Element {
         puede anclarlo, muere), y un revisor de cierre (Opus) firma solo lo confirmado. Si no cabe
         en el tope de agentes, cae con elegancia al revisor en serie de siempre. En los modos
         ligeros (pro/balanced) sigue siendo el revisor en serie, idéntico a antes.
+      </Body>
+
+      <DocH title="La revisión y la construcción ahora se solapan" />
+      <Body>
+        Antes, el motor se PARABA a revisar cada feature: mientras el juez deliberaba, nadie
+        construía. Ahora una feature lista para revisión se juzga en un{" "}
+        <B weight={500}>worktree congelado</B> (una copia del proyecto anclada al commit exacto en
+        que quedó verde) MIENTRAS el build sigue forjando otras features. Cuando el gate aprueba, el
+        motor sella ese work order como VERIFIED en la rama principal de forma serializada (un
+        cambio a la vez, sin pisarse); si rechaza, esa feature vuelve a la escalera de recuperación.
+        En el Party lo ves como lo que es: el tribunal <B weight={500}>abre</B> (evento{" "}
+        <Code>gate</Code>) y <B weight={500}>cierra</B> (evento <Code>GateVerdict</Code>) sin
+        congelar la forja, y una orden rechazada camina de vuelta a la forja (↩️{" "}
+        <Code>wo_reopen</Code>).
+      </Body>
+
+      <DocH title="Si algo falla: repara antes de bloquear (la escalera)" />
+      <Body>
+        Un fallo ya no para el build ni lo marca BLOCKED a la primera. El motor sube una{" "}
+        <B weight={500}>escalera de recuperación</B>, y cada peldaño queda anotado en un diario
+        durable (<Code>.pandacorp/build-journal.jsonl</Code>, committeado — sobrevive a un corte):
+      </Body>
+      <div style={{ marginBottom: "10px" }}>
+        <Panel>
+          <Ul>
+            <li>
+              <B weight={500}>Diagnostica primero.</B> Antes de tocar nada, clasifica el fallo:
+              puntual (un test, un borde), arquitectónico (el diseño no da), gate-test-defective (el
+              test del gate es el que está mal, no el código) o contrato en punto muerto.
+            </li>
+            <li>
+              <B weight={500}>Parchea informado.</B> Aplica un arreglo guiado por el diagnóstico
+              (hasta 2 intentos), no un palo de ciego.
+            </li>
+            <li>
+              <B weight={500}>Revierte solo la costura.</B> Si no converge, deshace SOLO la parte
+              tocada (revert parcial de la costura), no toda la feature.
+            </li>
+            <li>
+              <B weight={500}>Bloquea temprano y con motivo.</B> Si de verdad necesita al owner,
+              marca BLOCKED con la razón (needs-owner | external | error) y sigue con las features
+              independientes — nunca se queda dando vueltas.
+            </li>
+          </Ul>
+        </Panel>
+      </div>
+      <Body>
+        En el feed del Party estos momentos tienen icono propio: <B weight={500}>↩️ WO reabierto</B>,{" "}
+        <B weight={500}>🩹 Parche</B>, la <B weight={500}>✅/❌ prueba de humo</B> (el revisor
+        renderiza las rutas de verdad) y el <B weight={500}>🛡️ Endurecimiento</B> del cierre.
+      </Body>
+
+      <DocH title="Cómo lo lanzas · el checklist" />
+      <Body>
+        <Code>/pandacorp:implement</Code> corre dos guiones antes de soltar el motor de noche:{" "}
+        <Code>preflight-implement.sh</Code> comprueba que todo esté listo (el último verde, que no
+        haya otro build corriendo — el candado de un-build-a-la-vez —, presupuesto y salud) y{" "}
+        <Code>launch-implement.sh</Code> arranca el motor junto a su supervisor. Tú no corres nada a
+        mano: el skill te enseña el checklist y lanza. A partir de ahí, mira el Party.
       </Body>
 
       <DocH title="Cómo retoma si se corta" />

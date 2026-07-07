@@ -131,6 +131,21 @@ type EventsSnapshot = {
   lastEventAt: string | null;
   byProject: Record<string, { lastEventAt: string }>;  // for live/no-signal + age-in-stage
 };
+```
+
+> **Reconciled from code (2026-07-07).** The `Event` type carries a growing set of **optional**
+> enriched fields the parser tolerates from the real engine vocabulary (read from a nested `data`
+> object with a top-level fallback; a wrong type drops just that field, never the event):
+> `frd`/`phase`/`activity`/`mode`/`role` (WO-06-012, FRD-06), the result-bearing
+> `verdict`/`result`/`reopenCount`/`blocking`/`important`/`agentType`/`effortLevel`/`maxAgents`/`wos`/`frds`/`reason`/`workflows`
+> (WO-10-009, FRD-10), and the 2026-07-07 build-engine vocabulary
+> `stage` (Hardening), `outcome` (PatchResult), `pass`/`routes`/`failed` (PreviewSmoke) and `attempt` (gate).
+> `wos` is tolerated in BOTH shapes — the `"done/total"` STRING form (`BuildComplete`) and a plain
+> numeric COUNT (the extended `gate` event, which the parser earlier dropped silently — fixed
+> `af087570`). Chronology is compared via `Date.parse` (`lib/events/event-time.ts` `isNewerTimestamp`),
+> not lexicographically, because the engine mixes second- and millisecond-precision `at` stamps.
+
+```ts
 
 // lib/docs.ts
 type FrdModule = {
@@ -160,7 +175,12 @@ throw or a blank screen:
   status: {} }`; partial keys tolerated (REQ-01-005/006, edge case).
 - `readProjectDocs` → only reports what exists; absent layers → empty/false.
 - `readEvents` → missing NDJSON → empty snapshot; a malformed line is skipped, valid lines kept;
-  tail capped at 200 (architecture §3/§5).
+  tail capped at 200 (architecture §3/§5). **(reconciled from code 2026-07-07)** — the reader
+  tail-reads only the last **256 KB** of the file (`readTailUtf8`: `open → fstat → read → close` one
+  fd, dropping the first partial line so no truncated JSON reaches the parser), not the whole file —
+  the dashboard stream grows unbounded (every Claude session appends; it had reached ~16 MB) and only
+  the last ~200 events are ever kept. The `project` filter is applied BEFORE the cap (existing rule);
+  the tail byte-window sits above it.
 - `pathExists` → never throws; a not-found project is **marked**, the rest of the view survives
   (REQ-01-010).
 
@@ -230,3 +250,13 @@ gap is presentational, not in `lib/`). Phase 2 adds ONE new piece here: the real
   its own event slice via `useLiveSnapshot`, replacing any polling.
 - **Gate:** SSE delivers an appended event to a subscribed client; `?project=` slices correctly; no leak
   on unmount; defensive on missing/locked files. Its `## Status Note` publishes the frame + hook contract.
+
+> **Reconciled from code (2026-07-07) — stream hygiene.** `/api/live` no longer opens a watcher and
+> re-parses the whole file per connection. A module-level **`EventStore` singleton** owns ONE
+> `fs.watch` on the events file plus a shared parsed snapshot memoized by `{size, mtimeMs}`; every SSE
+> connection SUBSCRIBES to that shared store and filters it for its own `?project=`/`?kind=`. The
+> shared unfiltered read is capped at `SHARED_CAP=600` (headroom so a busy global stream can't crowd a
+> single project out) and each client frame is tail-capped at `CONNECTION_TAIL=200`; watch bursts are
+> debounced (`STORE_DEBOUNCE_MS`) and frames throttled (`EMIT_THROTTLE_MS`). The per-client
+> `stateVersion` stat-watchers stay (cheap, project-specific) and stamp each frame with the project
+> machine-state's max mtime (the DR-066 refresh trigger consumed by FRD-05/FRD-06).
