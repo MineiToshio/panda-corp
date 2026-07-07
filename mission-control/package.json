@@ -21,6 +21,7 @@
     "lint:eslint": "eslint .",
     "lint:cycles": "madge --circular --extensions ts,tsx --ts-config tsconfig.json src",
     "stats:regen": "node --loader ./scripts/read-model/ts-loader.mjs scripts/read-model/regen.mjs",
+    "stats:factory": "node --loader ./scripts/read-model/ts-loader.mjs scripts/read-model/factory-store.mjs",
     "stats:sync-aggregate": "node --loader ./scripts/read-model/ts-loader.mjs scripts/read-model/sync-aggregate.mjs",
     "stats:backfill": "node --loader ./scripts/read-model/ts-loader.mjs scripts/read-model/backfill.mjs"
   },

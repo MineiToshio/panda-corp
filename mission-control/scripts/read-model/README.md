@@ -10,6 +10,7 @@ All logic lives in `src/lib/achievements/read-model/` (unit-tested); these are t
 | CLI | npm script | Purpose |
 |---|---|---|
 | `regen.mjs` | `pnpm stats:regen [<projectPath>]` | Regenerate one project's `.pandacorp/stats.json` (the **universal write point**). |
+| `factory-store.mjs` | `pnpm stats:factory` | Regenerate the factory-wide store `<factory-root>/.pandacorp/stats-factory.json` (single writer, DR-115). |
 | `sync-aggregate.mjs` | `pnpm stats:sync-aggregate` | Join every project's portada into the O(1) aggregate index. |
 | `backfill.mjs` | `pnpm stats:backfill [<projectPath>…]` | One-shot: generate the initial portada for existing projects. |
 
@@ -34,10 +35,21 @@ but did not commit through git still materializes on session end.
 skip note and exits 0 — it never aborts the commit; MC's live-git fallback covers the gap. Only a
 genuinely unexpected error propagates.
 
+## Factory-wide store — the SSOT-split second scope
+
+The Informe's **factory-wide** facts — `phaseTransitions` (across every project), `scalars.{projects,
+decisions}`, `lessons` — do NOT belong in any one project's portada (the SSOT split, DR-115: a
+per-project seal can't validate factory-wide data). They live in ONE factory-scoped store
+`<factory-root>/.pandacorp/stats-factory.json`, written by the single writer `writeStatsFactory`
+(`src/lib/achievements/read-model/factoryStoreWriter.ts`) with its own factory-wide seal. `stats:factory`
+is the thin CLI over it. Like the others it **degrades honestly** (DR-078): if the factory-wide numbers
+can't be derived from git it prints a skip note and exits 0 (the reader's live-git fallback covers it).
+
 ## Aggregate index — O(1) Informe
 
-`/pandacorp:sync-portfolio` (which already walks every project) runs `sync-aggregate` at the end of
-its portfolio refresh to join the N portadas into `<factory-root>/.pandacorp/stats-aggregate.json`.
+`/pandacorp:sync-portfolio` (which already walks every project) runs `stats:factory` **first** (to
+regenerate the factory-wide store with a fresh seal) and then `sync-aggregate` at the end of its
+portfolio refresh to join the N portadas into `<factory-root>/.pandacorp/stats-aggregate.json`.
 MC reads that ONE file in O(1) — the Informe's cost stops scaling with the number of projects.
 A missing/corrupt portada is reported and skipped (fail-loud), never a silent empty.
 
@@ -46,5 +58,6 @@ A missing/corrupt portada is reported and skipped (fail-loud), never a silent em
 `pnpm stats:backfill` walks git once per existing project and writes its initial portada. Run it once
 after shipping FRD-23; from then on the universal commit trigger keeps every portada fresh.
 
-> The generated `.pandacorp/stats.json` (per project) and `.pandacorp/stats-aggregate.json` (factory
-> root) are **gitignored runtime caches** — never committed; re-derivable at any time from git.
+> The generated `.pandacorp/stats.json` (per project), `.pandacorp/stats-factory.json` (factory-wide
+> store) and `.pandacorp/stats-aggregate.json` (aggregate index, factory root) are **gitignored runtime
+> caches** — never committed; re-derivable at any time from git.

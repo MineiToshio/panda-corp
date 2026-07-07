@@ -67,7 +67,7 @@ Ahora usa un **read-model materializado** (FRD-23): un archivo con los números 
 
 Cada sello valida **exactamente** lo que su archivo contiene. Si el sello no coincide (o el archivo falta/está corrupto), MC **cae al lector de git en vivo** para ese dato — nunca inventa un cero (contrato *fail-loud*, DR-078). El archivo se genera **una vez, en un punto seguro** (un solo escritor, escritura atómica), nunca con sumas incrementales. Así el coste de git se paga cuando un proyecto cambia, no en cada clic tuyo.
 
-> Hoy corre en el camino en vivo (~0.45 s, va perfecto con pocos proyectos); la materialización se **activa** cuando se genera el archivo por primera vez (`pnpm stats:backfill`). Detalle técnico: `docs/frds/frd-23-materialized-stats-read-model/` + ADR-0004.
+> Hoy corre en el camino en vivo (~0.45 s, va perfecto con pocos proyectos); la materialización se **activa** cuando se generan los archivos por primera vez (`pnpm stats:backfill` para las portadas por proyecto, `pnpm stats:factory` para el store de la fábrica). Detalle técnico: `docs/frds/frd-23-materialized-stats-read-model/` + ADR-0004.
 
 ## El Party panel
 
