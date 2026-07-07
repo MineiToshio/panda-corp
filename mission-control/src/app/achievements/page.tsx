@@ -36,6 +36,7 @@ import { GuildHero } from "@/components/modules/GuildHero/GuildHero";
 import { computeChains, computeSecrets, computeUniques } from "@/lib/achievements/achievements";
 import { STATS_AGGREGATE_FILENAME } from "@/lib/achievements/read-model/aggregate";
 import { resolvePortadaFromAggregate } from "@/lib/achievements/read-model/aggregateConsumer";
+import { readStatsFactory } from "@/lib/achievements/read-model/factoryStoreReader";
 import { resolveInformeSources } from "@/lib/achievements/read-model/informeResolver";
 import { readStatsAggregate } from "@/lib/achievements/read-model/statsReader";
 import { weeklyFlow } from "@/lib/achievements/report/flowSeries";
@@ -100,19 +101,30 @@ export default async function HallPage(): Promise<React.JSX.Element> {
   // back to the live git readers (WO-10-014, unchanged) on ANY non-`ok` result — missing / stale /
   // corrupt all fall back (REQ-23-001). MC's project key is its portfolio path cell ("mission-control").
   // `getPendingMerge` is a separate module and stays live (AC-23-005.1, untouched).
-  const aggregatePath = path.join(resolveFactoryRoot(), ".pandacorp", STATS_AGGREGATE_FILENAME);
+  const factoryRoot = resolveFactoryRoot();
+  const aggregatePath = path.join(factoryRoot, ".pandacorp", STATS_AGGREGATE_FILENAME);
   const portadaResult = resolvePortadaFromAggregate(
     readStatsAggregate(aggregatePath),
     "mission-control",
     projectPath,
   );
-  const informeSources = resolveInformeSources(portadaResult, {
-    weeklyFlow: () => weeklyFlow(projectPath),
-    phaseTransitions: () => phaseTransitions(),
-    scalars: () => reportScalars(projectPath),
-    lessons: () => lessonCounts(),
-    funnel: () => funnelAndFlow(ideas, statuses),
-  });
+  // FRD-23 SSOT split (REQ-23-006/007): factory-wide facts come from the factory-scoped store
+  // (validated by the FACTORY seal), independently seal-validated and independently falling back to
+  // the live cores. A phase change in ANOTHER project mismatches the factory seal → this project's
+  // Informe re-derives the factory-wide facts live instead of serving a stale cross-project copy
+  // (AC-23-007.3). Per-project facts stay sourced from the portada above.
+  const factoryResult = readStatsFactory(factoryRoot);
+  const informeSources = resolveInformeSources(
+    portadaResult,
+    {
+      weeklyFlow: () => weeklyFlow(projectPath),
+      phaseTransitions: () => phaseTransitions(),
+      scalars: () => reportScalars(projectPath),
+      lessons: () => lessonCounts(),
+      funnel: () => funnelAndFlow(ideas, statuses),
+    },
+    factoryResult,
+  );
   const reportScalarsValue = informeSources.scalars;
   const lessons = informeSources.lessons;
   // Fail-loud usage band (AC-10-015.3): an absent event stream → "no cableado". Usage is not

@@ -40,3 +40,6 @@
 {"kind":"frd_end","frd":"frd-23-materialized-stats-read-model","at":"2026-07-06T23:47:48Z"}
 {"kind":"wo_start","frd":"frd-23-materialized-stats-read-model","wo":"WO-23-005","at":"2026-07-07T03:11:25Z"}
 {"kind":"wo_blocked","frd":"frd-23-materialized-stats-read-model","wo":"WO-23-005","reason":"superseded blessed reviewer test aggregateChain.reviewer.test.ts (DR-080) conflicts with REQ-23-006.4","at":"2026-07-07T03:25:50Z"}
+{"kind":"wo_start","frd":"frd-23-materialized-stats-read-model","wo":"WO-23-006","at":"2026-07-07T04:42:55Z"}
+{"kind":"wo_done","frd":"frd-23-materialized-stats-read-model","wo":"WO-23-006","at":"2026-07-07T04:48:29Z","result":"in_review"}
+{"kind":"wo_end","frd":"frd-23-materialized-stats-read-model","wo":"WO-23-006","state":"in_review","at":"2026-07-07T04:49:03Z"}
