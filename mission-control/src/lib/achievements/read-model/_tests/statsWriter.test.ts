@@ -11,7 +11,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { withFactoryRoot } from "../../../../tests/fixtures/index";
 import { getGuildState } from "../../../gamification/guildState";
 import { readIdeas } from "../../../ideas/ideas";
 import { weeklyFlow } from "../../report/flowSeries";
@@ -29,6 +30,7 @@ import {
   writeStatsPortada,
 } from "../statsWriter";
 import { FIXTURE_SEAL, makePortada } from "./fixtures";
+import { makeSyntheticFactoryRepo, type SyntheticFactoryRepo } from "./gitFixture";
 
 // ── Live report values from the fixture portada (so tests are deterministic) ──────
 // SSOT split (WO-23-005): the portada holds ONLY per-project facts now.
@@ -156,8 +158,21 @@ describe("gatherLiveValues — assembles from the report readers, not a re-deriv
 });
 
 // ── writeStatsPortada — end-to-end single writer (AC-23-002.1/.2) ─────────────────
+// Runs against a SYNTHETIC factory git fixture (gitFixture.ts) — never the real .pandacorp/:
+// the previous version wrote and then deleted the REAL `mission-control/.pandacorp/stats.json`
+// on every gate run, destroying the owner's live FRD-23 materialization (defective test, repaired
+// 2026-07-07). Real git is still exercised end-to-end — inside the temp fixture repo.
 describe("writeStatsPortada — single writer, seal stamped, atomic (AC-23-002.1/.2)", () => {
   let dir: string;
+  let fixture: SyntheticFactoryRepo;
+
+  beforeAll(() => {
+    fixture = makeSyntheticFactoryRepo();
+  });
+
+  afterAll(() => {
+    fixture.cleanup();
+  });
 
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), "portada-e2e-"));
@@ -174,59 +189,69 @@ describe("writeStatsPortada — single writer, seal stamped, atomic (AC-23-002.1
     expect(fs.existsSync(path.join(dir, ".pandacorp", "stats.json"))).toBe(false);
   });
 
-  it("writes a fresh, seal-matching portada the reader accepts (real MC repo)", () => {
-    // Mission Control's own repo IS a real git work-tree at cwd — derive against it, but write to
-    // an isolated .pandacorp under a temp copy of the project root so we don't touch the real file.
-    const projectPath = process.cwd();
-    const seal = currentSeal(projectPath);
-    expect(seal).not.toBeNull();
+  it("writes a fresh, seal-matching portada the reader accepts (synthetic git fixture)", async () => {
+    await withFactoryRoot(fixture.factoryRoot, () => {
+      const projectPath = fixture.projectPath;
+      const seal = currentSeal(projectPath);
+      expect(seal).toMatch(/^[0-9a-f]{40}$/);
 
-    const written = writeStatsPortada(projectPath, () => new Date("2026-07-06T00:00:00.000Z"));
-    expect(written).toBe(path.join(projectPath, ".pandacorp", "stats.json"));
+      const written = writeStatsPortada(projectPath, () => new Date("2026-07-06T00:00:00.000Z"));
+      expect(written).toBe(path.join(projectPath, ".pandacorp", "stats.json"));
 
-    // Read it back through the fail-loud reader: it must be fresh (seal matches) and parse.
-    const result = readStatsPortada(projectPath);
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.seal).toBe(seal);
-    }
-
-    // Restore: remove the file we wrote so the working tree is left clean for the gate.
-    fs.rmSync(written, { force: true });
+      // Read it back through the fail-loud reader: it must be fresh (seal matches) and parse.
+      const result = readStatsPortada(projectPath);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.seal).toBe(seal);
+      }
+    });
   });
 });
 
 // ── Equivalence: materialized == live git reader (AC-23-002.3) ────────────────────
 describe("portada-vs-live equivalence (AC-23-002.3)", () => {
-  it("materialized numbers equal the live git reader's numbers for the same project", () => {
-    const projectPath = process.cwd();
+  let fixture: SyntheticFactoryRepo;
 
-    // The live git reader's numbers (the fallback path MC uses today).
-    const liveWeekly = weeklyFlow(projectPath);
-    const liveScalars = reportScalars(projectPath);
-    const liveFunnel = funnelAndFlow(readIdeas(), getGuildState().statuses);
+  beforeAll(() => {
+    fixture = makeSyntheticFactoryRepo();
+  });
 
-    // Skip the assertion only if git genuinely could not derive (CI without full history) — the
-    // writer's own fail-loud path (tested above) covers that case; here we assert equivalence.
-    if (!liveWeekly.ok) return;
+  afterAll(() => {
+    fixture.cleanup();
+  });
 
-    const seal = currentSeal(projectPath);
-    expect(seal).not.toBeNull();
-    if (seal === null) return;
+  it("materialized numbers equal the live git reader's numbers for the same project", async () => {
+    await withFactoryRoot(fixture.factoryRoot, () => {
+      const projectPath = fixture.projectPath;
 
-    const written = writeStatsPortada(projectPath, () => new Date("2026-07-06T00:00:00.000Z"));
-    const materialized = parseStatsPortada(JSON.parse(fs.readFileSync(written, "utf-8")));
-    fs.rmSync(written, { force: true });
+      // The live git reader's numbers (the fallback path MC uses today). The fixture guarantees
+      // derivability (committed docs/frds + status.yaml history), so `ok` is ASSERTED, not skipped.
+      const liveWeekly = weeklyFlow(projectPath);
+      const liveScalars = reportScalars(projectPath);
+      const liveFunnel = funnelAndFlow(readIdeas(), getGuildState().statuses);
+      expect(liveWeekly.ok).toBe(true);
+      if (!liveWeekly.ok) return;
 
-    expect(materialized).not.toBeNull();
-    if (materialized === null) return;
+      const seal = currentSeal(projectPath);
+      expect(seal).not.toBeNull();
+      if (seal === null) return;
 
-    // Field-by-field: the materialized per-project portada equals the live-git derivation (no drift).
-    expect(materialized.weeklyFlow).toEqual(liveWeekly.value);
-    // Per-project subset only — projects/decisions are factory-wide (WO-23-005 factory store).
-    expect(materialized.scalars).toEqual({ frds: liveScalars.frds, commits: liveScalars.commits });
-    // The funnel depends on ideas/statuses read at write time — it uses the same single sources,
-    // so re-deriving here with those same sources equals the materialized value.
-    expect(materialized.funnel).toEqual(liveFunnel);
+      const written = writeStatsPortada(projectPath, () => new Date("2026-07-06T00:00:00.000Z"));
+      const materialized = parseStatsPortada(JSON.parse(fs.readFileSync(written, "utf-8")));
+
+      expect(materialized).not.toBeNull();
+      if (materialized === null) return;
+
+      // Field-by-field: the materialized per-project portada equals the live-git derivation (no drift).
+      expect(materialized.weeklyFlow).toEqual(liveWeekly.value);
+      // Per-project subset only — projects/decisions are factory-wide (WO-23-005 factory store).
+      expect(materialized.scalars).toEqual({
+        frds: liveScalars.frds,
+        commits: liveScalars.commits,
+      });
+      // The funnel depends on ideas/statuses read at write time — it uses the same single sources,
+      // so re-deriving here with those same sources equals the materialized value.
+      expect(materialized.funnel).toEqual(liveFunnel);
+    });
   });
 });

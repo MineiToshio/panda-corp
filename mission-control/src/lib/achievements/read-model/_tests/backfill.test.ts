@@ -5,15 +5,17 @@
  *   AC-23-004.1 — a one-shot backfill walks git ONCE per existing project and generates its initial
  *                 portada + seal, equivalent to what the live reader would produce. Modeled with an
  *                 injected `writePortada` so the walk logic is unit-tested without git I/O, plus a
- *                 real end-to-end write against the MC repo (the same equivalence the writer proves).
+ *                 real end-to-end write against a synthetic factory git fixture (gitFixture.ts —
+ *                 never the real `.pandacorp/`; the same equivalence the writer proves).
  */
 
-import fs from "node:fs";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { withFactoryRoot } from "../../../../tests/fixtures/index";
 import { runBackfill } from "../backfill";
 import { readStatsPortada } from "../statsReader";
 import { PortadaDeriveError } from "../statsWriter";
+import { makeSyntheticFactoryRepo, type SyntheticFactoryRepo } from "./gitFixture";
 
 describe("runBackfill — one portada write per existing project (AC-23-004.1)", () => {
   it("calls the writer exactly once per project (walks git once each)", () => {
@@ -68,23 +70,31 @@ describe("runBackfill — one portada write per existing project (AC-23-004.1)",
   });
 });
 
-describe("runBackfill — end-to-end against the real MC repo (equivalent to the live reader)", () => {
-  const written: string[] = [];
+// Runs against a SYNTHETIC factory git fixture (gitFixture.ts) — never the real .pandacorp/:
+// the previous version wrote and then deleted the REAL `mission-control/.pandacorp/stats.json` on
+// every gate run, destroying the owner's live FRD-23 materialization (defective test, repaired
+// 2026-07-07). Real git is still exercised end-to-end — inside the temp fixture repo.
+describe("runBackfill — end-to-end against a synthetic git fixture (equivalent to the live reader)", () => {
+  let fixture: SyntheticFactoryRepo;
 
-  afterEach(() => {
-    for (const f of written.splice(0)) {
-      fs.rmSync(f, { force: true });
-    }
+  beforeAll(() => {
+    fixture = makeSyntheticFactoryRepo();
   });
 
-  it("generates a portada the fail-loud reader reads back as fresh (seal equivalence)", () => {
-    const projectPath = process.cwd();
-    const summary = runBackfill([projectPath]);
-    written.push(...summary.written);
+  afterAll(() => {
+    fixture.cleanup();
+  });
 
-    // The backfilled portada is exactly what the live reader would accept for this project.
-    expect(summary.written).toEqual([path.join(projectPath, ".pandacorp", "stats.json")]);
-    const result = readStatsPortada(projectPath);
-    expect(result.ok).toBe(true);
+  it("generates a portada the fail-loud reader reads back as fresh (seal equivalence)", async () => {
+    await withFactoryRoot(fixture.factoryRoot, () => {
+      const projectPath = fixture.projectPath;
+      const summary = runBackfill([projectPath]);
+
+      // The backfilled portada is exactly what the live reader would accept for this project.
+      expect(summary.written).toEqual([path.join(projectPath, ".pandacorp", "stats.json")]);
+      expect(summary.skipped).toEqual([]);
+      const result = readStatsPortada(projectPath);
+      expect(result.ok).toBe(true);
+    });
   });
 });

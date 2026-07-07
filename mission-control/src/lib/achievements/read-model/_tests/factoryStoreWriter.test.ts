@@ -11,7 +11,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { withFactoryRoot } from "../../../../tests/fixtures/index";
 import { lessonCounts } from "../../report/lessons";
 import { phaseTransitions } from "../../report/phaseTransitions";
 import { reportScalars } from "../../report/scalars";
@@ -26,6 +27,7 @@ import {
 } from "../factoryStoreWriter";
 import { parseStatsFactory } from "../statsSchema";
 import { FIXTURE_FACTORY_SEAL, makeFactoryStore } from "./fixtures";
+import { makeSyntheticFactoryRepo, type SyntheticFactoryRepo } from "./gitFixture";
 
 const FIXTURE = makeFactoryStore();
 
@@ -127,9 +129,22 @@ describe("writeFactoryStoreAtomic — atomic tmp + rename (AC-23-006.3)", () => 
   });
 });
 
-// ── writeStatsFactory — end-to-end single writer against the real MC repo ─────────
+// ── writeStatsFactory — end-to-end single writer (AC-23-006.1/.3) ─────────────────
+// Runs against a SYNTHETIC factory git fixture (gitFixture.ts) — never the real factory root:
+// the previous version wrote and then deleted the REAL `<factory-root>/.pandacorp/stats-factory.json`
+// on every gate run (destroying the owner's live FRD-23 materialization) AND depended on the real,
+// gitignored `factory/portfolio.md` (absent in worktrees → red gate). Repaired 2026-07-07.
 describe("writeStatsFactory — single writer, seal stamped, atomic (AC-23-006.1/.3)", () => {
   let dir: string;
+  let fixture: SyntheticFactoryRepo;
+
+  beforeAll(() => {
+    fixture = makeSyntheticFactoryRepo();
+  });
+
+  afterAll(() => {
+    fixture.cleanup();
+  });
 
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), "factory-e2e-"));
@@ -140,58 +155,75 @@ describe("writeStatsFactory — single writer, seal stamped, atomic (AC-23-006.1
     vi.restoreAllMocks();
   });
 
-  it("fails loud (writes nothing) when git is unavailable (null seal, DR-078)", () => {
-    expect(() => writeStatsFactory(dir)).toThrow(FactoryDeriveError);
-    expect(fs.existsSync(path.join(dir, ".pandacorp", "stats-factory.json"))).toBe(false);
+  it("fails loud (writes nothing) when git is unavailable (null seal, DR-078)", async () => {
+    // Bind the portfolio walk to the (portfolio-less, non-git) temp dir too — fully self-contained.
+    await withFactoryRoot(dir, () => {
+      expect(() => writeStatsFactory(dir)).toThrow(FactoryDeriveError);
+      expect(fs.existsSync(path.join(dir, ".pandacorp", "stats-factory.json"))).toBe(false);
+    });
   });
 
-  it("writes a fresh, seal-matching store the reader accepts (real factory repo)", () => {
-    // The factory root of the running MC (one level up) is a real git work-tree.
-    const factoryRoot = path.resolve(process.cwd(), "..");
-    const seal = currentFactorySeal(factoryRoot);
-    expect(seal).not.toBeNull();
-    if (seal === null) return;
+  it("writes a fresh, seal-matching store the reader accepts (synthetic factory repo)", async () => {
+    await withFactoryRoot(fixture.factoryRoot, () => {
+      const factoryRoot = fixture.factoryRoot;
+      const seal = currentFactorySeal(factoryRoot);
+      expect(seal).toMatch(/^[0-9a-f]{40}$/);
 
-    const written = writeStatsFactory(factoryRoot, () => new Date("2026-07-06T00:00:00.000Z"));
-    expect(written).toBe(path.join(factoryRoot, ".pandacorp", "stats-factory.json"));
+      const written = writeStatsFactory(factoryRoot, () => new Date("2026-07-06T00:00:00.000Z"));
+      expect(written).toBe(path.join(factoryRoot, ".pandacorp", "stats-factory.json"));
 
-    const result = readStatsFactory(factoryRoot);
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.seal).toBe(seal);
-    }
-
-    // Restore: remove the file we wrote so the working tree is left clean for the gate.
-    fs.rmSync(written, { force: true });
+      const result = readStatsFactory(factoryRoot);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.seal).toBe(seal);
+      }
+    });
   });
 });
 
 // ── Equivalence: materialized == live derive* cores ──────────────────────────────
 describe("factory-store-vs-live equivalence", () => {
-  it("materialized factory numbers equal the live report cores' numbers", () => {
-    const factoryRoot = path.resolve(process.cwd(), "..");
+  let fixture: SyntheticFactoryRepo;
 
-    const liveTransitions = phaseTransitions();
-    const liveScalars = reportScalars(factoryRoot);
-    const liveLessons = lessonCounts();
+  beforeAll(() => {
+    fixture = makeSyntheticFactoryRepo();
+  });
 
-    if (!liveTransitions.ok) return; // git-unavailable → the writer's fail-loud path covers it
+  afterAll(() => {
+    fixture.cleanup();
+  });
 
-    const seal = currentFactorySeal(factoryRoot);
-    if (seal === null) return;
+  it("materialized factory numbers equal the live report cores' numbers", async () => {
+    await withFactoryRoot(fixture.factoryRoot, () => {
+      const factoryRoot = fixture.factoryRoot;
 
-    const written = writeStatsFactory(factoryRoot, () => new Date("2026-07-06T00:00:00.000Z"));
-    const materialized = parseStatsFactory(JSON.parse(fs.readFileSync(written, "utf-8")));
-    fs.rmSync(written, { force: true });
+      const liveTransitions = phaseTransitions();
+      const liveScalars = reportScalars(factoryRoot);
+      const liveLessons = lessonCounts();
 
-    expect(materialized).not.toBeNull();
-    if (materialized === null) return;
+      // The fixture guarantees derivability (a committed portfolio + status.yaml history), so the
+      // live sources are ASSERTED ok — never silently skipped.
+      expect(liveTransitions.ok).toBe(true);
+      if (!liveTransitions.ok) return;
 
-    expect(materialized.phaseTransitions).toEqual(liveTransitions.value);
-    expect(materialized.scalars).toEqual({
-      projects: liveScalars.projects,
-      decisions: liveScalars.decisions,
+      const seal = currentFactorySeal(factoryRoot);
+      expect(seal).not.toBeNull();
+      if (seal === null) return;
+
+      const written = writeStatsFactory(factoryRoot, () => new Date("2026-07-06T00:00:00.000Z"));
+      const materialized = parseStatsFactory(JSON.parse(fs.readFileSync(written, "utf-8")));
+
+      expect(materialized).not.toBeNull();
+      if (materialized === null) return;
+
+      // The fixture's one real phase move (product → implementation) flows through both paths.
+      expect(materialized.phaseTransitions).toEqual(liveTransitions.value);
+      expect(liveTransitions.value.length).toBeGreaterThan(0);
+      expect(materialized.scalars).toEqual({
+        projects: liveScalars.projects,
+        decisions: liveScalars.decisions,
+      });
+      expect(materialized.lessons).toEqual(liveLessons);
     });
-    expect(materialized.lessons).toEqual(liveLessons);
   });
 });

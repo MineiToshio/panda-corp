@@ -8,12 +8,13 @@
  * DEGRADES honestly (the reader's live-git fallback covers the gap) instead of aborting the commit.
  */
 
-import fs from "node:fs";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { withFactoryRoot } from "../../../../tests/fixtures/index";
 import { regenerateForCommit } from "../regen";
 import { readStatsPortada } from "../statsReader";
 import { PortadaDeriveError } from "../statsWriter";
+import { makeSyntheticFactoryRepo, type SyntheticFactoryRepo } from "./gitFixture";
 
 describe("regenerateForCommit — the universal (commit) write point", () => {
   it("regenerates the affected project's portada and reports the written path", () => {
@@ -51,23 +52,30 @@ describe("regenerateForCommit — the universal (commit) write point", () => {
   });
 });
 
-describe("regenerateForCommit — end-to-end against the real MC repo", () => {
-  const written: string[] = [];
+// Runs against a SYNTHETIC factory git fixture (gitFixture.ts) — never the real .pandacorp/:
+// the previous version wrote and then deleted the REAL `mission-control/.pandacorp/stats.json` on
+// every gate run, destroying the owner's live FRD-23 materialization (defective test, repaired
+// 2026-07-07). Real git is still exercised end-to-end — inside the temp fixture repo.
+describe("regenerateForCommit — end-to-end against a synthetic git fixture", () => {
+  let fixture: SyntheticFactoryRepo;
 
-  afterEach(() => {
-    for (const f of written.splice(0)) {
-      fs.rmSync(f, { force: true });
-    }
+  beforeAll(() => {
+    fixture = makeSyntheticFactoryRepo();
   });
 
-  it("writes a fresh portada the reader accepts (the same the writer produces)", () => {
-    const projectPath = process.cwd();
-    const outcome = regenerateForCommit(projectPath);
-    expect(outcome.ok).toBe(true);
-    if (outcome.ok) {
-      written.push(outcome.written);
-      expect(outcome.written).toBe(path.join(projectPath, ".pandacorp", "stats.json"));
-      expect(readStatsPortada(projectPath).ok).toBe(true);
-    }
+  afterAll(() => {
+    fixture.cleanup();
+  });
+
+  it("writes a fresh portada the reader accepts (the same the writer produces)", async () => {
+    await withFactoryRoot(fixture.factoryRoot, () => {
+      const projectPath = fixture.projectPath;
+      const outcome = regenerateForCommit(projectPath);
+      expect(outcome.ok).toBe(true);
+      if (outcome.ok) {
+        expect(outcome.written).toBe(path.join(projectPath, ".pandacorp", "stats.json"));
+        expect(readStatsPortada(projectPath).ok).toBe(true);
+      }
+    });
   });
 });
