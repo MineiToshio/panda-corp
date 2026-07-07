@@ -25,10 +25,14 @@ fi
 # ── 2. launch.json on autoPort — gitignored, so copy the main one and flip ephemeral ports ──────────
 # Every app server in the worktree runs on an OS-assigned port (autoPort), named *-<slug>, so N parallel
 # worktrees never collide on a fixed port. The main checkout keeps its reserved ports untouched.
+# CRUCIAL: also RETARGET the absolute paths in runtimeArgs (the value after `-C`/`--directory`) that point
+# into the MAIN checkout ($MAIN_WT/...) so servers serve the WORKTREE's own copy — otherwise `next dev` /
+# `http.server` silently serve the main repo's code/content, missing whatever this session is editing.
+# Out-of-repo paths (a /tmp scratchpad, etc.) are NOT under $MAIN_WT and are left untouched.
 if [ -f "$MAIN_WT/.claude/launch.json" ] && command -v jq >/dev/null 2>&1; then
-  echo "  • launch.json → autoPort (name suffix -$SLUG)"
+  echo "  • launch.json → autoPort (name suffix -$SLUG) + retarget paths to worktree"
   mkdir -p "$WORKTREE/.claude"
-  jq --arg s "$SLUG" '
+  jq --arg s "$SLUG" --arg m "$MAIN_WT" --arg w "$WORKTREE" '
     # drop a "--port"/"-p" flag AND the value token right after it
     def strip_port:
       . as $a
@@ -36,11 +40,14 @@ if [ -f "$MAIN_WT/.claude/launch.json" ] && command -v jq >/dev/null 2>&1; then
           | select(($a[$i] != "--port") and ($a[$i] != "-p")
                    and (($i == 0) or (($a[$i-1] != "--port") and ($a[$i-1] != "-p"))))
           | $a[$i] ];
+    # rewrite a path token that lives under the MAIN checkout to the same path under this worktree
+    def retarget:
+      if (type == "string") and startswith($m + "/") then $w + .[($m|length):] else . end;
     .configurations |= map(
       .name = "\(.name)-\($s)"
       | .autoPort = true                                   # OS assigns a free $PORT
       | del(.port)                                         # no fixed port field
-      | if .runtimeArgs then .runtimeArgs |= strip_port else . end
+      | if .runtimeArgs then .runtimeArgs |= (map(retarget) | strip_port) else . end
     )' "$MAIN_WT/.claude/launch.json" > "$WORKTREE/.claude/launch.json" 2>/dev/null \
     || cp "$MAIN_WT/.claude/launch.json" "$WORKTREE/.claude/launch.json"
 fi
