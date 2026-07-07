@@ -24,6 +24,15 @@ leftover `next dev` process. This is a DIFFERENT mechanism than BL-0037 (a forei
 occupying the reserved e2e port): here the port can be free and the failure still happens, because
 Next's lock is process-level, not port-level.
 
+## Corroborating occurrence (2026-07-06/07, personal-page-v2)
+A further live reproduction, on a different project: `/pandacorp:upgrade` and the verify-before-stop gate
+both hit the same class — a co-located `pnpm run dev` process held `.next/dev/lock`, so Playwright's
+webServer could not boot on ANY port and the whole gate went RED even though 649 unit/static checks passed
+clean. Separately, reusing a long-lived dev server (~25 min of accumulated HMR) instead of booting fresh
+produced 2 false-red `shell.spec.ts` mobile-nav tests that passed clean on a fresh boot. See
+`factory/memory/LESSON-0040` (updated) for the generalized gotcha — this is now a FOURTH occurrence across
+two projects with no code-side fix landed, reinforcing this item's priority.
+
 ## Root cause
 Next.js's dev-server lock file/mechanism persists after a `next dev` process is orphaned (parent session
 ended without a clean shutdown), and neither the build engine's baseline self-heal nor

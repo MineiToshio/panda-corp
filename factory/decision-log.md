@@ -2,6 +2,14 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-07 — `pandacorp-memory-review` scheduled sweep (loop v2, DR-047)
+
+**What:** fired a full sweep (24 real pending notes ≥ the 20-note threshold; both mission-control and personal-page-v2 were also harvest-orphans — their `last_harvest` predated later commits/builds). Harvested factory's own `_inbox.md` (0 real notes at trigger time, then 5 more that landed mid-sweep from parallel activity — drained in a second pass), `mission-control/.pandacorp/run/lessons.md` (15 notes) and `personal-page-v2/.pandacorp/run/lessons.md` (9 notes), applying DR-103 routing throughout. Store grew from 94 to 107 lessons (`LESSON-0097..0113`, all `candidate`); one synthesis `pattern` (`LESSON-0109`: a semantics-blind safety gate false-positives on textual resemblance, not real effect — groups LESSON-0092/0075/0105); one new backlog item (`BL-0053`: read-model writer tests were destroying the real materialized stats cache); zero deprecations (prune freeze already lifted — 3 distinct projects in `applied_in` — but nothing qualified for pruning). Review pass marked 3 new `promotion: proposed` (LESSON-0040, LESSON-0078, LESSON-0105 — see `factory/memory/` for target/rationale on each), joining LESSON-0001 and LESSON-0005 already queued — 5 total awaiting `/pandacorp:learn` + owner approval. Stamped `last_harvest` on both projects' `status.yaml`.
+
+**Why:** the loop's early-fire trigger (≥20 pending notes OR ≥7 days OR a harvest-orphan release-phase project) exists so notes don't sit stale past a project's build window, losing context.
+
+**Impact:** `factory/memory/LESSON-0097..0113` (new) + several existing lessons updated with corroborating instances (`LESSON-0004, 0015, 0040, 0078, 0090, 0093, 0105`); `factory/backlog/BL-0053` (new); `BL-0047`/`BL-0049` corroborated (no new items); `mission-control/.pandacorp/status.yaml` + personal-page-v2's (gitignored, own repo) `last_harvest` stamped; `factory/memory/_last-sweep` updated.
+
 ## 2026-07-06 — `/pandacorp:review-launch` sweep over `release`-phase portfolio (DR-043, scheduled run)
 
 **What:** Scanned `factory/portfolio.md` for `Fase: release` projects. Two qualified: Mission Control and PersonalPage v2 (the latter's portfolio row was stale — it still read `product` while `.pandacorp/status.yaml` already said `phase: release`; corrected the row to match, per the "one source of truth" rule — `status.yaml` is the project's real state, the portfolio row is just a pointer). PandaCast stayed `product`, out of scope. Verdicts recorded in the portfolio's business columns:

@@ -11,7 +11,8 @@ created: 2026-06-30
 status: active
 promotion: approved   # 2026-07-01 — codified as the DR-073 two-cause fallback (registry amend + DR-107) via BL-0001; reviewer.md + quality.md carry the satisfiable-test convention
 confidence: high
-times_applied: 0
+times_applied: 1
+applied_in: [mission-control]
 links: [BL-0001, DR-073, DR-074, DR-070, DR-072, DR-015, LESSON-0001]
 ---
 

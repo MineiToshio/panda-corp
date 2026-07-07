@@ -5,14 +5,14 @@ domain: testing
 tags: [playwright, e2e, port-collision, webServer, reuseExistingServer]
 context: running a Playwright e2e suite whose webServer config defaults to a fixed port shared with another process on the same machine
 trigger: use this when a Playwright e2e suite fails en masse and more than one project/dev-server may be running on the same machine
-source: "personal-page-v2 .pandacorp/run/lessons.md + .pandacorp/comms/progress.md 2026-07-01 close-out — mission-control's own next-server + Playwright run occupied port 3000 during this project's e2e; corroborated by mission-control .pandacorp/run/lessons.md 2026-07-06 (FRD-17 build) — an ORPHANED next dev process blocked verify.sh's own webServer step with Next's 'Another next dev server is already running' even though the reserved port was free"
+source: "personal-page-v2 .pandacorp/run/lessons.md + .pandacorp/comms/progress.md 2026-07-01 close-out — mission-control's own next-server + Playwright run occupied port 3000 during this project's e2e; corroborated by mission-control .pandacorp/run/lessons.md 2026-07-06 (FRD-17 build) — an ORPHANED next dev process blocked verify.sh's own webServer step with Next's 'Another next dev server is already running' even though the reserved port was free; corroborated a THIRD time on mission-control's FRD-23 build (2026-07-07), same orphaned-lock mechanism; corroborated a FOURTH time back on personal-page-v2 (2026-07-06/07, /pandacorp:upgrade + the verify-before-stop gate): a co-located `pnpm run dev` held `.next/dev/lock`, so Playwright's webServer could not boot on ANY port and the whole gate went RED despite 649 green unit/static checks (DR-075); separately, reusing a long-lived dev server (~25 min of accumulated HMR) instead of a fresh boot produced 2 false-red `shell.spec.ts` mobile-nav failures that passed clean on a clean boot — same family of trap, now recurring across BOTH projects with no code-side fix landed (BL-0049 open)."
 provenance: agent-inferred
 created: 2026-07-03
 status: active
-promotion: none
+promotion: proposed   # 2026-07-07 (librarian review) — target factory/standards/build-orchestration.md (verify.sh e2e preflight): recurred 3x across 2 distinct projects (personal-page-v2, mission-control x2) with no code-side fix; codify "check for orphaned dev-server lock + port collision before trusting a webServer failure as a regression" as a standing MUST, pending BL-0037/BL-0049
 confidence: medium
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [mission-control]
 links: [BL-0037, BL-0049]
 ---
 
@@ -40,4 +40,6 @@ script (each project should own a reserved port block, per `factory/ports.yaml`)
 port collision; ADDITIONALLY, before trusting a Playwright webServer failure as a real regression, check
 for and clear any orphaned `next dev` process for THIS project (`ps`/lock-file check), since Next's lock
 error can fire even on a free port. See BL-0037 (foreign port occupant) and BL-0049 (orphaned same-project
-lock) for the proposed build-engine preflight fixes.
+lock) for the proposed build-engine preflight fixes. This exact failure mode has now recurred THREE times
+across two projects (personal-page-v2, mission-control ×2) with no code-side fix landed yet — a strong
+signal that BL-0049's preflight check is worth prioritizing.

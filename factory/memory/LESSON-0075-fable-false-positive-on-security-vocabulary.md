@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: []
+links: [LESSON-0109]
 ---
 
 **Situation:** Fable 5's own safety classifiers flagged the factory's OWN hardening prompts (hardening

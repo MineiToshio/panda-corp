@@ -5,7 +5,7 @@ domain: infra
 tags: [launchd, deploy, worktree, path, port-collision, env]
 context: an always-on local deployment served via launchd from an isolated git worktree (the DR-089 pattern) that also needs to reach the main checkout's gitignored live data
 trigger: use this when wiring or debugging a launchd-served (or any daemonized, worktree-isolated) local deployment that dies with a toolchain error, collides with the dev server's port, or serves stale/empty owner data
-source: "panda-corp — Mission Control always-on deploy incident 2026-07-05 (factory/decision-log.md 2026-06-25/2026-07-05 entries, factory/standards/infra.md DR-089 section); 3 distinct failure modes hit in the same incident chain"
+source: "panda-corp — Mission Control always-on deploy incident 2026-07-05 (factory/decision-log.md 2026-06-25/2026-07-05 entries, factory/standards/infra.md DR-089 section); 3 distinct failure modes hit in the same incident chain. Extended 2026-07-07 (FRD-23 build): the same worktree-only-carries-tracked-files axis also bites a project's OWN materialized read-model cache (`.pandacorp/stats*.json`, gitignored) — `PANDACORP_FACTORY_ROOT` fixes the factory-wide facts (point 3 below) but does NOT make the per-project cache exist in the deploy worktree; that part correctly falls back to live/aggregate derivation (DR-078) rather than serving stale/missing data, but it's a reminder to think through how an isolated deploy worktree sees ANY gitignored materialized cache the app reads, not just the factory's own global data."
 provenance: agent-inferred
 created: 2026-07-06
 status: candidate

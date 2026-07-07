@@ -9,7 +9,7 @@ opened: 2026-07-06
 closed:
 source: "factory/memory/_inbox.md 2026-07-05 note (librarian harvest 2026-07-06); reproduced live during this harvest: `bash -c 'grep -n \">\" plugin/scripts/block-dangerous.sh'`-class commands got BLOCKED as a redirect truncation"
 closes:
-links: [BL-0043, LESSON-0092]
+links: [BL-0043, LESSON-0092, LESSON-0105]
 ---
 
 ## Problem
@@ -26,6 +26,23 @@ script with `grep -n ">"`.
 Impact: false positives interrupt legitimate read-only commands (grep/inspection) that merely mention
 `>`, forcing the agent to rephrase or split commands — a productivity tax and a "cry wolf" risk that could
 train agents to routinely work around the gate rather than trust it.
+
+## Corroborating occurrences (2026-07-07, mission-control FRD-23 build harvest)
+Two more live reproductions of the same false-positive class, on ordinary commands with no real redirect:
+1. `git commit -m "$(cat <<'HEREDOC' ...)"` was blocked because the commit message's PROSE described this
+   very bug using a literal, quoted `>` character — worked around by rephrasing to "greater-than sign"
+   instead of quoting the character.
+2. A `git commit -m "..."` was blocked because the message merely MENTIONED a `.pandacorp/...` path in
+   descriptive text — read by the scanner as a redirect truncating a protected state path. Worked around
+   by writing the message to a scratch file and using `git commit -F <file>` instead of `-m`.
+Both corroborate the root cause and severity below; see `factory/memory/LESSON-0105` for the generalized
+workaround guidance (not a substitute for this fix).
+
+## Corroborating occurrence (2026-07-07, personal-page-v2 upgrade-commit harvest)
+A THIRD live reproduction, on a different project: `git commit -m` for an overlay-version bump commit
+message (containing a `>`/arrow-like token, e.g. "8.51 -> 8.69") was BLOCKED by the same guard reading the
+message's own descriptive text as a redirect. Worked around by rephrasing the message to avoid the literal
+character. See `factory/memory/LESSON-0105` (updated) for the generalized workaround.
 
 ## Root cause
 The redirect scanner (line 101) is a bare textual pattern match with no shell-tokenization/quote-awareness:

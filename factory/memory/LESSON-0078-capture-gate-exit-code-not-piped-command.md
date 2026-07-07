@@ -5,12 +5,12 @@ domain: build-engine
 tags: [verify-sh, exit-code, pipefail, playwright, preview-server]
 context: running a project's green gate (verify.sh or any CI script) through a pipe (e.g. `| tail`, `| grep`) to shorten its output
 trigger: use this when checking whether a gate/verify script passed and its output is piped through another command
-source: "panda-corp — a piped `bash verify.sh | tail` reported the pipe's own exit code, masking a red gate as green"
+source: "panda-corp — a piped `bash verify.sh | tail` reported the pipe's own exit code, masking a red gate as green; corroborated on a SECOND, distinct project (mission-control .pandacorp/run/lessons.md 2026-07-07, FRD-23 build) — the same `bash .pandacorp/verify.sh 2>&1 | tail` pattern made a red e2e ('Another next dev server is already running') read as exit 0, twice fooling the agent into believing the gate was green"
 provenance: agent-inferred
 created: 2026-07-05
 status: candidate
-promotion: none
-confidence: medium
+promotion: proposed   # 2026-07-07 (librarian review) — target factory/standards/build-orchestration.md (verify.sh conventions): same false-green cost hit twice on 2 distinct projects (panda-corp, mission-control); codify "gate wrapper scripts must use set -o pipefail / capture the gate's own exit code, never a bare pipe's" as a standing rule
+confidence: high
 times_applied: 0
 applied_in: []
 links: []
@@ -30,4 +30,6 @@ under test — stop any preview server before running `verify.sh`.
 
 **Apply next time:** never pipe a gate script's invocation through another command without also
 capturing the gate's own exit code explicitly; check for and stop stray preview servers before trusting
-a red verify.sh is a real code failure.
+a red verify.sh is a real code failure. This has now cost the SAME false-green belief twice on a second,
+distinct project — treat piping a gate through `tail`/`grep` for readability as a standing trap, not a
+one-off mistake.
