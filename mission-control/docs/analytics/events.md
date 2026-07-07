@@ -70,3 +70,35 @@ Re-run of the DR-085 hardening check (BL-0012). Re-confirmed, no drift since 202
 | Opportunity metric (DR-042) | not-applicable — `return_type` is `personal`, not `opportunity` |
 
 No code changes were made. This re-verification finds the same determination still true.
+
+## Verification 2026-07-07
+
+Re-run of the DR-085 hardening check (BL-0012). Re-confirmed, no drift since 2026-07-06:
+
+- `.pandacorp/status.yaml`: `deploy_target: internal` (`# internal tool (runs on 127.0.0.1) — no
+  external host (DR-085)`); `target_platforms: desktop`. Project is well past v1 (`work_orders_total:
+  104`, all `VERIFIED`), still no `return_type: opportunity`/`monetary` signal anywhere in the repo.
+- `docs/product/prd.md` "Value hypothesis" (line 43) and "Success metrics" (lines 68-71) are still
+  owner-experience statements evaluated by the sole operator directly ("see the state of each
+  idea/project... without opening files", "zero calls to Claude from Pandacorp", "the operator
+  comes back daily") — not product-usage metrics needing event instrumentation to validate a
+  value hypothesis for an external audience. No opportunity metric (reach/contacts/positioning)
+  applies (DR-042).
+- `docs/product/architecture.md:324-325`: economic arc (demand-gate, unit-economics, landing, GTM,
+  **telemetry**) explicitly does not apply, `return_type: personal`, internal tool, `$0/month` by
+  construction.
+- `package.json`: no PostHog/analytics SDK dependency of any kind (checked again).
+- `src/`: searched for `posthog` (case-insensitive) — same four hits as prior runs, all Manual
+  static explainer content/renderer tests describing the factory's telemetry standard for *other*
+  Pandacorp products (`src/app/manual/manualPages.tsx`, `src/lib/manual/skill-flows.ts`,
+  `src/lib/architecture/_tests/env.test.ts`, `src/lib/architecture/_tests/architecture.test.ts`) —
+  no live capture calls, no SDK import, no env-keyed client anywhere in application code.
+
+| Item | Status |
+|---|---|
+| `docs/analytics/events.md` (event plan) | not-applicable — `return_type: personal`, internal tool, no economic arc (unchanged from 2026-07-05/06) |
+| PostHog / analytics SDK wiring | not-applicable — confirmed absent again (no dependency, no capture calls in `src/`) |
+| Activation milestone / kill-signals (DR-043) | not-applicable — no value hypothesis requiring product telemetry |
+| Opportunity metric (DR-042) | not-applicable — `return_type` is `personal`, not `opportunity` |
+
+No code changes were made. This re-verification finds the same determination still true.
