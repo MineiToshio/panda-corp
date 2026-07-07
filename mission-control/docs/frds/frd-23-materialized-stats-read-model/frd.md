@@ -3,7 +3,7 @@ id: FRD-23
 type: frd
 title: FRD-23 — Materialized stats read-model
 status: ACTIVE
-implementation_status: PLANNED
+implementation_status: VERIFIED
 ui: false
 last_updated: '2026-07-06'
 ---

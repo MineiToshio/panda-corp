@@ -5,7 +5,7 @@ slug: informe-composed-reader
 title: 'WO-23-006 — Recompose the Informe reader (per-project + factory-wide) with independent fail-loud fallback'
 status: ACTIVE
 parent: FRD-23
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 reopen_count: 0
 source_requirements: [REQ-23-007]
 artifacts: [src/lib/achievements/read-model/**, src/lib/achievements/report/**, src/app/**, src/lib/achievements/read-model/_tests/**]
