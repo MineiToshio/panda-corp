@@ -96,7 +96,7 @@ function defaultResponse(label) {
   if (label.startsWith('block-needs-owner:')) return { green: false, blocked_reason: 'needs-owner' } // A3 early-block spawn (REPAIR_SCHEMA)
   if (/^(repair|patch|gate-test-repair|verify-patch|revert|foundation-repair):/.test(label)) return { green: true } // REPAIR_SCHEMA
   if (/^(process-change|plan-drained):/.test(label)) return { done: true, affectedFrds: [], frds: [] }
-  if (/^(hardening:security-audit|hardening:security-fix|hardening:telemetry|close-out|close-needs-hardening|notify-end|ensure-stopped|archive-changes)$/.test(label)) return { done: true } // STOP_SCHEMA
+  if (/^(hardening:security-audit|hardening:security-fix|hardening:telemetry|close-out|close-needs-hardening|notify-end|ensure-stopped|ensure-stopped-crash|archive-changes)$/.test(label)) return { done: true } // STOP_SCHEMA (ensure-stopped-crash: the WS-D/D2 loop error-boundary shutdown, G1)
   return null // unmatched — recorded loudly
 }
 
@@ -120,6 +120,11 @@ async function runEngine(scenario) {
         (typeof r.prefix === 'string' && call.label.startsWith(r.prefix))
       if (!m) continue
       if (r.times !== undefined) r.times--
+      // G-package additive extension — scripted REJECTION: `throws` makes the agent stub REJECT (a
+      // terminal API/tool error the engine's error boundaries must catch). No existing scenario sets
+      // `throws`, so behavior is unchanged. (Scripted NULLs already work: `response: null` is returned
+      // as-is here — matched before defaultResponse — so a scenario can simulate a dead/garbled agent.)
+      if (r.throws !== undefined) throw (r.throws instanceof Error ? r.throws : new Error(String(r.throws)))
       return typeof r.response === 'function' ? r.response(call) : r.response
     }
     const def = defaultResponse(call.label)
@@ -915,6 +920,461 @@ SCENARIOS.push({
     t.ok(byLabel(run, /^revert:/).length === 1, 'the legacy revert path ran (revert spawn)')
     t.ok(hasLog(run, /agent ceiling reached — skipping the A3 diagnosis/), 'the honest-degrade reason is logged')
     t.ok(run.result && run.result.stopReason === 'agents', `the run stops at the agent ceiling (got ${run.result && run.result.stopReason})`)
+  },
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
+// PACKAGE G — adversarial-audit coverage gaps (locked in BEFORE a deep scheduler change)
+// Each scenario names the behavior it locks. KNOWN-GAP findings (current behavior that
+// differs from the audit's stated intent) are marked `// KNOWN-GAP:` and called out in
+// the run report. New agentStub capability used: scripted REJECTION (`throws`) + scripted
+// NULL (`response: null`) — both additive; the 31 scenarios above are untouched.
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ── G1. Builder agent REJECTION mid-wave — the loop error boundary (WS-D/D2) ──────────────────────
+// One buildWO's builder throws a terminal error. buildWO has no try/catch, so parallel() rejects; the
+// while-loop's error boundary catches it, spawns a MECH `ensure-stopped-crash` (running:false, never
+// touching phase), then RETHROWS — the harness must observe BOTH the rejection AND the crash-stop spawn.
+SCENARIOS.push({
+  name: 'G1. builder REJECTION mid-wave — error boundary spawns ensure-stopped-crash then rethrows',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-g1-crash',
+    deps: [],
+    workOrders: [mkWo('wo-g1-001', 'PLANNED', { frd: 'frd-g1-crash', artifacts: ['src/g1/**'] })],
+  }]),
+  responses: [
+    { label: 'build:wo-g1-001', throws: 'terminal API error mid-wave' },
+  ],
+  assert(t, run) {
+    t.ok(Boolean(run.error), 'the builder rejection propagated out of the engine (the crash is NOT swallowed)')
+    t.ok(run.error && /terminal API error mid-wave/.test(String(run.error.message || run.error)), 'the observed error is the builder rejection')
+    const crash = byLabel(run, 'ensure-stopped-crash')
+    t.ok(crash.length === 1, `exactly one ensure-stopped-crash MECH spawn ran (got ${crash.length})`)
+    t.ok(crash[0] && /running:false|running: false/.test(crash[0].prompt), 'the crash-stop spawn ensures running:false')
+    t.ok(crash[0] && /NEVER set phase: release/.test(crash[0].prompt), 'the crash-stop spawn NEVER touches phase (nothing is verified on a crash)')
+    t.ok(crash[0] && crash[0].opts.model === 'haiku', 'the crash-stop spawn runs on the cheap MECH tier')
+    t.ok(hasLog(run, /FATAL: the build scheduler loop threw/), 'the fatal loop-throw is logged loudly')
+    t.ok(byLabel(run, 'ensure-stopped').length === 0, 'the post-loop fail-safe never runs (we rethrow before it — the crash path owns the shutdown)')
+  },
+})
+
+// ── G2. Gate agent returns NULL — treated as an unspecific failure, never a pass ──────────────────
+// A null/garbled frdGate result must NOT read as green. gateAndConverge falls through to attemptRepair
+// (green default) → re-gate (null again) → blocks 'error'. Never a pass, never a crash.
+SCENARIOS.push({
+  name: 'G2. gate NULL verdict — routed to attemptRepair/block (never a pass), no crash',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-g2-nullgate',
+    deps: [],
+    workOrders: [mkWo('wo-g2-001', 'PLANNED', { frd: 'frd-g2-nullgate', artifacts: ['src/g2/**'] })],
+  }]),
+  responses: [
+    { label: 'gate:frd-g2-nullgate', response: null },   // scripted NULL — a dead/garbled gate agent
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error} (a null gate must be handled, not crash)`)
+    t.ok(byLabel(run, 'gate:frd-g2-nullgate').length === 2, 'the null gate was re-gated once after repair (both returned null)')
+    t.ok(byLabel(run, /^repair:frd-g2-nullgate$/).length === 1, 'a null gate routes to attemptRepair (unspecific failure), never silently green')
+    t.ok(!(run.result && run.result.builtFrds.includes('frd-g2-nullgate')), 'the FRD is NEVER treated as a pass on a null verdict')
+    t.ok(run.result && run.result.blockedReasons && run.result.blockedReasons['frd-g2-nullgate'] === 'error', `the FRD blocks 'error' (unspecific) — got ${run.result && run.result.blockedReasons && run.result.blockedReasons['frd-g2-nullgate']}`)
+  },
+})
+
+// ── G3. safe-point agent returns NULL — the loop continues safely ─────────────────────────────────
+// A null safePoint result is not 'stop', has no ready/unblocked — so no drain, no stop, no crash; the
+// wave dispatches and the FRD verifies normally.
+SCENARIOS.push({
+  name: 'G3. safe-point NULL verdict — no drain, no stop, no crash; the loop continues',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-g3-nullsafe',
+    deps: [],
+    workOrders: [mkWo('wo-g3-001', 'PLANNED', { frd: 'frd-g3-nullsafe', artifacts: ['src/g3/**'] })],
+  }]),
+  responses: [
+    { label: 'safe-point', response: null },   // scripted NULL — a dead safe-point agent
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error} (a null safe-point must not crash the loop)`)
+    t.ok(byLabel(run, 'safe-point').length >= 1, 'the safe point was invoked (and returned null)')
+    t.ok(!(run.result && run.result.stopReason === 'rethink'), 'a null safe-point is NOT read as a rethink stop')
+    t.ok(byLabel(run, /^process-change:/).length === 0, 'a null safe-point drains nothing (no ready items)')
+    t.ok(run.result && run.result.builtFrds.includes('frd-g3-nullsafe'), 'the loop continued past the null safe-point and the FRD verified')
+  },
+})
+
+// ── G4. ensureStopped on PRE-LOOP early returns (WS-D/D3) ──────────────────────────────────────────
+// Every pre-loop bail must still write running:false via ensureStopped (else Mission Control shows a
+// phantom running build). Two branches:
+SCENARIOS.push({
+  name: 'G4a. ensureStopped — a red judge baseline returns clean (running:false) before the loop',
+  args: { mode: 'pro' },
+  // no plan — the run bails at the baseline, before planning
+  responses: [
+    { label: 'baseline', response: { green: false, failure: 'simulated unrepairable baseline' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'ensure-stopped').length === 1, 'ensureStopped ran on the baseline-red early return (running:false guaranteed)')
+    t.ok(byLabel(run, 'plan').length === 0, 'it bailed BEFORE the planner (the baseline gate is pre-plan)')
+    t.ok(run.result && run.result.note === 'baseline red (needs manual fix)', `the return note names the baseline red (got ${run.result && run.result.note})`)
+    t.ok(run.result && run.result.blockedReasons && run.result.blockedReasons.baseline === 'error', 'baseline is blocked error')
+  },
+})
+SCENARIOS.push({
+  name: 'G4b. ensureStopped — a targeted build with unsatisfied cross-FRD deps returns clean, no build spawns',
+  args: { mode: 'pro', frds: ['frd-g4b-deps'] },
+  // custom plan: the requested FRD has a dep that is NOT verified → unsatisfiedDeps populated
+  plan: {
+    stack: 'B', hasFrontend: false,
+    unsatisfiedDeps: [{ frd: 'frd-g4b-deps', dep: 'frd-g4b-prereq' }],
+    frds: [{
+      frd: 'frd-g4b-deps', deps: ['frd-g4b-prereq'],
+      workOrders: [mkWo('wo-g4b-001', 'PLANNED', { frd: 'frd-g4b-deps', artifacts: ['src/g4b/**'] })],
+    }],
+  },
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'ensure-stopped').length === 1, 'ensureStopped ran on the unsatisfied-deps early return (running:false guaranteed)')
+    t.ok(byLabel(run, /^(dispatch|build):/).length === 0, 'NO wave was dispatched — a targeted build refuses to start with unverified deps')
+    t.ok(byLabel(run, /^gate:/).length === 0, 'no gate ran')
+    t.ok(run.result && run.result.blockedReasons && run.result.blockedReasons['frd-g4b-deps'] === 'needs-owner', 'the requested FRD is blocked needs-owner (the owner must build the dep first)')
+    t.ok(run.result && /deps sin verificar/.test(run.result.note || ''), 'the return note explains the unverified deps')
+  },
+})
+
+// ── G5. Foundation subsystem (hasFrontend:true, DR-057/DR-065/WS-D/D5) ────────────────────────────
+// (a) foundation-first wave ordering: a foundation WO builds ALONE, before any surface fans out, and the
+// completeness gate runs between the foundation build and the surface build.
+SCENARIOS.push({
+  name: 'G5a. foundation-first — the foundation WO builds before any surface; the completeness gate gates the fan-out',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-g5a-found',
+    deps: [],
+    workOrders: [
+      mkWo('wo-g5a-found', 'PLANNED', { frd: 'frd-g5a-found', artifacts: ['src/components/core/**'], foundation: true }),
+      mkWo('wo-g5a-surf', 'PLANNED', { frd: 'frd-g5a-found', artifacts: ['src/surface/**'] }),
+    ],
+  }], { hasFrontend: true }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const waves = run.logs.filter((l) => l.startsWith('⚒ wave:'))
+    t.ok(waves[0] && waves[0].includes('wo-g5a-found') && !waves[0].includes('wo-g5a-surf'),
+      `the FIRST wave is foundation-only (wo-g5a-found, not the surface) — got: ${waves[0]}`)
+    const bf = byLabel(run, 'build:wo-g5a-found')[0]
+    const bs = byLabel(run, 'build:wo-g5a-surf')[0]
+    const fg = byLabel(run, 'foundation-gate')[0]
+    t.ok(bf && bs && bf.index < bs.index, 'the foundation WO built before the surface WO')
+    t.ok(byLabel(run, 'foundation-gate').length === 1, 'the foundation-completeness gate ran once (before surfaces fan out)')
+    t.ok(fg && bf && bs && bf.index < fg.index && fg.index < bs.index, 'the completeness gate runs AFTER the foundation build and BEFORE the surface build')
+    t.ok(run.result && run.result.builtFrds.includes('frd-g5a-found'), 'the FRD verifies once both build')
+  },
+})
+// (b) foundationCompletenessGate returning NULL is counted on foundationGateNulls (a SEPARATE counter from
+// foundationRepairs). KNOWN-GAP: the audit expected "two nulls consumed, surfaces still proceed on a later ok
+// verdict", but FOUNDATION_GATE_NULL_CAP=2 escalates on the SECOND null (`>= cap` post-increment) — only ONE
+// null is tolerated (retried); the second escalates and the surfaces are HELD (blocked needs-owner), they do
+// NOT proceed. The invariant that DOES hold is the counter SEPARATION: 0 foundation-repair spawns (the real
+// repair budget is never touched by dead gates). Scenario documents the CURRENT behavior.
+SCENARIOS.push({
+  name: 'G5b. foundation-gate NULL x2 — separate null counter (0 repairs); KNOWN-GAP: 2nd null escalates, surfaces held not proceeded',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-g5b-nullgate',
+    deps: [],
+    workOrders: [mkWo('wo-g5b-surf', 'PLANNED', { frd: 'frd-g5b-nullgate', artifacts: ['src/surface/**'] })],
+  }], { hasFrontend: true }),
+  responses: [
+    { label: 'foundation-gate', response: null },   // every completeness-gate verdict is null (dead gate agent)
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error} (a dead foundation gate must not crash)`)
+    t.ok(byLabel(run, 'foundation-gate').length === 2, `the null gate was retried once then escalated (2 calls, FOUNDATION_GATE_NULL_CAP=2) — got ${byLabel(run, 'foundation-gate').length}`)
+    t.ok(byLabel(run, /^foundation-repair:/).length === 0, 'INVARIANT: a dead gate consumes foundationGateNulls, NOT foundationRepairs (0 repair spawns) — the counters are separate (WS-D/D5)')
+    // KNOWN-GAP: surfaces are HELD, not proceeded (the 2nd null escalates fail-closed).
+    t.ok(byLabel(run, 'build:wo-g5b-surf').length === 0, 'KNOWN-GAP: the surface is NOT built — two nulls escalate and hold the surface (the audit expected it to proceed)')
+    t.ok(run.result && run.result.blockedReasons && run.result.blockedReasons['frd-g5b-nullgate'] === 'needs-owner', 'the surface FRD is held BLOCKED needs-owner (fail-closed on an unverifiable foundation)')
+    t.ok(hasLog(run, /escalating to the owner \(fail-closed\)/), 'the fail-closed escalation is logged')
+  },
+})
+// (c) a REAL missingFoundation verdict (complete:false + missing[]) routes to repairFoundation and DOES
+// consume foundationRepairs; after the repair the re-check greens and the surface proceeds.
+SCENARIOS.push({
+  name: 'G5c. missingFoundation verdict — routes to repairFoundation (consumes foundationRepairs), surface then proceeds',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-g5c-missing',
+    deps: [],
+    workOrders: [mkWo('wo-g5c-surf', 'PLANNED', { frd: 'frd-g5c-missing', artifacts: ['src/surface/**'] })],
+  }], { hasFrontend: true }),
+  responses: [
+    { label: 'foundation-gate', times: 1, response: { complete: false, missing: [{ name: 'Room', referencedBy: ['frd-g5c-missing'], suggestedPath: 'src/components/core/Room.tsx' }] } },
+    // the next foundation-gate call (after the repair) greens via the default { complete: true }
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'foundation-repair:1').length === 1, 'a REAL missingFoundation verdict spends a foundationRepair (foundation-repair:1)')
+    t.ok(byLabel(run, 'foundation-gate').length === 2, 'the gate ran twice — incomplete, then complete after the repair')
+    t.ok(byLabel(run, 'build:wo-g5c-surf').length === 1, 'the surface builds after the foundation is repaired complete')
+    t.ok(run.result && run.result.builtFrds.includes('frd-g5c-missing'), 'the surface FRD verifies')
+    t.ok(hasLog(run, /Foundation auto-repair 1 done/), 'the auto-repair completion is logged')
+  },
+})
+
+// ── G6. Gate-test-defective route (BL-0001) — repair the TEST, never revert a correct build ────────
+// A localized reject → patch → the patch concludes the reviewer's OWN adversarial test is defective
+// (cause:'gate-test-defective'). The engine routes to repairGateTest → verifyPatched → VERIFIED, and
+// NEVER reverts the (correct) build.
+SCENARIOS.push({
+  name: 'G6. gate-test-defective — patch flags a defective reviewer test → repairGateTest → verify → VERIFIED, no revert',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-g6-gtd',
+    deps: [],
+    workOrders: [mkWo('wo-g6-001', 'PLANNED', { frd: 'frd-g6-gtd', artifacts: ['src/g6/**'] })],
+  }]),
+  responses: [
+    { label: 'gate:frd-g6-gtd', times: 1, response: { green: false, reopen: ['wo-g6-001'], findings: [{ wo: 'wo-g6-001', finding: 'nav hidden on desktop at src/g6/nav.tsx:10', failingTest: 'nav.spec.ts', files: ['src/g6/nav.tsx'] }] } },
+    { label: 'patch:frd-g6-gtd', response: { green: false, cause: 'gate-test-defective', defectiveTests: [{ path: 'e2e/nav.spec.ts', why: 'asserts desktop-only nav visibility but the Playwright config runs desktop+mobile and forces no viewport' }] } },
+    // gate-test-repair + verify-patch green via defaults (REPAIR_SCHEMA → { green: true })
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'patch:frd-g6-gtd').length === 1, 'patch-1 ran once (no patch-2 — the give-up was gate-test-defective, not code)')
+    t.ok(byLabel(run, 'gate-test-repair:frd-g6-gtd').length === 1, 'the engine routed to repairGateTest (fix the TEST, BL-0001)')
+    t.ok(byLabel(run, 'verify-patch:frd-g6-gtd').length === 1, 'an independent verifier re-ran the gate (constitution rule 4)')
+    t.ok(byLabel(run, /^revert:/).length === 0, 'NO revert — a correct build is never discarded over a defective gate test')
+    t.ok(byLabel(run, /^diagnose:/).length === 0, 'no A3 diagnosis (the patch classified gate-test-defective directly, not code)')
+    t.ok(run.result && run.result.builtFrds.includes('frd-g6-gtd'), 'the FRD verifies via the gate-test repair path')
+    t.ok(hasLog(run, /repairing the TEST, not rebuilding \(BL-0001\)/), 'the gate-test-repair route is logged')
+  },
+})
+
+// ── G7. Split-gate internals (proposal 31 T1.2) — reviewSplit ON via a prior-reopened WO ───────────
+// (a) all four finder lenses die (null) → __splitFailed sentinel → the caller falls back to the SERIAL
+// gate (the gate is NEVER skipped, contract 4). No crash.
+SCENARIOS.push({
+  name: 'G7a. split-gate — all 4 finders die (null) → __splitFailed sentinel → serial gate fallback, no crash',
+  args: { mode: 'powerful' },
+  plan: mkPlan([{
+    frd: 'frd-g7a-splitfail',
+    deps: [],
+    workOrders: [mkWo('wo-g7a-001', 'PLANNED', { frd: 'frd-g7a-splitfail', artifacts: ['src/g7a/**'], reopen_count: 1 })], // reopen_count≥1 → SPLIT on the first gate this run (C1a)
+  }]),
+  responses: [
+    { label: /^find:/, response: null },   // every finder lens dies
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error} (dead finders must degrade, not crash)`)
+    t.ok(byLabel(run, /^find:/).length === 4, `the 4 split finder lenses spawned (got ${byLabel(run, /^find:/).length})`)
+    t.ok(byLabel(run, 'gate:frd-g7a-splitfail').length === 1, 'the SERIAL gate fallback ran (label gate:<frd>) — the gate is never skipped')
+    t.ok(byLabel(run, /^verify-finding:/).length === 0, 'no adversarial verifiers (the split produced no corrections — it fell back)')
+    t.ok(hasLog(run, /all four finder lenses died — falling back to the serial/), 'the fail-safe fallback is logged (contract 4)')
+    t.ok(run.result && run.result.builtFrds.includes('frd-g7a-splitfail'), 'the FRD still verifies via the serial fallback gate')
+  },
+})
+// (b) skeptic cap: > VERIFY_CAP (8) surviving corrections → only VERIFY_CAP verify-finding spawns; the
+// overflow passes through UNVERIFIED (labeled), never silently dropped.
+SCENARIOS.push({
+  name: 'G7b. split-gate skeptic cap — 10 corrections → exactly VERIFY_CAP (8) verify-finding spawns, 2 overflow labeled',
+  args: { mode: 'powerful' },
+  plan: mkPlan([{
+    frd: 'frd-g7b-cap',
+    deps: [],
+    workOrders: [mkWo('wo-g7b-001', 'PLANNED', { frd: 'frd-g7b-cap', artifacts: ['src/g7b/**'], reopen_count: 1 })], // SPLIT on the first gate
+  }]),
+  responses: [
+    // the correctness lens reports 10 UNIQUE corrections (distinct file+claim → no dedup collapse)
+    { label: 'find:correctness:frd-g7b-cap', response: { findings: Array.from({ length: 10 }, (_, i) => ({ file: `src/g7b/f${i}.ts:1`, claim: `defect number ${i}`, severity: 'correction', evidence: `observed ${i}` })) } },
+    { label: /^find:/, response: { findings: [] } },   // the other three lenses are clean (live, empty)
+    { label: /^verify-finding:/, response: { refuted: true } },   // skeptics refute so the closer greens
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^find:/).length === 4, 'all 4 finder lenses spawned')
+    t.ok(byLabel(run, /^verify-finding:/).length === 8, `exactly VERIFY_CAP=8 adversarial verifiers spawned despite 10 corrections (got ${byLabel(run, /^verify-finding:/).length})`)
+    t.ok(hasLog(run, /2 correction\(s\) exceed the verify cap of 8 — passing them through UNVERIFIED/), 'the 2 overflow corrections are passed through UNVERIFIED (labeled), never silently dropped')
+    t.ok(byLabel(run, 'gate:frd-g7b-cap').length === 1, 'the split CLOSE stage ran once')
+    t.ok(run.result && run.result.builtFrds.includes('frd-g7b-cap'), 'the FRD verifies through the split gate')
+  },
+})
+
+// ── G8. maxAgents bounded overshoot + budgeted in-run retry (WS-A/D2, WS-D/D6) ────────────────────
+// (a) a wave near the agent ceiling admits EXACTLY ONE WO (the pickDisjointWave ≥1 progress guarantee —
+// a lone WO is admitted even when its cost exceeds the remaining budget), then the loop stops cleanly at
+// the next boundary. (The audit called this the "budget" stop; the engine's stopReason for the maxAgents
+// ceiling is 'agents' — same brake, that field name.) maxAgents=11, mode pro: pre-loop 8 + safe-point 9 →
+// remainingAgents 2; wo1 admitted (progress guarantee), wo2 deferred (cost 5 > 2); after wo1
+// dispatch+build+commit agentSpawned=12 ≥ 11 → stop.
+SCENARIOS.push({
+  name: 'G8a. bounded overshoot — a near-ceiling wave admits exactly ONE WO (progress guarantee), then stops',
+  args: { mode: 'pro', maxAgents: 11 },
+  plan: mkPlan([{
+    frd: 'frd-g8a-cap',
+    deps: [],
+    workOrders: [
+      mkWo('wo-g8a-001', 'PLANNED', { frd: 'frd-g8a-cap', artifacts: ['src/g8a/one/**'] }),
+      mkWo('wo-g8a-002', 'PLANNED', { frd: 'frd-g8a-cap', artifacts: ['src/g8a/two/**'] }), // DISJOINT from 001 → only the cost budget can defer it
+    ],
+  }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const waves = run.logs.filter((l) => l.startsWith('⚒ wave:'))
+    t.ok(waves.length === 1 && /^⚒ wave: 1 WO\(s\)/.test(waves[0]), `exactly ONE wave of ONE WO ran — the progress guarantee admits one even below the cost budget (got: ${waves.join(' | ')})`)
+    t.ok(byLabel(run, /^build:/).length === 1 && byLabel(run, 'build:wo-g8a-001').length === 1, 'only wo-g8a-001 built (admitted by the ≥1 guarantee)')
+    t.ok(byLabel(run, 'build:wo-g8a-002').length === 0, 'wo-g8a-002 was deferred by the cost budget (disjoint artifacts — not an overlap serialization)')
+    t.ok(run.result && run.result.stopReason === 'agents', `the run stops at the agent ceiling (got ${run.result && run.result.stopReason})`)
+    t.ok(hasLog(run, /Agent ceiling reached/), 'the ceiling stop is logged')
+  },
+})
+// (b) a reopen whose in-run retry cost does NOT fit the remaining maxAgents budget DEFERS (WS-D/D6): no
+// retry rebuild spawns, the FRD lands in reopenedFrds (rebuilds next pass). maxAgents=25, mode pro: the
+// ladder runs (capHit false throughout) up to revertAndReopen (agentSpawned 24); the reopened WO rebuilds
+// on OPUS (cost 4) but remaining is 1 → budgetedRetry empty → deferred (distinct from the capHit degrade).
+SCENARIOS.push({
+  name: 'G8b. budgeted in-run retry — a reopen that does not fit the remaining budget defers (no retry build), FRD reopened',
+  args: { mode: 'pro', maxAgents: 25 },
+  plan: mkPlan([{
+    frd: 'frd-g8b-defer',
+    deps: [],
+    workOrders: [mkWo('wo-g8b-001', 'PLANNED', { frd: 'frd-g8b-defer', artifacts: ['src/g8b/**'] })],
+  }]),
+  responses: [
+    { label: 'gate:frd-g8b-defer', response: { green: false, reopen: ['wo-g8b-001'], findings: [{ wo: 'wo-g8b-001', finding: 'x at src/g8b/a.ts:3', files: ['src/g8b/a.ts'] }] } },
+    { label: 'patch:frd-g8b-defer', response: { green: false, cause: 'code', failure: 'still red' } },
+    { label: 'diagnose:frd-g8b-defer', response: { classification: 'point', repeatsPrior: true, recommendation: 'full-revert', confidence: 'low', seam: null } }, // point+repeats+not-separable → full revert + inRunRetry
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'diagnose:frd-g8b-defer').length === 1, 'the A3 diagnosis ran (capHit was FALSE — this is the budget-trim path, NOT the ceiling honest-degrade)')
+    t.ok(byLabel(run, 'revert:frd-g8b-defer').length === 1, 'a full revert ran before the in-run retry')
+    t.ok(byLabel(run, 'build:wo-g8b-001').length === 1, 'NO retry rebuild — only the original build ran (the opus retry did not fit the remaining budget)')
+    t.ok(run.result && run.result.reopenedFrds.includes('frd-g8b-defer'), 'the FRD lands in reopenedFrds (rebuilds next pass)')
+    t.ok(hasLog(run, /in-run retry deferred/), 'the WS-D/D6 budget-deferral is logged')
+  },
+})
+
+// ── G9. Premature-release guard (WS-D/D4a) — a drained change into an ALREADY-PLANNED FRD defers ──
+// A BARE build drains a ready change whose affected FRD is already in the plan (existing-folder branch):
+// its new WOs build on a LATER run, so deferredWork=true. That suppresses allDone even though every
+// planned FRD verified — NO hardening/close-out; notify-end runs instead (the run is NOT declared released).
+SCENARIOS.push({
+  name: 'G9. premature-release guard — a drained change into an already-planned FRD sets deferredWork, suppressing release',
+  args: { mode: 'pro' },   // bare build (no change/frds) → TARGETED false → the queue drains
+  plan: mkPlan([{
+    frd: 'frd-g9-defer',
+    deps: [],
+    workOrders: [mkWo('wo-g9-001', 'PLANNED', { frd: 'frd-g9-defer', artifacts: ['src/g9/**'] })],
+  }]),
+  responses: [
+    { label: 'safe-point', times: 1, response: { stop: false, ready: ['chg-into-planned'], unblocked: [] } },
+    { label: 'process-change:chg-into-planned', response: { done: true, affectedFrds: ['frd-g9-defer'], changeFile: 'chg-into-planned.md' } }, // affected FRD is ALREADY planned → existing branch
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(run.result && run.result.builtFrds.includes('frd-g9-defer'), 'every planned FRD did verify this run')
+    t.ok(byLabel(run, 'hardening:security-audit').length === 0, 'NO hardening ran — deferredWork suppresses the all-done release path')
+    t.ok(byLabel(run, 'close-out').length === 0, 'the release close-out (the only phase: release writer) did NOT run')
+    t.ok(byLabel(run, 'notify-end').length === 1, 'the partial-close notify-end ran instead (running:false, phase stays implementation)')
+    t.ok(hasLog(run, /no se declara release esta corrida/), 'the deferred-work suppression is logged (WS-D/D4a)')
+  },
+})
+
+// ── G10. Health breaker (MAX_CONSECUTIVE_BLOCKS=3) — 3 non-external blocks trip it; external does not ──
+// (a) three FRDs blocking needs-owner in a row → consecutiveBlocks reaches 3 → stopReason 'blocks', loop exits.
+SCENARIOS.push({
+  name: 'G10a. health breaker — 3 consecutive non-external blocks → stopReason blocks, loop exits',
+  args: { mode: 'pro' },
+  plan: mkPlan([
+    { frd: 'frd-g10-1', deps: [], workOrders: [mkWo('wo-g10-101', 'PLANNED', { frd: 'frd-g10-1', artifacts: ['src/g10a/one/**'] })] },
+    { frd: 'frd-g10-2', deps: [], workOrders: [mkWo('wo-g10-201', 'PLANNED', { frd: 'frd-g10-2', artifacts: ['src/g10a/two/**'] })] },
+    { frd: 'frd-g10-3', deps: [], workOrders: [mkWo('wo-g10-301', 'PLANNED', { frd: 'frd-g10-3', artifacts: ['src/g10a/three/**'] })] },
+  ]),
+  responses: [
+    { label: /^gate:frd-g10-\d$/, response: { green: false, blocked_reason: 'needs-owner', failure: 'owner must act' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(run.result && run.result.stopReason === 'blocks', `the health breaker tripped — stopReason 'blocks' (got ${run.result && run.result.stopReason})`)
+    t.ok(run.result && run.result.blockedFrds.length === 3, `all three FRDs blocked (got ${run.result && run.result.blockedFrds.length})`)
+    t.ok(run.result && ['frd-g10-1', 'frd-g10-2', 'frd-g10-3'].every((f) => run.result.blockedReasons[f] === 'needs-owner'), 'all three blocked needs-owner (non-external → they count toward the breaker)')
+    t.ok(byLabel(run, /^repair:/).length === 0, 'a gate that classifies a block (needs-owner) is NOT sent to a wasteful repair pass (DR-072 C1)')
+  },
+})
+// (b) same three FRDs but ONE blocks 'external' — external NEVER increments consecutiveBlocks, so the
+// breaker (which needs 3) does NOT trip; the run ends by exhausting the queue, not by the breaker.
+SCENARIOS.push({
+  name: 'G10b. health breaker — an external block does NOT count; 2 non-external + 1 external never trips the breaker',
+  args: { mode: 'pro' },
+  plan: mkPlan([
+    { frd: 'frd-g10b-1', deps: [], workOrders: [mkWo('wo-g10b-101', 'PLANNED', { frd: 'frd-g10b-1', artifacts: ['src/g10b/one/**'] })] },
+    { frd: 'frd-g10b-2', deps: [], workOrders: [mkWo('wo-g10b-201', 'PLANNED', { frd: 'frd-g10b-2', artifacts: ['src/g10b/two/**'] })] },
+    { frd: 'frd-g10b-3', deps: [], workOrders: [mkWo('wo-g10b-301', 'PLANNED', { frd: 'frd-g10b-3', artifacts: ['src/g10b/three/**'] })] },
+  ]),
+  responses: [
+    { label: 'gate:frd-g10b-1', response: { green: false, blocked_reason: 'needs-owner', failure: 'x' } },
+    { label: 'gate:frd-g10b-2', response: { green: false, blocked_reason: 'external', failure: 'upstream 5xx' } },
+    { label: 'gate:frd-g10b-3', response: { green: false, blocked_reason: 'needs-owner', failure: 'x' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(!(run.result && run.result.stopReason === 'blocks'), `the breaker did NOT trip — an external block never increments the counter (stopReason ${run.result && run.result.stopReason})`)
+    t.ok(run.result && run.result.blockedFrds.length === 3, 'all three FRDs still blocked (the run ran to queue exhaustion, not a breaker stop)')
+    t.ok(run.result && run.result.blockedReasons['frd-g10b-2'] === 'external', 'the middle FRD blocked external')
+    t.ok(run.result && run.result.blockedReasons['frd-g10b-1'] === 'needs-owner' && run.result.blockedReasons['frd-g10b-3'] === 'needs-owner', 'the other two blocked needs-owner (only 2 non-external — below the breaker threshold of 3)')
+  },
+})
+
+// ── G11. BuildComplete / GateVerdict emission presence — cheap prompt-content assertions ───────────
+// (a) the gate prompt carries the GateVerdict printf on EVERY exit branch (pass/reopen/blocked/fail);
+// the close-out carries BuildComplete + the on-disk VERIFIED assert + the dated+fresh security-report assert.
+SCENARIOS.push({
+  name: 'G11a. emission presence — gate has GateVerdict on every exit; close-out has BuildComplete + disk/hardening asserts',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-g11a-emit',
+    deps: [],
+    workOrders: [mkWo('wo-g11a-001', 'PLANNED', { frd: 'frd-g11a-emit', artifacts: ['src/g11a/**'] })],
+  }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gate = byLabel(run, 'gate:frd-g11a-emit')[0]
+    t.ok(gate, 'the gate ran')
+    t.ok(gate && /"event":"GateVerdict"/.test(gate.prompt), 'the gate prompt carries the GateVerdict printf')
+    t.ok(gate && /verdict":"pass"/.test(gate.prompt) && /verdict":"reopen"/.test(gate.prompt) && /verdict":"blocked"/.test(gate.prompt) && /verdict":"fail"/.test(gate.prompt),
+      'the GateVerdict event is emitted on EVERY exit branch (pass/reopen/blocked/fail)')
+    const close = byLabel(run, 'close-out')[0]
+    t.ok(close, 'the release close-out ran (all-done + hardened)')
+    t.ok(close && /"event":"BuildComplete"/.test(close.prompt), 'the close-out carries the BuildComplete terminal-verdict printf')
+    t.ok(close && /the disk is the oracle/.test(close.prompt) && /rollup .?implementation_status.? is VERIFIED/.test(close.prompt), 'the close-out asserts every frd.md rollup is VERIFIED ON DISK before release (WS-D/D4b)')
+    t.ok(close && /security-<TODAY>\.md/.test(close.prompt) && /mtime is NEWER than/.test(close.prompt), 'the close-out asserts the dated security report exists AND is FRESH (mtime > run_started_at, WS-D/D4c)')
+  },
+})
+// (b) the revert prompt carries the live wo_reopen dashboard event. Reached via a capHit legacy revert
+// (maxAgents=16 in pro: the ladder honest-degrades past the diagnosis straight to revert).
+SCENARIOS.push({
+  name: 'G11b. emission presence — the revert prompt carries the wo_reopen dashboard event',
+  args: { mode: 'pro', maxAgents: 16 },
+  plan: mkPlan([{
+    frd: 'frd-g11b-revert',
+    deps: [],
+    workOrders: [mkWo('wo-g11b-001', 'PLANNED', { frd: 'frd-g11b-revert', artifacts: ['src/g11b/**'] })],
+  }]),
+  responses: [
+    { label: 'gate:frd-g11b-revert', times: 1, response: { green: false, reopen: ['wo-g11b-001'], findings: [{ wo: 'wo-g11b-001', finding: 'y', files: ['src/g11b/a.ts'] }] } },
+    { label: 'patch:frd-g11b-revert', response: { green: false, cause: 'code', failure: 'still red' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const revert = byLabel(run, 'revert:frd-g11b-revert')[0]
+    t.ok(revert, 'the legacy revert path ran (capHit honest-degrade, no diagnosis)')
+    t.ok(byLabel(run, /^diagnose:/).length === 0, 'the ceiling honest-degrade skipped the A3 diagnosis')
+    t.ok(revert && /"event":"wo_reopen"/.test(revert.prompt), 'the revert prompt carries the live Party wo_reopen dashboard event')
+    t.ok(revert && /dashboard-events\.ndjson/.test(revert.prompt), 'the wo_reopen event is appended to the dashboard stream')
+    t.ok(revert && /"kind":"wo_reopen"/.test(revert.prompt), 'the revert also appends the durable track.jsonl wo_reopen line')
   },
 })
 
