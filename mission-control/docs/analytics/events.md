@@ -42,3 +42,31 @@ to record that determination here rather than fabricate metrics. This entry is t
 | Opportunity metric (DR-042, `return_type: opportunity`) | not-applicable — `return_type` is `personal`, not `opportunity` |
 
 No code changes were made (there is no instrumentation gap to fix: there is nothing to instrument).
+
+## Verification 2026-07-06
+
+Re-run of the DR-085 hardening check (BL-0012). Re-confirmed, no drift since 2026-07-05:
+
+- `.pandacorp/status.yaml`: `deploy_target: internal` (`# internal tool (runs on 127.0.0.1) — no
+  external host (DR-085)`); `target_platforms: desktop`.
+- `docs/product/prd.md` "Value hypothesis" and "Success metrics" sections are still owner-experience
+  statements evaluated by the sole operator directly ("see the state... without opening files",
+  "zero calls to Claude", "the operator comes back daily") — not product-usage metrics needing
+  event instrumentation. No `return_type: opportunity` reach/audience signal applies (DR-042).
+- `docs/product/architecture.md:325`: economic arc (demand-gate, unit-economics, landing, GTM,
+  **telemetry**) explicitly does not apply, `return_type: personal`.
+- `package.json`: no PostHog/analytics SDK dependency of any kind.
+- `src/`: searched for `posthog` (case-insensitive) — the only hits are `src/app/manual/manualPages.tsx`
+  and `src/lib/manual/skill-flows.ts` (the Manual's static explainer content describing the factory's
+  telemetry standard for *other* Pandacorp products, e.g. `/pandacorp:review-launch`'s use of PostHog)
+  and their renderer tests (`src/lib/architecture/_tests/*.test.ts`) — no live capture calls, no SDK
+  import, no env-keyed client anywhere in application code.
+
+| Item | Status |
+|---|---|
+| `docs/analytics/events.md` (event plan) | not-applicable — `return_type: personal`, internal tool, no economic arc (unchanged from 2026-07-05) |
+| PostHog / analytics SDK wiring | not-applicable — confirmed absent again (no dependency, no capture calls in `src/`) |
+| Activation milestone / kill-signals (DR-043) | not-applicable — no value hypothesis requiring product telemetry |
+| Opportunity metric (DR-042) | not-applicable — `return_type` is `personal`, not `opportunity` |
+
+No code changes were made. This re-verification finds the same determination still true.
