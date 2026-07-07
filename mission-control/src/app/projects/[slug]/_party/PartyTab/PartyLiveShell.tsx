@@ -36,7 +36,9 @@ import { useEffect, useMemo, useRef } from "react";
 
 import { FreshnessBadge } from "@/components/modules/FreshnessBadge/FreshnessBadge";
 import { useLiveSnapshot } from "@/hooks/useLiveSnapshot";
+import { isNewerTimestamp } from "@/lib/events/event-time";
 import type { Event as DashboardEvent } from "@/lib/events/events";
+import { stateVersionMoved } from "@/lib/status/state-version-moved";
 
 import type { FraguaSnapshot, SceneWorkOrder } from "../fragua-snapshot/fragua-snapshot";
 import { toFraguaSnapshot } from "../fragua-snapshot/fragua-snapshot";
@@ -96,29 +98,13 @@ export interface PartyLiveShellProps {
 // Component
 // ---------------------------------------------------------------------------
 
-/** Is the frame's latest event newer than what the RSC render already saw? */
-function hasFresherEvent(liveAt: string | null, initialAt: string | null): boolean {
-  // ISO-8601 timestamps compare chronologically as strings.
-  return liveAt !== null && (initialAt === null || liveAt > initialAt);
-}
-
 /**
- * Did the machine-state version move past the last one seen? The FIRST observed
- * version only sets the baseline (the RSC render already saw that state) and does
- * not count as movement. Mutates the ref.
+ * Is the frame's latest event newer than what the RSC render already saw?
+ * Normalised via `isNewerTimestamp` so mixed second/millisecond precisions order
+ * correctly (a `…00.500Z` frame must beat a `…00Z` baseline — stream hygiene).
  */
-function stateVersionMoved(
-  stateVersion: number | undefined,
-  lastSeenRef: { current: number | null },
-): boolean {
-  if (stateVersion === undefined) return false;
-  if (lastSeenRef.current === null) {
-    lastSeenRef.current = stateVersion;
-    return false;
-  }
-  if (stateVersion <= lastSeenRef.current) return false;
-  lastSeenRef.current = stateVersion;
-  return true;
+function hasFresherEvent(liveAt: string | null, initialAt: string | null): boolean {
+  return liveAt !== null && (initialAt === null || isNewerTimestamp(liveAt, initialAt));
 }
 
 /**
@@ -191,10 +177,11 @@ export function PartyLiveShell({
   }, [liveFrame, initialSnapshot, running, workOrders, woStarts, tents]);
 
   // Freshest producer signal for the badge: the heartbeat (status.yaml) vs the
-  // latest event — ISO-8601 strings compare chronologically.
+  // latest event — normalised so mixed second/millisecond precisions order right.
   const liveAt = liveFrame?.lastEventAt ?? initialSnapshot.lastEventAt;
   const lastSignalAt =
-    supervisorHeartbeat !== undefined && (liveAt === null || supervisorHeartbeat > liveAt)
+    supervisorHeartbeat !== undefined &&
+    (liveAt === null || isNewerTimestamp(supervisorHeartbeat, liveAt))
       ? supervisorHeartbeat
       : liveAt;
 

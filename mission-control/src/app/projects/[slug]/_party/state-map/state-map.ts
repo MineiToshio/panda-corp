@@ -146,6 +146,16 @@ type OpenGateAction = {
 };
 
 /**
+ * Close the reviewer gate (Tribunal del Juez has ruled).
+ * Fired by GateVerdict — whatever the verdict, the tribunal session ends; the
+ * affected WOs then move via their own wo_reopen events (→ forge) or frontmatter
+ * (fail → enfermería). Idempotent: closing an already-closed gate is a no-op.
+ */
+type CloseGateAction = {
+  kind: "closeGate";
+};
+
+/**
  * Mark a work order as verified (Bóveda trophy).
  * Driven by SubagentStop (the WO closed cleanly).
  */
@@ -192,6 +202,7 @@ export type VisualAction =
   | AdvanceRelayAction
   | PublishContractAction
   | OpenGateAction
+  | CloseGateAction
   | VerifyWoAction
   | FireAchievementAction
   | DownSpriteAction
@@ -218,6 +229,9 @@ const KNOWN_EVENTS = new Set([
   "SubagentStop",
   "achievement",
   "test_fail",
+  // New engine vocabulary (2026-07-07): backward WO transition + gate verdict.
+  "wo_reopen",
+  "GateVerdict",
 ]);
 
 // ---------------------------------------------------------------------------
@@ -227,6 +241,39 @@ const KNOWN_EVENTS = new Set([
 // ---------------------------------------------------------------------------
 // Internal helpers — extracted to reduce cyclomatic complexity per function
 // ---------------------------------------------------------------------------
+
+/**
+ * Handle the WO-id-keyed events that each map to a single action requiring a
+ * `workOrder` (missing wo → noop). Returns null for event types it doesn't own,
+ * so `eventToVisual` can fall through. Extracted to keep `eventToVisual` within
+ * the cognitive-complexity budget.
+ */
+function handleWoKeyedEvent(
+  evType: string,
+  workOrder: string | undefined,
+  session: string | undefined,
+): VisualAction | null {
+  switch (evType) {
+    // wo_reopen — backward transition: the sprite walks back to the forge.
+    case "wo_reopen":
+      return workOrder === undefined
+        ? { kind: "noop" }
+        : { kind: "setWo", wo: workOrder, state: "building" };
+    // HandoffWritten — parchment from fromWo (workOrder) to toWo (session).
+    case "HandoffWritten":
+      return workOrder === undefined
+        ? { kind: "noop" }
+        : { kind: "startHandoff", fromWo: workOrder, toWo: session };
+    case "ContractPublished":
+      return workOrder === undefined
+        ? { kind: "noop" }
+        : { kind: "publishContract", wo: workOrder };
+    case "SubagentStop":
+      return workOrder === undefined ? { kind: "noop" } : { kind: "verifyWo", wo: workOrder };
+    default:
+      return null;
+  }
+}
 
 /** Handle AgentWorking events (Rules 2 & 3). Returns a VisualAction or null to fall through. */
 function handleAgentWorking(event: DashboardEvent): VisualAction {
@@ -283,29 +330,22 @@ export function eventToVisual(event: DashboardEvent): VisualAction {
     return { kind: "fireAchievement", wo: workOrder };
   }
 
+  // Rule 7c — GATE VERDICT (2026-07-07): the tribunal has ruled → close it. The
+  // per-WO moves (reopen → forge, blocked → enfermería) ride their own events /
+  // frontmatter, so this action is FRD-level and carries no WO.
+  if (evType === "GateVerdict") {
+    return { kind: "closeGate" };
+  }
+
   // Rules 2 & 3 — AGENT WORKING (delegated to helper)
   if (evType === "AgentWorking") {
     return handleAgentWorking(event);
   }
 
-  // Rule 4 — HANDOFF WRITTEN → parchment (AC-06-006.1)
-  // session carries the dependent WO (Build Plan target)
-  if (evType === "HandoffWritten") {
-    if (workOrder === undefined) return { kind: "noop" };
-    return { kind: "startHandoff", fromWo: workOrder, toWo: session };
-  }
-
-  // Rule 5 — CONTRACT PUBLISHED (AC-06-007.3)
-  if (evType === "ContractPublished") {
-    if (workOrder === undefined) return { kind: "noop" };
-    return { kind: "publishContract", wo: workOrder };
-  }
-
-  // Rule 6 — SUBAGENT STOP → verifyWo
-  if (evType === "SubagentStop") {
-    if (workOrder === undefined) return { kind: "noop" };
-    return { kind: "verifyWo", wo: workOrder };
-  }
+  // Rules 4/5/6/7b — the WO-id-keyed events (HandoffWritten, ContractPublished,
+  // SubagentStop, wo_reopen) → their single WO-scoped action (delegated).
+  const woKeyed = handleWoKeyedEvent(evType, workOrder, session);
+  if (woKeyed !== null) return woKeyed;
 
   // Rule 8 — UNKNOWN / unhandled event type → defensive noop.
   return { kind: "noop" };

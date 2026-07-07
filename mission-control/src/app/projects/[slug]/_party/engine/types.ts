@@ -85,6 +85,12 @@ export type FraguaEngine = {
   openGate(): void;
 
   /**
+   * Close the reviewer gate (the tribunal has ruled).
+   * Called by GateVerdict — whatever the verdict, the session ends. Idempotent.
+   */
+  closeGate(): void;
+
+  /**
    * Translate VisualActions into internal instructions and enqueue them.
    * Processing happens at the engine's pace (temporal lag is intentional).
    */

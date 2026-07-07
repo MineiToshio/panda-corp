@@ -2,6 +2,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { isNewerTimestamp } from "./event-time";
+
 /**
  * Event stream reader for Mission Control's Party panel (FRD-01, CMP-01-events).
  *
@@ -14,6 +16,15 @@ import path from "node:path";
 
 /** Default cap for the events tail (architecture §3/§5). */
 const DEFAULT_CAP = 200;
+
+/**
+ * Upper bound on bytes read from the NDJSON file (stream hygiene, 2026-07-07).
+ * The dashboard stream grows unbounded (every Claude session appends); reading
+ * the whole file just to keep the last ~200 events is wasteful and grows without
+ * limit. We tail the last 256 KB — comfortably more than DEFAULT_CAP lines — and
+ * discard the first (partial) line so no truncated JSON reaches the parser.
+ */
+const MAX_TAIL_BYTES = 256 * 1024;
 
 /** Bucket key for events that carry no `project` field (legacy/global events). */
 const GLOBAL_BUCKET = "__global__";
@@ -121,6 +132,22 @@ export type Event = {
    * additive; absent when the event carries no background tasks. Empty/malformed entries dropped.
    */
   workflows?: string[];
+  // ── New engine event vocabulary (2026-07-07, top-level fields) ────────────────
+  // Backward WO transitions + gate/preview/hardening lifecycle. All optional +
+  // additive; read from the nested `data` object OR the top level (new events
+  // carry them top-level). A wrong type drops just that field (never the event).
+  /** Hardening stage (`stage`: "security"|"telemetry"|"integration"). */
+  stage?: string;
+  /** Patch outcome (`outcome`: "green"|"gate-test-defective"|"code-fail", PatchResult). */
+  outcome?: string;
+  /** Preview-smoke pass flag (`pass`, PreviewSmoke). */
+  pass?: boolean;
+  /** Routes exercised in a preview smoke (`routes`, PreviewSmoke). */
+  routes?: number;
+  /** Failed-route count in a preview smoke (`failed`, PreviewSmoke). */
+  failed?: number;
+  /** Gate attempt counter (`attempt`, gate). */
+  attempt?: number;
 };
 
 /**
@@ -159,6 +186,33 @@ function defaultEventsPath(): string {
   }
   const home = process.env.HOME ?? process.env.USERPROFILE ?? os.homedir();
   return path.join(home, ".claude", "dashboard-events.ndjson");
+}
+
+/**
+ * Read the NDJSON file as UTF-8, bounded to the last `MAX_TAIL_BYTES` (stream
+ * hygiene, 2026-07-07). When the file is at/under the cap the whole content is
+ * returned; when it is larger only the tail window is read via `readSync` and the
+ * first (partial) line is dropped so no truncated JSON line reaches the parser.
+ * Uses one fd (open → fstat → read → close) so size and content are consistent.
+ */
+function readTailUtf8(filePath: string): string {
+  const fd = fs.openSync(filePath, "r");
+  try {
+    const { size } = fs.fstatSync(fd);
+    if (size <= MAX_TAIL_BYTES) {
+      return fs.readFileSync(fd, "utf-8");
+    }
+    const start = size - MAX_TAIL_BYTES;
+    const buf = Buffer.allocUnsafe(MAX_TAIL_BYTES);
+    const bytesRead = fs.readSync(fd, buf, 0, MAX_TAIL_BYTES, start);
+    const text = buf.toString("utf-8", 0, bytesRead);
+    // Drop everything up to and including the first newline — the tail window
+    // almost certainly starts mid-line, and that partial line is not valid JSON.
+    const firstNl = text.indexOf("\n");
+    return firstNl === -1 ? "" : text.slice(firstNl + 1);
+  } finally {
+    fs.closeSync(fd);
+  }
 }
 
 /**
@@ -281,7 +335,7 @@ function readWorkflowNames(raw: unknown): string[] | undefined {
  *
  * Extracted from `parseLine` to keep it within the complexity budget.
  */
-/** Apply the finite-number result fields (reopen_count, blocking, important, maxAgents). */
+/** Apply the finite-number result fields (reopen_count, blocking, important, maxAgents, routes, failed, attempt). */
 function applyResultNumberFields(src: Record<string, unknown>, ev: Event): void {
   if (typeof src.reopen_count === "number" && Number.isFinite(src.reopen_count)) {
     ev.reopenCount = src.reopen_count;
@@ -293,6 +347,9 @@ function applyResultNumberFields(src: Record<string, unknown>, ev: Event): void 
   if (typeof src.maxAgents === "number" && Number.isFinite(src.maxAgents)) {
     ev.maxAgents = src.maxAgents;
   }
+  if (typeof src.routes === "number" && Number.isFinite(src.routes)) ev.routes = src.routes;
+  if (typeof src.failed === "number" && Number.isFinite(src.failed)) ev.failed = src.failed;
+  if (typeof src.attempt === "number" && Number.isFinite(src.attempt)) ev.attempt = src.attempt;
 }
 
 function applyResultFields(obj: Record<string, unknown>, ev: Event): void {
@@ -304,6 +361,9 @@ function applyResultFields(obj: Record<string, unknown>, ev: Event): void {
   if (typeof src.wos === "string") ev.wos = src.wos;
   if (typeof src.frds === "string") ev.frds = src.frds;
   if (typeof src.reason === "string") ev.reason = src.reason;
+  if (typeof src.stage === "string") ev.stage = src.stage;
+  if (typeof src.outcome === "string") ev.outcome = src.outcome;
+  if (typeof src.pass === "boolean") ev.pass = src.pass;
 
   applyResultNumberFields(src, ev);
 
@@ -394,13 +454,14 @@ function parseLines(raw: string): Event[] {
 }
 
 /**
- * Derive `lastEventAt` — the maximum `at` string across retained events.
- * ISO 8601 strings compare lexicographically, so string comparison is correct.
+ * Derive `lastEventAt` — the chronologically latest `at` across retained events.
+ * Normalised via `isNewerTimestamp` so mixed second/millisecond precisions order
+ * correctly (a `…00.500Z` frame must not lose to a `…00Z` one — stream hygiene).
  */
 function deriveLastEventAt(events: readonly Event[]): string | null {
   let last: string | null = null;
   for (const ev of events) {
-    if (last === null || ev.at > last) {
+    if (last === null || isNewerTimestamp(ev.at, last)) {
       last = ev.at;
     }
   }
@@ -416,7 +477,7 @@ function deriveByProject(events: readonly Event[]): Record<string, { lastEventAt
   for (const ev of events) {
     const key = ev.project ?? GLOBAL_BUCKET;
     const existing = byProject[key];
-    if (existing === undefined || ev.at > existing.lastEventAt) {
+    if (existing === undefined || isNewerTimestamp(ev.at, existing.lastEventAt)) {
       byProject[key] = { lastEventAt: ev.at };
     }
   }
@@ -460,7 +521,7 @@ export function readEvents(opts?: {
 
   let raw: string;
   try {
-    raw = fs.readFileSync(filePath, "utf-8");
+    raw = readTailUtf8(filePath);
   } catch {
     return { ...EMPTY_SNAPSHOT, byProject: {} };
   }

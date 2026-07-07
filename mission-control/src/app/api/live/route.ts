@@ -5,6 +5,13 @@
  * (and optionally watches the project status.yaml / work-order frontmatter)
  * and pushes an `EventsSnapshot` delta per change to all subscribers.
  *
+ * Stream hygiene (2026-07-07): a module-level singleton `EventStore` owns ONE
+ * `fs.watch` on the events file plus a memoized parsed snapshot keyed by
+ * {size, mtimeMs}. Every SSE connection SUBSCRIBES to that shared store and
+ * FILTERS the shared snapshot for its own `?project=`/`?kind=` — instead of each
+ * connection opening its own watcher and re-parsing the whole file. Per-client
+ * `stateVersion` stat-watchers stay (they are cheap and project-specific).
+ *
  * Read-only invariant (architecture §1, §7):
  *   This route ONLY reads files via the existing `lib/events` reader — it never
  *   writes to disk, never calls Claude, and never mutates factory state.
@@ -20,6 +27,7 @@
  *     events: Event[];          // filtered snapshot tail
  *     lastEventAt: string | null;
  *     byProject: Record<string, { lastEventAt: string }>;
+ *     stateVersion?: number;    // max mtime of the project machine state
  *   }
  *
  * Traceability:
@@ -33,6 +41,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { resolveProjectPath } from "@/lib/config/config";
+import { isNewerTimestamp } from "@/lib/events/event-time";
 import { type EventsSnapshot, readEvents } from "@/lib/events/events";
 import { readPortfolio } from "@/lib/portfolio/portfolio";
 import { stateVersion } from "@/lib/status/state-version";
@@ -58,6 +67,22 @@ const EMIT_THROTTLE_MS = 200;
 /** Inactivity keep-alive: send a comment every N ms to prevent proxy timeouts. */
 const KEEPALIVE_MS = 15_000;
 
+/** Debounce coalescing rapid `fs.watch` bursts before the shared re-read. */
+const STORE_DEBOUNCE_MS = 50;
+
+/**
+ * Cap on the shared UNFILTERED read. Headroom above `CONNECTION_TAIL` so a busy
+ * global stream can't crowd a single project's events out before the per-client
+ * filter runs (the property the old per-client filter-before-cap gave us).
+ */
+const SHARED_CAP = 600;
+
+/** Per-connection tail cap after filtering — the historical ~200-event tail. */
+const CONNECTION_TAIL = 200;
+
+/** The empty snapshot served on missing/rotating file (fail-soft). */
+const EMPTY_SNAPSHOT: EventsSnapshot = { events: [], lastEventAt: null, byProject: {} };
+
 /** Default path to the events NDJSON file — `PANDACORP_EVENTS_FILE` env override first
  * (e2e runs tail a frozen fixture), else `~/.claude/dashboard-events.ndjson`. */
 function defaultEventsPath(): string {
@@ -82,6 +107,149 @@ function defaultEventsPath(): string {
  */
 export type LiveFrame = EventsSnapshot & { stateVersion?: number };
 
+// ---------------------------------------------------------------------------
+// Shared EventStore — ONE fs.watch + memoized snapshot per events file
+// ---------------------------------------------------------------------------
+
+/**
+ * Per-events-file shared state. All connections to the same file share ONE
+ * watcher and ONE memoized parsed snapshot; each connection filters it locally.
+ */
+interface EventStore {
+  readonly filePath: string;
+  /** The last parsed UNFILTERED snapshot (capped at SHARED_CAP). */
+  snapshot: EventsSnapshot;
+  /** Memo key `${size}:${mtimeMs}`; null when the file can't be statted (rotating/missing). */
+  key: string | null;
+  /** The single fs.watch on the events file; null when unarmed or torn down. */
+  watcher: fs.FSWatcher | null;
+  /** Debounce timer coalescing rapid watch bursts. */
+  debounceTimer: ReturnType<typeof setTimeout> | null;
+  /** Per-connection notify callbacks (each connection's throttled emitter). */
+  readonly subscribers: Set<() => void>;
+}
+
+/** Module-level registry — normally one entry (the resolved events path). */
+const eventStores = new Map<string, EventStore>();
+
+/** Get (or lazily create) the shared store for a given events file path. */
+function getStore(filePath: string): EventStore {
+  let store = eventStores.get(filePath);
+  if (store === undefined) {
+    store = {
+      filePath,
+      snapshot: EMPTY_SNAPSHOT,
+      key: null,
+      watcher: null,
+      debounceTimer: null,
+      subscribers: new Set(),
+    };
+    eventStores.set(filePath, store);
+  }
+  return store;
+}
+
+/** Cheap memo key from the file's size + mtime; null when it can't be statted. */
+function statKey(filePath: string): string | null {
+  try {
+    const { size, mtimeMs } = fs.statSync(filePath);
+    return `${size}:${mtimeMs}`;
+  } catch {
+    return null; // missing/rotating file → force a fresh read (fail-soft)
+  }
+}
+
+/**
+ * Read the shared snapshot, memoized by {size,mtimeMs}. When the file is
+ * unchanged since the last parse the memoized snapshot is reused (no re-parse);
+ * when the key moved — or can't be computed (rotation) — it re-reads. Never
+ * throws: a transient failure yields the EMPTY snapshot.
+ */
+function readStoreSnapshot(store: EventStore): EventsSnapshot {
+  const key = statKey(store.filePath);
+  if (key !== null && key === store.key) return store.snapshot;
+  let snapshot: EventsSnapshot;
+  try {
+    snapshot = readEvents({ path: store.filePath, cap: SHARED_CAP });
+  } catch {
+    snapshot = EMPTY_SNAPSHOT;
+  }
+  store.snapshot = snapshot;
+  store.key = key;
+  return snapshot;
+}
+
+/** Close the shared watcher + clear its debounce; idempotent. */
+function closeStoreWatcher(store: EventStore): void {
+  if (store.debounceTimer !== null) {
+    clearTimeout(store.debounceTimer);
+    store.debounceTimer = null;
+  }
+  if (store.watcher === null) return;
+  try {
+    store.watcher.close();
+  } catch {
+    // Already closed — ignore.
+  }
+  store.watcher = null;
+}
+
+/** Debounced shared re-read then fan-out to every subscriber. */
+function scheduleStoreReread(store: EventStore): void {
+  if (store.debounceTimer !== null) clearTimeout(store.debounceTimer);
+  store.debounceTimer = setTimeout(() => {
+    store.debounceTimer = null;
+    readStoreSnapshot(store);
+    for (const notify of store.subscribers) notify();
+  }, STORE_DEBOUNCE_MS);
+}
+
+/** Arm the ONE shared watcher if not already armed. Re-arms on rotation. */
+function ensureWatcher(store: EventStore): void {
+  if (store.watcher !== null) return;
+  try {
+    store.watcher = fs.watch(store.filePath, { persistent: false }, (eventType) => {
+      if (eventType === "rename") {
+        // File rotated/replaced — the old inode watch may be stale. Re-arm.
+        closeStoreWatcher(store);
+        ensureWatcher(store);
+      }
+      scheduleStoreReread(store);
+    });
+  } catch {
+    // fs.watch may throw on missing path or unsupported filesystems. We continue
+    // without watching — connections still get the initial + state-watch emits.
+    store.watcher = null;
+  }
+}
+
+/** Subscribe a connection's notifier; arms the shared watcher on first subscriber. */
+function subscribeToStore(store: EventStore, notify: () => void): void {
+  store.subscribers.add(notify);
+  ensureWatcher(store);
+}
+
+/** Unsubscribe a connection; closes the shared watcher when the last one leaves. */
+function unsubscribeFromStore(store: EventStore, notify: () => void): void {
+  store.subscribers.delete(notify);
+  if (store.subscribers.size === 0) closeStoreWatcher(store);
+}
+
+/**
+ * Test-only: tear down every shared store (close watchers, drop subscribers,
+ * reset the memo). The module singleton persists across tests within a file, so
+ * suites that assert per-connection watcher wiring reset it in `beforeEach`.
+ */
+export function __resetLiveEventStoresForTest(): void {
+  for (const store of eventStores.values()) {
+    closeStoreWatcher(store);
+    store.subscribers.clear();
+    store.snapshot = EMPTY_SNAPSHOT;
+    store.key = null;
+  }
+  eventStores.clear();
+}
+
 /**
  * Resolve the ?project= key (the emitters' `basename $PWD`) to the project's
  * absolute root via the portfolio — never trusts a client-supplied path (the
@@ -105,19 +273,23 @@ function resolveProjectDir(project: string | undefined): string | undefined {
 // ---------------------------------------------------------------------------
 
 /**
- * Apply project + kind filters to a raw EventsSnapshot.
+ * Apply project + kind filters to a raw EventsSnapshot, then tail-cap.
  *
  * - When `project` is set: include only events whose `project` field matches
  *   OR events that carry no `project` field (legacy/global — CLAUDE.md).
  * - When `kinds` is set: include only events whose `event` field is in the set.
- * - When neither filter is set: return all events unchanged.
+ * - The filtered set is tail-capped at `tailCap` (the historical ~200 tail), so
+ *   a client frame stays bounded even though the shared read holds SHARED_CAP.
  *
- * `lastEventAt` and `byProject` are re-derived from the filtered set.
+ * `lastEventAt` and `byProject` are re-derived from the retained tail (both are
+ * "latest" aggregates, so the tail carries them). Timestamps compare via
+ * `isNewerTimestamp` so mixed second/millisecond precisions order correctly.
  */
 function filterSnapshot(
   snapshot: EventsSnapshot,
   project?: string,
   kinds?: ReadonlySet<string>,
+  tailCap: number = CONNECTION_TAIL,
 ): LiveFrame {
   let events = snapshot.events;
 
@@ -129,17 +301,21 @@ function filterSnapshot(
     events = events.filter((ev) => kinds.has(ev.event));
   }
 
-  // Re-derive aggregates from the filtered set.
+  if (events.length > tailCap) {
+    events = events.slice(events.length - tailCap);
+  }
+
+  // Re-derive aggregates from the retained tail.
   let lastEventAt: string | null = null;
   const byProject: Record<string, { lastEventAt: string }> = {};
 
   for (const ev of events) {
-    if (lastEventAt === null || ev.at > lastEventAt) {
+    if (lastEventAt === null || isNewerTimestamp(ev.at, lastEventAt)) {
       lastEventAt = ev.at;
     }
     const key = ev.project ?? "__global__";
     const existing = byProject[key];
-    if (existing === undefined || ev.at > existing.lastEventAt) {
+    if (existing === undefined || isNewerTimestamp(ev.at, existing.lastEventAt)) {
       byProject[key] = { lastEventAt: ev.at };
     }
   }
@@ -169,53 +345,55 @@ const KEEPALIVE_FRAME = ": keep-alive\n\n";
 // Route handler
 // ---------------------------------------------------------------------------
 
+/** Parse the `?kind=` param into a trimmed set, or undefined when absent/empty. */
+function parseKinds(kindParam: string | null): ReadonlySet<string> | undefined {
+  if (kindParam === null || kindParam.trim() === "") return undefined;
+  return new Set(
+    kindParam
+      .split(",")
+      .map((k) => k.trim())
+      .filter(Boolean),
+  );
+}
+
 /**
  * GET /api/live
  *
- * Opens an SSE stream. On every change to the events NDJSON file, reads the
- * latest snapshot via `readEvents` (the existing WO-01-007 reader — no
- * re-implementation of parsing), filters it, and pushes a `data:` frame.
+ * Opens an SSE stream. Subscribes to the shared EventStore (ONE fs.watch on the
+ * events file + memoized snapshot); on every shared change it filters the shared
+ * snapshot and pushes a `data:` frame. Also keeps per-client state watchers so a
+ * state-only advance (no event) still re-emits with a fresh stateVersion.
  *
  * Cleanup: when the client closes the tab / navigates away, `request.signal`
- * fires `abort`; the handler closes the `fs.watch` watcher and the
- * ReadableStream controller. No resource leak.
+ * fires `abort`; the handler unsubscribes (closing the shared watcher when it was
+ * the last subscriber), closes its state watchers and the ReadableStream
+ * controller. No resource leak.
  */
 export function GET(request: Request): Response {
   const { searchParams } = new URL(request.url);
   const projectFilter = searchParams.get("project") ?? undefined;
-  const kindParam = searchParams.get("kind");
-  const kindsFilter: ReadonlySet<string> | undefined =
-    kindParam !== null && kindParam.trim() !== ""
-      ? new Set(
-          kindParam
-            .split(",")
-            .map((k) => k.trim())
-            .filter(Boolean),
-        )
-      : undefined;
+  const kindsFilter = parseKinds(searchParams.get("kind"));
 
   const eventsFilePath = defaultEventsPath();
   // Project root for state watching + stateVersion stamping (DR-066 fix 3).
   const projectDir = resolveProjectDir(projectFilter);
+  const store = getStore(eventsFilePath);
 
   const encoder = new TextEncoder();
-  let watcher: fs.FSWatcher | null = null;
   const stateWatchers: fs.FSWatcher[] = [];
   let keepAliveTimer: ReturnType<typeof setInterval> | null = null;
   let lastEmitAt = 0;
   let emitThrottleTimer: ReturnType<typeof setTimeout> | null = null;
   let destroyed = false;
+  let storeNotify: (() => void) | null = null;
 
   const stream = new ReadableStream({
     start(controller) {
-      /** Read + filter + encode the current snapshot and enqueue it. */
+      /** Read the shared (memoized) snapshot, filter it, stamp state, enqueue. */
       function emitSnapshot(): void {
         if (destroyed) return;
 
-        // Project filter runs INSIDE readEvents (before the tail cap) so other
-        // projects'/sessions' noise can't crowd a build's events out of the tail;
-        // filterSnapshot keeps the kind filter + re-derives the aggregates.
-        const snapshot = readEvents({ path: eventsFilePath, project: projectFilter });
+        const snapshot = readStoreSnapshot(store);
         const frame: LiveFrame = filterSnapshot(snapshot, projectFilter, kindsFilter);
         // Stamp the machine-state version so a state-only advance (no event) still
         // signals the client to re-read the frontmatter (DR-066 fix 3).
@@ -223,9 +401,6 @@ export function GET(request: Request): Response {
           frame.stateVersion = stateVersion(projectDir);
         }
 
-        // Only emit if there is content (avoids useless empty frames on boot)
-        // but we DO emit the initial snapshot unconditionally so the client
-        // has data on first connect.
         try {
           controller.enqueue(encoder.encode(encodeFrame(frame)));
         } catch {
@@ -233,7 +408,7 @@ export function GET(request: Request): Response {
         }
       }
 
-      /** Throttled wrapper: deduplicate rapid fs.watch bursts. */
+      /** Throttled wrapper: deduplicate rapid re-read bursts. */
       function scheduleEmit(): void {
         if (destroyed) return;
         const now = Date.now();
@@ -260,23 +435,17 @@ export function GET(request: Request): Response {
       // ---- Send the initial snapshot immediately on connect ----------------
       emitSnapshot();
 
-      // ---- Watch the events file for appends / changes --------------------
-      try {
-        watcher = fs.watch(eventsFilePath, { persistent: false }, () => {
-          scheduleEmit();
-        });
-      } catch {
-        // fs.watch may throw on missing path (some platforms) or unsupported
-        // filesystems. We continue without watching — the client will still
-        // receive the initial snapshot and can poll if needed.
-        watcher = null;
-      }
+      // ---- Subscribe to the SHARED events-file watcher --------------------
+      // One watcher + one memoized parse serves all connections; this connection
+      // just re-filters the shared snapshot on each shared change.
+      storeNotify = scheduleEmit;
+      subscribeToStore(store, storeNotify);
 
       // ---- Watch the project's MACHINE STATE too (DR-066 fix 3) -----------
       // A build can advance status.yaml / WO frontmatter without emitting an
-      // event (cold start, a long gate); watching only the event stream would
-      // read as "dead". Each state change re-emits a frame whose stateVersion
-      // moves, so the client refreshes its RSC-derived structure.
+      // event (cold start, a long gate, a backward WO transition); watching only
+      // the event stream would read as "dead". Each state change re-emits a frame
+      // whose stateVersion moves, so the client refreshes its RSC structure.
       if (projectDir !== undefined) {
         const stateTargets = [
           path.join(projectDir, ".pandacorp"),
@@ -316,8 +485,8 @@ export function GET(request: Request): Response {
     },
   });
 
-  /** Close the fs.FSWatcher if active. Swallows already-closed errors. */
-  function closeWatcher(): void {
+  /** Close every per-client state watcher. Swallows already-closed errors. */
+  function closeStateWatchers(): void {
     for (const stateWatcher of stateWatchers.splice(0)) {
       try {
         stateWatcher.close();
@@ -325,13 +494,6 @@ export function GET(request: Request): Response {
         // Already closed — ignore.
       }
     }
-    if (watcher === null) return;
-    try {
-      watcher.close();
-    } catch {
-      // Already closed — ignore.
-    }
-    watcher = null;
   }
 
   /** Close the ReadableStream controller if provided. Swallows already-closed errors. */
@@ -344,7 +506,7 @@ export function GET(request: Request): Response {
     }
   }
 
-  /** Shared cleanup: close watcher, clear timers, close controller. */
+  /** Shared cleanup: unsubscribe from the store, clear timers, close controller. */
   function cleanup(controller?: ReadableStreamDefaultController): void {
     if (destroyed) return;
     destroyed = true;
@@ -359,7 +521,12 @@ export function GET(request: Request): Response {
       keepAliveTimer = null;
     }
 
-    closeWatcher();
+    if (storeNotify !== null) {
+      unsubscribeFromStore(store, storeNotify);
+      storeNotify = null;
+    }
+
+    closeStateWatchers();
     closeController(controller);
   }
 

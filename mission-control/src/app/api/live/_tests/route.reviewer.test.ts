@@ -24,7 +24,7 @@ import type { EventsSnapshot } from "@/lib/events/events";
 vi.mock("@/lib/events/events", () => ({ readEvents: vi.fn() }));
 
 import { readEvents } from "@/lib/events/events";
-import { GET } from "../route";
+import { __resetLiveEventStoresForTest, GET } from "../route";
 
 const mockReadEvents = vi.mocked(readEvents);
 
@@ -71,6 +71,7 @@ describe("GET /api/live — reviewer adversarial", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    __resetLiveEventStoresForTest();
     closeSpy = vi.fn();
     watchSpy = vi
       .spyOn(fs, "watch")

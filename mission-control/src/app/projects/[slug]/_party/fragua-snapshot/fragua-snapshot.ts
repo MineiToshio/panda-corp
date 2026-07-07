@@ -385,6 +385,32 @@ function processSubagentStop(
 }
 
 /**
+ * Process a wo_reopen event (2026-07-07): a WO sent back from the tribunal to the
+ * forge to be re-worked. In the event-derived fallback path (no frontmatter) this
+ * re-activates the WO as a running/building sprite — it clears any prior "stopped"
+ * mark and re-registers it (≤ wave). State-derived + idempotent: a WO already
+ * running stays put; the frontmatter path (DR-092) remains authoritative when present.
+ */
+function processWoReopen(
+  ev: DashboardEvent,
+  ctx: FrdContext,
+  tracking: RunningTracking,
+  scan: FrdScan,
+): void {
+  if (ev.event !== "wo_reopen" || ev.frd !== ctx.currentFrdId || typeof ev.workOrder !== "string") {
+    return;
+  }
+  if (isFrdLevelWoId(ev.workOrder)) return;
+
+  tracking.stoppedWoIds.delete(ev.workOrder);
+  tracking.seenWoIds.add(ev.workOrder);
+  scan.allWoIds.add(ev.workOrder);
+  if (!scan.runningWos.includes(ev.workOrder) && scan.runningWos.length < ctx.wave) {
+    scan.runningWos.push(ev.workOrder);
+  }
+}
+
+/**
  * Process an achievement event. Two distinct buckets, kept decoupled:
  *   - The global project counter (AC-06-002.2) counts every unique achievement
  *     WO across ALL FRDs → `globalDoneWoIds`.
@@ -453,10 +479,15 @@ function scanFrdData(events: readonly DashboardEvent[], ctx: FrdContext): FrdSca
 
     processAgentWorking(ev, ctx, tracking, scan);
     processSubagentStop(ev, ctx, stoppedWoIds, scan);
+    processWoReopen(ev, ctx, tracking, scan);
     processAchievement(ev, ctx, seenTrophies, scan);
 
-    if (ev.event === "gate" && ev.frd === ctx.currentFrdId) {
-      scan.gateOpen = true;
+    // Gate lifecycle for the current FRD: a `gate` event opens the tribunal; a
+    // later `GateVerdict` closes it. Events are chronological, so the last of the
+    // two wins (latest-per-frd, superseding) — the event-derived fallback path.
+    if (ev.frd === ctx.currentFrdId) {
+      if (ev.event === "gate") scan.gateOpen = true;
+      else if (ev.event === "GateVerdict") scan.gateOpen = false;
     }
   }
 
@@ -625,6 +656,27 @@ function lastGateEventFrd(events: readonly DashboardEvent[]): string | null {
   return last;
 }
 
+/**
+ * The latest gate-lifecycle signal for a FRD (2026-07-07): `"open"` (a `gate`
+ * event) vs `"closed"` (a `GateVerdict` — the tribunal has ruled), or `null` when
+ * neither appears. State-derived + latest-wins (superseding), so a GateVerdict
+ * that arrives after a gate event closes the tribunal LIVE, before the frontmatter
+ * refresh lands. Idempotent: replaying the same tail yields the same signal.
+ */
+function gateSignalForFrd(
+  events: readonly DashboardEvent[],
+  frd: string | null,
+): "open" | "closed" | null {
+  if (frd === null) return null;
+  let signal: "open" | "closed" | null = null;
+  for (const ev of events) {
+    if (ev.frd !== frd) continue;
+    if (ev.event === "gate") signal = "open";
+    else if (ev.event === "GateVerdict") signal = "closed";
+  }
+  return signal;
+}
+
 // ---------------------------------------------------------------------------
 // Compose helpers (extracted to keep toFraguaSnapshot within the complexity budget)
 // ---------------------------------------------------------------------------
@@ -725,7 +777,11 @@ export function toFraguaSnapshot(
       ? structureFromWorkOrders(opts.workOrders, wave)
       : null;
 
-  const judging = resolveJudging(fromFm, events);
+  // The FRD the tribunal would judge — then a GateVerdict for it CLOSES the
+  // session live (2026-07-07): the gate shuts before the frontmatter refresh moves
+  // its WOs to done/todo/fail, so the tribunal doesn't linger on a ruled FRD.
+  const rawJudging = resolveJudging(fromFm, events);
+  const judging = gateSignalForFrd(events, rawJudging) === "closed" ? null : rawJudging;
 
   // FRD focus (header/MissionBar): the FRD under judgment, else the first one
   // building, else the freshest event frd (a finished build still renders its

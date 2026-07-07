@@ -39,6 +39,7 @@ import { TabCommands } from "./_components/tab-commands/tab-commands";
 import { TabDocuments } from "./_components/tab-documents/tab-documents";
 import { TabSummary } from "./_components/tab-summary/tab-summary";
 import { TabWorkOrders } from "./_components/tab-work-orders/tab-work-orders";
+import { WoLiveRefresh } from "./_components/tab-work-orders/wo-live-refresh";
 import { TabBar, type TabId } from "./_components/tabbar";
 import { type WoDetailTab, WorkOrderDetail } from "./_components/wo-detail/wo-detail";
 import { WorkspaceHeader } from "./_components/workspace-header";
@@ -99,7 +100,15 @@ function renderWorkOrdersTab(
     woParam !== undefined ? (orders.find((o) => o.id === woParam) ?? null) : null;
   if (selectedOrder !== null) {
     const woContent = readWorkOrderDoc(projectPath, selectedOrder.relPath);
-    return <WorkOrderDetail order={selectedOrder} content={woContent} activeWoTab={woTabParam} />;
+    // Mount the invisible live refresher alongside the detail pane so a backward
+    // WO transition (IN_REVIEW→PLANNED) re-reads this Server Component and the
+    // detail's status badge updates live — same transport, no second SSE sub.
+    return (
+      <>
+        <WoLiveRefresh project={slug} />
+        <WorkOrderDetail order={selectedOrder} content={woContent} activeWoTab={woTabParam} />
+      </>
+    );
   }
   return <TabWorkOrders orders={orders} project={slug} />;
 }

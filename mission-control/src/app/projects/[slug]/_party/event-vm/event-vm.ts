@@ -56,7 +56,12 @@ export type EventType =
   | "review"
   | "achievement"
   | "launch"
-  | "commit";
+  | "commit"
+  // New engine vocabulary (2026-07-07): backward WO transition + hardening +
+  // patch outcome. PreviewSmoke resolves into test_ok/test_fail (no own type).
+  | "reopen"
+  | "hardening"
+  | "patch";
 
 /**
  * Fixed bounded vocabulary: event type → emoji glyph rendered as text
@@ -81,6 +86,9 @@ export const EVENT_ICON: Record<EventType, string> = {
   achievement: "🏆",
   launch: "🚀",
   commit: "🔨",
+  reopen: "↩️",
+  hardening: "🛡️",
+  patch: "🩹",
 };
 
 /** Fallback icon for event types outside the canonical vocabulary. */
@@ -102,6 +110,13 @@ const RAW_EVENT_TYPE: Record<string, EventType> = {
   GateVerdict: "review",
   ReviewDone: "review",
   wo_commit: "commit",
+  // New engine vocabulary (2026-07-07). PreviewSmoke maps to test_ok by default so
+  // isFeedEvent admits it (it resolves into EVENT_ICON); toEventVM flips it to
+  // test_fail when `pass === false`.
+  wo_reopen: "reopen",
+  PreviewSmoke: "test_ok",
+  Hardening: "hardening",
+  PatchResult: "patch",
 };
 
 /** Resolve a raw event name to its bounded EventType key (or itself if already one). */
@@ -133,6 +148,12 @@ const EVENT_LABEL: Record<EventType, string> = {
   achievement: "¡Logro desbloqueado!",
   launch: "Build lanzado",
   commit: "Forjado en verde · committeado",
+  /** wo_reopen — a WO sent back from the tribunal to the forge. */
+  reopen: "WO reabierto",
+  /** Hardening — the security/telemetry/integration close-out pass (verdict-aware). */
+  hardening: "Endurecimiento",
+  /** PatchResult — the reviewer's patch attempt outcome (verdict-aware). */
+  patch: "Parche",
 };
 
 const FALLBACK_LABEL = "Evento";
@@ -152,19 +173,60 @@ const AGENT_WORKING_LABEL: Record<string, string> = {
   "build/selftest": "Auto-test del WO",
 };
 
-/** Derive the Spanish label for a raw event, refining AgentWorking by phase/activity. */
+/** AgentWorking refined by phase/activity (the enriched engine fields). */
+function agentWorkingLabel(event: DashboardEvent): string {
+  const phase = event.phase ?? "build";
+  const refined = AGENT_WORKING_LABEL[`${phase}/${event.activity ?? "implement"}`];
+  if (refined !== undefined) return refined;
+  return phase === "review" ? "Revisión en curso" : "Forjando";
+}
+
+/** ReviewVerdict/GateVerdict — the verdict carries the meaning; a `reopen` shows its count. */
+function verdictLabel(event: DashboardEvent): string {
+  const verdict = event.verdict ?? "";
+  if (verdict === "reopen" && typeof event.reopenCount === "number") {
+    return `Veredicto: reopen · ${event.reopenCount} reabiertos`;
+  }
+  return `Veredicto: ${verdict}`;
+}
+
+/** PreviewSmoke — pass/fail with the real route counts exercised. */
+function previewSmokeLabel(event: DashboardEvent): string {
+  const routes = event.routes;
+  if (event.pass === false) {
+    if (typeof event.failed === "number" && typeof routes === "number") {
+      return `Humo falló · ${event.failed}/${routes} rutas`;
+    }
+    return "Humo de preview falló";
+  }
+  return typeof routes === "number" ? `Humo OK · ${routes} rutas` : "Humo de preview OK";
+}
+
+/** Hardening — the stage + ok/fail status of the close-out pass. */
+function hardeningLabel(event: DashboardEvent): string {
+  const suffix = [event.stage ?? "", event.status ?? ""].filter((s) => s !== "").join(" · ");
+  return suffix !== "" ? `Endurecimiento: ${suffix}` : "Endurecimiento";
+}
+
+/** Derive the Spanish label for a raw event, refining the verdict-bearing kinds. */
 function deriveLabel(event: DashboardEvent, typeKey: string): string {
-  if (event.event === "AgentWorking") {
-    const phase = event.phase ?? "build";
-    const refined = AGENT_WORKING_LABEL[`${phase}/${event.activity ?? "implement"}`];
-    if (refined !== undefined) return refined;
-    return phase === "review" ? "Revisión en curso" : "Forjando";
+  switch (event.event) {
+    case "AgentWorking":
+      return agentWorkingLabel(event);
+    case "ReviewVerdict":
+    case "GateVerdict":
+      return event.verdict ? verdictLabel(event) : resolveLabel(typeKey);
+    case "PreviewSmoke":
+      return previewSmokeLabel(event);
+    case "Hardening":
+      return hardeningLabel(event);
+    case "PatchResult":
+      return event.outcome ? `Parche: ${event.outcome}` : "Parche";
+    case "BuildRelaunch":
+      return "Build relanzado";
+    default:
+      return resolveLabel(typeKey);
   }
-  if ((event.event === "ReviewVerdict" || event.event === "GateVerdict") && event.verdict) {
-    return `Veredicto: ${event.verdict}`;
-  }
-  if (event.event === "BuildRelaunch") return "Build relanzado";
-  return resolveLabel(typeKey);
 }
 
 /**
@@ -242,6 +304,17 @@ function deriveProjectColorKey(project: string): string {
 // IF-06-event-vm — toEventVM (pure mapper)
 // ---------------------------------------------------------------------------
 
+/**
+ * Resolve the bounded EventType key for an event, honouring payload-dependent
+ * kinds: a review-phase AgentWorking is tribunal activity (review glyph, not
+ * forge), and a PreviewSmoke resolves into the shared test glyphs by its `pass`.
+ */
+function resolveTypeKey(event: DashboardEvent): string {
+  if (event.event === "AgentWorking" && event.phase === "review") return "review";
+  if (event.event === "PreviewSmoke") return event.pass === false ? "test_fail" : "test_ok";
+  return resolveEventType(event.event);
+}
+
 /** Resolve the icon for an event type; falls back to FALLBACK_ICON. */
 function resolveIcon(eventType: string): string {
   return Object.hasOwn(EVENT_ICON, eventType)
@@ -288,18 +361,17 @@ function resolveRoleColorKey(role: string | undefined): string | undefined {
  * - project:      pass-through when present.
  */
 export function toEventVM(event: DashboardEvent): EventVM {
-  // A review-phase AgentWorking is tribunal activity — review glyph, not forge.
-  const typeKey =
-    event.event === "AgentWorking" && event.phase === "review"
-      ? "review"
-      : resolveEventType(event.event);
+  const typeKey = resolveTypeKey(event);
   const icon = resolveIcon(typeKey);
   const label = deriveLabel(event, typeKey);
   const toolIcon = resolveToolIcon(event.tool);
   const roleColorKey = resolveRoleColorKey(event.role);
   const projColorKey =
     event.project !== undefined ? deriveProjectColorKey(event.project) : undefined;
-  const isFailure = event.status === "fail" || event.event === "test_fail";
+  const isFailure =
+    event.status === "fail" ||
+    event.event === "test_fail" ||
+    (event.event === "PreviewSmoke" && event.pass === false);
 
   const vm: EventVM = { icon, isFailure, label, at: event.at };
 

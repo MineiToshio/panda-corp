@@ -276,6 +276,9 @@ export function createFraguaEngine(opts: FraguaEngineOpts): FraguaEngine {
       case "openGate":
         gateOpen = true;
         break;
+      case "closeGate":
+        gateOpen = false;
+        break;
       case "downSprite":
         processDownSprite(action.wo);
         break;
@@ -367,6 +370,10 @@ export function createFraguaEngine(opts: FraguaEngineOpts): FraguaEngine {
 
     openGate(): void {
       gateOpen = true;
+    },
+
+    closeGate(): void {
+      gateOpen = false;
     },
 
     applyEvents(diff: VisualAction[]): void {

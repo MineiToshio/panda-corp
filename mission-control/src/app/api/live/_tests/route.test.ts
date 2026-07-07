@@ -31,7 +31,7 @@ vi.mock("@/lib/events/events", () => ({
 }));
 
 import { readEvents } from "@/lib/events/events";
-import { GET } from "../route";
+import { __resetLiveEventStoresForTest, GET } from "../route";
 
 const mockReadEvents = vi.mocked(readEvents);
 
@@ -106,6 +106,10 @@ describe("GET /api/live — SSE route", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset the module-level shared EventStore so each test starts from a clean
+    // watcher/subscriber state (the singleton persists across tests within a file;
+    // an un-cancelled connection would otherwise keep the shared watcher armed).
+    __resetLiveEventStoresForTest();
     mockReadEvents.mockReturnValue(EMPTY_SNAPSHOT);
 
     // Stub fs.watch to return a fake watcher that does nothing.

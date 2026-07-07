@@ -19,7 +19,7 @@ import type { EventsSnapshot } from "@/lib/events/events";
 vi.mock("@/lib/events/events", () => ({ readEvents: vi.fn() }));
 
 import { readEvents } from "@/lib/events/events";
-import { GET } from "../route";
+import { __resetLiveEventStoresForTest, GET } from "../route";
 
 const mockReadEvents = vi.mocked(readEvents);
 
@@ -63,6 +63,7 @@ describe("GET /api/live — adversarial filtering (non-vacuous)", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    __resetLiveEventStoresForTest();
     watchSpy = vi
       .spyOn(fs, "watch")
       .mockImplementation(() => ({ close: vi.fn() }) as unknown as fs.FSWatcher);
