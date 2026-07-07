@@ -2,6 +2,16 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-06 — `/pandacorp:review-launch` sweep over `release`-phase portfolio (DR-043, scheduled run)
+
+**What:** Scanned `factory/portfolio.md` for `Fase: release` projects. Two qualified: Mission Control and PersonalPage v2 (the latter's portfolio row was stale — it still read `product` while `.pandacorp/status.yaml` already said `phase: release`; corrected the row to match, per the "one source of truth" rule — `status.yaml` is the project's real state, the portfolio row is just a pointer). PandaCast stayed `product`, out of scope. Verdicts recorded in the portfolio's business columns:
+- **Mission Control:** no aplica kill/hold/double-down — `return_type: personal`, no market value hypothesis, nothing to instrument (already self-documented in `mission-control/docs/analytics/events.md` "Verification 2026-07-05"). Success is the operator's own daily use, not a measured event.
+- **PersonalPage v2:** **hold — sin datos**, not because instrumentation is missing (the event plan is wired, 9/10 events confirmed) but because (a) only 5 days elapsed since the build closed (2026-07-01) against a 60-day kill-signal window (`docs/product/prd.md`), and (b) `NEXT_PUBLIC_POSTHOG_KEY` is empty in `.env.local` and the project's PostHog account isn't the one reachable from this session (only `JobLeap AI` org visible) — so no live event count could be confirmed either way. Re-check recommended around 2026-08-30 (the 60-day reach kill-signal) and no earlier than 2026-07-31 (the 30-day metrics target).
+
+**Why:** DR-043's post-launch loop — closing it honestly (`sin datos` with the reason) rather than fabricating a verdict, per the "read real or honest empty" rule.
+
+**Impact:** `factory/portfolio.md` (Fase/Usuarios/Retorno/Veredicto rows for both projects).
+
 ## 2026-07-06 — stack.md golden-path A now names shadcn/ui explicitly (docs/proposals/30)
 
 **What:** `factory/constitution.md` §16 was reframed (commit `e08c868b`) to defer the component-base authority to `factory/standards/stack.md`, but stack.md's golden-path A line still only said "Tailwind CSS + custom components" — it never named shadcn/ui, so the constitution's reference pointed at a doc that didn't carry the claim. Every other site (`plugin/templates/stack-a-nextjs/STACK.md`, `plugin/agents/frontend-dev.md`, `plugin/agents/designer.md`, `plugin/templates/docs/design-system-template.md`, `plugin/skills/design/SKILL.md`) already named shadcn/ui as the accessible base. Corrected stack.md line 11 to "Tailwind CSS + shadcn/ui as the accessible component base (restyled per project's design tokens); custom components (`core`/`modules`)".
