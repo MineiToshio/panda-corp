@@ -1,7 +1,7 @@
 # Machine-readable status for Pandacorp (the factory dashboard) — read by the factory and the dashboard itself.
 # Human-readable Spanish narrative lives in .pandacorp/comms/summary.md (gitignored).
 project: "Pandacorp"
-phase: implementation
+phase: release
 last_harvest: "2026-07-06T02:00:00Z"
 version: v1
 overlay_version: "8.69.0"
@@ -9,12 +9,12 @@ created_with: "6.0.0"
 target_platforms: desktop
 deploy_target: internal  # internal tool (runs on 127.0.0.1) — no external host (DR-085)
 deploy_url: "http://192.168.18.227:1987"  # MC's internal release on the LAN
-running: true
+running: false
 run_started_at: "2026-07-07T04:32:22Z"
-run_completed_at: "2026-07-07T03:20:00Z"
+run_completed_at: "2026-07-07T05:30:00Z"
 repo: ""
-updated_at: "2026-07-07T05:04:01.000Z"
-last_event_at: "2026-07-07T05:04:01.000Z"
+updated_at: "2026-07-07T05:30:00.000Z"
+last_event_at: "2026-07-07T05:30:00.000Z"
 work_orders_total: 104
 work_orders_verified: 104
 work_orders_in_review: 0
@@ -26,8 +26,9 @@ pending_decisions: 0
 pending_bugs: 0
 rethink_pending: false
 advance_pending: false
-last_green_sha: "412b2af2"
-safe_to_test: true  # RELEASE (DR-085): whole-project cross-feature INTEGRATION review (DR-060) PASSED + full verify.sh GREEN at ebe1c58f (biome/tsc/knip/madge clean, 7538 unit tests, 68 e2e — smoke+shell+visual+responsive, desktop+mobile). Cross-feature seams all AGREE: one shared WorkOrderState (board/DAG/detail import it, exhaustive Record maps tsc-enforced), one GuildOutcomes/computeGuildLevel, one LiveFrame/useLiveSnapshot (FRD-18/12/06/05), the FRD-23 stats read-model fail-loud (AggregateResult/PortadaResult discriminated unions + honest fallback, never fabricates a zero, DR-078), Manual reuses Config's catalog cards (no fork), deriveKpis/KpiHeader fully removed (SSOT). Hardening artifacts present & dated this run: docs/reviews/security-2026-07-06.md (no Critical/High) + events.md "## Verification 2026-07-06". Gate quarantine set EMPTY (0 BLOCKED needs-owner) → full gate ranged over every route. Killed one orphaned same-project next-dev server (PID 29197, BL-0049/LESSON-0040) that blocked the first Playwright run, then re-ran clean. Advisory-only (visual punch-list, non-blocking): _observability/FreshnessBadge (CMP-12-freshness) is a divergent 2nd FreshnessBadge with zero production consumers — superseded by the DR-066 modules/FreshnessBadge; tested-but-unmounted so knip doesn't flag it (cleanup nit, not a broken seam). All 102 WOs VERIFIED.
+last_green_sha: "aaf72d1a"
+safe_to_test: true  # RELEASE (DR-085) 2026-07-07: whole-project cross-feature INTEGRATION review (DR-060) PASSED + full verify.sh GREEN at aaf72d1a. Gate: biome (797 files, 0 fixes, 1 schema-version INFO only), tsc/knip/madge clean (no circular deps, no unused), 7576 unit tests (425 files) GREEN, 68 e2e GREEN (smoke+shell+visual+responsive, desktop+mobile — every route renders, all baselines match). Gate quarantine set EMPTY (0 WOs with frontmatter implementation_status:BLOCKED+blocked_reason:needs-owner — the WO-07-005 "BLOCKED" match was PROSE not frontmatter) → full gate ranged over EVERY route, no PANDACORP_GATE_SKIP_ROUTES exported. Cross-feature SEAMS all AGREE (independently re-verified, not trusted from the prior note): ONE canonical WorkOrderState in lib/work-orders (board/DAG/wo-detail all `import type` it; DagCard/wo-detail carry Record<WorkOrderState,…> exhaustive maps tsc-enforces); ONE GuildOutcomes/computeGuildLevel (getGuildState) feeding hero+header+dashboard; ONE useLiveSnapshot/LiveFrame (Party+WoDag); ONE AgentRole/AGENT_ROLES in _design/tokens (no divergent color map); FRD-23 read-model fully fail-loud (PortadaResult/AggregateResult/FactoryResult discriminated unions, re-throw on non-ENOENT, honest fallback to live derive* cores, SSOT split so a cross-project phase change re-derives factory-wide facts live — never fabricates a zero, DR-078); deriveKpis/KpiHeader fully removed (SSOT); Manual reuses FRD-07 catalog card primitives VERBATIM (no fork). Hardening artifacts present & dated this run (BL-0012): docs/reviews/security-2026-07-07.md (No Critical/High, release NOT blocked) + events.md "## Verification 2026-07-07". Did NOT kill the live launchd MC instance (PID 25324, cwd local-deployments, serves LAN :1987) — it is the deployed dashboard, not an orphaned lock; playwright ran on its own fixture port 3900 (reuse disabled) and cleaned up. Advisory-only (visual punch-list, non-blocking, NOT reopened): _observability/FreshnessBadge is a divergent 2nd FreshnessBadge with ZERO production consumers (superseded by DR-066 modules/FreshnessBadge; tested-but-unmounted so knip won't flag — cleanup nit, not a broken seam); components.md carries 4 duplicate INVENTORY rows (FreshnessBadge divergent-file / LiveRegion,StateBadge,ThemeToggle same-file dupes — doc hygiene); header-scan + @390px responsive advisories are internal-tool/off-target (deploy_target internal, target desktop). All 104 WOs VERIFIED. Prior implementation-phase evidence below.
+_release_prior_note: true  # RELEASE (DR-085): whole-project cross-feature INTEGRATION review (DR-060) PASSED + full verify.sh GREEN at ebe1c58f (biome/tsc/knip/madge clean, 7538 unit tests, 68 e2e — smoke+shell+visual+responsive, desktop+mobile). Cross-feature seams all AGREE: one shared WorkOrderState (board/DAG/detail import it, exhaustive Record maps tsc-enforced), one GuildOutcomes/computeGuildLevel, one LiveFrame/useLiveSnapshot (FRD-18/12/06/05), the FRD-23 stats read-model fail-loud (AggregateResult/PortadaResult discriminated unions + honest fallback, never fabricates a zero, DR-078), Manual reuses Config's catalog cards (no fork), deriveKpis/KpiHeader fully removed (SSOT). Hardening artifacts present & dated this run: docs/reviews/security-2026-07-06.md (no Critical/High) + events.md "## Verification 2026-07-06". Gate quarantine set EMPTY (0 BLOCKED needs-owner) → full gate ranged over every route. Killed one orphaned same-project next-dev server (PID 29197, BL-0049/LESSON-0040) that blocked the first Playwright run, then re-ran clean. Advisory-only (visual punch-list, non-blocking): _observability/FreshnessBadge (CMP-12-freshness) is a divergent 2nd FreshnessBadge with zero production consumers — superseded by the DR-066 modules/FreshnessBadge; tested-but-unmounted so knip doesn't flag it (cleanup nit, not a broken seam). All 102 WOs VERIFIED.
 # --- FRD-23 SSOT-split CLOSE (WO-23-006) 2026-07-07 ---
 # WO-23-006 (composed Informe reader) VERIFIED at the split-gate CLOSE → FRD-23 fully VERIFIED (all 6 WOs).
 # The reader now composes per-project facts (portada, per-project seal) with factory-wide facts (stats-factory.json,
