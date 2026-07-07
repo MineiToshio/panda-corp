@@ -79,6 +79,9 @@ const engine = new AsyncFunction('agent', 'log', 'budget', 'args', 'phase', 'par
 
 // ── Default (schema-conformant) responses by label — the happy path ─────────
 function defaultResponse(label) {
+  // WS-D/D10: the baseline is now a two-step (cheap MECH pre-check → judge baseline). The default pre-check
+  // ESCALATES so the judge baseline still runs and greens — the closest analogue of the old single spawn.
+  if (label === 'baseline-precheck') return { escalate: true }          // PRECHECK_SCHEMA
   if (label === 'baseline') return { green: true }                      // VERIFY_SCHEMA
   if (label === 'plan') return { frds: [] }                             // PLAN_SCHEMA (empty → early exit)
   if (label === 'sync-rollups') return { corrected: 0 }
@@ -217,17 +220,17 @@ SCENARIOS.push({
 
 // ── 2. Budget brake — MAX_AGENTS, COST-weighted ─────────────────────────────
 // 2a: mode 'pro' (worker=sonnet COST 1; judge=opus COST 3, DR-015 — the judge is ALWAYS a
-// different model from the worker, even in pro; solo build). Pre-loop spawns: baseline(judge,3) +
-// plan(judge,3) + sync-rollups(MECH,1) = 7. maxAgents=13 → iteration 1 passes the brake (7<13),
-// safe-point(+1)=8. The count cap P.wave=2 admits at most two WOs; the COST-aware picker (WS-A/D2)
-// confirms it: remainingAgents=13-8=5, each sonnet WO costs COST(sonnet)+1=2 plus the shared
-// dispatch(1) — wo-1 (cost 1+2=3) and wo-2 (5) fit; wo-3 is deferred (count cap). Wave=[wo-1,wo-2].
-// dispatch(+1)=9, builds wo-1+wo-2 (+2)=11, commits (+2)=13. Iteration 2 top: 13 ≥ 13 → STOP,
-// exactly at the cap (no overshoot). wo-3/wo-4 must never be dispatched. (Before the D2 fix the
-// width was counted raw, so an opus wave overshot the cap ~4× — see 2c.)
+// different model from the worker, even in pro; solo build). Pre-loop spawns (WS-D/D10 adds the MECH
+// baseline pre-check): baseline-precheck(MECH,1) + baseline(judge,3) + plan(judge,3) + sync-rollups(MECH,1)
+// = 8. maxAgents=14 → iteration 1 passes the brake (8<14), safe-point(+1)=9. The count cap P.wave=2 admits
+// at most two WOs; the COST-aware picker (WS-A/D2) confirms it: remainingAgents=14-9=5, each sonnet WO costs
+// COST(sonnet)+1=2 plus the shared dispatch(1) — wo-1 (cost 1+2=3) and wo-2 (5) fit; wo-3 is deferred (count
+// cap). Wave=[wo-1,wo-2]. dispatch(+1)=10, builds wo-1+wo-2 (+2)=12, commits (+2)=14. Iteration 2 top:
+// 14 ≥ 14 → STOP, exactly at the cap (no overshoot). wo-3/wo-4 must never be dispatched. (Before the D2 fix
+// the width was counted raw, so an opus wave overshot the cap ~4× — see 2c.)
 SCENARIOS.push({
   name: '2a. maxAgents brake — cost-aware wave stops dispatching once the cap is reached',
-  args: { mode: 'pro', maxAgents: 13 },
+  args: { mode: 'pro', maxAgents: 14 },
   plan: mkPlan([{
     frd: 'frd-01-alpha',
     deps: [],
@@ -241,7 +244,7 @@ SCENARIOS.push({
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error}`)
     t.ok(run.result && run.result.stopReason === 'agents', `stopReason is 'agents' (got ${run.result && run.result.stopReason})`)
-    t.ok(hasLog(run, /Agent ceiling reached \(13 ≥ maxAgents 13\)/), 'the brake logs "Agent ceiling reached (13 ≥ maxAgents 13)" — exactly at the cap, no overshoot')
+    t.ok(hasLog(run, /Agent ceiling reached \(14 ≥ maxAgents 14\)/), 'the brake logs "Agent ceiling reached (14 ≥ maxAgents 14)" — exactly at the cap, no overshoot')
     const built = byLabel(run, /^build:/).map((c) => c.label)
     t.ok(built.length === 2 && built.includes('build:wo-01-001') && built.includes('build:wo-01-002'),
       `only the first cost-budgeted wave (wo-01-001, wo-01-002) was built — got [${built.join(', ')}]`)
@@ -252,13 +255,13 @@ SCENARIOS.push({
     t.ok(end && /techo de agentes/.test(end.prompt), 'the end-of-run report tells the owner the stop was the agent ceiling')
   },
 })
-// 2b: COST-weighting proof. mode 'balanced' (judge=opus, COST 3). Pre-loop:
-// baseline(3) + plan(3) + sync(1) = 7. With maxAgents=7 the brake trips at the
-// FIRST loop boundary — BEFORE any safe-point/dispatch/build. If spawns were
-// counted raw (1 each) the counter would read 3 and the wave would launch.
+// 2b: COST-weighting proof. mode 'balanced' (judge=opus, COST 3). Pre-loop (WS-D/D10 adds the MECH
+// baseline pre-check): baseline-precheck(MECH,1) + baseline(3) + plan(3) + sync(1) = 8. With maxAgents=8 the
+// brake trips at the FIRST loop boundary — BEFORE any safe-point/dispatch/build. If spawns were
+// counted raw (1 each) the counter would read 4 and the wave would launch.
 SCENARIOS.push({
   name: '2b. maxAgents brake is COST-weighted (opus=3) — trips on the token-proxy, not the raw agent count',
-  args: { mode: 'balanced', maxAgents: 7 },
+  args: { mode: 'balanced', maxAgents: 8 },
   plan: mkPlan([{
     frd: 'frd-01-alpha',
     deps: [],
@@ -267,8 +270,8 @@ SCENARIOS.push({
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error}`)
     t.ok(run.result && run.result.stopReason === 'agents', `stopReason is 'agents' (got ${run.result && run.result.stopReason})`)
-    t.ok(hasLog(run, /Agent ceiling reached \(7 ≥ maxAgents 7\)/),
-      'counter reads exactly 7 = COST(opus baseline 3) + COST(opus plan 3) + sync 1 — the opus weighting is live')
+    t.ok(hasLog(run, /Agent ceiling reached \(8 ≥ maxAgents 8\)/),
+      'counter reads exactly 8 = precheck 1 + COST(opus baseline 3) + COST(opus plan 3) + sync 1 — the opus weighting is live')
     t.ok(byLabel(run, 'safe-point').length === 0, 'brake trips BEFORE the first safe point')
     t.ok(byLabel(run, /^(dispatch|build):/).length === 0, 'no wave was dispatched at all')
   },
@@ -423,9 +426,12 @@ SCENARIOS.push({
   },
 })
 
-// ── 6. safePoint cadence — the DR-069 sweep runs at every wave/gate boundary ──
+// ── 6. safePoint cadence (C1c) — the DR-069 sweep runs BEFORE every WAVE, and is SKIPPED on pure
+// gate-drain iterations (a wave is the safe point; the initial owner-signal check already ran in the
+// baseline pre-check). ADJUSTED for C1c: the old expectation (a safe point before EVERY gate) is exactly
+// the per-gate spawn C1c removes — the sweep now precedes the wave dispatch, not each gate drain.
 SCENARIOS.push({
-  name: '6a. safe-point cadence — the DR-069 sweep runs at each boundary, before every FRD gate',
+  name: '6a. safe-point cadence (C1c) — the DR-069 sweep runs before every WAVE, skipped on pure gate-drain iterations',
   args: { mode: 'pro' },
   plan: mkPlan([
     { frd: 'frd-06-one', deps: [], workOrders: [mkWo('wo-06-101', 'PLANNED', { frd: 'frd-06-one', artifacts: ['src/one/**'] })] },
@@ -435,16 +441,16 @@ SCENARIOS.push({
     t.ok(!run.error, `engine threw: ${run.error}`)
     const sp = byLabel(run, 'safe-point')
     const gates = byLabel(run, /^gate:/)
+    const builds = byLabel(run, /^(dispatch|build):/)
     t.ok(gates.length === 2, `both FRD gates ran (got ${gates.length})`)
-    t.ok(sp.length >= 3, `the safe point ran at every boundary — ≥3 times in a 1-wave + 2-gate run (got ${sp.length})`)
-    // Order: a fresh safe-point call precedes EACH gate (gates run one per loop
-    // iteration, and each iteration opens with the safe point).
-    let prevGate = -1
-    for (const g of gates) {
-      t.ok(sp.some((s) => s.index > prevGate && s.index < g.index),
-        `a safe-point call runs between the previous boundary and gate '${g.label}'`)
-      prevGate = g.index
-    }
+    t.ok(sp.length >= 1, `the safe point still runs (before the wave) — got ${sp.length}`)
+    // C1c: a safe point runs BEFORE the first wave dispatch (owner signals checked before every wave).
+    t.ok(builds.length > 0 && sp.some((s) => s.index < builds[0].index),
+      'a safe-point call runs before the first wave dispatch (owner signals checked before every wave)')
+    // C1c: the two FRD gates drain in consecutive gate-only iterations — NO safe point runs between them
+    // (that per-gate spawn is exactly what C1c removes; the sweep is a wave-boundary sweep now).
+    t.ok(!sp.some((s) => s.index > gates[0].index && s.index < gates[1].index),
+      'no safe point runs between the two consecutive gate drains (C1c — skipped on pure gate-drain iterations)')
     const p = sp[0].prompt
     t.ok(/rethink_pending/.test(p), 'the safe point checks rethink_pending')
     t.ok(/inbox\/changes/.test(p), 'the safe point drains the inbox/changes queue')
@@ -635,6 +641,163 @@ SCENARIOS.push({
     t.ok(byLabel(run, 'process-change:queued-change').length === 1, 'the queued change IS processed (drained)')
     t.ok(!hasLog(run, /Build dirigido.*NO se drenan/), 'the targeted-scope guard never fires on a bare build')
     t.ok(run.result && run.result.builtFrds.includes('frd-10-bare'), 'the bare build still builds its own FRD')
+  },
+})
+
+// ── 11. WS-D/D10 — owner stop signal (.pandacorp/run/stop) exits clean before building ──
+SCENARIOS.push({
+  name: '11. WS-D/D10 owner stop signal — the pre-check {stop:true} exits clean (no baseline, no plan)',
+  args: { mode: 'pro' },
+  responses: [{ label: 'baseline-precheck', response: { stop: true } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(run.result && run.result.note === 'owner stop signal', `result note is the owner stop (got ${run.result && run.result.note})`)
+    t.ok(byLabel(run, 'baseline').length === 0, 'the judge baseline never ran (the pre-check short-circuited)')
+    t.ok(byLabel(run, 'plan').length === 0, 'the planner never ran')
+    t.ok(byLabel(run, 'ensure-stopped').length === 1, 'ensureStopped ran (running:false guaranteed even on this early exit)')
+    t.ok(hasLog(run, /owner stop signal/), 'the stop is logged')
+  },
+})
+
+// ── 12. WS-D/D3 — a null/garbled planner verdict fails LOUD (not "all verified") ──
+SCENARIOS.push({
+  name: '12. WS-D/D3 planner fail-loud — a garbled plan is NOT silently declared all-verified',
+  args: { mode: 'pro' },
+  responses: [{ label: 'plan', response: {} }],   // no `frds` array → garbled
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(run.result && run.result.note === 'planner failed', `note is 'planner failed' not 'all verified' (got ${run.result && run.result.note})`)
+    t.ok(run.result && run.result.blockedReasons && run.result.blockedReasons.plan === 'error', 'the plan is blocked error')
+    t.ok(byLabel(run, 'ensure-stopped').length === 1, 'ensureStopped ran (running:false guaranteed)')
+    t.ok(byLabel(run, 'sync-rollups').length === 0, 'it bailed before sync-rollups (right after the plan guard)')
+    t.ok(hasLog(run, /fail-loud/), 'the fail-loud reason is logged')
+  },
+})
+
+// ── 13. WS-D/D7 — a WO id reused across two FRDs blocks the second (no silent overwrite) ──
+SCENARIOS.push({
+  name: '13. WS-D/D7 duplicate WO id across FRDs — the second FRD is blocked, not silently overwritten',
+  args: { mode: 'pro' },
+  plan: mkPlan([
+    { frd: 'frd-13-a', deps: [], workOrders: [mkWo('wo-dup-1', 'PLANNED', { frd: 'frd-13-a', artifacts: ['src/a/**'] })] },
+    { frd: 'frd-13-b', deps: [], workOrders: [mkWo('wo-dup-1', 'PLANNED', { frd: 'frd-13-b', artifacts: ['src/b/**'] })] },
+  ]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(hasLog(run, /duplicate ids across FRDs/), 'the collision is logged loudly')
+    t.ok(run.result && run.result.blockedReasons && run.result.blockedReasons['frd-13-b'] === 'error', `frd-13-b is blocked error (got ${run.result && run.result.blockedReasons && run.result.blockedReasons['frd-13-b']})`)
+    t.ok(run.result && run.result.builtFrds.includes('frd-13-a'), 'the FIRST FRD (which owns the id legitimately) still builds')
+    t.ok(byLabel(run, 'build:wo-dup-1').length === 1, 'the shared id is only ever built once (the first FRD; the second never dispatched)')
+  },
+})
+
+// ── 14. WS-D/D13 — a WO-level dependency cycle is caught up front (needs-owner, named) ──
+SCENARIOS.push({
+  name: '14. WS-D/D13 dependency cycle — a wo-a↔wo-b cycle blocks the FRD needs-owner up front',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-14-cyc',
+    deps: [],
+    workOrders: [
+      mkWo('wo-14-a', 'PLANNED', { frd: 'frd-14-cyc', artifacts: ['src/a/**'], deps: ['wo-14-b'] }),
+      mkWo('wo-14-b', 'PLANNED', { frd: 'frd-14-cyc', artifacts: ['src/b/**'], deps: ['wo-14-a'] }),
+    ],
+  }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(hasLog(run, /Work-order dependency CYCLE detected/), 'the cycle is named in the log (not a late generic stall)')
+    t.ok(run.result && run.result.blockedReasons && run.result.blockedReasons['frd-14-cyc'] === 'needs-owner', `the FRD is blocked needs-owner (got ${run.result && run.result.blockedReasons && run.result.blockedReasons['frd-14-cyc']})`)
+    t.ok(byLabel(run, /^build:/).length === 0, 'nothing is built (the cycle is refused before any wave)')
+    t.ok(run.result && run.result.builtFrds.length === 0, 'no FRD verifies')
+  },
+})
+
+// ── 15. WS-D/D14 — an answered-decision unblock takes effect THIS run (re-enrolled) ──
+SCENARIOS.push({
+  name: '15. WS-D/D14 unblock re-enroll — a BLOCKED WO flipped by the safe point builds THIS run',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-15-unb',
+    deps: [],
+    workOrders: [mkWo('wo-15-blk', 'BLOCKED', { frd: 'frd-15-unb', artifacts: ['src/u/**'] })],
+  }]),
+  responses: [
+    { label: 'safe-point', times: 1, response: { stop: false, ready: [], unblocked: [{ frd: 'frd-15-unb', wo: 'wo-15-blk' }] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(hasLog(run, /re-enrolado ESTA corrida: wo-15-blk/), 'the unblocked WO is re-enrolled into THIS run, not deferred')
+    t.ok(byLabel(run, 'build:wo-15-blk').length === 1, 'the unblocked WO builds this run (was BLOCKED, now PLANNED and scheduled)')
+    t.ok(run.result && run.result.builtFrds.includes('frd-15-unb'), 'its FRD verifies this run')
+  },
+})
+
+// ── 16. WS-D/D1 — a green build whose COMMIT fails is not "done" → routed to repair ──
+SCENARIOS.push({
+  name: '16. WS-D/D1 commit failure — a green-but-uncommitted WO fails its FRD into repair (not doneIds)',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-16-cf',
+    deps: [],
+    workOrders: [mkWo('wo-16-cf1', 'PLANNED', { frd: 'frd-16-cf', artifacts: ['src/cf/**'] })],
+  }]),
+  responses: [
+    { label: 'commit:wo-16-cf1', response: () => { throw new Error('simulated commit failure') } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error} (a commit failure must NOT reject the wave)`)
+    t.ok(hasLog(run, /commit failed for wo-16-cf1/), 'the commit failure is caught + logged (the wave is not rejected)')
+    t.ok(byLabel(run, /^repair:/).length === 1, 'the green-but-uncommitted WO routed its FRD into attemptRepair (not silently done)')
+  },
+})
+
+// ── 17. C1a serial-first — the FIRST gate runs SERIAL even in a reviewSplit mode (powerful) ──────────
+// reviewSplit is ON in powerful mode, but C1a makes the FRD's FIRST gate this run run SERIAL (the split
+// only kicks in on a re-gate or a WO already reopened on a prior run). Proven by spawn labels: the split
+// gate spawns `find:<lens>:<frd>` finders; the serial gate does not. No finders ⇒ the first gate was serial.
+SCENARIOS.push({
+  name: '17. C1a serial-first — the FIRST gate runs SERIAL even in powerful mode (no split finders)',
+  args: { mode: 'powerful' },
+  plan: mkPlan([{
+    frd: 'frd-17-serial',
+    deps: [],
+    workOrders: [mkWo('wo-17-001', 'PLANNED', { frd: 'frd-17-serial', artifacts: ['src/s/**'] })],
+  }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^find:/).length === 0, 'NO split finder lenses spawned on the first gate (serial-first, C1a)')
+    t.ok(byLabel(run, /^verify-finding:/).length === 0, 'no adversarial verifiers spawned (the split gate never ran)')
+    const gate = byLabel(run, 'gate:frd-17-serial')
+    t.ok(gate.length === 1, `exactly one (serial) gate ran (got ${gate.length})`)
+    t.ok(gate[0] && gate[0].opts.effort === 'xhigh', 'the SERIAL gate keeps effort xhigh (C1d — only the split closer drops to high)')
+    t.ok(hasLog(run, /first gate attempt this run — running SERIAL/), 'the serial-first choice is logged (C1a)')
+    t.ok(run.result && run.result.builtFrds.includes('frd-17-serial'), 'the FRD verifies via the serial gate')
+  },
+})
+
+// ── 18. C1a split-on-reopen — a WO already reopened on a prior run (reopen_count≥1) takes the SPLIT gate ──
+// even on its FIRST gate THIS run. Proven by spawn labels: the 4 finder lenses spawn, and the CLOSE stage
+// (label gate:<frd>) drops to effort high (C1d).
+SCENARIOS.push({
+  name: '18. C1a split-on-reopen — a prior-reopened WO (reopen_count≥1) uses the SPLIT gate (finder lenses spawn)',
+  args: { mode: 'powerful' },
+  plan: mkPlan([{
+    frd: 'frd-18-split',
+    deps: [],
+    workOrders: [mkWo('wo-18-001', 'PLANNED', { frd: 'frd-18-split', artifacts: ['src/sp/**'], reopen_count: 1 })],
+  }]),
+  responses: [
+    { label: /^find:/, response: { findings: [] } },   // clean finder sweep → no corrections → the closer greens
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const finders = byLabel(run, /^find:/)
+    t.ok(finders.length === 4, `the 4 split finder lenses spawned — a reopen_count≥1 WO triggers the split on its first gate this run (got ${finders.length})`)
+    t.ok(byLabel(run, 'find:correctness:frd-18-split').length === 1, 'the correctness finder lens spawned (proves the SPLIT path, not serial)')
+    const close = byLabel(run, 'gate:frd-18-split')
+    t.ok(close.length === 1, 'the split CLOSE stage ran (label gate:<frd>)')
+    t.ok(close[0] && close[0].opts.effort === 'high', 'the split closer drops to effort high (C1d — the finders already hunted)')
+    t.ok(run.result && run.result.builtFrds.includes('frd-18-split'), 'the FRD verifies through the split gate')
   },
 })
 
