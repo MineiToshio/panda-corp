@@ -135,6 +135,11 @@ pnpm vitest run --reporter=dot ${SINCE:+--changed "$SINCE"}
 [ -f e2e/responsive.spec.ts ] || { echo "✗ Responsive Gate missing (DR-074): add e2e/responsive.spec.ts + e2e/_responsive-helper.ts + e2e/_target.ts."; exit 1; }
 [ -f e2e/shell.spec.ts ]      || { echo "✗ Shell-Presence Gate missing (DR-075): add e2e/shell.spec.ts + e2e/shell.ts — assert the app shell / global nav vs the prototype."; exit 1; }
 [ -f e2e/headers.spec.ts ]    || { echo "✗ Header-Scan Gate missing (web-security.md): add e2e/headers.spec.ts — security headers, tiered by deploy_target."; exit 1; }
+# ADVISORY token-fidelity check (F4): e2e/tokens.spec.ts is auto-discovered by the FULL run below
+# (NOT by the --since gate). It flags hardcoded colors that never came from a design token and reds
+# ONLY on a GROSS violation (>20 distinct hardcoded colors on a route) — a punch-list, not a fidelity
+# block. It is deliberately NOT in the fail-closed presence list above: a missing tokens.spec.ts is a
+# skipped advisory, never a RED (unlike the gates that CAN block). It runs at close-out, not per-FRD.
 # DR-106 scope: the per-FRD gate (--since) runs smoke + shell only — the browser layer of the
 # DR-072 BLOCKING lenses (routes render clean + the app shell is present). Visual + responsive
 # stay in the FULL run (close-out / Visual QA): fine fidelity is advisory at the gate and may

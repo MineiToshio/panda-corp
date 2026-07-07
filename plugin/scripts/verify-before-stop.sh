@@ -32,6 +32,29 @@ if [ -f "$lock" ] && [ -n "$(find "$lock" -mmin -10 2>/dev/null)" ]; then
   exit 0   # active build → delegate the gate to the engine (per-FRD + close-out)
 fi
 
+# Producer liveness also counts (DR-066): a build is active when status.yaml's `last_event_at` OR
+# `supervisor_heartbeat` is < 10 min old — the engine advances last_event_at at each safe point and
+# the supervisor writes the heartbeat, so either being fresh means a build owns enforcement right now.
+# This backstops a lock the supervisor forgot to touch while a long, quiet agent is still working. Same
+# 10-min TTL as the lock + the concurrent-run guard; when both go stale the gate auto-re-engages.
+status_yaml="$cwd/.pandacorp/status.yaml"
+if [ -f "$status_yaml" ]; then
+  _pc_epoch() { # iso -> epoch seconds (BSD/GNU tolerant, fractional secs stripped)
+    local ts; ts="$(printf '%s' "${1:-}" | sed -E 's/\.[0-9]+//; s/Z$//')"
+    [ -n "$ts" ] || { echo ""; return; }
+    date -u -d "${ts}Z" +%s 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%S" "$ts" +%s 2>/dev/null || echo ""
+  }
+  _pc_yaml() { grep -E "^$1:" "$status_yaml" 2>/dev/null | head -1 \
+    | sed -E "s/^$1:[[:space:]]*//; s/[[:space:]]*#.*$//; s/[[:space:]]*$//; s/^\"//; s/\"$//; s/^'//; s/'$//"; }
+  _pc_now=$(date -u +%s)
+  for _pc_k in last_event_at supervisor_heartbeat; do
+    _pc_e=$(_pc_epoch "$(_pc_yaml "$_pc_k")")
+    if [ -n "$_pc_e" ] && [ $((_pc_now - _pc_e)) -lt 600 ]; then
+      exit 0   # producer live → active build → delegate the gate to the engine
+    fi
+  done
+fi
+
 out=$(bash "$verify" 2>&1)
 if [ $? -ne 0 ]; then
   # The gate is RED. Attribute BEFORE nagging (DR-099): in a SHARED checkout the whole-program gate

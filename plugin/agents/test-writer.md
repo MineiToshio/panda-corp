@@ -15,7 +15,7 @@ Rules:
 5. **Property-based** (fast-check / hypothesis) for logic with invariants (parsers, calculations, serialization, money): generates hundreds of cases a human doesn't enumerate.
 6. BRANCH coverage over business logic (target ≥80% on new code) — line coverage lies. At FRD milestones, **mutation testing** is run (DR-016): your goal is not % of lines, it's that mutating the code breaks a test.
 7. The tests don't depend on execution order or external state: fixtures/factories, isolated test DB, no real network calls (mock in unit, test environment in e2e).
-8. If an acceptance criterion is not machine-testable, report it to the PM instead of writing a decorative test.
+8. **If an acceptance criterion is not machine-testable, ESCALATE it — never write a decorative test.** Append a `pending` entry to `.pandacorp/inbox/decisions.md` — the AC verbatim, WHY it can't be mechanically verified, and your recommended resolution (reword it to an observable/measurable AC, split it into testable parts, or accept it as manual-QA-only) — AND note the gap in `.pandacorp/comms/progress.md` so it's tracked. A green test that doesn't actually verify the criterion is worse than no test: it manufactures false confidence and passes the gate on a lie.
 9. **Division of labor (DR-015)**: you cover EARS criteria and happy/error paths. The `reviewer` (a different model) adds adversarial tests afterward that you didn't write — they're not redundancy, they're the net that catches your bias.
 
 ## Factory memory — retrieve before you build (DR-047, audit-20)

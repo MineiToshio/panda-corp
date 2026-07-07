@@ -647,9 +647,13 @@ tokens. The supervisor:
 - **Announces each FRD (milestone visibility)** — on every FRD verified, sends the owner a visible (+ push)
   message: the FRD name, one line on what it does, the **route/page to try it**, and X/Y done. The owner
   should never have to ask "is it done?"; each milestone is reported, paired with the review worktree below.
-- **Keeps a review worktree** — a worktree pinned at `last_green_sha` (`git worktree add ../<project>-review
-  <sha>`, with its OWN `node_modules`; a symlink breaks Next's HMR), updated (`git checkout`) each time an FRD
-  verifies, so the owner can browse the **latest GREEN version** without touching the running build. The owner
+- **Keeps a review worktree** — a worktree pinned at `last_green_sha` under the **DR-090 canonical
+  review-worktrees root** (`git worktree add /Users/Shared/review-worktrees/<project> <sha>` — a `Shared`-level
+  sibling of `Proyectos/`, NOT inside `Proyectos/` and NOT inside `.claude/`; matches SKILL.md §61), with its
+  OWN `node_modules` (a symlink breaks Next's HMR), updated (`git checkout`) each time an FRD verifies. **When a
+  checkout changes the lockfile, re-run `pnpm install --frozen-lockfile` in the worktree so its `node_modules`
+  matches the new green** (a stale `node_modules` renders the wrong version or fails to boot). This lets the
+  owner browse the **latest GREEN version** without touching the running build. The owner
   views it via a Claude Desktop session opened in that worktree (native Preview) or an on-demand dev server —
   the build session's own Preview tool **cannot** point at an external worktree. No permanent dev server
   (Next's file watcher is flaky across `git checkout`).
