@@ -89,6 +89,10 @@ function defaultResponse(label) {
   if (label === 'foundation-gate') return { complete: true }            // FOUNDATION_SCHEMA
   if (label === 'visual-qa') return { done: true }
   if (label.startsWith('dispatch:')) return {}
+  if (label === 'gate-worktree') return { ok: true, created: true }         // C2: worktree prepared OK (happy path)
+  if (label.startsWith('pin:')) return { sha: 'pinsha0' }                    // C2: the freeze sha
+  if (label.startsWith('apply-gate:')) return { done: true }                // C2: serialized main-tree apply of a PASS
+  if (label.startsWith('persist-block:')) return { done: true }             // C2: main-tree persist of a review-only gate block
   if (label.startsWith('commit:')) return { committed: 1 }
   if (/^(build|test|be|fe|selftest):/.test(label)) return { green: true } // VERIFY_SCHEMA
   if (label.startsWith('gate:')) return { green: true }                 // FRD_GATE_SCHEMA
@@ -1074,13 +1078,12 @@ SCENARIOS.push({
   },
 })
 // (b) foundationCompletenessGate returning NULL is counted on foundationGateNulls (a SEPARATE counter from
-// foundationRepairs). KNOWN-GAP: the audit expected "two nulls consumed, surfaces still proceed on a later ok
-// verdict", but FOUNDATION_GATE_NULL_CAP=2 escalates on the SECOND null (`>= cap` post-increment) — only ONE
-// null is tolerated (retried); the second escalates and the surfaces are HELD (blocked needs-owner), they do
-// NOT proceed. The invariant that DOES hold is the counter SEPARATION: 0 foundation-repair spawns (the real
-// repair budget is never touched by dead gates). Scenario documents the CURRENT behavior.
+// foundationRepairs). C2 KNOWN-GAP fix (G5b pre-task): the escalation now uses `>` not `>=`, so the engine
+// TOLERATES FOUNDATION_GATE_NULL_CAP (2) transient nulls (retried) and escalates on the NEXT one — proving
+// RECOVERY: null, null, then an ok verdict → the surfaces PROCEED (foundationRepairs untouched throughout,
+// the counter separation invariant). Before the fix the 2nd null escalated fail-closed and held the surface.
 SCENARIOS.push({
-  name: 'G5b. foundation-gate NULL x2 — separate null counter (0 repairs); KNOWN-GAP: 2nd null escalates, surfaces held not proceeded',
+  name: 'G5b. foundation-gate NULL x2 then ok — tolerate 2 transient nulls, RECOVER on the ok verdict (surfaces proceed; 0 repairs)',
   args: { mode: 'pro' },
   plan: mkPlan([{
     frd: 'frd-g5b-nullgate',
@@ -1088,16 +1091,16 @@ SCENARIOS.push({
     workOrders: [mkWo('wo-g5b-surf', 'PLANNED', { frd: 'frd-g5b-nullgate', artifacts: ['src/surface/**'] })],
   }], { hasFrontend: true }),
   responses: [
-    { label: 'foundation-gate', response: null },   // every completeness-gate verdict is null (dead gate agent)
+    { label: 'foundation-gate', response: null, times: 2 },   // two transient dead-gate verdicts, then the default { complete: true } greens
   ],
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error} (a dead foundation gate must not crash)`)
-    t.ok(byLabel(run, 'foundation-gate').length === 2, `the null gate was retried once then escalated (2 calls, FOUNDATION_GATE_NULL_CAP=2) — got ${byLabel(run, 'foundation-gate').length}`)
-    t.ok(byLabel(run, /^foundation-repair:/).length === 0, 'INVARIANT: a dead gate consumes foundationGateNulls, NOT foundationRepairs (0 repair spawns) — the counters are separate (WS-D/D5)')
-    // KNOWN-GAP: surfaces are HELD, not proceeded (the 2nd null escalates fail-closed).
-    t.ok(byLabel(run, 'build:wo-g5b-surf').length === 0, 'KNOWN-GAP: the surface is NOT built — two nulls escalate and hold the surface (the audit expected it to proceed)')
-    t.ok(run.result && run.result.blockedReasons && run.result.blockedReasons['frd-g5b-nullgate'] === 'needs-owner', 'the surface FRD is held BLOCKED needs-owner (fail-closed on an unverifiable foundation)')
-    t.ok(hasLog(run, /escalating to the owner \(fail-closed\)/), 'the fail-closed escalation is logged')
+    t.ok(byLabel(run, 'foundation-gate').length === 3, `the two nulls were tolerated + retried, then the ok verdict greened (3 calls, FOUNDATION_GATE_NULL_CAP=2 with the C2 \`>\` fix) — got ${byLabel(run, 'foundation-gate').length}`)
+    t.ok(byLabel(run, /^foundation-repair:/).length === 0, 'INVARIANT: the dead gates consumed foundationGateNulls, NOT foundationRepairs (0 repair spawns) — the counters are separate (WS-D/D5)')
+    t.ok(byLabel(run, 'build:wo-g5b-surf').length === 1, 'RECOVERY: the surface IS built — two transient nulls tolerated, the third (ok) verdict lets the surface fan out (G5b pre-task)')
+    t.ok(run.result && run.result.builtFrds.includes('frd-g5b-nullgate'), 'the surface FRD verifies (recovered from the transient dead gates)')
+    t.ok(!hasLog(run, /escalating to the owner \(fail-closed\)/), 'the run did NOT escalate — two nulls are tolerated, not fatal (the C2 `>` fix)')
+    t.ok(hasLog(run, /NOT treating as complete; re-running/), 'each transient null was retried, not treated as complete (fail-closed retry)')
   },
 })
 // (c) a REAL missingFoundation verdict (complete:false + missing[]) routes to repairFoundation and DOES
@@ -1231,12 +1234,14 @@ SCENARIOS.push({
   },
 })
 // (b) a reopen whose in-run retry cost does NOT fit the remaining maxAgents budget DEFERS (WS-D/D6): no
-// retry rebuild spawns, the FRD lands in reopenedFrds (rebuilds next pass). maxAgents=25, mode pro: the
-// ladder runs (capHit false throughout) up to revertAndReopen (agentSpawned 24); the reopened WO rebuilds
-// on OPUS (cost 4) but remaining is 1 → budgetedRetry empty → deferred (distinct from the capHit degrade).
+// retry rebuild spawns, the FRD lands in reopenedFrds (rebuilds next pass). C2: the budget is +2 vs the
+// pre-C2 topology (maxAgents 25→27) for the two new mechanical spawns on the path to the reopen — the pin
+// (post-wave HEAD freeze) and the gate-worktree probe — so the ladder still runs capHit-false up to
+// revertAndReopen (agentSpawned 26) and the reopened WO rebuilds on OPUS (cost 4) with remaining 1 →
+// budgetedRetry empty → the WS-D/D6 budget-deferral (distinct from the capHit honest-degrade).
 SCENARIOS.push({
   name: 'G8b. budgeted in-run retry — a reopen that does not fit the remaining budget defers (no retry build), FRD reopened',
-  args: { mode: 'pro', maxAgents: 25 },
+  args: { mode: 'pro', maxAgents: 27 },
   plan: mkPlan([{
     frd: 'frd-g8b-defer',
     deps: [],
@@ -1344,8 +1349,15 @@ SCENARIOS.push({
     const gate = byLabel(run, 'gate:frd-g11a-emit')[0]
     t.ok(gate, 'the gate ran')
     t.ok(gate && /"event":"GateVerdict"/.test(gate.prompt), 'the gate prompt carries the GateVerdict printf')
-    t.ok(gate && /verdict":"pass"/.test(gate.prompt) && /verdict":"reopen"/.test(gate.prompt) && /verdict":"blocked"/.test(gate.prompt) && /verdict":"fail"/.test(gate.prompt),
-      'the GateVerdict event is emitted on EVERY exit branch (pass/reopen/blocked/fail)')
+    // C2: the review-only gate is the sole emitter of the REJECT verdicts (reopen/blocked/fail — worktree-safe
+    // absolute-path appends); the PASS verdict + achievement moved to the serialized apply-gate step on main.
+    t.ok(gate && /verdict":"reopen"/.test(gate.prompt) && /verdict":"blocked"/.test(gate.prompt) && /verdict":"fail"/.test(gate.prompt),
+      'the GateVerdict event is emitted on every REJECT exit branch (reopen/blocked/fail) from the review-only gate')
+    t.ok(gate && !/verdict":"pass"/.test(gate.prompt), 'C2: the PASS GateVerdict is NOT in the gate prompt — it moved to apply-gate (the main-tree writer)')
+    const apply = byLabel(run, 'apply-gate:frd-g11a-emit')[0]
+    t.ok(apply, 'the serialized apply-gate ran (a PASS was persisted on main)')
+    t.ok(apply && /"event":"GateVerdict"/.test(apply.prompt) && /verdict":"pass"/.test(apply.prompt), 'C2: apply-gate emits the PASS GateVerdict (event count identical to pre-C2: exactly one pass)')
+    t.ok(apply && /"event":"achievement"/.test(apply.prompt), 'C2: apply-gate emits the per-WO achievement (moved from the gate pass path — it is the agent that stamps VERIFIED)')
     const close = byLabel(run, 'close-out')[0]
     t.ok(close, 'the release close-out ran (all-done + hardened)')
     t.ok(close && /"event":"BuildComplete"/.test(close.prompt), 'the close-out carries the BuildComplete terminal-verdict printf')
@@ -1375,6 +1387,147 @@ SCENARIOS.push({
     t.ok(revert && /"event":"wo_reopen"/.test(revert.prompt), 'the revert prompt carries the live Party wo_reopen dashboard event')
     t.ok(revert && /dashboard-events\.ndjson/.test(revert.prompt), 'the wo_reopen event is appended to the dashboard stream')
     t.ok(revert && /"kind":"wo_reopen"/.test(revert.prompt), 'the revert also appends the durable track.jsonl wo_reopen line')
+  },
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
+// PACKAGE C2 — CONCURRENT FRD GATES IN A PINNED WORKTREE (the big structural speed lever)
+// Gates run as BACKGROUND promises in a frozen worktree WHILE the loop keeps dispatching build waves; a
+// PASS applies via a serialized apply-gate on main; a REJECT quiesces and runs the legacy ladder on main;
+// a worktree-creation failure falls back to the legacy synchronous gate for the whole run.
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ── C2-i. A gate runs WHILE the next wave builds (the core interleave) ─────────────────────────────
+// frd-A (1 WO) completes in wave 1 and its gate launches in the background; frd-B's 2nd WO (deps the 1st)
+// builds in wave 2 WHILE frd-A's gate is in flight. Observable by spawn order: build:wo-ib2 (wave N+1)
+// appears BETWEEN gate:frd-i-a (start) and apply-gate:frd-i-a (the serialized main-tree apply).
+SCENARIOS.push({
+  name: 'C2-i. concurrent gate — a gate runs while the NEXT wave builds (build of wave N+1 lands between gate start and apply)',
+  args: { mode: 'pro' },
+  plan: mkPlan([
+    { frd: 'frd-i-a', deps: [], workOrders: [mkWo('wo-ia1', 'PLANNED', { frd: 'frd-i-a', artifacts: ['src/ia/**'] })] },
+    { frd: 'frd-i-b', deps: [], workOrders: [
+      mkWo('wo-ib1', 'PLANNED', { frd: 'frd-i-b', artifacts: ['src/ib1/**'] }),
+      mkWo('wo-ib2', 'PLANNED', { frd: 'frd-i-b', artifacts: ['src/ib2/**'], deps: ['wo-ib1'] }),
+    ] },
+  ]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gateA = byLabel(run, 'gate:frd-i-a')[0]
+    const applyA = byLabel(run, 'apply-gate:frd-i-a')[0]
+    const buildB2 = byLabel(run, 'build:wo-ib2')[0]
+    const dispB = byLabel(run, /^dispatch:frd-i-b/)[0]
+    t.ok(gateA, 'frd-i-a gated (in the worktree)')
+    t.ok(applyA, 'frd-i-a applied on main (serialized apply-gate)')
+    t.ok(buildB2 && dispB, 'wo-ib2 (wave N+1) dispatched + built')
+    // INTERLEAVE: after the wave-2 dispatch (frd-i-b), BOTH frd-i-a's gate AND wave N+1's build run, and
+    // frd-i-a's gate applies only AFTER — build and review overlap (the gate did not block the next wave).
+    // (gate vs build spawn order within the window is a microtask-depth artifact; the overlap is the point.)
+    t.ok(gateA && buildB2 && applyA && dispB
+      && gateA.index > dispB.index && buildB2.index > dispB.index
+      && gateA.index < applyA.index && buildB2.index < applyA.index,
+      `INTERLEAVE: after dispatch:frd-i-b (@${dispB && dispB.index}), gate:frd-i-a (@${gateA && gateA.index}) AND build:wo-ib2 (@${buildB2 && buildB2.index}) both run before apply-gate:frd-i-a (@${applyA && applyA.index}) — build and review OVERLAP`)
+    t.ok(gateA && /GATE WORKTREE/.test(gateA.prompt), 'the concurrent gate runs from the pinned gate worktree (cd preamble)')
+    t.ok(byLabel(run, 'gate-worktree').length >= 1, 'the persistent gate worktree was prepared (probed at the first gate)')
+    t.ok(run.result && run.result.builtFrds.includes('frd-i-a') && run.result.builtFrds.includes('frd-i-b'), 'both FRDs verified')
+  },
+})
+
+// ── C2-ii. PASS → serialized apply-gate ports test files + advances last_green ─────────────────────
+SCENARIOS.push({
+  name: 'C2-ii. PASS verdict — apply-gate ports the reviewer test files from the worktree, stamps VERIFIED, advances last_green',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-ii', deps: [],
+    workOrders: [mkWo('wo-ii-001', 'PLANNED', { frd: 'frd-ii', artifacts: ['src/ii/**'] })],
+  }]),
+  responses: [
+    { label: 'gate:frd-ii', response: { green: true, testFiles: ['e2e/frd-ii.spec.ts', 'src/ii/__tests__/a.test.ts'] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const apply = byLabel(run, 'apply-gate:frd-ii')[0]
+    t.ok(apply, 'the serialized apply-gate ran')
+    t.ok(apply && apply.opts.model === 'haiku', 'apply-gate runs on the cheap MECH tier (the trust boundary was the gate; this only persists)')
+    t.ok(apply && /gate-worktree/.test(apply.prompt) && /e2e\/frd-ii\.spec\.ts/.test(apply.prompt), 'apply-gate PORTS the reviewer test files from the gate worktree onto main')
+    t.ok(apply && /implementation_status: VERIFIED/.test(apply.prompt), 'apply-gate stamps the reviewed WOs VERIFIED on main')
+    t.ok(apply && /last_green_sha/.test(apply.prompt) && /git commit --amend/.test(apply.prompt), 'apply-gate advances last_green_sha (LAST_GREEN_ORDERING — only the serialized apply advances it)')
+    t.ok(apply && /"event":"GateVerdict"/.test(apply.prompt) && /verdict":"pass"/.test(apply.prompt), 'apply-gate emits the single PASS GateVerdict')
+    t.ok(run.result && run.result.builtFrds.includes('frd-ii'), 'the FRD verifies via the concurrent gate + serialized apply')
+  },
+})
+
+// ── C2-iii. REJECT → quiesce → the legacy convergence ladder runs ON MAIN, unchanged ──────────────
+// A localized reject: the gate (in the worktree) reopens; the loop QUIESCES and runs the DR-073 patch
+// ladder on the MAIN tree (no worktree preamble on the patch/verify spawns), byte-for-byte the pre-C2 path.
+SCENARIOS.push({
+  name: 'C2-iii. REJECT verdict — quiesce, then the legacy patch/verify convergence ladder runs on MAIN (not the worktree)',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-iii', deps: [],
+    workOrders: [mkWo('wo-iii-001', 'PLANNED', { frd: 'frd-iii', artifacts: ['src/iii/**'] })],
+  }]),
+  responses: [
+    { label: 'gate:frd-iii', times: 1, response: { green: false, reopen: ['wo-iii-001'], findings: [{ wo: 'wo-iii-001', finding: 'off-by-one at src/iii/a.ts:4', failingTest: 'a.spec.ts', files: ['src/iii/a.ts'] }] } },
+    // patch greens → independent verify → VERIFIED (the pre-C2 happy convergence)
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gate = byLabel(run, 'gate:frd-iii')[0]
+    t.ok(gate && /GATE WORKTREE/.test(gate.prompt), 'the gate ran in the pinned worktree')
+    const patch = byLabel(run, 'patch:frd-iii')[0]
+    t.ok(patch, 'the DR-073 patch ladder ran after the reject (convergence)')
+    t.ok(patch && !/GATE WORKTREE/.test(patch.prompt), 'the convergence patch runs on the MAIN tree — NOT the worktree (quiesced main)')
+    t.ok(byLabel(run, 'verify-patch:frd-iii').length === 1, 'the independent post-patch verifier ran (constitution rule 4) — the ladder is unchanged')
+    t.ok(byLabel(run, /^apply-gate:/).length === 0, 'no apply-gate on the reject path (the patch-then-verify path stamps VERIFIED itself, as pre-C2)')
+    t.ok(run.result && run.result.builtFrds.includes('frd-iii'), 'the FRD converges to VERIFIED via the on-main ladder')
+  },
+})
+
+// ── C2-iv. Worktree-creation FAILURE → legacy synchronous gate fallback for the whole run ──────────
+SCENARIOS.push({
+  name: 'C2-iv. worktree creation fails — the whole run falls back to the LEGACY synchronous gate path (on main)',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-iv', deps: [],
+    workOrders: [mkWo('wo-iv-001', 'PLANNED', { frd: 'frd-iv', artifacts: ['src/iv/**'] })],
+  }]),
+  responses: [
+    { label: 'gate-worktree', response: { ok: false, failure: 'repo state does not support a worktree here' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error} (a worktree failure must degrade, not crash)`)
+    t.ok(byLabel(run, 'gate-worktree').length === 1, 'the worktree was probed once (and failed) — not retried per gate')
+    t.ok(hasLog(run, /legacy synchronous gate path/i), 'the fallback to the legacy synchronous gate path is logged loudly')
+    const gate = byLabel(run, 'gate:frd-iv')[0]
+    t.ok(gate, 'the gate STILL ran (never skipped — it just runs synchronously)')
+    t.ok(gate && !/GATE WORKTREE/.test(gate.prompt), 'the legacy gate runs on the MAIN tree (no worktree preamble)')
+    t.ok(byLabel(run, 'apply-gate:frd-iv').length === 1, 'a PASS still applies via the serialized apply-gate (sourceDir null — tests already on main)')
+    t.ok(run.result && run.result.builtFrds.includes('frd-iv'), 'the FRD verifies via the legacy synchronous gate')
+  },
+})
+
+// ── C2-v. Run-end awaits in-flight gates — a gate whose verdict is unharvested when a BRAKE trips is
+// still applied post-loop (never dropped). maxAgents is tuned so the agent ceiling trips at the top of the
+// iteration AFTER frd-v-a's gate settled (its verdict sits unharvested in gateResults); the post-loop
+// settleGates(true)+drainConverge apply it, so builtFrds still contains frd-v-a despite the 'agents' stop.
+SCENARIOS.push({
+  name: 'C2-v. run-end awaits in-flight gates — a settled-but-unharvested gate is applied post-loop despite the agent-ceiling stop',
+  args: { mode: 'pro', maxAgents: 24 },
+  plan: mkPlan([
+    { frd: 'frd-v-a', deps: [], workOrders: [mkWo('wo-va1', 'PLANNED', { frd: 'frd-v-a', artifacts: ['src/va/**'] })] },
+    { frd: 'frd-v-b', deps: [], workOrders: [
+      mkWo('wo-vb1', 'PLANNED', { frd: 'frd-v-b', artifacts: ['src/vb1/**'] }),
+      mkWo('wo-vb2', 'PLANNED', { frd: 'frd-v-b', artifacts: ['src/vb2/**'], deps: ['wo-vb1'] }),
+    ] },
+  ]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(run.result && run.result.stopReason === 'agents', `the run stopped at the agent ceiling (got ${run.result && run.result.stopReason})`)
+    t.ok(byLabel(run, 'gate:frd-v-a').length === 1, 'frd-v-a gated concurrently (in flight when the ceiling tripped)')
+    const applyA = byLabel(run, 'apply-gate:frd-v-a')[0]
+    t.ok(applyA, 'the run-end settle applied frd-v-a AFTER the loop broke (the in-flight gate was awaited, not dropped)')
+    t.ok(run.result && run.result.builtFrds.includes('frd-v-a'), 'frd-v-a is VERIFIED despite the stop — the post-loop settleGates(true)+drainConverge honoured the in-flight gate')
   },
 })
 

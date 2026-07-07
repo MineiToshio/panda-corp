@@ -244,6 +244,22 @@ const BUILD_COMPLETE = (verdict, frdsDoneTotal) =>
 // boundary is never these steps (the FRD gate re-verifies everything); they just execute a script.
 const MECH = (args && args.mechModel) || 'haiku'
 
+// ── C2: CONCURRENT FRD GATES IN A PINNED WORKTREE ─────────────────────────────────────────────────
+// Today the loop either builds a wave OR drains ONE gate per iteration — build and review NEVER overlap,
+// so wall-clock = builds + gates (fully additive). The gate needs a QUIET tree only because it runs
+// whole-project checks — so give it a FROZEN worktree (a detached checkout pinned at the FRD's last-commit
+// sha) instead of freezing the build. Gates run as BACKGROUND promises WHILE the loop keeps dispatching
+// build waves; on PASS a serialized apply step ports the result to the main tree; on REJECT the loop
+// QUIESCES and runs today's convergence ladder on main, byte-for-byte. Staged for risk containment: build
+// WAVES stay synchronous barriers — only GATES go concurrent. If worktree creation fails, the whole run
+// falls back to the legacy synchronous gate path (a real, tested fallback).
+const MAX_CONCURRENT_GATES = (args && args.maxConcurrentGates) || 2   // cap on gate promises in flight at once (they still serialize on the single worktree; this bounds the backlog)
+const GATE_WORKTREE = PROJECT_DIR === '.' ? '.pandacorp/run/gate-worktree' : `${PROJECT_DIR}/.pandacorp/run/gate-worktree`   // detached worktree dir (gitignored run/ state); crash residue removed by baseline-precheck
+// The gate agent's cwd preamble: cd to the frozen worktree (NOT the project root). Every relative path in
+// the gate prompt is worktree-relative; absolute ${PROJECT_DIR}/... paths (dashboard events, track.jsonl,
+// punch-list) still target the MAIN tree (append-only, no git — worktree-safe).
+const worktreeWorkFrom = (pinSha) => `Work from the GATE WORKTREE ${GATE_WORKTREE} — cd there FIRST. It is a DETACHED git worktree checked out at the pinned commit ${pinSha} (a frozen, quiet copy of the tree so the main build keeps going); DO NOT cd to the main project root and DO NOT run any \`git commit\`/branch op that writes the main tree. Every relative path below is relative to the worktree; any path written as an absolute ${PROJECT_DIR}/... is the MAIN tree (append-only files only).\n`
+
 // Owner notification — macOS desktop only (osascript). Fire-and-forget; never blocks the
 // build. (Phone push, when Remote Control is on, is sent by the supervising agent via
 // PushNotification — see the implement skill. No third-party push app: owner decision 2026-06-16.)
@@ -259,7 +275,14 @@ const NOTIFY = (msg, sound) =>
 // The provided `agent` is an injected global (like log/phase/parallel/budget), so rebinding it here
 // re-points every later `agent(...)` call through the wrapper; the raw impl is captured first.
 const __rawAgent = agent
-agent = (prompt, opts) => __rawAgent(typeof prompt === 'string' && WORK_FROM ? WORK_FROM + prompt : prompt, opts)
+agent = (prompt, opts = {}) => {
+  // C2: a per-call `workFrom` override lets the CONCURRENT gate run from the pinned gate worktree instead
+  // of the project root (default). undefined → the legacy WORK_FROM (cd PROJECT_DIR). '' → no preamble.
+  const wf = (opts && opts.workFrom !== undefined) ? opts.workFrom : WORK_FROM
+  let rest = opts
+  if (opts && opts.workFrom !== undefined) { rest = { ...opts }; delete rest.workFrom }   // never leak workFrom into the real agent() opts
+  return __rawAgent(typeof prompt === 'string' && wf ? wf + prompt : prompt, rest)
+}
 
 // ── BL-0011: whole-project gate quarantine of a needs-owner-BLOCKED route (LESSON-0021, DR-085) ──
 // The whole-project e2e gates (smoke/visual/responsive/shell) assert over EVERY declared route. When one
@@ -383,7 +406,11 @@ const FINDINGS = { type: 'array', description: 'DR-073: the specific fixable fau
 } }
 const FRD_GATE_SCHEMA = {
   type: 'object', required: ['green'],
-  properties: { green: { type: 'boolean' }, reopen: { type: 'array', items: { type: 'string' } }, findings: FINDINGS, missingFoundation: MISSING_FOUNDATION, blocked_reason: BLOCK_REASON, failure: { type: 'string' } },
+  properties: { green: { type: 'boolean' }, reopen: { type: 'array', items: { type: 'string' } }, findings: FINDINGS, missingFoundation: MISSING_FOUNDATION, blocked_reason: BLOCK_REASON, failure: { type: 'string' },
+    // C2: on a PASS the review-only gate returns the new/changed adversarial TEST FILES it wrote (repo-relative)
+    // so the serialized apply-gate step can PORT them from the frozen worktree onto the main tree.
+    testFiles: { type: 'array', items: { type: 'string' }, description: 'C2: repo-relative paths of the new/changed adversarial test files the gate wrote this cycle (in its worktree) — the apply step ports them to the main tree on green' },
+  },
 }
 // ── Split-gate schemas (proposal 31 T1.2) ────────────────────────────────────
 // The FIND stage's finders each report a flat list of {file, claim, evidence, severity}. `severity`
@@ -491,6 +518,7 @@ const precheck = await agent(
   `You are the Pandacorp baseline PRE-CHECK (mechanical — cheap; do NOT run verify.sh, do NOT fix code, just return a verdict). Do these steps IN ORDER:
   **STEP L — record the launch (B1):** as your very FIRST action, emit the build-launch event so the dashboard knows this run started.${BUILD_LAUNCH_EVENT}
   **STEP 0 — FAIL-LOUD project-root guard (BL-0022):** \`test -f ${PROJECT_DIR}/.pandacorp/status.yaml\`. If it does NOT exist, STOP and return { green: false, failure: "BL-0022: ${PROJECT_DIR}/.pandacorp/status.yaml no existe — el motor se lanzó apuntando al árbol equivocado (¿cwd = raíz de la fábrica en vez de la carpeta del proyecto?). Relanza pasando args.projectDir/args.project apuntando a la carpeta del proyecto." } — do nothing else.
+  **STEP W — remove a STALE gate worktree (C2 crash residue):** if ${GATE_WORKTREE} exists, it is leftover from a crashed prior run (the gate worktree is disposable run/ state, NOT protected owner data — removing it via git is allowed): \`git -C ${PROJECT_DIR} worktree remove --force ${GATE_WORKTREE} 2>/dev/null || rm -rf ${GATE_WORKTREE}\`, then \`git -C ${PROJECT_DIR} worktree prune\`. Do this ONLY for ${GATE_WORKTREE} — never any other .pandacorp/ path.
   **STEP 1 — consume the rethink stop:** if ${PROJECT_DIR}/.pandacorp/status.yaml has \`rethink_pending: true\`, set it to \`false\` and commit that one-line change (this run STARTS from the re-planned docs, so the stop signal is consumed — DR-069).
   **STEP 2 — owner stop signal:** if the file \`${PROJECT_DIR}/.pandacorp/run/stop\` EXISTS, return { stop: true } immediately. Do NOT delete it (the owner removes it) — the engine will stop clean without building.
   **STEP 3 — clean-tree fast path:** run \`git -C ${PROJECT_DIR} status --porcelain\` and compare \`git -C ${PROJECT_DIR} rev-parse --short HEAD\` to \`last_green_sha\` in status.yaml. If the tree is CLEAN (no porcelain output) AND HEAD == last_green_sha → return { green: true } (known-green; skip the cold-start verify). Otherwise return { escalate: true, dirty: <true iff porcelain showed any changes, else false> }.`,
@@ -748,7 +776,9 @@ const gateVerdictJournal = (frd, reviewIds, attemptNo) => JOURNAL(
 // mid-run it returns a sentinel and we fall back to the serial gate — the gate is NEVER skipped (contract 4).
 // Every gate call bumps frdState.gateAttempts (1-based `attempt` for the gate-open event, B8) so a re-gate is
 // distinguishable from a first gate.
-async function frdGate(frd, reviewIds) {
+async function frdGate(frd, reviewIds, workFrom) {
+  // C2: `workFrom` (optional) points the REVIEW spawns at the frozen gate worktree for the CONCURRENT path;
+  // undefined → the legacy main-tree cwd (used by the converge re-gates, which run on a quiesced main tree).
   const st = frdState.get(frd)
   const priorAttempts = (st && st.gateAttempts) || 0   // gate attempts ALREADY made for this FRD this run
   const attemptNo = priorAttempts + 1                  // 1-based attempt number for THIS gate (B8)
@@ -760,7 +790,7 @@ async function frdGate(frd, reviewIds) {
   if (useSplit) {
     const remaining = MAX_AGENTS ? MAX_AGENTS - agentSpawned : Infinity
     if (remaining >= splitGateEstimatedCost()) {
-      const split = await frdGateSplit(frd, reviewIds, attemptNo)
+      const split = await frdGateSplit(frd, reviewIds, attemptNo, workFrom)
       if (!split || !split.__splitFailed) return split   // sentinel __splitFailed → all finders died → fall to serial
     } else {
       log(`↩ ${frd}: reviewSplit on but the split's estimated cost (${splitGateEstimatedCost()}) exceeds the remaining agent budget (${remaining}) — using the serial gate instead (contract 5)`)
@@ -768,11 +798,22 @@ async function frdGate(frd, reviewIds) {
   } else if (P.reviewSplit) {
     log(`▹ ${frd}: first gate attempt this run — running SERIAL (split kicks in on a re-gate or a prior-reopened WO, C1a)`)
   }
-  return await frdGateSerial(frd, reviewIds, attemptNo)
+  return await frdGateSerial(frd, reviewIds, attemptNo, workFrom)
 }
 
+// ── C2 REVIEW-ONLY gate contract (shared by serial + split) ───────────────────────────────────────
+// The gate is now REVIEW-ONLY: it reviews with full rigor, writes its adversarial test files (in its cwd —
+// the worktree for the concurrent path), runs verify.sh --since, and RETURNS a verdict. It NEVER stamps
+// VERIFIED, recomputes rollups, edits status.yaml, advances last_green_sha, or commits — a separate
+// SERIALIZED apply-gate step on the MAIN tree owns every commit-bearing write (so the gate can run on a
+// frozen worktree while the build keeps moving). It STILL emits the absolute-path, git-free events/track
+// lines on the reject exits (worktree-safe). On PASS it returns { green:true, testFiles:[...] } and does
+// nothing else; apply-gate ports the test files and stamps. On the non-progress cap it CLASSIFIES the block
+// but does NOT persist it (persistGateBlock does that on main).
+const GATE_PASS_RETURN = ` **If CORRECTION passes (visual nits, if any, APPEND to the punch-list at the MAIN tree \`${PROJECT_DIR}/.pandacorp/comms/visual-punch-list.md\` — absolute path, they do NOT block):** you are a REVIEW-ONLY gate — do NOT set any work order VERIFIED, do NOT reset reopen_count, do NOT recompute the FRD rollup, do NOT edit .pandacorp/status.yaml, do NOT advance last_green_sha, and do NOT \`git commit\` (you may be running in a FROZEN worktree; a separate serialized apply step on the MAIN tree performs every one of those writes). Just make sure the adversarial test files you wrote this cycle are SAVED in your working tree, and return { green: true, testFiles: [the repo-relative path of EACH new or changed test file you wrote this gate] } so the apply step can port them to the main tree.`
+
 // ── FRD gate (serial): ONE review + integration test over the whole feature ──
-async function frdGateSerial(frd, reviewIds, attemptNo = 1) {
+async function frdGateSerial(frd, reviewIds, attemptNo = 1, workFrom) {
   agentSpawned += COST(P.judge)   // DR-073: the gate runs on the judge model — weight it honestly
   return await agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'gate' })}${TRACK('review_start', `,"frd":"${frd}"`)}${GATE_EVENT(frd, reviewIds.length, attemptNo)} FRD review + integration gate for ${frd}. Review the work orders built/changed THIS cycle: ${reviewIds.join(', ')} (all IN_REVIEW). This FRD MAY already have OTHER work orders VERIFIED from a previous run — treat those as a stable foundation: exercise them in integration, but do NOT re-review them and NEVER change their state.
  BUILD-JOURNAL (A1) — at WHICHEVER exit you take below (pass / reopen / blocked / fail), record this gate's verdict:${gateVerdictJournal(frd, reviewIds, attemptNo)}
@@ -784,12 +825,12 @@ async function frdGateSerial(frd, reviewIds, attemptNo = 1) {
   1) Review the changed work orders for CORRECTION (the blocking lenses above) and write adversarial tests the implementers did not see (anchored in EARS + real bugs), exercising them TOGETHER with the rest of the feature (real integration, not isolated).
   2) Run the FOCUSED gate \`bash .pandacorp/verify.sh --since <last_green_sha>\` (read last_green_sha from .pandacorp/status.yaml) — biome + tsc run globally, but only the TESTS affected since the last green (fast and scales; the full suite runs once at close-out). It must pass clean.${PREVIEW_SMOKE(frd)}
 
-  **If CORRECTION passes (visual nits, if any, go to the punch-list — they do NOT block):** set the reviewed work orders (${reviewIds.join(', ')}) to **\`implementation_status: VERIFIED\`** and **reset their \`reopen_count: 0\`** (the non-progress counter measures CONSECUTIVE unresolved reopens — clearing it on success so a future unrelated change/iterate starts fresh, not pre-capped, DR-072 C2), then **recompute the FRD's frd.md + blueprint.md \`implementation_status\` rollup from ALL its work orders** and persist it (VERIFIED iff all are; else BLOCKED if any blocked; else PLANNED if any planned; else IN_PROGRESS if any in progress; else IN_REVIEW) — the FRD status is DERIVED, never left stale; update .pandacorp/status.yaml (per-status counts + last_green_sha + safe_to_test:true + **advance \`last_event_at\` and \`updated_at\` to now, ISO 8601 — the DR-066 producer freshness stamp**).${LAST_GREEN_ORDERING}${TRACK('review_end', `,"frd":"${frd}","verdict":"pass"`)}${TRACK('frd_end', `,"frd":"${frd}"`)}${GATE_VERDICT(frd, 'pass', `,"passed":${reviewIds.length}`)}${ACHIEVEMENT(frd)} Stage \`.pandacorp/track.jsonl\` AND \`.pandacorp/build-journal.jsonl\` too (their review/verdict lines for this FRD), and commit. Return { green: true }.
+${GATE_PASS_RETURN}
 
-  **If a SPECIFIC reviewed work order fails CORRECTION (a real bug / missing requirement / gross-structural miss):** check that WO's frontmatter \`reopen_count\` (default 0). **DR-072 NON-PROGRESS STOP — if it is already ≥ ${MAX_REOPENS}, do NOT reopen again** (the same fault is not resolving autonomously): set it \`implementation_status: BLOCKED\` + \`blocked_reason: needs-owner\`, append to .pandacorp/inbox/decisions.md (what the gate keeps rejecting, your diagnosis, your recommendation),${TRACK('review_end', `,"frd":"${frd}","verdict":"blocked"`)}${GATE_VERDICT(frd, 'blocked', `,"blocked_reason":"needs-owner"`)} and return { green: false, reopen: [], blocked_reason: 'needs-owner', failure: 'reopened ${MAX_REOPENS}x, gate not satisfiable autonomously' }. **Otherwise — DR-073 PATCH-FIRST: do NOT revert, do NOT change the WO's \`implementation_status\` (leave it IN_REVIEW), do NOT touch \`reopen_count\`, do NOT \`git checkout\`/\`git rm\` anything, do NOT commit a revert.** The build is ~correct except a bounded fault — the engine will attempt an in-place PATCH on the existing build BEFORE any revert. **FIX-FORWARD MANDATE (DR-073, calibrated 2026-07-01): a BOUNDED fault you can name at file:line with an estimated fix of ≤ ~30 lines (a hardcoded string, a missing null-guard, a clipped breakpoint, a missing escape) MUST take this findings exit — never a bare failure, never blocked_reason 'error' (80% of real first-gate fails had ≤6-min fixes; routing them to revert cost ~1.5h of a run's 2.2h rework).** Your job here is to REPORT the fixable fault(s) precisely: for EACH failing reviewed WO, write the specific finding (with file:line) and a RED-PROVEN failing test (a test you wrote that fails WITHOUT the fix and will pass WITH it — give its path / describe-it / a snippet) and the file(s) the fix should touch.${TRACK('review_end', `,"frd":"${frd}","verdict":"reopen"`)}${GATE_VERDICT(frd, 'reopen', `,"reopened":%s`, ` "<the count of work orders you are reopening — an integer>"`)} Return { green: false, reopen: [those ids], findings: [{ wo, finding, failingTest, files }], failure }. The engine patches those findings in place; only if the patch can't green it whole-project does it then revert + reopen for a clean rebuild (DR-070, the fallback).
+  **If a SPECIFIC reviewed work order fails CORRECTION (a real bug / missing requirement / gross-structural miss):** check that WO's frontmatter \`reopen_count\` (default 0). **DR-072 NON-PROGRESS STOP — if it is already ≥ ${MAX_REOPENS}, do NOT reopen again** (the same fault is not resolving autonomously): you are REVIEW-ONLY — do NOT stamp BLOCKED, do NOT write decisions.md, do NOT commit; just${TRACK('review_end', `,"frd":"${frd}","verdict":"blocked"`)}${GATE_VERDICT(frd, 'blocked', `,"blocked_reason":"needs-owner"`)} return { green: false, reopen: [], blocked_reason: 'needs-owner', failure: 'reopened ${MAX_REOPENS}x, gate not satisfiable autonomously' } — the engine persists the BLOCKED state + the decision record on the MAIN tree. **Otherwise — DR-073 PATCH-FIRST: do NOT revert, do NOT change the WO's \`implementation_status\` (leave it IN_REVIEW), do NOT touch \`reopen_count\`, do NOT \`git checkout\`/\`git rm\` anything, do NOT commit a revert.** The build is ~correct except a bounded fault — the engine will attempt an in-place PATCH on the existing build BEFORE any revert. **FIX-FORWARD MANDATE (DR-073, calibrated 2026-07-01): a BOUNDED fault you can name at file:line with an estimated fix of ≤ ~30 lines (a hardcoded string, a missing null-guard, a clipped breakpoint, a missing escape) MUST take this findings exit — never a bare failure, never blocked_reason 'error' (80% of real first-gate fails had ≤6-min fixes; routing them to revert cost ~1.5h of a run's 2.2h rework).** Your job here is to REPORT the fixable fault(s) precisely: for EACH failing reviewed WO, write the specific finding (with file:line) and a RED-PROVEN failing test (a test you wrote that fails WITHOUT the fix and will pass WITH it — give its path / describe-it / a snippet) and the file(s) the fix should touch.${TRACK('review_end', `,"frd":"${frd}","verdict":"reopen"`)}${GATE_VERDICT(frd, 'reopen', `,"reopened":%s`, ` "<the count of work orders you are reopening — an integer>"`)} Return { green: false, reopen: [those ids], findings: [{ wo, finding, failingTest, files }], failure }. The engine patches those findings in place; only if the patch can't green it whole-project does it then revert + reopen for a clean rebuild (DR-070, the fallback).
   **DR-065 — missing foundation primitive:** if a surface looks FLAT / structurally wrong because a SHARED design-system primitive it needs is NOT built (it isn't in src/components nor docs/design/components.md — e.g. the mock shows a Room/AgentSprite/StoneBridge the foundation never built), do NOT block and do NOT just reopen — return { green: false, missingFoundation: [the primitive names], failure }. The engine auto-repairs the foundation and rebuilds the surfaces against it.
   If it's broken and you can't pinpoint specific WOs,${TRACK('review_end', `,"frd":"${frd}","verdict":"fail"`)}${GATE_VERDICT(frd, 'fail')} return { green: false, failure, blocked_reason } (classify: 'needs-owner' if a human must act, 'external' if it's a transient outside failure, else 'error').${NOTIFY('FRD ' + frd + ' no paso la revision (correccion) — necesita tu atencion')}`,
-    { label: `gate:${frd}`, phase: 'Review', model: P.judge, effort: 'xhigh', agentType: 'pandacorp:reviewer', schema: FRD_GATE_SCHEMA })
+    { label: `gate:${frd}`, phase: 'Review', model: P.judge, effort: 'xhigh', agentType: 'pandacorp:reviewer', schema: FRD_GATE_SCHEMA, workFrom })
 }
 
 // ── FRD gate SPLIT (proposal 31 T1.2): parallel finder lenses → dedup → adversarial verify → close ──
@@ -820,14 +861,14 @@ const splitGateEstimatedCost = () => 4 * COST('sonnet') + Math.min(VERIFY_CAP, V
 // Normalized merge key so the same defect reported by two lenses dedups to one (DEDUP stage).
 const findingKey = (find) => `${String(find.file || '').trim().toLowerCase()}::${String(find.claim || '').trim().toLowerCase().replace(/\s+/g, ' ')}`
 
-async function frdGateSplit(frd, reviewIds, attemptNo = 1) {
-  // ── FIND (parallel): 4 read-only finder lenses ──
+async function frdGateSplit(frd, reviewIds, attemptNo = 1, workFrom) {
+  // ── FIND (parallel): 4 read-only finder lenses ── (C2: all run in the pinned worktree when workFrom is set)
   agentSpawned += 4 * COST('sonnet')   // weight every spawn (DR-070/DR-073) — the finders are the FIND stage's cost
   const finderResults = await parallel(FINDER_LENSES.map((L) => () =>
     agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'find' })}FRD split-gate FIND stage — the ${L.key} lens for ${frd} (proposal 31 T1.2). You are ONE of four parallel read-only finders. Review the work orders built/changed THIS cycle: ${reviewIds.join(', ')} (all IN_REVIEW), exercising them together with the rest of the feature. This FRD MAY have OTHER work orders VERIFIED from a previous run — treat those as a stable foundation; do NOT re-review or change them.
     Your lens: ${L.lens}
     **READ-ONLY — findings ONLY:** do NOT write or modify tests, do NOT fix anything, do NOT run \`verify.sh\`, do NOT change any file or frontmatter. Just report. For each defect return { file (with a line if you can), claim (one sentence), severity ('correction' for a blocking defect in your lens; 'nit' for advisory polish), evidence (the concrete code/behavior you observed, so a skeptic can try to refute it) }. If your lens finds nothing, return { findings: [] }.`,
-      { label: `find:${L.key}:${frd}`, phase: 'Review', model: 'sonnet', agentType: 'pandacorp:reviewer', schema: FINDER_SCHEMA }),
+      { label: `find:${L.key}:${frd}`, phase: 'Review', model: 'sonnet', agentType: 'pandacorp:reviewer', schema: FINDER_SCHEMA, workFrom }),
   ))
   const liveFinders = finderResults.filter((r) => r && Array.isArray(r.findings))
   const deadFinders = FINDER_LENSES.filter((_, i) => !finderResults[i] || !Array.isArray(finderResults[i].findings))
@@ -862,7 +903,7 @@ async function frdGateSplit(frd, reviewIds, attemptNo = 1) {
       • claim: ${f.claim}
       • evidence given: ${f.evidence || '(none)'}
       Your job is to try to REFUTE it against the ACTUAL code — read the file, reproduce the claim, check the evidence holds. Be a skeptic: **default to refuted if you cannot reproduce or anchor the finding** in the real code (an unreproducible claim is noise, not a defect). Return { refuted: true, reason } if it does not hold; { refuted: false, reason } only if the defect genuinely stands. READ-ONLY: change nothing.`,
-        { label: `verify-finding:${frd}`, phase: 'Review', model: 'sonnet', agentType: 'pandacorp:reviewer', schema: VERIFY_FINDING_SCHEMA }),
+        { label: `verify-finding:${frd}`, phase: 'Review', model: 'sonnet', agentType: 'pandacorp:reviewer', schema: VERIFY_FINDING_SCHEMA, workFrom }),
     ))
     for (let i = 0; i < toVerify.length; i++) {
       const v = verdicts[i]
@@ -897,12 +938,80 @@ async function frdGateSplit(frd, reviewIds, attemptNo = 1) {
   1) Independently CONFIRM the surviving corrections and write adversarial tests the implementers did not see (anchored in EARS + real bugs), exercising the work orders TOGETHER with the rest of the feature (real integration, not isolated).
   2) Run the FOCUSED gate \`bash .pandacorp/verify.sh --since <last_green_sha>\` (read last_green_sha from .pandacorp/status.yaml) — biome + tsc run globally, but only the TESTS affected since the last green. It must pass clean.${PREVIEW_SMOKE(frd)}
 
-  **If CORRECTION passes (nits, if any, go to the punch-list — they do NOT block):** set the reviewed work orders (${reviewIds.join(', ')}) to **\`implementation_status: VERIFIED\`** and **reset their \`reopen_count: 0\`** (DR-072 C2), then **recompute the FRD's frd.md + blueprint.md \`implementation_status\` rollup from ALL its work orders** and persist it (VERIFIED iff all are; else BLOCKED if any blocked; else PLANNED if any planned; else IN_PROGRESS if any in progress; else IN_REVIEW) — the FRD status is DERIVED, never left stale; update .pandacorp/status.yaml (per-status counts + last_green_sha + safe_to_test:true + **advance \`last_event_at\` and \`updated_at\` to now, ISO 8601, the DR-066 producer freshness stamp**).${LAST_GREEN_ORDERING}${TRACK('review_end', `,"frd":"${frd}","verdict":"pass"`)}${TRACK('frd_end', `,"frd":"${frd}"`)}${GATE_VERDICT(frd, 'pass', `,"passed":${reviewIds.length}`)}${ACHIEVEMENT(frd)} Stage \`.pandacorp/track.jsonl\` AND \`.pandacorp/build-journal.jsonl\` too (their review/verdict lines for this FRD), and commit. Return { green: true }.
+${GATE_PASS_RETURN}
 
-  **If a SPECIFIC reviewed work order fails CORRECTION (a confirmed real bug / missing requirement / gross-structural miss):** check that WO's frontmatter \`reopen_count\` (default 0). **DR-072 NON-PROGRESS STOP — if it is already ≥ ${MAX_REOPENS}, do NOT reopen again:** set it \`implementation_status: BLOCKED\` + \`blocked_reason: needs-owner\`, append to .pandacorp/inbox/decisions.md (what the gate keeps rejecting, your diagnosis, your recommendation),${TRACK('review_end', `,"frd":"${frd}","verdict":"blocked"`)}${GATE_VERDICT(frd, 'blocked', `,"blocked_reason":"needs-owner"`)} and return { green: false, reopen: [], blocked_reason: 'needs-owner', failure: 'reopened ${MAX_REOPENS}x, gate not satisfiable autonomously' }. **Otherwise — DR-073 PATCH-FIRST: do NOT revert, do NOT change the WO's \`implementation_status\` (leave it IN_REVIEW), do NOT touch \`reopen_count\`, do NOT \`git checkout\`/\`git rm\` anything, do NOT commit a revert.** The build is ~correct except a bounded fault — the engine will attempt an in-place PATCH BEFORE any revert. **FIX-FORWARD MANDATE (DR-073): a BOUNDED fault you can name at file:line with a fix of ≤ ~30 lines MUST take this findings exit.** For EACH failing reviewed WO, write the specific finding (with file:line) and a RED-PROVEN failing test (fails WITHOUT the fix, passes WITH it — give its path / describe-it / a snippet) and the file(s) the fix should touch.${TRACK('review_end', `,"frd":"${frd}","verdict":"reopen"`)}${GATE_VERDICT(frd, 'reopen', `,"reopened":%s`, ` "<the count of work orders you are reopening — an integer>"`)} Return { green: false, reopen: [those ids], findings: [{ wo, finding, failingTest, files }], failure }.
+  **If a SPECIFIC reviewed work order fails CORRECTION (a confirmed real bug / missing requirement / gross-structural miss):** check that WO's frontmatter \`reopen_count\` (default 0). **DR-072 NON-PROGRESS STOP — if it is already ≥ ${MAX_REOPENS}, do NOT reopen again:** you are REVIEW-ONLY — do NOT stamp BLOCKED, do NOT write decisions.md, do NOT commit; just${TRACK('review_end', `,"frd":"${frd}","verdict":"blocked"`)}${GATE_VERDICT(frd, 'blocked', `,"blocked_reason":"needs-owner"`)} return { green: false, reopen: [], blocked_reason: 'needs-owner', failure: 'reopened ${MAX_REOPENS}x, gate not satisfiable autonomously' } — the engine persists the BLOCKED state + the decision record on the MAIN tree. **Otherwise — DR-073 PATCH-FIRST: do NOT revert, do NOT change the WO's \`implementation_status\` (leave it IN_REVIEW), do NOT touch \`reopen_count\`, do NOT \`git checkout\`/\`git rm\` anything, do NOT commit a revert.** The build is ~correct except a bounded fault — the engine will attempt an in-place PATCH BEFORE any revert. **FIX-FORWARD MANDATE (DR-073): a BOUNDED fault you can name at file:line with a fix of ≤ ~30 lines MUST take this findings exit.** For EACH failing reviewed WO, write the specific finding (with file:line) and a RED-PROVEN failing test (fails WITHOUT the fix, passes WITH it — give its path / describe-it / a snippet) and the file(s) the fix should touch.${TRACK('review_end', `,"frd":"${frd}","verdict":"reopen"`)}${GATE_VERDICT(frd, 'reopen', `,"reopened":%s`, ` "<the count of work orders you are reopening — an integer>"`)} Return { green: false, reopen: [those ids], findings: [{ wo, finding, failingTest, files }], failure }.
   **DR-065 — missing foundation primitive:** if a surface looks FLAT / structurally wrong because a SHARED design-system primitive it needs is NOT built, do NOT block and do NOT just reopen — return { green: false, missingFoundation: [the primitive names], failure }. The engine auto-repairs the foundation and rebuilds the surfaces against it.
   If it's broken and you can't pinpoint specific WOs,${TRACK('review_end', `,"frd":"${frd}","verdict":"fail"`)}${GATE_VERDICT(frd, 'fail')} return { green: false, failure, blocked_reason } (classify: 'needs-owner' if a human must act, 'external' if it's a transient outside failure, else 'error').${NOTIFY('FRD ' + frd + ' no paso la revision (correccion) — necesita tu atencion')}`,
-    { label: `gate:${frd}`, phase: 'Review', model: P.judge, effort: 'high', agentType: 'pandacorp:reviewer', schema: FRD_GATE_SCHEMA })   // C1d: the split closer drops xhigh→high — the finders already hunted; it adjudicates the survivors (the SERIAL gate keeps xhigh)
+    { label: `gate:${frd}`, phase: 'Review', model: P.judge, effort: 'high', agentType: 'pandacorp:reviewer', schema: FRD_GATE_SCHEMA, workFrom })   // C1d: the split closer drops xhigh→high — the finders already hunted; it adjudicates the survivors (the SERIAL gate keeps xhigh)
+}
+
+// ── C2 gate worktree lifecycle (MECH, MAIN-tree git op) ──────────────────────────────────────────
+// Lazily creates the persistent detached worktree at GATE_WORKTREE; on reuse it checks out the new pin sha
+// (+ pnpm install ONLY if pnpm-lock.yaml changed between shas). One label 'gate-worktree'. Returns true iff
+// the worktree is ready at `sha`. First hard failure → worktreeState 'failed' → the whole run falls back to
+// the legacy synchronous gate path. Idempotent: a no-op (no spawn) when already frozen at `sha`.
+async function ensureGateWorktree(sha) {
+  if (worktreeState === 'failed') return false
+  if (worktreeState === 'ready' && lastWorktreeSha === sha) return true   // already frozen at this sha — no spawn
+  agentSpawned++
+  const r = await agent(
+    `C2 gate worktree — prepare a FROZEN detached checkout at ${GATE_WORKTREE} pinned to commit ${sha} (MAIN-tree git op; this is the only main-tree git command you run here). Do EXACTLY:
+    1) If the directory ${GATE_WORKTREE} does NOT exist yet: \`git -C ${PROJECT_DIR} worktree add --detach ${GATE_WORKTREE} ${sha}\`, then \`pnpm install\` inside ${GATE_WORKTREE} (the pnpm store is shared/hardlinked, so this is fast). Return { ok: true, created: true }.
+    2) If it ALREADY exists (reuse): note the sha it is currently at, then \`git -C ${GATE_WORKTREE} checkout --detach ${sha}\`. Run \`pnpm install --frozen-lockfile\` inside ${GATE_WORKTREE} ONLY IF pnpm-lock.yaml changed between the old sha and ${sha} (\`git -C ${PROJECT_DIR} diff --name-only <oldsha> ${sha} -- pnpm-lock.yaml\` non-empty); otherwise SKIP install. Return { ok: true, created: false }.
+    If ANY step fails (the repo state does not support a worktree here — a stuck lock, an unreachable sha, an already-linked worktree), do NOT retry endlessly: return { ok: false, failure: "<what failed>" } and the engine falls back to running gates synchronously on the main tree for the rest of the run. NEVER touch .pandacorp/ owner state beyond this worktree dir.`,
+    { label: 'gate-worktree', phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: { type: 'object', required: ['ok'], properties: { ok: { type: 'boolean' }, created: { type: 'boolean' }, failure: { type: 'string' } } } })
+  if (r && r.ok === true) { worktreeState = 'ready'; lastWorktreeSha = sha; return true }
+  worktreeState = 'failed'; lastWorktreeSha = null
+  log(`⚠ C2: gate worktree could not be prepared (${(r && r.failure) || 'no verdict'}) — falling back to the LEGACY synchronous gate path for the whole run`)
+  return false
+}
+
+// ── C2 pin capture (MECH) — the boundary sha the gate(s) freeze at (HEAD right after the wave's commits) ──
+async function capturePin(frds) {
+  agentSpawned++
+  const r = await agent(
+    `Return the current MAIN-tree HEAD short sha (\`git -C ${PROJECT_DIR} rev-parse --short HEAD\`) — the pin the FRD gate(s) for ${frds.join(', ')} will freeze at. Change nothing, commit nothing. Return { sha: "<the short sha>" }.`,
+    { label: `pin:${frds.join('+')}`, phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: { type: 'object', required: ['sha'], properties: { sha: { type: 'string' } } } })
+  const sha = (r && r.sha) || null
+  for (const frd of frds) { const st = frdState.get(frd); if (st) st.pinSha = sha }
+  return sha
+}
+
+// ── C2 apply-gate (serialized MAIN-tree writer) ──────────────────────────────────────────────────
+// The review-only gate PASSED in the (possibly frozen) worktree. This MECH step is the SOLE main-tree git
+// writer for the result — serialized on commitChain (no interleaved index.lock race with the WO commits). It
+// ports the reviewer's new test files, stamps VERIFIED + reopen_count 0, recomputes rollups, updates
+// status.yaml, advances last_green_sha (WS-D/D11 ordering), commits, and emits the PASS events (one
+// GateVerdict pass + one achievement per WO + the track/journal pass lines) — moved here from the gate's pass
+// path so the event counts stay identical to the pre-C2 topology. `sourceDir` = the worktree to port test
+// files from (null when the gate ran on main — they are already in place). Runs on the MAIN tree (no workFrom).
+async function applyGate(frd, reviewIds, testFiles, sourceDir) {
+  agentSpawned++
+  const files = (testFiles || []).filter(Boolean)
+  const port = sourceDir && files.length
+    ? ` FIRST port the reviewer's adversarial test files from the gate worktree onto the main tree — for EACH of these repo-relative paths copy \`${sourceDir}/<path>\` → \`<path>\` (mkdir -p the parent; overwrite): ${files.join(', ')}.`
+    : (files.length ? ` The reviewer's adversarial test files are already on the main tree (${files.join(', ')}) — just make sure they are staged in the commit below.` : '')
+  const applyJournal = JOURNAL(
+    `"wo":"%s","frd":"${frd}","attempt":0,"reopen_count":0,"rung":"gate","role":"verifier","kind":"resolution","classification":"","seam":null,"findingKey":"","tried":"gate passed in the pinned worktree; applied on main","verdict":"green","why":"%s","confidence":"high"`,
+    ` "<the primary work order this gate verified, else ${(reviewIds || [])[0] || frd}>" "<one line: what the gate confirmed>"`)
+  const link = commitChain.then(() => agent(
+    `You are the SOLE main-tree git writer at this instant (serialized — no other commit runs concurrently, so there is NO index.lock race). Apply the PASSED FRD gate for ${frd} onto the MAIN tree (the review already happened; you only PERSIST it — do NOT re-review, do NOT re-run the suite).${port}
+    Set the reviewed work orders (${(reviewIds || []).join(', ')}) frontmatter \`implementation_status: VERIFIED\` and **reset their \`reopen_count: 0\`** (DR-072 C2), then **recompute the FRD's frd.md + blueprint.md \`implementation_status\` rollup from ALL its work orders** and persist it (VERIFIED iff all are; else BLOCKED if any blocked; else PLANNED if any planned; else IN_PROGRESS if any in progress; else IN_REVIEW); update .pandacorp/status.yaml (per-status counts + safe_to_test:true + advance \`last_event_at\` and \`updated_at\` to now, ISO 8601 — the DR-066 producer freshness stamp).${LAST_GREEN_ORDERING}${TRACK('review_end', `,"frd":"${frd}","verdict":"pass"`)}${TRACK('frd_end', `,"frd":"${frd}"`)}${GATE_VERDICT(frd, 'pass', `,"passed":${(reviewIds || []).length}`)}${ACHIEVEMENT(frd)} BUILD-JOURNAL (A1): record the gate's green resolution (the trust boundary was the gate; you are its main-tree applier):${applyJournal} Stage the ported test files, \`.pandacorp/track.jsonl\` AND \`.pandacorp/build-journal.jsonl\` too, and commit (Conventional Commits, scope). Return { done: true }.`,
+    { label: `apply-gate:${frd}`, phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA }))
+  commitChain = link.then(() => {}, () => {})   // share ONE serialized git-writer chain on main (WO commits + gate applies) — no interleaved writers
+  return link.then((r) => Boolean(r && r.done === true), (e) => { log(`apply-gate failed for ${frd}: ${(e && e.message) || e}`); return false })
+}
+
+// ── C2 persist-block (serialized MAIN-tree writer) — the non-progress / classified BLOCK the review-only
+// gate could not write (it is review-only). Stamps BLOCKED + the decision record on main. ──
+async function persistGateBlock(frd, reviewIds, reason, failure) {
+  agentSpawned++
+  const link = commitChain.then(() => agent(
+    `You are the SOLE main-tree git writer at this instant (serialized). The FRD gate for ${frd} classified a BLOCK (${reason})${failure ? ` — ${failure}` : ''} but is review-only, so persist it on the MAIN tree now. For EACH reviewed work order (${(reviewIds || []).join(', ')}) whose frontmatter fault warrants it (a DR-072 non-progress WO has \`reopen_count\` ≥ ${MAX_REOPENS}; for a generic gate block, all of them): set \`implementation_status: BLOCKED\` + \`blocked_reason: ${reason}\`. Append an owner-facing record (SPANISH) to .pandacorp/inbox/decisions.md — what the gate keeps rejecting, the diagnosis, what the owner must decide. Recompute + persist the FRD's frd.md + blueprint.md rollup; mirror in .pandacorp/status.yaml (per-status counts, bump \`pending_decisions\`, advance last_event_at + updated_at). Commit (Conventional Commits, scope). Return { done: true }.`,
+    { label: `persist-block:${frd}`, phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA }))
+  commitChain = link.then(() => {}, () => {})
+  return link.then(() => true, () => false)
 }
 
 // ── Repair pass: TRY TO FIX before giving up (owner's rule, DR-050) ────────────
@@ -1075,7 +1184,9 @@ async function ensureFoundationComplete() {
       // NOT against foundationRepairs (real repair attempts). A couple of dead gates no longer eat the
       // repair budget, and a run that legitimately needs 2 repairs isn't pre-capped by an earlier dead gate.
       foundationGateNulls++
-      if (foundationGateNulls >= FOUNDATION_GATE_NULL_CAP) {
+      // G5b (KNOWN-GAP fix): tolerate FOUNDATION_GATE_NULL_CAP transient nulls (retry), escalate on the NEXT
+      // one (`>`, not `>=`) — a couple of dead gate agents no longer hold surfaces that a later ok verdict clears.
+      if (foundationGateNulls > FOUNDATION_GATE_NULL_CAP) {
         log(`⊘ Foundation-completeness gate produced no verdict (agent died/invalid) ${foundationGateNulls}x — escalating to the owner (fail-closed)`)
         foundationEscalated = true; return false
       }
@@ -1308,7 +1419,7 @@ async function inRunRetry(f, reopenIds, reviewIds, priorDiagnosis = null) {
   log(`↻ ${f.frd}: in-run retry (DR-107) — rebuilding ${budgetedRetry.map((w) => w.id).join(', ')} from the clean base now (opus)${priorDiagnosis ? ' with the diagnosis threaded (A3)' : ''} instead of paying a whole extra pass`)
   for (const w of budgetedRetry) await buildWO(w, f.frd)
   const regate = await frdGate(f.frd, reviewIds)
-  if (regate && regate.green === true) { log(`✓ ${f.frd} VERIFIED (in-run retry)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
+  if (regate && regate.green === true) { await applyGate(f.frd, reviewIds, regate.testFiles, null); log(`✓ ${f.frd} VERIFIED (in-run retry)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
   if (regate && regate.reopen && regate.reopen.length) await revertAndReopen(f.frd, regate.reopen)
   log(`↻ ${f.frd}: in-run retry did not converge — deferred to the next pass`)
   reopenedFrds.push(f.frd); return 'reopened'
@@ -1319,9 +1430,19 @@ async function inRunRetry(f, reopenIds, reviewIds, priorDiagnosis = null) {
 // wave boundaries, so the gate's whole-project checks never see another FRD's in-flight work.
 // Returns 'built' | 'reopened' | 'blocked'; updates builtFrds/blockedFrds/reopenedFrds/consecutiveBlocks.
 async function gateAndConverge(f, reviewIds) {
+  // C2 legacy fallback (worktree unavailable): the gate runs synchronously on the (quiet) main tree, then
+  // converges inline — the pre-C2 topology, one gate per loop iteration.
+  const gate = await frdGate(f.frd, reviewIds)
+  return await gateConverge(f, reviewIds, gate)
+}
+
+// C2: the convergence continuation. Fed a gate verdict (from the concurrent worktree gate via the harvest,
+// or from an inline re-gate on the quiesced main tree). On green it APPLIES inline (sourceDir null — the gate
+// ran on main). On a reject it runs the DR-072/073/107 + BL-0001 recovery ladder — byte-for-byte the pre-C2
+// gateAndConverge body. The CONCURRENT PASS path never reaches here (the harvest applies from the worktree).
+async function gateConverge(f, reviewIds, gate) {
   phase('Review')
-  let gate = await frdGate(f.frd, reviewIds)
-  if (gate && gate.green === true) { log(`✓ ${f.frd} VERIFIED`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
+  if (gate && gate.green === true) { await applyGate(f.frd, reviewIds, gate.testFiles, null); log(`✓ ${f.frd} VERIFIED`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
   // DR-073 PATCH-FIRST: a localized reject defaults to an in-place patch on the EXISTING build (inject
   // the finding + the RED-proven failing test), re-gated WHOLE-PROJECT — NOT a revert-and-rebuild. The
   // patch runs SYNCHRONOUSLY inside this FRD's gate step (before the loop moves to sibling FRDs), and it
@@ -1445,6 +1566,7 @@ async function gateAndConverge(f, reviewIds) {
   // STOP instead of grinding another full cycle per capped FRD every run. 'error' still falls through to repair.
   if (gate && (gate.blocked_reason === 'needs-owner' || gate.blocked_reason === 'external')) {
     log(`⊘ ${f.frd}: gate classified ${gate.blocked_reason}${gate.failure ? ' — ' + gate.failure : ''} — blocking (no repair)`)
+    if (gate.blocked_reason === 'needs-owner') await persistGateBlock(f.frd, reviewIds, 'needs-owner', gate.failure)   // C2: the review-only gate classified but did not persist — write BLOCKED + decisions.md on main
     blockFrd(f.frd, gate.blocked_reason)
     return 'blocked'
   }
@@ -1454,7 +1576,7 @@ async function gateAndConverge(f, reviewIds) {
   const fix = await attemptRepair(f.frd, 'the FRD review/integration gate failed: ' + (gate?.failure || 'unknown'))
   if (fix && fix.green === true) {
     gate = await frdGate(f.frd, reviewIds)
-    if (gate && gate.green === true) { log(`✓ ${f.frd} VERIFIED (after repair)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
+    if (gate && gate.green === true) { await applyGate(f.frd, reviewIds, gate.testFiles, null); log(`✓ ${f.frd} VERIFIED (after repair)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
   }
   const reason = (fix && fix.blocked_reason) || (gate && gate.blocked_reason) || 'error'
   log(`⊘ ${f.frd}: BLOCKED (${reason})`)
@@ -1480,11 +1602,20 @@ const doneIds = new Set()     // committed (IN_REVIEW) or VERIFIED wo ids — sa
 // `!globalQueue.has(d)` (meant for a VERIFIED-and-omitted dep) used to read it as SATISFIED and build a
 // WO whose dependency is blocked (fail-open). Tracked here so a dep on a blocked WO fails CLOSED.
 const blockedIds = new Set()
-const gateQueue = []          // FRD folders whose build WOs are all committed — gates run FIFO, serialized
+const gateQueue = []          // FRD folders whose build WOs are all committed + PINNED — gates launch FIFO
+// ── C2 concurrent-gate state ──────────────────────────────────────────────────────────────────────
+let worktreeState = 'unknown'   // 'unknown' | 'ready' | 'failed' (failed → legacy synchronous gate path)
+let lastWorktreeSha = null      // the sha the worktree is currently checked out at (skip redundant checkout/install)
+let concurrentGates = null      // null = undecided (probe at the first gate); true = concurrent; false = legacy inline
+let gateWorktreeChain = Promise.resolve()   // single worktree = one checkout at a time → serialize (checkout+review) among gates
+const gatesInFlight = new Map() // frd -> promise (settled entries are deleted; size capped at MAX_CONCURRENT_GATES)
+const gateResults = []          // settled gate verdicts awaiting main-loop processing: { f, reviewIds, gate }
+const convergeQueue = []        // reject verdicts needing on-main convergence (drained under a quiesce): { f, reviewIds, gate }
 function enqueueGateIfComplete(frd) {
   const st = frdState.get(frd)
-  if (!st || st.enqueued || st.failed) return
-  if (st.toBuildIds.size === 0 && st.reviewIds.length > 0) { st.enqueued = true; gateQueue.push(frd) }
+  if (!st || st.enqueued || st.failed) return false
+  if (st.toBuildIds.size === 0 && st.reviewIds.length > 0) { st.enqueued = true; gateQueue.push(frd); return true }   // C2: newly gate-ready → the caller pins it
+  return false
 }
 function enrollFrd(f) {
   if (frdState.has(f.frd)) return
@@ -1567,6 +1698,65 @@ function detectCycles() {
   }
 }
 
+// ── C2 concurrent-gate orchestration ──────────────────────────────────────────────────────────────
+// launchGate: start a gate as a BACKGROUND promise. The (worktree checkout + review) is serialized on
+// gateWorktreeChain (a single worktree can only be at one sha at a time); each gate still overlaps the
+// BUILD on main. On settle it pushes its verdict to gateResults and frees its gatesInFlight slot.
+let gateSettledSinceSafePoint = false
+function launchGate(frd) {
+  const st = frdState.get(frd)
+  const pinSha = st.pinSha
+  const reviewIds = st.reviewIds
+  const work = gateWorktreeChain.then(async () => {
+    const ok = await ensureGateWorktree(pinSha)
+    if (!ok) return { __worktreeFailed: true }
+    return await frdGate(frd, reviewIds, worktreeWorkFrom(pinSha))
+  })
+  gateWorktreeChain = work.then(() => {}, () => {})   // keep the worktree mutex chain alive across errors
+  const tracked = work.then(
+    (gate) => { gatesInFlight.delete(frd); gateResults.push({ f: st.f, reviewIds, gate }) },
+    (e) => { gatesInFlight.delete(frd); gateResults.push({ f: st.f, reviewIds, gate: { green: false, blocked_reason: 'error', failure: `gate crashed: ${(e && e.message) || e}` } }) },
+  )
+  gatesInFlight.set(frd, tracked)
+}
+// Process every settled gate verdict: PASS → serialized apply-gate (port test files + stamp on main);
+// anything else → queue for on-main convergence under a quiesce. A __worktreeFailed sentinel routes the FRD
+// to the legacy full gate+converge on main. Returns true iff it applied at least one PASS (progress).
+async function harvestGateResults() {
+  let progressed = false
+  while (gateResults.length) {
+    const { f, reviewIds, gate } = gateResults.shift()
+    gateSettledSinceSafePoint = true
+    if (gate && gate.__worktreeFailed) { convergeQueue.push({ f, reviewIds, gate: null, __needsLegacy: true }); continue }
+    if (gate && gate.green === true) {
+      const ok = await applyGate(f.frd, reviewIds, gate.testFiles, GATE_WORKTREE)
+      if (ok) { log(`✓ ${f.frd} VERIFIED (concurrent gate, applied on main)`); builtFrds.push(f.frd); consecutiveBlocks = 0; progressed = true }
+      else convergeQueue.push({ f, reviewIds, gate })   // apply failed → converge (repair) on main
+      continue
+    }
+    convergeQueue.push({ f, reviewIds, gate })   // reject/blocked/fail → the ladder runs on main under a quiesce
+  }
+  return progressed
+}
+// Await in-flight gates (all=true → every one; else settle at least one), then harvest.
+async function settleGates(all) {
+  if (gatesInFlight.size) {
+    if (all) await Promise.all([...gatesInFlight.values()])
+    else await Promise.race([...gatesInFlight.values()])
+  }
+  return await harvestGateResults()
+}
+// Drain the convergeQueue on the (quiesced) main tree: run the exact pre-C2 convergence ladder per reject.
+async function drainConverge() {
+  while (convergeQueue.length) {
+    const item = convergeQueue.shift()
+    if (item.__needsLegacy) { await gateAndConverge(item.f, item.reviewIds); continue }   // worktree-failed gate → whole gate+converge on main
+    await gateConverge(item.f, item.reviewIds, item.gate)
+  }
+}
+// C2: resume gates (an all-IN_REVIEW FRD enrolled before any wave) are frozen at the baseline HEAD.
+if (gateQueue.length) await capturePin([...gateQueue])
+
 while (true) {
   try {   // WS-D/D2: error boundary around the whole scheduler body — a throw must never leave running:true
   // ── Brakes at every wave/gate boundary (same checks the per-FRD loop ran) ──
@@ -1576,19 +1766,51 @@ while (true) {
   if ((builtFrds.length + blockedFrds.length + reopenedFrds.length) >= MAX_FRDS) { stopReason = 'maxFrds'; log(`Reached the test cap maxFrds=${MAX_FRDS} (built+blocked+reopened) — stopping at a safe point`); break }
   if (consecutiveBlocks >= MAX_CONSECUTIVE_BLOCKS) { stopReason = 'blocks'; break }
 
-  // ── DR-069 safe point (owner signals; may enroll drained-change FRDs into this run) ──
-  // C1c: run it only BEFORE a wave dispatch — SKIP it on a pure gate-drain iteration (gateQueue non-empty).
-  // A wave IS the safe point (the drain cadence is preserved: owner signals are checked before every wave),
-  // and the initial owner-signal check already ran pre-loop in the baseline pre-check (rethink + stop signal).
-  // Skipping the safe point between consecutive gate drains removes a MECH spawn per queued gate.
-  if (gateQueue.length === 0 && (await safePoint()) === 'stop') { stopReason = 'rethink'; break }
+  // ── C2 harvest: apply settled PASS gates on main (serialized); queue rejects for convergence ──
+  await harvestGateResults()
 
-  // ── Gates first (tree is quiet right after a wave barrier): one per iteration ──
-  const gateFrd = gateQueue.shift()
-  if (gateFrd) {
-    const st = frdState.get(gateFrd)
-    await gateAndConverge(st.f, st.reviewIds)
+  // ── C2 QUIESCE for convergence: a reject verdict must converge on a QUIET main tree. No wave is building
+  // here (waves are synchronous barriers); await every in-flight gate to settle (they may land more
+  // verdicts), then run the recovery ladder on main for each, synchronously — the pre-C2 semantics. ──
+  if (convergeQueue.length) {
+    await settleGates(true)
+    await drainConverge()
     continue
+  }
+
+  // ── DR-069 safe point (owner signals; may enroll drained-change FRDs into this run) ──
+  // C1c: run it BEFORE every wave dispatch (globalQueue non-empty = a wave is coming). C2: also on an
+  // IDLE-WAIT iteration (nothing to build, only gates in flight) — but BOUNDED, only when a gate has
+  // settled since the last check, so owner signals aren't starved without spamming a spawn per spin. The
+  // initial owner-signal check already ran pre-loop in the baseline pre-check (rethink + stop signal).
+  const nothingInFlight = gatesInFlight.size === 0 && gateResults.length === 0 && convergeQueue.length === 0
+  // before a wave (build coming); OR truly idle with no queued gate (drain/unblock/final — the pre-C2 sweep
+  // ran here every empty-queue iteration too); OR idle-waiting on in-flight gates, BOUNDED to a gate settle.
+  const wantSafePoint = globalQueue.size > 0
+    || (nothingInFlight && gateQueue.length === 0)
+    || (!nothingInFlight && globalQueue.size === 0 && gateSettledSinceSafePoint)
+  if (wantSafePoint) {
+    gateSettledSinceSafePoint = false
+    if ((await safePoint()) === 'stop') { stopReason = 'rethink'; break }
+  }
+
+  // ── C2 launch ready gates as BACKGROUND promises (up to MAX_CONCURRENT_GATES) — WHILE the loop keeps
+  // dispatching build waves. The FIRST gate probes the worktree synchronously: success → concurrent for
+  // the whole run; failure → the legacy synchronous gate path (a real, tested fallback). ──
+  if (gateQueue.length) {
+    if (concurrentGates === null) {
+      concurrentGates = await ensureGateWorktree(frdState.get(gateQueue[0]).pinSha)   // probe → creates the worktree at the first pin
+      log(concurrentGates ? '▹ C2: gates run CONCURRENTLY with builds in a pinned worktree' : '↩ C2: legacy synchronous gate path (worktree unavailable) for the whole run')
+    }
+    if (concurrentGates && worktreeState !== 'failed') {
+      while (gateQueue.length && gatesInFlight.size < MAX_CONCURRENT_GATES) launchGate(gateQueue.shift())
+    } else {
+      // legacy synchronous gate path: one gate inline per iteration, pre-C2 topology (gate on the quiet main tree).
+      const gateFrd = gateQueue.shift()
+      const st = frdState.get(gateFrd)
+      await gateAndConverge(st.f, st.reviewIds)
+      continue
+    }
   }
 
   // Skip FRDs whose FRD-level deps blocked (the old loop's skip, evaluated lazily).
@@ -1600,7 +1822,12 @@ while (true) {
   }
   if (consecutiveBlocks >= MAX_CONSECUTIVE_BLOCKS) { stopReason = 'blocks'; break }
 
-  if (globalQueue.size === 0) break   // nothing left to build and no gate queued → done
+  // ── C2 nothing left to build: if gates are still in flight / settling / converging, IDLE-WAIT (settle
+  // one and loop); else the run is done. ──
+  if (globalQueue.size === 0) {
+    if (gatesInFlight.size || gateResults.length || convergeQueue.length) { await settleGates(false); continue }
+    break   // nothing to build and no gate outstanding → done
+  }
 
   // ── Ready set across ALL FRDs: dependsOn satisfied (a dep outside the schedule counts as
   // satisfied — it belongs to a fully-VERIFIED FRD the planner omitted, mirroring the old
@@ -1695,8 +1922,11 @@ while (true) {
     }
   }
 
-  // FRDs whose build WOs all committed → queue their gate (runs next iteration, tree quiet).
-  for (const frd of waveFrds) enqueueGateIfComplete(frd)
+  // FRDs whose build WOs all committed → queue their gate + PIN it at the post-wave HEAD (a boundary
+  // moment: no half-committed sibling wave). One pin spawn per completing wave (C2).
+  const newlyGateReady = []
+  for (const frd of waveFrds) if (enqueueGateIfComplete(frd)) newlyGateReady.push(frd)
+  if (newlyGateReady.length) await capturePin(newlyGateReady)
   } catch (loopErr) {
     // WS-D/D2: any throw inside the scheduler loop must NOT die with running:true left in status.yaml (Mission
     // Control would show a phantom running build forever). Log LOUD, guarantee running:false via a dedicated
@@ -1709,6 +1939,12 @@ while (true) {
     throw loopErr
   }
 }
+
+// ── C2 run-end invariant: settle EVERY in-flight gate + drain the convergeQueue BEFORE hardening/close-out/
+// notify-end (the loop may have broken — budget/agents/blocks — with gates still running; a gate already
+// spawned is work we committed to, and its apply/converge decides builtFrds/release honestly). ──
+await settleGates(true)
+await drainConverge()
 
 // ── End-of-build VISUAL QA pass (DR-072) ──────────────────────────────────────
 // The fidelity work consolidated into ONE dedicated phase, OUTSIDE the convergence loop, so being
