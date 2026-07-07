@@ -3,7 +3,7 @@ id: FRD-23
 type: frd
 title: FRD-23 — Materialized stats read-model
 status: ACTIVE
-implementation_status: VERIFIED
+implementation_status: IN_PROGRESS
 ui: false
 last_updated: '2026-07-06'
 ---
@@ -26,9 +26,11 @@ to "read the snapshot, fall back to live git only when the snapshot is missing/s
 ## Why this shape (design agreed with the owner)
 
 1. **Portada per project** — `.pandacorp/stats.json`, an **honest cache** (DR-115): the already-derived
-   numbers that feed the Informe (WOs verified per ISO week, ideas captured per week, phase transitions,
-   scalars, lessons, funnel). **Single writer**, re-derived from git **at a safe point** — never with
-   incremental `+1/-1` sums (that drifts and DR-115 forbids it).
+   **per-project** numbers that feed the Informe (WOs verified per ISO week `weeklyFlow`, per-project
+   scalars `scalars.frds`/`scalars.commits`, funnel). **Single writer**, re-derived from git **at a safe
+   point** — never with incremental `+1/-1` sums (that drifts and DR-115 forbids it). It holds **only
+   per-project facts**, so its **per-project seal validates everything it contains** (see §Portada
+   scope-split below).
 2. **Aggregate index** — `sync-portfolio` (which already walks every project) joins the N portadas into
    **one file** MC reads in **O(1)**, independent of N.
 3. **Self-validating freshness seal** — each portada stores a **seal** = the hash of the last commit
@@ -47,6 +49,42 @@ to "read the snapshot, fall back to live git only when the snapshot is missing/s
    JSON is rejected by the fail-loud reader and triggers the fallback.
 6. **Backfill** — a one-shot command walks git **once** per existing project to generate its initial
    portada.
+
+## Portada scope-split — factory-wide facts leave the per-project portada (SSOT correction, DR-115/DR-116)
+
+The original contract stored **factory-wide** facts inside the **per-project** portada — `phaseTransitions()`
+(walks the whole portfolio), `scalars.projects` (`readPortfolio().length`), `scalars.decisions` (the
+factory-wide decision registry) and `lessons` (over `factory/memory/`). Two defects follow, confirmed by
+the reviewer at the FRD-23 gate:
+
+1. **Duplicated writer (DR-115).** The writer runs **once per project**, so each factory-wide fact is
+   re-derived and stored **N times** (once per portada). Factory-wide facts must have **one writer**, not N.
+2. **Seal cannot validate what it guards.** The per-project seal
+   (`git log -1 -- docs/frds .pandacorp/status.yaml` of THAT project) does **not** watch the factory-wide
+   routes. A phase change in project **B** invalidates the `phaseTransitions` embedded in project **A**'s
+   portada, but A's seal does not detect it → **A reads "fresh" with stale data from B**. Latent today (no
+   materialized `stats.json`, MC falls back to live git), it surfaces the moment ≥2 projects are materialized.
+
+**The corrected contract:** factory-wide facts move to **one factory-scoped store** with its **own
+factory-wide seal**; the per-project portada keeps **only per-project facts**, so each seal validates
+exactly what its store contains.
+
+- **Factory store** — `<factory-root>/.pandacorp/stats-factory.json`: holds `phaseTransitions`,
+  `scalars.projects`, `scalars.decisions`, `lessons`. **Single writer**, re-derived at a safe point
+  (`sync-portfolio` already walks the whole factory → the natural point; and/or the universal per-commit
+  trigger), atomic (tmp+rename), fail-loud.
+- **Factory seal** = the last commit touching the factory-wide routes:
+  `factory/portfolio.md` + `factory/decisions/` + `factory/memory/` + the `status.yaml` of **all** projects.
+  It validates everything the factory store contains.
+- **Per-project portada** — keeps `weeklyFlow`, `scalars.frds`/`scalars.commits`, `funnel`; its existing
+  per-project seal now validates 100% of its contents.
+- **Reader composes both, each with an independent fail-loud fallback (DR-078):** factory-wide facts from
+  the factory store (validated by the factory seal) + per-project facts from the portada (validated by the
+  per-project seal). A factory-seal mismatch re-derives / falls back to live **only the factory-wide facts**,
+  leaving the per-project facts untouched, and vice versa. Never a fabricated zero.
+
+> **Supersedes** this FRD's original §"Why this shape" item 1 (portada held factory-wide facts) and
+> [ADR-0004](../../adr/ADR-0004-materialized-stats-read-model.md) §1. See ADR-0004 §"SSOT correction".
 
 **Excluded from the materialized model:** `getPendingMerge` (FRD-21, un-merged worktrees/branches)
 stays **live** — it is state that must be fresh; caching it would show stale info exactly where
@@ -88,6 +126,31 @@ freshness matters.
 ### REQ-23-005 — Pending-merge stays live
 - **AC-23-005.1** — `getPendingMerge` (FRD-21) SHALL NOT be materialized; it SHALL continue to read live
   git so un-merged worktree/branch state is never shown stale.
+
+### REQ-23-006 — Factory-scoped store for factory-wide facts (SSOT split, DR-115)
+- **AC-23-006.1** — Factory-wide facts (`phaseTransitions`, `scalars.projects`, `scalars.decisions`,
+  `lessons`) SHALL be stored in **one** factory-scoped store `<factory-root>/.pandacorp/stats-factory.json`,
+  written by a **single writer** that re-derives them from git (via the existing pure `derive*` cores,
+  DR-092) — never with incremental writes, and NOT duplicated once per project.
+- **AC-23-006.2** — The factory store SHALL stamp a **factory-wide seal** = the hash of the last commit
+  touching `factory/portfolio.md`, `factory/decisions/`, `factory/memory/` and every project's
+  `.pandacorp/status.yaml`. A change to any of these routes (e.g. a phase change in project B) SHALL make
+  the seal mismatch and the store be treated as stale.
+- **AC-23-006.3** — The write SHALL be **atomic** (tmp + rename); the reader SHALL be **fail-loud**
+  (DR-078): a missing / stale / malformed factory store returns an explicit reason, never a silent empty.
+- **AC-23-006.4** — The per-project portada SHALL NO LONGER contain factory-wide facts; it holds only
+  `weeklyFlow`, per-project `scalars` (`frds`, `commits`) and `funnel`, all validated by the per-project seal.
+
+### REQ-23-007 — Composed reader (per-project + factory-wide, independent fallback)
+- **AC-23-007.1** — The Informe reader SHALL compose factory-wide facts from the factory store (validated
+  by the factory seal) with per-project facts from the portada (validated by the per-project seal).
+- **AC-23-007.2** — A **factory-seal mismatch** SHALL fall back to live git for the **factory-wide facts
+  only**, leaving valid per-project facts untouched (and vice-versa). Neither fallback SHALL fabricate a
+  zero (DR-078).
+- **AC-23-007.3** (regression) — GIVEN two materialized projects A and B, WHEN a phase change in B
+  invalidates the factory-wide facts, project A's Informe SHALL NOT be served with stale factory-wide data:
+  the factory seal SHALL mismatch and A SHALL re-derive / fall back for those facts. (This is the exact
+  defect the split fixes.)
 
 ## Edge cases / error states (each maps to an AC)
 - Portada present, seal matches → read portada (AC-23-001.1).

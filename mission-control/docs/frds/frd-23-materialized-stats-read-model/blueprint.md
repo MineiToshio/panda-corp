@@ -3,7 +3,7 @@ id: FRD-23-blueprint
 type: blueprint
 parent: FRD-23
 status: ACTIVE
-implementation_status: VERIFIED
+implementation_status: IN_PROGRESS
 last_updated: '2026-07-06'
 ---
 # Feature blueprint — FRD-23 Materialized stats read-model
@@ -58,24 +58,56 @@ primary path, and the reference the writer + equivalence test derive against.
   portadas.
 - **Backfill** — one-shot command over existing projects calling `writeStatsPortada` once each.
 
+## 3b. SSOT split — factory-wide store vs per-project portada (DR-115/DR-116)
+
+The FRD-23 gate surfaced a DR-115 defect in the **original** contract: the per-project portada embedded
+**factory-wide** facts (`phaseTransitions`, `scalars.projects`, `scalars.decisions`, `lessons`) that (a)
+were written N times (once per portada) and (b) could not be validated by the per-project seal (a phase
+change in project B leaves A's embedded copy stale but A's seal unchanged). The corrected design splits the
+store by scope; the FRD §"Portada scope-split" is the contract, ADR-0004 §"SSOT correction" the decision.
+
+- **`src/lib/achievements/read-model/factorySeal.ts`** (new) — `currentFactorySeal(factoryRoot): string | null`
+  = the hash of the last commit touching `factory/portfolio.md`, `factory/decisions/`, `factory/memory/`
+  and every project's `.pandacorp/status.yaml` (one `git log -1 --format=%H -- <those paths>`).
+  `isFactoryFresh(store, seal)` — equality only (LESSON-0009: commit hashes, not timestamps → no ordering).
+- **`src/lib/achievements/read-model/factoryStoreReader.ts`** (new) — `readStatsFactory(factoryRoot): FactoryResult`,
+  fail-loud (DR-078), same discriminated-result convention as `readStatsPortada`.
+- **`src/lib/achievements/read-model/factoryStoreWriter.ts`** (new — factory tooling) —
+  `writeStatsFactory(factoryRoot)`: re-derives `phaseTransitions`/`scalars.projects`/`scalars.decisions`/
+  `lessons` via the existing `derive*` cores, stamps the factory seal, atomic tmp+rename. **Single writer.**
+- **Prune the per-project writer/reader/schema** so the portada holds only per-project facts.
+- **Recompose the Informe reader** (`resolveInformeSources` / `resolvePortadaFromAggregate`) to merge the
+  two stores, each with an **independent** fail-loud fallback to the live `derive*` cores.
+
 ## 4. Data model
 
 ```
+// per-project — validated by the per-project seal (git log -1 -- docs/frds .pandacorp/status.yaml)
 StatsPortada = {
-  seal: string,               // git log -1 --format=%H -- docs/frds .pandacorp/status.yaml
+  seal: string,
   generatedAt: string,        // ISO — provenance, not authority
   weeklyFlow: WeeklyFlow,     // from report/types.ts (reused verbatim)
-  phaseTransitions: PhaseTransition[],
-  scalars: ReportScalars,
-  lessons: LessonCounts | null,
+  scalars: ProjectScalars,    // per-project subset: { frds, commits }  (projects/decisions REMOVED)
   funnel: FunnelFlow,
 }
 StatsAggregate = { projects: Record<string, StatsPortada> }
 PortadaResult   = { ok: true; value: StatsPortada } | { ok: false; reason: "missing" | "stale" | "unparseable" }
+
+// factory-wide — validated by the factory seal (portfolio.md + decisions/ + memory/ + every status.yaml)
+StatsFactory = {
+  seal: string,
+  generatedAt: string,
+  phaseTransitions: PhaseTransition[],
+  scalars: FactoryScalars,    // { projects, decisions }
+  lessons: LessonCounts | null,
+}
+FactoryResult = { ok: true; value: StatsFactory } | { ok: false; reason: "missing" | "stale" | "unparseable" }
 ```
 
-The reader NEVER returns a bare `[]`/`null` on an unrecognised shape (DR-078); `reason` distinguishes
-"missing" from "unparseable" from "stale" so the caller acts correctly.
+`ReportScalars` splits into `ProjectScalars` (`frds`, `commits`) held per-project and `FactoryScalars`
+(`projects`, `decisions`) held factory-wide; the Informe composes both back into the shape FRD-10 renders.
+Neither reader returns a bare `[]`/`null` on an unrecognised shape (DR-078); `reason` distinguishes
+"missing" / "unparseable" / "stale" so the caller acts correctly and per scope independently.
 
 ## 5. Testing (DR-078 / DR-115)
 
@@ -88,3 +120,15 @@ The reader NEVER returns a bare `[]`/`null` on an unrecognised shape (DR-078); `
   `ca82bbba` invariant).
 - **Aggregate index** → O(1) read; malformed aggregate fails loud.
 - **Backfill** → generates an initial portada equivalent to the live reader.
+
+### SSOT-split tests (REQ-23-006/007)
+- **Factory seal detects cross-project staleness (the regression)** → materialize A and B; a phase change
+  in B mismatches the factory seal; A's Informe does NOT read stale factory-wide facts (AC-23-007.3). This
+  is the exact defect the split fixes and must fail without the fix, pass with it.
+- **Factory store fail-loud** → missing / stale / malformed factory store → explicit reason, never a
+  fabricated zero (AC-23-006.3).
+- **Independent fallback** → factory-seal mismatch falls back for factory-wide facts ONLY, per-project
+  facts untouched, and vice-versa (AC-23-007.2).
+- **Per-project portada validated by its own seal** → now that it holds only per-project facts, its seal
+  covers 100% of its contents (AC-23-006.4).
+- **Equivalence** → factory store numbers == live `derive*` numbers; per-project portada numbers == live.

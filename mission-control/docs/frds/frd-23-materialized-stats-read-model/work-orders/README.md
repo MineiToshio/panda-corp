@@ -16,12 +16,18 @@ refactor). The gate is `.pandacorp/verify.sh` (biome → tsc → vitest). The DR
 | WO-23-002 | Portada writer (single writer, atomic tmp+rename) + portada-vs-live equivalence test | `lib/` | WO-23-001 |
 | WO-23-003 | Wire the Informe to read the portada/aggregate first, fall back to live git | `lib/`, `app/` | WO-23-001 |
 | WO-23-004 | `sync-portfolio` aggregate index + Stop/`post-commit` regeneration + one-shot backfill | tooling | WO-23-002 |
+| WO-23-005 | **SSOT split** — factory-scoped store + seal (writer/reader) + prune the per-project portada to per-project facts (DR-115) | `lib/` | WO-23-001, WO-23-002 |
+| WO-23-006 | Recompose the Informe reader (per-project + factory-wide) with independent fail-loud fallback + cross-project staleness regression | `lib/`, `app/` | WO-23-003, WO-23-005 |
 
 ## Parallelization
 
 - WO-23-001 has no intra-feature dependency → start here.
 - WO-23-002 consumes the `StatsPortada` schema + seal from WO-23-001.
 - WO-23-003 consumes the reader; WO-23-004 consumes the writer.
+- **WO-23-005/006 (SSOT split, change `stats-ssot-split-factory-facts`)** are the DR-115 correction the
+  FRD-23 gate surfaced: WO-23-005 builds the factory-scoped store and prunes the per-project portada;
+  WO-23-006 recomposes the Informe reader and adds the cross-project staleness regression. WO-23-004's
+  regeneration point (`sync-portfolio`) also writes the factory store (natural whole-factory walk).
 
 ## Cross-feature dependencies
 

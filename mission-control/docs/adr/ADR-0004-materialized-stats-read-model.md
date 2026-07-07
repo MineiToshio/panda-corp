@@ -47,6 +47,36 @@ ADR-0002/0003) is unchanged.
 stays **live** — it is state that must be fresh; caching it would show stale info exactly where freshness
 matters most.
 
+## SSOT correction (2026-07-06, change `stats-ssot-split-factory-facts`)
+
+The FRD-23 gate surfaced a DR-115 defect in decision §1 above: the **per-project** portada stored
+**factory-wide** facts — `phaseTransitions` (walks the whole portfolio), `scalars.projects`
+(`readPortfolio().length`), `scalars.decisions` (the factory decision registry) and `lessons` (over
+`factory/memory/`). Two failures follow:
+
+1. **N writers for one fact.** The portada writer runs once per project, so each factory-wide fact is
+   re-derived and stored N times — the DR-115 single-writer rule violated.
+2. **The seal cannot validate what it guards.** The per-project seal (`git log -1 -- docs/frds
+   .pandacorp/status.yaml` of that project) does not watch the factory-wide routes. A phase change in
+   project B invalidates the `phaseTransitions` embedded in A's portada, but A's seal is unchanged → A is
+   served **fresh with stale data from B**. Latent while nothing is materialized (MC falls back to live
+   git); it surfaces at ≥2 materialized projects.
+
+**Corrected decision:** split the read-model by **scope**.
+
+- **Factory-scoped store** `<factory-root>/.pandacorp/stats-factory.json` holds the factory-wide facts,
+  written by **one** writer, with its **own factory-wide seal** = the last commit touching
+  `factory/portfolio.md` + `factory/decisions/` + `factory/memory/` + every project's `status.yaml`.
+- **Per-project portada** keeps only per-project facts (`weeklyFlow`, `scalars.frds`/`scalars.commits`,
+  `funnel`); its per-project seal now validates 100% of its contents.
+- **The reader composes both**, each with an **independent** fail-loud fallback to live git (DR-078): a
+  factory-seal mismatch re-derives / falls back for the factory-wide facts only, leaving valid per-project
+  facts untouched, and vice-versa. Never a fabricated zero.
+
+This **supersedes** decision §1 (portada as the sole honest cache of *all* Informe facts). §2 (aggregate
+index of per-project portadas), §3–§6 and the read-only invariant are unchanged; the factory store is a
+second honest cache under the same DR-115/DR-078 contract. Implemented via FRD-23 REQ-23-006/007.
+
 ## Consequences
 
 - Informe becomes practically independent of N: ~5 ms via the aggregate index (~35 ms reading N portadas
