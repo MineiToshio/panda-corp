@@ -82,13 +82,18 @@ describe("readEvents — new engine vocabulary fields", () => {
         frd: "frd-05-z",
         outcome: "gate-test-defective",
       },
-      { event: "gate", at: "2026-07-07T10:00:04Z", frd: "frd-05-z", wos: "3/3", attempt: 2 },
+      // The real extended gate event carries wos as a plain COUNT (number)…
+      { event: "gate", at: "2026-07-07T10:00:04Z", frd: "frd-05-z", wos: 3, attempt: 2 },
+      // …while BuildComplete keeps the "done/total" string form.
+      { event: "BuildComplete", at: "2026-07-07T10:00:05Z", wos: "5/7", frds: "2/3", verdict: "partial" },
     ]);
     const { events } = readEvents({ path: file });
     expect(events[0]?.stage).toBe("security");
     expect(events[0]?.status).toBe("ok");
     expect(events[1]?.outcome).toBe("gate-test-defective");
     expect(events[2]?.attempt).toBe(2);
+    expect(events[2]?.wos).toBe("3");
+    expect(events[3]?.wos).toBe("5/7");
   });
 
   it("still reads the new fields when nested under `data` (real emitter shape)", () => {

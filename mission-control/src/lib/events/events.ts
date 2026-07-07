@@ -350,6 +350,11 @@ function applyResultNumberFields(src: Record<string, unknown>, ev: Event): void 
   if (typeof src.routes === "number" && Number.isFinite(src.routes)) ev.routes = src.routes;
   if (typeof src.failed === "number" && Number.isFinite(src.failed)) ev.failed = src.failed;
   if (typeof src.attempt === "number" && Number.isFinite(src.attempt)) ev.attempt = src.attempt;
+  // `wos` is a string on BuildComplete ("done/total") but a plain count on the
+  // extended gate event — tolerate the numeric form instead of dropping it.
+  if (ev.wos === undefined && typeof src.wos === "number" && Number.isFinite(src.wos)) {
+    ev.wos = String(src.wos);
+  }
 }
 
 function applyResultFields(obj: Record<string, unknown>, ev: Event): void {
