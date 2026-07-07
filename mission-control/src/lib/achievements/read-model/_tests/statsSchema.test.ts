@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { parseStatsAggregate, parseStatsPortada, type StatsPortada } from "../statsSchema";
 import { makePortada } from "./fixtures";
 
-describe("parseStatsPortada — real production shape", () => {
+describe("parseStatsPortada — real production shape (per-project only, WO-23-005)", () => {
   it("accepts a well-formed portada and preserves every field verbatim", () => {
     const raw = makePortada();
     const parsed = parseStatsPortada(raw);
@@ -20,24 +20,8 @@ describe("parseStatsPortada — real production shape", () => {
     expect(portada.generatedAt).toBe(raw.generatedAt);
     expect(portada.weeklyFlow.woVerified).toEqual(raw.weeklyFlow.woVerified);
     expect(portada.weeklyFlow.peakWeek).toBe(raw.weeklyFlow.peakWeek);
-    expect(portada.phaseTransitions).toEqual(raw.phaseTransitions);
     expect(portada.scalars).toEqual(raw.scalars);
     expect(portada.funnel).toEqual(raw.funnel);
-    expect(portada.lessons).toEqual(raw.lessons);
-  });
-
-  it("accepts `lessons: null` as a legitimate 'no cableado' value, not corruption", () => {
-    const parsed = parseStatsPortada(makePortada({ lessons: null }));
-    expect(parsed).not.toBeNull();
-    expect((parsed as StatsPortada).lessons).toBeNull();
-  });
-
-  it("accepts `scalars.testsPassing: null` as a legitimate absence", () => {
-    const raw = makePortada();
-    const withNullTests = { ...raw, scalars: { ...raw.scalars, testsPassing: null } };
-    const parsed = parseStatsPortada(withNullTests);
-    expect(parsed).not.toBeNull();
-    expect((parsed as StatsPortada).scalars.testsPassing).toBeNull();
   });
 });
 
@@ -68,18 +52,7 @@ describe("parseStatsPortada — fail loud on unrecognised shapes (AC-23-001.4)",
     expect(parseStatsPortada(bad)).toBeNull();
   });
 
-  it("rejects a phaseTransition with an unknown phase value", () => {
-    const raw = makePortada();
-    const bad = {
-      ...raw,
-      phaseTransitions: [
-        { project: "x", date: "2026-07-01", from: "product", to: "launched", isReopen: false },
-      ],
-    };
-    expect(parseStatsPortada(bad)).toBeNull();
-  });
-
-  it("rejects scalars with a NaN/Infinity count (corrupt number)", () => {
+  it("rejects per-project scalars with a NaN/Infinity count (corrupt number)", () => {
     const raw = makePortada();
     expect(parseStatsPortada({ ...raw, scalars: { ...raw.scalars, frds: Number.NaN } })).toBeNull();
     expect(
@@ -91,12 +64,6 @@ describe("parseStatsPortada — fail loud on unrecognised shapes (AC-23-001.4)",
     const raw = makePortada();
     const { discovered: _drop, ...partialByStatus } = raw.funnel.byStatus;
     const bad = { ...raw, funnel: { ...raw.funnel, byStatus: partialByStatus } };
-    expect(parseStatsPortada(bad)).toBeNull();
-  });
-
-  it("rejects a lessons object missing a count", () => {
-    const raw = makePortada();
-    const bad = { ...raw, lessons: { distilled: 3 } };
     expect(parseStatsPortada(bad)).toBeNull();
   });
 });

@@ -38,3 +38,5 @@
 {"kind":"review_start","frd":"frd-23-materialized-stats-read-model","at":"2026-07-06T23:37:21Z"}
 {"kind":"review_end","frd":"frd-23-materialized-stats-read-model","verdict":"pass","at":"2026-07-06T23:47:48Z"}
 {"kind":"frd_end","frd":"frd-23-materialized-stats-read-model","at":"2026-07-06T23:47:48Z"}
+{"kind":"wo_start","frd":"frd-23-materialized-stats-read-model","wo":"WO-23-005","at":"2026-07-07T03:11:25Z"}
+{"kind":"wo_blocked","frd":"frd-23-materialized-stats-read-model","wo":"WO-23-005","reason":"superseded blessed reviewer test aggregateChain.reviewer.test.ts (DR-080) conflicts with REQ-23-006.4","at":"2026-07-07T03:25:50Z"}

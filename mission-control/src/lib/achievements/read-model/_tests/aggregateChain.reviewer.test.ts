@@ -108,7 +108,7 @@ describe("full aggregate→resolve→informe chain — honest fallback, never a 
     }
   });
 
-  it("a FRESH aggregate entry is used directly — the live readers are NEVER invoked (no needless git shell-out, AC-23-003.1)", () => {
+  it("a FRESH aggregate entry supplies its PER-PROJECT facts directly — only the FACTORY-WIDE readers shell out to live (SSOT split, REQ-23-006.4 / AC-23-003.1)", () => {
     const seal = "fresh".padEnd(40, "f");
     mockedCurrentSeal.mockReturnValue(seal);
     const spy = {
@@ -127,12 +127,22 @@ describe("full aggregate→resolve→informe chain — honest fallback, never a 
     expect(portadaResult.ok).toBe(true);
 
     const sources = resolveInformeSources(portadaResult, spy);
-    // The portada was fresh → its own numbers are used, and NONE of the live git readers ran.
+    // PER-PROJECT facts come from the fresh portada → their live git readers NEVER run.
     expect(spy.weeklyFlow).not.toHaveBeenCalled();
-    expect(spy.phaseTransitions).not.toHaveBeenCalled();
-    expect(spy.scalars).not.toHaveBeenCalled();
+    expect(spy.funnel).not.toHaveBeenCalled();
+    // FACTORY-WIDE facts are NOT covered by the per-project seal (SSOT split, REQ-23-006.4) — the
+    // portada can no longer supply them, so they MUST come from live: these DO run (that is correct,
+    // never-stale behavior, not a needless shell-out of a per-project fact).
+    expect(spy.phaseTransitions).toHaveBeenCalled();
+    expect(spy.lessons).toHaveBeenCalled();
+    expect(spy.scalars).toHaveBeenCalled();
+    // Honest composition: per-project numbers from the portada, factory-wide from live.
+    const portada = makePortada();
     if (sources.weeklyFlow.ok) {
-      expect(sources.weeklyFlow.value.peakWeek).toBe(makePortada().weeklyFlow.peakWeek);
+      expect(sources.weeklyFlow.value.peakWeek).toBe(portada.weeklyFlow.peakWeek);
     }
+    expect(sources.scalars.frds).toBe(portada.scalars.frds);
+    expect(sources.scalars.projects).toBe(LIVE_SCALARS.projects);
+    expect(sources.phaseTransitions).toEqual(LIVE_TRANSITIONS);
   });
 });

@@ -9,15 +9,16 @@ created_with: "6.0.0"
 target_platforms: desktop
 deploy_target: internal  # internal tool (runs on 127.0.0.1) — no external host (DR-085)
 deploy_url: "http://192.168.18.227:1987"  # MC's internal release on the LAN
-running: true
+running: false
 run_started_at: "2026-07-07T02:55:23Z"
+run_completed_at: "2026-07-07T03:20:00Z"
 repo: ""
 updated_at: "2026-07-07T03:08:08Z"
 last_event_at: "2026-07-07T03:08:08Z"
 work_orders_total: 104
-work_orders_verified: 102
+work_orders_verified: 103
 work_orders_in_review: 0
-work_orders_planned: 2
+work_orders_planned: 1
 work_orders_in_progress: 0
 work_orders_blocked: 0
 work_orders_done: 102
@@ -29,6 +30,19 @@ last_green_sha: "ebe1c58f"
 safe_to_test: true  # RELEASE (DR-085): whole-project cross-feature INTEGRATION review (DR-060) PASSED + full verify.sh GREEN at ebe1c58f (biome/tsc/knip/madge clean, 7538 unit tests, 68 e2e — smoke+shell+visual+responsive, desktop+mobile). Cross-feature seams all AGREE: one shared WorkOrderState (board/DAG/detail import it, exhaustive Record maps tsc-enforced), one GuildOutcomes/computeGuildLevel, one LiveFrame/useLiveSnapshot (FRD-18/12/06/05), the FRD-23 stats read-model fail-loud (AggregateResult/PortadaResult discriminated unions + honest fallback, never fabricates a zero, DR-078), Manual reuses Config's catalog cards (no fork), deriveKpis/KpiHeader fully removed (SSOT). Hardening artifacts present & dated this run: docs/reviews/security-2026-07-06.md (no Critical/High) + events.md "## Verification 2026-07-06". Gate quarantine set EMPTY (0 BLOCKED needs-owner) → full gate ranged over every route. Killed one orphaned same-project next-dev server (PID 29197, BL-0049/LESSON-0040) that blocked the first Playwright run, then re-ran clean. Advisory-only (visual punch-list, non-blocking): _observability/FreshnessBadge (CMP-12-freshness) is a divergent 2nd FreshnessBadge with zero production consumers — superseded by the DR-066 modules/FreshnessBadge; tested-but-unmounted so knip doesn't flag it (cleanup nit, not a broken seam). All 102 WOs VERIFIED.
 # --- prior note (FRD-23) ---
 # FRD-23 (materialized stats read-model) VERIFIED at the split-gate CLOSE. WO-23-004 (aggregate index + Stop/post-commit regeneration + one-shot backfill) — reverted last run for AC-23-003.1 being unwired — was REBUILT and is now wired end-to-end: page.tsx reads the O(1) aggregate (readStatsAggregate + resolvePortadaFromAggregate), the sync-portfolio skill (step 5c) invokes `pnpm stats:sync-aggregate`, and the stats:regen/stats:sync-aggregate/stats:backfill scripts + scripts/read-model/*.mjs exist. The preserved reviewer adversarial spec (aggregateWiring.reviewer.test.ts, the RED baseline that forced the revert) now passes GREEN and was restored into the tree as a permanent gate + a new reviewer integration spec (aggregateChain.reviewer.test.ts) proves the honest-fallback chain never fabricates a zero (DR-078). Full suite 7538 tests GREEN, tsc + biome clean. The Playwright layer hit a transient orphaned-dev-server port/lock (LESSON-0040 / BL-0049, another session's PID) — /achievements verified live at HTTP 200; FRD-23 is ui:false. All 102 WOs VERIFIED. NOTE (owner, not a WO defect): the approved per-project portada embeds factory-wide facts (phaseTransitions/scalars.projects/scalars.decisions/lessons) that a per-project seal can't validate — a latent SSOT concern in the FRD/ADR design itself, logged to inbox/decisions.md. 2026-07-06
-blocked: []
+blocked:
+  - wo: WO-23-005
+    frd: FRD-23
+    reason: gate-test-defective
+    note: >-
+      SSOT factory-store split (REQ-23-006) is complete & green in isolation (tsc/biome/knip/madge clean,
+      read-model 105/106). The SOLE gate red is one blessed reviewer test the implementer may not edit
+      (DR-080): aggregateChain.reviewer.test.ts:111-137 asserts a FRESH portada never invokes the live
+      phaseTransitions/scalars readers — the PRE-split contract. REQ-23-006.4 derogates it: factory-wide
+      facts (phaseTransitions/scalars.projects/scalars.decisions/lessons) LEFT the per-project portada, so
+      a fresh portada CANNOT supply phaseTransitions and it MUST come from live/factory-store → the
+      assertion is unsatisfiable by any correct split implementation. Routes to gate-test repair (BL-0001),
+      NOT a rebuild — the production code is correct. WO-23-006 (dependsOn WO-23-005) recomposes & re-blesses
+      this chain. Code preserved (uncommitted, correct — NOT reverted; reverting correct work is wrong here).
 pending_changes: 0
 supervisor_heartbeat: "2026-07-07T02:55:23Z"

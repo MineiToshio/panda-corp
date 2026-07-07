@@ -21,23 +21,34 @@ function spyLive<T>(value: T): { fn: () => T; calls: () => number } {
   return { fn: spy, calls: () => spy.mock.calls.length };
 }
 
-describe("resolveInformeSources — fresh portada (AC-23-001.1)", () => {
-  it("uses the portada's numbers and never calls the live readers", () => {
+describe("resolveInformeSources — fresh portada (AC-23-001.1, SSOT split WO-23-005)", () => {
+  it("uses the portada for per-project facts + the live cores for factory-wide facts", () => {
     const portada = makePortada();
     const portadaResult: PortadaResult = { ok: true, value: portada };
     const weeklyFlowLive = spyLive({
       ok: true as const,
       value: { woVerified: [], ideasCaptured: [], peakWeek: 0, ideasWithoutCreated: 0 },
     });
-    const phaseTransitionsLive = spyLive({ ok: true as const, value: [] });
+    const phaseTransitionsLive = spyLive({
+      ok: true as const,
+      value: [
+        {
+          project: "p",
+          date: "2026-07-02",
+          from: "design" as const,
+          to: "architecture" as const,
+          isReopen: false,
+        },
+      ],
+    });
     const scalarsLive = spyLive({
-      frds: 0,
-      commits: 0,
-      decisions: 0,
-      projects: 0,
+      frds: 99,
+      commits: 999,
+      decisions: 42,
+      projects: 7,
       testsPassing: null,
     });
-    const lessonsLive = spyLive(null);
+    const lessonsLive = spyLive({ distilled: 5, captured: 6 });
     const funnelLive = spyLive({
       totalIdeas: 0,
       byStatus: {
@@ -61,17 +72,23 @@ describe("resolveInformeSources — fresh portada (AC-23-001.1)", () => {
       funnel: funnelLive.fn,
     });
 
+    // Per-project facts come from the portada (the per-project git shell-out is skipped).
     expect(sources.weeklyFlow).toEqual({ ok: true, value: portada.weeklyFlow });
-    expect(sources.phaseTransitions).toEqual({ ok: true, value: portada.phaseTransitions });
-    expect(sources.scalars).toEqual(portada.scalars);
-    expect(sources.lessons).toEqual(portada.lessons);
     expect(sources.funnel).toEqual(portada.funnel);
-
+    expect(sources.scalars.frds).toBe(portada.scalars.frds);
+    expect(sources.scalars.commits).toBe(portada.scalars.commits);
     expect(weeklyFlowLive.calls()).toBe(0);
-    expect(phaseTransitionsLive.calls()).toBe(0);
-    expect(scalarsLive.calls()).toBe(0);
-    expect(lessonsLive.calls()).toBe(0);
     expect(funnelLive.calls()).toBe(0);
+
+    // Factory-wide facts come from the LIVE cores (the portada no longer holds them — SSOT split).
+    expect(sources.phaseTransitions).toEqual(phaseTransitionsLive.fn());
+    expect(sources.lessons).toEqual(lessonsLive.fn());
+    expect(sources.scalars.projects).toBe(7);
+    expect(sources.scalars.decisions).toBe(42);
+    expect(sources.scalars.testsPassing).toBeNull();
+    expect(phaseTransitionsLive.calls()).toBeGreaterThan(0);
+    expect(lessonsLive.calls()).toBeGreaterThan(0);
+    expect(scalarsLive.calls()).toBeGreaterThan(0);
   });
 });
 

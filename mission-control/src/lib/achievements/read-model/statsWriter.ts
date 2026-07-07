@@ -27,19 +27,10 @@ import { readIdeas } from "../../ideas/ideas";
 import type { StatusResult } from "../../status/status";
 import { weeklyFlow } from "../report/flowSeries";
 import { funnelAndFlow } from "../report/funnel";
-import { lessonCounts } from "../report/lessons";
-import { phaseTransitions } from "../report/phaseTransitions";
 import { reportScalars } from "../report/scalars";
-import type {
-  FunnelFlow,
-  LessonCounts,
-  PhaseTransition,
-  ReportResult,
-  ReportScalars,
-  WeeklyFlow,
-} from "../report/types";
+import type { FunnelFlow, ReportResult, WeeklyFlow } from "../report/types";
 import { currentSeal } from "./seal";
-import type { StatsPortada } from "./statsSchema";
+import type { ProjectScalars, StatsPortada } from "./statsSchema";
 
 /** The materialized portada file, relative to a project's `.pandacorp/`. */
 const STATS_FILENAME = "stats.json";
@@ -49,15 +40,16 @@ const STATS_FILENAME = "stats.json";
  * produce (DR-092: assembled from them, never re-derived). Injected into the pure `buildPortada`
  * so the assembly is unit-testable without git I/O and the equivalence check compares like-for-like.
  *
- * `weeklyFlow` / `phaseTransitions` are `ReportResult` (they can be `git-unavailable` /
- * `unparseable`); `buildPortada` unwraps them and refuses to materialize an un-derivable portada
- * (fail loud, DR-078) — a portada that lies about "no activity" is worse than no portada at all.
+ * `weeklyFlow` is a `ReportResult` (it can be `git-unavailable` / `unparseable`); `buildPortada`
+ * unwraps it and refuses to materialize an un-derivable portada (fail loud, DR-078) — a portada
+ * that lies about "no activity" is worse than no portada at all.
+ *
+ * SSOT split (WO-23-005): the portada holds ONLY per-project facts — `scalars` is the per-project
+ * subset (`frds`, `commits`); `phaseTransitions`/`lessons` moved to the factory store.
  */
 export type LiveReportValues = {
   readonly weeklyFlow: ReportResult<WeeklyFlow>;
-  readonly phaseTransitions: ReportResult<PhaseTransition[]>;
-  readonly scalars: ReportScalars;
-  readonly lessons: LessonCounts | null;
+  readonly scalars: ProjectScalars;
   readonly funnel: FunnelFlow;
 };
 
@@ -99,11 +91,6 @@ export function buildPortada(values: LiveReportValues, stamp: PortadaStamp): Sta
   if (!values.weeklyFlow.ok) {
     throw new PortadaDeriveError(`weeklyFlow could not be derived (${values.weeklyFlow.reason})`);
   }
-  if (!values.phaseTransitions.ok) {
-    throw new PortadaDeriveError(
-      `phaseTransitions could not be derived (${values.phaseTransitions.reason})`,
-    );
-  }
   if (stamp.seal === "") {
     throw new PortadaDeriveError("cannot stamp an empty seal");
   }
@@ -112,17 +99,17 @@ export function buildPortada(values: LiveReportValues, stamp: PortadaStamp): Sta
     seal: stamp.seal,
     generatedAt: stamp.generatedAt,
     weeklyFlow: values.weeklyFlow.value,
-    phaseTransitions: values.phaseTransitions.value,
     scalars: values.scalars,
-    lessons: values.lessons,
     funnel: values.funnel,
   };
 }
 
 /**
- * Gather the live report values for a project through the SAME report readers the Informe render
- * uses (`weeklyFlow`, `phaseTransitions`, `reportScalars`, `lessonCounts`, `funnelAndFlow`) — so
- * the materialized portada is derived once, not twice (DR-092), and equals the live numbers.
+ * Gather the live per-project report values for a project through the SAME report readers the
+ * Informe render uses (`weeklyFlow`, `reportScalars`, `funnelAndFlow`) — so the materialized
+ * portada is derived once, not twice (DR-092), and equals the live numbers. Only the PER-PROJECT
+ * subset of `reportScalars` (`frds`, `commits`) is kept; `projects`/`decisions` are factory-wide
+ * and live in the factory store (WO-23-005). `phaseTransitions`/`lessons` also left the portada.
  *
  * `ideas` + `statuses` feed the pure `funnelAndFlow`; when omitted they are read from the same
  * single sources the render reads (`readIdeas`, `getGuildState`), so a standalone writer call
@@ -131,18 +118,17 @@ export function buildPortada(values: LiveReportValues, stamp: PortadaStamp): Sta
  * @param projectPath - Absolute path to the project's git work-tree.
  * @param ideas       - Optional pre-read idea cards (defaults to `readIdeas()`).
  * @param statuses    - Optional pre-read project statuses (defaults to `getGuildState().statuses`).
- * @returns The live report values ready for `buildPortada`.
+ * @returns The live per-project report values ready for `buildPortada`.
  */
 export function gatherLiveValues(
   projectPath: string,
   ideas: readonly IdeaCard[] = readIdeas(),
   statuses: readonly StatusResult[] = getGuildState().statuses,
 ): LiveReportValues {
+  const scalars = reportScalars(projectPath);
   return {
     weeklyFlow: weeklyFlow(projectPath),
-    phaseTransitions: phaseTransitions(),
-    scalars: reportScalars(projectPath),
-    lessons: lessonCounts(),
+    scalars: { frds: scalars.frds, commits: scalars.commits },
     funnel: funnelAndFlow(ideas, statuses),
   };
 }

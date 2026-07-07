@@ -16,8 +16,6 @@ import { getGuildState } from "../../../gamification/guildState";
 import { readIdeas } from "../../../ideas/ideas";
 import { weeklyFlow } from "../../report/flowSeries";
 import { funnelAndFlow } from "../../report/funnel";
-import { lessonCounts } from "../../report/lessons";
-import { phaseTransitions } from "../../report/phaseTransitions";
 import { reportScalars } from "../../report/scalars";
 import { currentSeal } from "../seal";
 import { readStatsPortada } from "../statsReader";
@@ -33,14 +31,13 @@ import {
 import { FIXTURE_SEAL, makePortada } from "./fixtures";
 
 // ── Live report values from the fixture portada (so tests are deterministic) ──────
+// SSOT split (WO-23-005): the portada holds ONLY per-project facts now.
 const FIXTURE = makePortada();
 
 function okValues(): LiveReportValues {
   return {
     weeklyFlow: { ok: true, value: FIXTURE.weeklyFlow },
-    phaseTransitions: { ok: true, value: [...FIXTURE.phaseTransitions] },
     scalars: FIXTURE.scalars,
-    lessons: FIXTURE.lessons,
     funnel: FIXTURE.funnel,
   };
 }
@@ -55,9 +52,7 @@ describe("buildPortada — assembles from live values, never re-derives (AC-23-0
     expect(portada.seal).toBe(FIXTURE_SEAL);
     expect(portada.generatedAt).toBe("2026-07-06T12:00:00.000Z");
     expect(portada.weeklyFlow).toEqual(FIXTURE.weeklyFlow);
-    expect(portada.phaseTransitions).toEqual(FIXTURE.phaseTransitions);
     expect(portada.scalars).toEqual(FIXTURE.scalars);
-    expect(portada.lessons).toEqual(FIXTURE.lessons);
     expect(portada.funnel).toEqual(FIXTURE.funnel);
   });
 
@@ -68,23 +63,20 @@ describe("buildPortada — assembles from live values, never re-derives (AC-23-0
     expect(round).toEqual(portada);
   });
 
-  it("accepts a null lessons ('no cableado') without fabricating a count", () => {
-    const portada = buildPortada({ ...okValues(), lessons: null }, STAMP);
-    expect(portada.lessons).toBeNull();
+  it("holds only per-project facts — no factory-wide fields (SSOT split, WO-23-005)", () => {
+    const portada = buildPortada(okValues(), STAMP);
+    expect(portada).not.toHaveProperty("phaseTransitions");
+    expect(portada).not.toHaveProperty("lessons");
+    expect(portada.scalars).toEqual({
+      frds: FIXTURE.scalars.frds,
+      commits: FIXTURE.scalars.commits,
+    });
   });
 
   it("fails loud when weeklyFlow could not be derived (never a fabricated zero, DR-078)", () => {
     const values: LiveReportValues = {
       ...okValues(),
       weeklyFlow: { ok: false, reason: "git-unavailable" },
-    };
-    expect(() => buildPortada(values, STAMP)).toThrow(PortadaDeriveError);
-  });
-
-  it("fails loud when phaseTransitions could not be derived", () => {
-    const values: LiveReportValues = {
-      ...okValues(),
-      phaseTransitions: { ok: false, reason: "unparseable" },
     };
     expect(() => buildPortada(values, STAMP)).toThrow(PortadaDeriveError);
   });
@@ -211,14 +203,12 @@ describe("portada-vs-live equivalence (AC-23-002.3)", () => {
 
     // The live git reader's numbers (the fallback path MC uses today).
     const liveWeekly = weeklyFlow(projectPath);
-    const liveTransitions = phaseTransitions();
     const liveScalars = reportScalars(projectPath);
-    const liveLessons = lessonCounts();
     const liveFunnel = funnelAndFlow(readIdeas(), getGuildState().statuses);
 
     // Skip the assertion only if git genuinely could not derive (CI without full history) — the
     // writer's own fail-loud path (tested above) covers that case; here we assert equivalence.
-    if (!liveWeekly.ok || !liveTransitions.ok) return;
+    if (!liveWeekly.ok) return;
 
     const seal = currentSeal(projectPath);
     expect(seal).not.toBeNull();
@@ -231,11 +221,10 @@ describe("portada-vs-live equivalence (AC-23-002.3)", () => {
     expect(materialized).not.toBeNull();
     if (materialized === null) return;
 
-    // Field-by-field: the materialized portada equals the live-git derivation (no drift).
+    // Field-by-field: the materialized per-project portada equals the live-git derivation (no drift).
     expect(materialized.weeklyFlow).toEqual(liveWeekly.value);
-    expect(materialized.phaseTransitions).toEqual(liveTransitions.value);
-    expect(materialized.scalars).toEqual(liveScalars);
-    expect(materialized.lessons).toEqual(liveLessons);
+    // Per-project subset only — projects/decisions are factory-wide (WO-23-005 factory store).
+    expect(materialized.scalars).toEqual({ frds: liveScalars.frds, commits: liveScalars.commits });
     // The funnel depends on ideas/statuses read at write time — it uses the same single sources,
     // so re-deriving here with those same sources equals the materialized value.
     expect(materialized.funnel).toEqual(liveFunnel);
