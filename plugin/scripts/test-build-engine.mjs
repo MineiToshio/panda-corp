@@ -181,14 +181,24 @@ const SCENARIOS = []
 // All WOs IN_REVIEW → the FRD goes straight to the gate. The correctness finder reports TWO corrections;
 // the two adversarial skeptics refute exactly ONE. So exactly ONE surviving correction reaches the
 // closer's prompt (the refuted one must NOT). The closer is the single gate spawn on model P.judge (opus).
+//
+// C1a SERIAL-FIRST (2026-07-07): frdGate() dispatches to the split ONLY when this is a re-gate
+// (frdState.gateAttempts>=1, a same-run signal) OR a reviewed WO's frontmatter already carries
+// reopen_count>=1 (a cross-run signal: it failed and was reopened on a PRIOR run). This harness always
+// scripts `gate:*` as an immediate `{ green: true }`, so gateAndConverge() never re-gates within the
+// run — priorAttempts is always 0 here. To legitimately drive the split machinery (finders → dedup →
+// skeptics → close) in a single-call scenario we therefore lean on the OTHER trigger: wo-01-001 is
+// seeded with `reopen_count: 1`, i.e. this FRD's re-review already failed once in an earlier run, so
+// C1a's serial-first grace period is skipped and THIS run's first (and only) gate for it goes straight
+// to the split — exactly the "prior-reopened WO" branch of the rule.
 SCENARIOS.push({
-  name: '1. powerful reviewSplit — 4 finder lenses fan out; refuted finding dies; one confirmed reaches the closer (opus)',
+  name: '1. powerful reviewSplit — a prior-reopened WO (C1a) sends the FIRST gate straight to split; 4 finder lenses fan out; refuted finding dies; one confirmed reaches the closer (opus)',
   args: { mode: 'powerful' },
   plan: mkPlan([{
     frd: 'frd-01-split',
     deps: [],
     workOrders: [
-      mkWo('wo-01-001', 'IN_REVIEW', { frd: 'frd-01-split', artifacts: ['src/a/**'] }),
+      mkWo('wo-01-001', 'IN_REVIEW', { frd: 'frd-01-split', artifacts: ['src/a/**'], reopen_count: 1 }),
       mkWo('wo-01-002', 'IN_REVIEW', { frd: 'frd-01-split', artifacts: ['src/b/**'] }),
     ],
   }]),
@@ -275,14 +285,21 @@ SCENARIOS.push({
 // baseline(opus,3) + plan(opus,3) + sync(1) + safe-point(1) = 8. maxAgents=20 → remaining at the gate =
 // 20-8 = 12 < 15 → fall back to serial. (The loop-top brake — agentSpawned 8 < 20 — does not trip, so
 // the engine genuinely reaches the gate; the fallback is the gate-choice branch, not the global brake.)
+//
+// C1a SERIAL-FIRST (2026-07-07): the budget-fallback branch this scenario targets (`remaining <
+// splitGateEstimatedCost()`) only executes INSIDE `if (useSplit)` — so useSplit must already be true
+// before the budget check can even run. As in scenario 1, a first-and-only gate call has priorAttempts
+// always 0, so we seed wo-03-001 with `reopen_count: 1` (a prior-run reopen) to satisfy C1a's OTHER
+// trigger and reach the split-vs-budget decision at all; the scenario's actual subject — the agent
+// budget forcing serial — is unchanged by this.
 SCENARIOS.push({
-  name: '3. powerful, maxAgents nearly exhausted — the gate falls back to the serial reviewer + logs why',
+  name: '3. powerful, maxAgents nearly exhausted — a prior-reopened WO (C1a) reaches the split decision, then the budget check falls back to the serial reviewer + logs why',
   args: { mode: 'powerful', maxAgents: 20 },
   plan: mkPlan([{
     frd: 'frd-03-fallback',
     deps: [],
     workOrders: [
-      mkWo('wo-03-001', 'IN_REVIEW', { frd: 'frd-03-fallback', artifacts: ['src/d/**'] }),
+      mkWo('wo-03-001', 'IN_REVIEW', { frd: 'frd-03-fallback', artifacts: ['src/d/**'], reopen_count: 1 }),
     ],
   }]),
   responses: [
