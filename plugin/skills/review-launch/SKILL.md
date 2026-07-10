@@ -12,7 +12,10 @@ The back half of the economic arc (DR-043), the **post-launch iteration loop UND
 ## Steps
 
 1. **Read the targets.** From `docs/product/prd.md`: the value hypothesis, the **activation milestone**, the success metrics and the **kill-signals with their numeric thresholds** (DR-043). From `.pandacorp/idea-origin.md`: the `return_type` — it decides which metric matters.
-2. **Read the real metrics** (PostHog, the events defined in `docs/analytics/events.md`) for the window — acquisition, **activation rate** (share who reached the milestone), retention, and the return metric per `return_type`:
+2. **Read the real metrics.** Before touching any number, run two provenance asserts — a wrong project's data is worse than no data:
+   - **2a. Telemetry exists.** Assert `docs/analytics/events.md` exists in THIS project. If absent, report *"sin telemetría — instrumentar primero vía /pandacorp:change"* and STOP here — do not produce a verdict (step 3 never runs without real numbers).
+   - **2b. The connected source is THIS project.** Assert the connected PostHog MCP's active project matches the project id/token this project's event plan/config names. On mismatch, or if no PostHog MCP is connected, do NOT read from whatever org/project happens to be connected — fall back to the documented-queries path (leave the queries written out for the owner to run and paste back) and report **"sin datos para este proyecto"**. Never attribute another connected project's/org's numbers to this one.
+   With provenance cleared, read (PostHog, the events defined in `docs/analytics/events.md`) for the window — acquisition, **activation rate** (share who reached the milestone), retention, and the return metric per `return_type`:
    - **monetary / mixed** → active users, revenue/MRR, and the **unit-economics check**: is revenue covering the per-active-user variable cost + the fixed Vercel Pro seat (the break-even from the PRD/blueprint)?
    - **opportunity** → the opportunity metric (reach/contacts/positioning gained).
    - **personal** → is the owner actually using it (a minimal usage signal)?

@@ -21,13 +21,17 @@ Factory ↔ projects synchronization. Runs IN panda-corp.
 
 ## Part 2 — Refresh the portfolio (projects → factory)
 
-3. For each row of `factory/portfolio.md`: read the project's `.pandacorp/status.yaml` following its path and update phase/summary/sync date. Do NOT compute business metrics here — the **Users/Return/Verdict** columns are written by `/pandacorp:review-launch` (DR-043); `sync` only refreshes phase/summary/sync date and leaves the business columns intact.
-4. **Broken path** (folder moved or deleted): do NOT delete the row. Mark it `⚠️ path not found` and show the owner the exact recovery step:
+3. **Mechanical read**: run the scanner for the raw per-project facts —
+   ```bash
+   bash "${CLAUDE_PLUGIN_ROOT}/scripts/scan-portfolio.sh"
+   ```
+   It resolves every `factory/portfolio.md` row's path, reads that project's own `.pandacorp/status.yaml`, and prints one line per project: `path · phase=<phase> · WOs done/total · running=<bool> · overlay=<project> vs <factory current> · drift=<none|DRIFT|unknown>`. It is read-only (never writes `portfolio.md`) and degrades honestly: a missing `portfolio.md` exits non-zero with a clear message; a row whose path or `status.yaml` is missing/unreadable prints `BROKEN · <name> · <reason>` and the scan continues. Use its output to update phase/summary/sync date for each row. Do NOT compute business metrics here — the **Users/Return/Verdict** columns are written by `/pandacorp:review-launch` (DR-043); `sync` only refreshes phase/summary/sync date and leaves the business columns intact.
+4. **Broken path** (folder moved or deleted — the scanner reported this row `BROKEN`): do NOT delete the row. Mark it `⚠️ path not found` and show the owner the exact recovery step:
    - If the portfolio row has a `repo:` URL → print: *"Re-clone with `git clone <repo> <path>` and then re-run `/pandacorp:sync-portfolio`."*
    - If there is **no `repo:`** → warn: *"The folder was deleted and there is no registered remote. Check a local backup or recreate the project with `/pandacorp:spec`."*
    Do NOT attempt to clone or write anything automatically.
-5. Consistency: if a project is `shipped` but its idea card is not, fix the card (and vice versa, report the discrepancy).
-5b. **Overlay-drift watch (DR-048 companion)**: while reading each `status.yaml`, compare its `overlay_version` against the factory's `plugin/templates/OVERLAY_VERSION`. A lagging project is a **drift finding in the report** ("`<project>` on 8.51.0, factory at 8.55.4 — will auto-upgrade on its next skill run; run `/pandacorp:upgrade` there to close it now"). This closes the quiet-project hole: upgrade only fires on skill invocation, so a project nobody touches drifts silently unless THIS periodic job surfaces it.
+5. Consistency: if a project is `shipped` but its idea card is not, fix the card (and vice versa, report the discrepancy). Any card auto-fixed this way is logged in the Part 3 report (which card, old status → new status) — never a silent write.
+5b. **Overlay-drift watch (DR-048 companion)**: the scanner's `drift=` column (step 3) already flags a project whose `overlay_version` lags the factory's `plugin/templates/OVERLAY_VERSION`; act on a `DRIFT` row as a **drift finding in the report** ("`<project>` on 8.51.0, factory at 8.55.4 — will auto-upgrade on its next skill run; run `/pandacorp:upgrade` there to close it now"). This closes the quiet-project hole: upgrade only fires on skill invocation, so a project nobody touches drifts silently unless THIS periodic job surfaces it.
 5c. **Materialized stats — regenerate the factory store, then join the aggregate index (FRD-23, AC-23-003.1)**: after the portfolio walk, first regenerate the factory-wide store and then join every project's materialized portada (`.pandacorp/stats.json`) into the O(1) aggregate index Mission Control reads (`<factory-root>/.pandacorp/stats-aggregate.json`). From the `mission-control/` repo root run:
    ```bash
    pnpm stats:factory          # → scripts/read-model/factory-store.mjs → stats-factory.json (factory-wide facts, its own seal)

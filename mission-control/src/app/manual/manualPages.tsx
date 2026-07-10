@@ -1775,6 +1775,15 @@ function ConceptDespuesDeLanzar(): React.JSX.Element {
         <Code>docs/analytics/events.md</Code>) según el <Code>return_type</Code>, compara, y
         actualiza las columnas de negocio del portfolio.
       </Lead>
+      <NotePanel icon="ti-shield-check" iconColor="var(--color-warn)">
+        <B weight={600}>Antes de leer un solo número, dos asertos de procedencia</B> (los datos del
+        proyecto equivocado son peores que ningún dato): que exista la telemetría de ESTE proyecto
+        (<Code>docs/analytics/events.md</Code> — si falta, se detiene con «sin telemetría:
+        instrumenta primero vía <Code>/pandacorp:change</Code>» y NO emite veredicto), y que el
+        proyecto de PostHog conectado sea el de esta app (si no coincide o no hay conexión, no lee
+        de otra org: deja las consultas escritas para que las corras y reporta «sin datos para este
+        proyecto»). Nunca inventa números.
+      </NotePanel>
       <Panel>
         <KvRow label="monetary / mixed" isFirst>
           usuarios activos, ingresos/MRR y el chequeo de unit-economics (¿los ingresos cubren el
@@ -2561,6 +2570,13 @@ function GuideCambio(): React.JSX.Element {
               <Code>bug</Code> e <Code>iterate</Code> son los motores internos.
             </B>{" "}
             Tú solo recuerdas <Code>/change</Code>; siguen existiendo como alias directos.
+          </li>
+          <li>
+            <B weight={500}>¿Es un hito, no un cambio suelto?</B> Un rediseño grande o un paquete
+            de cambios con su propio mini-PRD NO va a la cola: <Code>change</Code> lo clasifica
+            como hito, te lo explica y —solo con tu OK explícito en esa misma conversación— lo
+            pasa al motor <Code>new-version</Code> (DR-069 §5). Si lo prefieres más chico, vuelve a
+            la clasificación normal feature/cambio.
           </li>
         </Ul>
       </Panel>

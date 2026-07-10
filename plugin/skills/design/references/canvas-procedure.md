@@ -81,14 +81,26 @@ it makes re-runs repeat discarded work and audits read a false history (personal
    b. Create `docs/design/canvas/{tracker.md,log.md,prompts/}`; seed tracker row 0 (`Design system`,
       `pending`) + one row per screen enumerated from the FRDs + the final `Closing sweep` row.
    c. Resolve the outbound transport (ladder above) and record it in `log.md`.
+   d. **Author the master brief — `docs/design/claude-design-brief.md` (the `designer` agent).** Before
+      any canvas prompt, the `designer` writes the brief that becomes the canvas's top input (uploaded in
+      step 2). It **MUST require and reference** the anti-omission completeness checklist in
+      `factory/standards/design.md` §1c **by pointer — never copy §1c into the brief** (§1c is the single
+      source of truth, DR-115): the brief points the canvas at §1c and obliges every item in it. It also
+      states the **qualitative token direction** the canvas proposes the palette from (mood, dark-default +
+      first-class light, one rationed accent, OKLCH, AA both themes) and the **`target_platforms`
+      breakpoints** (§4b: `desktop` / `mobile` / `responsive` → the exact widths to generate at).
+      Synthesize it from SKILL.md Steps 1–3 (`references.md`, the token groundwork, `voice-and-tone.md` +
+      `microcopy.md`) — those MUST already be done.
 
 **2. Upload ALL context** the canvas needs, as markdown, via `finalize_plan` + `write_files`: the
-   master brief (`claude-design-brief.md`) + `microcopy.md` + `voice-and-tone.md` + `references.md`
+   master brief (`claude-design-brief.md`, authored in step 1.d) + `microcopy.md` + `voice-and-tone.md` + `references.md`
    + the per-surface playbooks (`surface-playbooks.md`). Keep the uploaded brief in sync whenever
    the direction changes. (Steps 1–3 of SKILL.md — research, tokens groundwork, voice/microcopy —
    MUST already be done: they produce these inputs.)
 
-**3. Stage 1 — the design SYSTEM (one exhaustive prompt).** Build ONE generation prompt from the
+**3. Stage 1 — the design SYSTEM (one exhaustive prompt).** **Precondition (fail-closed): the master
+   brief `docs/design/claude-design-brief.md` exists and covers §1c by reference (step 1.d) — do NOT
+   start Stage 1 without it.** Build ONE generation prompt from the
    §1c anti-omission checklist (every component + every state + placeholders + mandatory motion +
    breakpoints by `target_platforms` + hierarchy + real content). Hand it off (Relay). Poll.
 
@@ -118,8 +130,12 @@ it makes re-runs repeat discarded work and audits read a false history (personal
 
 **8. Integrate.** Tokens → `docs/design/design-tokens.json` + root `DESIGN.md` (agent verifies AA
    both themes and freezes); `_ds_manifest.json` → `docs/design/components.md` (DR-057); export the
-   canvas files into `docs/design/prototype/`; shard per FRD (SKILL.md Step 8). Close the canvas
-   thread in `iteration.md`.
+   canvas files into `docs/design/prototype/`. **Run the SAME automatic verification as SKILL.md Step 5
+   over the exported `docs/design/prototype/*.html`** — Playwright screenshots at 375px/1280px →
+   `docs/design/prototype/screenshots/` + axe-core → `docs/design/a11y-report.md`; fix serious
+   violations before the owner gate. Both artifacts are **fail-closed at the SKILL.md Step-9 advance
+   gate** (their absence means this verification never ran). Then shard per FRD (SKILL.md Step 8). Close
+   the canvas thread in `iteration.md`.
 
 ## Failure modes → what to do
 

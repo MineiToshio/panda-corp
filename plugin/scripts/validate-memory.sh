@@ -38,6 +38,7 @@ ANCHOR_MIN = 12
 errors = []
 counts = Hash.new(0)
 ids    = Hash.new { |h, k| h[k] = [] }   # id => [files] — for the uniqueness check (BL-0013)
+applied_in_union = []                    # union of every lesson's applied_in — for the S8 prune-freeze verdict
 files  = Dir.glob(File.join(dir, 'LESSON-*.md')).sort
 files.each do |f|
   base = File.basename(f)
@@ -71,11 +72,25 @@ files.each do |f|
   end
   counts[fm['type']] += 1            if TYPES.include?(fm['type'])
   counts["status:#{fm['status']}"] += 1 if STATUS.include?(fm['status'])
+  if fm['applied_in'].is_a?(Array)
+    fm['applied_in'].each { |p| applied_in_union << p.to_s.strip unless p.to_s.strip.empty? }
+  end
 end
 # id uniqueness across the store (BL-0013) — a keyed store must reject collisions
 ids.each { |id, fs| errors << "duplicate id #{id} in: #{fs.sort.join(', ')}" if fs.size > 1 }
 puts "Checked #{files.size} lesson(s) in #{dir}"
 puts("By type/status: " + counts.sort.map { |k, v| "#{k}=#{v}" }.join(', ')) unless counts.empty?
+# S8: deterministic prune-freeze verdict — the union of every lesson's `applied_in` array is the
+# ONLY authoritative count of distinct MEASURED projects (count-lesson-citations.sh is the only writer
+# of applied_in — never hand-counted). The "never retrieved" deprecation criterion stays FROZEN until
+# this reaches >= 3 distinct projects (loop v2); below that, times_applied: 0 means "never measured",
+# not "useless". Printed unconditionally (informational — independent of schema validity above) so
+# `/pandacorp:memory review`'s prune-freeze step can assert against this line instead of agent counting.
+distinct_projects = applied_in_union.uniq
+verdict = distinct_projects.size < 3 ? 'ACTIVE' : 'INACTIVE'
+cmp = distinct_projects.size < 3 ? '<' : '>='
+puts "applied_in union: #{distinct_projects.size} distinct project(s): #{distinct_projects.sort.join(', ')}"
+puts "prune-freeze: #{verdict} (#{distinct_projects.size} distinct measured projects #{cmp} 3)"
 if errors.empty?
   puts "OK - all lessons valid"
   exit 0

@@ -172,19 +172,23 @@ for (const item of succeeded) {
 1. Same repo, local branch — no fetch needed, just proceed.
 2. Rebase the branch onto current main first if it is behind: from the item's OWN worktree at ${FACTORY_ROOT}/.claude/worktrees/bl-${item.id}, run \`git -C ${FACTORY_ROOT}/.claude/worktrees/bl-${item.id} rebase main\` (or skip if already up to date).
 3. From the MAIN checkout: \`git -C ${FACTORY_ROOT} merge --ff-only ${item.branch}\` when possible. If ff-only fails, do a normal merge and resolve conflicts by hand using these named hotspots:
-   - plugin/.claude-plugin/plugin.json (and plugin/.codex-plugin/plugin.json) version field: keep the HIGHER of the two versions, never blindly pick one side.
+   - plugin/.claude-plugin/plugin.json (and plugin/.codex-plugin/plugin.json) version field: keep the HIGHER of the two versions, never blindly pick one side. If this was a genuine CONFLICT on the version field (both sides independently bumped it from the same stale base, not just one side changing it) — a COLLAPSED BUMP: only one increment survives even though two items each thought they were the one bumping from a stable base. Do NOT try to compute a combined/correct bump yourself (that is BL-0025's still-open sequential-allocator work) — just keep the higher value AND set the returned \`reason\` field to a one-line flag even though the merge succeeds, e.g. \`"COLLAPSED-VERSION-BUMP: ${item.id} and another item both bumped plugin.json — verify the surviving version covers both changes' severity"\`, so the owner can reconcile manually.
    - plugin/docs/decision-log.md: keep BOTH entries, most-recent-on-top (never drop either side's entry).
    - factory/backlog/README.md's open-item count mentions: recount from the actual files after the merge, don't trust either side's stale number.
 4. After the merge lands (ff-only or resolved), run \`bash ${FACTORY_ROOT}/plugin/scripts/validate-backlog.sh\` from ${FACTORY_ROOT}. If it reports errors: \`git -C ${FACTORY_ROOT} revert --no-edit HEAD\` (or reset to the pre-merge commit if the merge was a plain fast-forward with nothing to revert-cleanly — whichever leaves main exactly as it was before this merge attempt), and report validator: "red", merged: false, with the validator's error as reason. Do NOT proceed to remove the worktree in that case — leave it for inspection.
 5. If the validator is green: remove the worktree and its branch BEFORE returning — \`git -C ${FACTORY_ROOT} worktree remove ${FACTORY_ROOT}/.claude/worktrees/bl-${item.id}\` then \`git -C ${FACTORY_ROOT} branch -d ${item.branch}\`.
 
-Return { id: "${item.id}", merged: true or false, validator: "green" or "red", reason: <one-line if red or not merged> }.`,
+Return { id: "${item.id}", merged: true or false, validator: "green" or "red", reason: <one-line if red or not merged, OR the COLLAPSED-VERSION-BUMP flag above even when merged:true/validator:"green"> }.`,
     { label: `merge:${item.id}`, phase: 'Merge', model: 'sonnet', agentType: 'pandacorp:implementer', schema: MERGE_SCHEMA },
   )
 
   if (mergeResult && mergeResult.merged === true && mergeResult.validator === 'green') {
-    merged.push({ id: item.id, summary: item.summary })
-    log(`Merge: ${item.id} merged into main, validator green.`)
+    // A `reason` on a SUCCESSFUL merge is never routine chatter — it's reserved for the
+    // COLLAPSED-VERSION-BUMP flag (S4, interim honesty fix; BL-0025 tracks the real allocator).
+    // Surface it loudly here AND carry it into the final Report, never swallow it silently.
+    const flag = mergeResult.reason ? `[FLAG: ${mergeResult.reason}]` : ''
+    merged.push({ id: item.id, summary: flag ? `${item.summary || 'merged'} ${flag}` : item.summary })
+    log(`Merge: ${item.id} merged into main, validator green.${flag ? ' ' + flag : ''}`)
   } else {
     const reason = (mergeResult && mergeResult.reason) || 'merge agent returned no usable result'
     blockedFromMerge.push({ id: item.id, reason })

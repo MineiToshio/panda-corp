@@ -30,6 +30,7 @@ Look at `$ARGUMENTS` and the ideas base (`factory/ideas/`) to locate where you s
 ## Resuming (even if the conversation is lost) — DR-032
 
 To be able to resume from another session, another computer or the phone, the exploration leaves a **durable draft** (it is not a card, it doesn't appear on the board): `factory/ideas/_drafts/<slug>.md`.
+- **Naming it**: the slug is kebab-case of the current English working title. Write it into the draft's frontmatter as `slug: <kebab-case>` (the one place this rule is stated) — `new-idea` reads it from there and only recomputes it if it's missing.
 - **When you begin**, if the owner resumes a topic, look there for an existing draft and read it to continue the thread (ideas in play, angles discarded with their rationale, what's still open) instead of starting from scratch.
 - **During the conversation**, keep dumping the **essence** (not the transcript): what is being considered, what was discarded and why, open threads.
 - This does NOT violate the gate: the draft doesn't touch the board or create state. The card is only born when the owner says "take it to the board" (→ `new-idea`, which reads it and then deletes it).

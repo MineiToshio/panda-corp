@@ -21,7 +21,7 @@ product → design → architecture → build → release → operation
 `/pandacorp:review-launch` corre en un proyecto lanzado (precondición `phase: operation`). Hace cuatro cosas:
 
 1. **Lee los objetivos** del PRD (`docs/product/prd.md`): la hipótesis de valor, el hito de activación, las métricas de éxito y los **kill-signals con sus umbrales numéricos**.
-2. **Lee las métricas reales** en PostHog (los eventos definidos en `docs/analytics/events.md`): adquisición, **tasa de activación**, retención y la métrica de retorno según el `return_type`:
+2. **Lee las métricas reales** en PostHog — pero **antes, dos asertos de procedencia** (los datos del proyecto equivocado son peores que ningún dato): que exista `docs/analytics/events.md` en ESTE proyecto (si falta, se detiene: «sin telemetría — instrumenta primero vía `/pandacorp:change`», sin veredicto), y que el proyecto de PostHog conectado sea el de esta app (si no coincide o no hay conexión, no lee de otra org: deja las consultas escritas y reporta «sin datos para este proyecto»). Con la procedencia despejada, lee (los eventos definidos en `docs/analytics/events.md`): adquisición, **tasa de activación**, retención y la métrica de retorno según el `return_type`:
    - **monetary / mixed** → usuarios activos, ingresos/MRR y el **chequeo de unit-economics**: ¿los ingresos cubren el coste variable por usuario + el asiento fijo de Vercel Pro (el break-even del PRD/blueprint)?
    - **opportunity** → la métrica de oportunidad (alcance/contactos/posicionamiento ganados).
    - **personal** → ¿el dueño realmente la usa (una señal mínima de uso)?

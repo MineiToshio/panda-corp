@@ -11,7 +11,7 @@ The mechanism for **the owner to answer the decision points** the AI left pendin
 
 ## Steps
 
-1. **Read `.pandacorp/inbox/decisions.md`** (its format: `${CLAUDE_PLUGIN_ROOT}/templates/docs/decisions-inbox-template.md` — agents append decision points to it following that shape). For each `##` heading block, compute its **stable id** the same way Mission Control does (`src/lib/docs/activity.ts`, `DecisionPoint.id`) — read the file top to bottom and derive, never invent:
+1. **Read `.pandacorp/inbox/decisions.md`** (its format: `${CLAUDE_PLUGIN_ROOT}/templates/docs/decisions-inbox-template.md` — agents append decision points to it following that shape). For each `##` heading block, compute its **stable id** the same way Mission Control does (`src/lib/docs/activity.ts`, `DecisionPoint.id`) — read the file top to bottom and derive, never invent. The rule below is a REPLICA of `mission-control/src/lib/docs/activity.ts` (the authoritative implementation, not this prose); on any mismatch or doubt about an edge case, re-read `activity.ts` and follow it, not this description:
    - A date-prefixed heading (`## YYYY-MM-DD (status) — <title>` or `## YYYY-MM-DD — <title>`) → id `<date>-<n>`, where `n` is the 1-based count of headings sharing that EXACT date string, counting BOTH pending and resolved blocks (an id never shifts when a sibling's status changes).
    - A legacy heading (`## OPEN: <title>` / `## CLOSED: <title>` / `## RESOLVED: <title>`, no date) → id `legacy-<n>`, its own separate 1-based counter.
    List the decisions with status `pending`, each labeled with its id. For each one show: the id, the question, the options that were researched, and **the AI's recommendation** (with its rationale).

@@ -106,3 +106,16 @@ Does not change how a SINGLE-item `implement-backlog <BL-NNNN>` run bumps the ve
 serialized, no collision risk there) — only the whole-queue parallel mode and the memory-harvest
 concurrency case. Does not build a general distributed-lock system for the factory repo — a file-based
 guard/documented sequencing rule is sufficient at this scale.
+
+## Note (annotated 2026-07-10, item stays open)
+
+An **interim honesty fix** landed (S4 of the 2026-07-10 skills-improvement batch): `plugin/skills/
+implement-backlog/SKILL.md`'s whole-backlog "Merge" description and `.claude/engines/pandacorp-backlog.js`'s
+merge-agent prompt now both instruct the merge step to detect a **collapsed bump** (both merged branches
+independently bumped `plugin/.claude-plugin/plugin.json`'s version from the same stale base) and LOUDLY
+flag it in the returned `reason`/Report line for the owner's manual reconciliation, instead of silently
+keeping-the-higher-value with no signal that a collision happened. This is NOT the fix this item asks
+for — there is still no single serialized writer computing "current + 1" (fix plan item 1's merge-time-
+bump mechanism is still open), and the memory-harvest concurrency guard (fix plan item 2) is untouched.
+The interim fix only makes an already-occurred collapse VISIBLE; it does not prevent it. Item stays
+`status: open`.

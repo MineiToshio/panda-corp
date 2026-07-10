@@ -1,3 +1,7 @@
+---
+last_verified: 2026-07-01
+---
+
 # Discovery sources playbook
 
 Operational mining guide for `/pandacorp:discover` researchers. Every source below was **live access-tested on 2026-07-01** (WebFetch/WebSearch, no login, no API keys). If a fetch pattern stops working, note it here and in the run report — do not silently fall back to trend listicles.

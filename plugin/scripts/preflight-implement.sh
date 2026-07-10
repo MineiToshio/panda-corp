@@ -32,15 +32,11 @@ yaml_val() { # $1 file  $2 key
     | sed -E "s/^${2}:[[:space:]]*//; s/[[:space:]]*#.*$//; s/[[:space:]]*$//; s/^\"//; s/\"$//; s/^'//; s/'$//"
 }
 
-# --- ISO-8601 → epoch seconds (UTC), tolerant of fractional seconds + BSD/GNU date -----------
-iso_to_epoch() { # $1 iso timestamp; echoes epoch or empty
-  local ts="${1:-}"
-  [ -n "$ts" ] || { echo ""; return; }
-  ts="$(printf '%s' "$ts" | sed -E 's/\.[0-9]+//; s/Z$//')"   # drop fractional secs + trailing Z
-  date -u -d "${ts}Z" +%s 2>/dev/null \
-    || date -u -j -f "%Y-%m-%dT%H:%M:%S" "$ts" +%s 2>/dev/null \
-    || echo ""
-}
+# --- liveness (the max-of-two-clocks + TTL rule) lives in ONE shared helper (C2+S7) -----------
+# check-build-liveness.sh owns the "is a build alive?" decision so this preflight and
+# /pandacorp:upgrade's active-build guard can never diverge. iso_to_epoch + the TTL math moved
+# there verbatim; §6 below now just reads its verdict and prints the same PASS/FAIL lines.
+LIVENESS_HELPER="$SCRIPT_DIR/check-build-liveness.sh"
 
 # --- doc frontmatter helpers ------------------------------------------------------------------
 fm_has_active() { head -n 25 "$1" 2>/dev/null | grep -Eq '^status:[[:space:]]*ACTIVE'; }
@@ -134,31 +130,35 @@ else
 fi
 
 # 6) concurrent-run guard (DR-050 §11) — one build per project ---------------------------------
-# The PRODUCER's clock counts, not only the watcher's: a build is live when running:true AND
-# EITHER supervisor_heartbeat OR last_event_at is < 10 min old. Stale = BOTH older than 10 min.
-RUNNING=$(yaml_val "$STATUS" running)
-if [ "$RUNNING" != "true" ]; then
-  pass "no active build (running: ${RUNNING:-absent})"
-else
-  HB=$(yaml_val "$STATUS" supervisor_heartbeat)
-  LE=$(yaml_val "$STATUS" last_event_at)
-  NOW=$(date -u +%s)
-  HB_E=$(iso_to_epoch "$HB"); LE_E=$(iso_to_epoch "$LE")
-  TTL=600
-  fresh=0
-  [ -n "$HB_E" ] && [ $((NOW - HB_E)) -lt "$TTL" ] && fresh=1
-  [ -n "$LE_E" ] && [ $((NOW - LE_E)) -lt "$TTL" ] && fresh=1
-  if [ "$fresh" = "1" ]; then
+# Liveness (running:true AND EITHER supervisor_heartbeat OR last_event_at < 10 min => LIVE; STALE
+# only when BOTH are older; fail-closed to RUNNING if the file can't be read) is decided by the
+# SHARED helper so this guard and /pandacorp:upgrade's can never drift (C2+S7). We just print the
+# same PASS/FAIL lines off its verdict.
+LIVENESS=$("$LIVENESS_HELPER" "$STATUS" 2>/dev/null || true)
+case "$LIVENESS" in
+  NOT_RUNNING)
+    RUNNING=$(yaml_val "$STATUS" running)
+    pass "no active build (running: ${RUNNING:-absent})"
+    ;;
+  RUNNING)
     RSA=$(yaml_val "$STATUS" run_started_at)
     fail "another build is ACTIVE (running: true, heartbeat/last_event fresh < 10 min; started $RSA) — ABORT, do not launch a second build."
-  else
+    ;;
+  STALE)
+    HB=$(yaml_val "$STATUS" supervisor_heartbeat)
+    LE=$(yaml_val "$STATUS" last_event_at)
     fail "STALE LOCK (auto-clearable): running: true but BOTH supervisor_heartbeat ($HB) and last_event_at ($LE) are >= 10 min old — the supervisor died."
     echo "      launch-implement.sh takes a fresh lock automatically. To reset by hand (does NOT auto-reset here):"
     echo "        sed -i '' 's/^running:.*/running: false/' \"$STATUS\"   # (GNU sed: sed -i 's/^running:.*/running: false/')"
     echo "        sed -i '' 's/^supervisor_heartbeat:.*/supervisor_heartbeat: \"\"/' \"$STATUS\""
     echo "        rm -f \"$PROJ/.pandacorp/run/build.lock\""
-  fi
-fi
+    ;;
+  *)
+    # Helper returned nothing/unknown (should not happen; §1 already asserted the file exists) —
+    # fail closed exactly like a live build rather than silently passing.
+    fail "liveness helper returned an unrecognized verdict ('$LIVENESS') — treating as ACTIVE (fail-closed). Do not launch."
+    ;;
+esac
 
 echo "== $FAILS failing check(s) =="
 exit "$FAILS"

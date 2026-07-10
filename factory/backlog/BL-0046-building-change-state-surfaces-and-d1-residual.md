@@ -63,6 +63,21 @@ MC renders a `building` change as in-flight (no read error), its test proves it,
 Manual status list name `building`, the residual strand is closed (option b) or explicitly accepted (option
 c, documented), and the relevant decision-logs record it.
 
+## Progress (2026-07-10, E2/D2 — docs strand, bug-skill enum ONLY)
+Fix-plan item **2 (Docs)** is PARTIALLY done: `plugin/skills/bug/SKILL.md` now names the full canonical
+enum **`draft | ready | building | done`** (was `draft | ready | done`, omitting `building`) — landed as
+part of the D2 bug thin-down (the step-2 card block now points at `/change` step 4 and states the owner
+sets only `draft`/`ready` while the engine manages `building`/`done`). This closes the **bug-skill enum**
+sub-strand.
+
+STILL OPEN (do NOT close this item):
+- **MC strand (item 1):** `changes.ts` union + `VALID_STATUSES` + error message + `ChangeCard`/`ChangesPanel`
+  render + `changes.test.ts` fixture — untouched (out of E2's factory-only scope; a Mission Control change
+  routed through MC's own flow).
+- **Docs strand remainder:** the Manual change-lifecycle narrative status list (DR-046) — not yet swept for
+  `building`; belongs to the closing-wave Manual sync.
+- **Residual — D1 archive strand:** still needs the option (b)/(c) decision + its test.
+
 ## Out of scope
 Changing the engine's choice of `building` as the status value (it is the honest in-flight state; D1 is
 landed and correct — this item teaches the consumers, it does not redesign the producer).

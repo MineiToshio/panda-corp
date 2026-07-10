@@ -8,6 +8,8 @@ description: Creates the folder/repo of a Pandacorp project from an idea (mechan
 
 Creates the project for the idea indicated in `$ARGUMENTS` (card name or slug).
 
+> **Contract note:** this is the **canonical project-birth recipe**. `spec` Step 0.2 MUST execute all of Steps 2–8 below, never a subset — a partial scaffold (e.g. skipping 4b's rules injection or 4c's port reservation) is a defect, not a valid shortcut.
+
 ## Steps
 
 1. **Validate**: read the card in `factory/ideas/<idea>.md` (at the factory root). It must exist and be in `status: recommended` (or `discovered`). Running this skill IS the owner's selection. If the card is in `discarded` or `in-pipeline`, stop and confirm.
