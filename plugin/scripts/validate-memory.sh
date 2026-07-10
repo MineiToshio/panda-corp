@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Deterministic schema check for factory/memory/ lessons — the backbone of the
 # DR-047 eval-gate. Validates each LESSON-*.md frontmatter: required keys, valid
-# type/status/confidence enums, a well-formed id, and a non-empty evidence anchor
-# (context + source) — enforcing LESSON-0001 (no lesson without concrete evidence).
+# type/status/confidence enums, a well-formed id, and an ANCHORED evidence source
+# (context + a `source:` naming a checkable locator) — enforcing MEM-1
+# (factory/standards/memory-harvesting.md, from LESSON-0001: no lesson without evidence).
 # Skips _lesson-template.md and README.md by globbing LESSON-*.md only.
 # Usage: bash validate-memory.sh [factory/memory]    Exit 0 = all valid, 1 = invalid.
 dir="${1:-factory/memory}"
@@ -20,6 +21,20 @@ CONF   = %w[low medium high]
 PROV   = %w[owner-stated ci-verified agent-inferred]
 PROMO  = %w[none proposed approved rejected]
 REQ    = %w[id type domain tags context trigger source provenance created status promotion confidence times_applied links]
+# MEM-1 (factory/standards/memory-harvesting.md): a `source:` must name a LOCATOR a third
+# party can go and check — a date, a factory/project id, a build-run id, a file, a commit
+# sha, or a URL. Free prose ("the agent reflected that…") carries no anchor: it is
+# reject-at-harvest, never a low-confidence candidate (LESSON-0001, ExpeL arXiv:2308.10144).
+ANCHOR = /
+  (?: \b\d{4}-\d{2}-\d{2}\b )                                  # a date
+ |(?: \b(?:LESSON|WO|FRD|BL|DR|ADR)-\d )                       # a factory or project id
+ |(?: \bwf_[a-z0-9]{4,} )                                      # a build-run id
+ |(?: \b[\w.@-]+ (?: \/ [\w.@-]+ )* \.
+      (?:md|ts|tsx|js|mjs|sh|ya?ml|json|toml|css|sql|py)\b )   # a file
+ |(?: \b[0-9a-f]{7,40}\b )                                     # a commit sha
+ |(?: https?: | arXiv: )                                       # a source URL
+/xi
+ANCHOR_MIN = 12
 errors = []
 counts = Hash.new(0)
 ids    = Hash.new { |h, k| h[k] = [] }   # id => [files] — for the uniqueness check (BL-0013)
@@ -47,7 +62,13 @@ files.each do |f|
   errors << "#{base}: filename number #{fn} != id #{fm['id']}" if fn && idn && fn != idn
   errors << "#{base}: empty context (retrieval anchor)"         if fm['context'].to_s.strip.empty?
   errors << "#{base}: empty trigger ('use this when …' retrieval condition, loop v2)" if fm['trigger'].to_s.strip.empty?
-  errors << "#{base}: empty source (evidence anchor, LESSON-0001)" if fm['source'].to_s.strip.empty?
+  src = fm['source'].to_s.strip
+  if src.empty?
+    errors << "#{base}: empty source (evidence anchor, LESSON-0001)"
+  elsif src.length < ANCHOR_MIN || src !~ ANCHOR
+    errors << "#{base}: source has no evidence anchor — cite a date, an id (WO-/FRD-/LESSON-/BL-/DR-), " \
+              "a build-run id, a file, a commit sha or a URL; a reflection is not a lesson (MEM-1, LESSON-0001)"
+  end
   counts[fm['type']] += 1            if TYPES.include?(fm['type'])
   counts["status:#{fm['status']}"] += 1 if STATUS.include?(fm['status'])
 end

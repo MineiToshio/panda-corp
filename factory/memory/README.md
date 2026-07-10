@@ -6,7 +6,7 @@ the substrate that lets the factory "get better with use" without retraining any
 gradient-free, externalized-memory pattern used by A-MEM, Letta/MemGPT, Voyager and Anthropic's
 memory tool (see `docs/proposals/09-self-learning-factory.md`).
 
-Policy: **DR-047** (`factory/decisions/registry.yaml`). History: `factory/decision-log.md` (2026-06-15).
+Policy: **DR-047** (`factory/decisions/registry.yaml`). Harvest hygiene — the evidence-anchor rule that decides what may enter this store at all — is the standard `factory/standards/memory-harvesting.md` (MEM-1/MEM-2), enforced fail-closed by `plugin/scripts/validate-memory.sh`. History: `factory/decision-log.md` (2026-06-15, 2026-07-09).
 
 ## What this is (and is not)
 

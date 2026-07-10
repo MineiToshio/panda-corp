@@ -5,7 +5,7 @@ domain: model-selection
 tags: [subagent, inventory, cheap-tier, haiku, verification]
 context: a cheap-tier subagent (haiku-class) asked to report an inventory fact (an id, a count, a catalog listing) before it is used to plan or number new work
 trigger: use this when a cheap-tier subagent's output includes an ID, a count, or "next free number" fact that a later step will build on
-source: "panda-corp — an inventory subagent reported next proposal number = 25 when proposals 25-28 already existed"
+source: "panda-corp 2026-07-05, allocating the next id in docs/proposals/ — an inventory subagent reported next proposal number = 25 when proposals 25-28 already existed on disk"
 provenance: agent-inferred
 created: 2026-07-05
 status: candidate

@@ -4,6 +4,14 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.83.0 — 2026-07-09 (MINOR): `validate-memory.sh` gains the MEM-1 evidence-anchor gate
+
+**What:** `plugin/scripts/validate-memory.sh` now rejects (exit 1) any `LESSON-*.md` whose `source:` carries no checkable locator — a date, a factory/project id (`WO-`/`FRD-`/`LESSON-`/`BL-`/`DR-`/`ADR-`), a build-run id (`wf_…`), a file path, a commit sha, or a URL — on top of the existing schema/enum/id-uniqueness checks. This wires **MEM-1** of the new factory-internal standard `factory/standards/memory-harvesting.md`, promoted from LESSON-0001 under the owner gate (DR-047 high-risk tier). MINOR, not MAJOR: the check is new but the live store passes it (one lesson, LESSON-0076, was re-anchored in the same change).
+
+**Why:** the reject-at-harvest rule existed only as an instruction in `plugin/agents/librarian.md` step 1 — a promise with no mechanism. The regex is a deliberate proxy: it proves an anchor's *shape*, never its truth; the `librarian` stays the semantic reader and this is its deterministic backstop. Anchorless prose entering as a "low-confidence candidate" is exactly how a memory store gets laundered into poisoning (ExpeL, arXiv:2308.10144; EDV).
+
+**Where it runs:** the `memory` skill's review mode and the daily `pandacorp-memory-review` routine already invoke this script — the gate needed no new trigger.
+
 ## v9.82.0 — 2026-07-07 (MINOR): `/pandacorp:implement` engine overhaul — progressive-learning recovery (DR-117) + concurrent gates (DR-118)
 
 **What:** a full audit + overhaul of the build engine (`pandacorp-build.js`) and its operating surface, shipped as packages A–G (all engine code committed on `main`, commits `53c9c81d..ac755ba7`; this entry is the docs/version close-out). The engine template + `mission-control/.claude/engines/pandacorp-build.js` stay md5-identical.

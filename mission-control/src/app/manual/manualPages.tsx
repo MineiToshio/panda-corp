@@ -1412,7 +1412,10 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
           />{" "}
           Lección del research: <B weight={500}>capturar de más no es mejor</B> — un agente que se
           fía de sus propias reflexiones envenena la memoria. Por eso solo se capturan notas
-          ancladas a evidencia, nunca opiniones.
+          ancladas a evidencia, nunca opiniones. Desde 2026-07-09 esto es una regla dura con
+          verificador: el <Code>source:</Code> de una lección debe citar un localizador comprobable
+          (una fecha, un id, un fichero, un commit, una URL) o <Code>validate-memory.sh</Code> pone
+          la memoria en rojo.
         </div>
       </Panel>
 

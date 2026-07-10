@@ -60,7 +60,7 @@ Cuando ≥3 proyectos citan una lección, el script la auto-encola (`promotion: 
 
 ## Qué NO es autoaprendizaje
 
-- **No es reflexión sobre reflexiones** — las lecciones se anclan en evidencia concreta (un bug real, un diff, un fallo de test), no en lo que el agente "cree que aprendió" (LESSON-0001, anti-patrón). El único paso sintético permitido — el pase de reflexión que agrupa ≥3 lecciones de un mismo dominio en un patrón — sintetiza desde lecciones ancladas, jamás desde otras reflexiones.
+- **No es reflexión sobre reflexiones** — las lecciones se anclan en evidencia concreta (un bug real, un diff, un fallo de test), no en lo que el agente "cree que aprendió" (LESSON-0001, anti-patrón). El único paso sintético permitido — el pase de reflexión que agrupa ≥3 lecciones de un mismo dominio en un patrón — sintetiza desde lecciones ancladas, jamás desde otras reflexiones. Desde 2026-07-09 es una regla dura con verificador (`factory/standards/memory-harvesting.md`, MEM-1): el `source:` de una lección debe citar un localizador comprobable — una fecha, un id (`WO-`/`FRD-`/`LESSON-`…), un fichero, un commit o una URL — o `validate-memory.sh` pone la memoria en rojo.
 - **No es confianza en el agente** — el uso se mide con citas contadas por script, la validez exige corroboración cruzada, y los verificadores son deterministas.
 - **No es memoria de conversación** — no se almacenan conversaciones completas, solo lecciones atómicas y falsificables.
 - **No es promoción sin gate** — solo el tier medio (SHOULD + verificador) se aplica solo, y siempre notificando; todo lo demás espera al dueño.

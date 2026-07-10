@@ -29,7 +29,7 @@ A standard that isn't injected is dead on arrival (Mission Control once violated
 | **Operation / Observability** | [infra.md](infra.md) (local dev, backup/restore, incidents) · [observability.md](observability.md) (production) · [resilience.md](resilience.md) (timeouts, retries, bulkheads) · [background-jobs.md](background-jobs.md) · [external-services.md](external-services.md) (accounts, secrets, payments, provisioning — DR-035..038) |
 | **Data / Privacy** | [privacy.md](privacy.md) · [data-modeling.md](data-modeling.md) (entities, deletion policy, N+1, seeds) |
 | **Product / Documentation** | [documentation.md](documentation.md) (canonical doc + decision log) · [document-consistency.md](document-consistency.md) (supersession-completeness gate — no rule survives in the shadows, DR-116) · [feature-flags.md](feature-flags.md) (no flags at MVP; PostHog when earned) · [seo-i18n.md](seo-i18n.md) (+ living docs: constitution §20, DR-018) |
-| **Factory operation / Portability** | [agent-portability.md](agent-portability.md) (operate the factory from any runtime: capability matrix, model tiers, tool translation, attended build loop — DR-113) |
+| **Factory operation / Portability** | [agent-portability.md](agent-portability.md) (operate the factory from any runtime: capability matrix, model tiers, tool translation, attended build loop — DR-113) · [memory-harvesting.md](memory-harvesting.md) (evidence or nothing: the anchor gate on `factory/memory/` — DR-047, promoted from LESSON-0001) |
 
 ## Two cross-cutting axes (by rule, not by file)
 
