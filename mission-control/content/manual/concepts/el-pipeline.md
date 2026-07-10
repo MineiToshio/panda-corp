@@ -6,12 +6,12 @@ order: 2
 
 # El pipeline
 
-El pipeline es la secuencia de fases que lleva una idea desde su descubrimiento hasta la operación en producción. Cada fase produce artefactos versionados y requiere aprobación del propietario antes de avanzar.
+El pipeline es la secuencia de fases que lleva una idea desde su descubrimiento hasta que la versión queda lanzada en producción. Cada fase produce artefactos versionados y requiere aprobación del propietario antes de avanzar.
 
 ## Las fases
 
 ```
-product → design → architecture → build → release → operation
+product → design → architecture → build → release
 ```
 
 ### 1. Product
@@ -60,15 +60,11 @@ Habilidad: `/pandacorp:implement`.
 
 ### 5. Release
 
-Auditoría de calidad, seguridad y accesibilidad. Plan de lanzamiento informado por el análisis de demanda. Gate humano obligatorio antes de cualquier despliegue a producción.
+`release` es la fase **lanzada y terminal** (DR-085): la auditoría de calidad, seguridad y telemetría ya se hizo como último paso de la construcción (fase 4), así que aquí solo queda desplegar. Plan de lanzamiento informado por el análisis de demanda. Gate humano obligatorio antes de cualquier despliegue a producción. Desde `release` se opera —se miden métricas reales y se decide— y se itera; no existe una fase «operation» aparte.
 
 Habilidad: `/pandacorp:release`.
 
-### 6. Operation
-
-El producto está en producción. Se monitorizan métricas reales contra la hipótesis de valor.
-
-Habilidad: `/pandacorp:review-launch` — lee métricas reales y recomienda kill / hold / double-down.
+`/pandacorp:review-launch` corre sobre un proyecto ya en `release` y lee las métricas reales contra la hipótesis de valor del PRD para recomendar kill / hold / double-down.
 
 ## Antes del pipeline: descubrir y capturar ideas
 

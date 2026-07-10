@@ -12,7 +12,7 @@ status: active
 promotion: approved
 confidence: high
 times_applied: 3
-applied_in: [pandacorp-build.js Hardening phase (audit-20, 2026-07-01), panda-corp]
+applied_in: [panda-corp]
 links: [BL-0012, DR-085, DR-017]
 ---
 
@@ -41,6 +41,9 @@ Never let "all the pieces passed" stand in for "the whole-program audit ran."
 > The concrete engine fix (the release transition must require the DR-085 hardening to have run — the
 > engine spawns security-auditor + analytics before phase:release, or it does NOT set phase:release and
 > hands off) is an **actionable defect**, tracked as **BL-0012** in `factory/backlog/` (DR-103).
+>
+> Applied in `panda-corp` itself: verified against `pandacorp-build.js`'s Hardening phase (audit-20,
+> 2026-07-01).
 
 **Why it matters:** a build that self-declares release without the audit can ship real security holes (here
 it nearly shipped a CRITICAL). The whole point of DR-085 (audit moved INTO construction) is defeated if the

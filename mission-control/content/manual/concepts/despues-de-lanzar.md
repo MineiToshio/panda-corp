@@ -6,19 +6,19 @@ order: 14
 
 # Después de lanzar
 
-**Desplegado ≠ lanzado.** Que una versión esté en producción no significa que tenga usuarios ni que funcione el negocio. Por eso el ciclo de vida no termina en el deploy: la fase **operación** es real, no un sumidero muerto. Un proyecto lanzado entra en `operation` y ahí se mide.
+**Desplegado ≠ lanzado.** Que una versión esté en producción no significa que tenga usuarios ni que funcione el negocio. Por eso el ciclo de vida no termina en el deploy: `release` es la fase en la que el proyecto **ya está lanzado** — y ahí se mide. No hay una fase «operación» aparte (DR-085): operar (leer métricas y decidir) es lo que se hace estando ya en `release`.
 
-## Las 6 fases (operación incluida)
+## Las 5 fases (termina en release)
 
 ```
-product → design → architecture → build → release → operation
+product → design → architecture → build → release
 ```
 
-`release` es **desplegar** (una versión queda viva); `operation` es **operar** (leer métricas y decidir). Son cosas distintas.
+`release` es la fase **lanzada y terminal**: desplegar (que la versión quede viva) y operar (leer métricas y decidir) ocurren dentro de la misma fase, no en dos fases distintas.
 
 ## review-launch · cierra el bucle (DR-043)
 
-`/pandacorp:review-launch` corre en un proyecto lanzado (precondición `phase: operation`). Hace cuatro cosas:
+`/pandacorp:review-launch` corre en un proyecto lanzado (precondición `phase: release`). Hace cuatro cosas:
 
 1. **Lee los objetivos** del PRD (`docs/product/prd.md`): la hipótesis de valor, el hito de activación, las métricas de éxito y los **kill-signals con sus umbrales numéricos**.
 2. **Lee las métricas reales** en PostHog — pero **antes, dos asertos de procedencia** (los datos del proyecto equivocado son peores que ningún dato): que exista `docs/analytics/events.md` en ESTE proyecto (si falta, se detiene: «sin telemetría — instrumenta primero vía `/pandacorp:change`», sin veredicto), y que el proyecto de PostHog conectado sea el de esta app (si no coincide o no hay conexión, no lee de otra org: deja las consultas escritas y reporta «sin datos para este proyecto»). Con la procedencia despejada, lee (los eventos definidos en `docs/analytics/events.md`): adquisición, **tasa de activación**, retención y la métrica de retorno según el `return_type`:

@@ -2349,16 +2349,45 @@ function GuideAdoptar(): React.JSX.Element {
             ),
           },
           {
-            title: <>Lee el proyecto para entenderlo (sin escribir aún)</>,
+            title: <>El código da solo un techo, no la fase</>,
             body: (
               <>
                 Inspecciona stack, estructura, <Code>git log</Code> y <Code>git remote</Code> para
-                inferir la <B weight={500}>fase real</B> del código: deploy vivo (ya lanzado) →{" "}
+                un <B weight={500}>techo candidato</B> (una cota superior): deploy vivo →{" "}
                 <Code>release</Code>
-                {"; código + tests sin deploy → "}
-                <Code>implementation</Code>
-                {"; solo boilerplate → "}
-                <Code>architecture</Code>. Declara la inferencia y su evidencia.
+                {"; sin deploy → "}
+                <Code>architecture</Code> (adopt no emite work orders, nunca{" "}
+                <Code>implementation</Code>). Declara el techo y su evidencia.
+              </>
+            ),
+          },
+          {
+            title: <>La fase se DERIVA de gates de calidad documental (DR-119)</>,
+            body: (
+              <>
+                Adopt ya no <B weight={500}>estampa</B> la fase del código: corre —una vez, de abajo
+                arriba hasta el techo— las <B weight={500}>mismas baterías</B> que los skills de cada
+                fase (producto: contradicciones DR-116 + sin <Code>[NEEDS CLARIFICATION]</Code> +
+                campos agent-critical; diseño: axe-core + Playwright + entregables + lectura
+                anti-omisión §1c). La <B weight={500}>primera batería que falla topa la fase</B>. La
+                readiness de arquitectura se difiere a <Code>/pandacorp:architecture</Code>. Los
+                huecos se reportan <B weight={500}>por fase</B>.
+              </>
+            ),
+          },
+          {
+            title: <>Cierre según la fase derivada</>,
+            body: (
+              <>
+                Fase <B weight={500}>manual</B> (product/design/architecture) → escribe{" "}
+                <Code>phase</Code> + <Code>advance_pending: true</Code> y para (DR-032). App{" "}
+                <B weight={500}>viva</B> (<Code>release</Code>) → mantiene <Code>phase: release</Code>{" "}
+                (no se degrada el tablero) y cada batería fallida se archiva como tarjeta de{" "}
+                <Code>/change</Code>, enrutando a <Code>/pandacorp:design</Code> +{" "}
+                <Code>/pandacorp:review-launch</Code>. Tras tu confirmación, adopt puede{" "}
+                <B weight={500}>ofrecerte lanzar ese siguiente skill en la misma conversación</B>{" "}
+                (un solo salto, nunca directo a <Code>/pandacorp:implement</Code>) — solo lo lanza
+                si respondes que sí.
               </>
             ),
           },

@@ -15,7 +15,7 @@ Construir un portfolio de soluciones tecnológicas —apps web/móvil, herramien
 ## El modelo mental
 
 ```
-Idea → Spec → Diseño → Blueprint → Construcción → Release → Operación
+Idea → Spec → Diseño → Blueprint → Construcción → Release
 ```
 
 Cada fase produce artefactos versionados en el repositorio del proyecto. Las decisiones viven en ficheros, no en conversaciones. El propietario aprueba cada fase antes de avanzar.
